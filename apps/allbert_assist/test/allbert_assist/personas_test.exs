@@ -74,5 +74,16 @@ defmodule AllbertAssist.PersonasTest do
       bad = %{"persona_id" => "x", "settings_seeds" => %{}}
       assert {:error, :missing_label} = Personas.validate("x", bad)
     end
+
+    test "M7.1: a schema-invalid seed VALUE (bad enum) is rejected at boot validation" do
+      bad = %{
+        "persona_id" => "x",
+        "label" => "X",
+        "settings_seeds" => %{"operator.communication_style" => "not_an_enum_value"}
+      }
+
+      assert {:error, {:invalid_seed_value, "operator.communication_style", _reason}} =
+               Personas.validate("x", bad)
+    end
   end
 end

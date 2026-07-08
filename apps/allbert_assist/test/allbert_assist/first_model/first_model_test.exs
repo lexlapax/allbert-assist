@@ -102,14 +102,14 @@ defmodule AllbertAssist.FirstModelTest do
     assert {:ok, %{status: :completed, first_model: %{state: state}}} =
              Runner.run("first_model_detect", %{}, %{user_id: "local"})
 
+    # v0.63 M7.1: the six real model-probe states — no synthetic `:blocked`.
     assert state in [
              :local_ready,
              :runtime_missing,
              :runtime_unhealthy,
              :model_missing,
              :below_hardware_floor,
-             :byok_ready,
-             :blocked
+             :byok_ready
            ]
   end
 

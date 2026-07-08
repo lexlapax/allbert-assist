@@ -82,6 +82,15 @@ defmodule AllbertAssist.CLI.Areas.OnboardingTest do
       assert code != 0
       assert msg =~ "persona id"
     end
+
+    test "--authorize on a non-persona subcommand warns instead of silently ignoring" do
+      Area.dispatch(["--quickstart"])
+      assert {msg, _code} = Area.dispatch(["status", "--authorize"])
+      assert msg =~ "no effect here"
+
+      assert {msg2, _} = Area.dispatch(["advance", "welcome", "--accept-risk"])
+      assert msg2 =~ "no effect here"
+    end
   end
 
   describe "v0.63 M6 --authorize pre-authorization" do

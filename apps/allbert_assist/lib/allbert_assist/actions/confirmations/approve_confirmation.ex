@@ -1845,7 +1845,10 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
         id: Map.get(record, "id"),
         origin: Map.get(record, "origin", %{}),
         resolver: resolver,
-        target_execution_mode: Map.get(record, "target_execution_mode")
+        target_execution_mode: Map.get(record, "target_execution_mode"),
+        # v0.63 M7.1: expose the reviewed params so a resumed target can cross-check
+        # its resume_params_ref against what the operator actually approved.
+        params_summary: Map.get(record, "params_summary", %{})
       },
       objective_id: objective_id(record),
       step_id: step_id(record),

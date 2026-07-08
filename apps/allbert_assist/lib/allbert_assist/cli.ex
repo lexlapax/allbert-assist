@@ -460,6 +460,7 @@ defmodule AllbertAssist.CLI do
 
     Set up
       allbert                  Resume setup or open the product
+      allbert onboard          Guided first-run wizard (QuickStart/Advanced)
       allbert admin onboarding Review setup state
       allbert admin models     Check model/provider readiness
       allbert admin vault      Show the secret-vault tier

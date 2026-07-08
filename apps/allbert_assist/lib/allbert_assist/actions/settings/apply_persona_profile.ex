@@ -64,7 +64,14 @@ defmodule AllbertAssist.Actions.Settings.ApplyPersonaProfile do
         {:ok, preview(:completed, persona, permission_decision, executed: false)}
 
       approval_resume?(context) ->
-        apply_seeds(persona, context, permission_decision)
+        # M7.1: an approved resume must apply the *reviewed* persona. Reject if the
+        # record's resume_params_ref persona_id was tampered to differ from the
+        # persona_id the operator actually reviewed (params_summary).
+        if reviewed_persona_matches?(persona, context) do
+          apply_seeds(persona, context, permission_decision)
+        else
+          {:ok, denied(persona["persona_id"], permission_decision, :reviewed_persona_mismatch)}
+        end
 
       PermissionGate.response_status(permission_decision) == :needs_confirmation ->
         request_confirmation(persona, context, permission_decision)
@@ -293,4 +300,13 @@ defmodule AllbertAssist.Actions.Settings.ApplyPersonaProfile do
     do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
 
   defp field(_value, _key), do: nil
+
+  # The persona being applied on resume must match the one the operator reviewed
+  # (carried in the confirmation's params_summary). If the record carries no reviewed
+  # persona_id we can't cross-check and allow (our own confirmations always carry it).
+  defp reviewed_persona_matches?(persona, context) do
+    reviewed = get_in(context, [:confirmation, :params_summary]) || %{}
+    reviewed_id = field(reviewed, :persona_id)
+    is_nil(reviewed_id) or reviewed_id == persona["persona_id"]
+  end
 end

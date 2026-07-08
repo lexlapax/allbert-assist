@@ -1,8 +1,9 @@
 defmodule AllbertAssist.CLI.FirstRunTest do
   @moduledoc """
   v0.62 M3 — the first-run detector resolves the six product states and the
-  seven first-model states (Locked Decision 6), read-only and network-free. The
-  seven model states are all reachable through injected probes.
+  six first-model probe states (Locked Decision 6), read-only and network-free. The
+  six model states are all reachable through injected probes (there is no synthetic
+  `blocked` state).
   """
   use ExUnit.Case, async: false
 
@@ -10,7 +11,7 @@ defmodule AllbertAssist.CLI.FirstRunTest do
 
   @moduletag :cli_dispatcher
 
-  describe "first_model_state/1 (all seven states reachable via injection)" do
+  describe "first_model_state/1 (all six states reachable via injection)" do
     test "local_ready when the model is present" do
       assert FirstRun.first_model_state(ollama_probe: fn -> :model_ready end) == :local_ready
     end
@@ -103,6 +104,26 @@ defmodule AllbertAssist.CLI.FirstRunTest do
       assert File.exists?(Path.join([root, "db", "allbert.sqlite3"]))
     after
       System.delete_env("ANTHROPIC_API_KEY")
+    end
+
+    test "v0.63 M7.1: a corrupt/truncated marker reads as empty without crashing", %{root: root} do
+      File.mkdir_p!(Path.join([root, "db"]))
+      File.write!(Path.join([root, "db", "allbert.sqlite3"]), "x")
+      # Simulate a crash mid-write leaving truncated JSON.
+      File.write!(Path.join([root, "onboarding.json"]), "{\"onboarding_complete\": tr")
+
+      # It does not raise and is not mistaken for a valid completed marker.
+      assert FirstRun.read_marker() == %{}
+      assert FirstRun.detect() == :onboarding_incomplete
+    end
+
+    test "v0.63 M7.1: marker writes are atomic (no leftover temp file)", %{root: root} do
+      File.mkdir_p!(Path.join([root, "db"]))
+      File.write!(Path.join([root, "db", "allbert.sqlite3"]), "x")
+      FirstRun.mark_onboarding_complete()
+
+      assert FirstRun.read_marker()["onboarding_complete"] == true
+      refute File.exists?(Path.join([root, "onboarding.json.tmp"]))
     end
   end
 end

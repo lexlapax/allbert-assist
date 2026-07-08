@@ -193,6 +193,48 @@ defmodule AllbertAssist.OnboardingTest do
     end
   end
 
+  describe "v0.63 M7.1 Advanced-track completion + step consistency" do
+    test "Advanced completes on optional_connect (the track's last step), not first_chat" do
+      Onboarding.wizard_start(:advanced)
+
+      state =
+        ~w(welcome track_select model_path profile_select profile_review health_check)
+        |> Enum.reduce(nil, fn step, _ ->
+          assert {:ok, s} = Onboarding.wizard_advance(step)
+          s
+        end)
+
+      assert state.step == "first_chat"
+
+      # first_chat is NOT the last step in Advanced → not complete yet, and the
+      # optional_connect step stays reachable (current == optional_connect after it).
+      assert {:ok, state} = Onboarding.wizard_advance("first_chat")
+      refute state.complete?
+      assert state.step == "optional_connect"
+
+      assert {:ok, state} = Onboarding.wizard_advance("optional_connect")
+      assert state.complete?
+      assert state.step == "optional_connect"
+      assert FirstRun.read_marker()["onboarding_complete"] == true
+    end
+
+    test "QuickStart never derives optional_connect and stays consistent when complete" do
+      state = Onboarding.wizard_start(:quickstart)
+
+      state =
+        ~w(welcome track_select model_path profile_select profile_review health_check first_chat)
+        |> Enum.reduce(state, fn step, acc ->
+          refute acc.step == "optional_connect"
+          assert {:ok, s} = Onboarding.wizard_advance(step)
+          s
+        end)
+
+      # Complete on first_chat (QuickStart's last step); step never becomes optional_connect.
+      assert state.complete?
+      assert state.step == "first_chat"
+    end
+  end
+
   describe "v0.63 M2 track-aware model_path guidance" do
     @all_probes ~w(local_ready byok_ready runtime_missing runtime_unhealthy
                    model_missing below_hardware_floor)a

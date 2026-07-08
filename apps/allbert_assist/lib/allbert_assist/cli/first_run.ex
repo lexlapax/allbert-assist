@@ -6,15 +6,20 @@ defmodule AllbertAssist.CLI.FirstRun do
   into).
 
   `detect/0` returns one of the six product states (the design's first-run
-  detection table); `first_model_state/1` returns one of the seven model states
-  the entry points consume. Detection is **read-only** and performs no network
-  I/O — the guided-install egress is M4's, always behind explicit consent.
+  detection table); `first_model_state/1` returns one of the **six** model-probe
+  states the entry points consume (there is no synthetic `blocked` state — operator
+  readiness labels `Needs credentials`/`Needs review` come from the provider/product
+  layer, per the plan's Readiness Label Mapping Contract). Detection is **read-only**
+  and performs no network I/O — the guided-install egress is M4's, always behind
+  explicit consent.
 
   Onboarding state lives in a Home-directory marker file
   (`<Allbert Home>/onboarding.json`) — additive, outside the Settings Central
   schema, so it is not a new Settings key (Locked Decision 6 / plan Settings
   section).
   """
+
+  require Logger
 
   alias AllbertAssist.FirstModel.Ollama
   alias AllbertAssist.Paths
@@ -162,19 +167,39 @@ defmodule AllbertAssist.CLI.FirstRun do
   defp marker do
     path = Path.join(Paths.home(), @onboarding_file)
 
-    with {:ok, body} <- File.read(path),
-         {:ok, map} <- Jason.decode(body) do
-      map
-    else
-      _absent -> %{}
+    case File.read(path) do
+      {:ok, body} -> decode_marker(body, path)
+      {:error, :enoent} -> %{}
+      {:error, _reason} -> %{}
     end
   end
 
+  # v0.63 M7.1: a present-but-corrupt marker (e.g. truncated by a crash mid-write) must
+  # not be silently read as "no onboarding" — surface it so a real state is not lost.
+  defp decode_marker(body, path) do
+    case Jason.decode(body) do
+      {:ok, map} when is_map(map) ->
+        map
+
+      _error ->
+        Logger.warning(
+          "onboarding marker at #{path} is present but unreadable; treating as empty this read"
+        )
+
+        %{}
+    end
+  end
+
+  # v0.63 M7.1: write atomically (temp + rename) so a crash mid-write can't leave a
+  # truncated marker.
   defp write_marker(attrs) do
     home = Paths.home()
     File.mkdir_p!(home)
+    path = Path.join(home, @onboarding_file)
+    tmp = path <> ".tmp"
     merged = Map.merge(marker(), attrs)
-    File.write!(Path.join(home, @onboarding_file), Jason.encode!(merged))
+    File.write!(tmp, Jason.encode!(merged))
+    :ok = File.rename(tmp, path)
     :ok
   end
 end

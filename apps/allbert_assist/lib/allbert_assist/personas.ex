@@ -85,7 +85,8 @@ defmodule AllbertAssist.Personas do
          :ok <- check_no_unknown_keys(persona),
          :ok <- check_lists(persona),
          :ok <- check_first_chat_prompts(persona),
-         :ok <- check_safe_write_seeds(persona) do
+         :ok <- check_safe_write_seeds(persona),
+         :ok <- check_seed_values(persona) do
       :ok
     end
   end
@@ -151,5 +152,20 @@ defmodule AllbertAssist.Personas do
     else
       {:error, :settings_seeds_not_a_map}
     end
+  end
+
+  # v0.63 M7.1: validate seed VALUES against the schema at boot (bad enum, out-of-range
+  # int, non-existent profile ref) so a value-invalid catalog fails fast here rather
+  # than partially at apply time.
+  defp check_seed_values(persona) do
+    persona
+    |> Map.get("settings_seeds", %{})
+    |> Enum.reduce_while(:ok, fn {key, value}, :ok ->
+      case Settings.validate({key, value}) do
+        {:ok, _} -> {:cont, :ok}
+        :ok -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, {:invalid_seed_value, key, reason}}}
+      end
+    end)
   end
 end

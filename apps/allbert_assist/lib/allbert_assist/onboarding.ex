@@ -294,9 +294,10 @@ defmodule AllbertAssist.Onboarding do
 
         FirstRun.merge_marker(%{"wizard_done" => new_done, "wizard_step" => next || step})
         if step == "profile_review", do: FirstRun.mark_profile_reviewed()
-        # The wizard is "complete" once the operator reaches first useful chat;
-        # optional_connect is deferred and does not gate completion.
-        if step == "first_chat", do: FirstRun.mark_onboarding_complete()
+        # v0.63 M7.1: completion fires on the *track's* last step — `first_chat` for
+        # QuickStart (optional_connect deferred), `optional_connect` for Advanced — so
+        # Advanced's optional_connect stays reachable and `complete?`/`step` agree.
+        if step == last_wizard_step(track), do: FirstRun.mark_onboarding_complete()
 
         {:ok, wizard_state(opts)}
     end
@@ -345,26 +346,31 @@ defmodule AllbertAssist.Onboarding do
     end
   end
 
-  # The current step is the first canonical step not yet marked done (the marker's
-  # `wizard_step` is an optimization/hint; `done` is authoritative).
-  defp current_wizard_step(_marker, done) do
-    Enum.find(@wizard_steps, "optional_connect", &(&1 not in done))
+  # The current step is the first step of the *track's* sequence not yet marked done
+  # (the marker's `wizard_step` is an optimization/hint; `done` is authoritative). Once
+  # every track step is done it stays on the track's last step — never a step outside
+  # the track (M7.1: QuickStart never derives `optional_connect`).
+  defp current_wizard_step(marker, done) do
+    steps = track_steps(wizard_track(marker))
+    Enum.find(steps, List.last(steps), &(&1 not in done))
   end
 
   defp next_wizard_step(step, track) do
     remaining =
-      @wizard_steps
+      track
+      |> track_steps()
       |> Enum.drop_while(&(&1 != step))
       |> Enum.drop(1)
-      |> maybe_skip_optional(track)
 
     List.first(remaining)
   end
 
-  # QuickStart defers optional_connect (channel/integration setup) past first chat;
-  # it is not a completion gate. Advanced keeps it in sequence.
-  defp maybe_skip_optional(steps, :quickstart), do: steps -- ["optional_connect"]
-  defp maybe_skip_optional(steps, _advanced), do: steps
+  # QuickStart defers optional_connect (channel/integration setup) past first chat; it
+  # is not part of the QuickStart sequence. Advanced keeps it as the final step.
+  defp track_steps(:quickstart), do: @wizard_steps -- ["optional_connect"]
+  defp track_steps(_advanced), do: @wizard_steps
+
+  defp last_wizard_step(track), do: track |> track_steps() |> List.last()
 
   @doc """
   Map the first-model probe state to an operator readiness label per the plan's

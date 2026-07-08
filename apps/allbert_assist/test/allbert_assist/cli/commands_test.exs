@@ -12,6 +12,11 @@ defmodule AllbertAssist.CLI.CommandsTest do
 
   @moduletag :cli_dispatcher
 
+  test "M7.1: onboard is a discoverable top-level operator group" do
+    assert "onboard" in Commands.groups()
+    assert Map.has_key?(Commands.operator_table(), ["onboard"])
+  end
+
   test "every :action disposition names a REGISTERED action (spine-routed)" do
     registered = MapSet.new(Registry.names())
 

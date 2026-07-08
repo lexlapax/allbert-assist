@@ -71,6 +71,26 @@ defmodule AllbertAssist.Actions.ApplyPersonaProfileTest do
     assert response.status == :denied
   end
 
+  test "M7.1: an approved resume whose persona_id differs from the reviewed one is denied" do
+    # Simulates a tampered confirmation record: resume params say "developer" but the
+    # reviewed params_summary said "general".
+    tampered =
+      context()
+      |> Map.put(:confirmation, %{approved?: true, params_summary: %{"persona_id" => "general"}})
+
+    assert {:ok, response} = ApplyPersonaProfile.run(%{persona_id: "developer"}, tampered)
+    assert response.status == :denied
+    assert response.review.error == :reviewed_persona_mismatch
+
+    # A matching resume still applies.
+    matching =
+      context()
+      |> Map.put(:confirmation, %{approved?: true, params_summary: %{"persona_id" => "developer"}})
+
+    assert {:ok, ok} = ApplyPersonaProfile.run(%{persona_id: "developer"}, matching)
+    assert ok.status == :completed
+  end
+
   test "the confirmation path writes nothing; approval seeds the safe-write keys" do
     before = Settings.get("operator.communication_style")
 

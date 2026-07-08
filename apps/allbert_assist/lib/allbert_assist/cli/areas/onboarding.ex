@@ -66,21 +66,38 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
   def dispatch(argv, context \\ nil) do
     {opts, rest, invalid} = OptionParser.parse(argv, strict: @switches)
 
-    cond do
-      invalid != [] ->
-        Render.usage(["Unknown flag(s): #{inspect(Enum.map(invalid, &elem(&1, 0)))}", @usage])
+    result =
+      cond do
+        invalid != [] ->
+          Render.usage(["Unknown flag(s): #{inspect(Enum.map(invalid, &elem(&1, 0)))}", @usage])
 
-      opts[:reset] ->
-        reset(opts)
+        opts[:reset] ->
+          reset(opts)
 
-      opts[:quickstart] ->
-        render_state(Onboarding.wizard_start(:quickstart), "Started QuickStart.")
+        opts[:quickstart] ->
+          render_state(Onboarding.wizard_start(:quickstart), "Started QuickStart.")
 
-      opts[:advanced] ->
-        render_state(Onboarding.wizard_start(:advanced), "Started Advanced.")
+        opts[:advanced] ->
+          render_state(Onboarding.wizard_start(:advanced), "Started Advanced.")
 
-      true ->
-        route(rest, opts, context)
+        true ->
+          route(rest, opts, context)
+      end
+
+    maybe_warn_ignored_authorize(result, opts, rest)
+  end
+
+  # M7.1: `--authorize`/`--accept-risk` is consumed only by `apply-persona`; warn on a
+  # typo like `onboard advance foo --authorize` rather than silently ignoring it.
+  defp maybe_warn_ignored_authorize({out, code}, opts, rest) do
+    auth? = opts[:authorize] == true or opts[:accept_risk] == true
+    consumed? = match?(["apply-persona" | _], rest)
+
+    if auth? and not consumed? do
+      {"Warning: --authorize/--accept-risk has no effect here (only `apply-persona` uses it).\n" <>
+         out, code}
+    else
+      {out, code}
     end
   end
 
@@ -170,8 +187,14 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
       {:ok, %{status: :needs_confirmation, confirmation_id: id}} ->
         approve_gated(action, id, ctx, notices)
 
+      # M7.1: a confirmation-gated action must never complete without a confirmation.
+      # An unexpected `:completed` on the create call means the floor was skipped —
+      # refuse rather than report success.
       {:ok, %{status: :completed}} ->
-        Render.ok(notices ++ ["Applied #{action} (no confirmation was required)."])
+        Render.error(
+          notices ++
+            ["Refusing: #{action} completed without a confirmation — the gate was not applied."]
+        )
 
       {:ok, response} ->
         Render.error(
@@ -239,11 +262,20 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
   end
 
   # At the model/provider step, show where a new masked credential would be stored
-  # and any provider keys already provided by the environment (read-only, M3).
+  # and any provider keys already provided by the environment (read-only, M3). M7.1:
+  # the storage line is gated on `writable?` — the env tier rejects writes, so we must
+  # not claim new keys land there.
   defp tier_lines("model_path") do
     report = ProviderStep.vault_tier_report()
 
-    base = ["New provider keys are stored in: #{report.label}."]
+    base =
+      if report.writable? do
+        ["New provider keys are stored in: #{report.label}."]
+      else
+        [
+          "This tier (#{report.label}) can't store new keys; set a provider key in the environment, or enable the OS/encrypted vault."
+        ]
+      end
 
     case report.env_provided do
       [] -> base
