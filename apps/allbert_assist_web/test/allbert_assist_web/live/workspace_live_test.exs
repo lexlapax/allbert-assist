@@ -801,6 +801,21 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
       view |> element("#workspace-wizard-advance-profile_select") |> render_click()
       assert has_element?(view, "#workspace-persona-review-diff")
     end
+
+    test "M7.4: the first_chat step renders starter prompts", %{conn: conn} do
+      FirstRun.reset_onboarding()
+      {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:onboard")
+
+      view |> element("#workspace-onboarding-start-quickstart") |> render_click()
+
+      # Advance QuickStart to the first_chat step.
+      for step <- ~w(welcome track_select model_path profile_select profile_review health_check) do
+        view |> element("#workspace-wizard-advance-#{step}") |> render_click()
+      end
+
+      html = view |> element("#workspace-wizard-first-chat") |> render()
+      assert html =~ "Try a first chat"
+    end
   end
 
   test "workspace create gallery only exposes Settings Central allowed patterns", %{conn: conn} do

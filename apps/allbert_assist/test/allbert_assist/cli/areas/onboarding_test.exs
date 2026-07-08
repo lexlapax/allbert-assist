@@ -118,19 +118,35 @@ defmodule AllbertAssist.CLI.Areas.OnboardingTest do
        context: %{actor: "local", channel: :cli, request: %{operator_id: "local", channel: :cli}}}
     end
 
-    test "--authorize records + approves a durable confirmation and applies the persona",
+    test "M7.4: --authorize (no --yes) shows the review diff and writes nothing",
          %{context: context} do
-      assert {msg, 0} = Area.dispatch(["apply-persona", "developer", "--authorize"], context)
-      assert msg =~ "Authorized and applied"
-      assert msg =~ "confirmation"
+      before = AllbertAssist.Settings.get("coding.default_approval_mode")
 
-      # The pinned developer seeds are now live — proof the gated action really ran.
-      assert AllbertAssist.Settings.get("coding.default_approval_mode") == {:ok, "plan"}
+      assert {msg, 0} = Area.dispatch(["apply-persona", "developer", "--authorize"], context)
+      assert msg =~ "Review — developer"
+      assert msg =~ "coding.default_approval_mode"
+      assert msg =~ "--authorize --yes"
+
+      # Nothing was written by the review.
+      assert AllbertAssist.Settings.get("coding.default_approval_mode") == before
     end
 
-    test "--accept-risk warns but routes to the same durable approval path",
+    test "M7.4: --authorize --yes applies through the durable path and records the persona",
          %{context: context} do
-      assert {msg, 0} = Area.dispatch(["apply-persona", "general", "--accept-risk"], context)
+      assert {msg, 0} =
+               Area.dispatch(["apply-persona", "developer", "--authorize", "--yes"], context)
+
+      assert msg =~ "Authorized and applied"
+
+      assert AllbertAssist.Settings.get("coding.default_approval_mode") == {:ok, "plan"}
+      assert AllbertAssist.CLI.FirstRun.read_marker()["applied_persona"] == "developer"
+    end
+
+    test "--accept-risk --yes warns but routes to the same durable approval path",
+         %{context: context} do
+      assert {msg, 0} =
+               Area.dispatch(["apply-persona", "general", "--accept-risk", "--yes"], context)
+
       assert msg =~ "deprecated"
       assert msg =~ "Authorized and applied"
     end

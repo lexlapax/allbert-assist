@@ -159,15 +159,65 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
     do: Render.error("apply-persona requires a persona id (or --profile ID).")
 
   defp apply_persona(persona_id, opts, context) do
-    if authorized?(opts) do
-      deprecation = accept_risk_notice(opts)
-      run_authorized("apply_persona_profile", %{persona_id: persona_id}, context, deprecation)
-    else
-      Render.error([
-        "Applying persona '#{persona_id}' is confirmation-gated.",
-        "Re-run with --authorize to record and approve the confirmation."
-      ])
+    cond do
+      not authorized?(opts) ->
+        Render.error([
+          "Applying persona '#{persona_id}' is confirmation-gated.",
+          "Re-run with --authorize to review it, then --authorize --yes to apply."
+        ])
+
+      # M7.4: two-step — `--authorize` shows the review diff and writes nothing;
+      # only `--authorize --yes` runs the durable create+approve path.
+      opts[:yes] != true ->
+        render_persona_review(persona_id, context, accept_risk_notice(opts))
+
+      true ->
+        deprecation = accept_risk_notice(opts)
+
+        case run_authorized(
+               "apply_persona_profile",
+               %{persona_id: persona_id},
+               context,
+               deprecation
+             ) do
+          {_out, 0} = ok ->
+            Onboarding.record_applied_persona(persona_id)
+            ok
+
+          other ->
+            other
+        end
     end
+  end
+
+  defp render_persona_review(persona_id, context, notices) do
+    case Runner.run(
+           "apply_persona_profile",
+           %{persona_id: persona_id, dry_run: true},
+           context || %{}
+         ) do
+      {:ok, %{status: :completed, review: review}} ->
+        Render.ok(
+          notices ++ persona_review_lines(review) ++ ["Re-run with `--authorize --yes` to apply."]
+        )
+
+      {:ok, response} ->
+        Render.error(
+          "Cannot review persona '#{persona_id}': #{inspect(Map.get(response, :status))}."
+        )
+    end
+  end
+
+  defp persona_review_lines(review) do
+    header =
+      "Review — #{review.persona_id} (#{review.change_count} change(s)); nothing is written until you apply:"
+
+    [
+      header
+      | Enum.map(review.changes, fn c ->
+          "  #{c.key}: #{inspect(c.current)} → #{inspect(c.proposed)}"
+        end)
+    ]
   end
 
   defp authorized?(opts), do: opts[:authorize] == true or opts[:accept_risk] == true
@@ -248,9 +298,22 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
           "Readiness: #{Map.get(@readiness_copy, state.readiness, "Unknown")}",
           "Profile reviewed: #{state.profile_reviewed?}",
           "Onboarding complete: #{state.complete?}"
-        ] ++ guidance_lines(state)
+        ] ++ guidance_lines(state) ++ first_chat_lines(state)
 
     Render.ok(Enum.reject(lines, &is_nil/1))
+  end
+
+  # M7.4: at the first_chat step (or once complete) surface the applied persona's
+  # starter prompts so the operator reaches a first useful chat.
+  defp first_chat_lines(state) do
+    if state.step == "first_chat" or state.complete? do
+      case Onboarding.first_chat_prompts() do
+        [] -> []
+        prompts -> ["", "Try a first chat:" | Enum.map(prompts, &("  - " <> &1))]
+      end
+    else
+      []
+    end
   end
 
   # At the model_path step (or whenever the model isn't ready yet), surface the

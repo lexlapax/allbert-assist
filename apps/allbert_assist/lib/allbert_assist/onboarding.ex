@@ -13,6 +13,7 @@ defmodule AllbertAssist.Onboarding do
   alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Objective
+  alias AllbertAssist.Personas
 
   @source_intent "first_run_onboarding"
   # v0.63 M1: the authoritative guided-wizard state machine.
@@ -100,6 +101,27 @@ defmodule AllbertAssist.Onboarding do
   @doc "The trust-spine safety properties surfaced during onboarding (M7)."
   @spec trust_spine() :: [String.t()]
   def trust_spine, do: @trust_spine
+
+  @applied_persona_key "applied_persona"
+
+  @doc "Record the persona the operator applied (M7.4) so `first_chat` can suggest its prompts."
+  @spec record_applied_persona(String.t()) :: :ok
+  def record_applied_persona(persona_id) when is_binary(persona_id) do
+    FirstRun.merge_marker(%{@applied_persona_key => persona_id})
+  end
+
+  @doc "The applied persona id from the marker, if any."
+  @spec applied_persona() :: String.t() | nil
+  def applied_persona, do: FirstRun.read_marker()[@applied_persona_key]
+
+  @doc """
+  Starter prompts for the `first_chat` step (M7.4): the applied persona's
+  `first_chat_prompts`, defaulting to `general` when no persona was applied.
+  """
+  @spec first_chat_prompts() :: [String.t()]
+  def first_chat_prompts do
+    Personas.first_chat_prompts(applied_persona() || "general")
+  end
 
   @doc "The 8 canonical wizard step ids, in order."
   @spec wizard_steps() :: [wizard_step(), ...]

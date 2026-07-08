@@ -196,7 +196,16 @@ defmodule AllbertAssist.Actions.Settings.ApplyPersonaProfile do
         target_permission: :settings_write,
         target_execution_mode: :settings_write,
         security_decision: permission_decision,
-        params_summary: %{persona_id: persona["persona_id"], change_count: review.change_count},
+        # M7.4: carry the full per-key diff so `admin confirmations show` renders exactly
+        # what will be seeded (current → proposed), not just a change count.
+        params_summary: %{
+          persona_id: persona["persona_id"],
+          change_count: review.change_count,
+          changes:
+            Enum.map(review.changes, fn c ->
+              %{key: c.key, current: inspect(c.current), proposed: inspect(c.proposed)}
+            end)
+        },
         resume_params_ref: %{persona_id: persona["persona_id"]}
       })
 

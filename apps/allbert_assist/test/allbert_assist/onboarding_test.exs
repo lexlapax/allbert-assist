@@ -4,6 +4,7 @@ defmodule AllbertAssist.OnboardingTest do
   alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.Objectives
   alias AllbertAssist.Onboarding
+  alias AllbertAssist.Personas
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
@@ -147,6 +148,18 @@ defmodule AllbertAssist.OnboardingTest do
       # Complete on first_chat (QuickStart's last step); step never becomes optional_connect.
       assert state.complete?
       assert state.step == "first_chat"
+    end
+  end
+
+  describe "v0.63 M7.4 first-chat prompts" do
+    test "first_chat_prompts uses the applied persona, defaulting to general" do
+      # No applied persona → general prompts (non-empty).
+      assert Onboarding.first_chat_prompts() == Personas.first_chat_prompts("general")
+      refute Onboarding.first_chat_prompts() == []
+
+      Onboarding.record_applied_persona("developer")
+      assert Onboarding.applied_persona() == "developer"
+      assert Onboarding.first_chat_prompts() == Personas.first_chat_prompts("developer")
     end
   end
 

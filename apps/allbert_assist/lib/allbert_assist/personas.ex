@@ -102,6 +102,20 @@ defmodule AllbertAssist.Personas do
     |> Enum.sort_by(fn {key, _value} -> key end)
   end
 
+  @doc "The persona's `first_chat_prompts` (suggested starter prompts, M4/M7.4)."
+  @spec first_chat_prompts(persona() | String.t() | nil) :: [String.t()]
+  def first_chat_prompts(persona) when is_map(persona),
+    do: Map.get(persona, "first_chat_prompts", [])
+
+  def first_chat_prompts(persona_id) when is_binary(persona_id) do
+    case get(persona_id) do
+      nil -> []
+      persona -> first_chat_prompts(persona)
+    end
+  end
+
+  def first_chat_prompts(nil), do: []
+
   # -- validation helpers -----------------------------------------------------
 
   defp check_id(id, %{"persona_id" => id}), do: :ok

@@ -405,6 +405,19 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
     """
   end
 
+  defp render_step_controls(%{onboarding_wizard: %{step: "first_chat"}} = assigns) do
+    assigns = assign(assigns, :first_chat_prompts, OnboardingContext.first_chat_prompts())
+
+    ~H"""
+    <div id="workspace-wizard-first-chat">
+      <div class="text-xs font-medium text-base-content/70">Try a first chat</div>
+      <ul :if={@first_chat_prompts != []} class="mt-1 space-y-0.5 text-xs">
+        <li :for={prompt <- @first_chat_prompts} class="text-base-content/80">“{prompt}”</li>
+      </ul>
+    </div>
+    """
+  end
+
   defp render_step_controls(assigns) do
     ~H"""
     <p class="text-xs text-base-content/70">
@@ -450,6 +463,9 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
              %{id: id, reason: "onboarding persona apply"},
              context
            ) do
+      # M7.4: record the applied persona so the first_chat step suggests its prompts.
+      OnboardingContext.record_applied_persona(persona_id)
+
       assign(socket,
         onboarding_notice: "Applied persona #{persona_id}.",
         onboarding_error: nil,
