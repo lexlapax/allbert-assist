@@ -4128,16 +4128,16 @@ sequencing-existing-steps to a real guided wizard);
 `docs/adr/0075-user-category-settings-profiles.md`; consumes
 `docs/adr/0078-first-model-path.md` (the v0.60 First-Model-Path decision).
 
-Status: implemented through M7 — **post-implementation remediation M7.1-M7.8 pending
-after second-pass audit 2026-07-08** (Current Code State, Locked Decisions,
-Cross-Cutting Invariants, per-milestone Implementation/Acceptance, Settings Keys,
-`:v063` eval rows; request-flow gained S0–S7 remediation gates; ADR 0069 + 0075
-resolved their build decisions incl. the declarative `priv/` persona catalog + exact
-seed values; reconciled to the as-built v0.62 three-tier vault and ADR 0080 shell).
-Pre-1.0 product capability release 3 of 3; implements the v0.60 onboarding-flow
-design and applies the v0.60 persona model, but final release-ready status waits on
-M7.x surface, eval-gate, operator-doc, and triad reconciliation. Followed by the
-v0.64 product RC. Re-scopes the onboarding work pulled out of v0.59 into a genuine
+Status: **complete** — M1–M7 built and the post-implementation remediation M7.1–M7.8
+landed (2026-07-08): correctness sweep, readiness off the hot path, the web wizard
+owning onboarding (objective flow retired), review-before-confirm + first-chat prompts,
+the interactive `allbert onboard` TTY wizard, the first-launch reconcile, the
+hardened + web-covered + assert-atom-bound eval gate, and the operator-doc/triad
+reconciliation. `mix allbert.test release.v063` is green end-to-end (9/9 steps); ready
+for manual operator validation (the release itself — version bump, CHANGELOG, tag —
+is the operator step). Pre-1.0 product capability release 3 of 3; implements the v0.60
+onboarding-flow design and applies the v0.60 persona model. Followed by the v0.64
+product RC. Re-scopes the onboarding work pulled out of v0.59 into a genuine
 capability and adds repo-maintained user-category profiles. Builds on the v0.60
 onboarding-flow and persona-model design, v0.61's affordances, and v0.62's packaged
 entry points, grouped CLI, daemon, and OS-vault credential model.

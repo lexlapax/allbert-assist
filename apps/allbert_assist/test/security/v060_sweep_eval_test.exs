@@ -19,7 +19,9 @@ defmodule AllbertAssist.Security.V060SweepEvalTest do
     coherence: ~w(first-model-persona-cross-doc-coherence-001),
     persona_preaudit: ~w(persona-seed-preaudit-001)
   ]
-  @first_model_states ~w(local_ready runtime_missing runtime_unhealthy model_missing below_hardware_floor byok_ready blocked)
+  # v0.63 M7.8: the six real model-probe states — the synthetic `blocked` state was
+  # never emitted and is retired (Readiness Label Mapping Contract).
+  @first_model_states ~w(local_ready runtime_missing runtime_unhealthy model_missing below_hardware_floor byok_ready)
   @persona_seed_safe_keys [
     "operator.communication_style",
     "operator.handoff_detail",
@@ -241,7 +243,7 @@ defmodule AllbertAssist.Security.V060SweepEvalTest do
     onboarding_states =
       section_between(
         onboarding,
-        "The `model_path` step uses exactly the M3 first-model states:",
+        "The `model_path` step maps technical first-model probe results",
         "Other onboarding outcomes are not first-model states:"
       )
 
@@ -291,7 +293,7 @@ defmodule AllbertAssist.Security.V060SweepEvalTest do
     assert_contains_normalized!(persona, [
       "## Settings Central Seed Pre-Audit",
       "v0.60 adds no seed file, default override, registry row, Settings write, or persona runtime behavior",
-      "Open v0.63 decisions: exact seeded values",
+      "Resolved v0.63 decisions: exact seeded values",
       "Any key not named as an existing safe-write key above must be treated as a v0.63 schema/design decision before implementation"
     ])
 

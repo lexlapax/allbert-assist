@@ -45,16 +45,15 @@ mix allbert.security status
 mix allbert.confirmations list
 ```
 
-## v0.63 Operator Onboarding Contract
+## v0.63 Operator Onboarding
 
-v0.63 is implemented through M7, with post-implementation remediation M7.1-M7.8
-still required before final release-ready closeout. The direction below is the
-current operator contract: replace the old command-sequencing onboarding objective
-with a guided web wizard and a primary `allbert onboard` TTY wizard over the
-packaged entry points. The legacy objective path is compatibility debt to retire,
-not an alternate target UX.
+v0.63 ships a guided onboarding wizard over one shared flow on both surfaces — the
+auto-opening web wizard and the interactive `allbert onboard` TTY wizard — built and
+validated at the M7.x closeout. The old command-sequencing onboarding objective is
+retired; the shared wizard machine over the `<Home>/onboarding.json` marker is the
+sole onboarding source and surface.
 
-Operator UX requirements:
+How an operator gets running:
 
 - `allbert serve` starts the runtime and the web wizard auto-opens on first run.
 - `allbert onboard` is the primary TTY wizard entry point. It resumes active
@@ -88,6 +87,44 @@ secrets, lower confirmation floors, or change runtime behavior by themselves.
 Credential entry stores new secrets as Settings `*_ref` pointers in OS vault or
 encrypted-store fallback. Env-provided secrets are valid read-only inputs: the
 wizard can detect and verify them, but does not write to env.
+
+### Provider / model setup and switching
+
+At the `model_path` step the wizard shows operator readiness and, when a provider is
+needed, a masked key entry (stored in the vault, never echoed), an inline `doctor`
+round-trip, and a provider/model switch. Named local (Ollama) and hosted
+(OpenAI/Anthropic/OpenRouter) providers plus an OpenAI-compatible custom endpoint are
+supported; switching a provider writes Settings Central keys and edits no config file.
+The wizard surfaces which vault tier a new key lands in (OS vault → encrypted-store);
+the env tier is read-only.
+
+### User-category profile reference
+
+Pick a persona at `profile_select`; the review at `profile_review` shows every seeded
+key as `current → proposed` and writes nothing until you confirm. Personas are
+seed-only presets — they grant no authority, connect no channel, store no secret, and
+lower no confirmation floor. The exact per-persona `settings_seeds` are pinned in
+`docs/plans/v0.63-plan.md` (§Settings Central Keys) and
+`docs/adr/0075-user-category-settings-profiles.md`.
+
+| Persona | Emphasis (seed-only) |
+|---|---|
+| `general` | Balanced local-first assistant; modest objective budget. |
+| `researcher` | Detailed handoffs, active-memory tuning, local router/embedding profiles. |
+| `developer` | Concise, Pi-mode coding profile + reviewed coding read/search limits. |
+| `writer` | Detailed handoffs + active-memory tuning for drafting/revising. |
+| `ops` | Concise/brief, verbose diagnostics, debug trace detail, local router profiles. |
+
+After applying a persona, the `first_chat` step suggests that persona's starter
+prompts so you reach a first useful chat.
+
+### The trust spine
+
+Onboarding surfaces Allbert's trust spine as a feature (`allbert onboard trust`, and a
+section in the web wizard): risky actions pause for your explicit, durable, traced
+approval; every action is scoped by Security Central and onboarding grants no new
+authority; what Allbert does is recorded and locally inspectable; your data and model
+stay on your machine unless you connect a hosted provider.
 
 ## Historical v0.39 First-Run Onboarding
 
