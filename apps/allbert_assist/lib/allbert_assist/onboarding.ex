@@ -147,12 +147,20 @@ defmodule AllbertAssist.Onboarding do
   @type wizard_step :: String.t()
   @typedoc "A wizard track."
   @type track :: :quickstart | :advanced
-  @typedoc "Operator readiness label per the Readiness Label Mapping Contract."
-  @type readiness :: :ready | :needs_model | :needs_runtime | :needs_review
+  @typedoc """
+  Operator readiness label per the Readiness Label Mapping Contract. The model probe
+  yields `:ready`/`:needs_runtime`/`:needs_model`/`:needs_review`; `:needs_credentials`
+  is produced only by the provider step (hosted/BYOK chosen, no key present).
+  """
+  @type readiness ::
+          :ready | :needs_model | :needs_runtime | :needs_review | :needs_credentials
 
-  @typedoc "The single next action the `model_path` step should route to."
+  @typedoc "The readiness labels the model probe can yield (excludes `:needs_credentials`)."
+  @type probe_readiness :: :ready | :needs_model | :needs_runtime | :needs_review
+
+  @typedoc "The single next action the `model_path`/provider step should route to."
   @type model_action ::
-          :start_chat | :install_runtime | :pull_model | :choose_provider
+          :start_chat | :install_runtime | :pull_model | :choose_provider | :enter_credentials
 
   @typedoc """
   Track-aware guidance for the `model_path` step: an operator-language headline +
@@ -348,7 +356,7 @@ defmodule AllbertAssist.Onboarding do
   Readiness Label Mapping Contract. `Needs credentials` / `Needs review` from the
   provider/profile layer are produced by M2/M3/M4, not by this probe mapping.
   """
-  @spec readiness_label(keyword()) :: readiness()
+  @spec readiness_label(keyword()) :: probe_readiness()
   def readiness_label(opts \\ []) do
     probe = Keyword.get(opts, :first_model_state, FirstRun.first_model_state())
 
@@ -384,7 +392,7 @@ defmodule AllbertAssist.Onboarding do
   """
   @spec model_guidance_for(readiness(), track()) :: model_guidance()
   def model_guidance_for(readiness, track)
-      when readiness in [:ready, :needs_model, :needs_runtime, :needs_review] and
+      when readiness in [:ready, :needs_model, :needs_runtime, :needs_review, :needs_credentials] and
              track in @wizard_tracks,
       do: build_guidance(readiness, track)
 
@@ -442,6 +450,22 @@ defmodule AllbertAssist.Onboarding do
           "or review the model/provider options."
         ),
       action: :choose_provider,
+      repairable?: true,
+      reaches_chat?: false
+    }
+  end
+
+  defp build_guidance(:needs_credentials, track) do
+    %{
+      readiness: :needs_credentials,
+      headline: "The chosen provider needs a credential before it can be used.",
+      next_action:
+        advanced_suffix(
+          track,
+          "Enter the provider key (stored masked in the secret vault).",
+          "or pick a different provider or the local runtime."
+        ),
+      action: :enter_credentials,
       repairable?: true,
       reaches_chat?: false
     }

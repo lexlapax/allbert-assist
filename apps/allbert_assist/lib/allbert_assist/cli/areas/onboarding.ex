@@ -14,6 +14,7 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
 
   alias AllbertAssist.CLI.Areas.Render
   alias AllbertAssist.Onboarding
+  alias AllbertAssist.Onboarding.ProviderStep
 
   @usage """
   Usage:
@@ -42,7 +43,8 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
     ready: "Ready",
     needs_model: "Needs model",
     needs_runtime: "Needs runtime",
-    needs_review: "Needs review"
+    needs_review: "Needs review",
+    needs_credentials: "Needs credentials"
   }
 
   @spec dispatch([String.t()], map() | nil) :: {String.t(), non_neg_integer()}
@@ -116,11 +118,28 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
   defp guidance_lines(state) do
     if state.step == "model_path" or state.readiness != :ready do
       g = Onboarding.model_guidance_for(state.readiness, state.track)
-      ["", g.headline, "Next: #{g.next_action}"]
+      [""] ++ [g.headline, "Next: #{g.next_action}"] ++ tier_lines(state.step)
     else
       []
     end
   end
+
+  # At the model/provider step, show where a new masked credential would be stored
+  # and any provider keys already provided by the environment (read-only, M3).
+  defp tier_lines("model_path") do
+    report = ProviderStep.vault_tier_report()
+
+    base = ["New provider keys are stored in: #{report.label}."]
+
+    case report.env_provided do
+      [] -> base
+      keys -> base ++ ["Provided by environment (read-only): #{Enum.join(keys, ", ")}."]
+    end
+  rescue
+    _error -> []
+  end
+
+  defp tier_lines(_step), do: []
 
   defp status_line(status) do
     "onboard status=#{if status.complete?, do: "complete", else: "in_progress"} " <>
