@@ -36,7 +36,7 @@ and the CLI/TUI wizard; surfaces may differ, but the step semantics do not fork.
 |---|---|---|---|---|
 | `welcome` | Welcome / resume | Explain local-first posture, Allbert Home, and first useful chat goal. | Same, plus explicit path chooser. | None. |
 | `track_select` | Choose track | Default selected; one sentence of what will happen. | Operator chooses full-control setup. | None. |
-| `model_path` | First-Model Path | Map first-model probes to operator readiness: Ready -> continue; Needs runtime/model -> guided repair; Needs credentials -> BYOK/custom endpoint. This establishes the chat-capable path only; it does not pull persona-specific model tiers. | Operator can choose local runtime, existing endpoint, or hosted BYOK up front. | New secrets write through OS vault or encrypted-store fallback; env-provided secrets are read-only; model/provider settings through Settings Central after review. |
+| `model_path` | First-Model Path | Map first-model probes to operator readiness: Ready -> continue; Needs runtime/model -> guided repair; Needs review -> local hardware review with BYOK/existing-endpoint fallback. Provider credentials are requested only when a BYOK/custom endpoint path needs a key. This establishes the chat-capable path only; it does not pull persona-specific model tiers. | Operator can choose local runtime, existing endpoint, or hosted BYOK up front. | New secrets write through OS vault or encrypted-store fallback; env-provided secrets are read-only; model/provider settings through Settings Central after review. |
 | `profile_select` | Persona/profile | Offer `general` by default plus one quick role picker after the model path is usable; do not apply silently. | Full persona selection with seed detail visible. | None until review/confirm. |
 | `profile_review` | Review seeds | Compact diff: settings seeds, suggested apps/channels/intents, model-purpose mapping as post-first-chat recommendation, no permissions granted. | Full diff with per-section opt-out. | Applies only after explicit confirm. |
 | `health_check` | Verify setup | Run model/provider health check and show repairable blockers. | Run selected provider/model/channel checks. | No authority change; diagnostic evidence only. |
@@ -85,7 +85,8 @@ The review step is mandatory before any persona/profile seed is applied. It show
 - Model-purpose mappings referenced from ADR 0072.
 - Model-purpose mappings are seed recommendations for later defaults, not extra
   model-pull requirements before first useful chat.
-- Secrets required for BYOK or channels, with OS-vault storage called out.
+- Secrets required for BYOK or channels, with OS-vault or encrypted-store fallback
+  storage called out and env-provided secrets marked read-only.
 - A clear statement that profiles do not grant permission, egress, channel
   authority, file access, or confirmation bypass.
 
@@ -104,7 +105,7 @@ action; raw probe atoms stay in traces/tests/diagnostics.
 | `runtime_missing` | `Needs runtime` | Offer guided runtime install and keep BYOK fallback visible. |
 | `runtime_unhealthy` | `Needs runtime` | Show runtime repair guidance and keep BYOK fallback visible. |
 | `model_missing` | `Needs model` | Offer curated model pull with progress/retry/resume. |
-| `below_hardware_floor` | `Needs credentials` | Explain the local blocker and recommend BYOK or an existing endpoint. |
+| `below_hardware_floor` | `Needs review` | Explain the local blocker and recommend BYOK or an existing endpoint. |
 | `byok_ready` | `Ready` | Continue to first useful chat with egress posture visible. |
 | Profile not reviewed | `Needs review` | Show the profile review diff or allow continuing with unseeded defaults. |
 

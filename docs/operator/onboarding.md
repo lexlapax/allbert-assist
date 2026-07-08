@@ -63,8 +63,10 @@ Operator UX requirements:
 - `allbert onboard --reset` requires confirmation and clears only onboarding and
   profile marker state; it must preserve Home data, settings, secrets, traces,
   memory, and caches.
-- `allbert onboard --non-interactive --accept-risk` is automation-only: it accepts
-  explicit flags/input refs, never prompts, and refuses missing required inputs.
+- `allbert onboard --non-interactive --authorize` is automation-only: it accepts
+  explicit flags/input refs, never prompts, refuses missing required inputs, and
+  records durable confirmations through the existing approval path. Deprecated
+  `--accept-risk` is accepted only as a warning compatibility alias.
 
 The wizard should speak in operator readiness language, not internal probe names:
 `Ready`, `Needs model`, `Needs credentials`, `Needs runtime`, and `Needs review`.

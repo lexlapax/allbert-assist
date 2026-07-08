@@ -27,7 +27,7 @@ Two things changed that framing for the v0.63 product release:
 
 1. **The competitive bar.** A 2026 review found a guided, two-track onboarding
    wizard (QuickStart vs Advanced, with a "fastest first chat" path) is now table
-   stakes for local-first assistants — OpenClaw's install wizard and Claude
+   stakes for local-first assistants — OpenClaw's documented onboarding path and Claude
    Desktop's opinionated-preset onboarding are the reference. A blank field or a
    list of steps to run yourself reads as sub-1.0 for a non-trivial first-run.
 2. **The current state.** The v0.58 maturity review found Allbert's onboarding is
@@ -152,11 +152,12 @@ Ratified in the v0.63 plan's Locked Decisions (2026-07-07/2026-07-08):
   active onboarding or starts with the track chooser; `--quickstart`/`--advanced`
   select the track; confirmed `--reset` clears **both** persistence stores (the
   `<Home>/onboarding.json` marker and the in-flight objective) and nothing else;
-  `--non-interactive` suppresses prompts and `--authorize` (rename of
-  `--accept-risk`) pre-authorizes the confirmation-gated steps (install/pull/
-  persona-apply) **through the confirmation approve path** — a durable, traced
-  operator authorization, never a floor bypass. Automation refuses on missing
-  required input.
+  `--non-interactive` suppresses prompts and canonical `--authorize`
+  pre-authorizes the confirmation-gated steps (install/pull/persona-apply)
+  **through the confirmation approve path** — a durable, traced operator
+  authorization, never a floor bypass. Deprecated `--accept-risk` remains a
+  warning compatibility alias for older automation and must route to the same
+  durable approval path. Automation refuses on missing required input.
 - **Operator readiness copy (Decision 12).** Web and terminal surfaces render
   `Ready`, `Needs model`, `Needs credentials`, `Needs runtime`, or `Needs review`
   plus one next action. Raw first-model probe atoms are allowed in traces/tests,
@@ -165,5 +166,5 @@ Ratified in the v0.63 plan's Locked Decisions (2026-07-07/2026-07-08):
   (OpenAI/Anthropic/OpenRouter) providers **plus an OpenAI-compatible custom
   endpoint**; provider switching writes settings and edits no config file.
 
-This ADR is Accepted at v0.63 (asserted by the plan's `adr-0069-accepted-001` eval
-row).
+This ADR is marked Accepted during v0.63 closeout (asserted by the plan's
+`adr-0069-accepted-001` eval row).

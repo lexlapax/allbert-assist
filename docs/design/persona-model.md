@@ -77,8 +77,10 @@ itself is not a runtime mode, trust tier, or hidden policy switch.
 | `ops` | `runtime.diagnostics_verbosity`, `objectives.trace_detail`, `model_preferences.primary`, intent router profiles. | Jobs, Objectives, Calendar/Mail/GitHub panels, channel setup later; status, doctor, triage, plan/run monitoring. | Fast local model for status/triage, escalation profile for complex incidents, hosted only by explicit egress opt-in. | "Give me an operator status brief." / "Triage these pending jobs and blockers." |
 
 The M9.2 pre-audit below confirms which candidate key families already exist as
-Settings Central safe-write keys. Exact per-persona seeded values are still
-finalized in v0.63 during review-diff implementation. This v0.60 design fixes the
+Settings Central safe-write keys. v0.63 has now pinned the exact per-persona
+seeded values in `docs/plans/v0.63-plan.md` and
+`docs/adr/0075-user-category-settings-profiles.md`; implement those tables rather
+than choosing new values during review-diff work. This v0.60 design fixes the
 persona categories, seed groups, review shape, and per-persona intent so the
 implementation cannot drift back to an undifferentiated settings tour.
 
@@ -91,17 +93,17 @@ runtime behavior.
 
 | Seed candidate / family | Current schema status | v0.63 action |
 |---|---|---|
-| `operator.communication_style` | Existing safe-write enum: `concise`, `balanced`, `detailed`. | Choose per-persona value during review diff design. |
-| `operator.handoff_detail` | Existing safe-write enum: `brief`, `concrete_next_steps`, `full_context`. | Choose per-persona value during review diff design. |
+| `operator.communication_style` | Existing safe-write enum: `concise`, `balanced`, `detailed`. | Use the exact per-persona value pinned in the v0.63 plan/ADR. |
+| `operator.handoff_detail` | Existing safe-write enum: `brief`, `concrete_next_steps`, `full_context`. | Use the exact per-persona value pinned in the v0.63 plan/ADR. |
 | `model_preferences.primary` | Existing safe-write profile reference. | Keep as reviewed preference; do not change QuickStart model-pull requirements. |
-| `model_preferences.tasks.coding` | Existing safe-write wildcard task preference. | Developer persona may propose coding profile order after egress posture review. |
-| `coding.model_profile` | Existing safe-write profile reference. | Developer persona may propose Pi-mode coding profile after source-code egress review. |
-| `coding.default_approval_mode` | Existing safe-write enum. | Developer persona may propose a conservative approval default; never bypass confirmation. |
-| `coding.read.default_limit`, `coding.search.max_results`, `coding.search.max_output_bytes` | Existing safe-write bounded coding limits. | Developer persona may propose reviewed limits within schema bounds. |
-| `intent.router_embedding_profile`, `intent.router_model_profile`, `intent.router_escalation_profile` | Existing safe-write router profile references. | Researcher/developer/ops personas may propose router profile emphasis after model posture review. |
-| `active_memory.enabled`, `active_memory.top_k`, `active_memory.chunk_max_bytes` | Existing safe-write active-memory tuning keys. | Researcher/writer personas may propose memory tuning after explicit review. |
-| `runtime.diagnostics_verbosity` | Existing safe-write enum: `quiet`, `normal`, `verbose`. | Ops persona may propose verbosity, without enabling new authority. |
-| `objectives.trace_detail` | Existing safe-write enum: `operator`, `debug`. | Ops persona may propose trace detail, without changing objective authority. |
+| `model_preferences.tasks.coding` | Existing safe-write wildcard task preference. | Developer persona uses the exact reviewed profile order pinned in the v0.63 plan/ADR after egress posture review. |
+| `coding.model_profile` | Existing safe-write profile reference. | Developer persona uses the exact Pi-mode coding profile pinned in the v0.63 plan/ADR after source-code egress review. |
+| `coding.default_approval_mode` | Existing safe-write enum. | Developer persona uses the pinned conservative approval default; never bypass confirmation. |
+| `coding.read.default_limit`, `coding.search.max_results`, `coding.search.max_output_bytes` | Existing safe-write bounded coding limits. | Developer persona uses the pinned reviewed limits within schema bounds. |
+| `intent.router_embedding_profile`, `intent.router_model_profile`, `intent.router_escalation_profile` | Existing safe-write router profile references. | Researcher/developer/ops personas use the exact pinned router profile emphasis after model posture review. |
+| `active_memory.enabled`, `active_memory.top_k`, `active_memory.chunk_max_bytes` | Existing safe-write active-memory tuning keys. | Researcher/writer personas use the exact pinned memory tuning after explicit review. |
+| `runtime.diagnostics_verbosity` | Existing safe-write enum: `quiet`, `normal`, `verbose`. | Ops persona uses the pinned verbosity value, without enabling new authority. |
+| `objectives.trace_detail` | Existing safe-write enum: `operator`, `debug`. | Ops persona uses the pinned trace-detail value, without changing objective authority. |
 | Objective defaults | Partly covered by existing `objectives.*` keys. | v0.63 pins exact `objectives.*` keys and values in the plan/ADR; no fuzzy "objective defaults" seed writes. |
 | Suggested apps/channels/intents | Not Settings writes by themselves. | Keep as UI suggestions until the operator configures apps/channels/intents through existing confirmations. |
 

@@ -101,8 +101,9 @@ Ratified in the v0.63 plan's Locked Decisions (2026-07-07/2026-07-08):
 - **Persona ≠ system prompt (Decision 8).** A persona is a **seed-only settings
   profile**, explicitly not a `SOUL.md`-style system-prompt/behaviour persona (the
   competitor pattern). It changes starting *configuration*, never runtime behaviour
-  or authority — the deliberate trust-preserving contrast with OpenClaw/Msty/Hermes
-  Agent-style personas cited in Context.
+  or authority — the deliberate trust-preserving contrast with behaviour-persona
+  systems such as Msty/Hermes Agent and with OpenClaw-style QuickStart defaults
+  cited in Context.
 - **Exact per-persona seed values** (all seed only existing safe-write keys; enums
   per `docs/design/persona-model.md` pre-audit). Suggested apps/channels/intents and
   `model_purpose_map` are UI/advice only (post-first-chat), never QuickStart model
@@ -122,5 +123,5 @@ Ratified in the v0.63 plan's Locked Decisions (2026-07-07/2026-07-08):
   Any candidate not already a safe-write key is a schema decision surfaced in the
   v0.63 plan's Settings Keys section, never a silent write.
 
-This ADR is Accepted at v0.63 (asserted by the plan's `adr-0075-accepted-001` eval
-row).
+This ADR is marked Accepted during v0.63 closeout (asserted by the plan's
+`adr-0075-accepted-001` eval row).

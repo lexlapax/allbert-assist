@@ -1,7 +1,8 @@
 # First-Model Path
 
-Status: v0.60 M3 design artifact. This document expands ADR 0078 into the
-QuickStart path, option analysis, first-model-state handoff, and v0.62/v0.63
+Status: v0.60 M3 design artifact, amended with the v0.62/v0.63 as-built
+first-model-state correction on 2026-07-08. This document expands ADR 0078 into
+the QuickStart path, option analysis, first-model-state handoff, and v0.62/v0.63
 packaging/onboarding implications. It is design only; v0.60 does not install,
 pull, configure, or call any model.
 
@@ -82,8 +83,8 @@ persona tiers.
 
 ## First-Model State Handoff
 
-M5 entry-point design and v0.62 packaging should be able to reason in these
-operator-facing states:
+M5 entry-point design and v0.62 packaging originally reasoned in these conceptual
+operator-facing outcomes:
 
 | State | Meaning | Product response |
 |---|---|---|
@@ -98,6 +99,14 @@ operator-facing states:
 These are design states, not new Settings Central keys. v0.62/v0.63 may choose the
 actual read model and persistence shape, subject to Security Central and Settings
 Central.
+
+**As-built correction (2026-07-08):** v0.62 `first_model_state/1` codifies six
+technical probe atoms: `local_ready`, `runtime_missing`, `runtime_unhealthy`,
+`model_missing`, `below_hardware_floor`, and `byok_ready`. It does **not** emit a
+separate `blocked` atom. v0.63 consumes those six probe states and maps broader
+no-path outcomes into operator readiness labels (`Needs runtime`, `Needs model`,
+`Needs review`, or provider-layer `Needs credentials`) without surfacing a raw
+`blocked` first-model state.
 
 ## v0.62 Packaging Implications
 
@@ -117,14 +126,15 @@ retrofit after the binary exists:
 - Store BYOK credentials through the OS secret-vault path; never print secrets,
   raw endpoints, or provider tokens in CLI, web, traces, or release evidence.
 - Provide a health check that can distinguish runtime missing, runtime unhealthy,
-  model missing, below hardware floor, BYOK ready, and blocked.
+  model missing, below hardware floor, and BYOK ready, then derive a repairable
+  no-path outcome without exposing a separate first-model atom.
 - Keep all effectful setup actions confirmation- and policy-bounded; setup copy
   never grants authority by itself.
 
-The seven first-model states in this document are the v0.60 design/test handoff
-contract. They are intentionally enforced by the v0.60 docs/eval sweep, not by a
-new runtime source of truth in this design release. v0.62 packaging and v0.63
-onboarding must introduce or consume a runtime source without inventing divergent
+The v0.60 design/test handoff used seven conceptual outcomes. They were
+intentionally enforced by the v0.60 docs/eval sweep, not by a new runtime source of
+truth in that design release. The as-built v0.62 runtime source has six probe
+atoms, and v0.63 onboarding must consume those six without inventing divergent raw
 labels.
 
 ## v0.61 And v0.63 Handoff

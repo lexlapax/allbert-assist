@@ -1,11 +1,12 @@
 # Entry-Point And CLI UX
 
 Status: v0.60 M5 design artifact and v0.62 design input, reconciled with the
-v0.62 as-built dispatcher at M8.4. This document defines the packaged `allbert`
-command taxonomy, grouped help model, first-run detection, first-model-state
-check, and wizard launch sequence for ADR 0076. It was design-only in v0.60:
-v0.60 shipped no binary, escript, release, install script, task, daemon, or
-Allbert Home layout change.
+v0.62 as-built dispatcher at M8.4 and the v0.63 onboarding amendment on
+2026-07-08. This document defines the packaged `allbert` command taxonomy,
+grouped help model, first-run detection, first-model-state check, and wizard
+launch sequence for ADR 0076. It was design-only in v0.60: v0.60 shipped no
+binary, escript, release, install script, task, daemon, or Allbert Home layout
+change.
 
 ## Current Inventory Snapshot
 
@@ -29,6 +30,7 @@ allbert
   chat
   tui
   serve [--open] [--daemon | --foreground]
+  onboard [--quickstart | --advanced | --reset | --non-interactive --authorize]
   admin <area> <command>
   gen <kind> ...
 ```
@@ -42,6 +44,7 @@ Top-level commands:
 | `allbert chat` | Product chat session in the web workspace. | Split across web `/workspace`, ask, and TUI. | Primary target is the web workspace chat; v0.62 may temporarily fall back to a lightweight terminal/TUI session only while the web/onboarding surfaces are still incomplete or unavailable. |
 | `allbert tui` | Persistent terminal operator channel. | `mix allbert.tui`, ADR 0067/0070. | Mix-free daily-use terminal path. |
 | `allbert serve` | Run the local product and web workspace. | `mix phx.server` plus app boot. | Supports foreground and daemon/service management in v0.62. |
+| `allbert onboard` | Guided setup/resume wizard. | `mix allbert.onboard` and v0.62 `admin onboarding` summary are scaffolding only. | New top-level v0.63 verb. `admin onboarding` remains a summary/read path derived from the same state. |
 | `allbert admin` | Grouped operator inspection/configuration. | `mix allbert.settings`, `channels`, `jobs`, `objectives`, `confirmations`, `security`, `mcp`, `public_protocol`, etc. | Thin views over existing registered actions/settings boundaries. |
 | `allbert gen` | Extension/developer generation helpers. | `mix allbert.gen.*`. | Kept separate from normal operator flow; never auto-runs from onboarding. |
 
@@ -65,7 +68,10 @@ Start
 
 Set up
   allbert                    Resume setup or open the product
-  allbert admin onboarding   Re-run onboarding or review setup state
+  allbert onboard            Resume or start guided setup
+  allbert onboard --quickstart
+  allbert onboard --advanced
+  allbert admin onboarding   Review setup state summary
   allbert admin models       Check model/provider readiness
 
 Operate
@@ -110,7 +116,7 @@ Decision 6.)*
 
 ## First-Model-State Check
 
-Entry points consume the M3 first-model states:
+v0.63 entry points consume the six as-built first-model probe states:
 
 - `local_ready`
 - `runtime_missing`
@@ -118,11 +124,13 @@ Entry points consume the M3 first-model states:
 - `model_missing`
 - `below_hardware_floor`
 - `byok_ready`
-- `blocked`
 
 The CLI never assumes a hosted key or silently chooses egress. If local setup is
-blocked, it offers BYOK fallback with egress posture and OS-vault storage called
-out.
+unavailable, declined, unhealthy, below the hardware floor, or still missing a
+model, it offers one repair action and keeps BYOK fallback visible with egress
+posture and OS-vault/encrypted-store storage called out. There is no separate
+shipped `blocked` first-model atom in v0.62/v0.63; broader product blockers are
+rendered as operator readiness labels by the onboarding wizard.
 
 ## Wizard Launch Sequence
 
@@ -142,7 +150,10 @@ allbert
 
 Explicit setup entry stays available after first-run:
 
-- `allbert admin onboarding` reopens onboarding state and profile review.
+- `allbert onboard` reopens or resumes the guided onboarding wizard and profile
+  review.
+- `allbert admin onboarding` returns a read-only setup summary derived from the
+  same state.
 - `allbert admin models` runs model/provider readiness and repair.
 - `allbert admin settings` opens settings inspection/editing paths.
 
