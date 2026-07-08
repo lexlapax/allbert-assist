@@ -379,7 +379,9 @@ defmodule AllbertAssist.Onboarding do
   """
   @spec readiness_label(keyword()) :: probe_readiness()
   def readiness_label(opts \\ []) do
-    probe = Keyword.get(opts, :first_model_state, FirstRun.first_model_state())
+    # M7.2: get_lazy so an injected probe skips the live probe entirely (the old
+    # eager default ran `first_model_state/0` on *every* call, injected or not).
+    probe = Keyword.get_lazy(opts, :first_model_state, &safe_first_model_state/0)
 
     case probe do
       :local_ready -> :ready
@@ -392,6 +394,20 @@ defmodule AllbertAssist.Onboarding do
   end
 
   @doc """
+  Guarded first-model probe: never raises out of a wizard render. A probe-layer
+  exception or a hung/absent local runtime degrades to `:runtime_missing` (→
+  `Needs runtime`) rather than blocking or crashing the surface (M7.2).
+  """
+  @spec safe_first_model_state() :: FirstRun.model_state()
+  def safe_first_model_state do
+    FirstRun.first_model_state()
+  rescue
+    _error -> :runtime_missing
+  catch
+    :exit, _reason -> :runtime_missing
+  end
+
+  @doc """
   Track-aware `model_path` guidance: turns the first-model probe into an
   operator-language headline plus the *single* next action to route to. QuickStart
   frames the recommended path assertively; Advanced adds that provider/model choices
@@ -401,7 +417,7 @@ defmodule AllbertAssist.Onboarding do
   """
   @spec model_path_guidance(keyword()) :: model_guidance()
   def model_path_guidance(opts \\ []) do
-    probe = Keyword.get(opts, :first_model_state, FirstRun.first_model_state())
+    probe = Keyword.get_lazy(opts, :first_model_state, &safe_first_model_state/0)
     track = Keyword.get(opts, :track, :quickstart)
     label = readiness_label(first_model_state: probe)
     build_guidance(label, track)

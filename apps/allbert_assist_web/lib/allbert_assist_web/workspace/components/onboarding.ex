@@ -38,7 +38,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
   @impl true
   def handle_event("wizard_start", %{"track" => track}, socket) do
     OnboardingContext.wizard_start(wizard_track(track))
-    {:noreply, refresh_state(assign(socket, :onboarding_notice, "Wizard started."))}
+    {:noreply, refresh_state(reprobe(assign(socket, :onboarding_notice, "Wizard started.")))}
   end
 
   def handle_event("wizard_advance", %{"step" => step}, socket) do
@@ -54,14 +54,16 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
           assign(socket, onboarding_error: "Unknown step: #{unknown}.")
       end
 
-    {:noreply, refresh_state(socket)}
+    {:noreply, refresh_state(reprobe(socket))}
   end
 
   def handle_event("wizard_reset", _params, socket) do
     OnboardingContext.wizard_reset()
 
     {:noreply,
-     refresh_state(assign(socket, onboarding_notice: "Onboarding reset.", onboarding_error: nil))}
+     refresh_state(
+       reprobe(assign(socket, onboarding_notice: "Onboarding reset.", onboarding_error: nil))
+     )}
   end
 
   def handle_event("complete_step", %{"step-id" => step_id}, socket) do
@@ -465,10 +467,32 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
     """
   end
 
+  # M7.2: probe once per component, refreshed only on wizard actions.
+  defp ensure_probe(socket) do
+    if Map.get(socket.assigns, :onboarding_probe) do
+      socket
+    else
+      assign(socket, :onboarding_probe, OnboardingContext.safe_first_model_state())
+    end
+  end
+
+  defp reprobe(socket),
+    do: assign(socket, :onboarding_probe, OnboardingContext.safe_first_model_state())
+
   defp refresh_state(socket) do
     context = Map.get(socket.assigns, :renderer_context, %{})
 
-    socket = assign(socket, :onboarding_wizard, OnboardingContext.wizard_state())
+    # M7.2: resolve the guarded first-model probe once per component (cached in
+    # assigns) and thread it into wizard_state, so an ordinary LiveView update does
+    # not re-probe Ollama on every render. Wizard actions call reprobe/1 to refresh.
+    socket = ensure_probe(socket)
+
+    socket =
+      assign(
+        socket,
+        :onboarding_wizard,
+        OnboardingContext.wizard_state(first_model_state: socket.assigns.onboarding_probe)
+      )
 
     case OnboardingContext.frame_or_resume(user_id(context), %{
            channel: :live_view,

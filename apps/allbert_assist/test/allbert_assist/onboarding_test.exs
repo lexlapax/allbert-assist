@@ -235,6 +235,22 @@ defmodule AllbertAssist.OnboardingTest do
     end
   end
 
+  describe "v0.63 M7.2 guarded / injectable readiness" do
+    @model_states ~w(local_ready byok_ready runtime_missing runtime_unhealthy
+                     model_missing below_hardware_floor)a
+
+    test "safe_first_model_state returns a valid state and never raises" do
+      assert Onboarding.safe_first_model_state() in @model_states
+    end
+
+    test "an injected probe is honored without evaluating the live probe (get_lazy)" do
+      assert Onboarding.readiness_label(first_model_state: :model_missing) == :needs_model
+
+      assert Onboarding.model_path_guidance(first_model_state: :below_hardware_floor).readiness ==
+               :needs_review
+    end
+  end
+
   describe "v0.63 M2 track-aware model_path guidance" do
     @all_probes ~w(local_ready byok_ready runtime_missing runtime_unhealthy
                    model_missing below_hardware_floor)a
