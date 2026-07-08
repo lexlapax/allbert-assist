@@ -193,6 +193,56 @@ defmodule AllbertAssist.OnboardingTest do
     end
   end
 
+  describe "v0.63 M2 track-aware model_path guidance" do
+    @all_probes ~w(local_ready byok_ready runtime_missing runtime_unhealthy
+                   model_missing below_hardware_floor)a
+
+    test "ready probes reach chat; every other probe is repairable with a concrete action" do
+      for probe <- @all_probes, track <- [:quickstart, :advanced] do
+        g = Onboarding.model_path_guidance(first_model_state: probe, track: track)
+
+        if g.reaches_chat? do
+          assert probe in [:local_ready, :byok_ready]
+          assert g.action == :start_chat
+        else
+          # No dead ends: every non-ready outcome offers a specific repair action.
+          assert g.repairable?
+          assert g.action in [:install_runtime, :pull_model, :choose_provider]
+          assert g.next_action =~ ~r/\S/
+        end
+      end
+    end
+
+    test "operator copy never leaks a raw probe atom or internal readiness atom" do
+      for probe <- @all_probes, track <- [:quickstart, :advanced] do
+        g = Onboarding.model_path_guidance(first_model_state: probe, track: track)
+        blob = g.headline <> " " <> g.next_action
+
+        for atom <- ~w(local_ready byok_ready runtime_missing runtime_unhealthy
+                       model_missing below_hardware_floor needs_runtime needs_model
+                       needs_review) do
+          refute blob =~ atom, "leaked #{atom} in: #{blob}"
+        end
+      end
+    end
+
+    test "each readiness label maps to exactly one routed action" do
+      assert Onboarding.model_guidance_for(:ready, :quickstart).action == :start_chat
+      assert Onboarding.model_guidance_for(:needs_runtime, :quickstart).action == :install_runtime
+      assert Onboarding.model_guidance_for(:needs_model, :quickstart).action == :pull_model
+      assert Onboarding.model_guidance_for(:needs_review, :quickstart).action == :choose_provider
+    end
+
+    test "Advanced surfaces an extra provider/model affordance QuickStart omits" do
+      qs = Onboarding.model_guidance_for(:needs_runtime, :quickstart)
+      adv = Onboarding.model_guidance_for(:needs_runtime, :advanced)
+      assert adv.next_action =~ "Advanced:"
+      refute qs.next_action =~ "Advanced:"
+      # Same routed action; Advanced only adds the choice affordance.
+      assert qs.action == adv.action
+    end
+  end
+
   defp ensure_channel_plugin!(module) do
     case PluginRegistry.register_module(module) do
       {:ok, _plugin_id} -> :ok

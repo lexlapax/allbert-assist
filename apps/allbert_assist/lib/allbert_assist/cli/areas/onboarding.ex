@@ -106,9 +106,20 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
           "Readiness: #{Map.get(@readiness_copy, state.readiness, "Unknown")}",
           "Profile reviewed: #{state.profile_reviewed?}",
           "Onboarding complete: #{state.complete?}"
-        ]
+        ] ++ guidance_lines(state)
 
     Render.ok(Enum.reject(lines, &is_nil/1))
+  end
+
+  # At the model_path step (or whenever the model isn't ready yet), surface the
+  # single next action in operator language — the M2 no-dead-end guarantee.
+  defp guidance_lines(state) do
+    if state.step == "model_path" or state.readiness != :ready do
+      g = Onboarding.model_guidance_for(state.readiness, state.track)
+      ["", g.headline, "Next: #{g.next_action}"]
+    else
+      []
+    end
   end
 
   defp status_line(status) do

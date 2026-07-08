@@ -150,6 +150,24 @@ defmodule AllbertAssist.Onboarding do
   @typedoc "Operator readiness label per the Readiness Label Mapping Contract."
   @type readiness :: :ready | :needs_model | :needs_runtime | :needs_review
 
+  @typedoc "The single next action the `model_path` step should route to."
+  @type model_action ::
+          :start_chat | :install_runtime | :pull_model | :choose_provider
+
+  @typedoc """
+  Track-aware guidance for the `model_path` step: an operator-language headline +
+  the single repair/next action. `reaches_chat?` is true only when the model is
+  usable now; otherwise `repairable?` is always true (no dead ends — M2 invariant).
+  """
+  @type model_guidance :: %{
+          readiness: readiness(),
+          headline: String.t(),
+          next_action: String.t(),
+          action: model_action(),
+          repairable?: boolean(),
+          reaches_chat?: boolean()
+        }
+
   @typedoc "The derived guided-wizard state."
   @type wizard :: %{
           started?: boolean(),
@@ -343,6 +361,95 @@ defmodule AllbertAssist.Onboarding do
       :below_hardware_floor -> :needs_review
     end
   end
+
+  @doc """
+  Track-aware `model_path` guidance: turns the first-model probe into an
+  operator-language headline plus the *single* next action to route to. QuickStart
+  frames the recommended path assertively; Advanced adds that provider/model choices
+  are available up front. Every non-ready outcome is `repairable?: true` with a
+  concrete `action` — the M2 no-dead-end invariant (QuickStart never ends without a
+  usable model or a specific repair). Operator copy never leaks a raw probe atom.
+  """
+  @spec model_path_guidance(keyword()) :: model_guidance()
+  def model_path_guidance(opts \\ []) do
+    probe = Keyword.get(opts, :first_model_state, FirstRun.first_model_state())
+    track = Keyword.get(opts, :track, :quickstart)
+    label = readiness_label(first_model_state: probe)
+    build_guidance(label, track)
+  end
+
+  @doc """
+  Guidance from an already-resolved readiness label + track — lets surfaces that
+  already hold `wizard.readiness` render the next action without re-probing.
+  """
+  @spec model_guidance_for(readiness(), track()) :: model_guidance()
+  def model_guidance_for(readiness, track)
+      when readiness in [:ready, :needs_model, :needs_runtime, :needs_review] and
+             track in @wizard_tracks,
+      do: build_guidance(readiness, track)
+
+  defp build_guidance(:ready, _track) do
+    %{
+      readiness: :ready,
+      headline: "Your model is ready.",
+      next_action: "Start your first chat.",
+      action: :start_chat,
+      repairable?: true,
+      reaches_chat?: true
+    }
+  end
+
+  defp build_guidance(:needs_runtime, track) do
+    %{
+      readiness: :needs_runtime,
+      headline: "No local model runtime is running yet.",
+      next_action:
+        advanced_suffix(
+          track,
+          "Install and start the local runtime (Ollama) with `allbert admin model install`.",
+          "or switch to a hosted provider now."
+        ),
+      action: :install_runtime,
+      repairable?: true,
+      reaches_chat?: false
+    }
+  end
+
+  defp build_guidance(:needs_model, track) do
+    %{
+      readiness: :needs_model,
+      headline: "The runtime is up, but the starter model isn't downloaded.",
+      next_action:
+        advanced_suffix(
+          track,
+          "Pull the starter model with `allbert admin model pull`.",
+          "or pick a different model/provider."
+        ),
+      action: :pull_model,
+      repairable?: true,
+      reaches_chat?: false
+    }
+  end
+
+  defp build_guidance(:needs_review, track) do
+    %{
+      readiness: :needs_review,
+      headline: "This machine is below the local-model hardware floor.",
+      next_action:
+        advanced_suffix(
+          track,
+          "Connect a hosted provider (bring your own key) to reach a working chat.",
+          "or review the model/provider options."
+        ),
+      action: :choose_provider,
+      repairable?: true,
+      reaches_chat?: false
+    }
+  end
+
+  # Advanced surfaces the extra provider/model choice inline; QuickStart stays terse.
+  defp advanced_suffix(:advanced, base, extra), do: base <> " (Advanced: " <> extra <> ")"
+  defp advanced_suffix(_quickstart, base, _extra), do: base
 
   # Best-effort: `--reset` must always clear the marker even if the objective
   # store is unavailable, so a cancel failure never blocks the reset.
