@@ -64,6 +64,9 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
 
   @spec dispatch([String.t()], map() | nil) :: {String.t(), non_neg_integer()}
   def dispatch(argv, context \\ nil) do
+    # M7.6: one-time first-launch reconcile of a stale v0.62 onboarding objective
+    # (marker-guarded, best-effort — no-op after the first onboard invocation).
+    Onboarding.reconcile_stale_objective()
     {opts, rest, invalid} = OptionParser.parse(argv, strict: @switches)
 
     result =

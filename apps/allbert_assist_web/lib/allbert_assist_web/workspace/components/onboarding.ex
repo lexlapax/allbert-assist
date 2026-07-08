@@ -23,6 +23,10 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
 
   @impl true
   def update(assigns, socket) do
+    # M7.6: one-time first-launch reconcile of a stale v0.62 onboarding objective
+    # (marker-guarded, best-effort — no-op after the first mount on a given Home).
+    OnboardingContext.reconcile_stale_objective()
+
     socket =
       socket
       |> assign(assigns)

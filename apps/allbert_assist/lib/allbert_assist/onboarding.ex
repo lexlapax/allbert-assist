@@ -315,6 +315,29 @@ defmodule AllbertAssist.Onboarding do
     wizard_state(opts)
   end
 
+  @reconcile_flag "objective_reconciled_v063"
+
+  @doc """
+  One-time first-launch reconcile (v0.63 M7.6). A partially-onboarded v0.62 Home may
+  carry a stale in-flight onboarding objective alongside the marker; the marker is now
+  the sole source of truth, so cancel/reframe that objective once. Marker-guarded (runs
+  the objective query at most once per Home), idempotent, and best-effort — it never
+  raises out of a surface load. Surfaces call it on first-run load; a fresh v0.63 Home
+  finds nothing and simply records the flag.
+  """
+  @spec reconcile_stale_objective(keyword()) :: :ok
+  def reconcile_stale_objective(opts \\ []) do
+    if FirstRun.read_marker()[@reconcile_flag] == true do
+      :ok
+    else
+      cancel_active_objective(Keyword.get(opts, :user_id, "local"))
+      FirstRun.merge_marker(%{@reconcile_flag => true})
+      :ok
+    end
+  rescue
+    _error -> :ok
+  end
+
   @doc "A compact wizard status map (surface-agnostic summary)."
   @spec wizard_status(keyword()) :: wizard_status()
   def wizard_status(opts \\ []) do

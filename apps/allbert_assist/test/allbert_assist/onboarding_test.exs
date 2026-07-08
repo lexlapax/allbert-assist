@@ -235,6 +235,27 @@ defmodule AllbertAssist.OnboardingTest do
     end
   end
 
+  describe "v0.63 M7.6 first-launch reconcile" do
+    test "cancels a stale in-flight onboarding objective once, idempotently" do
+      assert {:ok, state} = Onboarding.frame_or_resume("alice")
+      objective_id = state.objective.id
+      assert state.objective.status in ["open", "running"]
+
+      assert :ok = Onboarding.reconcile_stale_objective(user_id: "alice")
+      assert {:ok, objective} = Objectives.get_objective("alice", objective_id)
+      assert objective.status == "cancelled"
+      assert FirstRun.read_marker()["objective_reconciled_v063"] == true
+
+      # Idempotent: a second call is a no-op (flag already set).
+      assert :ok = Onboarding.reconcile_stale_objective(user_id: "alice")
+    end
+
+    test "a fresh Home with no stale objective records the flag without error" do
+      assert :ok = Onboarding.reconcile_stale_objective(user_id: "bob")
+      assert FirstRun.read_marker()["objective_reconciled_v063"] == true
+    end
+  end
+
   describe "v0.63 M7.2 guarded / injectable readiness" do
     @model_states ~w(local_ready byok_ready runtime_missing runtime_unhealthy
                      model_missing below_hardware_floor)a
