@@ -61,6 +61,66 @@ defmodule AllbertAssist.CLI.Areas.OnboardingTest do
     assert {_out, 2} = Area.dispatch(["--nope"])
   end
 
+  describe "v0.63 M7.5 interactive TTY wizard" do
+    defp scripted_io(gets_script, mask \\ "") do
+      {:ok, out} = Agent.start_link(fn -> [] end)
+      {:ok, queue} = Agent.start_link(fn -> gets_script end)
+
+      io = %{
+        puts: fn line -> Agent.update(out, &[to_string(line) | &1]) end,
+        gets: fn _prompt ->
+          Agent.get_and_update(queue, fn
+            [h | t] -> {h, t}
+            [] -> {:quit, []}
+          end)
+        end,
+        mask_gets: fn _prompt -> mask end
+      }
+
+      {io, out}
+    end
+
+    defp output(out), do: out |> Agent.get(&Enum.reverse/1) |> Enum.join("\n")
+
+    test "drives the same canonical step IDs to completion, no fork" do
+      FirstRun.reset_onboarding()
+      # Track chooser "q" then Enter for each step.
+      {io, out} = scripted_io(["q" | List.duplicate("", 10)])
+
+      assert {"", 0} = Area.run_interactive(nil, io)
+      text = output(out)
+
+      for step <- ~w(welcome track_select model_path profile_select profile_review
+                     health_check first_chat) do
+        assert text =~ step
+      end
+
+      assert text =~ "Onboarding complete."
+    end
+
+    test "masked provider entry never echoes the secret" do
+      FirstRun.reset_onboarding()
+      {io, out} = scripted_io(["q" | List.duplicate("", 10)], "sk-interactive-secret")
+
+      assert {"", 0} = Area.run_interactive(nil, io)
+      text = output(out)
+
+      assert text =~ "Stored (masked)."
+      refute text =~ "sk-interactive-secret"
+    end
+
+    test "quitting pauses without completing" do
+      FirstRun.reset_onboarding()
+      {io, out} = scripted_io(["q", :quit])
+
+      assert {"", 0} = Area.run_interactive(nil, io)
+      text = output(out)
+
+      assert text =~ "Paused. Resume with `allbert onboard`."
+      refute text =~ "Onboarding complete."
+    end
+  end
+
   describe "v0.63 M6 non-interactive contract" do
     test "refuses a fresh non-interactive run with no explicit track" do
       # Guarantee an un-started wizard regardless of test order (shared Home state).

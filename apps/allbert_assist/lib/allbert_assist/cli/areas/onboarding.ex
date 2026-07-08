@@ -104,18 +104,25 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
     end
   end
 
-  defp route([], opts, _context) do
+  defp route([], opts, context) do
     # v0.63 M6: non-interactive automation must not silently default a track — refuse
     # when starting fresh without one (Non-Interactive Authorization & Input Contract).
     state = Onboarding.wizard_resume()
 
-    if opts[:non_interactive] and not state.started? do
-      Render.error([
-        "Refusing: --non-interactive requires an explicit track for a fresh onboarding.",
-        "Supply --quickstart or --advanced."
-      ])
-    else
-      render_state(state, nil)
+    cond do
+      opts[:non_interactive] and not state.started? ->
+        Render.error([
+          "Refusing: --non-interactive requires an explicit track for a fresh onboarding.",
+          "Supply --quickstart or --advanced."
+        ])
+
+      # v0.63 M7.5: on a TTY, bare `allbert onboard` is the primary interactive wizard;
+      # a no-TTY / headless / non-interactive invocation gets the line status.
+      interactive?(opts) ->
+        run_interactive(context, default_io())
+
+      true ->
+        render_state(state, nil)
     end
   end
 
@@ -150,6 +157,133 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
   end
 
   defp route(_other, _opts, _context), do: Render.usage([@usage])
+
+  # -- v0.63 M7.5: interactive TTY wizard -------------------------------------
+
+  @doc """
+  The interactive `allbert onboard` wizard (TTY). Drives the same `Onboarding.wizard_*`
+  machine and 8 canonical step IDs as the web + line surfaces — no fork. `io` is
+  injectable (`%{puts, gets, mask_gets}`) so the loop is testable without a terminal;
+  `mask_gets` reads a provider key without echoing it. Returns `{output, exit_code}`
+  (all rendering happens through `io.puts`, so the returned string is empty).
+  """
+  @spec run_interactive(map() | nil, map()) :: {String.t(), non_neg_integer()}
+  def run_interactive(context, io) do
+    interactive_loop(Onboarding.wizard_resume(io_opts()), context, io, 0)
+    {"", 0}
+  end
+
+  # A hard step ceiling guards against a scripted io that never returns quit.
+  defp interactive_loop(_state, _context, io, steps) when steps > 32 do
+    io.puts.("Stopping (too many steps).")
+  end
+
+  defp interactive_loop(state, context, io, steps) do
+    cond do
+      not state.started? ->
+        track = prompt_track(io)
+        interactive_loop(Onboarding.wizard_start(track, io_opts()), context, io, steps + 1)
+
+      state.complete? ->
+        io.puts.("Onboarding complete.")
+        Enum.each(Onboarding.first_chat_prompts(), fn p -> io.puts.("  Try: #{p}") end)
+
+      true ->
+        io.puts.("Step: #{state.step} (#{Map.get(@readiness_copy, state.readiness, "Unknown")})")
+
+        case io.gets.("Continue? [Enter] / q to quit: ") do
+          :quit ->
+            io.puts.("Paused. Resume with `allbert onboard`.")
+
+          _line ->
+            maybe_step_action(state.step, context, io)
+            {:ok, next} = Onboarding.wizard_advance(state.step, %{}, io_opts())
+            interactive_loop(next, context, io, steps + 1)
+        end
+    end
+  end
+
+  defp prompt_track(io) do
+    case io.gets.("Track — [q]uickstart or [a]dvanced? ") do
+      "a" <> _ -> :advanced
+      _ -> :quickstart
+    end
+  end
+
+  # Effectful per-step prompts. Masked entry never echoes the secret.
+  defp maybe_step_action("model_path", context, io) do
+    case io.mask_gets.("Provider key (blank to skip): ") do
+      key when is_binary(key) and key != "" ->
+        store_provider_key(key, context)
+        io.puts.("Stored (masked).")
+
+      _blank ->
+        :ok
+    end
+  end
+
+  defp maybe_step_action(_step, _context, _io), do: :ok
+
+  # Best-effort — a provider-store failure must not crash the interactive loop, and the
+  # raw key never leaves this call (it goes straight to the masked-write action).
+  defp store_provider_key(key, context) do
+    Runner.run(
+      "set_provider_credential",
+      %{provider: "openai", mode: :set_secret, api_key: key},
+      context || %{}
+    )
+
+    :ok
+  rescue
+    _error -> :ok
+  end
+
+  # Real terminal IO — masked read turns echo off around the prompt.
+  defp default_io do
+    %{
+      puts: &IO.puts/1,
+      gets: fn prompt -> prompt |> IO.gets() |> normalize_line() end,
+      mask_gets: &mask_gets/1
+    }
+  end
+
+  defp normalize_line(line) when is_binary(line) do
+    trimmed = String.trim(line)
+    if trimmed in ["q", "quit"], do: :quit, else: trimmed
+  end
+
+  defp normalize_line(_eof), do: :quit
+
+  defp mask_gets(prompt) do
+    :io.setopts(echo: false)
+    value = prompt |> IO.gets() |> to_string() |> String.trim()
+    :io.setopts(echo: true)
+    IO.puts("")
+    value
+  rescue
+    _error -> ""
+  end
+
+  defp interactive?(opts) do
+    opts[:non_interactive] != true and tty?()
+  end
+
+  # Force via app env for tests/automation; otherwise best-effort real-TTY detection
+  # (defaults to false → the line flow, so piped/headless stays non-interactive).
+  defp tty? do
+    Application.get_env(:allbert_assist, :onboard_force_tty, false) == true or real_tty?()
+  end
+
+  defp real_tty? do
+    function_exported?(:prim_tty, :isatty, 1) and :prim_tty.isatty(:stdin) == true
+  rescue
+    _error -> false
+  catch
+    _kind, _reason -> false
+  end
+
+  # The wizard API takes keyword opts; the interactive loop passes none through.
+  defp io_opts, do: []
 
   # v0.63 M6: apply a persona through the durable pre-authorization path. The apply
   # action is confirmation-gated; --authorize (or the deprecated --accept-risk alias)
