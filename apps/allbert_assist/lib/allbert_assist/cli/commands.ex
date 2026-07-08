@@ -40,6 +40,10 @@ defmodule AllbertAssist.CLI.Commands do
     ["tui"] => :builtin,
     ["serve"] => :builtin,
     ["gen"] => :mix_only,
+    # v0.63 M1: `allbert onboard` is a new top-level verb (Locked Decision 7) — a
+    # flag-bearing area dispatcher for the guided wizard. `admin onboarding` stays
+    # the read-only summary.
+    ["onboard"] => {:area, Areas.Onboarding},
     # `allbert admin <area> [cmd]` — thin views over registered reads/actions.
     ["admin", "status"] => {:action, "operator_status"},
     ["admin", "events"] => {:action, "operator_events"},
@@ -110,7 +114,7 @@ defmodule AllbertAssist.CLI.Commands do
     "objectives" => {:command, ["admin", "objectives"]},
     "settings" => {:command, ["admin", "settings"]},
     "security" => {:command, ["admin", "trust"]},
-    "onboard" => {:command, ["admin", "onboarding"]},
+    "onboard" => {:command, ["onboard"]},
     "model" => {:command, ["admin", "models"]},
     "home.export" => {:command, ["admin", "home", "export"]},
     "home.import" => {:command, ["admin", "home", "import"]},

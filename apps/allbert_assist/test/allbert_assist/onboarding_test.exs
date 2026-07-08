@@ -1,6 +1,7 @@
 defmodule AllbertAssist.OnboardingTest do
   use AllbertAssist.DataCase, async: false
 
+  alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.Objectives
   alias AllbertAssist.Onboarding
   alias AllbertAssist.Paths
@@ -130,6 +131,66 @@ defmodule AllbertAssist.OnboardingTest do
     assert Enum.any?(events, &(&1.kind == "step_completed"))
     channel_events = Objectives.list_events(channel_state.objective.id, limit: 10)
     assert Enum.any?(channel_events, &(&1.kind == "step_selected"))
+  end
+
+  describe "v0.63 M1 guided-wizard state machine" do
+    test "starts a track, advances the canonical 8 steps, and unifies completion on the marker" do
+      state = Onboarding.wizard_start(:quickstart)
+      assert state.started? and state.track == :quickstart
+      assert state.step == "welcome"
+
+      assert Onboarding.wizard_steps() ==
+               ~w(welcome track_select model_path profile_select profile_review
+                  health_check first_chat optional_connect)
+
+      # Advance through to first_chat; QuickStart defers optional_connect.
+      state =
+        ~w(welcome track_select model_path profile_select)
+        |> Enum.reduce(state, fn step, _acc ->
+          assert {:ok, s} = Onboarding.wizard_advance(step)
+          s
+        end)
+
+      assert state.step == "profile_review"
+      refute state.profile_reviewed?
+
+      assert {:ok, state} = Onboarding.wizard_advance("profile_review")
+      assert state.profile_reviewed?
+      assert state.step == "health_check"
+
+      assert {:ok, state} = Onboarding.wizard_advance("health_check")
+      assert state.step == "first_chat"
+      refute state.complete?
+
+      # Reaching first useful chat completes onboarding (optional_connect deferred).
+      assert {:ok, state} = Onboarding.wizard_advance("first_chat")
+      assert state.complete?
+      assert FirstRun.read_marker()["onboarding_complete"] == true
+    end
+
+    test "advancing a non-current step is rejected" do
+      Onboarding.wizard_start(:advanced)
+      assert {:error, {:not_current_step, "welcome"}} = Onboarding.wizard_advance("model_path")
+      assert {:error, {:unknown_step, "nope"}} = Onboarding.wizard_advance("nope")
+    end
+
+    test "reset clears the marker and returns a fresh state" do
+      Onboarding.wizard_start(:quickstart)
+      assert {:ok, _} = Onboarding.wizard_advance("welcome")
+      state = Onboarding.wizard_reset()
+      refute state.started?
+      assert state.step == "welcome"
+      assert FirstRun.read_marker() == %{}
+    end
+
+    test "readiness_label maps probe states per the contract (no :blocked)" do
+      assert Onboarding.readiness_label(first_model_state: :local_ready) == :ready
+      assert Onboarding.readiness_label(first_model_state: :byok_ready) == :ready
+      assert Onboarding.readiness_label(first_model_state: :runtime_missing) == :needs_runtime
+      assert Onboarding.readiness_label(first_model_state: :runtime_unhealthy) == :needs_runtime
+      assert Onboarding.readiness_label(first_model_state: :model_missing) == :needs_model
+      assert Onboarding.readiness_label(first_model_state: :below_hardware_floor) == :needs_review
+    end
   end
 
   defp ensure_channel_plugin!(module) do

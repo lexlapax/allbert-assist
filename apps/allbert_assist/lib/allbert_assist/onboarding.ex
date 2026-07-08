@@ -7,6 +7,7 @@ defmodule AllbertAssist.Onboarding do
   """
 
   alias AllbertAssist.{Channels, Memory, Objectives, Settings}
+  alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.Objectives.{Objective, Step}
   alias AllbertAssist.Runtime.Paths
 
@@ -125,6 +126,238 @@ defmodule AllbertAssist.Onboarding do
 
   def complete_step(_user_id, _objective_id, _step_id, _attrs),
     do: {:error, :invalid_onboarding_step}
+
+  # ==========================================================================
+  # v0.63 M1: the authoritative guided-wizard state machine.
+  #
+  # The 8 canonical step IDs (design `onboarding-flow.md`), two tracks, and a
+  # single "onboarding complete" source of truth — the FirstRun Home marker
+  # (`<Home>/onboarding.json`), Locked Decision 1. Wizard progress (track,
+  # current step, completed steps) is persisted in the same marker. The legacy
+  # objective flow above is retained as durable trace and back-compat for the
+  # not-yet-migrated web panel; it retires as the surfaces migrate (M5/M6/M7).
+  # This module is surface-agnostic: web (M5) and terminal (M6) render it.
+  # ==========================================================================
+
+  @wizard_steps ~w(welcome track_select model_path profile_select profile_review
+                   health_check first_chat optional_connect)
+  @wizard_tracks [:quickstart, :advanced]
+
+  @typedoc "A guided-wizard step id."
+  @type wizard_step :: String.t()
+  @typedoc "A wizard track."
+  @type track :: :quickstart | :advanced
+  @typedoc "Operator readiness label per the Readiness Label Mapping Contract."
+  @type readiness :: :ready | :needs_model | :needs_runtime | :needs_review
+
+  @typedoc "The derived guided-wizard state."
+  @type wizard :: %{
+          started?: boolean(),
+          track: track(),
+          step: wizard_step(),
+          done: [wizard_step()],
+          next: wizard_step() | nil,
+          readiness: readiness(),
+          profile_reviewed?: boolean(),
+          complete?: boolean(),
+          detect: FirstRun.state()
+        }
+
+  @typedoc "Compact wizard status summary."
+  @type wizard_status :: %{
+          started?: boolean(),
+          track: track(),
+          step: wizard_step(),
+          readiness: readiness(),
+          complete?: boolean(),
+          profile_reviewed?: boolean()
+        }
+
+  @doc "The 8 canonical wizard step ids, in order."
+  @spec wizard_steps() :: [wizard_step(), ...]
+  def wizard_steps, do: @wizard_steps
+
+  @doc "The supported wizard tracks."
+  @spec wizard_tracks() :: [track(), ...]
+  def wizard_tracks, do: @wizard_tracks
+
+  @doc """
+  Start (or restart) the wizard on a track. Seeds the marker with the track and
+  positions at `welcome`. Returns the wizard state.
+  """
+  @spec wizard_start(track(), keyword()) :: wizard()
+  def wizard_start(track \\ :quickstart, opts \\ []) when track in @wizard_tracks do
+    FirstRun.merge_marker(%{
+      "wizard_started" => true,
+      "track" => Atom.to_string(track),
+      "wizard_step" => "welcome",
+      "wizard_done" => []
+    })
+
+    wizard_state(opts)
+  end
+
+  @doc """
+  The current wizard state derived from the marker + first-run detection:
+  `%{track, step, done, next, readiness, complete?, profile_reviewed?}`.
+  """
+  @spec wizard_state(keyword()) :: wizard()
+  def wizard_state(opts \\ []) do
+    marker = FirstRun.read_marker()
+    done = wizard_done(marker)
+    step = current_wizard_step(marker, done)
+
+    %{
+      started?: marker["wizard_started"] == true,
+      track: wizard_track(marker),
+      step: step,
+      done: done,
+      next: next_wizard_step(step, wizard_track(marker)),
+      readiness: readiness_label(opts),
+      profile_reviewed?: marker["profile_reviewed"] == true,
+      complete?: marker["onboarding_complete"] == true,
+      detect: FirstRun.detect()
+    }
+  end
+
+  @doc "Resume the wizard — read-only current state."
+  @spec wizard_resume(keyword()) :: wizard()
+  def wizard_resume(opts \\ []), do: wizard_state(opts)
+
+  @doc """
+  Advance past `step` (which must be the current step). Records step completion in
+  the marker; `profile_review` also marks the real profile-reviewed state, and
+  the terminal `first_chat` marks onboarding complete. Returns `{:ok, state}` or
+  `{:error, {:not_current_step, current}}`.
+  """
+  @spec wizard_advance(wizard_step(), map(), keyword()) ::
+          {:ok, wizard()}
+          | {:error, {:not_current_step, wizard_step()} | {:unknown_step, String.t()}}
+  def wizard_advance(step, result \\ %{}, opts \\ [])
+      when is_binary(step) and is_map(result) do
+    marker = FirstRun.read_marker()
+    done = wizard_done(marker)
+    current = current_wizard_step(marker, done)
+
+    cond do
+      step not in @wizard_steps ->
+        {:error, {:unknown_step, step}}
+
+      step != current ->
+        {:error, {:not_current_step, current}}
+
+      true ->
+        track = wizard_track(marker)
+        new_done = Enum.uniq(done ++ [step])
+        next = next_wizard_step(step, track)
+
+        FirstRun.merge_marker(%{"wizard_done" => new_done, "wizard_step" => next || step})
+        if step == "profile_review", do: FirstRun.mark_profile_reviewed()
+        # The wizard is "complete" once the operator reaches first useful chat;
+        # optional_connect is deferred and does not gate completion.
+        if step == "first_chat", do: FirstRun.mark_onboarding_complete()
+
+        {:ok, wizard_state(opts)}
+    end
+  end
+
+  @doc """
+  Reset the wizard: clears the marker (onboarding/profile/wizard progress) and
+  reframes/cancels any in-flight onboarding objective; preserves all other Home
+  data. Returns the fresh wizard state.
+  """
+  @spec wizard_reset(keyword()) :: wizard()
+  def wizard_reset(opts \\ []) do
+    FirstRun.reset_onboarding()
+    cancel_active_objective(Keyword.get(opts, :user_id, "local"))
+    wizard_state(opts)
+  end
+
+  @doc "A compact wizard status map (surface-agnostic summary)."
+  @spec wizard_status(keyword()) :: wizard_status()
+  def wizard_status(opts \\ []) do
+    s = wizard_state(opts)
+
+    %{
+      started?: s.started?,
+      track: s.track,
+      step: s.step,
+      readiness: s.readiness,
+      complete?: s.complete?,
+      profile_reviewed?: s.profile_reviewed?
+    }
+  end
+
+  # -- wizard helpers --------------------------------------------------------
+
+  defp wizard_track(marker) do
+    case marker["track"] do
+      "advanced" -> :advanced
+      _ -> :quickstart
+    end
+  end
+
+  defp wizard_done(marker) do
+    case marker["wizard_done"] do
+      list when is_list(list) -> Enum.filter(list, &(&1 in @wizard_steps))
+      _ -> []
+    end
+  end
+
+  # The current step is the first canonical step not yet marked done (the marker's
+  # `wizard_step` is an optimization/hint; `done` is authoritative).
+  defp current_wizard_step(_marker, done) do
+    Enum.find(@wizard_steps, "optional_connect", &(&1 not in done))
+  end
+
+  defp next_wizard_step(step, track) do
+    remaining =
+      @wizard_steps
+      |> Enum.drop_while(&(&1 != step))
+      |> Enum.drop(1)
+      |> maybe_skip_optional(track)
+
+    List.first(remaining)
+  end
+
+  # QuickStart defers optional_connect (channel/integration setup) past first chat;
+  # it is not a completion gate. Advanced keeps it in sequence.
+  defp maybe_skip_optional(steps, :quickstart), do: steps -- ["optional_connect"]
+  defp maybe_skip_optional(steps, _advanced), do: steps
+
+  @doc """
+  Map the first-model probe state to an operator readiness label per the plan's
+  Readiness Label Mapping Contract. `Needs credentials` / `Needs review` from the
+  provider/profile layer are produced by M2/M3/M4, not by this probe mapping.
+  """
+  @spec readiness_label(keyword()) :: readiness()
+  def readiness_label(opts \\ []) do
+    probe = Keyword.get(opts, :first_model_state, FirstRun.first_model_state())
+
+    case probe do
+      :local_ready -> :ready
+      :byok_ready -> :ready
+      :runtime_missing -> :needs_runtime
+      :runtime_unhealthy -> :needs_runtime
+      :model_missing -> :needs_model
+      :below_hardware_floor -> :needs_review
+    end
+  end
+
+  # Best-effort: `--reset` must always clear the marker even if the objective
+  # store is unavailable, so a cancel failure never blocks the reset.
+  defp cancel_active_objective(user_id) do
+    with {:ok, user_id} <- normalize_user_id(user_id),
+         {:ok, %Objective{} = objective} <-
+           Objectives.find_active_by_source_intent(user_id, @source_intent) do
+      _ = Objectives.update_objective(objective, %{status: "cancelled", current_step_id: nil})
+      :ok
+    else
+      _ -> :ok
+    end
+  rescue
+    _error -> :ok
+  end
 
   defp fetch_or_create_objective(user_id, context) do
     case Objectives.find_active_by_source_intent(user_id, @source_intent) do

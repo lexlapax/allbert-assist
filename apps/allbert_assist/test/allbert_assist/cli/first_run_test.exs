@@ -72,13 +72,35 @@ defmodule AllbertAssist.CLI.FirstRunTest do
       assert FirstRun.detect() == :onboarding_incomplete
     end
 
-    test "product_ready after the onboarding marker is written", %{root: root} do
+    test "v0.63 M1: profile review is a real, separate state; complete alone is not product_ready",
+         %{root: root} do
+      File.mkdir_p!(Path.join([root, "db"]))
+      File.write!(Path.join([root, "db", "allbert.sqlite3"]), "x")
+      System.put_env("ANTHROPIC_API_KEY", "test-key")
+
+      # Completing onboarding no longer forces profile_reviewed (placeholder retired).
+      FirstRun.mark_onboarding_complete()
+      assert FirstRun.detect() == :profile_unreviewed
+
+      # The real profile-review state flips it to product_ready.
+      FirstRun.mark_profile_reviewed()
+      assert FirstRun.detect() == :product_ready
+    after
+      System.delete_env("ANTHROPIC_API_KEY")
+    end
+
+    test "v0.63 M1: reset_onboarding clears the marker (Home preserved)", %{root: root} do
       File.mkdir_p!(Path.join([root, "db"]))
       File.write!(Path.join([root, "db", "allbert.sqlite3"]), "x")
       System.put_env("ANTHROPIC_API_KEY", "test-key")
       FirstRun.mark_onboarding_complete()
-
+      FirstRun.mark_profile_reviewed()
       assert FirstRun.detect() == :product_ready
+
+      FirstRun.reset_onboarding()
+      # Marker cleared → back to onboarding_incomplete; the DB (Home) is untouched.
+      assert FirstRun.detect() == :onboarding_incomplete
+      assert File.exists?(Path.join([root, "db", "allbert.sqlite3"]))
     after
       System.delete_env("ANTHROPIC_API_KEY")
     end

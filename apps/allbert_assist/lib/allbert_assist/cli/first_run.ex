@@ -82,11 +82,40 @@ defmodule AllbertAssist.CLI.FirstRun do
      }}
   end
 
-  @doc "Mark onboarding complete (Home marker; not a Settings key)."
+  @doc """
+  Mark onboarding complete (Home marker; not a Settings key). v0.63 M1: this no
+  longer forces `profile_reviewed` — profile review is now a real, separate state
+  written by the wizard's `profile_review` step (see `mark_profile_reviewed/0`).
+  """
   @spec mark_onboarding_complete() :: :ok
   def mark_onboarding_complete do
-    write_marker(%{"onboarding_complete" => true, "profile_reviewed" => true})
+    merge_marker(%{"onboarding_complete" => true})
   end
+
+  @doc "Mark the persona/profile review step done (real state, v0.63 M1)."
+  @spec mark_profile_reviewed() :: :ok
+  def mark_profile_reviewed do
+    merge_marker(%{"profile_reviewed" => true})
+  end
+
+  @doc """
+  Reset onboarding state by removing the Home marker (v0.63 M1 `--reset` seam).
+  Clears `onboarding_complete`, `profile_reviewed`, and any wizard progress; it
+  preserves all other Home data (db, secrets, settings, traces, memory, caches).
+  """
+  @spec reset_onboarding() :: :ok
+  def reset_onboarding do
+    _ = File.rm(Path.join(Paths.home(), @onboarding_file))
+    :ok
+  end
+
+  @doc "Read the raw onboarding marker map (v0.63 M1; the single source of truth)."
+  @spec read_marker() :: map()
+  def read_marker, do: marker()
+
+  @doc "Merge keys into the onboarding marker (v0.63 M1)."
+  @spec merge_marker(map()) :: :ok
+  def merge_marker(attrs) when is_map(attrs), do: write_marker(attrs)
 
   # -- state predicates ------------------------------------------------------
 
