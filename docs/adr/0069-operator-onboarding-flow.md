@@ -72,8 +72,14 @@ It covers, with opinionated defaults at each step:
    (researcher / developer / writer / ops / general) and the wizard applies the
    repo-maintained preset — seeding Settings Central defaults plus suggested apps,
    channels, and intents — with an explicit review step.
-3. Optional channel pairing and integration setup (skipped on the fast path).
-4. A health-check confirmation the operator can *see* succeed.
+3. A health-check confirmation the operator can *see* succeed (before first chat).
+4. Optional channel pairing and integration setup, deferred to last (skipped on the
+   fast path).
+
+(The authoritative step-ID sequence is in the v0.63 Build Decisions section below:
+`welcome → track_select → model_path → profile_select → profile_review →
+health_check → first_chat → optional_connect`. This capabilities list matches it —
+health precedes first chat, optional connect is last.)
 
 The concrete v0.60 M4 onboarding artifact is
 `docs/design/onboarding-flow.md`: two-track wizard UX, step sequence, surfaces,
@@ -140,12 +146,17 @@ Ratified in the v0.63 plan's Locked Decisions (2026-07-07/2026-07-08):
   line-oriented `allbert onboard` prompt fallback for headless installs — both drive
   identical step IDs. `allbert onboard` is upgraded from the shipped `admin
   onboarding` summary read into this wizard entry point (Decision 7).
-- **Official CLI modes (Decisions 9-11).** `allbert onboard` resumes active
-  onboarding or starts with the track chooser; `--quickstart` and `--advanced`
-  select the track; `--reset` requires confirmation and clears only
-  onboarding/profile marker state; `--non-interactive --accept-risk` is
-  automation-only, accepts only explicit flags/input refs, never prompts, and
-  refuses missing required inputs.
+- **Official CLI modes (Decisions 7, 9-11).** `allbert onboard` is a **new
+  top-level verb** (an `@operator` entry + an `Areas.Onboarding` OptionParser
+  dispatcher, off the current flag-dropping `{:read}` disposition). It resumes
+  active onboarding or starts with the track chooser; `--quickstart`/`--advanced`
+  select the track; confirmed `--reset` clears **both** persistence stores (the
+  `<Home>/onboarding.json` marker and the in-flight objective) and nothing else;
+  `--non-interactive` suppresses prompts and `--authorize` (rename of
+  `--accept-risk`) pre-authorizes the confirmation-gated steps (install/pull/
+  persona-apply) **through the confirmation approve path** — a durable, traced
+  operator authorization, never a floor bypass. Automation refuses on missing
+  required input.
 - **Operator readiness copy (Decision 12).** Web and terminal surfaces render
   `Ready`, `Needs model`, `Needs credentials`, `Needs runtime`, or `Needs review`
   plus one next action. Raw first-model probe atoms are allowed in traces/tests,
