@@ -4,8 +4,8 @@ defmodule AllbertAssist.OnboardingTest do
   alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.Objectives
   alias AllbertAssist.Onboarding
-  alias AllbertAssist.Personas
   alias AllbertAssist.Paths
+  alias AllbertAssist.Personas
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
 

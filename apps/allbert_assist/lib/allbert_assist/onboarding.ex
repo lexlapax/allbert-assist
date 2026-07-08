@@ -332,6 +332,15 @@ defmodule AllbertAssist.Onboarding do
   """
   @spec safe_first_model_state() :: FirstRun.model_state()
   def safe_first_model_state do
+    # M7.7: an injectable override (set only in the test/gate env) keeps `release.v063`
+    # hermetic — no live localhost Ollama probe decides a wizard render there.
+    case Application.get_env(:allbert_assist, :first_model_state_override) do
+      state when is_atom(state) and not is_nil(state) -> state
+      _none -> guarded_first_model_state()
+    end
+  end
+
+  defp guarded_first_model_state do
     FirstRun.first_model_state()
   rescue
     _error -> :runtime_missing

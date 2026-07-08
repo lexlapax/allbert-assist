@@ -199,7 +199,7 @@ defmodule AllbertAssist.CLI.Areas.OnboardingTest do
       assert msg =~ "Authorized and applied"
 
       assert AllbertAssist.Settings.get("coding.default_approval_mode") == {:ok, "plan"}
-      assert AllbertAssist.CLI.FirstRun.read_marker()["applied_persona"] == "developer"
+      assert FirstRun.read_marker()["applied_persona"] == "developer"
     end
 
     test "--accept-risk --yes warns but routes to the same durable approval path",

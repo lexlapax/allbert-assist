@@ -6053,7 +6053,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       scenario: "A raw provider credential appears in wizard output, log, or trace",
       boundary: :secret_metadata,
       expected: :allowed,
-      assert: [:credential_stored_masked, :no_raw_secret_in_response],
+      assert: [:credential_stored_masked, :no_raw_secret_in_response, :no_secret_in_log],
       test_module: "AllbertAssist.Onboarding.SecurityEvalTest"
     },
     %{

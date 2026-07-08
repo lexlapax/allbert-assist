@@ -62,6 +62,12 @@ config :allbert_assist, AllbertAssist.Repo,
   busy_timeout: 15_000,
   pool: Ecto.Adapters.SQL.Sandbox
 
+# v0.63 M7.7: keep the test suite (and `release.v063`) hermetic — no live localhost
+# Ollama probe decides an onboarding readiness render. Tests that need a specific
+# first-model state inject it via `readiness_label(first_model_state: …)` /
+# `FirstRun.first_model_state(ollama_probe: …)`, which bypass this default.
+config :allbert_assist, first_model_state_override: :runtime_missing
+
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
 config :allbert_assist_web, AllbertAssistWeb.Endpoint,

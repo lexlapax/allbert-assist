@@ -6,6 +6,9 @@ defmodule AllbertAssistWeb.Workspace.FirstRunTest do
   """
   use ExUnit.Case, async: true
 
+  # v0.63 M7.7: part of the web onboarding coverage `release.v063` runs.
+  @moduletag :onboarding_wizard
+
   alias AllbertAssistWeb.Workspace.FirstRun, as: WorkspaceFirstRun
 
   test "auto-opens while onboarding is incomplete or profile is unreviewed" do

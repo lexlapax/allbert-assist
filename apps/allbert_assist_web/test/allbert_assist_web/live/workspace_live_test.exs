@@ -732,6 +732,8 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   end
 
   describe "v0.63 M5 guided wizard panel" do
+    @describetag :onboarding_wizard
+
     setup do
       # Snapshot + restore the Home onboarding marker so wizard mutations in these
       # tests never leak into the seeded (already-onboarded) suite baseline.
@@ -756,8 +758,11 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
       assert readiness_html =~ ~r/Ready|Needs (model|runtime|review|credentials)/
 
+      # No raw first-model *probe* atom may appear (the mapped readiness label may ride
+      # in the `data-readiness` machine attribute — that is a test/CSS hook, not operator
+      # text, per the Readiness Label Mapping Contract's "atoms for traces/tests only").
       for atom <- ~w(local_ready byok_ready runtime_missing runtime_unhealthy
-                     model_missing below_hardware_floor needs_runtime needs_model) do
+                     model_missing below_hardware_floor) do
         refute readiness_html =~ atom
       end
     end

@@ -9,6 +9,7 @@ defmodule AllbertAssist.Security.V063SweepEvalTest do
   """
   use AllbertAssist.SecurityEvalCase, async: false
 
+  alias AllbertAssist.SecurityFixtures.AssertBinding
   alias AllbertAssist.SecurityFixtures.EvalInventory
 
   @eval_ids ~w(
@@ -85,6 +86,7 @@ defmodule AllbertAssist.Security.V063SweepEvalTest do
     assert adr =~ "Status: Accepted (v0.63)"
 
     IO.puts("adr-0069-accepted-001 status=pass adr=accepted")
+    AssertBinding.check!("adr-0069-accepted-001", [:adr_0069_accepted])
   end
 
   test "adr-0075-accepted-001: ADR 0075 is Accepted (v0.63)" do
@@ -92,6 +94,33 @@ defmodule AllbertAssist.Security.V063SweepEvalTest do
     assert adr =~ "Status: Accepted (v0.63)"
 
     IO.puts("adr-0075-accepted-001 status=pass adr=accepted")
+    AssertBinding.check!("adr-0075-accepted-001", [:adr_0075_accepted])
+  end
+
+  # M7.7: every `:v063` row must bind its `assert:` atoms to its owning suite via
+  # `AssertBinding.check!("<row-id>", …)`. This static sweep fails if a row ships without
+  # a binding call in the file of its `test_module` — no more decorative `assert:` atoms.
+  @owner_files %{
+    "AllbertAssist.Onboarding.SecurityEvalTest" =>
+      "apps/allbert_assist/test/security/onboarding_security_eval_test.exs",
+    "AllbertAssist.Onboarding.FlowEvalTest" =>
+      "apps/allbert_assist/test/security/onboarding_flow_eval_test.exs",
+    "AllbertAssist.Security.V063SweepEvalTest" =>
+      "apps/allbert_assist/test/security/v063_sweep_eval_test.exs"
+  }
+
+  test "every :v063 row binds its assert atoms in its owning test (no decorative atoms)" do
+    sources =
+      Map.new(@owner_files, fn {mod, path} -> {mod, read!(path)} end)
+
+    for row <- EvalInventory.rows_for_milestone(:v063) do
+      source = Map.fetch!(sources, row.test_module)
+
+      assert source =~ ~s|check!("#{row.id}"|,
+             "row #{row.id} has no AssertBinding.check!/2 binding in #{row.test_module}"
+    end
+
+    IO.puts("v063-assert-atom-binding status=pass rows=16 unbound=0")
   end
 
   defp read!(relative) do

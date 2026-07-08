@@ -4533,9 +4533,28 @@ defmodule Mix.Tasks.Allbert.Test do
         "test/allbert_assist/actions/registry_test.exs"
       ],
       coverage: [
-        "no-authority-from-personas, no-secret-leak, safe-write-only, explicit review",
-        "shared step IDs, operator readiness copy, trust spine, QuickStart no-dead-end",
-        "ADR 0069 + 0075 Accepted; the :v063 row set is complete, shaped, and routed"
+        "no-authority-from-personas, no-secret-leak (log+response), safe-write-only, explicit review",
+        "shared step IDs (both surfaces), operator readiness copy, trust spine, QuickStart no-dead-end",
+        "env-tier write rejected, provider switch is settings-write, approve->applied round-trip",
+        "ADR 0069 + 0075 Accepted; the :v063 row set is complete/shaped/routed and every row's assert atoms are bound"
+      ]
+    },
+    %{
+      id: "v063_web_onboarding",
+      title: "the web onboarding wizard drives M1–M4 + auto-open (LiveView)",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist_web/test/allbert_assist_web/workspace/first_run_test.exs",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs",
+        "--only",
+        "onboarding_wizard"
+      ],
+      coverage: [
+        "the web wizard renders real M3 masked entry + M4 review diff + first-chat prompts",
+        "no legacy objective panel; auto-open decision; the trust spine is surfaced on web",
+        "closes the audit gap: the web half of the shared wizard is now inside the gate"
       ]
     },
     %{
@@ -4570,9 +4589,9 @@ defmodule Mix.Tasks.Allbert.Test do
       database_path: database,
       evidence_dir: evidence_dir,
       external_network:
-        "disabled; deterministic shared-wizard/provider-step/persona/dispatcher proofs, onboarding eval rows, and docs-gate checks run against local files and injected transports only",
+        "disabled; deterministic shared-wizard/provider-step/persona/dispatcher proofs, onboarding eval rows, web wizard LiveView tests, and docs-gate checks run against local files and injected transports only — the first-model probe is overridden in the test env (:first_model_state_override), so no localhost Ollama probe runs",
       notes:
-        "v0.63 Guided Onboarding & Profiles builds one shared wizard over web + terminal, a seed-only persona system, and a first-run trust spine — all over the existing runtime/action/settings spine, granting no new authority. The web wizard LiveView suite runs in the allbert_assist_web app and is validated separately; this core gate proves the shared machine, personas, terminal dispatcher, and the :v063 security/flow eval rows.",
+        "v0.63 Guided Onboarding & Profiles builds one shared wizard over web + terminal, a seed-only persona system, and a first-run trust spine — all over the existing runtime/action/settings spine, granting no new authority. M7.7: the gate now also runs the web onboarding wizard LiveView tests (v063_web_onboarding step), every :v063 row binds its assert atoms to its owning test, and the gate is hermetic. This core gate proves the shared machine, personas, terminal + web surfaces, and the :v063 security/flow eval rows.",
       steps: results
     }
 
