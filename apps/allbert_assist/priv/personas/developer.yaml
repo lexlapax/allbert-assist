@@ -1,0 +1,42 @@
+# v0.63 M4 persona catalog — seed-only preset (ADR 0075 / persona-model.md).
+persona_id: developer
+label: Developer
+settings_seeds:
+  operator.communication_style: concise
+  operator.handoff_detail: concrete_next_steps
+  model_preferences.primary: local
+  coding.default_approval_mode: plan
+  coding.model_profile: pi_coding_local
+  coding.read.default_limit: 4000
+  coding.search.max_results: 200
+  coding.search.max_output_bytes: 240000
+  model_preferences.tasks.coding:
+    - pi_coding_local
+    - coding_local
+    - coding
+    - capable
+    - local
+  objectives.enabled: true
+  objectives.max_steps_per_turn: 5
+  objectives.max_loop_count: 8
+  objectives.trace_detail: operator
+suggested_apps:
+  - github
+  - notes
+  - tui
+  - plan
+suggested_channels:
+  - github
+suggested_intents:
+  - read
+  - plan
+  - code_review
+  - remember
+model_purpose_map:
+  summary: >-
+    Pi-mode coding profile recommended after review; local/private preferred,
+    hosted coding only after source-code egress opt-in.
+  hosted_egress_warning: true
+first_chat_prompts:
+  - Read this repo and propose the smallest safe fix.
+  - Review this change for regressions.

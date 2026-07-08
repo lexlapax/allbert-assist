@@ -192,6 +192,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Settings.ListProviderProfiles
   alias AllbertAssist.Actions.Settings.ListSettings
   alias AllbertAssist.Actions.Settings.MigrateSecrets
+  alias AllbertAssist.Actions.Settings.ApplyPersonaProfile
   alias AllbertAssist.Actions.Settings.ModelDoctor, as: SettingsModelDoctor
   alias AllbertAssist.Actions.Settings.ReadSetting
   alias AllbertAssist.Actions.Settings.ResolvedSettingsSnapshot
@@ -447,6 +448,9 @@ defmodule AllbertAssist.Actions.Registry do
     # actions in the packaging-no-authority-change allowance.
     VaultStatus,
     MigrateSecrets,
+    # v0.63 M4: apply a reviewed persona preset (settings_write, confirmed).
+    # Setup-time internal action; kept off the general agent surface.
+    ApplyPersonaProfile,
     ManageTile,
     RevertTileRevision,
     RecordOfflineUpdate,

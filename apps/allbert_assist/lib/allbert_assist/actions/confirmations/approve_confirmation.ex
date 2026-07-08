@@ -103,6 +103,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     install_ollama
     pull_model
     service_control
+    apply_persona_profile
   ]
 
   @impl true

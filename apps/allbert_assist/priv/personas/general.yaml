@@ -1,0 +1,32 @@
+# v0.63 M4 persona catalog — seed-only preset (ADR 0075 / persona-model.md).
+# settings_seeds write ONLY existing @safe_write_keys after review/confirm.
+# suggested_* and model_purpose_map are UI highlights / advice, never writes.
+persona_id: general
+label: General
+settings_seeds:
+  operator.communication_style: balanced
+  operator.handoff_detail: concrete_next_steps
+  model_preferences.primary: local
+  objectives.enabled: true
+  objectives.max_steps_per_turn: 3
+  objectives.max_loop_count: 5
+  objectives.trace_detail: operator
+suggested_apps:
+  - workspace
+  - models
+  - settings
+  - tui
+suggested_channels: []
+suggested_intents:
+  - direct_answer
+  - remember
+  - recall
+  - objectives
+model_purpose_map:
+  summary: >-
+    Main conversational loop local-first; ADR 0072 defaults unless the operator
+    chooses hosted.
+  hosted_egress_warning: false
+first_chat_prompts:
+  - Help me understand what Allbert can do locally.
+  - Summarize my current setup.

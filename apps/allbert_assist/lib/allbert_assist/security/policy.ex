@@ -407,6 +407,13 @@ defmodule AllbertAssist.Security.Policy do
   def safety_floor(:settings_write, %{action: %{name: "migrate_secrets"}}),
     do: :needs_confirmation
 
+  # v0.63 M4: applying a persona seeds Settings Central and is confirmation-gated
+  # even though the settings_write class defaults to :allowed — the operator reviews
+  # the seed diff and approves it explicitly (apply_persona_profile's `confirmation:
+  # :required` contract). Other settings writes stay :allowed (line below).
+  def safety_floor(:settings_write, %{action: %{name: "apply_persona_profile"}}),
+    do: :needs_confirmation
+
   def safety_floor(permission, _context) when permission in @known_permissions, do: :allowed
   def safety_floor(_permission, _context), do: :denied
 

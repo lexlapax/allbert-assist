@@ -1,0 +1,33 @@
+# v0.63 M4 persona catalog — seed-only preset (ADR 0075 / persona-model.md).
+persona_id: writer
+label: Writer
+settings_seeds:
+  operator.communication_style: detailed
+  operator.handoff_detail: full_context
+  model_preferences.primary: local
+  active_memory.enabled: true
+  active_memory.top_k: 6
+  active_memory.chunk_max_bytes: 4096
+  objectives.enabled: true
+  objectives.max_steps_per_turn: 4
+  objectives.max_loop_count: 6
+  objectives.trace_detail: operator
+suggested_apps:
+  - notes
+  - mail
+  - models
+suggested_channels:
+  - mail
+suggested_intents:
+  - draft
+  - revise
+  - outline
+  - summarize
+model_purpose_map:
+  summary: >-
+    Main loop capable; advisory critics optional; image generation remains
+    provider-confirmed.
+  hosted_egress_warning: false
+first_chat_prompts:
+  - Turn these rough notes into an outline.
+  - Rewrite this with a clearer voice.

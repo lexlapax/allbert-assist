@@ -1,0 +1,37 @@
+# v0.63 M4 persona catalog — seed-only preset (ADR 0075 / persona-model.md).
+persona_id: ops
+label: Ops
+settings_seeds:
+  operator.communication_style: concise
+  operator.handoff_detail: brief
+  model_preferences.primary: local
+  runtime.diagnostics_verbosity: verbose
+  objectives.enabled: true
+  objectives.max_steps_per_turn: 5
+  objectives.max_loop_count: 8
+  objectives.trace_detail: debug
+  intent.router_model_profile: router_local
+  intent.router_escalation_profile: router_escalation_local
+suggested_apps:
+  - jobs
+  - objectives
+  - calendar
+  - mail
+  - github
+suggested_channels:
+  - mail
+  - calendar
+  - github
+suggested_intents:
+  - status
+  - doctor
+  - triage
+  - monitor
+model_purpose_map:
+  summary: >-
+    Fast local model for status/triage, escalation profile for complex
+    incidents, hosted only by explicit egress opt-in.
+  hosted_egress_warning: true
+first_chat_prompts:
+  - Give me an operator status brief.
+  - Triage these pending jobs and blockers.

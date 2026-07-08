@@ -6,6 +6,7 @@ defmodule AllbertAssist.Application do
   use Application
 
   alias AllbertAssist.Database
+  alias AllbertAssist.Personas
   alias AllbertAssist.Runtime.Attach
   alias AllbertAssist.Runtime.WriterLock.Holder, as: WriterLockHolder
   alias AllbertAssist.Settings.ProviderCatalog
@@ -16,6 +17,9 @@ defmodule AllbertAssist.Application do
   def start(_type, _args) do
     maybe_bootstrap_workspace_signing_secret!()
     ProviderCatalog.configure_jido_model_aliases!()
+    # v0.63 M4: fail fast on a bad persona catalog (unknown envelope key or a
+    # settings_seed that is not a live safe-write key) rather than at apply time.
+    Personas.validate!()
     Database.migrate_before_supervision!()
 
     children =

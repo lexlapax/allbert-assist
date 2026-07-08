@@ -1,0 +1,38 @@
+# v0.63 M4 persona catalog — seed-only preset (ADR 0075 / persona-model.md).
+persona_id: researcher
+label: Researcher
+settings_seeds:
+  operator.communication_style: detailed
+  operator.handoff_detail: full_context
+  model_preferences.primary: local
+  active_memory.enabled: true
+  active_memory.top_k: 8
+  active_memory.chunk_max_bytes: 4096
+  intent.router_embedding_profile: embedding_local
+  intent.router_model_profile: router_local
+  intent.router_escalation_profile: router_escalation_local
+  objectives.enabled: true
+  objectives.max_steps_per_turn: 6
+  objectives.max_loop_count: 8
+  objectives.trace_detail: operator
+suggested_apps:
+  - notes
+  - resources
+  - mail
+  - calendar
+suggested_channels:
+  - mail
+  - calendar
+suggested_intents:
+  - summarize
+  - extract
+  - compare
+  - remember
+model_purpose_map:
+  summary: >-
+    Local embeddings recommended after review; main loop capable or thinking;
+    hosted research only by explicit egress opt-in.
+  hosted_egress_warning: true
+first_chat_prompts:
+  - Summarize these notes into claims and open questions.
+  - Compare two sources and list evidence.
