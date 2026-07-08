@@ -18,9 +18,11 @@ kind of user am I." Every operator must discover, one setting at a time, which
 apps, channels, intents, and model defaults make sense for their work.
 
 The 2026 competitive bar is **opinionated presets over raw config** — Claude
-Desktop's effort toggle, OpenClaw's QuickStart defaults, Msty's personas. Hiding
-a settings matrix behind one human-readable choice is now expected, especially
-for the technical-prosumer audience who wants polish without a config tour.
+Desktop's effort toggle, OpenClaw's QuickStart defaults, Msty's personas, and
+Hermes Agent's `SOUL.md` behaviour persona. Hiding a settings matrix behind one
+human-readable choice is now expected, especially for the technical-prosumer
+audience who wants polish without a config tour. Allbert adopts the easy preset
+UX, but deliberately rejects behaviour-persona authority creep.
 
 Allbert has the substrate (Settings Central, the app/channel/intent catalogs, the
 ADR 0072 recommendation matrix) but no preset layer that turns "I am a
@@ -79,7 +81,7 @@ application model, and v0.63 handoff.
 
 ## v0.63 Build Decisions (resolved for implementation)
 
-Ratified in the v0.63 plan's Locked Decisions (2026-07-07):
+Ratified in the v0.63 plan's Locked Decisions (2026-07-07/2026-07-08):
 
 - **Storage = declarative `priv/` catalog (Decision 2).** Each persona is a
   reviewed `priv/personas/<persona_id>.{yaml|json}` file carrying the 8-field seed
@@ -99,25 +101,26 @@ Ratified in the v0.63 plan's Locked Decisions (2026-07-07):
 - **Persona ≠ system prompt (Decision 8).** A persona is a **seed-only settings
   profile**, explicitly not a `SOUL.md`-style system-prompt/behaviour persona (the
   competitor pattern). It changes starting *configuration*, never runtime behaviour
-  or authority — the deliberate trust-preserving contrast with OpenClaw/Msty-style
-  personas cited in Context.
+  or authority — the deliberate trust-preserving contrast with OpenClaw/Msty/Hermes
+  Agent-style personas cited in Context.
 - **Exact per-persona seed values** (all seed only existing safe-write keys; enums
   per `docs/design/persona-model.md` pre-audit). Suggested apps/channels/intents and
   `model_purpose_map` are UI/advice only (post-first-chat), never QuickStart model
   pulls:
 
-  | persona | `operator.communication_style` | `operator.handoff_detail` | Other seeded safe-write keys | Advice (post-first-chat) |
-  |---|---|---|---|---|
-  | `general` | `balanced` | `concrete_next_steps` | `model_preferences.primary`=local default | Workspace/Models/Settings/TUI; direct answer, memory, objectives |
-  | `researcher` | `detailed` | `full_context` | `active_memory.enabled=true` (+ tuned `top_k`); `intent.router_embedding_profile` emphasis | Local embeddings + `:capable`/`:thinking` main loop after egress review |
-  | `developer` | `concise` | (unchanged) | `coding.default_approval_mode`=conservative; `coding.model_profile` / `model_preferences.tasks.coding` after source-egress review | GitHub, Pi-mode; plan/read/grep/review intents |
-  | `writer` | `detailed` | `full_context` | `active_memory` tuning after review | Notes/mail; draft/revise/outline; image-gen provider-confirmed |
-  | `ops` | `concise` | (unchanged) | `runtime.diagnostics_verbosity=verbose`; `objectives.trace_detail=debug` | Jobs/Objectives; status/doctor/triage |
+  | persona | Exact Settings Central writes after review/confirm |
+  |---|---|
+  | `general` | `operator.communication_style=balanced`; `operator.handoff_detail=concrete_next_steps`; `model_preferences.primary=local`; `objectives.enabled=true`; `objectives.max_steps_per_turn=3`; `objectives.max_loop_count=5`; `objectives.trace_detail=operator` |
+  | `researcher` | `operator.communication_style=detailed`; `operator.handoff_detail=full_context`; `model_preferences.primary=local`; `active_memory.enabled=true`; `active_memory.top_k=8`; `active_memory.chunk_max_bytes=4096`; `intent.router_embedding_profile=embedding_local`; `intent.router_model_profile=router_local`; `intent.router_escalation_profile=router_escalation_local`; `objectives.enabled=true`; `objectives.max_steps_per_turn=6`; `objectives.max_loop_count=8`; `objectives.trace_detail=operator` |
+  | `developer` | `operator.communication_style=concise`; `operator.handoff_detail=concrete_next_steps`; `model_preferences.primary=local`; `coding.default_approval_mode=plan`; `coding.model_profile=pi_coding_local`; `coding.read.default_limit=4000`; `coding.search.max_results=200`; `coding.search.max_output_bytes=240000`; `model_preferences.tasks.coding=["pi_coding_local","coding_local","coding","capable","local"]`; `objectives.enabled=true`; `objectives.max_steps_per_turn=5`; `objectives.max_loop_count=8`; `objectives.trace_detail=operator` |
+  | `writer` | `operator.communication_style=detailed`; `operator.handoff_detail=full_context`; `model_preferences.primary=local`; `active_memory.enabled=true`; `active_memory.top_k=6`; `active_memory.chunk_max_bytes=4096`; `objectives.enabled=true`; `objectives.max_steps_per_turn=4`; `objectives.max_loop_count=6`; `objectives.trace_detail=operator` |
+  | `ops` | `operator.communication_style=concise`; `operator.handoff_detail=brief`; `model_preferences.primary=local`; `runtime.diagnostics_verbosity=verbose`; `objectives.enabled=true`; `objectives.max_steps_per_turn=5`; `objectives.max_loop_count=8`; `objectives.trace_detail=debug`; `intent.router_model_profile=router_local`; `intent.router_escalation_profile=router_escalation_local` |
 
-  Objective defaults are seeded only via existing `objectives.*` safe-write keys with
-  pinned values (no fuzzy "objective defaults"). Any candidate not already a
-  safe-write key is a schema decision surfaced in the v0.63 plan's Settings Keys
-  section, never a silent write.
+  Suggested apps/channels/intents and `model_purpose_map` are UI/advice only
+  (post-first-chat), never QuickStart model pulls or Settings writes. Hosted-egress
+  warnings are review copy attached to relevant advice; they are not settings.
+  Any candidate not already a safe-write key is a schema decision surfaced in the
+  v0.63 plan's Settings Keys section, never a silent write.
 
 This ADR is Accepted at v0.63 (asserted by the plan's `adr-0075-accepted-001` eval
 row).

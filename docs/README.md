@@ -22,39 +22,29 @@ For contributors:
 
 ## Current Release
 
-- [v0.61b plan](plans/v0.61b-plan.md)
-- [v0.61b request flow](plans/v0.61b-request-flow.md)
-- [v0.61 plan](plans/v0.61-plan.md)
-- [v0.61 request flow](plans/v0.61-request-flow.md)
-- [Surface contract](developer/surface-contract.md)
-- [Web design system](developer/web-design-system.md)
+- [v0.62 plan](plans/v0.62-plan.md)
+- [v0.62 request flow](plans/v0.62-request-flow.md)
+- [v0.63 plan](plans/v0.63-plan.md)
+- [v0.63 request flow](plans/v0.63-request-flow.md)
+- [v0.64 plan](plans/v0.64-plan.md)
+- [v0.64 request flow](plans/v0.64-request-flow.md)
+- [Operator onboarding](operator/onboarding.md)
 - [Operator workspace guide](operator/workspace.md)
 
-The current release is `v0.61.0` (Presentation Layer Overhaul): the v0.60 IA
-implemented in the operator-chosen Layout D (Sidebar-primary), dressed in the
-v0.60b-chosen Direction C (Soft Modern Depth) visual language, with brand, motion,
-visual hierarchy, landing, and dark-mode polish; `release.v061` is green and the
-tag `v0.61.0` is applied (it shipped with version metadata `0.61.0`). In flight is
-**v0.61b** (built after M9.1-M9.4 audit remediation, awaiting operator
-validation; version metadata reports `0.61.1`, tagged `v0.61.1`): a UX-refinement point
-release that
-implements the operator's v0.61 manual-validation feedback — navigation
-consolidation (one sidebar, replace-and-restore docked tool pane, no top bars,
-collapsible rail with eight top-level rail pills, Workspace flyout, and Intents
-as a Workspace destination; ADR 0080) plus chat type-scale, status-chip
-labeling, renamable threads, and a subtler dark mode. Pane width
-reuses `WorkspaceSplitResizer`, sidebar collapse uses client-local `LayoutPrefs`,
-and the v0.61 proof suite is reconciled only where M3/M5 intentionally change old
-literal token values or pre-M5 nav structure. The remaining pre-1.0 arc is v0.62
-packaging/entry points, v0.63 guided
-onboarding/profiles, and v0.64 product RC; see the [plans index](plans/README.md)
-and [roadmap](plans/roadmap.md). The v0.60/v0.60b design artifacts live under
-`docs/design/` (including `visual-directions/` rendered captures); v0.61 adds the
-committed sanitized layout screenshot record under `docs/design/layout-systems/`
-and the committed brand candidate/selected rendering record under
-`docs/design/brand/`; v0.61b records the consolidated-shell spec and S2 sign-off
-inside the v0.61b plan rather than adding a separate design artifact. The
-plan/request-flow docs retain the validation evidence and release handoff.
+The current shipped source/docs release is `v0.62.1` (Distribution Closeout &
+Reusable Release Ops), tagged `v0.62.1` on 2026-07-07. The packaged product
+release remains `v0.62.0`, which is the GitHub Latest artifact set used by
+installers and Homebrew. The active implementation plan is **v0.63 Guided
+Onboarding & Profiles**: it makes first-run onboarding an operator-facing web and
+terminal wizard over the v0.62 packaged entry points, officializes
+`allbert onboard --quickstart` / `--advanced`, applies reviewed user-category
+profile writes, and feeds into the v0.64 product RC.
+
+The v0.60/v0.60b design artifacts live under `docs/design/`; v0.61/v0.61b record
+the web shell and presentation work; v0.62 records packaging, first-model path,
+and three-tier vault; v0.63 plans the guided onboarding/profile implementation.
+For release-specific validation, use the matching request-flow document rather
+than this index.
 
 ## Directory Map
 

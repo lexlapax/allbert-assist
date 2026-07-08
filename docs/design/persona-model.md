@@ -102,16 +102,16 @@ runtime behavior.
 | `active_memory.enabled`, `active_memory.top_k`, `active_memory.chunk_max_bytes` | Existing safe-write active-memory tuning keys. | Researcher/writer personas may propose memory tuning after explicit review. |
 | `runtime.diagnostics_verbosity` | Existing safe-write enum: `quiet`, `normal`, `verbose`. | Ops persona may propose verbosity, without enabling new authority. |
 | `objectives.trace_detail` | Existing safe-write enum: `operator`, `debug`. | Ops persona may propose trace detail, without changing objective authority. |
-| Objective defaults | Partly covered by existing `objectives.*` keys. | v0.63 must pick exact keys and values; no fuzzy "objective defaults" seed writes. |
+| Objective defaults | Partly covered by existing `objectives.*` keys. | v0.63 pins exact `objectives.*` keys and values in the plan/ADR; no fuzzy "objective defaults" seed writes. |
 | Suggested apps/channels/intents | Not Settings writes by themselves. | Keep as UI suggestions until the operator configures apps/channels/intents through existing confirmations. |
 
-Open v0.63 decisions: exact seeded values, per-persona default/opt-out behavior,
-whether any active-memory or objective defaults are proposed in QuickStart, and
-the review diff copy for hosted-egress/model-profile warnings. Any key not named
-as an existing safe-write key above must be treated as a v0.63 schema/design
-decision before implementation.
+Resolved v0.63 decisions: exact seeded values, per-persona default/opt-out
+behavior, active-memory/objective defaults, and hosted-egress/model-profile
+warning posture are pinned in the v0.63 plan and ADR 0075. Any key not named as
+an existing safe-write key above must be treated as a v0.63 schema/design decision
+before implementation.
 
-**Resolved in v0.63 (2026-07-07):** the exact per-persona seeded values, the
+**Resolved in v0.63 (2026-07-08):** the exact per-persona seeded values, the
 seed-only apply model, and the safe-write-key-only constraint are pinned in
 `docs/adr/0075-user-category-settings-profiles.md` (§v0.63 Build Decisions) and
 the v0.63 plan (§Settings Central Keys, §M4). Personas seed only existing
@@ -128,7 +128,8 @@ Before applying a persona, v0.63 must show a review diff with:
   as post-first-chat seed recommendations rather than QuickStart model-pull
   requirements.
 - Secrets or provider keys required later, all marked as not yet stored unless
-  the operator enters them through the OS vault path.
+  the operator enters them through OS vault or encrypted-store fallback; env
+  entries are marked read-only and operator-provided.
 - Permission statement: no capability, egress, filesystem, channel, MCP,
   package-install, or confirmation-decision authority is granted by the persona.
 

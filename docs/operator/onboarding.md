@@ -12,14 +12,8 @@ Read these first:
 - `CHANGELOG.md` for release status, safety notes, verification summary, and
   expected tag.
 - `docs/plans/roadmap.md` for version sequencing.
-- `docs/plans/v0.37-plan.md` and `docs/plans/v0.37-request-flow.md` for the
-  current dynamic capability integration implementation contract.
-- `docs/plans/v0.36-plan.md` and `docs/plans/v0.36-request-flow.md` for the
-  sandbox and gate-runner prerequisite.
-- `docs/operator/sandbox-gate-runner.md` when testing risky generated
-  Elixir/OTP draft execution.
-- `docs/operator/dynamic-capability-integration.md` when reviewing generated
-  draft evidence, live integration, rollback, or emergency disablement.
+- `docs/plans/v0.63-plan.md` and `docs/plans/v0.63-request-flow.md` for the
+  active guided-onboarding/profile implementation contract.
 
 ## First Local Run
 
@@ -51,7 +45,47 @@ mix allbert.security status
 mix allbert.confirmations list
 ```
 
-## v0.39 First-Run Onboarding
+## v0.63 Planned Operator Onboarding
+
+v0.63 replaces the old command-sequencing onboarding objective with a guided web
+and terminal wizard over the packaged `allbert` entry points. Until v0.63 lands,
+the exact commands below are the implementation contract in the v0.63 plan, not
+shipped behavior.
+
+Operator UX requirements:
+
+- `allbert serve` starts the runtime and the web wizard auto-opens on first run.
+- `allbert onboard` resumes active onboarding or starts with a QuickStart/Advanced
+  chooser.
+- `allbert onboard --quickstart` takes the fastest safe path to first chat.
+- `allbert onboard --advanced` exposes provider, model, profile, and optional
+  integration choices up front.
+- `allbert onboard --reset` requires confirmation and clears only onboarding and
+  profile marker state; it must preserve Home data, settings, secrets, traces,
+  memory, and caches.
+- `allbert onboard --non-interactive --accept-risk` is automation-only: it accepts
+  explicit flags/input refs, never prompts, and refuses missing required inputs.
+
+The wizard should speak in operator readiness language, not internal probe names:
+`Ready`, `Needs model`, `Needs credentials`, `Needs runtime`, and `Needs review`.
+Every repair screen should show one next action.
+
+Profile application writes Settings Central keys after review/confirm. The shipped
+profiles are `general`, `researcher`, `developer`, `writer`, and `ops`; exact
+writes live in `docs/plans/v0.63-plan.md` and
+`docs/adr/0075-user-category-settings-profiles.md`. Profiles are seed-only
+defaults and suggestions. They do not grant authority, connect channels, store
+secrets, lower confirmation floors, or change runtime behavior by themselves.
+
+Credential entry stores new secrets as Settings `*_ref` pointers in OS vault or
+encrypted-store fallback. Env-provided secrets are valid read-only inputs: the
+wizard can detect and verify them, but does not write to env.
+
+## Historical v0.39 First-Run Onboarding
+
+This section describes the older source-checkout onboarding objective. It remains
+useful for historical troubleshooting before v0.63 lands, but it is not the
+operator UX target for v0.63 or later.
 
 `docs/plans/v0.39-plan.md` promotes first-run onboarding and provider/model
 control into the 1.0 arc, split across two sub-milestones:

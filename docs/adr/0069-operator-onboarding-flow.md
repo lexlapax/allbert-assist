@@ -51,18 +51,23 @@ flow:
 - **Interactive CLI/TUI** (ADR 0067): a genuinely interactive terminal wizard —
   prompts and verifies in place, not copy-paste shell commands.
 
-The wizard is **two-track**:
+The wizard is **two-track** and operator-first:
 
 - **QuickStart** — sensible defaults, the fewest decisions, and a **"fastest first
   chat"** path that skips channel/integration setup and gets to a working
   conversation immediately.
 - **Advanced** — full control over provider, model, channels, and profile.
+- Operator-facing readiness is expressed as `Ready`, `Needs model`,
+  `Needs credentials`, `Needs runtime`, and `Needs review`, each with one next
+  action. Internal probe atoms remain diagnostic details, not first-run copy.
 
 It covers, with opinionated defaults at each step:
 
 1. **Provider/model setup** as a first-class step — masked-key entry, **inline
    `doctor` verification**, local (Ollama) and hosted (OpenAI/Anthropic/
-   OpenRouter) options, switchable without editing config.
+   OpenRouter) options, switchable without editing config. New secrets write only
+   to OS vault or encrypted-store fallback; env-provided secrets are detected and
+   verified as read-only.
 2. **User-category profile selection** (ADR 0075): the operator picks a persona
    (researcher / developer / writer / ops / general) and the wizard applies the
    repo-maintained preset — seeding Settings Central defaults plus suggested apps,
@@ -93,8 +98,9 @@ the differentiator the autonomous-agent competitors cannot copy.
   authoritative flows the wizard drives.
 - **Credential UX uses the three-tier vault.** Masked-key entry writes through the
   v0.62 secret backend: Settings Central stores `*_ref` references and the secret
-  value lands in the resolved tier (OS vault → encrypted-store fallback → env). The
-  wizard surfaces which tier it landed in as a trust feature.
+  value lands in a writable tier (OS vault → encrypted-store fallback). Env
+  secrets remain valid read-only inputs supplied outside Allbert. The wizard
+  surfaces the tier as a trust feature.
 - **Depends on the v0.60→v0.63 arc and ADR 0075.** The wizard builds on the
   v0.60 onboarding/IA design (ADR 0077), the v0.61 Presentation Layer Overhaul
   affordances (empty states, suggested actions) the web wizard renders through,
@@ -118,7 +124,7 @@ pre-existing model. Because assisted-local **shipped as real code in v0.62 M4**
 
 ## v0.63 Build Decisions (resolved for implementation)
 
-Ratified in the v0.63 plan's Locked Decisions (2026-07-07):
+Ratified in the v0.63 plan's Locked Decisions (2026-07-07/2026-07-08):
 
 - **One shared state machine (Decision 1).** The existing command-sequencing
   onboarding wizard (`apps/allbert_assist/lib/allbert_assist/onboarding.ex`) is
@@ -134,6 +140,16 @@ Ratified in the v0.63 plan's Locked Decisions (2026-07-07):
   line-oriented `allbert onboard` prompt fallback for headless installs — both drive
   identical step IDs. `allbert onboard` is upgraded from the shipped `admin
   onboarding` summary read into this wizard entry point (Decision 7).
+- **Official CLI modes (Decisions 9-11).** `allbert onboard` resumes active
+  onboarding or starts with the track chooser; `--quickstart` and `--advanced`
+  select the track; `--reset` requires confirmation and clears only
+  onboarding/profile marker state; `--non-interactive --accept-risk` is
+  automation-only, accepts only explicit flags/input refs, never prompts, and
+  refuses missing required inputs.
+- **Operator readiness copy (Decision 12).** Web and terminal surfaces render
+  `Ready`, `Needs model`, `Needs credentials`, `Needs runtime`, or `Needs review`
+  plus one next action. Raw first-model probe atoms are allowed in traces/tests,
+  not in operator UX.
 - **Provider choices (Decision 6).** Named local (Ollama) + hosted
   (OpenAI/Anthropic/OpenRouter) providers **plus an OpenAI-compatible custom
   endpoint**; provider switching writes settings and edits no config file.
