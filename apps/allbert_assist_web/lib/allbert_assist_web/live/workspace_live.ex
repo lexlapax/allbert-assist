@@ -51,6 +51,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   alias AllbertAssistWeb.SignalBridge
   alias AllbertAssistWeb.Workspace.Components.Patterns
   alias AllbertAssistWeb.Workspace.Components.TileInspector
+  alias AllbertAssistWeb.Workspace.FirstRun, as: WorkspaceFirstRun
   alias AllbertAssistWeb.Workspace.Renderer, as: WorkspaceRenderer
   alias Jido.Signal
 
@@ -1322,9 +1323,22 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   defp resolve_canvas_destination(params) do
-    params
-    |> param("destination")
-    |> normalize_canvas_destination()
+    case param(params, "destination") do
+      # v0.63 M5: no explicit destination → auto-open the onboarding wizard while the
+      # operator has not completed onboarding (WorkspaceFirstRun gates the exact
+      # detect/0 states). Once complete it resolves to the normal default; an explicit
+      # destination always wins.
+      nil -> first_run_default_destination()
+      destination -> normalize_canvas_destination(destination)
+    end
+  end
+
+  defp first_run_default_destination do
+    if WorkspaceFirstRun.auto_open?() do
+      WorkspaceFirstRun.onboard_destination()
+    else
+      Layout.default_destination()
+    end
   end
 
   defp resolve_artifacts_browser_filters(params) do
@@ -1341,7 +1355,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     |> Map.new()
   end
 
-  defp normalize_canvas_destination(nil), do: Layout.default_destination()
+  # v0.63 M5: resolve_canvas_destination/1 now handles the absent-param (nil) case
+  # itself (first-run auto-open), so every caller here passes a binary destination.
   defp normalize_canvas_destination("output"), do: "output"
 
   defp normalize_canvas_destination("workspace:" <> tool) when tool in @workspace_tools do

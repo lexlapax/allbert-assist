@@ -11,6 +11,16 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
   alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
   alias AllbertAssistWeb.Workspace.Components.Patterns
 
+  # v0.63 M2/M5: operator readiness labels — the web surface never renders a raw
+  # internal probe/readiness atom (Readiness Label Mapping Contract).
+  @readiness_copy %{
+    ready: "Ready",
+    needs_model: "Needs model",
+    needs_runtime: "Needs runtime",
+    needs_review: "Needs review",
+    needs_credentials: "Needs credentials"
+  }
+
   @impl true
   def update(assigns, socket) do
     socket =
@@ -22,7 +32,38 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
     {:ok, refresh_state(socket)}
   end
 
+  # v0.63 M5: the shared M1 guided-wizard events. Both surfaces (web/terminal) drive
+  # identical step IDs; these call the M1 state machine directly (marker-backed, not
+  # a store write), then refresh.
   @impl true
+  def handle_event("wizard_start", %{"track" => track}, socket) do
+    OnboardingContext.wizard_start(wizard_track(track))
+    {:noreply, refresh_state(assign(socket, :onboarding_notice, "Wizard started."))}
+  end
+
+  def handle_event("wizard_advance", %{"step" => step}, socket) do
+    socket =
+      case OnboardingContext.wizard_advance(step) do
+        {:ok, _state} ->
+          assign(socket, onboarding_notice: "Step recorded: #{step}.", onboarding_error: nil)
+
+        {:error, {:not_current_step, current}} ->
+          assign(socket, onboarding_error: "That is not the current step (current: #{current}).")
+
+        {:error, {:unknown_step, unknown}} ->
+          assign(socket, onboarding_error: "Unknown step: #{unknown}.")
+      end
+
+    {:noreply, refresh_state(socket)}
+  end
+
+  def handle_event("wizard_reset", _params, socket) do
+    OnboardingContext.wizard_reset()
+
+    {:noreply,
+     refresh_state(assign(socket, onboarding_notice: "Onboarding reset.", onboarding_error: nil))}
+  end
+
   def handle_event("complete_step", %{"step-id" => step_id}, socket) do
     {:noreply, record_step(socket, step_id, "completed", "Workspace onboarding step completed.")}
   end
@@ -148,6 +189,84 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
       <div :if={@onboarding_error} class="alert alert-error mt-3 text-sm">
         {inspect(@onboarding_error)}
       </div>
+
+      <section
+        :if={@onboarding_wizard}
+        id="workspace-onboarding-wizard"
+        class="mt-4 space-y-3 rounded border border-base-300 p-3"
+        data-wizard-track={@onboarding_wizard.track}
+        data-wizard-step={@onboarding_wizard.step}
+        data-wizard-complete={to_string(@onboarding_wizard.complete?)}
+      >
+        <div class="flex items-center justify-between text-sm">
+          <span class="font-medium">Guided setup</span>
+          <span
+            id="workspace-onboarding-readiness"
+            class="badge badge-sm"
+            data-readiness={@onboarding_wizard.readiness}
+          >
+            {readiness_label(@onboarding_wizard.readiness)}
+          </span>
+        </div>
+
+        <div :if={!@onboarding_wizard.started?} class="flex gap-2">
+          <button
+            type="button"
+            id="workspace-onboarding-start-quickstart"
+            class="btn btn-sm btn-primary"
+            phx-click="wizard_start"
+            phx-value-track="quickstart"
+            phx-target={@myself}
+          >
+            Start QuickStart
+          </button>
+          <button
+            type="button"
+            id="workspace-onboarding-start-advanced"
+            class="btn btn-sm"
+            phx-click="wizard_start"
+            phx-value-track="advanced"
+            phx-target={@myself}
+          >
+            Advanced
+          </button>
+        </div>
+
+        <ol :if={@onboarding_wizard.started?} class="space-y-1 text-sm">
+          <li
+            :for={step <- OnboardingContext.wizard_steps()}
+            id={"workspace-wizard-step-#{step}"}
+            class="flex items-center justify-between"
+            data-current={to_string(step == @onboarding_wizard.step)}
+            data-done={to_string(step in @onboarding_wizard.done)}
+          >
+            <span>{wizard_step_label(step)}</span>
+            <button
+              :if={step == @onboarding_wizard.step and !@onboarding_wizard.complete?}
+              type="button"
+              id={"workspace-wizard-advance-#{step}"}
+              class="btn btn-xs btn-primary"
+              phx-click="wizard_advance"
+              phx-value-step={step}
+              phx-target={@myself}
+            >
+              Continue
+            </button>
+          </li>
+        </ol>
+
+        <div :if={@onboarding_wizard.started?}>
+          <button
+            type="button"
+            id="workspace-onboarding-wizard-reset"
+            class="btn btn-xs btn-ghost"
+            phx-click="wizard_reset"
+            phx-target={@myself}
+          >
+            Reset onboarding
+          </button>
+        </div>
+      </section>
 
       <div :if={@onboarding_state} class="mt-4 space-y-4">
         <section class="space-y-1 text-sm">
@@ -340,6 +459,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
   defp refresh_state(socket) do
     context = Map.get(socket.assigns, :renderer_context, %{})
 
+    socket = assign(socket, :onboarding_wizard, OnboardingContext.wizard_state())
+
     case OnboardingContext.frame_or_resume(user_id(context), %{
            channel: :live_view,
            thread_id: field(context, :thread_id),
@@ -355,6 +476,17 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
         |> assign(:onboarding_state, nil)
         |> assign(:onboarding_error, reason)
     end
+  end
+
+  defp readiness_label(readiness), do: Map.get(@readiness_copy, readiness, "Unknown")
+
+  defp wizard_track("advanced"), do: :advanced
+  defp wizard_track(_quickstart), do: :quickstart
+
+  defp wizard_step_label(step) do
+    step
+    |> String.replace("_", " ")
+    |> String.capitalize()
   end
 
   defp record_step(socket, step_id, outcome, note) do

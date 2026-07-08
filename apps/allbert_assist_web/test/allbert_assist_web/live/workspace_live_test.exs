@@ -755,6 +755,52 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert action_signal.data.permission_decision.permission == :objective_write
   end
 
+  describe "v0.63 M5 guided wizard panel" do
+    setup do
+      # Snapshot + restore the Home onboarding marker so wizard mutations in these
+      # tests never leak into the seeded (already-onboarded) suite baseline.
+      saved = AllbertAssist.CLI.FirstRun.read_marker()
+
+      on_exit(fn ->
+        AllbertAssist.CLI.FirstRun.reset_onboarding()
+        if saved != %{}, do: AllbertAssist.CLI.FirstRun.merge_marker(saved)
+      end)
+
+      :ok
+    end
+
+    test "renders the shared M1 wizard with an operator readiness label", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:onboard")
+
+      assert has_element?(view, "#workspace-onboarding-wizard")
+
+      # The readiness badge shows an operator label, never a raw probe/readiness atom.
+      readiness_html =
+        view |> element("#workspace-onboarding-readiness") |> render()
+
+      assert readiness_html =~ ~r/Ready|Needs (model|runtime|review|credentials)/
+
+      for atom <- ~w(local_ready byok_ready runtime_missing runtime_unhealthy
+                     model_missing below_hardware_floor needs_runtime needs_model) do
+        refute readiness_html =~ atom
+      end
+    end
+
+    test "starts a track and advances the canonical steps through M1", %{conn: conn} do
+      AllbertAssist.CLI.FirstRun.reset_onboarding()
+      {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:onboard")
+
+      view |> element("#workspace-onboarding-start-quickstart") |> render_click()
+
+      assert has_element?(view, "#workspace-wizard-step-welcome[data-current='true']")
+
+      view |> element("#workspace-wizard-advance-welcome") |> render_click()
+
+      assert has_element?(view, "#workspace-wizard-step-welcome[data-done='true']")
+      assert has_element?(view, "#workspace-wizard-step-track_select[data-current='true']")
+    end
+  end
+
   test "workspace create gallery only exposes Settings Central allowed patterns", %{conn: conn} do
     assert {:ok, _setting} =
              Settings.put("templates.create.enabled", true, %{audit?: false})
