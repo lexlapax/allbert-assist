@@ -189,7 +189,15 @@ jobs:
           cat SHA256SUMS
       - name: Cosign checksums (keyless)
         uses: sigstore/cosign-installer@v3
-      - run: |
+      - name: Sign SHA256SUMS (best-effort until v0.64 signing intake)
+        # cosign keyless signing depends on the Sigstore/Fulcio OIDC service. A
+        # transient Fulcio/OIDC outage must NOT block the release: install.sh and
+        # Homebrew verify SHA256SUMS (checksums), and cosign *verification* is not
+        # intaken until v0.64 (ADR 0076 / M0.a). Until then the .cosign.bundle is a
+        # best-effort attachment. Make this a hard gate again once install-time
+        # signature verification ships. (v0.63 publish hit exactly this Fulcio outage.)
+        continue-on-error: true
+        run: |
           cd dist
           cosign sign-blob --yes --bundle SHA256SUMS.cosign.bundle SHA256SUMS
       - name: Publish to release
