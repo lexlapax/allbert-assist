@@ -17,6 +17,8 @@ defmodule AllbertAssist.FirstModel.Ollama do
   `:external_network` authority. The HTTP client is injectable for tests.
   """
 
+  alias AllbertAssist.External.TLS
+
   @default_base_url "http://127.0.0.1:11434"
   @req_options_key :first_model_req_options
 
@@ -123,7 +125,7 @@ defmodule AllbertAssist.FirstModel.Ollama do
       ]
       # M8.2: CA trust for a custom HTTPS Ollama endpoint (harmless for the localhost
       # http default); the test-injected @req_options_key still overrides.
-      |> Keyword.merge(AllbertAssist.External.TLS.connect_options())
+      |> Keyword.merge(TLS.connect_options())
       |> Keyword.merge(Application.get_env(:allbert_assist, @req_options_key, []))
 
     case Req.request(opts) do

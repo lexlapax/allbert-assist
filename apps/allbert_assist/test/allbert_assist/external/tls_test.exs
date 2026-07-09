@@ -13,7 +13,9 @@ defmodule AllbertAssist.External.TLSTest do
     original = System.get_env("SSL_CERT_FILE")
 
     on_exit(fn ->
-      if original, do: System.put_env("SSL_CERT_FILE", original), else: System.delete_env("SSL_CERT_FILE")
+      if original,
+        do: System.put_env("SSL_CERT_FILE", original),
+        else: System.delete_env("SSL_CERT_FILE")
     end)
 
     :ok

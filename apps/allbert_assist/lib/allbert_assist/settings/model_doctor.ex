@@ -7,6 +7,7 @@ defmodule AllbertAssist.Settings.ModelDoctor do
   ADR 0047 summary shape.
   """
 
+  alias AllbertAssist.External.TLS
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.DoctorDiagnostics
   alias AllbertAssist.Settings.ProviderCatalog
@@ -375,7 +376,7 @@ defmodule AllbertAssist.Settings.ModelDoctor do
       decode_body: false
     ]
     |> maybe_put(:plug, req_test_plug(context))
-    |> Keyword.merge(AllbertAssist.External.TLS.connect_options())
+    |> Keyword.merge(TLS.connect_options())
     |> Req.request()
     |> case do
       {:ok, response} -> {:ok, response}

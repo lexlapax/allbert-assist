@@ -1,6 +1,8 @@
 defmodule AllbertAssistWeb.VersionConsistencyTest do
   use ExUnit.Case, async: true
 
+  alias AllbertAssist.App.CoreApp
+
   @moduledoc """
   M8.7 drift guard. The app version lives in two app `:vsn` sources — `:allbert_assist`
   drives the `allbert --version` CLI banner and (via `CoreApp.version/0`) the MCP/ACP
@@ -11,7 +13,7 @@ defmodule AllbertAssistWeb.VersionConsistencyTest do
   """
 
   test "CoreApp.version/0 derives from the :allbert_assist :vsn (no hand-maintained literal)" do
-    assert AllbertAssist.App.CoreApp.version() ==
+    assert CoreApp.version() ==
              to_string(Application.spec(:allbert_assist, :vsn))
   end
 

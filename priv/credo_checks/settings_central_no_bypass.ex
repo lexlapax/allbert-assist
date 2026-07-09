@@ -40,7 +40,10 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
         "XDG_RUNTIME_DIR",
         "UID",
         "OLLAMA_HOST",
-        "PORT"
+        "PORT",
+        # v0.63 M8.2: the standard OTP/OpenSSL CA-bundle override for outbound HTTPS
+        # (External.TLS) — infrastructure trust config, not an operator-tunable setting.
+        "SSL_CERT_FILE"
       ],
       operator_setting_keys: [
         "runtime.trace_default",

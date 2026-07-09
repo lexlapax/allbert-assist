@@ -117,7 +117,9 @@ defmodule AllbertAssist.OnboardingTest do
 
       # A ready model at model_path flips the gate so `allbert ask` works without a
       # manual settings edit (the operator-reported dead end).
-      assert {:ok, s} = Onboarding.wizard_advance("model_path", %{}, first_model_state: :local_ready)
+      assert {:ok, s} =
+               Onboarding.wizard_advance("model_path", %{}, first_model_state: :local_ready)
+
       assert s.readiness == :ready
       assert Settings.get("intent.direct_answer_model_enabled") == {:ok, true}
     end

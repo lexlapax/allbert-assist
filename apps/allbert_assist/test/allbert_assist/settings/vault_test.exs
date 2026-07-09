@@ -158,25 +158,29 @@ defmodule AllbertAssist.Settings.VaultTest do
     # platform-agnostic under `ALLBERT_VAULT_BACKEND=os`.
     defp inject_os_runners(hit_value) do
       security = fn args ->
-        cond do
-          "add-generic-password" in args -> {"", 0}
-          "find-generic-password" in args and hit_value -> {@secret_value, 0}
-          "find-generic-password" in args -> {"", 1}
-          true -> {"", 0}
-        end
+        os_response(
+          args,
+          hit_value,
+          "add-generic-password",
+          "find-generic-password",
+          @secret_value
+        )
       end
 
       secret_tool = fn args, _stdin ->
-        cond do
-          "store" in args -> {"", 0}
-          "lookup" in args and hit_value -> {@secret_value <> "\n", 0}
-          "lookup" in args -> {"", 1}
-          true -> {"", 0}
-        end
+        os_response(args, hit_value, "store", "lookup", @secret_value <> "\n")
       end
 
       Application.put_env(:allbert_assist, :vault_security_runner, security)
       Application.put_env(:allbert_assist, :vault_secret_tool_runner, secret_tool)
+    end
+
+    defp os_response(args, hit_value, store_cmd, lookup_cmd, hit_payload) do
+      cond do
+        store_cmd in args -> {"", 0}
+        lookup_cmd in args -> if hit_value, do: {hit_payload, 0}, else: {"", 1}
+        true -> {"", 0}
+      end
     end
 
     test "OS-tier put stores value-only, applies the shared bookkeeping, and reads back (no master key)" do
