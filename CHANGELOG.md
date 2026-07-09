@@ -10,13 +10,20 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
-## v0.64.0 - Trusted Install And Non-Developer First Run
+## v0.64.1 - Trusted Install And Non-Developer First Run
 
-Status: **tag-first release for artifact validation — tagged `v0.64.0` (2026-07-09),
-version 0.64.0**. `mix allbert.test release.v064` passed with all steps green. The
-tag is intentionally cut before packaged manual operator validation so GitHub release
-artifacts, `SHA256SUMS`, and the cosign bundle exist for the real curl/Homebrew install
-path. Manual operator validation and release closeout remain the next step.
+Status: **fix-forward tag-first artifact-validation release — tagged `v0.64.1`
+(2026-07-09), version 0.64.1**.
+`mix allbert.test release.v064` passed for the v0.64 implementation, and the focused
+installer/release-workflow test now covers the Linux rehearsal's signed local-checksum
+path. `v0.64.0` was tagged first for artifact validation on 2026-07-09, but its
+release-artifacts workflow correctly blocked before publish: the pre-publish Linux
+rehearsal used the fail-closed installer against a local `file://` tarball without
+creating the `SHA256SUMS.cosign.bundle` the installer now requires. `v0.64.1` fixes that
+release-contract gap by giving the rehearsal OIDC signing permission, installing cosign,
+signing its local `SHA256SUMS`, and surfacing installer stderr/stdout on failure.
+Packaged manual operator validation and release closeout remain the next step after the
+`v0.64.1` artifacts publish.
 
 v0.64 moves install trust and first-run repair into one non-developer path: package-first
 install, persistent service start, browser-first workspace onboarding, guided local
@@ -28,9 +35,10 @@ Security Central, confirmations, traces, and audits.
   `SHA256SUMS.cosign.bundle`, requires `cosign verify-blob` against the GitHub Actions
   workflow identity/issuer before checksum comparison, and refuses to install without
   signature verification. The release-artifacts workflow no longer treats checksum
-  signing as optional. Upgrade backups can be listed and restored through the bounded,
-  confirmation-gated `restore_database_backup` action and `allbert admin db
-  list-backups|restore`.
+  signing as optional, and its pre-publish Linux rehearsal now signs the local checksum
+  bundle before running the real installer. Upgrade backups can be listed and restored
+  through the bounded, confirmation-gated `restore_database_backup` action and `allbert
+  admin db list-backups|restore`.
 - **Consumer-default model repair.** Web and CLI onboarding expose guided local-runtime
   install and curated local-model pull before hosted-provider fallback. The pull uses
   Ollama's streaming `/api/pull` path with bounded progress frames and workspace progress
@@ -46,6 +54,15 @@ Security Central, confirmations, traces, and audits.
   vault custody, and memory review. `mix allbert.test release.v064` records deterministic
   release evidence for format, compile warnings-as-errors, Credo, Dialyzer, trusted
   install/restore, first-model repair, `:v064` eval rows, web repair, and docs drift.
+
+## v0.64.0 - Trusted Install And Non-Developer First Run
+
+Status: **tagged for artifact validation, not published**. `v0.64.0` was tagged on
+2026-07-09 at version 0.64.0 after `mix allbert.test release.v064` passed, but the
+release-artifacts workflow stopped before GitHub Release publication because the
+pre-publish Linux rehearsal did not create a cosign bundle for its local `file://`
+installer path. The tag is retained as evidence of the blocked validation run and is
+superseded by `v0.64.1`.
 
 ## v0.63.0 - Guided Onboarding & Profiles
 

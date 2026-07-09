@@ -117,6 +117,10 @@ jobs:
   linux-rehearsal:
     needs: build
     runs-on: ubuntu-22.04
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -130,7 +134,11 @@ jobs:
           echo "REL_ROOT=$PWD/work/allbert" >> "$GITHUB_ENV"
       - name: Install Secret Service tooling (gnome-keyring + secret-tool)
         run: sudo apt-get update && sudo apt-get install -y gnome-keyring libsecret-tools dbus-x11
+      - name: Install cosign for signed local installer rehearsal
+        uses: sigstore/cosign-installer@v3
       - name: Linux rehearsal (install / smoke / vault / service / uninstall)
+        env:
+          ALLBERT_REHEARSAL_SIGN_CHECKSUMS: "1"
         run: |
           set -o pipefail
           # A D-Bus session + an unlocked login keyring so the Secret Service

@@ -19,6 +19,7 @@ defmodule AllbertAssist.InstallPathTest do
   @root_mix Path.join(@repo_root, "mix.exs")
   @overlay Path.join(@repo_root, "rel/overlays/bin/allbert-dispatch")
   @smoke Path.join(@repo_root, "scripts/smoke/artifact_smoke.sh")
+  @linux_rehearsal Path.join(@repo_root, "scripts/smoke/linux_rehearsal.sh")
   @service Path.join(@repo_root, "apps/allbert_assist/lib/allbert_assist/service.ex")
 
   test "install.sh parses under /bin/sh and honors the trust contract" do
@@ -137,6 +138,9 @@ defmodule AllbertAssist.InstallPathTest do
 
   test "the release workflow publishes checksums and attaches to the release" do
     body = File.read!(@workflow)
+    rehearsal = File.read!(@linux_rehearsal)
+
+    assert {_, 0} = System.cmd("bash", ["-n", @linux_rehearsal], stderr_to_stdout: true)
     assert body =~ "sha256sum"
     assert body =~ "SHA256SUMS"
     assert body =~ "cosign sign-blob"
@@ -161,5 +165,15 @@ defmodule AllbertAssist.InstallPathTest do
     assert body =~ "[skip-artifacts]"
     assert body =~ "needs.gate.outputs.artifacts == 'true'"
     assert body =~ "needs: gate"
+
+    # v0.64.1: the pre-publish Linux rehearsal uses install.sh's fail-closed
+    # verifier too, so its local file:// tarball must carry a real cosign bundle.
+    assert body =~ "actions: read"
+    assert body =~ "id-token: write"
+    assert body =~ "sigstore/cosign-installer@v3"
+    assert body =~ "ALLBERT_REHEARSAL_SIGN_CHECKSUMS"
+    assert rehearsal =~ "SHA256SUMS.cosign.bundle"
+    assert rehearsal =~ "cosign sign-blob"
+    assert rehearsal =~ "ALLBERT_REHEARSAL_SIGN_CHECKSUMS"
   end
 end

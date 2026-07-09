@@ -44,8 +44,16 @@ esac
 # 1) Install via the curl installer's symlink path (local file:// base).
 tar -czf "$STAGE/allbert-${TARGET}.tar.gz" -C "$(dirname "$REL_ROOT")" "$(basename "$REL_ROOT")"
 ( cd "$STAGE" && sha256sum "allbert-${TARGET}.tar.gz" > SHA256SUMS )
-ALLBERT_BASE_URL="file://$STAGE" ALLBERT_VERSION="latest" ALLBERT_PREFIX="$PREFIX" \
-  sh "$(dirname "$0")/../install/install.sh" >/dev/null 2>&1 || fail install "install.sh failed"
+if [ "${ALLBERT_REHEARSAL_SIGN_CHECKSUMS:-}" = "1" ]; then
+  command -v cosign >/dev/null 2>&1 || fail install "cosign unavailable for local checksum signing"
+  ( cd "$STAGE" && cosign sign-blob --yes --bundle SHA256SUMS.cosign.bundle SHA256SUMS >/dev/null ) \
+    || fail install "failed to sign local SHA256SUMS"
+fi
+if ! ALLBERT_BASE_URL="file://$STAGE" ALLBERT_VERSION="latest" ALLBERT_PREFIX="$PREFIX" \
+  sh "$(dirname "$0")/../install/install.sh" >"$WORK/install.out" 2>&1; then
+  cat "$WORK/install.out"
+  fail install "install.sh failed"
+fi
 BIN="$PREFIX/bin/allbert"
 [ -L "$BIN" ] || fail install "installed entry is not a symlink"
 echo "linux-rehearsal:install PASS symlinked to $(readlink "$BIN")"

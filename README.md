@@ -34,8 +34,8 @@ becoming opaque or unbounded.
 
 ## Current Shape
 
-The current release line is **v0.64 (Trusted Install And Non-Developer First Run),
-tagged `v0.64.0`**. It makes packaged install and repairable first run the primary
+The current release line is **v0.64.1 (Trusted Install And Non-Developer First Run),
+tagged `v0.64.1`**. It makes packaged install and repairable first run the primary
 operator path: fail-closed installer-side cosign verification, bounded DB backup
 restore, persistent service posture, browser-first onboarding, guided local-runtime
 repair, curated local-model pull with progress, a standalone Models repair panel, and
@@ -44,9 +44,12 @@ two-track onboarding wizard, repo-maintained user-category personas (seed-only,
 review + confirm), ADR-0078 First-Model Path, and visible trust spine. No new
 authority.
 
-The tag is cut before packaged manual operator validation so the real GitHub release
-artifacts, checksums, and cosign bundle exist for installer validation. See
-[CHANGELOG.md](CHANGELOG.md) for the current release status.
+`v0.64.0` was the first tag-first artifact-validation run; it was blocked before publish
+by the pre-publish Linux rehearsal because the local installer path did not yet create a
+cosign bundle. `v0.64.1` fixes that release-contract gap and is cut before packaged
+manual operator validation so the real GitHub release artifacts, checksums, and cosign
+bundle exist for installer validation. See [CHANGELOG.md](CHANGELOG.md) for the current
+release status.
 
 The prior line, v0.62 (Packaging & Entry Points), shipped as packaged release `v0.62.0`
 (Latest, 2026-07-07) with a source/docs point release `v0.62.1` (tagged 2026-07-07,
