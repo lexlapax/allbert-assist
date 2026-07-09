@@ -66,7 +66,7 @@ out-of-band, operator-driven manual verification. The curl installer and the
 Homebrew formula verify only the SHA256 against `SHA256SUMS` fetched over HTTPS
 from the same release origin (trust-on-first-use over HTTPS), and add no `cosign`
 dependency in v0.62. Mandatory installer-side signature verification is a
-recorded v0.64 M0.a intake item. To verify a release by hand before trusting it:
+recorded v0.64 trusted-install intake item. To verify a release by hand before trusting it:
 
 ```sh
 gh release download v0.62.0 --repo lexlapax/allbert-assist \

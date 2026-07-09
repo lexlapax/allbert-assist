@@ -29,6 +29,10 @@ plan and request-flow documents.
 - [v0.63 request flow](v0.63-request-flow.md)
 - [v0.64 plan](v0.64-plan.md)
 - [v0.64 request flow](v0.64-request-flow.md)
+- [v0.65 plan](v0.65-plan.md)
+- [v0.65 request flow](v0.65-request-flow.md)
+- [v0.66 plan](v0.66-plan.md)
+- [v0.66 request flow](v0.66-request-flow.md)
 - [v1.0 plan](v1.0-plan.md)
 - [v1.0 request flow](v1.0-request-flow.md)
 

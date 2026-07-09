@@ -30,12 +30,13 @@ are 55 flat Mix task modules at the 2026-07-05 readiness review (46 core + 9
 plugin; "53" was the v0.58 count), with no unified binary, no grouped `--help`,
 and operator commands intermixed with developer/CI commands.
 
-For the technical-prosumer 1.0 audience, the toolchain requirement is the
-**dominant adoption blocker** — the exact friction that gets powerful-but-
-Docker/dev-required tools penalized in every 2026 comparison, while packaged
-binaries with one-command install (LM Studio, Jan, OpenClaw, Hermes) win on
-first value. This release reshapes Allbert Home layout and entry points before
-guided onboarding and the v0.64 product RC lock in the first-run flow.
+For the pre-1.0 product audience, the toolchain requirement is the **dominant
+adoption blocker** — the exact friction that gets powerful-but-Docker/dev-required
+tools penalized in every 2026 comparison, while packaged binaries with
+one-command install (LM Studio, Jan, OpenClaw, Hermes) win on first value. This
+release reshapes Allbert Home layout and entry points before guided onboarding,
+trusted first-run, local knowledge, and product RC validation lock in the
+first-run flow.
 
 ## Decision
 
@@ -144,16 +145,16 @@ and inspectability promises extend to it:
   optional, out-of-band, operator-driven manual verification** — no `cosign`
   dependency is added to `install.sh` or the formula, so the installer does not
   itself verify a signature. **Mandatory installer-side signature verification is
-  a recorded v0.64 M0.a packaging-trust intake item** (`v0.64-plan.md`), which
-  will close the TOFU gap. The bundled ERTS/OTP version is pinned as a CI input
+  recorded in v0.64 trusted-install scope** (`v0.64-plan.md`), which will close
+  the TOFU gap. The bundled ERTS/OTP version is pinned as a CI input
   with portable crypto linkage; its provenance (project-built vs the packaging
   tool's CDN builds) is settled by the M0 spike and recorded here at
   acceptance.
 - **Signing posture (operator decision 2026-07-05).** v0.62 ships **unsigned,
   via Homebrew and curl only** — both paths are quarantine-free on macOS;
   browser-download distribution is out of scope. Developer-ID signing +
-  notarization is a named **v0.64 RC work item** (including the Apple
-  Developer account decision and the self-extraction × hardened-runtime
+  notarization is a named **v0.64 trusted-install work item** (including the
+  Apple Developer account decision and the self-extraction × hardened-runtime
   interaction test).
 - **Inspectable install.** Both install paths install only documented files,
   write an uninstall manifest, and leave Allbert Home untouched on uninstall
@@ -184,7 +185,7 @@ and inspectability promises extend to it:
   v0.62 ships the UDS mechanism ratified at S2; loopback distribution remains a
   rejected fallback, not an implementation dependency.
 - Signing/notarization and automated rollback are deferred with a **written
-  v0.64 intake** (`v0.64-plan.md` M0.a); the deferral is recorded on both
+  v0.64 intake** (`v0.64-plan.md` M0); the deferral is recorded on both
   sides, not just here.
 
 ## Platform Support Tiers And Feasibility Spike

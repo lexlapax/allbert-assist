@@ -1,8 +1,11 @@
 # Allbert Operator Onboarding
 
-This guide is the operator-facing entry path for trying Allbert from a fresh
-checkout. It is not a release test matrix. Release-specific smoke commands live
-in the matching request-flow document.
+This guide is the v0.63 operator-facing entry path for trying Allbert from a
+fresh checkout or packaged entry point. It is not a release test matrix.
+Release-specific smoke commands live in the matching request-flow document.
+The v0.64 plan makes packaged install plus browser-first onboarding the primary
+non-developer path; until that release lands, this guide keeps the source
+workflow visible for current validation.
 
 ## Orientation
 
@@ -15,7 +18,7 @@ Read these first:
 - `docs/plans/v0.63-plan.md` and `docs/plans/v0.63-request-flow.md` for the
   active guided-onboarding/profile implementation contract.
 
-## First Local Run
+## First Local Run From Source
 
 Use a disposable Allbert Home when exploring:
 
@@ -44,6 +47,10 @@ mix allbert.ask "hello"
 mix allbert.security status
 mix allbert.confirmations list
 ```
+
+For packaged installs, use [install.md](install.md), then start with
+`allbert serve`. v0.64 owns making that path the primary non-developer
+onboarding contract.
 
 ## v0.63 Operator Onboarding
 
@@ -132,6 +139,17 @@ section in the web wizard): risky actions pause for your explicit, durable, trac
 approval; every action is scoped by Security Central and onboarding grants no new
 authority; what Allbert does is recorded and locally inspectable; your data and model
 stay on your machine unless you connect a hosted provider.
+
+## v0.64-v0.66 Planning Direction
+
+The pre-1.0 plan now inserts three product-readiness releases after v0.63:
+
+- v0.64 makes packaged install, installer trust, and first-run repair the
+  primary non-developer path.
+- v0.65 makes local files, notes, and reviewed agent memory the launch-critical
+  first assistant workflow.
+- v0.66 validates the complete product path with no-docs evidence and
+  implemented-surface regression checks before v1.0.
 
 ## Legacy Homes (pre-v0.63)
 

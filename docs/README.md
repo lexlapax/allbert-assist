@@ -28,6 +28,10 @@ For contributors:
 - [v0.63 request flow](plans/v0.63-request-flow.md)
 - [v0.64 plan](plans/v0.64-plan.md)
 - [v0.64 request flow](plans/v0.64-request-flow.md)
+- [v0.65 plan](plans/v0.65-plan.md)
+- [v0.65 request flow](plans/v0.65-request-flow.md)
+- [v0.66 plan](plans/v0.66-plan.md)
+- [v0.66 request flow](plans/v0.66-request-flow.md)
 - [Operator onboarding](operator/onboarding.md)
 - [Operator workspace guide](operator/workspace.md)
 
@@ -35,9 +39,11 @@ The current release line is **v0.63 (Guided Onboarding & Profiles), tagged `v0.6
 on 2026-07-09**: first-run onboarding is an operator-facing web and terminal wizard
 (`allbert onboard --quickstart` / `--advanced`) over the v0.62 packaged entry points,
 with reviewed user-category profile writes and provider credentials resolved through the
-three-tier secret vault. It feeds into the v0.64 product RC. The prior line was v0.62
-(Packaging & Entry Points): packaged product release `v0.62.0` (GitHub Latest, used by
-installers and Homebrew) with a source/docs point release `v0.62.1`.
+three-tier secret vault. It now feeds into the inserted v0.64 trusted-install /
+non-developer first-run release, v0.65 local files/notes/memory release, and v0.66
+product RC. The prior line was v0.62 (Packaging & Entry Points): packaged product
+release `v0.62.0` (GitHub Latest, used by installers and Homebrew) with a source/docs
+point release `v0.62.1`.
 
 The v0.60/v0.60b design artifacts live under `docs/design/`; v0.61/v0.61b record
 the web shell and presentation work; v0.62 records packaging, first-model path,

@@ -90,7 +90,8 @@ the binary in place. On the first boot of a new version, Allbert **backs up its
 database** (a copy under `<Allbert Home>/db/backups/`) before running any schema
 migrations, and logs the migrations it applies. If the backup cannot be written,
 the boot refuses to migrate rather than proceed unprotected. Automated rollback
-is a later (v0.64) capability; the backup is your manual recovery point.
+is planned in v0.64 trusted-install scope; until then, the backup is your manual
+recovery point.
 
 ## Running alongside a development checkout
 
@@ -119,6 +120,7 @@ trusted signer. Practically, you are trusting the GitHub HTTPS release origin on
 first use. For a stronger check, verify the cosign signature bundle out-of-band
 before installing (see below); the installer does **not** do this for you in
 v0.62. Mandatory installer-side signature verification is planned for v0.64
-(M0.a). If you need that guarantee today, do the manual cosign verification.
+trusted-install scope. If you need that guarantee today, do the manual cosign
+verification.
 See `docs/adr/0076-packaging-distribution-and-unified-cli.md` (Distribution
 Trust) for the full posture.

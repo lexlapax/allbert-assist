@@ -67,10 +67,11 @@ Today, Allbert includes:
 - Source-tree plugins and app surfaces, with StockSage as the main reference app.
 - Public protocol surfaces with bounded, policy-checked exposure.
 
-This is still a developer-operated local project, not a polished consumer app
-installer. It expects a local checkout, configured providers or local model
-endpoints where needed, and an operator who is comfortable running validation
-commands during release work.
+As of v0.63, Allbert is still a developer-operated local project rather than a
+polished non-developer product. The pre-1.0 plan now closes that gap explicitly:
+v0.64 owns trusted install and repairable first-run, v0.65 owns the local
+files/notes/memory launch path, and v0.66 owns no-docs product RC validation
+before v1.0 freezes the public contracts.
 
 ## What Allbert Is For
 
@@ -114,6 +115,8 @@ If you want to try Allbert locally:
 
 - [docs/operator/onboarding.md](docs/operator/onboarding.md): first local run and
   operator orientation.
+- [docs/operator/install.md](docs/operator/install.md): packaged install,
+  upgrade, uninstall, and distribution-trust notes.
 - [docs/operator/workspace.md](docs/operator/workspace.md): the web workspace,
   panels, and operator-facing controls.
 - [docs/README.md](docs/README.md): the documentation map.
@@ -133,6 +136,9 @@ If you are contributing to the codebase:
 - [docs/adr/README.md](docs/adr/README.md): architectural decisions.
 
 ## Local Development
+
+These commands are for contributors working from source. The product install
+path is documented in [docs/operator/install.md](docs/operator/install.md).
 
 Common development loop:
 

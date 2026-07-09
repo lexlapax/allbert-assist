@@ -152,8 +152,9 @@ path has established a usable chat path; persona model-purpose mappings are
 advisory seed recommendations and must not retroactively change the QuickStart
 curated model requirement.
 
-v0.64 validates install -> first-run -> onboard -> first useful chat against the
-implemented v0.61-v0.63 surfaces and records evidence that the path did not drift
+v0.64 makes install -> first-run -> onboard -> first useful chat trusted and
+repairable for a non-developer. v0.66 validates the complete path against the
+implemented v0.61-v0.65 surfaces and records evidence that the path did not drift
 back to BYOK-only or managed-hosted.
 
 ## Guardrails

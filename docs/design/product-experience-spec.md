@@ -1,8 +1,9 @@
 # Product Experience Spec
 
-Status: v0.60 M1 design artifact. This document defines the target 1.0 product
-experience for the technical-prosumer operator. It is a design contract for
-v0.61-v0.64, not a claim about current implementation.
+Status: v0.60 M1 design artifact, amended after v0.63 product-readiness review.
+This document defines the target 1.0 product experience for the non-developer
+local-first operator. It is a design contract for v0.61-v0.66, not a claim about
+current implementation.
 
 ## Purpose
 
@@ -27,9 +28,10 @@ owners.
 
 ## Audience
 
-The target operator is a technical prosumer: comfortable with terminals, local
-software, and model/provider trade-offs, but unwilling to debug raw Phoenix,
-Elixir, provider keys, or config files before seeing product value.
+The target operator is a non-developer local-first user: willing to install a
+trusted local app and make clear choices about local vs hosted model use, but
+unwilling to debug raw Phoenix, Elixir, provider keys, or config files before
+seeing product value.
 
 The experience should respect operator competence without making setup feel like
 a source checkout. Advanced paths remain visible, but the default path is
@@ -53,17 +55,19 @@ First useful chat is not just "a model responded." It requires:
 - A follow-on action that does not strand the operator in setup.
 
 M3 operationalizes this definition. M4 turns it into onboarding flow. M5 gives
-it entry-point behavior. v0.64 validates it across the integrated product.
+it entry-point behavior. v0.64 makes it trusted and repairable, v0.65 grounds it
+in local files/notes/memory, and v0.66 validates it across the integrated
+product.
 
 ## Journey Map
 
 | Stage | Operator goal | Primary surfaces | What good looks like | Sub-1.0 failure modes | Owning release(s) |
 |---|---|---|---|---|---|
-| Install | Get Allbert onto the machine without becoming a project contributor. | Packaged binary, terminal, installation docs, OS vault prompt, optional web handoff. | One obvious install path; `allbert --help` works; `allbert serve` starts the product; no Elixir/OTP source workflow is required for normal use. | Git clone as the default install; Mix commands as product entry points; unclear binary layout; secrets stored outside the OS vault story. | v0.62 implements packaging and entry points; v0.64 validates the integrated install path. |
-| First-run | Understand what Allbert is doing locally and choose the next setup step. | CLI first invocation, daemon/server startup, web landing or workspace empty state, TUI handoff. | Fresh Home is detected; the operator sees a local-first trust posture; the product routes to onboarding or a resume path; no blank configuration wall appears. | Blank workspace; raw settings page as first screen; unclear Home location; no explanation of provider/model state; commands that diverge between web, CLI, and TUI. | v0.61 implements landing and empty-state composition; v0.62 implements first-run detection; v0.63 implements onboarding launch. |
+| Install | Get Allbert onto the machine without becoming a project contributor. | Packaged binary, terminal, installation docs, OS vault prompt, optional web handoff. | One obvious trusted install path; `allbert --help` works; `allbert serve` starts the product; no Elixir/OTP source workflow is required for normal use. | Git clone as the default install; Mix commands as product entry points; unclear binary layout; secrets stored outside the OS vault story; installer verification deferred or unclear. | v0.62 implements packaging and entry points; v0.64 closes trusted install and rollback posture. |
+| First-run | Understand what Allbert is doing locally and choose the next setup step. | CLI first invocation, daemon/server startup, web landing or workspace empty state, TUI handoff. | Fresh Home is detected; the operator sees a local-first trust posture; the product routes to onboarding or a resume path; blocked states show one repair action; no blank configuration wall appears. | Blank workspace; raw settings page as first screen; unclear Home location; no explanation of provider/model state; commands that diverge between web, CLI, and TUI. | v0.61 implements landing and empty-state composition; v0.62 implements first-run detection; v0.63 implements onboarding launch; v0.64 makes blocked states repairable. |
 | Onboard | Pick an opinionated path that matches skill level and provider preference. | Web wizard, terminal wizard, provider/model doctor, persona/profile review. | QuickStart offers assisted-local by default with BYOK fallback; Advanced exposes explicit choices; personas are reviewed before seeding settings; provider checks are specific and repairable. | API key prompt as the first meaningful step; unreviewed persona defaults; model installation instructions detached from the wizard; hidden settings writes; no fallback when local model setup is blocked. | v0.63 implements the guided onboarding and profiles; v0.62 supplies packaging hooks for model setup; v0.61 supplies the screen shell. |
-| First-value | Complete first useful chat and know what to do next. | Chat-primary workspace, model/provider status, suggested actions, trace/trust affordances. | The operator asks a real question, gets a useful response, sees model and authority posture, and can continue into a suggested task without granting surprise permission. | Model not reachable after setup; answer appears without trust context; setup is "complete" before any useful chat; no suggested next step; effectful actions look enabled before confirmation. | v0.63 owns the first useful chat checkpoint; v0.61 owns the chat-primary surface and empty states; v0.62 owns local model readiness hooks; v0.64 proves the path. |
-| Daily-use | Return to Allbert for repeated local work across web, CLI/TUI, and channels. | Workspace, objectives/jobs, settings and model panels, audit/trace surfaces, CLI/TUI commands, configured channels. | The product opens where work continues; durable traces and objectives are inspectable; settings/models are understandable; CLI/TUI and channel surfaces use the same mental model as web; export/import confidence is visible. | Utility dashboard sprawl; routes without product hierarchy; command names that do not match the product; lost traces or unclear Home portability; channel setup detached from the core trust model. | v0.61 implements presentation hierarchy; v0.62 implements durable product entry points; v0.63 applies profiles; v0.59 substrate supports portability; v0.64 validates end-to-end use. |
+| First-value | Complete first useful chat and know what to do next. | Chat-primary workspace, model/provider status, local notes/files prompts, memory review, trace/trust affordances. | The operator asks a real question, gets a useful response, sees model and authority posture, can connect local notes/files, and can review what becomes memory without granting surprise permission. | Model not reachable after setup; answer appears without trust context; setup is "complete" before any useful chat; no suggested next step; effectful actions look enabled before confirmation; memory appears automatic or opaque. | v0.63 owns the first useful chat checkpoint; v0.64 repairs first-run; v0.65 owns local files/notes/memory; v0.66 proves the path. |
+| Daily-use | Return to Allbert for repeated local work across web, CLI/TUI, channels, notes, and memory. | Workspace, objectives/jobs, settings and model panels, local knowledge panels, audit/trace surfaces, CLI/TUI commands, configured channels. | The product opens where work continues; durable traces, objectives, local notes/files, and reviewed memory are inspectable; settings/models are understandable; CLI/TUI and channel surfaces use the same mental model as web; export/import confidence is visible. | Utility dashboard sprawl; routes without product hierarchy; command names that do not match the product; lost traces or unclear Home portability; channel setup detached from the core trust model; local files or memory feel like hidden side effects. | v0.61 implements presentation hierarchy; v0.62 implements durable product entry points; v0.63 applies profiles; v0.64 repairs first-run; v0.65 grounds local knowledge; v0.66 validates end-to-end use. |
 
 ## Cross-Surface Contract
 
@@ -90,8 +94,10 @@ permission.
 | v0.61 Presentation Layer Overhaul | Information architecture, navigation, screen composition, landing and empty states, chat-primary workspace craft. | The five-stage journey, first-run and first-value surface expectations, daily-use hierarchy. | First useful chat is the product's value moment; web is the primary product surface. |
 | v0.62 Packaging & Entry Points | Binary/distribution shape, unified `allbert` command taxonomy, daemon/server entry, first-run detection, model setup hooks. | Install and first-run expectations, CLI/TUI contract, First-Model Path packaging implications. | Normal users should not need source checkout or Mix commands as product entry points. |
 | v0.63 Guided Onboarding & Profiles | QuickStart and Advanced wizard tracks, profile/persona review, provider/model checks, first useful chat checkpoint. | Onboard and first-value expectations, M3 First-Model Path, persona constraints. | Onboarding is complete only when the operator can reach first useful chat or sees a repairable blocker. |
-| v0.64 Product RC | Integrated journey validation and release-candidate evidence. | The complete install -> first-run -> onboard -> first-value -> daily-use path. | A green runtime gate is not enough if the product journey strands the operator. |
-| v1.0 | Freezes public presentation/product contracts after the redesign has landed. | v0.60 design decisions as implemented through v0.61-v0.64. | Late structural redesign after freeze is contract churn. |
+| v0.64 Trusted Install And Non-Developer First Run | Installer trust, package-first docs, repairable first-run, model setup repair, trust-spine presentation. | Install, first-run, onboard, first-value expectations. | Trust and repair must be part of first-run, not deferred to RC evidence. |
+| v0.65 Local Knowledge | Local files/notes and reviewed memory as the launch-critical first assistant workflow. | First-value and daily-use expectations. | Local file access and memory must feel explicit, scoped, and reviewable. |
+| v0.66 Product RC | Integrated journey validation, no-docs validation, and advanced-surface regression evidence. | The complete install -> first-run -> onboard -> local-knowledge -> first-value -> daily-use path. | A green runtime gate is not enough if the product journey strands the operator. |
+| v1.0 | Freezes public presentation/product contracts after the redesign has landed. | v0.60 design decisions as implemented through v0.61-v0.66. | Late structural redesign after freeze is contract churn. |
 
 ## Failure Modes To Design Against
 

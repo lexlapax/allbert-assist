@@ -53,5 +53,6 @@ requiring codebase knowledge.
 Release-specific operator validation belongs in the matching request-flow
 document under [plans](../plans/README.md). The current shipped line is v0.63
 (tagged `v0.63.0`); see [v0.63 request flow](../plans/v0.63-request-flow.md).
-v0.64 product-RC validation lives in
-[v0.64 request flow](../plans/v0.64-request-flow.md).
+The next planned line is v0.64 trusted install and non-developer first-run; see
+[v0.64 request flow](../plans/v0.64-request-flow.md). Product-RC validation now
+lives in [v0.66 request flow](../plans/v0.66-request-flow.md).

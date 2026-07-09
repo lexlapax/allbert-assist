@@ -56,7 +56,8 @@ explicit review + confirmation; onboarding grants no new authority or egress.
   only when migrations are actually pending, not once per command (F6).
 
 No AI-tool attribution or generated-by footers are added to commits, release notes, or
-this changelog. Followed by the v0.64 product RC.
+this changelog. Followed by the inserted v0.64 trusted-install / non-developer first-run
+release, v0.65 local files/notes/memory release, and v0.66 product RC.
 
 ## v0.62.1 - Distribution Closeout & Reusable Release Ops (v0.62b)
 
@@ -127,7 +128,8 @@ Packages Allbert as a self-contained product with one operator entry point.
 - **Install path & distribution trust (M2):** Homebrew formula + curl installer
   with SHA256 verification against published checksums; `SHA256SUMS.cosign.bundle`
   is published for optional out-of-band manual verification only, with
-  installer-side cosign verification deferred to v0.64 M0.a. Uninstall consumes a
+  installer-side cosign verification deferred to v0.64 trusted-install scope.
+  Uninstall consumes a
   manifest and leaves Allbert Home intact absent `--purge`. The binary performs
   no telemetry, phone-home, or auto-update.
 - **Unified `allbert` CLI (M3):** one dispatcher fronts the operator surface;
