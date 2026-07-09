@@ -35,4 +35,36 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolverTest do
     assert descriptor.slot_extractors.to == :email_address
     assert descriptor.slot_extractors.body == :message_body_phrase
   end
+
+  describe "v0.63 F5 production gates (capability-off + demo intents)" do
+    setup do
+      # The suite bypasses the gates globally; turn the bypass OFF to exercise the real
+      # production behavior a fresh install sees.
+      saved = Application.get_env(:allbert_assist, :intent_descriptor_include_all)
+      Application.put_env(:allbert_assist, :intent_descriptor_include_all, false)
+
+      on_exit(fn ->
+        Application.put_env(:allbert_assist, :intent_descriptor_include_all, saved)
+      end)
+
+      :ok
+    end
+
+    test "demo/example intents (StockSage) are not routable by default" do
+      keys = resolved_keys(DescriptorResolver.resolve())
+      refute MapSet.member?(keys, {:stocksage, "run_analysis"})
+    end
+
+    test "capability-gated intents (voice) are excluded when the capability is off (default)" do
+      actions = DescriptorResolver.resolve() |> Enum.map(& &1.action_name)
+      refute "synthesize_voice" in actions
+    end
+
+    test "ignore_disabled?: true bypasses the gates (the eval path sees everything)" do
+      keys = resolved_keys(DescriptorResolver.resolve(ignore_disabled?: true))
+      assert MapSet.member?(keys, {:stocksage, "run_analysis"})
+    end
+  end
+
+  defp resolved_keys(descriptors), do: MapSet.new(descriptors, &{&1.app_id, &1.action_name})
 end

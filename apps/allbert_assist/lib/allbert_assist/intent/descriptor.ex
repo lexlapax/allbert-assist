@@ -28,6 +28,10 @@ defmodule AllbertAssist.Intent.Descriptor do
     slot_extractors: %{},
     vocabulary: %{},
     handoff_required?: true,
+    # F5 Q3: demo/example intents (e.g. StockSage) set this false so a fresh install does
+    # not route general prompts to them; the router keeps them out of the default shortlist
+    # unless the descriptor gate is bypassed (tests) or a future opt-in enables demos.
+    routable_by_default?: true,
     capability: %{}
   ]
 
@@ -46,6 +50,7 @@ defmodule AllbertAssist.Intent.Descriptor do
           slot_extractors: %{atom() => atom()},
           vocabulary: map(),
           handoff_required?: boolean(),
+          routable_by_default?: boolean(),
           capability: map()
         }
 
@@ -99,6 +104,7 @@ defmodule AllbertAssist.Intent.Descriptor do
          slot_extractors: slot_extractors,
          vocabulary: vocabulary,
          handoff_required?: field(attrs, :handoff_required?, true) == true,
+         routable_by_default?: field(attrs, :routable_by_default?, true) != false,
          capability: capability
        }}
     else

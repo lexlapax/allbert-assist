@@ -133,7 +133,10 @@ defmodule StockSage.App do
         },
         required_slots: [:ticker],
         slot_extractors: %{ticker: :ticker_symbol},
-        handoff_required?: true
+        handoff_required?: true,
+        # F5 Q3: StockSage is the bundled example plugin; keep its intents out of the
+        # default router shortlist so a fresh install does not route general prompts here.
+        routable_by_default?: false
       },
       %{
         app_id: :stocksage,
@@ -155,7 +158,10 @@ defmodule StockSage.App do
         required_slots: [],
         optional_slots: [:symbol],
         slot_extractors: %{symbol: :ticker_symbol},
-        handoff_required?: true
+        handoff_required?: true,
+        # F5 Q3: StockSage is the bundled example plugin; keep its intents out of the
+        # default router shortlist so a fresh install does not route general prompts here.
+        routable_by_default?: false
       },
       %{
         app_id: :stocksage,
@@ -173,7 +179,10 @@ defmodule StockSage.App do
           "stocksage history"
         ],
         required_slots: [],
-        handoff_required?: true
+        handoff_required?: true,
+        # F5 Q3: StockSage is the bundled example plugin; keep its intents out of the
+        # default router shortlist so a fresh install does not route general prompts here.
+        routable_by_default?: false
       },
       %{
         app_id: :stocksage,
@@ -193,7 +202,10 @@ defmodule StockSage.App do
         required_slots: [],
         optional_slots: [:symbol],
         slot_extractors: %{symbol: :ticker_symbol},
-        handoff_required?: true
+        handoff_required?: true,
+        # F5 Q3: StockSage is the bundled example plugin; keep its intents out of the
+        # default router shortlist so a fresh install does not route general prompts here.
+        routable_by_default?: false
       },
       %{
         app_id: :stocksage,
@@ -212,7 +224,10 @@ defmodule StockSage.App do
         ],
         required_slots: [:symbol],
         slot_extractors: %{symbol: :ticker_symbol},
-        handoff_required?: true
+        handoff_required?: true,
+        # F5 Q3: StockSage is the bundled example plugin; keep its intents out of the
+        # default router shortlist so a fresh install does not route general prompts here.
+        routable_by_default?: false
       }
     ]
   end

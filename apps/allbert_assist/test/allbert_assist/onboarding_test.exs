@@ -122,6 +122,8 @@ defmodule AllbertAssist.OnboardingTest do
 
       assert s.readiness == :ready
       assert Settings.get("intent.direct_answer_model_enabled") == {:ok, true}
+      # F5 Q1: a ready model also turns on model-assisted intent classification.
+      assert Settings.get("intent.model_assist_enabled") == {:ok, true}
     end
 
     test "a non-ready model_path leaves model answers disabled (no dead model enabled)" do

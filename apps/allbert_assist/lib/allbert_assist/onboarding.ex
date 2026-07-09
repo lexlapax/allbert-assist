@@ -232,6 +232,12 @@ defmodule AllbertAssist.Onboarding do
   defp maybe_enable_model_answer(step, %{readiness: :ready})
        when step in @model_answer_enable_steps do
     Settings.put("intent.direct_answer_model_enabled", true, %{audit?: true})
+    # F5 Q1: with a ready model, also enable model-assisted intent classification so the
+    # router's fallback picks intents by meaning rather than weak keyword overlap. Both
+    # keys are seed-authority @safe_write_keys — no new grant. (The router hardening in
+    # DescriptorResolver/Disambiguator is what fixes the observed mis-routes; this raises
+    # fallback quality.)
+    Settings.put("intent.model_assist_enabled", true, %{audit?: true})
     :ok
   end
 

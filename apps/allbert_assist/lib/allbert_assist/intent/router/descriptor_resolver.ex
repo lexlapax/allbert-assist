@@ -21,13 +21,26 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolver do
   alias AllbertAssist.Extensions.Registry, as: ExtensionsRegistry
   alias AllbertAssist.Intent.Descriptor
   alias AllbertAssist.Intent.Router.DescriptorStore
+  alias AllbertAssist.Settings
+
+  # F5 Q2: intents whose backing capability is operator-toggled; when the setting is off
+  # the capability is unavailable, so the intent must not be routable (e.g. "Say hello"
+  # was routing to synthesize_voice → denied :voice_disabled).
+  @capability_gated_settings %{
+    "synthesize_voice" => "voice.enabled",
+    "transcribe_voice" => "voice.enabled",
+    "capture_workspace_voice" => "voice.enabled"
+  }
 
   @spec resolve(keyword()) :: [Descriptor.t()]
   def resolve(opts \\ []) do
-    disabled =
-      if Keyword.get(opts, :ignore_disabled?, false),
-        do: [],
-        else: disabled_keys()
+    ignore_disabled? = Keyword.get(opts, :ignore_disabled?, false)
+    # Operator-disable overrides are honored unless the caller explicitly ignores them.
+    disabled = if ignore_disabled?, do: [], else: disabled_keys()
+    # The capability/demo gates (Q2/Q3) are additionally bypassed by the test/eval app-env
+    # flag so the eval corpus can route to voice/StockSage as if fully configured — WITHOUT
+    # also disabling the operator-disable override above (which its own tests exercise).
+    gate_bypass? = ignore_disabled? or include_all_descriptors?()
 
     [
       app_plugin_layer(opts),
@@ -40,6 +53,32 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolver do
     |> Enum.reject(fn descriptor ->
       {descriptor.app_id, descriptor.action_name} in disabled
     end)
+    |> reject_unavailable(gate_bypass?)
+  end
+
+  # F5 Q2 + Q3: on a fresh/production install, drop intents whose capability is toggled off
+  # (voice) and demo/example intents (StockSage `routable_by_default?: false`) so general
+  # prompts are not mis-routed to them. Bypassed for tests/evals.
+  defp reject_unavailable(descriptors, true), do: descriptors
+
+  defp reject_unavailable(descriptors, false) do
+    Enum.reject(descriptors, fn descriptor ->
+      demo_intent?(descriptor) or capability_gated_off?(descriptor)
+    end)
+  end
+
+  defp demo_intent?(%Descriptor{routable_by_default?: false}), do: true
+  defp demo_intent?(_descriptor), do: false
+
+  defp capability_gated_off?(%Descriptor{action_name: action_name}) do
+    case Map.get(@capability_gated_settings, to_string(action_name)) do
+      nil -> false
+      setting_key -> Settings.get(setting_key) != {:ok, true}
+    end
+  end
+
+  defp include_all_descriptors? do
+    Application.get_env(:allbert_assist, :intent_descriptor_include_all, false) == true
   end
 
   # Operator overrides may mark an action non-routable with `%{..., disabled: true}`.

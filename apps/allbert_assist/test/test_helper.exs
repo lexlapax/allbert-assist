@@ -8,6 +8,12 @@ Ecto.Adapters.SQL.Sandbox.mode(AllbertAssist.Repo, :manual)
 # tests override ALLBERT_VAULT_BACKEND per-test (with an injected `security` runner).
 System.put_env("ALLBERT_VAULT_BACKEND", "encrypted_file")
 
+# v0.63 F5: the intent router now hides capability-gated (voice off) and demo (StockSage)
+# intents from the default shortlist. The eval corpus tests routing to those intents as if
+# fully configured, so bypass the gate suite-wide (a focused DescriptorResolver test clears
+# this flag to prove the production gate).
+Application.put_env(:allbert_assist, :intent_descriptor_include_all, true)
+
 test_home =
   Path.join(
     System.tmp_dir!(),
