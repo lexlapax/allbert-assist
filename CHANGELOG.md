@@ -10,6 +10,43 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.64.0 - Trusted Install And Non-Developer First Run
+
+Status: **tag-first release for artifact validation — tagged `v0.64.0` (2026-07-09),
+version 0.64.0**. `mix allbert.test release.v064` passed with all steps green. The
+tag is intentionally cut before packaged manual operator validation so GitHub release
+artifacts, `SHA256SUMS`, and the cosign bundle exist for the real curl/Homebrew install
+path. Manual operator validation and release closeout remain the next step.
+
+v0.64 moves install trust and first-run repair into one non-developer path: package-first
+install, persistent service start, browser-first workspace onboarding, guided local
+runtime/model repair, and one obvious path from a blocked model state to first chat. It
+adds no new authority; all effectful repair work remains behind registered actions,
+Security Central, confirmations, traces, and audits.
+
+- **Trusted install and restore.** The curl installer now downloads
+  `SHA256SUMS.cosign.bundle`, requires `cosign verify-blob` against the GitHub Actions
+  workflow identity/issuer before checksum comparison, and refuses to install without
+  signature verification. The release-artifacts workflow no longer treats checksum
+  signing as optional. Upgrade backups can be listed and restored through the bounded,
+  confirmation-gated `restore_database_backup` action and `allbert admin db
+  list-backups|restore`.
+- **Consumer-default model repair.** Web and CLI onboarding expose guided local-runtime
+  install and curated local-model pull before hosted-provider fallback. The pull uses
+  Ollama's streaming `/api/pull` path with bounded progress frames and workspace progress
+  signals; no hosted API key or manual `ollama pull` command is required for the consumer
+  default.
+- **Repairable first run.** Completed onboarding with an unavailable model now routes the
+  web workspace to the standalone Models repair panel (`workspace:models`) instead of
+  reopening the wizard. Bare `allbert` renders operator guidance without raw probe atoms;
+  `allbert admin service status` reports read-only service posture; `allbert tui` now
+  guards launch before setup/model readiness and points to onboarding or Models repair.
+- **Trust spine and release gate.** The onboarding trust spine now names confirmations,
+  Security Central permissions, traces, local-first posture, hosted-provider egress,
+  vault custody, and memory review. `mix allbert.test release.v064` records deterministic
+  release evidence for format, compile warnings-as-errors, Credo, Dialyzer, trusted
+  install/restore, first-model repair, `:v064` eval rows, web repair, and docs drift.
+
 ## v0.63.0 - Guided Onboarding & Profiles
 
 Status: **released — tagged `v0.63.0` (2026-07-09), version 0.63.0**. Pre-1.0 product

@@ -4183,12 +4183,13 @@ Expected direction:
 Plan: `docs/plans/v0.64-plan.md`
 Request flow: `docs/plans/v0.64-request-flow.md`
 
-Status: implemented; `mix allbert.test release.v064` passed in the implementation
-pass. Manual operator validation and release/tag closeout still pending. Moves
-distribution trust into the first-run release because a non-developer cannot separate
-"trust the installer" from "trust the product." It closes installer-side verification
-and rollback/restore posture, makes packaged install the primary docs path, and turns
-first-run blocked states into plain-language repair screens with one primary action.
+Status: tagged first as `v0.64.0` on 2026-07-09 for artifact validation; version
+0.64.0. `mix allbert.test release.v064` passed in the implementation pass. Packaged
+manual operator validation and release closeout remain next. Moves distribution trust
+into the first-run release because a non-developer cannot separate "trust the installer"
+from "trust the product." It closes installer-side verification and rollback/restore
+posture, makes packaged install the primary docs path, and turns first-run blocked
+states into plain-language repair screens with one primary action.
 
 Expected direction:
 

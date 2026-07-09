@@ -34,17 +34,19 @@ becoming opaque or unbounded.
 
 ## Current Shape
 
-The current release line is **v0.63 (Guided Onboarding & Profiles), tagged
-`v0.63.0`**. It turns first-run into a guided two-track onboarding wizard —
-QuickStart vs Advanced — surfaced in both the web workspace and the `allbert onboard`
-CLI, backed by repo-maintained user-category personas (seed-only, review + confirm),
-the ADR-0078 First-Model Path (local-first Ollama with BYOK fallback, no dead ends),
-and a visible trust spine. It builds on v0.62's packaging: a self-contained OTP release
-with a unified `allbert` CLI, a Homebrew/curl install path with checksum verification,
-an `allbert serve` daemon with attach-first command routing, a single-writer guard,
-`/health`, the ADR 0070 mix-free TUI console, and a three-tier OS secret vault
-(ADR 0076). Provider credentials resolve through that vault across OS Keychain,
-encrypted-file, and environment tiers. No new authority.
+The current release line is **v0.64 (Trusted Install And Non-Developer First Run),
+tagged `v0.64.0`**. It makes packaged install and repairable first run the primary
+operator path: fail-closed installer-side cosign verification, bounded DB backup
+restore, persistent service posture, browser-first onboarding, guided local-runtime
+repair, curated local-model pull with progress, a standalone Models repair panel, and
+plain-language CLI/TUI blocked-state guidance. It builds on v0.63's guided
+two-track onboarding wizard, repo-maintained user-category personas (seed-only,
+review + confirm), ADR-0078 First-Model Path, and visible trust spine. No new
+authority.
+
+The tag is cut before packaged manual operator validation so the real GitHub release
+artifacts, checksums, and cosign bundle exist for installer validation. See
+[CHANGELOG.md](CHANGELOG.md) for the current release status.
 
 The prior line, v0.62 (Packaging & Entry Points), shipped as packaged release `v0.62.0`
 (Latest, 2026-07-07) with a source/docs point release `v0.62.1` (tagged 2026-07-07,
@@ -67,10 +69,10 @@ Today, Allbert includes:
 - Source-tree plugins and app surfaces, with StockSage as the main reference app.
 - Public protocol surfaces with bounded, policy-checked exposure.
 
-As of v0.63, Allbert is still a developer-operated local project rather than a
-polished non-developer product. The pre-1.0 plan now closes that gap explicitly:
-v0.64 owns trusted install and repairable first-run, v0.65 owns the local
-files/notes/memory launch path, and v0.66 owns no-docs product RC validation
+As of v0.64, Allbert has the trusted-install and repairable first-run substrate for a
+non-developer operator, with packaged manual validation still to run against published
+artifacts. The pre-1.0 plan closes the remaining launch gap explicitly: v0.65 owns the
+local files/notes/memory launch path, and v0.66 owns no-docs product RC validation
 before v1.0 freezes the public contracts.
 
 ## What Allbert Is For
