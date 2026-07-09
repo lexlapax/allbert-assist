@@ -92,9 +92,14 @@ defmodule AllbertAssist.Settings.Vault do
 
   defp read_through([backend | rest], secret_ref, context, acc) do
     case backend.get(secret_ref, context) do
-      {:ok, _value} = ok -> ok
-      :missing -> read_through(rest, secret_ref, context, acc)
-      {:error, _reason} = err -> read_through(rest, secret_ref, context, keep_first_error(acc, err))
+      {:ok, _value} = ok ->
+        ok
+
+      :missing ->
+        read_through(rest, secret_ref, context, acc)
+
+      {:error, _reason} = err ->
+        read_through(rest, secret_ref, context, keep_first_error(acc, err))
     end
   end
 

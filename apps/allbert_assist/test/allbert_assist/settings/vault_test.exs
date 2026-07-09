@@ -248,7 +248,9 @@ defmodule AllbertAssist.Settings.VaultTest do
       System.put_env("OPENAI_API_KEY", "sk-env-should-not-be-used")
       on_exit(fn -> System.delete_env("OPENAI_API_KEY") end)
 
-      assert {:ok, _} = Secrets.put_secret("secret://providers/openai/api_key", @secret_value, %{})
+      assert {:ok, _} =
+               Secrets.put_secret("secret://providers/openai/api_key", @secret_value, %{})
+
       assert {:ok, @secret_value} = Vault.get("secret://providers/openai/api_key", %{})
     end
   end
