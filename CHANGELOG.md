@@ -12,18 +12,27 @@ changelog entries or release notes.
 
 ## v0.64.1 - Trusted Install And Non-Developer First Run
 
-Status: **fix-forward tag-first artifact-validation release — tagged `v0.64.1`
-(2026-07-09), version 0.64.1**.
-`mix allbert.test release.v064` passed for the v0.64 implementation, and the focused
-installer/release-workflow test now covers the Linux rehearsal's signed local-checksum
-path. `v0.64.0` was tagged first for artifact validation on 2026-07-09, but its
-release-artifacts workflow correctly blocked before publish: the pre-publish Linux
-rehearsal used the fail-closed installer against a local `file://` tarball without
-creating the `SHA256SUMS.cosign.bundle` the installer now requires. `v0.64.1` fixes that
-release-contract gap by giving the rehearsal OIDC signing permission, installing cosign,
-signing its local `SHA256SUMS`, and surfacing installer stderr/stdout on failure.
-Packaged manual operator validation and release closeout remain the next step after the
-`v0.64.1` artifacts publish.
+Status: **released — tagged `v0.64.1` (2026-07-09), version 0.64.1, GitHub Release
+assets published**.
+`mix allbert.test release.v064` passed, the focused installer/release-workflow test
+covers the Linux rehearsal's signed local-checksum path, and the `release-artifacts`
+workflow for run `29049551336` passed build, artifact smoke, Linux install/vault/service
+rehearsal, checksum signing, and publish. `v0.64.0` was tagged first for artifact
+validation on 2026-07-09, but its release-artifacts workflow correctly blocked before
+publish: the pre-publish Linux rehearsal used the fail-closed installer against a local
+`file://` tarball without creating the `SHA256SUMS.cosign.bundle` the installer now
+requires. `v0.64.1` fixes that release-contract gap by giving the rehearsal OIDC signing
+permission, installing cosign, signing its local `SHA256SUMS`, and surfacing installer
+stderr/stdout on failure.
+
+Manual macOS validation on 2026-07-09 used disposable `HOME`, `ALLBERT_HOME`, and
+`ALLBERT_PREFIX` under `/private/tmp/allbert-v0641-manual`. The real installer downloaded
+the published `allbert-v0.64.1-macos-arm64.tar.gz`, then failed closed with the expected
+cosign-install guidance because this Mac does not have `cosign`; no files were installed.
+Direct packaged-artifact validation from the published tarball passed `allbert --version`
+(`0.64.1`), `admin status`, `serve`, `/health`, attach, `admin service status`, and bare
+first-run guidance. Full macOS curl-install success remains blocked on explicit approval
+to install `cosign` locally.
 
 v0.64 moves install trust and first-run repair into one non-developer path: package-first
 install, persistent service start, browser-first workspace onboarding, guided local

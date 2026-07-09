@@ -4183,16 +4183,18 @@ Expected direction:
 Plan: `docs/plans/v0.64-plan.md`
 Request flow: `docs/plans/v0.64-request-flow.md`
 
-Status: fix-forward tag-first artifact validation as `v0.64.1` on 2026-07-09; version
-0.64.1. `mix allbert.test release.v064` passed in the implementation pass. `v0.64.0`
-was tagged first, but its release-artifacts workflow blocked before publish because the
-pre-publish Linux rehearsal did not create the cosign bundle required by the fail-closed
-installer. `v0.64.1` fixes that release-contract gap; packaged manual operator
-validation and release closeout remain next after artifacts publish. Moves distribution
-trust into the first-run release because a non-developer cannot separate "trust the
-installer" from "trust the product." It closes installer-side verification and
-rollback/restore posture, makes packaged install the primary docs path, and turns
-first-run blocked states into plain-language repair screens with one primary action.
+Status: released as `v0.64.1` on 2026-07-09; version 0.64.1. `mix allbert.test
+release.v064` passed. `v0.64.0` was tagged first, but its release-artifacts workflow
+blocked before publish because the pre-publish Linux rehearsal did not create the cosign
+bundle required by the fail-closed installer. `v0.64.1` fixes that release-contract gap;
+the release-artifacts workflow passed and published GitHub Release assets. Local macOS
+validation confirmed published-artifact boot/health/attach/first-run behavior and
+fail-closed installer guidance; full curl-install success on this Mac requires explicit
+approval to install `cosign`. Moves distribution trust into the first-run release because
+a non-developer cannot separate "trust the installer" from "trust the product." It closes
+installer-side verification and rollback/restore posture, makes packaged install the
+primary docs path, and turns first-run blocked states into plain-language repair screens
+with one primary action.
 
 Expected direction:
 
