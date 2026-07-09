@@ -6,7 +6,7 @@ defmodule AllbertAssist.Settings.ModelRuntime do
   Secrets remain the source of operator-owned provider configuration.
   """
 
-  alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.Settings.Vault
 
   @openai_min_max_tokens 16
 
@@ -116,7 +116,9 @@ defmodule AllbertAssist.Settings.ModelRuntime do
   defp maybe_put_api_key(opts, profile) do
     case Map.get(profile, :provider_api_key_ref) || Map.get(profile, :api_key_ref) do
       ref when is_binary(ref) ->
-        put_secret_api_key(opts, Secrets.get_secret(ref, %{trusted?: true}))
+        # M8.3: resolve through the tier vault so a key stored in the OS Keychain is read
+        # back at runtime (falls back to the tier-2 store for pre-migration keys).
+        put_secret_api_key(opts, Vault.get(ref, %{trusted?: true}))
 
       _missing ->
         opts

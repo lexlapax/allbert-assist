@@ -1,6 +1,13 @@
 ExUnit.start()
 Ecto.Adapters.SQL.Sandbox.mode(AllbertAssist.Repo, :manual)
 
+# v0.63 M8.3: provider-credential writes/reads now route through Settings.Vault, whose
+# default auto-resolution picks the OS Keychain on macOS. Pin the suite to the tier-2
+# encrypted-file backend so tests never shell out to the real Keychain (equivalent to
+# the pre-M8.3 behaviour where these flows called Settings.Secrets directly). Vault-tier
+# tests override ALLBERT_VAULT_BACKEND per-test (with an injected `security` runner).
+System.put_env("ALLBERT_VAULT_BACKEND", "encrypted_file")
+
 test_home =
   Path.join(
     System.tmp_dir!(),

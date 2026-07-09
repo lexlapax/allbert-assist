@@ -23,6 +23,8 @@ defmodule AllbertAssist.Settings.Vault do
   and the stable interface; the OS-vault adapters are new.
   """
 
+  alias AllbertAssist.Settings.Secrets
+
   @type tier :: :os | :encrypted_file | :env
   @type backend :: module()
 
@@ -38,17 +40,56 @@ defmodule AllbertAssist.Settings.Vault do
   @doc "The active backend module."
   def backend, do: resolve().backend
 
-  @doc "Store a secret value at its reference through the active tier."
+  @doc """
+  Store a secret value at its reference through the active tier (v0.63 M8.3).
+
+  Value storage is delegated to the resolved backend; the tier-independent bookkeeping
+  (Settings-central api_key_ref, custody invalidation, audit) is applied uniformly so a
+  key stored in the OS Keychain is configured in Settings exactly like a tier-2 key. On
+  macOS the active tier is `:os`, so this needs no `ALLBERT_SETTINGS_MASTER_KEY`.
+  """
   @spec put(String.t(), String.t(), map()) :: {:ok, map()} | {:error, term()}
   def put(secret_ref, value, context \\ %{}) do
-    backend().put(secret_ref, value, context)
+    %{tier: tier, backend: backend} = resolve()
+
+    with :ok <- Secrets.validate_secret_ref(secret_ref),
+         {:ok, stored} <- backend.put(secret_ref, value, context),
+         {:ok, diagnostics} <- finalize_bookkeeping(tier, secret_ref, stored, context) do
+      {:ok,
+       stored
+       |> Map.put(:tier, tier)
+       |> Map.put(:status, :configured)
+       |> Map.put(:diagnostics, diagnostics)}
+    end
   end
 
-  @doc "Fetch a secret value (or status) through the active tier."
+  @doc """
+  Fetch a secret value (or status) through the active tier (v0.63 M8.3).
+
+  Falls back to the tier-2 encrypted store on a miss when the active tier is not tier-2,
+  so a value written before it migrated to the OS vault stays readable (upgrade-safe).
+  """
   @spec get(String.t(), map()) :: {:ok, term()} | :missing | {:error, term()}
   def get(secret_ref, context \\ %{}) do
-    backend().get(secret_ref, context)
+    %{tier: tier, backend: backend} = resolve()
+
+    case backend.get(secret_ref, context) do
+      :missing when tier != :encrypted_file ->
+        __MODULE__.EncryptedFile.get(secret_ref, context)
+
+      other ->
+        other
+    end
   end
+
+  # Tier-2 (EncryptedFile → Secrets.put_secret) already wrote the ref, audited, and
+  # invalidated custody; keep its diagnostics. The OS tiers store value-only, so run the
+  # shared bookkeeping here.
+  defp finalize_bookkeeping(:encrypted_file, _secret_ref, stored, _context),
+    do: {:ok, Map.get(stored, :diagnostics, [])}
+
+  defp finalize_bookkeeping(_tier, secret_ref, _stored, context),
+    do: Secrets.finalize_external_secret(secret_ref, context)
 
   @doc "Whether an OS vault backend is reachable on this host."
   @spec os_vault_available?() :: boolean()

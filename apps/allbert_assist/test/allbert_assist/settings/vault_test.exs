@@ -153,6 +153,71 @@ defmodule AllbertAssist.Settings.VaultTest do
     end
   end
 
+  describe "v0.63 M8.3 provider credentials route write + read through the active tier" do
+    # Inject both OS backends (macOS Keychain + Linux Secret Service) so the test is
+    # platform-agnostic under `ALLBERT_VAULT_BACKEND=os`.
+    defp inject_os_runners(hit_value) do
+      security = fn args ->
+        cond do
+          "add-generic-password" in args -> {"", 0}
+          "find-generic-password" in args and hit_value -> {@secret_value, 0}
+          "find-generic-password" in args -> {"", 1}
+          true -> {"", 0}
+        end
+      end
+
+      secret_tool = fn args, _stdin ->
+        cond do
+          "store" in args -> {"", 0}
+          "lookup" in args and hit_value -> {@secret_value <> "\n", 0}
+          "lookup" in args -> {"", 1}
+          true -> {"", 0}
+        end
+      end
+
+      Application.put_env(:allbert_assist, :vault_security_runner, security)
+      Application.put_env(:allbert_assist, :vault_secret_tool_runner, secret_tool)
+    end
+
+    test "OS-tier put stores value-only, applies the shared bookkeeping, and reads back (no master key)" do
+      System.delete_env("ALLBERT_SETTINGS_MASTER_KEY")
+      System.put_env("ALLBERT_VAULT_BACKEND", "os")
+      inject_os_runners(true)
+
+      assert {:ok, result} = Vault.put(@secret_ref, @secret_value, %{})
+      assert result.tier == :os
+      assert result.status == :configured
+
+      # Bookkeeping fired on the OS tier: the Settings-central api_key_ref is written
+      # (read back redacted — a ref-key redaction, proving it is set, not the raw value).
+      assert {:ok, "[REDACTED]"} = Settings.get("providers.anthropic.api_key_ref")
+      # …and the tier-2 encrypted store was never created (no master key needed or used).
+      refute File.exists?(Secrets.secrets_path())
+
+      # Runtime read resolves the value back through the OS vault.
+      assert {:ok, @secret_value} = Vault.get(@secret_ref, %{})
+    end
+
+    test "OS-tier read miss falls back to the tier-2 store (upgrade-safe)" do
+      # A value written to tier-2 before the OS-vault routing landed must still resolve.
+      System.put_env("ALLBERT_VAULT_BACKEND", "encrypted_file")
+      assert {:ok, _} = Secrets.put_secret(@secret_ref, @secret_value, %{})
+
+      System.put_env("ALLBERT_VAULT_BACKEND", "os")
+      inject_os_runners(false)
+
+      assert {:ok, @secret_value} = Vault.get(@secret_ref, %{})
+    end
+
+    test "value never surfaces in the put result" do
+      System.put_env("ALLBERT_VAULT_BACKEND", "os")
+      inject_os_runners(true)
+
+      assert {:ok, result} = Vault.put(@secret_ref, @secret_value, %{})
+      refute inspect(result) =~ @secret_value
+    end
+  end
+
   describe "vault_status action (read-only)" do
     test "reports the resolved tier + posture without secret values" do
       System.put_env("ALLBERT_VAULT_BACKEND", "encrypted_file")

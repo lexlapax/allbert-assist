@@ -454,11 +454,17 @@ never a silent choice:
 
 1. **OS vault (tier 1)** — macOS Keychain (`security`) or Linux Secret Service
    (`secret-tool`). Used automatically when reachable. Values live in the OS
-   keychain, outside Allbert Home.
+   keychain, outside Allbert Home. Storing a provider key here (e.g.
+   `admin settings providers set-key openai`) needs **no**
+   `ALLBERT_SETTINGS_MASTER_KEY` — that key is only for the tier-2 encrypted-file
+   store. Setting a key writes the value to the vault, records the Settings-central
+   `api_key_ref`, and is read back at runtime through the same tier (v0.63 M8.3).
 2. **Encrypted file (tier 2)** — the existing `secrets.yml.enc` store, used as
    the documented fallback where no OS vault is reachable (e.g. a headless Linux
    daemon with no D-Bus session). The fallback is surfaced with a notice, not
-   silent.
+   silent. This tier needs `ALLBERT_SETTINGS_MASTER_KEY` in a packaged prod
+   release (no local `.settings_key` fallback there). A tier-1 read miss falls
+   back here so keys written before the OS-vault routing landed stay readable.
 3. **Env injection (tier 3)** — the five provider keys read from the environment
    for automation/CI. Read-only; surfaced in inspection as "env-provided" so it
    is never an invisible side channel.

@@ -39,6 +39,25 @@ defmodule AllbertAssist.Settings.Secrets do
   def put_secret(_secret_ref, _value, _context),
     do: {:error, {:invalid_secret_value, :not_a_string}}
 
+  @doc """
+  Tier-independent bookkeeping for a secret whose *value* was stored by a non-tier-2
+  backend (v0.63 M8.3 — e.g. the OS Keychain): validate the ref, write the Settings-central
+  `providers.<p>.api_key_ref`, invalidate the custody cache, and append the audit entry.
+
+  Tier-2 (`put_secret/3`) already does this itself; `Settings.Vault.put/3` calls this for
+  the OS tiers so every tier records the same bookkeeping (otherwise a Keychain-stored key
+  is never referenced in Settings and stays unconfigured). Returns `{:ok, diagnostics}`.
+  """
+  @spec finalize_external_secret(String.t(), map()) :: {:ok, [map()]} | {:error, term()}
+  def finalize_external_secret(secret_ref, context \\ %{}) do
+    with :ok <- validate_secret_ref(secret_ref),
+         old_status <- status(secret_ref),
+         :ok <- maybe_write_setting_ref(secret_ref, context) do
+      KeyCustody.invalidate(secret_ref)
+      {:ok, audit_secret(secret_ref, old_status, :configured, context)}
+    end
+  end
+
   def get_secret(secret_ref, context \\ %{}), do: KeyCustody.fetch(secret_ref, context)
 
   def list_secret_status(namespace_or_opts \\ []) do

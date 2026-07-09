@@ -23,7 +23,7 @@ defmodule AllbertAssist.Actions.Settings.SetProviderCredential do
     ]
 
   alias AllbertAssist.Security.PermissionGate
-  alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.Settings.Vault
 
   @impl true
   def run(%{provider: provider} = params, context) do
@@ -48,8 +48,10 @@ defmodule AllbertAssist.Actions.Settings.SetProviderCredential do
     permission_decision = PermissionGate.authorize(:settings_secret_write, context)
 
     with true <- PermissionGate.allowed?(permission_decision),
+         # M8.3: route through the tier vault — on macOS this stores in the OS Keychain
+         # with no master key; headless Linux still falls to the encrypted-file tier.
          {:ok, result} <-
-           Secrets.put_secret(
+           Vault.put(
              secret_ref(provider),
              api_key,
              action_context(context, permission_decision)
