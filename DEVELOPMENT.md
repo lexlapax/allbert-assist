@@ -432,6 +432,16 @@ Why release-pinned and not semver-per-app:
   version when the app is the umbrella core (`AllbertAssist.App.CoreApp`
   → `apps/allbert_assist/mix.exs`).
 
+**v0.63 M8.7 — `CoreApp.version/0` is now derived, not a literal.** It returns
+`to_string(Application.spec(:allbert_assist, :vsn))`, i.e. it tracks
+`apps/allbert_assist/mix.exs` automatically. This removes the one hand-maintained
+literal that could (and did, latently) lag a `mix.exs` bump and leave the MCP/ACP
+`serverInfo.version` behind. A release bump therefore edits **three** `:vsn` sites —
+umbrella `mix.exs`, `apps/allbert_assist/mix.exs` (CLI banner + protocol version),
+`apps/allbert_assist_web/mix.exs` (asset `v=`) — and no longer `core_app.ex`. The
+drift guard `AllbertAssistWeb.VersionConsistencyTest` fails if these fall out of
+lockstep or if `CoreApp.version/0` is ever reverted to a literal.
+
 Where this gets enforced:
 
 - Reviewed at each milestone closeout: if a milestone changes an app's

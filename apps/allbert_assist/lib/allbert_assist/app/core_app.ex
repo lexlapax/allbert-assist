@@ -18,13 +18,13 @@ defmodule AllbertAssist.App.CoreApp do
   def display_name, do: "Allbert"
 
   @impl true
-  # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.62.1 closes the v0.62
-  # release-ops follow-up while v0.62.0 remains the packaged product artifact:
-  # unified `allbert` CLI, first-run / First-Model-Path onboarding,
-  # `allbert serve`, and the three-tier secret vault stay governed by ADR 0076.
-  # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.62.1"
+  # v0.63 M8.7: single source of truth — derive from the `:allbert_assist` app `:vsn`
+  # (i.e. `apps/allbert_assist/mix.exs`) rather than a second hand-maintained literal, so
+  # the MCP/ACP `serverInfo.version` can never lag a mix.exs bump. The version is
+  # release-pinned (bumped to the Allbert release that last meaningfully changed the app,
+  # per DEVELOPMENT.md "App version metadata") — the same `:vsn` the CLI banner and the
+  # web asset `v=` cache-bust already read.
+  def version, do: to_string(Application.spec(:allbert_assist, :vsn) || "0.0.0")
 
   @impl true
   def validate(_opts), do: :ok
