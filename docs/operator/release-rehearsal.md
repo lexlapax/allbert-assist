@@ -182,13 +182,39 @@ allbert admin service uninstall                   # confirmation-gated; removes 
 
 ```sh
 allbert admin vault                               # shows the resolved tier
-# set a provider key with a settings master key configured, then:
+# On macOS the OS Keychain tier needs NO settings master key (v0.63 M8.3):
+allbert admin settings providers set-key openai   # stores in the Keychain, writes the api_key_ref
+allbert admin settings providers list             # confirm the provider shows configured
+# Migrating pre-existing encrypted-store keys into the OS vault stays confirmation-gated:
 allbert admin secrets migrate                     # -> needs_confirmation
 allbert admin confirmations approve <ID>          # moves encrypted-store secrets into the OS vault
 ```
 
 Headless Linux without a D-Bus keyring resolves to the encrypted-file tier with a
-surfaced notice; see [security-hardening.md](security-hardening.md).
+surfaced notice (that tier needs `ALLBERT_SETTINGS_MASTER_KEY` in a packaged prod
+release); see [security-hardening.md](security-hardening.md).
+
+### v0.63 M8.8 — bare/first-run + hosted-doctor through the packaged `eval` path
+
+These two paths were unexercised before v0.63 M8.8 and let the packaged `unknown
+registry: Req.Finch` (M8.1) and castore/CA (M8.2) blockers reach an operator. The Linux
+rehearsal script now covers them (steps `first-run-eval`, `castore-bundled`,
+`hosted-doctor-eval`); rehearse the same on macOS:
+
+```sh
+# Bare / first-run command through the eval dispatch (no daemon): with a completed-
+# onboarding Home this runs the localhost first-model probe — it must NOT crash with
+# `unknown registry: Req.Finch`.
+allbert                                           # or any pure command; expect no Req.Finch crash
+
+# The release bundles a CA trust store (offline-safe fallback):
+ls "$REL_ROOT"/lib/castore-*/priv/cacerts.pem     # must exist
+
+# Hosted-provider doctor must not raise the castore/CA-trust error; SSL_CERT_FILE is
+# honored. A 401/403 (no key) still proves TLS/CA succeeded.
+allbert admin models doctor openai                # expect no "castore"/"default CA trust store" error
+SSL_CERT_FILE=/etc/ssl/cert.pem allbert admin models doctor openai   # override lever works
+```
 
 ### uninstall (Home preserved)
 

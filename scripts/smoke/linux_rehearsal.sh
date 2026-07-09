@@ -58,6 +58,39 @@ case "$VSN" in allbert\ *) echo "linux-rehearsal:version PASS $VSN" ;; *) fail v
 run admin status >"$WORK/status.out" 2>/dev/null || fail status "admin status non-zero"
 echo "linux-rehearsal:status PASS admin status ok"
 
+# 2b) v0.63 M8.8: bare / first-run command through the packaged `eval` dispatch — the
+# path that crashed with `unknown registry: Req.Finch` (eval loads-but-does-not-start OTP
+# apps, so the first-model probe's Req.Finch pool was absent). `admin status` above
+# initialised the Home DB; mark onboarding complete so `detect` reaches the localhost
+# probe, then assert bare `allbert` runs it without the registry crash.
+printf '{"onboarding_complete": true, "profile_reviewed": true}' > "$HOME_DIR/onboarding.json"
+run >"$WORK/firstrun.out" 2>&1 || true
+if grep -q "unknown registry: Req.Finch" "$WORK/firstrun.out"; then
+  cat "$WORK/firstrun.out"; fail first-run-eval "bare allbert crashed on Req.Finch (eval did not start :req)"
+fi
+echo "linux-rehearsal:first-run-eval PASS bare allbert ran the first-model probe with no Req.Finch crash"
+rm -f "$HOME_DIR/onboarding.json"
+
+# 2c) v0.63 M8.8: a CA trust store must ship in the release so hosted-provider HTTPS works
+# on a host with an empty/unloadable OS store (bundled castore fallback).
+if ls "$REL_ROOT"/lib/castore-*/priv/cacerts.pem >/dev/null 2>&1; then
+  echo "linux-rehearsal:castore-bundled PASS CA bundle ships in the release"
+else
+  fail castore-bundled "no bundled castore cacerts.pem in the release (hosted TLS fails offline)"
+fi
+
+# 2d) v0.63 M8.8: hosted-provider doctor through the eval path must not raise the
+# castore/CA-trust error. Best-effort — SKIP when no hosted profile is configured (no key
+# in CI). A 401/403 or endpoint error is acceptable; we fail only on the castore/CA crash.
+run admin models doctor openai >"$WORK/doctor.out" 2>&1 || true
+if grep -qiE "castore|default CA trust store" "$WORK/doctor.out"; then
+  cat "$WORK/doctor.out"; fail hosted-doctor-eval "doctor hit the castore/CA-trust error"
+elif grep -qiE "unknown|no such profile|not.*configured|no.*provider" "$WORK/doctor.out"; then
+  skip hosted-doctor-eval "no hosted profile configured (set one with a key to exercise TLS)"
+else
+  echo "linux-rehearsal:hosted-doctor-eval PASS no castore/CA error on the hosted doctor path"
+fi
+
 # 3) serve + /health + attach round-trip.
 env ALLBERT_HOME="$HOME_DIR" PHX_SERVER=1 PORT="$PORT" "$BIN" serve >"$WORK/serve.out" 2>&1 &
 SERVE_PID=$!
