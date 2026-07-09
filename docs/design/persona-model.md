@@ -96,6 +96,7 @@ runtime behavior.
 | `operator.communication_style` | Existing safe-write enum: `concise`, `balanced`, `detailed`. | Use the exact per-persona value pinned in the v0.63 plan/ADR. |
 | `operator.handoff_detail` | Existing safe-write enum: `brief`, `concrete_next_steps`, `full_context`. | Use the exact per-persona value pinned in the v0.63 plan/ADR. |
 | `model_preferences.primary` | Existing safe-write profile reference. | Keep as reviewed preference; do not change QuickStart model-pull requirements. |
+| `intent.direct_answer_model_enabled` | Existing safe-write boolean (default `false`). | v0.63 M8.5: every persona seeds `true` so an applied persona reaches a working model-backed chat; QuickStart also flips it via the state machine when the model is `Ready` (never for a non-ready model). |
 | `model_preferences.tasks.coding` | Existing safe-write wildcard task preference. | Developer persona uses the exact reviewed profile order pinned in the v0.63 plan/ADR after egress posture review. |
 | `coding.model_profile` | Existing safe-write profile reference. | Developer persona uses the exact Pi-mode coding profile pinned in the v0.63 plan/ADR after source-code egress review. |
 | `coding.default_approval_mode` | Existing safe-write enum. | Developer persona uses the pinned conservative approval default; never bypass confirmation. |

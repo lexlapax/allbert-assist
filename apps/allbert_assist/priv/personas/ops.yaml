@@ -5,6 +5,7 @@ settings_seeds:
   operator.communication_style: concise
   operator.handoff_detail: brief
   model_preferences.primary: local
+  intent.direct_answer_model_enabled: true
   runtime.diagnostics_verbosity: verbose
   objectives.enabled: true
   objectives.max_steps_per_turn: 5

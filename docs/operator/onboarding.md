@@ -118,6 +118,13 @@ lower no confirmation floor. The exact per-persona `settings_seeds` are pinned i
 After applying a persona, the `first_chat` step suggests that persona's starter
 prompts so you reach a first useful chat.
 
+When the `model_path` step confirms a usable model (readiness **Ready**), QuickStart
+enables model-backed direct answers automatically (`intent.direct_answer_model_enabled`),
+so `allbert ask` works from the first chat with no manual settings edit. If the model is
+not yet ready, the flag stays off and the wizard routes you to the concrete repair
+(runtime, model, or BYOK) first — a working model is never faked. Applying any persona
+also seeds this flag as part of its reviewed settings.
+
 ### The trust spine
 
 Onboarding surfaces Allbert's trust spine as a feature (`allbert onboard trust`, and a

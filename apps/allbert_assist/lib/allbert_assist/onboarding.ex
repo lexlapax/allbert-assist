@@ -14,6 +14,7 @@ defmodule AllbertAssist.Onboarding do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Personas
+  alias AllbertAssist.Settings
 
   @source_intent "first_run_onboarding"
   # v0.63 M1: the authoritative guided-wizard state machine.
@@ -213,9 +214,28 @@ defmodule AllbertAssist.Onboarding do
         # Advanced's optional_connect stays reachable and `complete?`/`step` agree.
         if step == last_wizard_step(track), do: FirstRun.mark_onboarding_complete()
 
-        {:ok, wizard_state(opts)}
+        state = wizard_state(opts)
+        maybe_enable_model_answer(step, state)
+        {:ok, state}
     end
   end
+
+  # v0.63 M8.5: QuickStart must reach a *working* first chat (ADR 0078 no-dead-end). A
+  # model-backed `allbert ask` is gated by `intent.direct_answer_model_enabled` (default
+  # false), which no onboarding path used to set — so QuickStart completed but answers
+  # stayed disabled until the operator hand-edited settings. Enable it exactly when the
+  # wizard has confirmed a *usable* model: the `model_path` step (or a later completion
+  # step) advancing with readiness `:ready`. Gating on `:ready` guarantees a broken model
+  # is never enabled — a below-floor/needs-runtime machine still routes to BYOK guidance.
+  # The key is in `@safe_write_keys` (seed-only authority), so this needs no new grant.
+  @model_answer_enable_steps ["model_path", "first_chat", "optional_connect"]
+  defp maybe_enable_model_answer(step, %{readiness: :ready})
+       when step in @model_answer_enable_steps do
+    Settings.put("intent.direct_answer_model_enabled", true, %{audit?: true})
+    :ok
+  end
+
+  defp maybe_enable_model_answer(_step, _state), do: :ok
 
   @doc """
   Reset the wizard: clears the marker (onboarding/profile/wizard progress) and

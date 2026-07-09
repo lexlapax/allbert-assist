@@ -109,6 +109,40 @@ defmodule AllbertAssist.OnboardingTest do
     end
   end
 
+  describe "v0.63 M8.5 QuickStart reaches a working first chat (no-dead-end enablement)" do
+    test "model_path completing with a ready model enables model-backed answers" do
+      Onboarding.wizard_start(:quickstart)
+      assert {:ok, _} = Onboarding.wizard_advance("welcome")
+      assert {:ok, _} = Onboarding.wizard_advance("track_select")
+
+      # A ready model at model_path flips the gate so `allbert ask` works without a
+      # manual settings edit (the operator-reported dead end).
+      assert {:ok, s} = Onboarding.wizard_advance("model_path", %{}, first_model_state: :local_ready)
+      assert s.readiness == :ready
+      assert Settings.get("intent.direct_answer_model_enabled") == {:ok, true}
+    end
+
+    test "a non-ready model_path leaves model answers disabled (no dead model enabled)" do
+      Onboarding.wizard_start(:quickstart)
+      assert {:ok, _} = Onboarding.wizard_advance("welcome")
+      assert {:ok, _} = Onboarding.wizard_advance("track_select")
+
+      assert {:ok, s} =
+               Onboarding.wizard_advance("model_path", %{}, first_model_state: :runtime_missing)
+
+      assert s.readiness == :needs_runtime
+      refute Settings.get("intent.direct_answer_model_enabled") == {:ok, true}
+    end
+
+    test "every persona also seeds the model-answer flag (belt-and-suspenders)" do
+      for id <- ~w(general developer writer researcher ops) do
+        {:ok, persona} = Personas.fetch(id)
+        seeds = Map.new(Personas.settings_seeds(persona))
+        assert seeds["intent.direct_answer_model_enabled"] == true
+      end
+    end
+  end
+
   describe "v0.63 M7.1 Advanced-track completion + step consistency" do
     test "Advanced completes on optional_connect (the track's last step), not first_chat" do
       Onboarding.wizard_start(:advanced)

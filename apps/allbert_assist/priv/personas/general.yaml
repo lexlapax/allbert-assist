@@ -7,6 +7,7 @@ settings_seeds:
   operator.communication_style: balanced
   operator.handoff_detail: concrete_next_steps
   model_preferences.primary: local
+  intent.direct_answer_model_enabled: true
   objectives.enabled: true
   objectives.max_steps_per_turn: 3
   objectives.max_loop_count: 5

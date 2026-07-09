@@ -114,3 +114,17 @@ assisted-local immediately after — recorded as a deliberate, documented tradeo
   altered by the First-Model Path. BYOK keys (Advanced/fallback) write through the
   existing OS secret-vault path; the local model runs through the same provider
   abstraction as any other model. No new credential, authority, or egress surface.
+
+## Amendment (v0.63 M8.5, 2026-07-08) — enablement point for the "first useful chat"
+
+Operator validation found QuickStart reaching `first_chat` while a model-backed
+`allbert ask` still returned the `:model_disabled` fallback, because
+`intent.direct_answer_model_enabled` defaults `false` and no onboarding path set it —
+a no-dead-end violation of this ADR. Decision: the wizard state machine
+(`Onboarding.wizard_advance/3`) enables that safe-write key exactly when it confirms a
+usable model — the `model_path` step (or a later completion step) advancing with
+readiness `:ready`. Gating on `:ready` preserves the invariant that a broken model is
+never presented as working: a below-floor / needs-runtime machine still routes to the
+concrete repair or BYOK guidance and leaves the flag off. Applying a persona also seeds
+the flag (belt-and-suspenders for the persona path, which QuickStart does not force).
+No new authority or egress: the key is an existing `@safe_write_key`.

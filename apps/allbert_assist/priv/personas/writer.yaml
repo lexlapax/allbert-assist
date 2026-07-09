@@ -5,6 +5,7 @@ settings_seeds:
   operator.communication_style: detailed
   operator.handoff_detail: full_context
   model_preferences.primary: local
+  intent.direct_answer_model_enabled: true
   active_memory.enabled: true
   active_memory.top_k: 6
   active_memory.chunk_max_bytes: 4096

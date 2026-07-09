@@ -5,6 +5,7 @@ settings_seeds:
   operator.communication_style: concise
   operator.handoff_detail: concrete_next_steps
   model_preferences.primary: local
+  intent.direct_answer_model_enabled: true
   coding.default_approval_mode: plan
   coding.model_profile: pi_coding_local
   coding.read.default_limit: 4000
