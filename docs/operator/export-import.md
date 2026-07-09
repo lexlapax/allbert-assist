@@ -1,6 +1,6 @@
 # Allbert Home Export And Dry-Run Import
 
-v0.59 provides a redacted portability envelope and a dry-run import validator. It
+Allbert provides a redacted portability envelope (introduced in v0.59) and a dry-run import validator. It
 does not apply an import and does not include an executable rollback runner.
 
 ## Export

@@ -1,7 +1,6 @@
 # Allbert Active Memory And Identity Slot
 
-Status: implemented in v0.39b (`0.39.1`) and ready for operator manual
-validation before release tagging.
+Introduced in v0.39b; current as of v0.63.
 
 This guide is the operator-facing reference for the identity memory
 namespace and Active Memory retrieval. Implementation details live in

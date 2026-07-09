@@ -1,7 +1,8 @@
 # Operator Workspace
 
-Status: released v0.58 operator guide, reconciled to the v0.61b consolidated
-shell (ADR 0080) at the v0.61b closeout.
+Introduced in v0.58; consolidated into the single shell in v0.61b (ADR 0080); current as
+of v0.63, where first-run auto-opens the onboarding wizard (see
+[onboarding.md](onboarding.md)).
 
 The operator workspace is `/workspace`. v0.58 keeps that route and changes the
 layout and panels on top of the existing authority spine.

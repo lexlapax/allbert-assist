@@ -1,6 +1,6 @@
 # Operator-Supervised Self-Improvement
 
-Status: implemented in v0.47 with v0.47b/`0.47.1` handoff extensions. This guide
+Introduced in v0.47 (handoff extensions in v0.47b); current as of v0.63. This guide
 covers the discovery and local-draft surface plus inert capability-gap,
 objective, template-backed, and marketplace-backed handoff drafts;
 delegate-plugin request drafts, confirmation-gated objective promotion, and

@@ -1,6 +1,6 @@
 # Artifacts Central Operator Guide
 
-Status: v0.50 implemented. Use this guide for operating the core artifact
+Introduced in v0.50; current as of v0.63. This guide covers operating the core artifact
 store. The browsing panel, detail page, and `mix allbert.artifacts` CLI ship in
 the v0.50b/`0.50.1` Artifacts Browser sidecar; see
 `docs/operator/artifacts-browser.md`.

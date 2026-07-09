@@ -127,7 +127,7 @@ mix allbert.conversations resume THREAD_ID --channel discord --user alice --rece
 Run the deterministic local gate first:
 
 ```sh
-mix allbert.test release.v052
+MIX_ENV=test mix allbert.test release.v052
 ```
 
 Run the redacted doctor:

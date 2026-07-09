@@ -1,6 +1,6 @@
 # Dynamic Capability Integration Operator Guide
 
-Status: v0.37.5 release contract.
+Introduced in v0.37 (loader contract finalized in v0.37.5); current as of v0.63.
 
 v0.37 is the first Allbert path that can turn generated Elixir/OTP source into
 live runtime authority. It is default-off, local-only, and reversible. A draft

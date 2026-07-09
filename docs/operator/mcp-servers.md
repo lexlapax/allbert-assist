@@ -1,7 +1,6 @@
 # Allbert MCP Servers Operator Guide
 
-Status: implemented in v0.40 (`0.40.0`) and ready for operator manual
-validation before release tagging.
+Introduced in v0.40; current as of v0.63.
 
 This guide explains how to connect an MCP (Model Context Protocol) server to
 Allbert, inspect what it offers, and let Allbert use it under policy. It is not a

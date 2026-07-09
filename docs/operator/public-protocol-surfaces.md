@@ -1,8 +1,7 @@
 # Public Protocol Surfaces
 
-Status: released in v0.51 as `0.51.0`; `v0.51.4` is the corrective tag with
-accepted operator manual validation as of 2026-06-12. Real-client validation
-steps remain below for replay and future corrective checks.
+Introduced in v0.51; current as of v0.63. The real-client validation steps below are a
+reusable replay runbook.
 
 Allbert can be reached by three public protocol surfaces:
 

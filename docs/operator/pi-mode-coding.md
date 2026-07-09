@@ -26,7 +26,7 @@ does not grant authority by being local. Every coding tool routes through
 export V057_MANUAL_HOME="$(mktemp -d /tmp/allbert-v057-manual.XXXXXX)"
 export ALLBERT_HOME="$V057_MANUAL_HOME"
 export V057_REPO_ROOT="$(pwd)"
-mix allbert.ecto.migrate --quiet
+mix ecto.migrate.allbert --quiet
 
 mix allbert.settings set channels.tui.identity_map '[{"external_user_id":"default","user_id":"local","enabled":true}]'
 mix allbert.settings set channels.tui.enabled true

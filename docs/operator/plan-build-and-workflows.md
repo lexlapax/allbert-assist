@@ -1,6 +1,6 @@
 # Plan/Build And Workflow YAML
 
-Allbert v0.44 exposes the Objective Runtime as an operator-visible
+Allbert exposes the Objective Runtime (introduced in v0.44) as an operator-visible
 Plan/Build surface. Workflow YAML is inert declarative data under
 Allbert Home; it does not execute scripts, install packages, grant
 permissions, or register new modules.

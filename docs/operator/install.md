@@ -1,4 +1,4 @@
-# Installing Allbert (v0.62)
+# Installing Allbert
 
 Allbert ships as a self-contained binary with its own Erlang/OTP runtime — no
 Elixir/OTP toolchain is required on your machine. Your data lives in **Allbert

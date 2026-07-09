@@ -1,6 +1,6 @@
 # Artifacts Browser Operator Guide
 
-Status: v0.50b implemented as the `0.50.1` sidecar release over the v0.50
+Introduced in v0.50 (0.50b sidecar); current as of v0.63. Operating the
 Artifacts Central store.
 
 Artifacts Browser is the operator browsing repository for durable local

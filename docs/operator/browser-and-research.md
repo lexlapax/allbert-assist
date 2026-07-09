@@ -1,6 +1,6 @@
 # Browser And Web Research
 
-Allbert v0.43 ships a policy-bounded browser plugin for rendered page
+Allbert ships a policy-bounded browser plugin (introduced in v0.43) for rendered page
 research, screenshots, and bounded HTML/text/markdown/PDF extraction. It
 controls local headless Chromium through the reviewed plugin-owned Playwright
 bridge. Browser content is evidence only; it never grants permission or

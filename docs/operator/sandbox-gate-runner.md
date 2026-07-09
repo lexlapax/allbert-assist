@@ -1,6 +1,6 @@
 # Elixir Sandbox And Gate Runner Operator Guide
 
-Status: v0.36 implementation contract.
+Introduced in v0.36; current as of v0.63.
 
 The v0.36 sandbox is a default-off local OS isolation boundary for generated
 Elixir/OTP drafts and explicit gate commands. It produces bounded reports only.

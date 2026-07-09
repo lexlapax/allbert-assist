@@ -1,6 +1,6 @@
 # Research Specialist
 
-Status: implemented in v0.46 as `research.specialist`.
+Introduced in v0.46 (`research.specialist`); current as of v0.63.
 
 The research specialist is a delegated objective agent contributed by
 `./plugins/allbert.research/`. It is a read-only orchestration layer over the
