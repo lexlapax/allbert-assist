@@ -16,11 +16,14 @@ defmodule AllbertAssist.CLI.Areas.Model do
   alias AllbertAssist.Settings
   alias AllbertAssist.Surfaces.ContextBuilder
 
+  # M8.6: the canonical dispatch prefix is plural `admin models` (Commands.@operator);
+  # singular `admin model` is reserved for the detect/install/pull action paths, so the
+  # help must name the plural forms it actually accepts.
   @usage """
   Usage:
-    allbert admin model list
-    allbert admin model use PROFILE [--enable-assist]
-    allbert admin model doctor PROFILE
+    allbert admin models list
+    allbert admin models use PROFILE [--enable-assist]
+    allbert admin models doctor PROFILE
   """
 
   @spec dispatch([String.t()], map() | nil) :: {String.t(), non_neg_integer()}
