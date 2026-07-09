@@ -4,6 +4,7 @@ defmodule AllbertAssist.External.HttpClient do
   """
 
   alias AllbertAssist.External.RequestSpec
+  alias AllbertAssist.External.TLS
 
   def request(%RequestSpec{} = spec, opts \\ []) do
     started = System.monotonic_time()
@@ -35,6 +36,7 @@ defmodule AllbertAssist.External.HttpClient do
       max_redirects: spec.max_redirects
     ]
     |> maybe_put(:plug, Keyword.get(opts, :plug))
+    |> Keyword.merge(TLS.connect_options())
   end
 
   defp response_result(spec, response, duration_ms) do

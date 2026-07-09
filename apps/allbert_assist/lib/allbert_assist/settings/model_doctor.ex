@@ -375,6 +375,7 @@ defmodule AllbertAssist.Settings.ModelDoctor do
       decode_body: false
     ]
     |> maybe_put(:plug, req_test_plug(context))
+    |> Keyword.merge(AllbertAssist.External.TLS.connect_options())
     |> Req.request()
     |> case do
       {:ok, response} -> {:ok, response}

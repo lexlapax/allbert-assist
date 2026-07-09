@@ -73,6 +73,9 @@ defmodule AllbertAssist.MixProject do
       {:swoosh, "~> 1.16"},
       {:gen_smtp, "~> 1.0"},
       {:req, "~> 0.5"},
+      # v0.63 M8.2: bundle a CA trust store so hosted-provider HTTPS works in the packaged
+      # release even when the host OS store is empty/unloadable (see External.TLS).
+      {:castore, "~> 1.0"},
       {:websockex, "~> 0.5"},
       {:hermes_mcp, "~> 0.14"},
       {:plug, "~> 1.19"},

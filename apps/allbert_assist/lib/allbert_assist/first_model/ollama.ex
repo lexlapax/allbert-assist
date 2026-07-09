@@ -121,6 +121,9 @@ defmodule AllbertAssist.FirstModel.Ollama do
         retry: false,
         redirect: false
       ]
+      # M8.2: CA trust for a custom HTTPS Ollama endpoint (harmless for the localhost
+      # http default); the test-injected @req_options_key still overrides.
+      |> Keyword.merge(AllbertAssist.External.TLS.connect_options())
       |> Keyword.merge(Application.get_env(:allbert_assist, @req_options_key, []))
 
     case Req.request(opts) do

@@ -278,3 +278,17 @@ change between v1.0 and the next major release without an ADR amendment.
 - ADR 0011 — Confirmed External Capability Adapters.
 - ADR 0046 — Settings Schema Migration Policy (covers `endpoint_kind`
   field evolution).
+
+## Amendment (v0.63 M8.2, 2026-07-08) — CA trust contract for outbound probes
+
+Operator validation found the hosted-provider doctor failing on CA trust even with
+`SSL_CERT_FILE` set: no outbound path passed any CA option, `castore` was not a
+dependency, and Mint's implicit fallback raised on a host with an empty/unloadable OS
+trust store. Decision: outbound HTTPS probes resolve CA trust explicitly through a shared
+helper (`AllbertAssist.External.TLS.connect_options/0`) with precedence
+`SSL_CERT_FILE` (operator override, authoritative) → OS store (`:public_key.cacerts_get/0`)
+→ bundled `castore` PEM (offline-safe fallback). `castore` is now a dependency so a
+known-good trust store ships in the packaged release. No probe path can reach Mint's hard
+"castore missing" crash, and the `SSL_CERT_FILE` lever is honored. The doctor still passes
+the Req.Test plug in tests (which short-circuits the transport), so the CA options are a
+no-op under test injection.
