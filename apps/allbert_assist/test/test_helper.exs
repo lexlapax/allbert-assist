@@ -1,6 +1,17 @@
 ExUnit.start()
 Ecto.Adapters.SQL.Sandbox.mode(AllbertAssist.Repo, :manual)
 
+# v0.63 F2: provider credentials now resolve through the tier vault including the env tier
+# (so an env-provided key is usable by the runtime and doctor — matching the readiness the
+# wizard reports). That means a dev/CI shell with real provider keys exported would make the
+# suite non-deterministic and, worse, hit the network from the model doctor. Clear the five
+# provider env keys suite-wide so tests are hermetic; a test that wants an env-provided key
+# sets it explicitly (and restores on_exit).
+Enum.each(
+  ~w(ANTHROPIC_API_KEY OPENAI_API_KEY OPENROUTER_API_KEY GOOGLE_API_KEY GEMINI_API_KEY),
+  &System.delete_env/1
+)
+
 # v0.63 M8.3: provider-credential writes/reads now route through Settings.Vault, whose
 # default auto-resolution picks the OS Keychain on macOS. Pin the suite to the tier-2
 # encrypted-file backend so tests never shell out to the real Keychain (equivalent to
