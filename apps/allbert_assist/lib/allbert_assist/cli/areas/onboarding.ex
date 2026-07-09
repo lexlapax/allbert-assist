@@ -110,7 +110,10 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
     state = Onboarding.wizard_resume()
 
     cond do
-      opts[:non_interactive] and not state.started? ->
+      # M8.4: `opts[:non_interactive]` is nil when the flag is absent (every bare
+      # `allbert onboard`); a raw nil on the left of strict `and` raises. Compare to
+      # true, matching `interactive?/1`'s convention.
+      opts[:non_interactive] == true and not state.started? ->
         Render.error([
           "Refusing: --non-interactive requires an explicit track for a fresh onboarding.",
           "Supply --quickstart or --advanced."

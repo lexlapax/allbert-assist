@@ -61,6 +61,18 @@ defmodule AllbertAssist.CLI.Areas.OnboardingTest do
     assert {_out, 2} = Area.dispatch(["--nope"])
   end
 
+  test "M8.4: bare `allbert onboard` (no flags) resumes without raising on a fresh marker" do
+    # Regression: opts[:non_interactive] is nil when the flag is absent, and a raw nil on
+    # the left of strict `and` raised on every bare invocation. Force the non-TTY line
+    # path (default) so this deterministically reaches render_state rather than the loop.
+    FirstRun.reset_onboarding()
+    Application.put_env(:allbert_assist, :onboard_force_tty, false)
+    assert {out, 0} = Area.dispatch([])
+    assert is_binary(out)
+  after
+    Application.delete_env(:allbert_assist, :onboard_force_tty)
+  end
+
   describe "v0.63 M7.5 interactive TTY wizard" do
     defp scripted_io(gets_script, mask \\ "") do
       {:ok, out} = Agent.start_link(fn -> [] end)
