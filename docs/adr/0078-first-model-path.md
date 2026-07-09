@@ -128,3 +128,23 @@ never presented as working: a below-floor / needs-runtime machine still routes t
 concrete repair or BYOK guidance and leaves the flag off. Applying a persona also seeds
 the flag (belt-and-suspenders for the persona path, which QuickStart does not force).
 No new authority or egress: the key is an existing `@safe_write_key`.
+
+## Amendment (v0.64 planned, 2026-07-09) — two-tier model path + one-click consumer download
+
+The post-v0.63 product-readiness review retargeted 1.0 at a non-developer local-first
+operator (two-tier: consumer default + prosumer advanced). The First-Model Path is
+extended accordingly:
+
+- **Consumer default (new):** the web onboarding offers a **one-click in-app download of a
+  curated local model** with an in-web progress surface — no `ollama` CLI invocation and
+  no API key — so a non-developer reaches a first useful chat with zero external tooling.
+  This is the primary first-run path.
+- **Advanced (existing):** BYOK hosted setup and custom endpoints remain, opt-in, for
+  prosumers.
+
+The assisted-local default, no-dead-end, and no-managed-hosted-default invariants are
+unchanged; the consumer default is a friendlier *delivery* of the assisted-local path, not
+a new authority or egress class. The **delivery mechanism** (drive Ollama's pull API
+behind a progress UI, embed a downloader, or bundle a small model) is a v0.64 M0.a spike;
+the chosen mechanism will be recorded here as-built, with its size/licensing/offline
+trade-offs.

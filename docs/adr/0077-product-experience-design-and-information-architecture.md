@@ -138,3 +138,21 @@ beside chat instead of floating over it. That revision is recorded in
 journey, the persona, the trust structure, and the navigation *groups* are
 unchanged — ADR 0080 changes how the navigation model presents, not what it
 contains.
+
+## Amendment (v1.0 planning, 2026-07-09) — non-developer target, two-tier, web-first
+
+The post-v0.63 product-readiness review retargeted 1.0 from a technical prosumer to a
+**non-developer local-first operator**, with three product decisions this ADR now records
+(see `roadmap.md` §v1.0 Strategic Frame):
+
+- **Two-tier experience.** A friction-light **consumer default** path is the primary
+  first-run product experience; a **prosumer advanced** path (BYOK, custom endpoints, CLI)
+  is opt-in. The IA, journey, persona, and trust structure of this ADR stand; the two-tier
+  split governs which affordances a fresh non-developer sees first.
+- **Web-first surface.** The web workspace plus packaged binary are the 1.0 product
+  surface; a native desktop client remains post-1.0. Acceptability for a non-developer
+  rests on Allbert running as a **persistent background service** started once — the user
+  opens the workspace and never re-runs `serve`.
+- **Zero-setup first chat.** The consumer default reaches first chat with no external tool
+  and no API key (the one-click curated-local-model download; see ADR 0078), matching the
+  one-click-model bar set by local-model desktop apps.

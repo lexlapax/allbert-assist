@@ -4194,9 +4194,13 @@ Expected direction:
 
 - Mandatory installer-side signature verification and explicit
   rollback/restore posture.
-- Package-first docs and browser-first `allbert serve` onboarding.
-- Local Ollama or BYOK hosted model setup can reach first useful chat; either
-  path is valid, and the alternate path has clear fallback messaging.
+- Package-first docs; browser-first onboarding reached by starting Allbert as a
+  persistent background service (`brew services` / `systemctl --user`) once — the
+  non-developer never re-runs `serve`.
+- **Two-tier model path.** Consumer default: a one-click in-app download of a curated
+  local model (in-web progress, no `ollama` CLI, no API key) reaches first useful chat.
+  Advanced: BYOK hosted setup and custom endpoints for prosumers. The consumer default is
+  the primary first-run path; the advanced path is opt-in with clear fallback messaging.
 - First-run states use product language and exactly one primary repair action.
 - Trust spine explains local data, hosted-provider egress, secrets,
   confirmations, traces, and memory review without granting authority.
@@ -4283,15 +4287,25 @@ Expected direction:
 
 ## v1.0 Strategic Frame And Acceptance Matrix
 
-Allbert is ahead of OpenClaw and Hermes on architecture and behind on both
-shipped capability and product surface. A 2026 competitive review found that
-multi-surface operation, messaging channels, skills/subagents, and provider-
-agnostic models are now **table stakes** (OpenClaw and Hermes both ship them,
-with native desktop apps and guided install wizards) — not differentiators.
-Allbert's defensible 1.0 story is therefore **trust**: inspectability, a
-reviewed-plugin model, and a permissioned local authority spine on an OTP
-runtime — the one position the autonomous/self-hacking competitors structurally
-cannot copy.
+Competitive frame (real 2026 product classes). Two bars are now table stakes for a
+local-first AI assistant, and Allbert must clear both to be judged a product:
+
+- **Local-model desktop apps** (LM Studio, Jan, Ollama, Msty, GPT4All, Open WebUI) set
+  the **one-click, in-app model download** bar: a non-developer picks a model from an
+  in-app list, watches a progress bar, and chats — no CLI, no manual pull. Allbert's v1.0
+  consumer default must match this (the v0.64 one-click curated-local-model download).
+- **Hosted assistant apps** (ChatGPT desktop, Claude desktop) set the **sign-in-and-chat**
+  friction floor: zero model setup, instant first message. Allbert cannot match "zero
+  setup + frontier model for free," but its consumer default must feel comparably
+  friction-light on first chat.
+- **Autonomous / self-modifying agent frameworks** are the class Allbert deliberately is
+  NOT: unbounded tool authority and opaque self-editing. This is where the moat lives.
+
+Allbert is ahead on architecture and behind on product surface. Its defensible 1.0 story
+is **trust**: inspectability, a reviewed-plugin model, durable confirmations, and a
+permissioned local authority spine on an OTP runtime — the one position the autonomous
+competitors structurally cannot copy, surfaced through onboarding/UX as a feature rather
+than a setup tax.
 
 That story only lands if the product surface matches the now-expected bar:
 trusted install, zero-friction guided onboarding, secret-vault credential
@@ -4302,10 +4316,22 @@ and the post-v0.63 review tightened the target from technical prosumer to
 non-developer local-first operator. The arc is now: v0.61 presentation-layer
 overhaul, v0.62 packaging & entry points, v0.63 guided onboarding & profiles,
 v0.64 trusted install/non-developer first-run, v0.65 local knowledge/memory, and
-v0.66 no-docs product RC. The **web is the primary 1.0 product surface**; a full
-native desktop client remains post-1.0, so the web workspace plus packaged
-binary carry the product weight, and the v0.61 presentation overhaul must
-precede the v1.0 freeze.
+v0.66 no-docs product RC.
+
+Three 1.0 product decisions (post-v0.63 review, operator-confirmed 2026-07-09):
+
+- **Web-first, native desktop post-1.0.** The web workspace plus packaged binary carry
+  the product weight; the v0.61 presentation overhaul must precede the v1.0 freeze. What
+  makes "web via a server" acceptable for a non-developer is that Allbert runs as a
+  **persistent background service** (`brew services` / `systemctl --user`) started once —
+  the user does not re-run `serve`; they just open the workspace.
+- **Two-tier user target.** A consumer-default path (friction-light) and a prosumer
+  advanced path (BYOK, custom endpoints, CLI). The consumer default is the primary
+  first-run story; the advanced path is opt-in.
+- **Zero-setup consumer model path.** The consumer default reaches first chat via a
+  one-click in-app curated-local-model download (no `ollama` CLI, no API key), matching
+  the local-model-app bar above. Delivery mechanism is a v0.64 M0.a spike
+  (pull-API-with-progress vs embedded downloader vs bundled model), recorded in ADR 0078.
 
 Sequencing rationale: v0.64 now owns trusted install and repairable first-run
 because install trust is part of first-run trust for a non-developer. v0.65 owns
@@ -4357,10 +4383,13 @@ without:
    (Homebrew/curl) with no Elixir/OTP toolchain on their machine, with
    installer-side verification and rollback/restore posture clear before first
    run (v0.62 + v0.64).
-10. [product] A new user completes the guided onboarding wizard — provider/model
-    setup via either the assisted-local path or BYOK hosted fallback, a selected
-    user-category profile, and a first useful chat — without reading developer
-    docs or hand-editing config files (v0.63 + v0.64).
+10. [product] A new user completes the guided onboarding wizard and reaches a first
+    useful chat without reading developer docs or hand-editing config, on a **two-tier**
+    model path (v0.63 + v0.64): the **consumer default** reaches first chat with **no
+    external tool install and no API key** via a one-click in-app curated-local-model
+    download (in-web progress), and the **advanced** path offers BYOK hosted setup or a
+    custom endpoint. Allbert runs as a persistent background service so the operator does
+    not re-run `serve`.
 11. [product] The web workspace meets the professional-UX bar: the **overhauled
     information architecture, navigation, and screen composition** from the v0.60
     design implemented end-to-end **in the v0.60b-chosen visual language** (ADR
@@ -4370,7 +4399,10 @@ without:
     (the operator's selection from at least three rendered candidate directions),
     not an aesthetic invented at build time. The
     structural overhaul — not only brand/motion/hierarchy — must land before the
-    v1.0 freeze locks the presentation contracts.
+    v1.0 freeze locks the presentation contracts. This item is satisfied by an actual
+    **non-developer usability audit** of the web workspace against this bar, not by "the
+    v0.61 release shipped"; audit findings are remediated in their owning area before the
+    freeze (v0.61 + v0.66).
 12. [product] A single `allbert` CLI binary exposes a coherent grouped command
     surface and an `allbert serve` daemon path (v0.62).
 13. [product] A new user can connect local files/notes, ask a grounded local
@@ -4386,6 +4418,15 @@ without:
     smoke -> export/import or upgrade -> uninstall path passes with no-docs
     validation, browser, CLI/TUI, docs, warning, drift, and secret-evidence gates
     green (v0.66).
+16. [product] A set of natural non-developer prompts (chitchat, general questions, "help
+    me with X") route sensibly to an answer or the right action, with **no mis-route to a
+    disabled or demo capability** (the v0.63 F5 class: e.g. "say hello" must not route to
+    voice synthesis, "explain an LLM" must not route to a stock-analysis plugin). Router
+    defaults are reviewed for the consumer path in v0.64/v0.65 and validated in v0.66.
+17. [product] The non-developer first run does **not** lead with a demo/example plugin
+    (StockSage). The default reference first workflow is local knowledge (files/notes/
+    memory, v0.65); demo plugins are opt-in and out of the default routable shortlist
+    (enforced in code by v0.63 F5 `routable_by_default?`).
 
 The v0.60 Product Experience Design release is the upstream **prerequisite** for
 items 10 (onboarding flow + persona model + First-Model Path) and 11 (the
