@@ -50,6 +50,15 @@ defmodule AllbertAssist.CLI do
   @doc false
   @spec run_entry([String.t()]) :: {:stdout | :stderr, String.t(), non_neg_integer()}
   def run_entry(argv) do
+    # v0.63 M8.1: under `mix release` `eval`, OTP apps are LOADED but not STARTED. Pure /
+    # first-run commands skip the DB runtime, but still make HTTP calls (the Ollama
+    # first-model probe on the post-completion `detect` path → Req), which need Req's
+    # `Req.Finch` pool started by `Req.Application.start/2`. Start the HTTP client here —
+    # idempotent, HTTP-only (no DB, no writer lock), so it does not breach the
+    # "pure commands skip the runtime" invariant; `:req` is the HTTP client, not the
+    # Allbert runtime. Runtime-needing commands already get it transitively.
+    _ = Application.ensure_all_started(:req)
+
     case ensure_runtime(argv) do
       {:attached, output, code} ->
         maybe_attach_marker()

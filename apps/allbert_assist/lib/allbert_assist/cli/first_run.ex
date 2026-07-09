@@ -10,8 +10,10 @@ defmodule AllbertAssist.CLI.FirstRun do
   states the entry points consume (there is no synthetic `blocked` state — operator
   readiness labels `Needs credentials`/`Needs review` come from the provider/product
   layer, per the plan's Readiness Label Mapping Contract). Detection is **read-only**
-  and performs no network I/O — the guided-install egress is M4's, always behind
-  explicit consent.
+  (it never writes) but is NOT network-free: `first_model_state/0` runs a **localhost**
+  Ollama probe (via `Req`) on the paths that reach it — no external egress, and the
+  guided-install egress is M4's, always behind explicit consent. Because that probe
+  needs Req's HTTP pool, the packaged `eval` entry starts `:req` first (M8.1).
 
   Onboarding state lives in a Home-directory marker file
   (`<Allbert Home>/onboarding.json`) — additive, outside the Settings Central

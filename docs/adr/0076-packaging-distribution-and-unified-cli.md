@@ -208,3 +208,20 @@ Two explicit scope decisions, recorded here so they are not assumed downstream:
   raw-mode input, and supports the attach transport, on a Tier-1 OS with no
   toolchain present (the full eight-proof list lives in the v0.62 plan M0). The
   spike result selects the mechanism; this ADR does not pre-commit one.
+
+## Amendment (v0.63 M8.1, 2026-07-08) — the `eval` dispatch must start non-DB runtime deps
+
+Operator validation found packaged bare/first-run `allbert` crashing with
+`unknown registry: Req.Finch`. The packaged dispatcher runs non-serve commands via
+`mix release` `eval`, which **loads but does not start** OTP applications. Pure /
+first-run commands legitimately skip the DB runtime, but some still make HTTP calls
+(the localhost first-model Ollama probe on the post-completion `detect` path), which
+need Req's `Req.Finch` pool — started only when the `:req` application starts.
+
+Decision: the CLI entry (`run_entry/1`) explicitly `Application.ensure_all_started(:req)`
+before dispatch. This is HTTP-only (no database, no writer lock), so it does not breach
+the "pure commands skip the runtime" invariant — `:req` is the HTTP client, not the
+Allbert runtime. Any non-DB runtime dependency a pure command needs must be started the
+same way; relying on `eval` to have started it is a defect. The release smoke rehearsal
+(M8.8) now exercises a bare/first-run command through the packaged `eval` path so this
+class of "loaded-not-started" gap is caught before an operator.
