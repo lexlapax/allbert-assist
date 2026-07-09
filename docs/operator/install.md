@@ -17,12 +17,14 @@ uninstall unless you explicitly ask.
 
 ```sh
 brew install lexlapax/allbert/allbert
-allbert serve
+brew services start allbert
+curl -fsS http://localhost:4000/health
 ```
 
 The formula ships prebuilt per-platform binaries and registers an `allbert
 serve` service, so `brew services start allbert` runs Allbert in the
-background.
+background. Foreground `allbert serve` is a diagnostic or repair fallback, not
+the normal first-run path for a packaged install.
 
 ## curl installer
 
@@ -42,6 +44,19 @@ The installer downloads the artifact for your platform, **verifies its SHA256
 against the release's `SHA256SUMS`** (refusing to install on a mismatch),
 installs to `~/.local` by default (`ALLBERT_PREFIX` to override), and writes an
 uninstall manifest. It never writes to Allbert Home.
+
+After a curl install, use the confirmation-gated service setup when a user
+service manager is available:
+
+```sh
+export PATH="$HOME/.local/bin:$PATH"
+allbert admin service install
+allbert admin confirmations approve <ID>
+curl -fsS http://localhost:4000/health
+```
+
+On platforms without a reachable user service manager, Allbert reports the
+service-manager blocker and falls back to foreground `allbert serve`.
 
 ## Verifying artifacts yourself
 
@@ -112,15 +127,16 @@ the guided local-model setup) the Ollama installer fetch and model pull, each
 behind an explicit confirmation. The binary itself performs **no telemetry, no
 phone-home, and no auto-update check**.
 
-**Trust model (v0.62): trust-on-first-use over HTTPS.** The installer verifies
+**Trust model through v0.63: trust-on-first-use over HTTPS.** The installer verifies
 the artifact against `SHA256SUMS`, but it fetches that checksum file over HTTPS
 from the *same* GitHub release origin as the artifact — so the check proves the
 download wasn't corrupted or truncated, not that it came from an independently
 trusted signer. Practically, you are trusting the GitHub HTTPS release origin on
 first use. For a stronger check, verify the cosign signature bundle out-of-band
 before installing (see below); the installer does **not** do this for you in
-v0.62. Mandatory installer-side signature verification is planned for v0.64
-trusted-install scope. If you need that guarantee today, do the manual cosign
-verification.
+v0.62/v0.63. Mandatory installer-side signature verification is v0.64
+trusted-install scope: the installer must fail closed, guide verifier setup when
+the verifier is missing, and verify before installing. If you need that guarantee
+before v0.64 lands, do the manual cosign verification.
 See `docs/adr/0076-packaging-distribution-and-unified-cli.md` (Distribution
 Trust) for the full posture.

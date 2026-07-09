@@ -179,6 +179,21 @@ allbert admin confirmations approve <ID>          # installs the per-user servic
 allbert admin service uninstall                   # confirmation-gated; removes the unit
 ```
 
+### v0.64 readiness overlay
+
+For v0.64 and later rehearsals, the primary non-developer path starts with the
+persistent service and browser workspace, not foreground `allbert serve`.
+Foreground `serve` remains a diagnostic fallback. The rehearsal must additionally
+prove:
+
+- installer-side cosign verification succeeds before artifact install;
+- missing verifier tooling follows the guided verifier setup path and still
+  fails closed if verification cannot complete;
+- consumer-default onboarding guides local runtime setup if needed, then pulls
+  the curated local model with web-visible progress;
+- the operator never has to run the `ollama` CLI or provide an API key on the
+  consumer-default path.
+
 ### secret vault (macOS Keychain / Linux Secret Service)
 
 ```sh

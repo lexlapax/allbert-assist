@@ -136,15 +136,21 @@ operator (two-tier: consumer default + prosumer advanced). The First-Model Path 
 extended accordingly:
 
 - **Consumer default (new):** the web onboarding offers a **one-click in-app download of a
-  curated local model** with an in-web progress surface — no `ollama` CLI invocation and
-  no API key — so a non-developer reaches a first useful chat with zero external tooling.
-  This is the primary first-run path.
+  curated local model** with an in-web progress surface. If the supported local runtime
+  is absent, Allbert offers a guided, confirmation-gated Ollama install first. The
+  operator does not run the `ollama` CLI and does not need an API key. This is the primary
+  first-run path.
 - **Advanced (existing):** BYOK hosted setup and custom endpoints remain, opt-in, for
   prosumers.
 
 The assisted-local default, no-dead-end, and no-managed-hosted-default invariants are
 unchanged; the consumer default is a friendlier *delivery* of the assisted-local path, not
-a new authority or egress class. The **delivery mechanism** (drive Ollama's pull API
-behind a progress UI, embed a downloader, or bundle a small model) is a v0.64 M0.a spike;
-the chosen mechanism will be recorded here as-built, with its size/licensing/offline
-trade-offs.
+a new authority or egress class.
+
+The v0.64 delivery mechanism is locked to the existing ADR 0078/v0.62 substrate:
+managed Ollama runtime plus Ollama's local pull API behind a web progress surface. v0.64
+does not bundle a model or model runtime into the Allbert artifact and does not introduce
+an embedded downloader. That keeps binary size, licensing, update, and offline-storage
+questions out of the pre-1.0 path while still matching the consumer expectation that no
+manual model CLI or hosted provider key is required. A literal no-external-runtime
+artifact would require a later ADR amendment and a separate release scope.

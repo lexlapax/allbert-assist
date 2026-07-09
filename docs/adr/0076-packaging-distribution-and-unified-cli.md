@@ -170,6 +170,24 @@ and inspectability promises extend to it:
   declarative entries and operator-confirmed dynamic drafts remain the runtime
   extension paths. This is a documented product fact, not a defect.
 
+## Amendment (v0.64 planned, 2026-07-09)
+
+v0.64 closes the v0.62 trust-on-first-use gap for the non-developer first run:
+
+- Installer-side signature verification is mandatory and fail-closed for the
+  packaged install path. If the verifier is missing, the installer may guide a
+  supported verifier install path, but it must not install the Allbert artifact
+  until verification succeeds.
+- The primary packaged first-run path is persistent service start plus browser
+  onboarding. Foreground `allbert serve` remains a diagnostic and service-manager
+  fallback.
+- The First-Model-Path packaging hook remains managed Ollama plus curated model
+  pull. v0.64 changes the presentation and feedback loop, not the dependency
+  model: no manual `ollama` CLI, no API key on the consumer-default path, and a
+  web progress surface for the pull API.
+- Upgrade rollback must be either automated or documented as a proven restore
+  command from the backup-before-migrate artifact before v0.64 can close.
+
 ## Non-goals and guardrails
 
 - **Not a native desktop GUI client.** A full native client stays post-1.0; the

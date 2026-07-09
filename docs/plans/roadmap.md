@@ -4197,10 +4197,11 @@ Expected direction:
 - Package-first docs; browser-first onboarding reached by starting Allbert as a
   persistent background service (`brew services` / `systemctl --user`) once — the
   non-developer never re-runs `serve`.
-- **Two-tier model path.** Consumer default: a one-click in-app download of a curated
-  local model (in-web progress, no `ollama` CLI, no API key) reaches first useful chat.
-  Advanced: BYOK hosted setup and custom endpoints for prosumers. The consumer default is
-  the primary first-run path; the advanced path is opt-in with clear fallback messaging.
+- **Two-tier model path.** Consumer default: guided local-runtime setup if needed, then a
+  one-click in-app download of a curated local model (in-web progress, no manual model
+  CLI, no API key) reaches first useful chat. Advanced: BYOK hosted setup and custom
+  endpoints for prosumers. The consumer default is the primary first-run path; the
+  advanced path is opt-in with clear fallback messaging.
 - First-run states use product language and exactly one primary repair action.
 - Trust spine explains local data, hosted-provider egress, secrets,
   confirmations, traces, and memory review without granting authority.
@@ -4248,7 +4249,7 @@ upgrade, uninstall, and evidence leak scans are exercised together.
 
 Expected direction:
 
-- Clean install with no Elixir/OTP, `allbert serve`, QuickStart onboarding,
+- Clean install with no Elixir/OTP, persistent service start, QuickStart onboarding,
   local files/notes/memory setup, first useful chat, and operator inspection.
 - No-docs validation of the primary launch path by a fresh non-developer
   operator.
@@ -4292,8 +4293,9 @@ local-first AI assistant, and Allbert must clear both to be judged a product:
 
 - **Local-model desktop apps** (LM Studio, Jan, Ollama, Msty, GPT4All, Open WebUI) set
   the **one-click, in-app model download** bar: a non-developer picks a model from an
-  in-app list, watches a progress bar, and chats — no CLI, no manual pull. Allbert's v1.0
-  consumer default must match this (the v0.64 one-click curated-local-model download).
+  in-app list, watches a progress bar, and chats -- no model CLI, no manual pull. Allbert's
+  v1.0 consumer default must match this through the v0.64 guided local-runtime setup plus
+  one-click curated-local-model download.
 - **Hosted assistant apps** (ChatGPT desktop, Claude desktop) set the **sign-in-and-chat**
   friction floor: zero model setup, instant first message. Allbert cannot match "zero
   setup + frontier model for free," but its consumer default must feel comparably
@@ -4328,10 +4330,11 @@ Three 1.0 product decisions (post-v0.63 review, operator-confirmed 2026-07-09):
 - **Two-tier user target.** A consumer-default path (friction-light) and a prosumer
   advanced path (BYOK, custom endpoints, CLI). The consumer default is the primary
   first-run story; the advanced path is opt-in.
-- **Zero-setup consumer model path.** The consumer default reaches first chat via a
-  one-click in-app curated-local-model download (no `ollama` CLI, no API key), matching
-  the local-model-app bar above. Delivery mechanism is a v0.64 M0.a spike
-  (pull-API-with-progress vs embedded downloader vs bundled model), recorded in ADR 0078.
+- **Zero-setup consumer model path.** The consumer default reaches first chat through
+  guided local-runtime setup if needed, then a one-click in-app curated-local-model
+  download (no manual model CLI, no API key), matching the local-model-app bar above. The
+  v0.64 mechanism is managed Ollama plus pull-API progress, recorded in ADR 0078; embedded
+  downloader or bundled model/runtime work is post-1.0 unless a later ADR reopens it.
 
 Sequencing rationale: v0.64 now owns trusted install and repairable first-run
 because install trust is part of first-run trust for a non-developer. v0.65 owns
@@ -4385,11 +4388,11 @@ without:
    run (v0.62 + v0.64).
 10. [product] A new user completes the guided onboarding wizard and reaches a first
     useful chat without reading developer docs or hand-editing config, on a **two-tier**
-    model path (v0.63 + v0.64): the **consumer default** reaches first chat with **no
-    external tool install and no API key** via a one-click in-app curated-local-model
-    download (in-web progress), and the **advanced** path offers BYOK hosted setup or a
-    custom endpoint. Allbert runs as a persistent background service so the operator does
-    not re-run `serve`.
+    model path (v0.63 + v0.64): the **consumer default** reaches first chat through
+    guided local-runtime setup if needed and one-click in-app curated-local-model
+    download (in-web progress), with **no manual model CLI and no API key**; the
+    **advanced** path offers BYOK hosted setup or a custom endpoint. Allbert runs as a
+    persistent background service so the operator does not re-run `serve`.
 11. [product] The web workspace meets the professional-UX bar: the **overhauled
     information architecture, navigation, and screen composition** from the v0.60
     design implemented end-to-end **in the v0.60b-chosen visual language** (ADR

@@ -153,6 +153,7 @@ The post-v0.63 product-readiness review retargeted 1.0 from a technical prosumer
   surface; a native desktop client remains post-1.0. Acceptability for a non-developer
   rests on Allbert running as a **persistent background service** started once — the user
   opens the workspace and never re-runs `serve`.
-- **Zero-setup first chat.** The consumer default reaches first chat with no external tool
-  and no API key (the one-click curated-local-model download; see ADR 0078), matching the
-  one-click-model bar set by local-model desktop apps.
+- **Zero-setup first chat.** The consumer default reaches first chat through guided local
+  runtime setup if needed and one-click curated-local-model download, with no manual model
+  CLI and no API key (see ADR 0078), matching the one-click-model bar set by local-model
+  desktop apps.

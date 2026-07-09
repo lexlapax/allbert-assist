@@ -153,14 +153,18 @@ advisory seed recommendations and must not retroactively change the QuickStart
 curated model requirement.
 
 v0.64 makes install -> first-run -> onboard -> first useful chat trusted and
-repairable for a non-developer. v0.66 validates the complete path against the
-implemented v0.61-v0.65 surfaces and records evidence that the path did not drift
-back to BYOK-only or managed-hosted.
+repairable for a non-developer. The v0.64 consumer-default contract is no manual
+model CLI and no hosted-provider key: Allbert may guide the confirmed Ollama install
+when the runtime is absent, then drive the local pull API behind a web progress surface.
+It does not bundle a model or model runtime into the Allbert artifact. v0.66 validates
+the complete path against the implemented v0.61-v0.65 surfaces and records evidence that
+the path did not drift back to BYOK-only or managed-hosted.
 
 ## Guardrails
 
 - No managed-hosted relay is introduced by implication.
-- No model runtime is bundled into `allbert` by v0.60 decision text.
+- No model runtime or default model is bundled into `allbert` by the pre-1.0 decision
+  text; Ollama remains a managed external runtime unless a later ADR reopens the path.
 - No concrete default model tag is pinned in v0.60.
 - No local model path grants tool, filesystem, egress, or channel authority.
 - No BYOK key is accepted outside the secret-vault path.
