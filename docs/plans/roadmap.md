@@ -4128,14 +4128,15 @@ sequencing-existing-steps to a real guided wizard);
 `docs/adr/0075-user-category-settings-profiles.md`; consumes
 `docs/adr/0078-first-model-path.md` (the v0.60 First-Model-Path decision).
 
-Status: **complete** — M1–M7 built and the post-implementation remediation M7.1–M7.8
-landed (2026-07-08): correctness sweep, readiness off the hot path, the web wizard
-owning onboarding (objective flow retired), review-before-confirm + first-chat prompts,
-the interactive `allbert onboard` TTY wizard, the first-launch reconcile, the
-hardened + web-covered + assert-atom-bound eval gate, and the operator-doc/triad
-reconciliation. `mix allbert.test release.v063` is green end-to-end (9/9 steps); ready
-for manual operator validation (the release itself — version bump, CHANGELOG, tag —
-is the operator step). Pre-1.0 product capability release 3 of 3; implements the v0.60
+Status: **released and tagged as `v0.63.0` on 2026-07-09, version 0.63.0.** M1–M7 built;
+post-implementation remediation M7.1–M7.9, packaging/operator-validation remediation
+M8.1–M8.8, and manual operator-validation fixes F1–F6 all landed. `mix allbert.test
+release.v063` green 9/9; validated against the packaged 0.63.0 binary from a fresh Home
+(real OpenAI + Anthropic egress): QuickStart reaches a working `allbert ask`, hosted
+doctor completes real HTTPS, serve + `/health` + attach, reset preserves Home, trust
+output. F1–F6 fixed CLI stdout log pollution, provider-credential vault/env resolution,
+a deep-Home attach crash, first-chat router mis-routing, one-off-CLI surface work, and a
+per-command DB backup. Pre-1.0 product capability release 3 of 3; implements the v0.60
 onboarding-flow design and applies the v0.60 persona model. Followed by the v0.64
 product RC. Re-scopes the onboarding work pulled out of v0.59 into a genuine
 capability and adds repo-maintained user-category profiles. Builds on the v0.60

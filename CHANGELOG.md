@@ -10,6 +10,54 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.63.0 - Guided Onboarding & Profiles
+
+Status: **released — tagged `v0.63.0` (2026-07-09), version 0.63.0**. Pre-1.0 product
+capability release 3 of 3; implements the v0.60 onboarding-flow design and persona
+model on top of v0.62's packaged entry points, daemon, grouped CLI, and OS-vault
+credential model. Validated against the packaged 0.63.0 binary from a fresh Home on
+macOS (real OpenAI + Anthropic egress). `mix allbert.test release.v063` green 9/9.
+
+First-run is now a guided, two-track onboarding wizard — QuickStart (sensible defaults,
+fastest first chat) vs Advanced (full control) — surfaced in both the web workspace
+(auto-launched on first run) and the new top-level `allbert onboard` CLI, backed by
+repo-maintained user-category profiles (personas), the ADR-0078 First-Model Path
+(local-first, BYOK fallback, no dead ends), and a visible trust spine (confirmation /
+permission / traces / local-first). Personas seed only existing `@safe_write_keys` after
+explicit review + confirmation; onboarding grants no new authority or egress.
+
+- **Guided wizard & profiles (M1–M7).** A shared 8-step wizard state machine drives both
+  surfaces from a single `<Home>/onboarding.json` marker; five user-category personas
+  (`priv/personas/*.yaml`) apply through a two-step review-before-confirm flow; the
+  First-Model Path routes local Ollama / BYOK with operator-language readiness labels; a
+  trust-spine surface and a `release.v063` gate (onboarding proof + security sweep + web
+  onboarding + docs) back it.
+- **Post-implementation audit remediation (M7.1–M7.9).** Correctness sweep; readiness off
+  the render hot path; the web wizard owning onboarding (legacy objective flow retired);
+  interactive `allbert onboard` TTY wizard; first-launch reconcile; a hardened,
+  web-covered, assert-atom-bound eval gate; and third-pass fixes (`detect` off the
+  post-completion hot path).
+- **Packaging / operator-validation remediation (M8.1–M8.8).** Start `:req` under the
+  packaged `eval` entry (fixes `unknown registry: Req.Finch` on bare/first-run commands);
+  bundle `castore` and honor `SSL_CERT_FILE` so hosted-provider TLS works offline; route
+  provider credentials through the tier vault so `admin settings providers set-key` uses
+  the macOS Keychain with no `ALLBERT_SETTINGS_MASTER_KEY`; fix a bare `allbert onboard`
+  crash; QuickStart enables model answering when the model is ready; correct `admin
+  models` help; single-source the version (`CoreApp.version/0` derives from `:vsn`); and a
+  packaged-release smoke lane.
+- **Manual operator-validation fixes (F1–F6).** Route runtime logs to stderr + quiet the
+  CLI so command stdout carries only the result (F1); unify provider-credential
+  resolution through the vault across OS vault → encrypted file → environment so the
+  doctor and runtime resolve env/Keychain keys consistently with the readiness the wizard
+  reports (F2); make the attach socket survive a deep `ALLBERT_HOME` and degrade instead
+  of crashing `serve` (F3); skip web-only surface population on one-off CLI boots (F4);
+  stop the intent router mis-routing first-chat prompts to disabled voice / demo StockSage
+  and enable model-assisted classification when a model is ready (F5); and back up the DB
+  only when migrations are actually pending, not once per command (F6).
+
+No AI-tool attribution or generated-by footers are added to commits, release notes, or
+this changelog. Followed by the v0.64 product RC.
+
 ## v0.62.1 - Distribution Closeout & Reusable Release Ops (v0.62b)
 
 Status: **released — annotated source/docs tag `v0.62.1` (`[skip-artifacts]`),
