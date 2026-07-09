@@ -19,6 +19,7 @@ uninstall unless you explicitly ask.
 brew install lexlapax/allbert/allbert
 brew services start allbert
 curl -fsS http://localhost:4000/health
+allbert admin service status
 ```
 
 The formula ships prebuilt per-platform binaries and registers an `allbert
@@ -40,10 +41,12 @@ less install.sh
 sh install.sh
 ```
 
-The installer downloads the artifact for your platform, **verifies its SHA256
-against the release's `SHA256SUMS`** (refusing to install on a mismatch),
-installs to `~/.local` by default (`ALLBERT_PREFIX` to override), and writes an
-uninstall manifest. It never writes to Allbert Home.
+The installer downloads the artifact for your platform, verifies the release
+`SHA256SUMS` with the published cosign bundle, then verifies the artifact SHA256
+against that signed checksum file. `cosign` is required; the installer refuses to
+install without signature verification. It installs to `~/.local` by default
+(`ALLBERT_PREFIX` to override), writes an uninstall manifest, and never writes to
+Allbert Home.
 
 After a curl install, use the confirmation-gated service setup when a user
 service manager is available:
@@ -53,6 +56,7 @@ export PATH="$HOME/.local/bin:$PATH"
 allbert admin service install
 allbert admin confirmations approve <ID>
 curl -fsS http://localhost:4000/health
+allbert admin service status
 ```
 
 On platforms without a reachable user service manager, Allbert reports the
@@ -60,10 +64,15 @@ service-manager blocker and falls back to foreground `allbert serve`.
 
 ## Verifying artifacts yourself
 
-Every release publishes `SHA256SUMS` (and a cosign bundle
-`SHA256SUMS.cosign.bundle`). To check a download by hand:
+Every release publishes `SHA256SUMS` and `SHA256SUMS.cosign.bundle`. To check a
+download by hand:
 
 ```sh
+cosign verify-blob \
+  --bundle SHA256SUMS.cosign.bundle \
+  --certificate-identity-regexp 'https://github.com/lexlapax/allbert-assist/.github/workflows/release-artifacts.yml@refs/tags/.*' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  SHA256SUMS
 sha256sum -c SHA256SUMS   # or: shasum -a 256 -c SHA256SUMS on macOS
 ```
 
@@ -104,9 +113,15 @@ Upgrading (`brew upgrade allbert`, or re-running the curl installer) replaces
 the binary in place. On the first boot of a new version, Allbert **backs up its
 database** (a copy under `<Allbert Home>/db/backups/`) before running any schema
 migrations, and logs the migrations it applies. If the backup cannot be written,
-the boot refuses to migrate rather than proceed unprotected. Automated rollback
-is planned in v0.64 trusted-install scope; until then, the backup is your manual
-recovery point.
+the boot refuses to migrate rather than proceed unprotected. Recovery is exposed
+through the package-safe admin path:
+
+```sh
+allbert admin db list-backups
+allbert admin db restore latest --dry-run
+allbert admin db restore latest
+allbert admin confirmations approve <ID>
+```
 
 ## Running alongside a development checkout
 

@@ -372,6 +372,8 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
   use AllbertAssistWeb, :live_component
 
   alias AllbertAssist.Actions.Helper, as: ActionHelper
+  alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Onboarding
   alias AllbertAssistWeb.Workspace.Components.OperatorPanels, as: Support
 
   @destination "workspace:models"
@@ -386,7 +388,10 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
       |> assign_new(:node, fn -> nil end)
       |> assign_new(:renderer_context, fn -> %{} end)
       |> assign_new(:models_loaded?, fn -> false end)
+      |> assign_new(:models_notice, fn -> "" end)
       |> assign_new(:models_diagnostics, fn -> "" end)
+      |> assign_new(:model_repair, fn -> model_repair() end)
+      |> assign_new(:model_pull_progress, fn -> [] end)
       |> assign_new(:model_doctor, fn -> %{summary: %{}, rows: []} end)
       |> assign_new(:model_profiles, fn -> [] end)
       |> assign_new(:provider_profiles, fn -> [] end)
@@ -404,6 +409,31 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
 
   @impl true
   def handle_event("refresh_models", _params, socket), do: {:noreply, refresh(socket)}
+
+  def handle_event("install_runtime", _params, socket) do
+    {:noreply,
+     socket
+     |> run_confirmed_model_action(
+       "install_ollama",
+       %{},
+       "Local runtime installation approved and started."
+     )
+     |> refresh()}
+  end
+
+  def handle_event("pull_model", _params, socket) do
+    context = Support.action_context(socket.assigns)
+
+    params =
+      %{}
+      |> maybe_put(:user_id, context.user_id)
+      |> maybe_put(:thread_id, context.thread_id)
+
+    {:noreply,
+     socket
+     |> run_confirmed_model_action("pull_model", params, "Starter model pull approved.")
+     |> refresh()}
+  end
 
   def handle_event("toggle_model_inventory", _params, socket) do
     socket = update(socket, :show_model_inventories?, &(!&1))
@@ -452,9 +482,65 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
       </div>
 
       <div :if={@models_panel_open?} class="workspace-settings-panel-body">
+        <div
+          :if={@models_notice != ""}
+          id="workspace-models-notice"
+          class="alert alert-success text-sm"
+        >
+          {@models_notice}
+        </div>
+
         <p :if={@models_diagnostics != ""} id="workspace-models-diagnostics" class="text-sm">
           {@models_diagnostics}
         </p>
+
+        <section id="workspace-model-repair" class="workspace-operator-panel-section">
+          <h3 class="workspace-rail-title">Model Repair</h3>
+          <div class="workspace-operator-row">
+            <div class="min-w-0">
+              <div id="workspace-model-repair-headline" class="font-medium">
+                {@model_repair.headline}
+              </div>
+              <div id="workspace-model-repair-next" class="text-xs">
+                {@model_repair.next_action}
+              </div>
+            </div>
+            <span class={["workspace-status-pill", Support.status_class(@model_repair.readiness)]}>
+              {Support.status_label(@model_repair.readiness)}
+            </span>
+          </div>
+          <div class="mt-2 flex flex-wrap gap-2">
+            <button
+              :if={@model_repair.action == :install_runtime}
+              type="button"
+              id="workspace-models-install-runtime"
+              class={Support.button_class!("primary")}
+              phx-click="install_runtime"
+              phx-target={@myself}
+            >
+              Install local runtime
+            </button>
+            <button
+              :if={@model_repair.action == :pull_model}
+              type="button"
+              id="workspace-models-pull-model"
+              class={Support.button_class!("primary")}
+              phx-click="pull_model"
+              phx-target={@myself}
+            >
+              Pull starter model
+            </button>
+          </div>
+          <ol
+            :if={@model_pull_progress != []}
+            id="workspace-models-pull-progress"
+            class="mt-2 space-y-1 text-xs"
+          >
+            <li :for={progress <- @model_pull_progress}>
+              {progress.status}<span :if={Map.get(progress, :percent)}> — {progress.percent}%</span>
+            </li>
+          </ol>
+        </section>
 
         <section id="workspace-models-summary" class="workspace-operator-panel-section">
           <h3 class="workspace-rail-title">Recommendation Matrix</h3>
@@ -551,6 +637,7 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
       assign(socket,
         models_loaded?: true,
         models_diagnostics: "",
+        model_repair: model_repair(),
         model_doctor: doctor.model_doctor,
         provider_profiles: providers.providers,
         model_profiles: models.models
@@ -559,10 +646,62 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
       {:error, reason} ->
         assign(socket,
           models_loaded?: true,
+          model_repair: model_repair(),
           models_diagnostics: inspect(reason)
         )
     end
   end
+
+  defp run_confirmed_model_action(socket, action, params, success_notice) do
+    context = Support.action_context(socket.assigns)
+
+    case Runner.run(action, params, context) do
+      {:ok, %{status: :needs_confirmation, confirmation_id: id}} ->
+        approve_model_action(socket, action, id, context, success_notice)
+
+      {:ok, %{status: :completed} = response} ->
+        assign_model_action_success(socket, success_notice, response)
+
+      {:ok, response} ->
+        assign(socket, :models_diagnostics, model_action_error(response))
+    end
+  end
+
+  defp approve_model_action(socket, action, confirmation_id, context, success_notice) do
+    case Runner.run(
+           "approve_confirmation",
+           %{id: confirmation_id, reason: "models panel #{action}"},
+           context
+         ) do
+      {:ok, %{status: :completed} = response} ->
+        assign_model_action_success(socket, success_notice, response)
+
+      {:ok, response} ->
+        assign(socket, :models_diagnostics, model_action_error(response))
+    end
+  end
+
+  defp assign_model_action_success(socket, notice, response) do
+    socket
+    |> assign(models_notice: notice, models_diagnostics: "")
+    |> maybe_assign_pull_progress(response)
+  end
+
+  defp maybe_assign_pull_progress(socket, %{progress: progress}) when is_list(progress),
+    do: assign(socket, :model_pull_progress, progress)
+
+  defp maybe_assign_pull_progress(socket, _response), do: socket
+
+  defp model_action_error(response), do: Map.get(response, :message, inspect(response))
+
+  defp model_repair do
+    probe = Onboarding.safe_first_model_state()
+    readiness = Onboarding.readiness_label(first_model_state: probe)
+    Onboarding.model_guidance_for(readiness, :quickstart)
+  end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp maybe_load_provider_profiles(socket, context) do
     if socket.assigns.show_model_inventories? do

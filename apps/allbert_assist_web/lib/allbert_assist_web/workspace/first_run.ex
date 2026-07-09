@@ -1,23 +1,20 @@
 defmodule AllbertAssistWeb.Workspace.FirstRun do
   @moduledoc """
-  v0.63 M5 — the web first-run auto-open decision.
+  Web first-run auto-open decision.
 
   On workspace mount with no explicit destination, the shell opens the onboarding
-  wizard automatically while the operator has not yet completed onboarding — i.e.
-  `FirstRun.detect/0` is `:onboarding_incomplete` (or `:profile_unreviewed`, the
-  post-completion profile-review gate). It deliberately does **not** auto-open on
-  `:first_model_not_ready` (model setup is reachable from the normal surface) nor on
-  the infrastructure states `:home_missing`/`:schema_incompatible` (a
-  misconfiguration, not a first-run) — the wizard would loop uselessly there. Once
-  onboarding is completed the wizard stops taking over the canvas. Pure + injectable
-  so the decision is unit-tested without a LiveView.
+  wizard while onboarding/profile review is incomplete. v0.64 adds the completed-
+  onboarding-but-model-not-ready case: that opens the Models workspace repair panel,
+  not the wizard. Infrastructure states (`:home_missing`/`:schema_incompatible`) still
+  do not auto-open because they need install/upgrade repair, not an in-product loop.
   """
 
   alias AllbertAssist.CLI.FirstRun
 
-  @auto_open_states [:onboarding_incomplete, :profile_unreviewed]
+  @auto_open_states [:onboarding_incomplete, :profile_unreviewed, :first_model_not_ready]
 
   @onboard_destination "workspace:onboard"
+  @model_repair_destination "workspace:models"
 
   @doc "The detect/0 states that auto-open the onboarding wizard."
   @spec auto_open_states() :: [FirstRun.state()]
@@ -30,13 +27,26 @@ defmodule AllbertAssistWeb.Workspace.FirstRun do
   """
   @spec auto_open?(keyword()) :: boolean()
   def auto_open?(opts \\ []) do
-    state = Keyword.get_lazy(opts, :state, &safe_detect/0)
-    state in @auto_open_states
+    not is_nil(default_destination(opts))
   end
 
   @doc "The onboarding canvas destination string."
   @spec onboard_destination() :: String.t()
   def onboard_destination, do: @onboard_destination
+
+  @doc "The standalone model-repair canvas destination string."
+  @spec model_repair_destination() :: String.t()
+  def model_repair_destination, do: @model_repair_destination
+
+  @doc "The state-specific default destination, or nil when no first-run panel should open."
+  @spec default_destination(keyword()) :: String.t() | nil
+  def default_destination(opts \\ []) do
+    case Keyword.get_lazy(opts, :state, &safe_detect/0) do
+      state when state in [:onboarding_incomplete, :profile_unreviewed] -> @onboard_destination
+      :first_model_not_ready -> @model_repair_destination
+      _other -> nil
+    end
+  end
 
   defp safe_detect do
     FirstRun.detect()

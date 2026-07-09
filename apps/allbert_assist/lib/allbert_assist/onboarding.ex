@@ -96,7 +96,10 @@ defmodule AllbertAssist.Onboarding do
     "Confirmation: risky actions pause for your explicit approval; each approval is a durable, traced record.",
     "Permission: every action is scoped by Security Central; onboarding grants no new authority.",
     "Traces: what Allbert does is recorded and locally inspectable.",
-    "Local-first: your data and model stay on your machine unless you connect a hosted provider."
+    "Local-first: your data and model stay on your machine unless you connect a hosted provider.",
+    "Hosted-provider egress: BYOK/custom endpoints are opt-in and shown before any network use.",
+    "Secrets: provider keys are stored as vault references, with OS vault or encrypted-store custody.",
+    "Memory review: local notes and agent memory are inspectable; review remains explicit."
   ]
 
   @doc "The trust-spine safety properties surfaced during onboarding (M7)."

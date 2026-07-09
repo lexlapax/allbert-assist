@@ -45,6 +45,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Conversations.PersistApprovalMediaResponse
   alias AllbertAssist.Actions.Conversations.RenameThread
   alias AllbertAssist.Actions.Conversations.ResumeThreadOnChannel
+  alias AllbertAssist.Actions.Database.RestoreBackup, as: RestoreDatabaseBackup
   alias AllbertAssist.Actions.DynamicPlugins.DisableLiveLoader, as: DisableDynamicLiveLoader
   alias AllbertAssist.Actions.DynamicPlugins.DiscardDraft, as: DiscardDynamicDraft
   alias AllbertAssist.Actions.DynamicPlugins.IntegrateDraft, as: IntegrateDynamicDraft
@@ -441,6 +442,7 @@ defmodule AllbertAssist.Actions.Registry do
     # (command_execute, confirmed). Named internal actions, not off-spine shell.
     ServeHealth,
     ServiceControl,
+    RestoreDatabaseBackup,
     # v0.62 M7: three-tier secret vault — vault status (read-only) + migrate
     # secrets into the OS vault (settings_write, confirmed). Named internal
     # actions in the packaging-no-authority-change allowance.

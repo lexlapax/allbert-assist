@@ -105,6 +105,11 @@ defmodule AllbertAssist.CLI.FirstRunTest do
       assert FirstRun.detect(first_model_state: :local_ready) == :product_ready
       # And a not-ready injected state still routes correctly, proving the arg is used.
       assert FirstRun.detect(first_model_state: :runtime_missing) == :first_model_not_ready
+
+      assert FirstRun.detect_details(first_model_state: :model_missing) == %{
+               state: :first_model_not_ready,
+               first_model_state: :model_missing
+             }
     end
 
     test "v0.63 M1: reset_onboarding clears the marker (Home preserved)", %{root: root} do

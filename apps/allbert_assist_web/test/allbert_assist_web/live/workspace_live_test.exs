@@ -784,6 +784,16 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     test "M7.3: the wizard drives real M3/M4 controls and has no legacy objective panel",
          %{conn: conn} do
       FirstRun.reset_onboarding()
+      original_override = Application.get_env(:allbert_assist, :first_model_state_override)
+
+      on_exit(fn ->
+        if original_override,
+          do:
+            Application.put_env(:allbert_assist, :first_model_state_override, original_override),
+          else: Application.delete_env(:allbert_assist, :first_model_state_override)
+      end)
+
+      Application.put_env(:allbert_assist, :first_model_state_override, :runtime_missing)
       {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:onboard")
 
       # The retired legacy objective panel is gone.
@@ -794,6 +804,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
       view |> element("#workspace-wizard-advance-track_select") |> render_click()
 
       # model_path renders real M3 masked entry + provider switch/doctor.
+      assert has_element?(view, "#workspace-model-install-runtime")
       assert has_element?(view, "#workspace-provider-key[type='password']")
       assert has_element?(view, "#workspace-provider-doctor")
 
@@ -820,6 +831,45 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
       html = view |> element("#workspace-wizard-first-chat") |> render()
       assert html =~ "Try a first chat"
+    end
+
+    test "v0.64: completed onboarding with missing model opens standalone repair panel",
+         %{conn: conn} do
+      provider_env_keys =
+        ~w(ANTHROPIC_API_KEY OPENAI_API_KEY OPENROUTER_API_KEY GOOGLE_API_KEY GEMINI_API_KEY)
+
+      saved_provider_env = Map.new(provider_env_keys, &{&1, System.get_env(&1)})
+      saved_ollama_host = System.get_env("OLLAMA_HOST")
+      saved_override = Application.get_env(:allbert_assist, :first_model_state_override)
+
+      on_exit(fn ->
+        Enum.each(saved_provider_env, fn
+          {key, nil} -> System.delete_env(key)
+          {key, value} -> System.put_env(key, value)
+        end)
+
+        if saved_ollama_host,
+          do: System.put_env("OLLAMA_HOST", saved_ollama_host),
+          else: System.delete_env("OLLAMA_HOST")
+
+        if saved_override,
+          do: Application.put_env(:allbert_assist, :first_model_state_override, saved_override),
+          else: Application.delete_env(:allbert_assist, :first_model_state_override)
+      end)
+
+      Enum.each(provider_env_keys, &System.delete_env/1)
+      System.put_env("OLLAMA_HOST", "https://example.invalid")
+      FirstRun.reset_onboarding()
+      FirstRun.mark_onboarding_complete()
+      FirstRun.mark_profile_reviewed()
+      Application.put_env(:allbert_assist, :first_model_state_override, :model_missing)
+
+      {:ok, view, _html} = live(conn, ~p"/workspace")
+
+      assert has_element?(view, "#workspace-models-panel")
+      assert has_element?(view, "#workspace-model-repair")
+      assert has_element?(view, "#workspace-models-pull-model")
+      refute has_element?(view, "#workspace-onboarding-wizard")
     end
   end
 

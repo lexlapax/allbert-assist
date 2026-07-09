@@ -1334,11 +1334,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   defp first_run_default_destination do
-    if WorkspaceFirstRun.auto_open?() do
-      WorkspaceFirstRun.onboard_destination()
-    else
-      Layout.default_destination()
-    end
+    WorkspaceFirstRun.default_destination() || Layout.default_destination()
   end
 
   defp resolve_artifacts_browser_filters(params) do

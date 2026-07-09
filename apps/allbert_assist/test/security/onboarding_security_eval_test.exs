@@ -134,6 +134,12 @@ defmodule AllbertAssist.Onboarding.SecurityEvalTest do
       :ref_write_only,
       :response_redacted
     ])
+
+    AssertBinding.check!("first-run-secrets-redacted-001", [
+      :credential_response_redacted,
+      :raw_secret_absent_from_logs,
+      :secret_stored_by_vault_ref
+    ])
   end
 
   test "provider-env-tier-read-only-001: env tier is detected, rejects writes, surfaced read-only" do

@@ -4,6 +4,7 @@ defmodule AllbertAssist.CLI.Areas.OnboardingTest do
 
   alias AllbertAssist.CLI.Areas.Onboarding, as: Area
   alias AllbertAssist.CLI.FirstRun
+  alias AllbertAssist.SecurityFixtures.AssertBinding
 
   setup do
     original = System.get_env("ALLBERT_HOME")
@@ -121,6 +122,27 @@ defmodule AllbertAssist.CLI.Areas.OnboardingTest do
       refute text =~ "sk-interactive-secret"
     end
 
+    test "model_path shows local repair before provider key entry" do
+      FirstRun.reset_onboarding()
+      original_override = Application.get_env(:allbert_assist, :first_model_state_override)
+
+      on_exit(fn ->
+        if original_override,
+          do:
+            Application.put_env(:allbert_assist, :first_model_state_override, original_override),
+          else: Application.delete_env(:allbert_assist, :first_model_state_override)
+      end)
+
+      Application.put_env(:allbert_assist, :first_model_state_override, :model_missing)
+      {io, out} = scripted_io(["q", "", "", "", :quit])
+
+      assert {"", 0} = Area.run_interactive(nil, io)
+      text = output(out)
+
+      assert text =~ "The runtime is up, but the starter model isn't downloaded."
+      assert text =~ "Next: Pull the starter model"
+    end
+
     test "quitting pauses without completing" do
       FirstRun.reset_onboarding()
       {io, out} = scripted_io(["q", :quit])
@@ -162,6 +184,34 @@ defmodule AllbertAssist.CLI.Areas.OnboardingTest do
 
       assert {msg2, _} = Area.dispatch(["advance", "welcome", "--accept-risk"])
       assert msg2 =~ "no effect here"
+    end
+
+    test "model repair subcommands require authorization and preview before apply" do
+      assert {install_msg, install_code} = Area.dispatch(["install-runtime"])
+      assert install_code != 0
+      assert install_msg =~ "confirmation-gated"
+      assert install_msg =~ "--authorize"
+
+      assert {install_preview, 0} = Area.dispatch(["install-runtime", "--authorize"])
+      assert install_preview =~ "Would run"
+      assert install_preview =~ "--authorize --yes"
+      refute install_preview =~ "ollama pull"
+
+      assert {msg, code} = Area.dispatch(["pull-model"])
+      assert code != 0
+      assert msg =~ "confirmation-gated"
+      assert msg =~ "--authorize"
+
+      assert {preview, 0} = Area.dispatch(["pull-model", "--authorize"])
+      assert preview =~ "Would pull"
+      assert preview =~ "--authorize --yes"
+      refute preview =~ "ollama pull"
+
+      AssertBinding.check!("first-model-guided-runtime-install-no-cli-001", [
+        :install_runtime_requires_authorization,
+        :dry_run_preview_before_apply,
+        :no_manual_ollama_cli_instruction
+      ])
     end
   end
 

@@ -64,6 +64,25 @@ main() {
   echo "allbert: downloading $artifact"
   curl -fsSL "$base/$artifact" -o "$tmp/$artifact"
   curl -fsSL "$base/SHA256SUMS" -o "$tmp/SHA256SUMS"
+  curl -fsSL "$base/SHA256SUMS.cosign.bundle" -o "$tmp/SHA256SUMS.cosign.bundle"
+
+  echo "allbert: verifying release signature"
+  if ! command -v cosign >/dev/null 2>&1; then
+    cat >&2 <<'EOF'
+allbert: cosign is required to verify Allbert release checksums.
+Install cosign, then rerun this installer:
+  macOS/Homebrew: brew install cosign
+  Linux: https://docs.sigstore.dev/cosign/installation/
+Refusing to install without signature verification.
+EOF
+    exit 1
+  fi
+
+  cosign verify-blob \
+    --bundle "$tmp/SHA256SUMS.cosign.bundle" \
+    --certificate-identity-regexp "https://github.com/lexlapax/allbert-assist/.github/workflows/release-artifacts.yml@refs/tags/.*" \
+    --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+    "$tmp/SHA256SUMS" >/dev/null
 
   echo "allbert: verifying checksum"
   # v0.62 M8.17: match the filename as an EXACT SHA256SUMS field (not a regex —

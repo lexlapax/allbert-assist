@@ -41,6 +41,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
       |> assign_new(:onboarding_error, fn -> nil end)
       |> assign_new(:selected_persona, fn -> nil end)
       |> assign_new(:persona_review, fn -> nil end)
+      |> assign_new(:model_pull_progress, fn -> [] end)
       |> assign_new(:provider_form, fn -> provider_form() end)
 
     {:ok, refresh_state(socket)}
@@ -142,6 +143,37 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
       end
 
     {:noreply, refresh_state(reprobe(socket))}
+  end
+
+  def handle_event("install_runtime", _params, socket) do
+    {:noreply,
+     socket
+     |> run_confirmed_onboarding_action(
+       "install_ollama",
+       %{},
+       "Local runtime installation approved and started."
+     )
+     |> refresh_state()
+     |> reprobe()}
+  end
+
+  def handle_event("pull_model", _params, socket) do
+    context = action_context(socket)
+
+    params =
+      %{}
+      |> maybe_put(:user_id, context.user_id)
+      |> maybe_put(:thread_id, get_in(context, [:request, :thread_id]))
+
+    {:noreply,
+     socket
+     |> run_confirmed_onboarding_action(
+       "pull_model",
+       params,
+       "Starter model pull approved and completed."
+     )
+     |> refresh_state()
+     |> reprobe()}
   end
 
   # -- M4 persona review + apply ---------------------------------------------
@@ -296,6 +328,44 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
   defp render_step_controls(%{onboarding_wizard: %{step: "model_path"}} = assigns) do
     ~H"""
     <div id="workspace-wizard-provider" class="space-y-3">
+      <section id="workspace-model-path-repair" class="space-y-2">
+        <p class="text-xs font-medium text-base-content/80">{@model_guidance.headline}</p>
+        <p class="text-xs text-base-content/70">{@model_guidance.next_action}</p>
+
+        <div class="flex flex-wrap gap-2">
+          <button
+            :if={@model_guidance.action == :install_runtime}
+            type="button"
+            id="workspace-model-install-runtime"
+            class="btn btn-sm btn-primary"
+            phx-click="install_runtime"
+            phx-target={@myself}
+          >
+            Install local runtime
+          </button>
+          <button
+            :if={@model_guidance.action == :pull_model}
+            type="button"
+            id="workspace-model-pull"
+            class="btn btn-sm btn-primary"
+            phx-click="pull_model"
+            phx-target={@myself}
+          >
+            Pull starter model
+          </button>
+        </div>
+
+        <ol
+          :if={@model_pull_progress != []}
+          id="workspace-model-pull-progress"
+          class="space-y-1 text-xs text-base-content/70"
+        >
+          <li :for={progress <- @model_pull_progress}>
+            {progress.status}<span :if={Map.get(progress, :percent)}> — {progress.percent}%</span>
+          </li>
+        </ol>
+      </section>
+
       <p class="text-xs text-base-content/70">{@tier_line}</p>
 
       <.form
@@ -448,9 +518,59 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
 
     socket
     |> assign(:onboarding_wizard, wizard)
+    |> assign(
+      :model_guidance,
+      OnboardingContext.model_guidance_for(wizard.readiness, wizard.track)
+    )
     |> assign(:provider_profiles, provider_profiles())
     |> assign(:tier_line, tier_line())
   end
+
+  defp run_confirmed_onboarding_action(socket, action, params, success_notice) do
+    context = action_context(socket)
+
+    case run_action(action, params, context) do
+      {:ok, %{status: :needs_confirmation, confirmation_id: id}} ->
+        approve_onboarding_action(socket, action, id, context, success_notice)
+
+      {:ok, %{status: :completed} = response} ->
+        assign_action_success(socket, success_notice, response)
+
+      {:ok, response} ->
+        assign(socket, :onboarding_error, response_error(response))
+
+      {:error, reason} ->
+        assign(socket, :onboarding_error, reason)
+    end
+  end
+
+  defp approve_onboarding_action(socket, action, confirmation_id, context, success_notice) do
+    case run_action(
+           "approve_confirmation",
+           %{id: confirmation_id, reason: "onboarding #{action}"},
+           context
+         ) do
+      {:ok, %{status: :completed} = response} ->
+        assign_action_success(socket, success_notice, response)
+
+      {:ok, response} ->
+        assign(socket, :onboarding_error, response_error(response))
+
+      {:error, reason} ->
+        assign(socket, :onboarding_error, reason)
+    end
+  end
+
+  defp assign_action_success(socket, notice, response) do
+    socket
+    |> assign(onboarding_notice: notice, onboarding_error: nil)
+    |> maybe_assign_pull_progress(response)
+  end
+
+  defp maybe_assign_pull_progress(socket, %{progress: progress}) when is_list(progress),
+    do: assign(socket, :model_pull_progress, progress)
+
+  defp maybe_assign_pull_progress(socket, _response), do: socket
 
   defp apply_persona(socket, persona_id) do
     context = action_context(socket)
@@ -521,6 +641,9 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
   defp run_action(name, params, context), do: apply(Runner, :run, [name, params, context])
 
   defp response_error(response), do: ErrorExtraction.from_response(response)
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp action_context(socket) do
     context = Map.get(socket.assigns, :renderer_context, %{})

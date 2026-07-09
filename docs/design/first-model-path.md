@@ -160,9 +160,10 @@ It does not bundle a model or model runtime into the Allbert artifact.
 
 The one-click download pulls the **single curated model** (`Ollama.curated_model/0`,
 `llama3.2:3b`), not a browsable catalog; a model chooser is post-v0.64. The web progress
-surface is fed by flipping `actions/first_model/pull_model.ex`'s `default_pull/1` from
-`stream: false` to a streaming Req callback that broadcasts Ollama's
-`status/completed/total` frames onto the existing per-thread PubSub topic
+surface is fed by `actions/first_model/pull_model.ex` streaming Ollama's local
+`/api/pull` newline-JSON response with Req's `into:` callback. Bounded
+`status/completed/total` progress frames are emitted as workspace signals on the
+existing per-thread PubSub topic.
 (`SignalBridge.workspace_topic_for/2`) that `WorkspaceLive` already subscribes to —
 `first_model` broadcasts nothing today, so that plumbing is the net-new seam. v0.66 validates
 the complete path against the implemented v0.61-v0.65 surfaces and records evidence that

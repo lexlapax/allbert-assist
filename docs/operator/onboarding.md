@@ -1,11 +1,8 @@
 # Allbert Operator Onboarding
 
-This guide is the v0.63 operator-facing entry path for trying Allbert from a
-fresh checkout or packaged entry point. It is not a release test matrix.
-Release-specific smoke commands live in the matching request-flow document.
-The v0.64 plan makes packaged install plus browser-first onboarding the primary
-non-developer path; until that release lands, this guide keeps the source
-workflow visible for current validation.
+This guide is the package-first operator entry path for trying Allbert as a
+local assistant. It is not a release test matrix. Release-specific smoke
+commands live in the matching request-flow document.
 
 ## Orientation
 
@@ -15,46 +12,52 @@ Read these first:
 - `CHANGELOG.md` for release status, safety notes, verification summary, and
   expected tag.
 - `docs/plans/roadmap.md` for version sequencing.
-- `docs/plans/v0.63-plan.md` and `docs/plans/v0.63-request-flow.md` for the
-  active guided-onboarding/profile implementation contract.
+- `docs/plans/v0.64-plan.md` and `docs/plans/v0.64-request-flow.md` for the
+  trusted-install and non-developer first-run implementation contract.
 
-## First Local Run From Source
+## First Packaged Run
 
-Use a disposable Allbert Home when exploring:
-
-```sh
-export ALLBERT_HOME="$(mktemp -d /tmp/allbert-operator.XXXXXX)"
-export ALLBERT_TRACE_ENABLED=true
-```
-
-Set up and run the app:
+Install the packaged binary first; it includes its own Erlang/OTP runtime:
 
 ```sh
-mix setup
-mix phx.server
+brew install lexlapax/allbert/allbert
+brew services start allbert
+curl -fsS http://localhost:4000/health
 ```
 
-Open the local operator surfaces:
+Or use the curl installer from [install.md](install.md), then preview and approve
+the user service:
+
+```sh
+export PATH="$HOME/.local/bin:$PATH"
+allbert admin service install --dry-run
+allbert admin service install
+allbert admin confirmations approve <ID>
+curl -fsS http://localhost:4000/health
+```
+
+Open the workspace:
 
 ```text
 http://localhost:4000/workspace
 ```
 
-Try the CLI surface:
+Foreground `allbert serve --open` is a diagnostic or repair fallback when the
+platform user service manager is unavailable. Source checkout (`mix setup`,
+`mix phx.server`) is for contributors, not the non-developer first-run path.
+
+Try the packaged CLI surface:
 
 ```sh
-mix allbert.ask "hello"
-mix allbert.security status
-mix allbert.confirmations list
+allbert ask "hello"
+allbert admin health
+allbert admin service status
+allbert admin confirmations list
 ```
 
-For packaged installs, use [install.md](install.md), then start with
-`allbert serve`. v0.64 owns making that path the primary non-developer
-onboarding contract.
+## Operator Onboarding
 
-## v0.63 Operator Onboarding
-
-v0.63 ships a guided onboarding wizard over one shared flow on both surfaces — the
+Allbert ships a guided onboarding wizard over one shared flow on both surfaces — the
 auto-opening web wizard and the interactive `allbert onboard` TTY wizard — built and
 validated at the M7.x closeout. The old command-sequencing onboarding objective is
 retired; the shared wizard machine over the `<Home>/onboarding.json` marker is the
@@ -62,7 +65,7 @@ sole onboarding source and surface.
 
 How an operator gets running:
 
-- `allbert serve` starts the runtime and the web wizard auto-opens on first run.
+- the packaged service starts the runtime and the web wizard auto-opens on first run.
 - `allbert onboard` is the primary TTY wizard entry point. It resumes active
   onboarding or starts with a QuickStart/Advanced chooser; no-TTY/headless use falls
   back to the line-oriented flow.
@@ -79,6 +82,10 @@ How an operator gets running:
 - Persona apply is two-step: `apply-persona <id> --authorize` shows the
   current-to-proposed settings diff and writes nothing; only `apply-persona <id>
   --authorize --yes` applies through the durable confirmation path.
+- Local runtime/model repair is also confirmation-gated: `allbert onboard
+  install-runtime --authorize` previews, and `--authorize --yes` applies; `allbert
+  onboard pull-model --authorize` previews the starter-model pull, and
+  `--authorize --yes` applies.
 
 The wizard should speak in operator readiness language, not internal probe names:
 `Ready`, `Needs model`, `Needs credentials`, `Needs runtime`, and `Needs review`.
@@ -97,13 +104,21 @@ wizard can detect and verify them, but does not write to env.
 
 ### Provider / model setup and switching
 
-At the `model_path` step the wizard shows operator readiness and, when a provider is
-needed, a masked key entry (stored in the vault, never echoed), an inline `doctor`
-round-trip, and a provider/model switch. Named local (Ollama) and hosted
-(OpenAI/Anthropic/OpenRouter) providers plus an OpenAI-compatible custom endpoint are
-supported; switching a provider writes Settings Central keys and edits no config file.
-The wizard surfaces which vault tier a new key lands in (OS vault → encrypted-store);
-the env tier is read-only.
+At the `model_path` step the wizard shows operator readiness and the local-first
+repair path first: install/start the local runtime when absent, then pull the single
+curated starter model through Ollama's local API. Hosted BYOK and custom endpoints are
+the Advanced fallback. When a provider is needed, the wizard shows a masked key entry
+(stored in the vault, never echoed), an inline `doctor` round-trip, and a provider/model
+switch. Switching a provider writes Settings Central keys and edits no config file. The
+wizard surfaces which vault tier a new key lands in (OS vault → encrypted-store); the
+env tier is read-only.
+
+If onboarding is complete but the model later becomes unavailable, opening the web
+workspace routes to the standalone Models repair panel (`workspace:models`) instead of
+reopening the wizard. The panel uses the same readiness guidance and repair actions.
+The warm terminal console (`allbert tui`) is a daily-use surface, not a repair wizard:
+before setup is complete it prints a one-line pointer to onboarding or the Models repair
+panel and exits.
 
 ### User-category profile reference
 
@@ -138,7 +153,10 @@ Onboarding surfaces Allbert's trust spine as a feature (`allbert onboard trust`,
 section in the web wizard): risky actions pause for your explicit, durable, traced
 approval; every action is scoped by Security Central and onboarding grants no new
 authority; what Allbert does is recorded and locally inspectable; your data and model
-stay on your machine unless you connect a hosted provider.
+stay on your machine unless you connect a hosted provider; hosted-provider egress is
+opt-in and shown before network use; provider keys are vault references under OS-vault
+or encrypted-store custody; local notes and agent memory stay inspectable and review is
+explicit.
 
 ## v0.64-v0.66 Planning Direction
 

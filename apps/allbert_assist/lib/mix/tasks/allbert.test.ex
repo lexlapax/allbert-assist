@@ -41,6 +41,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v061b
       mix allbert.test release.v062
       mix allbert.test release.v063
+      mix allbert.test release.v064
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
@@ -153,6 +154,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v061b"]), do: release_v061b()
   def run(["release.v062"]), do: release_v062()
   def run(["release.v063"]), do: release_v063()
+  def run(["release.v064"]), do: release_v064()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -4628,6 +4630,190 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   end
 
+  @release_v064_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "format_check",
+      title: "formatter check for v0.64 release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["format", "--check-formatted"],
+      coverage: ["formatter drift fails the v0.64 first-run handoff"]
+    },
+    %{
+      id: "compile_warnings_as_errors",
+      title: "compile v0.64 release candidate with warnings as errors",
+      cwd: :root,
+      executable: "mix",
+      args: ["compile", "--warnings-as-errors"],
+      coverage: ["compiler warnings fail the v0.64 first-run handoff"]
+    },
+    %{
+      id: "credo_strict",
+      title: "Credo strict check for v0.64 release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["credo", "--strict"],
+      coverage: ["Credo strict findings fail the v0.64 first-run handoff"]
+    },
+    %{
+      id: "dialyzer",
+      title: "Dialyzer static analysis for v0.64 release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["dialyzer"],
+      coverage: ["Dialyzer warnings fail the v0.64 first-run handoff"]
+    },
+    %{
+      id: "v064_trusted_install_restore",
+      title: "trusted installer verification and backup restore path hold",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/install_path_test.exs",
+        "test/allbert_assist/database_backup_test.exs",
+        "test/allbert_assist/actions/registry_test.exs"
+      ],
+      coverage: [
+        "installer downloads and verifies SHA256SUMS.cosign.bundle before checksum comparison",
+        "artifact signing is a hard release-workflow gate",
+        "backup-before-migrate restore is listable, path-bounded, and confirmation-gated"
+      ]
+    },
+    %{
+      id: "v064_model_and_first_run_repair",
+      title: "local model repair, first-run copy, service posture, and TUI guard hold",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/first_model/first_model_test.exs",
+        "test/allbert_assist/cli/areas/onboarding_test.exs",
+        "test/allbert_assist/cli/first_run_test.exs",
+        "test/allbert_assist/cli/dispatcher_test.exs",
+        "test/allbert_assist/cli/tui_test.exs"
+      ],
+      coverage: [
+        "guided runtime install and curated model pull stay behind preview/confirmation paths",
+        "Ollama pull uses streaming progress and workspace progress signals",
+        "bare CLI and TUI blocked states avoid raw probe atoms and show repair destinations",
+        "service status routes through read-only health/service posture"
+      ]
+    },
+    %{
+      id: "v064_security_sweep",
+      title: "v0.64 eval rows, trust spine, natural prompt routing, and docs handoff hold",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/v064_sweep_eval_test.exs",
+        "test/security/onboarding_flow_eval_test.exs",
+        "test/security/onboarding_security_eval_test.exs",
+        "test/security/security_eval_case_test.exs",
+        "test/allbert_assist/agents/intent_agent_test.exs"
+      ],
+      coverage: [
+        "the :v064 row set is complete, shaped, routed, and bound to owning assertions",
+        "trust spine names hosted egress, vault custody, memory review, and no new authority",
+        "plain first-chat prompts route to read-only direct_answer rather than side effects",
+        "v0.65 local files/notes/reviewed-memory handoff is current"
+      ]
+    },
+    %{
+      id: "v064_web_model_repair",
+      title: "the web first-run repair route opens the standalone Models panel",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist_web/test/allbert_assist_web/workspace/first_run_test.exs",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:829"
+      ],
+      coverage: [
+        "completed onboarding with an unavailable model opens workspace:models",
+        "the standalone Models panel exposes install-runtime and pull-model repair controls"
+      ]
+    },
+    %{
+      id: "docs_gate",
+      title: "docs gate and release-planning whitespace check",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "docs"],
+      coverage: ["git diff --check is clean", "docs gate is visible in release evidence"]
+    }
+  ]
+
+  defp release_v064 do
+    env = owned_env("release-v064", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v064")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v064_steps, &run_release_v064_step(&1, env))
+
+    status = if Enum.all?(results, &(&1.status == "passed")), do: "passed", else: "failed"
+
+    evidence = %{
+      gate: "mix allbert.test release.v064",
+      version: "v0.64",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; deterministic trusted-installer, restore, first-model, first-run repair, trust-spine, intent-routing, and web repair proofs use local files, injected Req transports, and disposable Allbert homes only",
+      notes:
+        "v0.64 Trusted Install And Non-Developer First Run makes the package-first path fail-closed on artifact trust, exposes a bounded DB restore path, routes missing-model first-run states to repair actions, drives the curated local model pull with progress, keeps BYOK/custom as an advanced fallback, and binds every :v064 security/flow row to an owning assertion.",
+      steps: results
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v064-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v064 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v064 failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v064_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v064 #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
   defp cleanup_release_v046_evidence!(evidence_dir) do
     evidence_dir
     |> Path.join("release-v046-*.json")
@@ -6725,6 +6911,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v061b
       mix allbert.test release.v062
       mix allbert.test release.v063
+      mix allbert.test release.v064
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate

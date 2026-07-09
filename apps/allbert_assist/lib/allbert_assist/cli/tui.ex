@@ -8,21 +8,61 @@ defmodule AllbertAssist.CLI.Tui do
   """
 
   alias AllbertAssist.Channels.TUI.Adapter
+  alias AllbertAssist.CLI.FirstRun
+  alias AllbertAssist.Onboarding
 
   @supervisor AllbertAssist.Channels.Supervisor
 
   @doc "Launch the interactive TUI console; blocks until the session exits."
   @spec launch() :: :ok | {:error, term()}
   def launch do
-    enable_supervised_tui_child!()
-    {:ok, _started} = Application.ensure_all_started(:allbert_assist)
+    with :ok <- readiness_guard() do
+      enable_supervised_tui_child!()
+      {:ok, _started} = Application.ensure_all_started(:allbert_assist)
 
-    case Adapter.run_supervised_forever(@supervisor) do
-      :normal -> :ok
-      :shutdown -> :ok
-      {:shutdown, _reason} -> :ok
-      other -> {:error, other}
+      case Adapter.run_supervised_forever(@supervisor) do
+        :normal -> :ok
+        :shutdown -> :ok
+        {:shutdown, _reason} -> :ok
+        other -> {:error, other}
+      end
     end
+  end
+
+  @doc false
+  @spec readiness_guard() :: :ok | {:error, {:first_run_not_ready, FirstRun.state()}}
+  def readiness_guard do
+    details = FirstRun.detect_details()
+
+    if details.state == :product_ready do
+      :ok
+    else
+      IO.puts(:stderr, guard_message(details))
+      {:error, {:first_run_not_ready, details.state}}
+    end
+  end
+
+  defp guard_message(%{state: :first_model_not_ready, first_model_state: model_state}) do
+    readiness = Onboarding.readiness_label(first_model_state: model_state)
+    guidance = Onboarding.model_guidance_for(readiness, :quickstart)
+
+    "Allbert TUI is waiting for setup. #{guidance.headline} Run `allbert onboard` or open `/workspace?destination=workspace:models`."
+  end
+
+  defp guard_message(%{state: :home_missing}) do
+    "Allbert TUI is waiting for setup. Start the packaged service or run `allbert serve --open`, then complete `allbert onboard`."
+  end
+
+  defp guard_message(%{state: :schema_incompatible}) do
+    "Allbert TUI is waiting for setup. Allbert Home needs upgrade repair before the console can launch."
+  end
+
+  defp guard_message(%{state: :profile_unreviewed}) do
+    "Allbert TUI is waiting for setup. Review the profile in the web workspace or run `allbert onboard`."
+  end
+
+  defp guard_message(%{state: :onboarding_incomplete}) do
+    "Allbert TUI is waiting for setup. Complete web onboarding or run `allbert onboard`."
   end
 
   # Mutates the Channels.Supervisor config to enable the TUI child before the

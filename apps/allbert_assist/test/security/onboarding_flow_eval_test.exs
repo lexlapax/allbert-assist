@@ -84,6 +84,10 @@ defmodule AllbertAssist.Onboarding.FlowEvalTest do
     assert blob =~ "permission"
     assert blob =~ "trace"
     assert blob =~ "local"
+    assert blob =~ "hosted-provider egress"
+    assert blob =~ "vault"
+    assert blob =~ "memory review"
+    assert blob =~ "onboarding grants no new authority"
 
     # The terminal surface renders it (hermetic — the `trust` route performs no probe).
     assert {out, 0} = OnboardArea.dispatch(["trust"])
@@ -96,6 +100,38 @@ defmodule AllbertAssist.Onboarding.FlowEvalTest do
     AssertBinding.check!("trust-spine-surfaced-001", [
       :trust_spine_present,
       :names_confirmation_permission_traces_local
+    ])
+
+    AssertBinding.check!("first-run-trust-spine-no-authority-001", [
+      :hosted_egress_opt_in,
+      :secrets_vault_custody_named,
+      :onboarding_grants_no_authority
+    ])
+  end
+
+  test "first-model-advanced-byok-or-custom-001: Advanced keeps opt-in BYOK/custom fallback" do
+    needs_review = Onboarding.model_guidance_for(:needs_review, :advanced)
+
+    assert needs_review.action == :choose_provider
+    assert needs_review.repairable?
+    assert needs_review.next_action =~ "bring your own key"
+    assert needs_review.next_action =~ "model/provider options"
+
+    needs_credentials = Onboarding.model_guidance_for(:needs_credentials, :advanced)
+
+    assert needs_credentials.action == :enter_credentials
+    assert needs_credentials.next_action =~ "provider key"
+    assert needs_credentials.next_action =~ "stored masked in the secret vault"
+    assert needs_credentials.next_action =~ "pick a different provider or the local runtime"
+
+    IO.puts(
+      "first-model-advanced-byok-or-custom-001 status=pass advanced=opt_in credentials=vault"
+    )
+
+    AssertBinding.check!("first-model-advanced-byok-or-custom-001", [
+      :advanced_path_available,
+      :provider_choice_opt_in,
+      :credential_storage_named
     ])
   end
 

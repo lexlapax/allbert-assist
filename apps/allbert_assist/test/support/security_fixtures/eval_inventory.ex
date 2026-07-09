@@ -51,6 +51,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :v061b
           | :v062
           | :v063
+          | :v064
 
   @type required_surface ::
           :resource_execution
@@ -6207,6 +6208,187 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       expected: :allowed,
       assert: [:adr_0075_accepted],
       test_module: "AllbertAssist.Security.V063SweepEvalTest"
+    },
+
+    # ── v0.64 Trusted Install And Non-Developer First Run ──────────────────
+    %{
+      id: "trusted-install-artifact-verification-001",
+      milestone: :v064,
+      surface: :entry_point_cli,
+      scenario:
+        "The installer accepts an artifact without first verifying the signed checksum bundle, or the release workflow treats checksum signing as optional",
+      boundary: :distribution_trust,
+      expected: :allowed,
+      assert: [
+        :cosign_bundle_required,
+        :checksum_signature_verified,
+        :workflow_signing_hard_gate
+      ],
+      test_module: "AllbertAssist.InstallPathTest"
+    },
+    %{
+      id: "trusted-install-guided-verifier-bootstrap-001",
+      milestone: :v064,
+      surface: :entry_point_cli,
+      scenario:
+        "The installer continues with only a warning when cosign is missing or omits the supported verifier-install guidance",
+      boundary: :distribution_trust,
+      expected: :denied,
+      assert: [
+        :missing_cosign_fails_closed,
+        :install_guidance_present,
+        :no_warning_continue_path
+      ],
+      test_module: "AllbertAssist.InstallPathTest"
+    },
+    %{
+      id: "trusted-install-rollback-restore-001",
+      milestone: :v064,
+      surface: :entry_point_cli,
+      scenario:
+        "An upgrade backup cannot be inspected/restored, accepts arbitrary paths, or restores without the command-execute confirmation floor",
+      boundary: :distribution_trust,
+      expected: :needs_confirmation,
+      assert: [
+        :backups_list_newest_first,
+        :restore_rejects_outside_dir,
+        :restore_action_confirmation_gated
+      ],
+      test_module: "AllbertAssist.DatabaseBackupTest"
+    },
+    %{
+      id: "first-run-no-raw-mix-required-001",
+      milestone: :v064,
+      surface: :first_run_onboarding,
+      scenario:
+        "The non-developer first-run docs make source checkout, raw mix commands, or foreground serve the happy path",
+      boundary: :product_experience,
+      expected: :allowed,
+      assert: [:package_first_docs, :source_checkout_diagnostic_only, :serve_is_fallback],
+      test_module: "AllbertAssist.Security.V064SweepEvalTest"
+    },
+    %{
+      id: "first-run-blocked-state-repairable-001",
+      milestone: :v064,
+      surface: :first_run_onboarding,
+      scenario:
+        "A blocked first-run or model state leaks a raw probe atom or lacks one primary repair destination/action across web, CLI, and TUI",
+      boundary: :surface_policy,
+      expected: :allowed,
+      assert: [
+        :web_routes_model_block_to_models,
+        :repair_guidance_has_one_action,
+        :tui_guard_no_raw_atom
+      ],
+      test_module: "AllbertAssist.Security.V064SweepEvalTest"
+    },
+    %{
+      id: "first-model-guided-runtime-install-no-cli-001",
+      milestone: :v064,
+      surface: :first_model_path,
+      scenario:
+        "The local-runtime repair path bypasses durable confirmation/preview or asks the operator to run the model CLI manually",
+      boundary: :command_execute,
+      expected: :needs_confirmation,
+      assert: [
+        :install_runtime_requires_authorization,
+        :dry_run_preview_before_apply,
+        :no_manual_ollama_cli_instruction
+      ],
+      test_module: "AllbertAssist.CLI.Areas.OnboardingTest"
+    },
+    %{
+      id: "first-model-consumer-oneclick-download-progress-no-key-001",
+      milestone: :v064,
+      surface: :first_model_path,
+      scenario:
+        "The curated local model pull requires a hosted API key, does not stream progress, or cannot publish progress to the workspace topic",
+      boundary: :resource_access,
+      expected: :needs_confirmation,
+      assert: [:pull_uses_streaming_api, :progress_signal_emitted, :no_api_key_required],
+      test_module: "AllbertAssist.FirstModelTest"
+    },
+    %{
+      id: "first-model-advanced-byok-or-custom-001",
+      milestone: :v064,
+      surface: :first_model_path,
+      scenario:
+        "The consumer-default path removes the advanced BYOK/custom endpoint fallback or hides its opt-in hosted egress posture",
+      boundary: :surface_consistency,
+      expected: :allowed,
+      assert: [:advanced_path_available, :provider_choice_opt_in, :credential_storage_named],
+      test_module: "AllbertAssist.Onboarding.FlowEvalTest"
+    },
+    %{
+      id: "first-run-conversational-routing-no-misroute-001",
+      milestone: :v064,
+      surface: :intent_routing,
+      scenario:
+        "A plain first-chat prompt routes to a side-effect action, shell command, demo surface, or disabled capability instead of the read-only direct answer path",
+      boundary: :intent_routing,
+      expected: :allowed,
+      assert: [
+        :plain_prompt_routes_direct_answer,
+        :side_effect_action_not_selected,
+        :permission_read_only
+      ],
+      test_module: "AllbertAssist.Agents.IntentAgentTest"
+    },
+    %{
+      id: "first-run-persistent-service-no-repeat-serve-001",
+      milestone: :v064,
+      surface: :entry_point_cli,
+      scenario:
+        "The packaged first-run path lacks a read-only service-status check or makes repeated foreground serve the normal operator path",
+      boundary: :read_only,
+      expected: :allowed,
+      assert: [
+        :service_status_routes_read_only,
+        :service_manager_posture_reported,
+        :foreground_serve_not_happy_path
+      ],
+      test_module: "AllbertAssist.CLI.DispatcherTest"
+    },
+    %{
+      id: "first-run-trust-spine-no-authority-001",
+      milestone: :v064,
+      surface: :first_run_onboarding,
+      scenario:
+        "The trust-spine copy omits hosted egress/secrets/memory review or implies onboarding grants authority",
+      boundary: :authority_envelope,
+      expected: :allowed,
+      assert: [
+        :hosted_egress_opt_in,
+        :secrets_vault_custody_named,
+        :onboarding_grants_no_authority
+      ],
+      test_module: "AllbertAssist.Onboarding.FlowEvalTest"
+    },
+    %{
+      id: "first-run-secrets-redacted-001",
+      milestone: :v064,
+      surface: :secret_metadata,
+      scenario:
+        "First-run provider credentials appear in response, log, trace, release evidence, or screenshots instead of staying behind a vault reference",
+      boundary: :secret_redaction,
+      expected: :allowed,
+      assert: [
+        :credential_response_redacted,
+        :raw_secret_absent_from_logs,
+        :secret_stored_by_vault_ref
+      ],
+      test_module: "AllbertAssist.Onboarding.SecurityEvalTest"
+    },
+    %{
+      id: "first-run-v065-handoff-current-001",
+      milestone: :v064,
+      surface: :design_handoff,
+      scenario:
+        "The v0.65 handoff no longer names local files, notes, and reviewed agent memory as the next launch-critical path",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [:v065_plan_exists, :local_notes_files_named, :reviewed_memory_named],
+      test_module: "AllbertAssist.Security.V064SweepEvalTest"
     }
   ]
 

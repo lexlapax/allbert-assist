@@ -18,6 +18,7 @@ defmodule AllbertAssist.CLI do
   alias AllbertAssist.CLI.Ask
   alias AllbertAssist.CLI.Commands
   alias AllbertAssist.CLI.FirstRun
+  alias AllbertAssist.Onboarding
   alias AllbertAssist.Portability.Export
   alias AllbertAssist.Portability.Import
   alias AllbertAssist.Runtime.{Attach, WriterLock}
@@ -388,33 +389,49 @@ defmodule AllbertAssist.CLI do
   # -- bare `allbert`: first-run/resume dispatcher ---------------------------
 
   defp first_run do
-    state = FirstRun.detect()
+    details = FirstRun.detect_details()
+    state = details.state
 
     body =
       case state do
         :home_missing ->
-          "Allbert Home is not set up yet. Run `allbert serve` to initialize it, " <>
-            "then complete onboarding (v0.63)."
+          "Allbert Home is not set up yet. Start the installed service, then open the web workspace. " <>
+            "Use `allbert admin service install --dry-run` to preview service setup, or `allbert serve --open` as a repair fallback."
 
         :schema_incompatible ->
           "Allbert Home needs a schema upgrade before it can start. See the upgrade guide."
 
         :onboarding_incomplete ->
-          "Onboarding is incomplete. Run `allbert serve --open` to resume the wizard."
+          "Onboarding is incomplete. Open the web workspace to resume the wizard, or run `allbert onboard` in a terminal."
 
         :first_model_not_ready ->
-          "No usable model yet (state: #{FirstRun.first_model_state()}). " <>
-            "Run model setup, or provide a provider key (BYOK)."
+          model_repair_message(details.first_model_state)
 
         :profile_unreviewed ->
-          "A profile is pending review. Run `allbert admin onboarding`."
+          "A profile is pending review. Open the web workspace onboarding panel, or run `allbert onboard`."
 
         :product_ready ->
-          "Allbert is ready. Run `allbert serve` to start, or `allbert --help`."
+          "Allbert is ready. Open the web workspace, or run `allbert --help`."
       end
 
     {body, 0}
   end
+
+  defp model_repair_message(first_model_state) do
+    readiness = Onboarding.readiness_label(first_model_state: first_model_state)
+    guidance = Onboarding.model_guidance_for(readiness, :quickstart)
+
+    "No usable model yet. #{guidance.headline} Next: #{guidance.next_action} " <>
+      "Open the Models panel in the web workspace#{repair_command_suffix(guidance.action)}."
+  end
+
+  defp repair_command_suffix(:install_runtime),
+    do: ", or run `allbert onboard install-runtime --authorize`"
+
+  defp repair_command_suffix(:pull_model),
+    do: ", or run `allbert onboard pull-model --authorize`"
+
+  defp repair_command_suffix(_action), do: ", or run `allbert onboard`"
 
   # -- rendering + params ----------------------------------------------------
 
@@ -507,7 +524,7 @@ defmodule AllbertAssist.CLI do
       allbert admin mcp | intent | workspace | workflows | plan | tools
       allbert admin resources | marketplace | packages | external | exec
       allbert admin voice | trust | self-improvement | public_protocol
-      allbert admin service | secrets migrate | home export|import
+      allbert admin service status|install|uninstall | db list-backups|restore | secrets migrate | home export|import
 
     Development and CI stay under mix (mix allbert.<area> mirrors admin <area>).
     """

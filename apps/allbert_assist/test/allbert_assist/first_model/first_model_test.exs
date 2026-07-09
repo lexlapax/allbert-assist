@@ -10,6 +10,8 @@ defmodule AllbertAssist.FirstModelTest do
   alias AllbertAssist.Actions.FirstModel.{InstallOllama, PullModel}
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.FirstModel.{Hardware, Ollama}
+  alias AllbertAssist.SecurityFixtures.AssertBinding
+  alias Jido.Signal.Bus
 
   @moduletag :first_model_path
 
@@ -17,12 +19,17 @@ defmodule AllbertAssist.FirstModelTest do
 
   setup do
     original_req_options = Application.get_env(:allbert_assist, :first_model_req_options)
+    original_pull = Application.get_env(:allbert_assist, :first_model_pull)
     original_host = System.get_env("OLLAMA_HOST")
 
     on_exit(fn ->
       if original_req_options,
         do: Application.put_env(:allbert_assist, :first_model_req_options, original_req_options),
         else: Application.delete_env(:allbert_assist, :first_model_req_options)
+
+      if original_pull,
+        do: Application.put_env(:allbert_assist, :first_model_pull, original_pull),
+        else: Application.delete_env(:allbert_assist, :first_model_pull)
 
       if original_host,
         do: System.put_env("OLLAMA_HOST", original_host),
@@ -189,6 +196,7 @@ defmodule AllbertAssist.FirstModelTest do
 
       Req.Test.expect(__MODULE__, fn %{method: "POST", request_path: "/api/pull"} = conn ->
         assert Req.Test.raw_body(conn) =~ Ollama.curated_model()
+        assert Req.Test.raw_body(conn) =~ ~s("stream":true)
         Req.Test.json(conn, %{"status" => "success"})
       end)
 
@@ -196,6 +204,62 @@ defmodule AllbertAssist.FirstModelTest do
                PullModel.run(%{}, %{confirmation: %{approved?: true}})
 
       assert summary.status == "success"
+    end
+
+    test "approved pull streams bounded progress signals to the workspace topic" do
+      model = Ollama.curated_model()
+      Application.put_env(:allbert_assist, :first_model_req_options, plug: {Req.Test, __MODULE__})
+
+      assert {:ok, _subscription_id} =
+               Bus.subscribe(
+                 AllbertAssist.SignalBus,
+                 "allbert.workspace.first_model.pull.progress"
+               )
+
+      Req.Test.expect(__MODULE__, fn %{method: "POST", request_path: "/api/pull"} = conn ->
+        assert Req.Test.raw_body(conn) =~ ~s("stream":true)
+        refute Req.Test.raw_body(conn) =~ "api_key"
+
+        body =
+          [
+            Jason.encode!(%{status: "pulling manifest"}),
+            Jason.encode!(%{status: "downloading", total: 100, completed: 50}),
+            Jason.encode!(%{status: "success"})
+          ]
+          |> Enum.join("\n")
+
+        conn
+        |> Plug.Conn.put_resp_content_type("application/x-ndjson")
+        |> Plug.Conn.send_resp(200, body)
+      end)
+
+      assert {:ok, %{status: :completed, progress: progress, actions: [%{summary: summary}]}} =
+               PullModel.run(%{model: model, user_id: "user-web", thread_id: "thread-web"}, %{
+                 confirmation: %{approved?: true}
+               })
+
+      assert summary.status == "success"
+      assert Enum.any?(progress, &(&1.status == "downloading" and &1.percent == 50.0))
+
+      assert_receive {:signal,
+                      %{
+                        type: "allbert.workspace.first_model.pull.progress",
+                        data: %{user_id: "user-web", thread_id: "thread-web"}
+                      }},
+                     1_000
+
+      assert_receive {:signal,
+                      %{
+                        type: "allbert.workspace.first_model.pull.progress",
+                        data: %{status: "downloading", percent: 50.0}
+                      }},
+                     1_000
+
+      AssertBinding.check!("first-model-consumer-oneclick-download-progress-no-key-001", [
+        :pull_uses_streaming_api,
+        :progress_signal_emitted,
+        :no_api_key_required
+      ])
     end
 
     test "the durable confirmation round-trips create → approve → pull (M8.14)" do
@@ -212,10 +276,16 @@ defmodule AllbertAssist.FirstModelTest do
       end)
 
       assert {:ok, gated} =
-               Runner.run("pull_model", %{model: model}, %{actor: "local", channel: :cli})
+               Runner.run("pull_model", %{model: model}, %{
+                 actor: "local",
+                 channel: :cli,
+                 request: %{user_id: "local", thread_id: "thread-cli"}
+               })
 
       assert gated.status == :needs_confirmation
       assert is_binary(gated.confirmation_id)
+      assert get_in(gated.confirmation, ["resume_params_ref", "user_id"]) == "local"
+      assert get_in(gated.confirmation, ["resume_params_ref", "thread_id"]) == "thread-cli"
 
       assert {:ok, approved} =
                Runner.run("approve_confirmation", %{id: gated.confirmation_id}, %{

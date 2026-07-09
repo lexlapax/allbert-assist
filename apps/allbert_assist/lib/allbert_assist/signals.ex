@@ -16,6 +16,7 @@ defmodule AllbertAssist.Signals do
   @action_completed "allbert.action.completed"
   @runtime_turn_started "allbert.runtime.turn.started"
   @runtime_turn_completed "allbert.runtime.turn.completed"
+  @first_model_pull_progress "allbert.workspace.first_model.pull.progress"
 
   @registration_signal_types %{
     app_registered: "allbert.app.registered",
@@ -194,6 +195,29 @@ defmodule AllbertAssist.Signals do
   @spec runtime_turn_completed(map()) :: {:ok, Signal.t()} | {:error, term()}
   def runtime_turn_completed(metadata) when is_map(metadata) do
     runtime_turn_signal(@runtime_turn_completed, metadata)
+  end
+
+  @doc "Create a workspace-routed first-model pull progress signal."
+  @spec first_model_pull_progress(map()) :: {:ok, Signal.t()} | {:error, term()}
+  def first_model_pull_progress(metadata) when is_map(metadata) do
+    Signal.new(
+      @first_model_pull_progress,
+      Redactor.redact(metadata),
+      source: "/allbert/first_model/pull",
+      subject: Map.get(metadata, :user_id) || Map.get(metadata, "user_id")
+    )
+  end
+
+  @doc "Publish first-model pull progress, best-effort."
+  @spec emit_first_model_pull_progress(map()) :: :ok
+  def emit_first_model_pull_progress(metadata) when is_map(metadata) do
+    case first_model_pull_progress(metadata) do
+      {:ok, signal} ->
+        log(signal)
+
+      {:error, reason} ->
+        Logger.debug("first-model pull progress skipped reason=#{inspect(reason)}")
+    end
   end
 
   @doc "Create an objective lifecycle signal."

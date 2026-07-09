@@ -26,6 +26,8 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
     allbert onboard --advanced          # start the Advanced track
     allbert onboard status              # compact wizard status
     allbert onboard advance STEP        # record the current step done (automation)
+    allbert onboard install-runtime     # install/start local model runtime (needs --authorize --yes)
+    allbert onboard pull-model          # pull starter model (needs --authorize --yes)
     allbert onboard apply-persona ID    # apply a persona (needs --authorize)
     allbert onboard trust               # the trust spine: what keeps first-run safe
     allbert onboard --reset --yes       # reset onboarding (marker only; Home preserved)
@@ -94,7 +96,9 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
   # typo like `onboard advance foo --authorize` rather than silently ignoring it.
   defp maybe_warn_ignored_authorize({out, code}, opts, rest) do
     auth? = opts[:authorize] == true or opts[:accept_risk] == true
-    consumed? = match?(["apply-persona" | _], rest)
+
+    consumed? =
+      match?([verb | _] when verb in ["apply-persona", "install-runtime", "pull-model"], rest)
 
     if auth? and not consumed? do
       {"Warning: --authorize/--accept-risk has no effect here (only `apply-persona` uses it).\n" <>
@@ -149,6 +153,28 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
 
   defp route(["apply-persona"], opts, context),
     do: apply_persona(opts[:profile], opts, context)
+
+  defp route(["install-runtime"], opts, context) do
+    confirmed_model_action(
+      "install_ollama",
+      %{},
+      opts,
+      context,
+      "Installing the local runtime is confirmation-gated."
+    )
+  end
+
+  defp route(["pull-model"], opts, context) do
+    params = if opts[:model], do: %{model: opts[:model]}, else: %{}
+
+    confirmed_model_action(
+      "pull_model",
+      params,
+      opts,
+      context,
+      "Pulling the starter model is confirmation-gated."
+    )
+  end
 
   defp route(["trust"], _opts, _context) do
     lines = [
@@ -215,6 +241,13 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
 
   # Effectful per-step prompts. Masked entry never echoes the secret.
   defp maybe_step_action("model_path", context, io) do
+    status = Onboarding.wizard_status()
+    guidance = Onboarding.model_guidance_for(status.readiness, status.track)
+
+    io.puts.(guidance.headline)
+    io.puts.("Next: #{guidance.next_action}")
+    maybe_run_model_repair(guidance.action, context, io)
+
     case io.mask_gets.("Provider key (blank to skip): ") do
       key when is_binary(key) and key != "" ->
         store_provider_key(key, context)
@@ -226,6 +259,31 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
   end
 
   defp maybe_step_action(_step, _context, _io), do: :ok
+
+  defp maybe_run_model_repair(:install_runtime, context, io) do
+    if yes?(io.gets.("Install local runtime now? [y/N]: ")) do
+      render_interactive_result(io, run_authorized("install_ollama", %{}, context, []))
+    end
+  end
+
+  defp maybe_run_model_repair(:pull_model, context, io) do
+    if yes?(io.gets.("Pull starter model now? [y/N]: ")) do
+      render_interactive_result(io, run_authorized("pull_model", %{}, context, []))
+    end
+  end
+
+  defp maybe_run_model_repair(_action, _context, _io), do: :ok
+
+  defp yes?(line) when is_binary(line),
+    do: line |> String.trim() |> String.downcase() |> String.starts_with?("y")
+
+  defp yes?(_line), do: false
+
+  defp render_interactive_result(io, {out, _code}) do
+    out
+    |> String.split("\n", trim: true)
+    |> Enum.each(io.puts)
+  end
 
   # Best-effort — a provider-store failure must not crash the interactive loop, and the
   # raw key never leaves this call (it goes straight to the masked-write action).
@@ -341,6 +399,39 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
       {:ok, response} ->
         Render.error(
           "Cannot review persona '#{persona_id}': #{inspect(Map.get(response, :status))}."
+        )
+    end
+  end
+
+  defp confirmed_model_action(action, params, opts, context, notice) do
+    cond do
+      not authorized?(opts) ->
+        Render.error([
+          notice,
+          "Re-run with --authorize to preview it, then --authorize --yes to apply."
+        ])
+
+      opts[:yes] != true ->
+        preview_model_action(
+          action,
+          Map.put(params, :dry_run, true),
+          context,
+          accept_risk_notice(opts)
+        )
+
+      true ->
+        run_authorized(action, params, context, accept_risk_notice(opts))
+    end
+  end
+
+  defp preview_model_action(action, params, context, notices) do
+    case Runner.run(action, params, context || %{}) do
+      {:ok, %{status: :completed, message: message}} ->
+        Render.ok(notices ++ [message, "Re-run with `--authorize --yes` to apply."])
+
+      {:ok, response} ->
+        Render.error(
+          notices ++ ["Cannot preview #{action}: #{inspect(Map.get(response, :status))}."]
         )
     end
   end

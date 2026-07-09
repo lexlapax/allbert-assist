@@ -17,7 +17,7 @@ home resolves in the operator table (no advertised-but-missing command).
 The table maps legacy Mix task families to product command homes. v0.62 also
 adds explicit subcommands that have no one-to-one legacy Mix task row:
 `allbert admin model detect|install|pull`, `allbert admin service
-install|uninstall`, `allbert admin health`, `allbert admin vault`, and
+status|install|uninstall`, `allbert admin health`, `allbert admin vault`, and
 `allbert admin secrets migrate`.
 
 | Mix task | `allbert` command |

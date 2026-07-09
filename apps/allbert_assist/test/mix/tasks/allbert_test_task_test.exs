@@ -148,6 +148,13 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert error.message =~ "mix allbert.test release.v057"
     assert error.message =~ "mix allbert.test release.v058"
     assert error.message =~ "mix allbert.test release.v059"
+    assert error.message =~ "mix allbert.test release.v060"
+    assert error.message =~ "mix allbert.test release.v060b"
+    assert error.message =~ "mix allbert.test release.v061"
+    assert error.message =~ "mix allbert.test release.v061b"
+    assert error.message =~ "mix allbert.test release.v062"
+    assert error.message =~ "mix allbert.test release.v063"
+    assert error.message =~ "mix allbert.test release.v064"
     assert error.message =~ "mix allbert.test external-smoke -- telegram"
     assert error.message =~ "mix allbert.test external-smoke -- email"
     assert error.message =~ "mix allbert.test external-smoke -- inbound_telegram"
@@ -187,6 +194,30 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
 
     assert string_position!(release_v060_steps, ~s(id: "credo_strict")) <
              string_position!(release_v060_steps, ~s(id: "dialyzer"))
+  end
+
+  test "release.v064 embeds trusted install, first-run repair, eval, and web repair proofs" do
+    release_v064_steps =
+      Path.expand("../../../lib/mix/tasks/allbert.test.ex", __DIR__)
+      |> File.read!()
+      |> section_between("@release_v064_steps [", "  defp release_v064 do")
+
+    assert release_v064_steps =~ ~s(id: "v064_trusted_install_restore")
+    assert release_v064_steps =~ "test/allbert_assist/install_path_test.exs"
+    assert release_v064_steps =~ "test/allbert_assist/database_backup_test.exs"
+
+    assert release_v064_steps =~ ~s(id: "v064_model_and_first_run_repair")
+    assert release_v064_steps =~ "test/allbert_assist/first_model/first_model_test.exs"
+    assert release_v064_steps =~ "test/allbert_assist/cli/tui_test.exs"
+
+    assert release_v064_steps =~ ~s(id: "v064_security_sweep")
+    assert release_v064_steps =~ "test/security/v064_sweep_eval_test.exs"
+    assert release_v064_steps =~ "test/allbert_assist/agents/intent_agent_test.exs"
+
+    assert release_v064_steps =~ ~s(id: "v064_web_model_repair")
+
+    assert release_v064_steps =~
+             "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:829"
   end
 
   test "release secret scan includes provider-shaped key patterns" do

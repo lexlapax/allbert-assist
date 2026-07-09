@@ -104,7 +104,7 @@ checks product state before showing a raw command list:
 | Home missing | `ALLBERT_HOME` / default Home has not been initialized. | Explain Home location and route to onboarding initialization. |
 | Home exists, schema incompatible | v0.59 settings/version contract blocks boot. | Show repair/upgrade guidance; do not launch partial product. |
 | Onboarding incomplete | v0.63 wizard has not completed or was skipped. | Launch the onboarding wizard or show resume choices. |
-| First-model state not ready | M3 local/BYOK path cannot yet reach first useful chat. | Launch model setup step with BYOK fallback visible. |
+| First-model state not ready | M3 local/BYOK path cannot yet reach first useful chat. | Open the standalone Models repair panel with one primary repair action and BYOK fallback visible. |
 | Profile unreviewed | No persona/profile seed has been confirmed or explicitly skipped. | Show profile review step; never apply silently. |
 | Product ready | Home, model path, and onboarding state are usable. | Start/open workspace or requested command. |
 
@@ -116,7 +116,8 @@ Decision 6.)*
 
 ## First-Model-State Check
 
-v0.63 entry points consume the six as-built first-model probe states:
+v0.64 entry points consume the six as-built first-model probe states and render
+operator readiness/repair copy; bare `allbert` must not print raw probe atoms:
 
 - `local_ready`
 - `runtime_missing`
@@ -128,9 +129,10 @@ v0.63 entry points consume the six as-built first-model probe states:
 The CLI never assumes a hosted key or silently chooses egress. If local setup is
 unavailable, declined, unhealthy, below the hardware floor, or still missing a
 model, it offers one repair action and keeps BYOK fallback visible with egress
-posture and OS-vault/encrypted-store storage called out. There is no separate
-shipped `blocked` first-model atom in v0.62/v0.63; broader product blockers are
-rendered as operator readiness labels by the onboarding wizard.
+posture and OS-vault/encrypted-store storage called out. The web workspace routes
+completed-onboarding model failures to `workspace:models`, not back into the wizard.
+There is no separate shipped `blocked` first-model atom; broader product blockers are
+rendered as operator readiness labels.
 
 ## Wizard Launch Sequence
 
@@ -206,7 +208,7 @@ The as-built deltas from the design-level taxonomy are:
 - `admin models` remains the model doctor/readiness surface; the First-Model
   action surface is explicit as `admin model detect|install|pull`.
 - Service and vault operations are explicit admin commands:
-  `admin service install|uninstall`, `admin health`, `admin vault`, and
+  `admin service status|install|uninstall`, `admin health`, `admin vault`, and
   `admin secrets migrate`.
 - Developer/CI commands remain Mix-only; `gen` is retained as a grouped name in
   the design taxonomy but is rejected by the v0.62 binary surface unless later

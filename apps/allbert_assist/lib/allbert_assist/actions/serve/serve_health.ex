@@ -43,8 +43,13 @@ defmodule AllbertAssist.Actions.Serve.ServeHealth do
 
       {:ok,
        %{
-         message: "Health: #{snapshot.status}.",
-         surface_payload: "Health: #{snapshot.status}.",
+         message:
+           "Health: #{snapshot.status}. service_platform=#{report.service_platform} " <>
+             "service_manager_available=#{report.service_manager_available} " <>
+             "service_unit_path=#{report.service_unit_path}",
+         surface_payload:
+           "Health: #{snapshot.status}. service_platform=#{report.service_platform} " <>
+             "service_manager_available=#{report.service_manager_available}",
          status: :completed,
          permission_decision: permission_decision,
          health: report,

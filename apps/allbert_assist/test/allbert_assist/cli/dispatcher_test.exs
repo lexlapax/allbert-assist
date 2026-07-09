@@ -7,8 +7,10 @@ defmodule AllbertAssist.CLI.DispatcherTest do
   use AllbertAssist.DataCase, async: false
 
   alias AllbertAssist.CLI
+  alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.Paths
   alias AllbertAssist.Runtime.Attach
+  alias AllbertAssist.SecurityFixtures.AssertBinding
 
   @moduletag :cli_dispatcher
 
@@ -16,6 +18,21 @@ defmodule AllbertAssist.CLI.DispatcherTest do
     {out, code} = CLI.run([])
     assert code == 0
     assert out =~ "Allbert" or out =~ "Home" or out =~ "model"
+  end
+
+  test "bare allbert renders model repair copy without raw probe atoms" do
+    with_first_run_home(fn ->
+      with_no_model_provider_env(fn ->
+        {out, 0} = CLI.run([])
+
+        assert out =~ "No usable model yet."
+        assert out =~ "No local model runtime is running yet."
+        assert out =~ "Install and start the local runtime"
+        assert out =~ "workspace"
+        refute out =~ "runtime_missing"
+        refute out =~ ":runtime_missing"
+      end)
+    end)
   end
 
   test "--help renders grouped help with every group" do
@@ -77,11 +94,30 @@ defmodule AllbertAssist.CLI.DispatcherTest do
     assert service_code == 0
     assert service_out =~ "Would install"
 
+    {service_status_out, service_status_code} = CLI.run(["admin", "service", "status"])
+    assert service_status_code == 0
+    assert service_status_out =~ "service_manager_available"
+    assert service_status_out =~ "service_platform"
+
+    onboarding_doc =
+      "../../../../../docs/operator/onboarding.md"
+      |> Path.expand(__DIR__)
+      |> File.read!()
+
+    assert onboarding_doc =~
+             "Foreground `allbert serve --open` is a diagnostic or repair fallback"
+
     {pull_out, pull_code} =
       CLI.run(["admin", "model", "pull", "--dry-run", "--model", "llama3.2:3b"])
 
     assert pull_code == 0
     assert pull_out =~ "Would pull llama3.2:3b"
+
+    AssertBinding.check!("first-run-persistent-service-no-repeat-serve-001", [
+      :service_status_routes_read_only,
+      :service_manager_posture_reported,
+      :foreground_serve_not_happy_path
+    ])
   end
 
   test "attach client round-trips to a running local daemon listener" do
@@ -242,5 +278,53 @@ defmodule AllbertAssist.CLI.DispatcherTest do
     end)
 
     fun.()
+  end
+
+  defp with_first_run_home(fun) do
+    original_paths_config = Application.get_env(:allbert_assist, Paths)
+
+    root =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-first-run-#{System.unique_integer([:positive])}"
+      )
+
+    Application.put_env(:allbert_assist, Paths, home: root)
+    File.mkdir_p!(Path.join([root, "db"]))
+    File.write!(Path.join([root, "db", "allbert.sqlite3"]), "x")
+    FirstRun.mark_onboarding_complete()
+    FirstRun.mark_profile_reviewed()
+
+    on_exit(fn ->
+      if original_paths_config,
+        do: Application.put_env(:allbert_assist, Paths, original_paths_config),
+        else: Application.delete_env(:allbert_assist, Paths)
+
+      File.rm_rf!(root)
+    end)
+
+    fun.()
+  end
+
+  defp with_no_model_provider_env(fun) do
+    keys = ~w(ANTHROPIC_API_KEY OPENAI_API_KEY OPENROUTER_API_KEY GOOGLE_API_KEY GEMINI_API_KEY)
+    saved = Map.new(keys, &{&1, System.get_env(&1)})
+    saved_host = System.get_env("OLLAMA_HOST")
+
+    Enum.each(keys, &System.delete_env/1)
+    System.put_env("OLLAMA_HOST", "https://example.invalid")
+
+    try do
+      fun.()
+    after
+      Enum.each(saved, fn
+        {key, nil} -> System.delete_env(key)
+        {key, value} -> System.put_env(key, value)
+      end)
+
+      if saved_host,
+        do: System.put_env("OLLAMA_HOST", saved_host),
+        else: System.delete_env("OLLAMA_HOST")
+    end
   end
 end

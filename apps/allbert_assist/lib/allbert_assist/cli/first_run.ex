@@ -55,13 +55,39 @@ defmodule AllbertAssist.CLI.FirstRun do
   """
   @spec detect(keyword()) :: state()
   def detect(opts \\ []) do
+    detect_details(opts).state
+  end
+
+  @doc """
+  Resolve first-run state plus the model probe when the state machine reaches the
+  post-onboarding model branch. This keeps probing lazy but lets callers render repair
+  copy without re-probing.
+  """
+  @spec detect_details(keyword()) :: %{state: state(), first_model_state: model_state() | nil}
+  def detect_details(opts \\ []) do
     cond do
-      not home_initialized?() -> :home_missing
-      not schema_compatible?() -> :schema_incompatible
-      not onboarding_complete?() -> :onboarding_incomplete
-      resolved_model_state(opts) not in [:local_ready, :byok_ready] -> :first_model_not_ready
-      not profile_reviewed?() -> :profile_unreviewed
-      true -> :product_ready
+      not home_initialized?() ->
+        details(:home_missing)
+
+      not schema_compatible?() ->
+        details(:schema_incompatible)
+
+      not onboarding_complete?() ->
+        details(:onboarding_incomplete)
+
+      true ->
+        model_state = resolved_model_state(opts)
+
+        cond do
+          model_state not in [:local_ready, :byok_ready] ->
+            details(:first_model_not_ready, model_state)
+
+          not profile_reviewed?() ->
+            details(:profile_unreviewed, model_state)
+
+          true ->
+            details(:product_ready, model_state)
+        end
     end
   end
 
@@ -91,6 +117,8 @@ defmodule AllbertAssist.CLI.FirstRun do
       :missing -> if byok?.(), do: :byok_ready, else: :runtime_missing
     end
   end
+
+  defp details(state, model_state \\ nil), do: %{state: state, first_model_state: model_state}
 
   @doc "A short onboarding summary map (backing `allbert admin onboarding`)."
   def onboarding_summary do

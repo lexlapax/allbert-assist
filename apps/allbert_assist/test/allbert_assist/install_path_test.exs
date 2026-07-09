@@ -7,6 +7,8 @@ defmodule AllbertAssist.InstallPathTest do
   """
   use ExUnit.Case, async: true
 
+  alias AllbertAssist.SecurityFixtures.AssertBinding
+
   @moduletag :install_path
 
   @repo_root Path.expand("../../../../", __DIR__)
@@ -26,6 +28,13 @@ defmodule AllbertAssist.InstallPathTest do
     body = File.read!(@install)
     # Checksum verification against the release SHA256SUMS.
     assert body =~ "SHA256SUMS"
+    assert body =~ "SHA256SUMS.cosign.bundle"
+    assert body =~ "cosign verify-blob"
+    assert body =~ "Refusing to install without signature verification."
+    assert body =~ "brew install cosign"
+    assert body =~ "docs.sigstore.dev/cosign/installation"
+    assert body =~ "https://token.actions.githubusercontent.com"
+    assert body =~ "release-artifacts.yml@refs/tags"
     assert body =~ "checksum mismatch"
     assert body =~ "main() {" and body =~ "\nmain \"$@\""
     # Only Tier-1 targets; WSL2 note for Windows.
@@ -38,6 +47,22 @@ defmodule AllbertAssist.InstallPathTest do
     # it doesn't double-404, and the checksum is looked up by exact awk field.
     assert body =~ ~s(VERSION="v${VERSION#v}")
     assert body =~ ~s{awk -v f="$artifact" '$2 == f}
+
+    workflow = File.read!(@workflow)
+    assert workflow =~ "cosign sign-blob"
+    refute workflow =~ "continue-on-error: true"
+
+    AssertBinding.check!("trusted-install-artifact-verification-001", [
+      :cosign_bundle_required,
+      :checksum_signature_verified,
+      :workflow_signing_hard_gate
+    ])
+
+    AssertBinding.check!("trusted-install-guided-verifier-bootstrap-001", [
+      :missing_cosign_fails_closed,
+      :install_guidance_present,
+      :no_warning_continue_path
+    ])
   end
 
   test "uninstall.sh parses and preserves Allbert Home absent --purge" do
@@ -114,6 +139,8 @@ defmodule AllbertAssist.InstallPathTest do
     body = File.read!(@workflow)
     assert body =~ "sha256sum"
     assert body =~ "SHA256SUMS"
+    assert body =~ "cosign sign-blob"
+    refute body =~ "continue-on-error: true"
     # v0.62 M8.25: the release must be CREATED before assets are uploaded — a
     # pushed tag doesn't auto-create a Release, so `gh release upload` alone would
     # fail on the first tag. Prerelease-aware for rc-tag build tests.

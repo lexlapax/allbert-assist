@@ -90,6 +90,55 @@ defmodule AllbertAssist.Database do
     end
   end
 
+  @doc "Return the backup directory beside the configured Repo database."
+  @spec backup_dir() :: String.t() | nil
+  def backup_dir do
+    case repo_database_path() do
+      path when is_binary(path) -> Path.join(Path.dirname(path), "backups")
+      _other -> nil
+    end
+  end
+
+  @doc "List backup-before-migrate SQLite copies newest first."
+  @spec list_backups() :: [String.t()]
+  def list_backups do
+    case backup_dir() do
+      nil ->
+        []
+
+      dir ->
+        dir
+        |> Path.join("allbert-premigrate-*.sqlite3")
+        |> Path.wildcard()
+        |> Enum.filter(&File.regular?/1)
+        |> Enum.sort(:desc)
+    end
+  end
+
+  @doc """
+  Restore the configured Repo database from a backup-before-migrate copy.
+
+  `backup` may be an absolute backup path under the configured backups
+  directory, a basename from `list_backups/0`, or `"latest"`. The destination is
+  always `repo_database_path/0`; arbitrary restore targets are intentionally not
+  supported.
+  """
+  @spec restore_from_backup(String.t()) ::
+          {:ok, %{backup: String.t(), database: String.t()}} | {:error, term()}
+  def restore_from_backup(backup \\ "latest") when is_binary(backup) do
+    with path when is_binary(path) <- repo_database_path(),
+         {:ok, backup_path} <- resolve_backup(backup) do
+      File.mkdir_p!(Path.dirname(path))
+      File.cp!(backup_path, path)
+      {:ok, %{backup: backup_path, database: path}}
+    else
+      nil -> {:error, :database_path_not_configured}
+      {:error, _reason} = error -> error
+    end
+  rescue
+    error in [File.Error, File.CopyError] -> {:error, error}
+  end
+
   defp core_and_plugin_migration_paths(repo) do
     configured_paths =
       @app
@@ -210,6 +259,54 @@ defmodule AllbertAssist.Database do
     File.cp!(path, target)
     Logger.info("backup-before-migrate: wrote #{target}")
     :ok
+  end
+
+  defp resolve_backup("latest") do
+    case list_backups() do
+      [path | _rest] -> {:ok, path}
+      [] -> {:error, :no_backups}
+    end
+  end
+
+  defp resolve_backup(backup) do
+    with dir when is_binary(dir) <- backup_dir(),
+         path <- backup_path(dir, backup),
+         :ok <- validate_backup_path(dir, path),
+         true <- File.regular?(path) do
+      {:ok, path}
+    else
+      nil -> {:error, :database_path_not_configured}
+      false -> {:error, :backup_not_found}
+      {:error, _reason} = error -> error
+    end
+  end
+
+  defp backup_path(dir, backup) do
+    if Path.type(backup) == :absolute do
+      Path.expand(backup)
+    else
+      Path.expand(Path.join(dir, backup))
+    end
+  end
+
+  defp validate_backup_path(dir, path) do
+    dir = Path.expand(dir)
+    path = Path.expand(path)
+    relative = Path.relative_to(path, dir)
+
+    cond do
+      relative == "." or String.starts_with?(relative, "..") or Path.type(relative) == :absolute ->
+        {:error, :backup_outside_backup_dir}
+
+      not String.starts_with?(Path.basename(path), "allbert-premigrate-") ->
+        {:error, :invalid_backup_name}
+
+      Path.extname(path) != ".sqlite3" ->
+        {:error, :invalid_backup_name}
+
+      true ->
+        :ok
+    end
   end
 
   defp missing_or_empty?(path) do

@@ -12,6 +12,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.SecurityFixtures.AssertBinding
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills.ActionPlan
 
@@ -537,6 +538,12 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
                runner_metadata: %{action_name: "direct_answer", selected_skill: "direct-answer"}
              }
            ] = response.actions
+
+    AssertBinding.check!("first-run-conversational-routing-no-misroute-001", [
+      :plain_prompt_routes_direct_answer,
+      :side_effect_action_not_selected,
+      :permission_read_only
+    ])
   end
 
   test "writes markdown memory for explicit memory requests", %{root: root} do
