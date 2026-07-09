@@ -27,9 +27,34 @@ defmodule AllbertAssist.Runtime.Attach do
   @spec runtime_dir() :: String.t()
   def runtime_dir, do: Path.join(Paths.home(), @runtime_dir)
 
-  @doc "Unix-domain socket path used by the daemon attach server."
+  @doc """
+  Unix-domain socket path used by the daemon attach server.
+
+  Operator-validation F3: UDS paths are bounded by `sun_path` (104 bytes on macOS/BSD,
+  incl. the NUL terminator). A deep `ALLBERT_HOME` can push the Home-local socket past
+  that, which previously failed `listen` with `:einval` and crashed the whole daemon. When
+  the Home-local path would not fit, fall back to a short, per-Home-stable path in the OS
+  temp dir (the server binds it and the client derives the same path deterministically).
+  """
   @spec socket_path() :: String.t()
-  def socket_path, do: Path.join(runtime_dir(), @socket_file)
+  def socket_path do
+    natural = Path.join(runtime_dir(), @socket_file)
+    if uds_path_ok?(natural), do: natural, else: short_socket_path()
+  end
+
+  # A byte of margin under the smallest common sun_path limit (104).
+  @uds_path_max 100
+  defp uds_path_ok?(path), do: byte_size(path) < @uds_path_max
+
+  defp short_socket_path do
+    digest =
+      :crypto.hash(:sha256, Paths.home())
+      |> Base.url_encode64(padding: false)
+      |> binary_part(0, 16)
+
+    candidate = Path.join(System.tmp_dir!(), "allbert-#{digest}.sock")
+    if uds_path_ok?(candidate), do: candidate, else: Path.join("/tmp", "allbert-#{digest}.sock")
+  end
 
   @doc "Token path used to authenticate local attach clients."
   @spec token_path() :: String.t()
@@ -280,7 +305,16 @@ defmodule AllbertAssist.Runtime.Attach.Server do
          %{listen_socket: listen_socket, acceptor: acceptor, token: token, task_sup: task_sup}}
 
       {:error, reason} ->
-        {:stop, {:attach_listen_failed, reason}}
+        # Operator-validation F3: the attach socket is an optimization (it lets CLI
+        # commands attach to the running daemon). If it cannot bind, degrade — CLI
+        # commands fall back to the embedded runtime — rather than crashing the whole
+        # daemon. `:ignore` leaves the supervisor healthy and `serve` running.
+        Logger.warning(
+          "attach listener could not bind #{Attach.socket_path()} (#{inspect(reason)}); " <>
+            "CLI attach disabled, commands will run embedded — serve continues"
+        )
+
+        :ignore
     end
   end
 
