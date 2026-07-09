@@ -343,13 +343,19 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
   end
 
   defp persona_review_lines(review) do
-    header =
-      "Review — #{review.persona_id} (#{review.change_count} change(s)); nothing is written until you apply:"
+    total = length(review.changes)
 
+    header =
+      "Review — #{review.persona_id} (#{review.change_count} of #{total} seeded key(s) change); " <>
+        "nothing is written until you apply:"
+
+    # M7.9: the header counts only rows that actually change, but every seeded key is
+    # listed for transparency — mark the unchanged ones so the list and the count agree.
     [
       header
       | Enum.map(review.changes, fn c ->
-          "  #{c.key}: #{inspect(c.current)} → #{inspect(c.proposed)}"
+          suffix = if c.changed?, do: "", else: "  (unchanged)"
+          "  #{c.key}: #{inspect(c.current)} → #{inspect(c.proposed)}#{suffix}"
         end)
     ]
   end

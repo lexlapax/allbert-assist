@@ -42,17 +42,32 @@ defmodule AllbertAssist.CLI.FirstRun do
           | :below_hardware_floor
           | :byok_ready
 
-  @doc "Resolve the current first-run product state (read-only, no network)."
-  @spec detect() :: state()
-  def detect do
+  @doc """
+  Resolve the current first-run product state.
+
+  v0.63 M7.9: callers that already hold a resolved first-model probe (e.g. a wizard
+  render that cached it) pass `first_model_state:` so `detect/1` reuses it instead of
+  probing localhost Ollama again. The model-state branch is still evaluated *lazily*
+  (only reached once onboarding is complete), so `detect/0` during onboarding never
+  probes — and post-completion renders that inject the cached probe never do either.
+  """
+  @spec detect(keyword()) :: state()
+  def detect(opts \\ []) do
     cond do
       not home_initialized?() -> :home_missing
       not schema_compatible?() -> :schema_incompatible
       not onboarding_complete?() -> :onboarding_incomplete
-      first_model_state() not in [:local_ready, :byok_ready] -> :first_model_not_ready
+      resolved_model_state(opts) not in [:local_ready, :byok_ready] -> :first_model_not_ready
       not profile_reviewed?() -> :profile_unreviewed
       true -> :product_ready
     end
+  end
+
+  # Reuse an injected probe when present; otherwise fall back to the live probe — but
+  # only when the cond actually reaches this branch (post-completion), preserving the
+  # no-probe-during-onboarding short-circuit.
+  defp resolved_model_state(opts) do
+    Keyword.get_lazy(opts, :first_model_state, &first_model_state/0)
   end
 
   @doc """

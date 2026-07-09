@@ -90,6 +90,23 @@ defmodule AllbertAssist.CLI.FirstRunTest do
       System.delete_env("ANTHROPIC_API_KEY")
     end
 
+    test "v0.63 M7.9: detect/1 reuses an injected first_model_state (no live probe)",
+         %{root: root} do
+      File.mkdir_p!(Path.join([root, "db"]))
+      File.write!(Path.join([root, "db", "allbert.sqlite3"]), "x")
+      # No provider key + no local Ollama → the *live* probe resolves :runtime_missing,
+      # which would route detect/0 to :first_model_not_ready.
+      System.delete_env("ANTHROPIC_API_KEY")
+      FirstRun.mark_onboarding_complete()
+      FirstRun.mark_profile_reviewed()
+
+      # Injecting a ready state must drive detect WITHOUT a live probe — only possible
+      # if the injected value is honored (else this would be :first_model_not_ready).
+      assert FirstRun.detect(first_model_state: :local_ready) == :product_ready
+      # And a not-ready injected state still routes correctly, proving the arg is used.
+      assert FirstRun.detect(first_model_state: :runtime_missing) == :first_model_not_ready
+    end
+
     test "v0.63 M1: reset_onboarding clears the marker (Home preserved)", %{root: root} do
       File.mkdir_p!(Path.join([root, "db"]))
       File.write!(Path.join([root, "db", "allbert.sqlite3"]), "x")

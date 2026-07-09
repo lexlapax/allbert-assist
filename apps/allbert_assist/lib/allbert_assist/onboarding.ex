@@ -156,6 +156,11 @@ defmodule AllbertAssist.Onboarding do
     marker = FirstRun.read_marker()
     done = wizard_done(marker)
     step = current_wizard_step(marker, done)
+    # M7.9: resolve the first-model probe ONCE (guarded + override-respecting) and feed
+    # it to both readiness and detect. Previously `detect: FirstRun.detect()` ran a
+    # second, live localhost Ollama probe on every post-completion render, ignoring the
+    # cached probe surfaces pass in — defeating M7.2 on exactly that path.
+    probe = Keyword.get_lazy(opts, :first_model_state, &safe_first_model_state/0)
 
     %{
       started?: marker["wizard_started"] == true,
@@ -163,10 +168,10 @@ defmodule AllbertAssist.Onboarding do
       step: step,
       done: done,
       next: next_wizard_step(step, wizard_track(marker)),
-      readiness: readiness_label(opts),
+      readiness: readiness_label(first_model_state: probe),
       profile_reviewed?: marker["profile_reviewed"] == true,
       complete?: marker["onboarding_complete"] == true,
-      detect: FirstRun.detect()
+      detect: FirstRun.detect(first_model_state: probe)
     }
   end
 

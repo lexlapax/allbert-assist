@@ -184,6 +184,8 @@ defmodule AllbertAssist.CLI.Areas.OnboardingTest do
 
       assert {msg, 0} = Area.dispatch(["apply-persona", "developer", "--authorize"], context)
       assert msg =~ "Review — developer"
+      # M7.9: the header states changed-of-total so the count and the full listing agree.
+      assert msg =~ "seeded key(s) change"
       assert msg =~ "coding.default_approval_mode"
       assert msg =~ "--authorize --yes"
 
