@@ -123,15 +123,22 @@ defmodule AllbertAssist.Database do
   end
 
   defp run_migrations_before_supervision! do
-    maybe_backup_before_migrate()
-
     {:ok, migrations, _started} =
       Ecto.Migrator.with_repo(
         Repo,
-        # v0.62 M2 (Locked Decision 15): migrations are LOGGED at boot, not
-        # silent — `brew upgrade` schema changes must be visible in the
-        # daemon log, not invisible (the pre-v0.62 `log: false`).
-        fn repo -> migrate_repo(repo, :up, all: true, log: migration_log_level()) end,
+        # F6: only back up + run migrations when something is actually pending. The Repo
+        # is started here, so we can check first — previously the backup ran on EVERY boot
+        # (a full SQLite copy per command → unbounded `db/backups/` clutter) even though
+        # "Migrations already up". v0.62 M2 (Locked Decision 15): pending migrations are
+        # LOGGED at boot, not silent — `brew upgrade` schema changes stay operator-visible.
+        fn repo ->
+          if pending_migrations?(repo) do
+            maybe_backup_before_migrate()
+            migrate_repo(repo, :up, all: true, log: migration_log_level())
+          else
+            []
+          end
+        end,
         pool_size: @startup_migration_pool_size
       )
 
@@ -141,6 +148,16 @@ defmodule AllbertAssist.Database do
     end
 
     :ok
+  end
+
+  # Any Allbert-owned migration (core + checked-in plugin paths) not yet applied.
+  defp pending_migrations?(repo) do
+    repo
+    |> Ecto.Migrator.migrations(migration_paths(repo))
+    |> Enum.any?(fn {status, _version, _name} -> status == :down end)
+  rescue
+    # If migration status cannot be determined, be conservative: back up and migrate.
+    _error -> true
   end
 
   # Under Mix (dev/test) migrations run constantly — keep them quiet there;
@@ -159,10 +176,9 @@ defmodule AllbertAssist.Database do
   """
   @spec maybe_backup_before_migrate() :: :ok
   def maybe_backup_before_migrate do
-    # Called only from `run_migrations_before_supervision!`, which is reached
-    # only when `skip_migrations?/0` is false — i.e. migrations ARE pending.
-    # The Repo is not started yet here, so we cannot (and need not) re-check
-    # pending migrations; a non-empty DB in a release gets a recovery copy.
+    # F6: the caller now runs this only when migrations are actually pending (checked with
+    # the Repo started), so a packaged release gets exactly one recovery copy per real
+    # schema change — not one per command. A non-empty release DB gets the copy here.
     with true <- AllbertAssist.RuntimeEnv.release?(),
          path when is_binary(path) <- repo_database_path(),
          true <- File.exists?(path),
