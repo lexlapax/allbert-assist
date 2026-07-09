@@ -147,7 +147,7 @@ dev database, or `ALLBERT_DEV_AUTO_MIGRATE=0` to disable the dev bootstrap.
 Terminal A:
 
 ```sh
-cd /Users/spuri/projects/lexlapax/allbert-assist
+cd <repo-root>
 
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v038-manual.XXXXXX)"
 export ALLBERT_TEMPLATE_SMOKE=1
@@ -160,7 +160,7 @@ mix phx.server
 Terminal B:
 
 ```sh
-cd /Users/spuri/projects/lexlapax/allbert-assist
+cd <repo-root>
 
 export ALLBERT_HOME="/tmp/allbert-v038-manual.XXXXXX"
 export ALLBERT_TEMPLATE_SMOKE=1

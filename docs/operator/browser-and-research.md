@@ -47,6 +47,7 @@ and close the session in cleanup. `--extract-format` accepts `text`,
 | `browser_navigate` | Confirm or use a remembered per-domain grant, then navigate. |
 | `browser_extract` | Extract bounded `html`, `text`, `markdown`, or simple PDF text-layer content. |
 | `browser_screenshot` | Write a redacted screenshot artifact into browser cache. |
+| `analyze_browser_screenshot` | Analyze a cached `screenshot_ref` from `browser_screenshot` through the vision path (reuses the cached image; does not capture the OS screen). |
 | `browser_click` | Confirm a selector click with a bounded visible-label preview. |
 | `browser_fill` | Denied by default; after explicit opt-in, confirm a form field fill with value redaction. |
 | `browser_download` | Denied by default; after explicit opt-in, confirm a bounded browser download request. |

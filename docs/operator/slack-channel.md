@@ -301,7 +301,7 @@ env-var names match. All app-config steps are at
 ### Part 9 — live channel checks (Allbert server running)
 
 25. 🤖 Agent starts the live server and re-runs `mix allbert.channels slack
-    doctor`. *Expected:* `socket_mode_status=running`; the bot shows active.
+    doctor`. *Expected:* `socket_mode=running`; the bot shows active.
 26. 🧑 **@mention.** In the allowlisted channel type `@allbert-assist`, pick the
     bot from the autocomplete, add a question, send. *Expected:* the bot replies.
     🤖 Agent confirms a `processed` Slack event for your user id.

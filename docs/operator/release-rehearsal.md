@@ -3,7 +3,8 @@
 This is the operator runbook for cutting a v0.62-style packaged release and
 validating the packaged `allbert` on Tier-1 OS paths before announcing it.
 Two automated layers precede the manual/operator layer: the source release gate
-(`mix allbert.test release.v062` for v0.62) and the CI artifact smoke. This doc
+(`mix allbert.test release.v0NN` for the current line — e.g. `release.v063`) and the CI
+artifact smoke. This doc
 covers the steps that need a published release, a package manager, a TTY, Docker,
 or real host services.
 
@@ -345,7 +346,7 @@ scrollback:
 
 | Evidence class | What it proves | Typical command/source | v0.62b owner |
 | --- | --- | --- | --- |
-| Source gate | checkout compiles, tests, and release-specific evals pass | `mix allbert.test release.v062` | v0.62 |
+| Source gate | checkout compiles, tests, and release-specific evals pass | `mix allbert.test release.v0NN` (e.g. `release.v063`) | current line |
 | Artifact matrix | published artifacts boot and pass binary smoke | `.github/workflows/release-artifacts.yml` | v0.62 |
 | Tap fill | formula checksums match release checksums | `homebrew/fill-sha256.sh`; `brew audit --strict --online --formula` | v0.62b M1 |
 | Package-manager install | package installs and invokes packaged binary | `brew install`; `brew test`; uninstall | v0.62b M2 |

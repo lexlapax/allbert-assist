@@ -67,7 +67,7 @@ mix allbert.test external-smoke -- browser_research_delegate
 The deterministic release gate is:
 
 ```sh
-mix allbert.test release.v046
+mix allbert.test release.v063
 ```
 
 ## Out Of Scope

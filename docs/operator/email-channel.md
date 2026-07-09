@@ -123,9 +123,10 @@ Manual validation before tag:
   runtime requests are created with decoded text.
 - Send from the unmapped sender and confirm the request is rejected before
   runtime.
-- Trigger an email confirmation and verify `APPROVE:<confirmation_id>`,
-  `DENY:<confirmation_id>`, and `SHOW:<confirmation_id>` typed commands are
-  detected before quoted reply text.
+- Trigger an email confirmation and verify `ALLBERT:APPROVE:<confirmation_id>`,
+  `ALLBERT:DENY:<confirmation_id>`, and `ALLBERT:SHOW:<confirmation_id>` typed commands
+  are detected before quoted reply text (the bare `APPROVE:`/`DENY:`/`SHOW:` form is also
+  accepted, but the system renders the `ALLBERT:`-prefixed form).
 - Confirm outbound replies contain `Date`, `Message-ID`, `In-Reply-To`,
   `References`, `MIME-Version`, and `Content-Transfer-Encoding` headers.
 - Run `rg -i 'token|password|secret|\+[0-9]{6,}' "$ALLBERT_HOME" || true` and

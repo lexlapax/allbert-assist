@@ -31,14 +31,13 @@ For contributors:
 - [Operator onboarding](operator/onboarding.md)
 - [Operator workspace guide](operator/workspace.md)
 
-The current shipped source/docs release is `v0.62.1` (Distribution Closeout &
-Reusable Release Ops), tagged `v0.62.1` on 2026-07-07. The packaged product
-release remains `v0.62.0`, which is the GitHub Latest artifact set used by
-installers and Homebrew. The active implementation plan is **v0.63 Guided
-Onboarding & Profiles**: it makes first-run onboarding an operator-facing web and
-terminal wizard over the v0.62 packaged entry points, officializes
-`allbert onboard --quickstart` / `--advanced`, applies reviewed user-category
-profile writes, and feeds into the v0.64 product RC.
+The current release line is **v0.63 (Guided Onboarding & Profiles), tagged `v0.63.0`
+on 2026-07-09**: first-run onboarding is an operator-facing web and terminal wizard
+(`allbert onboard --quickstart` / `--advanced`) over the v0.62 packaged entry points,
+with reviewed user-category profile writes and provider credentials resolved through the
+three-tier secret vault. It feeds into the v0.64 product RC. The prior line was v0.62
+(Packaging & Entry Points): packaged product release `v0.62.0` (GitHub Latest, used by
+installers and Homebrew) with a source/docs point release `v0.62.1`.
 
 The v0.60/v0.60b design artifacts live under `docs/design/`; v0.61/v0.61b record
 the web shell and presentation work; v0.62 records packaging, first-model path,

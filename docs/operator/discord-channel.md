@@ -304,7 +304,7 @@ only **one account active at a time**, so run the two accounts in two surfaces.
 ### Part 6 — live channel checks (Allbert server running)
 
 31. 🤖 Agent configures the manual home and starts the live server, then re-runs
-    `mix allbert.channels discord doctor`. *Expected:* `gateway_status=running`;
+    `mix allbert.channels discord doctor`. *Expected:* `gateway=running`;
     the bot shows **online (green)** in your member list.
 32. 🧑 **@mention.** In the allowlisted channel type `@allbert-assist`, select the
     bot from the autocomplete popup (it becomes a blue chip), add a question, e.g.
@@ -349,7 +349,7 @@ After validation, tear the sandbox down so no live credential or bot lingers:
 
 1. **Disable the channel** so Allbert stops opening the Gateway:
    `mix allbert.settings set channels.discord.enabled false`. Confirm
-   `mix allbert.channels discord doctor` now reports `gateway_status=disabled`.
+   `mix allbert.channels discord doctor` now reports `gateway=disabled`.
 2. **Reset the bot token** in the Developer Portal (Bot → Reset Token). This
    immediately invalidates the token Allbert held, even if a copy leaked.
 3. **Remove the bot from the test guild** (Server Settings → Integrations →

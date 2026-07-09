@@ -134,11 +134,8 @@ Run the deterministic release lane first:
 MIX_ENV=test mix allbert.test release.v051
 ```
 
-Current v0.51 evidence, including the v0.51 secret scan:
-`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v051/p0-13252/home/release_evidence/v051/release-v051-1781069964.json`.
-
-Current full release evidence:
-`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-7/home/release_evidence/gates/release-2026-06-10T04_50_39Z.json`.
+The gate writes its evidence JSON (including the secret scan) under
+`<gate-home>/release_evidence/<version>/`; the path is printed at the end of each run.
 
 Manual real-client validation was not captured before the `v0.51.0` tag. Use
 `docs/plans/v0.51-request-flow.md` "Operator Manual Validation Steps" as the
