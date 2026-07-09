@@ -22,5 +22,11 @@ config :swoosh, local: false
 # Do not print debug messages in production
 config :logger, level: :info
 
+# v0.63 (operator-validation F1): route runtime logs to STDERR so a packaged CLI
+# command's result (printed to stdout via IO.puts) is never interleaved with :info
+# runtime logs. `serve` benefits too — launchd/systemd capture stderr. The CLI further
+# quiets its own level to :warning (see AllbertAssist.CLI); `serve` keeps :info.
+config :logger, :default_handler, config: [type: :standard_error]
+
 # Runtime production configuration, including reading
 # of environment variables, is done on config/runtime.exs.

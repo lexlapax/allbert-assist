@@ -43,7 +43,10 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
         "PORT",
         # v0.63 M8.2: the standard OTP/OpenSSL CA-bundle override for outbound HTTPS
         # (External.TLS) — infrastructure trust config, not an operator-tunable setting.
-        "SSL_CERT_FILE"
+        "SSL_CERT_FILE",
+        # v0.63 (operator-validation F1): CLI log-verbosity override read by the eval
+        # entry before the runtime boots — infrastructure, not a Settings Central key.
+        "ALLBERT_LOG_LEVEL"
       ],
       operator_setting_keys: [
         "runtime.trace_default",

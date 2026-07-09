@@ -35,6 +35,7 @@ defmodule AllbertAssist.CLI do
   """
   @spec main([String.t()]) :: no_return()
   def main(argv) do
+    configure_cli_logging()
     {stream, output, code} = run_entry(argv)
 
     if output != "" do
@@ -45,6 +46,25 @@ defmodule AllbertAssist.CLI do
     end
 
     System.halt(code)
+  end
+
+  # v0.63 (operator-validation F1): a packaged CLI command boots the embedded runtime,
+  # whose :info plugin/registration/migration logs would otherwise flood the operator's
+  # terminal ahead of the command result. Default the CLI to :warning (the result stays
+  # on stdout via IO.puts; real problems still surface). Override with ALLBERT_LOG_LEVEL
+  # (debug|info|notice|warning|error) for debugging. `serve` runs via a different entry
+  # (bin/allbert start) and keeps the config-level :info.
+  defp configure_cli_logging do
+    Logger.configure(level: cli_log_level())
+  rescue
+    _error -> :ok
+  end
+
+  defp cli_log_level do
+    case System.get_env("ALLBERT_LOG_LEVEL") do
+      level when level in ~w(debug info notice warning error) -> String.to_existing_atom(level)
+      _absent_or_invalid -> :warning
+    end
   end
 
   @doc false
