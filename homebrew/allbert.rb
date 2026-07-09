@@ -1,4 +1,4 @@
-# Allbert Homebrew formula (v0.62 M2). Lives in the tap repo
+# Allbert Homebrew formula. Bumped per release (v0.63.0). Lives in the tap repo
 # (lexlapax/homebrew-allbert) at release time; kept here as the source of
 # truth. A FORMULA (not a cask) because Allbert wants `brew services` support
 # for `allbert serve` (cask has no service block) and ships prebuilt
@@ -10,23 +10,23 @@
 class Allbert < Formula
   desc "Local-first personal AI assistant runtime, CLI, and web workspace"
   homepage "https://github.com/lexlapax/allbert-assist"
-  version "0.62.0"
+  version "0.63.0"
   license "MIT"
 
   on_macos do
     on_arm do
-      url "https://github.com/lexlapax/allbert-assist/releases/download/v0.62.0/allbert-v0.62.0-macos-arm64.tar.gz"
+      url "https://github.com/lexlapax/allbert-assist/releases/download/v0.63.0/allbert-v0.63.0-macos-arm64.tar.gz"
       sha256 "REPLACE_MACOS_ARM64_SHA256"
     end
   end
 
   on_linux do
     on_intel do
-      url "https://github.com/lexlapax/allbert-assist/releases/download/v0.62.0/allbert-v0.62.0-linux-x64.tar.gz"
+      url "https://github.com/lexlapax/allbert-assist/releases/download/v0.63.0/allbert-v0.63.0-linux-x64.tar.gz"
       sha256 "REPLACE_LINUX_X64_SHA256"
     end
     on_arm do
-      url "https://github.com/lexlapax/allbert-assist/releases/download/v0.62.0/allbert-v0.62.0-linux-arm64.tar.gz"
+      url "https://github.com/lexlapax/allbert-assist/releases/download/v0.63.0/allbert-v0.63.0-linux-arm64.tar.gz"
       sha256 "REPLACE_LINUX_ARM64_SHA256"
     end
   end
