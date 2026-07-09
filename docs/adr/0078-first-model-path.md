@@ -139,7 +139,11 @@ extended accordingly:
   curated local model** with an in-web progress surface. If the supported local runtime
   is absent, Allbert offers a guided, confirmation-gated Ollama install first. The
   operator does not run the `ollama` CLI and does not need an API key. This is the primary
-  first-run path.
+  first-run path. The one click pulls the **single curated model**
+  (`Ollama.curated_model/0`, `llama3.2:3b`), not a browsable model catalog — a chooser is
+  explicitly post-v0.64. The in-web progress surface is fed by streaming Ollama's pull-API
+  frames onto the existing per-thread PubSub topic `WorkspaceLive` subscribes to; the
+  first-model pull emits no progress today, so that broadcast is the net-new plumbing.
 - **Advanced (existing):** BYOK hosted setup and custom endpoints remain, opt-in, for
   prosumers.
 

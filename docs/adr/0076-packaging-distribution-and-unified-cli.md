@@ -178,6 +178,13 @@ v0.64 closes the v0.62 trust-on-first-use gap for the non-developer first run:
   packaged install path. If the verifier is missing, the installer may guide a
   supported verifier install path, but it must not install the Allbert artifact
   until verification succeeds.
+- **Sign↔verify coupling (required same-release).** The release workflow's cosign
+  *sign* step is currently `continue-on-error: true` — a v0.63 mitigation for a
+  Fulcio OIDC outage that let releases publish without a signature bundle. A
+  fail-closed installer verifier against an optionally-signed release would reject
+  legitimate artifacts. v0.64 therefore **re-hardens the sign step to a hard gate in
+  the same release** that introduces installer verification
+  (`.github/workflows/release-artifacts.yml`); the two changes cannot land apart.
 - The primary packaged first-run path is persistent service start plus browser
   onboarding. Foreground `allbert serve` remains a diagnostic and service-manager
   fallback.

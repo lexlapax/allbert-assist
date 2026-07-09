@@ -156,7 +156,15 @@ v0.64 makes install -> first-run -> onboard -> first useful chat trusted and
 repairable for a non-developer. The v0.64 consumer-default contract is no manual
 model CLI and no hosted-provider key: Allbert may guide the confirmed Ollama install
 when the runtime is absent, then drive the local pull API behind a web progress surface.
-It does not bundle a model or model runtime into the Allbert artifact. v0.66 validates
+It does not bundle a model or model runtime into the Allbert artifact.
+
+The one-click download pulls the **single curated model** (`Ollama.curated_model/0`,
+`llama3.2:3b`), not a browsable catalog; a model chooser is post-v0.64. The web progress
+surface is fed by flipping `actions/first_model/pull_model.ex`'s `default_pull/1` from
+`stream: false` to a streaming Req callback that broadcasts Ollama's
+`status/completed/total` frames onto the existing per-thread PubSub topic
+(`SignalBridge.workspace_topic_for/2`) that `WorkspaceLive` already subscribes to —
+`first_model` broadcasts nothing today, so that plumbing is the net-new seam. v0.66 validates
 the complete path against the implemented v0.61-v0.65 surfaces and records evidence that
 the path did not drift back to BYOK-only or managed-hosted.
 
