@@ -64,23 +64,42 @@ defmodule AllbertAssist.Settings.Vault do
   end
 
   @doc """
-  Fetch a secret value (or status) through the active tier (v0.63 M8.3).
+  Fetch a secret value (or status) through the vault (v0.63 M8.3 + operator-validation F2).
 
-  Falls back to the tier-2 encrypted store on a miss when the active tier is not tier-2,
-  so a value written before it migrated to the OS vault stays readable (upgrade-safe).
+  Reads in tier order: the resolved backend first, then the remaining tiers as fallbacks
+  (only on a miss). This makes credential resolution uniform for every consumer — the
+  model runtime *and* the doctor — so a key resolves whether it lives in the OS vault, the
+  encrypted-file store (upgrade-safe for pre-OS-routing keys), or the environment (the
+  documented tier-3 `:req_llm` boot-env source). Without the env fallback, readiness would
+  report BYOK-ready from an env key that the doctor then could not read.
   """
   @spec get(String.t(), map()) :: {:ok, term()} | :missing | {:error, term()}
   def get(secret_ref, context \\ %{}) do
     %{tier: tier, backend: backend} = resolve()
+    read_through([backend | fallback_backends(tier)], secret_ref, context, :missing)
+  end
 
+  defp fallback_backends(:os), do: [__MODULE__.EncryptedFile, __MODULE__.Env]
+  defp fallback_backends(:encrypted_file), do: [__MODULE__.Env]
+  defp fallback_backends(:env), do: [__MODULE__.EncryptedFile]
+
+  # Try each backend in tier order; a definitive `{:ok, value}` wins immediately. Otherwise
+  # keep going so the env tier (last resort) is ALWAYS consulted — a higher tier being
+  # unreadable (e.g. tier-2 with no master key in a prod release) must not shadow an
+  # env-provided key. If nothing yields a value, surface the first real error (or `:missing`
+  # if every tier simply had nothing) so a genuine misconfiguration is still visible.
+  defp read_through([], _secret_ref, _context, acc), do: acc
+
+  defp read_through([backend | rest], secret_ref, context, acc) do
     case backend.get(secret_ref, context) do
-      :missing when tier != :encrypted_file ->
-        __MODULE__.EncryptedFile.get(secret_ref, context)
-
-      other ->
-        other
+      {:ok, _value} = ok -> ok
+      :missing -> read_through(rest, secret_ref, context, acc)
+      {:error, _reason} = err -> read_through(rest, secret_ref, context, keep_first_error(acc, err))
     end
   end
+
+  defp keep_first_error(:missing, err), do: err
+  defp keep_first_error(acc, _err), do: acc
 
   # Tier-2 (EncryptedFile → Secrets.put_secret) already wrote the ref, audited, and
   # invalidated custody; keep its diagnostics. The OS tiers store value-only, so run the

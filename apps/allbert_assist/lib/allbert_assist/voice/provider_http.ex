@@ -8,7 +8,7 @@ defmodule AllbertAssist.Voice.ProviderHTTP do
   credentials, audio, provider bodies, or file paths.
   """
 
-  alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.Settings.Vault
   alias AllbertAssist.Voice.LocalRuntime.Auth
 
   @metadata_hosts ~w[metadata.google.internal metadata 169.254.169.254]
@@ -261,10 +261,16 @@ defmodule AllbertAssist.Voice.ProviderHTTP do
   end
 
   defp provider_credential(ref, profile) when is_binary(ref) and ref != "" do
-    case Secrets.get_secret(ref, %{trusted?: true}) do
+    # F2: resolve through the tier vault (os → encrypted_file → env) so voice provider
+    # keys stored in the OS Keychain or provided by the environment resolve uniformly,
+    # matching the model-runtime and doctor credential paths.
+    case Vault.get(ref, %{trusted?: true}) do
       {:ok, credential} when is_binary(credential) ->
         credential = String.trim(credential)
         if credential == "", do: credential_missing(profile), else: {:ok, credential}
+
+      :missing ->
+        credential_missing(profile)
 
       {:error, {:secret_not_found, _ref}} ->
         credential_missing(profile)

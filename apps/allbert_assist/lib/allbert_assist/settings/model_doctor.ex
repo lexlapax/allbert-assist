@@ -11,7 +11,7 @@ defmodule AllbertAssist.Settings.ModelDoctor do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.DoctorDiagnostics
   alias AllbertAssist.Settings.ProviderCatalog
-  alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.Settings.Vault
 
   @max_timeout_ms 5_000
   @default_timeout_ms 3_000
@@ -314,7 +314,10 @@ defmodule AllbertAssist.Settings.ModelDoctor do
   defp provider_credential(%{api_key_ref: ref} = provider) do
     host = provider_host(provider)
 
-    case Secrets.get_secret(ref, %{trusted?: true}) do
+    # F2: resolve through the tier vault (os → encrypted_file → env), the same path the
+    # model runtime uses — so the doctor can verify a key stored in the OS Keychain OR
+    # provided in the environment, consistent with the readiness the wizard reports.
+    case Vault.get(ref, %{trusted?: true}) do
       {:ok, value} when is_binary(value) ->
         credential = String.trim(value)
 
@@ -323,6 +326,9 @@ defmodule AllbertAssist.Settings.ModelDoctor do
         else
           {:error, {:credential_unavailable, :invalid_credential_format, host}}
         end
+
+      :missing ->
+        {:error, {:credential_missing, host}}
 
       {:error, {:secret_not_found, _ref}} ->
         {:error, {:credential_missing, host}}

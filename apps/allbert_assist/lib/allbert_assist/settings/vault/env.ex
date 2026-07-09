@@ -38,5 +38,8 @@ defmodule AllbertAssist.Settings.Vault.Env do
   defp env_var_for("secret://providers/openai" <> _), do: "OPENAI_API_KEY"
   defp env_var_for("secret://providers/openrouter" <> _), do: "OPENROUTER_API_KEY"
   defp env_var_for("secret://providers/google" <> _), do: "GOOGLE_API_KEY"
+  # F2: the seeded provider is `gemini` (type=google); map it to the Gemini env key so an
+  # env-provided Gemini credential resolves like the other providers.
+  defp env_var_for("secret://providers/gemini" <> _), do: "GEMINI_API_KEY"
   defp env_var_for(_other), do: nil
 end

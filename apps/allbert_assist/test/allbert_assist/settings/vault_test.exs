@@ -222,6 +222,37 @@ defmodule AllbertAssist.Settings.VaultTest do
     end
   end
 
+  describe "operator-validation F2: Vault.get resolves in full tier order (…→ env)" do
+    test "an env-provided provider key resolves when the active tier has nothing stored" do
+      # Active tier (encrypted_file) holds no value; the env tier (tier 3) must satisfy the
+      # read so the doctor/runtime agree with the BYOK readiness the wizard reports.
+      System.put_env("ALLBERT_VAULT_BACKEND", "encrypted_file")
+      System.put_env("OPENAI_API_KEY", "sk-env-openai-abc12345")
+      on_exit(fn -> System.delete_env("OPENAI_API_KEY") end)
+
+      assert {:ok, "sk-env-openai-abc12345"} =
+               Vault.get("secret://providers/openai/api_key", %{})
+    end
+
+    test "the gemini provider ref maps to GEMINI_API_KEY (F2 mapping gap)" do
+      System.put_env("ALLBERT_VAULT_BACKEND", "encrypted_file")
+      System.put_env("GEMINI_API_KEY", "gm-env-gemini-xyz67890")
+      on_exit(fn -> System.delete_env("GEMINI_API_KEY") end)
+
+      assert {:ok, "gm-env-gemini-xyz67890"} =
+               Vault.get("secret://providers/gemini/api_key", %{})
+    end
+
+    test "a stored tier-2 key still wins over env (tier order: encrypted_file before env)" do
+      System.put_env("ALLBERT_VAULT_BACKEND", "encrypted_file")
+      System.put_env("OPENAI_API_KEY", "sk-env-should-not-be-used")
+      on_exit(fn -> System.delete_env("OPENAI_API_KEY") end)
+
+      assert {:ok, _} = Secrets.put_secret("secret://providers/openai/api_key", @secret_value, %{})
+      assert {:ok, @secret_value} = Vault.get("secret://providers/openai/api_key", %{})
+    end
+  end
+
   describe "vault_status action (read-only)" do
     test "reports the resolved tier + posture without secret values" do
       System.put_env("ALLBERT_VAULT_BACKEND", "encrypted_file")

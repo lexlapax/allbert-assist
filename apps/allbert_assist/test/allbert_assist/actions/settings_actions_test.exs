@@ -19,8 +19,15 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
 
   setup {Req.Test, :verify_on_exit!}
 
+  # Provider keys can be env-provided (Vault tier 3); since v0.63 F2 the doctor resolves
+  # them, so a "missing credential" test must clear them or the ambient shell/CI env makes
+  # it non-deterministic.
+  @provider_env_keys ~w(ANTHROPIC_API_KEY OPENAI_API_KEY OPENROUTER_API_KEY GOOGLE_API_KEY GEMINI_API_KEY)
+
   setup do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
+    original_provider_env = Map.new(@provider_env_keys, &{&1, System.get_env(&1)})
+    Enum.each(@provider_env_keys, &System.delete_env/1)
 
     root =
       Path.join(
@@ -32,6 +39,12 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
 
     on_exit(fn ->
       restore_env(Settings, original_settings_config)
+
+      Enum.each(original_provider_env, fn
+        {key, nil} -> System.delete_env(key)
+        {key, value} -> System.put_env(key, value)
+      end)
+
       File.rm_rf!(root)
     end)
 
