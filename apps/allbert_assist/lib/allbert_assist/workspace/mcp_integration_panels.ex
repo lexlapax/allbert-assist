@@ -40,6 +40,17 @@ defmodule AllbertAssist.Workspace.McpIntegrationPanels do
   end
 
   defp panel_node(spec, context) do
+    # F4: a one-off CLI command never renders these MCP integration panels; skip the
+    # per-integration ServerConfig resolve (settings reads) at boot and emit the same-id
+    # unconfigured panel (the web resolves real state live under `serve`).
+    if Application.get_env(:allbert_assist, :cli_oneshot?, false) do
+      unconfigured_panel(spec)
+    else
+      resolved_panel_node(spec, context)
+    end
+  end
+
+  defp resolved_panel_node(spec, context) do
     case server_state(spec, context) do
       {:unconfigured, _reason} ->
         unconfigured_panel(spec)

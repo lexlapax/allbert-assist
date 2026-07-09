@@ -224,6 +224,12 @@ defmodule AllbertAssist.CLI do
   end
 
   defp start_apps do
+    # F4: mark this as a one-off CLI embedded boot so app registration can skip the heavy,
+    # web-only surface population (marketplace catalog actions, discovery DB query, MCP
+    # config resolves) whose rendered content a headless command never uses. `serve` boots
+    # via `bin/allbert start` and never reaches here, so it keeps full surfacing.
+    Application.put_env(:allbert_assist, :cli_oneshot?, true)
+
     case Application.ensure_all_started(:allbert_assist) do
       {:ok, _started} -> :ok
       {:error, reason} -> {:error, "failed to start runtime: #{inspect(reason)}"}

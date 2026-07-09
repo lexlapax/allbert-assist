@@ -21,11 +21,18 @@ defmodule AllbertAssist.Marketplace.Panels.Catalog do
 
   @spec node(map()) :: Node.t()
   def node(context \\ %{}) when is_map(context) do
-    with {:ok, entries} <- entries(context),
-         {:ok, installed} <- installed(context) do
-      catalog_node(entries, installed)
+    if Application.get_env(:allbert_assist, :cli_oneshot?, false) do
+      # F4: a one-off CLI command never renders the marketplace panel; skip the two
+      # action-pipeline runs at boot and emit the same-id empty catalog node (the web
+      # re-renders the real catalog live under `serve`).
+      catalog_node([], [])
     else
-      {:error, reason} -> error_node(reason)
+      with {:ok, entries} <- entries(context),
+           {:ok, installed} <- installed(context) do
+        catalog_node(entries, installed)
+      else
+        {:error, reason} -> error_node(reason)
+      end
     end
   end
 

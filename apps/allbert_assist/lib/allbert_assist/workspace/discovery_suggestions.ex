@@ -29,7 +29,13 @@ defmodule AllbertAssist.Workspace.DiscoverySuggestions do
   end
 
   defp pending_suggestions do
-    Discovery.list_suggestions(status: "pending", limit: @max_suggestions)
+    # F4: a one-off CLI command never renders this panel; skip the expire+SELECT at boot
+    # (the surface keeps its id and renders the empty state, which the web re-renders live).
+    if Application.get_env(:allbert_assist, :cli_oneshot?, false) do
+      []
+    else
+      Discovery.list_suggestions(status: "pending", limit: @max_suggestions)
+    end
   rescue
     _error in [DBConnection.OwnershipError, DBConnection.ConnectionError] -> []
   end
