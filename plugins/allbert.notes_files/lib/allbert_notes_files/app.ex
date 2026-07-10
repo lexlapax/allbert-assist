@@ -142,7 +142,13 @@ defmodule AllbertNotesFiles.App do
   end
 
   defp note_rows([]),
-    do: [empty_state("notes-empty", "No notes found", "The configured notes root is empty.")]
+    do: [
+      empty_state(
+        "notes-empty",
+        "No notes yet",
+        "Connect a notes folder (onboarding → Connect a notes folder, or `allbert admin notes set-root PATH`) or add .md files to your notes root."
+      )
+    ]
 
   defp note_rows(notes) do
     Enum.map(notes, fn note ->

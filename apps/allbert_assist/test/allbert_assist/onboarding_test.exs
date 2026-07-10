@@ -190,14 +190,33 @@ defmodule AllbertAssist.OnboardingTest do
   end
 
   describe "v0.63 M7.4 first-chat prompts" do
-    test "first_chat_prompts uses the applied persona, defaulting to general" do
-      # No applied persona → general prompts (non-empty).
-      assert Onboarding.first_chat_prompts() == Personas.first_chat_prompts("general")
-      refute Onboarding.first_chat_prompts() == []
+    test "first_chat_prompts uses the applied persona plus the launch-path local-knowledge set" do
+      # No applied persona → general prompts + the v0.65 M5 local-knowledge set.
+      prompts = Onboarding.first_chat_prompts()
+
+      assert prompts ==
+               Enum.uniq(
+                 Personas.first_chat_prompts("general") ++ Onboarding.local_knowledge_prompts()
+               )
+
+      refute prompts == []
+
+      # The launch-path local-knowledge prompts always surface, regardless of persona.
+      assert "Ask about my notes" in prompts
+      assert "Remember this after review" in prompts
+      assert "Show what you remember" in prompts
 
       Onboarding.record_applied_persona("developer")
       assert Onboarding.applied_persona() == "developer"
-      assert Onboarding.first_chat_prompts() == Personas.first_chat_prompts("developer")
+
+      dev_prompts = Onboarding.first_chat_prompts()
+
+      assert dev_prompts ==
+               Enum.uniq(
+                 Personas.first_chat_prompts("developer") ++ Onboarding.local_knowledge_prompts()
+               )
+
+      assert "Ask about my notes" in dev_prompts
     end
   end
 

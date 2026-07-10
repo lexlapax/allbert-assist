@@ -123,9 +123,25 @@ defmodule AllbertAssist.Onboarding do
   `first_chat_prompts`, defaulting to `general` when no persona was applied.
   """
   @spec first_chat_prompts() :: [String.t()]
+  # v0.65 M5: the launch-path local-knowledge starter set, appended to whatever the
+  # applied persona suggests so every first run surfaces the notes + memory loop. These
+  # imply no hidden authority and no automatic memory promotion — "remember this after
+  # review" is explicit about the review gate.
+  @local_knowledge_prompts [
+    "Ask about my notes",
+    "Summarize this note",
+    "Remember this after review",
+    "Show what you remember"
+  ]
+
   def first_chat_prompts do
-    Personas.first_chat_prompts(applied_persona() || "general")
+    (Personas.first_chat_prompts(applied_persona() || "general") ++ @local_knowledge_prompts)
+    |> Enum.uniq()
   end
+
+  @doc "The v0.65 launch-path local-knowledge starter prompts."
+  @spec local_knowledge_prompts() :: [String.t()]
+  def local_knowledge_prompts, do: @local_knowledge_prompts
 
   @doc "The 8 canonical wizard step ids, in order."
   @spec wizard_steps() :: [wizard_step(), ...]
