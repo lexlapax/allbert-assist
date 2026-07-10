@@ -90,6 +90,24 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
     {:noreply, refresh_state(reprobe(socket))}
   end
 
+  # -- M2 local knowledge: connect a notes folder -----------------------------
+
+  def handle_event("connect_notes_root", %{"notes_root" => path}, socket) do
+    socket =
+      case run_action("set_notes_root", %{path: path}, action_context(socket)) do
+        {:ok, %{status: :completed} = response} ->
+          assign(socket, onboarding_notice: response.message, onboarding_error: nil)
+
+        {:ok, response} ->
+          assign(socket, :onboarding_error, response_error(response))
+
+        {:error, reason} ->
+          assign(socket, :onboarding_error, reason)
+      end
+
+    {:noreply, socket}
+  end
+
   # -- M3 provider setup ------------------------------------------------------
 
   def handle_event("save_provider_key", %{"provider" => provider, "api_key" => api_key}, socket) do
@@ -531,6 +549,30 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
       <ul :if={@first_chat_prompts != []} class="mt-1 space-y-0.5 text-xs">
         <li :for={prompt <- @first_chat_prompts} class="text-base-content/80">“{prompt}”</li>
       </ul>
+
+      <div id="workspace-wizard-connect-notes" class="mt-3 space-y-1">
+        <div class="text-xs font-medium text-base-content/70">Connect a notes folder</div>
+        <p class="text-xs text-base-content/60">
+          Point Allbert at a local folder to ask about your own notes. You can change this
+          later; Allbert only reads inside the folder you choose.
+        </p>
+        <form phx-submit="connect_notes_root" phx-target={@myself} class="flex gap-2">
+          <input
+            type="text"
+            name="notes_root"
+            id="workspace-wizard-notes-root"
+            placeholder="/path/to/your/notes"
+            class="input input-sm input-bordered flex-1 text-xs"
+          />
+          <button
+            type="submit"
+            id="workspace-wizard-connect-notes-submit"
+            class="btn btn-sm btn-primary"
+          >
+            Connect
+          </button>
+        </form>
+      </div>
     </div>
     """
   end

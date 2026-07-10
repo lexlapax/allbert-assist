@@ -197,6 +197,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Settings.ReadSetting
   alias AllbertAssist.Actions.Settings.ResolvedSettingsSnapshot
   alias AllbertAssist.Actions.Settings.SetActiveModelProfile
+  alias AllbertAssist.Actions.Settings.SetNotesRoot
   alias AllbertAssist.Actions.Settings.SetProviderCredential
   alias AllbertAssist.Actions.Settings.UpdateSetting
   alias AllbertAssist.Actions.Settings.VaultStatus
@@ -252,6 +253,7 @@ defmodule AllbertAssist.Actions.Registry do
     ListSettings,
     ReadSetting,
     UpdateSetting,
+    SetNotesRoot,
     ExplainSetting,
     ListProviderProfiles,
     ListModelProfiles,

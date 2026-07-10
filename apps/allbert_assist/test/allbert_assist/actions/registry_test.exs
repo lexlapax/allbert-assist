@@ -100,6 +100,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "list_settings",
              "read_setting",
              "update_setting",
+             "set_notes_root",
              "explain_setting",
              "list_provider_profiles",
              "list_model_profiles",
