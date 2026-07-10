@@ -40,7 +40,7 @@ Consistency And Live Model-Pull Progress), tagged `v0.64.3`**: packaged install 
 repairable first run are the primary operator path, with curl fail-closed cosign
 verification, a current Homebrew formula/tap, service-first startup, guided local
 model repair, live web model-pull progress, and a startup migration lock for concurrent
-fresh-Home first commands. The source/docs point tag `v0.64.4` (`[skip-artifacts]`)
+fresh-Home first commands. The source/docs point tag `v0.64.5` (`[skip-artifacts]`)
 reconciles release-facing docs only. v0.64 feeds into v0.65 local files/notes/memory
 and v0.66 product RC. The prior line was v0.63 (Guided Onboarding & Profiles), tagged
 `v0.63.0` on 2026-07-09.

@@ -40,7 +40,7 @@ install and repairable first run the primary operator path: fail-closed
 installer-side cosign verification, bounded DB backup restore, persistent service
 posture, browser-first onboarding, guided local-runtime repair, curated local-model
 pull with live web progress, a standalone Models repair panel, and plain-language
-CLI/TUI blocked-state guidance. The source/docs point tag `v0.64.4`
+CLI/TUI blocked-state guidance. The source/docs point tag `v0.64.5`
 (`[skip-artifacts]`) only reconciles release-facing docs; it does not publish new
 packaged artifacts. It builds on v0.63's guided
 two-track onboarding wizard, repo-maintained user-category personas (seed-only,

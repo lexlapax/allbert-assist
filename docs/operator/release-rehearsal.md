@@ -11,7 +11,7 @@ or real host services.
 v0.62 introduced the packaged release path. v0.64.3 is the current packaged corrective
 trusted-install release line and uses this runbook to close Homebrew tap fill,
 package-manager install, curl trust, packaged TUI, and Linux rehearsal evidence.
-v0.64.4 is a source/docs point tag only; it uses `[skip-artifacts]` and does not create
+v0.64.5 is a source/docs point tag only; it uses `[skip-artifacts]` and does not create
 new packaged release assets.
 
 ## 1. Publish the release
@@ -43,15 +43,15 @@ The tag push fires `.github/workflows/release-artifacts.yml`:
 
 ### Docs/source point release (no packaged artifacts)
 
-A point release that ships only source/docs/script fixes (for example `v0.64.4`) must
+A point release that ships only source/docs/script fixes (for example `v0.64.5`) must
 NOT create packaged artifacts or steal `Latest` from the product release that owns the
 tarballs + `latest` aliases (`v0.64.3`). Mark its annotated tag `[skip-artifacts]` so
 the `gate` job skips the packaged pipeline:
 
 ```sh
-git tag -a v0.64.4 -m "Allbert v0.64.4 - release-doc closeout [skip-artifacts]"
-git push origin v0.64.4
-# Verify: no v0.64.4 GitHub Release is created, and v0.64.3 stays the packaged line.
+git tag -a v0.64.5 -m "Allbert v0.64.5 - release-doc closeout [skip-artifacts]"
+git push origin v0.64.5
+# Verify: no v0.64.5 GitHub Release is created, and v0.64.3 stays the packaged line.
 gh release list --repo lexlapax/allbert-assist
 ```
 

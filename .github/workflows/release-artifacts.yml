@@ -35,6 +35,12 @@ jobs:
           fetch-depth: 0
       - id: decide
         run: |
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            # actions/checkout may peel the local tag ref to the commit before this
+            # step runs; refetch the tag object so annotated tag messages remain
+            # readable for docs/source [skip-artifacts] releases.
+            git fetch --force --no-tags origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+          fi
           msg="$(git for-each-ref "refs/tags/${GITHUB_REF_NAME}" --format='%(contents)' 2>/dev/null || true)"
           if printf '%s' "$msg" | grep -qF '[skip-artifacts]'; then
             echo "artifacts=false" >> "$GITHUB_OUTPUT"

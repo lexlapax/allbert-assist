@@ -10,25 +10,38 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
-## v0.64.4 - Release Docs Closeout
+## v0.64.5 - Release Docs And Skip-Artifacts Gate Closeout
 
-Status: **released — annotated source/docs tag `v0.64.4` (`[skip-artifacts]`),
+Status: **released — annotated source/docs tag `v0.64.5` (`[skip-artifacts]`),
 2026-07-10 UTC; packaged version metadata remains 0.64.3**. This point release has
 no packaged GitHub Release assets and does not move the Homebrew formula or installer
 artifact line; `v0.64.3` remains the packaged product release for the trusted-install
 and first-run path.
 
-Closes the post-v0.64.3 release-doc drift found by the final closeout audit:
+Closes the post-v0.64.3 release-doc drift found by the final closeout audit and
+supersedes the `v0.64.4` source/docs tag, whose workflow run was manually cancelled
+before publish after the gate missed the `[skip-artifacts]` annotation:
 
 - Top-level, docs index, operator index, install, workspace, release-rehearsal, and
   agent context docs now identify `v0.64.3` as the current packaged release and
-  `v0.64.4` as docs/source only.
+  `v0.64.5` as docs/source only.
 - The packaged-release runbook examples now use the current packaged artifact line
   (`v0.64.3`) and show the docs/source point-release path separately with
   `[skip-artifacts]`.
+- `release-artifacts.yml` now refetches the tag object before reading tag contents,
+  preventing `actions/checkout` from peeling an annotated docs/source tag to a commit
+  and accidentally allowing packaged build jobs to start.
 - v0.64 plan, request-flow, and roadmap status text record that this tag is a
   documentation closeout with no new runtime behavior, authority, Settings key, or
   package artifact.
+
+## v0.64.4 - Release Docs Closeout (superseded)
+
+Status: **annotated source/docs tag `v0.64.4` (`[skip-artifacts]`) pushed on
+2026-07-10 UTC, but superseded by `v0.64.5`**. The release-artifacts run for this tag
+was manually cancelled before publish because `actions/checkout` rewrote the local tag
+ref to the peeled commit, causing the gate to miss the annotation contents. No GitHub
+Release was created for `v0.64.4`; `v0.64.3` remained the packaged product release.
 
 ## v0.64.3 - Final-Audit Corrective: Version Consistency And Live Model-Pull Progress
 
