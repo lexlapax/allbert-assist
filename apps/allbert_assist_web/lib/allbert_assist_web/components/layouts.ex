@@ -447,6 +447,7 @@ defmodule AllbertAssistWeb.Layouts do
   defp nav_icon("notes"), do: "hero-document-text-micro"
   defp nav_icon("objectives"), do: "hero-flag-micro"
   defp nav_icon("jobs"), do: "hero-queue-list-micro"
+  defp nav_icon("memory"), do: "hero-book-open-micro"
   defp nav_icon("models"), do: "hero-cpu-chip-micro"
   defp nav_icon("channels"), do: "hero-signal-micro"
   defp nav_icon("settings"), do: "hero-cog-6-tooth-micro"
@@ -556,6 +557,7 @@ defmodule AllbertAssistWeb.Layouts do
         label: "Operate",
         items: [
           nav_item(active, "jobs", "Jobs", ~p"/jobs"),
+          nav_item(active, "memory", "Memory", "/workspace?destination=workspace:memory"),
           nav_item(active, "models", "Models", "/workspace?destination=workspace:models")
         ]
       },

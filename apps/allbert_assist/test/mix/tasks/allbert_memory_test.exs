@@ -64,6 +64,60 @@ defmodule Mix.Tasks.Allbert.MemoryTest do
     assert show_output =~ "Alice prefers concise updates."
   end
 
+  test "status reports exact review-status counts and the memory root" do
+    assert {:ok, _unreviewed} =
+             Memory.append(%{
+               category: :notes,
+               body: "Unreviewed candidate.",
+               actor: "alice",
+               agent: "test",
+               channel: :test,
+               source_signal_id: "s1"
+             })
+
+    assert {:ok, kept} =
+             Memory.append(%{
+               category: :notes,
+               body: "Kept candidate.",
+               actor: "alice",
+               agent: "test",
+               channel: :test,
+               source_signal_id: "s2"
+             })
+
+    assert {:ok, flagged} =
+             Memory.append(%{
+               category: :preferences,
+               body: "Flagged candidate.",
+               actor: "alice",
+               agent: "test",
+               channel: :test,
+               source_signal_id: "s3"
+             })
+
+    assert {:ok, _} =
+             Memory.review_entry(kept.path, %{status: :kept, reviewed_by: "alice"},
+               user_id: "alice"
+             )
+
+    assert {:ok, _} =
+             Memory.review_entry(flagged.path, %{status: :flagged, reviewed_by: "alice"},
+               user_id: "alice"
+             )
+
+    output =
+      capture_io(fn ->
+        assert :ok = MemoryTask.run(["status"])
+      end)
+
+    assert output =~ "unreviewed=1"
+    assert output =~ "kept=1"
+    assert output =~ "flagged=1"
+    assert output =~ "prune_nominated=0"
+    assert output =~ "total=3"
+    assert output =~ "root="
+  end
+
   test "empty list prints an empty-state message" do
     output =
       capture_io(fn ->

@@ -235,6 +235,62 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert render(view) =~ "Allbert Notes M3 Fixture"
   end
 
+  # v0.65 M4: `workspace:memory` is an interactive review destination — a "Memory"
+  # nav item + named destination — that lists unreviewed memory candidates and
+  # dispatches the existing keep/reject/delete memory actions through the Runner.
+  # It adds no new authority: keep/reject route through `review_memory_entry` and
+  # delete through the confirmation-gated `delete_memory_entry` archive.
+  test "v0.65 M4: the Memory nav item is present in the operator sidebar", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+
+    assert has_element?(
+             view,
+             "#operator-nav-memory[href='/workspace?destination=workspace:memory']",
+             "Memory"
+           )
+  end
+
+  test "v0.65 M4: keep/reject/delete drive the review loop from workspace:memory", %{conn: conn} do
+    keep_entry = seed_unreviewed_memory("Keep this milestone note.")
+    reject_entry = seed_unreviewed_memory("Reject this stray note.")
+    delete_entry = seed_unreviewed_memory("Delete this note entirely.")
+
+    thread = create_workspace_thread("Memory review")
+
+    {:ok, view, _html} =
+      live(conn, ~p"/workspace?thread_id=#{thread.id}&destination=workspace:memory")
+
+    # Reaches the interactive memory panel and lists the unreviewed candidates.
+    assert has_element?(view, "#workspace-memory-panel")
+    assert render(view) =~ "Keep this milestone note."
+
+    # Keep dispatches review_memory_entry status=kept.
+    view
+    |> element("#workspace-memory-keep-#{memory_safe_id(keep_entry.path)}")
+    |> render_click()
+
+    assert {:ok, kept} = AllbertAssist.Memory.list_entries(review_status: :kept)
+    assert Enum.map(kept, & &1.path) == [keep_entry.path]
+
+    # Reject dispatches review_memory_entry status=flagged (a different candidate).
+    view
+    |> element("#workspace-memory-reject-#{memory_safe_id(reject_entry.path)}")
+    |> render_click()
+
+    assert {:ok, flagged} = AllbertAssist.Memory.list_entries(review_status: :flagged)
+    assert Enum.map(flagged, & &1.path) == [reject_entry.path]
+
+    # Delete runs the confirmation-gated archive (create+approve); the entry leaves
+    # active memory rather than being hard-deleted.
+    assert File.exists?(delete_entry.path)
+
+    view
+    |> element("#workspace-memory-delete-#{memory_safe_id(delete_entry.path)}")
+    |> render_click()
+
+    refute File.exists?(delete_entry.path)
+  end
+
   test "the channels destination renders the populated read-only channels panel", %{conn: conn} do
     thread = create_workspace_thread("Channels")
 
@@ -2944,6 +3000,27 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     html = render(view)
     assert [_, thread_id] = Regex.run(~r/data-thread-id="([^"]+)"/, html)
     thread_id
+  end
+
+  # v0.65 M4: seed an unreviewed memory candidate owned by the default workspace
+  # operator ("local") so the workspace:memory panel can keep/reject/delete it.
+  defp seed_unreviewed_memory(summary) do
+    assert {:ok, entry} =
+             AllbertAssist.Memory.append(%{
+               category: :notes,
+               body: summary,
+               summary: summary,
+               actor: "local",
+               agent: "test",
+               channel: :test,
+               source_signal_id: "sig-#{System.unique_integer([:positive])}"
+             })
+
+    entry
+  end
+
+  defp memory_safe_id(path) do
+    AllbertAssistWeb.Workspace.Components.OperatorPanels.safe_id(path)
   end
 
   defp html_position(html, marker) do

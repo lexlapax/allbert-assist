@@ -1147,3 +1147,255 @@ defmodule AllbertAssistWeb.Workspace.Components.ChannelsPanel do
     if channel_field(channel, :enabled, false) == true, do: "Enabled", else: "Not configured"
   end
 end
+
+defmodule AllbertAssistWeb.Workspace.Components.MemoryPanel do
+  @moduledoc """
+  Interactive memory-review panel for the `workspace:memory` destination (v0.65 M4).
+
+  Surfaces the already-permissioned memory review loop: it lists unreviewed
+  memory candidates and dispatches the existing registered actions through the
+  Runner — Keep (`review_memory_entry` status `kept`), Reject
+  (`review_memory_entry` status `flagged`), and Delete (`delete_memory_entry`,
+  confirmation-gated archive via the create+approve pattern). It adds NO new
+  authority; every write routes through `PermissionGate`/Security Central and,
+  for Delete, the confirmation workflow. Listing candidates is a read-only
+  `Memory.list_entries/1` call.
+  """
+  use AllbertAssistWeb, :live_component
+
+  alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Memory
+  alias AllbertAssistWeb.Workspace.Components.OperatorPanels, as: Support
+
+  @destination "workspace:memory"
+  @candidate_limit 50
+
+  @impl true
+  def update(assigns, socket) do
+    loaded? = Map.get(socket.assigns, :memory_loaded?, false)
+
+    socket =
+      socket
+      |> assign(assigns)
+      |> assign_new(:node, fn -> nil end)
+      |> assign_new(:renderer_context, fn -> %{} end)
+      |> assign_new(:memory_loaded?, fn -> false end)
+      |> assign_new(:memory_notice, fn -> "" end)
+      |> assign_new(:memory_diagnostics, fn -> "" end)
+      |> assign_new(:memory_candidates, fn -> [] end)
+
+    open? = Support.open?(socket.assigns, @destination)
+    socket = assign(socket, :memory_panel_open?, open?)
+
+    if open? and not loaded? do
+      {:ok, refresh(socket)}
+    else
+      {:ok, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("refresh_memory", _params, socket), do: {:noreply, refresh(socket)}
+
+  def handle_event("memory_keep", %{"path" => path}, socket) do
+    {:noreply,
+     socket
+     |> review_memory(path, "kept", "Kept memory entry.")
+     |> refresh()}
+  end
+
+  def handle_event("memory_reject", %{"path" => path}, socket) do
+    {:noreply,
+     socket
+     |> review_memory(path, "flagged", "Flagged memory entry.")
+     |> refresh()}
+  end
+
+  def handle_event("memory_delete", %{"path" => path}, socket) do
+    {:noreply,
+     socket
+     |> delete_memory(path)
+     |> refresh()}
+  end
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <article
+      id="workspace-memory-panel"
+      class="workspace-settings-panel workspace-operator-panel"
+      data-workspace-component="memory_review_panel"
+      data-workspace-renderer="component"
+      data-action-source="actions-runner"
+      aria-labelledby="workspace-memory-panel-title"
+    >
+      <header class="workspace-settings-panel-header">
+        <span class="workspace-card-icon" aria-hidden="true">
+          <.icon name="hero-book-open-micro" class="size-4" />
+        </span>
+        <div class="min-w-0 flex-1">
+          <h2 id="workspace-memory-panel-title" class="workspace-card-title">Memory</h2>
+          <p class="workspace-card-summary">
+            Review what Allbert may remember. Keep, reject, or delete candidates —
+            only kept entries are ever recalled, and nothing is promoted automatically.
+          </p>
+        </div>
+        <button
+          type="button"
+          id="workspace-memory-refresh"
+          class={Support.button_class!("secondary")}
+          phx-click="refresh_memory"
+          phx-target={@myself}
+        >
+          Refresh
+        </button>
+      </header>
+
+      <div :if={!@memory_panel_open?} class="workspace-settings-panel-preview">
+        Open the Memory workspace tool to review memory candidates.
+      </div>
+
+      <div :if={@memory_panel_open?} class="workspace-settings-panel-body">
+        <div
+          :if={@memory_notice != ""}
+          id="workspace-memory-notice"
+          class="alert alert-success text-sm"
+        >
+          {@memory_notice}
+        </div>
+
+        <p :if={@memory_diagnostics != ""} id="workspace-memory-diagnostics" class="text-sm">
+          {@memory_diagnostics}
+        </p>
+
+        <section id="workspace-memory-candidates" class="workspace-operator-panel-section">
+          <h3 class="workspace-rail-title">Review Candidates</h3>
+          <p :if={@memory_candidates == []} id="workspace-memory-empty" class="text-sm">
+            No memory candidates are waiting for review. New things Allbert learns appear here
+            for you to keep, reject, or delete before they can ever be recalled.
+          </p>
+
+          <div
+            :for={entry <- @memory_candidates}
+            id={"workspace-memory-candidate-#{Support.safe_id(entry.path)}"}
+            class="workspace-operator-row"
+          >
+            <div class="min-w-0">
+              <div class="font-medium">{entry.summary}</div>
+              <div class="text-xs">
+                category={entry.category} status={Support.status_label(entry.review_status)} {entry.timestamp}
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button
+                type="button"
+                id={"workspace-memory-keep-#{Support.safe_id(entry.path)}"}
+                class={Support.button_class!("primary")}
+                phx-click="memory_keep"
+                phx-target={@myself}
+                phx-value-path={entry.path}
+              >
+                Keep
+              </button>
+              <button
+                type="button"
+                id={"workspace-memory-reject-#{Support.safe_id(entry.path)}"}
+                class={Support.button_class!("secondary")}
+                phx-click="memory_reject"
+                phx-target={@myself}
+                phx-value-path={entry.path}
+              >
+                Reject
+              </button>
+              <button
+                type="button"
+                id={"workspace-memory-delete-#{Support.safe_id(entry.path)}"}
+                class={Support.button_class!("secondary")}
+                phx-click="memory_delete"
+                phx-target={@myself}
+                phx-value-path={entry.path}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </article>
+    """
+  end
+
+  defp refresh(socket) do
+    case Memory.list_entries(review_status: :unreviewed, limit: @candidate_limit) do
+      {:ok, candidates} ->
+        assign(socket,
+          memory_loaded?: true,
+          memory_diagnostics: "",
+          memory_candidates: candidates
+        )
+    end
+  rescue
+    error ->
+      assign(socket,
+        memory_loaded?: true,
+        memory_candidates: [],
+        memory_diagnostics: "Unable to load memory candidates: #{inspect(error)}"
+      )
+  end
+
+  defp review_memory(socket, path, status, success_notice) do
+    context = Support.action_context(socket.assigns)
+    params = memory_params(%{path: path, status: status}, context)
+
+    case Runner.run("review_memory_entry", params, context) do
+      {:ok, %{status: :completed} = response} ->
+        assign_memory_success(socket, success_notice, response)
+
+      {:ok, response} ->
+        assign(socket, :memory_diagnostics, memory_action_error(response))
+    end
+  end
+
+  defp delete_memory(socket, path) do
+    context = Support.action_context(socket.assigns)
+    params = memory_params(%{path: path}, context)
+
+    case Runner.run("delete_memory_entry", params, context) do
+      {:ok, %{status: :needs_confirmation, confirmation_id: id}} ->
+        approve_delete(socket, id, context)
+
+      {:ok, %{status: :completed} = response} ->
+        assign_memory_success(socket, "Deleted memory entry.", response)
+
+      {:ok, response} ->
+        assign(socket, :memory_diagnostics, memory_action_error(response))
+    end
+  end
+
+  defp approve_delete(socket, confirmation_id, context) do
+    case Runner.run(
+           "approve_confirmation",
+           %{id: confirmation_id, reason: "memory panel delete"},
+           context
+         ) do
+      {:ok, %{status: :completed} = response} ->
+        assign_memory_success(socket, "Deleted memory entry.", response)
+
+      {:ok, response} ->
+        assign(socket, :memory_diagnostics, memory_action_error(response))
+    end
+  end
+
+  defp assign_memory_success(socket, notice, _response) do
+    assign(socket, memory_notice: notice, memory_diagnostics: "")
+  end
+
+  defp memory_params(base, context) do
+    maybe_put(base, :user_id, Support.field(context, :user_id))
+  end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
+  defp memory_action_error(response), do: Map.get(response, :message, inspect(response))
+end

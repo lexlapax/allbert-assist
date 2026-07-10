@@ -128,7 +128,9 @@ defmodule AllbertAssist.Workspace.Catalog do
     # v0.65 M3: `workspace:notes` is a first-class destination that surfaces the
     # notes/files app's own workspace_panel_surfaces (list + detail), so the tool
     # maps to both provider panel ids rather than a single core panel.
-    "notes" => [:notes_files_list_panel, :notes_files_detail_panel]
+    "notes" => [:notes_files_list_panel, :notes_files_detail_panel],
+    # v0.65 M4: `workspace:memory` renders the interactive memory-review panel.
+    "memory" => :core_memory_panel
   }
 
   @spec known_components() :: [AllbertAssist.Surface.component(), ...]

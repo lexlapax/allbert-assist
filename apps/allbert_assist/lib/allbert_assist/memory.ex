@@ -247,6 +247,36 @@ defmodule AllbertAssist.Memory do
     {:ok, entries}
   end
 
+  @doc """
+  Return exact counts of active memory entries grouped by review status.
+
+  Unlike `list_entries/1` — which sorts full entry structs and truncates to a
+  bounded sample — this scans every active entry file so
+  `allbert admin memory status` and the `workspace:memory` panel report exact
+  review-status totals. Accepts an optional `:category` filter. The returned map
+  always carries the four review statuses plus a `:total`.
+  """
+  @spec review_status_counts(keyword()) :: %{atom() => non_neg_integer()}
+  def review_status_counts(opts \\ []) when is_list(opts) do
+    category = Keyword.get(opts, :category)
+    categories = categories_for_filter(category)
+
+    counts =
+      ensure_root!()
+      |> memory_files(categories)
+      |> Enum.flat_map(&read_entry_file/1)
+      |> Enum.map(&Entry.from_map/1)
+      |> Enum.reduce(base_status_counts(), fn %Entry{review_status: status}, acc ->
+        Map.update(acc, status, 1, &(&1 + 1))
+      end)
+
+    Map.put(counts, :total, counts |> Map.values() |> Enum.sum())
+  end
+
+  defp base_status_counts do
+    Map.new([:unreviewed, :kept, :flagged, :prune_nominated], &{&1, 0})
+  end
+
   @doc "Read one active memory entry by path."
   @spec read_entry(String.t(), keyword()) :: {:ok, Entry.t()} | {:error, term()}
   def read_entry(path, opts \\ [])

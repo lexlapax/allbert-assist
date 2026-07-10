@@ -1,11 +1,9 @@
 # credo:disable-for-this-file Credo.Check.Readability.ModuleDoc
 # Component docs are injected by AllbertAssistWeb.Workspace.Components.Base.
 
-defmodule AllbertAssistWeb.Workspace.Components.MemoryReviewCard do
-  use AllbertAssistWeb.Workspace.Components.Base,
-    component: :memory_review_card,
-    description: "Memory review card"
-end
+# v0.65 M4: the `:memory_review_card` component now renders the interactive
+# `workspace:memory` review panel (AllbertAssistWeb.Workspace.Components.MemoryPanel),
+# so the earlier unwired placeholder card module was retired here.
 
 defmodule AllbertAssistWeb.Workspace.Components.JobCard do
   use AllbertAssistWeb.Workspace.Components.Base,

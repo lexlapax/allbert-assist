@@ -798,6 +798,23 @@ defmodule AllbertAssist.App.CoreApp do
           )
         ]
       ),
+      # v0.65 M4: interactive memory-review destination. Surfaces the existing,
+      # already-permissioned memory review loop (keep/reject/delete through the
+      # Runner); adds no new authority.
+      panel_surface(:core_memory_panel, "Memory", :canvas_panels, 49, [
+        panel_node(
+          "core-memory",
+          "Memory",
+          "Review what Allbert may remember: keep, reject, or delete candidates.",
+          [
+            %Node{
+              id: "memory-review-panel",
+              component: :memory_review_card,
+              props: %{zone: "canvas", title: "Memory"}
+            }
+          ]
+        )
+      ]),
       panel_surface(:core_settings_panel, "Settings Central", :canvas_panels, 50, [
         panel_node("core-settings", "Settings Central", "Workspace settings and credentials.", [
           %Node{

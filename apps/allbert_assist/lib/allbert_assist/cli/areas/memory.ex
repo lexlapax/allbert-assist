@@ -13,10 +13,12 @@ defmodule AllbertAssist.CLI.Areas.Memory do
   alias AllbertAssist.Actions.Helper, as: ActionHelper
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.CLI.Areas.Render
+  alias AllbertAssist.Memory
   alias AllbertAssist.Surfaces.ContextBuilder
 
   @usage """
   Usage:
+    mix allbert.memory status [--category notes|preferences|traces|skills|identity]
     mix allbert.memory list [--category notes|preferences|traces|skills|identity] [--namespace identity] [--status unreviewed|kept|flagged|prune_nominated] [--limit N] [--since YYYY-MM-DD] [--user USER]
     mix allbert.memory show PATH [--user USER]
     mix allbert.memory review PATH --status kept|flagged|prune_nominated [--note "..."] [--user USER]
@@ -42,6 +44,21 @@ defmodule AllbertAssist.CLI.Areas.Memory do
   # -- routing ---------------------------------------------------------------
 
   defp route([], ctx), do: route(["list"], ctx)
+
+  # v0.65 M4: read-only review-status summary. Derives EXACT counts from a full
+  # scan (Memory.review_status_counts/1), not a bounded list sample, and adds no
+  # authority — it only reports the state of the already-permissioned review loop.
+  defp route(["status" | args], _ctx) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args, strict: [category: :string, user: :string, operator: :string])
+
+    with :ok <- reject_invalid(invalid),
+         :ok <- reject_rest(rest, "status"),
+         {:ok, _user_id} <- resolve_user_id(opts) do
+      counts = Memory.review_status_counts(category: opts[:category])
+      {:ok, {:status, counts, Memory.root()}}
+    end
+  end
 
   defp route(["list" | args], ctx) do
     {opts, rest, invalid} =
@@ -285,6 +302,14 @@ defmodule AllbertAssist.CLI.Areas.Memory do
   defp route(_args, _ctx), do: {:usage, @usage}
 
   # -- rendering -------------------------------------------------------------
+
+  defp render({:ok, {:status, counts, root}}) do
+    Render.ok([
+      "unreviewed=#{Map.get(counts, :unreviewed, 0)} kept=#{Map.get(counts, :kept, 0)} flagged=#{Map.get(counts, :flagged, 0)} prune_nominated=#{Map.get(counts, :prune_nominated, 0)}",
+      "total=#{Map.get(counts, :total, 0)}",
+      "root=#{root}"
+    ])
+  end
 
   defp render({:ok, {:list, []}}), do: Render.ok("No memory entries.")
 

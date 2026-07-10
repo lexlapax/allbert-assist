@@ -184,7 +184,10 @@ defmodule AllbertAssist.Surface.Catalog do
     approval_card: {:live_component, AllbertAssistWeb.Workspace.Components.ApprovalCard},
     approval_inspector:
       {:live_component, AllbertAssistWeb.Workspace.Components.ApprovalInspector},
-    memory_review_card: {:live_component, AllbertAssistWeb.Workspace.Components.MemoryReviewCard},
+    # v0.65 M4: the memory-review component renders the interactive
+    # `workspace:memory` review panel (keep/reject/delete through the Runner),
+    # replacing the earlier unwired placeholder card.
+    memory_review_card: {:live_component, AllbertAssistWeb.Workspace.Components.MemoryPanel},
     job_card: {:live_component, AllbertAssistWeb.Workspace.Components.JobCard},
     channel_card: {:live_component, AllbertAssistWeb.Workspace.Components.ChannelCard},
     settings_card: {:live_component, AllbertAssistWeb.Workspace.Components.SettingsCard},
