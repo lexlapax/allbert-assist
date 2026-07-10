@@ -124,7 +124,11 @@ defmodule AllbertAssist.Workspace.Catalog do
     "models" => :core_models_panel,
     "channels" => :core_channels_panel,
     "surface_policy" => :core_surface_policy_panel,
-    "settings" => :core_settings_panel
+    "settings" => :core_settings_panel,
+    # v0.65 M3: `workspace:notes` is a first-class destination that surfaces the
+    # notes/files app's own workspace_panel_surfaces (list + detail), so the tool
+    # maps to both provider panel ids rather than a single core panel.
+    "notes" => [:notes_files_list_panel, :notes_files_detail_panel]
   }
 
   @spec known_components() :: [AllbertAssist.Surface.component(), ...]
@@ -415,7 +419,7 @@ defmodule AllbertAssist.Workspace.Catalog do
         normalize_app_id(surface.app_id) == app_id and app_id != "allbert"
 
       {:workspace, tool} ->
-        surface.id == Map.get(@workspace_tool_panels, tool)
+        surface.id in List.wrap(Map.get(@workspace_tool_panels, tool))
     end
   end
 

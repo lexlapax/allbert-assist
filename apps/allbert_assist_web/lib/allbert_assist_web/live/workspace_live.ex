@@ -61,7 +61,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     %{"external_user_id" => @default_external_user_id, "user_id" => @default_user_id}
   ]
   @default_prompt_placeholder "Ask Allbert anything…"
-  @workspace_tools ~w(onboard create plan_build plan_runs discover marketplace calendar mail github jobs objectives confirmations security intents models channels surface_policy settings)
+  @workspace_tools ~w(onboard create plan_build plan_runs discover marketplace calendar mail github jobs objectives confirmations security intents models channels surface_policy settings notes)
   @voice_capture_accept ~w(.wav .mp3 .m4a .ogg .webm .flac)
   @voice_capture_upload_accept ~w(audio/*)
   @voice_capture_duration_skew_ms 5_000
@@ -2632,6 +2632,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   # operator-panel destinations (models/channels/settings/trust) highlight the right
   # sidebar item, and the plain workspace highlights "Workspace" (v0.61 M10.3 P0-8).
   defp workspace_nav_key("workspace:models"), do: "models"
+  defp workspace_nav_key("workspace:notes"), do: "notes"
   defp workspace_nav_key("workspace:channels"), do: "channels"
   defp workspace_nav_key("workspace:settings"), do: "settings"
   defp workspace_nav_key("workspace:surface_policy"), do: "trust"
@@ -2640,6 +2641,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   # Per-destination document title so the browser tab / screen-reader announcement
   # changes as the operator navigates workspace destinations (v0.61 M10.3 P1).
   defp workspace_page_title("workspace:models"), do: "Models"
+  defp workspace_page_title("workspace:notes"), do: "Notes"
   defp workspace_page_title("workspace:channels"), do: "Channels"
   defp workspace_page_title("workspace:settings"), do: "Settings"
   defp workspace_page_title("workspace:surface_policy"), do: "Trust"

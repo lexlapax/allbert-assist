@@ -444,6 +444,7 @@ defmodule AllbertAssistWeb.Layouts do
   # not as a top-level pill.
   defp nav_icon("launch"), do: "hero-home-micro"
   defp nav_icon("workspace"), do: "hero-rectangle-group-micro"
+  defp nav_icon("notes"), do: "hero-document-text-micro"
   defp nav_icon("objectives"), do: "hero-flag-micro"
   defp nav_icon("jobs"), do: "hero-queue-list-micro"
   defp nav_icon("models"), do: "hero-cpu-chip-micro"
@@ -547,6 +548,7 @@ defmodule AllbertAssistWeb.Layouts do
         label: "Work",
         items: [
           nav_item(active, "workspace", "Workspace", ~p"/workspace"),
+          nav_item(active, "notes", "Notes", "/workspace?destination=workspace:notes"),
           nav_item(active, "objectives", "Objectives", ~p"/objectives")
         ]
       },

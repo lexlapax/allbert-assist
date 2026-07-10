@@ -187,6 +187,54 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     end
   end
 
+  # v0.65 M3: `workspace:notes` is a first-class workspace destination — a "Notes"
+  # nav item + named destination + page title — that renders the notes/files app's
+  # own `workspace_panel_surfaces` (list + detail), reachable without a raw URL.
+  test "v0.65 M3: the Notes nav item is present in the operator sidebar", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+
+    assert has_element?(
+             view,
+             "#operator-nav-notes[href='/workspace?destination=workspace:notes']",
+             "Notes"
+           )
+  end
+
+  test "v0.65 M3: the workspace:notes destination renders the notes app panels", %{
+    conn: conn,
+    root: root
+  } do
+    notes_root = Path.join(root, "notes")
+    File.mkdir_p!(notes_root)
+
+    File.write!(
+      Path.join(notes_root, "m3-fixture.md"),
+      "# Allbert Notes M3 Fixture\n\nGrounded local-knowledge note for the workspace:notes panel.\n"
+    )
+
+    thread = create_workspace_thread("Notes destination")
+
+    {:ok, view, _html} =
+      live(conn, ~p"/workspace?thread_id=#{thread.id}&destination=workspace:notes")
+
+    # Reaches the notes destination — does NOT degrade to the output canvas.
+    assert has_element?(
+             view,
+             "#workspace-shell[data-canvas-destination='workspace:notes'][data-canvas-drawer='open']"
+           )
+
+    refute has_element?(view, "#workspace-shell[data-canvas-destination='output']")
+
+    # The notes/files app's own list panel surface renders under the destination.
+    assert has_element?(
+             view,
+             "[data-workspace-node^='workspace-panel-notes_files-notes_files_list_panel']"
+           )
+
+    # And the real note (search/read) is surfaced, not just an empty placeholder.
+    assert render(view) =~ "Allbert Notes M3 Fixture"
+  end
+
   test "the channels destination renders the populated read-only channels panel", %{conn: conn} do
     thread = create_workspace_thread("Channels")
 
