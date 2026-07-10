@@ -35,19 +35,18 @@ For contributors:
 - [Operator onboarding](operator/onboarding.md)
 - [Operator workspace guide](operator/workspace.md)
 
-The current release line is **v0.63 (Guided Onboarding & Profiles), tagged `v0.63.0`
-on 2026-07-09**: first-run onboarding is an operator-facing web and terminal wizard
-(`allbert onboard --quickstart` / `--advanced`) over the v0.62 packaged entry points,
-with reviewed user-category profile writes and provider credentials resolved through the
-three-tier secret vault. It now feeds into the inserted v0.64 trusted-install /
-non-developer first-run release, v0.65 local files/notes/memory release, and v0.66
-product RC. The prior line was v0.62 (Packaging & Entry Points): packaged product
-release `v0.62.0` (GitHub Latest, used by installers and Homebrew) with a source/docs
-point release `v0.62.1`.
+The current release line is **v0.64.2 (Corrective Trusted Install And First-Boot
+Hardening), tagged `v0.64.2`**: packaged install and repairable first run are the primary
+operator path, with curl fail-closed cosign verification, a current Homebrew formula/tap,
+service-first startup, guided local model repair, and a startup migration lock for
+concurrent fresh-Home first commands. It feeds into v0.65 local files/notes/memory and
+v0.66 product RC. The prior line was v0.63 (Guided Onboarding & Profiles), tagged
+`v0.63.0` on 2026-07-09.
 
 The v0.60/v0.60b design artifacts live under `docs/design/`; v0.61/v0.61b record
 the web shell and presentation work; v0.62 records packaging, first-model path,
-and three-tier vault; v0.63 plans the guided onboarding/profile implementation.
+and three-tier vault; v0.63 records the guided onboarding/profile implementation; v0.64
+records trusted install and non-developer first-run hardening.
 For release-specific validation, use the matching request-flow document rather
 than this index.
 

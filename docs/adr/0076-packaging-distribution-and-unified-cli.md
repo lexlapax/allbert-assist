@@ -170,21 +170,27 @@ and inspectability promises extend to it:
   declarative entries and operator-confirmed dynamic drafts remain the runtime
   extension paths. This is a documented product fact, not a defect.
 
-## Amendment (v0.64 planned, 2026-07-09)
+## Amendment (v0.64 implemented, 2026-07-10 UTC)
 
-v0.64 closes the v0.62 trust-on-first-use gap for the non-developer first run:
+v0.64 closes the v0.62 trust-on-first-use gap for the non-developer first run and
+records the package-manager boundary explicitly:
 
-- Installer-side signature verification is mandatory and fail-closed for the
-  packaged install path. If the verifier is missing, the installer may guide a
-  supported verifier install path, but it must not install the Allbert artifact
-  until verification succeeds.
+- The curl installer performs mandatory, fail-closed signature verification. It
+  downloads `SHA256SUMS.cosign.bundle`, requires `cosign verify-blob` against the
+  GitHub Actions workflow identity/issuer, and does not install the Allbert artifact
+  until signature and artifact SHA256 verification both succeed.
+- The Homebrew path uses Homebrew's package-manager trust contract: the trusted tap
+  formula pins the release URL and SHA256 for each target, and Homebrew verifies the
+  artifact against those values. It does not run the curl installer's cosign verifier
+  inside `brew install`. v0.64.2 makes the tap-fill process version-aware so formula
+  version, URLs, and checksums update together before tap publication.
 - **Sign↔verify coupling (required same-release).** The release workflow's cosign
-  *sign* step is currently `continue-on-error: true` — a v0.63 mitigation for a
-  Fulcio OIDC outage that let releases publish without a signature bundle. A
-  fail-closed installer verifier against an optionally-signed release would reject
-  legitimate artifacts. v0.64 therefore **re-hardens the sign step to a hard gate in
-  the same release** that introduces installer verification
-  (`.github/workflows/release-artifacts.yml`); the two changes cannot land apart.
+  *sign* step is a hard gate in the same release that introduces installer
+  verification (`.github/workflows/release-artifacts.yml`); the two changes cannot
+  land apart. `v0.64.0` correctly blocked before publish when the Linux rehearsal did
+  not create a cosign bundle for the local `file://` installer path, and `v0.64.1`
+  fixed the rehearsal by signing local checksums before running the fail-closed
+  installer.
 - The primary packaged first-run path is persistent service start plus browser
   onboarding. Foreground `allbert serve` remains a diagnostic and service-manager
   fallback.
@@ -194,6 +200,12 @@ v0.64 closes the v0.62 trust-on-first-use gap for the non-developer first run:
   web progress surface for the pull API.
 - Upgrade rollback must be either automated or documented as a proven restore
   command from the backup-before-migrate artifact before v0.64 can close.
+- Startup migrations now acquire a bounded cross-process lock before pre-supervision
+  migration work so concurrent fresh-Home first commands do not both enter migration
+  execution before the runtime writer lock is held.
+- Developer-ID signing/notarization did not ship for the current Homebrew/curl
+  distribution path. It remains future work for a browser-downloaded/native desktop
+  distribution channel, not a blocker for the v0.64 Homebrew/curl package path.
 
 ## Non-goals and guardrails
 
@@ -209,9 +221,10 @@ v0.64 closes the v0.62 trust-on-first-use gap for the non-developer first run:
   version/Home/user/protocol mismatches instead of booting a second writer.
   v0.62 ships the UDS mechanism ratified at S2; loopback distribution remains a
   rejected fallback, not an implementation dependency.
-- Signing/notarization and automated rollback are deferred with a **written
-  v0.64 intake** (`v0.64-plan.md` M0); the deferral is recorded on both
-  sides, not just here.
+- Developer-ID signing/notarization remains future work for a distribution channel
+  that needs it. v0.64 ships Homebrew/curl distribution with curl cosign verification,
+  Homebrew formula SHA256 verification, and a proven backup-restore path rather than
+  automated rollback.
 
 ## Platform Support Tiers And Feasibility Spike
 

@@ -110,6 +110,44 @@ defmodule AllbertAssist.DatabaseTest do
     refute_received :should_not_migrate
   end
 
+  test "pre-supervision migrations serialize concurrent first-boot attempts", %{home: home} do
+    database_path = Path.join([home, "db", "allbert.sqlite3"])
+    configure_repo_database(database_path)
+    System.put_env("ALLBERT_AUTO_MIGRATE", "1")
+
+    parent = self()
+
+    first =
+      Task.async(fn ->
+        Database.migrate_before_supervision!(fn ->
+          send(parent, {:entered_migration, self()})
+
+          receive do
+            :finish_migration -> :ok
+          after
+            5_000 -> raise "first migration test runner timed out"
+          end
+        end)
+      end)
+
+    assert_receive {:entered_migration, first_runner}, 1_000
+
+    second =
+      Task.async(fn ->
+        Database.migrate_before_supervision!(fn ->
+          send(parent, {:entered_migration, self()})
+          :ok
+        end)
+      end)
+
+    refute_receive {:entered_migration, _second_runner}, 150
+    send(first_runner, :finish_migration)
+
+    assert Task.await(first, 1_000)
+    assert Task.await(second, 5_000)
+    assert_receive {:entered_migration, _second_runner}, 1_000
+  end
+
   test "migration paths include core and checked-in plugin migrations" do
     paths = Database.migration_paths()
 

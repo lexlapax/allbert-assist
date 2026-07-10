@@ -15,6 +15,7 @@ defmodule AllbertAssist.InstallPathTest do
   @install Path.join(@repo_root, "scripts/install/install.sh")
   @uninstall Path.join(@repo_root, "scripts/install/uninstall.sh")
   @formula Path.join(@repo_root, "homebrew/allbert.rb")
+  @fill_sha256 Path.join(@repo_root, "homebrew/fill-sha256.sh")
   @workflow Path.join(@repo_root, ".github/workflows/release-artifacts.yml")
   @root_mix Path.join(@repo_root, "mix.exs")
   @overlay Path.join(@repo_root, "rel/overlays/bin/allbert-dispatch")
@@ -37,6 +38,9 @@ defmodule AllbertAssist.InstallPathTest do
     assert body =~ "https://token.actions.githubusercontent.com"
     assert body =~ "release-artifacts.yml@refs/tags"
     assert body =~ "checksum mismatch"
+    assert body =~ "allbert admin service install --dry-run"
+    assert body =~ "allbert admin confirmations approve <ID>"
+    assert body =~ "allbert serve --open"
     assert body =~ "main() {" and body =~ "\nmain \"$@\""
     # Only Tier-1 targets; WSL2 note for Windows.
     assert body =~ "macos-arm64" and body =~ "linux-x64" and body =~ "linux-arm64"
@@ -77,13 +81,68 @@ defmodule AllbertAssist.InstallPathTest do
 
   test "the Homebrew formula is a formula with a service block and per-platform urls" do
     body = File.read!(@formula)
+    version = project_version()
+
     assert body =~ "class Allbert < Formula"
+    assert body =~ ~s(version "#{version}")
     # Formula (not cask) so `brew services` works for `allbert serve`.
     assert body =~ "service do"
     assert body =~ ~s{run [opt_bin/"allbert", "serve"]}
     # Per-platform prebuilt artifacts + checksums (placeholders filled at release).
-    assert body =~ "macos-arm64" and body =~ "linux-x64" and body =~ "linux-arm64"
+    for target <- ["macos-arm64", "linux-x64", "linux-arm64"] do
+      assert body =~ "allbert-v#{version}-#{target}.tar.gz"
+      assert body =~ "releases/download/v#{version}"
+    end
+
     assert body =~ "sha256"
+    refute body =~ "v0.63.0"
+  end
+
+  test "fill-sha256 updates formula version, urls, and checksums from release sums" do
+    assert {_, 0} = System.cmd("sh", ["-n", @fill_sha256], stderr_to_stdout: true)
+
+    tmp =
+      Path.join(System.tmp_dir!(), "allbert-fill-sha256-#{System.unique_integer([:positive])}")
+
+    File.mkdir_p!(tmp)
+    on_exit(fn -> File.rm_rf!(tmp) end)
+
+    formula = Path.join(tmp, "allbert.rb")
+
+    stale_formula =
+      @formula
+      |> File.read!()
+      |> String.replace(~s(version "#{project_version()}"), ~s(version "0.63.0"))
+      |> String.replace("v#{project_version()}", "v0.63.0")
+
+    File.write!(formula, stale_formula)
+
+    version = project_version()
+    macos_arm64 = String.duplicate("a", 64)
+    linux_x64 = String.duplicate("b", 64)
+    linux_arm64 = String.duplicate("c", 64)
+    sums = Path.join(tmp, "SHA256SUMS")
+
+    File.write!(sums, """
+    #{macos_arm64}  allbert-v#{version}-macos-arm64.tar.gz
+    #{linux_x64}  allbert-v#{version}-linux-x64.tar.gz
+    #{linux_arm64}  allbert-v#{version}-linux-arm64.tar.gz
+    """)
+
+    assert {output, 0} = System.cmd("sh", [@fill_sha256, sums, formula], stderr_to_stdout: true)
+    assert output =~ "filled #{formula} for v#{version}"
+
+    body = File.read!(formula)
+    assert body =~ ~s(version "#{version}")
+    refute body =~ "v0.63.0"
+    refute body =~ "REPLACE_"
+
+    assert body =~ "allbert-v#{version}-macos-arm64.tar.gz"
+    assert body =~ "allbert-v#{version}-linux-x64.tar.gz"
+    assert body =~ "allbert-v#{version}-linux-arm64.tar.gz"
+    assert body =~ macos_arm64
+    assert body =~ linux_x64
+    assert body =~ linux_arm64
   end
 
   # v0.62 M8.6 (audit blocker): the operator dispatcher must be installed AS
@@ -175,5 +234,12 @@ defmodule AllbertAssist.InstallPathTest do
     assert rehearsal =~ "SHA256SUMS.cosign.bundle"
     assert rehearsal =~ "cosign sign-blob"
     assert rehearsal =~ "ALLBERT_REHEARSAL_SIGN_CHECKSUMS"
+  end
+
+  defp project_version do
+    @root_mix
+    |> File.read!()
+    |> then(&Regex.run(~r/version: "([^"]+)"/, &1))
+    |> List.last()
   end
 end

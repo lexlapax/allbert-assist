@@ -10,6 +10,34 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.64.2 - Corrective Trusted Install And First-Boot Hardening
+
+Status: **released — tagged `v0.64.2` (2026-07-10 UTC), version 0.64.2**. Corrective
+v0.64 product release for the post-v0.64.1 readiness audit: v0.64.1 proved the
+curl installer trust path, but the public Homebrew tap still resolved to
+`0.63.0`, the checked-in formula template was stale, the formula fill helper
+only changed checksums, and concurrent first commands against a fresh Allbert
+Home could race during startup migrations before the runtime writer lock was
+held.
+
+- **Homebrew freshness is release-gated.** The checked-in formula template now
+  points at `v0.64.2`, and `homebrew/fill-sha256.sh` updates formula version,
+  per-target release URLs, and SHA256 rows together from the published
+  `SHA256SUMS`. The install-path regression test now fails stale formula
+  versions/URLs and proves fill output has no placeholders or old release URLs.
+- **First-boot migrations serialize.** Startup migrations acquire the same
+  cross-process sidecar lock family used by the runtime writer guard, recheck
+  migration necessity after acquiring it, and show a retry-oriented error if the
+  database is still being prepared. The v0.64 release gate now includes the
+  focused database test that proves concurrent first-boot attempts do not enter
+  migrations together.
+- **Operator copy is service-first.** The curl installer now finishes with
+  `allbert admin service install --dry-run`, confirmation approval, and
+  foreground `allbert serve --open` only as a repair fallback. Operator docs,
+  ADR 0076, the roadmap, and current release indexes are reconciled so v0.64
+  no longer mixes "validation pending", pre-v0.64 TOFU language, and stale
+  Homebrew claims.
+
 ## v0.64.1 - Trusted Install And Non-Developer First Run
 
 Status: **released — tagged `v0.64.1` (2026-07-09), version 0.64.1, GitHub Release

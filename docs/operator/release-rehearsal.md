@@ -1,16 +1,16 @@
-# Release & Install Rehearsal (v0.62+)
+# Release & Install Rehearsal (packaged releases)
 
-This is the operator runbook for cutting a v0.62-style packaged release and
+This is the operator runbook for cutting a packaged Allbert release and
 validating the packaged `allbert` on Tier-1 OS paths before announcing it.
 Two automated layers precede the manual/operator layer: the source release gate
-(`mix allbert.test release.v0NN` for the current line — e.g. `release.v063`) and the CI
+(`mix allbert.test release.v0NN` for the current line — e.g. `release.v064`) and the CI
 artifact smoke. This doc
 covers the steps that need a published release, a package manager, a TTY, Docker,
 or real host services.
 
-v0.62.0 is already shipped and tagged. The v0.62b follow-up uses this runbook to
-close the reusable distribution evidence: Homebrew tap fill, packaged TUI
-transcript, and both Linux Docker rehearsals.
+v0.62 introduced the packaged release path. v0.64.2 is the current corrective
+trusted-install release line and uses this runbook to close Homebrew tap fill,
+package-manager install, curl trust, packaged TUI, and Linux rehearsal evidence.
 
 ## 1. Publish the release
 
@@ -18,8 +18,8 @@ For future packaged releases, the tag is operator-held. Cut an annotated tag on
 the reviewed commit:
 
 ```sh
-git tag -a v0.62.0 -m "Allbert v0.62.0"
-git push origin v0.62.0
+git tag -a v0.64.2 -m "Allbert v0.64.2"
+git push origin v0.64.2
 ```
 
 The tag push fires `.github/workflows/release-artifacts.yml`:
@@ -55,24 +55,27 @@ gh release list --repo lexlapax/allbert-assist
 Verify release and tag state after publish:
 
 ```sh
-gh release view v0.62.0 --repo lexlapax/allbert-assist \
-  --json tagName,isLatest,publishedAt,url
-git ls-remote --tags origin 'v0.62*'
-git rev-parse v0.62.0^{}
+gh release view v0.64.2 --repo lexlapax/allbert-assist \
+  --json tagName,publishedAt,url
+git ls-remote --tags origin 'v0.64*'
+git rev-parse v0.64.2^{}
 ```
 
-**Trust model note (v0.62).** The published `SHA256SUMS.cosign.bundle` exists for
-out-of-band, operator-driven manual verification. The curl installer and the
-Homebrew formula verify only the SHA256 against `SHA256SUMS` fetched over HTTPS
-from the same release origin (trust-on-first-use over HTTPS), and add no `cosign`
-dependency in v0.62. Mandatory installer-side signature verification is a
-recorded v0.64 trusted-install intake item. To verify a release by hand before trusting it:
+**Trust model note.** v0.62/v0.63 used SHA256 verification over the same HTTPS release
+origin, with `SHA256SUMS.cosign.bundle` available only for out-of-band verification.
+v0.64 changes the curl installer path: `install.sh` now requires `cosign`, verifies the
+signed checksum bundle against the GitHub Actions workflow identity, and refuses to
+install if signature verification cannot complete. The Homebrew path remains a
+package-manager path: the trusted tap formula pins release URLs and SHA256 values, and
+Homebrew verifies the artifact against those formula values. To verify a release by hand:
 
 ```sh
-gh release download v0.62.0 --repo lexlapax/allbert-assist \
-  --pattern 'SHA256SUMS*' --dir /tmp/allbert-v062
-cosign verify-blob --bundle /tmp/allbert-v062/SHA256SUMS.cosign.bundle \
-  /tmp/allbert-v062/SHA256SUMS \
+VERSION=v0.64.2
+mkdir -p "/tmp/allbert-${VERSION}"
+gh release download "$VERSION" --repo lexlapax/allbert-assist \
+  --pattern 'SHA256SUMS*' --dir "/tmp/allbert-${VERSION}"
+cosign verify-blob --bundle "/tmp/allbert-${VERSION}/SHA256SUMS.cosign.bundle" \
+  "/tmp/allbert-${VERSION}/SHA256SUMS" \
   --certificate-identity-regexp '.*' --certificate-oidc-issuer-regexp '.*'
 ```
 
@@ -86,16 +89,18 @@ gh run watch
 ## 2. Fill The Homebrew Tap
 
 The tap lives at [`lexlapax/homebrew-allbert`](https://github.com/lexlapax/homebrew-allbert)
-(`Formula/allbert.rb`). Fill checksums from the published release, not by hand:
+(`Formula/allbert.rb`). Fill the formula from the published release, not by hand. The
+helper updates version, per-target URLs, and SHA256 rows together:
 
 ```sh
 ALLBERT_ASSIST_CHECKOUT="${ALLBERT_ASSIST_CHECKOUT:-$(pwd)}"  # run from allbert-assist checkout
-mkdir -p /tmp/allbert-v062
-gh release download v0.62.0 --repo lexlapax/allbert-assist \
-  --pattern SHA256SUMS --dir /tmp/allbert-v062
+VERSION=v0.64.2
+mkdir -p "/tmp/allbert-${VERSION}"
+gh release download "$VERSION" --repo lexlapax/allbert-assist \
+  --pattern SHA256SUMS --dir "/tmp/allbert-${VERSION}"
 git clone https://github.com/lexlapax/homebrew-allbert /tmp/homebrew-allbert
 sh "$ALLBERT_ASSIST_CHECKOUT/homebrew/fill-sha256.sh" \
-  /tmp/allbert-v062/SHA256SUMS \
+  "/tmp/allbert-${VERSION}/SHA256SUMS" \
   /tmp/homebrew-allbert/Formula/allbert.rb
 ```
 
@@ -106,15 +111,16 @@ cd /tmp/homebrew-allbert
 git diff -- Formula/allbert.rb
 rg -n 'PLACEHOLDER|TODO|sha256' Formula/allbert.rb
 brew tap lexlapax/allbert /tmp/homebrew-allbert --custom-remote
-brew trust lexlapax/allbert
+brew trust --formula lexlapax/allbert/allbert
 brew audit --strict --online --formula allbert
 git add Formula/allbert.rb
-git commit -m "allbert v0.62.0"
+git commit -m "allbert ${VERSION#v}"
 git push origin main
 ```
 
-Evidence to record: tap commit hash, audit output, the three formula SHA256 rows,
-and confirmation that no placeholder checksum remains.
+Evidence to record: tap commit hash, audit output, `brew info lexlapax/allbert/allbert`
+showing the current version, the three formula SHA256 rows, and confirmation that no
+placeholder checksum or old release URL remains.
 
 Homebrew 6 note: path-based `brew audit [path ...]` is disabled, and untrusted
 third-party taps are refused. Audit by tapped formula name after trusting the tap.
@@ -128,20 +134,21 @@ requested; set a disposable `ALLBERT_HOME` for rehearsal.
 ### curl installer (macOS + Linux)
 
 ```sh
-export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v062-install.XXXXXX)"
+export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v064-install.XXXXXX)"
 curl -fsSL https://raw.githubusercontent.com/lexlapax/allbert-assist/main/scripts/install/install.sh | sh
-#   ALLBERT_VERSION=v0.62.0   pin a version (default: latest)
+#   ALLBERT_VERSION=v0.64.2   pin a version (default: latest)
 #   ALLBERT_PREFIX=~/.local   install prefix
 export PATH="$HOME/.local/bin:$PATH"
-allbert --version                 # allbert 0.62.0
+allbert --version                 # allbert 0.64.2
 allbert admin status              # renders operator status through the spine
 ```
 
 ### Homebrew (macOS + Linux)
 
 ```sh
-export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v062-brew.XXXXXX)"
+export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v064-brew.XXXXXX)"
 brew tap lexlapax/allbert
+brew trust --formula lexlapax/allbert/allbert   # if Homebrew requires tap trust
 brew install lexlapax/allbert/allbert
 allbert --version
 allbert admin status
@@ -179,7 +186,7 @@ allbert admin confirmations approve <ID>          # installs the per-user servic
 allbert admin service uninstall                   # confirmation-gated; removes the unit
 ```
 
-### v0.64 readiness overlay
+### v0.64+ readiness overlay
 
 For v0.64 and later rehearsals, the primary non-developer path starts with the
 persistent service and browser workspace, not foreground `allbert serve`.
@@ -189,6 +196,10 @@ prove:
 - installer-side cosign verification succeeds before artifact install;
 - missing verifier tooling follows the guided verifier setup path and still
   fails closed if verification cannot complete;
+- Homebrew resolves to the current release formula, not an older tap commit, and
+  `brew test allbert` passes;
+- concurrent fresh-Home first commands serialize startup migration and avoid raw
+  duplicate-table migration errors;
 - consumer-default onboarding guides local runtime setup if needed, then pulls
   the curated local model with web-visible progress;
 - the operator never has to run the `ollama` CLI or provide an API key on the
@@ -289,19 +300,22 @@ Prepare the Linux artifacts:
 
 ```sh
 ALLBERT_ASSIST_CHECKOUT="${ALLBERT_ASSIST_CHECKOUT:-$(pwd)}"  # run from allbert-assist checkout
-mkdir -p /tmp/allbert-v062/artifacts
-gh release download v0.62.0 --repo lexlapax/allbert-assist \
-  --pattern 'allbert-v0.62.0-linux-*.tar.gz' \
+VERSION=v0.64.2
+WORK="/tmp/allbert-${VERSION}"
+mkdir -p "$WORK/artifacts"
+gh release download "$VERSION" --repo lexlapax/allbert-assist \
+  --pattern "allbert-${VERSION}-linux-*.tar.gz" \
   --pattern SHA256SUMS \
-  --dir /tmp/allbert-v062/artifacts
+  --dir "$WORK/artifacts"
 ```
 
 Run both Linux targets:
 
 ```sh
 docker run --rm --platform linux/arm64 \
-  --mount type=bind,source=/tmp/allbert-v062,target=/work,readonly \
+  --mount type=bind,source="$WORK",target=/work,readonly \
   --mount type=bind,source="$ALLBERT_ASSIST_CHECKOUT",target=/repo,readonly \
+  --env VERSION="$VERSION" \
   --workdir /tmp \
   ubuntu:22.04 \
   bash -lc 'set -euo pipefail
@@ -316,12 +330,13 @@ docker run --rm --platform linux/arm64 \
     export LANG=C.UTF-8 LC_ALL=C.UTF-8
     (cd artifacts && sha256sum -c SHA256SUMS --ignore-missing)
     mkdir -p extract-arm64
-    tar -xzf artifacts/allbert-v0.62.0-linux-arm64.tar.gz -C extract-arm64
+    tar -xzf artifacts/allbert-${VERSION}-linux-arm64.tar.gz -C extract-arm64
     /repo/scripts/smoke/linux_rehearsal.sh /tmp/rehearsal/extract-arm64/allbert"'
 
 docker run --rm --platform linux/amd64 \
-  --mount type=bind,source=/tmp/allbert-v062,target=/work,readonly \
+  --mount type=bind,source="$WORK",target=/work,readonly \
   --mount type=bind,source="$ALLBERT_ASSIST_CHECKOUT",target=/repo,readonly \
+  --env VERSION="$VERSION" \
   --workdir /tmp \
   ubuntu:22.04 \
   bash -lc 'set -euo pipefail
@@ -336,7 +351,7 @@ docker run --rm --platform linux/amd64 \
     export LANG=C.UTF-8 LC_ALL=C.UTF-8 ERL_AFLAGS=\"+JMsingle true\"
     (cd artifacts && sha256sum -c SHA256SUMS --ignore-missing)
     mkdir -p extract-x64
-    tar -xzf artifacts/allbert-v0.62.0-linux-x64.tar.gz -C extract-x64
+    tar -xzf artifacts/allbert-${VERSION}-linux-x64.tar.gz -C extract-x64
     /repo/scripts/smoke/linux_rehearsal.sh /tmp/rehearsal/extract-x64/allbert"'
 ```
 
@@ -363,7 +378,7 @@ scrollback:
 | --- | --- | --- | --- |
 | Source gate | checkout compiles, tests, and release-specific evals pass | `mix allbert.test release.v0NN` (e.g. `release.v063`) | current line |
 | Artifact matrix | published artifacts boot and pass binary smoke | `.github/workflows/release-artifacts.yml` | v0.62 |
-| Tap fill | formula checksums match release checksums | `homebrew/fill-sha256.sh`; `brew audit --strict --online --formula` | v0.62b M1 |
+| Tap fill | formula version, URLs, and checksums match release checksums | `homebrew/fill-sha256.sh`; `brew audit --strict --online --formula` | v0.64.2 |
 | Package-manager install | package installs and invokes packaged binary | `brew install`; `brew test`; uninstall | v0.62b M2 |
 | Packaged TUI | installed binary runs the warm console in a TTY | `script ... allbert tui` | v0.62b M3 |
 | Docker Linux package smoke | both Linux artifacts install/start/attach/uninstall in containers | `docker run --platform linux/arm64`; `docker run --platform linux/amd64` | v0.62b M4 |
@@ -393,7 +408,8 @@ above and record current release ids, commits, and evidence paths.
 
 ## 8. Remaining Operator Follow-Ups
 
-- Fill/push the Homebrew tap and record tap audit/install/test evidence.
+- Fill/push the Homebrew tap for the current release and record tap audit/install/test
+  evidence.
 - Run the packaged TUI transcript.
 - Run both Docker Linux package rehearsals (`linux-arm64` and `linux-x64`).
 - Run a real-host Linux service/vault rehearsal when a suitable host is

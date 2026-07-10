@@ -34,8 +34,8 @@ becoming opaque or unbounded.
 
 ## Current Shape
 
-The current release line is **v0.64.1 (Trusted Install And Non-Developer First Run),
-tagged `v0.64.1`**. It makes packaged install and repairable first run the primary
+The current release line is **v0.64.2 (Corrective Trusted Install And First-Boot
+Hardening), tagged `v0.64.2`**. It makes packaged install and repairable first run the primary
 operator path: fail-closed installer-side cosign verification, bounded DB backup
 restore, persistent service posture, browser-first onboarding, guided local-runtime
 repair, curated local-model pull with progress, a standalone Models repair panel, and
@@ -50,8 +50,11 @@ cosign bundle. `v0.64.1` fixes that release-contract gap and publishes the real 
 release artifacts, checksums, and cosign bundle. Local macOS validation confirmed the
 published artifact, fail-closed installer guidance before `cosign` was available, full
 curl-install success after verifier installation, service health, attach, first-run
-guidance, and uninstall/Home preservation. See [CHANGELOG.md](CHANGELOG.md) for the
-current release status.
+guidance, and uninstall/Home preservation. `v0.64.2` closes the corrective readiness
+gap: the Homebrew tap/formula path now resolves to the current artifact set, formula fill
+updates version/URLs/checksums together, startup migrations serialize concurrent fresh-Home
+first commands, and installer/operator copy stays service-first. See
+[CHANGELOG.md](CHANGELOG.md) for the current release status.
 
 The prior line, v0.62 (Packaging & Entry Points), shipped as packaged release `v0.62.0`
 (Latest, 2026-07-07) with a source/docs point release `v0.62.1` (tagged 2026-07-07,
@@ -74,11 +77,11 @@ Today, Allbert includes:
 - Source-tree plugins and app surfaces, with StockSage as the main reference app.
 - Public protocol surfaces with bounded, policy-checked exposure.
 
-As of v0.64, Allbert has the trusted-install and repairable first-run substrate for a
-non-developer operator, with packaged manual validation still to run against published
-artifacts. The pre-1.0 plan closes the remaining launch gap explicitly: v0.65 owns the
-local files/notes/memory launch path, and v0.66 owns no-docs product RC validation
-before v1.0 freezes the public contracts.
+As of v0.64.2, Allbert has the trusted-install and repairable first-run substrate for a
+non-developer operator across the curl and Homebrew packaged paths. The pre-1.0 plan
+closes the remaining launch gap explicitly: v0.65 owns the local files/notes/memory
+launch path, and v0.66 owns no-docs product RC validation before v1.0 freezes the public
+contracts.
 
 ## What Allbert Is For
 

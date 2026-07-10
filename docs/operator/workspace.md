@@ -1,8 +1,9 @@
 # Operator Workspace
 
 Introduced in v0.58; consolidated into the single shell in v0.61b (ADR 0080); current as
-of v0.63, where first-run auto-opens the onboarding wizard (see
-[onboarding.md](onboarding.md)).
+of v0.64.2, where packaged first run starts from the service/browser path, first-run
+auto-opens onboarding, and missing-model states route to the standalone Models repair
+panel (see [onboarding.md](onboarding.md)).
 
 The operator workspace is `/workspace`. v0.58 keeps that route and changes the
 layout and panels on top of the existing authority spine.
@@ -70,11 +71,11 @@ ADR 0071 gate diagnostic and commit no mutation.
 ## Settings/Models Panel
 
 The Settings/Models panel shows the same model recommendation and configuration
-state as:
+state as the package-safe admin model/status commands:
 
 ```sh
-mix allbert.settings model-doctor
-mix allbert.model list
+allbert admin models list
+allbert admin models doctor openai
 ```
 
 The panel should show bounded, redacted status and diagnostics. Raw provider
@@ -94,9 +95,9 @@ confirmation is required, policy cannot override that decision.
 
 ## Manual Validation Evidence
 
-For the current release, follow the matching request-flow document under
-`docs/plans/` (v0.61b: `docs/plans/v0.61b-request-flow.md`). Historical v0.58
-validation followed `docs/plans/v0.58-request-flow.md`; evidence is kept
+For the current release, follow `docs/plans/v0.64-request-flow.md`, then the
+matching request-flow document for later releases. Historical v0.58 validation
+followed `docs/plans/v0.58-request-flow.md`; evidence is kept
 outside the repository under:
 
 ```text

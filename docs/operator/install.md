@@ -11,7 +11,7 @@ uninstall unless you explicitly ask.
   arm64). The binary, Homebrew + curl install, the `launchd`/`systemd` daemon,
   and OS-keychain credentials all work here.
 - **Tier 2 (best-effort):** Windows via **WSL2** — install the Linux build
-  inside WSL2. Native Windows packaging is not provided in v0.62.
+  inside WSL2. Native Windows packaging is not provided in the v0.64 release line.
 
 ## Homebrew (recommended on macOS and Linux)
 
@@ -26,6 +26,14 @@ The formula ships prebuilt per-platform binaries and registers an `allbert
 serve` service, so `brew services start allbert` runs Allbert in the
 background. Foreground `allbert serve` is a diagnostic or repair fallback, not
 the normal first-run path for a packaged install.
+
+Homebrew 6 may require explicit trust for third-party taps before it loads a
+formula. If Homebrew reports that `lexlapax/allbert` is untrusted, run:
+
+```sh
+brew trust --formula lexlapax/allbert/allbert
+brew install lexlapax/allbert/allbert
+```
 
 ## curl installer
 
@@ -142,16 +150,18 @@ the guided local-model setup) the Ollama installer fetch and model pull, each
 behind an explicit confirmation. The binary itself performs **no telemetry, no
 phone-home, and no auto-update check**.
 
-**Trust model through v0.63: trust-on-first-use over HTTPS.** The installer verifies
-the artifact against `SHA256SUMS`, but it fetches that checksum file over HTTPS
-from the *same* GitHub release origin as the artifact — so the check proves the
-download wasn't corrupted or truncated, not that it came from an independently
-trusted signer. Practically, you are trusting the GitHub HTTPS release origin on
-first use. For a stronger check, verify the cosign signature bundle out-of-band
-before installing (see below); the installer does **not** do this for you in
-v0.62/v0.63. Mandatory installer-side signature verification is v0.64
-trusted-install scope: the installer must fail closed, guide verifier setup when
-the verifier is missing, and verify before installing. If you need that guarantee
-before v0.64 lands, do the manual cosign verification.
+**Current trust model (v0.64.2).** The curl installer is fail-closed on the signed
+checksum bundle: it downloads `SHA256SUMS.cosign.bundle`, requires `cosign`, verifies
+the checksum file against the GitHub Actions OIDC identity, then verifies the artifact
+SHA256 before installing. If `cosign` is missing or verification fails, nothing is
+installed.
+
+The Homebrew path uses Homebrew's package-manager contract: the trusted formula in
+`lexlapax/homebrew-allbert` pins the release URL and SHA256 for each platform, and
+Homebrew verifies the downloaded artifact against that formula. It does not run the
+curl installer's cosign step inside `brew install`; use the curl installer or the
+manual verification block above when you need the GitHub Actions OIDC signature check
+at install time.
+
 See `docs/adr/0076-packaging-distribution-and-unified-cli.md` (Distribution
 Trust) for the full posture.

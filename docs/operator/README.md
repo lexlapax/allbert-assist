@@ -6,7 +6,7 @@ requiring codebase knowledge.
 
 ## Start Here
 
-- [Onboarding](onboarding.md) - first local run from a fresh checkout.
+- [Onboarding](onboarding.md) - first packaged run and local assistant setup.
 - [Workspace](workspace.md) - `/workspace`, chat-primary layout, panels, and controls.
 - [Model recommendations](model-recommendations.md) - which model profile to use for each purpose.
 - [Voice and provider preferences](voice-and-provider-preferences.md) - voice/provider setup and expectations.
@@ -51,8 +51,7 @@ requiring codebase knowledge.
 ## Release Validation
 
 Release-specific operator validation belongs in the matching request-flow
-document under [plans](../plans/README.md). The current shipped line is v0.63
-(tagged `v0.63.0`); see [v0.63 request flow](../plans/v0.63-request-flow.md).
-The next planned line is v0.64 trusted install and non-developer first-run; see
-[v0.64 request flow](../plans/v0.64-request-flow.md). Product-RC validation now
-lives in [v0.66 request flow](../plans/v0.66-request-flow.md).
+document under [plans](../plans/README.md). The current shipped line is v0.64.2
+(tagged `v0.64.2`); see [v0.64 request flow](../plans/v0.64-request-flow.md).
+The next planned line is v0.65 local files/notes/memory, and product-RC
+validation lives in [v0.66 request flow](../plans/v0.66-request-flow.md).

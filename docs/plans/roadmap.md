@@ -4183,23 +4183,28 @@ Expected direction:
 Plan: `docs/plans/v0.64-plan.md`
 Request flow: `docs/plans/v0.64-request-flow.md`
 
-Status: released as `v0.64.1` on 2026-07-09; version 0.64.1. `mix allbert.test
-release.v064` passed. `v0.64.0` was tagged first, but its release-artifacts workflow
+Status: released as `v0.64.2` on 2026-07-10 UTC; version 0.64.2. `mix allbert.test
+release.v064` remains the deterministic handoff gate. `v0.64.0` was tagged first, but its release-artifacts workflow
 blocked before publish because the pre-publish Linux rehearsal did not create the cosign
 bundle required by the fail-closed installer. `v0.64.1` fixes that release-contract gap;
 the release-artifacts workflow passed and published GitHub Release assets. Local macOS
 validation confirmed fail-closed installer guidance before `cosign` was available, then
 after explicit verifier-install approval confirmed full curl-install success,
-boot/health/attach/first-run behavior, and uninstall/Home preservation. Moves
-distribution trust into the first-run release because a non-developer cannot separate
-"trust the installer" from "trust the product." It closes installer-side verification and
-rollback/restore posture, makes packaged install the primary docs path, and turns
-first-run blocked states into plain-language repair screens with one primary action.
+boot/health/attach/first-run behavior, and uninstall/Home preservation. `v0.64.2`
+corrects the remaining readiness gaps: stale Homebrew formula/tap resolution, formula
+fill that changed checksums without version/URLs, installer copy that still pointed at
+foreground `serve`, and concurrent first-boot startup migrations before the runtime
+writer lock. v0.64 moves distribution trust into the first-run release because a
+non-developer cannot separate "trust the installer" from "trust the product." It closes
+curl installer-side signature verification, Homebrew package-manager verification
+freshness, rollback/restore posture, packaged-install docs, and repairable first-run
+states.
 
 Expected direction:
 
 - Mandatory installer-side signature verification and explicit
-  rollback/restore posture.
+  rollback/restore posture for curl; Homebrew formula SHA256/tap trust is current and
+  separately validated.
 - Package-first docs; browser-first onboarding reached by starting Allbert as a
   persistent background service (`brew services` / `systemctl --user`) once — the
   non-developer never re-runs `serve`.

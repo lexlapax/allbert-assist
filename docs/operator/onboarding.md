@@ -25,6 +25,9 @@ brew services start allbert
 curl -fsS http://localhost:4000/health
 ```
 
+If Homebrew 6 refuses the third-party tap until it is trusted, run
+`brew trust --formula lexlapax/allbert/allbert`, then repeat the install.
+
 Or use the curl installer from [install.md](install.md), then preview and approve
 the user service:
 

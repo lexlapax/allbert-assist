@@ -9,9 +9,12 @@ defmodule AllbertAssist.Database do
 
   alias AllbertAssist.Paths
   alias AllbertAssist.Repo
+  alias AllbertAssist.Runtime.WriterLock
 
   @app :allbert_assist
   @startup_migration_pool_size 1
+  @startup_migration_lock_timeout_ms 15_000
+  @startup_migration_lock_retry_ms 100
 
   @doc "Return the canonical SQLite path derived from Allbert Home."
   @spec home_database_path() :: String.t()
@@ -57,8 +60,7 @@ defmodule AllbertAssist.Database do
     if skip_migrations?() do
       false
     else
-      :ok = runner.()
-      true
+      with_startup_migration_lock(fn -> run_startup_migrations_if_needed(runner) end)
     end
   end
 
@@ -197,6 +199,56 @@ defmodule AllbertAssist.Database do
     end
 
     :ok
+  end
+
+  defp with_startup_migration_lock(fun) when is_function(fun, 0) do
+    case repo_database_path() do
+      path when is_binary(path) ->
+        deadline = System.monotonic_time(:millisecond) + @startup_migration_lock_timeout_ms
+
+        case acquire_startup_migration_lock(path, deadline) do
+          {:ok, handle} ->
+            try do
+              fun.()
+            after
+              WriterLock.release(handle)
+            end
+
+          {:error, reason} ->
+            raise """
+            Another Allbert process is preparing the database for first run or upgrade.
+            Retry in a few seconds. Startup migration lock timed out after \
+            #{@startup_migration_lock_timeout_ms}ms (#{inspect(reason)}).
+            """
+        end
+
+      _other ->
+        fun.()
+    end
+  end
+
+  defp run_startup_migrations_if_needed(runner) do
+    if skip_migrations?() do
+      false
+    else
+      :ok = runner.()
+      true
+    end
+  end
+
+  defp acquire_startup_migration_lock(path, deadline) do
+    case WriterLock.acquire(path) do
+      {:ok, handle} ->
+        {:ok, handle}
+
+      {:error, reason} ->
+        if System.monotonic_time(:millisecond) >= deadline do
+          {:error, reason}
+        else
+          Process.sleep(@startup_migration_lock_retry_ms)
+          acquire_startup_migration_lock(path, deadline)
+        end
+    end
   end
 
   # Any Allbert-owned migration (core + checked-in plugin paths) not yet applied.

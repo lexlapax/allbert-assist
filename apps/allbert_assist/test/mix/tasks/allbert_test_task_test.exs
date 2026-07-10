@@ -204,6 +204,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
 
     assert release_v064_steps =~ ~s(id: "v064_trusted_install_restore")
     assert release_v064_steps =~ "test/allbert_assist/install_path_test.exs"
+    assert release_v064_steps =~ "test/allbert_assist/database_test.exs"
     assert release_v064_steps =~ "test/allbert_assist/database_backup_test.exs"
 
     assert release_v064_steps =~ ~s(id: "v064_model_and_first_run_repair")

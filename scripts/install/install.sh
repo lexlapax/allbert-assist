@@ -6,10 +6,10 @@
 # Prefer download-then-inspect:
 #   curl -fsSLO https://.../install.sh && less install.sh && sh install.sh
 #
-# Verifies the release artifact's SHA256 against the release's SHA256SUMS,
-# installs only documented files, writes an uninstall manifest, and never
-# touches Allbert Home. Wrapped in main() so a truncated download cannot run
-# a partial script.
+# Verifies the signed release SHA256SUMS with cosign before checking the
+# artifact SHA256, installs only documented files, writes an uninstall manifest,
+# and never touches Allbert Home. Wrapped in main() so a truncated download
+# cannot run a partial script.
 set -eu
 
 main() {
@@ -116,8 +116,11 @@ EOF
   } > "$MANIFEST"
 
   echo "allbert: installed. Ensure $BIN_DIR is on your PATH, then run:"
-  echo "    allbert serve"
+  echo "    allbert admin service install --dry-run"
+  echo "    allbert admin service install"
+  echo "    allbert admin confirmations approve <ID>"
   echo "allbert: your data lives in Allbert Home (~/.allbert) and is never touched by (un)install."
+  echo "allbert: if your platform has no user service manager, use 'allbert serve --open' as a repair fallback."
 }
 
 main "$@"

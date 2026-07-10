@@ -4679,11 +4679,14 @@ defmodule Mix.Tasks.Allbert.Test do
       args: [
         "test",
         "test/allbert_assist/install_path_test.exs",
+        "test/allbert_assist/database_test.exs",
         "test/allbert_assist/database_backup_test.exs",
         "test/allbert_assist/actions/registry_test.exs"
       ],
       coverage: [
         "installer downloads and verifies SHA256SUMS.cosign.bundle before checksum comparison",
+        "Homebrew formula fill updates version, URLs, and checksums together",
+        "startup migrations serialize concurrent first-boot attempts",
         "artifact signing is a hard release-workflow gate",
         "backup-before-migrate restore is listable, path-bounded, and confirmation-gated"
       ]

@@ -129,11 +129,11 @@ concrete repair or BYOK guidance and leaves the flag off. Applying a persona als
 the flag (belt-and-suspenders for the persona path, which QuickStart does not force).
 No new authority or egress: the key is an existing `@safe_write_key`.
 
-## Amendment (v0.64 planned, 2026-07-09) — two-tier model path + one-click consumer download
+## Amendment (v0.64 implemented, 2026-07-09) — two-tier model path + one-click consumer download
 
 The post-v0.63 product-readiness review retargeted 1.0 at a non-developer local-first
 operator (two-tier: consumer default + prosumer advanced). The First-Model Path is
-extended accordingly:
+extended accordingly and shipped in v0.64:
 
 - **Consumer default (new):** the web onboarding offers a **one-click in-app download of a
   curated local model** with an in-web progress surface. If the supported local runtime
