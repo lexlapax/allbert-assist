@@ -4201,7 +4201,9 @@ completion. v0.64 moves distribution trust into the first-run release because a
 non-developer cannot separate "trust the installer" from "trust the product." It closes
 curl installer-side signature verification, Homebrew package-manager verification
 freshness, rollback/restore posture, packaged-install docs, and repairable first-run
-states.
+states. `v0.64.4` is a source/docs point tag (`[skip-artifacts]`) that corrects
+remaining release-facing prose only; packaged artifacts and version metadata remain
+v0.64.3.
 
 Expected direction:
 

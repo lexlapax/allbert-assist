@@ -8,9 +8,11 @@ artifact smoke. This doc
 covers the steps that need a published release, a package manager, a TTY, Docker,
 or real host services.
 
-v0.62 introduced the packaged release path. v0.64.2 is the current corrective
+v0.62 introduced the packaged release path. v0.64.3 is the current packaged corrective
 trusted-install release line and uses this runbook to close Homebrew tap fill,
 package-manager install, curl trust, packaged TUI, and Linux rehearsal evidence.
+v0.64.4 is a source/docs point tag only; it uses `[skip-artifacts]` and does not create
+new packaged release assets.
 
 ## 1. Publish the release
 
@@ -18,8 +20,9 @@ For future packaged releases, the tag is operator-held. Cut an annotated tag on
 the reviewed commit:
 
 ```sh
-git tag -a v0.64.2 -m "Allbert v0.64.2"
-git push origin v0.64.2
+VERSION=v0.64.3
+git tag -a "$VERSION" -m "Allbert ${VERSION#v}"
+git push origin "$VERSION"
 ```
 
 The tag push fires `.github/workflows/release-artifacts.yml`:
@@ -40,25 +43,25 @@ The tag push fires `.github/workflows/release-artifacts.yml`:
 
 ### Docs/source point release (no packaged artifacts)
 
-A point release that ships only source/docs/script fixes (e.g. `v0.62.1`) must NOT
-create packaged artifacts or steal `Latest` from the product release that owns the
-tarballs + `latest` aliases (`v0.62.0`). Mark its annotated tag `[skip-artifacts]`
-so the `gate` job skips the packaged pipeline:
+A point release that ships only source/docs/script fixes (for example `v0.64.4`) must
+NOT create packaged artifacts or steal `Latest` from the product release that owns the
+tarballs + `latest` aliases (`v0.64.3`). Mark its annotated tag `[skip-artifacts]` so
+the `gate` job skips the packaged pipeline:
 
 ```sh
-git tag -a v0.62.1 -m "Allbert v0.62.1 - <summary> [skip-artifacts]"
-git push origin v0.62.1
-# Verify: no v0.62.1 GitHub Release is created, and v0.62.0 stays Latest.
+git tag -a v0.64.4 -m "Allbert v0.64.4 - release-doc closeout [skip-artifacts]"
+git push origin v0.64.4
+# Verify: no v0.64.4 GitHub Release is created, and v0.64.3 stays the packaged line.
 gh release list --repo lexlapax/allbert-assist
 ```
 
 Verify release and tag state after publish:
 
 ```sh
-gh release view v0.64.2 --repo lexlapax/allbert-assist \
+gh release view v0.64.3 --repo lexlapax/allbert-assist \
   --json tagName,publishedAt,url
 git ls-remote --tags origin 'v0.64*'
-git rev-parse v0.64.2^{}
+git rev-parse v0.64.3^{}
 ```
 
 **Trust model note.** v0.62/v0.63 used SHA256 verification over the same HTTPS release
@@ -70,7 +73,7 @@ package-manager path: the trusted tap formula pins release URLs and SHA256 value
 Homebrew verifies the artifact against those formula values. To verify a release by hand:
 
 ```sh
-VERSION=v0.64.2
+VERSION=v0.64.3
 mkdir -p "/tmp/allbert-${VERSION}"
 gh release download "$VERSION" --repo lexlapax/allbert-assist \
   --pattern 'SHA256SUMS*' --dir "/tmp/allbert-${VERSION}"
@@ -94,7 +97,7 @@ helper updates version, per-target URLs, and SHA256 rows together:
 
 ```sh
 ALLBERT_ASSIST_CHECKOUT="${ALLBERT_ASSIST_CHECKOUT:-$(pwd)}"  # run from allbert-assist checkout
-VERSION=v0.64.2
+VERSION=v0.64.3
 mkdir -p "/tmp/allbert-${VERSION}"
 gh release download "$VERSION" --repo lexlapax/allbert-assist \
   --pattern SHA256SUMS --dir "/tmp/allbert-${VERSION}"
@@ -136,10 +139,10 @@ requested; set a disposable `ALLBERT_HOME` for rehearsal.
 ```sh
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v064-install.XXXXXX)"
 curl -fsSL https://raw.githubusercontent.com/lexlapax/allbert-assist/main/scripts/install/install.sh | sh
-#   ALLBERT_VERSION=v0.64.2   pin a version (default: latest)
+#   ALLBERT_VERSION=v0.64.3   pin a packaged version (default: latest)
 #   ALLBERT_PREFIX=~/.local   install prefix
 export PATH="$HOME/.local/bin:$PATH"
-allbert --version                 # allbert 0.64.2
+allbert --version                 # allbert 0.64.3
 allbert admin status              # renders operator status through the spine
 ```
 
@@ -300,7 +303,7 @@ Prepare the Linux artifacts:
 
 ```sh
 ALLBERT_ASSIST_CHECKOUT="${ALLBERT_ASSIST_CHECKOUT:-$(pwd)}"  # run from allbert-assist checkout
-VERSION=v0.64.2
+VERSION=v0.64.3
 WORK="/tmp/allbert-${VERSION}"
 mkdir -p "$WORK/artifacts"
 gh release download "$VERSION" --repo lexlapax/allbert-assist \
@@ -378,7 +381,7 @@ scrollback:
 | --- | --- | --- | --- |
 | Source gate | checkout compiles, tests, and release-specific evals pass | `mix allbert.test release.v0NN` (e.g. `release.v063`) | current line |
 | Artifact matrix | published artifacts boot and pass binary smoke | `.github/workflows/release-artifacts.yml` | v0.62 |
-| Tap fill | formula version, URLs, and checksums match release checksums | `homebrew/fill-sha256.sh`; `brew audit --strict --online --formula` | v0.64.2 |
+| Tap fill | formula version, URLs, and checksums match release checksums | `homebrew/fill-sha256.sh`; `brew audit --strict --online --formula` | current packaged line |
 | Package-manager install | package installs and invokes packaged binary | `brew install`; `brew test`; uninstall | v0.62b M2 |
 | Packaged TUI | installed binary runs the warm console in a TTY | `script ... allbert tui` | v0.62b M3 |
 | Docker Linux package smoke | both Linux artifacts install/start/attach/uninstall in containers | `docker run --platform linux/arm64`; `docker run --platform linux/amd64` | v0.62b M4 |

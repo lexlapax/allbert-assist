@@ -1,9 +1,10 @@
 # Operator Workspace
 
-Introduced in v0.58; consolidated into the single shell in v0.61b (ADR 0080); current as
-of v0.64.2, where packaged first run starts from the service/browser path, first-run
-auto-opens onboarding, and missing-model states route to the standalone Models repair
-panel (see [onboarding.md](onboarding.md)).
+Introduced in v0.58; consolidated into the single shell in v0.61b (ADR 0080); current
+packaged behavior as of v0.64.3, where packaged first run starts from the service/browser
+path, first-run auto-opens onboarding, missing-model states route to the standalone
+Models repair panel, and curated model pulls stream live progress in the web workspace
+(see [onboarding.md](onboarding.md)).
 
 The operator workspace is `/workspace`. v0.58 keeps that route and changes the
 layout and panels on top of the existing authority spine.

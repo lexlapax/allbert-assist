@@ -34,12 +34,15 @@ becoming opaque or unbounded.
 
 ## Current Shape
 
-The current release line is **v0.64.2 (Corrective Trusted Install And First-Boot
-Hardening), tagged `v0.64.2`**. It makes packaged install and repairable first run the primary
-operator path: fail-closed installer-side cosign verification, bounded DB backup
-restore, persistent service posture, browser-first onboarding, guided local-runtime
-repair, curated local-model pull with progress, a standalone Models repair panel, and
-plain-language CLI/TUI blocked-state guidance. It builds on v0.63's guided
+The current packaged release line is **v0.64.3 (Final-Audit Corrective: Version
+Consistency And Live Model-Pull Progress), tagged `v0.64.3`**. It makes packaged
+install and repairable first run the primary operator path: fail-closed
+installer-side cosign verification, bounded DB backup restore, persistent service
+posture, browser-first onboarding, guided local-runtime repair, curated local-model
+pull with live web progress, a standalone Models repair panel, and plain-language
+CLI/TUI blocked-state guidance. The source/docs point tag `v0.64.4`
+(`[skip-artifacts]`) only reconciles release-facing docs; it does not publish new
+packaged artifacts. It builds on v0.63's guided
 two-track onboarding wizard, repo-maintained user-category personas (seed-only,
 review + confirm), ADR-0078 First-Model Path, and visible trust spine. No new
 authority.
@@ -53,8 +56,10 @@ curl-install success after verifier installation, service health, attach, first-
 guidance, and uninstall/Home preservation. `v0.64.2` closes the corrective readiness
 gap: the Homebrew tap/formula path now resolves to the current artifact set, formula fill
 updates version/URLs/checksums together, startup migrations serialize concurrent fresh-Home
-first commands, and installer/operator copy stays service-first. See
-[CHANGELOG.md](CHANGELOG.md) for the current release status.
+first commands, and installer/operator copy stays service-first. `v0.64.3` closes the
+remaining packaged-release defects: cross-app version drift, missing release-gate coverage
+for that drift class, and batched web model-pull progress. See [CHANGELOG.md](CHANGELOG.md)
+for the current release status.
 
 The prior line, v0.62 (Packaging & Entry Points), shipped as packaged release `v0.62.0`
 (Latest, 2026-07-07) with a source/docs point release `v0.62.1` (tagged 2026-07-07,
@@ -77,7 +82,7 @@ Today, Allbert includes:
 - Source-tree plugins and app surfaces, with StockSage as the main reference app.
 - Public protocol surfaces with bounded, policy-checked exposure.
 
-As of v0.64.2, Allbert has the trusted-install and repairable first-run substrate for a
+As of v0.64.3, Allbert has the trusted-install and repairable first-run substrate for a
 non-developer operator across the curl and Homebrew packaged paths. The pre-1.0 plan
 closes the remaining launch gap explicitly: v0.65 owns the local files/notes/memory
 launch path, and v0.66 owns no-docs product RC validation before v1.0 freezes the public

@@ -10,6 +10,26 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.64.4 - Release Docs Closeout
+
+Status: **released — annotated source/docs tag `v0.64.4` (`[skip-artifacts]`),
+2026-07-10 UTC; packaged version metadata remains 0.64.3**. This point release has
+no packaged GitHub Release assets and does not move the Homebrew formula or installer
+artifact line; `v0.64.3` remains the packaged product release for the trusted-install
+and first-run path.
+
+Closes the post-v0.64.3 release-doc drift found by the final closeout audit:
+
+- Top-level, docs index, operator index, install, workspace, release-rehearsal, and
+  agent context docs now identify `v0.64.3` as the current packaged release and
+  `v0.64.4` as docs/source only.
+- The packaged-release runbook examples now use the current packaged artifact line
+  (`v0.64.3`) and show the docs/source point-release path separately with
+  `[skip-artifacts]`.
+- v0.64 plan, request-flow, and roadmap status text record that this tag is a
+  documentation closeout with no new runtime behavior, authority, Settings key, or
+  package artifact.
+
 ## v0.64.3 - Final-Audit Corrective: Version Consistency And Live Model-Pull Progress
 
 Status: **released — tagged `v0.64.3` (2026-07-10 UTC), version 0.64.3**. Corrective
