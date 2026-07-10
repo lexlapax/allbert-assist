@@ -146,7 +146,7 @@ and inspectability promises extend to it:
   dependency is added to `install.sh` or the formula, so the installer does not
   itself verify a signature. **Mandatory installer-side signature verification is
   recorded in v0.64 trusted-install scope** (`v0.64-plan.md`), which will close
-  the TOFU gap. The bundled ERTS/OTP version is pinned as a CI input
+  the TOFU gap (closed — shipped fail-closed in v0.64; see the v0.64 amendment below). The bundled ERTS/OTP version is pinned as a CI input
   with portable crypto linkage; its provenance (project-built vs the packaging
   tool's CDN builds) is settled by the M0 spike and recorded here at
   acceptance.

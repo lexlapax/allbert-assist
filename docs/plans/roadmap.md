@@ -4183,7 +4183,7 @@ Expected direction:
 Plan: `docs/plans/v0.64-plan.md`
 Request flow: `docs/plans/v0.64-request-flow.md`
 
-Status: released as `v0.64.2` on 2026-07-10 UTC; version 0.64.2. `mix allbert.test
+Status: released as `v0.64.3` on 2026-07-10 UTC; version 0.64.3. `mix allbert.test
 release.v064` remains the deterministic handoff gate. `v0.64.0` was tagged first, but its release-artifacts workflow
 blocked before publish because the pre-publish Linux rehearsal did not create the cosign
 bundle required by the fail-closed installer. `v0.64.1` fixes that release-contract gap;
@@ -4191,10 +4191,13 @@ the release-artifacts workflow passed and published GitHub Release assets. Local
 validation confirmed fail-closed installer guidance before `cosign` was available, then
 after explicit verifier-install approval confirmed full curl-install success,
 boot/health/attach/first-run behavior, and uninstall/Home preservation. `v0.64.2`
-corrects the remaining readiness gaps: stale Homebrew formula/tap resolution, formula
+corrects the readiness gaps: stale Homebrew formula/tap resolution, formula
 fill that changed checksums without version/URLs, installer copy that still pointed at
 foreground `serve`, and concurrent first-boot startup migrations before the runtime
-writer lock. v0.64 moves distribution trust into the first-run release because a
+writer lock. `v0.64.3` is the final-audit corrective: it fixes a cross-app version drift
+(`allbert_assist_web` had stayed at `0.64.1`), gates that drift class in `release.v064`,
+and makes the web curated-model pull stream progress live instead of batching on
+completion. v0.64 moves distribution trust into the first-run release because a
 non-developer cannot separate "trust the installer" from "trust the product." It closes
 curl installer-side signature verification, Homebrew package-manager verification
 freshness, rollback/restore posture, packaged-install docs, and repairable first-run

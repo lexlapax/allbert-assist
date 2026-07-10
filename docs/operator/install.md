@@ -27,13 +27,9 @@ serve` service, so `brew services start allbert` runs Allbert in the
 background. Foreground `allbert serve` is a diagnostic or repair fallback, not
 the normal first-run path for a packaged install.
 
-Homebrew 6 may require explicit trust for third-party taps before it loads a
-formula. If Homebrew reports that `lexlapax/allbert` is untrusted, run:
-
-```sh
-brew trust --formula lexlapax/allbert/allbert
-brew install lexlapax/allbert/allbert
-```
+The public tap installs directly with the command above. A newer Homebrew may
+prompt once to trust a third-party tap on first install; approve the prompt if it
+appears — no separate trust command is required for a normal install.
 
 ## curl installer
 

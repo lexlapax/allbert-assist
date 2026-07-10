@@ -725,6 +725,12 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     {:noreply, handle_workspace_event(signal, socket)}
   end
 
+  # v0.64.3: an onboarding/model-repair component registers itself as the live
+  # target for streamed first-model pull-progress frames (see refresh_after_workspace_event).
+  def handle_info({:register_model_pull_target, %Phoenix.LiveComponent.CID{} = cid}, socket) do
+    {:noreply, assign(socket, :model_pull_target, cid)}
+  end
+
   def handle_info(:refresh_objectives, socket) do
     if connected?(socket), do: Process.send_after(self(), :refresh_objectives, 5_000)
     {:noreply, refresh_objectives(socket)}
@@ -1478,7 +1484,34 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     refresh_workspace_runtime(socket)
   end
 
+  # v0.64.3: stream each first-model pull-progress frame straight to the registered
+  # onboarding/model-repair component, bypassing the full workspace refresh so the
+  # progress list updates live instead of batching on completion.
+  defp refresh_after_workspace_event(socket, %Signal{
+         type: "allbert.workspace.first_model.pull.progress",
+         data: data
+       }) do
+    case socket.assigns[:model_pull_target] do
+      %Phoenix.LiveComponent.CID{} = cid ->
+        send_update(cid, model_pull_frame: pull_progress_frame(data))
+        socket
+
+      _absent ->
+        socket
+    end
+  end
+
   defp refresh_after_workspace_event(socket, _signal), do: refresh_workspace(socket)
+
+  defp pull_progress_frame(data) do
+    %{
+      model: metadata_value(data, :model),
+      status: metadata_value(data, :status) || "pulling",
+      percent: metadata_value(data, :percent)
+    }
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Map.new()
+  end
 
   defp handle_fragment(%Envelope{} = envelope, socket) do
     if envelope.user_id == socket.assigns.user_id and

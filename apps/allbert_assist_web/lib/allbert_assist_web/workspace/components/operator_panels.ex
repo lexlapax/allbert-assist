@@ -379,6 +379,12 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
   @destination "workspace:models"
 
   @impl true
+  # v0.64.3: the parent WorkspaceLive forwards each streamed pull-progress frame here
+  # via `send_update(@myself, model_pull_frame: frame)`; append and re-render live.
+  def update(%{model_pull_frame: frame}, socket) do
+    {:ok, assign(socket, :model_pull_progress, socket.assigns.model_pull_progress ++ [frame])}
+  end
+
   def update(assigns, socket) do
     loaded? = Map.get(socket.assigns, :models_loaded?, false)
 
@@ -392,6 +398,7 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
       |> assign_new(:models_diagnostics, fn -> "" end)
       |> assign_new(:model_repair, fn -> model_repair() end)
       |> assign_new(:model_pull_progress, fn -> [] end)
+      |> assign_new(:model_pulling?, fn -> false end)
       |> assign_new(:model_doctor, fn -> %{summary: %{}, rows: []} end)
       |> assign_new(:model_profiles, fn -> [] end)
       |> assign_new(:provider_profiles, fn -> [] end)
@@ -429,10 +436,17 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
       |> maybe_put(:user_id, context.user_id)
       |> maybe_put(:thread_id, context.thread_id)
 
+    # v0.64.3: register as the parent's live progress target, then run the
+    # confirmation+pull asynchronously so streamed frames render live instead of
+    # batching on completion.
+    send(self(), {:register_model_pull_target, socket.assigns.myself})
+
     {:noreply,
      socket
-     |> run_confirmed_model_action("pull_model", params, "Starter model pull approved.")
-     |> refresh()}
+     |> assign(model_pull_progress: [], model_pulling?: true, models_diagnostics: "")
+     |> start_async(:pull_model, fn ->
+       run_confirmed_model_action_async("pull_model", params, context)
+     end)}
   end
 
   def handle_event("toggle_model_inventory", _params, socket) do
@@ -443,6 +457,40 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
     else
       {:noreply, socket}
     end
+  end
+
+  # v0.64.3: finalize the async pull; streamed frames arrive via the targeted update/2.
+  @impl true
+  def handle_async(:pull_model, {:ok, {:ok, %{status: :completed} = response}}, socket) do
+    {:noreply,
+     socket
+     |> assign(:model_pulling?, false)
+     |> assign_model_action_success("Starter model pull approved.", response)
+     |> refresh()}
+  end
+
+  def handle_async(:pull_model, {:ok, {:ok, response}}, socket) do
+    {:noreply,
+     socket
+     |> assign(model_pulling?: false, models_diagnostics: model_action_error(response))
+     |> refresh()}
+  end
+
+  def handle_async(:pull_model, {:ok, {:error, reason}}, socket) do
+    {:noreply,
+     socket
+     |> assign(model_pulling?: false, models_diagnostics: "Model pull failed: #{inspect(reason)}")
+     |> refresh()}
+  end
+
+  def handle_async(:pull_model, {:exit, reason}, socket) do
+    {:noreply,
+     socket
+     |> assign(
+       model_pulling?: false,
+       models_diagnostics: "Model pull crashed: #{inspect(reason)}"
+     )
+     |> refresh()}
   end
 
   @impl true
@@ -527,8 +575,9 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
               class={Support.button_class!("primary")}
               phx-click="pull_model"
               phx-target={@myself}
+              disabled={@model_pulling?}
             >
-              Pull starter model
+              {if @model_pulling?, do: "Pulling starter model…", else: "Pull starter model"}
             </button>
           </div>
           <ol
@@ -649,6 +698,18 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
           model_repair: model_repair(),
           models_diagnostics: inspect(reason)
         )
+    end
+  end
+
+  # v0.64.3: async variant used by the live-progress pull. Returns the raw Runner
+  # result tuple so `handle_async/3` finalizes the socket on the component.
+  defp run_confirmed_model_action_async(action, params, context) do
+    case Runner.run(action, params, context) do
+      {:ok, %{status: :needs_confirmation, confirmation_id: id}} ->
+        Runner.run("approve_confirmation", %{id: id, reason: "models panel #{action}"}, context)
+
+      other ->
+        other
     end
   end
 

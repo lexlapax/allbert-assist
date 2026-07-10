@@ -4739,11 +4739,26 @@ defmodule Mix.Tasks.Allbert.Test do
       args: [
         "test",
         "apps/allbert_assist_web/test/allbert_assist_web/workspace/first_run_test.exs",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:829"
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:829",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:875"
       ],
       coverage: [
         "completed onboarding with an unavailable model opens workspace:models",
-        "the standalone Models panel exposes install-runtime and pull-model repair controls"
+        "the standalone Models panel exposes install-runtime and pull-model repair controls",
+        "the model pull dispatches asynchronously and streams live progress frames (v0.64.3)"
+      ]
+    },
+    %{
+      id: "v064_version_consistency",
+      title: "umbrella apps agree on version (no cross-app :vsn drift at release)",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist_web/test/allbert_assist_web/version_consistency_test.exs"
+      ],
+      coverage: [
+        "the CLI-banner app and the asset-version app agree on version"
       ]
     },
     %{

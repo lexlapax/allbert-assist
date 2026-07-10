@@ -29,6 +29,13 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
   }
 
   @impl true
+  # v0.64.3: the parent WorkspaceLive forwards each streamed pull-progress frame here
+  # via `send_update(@myself, model_pull_frame: frame)`. Append and re-render without
+  # re-running the full wizard-state recompute (which would reset transient state).
+  def update(%{model_pull_frame: frame}, socket) do
+    {:ok, assign(socket, :model_pull_progress, socket.assigns.model_pull_progress ++ [frame])}
+  end
+
   def update(assigns, socket) do
     # M7.6: one-time first-launch reconcile of a stale v0.62 onboarding objective
     # (marker-guarded, best-effort — no-op after the first mount on a given Home).
@@ -42,6 +49,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
       |> assign_new(:selected_persona, fn -> nil end)
       |> assign_new(:persona_review, fn -> nil end)
       |> assign_new(:model_pull_progress, fn -> [] end)
+      |> assign_new(:model_pulling?, fn -> false end)
       |> assign_new(:provider_form, fn -> provider_form() end)
 
     {:ok, refresh_state(socket)}
@@ -165,15 +173,17 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
       |> maybe_put(:user_id, context.user_id)
       |> maybe_put(:thread_id, get_in(context, [:request, :thread_id]))
 
+    # v0.64.3: register as the parent's live progress target, then run the
+    # confirmation+pull asynchronously so this process stays free to receive the
+    # streamed progress frames (a synchronous pull blocks and batches them).
+    send(self(), {:register_model_pull_target, socket.assigns.myself})
+
     {:noreply,
      socket
-     |> run_confirmed_onboarding_action(
-       "pull_model",
-       params,
-       "Starter model pull approved and completed."
-     )
-     |> refresh_state()
-     |> reprobe()}
+     |> assign(model_pull_progress: [], model_pulling?: true, onboarding_error: nil)
+     |> start_async(:pull_model, fn ->
+       run_confirmed_onboarding_action_async("pull_model", params, context)
+     end)}
   end
 
   # -- M4 persona review + apply ---------------------------------------------
@@ -195,6 +205,42 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
 
   def handle_event("apply_persona", %{"persona-id" => persona_id}, socket) do
     {:noreply, refresh_state(apply_persona(socket, persona_id))}
+  end
+
+  # v0.64.3: finalize the async model pull started in `handle_event("pull_model", ...)`.
+  # Streamed progress frames arrive separately via the targeted `update/2` clause.
+  @impl true
+  def handle_async(:pull_model, {:ok, {:ok, %{status: :completed} = response}}, socket) do
+    {:noreply,
+     socket
+     |> assign(:model_pulling?, false)
+     |> assign_action_success("Starter model pull approved and completed.", response)
+     |> refresh_state()
+     |> reprobe()}
+  end
+
+  def handle_async(:pull_model, {:ok, {:ok, response}}, socket) do
+    {:noreply,
+     socket
+     |> assign(model_pulling?: false, onboarding_error: response_error(response))
+     |> refresh_state()
+     |> reprobe()}
+  end
+
+  def handle_async(:pull_model, {:ok, {:error, reason}}, socket) do
+    {:noreply,
+     socket
+     |> assign(model_pulling?: false, onboarding_error: reason)
+     |> refresh_state()
+     |> reprobe()}
+  end
+
+  def handle_async(:pull_model, {:exit, reason}, socket) do
+    {:noreply,
+     socket
+     |> assign(model_pulling?: false, onboarding_error: "Model pull crashed: #{inspect(reason)}")
+     |> refresh_state()
+     |> reprobe()}
   end
 
   @impl true
@@ -350,8 +396,9 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
             class="btn btn-sm btn-primary"
             phx-click="pull_model"
             phx-target={@myself}
+            disabled={@model_pulling?}
           >
-            Pull starter model
+            {if @model_pulling?, do: "Pulling starter model…", else: "Pull starter model"}
           </button>
         </div>
 
@@ -524,6 +571,18 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
     )
     |> assign(:provider_profiles, provider_profiles())
     |> assign(:tier_line, tier_line())
+  end
+
+  # v0.64.3: async variant used by the live-progress pull. Returns the raw Runner
+  # result tuple so `handle_async/3` finalizes the socket on the component.
+  defp run_confirmed_onboarding_action_async(action, params, context) do
+    case run_action(action, params, context) do
+      {:ok, %{status: :needs_confirmation, confirmation_id: id}} ->
+        run_action("approve_confirmation", %{id: id, reason: "onboarding #{action}"}, context)
+
+      other ->
+        other
+    end
   end
 
   defp run_confirmed_onboarding_action(socket, action, params, success_notice) do

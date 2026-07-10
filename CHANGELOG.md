@@ -10,6 +10,37 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.64.3 - Final-Audit Corrective: Version Consistency And Live Model-Pull Progress
+
+Status: **released — tagged `v0.64.3` (2026-07-10 UTC), version 0.64.3**. Corrective
+v0.64 product release closing the gaps found by a pre-tag final audit of the shipped
+v0.64.2. The install, persistent-service, and first-run behavior are unchanged from
+v0.64.2; this release fixes a version-consistency defect, closes the gate blind spot that
+let it ship, upgrades the web model-pull progress to render live, and reconciles the
+remaining docs with observed released behavior.
+
+- **Cross-app version drift fixed.** `allbert_assist_web` had stayed at `0.64.1` while the
+  umbrella root and `allbert_assist` shipped `0.64.2`. Because the web app `:vsn` drives
+  the served asset cache-bust and is asserted equal to the core `:vsn`, this
+  deterministically failed `version_consistency_test`. All three `mix.exs` and the
+  Homebrew formula template now move in lockstep to `0.64.3`.
+- **Release gate now catches version drift.** `mix allbert.test release.v064` did not run
+  the version-consistency check, which is why the drift slipped past tagging. A
+  `v064_version_consistency` step is added so any future cross-app `:vsn` drift fails the
+  release gate.
+- **Web curated-model pull streams live progress.** The onboarding wizard model step and
+  the `workspace:models` repair panel dispatched the pull synchronously and self-owned
+  their progress list, so the streamed Ollama frames the action already emits rendered all
+  at once on completion. Both surfaces now register with `WorkspaceLive` and run the
+  confirmed pull via `start_async`; `WorkspaceLive` streams each pull-progress frame
+  straight to the active component via `send_update`, so the progress surface updates live
+  and the button reflects the in-flight pull. Covered by a new `workspace_live` gate case.
+- **Docs reconciled with the release.** The v0.64 request-flow "Operator Validation"
+  section is converted from a pre-release template to observed released evidence, the
+  operator install guide's speculative `brew trust` hedge is resolved to observed
+  behavior, and ADR 0076's v0.62 "will close the TOFU gap" note is annotated as closed by
+  the v0.64 amendment.
+
 ## v0.64.2 - Corrective Trusted Install And First-Boot Hardening
 
 Status: **released — tagged `v0.64.2` (2026-07-10 UTC), version 0.64.2**. Corrective

@@ -10,23 +10,23 @@
 class Allbert < Formula
   desc "Local-first personal AI assistant runtime, CLI, and web workspace"
   homepage "https://github.com/lexlapax/allbert-assist"
-  version "0.64.2"
+  version "0.64.3"
   license "MIT"
 
   on_macos do
     on_arm do
-      url "https://github.com/lexlapax/allbert-assist/releases/download/v0.64.2/allbert-v0.64.2-macos-arm64.tar.gz"
+      url "https://github.com/lexlapax/allbert-assist/releases/download/v0.64.3/allbert-v0.64.3-macos-arm64.tar.gz"
       sha256 "REPLACE_MACOS_ARM64_SHA256"
     end
   end
 
   on_linux do
     on_intel do
-      url "https://github.com/lexlapax/allbert-assist/releases/download/v0.64.2/allbert-v0.64.2-linux-x64.tar.gz"
+      url "https://github.com/lexlapax/allbert-assist/releases/download/v0.64.3/allbert-v0.64.3-linux-x64.tar.gz"
       sha256 "REPLACE_LINUX_X64_SHA256"
     end
     on_arm do
-      url "https://github.com/lexlapax/allbert-assist/releases/download/v0.64.2/allbert-v0.64.2-linux-arm64.tar.gz"
+      url "https://github.com/lexlapax/allbert-assist/releases/download/v0.64.3/allbert-v0.64.3-linux-arm64.tar.gz"
       sha256 "REPLACE_LINUX_ARM64_SHA256"
     end
   end

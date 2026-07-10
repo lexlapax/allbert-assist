@@ -871,6 +871,91 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
       assert has_element?(view, "#workspace-models-pull-model")
       refute has_element?(view, "#workspace-onboarding-wizard")
     end
+
+    test "v0.64.3: model pull dispatches asynchronously and streams live progress frames",
+         %{conn: conn} do
+      provider_env_keys =
+        ~w(ANTHROPIC_API_KEY OPENAI_API_KEY OPENROUTER_API_KEY GOOGLE_API_KEY GEMINI_API_KEY)
+
+      saved_provider_env = Map.new(provider_env_keys, &{&1, System.get_env(&1)})
+      saved_ollama_host = System.get_env("OLLAMA_HOST")
+      saved_override = Application.get_env(:allbert_assist, :first_model_state_override)
+      saved_puller = Application.get_env(:allbert_assist, :first_model_pull)
+      test_pid = self()
+
+      on_exit(fn ->
+        Enum.each(saved_provider_env, fn
+          {key, nil} -> System.delete_env(key)
+          {key, value} -> System.put_env(key, value)
+        end)
+
+        if saved_ollama_host,
+          do: System.put_env("OLLAMA_HOST", saved_ollama_host),
+          else: System.delete_env("OLLAMA_HOST")
+
+        if saved_override,
+          do: Application.put_env(:allbert_assist, :first_model_state_override, saved_override),
+          else: Application.delete_env(:allbert_assist, :first_model_state_override)
+
+        if saved_puller,
+          do: Application.put_env(:allbert_assist, :first_model_pull, saved_puller),
+          else: Application.delete_env(:allbert_assist, :first_model_pull)
+      end)
+
+      Enum.each(provider_env_keys, &System.delete_env/1)
+      System.put_env("OLLAMA_HOST", "https://example.invalid")
+      FirstRun.reset_onboarding()
+      FirstRun.mark_onboarding_complete()
+      FirstRun.mark_profile_reviewed()
+      Application.put_env(:allbert_assist, :first_model_state_override, :model_missing)
+
+      # A puller that emits one progress frame, then blocks until released — so the
+      # pull is provably still in-flight when we assert the frame has streamed in.
+      Application.put_env(:allbert_assist, :first_model_pull, fn model, progress_context ->
+        AllbertAssist.Signals.emit_first_model_pull_progress(
+          Map.merge(progress_context, %{model: model, status: "pulling manifest", percent: 12})
+        )
+
+        send(test_pid, {:puller_blocked, self()})
+
+        receive do
+          :release_pull -> :ok
+        after
+          5_000 -> :ok
+        end
+
+        {:ok, %{status: "success"}, []}
+      end)
+
+      {:ok, view, _html} = live(conn, ~p"/workspace?#{[destination: "workspace:models"]}")
+      assert has_element?(view, "#workspace-models-pull-model")
+
+      # Dispatch is non-blocking: render_click returns immediately with the button in
+      # its pulling state while the (blocked) pull runs in the async task. The pre-v0.64.3
+      # synchronous dispatch could not render this — it blocked until the pull finished.
+      html = view |> element("#workspace-models-pull-model") |> render_click()
+      assert html =~ "Pulling starter model"
+
+      assert_receive {:puller_blocked, puller_pid}, 2_000
+
+      # The emitted frame streams to the panel live — before the pull completes.
+      assert eventually(fn -> render(view) =~ "pulling manifest" end)
+
+      # Release the pull and let the async task finalize without error.
+      send(puller_pid, :release_pull)
+      _html = render_async(view, @runtime_async_timeout)
+    end
+  end
+
+  defp eventually(fun, attempts \\ 50) do
+    Enum.reduce_while(1..attempts, false, fn _attempt, _acc ->
+      if fun.() do
+        {:halt, true}
+      else
+        Process.sleep(20)
+        {:cont, false}
+      end
+    end)
   end
 
   test "workspace create gallery only exposes Settings Central allowed patterns", %{conn: conn} do
