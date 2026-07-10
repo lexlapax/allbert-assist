@@ -157,3 +157,29 @@ The post-v0.63 product-readiness review retargeted 1.0 from a technical prosumer
   runtime setup if needed and one-click curated-local-model download, with no manual model
   CLI and no API key (see ADR 0078), matching the one-click-model bar set by local-model
   desktop apps.
+
+## Amendment (v0.65 planned, 2026-07-10) — local knowledge as the launch integration + two new destinations
+
+v0.65 (`docs/plans/v0.65-plan.md`, `docs/design/local-knowledge-path.md`) records that,
+after first chat, the **primary useful non-developer workflow is local knowledge**: local
+files/notes plus reviewed agent memory. This is a product-experience/IA decision, not an
+authority change — the notes/files native plugin and the memory review + active-memory
+substrate already ship; v0.65 makes them an obvious, config-free product surface.
+
+- **Launch integration.** Local files/notes + reviewed memory is the 1.0 launch-critical
+  integration path. Remote channels, MCP, browser research, and public protocols remain
+  implemented, release-blocking **regression** surfaces, not the first-run product path.
+- **Two new first-class IA destinations**, modelled on `workspace:models`:
+  **`workspace:notes`** (search/read/confirm-write over a configured notes root) and
+  **`workspace:memory`** (an interactive review panel wiring the existing
+  keep/reject/delete actions). Both surface already-permissioned loops and add no
+  authority.
+- **Config-free connect affordance.** The notes root is set from onboarding or a settings
+  action, not a hand-edited config file — closing the non-developer gap where the only
+  path was `admin settings set apps.notes_files.notes_root`.
+- **Enforcement framing.** Notes file access is enforced by `PermissionGate` + root/
+  extension path bounding; the plugin's Resource Access refs are provenance/audit
+  metadata, not the file-access grant seam (see `local-knowledge-path.md`).
+
+This ADR's surface inventory, journey, persona, and trust structure stand; v0.65 adds two
+destinations under the existing navigation model and grants nothing by itself.

@@ -4239,19 +4239,24 @@ path for a non-developer.
 
 Expected direction:
 
-- Operator connects or confirms a local notes/files root without hand-editing
-  config.
-- Notes/files search/read/write is framed as the default local knowledge path,
-  while retaining Resource Access scoping and confirmation-gated writes.
-- Memory review is explained as explicit user control: inspect, keep, reject,
-  delete, and recall.
-- Starter prompts guide "ask about my notes", "summarize this note", "remember
-  this after review", and "show what you remember."
+- Operator connects a local notes/files root from a **config-free affordance**
+  (onboarding step / settings action), not a hand-edited config file.
+- **Full scope:** builds two first-class destinations — `workspace:notes`
+  (search/read/confirm-write) and an interactive `workspace:memory` review panel
+  (keep/reject/delete) — on the already-shipped notes/files + memory engine.
+- Notes/files search/read/write is the default local knowledge path; access is
+  bounded by `PermissionGate` + root/extension path bounding (Resource Access refs
+  are provenance, not the file-access gate), with confirmation-gated writes.
+- Memory review is explicit user control (web + CLI): inspect, keep, reject,
+  delete, and recall; recall injects only reviewed (`:kept`) memory into a later chat.
+- Launch-path starter prompts + empty states guide "ask about my notes", "summarize
+  this note", "remember this after review", and "show what you remember."
 - The `:notes_files` namespace remains non-writable and never auto-promotes
   plugin output into memory.
-- Docs gate, warning gate, drift checks, and deterministic `release.v065`.
-- No broad filesystem grant, no silent file writes, and no automatic memory
-  promotion.
+- `release.v065` (with net-new backing tests), docs gate, warning gate, and drift
+  checks. See `docs/design/local-knowledge-path.md` + the ADR 0077 v0.65 amendment.
+- No new authority class, broad filesystem grant, silent file writes, or automatic
+  memory promotion.
 
 ## v0.66: Product RC And No-Docs Validation
 
