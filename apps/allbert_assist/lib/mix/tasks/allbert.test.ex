@@ -42,6 +42,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v062
       mix allbert.test release.v063
       mix allbert.test release.v064
+      mix allbert.test release.v065
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
@@ -155,6 +156,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v062"]), do: release_v062()
   def run(["release.v063"]), do: release_v063()
   def run(["release.v064"]), do: release_v064()
+  def run(["release.v065"]), do: release_v065()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -4832,6 +4834,206 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   end
 
+  @release_v065_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "format_check",
+      title: "formatter check for v0.65 release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["format", "--check-formatted"],
+      coverage: ["formatter drift fails the v0.65 local-knowledge handoff"]
+    },
+    %{
+      id: "compile_warnings_as_errors",
+      title: "compile v0.65 release candidate with warnings as errors",
+      cwd: :root,
+      executable: "mix",
+      args: ["compile", "--warnings-as-errors"],
+      coverage: ["compiler warnings fail the v0.65 local-knowledge handoff"]
+    },
+    %{
+      id: "credo_strict",
+      title: "Credo strict check for v0.65 release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["credo", "--strict"],
+      coverage: ["Credo strict findings fail the v0.65 local-knowledge handoff"]
+    },
+    %{
+      id: "dialyzer",
+      title: "Dialyzer static analysis for v0.65 release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["dialyzer"],
+      coverage: ["Dialyzer warnings fail the v0.65 local-knowledge handoff"]
+    },
+    %{
+      id: "v065_notes_root_connect",
+      title: "config-free notes-root connect action and admin notes CLI hold",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/actions/settings/set_notes_root_test.exs",
+        "test/allbert_assist/cli/areas/notes_test.exs"
+      ],
+      coverage: [
+        "set_notes_root validates the path, writes the single Settings Central safe key, and fails closed",
+        "allbert admin notes set-root PATH persists/reads back the root and exits non-zero on a missing directory"
+      ]
+    },
+    %{
+      id: "v065_memory_status_recall",
+      title: "admin memory status counts and reviewed-memory CLI surfaces hold",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/mix/tasks/allbert_memory_test.exs"
+      ],
+      coverage: [
+        "admin memory status reports exact per-status counts and the memory root, not a bounded list sample",
+        "review/update/delete/retrieve run through the CLI action surfaces with confirmation-gated delete"
+      ]
+    },
+    %{
+      id: "v065_local_knowledge_prompts",
+      title: "launch-path local-knowledge first-chat prompts are always present",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/onboarding_test.exs:193"
+      ],
+      coverage: [
+        "first_chat_prompts append the shared notes+memory local-knowledge set regardless of applied persona"
+      ]
+    },
+    %{
+      id: "v065_security_sweep",
+      title: "v0.65 eval rows, notes/memory boundaries, and docs handoff hold",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/v065_sweep_eval_test.exs"
+      ],
+      coverage: [
+        "the :v065 row set is complete, shaped, routed, and bound to owning assertions",
+        "notes reads stay root/extension bounded, write_note stays confirmation-gated, and the :notes_files namespace is non-writable",
+        "memory review is user-controlled (keep=:kept, reject=:flagged), status counts are exact, and recall is :kept-only",
+        "the workspace:memory panel dispatches registered actions with no new authority; v0.66 no-docs validation handoff is current"
+      ]
+    },
+    %{
+      id: "v065_web_notes_memory",
+      title: "workspace:notes and workspace:memory destinations render and drive review",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:193",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:203",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:243",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:253"
+      ],
+      coverage: [
+        "the Notes nav item and workspace:notes destination render the notes app panels with a real note",
+        "the Memory nav item and workspace:memory destination drive keep/reject/delete through the Runner"
+      ]
+    },
+    %{
+      id: "v065_version_consistency",
+      title: "umbrella apps agree on version (no cross-app :vsn drift at release)",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist_web/test/allbert_assist_web/version_consistency_test.exs"
+      ],
+      coverage: [
+        "the CLI-banner app and the asset-version app agree on version"
+      ]
+    },
+    %{
+      id: "docs_gate",
+      title: "docs gate and release-planning whitespace check",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "docs"],
+      coverage: ["git diff --check is clean", "docs gate is visible in release evidence"]
+    }
+  ]
+
+  defp release_v065 do
+    env = owned_env("release-v065", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v065")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v065_steps, &run_release_v065_step(&1, env))
+
+    status = if Enum.all?(results, &(&1.status == "passed")), do: "passed", else: "failed"
+
+    evidence = %{
+      gate: "mix allbert.test release.v065",
+      version: "v0.65",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; deterministic local-knowledge, notes-root connect, memory review/recall, and web destination proofs use local files, disposable Allbert homes, and reviewed-memory fixtures only",
+      notes:
+        "v0.65 Local Knowledge: Files, Notes, And Agent Memory makes the config-free notes-root connect affordance, root/extension-bounded reads, confirmation-gated writes, the non-writable :notes_files namespace, user-controlled memory review (keep=:kept, reject=:flagged, confirmation-gated delete), exact status counts, and :kept-only recall a testable product loop, and binds every :v065 security row to an owning assertion.",
+      steps: results
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v065-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v065 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v065 failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v065_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v065 #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
   defp cleanup_release_v046_evidence!(evidence_dir) do
     evidence_dir
     |> Path.join("release-v046-*.json")
@@ -6930,6 +7132,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v062
       mix allbert.test release.v063
       mix allbert.test release.v064
+      mix allbert.test release.v065
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate

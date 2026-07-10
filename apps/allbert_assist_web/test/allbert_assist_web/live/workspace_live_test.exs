@@ -37,6 +37,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   alias AllbertAssist.Workspace.Fragment.Envelope
   alias AllbertAssist.Workspace.Fragment.SigningSecret
   alias AllbertAssistWeb.SignalBridge
+  alias AllbertAssistWeb.Workspace.Components.OperatorPanels
   alias Jido.Signal.Bus
 
   @runtime_async_timeout 60_000
@@ -3020,7 +3021,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   end
 
   defp memory_safe_id(path) do
-    AllbertAssistWeb.Workspace.Components.OperatorPanels.safe_id(path)
+    OperatorPanels.safe_id(path)
   end
 
   defp html_position(html, marker) do

@@ -52,6 +52,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :v062
           | :v063
           | :v064
+          | :v065
 
   @type required_surface ::
           :resource_execution
@@ -6389,6 +6390,155 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       expected: :allowed,
       assert: [:v065_plan_exists, :local_notes_files_named, :reviewed_memory_named],
       test_module: "AllbertAssist.Security.V064SweepEvalTest"
+    },
+
+    # ── v0.65 Local Knowledge: Files, Notes, And Agent Memory ──────────────
+    %{
+      id: "local-knowledge-notes-root-explicit-001",
+      milestone: :v065,
+      surface: :notes_files_reference_plugin,
+      scenario:
+        "The local notes root is set implicitly or through a broad filesystem grant instead of the explicit single Settings Central safe key",
+      boundary: :settings_central_safe_keys,
+      expected: :allowed,
+      assert: [:notes_root_explicit, :single_safe_key, :reads_back],
+      test_module: "AllbertAssist.Security.V065SweepEvalTest"
+    },
+    %{
+      id: "local-knowledge-connect-affordance-config-free-001",
+      milestone: :v065,
+      surface: :notes_files_reference_plugin,
+      scenario:
+        "Connecting a notes folder requires hand-editing config or the generic key/value editor rather than the validated config-free set_notes_root action",
+      boundary: :settings_central_action,
+      expected: :allowed,
+      assert: [:connect_via_action, :path_validated, :no_manual_config_edit],
+      test_module: "AllbertAssist.Security.V065SweepEvalTest"
+    },
+    %{
+      id: "local-knowledge-admin-notes-set-root-001",
+      milestone: :v065,
+      surface: :entry_point_cli,
+      scenario:
+        "The allbert admin notes set-root PATH command is missing, does not persist/read back the root, or does not fail closed on a missing directory",
+      boundary: :settings_central_action,
+      expected: :allowed,
+      assert: [:admin_notes_set_root, :set_root_reads_back, :missing_dir_fails_closed],
+      test_module: "AllbertAssist.Security.V065SweepEvalTest"
+    },
+    %{
+      id: "local-knowledge-quickstart-connect-reachable-001",
+      milestone: :v065,
+      surface: :first_run_onboarding,
+      scenario:
+        "The config-free connect affordance is not reachable on the first_chat step for the QuickStart track, which defers optional_connect",
+      boundary: :onboarding_step,
+      expected: :allowed,
+      assert: [:connect_on_first_chat_step, :reachable_quickstart_track],
+      test_module: "AllbertAssist.Security.V065SweepEvalTest"
+    },
+    %{
+      id: "local-knowledge-read-scoped-001",
+      milestone: :v065,
+      surface: :notes_files_reference_plugin,
+      scenario:
+        "A note read escapes the configured notes root instead of being bounded by root/extension path bounding, or emits no provenance resource ref",
+      boundary: :resource_access,
+      expected: :denied,
+      assert: [:read_bounded_to_root, :path_outside_root_denied, :resource_ref_provenance],
+      test_module: "AllbertAssist.Security.V065SweepEvalTest"
+    },
+    %{
+      id: "local-knowledge-write-confirmed-001",
+      milestone: :v065,
+      surface: :notes_files_reference_plugin,
+      scenario:
+        "A note write executes silently instead of requiring the notes_file_write confirmation floor before touching the local file",
+      boundary: :notes_file_write,
+      expected: :needs_confirmation,
+      assert: [:write_requires_confirmation, :notes_file_write_permission],
+      test_module: "AllbertAssist.Security.V065SweepEvalTest"
+    },
+    %{
+      id: "local-knowledge-no-auto-memory-promotion-001",
+      milestone: :v065,
+      surface: :active_memory,
+      scenario:
+        "A new memory candidate defaults to recallable or the read-only :notes_files namespace is writable, auto-promoting notes into durable memory",
+      boundary: :memory_review,
+      expected: :allowed,
+      assert: [:new_entry_unreviewed, :notes_namespace_not_writable],
+      test_module: "AllbertAssist.Security.V065SweepEvalTest"
+    },
+    %{
+      id: "local-knowledge-memory-review-user-controlled-001",
+      milestone: :v065,
+      surface: :active_memory,
+      scenario:
+        "A memory candidate transitions to :kept without the permissioned human review action, so review is not user-controlled",
+      boundary: :memory_review,
+      expected: :allowed,
+      assert: [:review_requires_memory_write, :review_marks_kept, :human_controlled_transition],
+      test_module: "AllbertAssist.Security.V065SweepEvalTest"
+    },
+    %{
+      id: "local-knowledge-review-panel-no-authority-001",
+      milestone: :v065,
+      surface: :active_memory,
+      scenario:
+        "The workspace:memory review panel mutates memory directly instead of dispatching the registered review/delete actions through the Runner with the delete confirmation floor",
+      boundary: :workspace_live_event,
+      expected: :allowed,
+      assert: [
+        :panel_dispatches_registered_actions,
+        :delete_confirmation_gated,
+        :no_direct_memory_mutation
+      ],
+      test_module: "AllbertAssist.Security.V065SweepEvalTest"
+    },
+    %{
+      id: "local-knowledge-memory-reject-flagged-001",
+      milestone: :v065,
+      surface: :active_memory,
+      scenario:
+        "A rejected memory candidate is deleted or kept instead of mapping to the :flagged review status",
+      boundary: :memory_review,
+      expected: :allowed,
+      assert: [:reject_maps_to_flagged, :flagged_not_kept],
+      test_module: "AllbertAssist.Security.V065SweepEvalTest"
+    },
+    %{
+      id: "local-knowledge-memory-status-001",
+      milestone: :v065,
+      surface: :active_memory,
+      scenario:
+        "admin memory status derives review-status counts from a bounded list sample rather than reporting exact per-status and total counts",
+      boundary: :memory_status_summary,
+      expected: :allowed,
+      assert: [:status_counts_exact, :counts_by_review_status, :total_reported],
+      test_module: "AllbertAssist.Security.V065SweepEvalTest"
+    },
+    %{
+      id: "local-knowledge-recall-reviewed-memory-001",
+      milestone: :v065,
+      surface: :active_memory,
+      scenario:
+        "Active-memory recall retrieves unreviewed or flagged candidates instead of only :kept entries reviewed by a human",
+      boundary: :memory_replay,
+      expected: :allowed,
+      assert: [:recall_kept_only, :unreviewed_excluded, :flagged_excluded],
+      test_module: "AllbertAssist.Security.V065SweepEvalTest"
+    },
+    %{
+      id: "local-knowledge-v066-handoff-current-001",
+      milestone: :v065,
+      surface: :design_handoff,
+      scenario:
+        "The v0.66 handoff no longer names local files/notes/memory as the product-RC no-docs validation path",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [:v066_handoff_present, :no_docs_validation_named, :local_knowledge_handoff_current],
+      test_module: "AllbertAssist.Security.V065SweepEvalTest"
     }
   ]
 

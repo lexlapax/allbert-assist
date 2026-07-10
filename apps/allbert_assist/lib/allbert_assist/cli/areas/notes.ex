@@ -81,7 +81,6 @@ defmodule AllbertAssist.CLI.Areas.Notes do
   defp render({:usage, usage}), do: Render.usage(usage)
   defp render({:error, {:arg, message}}), do: Render.error(message)
   defp render({:error, {:action, message}}), do: Render.error(message)
-  defp render({:error, reason}), do: Render.error("Notes command failed: #{inspect(reason)}")
 
   # -- helpers ---------------------------------------------------------------
 

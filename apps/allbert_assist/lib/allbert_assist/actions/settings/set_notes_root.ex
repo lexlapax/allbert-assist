@@ -66,9 +66,10 @@ defmodule AllbertAssist.Actions.Settings.SetNotesRoot do
   defp validate_root(path) when is_binary(path) do
     trimmed = String.trim(path)
 
-    cond do
-      trimmed == "" -> {:error, :empty_path}
-      true -> validate_directory(Path.expand(trimmed))
+    if trimmed == "" do
+      {:error, :empty_path}
+    else
+      validate_directory(Path.expand(trimmed))
     end
   end
 
