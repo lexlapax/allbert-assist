@@ -4240,15 +4240,16 @@ path for a non-developer.
 Expected direction:
 
 - Operator connects a local notes/files root from a **config-free affordance**
-  (onboarding step / settings action), not a hand-edited config file.
+  (onboarding, post-first-chat QuickStart affordance, web/settings affordance, or
+  `allbert admin notes set-root PATH`), not a hand-edited config file.
 - **Full scope:** builds two first-class destinations — `workspace:notes`
   (search/read/confirm-write) and an interactive `workspace:memory` review panel
-  (keep/reject/delete) — on the already-shipped notes/files + memory engine.
+  (keep/reject-as-`:flagged`/delete) — on the already-shipped notes/files + memory engine.
 - Notes/files search/read/write is the default local knowledge path; access is
   bounded by `PermissionGate` + root/extension path bounding (Resource Access refs
   are provenance, not the file-access gate), with confirmation-gated writes.
-- Memory review is explicit user control (web + CLI): inspect, keep, reject,
-  delete, and recall; recall injects only reviewed (`:kept`) memory into a later chat.
+- Memory review is explicit user control (web + CLI): inspect, keep, reject-as-`:flagged`,
+  delete/archive, and recall; recall injects only reviewed (`:kept`) memory into a later chat.
 - Launch-path starter prompts + empty states guide "ask about my notes", "summarize
   this note", "remember this after review", and "show what you remember."
 - The `:notes_files` namespace remains non-writable and never auto-promotes

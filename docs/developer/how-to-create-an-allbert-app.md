@@ -25,17 +25,21 @@ reference plugin. Read it before creating a hand-written app/plugin:
   `:notes_files` app id, registers the non-writable `:notes_files` memory
   namespace, exposes list/detail workspace panels, and delegates settings to a
   small `Settings.Fragment`.
-- `search_notes` and `read_note` are `:read_only` actions with `file://`
-  `read_local_path` Resource Access refs.
+- `search_notes` and `read_note` are `:read_only` actions that emit `file://`
+  `read_local_path` refs as provenance/audit metadata; actual file access is bounded by
+  `PermissionGate` plus notes-root/path/extension/size checks.
 - `write_note` uses `:notes_file_write`, creates a durable confirmation with a
-  `write_local_path` ref, and writes only after Approval Handoff resumes it.
+  `write_local_path` provenance ref, and writes only after Approval Handoff resumes it.
 - The plugin deliberately does not auto-promote note files into memory; memory
   promotion remains a separate confirmed memory action.
 
 The important pattern is not the notes domain. It is the boundary shape:
 registration is inert, actions declare capability metadata, settings live under
-`apps.<app_id>.*`, surfaces are declarative, and effectful work still goes
-through Runner, Security Central, Resource Access, and confirmations.
+`apps.<app_id>.*`, surfaces are declarative, and effectful work still goes through
+Runner, Security Central, policy-specific bounds, provenance, and confirmations. For
+notes/files specifically, Resource Access refs describe touched files; they are not the
+grant check at the `File.*` boundary. v0.65 records that distinction while adding the
+product-facing `allbert admin notes set-root PATH` and `workspace:notes` surfaces.
 
 ## Recommended Path: `mix allbert.gen.app`
 

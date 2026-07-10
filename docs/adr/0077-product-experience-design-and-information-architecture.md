@@ -172,11 +172,13 @@ substrate already ship; v0.65 makes them an obvious, config-free product surface
 - **Two new first-class IA destinations**, modelled on `workspace:models`:
   **`workspace:notes`** (search/read/confirm-write over a configured notes root) and
   **`workspace:memory`** (an interactive review panel wiring the existing
-  keep/reject/delete actions). Both surface already-permissioned loops and add no
-  authority.
-- **Config-free connect affordance.** The notes root is set from onboarding or a settings
-  action, not a hand-edited config file — closing the non-developer gap where the only
-  path was `admin settings set apps.notes_files.notes_root`.
+  keep/reject-as-`:flagged`/delete actions). Both surface already-permissioned loops and
+  add no authority.
+- **Config-free connect affordance.** The notes root is set from onboarding, the
+  post-first-chat QuickStart affordance, web/settings affordance, or
+  `allbert admin notes set-root PATH`, not a hand-edited config file — closing the
+  non-developer gap where the only CLI path was
+  `admin settings set apps.notes_files.notes_root`.
 - **Enforcement framing.** Notes file access is enforced by `PermissionGate` + root/
   extension path bounding; the plugin's Resource Access refs are provenance/audit
   metadata, not the file-access grant seam (see `local-knowledge-path.md`).

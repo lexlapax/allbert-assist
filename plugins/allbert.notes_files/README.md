@@ -6,8 +6,10 @@ workspace panels, a settings fragment, and two skill entries.
 
 Registration is inert contract data. The plugin does not grant file access,
 memory promotion, or confirmation bypasses by being present. Reads are bounded
-to the configured notes root. Writes create a durable confirmation request with
-`write_local_path` resource refs and only touch disk after approval.
+to the configured notes root by `PermissionGate` plus root/extension/size checks.
+Writes create a durable confirmation request and only touch disk after approval.
+The emitted `read_local_path` / `write_local_path` refs are provenance/audit metadata,
+not the file-access enforcement gate.
 
 ## Contract
 
@@ -25,3 +27,7 @@ to the configured notes root. Writes create a durable confirmation request with
 The namespace declaration is read-only on purpose. Note files are not promoted
 to Allbert memory automatically; memory promotion remains a separate confirmed
 memory action.
+
+v0.65 plans the product-facing setup/surface layer over this reference plugin:
+`allbert admin notes set-root PATH`, `workspace:notes`, and the reviewed-memory
+`workspace:memory` loop. Those surfaces add no authority.
