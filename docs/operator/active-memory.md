@@ -1,7 +1,7 @@
 # Allbert Active Memory And Identity Slot
 
-Introduced in v0.39b; current as of v0.63. v0.65 plans first-class
-`workspace:memory` and `admin memory status` surfaces over the same substrate.
+Introduced in v0.39b; current as of v0.65, which adds first-class
+`workspace:memory` and `allbert admin memory status` surfaces over the same substrate.
 
 This guide is the operator-facing reference for the identity memory
 namespace and Active Memory retrieval. Implementation details live in
@@ -15,8 +15,10 @@ namespace and Active Memory retrieval. Implementation details live in
 - `docs/research/active-memory-retrieval.md` — deterministic algorithm spec.
 - `docs/operator/onboarding.md` — first-run onboarding (v0.39); the
   identity-slot preview step in onboarding points here.
+- `docs/operator/local-knowledge.md` — the v0.65 local files/notes + reviewed
+  memory launch-path guide (connect → search/read → confirm write → review → recall).
 - `docs/plans/v0.65-plan.md` and `docs/design/local-knowledge-path.md` —
-  planned local-knowledge product surfaces for reviewed memory.
+  the local-knowledge product surfaces for reviewed memory.
 
 ## Identity Slot
 
@@ -83,10 +85,10 @@ turn.
 - **Snapshot rule**: candidate set is snapshotted once per turn.
   Concurrent v0.21 review/update changes during scoring land on the next turn.
 
-## v0.65 Planned Review Surfaces
+## v0.65 Review Surfaces
 
-v0.65 does not change the Active Memory authority model. It adds product surfaces over
-the existing review actions:
+v0.65 does not change the Active Memory authority model. It adds first-class product
+surfaces over the existing review actions:
 
 - `workspace:memory` shows review candidates and dispatches through the Runner.
 - Keep maps to `review_memory_entry status=kept`.
