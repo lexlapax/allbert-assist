@@ -48,9 +48,10 @@ authority.
 by the pre-publish Linux rehearsal because the local installer path did not yet create a
 cosign bundle. `v0.64.1` fixes that release-contract gap and publishes the real GitHub
 release artifacts, checksums, and cosign bundle. Local macOS validation confirmed the
-published artifact and fail-closed installer guidance; full curl-install success on this
-Mac requires explicit approval to install `cosign`. See [CHANGELOG.md](CHANGELOG.md) for
-the current release status.
+published artifact, fail-closed installer guidance before `cosign` was available, full
+curl-install success after verifier installation, service health, attach, first-run
+guidance, and uninstall/Home preservation. See [CHANGELOG.md](CHANGELOG.md) for the
+current release status.
 
 The prior line, v0.62 (Packaging & Entry Points), shipped as packaged release `v0.62.0`
 (Latest, 2026-07-07) with a source/docs point release `v0.62.1` (tagged 2026-07-07,

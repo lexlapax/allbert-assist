@@ -4188,13 +4188,13 @@ release.v064` passed. `v0.64.0` was tagged first, but its release-artifacts work
 blocked before publish because the pre-publish Linux rehearsal did not create the cosign
 bundle required by the fail-closed installer. `v0.64.1` fixes that release-contract gap;
 the release-artifacts workflow passed and published GitHub Release assets. Local macOS
-validation confirmed published-artifact boot/health/attach/first-run behavior and
-fail-closed installer guidance; full curl-install success on this Mac requires explicit
-approval to install `cosign`. Moves distribution trust into the first-run release because
-a non-developer cannot separate "trust the installer" from "trust the product." It closes
-installer-side verification and rollback/restore posture, makes packaged install the
-primary docs path, and turns first-run blocked states into plain-language repair screens
-with one primary action.
+validation confirmed fail-closed installer guidance before `cosign` was available, then
+after explicit verifier-install approval confirmed full curl-install success,
+boot/health/attach/first-run behavior, and uninstall/Home preservation. Moves
+distribution trust into the first-run release because a non-developer cannot separate
+"trust the installer" from "trust the product." It closes installer-side verification and
+rollback/restore posture, makes packaged install the primary docs path, and turns
+first-run blocked states into plain-language repair screens with one primary action.
 
 Expected direction:
 

@@ -26,13 +26,14 @@ permission, installing cosign, signing its local `SHA256SUMS`, and surfacing ins
 stderr/stdout on failure.
 
 Manual macOS validation on 2026-07-09 used disposable `HOME`, `ALLBERT_HOME`, and
-`ALLBERT_PREFIX` under `/private/tmp/allbert-v0641-manual`. The real installer downloaded
-the published `allbert-v0.64.1-macos-arm64.tar.gz`, then failed closed with the expected
-cosign-install guidance because this Mac does not have `cosign`; no files were installed.
-Direct packaged-artifact validation from the published tarball passed `allbert --version`
-(`0.64.1`), `admin status`, `serve`, `/health`, attach, `admin service status`, and bare
-first-run guidance. Full macOS curl-install success remains blocked on explicit approval
-to install `cosign` locally.
+`ALLBERT_PREFIX` under `/private/tmp/allbert-v0641-manual` and
+`/private/tmp/allbert-v0641-curl-success*`. Before `cosign` was installed, the real
+installer downloaded the published `allbert-v0.64.1-macos-arm64.tar.gz`, then failed
+closed with the expected verifier-install guidance and installed no files. After explicit
+approval to install `cosign` locally, the full curl-installer path passed: signature
+verification, checksum verification, symlinked install, `allbert --version` (`0.64.1`),
+`admin status`, `serve`, `/health`, attach, `admin service status`, bare first-run
+guidance, and uninstall while preserving Allbert Home.
 
 v0.64 moves install trust and first-run repair into one non-developer path: package-first
 install, persistent service start, browser-first workspace onboarding, guided local
