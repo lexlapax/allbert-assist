@@ -96,8 +96,9 @@ surfaces over the existing review actions:
   and inspectable.
 - Delete dispatches `delete_memory_entry`, remains confirmation-gated, and archives the
   entry rather than hard-deleting it.
-- `allbert admin memory status` reports read-only counts by review status plus retrieval
-  posture.
+- `allbert admin memory status` reports read-only counts by review status for the current
+  user/operator by default and prints the scope. Use
+  `allbert admin memory status --all-users` for an explicit aggregate across users.
 
 Only `:kept` entries are recallable. `:flagged`, `:prune_nominated`, and `:unreviewed`
 entries remain out of direct-answer retrieval.

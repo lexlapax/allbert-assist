@@ -36,8 +36,9 @@ above are the product path.
 ## 2. Search / read notes
 
 Open the **Notes** workspace destination (`workspace:notes`) from the sidebar, or ask in
-chat ("find notes about onboarding", "summarize this note"). Reads use `search_notes` /
-`read_note`.
+chat ("find notes about onboarding", "summarize this note"). The panel searches and reads
+through the registered `search_notes` / `read_note` actions with the notes/files app
+scope; it is not a direct file-browser helper.
 
 **What Allbert can read is bounded.** File access is enforced by Security Central's
 permission gate plus **root-and-extension bounding** — Allbert only reads inside the
@@ -47,9 +48,10 @@ themselves the access gate. There is no broad filesystem grant.
 
 ## 3. Confirm a note write
 
-`write_note` is **confirmation-gated**: Allbert proposes the write and nothing is written
-to disk until you approve the durable confirmation (web approval, or `allbert admin
-confirmations approve <ID>`). The approval is a traced, auditable record.
+`write_note` is **confirmation-gated**: Allbert proposes the write from chat/action
+dispatch and nothing is written to disk until you approve the durable confirmation (web
+approval, or `allbert admin confirmations approve <ID>`). The Notes panel does not add a
+separate full note editor; the approval is a traced, auditable record.
 
 ## 4. Review memory
 
@@ -61,7 +63,9 @@ Open the **Memory** workspace destination (`workspace:memory`) to review candida
 - **Delete** — confirmation-gated; archives the entry rather than hard-deleting it.
 
 From the terminal: `allbert admin memory list|show|review|delete`, and
-`allbert admin memory status` for read-only counts by review status.
+`allbert admin memory status` for read-only counts by review status. Status defaults to
+the current user/operator scope and prints that scope; use
+`allbert admin memory status --all-users` only when you intentionally want the aggregate.
 
 **Nothing is remembered automatically.** Every new memory candidate is written
 `unreviewed` and is **never recalled until a human review marks it `kept`** — including

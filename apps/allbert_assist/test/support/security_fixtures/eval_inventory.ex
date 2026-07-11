@@ -6442,10 +6442,15 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       milestone: :v065,
       surface: :notes_files_reference_plugin,
       scenario:
-        "A note read escapes the configured notes root instead of being bounded by root/extension path bounding, or emits no provenance resource ref",
+        "A registered read_note action escapes the configured notes root instead of being bounded by root/extension path bounding, loses the notes_files app scope, or emits no provenance resource ref",
       boundary: :resource_access,
       expected: :denied,
-      assert: [:read_bounded_to_root, :path_outside_root_denied, :resource_ref_provenance],
+      assert: [
+        :read_bounded_to_root,
+        :path_outside_root_denied,
+        :notes_files_active_app_scope,
+        :resource_ref_provenance
+      ],
       test_module: "AllbertAssist.Security.V065SweepEvalTest"
     },
     %{

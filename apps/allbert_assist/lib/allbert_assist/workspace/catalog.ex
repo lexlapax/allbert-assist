@@ -103,6 +103,18 @@ defmodule AllbertAssist.Workspace.Catalog do
       label: "Settings",
       dom_id: "workspace-settings",
       non_hideable?: true
+    },
+    %{
+      id: "workspace:notes",
+      tool: "notes",
+      label: "Notes",
+      dom_id: "operator-nav-notes"
+    },
+    %{
+      id: "workspace:memory",
+      tool: "memory",
+      label: "Memory",
+      dom_id: "operator-nav-memory"
     }
   ]
 
@@ -125,10 +137,9 @@ defmodule AllbertAssist.Workspace.Catalog do
     "channels" => :core_channels_panel,
     "surface_policy" => :core_surface_policy_panel,
     "settings" => :core_settings_panel,
-    # v0.65 M3: `workspace:notes` is a first-class destination that surfaces the
-    # notes/files app's own workspace_panel_surfaces (list + detail), so the tool
-    # maps to both provider panel ids rather than a single core panel.
-    "notes" => [:notes_files_list_panel, :notes_files_detail_panel],
+    # v0.65 M8.2: `workspace:notes` uses the notes/files app's action-backed
+    # interactive panel, so search/read stay on the Runner/PermissionGate seam.
+    "notes" => :notes_files_panel,
     # v0.65 M4: `workspace:memory` renders the interactive memory-review panel.
     "memory" => :core_memory_panel
   }

@@ -207,14 +207,18 @@ defmodule AllbertNotesFiles.PluginTest do
              )
   end
 
-  test "workspace panels hydrate note rows from read-only file context" do
+  test "workspace panel declares the action-backed notes component" do
     surfaces = AllbertNotesFiles.App.workspace_panel_surfaces(%{})
 
-    assert [%Surface{id: :notes_files_list_panel}, %Surface{id: :notes_files_detail_panel}] =
-             surfaces
+    assert [%Surface{id: :notes_files_panel}] = surfaces
 
-    assert %Node{component: :panel} = hd(hd(surfaces).nodes)
-    assert Enum.all?(surfaces, &(Surface.validate_surface_catalog(&1, []) == :ok))
+    assert %Node{component: :panel, children: [%Node{component: :notes_files_panel}]} =
+             hd(hd(surfaces).nodes)
+
+    assert Enum.all?(
+             surfaces,
+             &(Surface.validate_surface_catalog(&1, AllbertNotesFiles.App.surface_catalog()) == :ok)
+           )
   end
 
   defp assert_eventually(fun, attempts \\ 20)

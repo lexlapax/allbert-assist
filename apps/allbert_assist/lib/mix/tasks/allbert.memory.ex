@@ -4,6 +4,7 @@ defmodule Mix.Tasks.Allbert.Memory do
 
   ## Usage
 
+      mix allbert.memory status [--category notes] [--user USER] [--all-users]
       mix allbert.memory list [--category notes] [--namespace identity] [--status unreviewed] [--limit 20]
       mix allbert.memory show PATH
       mix allbert.memory review PATH --status kept|flagged|prune_nominated [--note "..."]

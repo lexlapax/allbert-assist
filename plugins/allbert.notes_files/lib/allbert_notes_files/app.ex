@@ -8,10 +8,11 @@ defmodule AllbertNotesFiles.App do
 
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
-  alias AllbertNotesFiles.{Notes, SettingsFragment}
+  alias AllbertNotesFiles.SettingsFragment
 
   @list_panel_id :notes_files_list_panel
   @detail_panel_id :notes_files_detail_panel
+  @workspace_panel_id :notes_files_panel
 
   @impl true
   def app_id, do: :notes_files
@@ -58,13 +59,22 @@ defmodule AllbertNotesFiles.App do
   end
 
   def workspace_panel_surfaces(_context) do
-    max_results = Notes.max_results()
-
-    {:ok, notes} = Notes.search("", limit: max_results)
-    [list_panel(note_rows(notes)), detail_panel(detail_nodes(List.first(notes)))]
+    [
+      panel(@workspace_panel_id, "Notes/files", 200, [
+        %Node{
+          id: "notes-files-content",
+          component: :notes_files_panel,
+          props: %{zone: "canvas", title: "Notes/files", force_load?: true}
+        }
+      ])
+    ]
   end
 
-  def surface_catalog, do: []
+  def surface_catalog do
+    [
+      %{component: :notes_files_panel, allowed_props: [], allowed_bindings: []}
+    ]
+  end
 
   def intent_descriptors do
     [
@@ -141,69 +151,9 @@ defmodule AllbertNotesFiles.App do
     }
   end
 
-  defp note_rows([]),
-    do: [
-      empty_state(
-        "notes-empty",
-        "No notes yet",
-        "Connect a notes folder (onboarding → Connect a notes folder, or `allbert admin notes set-root PATH`) or add .md files to your notes root."
-      )
-    ]
-
-  defp note_rows(notes) do
-    Enum.map(notes, fn note ->
-      %Node{
-        id: "note-row-#{safe_id(note.relative_path)}",
-        component: :row,
-        props: %{
-          title: note.title,
-          body: "#{note.relative_path} - #{note.excerpt}",
-          external_id: note.relative_path
-        }
-      }
-    end)
-  end
-
-  defp detail_nodes(nil) do
-    [
-      empty_state(
-        "note-detail-empty",
-        "No note selected",
-        "Search or read a note to inspect details."
-      )
-    ]
-  end
-
-  defp detail_nodes(note) do
-    [
-      %Node{
-        id: "note-detail-#{safe_id(note.relative_path)}",
-        component: :text,
-        props: %{
-          title: note.title,
-          body: note.excerpt,
-          external_id: note.relative_path,
-          status: "read_only"
-        }
-      }
-    ]
-  end
-
   defp empty_state(id, title, body) do
     %Node{id: id, component: :empty_state, props: %{title: title, body: body}}
   end
 
   defp panel_root_id(id), do: id |> Atom.to_string() |> String.replace("_", "-")
-
-  defp safe_id(value) do
-    value
-    |> to_string()
-    |> String.downcase()
-    |> String.replace(~r/[^a-z0-9]+/, "-")
-    |> String.trim("-")
-    |> case do
-      "" -> "note"
-      id -> String.slice(id, 0, 48)
-    end
-  end
 end

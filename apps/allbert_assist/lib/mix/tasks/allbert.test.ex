@@ -4900,7 +4900,7 @@ defmodule Mix.Tasks.Allbert.Test do
         "test/mix/tasks/allbert_memory_test.exs"
       ],
       coverage: [
-        "admin memory status reports exact per-status counts and the memory root, not a bounded list sample",
+        "admin memory status reports exact scoped per-status counts, root, and explicit --all-users aggregate, not a bounded list sample",
         "review/update/delete/retrieve run through the CLI action surfaces with confirmation-gated delete"
       ]
     },
@@ -4940,13 +4940,13 @@ defmodule Mix.Tasks.Allbert.Test do
       executable: "mix",
       args: [
         "test",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:193",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:203",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:243",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:253"
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:196",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:206",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:261",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:271"
       ],
       coverage: [
-        "the Notes nav item and workspace:notes destination render the notes app panels with a real note",
+        "the Notes nav item and workspace:notes destination render the action-backed notes panel with a real note",
         "the Memory nav item and workspace:memory destination drive keep/reject/delete through the Runner"
       ]
     },

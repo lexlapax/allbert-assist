@@ -16,9 +16,11 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     Runtime,
     Session,
     Settings,
+    Surfaces.ContextBuilder,
     Workspace
   }
 
+  alias AllbertAssist.Actions.Settings.SetNotesRoot
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.Conversations.ChannelThread
@@ -201,7 +203,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
            )
   end
 
-  test "v0.65 M3: the workspace:notes destination renders the notes app panels", %{
+  test "v0.65 M3: the workspace:notes destination searches and reads through the panel", %{
     conn: conn,
     root: root
   } do
@@ -212,6 +214,9 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
       Path.join(notes_root, "m3-fixture.md"),
       "# Allbert Notes M3 Fixture\n\nGrounded local-knowledge note for the workspace:notes panel.\n"
     )
+
+    ensure_notes_files_app_registered()
+    assert {:ok, %{status: :completed}} = SetNotesRoot.run(%{path: notes_root}, action_context())
 
     thread = create_workspace_thread("Notes destination")
 
@@ -226,14 +231,26 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     refute has_element?(view, "#workspace-shell[data-canvas-destination='output']")
 
-    # The notes/files app's own list panel surface renders under the destination.
     assert has_element?(
              view,
-             "[data-workspace-node^='workspace-panel-notes_files-notes_files_list_panel']"
+             "#workspace-notes-panel[data-action-source='actions-runner']"
            )
 
-    # And the real note (search/read) is surfaced, not just an empty placeholder.
+    assert has_element?(view, "#workspace-notes-search-form")
+
+    view
+    |> form("#workspace-notes-search-form", query: "Grounded local-knowledge")
+    |> render_submit()
+
     assert render(view) =~ "Allbert Notes M3 Fixture"
+
+    view
+    |> element("#workspace-note-open-m3-fixture-md")
+    |> render_click()
+
+    detail = render(view)
+    assert detail =~ "Grounded local-knowledge note for the workspace:notes panel."
+    assert detail =~ "resource_refs=1"
   end
 
   # v0.65 M4: `workspace:memory` is an interactive review destination — a "Memory"
@@ -255,6 +272,13 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     keep_entry = seed_unreviewed_memory("Keep this milestone note.")
     reject_entry = seed_unreviewed_memory("Reject this stray note.")
     delete_entry = seed_unreviewed_memory("Delete this note entirely.")
+    _other_user_entry = seed_unreviewed_memory("Bob should not appear here.", "bob")
+
+    assert {:ok, local_candidates} =
+             AllbertAssist.Memory.list_entries(review_status: :unreviewed, user_id: "local")
+
+    assert MapSet.new(Enum.map(local_candidates, & &1.path)) ==
+             MapSet.new([keep_entry.path, reject_entry.path, delete_entry.path])
 
     thread = create_workspace_thread("Memory review")
 
@@ -264,13 +288,14 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     # Reaches the interactive memory panel and lists the unreviewed candidates.
     assert has_element?(view, "#workspace-memory-panel")
     assert render(view) =~ "Keep this milestone note."
+    refute render(view) =~ "Bob should not appear here."
 
     # Keep dispatches review_memory_entry status=kept.
     view
     |> element("#workspace-memory-keep-#{memory_safe_id(keep_entry.path)}")
     |> render_click()
 
-    assert {:ok, kept} = AllbertAssist.Memory.list_entries(review_status: :kept)
+    assert {:ok, kept} = AllbertAssist.Memory.list_entries(review_status: :kept, user_id: "local")
     assert Enum.map(kept, & &1.path) == [keep_entry.path]
 
     # Reject dispatches review_memory_entry status=flagged (a different candidate).
@@ -278,7 +303,9 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     |> element("#workspace-memory-reject-#{memory_safe_id(reject_entry.path)}")
     |> render_click()
 
-    assert {:ok, flagged} = AllbertAssist.Memory.list_entries(review_status: :flagged)
+    assert {:ok, flagged} =
+             AllbertAssist.Memory.list_entries(review_status: :flagged, user_id: "local")
+
     assert Enum.map(flagged, & &1.path) == [reject_entry.path]
 
     # Delete runs the confirmation-gated archive (create+approve); the entry leaves
@@ -3005,13 +3032,13 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
   # v0.65 M4: seed an unreviewed memory candidate owned by the default workspace
   # operator ("local") so the workspace:memory panel can keep/reject/delete it.
-  defp seed_unreviewed_memory(summary) do
+  defp seed_unreviewed_memory(summary, actor \\ "local") do
     assert {:ok, entry} =
              AllbertAssist.Memory.append(%{
                category: :notes,
                body: summary,
                summary: summary,
-               actor: "local",
+               actor: actor,
                agent: "test",
                channel: :test,
                source_signal_id: "sig-#{System.unique_integer([:positive])}"
@@ -3022,6 +3049,39 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
   defp memory_safe_id(path) do
     OperatorPanels.safe_id(path)
+  end
+
+  defp ensure_notes_files_app_registered do
+    plugin_registered? =
+      match?({:ok, _entry}, AllbertAssist.Plugin.Registry.lookup("allbert.notes_files"))
+
+    unless plugin_registered? do
+      assert {:ok, "allbert.notes_files"} =
+               AllbertAssist.Plugin.Registry.register_module(AllbertNotesFiles.Plugin)
+    end
+
+    app_registered? = AllbertAssist.App.Registry.known_app_id?(:notes_files)
+
+    unless app_registered? and notes_files_surface_provider_registered?() do
+      AllbertAssist.App.Registry.unregister(:notes_files)
+      assert {:ok, :notes_files} = AllbertAssist.App.Registry.register(AllbertNotesFiles.App)
+    end
+
+    on_exit(fn ->
+      unless app_registered?, do: AllbertAssist.App.Registry.unregister(:notes_files)
+    end)
+  end
+
+  defp notes_files_surface_provider_registered? do
+    AllbertAssist.App.Registry.registered_surface_providers()
+    |> Enum.any?(fn provider ->
+      Map.get(provider, :app_id) == :notes_files and
+        Map.get(provider, :module) == AllbertNotesFiles.App
+    end)
+  end
+
+  defp action_context do
+    ContextBuilder.live_view_context(%{user_id: "local"}, surface: "/workspace")
   end
 
   defp html_position(html, marker) do

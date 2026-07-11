@@ -37,9 +37,38 @@ if mix allbert.notes set-root "$WORK/does-not-exist" >/dev/null 2>&1; then
 fi
 pass connect-root-failclosed
 
-# 3. Search finds the seeded note (read path bounded to the connected root).
-mix allbert.notes show 2>/dev/null | grep -qF "$NOTES_ROOT" || fail notes-root "notes root not set"
-pass notes-search-ready
+# 3. Search/read find the seeded note through the registered action seam.
+mix run -e '
+  context = %{
+    active_app: :notes_files,
+    request: %{
+      active_app: :notes_files,
+      operator_id: "local",
+      channel: :cli,
+      input_signal_id: "v065-smoke"
+    }
+  }
+  {:ok, response} = AllbertAssist.Actions.Runner.run("search_notes", %{query: "onboarding", limit: 10}, context)
+  found? = response.status == :completed and Enum.any?(response.notes, &(Map.get(&1, :relative_path) == "onboarding.md"))
+  unless found?, do: raise("search_notes did not return onboarding.md")
+' >/dev/null 2>&1 || fail notes-search "search_notes did not find the seeded note"
+pass notes-search
+
+mix run -e '
+  context = %{
+    active_app: :notes_files,
+    request: %{
+      active_app: :notes_files,
+      operator_id: "local",
+      channel: :cli,
+      input_signal_id: "v065-smoke"
+    }
+  }
+  {:ok, response} = AllbertAssist.Actions.Runner.run("read_note", %{path: "onboarding.md"}, context)
+  read? = response.status == :completed and response.note.body =~ "Bring the local knowledge checklist" and response.resource_refs != []
+  unless read?, do: raise("read_note did not read onboarding.md with resource refs")
+' >/dev/null 2>&1 || fail notes-read "read_note did not read the seeded note"
+pass notes-read
 
 # 4. Fresh home: no memory candidates yet.
 mix allbert.memory status 2>/dev/null | grep -qE "unreviewed=0" || fail memory-status-fresh "expected unreviewed=0"

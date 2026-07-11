@@ -59,6 +59,7 @@ defmodule AllbertAssist.Surface.Catalog do
     :confirmation_card,
     :approval_card,
     :approval_inspector,
+    :notes_files_panel,
     :memory_review_card,
     :job_card,
     :channel_card,
@@ -184,6 +185,7 @@ defmodule AllbertAssist.Surface.Catalog do
     approval_card: {:live_component, AllbertAssistWeb.Workspace.Components.ApprovalCard},
     approval_inspector:
       {:live_component, AllbertAssistWeb.Workspace.Components.ApprovalInspector},
+    notes_files_panel: {:live_component, AllbertAssistWeb.Workspace.Components.NotesPanel},
     # v0.65 M4: the memory-review component renders the interactive
     # `workspace:memory` review panel (keep/reject/delete through the Runner),
     # replacing the earlier unwired placeholder card.
@@ -204,6 +206,7 @@ defmodule AllbertAssist.Surface.Catalog do
     confirmation_card: "hero-shield-check-micro",
     approval_card: "hero-check-circle-micro",
     approval_inspector: "hero-magnifying-glass-micro",
+    notes_files_panel: "hero-document-text-micro",
     memory_review_card: "hero-book-open-micro",
     job_card: "hero-clock-micro",
     channel_card: "hero-inbox-micro",

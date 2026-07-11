@@ -4231,19 +4231,20 @@ Expected direction:
 Plan: `docs/plans/v0.65-plan.md`
 Request flow: `docs/plans/v0.65-request-flow.md`
 
-Status: planned (inserted before the product RC). Makes local files, notes, and
-reviewed agent memory the primary 1.0 launch integration. Remote channels, MCP,
-browser research, public protocols, and other implemented surfaces remain
-release-blocking regression surfaces, but they are not the default first-run
-path for a non-developer.
+Status: implemented in source after post-implementation remediation M8.1-M8.5;
+release tagging/publish remains explicit closeout work. Makes local files, notes, and
+reviewed agent memory the primary 1.0 launch integration. Remote channels, MCP, browser
+research, public protocols, and other implemented surfaces remain release-blocking
+regression surfaces, but they are not the default first-run path for a non-developer.
 
-Expected direction:
+Implemented scope:
 
 - Operator connects a local notes/files root from a **config-free affordance**
   (onboarding, post-first-chat QuickStart affordance, web/settings affordance, or
   `allbert admin notes set-root PATH`), not a hand-edited config file.
-- **Full scope:** builds two first-class destinations — `workspace:notes`
-  (search/read/confirm-write) and an interactive `workspace:memory` review panel
+- **Full scope:** builds two first-class destinations — action-backed `workspace:notes`
+  (search/read through `search_notes`/`read_note`; writes remain the confirmation-gated
+  `write_note` action flow) and an interactive `workspace:memory` review panel
   (keep/reject-as-`:flagged`/delete) — on the already-shipped notes/files + memory engine.
 - Notes/files search/read/write is the default local knowledge path; access is
   bounded by `PermissionGate` + root/extension path bounding (Resource Access refs
@@ -4254,8 +4255,9 @@ Expected direction:
   this note", "remember this after review", and "show what you remember."
 - The `:notes_files` namespace remains non-writable and never auto-promotes
   plugin output into memory.
-- `release.v065` (with net-new backing tests), docs gate, warning gate, and drift
-  checks. See `docs/design/local-knowledge-path.md` + the ADR 0077 v0.65 amendment.
+- `release.v065` (with net-new backing tests), docs gate, warning gate, smoke coverage,
+  and drift checks. See `docs/design/local-knowledge-path.md` + the ADR 0077 v0.65
+  amendment.
 - No new authority class, broad filesystem grant, silent file writes, or automatic
   memory promotion.
 

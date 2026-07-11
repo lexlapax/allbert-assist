@@ -18,7 +18,7 @@ defmodule AllbertAssist.CLI.Areas.Memory do
 
   @usage """
   Usage:
-    mix allbert.memory status [--category notes|preferences|traces|skills|identity]
+    mix allbert.memory status [--category notes|preferences|traces|skills|identity] [--user USER] [--all-users]
     mix allbert.memory list [--category notes|preferences|traces|skills|identity] [--namespace identity] [--status unreviewed|kept|flagged|prune_nominated] [--limit N] [--since YYYY-MM-DD] [--user USER]
     mix allbert.memory show PATH [--user USER]
     mix allbert.memory review PATH --status kept|flagged|prune_nominated [--note "..."] [--user USER]
@@ -50,13 +50,24 @@ defmodule AllbertAssist.CLI.Areas.Memory do
   # authority — it only reports the state of the already-permissioned review loop.
   defp route(["status" | args], _ctx) do
     {opts, rest, invalid} =
-      OptionParser.parse(args, strict: [category: :string, user: :string, operator: :string])
+      OptionParser.parse(args,
+        strict: [category: :string, user: :string, operator: :string, all_users: :boolean]
+      )
 
     with :ok <- reject_invalid(invalid),
          :ok <- reject_rest(rest, "status"),
-         {:ok, _user_id} <- resolve_user_id(opts) do
-      counts = Memory.review_status_counts(category: opts[:category])
-      {:ok, {:status, counts, Memory.root()}}
+         {:ok, user_id} <- resolve_user_id(opts),
+         :ok <- reject_all_users_operator_conflict(opts) do
+      all_users? = opts[:all_users] == true
+
+      counts =
+        %{category: opts[:category], user_id: if(all_users?, do: nil, else: user_id)}
+        |> compact()
+        |> Map.to_list()
+        |> Memory.review_status_counts()
+
+      scope = if all_users?, do: "all-users", else: "user=#{user_id}"
+      {:ok, {:status, counts, Memory.root(), scope}}
     end
   end
 
@@ -303,10 +314,11 @@ defmodule AllbertAssist.CLI.Areas.Memory do
 
   # -- rendering -------------------------------------------------------------
 
-  defp render({:ok, {:status, counts, root}}) do
+  defp render({:ok, {:status, counts, root, scope}}) do
     Render.ok([
       "unreviewed=#{Map.get(counts, :unreviewed, 0)} kept=#{Map.get(counts, :kept, 0)} flagged=#{Map.get(counts, :flagged, 0)} prune_nominated=#{Map.get(counts, :prune_nominated, 0)}",
       "total=#{Map.get(counts, :total, 0)}",
+      "scope=#{scope}",
       "root=#{root}"
     ])
   end
@@ -524,6 +536,14 @@ defmodule AllbertAssist.CLI.Areas.Memory do
 
   defp reject_rest(rest, command),
     do: {:error, {:arg, "Unexpected #{command} arguments: #{inspect(rest)}"}}
+
+  defp reject_all_users_operator_conflict(opts) do
+    if opts[:all_users] == true and (present?(opts[:user]) or present?(opts[:operator])) do
+      {:error, {:arg, "--all-users cannot be combined with --user or --operator."}}
+    else
+      :ok
+    end
+  end
 
   defp compact(map) do
     map

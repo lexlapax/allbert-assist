@@ -8,6 +8,7 @@ defmodule Mix.Tasks.Allbert.MemoryTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias Mix.Tasks.Allbert.Memory, as: MemoryTask
+  alias Mix.Tasks.Help, as: HelpTask
 
   setup do
     original_memory = Application.get_env(:allbert_assist, Memory)
@@ -64,7 +65,7 @@ defmodule Mix.Tasks.Allbert.MemoryTest do
     assert show_output =~ "Alice prefers concise updates."
   end
 
-  test "status reports exact review-status counts and the memory root" do
+  test "status reports exact review-status counts scoped to the requested user" do
     assert {:ok, _unreviewed} =
              Memory.append(%{
                category: :notes,
@@ -95,6 +96,16 @@ defmodule Mix.Tasks.Allbert.MemoryTest do
                source_signal_id: "s3"
              })
 
+    assert {:ok, bob} =
+             Memory.append(%{
+               category: :notes,
+               body: "Bob's kept candidate.",
+               actor: "bob",
+               agent: "test",
+               channel: :test,
+               source_signal_id: "s4"
+             })
+
     assert {:ok, _} =
              Memory.review_entry(kept.path, %{status: :kept, reviewed_by: "alice"},
                user_id: "alice"
@@ -105,9 +116,12 @@ defmodule Mix.Tasks.Allbert.MemoryTest do
                user_id: "alice"
              )
 
+    assert {:ok, _} =
+             Memory.review_entry(bob.path, %{status: :kept, reviewed_by: "bob"}, user_id: "bob")
+
     output =
       capture_io(fn ->
-        assert :ok = MemoryTask.run(["status"])
+        assert :ok = MemoryTask.run(["status", "--user", "alice"])
       end)
 
     assert output =~ "unreviewed=1"
@@ -115,7 +129,37 @@ defmodule Mix.Tasks.Allbert.MemoryTest do
     assert output =~ "flagged=1"
     assert output =~ "prune_nominated=0"
     assert output =~ "total=3"
+    assert output =~ "scope=user=alice"
     assert output =~ "root="
+
+    Mix.Task.reenable("allbert.memory")
+
+    all_users_output =
+      capture_io(fn ->
+        assert :ok = MemoryTask.run(["status", "--all-users"])
+      end)
+
+    assert all_users_output =~ "unreviewed=1"
+    assert all_users_output =~ "kept=2"
+    assert all_users_output =~ "flagged=1"
+    assert all_users_output =~ "total=4"
+    assert all_users_output =~ "scope=all-users"
+  end
+
+  test "status rejects conflicting user scope flags" do
+    assert_raise Mix.Error, ~r/--all-users cannot be combined with --user or --operator/, fn ->
+      MemoryTask.run(["status", "--user", "alice", "--all-users"])
+    end
+  end
+
+  test "help includes the status command" do
+    output =
+      capture_io(fn ->
+        assert :ok = HelpTask.run(["allbert.memory"])
+      end)
+
+    assert output =~ "mix allbert.memory status"
+    assert output =~ "--all-users"
   end
 
   test "empty list prints an empty-state message" do

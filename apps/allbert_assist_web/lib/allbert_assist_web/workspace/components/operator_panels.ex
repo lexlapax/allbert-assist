@@ -1148,6 +1148,245 @@ defmodule AllbertAssistWeb.Workspace.Components.ChannelsPanel do
   end
 end
 
+defmodule AllbertAssistWeb.Workspace.Components.NotesPanel do
+  @moduledoc """
+  Action-backed notes/files panel for the `workspace:notes` destination.
+
+  Search and read route through the registered `search_notes` and `read_note`
+  actions, so the workspace destination uses the same Runner/PermissionGate,
+  trace, and resource-ref seam as chat and CLI action dispatch.
+  """
+  use AllbertAssistWeb, :live_component
+
+  alias AllbertAssist.Actions.Runner
+  alias AllbertAssistWeb.Workspace.Components.OperatorPanels, as: Support
+
+  @app_id :notes_files
+  @destination "workspace:notes"
+  @default_limit 25
+
+  @impl true
+  def update(assigns, socket) do
+    loaded? = Map.get(socket.assigns, :notes_loaded?, false)
+
+    socket =
+      socket
+      |> assign(assigns)
+      |> assign_new(:node, fn -> nil end)
+      |> assign_new(:renderer_context, fn -> %{} end)
+      |> assign_new(:notes_loaded?, fn -> false end)
+      |> assign_new(:notes_query, fn -> "" end)
+      |> assign_new(:notes_diagnostics, fn -> "" end)
+      |> assign_new(:notes_results, fn -> [] end)
+      |> assign_new(:notes_selected, fn -> nil end)
+      |> assign_new(:notes_resource_count, fn -> 0 end)
+
+    open? = Support.open?(socket.assigns, @destination)
+    socket = assign(socket, :notes_panel_open?, open?)
+
+    if open? and not loaded? do
+      {:ok, run_search(socket, socket.assigns.notes_query)}
+    else
+      {:ok, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("search_notes", %{"query" => query}, socket) do
+    {:noreply, run_search(socket, query)}
+  end
+
+  def handle_event("read_note", %{"path" => path}, socket) do
+    {:noreply, run_read(socket, path)}
+  end
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <article
+      id="workspace-notes-panel"
+      class="workspace-settings-panel workspace-operator-panel"
+      data-workspace-component="notes_files_panel"
+      data-workspace-renderer="component"
+      data-action-source="actions-runner"
+      aria-labelledby="workspace-notes-panel-title"
+    >
+      <header class="workspace-settings-panel-header">
+        <span class="workspace-card-icon" aria-hidden="true">
+          <.icon name="hero-document-text-micro" class="size-4" />
+        </span>
+        <div class="min-w-0 flex-1">
+          <h2 id="workspace-notes-panel-title" class="workspace-card-title">Notes</h2>
+          <p class="workspace-card-summary">
+            Search and read notes from the connected folder. Writes still go through chat
+            and the confirmation-gated write_note action.
+          </p>
+        </div>
+      </header>
+
+      <div :if={!@notes_panel_open?} class="workspace-settings-panel-preview">
+        Open the Notes workspace tool to search local notes.
+      </div>
+
+      <div :if={@notes_panel_open?} class="workspace-settings-panel-body">
+        <form
+          id="workspace-notes-search-form"
+          phx-submit="search_notes"
+          phx-target={@myself}
+          class="flex flex-wrap gap-2"
+        >
+          <input
+            type="text"
+            name="query"
+            id="workspace-notes-query"
+            value={@notes_query}
+            placeholder="Search notes"
+            class="input input-sm input-bordered min-w-0 flex-1 text-xs"
+          />
+          <button
+            type="submit"
+            id="workspace-notes-search-submit"
+            class={Support.button_class!("primary")}
+          >
+            Search
+          </button>
+        </form>
+
+        <p :if={@notes_diagnostics != ""} id="workspace-notes-diagnostics" class="text-sm">
+          {@notes_diagnostics}
+        </p>
+
+        <section id="workspace-notes-results" class="workspace-operator-panel-section">
+          <h3 class="workspace-rail-title">Results</h3>
+          <p :if={@notes_results == []} id="workspace-notes-empty" class="text-sm">
+            No notes matched. Connect a notes folder from onboarding or
+            `allbert admin notes set-root PATH`, then add .md or .txt files.
+          </p>
+
+          <div
+            :for={note <- @notes_results}
+            id={"workspace-note-row-#{Support.safe_id(note_path(note))}"}
+            class="workspace-operator-row"
+          >
+            <div class="min-w-0">
+              <div class="font-medium">{note_field(note, :title, "Untitled note")}</div>
+              <div class="text-xs">
+                {note_path(note)} - {note_field(note, :excerpt, "")}
+              </div>
+            </div>
+            <button
+              type="button"
+              id={"workspace-note-open-#{Support.safe_id(note_path(note))}"}
+              class={Support.button_class!("secondary")}
+              phx-click="read_note"
+              phx-target={@myself}
+              phx-value-path={note_path(note)}
+            >
+              Open
+            </button>
+          </div>
+        </section>
+
+        <section
+          :if={@notes_selected}
+          id="workspace-note-detail"
+          class="workspace-operator-panel-section"
+        >
+          <h3 class="workspace-rail-title">{note_field(@notes_selected, :title, "Note")}</h3>
+          <p class="text-xs">
+            {note_path(@notes_selected)} resource_refs={@notes_resource_count}
+          </p>
+          <pre class="whitespace-pre-wrap text-xs">{note_field(@notes_selected, :body, "")}</pre>
+        </section>
+      </div>
+    </article>
+    """
+  end
+
+  defp run_search(socket, query) do
+    normalized_query = String.trim(to_string(query || ""))
+
+    case Runner.run(
+           "search_notes",
+           %{query: normalized_query, limit: @default_limit},
+           action_context(socket)
+         ) do
+      {:ok, %{status: :completed} = response} ->
+        assign(socket,
+          notes_loaded?: true,
+          notes_query: normalized_query,
+          notes_diagnostics: "",
+          notes_results: Map.get(response, :notes, []),
+          notes_selected: nil,
+          notes_resource_count: length(Map.get(response, :resource_refs, []))
+        )
+
+      {:ok, response} ->
+        assign(socket,
+          notes_loaded?: true,
+          notes_query: normalized_query,
+          notes_diagnostics: note_action_error(response),
+          notes_results: [],
+          notes_selected: nil,
+          notes_resource_count: 0
+        )
+    end
+  rescue
+    error ->
+      assign(socket,
+        notes_loaded?: true,
+        notes_query: String.trim(to_string(query || "")),
+        notes_diagnostics: "Unable to search notes: #{inspect(error)}",
+        notes_results: [],
+        notes_selected: nil,
+        notes_resource_count: 0
+      )
+  end
+
+  defp run_read(socket, path) do
+    case Runner.run("read_note", %{path: path}, action_context(socket)) do
+      {:ok, %{status: :completed} = response} ->
+        note = Map.get(response, :note)
+
+        assign(socket,
+          notes_diagnostics: "",
+          notes_selected: note,
+          notes_resource_count: length(Map.get(response, :resource_refs, []))
+        )
+
+      {:ok, response} ->
+        assign(socket,
+          notes_diagnostics: note_action_error(response),
+          notes_selected: nil,
+          notes_resource_count: 0
+        )
+    end
+  rescue
+    error ->
+      assign(socket,
+        notes_diagnostics: "Unable to read note: #{inspect(error)}",
+        notes_selected: nil,
+        notes_resource_count: 0
+      )
+  end
+
+  defp action_context(socket) do
+    socket.assigns
+    |> Support.action_context()
+    |> Map.put(:active_app, @app_id)
+    |> Map.update(:request, %{active_app: @app_id}, &Map.put(&1, :active_app, @app_id))
+  end
+
+  defp note_path(note) do
+    note_field(note, :relative_path, note_field(note, :path, "note"))
+  end
+
+  defp note_field(note, key, default) when is_map(note), do: Support.field(note, key, default)
+  defp note_field(_note, _key, default), do: default
+
+  defp note_action_error(response), do: Map.get(response, :message, inspect(response))
+end
+
 defmodule AllbertAssistWeb.Workspace.Components.MemoryPanel do
   @moduledoc """
   Interactive memory-review panel for the `workspace:memory` destination (v0.65 M4).
@@ -1326,7 +1565,14 @@ defmodule AllbertAssistWeb.Workspace.Components.MemoryPanel do
   end
 
   defp refresh(socket) do
-    case Memory.list_entries(review_status: :unreviewed, limit: @candidate_limit) do
+    context = Support.action_context(socket.assigns)
+
+    opts =
+      %{review_status: :unreviewed, limit: @candidate_limit}
+      |> maybe_put(:user_id, Support.field(context, :user_id))
+      |> Map.to_list()
+
+    case Memory.list_entries(opts) do
       {:ok, candidates} ->
         assign(socket,
           memory_loaded?: true,

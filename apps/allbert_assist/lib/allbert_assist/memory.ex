@@ -253,12 +253,13 @@ defmodule AllbertAssist.Memory do
   Unlike `list_entries/1` — which sorts full entry structs and truncates to a
   bounded sample — this scans every active entry file so
   `allbert admin memory status` and the `workspace:memory` panel report exact
-  review-status totals. Accepts an optional `:category` filter. The returned map
-  always carries the four review statuses plus a `:total`.
+  review-status totals. Accepts optional `:category` and `:user_id` filters. The
+  returned map always carries the four review statuses plus a `:total`.
   """
   @spec review_status_counts(keyword()) :: %{atom() => non_neg_integer()}
   def review_status_counts(opts \\ []) when is_list(opts) do
     category = Keyword.get(opts, :category)
+    user_id = Keyword.get(opts, :user_id)
     categories = categories_for_filter(category)
 
     counts =
@@ -266,6 +267,7 @@ defmodule AllbertAssist.Memory do
       |> memory_files(categories)
       |> Enum.flat_map(&read_entry_file/1)
       |> Enum.map(&Entry.from_map/1)
+      |> filter_by_user(user_id)
       |> Enum.reduce(base_status_counts(), fn %Entry{review_status: status}, acc ->
         Map.update(acc, status, 1, &(&1 + 1))
       end)

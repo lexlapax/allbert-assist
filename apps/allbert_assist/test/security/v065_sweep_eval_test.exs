@@ -16,6 +16,7 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
 
   alias AllbertAssist.Actions.Memory.DeleteMemoryEntry
   alias AllbertAssist.Actions.Memory.ReviewMemoryEntry
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Actions.Settings.SetNotesRoot
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.CLI.Areas.Notes, as: NotesArea
@@ -29,7 +30,6 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
   alias AllbertNotesFiles.Actions.WriteNote
-  alias AllbertNotesFiles.Notes
 
   @now "2026-05-28T12:00:00Z"
 
@@ -229,23 +229,30 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
       "# Launch Note\n\nGrounded local-knowledge note for the read-scoped eval.\n"
     )
 
-    # A note inside the root reads back and emits a provenance resource ref.
-    assert {:ok, note} = Notes.read("launch.md")
-    assert note.body =~ "Grounded local-knowledge note"
-    assert is_list(note.resource_refs) and note.resource_refs != []
+    # A note inside the root reads back through the registered action and emits a
+    # provenance resource ref.
+    assert {:ok, %{status: :completed} = read} =
+             Runner.run("read_note", %{path: "launch.md"}, action_context())
+
+    assert read.note.body =~ "Grounded local-knowledge note"
+    assert is_list(read.resource_refs) and read.resource_refs != []
+    assert get_in(read, [:runner_metadata, :action_capability, :app_id]) == :notes_files
 
     # A path outside the configured root is denied by root/extension path bounding.
     outside = Path.join(System.tmp_dir!(), "outside-#{System.unique_integer([:positive])}.md")
     on_exit(fn -> File.rm_rf!(outside) end)
     File.write!(outside, "# Secret\n\nMust never be reachable through the notes root.\n")
 
-    assert {:error, :path_outside_notes_root} = Notes.read(outside)
+    assert {:ok, denied} = Runner.run("read_note", %{path: outside}, action_context())
+    assert denied.status in [:denied, :error]
+    assert denied.message =~ "path_outside_notes_root"
 
     IO.puts("local-knowledge-read-scoped-001 status=pass bounding=root_extension")
 
     AssertBinding.check!("local-knowledge-read-scoped-001", [
       :read_bounded_to_root,
       :path_outside_root_denied,
+      :notes_files_active_app_scope,
       :resource_ref_provenance
     ])
   end
@@ -460,7 +467,15 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
   end
 
   defp action_context do
-    %{request: %{operator_id: "local", channel: :test, input_signal_id: "sig"}}
+    %{
+      active_app: :notes_files,
+      request: %{
+        active_app: :notes_files,
+        operator_id: "local",
+        channel: :test,
+        input_signal_id: "sig"
+      }
+    }
   end
 
   defp memory_context(user_id) do

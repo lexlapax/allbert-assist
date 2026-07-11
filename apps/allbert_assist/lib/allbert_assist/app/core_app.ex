@@ -810,7 +810,7 @@ defmodule AllbertAssist.App.CoreApp do
             %Node{
               id: "memory-review-panel",
               component: :memory_review_card,
-              props: %{zone: "canvas", title: "Memory"}
+              props: %{zone: "canvas", title: "Memory", force_load?: true}
             }
           ]
         )
