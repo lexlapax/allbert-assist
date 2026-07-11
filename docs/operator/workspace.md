@@ -96,7 +96,7 @@ confirmation is required, policy cannot override that decision.
 
 ## Manual Validation Evidence
 
-For the current release, follow `docs/plans/v0.64-request-flow.md`, then the
+For the current release, follow `docs/plans/v0.65-request-flow.md`, then the
 matching request-flow document for later releases. Historical v0.58 validation
 followed `docs/plans/v0.58-request-flow.md`; evidence is kept
 outside the repository under:

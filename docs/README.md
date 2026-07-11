@@ -35,15 +35,16 @@ For contributors:
 - [Operator onboarding](operator/onboarding.md)
 - [Operator workspace guide](operator/workspace.md)
 
-The current packaged release line is **v0.64.3 (Final-Audit Corrective: Version
-Consistency And Live Model-Pull Progress), tagged `v0.64.3`**: packaged install and
-repairable first run are the primary operator path, with curl fail-closed cosign
-verification, a current Homebrew formula/tap, service-first startup, guided local
-model repair, live web model-pull progress, and a startup migration lock for concurrent
-fresh-Home first commands. The source/docs point tag `v0.64.5` (`[skip-artifacts]`)
-reconciles release-facing docs only. v0.64 feeds into v0.65 local files/notes/memory
-and v0.66 product RC. The prior line was v0.63 (Guided Onboarding & Profiles), tagged
-`v0.63.0` on 2026-07-09.
+The current packaged release line is **v0.65.0 (Local Knowledge: Files, Notes, And Agent
+Memory), tagged `v0.65.0`** (Latest, 2026-07-11): local files/notes plus reviewed agent
+memory are the primary post-first-chat workflow — a config-free notes-root connect
+affordance (`allbert admin notes set-root` / onboarding / web), the action-backed
+`workspace:notes` search/read destination, the interactive `workspace:memory` review panel
+(keep/reject/delete, only kept memory is recalled), `admin memory status`, and natural-chat
+"remember X" / "show what you remember". No new authority. See
+[local-knowledge](operator/local-knowledge.md). The prior packaged line was v0.64.3
+(Trusted Install & Non-Developer First Run); `v0.64.4`/`v0.64.5` were `[skip-artifacts]`
+docs/source tags. v0.66 owns product RC next.
 
 The v0.60/v0.60b design artifacts live under `docs/design/`; v0.61/v0.61b record
 the web shell and presentation work; v0.62 records packaging, first-model path,

@@ -52,8 +52,8 @@ requiring codebase knowledge.
 
 Release-specific operator validation belongs in the matching request-flow
 document under [plans](../plans/README.md). The current packaged shipped line is
-v0.64.3 (tagged `v0.64.3`); `v0.64.5` is a source/docs point tag only. See
-[v0.64 request flow](../plans/v0.64-request-flow.md).
-The v0.65 local files/notes/memory line is implemented in source and pending explicit
-release closeout. Product-RC validation lives in
+v0.65.0 (Local Knowledge: Files, Notes, And Agent Memory; tagged `v0.65.0`, Latest,
+2026-07-11) — see [local-knowledge](local-knowledge.md) and the
+[v0.65 request flow](../plans/v0.65-request-flow.md). The prior line is v0.64.3
+(`v0.64.4`/`v0.64.5` are source/docs point tags only). Product-RC validation lives in
 [v0.66 request flow](../plans/v0.66-request-flow.md).
