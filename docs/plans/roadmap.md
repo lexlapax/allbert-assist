@@ -4267,26 +4267,38 @@ Implemented scope:
 Plan: `docs/plans/v0.66-plan.md`
 Request flow: `docs/plans/v0.66-request-flow.md`
 
-Status: planned (pre-1.0 integrated product release candidate). Adds no new
-capability. Validates the full product path after v0.61-v0.65 land, so v1.0 is
+Status: planned (pre-1.0 integrated product release candidate); implementation-readiness
+deepened 2026-07-11. Adds no new capability. Validates the full product path after
+v0.61-v0.65 land (v0.64.3 + v0.65.0 released), so v1.0 is
 not the first time install, serve, onboarding, local files/notes/memory, first
 chat, web smoke, CLI/TUI smoke, implemented advanced surfaces, export/import or
 upgrade, uninstall, and evidence leak scans are exercised together.
 
+**Two-layer verification:** a deterministic `release.v066` gate proves contract, routing,
+and boundary invariants (no packaged binary, browser, network, or cross-host); the
+install/browser/model/cross-platform outcomes are **operator-attested** evidence
+(scripted host smokes + real-browser + real-model + multi-host, reconciled at closeout).
+Only the security delta-sweep and gate mechanics are fully gate-provable.
+
 Expected direction:
 
 - Clean install with no Elixir/OTP, persistent service start, QuickStart onboarding,
-  local files/notes/memory setup, first useful chat, and operator inspection.
-- No-docs validation of the primary launch path by a fresh non-developer
-  operator.
-- Browser-controlled web smoke across `/`, `/workspace`, `/jobs`, `/objectives`,
-  onboarding, settings/model, local knowledge/memory, and operator panels.
-- Grouped CLI/TUI smoke without raw `mix` for operator work.
-- Existing advanced-surface regression smoke for remote channels, MCP, browser
-  research, plan approval, public protocols, and export/import.
-- Export/import or upgrade validation and uninstall behavior.
-- Secret/evidence leak scan, docs gate, warning gate, and deterministic
-  `release.v066`.
+  local files/notes/memory setup, first useful chat, and operator inspection (attested).
+- No-docs validation of the primary launch path by a fresh non-developer operator.
+- Browser web smoke + a non-developer **item-11 usability audit** with a defined
+  blocking-vs-caveat rubric (attested, evidence report).
+- Grouped CLI/TUI smoke without raw `mix`; conversational-routing no-misroute
+  (gate-bound, guarding the v0.63 F5 / v0.65 intent-bug class).
+- Advanced-surface regression (channels, MCP, browser research, plan approval, public
+  protocols, export/import) — contract-bound in the gate, live surfaces attested.
+- Cross-surface security **delta-sweep** over everything added since the v0.59 M4 sweep
+  (`v066_sweep_eval_test.exs` + `:v066` AssertBinding rows) — fully gate-provable.
+- Export/import or upgrade validation and uninstall-preserves-Home (attested).
+- **Full doc-surface consistency sweep + README trim**, gate-enforced: developer +
+  operator docs, all indexes, getting-started, and a docs staleness/index-completeness
+  check that fails `release.v066` on stale version pins, missing index entries, or orphans.
+- Secret/evidence leak scan, docs gate, warning gate, deterministic `release.v066`,
+  and the v1.0 handoff.
 - No new authority and no feature work; failures are fixed in their owning
   capability area before v1.0.
 
