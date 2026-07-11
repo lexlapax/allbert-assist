@@ -10,6 +10,56 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.65.0 - Local Knowledge: Files, Notes, And Agent Memory
+
+Status: **released — tagged `v0.65.0` (2026-07-11 UTC), version 0.65.0, packaged GitHub
+Release assets published as Latest**. `mix allbert.test release.v065` is the deterministic
+handoff gate. This is the first packaged release after `v0.64.3`; `v0.64.4`/`v0.64.5` were
+`[skip-artifacts]` docs/source tags that did not move the packaged line.
+
+v0.65 makes local files/notes plus reviewed agent memory the primary 1.0 launch
+integration — the first useful workflow after first chat: connect a notes folder, ask
+about those notes, confirm a safe write, review what Allbert may remember, and recall
+that reviewed memory in a later chat. It adds **no new authority class, permission, or
+confirmation floor**; it builds first-class operator surfaces on the already-shipped
+notes/files plugin and memory-review engine, and records a product-experience/IA
+amendment to ADR 0077. Design: `docs/design/local-knowledge-path.md`; operator guide:
+`docs/operator/local-knowledge.md`.
+
+- **Config-free "connect a notes folder" affordance.** A `set_notes_root` settings action
+  (`:settings_write`, fails closed on a non-directory) reachable from onboarding, the web
+  settings surface, and `allbert admin notes set-root PATH` / `show` — no hand-edited
+  config. The generic `admin settings set apps.notes_files.notes_root` remains a low-level
+  fallback.
+- **`workspace:notes` first-class destination.** A "Notes" nav item + titled destination
+  rendering an action-backed panel that searches and reads through the registered
+  `search_notes`/`read_note` actions via the Runner (with the notes/files active-app
+  scope). File access stays bounded by `PermissionGate` + root/extension bounding; the
+  emitted Resource Access refs are provenance/audit metadata, not the enforcement seam.
+  Writes remain the confirmation-gated `write_note` flow.
+- **`workspace:memory` interactive review panel.** A "Memory" nav item + destination that
+  lists unreviewed candidates and dispatches the existing review actions through the
+  Runner — Keep (`review_memory_entry status=kept`), Reject (`status=flagged`), and Delete
+  (`delete_memory_entry`, confirmation-gated archive). Only kept entries are ever recalled;
+  nothing is promoted automatically.
+- **`allbert admin memory status`.** Read-only, exact per-review-status counts, scoped to
+  the current user by default with an explicit `--all-users` aggregate (rejected when
+  combined with `--user`/`--operator`).
+- **Launch-path starter prompts + empty states.** Onboarding's first-chat prompts now
+  include a local-knowledge set ("ask about my notes", "summarize this note", "remember
+  this after review", "show what you remember"); the notes and memory panels have guiding
+  empty states.
+- **Natural chat drives the loop (post-implementation manual-validation fixes, M8.6).**
+  "remember X" / "note to self: X" now extract the memory content (new `:memory_phrase`
+  intent slot extractor) and create a reviewable candidate instead of asking for
+  clarification; "show what you remember" recalls recent memory (the recall action's query
+  is now optional) instead of stalling. Both are covered by a `v065_memory_chat_loop` gate
+  step.
+- **`release.v065` deterministic gate.** A v0.64-shaped gate (static gates, version
+  consistency, notes-root connect, memory status/recall, the chat loop, security sweep,
+  web notes/memory, docs) with **13 `local-knowledge-*` security eval rows**, each bound
+  to a real assertion via `AssertBinding` (the gate fails on any prose-only/unbound row).
+
 ## v0.64.5 - Release Docs And Skip-Artifacts Gate Closeout
 
 Status: **released — annotated source/docs tag `v0.64.5` (`[skip-artifacts]`),

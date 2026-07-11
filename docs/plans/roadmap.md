@@ -4231,8 +4231,9 @@ Expected direction:
 Plan: `docs/plans/v0.65-plan.md`
 Request flow: `docs/plans/v0.65-request-flow.md`
 
-Status: implemented in source after post-implementation remediation M8.1-M8.5;
-release tagging/publish remains explicit closeout work. Makes local files, notes, and
+Status: released as `v0.65.0` on 2026-07-11 UTC; version 0.65.0, packaged GitHub Release
+assets published as Latest (implementation + remediation M8.1–M8.6 + tag/publish complete).
+Makes local files, notes, and
 reviewed agent memory the primary 1.0 launch integration. Remote channels, MCP, browser
 research, public protocols, and other implemented surfaces remain release-blocking
 regression surfaces, but they are not the default first-run path for a non-developer.
