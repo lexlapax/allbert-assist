@@ -4418,7 +4418,7 @@ without:
    versioned envelope, dry-run diagnostic, secret-reference policy, and ADR 0046
    settings version contract; v0.66 proves the packaged-layout apply/upgrade path.
 8. All warning, security, precommit, and cross-surface eval gates pass — the
-   v0.59 baseline security sweep plus the v0.66 M5.1 delta-sweep over the
+   v0.59 baseline security sweep plus the v0.66 M8 delta-sweep over the
    v0.61-v0.65 product surfaces (v0.59 + v0.66).
 9. [product] A non-developer installs Allbert from a trusted packaged binary
    (Homebrew/curl) with no Elixir/OTP toolchain on their machine, with
