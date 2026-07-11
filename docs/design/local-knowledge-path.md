@@ -87,9 +87,11 @@ auto-promotes into memory.
 
 v0.65 adds two navigable destinations, modelled on `workspace:models`:
 
-- **`workspace:notes`** — search/read/confirm-write over the configured root, rendering
-  the notes app's existing panel surfaces, reachable from a nav item (not only a raw
-  `app:notes_files` destination URL).
+- **`workspace:notes`** — search and read over the configured root through a single
+  action-backed `NotesPanel` that dispatches `search_notes`/`read_note` via the Runner
+  (with `active_app: :notes_files`), reachable from a nav item (not only a raw
+  `app:notes_files` destination URL). Writes remain the confirmation-gated `write_note`
+  action flow, not an inline panel editor.
 - **`workspace:memory`** — an interactive review panel that wires the existing
   `ReviewMemoryEntry` / `DeleteMemoryEntry` actions (keep / reject-as-`:flagged` /
   delete) through the Runner, with delete confirmation-gated. It surfaces an

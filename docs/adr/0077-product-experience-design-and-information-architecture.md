@@ -158,7 +158,7 @@ The post-v0.63 product-readiness review retargeted 1.0 from a technical prosumer
   CLI and no API key (see ADR 0078), matching the one-click-model bar set by local-model
   desktop apps.
 
-## Amendment (v0.65 planned, 2026-07-10) — local knowledge as the launch integration + two new destinations
+## Amendment (v0.65, implemented in source 2026-07-11; release-closeout pending) — local knowledge as the launch integration + two new destinations
 
 v0.65 (`docs/plans/v0.65-plan.md`, `docs/design/local-knowledge-path.md`) records that,
 after first chat, the **primary useful non-developer workflow is local knowledge**: local
