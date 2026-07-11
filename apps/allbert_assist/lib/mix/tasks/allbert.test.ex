@@ -4905,6 +4905,21 @@ defmodule Mix.Tasks.Allbert.Test do
       ]
     },
     %{
+      id: "v065_memory_chat_loop",
+      title: "launch-path memory write + recall route from natural chat phrasings",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/intent/descriptor_test.exs",
+        "test/allbert_assist/actions/intent_actions_test.exs"
+      ],
+      coverage: [
+        "append_memory extracts the memory content from remember/note-to-self phrasings, creating a reviewable candidate instead of a clarification",
+        "read_recent_memory runs with no query so 'show what you remember' recalls recent memory instead of stalling on a missing slot"
+      ]
+    },
+    %{
       id: "v065_local_knowledge_prompts",
       title: "launch-path local-knowledge first-chat prompts are always present",
       cwd: :core,

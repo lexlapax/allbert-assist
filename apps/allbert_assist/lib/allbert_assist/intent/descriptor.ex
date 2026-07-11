@@ -58,6 +58,7 @@ defmodule AllbertAssist.Intent.Descriptor do
     :ticker_symbol,
     :title_phrase,
     :body_phrase,
+    :memory_phrase,
     :note_path_phrase,
     :email_address,
     :message_body_phrase,
@@ -446,6 +447,22 @@ defmodule AllbertAssist.Intent.Descriptor do
       ~r/\bbody\s+(.+)$/i,
       ~r/\b(?:saying|that\s+says|says)\s+(.+)$/i,
       ~r/\b(?:titled|title|called|named)\s+.+?\s+with\s+(.+)$/i
+    ])
+    |> trim_extracted_slot()
+  end
+
+  # v0.65 local-knowledge fix: pull the memory content from natural "remember X" /
+  # "note to self: X" phrasings so the launch-path memory-write loop creates a
+  # reviewable candidate from chat instead of asking for the missing slot.
+  defp extract_slot(:memory_phrase, text) do
+    text
+    |> extract_phrase([
+      # Colon form after a trigger: "note to self: X", "remember this after review: X".
+      ~r/\b(?:remember|memori[sz]e|keep\s+in\s+mind|note\s+to\s+self)\b[^:]*:\s*(.+)$/i,
+      # "remember that X" (drop the "that").
+      ~r/\bremember\s+that\s+(.+)$/i,
+      # Bare "remember X" / "memorize X" / "keep in mind X" / "note to self X".
+      ~r/\b(?:remember|memori[sz]e|keep\s+in\s+mind|note\s+to\s+self)\s+(.+)$/i
     ])
     |> trim_extracted_slot()
   end

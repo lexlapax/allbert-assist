@@ -14,7 +14,10 @@ defmodule AllbertAssist.Actions.Intent.ReadRecentMemory do
     category: "intent",
     tags: ["intent", "memory", "read_only", "durable"],
     schema: [
-      query: [type: :string, required: true, doc: "The memory recall question."]
+      # v0.65 local-knowledge fix: optional so launch-path recall prompts like
+      # "show what you remember" run (and return recent memory) instead of stalling on a
+      # missing slot. `Memory.recent` treats an empty query as "most recent, unfiltered".
+      query: [type: :string, required: false, doc: "Optional memory recall question."]
     ],
     output_schema: [
       message: [type: :string, required: true],
@@ -28,7 +31,8 @@ defmodule AllbertAssist.Actions.Intent.ReadRecentMemory do
   alias AllbertAssist.Security.PermissionGate
 
   @impl true
-  def run(%{query: query}, context) do
+  def run(params, context) do
+    query = Map.get(params, :query) || ""
     permission_decision = PermissionGate.authorize(:read_only, context)
     {:ok, entries} = Memory.recent(query: query, limit: 5)
 

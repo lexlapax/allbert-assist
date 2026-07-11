@@ -93,6 +93,32 @@ defmodule AllbertAssist.Intent.DescriptorTest do
            }
   end
 
+  test "v0.65: extracts memory content from remember/note-to-self phrasings" do
+    assert {:ok, descriptor} =
+             Descriptor.normalize(%{
+               app_id: :allbert,
+               action_name: "append_memory",
+               label: "Remember a fact in memory",
+               required_slots: [:memory],
+               slot_extractors: %{memory: :memory_phrase}
+             })
+
+    assert Descriptor.extract_slots(descriptor, "remember I prefer aisle seats") ==
+             %{extracted_slots: %{memory: "I prefer aisle seats"}, missing_slots: []}
+
+    assert Descriptor.extract_slots(descriptor, "remember that my anniversary is June 20") ==
+             %{extracted_slots: %{memory: "my anniversary is June 20"}, missing_slots: []}
+
+    assert Descriptor.extract_slots(descriptor, "note to self: the team retro is every Friday") ==
+             %{extracted_slots: %{memory: "the team retro is every Friday"}, missing_slots: []}
+
+    assert Descriptor.extract_slots(
+             descriptor,
+             "Remember this after review: I prefer concise answers."
+           ) ==
+             %{extracted_slots: %{memory: "I prefer concise answers."}, missing_slots: []}
+  end
+
   test "extracts bounded title and body phrases from operator syntax" do
     assert {:ok, descriptor} =
              Descriptor.normalize(%{

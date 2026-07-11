@@ -199,6 +199,21 @@ defmodule AllbertAssist.Actions.IntentActionsTest do
     assert body =~ "planning docs"
   end
 
+  test "v0.65: read_recent_memory runs with no query (launch-path 'show what you remember')" do
+    assert {:ok, _response} =
+             AppendMemory.run(
+               %{memory: "I prefer aisle seats."},
+               %{request: %{input_signal_id: "sig-777", operator_id: "local", channel: :test}}
+             )
+
+    # No query param at all — the launch-path prompt "show what you remember" must run
+    # (return recent memory) rather than stall on a missing required slot.
+    assert {:ok, response} = ReadRecentMemory.run(%{}, %{})
+    assert response.status == :completed
+    assert response.message =~ "markdown-backed memories"
+    assert Enum.any?(response.memories, &(&1.body =~ "aisle seats"))
+  end
+
   test "plan_shell_command never executes requested command" do
     assert {:ok, response} =
              PlanShellCommand.run(%{command: "rm -rf /tmp/example"}, %{})

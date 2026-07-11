@@ -154,7 +154,8 @@ defmodule AllbertAssist.App.CoreApp do
           ],
           allow_single_token_match: false
         },
-        required_slots: [],
+        required_slots: [:memory],
+        slot_extractors: %{memory: :memory_phrase},
         handoff_required?: true
       },
       %{
