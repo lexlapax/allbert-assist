@@ -43,6 +43,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v063
       mix allbert.test release.v064
       mix allbert.test release.v065
+      mix allbert.test release.v066
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
@@ -157,6 +158,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v063"]), do: release_v063()
   def run(["release.v064"]), do: release_v064()
   def run(["release.v065"]), do: release_v065()
+  def run(["release.v066"]), do: release_v066()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -5049,6 +5051,137 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   end
 
+  # v0.66 Product RC & No-Docs Validation gate. Two-layer verification (plan Locked
+  # Decision 1): this checkout-bound gate proves contract/routing/boundary invariants
+  # deterministically; install/browser/model/cross-platform claims are operator-attested
+  # and reconciled in docs/validation/v0.66/. Steps are added milestone-by-milestone
+  # (M1 skeleton -> M5-M9 proof buckets -> M8 delta-sweep -> M10 docs staleness -> M11
+  # secret scan + finalize).
+  @release_v066_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "format_check",
+      title: "formatter check for v0.66 release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["format", "--check-formatted"],
+      coverage: ["formatter drift fails the v0.66 product-RC gate"]
+    },
+    %{
+      id: "compile_warnings_as_errors",
+      title: "compile v0.66 release candidate with warnings as errors",
+      cwd: :root,
+      executable: "mix",
+      args: ["compile", "--warnings-as-errors"],
+      coverage: ["compiler warnings fail the v0.66 product-RC gate"]
+    },
+    %{
+      id: "credo_strict",
+      title: "Credo strict check for v0.66 release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["credo", "--strict"],
+      coverage: ["Credo strict findings fail the v0.66 product-RC gate"]
+    },
+    %{
+      id: "dialyzer",
+      title: "Dialyzer static analysis for v0.66 release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["dialyzer"],
+      coverage: ["Dialyzer warnings fail the v0.66 product-RC gate"]
+    },
+    %{
+      id: "v066_version_consistency",
+      title: "umbrella apps agree on version (no cross-app :vsn drift at the RC)",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist_web/test/allbert_assist_web/version_consistency_test.exs"
+      ],
+      coverage: [
+        "the CLI-banner app and the asset-version app agree on version at the v0.66 RC"
+      ]
+    },
+    %{
+      id: "docs_gate",
+      title: "docs gate, staleness/index check, and release-planning whitespace check",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "docs"],
+      coverage: ["git diff --check is clean", "docs gate is visible in release evidence"]
+    }
+  ]
+
+  defp release_v066 do
+    env = owned_env("release-v066", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v066")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v066_steps, &run_release_v066_step(&1, env))
+
+    status = if Enum.all?(results, &(&1.status == "passed")), do: "passed", else: "failed"
+
+    evidence = %{
+      gate: "mix allbert.test release.v066",
+      version: "v0.66",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; this gate proves contract/routing/boundary invariants only. Install/browser/model/cross-platform claims are operator-attested and recorded in docs/validation/v0.66/, not here.",
+      notes:
+        "v0.66 Product RC & No-Docs Validation is a two-layer release: the deterministic release.v066 gate proves that every already-shipped product path (packaging, onboarding, local files/notes/memory, routing, advanced surfaces, export/import) stays behind the same action/settings/security spine and grants no new authority, while scripted host smokes, real-browser web smoke + the item-11 usability audit, cross-platform installs, and real-egress model/advanced-surface runs are attested at closeout.",
+      steps: results
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v066-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v066 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v066 failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v066_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v066 #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
   defp cleanup_release_v046_evidence!(evidence_dir) do
     evidence_dir
     |> Path.join("release-v046-*.json")
@@ -7148,6 +7281,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v063
       mix allbert.test release.v064
       mix allbert.test release.v065
+      mix allbert.test release.v066
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate

@@ -53,6 +53,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :v063
           | :v064
           | :v065
+          | :v066
 
   @type required_surface ::
           :resource_execution
