@@ -6596,6 +6596,21 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
         :memory_review_permissioned
       ],
       test_module: "AllbertAssist.Security.V066SweepEvalTest"
+    },
+    %{
+      id: "product-rc-advanced-surfaces-no-regression-001",
+      milestone: :v066,
+      surface: :product_rc,
+      scenario:
+        "An advanced surface regresses the exposure boundary at the RC: an internal capability becomes agent/public-exposed, the agent and internal capability sets overlap, or a public-protocol/channel/MCP action stops being registered",
+      boundary: :capability_exposure,
+      expected: :allowed,
+      assert: [
+        :internal_capabilities_held_internal,
+        :agent_internal_exposure_disjoint,
+        :advanced_surface_actions_registered
+      ],
+      test_module: "AllbertAssist.Security.V066SweepEvalTest"
     }
   ]
 

@@ -19,6 +19,7 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
   @moduletag :external_runtime_serial
 
   alias AllbertAssist.Actions.Memory.ReviewMemoryEntry
+  alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Actions.Settings.SetNotesRoot
   alias AllbertAssist.CLI.Commands
   alias AllbertAssist.SecurityFixtures.AssertBinding
@@ -34,6 +35,7 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
     product-rc-web-smoke-no-console-error-001
     product-rc-cli-tui-no-mix-needed-001
     product-rc-local-files-notes-memory-policy-bounded-001
+    product-rc-advanced-surfaces-no-regression-001
   )
 
   @owner "AllbertAssist.Security.V066SweepEvalTest"
@@ -167,6 +169,37 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
       :notes_reads_read_only,
       :write_note_confirmation_gated,
       :memory_review_permissioned
+    ])
+  end
+
+  # ── M6: advanced-surface regression (capability exposure boundary) ───────────
+
+  test "product-rc-advanced-surfaces-no-regression-001: internal capabilities stay internal and advanced surfaces stay registered" do
+    agent_names = ActionsRegistry.agent_capabilities() |> Enum.map(& &1.name) |> MapSet.new()
+
+    internal_names =
+      ActionsRegistry.internal_capabilities() |> Enum.map(& &1.name) |> MapSet.new()
+
+    # Internal actions are held internal — not every action is agent/public-exposed.
+    assert MapSet.size(internal_names) > 0
+
+    # The agent-exposed set and the internal set never overlap — an advanced surface
+    # cannot leak an internal capability onto the agent/public protocol surface.
+    assert MapSet.disjoint?(agent_names, internal_names)
+
+    # Representative advanced-surface actions stay registered across their classes:
+    # public protocol, remote channels, and MCP.
+    names = MapSet.new(ActionsRegistry.names())
+    assert MapSet.member?(names, "create_protocol_token")
+    assert MapSet.member?(names, "send_channel_message")
+    assert MapSet.member?(names, "mcp_list_tools")
+
+    IO.puts("product-rc-advanced-surfaces-no-regression-001 status=pass exposure=disjoint")
+
+    AssertBinding.check!("product-rc-advanced-surfaces-no-regression-001", [
+      :internal_capabilities_held_internal,
+      :agent_internal_exposure_disjoint,
+      :advanced_surface_actions_registered
     ])
   end
 

@@ -1,0 +1,20 @@
+# M6 advanced-surface live-exercise selectors (registered external-smoke targets)
+# date: 2026-07-11 | source: mix allbert.test external-smoke list
+# Gate contract proven by v066_advanced_surfaces (35 tests); these live runs are
+# operator-attested (Locked Decision 6) and need real provider creds / servers / model.
+- browser_research
+- browser_research_delegate
+- docker_sandbox
+- docker_full_gate
+- telegram (delivery; Telegram only)
+- email (delivery; email only)
+- inbound_telegram (inbound; Telegram only)
+- inbound_email (inbound; email only)
+- matrix (delivery; Matrix only)
+- inbound_matrix (inbound; Matrix only)
+- whatsapp (WhatsApp only)
+- signal (Signal only)
+- discord (delivery; Discord only)
+- slack (delivery; Slack only)
+- inbound_discord (inbound; Discord only)
+- inbound_slack (inbound; Slack only)

@@ -30,7 +30,7 @@ exercised and is not scoped out) · `SCOPED-OUT` (explicitly deferred with ratio
 | `product-rc-web-smoke-no-console-error-001` | M3 | gate + attested | PASS | gate: `v066_security_sweep` + `v066_web_render_dispatch`; attested: `item11-usability-audit.md` (/, /workspace, /jobs, /objectives, workspace:notes — 0 console errors) | |
 | `product-rc-cli-tui-no-mix-needed-001` | M4 | gate + attested | PASS | gate: `v066_security_sweep` + `v066_cli_tui_dispatch`; attested: `m4-packaged-cli-smoke.log` — packaged `bin/allbert` version/--help(grouped)/admin status/admin health all toolchain-free | macOS release, disposable home |
 | `product-rc-local-files-notes-memory-policy-bounded-001` | M5/M8 | gate + attested | PASS (gate) / PENDING-OPERATOR ([model] recall-in-chat) | gate: `v066_security_sweep` (floors) + `v066_local_knowledge` (root-bounding fail-closed, :kept-only recall, review transitions — 22 tests); attested [model]: recall influencing a real later chat needs a configured model | deterministic core proven; `scripts/smoke/v066_product_rc.sh` core 8/8 |
-| `product-rc-advanced-surfaces-no-regression-001` | M6 | gate + attested | | per-class advanced-surface run logs | |
+| `product-rc-advanced-surfaces-no-regression-001` | M6 | gate + attested | PASS (gate) / PENDING-OPERATOR (live per-class) | gate: `v066_security_sweep` (agent/internal capability sets disjoint, advanced actions registered) + `v066_advanced_surfaces` (public-protocol/channel/MCP/browser exposure evals, 35 tests); live per-class needs configured providers/servers/model | `m6-external-smoke-selectors.log` |
 | `product-rc-export-import-upgrade-001` | M9 | gate + attested | PENDING-OPERATOR (attested half) | real upgrade/import behavior log | |
 
 Gate-only rows (`product-rc-profile-no-authority-regression-001`,
@@ -50,14 +50,19 @@ proved entirely by `release.v066` and need no row here; their evidence is the ga
 
 ## Advanced-surface regression classes (M6, Locked Decision 6)
 
-| Class | Command | Status | Evidence |
+Gate contract for every class is proven by `v066_advanced_surfaces` (35 exposure/floor
+tests). The rows below are the **live** exercise (Locked Decision 6 bar). No channel
+provider, MCP server, Docker daemon, or model is configured in the implementation
+checkout, so live runs are `PENDING-OPERATOR` with the exact commands — not scoped out.
+
+| Class | Live command | Status | Evidence |
 |---|---|---|---|
-| Browser research | `mix allbert.test external-smoke -- browser_research` | | |
-| Browser research (delegate) | `mix allbert.test external-smoke -- browser_research_delegate` | | |
-| Remote channels | per-provider `external-smoke` selectors | PENDING-OPERATOR | |
-| Public protocols (MCP/OpenAI/ACP) | v0.51 command set | PENDING-OPERATOR | |
-| Plan/Build approval | v0.44 workflow smoke | | |
-| Export/import | portability dry-run + real round-trip | | |
+| Browser research | `mix allbert.test external-smoke -- browser_research` | PENDING-OPERATOR | needs browser + model |
+| Browser research (delegate) | `mix allbert.test external-smoke -- browser_research_delegate` | PENDING-OPERATOR | needs browser + model |
+| Remote channels | per-provider `external-smoke` selectors (telegram/email/matrix/slack/discord/whatsapp/signal, + inbound) | PENDING-OPERATOR | needs provider creds; ≥1 outbound + ≥1 inbound class |
+| Public protocols (MCP/OpenAI/ACP) | v0.51 command set | PENDING-OPERATOR | needs a running MCP/OpenAI/ACP client |
+| Plan/Build approval | v0.44 workflow smoke | PENDING-OPERATOR | needs a model to drive a plan run |
+| Export/import | portability dry-run (gate, M9) + real round-trip | PASS (dry-run gate, see M9) / PENDING-OPERATOR (real round-trip) | M9 `v066_portability` |
 
 ## Deterministic core (this checkout)
 

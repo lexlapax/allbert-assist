@@ -5176,6 +5176,23 @@ defmodule Mix.Tasks.Allbert.Test do
       ]
     },
     %{
+      id: "v066_advanced_surfaces",
+      title: "advanced-surface exposure/floor evals re-run across public-protocol/channel/MCP/browser classes",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/v051_public_protocol_eval_test.exs",
+        "test/security/v053_channel_pack_eval_test.exs",
+        "test/security/mcp_integration_eval_test.exs",
+        "test/security/v043_browser_research_eval_test.exs",
+        "test/security/v046_research_delegate_eval_test.exs"
+      ],
+      coverage: [
+        "public surfaces deny internals by default, channels/MCP/browser keep their exposure and egress floors — the contract half of product-rc-advanced-surfaces-no-regression-001 (live per-class exercise is operator-attested [model]/[smoke] per Locked Decision 6)"
+      ]
+    },
+    %{
       id: "docs_gate",
       title: "docs gate, staleness/index check, and release-planning whitespace check",
       cwd: :root,
