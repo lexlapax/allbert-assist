@@ -5193,6 +5193,22 @@ defmodule Mix.Tasks.Allbert.Test do
       ]
     },
     %{
+      id: "v066_routing_first_model",
+      title: "launch-path routing (no mis-route) + consumer-default first-model state machine",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/intent/descriptor_test.exs",
+        "test/allbert_assist/actions/intent_actions_test.exs",
+        "test/allbert_assist/cli/first_run_test.exs",
+        "test/allbert_assist/onboarding_test.exs"
+      ],
+      coverage: [
+        "remember/note-to-self write phrasings and query-less recall route without a needs-clarification stall (v0.63 F5 / v0.65 chat-bug class), the first-model state machine keeps a keyless-local consumer default with BYOK as fallback, and first_chat prompts carry the local-knowledge set — the contract behind product-rc-conversational-routing-no-misroute-001 and product-rc-consumer-default-oneclick-model-no-key-first-chat-001 (first useful chat is operator-attested [model])"
+      ]
+    },
+    %{
       id: "docs_gate",
       title: "docs gate, staleness/index check, and release-planning whitespace check",
       cwd: :root,

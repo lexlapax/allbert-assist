@@ -1,0 +1,11 @@
+# M7 consumer-default keyless-local first-useful-chat (packaged binary + local Ollama)
+date: 2026-07-11 | binary: bin/allbert (prod release) | model: local Ollama qwen2.5:7b (keyless) | home: disposable
+note: direct answers enabled via intent.direct_answer_model_enabled=true, exactly as onboarding.ex:253 does at QuickStart completion (default false = consent gate, not a defect).
+
+## allbert admin model detect (fresh home)
+First-model state: local_ready.   # keyless local model auto-detected
+
+## allbert ask "Name three primary colors."
+Status: completed
+The primary colors are red, blue, and yellow.
+- direct_answer completed

@@ -22,6 +22,8 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Actions.Settings.SetNotesRoot
   alias AllbertAssist.CLI.Commands
+  alias AllbertAssist.CLI.FirstRun
+  alias AllbertAssist.Intent.Descriptor
   alias AllbertAssist.SecurityFixtures.AssertBinding
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertNotesFiles.Actions.ReadNote
@@ -36,6 +38,8 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
     product-rc-cli-tui-no-mix-needed-001
     product-rc-local-files-notes-memory-policy-bounded-001
     product-rc-advanced-surfaces-no-regression-001
+    product-rc-conversational-routing-no-misroute-001
+    product-rc-consumer-default-oneclick-model-no-key-first-chat-001
   )
 
   @owner "AllbertAssist.Security.V066SweepEvalTest"
@@ -200,6 +204,67 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
       :internal_capabilities_held_internal,
       :agent_internal_exposure_disjoint,
       :advanced_surface_actions_registered
+    ])
+  end
+
+  # ── M7: consumer-default first-chat + conversational routing quality ─────────
+
+  test "product-rc-conversational-routing-no-misroute-001: launch-path memory phrasings route to a candidate instead of stalling on a missing slot" do
+    assert {:ok, descriptor} =
+             Descriptor.normalize(%{
+               app_id: :allbert,
+               action_name: "append_memory",
+               label: "Remember a fact in memory",
+               required_slots: [:memory],
+               slot_extractors: %{memory: :memory_phrase}
+             })
+
+    # "remember X" extracts the memory content — no missing slot, so the intent
+    # routes to a reviewable candidate instead of a needs-clarification stall.
+    remember = Descriptor.extract_slots(descriptor, "remember I prefer aisle seats")
+    assert remember == %{extracted_slots: %{memory: "I prefer aisle seats"}, missing_slots: []}
+
+    # "note to self: X" routes the same way (the other launch-path write phrasing).
+    note = Descriptor.extract_slots(descriptor, "note to self: the retro is every Friday")
+    assert note == %{extracted_slots: %{memory: "the retro is every Friday"}, missing_slots: []}
+
+    # The class guard: neither phrasing leaves a required slot missing (the v0.63 F5 /
+    # v0.65 mis-route-to-clarification bug class stays fixed).
+    assert remember.missing_slots == []
+    assert note.missing_slots == []
+
+    IO.puts("product-rc-conversational-routing-no-misroute-001 status=pass route=no_stall")
+
+    AssertBinding.check!("product-rc-conversational-routing-no-misroute-001", [
+      :memory_write_phrase_no_stall,
+      :note_to_self_phrase_routes,
+      :no_missing_slot_misroute
+    ])
+  end
+
+  test "product-rc-consumer-default-oneclick-model-no-key-first-chat-001: the consumer-default first-model path is keyless-local, with BYOK as the fallback" do
+    # A ready local model resolves keyless-ready — the consumer default reaches a
+    # usable model with no API key.
+    assert FirstRun.first_model_state(ollama_probe: fn -> :model_ready end) == :local_ready
+
+    # No local model and no provider key guides the operator to runtime setup
+    # (:runtime_missing), it never demands a key to proceed.
+    assert FirstRun.first_model_state(ollama_probe: fn -> :missing end, byok_ready?: fn -> false end) ==
+             :runtime_missing
+
+    # BYOK is the advanced fallback: a provider key with no local runtime resolves
+    # :byok_ready, distinct from the default keyless-local path.
+    assert FirstRun.first_model_state(ollama_probe: fn -> :missing end, byok_ready?: fn -> true end) ==
+             :byok_ready
+
+    IO.puts(
+      "product-rc-consumer-default-oneclick-model-no-key-first-chat-001 status=pass path=keyless_local"
+    )
+
+    AssertBinding.check!("product-rc-consumer-default-oneclick-model-no-key-first-chat-001", [
+      :local_ready_keyless,
+      :no_key_demand_when_runtime_missing,
+      :byok_is_advanced_fallback
     ])
   end
 

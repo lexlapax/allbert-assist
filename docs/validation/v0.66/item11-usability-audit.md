@@ -47,7 +47,17 @@ lifecycle logs (`mount`, `join: 0 consecutive reloads`).
    the timing) before deciding whether to suppress the banner on the first
    dead→live transition. Not a launch-path blocker: `/workspace` renders fully.
 
-2. **First-run surface is self-explanatory** — *pass.* On a fresh home, `/workspace`
+2. **Model-backed direct answers are gated until onboarding completes** — *pass
+   (by design, verified).* A bare `allbert ask` on a fresh, un-onboarded home returns
+   "The direct-answer model is disabled" rather than an answer. This is the intended
+   consent gate: `intent.direct_answer_model_enabled` defaults to `false` and onboarding
+   enables it (`onboarding.ex:253`). Verified the full keyless-local path once enabled —
+   the packaged binary detects `local_ready` and answers via the local Ollama model with
+   no API key (`m7-first-chat-keyless-local.log`). **Caveat to confirm for v1.0:** ensure
+   the consumer-default QuickStart always reaches the enable step so a first-time user
+   never hits the "disabled" message on their first real question.
+
+3. **First-run surface is self-explanatory** — *pass.* On a fresh home, `/workspace`
    auto-opens onboarding, the trust spine is stated in plain language, and the notes
    empty-state names the exact next step. A non-developer is not required to read
    developer docs to know what to do next.

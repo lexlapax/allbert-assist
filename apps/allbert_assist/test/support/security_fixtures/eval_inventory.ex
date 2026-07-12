@@ -6611,6 +6611,36 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
         :advanced_surface_actions_registered
       ],
       test_module: "AllbertAssist.Security.V066SweepEvalTest"
+    },
+    %{
+      id: "product-rc-conversational-routing-no-misroute-001",
+      milestone: :v066,
+      surface: :product_rc,
+      scenario:
+        "A natural non-developer launch-path phrasing mis-routes at the RC: a 'remember X' / 'note to self: X' write stalls on a missing slot (the v0.63 F5 / v0.65 chat bug class) instead of extracting the memory content and routing to a reviewable candidate",
+      boundary: :intent_routing,
+      expected: :allowed,
+      assert: [
+        :memory_write_phrase_no_stall,
+        :note_to_self_phrase_routes,
+        :no_missing_slot_misroute
+      ],
+      test_module: "AllbertAssist.Security.V066SweepEvalTest"
+    },
+    %{
+      id: "product-rc-consumer-default-oneclick-model-no-key-first-chat-001",
+      milestone: :v066,
+      surface: :product_rc,
+      scenario:
+        "The consumer-default first-model state machine regresses: a ready local model is not treated as keyless-ready, a missing runtime demands a key instead of guiding runtime setup, or BYOK stops being the advanced fallback rather than the default",
+      boundary: :first_model_state,
+      expected: :allowed,
+      assert: [
+        :local_ready_keyless,
+        :no_key_demand_when_runtime_missing,
+        :byok_is_advanced_fallback
+      ],
+      test_module: "AllbertAssist.Security.V066SweepEvalTest"
     }
   ]
 
