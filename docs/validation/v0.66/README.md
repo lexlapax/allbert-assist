@@ -28,7 +28,7 @@ exercised and is not scoped out) · `SCOPED-OUT` (explicitly deferred with ratio
 | `product-rc-no-docs-validation-001` | M3 | attested (fresh non-dev walk) | PENDING-OPERATOR | no-docs walkthrough notes | |
 | `product-rc-consumer-default-oneclick-model-no-key-first-chat-001` | M7 | gate + attested | PENDING-OPERATOR (attested half) | one-click model download → first useful chat | |
 | `product-rc-web-smoke-no-console-error-001` | M3 | gate + attested | PASS | gate: `v066_security_sweep` + `v066_web_render_dispatch`; attested: `item11-usability-audit.md` (/, /workspace, /jobs, /objectives, workspace:notes — 0 console errors) | |
-| `product-rc-cli-tui-no-mix-needed-001` | M4 | gate + attested | PENDING-OPERATOR (attested half) | packaged-binary CLI/TUI transcript | |
+| `product-rc-cli-tui-no-mix-needed-001` | M4 | gate + attested | PASS | gate: `v066_security_sweep` + `v066_cli_tui_dispatch`; attested: `m4-packaged-cli-smoke.log` — packaged `bin/allbert` version/--help(grouped)/admin status/admin health all toolchain-free | macOS release, disposable home |
 | `product-rc-local-files-notes-memory-policy-bounded-001` | M5/M8 | gate + attested | | recall-in-later-chat transcript | |
 | `product-rc-advanced-surfaces-no-regression-001` | M6 | gate + attested | | per-class advanced-surface run logs | |
 | `product-rc-export-import-upgrade-001` | M9 | gate + attested | PENDING-OPERATOR (attested half) | real upgrade/import behavior log | |

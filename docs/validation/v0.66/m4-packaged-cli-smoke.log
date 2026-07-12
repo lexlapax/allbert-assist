@@ -1,0 +1,26 @@
+# M4 packaged-binary CLI/TUI smoke (no raw mix)
+date: 2026-07-11 | uname: Darwin 25.6.0 arm64 | binary: bin/allbert (MIX_ENV=prod release) | version: 0.65.0
+
+## allbert --version
+allbert 0.65.0
+
+## allbert --help (grouped, first lines + dev/mix note)
+Start
+  allbert serve            Start the local runtime + web workspace
+  allbert chat             Open or start web workspace chat
+  allbert ask "..."        Ask one question
+  allbert onboard          Guided first-run wizard (QuickStart/Advanced)
+Operate (each `admin <area>` has its own subcommands; run one for usage)
+  allbert admin status | health | trace | registry | events
+  allbert admin voice | trust | self-improvement | public_protocol
+
+## allbert admin status (registered-action read, toolchain-free)
+Operator status:
+- node: nonode@nohost
+- beam_os_pid: 80932
+- uptime_ms: 6305
+- channel: cli
+- operator_id: local
+
+## allbert admin health
+Health: ok. service_platform=launchd service_manager_available=true service_unit_path=/Users/<user>/Library/LaunchAgents/com.lexlapax.allbert.plist

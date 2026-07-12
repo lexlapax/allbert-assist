@@ -6566,6 +6566,21 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
         :no_direct_store_render
       ],
       test_module: "AllbertAssist.Security.V066SweepEvalTest"
+    },
+    %{
+      id: "product-rc-cli-tui-no-mix-needed-001",
+      milestone: :v066,
+      surface: :product_rc,
+      scenario:
+        "An operator verb (ask/chat/tui/serve/onboard) or admin read is dispatched as :mix_only so the packaged binary needs raw mix, an admin read bypasses the registered-action boundary, or a dev/CI gen command leaks into the operator surface",
+      boundary: :cli_dispatch_contract,
+      expected: :allowed,
+      assert: [
+        :operator_verbs_not_mix_only,
+        :admin_reads_route_through_actions,
+        :dev_commands_isolated_to_mix
+      ],
+      test_module: "AllbertAssist.Security.V066SweepEvalTest"
     }
   ]
 

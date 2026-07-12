@@ -5142,6 +5142,24 @@ defmodule Mix.Tasks.Allbert.Test do
       ]
     },
     %{
+      id: "v066_cli_tui_dispatch",
+      title: "grouped CLI/TUI dispatch, area routers, and first-run run without raw mix",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/cli/commands_test.exs",
+        "test/allbert_assist/cli/dispatcher_test.exs",
+        "test/allbert_assist/cli/tui_test.exs",
+        "test/allbert_assist/cli/areas/notes_test.exs",
+        "test/allbert_assist/cli/areas/model_test.exs",
+        "test/allbert_assist/cli/areas/onboarding_test.exs"
+      ],
+      coverage: [
+        "grouped help renders every group and states dev/CI stays under mix; operator verbs and admin reads dispatch through the operator table and registered actions, not raw mix — the contract behind product-rc-cli-tui-no-mix-needed-001"
+      ]
+    },
+    %{
       id: "docs_gate",
       title: "docs gate, staleness/index check, and release-planning whitespace check",
       cwd: :root,

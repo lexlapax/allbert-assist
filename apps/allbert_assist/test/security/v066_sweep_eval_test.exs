@@ -18,6 +18,7 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
   use AllbertAssist.SecurityEvalCase, async: false
   @moduletag :external_runtime_serial
 
+  alias AllbertAssist.CLI.Commands
   alias AllbertAssist.SecurityFixtures.AssertBinding
   alias AllbertAssist.SecurityFixtures.EvalInventory
 
@@ -26,6 +27,7 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
   # Grows one milestone at a time (M3 web-smoke -> ... -> M11 finalize).
   @eval_ids ~w(
     product-rc-web-smoke-no-console-error-001
+    product-rc-cli-tui-no-mix-needed-001
   )
 
   @owner "AllbertAssist.Security.V066SweepEvalTest"
@@ -94,6 +96,44 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
       :live_routes_registered,
       :operator_panels_action_backed,
       :no_direct_store_render
+    ])
+  end
+
+  # ── M4: CLI / TUI dispatch contract (no raw mix for operator work) ────────────
+
+  test "product-rc-cli-tui-no-mix-needed-001: operator verbs run in the binary, admin reads route through actions, dev commands stay under mix" do
+    table = Commands.operator_table()
+
+    # The core operator verbs are packaged-binary entry points, never :mix_only —
+    # a non-developer never needs raw `mix` to serve/onboard/ask/chat/tui.
+    operator_verbs = [["ask"], ["chat"], ["tui"], ["serve"], ["onboard"]]
+
+    for path <- operator_verbs do
+      assert {:ok, disposition} = Commands.lookup(path)
+      refute disposition == :mix_only, "operator verb #{inspect(path)} is :mix_only"
+    end
+
+    # Admin reads dispatch through registered actions ({:action, name}) — the read
+    # goes through the action boundary, not a raw store read from the CLI.
+    for {path, action} <- [
+          {["admin", "status"], "operator_status"},
+          {["admin", "health"], "serve_health"},
+          {["admin", "events"], "operator_events"}
+        ] do
+      assert Commands.lookup(path) == {:ok, {:action, action}}
+    end
+
+    # Development/CI generators stay :mix_only — they are not exposed as operator
+    # surface in the packaged binary.
+    assert Commands.lookup(["gen"]) == {:ok, :mix_only}
+    assert Enum.any?(table, fn {_path, disp} -> disp == :mix_only end)
+
+    IO.puts("product-rc-cli-tui-no-mix-needed-001 status=pass split=operator_vs_mix")
+
+    AssertBinding.check!("product-rc-cli-tui-no-mix-needed-001", [
+      :operator_verbs_not_mix_only,
+      :admin_reads_route_through_actions,
+      :dev_commands_isolated_to_mix
     ])
   end
 
