@@ -45,7 +45,7 @@ proved entirely by `release.v066` and need no row here; their evidence is the ga
 | Platform | Harness | Status | Evidence |
 |---|---|---|---|
 | macOS (arm64) | `scripts/smoke/artifact_smoke.sh` | PASS | `m2-macos-artifact-smoke.log` — 8/8: toolchain-free boot, live `/health` (runtime up, db ok, 8 channels), attach round-trip, no Mix in image, portable crypto linkage. Built via `MIX_ENV=prod mix release allbert`. |
-| Linux (curl installer / systemd) | `scripts/smoke/linux_rehearsal.sh` | PENDING-OPERATOR | version-agnostic harness ready; needs a Linux host (curl-install + CLI + vault/systemd rehearsal) |
+| Linux (curl installer / systemd) | `scripts/smoke/linux_rehearsal.sh` | PASS (CI) | the v0.66.0 release-artifacts workflow `linux-rehearsal` job (ubuntu-22.04) passed against the built linux-x64 artifact; both linux-x64 + linux-arm64 tarballs built + published |
 | Windows / WSL2 | manual (no scripted harness) | PENDING-OPERATOR | fully manual install/serve walk on WSL2 |
 
 ## Advanced-surface regression classes (M6, Locked Decision 6)
