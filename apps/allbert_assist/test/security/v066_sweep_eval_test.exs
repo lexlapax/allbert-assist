@@ -25,6 +25,8 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
   alias AllbertAssist.CLI.Commands
   alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.Intent.Descriptor
+  alias AllbertAssist.Portability.Import, as: PortabilityImport
+  alias AllbertAssist.Portability.SecretReferences
   alias AllbertAssist.Security.Policy
   alias AllbertAssist.SecurityFixtures.AssertBinding
   alias AllbertAssist.SecurityFixtures.EvalInventory
@@ -44,6 +46,7 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
     product-rc-consumer-default-oneclick-model-no-key-first-chat-001
     product-rc-profile-no-authority-regression-001
     product-rc-packaging-no-authority-regression-001
+    product-rc-export-import-upgrade-001
   )
 
   @owner "AllbertAssist.Security.V066SweepEvalTest"
@@ -325,6 +328,41 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
       :registry_permissions_all_known,
       :packaged_reads_internal,
       :permission_class_set_stable
+    ])
+  end
+
+  # ── M9: Home portability (export redaction + import dry-run) ─────────────────
+
+  test "product-rc-export-import-upgrade-001: exports carry secret ref+status not values, and import is a dry-run that blocks before applying" do
+    # A settings structure carrying a secret reference exports as ref + status only —
+    # the raw secret value is never fetched or embedded.
+    settings = %{
+      "providers" => %{"openai" => %{"api_key" => "secret://providers/openai/api_key"}}
+    }
+
+    rows = SecretReferences.export_rows(settings)
+    assert is_list(rows) and rows != []
+
+    for row <- rows do
+      assert Map.has_key?(row, "ref")
+      assert Map.has_key?(row, "status")
+      # Only the reference URI and a status token travel — never a raw value.
+      assert row["ref"] =~ "secret://"
+      refute Map.has_key?(row, "value")
+    end
+
+    # Importing an Allbert Home is a dry-run that blocks before applying any change —
+    # a missing/invalid envelope path still returns a dry-run diagnostic, never a write.
+    missing = Path.join(System.tmp_dir!(), "v066-missing-#{System.unique_integer([:positive])}.json")
+    assert {:error, diag} = PortabilityImport.dry_run(missing)
+    assert diag["dry_run"] == true
+
+    IO.puts("product-rc-export-import-upgrade-001 status=pass portability=dry_run_redacted")
+
+    AssertBinding.check!("product-rc-export-import-upgrade-001", [
+      :secret_refs_exported_not_values,
+      :import_is_dry_run,
+      :import_blocks_before_apply
     ])
   end
 

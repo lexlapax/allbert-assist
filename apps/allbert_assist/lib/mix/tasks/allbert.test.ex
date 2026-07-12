@@ -5224,6 +5224,19 @@ defmodule Mix.Tasks.Allbert.Test do
       ]
     },
     %{
+      id: "v066_portability",
+      title: "Home export redaction + import dry-run/rollback portability re-run at the RC",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/portability/export_import_test.exs"
+      ],
+      coverage: [
+        "an Allbert Home exports with secrets redacted (ref+status only) and imports as a dry-run that blocks before applying — the contract behind product-rc-export-import-upgrade-001 (a real cross-version upgrade + uninstall-preserves-Home are operator-attested [host]/[smoke])"
+      ]
+    },
+    %{
       id: "docs_gate",
       title: "docs gate, staleness/index check, and release-planning whitespace check",
       cwd: :root,

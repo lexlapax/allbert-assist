@@ -6671,6 +6671,21 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
         :permission_class_set_stable
       ],
       test_module: "AllbertAssist.Security.V066SweepEvalTest"
+    },
+    %{
+      id: "product-rc-export-import-upgrade-001",
+      milestone: :v066,
+      surface: :product_rc,
+      scenario:
+        "Home portability regresses at the RC: an export fetches/embeds raw secret values instead of ref+status, or an import applies changes without a dry-run that blocks before writing",
+      boundary: :portability,
+      expected: :allowed,
+      assert: [
+        :secret_refs_exported_not_values,
+        :import_is_dry_run,
+        :import_blocks_before_apply
+      ],
+      test_module: "AllbertAssist.Security.V066SweepEvalTest"
     }
   ]
 
