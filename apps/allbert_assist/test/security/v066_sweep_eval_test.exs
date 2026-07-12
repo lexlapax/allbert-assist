@@ -18,9 +18,14 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
   use AllbertAssist.SecurityEvalCase, async: false
   @moduletag :external_runtime_serial
 
+  alias AllbertAssist.Actions.Memory.ReviewMemoryEntry
+  alias AllbertAssist.Actions.Settings.SetNotesRoot
   alias AllbertAssist.CLI.Commands
   alias AllbertAssist.SecurityFixtures.AssertBinding
   alias AllbertAssist.SecurityFixtures.EvalInventory
+  alias AllbertNotesFiles.Actions.ReadNote
+  alias AllbertNotesFiles.Actions.SearchNotes
+  alias AllbertNotesFiles.Actions.WriteNote
 
   @repo_root Path.expand("../../../../", __DIR__)
 
@@ -28,6 +33,7 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
   @eval_ids ~w(
     product-rc-web-smoke-no-console-error-001
     product-rc-cli-tui-no-mix-needed-001
+    product-rc-local-files-notes-memory-policy-bounded-001
   )
 
   @owner "AllbertAssist.Security.V066SweepEvalTest"
@@ -134,6 +140,33 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
       :operator_verbs_not_mix_only,
       :admin_reads_route_through_actions,
       :dev_commands_isolated_to_mix
+    ])
+  end
+
+  # ── M5: local files/notes/memory launch-path policy floors ───────────────────
+
+  test "product-rc-local-files-notes-memory-policy-bounded-001: the launch-path actions keep their permission/confirmation floors" do
+    # Notes reads are read-only — the launch integration never grants mutation
+    # authority through a read.
+    assert SearchNotes.capability().permission == :read_only
+    assert ReadNote.capability().permission == :read_only
+
+    # write_note stays confirmation-gated with its own write permission — a note the
+    # agent writes always pauses for explicit operator approval.
+    assert WriteNote.capability().confirmation == :required
+    assert WriteNote.capability().permission == :notes_file_write
+
+    # Connecting a notes root and reviewing memory carry their existing settings/
+    # memory-write authority, not a broad or new grant.
+    assert SetNotesRoot.capability().permission == :settings_write
+    assert ReviewMemoryEntry.capability().permission == :memory_write
+
+    IO.puts("product-rc-local-files-notes-memory-policy-bounded-001 status=pass floors=intact")
+
+    AssertBinding.check!("product-rc-local-files-notes-memory-policy-bounded-001", [
+      :notes_reads_read_only,
+      :write_note_confirmation_gated,
+      :memory_review_permissioned
     ])
   end
 

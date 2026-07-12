@@ -6581,6 +6581,21 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
         :dev_commands_isolated_to_mix
       ],
       test_module: "AllbertAssist.Security.V066SweepEvalTest"
+    },
+    %{
+      id: "product-rc-local-files-notes-memory-policy-bounded-001",
+      milestone: :v066,
+      surface: :product_rc,
+      scenario:
+        "A launch-path local-knowledge action loses its floor at the RC: notes reads stop being read-only, write_note drops its confirmation gate, or memory review stops requiring memory_write authority",
+      boundary: :permission_floor,
+      expected: :allowed,
+      assert: [
+        :notes_reads_read_only,
+        :write_note_confirmation_gated,
+        :memory_review_permissioned
+      ],
+      test_module: "AllbertAssist.Security.V066SweepEvalTest"
     }
   ]
 

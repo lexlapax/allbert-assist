@@ -5160,6 +5160,22 @@ defmodule Mix.Tasks.Allbert.Test do
       ]
     },
     %{
+      id: "v066_local_knowledge",
+      title: "launch-path notes-root bounding + reviewed-memory recall re-run as a v0.66 proof bucket",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/actions/settings/set_notes_root_test.exs",
+        "test/allbert_assist/memory/active_memory_test.exs",
+        "test/allbert_assist/memory/review_test.exs",
+        "test/security/active_memory_eval_test.exs"
+      ],
+      coverage: [
+        "the config-free notes-root connect fails closed on a bad path, reviewed-memory recall stays :kept-only, and review transitions are user-controlled — the runtime half of product-rc-local-files-notes-memory-policy-bounded-001 (recall in a later chat is operator-attested [model])"
+      ]
+    },
+    %{
       id: "docs_gate",
       title: "docs gate, staleness/index check, and release-planning whitespace check",
       cwd: :root,
