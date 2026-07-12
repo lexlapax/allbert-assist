@@ -4396,8 +4396,10 @@ friction tax.
 
 ### 1.0 Acceptance Matrix (freeze-blocking)
 
-Tightened in the post-v0.37 planning pass, extended in the 2026-06-25 1.0
-planning pass, and re-scoped after v0.63 for a non-developer local-first
+This is the **canonical** freeze-blocking criteria matrix; `docs/plans/v1.0-handoff.md`
+holds the complementary proof-status view (which criterion is `[gate]` vs `[attested]`
+from the v0.66 evidence). Tightened in the post-v0.37 planning pass, extended in the
+2026-06-25 1.0 planning pass, and re-scoped after v0.63 for a non-developer local-first
 operator. Each item is a disposable-home checkpoint the release cannot ship
 without:
 
