@@ -169,14 +169,14 @@ defmodule Mix.Tasks.Allbert.Test do
   end
 
   # v0.66 M10 (plan Locked Decision 4): the docs gate fails on doc-currency drift so it
-  # cannot silently recur next release. Active docs must not carry hardcoded
-  # older-version currency stamps (link CHANGELOG/roadmap instead), every
-  # operator/developer/design doc must be linked from its index, each index must exist,
-  # and active planning/handoff docs must stay linked from docs/plans/README.md.
-  # Scope is active docs only: README.md, docs/README.md, docs/operator/, docs/developer/,
-  # docs/design/, and docs/plans/ current-next handoff docs — archives, samples, generated
-  # evidence, and historical plans/ADRs are excluded (they legitimately name the version
-  # current at the time they were written).
+  # cannot silently recur next release. The currency-stamp/pin checks apply to the
+  # **user-facing guides** — README.md, docs/README.md, docs/operator/, docs/developer/,
+  # docs/design/ — which must not carry hardcoded currency stamps (link CHANGELOG/roadmap
+  # instead). docs/plans/ files are version-scoped working records (a plan legitimately
+  # names its own version and even describes the stamp patterns in build-progress notes),
+  # so they get the **index-completeness** check only — each active plan/handoff must be
+  # linked from docs/plans/README.md — not the currency-stamp scan. Archives, samples,
+  # generated evidence, and historical plans/ADRs are excluded entirely.
   @docs_active_index_dirs ["docs/operator", "docs/developer", "docs/design"]
   @docs_active_plan_index "docs/plans/README.md"
   @docs_active_plan_files [
@@ -212,9 +212,10 @@ defmodule Mix.Tasks.Allbert.Test do
   end
 
   defp docs_check_no_currency_stamps(errors, root) do
+    # User-facing guides only — docs/plans/ are version-scoped working records and get
+    # the index-completeness check instead (see docs_check_plan_index/2).
     active_files =
       (["README.md", "docs/README.md"] ++
-         @docs_active_plan_files ++
          Enum.flat_map(@docs_active_index_dirs, &docs_active_md(root, &1)))
       |> Enum.uniq()
 
