@@ -218,18 +218,55 @@ defmodule Mix.Tasks.Allbert.Test do
          Enum.flat_map(@docs_active_index_dirs, &docs_active_md(root, &1)))
       |> Enum.uniq()
 
-    stamped =
-      active_files
-      |> Enum.filter(fn rel ->
-        path = Path.join(root, rel)
-        File.exists?(path) and File.read!(path) =~ ~r/current as of v/i
-      end)
+    shipped_mm = shipped_version_mm(root)
 
-    errors ++
-      Enum.map(
-        stamped,
-        &"#{&1}: hardcoded 'current as of v<x>' stamp — link CHANGELOG/roadmap instead"
-      )
+    Enum.reduce(active_files, errors, fn rel, acc ->
+      path = Path.join(root, rel)
+
+      if File.exists?(path) do
+        raw = File.read!(path)
+        # Whitespace-normalized so the pin is caught even when it wraps across lines.
+        flat = String.replace(raw, ~r/\s+/, " ")
+
+        acc
+        |> docs_stamp(
+          rel,
+          raw =~ ~r/current as of v/i,
+          "hardcoded 'current as of v<x>' stamp — link CHANGELOG/roadmap instead"
+        )
+        |> docs_stamp(
+          rel,
+          flat =~ ~r/v\d+\.\d+(?:\.\d+)?.{0,60}?\bis the current packaged release line\b/i,
+          "hardcoded 'v<x> is the current packaged release line' pin — link CHANGELOG/roadmap for the current line"
+        )
+        |> docs_stamp(
+          rel,
+          # The shipped version left marked 'Planned' (version-aware: only the current
+          # shipped line, so genuinely-planned future rows never trip).
+          shipped_mm != nil and
+            Enum.any?(
+              String.split(raw, "\n"),
+              &(&1 =~ ~r/\bv#{Regex.escape(shipped_mm)}\b/ and &1 =~ ~r/\bPlanned\b/)
+            ),
+          "the shipped release v#{shipped_mm} is still marked 'Planned' — flip to Released"
+        )
+      else
+        acc
+      end
+    end)
+  end
+
+  defp docs_stamp(errors, _rel, false, _msg), do: errors
+  defp docs_stamp(errors, rel, true, msg), do: errors ++ ["#{rel}: #{msg}"]
+
+  # Current shipped release line as "MAJOR.MINOR" from the umbrella version, or nil.
+  defp shipped_version_mm(root) do
+    with {:ok, content} <- File.read(Path.join(root, "mix.exs")),
+         [_, mm] <- Regex.run(~r/version:\s*"(\d+\.\d+)\.\d+"/, content) do
+      mm
+    else
+      _ -> nil
+    end
   end
 
   defp docs_check_indexes(errors, root) do

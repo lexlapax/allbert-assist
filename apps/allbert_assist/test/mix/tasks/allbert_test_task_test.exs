@@ -235,6 +235,18 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert source =~ ~s(operator/developer/design/plans indexes complete)
   end
 
+  test "docs gate flags version-pinned currency phrasings beyond 'current as of v'" do
+    source =
+      Path.expand("../../../lib/mix/tasks/allbert.test.ex", __DIR__)
+      |> File.read!()
+
+    # The 'v<x> is the current packaged release line' pin and the version-aware
+    # shipped-as-'Planned' check are both enforced, not just 'current as of v'.
+    assert source =~ ~s(is the current packaged release line)
+    assert source =~ ~s(is still marked 'Planned')
+    assert source =~ ~s(defp shipped_version_mm)
+  end
+
   test "release secret scan includes provider-shaped key patterns" do
     source =
       Path.expand("../../../lib/mix/tasks/allbert.test.ex", __DIR__)
