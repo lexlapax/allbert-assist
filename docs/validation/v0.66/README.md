@@ -22,7 +22,7 @@ exercised and is not scoped out) · `SCOPED-OUT` (explicitly deferred with ratio
 
 | Evidence id | Milestone | Layer | Status | Evidence artifact | Commit / Artifact ref |
 |---|---|---|---|---|---|
-| `product-rc-install-serve-onboard-local-knowledge-first-chat-001` | M1/M5 | attested | PENDING-OPERATOR | clean-host install → serve → onboard → first chat transcript | |
+| `product-rc-install-serve-onboard-local-knowledge-first-chat-001` | M1/M5 | attested | PARTIAL (macOS install+serve PASS; onboard/first-chat PENDING model+browser) | `m2-macos-artifact-smoke.log` for install→serve; onboard→first-chat needs a configured model | |
 | `product-rc-web-usability-audit-item11-001` | M3 | attested (human audit) | PENDING-OPERATOR | `item11-usability-audit.md` (this dir) | |
 | `product-rc-uninstall-preserves-home-001` | M9 | attested (host smoke) | PENDING-OPERATOR | uninstall log + Home-preserved listing | |
 | `product-rc-no-docs-validation-001` | M3 | attested (fresh non-dev walk) | PENDING-OPERATOR | no-docs walkthrough notes | |
@@ -44,9 +44,9 @@ proved entirely by `release.v066` and need no row here; their evidence is the ga
 
 | Platform | Harness | Status | Evidence |
 |---|---|---|---|
-| macOS (Homebrew) | `scripts/smoke/artifact_smoke.sh` | | |
-| Linux (curl installer / systemd) | `scripts/smoke/linux_rehearsal.sh` | PENDING-OPERATOR | |
-| Windows / WSL2 | manual (no scripted harness) | PENDING-OPERATOR | |
+| macOS (arm64) | `scripts/smoke/artifact_smoke.sh` | PASS | `m2-macos-artifact-smoke.log` — 8/8: toolchain-free boot, live `/health` (runtime up, db ok, 8 channels), attach round-trip, no Mix in image, portable crypto linkage. Built via `MIX_ENV=prod mix release allbert`. |
+| Linux (curl installer / systemd) | `scripts/smoke/linux_rehearsal.sh` | PENDING-OPERATOR | version-agnostic harness ready; needs a Linux host (curl-install + CLI + vault/systemd rehearsal) |
+| Windows / WSL2 | manual (no scripted harness) | PENDING-OPERATOR | fully manual install/serve walk on WSL2 |
 
 ## Advanced-surface regression classes (M6, Locked Decision 6)
 

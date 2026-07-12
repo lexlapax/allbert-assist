@@ -1,0 +1,14 @@
+smoke:boot PASS toolchain-free admin-status ok
+smoke:version PASS version=0.65.0
+smoke:plugins PASS registered=6
+smoke:health PASS {"runtime":"up","status":"ok","database":"ok","channels":{"status":"up","supervised":8}}
+smoke:attach PASS served by the running daemon
+smoke:no_mix PASS no Mix modules in image
+smoke:crypto_linkage PASS macOS crypto.so linkage portable
+smoke:all PASS target=macos-arm64 version=0.65.0
+# M2 macOS artifact smoke — host facts
+date: 2026-07-11
+uname: Darwin 25.6.0 arm64
+release: _build/prod/rel/allbert (MIX_ENV=prod mix release allbert)
+packaged version: 0.65.0 (pre-bump; RC validates the shipped product line)
+harness: scripts/smoke/artifact_smoke.sh
