@@ -1,6 +1,6 @@
 # Research Specialist
 
-Introduced in v0.46 (`research.specialist`); current as of v0.63.
+Introduced in v0.46 (`research.specialist`).
 
 The research specialist is a delegated objective agent contributed by
 `./plugins/allbert.research/`. It is a read-only orchestration layer over the
@@ -64,10 +64,11 @@ and `Confirmation: <id>`.
 mix allbert.test external-smoke -- browser_research_delegate
 ```
 
-The deterministic release gate is:
+Each release ships a deterministic gate; see the [roadmap](../plans/roadmap.md) for
+the current line:
 
 ```sh
-mix allbert.test release.v063
+mix allbert.test release.vNN
 ```
 
 ## Out Of Scope

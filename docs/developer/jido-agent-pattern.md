@@ -1,6 +1,6 @@
 # JidoBacked Agent Pattern
 
-Status: current as of v0.23.
+Status: stable since v0.23.
 
 This guide is the worked example for Allbert's pragmatic `Jido.Agent` rule.
 Use it when converting an existing state machine to the shared

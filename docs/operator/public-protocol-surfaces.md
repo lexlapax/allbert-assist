@@ -1,6 +1,6 @@
 # Public Protocol Surfaces
 
-Introduced in v0.51; current as of v0.63. The real-client validation steps below are a
+Introduced in v0.51. The real-client validation steps below are a
 reusable replay runbook.
 
 Allbert can be reached by three public protocol surfaces:

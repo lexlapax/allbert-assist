@@ -34,52 +34,28 @@ becoming opaque or unbounded.
 
 ## Current Shape
 
-The current packaged release line is **v0.65.0 (Local Knowledge: Files, Notes, And
-Agent Memory), tagged `v0.65.0`** (Latest, 2026-07-11). It makes local files/notes plus
-reviewed agent memory the primary post-first-chat workflow: connect a notes folder with
-no hand-edited config (onboarding, web, or `allbert admin notes set-root`), ask about
-those notes through the action-backed `workspace:notes` destination, confirm a
-confirmation-gated note write, review what Allbert may remember in the `workspace:memory`
-panel (keep / reject / delete), and recall that reviewed memory in a later chat — only
-kept entries are ever recalled, and nothing is promoted automatically. Natural chat
-("remember X", "show what you remember") drives the loop, and `allbert admin memory
-status` reports per-review-status counts. File access stays bounded by the permission
-gate plus notes-root/extension bounding; Resource Access refs are provenance, not the
-enforcement seam. **No new authority class, permission, or confirmation floor** — it
-builds first-class operator surfaces on the already-shipped notes/files plugin and
-memory-review engine (product-experience/IA amendment to ADR 0077).
-
-The prior packaged line is **v0.64.3 (Trusted Install & Non-Developer First Run)**: it
-made packaged install and repairable first run the primary operator path — fail-closed
-installer-side cosign verification, bounded DB backup restore, persistent service posture,
-browser-first onboarding, guided local-runtime repair, curated local-model pull with live
-web progress, and plain-language CLI/TUI blocked-state guidance. The source/docs point
-tags `v0.64.4`/`v0.64.5` (`[skip-artifacts]`) only reconciled release-facing docs; they
-did not publish packaged artifacts. See [CHANGELOG.md](CHANGELOG.md) for the full
-release-by-release history.
-
-This README is the stable project orientation; release-by-release implementation
-detail belongs in [CHANGELOG.md](CHANGELOG.md), and forward planning belongs in
-[docs/plans/roadmap.md](docs/plans/roadmap.md).
+This README is the stable project orientation. For the current packaged release
+line, its features, and the full release-by-release history, see the
+[CHANGELOG](CHANGELOG.md); forward planning lives in the
+[roadmap](docs/plans/roadmap.md).
 
 Today, Allbert includes:
 
 - A local assistant runtime that routes user input through registered actions.
-- A web workspace at `/workspace`.
-- Terminal and CLI operator surfaces.
+- A web workspace at `/workspace`, plus terminal/CLI operator surfaces.
 - Durable confirmations for sensitive work.
 - Settings Central for operator-tunable configuration.
 - Security Central for permission and policy decisions.
-- Markdown-first memory under Allbert Home.
+- Markdown-first memory under Allbert Home, plus local files/notes as a launch
+  integration.
 - Inspectable traces, events, objectives, jobs, and operator reports.
 - Source-tree plugins and app surfaces, with StockSage as the main reference app.
 - Public protocol surfaces with bounded, policy-checked exposure.
 
-As of v0.65.0, Allbert has the trusted-install and repairable first-run substrate (v0.64)
-plus the local files/notes/memory launch path (v0.65) for a non-developer operator across
-the curl and Homebrew packaged paths. The pre-1.0 plan closes the remaining launch gap
-explicitly: v0.66 owns no-docs product RC validation before v1.0 freezes the public
-contracts.
+The packaged install and repairable first run make Allbert usable by a
+non-developer across the curl and Homebrew paths. The pre-1.0 plan closes the
+remaining launch gap explicitly: v0.66 owns no-docs product RC validation before
+v1.0 freezes the public contracts.
 
 ## What Allbert Is For
 
@@ -123,14 +99,15 @@ If you want to try Allbert locally:
 
 - [docs/operator/onboarding.md](docs/operator/onboarding.md): first local run and
   operator orientation.
-- [docs/operator/install.md](docs/operator/install.md): packaged install,
-  upgrade, uninstall, and distribution-trust notes.
 - [docs/operator/workspace.md](docs/operator/workspace.md): the web workspace,
   panels, and operator-facing controls.
+- [docs/operator/local-knowledge.md](docs/operator/local-knowledge.md): connect
+  local files/notes and reviewed agent memory (the launch integration).
+- [docs/operator/install.md](docs/operator/install.md): packaged install,
+  upgrade, uninstall, and distribution-trust notes.
 - [docs/README.md](docs/README.md): the documentation map.
-- [CHANGELOG.md](CHANGELOG.md): what has shipped and what the current release
-  includes.
-- [docs/plans/roadmap.md](docs/plans/roadmap.md): where the project is going next.
+- [CHANGELOG.md](CHANGELOG.md) / [docs/plans/roadmap.md](docs/plans/roadmap.md):
+  what has shipped and where the project is going next.
 
 If you are contributing to the codebase:
 
@@ -145,10 +122,8 @@ If you are contributing to the codebase:
 
 ## Local Development
 
-These commands are for contributors working from source. The product install
-path is documented in [docs/operator/install.md](docs/operator/install.md).
-
-Common development loop:
+For contributors working from source (the packaged product install path is in
+[docs/operator/install.md](docs/operator/install.md)). The common loop:
 
 ```sh
 mix setup
@@ -158,15 +133,6 @@ mix precommit
 mix phx.server
 ```
 
-Operator examples:
-
-```sh
-mix allbert.ask --user local --active-app stocksage "analyze AAPL"
-mix allbert.confirmations list --user local
-mix allbert.objectives list --user local
-mix allbert.memory review --user local
-mix allbert.security status
-```
-
 Use a temporary `ALLBERT_HOME` for tests, release smoke checks, and manual
-verification so real local assistant data is never modified by accident.
+verification so real local assistant data is never modified by accident. See
+[DEVELOPMENT.md](DEVELOPMENT.md) for the full command set and operator examples.

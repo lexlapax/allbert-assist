@@ -164,7 +164,86 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp docs do
     run_cmd!("docs", root(), "git", ["diff", "--check"], [])
+    docs_staleness_check!()
     :ok
+  end
+
+  # v0.66 M10 (plan Locked Decision 4): the docs gate fails on doc-currency drift so it
+  # cannot silently recur next release. Active docs must not carry hardcoded
+  # "current as of v<x>" stamps (link CHANGELOG/roadmap instead), every operator/
+  # developer/design doc must be linked from its index, and each index must exist.
+  # Scope is active docs only: README.md, docs/README.md, docs/operator/, docs/developer/,
+  # and docs/design/ — archives, samples, generated evidence, and historical plans/ADRs are
+  # excluded (they legitimately name the version current at the time they were written).
+  @docs_active_index_dirs ["docs/operator", "docs/developer", "docs/design"]
+
+  defp docs_staleness_check! do
+    root = root()
+
+    errors =
+      []
+      |> docs_check_no_currency_stamps(root)
+      |> docs_check_indexes(root)
+
+    if errors != [] do
+      Mix.raise(
+        "docs staleness/index check failed:\n" <>
+          Enum.map_join(errors, "\n", &("  - " <> &1))
+      )
+    end
+
+    Mix.shell().info(
+      "docs staleness/index check: clean (no 'current as of v' stamps; operator/developer/design indexes complete)"
+    )
+  end
+
+  defp docs_check_no_currency_stamps(errors, root) do
+    active_files =
+      ["README.md", "docs/README.md"] ++
+        Enum.flat_map(@docs_active_index_dirs, &docs_active_md(root, &1))
+
+    stamped =
+      active_files
+      |> Enum.filter(fn rel ->
+        path = Path.join(root, rel)
+        File.exists?(path) and File.read!(path) =~ ~r/current as of v/i
+      end)
+
+    errors ++
+      Enum.map(
+        stamped,
+        &"#{&1}: hardcoded 'current as of v<x>' stamp — link CHANGELOG/roadmap instead"
+      )
+  end
+
+  defp docs_check_indexes(errors, root) do
+    Enum.reduce(@docs_active_index_dirs, errors, fn dir, acc ->
+      index_path = Path.join([root, dir, "README.md"])
+
+      if File.exists?(index_path) do
+        index = File.read!(index_path)
+
+        orphans =
+          root
+          |> docs_active_md(dir)
+          |> Enum.map(&Path.basename/1)
+          |> Enum.reject(&(&1 == "README.md"))
+          |> Enum.reject(&String.contains?(index, &1))
+          |> Enum.map(&"#{dir}/#{&1}: not linked from #{dir}/README.md")
+
+        acc ++ orphans
+      else
+        acc ++ ["#{dir}/README.md: active-doc index missing"]
+      end
+    end)
+  end
+
+  defp docs_active_md(root, dir) do
+    root
+    |> Path.join(dir)
+    |> Path.join("*.md")
+    |> Path.wildcard()
+    |> Enum.map(&Path.relative_to(&1, root))
   end
 
   defp inventory(args) do

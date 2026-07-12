@@ -10,8 +10,9 @@ gates. Start with the compact maps, then open subsystem guides as needed.
 - [Runtime boundary map](runtime-boundary-map.md) - runtime/action/channel boundaries.
 - [Jido agent pattern](jido-agent-pattern.md) - when and how to use Jido-backed agents.
 
-## v0.58 Contracts
+## Contracts
 
+- [CLI mapping](cli-mapping.md) - mix task -> `allbert` command disposition mapping.
 - [Surface contract](surface-contract.md) - cross-surface renderer, event, identity, and action contract.
 - [Web design system](web-design-system.md) - tokens, variants, shell, catalog, and shared patterns.
 - [Channel parity](channel-parity.md) - channel payload and surface parity expectations.

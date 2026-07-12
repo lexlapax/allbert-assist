@@ -1,7 +1,7 @@
 # Vision And Image Generation Operator Guide
 
 Operator guide for vision (image/screenshot-to-text) and text-to-image generation.
-Introduced in v0.49; current as of v0.63. Design authority: ADR 0042, ADR 0047, ADR 0051.
+Introduced in v0.49. Design authority: ADR 0042, ADR 0047, ADR 0051.
 
 ## Operator Posture
 
@@ -91,7 +91,8 @@ Request image generation through the runtime/action surface. Expected behavior:
 
 ## Release gate
 
-The deterministic gate for the current release line is `mix allbert.test release.v063`.
+Each release ships a deterministic `mix allbert.test release.vNN` gate; see the
+[roadmap](../plans/roadmap.md) for the current line.
 For a live vision/image smoke against configured providers, the reusable script is
 `scripts/v049_vision_live_smoke.exs` (OpenAI / Gemini / Ollama), driven from a disposable
 `ALLBERT_HOME`. Detailed release-validation runbooks live in the version plan/request-flow

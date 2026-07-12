@@ -1,7 +1,9 @@
 # Allbert Active Memory And Identity Slot
 
-Introduced in v0.39b; current as of v0.65, which adds first-class
-`workspace:memory` and `allbert admin memory status` surfaces over the same substrate.
+Introduced in v0.39b. The `workspace:memory` and `allbert admin memory status`
+surfaces are first-class over the same substrate (see the
+[roadmap](../plans/roadmap.md) and [CHANGELOG](../../CHANGELOG.md) for the current
+release line).
 
 This guide is the operator-facing reference for the identity memory
 namespace and Active Memory retrieval. Implementation details live in

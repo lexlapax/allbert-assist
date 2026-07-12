@@ -1,7 +1,7 @@
 # Voice And Provider Preferences
 
 Operator guide for voice (STT/TTS) and ranked provider/model preferences. Introduced in
-v0.48; current as of v0.63. Voice uses the same provider framework as text models: the
+v0.48. Voice uses the same provider framework as text models: the
 operator chooses a primary provider/model profile for most work and can override it per
 task or capability (coding, speech-to-text, text-to-speech). Provider credentials resolve
 through the three-tier secret vault (OS Keychain / encrypted file / env) — see
@@ -135,5 +135,7 @@ Enable `voice.enabled` with a disposable `ALLBERT_HOME`, then transcribe a short
 notes. For real local-endpoint or remote-provider validation, drive
 `scripts/v048_voice_live_smoke.exs`. Fake STT/TTS profiles are fixtures only — use a real
 local or remote profile. Confirm traces carry redacted audio metadata (never raw bytes or
-local paths). The deterministic gate is `mix allbert.test release.v063`; detailed
-live-provider runbooks live in the version request-flow docs.
+local paths). Voice first shipped under the `release.v048` gate; each release ships a
+deterministic `mix allbert.test release.vNN` gate (see the
+[roadmap](../plans/roadmap.md) for the current line). Detailed live-provider runbooks
+live in the version request-flow docs.
