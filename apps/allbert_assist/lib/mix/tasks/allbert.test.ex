@@ -5112,6 +5112,36 @@ defmodule Mix.Tasks.Allbert.Test do
       ]
     },
     %{
+      id: "v066_security_sweep",
+      title: "v0.66 product-RC eval rows are complete, shaped, routed, and bound",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/v066_sweep_eval_test.exs"
+      ],
+      coverage: [
+        "every gate-bound product-rc-* row asserts a contract-level proxy (capability exposure, permission/confirmation floor, routing, or boundary), not live browser/model behavior",
+        "each :v066 row binds its assert atoms in the owning sweep test; no prose-only/unbound rows"
+      ]
+    },
+    %{
+      id: "v066_web_render_dispatch",
+      title: "workspace/jobs/objectives/settings LiveViews mount and dispatch without crashing",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/jobs_live_test.exs",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/objectives_live_test.exs",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/settings_live_test.exs"
+      ],
+      coverage: [
+        "the browser-pipeline LiveViews render and handle registered events without raising — the server-side render/dispatch contract behind product-rc-web-smoke-no-console-error-001"
+      ]
+    },
+    %{
       id: "docs_gate",
       title: "docs gate, staleness/index check, and release-planning whitespace check",
       cwd: :root,

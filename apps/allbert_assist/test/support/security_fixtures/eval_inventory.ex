@@ -122,6 +122,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :dark_mode
           | :affordance
           | :accessibility
+          | :product_rc
 
   @type row :: %{
           id: String.t(),
@@ -6545,6 +6546,26 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       expected: :allowed,
       assert: [:v066_handoff_present, :no_docs_validation_named, :local_knowledge_handoff_current],
       test_module: "AllbertAssist.Security.V065SweepEvalTest"
+    },
+    # ── v0.66 Product RC & No-Docs Validation ──────────────────────────────────
+    # Gate-bound / mixed product-rc rows. Contract-level proxies (plan Locked
+    # Decision 2): they assert capability exposure, permission/confirmation floors,
+    # routing decisions, and boundary contracts — not live browser/model/provider
+    # behavior, which is operator-attested in docs/validation/v0.66/.
+    %{
+      id: "product-rc-web-smoke-no-console-error-001",
+      milestone: :v066,
+      surface: :product_rc,
+      scenario:
+        "A workspace/jobs/objectives route stops rendering behind the browser pipeline, or an operator panel renders by reading a store directly instead of dispatching a registered action, so the web shell can crash or leak on render/dispatch",
+      boundary: :render_dispatch_contract,
+      expected: :allowed,
+      assert: [
+        :live_routes_registered,
+        :operator_panels_action_backed,
+        :no_direct_store_render
+      ],
+      test_module: "AllbertAssist.Security.V066SweepEvalTest"
     }
   ]
 

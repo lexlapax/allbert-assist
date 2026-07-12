@@ -23,11 +23,11 @@ exercised and is not scoped out) · `SCOPED-OUT` (explicitly deferred with ratio
 | Evidence id | Milestone | Layer | Status | Evidence artifact | Commit / Artifact ref |
 |---|---|---|---|---|---|
 | `product-rc-install-serve-onboard-local-knowledge-first-chat-001` | M1/M5 | attested | PARTIAL (macOS install+serve PASS; onboard/first-chat PENDING model+browser) | `m2-macos-artifact-smoke.log` for install→serve; onboard→first-chat needs a configured model | |
-| `product-rc-web-usability-audit-item11-001` | M3 | attested (human audit) | PENDING-OPERATOR | `item11-usability-audit.md` (this dir) | |
+| `product-rc-web-usability-audit-item11-001` | M3 | attested (human audit) | PASS | `item11-usability-audit.md` — 5 surfaces smoked, 0 console errors, 1 explicit-v1.0-caveat (transient reconnect toast) | dev server, disposable home, 2026-07-11 |
 | `product-rc-uninstall-preserves-home-001` | M9 | attested (host smoke) | PENDING-OPERATOR | uninstall log + Home-preserved listing | |
 | `product-rc-no-docs-validation-001` | M3 | attested (fresh non-dev walk) | PENDING-OPERATOR | no-docs walkthrough notes | |
 | `product-rc-consumer-default-oneclick-model-no-key-first-chat-001` | M7 | gate + attested | PENDING-OPERATOR (attested half) | one-click model download → first useful chat | |
-| `product-rc-web-smoke-no-console-error-001` | M3 | gate + attested | | browser console + layout capture | |
+| `product-rc-web-smoke-no-console-error-001` | M3 | gate + attested | PASS | gate: `v066_security_sweep` + `v066_web_render_dispatch`; attested: `item11-usability-audit.md` (/, /workspace, /jobs, /objectives, workspace:notes — 0 console errors) | |
 | `product-rc-cli-tui-no-mix-needed-001` | M4 | gate + attested | PENDING-OPERATOR (attested half) | packaged-binary CLI/TUI transcript | |
 | `product-rc-local-files-notes-memory-policy-bounded-001` | M5/M8 | gate + attested | | recall-in-later-chat transcript | |
 | `product-rc-advanced-surfaces-no-regression-001` | M6 | gate + attested | | per-class advanced-surface run logs | |
