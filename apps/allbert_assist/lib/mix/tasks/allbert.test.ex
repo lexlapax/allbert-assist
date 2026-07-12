@@ -5209,6 +5209,21 @@ defmodule Mix.Tasks.Allbert.Test do
       ]
     },
     %{
+      id: "v066_authority_delta",
+      title: "no-authority sweeps re-run across the surfaces added since v0.59 (packaging, onboarding, notes/memory)",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/v062_sweep_eval_test.exs",
+        "test/security/v063_sweep_eval_test.exs",
+        "test/security/v065_sweep_eval_test.exs"
+      ],
+      coverage: [
+        "the v0.62 packaging, v0.63 onboarding/profile, and v0.65 notes/memory security sweeps still hold at the RC — the delta-sweep half of product-rc-profile-no-authority-regression-001 and product-rc-packaging-no-authority-regression-001"
+      ]
+    },
+    %{
       id: "docs_gate",
       title: "docs gate, staleness/index check, and release-planning whitespace check",
       cwd: :root,

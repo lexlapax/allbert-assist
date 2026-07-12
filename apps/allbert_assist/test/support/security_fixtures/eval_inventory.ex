@@ -6641,6 +6641,36 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
         :byok_is_advanced_fallback
       ],
       test_module: "AllbertAssist.Security.V066SweepEvalTest"
+    },
+    %{
+      id: "product-rc-profile-no-authority-regression-001",
+      milestone: :v066,
+      surface: :product_rc,
+      scenario:
+        "Applying a user-category persona profile grants authority at the RC: it writes outside settings, drops its confirmation gate, becomes agent-routable, or introduces a new permission class",
+      boundary: :no_new_authority,
+      expected: :allowed,
+      assert: [
+        :profile_apply_settings_scoped,
+        :profile_apply_confirmation_gated_internal,
+        :profile_apply_no_new_class
+      ],
+      test_module: "AllbertAssist.Security.V066SweepEvalTest"
+    },
+    %{
+      id: "product-rc-packaging-no-authority-regression-001",
+      milestone: :v066,
+      surface: :product_rc,
+      scenario:
+        "A packaged/product surface introduces a new permission class at the RC, or a packaged operator read becomes agent-routable instead of staying internal",
+      boundary: :no_new_authority,
+      expected: :allowed,
+      assert: [
+        :registry_permissions_all_known,
+        :packaged_reads_internal,
+        :permission_class_set_stable
+      ],
+      test_module: "AllbertAssist.Security.V066SweepEvalTest"
     }
   ]
 

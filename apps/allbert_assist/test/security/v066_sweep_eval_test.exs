@@ -20,10 +20,12 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
 
   alias AllbertAssist.Actions.Memory.ReviewMemoryEntry
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
+  alias AllbertAssist.Actions.Settings.ApplyPersonaProfile
   alias AllbertAssist.Actions.Settings.SetNotesRoot
   alias AllbertAssist.CLI.Commands
   alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.Intent.Descriptor
+  alias AllbertAssist.Security.Policy
   alias AllbertAssist.SecurityFixtures.AssertBinding
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertNotesFiles.Actions.ReadNote
@@ -40,6 +42,8 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
     product-rc-advanced-surfaces-no-regression-001
     product-rc-conversational-routing-no-misroute-001
     product-rc-consumer-default-oneclick-model-no-key-first-chat-001
+    product-rc-profile-no-authority-regression-001
+    product-rc-packaging-no-authority-regression-001
   )
 
   @owner "AllbertAssist.Security.V066SweepEvalTest"
@@ -266,6 +270,87 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
       :no_key_demand_when_runtime_missing,
       :byok_is_advanced_fallback
     ])
+  end
+
+  # ── M8: cross-surface no-authority delta-sweep (fully gate-provable) ──────────
+
+  test "product-rc-profile-no-authority-regression-001: applying a persona profile writes only settings, stays gated and internal, and adds no permission class" do
+    capability = ApplyPersonaProfile.capability()
+
+    # Profiles seed settings only — no broad or new grant.
+    assert capability.permission == :settings_write
+
+    # The apply stays confirmation-gated and setup-time internal (never an agent tool),
+    # so a persona can't be applied to escalate authority.
+    assert capability.confirmation == :required
+    assert capability.exposure == :internal
+
+    # :settings_write is an existing permission class — profiles introduce none.
+    assert :settings_write in Policy.permission_classes()
+
+    IO.puts("product-rc-profile-no-authority-regression-001 status=pass authority=none")
+
+    AssertBinding.check!("product-rc-profile-no-authority-regression-001", [
+      :profile_apply_settings_scoped,
+      :profile_apply_confirmation_gated_internal,
+      :profile_apply_no_new_class
+    ])
+  end
+
+  test "product-rc-packaging-no-authority-regression-001: the whole registry stays within the known permission classes and packaged reads stay internal" do
+    classes = MapSet.new(Policy.permission_classes())
+    assert MapSet.size(classes) > 0
+
+    # No surface (packaging, onboarding, notes/memory, advanced) introduces a new
+    # permission class: every registered capability reuses an existing class.
+    unknown =
+      ActionsRegistry.capabilities()
+      |> Enum.reject(&MapSet.member?(classes, &1.permission))
+      |> Enum.map(& &1.name)
+
+    assert unknown == [], "actions with an unknown permission class: #{inspect(unknown)}"
+
+    # Representative packaged operator reads stay internal and off the intent router.
+    agent_names = ActionsRegistry.agent_capabilities() |> Enum.map(& &1.name) |> MapSet.new()
+
+    for name <- ["serve_health", "operator_status"] do
+      assert {:ok, cap} = ActionsRegistry.capability(name)
+      assert cap.exposure == :internal, "#{name} must stay internal"
+      refute MapSet.member?(agent_names, name), "#{name} must not be agent-routable"
+    end
+
+    IO.puts("product-rc-packaging-no-authority-regression-001 status=pass new_classes=0")
+
+    AssertBinding.check!("product-rc-packaging-no-authority-regression-001", [
+      :registry_permissions_all_known,
+      :packaged_reads_internal,
+      :permission_class_set_stable
+    ])
+  end
+
+  # The v0.66 sweep is the cross-surface delta-sweep the plan (M8) names: its rows span
+  # the surfaces added since the v0.59 M4 sweep — landing/web (M3), packaged CLI (M4),
+  # notes/memory (M5), advanced surfaces (M6), onboarding/routing/first-model (M7), and
+  # profile/packaging authority (M8) — each bound to an owning assertion below.
+  test "the v0.66 delta-sweep covers the product-RC surface classes since v0.59" do
+    surfaces =
+      EvalInventory.rows_for_milestone(:v066)
+      |> Enum.map(& &1.boundary)
+      |> MapSet.new()
+
+    for boundary <- [
+          :render_dispatch_contract,
+          :cli_dispatch_contract,
+          :permission_floor,
+          :capability_exposure,
+          :intent_routing,
+          :first_model_state,
+          :no_new_authority
+        ] do
+      assert MapSet.member?(surfaces, boundary), "delta-sweep missing #{boundary} coverage"
+    end
+
+    IO.puts("v066-delta-sweep-coverage status=pass surface_classes=#{MapSet.size(surfaces)}")
   end
 
   test "every :v066 row binds its assert atoms in its owning test" do
