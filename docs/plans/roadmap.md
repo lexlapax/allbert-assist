@@ -493,11 +493,14 @@ scope.
     files/notes plus reviewed memory the 1.0 launch-critical integration path.
     Notes/files, Resource Access, confirmed writes, and memory review stay under
     existing authority; no broad filesystem grant or auto-memory promotion.
-66. v0.66 Product RC & No-Docs Validation: no new features; validates clean
-    install -> serve -> onboard -> local files/notes/memory -> first chat ->
+66. v0.66 Product RC & No-Docs Validation **(Released — tagged `v0.66.0`,
+    2026-07-11, GitHub Latest)**: no new features; two-layer verification (a
+    deterministic `release.v066` gate + operator-attested evidence) validated the
+    clean install -> serve -> onboard -> local files/notes/memory -> first chat ->
     inspect -> advanced-surface regression -> export/import or upgrade ->
-    uninstall across web, CLI, TUI, and evidence. This prevents v1.0 from being
-    the first integrated product test.
+    uninstall path across web, CLI, TUI, and evidence, so v1.0 is not the first
+    integrated product test. 11 gate-bound `product-rc-*` rows + a gate-enforced
+    docs staleness check; v1.0 handoff in `docs/plans/v1.0-handoff.md`.
 67. v1.0 Stability release, **tiered public contract freeze**, and
     **non-developer product launch**: no new features; freeze Tier 1 (Runtime,
     Actions/permissions, Plugin, App, Settings Central schema shape, Allbert

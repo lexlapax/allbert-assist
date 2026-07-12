@@ -27,6 +27,7 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
   alias AllbertAssist.Intent.Descriptor
   alias AllbertAssist.Portability.Import, as: PortabilityImport
   alias AllbertAssist.Portability.SecretReferences
+  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Security.Policy
   alias AllbertAssist.SecurityFixtures.AssertBinding
   alias AllbertAssist.SecurityFixtures.EvalInventory
@@ -47,6 +48,8 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
     product-rc-profile-no-authority-regression-001
     product-rc-packaging-no-authority-regression-001
     product-rc-export-import-upgrade-001
+    product-rc-evidence-secret-scan-001
+    product-rc-v1-handoff-current-001
   )
 
   @owner "AllbertAssist.Security.V066SweepEvalTest"
@@ -83,10 +86,14 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
 
   test "product-rc-web-smoke-no-console-error-001: the web shell renders behind the browser pipeline and its panels stay action-backed" do
     router = read!("apps/allbert_assist_web/lib/allbert_assist_web/router.ex")
-    panels =
-      read!("apps/allbert_assist_web/lib/allbert_assist_web/workspace/components/operator_panels.ex")
 
-    workspace_live = read!("apps/allbert_assist_web/lib/allbert_assist_web/live/workspace_live.ex")
+    panels =
+      read!(
+        "apps/allbert_assist_web/lib/allbert_assist_web/workspace/components/operator_panels.ex"
+      )
+
+    workspace_live =
+      read!("apps/allbert_assist_web/lib/allbert_assist_web/live/workspace_live.ex")
 
     # The workspace/jobs/objectives routes render through LiveViews behind the
     # :browser pipeline, the landing is a controller page, and /health is exposed —
@@ -256,12 +263,18 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
 
     # No local model and no provider key guides the operator to runtime setup
     # (:runtime_missing), it never demands a key to proceed.
-    assert FirstRun.first_model_state(ollama_probe: fn -> :missing end, byok_ready?: fn -> false end) ==
+    assert FirstRun.first_model_state(
+             ollama_probe: fn -> :missing end,
+             byok_ready?: fn -> false end
+           ) ==
              :runtime_missing
 
     # BYOK is the advanced fallback: a provider key with no local runtime resolves
     # :byok_ready, distinct from the default keyless-local path.
-    assert FirstRun.first_model_state(ollama_probe: fn -> :missing end, byok_ready?: fn -> true end) ==
+    assert FirstRun.first_model_state(
+             ollama_probe: fn -> :missing end,
+             byok_ready?: fn -> true end
+           ) ==
              :byok_ready
 
     IO.puts(
@@ -353,7 +366,9 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
 
     # Importing an Allbert Home is a dry-run that blocks before applying any change —
     # a missing/invalid envelope path still returns a dry-run diagnostic, never a write.
-    missing = Path.join(System.tmp_dir!(), "v066-missing-#{System.unique_integer([:positive])}.json")
+    missing =
+      Path.join(System.tmp_dir!(), "v066-missing-#{System.unique_integer([:positive])}.json")
+
     assert {:error, diag} = PortabilityImport.dry_run(missing)
     assert diag["dry_run"] == true
 
@@ -363,6 +378,58 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
       :secret_refs_exported_not_values,
       :import_is_dry_run,
       :import_blocks_before_apply
+    ])
+  end
+
+  # ── M11: evidence secret scan + v1.0 handoff currency ────────────────────────
+
+  test "product-rc-evidence-secret-scan-001: redaction removes secret values and refs while keeping public fields" do
+    # A secret key's value is redacted before it can reach a log, output, or evidence file.
+    redacted = Redactor.redact(%{"api_key" => "sk-DO-NOT-LEAK-123", "note" => "public detail"})
+    assert redacted["api_key"] == "[REDACTED]"
+    refute redacted["api_key"] =~ "sk-"
+
+    # A secret reference URI is redacted to a marker, never surfaced raw.
+    assert Redactor.redact("secret://providers/openai/api_key") == "[SECRET_REF]"
+
+    # Non-secret fields survive so the evidence stays useful.
+    assert redacted["note"] == "public detail"
+
+    IO.puts("product-rc-evidence-secret-scan-001 status=pass redaction=secrets_only")
+
+    AssertBinding.check!("product-rc-evidence-secret-scan-001", [
+      :secret_key_value_redacted,
+      :secret_ref_redacted,
+      :public_fields_preserved
+    ])
+  end
+
+  test "product-rc-v1-handoff-current-001: the v1.0 handoff note and its 17-item acceptance matrix are current" do
+    handoff = read!("docs/plans/v1.0-handoff.md")
+    roadmap = read!("docs/plans/roadmap.md")
+
+    # The handoff note exists and frames the acceptance matrix.
+    assert handoff =~ "Acceptance Matrix" or handoff =~ "acceptance-matrix"
+    assert handoff =~ "17 inputs" or handoff =~ "17-item"
+
+    # It lists all 17 numbered acceptance rows.
+    matrix_rows =
+      handoff
+      |> String.split("\n")
+      |> Enum.filter(&Regex.match?(~r/^\| \d+ \|/, &1))
+
+    assert length(matrix_rows) == 17, "expected 17 acceptance rows, got #{length(matrix_rows)}"
+
+    # The roadmap still names the v0.66 RC and the v1.0 freeze the handoff points to.
+    assert roadmap =~ "v0.66"
+    assert roadmap =~ "v1.0" and roadmap =~ "freeze"
+
+    IO.puts("product-rc-v1-handoff-current-001 status=pass handoff=current rows=17")
+
+    AssertBinding.check!("product-rc-v1-handoff-current-001", [
+      :v1_handoff_note_present,
+      :acceptance_matrix_seventeen_inputs,
+      :roadmap_names_rc_and_v1_freeze
     ])
   end
 

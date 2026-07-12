@@ -10,6 +10,48 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.66.0 - Product RC & No-Docs Validation
+
+Status: **released — tagged `v0.66.0` (2026-07-11 UTC), version 0.66.0, packaged GitHub
+Release assets published as Latest**. `mix allbert.test release.v066` is the deterministic
+handoff gate. v0.66 is the integrated pre-1.0 product release candidate: it **adds no new
+capability, permission class, or product surface** and validates the complete
+install → serve → onboard → local-knowledge → first-use → inspect → advanced-surface →
+export/import → uninstall path before the v1.0 freeze.
+
+Verification is **two-layer** (plan Locked Decision 1): a checkout-bound `release.v066`
+gate proves contract/routing/boundary invariants deterministically, and operator-attested
+evidence (`docs/validation/v0.66/`) carries the install/browser/model/cross-platform
+claims the gate cannot run. Each milestone, eval row, and Definition-of-Done bullet is
+tagged `gate-proved-contract` or `operator-attested-smoke`.
+
+- **`release.v066` deterministic gate.** Static gates (migrate, format,
+  warnings-as-errors, credo --strict, dialyzer), version consistency, the M5–M9 proof
+  buckets (web render/dispatch, CLI/TUI no-mix, local-knowledge bounding/recall,
+  advanced-surface exposure, routing + first-model, no-authority delta-sweep, portability),
+  the M8 delta-sweep, the M11 secret scan, and the extended docs gate.
+- **11 gate-bound `product-rc-*` eval rows** in a new `V066SweepEvalTest`, each a
+  contract-level proxy bound via `AssertBinding`: web render/dispatch, CLI/TUI operator/dev
+  split, local files/notes/memory floors, advanced-surface capability-exposure disjointness,
+  conversational routing (no mis-route to a disabled/demo capability — guards the v0.63 F5 /
+  v0.65 chat-bug class), consumer-default keyless first-model state, profile/packaging
+  no-new-authority, Home export/import dry-run, evidence secret redaction, and v1.0 handoff
+  currency. All 258 registered actions reuse one of the 57 known permission classes — zero
+  new authority anywhere.
+- **Gate-enforced docs staleness/index check.** `mix allbert.test docs` now fails on any
+  hardcoded "current as of v<x>" stamp or any operator/developer/design doc orphaned from
+  its index, so doc-currency drift cannot silently recur (Locked Decision 4).
+- **Attested evidence (`docs/validation/v0.66/`).** macOS packaged artifact smoke (8/8),
+  real-browser web smoke + item-11 non-developer usability audit (0 console errors),
+  packaged-binary CLI/TUI reads, and a keyless-local first useful chat via a local model
+  with no API key. Linux/WSL2 installs, real cross-version upgrade, host uninstall, live
+  advanced-surface exercise, and `[model]` recall-in-chat are recorded `PENDING-OPERATOR`
+  for the real-host closeout.
+- **Full doc-surface consistency sweep.** README trimmed (release history → CHANGELOG),
+  all stale operator/developer version stamps cleared, orphans linked, a new
+  `docs/design/README.md`, reconciled Start-Here sequences, and a `docs/plans/v1.0-handoff.md`
+  with the 17-item acceptance matrix for the v1.0 freeze.
+
 ## v0.65.0 - Local Knowledge: Files, Notes, And Agent Memory
 
 Status: **released — tagged `v0.65.0` (2026-07-11 UTC), version 0.65.0, packaged GitHub

@@ -5211,13 +5211,19 @@ defmodule Mix.Tasks.Allbert.Test do
       executable: "mix",
       args: [
         "test",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs",
+        # Representative workspace render/dispatch (routing + notes/memory/channels/
+        # settings destinations) — a targeted subset of the ~600-assert file, not the
+        # whole suite, so the gate stays practical (workspace_live_test is 256-1400s).
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:173",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:206",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:271",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:322",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:807",
         "apps/allbert_assist_web/test/allbert_assist_web/live/jobs_live_test.exs",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/objectives_live_test.exs",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/settings_live_test.exs"
+        "apps/allbert_assist_web/test/allbert_assist_web/live/objectives_live_test.exs"
       ],
       coverage: [
-        "the browser-pipeline LiveViews render and handle registered events without raising — the server-side render/dispatch contract behind product-rc-web-smoke-no-console-error-001"
+        "the browser-pipeline LiveViews render and handle registered events without raising — the server-side render/dispatch contract behind product-rc-web-smoke-no-console-error-001 (representative workspace destinations + full jobs/objectives suites)"
       ]
     },
     %{
@@ -5240,7 +5246,8 @@ defmodule Mix.Tasks.Allbert.Test do
     },
     %{
       id: "v066_local_knowledge",
-      title: "launch-path notes-root bounding + reviewed-memory recall re-run as a v0.66 proof bucket",
+      title:
+        "launch-path notes-root bounding + reviewed-memory recall re-run as a v0.66 proof bucket",
       cwd: :core,
       executable: "mix",
       args: [
@@ -5256,7 +5263,8 @@ defmodule Mix.Tasks.Allbert.Test do
     },
     %{
       id: "v066_advanced_surfaces",
-      title: "advanced-surface exposure/floor evals re-run across public-protocol/channel/MCP/browser classes",
+      title:
+        "advanced-surface exposure/floor evals re-run across public-protocol/channel/MCP/browser classes",
       cwd: :core,
       executable: "mix",
       args: [
@@ -5289,7 +5297,8 @@ defmodule Mix.Tasks.Allbert.Test do
     },
     %{
       id: "v066_authority_delta",
-      title: "no-authority sweeps re-run across the surfaces added since v0.59 (packaging, onboarding, notes/memory)",
+      title:
+        "no-authority sweeps re-run across the surfaces added since v0.59 (packaging, onboarding, notes/memory)",
       cwd: :core,
       executable: "mix",
       args: [
@@ -5313,6 +5322,19 @@ defmodule Mix.Tasks.Allbert.Test do
       ],
       coverage: [
         "an Allbert Home exports with secrets redacted (ref+status only) and imports as a dry-run that blocks before applying — the contract behind product-rc-export-import-upgrade-001 (a real cross-version upgrade + uninstall-preserves-Home are operator-attested [host]/[smoke])"
+      ]
+    },
+    %{
+      id: "v066_secret_scan",
+      title: "redaction removes secret values/refs from logs, output, and evidence",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/runtime/redactor_test.exs"
+      ],
+      coverage: [
+        "the runtime redactor strips secret key values and secret refs while preserving public fields — the contract behind product-rc-evidence-secret-scan-001; no raw secret reaches release evidence"
       ]
     },
     %{

@@ -6686,6 +6686,36 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
         :import_blocks_before_apply
       ],
       test_module: "AllbertAssist.Security.V066SweepEvalTest"
+    },
+    %{
+      id: "product-rc-evidence-secret-scan-001",
+      milestone: :v066,
+      surface: :product_rc,
+      scenario:
+        "A raw secret value or secret reference survives redaction into logs, output, or release evidence at the RC instead of being redacted while public fields are preserved",
+      boundary: :secret_scan,
+      expected: :allowed,
+      assert: [
+        :secret_key_value_redacted,
+        :secret_ref_redacted,
+        :public_fields_preserved
+      ],
+      test_module: "AllbertAssist.Security.V066SweepEvalTest"
+    },
+    %{
+      id: "product-rc-v1-handoff-current-001",
+      milestone: :v066,
+      surface: :product_rc,
+      scenario:
+        "The v1.0 handoff drifts at the RC: the handoff note is missing, its acceptance matrix does not list the 17 inputs, or the roadmap no longer names the v0.66 RC and the v1.0 freeze",
+      boundary: :design_handoff,
+      expected: :allowed,
+      assert: [
+        :v1_handoff_note_present,
+        :acceptance_matrix_seventeen_inputs,
+        :roadmap_names_rc_and_v1_freeze
+      ],
+      test_module: "AllbertAssist.Security.V066SweepEvalTest"
     }
   ]
 
