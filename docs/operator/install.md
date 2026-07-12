@@ -146,7 +146,7 @@ the guided local-model setup) the Ollama installer fetch and model pull, each
 behind an explicit confirmation. The binary itself performs **no telemetry, no
 phone-home, and no auto-update check**.
 
-**Current trust model (v0.64.3 packaged release).** The curl installer is fail-closed on the signed
+**Current trust model (packaged releases).** The curl installer is fail-closed on the signed
 checksum bundle: it downloads `SHA256SUMS.cosign.bundle`, requires `cosign`, verifies
 the checksum file against the GitHub Actions OIDC identity, then verifies the artifact
 SHA256 before installing. If `cosign` is missing or verification fails, nothing is

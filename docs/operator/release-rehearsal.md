@@ -8,10 +8,11 @@ artifact smoke. This doc
 covers the steps that need a published release, a package manager, a TTY, Docker,
 or real host services.
 
-v0.62 introduced the packaged release path. v0.65.0 (Local Knowledge) is the current
-packaged release line; v0.64.3 established the trusted-install/first-run substrate it
-builds on. This runbook covers Homebrew tap fill, package-manager install, curl trust,
-packaged TUI, and Linux rehearsal evidence for the packaged path.
+v0.62 introduced the packaged release path. v0.66.0 (Product RC & No-Docs Validation) is
+the current packaged release line; v0.65.0 introduced the local-knowledge launch path and
+v0.64.3 established the trusted-install/first-run substrate it builds on. This runbook
+covers Homebrew tap fill, package-manager install, curl trust, packaged TUI, and Linux
+rehearsal evidence for the packaged path.
 v0.64.5 is a source/docs point tag only; it uses `[skip-artifacts]` and does not create
 new packaged release assets.
 

@@ -35,6 +35,7 @@ plan and request-flow documents.
 - [v0.66 request flow](v0.66-request-flow.md)
 - [v1.0 plan](v1.0-plan.md)
 - [v1.0 request flow](v1.0-request-flow.md)
+- [v1.0 handoff](v1.0-handoff.md)
 
 ## Conventions
 

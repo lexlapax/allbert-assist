@@ -155,6 +155,8 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert error.message =~ "mix allbert.test release.v062"
     assert error.message =~ "mix allbert.test release.v063"
     assert error.message =~ "mix allbert.test release.v064"
+    assert error.message =~ "mix allbert.test release.v065"
+    assert error.message =~ "mix allbert.test release.v066"
     assert error.message =~ "mix allbert.test external-smoke -- telegram"
     assert error.message =~ "mix allbert.test external-smoke -- email"
     assert error.message =~ "mix allbert.test external-smoke -- inbound_telegram"
@@ -219,6 +221,18 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
 
     assert release_v064_steps =~
              "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:829"
+  end
+
+  test "docs gate scope includes active plans and v1 handoff" do
+    source =
+      Path.expand("../../../lib/mix/tasks/allbert.test.ex", __DIR__)
+      |> File.read!()
+
+    assert source =~ ~s(@docs_active_plan_files)
+    assert source =~ ~s("docs/plans/v0.66-plan.md")
+    assert source =~ ~s("docs/plans/v1.0-handoff.md")
+    assert source =~ ~s(defp docs_check_plan_index)
+    assert source =~ ~s(operator/developer/design/plans indexes complete)
   end
 
   test "release secret scan includes provider-shaped key patterns" do

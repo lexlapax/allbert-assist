@@ -170,12 +170,26 @@ defmodule Mix.Tasks.Allbert.Test do
 
   # v0.66 M10 (plan Locked Decision 4): the docs gate fails on doc-currency drift so it
   # cannot silently recur next release. Active docs must not carry hardcoded
-  # "current as of v<x>" stamps (link CHANGELOG/roadmap instead), every operator/
-  # developer/design doc must be linked from its index, and each index must exist.
+  # older-version currency stamps (link CHANGELOG/roadmap instead), every
+  # operator/developer/design doc must be linked from its index, each index must exist,
+  # and active planning/handoff docs must stay linked from docs/plans/README.md.
   # Scope is active docs only: README.md, docs/README.md, docs/operator/, docs/developer/,
-  # and docs/design/ — archives, samples, generated evidence, and historical plans/ADRs are
-  # excluded (they legitimately name the version current at the time they were written).
+  # docs/design/, and docs/plans/ current-next handoff docs — archives, samples, generated
+  # evidence, and historical plans/ADRs are excluded (they legitimately name the version
+  # current at the time they were written).
   @docs_active_index_dirs ["docs/operator", "docs/developer", "docs/design"]
+  @docs_active_plan_index "docs/plans/README.md"
+  @docs_active_plan_files [
+    "docs/plans/README.md",
+    "docs/plans/roadmap.md",
+    "docs/plans/allbert-jido-vision.md",
+    "docs/plans/future-features.md",
+    "docs/plans/v0.66-plan.md",
+    "docs/plans/v0.66-request-flow.md",
+    "docs/plans/v1.0-plan.md",
+    "docs/plans/v1.0-request-flow.md",
+    "docs/plans/v1.0-handoff.md"
+  ]
 
   defp docs_staleness_check! do
     root = root()
@@ -193,14 +207,16 @@ defmodule Mix.Tasks.Allbert.Test do
     end
 
     Mix.shell().info(
-      "docs staleness/index check: clean (no 'current as of v' stamps; operator/developer/design indexes complete)"
+      "docs staleness/index check: clean (no older-version currency stamps; operator/developer/design/plans indexes complete)"
     )
   end
 
   defp docs_check_no_currency_stamps(errors, root) do
     active_files =
-      ["README.md", "docs/README.md"] ++
-        Enum.flat_map(@docs_active_index_dirs, &docs_active_md(root, &1))
+      (["README.md", "docs/README.md"] ++
+         @docs_active_plan_files ++
+         Enum.flat_map(@docs_active_index_dirs, &docs_active_md(root, &1)))
+      |> Enum.uniq()
 
     stamped =
       active_files
@@ -217,6 +233,12 @@ defmodule Mix.Tasks.Allbert.Test do
   end
 
   defp docs_check_indexes(errors, root) do
+    errors
+    |> docs_check_directory_indexes(root)
+    |> docs_check_plan_index(root)
+  end
+
+  defp docs_check_directory_indexes(errors, root) do
     Enum.reduce(@docs_active_index_dirs, errors, fn dir, acc ->
       index_path = Path.join([root, dir, "README.md"])
 
@@ -236,6 +258,25 @@ defmodule Mix.Tasks.Allbert.Test do
         acc ++ ["#{dir}/README.md: active-doc index missing"]
       end
     end)
+  end
+
+  defp docs_check_plan_index(errors, root) do
+    index_path = Path.join(root, @docs_active_plan_index)
+
+    if File.exists?(index_path) do
+      index = File.read!(index_path)
+
+      missing =
+        @docs_active_plan_files
+        |> Enum.reject(&(&1 == @docs_active_plan_index))
+        |> Enum.map(&Path.basename/1)
+        |> Enum.reject(&String.contains?(index, &1))
+        |> Enum.map(&"#{@docs_active_plan_index}: missing active plan link #{&1}")
+
+      errors ++ missing
+    else
+      errors ++ ["#{@docs_active_plan_index}: active-plan index missing"]
+    end
   end
 
   defp docs_active_md(root, dir) do
