@@ -4270,12 +4270,14 @@ Implemented scope:
 Plan: `docs/plans/v0.66-plan.md`
 Request flow: `docs/plans/v0.66-request-flow.md`
 
-Status: planned (pre-1.0 integrated product release candidate); implementation-readiness
-deepened 2026-07-11. Adds no new capability. Validates the full product path after
-v0.61-v0.65 land (v0.64.3 + v0.65.0 released), so v1.0 is
-not the first time install, serve, onboarding, local files/notes/memory, first
-chat, web smoke, CLI/TUI smoke, implemented advanced surfaces, export/import or
-upgrade, uninstall, and evidence leak scans are exercised together.
+Status: released — tagged `v0.66.0` (2026-07-11), version 0.66.0, GitHub Latest.
+Adds no new capability. The integrated product RC proved the checkout-bound gate
+core plus recorded operator evidence for macOS/Linux packaged smokes, web usability,
+packaged CLI, and keyless-local first chat, so v1.0 is not the first time the product
+path is exercised together. Remaining real-host/provider claims — WSL2, full no-docs
+walkthrough from empty model download, model-backed recall in chat, live advanced
+surfaces, real upgrade, and uninstall — are explicit v1.0 DIT blockers, not hidden
+v0.66 pass claims.
 
 **Two-layer verification:** a deterministic `release.v066` gate proves contract, routing,
 and boundary invariants (no packaged binary, browser, network, or cross-host); the
@@ -4283,11 +4285,13 @@ install/browser/model/cross-platform outcomes are **operator-attested** evidence
 (scripted host smokes + real-browser + real-model + multi-host, reconciled at closeout).
 Only the security delta-sweep and gate mechanics are fully gate-provable.
 
-Expected direction:
+Released validation shape:
 
 - Clean install with no Elixir/OTP, persistent service start, QuickStart onboarding,
-  local files/notes/memory setup, first useful chat, and operator inspection (attested).
-- No-docs validation of the primary launch path by a fresh non-developer operator.
+  local files/notes/memory setup, first useful chat, and operator inspection
+  split between recorded PASS evidence and v1.0 DIT rows.
+- No-docs validation of the primary launch path by a fresh non-developer operator
+  remains a v1.0 DIT blocker.
 - Browser web smoke + a non-developer **item-11 usability audit** with a defined
   blocking-vs-caveat rubric (attested, evidence report).
 - Grouped CLI/TUI smoke without raw `mix`; conversational-routing no-misroute
@@ -4296,7 +4300,8 @@ Expected direction:
   protocols, export/import) — contract-bound in the gate, live surfaces attested.
 - Cross-surface security **delta-sweep** over everything added since the v0.59 M4 sweep
   (`v066_sweep_eval_test.exs` + `:v066` AssertBinding rows) — fully gate-provable.
-- Export/import or upgrade validation and uninstall-preserves-Home (attested).
+- Export/import dry-run is gate-proven; real upgrade and uninstall-preserves-Home
+  remain v1.0 DIT blockers.
 - **Full doc-surface consistency sweep + README trim**, gate-enforced: developer +
   operator docs, all indexes, getting-started, and a docs staleness/index-completeness
   check that fails `release.v066` on stale version pins, missing index entries, or orphans.
@@ -4315,7 +4320,8 @@ implemented. Re-scoped in the 2026-06-25 1.0 planning pass, amended by the
 post-v0.58 product-readiness review, and re-scoped again after v0.63 for a
 non-developer local-first operator. The freeze now follows the v0.61-v0.63
 product capability releases, v0.64 trusted install/first-run, v0.65 local
-knowledge/memory, and the v0.66 no-docs product RC.
+knowledge/memory, and the v0.66 integrated product RC plus v1.0 no-docs DIT
+closeout.
 
 Expected direction:
 
@@ -4358,8 +4364,8 @@ releases before the v1.0 freeze, the post-v0.58 review added an integrated RC,
 and the post-v0.63 review tightened the target from technical prosumer to
 non-developer local-first operator. The arc is now: v0.61 presentation-layer
 overhaul, v0.62 packaging & entry points, v0.63 guided onboarding & profiles,
-v0.64 trusted install/non-developer first-run, v0.65 local knowledge/memory, and
-v0.66 no-docs product RC.
+v0.64 trusted install/non-developer first-run, v0.65 local knowledge/memory,
+v0.66 integrated product RC, and v1.0 no-docs DIT closeout.
 
 Three 1.0 product decisions (post-v0.63 review, operator-confirmed 2026-07-09):
 
@@ -4380,9 +4386,11 @@ Three 1.0 product decisions (post-v0.63 review, operator-confirmed 2026-07-09):
 Sequencing rationale: v0.64 now owns trusted install and repairable first-run
 because install trust is part of first-run trust for a non-developer. v0.65 owns
 local files/notes/memory because it is the launch-critical first assistant
-workflow. v0.66 owns full product RC and no-docs validation because v1.0 must
-not be the first time the primary launch path and implemented advanced surfaces
-are validated together. FREEZE-TRAP still applies: v1.0 freezes presentation
+workflow. v0.66 owns the integrated product RC and inherited DIT evidence because
+v1.0 must not be the first time the primary launch path and implemented advanced
+surfaces are validated together; v1.0 closes the carried-forward no-docs,
+platform, model, upgrade, uninstall, and live-surface DIT blockers before the
+freeze. FREEZE-TRAP still applies: v1.0 freezes presentation
 contracts (Surface DSL, workspace substrate), so structural presentation work
 must land before the freeze. FIRST-MODEL-PATH still applies: the chosen
 assisted-local path plus BYOK fallback must be settled before onboarding and RC
@@ -4397,11 +4405,11 @@ friction tax.
 ### 1.0 Acceptance Matrix (freeze-blocking)
 
 This is the **canonical** freeze-blocking criteria matrix; `docs/plans/v1.0-handoff.md`
-holds the complementary proof-status view (which criterion is `[gate]` vs `[attested]`
-from the v0.66 evidence). Tightened in the post-v0.37 planning pass, extended in the
-2026-06-25 1.0 planning pass, and re-scoped after v0.63 for a non-developer local-first
-operator. Each item is a disposable-home checkpoint the release cannot ship
-without:
+holds the complementary proof-status view (which criterion is `[gate]` vs
+`[attested]` from inherited v0.66 evidence and new v1.0 DIT evidence). Tightened
+in the post-v0.37 planning pass, extended in the 2026-06-25 1.0 planning pass,
+and re-scoped after v0.63 for a true non-developer local-first operator. Each item
+is a disposable-home checkpoint the release cannot ship without:
 
 1. First-run setup succeeds on macOS and Linux (Tier 1) and on Windows via WSL2;
    native Windows is Tier 2 best-effort and not freeze-blocking (v0.39 / v0.62
@@ -4418,10 +4426,12 @@ without:
    scope (v0.43).
 6. Operator can review and approve a multi-step plan before execution
    (v0.44).
-7. Operator can export Allbert Home and, by the v0.66 product RC, import or
-   upgrade it on a second machine with behavior preserved. v0.59 supplies the
+7. Operator can export Allbert Home and upgrade/import a real `v0.66.0` packaged
+   Home to v1.0 on a second machine with behavior preserved. v0.59 supplies the
    versioned envelope, dry-run diagnostic, secret-reference policy, and ADR 0046
-   settings version contract; v0.66 proves the packaged-layout apply/upgrade path.
+   settings version contract; v0.66 proves the packaged-layout apply/upgrade
+   path. Older pre-v0.66 Homes are compatibility notes unless a schema change or
+   release note explicitly expands support.
 8. All warning, security, precommit, and cross-surface eval gates pass — the
    v0.59 baseline security sweep plus the v0.66 M8 delta-sweep over the
    v0.61-v0.65 product surfaces (v0.59 + v0.66).
@@ -4429,13 +4439,15 @@ without:
    (Homebrew/curl) with no Elixir/OTP toolchain on their machine, with
    installer-side verification and rollback/restore posture clear before first
    run (v0.62 + v0.64).
-10. [product] A new user completes the guided onboarding wizard and reaches a first
-    useful chat without reading developer docs or hand-editing config, on a **two-tier**
-    model path (v0.63 + v0.64): the **consumer default** reaches first chat through
-    guided local-runtime setup if needed and one-click in-app curated-local-model
-    download (in-web progress), with **no manual model CLI and no API key**; the
-    **advanced** path offers BYOK hosted setup or a custom endpoint. Allbert runs as a
-    persistent background service so the operator does not re-run `serve`.
+10. [product] A true non-developer completes the guided onboarding wizard and
+    reaches a first useful chat without reading developer docs or hand-editing
+    config, on a **two-tier** model path (v0.63 + v0.64): the **consumer default**
+    reaches first chat through guided local-runtime setup if needed and one-click
+    in-app curated-local-model download from an empty model cache (in-web progress),
+    with **no manual model CLI and no API key**. A preloaded/local-ready model can
+    prove first chat but does not satisfy this freeze blocker. The **advanced** path
+    offers BYOK hosted setup or a custom endpoint. Allbert runs as a persistent
+    background service so the operator does not re-run `serve`.
 11. [product] The web workspace meets the professional-UX bar: the **overhauled
     information architecture, navigation, and screen composition** from the v0.60
     design implemented end-to-end **in the v0.60b-chosen visual language** (ADR
@@ -4461,9 +4473,11 @@ without:
     default first-run path, but shipped capability cannot regress before 1.0.
 15. [product RC] The integrated clean install -> serve -> onboard -> local
     files/notes/memory -> first chat -> inspect -> advanced-surface regression
-    smoke -> export/import or upgrade -> uninstall path passes with no-docs
-    validation, browser, CLI/TUI, docs, warning, drift, and secret-evidence gates
-    green (v0.66).
+    smoke -> export/import or upgrade -> uninstall path is closed by inherited
+    v0.66 RC evidence plus v1.0 DIT closeout, including true non-developer no-docs
+    validation, one-click empty-model download, `v0.66.0` -> v1.0 Home upgrade,
+    uninstall preservation, browser, CLI/TUI, docs, warning, drift, and
+    secret-evidence gates green.
 16. [product] A set of natural non-developer prompts (chitchat, general questions, "help
     me with X") route sensibly to an answer or the right action, with **no mis-route to a
     disabled or demo capability** (the v0.63 F5 class: e.g. "say hello" must not route to
