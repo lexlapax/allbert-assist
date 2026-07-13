@@ -188,3 +188,5 @@ the shared wizard state machine described above.
   [security-hardening.md](security-hardening.md) (§Secret Vault).
 - Templated document creation (`workspace:create`) — [templated-creation.md](templated-creation.md).
 - What each persona seeds and its exact reviewed keys — `docs/design/persona-model.md`.
+- What Allbert guarantees stable across upgrades (the 1.0 tiered contract freeze) —
+  [`docs/developer/public-contract-freeze.md`](../developer/public-contract-freeze.md).

@@ -61,9 +61,36 @@ defaults to Tier 2).
 - MCP/OpenAI-compatible/ACP wire and tool shapes (Allbert tracks upstream specs).
 - Internal AG-UI bridge semantic mappings (bridge stays internal-only at v1.0).
 
+## Compatibility Guidance For Authors
+
+- **Depending on Tier 1** — plugin/app/channel/external-client authors may depend on Tier 1
+  names, shapes, and behaviours across all 1.x releases without churn. A Tier 1 change
+  requires a new major version.
+- **Depending on Tier 2** — depend on the *names* (they will not be renamed or removed in
+  1.x), but expect **additive** growth: new components, patterns, parameters, Settings keys,
+  `/health` fields, CLI commands, and vault backends may appear. Write forward-compatible
+  consumers (ignore unknown additive fields; do not assume the set is closed).
+- **Not Frozen** — do not build load-bearing integrations on Not-Frozen shapes (reserved
+  advisory-provider vocabulary, workspace zone names, workflow YAML, protocol wire shapes,
+  the AG-UI bridge); they may change without a contract break.
+
+## Upgrade And Rollback
+
+- Allbert Home is forward-compatible within 1.x under the Settings `schema_version` +
+  additive-only policy (ADR 0046). A real `v0.66.0` packaged Home upgrades/imports into
+  v1.0 with behaviour preserved (DIT-5); export/import is dry-run + rollback-safe
+  (`AllbertAssist.Portability.Import.dry_run/2`).
+- Rollback: because the freeze is name-and-shape stable, a 1.x → 1.x downgrade keeps the
+  Home readable for keys/columns present in the older release; keys added additively by a
+  newer release are ignored by an older one. Pre-v0.66 Homes are compatibility notes unless
+  a release note explicitly expands support.
+- Uninstall preserves Allbert Home unless data removal is explicitly requested (DIT-5).
+- Operator release-validation runbook: [release-rehearsal](../operator/release-rehearsal.md).
+
 ## Cross-links
 
 - Plan: [`docs/plans/v1.0-plan.md`](../plans/v1.0-plan.md) (Tiered Public Contract Freeze,
   Freeze Enforcement).
 - Reserved-vocabulary-not-frozen decision: ADR 0021 A20.
 - Enforcement: `mix allbert.test release.v1` (`:v1` sweep).
+- DIT freeze prerequisites: [`docs/validation/v1.0/`](../validation/v1.0/README.md).

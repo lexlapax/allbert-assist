@@ -43,6 +43,7 @@ release history mirror; use `CHANGELOG.md` for shipped details and
 | Self-improvement | ADR 0045, self-improvement docs, v0.47/v0.47b docs | Discovery and drafts are inert until existing confirmed paths promote them. |
 | StockSage | ADR 0018, ADR 0020, ADR 0022, StockSage plans/changelog | Plugin-owned domain; Python bridge is comparison/reference after native work. |
 | Test strategy and gates | ADR 0049, ADR 0050, `docs/developer/test-strategy.md`, `DEVELOPMENT.md` | Lane classification and release-gate evidence live there. |
+| Public contract freeze (1.0) | `docs/developer/public-contract-freeze.md`, `docs/plans/v1.0-plan.md`, ADR 0021 A20 | Tiered frozen contracts; `mix allbert.test release.v1` enforces exact-name freeze. |
 
 ## Current Release Arc
 
