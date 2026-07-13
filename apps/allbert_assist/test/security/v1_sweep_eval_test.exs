@@ -78,9 +78,13 @@ defmodule AllbertAssist.Security.V1SweepEvalTest do
 
     assert outside == [], "actions outside the frozen permission classes: #{inspect(outside)}"
 
-    # Tier 1 anchor symbols still exist by exact name.
+    # No frozen Tier 1 surface removed: the core Tier 1 anchors still exist by exact name
+    # (turn signals, Runtime/Runner entry, Plugin/App behaviours, Resource Access).
     assert function_exported?(Runtime, :submit_user_input, 1)
     assert function_exported?(Runner, :run, 3)
+    assert turn_signals_present?()
+    assert loaded?(AllbertAssist.Plugin) and loaded?(AllbertAssist.App)
+    assert loaded?(AllbertAssist.Resources.ResourceURI)
 
     IO.puts(
       "v1-contract-freeze-no-new-features-001 status=pass classes_frozen=#{MapSet.size(classes)}"
@@ -136,9 +140,8 @@ defmodule AllbertAssist.Security.V1SweepEvalTest do
   # ── Row 4: Settings + Home layout freeze ─────────────────────────────────────
 
   test "v1-settings-home-layout-freeze-001: Home roots, frozen Settings keys, and schema_version hold by exact name" do
-    for root <- [:settings_root, :memory_root, :artifacts_root, :db_path] do
-      assert function_exported?(Paths, root, 0), "Paths.#{root}/0 missing"
-    end
+    # The full frozen Home-root set (not a sample) — the freeze locks all root names.
+    assert home_roots_present?(), "a frozen Allbert Home root was renamed/removed"
 
     # Canonical channel identity columns frozen by exact name.
     thread_fields = Thread.__schema__(:fields)
@@ -183,6 +186,10 @@ defmodule AllbertAssist.Security.V1SweepEvalTest do
       assert schema =~ key
     end
 
+    # Default-off exposure is frozen (the public surfaces ship disabled by default).
+    assert schema =~ ~s("enabled" => false),
+           "public-protocol default-off exposure ('enabled' => false) is missing"
+
     # The public-surface routing/denial proof still exists (deny-before-allow, self-approval).
     assert File.exists?(
              Path.join(
@@ -215,10 +222,15 @@ defmodule AllbertAssist.Security.V1SweepEvalTest do
     # Consumer-count entries are present (numeric consumers appear in the tables).
     assert Regex.match?(~r/\|\s*\d+\s*\|/, notes), "no consumer-count entries in the freeze notes"
 
-    # Every contract the sweep asserts by name is classified in the freeze notes.
-    for name <- ["submit_user_input", "Runner.run/3", "Paths", "SurfaceProvider", "mcp_server"] do
-      assert notes =~ name, "freeze notes do not classify #{name}"
-    end
+    # Real reconciliation: EVERY contract the sweep enforces is classified in the freeze
+    # notes (not just a hand-picked few) — so the sweep's contract set matches the notes.
+    unclassified =
+      frozen_contracts()
+      |> Enum.reject(fn {_label, anchor, _check} -> notes =~ anchor end)
+      |> Enum.map(fn {label, _, _} -> label end)
+
+    assert unclassified == [],
+           "sweep enforces contracts the freeze notes do not classify: #{inspect(unclassified)}"
 
     IO.puts("v1-tier1-tier2-classification-001 status=pass classification=matched")
 
@@ -254,6 +266,132 @@ defmodule AllbertAssist.Security.V1SweepEvalTest do
     ])
   end
 
+  # ── Comprehensive coverage: every frozen contract exists by exact name ───────
+  #
+  # M2.1 remediation (post-implementation audit Finding 1): the 7 rows above proved a
+  # representative subset. `frozen_contracts/0` is the CANONICAL list of every frozen
+  # Tier 1/Tier 2 contract with its exact-name check, so a rename/removal of ANY frozen
+  # contract fails release.v1 — and the reconciliation test below fails if the freeze
+  # notes and this list ever diverge (so the coverage gap cannot recur).
+
+  defp frozen_contracts do
+    [
+      # Tier 1
+      {"Runtime.submit_user_input/1", "submit_user_input",
+       fn -> exported?(Runtime, :submit_user_input, 1) end},
+      {"turn signals", "allbert.input.received", &turn_signals_present?/0},
+      {"Actions.Registry", "Actions.Registry", fn -> exported?(ActionsRegistry, :names, 0) end},
+      {"Actions.Runner.run/3", "Runner.run/3", fn -> exported?(Runner, :run, 3) end},
+      {":invalid_params shape", "invalid_params",
+       fn ->
+         src?("apps/allbert_assist/lib/allbert_assist/actions/runner.ex", ":invalid_params")
+       end},
+      {"Policy.permission_classes/0", "Permission classes",
+       fn -> exported?(Policy, :permission_classes, 0) end},
+      {"Plugin behaviour", "AllbertAssist.Plugin", fn -> loaded?(AllbertAssist.Plugin) end},
+      {"App behaviour", "AllbertAssist.App`", fn -> loaded?(AllbertAssist.App) end},
+      {"schema_version contract", "schema_version",
+       fn ->
+         src?(
+           "apps/allbert_assist/lib/allbert_assist/settings/version_contract.ex",
+           "schema_version"
+         )
+       end},
+      {"Home roots (Paths)", "Paths", &home_roots_present?/0},
+      {"conversation_threads.id", "conversation_threads.id",
+       fn -> loaded?(Thread) and :id in Thread.__schema__(:fields) end},
+      {"channel identity columns", "provider_thread_key", &channel_columns_present?/0},
+      {"ResourceURI", "ResourceURI", fn -> loaded?(AllbertAssist.Resources.ResourceURI) end},
+      {"operation classes", "operation classes",
+       fn -> exported?(AllbertAssist.Resources.OperationClass, :operation_classes, 0) end},
+      {"grant shape", "grant shape", fn -> loaded?(AllbertAssist.Resources.Grant) end},
+      {"model/provider doctor shape (ADR 0047)", "doctor return shape",
+       fn -> loaded?(AllbertAssist.Actions.Settings.Doctor) end},
+      {"installer cosign fail-closed", "cosign",
+       fn -> src?("scripts/install/install.sh", "cosign") end},
+      # Tier 2
+      {"App.SurfaceProvider", "SurfaceProvider",
+       fn -> loaded?(AllbertAssist.App.SurfaceProvider) end},
+      {"Fragment envelope", "Fragment envelope",
+       fn -> loaded?(AllbertAssist.Workspace.Fragment.Envelope) end},
+      {"Workspace canvas", "canvas", fn -> loaded?(AllbertAssist.Workspace.Canvas) end},
+      {"Workspace ephemeral", "ephemeral", fn -> loaded?(AllbertAssist.Workspace.Ephemeral) end},
+      {"SignalBridge", "SignalBridge",
+       fn ->
+         src?("apps/allbert_assist_web/lib/allbert_assist_web/signal_bridge.ex", "defmodule")
+       end},
+      {"Templates", "AllbertAssist.Templates", fn -> loaded?(AllbertAssist.Templates) end},
+      {"Templates.Pattern", "Templates.Pattern",
+       fn -> loaded?(AllbertAssist.Templates.Pattern) end},
+      {"template actions", "render_template",
+       fn ->
+         Enum.all?(
+           ~w(render_template validate_template scaffold_template create_from_template),
+           &registered?/1
+         )
+       end},
+      {"workspace:create destination", "workspace:create",
+       fn ->
+         src?("apps/allbert_assist/lib/allbert_assist/workspace/catalog.ex", "workspace:create")
+       end},
+      {"template Settings keys", "templates.create.enabled",
+       fn ->
+         schema_has?("templates.create.enabled") and schema_has?("templates.allowed_patterns")
+       end},
+      {"public-protocol Settings", "mcp_server",
+       fn -> Enum.all?(~w(mcp_server openai_api acp_server), &schema_has?/1) end},
+      {"CLI operator_table", "operator_table",
+       fn -> exported?(AllbertAssist.CLI.Commands, :operator_table, 0) end},
+      {"secret Vault + token_ref", "token_ref", fn -> loaded?(AllbertAssist.Settings.Vault) end},
+      {"/health shape", "/health",
+       fn ->
+         src?("apps/allbert_assist_web/lib/allbert_assist_web/router.ex", ~s(get "/health"))
+       end},
+      {"attach-over-UDS handshake", "Attach", fn -> loaded?(AllbertAssist.Runtime.Attach) end},
+      {"notes_files actions", "search_notes",
+       fn -> Enum.all?(~w(search_notes read_note write_note), &registered?/1) end},
+      {"set_notes_root + key", "apps.notes_files.notes_root",
+       fn ->
+         exported?(AllbertAssist.Actions.Settings.SetNotesRoot, :capability, 0) and
+           src?(
+             "apps/allbert_assist/lib/allbert_assist/actions/settings/set_notes_root.ex",
+             "apps.notes_files.notes_root"
+           )
+       end},
+      {"memory review-status vocabulary", ":prune_nominated",
+       fn ->
+         src = read!("apps/allbert_assist/lib/allbert_assist/memory.ex")
+         Enum.all?([":unreviewed", ":kept", ":flagged", ":prune_nominated"], &(src =~ &1))
+       end}
+    ]
+  end
+
+  test "every frozen contract exists by exact name (comprehensive freeze enforcement)" do
+    missing =
+      frozen_contracts()
+      |> Enum.reject(fn {_label, _anchor, check} -> check.() end)
+      |> Enum.map(fn {label, _anchor, _check} -> label end)
+
+    assert missing == [],
+           "frozen contracts renamed/removed (freeze broken): #{inspect(missing)}"
+
+    IO.puts("v1-frozen-contracts-present status=pass frozen=#{length(frozen_contracts())}")
+  end
+
+  test "the freeze notes classify every frozen contract the sweep enforces (reconciliation)" do
+    notes = read!(@freeze_notes)
+
+    undocumented =
+      frozen_contracts()
+      |> Enum.reject(fn {_label, anchor, _check} -> notes =~ anchor end)
+      |> Enum.map(fn {label, anchor, _} -> "#{label} (anchor #{inspect(anchor)})" end)
+
+    assert undocumented == [],
+           "frozen contracts enforced but not classified in the freeze notes: #{inspect(undocumented)}"
+
+    IO.puts("v1-freeze-notes-reconciliation status=pass frozen=#{length(frozen_contracts())}")
+  end
+
   test "every :v1 row binds its assert atoms in its owning test" do
     sources = Map.new(@owner_files, fn {mod, path} -> {mod, read!(path)} end)
 
@@ -265,6 +403,49 @@ defmodule AllbertAssist.Security.V1SweepEvalTest do
     end
 
     IO.puts("v1-assert-atom-binding status=pass rows=7 unbound=0")
+  end
+
+  # ── exact-name check helpers ─────────────────────────────────────────────────
+
+  defp loaded?(mod), do: Code.ensure_loaded?(mod)
+
+  defp exported?(mod, fun, arity),
+    do: Code.ensure_loaded?(mod) and function_exported?(mod, fun, arity)
+
+  defp registered?(name), do: name in ActionsRegistry.names()
+
+  defp schema_has?(key),
+    do: src?("apps/allbert_assist/lib/allbert_assist/settings/schema.ex", key)
+
+  defp src?(relative, str), do: read!(relative) =~ str
+
+  @turn_signals ~w(
+    allbert.input.received
+    allbert.agent.responded
+    allbert.runtime.turn.started
+    allbert.runtime.turn.completed
+  )
+  defp turn_signals_present? do
+    src =
+      read!("apps/allbert_assist/lib/allbert_assist/signals.ex") <>
+        read!("apps/allbert_assist/lib/allbert_assist/runtime.ex")
+
+    Enum.all?(@turn_signals, &(src =~ &1))
+  end
+
+  # The frozen Allbert Home roots (the full set the freeze locks, not a sample).
+  @home_roots ~w(settings_root memory_root memory_deleted_root artifacts_root audio_root
+    images_root confirmations_root execution_root package_installs_root sandbox_root
+    dynamic_plugins_root drafts_root external_root mcp_root db_path)a
+  defp home_roots_present? do
+    Enum.all?(@home_roots, &exported?(Paths, &1, 0))
+  end
+
+  defp channel_columns_present? do
+    fields = loaded?(ThreadChannelRef) and ThreadChannelRef.__schema__(:fields)
+
+    is_list(fields) and
+      Enum.all?([:owner_scope, :receiver_account_ref, :provider_thread_key], &(&1 in fields))
   end
 
   defp read!(relative) do
