@@ -12,6 +12,7 @@ gates. Start with the compact maps, then open subsystem guides as needed.
 
 ## Contracts
 
+- [Public contract freeze (1.0)](public-contract-freeze.md) - the tiered v1.0 frozen-contract inventory.
 - [CLI mapping](cli-mapping.md) - mix task -> `allbert` command disposition mapping.
 - [Surface contract](surface-contract.md) - cross-surface renderer, event, identity, and action contract.
 - [Web design system](web-design-system.md) - tokens, variants, shell, catalog, and shared patterns.
