@@ -54,6 +54,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :v064
           | :v065
           | :v066
+          | :v1
 
   @type required_surface ::
           :resource_execution
@@ -123,6 +124,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :affordance
           | :accessibility
           | :product_rc
+          | :contract_freeze
 
   @type row :: %{
           id: String.t(),
@@ -6716,6 +6718,117 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
         :roadmap_names_rc_and_v1_freeze
       ],
       test_module: "AllbertAssist.Security.V066SweepEvalTest"
+    },
+    # ── v1.0 Stability Release & Public Contract Freeze ────────────────────────
+    # Freeze-enforcement rows: each proves a frozen Tier 1/Tier 2 contract still
+    # exists by EXACT name (function_exported?/signal literals/__schema__ fields/
+    # Settings keys/Paths roots/Policy.permission_classes). A rename or removal of a
+    # frozen symbol fails its row; Tier 2 additive changes stay green. See
+    # docs/plans/v1.0-plan.md Freeze Enforcement + docs/developer/public-contract-freeze.md.
+    %{
+      id: "v1-contract-freeze-no-new-features-001",
+      milestone: :v1,
+      surface: :contract_freeze,
+      scenario:
+        "v1.0 introduces a new permission class beyond the frozen Policy.permission_classes() set, or a frozen Tier 1 anchor symbol disappears",
+      boundary: :no_new_authority,
+      expected: :allowed,
+      assert: [
+        :permission_class_set_frozen,
+        :no_action_outside_frozen_classes,
+        :tier1_anchor_symbols_present
+      ],
+      test_module: "AllbertAssist.Security.V1SweepEvalTest"
+    },
+    %{
+      id: "v1-public-contract-docs-001",
+      milestone: :v1,
+      surface: :contract_freeze,
+      scenario:
+        "The public contract freeze notes are missing or stop classifying the frozen contracts by tier",
+      boundary: :freeze_docs,
+      expected: :allowed,
+      assert: [
+        :freeze_notes_present,
+        :freeze_notes_tiered,
+        :freeze_notes_names_contracts
+      ],
+      test_module: "AllbertAssist.Security.V1SweepEvalTest"
+    },
+    %{
+      id: "v1-action-boundary-regression-001",
+      milestone: :v1,
+      surface: :contract_freeze,
+      scenario:
+        "The action boundary regresses: Runner.run/3 or the Registry is renamed/removed, or the ADR 0065 :invalid_params response shape is dropped",
+      boundary: :action_boundary,
+      expected: :allowed,
+      assert: [
+        :runner_run3_exported,
+        :registry_present,
+        :invalid_params_shape_present
+      ],
+      test_module: "AllbertAssist.Security.V1SweepEvalTest"
+    },
+    %{
+      id: "v1-settings-home-layout-freeze-001",
+      milestone: :v1,
+      surface: :contract_freeze,
+      scenario:
+        "A frozen Allbert Home root, a frozen Settings key, or the per-fragment schema_version contract is renamed/removed",
+      boundary: :settings_home_freeze,
+      expected: :allowed,
+      assert: [
+        :home_roots_exported,
+        :frozen_settings_keys_present,
+        :schema_version_contract_present
+      ],
+      test_module: "AllbertAssist.Security.V1SweepEvalTest"
+    },
+    %{
+      id: "v1-public-surface-policy-freeze-001",
+      milestone: :v1,
+      surface: :contract_freeze,
+      scenario:
+        "The v0.51 public-protocol surface policy weakens: mcp_server/openai_api/acp_server settings shape is dropped, default-off exposure is removed, or effectful work stops routing through the Runner",
+      boundary: :public_surface_freeze,
+      expected: :allowed,
+      assert: [
+        :public_protocol_settings_present,
+        :public_surface_eval_present,
+        :effectful_via_runner
+      ],
+      test_module: "AllbertAssist.Security.V1SweepEvalTest"
+    },
+    %{
+      id: "v1-tier1-tier2-classification-001",
+      milestone: :v1,
+      surface: :contract_freeze,
+      scenario:
+        "The freeze notes stop carrying per-contract tier + consumer-count entries, or the sweep asserts a contract the freeze notes do not classify",
+      boundary: :freeze_classification,
+      expected: :allowed,
+      assert: [
+        :freeze_notes_tier_tables,
+        :freeze_notes_consumer_counts,
+        :sweep_contracts_in_freeze_notes
+      ],
+      test_module: "AllbertAssist.Security.V1SweepEvalTest"
+    },
+    %{
+      id: "v1-adr0021-vocabulary-not-frozen-001",
+      milestone: :v1,
+      surface: :contract_freeze,
+      scenario:
+        "ADR 0021 A20 stops recording that the reserved advisory-provider vocabulary is NOT part of the 1.0 freeze, or the freeze notes stop cross-linking it",
+      boundary: :reserved_vocab_not_frozen,
+      expected: :allowed,
+      assert: [
+        :adr0021_a20_present,
+        :a20_names_reserved_vocabulary,
+        :a20_cross_linked
+      ],
+      test_module: "AllbertAssist.Security.V1SweepEvalTest"
     }
   ]
 

@@ -44,6 +44,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v064
       mix allbert.test release.v065
       mix allbert.test release.v066
+      mix allbert.test release.v1
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
@@ -159,6 +160,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v064"]), do: release_v064()
   def run(["release.v065"]), do: release_v065()
   def run(["release.v066"]), do: release_v066()
+  def run(["release.v1"]), do: release_v1()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -5487,6 +5489,162 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   end
 
+  # v1.0 Stability Release & Public Contract Freeze gate. Deterministic
+  # freeze-enforcement: the :v1 sweep asserts every frozen Tier 1/Tier 2 contract
+  # still exists by exact name (a rename/remove fails), plus the v0.66 product-RC
+  # contract rows (the acceptance-matrix gate half) and the static/docs gates.
+  # Attested acceptance-matrix rows (install/browser/model/cross-host) are the DIT
+  # milestones in docs/plans/v1.0-handoff.md, recorded under docs/validation/v1.0/.
+  @release_v1_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "format_check",
+      title: "formatter check for the v1.0 freeze",
+      cwd: :root,
+      executable: "mix",
+      args: ["format", "--check-formatted"],
+      coverage: ["formatter drift fails the v1.0 freeze gate"]
+    },
+    %{
+      id: "compile_warnings_as_errors",
+      title: "compile the v1.0 freeze with warnings as errors",
+      cwd: :root,
+      executable: "mix",
+      args: ["compile", "--warnings-as-errors"],
+      coverage: ["compiler warnings fail the v1.0 freeze gate"]
+    },
+    %{
+      id: "credo_strict",
+      title: "Credo strict check for the v1.0 freeze",
+      cwd: :root,
+      executable: "mix",
+      args: ["credo", "--strict"],
+      coverage: ["Credo strict findings fail the v1.0 freeze gate"]
+    },
+    %{
+      id: "dialyzer",
+      title: "Dialyzer static analysis for the v1.0 freeze",
+      cwd: :root,
+      executable: "mix",
+      args: ["dialyzer"],
+      coverage: ["Dialyzer warnings fail the v1.0 freeze gate"]
+    },
+    %{
+      id: "v1_version_consistency",
+      title: "umbrella apps agree on version at the v1.0 freeze",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist_web/test/allbert_assist_web/version_consistency_test.exs"
+      ],
+      coverage: ["the CLI-banner app and the asset-version app agree on version at v1.0"]
+    },
+    %{
+      id: "v1_freeze_sweep",
+      title: "v1.0 public-contract freeze sweep: every frozen contract exists by exact name",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/v1_sweep_eval_test.exs"
+      ],
+      coverage: [
+        "the 7 :v1 freeze rows are complete, shaped, routed, and bound",
+        "every frozen Tier 1/Tier 2 contract (functions, signals, DB columns, Settings keys, Home roots, permission classes, ADR 0021 A20) exists by exact name — a rename/remove fails"
+      ]
+    },
+    %{
+      id: "v1_product_rc_sweep",
+      title: "v0.66 product-RC contract rows re-run as the v1.0 acceptance-matrix gate half",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/v066_sweep_eval_test.exs"
+      ],
+      coverage: [
+        "the 11 gate-bound product-rc-* contract rows still hold at the freeze; attested install/browser/model/cross-host rows are the DIT milestones in v1.0-handoff.md"
+      ]
+    },
+    %{
+      id: "docs_gate",
+      title: "docs gate, staleness/index check, and release-planning whitespace check",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "docs"],
+      coverage: ["git diff --check is clean", "docs staleness/index check is clean"]
+    }
+  ]
+
+  defp release_v1 do
+    env = owned_env("release-v1", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v1")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v1_steps, &run_release_v1_step(&1, env))
+
+    status = if Enum.all?(results, &(&1.status == "passed")), do: "passed", else: "failed"
+
+    evidence = %{
+      gate: "mix allbert.test release.v1",
+      version: "v1.0",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; this gate proves the public-contract freeze deterministically (every frozen Tier 1/Tier 2 contract exists by exact name) plus the v0.66 product-RC contract rows. Install/browser/model/cross-host acceptance-matrix rows are operator-attested DIT milestones in docs/validation/v1.0/, not here.",
+      notes:
+        "v1.0 Stability Release & Public Contract Freeze: the :v1 sweep enforces the tiered freeze (docs/developer/public-contract-freeze.md) — a rename or removal of any frozen contract fails the gate while Tier 2 additive changes stay green. Re-runs the v0.66 product-RC contract rows as the acceptance-matrix gate half.",
+      steps: results
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v1-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v1 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v1 failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v1_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v1 #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
   defp cleanup_release_v046_evidence!(evidence_dir) do
     evidence_dir
     |> Path.join("release-v046-*.json")
@@ -7587,6 +7745,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v064
       mix allbert.test release.v065
       mix allbert.test release.v066
+      mix allbert.test release.v1
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
