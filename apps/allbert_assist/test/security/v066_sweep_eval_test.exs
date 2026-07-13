@@ -408,11 +408,13 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
     handoff = read!("docs/plans/v1.0-handoff.md")
     roadmap = read!("docs/plans/roadmap.md")
 
-    # The handoff note exists and frames the acceptance matrix.
-    assert handoff =~ "Acceptance Matrix" or handoff =~ "acceptance-matrix"
-    assert handoff =~ "17 inputs" or handoff =~ "17-item"
+    # The handoff note exists and frames the acceptance matrix (case-insensitive, so it
+    # survives heading rewording — e.g. a "proof-status view" reframe).
+    assert handoff =~ ~r/acceptance matrix/i
 
-    # It lists all 17 numbered acceptance rows.
+    # The substance is the 17 numbered acceptance rows themselves — asserted directly by
+    # count rather than a prose "17-item" literal, so the v0.66 gate does not break when
+    # the v1.0 handoff heading/intro is reworded.
     matrix_rows =
       handoff
       |> String.split("\n")
