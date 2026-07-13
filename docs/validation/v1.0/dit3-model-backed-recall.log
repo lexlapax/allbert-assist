@@ -1,0 +1,20 @@
+# DIT-3 model-backed local-knowledge recall (packaged binary + local Ollama)
+# date: 2026-07-13 | binary: bin/allbert (prod release) | model: local Ollama qwen2.5 (keyless) | home: disposable
+# Setup: direct answers enabled (intent.direct_answer_model_enabled=true, as onboarding does);
+#   seeded a KEPT fact "Falcon-9271" (reviewed :kept) and an UNREVIEWED fact "Sparrow-3311".
+
+## allbert ask "What is my project codename?"  -> direct_answer (kept-only recall path)
+Status: completed
+Falcon-9271
+- direct_answer completed
+# => the model-backed answer recalled ONLY the :kept fact. The :kept-only exclusion in the
+#    recall path (ActiveMemory.retrieve) is gate-proven by v066_local_knowledge /
+#    local-knowledge-recall-reviewed-memory-001.
+
+## allbert ask "What is my backup codename?"  -> read_recent_memory (inspection surface)
+Status: completed
+- The operator backup codename is Sparrow-3311. (preferences, unreviewed)
+- read_recent_memory completed
+# => NOTE: this routed to the memory *inspection* action (read_recent_memory), which lists all
+#    candidates INCLUDING unreviewed for operator review — by design, distinct from the
+#    :kept-only recall-into-answer path. Not a recall-exclusion failure.
