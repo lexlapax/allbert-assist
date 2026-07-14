@@ -13,7 +13,7 @@ Class results per `docs/plans/v1.0-request-flow.md` §DIT-4:
 | (a) Browser research + delegate | PASS |
 | (b) Channels — outbound + inbound (Telegram) | PASS |
 | (c) Public protocols — MCP / OpenAI-compatible / ACP | PASS (+ consent-gate observation) |
-| (d) Plan/Build approval smoke | Gate PASS; typed same-channel approval FAIL (R9) — fixed, **operator re-run required** |
+| (d) Plan/Build approval smoke | **PASS** (re-run 2026-07-14 post-M7.1/M7.3 on default router config — see below) |
 | Channel classes not configured | SCOPED-OUT: email, matrix, whatsapp, signal, discord, slack (credentials exist in `.env` for several, but the freeze bar is ≥1 outbound + ≥1 inbound, satisfied by Telegram; remaining channels stay covered by the v0.52/v0.53 channel-pack eval rows) |
 
 ## (a) Browser research + delegate
@@ -98,9 +98,41 @@ Workflow `dit4_smoke` (single `direct_answer` step) in the disposable Home;
   origin-channel stamp plus the silent rejection. Both fixed in M7.1 (channel derived
   from the security context; TUI now renders callback rejections; regression test
   covers same-channel typed approval end-to-end).
-- **Criterion 3 (same-channel resolution) therefore FAILED as originally exercised.**
-  The class closes only after the operator re-runs the smoke on the fixed build
-  (single re-run: `run workflow dit4_smoke` → typed approve resolves in-session).
+- **Criterion 3 (same-channel resolution) FAILED as originally exercised** and the
+  class was held open pending the M7.1/M7.3 fixes.
+- **Re-run PASS (2026-07-14, post-fix, operator-attested).** Fresh disposable Home,
+  `intent.router_strategy=two_stage_local` (production default — also proving the R8
+  fix live). Redacted transcript:
+
+  ```
+  allbert:default> run workflow dit4_smoke
+  Approval: conf_1784059442000000_962 status=pending target=start_plan_run
+  Allowed: approve, deny, details
+  Result return: same_channel=true channel=tui
+  Type one exact command:
+  - ALLBERT:APPROVE:conf_1784059442000000_962
+  - ALLBERT:DENY:conf_1784059442000000_962
+  - ALLBERT:SHOW:conf_1784059442000000_962
+  Approval options:
+  1. Approve - ALLBERT:APPROVE:conf_1784059442000000_962
+  2. Deny - ALLBERT:DENY:conf_1784059442000000_962
+  3. Show - ALLBERT:SHOW:conf_1784059442000000_962
+  allbert:default> ALLBERT:APPROVE:conf_1784059442000000_962
+  Confirmation conf_1784059442000000_962 is approved.
+  allbert:default> /confirmations
+  Confirmations (1, status=all):
+  - conf_1784059442000000_962: status=approved target=start_plan_run
+  allbert:default> /quit
+  $ mix allbert.plan list
+  obj_5d0b8437-1c8b-4a1f-878e-157b6f7c3e05 completed workflow:dit4_smoke:1
+  ```
+
+  All four criteria PASS: (1) gate paused and printed the exact typed commands +
+  numbered options; (2) typed `ALLBERT:APPROVE:<id>` at the same prompt; (3) the
+  resolution printed **in-session** and `/confirmations` shows `approved` (R9 fix
+  proven live); (4) no button/link/URL affordance in the terminal handoff. Bonus:
+  no misroute on the default two-stage router (R8 fix proven live) and the resumed
+  run's objective **completed**.
 
 ## Environment prerequisites attested along the way
 
