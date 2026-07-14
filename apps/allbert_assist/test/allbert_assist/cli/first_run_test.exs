@@ -80,12 +80,15 @@ defmodule AllbertAssist.CLI.FirstRunTest do
       System.put_env("ANTHROPIC_API_KEY", "test-key")
 
       # Completing onboarding no longer forces profile_reviewed (placeholder retired).
+      # v1.0 M7.5: inject the model state (M7.9 pattern) — this test is about the
+      # profile-review state machine, and a live probe made it depend on whatever
+      # the host's Ollama happens to be running/serving.
       FirstRun.mark_onboarding_complete()
-      assert FirstRun.detect() == :profile_unreviewed
+      assert FirstRun.detect(first_model_state: :byok_ready) == :profile_unreviewed
 
       # The real profile-review state flips it to product_ready.
       FirstRun.mark_profile_reviewed()
-      assert FirstRun.detect() == :product_ready
+      assert FirstRun.detect(first_model_state: :byok_ready) == :product_ready
     after
       System.delete_env("ANTHROPIC_API_KEY")
     end
@@ -118,7 +121,8 @@ defmodule AllbertAssist.CLI.FirstRunTest do
       System.put_env("ANTHROPIC_API_KEY", "test-key")
       FirstRun.mark_onboarding_complete()
       FirstRun.mark_profile_reviewed()
-      assert FirstRun.detect() == :product_ready
+      # v1.0 M7.5: injected model state (M7.9 pattern) — no live host probe.
+      assert FirstRun.detect(first_model_state: :byok_ready) == :product_ready
 
       FirstRun.reset_onboarding()
       # Marker cleared → back to onboarding_incomplete; the DB (Home) is untouched.

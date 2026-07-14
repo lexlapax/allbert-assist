@@ -39,6 +39,52 @@ defmodule AllbertAssist.FirstModelTest do
     :ok
   end
 
+  test "curated model and floor are settings-backed with schema defaults (v1.0 M7.5)" do
+    original_home = System.get_env("ALLBERT_HOME")
+    original_paths = Application.get_env(:allbert_assist, AllbertAssist.Paths)
+    original_settings = Application.get_env(:allbert_assist, AllbertAssist.Settings)
+
+    home =
+      Path.join(System.tmp_dir!(), "allbert-first-model-#{System.unique_integer([:positive])}")
+
+    System.put_env("ALLBERT_HOME", home)
+    Application.put_env(:allbert_assist, AllbertAssist.Paths, home: home)
+
+    Application.put_env(:allbert_assist, AllbertAssist.Settings,
+      root: Path.join(home, "settings")
+    )
+
+    on_exit(fn ->
+      if original_home,
+        do: System.put_env("ALLBERT_HOME", original_home),
+        else: System.delete_env("ALLBERT_HOME")
+
+      if original_paths,
+        do: Application.put_env(:allbert_assist, AllbertAssist.Paths, original_paths),
+        else: Application.delete_env(:allbert_assist, AllbertAssist.Paths)
+
+      if original_settings,
+        do: Application.put_env(:allbert_assist, AllbertAssist.Settings, original_settings),
+        else: Application.delete_env(:allbert_assist, AllbertAssist.Settings)
+
+      File.rm_rf!(home)
+    end)
+
+    assert Ollama.curated_model() == "llama3.2:3b"
+    assert Ollama.curated_floor_gb() == 8
+
+    assert {:ok, _setting} =
+             AllbertAssist.Settings.put("first_model.curated_model", "qwen2.5:3b", %{
+               audit?: false
+             })
+
+    assert {:ok, _setting} =
+             AllbertAssist.Settings.put("first_model.curated_floor_gb", 16, %{audit?: false})
+
+    assert Ollama.curated_model() == "qwen2.5:3b"
+    assert Ollama.curated_floor_gb() == 16
+  end
+
   describe "Ollama.probe/1 (three-way, injected)" do
     test "model_ready when server up and the curated model is present" do
       assert Ollama.probe(

@@ -75,6 +75,8 @@ defmodule AllbertAssist.Settings.Schema do
     "model_preferences.primary",
     "model_preferences.tasks.*",
     "model_preferences.capabilities.*",
+    "first_model.curated_model",
+    "first_model.curated_floor_gb",
     "coding.workspace.cwd_jail",
     "coding.read.default_limit",
     "coding.read.max_bytes",
@@ -895,6 +897,20 @@ defmodule AllbertAssist.Settings.Schema do
       default: "local",
       writable?: true,
       sensitive?: false
+    },
+    "first_model.curated_model" => %{
+      type: :string,
+      default: "llama3.2:3b",
+      writable?: true,
+      sensitive?: false
+    },
+    "first_model.curated_floor_gb" => %{
+      type: :bounded_integer,
+      default: 8,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 512
     },
     "active_memory.enabled" => %{
       type: :boolean,
@@ -3573,6 +3589,10 @@ defmodule AllbertAssist.Settings.Schema do
       "context_window" => 6,
       "disambiguation_margin" => 0.12,
       "pending_clarification_ttl_ms" => 120_000
+    },
+    "first_model" => %{
+      "curated_model" => "llama3.2:3b",
+      "curated_floor_gb" => 8
     },
     "model_preferences" => %{
       "schema_version" => 1,

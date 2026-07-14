@@ -109,8 +109,17 @@ wizard can detect and verify them, but does not write to env.
 
 At the `model_path` step the wizard shows operator readiness and the local-first
 repair path first: install/start the local runtime when absent, then pull the single
-curated starter model through Ollama's local API. Hosted BYOK and custom endpoints are
-the Advanced fallback. When a provider is needed, the wizard shows a masked key entry
+curated starter model through Ollama's local API. The curated starter model is
+**`llama3.2:3b`** (~2 GB download; requires 8 GB RAM — machines below the floor route
+to BYOK guidance instead). Both are Settings Central defaults, operator-overridable
+before the pull:
+
+```sh
+mix allbert.settings set first_model.curated_model llama3.2:3b   # any local Ollama tag
+mix allbert.settings set first_model.curated_floor_gb 8
+```
+
+Hosted BYOK and custom endpoints are the Advanced fallback. When a provider is needed, the wizard shows a masked key entry
 (stored in the vault, never echoed), an inline `doctor` round-trip, and a provider/model
 switch. Switching a provider writes Settings Central keys and edits no config file. The
 wizard surfaces which vault tier a new key lands in (OS vault → encrypted-store); the

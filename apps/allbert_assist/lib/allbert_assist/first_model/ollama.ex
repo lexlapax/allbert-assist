@@ -23,18 +23,41 @@ defmodule AllbertAssist.FirstModel.Ollama do
   @req_options_key :first_model_req_options
 
   # Curated default (Locked Decision 9): a ~3–4B model with an 8 GB floor.
-  # Selected/refreshed in v0.62 per ADR 0078; ratified at S4.
+  # Selected/refreshed in v0.62 per ADR 0078; ratified at S4. v1.0 M7.5 (R13):
+  # these are the schema DEFAULTS for the `first_model.curated_model` /
+  # `first_model.curated_floor_gb` Settings Central keys — operator-overridable
+  # (`mix allbert.settings set first_model.curated_model <tag>`); the constants
+  # remain only as the fallback when the settings store is not readable.
   @curated_model "llama3.2:3b"
   @curated_floor_gb 8
 
   @type probe_result :: :model_ready | :model_missing | :unhealthy | :missing
 
-  @doc "The curated default model tag."
+  @doc "The curated default model tag (settings-backed: `first_model.curated_model`)."
   @spec curated_model() :: String.t()
-  def curated_model, do: @curated_model
+  def curated_model do
+    case setting("first_model.curated_model") do
+      model when is_binary(model) and model != "" -> model
+      _other -> @curated_model
+    end
+  end
 
-  @doc "The curated model's RAM floor in GB."
-  def curated_floor_gb, do: @curated_floor_gb
+  @doc "The curated model's RAM floor in GB (settings-backed: `first_model.curated_floor_gb`)."
+  def curated_floor_gb do
+    case setting("first_model.curated_floor_gb") do
+      floor when is_integer(floor) and floor > 0 -> floor
+      _other -> @curated_floor_gb
+    end
+  end
+
+  defp setting(key) do
+    case AllbertAssist.Settings.get(key) do
+      {:ok, value} -> value
+      _other -> nil
+    end
+  rescue
+    _error -> nil
+  end
 
   @doc "The local Ollama base URL (settings-overridable elsewhere)."
   @spec base_url() :: String.t()
