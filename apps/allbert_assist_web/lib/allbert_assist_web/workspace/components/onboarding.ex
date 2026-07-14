@@ -79,6 +79,25 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
     {:noreply, refresh_state(reprobe(socket))}
   end
 
+  def handle_event("wizard_rewind", %{"step" => step}, socket) do
+    socket =
+      case OnboardingContext.wizard_rewind(step) do
+        {:ok, _state} ->
+          assign(socket,
+            onboarding_notice: "Returned to #{wizard_step_label(step)}.",
+            onboarding_error: nil
+          )
+
+        {:error, {:not_rewindable, not_rewindable}} ->
+          assign(socket, onboarding_error: "That step can't be returned to: #{not_rewindable}.")
+
+        {:error, {:unknown_step, unknown}} ->
+          assign(socket, onboarding_error: "Unknown step: #{unknown}.")
+      end
+
+    {:noreply, refresh_state(reprobe(socket))}
+  end
+
   def handle_event("wizard_reset", _params, socket) do
     OnboardingContext.wizard_reset()
 
@@ -339,7 +358,18 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
             data-current={to_string(step == @onboarding_wizard.step)}
             data-done={to_string(step in @onboarding_wizard.done)}
           >
-            <span>{wizard_step_label(step)}</span>
+            <span :if={step not in @onboarding_wizard.done}>{wizard_step_label(step)}</span>
+            <button
+              :if={step in @onboarding_wizard.done}
+              type="button"
+              id={"workspace-wizard-rewind-#{step}"}
+              class="btn btn-xs btn-ghost px-0"
+              phx-click="wizard_rewind"
+              phx-value-step={step}
+              phx-target={@myself}
+            >
+              {wizard_step_label(step)}
+            </button>
             <button
               :if={step == @onboarding_wizard.step and !@onboarding_wizard.complete?}
               type="button"
@@ -378,8 +408,15 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
           <div class="text-xs font-medium text-base-content/70">
             The trust spine — what keeps first-run safe
           </div>
+          <p
+            :if={@step_guidance}
+            id="workspace-onboarding-step-guidance"
+            class="mt-1 text-xs text-base-content/70"
+          >
+            {@step_guidance.guidance}
+          </p>
           <ul class="mt-1 space-y-0.5 text-xs text-base-content/60">
-            <li :for={line <- OnboardingContext.trust_spine()}>{line}</li>
+            <li :for={line <- trust_lines(@step_guidance)}>{line}</li>
           </ul>
         </section>
       </section>
@@ -611,9 +648,20 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
       :model_guidance,
       OnboardingContext.model_guidance_for(wizard.readiness, wizard.track)
     )
+    |> assign(:step_guidance, step_guidance(wizard))
     |> assign(:provider_profiles, provider_profiles())
     |> assign(:tier_line, tier_line())
   end
+
+  # v1.0 R3: contextual guidance for the current step while onboarding is in
+  # progress; a not-started or completed wizard falls back to the full spine.
+  defp step_guidance(%{started?: true, complete?: false, step: step}),
+    do: OnboardingContext.step_guidance(step)
+
+  defp step_guidance(_wizard), do: nil
+
+  defp trust_lines(nil), do: OnboardingContext.trust_spine()
+  defp trust_lines(%{trust_lines: lines}), do: lines
 
   # v0.64.3: async variant used by the live-progress pull. Returns the raw Runner
   # result tuple so `handle_async/3` finalizes the socket on the component.

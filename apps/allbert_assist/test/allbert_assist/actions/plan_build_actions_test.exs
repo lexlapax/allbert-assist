@@ -3,6 +3,7 @@ defmodule AllbertAssist.Actions.PlanBuildActionsTest do
   @moduletag :external_runtime_serial
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Channels.ConfirmationCallback
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.ResourceMetadata
   alias AllbertAssist.Objectives
@@ -109,6 +110,45 @@ defmodule AllbertAssist.Actions.PlanBuildActionsTest do
     summarize_text = Jason.decode!(summarize_params)["text"]
     assert summarize_text =~ "Summarize "
     refute summarize_text =~ "${steps.collect.issues}"
+  end
+
+  test "start_plan_run stamps the requesting channel and same-channel typed approval resolves",
+       %{context: context} do
+    tui_context = %{context | channel: :tui}
+
+    assert {:ok, pending} =
+             Runner.run(
+               "start_plan_run",
+               %{workflow_id: "multi_step", inputs: %{since: "today"}},
+               tui_context
+             )
+
+    assert pending.status == :needs_confirmation
+    assert {:ok, confirmation} = Confirmations.read(pending.confirmation_id)
+    assert get_in(confirmation, ["origin", "channel"]) == "tui"
+
+    identity_map = [
+      %{"external_user_id" => "default", "user_id" => "local", "enabled" => true}
+    ]
+
+    assert {:ok, approved} =
+             ConfirmationCallback.run(%{
+               action: :approve,
+               confirmation_id: pending.confirmation_id,
+               channel: "tui",
+               user_id: "local",
+               session_id: "ch_tui_test",
+               surface: "tui_typed_command",
+               identity_proof: %{
+                 channel: "tui",
+                 user_id: "local",
+                 external_user_id: "default",
+                 identity_map: identity_map
+               }
+             })
+
+    assert approved.status == :completed
+    assert is_binary(get_in(approved, [:output_data, :objective_id]))
   end
 
   test "approving a Plan/Build step checkpoint completes the workflow", %{context: context} do

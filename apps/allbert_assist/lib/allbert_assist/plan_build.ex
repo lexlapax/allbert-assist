@@ -107,7 +107,7 @@ defmodule AllbertAssist.PlanBuild do
     attrs = %{
       origin: %{
         actor: field(context, :actor) || "local",
-        channel: field(context, :channel) || "cli"
+        channel: origin_channel(context, permission_decision)
       },
       target_action: %{
         name: "start_plan_run",
@@ -187,6 +187,23 @@ defmodule AllbertAssist.PlanBuild do
 
   defp current_step_id(%{step: %{id: id}}), do: id
   defp current_step_id(_run_result), do: nil
+
+  # The typed-approval callback verifies the resolver channel against this origin
+  # channel; it must reflect the channel the run was requested from, not a default.
+  defp origin_channel(context, permission_decision) do
+    context
+    |> field(:channel)
+    |> Kernel.||(permission_decision |> field(:context) |> field(:channel))
+    |> normalize_origin_channel()
+  end
+
+  defp normalize_origin_channel(%{} = channel),
+    do: channel |> field(:name) |> normalize_origin_channel()
+
+  defp normalize_origin_channel(channel) when channel in [nil, :unknown, "unknown"], do: "cli"
+  defp normalize_origin_channel(channel) when is_atom(channel), do: Atom.to_string(channel)
+  defp normalize_origin_channel(channel) when is_binary(channel), do: channel
+  defp normalize_origin_channel(_channel), do: "cli"
 
   defp field(map, key) when is_map(map),
     do: Map.get(map, key) || Map.get(map, Atom.to_string(key))

@@ -913,6 +913,51 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
       assert has_element?(view, "#workspace-wizard-step-track_select[data-current='true']")
     end
 
+    test "v1.0 R2: a done step is clickable and rewinds the wizard", %{conn: conn} do
+      FirstRun.reset_onboarding()
+      {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:onboard")
+
+      view |> element("#workspace-onboarding-start-quickstart") |> render_click()
+      view |> element("#workspace-wizard-advance-welcome") |> render_click()
+      view |> element("#workspace-wizard-advance-track_select") |> render_click()
+
+      assert has_element?(view, "#workspace-wizard-step-model_path[data-current='true']")
+      assert has_element?(view, "#workspace-wizard-rewind-welcome")
+
+      html = view |> element("#workspace-wizard-rewind-welcome") |> render_click()
+
+      assert html =~ "Returned to Welcome."
+      assert has_element?(view, "#workspace-wizard-step-welcome[data-current='true']")
+      refute has_element?(view, "#workspace-wizard-step-track_select[data-done='true']")
+      refute has_element?(view, "#workspace-wizard-rewind-welcome")
+    end
+
+    test "v1.0 R3: the trust block shows step guidance and changes with the step", %{conn: conn} do
+      FirstRun.reset_onboarding()
+      {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:onboard")
+
+      # Not started yet: no step guidance, the full spine renders.
+      spine_html = view |> element("#workspace-onboarding-trust-spine") |> render()
+      refute spine_html =~ "workspace-onboarding-step-guidance"
+      assert spine_html =~ "Memory review:"
+      assert spine_html =~ "Secrets:"
+
+      view |> element("#workspace-onboarding-start-quickstart") |> render_click()
+
+      welcome_html = view |> element("#workspace-onboarding-trust-spine") |> render()
+      assert welcome_html =~ "workspace-onboarding-step-guidance"
+      assert welcome_html =~ "Confirmation:"
+      assert welcome_html =~ "Permission:"
+      refute welcome_html =~ "Traces:"
+
+      view |> element("#workspace-wizard-advance-welcome") |> render_click()
+
+      track_html = view |> element("#workspace-onboarding-trust-spine") |> render()
+      assert track_html =~ "Local-first:"
+      refute track_html =~ "Confirmation:"
+      refute track_html == welcome_html
+    end
+
     test "M7.3: the wizard drives real M3/M4 controls and has no legacy objective panel",
          %{conn: conn} do
       FirstRun.reset_onboarding()

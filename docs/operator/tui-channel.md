@@ -20,7 +20,7 @@ The full release-validation checklist is
 
 ```sh
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-tui.XXXXXX)"
-mix ecto.migrate.allbert --quiet
+mix allbert.ecto.migrate --quiet
 
 mix allbert.settings set channels.tui.identity_map '[{"external_user_id":"default","user_id":"local","enabled":true}]'
 mix allbert.settings get channels.tui.identity_map

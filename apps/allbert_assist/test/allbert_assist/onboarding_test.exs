@@ -317,6 +317,143 @@ defmodule AllbertAssist.OnboardingTest do
     end
   end
 
+  describe "v1.0 R2 wizard rewind" do
+    test "rewinding to an earlier done step truncates done and makes it current" do
+      Onboarding.wizard_start(:quickstart)
+
+      for step <- ~w(welcome track_select model_path) do
+        assert {:ok, _} = Onboarding.wizard_advance(step)
+      end
+
+      assert {:ok, state} = Onboarding.wizard_rewind("track_select")
+      assert state.step == "track_select"
+      assert state.done == ["welcome"]
+      assert state.next == "model_path"
+      assert FirstRun.read_marker()["wizard_step"] == "track_select"
+    end
+
+    test "rewinding past profile_review clears the profile-reviewed state" do
+      Onboarding.wizard_start(:quickstart)
+
+      for step <- ~w(welcome track_select model_path profile_select profile_review) do
+        assert {:ok, _} = Onboarding.wizard_advance(step)
+      end
+
+      assert FirstRun.read_marker()["profile_reviewed"] == true
+
+      assert {:ok, state} = Onboarding.wizard_rewind("model_path")
+      refute state.profile_reviewed?
+      assert state.step == "model_path"
+      assert state.done == ~w(welcome track_select)
+    end
+
+    test "rewinding to a step after profile_review keeps the profile-reviewed state" do
+      Onboarding.wizard_start(:quickstart)
+
+      for step <- ~w(welcome track_select model_path profile_select profile_review health_check) do
+        assert {:ok, _} = Onboarding.wizard_advance(step)
+      end
+
+      assert {:ok, state} = Onboarding.wizard_rewind("health_check")
+      assert state.profile_reviewed?
+      assert state.step == "health_check"
+    end
+
+    test "rewinding after completion clears complete? but never revokes intent enablement" do
+      Onboarding.wizard_start(:quickstart)
+      assert {:ok, _} = Onboarding.wizard_advance("welcome")
+      assert {:ok, _} = Onboarding.wizard_advance("track_select")
+
+      assert {:ok, _} =
+               Onboarding.wizard_advance("model_path", %{}, first_model_state: :local_ready)
+
+      for step <- ~w(profile_select profile_review health_check first_chat) do
+        assert {:ok, _} = Onboarding.wizard_advance(step)
+      end
+
+      assert FirstRun.read_marker()["onboarding_complete"] == true
+      assert Settings.get("intent.direct_answer_model_enabled") == {:ok, true}
+
+      assert {:ok, state} = Onboarding.wizard_rewind("first_chat")
+      refute state.complete?
+      assert state.step == "first_chat"
+      assert FirstRun.read_marker()["onboarding_complete"] == false
+
+      # Rewind is navigation, not consent revocation.
+      assert Settings.get("intent.direct_answer_model_enabled") == {:ok, true}
+      assert Settings.get("intent.model_assist_enabled") == {:ok, true}
+    end
+
+    test "rewind rejects unknown steps, not-yet-done steps, and off-track steps" do
+      Onboarding.wizard_start(:quickstart)
+      assert {:ok, _} = Onboarding.wizard_advance("welcome")
+
+      assert {:error, {:unknown_step, "nope"}} = Onboarding.wizard_rewind("nope")
+
+      assert {:error, {:not_rewindable, "health_check"}} =
+               Onboarding.wizard_rewind("health_check")
+
+      # QuickStart never includes optional_connect.
+      assert {:error, {:not_rewindable, "optional_connect"}} =
+               Onboarding.wizard_rewind("optional_connect")
+
+      # The current step itself is not rewindable (nothing to rewind past).
+      assert {:error, {:not_rewindable, "track_select"}} =
+               Onboarding.wizard_rewind("track_select")
+    end
+  end
+
+  describe "v1.0 R3 step-aware trust guidance" do
+    test "every wizard step yields non-empty guidance plus a trust-spine subset" do
+      for step <- Onboarding.wizard_steps() do
+        guidance = Onboarding.step_guidance(step)
+        assert guidance.guidance =~ ~r/\S/
+        assert guidance.trust_lines != []
+        assert Enum.all?(guidance.trust_lines, &(&1 in Onboarding.trust_spine()))
+      end
+    end
+
+    test "each step surfaces the safety properties it exercises" do
+      expectations = %{
+        "welcome" => ["Confirmation:", "Permission:"],
+        "track_select" => ["Local-first:"],
+        "model_path" => ["Local-first:", "Hosted-provider egress:"],
+        "profile_select" => ["Permission:"],
+        "profile_review" => ["Permission:"],
+        "health_check" => ["Traces:"],
+        "first_chat" => ["Confirmation:", "Memory review:"],
+        "optional_connect" => ["Hosted-provider egress:", "Secrets:"]
+      }
+
+      for {step, prefixes} <- expectations do
+        lines = Onboarding.step_guidance(step).trust_lines
+        assert length(lines) == length(prefixes)
+
+        for prefix <- prefixes do
+          assert Enum.any?(lines, &String.starts_with?(&1, prefix)),
+                 "expected #{step} to surface #{prefix}"
+        end
+      end
+    end
+
+    test "the terminal trust_spine/0 surface is unchanged (all seven properties)" do
+      spine = Onboarding.trust_spine()
+      assert length(spine) == 7
+
+      for prefix <- [
+            "Confirmation:",
+            "Permission:",
+            "Traces:",
+            "Local-first:",
+            "Hosted-provider egress:",
+            "Secrets:",
+            "Memory review:"
+          ] do
+        assert Enum.any?(spine, &String.starts_with?(&1, prefix))
+      end
+    end
+  end
+
   defp ensure_channel_plugin!(module) do
     case PluginRegistry.register_module(module) do
       {:ok, _plugin_id} -> :ok

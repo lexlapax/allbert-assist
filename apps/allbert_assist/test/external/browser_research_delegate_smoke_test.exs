@@ -15,13 +15,18 @@ defmodule AllbertAssist.External.BrowserResearchDelegateSmokeTest do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.Repo
   alias AllbertAssist.Resources.{Grants, Ref, ResourceURI, Scope}
   alias AllbertAssist.Settings
+  alias Ecto.Adapters.SQL.Sandbox
   alias Mix.Tasks.Allbert.Research, as: ResearchTask
 
   @host "allbert-research-delegate-smoke.test"
 
   setup do
+    :ok = Sandbox.checkout(Repo)
+    Sandbox.mode(Repo, {:shared, self()})
+
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)

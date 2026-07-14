@@ -155,6 +155,27 @@ defmodule AllbertAssist.Agents.IntentAgentRouterTest do
     assert [%{name: "clarify_intent", status: :awaiting_clarification}] = response.actions
   end
 
+  test "exact plan_build phrases bypass the router even when it would execute another action",
+       %{uid: uid, tid: tid} do
+    Application.put_env(
+      :allbert_assist,
+      :intent_router_fake_outcome,
+      Outcome.execute("preview_plan", %{}, 1.0)
+    )
+
+    assert {:ok, list_response} =
+             IntentAgent.respond(%{text: "list plans", user_id: uid, thread_id: tid})
+
+    assert list_response.decision.selected_action == "list_plan_runs"
+    refute to_string(list_response.message) =~ "missing_plan_source"
+
+    assert {:ok, run_response} =
+             IntentAgent.respond(%{text: "run workflow dit4_smoke", user_id: uid, thread_id: tid})
+
+    assert run_response.decision.selected_action == "start_plan_run"
+    refute to_string(run_response.message) =~ "missing_plan_source"
+  end
+
   defp restore(key, nil), do: Application.delete_env(:allbert_assist, key)
   defp restore(key, value), do: Application.put_env(:allbert_assist, key, value)
 end

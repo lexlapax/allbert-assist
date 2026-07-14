@@ -1169,9 +1169,35 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
         state = clear_live_status(state)
         Logger.debug("tui event rejected: #{inspect(Redactor.redact(reason))}")
         {:ok, _event} = mark_rejected_or_failed(event, reason)
+        :ok = emit_callback_rejection(command, reason, state)
         {{:ok, :rejected}, state}
     end
   end
+
+  # A typed approval command that fails must never be silent: the operator is
+  # standing at the prompt the gate told them to type into.
+  defp emit_callback_rejection(:ignore, _reason, _state), do: :ok
+
+  defp emit_callback_rejection({:ok, action, confirmation_id}, reason, state) do
+    emit_rendered(
+      [
+        "Confirmation #{action} for #{confirmation_id} was not applied: " <>
+          callback_rejection_text(reason)
+      ],
+      state
+    )
+  end
+
+  defp callback_rejection_text(:wrong_channel),
+    do: "this confirmation expects resolution from its origin channel"
+
+  defp callback_rejection_text(:wrong_user),
+    do: "this confirmation belongs to a different user"
+
+  defp callback_rejection_text(:not_mapped), do: "terminal identity is not mapped"
+  defp callback_rejection_text(:expired), do: "the confirmation has expired"
+  defp callback_rejection_text(:not_pending), do: "the confirmation is no longer pending"
+  defp callback_rejection_text(reason), do: inspect(Redactor.redact(reason))
 
   defp validate_text(text) when is_binary(text) and text != "", do: :ok
   defp validate_text(_text), do: {:error, :empty_text}

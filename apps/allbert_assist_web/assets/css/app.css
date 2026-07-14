@@ -1720,8 +1720,14 @@ a.allbert-chip-link:focus-visible,
 }
 
 .workspace-chat-pane {
-  display: grid;
-  grid-template-rows: auto auto minmax(12rem, 1fr) auto auto;
+  /* Flex column, not grid: the pane's direct children include conditional
+     siblings (thread notice, Continuity history, upload/voice panels), so a
+     positional grid-template-rows track cannot reliably target the timeline.
+     Invariant: .workspace-chat-timeline is the sole flexible scroll region
+     regardless of which conditional siblings render; every other direct
+     child stays flex: 0 0 auto. */
+  display: flex;
+  flex-direction: column;
   gap: 0.875rem;
   min-height: 34rem;
   padding: 0.875rem;
@@ -1729,6 +1735,16 @@ a.allbert-chip-link:focus-visible,
      card (large radius + soft violet elevation) over the promoted tokens. */
   border-radius: var(--allbert-radius-panel);
   box-shadow: var(--allbert-shadow-panel);
+}
+
+.workspace-chat-pane > * {
+  flex: 0 0 auto;
+}
+
+.workspace-chat-pane > .workspace-chat-timeline {
+  /* 12rem floor preserved from the former minmax(12rem, 1fr) grid track. */
+  flex: 1 1 auto;
+  min-height: 12rem;
 }
 
 .workspace-chat-timeline,

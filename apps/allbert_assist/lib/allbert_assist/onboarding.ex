@@ -106,6 +106,55 @@ defmodule AllbertAssist.Onboarding do
   @spec trust_spine() :: [String.t()]
   def trust_spine, do: @trust_spine
 
+  # v1.0 R3: step-aware trust guidance — each wizard step pairs a short operator
+  # guidance line with the trust-spine properties it exercises. The full
+  # `trust_spine/0` list stays unchanged for the terminal surface.
+  @step_guidance_copy %{
+    "welcome" =>
+      "A short guided setup. Nothing runs without your approval, and onboarding grants no new authority.",
+    "track_select" =>
+      "Pick a track. QuickStart keeps everything local; Advanced adds provider and model choices.",
+    "model_path" =>
+      "Choose where your model runs. Local stays on this machine; hosted providers are opt-in.",
+    "profile_select" =>
+      "Pick a persona. It only proposes scoped settings — nothing is written yet.",
+    "profile_review" =>
+      "Review exactly what the persona seeds before it is applied; every write stays scoped.",
+    "health_check" => "Run the health check. What it finds is recorded and locally inspectable.",
+    "first_chat" =>
+      "Try a first chat. Risky actions still pause for approval, and memory review stays explicit.",
+    "optional_connect" =>
+      "Connect channels or a hosted provider. Egress is opt-in and keys are stored as vault references."
+  }
+
+  @step_trust_topics %{
+    "welcome" => ["Confirmation", "Permission"],
+    "track_select" => ["Local-first"],
+    "model_path" => ["Local-first", "Hosted-provider egress"],
+    "profile_select" => ["Permission"],
+    "profile_review" => ["Permission"],
+    "health_check" => ["Traces"],
+    "first_chat" => ["Confirmation", "Memory review"],
+    "optional_connect" => ["Hosted-provider egress", "Secrets"]
+  }
+
+  @doc """
+  Step-aware trust guidance (v1.0 R3): a short operator guidance line for the
+  wizard step plus the subset of the trust spine relevant to it.
+  """
+  @spec step_guidance(wizard_step()) :: %{guidance: String.t(), trust_lines: [String.t()]}
+  def step_guidance(step) when step in @wizard_steps do
+    topics = Map.fetch!(@step_trust_topics, step)
+
+    %{
+      guidance: Map.fetch!(@step_guidance_copy, step),
+      trust_lines:
+        Enum.filter(@trust_spine, fn line ->
+          Enum.any?(topics, &String.starts_with?(line, &1 <> ":"))
+        end)
+    }
+  end
+
   @applied_persona_key "applied_persona"
 
   @doc "Record the persona the operator applied (M7.4) so `first_chat` can suggest its prompts."
@@ -261,6 +310,57 @@ defmodule AllbertAssist.Onboarding do
   end
 
   defp maybe_enable_model_answer(_step, _state), do: :ok
+
+  @doc """
+  Rewind to `step` (v1.0 R2): an already-completed step (or one before the current
+  step) becomes current again, with `wizard_done` truncated to the steps strictly
+  before it. Rewinding past `profile_review` clears `profile_reviewed`; any rewind
+  clears `onboarding_complete`. Navigation only — the intent.* enablement completion
+  granted is never revoked. Returns `{:ok, state}`,
+  `{:error, {:unknown_step, step}}`, or `{:error, {:not_rewindable, step}}`.
+  """
+  @spec wizard_rewind(wizard_step(), keyword()) ::
+          {:ok, wizard()}
+          | {:error, {:unknown_step, String.t()} | {:not_rewindable, wizard_step()}}
+  def wizard_rewind(step, opts \\ []) when is_binary(step) do
+    marker = FirstRun.read_marker()
+    done = wizard_done(marker)
+    steps = track_steps(wizard_track(marker))
+    current = current_wizard_step(marker, done)
+
+    cond do
+      step not in @wizard_steps ->
+        {:error, {:unknown_step, step}}
+
+      step not in steps or (step not in done and not before_step?(steps, step, current)) ->
+        {:error, {:not_rewindable, step}}
+
+      true ->
+        new_done =
+          steps
+          |> Enum.take_while(&(&1 != step))
+          |> Enum.filter(&(&1 in done))
+
+        %{"wizard_done" => new_done, "wizard_step" => step}
+        |> maybe_clear_flag(
+          marker,
+          "profile_reviewed",
+          "profile_review" in done and "profile_review" not in new_done
+        )
+        |> maybe_clear_flag(marker, "onboarding_complete", true)
+        |> FirstRun.merge_marker()
+
+        {:ok, wizard_state(opts)}
+    end
+  end
+
+  defp before_step?(steps, step, current) do
+    Enum.find_index(steps, &(&1 == step)) < Enum.find_index(steps, &(&1 == current))
+  end
+
+  defp maybe_clear_flag(updates, marker, key, clear?) do
+    if clear? and marker[key] == true, do: Map.put(updates, key, false), else: updates
+  end
 
   @doc """
   Reset the wizard: clears the marker (onboarding/profile/wizard progress) and

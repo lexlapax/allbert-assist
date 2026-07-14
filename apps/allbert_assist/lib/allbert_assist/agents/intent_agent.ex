@@ -232,6 +232,13 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   defp mcp_route?(_route), do: false
 
+  defp plan_build_route?({route, _params})
+       when route in [:preview_plan, :start_plan_run, :cancel_plan_run, :show_plan],
+       do: true
+
+  defp plan_build_route?(route) when route in [:list_workflows, :list_plan_runs], do: true
+  defp plan_build_route?(_route), do: false
+
   defp handle_engine_decision(engine_result, route, text, context, %Decision{} = route_decision) do
     if coding_turn?(context) do
       run_deterministic_route(:direct_answer, text, context, route_decision)
@@ -288,6 +295,17 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp route_with_router_outcome(route, text, context, %Decision{} = decision) do
+    # v1.0 M7.1: exact plan_build command phrases (run workflow <id>, plan:, cancel/show
+    # plan, list workflows/plans) are typed contracts; the two-stage router must not
+    # override the deterministic ladder for them.
+    if plan_build_route?(route) do
+      run_deterministic_route(route, text, context, decision)
+    else
+      route_with_router_outcome_via_router(route, text, context, decision)
+    end
+  end
+
+  defp route_with_router_outcome_via_router(route, text, context, %Decision{} = decision) do
     case router_outcome(text, context) do
       {:ok, %Outcome{kind: :execute, action_name: action_name, slots: slots}}
       when is_binary(action_name) ->
