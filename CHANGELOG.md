@@ -10,6 +10,28 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v1.0.0 - Stability Release & Public Contract Freeze
+
+Status: **released — tagged `v1.0.0` (2026-07-14 UTC), version 1.0.0, packaged GitHub
+Release assets published as Latest**. No new features: v1.0 freezes the public
+contracts the v0.61–v0.66 line shipped, per the tiered freeze in
+`docs/developer/public-contract-freeze.md` (Tier 1 stable, Tier 2 additive-only,
+reserved vocabulary not frozen per ADR 0021 A20). `mix allbert.test release.v1`
+enforces 35 frozen contracts by exact name (rename/remove fails the gate) and wraps
+the v0.66 product-RC contract rows.
+
+Operator DIT closeout complete (`docs/validation/v1.0/`): true non-developer no-docs
+first run with one-click model download from an empty cache, live advanced-surface
+regression (browser research + delegate, Telegram outbound/inbound, MCP/OpenAI/ACP,
+Plan/Build typed approval), model-backed `:kept` memory recall, real `v0.66.0` Home →
+v1.0 upgrade with uninstall preserving Allbert Home; WSL2 carries an explicit
+scoped-out decision. The two validation passes surfaced 15 findings (R1–R15) — chat
+scroll height chain, onboarding step rewind + first-chat go-signal + single first-run
+entry point, deterministic-ladder precedence over the intent router, same-channel
+typed-approval resolution with operator-visible rejections, settings-backed curated
+model (`first_model.curated_model`, default `llama3.2:3b`) — all fixed and
+regression-tested as plan milestones M7.1–M7.6 before the tag.
+
 ## v0.66.0 - Product RC & No-Docs Validation
 
 Status: **released — tagged `v0.66.0` (2026-07-11 UTC), version 0.66.0, packaged GitHub

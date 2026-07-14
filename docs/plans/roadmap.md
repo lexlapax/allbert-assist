@@ -4315,13 +4315,14 @@ Released validation shape:
 Plan: `docs/plans/v1.0-plan.md`
 Request flow: `docs/plans/v1.0-request-flow.md`
 
-Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not
-implemented. Re-scoped in the 2026-06-25 1.0 planning pass, amended by the
-post-v0.58 product-readiness review, and re-scoped again after v0.63 for a
-non-developer local-first operator. The freeze now follows the v0.61-v0.63
+Status: **Released - tagged v1.0.0** (2026-07-14). Promoted from
+`docs/archives/version-1.0-planning-03.md`. Re-scoped in the 2026-06-25 1.0 planning
+pass, amended by the post-v0.58 product-readiness review, and re-scoped again after
+v0.63 for a non-developer local-first operator. The freeze followed the v0.61-v0.63
 product capability releases, v0.64 trusted install/first-run, v0.65 local
-knowledge/memory, and the v0.66 integrated product RC plus v1.0 no-docs DIT
-closeout.
+knowledge/memory, and the v0.66 integrated product RC; the v1.0 operator DIT closeout
+(all rows green or explicitly scoped out, findings R1-R15 remediated as M7.1-M7.6)
+completed before the tag.
 
 Expected direction:
 
