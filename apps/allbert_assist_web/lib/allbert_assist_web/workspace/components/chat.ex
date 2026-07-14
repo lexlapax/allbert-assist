@@ -5,6 +5,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
 
   use AllbertAssistWeb, :live_component
 
+  alias AllbertAssist.CLI.FirstRun
   alias AllbertAssistWeb.Workspace.Components.Patterns
 
   @impl true
@@ -735,17 +736,13 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
   # first-run operator is led to set up a first model (local first, BYOK alternative)
   # before anything else. Each affordance renders a read-only registered-action DTO and
   # navigates to a real read surface — view-only (navigation is not authority).
+  # v1.0 M7.4 (R12): until onboarding completes there is exactly ONE first-run entry
+  # point — the guided-setup wizard. The v0.61 first-model shortcut competed with
+  # QuickStart on first run; it returns once onboarding is done, when it serves model
+  # maintenance rather than first-run setup.
   defp suggested_action_dtos do
     [
-      %{
-        id: "first-model",
-        label: "Set up your first model",
-        copy: "Local first, or bring your own provider key — checks model readiness.",
-        action_name: "model_doctor",
-        permission: "read_only",
-        execution_mode: "read_only",
-        navigate: "/workspace?destination=workspace:models"
-      },
+      first_run_suggested_action_dto(),
       %{
         id: "ask",
         label: "Ask a first question",
@@ -774,6 +771,31 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
         navigate: "/workspace?destination=workspace:channels"
       }
     ]
+  end
+
+  defp first_run_suggested_action_dto do
+    if FirstRun.read_marker()["onboarding_complete"] == true do
+      %{
+        id: "first-model",
+        label: "Set up your first model",
+        copy: "Local first, or bring your own provider key — checks model readiness.",
+        action_name: "model_doctor",
+        permission: "read_only",
+        execution_mode: "read_only",
+        navigate: "/workspace?destination=workspace:models"
+      }
+    else
+      %{
+        id: "guided-setup",
+        label: "Start guided setup",
+        copy:
+          "QuickStart downloads a local model and gets you to a safe first chat — no keys needed.",
+        action_name: "first_model_detect",
+        permission: "read_only",
+        execution_mode: "settings_read",
+        navigate: "/workspace?destination=workspace:onboard"
+      }
+    end
   end
 
   attr :suggestion, :map, required: true

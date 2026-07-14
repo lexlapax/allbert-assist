@@ -126,9 +126,15 @@ defmodule AllbertAssistWeb.V061.RedesignedSurfaceProofTest do
       |> List.flatten()
       |> Enum.uniq()
 
-    # First-Model-Path shaped (ADR 0078): the empty-handed operator is led to set up
-    # a first model before anything else.
-    assert actions == ["model_doctor", "direct_answer", "list_objectives", "list_channels"]
+    # First-Model-Path shaped (ADR 0078); v1.0 M7.4 (R12): pre-onboarding, the single
+    # first-run entry point is the guided-setup wizard (backed by the read-only
+    # first_model_detect action). The model_doctor shortcut returns post-onboarding.
+    assert actions == [
+             "first_model_detect",
+             "direct_answer",
+             "list_objectives",
+             "list_channels"
+           ]
 
     capabilities = Map.new(ActionsRegistry.capabilities(), &{&1.name, &1})
 

@@ -932,6 +932,21 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
       refute has_element?(view, "#workspace-wizard-rewind-welcome")
     end
 
+    test "v1.0 R12: one first-run entry point — the hero leads to guided setup until onboarding completes",
+         %{conn: conn} do
+      FirstRun.reset_onboarding()
+      {:ok, view, _html} = live(conn, ~p"/workspace")
+
+      assert has_element?(view, "#workspace-suggested-action-guided-setup")
+      refute has_element?(view, "#workspace-suggested-action-first-model")
+
+      FirstRun.merge_marker(%{"onboarding_complete" => true})
+      {:ok, view, _html} = live(conn, ~p"/workspace")
+
+      assert has_element?(view, "#workspace-suggested-action-first-model")
+      refute has_element?(view, "#workspace-suggested-action-guided-setup")
+    end
+
     test "v1.0 R11: an explicit go-signal appears once first chat is ready", %{conn: conn} do
       FirstRun.reset_onboarding()
       original = Application.get_env(:allbert_assist, :first_model_state_override)
