@@ -318,6 +318,17 @@ defmodule AllbertAssist.OnboardingTest do
   end
 
   describe "v1.0 R2 wizard rewind" do
+    test "first_chat_ready? requires both a ready model and enabled direct answers" do
+      refute Onboarding.first_chat_ready?(%{readiness: :needs_model})
+      refute Onboarding.first_chat_ready?(%{readiness: :ready})
+
+      assert {:ok, _setting} =
+               Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+
+      assert Onboarding.first_chat_ready?(%{readiness: :ready})
+      refute Onboarding.first_chat_ready?(%{readiness: :needs_runtime})
+    end
+
     test "rewinding to an earlier done step truncates done and makes it current" do
       Onboarding.wizard_start(:quickstart)
 

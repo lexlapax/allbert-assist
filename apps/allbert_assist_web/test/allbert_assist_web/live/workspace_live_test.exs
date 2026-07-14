@@ -932,6 +932,31 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
       refute has_element?(view, "#workspace-wizard-rewind-welcome")
     end
 
+    test "v1.0 R11: an explicit go-signal appears once first chat is ready", %{conn: conn} do
+      FirstRun.reset_onboarding()
+      original = Application.get_env(:allbert_assist, :first_model_state_override)
+      Application.put_env(:allbert_assist, :first_model_state_override, :local_ready)
+
+      on_exit(fn ->
+        if original,
+          do: Application.put_env(:allbert_assist, :first_model_state_override, original),
+          else: Application.delete_env(:allbert_assist, :first_model_state_override)
+      end)
+
+      {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:onboard")
+
+      view |> element("#workspace-onboarding-start-quickstart") |> render_click()
+      refute has_element?(view, "#workspace-onboarding-first-chat-ready")
+
+      view |> element("#workspace-wizard-advance-welcome") |> render_click()
+      view |> element("#workspace-wizard-advance-track_select") |> render_click()
+      view |> element("#workspace-wizard-advance-model_path") |> render_click()
+
+      assert has_element?(view, "#workspace-onboarding-first-chat-ready")
+      ready_html = view |> element("#workspace-onboarding-first-chat-ready") |> render()
+      assert ready_html =~ "You&#39;re ready to chat."
+    end
+
     test "v1.0 R3: the trust block shows step guidance and changes with the step", %{conn: conn} do
       FirstRun.reset_onboarding()
       {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:onboard")

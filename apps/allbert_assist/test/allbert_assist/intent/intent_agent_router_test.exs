@@ -176,6 +176,28 @@ defmodule AllbertAssist.Agents.IntentAgentRouterTest do
     refute to_string(run_response.message) =~ "missing_plan_source"
   end
 
+  test "a capability question answers with skills even when the router would execute another action",
+       %{uid: uid, tid: tid} do
+    Application.put_env(
+      :allbert_assist,
+      :intent_router_fake_outcome,
+      Outcome.execute("show_app", %{}, 1.0)
+    )
+
+    for text <- [
+          "Help me understand what Allbert can do locally.",
+          "what can you do?",
+          "what can it do"
+        ] do
+      assert {:ok, response} = IntentAgent.respond(%{text: text, user_id: uid, thread_id: tid})
+
+      assert response.decision.selected_action == "list_skills",
+             "#{inspect(text)} routed to #{response.decision.selected_action}"
+
+      refute to_string(response.message) =~ "app id"
+    end
+  end
+
   defp restore(key, nil), do: Application.delete_env(:allbert_assist, key)
   defp restore(key, value), do: Application.put_env(:allbert_assist, key, value)
 end

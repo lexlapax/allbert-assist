@@ -312,6 +312,19 @@ defmodule AllbertAssist.Onboarding do
   defp maybe_enable_model_answer(_step, _state), do: :ok
 
   @doc """
+  The first-chat go-signal (v1.0 R11): true exactly when a first model-backed
+  question will get an answer — the model probe is `:ready` AND onboarding has
+  enabled `intent.direct_answer_model_enabled`. Single source of truth for every
+  onboarding surface; derived, never stored.
+  """
+  @spec first_chat_ready?(wizard()) :: boolean()
+  def first_chat_ready?(%{readiness: :ready}) do
+    match?({:ok, true}, Settings.get("intent.direct_answer_model_enabled"))
+  end
+
+  def first_chat_ready?(_wizard), do: false
+
+  @doc """
   Rewind to `step` (v1.0 R2): an already-completed step (or one before the current
   step) becomes current again, with `wizard_done` truncated to the steps strictly
   before it. Rewinding past `profile_review` clears `profile_reviewed`; any rewind

@@ -327,6 +327,17 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
           </span>
         </div>
 
+        <div
+          :if={@onboarding_wizard.started? and @first_chat_ready?}
+          id="workspace-onboarding-first-chat-ready"
+          class="rounded border border-success/40 bg-success/10 px-2 py-1.5 text-xs"
+          role="status"
+        >
+          <span class="font-medium">You're ready to chat.</span>
+          Ask your first question in the chat — for example, "What can you do locally?"
+          Risky actions still pause for your approval.
+        </div>
+
         <div :if={!@onboarding_wizard.started?} class="flex gap-2">
           <button
             type="button"
@@ -649,6 +660,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
       OnboardingContext.model_guidance_for(wizard.readiness, wizard.track)
     )
     |> assign(:step_guidance, step_guidance(wizard))
+    |> assign(:first_chat_ready?, OnboardingContext.first_chat_ready?(wizard))
     |> assign(:provider_profiles, provider_profiles())
     |> assign(:tier_line, tier_line())
   end
