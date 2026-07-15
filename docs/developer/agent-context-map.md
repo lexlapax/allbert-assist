@@ -44,6 +44,7 @@ release history mirror; use `CHANGELOG.md` for shipped details and
 | StockSage | ADR 0018, ADR 0020, ADR 0022, StockSage plans/changelog | Plugin-owned domain; Python bridge is comparison/reference after native work. |
 | Test strategy and gates | ADR 0049, ADR 0050, `docs/developer/test-strategy.md`, `DEVELOPMENT.md` | Lane classification and release-gate evidence live there. |
 | Public contract freeze (1.0) | `docs/developer/public-contract-freeze.md`, `docs/plans/archives/v1.0-plan.md`, ADR 0021 A20 | Tiered frozen contracts; `mix allbert.test release.v1` enforces exact-name freeze. |
+| Release planning & backlog lifecycle | `docs/plans/roadmap.md`, `docs/plans/future-features.md`, `AGENTS.md` (Post-1.0 Release Model) | Items with an implementation plan are marked `Status: planned — <plan doc>` in future-features and linked on the roadmap ladder; once implemented and tagged they are removed from future-features and the roadmap is updated. |
 
 ## Current Release Arc
 

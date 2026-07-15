@@ -7,9 +7,13 @@ prioritization inventory: every entry carries a proposed MoSCoW class and an
 effort tag so the operator can run a category-by-category prioritization pass.
 
 For planned work, use `docs/plans/roadmap.md` and the matching versioned plan.
-When a parked item is promoted (fully or partially) into a release plan, the
-promoted part is removed from this file; only the unplanned remainder stays
-here.
+Backlog lifecycle rule (mirrored in AGENTS.md and the roadmap Working Rules):
+when an item gains an implementation plan, its entry here is marked
+`Status: planned — docs/plans/vX.Y.Z-plan.md M<n>` and the roadmap ladder links
+the plan triad. After that plan is implemented and tagged, the planned part is
+removed from this file entirely — only an unplanned remainder stays, reparked
+with its provenance — and the roadmap is updated accordingly. This file never
+holds shipped history.
 
 This revision folds in the v1.0 closeout sweep of every archived plan,
 request-flow, handoff, ADR, roadmap, and operator/developer doc: items that
@@ -126,7 +130,7 @@ Deferred at: `v0.54-plan:1291`.
 
 Class: Must (foundational) (confirmed 2026-07-14) · Effort: S · Slice: 1.0.1
 
-Status: parked (v1.0 remediation R15 left open).
+Status: planned — `docs/plans/v1.0.1-plan.md` M1 (implementation-ready 2026-07-15).
 
 Digest-manifest cache-busting for web assets, identified in the v1.0
 remediation pass but not shipped. Prevents stale-asset classes of bug for
@@ -1832,7 +1836,7 @@ Still parked:
 
 Class: Should (confirmed 2026-07-14) · Effort: S · Slice: 1.0.1
 
-Status: parked (operator-known from the v1.0 closeout).
+Status: planned — `docs/plans/v1.0.1-plan.md` M2 (implementation-ready 2026-07-15).
 
 Raw daisy `btn` classes have drifted into operator surfaces:
 `design_system_tokens_test` fails when run out-of-lane, and `onboarding.ex`
@@ -1845,7 +1849,7 @@ Deferred at: v1.0 release closeout (operator-attested).
 
 Class: Should (confirmed 2026-07-14) · Effort: S · Slice: 1.0.1
 
-Status: parked (operator-known from the v1.0 closeout).
+Status: planned — `docs/plans/v1.0.1-plan.md` M3 (implementation-ready 2026-07-15).
 
 The offline service-worker test fails when run out-of-lane; pre-existing, not
 a v1.0 regression. Fix or lane-scope it as part of the Test Suite Speed &
@@ -1857,7 +1861,7 @@ Deferred at: v1.0 release closeout (operator-attested).
 
 Class: Must (confirmed 2026-07-14) · Effort: S · Slice: 1.0.1
 
-Status: parked (evidence gap, trivially closable).
+Status: planned — `docs/plans/v1.0.1-plan.md` M4 (implementation-ready 2026-07-15).
 
 The DIT-5 upgrade/uninstall operator transcript (`dit5-upgrade-uninstall.log`)
 was attested during the v1.0 closeout but has not been dropped into

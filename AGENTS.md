@@ -157,5 +157,10 @@ business-logic debugging, code review, or repository-specific architecture revie
   The sequencing lives in `docs/plans/roadmap.md` (ladder) and
   `docs/plans/future-features.md` (classified inventory — new ideas enter there with
   class/effort/provenance before any plan work).
+- Backlog lifecycle: an item that gains an implementation plan is marked
+  `Status: planned — <plan doc>` in future-features.md and linked from the roadmap
+  ladder. After the plan is implemented and tagged, remove the item from
+  future-features.md (only unplanned remainders stay, reparked) and update the
+  roadmap accordingly.
 - Released plan/request-flow docs move to `docs/plans/archives/` at closeout; operator
   runbook steps must be paste-executable with inline PASS criteria.

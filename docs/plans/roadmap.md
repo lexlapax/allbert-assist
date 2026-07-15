@@ -17,6 +17,8 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
 
 1. **1.0.1** — first point release: R15 digest-manifest cache-busting, operator-surface
    `btn` class drift, offline service-worker test fix, DIT-5 transcript drop.
+   Plan: [v1.0.1-plan.md](v1.0.1-plan.md) + [v1.0.1-request-flow.md](v1.0.1-request-flow.md)
+   (implementation-ready 2026-07-15).
 2. **1.0.x** — incremental: test suite speed & isolation (lane-by-lane, incl. the
    fast-local web split), v0.58 cleanup tails, Tier-2->Tier-1 promotion ADR (docs),
    intent-pipeline refinements (opportunistic).
@@ -49,3 +51,8 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
   on every release; Tier-2 changes stay additive; Tier-1 changes need a major.
 - Operator intake items enter future-features.md with class + effort + provenance,
   then slot into the ladder here.
+- Backlog lifecycle: an item that gains an implementation plan is marked
+  `Status: planned — <plan doc>` in future-features.md and its ladder entry here
+  links the plan triad. After the plan is implemented and tagged, the item is
+  removed from future-features.md (only unplanned remainders stay) and this
+  roadmap is updated accordingly (ladder entry marked shipped / re-sequenced).
