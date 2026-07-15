@@ -276,6 +276,23 @@ defmodule AllbertAssist.Objectives do
     update_step(step, Map.merge(attrs, %{status: normalize_string(status)}))
   end
 
+  @doc "Find the newest step bound to a confirmation id (v1.0.1 M4.2.2)."
+  @spec get_step_by_confirmation(String.t()) :: step_result()
+  def get_step_by_confirmation(confirmation_id)
+      when is_binary(confirmation_id) and confirmation_id != "" do
+    Step
+    |> where([step], step.confirmation_id == ^confirmation_id)
+    |> order_by([step], desc: step.inserted_at, desc: step.id)
+    |> limit(1)
+    |> Repo.one()
+    |> case do
+      %Step{} = step -> {:ok, step}
+      nil -> {:error, {:step_not_found_for_confirmation, confirmation_id}}
+    end
+  end
+
+  def get_step_by_confirmation(_confirmation_id), do: {:error, :missing_confirmation_id}
+
   @doc "List steps for an objective."
   @spec list_steps(String.t()) :: [Step.t()]
   def list_steps(objective_id) when is_binary(objective_id) do

@@ -163,6 +163,193 @@ defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
     end
   end
 
+  describe "live approval resume (M4.2.2, Stub driver, NO pre-remembered grant)" do
+    setup do
+      assert {:ok, _setting} = Settings.put("browser.enabled", true, %{audit?: false})
+      assert {:ok, _setting} = Settings.put("research.enabled", true, %{audit?: false})
+      :ok
+    end
+
+    test "approving the blocked confirmations resumes the delegate to a completed objective" do
+      assert {:ok, response} =
+               Runner.run(
+                 "browser_research_handoff",
+                 %{url: "https://example.com/docs/a"},
+                 %{user_id: "alice", operator_id: "alice", active_app: :allbert_browser}
+               )
+
+      assert response.status == :needs_confirmation
+      session_confirmation_id = response.confirmation_id
+      objective_id = response.objective_id
+
+      # Approve the browser session confirmation with the exact params the
+      # operator surfaces (workspace/CLI) pass: only the confirmation id.
+      assert {:ok, session_approval} =
+               Runner.run("approve_confirmation", %{id: session_confirmation_id}, %{
+                 actor: "alice",
+                 user_id: "alice",
+                 channel: :cli,
+                 surface: "mix allbert.confirmations"
+               })
+
+      assert session_approval.status == :completed
+      refute session_approval.confirmation["status"] == "adapter_unavailable"
+
+      session_metadata = session_approval.actions |> hd() |> Map.get(:confirmation_metadata)
+      assert session_metadata.target_resumed?
+      refute Map.get(session_metadata, :adapter_unavailable?, false)
+
+      # The approval re-drove the blocked delegate step; without a remembered
+      # navigation grant the step now blocks on the navigation confirmation.
+      assert session_approval.output_data.run_status == :needs_confirmation
+      navigate_confirmation_id = session_approval.output_data.confirmation_id
+      assert is_binary(navigate_confirmation_id)
+      refute navigate_confirmation_id == session_confirmation_id
+
+      assert {:ok, navigate_record} = Confirmations.read(navigate_confirmation_id)
+      assert get_in(navigate_record, ["target_action", "name"]) == "browser_navigate"
+
+      assert {:ok, blocked} = Objectives.get_objective(objective_id)
+      assert blocked.status == "blocked"
+
+      # Approve the navigation confirmation — the delegate re-drives to
+      # completion against the Stub driver; no confirmation is skipped.
+      assert {:ok, navigate_approval} =
+               Runner.run("approve_confirmation", %{id: navigate_confirmation_id}, %{
+                 actor: "alice",
+                 user_id: "alice",
+                 channel: :cli,
+                 surface: "mix allbert.confirmations"
+               })
+
+      assert navigate_approval.status == :completed
+      refute navigate_approval.confirmation["status"] == "adapter_unavailable"
+      assert navigate_approval.output_data.run_status == :completed
+      assert navigate_approval.output_data.summary =~ "Research summary"
+
+      assert {:ok, completed} = Objectives.get_objective(objective_id)
+      assert completed.status == "completed"
+
+      assert [step] = Objectives.list_steps(objective_id)
+      assert step.status == "completed"
+
+      # The resolved confirmation carries the research result annotation.
+      assert {:ok, resolved} = Confirmations.read(navigate_confirmation_id)
+      assert resolved["status"] == "approved"
+
+      assert get_in(resolved, ["operator_resolution", "target_result", "summary"]) =~
+               "Research summary"
+
+      # The delegate closed its session on the way out.
+      assert {:ok, %{sessions: []}} = Runner.run("browser_list_sessions", %{}, %{})
+    end
+
+    test "workspace (live_view) approval resumes asynchronously and completes the objective" do
+      assert {:ok, response} =
+               Runner.run(
+                 "browser_research_handoff",
+                 %{url: "https://example.com/docs/a"},
+                 %{user_id: "alice", operator_id: "alice", active_app: :allbert_browser}
+               )
+
+      assert response.status == :needs_confirmation
+      objective_id = response.objective_id
+
+      assert {:ok, session_approval} =
+               Runner.run("approve_confirmation", %{id: response.confirmation_id}, %{
+                 actor: "alice",
+                 user_id: "alice",
+                 channel: :liveview,
+                 surface: "/workspace"
+               })
+
+      assert session_approval.status == :completed
+      refute session_approval.confirmation["status"] == "adapter_unavailable"
+      assert session_approval.output_data.run_status == :resuming
+
+      # The async re-drive blocks on the navigation confirmation next.
+      navigate_confirmation_id =
+        eventually(fn ->
+          case Objectives.get_objective(objective_id) do
+            {:ok, %{status: "blocked"}} ->
+              [step] = Objectives.list_steps(objective_id)
+
+              if step.confirmation_id != response.confirmation_id do
+                {:ok, step.confirmation_id}
+              else
+                :retry
+              end
+
+            _other ->
+              :retry
+          end
+        end)
+
+      assert {:ok, navigate_approval} =
+               Runner.run("approve_confirmation", %{id: navigate_confirmation_id}, %{
+                 actor: "alice",
+                 user_id: "alice",
+                 channel: :liveview,
+                 surface: "/workspace"
+               })
+
+      assert navigate_approval.status == :completed
+      assert navigate_approval.output_data.run_status == :resuming
+
+      assert :ok ==
+               eventually(fn ->
+                 case Objectives.get_objective(objective_id) do
+                   {:ok, %{status: "completed"}} -> {:ok, :ok}
+                   _other -> :retry
+                 end
+               end)
+
+      # The async re-drive annotated the resolved confirmation with the result.
+      assert "Research summary" <> _rest =
+               eventually(fn ->
+                 with {:ok, resolved} <- Confirmations.read(navigate_confirmation_id),
+                      summary when is_binary(summary) <-
+                        get_in(resolved, ["operator_resolution", "target_result", "summary"]) do
+                   {:ok, summary}
+                 else
+                   _other -> :retry
+                 end
+               end)
+    end
+
+    test "standalone browser session confirmation approval resumes only the session target" do
+      assert {:ok, doctor} = Runner.run("browser_doctor", %{}, %{})
+      assert doctor.doctor.live_check_status == :ok
+
+      assert {:ok, pending} =
+               Runner.run("browser_start_session", %{purpose: "standalone approval"}, %{
+                 actor: "alice",
+                 user_id: "alice",
+                 channel: :cli
+               })
+
+      assert pending.status == :needs_confirmation
+
+      assert {:ok, approval} =
+               Runner.run("approve_confirmation", %{id: pending.confirmation_id}, %{
+                 actor: "alice",
+                 user_id: "alice",
+                 channel: :cli
+               })
+
+      assert approval.status == :completed
+      refute approval.confirmation["status"] == "adapter_unavailable"
+
+      metadata = approval.actions |> hd() |> Map.get(:confirmation_metadata)
+      assert metadata.target_resumed?
+      assert metadata.target_status == :completed
+
+      # Exactly the approved target ran: one session, no objective created.
+      assert {:ok, %{sessions: [_session]}} = Runner.run("browser_list_sessions", %{}, %{})
+      assert Objectives.list_objectives("alice", limit: 5) == []
+    end
+  end
+
   describe "honest blocked reporting (preconditions unmet)" do
     test "browser.enabled off (default) blocks with the exact setting named" do
       assert {:ok, response} =
@@ -211,6 +398,20 @@ defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
       assert response.error == :research_agent_unavailable
       assert response.message =~ "research.specialist"
       assert Objectives.list_objectives("alice", limit: 5) == []
+    end
+  end
+
+  defp eventually(fun, attempts \\ 200) do
+    case fun.() do
+      {:ok, value} ->
+        value
+
+      :retry when attempts > 1 ->
+        Process.sleep(25)
+        eventually(fun, attempts - 1)
+
+      :retry ->
+        flunk("condition was not met before the eventually/2 deadline")
     end
   end
 

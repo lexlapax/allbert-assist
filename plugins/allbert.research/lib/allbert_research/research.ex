@@ -49,7 +49,7 @@ defmodule AllbertResearch.Research do
           expected_domains: Enum.map(sources, &host/1) |> Enum.reject(&is_nil/1) |> Enum.uniq()
         }
 
-        case run_browser_action("browser_start_session", start_params, browser_context(params)) do
+        case run_browser_action("browser_start_session", start_params, session_context(params)) do
           {:ok, %{status: :completed, session_id: session_id}} ->
             {:ok, session_id}
 
@@ -69,7 +69,14 @@ defmodule AllbertResearch.Research do
     context = browser_context(params)
 
     collect_result =
-      collect_sources_safely(sources, session_id, context, extract_format(params), extract_cap())
+      collect_sources_safely(
+        sources,
+        session_id,
+        context,
+        extract_format(params),
+        extract_cap(),
+        approved_urls(params)
+      )
 
     close_result = close_session(session_id, context)
 
@@ -85,8 +92,8 @@ defmodule AllbertResearch.Research do
     end
   end
 
-  defp collect_sources_safely(sources, session_id, context, extract_format, max_bytes) do
-    collect_sources(sources, session_id, context, extract_format, max_bytes)
+  defp collect_sources_safely(sources, session_id, context, extract_format, max_bytes, approved) do
+    collect_sources(sources, session_id, context, extract_format, max_bytes, approved)
   rescue
     exception ->
       {:error, unexpected_runner_response({:exception, Exception.message(exception)})}
@@ -95,9 +102,9 @@ defmodule AllbertResearch.Research do
       {:error, unexpected_runner_response({kind, reason})}
   end
 
-  defp collect_sources(sources, session_id, context, extract_format, max_bytes) do
+  defp collect_sources(sources, session_id, context, extract_format, max_bytes, approved) do
     Enum.reduce_while(sources, {:ok, []}, fn url, {:ok, collected} ->
-      with {:ok, :navigated} <- navigate(session_id, url, context),
+      with {:ok, :navigated} <- navigate(session_id, url, context, approved),
            {:ok, source} <- extract(session_id, url, extract_format, max_bytes, context) do
         {:cont, {:ok, [source | collected]}}
       else
@@ -111,7 +118,9 @@ defmodule AllbertResearch.Research do
     end
   end
 
-  defp navigate(session_id, url, context) do
+  defp navigate(session_id, url, context, approved_urls) do
+    context = navigate_context(context, url, approved_urls)
+
     case run_browser_action("browser_navigate", %{session_id: session_id, url: url}, context) do
       {:ok, %{status: :completed}} -> {:ok, :navigated}
       {:ok, %{status: :needs_confirmation} = response} -> {:pending, response}
@@ -362,6 +371,48 @@ defmodule AllbertResearch.Research do
   end
 
   defp extract_format(params), do: field(params, :extract_format, @default_extract_format)
+
+  # ── Approval-resume vouchers (v1.0.1 M4.2.2) ────────────────────────────────
+  #
+  # When a delegate run blocks on a browser confirmation, `approve_confirmation`
+  # stores a voucher on the objective step's action params after the operator
+  # approves that exact confirmation, then re-drives the step. The voucher
+  # replays only the approved action — a session start, or navigation to the
+  # exact approved URLs — as an approval resume; every other browser action
+  # still goes through the normal confirmation machinery.
+
+  defp session_context(params) do
+    context = browser_context(params)
+
+    if session_approved?(params) do
+      approval_resume_context(context)
+    else
+      context
+    end
+  end
+
+  defp navigate_context(context, url, approved_urls) do
+    if url in approved_urls do
+      approval_resume_context(context)
+    else
+      context
+    end
+  end
+
+  defp approval_resume_context(context) do
+    Map.put(context, :confirmation, %{approved?: true})
+  end
+
+  defp session_approved?(params) do
+    field(params, :session_approved) in [true, "true"]
+  end
+
+  defp approved_urls(params) do
+    params
+    |> field(:approved_urls, [])
+    |> List.wrap()
+    |> Enum.filter(&is_binary/1)
+  end
 
   defp browser_context(params) do
     %{
