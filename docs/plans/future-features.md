@@ -1,76 +1,355 @@
-# Allbert Future Features Parking Lot
+# Allbert Future Features — Post-1.0 Inventory
 
-This file tracks work that is not assigned to a concrete roadmap milestone.
-It is a strict parking lot, not release history and not a duplicate roadmap.
+This file is the consolidated post-1.0 inventory of work that is not assigned
+to a concrete roadmap milestone. It remains a strict parking lot, not release
+history and not a duplicate roadmap. Post-1.0 it is additionally the
+prioritization inventory: every entry carries a proposed MoSCoW class and an
+effort tag so the operator can run a category-by-category prioritization pass.
 
 For planned work, use `docs/plans/roadmap.md` and the matching versioned plan.
-When a parked item is partially promoted, keep only the unplanned remainder
+When a parked item is promoted (fully or partially) into a release plan, the
+promoted part is removed from this file; only the unplanned remainder stays
 here.
 
-## Parked Future Features
+This revision folds in the v1.0 closeout sweep of every archived plan,
+request-flow, handoff, ADR, roadmap, and operator/developer doc: items that
+were deferred in an archived plan and never shipped or parked appear as new
+entries with their provenance; pre-existing parked sections are preserved
+verbatim and grouped by category.
 
-### System Memory Distillation
+## Classification
+
+Classes are **proposed** pending the operator's category-by-category
+prioritization pass — nothing below is committed until that pass happens.
+
+- **MoSCoW class**: `Must` (do next; items marked "(foundational)" unblock
+  other work and should be sequenced first), `Should` (high-value, not
+  blocking), `Could` (worth doing if a release has room or a consumer
+  appears), `Won't-now` (indefinitely parked strategic items; revisit only on
+  strong operator demand or a posture change).
+- **Effort**: `S` (days), `M` (a milestone-sized chunk), `L` (a release or
+  more).
+- Entries needing operator triage before classification is trusted carry a
+  `Verify:` marker on the class line and appear in the Triage Notes table at
+  the end.
+
+Provenance shorthand used in `Deferred at:` lines: `vX.YY-plan:N` and
+`vX.YY-rf:N` point into `docs/plans/archives/vX.YY-plan.md` /
+`vX.YY-request-flow.md`; `v1.0-handoff:N` into
+`docs/plans/archives/v1.0-handoff.md`; `roadmap:N` into
+`docs/plans/roadmap.md`; `adr/NNNN:N` into the numbered ADR under
+`docs/adr/`; `operator/...` and `developer/...` into `docs/operator/` and
+`docs/developer/`. Line numbers are as of the 2026-07-14 consolidation sweep.
+
+## Platform & Runtime Debt
+
+### Settings Runtime Migration Runner
+
+Class: Must (foundational) (proposed) · Effort: M
+
+Status: parked (deferred until the first non-additive settings migration).
+
+A `mix allbert.settings.migrate` runner plus a Migration DSL for settings
+schema changes that are not purely additive. Deferred in v0.59, re-deferred in
+the v1.0 plan; ADR 0046 records the deferral condition. Every future
+settings-shape change lands on this item first — it gates plugin-owned
+settings migration, legacy-key removal, and any rename.
+
+Deferred at: `roadmap:2850`, `adr/0046:67`, `v0.59-plan:135`, `v1.0-plan:137`.
+
+### Test Suite Speed & Isolation
+
+Class: Must (foundational) (proposed) · Effort: L
+
+Status: parked (never received its own plan doc).
+
+Full `mix test` carries ~20 pre-existing order-dependent flakes; slowness and
+flakiness share one root cause — global-state tests forced into serial lanes.
+A "test speed + isolation" version was proposed post-v0.52 but the v0.53 slot
+went to the Channel Pack instead, so the work was never planned. The v1.0
+plan records the pre-existing order-dependent intent-battery flakes as
+out-of-scope. Unblocks trustworthy full-suite runs and faster gates for all
+future work.
+
+Deferred at: `v1.0-plan:478` (intent-battery flakes); operator-known
+(~20 order-dependent flakes in full `mix test`); the proposed-but-never-planned
+post-v0.52 "test speed + isolation" version.
+
+### PermissionGate Deletion / Parity Pass
+
+Class: Must (foundational) (proposed) · Effort: M
 
 Status: parked.
 
-v0.39b ships the deterministic precursor: an inert `identity` system memory
-namespace (declared via the non-app system-namespace declarer and surfaced as
-a 5th `Memory` category under
-`<ALLBERT_HOME>/memory/identity/`) plus deterministic recency-weighted
-lexical Active Memory retrieval over reviewed `:kept` entries scoped to
-`{thread_id, active_app, identity_namespace}`. Replayable from traces.
-No embeddings; no learned ranking.
+PermissionGate is still a shim after the v0.31 permission rework. A deletion
+or parity pass removes the shim so future permission work has one authority
+path.
 
-v0.47 ships operator-supervised trace-derived draft suggestions. Neither
-v0.39b, v0.47, nor the v0.47b/`0.47.1` handoff draft release trains,
-distills, or creates a learned system-memory
-authority.
+Deferred at: `v0.31-rf:112`.
 
-Still parked:
+### Full Cross-Action Param-Contract Enforcement
 
-- nightly memory/personality distillation;
-- small local model training from operator history;
-- learned system-memory models that influence runtime behavior;
-- deletion, reproducibility, privacy, and eval policy for any trained memory
-  artifact.
+Class: Must (foundational) (proposed) · Effort: M · Verify: what v0.59
+actually shipped versus the full v0.54 enforcement scope
 
-### Autonomous Skill Creation Beyond Supervised Drafts
+Status: verify.
 
-Status: parked.
+v0.54 planned full cross-action param-contract enforcement; a bounded scope
+shipped later (v0.59-era). The remainder — enforcement across every action
+boundary — completes the contract story that generated actions, workflows,
+and public protocol surfaces all lean on.
 
-v0.47 ships operator-supervised, inert trace-to-skill and trace-to-workflow
-draft suggestions, and v0.47b/`0.47.1` ships supervised handoff drafts for
-templates, marketplace metadata, delegate-plugin requests, capability gaps,
-and objectives. Drafts remain disabled/untrusted or otherwise inert until
-reviewed and routed through the existing confirmed/gated path for their kind.
+Deferred at: `v0.54-plan:1291`.
 
-Still parked:
+### R15 Digest-Manifest Cache-Busting
 
-- autonomous skill creation from traces;
-- auto-enable, auto-publish, or marketplace submission;
-- broad execution permissions derived from repeated use or model confidence;
-- autonomous package install, remote plugin install, or arbitrary code loading.
+Class: Must (foundational) (proposed) · Effort: S
 
-### Dynamic Capability Expansion Beyond v0.47 Facades
+Status: parked (v1.0 remediation R15 left open).
+
+Digest-manifest cache-busting for web assets, identified in the v1.0
+remediation pass but not shipped. Prevents stale-asset classes of bug for
+every future web release.
+
+Deferred at: `v1.0-plan:516`.
+
+### Core-Action `app_id` Ownership (Option 2)
+
+Class: Should (proposed) · Effort: M
 
 Status: parked.
 
-v0.36-v0.38 now define the supervised dynamic capability path: sandbox/gate
-evidence, dynamic action integration, and templated creation. v0.47 ships only
-reviewed delegate facades for memory promotion/update drafts and workflow
-draft writes; v0.47b/`0.47.1` ships objective and handoff draft kinds on that
-same supervised path.
+The v0.54 plan chose a bounded option for core-action `app_id` handling and
+recorded "Option 2" (proper ownership semantics for core actions) as the
+follow-on.
+
+Deferred at: `v0.54-plan:133`.
+
+### App-Registry Membership Check At Action Boundary
+
+Class: Should (proposed) · Effort: S · Verify: whether any boundary check
+landed in later releases or the gap still exists
+
+Status: verify.
+
+v0.15 deferred validating app-registry membership at the action boundary
+(actions trusting the caller-supplied app identity).
+
+Deferred at: `v0.15-plan:670`.
+
+### Working-Memory Contract Gaps
+
+Class: Should (proposed) · Effort: S · Verify: whether the v0.14 gaps still
+apply to the current working-memory implementation
+
+Status: verify.
+
+Two v0.14 deferrals: a precise data-safety definition for working memory, and
+nested patch semantics for working-memory updates.
+
+Deferred at: `v0.14-plan:390` (data-safety definition), `v0.14-plan:249`
+(nested patch semantics).
+
+### Mid-Action Interruption / In-Flight Kill
+
+Class: Should (proposed) · Effort: M
+
+Status: parked.
+
+v0.24 deferred interrupting or killing an in-flight action mid-execution.
+Operators can only wait out a long-running action today.
+
+Deferred at: `v0.24-rf:466`.
+
+### Child-Process Cancellation Semantics
+
+Class: Should (proposed) · Effort: M
+
+Status: parked.
+
+v0.57 deferred defining cancellation semantics for spawned child processes
+(what happens to external work when the owning request dies). Related to
+"Mid-Action Interruption / In-Flight Kill" above.
+
+Deferred at: `v0.57-plan:845`.
+
+### Force/Retry Job Mode
+
+Class: Could (proposed) · Effort: S
+
+Status: parked.
+
+v0.13 deferred a force/retry mode for scheduled jobs (re-run a failed or
+skipped job on demand).
+
+Deferred at: `v0.13-rf:147`.
+
+### `objectives.rehydrate_window_minutes` Setting
+
+Class: Could (proposed) · Effort: S
+
+Status: parked.
+
+v0.24 deferred exposing the objectives rehydrate window as an operator
+setting.
+
+Deferred at: `v0.24-rf:782`.
+
+### Intent Pipeline Refinements
+
+Class: Could (proposed) · Effort: S
+
+Status: parked.
+
+Two v0.54 deferrals: an `intent_candidates` trace-block (surfacing the
+candidate set in traces) and single-token tightening for the ranker.
+
+Deferred at: `v0.54-plan:512` (intent_candidates trace-block),
+`v0.54-plan:439` (ranker single-token tightening).
+
+### `:operator` Exposure Expansion
+
+Class: Could (proposed) · Effort: S
+
+Status: parked.
+
+v0.55b deferred expanding what the `:operator` exposure level covers beyond
+its initial scope.
+
+Deferred at: `v0.55b-plan:100`.
+
+## Packaging & Distribution
+
+### Apple Notarization / Hardened-Runtime Staple
+
+Class: Must (proposed) · Effort: M
+
+Status: parked (named as a v0.64 item; never shipped).
+
+Notarize and staple the packaged macOS binary with the hardened runtime.
+v0.62 shipped cosign signing; Gatekeeper-clean install without a quarantine
+override still needs notarization. Core trust story for non-developer
+installs.
+
+Deferred at: `v0.62-plan:383`.
+
+### Automated Migration Rollback
+
+Class: Must (proposed) · Effort: M
+
+Status: parked (deferred from v0.62 to v0.64; never shipped).
+
+Automated rollback of data/settings migrations when a packaged upgrade fails
+partway. Today recovery is the manual DB-backup path.
+
+Deferred at: `v0.62-plan:384`.
+
+### Full TUI First-Run Repair Panels
+
+Class: Should (proposed) · Effort: M
+
+Status: parked.
+
+v0.64 shipped a bounded first-run TUI; the full repair-panel set (doctor-led
+fix-it flows in the TUI) was deferred.
+
+Deferred at: `v0.64-plan:176`.
+
+### DIT-1 Windows/WSL2 Install Walkthrough
+
+Class: Should (proposed) · Effort: S
+
+Status: parked (scoped out of the v1.0 handoff matrix, not done).
+
+The v1.0 handoff's DIT-1 item — a validated Windows/WSL2 install walkthrough —
+was scoped out rather than completed. Pairs with the Tier-2 posture below.
+
+Deferred at: `v1.0-handoff:87`.
+
+### Tier-2 → Tier-1 Platform Promotion ADR Process
+
+Class: Should (proposed) · Effort: S
+
+Status: parked.
+
+The v1.0 plan names a future ADR-driven process for promoting a Tier-2
+platform (Linux variants, WSL2) to Tier-1 support, without defining it.
+
+Deferred at: `v1.0-plan:373`.
+
+### Packaging-Trust Re-Parked Exceptions (ADR 0076)
+
+Class: Should (proposed) · Effort: M · Verify: which ADR 0076 exceptions
+remain open after the v0.64/v1.0 trust work
+
+Status: verify.
+
+v0.64 re-parked a set of packaging-trust exceptions under ADR 0076. The
+remaining exception list needs re-triage now that v0.64–v1.0 shipped installer
+cosign verification and the release gates.
+
+Deferred at: `v0.64-plan:234`.
+
+### Rich TUI Onboarding Slash-Command Wizard
+
+Class: Could (proposed) · Effort: M · Verify: whether the v0.64 TUI first-run
+flow already subsumed this v0.63 idea
+
+Status: verify.
+
+v0.63 sketched a rich TUI onboarding wizard driven by slash commands; unclear
+how much survived into the v0.64 first-run TUI.
+
+Deferred at: `v0.63-plan:1264`.
+
+### Native Windows Packaging
+
+Class: Could (proposed) · Effort: L · Verify: operator demand versus keeping
+the Tier-2 WSL2-only posture
+
+Status: verify.
+
+Windows support is Tier-2 WSL2-only. Native Windows packaging (a Windows
+binary, not WSL2) is recorded in the v0.62 plan but was never brought into
+this parking lot until now.
+
+Deferred at: `v0.62-plan:2221`.
+
+### Bundled Executable Packaging For Capability Helpers
+
+Class: Could (proposed) · Effort: M · Verify: whether the v0.62 packaged
+binary already covers the helper-executable story
+
+Status: verify.
+
+The provider-capabilities developer doc mentions bundling helper executables
+with the package; unclear whether this is still needed post-v0.62.
+
+Deferred at: `developer/provider-capabilities:210`.
+
+### Native Packaged UI
+
+Class: Could (proposed) · Effort: L
+
+Status: parked.
+
+The browser workspace remains the operator UI through v1.0. Note: v0.62 ships a
+packaged `allbert` **binary** (a release-built CLI + `serve` daemon with a
+Homebrew/curl install path, ADR 0076) — that is distribution of the existing
+surfaces, not a native GUI shell. The native GUI app below stays parked.
 
 Still parked:
 
-- settings, secrets, shell, package-install, confirmation-decision, trust, or
-  live workspace/canvas write facades;
-- broader generated-permission ceilings beyond the reviewed v0.47 memory and
-  workflow draft paths and the shipped v0.47b handoff draft kinds;
-- unsupervised self-recompilation, compiler-loop bootstrapping, or runtime
-  mutation outside the v0.36/v0.37/v0.38 review path.
+- packaged macOS/Windows/Linux **GUI** app;
+- native notification and tray/menu behavior;
+- local authentication/identity policy for a native shell;
+- packaging and auto-update strategy.
+
+## Channels & Messaging
 
 ### SMS Channel Adapter
+
+Class: Could (proposed) · Effort: M
 
 Status: parked.
 
@@ -88,7 +367,10 @@ Still parked:
 
 ### WhatsApp Live Channel Release
 
-Status: parked after v0.53 M11.
+Class: Could (proposed) · Effort: M
+
+Status: parked after v0.53 M11 (reconfirmed open in the v1.0 sweep:
+implementation shipped, live validation still provider-blocked).
 
 v0.53 implemented the WhatsApp Cloud API adapter, signed-webhook ingress, setup
 checks, doctor, renderer, deterministic tests, and local `post-webhook` auth
@@ -109,7 +391,11 @@ Until then, v0.53 records WhatsApp as implemented-not-released through ADR 0066.
 
 ### Signal Advanced-Bridge Release
 
-Status: parked after v0.53 M11.
+Class: Could (proposed) · Effort: M
+
+Status: parked after v0.53 M11 (reconfirmed open in the v1.0 sweep:
+implementation shipped, live validation still requires operator-managed
+onboarding).
 
 v0.53 implemented the Signal `signal-cli` bridge, local custody checks, setup
 checks, doctor, renderer, trust-class stamping, deterministic tests, and
@@ -127,6 +413,8 @@ Future work must decide whether to:
 Until then, v0.53 records Signal as implemented-not-released through ADR 0066.
 
 ### Viber Channel Adapter
+
+Class: Could (proposed) · Effort: M
 
 Status: parked (validated on paper in the v0.53 pass; build deferred).
 
@@ -156,7 +444,468 @@ Still parked:
 - subscriber persistence (no list API) and the 24h session window;
 - the Admin Panel bot-account approval flow.
 
+### iMessage Channel Adapter
+
+Class: Could (proposed) · Effort: M
+
+Status: parked. Moved from v0.53 to parking in the post-v0.37 planning pass.
+
+iMessage requires a macOS-only adapter, opt-in platform constraint, and
+device-pairing recovery story distinct from WhatsApp/Signal/Matrix.
+
+Still parked:
+
+- macOS-only platform policy;
+- device-pairing UX and recovery;
+- App Store / signing implications;
+- backup/restore behavior for paired sessions.
+
+### Proactive Notifications Policy
+
+Class: Should (proposed) · Effort: M
+
+Status: parked. Added in the post-v0.37 planning pass.
+
+Allbert is reactive through v1.0, with one narrow carve-out: v0.42 adds an
+opt-in, paused-by-default background MCP-discovery scan (per ADR 0048) that runs
+as an operator-scheduled job and writes candidates to a *passive* Discovery
+Suggestions surface. That is unattended read-only scanning into a queue the
+operator pulls from — Allbert still never messages the operator unprompted and
+never connects without confirmation. Proactive *messaging* (Allbert pinging the
+operator first when a meeting starts, a job completes, an MCP server disconnects,
+a confirmation expires, or a discovery/self-improvement suggestion is ready)
+remains parked.
+
+Still parked:
+
+- per-channel proactive-message authority (including push about discovery
+  suggestions);
+- operator-opt-in policy per notification class;
+- rate-limit and quiet-hours policy;
+- abuse prevention for runaway notifications;
+- proactive-message audit and revocation.
+
+### Email OAuth (XOAUTH2; Gmail / Microsoft OAuth-Only Mailboxes)
+
+Class: Should (proposed) · Effort: M
+
+Status: parked.
+
+The email channel authenticates with passwords/app-passwords only. XOAUTH2
+support is the named gap in the operator guide, and v0.53 separately deferred
+Gmail/Microsoft OAuth-only mailboxes. Increasingly a Must-shaped item as
+providers retire app passwords.
+
+Deferred at: `operator/email-channel:14` (XOAUTH2), `v0.53-plan:516`
+(Gmail/Microsoft OAuth-only mailboxes).
+
+### IMAP IDLE Push
+
+Class: Could (proposed) · Effort: M
+
+Status: parked.
+
+v0.16 email ingest polls; IMAP IDLE push delivery was deferred.
+
+Deferred at: `v0.16-rf:465`.
+
+### SMTP Provider API Delivery (Mailgun / SendGrid)
+
+Class: Could (proposed) · Effort: S
+
+Status: parked.
+
+v0.16 deferred provider-API outbound delivery (Mailgun/SendGrid) in favor of
+plain SMTP.
+
+Deferred at: `v0.16-rf:554`.
+
+### Separate Channel Registry
+
+Class: Could (proposed) · Effort: M
+
+Status: parked.
+
+v0.17 deferred extracting a dedicated channel registry (channels are wired
+through existing registries today).
+
+Deferred at: `v0.17-plan:42`.
+
+### Discord Adapter Deferred Remainder
+
+Class: Could (proposed) · Effort: M
+
+Status: parked.
+
+Transport and fidelity variants deferred by the v0.52 Discord adapter:
+Interactions HTTP transport (webhook-style instead of the gateway), sharding
+for large-bot scale, select menus + modals as richer approval primitives,
+OAuth multi-app install flow, and full 429/resume/heartbeat gateway fidelity.
+
+Deferred at: `v0.52-plan:1063` (Interactions HTTP transport),
+`v0.52-plan:1064` (sharding), `v0.52-plan:214` (select menus + modals),
+`v0.52-plan:914` (OAuth multi-app install), `v0.52-plan:2066`
+(429/resume/heartbeat fidelity).
+
+### Slack Adapter Deferred Remainder
+
+Class: Could (proposed) · Effort: M
+
+Status: parked.
+
+Transport and scope variants deferred by the v0.52 Slack adapter: Events API
+HTTP transport (instead of Socket Mode), multi-workspace OAuth distribution,
+and an outbound-ref for callback replies.
+
+Deferred at: `v0.52-plan:1065` (Events API HTTP transport), `v0.52-plan:147`
+(multi-workspace OAuth), `v0.52-plan:2067` (callback-reply outbound-ref).
+
+### Telegram/Email Plugin-Owned-Settings Migration
+
+Class: Should (proposed) · Effort: S
+
+Status: parked (blocked on the Settings Runtime Migration Runner above).
+
+v0.52 deferred migrating telegram/email settings to plugin-owned settings
+namespaces; the first non-additive migration needs the runner first.
+
+Deferred at: `v0.52-plan:2312`.
+
+### Matrix E2EE Encrypted Rooms
+
+Class: Could (proposed) · Effort: L
+
+Status: parked.
+
+v0.53 Matrix shipped unencrypted-room support; E2EE rooms (olm/megolm device
+keys, verification, key backup) were deferred.
+
+Deferred at: `v0.53-plan:62`.
+
+## Workspace & Web UI
+
+### Workspace Canvas Snapshot / Undo / Time-Travel
+
+Class: Should (proposed) · Effort: M
+
+Status: parked. Promoted from "post-v0.38 deferred" to an explicit
+parking-lot entry in the post-v0.37 planning pass.
+
+v0.26 canvas substrate persists tiles but has no snapshot, undo, or
+time-travel mechanism. If an operator loses canvas state they want back,
+there's no recovery.
+
+Still parked:
+
+- snapshot trigger policy (manual, per-objective, periodic);
+- snapshot storage layout in `<ALLBERT_HOME>/workspace/snapshots/`;
+- undo/redo UX in the workspace shell;
+- time-travel scope (per-thread, per-app, global);
+- retention and pruning policy.
+
+### Multi-User Collaborative Plan Editing
+
+Class: Won't-now (proposed) · Effort: L
+
+Status: parked. Added in the post-v0.43 planning pass.
+
+v0.44 Plan/Build is single-user: one operator authors and approves a
+plan; expand-to-fullscreen edits happen in one LiveView session at a
+time. Concurrent editing of a shared plan preview (multiple operators
+seeing each other's edits live) requires v0.23's reserved Cursor
+concept (multi-user collaborative cursor) plus a conflict-resolution
+story. Defer until hosted multi-user authorization (also parked) is on
+the table.
+
+### Drag-Drop Tile Reordering / Resize / Durable Layout
+
+Class: Should (proposed) · Effort: M · Verify: exact scope of the StockSage
+cards portion (`adr/0023:583` vs `roadmap:1724`)
+
+Status: verify.
+
+Deferred from v0.26: drag-drop tile reordering, tile resize, and a durable
+per-canvas layout, plus the related StockSage card-arrangement work noted in
+ADR 0023 and the roadmap.
+
+Deferred at: `v0.26-plan:2071`, `adr/0023:583`, `roadmap:1724`.
+
+### Multi-Canvas-Per-Thread
+
+Class: Could (proposed) · Effort: M
+
+Status: parked.
+
+One canvas per thread today; ADR 0023 and the v0.26 plan both defer multiple
+named canvases per thread.
+
+Deferred at: `adr/0023:584`, `v0.26-plan:2074`.
+
+### Theme File-Watcher Live Reload
+
+Class: Could (proposed) · Effort: S
+
+Status: parked.
+
+ADR 0025 defers a file-watcher that live-reloads operator theme files on
+change (today a restart or manual reload picks up edits).
+
+Deferred at: `adr/0025:172`.
+
+### Per-Identity Theme Scope
+
+Class: Could (proposed) · Effort: S
+
+Status: parked.
+
+v0.61b deferred scoping themes per identity (different theme per operator
+identity/persona) rather than globally.
+
+Deferred at: `v0.61b-plan:1643`.
+
+### Dynamic Mobile Breakpoints
+
+Class: Could (proposed) · Effort: S
+
+Status: parked.
+
+v0.26 deferred dynamic (content-aware) mobile breakpoints for workspace
+layout.
+
+Deferred at: `v0.26-plan:683`.
+
+### Canvas.Agent Revisit
+
+Class: Could (proposed) · Effort: S
+
+Status: parked.
+
+v0.26 flagged Canvas.Agent for a design revisit that never happened.
+
+Deferred at: `v0.26-plan:175`.
+
+### Workspace Zone/Destination Naming Evolution
+
+Class: Could (proposed) · Effort: S
+
+Status: parked.
+
+The v1.0 plan notes the workspace zone/destination naming has a single
+consumer and should evolve when a second consumer appears.
+
+Deferred at: `v1.0-plan:293`.
+
+### Surface DSL Additive Components Carve-Out
+
+Class: Should (proposed) · Effort: S
+
+Status: parked.
+
+The v1.0 plan defines a carve-out for adding new Surface DSL components
+additively post-1.0 without reopening the frozen contract; the first use of
+that carve-out (and its gate wiring) is future work.
+
+Deferred at: `v1.0-plan:229`.
+
+### Plugin Workspace-Region Graduation Confirm
+
+Class: Could (proposed) · Effort: S · Verify: whether v0.31 actually
+graduated the plugin workspace-region contribution path as the v0.26 plan
+claims
+
+Status: verify.
+
+The v0.26 plan says the plugin workspace-region contribution was graduated in
+v0.31; the sweep could not confirm the graduation shipped.
+
+Deferred at: `v0.26-plan:2079`.
+
+## Models & Memory
+
+### System Memory Distillation
+
+Class: Won't-now (proposed) · Effort: L
+
+Status: parked.
+
+v0.39b ships the deterministic precursor: an inert `identity` system memory
+namespace (declared via the non-app system-namespace declarer and surfaced as
+a 5th `Memory` category under
+`<ALLBERT_HOME>/memory/identity/`) plus deterministic recency-weighted
+lexical Active Memory retrieval over reviewed `:kept` entries scoped to
+`{thread_id, active_app, identity_namespace}`. Replayable from traces.
+No embeddings; no learned ranking.
+
+v0.47 ships operator-supervised trace-derived draft suggestions. Neither
+v0.39b, v0.47, nor the v0.47b/`0.47.1` handoff draft release trains,
+distills, or creates a learned system-memory
+authority.
+
+Still parked:
+
+- nightly memory/personality distillation;
+- small local model training from operator history;
+- learned system-memory models that influence runtime behavior;
+- deletion, reproducibility, privacy, and eval policy for any trained memory
+  artifact.
+
+The v0.31–v0.40 sweep confirms embedding-backed Active Memory retrieval and
+memory pinning are also parked under this entry (no separate section).
+
+### Cross-Thread / Cross-App Memory Retrieval
+
+Class: Could (proposed) · Effort: M
+
+Status: parked. Added in the post-v0.37 planning pass.
+
+v0.39b Active Memory retrieval is scoped to `{thread_id, active_app,
+identity_namespace}` with neutral/core context limited to identity + general
+chunks. Operators may want assistant context drawn from prior threads or
+across apps.
+
+Still parked:
+
+- cross-thread retrieval scope and ranking policy;
+- privacy/redaction policy when surfacing other-thread chunks;
+- across-app namespace mixing rules (notes_files chunks in a StockSage
+  thread, etc.);
+- operator-visible scope controls in the workspace.
+
+### Conversation History Full-Text Search
+
+Class: Should (proposed) · Effort: M
+
+Status: parked. Added in the post-v0.37 planning pass.
+
+Markdown memory has full-text search through v0.21. SQLite `Thread`/`Message`
+conversation history does not. Operators may want to search prior threads.
+
+Still parked:
+
+- SQLite FTS5 over Message bodies;
+- per-user and per-app filter;
+- redaction-aware indexing;
+- thread context retrieval into Active Memory (related to "Cross-Thread /
+  Cross-App Memory Retrieval" above).
+
+### Model Fallback / Degradation Policy
+
+Class: Should (proposed) · Effort: M
+
+Status: parked. Added in the post-v0.37 planning pass after the v0.39 plan
+dropped the unspecified "explicit operator opt-in" wording. Reaffirmed in
+the post-v0.38 readiness review on 2026-05-27: v0.39 ships the two-branch
+provider doctor (per ADR 0047) which reports availability but does **not**
+implement runtime failover. Operators see doctor output and switch profiles
+manually.
+
+Operators may want graceful degradation when the primary LLM provider is
+down, rate-limited, or returning unusable output.
+
+Still parked:
+
+- explicit operator opt-in surface for fallback;
+- per-provider failure detection policy;
+- fallback-chain configuration (primary → secondary → local);
+- audit/trace of fallback events;
+- abuse prevention (prevent silent expensive failovers).
+
+### Post-v0.48 Media Follow-Ons
+
+Class: Won't-now (proposed) · Effort: L
+
+Status: parked. Added during the v0.48 third-pass readiness sweep.
+
+v0.48 profile metadata can describe realtime audio sessions, generic
+audio/video input support, local endpoint transports, and bundled-local runtime
+availability, but the release scope remains bounded STT/TTS. v0.49 promotes
+only the bounded image/screenshot-to-text and text-to-image bridge; it does not
+promote generic audio/video understanding or a catch-all multimodal router. The
+following items need their own plans, permission story, resource classes,
+doctor fields, and release evidence before implementation:
+
+- realtime speech-to-speech sessions;
+- always-on or wake-word listening;
+- generic audio understanding that is not transcription;
+- video ingestion, sampled-frame analysis, or video generation;
+- required bundled-local engine packaging for every operator;
+- Discord voice after v0.52 Discord text-channel support.
+
+### Model Chooser / Catalog
+
+Class: Should (proposed) · Effort: M
+
+Status: parked.
+
+v0.64 deferred a model chooser/catalog surface (browse available models with
+size/capability metadata instead of typing a model id). High-value first-run
+and profile-switching UX.
+
+Deferred at: `v0.64-plan:171`.
+
+### Per-Role Fast/Capable/Thinking Model Profiles
+
+Class: Should (proposed) · Effort: M
+
+Status: parked.
+
+v0.37 deferred per-role model profiles (a fast model for ranking, a capable
+model for main responses, a thinking model for planning) instead of one
+profile per intent.
+
+Deferred at: `v0.37-plan:229`.
+
+### Free-Form Provider URLs / Probe Targets Via Approval Path
+
+Class: Could (proposed) · Effort: S
+
+Status: parked.
+
+v0.39 deferred letting operators add free-form provider URLs and probe
+targets through the approval path (the provider list is curated today).
+
+Deferred at: `v0.39-plan:207`.
+
+### Separate Active Memory Consumer When Direct-Answer Disabled
+
+Class: Could (proposed) · Effort: S
+
+Status: parked.
+
+v0.39b deferred a separate Active Memory consumer path for the case where
+direct-answer is disabled.
+
+Deferred at: `v0.39b-plan:175`.
+
+### `operator_settings_memory` System Namespace
+
+Class: Could (proposed) · Effort: S · Verify: whether the shipped settings
+and memory surfaces already cover what this namespace was for
+
+Status: verify.
+
+v0.39b sketched an `operator_settings_memory` system namespace that was never
+built.
+
+Deferred at: `v0.39b-plan:105`.
+
+### Local Ollama Multimodal Profile
+
+Class: Could (proposed) · Effort: S · Verify: whether a local Ollama
+multimodal profile works against the current v0.49 media bridge
+
+Status: verify.
+
+The v0.49 media work left it unclear whether a local Ollama multimodal
+profile is supported end-to-end for image understanding.
+
+Deferred at: v0.49 plan/readiness notes (sweep-flagged, no single line ref).
+
+## Agents & Workflows
+
 ### Agent URI Execution And Broader Agent Endpoints
+
+Class: Could (proposed) · Effort: L
 
 Status: parked.
 
@@ -171,6 +920,8 @@ Still parked:
 - channel-native Approval Handoff for agent endpoints.
 
 ### Operator-Authorable And Third-Party Delegate Agents
+
+Class: Could (proposed) · Effort: M
 
 Status: v0.46 shipped the developer-authored delegate-agent extension point;
 operator no-code authoring remains parked. Added in the post-v0.45 planning
@@ -205,13 +956,158 @@ Still parked (the remainder):
 - **a shared delegate-agent behaviour abstraction** — extracting a common
   framework across consumers. Per ADR 0021's "wait for ≥ 2 consumers"
   rule, v0.46 makes this possible but does not perform the extraction; a
-  future release with more consumers may;
+  future release with more consumers may (deferred at: `v0.46-plan:126`,
+  `v0.46-plan:150`);
 - **remote or distributed delegate agents** — covered by "Agent URI
   Execution And Broader Agent Endpoints" above;
 - **delegate-agent marketplace distribution** — covered by the
   marketplace governance and "Remote Workflow Distribution" entries.
 
+### Workflow YAML Loops And Parallel Fan-Out
+
+Class: Could (proposed) · Effort: M
+
+Status: parked. Added in the post-v0.43 planning pass.
+
+v0.44 ships a v1 workflow YAML schema with sequential step ordering and
+per-step `if:` branching only. Loop kinds (`for_each`, `for`, `while`)
+and parallel/fan-out kinds (`parallel:`, `Fork`) are deliberately
+excluded. Cycle and safety footguns dominate v1 schemas — Argo
+Workflows, LangGraph, and Serverless Workflow `For` all report these as
+the most-cited operability sinks. Reserved as `for_each` and
+`parallel_steps` in ADR 0041 §"Reserved Vocabulary" so future versions
+can promote without renaming. Revisit when telemetry shows real demand
+and when v0.47 self-improvement traces inform what shape loops should
+actually take.
+
+### Sub-Workflow Includes And Imports
+
+Class: Could (proposed) · Effort: M
+
+Status: parked. Added in the post-v0.43 planning pass.
+
+v0.44 workflow YAML cannot reference another workflow as a step. The
+`include:` / `import:` composition primitive expands the schema surface
+by 3-4x (composition semantics, cycle detection across workflows,
+version pinning for included workflows). Reserved as
+`sub_workflow_include` in ADR 0041. Defer until a real consumer
+appears - possibly after v0.47 self-improvement trace-to-workflow drafts
+start producing reusable sub-pieces.
+
+### Auto-Triggered Workflows (`on:` Clauses)
+
+Class: Could (proposed) · Effort: M
+
+Status: parked. Added in the post-v0.43 planning pass.
+
+v0.44 workflows are **operator-referenced** by design. The document
+never carries `on: schedule` or `on: event` trigger clauses; scheduling
+is the v0.13 jobs subsystem's job (a scheduled job MAY reference a
+Plan-Build action with a workflow id as a target, but the YAML itself
+stays inert). Adding `on:` clauses would turn workflow YAML from an
+operator-readable inert artifact into an ambient trigger surface
+without an explicit confirmation transition. Reserved as `on_schedule`
+and `on_event` in ADR 0041. Promote only with a fresh authority-
+boundary analysis.
+
+### Workflow Retry/Backoff, `env:`, And ask_user-On-Error
+
+Class: Could (proposed) · Effort: M
+
+Status: parked.
+
+v0.44 deferred per-step retry/backoff policy, an `env:` block, and an
+ask_user-on-error handler for workflow YAML; all sit in ADR 0041's reserved
+vocabulary alongside the loop/fan-out kinds above.
+
+Deferred at: `v0.44-plan:167`, `v0.44-plan:436`.
+
+### Per-Objective ACL Scoping
+
+Class: Should (proposed) · Effort: M
+
+Status: parked.
+
+v0.24 deferred scoping ACLs per objective (which actions/resources a given
+objective may touch) rather than per app.
+
+Deferred at: `v0.24-rf:79`.
+
+### LLM-Assisted Acceptance Evaluator
+
+Class: Could (proposed) · Effort: M
+
+Status: parked.
+
+v0.24 deferred an LLM-assisted evaluator for objective acceptance criteria
+(deterministic checks only today).
+
+Deferred at: `v0.24-plan:2589`.
+
+### StockSage Objective-Framing Generalization
+
+Class: Could (proposed) · Effort: M
+
+Status: parked.
+
+v0.33 deferred generalizing StockSage's objective-framing pattern for other
+apps.
+
+Deferred at: `v0.33-plan:507`.
+
+### StockSage TradingAgents Prompt Adaptation (License-Gated)
+
+Class: Could (proposed) · Effort: M
+
+Status: parked (license-gated).
+
+ADR 0022 defers adapting TradingAgents prompts for StockSage pending a
+license review; v0.25 separately deferred the verbatim-prompt license audit.
+
+Deferred at: `adr/0022:429`, `v0.25-plan:1045`.
+
+### FetchSentiment Live APIs (StockTwits + Reddit)
+
+Class: Could (proposed) · Effort: M
+
+Status: parked.
+
+v0.25 deferred wiring FetchSentiment to live StockTwits and Reddit APIs
+(fixture-driven today).
+
+Deferred at: `v0.25-plan:1197`.
+
+### Deeper Native/Python Parity Tuning
+
+Class: Could (proposed) · Effort: S
+
+Status: parked.
+
+v0.25 deferred deeper parity tuning between the native Elixir analytics and
+the Python reference implementation.
+
+Deferred at: `v0.25-rf:652`.
+
+### ADR 0021 Reserved Abstractions & Advisory-Provider Vocabulary
+
+Class: Won't-now (proposed) · Effort: L · Verify: whether any consumer has
+materialized for the reserved abstractions since v0.24
+
+Status: verify.
+
+ADR 0021 reserves abstractions with no implementation: world-model,
+capability-inventory, diffusion, and market-allocator concepts (v0.24), plus
+the advisory-provider vocabulary awaiting its first implementation (v1.0
+plan; the v0.21–v0.30 sweep confirms advisory-provider extraction as parked).
+Reserved vocabulary only — build nothing until a real consumer appears.
+
+Deferred at: `v0.24-plan:2581-2586`, `v1.0-plan:284-292`.
+
+## Public Protocols & Interop
+
 ### MCP Apps Iframe Model
+
+Class: Won't-now (proposed) · Effort: L
 
 Status: parked.
 
@@ -227,6 +1123,8 @@ Still parked:
 - compatibility between MCP Apps UI and Allbert's validated Surface DSL.
 
 ### MCP Client v0.40-Deferred Remainder
+
+Class: Could (proposed) · Effort: M
 
 Status: parked. Added in the v0.40 readiness pass.
 
@@ -244,6 +1142,8 @@ Still parked:
   Public Protocol Surfaces release, not the v0.40 client.
 
 ### MCP Tool Discovery v0.42-Deferred Remainder
+
+Class: Could (proposed) · Effort: M
 
 Status: parked after the v0.42 implementation. Added in the post-v0.40
 planning pass.
@@ -268,147 +1168,9 @@ Still parked:
 - discovery of non-MCP capability sources (code-bearing plugins, `agent://`
   endpoints) — those remain in their own parked entries.
 
-### Broad Office, Archive, And Unknown-Binary Extraction
-
-Status: parked.
-
-v0.43 shipped bounded HTML, markdown, plain text, and PDF extraction for browser
-and web research. Broader formats remain parked outside the v0.43 release.
-
-Still parked:
-
-- Office document extraction;
-- archive traversal;
-- unknown-binary inspection;
-- deeper extractor contracts, size caps, content-type mismatch handling, and
-  prompt-injection/data-exfiltration evals for those formats.
-
-### Authenticated Browser Operation And Persistent Profiles
-
-Status: parked.
-
-v0.43 ships ephemeral browser sessions only: cookies, local storage, and
-IndexedDB are discarded on session close; form fill and download deny by
-default and require explicit opt-in plus confirmation; headless-only; one
-active page per session; macOS + Linux only.
-
-Still parked:
-
-- persistent browser profiles under `<ALLBERT_HOME>/cache/browser/`;
-- credential storage, autofill profile data, and saved password reuse;
-- login flow recording and playback;
-- captive-portal and SSO redirect chains that need same-host re-entry;
-- authenticated tool calls that depend on a logged-in session;
-- multi-tab, multi-window, and popup orchestration;
-- headed mode and operator-visible browser windows;
-- Windows / WSL2 driver support;
-- JavaScript evaluation actions (`evaluate_js`, `add_init_script`,
-  `expose_function`);
-- WebSocket, service worker registration, push notifications, background
-  sync, geolocation, microphone, camera, or clipboard access from the
-  browser plugin;
-- recursive crawling, sitemap traversal, or automated link following;
-- broad upload (multipart file POST) beyond a future explicitly opted-in and
-  confirmed `:browser_form_fill` flow.
-
-Each widens the v0.43 trust posture and needs its own policy, storage,
-redaction, and eval story before re-entry.
-
-### Code-Bearing Remote Plugin Distribution
-
-Status: parked.
-
-v0.45 plans marketplace-lite metadata and reviewed skill/template discovery.
-It does not install arbitrary remote code.
-
-Still parked:
-
-- remote code-bearing plugin install;
-- remote dependency resolution;
-- binary/plugin package distribution;
-- remote theme/snippet distribution;
-- signing, provenance, versioning, rollback, and sandbox policy for
-  third-party code.
-
-### Hosted Multi-User Authorization
-
-Status: parked.
-
-Allbert's near-term identity model remains local `user_id`. Hosted accounts,
-roles, teams, auth sessions, API keys, and cross-user authorization remain
-future work.
-
-### Remote Sync Service
-
-Status: parked.
-
-v0.59 plans local-first profile export/import dry runs. Broad remote sync
-remains parked.
-
-Still parked:
-
-- continuous sync service;
-- conflict resolution across machines;
-- cloud storage/provider policy;
-- shared profile authorization.
-
-### Native Packaged UI
-
-Status: parked.
-
-The browser workspace remains the operator UI through v1.0. Note: v0.62 ships a
-packaged `allbert` **binary** (a release-built CLI + `serve` daemon with a
-Homebrew/curl install path, ADR 0076) — that is distribution of the existing
-surfaces, not a native GUI shell. The native GUI app below stays parked.
-
-Still parked:
-
-- packaged macOS/Windows/Linux **GUI** app;
-- native notification and tray/menu behavior;
-- local authentication/identity policy for a native shell;
-- packaging and auto-update strategy.
-
-### Deeper Sandbox Tiers
-
-Status: parked.
-
-v0.36 implements a narrow Elixir/OTP sandbox/gate path for generated drafts.
-
-Still parked:
-
-- broader local container sandboxing for arbitrary workflows;
-- microVM or remote sandbox execution;
-- untrusted scripts/package installs under stronger isolation;
-- hosted or multi-user sandbox isolation.
-
-### Scripting Engine Interface
-
-Status: parked.
-
-v0.09 runs trusted inventoried skill scripts through `run_skill_script`. No
-general scripting engine is planned.
-
-Still parked:
-
-- Lua, Python, JavaScript, or other embedded scripting runtime;
-- dependency bootstrap policy;
-- untrusted-script execution model.
-
-### Broader Distributed Operation
-
-Status: parked.
-
-v0.51 public protocol exposure is local public-surface exposure, not a
-distributed runtime.
-
-Still parked:
-
-- complex multi-node operation;
-- cluster state replication;
-- hosted scheduler/worker coordination;
-- distributed confirmation ownership.
-
 ### Public UI Protocol Interop Remainder
+
+Class: Won't-now (proposed) · Effort: L
 
 Status: parked. Added in the post-v0.37 planning pass after the v0.53 split.
 
@@ -428,21 +1190,9 @@ Still parked:
 Each remainder requires its own operator-demand evidence, auth/CSP review,
 remote-UI trust story, and export/import/eval coverage before promotion.
 
-### iMessage Channel Adapter
-
-Status: parked. Moved from v0.53 to parking in the post-v0.37 planning pass.
-
-iMessage requires a macOS-only adapter, opt-in platform constraint, and
-device-pairing recovery story distinct from WhatsApp/Signal/Matrix.
-
-Still parked:
-
-- macOS-only platform policy;
-- device-pairing UX and recovery;
-- App Store / signing implications;
-- backup/restore behavior for paired sessions.
-
 ### Native Plugin Variants For Calendar / Mail / GitHub (Post-1.0 Follow-On)
+
+Class: Could (proposed) · Effort: M
 
 Status: post-1.0 follow-on candidates after v0.42 shipped MCP-configured
 panels. Promoted from v0.42 scope in the post-v0.37 planning pass.
@@ -463,7 +1213,347 @@ Per-integration follow-on candidates:
 
 Each follow-on is a small focused release. None block v1.0.
 
+### MCP 2025-11-25 Spec Parity
+
+Class: Should (proposed) · Effort: M · Verify: the actual gap between the
+shipped MCP surfaces and the 2025-11-25 spec revision
+
+Status: verify.
+
+Both ADR 0044 and the v0.51 plan note the shipped MCP client/server target an
+earlier spec revision; parity with the 2025-11-25 MCP spec was deferred.
+
+Deferred at: `adr/0044:38`, `v0.51-plan:100`.
+
+### MCP/OpenAI/ACP Upstream-Tracking Wire Shapes
+
+Class: Should (proposed) · Effort: S
+
+Status: parked.
+
+The v1.0 plan records that the MCP/OpenAI/ACP wire shapes track upstream
+protocols and will need periodic reconciliation releases as those protocols
+move.
+
+Deferred at: `v1.0-plan:299`.
+
+### Non-Local Bind Hardening For Public Surfaces
+
+Class: Should (proposed) · Effort: S
+
+Status: parked.
+
+v0.51 public surfaces bind local-only; the hardening story for a non-local
+bind (auth, TLS, exposure policy) was deferred.
+
+Deferred at: `v0.51-plan:305`.
+
+### MCP Artifact Resources
+
+Class: Could (proposed) · Effort: S · Verify: whether exposing artifacts as
+MCP resources is wanted and what the grant story is
+
+Status: verify.
+
+The v0.51 pass left open whether Capsule artifacts should be exposed as MCP
+resources.
+
+Deferred at: v0.51 plan notes (sweep-flagged, no single line ref).
+
+### OpenAI/ACP Non-Text Media Blocks
+
+Class: Could (proposed) · Effort: M · Verify: demand plus the upstream spec
+shape for non-text content blocks
+
+Status: verify.
+
+The v0.51 OpenAI-compatible and ACP surfaces are text-only; non-text media
+blocks (images, audio) were left open.
+
+Deferred at: v0.51 plan notes (sweep-flagged, no single line ref).
+
+## Self-Improvement & Dynamic Capability
+
+### Autonomous Skill Creation Beyond Supervised Drafts
+
+Class: Won't-now (proposed) · Effort: L
+
+Status: parked.
+
+v0.47 ships operator-supervised, inert trace-to-skill and trace-to-workflow
+draft suggestions, and v0.47b/`0.47.1` ships supervised handoff drafts for
+templates, marketplace metadata, delegate-plugin requests, capability gaps,
+and objectives. Drafts remain disabled/untrusted or otherwise inert until
+reviewed and routed through the existing confirmed/gated path for their kind.
+
+Still parked:
+
+- autonomous skill creation from traces;
+- auto-enable, auto-publish, or marketplace submission;
+- broad execution permissions derived from repeated use or model confidence;
+- autonomous package install, remote plugin install, or arbitrary code loading.
+
+### Dynamic Capability Expansion Beyond v0.47 Facades
+
+Class: Won't-now (proposed) · Effort: L
+
+Status: parked.
+
+v0.36-v0.38 now define the supervised dynamic capability path: sandbox/gate
+evidence, dynamic action integration, and templated creation. v0.47 ships only
+reviewed delegate facades for memory promotion/update drafts and workflow
+draft writes; v0.47b/`0.47.1` ships objective and handoff draft kinds on that
+same supervised path.
+
+Still parked:
+
+- settings, secrets, shell, package-install, confirmation-decision, trust, or
+  live workspace/canvas write facades;
+- broader generated-permission ceilings beyond the reviewed v0.47 memory and
+  workflow draft paths and the shipped v0.47b handoff draft kinds;
+- unsupervised self-recompilation, compiler-loop bootstrapping, or runtime
+  mutation outside the v0.36/v0.37/v0.38 review path.
+
+### Deeper Sandbox Tiers
+
+Class: Won't-now (proposed) · Effort: L
+
+Status: parked.
+
+v0.36 implements a narrow Elixir/OTP sandbox/gate path for generated drafts.
+
+Still parked:
+
+- broader local container sandboxing for arbitrary workflows;
+- microVM or remote sandbox execution;
+- untrusted scripts/package installs under stronger isolation;
+- hosted or multi-user sandbox isolation.
+
+### Scripting Engine Interface
+
+Class: Won't-now (proposed) · Effort: L
+
+Status: parked.
+
+v0.09 runs trusted inventoried skill scripts through `run_skill_script`. No
+general scripting engine is planned.
+
+Still parked:
+
+- Lua, Python, JavaScript, or other embedded scripting runtime;
+- dependency bootstrap policy;
+- untrusted-script execution model.
+
+### Generated Custom Phoenix Components / LiveViews / Routes Allowlist
+
+Class: Could (proposed) · Effort: M
+
+Status: parked.
+
+v0.37 deferred a reviewed allowlist path for generated custom Phoenix
+components, LiveViews, and routes (generated UI is catalog-bound today).
+
+Deferred at: `v0.37-plan:428`.
+
+### Generated UI Declarative Surface
+
+Class: Could (proposed) · Effort: M · Verify: whether the shipped Surface DSL
+already covers what this v0.37 idea needed
+
+Status: verify.
+
+v0.37 sketched a declarative Surface for generated UI that may now overlap
+the shipped validated Surface DSL.
+
+Deferred at: `v0.37-plan:426`.
+
+### Dynamic Confirmation Resume Adapters For Generated Actions
+
+Class: Could (proposed) · Effort: M · Verify: whether any generated-action
+shape actually needs a bespoke resume adapter
+
+Status: verify.
+
+v0.37 left open confirmation resume adapters for dynamically generated
+actions.
+
+Deferred at: `v0.37-plan:461`.
+
+### Atomic Supersede Without Intermediate Rollback
+
+Class: Could (proposed) · Effort: S
+
+Status: parked.
+
+v0.37 deferred an atomic supersede operation for generated capabilities
+(replace without passing through an intermediate rolled-back state).
+
+Deferred at: `v0.37-plan:495`.
+
+### Generic `mix allbert.gen.<pattern>` Dispatch
+
+Class: Could (proposed) · Effort: S
+
+Status: parked.
+
+v0.38 deferred a generic generator dispatch (`mix allbert.gen.<pattern>`)
+over the shipped fixed set of generators.
+
+Deferred at: `v0.38-plan:147`.
+
+### Reviewed Plugin-Scaffold Path vs `codegen_scaffold`
+
+Class: Could (proposed) · Effort: S · Verify: whether the v0.57
+`codegen_scaffold` work subsumed the v0.47b reviewed plugin-scaffold path
+
+Status: verify.
+
+v0.47b's reviewed plugin-scaffold path may duplicate or be superseded by the
+v0.57 `codegen_scaffold` mechanism; needs a dedupe decision.
+
+Deferred at: `v0.47b-plan:172`.
+
+### Learned-Review Autonomous Producers
+
+Class: Won't-now (proposed) · Effort: M · Verify: current status of the
+inert miner and whether any producer should ever run unsupervised
+
+Status: verify.
+
+v0.56 shipped the learned-review substrate with the miner inert; autonomous
+producers (anything generating review candidates without an operator in the
+loop) were deferred and belong with the autonomy cluster above.
+
+Deferred at: `v0.56-rf:37`.
+
+### Auto Memory Promotion From Objective Observations
+
+Class: Won't-now (proposed) · Effort: M · Verify: relationship to the shipped
+v0.47 supervised memory-promotion drafts
+
+Status: verify.
+
+v0.24 sketched automatic memory promotion from objective observations. The
+supervised v0.47 draft path covers the reviewed variant; the automatic
+variant stays with the autonomy cluster.
+
+Deferred at: `v0.24-plan:2590`.
+
+## Browser & Content
+
+### Broad Office, Archive, And Unknown-Binary Extraction
+
+Class: Could (proposed) · Effort: M
+
+Status: parked.
+
+v0.43 shipped bounded HTML, markdown, plain text, and PDF extraction for browser
+and web research. Broader formats remain parked outside the v0.43 release.
+
+Still parked:
+
+- Office document extraction;
+- archive traversal;
+- unknown-binary inspection;
+- deeper extractor contracts, size caps, content-type mismatch handling, and
+  prompt-injection/data-exfiltration evals for those formats.
+
+### Authenticated Browser Operation And Persistent Profiles
+
+Class: Could (proposed) · Effort: L
+
+Status: parked.
+
+v0.43 ships ephemeral browser sessions only: cookies, local storage, and
+IndexedDB are discarded on session close; form fill and download deny by
+default and require explicit opt-in plus confirmation; headless-only; one
+active page per session; macOS + Linux only.
+
+Still parked:
+
+- persistent browser profiles under `<ALLBERT_HOME>/cache/browser/`;
+- credential storage, autofill profile data, and saved password reuse;
+- login flow recording and playback;
+- captive-portal and SSO redirect chains that need same-host re-entry;
+- authenticated tool calls that depend on a logged-in session;
+- multi-tab, multi-window, and popup orchestration;
+- headed mode and operator-visible browser windows;
+- Windows / WSL2 driver support (the v0.43 plan floated a v0.43.x
+  follow-up that never happened — verify whether that promise stands or
+  folds into the Tier-2 platform posture);
+- JavaScript evaluation actions (`evaluate_js`, `add_init_script`,
+  `expose_function`) — deferred at: `v0.43-plan:786`;
+- WebSocket, service worker registration, push notifications, background
+  sync, geolocation, microphone, camera, or clipboard access from the
+  browser plugin;
+- recursive crawling, sitemap traversal, or automated link following;
+- broad upload (multipart file POST) beyond a future explicitly opted-in and
+  confirmed `:browser_form_fill` flow.
+
+Each widens the v0.43 trust posture and needs its own policy, storage,
+redaction, and eval story before re-entry.
+
+### XPath Selectors
+
+Class: Could (proposed) · Effort: S
+
+Status: parked.
+
+v0.43 browser actions accept CSS selectors only; XPath selector support was
+deferred.
+
+Deferred at: `v0.43-plan:540`.
+
+### Browser Artifact Cache Lifecycle / Sweep Policy
+
+Class: Should (proposed) · Effort: S
+
+Status: parked.
+
+v0.50 deferred a lifecycle/sweep policy for the browser artifact cache
+(unbounded growth today until manual cleanup).
+
+Deferred at: `v0.50-plan:614`.
+
+### Capsule Pluggable Artifact-Store Backend (S3)
+
+Class: Could (proposed) · Effort: M · Verify: any real demand — ADR 0053
+parked this itself with no consumer
+
+Status: verify.
+
+v0.50 and ADR 0053 both note a pluggable artifact-store backend (S3 or
+similar) as a possible future; ADR 0053 self-parks it.
+
+Deferred at: `v0.50-plan:54`, `adr/0053:45`.
+
+## Marketplace & Ecosystem
+
+### Code-Bearing Remote Plugin Distribution
+
+Class: Could (proposed) · Effort: L
+
+Status: parked.
+
+v0.45 plans marketplace-lite metadata and reviewed skill/template discovery.
+It does not install arbitrary remote code.
+
+Still parked:
+
+- remote code-bearing plugin install;
+- remote dependency resolution;
+- binary/plugin package distribution;
+- remote theme/snippet distribution;
+- signing, provenance, versioning, rollback, and sandbox policy for
+  third-party code.
+
+The v0.56–v0.62 sweep confirms packaged-install plugin-code loading (the
+v0.62 packaged binary loading external plugin code) is also parked under this
+entry.
+
 ### Marketplace Community Submission / Review Governance
+
+Class: Could (proposed) · Effort: M
 
 Status: parked. Added in the post-v0.37 planning pass.
 
@@ -478,48 +1568,9 @@ only). A submission/review process for community contributions requires:
 
 Promote post-1.0 when the project decides on governance.
 
-### Workflow YAML Loops And Parallel Fan-Out
-
-Status: parked. Added in the post-v0.43 planning pass.
-
-v0.44 ships a v1 workflow YAML schema with sequential step ordering and
-per-step `if:` branching only. Loop kinds (`for_each`, `for`, `while`)
-and parallel/fan-out kinds (`parallel:`, `Fork`) are deliberately
-excluded. Cycle and safety footguns dominate v1 schemas — Argo
-Workflows, LangGraph, and Serverless Workflow `For` all report these as
-the most-cited operability sinks. Reserved as `for_each` and
-`parallel_steps` in ADR 0041 §"Reserved Vocabulary" so future versions
-can promote without renaming. Revisit when telemetry shows real demand
-and when v0.47 self-improvement traces inform what shape loops should
-actually take.
-
-### Sub-Workflow Includes And Imports
-
-Status: parked. Added in the post-v0.43 planning pass.
-
-v0.44 workflow YAML cannot reference another workflow as a step. The
-`include:` / `import:` composition primitive expands the schema surface
-by 3-4x (composition semantics, cycle detection across workflows,
-version pinning for included workflows). Reserved as
-`sub_workflow_include` in ADR 0041. Defer until a real consumer
-appears - possibly after v0.47 self-improvement trace-to-workflow drafts
-start producing reusable sub-pieces.
-
-### Auto-Triggered Workflows (`on:` Clauses)
-
-Status: parked. Added in the post-v0.43 planning pass.
-
-v0.44 workflows are **operator-referenced** by design. The document
-never carries `on: schedule` or `on: event` trigger clauses; scheduling
-is the v0.13 jobs subsystem's job (a scheduled job MAY reference a
-Plan-Build action with a workflow id as a target, but the YAML itself
-stays inert). Adding `on:` clauses would turn workflow YAML from an
-operator-readable inert artifact into an ambient trigger surface
-without an explicit confirmation transition. Reserved as `on_schedule`
-and `on_event` in ADR 0041. Promote only with a fresh authority-
-boundary analysis.
-
 ### Remote Workflow Distribution / Marketplace Workflows
+
+Class: Could (proposed) · Effort: M
 
 Status: parked. Added in the post-v0.43 planning pass.
 
@@ -533,42 +1584,82 @@ v0.45 marketplace metadata MAY reference workflow ids descriptively;
 the catalog never installs workflow files into the live
 `<ALLBERT_HOME>/workflows/` directory.
 
-### Multi-User Collaborative Plan Editing
+### Plugin Auto-Update Story
 
-Status: parked. Added in the post-v0.43 planning pass.
-
-v0.44 Plan/Build is single-user: one operator authors and approves a
-plan; expand-to-fullscreen edits happen in one LiveView session at a
-time. Concurrent editing of a shared plan preview (multiple operators
-seeing each other's edits live) requires v0.23's reserved Cursor
-concept (multi-user collaborative cursor) plus a conflict-resolution
-story. Defer until hosted multi-user authorization (also parked) is on
-the table.
-
-### Proactive Notifications Policy
+Class: Could (proposed) · Effort: M
 
 Status: parked. Added in the post-v0.37 planning pass.
 
-Allbert is reactive through v1.0, with one narrow carve-out: v0.42 adds an
-opt-in, paused-by-default background MCP-discovery scan (per ADR 0048) that runs
-as an operator-scheduled job and writes candidates to a *passive* Discovery
-Suggestions surface. That is unattended read-only scanning into a queue the
-operator pulls from — Allbert still never messages the operator unprompted and
-never connects without confirmation. Proactive *messaging* (Allbert pinging the
-operator first when a meeting starts, a job completes, an MCP server disconnects,
-a confirmation expires, or a discovery/self-improvement suggestion is ready)
+Reviewed plugins (Allbert-author and, post-1.0, community-submitted) will
+release new versions over time. v0.45 marketplace ships single-snapshot
+catalogs; updating means upgrading Allbert.
+
+Still parked:
+
+- version pinning per plugin;
+- reviewed-upgrade workflow;
+- rollback after a regression;
+- breaking-change deprecation policy for plugin contracts.
+
+### Public Plugin Hook Contribution API
+
+Class: Could (proposed) · Effort: M · Verify: whether the current plugin
+contract already exposes enough hook surface for third parties
+
+Status: verify.
+
+v0.25 sketched a public API for plugins to contribute hooks; the current
+plugin contract may or may not cover it.
+
+Deferred at: `v0.25-plan:1571`.
+
+## Ops, Security & Governance
+
+### Hosted Multi-User Authorization
+
+Class: Won't-now (proposed) · Effort: L
+
+Status: parked.
+
+Allbert's near-term identity model remains local `user_id`. Hosted accounts,
+roles, teams, auth sessions, API keys, and cross-user authorization remain
+future work.
+
+### Remote Sync Service
+
+Class: Won't-now (proposed) · Effort: L
+
+Status: parked.
+
+v0.59 plans local-first profile export/import dry runs. Broad remote sync
 remains parked.
 
 Still parked:
 
-- per-channel proactive-message authority (including push about discovery
-  suggestions);
-- operator-opt-in policy per notification class;
-- rate-limit and quiet-hours policy;
-- abuse prevention for runaway notifications;
-- proactive-message audit and revocation.
+- continuous sync service;
+- conflict resolution across machines;
+- cloud storage/provider policy;
+- shared profile authorization.
+
+### Broader Distributed Operation
+
+Class: Won't-now (proposed) · Effort: L
+
+Status: parked.
+
+v0.51 public protocol exposure is local public-surface exposure, not a
+distributed runtime.
+
+Still parked:
+
+- complex multi-node operation;
+- cluster state replication;
+- hosted scheduler/worker coordination;
+- distributed confirmation ownership.
 
 ### Unified Cost Dashboard And Budget Enforcement
+
+Class: Could (proposed) · Effort: M
 
 Status: parked. Added in the post-v0.37 planning pass.
 
@@ -585,26 +1676,9 @@ Still parked:
 - cost forecast for objectives before approval;
 - export of spend audit logs.
 
-### Post-v0.48 Media Follow-Ons
-
-Status: parked. Added during the v0.48 third-pass readiness sweep.
-
-v0.48 profile metadata can describe realtime audio sessions, generic
-audio/video input support, local endpoint transports, and bundled-local runtime
-availability, but the release scope remains bounded STT/TTS. v0.49 promotes
-only the bounded image/screenshot-to-text and text-to-image bridge; it does not
-promote generic audio/video understanding or a catch-all multimodal router. The
-following items need their own plans, permission story, resource classes,
-doctor fields, and release evidence before implementation:
-
-- realtime speech-to-speech sessions;
-- always-on or wake-word listening;
-- generic audio understanding that is not transcription;
-- video ingestion, sampled-frame analysis, or video generation;
-- required bundled-local engine packaging for every operator;
-- Discord voice after v0.52 Discord text-channel support.
-
 ### Anonymous Telemetry Policy
+
+Class: Could (proposed) · Effort: M
 
 Status: parked. Added in the post-v0.37 planning pass.
 
@@ -620,92 +1694,145 @@ Still parked:
 - self-host endpoint vs vendor endpoint;
 - operator-visible audit of every telemetry payload.
 
-### Conversation History Full-Text Search
+## Housekeeping & Known Debt
 
-Status: parked. Added in the post-v0.37 planning pass.
+### Raw Daisy `btn` Class Drift In Operator Surfaces
 
-Markdown memory has full-text search through v0.21. SQLite `Thread`/`Message`
-conversation history does not. Operators may want to search prior threads.
+Class: Should (proposed) · Effort: S
 
-Still parked:
+Status: parked (operator-known from the v1.0 closeout).
 
-- SQLite FTS5 over Message bodies;
-- per-user and per-app filter;
-- redaction-aware indexing;
-- thread context retrieval into Active Memory (related to "Cross-Thread /
-  Cross-App Memory Retrieval" below).
+Raw daisy `btn` classes have drifted into operator surfaces:
+`design_system_tokens_test` fails when run out-of-lane, and `onboarding.ex`
+carries ~11 baseline hits. Bring the surfaces back onto design-system tokens
+and re-tighten the test.
 
-### Cross-Thread / Cross-App Memory Retrieval
+Deferred at: v1.0 release closeout (operator-attested).
 
-Status: parked. Added in the post-v0.37 planning pass.
+### Offline Service-Worker Test Failure
 
-v0.39b Active Memory retrieval is scoped to `{thread_id, active_app,
-identity_namespace}` with neutral/core context limited to identity + general
-chunks. Operators may want assistant context drawn from prior threads or
-across apps.
+Class: Should (proposed) · Effort: S
 
-Still parked:
+Status: parked (operator-known from the v1.0 closeout).
 
-- cross-thread retrieval scope and ranking policy;
-- privacy/redaction policy when surfacing other-thread chunks;
-- across-app namespace mixing rules (notes_files chunks in a StockSage
-  thread, etc.);
-- operator-visible scope controls in the workspace.
+The offline service-worker test fails when run out-of-lane; pre-existing, not
+a v1.0 regression. Fix or lane-scope it as part of the Test Suite Speed &
+Isolation work above.
 
-### Plugin Auto-Update Story
+Deferred at: v1.0 release closeout (operator-attested).
 
-Status: parked. Added in the post-v0.37 planning pass.
+### DIT-5 Operator Transcript Drop
 
-Reviewed plugins (Allbert-author and, post-1.0, community-submitted) will
-release new versions over time. v0.45 marketplace ships single-snapshot
-catalogs; updating means upgrading Allbert.
+Class: Must (proposed) · Effort: S
 
-Still parked:
+Status: parked (evidence gap, trivially closable).
 
-- version pinning per plugin;
-- reviewed-upgrade workflow;
-- rollback after a regression;
-- breaking-change deprecation policy for plugin contracts.
+The DIT-5 upgrade/uninstall operator transcript (`dit5-upgrade-uninstall.log`)
+was attested during the v1.0 closeout but has not been dropped into
+`docs/validation/v1.0/`. Drop the file to complete the evidence set.
 
-### Model Fallback / Degradation Policy
+Deferred at: v1.0 release closeout (operator-attested).
 
-Status: parked. Added in the post-v0.37 planning pass after the v0.39 plan
-dropped the unspecified "explicit operator opt-in" wording. Reaffirmed in
-the post-v0.38 readiness review on 2026-05-27: v0.39 ships the two-branch
-provider doctor (per ADR 0047) which reports availability but does **not**
-implement runtime failover. Operators see doctor output and switch profiles
-manually.
+### v0.58 Minor-Cleanup Tail A
 
-Operators may want graceful degradation when the primary LLM provider is
-down, rate-limited, or returning unusable output.
+Class: Could (proposed) · Effort: S
 
-Still parked:
+Status: parked (from the v0.58 closeout deferral list).
 
-- explicit operator opt-in surface for fallback;
-- per-provider failure detection policy;
-- fallback-chain configuration (primary → secondary → local);
-- audit/trace of fallback events;
-- abuse prevention (prevent silent expensive failovers).
+The mechanical long tail: the `field/3` ~128-copy duplication, `limit/1`
+clamp folding, the `"local"`/`"web-local"` identity string literals, and the
+Objectives-nav wart.
 
-### Workspace Canvas Snapshot / Undo / Time-Travel
+Deferred at: `v0.58-plan:633-640`.
 
-Status: parked. Promoted from "post-v0.38 deferred" to an explicit
-parking-lot entry in the post-v0.37 planning pass.
+### v0.58 Minor-Cleanup Tail B
 
-v0.26 canvas substrate persists tiles but has no snapshot, undo, or
-time-travel mechanism. If an operator loses canvas state they want back,
-there's no recovery.
+Class: Could (proposed) · Effort: S
 
-Still parked:
+Status: parked (from the v0.58 closeout deferral list).
 
-- snapshot trigger policy (manual, per-objective, periodic);
-- snapshot storage layout in `<ALLBERT_HOME>/workspace/snapshots/`;
-- undo/redo UX in the workspace shell;
-- time-travel scope (per-thread, per-app, global);
-- retention and pruning policy.
+The correctness-adjacent tail: the `data-theme=null` check, a missing
+ErrorExtraction unit test, the bespoke `response_error/1`, the
+`stringify_keys` falsy latent bug, and the stale `CHANGELOG:296` line.
+
+Deferred at: `v0.58-plan:636-640`.
+
+### Legacy `intent.*model_profile` Settings Removal
+
+Class: Should (proposed) · Effort: S · Verify: whether the legacy keys still
+exist and what reads them
+
+Status: verify (blocked on the Settings Runtime Migration Runner for a
+non-additive removal).
+
+v0.48 noted the legacy `intent.*model_profile` settings should be removed per
+ADR 0046.
+
+Deferred at: `v0.48-plan:441`.
+
+### Optional Git-Hook Installation
+
+Class: Could (proposed) · Effort: S
+
+Status: parked.
+
+v0.45.1 deferred an optional developer git-hook installation step.
+
+Deferred at: the v0.45.1 plan (sweep-flagged, no single line ref).
+
+### Web `external_runtime_serial` Fast-Local Split
+
+Class: Could (proposed) · Effort: S · Verify: whether the lane split is still
+needed given current suite timings
+
+Status: verify (subsumed-by candidate: Test Suite Speed & Isolation above).
+
+v0.41 flagged splitting the web `external_runtime_serial` test lane into a
+fast-local portion.
+
+Deferred at: the v0.41 plan (sweep-flagged, no single line ref).
+
+## Triage Notes
+
+UNCLEAR sweep items needing operator verification before their proposed class
+is trusted:
+
+| Item | Category | Verify |
+| --- | --- | --- |
+| Full Cross-Action Param-Contract Enforcement | Platform & Runtime Debt | What v0.59 shipped vs the full v0.54-plan:1291 scope |
+| App-Registry Membership Check At Action Boundary | Platform & Runtime Debt | Whether a boundary check landed after v0.15 |
+| Working-Memory Contract Gaps | Platform & Runtime Debt | Whether the v0.14 data-safety/nested-patch gaps still apply |
+| Packaging-Trust Re-Parked Exceptions (ADR 0076) | Packaging & Distribution | Which exceptions remain after v0.64–v1.0 trust work |
+| Rich TUI Onboarding Slash-Command Wizard | Packaging & Distribution | Whether v0.64's first-run TUI subsumed it |
+| Native Windows Packaging | Packaging & Distribution | Demand vs keeping Tier-2 WSL2-only |
+| Bundled Executable Packaging For Capability Helpers | Packaging & Distribution | Whether the v0.62 packaged binary covers it |
+| Drag-Drop Tile Reordering / Resize / Durable Layout | Workspace & Web UI | StockSage cards scope (adr/0023:583 vs roadmap:1724) |
+| Plugin Workspace-Region Graduation Confirm | Workspace & Web UI | Whether v0.31 actually graduated it |
+| `operator_settings_memory` System Namespace | Models & Memory | Whether shipped settings/memory surfaces cover it |
+| Local Ollama Multimodal Profile | Models & Memory | Whether it works end-to-end against the v0.49 bridge |
+| ADR 0021 Reserved Abstractions & Advisory-Provider Vocabulary | Agents & Workflows | Whether any consumer has materialized |
+| MCP 2025-11-25 Spec Parity | Public Protocols & Interop | Actual gap vs the shipped MCP surfaces |
+| MCP Artifact Resources | Public Protocols & Interop | Whether wanted; grant story |
+| OpenAI/ACP Non-Text Media Blocks | Public Protocols & Interop | Demand + upstream spec shape |
+| Generated UI Declarative Surface | Self-Improvement & Dynamic Capability | Whether the shipped Surface DSL covers it |
+| Dynamic Confirmation Resume Adapters | Self-Improvement & Dynamic Capability | Whether any generated action needs one |
+| Reviewed Plugin-Scaffold Path vs `codegen_scaffold` | Self-Improvement & Dynamic Capability | Dedupe against v0.57 codegen_scaffold |
+| Learned-Review Autonomous Producers | Self-Improvement & Dynamic Capability | Miner status; supervision posture |
+| Auto Memory Promotion From Objective Observations | Self-Improvement & Dynamic Capability | Relationship to v0.47 supervised drafts |
+| Windows / WSL2 Browser Driver Support | Browser & Content | Whether the v0.43.x promise stands (see the authenticated-browser entry) |
+| Capsule Pluggable Artifact-Store Backend (S3) | Browser & Content | Any demand; ADR 0053 self-parked |
+| Public Plugin Hook Contribution API | Marketplace & Ecosystem | Whether the current plugin contract suffices |
+| Legacy `intent.*model_profile` Settings Removal | Housekeeping & Known Debt | Whether the legacy keys still exist |
+| Web `external_runtime_serial` Fast-Local Split | Housekeeping & Known Debt | Whether still needed given current timings |
 
 ## Review Cadence
 
 Review this file when closing a roadmap release, adding a roadmap milestone,
-or discovering repeated operator requests that are not covered by the current
+running the operator's prioritization pass over the proposed classes, or
+discovering repeated operator requests that are not covered by the current
 roadmap.
+
+Note: the roadmap carries "Capabilities Parked Post-1.0" (§~4521) and
+"Future: Distillation, Autonomy, Distributed Operation" (§~4532) pointer
+sections that delegate here — any roadmap restructure must preserve those
+pointers.
