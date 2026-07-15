@@ -57,7 +57,7 @@ defmodule AllbertAssistWeb.Workspace.DesignSystemTokensTest do
     for path <- m131b_operator_surface_paths() do
       source = File.read!(path)
 
-      refute source =~ ~r/class=\{?\s*"[^"]*\bbtn\b/,
+      refute source =~ ~r/class=\{?\s*\[?\s*"[^"]*\bbtn\b/,
              "#{Path.relative_to_cwd(path)} still declares raw btn classes"
     end
   end
@@ -67,7 +67,7 @@ defmodule AllbertAssistWeb.Workspace.DesignSystemTokensTest do
       source = File.read!(path)
       relative = Path.relative_to_cwd(path)
 
-      refute source =~ ~r/class=\{?\s*"[^"]*\bbtn\b/,
+      refute source =~ ~r/class=\{?\s*\[?\s*"[^"]*\bbtn\b/,
              "#{relative} still declares raw btn classes"
 
       refute source =~ "text-slate-",

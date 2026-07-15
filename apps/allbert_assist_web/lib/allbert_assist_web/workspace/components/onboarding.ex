@@ -17,6 +17,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
   alias AllbertAssist.Onboarding.ProviderStep
   alias AllbertAssist.Personas
   alias AllbertAssist.Settings
+  alias AllbertAssistWeb.Workspace.Components.Patterns
 
   # v0.63 M2/M5: operator readiness labels — the web surface never renders a raw
   # internal probe/readiness atom (Readiness Label Mapping Contract).
@@ -342,7 +343,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
           <button
             type="button"
             id="workspace-onboarding-start-quickstart"
-            class="btn btn-sm btn-primary"
+            class={Patterns.button_class!("primary")}
             phx-click="wizard_start"
             phx-value-track="quickstart"
             phx-target={@myself}
@@ -352,7 +353,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
           <button
             type="button"
             id="workspace-onboarding-start-advanced"
-            class="btn btn-sm"
+            class={Patterns.button_class!("secondary")}
             phx-click="wizard_start"
             phx-value-track="advanced"
             phx-target={@myself}
@@ -374,7 +375,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
               :if={step in @onboarding_wizard.done}
               type="button"
               id={"workspace-wizard-rewind-#{step}"}
-              class="btn btn-xs btn-ghost px-0"
+              class={Patterns.button_class!("secondary", "workspace-button-compact px-0")}
               phx-click="wizard_rewind"
               phx-value-step={step}
               phx-target={@myself}
@@ -385,7 +386,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
               :if={step == @onboarding_wizard.step and !@onboarding_wizard.complete?}
               type="button"
               id={"workspace-wizard-advance-#{step}"}
-              class="btn btn-xs btn-primary"
+              class={Patterns.compact_button_class!("primary")}
               phx-click="wizard_advance"
               phx-value-step={step}
               phx-target={@myself}
@@ -407,7 +408,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
           <button
             type="button"
             id="workspace-onboarding-wizard-reset"
-            class="btn btn-xs btn-ghost"
+            class={Patterns.compact_button_class!("secondary")}
             phx-click="wizard_reset"
             phx-target={@myself}
           >
@@ -449,7 +450,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
             :if={@model_guidance.action == :install_runtime}
             type="button"
             id="workspace-model-install-runtime"
-            class="btn btn-sm btn-primary"
+            class={Patterns.button_class!("primary")}
             phx-click="install_runtime"
             phx-target={@myself}
           >
@@ -459,7 +460,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
             :if={@model_guidance.action == :pull_model}
             type="button"
             id="workspace-model-pull"
-            class="btn btn-sm btn-primary"
+            class={Patterns.button_class!("primary")}
             phx-click="pull_model"
             phx-target={@myself}
             disabled={@model_pulling?}
@@ -504,7 +505,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
           placeholder="Provider key (stored masked in the vault)"
           class="input input-sm w-full"
         />
-        <button type="submit" id="workspace-provider-save" class="btn btn-sm btn-primary">
+        <button type="submit" id="workspace-provider-save" class={Patterns.button_class!("primary")}>
           Store key (masked)
         </button>
       </.form>
@@ -514,7 +515,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
           :for={p <- @provider_profiles}
           type="button"
           id={"workspace-provider-use-#{p.name}"}
-          class="btn btn-xs"
+          class={Patterns.compact_button_class!("secondary")}
           phx-click="use_provider"
           phx-target={@myself}
           phx-value-profile={p.name}
@@ -524,7 +525,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
         <button
           type="button"
           id="workspace-provider-doctor"
-          class="btn btn-xs btn-ghost"
+          class={Patterns.compact_button_class!("secondary")}
           phx-click="run_doctor"
           phx-target={@myself}
           phx-value-profile="local"
@@ -543,7 +544,11 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
         :for={persona <- Personas.all()}
         type="button"
         id={"workspace-persona-#{persona["persona_id"]}"}
-        class={["btn btn-xs", @selected_persona == persona["persona_id"] && "btn-primary"]}
+        class={
+          Patterns.compact_button_class!(
+            if @selected_persona == persona["persona_id"], do: "primary", else: "secondary"
+          )
+        }
         phx-click="select_persona"
         phx-target={@myself}
         phx-value-persona-id={persona["persona_id"]}
@@ -576,7 +581,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
         <button
           type="button"
           id="workspace-persona-apply"
-          class="btn btn-sm btn-primary"
+          class={Patterns.button_class!("primary")}
           phx-click="apply_persona"
           phx-target={@myself}
           phx-value-persona-id={@persona_review.persona_id}
@@ -615,7 +620,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
           <button
             type="submit"
             id="workspace-wizard-connect-notes-submit"
-            class="btn btn-sm btn-primary"
+            class={Patterns.button_class!("primary")}
           >
             Connect
           </button>
