@@ -65,7 +65,8 @@ defmodule AllbertAssist.Intent.Descriptor do
     :channel_name_phrase,
     :channel_target_phrase,
     :calendar_title_phrase,
-    :calendar_start_phrase
+    :calendar_start_phrase,
+    :url_phrase
   ]
   @max_descriptor_text 120
   @max_extracted_slot_text 1_000
@@ -492,6 +493,8 @@ defmodule AllbertAssist.Intent.Descriptor do
       ~r/\bwith\s+body\s+(.+)$/i,
       ~r/\bbody\s+(.+)$/i,
       ~r/\b(?:saying|that\s+says|says)\s+(.+)$/i,
+      # v1.0.1 M4.3: leading-message form — "send (the exact) message <body> to ..."
+      ~r/\bsend\s+(?:the\s+)?(?:exact\s+)?message\s+(.+?)\s+(?:to|on|via)\b/i,
       ~r/\babout\s+(.+)$/i
     ])
     |> trim_extracted_slot()
@@ -501,10 +504,25 @@ defmodule AllbertAssist.Intent.Descriptor do
     text
     |> extract_phrase([
       ~r/\bsend\s+a\s+([a-z][a-z0-9_-]*)\s+message\b/i,
-      ~r/\b(?:on|via)\s+([a-z][a-z0-9_-]*)\b/i
+      ~r/\b(?:on|via)\s+([a-z][a-z0-9_-]*)\b/i,
+      # v1.0.1 M4.3: "... my (configured) <channel> channel"
+      ~r/\b([a-z][a-z0-9_-]*)\s+channel\b/i
     ])
     |> trim_extracted_slot()
     |> downcase_slot()
+  end
+
+  # v1.0.1 M4.3: `external_network_request` now requires a :url slot at the
+  # DESCRIPTOR layer, so the router slot-penalizes and clarify-blocks it for
+  # URL-less utterances instead of executing into a `:missing_url` denial.
+  defp extract_slot(:url_phrase, text) do
+    text
+    |> extract_phrase([
+      ~r/\b(https?:\/\/\S+)/i,
+      ~r/\b(www\.\S+)/i,
+      ~r/\b((?:[a-z0-9-]+\.)+(?:com|org|net|io|dev|co|edu|gov)(?:\/\S*)?)\b/i
+    ])
+    |> trim_extracted_slot()
   end
 
   defp extract_slot(:channel_target_phrase, text) do

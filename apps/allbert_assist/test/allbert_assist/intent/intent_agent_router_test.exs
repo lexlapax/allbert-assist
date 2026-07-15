@@ -176,6 +176,30 @@ defmodule AllbertAssist.Agents.IntentAgentRouterTest do
     refute to_string(run_response.message) =~ "missing_plan_source"
   end
 
+  # v1.0.1 M4.3 (DIT-4(b)): the packaged two-stage router misrouted this exact
+  # utterance to external_network_request (:missing_url denial). The deterministic
+  # channel-send ladder route must win even when the router would misroute.
+  test "natural channel-send phrasing bypasses the router and never yields :missing_url",
+       %{uid: uid, tid: tid} do
+    Application.put_env(
+      :allbert_assist,
+      :intent_router_fake_outcome,
+      Outcome.execute("external_network_request", %{}, 1.0)
+    )
+
+    assert {:ok, response} =
+             IntentAgent.respond(%{
+               text:
+                 "Send the exact message ALLBERT-DIT4-V100-OUTBOUND to my configured Telegram channel.",
+               user_id: uid,
+               thread_id: tid
+             })
+
+    assert response.decision.selected_action == "send_channel_message"
+    refute to_string(response.message) =~ "missing_url"
+    refute Enum.any?(response.actions || [], &(&1.name == "external_network_request"))
+  end
+
   test "a capability question answers with skills even when the router would execute another action",
        %{uid: uid, tid: tid} do
     Application.put_env(

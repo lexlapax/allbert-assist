@@ -44,7 +44,8 @@ defmodule AllbertAssist.Actions.Channels.SendChannelMessage do
         examples: [
           "send a slack message to #eng saying hi",
           "send a discord message to #general with body release is ready",
-          "send a telegram message to @alice saying hello"
+          "send a telegram message to @alice saying hello",
+          "send the exact message hello world to my configured telegram channel"
         ],
         synonyms: ["send channel message", "send slack message", "send discord message"],
         required_slots: [:channel, :target, :body],
@@ -89,6 +90,20 @@ defmodule AllbertAssist.Actions.Channels.SendChannelMessage do
 
       {:error, {:release_unavailable, status, channel, decision}} ->
         {:ok, unreleased_channel(channel, status, decision)}
+
+      # v1.0.1 M4.3: "my configured <channel> channel" with no single enabled
+      # identity-mapped recipient reaches here with an empty target — answer
+      # honestly instead of a raw {:missing, :target} inspect dump.
+      {:error, {:missing, :target}} ->
+        {:ok,
+         %{
+           message:
+             "No message target given and no single enabled identity-mapped recipient " <>
+               "is configured for this channel. Try: send a telegram message to @name saying hello",
+           status: :stopped,
+           error: {:missing, :target},
+           actions: []
+         }}
 
       {:error, reason} ->
         {:ok,

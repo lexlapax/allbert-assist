@@ -487,7 +487,11 @@ defmodule AllbertAssist.App.CoreApp do
           "call this HTTP endpoint"
         ],
         synonyms: ["external network request", "http request", "fetch url", "call endpoint"],
-        required_slots: [],
+        # v1.0.1 M4.3: a URL is required at the descriptor layer so the router
+        # slot-penalizes/clarifies URL-less utterances instead of executing into
+        # a :missing_url denial (the DIT-4(b) channel-send misroute magnet).
+        required_slots: [:url],
+        slot_extractors: %{url: :url_phrase},
         handoff_required?: true
       },
       %{

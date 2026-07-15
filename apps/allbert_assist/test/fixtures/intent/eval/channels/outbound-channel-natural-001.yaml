@@ -1,0 +1,15 @@
+---
+context: {}
+domain: channels
+expected:
+  action: send_channel_message
+  kind: execute
+forbidden_action: external_network_request
+id: outbound-channel-natural-001
+negative: true
+negative_mode: forbidden_action
+rationale: natural-form channel send (DIT-4(b) packaged misroute) must never execute
+  external_network_request; without an explicit @target the router path clarifies
+  and the deterministic ladder owns the execute path
+schema_version: 1
+utterance: Send the exact message ALLBERT-DIT4-V100-OUTBOUND to my configured Telegram channel.

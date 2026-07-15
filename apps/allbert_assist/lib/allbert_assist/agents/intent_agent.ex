@@ -626,6 +626,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
       fn -> tool_discovery_route(text, normalized) end,
       fn -> unsupported_resource_workflow_route(text, normalized) end,
       fn -> command_route(normalized, context) end,
+      fn -> channel_send_route(text, normalized) end,
       fn -> external_network_route(normalized) end,
       fn -> explicit_memory_route(normalized) end,
       fn -> personal_memory_route(text) end,
@@ -665,6 +666,45 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp capability_route(text), do: if(capability_request?(text), do: :list_skills)
+
+  # v1.0.1 M4.3 (DIT-4(b), M7.1/R8 precedent): natural channel-send phrasing gets
+  # a deterministic ladder route so the two-stage router can never misroute it to
+  # `external_network_request` (whose empty `required_slots` made it the only
+  # executable candidate and produced a `:missing_url` denial). Authority is
+  # unchanged: `send_channel_message` still runs the identity-allowlist target
+  # gate and the confirmation-gated outbound Gate.
+  defp channel_send_route(text, _normalized) do
+    case Regex.named_captures(
+           ~r/^\s*send\s+(?:the\s+)?(?:exact\s+)?message\s+(?<body>.+?)\s+(?:to|on|via)\s+my\s+(?:configured\s+)?(?<channel>[a-z][a-z0-9_-]*)\s+channel\W*$/i,
+           text
+         ) do
+      %{"body" => body, "channel" => channel} ->
+        channel = String.downcase(channel)
+
+        {:send_channel_message,
+         %{channel: channel, body: body, target: configured_channel_target(channel)}}
+
+      nil ->
+        nil
+    end
+  end
+
+  # "My configured <channel> channel" resolves to the channel's single ENABLED
+  # identity-mapped recipient; anything else (zero or several) stays unresolved
+  # ("") so the action reports honestly instead of the ladder guessing a target.
+  defp configured_channel_target(channel) do
+    with {:ok, settings} <- AllbertAssist.Channels.channel_settings(channel),
+         identity_map when is_list(identity_map) <- Map.get(settings, "identity_map", []) do
+      identity_map
+      |> Enum.filter(fn entry -> Map.get(entry, "enabled", true) != false end)
+      |> case do
+        [entry] -> to_string(Map.get(entry, "external_user_id", ""))
+        _zero_or_many -> ""
+      end
+    else
+      _other -> ""
+    end
+  end
 
   defp plan_build_route(text, normalized) do
     preview_plan_route(text) ||
@@ -1186,6 +1226,16 @@ defmodule AllbertAssist.Agents.IntentAgent do
     }
   end
 
+  defp decision_attrs({:send_channel_message, params}, text, context) do
+    %{
+      intent: :channel_message_send,
+      reason: "The prompt explicitly asks to send a message to a configured channel.",
+      selected_action: "send_channel_message",
+      trace_metadata: %{source_text: text, channel: params[:channel]},
+      context: context
+    }
+  end
+
   defp decision_attrs({:start_plan_run, params}, text, context) do
     %{
       intent: :plan_run_start,
@@ -1606,6 +1656,10 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   defp run_route({:preview_plan, params}, text, context) do
     run_action("preview_plan", params, text, context)
+  end
+
+  defp run_route({:send_channel_message, params}, text, context) do
+    run_action("send_channel_message", params, text, context)
   end
 
   defp run_route({:start_plan_run, params}, text, context) do
