@@ -487,6 +487,10 @@ defmodule AllbertAssist.App.CoreApp do
           "call this HTTP endpoint"
         ],
         synonyms: ["external network request", "http request", "fetch url", "call endpoint"],
+        # v1.0.1 M4.2 re-attestation: browser-research phrasing must not text-match
+        # this action even when the prompt carries a URL (the ladder also owns the
+        # deterministic browser-research route).
+        vocabulary: %{negative_phrases: ["browser research", "research capability"]},
         # v1.0.1 M4.3: a URL is required at the descriptor layer so the router
         # slot-penalizes/clarifies URL-less utterances instead of executing into
         # a :missing_url denial (the DIT-4(b) channel-send misroute magnet).

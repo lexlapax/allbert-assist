@@ -176,6 +176,32 @@ defmodule AllbertAssist.Agents.IntentAgentRouterTest do
     refute to_string(run_response.message) =~ "missing_plan_source"
   end
 
+  # v1.0.1 M4.2 re-attestation fix (DIT-4(a) second FAIL): a URL in the §I prompt
+  # made the deterministic ladder's external-network keyword (any "https://")
+  # steal browser-research requests before the router could reach the now-wired
+  # browser_research_handoff; the packaged chat denied with
+  # :external_services_disabled. Explicit browser-research phrasing must win.
+  test "browser research phrasing beats the external-network ladder route",
+       %{uid: uid, tid: tid} do
+    Application.put_env(
+      :allbert_assist,
+      :intent_router_fake_outcome,
+      Outcome.execute("external_network_request", %{}, 1.0)
+    )
+
+    assert {:ok, response} =
+             IntentAgent.respond(%{
+               text:
+                 "Research https://elixir-lang.org and report the title of its latest blog post. " <>
+                   "Use the browser research capability and include the source URL.",
+               user_id: uid,
+               thread_id: tid
+             })
+
+    assert response.decision.selected_action == "browser_research_handoff"
+    refute Enum.any?(response.actions || [], &(&1.name == "external_network_request"))
+  end
+
   # v1.0.1 M4.3 (DIT-4(b)): the packaged two-stage router misrouted this exact
   # utterance to external_network_request (:missing_url denial). The deterministic
   # channel-send ladder route must win even when the router would misroute.

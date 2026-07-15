@@ -627,6 +627,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
       fn -> unsupported_resource_workflow_route(text, normalized) end,
       fn -> command_route(normalized, context) end,
       fn -> channel_send_route(text, normalized) end,
+      fn -> browser_research_route(text, normalized) end,
       fn -> external_network_route(normalized) end,
       fn -> explicit_memory_route(normalized) end,
       fn -> personal_memory_route(text) end,
@@ -639,6 +640,30 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   defp command_route(text, context),
     do: if(command_request?(text, context), do: :run_shell_command)
+
+  # v1.0.1 M4.2 re-attestation fix (DIT-4(a)): any "https://" in a prompt makes
+  # `external_network_request?/1` ladder-route to `external_network_request`,
+  # which stole URL-bearing browser-research requests before the router could
+  # reach the wired `browser_research_handoff`. Explicit browser-research
+  # phrasing ("browser research" / a leading "research <url>") wins first; the
+  # handoff action then gates honestly on browser/research enablement, the
+  # driver doctor, and delegate registration.
+  defp browser_research_route(text, normalized) do
+    browser_research? =
+      String.contains?(normalized, "browser research") or
+        Regex.match?(~r/^\s*research\s+https?:\/\//i, text)
+
+    if browser_research? do
+      {:browser_research_handoff, browser_research_params(text)}
+    end
+  end
+
+  defp browser_research_params(text) do
+    case Regex.run(~r/\bhttps?:\/\/[^\s<>"]+/i, text) do
+      [url] -> %{url: Regex.replace(~r/[.,;:!?)]+$/, url, "")}
+      _none -> %{}
+    end
+  end
 
   defp external_network_route(text),
     do: if(external_network_request?(text), do: :external_network_request)
@@ -1226,6 +1251,16 @@ defmodule AllbertAssist.Agents.IntentAgent do
     }
   end
 
+  defp decision_attrs({:browser_research_handoff, params}, text, context) do
+    %{
+      intent: :browser_research,
+      reason: "The prompt explicitly asks for browser research.",
+      selected_action: "browser_research_handoff",
+      trace_metadata: %{source_text: text, url: params[:url]},
+      context: context
+    }
+  end
+
   defp decision_attrs({:send_channel_message, params}, text, context) do
     %{
       intent: :channel_message_send,
@@ -1656,6 +1691,17 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   defp run_route({:preview_plan, params}, text, context) do
     run_action("preview_plan", params, text, context)
+  end
+
+  defp run_route({:browser_research_handoff, params}, text, context) do
+    # Plugin-scoped action: resolve its app for the Runner (the router-execute
+    # path does the same via put_action_active_app).
+    run_action(
+      "browser_research_handoff",
+      params,
+      text,
+      put_action_active_app(context, "browser_research_handoff")
+    )
   end
 
   defp run_route({:send_channel_message, params}, text, context) do
