@@ -17,6 +17,28 @@ were deferred in an archived plan and never shipped or parked appear as new
 entries with their provenance; pre-existing parked sections are preserved
 verbatim and grouped by category.
 
+
+## Release Ladder (operator-confirmed 2026-07-14)
+
+Supersedes any per-entry `Slice: 1.1` tag where they conflict — flagships are
+sequenced one per minor, foundational-first:
+
+- **1.0.1 / 1.0.x** — as tagged (R15, btn drift, offline test, DIT-5 transcript;
+  then test speed & isolation increments, v0.58 tails, docs items).
+- **1.1 — Zero-Click First Run** + its direct enablers (model chooser/catalog,
+  model fallback/degradation for the detect states, consent ADR, folded TUI scope).
+- **1.2 — Long-Term User Memory** (research phase first; folded retrieval/FTS/
+  working-memory scope). Free-form provider URLs and bind hardening stay on this
+  horizon as tagged.
+- **1.3 — Adaptive Usage Profiling** (stages a/b/c; per-role model profiles and
+  proactive notifications ride here; consumes 1.2's memory substrate).
+- **1.4 / 1.5 — the remaining confirmed-1.1 enablers**, sliced by need: the
+  migration-runner cluster (runner + telegram/email settings migration + legacy
+  intent.*model_profile removal + automated rollback — pulled EARLIER if any 1.1-1.3
+  release needs a non-additive migration), email OAuth, MCP spec parity,
+  param-contract completion, PermissionGate deletion, mid-action interruption +
+  child-process cancellation, app-registry boundary check. System Memory
+  Distillation remains the post-1.3 co-flagship candidate.
 ## Classification
 
 Classes are **proposed** pending the operator's category-by-category
