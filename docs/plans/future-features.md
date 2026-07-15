@@ -584,6 +584,42 @@ Deferred at: `v0.53-plan:62`.
 
 ## Workspace & Web UI
 
+### Zero-Click First Run (Chat-Ready Default)
+
+Class: Must (proposed) · Effort: L
+
+Status: parked (operator-directed, post-1.0 intake 2026-07-14).
+
+Invert the first-run model: instead of requiring the non-developer to press
+"Start QuickStart" and walk the wizard before chat works, the first run
+**auto-detects a running local LLM**, auto-selects a local-model profile with
+the generic answer engine as the default, and is **chat-ready immediately** —
+no getting-started button on the critical path. Onboarding becomes a fully
+optional, always-available customization surface: the operator can open it
+anytime and jump **directly to any individual step** (track, model path,
+persona, connections) to customize — building on the v1.0 `wizard_rewind`
+step navigation and the first-chat go-signal, but generalized to arbitrary
+step entry at any time, including after completion. All first-run UX/UI is
+re-geared around this: drastic simplification of the first-run experience.
+
+Design tension to resolve at promotion (needs an ADR): ADR 0078 / v0.63
+treat enabling model-backed direct answers as an explicit consent step
+(`intent.direct_answer_model_enabled` defaults false; QuickStart flips it).
+Auto-enabling on detection is defensible for **local-only** inference (no
+egress; the trust spine's Local-first and Hosted-provider-egress lines are
+untouched — BYOK/hosted stays opt-in), but the consent semantics, the
+detect-state matrix (`local_ready` vs `model_missing` vs `below_floor` — what
+does "chat-ready" mean with no model present?), and the DIT-2 acceptance
+criteria (which currently assert QuickStart enables direct answers before the
+first question) must all be redefined deliberately, not incidentally.
+
+Related entries: Model Chooser / Catalog (Packaging & Distribution); the
+curated-model settings defaults (`first_model.curated_model`, shipped v1.0
+M7.5); Rich TUI Onboarding Slash-Command (triage table — the TUI first-run
+should follow the same inversion).
+
+Deferred at: operator intake (post-1.0 planning, 2026-07-14).
+
 ### Workspace Canvas Snapshot / Undo / Time-Travel
 
 Class: Should (proposed) · Effort: M
