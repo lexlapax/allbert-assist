@@ -902,7 +902,7 @@ Deferred at: `v0.37-plan:229`.
 
 ### Free-Form Provider URLs / Probe Targets Via Approval Path
 
-Class: Could (proposed) · Effort: S
+Class: Should (confirmed 2026-07-14) · Effort: S · Slice: 1.2 horizon — LAN/self-hosted model endpoints via the external-network approval path
 
 Status: parked.
 
@@ -913,7 +913,7 @@ Deferred at: `v0.39-plan:207`.
 
 ### Separate Active Memory Consumer When Direct-Answer Disabled
 
-Class: Could (proposed) · Effort: S
+Class: Closed (confirmed 2026-07-14) — superseded by Zero-Click First Run (direct answers become the default)
 
 Status: parked.
 
@@ -921,18 +921,6 @@ v0.39b deferred a separate Active Memory consumer path for the case where
 direct-answer is disabled.
 
 Deferred at: `v0.39b-plan:175`.
-
-### `operator_settings_memory` System Namespace
-
-Class: Could (proposed) · Effort: S · Verify: whether the shipped settings
-and memory surfaces already cover what this namespace was for
-
-Status: verify.
-
-v0.39b sketched an `operator_settings_memory` system namespace that was never
-built.
-
-Deferred at: `v0.39b-plan:105`.
 
 ### Local Ollama Multimodal Profile
 
@@ -1363,6 +1351,11 @@ Autonomous Producers — this entry is the staged, consented route toward
 them). Likely decomposition when promoted: (a) system usage-memory substrate +
 distill job; (b) suggestion engine + one-click apply surface; (c) feedback/
 effectiveness loop.
+
+Folded in (operator decision 2026-07-14): the v0.39b-named
+`operator_settings_memory` system namespace (`v0.39b-plan:105`) is a named
+deliverable of stage (a) — the usage-memory substrate reuses the shipped
+system-namespace mechanism.
 
 Deferred at: operator intake (post-1.0 planning, 2026-07-14).
 
