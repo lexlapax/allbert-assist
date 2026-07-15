@@ -9,8 +9,8 @@
 > current contract is: local-coding operator is a named trust tier, not a sandbox
 > level, and it runs at ADR 0009 Level 1; Pi-mode context discipline is chunked
 > reads (offset/limit) plus artifacts, not whole-file ingestion. Use ADR 0009,
-> ADR 0068, `docs/plans/v0.57-plan.md`, and
-> `docs/plans/v0.57-request-flow.md` for implementation and operator authority.
+> ADR 0068, `docs/plans/archives/v0.57-plan.md`, and
+> `docs/plans/archives/v0.57-request-flow.md` for implementation and operator authority.
 
 ---
 

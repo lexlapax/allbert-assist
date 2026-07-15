@@ -90,7 +90,7 @@ defmodule AllbertAssist.Capabilities.ReleaseAvailabilityTest do
             release_status: :implemented_not_released,
             live_use_allowed?: false,
             decision: "Implemented, but not released for live use.",
-            decision_ref: "docs/plans/v0.53-plan.md",
+            decision_ref: "docs/plans/archives/v0.53-plan.md",
             future_features_ref: "docs/plans/future-features.md"
           }
         ]

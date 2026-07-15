@@ -180,4 +180,4 @@ M1 is complete when:
 - `AllbertAssist.Boundary` exposes current facades, planned facades,
   compatibility shims, and deletion candidates.
 - Tests prove current facades and shims still load.
-- This map and `docs/plans/v0.31-request-flow.md` record M1 status.
+- This map and `docs/plans/archives/v0.31-request-flow.md` record M1 status.

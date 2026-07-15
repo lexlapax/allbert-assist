@@ -3,7 +3,7 @@
 ## Status
 
 Accepted in v0.31 M7 Runtime And UI-Substrate Consolidation
-(`docs/plans/v0.31-plan.md`).
+(`docs/plans/archives/v0.31-plan.md`).
 
 Accepted amendment (v0.58): the unified catalog becomes the rendering
 boundary for **every** web page, not only the workspace. The Jobs and Objectives
@@ -45,7 +45,7 @@ DOM handles through the shared catalog path.
 ## v0.55 Amendment: Split Payload Rendering
 
 Status: Accepted for v0.55 Channel Parity + TUI/Terminal Channel
-(`docs/plans/v0.55-plan.md`; ADR 0067).
+(`docs/plans/archives/v0.55-plan.md`; ADR 0067).
 
 Renderers are extended to honor the ADR 0029 split-payload response contract:
 they draw `surface_payload` when present and fall back to `model_payload` /

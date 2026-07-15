@@ -158,14 +158,14 @@ mappings. Workspace mutations use the same registered action, Security
 Central, Settings Central, trace, and Allbert Home boundaries as the rest of
 the runtime.
 
-See the umbrella root `README.md`, `docs/plans/v0.20-plan.md`,
-`docs/plans/v0.20-request-flow.md`, `docs/plans/v0.21-plan.md`,
-`docs/plans/v0.21-request-flow.md`, `docs/plans/v0.22-plan.md`,
-`docs/plans/v0.22-request-flow.md`, `docs/plans/v0.23-plan.md`,
-`docs/plans/v0.23-request-flow.md`, `docs/plans/v0.24-plan.md`,
-`docs/plans/v0.24-request-flow.md`, `docs/plans/v0.25-plan.md`,
-`docs/plans/v0.25-request-flow.md`, `docs/plans/v0.26-plan.md`,
-`docs/plans/v0.26-request-flow.md`, `plugins/stocksage/README.md`, and
+See the umbrella root `README.md`, `docs/plans/archives/v0.20-plan.md`,
+`docs/plans/archives/v0.20-request-flow.md`, `docs/plans/archives/v0.21-plan.md`,
+`docs/plans/archives/v0.21-request-flow.md`, `docs/plans/archives/v0.22-plan.md`,
+`docs/plans/archives/v0.22-request-flow.md`, `docs/plans/archives/v0.23-plan.md`,
+`docs/plans/archives/v0.23-request-flow.md`, `docs/plans/archives/v0.24-plan.md`,
+`docs/plans/archives/v0.24-request-flow.md`, `docs/plans/archives/v0.25-plan.md`,
+`docs/plans/archives/v0.25-request-flow.md`, `docs/plans/archives/v0.26-plan.md`,
+`docs/plans/archives/v0.26-request-flow.md`, `plugins/stocksage/README.md`, and
 `docs/developer/how-to-create-an-allbert-app.md` for current memory review,
 StockSage, workspace, app/surface, intent-routing, and objective-runtime
 behavior.

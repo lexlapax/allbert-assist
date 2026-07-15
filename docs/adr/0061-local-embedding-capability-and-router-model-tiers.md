@@ -3,7 +3,7 @@
 ## Status
 
 Accepted (v0.54 Intent Deepening, M8 closeout, 2026-06-16) —
-`docs/plans/v0.54-plan.md`. Shipped across M1 (embedding capability + index +
+`docs/plans/archives/v0.54-plan.md`. Shipped across M1 (embedding capability + index +
 doctor) and M3/M7 (router model tiers + optional hosted escalation); green under
 `mix allbert.test release.v054`.
 
@@ -118,4 +118,4 @@ Constraints from the local-first vision and the routing research:
   (provider capability preferences), ADR 0052 (local voice runtime endpoint —
   the Ollama-posture precedent), ADR 0006 (Security Central — escalation audit),
   ADR 0047 (provider doctor envelope).
-- `docs/plans/v0.54-plan.md`.
+- `docs/plans/archives/v0.54-plan.md`.

@@ -4,7 +4,7 @@
 
 This note collects the primary-source material that motivates the
 objective runtime work in `docs/adr/0021-intent-objective-capability-
-and-advisory-boundary.md` and `docs/plans/v0.24-plan.md`. It is
+and-advisory-boundary.md` and `docs/plans/archives/v0.24-plan.md`. It is
 research material, not load-bearing for implementation. The
 project-direction rethink draft
 (`docs/archives/project-direction-rethink-01.md`) previously inlined this
@@ -458,7 +458,7 @@ Jobs.Scheduler become Jido.Agents.
 
 **v0.24 adds the next Jido.Agent:** Objectives.Engine.
 
-The pragmatic rule from v0.23 (`docs/plans/v0.23-plan.md`) governs
+The pragmatic rule from v0.23 (`docs/plans/archives/v0.23-plan.md`) governs
 future component substrate choice: use Jido.Agent when state
 machines, lifecycle hooks, or successor agents are plausibly
 useful; use plain GenServer for storage where no useful "v2 with
@@ -475,8 +475,8 @@ objective runtime work:
 
 1. Read `docs/adr/0021-intent-objective-capability-and-advisory-
    boundary.md` for the binding decisions.
-2. Read `docs/plans/v0.24-plan.md` for the implementation.
-3. Read `docs/plans/v0.24-request-flow.md` for the user-visible
+2. Read `docs/plans/archives/v0.24-plan.md` for the implementation.
+3. Read `docs/plans/archives/v0.24-request-flow.md` for the user-visible
    flows.
 4. Read this file's Hermes Agent and OpenClaw sections for
    contemporary comparison.

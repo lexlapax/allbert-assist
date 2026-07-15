@@ -5,7 +5,7 @@ current. Real-client validation remains an operator smoke step.
 
 This document is the implementation contract for the v0.51 MCP server,
 OpenAI-compatible API, and ACP server adapters. The authoritative planning set
-is `docs/plans/v0.51-plan.md`, `docs/plans/v0.51-request-flow.md`, ADR 0044,
+is `docs/plans/archives/v0.51-plan.md`, `docs/plans/archives/v0.51-request-flow.md`, ADR 0044,
 and ADR 0055.
 
 ## Boundary Model

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for v0.40 MCP Client Integration (`docs/plans/v0.40-plan.md`).
+Accepted for v0.40 MCP Client Integration (`docs/plans/archives/v0.40-plan.md`).
 Accepted at v0.40 M1 closeout. Becomes a Tier-1 freeze candidate at v1.0 for
 the permission classes, the `mcp://` resource identity, and the operation-class
 vocabulary it introduces.
@@ -218,9 +218,9 @@ the `:mcp_tool_call` or `:mcp_resource_read` floors defined above.
 
 ## References
 
-- `docs/plans/v0.40-plan.md` — v0.40 MCP Client Integration.
-- `docs/plans/v0.40-request-flow.md` — v0.40 request flow and security evals.
-- `docs/plans/v0.42-plan.md` — v0.42 MCP-First Integration Pack 1 (downstream
+- `docs/plans/archives/v0.40-plan.md` — v0.40 MCP Client Integration.
+- `docs/plans/archives/v0.40-request-flow.md` — v0.40 request flow and security evals.
+- `docs/plans/archives/v0.42-plan.md` — v0.42 MCP-First Integration Pack 1 (downstream
   consumer of the v0.40 MCP actions and grant-gated read model).
 - ADR 0009 — Local Execution Sandbox Levels (stdio process startup bounds).
 - ADR 0011 — Confirmed External Capability Adapters (operation-class scoping,

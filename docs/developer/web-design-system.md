@@ -15,8 +15,8 @@ Authority: `docs/adr/0074-web-design-system-and-ux-language.md` (v0.61 amendment
 `docs/adr/0079-visual-design-language-and-art-direction.md`,
 `docs/adr/0024-app-ui-contribution-and-workspace-zones.md`,
 `docs/design/layout-systems-selected.md`, `docs/design/visual-language-selected.md`,
-`docs/design/brand-identity-selected.md`, `docs/plans/v0.61-plan.md`, and
-`docs/plans/v0.58-plan.md`.
+`docs/design/brand-identity-selected.md`, `docs/plans/archives/v0.61-plan.md`, and
+`docs/plans/archives/v0.58-plan.md`.
 
 ## v0.61 Presentation Overhaul (Layout D · Direction C)
 
@@ -428,4 +428,4 @@ Required checks:
 - canvas is a docked resizable pane driven by destination selection (v0.61b);
 - panels render DTOs through registered actions;
 - a11y and redaction tests cover all changed pages;
-- operator evidence follows `docs/plans/v0.58-request-flow.md`.
+- operator evidence follows `docs/plans/archives/v0.58-request-flow.md`.

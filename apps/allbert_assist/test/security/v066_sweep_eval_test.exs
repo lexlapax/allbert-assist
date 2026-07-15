@@ -405,7 +405,7 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
   end
 
   test "product-rc-v1-handoff-current-001: the v1.0 handoff note and its 17-item acceptance matrix are current" do
-    handoff = read!("docs/plans/v1.0-handoff.md")
+    handoff = read!("docs/plans/archives/v1.0-handoff.md")
     roadmap = read!("docs/plans/roadmap.md")
 
     # The handoff note exists and frames the acceptance matrix (case-insensitive, so it

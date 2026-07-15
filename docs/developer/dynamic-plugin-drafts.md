@@ -4,7 +4,7 @@ Status: v0.37.5 release contract.
 
 This guide defines the implementation shape for dynamic capability drafts. It is
 the developer companion to `docs/operator/dynamic-capability-integration.md` and
-the request flow in `docs/plans/v0.37-request-flow.md`.
+the request flow in `docs/plans/archives/v0.37-request-flow.md`.
 
 ## Roots
 

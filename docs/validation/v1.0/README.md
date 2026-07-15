@@ -3,7 +3,7 @@
 DIT = direct integration test: operator-attested evidence that the checkout-bound
 `release.v1` gate cannot prove and that must run against real hosts, real packaged
 artifacts, or real configured providers before the v1.0 freeze
-(`docs/plans/v1.0-handoff.md` §DIT Milestones). This directory records that evidence;
+(`docs/plans/archives/v1.0-handoff.md` §DIT Milestones). This directory records that evidence;
 it inherits and links the v0.66 evidence (`docs/validation/v0.66/`) rather than
 rewriting it.
 
@@ -31,6 +31,6 @@ Both item-11 usability caveats were rechecked clean inside DIT-2 (no reconnect t
 packaged assets; QuickStart enabled direct answers before the first real question).
 
 The two validation passes (2026-07-14) surfaced findings R1-R15, all fixed and
-regression-tested under `docs/plans/v1.0-plan.md` M7.1-M7.6. Phase A closes with the
+regression-tested under `docs/plans/archives/v1.0-plan.md` M7.1-M7.6. Phase A closes with the
 matrix commit; the Release Closeout (version bump, tag, publish, tap) follows per
 `v1.0-request-flow.md`.

@@ -8,7 +8,7 @@ machine-derived from channel descriptors via `ChannelParity` /
 `mix allbert.channels --parity`) and a persistent **TUI/terminal channel**
 (`channel_id: "tui"`, provider `"terminal"`, primitives `[:typed_command,
 :list]`), distinct from the non-channel `mix allbert.ask` (`:cli`) label. See
-`docs/plans/v0.55-plan.md`. See ADR 0067 for the
+`docs/plans/archives/v0.55-plan.md`. See ADR 0067 for the
 TUI descriptor detail, the split tool-result payload extension (ADR 0029/0030),
 and the scrollback-native rendering model.
 
@@ -235,7 +235,7 @@ list.
 ## v0.52 Amendment: Channel Approval Primitives
 
 Status: Accepted for v0.52 Channel Pack 1 - Discord And Slack
-(`docs/plans/v0.52-plan.md`). Binding for v0.52 and all later channel adapters
+(`docs/plans/archives/v0.52-plan.md`). Binding for v0.52 and all later channel adapters
 including v0.53 mobile channels.
 
 This amendment scopes the channel **boundary and approval-primitive contract**.

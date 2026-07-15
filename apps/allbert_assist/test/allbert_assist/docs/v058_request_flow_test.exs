@@ -1,7 +1,7 @@
 defmodule AllbertAssist.Docs.V058RequestFlowTest do
   use ExUnit.Case, async: true
 
-  @request_flow Path.expand("../../../../../docs/plans/v0.58-request-flow.md", __DIR__)
+  @request_flow Path.expand("../../../../../docs/plans/archives/v0.58-request-flow.md", __DIR__)
 
   test "S6 evidence secret-scan regex is accepted by ripgrep" do
     markdown = File.read!(@request_flow)

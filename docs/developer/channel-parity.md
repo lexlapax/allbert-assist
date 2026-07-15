@@ -71,4 +71,4 @@ changing the parity matrix itself:
 
 The status command is intentionally not part of v0.55's `mix allbert.channels
 --parity` contract. It belongs to the v0.55.1 operator/validation console
-described by ADR 0070 and `docs/plans/v0.55b-request-flow.md`.
+described by ADR 0070 and `docs/plans/archives/v0.55b-request-flow.md`.

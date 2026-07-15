@@ -6724,7 +6724,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
     # exists by EXACT name (function_exported?/signal literals/__schema__ fields/
     # Settings keys/Paths roots/Policy.permission_classes). A rename or removal of a
     # frozen symbol fails its row; Tier 2 additive changes stay green. See
-    # docs/plans/v1.0-plan.md Freeze Enforcement + docs/developer/public-contract-freeze.md.
+    # docs/plans/archives/v1.0-plan.md Freeze Enforcement + docs/developer/public-contract-freeze.md.
     %{
       id: "v1-contract-freeze-no-new-features-001",
       milestone: :v1,

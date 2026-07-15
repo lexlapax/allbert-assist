@@ -3,7 +3,7 @@
 ## Status
 
 Accepted for v0.37 Dynamic Code & Config Generation and Live Capability
-Integration (`docs/plans/v0.37-plan.md`) on 2026-05-25. Revised after the
+Integration (`docs/plans/archives/v0.37-plan.md`) on 2026-05-25. Revised after the
 v0.36 second pass: v0.36 owns the sandbox evidence states; v0.37 owns
 capability-gap acquisition, dynamic draft trust tiers, gated integration, and
 rollback. The shipped v0.37.1 live target is reviewed read-only actions only;

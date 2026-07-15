@@ -692,7 +692,7 @@ same `AgentServer` while it is handling a command.
 
 Status: amendment added in the post-v0.37 planning pass for v1.0 closeout.
 
-The 1.0 stability release (`docs/plans/v1.0-plan.md`) uses a tiered freeze
+The 1.0 stability release (`docs/plans/archives/v1.0-plan.md`) uses a tiered freeze
 policy. This amendment records that the reserved advisory-provider vocabulary
 in Section 3 (Vocabulary) and Section 6 (Engine state machine) is **not**
 part of the 1.0 frozen contract.
@@ -733,13 +733,13 @@ second concrete provider proves the shape.
 - Post-1.0 work that introduces a `WorldModelProvider` (or any other reserved
   role) is free to choose the contract shape based on the concrete second
   provider, not on the v0.21 vocabulary draft.
-- The v1.0 freeze notes in `docs/plans/v1.0-plan.md` cross-link this
+- The v1.0 freeze notes in `docs/plans/archives/v1.0-plan.md` cross-link this
   amendment so the reserved-vocabulary status is operator-visible.
 
 ### A21. The delegate-agent substrate gets a second consumer before the 1.0 freeze (v0.46)
 
 Status: accepted in v0.46 M1 for Delegation Hardening And Research
-Specialist (`docs/plans/v0.46-plan.md`).
+Specialist (`docs/plans/archives/v0.46-plan.md`).
 
 A18 records StockSage native financial specialist agents as the **first**
 real consumer of the v0.24 delegate-agent substrate
@@ -1024,11 +1024,11 @@ advisory; the deterministic acceptance check (against
 
 - `docs/archives/project-direction-rethink-01.md` — the rethink draft
   that motivates this ADR.
-- `docs/plans/v0.23-plan.md` — Jido State-Machine Convergence
+- `docs/plans/archives/v0.23-plan.md` — Jido State-Machine Convergence
   (prerequisite).
-- `docs/plans/v0.24-plan.md` — Objective Runtime Foundation (where
+- `docs/plans/archives/v0.24-plan.md` — Objective Runtime Foundation (where
   this ADR is implemented).
-- `docs/plans/v0.24-request-flow.md` — engine flows.
+- `docs/plans/archives/v0.24-request-flow.md` — engine flows.
 - `docs/research/objective-runtime-research.md` — primary-source
   citations and provider research.
 - ADR 0006 — Security Central as policy evaluation boundary.

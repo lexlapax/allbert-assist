@@ -3,7 +3,7 @@
 ## Status
 
 Accepted for v0.42 Tool Discovery + MCP-First Integration Pack 1
-(`docs/plans/v0.42-plan.md`), at v0.42 M1. Pairs with ADR 0048 (tool discovery
+(`docs/plans/archives/v0.42-plan.md`), at v0.42 M1. Pairs with ADR 0048 (tool discovery
 and discovered-server trust): discovery is how an operator *finds* a server to
 configure; this ADR governs whether that configured integration stays
 MCP-shaped or graduates to a native plugin.

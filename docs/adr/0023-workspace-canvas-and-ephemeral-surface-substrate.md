@@ -453,7 +453,7 @@ multi-user lands (post-v0.38).
 ### 12. Settings keys (workspace.*)
 
 v0.26 adds the following Settings Central keys (validation ranges +
-defaults documented in `docs/plans/v0.26-plan.md` Settings Central
+defaults documented in `docs/plans/archives/v0.26-plan.md` Settings Central
 Schema section):
 
 - `workspace.theme` — `"light"` | `"dark"` | `"system"`; default `"system"`
@@ -679,8 +679,8 @@ contract does not change.
 
 ## References
 
-- `docs/plans/v0.26-plan.md` (this milestone's implementation contract)
-- `docs/plans/v0.26-request-flow.md` (this milestone's runtime/user flow)
+- `docs/plans/archives/v0.26-plan.md` (this milestone's implementation contract)
+- `docs/plans/archives/v0.26-request-flow.md` (this milestone's runtime/user flow)
 - `docs/plans/allbert-jido-vision.md` L359–379 (workspace + canvas + ephemeral vision)
 - `docs/archives/project-direction-rethink-01.md` L517–520 (surfaces render, do not own state)
 - `docs/plans/future-features.md` UI Protocol Interop section

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted at v0.51 M1 for Public Protocol Surfaces (`docs/plans/v0.51-plan.md`).
+Accepted at v0.51 M1 for Public Protocol Surfaces (`docs/plans/archives/v0.51-plan.md`).
 
 Proposed amendment (v0.51, 2026-06-09 restructure): v0.51 is promoted to a
 full release and expands to three public surfaces — MCP server, an

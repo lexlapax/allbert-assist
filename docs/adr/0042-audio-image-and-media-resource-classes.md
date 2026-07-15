@@ -3,9 +3,9 @@
 ## Status
 
 - Accepted for the v0.48 audio slice in M4
-  (`docs/plans/v0.48-plan.md`).
+  (`docs/plans/archives/v0.48-plan.md`).
 - Accepted for the v0.49 image/screenshot amendment in M1
-  (`docs/plans/v0.49-plan.md`) after catalog/settings, app-started ReqLLM
+  (`docs/plans/archives/v0.49-plan.md`) after catalog/settings, app-started ReqLLM
   probe, and fixture-profile evidence.
 - Accepted for the v0.50 artifact-resource amendment after Artifacts Central,
   retained-media backfill, the supervised ingestion sensor, and `release.v050`
@@ -101,7 +101,7 @@ v0.48 implements only the audio portion of this ADR:
 ### v0.49 Image/Screenshot Amendments
 
 v0.49 implements the image input, screenshot, and image-generation portions of
-this ADR (`docs/plans/v0.49-plan.md`):
+this ADR (`docs/plans/archives/v0.49-plan.md`):
 
 - `image://capture/<id>` and `screen://capture/<id>` identify **operator-
   supplied** paste/upload media. The capture id is opaque, Allbert-Home-local,
@@ -156,7 +156,7 @@ this ADR (`docs/plans/v0.49-plan.md`):
 ### v0.50 Artifact Resource Amendment
 
 v0.50 implements the artifact-management follow-on reserved by v0.49
-(`docs/plans/v0.50-plan.md`, ADR 0053, ADR 0054):
+(`docs/plans/archives/v0.50-plan.md`, ADR 0053, ADR 0054):
 
 - `artifact://sha256/<hex>` identifies a durable, content-addressed artifact in
   Allbert Home. The hash is lowercase SHA-256 over the bytes and is distinct

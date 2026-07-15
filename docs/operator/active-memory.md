@@ -7,19 +7,19 @@ release line).
 
 This guide is the operator-facing reference for the identity memory
 namespace and Active Memory retrieval. Implementation details live in
-`docs/plans/v0.39b-plan.md`; the algorithm spec lives in
+`docs/plans/archives/v0.39b-plan.md`; the algorithm spec lives in
 `docs/research/active-memory-retrieval.md`.
 
 ## Orientation
 
-- `docs/plans/v0.39b-plan.md` — implementation plan.
-- `docs/plans/v0.39b-request-flow.md` — request flow and security evals.
+- `docs/plans/archives/v0.39b-plan.md` — implementation plan.
+- `docs/plans/archives/v0.39b-request-flow.md` — request flow and security evals.
 - `docs/research/active-memory-retrieval.md` — deterministic algorithm spec.
 - `docs/operator/onboarding.md` — first-run onboarding (v0.39); the
   identity-slot preview step in onboarding points here.
 - `docs/operator/local-knowledge.md` — the v0.65 local files/notes + reviewed
   memory launch-path guide (connect → search/read → confirm write → review → recall).
-- `docs/plans/v0.65-plan.md` and `docs/design/local-knowledge-path.md` —
+- `docs/plans/archives/v0.65-plan.md` and `docs/design/local-knowledge-path.md` —
   the local-knowledge product surfaces for reviewed memory.
 
 ## Identity Slot
@@ -183,10 +183,10 @@ them as retrieval weights, not as unrelated model-temperature values.
 
 ## References
 
-- `docs/plans/v0.39b-plan.md`
-- `docs/plans/v0.39b-request-flow.md`
+- `docs/plans/archives/v0.39b-plan.md`
+- `docs/plans/archives/v0.39b-request-flow.md`
 - `docs/research/active-memory-retrieval.md`
-- `docs/plans/v0.21-plan.md` — memory review/retrieval substrate.
-- `docs/plans/v0.27-plan.md` — app memory namespace declaration contract
+- `docs/plans/archives/v0.21-plan.md` — memory review/retrieval substrate.
+- `docs/plans/archives/v0.27-plan.md` — app memory namespace declaration contract
   that v0.39b extends with a system-namespace declarer.
 - ADR 0021 — intent/objective/capability/advisory boundary.

@@ -151,13 +151,13 @@ defmodule AllbertAssist.Coding.M4StreamRenderingTest do
                turn_id: "turn-1",
                tool_call_id: "call-1",
                tool_name: "read",
-               arguments_delta: %{"path" => "docs/plans/v0.57-plan.md"}
+               arguments_delta: %{"path" => "docs/plans/archives/v0.57-plan.md"}
              })
 
     assert {:ok, live_region} = LiveRegion.apply_event(live_region, tool_event)
     assert_received {:update, :test_coding_stream, compact_update}
     assert compact_update =~ "Tool calls: read"
-    refute compact_update =~ "docs/plans/v0.57-plan.md"
+    refute compact_update =~ "docs/plans/archives/v0.57-plan.md"
     refute compact_update =~ "{"
     assert_received :await_render
 

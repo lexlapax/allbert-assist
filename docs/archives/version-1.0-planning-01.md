@@ -604,7 +604,7 @@ If you want to act on this analysis:
 - `docs/plans/roadmap.md` — full milestone list through v0.38
 - `docs/plans/future-features.md` — parking-lot entries that graduate into v0.39–v0.49
 - `docs/plans/allbert-jido-vision.md` — long-term vision
-- `docs/plans/v0.38-plan.md` — next implementation-ready milestone
+- `docs/plans/archives/v0.38-plan.md` — next implementation-ready milestone
 - ADR 0013 (URI-first resource identity, reserves `mcp://`)
 - ADR 0016 (channel adapter boundary)
 - ADR 0017 (plugin contract)

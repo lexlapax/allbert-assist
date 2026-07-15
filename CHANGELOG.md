@@ -71,7 +71,7 @@ tagged `gate-proved-contract` or `operator-attested-smoke`.
   for the real-host closeout.
 - **Full doc-surface consistency sweep.** README trimmed (release history → CHANGELOG),
   all stale operator/developer version stamps cleared, orphans linked, a new
-  `docs/design/README.md`, reconciled Start-Here sequences, and a `docs/plans/v1.0-handoff.md`
+  `docs/design/README.md`, reconciled Start-Here sequences, and a `docs/plans/archives/v1.0-handoff.md`
   with the 17-item acceptance matrix for the v1.0 freeze.
 
 ## v0.65.0 - Local Knowledge: Files, Notes, And Agent Memory
@@ -491,7 +491,7 @@ proofs / the `:v061b` security sweep / docs gate).
 Status: released — `mix allbert.test release.v061` gate-green (Dialyzer 0); version
 bumped to 0.61.0; tagged `v0.61.0`. The operator's manual-validation UX feedback is
 addressed by the subsequent v0.61b point release (0.61.1, released):
-`docs/plans/v0.61b-plan.md`.
+`docs/plans/archives/v0.61b-plan.md`.
 
 Implements the v0.60 product-experience design (information architecture, navigation,
 screen composition; ADR 0077) in the operator-chosen **Layout D (Sidebar-primary)**,
@@ -539,8 +539,8 @@ Design-only: no new authority, capability, egress, confirmation-floor change, or
 Settings key. `mix allbert.test release.v060b` passes (format / compile-warnings /
 Credo strict / Dialyzer / visual-direction proof / `:v060b` security sweep / docs gate).
 
-Plan: `docs/plans/v0.60b-plan.md`. Request flow:
-`docs/plans/v0.60b-request-flow.md`. ADR:
+Plan: `docs/plans/archives/v0.60b-plan.md`. Request flow:
+`docs/plans/archives/v0.60b-request-flow.md`. ADR:
 `docs/adr/0079-visual-design-language-and-art-direction.md`
 (Accepted-with-choice (v0.60b)).
 
@@ -583,8 +583,8 @@ Status: released; tagged `v0.60.0` (commit `643cc344`). Validation complete on
 subsequent point release v0.60.1 (v0.60b) is above; version metadata now reports
 `0.60.1`.
 
-Plan: `docs/plans/v0.60-plan.md`. Request flow:
-`docs/plans/v0.60-request-flow.md`. ADRs:
+Plan: `docs/plans/archives/v0.60-plan.md`. Request flow:
+`docs/plans/archives/v0.60-request-flow.md`. ADRs:
 `docs/adr/0077-product-experience-design-and-information-architecture.md` and
 `docs/adr/0078-first-model-path.md` (both Accepted (v0.60)).
 
@@ -638,8 +638,8 @@ Status: release closeout complete on 2026-06-30 after final release-audit
 remediation; version metadata reports `0.59.0`. The release tag `v0.59.0`
 exists.
 
-Plan: `docs/plans/v0.59-plan.md`. Request flow:
-`docs/plans/v0.59-request-flow.md`. ADRs:
+Plan: `docs/plans/archives/v0.59-plan.md`. Request flow:
+`docs/plans/archives/v0.59-request-flow.md`. ADRs:
 `docs/adr/0046-settings-schema-migration-policy.md` and
 `docs/adr/0065-central-action-param-contract-enforcement.md` (both Accepted).
 
@@ -707,8 +707,8 @@ Plan: `docs/plans/v0.59-plan.md`. Request flow:
 Status: M15 closeout complete on 2026-06-25; version metadata reports `0.58.0`.
 The release tag `v0.58.0` is applied separately per project convention.
 
-Plan: `docs/plans/v0.58-plan.md`. Request flow:
-`docs/plans/v0.58-request-flow.md`. ADRs:
+Plan: `docs/plans/archives/v0.58-plan.md`. Request flow:
+`docs/plans/archives/v0.58-request-flow.md`. ADRs:
 `docs/adr/0073-cross-surface-contract.md` and
 `docs/adr/0074-web-design-system-and-ux-language.md` (both Accepted), with v0.58
 amendments to ADR 0016/0030/0070 and a v0.58 revision to ADR 0024.
@@ -761,8 +761,8 @@ amendments to ADR 0016/0030/0070 and a v0.58 revision to ADR 0024.
 Status: released and tagged as `v0.57.0` on 2026-06-24. Current version metadata
 reports `0.57.0`.
 
-Plan: `docs/plans/v0.57-plan.md`. Request flow:
-`docs/plans/v0.57-request-flow.md`. ADR:
+Plan: `docs/plans/archives/v0.57-plan.md`. Request flow:
+`docs/plans/archives/v0.57-request-flow.md`. ADR:
 `docs/adr/0068-pi-mode-coding-surface-and-local-coding-trust-tier.md`
 (Accepted).
 
@@ -816,8 +816,8 @@ Plan: `docs/plans/v0.57-plan.md`. Request flow:
 Status: released and tagged as `v0.56.0` on 2026-06-23. Current version metadata
 reports `0.57.0` after the v0.57 closeout.
 
-Plan: `docs/plans/v0.56-plan.md`. Request flow:
-`docs/plans/v0.56-request-flow.md`. ADRs:
+Plan: `docs/plans/archives/v0.56-plan.md`. Request flow:
+`docs/plans/archives/v0.56-request-flow.md`. ADRs:
 `docs/adr/0062-intent-descriptor-lifecycle-generation-and-operator-curation.md`
 (v0.56 completion), `docs/adr/0071-intent-routing-accuracy-evaluation-harness-and-promotion-gate.md`
 (Accepted), and `docs/adr/0072-recommended-model-profiles-per-purpose.md`
@@ -896,8 +896,8 @@ Plan: `docs/plans/v0.56-plan.md`. Request flow:
 Status: released and tagged as `v0.55.1` on 2026-06-22. Current version
 metadata now reports `0.57.0` after the v0.57 closeout.
 
-Plan: `docs/plans/v0.55b-plan.md`. Request flow:
-`docs/plans/v0.55b-request-flow.md`. ADR:
+Plan: `docs/plans/archives/v0.55b-plan.md`. Request flow:
+`docs/plans/archives/v0.55b-request-flow.md`. ADR:
 `docs/adr/0070-tui-operator-console-and-read-only-operator-actions.md`
 (Accepted).
 
@@ -942,8 +942,8 @@ Plan: `docs/plans/v0.55b-plan.md`. Request flow:
 Status: released and tagged as `v0.55.0` on 2026-06-22. Version metadata now
 reports `0.57.0` after the follow-on v0.55.1, v0.56, and v0.57 closeouts.
 
-Plan: `docs/plans/v0.55-plan.md`. Request flow:
-`docs/plans/v0.55-request-flow.md`. ADRs: `docs/adr/0067-tui-terminal-channel.md`
+Plan: `docs/plans/archives/v0.55-plan.md`. Request flow:
+`docs/plans/archives/v0.55-request-flow.md`. ADRs: `docs/adr/0067-tui-terminal-channel.md`
 plus the v0.55 accepted amendments in ADR 0016, ADR 0029, and ADR 0030.
 
 ### Added
@@ -1009,7 +1009,7 @@ availability gate after Meta setup/object/registration failures and Signal
 daemon/link-device onboarding proved too high-friction for the v0.53 release
 bar.
 
-Plan: `docs/plans/v0.54-plan.md`. Request flow: `docs/plans/v0.54-request-flow.md`.
+Plan: `docs/plans/archives/v0.54-plan.md`. Request flow: `docs/plans/archives/v0.54-request-flow.md`.
 ADRs: `docs/adr/0060-two-stage-intent-router-and-approval-gate-separation.md`,
 `docs/adr/0061-local-embedding-capability-and-router-model-tiers.md`,
 `docs/adr/0062-intent-descriptor-lifecycle-generation-and-operator-curation.md`,
@@ -1161,8 +1161,8 @@ release-availability gate: undeclared capabilities default released, explicit
 unreleased declarations fail closed, and Security Central remains authority.
 Current version metadata is `0.57.0` after the v0.57 closeout.
 
-Plan: `docs/plans/v0.53-plan.md`.
-Request flow: `docs/plans/v0.53-request-flow.md`.
+Plan: `docs/plans/archives/v0.53-plan.md`.
+Request flow: `docs/plans/archives/v0.53-request-flow.md`.
 Operator docs: `docs/operator/telegram-channel.md`,
 `docs/operator/email-channel.md`, `docs/operator/matrix-channel.md`,
 `docs/operator/whatsapp-channel.md`, `docs/operator/signal-channel.md`.
@@ -1306,8 +1306,8 @@ Status: released as `v0.52.0`. Implemented on 2026-06-10; real-provider Discord
 and Slack validation completed on 2026-06-14 (see "Post-implementation
 validation" below), and tagged `v0.52.0`. Current version metadata is `0.52.0`.
 
-Plan: `docs/plans/v0.52-plan.md`.
-Request flow: `docs/plans/v0.52-request-flow.md`.
+Plan: `docs/plans/archives/v0.52-plan.md`.
+Request flow: `docs/plans/archives/v0.52-request-flow.md`.
 Operator docs: `docs/operator/discord-channel.md`,
 `docs/operator/slack-channel.md`.
 Developer docs: `docs/developer/channel-approval-primitives.md`,
@@ -1614,7 +1614,7 @@ updater. `v0.51.4` is the current v0.51 manual-validation target. The
   `DBConnection.ConnectionError`, `unknown_app_namespace`, `unknown_setting`,
   raw bearer-token, API-key, or `sk-*` leakage signatures in fresh evidence.
 - Manual operator validation is ready to resume at
-  `docs/plans/v0.51-request-flow.md` step 5.
+  `docs/plans/archives/v0.51-request-flow.md` step 5.
 
 ## v0.51.0 - Public Protocol Surfaces
 
@@ -2550,8 +2550,8 @@ Status: implemented as the v0.42 security and contract remediation release.
 Status: implemented as the initial v0.42 base. It is superseded by the
 `0.42.1` and `0.42.2` closeout releases; current version metadata is `0.42.2`.
 
-Plan: `docs/plans/v0.42-plan.md`.
-Request flow: `docs/plans/v0.42-request-flow.md`.
+Plan: `docs/plans/archives/v0.42-plan.md`.
+Request flow: `docs/plans/archives/v0.42-request-flow.md`.
 ADRs: `docs/adr/0048-tool-discovery-and-discovered-server-trust.md` and
 `docs/adr/0039-mcp-first-native-plugin-second-integrations.md`.
 Operator doc: `docs/operator/mcp-servers.md`.
@@ -2623,8 +2623,8 @@ Developer docs: `docs/developer/mcp-client.md` and
 Status: implemented and ready for operator manual validation before release
 tagging. Version metadata is `0.40.0`.
 
-Plan: `docs/plans/v0.40-plan.md`.
-Request flow: `docs/plans/v0.40-request-flow.md`.
+Plan: `docs/plans/archives/v0.40-plan.md`.
+Request flow: `docs/plans/archives/v0.40-request-flow.md`.
 ADR: `docs/adr/0038-mcp-client-trust-tier.md`.
 Operator doc: `docs/operator/mcp-servers.md`.
 Developer doc: `docs/developer/mcp-client.md`.
@@ -2681,8 +2681,8 @@ Developer doc: `docs/developer/mcp-client.md`.
 Status: implemented and ready for operator manual validation before release
 tagging. Version metadata is `0.39.1`.
 
-Plan: `docs/plans/v0.39b-plan.md`.
-Request flow: `docs/plans/v0.39b-request-flow.md`.
+Plan: `docs/plans/archives/v0.39b-plan.md`.
+Request flow: `docs/plans/archives/v0.39b-request-flow.md`.
 Research note: `docs/research/active-memory-retrieval.md`.
 Operator doc: `docs/operator/active-memory.md`.
 
@@ -2753,8 +2753,8 @@ Operator doc: `docs/operator/active-memory.md`.
 Status: implemented and ready for operator manual validation before release
 tagging. Version metadata is `0.39.0`.
 
-Plan: `docs/plans/v0.39-plan.md`.
-Request flow: `docs/plans/v0.39-request-flow.md`.
+Plan: `docs/plans/archives/v0.39-plan.md`.
+Request flow: `docs/plans/archives/v0.39-request-flow.md`.
 ADR: `docs/adr/0047-provider-doctor-contract.md`.
 
 ### Added
@@ -2878,8 +2878,8 @@ source. Operator live creation writes only LLM-tool/action dynamic drafts and
 then reuses the v0.36 sandbox gate and the v0.37 operator-confirmed live
 loader.
 
-Plan: `docs/plans/v0.38-plan.md`.
-Request flow: `docs/plans/v0.38-request-flow.md`.
+Plan: `docs/plans/archives/v0.38-plan.md`.
+Request flow: `docs/plans/archives/v0.38-request-flow.md`.
 ADRs: `docs/adr/0036-templated-creation-and-pattern-registry.md`,
 `docs/adr/0035-codegen-agents-and-live-integration-loader.md`,
 `docs/adr/0037-elixir-otp-sandbox-backend-and-gate-runner.md`,
@@ -2965,8 +2965,8 @@ v0.36 sandbox evidence, trusted validation, operator-confirmed live
 integration, live action invocation, delegated memory/network effects through
 reviewed facades, rollback, discard, lifecycle audit, and release docs.
 
-Plan: `docs/plans/v0.37-plan.md`.
-Request flow: `docs/plans/v0.37-request-flow.md`.
+Plan: `docs/plans/archives/v0.37-plan.md`.
+Request flow: `docs/plans/archives/v0.37-request-flow.md`.
 ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
 `docs/adr/0033-capability-gap-acquisition-and-trust-tiers.md`,
 `docs/adr/0035-codegen-agents-and-live-integration-loader.md`,
@@ -3184,7 +3184,7 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
 - No workspace or LiveView UI behavior changed in v0.37, so Chrome extension
   browser verification was not required.
 - Manual verification should use a disposable Allbert Home and follow
-  `docs/plans/v0.37-request-flow.md#manual-release-verification`.
+  `docs/plans/archives/v0.37-request-flow.md#manual-release-verification`.
 
 ### Verification (v0.37.1 hardening)
 
@@ -3255,8 +3255,8 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
 Status: released and tagged as `v0.36.0` on 2026-05-25. Local sandbox image
 preparation and M10 full-gate remediation are included in the release scope.
 
-Plan: `docs/plans/v0.36-plan.md`.
-Request flow: `docs/plans/v0.36-request-flow.md`.
+Plan: `docs/plans/archives/v0.36-plan.md`.
+Request flow: `docs/plans/archives/v0.36-request-flow.md`.
 ADRs: `docs/adr/0009-local-execution-sandbox-levels.md`,
 `docs/adr/0037-elixir-otp-sandbox-backend-and-gate-runner.md`.
 
@@ -3355,8 +3355,8 @@ ADRs: `docs/adr/0009-local-execution-sandbox-levels.md`,
 Status: implemented and release-ready on 2026-05-24. Version metadata is
 `0.35.0`; ready for operator manual verification before a release tag.
 
-Plan: `docs/plans/v0.35-plan.md`.
-Request flow: `docs/plans/v0.35-request-flow.md`.
+Plan: `docs/plans/archives/v0.35-plan.md`.
+Request flow: `docs/plans/archives/v0.35-request-flow.md`.
 ADR: `docs/adr/0025-user-theming-and-override-security.md`.
 
 ### Added (v0.35.0)
@@ -3412,8 +3412,8 @@ ADR: `docs/adr/0025-user-theming-and-override-security.md`.
 Status: released and tagged as `v0.34.0` on 2026-05-24. Version metadata is
 `0.34.0`.
 
-Plan: `docs/plans/v0.34-plan.md`.
-Request flow: `docs/plans/v0.34-request-flow.md`.
+Plan: `docs/plans/archives/v0.34-plan.md`.
+Request flow: `docs/plans/archives/v0.34-request-flow.md`.
 ADR: `docs/adr/0024-app-ui-contribution-and-workspace-zones.md` (v0.34
 revision).
 
@@ -3472,8 +3472,8 @@ revision).
 
 Status: released. Version metadata is `0.33.1`; release tag `v0.33.1` exists.
 
-Plan: `docs/plans/v0.33-plan.md`.
-Request flow: `docs/plans/v0.33-request-flow.md`.
+Plan: `docs/plans/archives/v0.33-plan.md`.
+Request flow: `docs/plans/archives/v0.33-request-flow.md`.
 ADR: `docs/adr/0034-conversational-app-intent-handoff-and-clarification.md`.
 
 ### Added (v0.33.1)
@@ -3524,8 +3524,8 @@ ADR: `docs/adr/0034-conversational-app-intent-handoff-and-clarification.md`.
 
 Status: released. Version metadata is `0.33.0`; release tag `v0.33.0` exists.
 
-Plan: `docs/plans/v0.33-plan.md`.
-Request flow: `docs/plans/v0.33-request-flow.md`.
+Plan: `docs/plans/archives/v0.33-plan.md`.
+Request flow: `docs/plans/archives/v0.33-request-flow.md`.
 ADR: `docs/adr/0034-conversational-app-intent-handoff-and-clarification.md`.
 
 ### Added (v0.33.0)
@@ -3573,8 +3573,8 @@ ADR: `docs/adr/0034-conversational-app-intent-handoff-and-clarification.md`.
 
 Status: released. Version metadata is `0.32.0`; release tag `v0.32.0` exists.
 
-Plan: `docs/plans/v0.32-plan.md`.
-Request flow: `docs/plans/v0.32-request-flow.md`.
+Plan: `docs/plans/archives/v0.32-plan.md`.
+Request flow: `docs/plans/archives/v0.32-request-flow.md`.
 
 ### Added (v0.32.0)
 
@@ -3630,8 +3630,8 @@ Request flow: `docs/plans/v0.32-request-flow.md`.
 Status: implemented and ready for operator manual verification before the
 release tag. Version metadata is `0.31.0`.
 
-Plan: `docs/plans/v0.31-plan.md`.
-Request flow: `docs/plans/v0.31-request-flow.md`.
+Plan: `docs/plans/archives/v0.31-plan.md`.
+Request flow: `docs/plans/archives/v0.31-request-flow.md`.
 
 ### Added (v0.31.0)
 
@@ -3693,8 +3693,8 @@ Request flow: `docs/plans/v0.31-request-flow.md`.
 Status: released. Version metadata is `0.30.0`; release tag `v0.30.0` was
 created after operator manual verification was accepted.
 
-Plan: `docs/plans/v0.30-plan.md`.
-Request flow: `docs/plans/v0.30-request-flow.md`.
+Plan: `docs/plans/archives/v0.30-plan.md`.
+Request flow: `docs/plans/archives/v0.30-request-flow.md`.
 
 ### Added (v0.30.0)
 
@@ -3752,15 +3752,15 @@ Request flow: `docs/plans/v0.30-request-flow.md`.
   `mix compile --warnings-as-errors`, `mix credo --strict`, `mix dialyzer`,
   `mix precommit`, and `git diff --check`.
 - Operator manual verification was accepted for the release smoke in
-  `docs/plans/v0.30-request-flow.md`.
+  `docs/plans/archives/v0.30-request-flow.md`.
 
 ## v0.29.0 - App Memory + Outcomes Contract - StockSage Polish
 
 Status: released. Version metadata is `0.29.0`; release tag `v0.29.0` was
 created after the full gate and operator smoke passed.
 
-Plan: `docs/plans/v0.29-plan.md`.
-Request flow: `docs/plans/v0.29-request-flow.md`.
+Plan: `docs/plans/archives/v0.29-plan.md`.
+Request flow: `docs/plans/archives/v0.29-request-flow.md`.
 
 ### Added (v0.29.0)
 
@@ -3858,8 +3858,8 @@ Request flow: `docs/plans/v0.29-request-flow.md`.
 Status: released. Version metadata is `0.28.0`; release tag `v0.28.0` was
 reconciled during the v0.29 release closeout.
 
-Plan: `docs/plans/v0.28-plan.md`.
-Request flow: `docs/plans/v0.28-request-flow.md`.
+Plan: `docs/plans/archives/v0.28-plan.md`.
+Request flow: `docs/plans/archives/v0.28-request-flow.md`.
 Operator hardening notes: `docs/operator/security-hardening.md`.
 
 ### Added (v0.28.0)
@@ -3947,8 +3947,8 @@ Use a disposable Allbert Home:
 
 Status: released. Version metadata is `0.27.0`; release tag `v0.27.0` exists.
 
-Plan: `docs/plans/v0.27-plan.md`.
-Request flow: `docs/plans/v0.27-request-flow.md`.
+Plan: `docs/plans/archives/v0.27-plan.md`.
+Request flow: `docs/plans/archives/v0.27-request-flow.md`.
 
 ### Added (v0.27.0)
 
@@ -4023,8 +4023,8 @@ Use a disposable Allbert Home:
 
 Status: released. Version metadata is `0.26.2`; release tag `v0.26.2` exists.
 
-Plan: `docs/plans/v0.26c-ux-closeout-plan.md`.
-Request flow: `docs/plans/v0.26c-request-flow.md`.
+Plan: `docs/plans/archives/v0.26c-ux-closeout-plan.md`.
+Request flow: `docs/plans/archives/v0.26c-request-flow.md`.
 
 ### Added (v0.26.2)
 
@@ -4083,8 +4083,8 @@ runtime bugfix pass. Version metadata is `0.26.1`.
 
 Plans:
 
-- `docs/plans/v0.26a-ui-plan.md`
-- `docs/plans/v0.26b-backend-plan.md`
+- `docs/plans/archives/v0.26a-ui-plan.md`
+- `docs/plans/archives/v0.26b-backend-plan.md`
 
 ### Fixed (v0.26b)
 
@@ -4120,7 +4120,7 @@ workspace substrate; the substrate itself (catalog, schema, signals,
 settings, permission classes, fragment validation, AGUI bridge, offline
 editor) is unchanged.
 
-Plan: `docs/plans/v0.26a-ui-plan.md`.
+Plan: `docs/plans/archives/v0.26a-ui-plan.md`.
 
 ### Added (v0.26a)
 
@@ -4454,7 +4454,7 @@ hardening and release verification. Version metadata is `0.24.0`.
   `mix test` (`allbert_assist` 673 tests and `allbert_assist_web`
   27 tests), StockSage plugin tests (123 tests), Telegram/email plugin
   renderer tests (2 tests), and `mix precommit`.
-- Operator smoke steps live in `docs/plans/v0.24-request-flow.md`.
+- Operator smoke steps live in `docs/plans/archives/v0.24-request-flow.md`.
 - Release tag: `v0.24`.
 
 ## v0.23 - Jido State-Machine Convergence
@@ -4521,7 +4521,7 @@ metadata is `0.23.0`; the release tag is pending operator acceptance.
   plugin `RunAnalysis` regression, `mix format --check-formatted`,
   `mix compile --warnings-as-errors`, `mix credo --strict`, `mix dialyzer`,
   `mix precommit`, deleted-module grep gate, and `git diff --check`.
-- Operator smoke steps live in `docs/plans/v0.23-request-flow.md`.
+- Operator smoke steps live in `docs/plans/archives/v0.23-request-flow.md`.
 
 ## v0.22 - StockSage Python Bridge
 
@@ -4658,7 +4658,7 @@ matrix remains the release gate. Release tag is pending operator acceptance.
 - Final v0.21 closeout gates passed: `mix compile --warnings-as-errors`,
   `mix credo --strict`, `mix dialyzer`, `mix precommit`, and
   `git diff --check`.
-- Manual verification steps live in `docs/plans/v0.21-request-flow.md`.
+- Manual verification steps live in `docs/plans/archives/v0.21-request-flow.md`.
 
 ## v0.20 - StockSage Plugin App And Domain
 
@@ -4715,7 +4715,7 @@ Release tag is pending operator acceptance.
   from the host app, `mix compile --warnings-as-errors`,
   `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
   `mix precommit`, and `git diff --check`.
-- Manual verification steps live in `docs/plans/v0.20-request-flow.md`.
+- Manual verification steps live in `docs/plans/archives/v0.20-request-flow.md`.
 
 ## v0.19 - Cross-Surface Intent Enrichment
 
@@ -4755,7 +4755,7 @@ checks.
 - Final v0.19 closeout gates passed: `mix compile --warnings-as-errors`,
   `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
   `mix precommit`, and `git diff --check`.
-- Manual verification steps live in `docs/plans/v0.19-request-flow.md`.
+- Manual verification steps live in `docs/plans/archives/v0.19-request-flow.md`.
 
 ## v0.18 - Full App Contract And Surface DSL
 
@@ -4809,7 +4809,7 @@ checks.
 - Final v0.18 closeout gates passed: `mix compile --warnings-as-errors`,
   `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
   `mix precommit`, and `git diff --check`.
-- Manual verification steps live in `docs/plans/v0.18-request-flow.md`.
+- Manual verification steps live in `docs/plans/archives/v0.18-request-flow.md`.
 
 ## v0.17 - Plugin Contract And Shipped Channel Plugins
 
@@ -4863,7 +4863,7 @@ checks.
 - Final v0.17 closeout gates passed: `mix compile --warnings-as-errors`,
   `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
   `mix precommit`, and `git diff --check`.
-- Manual verification steps live in `docs/plans/v0.17-request-flow.md`.
+- Manual verification steps live in `docs/plans/archives/v0.17-request-flow.md`.
 
 ## v0.16 - Additional Channels
 
@@ -4914,7 +4914,7 @@ checks.
 - Final v0.16 closeout gates passed: `mix compile --warnings-as-errors`,
   `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
   `mix precommit`, and `git diff --check`.
-- Manual verification steps live in `docs/plans/v0.16-request-flow.md`.
+- Manual verification steps live in `docs/plans/archives/v0.16-request-flow.md`.
 
 ## v0.15 - Minimal App Registration Contract
 
@@ -4971,7 +4971,7 @@ checks.
 - Final v0.15 closeout gates passed: `mix compile --warnings-as-errors`,
   `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
   `mix precommit`, and `git diff --check`.
-- Manual verification steps live in `docs/plans/v0.15-request-flow.md`.
+- Manual verification steps live in `docs/plans/archives/v0.15-request-flow.md`.
 
 ## v0.14 - Session Scratchpad And Active App Context
 
@@ -5026,7 +5026,7 @@ checks.
 - Final v0.14 closeout gates passed: `mix compile --warnings-as-errors`,
   `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
   `mix precommit`, and `git diff --check`.
-- Manual verification steps live in `docs/plans/v0.14-request-flow.md`.
+- Manual verification steps live in `docs/plans/archives/v0.14-request-flow.md`.
 
 ## v0.13 - Scheduled Jobs
 
@@ -5096,7 +5096,7 @@ checks.
 - Final v0.13 closeout gates passed: `mix compile --warnings-as-errors`,
   `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
   `mix precommit`, and `git diff --check`.
-- Manual verification steps live in `docs/plans/v0.13-request-flow.md`.
+- Manual verification steps live in `docs/plans/archives/v0.13-request-flow.md`.
 
 ## v0.12 - Local Workspace Identity And Conversation History
 
@@ -5156,7 +5156,7 @@ checks.
 - Final v0.12 closeout gates passed: `mix compile --warnings-as-errors`,
   `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
   `mix precommit`, and `git diff --check`.
-- Manual verification steps live in `docs/plans/v0.12-request-flow.md`.
+- Manual verification steps live in `docs/plans/archives/v0.12-request-flow.md`.
 
 ## v0.11 - Execution-Aware Intent, Resource Access, And Approval Handoff
 
@@ -5228,7 +5228,7 @@ checks.
 - Final v0.11 closeout gates passed: `mix compile --warnings-as-errors`,
   `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
   `mix precommit`, and `git diff --check`.
-- Manual verification steps live in `docs/plans/v0.11-request-flow.md`.
+- Manual verification steps live in `docs/plans/archives/v0.11-request-flow.md`.
 
 ## v0.10 - External Capability Adapters
 
@@ -5345,7 +5345,7 @@ and v0.11 handoff readiness. v0.10 was released and tagged as `v0.10` on
 - README now reads as a project overview and documentation index rather than a
   testing plan. First-run operator guidance lives in
   `docs/operator/onboarding.md`; the v0.10 smoke matrix remains in
-  `docs/plans/v0.10-request-flow.md`.
+  `docs/plans/archives/v0.10-request-flow.md`.
 - The reopened v0.10 plan has implemented the shared resource reference
   contract and remembered grant contract before release. v0.11 owns
   execution-aware Approval Handoff UX for consumers such as `summarize_url`,
@@ -5449,8 +5449,8 @@ and v0.11 handoff readiness. v0.10 was released and tagged as `v0.10` on
   skill import, confirmations, resource refs, resource grants, resource CLI,
   skill CLI, and `/settings` suites.
 - Operator/user testing should start with `docs/operator/onboarding.md` and
-  use the disposable v0.10 smoke flow in `docs/plans/v0.10-request-flow.md` or
-  `docs/plans/v0.10-plan.md` before accepting and tagging `v0.10`.
+  use the disposable v0.10 smoke flow in `docs/plans/archives/v0.10-request-flow.md` or
+  `docs/plans/archives/v0.10-plan.md` before accepting and tagging `v0.10`.
 
 ## v0.09 - Skill Script Runner
 
@@ -5513,7 +5513,7 @@ Status: accepted for operator/user testing. Release tag is `v0.09`.
   `mix precommit`, and `git diff --check`.
 - `mix precommit` passed with 206 core tests and 16 web tests.
 - Operator/user testing should use the disposable `ALLBERT_HOME` and temporary
-  workspace smoke in `docs/operator/onboarding.md` or `docs/plans/v0.09-plan.md`.
+  workspace smoke in `docs/operator/onboarding.md` or `docs/plans/archives/v0.09-plan.md`.
 - Disposable CLI smoke passed for validate, run, list, approve, and
   list-resolved against a temporary trusted skill and workspace.
 

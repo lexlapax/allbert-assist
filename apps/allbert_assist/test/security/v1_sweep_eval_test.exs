@@ -254,7 +254,7 @@ defmodule AllbertAssist.Security.V1SweepEvalTest do
 
     # The freeze notes / plan cross-link A20.
     notes = read!(@freeze_notes)
-    plan = read!("docs/plans/v1.0-plan.md")
+    plan = read!("docs/plans/archives/v1.0-plan.md")
     assert notes =~ "A20" or plan =~ "A20"
 
     IO.puts("v1-adr0021-vocabulary-not-frozen-001 status=pass a20=cross_linked")

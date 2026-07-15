@@ -110,4 +110,4 @@ authority boundary.
 - ADR 0046 (settings schema `schema_version` migration policy).
 - ADR 0047 (provider doctor contract — the redacted artifact-doctor envelope).
 - ADR 0054 (artifact provenance linking + browser-surface split; amends this).
-- `docs/plans/v0.50-plan.md`, `docs/plans/v0.50-request-flow.md`.
+- `docs/plans/archives/v0.50-plan.md`, `docs/plans/archives/v0.50-request-flow.md`.

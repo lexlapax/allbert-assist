@@ -3,7 +3,7 @@
 Status: implemented and warm-validated for v0.57 release closeout. This guide
 describes the operator workflow for the Pi-mode coding surface. The
 release-authoritative validation checklist lives in
-`docs/plans/v0.57-request-flow.md#operator-validation`.
+`docs/plans/archives/v0.57-request-flow.md#operator-validation`.
 
 Pi-mode runs inside the persistent `tui` channel. It is not a separate runtime and
 does not grant authority by being local. Every coding tool routes through

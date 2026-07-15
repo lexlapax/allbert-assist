@@ -1,7 +1,7 @@
 # ADR 0068: Pi-mode Coding Surface and Local-Coding Trust Tier
 
 Status: Accepted (v0.57 M0). Implementation and release-readiness status is
-tracked in `docs/plans/v0.57-plan.md`; the accepted architecture keeps coding
+tracked in `docs/plans/archives/v0.57-plan.md`; the accepted architecture keeps coding
 tools internal and session-guarded, runs model-proposed tool calls through the
 registered action boundary, and keeps provider streaming/cancel as an execution
 detail behind the Pi-mode turn boundary.

@@ -666,9 +666,9 @@ defmodule AllbertAssist.Channels.TUITest do
     assert_receive {:tui_output, "Pi-mode entered: " <> _entered}, 1_000
     assert_receive {:input_driver_output, "allbert:default> "}, 1_000
 
-    send_input_driver_line(reader, "Read docs/plans/v0.57-plan.md")
+    send_input_driver_line(reader, "Read docs/plans/archives/v0.57-plan.md")
     assert_receive {:runtime_request, request}, 1_000
-    assert request.text == "Read docs/plans/v0.57-plan.md"
+    assert request.text == "Read docs/plans/archives/v0.57-plan.md"
     assert Map.fetch!(request, :coding_turn?) == true
     refute_received :escape_monitor_should_not_start
 
@@ -747,16 +747,16 @@ defmodule AllbertAssist.Channels.TUITest do
     assert_receive {:tui_output, "Pi-mode entered: " <> _entered}, 1_000
     assert_receive {:tui_prompt, "allbert:default> "}, 1_000
 
-    send(server, {:next_input, "Read docs/plans/v0.57-plan.md"})
+    send(server, {:next_input, "Read docs/plans/archives/v0.57-plan.md"})
     assert_receive {:runtime_request, runner_pid, request}, 1_000
     assert Map.fetch!(request, :coding_turn?) == true
-    assert request.text == "Read docs/plans/v0.57-plan.md"
+    assert request.text == "Read docs/plans/archives/v0.57-plan.md"
 
     refute_receive {:tui_prompt, "allbert:default> "}, 100
-    refute_receive {:tui_output, "done Read docs/plans/v0.57-plan.md"}, 100
+    refute_receive {:tui_output, "done Read docs/plans/archives/v0.57-plan.md"}, 100
 
     send(runner_pid, :release_runtime)
-    assert_receive {:tui_output, "done Read docs/plans/v0.57-plan.md"}, 1_000
+    assert_receive {:tui_output, "done Read docs/plans/archives/v0.57-plan.md"}, 1_000
     assert_receive {:tui_prompt, "allbert:default> "}, 1_000
 
     ref = Process.monitor(server)
@@ -905,9 +905,9 @@ defmodule AllbertAssist.Channels.TUITest do
     assert_receive {:tui_output, "Pi-mode entered: " <> _entered}, 1_000
     assert_receive {:tui_prompt, "allbert:default> "}, 1_000
 
-    send(server, {:next_input, "Read docs/plans/v0.57-plan.md"})
+    send(server, {:next_input, "Read docs/plans/archives/v0.57-plan.md"})
     assert_receive {:runtime_request, request}, 1_000
-    assert request.text == "Read docs/plans/v0.57-plan.md"
+    assert request.text == "Read docs/plans/archives/v0.57-plan.md"
     assert Map.fetch!(request, :coding_turn?) == true
     assert_receive {:escape_monitor_started, monitor, _event_ref}, 1_000
 

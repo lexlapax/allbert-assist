@@ -106,5 +106,5 @@ ingestion sensor. Two follow-on concerns need their own decision:
 - ADR 0031 / 0046 (settings fragment authority / `schema_version`).
 - ADR 0015 / 0017 / 0024 (App + Plugin + Surface DSL/panel/page contracts).
 - ADR 0023 (workspace canvas / per-thread ephemeral substrate).
-- `docs/plans/v0.50-plan.md`, `docs/plans/v0.50-request-flow.md`,
-  `docs/plans/v0.50b-plan.md`, `docs/plans/v0.50b-request-flow.md`.
+- `docs/plans/archives/v0.50-plan.md`, `docs/plans/archives/v0.50-request-flow.md`,
+  `docs/plans/archives/v0.50b-plan.md`, `docs/plans/archives/v0.50b-request-flow.md`.

@@ -3,7 +3,7 @@
 ## Status
 
 Accepted in v0.31 M6 Runtime And UI-Substrate Consolidation
-(`docs/plans/v0.31-plan.md`).
+(`docs/plans/archives/v0.31-plan.md`).
 
 ## Context
 
@@ -38,7 +38,7 @@ confirmation semantics, or transport protocol fields.
 ## v0.55 Amendment: Split Model/Surface Payloads
 
 Status: Accepted for v0.55 Channel Parity + TUI/Terminal Channel
-(`docs/plans/v0.55-plan.md`; ADR 0067).
+(`docs/plans/archives/v0.55-plan.md`; ADR 0067).
 
 The typed response contract gains two optional fields:
 

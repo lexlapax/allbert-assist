@@ -3,9 +3,9 @@
 ## Status
 
 Proposed for v0.41 Developer Velocity And Parallel Test Methodology
-(`docs/plans/v0.41-plan.md`). Accepted before any Mix alias, test helper, or
+(`docs/plans/archives/v0.41-plan.md`). Accepted before any Mix alias, test helper, or
 test tag migration lands. Amended by v0.45.1 Gate Transparency And Precommit
-Decomposition (`docs/plans/v0.45.1-plan.md`).
+Decomposition (`docs/plans/archives/v0.45.1-plan.md`).
 
 ## Context
 

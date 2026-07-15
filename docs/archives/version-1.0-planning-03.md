@@ -125,7 +125,7 @@ versions, 12 increments).
 
 #### v0.38 — Templated Creation (lean, as planned)
 
-Already implementation-ready. Ship exactly per `docs/plans/v0.38-plan.md` and
+Already implementation-ready. Ship exactly per `docs/plans/archives/v0.38-plan.md` and
 ADR 0036.
 
 Substrate work: `TemplatePattern` registry; Mix tasks
@@ -775,7 +775,7 @@ personal-assistant category.
 - `docs/plans/future-features.md` — parking lot for promotion into
   v0.39–v0.48.
 - `docs/plans/allbert-jido-vision.md` — long-term vision.
-- `docs/plans/v0.38-plan.md` — next implementation-ready milestone.
+- `docs/plans/archives/v0.38-plan.md` — next implementation-ready milestone.
 - ADR 0006 (Security Central), ADR 0007 (Jido boundaries), ADR 0008
   (durable confirmations), ADR 0012 (Resource Access posture), ADR 0013
   (URI-first resource identity; reserves `mcp://`, `agent://`,

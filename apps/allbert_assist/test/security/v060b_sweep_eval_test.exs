@@ -204,7 +204,7 @@ defmodule AllbertAssist.Security.V060bSweepEvalTest do
   end
 
   test "v0.60b styled renderings stay design-only with no new authority" do
-    plan = read!("docs/plans/v0.60b-plan.md")
+    plan = read!("docs/plans/archives/v0.60b-plan.md")
     selected = read!("docs/design/visual-language-selected.md")
 
     assert_contains!(plan, [
@@ -221,7 +221,7 @@ defmodule AllbertAssist.Security.V060bSweepEvalTest do
 
   @tag :v060b_handoff
   test "v0.60b handoff names v0.61 as the sole consumer without build-scope drift" do
-    plan = read!("docs/plans/v0.60b-plan.md")
+    plan = read!("docs/plans/archives/v0.60b-plan.md")
     selected = read!("docs/design/visual-language-selected.md")
 
     assert_contains!(plan, [

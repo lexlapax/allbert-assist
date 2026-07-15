@@ -1,7 +1,7 @@
 # Allbert 1.0 Public Contract Freeze Notes
 
 This is the authoritative inventory of the public contracts frozen at v1.0
-(`docs/plans/v1.0-plan.md`, roadmap item 67). It is what plugin, app, channel, and
+(`docs/plans/archives/v1.0-plan.md`, roadmap item 67). It is what plugin, app, channel, and
 external-client authors may depend on across upgrades. The freeze is **tiered**:
 
 - **Tier 1** — frozen public contracts. Rename, remove, and shape-change are forbidden
@@ -89,7 +89,7 @@ defaults to Tier 2).
 
 ## Cross-links
 
-- Plan: [`docs/plans/v1.0-plan.md`](../plans/v1.0-plan.md) (Tiered Public Contract Freeze,
+- Plan: [`docs/plans/archives/v1.0-plan.md`](../plans/archives/v1.0-plan.md) (Tiered Public Contract Freeze,
   Freeze Enforcement).
 - Reserved-vocabulary-not-frozen decision: ADR 0021 A20.
 - Enforcement: `mix allbert.test release.v1` (`:v1` sweep).

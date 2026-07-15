@@ -294,6 +294,6 @@ voice-note ingestion, v0.48 eval rows, and the release-task usage surface.
 - ADR 0031 - Settings Schema Fragments And Authority.
 - ADR 0046 - Settings Schema Migration Policy.
 - ADR 0047 - Provider Doctor Contract.
-- `docs/plans/v0.39-plan.md`.
-- `docs/plans/v0.48-plan.md`.
-- `docs/plans/v0.49-plan.md`.
+- `docs/plans/archives/v0.39-plan.md`.
+- `docs/plans/archives/v0.48-plan.md`.
+- `docs/plans/archives/v0.49-plan.md`.

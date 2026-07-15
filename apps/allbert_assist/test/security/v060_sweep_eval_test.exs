@@ -304,8 +304,8 @@ defmodule AllbertAssist.Security.V060SweepEvalTest do
 
   @tag :rc_design_handoff
   test "v0.60 handoff names downstream consumers without build-scope drift" do
-    plan = read!("docs/plans/v0.60-plan.md")
-    request_flow = read!("docs/plans/v0.60-request-flow.md")
+    plan = read!("docs/plans/archives/v0.60-plan.md")
+    request_flow = read!("docs/plans/archives/v0.60-request-flow.md")
 
     assert_contains!(plan, [
       "No presentation, packaging, onboarding, or RC implementation.",

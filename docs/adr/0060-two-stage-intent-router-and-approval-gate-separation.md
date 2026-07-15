@@ -3,11 +3,11 @@
 ## Status
 
 Accepted (v0.54 Intent Deepening, M8 closeout, 2026-06-16) —
-`docs/plans/v0.54-plan.md`. The two-stage router shipped across M0–M7; the
+`docs/plans/archives/v0.54-plan.md`. The two-stage router shipped across M0–M7; the
 `:v054` intent-router eval and the router suite pass under `mix allbert.test
 release.v054`. Live local-model routing (the embedding + LLM disambiguation
 against Ollama) is validated by the operator manual-validation punchlist in
-`docs/plans/v0.54-request-flow.md`.
+`docs/plans/archives/v0.54-request-flow.md`.
 
 **Amendment (2026-06-16, M9):** descriptors are no longer purely static. The
 descriptor set is **lifecycle-managed** (generated for actions lacking declarations,
@@ -162,4 +162,4 @@ low-confidence tail.
   prior art deepened here), ADR 0011-era approval-handoff lineage (v0.11), ADR
   0006 (Security Central), ADR 0051 (provider capability preferences).
 - ADR 0061 (local embedding capability + router model tiers).
-- `docs/plans/v0.54-plan.md`, `docs/plans/v0.54-request-flow.md`.
+- `docs/plans/archives/v0.54-plan.md`, `docs/plans/archives/v0.54-request-flow.md`.

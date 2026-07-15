@@ -1,13 +1,13 @@
 # v0.66 Product RC — Attested Evidence Matrix
 
-Two-layer verification (`docs/plans/v0.66-plan.md` Locked Decision 1). The
+Two-layer verification (`docs/plans/archives/v0.66-plan.md` Locked Decision 1). The
 deterministic `mix allbert.test release.v066` gate proves contract/routing/boundary
 invariants; **this directory holds the operator-attested second layer** — scripted
 host smokes against a built binary, real-browser web smoke + the item-11 usability
 audit, cross-platform/WSL2 installs, and real-egress model/advanced-surface runs.
 
 Each row below is an attested-only or mixed evidence id from
-`docs/plans/v0.66-request-flow.md`. Fill `Status`, `Evidence`, and `Commit/Artifact`
+`docs/plans/archives/v0.66-request-flow.md`. Fill `Status`, `Evidence`, and `Commit/Artifact`
 as each is exercised. Evidence must come from a disposable or explicitly declared
 test `ALLBERT_HOME`, never a real operator home. Redact secrets, tokens, endpoints,
 and raw provider bodies before committing anything here. Do not commit raw

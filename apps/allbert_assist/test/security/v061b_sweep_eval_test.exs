@@ -70,7 +70,7 @@ defmodule AllbertAssist.Security.V061bSweepEvalTest do
   end
 
   test "the plan's M0 shell-spec section carries its subsections and the recorded S2 sign-off" do
-    plan = read!("docs/plans/v0.61b-plan.md")
+    plan = read!("docs/plans/archives/v0.61b-plan.md")
 
     assert plan =~ "#### Shell Spec & Operator Sign-off"
     assert plan =~ "**Relocation map"
@@ -91,7 +91,7 @@ defmodule AllbertAssist.Security.V061bSweepEvalTest do
     # cross-check that never existed — this is it, made real. Plan table rows
     # and the TopbarRetirementTest @relocation_map must both count 15 so
     # neither can drift alone.
-    plan = read!("docs/plans/v0.61b-plan.md")
+    plan = read!("docs/plans/archives/v0.61b-plan.md")
 
     [table_region] =
       Regex.run(

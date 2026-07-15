@@ -3,10 +3,10 @@
 Operator-attested on 2026-07-14 (macOS host, source checkout at the v1.0 freeze source
 on `origin/main`, local Ollama). Provider credentials came from the operator `.env`
 (exported via `set -a; source .env; set +a`); no credential values appear below.
-Findings raised during this exercise are folded into `docs/plans/v1.0-plan.md`
+Findings raised during this exercise are folded into `docs/plans/archives/v1.0-plan.md`
 M7.1/M7.2 (R4, R5, R8, R9 as numbered there).
 
-Class results per `docs/plans/v1.0-request-flow.md` §DIT-4:
+Class results per `docs/plans/archives/v1.0-request-flow.md` §DIT-4:
 
 | Class | Result |
 |---|---|

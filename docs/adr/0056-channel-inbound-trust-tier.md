@@ -3,7 +3,7 @@
 ## Status
 
 Accepted at v0.52 M8 closeout for Channel Pack 1 - Discord And Slack
-(`docs/plans/v0.52-plan.md`).
+(`docs/plans/archives/v0.52-plan.md`).
 
 Accepted amendment (v0.53, public signed-webhook inbound): v0.52 channels were
 outbound-initiated (Discord Gateway, Slack Socket Mode) with no public URL. v0.53
@@ -25,7 +25,7 @@ parsing or runtime work; the registration/verification handshake (WhatsApp
 URL use a tunnel; the signed webhook is the only inbound path for these channels.
 `:channel_message_inbound` and all v0.52 invariants apply unchanged. This
 amendment was accepted at v0.53 M10 implementation closeout; live provider smoke
-validation remains the pre-tag release gate. See `docs/plans/v0.53-plan.md`.
+validation remains the pre-tag release gate. See `docs/plans/archives/v0.53-plan.md`.
 
 Operator validation of this signature path (v0.53 closeout): the signature/verify-token
 contract is exercised **locally without a tunnel** by `mix allbert.channels whatsapp
@@ -169,4 +169,4 @@ Channel inbound is untrusted **yet distinct** from public-surface inbound:
 - ADR 0038 (outbound MCP client trust tier).
 - ADR 0006 (Security Central), ADR 0014 (local identity), ADR 0031 (settings
   fragments), ADR 0049 (development lanes).
-- `docs/plans/v0.52-plan.md`, `docs/plans/v0.52-request-flow.md`.
+- `docs/plans/archives/v0.52-plan.md`, `docs/plans/archives/v0.52-request-flow.md`.

@@ -78,7 +78,7 @@ itself is not a runtime mode, trust tier, or hidden policy switch.
 
 The M9.2 pre-audit below confirms which candidate key families already exist as
 Settings Central safe-write keys. v0.63 has now pinned the exact per-persona
-seeded values in `docs/plans/v0.63-plan.md` and
+seeded values in `docs/plans/archives/v0.63-plan.md` and
 `docs/adr/0075-user-category-settings-profiles.md`; implement those tables rather
 than choosing new values during review-diff work. This v0.60 design fixes the
 persona categories, seed groups, review shape, and per-persona intent so the

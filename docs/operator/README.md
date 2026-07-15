@@ -65,4 +65,4 @@ Release-specific operator validation belongs in the matching request-flow
 document under [plans](../plans/README.md). For the current packaged release line,
 see the [CHANGELOG](../../CHANGELOG.md) and [roadmap](../plans/roadmap.md); each
 release's validation lives in its `docs/plans/vNN-request-flow.md`. The integrated
-product-RC validation is the [v0.66 request flow](../plans/v0.66-request-flow.md).
+product-RC validation is the [v0.66 request flow](../plans/archives/v0.66-request-flow.md).

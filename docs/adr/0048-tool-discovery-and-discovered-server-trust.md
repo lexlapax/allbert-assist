@@ -3,7 +3,7 @@
 ## Status
 
 Accepted for v0.42 M1 Tool Discovery + MCP-First Integration Pack 1
-(`docs/plans/v0.42-plan.md`). Discovery actions must conform to this contract
+(`docs/plans/archives/v0.42-plan.md`). Discovery actions must conform to this contract
 before they land.
 
 ## Context

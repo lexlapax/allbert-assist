@@ -3,7 +3,7 @@
 ## Status
 
 Accepted for v0.35 User Theming And Layout Overrides
-(`docs/plans/v0.35-plan.md`). This ADR pins how operators retheme and
+(`docs/plans/archives/v0.35-plan.md`). This ADR pins how operators retheme and
 re-lay-out the Allbert UI from `<ALLBERT_HOME>` without editing core code, and
 the security posture for serving operator-supplied styling. It pairs with ADR
 0024, which owns the `/workspace` route, panel contribution contract, and

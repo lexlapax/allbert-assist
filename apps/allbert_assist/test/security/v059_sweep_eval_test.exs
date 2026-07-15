@@ -41,7 +41,7 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
   ]
   @eval_ids @eval_groups |> Keyword.values() |> List.flatten()
   @repo_root Path.expand("../../../../", __DIR__)
-  @v059_plan_path Path.expand("../../../../docs/plans/v0.59-plan.md", __DIR__)
+  @v059_plan_path Path.expand("../../../../docs/plans/archives/v0.59-plan.md", __DIR__)
 
   test "v0.59 eval inventory rows are complete and grouped by protected surface" do
     rows = EvalInventory.rows_for_milestone(:v059)

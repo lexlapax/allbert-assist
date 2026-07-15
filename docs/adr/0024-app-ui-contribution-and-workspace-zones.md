@@ -3,7 +3,7 @@
 ## Status
 
 Accepted and implemented in v0.32 Workspace-Only App UI And Settings Central
-(`docs/plans/v0.32-plan.md`).
+(`docs/plans/archives/v0.32-plan.md`).
 
 Accepted revision (v0.58): execute the `/workspace` layout
 revision on the v0.58 web design system, not as a one-off skin. `/workspace`
@@ -16,7 +16,7 @@ the volatile `Session.Scratchpad` remain unchanged. ADR 0023 substrate, the
 Surface DSL/catalog boundary, and `/workspace` as the canonical route remain in
 force; no model-generated UI and no new routes. The revision is accepted only at
 v0.58 M15 closeout after M14 operator validation proves the design-system,
-surface-contract, and authority invariants. See `docs/plans/v0.58-plan.md`.
+surface-contract, and authority invariants. See `docs/plans/archives/v0.58-plan.md`.
 
 This ADR graduates the "Workspace Hooks" /
 plugin-contributed workspace regions reserved in ADR 0023 §1, extends the
@@ -30,7 +30,7 @@ where they conflict.
 
 ### v0.34 Revision (2026-05-23): Workspace UX refresh
 
-v0.34 (`docs/plans/v0.34-plan.md`) revises the v0.32 zone model after the
+v0.34 (`docs/plans/archives/v0.34-plan.md`) revises the v0.32 zone model after the
 shipped shell proved too dense (left rail, a floating app/objectives band,
 chat, a permanent Canvas column, and a permanent Tools column at once) and after
 v0.33 made conversational handoff the way to enter app context. The revision is

@@ -6,7 +6,7 @@ write, decide what Allbert may remember, and have that reviewed memory improve a
 answer. Nothing here grants new authority — it makes the existing notes/files and memory
 review surfaces obvious to use.
 
-Design + decisions: `docs/design/local-knowledge-path.md`, `docs/plans/v0.65-plan.md`,
+Design + decisions: `docs/design/local-knowledge-path.md`, `docs/plans/archives/v0.65-plan.md`,
 and the ADR 0077 v0.65 amendment. Memory internals: `docs/operator/active-memory.md`.
 
 ## The loop

@@ -9,7 +9,7 @@ defmodule AllbertAssist.Boundary do
 
   Keep this inventory in sync with
   `docs/developer/runtime-boundary-map.md` and
-  `docs/plans/v0.31-request-flow.md` as milestones close.
+  `docs/plans/archives/v0.31-request-flow.md` as milestones close.
   """
 
   @type role ::

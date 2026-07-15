@@ -264,15 +264,15 @@ change between v1.0 and the next major release without an ADR amendment.
 
 ## References
 
-- `docs/plans/v0.39-plan.md` — v0.39 First-Run Onboarding And Provider
+- `docs/plans/archives/v0.39-plan.md` — v0.39 First-Run Onboarding And Provider
   Control.
-- `docs/plans/v0.39-request-flow.md` — v0.39 request flow and security
+- `docs/plans/archives/v0.39-request-flow.md` — v0.39 request flow and security
   evals.
-- `docs/plans/v0.40-plan.md` — v0.40 MCP Client Integration (downstream
+- `docs/plans/archives/v0.40-plan.md` — v0.40 MCP Client Integration (downstream
   doctor consumer).
-- `docs/plans/v0.48-plan.md` — v0.48 Voice Modality (downstream doctor
+- `docs/plans/archives/v0.48-plan.md` — v0.48 Voice Modality (downstream doctor
   consumer).
-- `docs/plans/v0.49-plan.md` — v0.49 Vision And Image Generation
+- `docs/plans/archives/v0.49-plan.md` — v0.49 Vision And Image Generation
   (downstream doctor consumer).
 - ADR 0004 — Domain Settings Engine.
 - ADR 0011 — Confirmed External Capability Adapters.

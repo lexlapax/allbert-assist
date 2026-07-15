@@ -194,7 +194,7 @@ metadata and never calls a model. Review-tier descriptors are inert until
 operator promotion.
 
 **v0.56 completion:** the advanced generation and learning loop below is the
-inserted v0.56 milestone (`docs/plans/v0.56-plan.md`), not v0.54 shipped behavior.
+inserted v0.56 milestone (`docs/plans/archives/v0.56-plan.md`), not v0.54 shipped behavior.
 
 A generation pass derives candidate descriptors (label, 3–6 example utterances,
 synonyms, slot hints) for actions missing them, from the action's `name/0`,

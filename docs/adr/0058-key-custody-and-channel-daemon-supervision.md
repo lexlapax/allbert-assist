@@ -3,7 +3,7 @@
 ## Status
 
 Accepted at v0.53 M10 implementation closeout for Channel Pack 2 + system-wide
-constructs (`docs/plans/v0.53-plan.md`). Live provider smoke validation remains
+constructs (`docs/plans/archives/v0.53-plan.md`). Live provider smoke validation remains
 the pre-tag release gate.
 
 This ADR adds two related system-wide constructs that v0.53 forces but that
@@ -128,4 +128,4 @@ local-first app:
   schema), ADR 0049 (development lanes), ADR 0050 (dependency/toolchain
   compatibility — `muontrap`/`erlexec`).
 - ADR 0059 (channel trust-class — Signal is an `e2ee_origin` channel).
-- `docs/plans/v0.53-plan.md`, `docs/plans/v0.53-request-flow.md`.
+- `docs/plans/archives/v0.53-plan.md`, `docs/plans/archives/v0.53-request-flow.md`.

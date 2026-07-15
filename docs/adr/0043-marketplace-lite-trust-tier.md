@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for v0.45 Marketplace Lite (`docs/plans/v0.45-plan.md`).
+Accepted for v0.45 Marketplace Lite (`docs/plans/archives/v0.45-plan.md`).
 M1 implements the substrate vocabulary, settings fragment, URI
 scheme, and locked decisions that make this decision binding for
 implementation. M6 closeout reconfirms the shipped state and records

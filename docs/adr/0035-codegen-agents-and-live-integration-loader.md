@@ -3,7 +3,7 @@
 ## Status
 
 Accepted for v0.37 Dynamic Code & Config Generation and Live Capability
-Integration (`docs/plans/v0.37-plan.md`) on 2026-05-25. Pairs with ADR 0032
+Integration (`docs/plans/archives/v0.37-plan.md`) on 2026-05-25. Pairs with ADR 0032
 (untrusted trial and gated integration), ADR 0033 (trust tiers), and ADR 0037
 (v0.36 Elixir/OTP sandbox/gate runner). The v0.37.2 implementation is amended
 before release tagging to require source-bearing read-only action generation

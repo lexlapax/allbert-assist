@@ -137,7 +137,7 @@ The gate writes its evidence JSON (including the secret scan) under
 `<gate-home>/release_evidence/<version>/`; the path is printed at the end of each run.
 
 Manual real-client validation was not captured before the `v0.51.0` tag. Use
-`docs/plans/v0.51-request-flow.md` "Operator Manual Validation Steps" as the
+`docs/plans/archives/v0.51-request-flow.md` "Operator Manual Validation Steps" as the
 shell-authoritative punch list. It covers an isolated `v0.51.0` worktree,
 deterministic gates, disposable manual `ALLBERT_HOME`, Settings Central setup,
 token creation/revocation, MCP HTTP, OpenAI-compatible HTTP, MCP stdio, ACP

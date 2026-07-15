@@ -3,7 +3,7 @@
 ## Status
 
 Accepted in v0.31 M3-M4 Runtime And UI-Substrate Consolidation
-(`docs/plans/v0.31-plan.md`).
+(`docs/plans/archives/v0.31-plan.md`).
 
 ## Context
 

@@ -482,7 +482,7 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
     request =
       root
       |> agent_request(turn_id, parent)
-      |> Map.put(:text, "Read docs/plans/v0.57-plan.md")
+      |> Map.put(:text, "Read docs/plans/archives/v0.57-plan.md")
 
     task =
       Task.async(fn ->

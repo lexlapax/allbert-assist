@@ -33,8 +33,8 @@ Target end state after the operator decides:
 | Content | Destination |
 |---------|-------------|
 | Intent-vs-objective decision, authority and boundary rules | `docs/adr/0021-intent-objective-capability-and-advisory-boundary.md` (new ADR) |
-| Jido convergence implementation, milestones, tests, exit signal | `docs/plans/v0.23-plan.md` + `docs/plans/v0.23-request-flow.md` |
-| Objective runtime implementation, milestones, tests, exit signal | `docs/plans/v0.24-plan.md` + `docs/plans/v0.24-request-flow.md` |
+| Jido convergence implementation, milestones, tests, exit signal | `docs/plans/archives/v0.23-plan.md` + `docs/plans/archives/v0.23-request-flow.md` |
+| Objective runtime implementation, milestones, tests, exit signal | `docs/plans/archives/v0.24-plan.md` + `docs/plans/archives/v0.24-request-flow.md` |
 | Citations, literature, future provider roles (world models, diffusion, market allocators, JEPA) | `docs/research/objective-runtime-research.md` (new) |
 | Coding policy non-negotiables | `AGENTS.md` additions |
 | Roadmap renumbering and milestone bumps | `docs/plans/roadmap.md` |
@@ -1143,15 +1143,15 @@ Immediate doc changes:
 
 Plan changes:
 
-- `docs/plans/v0.22-plan.md` — add a handoff note: v0.22 remains a single
+- `docs/plans/archives/v0.22-plan.md` — add a handoff note: v0.22 remains a single
   action/bridge execution path and does not implement a private objective
   loop. v0.23 will add shared objective state before native agents.
-- `docs/plans/v0.23-plan.md` — replace current Native Jido Trading Agents
+- `docs/plans/archives/v0.23-plan.md` — replace current Native Jido Trading Agents
   plan with Objective Runtime Foundation.
-- New `docs/plans/v0.23-request-flow.md` — describe runtime/user flow:
+- New `docs/plans/archives/v0.23-request-flow.md` — describe runtime/user flow:
   ask, frame objective, propose steps, execute one registered action,
   observe result, continue/block/complete.
-- Move current `docs/plans/v0.23-plan.md` content to `v0.24-plan.md` and
+- Move current `docs/plans/archives/v0.23-plan.md` content to `v0.24-plan.md` and
   expand native trading agents to consume objective/step state.
 - Bump `v0.24` through `v0.29` plans and update cross-references.
 

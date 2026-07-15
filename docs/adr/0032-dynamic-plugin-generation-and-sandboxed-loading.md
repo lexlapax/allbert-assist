@@ -3,7 +3,7 @@
 ## Status
 
 Accepted for v0.37 Dynamic Code & Config Generation and Live Capability
-Integration (`docs/plans/v0.37-plan.md`) on 2026-05-25. Revised after the
+Integration (`docs/plans/archives/v0.37-plan.md`) on 2026-05-25. Revised after the
 v0.36 second pass: v0.36 owns only the Elixir/OTP sandbox backend and gate
 runner (ADR 0037). This ADR owns the generated-draft lifecycle and the narrow,
 gated exception that lets an operator-confirmed artifact be loaded into the core
@@ -167,4 +167,4 @@ use `<ALLBERT_HOME>/drafts/` subroots. M4 stores workflow draft YAML at
 `*.metadata.yaml`. Code-bearing drafts keep this ADR's sandbox/gate/loader
 promotion path unchanged; non-code kinds promote to their own existing live
 write paths. The exact module/root implementation is recorded in
-`docs/plans/v0.47-plan.md` M4. See ADR 0045 A3.
+`docs/plans/archives/v0.47-plan.md` M4. See ADR 0045 A3.

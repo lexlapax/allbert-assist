@@ -3,7 +3,7 @@
 ## Status
 
 Accepted at v0.53 M10 implementation closeout for Channel Pack 2 + system-wide
-constructs (`docs/plans/v0.53-plan.md`). Live provider smoke validation remains
+constructs (`docs/plans/archives/v0.53-plan.md`). Live provider smoke validation remains
 the pre-tag release gate.
 
 This ADR **completes a promise ADR 0057 made but did not build**: that
@@ -101,4 +101,4 @@ never grants authority.
 - ADR 0058 (key custody — Signal's E2EE keys live in the supervised daemon).
 - ADR 0016 (channel boundary), ADR 0056 (channel inbound trust tier), ADR 0006
   (Security Central), ADR 0049 (development lanes).
-- `docs/plans/v0.53-plan.md`, `docs/plans/v0.53-request-flow.md`.
+- `docs/plans/archives/v0.53-plan.md`, `docs/plans/archives/v0.53-request-flow.md`.

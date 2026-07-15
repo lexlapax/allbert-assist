@@ -70,7 +70,7 @@ Remove the override only when all are true:
 2. `mix deps.compile memento --force` succeeds without the vendored path.
 3. Focused Jido/signal compatibility tests pass.
 4. The full release gate reproduces the v0.40 oracle.
-5. This ADR, `docs/developer/test-strategy.md`, and `docs/plans/v0.41-plan.md`
+5. This ADR, `docs/developer/test-strategy.md`, and `docs/plans/archives/v0.41-plan.md`
    are updated to record the removal.
 
 ## Validation
@@ -87,6 +87,6 @@ The v0.41 M1 unblock validated the override with:
 
 - ADR 0007 - Jido-native internal runtime boundaries.
 - ADR 0049 - Development gates and test parallelization.
-- `docs/plans/v0.41-plan.md`.
+- `docs/plans/archives/v0.41-plan.md`.
 - `docs/developer/test-strategy.md`.
 - `vendor/memento/ALLBERT_PATCHES.md`.

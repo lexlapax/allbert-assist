@@ -113,7 +113,7 @@ defmodule StockSage.TraderBridgeTest do
     # Erlang Port + Python stdout pipe is not in the loop. The third
     # validation pass explicitly accepted this as "buffer path proven,"
     # not "real large bridge response proven." A separate operator-run
-    # real-bridge verification (see `docs/plans/v0.22-request-flow.md`
+    # real-bridge verification (see `docs/plans/archives/v0.22-request-flow.md`
     # "Real-Bridge Verification") covers the live integration side. The
     # bridge port is opened with `{:line, 16_384}`, so any single line
     # longer than 16 KB is split into one or more `:noeol` fragments

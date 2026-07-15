@@ -2,7 +2,7 @@
 
 Status: accepted as the v0.39b deterministic retrieval baseline on
 2026-05-28. This note is binding for v0.39b where referenced by
-`docs/plans/v0.39b-plan.md`; embedding-backed retrieval remains parked as a
+`docs/plans/archives/v0.39b-plan.md`; embedding-backed retrieval remains parked as a
 future advisory provider.
 
 ## Purpose
@@ -191,5 +191,5 @@ post-1.0 advisory-provider work per ADR 0021:
 ## References
 
 - ADR 0021 — intent/objective/capability/advisory boundary.
-- `docs/plans/v0.21-plan.md` — memory review/retrieval substrate.
-- `docs/plans/v0.39b-plan.md` — v0.39b implementation plan.
+- `docs/plans/archives/v0.21-plan.md` — memory review/retrieval substrate.
+- `docs/plans/archives/v0.39b-plan.md` — v0.39b implementation plan.

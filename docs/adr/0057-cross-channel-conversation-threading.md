@@ -3,7 +3,7 @@
 ## Status
 
 Accepted at the v0.52 closeout milestone for Channel Pack 1 +
-Cross-Channel Conversation Threading (`docs/plans/v0.52-plan.md`).
+Cross-Channel Conversation Threading (`docs/plans/archives/v0.52-plan.md`).
 
 This ADR adds a **system-wide conversation-thread construct** that spans every
 channel. ADR 0016 owns the channel boundary + approval primitives; ADR 0056 owns
@@ -185,4 +185,4 @@ read-only history view + an explicit operator "resume here" action**.
 - ADR 0056 (channel inbound trust tier — provider metadata never authority).
 - ADR 0014 (local identity), ADR 0012 (conversation history substrate), ADR 0006
   (Security Central), ADR 0031 (settings fragments), ADR 0049 (development lanes).
-- `docs/plans/v0.52-plan.md`, `docs/plans/v0.52-request-flow.md`.
+- `docs/plans/archives/v0.52-plan.md`, `docs/plans/archives/v0.52-request-flow.md`.

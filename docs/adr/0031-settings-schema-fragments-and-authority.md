@@ -3,7 +3,7 @@
 ## Status
 
 Accepted in v0.31 M8 Runtime And UI-Substrate Consolidation
-(`docs/plans/v0.31-plan.md`).
+(`docs/plans/archives/v0.31-plan.md`).
 
 Enforcement note (v0.58, 2026-06-24): see the ADR 0004 v0.58 enforcement note —
 every operator-tunable setting is a registered schema-fragment key read through

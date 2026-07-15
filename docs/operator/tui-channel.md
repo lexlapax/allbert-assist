@@ -6,7 +6,7 @@ rendering seam, typed approval rendering/resolution, warm TUI validation, and th
 deterministic `release.v055` gate. v0.56 extends the same warm console with
 read-only `/intents` and `/models` validation views.
 The full release-validation checklist is
-`docs/plans/v0.55-request-flow.md#operator-validation-punchlist-v055-persistent-tui-session`.
+`docs/plans/archives/v0.55-request-flow.md#operator-validation-punchlist-v055-persistent-tui-session`.
 
 ## Requirements
 
@@ -93,7 +93,7 @@ printed `release.v055 evidence:` path remains readable after the Mix task exits.
 
 ## v0.55.1 Warm Console Standard
 
-v0.55.1 (`docs/plans/v0.55b-request-flow.md`) hardens this same TUI into the
+v0.55.1 (`docs/plans/archives/v0.55b-request-flow.md`) hardens this same TUI into the
 persistent operator/validation console. The go-forward interactive validation
 standard is:
 
@@ -116,7 +116,7 @@ source-of-truth evidence; it is not a manual in-session substitute for `/channel
 inside the v0.55.1 punchlist.
 
 For the exact v0.55.1 operator-validation command sequence, use
-`docs/plans/v0.55b-request-flow.md#operator-validation-punchlist-v0551-run-entirely-in-session`.
+`docs/plans/archives/v0.55b-request-flow.md#operator-validation-punchlist-v0551-run-entirely-in-session`.
 Inside that punchlist, confirmation state is inspected with `/confirmations` at
 the live TUI prompt; do not run `mix allbert.confirmations list` between
 in-session checks.

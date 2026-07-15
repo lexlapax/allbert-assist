@@ -25,8 +25,8 @@ Status: vision drafted.
 
 ## v0.01: First Local Assistant Loop
 
-Plan: `docs/plans/v0.01-plan.md`
-Request flow: `docs/plans/v0.01-request-flow.md`
+Plan: `docs/plans/archives/v0.01-plan.md`
+Request flow: `docs/plans/archives/v0.01-request-flow.md`
 
 Status: complete. Milestones 1 and 2 are complete and tested; Milestone 3 is
 complete, tested, and operator-verified; Milestone 4 is complete, tested, and
@@ -451,7 +451,7 @@ scope.
     navigating-controls-name-their-destination rule; ADR 0077's IA structure and
     ADR 0079's Direction C are held. No new authority, permission, or Settings
     key; thread rename routes through the existing `:conversation_write`
-    registered-action spine. Plan `docs/plans/v0.61b-plan.md` (M0 in-plan
+    registered-action spine. Plan `docs/plans/archives/v0.61b-plan.md` (M0 in-plan
     shell-spec/sign-off gate → contained fixes M1-M4 → shell arc M5-M8 with an S4
     early live review → M9 `release.v061b` gate incl. the `:v061` regression
     step). Released as 0.61.1 (tagged `v0.61.1`, 2026-07-05).
@@ -500,7 +500,7 @@ scope.
     inspect -> advanced-surface regression -> export/import or upgrade ->
     uninstall path across web, CLI, TUI, and evidence, so v1.0 is not the first
     integrated product test. 11 gate-bound `product-rc-*` rows + a gate-enforced
-    docs staleness check; v1.0 handoff in `docs/plans/v1.0-handoff.md`.
+    docs staleness check; v1.0 handoff in `docs/plans/archives/v1.0-handoff.md`.
 67. v1.0 Stability release, **tiered public contract freeze**, and
     **non-developer product launch**: no new features; freeze Tier 1 (Runtime,
     Actions/permissions, Plugin, App, Settings Central schema shape, Allbert
@@ -524,8 +524,8 @@ execution, not as ambient authority from a skill declaration.
 
 ## v0.02: Allbert Home, Settings Central, Secrets, And Operator Profile
 
-Plan: `docs/plans/v0.02-plan.md`
-Request flow: `docs/plans/v0.02-request-flow.md`
+Plan: `docs/plans/archives/v0.02-plan.md`
+Request flow: `docs/plans/archives/v0.02-request-flow.md`
 
 Status: complete.
 
@@ -554,8 +554,8 @@ settings across subsystems.
 
 ## v0.03: Agent Skills Substrate
 
-Plan: `docs/plans/v0.03-plan.md`
-Request flow: `docs/plans/v0.03-request-flow.md`
+Plan: `docs/plans/archives/v0.03-plan.md`
+Request flow: `docs/plans/archives/v0.03-request-flow.md`
 
 Status: released as v0.03. Milestones 1 through 6 are complete and tested.
 v0.04, Jido Runtime Convergence Refactor, has since been released.
@@ -619,8 +619,8 @@ Exit status: complete.
 
 ## v0.04: Jido Runtime Convergence Refactor
 
-Plan: `docs/plans/v0.04-plan.md`
-Request flow: `docs/plans/v0.04-request-flow.md`
+Plan: `docs/plans/archives/v0.04-plan.md`
+Request flow: `docs/plans/archives/v0.04-request-flow.md`
 ADR: `docs/adr/0007-jido-native-internal-runtime-boundaries.md`
 
 Status: released as v0.04.
@@ -652,8 +652,8 @@ architecture decision.
 
 ## v0.05: Security Central Foundation
 
-Plan: `docs/plans/v0.05-plan.md`
-Request flow: `docs/plans/v0.05-request-flow.md`
+Plan: `docs/plans/archives/v0.05-plan.md`
+Request flow: `docs/plans/archives/v0.05-request-flow.md`
 ADR: `docs/adr/0006-security-central.md`
 
 Status: released as v0.05.
@@ -694,8 +694,8 @@ itself.
 
 ## v0.06: Action-Backed Allbert Skills
 
-Plan: `docs/plans/v0.06-plan.md`
-Request flow: `docs/plans/v0.06-request-flow.md`
+Plan: `docs/plans/archives/v0.06-plan.md`
+Request flow: `docs/plans/archives/v0.06-request-flow.md`
 
 Status: released as v0.06 on 2026-05-02. Milestones 1 through 6 are complete
 and tested.
@@ -761,8 +761,8 @@ architecture checks, operator smoke against a disposable Allbert home,
 
 ## v0.07: Confirmation Workflow
 
-Plan: `docs/plans/v0.07-plan.md`
-Request flow: `docs/plans/v0.07-request-flow.md`
+Plan: `docs/plans/archives/v0.07-plan.md`
+Request flow: `docs/plans/archives/v0.07-request-flow.md`
 ADR: `docs/adr/0008-durable-confirmation-requests.md`
 
 Status: released and tagged as `v0.07` on 2026-05-02.
@@ -816,8 +816,8 @@ registered confirmed shell adapter with sandbox policy.
 
 ## v0.08: Local Execution Sandbox And Shell Adapter
 
-Plan: `docs/plans/v0.08-plan.md`
-Request flow: `docs/plans/v0.08-request-flow.md`
+Plan: `docs/plans/archives/v0.08-plan.md`
+Request flow: `docs/plans/archives/v0.08-request-flow.md`
 ADR: `docs/adr/0009-local-execution-sandbox-levels.md`
 
 Status: released and tagged as `v0.08` on 2026-05-02.
@@ -868,8 +868,8 @@ Status: v0.08 is released and tagged as `v0.08`.
 
 ## v0.09: Skill Script Runner
 
-Plan: `docs/plans/v0.09-plan.md`
-Request flow: `docs/plans/v0.09-request-flow.md`
+Plan: `docs/plans/archives/v0.09-plan.md`
+Request flow: `docs/plans/archives/v0.09-request-flow.md`
 ADR: `docs/adr/0010-resource-gated-skill-script-execution.md`
 
 Status: accepted for operator/user testing. Release tag is `v0.09`.
@@ -941,8 +941,8 @@ by Level 1 host-process controls, audited, and traced.
 
 ## v0.10: External Services, Package Installs, Online Skill Import, And URI-First Resource Access Posture
 
-Plan: `docs/plans/v0.10-plan.md`
-Request flow: `docs/plans/v0.10-request-flow.md`
+Plan: `docs/plans/archives/v0.10-plan.md`
+Request flow: `docs/plans/archives/v0.10-request-flow.md`
 ADR: `docs/adr/0011-confirmed-external-capability-adapters.md`
 Identity ADR: `docs/adr/0013-uri-first-resource-identity.md`
 
@@ -1078,8 +1078,8 @@ complete. v0.10 was released and tagged as `v0.10` on 2026-05-04.
 
 ## v0.11: Execution-Aware Intent, URI-Based Resource Access, And Approval Handoff
 
-Plan: `docs/plans/v0.11-plan.md`
-Request flow: `docs/plans/v0.11-request-flow.md`
+Plan: `docs/plans/archives/v0.11-plan.md`
+Request flow: `docs/plans/archives/v0.11-request-flow.md`
 
 Status: released and tagged as `v0.11` on 2026-05-13. Ready for operator manual
 verification with the v0.11 request-flow matrix.
@@ -1113,8 +1113,8 @@ MCP/agent URI behavior, and operation-scoped grant negative checks.
 
 ## v0.12: Local Workspace Identity And Conversation History
 
-Plan: `docs/plans/v0.12-plan.md`
-Request flow: `docs/plans/v0.12-request-flow.md`
+Plan: `docs/plans/archives/v0.12-plan.md`
+Request flow: `docs/plans/archives/v0.12-request-flow.md`
 ADR: `docs/adr/0014-local-workspace-identity.md`
 
 Status: released and tagged as `v0.12` on 2026-05-13. Ready for operator manual
@@ -1141,8 +1141,8 @@ prove durable thread context without hosted accounts.
 
 ## v0.13: Scheduled Jobs
 
-Plan: `docs/plans/v0.13-plan.md`
-Request flow: `docs/plans/v0.13-request-flow.md`
+Plan: `docs/plans/archives/v0.13-plan.md`
+Request flow: `docs/plans/archives/v0.13-request-flow.md`
 
 Status: released and tagged as `v0.13` on 2026-05-14. Formerly v0.12.
 
@@ -1164,8 +1164,8 @@ Expected direction:
 
 ## v0.14: Session Scratchpad And Active App Context
 
-Plan: `docs/plans/v0.14-plan.md`
-Request flow: `docs/plans/v0.14-request-flow.md`
+Plan: `docs/plans/archives/v0.14-plan.md`
+Request flow: `docs/plans/archives/v0.14-request-flow.md`
 ADR: `docs/adr/0014-local-workspace-identity.md`
 
 Status: released and tagged as `v0.14` on 2026-05-14. Formerly M-D1b.
@@ -1188,8 +1188,8 @@ Expected direction:
 
 ## v0.15: Minimal App Registration Contract
 
-Plan: `docs/plans/v0.15-plan.md`
-Request flow: `docs/plans/v0.15-request-flow.md`
+Plan: `docs/plans/archives/v0.15-plan.md`
+Request flow: `docs/plans/archives/v0.15-request-flow.md`
 ADR: `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
 
 Status: released and tagged as `v0.15` on 2026-05-14. Formerly
@@ -1212,9 +1212,9 @@ Expected direction:
 
 ## v0.16: Additional Channels
 
-Plan: `docs/plans/v0.16-plan.md`
+Plan: `docs/plans/archives/v0.16-plan.md`
 
-Request flow: `docs/plans/v0.16-request-flow.md`
+Request flow: `docs/plans/archives/v0.16-request-flow.md`
 
 ADR: `docs/adr/0016-channel-adapter-boundary-and-identity-mapping.md`
 
@@ -1249,9 +1249,9 @@ Implemented direction:
 
 ## v0.17: Plugin Contract And Shipped Channel Plugins
 
-Plan: `docs/plans/v0.17-plan.md`
+Plan: `docs/plans/archives/v0.17-plan.md`
 
-Request flow: `docs/plans/v0.17-request-flow.md`
+Request flow: `docs/plans/archives/v0.17-request-flow.md`
 
 ADR: `docs/adr/0017-allbert-plugin-contract.md`
 
@@ -1287,9 +1287,9 @@ Expected direction:
 
 ## v0.18: Full App Contract And Surface DSL
 
-Plan: `docs/plans/v0.18-plan.md`
+Plan: `docs/plans/archives/v0.18-plan.md`
 
-Request flow: `docs/plans/v0.18-request-flow.md`
+Request flow: `docs/plans/archives/v0.18-request-flow.md`
 
 ADR: `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`
 
@@ -1323,9 +1323,9 @@ Expected direction:
 
 ## v0.19: Cross-Surface Intent Enrichment
 
-Plan: `docs/plans/v0.19-plan.md`
+Plan: `docs/plans/archives/v0.19-plan.md`
 
-Request flow: `docs/plans/v0.19-request-flow.md`
+Request flow: `docs/plans/archives/v0.19-request-flow.md`
 
 ADR: `docs/adr/0019-cross-surface-intent-enrichment.md`
 
@@ -1352,9 +1352,9 @@ Expected direction:
 
 ## v0.20: StockSage Plugin App And Domain
 
-Plan: `docs/plans/v0.20-plan.md`
+Plan: `docs/plans/archives/v0.20-plan.md`
 
-Request flow: `docs/plans/v0.20-request-flow.md`
+Request flow: `docs/plans/archives/v0.20-request-flow.md`
 
 ADR: `docs/adr/0018-stocksage-local-domain-app.md`
 
@@ -1384,7 +1384,7 @@ Expected direction:
 
 ## v0.21: Memory Review And Retrieval
 
-Plan: `docs/plans/v0.21-plan.md`
+Plan: `docs/plans/archives/v0.21-plan.md`
 
 Status: implemented; ready for operator manual verification before release tag.
 Formerly v0.14.
@@ -1401,8 +1401,8 @@ Expected direction:
 
 ## v0.22: StockSage Python Bridge
 
-Plan: `docs/plans/v0.22-plan.md`
-Request flow: `docs/plans/v0.22-request-flow.md`
+Plan: `docs/plans/archives/v0.22-plan.md`
+Request flow: `docs/plans/archives/v0.22-request-flow.md`
 ADR: `docs/adr/0020-stocksage-python-bridge-protocol.md`
 
 Status: released and tagged as `v0.22` on 2026-05-16 after audit closeout
@@ -1431,8 +1431,8 @@ Expected direction:
 
 ## v0.23: Jido State-Machine Convergence
 
-Plan: `docs/plans/v0.23-plan.md`
-Request flow: `docs/plans/v0.23-request-flow.md`
+Plan: `docs/plans/archives/v0.23-plan.md`
+Request flow: `docs/plans/archives/v0.23-request-flow.md`
 
 Status: implemented through M5 closeout and ready for operator manual
 verification. Release tag pending operator acceptance. NEW milestone inserted
@@ -1495,8 +1495,8 @@ Expected direction:
 
 ## v0.24: Objective Runtime Foundation
 
-Plan: `docs/plans/v0.24-plan.md`
-Request flow: `docs/plans/v0.24-request-flow.md`
+Plan: `docs/plans/archives/v0.24-plan.md`
+Request flow: `docs/plans/archives/v0.24-request-flow.md`
 ADR: `docs/adr/0021-intent-objective-capability-and-advisory-boundary.md`
 Research note: `docs/research/objective-runtime-research.md`
 
@@ -1574,8 +1574,8 @@ Expected direction:
 
 ## v0.25: Native Financial Specialist Agents
 
-Plan: `docs/plans/v0.25-plan.md`
-Request flow: `docs/plans/v0.25-request-flow.md`
+Plan: `docs/plans/archives/v0.25-plan.md`
+Request flow: `docs/plans/archives/v0.25-request-flow.md`
 ADR: `docs/adr/0022-native-financial-specialist-agents.md`
 
 Status: released. Implemented through M6 closeout on 2026-05-17; release tag
@@ -1650,7 +1650,7 @@ Expected direction:
 
 ## v0.26: Agentic Workspace Surface And Ephemeral UI Substrate
 
-Plan: `docs/plans/v0.26-plan.md`
+Plan: `docs/plans/archives/v0.26-plan.md`
 
 Status: implemented through M30 UI release closeout on 2026-05-19, then
 accepted with the v0.26a/v0.26b `0.26.1` closeout on 2026-05-22. Formerly
@@ -1729,7 +1729,7 @@ Shipped direction:
 
 ## v0.26a: Workspace UX/UI Substrate Pass
 
-Plan: `docs/plans/v0.26a-ui-plan.md`
+Plan: `docs/plans/archives/v0.26a-ui-plan.md`
 
 Status: implemented through M35 closeout on 2026-05-21. Version metadata
 is `0.26.1`. Fast-follow visual + interaction polish on top of v0.26;
@@ -1762,7 +1762,7 @@ bridge, offline editor) untouched.
 
 ## v0.26b: Backend Runtime Bugfix Pass
 
-Plan: `docs/plans/v0.26b-backend-plan.md`
+Plan: `docs/plans/archives/v0.26b-backend-plan.md`
 
 Status: implemented and merged into the `0.26.1` release on 2026-05-22.
 No new schema, security authority, public protocol surface, or version bump
@@ -1780,8 +1780,8 @@ beyond `0.26.1`.
 
 ## v0.26c: Workspace UX Closeout
 
-Plan: `docs/plans/v0.26c-ux-closeout-plan.md`
-Request flow: `docs/plans/v0.26c-request-flow.md`
+Plan: `docs/plans/archives/v0.26c-ux-closeout-plan.md`
+Request flow: `docs/plans/archives/v0.26c-request-flow.md`
 
 Status: implemented as a small `0.26.2` point release; release gate passed and
 operator manual verification/tagging is pending. This is not a new platform
@@ -1801,8 +1801,8 @@ Shipped:
 
 ## v0.27: App Surface Contract - StockSage LiveViews
 
-Plan: `docs/plans/v0.27-plan.md`
-Request flow: `docs/plans/v0.27-request-flow.md`
+Plan: `docs/plans/archives/v0.27-plan.md`
+Request flow: `docs/plans/archives/v0.27-request-flow.md`
 
 Status: released. Implemented through M8 closeout on 2026-05-22; release tag
 `v0.27.0` exists. Formerly M-D3a, previously planned as v0.24, then v0.25
@@ -1846,8 +1846,8 @@ Shipped:
 
 ## v0.28: Security Hardening And Evals
 
-Plan: `docs/plans/v0.28-plan.md`
-Request flow: `docs/plans/v0.28-request-flow.md`
+Plan: `docs/plans/archives/v0.28-plan.md`
+Request flow: `docs/plans/archives/v0.28-request-flow.md`
 
 Status: released. Release tag `v0.28.0` reconciled during the v0.29 release
 closeout. Formerly v0.16, previously planned as v0.25, then v0.26 before the
@@ -1906,8 +1906,8 @@ Risk reassessment for the next contracts:
 
 ## v0.29: App Memory + Outcomes Contract - StockSage Polish
 
-Plan: `docs/plans/v0.29-plan.md`
-Request flow: `docs/plans/v0.29-request-flow.md`
+Plan: `docs/plans/archives/v0.29-plan.md`
+Request flow: `docs/plans/archives/v0.29-request-flow.md`
 
 Status: released. Formerly M-D3b, previously planned as v0.27 before the
 project-direction rethink. Renamed after the post-v0.26 roadmap reconciliation
@@ -1927,8 +1927,8 @@ Expected direction:
 
 ## v0.30: App Canvas Contract - StockSage Canvas Integration
 
-Plan: `docs/plans/v0.30-plan.md`
-Request flow: `docs/plans/v0.30-request-flow.md`
+Plan: `docs/plans/archives/v0.30-plan.md`
+Request flow: `docs/plans/archives/v0.30-request-flow.md`
 
 Status: released. Formerly M-Canvas, previously planned as v0.28 before the
 project-direction rethink. Renamed after the post-v0.26 roadmap reconciliation
@@ -1953,8 +1953,8 @@ Implemented:
 
 ## v0.31: Runtime And UI-Substrate Consolidation
 
-Plan: `docs/plans/v0.31-plan.md`
-Request flow: `docs/plans/v0.31-request-flow.md`
+Plan: `docs/plans/archives/v0.31-plan.md`
+Request flow: `docs/plans/archives/v0.31-request-flow.md`
 ADRs: `docs/adr/0026-runtime-public-facades-and-boundaries.md`,
 `docs/adr/0027-allbert-action-dsl-and-capability-registry.md`,
 `docs/adr/0028-shared-runtime-substrates.md`,
@@ -2021,8 +2021,8 @@ Implemented so far:
 
 ## v0.32: Workspace-Only App UI And Settings Central
 
-Plan: `docs/plans/v0.32-plan.md`
-Request flow: `docs/plans/v0.32-request-flow.md`
+Plan: `docs/plans/archives/v0.32-plan.md`
+Request flow: `docs/plans/archives/v0.32-request-flow.md`
 ADR: `docs/adr/0024-app-ui-contribution-and-workspace-zones.md`
 
 Status: released. Shifted from v0.31 after the consolidation insert and
@@ -2069,8 +2069,8 @@ Closeout:
 
 ## v0.33: Conversational App Intent Handoff And Direct Answer Foundation
 
-Plan: `docs/plans/v0.33-plan.md`
-Request flow: `docs/plans/v0.33-request-flow.md`
+Plan: `docs/plans/archives/v0.33-plan.md`
+Request flow: `docs/plans/archives/v0.33-request-flow.md`
 ADR: `docs/adr/0034-conversational-app-intent-handoff-and-clarification.md`
 
 Status: released as `v0.33.1`. M0-M6 implemented the direct-answer
@@ -2123,8 +2123,8 @@ Closeout:
 
 ## v0.34: Workspace UX Refresh
 
-Plan: `docs/plans/v0.34-plan.md`
-Request flow: `docs/plans/v0.34-request-flow.md`
+Plan: `docs/plans/archives/v0.34-plan.md`
+Request flow: `docs/plans/archives/v0.34-request-flow.md`
 ADR: `docs/adr/0024-app-ui-contribution-and-workspace-zones.md` (v0.34 revision)
 
 Status: released and tagged as `v0.34.0` on 2026-05-24. Inserted after v0.33
@@ -2162,8 +2162,8 @@ Delivered:
 
 ## v0.35: User Theming And Layout Overrides
 
-Plan: `docs/plans/v0.35-plan.md`
-Request flow: `docs/plans/v0.35-request-flow.md`
+Plan: `docs/plans/archives/v0.35-plan.md`
+Request flow: `docs/plans/archives/v0.35-request-flow.md`
 ADR: `docs/adr/0025-user-theming-and-override-security.md`
 
 Status: implemented and release-ready as `v0.35.0` on 2026-05-24; ready for
@@ -2195,8 +2195,8 @@ Expected direction:
 
 ## v0.36: Elixir/OTP Sandbox And Gate Runner
 
-Plan: `docs/plans/v0.36-plan.md`
-Request flow: `docs/plans/v0.36-request-flow.md`
+Plan: `docs/plans/archives/v0.36-plan.md`
+Request flow: `docs/plans/archives/v0.36-request-flow.md`
 ADRs: `docs/adr/0009-local-execution-sandbox-levels.md`,
 `docs/adr/0037-elixir-otp-sandbox-backend-and-gate-runner.md`
 
@@ -2256,8 +2256,8 @@ Implemented:
 
 ## v0.37: Dynamic Code & Config Generation and Live Capability Integration
 
-Plan: `docs/plans/v0.37-plan.md`
-Request flow: `docs/plans/v0.37-request-flow.md`
+Plan: `docs/plans/archives/v0.37-plan.md`
+Request flow: `docs/plans/archives/v0.37-request-flow.md`
 ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
 `docs/adr/0033-capability-gap-acquisition-and-trust-tiers.md`,
 `docs/adr/0035-codegen-agents-and-live-integration-loader.md`,
@@ -2339,8 +2339,8 @@ Expected direction:
 
 ## v0.38: Templated Creation: Plugins, Apps, Tools, and Code Patterns
 
-Plan: `docs/plans/v0.38-plan.md`
-Request flow: `docs/plans/v0.38-request-flow.md`
+Plan: `docs/plans/archives/v0.38-plan.md`
+Request flow: `docs/plans/archives/v0.38-request-flow.md`
 ADRs: `docs/adr/0036-templated-creation-and-pattern-registry.md`,
 `docs/adr/0035-codegen-agents-and-live-integration-loader.md`,
 `docs/adr/0037-elixir-otp-sandbox-backend-and-gate-runner.md`,
@@ -2394,8 +2394,8 @@ Shipped direction:
 
 ## v0.39: First-Run Onboarding And Provider Control
 
-Plan: `docs/plans/v0.39-plan.md`
-Request flow: `docs/plans/v0.39-request-flow.md`
+Plan: `docs/plans/archives/v0.39-plan.md`
+Request flow: `docs/plans/archives/v0.39-request-flow.md`
 ADR: `docs/adr/0047-provider-doctor-contract.md`
 
 Status: implemented as `0.39.0`; ready for operator manual validation before
@@ -2441,8 +2441,8 @@ Implemented shape:
 
 ## v0.39b: Identity Slot And Active Memory
 
-Plan: `docs/plans/v0.39b-plan.md`
-Request flow: `docs/plans/v0.39b-request-flow.md`
+Plan: `docs/plans/archives/v0.39b-plan.md`
+Request flow: `docs/plans/archives/v0.39b-request-flow.md`
 Research note: `docs/research/active-memory-retrieval.md`
 Operator doc: `docs/operator/active-memory.md`.
 
@@ -2487,8 +2487,8 @@ Implemented scope:
 
 ## v0.40: MCP Client Integration
 
-Plan: `docs/plans/v0.40-plan.md`
-Request flow: `docs/plans/v0.40-request-flow.md`
+Plan: `docs/plans/archives/v0.40-plan.md`
+Request flow: `docs/plans/archives/v0.40-request-flow.md`
 ADRs: `docs/adr/0038-mcp-client-trust-tier.md`,
 `docs/adr/0013-uri-first-resource-identity.md` (mcp:// graduation),
 `docs/adr/0047-provider-doctor-contract.md` (MCP doctor fields),
@@ -2528,8 +2528,8 @@ Expected direction:
 
 ## v0.41: Developer Velocity And Parallel Test Methodology
 
-Plan: `docs/plans/v0.41-plan.md`
-Developer flow: `docs/plans/v0.41-request-flow.md`
+Plan: `docs/plans/archives/v0.41-plan.md`
+Developer flow: `docs/plans/archives/v0.41-request-flow.md`
 ADRs: `docs/adr/0049-development-gates-and-test-parallelization.md`,
 `docs/adr/0050-vendored-memento-compatibility-override.md`
 Developer guide: `docs/developer/test-strategy.md`
@@ -2577,8 +2577,8 @@ Exit signal:
 
 ## v0.42: Tool Discovery + MCP-First Integration Pack 1
 
-Plan: `docs/plans/v0.42-plan.md`
-Request flow: `docs/plans/v0.42-request-flow.md`
+Plan: `docs/plans/archives/v0.42-plan.md`
+Request flow: `docs/plans/archives/v0.42-request-flow.md`
 ADRs: `docs/adr/0048-tool-discovery-and-discovered-server-trust.md` (discovery),
 `docs/adr/0039-mcp-first-native-plugin-second-integrations.md` (integration).
 
@@ -2621,8 +2621,8 @@ Shipped scope:
 
 ## v0.43: Browser And Web Research
 
-Plan: `docs/plans/v0.43-plan.md`
-Request flow: `docs/plans/v0.43-request-flow.md`
+Plan: `docs/plans/archives/v0.43-plan.md`
+Request flow: `docs/plans/archives/v0.43-request-flow.md`
 ADR: `docs/adr/0040-browser-session-and-web-research-policy.md` (binding,
 deepened in the post-v0.42 planning pass). Amends
 `docs/adr/0013-uri-first-resource-identity.md` to register
@@ -2694,7 +2694,7 @@ Shipped scope:
 - v0.47 may mine v0.43 redacted trace envelopes as one pattern source;
   raw page content is out of bounds.
 
-Implementation consumed the locked decisions from `docs/plans/v0.43-plan.md`
+Implementation consumed the locked decisions from `docs/plans/archives/v0.43-plan.md`
 §"M1 Locked Decisions": Playwright Chromium through a reviewed local bridge,
 macOS + Linux only (Windows/WSL2 parked to v0.43.x), headless-only,
 ephemeral-only profiles, the browser-vs-HTTP routing predicate, and
@@ -2715,8 +2715,8 @@ document formats. All parked in `docs/plans/future-features.md`.
 
 ## v0.44: Plan/Build Mode And Operator Workflow YAML
 
-Plan: `docs/plans/v0.44-plan.md`
-Request flow: `docs/plans/v0.44-request-flow.md`
+Plan: `docs/plans/archives/v0.44-plan.md`
+Request flow: `docs/plans/archives/v0.44-request-flow.md`
 ADR: `docs/adr/0041-plan-build-and-operator-workflow-yaml.md` (binding,
 deepened in the post-v0.43 planning pass). Amends
 `docs/adr/0013-uri-first-resource-identity.md` to register `workflow://<id>`
@@ -2778,7 +2778,7 @@ Expected direction:
   Loops, parallel/fan-out, sub-workflow includes, `on:` triggers,
   `env:` blocks, and retry policies are explicitly parked.
 
-M1 locked decisions (six rows; full rationale in `docs/plans/v0.44-plan.md`
+M1 locked decisions (six rows; full rationale in `docs/plans/archives/v0.44-plan.md`
 §"M1 Locked Decisions"):
 
 1. Plan/Build surface shape — pinnable panel over the workspace canvas;
@@ -2813,8 +2813,8 @@ parked in `docs/plans/future-features.md`.
 
 ## v0.45: Marketplace Lite (Data Shape + Allbert-Author Seeds) - implemented as 0.45.0
 
-Plan: `docs/plans/v0.45-plan.md`
-Request flow: `docs/plans/v0.45-request-flow.md`
+Plan: `docs/plans/archives/v0.45-plan.md`
+Request flow: `docs/plans/archives/v0.45-request-flow.md`
 ADR: `docs/adr/0043-marketplace-lite-trust-tier.md`
 
 Status: implemented as `0.45.0`. Promoted from
@@ -2852,8 +2852,8 @@ Shipped scope:
 
 ## v0.45.1: Gate Transparency And Precommit Decomposition - implemented as 0.45.1
 
-Plan: `docs/plans/v0.45.1-plan.md`
-Request flow: `docs/plans/v0.45.1-request-flow.md`
+Plan: `docs/plans/archives/v0.45.1-plan.md`
+Request flow: `docs/plans/archives/v0.45.1-request-flow.md`
 ADR: `docs/adr/0049-development-gates-and-test-parallelization.md`
 
 Status: implemented as `0.45.1`. Inserted after v0.45 closeout when the final
@@ -2877,8 +2877,8 @@ Shipped scope:
 
 ## v0.46: Delegation Hardening And Research Specialist
 
-Plan: `docs/plans/v0.46-plan.md`
-Request flow: `docs/plans/v0.46-request-flow.md`
+Plan: `docs/plans/archives/v0.46-plan.md`
+Request flow: `docs/plans/archives/v0.46-request-flow.md`
 ADR: `docs/adr/0021-intent-objective-capability-and-advisory-boundary.md`
 (amendment A21 accepted in M1).
 
@@ -2930,7 +2930,7 @@ Shipped scope:
   connection-pool fix that avoids SQL Sandbox ownership contention during
   version-specific release evidence.
 
-Locked decisions (six; full rationale in `docs/plans/v0.46-plan.md`
+Locked decisions (six; full rationale in `docs/plans/archives/v0.46-plan.md`
 §"M1 Locked Decisions"): plugin-contributed delegate agent (not core);
 zero new authority (orchestrate shipped actions); read-only research scope
 (inherits v0.43 deny-by-default); second consumer to harden — not to
@@ -2955,8 +2955,8 @@ v0.36/v0.37/v0.47 supervised dynamic path post-1.0.
 
 ## v0.47: Operator-Supervised Self-Improvement (Discovery + Local Drafts)
 
-Plan: `docs/plans/v0.47-plan.md`
-Request flow: `docs/plans/v0.47-request-flow.md`
+Plan: `docs/plans/archives/v0.47-plan.md`
+Request flow: `docs/plans/archives/v0.47-request-flow.md`
 ADR: `docs/adr/0045-operator-supervised-self-improvement-trust-tier.md`
 (amendments A1–A4).
 
@@ -2987,7 +2987,7 @@ Shipped scope:
   skill/workflow/memory entry is a separate confirmed action through the
   existing path.
 
-Locked decisions (five; full rationale in `docs/plans/v0.47-plan.md`
+Locked decisions (five; full rationale in `docs/plans/archives/v0.47-plan.md`
 §"M1 Locked Decisions"): one unified reviewed-draft store; generalize the
 v0.42 suggestion surface; build a redaction-respecting trace index;
 discovery + non-code local drafts only (handoff drafts are v0.47b); the
@@ -3015,8 +3015,8 @@ Non-goals:
 
 ## v0.47b: Operator-Supervised Self-Improvement (Handoff Drafts)
 
-Plan: `docs/plans/v0.47b-plan.md`
-Request flow: `docs/plans/v0.47b-request-flow.md`
+Plan: `docs/plans/archives/v0.47b-plan.md`
+Request flow: `docs/plans/archives/v0.47b-request-flow.md`
 ADR: `docs/adr/0045-operator-supervised-self-improvement-trust-tier.md`
 (amendments A5–A7).
 
@@ -3057,8 +3057,8 @@ nothing and a delegate-plugin draft registers no agent.
 
 ## v0.48: Voice Modality
 
-Plan: `docs/plans/v0.48-plan.md`
-Request flow: `docs/plans/v0.48-request-flow.md`
+Plan: `docs/plans/archives/v0.48-plan.md`
+Request flow: `docs/plans/archives/v0.48-request-flow.md`
 ADRs: `docs/adr/0051-provider-capability-preferences.md`,
 `docs/adr/0042-audio-image-and-media-resource-classes.md`,
 `docs/adr/0047-provider-doctor-contract.md`,
@@ -3106,8 +3106,8 @@ Expected direction:
 
 ## v0.49: Vision And Image Generation
 
-Plan: `docs/plans/v0.49-plan.md`
-Request flow: `docs/plans/v0.49-request-flow.md`
+Plan: `docs/plans/archives/v0.49-plan.md`
+Request flow: `docs/plans/archives/v0.49-request-flow.md`
 ADRs: `docs/adr/0051-provider-capability-preferences.md`,
 `docs/adr/0042-audio-image-and-media-resource-classes.md`,
 `docs/adr/0047-provider-doctor-contract.md`
@@ -3137,8 +3137,8 @@ Shipped direction:
 
 ## v0.50: Artifacts Central
 
-Plan: `docs/plans/v0.50-plan.md`
-Request flow: `docs/plans/v0.50-request-flow.md`
+Plan: `docs/plans/archives/v0.50-plan.md`
+Request flow: `docs/plans/archives/v0.50-request-flow.md`
 ADRs: `docs/adr/0053-content-addressable-artifact-store.md`,
 `docs/adr/0054-artifact-provenance-and-browser-surface.md` (provenance linking +
 browser-surface split), `docs/adr/0042-audio-image-and-media-resource-classes.md`
@@ -3216,8 +3216,8 @@ The operator browsing repository ships separately as v0.50b below.
 
 ## v0.50b: Artifacts Browser
 
-Plan: `docs/plans/v0.50b-plan.md`
-Request flow: `docs/plans/v0.50b-request-flow.md`
+Plan: `docs/plans/archives/v0.50b-plan.md`
+Request flow: `docs/plans/archives/v0.50b-request-flow.md`
 ADRs: `docs/adr/0054-artifact-provenance-and-browser-surface.md`,
 `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`,
 `docs/adr/0017-allbert-plugin-contract.md`,
@@ -3265,8 +3265,8 @@ Expected direction:
 
 ## v0.51: Public Protocol Surfaces
 
-Plan: `docs/plans/v0.51-plan.md`
-Request flow: `docs/plans/v0.51-request-flow.md`
+Plan: `docs/plans/archives/v0.51-plan.md`
+Request flow: `docs/plans/archives/v0.51-request-flow.md`
 ADRs: `docs/adr/0044-public-protocol-exposure.md` (exposure — which surfaces,
 what's exposed; re-decided for the expanded v0.51 scope),
 `docs/adr/0055-inbound-public-surface-trust-tier.md` (inbound trust — permission
@@ -3316,8 +3316,8 @@ Expected direction:
 
 ## v0.52: Channel Pack 1 (Discord And Slack) + Cross-Channel Conversation Threading
 
-Plan: `docs/plans/v0.52-plan.md`
-Request flow: `docs/plans/v0.52-request-flow.md`
+Plan: `docs/plans/archives/v0.52-plan.md`
+Request flow: `docs/plans/archives/v0.52-request-flow.md`
 ADRs: `docs/adr/0016-channel-adapter-boundary-and-identity-mapping.md`
 (v0.52 amendment — channel boundary + approval primitives),
 `docs/adr/0056-channel-inbound-trust-tier.md` (NEW — the
@@ -3389,8 +3389,8 @@ Expected direction:
 
 ## v0.53: Channel Pack 1 Retro-Validation (Telegram, Email) + Channel Pack 2 (Matrix, WhatsApp, Signal) + System-Wide Custody/Trust Constructs
 
-Plan: `docs/plans/v0.53-plan.md`
-Request flow: `docs/plans/v0.53-request-flow.md`
+Plan: `docs/plans/archives/v0.53-plan.md`
+Request flow: `docs/plans/archives/v0.53-request-flow.md`
 ADRs: `docs/adr/0056-...` (v0.53 amendment — public signed webhook),
 `docs/adr/0057-...` (threading substrate consumed),
 `docs/adr/0058-key-custody-and-channel-daemon-supervision.md` (NEW),
@@ -3474,8 +3474,8 @@ Expected direction:
 
 ## v0.54: Intent Deepening
 
-Plan: `docs/plans/v0.54-plan.md`
-Request flow: `docs/plans/v0.54-request-flow.md`
+Plan: `docs/plans/archives/v0.54-plan.md`
+Request flow: `docs/plans/archives/v0.54-request-flow.md`
 ADRs: `docs/adr/0060-...` (two-stage router + approval-gate separation, Accepted),
 `docs/adr/0061-...` (local embedding + router model tiers, Accepted),
 `docs/adr/0062-intent-descriptor-lifecycle-generation-and-operator-curation.md`
@@ -3530,8 +3530,8 @@ Expected direction:
 
 ## v0.55: Channel Parity + TUI/Terminal Channel
 
-Plan: `docs/plans/v0.55-plan.md`
-Request flow: `docs/plans/v0.55-request-flow.md`
+Plan: `docs/plans/archives/v0.55-plan.md`
+Request flow: `docs/plans/archives/v0.55-request-flow.md`
 ADR: `docs/adr/0067-tui-terminal-channel.md` (Accepted in v0.55)
 
 Status: released and tagged as `v0.55.0` on 2026-06-22; current metadata now
@@ -3561,8 +3561,8 @@ Expected direction:
 
 ## v0.55.1: TUI Operator/Validation Console
 
-Plan: `docs/plans/v0.55b-plan.md`
-Request flow: `docs/plans/v0.55b-request-flow.md`
+Plan: `docs/plans/archives/v0.55b-plan.md`
+Request flow: `docs/plans/archives/v0.55b-request-flow.md`
 ADR: `docs/adr/0070-tui-operator-console-and-read-only-operator-actions.md`
 (Accepted in v0.55.1)
 
@@ -3589,8 +3589,8 @@ Closeout shape:
 
 ## v0.56: Intent Descriptor Learning + Registration Lifecycle Completion + Routing-Accuracy Gate + Model Recommendations
 
-Plan: `docs/plans/v0.56-plan.md`
-Request flow: `docs/plans/v0.56-request-flow.md`
+Plan: `docs/plans/archives/v0.56-plan.md`
+Request flow: `docs/plans/archives/v0.56-request-flow.md`
 ADRs: `docs/adr/0062-...` (completion amendment),
 `docs/adr/0071-intent-routing-accuracy-evaluation-harness-and-promotion-gate.md`
 (Accepted),
@@ -3649,8 +3649,8 @@ Expected direction:
 
 ## v0.57: Pi-mode Coding Surface
 
-Plan: `docs/plans/v0.57-plan.md`
-Request flow: `docs/plans/v0.57-request-flow.md`
+Plan: `docs/plans/archives/v0.57-plan.md`
+Request flow: `docs/plans/archives/v0.57-request-flow.md`
 ADR: `docs/adr/0068-pi-mode-coding-surface-and-local-coding-trust-tier.md`
 (Accepted in v0.57 M0)
 Rationale: `docs/archives/pi-integration-rethink.md`
@@ -3694,8 +3694,8 @@ Expected direction:
 
 ## v0.58: Surface Consistency, Settings Enforcement & Web Design System
 
-Plan: `docs/plans/v0.58-plan.md`
-Request flow: `docs/plans/v0.58-request-flow.md`
+Plan: `docs/plans/archives/v0.58-plan.md`
+Request flow: `docs/plans/archives/v0.58-request-flow.md`
 ADRs: `docs/adr/0073-cross-surface-contract.md` (Accepted),
 `docs/adr/0074-web-design-system-and-ux-language.md` (Accepted), v0.58 amendments to
 ADR 0016/0030/0070, the ADR 0004/0031 settings-enforcement note, and the ADR 0024
@@ -3750,8 +3750,8 @@ the now-uniform invocation path, export/import hardening, and the security sweep
 
 ## v0.59: Hardening, Export/Import, Settings Version Contract, And Param Contracts
 
-Plan: `docs/plans/v0.59-plan.md`
-Request flow: `docs/plans/v0.59-request-flow.md`
+Plan: `docs/plans/archives/v0.59-plan.md`
+Request flow: `docs/plans/archives/v0.59-request-flow.md`
 ADR: `docs/adr/0046-settings-schema-migration-policy.md` (accepted here;
 drafted in v0.45); `docs/adr/0065-central-action-param-contract-enforcement.md`
 (Accepted in v0.59 M7). Operator onboarding is no longer a v0.59 sliver:
@@ -3804,8 +3804,8 @@ Delivered:
 
 ## v0.60: Product Experience Design
 
-Plan: `docs/plans/v0.60-plan.md`
-Request flow: `docs/plans/v0.60-request-flow.md`
+Plan: `docs/plans/archives/v0.60-plan.md`
+Request flow: `docs/plans/archives/v0.60-request-flow.md`
 ADR: `docs/adr/0077-product-experience-design-and-information-architecture.md`
 (Experience Design & IA); `docs/adr/0078-first-model-path.md` (First-Model Path).
 
@@ -3858,8 +3858,8 @@ Implemented scope (design + scaffolding only):
 
 ## v0.60b: Visual Design Language & Art Direction (0.60.1)
 
-Plan: `docs/plans/v0.60b-plan.md`
-Request flow: `docs/plans/v0.60b-request-flow.md`
+Plan: `docs/plans/archives/v0.60b-plan.md`
+Request flow: `docs/plans/archives/v0.60b-request-flow.md`
 ADR: `docs/adr/0079-visual-design-language-and-art-direction.md`
 (Visual Design Language & Art Direction).
 
@@ -3925,8 +3925,8 @@ Planned scope (design + disposable exploration only):
 
 ## v0.61: Presentation Layer Overhaul
 
-Plan: `docs/plans/v0.61-plan.md`
-Request flow: `docs/plans/v0.61-request-flow.md`
+Plan: `docs/plans/archives/v0.61-plan.md`
+Request flow: `docs/plans/archives/v0.61-request-flow.md`
 ADR: `docs/adr/0074-web-design-system-and-ux-language.md` (v0.61 amendment:
 implements the v0.60 IA/navigation/screen-composition redesign plus an
 operator-chosen brand identity, motion, marketing surface, and the professional
@@ -4010,8 +4010,8 @@ skeleton preview modules at closeout.
 
 ## v0.61b: UX Refinement — Navigation Consolidation & Presentation Polish
 
-Plan: `docs/plans/v0.61b-plan.md`
-Request flow: `docs/plans/v0.61b-request-flow.md`
+Plan: `docs/plans/archives/v0.61b-plan.md`
+Request flow: `docs/plans/archives/v0.61b-request-flow.md`
 ADR: `docs/adr/0080-navigation-consolidation-and-workspace-shell-presentation.md`
 (Accepted (v0.61b) at the 2026-07-02 S2 plan sign-off; pointer notes in ADR
 0077/0074).
@@ -4055,8 +4055,8 @@ is adopted by this release or implied for later pre-1.0 releases.
 
 ## v0.62: Packaging & Entry Points
 
-Plan: `docs/plans/v0.62-plan.md`
-Request flow: `docs/plans/v0.62-request-flow.md`
+Plan: `docs/plans/archives/v0.62-plan.md`
+Request flow: `docs/plans/archives/v0.62-request-flow.md`
 ADR: `docs/adr/0076-packaging-distribution-and-unified-cli.md`; completes the
 ADR 0070 mix-free TUI operator console convergence.
 
@@ -4104,8 +4104,8 @@ Delivered shape:
 
 ## v0.62b: Distribution Closeout & Reusable Release Ops
 
-Plan: `docs/plans/v0.62b-plan.md`
-Request flow: `docs/plans/v0.62b-request-flow.md`
+Plan: `docs/plans/archives/v0.62b-plan.md`
+Request flow: `docs/plans/archives/v0.62b-request-flow.md`
 ADR: no new ADR expected; builds on ADR 0076 and ADR 0070.
 
 Status: **staged** source/docs point-release candidate on `main`, version
@@ -4138,8 +4138,8 @@ Expected direction:
 
 ## v0.63: Guided Onboarding & Profiles
 
-Plan: `docs/plans/v0.63-plan.md`
-Request flow: `docs/plans/v0.63-request-flow.md`
+Plan: `docs/plans/archives/v0.63-plan.md`
+Request flow: `docs/plans/archives/v0.63-request-flow.md`
 ADR: `docs/adr/0069-operator-onboarding-flow.md` (re-scoped up from
 sequencing-existing-steps to a real guided wizard);
 `docs/adr/0075-user-category-settings-profiles.md`; consumes
@@ -4183,8 +4183,8 @@ Expected direction:
 
 ## v0.64: Trusted Install And Non-Developer First Run
 
-Plan: `docs/plans/v0.64-plan.md`
-Request flow: `docs/plans/v0.64-request-flow.md`
+Plan: `docs/plans/archives/v0.64-plan.md`
+Request flow: `docs/plans/archives/v0.64-request-flow.md`
 
 Status: released as `v0.64.3` on 2026-07-10 UTC; version 0.64.3. `mix allbert.test
 release.v064` remains the deterministic handoff gate. `v0.64.0` was tagged first, but its release-artifacts workflow
@@ -4231,8 +4231,8 @@ Expected direction:
 
 ## v0.65: Local Knowledge: Files, Notes, And Agent Memory
 
-Plan: `docs/plans/v0.65-plan.md`
-Request flow: `docs/plans/v0.65-request-flow.md`
+Plan: `docs/plans/archives/v0.65-plan.md`
+Request flow: `docs/plans/archives/v0.65-request-flow.md`
 
 Status: released as `v0.65.0` on 2026-07-11 UTC; version 0.65.0, packaged GitHub Release
 assets published as Latest (implementation + remediation M8.1–M8.6 + tag/publish complete).
@@ -4267,8 +4267,8 @@ Implemented scope:
 
 ## v0.66: Product RC And No-Docs Validation
 
-Plan: `docs/plans/v0.66-plan.md`
-Request flow: `docs/plans/v0.66-request-flow.md`
+Plan: `docs/plans/archives/v0.66-plan.md`
+Request flow: `docs/plans/archives/v0.66-request-flow.md`
 
 Status: released — tagged `v0.66.0` (2026-07-11), version 0.66.0, GitHub Latest.
 Adds no new capability. The integrated product RC proved the checkout-bound gate
@@ -4312,8 +4312,8 @@ Released validation shape:
 
 ## v1.0: Stability Release, Public Contract Freeze, And Product Launch
 
-Plan: `docs/plans/v1.0-plan.md`
-Request flow: `docs/plans/v1.0-request-flow.md`
+Plan: `docs/plans/archives/v1.0-plan.md`
+Request flow: `docs/plans/archives/v1.0-request-flow.md`
 
 Status: **Released - tagged v1.0.0** (2026-07-14). Promoted from
 `docs/archives/version-1.0-planning-03.md`. Re-scoped in the 2026-06-25 1.0 planning
@@ -4405,7 +4405,7 @@ friction tax.
 
 ### 1.0 Acceptance Matrix (freeze-blocking)
 
-This is the **canonical** freeze-blocking criteria matrix; `docs/plans/v1.0-handoff.md`
+This is the **canonical** freeze-blocking criteria matrix; `docs/plans/archives/v1.0-handoff.md`
 holds the complementary proof-status view (which criterion is `[gate]` vs
 `[attested]` from inherited v0.66 evidence and new v1.0 DIT evidence). Tightened
 in the post-v0.37 planning pass, extended in the 2026-06-25 1.0 planning pass,

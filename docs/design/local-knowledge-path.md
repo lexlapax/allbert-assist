@@ -1,7 +1,7 @@
 # Local Knowledge Path
 
 Status: v0.65 design artifact (2026-07-10). Expands the v0.65 plan
-(`docs/plans/v0.65-plan.md`) and the ADR 0077 v0.65 amendment into the local
+(`docs/plans/archives/v0.65-plan.md`) and the ADR 0077 v0.65 amendment into the local
 files/notes + reviewed-memory launch path, its as-built substrate, the two new
 information-architecture destinations, and the enforcement/guardrail contract. It is
 design only; it does not add authority.

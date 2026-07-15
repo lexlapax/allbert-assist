@@ -112,7 +112,7 @@ Security Central, Settings Central, trace, or audit contracts.
 
 ## v0.36 Amendment: Narrow Level-3 Elixir/OTP Sandbox
 
-v0.36 (`docs/plans/v0.36-plan.md`, ADR 0037) graduates the first Level-3
+v0.36 (`docs/plans/archives/v0.36-plan.md`, ADR 0037) graduates the first Level-3
 sandbox in a deliberately narrow form: generated Elixir/OTP drafts and the
 explicit reviewed `mix` argv commands needed to compile, test, and gate them.
 `elixir --version` is used only by the explicit image-verification setup task,

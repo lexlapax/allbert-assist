@@ -160,7 +160,7 @@ The post-v0.63 product-readiness review retargeted 1.0 from a technical prosumer
 
 ## Amendment (v0.65, implemented in source 2026-07-11; release-closeout pending) — local knowledge as the launch integration + two new destinations
 
-v0.65 (`docs/plans/v0.65-plan.md`, `docs/design/local-knowledge-path.md`) records that,
+v0.65 (`docs/plans/archives/v0.65-plan.md`, `docs/design/local-knowledge-path.md`) records that,
 after first chat, the **primary useful non-developer workflow is local knowledge**: local
 files/notes plus reviewed agent memory. This is a product-experience/IA decision, not an
 authority change — the notes/files native plugin and the memory review + active-memory

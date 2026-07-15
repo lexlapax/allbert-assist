@@ -15,8 +15,8 @@ parameters are **metadata** — they grant no authority by themselves.
 
 ## Source Documents
 
-- `docs/plans/v0.38-plan.md`
-- `docs/plans/v0.38-request-flow.md`
+- `docs/plans/archives/v0.38-plan.md`
+- `docs/plans/archives/v0.38-request-flow.md`
 - `docs/adr/0036-templated-creation-and-pattern-registry.md`
 - `docs/adr/0035-codegen-agents-and-live-integration-loader.md` (v0.37 engine
   reused by templated live integration)

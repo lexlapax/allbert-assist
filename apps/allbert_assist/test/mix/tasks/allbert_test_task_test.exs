@@ -108,7 +108,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
   end
 
   test "commit gate docs-only branch is deterministic" do
-    put_changed_files(["docs/plans/v0.49-plan.md", "CHANGELOG.md"])
+    put_changed_files(["docs/plans/archives/v0.49-plan.md", "CHANGELOG.md"])
 
     output =
       capture_io(fn ->
@@ -121,7 +121,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
   end
 
   test "commit gate mixed changes still run focused commit phases" do
-    put_changed_files(["docs/plans/v0.49-plan.md", "apps/allbert_assist/lib/example.ex"])
+    put_changed_files(["docs/plans/archives/v0.49-plan.md", "apps/allbert_assist/lib/example.ex"])
 
     output =
       capture_io(fn ->
@@ -229,8 +229,8 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
       |> File.read!()
 
     assert source =~ ~s(@docs_active_plan_files)
-    assert source =~ ~s("docs/plans/v0.66-plan.md")
-    assert source =~ ~s("docs/plans/v1.0-handoff.md")
+    assert source =~ ~s("docs/plans/archives/v0.66-plan.md")
+    assert source =~ ~s("docs/plans/archives/v1.0-handoff.md")
     assert source =~ ~s(defp docs_check_plan_index)
     assert source =~ ~s(operator/developer/design/plans indexes complete)
   end

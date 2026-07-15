@@ -3,7 +3,7 @@
 ## Status
 
 Accepted for v0.44 Plan/Build Mode And Operator Workflow YAML
-(`docs/plans/v0.44-plan.md`). M1 landed the substrate vocabulary,
+(`docs/plans/archives/v0.44-plan.md`). M1 landed the substrate vocabulary,
 settings namespace, URI schemes, and locked decisions that make this
 decision binding for implementation. The post-implementation audit added
 a v0.44 remediation amendment: release readiness requires approved-plan

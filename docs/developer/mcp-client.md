@@ -6,7 +6,7 @@ module and boundary contract for MCP Client Integration.
 These notes explain how the MCP client fits Allbert's action, security, and
 resource boundaries. The authoritative decisions are in
 `docs/adr/0038-mcp-client-trust-tier.md`; the milestone contract is in
-`docs/plans/v0.40-plan.md`.
+`docs/plans/archives/v0.40-plan.md`.
 
 ## The One Rule
 
@@ -76,7 +76,7 @@ requires `command` (no `base_url`) and the command must match
 `mcp.stdio.allowed_launchers`, which defaults to an empty deny-all list.
 Secret-bearing `env`/`headers` values and `auth_ref` must be
 `secret://mcp/<server-id>/<name>` refs. `confirmation` is tighten-only
-(`required` | `denied`). See `docs/plans/v0.40-plan.md` for the full key list
+(`required` | `denied`). See `docs/plans/archives/v0.40-plan.md` for the full key list
 and validation rules.
 
 `args`, `tool_allowlist`, and `tool_denylist` are string lists. `env` and
@@ -183,7 +183,7 @@ resource marker. `agent://` and `agent+https://` remain unsupported.
 
 v0.42 adds internet tool discovery on top of this v0.40 client; the authoritative
 design is `docs/adr/0048-tool-discovery-and-discovered-server-trust.md` and the
-milestone contract is `docs/plans/v0.42-plan.md`. Shape:
+milestone contract is `docs/plans/archives/v0.42-plan.md`. Shape:
 
 - `find_tools` (orchestrator) always fans out to the local source
   (`Actions.Registry.capabilities/0`, `Skills.Registry.list/1`, connected-MCP

@@ -7,7 +7,7 @@ Date: 2026-06-21
 Related: ADR 0064 (central slot/param normalization seam - predecessor), ADR
 0027 (action DSL and capability registry), ADR 0006 (Security Central), ADR 0060
 (two-stage router), ADR 0062 (intent descriptor lifecycle), and
-`docs/plans/v0.59-plan.md`.
+`docs/plans/archives/v0.59-plan.md`.
 
 ## Context
 

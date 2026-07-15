@@ -181,16 +181,14 @@ defmodule Mix.Tasks.Allbert.Test do
   # generated evidence, and historical plans/ADRs are excluded entirely.
   @docs_active_index_dirs ["docs/operator", "docs/developer", "docs/design"]
   @docs_active_plan_index "docs/plans/README.md"
+  # Post-v1.0.0: released version docs live in docs/plans/archives/ (indexed by the
+  # README's Archives section); the active set is the living planning docs until the
+  # next version's triad is authored.
   @docs_active_plan_files [
     "docs/plans/README.md",
     "docs/plans/roadmap.md",
     "docs/plans/allbert-jido-vision.md",
-    "docs/plans/future-features.md",
-    "docs/plans/v0.66-plan.md",
-    "docs/plans/v0.66-request-flow.md",
-    "docs/plans/v1.0-plan.md",
-    "docs/plans/v1.0-request-flow.md",
-    "docs/plans/v1.0-handoff.md"
+    "docs/plans/future-features.md"
   ]
 
   defp docs_staleness_check! do
@@ -2772,7 +2770,7 @@ defmodule Mix.Tasks.Allbert.Test do
       external_network:
         "disabled; the local two-stage router defers to the deterministic ladder under the test override, and embedding/LLM selection use local fakes",
       notes:
-        "the shipped intent.router_strategy default is two_stage_local; live local-model routing is exercised by the operator manual-validation punchlist in docs/plans/v0.54-request-flow.md",
+        "the shipped intent.router_strategy default is two_stage_local; live local-model routing is exercised by the operator manual-validation punchlist in docs/plans/archives/v0.54-request-flow.md",
       steps: results,
       secret_scan: secret_scan
     }
@@ -2895,7 +2893,7 @@ defmodule Mix.Tasks.Allbert.Test do
       external_network:
         "disabled; channel parity, TUI input, approval callbacks, and split payload rendering run against local fixtures",
       notes:
-        "live terminal interaction and Matrix provider delivery remain covered by the v0.55 operator-validation punchlist in docs/plans/v0.55-request-flow.md before tag",
+        "live terminal interaction and Matrix provider delivery remain covered by the v0.55 operator-validation punchlist in docs/plans/archives/v0.55-request-flow.md before tag",
       steps: results,
       secret_scan: secret_scan
     }
@@ -3008,7 +3006,7 @@ defmodule Mix.Tasks.Allbert.Test do
       external_network:
         "disabled; operator console commands, warm TUI inspection, and channel status run against local fixtures",
       notes:
-        "live warm TUI operator validation remains covered by the v0.55b M5 punchlist in docs/plans/v0.55b-request-flow.md before v0.55.1 closeout",
+        "live warm TUI operator validation remains covered by the v0.55b M5 punchlist in docs/plans/archives/v0.55b-request-flow.md before v0.55.1 closeout",
       steps: results,
       secret_scan: secret_scan
     }
@@ -5494,7 +5492,7 @@ defmodule Mix.Tasks.Allbert.Test do
   # still exists by exact name (a rename/remove fails), plus the v0.66 product-RC
   # contract rows (the acceptance-matrix gate half) and the static/docs gates.
   # Attested acceptance-matrix rows (install/browser/model/cross-host) are the DIT
-  # milestones in docs/plans/v1.0-handoff.md, recorded under docs/validation/v1.0/.
+  # milestones in docs/plans/archives/v1.0-handoff.md, recorded under docs/validation/v1.0/.
   @release_v1_steps [
     %{
       id: "migrate",

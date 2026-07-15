@@ -12,7 +12,7 @@ Read these first:
 - `CHANGELOG.md` for release status, safety notes, verification summary, and
   expected tag.
 - `docs/plans/roadmap.md` for version sequencing.
-- `docs/plans/v0.64-plan.md` and `docs/plans/v0.64-request-flow.md` for the
+- `docs/plans/archives/v0.64-plan.md` and `docs/plans/archives/v0.64-request-flow.md` for the
   trusted-install and non-developer first-run implementation contract.
 
 ## First Packaged Run
@@ -96,7 +96,7 @@ Every repair screen should show one next action.
 
 Profile application writes Settings Central keys after review/confirm. The shipped
 profiles are `general`, `researcher`, `developer`, `writer`, and `ops`; exact
-writes live in `docs/plans/v0.63-plan.md` and
+writes live in `docs/plans/archives/v0.63-plan.md` and
 `docs/adr/0075-user-category-settings-profiles.md`. Profiles are seed-only
 defaults and suggestions. They do not grant authority, connect channels, store
 secrets, lower confirmation floors, or change runtime behavior by themselves.
@@ -138,7 +138,7 @@ Pick a persona at `profile_select`; the review at `profile_review` shows every s
 key as `current → proposed` and writes nothing until you confirm. Personas are
 seed-only presets — they grant no authority, connect no channel, store no secret, and
 lower no confirmation floor. The exact per-persona `settings_seeds` are pinned in
-`docs/plans/v0.63-plan.md` (§Settings Central Keys) and
+`docs/plans/archives/v0.63-plan.md` (§Settings Central Keys) and
 `docs/adr/0075-user-category-settings-profiles.md`.
 
 | Persona | Emphasis (seed-only) |

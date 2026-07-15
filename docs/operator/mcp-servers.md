@@ -5,13 +5,13 @@ Introduced in v0.40.
 This guide explains how to connect an MCP (Model Context Protocol) server to
 Allbert, inspect what it offers, and let Allbert use it under policy. It is not a
 release test matrix; release smoke commands live in
-`docs/plans/v0.40-request-flow.md`.
+`docs/plans/archives/v0.40-request-flow.md`.
 
 ## Orientation
 
 Read these first:
 
-- `docs/plans/v0.40-plan.md` for the implementation contract.
+- `docs/plans/archives/v0.40-plan.md` for the implementation contract.
 - `docs/adr/0038-mcp-client-trust-tier.md` for the trust model.
 - `docs/operator/security-hardening.md` for the MCP threat surfaces.
 
@@ -86,7 +86,7 @@ as JSON objects or arrays when needed.
 v0.42 adds tool discovery so you can find an MCP server instead of knowing its
 config in advance. Discovery, connect consent, the passive suggestions surface,
 and the first MCP-configured integration panels are implemented in `0.42.2` (see
-`docs/plans/v0.42-plan.md`).
+`docs/plans/archives/v0.42-plan.md`).
 
 Discovery is off by default. Enable it, then search local tools and internet MCP
 registries. The official MCP Registry is the default remote source; optional

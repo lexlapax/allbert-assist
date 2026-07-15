@@ -13,7 +13,7 @@ also recorded in `docs/adr/0079-visual-design-language-and-art-direction.md`
 > held), text `#e7e2f2` / `#a29ac0`, line `#2b2643`, accent `#9d90e2`. The dark
 > values quoted in the original spec below (`#1c1930 / #251f3d`, accent
 > `#a99bf7`) are the as-chosen v0.60b exploration values, superseded in the
-> product — `docs/plans/v0.61b-plan.md` M3 and `app.css` are authoritative.
+> product — `docs/plans/archives/v0.61b-plan.md` M3 and `app.css` are authoritative.
 
 ## Chosen direction
 

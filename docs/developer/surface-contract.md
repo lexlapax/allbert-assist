@@ -5,8 +5,8 @@ Status: v0.58 shipped implementation contract. M13.1A-G remediation,
 closeout are complete.
 
 Authority: `docs/adr/0073-cross-surface-contract.md`,
-`docs/plans/v0.58-plan.md`, and
-`docs/plans/v0.58-request-flow.md`.
+`docs/plans/archives/v0.58-plan.md`, and
+`docs/plans/archives/v0.58-request-flow.md`.
 
 ## Purpose
 
@@ -182,7 +182,7 @@ and behavioral checks, task usage checks, and the release-home secret scan.
 ## Operator Evidence
 
 The manual validation authority is
-`docs/plans/v0.58-request-flow.md`. It proves:
+`docs/plans/archives/v0.58-request-flow.md`. It proves:
 
 - browser/web design-system behavior;
 - CLI and warm TUI DTO parity;

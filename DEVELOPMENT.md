@@ -598,15 +598,15 @@ note at `docs/research/objective-runtime-research.md`.
 ## Native Financial Specialist Agents
 
 v0.25 StockSage native agents are the first real consumers of objective
-delegate-agent steps. Read `docs/plans/v0.25-plan.md`,
-`docs/plans/v0.25-request-flow.md`, ADR 0020, ADR 0021, and ADR 0022 before
+delegate-agent steps. Read `docs/plans/archives/v0.25-plan.md`,
+`docs/plans/archives/v0.25-request-flow.md`, ADR 0020, ADR 0021, and ADR 0022 before
 touching this path.
 
 v0.46 plans the second consumer: `./plugins/allbert.research/` registers
 `research.specialist` and hardens the existing `delegate_agent` command
 boundary so only `execute` plus registered-agent metadata commands are
-accepted. Before changing delegate dispatch, read `docs/plans/v0.46-plan.md`,
-`docs/plans/v0.46-request-flow.md`, and ADR 0021 amendment A21. Command
+accepted. Before changing delegate dispatch, read `docs/plans/archives/v0.46-plan.md`,
+`docs/plans/archives/v0.46-request-flow.md`, and ADR 0021 amendment A21. Command
 normalization must not use dynamic atom creation and must not add authority.
 
 Implementation posture:

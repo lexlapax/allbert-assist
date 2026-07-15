@@ -3,7 +3,7 @@
 ## Status
 
 Accepted at v0.51 M1 for Public Protocol Surfaces
-(`docs/plans/v0.51-plan.md`).
+(`docs/plans/archives/v0.51-plan.md`).
 
 This ADR is the **inbound** counterpart to ADR 0038 (the outbound MCP *client*
 trust tier). ADR 0044 decides *which* public surfaces ship and *what* they
@@ -186,4 +186,4 @@ Two facts from the v0.51 readiness sweep shape this decision:
 - ADR 0006 (Security Central), ADR 0009 (process/sandbox bounds), ADR 0025
   (browser CSP baseline — reconciled here for APIs), ADR 0046 (settings schema
   migration for the `*_server`/`*_api` fragments).
-- `docs/plans/v0.51-plan.md`, `docs/plans/v0.51-request-flow.md`.
+- `docs/plans/archives/v0.51-plan.md`, `docs/plans/archives/v0.51-request-flow.md`.

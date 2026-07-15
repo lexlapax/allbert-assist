@@ -24,7 +24,7 @@ Anchors the v0.61b UX Refinement point release (0.61.1).
 
 v0.61 shipped the Presentation Layer Overhaul correct-as-built and gate-green, and
 the operator's manual validation (2026-07-01, captured in
-`docs/archives/v0.61-manual-operator-feedback.md`, folded into `docs/plans/v0.61b-plan.md`)
+`docs/archives/v0.61-manual-operator-feedback.md`, folded into `docs/plans/archives/v0.61b-plan.md`)
 confirmed the product works — and surfaced a coherent critique of the shipped
 **shell composition**, distinct from any functional defect:
 
