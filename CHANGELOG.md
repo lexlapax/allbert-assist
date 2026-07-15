@@ -10,6 +10,45 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v1.0.1 - Post-1.0 Remediation Point Release
+
+Status: **release candidate — version 1.0.1 bumped, tag operator-held pending
+implementation review.** First binary point release of the 1.x line; no new
+capability, no contract changes; `release.v1` stays green.
+
+- **R15 digest-manifest cache-busting.** The layout stylesheet link dropped its
+  `?v=<app-version>` query (it defeated `static_lookup`, so prod served undigested
+  CSS and same-version rebuilds reused stale caches). The link now digests to
+  `app-<hash>.css` wherever `cache_manifest.json` exists; `static_asset_version/0`
+  removed; `theme_controller_test` pins the no-query shape. Theme CSS keeps its
+  content-derived version query (dynamic routes).
+- **Operator-surface `btn` drift.** All 13 raw daisy `btn` sites in
+  `onboarding.ex` now route through `Patterns.button_class!/compact_button_class!`
+  (ghost/neutral → `secondary`); the `design_system_tokens_test` refute regex is
+  tightened to also catch the `class={["btn ..."]}` list form it previously missed.
+- **Offline service-worker guard.** `workspace-sw.js` `CACHE_NAME` was stranded at
+  `v0.62.1` since the 0.62 line — synced and now version-locked by a new
+  `version_consistency_test` assertion riding the `v1_version_consistency` gate
+  step, alongside a gunzip-equality guard: the tracked `workspace-sw.js.gz` served
+  preferentially by `Plug.Static` still carried the old worker. `offline_test`
+  derives its expected version at compile time and is an honest `:pure_async`
+  citizen (no more `Application.spec` order dependence).
+- **DIT-5 evidence.** `docs/validation/v1.0/dit5-upgrade-uninstall.log` completes
+  the v1.0 evidence matrix; the new gate step fails without it.
+- **Upstream dependency refresh (first standing refresh under the 2026-07-15
+  working rule).** Jido stack to `jido` 2.3.2 / `jido_action` 2.3.1 /
+  `jido_signal` 2.2.2; `phoenix` 1.8.9; `req` 0.6.2 (two upstream security fixes:
+  multipart header-injection escape + decompression-bomb removal of auto-archive
+  decoding — all Allbert call sites are JSON-only), `bandit` 1.12, `plug` 1.20.3,
+  plus tooling patches. **Vendored `:memento` removed** — `jido_signal` 2.2.2
+  dropped the `~> 0.5.0` pin, so `vendor/memento` and its path override are gone
+  and ADR 0050 is superseded. Scoped out with reasons: ecto pair, swoosh,
+  tailwind wrapper, jsv. Drift remediation: v0.65's `:notes_files_panel` +
+  `workspace:notes`/`workspace:memory` catalog additions reconciled into the
+  stale catalog pin tests (59 → 60).
+- **`mix allbert.test release.v101`** — the point gate: the full `release.v1`
+  freeze/product-RC steps plus four focused v1.0.1 steps.
+
 ## v1.0.0 - Stability Release & Public Contract Freeze
 
 Status: **released — tagged `v1.0.0` (2026-07-14 UTC), version 1.0.0, packaged GitHub
