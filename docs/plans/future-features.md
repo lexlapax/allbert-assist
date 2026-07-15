@@ -45,7 +45,7 @@ Provenance shorthand used in `Deferred at:` lines: `vX.YY-plan:N` and
 
 ### Settings Runtime Migration Runner
 
-Class: Must (foundational) (proposed) · Effort: M
+Class: Must (foundational) (confirmed 2026-07-14) · Effort: M · Slice: 1.1, conditional — build when the first non-additive settings migration enters scope
 
 Status: parked (deferred until the first non-additive settings migration).
 
@@ -59,7 +59,7 @@ Deferred at: `roadmap:2850`, `adr/0046:67`, `v0.59-plan:135`, `v1.0-plan:137`.
 
 ### Test Suite Speed & Isolation
 
-Class: Must (foundational) (proposed) · Effort: L
+Class: Must (foundational) (confirmed 2026-07-14) · Effort: L · Slice: 1.0.x incremental (lane-by-lane)
 
 Status: parked (never received its own plan doc).
 
@@ -103,7 +103,7 @@ Deferred at: `v0.54-plan:1291`.
 
 ### R15 Digest-Manifest Cache-Busting
 
-Class: Must (foundational) (proposed) · Effort: S
+Class: Must (foundational) (confirmed 2026-07-14) · Effort: S · Slice: 1.0.1
 
 Status: parked (v1.0 remediation R15 left open).
 
@@ -137,22 +137,9 @@ v0.15 deferred validating app-registry membership at the action boundary
 
 Deferred at: `v0.15-plan:670`.
 
-### Working-Memory Contract Gaps
-
-Class: Should (proposed) · Effort: S · Verify: whether the v0.14 gaps still
-apply to the current working-memory implementation
-
-Status: verify.
-
-Two v0.14 deferrals: a precise data-safety definition for working memory, and
-nested patch semantics for working-memory updates.
-
-Deferred at: `v0.14-plan:390` (data-safety definition), `v0.14-plan:249`
-(nested patch semantics).
-
 ### Mid-Action Interruption / In-Flight Kill
 
-Class: Should (proposed) · Effort: M
+Class: Should (confirmed 2026-07-14) · Effort: M · Slice: 1.1 (one milestone with Child-Process Cancellation)
 
 Status: parked.
 
@@ -163,7 +150,7 @@ Deferred at: `v0.24-rf:466`.
 
 ### Child-Process Cancellation Semantics
 
-Class: Should (proposed) · Effort: M
+Class: Should (confirmed 2026-07-14) · Effort: M · Slice: 1.1 (merged with Mid-Action Interruption)
 
 Status: parked.
 
@@ -175,7 +162,7 @@ Deferred at: `v0.57-plan:845`.
 
 ### Force/Retry Job Mode
 
-Class: Could (proposed) · Effort: S
+Class: Could (confirmed 2026-07-14) · Effort: S · Slice: hold — revisit if the adaptive-loop jobs create the need
 
 Status: parked.
 
@@ -197,7 +184,7 @@ Deferred at: `v0.24-rf:782`.
 
 ### Intent Pipeline Refinements
 
-Class: Could (proposed) · Effort: S
+Class: Could (confirmed 2026-07-14) · Effort: S · Slice: 1.0.x opportunistic (piggyback on any intent-touching release)
 
 Status: parked.
 
@@ -795,6 +782,12 @@ suggest job reads both memories); System Memory Distillation (the parked
 learned/model-trained variant — this entry is the deterministic/consolidated
 route); Cross-Thread / Cross-App Memory Retrieval (retrieval scope);
 Embedding-backed retrieval note under Distillation (semantic recall).
+
+Folded in (operator decision 2026-07-14): the v0.14 working-memory contract
+gaps - a precise data-safety definition for working memory and nested patch
+semantics for working-memory updates (`v0.14-plan:390`, `v0.14-plan:249`) -
+resolve inside this feature's research phase (short-term memory IS the
+working-memory tier of the STM/LTM architecture question).
 
 Deferred at: operator intake (post-1.0 planning, 2026-07-14).
 
