@@ -13,6 +13,8 @@ ADRs record binding design decisions. They are not release plans; use
 - [ADR 0078: First-model path](0078-first-model-path.md)
 - [ADR 0079: Visual design language and art direction](0079-visual-design-language-and-art-direction.md)
 - [ADR 0080: Navigation consolidation and workspace shell presentation](0080-navigation-consolidation-and-workspace-shell-presentation.md)
+- [ADR 0081: Tier-2 → Tier-1 contract promotion process](0081-tier2-to-tier1-promotion-process.md)
+- [ADR 0082: Registry injection seams for test isolation](0082-registry-injection-seams-for-test-isolation.md)
 - [ADR 0070: TUI operator console and read-only operator actions](0070-tui-operator-console-and-read-only-operator-actions.md)
 - [ADR 0068: Pi-mode coding surface and local coding trust tier](0068-pi-mode-coding-surface-and-local-coding-trust-tier.md)
 - [ADR 0065: Central action param contract enforcement](0065-central-action-param-contract-enforcement.md)

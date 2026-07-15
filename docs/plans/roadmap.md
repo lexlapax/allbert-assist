@@ -25,11 +25,17 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    dependency refresh (vendored `:memento` removed, ADR 0050 superseded).
    Plan: [archives/v1.0.1-plan.md](archives/v1.0.1-plan.md) +
    [archives/v1.0.1-request-flow.md](archives/v1.0.1-request-flow.md).
-2. **1.0.x** — incremental: test suite speed & isolation (lane-by-lane, incl. the
-   fast-local web split), v0.58 cleanup tails, Tier-2->Tier-1 promotion ADR (docs),
-   intent-pipeline refinements (opportunistic), and the technical-debt train.
-   (The vendored `:memento` removal landed early: 1.0.1's M5 refresh found
-   `jido_signal` 2.2.2 dropped the pin — ADR 0050 superseded.)
+2. **1.0.2 (planned)** — Test Suite Speed & Isolation phase 1 (residue de-flake,
+   registry injection seams per ADR 0082, lane conversions, the WorkspaceLiveTest
+   web split), v0.58 cleanup tails A+B, Tier-2->Tier-1 promotion ADR 0081, the
+   queued dependency refresh (ecto pair, swoosh, tailwind wrapper, jsv), and the
+   **binary ship that carries the 1.0.1 fixes into the packaged artifact line**
+   (first tap fill since 1.0.0). Plan:
+   [v1.0.2-plan.md](v1.0.2-plan.md) + [v1.0.2-request-flow.md](v1.0.2-request-flow.md)
+   (implementation-ready 2026-07-15). Later 1.0.x: remaining isolation phases,
+   intent-pipeline refinements (opportunistic), technical-debt train. (The
+   vendored `:memento` removal landed early at 1.0.1's M5 refresh — ADR 0050
+   superseded.)
 3. **1.1 — Zero-Click First Run.** Chat-ready default with an auto-detected local
    model; onboarding optional and step-addressable; consent ADR; TUI first-run scope
    folded in. Enablers: model chooser/catalog, model fallback/degradation policy.

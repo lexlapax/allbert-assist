@@ -90,7 +90,7 @@ Deferred at: `roadmap:2850`, `adr/0046:67`, `v0.59-plan:135`, `v1.0-plan:137`.
 
 Class: Must (foundational) (confirmed 2026-07-14) · Effort: L · Slice: 1.0.x incremental (lane-by-lane)
 
-Status: parked (never received its own plan doc).
+Status: planned — `docs/plans/v1.0.2-plan.md` (phase 1: M0–M4, M9; implementation-ready 2026-07-15; the measured phase-1 remainder returns to this entry at closeout).
 
 Full `mix test` carries ~20 pre-existing order-dependent flakes; slowness and
 flakiness share one root cause — global-state tests forced into serial lanes.
@@ -261,7 +261,7 @@ Deferred at: `v1.0-handoff:87`.
 
 Class: Should (confirmed 2026-07-14) · Effort: S · Slice: 1.0.x, docs-only
 
-Status: parked.
+Status: planned — `docs/plans/v1.0.2-plan.md` M6 / ADR 0081 (implementation-ready 2026-07-15).
 
 The v1.0 plan names a future ADR-driven process for promoting a Tier-2
 platform (Linux variants, WSL2) to Tier-1 support, without defining it.
@@ -1841,7 +1841,7 @@ Deferred at: `v1.0.1-plan` second-pass implementation-readiness audit.
 
 Class: Could (confirmed 2026-07-14) · Effort: S · Slice: 1.0.x opportunistic
 
-Status: parked (from the v0.58 closeout deferral list).
+Status: planned — `docs/plans/v1.0.2-plan.md` M5 (implementation-ready 2026-07-15).
 
 The mechanical long tail: the `field/3` ~128-copy duplication, `limit/1`
 clamp folding, the `"local"`/`"web-local"` identity string literals, and the
@@ -1853,7 +1853,7 @@ Deferred at: `v0.58-plan:633-640`.
 
 Class: Could (confirmed 2026-07-14) · Effort: S · Slice: 1.0.x opportunistic
 
-Status: parked (from the v0.58 closeout deferral list).
+Status: planned — `docs/plans/v1.0.2-plan.md` M5 (implementation-ready 2026-07-15).
 
 The correctness-adjacent tail: the `data-theme=null` check, a missing
 ErrorExtraction unit test, the bespoke `response_error/1`, the
@@ -1887,7 +1887,7 @@ Deferred at: the v0.45.1 plan (sweep-flagged, no single line ref).
 
 Class: Folded (2026-07-14) into Test Suite Speed & Isolation — same workstream; body preserved
 
-Status: verify (subsumed-by candidate: Test Suite Speed & Isolation above).
+Status: planned — `docs/plans/v1.0.2-plan.md` M4 (the WorkspaceLiveTest split; implementation-ready 2026-07-15).
 
 v0.41 flagged splitting the web `external_runtime_serial` test lane into a
 fast-local portion.
