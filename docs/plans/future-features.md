@@ -1138,7 +1138,7 @@ Deferred at: `v0.24-plan:2581-2586`, `v1.0-plan:284-292`.
 
 ### MCP Apps Iframe Model
 
-Class: Won't-now (proposed) · Effort: L
+Class: Won't-now (confirmed 2026-07-14) · Effort: L
 
 Status: parked.
 
@@ -1155,7 +1155,7 @@ Still parked:
 
 ### MCP Client v0.40-Deferred Remainder
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold
 
 Status: parked. Added in the v0.40 readiness pass.
 
@@ -1174,7 +1174,7 @@ Still parked:
 
 ### MCP Tool Discovery v0.42-Deferred Remainder
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold
 
 Status: parked after the v0.42 implementation. Added in the post-v0.40
 planning pass.
@@ -1201,7 +1201,7 @@ Still parked:
 
 ### Public UI Protocol Interop Remainder
 
-Class: Won't-now (proposed) · Effort: L
+Class: Won't-now (confirmed 2026-07-14) · Effort: L
 
 Status: parked. Added in the post-v0.37 planning pass after the v0.53 split.
 
@@ -1223,7 +1223,7 @@ remote-UI trust story, and export/import/eval coverage before promotion.
 
 ### Native Plugin Variants For Calendar / Mail / GitHub (Post-1.0 Follow-On)
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold
 
 Status: post-1.0 follow-on candidates after v0.42 shipped MCP-configured
 panels. Promoted from v0.42 scope in the post-v0.37 planning pass.
@@ -1246,8 +1246,7 @@ Each follow-on is a small focused release. None block v1.0.
 
 ### MCP 2025-11-25 Spec Parity
 
-Class: Should (proposed) · Effort: M · Verify: the actual gap between the
-shipped MCP surfaces and the 2025-11-25 spec revision
+Class: Should (confirmed 2026-07-14) · Effort: M · Slice: 1.1 — verify the actual spec delta first
 
 Status: verify.
 
@@ -1258,7 +1257,7 @@ Deferred at: `adr/0044:38`, `v0.51-plan:100`.
 
 ### MCP/OpenAI/ACP Upstream-Tracking Wire Shapes
 
-Class: Should (proposed) · Effort: S
+Class: Closed (confirmed 2026-07-14) — posture statement (upstream-tracking), not scheduled work
 
 Status: parked.
 
@@ -1270,7 +1269,7 @@ Deferred at: `v1.0-plan:299`.
 
 ### Non-Local Bind Hardening For Public Surfaces
 
-Class: Should (proposed) · Effort: S
+Class: Should (confirmed 2026-07-14) · Effort: S · Slice: 1.2 horizon
 
 Status: parked.
 
@@ -1281,8 +1280,7 @@ Deferred at: `v0.51-plan:305`.
 
 ### MCP Artifact Resources
 
-Class: Could (proposed) · Effort: S · Verify: whether exposing artifacts as
-MCP resources is wanted and what the grant story is
+Class: Could (confirmed 2026-07-14) · Effort: S · Slice: hold (verify)
 
 Status: verify.
 
@@ -1293,8 +1291,7 @@ Deferred at: v0.51 plan notes (sweep-flagged, no single line ref).
 
 ### OpenAI/ACP Non-Text Media Blocks
 
-Class: Could (proposed) · Effort: M · Verify: demand plus the upstream spec
-shape for non-text content blocks
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold (verify)
 
 Status: verify.
 
@@ -1307,7 +1304,7 @@ Deferred at: v0.51 plan notes (sweep-flagged, no single line ref).
 
 ### Adaptive Usage Profiling & One-Click Customization Suggestions
 
-Class: Must (proposed) · Effort: L (multi-release; stages below)
+Class: Must (confirmed 2026-07-14) · Effort: L · Slice: 1.1 CO-FLAGSHIP — stages (a) substrate+distill, (b) suggest+apply (+ proactive notifications), (c) feedback
 
 Status: parked (operator-directed, post-1.0 intake 2026-07-14).
 
@@ -1360,7 +1357,7 @@ Deferred at: operator intake (post-1.0 planning, 2026-07-14).
 
 ### Autonomous Skill Creation Beyond Supervised Drafts
 
-Class: Won't-now (proposed) · Effort: L
+Class: Folded (2026-07-14) into Adaptive Usage Profiling — its supervised-draft path is the consented route; this body preserved as the later-stage horizon record (1.2/1.3)
 
 Status: parked.
 
@@ -1379,7 +1376,7 @@ Still parked:
 
 ### Dynamic Capability Expansion Beyond v0.47 Facades
 
-Class: Won't-now (proposed) · Effort: L
+Class: Folded (2026-07-14) into Adaptive Usage Profiling — same supervised later-stage horizon; body preserved
 
 Status: parked.
 
@@ -1400,7 +1397,7 @@ Still parked:
 
 ### Deeper Sandbox Tiers
 
-Class: Won't-now (proposed) · Effort: L
+Class: Won't-now (confirmed 2026-07-14) · Effort: L
 
 Status: parked.
 
@@ -1415,7 +1412,7 @@ Still parked:
 
 ### Scripting Engine Interface
 
-Class: Won't-now (proposed) · Effort: L
+Class: Won't-now (confirmed 2026-07-14) · Effort: L
 
 Status: parked.
 
@@ -1430,7 +1427,7 @@ Still parked:
 
 ### Generated Custom Phoenix Components / LiveViews / Routes Allowlist
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold — v0.37/38 codegen remainder
 
 Status: parked.
 
@@ -1441,8 +1438,7 @@ Deferred at: `v0.37-plan:428`.
 
 ### Generated UI Declarative Surface
 
-Class: Could (proposed) · Effort: M · Verify: whether the shipped Surface DSL
-already covers what this v0.37 idea needed
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold — v0.37/38 codegen remainder
 
 Status: verify.
 
@@ -1453,8 +1449,7 @@ Deferred at: `v0.37-plan:426`.
 
 ### Dynamic Confirmation Resume Adapters For Generated Actions
 
-Class: Could (proposed) · Effort: M · Verify: whether any generated-action
-shape actually needs a bespoke resume adapter
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold — v0.37/38 codegen remainder
 
 Status: verify.
 
@@ -1465,7 +1460,7 @@ Deferred at: `v0.37-plan:461`.
 
 ### Atomic Supersede Without Intermediate Rollback
 
-Class: Could (proposed) · Effort: S
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold — v0.37/38 codegen remainder
 
 Status: parked.
 
@@ -1476,7 +1471,7 @@ Deferred at: `v0.37-plan:495`.
 
 ### Generic `mix allbert.gen.<pattern>` Dispatch
 
-Class: Could (proposed) · Effort: S
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold — v0.37/38 codegen remainder
 
 Status: parked.
 
@@ -1487,8 +1482,7 @@ Deferred at: `v0.38-plan:147`.
 
 ### Reviewed Plugin-Scaffold Path vs `codegen_scaffold`
 
-Class: Could (proposed) · Effort: S · Verify: whether the v0.57
-`codegen_scaffold` work subsumed the v0.47b reviewed plugin-scaffold path
+Class: Could (confirmed 2026-07-14) · Effort: S · Slice: verify-close (likely answered by v0.57)
 
 Status: verify.
 
@@ -1499,8 +1493,7 @@ Deferred at: `v0.47b-plan:172`.
 
 ### Learned-Review Autonomous Producers
 
-Class: Won't-now (proposed) · Effort: M · Verify: current status of the
-inert miner and whether any producer should ever run unsupervised
+Class: Won't-now (confirmed 2026-07-14) · Effort: M — revisit at the 1.2/1.3 distillation horizon
 
 Status: verify.
 
@@ -1512,8 +1505,7 @@ Deferred at: `v0.56-rf:37`.
 
 ### Auto Memory Promotion From Objective Observations
 
-Class: Won't-now (proposed) · Effort: M · Verify: relationship to the shipped
-v0.47 supervised memory-promotion drafts
+Class: Folded (2026-07-14) into Long-Term User Memory — the reviewable-drafts path is the consented version; this body preserved as the unconsented-variant boundary record
 
 Status: verify.
 
