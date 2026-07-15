@@ -633,27 +633,23 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       |> target_context(context)
       |> put_in([:confirmation, :approved?], true)
 
-    case Runner.run(
-           "browser_research_handoff",
-           Map.get(record, "resume_params_ref", %{}),
-           target_context
-         ) do
-      {:ok, response} ->
-        output_data = map_or_empty(Map.get(response, :output_data))
+    # Runner.run/3 always returns {:ok, map()} — action failures arrive as
+    # {:ok, %{status: :failed, ...}} and land in :run_status below.
+    {:ok, response} =
+      Runner.run(
+        "browser_research_handoff",
+        Map.get(record, "resume_params_ref", %{}),
+        target_context
+      )
 
-        drop_nil_values(%{
-          run_status: Map.get(response, :status, :failed),
-          objective_id: Map.get(response, :objective_id) || Map.get(output_data, :objective_id),
-          summary: Map.get(output_data, :summary) || Map.get(response, :message),
-          sources: Map.get(output_data, :sources)
-        })
+    output_data = map_or_empty(Map.get(response, :output_data))
 
-      other ->
-        %{
-          run_status: :failed,
-          summary: "Browser research re-run failed: #{inspect(other)}"
-        }
-    end
+    drop_nil_values(%{
+      run_status: Map.get(response, :status, :failed),
+      objective_id: Map.get(response, :objective_id) || Map.get(output_data, :objective_id),
+      summary: Map.get(output_data, :summary) || Map.get(response, :message),
+      sources: Map.get(output_data, :sources)
+    })
   end
 
   defp research_handoff_metadata(outcome) do
