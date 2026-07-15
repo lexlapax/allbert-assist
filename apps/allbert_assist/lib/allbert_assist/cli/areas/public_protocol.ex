@@ -21,7 +21,10 @@ defmodule AllbertAssist.CLI.Areas.PublicProtocol do
   alias AllbertAssist.Actions.ErrorExtraction
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.CLI.Areas.Render
+  alias AllbertAssist.PublicProtocol.Acp.Mapping, as: AcpMapping
+  alias AllbertAssist.PublicProtocol.Acp.Server, as: AcpServer
   alias AllbertAssist.PublicProtocol.TokenAuth
+  alias AllbertAssist.Settings
   alias AllbertAssist.Surfaces.ContextBuilder
 
   @switches [surface: :string, client: :string]
@@ -32,6 +35,8 @@ defmodule AllbertAssist.CLI.Areas.PublicProtocol do
     mix allbert.public_protocol token rotate --surface mcp_http|openai_api --client CLIENT
     mix allbert.public_protocol token revoke --surface mcp_http|openai_api --client CLIENT
     mix allbert.public_protocol token list --surface mcp_http|openai_api
+    mix allbert.public_protocol acp status
+    mix allbert.public_protocol acp handshake
   """
 
   @spec dispatch([String.t()], map() | nil) :: {String.t(), non_neg_integer()}
@@ -80,7 +85,73 @@ defmodule AllbertAssist.CLI.Areas.PublicProtocol do
     end
   end
 
+  # v1.0.1 M4.4 (DIT-4(c)): packaged wire-level ACP inspection. `status` mirrors
+  # `mix allbert.acp_server status`; `handshake` performs a real in-process
+  # JSON-RPC `initialize` round-trip through the same `Acp.Server` line codec
+  # the stdio transport uses. Read-only — no session, no prompt, no authority.
+  defp route(["acp", "status"], _ctx) do
+    {:acp_lines, acp_status_lines()}
+  end
+
+  defp route(["acp", "handshake"], _ctx) do
+    request =
+      Jason.encode!(%{
+        "jsonrpc" => "2.0",
+        "id" => 1,
+        "method" => "initialize",
+        "params" => %{"clientInfo" => %{"name" => "allbert-cli-acp-handshake"}}
+      })
+
+    enabled? = acp_enabled?() and acp_stdio_enabled?()
+
+    with {:ok, [response_line | _rest], state} <-
+           AcpServer.handle_line(request, AcpServer.new_state()),
+         {:ok, %{"jsonrpc" => "2.0", "id" => 1, "result" => result}} <-
+           Jason.decode(response_line),
+         true <- state.initialized? do
+      lines =
+        acp_status_lines() ++
+          [
+            "handshake=ok",
+            "handshake_result_protocol_version=#{Map.get(result, "protocolVersion", AcpMapping.protocol_version())}"
+          ]
+
+      if enabled? do
+        {:acp_lines, lines}
+      else
+        {:error,
+         {:acp_disabled,
+          Enum.join(lines, "\n") <>
+            "\nhandshake verified the wire protocol, but the ACP surface is disabled " <>
+            "(enable acp_server.enabled and acp_server.stdio.enabled in Settings Central)"}}
+      end
+    else
+      other ->
+        {:error, {:acp_handshake_failed, inspect(other)}}
+    end
+  end
+
   defp route(_args, _ctx), do: {:usage, @usage}
+
+  defp acp_status_lines do
+    [
+      "acp_server.enabled=#{acp_enabled?()}",
+      "acp_stdio.enabled=#{acp_stdio_enabled?()}",
+      "acp_protocol_version=#{AcpMapping.protocol_version()}",
+      "acp_transport=stdio_jsonrpc_ndjson",
+      "acp_prompt_capabilities=text_only"
+    ]
+  end
+
+  defp acp_enabled?, do: setting_enabled?("acp_server.enabled")
+  defp acp_stdio_enabled?, do: setting_enabled?("acp_server.stdio.enabled")
+
+  defp setting_enabled?(key) do
+    case Settings.get(key) do
+      {:ok, true} -> true
+      _other -> false
+    end
+  end
 
   # Mutations go on-spine: the Runner enforces PermissionGate + audit and
   # returns the TokenAuth result under `token_result`. Unwrapping it here keeps
@@ -120,6 +191,14 @@ defmodule AllbertAssist.CLI.Areas.PublicProtocol do
         "surface=#{client.surface} client=#{client.client_id} enabled=#{client.enabled} token_ref=#{client.token_ref} token=[REDACTED] token_status=#{client.token_status}"
       end)
     )
+  end
+
+  defp render({:acp_lines, lines}), do: Render.ok(lines)
+
+  defp render({:error, {:acp_disabled, text}}), do: Render.error(text)
+
+  defp render({:error, {:acp_handshake_failed, detail}}) do
+    Render.error("ACP handshake failed: #{detail}")
   end
 
   defp render({:usage, usage}), do: Render.usage(usage)
