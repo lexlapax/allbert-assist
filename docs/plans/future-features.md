@@ -28,7 +28,8 @@ Supersedes any per-entry `Slice: 1.1` tag where they conflict — flagships are
 sequenced one per minor, foundational-first:
 
 - **1.0.1 / 1.0.x** — as tagged (R15, btn drift, offline test, DIT-5 transcript;
-  then test speed & isolation increments, v0.58 tails, docs items).
+  then test speed & isolation increments, v0.58 tails, docs items, and the
+  technical-debt train incl. vendored `:memento` removal when upstream unblocks).
 - **1.1 — Zero-Click First Run** + its direct enablers (model chooser/catalog,
   model fallback/degradation for the detect states, consent ADR, folded TUI scope).
 - **1.2 — Long-Term User Memory** (research phase first; folded retrieval/FTS/
@@ -1925,6 +1926,52 @@ v0.41 flagged splitting the web `external_runtime_serial` test lane into a
 fast-local portion.
 
 Deferred at: the v0.41 plan (sweep-flagged, no single line ref).
+
+### Vendored Memento Removal (Jido Upstream Fix)
+
+Class: Should-candidate (operator intake 2026-07-15; operator slotted it on the
+1.0.x technical-debt train) · Effort: S · Slice: 1.0.x technical-debt train,
+blocked on upstream
+
+Status: parked (blocked on upstream; re-verify at every dependency refresh).
+
+Allbert maintains a vendored copy of Hex `:memento` 0.5.0 at `vendor/memento`
+(`{:memento, path: "../../vendor/memento", override: true}` in
+`apps/allbert_assist/mix.exs:94`) solely because `:jido_signal` 2.2.0 requires
+`:memento ~> 0.5.0`, which fails to compile on Elixir 1.19+ (`record/0` became
+a built-in typespec; the vendored copy renames it to `memento_record/0` with
+runtime behavior unchanged — `vendor/memento/ALLBERT_PATCHES.md`, ADR 0050).
+Once a Jido release drops or relaxes the `:memento` requirement, or an
+upstream `:memento` release fixes the typespec clash, bump the Jido stack to
+that version, delete `vendor/memento` and the path override, and mark ADR 0050
+superseded. ADR 0050 already records the exit conditions (upstream no longer
+fails on Elixir 1.19+; the release gates stay green). The Upstream Dependency
+Refresh step below is the recurring checkpoint for this exit.
+
+Deferred at: `docs/adr/0050-vendored-memento-compatibility-override.md` (exit
+conditions); `vendor/memento/ALLBERT_PATCHES.md` (removal note).
+
+### Upstream Dependency Refresh As A Standing Binary-Release Step
+
+Class: Should-candidate (operator intake 2026-07-15; operator direction: part
+of every binary release plan) · Effort: S per release (recurring) · Slice:
+every binary release plan
+
+Status: intake (process-rule candidate — on confirmation this graduates out of
+this inventory into the roadmap Working Rules and the plan-triad convention,
+as a standing milestone in each binary release plan rather than a one-shot
+feature).
+
+Every binary release plan should carry an upstream-dependency-refresh
+milestone: review available updates across the dependency tree (the Jido
+stack, Phoenix/LiveView, Req, tooling), apply them, and make whatever code
+changes are needed to absorb them, with the release gates proving the result.
+This bounds the size of any single upgrade, keeps compatibility shims like the
+vendored `:memento` override (above) from silently aging past their upstream
+fix, and gives security/bugfix releases of dependencies a predictable ride
+into Allbert binaries.
+
+Provenance: operator intake 2026-07-15.
 
 ## Triage Notes
 

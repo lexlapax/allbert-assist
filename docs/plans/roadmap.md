@@ -21,7 +21,10 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    (implementation-ready 2026-07-15).
 2. **1.0.x** — incremental: test suite speed & isolation (lane-by-lane, incl. the
    fast-local web split), v0.58 cleanup tails, Tier-2->Tier-1 promotion ADR (docs),
-   intent-pipeline refinements (opportunistic).
+   intent-pipeline refinements (opportunistic), technical-debt train: vendored
+   `:memento` removal when the Jido/upstream fix lands (ADR 0050 exit). A recurring
+   upstream-dependency-refresh step in every binary release plan is in intake
+   (future-features.md, Housekeeping).
 3. **1.1 — Zero-Click First Run.** Chat-ready default with an auto-detected local
    model; onboarding optional and step-addressable; consent ADR; TUI first-run scope
    folded in. Enablers: model chooser/catalog, model fallback/degradation policy.
