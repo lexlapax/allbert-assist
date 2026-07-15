@@ -38,7 +38,7 @@ sequenced one per minor, foundational-first:
   release needs a non-additive migration), email OAuth, MCP spec parity,
   param-contract completion, PermissionGate deletion, mid-action interruption +
   child-process cancellation, app-registry boundary check. System Memory
-  Distillation remains the post-1.3 co-flagship candidate.
+  Distillation remains the post-1.3 co-flagship candidate. **2.0 horizon**: Self-Hosting Development (Allbert develops Allbert, pi-mode target), with OAuth hosted-LLM providers landing earlier on the 1.4/1.5 train.
 ## Classification
 
 Classes are **proposed** pending the operator's category-by-category
@@ -898,6 +898,21 @@ doctor fields, and release evidence before implementation:
 - required bundled-local engine packaging for every operator;
 - Discord voice after v0.52 Discord text-channel support.
 
+### OAuth-Authenticated Hosted LLM Providers (Subscription Plans)
+
+Class: Should (operator intake 2026-07-15) · Effort: M · Slice: 1.4/1.5 enabler train (independently valuable before the 2.0 self-hosting flagship)
+
+Add Claude, OpenAI (Codex), and Gemini as hosted providers via **OAuth
+sign-in**, not only API keys — so an operator's monthly/yearly packaged
+pro/subscription plan powers Allbert instead of metered keys. Needs: OAuth
+device/browser flows per provider, refresh-token custody in the existing
+three-tier vault (OS keychain first), provider-ToS review per plan type, and
+model-catalog integration so these appear as selectable profiles. Feeds the
+adaptive loop's "suggest a BYOK/hosted coding model" one-click path and the
+2.0 self-hosting flagship (developer-grade models on subscription plans).
+
+Deferred at: operator intake (post-1.0 planning, 2026-07-15).
+
 ### Model Chooser / Catalog
 
 Class: Should (confirmed 2026-07-14) · Effort: M · Slice: 1.1 — enabler for zero-click and adaptive suggestions
@@ -1323,6 +1338,27 @@ blocks (images, audio) were left open.
 Deferred at: v0.51 plan notes (sweep-flagged, no single line ref).
 
 ## Self-Improvement & Dynamic Capability
+
+### Self-Hosting Development (Allbert Develops Allbert)
+
+Class: Must-candidate (operator intake 2026-07-15) · Effort: XL · Slice: 2.0 horizon (post-1.3/1.4); sub-capabilities may land in earlier trains
+
+Allbert as the development environment for itself, for an Allbert developer:
+the workflow the operator runs today with an external assistant — planning
+LLM, developer LLM, tester, documenter roles over this repo — runs directly
+inside Allbert, via TUI, web workspace, or any channel, likely as a pi-mode
+target pointed at the Allbert checkout. Supervised, operator-driven
+development (plan → build → test → document with confirmations), NOT
+autonomous self-modification: the Won't-now self-recompilation boundary
+stays; this is Allbert as agent-harness/IDE for its own codebase. Builds on
+pi-mode (ADR 0068 coding trust tier), plan/build, delegate agents, and the
+v0.47 supervised-draft machinery. Freeze note: release.v1 must stay green
+under any self-hosted change flow — the gates become part of the loop.
+
+Sub-capability (separately shippable, earlier train): OAuth-Authenticated
+Hosted LLM Providers (Models & Memory).
+
+Deferred at: operator intake (post-1.0 planning, 2026-07-15).
 
 ### Adaptive Usage Profiling & One-Click Customization Suggestions
 
