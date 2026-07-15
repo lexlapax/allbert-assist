@@ -600,12 +600,6 @@ defmodule AllbertAssistWeb.Layouts do
     %{key: key, label: label, path: path, active?: key == active}
   end
 
-  defp static_asset_version do
-    :allbert_assist_web
-    |> Application.spec(:vsn)
-    |> to_string()
-  end
-
   defp theme_asset_version, do: AllbertAssist.Theme.Version.stylesheet_version()
 
   # v0.61 M9 — emit an explicit `system` theme mode (was nil, which silently fell back

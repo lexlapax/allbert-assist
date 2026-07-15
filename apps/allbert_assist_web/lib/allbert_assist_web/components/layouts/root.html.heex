@@ -30,11 +30,7 @@
       content="A personal assistant runtime that grows with you — local-first, inspectable, and yours."
     />
     <meta name="twitter:image" content={url(~p"/images/allbert-og.png")} />
-    <link
-      phx-track-static
-      rel="stylesheet"
-      href={~p"/assets/css/app.css?#{[v: static_asset_version()]}"}
-    />
+    <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
     <link rel="stylesheet" href={~p"/theme/user.css?#{[v: theme_asset_version()]}"} />
     <link rel="stylesheet" href={~p"/theme/snippets.css?#{[v: theme_asset_version()]}"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>

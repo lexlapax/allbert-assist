@@ -185,7 +185,12 @@ defmodule AllbertAssistWeb.ThemeControllerTest do
     conn = get(conn, ~p"/")
     html = html_response(conn, 200)
 
-    assert html =~ ~s(/assets/css/app.css?)
+    # v1.0.1 M1 (R15): the app stylesheet must flow through the digest manifest.
+    # A query string on the static path defeats Endpoint.static_lookup (it splits
+    # only on `#`), so the link must be the bare path — digested to app-<hash>.css
+    # in prod where the manifest exists; bare and un-queried in dev/test.
+    assert html =~ ~s(/assets/css/app.css")
+    refute html =~ "app.css?v="
     assert html =~ ~s(/theme/user.css?)
     assert html =~ ~s(/theme/snippets.css?)
     refute html =~ "<script>"
