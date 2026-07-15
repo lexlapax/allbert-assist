@@ -1,5 +1,84 @@
 # DIT-4 — Live Advanced-Surface Regression (v1.0 freeze prerequisite)
 
+## Packaged v1.0.0 revalidation — 2026-07-15
+
+**Verdict: FAIL.** The source-checkout attestation below is not reproducible from the
+Homebrew-installed `allbert 1.0.0` artifact. This second pass used
+`/opt/homebrew/bin/allbert` (`brew list --versions allbert` reported `allbert 1.0.0`)
+and the disposable Home `/tmp/allbert-dit4-v100.L2QABO`; it did not use the source
+checkout's Mix tasks or the operator's real `~/.allbert`.
+
+| Class | Packaged-binary result |
+|---|---|
+| (a) Browser research + delegate | **FAIL** — the workspace completed the turn with only `Browser research handoff proposed.`; no research tile, delegation run, source URL, or researched answer appeared. |
+| (b) Channels — outbound + inbound (Telegram) | **FAIL / incomplete** — live Telegram credential and endpoint checks passed, but the packaged ask path misrouted the outbound request to `external_network_request` and denied it as `:missing_url`; therefore no outbound marker was delivered. A genuine inbound marker was not requested after outbound had already failed. |
+| (c) Public protocols — MCP / OpenAI-compatible / ACP | **PARTIAL PASS** — authenticated MCP HTTP and OpenAI-compatible calls passed; ACP was enabled but no packaged wire-level ACP handshake/status command was available, so ACP is not promoted to PASS. |
+| (d) Plan/Build approval smoke | **FAIL / BLOCKED** — `allbert tui` crashes before accepting a prompt, so the same-channel approval flow cannot start. |
+
+### Reproduction and retained observations
+
+The disposable Home was onboarded with the packaged QuickStart flow, the TUI identity
+was mapped/enabled, `intent.router_strategy=two_stage_local` was set, and the
+`dit4_smoke` one-step workflow passed packaged `admin workflows list` and `inspect`.
+Both a cold TUI start and a retry while packaged `allbert serve` was warm failed with:
+
+```text
+** (exit) exited in: GenServer.call(Req.FinchSupervisor, {:start_child, ...})
+    ** (EXIT) no process: the process is not alive or there is no process
+    (req) lib/req/finch.ex
+    AllbertAssist.FirstModel.Ollama.default_get/2
+    AllbertAssist.FirstModel.Ollama.server_version/1
+```
+
+This is a packaged-startup failure before the DIT-4(d) prompt, not a failed approval
+decision. The apparent seam is that the TUI's first-model Ollama readiness check uses
+Req/Finch before `Req.FinchSupervisor` is available.
+
+For class (a), the packaged web workspace at `http://localhost:<port>/workspace`
+accepted this real-model prompt:
+
+```text
+Research the official Elixir website and report the title of its latest blog post.
+Use the browser research capability and include the source URL.
+```
+
+The runtime turn reported `Status completed` and the sole assistant result was
+`Browser research handoff proposed.` Opening the Research app showed `0/64 tiles`,
+`0 ephemerals`, and `No canvas tiles yet`.
+
+For class (b), packaged `admin channels telegram set-token`, identity mapping, and
+`admin channels telegram doctor` succeeded against the real configured endpoint:
+
+```text
+telegram doctor status=ok
+auth_ok=true endpoint_ok=true
+poller=disabled
+```
+
+The live packaged request
+`allbert ask "Send the exact message ALLBERT-DIT4-V100-OUTBOUND to my configured Telegram channel."`
+did not route to the channel-send action:
+
+```text
+Status: denied
+External network request was denied: :missing_url.
+Actions:
+- external_network_request denied
+```
+
+For class (c), the packaged server used per-surface bearer tokens created inside the
+disposable Home. Authenticated `/mcp` `tools/list` returned exactly
+`direct_answer`, `external_network_request`, and `get_public_call_result`;
+authenticated `/v1/models` returned only `local`; and a real
+`/v1/chat/completions` request returned the marker `allbert-dit4-v100-ok`. ACP settings
+reported enabled stdio, but the packaged CLI exposed token administration only and no
+ACP status/handshake command. Tokens and the disposable settings key were not printed
+or retained in this document.
+
+This packaged result supersedes the PASS matrix below only for claims about what the
+released Homebrew artifact itself proves. The earlier source-checkout record remains
+useful as implementation and harness history, but it is not release-artifact proof.
+
 Operator-attested on 2026-07-14 (macOS host, source checkout at the v1.0 freeze source
 on `origin/main`, local Ollama). Provider credentials came from the operator `.env`
 (exported via `set -a; source .env; set +a`); no credential values appear below.
