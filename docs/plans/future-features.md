@@ -1945,33 +1945,12 @@ Once a Jido release drops or relaxes the `:memento` requirement, or an
 upstream `:memento` release fixes the typespec clash, bump the Jido stack to
 that version, delete `vendor/memento` and the path override, and mark ADR 0050
 superseded. ADR 0050 already records the exit conditions (upstream no longer
-fails on Elixir 1.19+; the release gates stay green). The Upstream Dependency
-Refresh step below is the recurring checkpoint for this exit.
+fails on Elixir 1.19+; the release gates stay green). The per-release
+upstream-dependency-refresh working rule (roadmap Working Rules, confirmed
+2026-07-15) is the recurring checkpoint for this exit.
 
 Deferred at: `docs/adr/0050-vendored-memento-compatibility-override.md` (exit
 conditions); `vendor/memento/ALLBERT_PATCHES.md` (removal note).
-
-### Upstream Dependency Refresh As A Standing Binary-Release Step
-
-Class: Should-candidate (operator intake 2026-07-15; operator direction: part
-of every binary release plan) · Effort: S per release (recurring) · Slice:
-every binary release plan
-
-Status: intake (process-rule candidate — on confirmation this graduates out of
-this inventory into the roadmap Working Rules and the plan-triad convention,
-as a standing milestone in each binary release plan rather than a one-shot
-feature).
-
-Every binary release plan should carry an upstream-dependency-refresh
-milestone: review available updates across the dependency tree (the Jido
-stack, Phoenix/LiveView, Req, tooling), apply them, and make whatever code
-changes are needed to absorb them, with the release gates proving the result.
-This bounds the size of any single upgrade, keeps compatibility shims like the
-vendored `:memento` override (above) from silently aging past their upstream
-fix, and gives security/bugfix releases of dependencies a predictable ride
-into Allbert binaries.
-
-Provenance: operator intake 2026-07-15.
 
 ## Triage Notes
 

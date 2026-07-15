@@ -162,5 +162,10 @@ business-logic debugging, code review, or repository-specific architecture revie
   ladder. After the plan is implemented and tagged, remove the item from
   future-features.md (only unplanned remainders stay, reparked) and update the
   roadmap accordingly.
+- Every binary release plan carries an upstream-dependency-refresh milestone:
+  review tree updates, apply bounded updates, absorb the code changes, gates prove
+  it. Major/breaking upgrades or hotfix releases may scope the apply step out with
+  the reason recorded in the plan; the vendored `:memento` exit (ADR 0050) is
+  re-verified at every refresh.
 - Released plan/request-flow docs move to `docs/plans/archives/` at closeout; operator
   runbook steps must be paste-executable with inline PASS criteria.
