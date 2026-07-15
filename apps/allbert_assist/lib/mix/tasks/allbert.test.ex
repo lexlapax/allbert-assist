@@ -45,6 +45,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v065
       mix allbert.test release.v066
       mix allbert.test release.v1
+      mix allbert.test release.v101
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
@@ -161,6 +162,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v065"]), do: release_v065()
   def run(["release.v066"]), do: release_v066()
   def run(["release.v1"]), do: release_v1()
+  def run(["release.v101"]), do: release_v101()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -5643,6 +5645,125 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   end
 
+  # v1.0.1: the point gate is the full v1 freeze/product-RC prefix plus focused
+  # v1.0.1 steps (plan Locked Decision 8) so freeze coverage cannot drift from
+  # the point gate.
+  @v101_focused_steps [
+    %{
+      id: "v101_asset_digest",
+      title: "R15: app stylesheet flows through the digest manifest (no version query)",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist_web/test/allbert_assist_web/controllers/theme_controller_test.exs"
+      ],
+      coverage: [
+        "the layout links /assets/css/app.css with no ?v= query so prod static_lookup digests it (R15)"
+      ]
+    },
+    %{
+      id: "v101_design_tokens",
+      title:
+        "operator surfaces hold the design-system token contract (btn drift, list form included)",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist_web/test/allbert_assist_web/workspace/design_system_tokens_test.exs"
+      ],
+      coverage: [
+        "zero raw daisy btn classes in production web source; tightened regex catches class={[...]} list forms"
+      ]
+    },
+    %{
+      id: "v101_offline_sw",
+      title: "offline service-worker guard is order-independent and version-locked",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist_web/test/allbert_assist_web/workspace/offline_test.exs"
+      ],
+      coverage: [
+        "compile-time version keeps the :pure_async lane contract; CACHE_NAME matches the app version"
+      ]
+    },
+    %{
+      id: "v101_dit5_evidence",
+      title: "DIT-5 upgrade/uninstall transcript present in the v1.0 evidence set",
+      cwd: :root,
+      executable: "test",
+      args: ["-f", "docs/validation/v1.0/dit5-upgrade-uninstall.log"],
+      coverage: [
+        "the v1.0 evidence matrix DIT-5 row resolves to a real transcript (content is operator-attested)"
+      ]
+    }
+  ]
+
+  @release_v101_steps @release_v1_steps ++ @v101_focused_steps
+
+  defp release_v101 do
+    env = owned_env("release-v101", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v101")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v101_steps, &run_release_v101_step(&1, env))
+
+    status = if Enum.all?(results, &(&1.status == "passed")), do: "passed", else: "failed"
+
+    evidence = %{
+      gate: "mix allbert.test release.v101",
+      version: "v1.0.1",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; the release.v1 freeze/product-RC prefix re-runs unchanged, then the v1.0.1 focused steps prove the point-release fixes deterministically. Packaged digested-CSS/SW smoke and browser checks are operator-attested per docs/plans/v1.0.1-request-flow.md.",
+      notes:
+        "v1.0.1 Post-1.0 Remediation Point Release: steps = the release.v1 quintet plus focused v1.0.1 steps (R15 digest cache-busting, btn drift guard, offline SW version lock, DIT-5 evidence presence).",
+      steps: results
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v101-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v101 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v101 failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v101_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v101 #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
   defp cleanup_release_v046_evidence!(evidence_dir) do
     evidence_dir
     |> Path.join("release-v046-*.json")
@@ -7744,6 +7865,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v065
       mix allbert.test release.v066
       mix allbert.test release.v1
+      mix allbert.test release.v101
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
