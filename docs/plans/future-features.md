@@ -758,6 +758,46 @@ Deferred at: `v0.26-plan:2079`.
 
 ## Models & Memory
 
+### Long-Term User Memory (Periodic Consolidation, Prompt-Time Context)
+
+Class: Must (proposed) · Effort: L (research-first; multi-release)
+
+Status: parked (operator-directed, post-1.0 intake 2026-07-14).
+
+The user-facing sibling of Adaptive Usage Profiling (Self-Improvement
+category): over time, build a **long-term user memory** that remembers facts
+about the user's personal life and preferences, **periodically consolidated by
+the system from user interaction history** — not only from explicit "remember
+this" asks. At prompt-formation time this memory is consulted to assemble
+proper context for the LLM, so answers land **zero-shot**: the stated goal is
+shortening token usage and interaction count by giving the model the right
+context up front instead of re-deriving it conversationally.
+
+**Research phase required before promotion**: survey short-term vs long-term
+memory vs usage-history architectures (working/episodic/semantic splits,
+consolidation cadence, decay/refresh policies, retrieval-at-prompt-time
+budgets) and how they map onto the shipped substrate — v0.39b Active Memory
+(deterministic recency-weighted lexical retrieval over reviewed `:kept`
+entries), the memory namespaces, and the review surface. Output should be a
+research note under `docs/research/` feeding the promotion ADR.
+
+Consent boundary to resolve at promotion (needs an ADR): the trust spine says
+"memory review remains explicit", and the v0.24 non-goal "no automatic memory
+promotion" (triage table) is exactly this feature. The staged posture:
+system-consolidated memories land as **reviewable drafts** (or a distinct
+"system-proposed" tier the operator can bulk-accept), and only reviewed
+entries become prompt context — or the ADR consciously relaxes the explicit-
+review line for a bounded fact/preference class. Silent accumulation into
+prompts is not the default.
+
+Related: Adaptive Usage Profiling (system-usage half of the same loop — the
+suggest job reads both memories); System Memory Distillation (the parked
+learned/model-trained variant — this entry is the deterministic/consolidated
+route); Cross-Thread / Cross-App Memory Retrieval (retrieval scope);
+Embedding-backed retrieval note under Distillation (semantic recall).
+
+Deferred at: operator intake (post-1.0 planning, 2026-07-14).
+
 ### System Memory Distillation
 
 Class: Won't-now (proposed) · Effort: L
