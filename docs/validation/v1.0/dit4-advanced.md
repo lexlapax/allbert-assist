@@ -1,5 +1,79 @@
 # DIT-4 — Live Advanced-Surface Regression (v1.0 freeze prerequisite)
 
+## v1.0.1 M4.2.3 class (a) closure attempt — 2026-07-15
+
+**Verdict: FAIL — consent, callback, grant, and server-side execution pass, but
+the completed research is not delivered to the thread or Research canvas. DIT-4
+remains open.** This fifth class-only pass tested source commit `91724342` as a
+locally rebuilt `allbert 1.0.1` release plus the live Mix external smokes. It used
+the fresh disposable Home `/tmp/allbert-dit4-fifth.vG4i7S/home`; it did not use or
+modify the Homebrew `allbert 1.0.0` installation.
+
+The focused regression and both real browser harnesses were green:
+
+```text
+$ MIX_ENV=test mix test \
+    apps/allbert_assist/test/allbert_assist/actions/browser_research_turn_test.exs
+11 tests, 0 failures
+
+$ ALLBERT_TEST_KEEP_TMP=1 MIX_ENV=test mix allbert.test external-smoke -- browser_research
+1 test, 0 failures
+
+$ ALLBERT_TEST_KEEP_TMP=1 MIX_ENV=test mix allbert.test external-smoke -- browser_research_delegate
+1 test, 0 failures
+```
+
+The locally rebuilt release was served on port 4148 with `browser.enabled=true`
+and `research.enabled=true`. The exact §I prompt produced exactly one up-front
+confirmation and no objective before approval:
+
+```text
+Research https://elixir-lang.org and report the title of its latest blog post.
+Use the browser research capability and include the source URL.
+
+Browser research on https://elixir-lang.org needs your approval (confirmation
+conf_1784142257000000_4226). Approving grants navigation on that site's URL prefix
+and runs the research once through research.specialist; results land in the
+workspace Research app.
+Status: needs_confirmation
+```
+
+The same pending confirmation appeared both as the thread consent card and in
+Settings Central's live queue. The queue described `browser_navigate`, risk high,
+the target URL, and resource scope
+`url_prefix:https://elixir-lang.org/`. Typing the exact callback in the web
+composer was intercepted as a confirmation decision rather than intent-routed:
+
+```text
+ALLBERT:APPROVE:conf_1784142257000000_4226
+```
+
+The confirmation resolved through `local/live_view`, the pending queue returned
+to zero, and Security Central recorded one active remembered grant:
+
+```text
+grant_1784142328708004_6530 · active · fetch · browser_navigator
+url_prefix:https://elixir-lang.org/
+```
+
+The packaged admin surface confirmed that the one approval ran the delegated
+research objective server-side with no second confirmation:
+
+```text
+obj_7a62ff0f-670d-4bba-8c3f-1b8357096c4f completed app=allbert_research research.specialist
+
+Objective: obj_7a62ff0f-670d-4bba-8c3f-1b8357096c4f
+Status: completed
+- step_ebb85a68-3d0b-4f79-a8d3-1c174440339e completed delegate_agent
+```
+
+Delivery then failed the §I contract. The originating thread still showed only
+the consent response and `0 objectives`; it never rendered a completion summary
+or source URL. Opening Allbert Research showed `0/64 tiles`, `0 ephemerals`, and
+`No canvas tiles yet`. M4.2.3 therefore closes the approval and execution seams,
+but class (a) cannot pass until the server-side result is associated back to the
+originating thread and materialized as the promised Research canvas output.
+
 ## v1.0.1 M4.2.2 class (a) closure attempt — 2026-07-15
 
 **Verdict: FAIL — the two-stage approval flow is present, but the navigation-grant
