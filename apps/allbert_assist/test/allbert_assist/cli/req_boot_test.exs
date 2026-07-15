@@ -3,6 +3,7 @@ defmodule AllbertAssist.CLI.ReqBootTest do
   use ExUnit.Case, async: false
 
   alias AllbertAssist.CLI
+  alias AllbertAssist.FirstModel.Ollama
 
   @moduledoc """
   M8.1 regression: the packaged `mix release` `eval` entry LOADS but does not START OTP
@@ -47,6 +48,6 @@ defmodule AllbertAssist.CLI.ReqBootTest do
   test "the Ollama first-model probe degrades to :error instead of exiting when :req is down" do
     :ok = Application.stop(:req)
 
-    assert AllbertAssist.FirstModel.Ollama.server_version() == :error
+    assert Ollama.server_version() == :error
   end
 end
