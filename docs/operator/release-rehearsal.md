@@ -2,9 +2,9 @@
 
 This is the operator runbook for cutting a packaged Allbert release and
 validating the packaged `allbert` on Tier-1 OS paths before announcing it.
-Two automated layers precede the manual/operator layer: the source release gate
-(`mix allbert.test release.v0NN` for the current line — e.g. `release.v064`) and the CI
-artifact smoke. This doc
+Two automated layers precede the manual/operator layer: the permanent 1.x public-
+contract gate (`mix allbert.test release.v1`) plus the active plan's point-release gate
+(for example `mix allbert.test release.v101`), and the CI artifact smoke. This doc
 covers the steps that need a published release, a package manager, a TTY, Docker,
 or real host services.
 
@@ -14,18 +14,28 @@ on (see the [CHANGELOG](../../CHANGELOG.md) and [roadmap](../plans/roadmap.md) f
 current packaged release line). This runbook
 covers Homebrew tap fill, package-manager install, curl trust, packaged TUI, and Linux
 rehearsal evidence for the packaged path.
-v0.64.5 is a source/docs point tag only; it uses `[skip-artifacts]` and does not create
-new packaged release assets.
+Binary release is the post-1.0 default. `[skip-artifacts]` remains only for an
+explicitly approved docs/source point tag that is not a product release; it does not
+replace the binary-release obligation of a versioned feature plan.
 
 ## 1. Publish the release
 
-For future packaged releases, the tag is operator-held. Cut an annotated tag on
-the reviewed commit:
+For every 1.x product release, the tag is operator-held. Push the reviewed release
+commit, prove branch parity, then cut the annotated tag on that exact commit:
 
 ```sh
-VERSION=v0.64.3
+VERSION=v1.0.1
+git push origin main
+HEAD_SHA="$(git rev-parse HEAD)"
+REMOTE_SHA="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+test "$HEAD_SHA" = "$REMOTE_SHA"
 git tag -a "$VERSION" -m "Allbert ${VERSION#v}"
 git push origin "$VERSION"
+TAG_SHA="$(git rev-parse "$VERSION^{}")"
+REMOTE_TAG_SHA="$(git ls-remote origin "refs/tags/$VERSION^{}" | awk '{print $1}')"
+test "$HEAD_SHA" = "$TAG_SHA"
+test "$TAG_SHA" = "$REMOTE_TAG_SHA"
+echo "PASS: HEAD, origin/main, and peeled $VERSION tag agree"
 ```
 
 The tag push fires `.github/workflows/release-artifacts.yml`:
@@ -44,9 +54,10 @@ The tag push fires `.github/workflows/release-artifacts.yml`:
   hyphen tag such as `v0.62.0-rc1`) + the optional out-of-band
   `SHA256SUMS.cosign.bundle`, and uploads everything to the GitHub release.
 
-### Docs/source point release (no packaged artifacts)
+### Exceptional docs/source point tag (no packaged artifacts)
 
-A point release that ships only source/docs/script fixes (for example `v0.64.5`) must
+An explicitly approved point tag that ships only source/docs/script fixes (historical
+example: `v0.64.5`) must
 NOT create packaged artifacts or steal `Latest` from the product release that owns the
 tarballs + `latest` aliases (`v0.64.3`). Mark its annotated tag `[skip-artifacts]` so
 the `gate` job skips the packaged pipeline:
@@ -76,7 +87,7 @@ package-manager path: the trusted tap formula pins release URLs and SHA256 value
 Homebrew verifies the artifact against those formula values. To verify a release by hand:
 
 ```sh
-VERSION=v0.64.3
+VERSION=v1.0.1
 mkdir -p "/tmp/allbert-${VERSION}"
 gh release download "$VERSION" --repo lexlapax/allbert-assist \
   --pattern 'SHA256SUMS*' --dir "/tmp/allbert-${VERSION}"
@@ -100,7 +111,7 @@ helper updates version, per-target URLs, and SHA256 rows together:
 
 ```sh
 ALLBERT_ASSIST_CHECKOUT="${ALLBERT_ASSIST_CHECKOUT:-$(pwd)}"  # run from allbert-assist checkout
-VERSION=v0.64.3
+VERSION=v1.0.1
 mkdir -p "/tmp/allbert-${VERSION}"
 gh release download "$VERSION" --repo lexlapax/allbert-assist \
   --pattern SHA256SUMS --dir "/tmp/allbert-${VERSION}"
@@ -140,12 +151,12 @@ requested; set a disposable `ALLBERT_HOME` for rehearsal.
 ### curl installer (macOS + Linux)
 
 ```sh
-export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v064-install.XXXXXX)"
+export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v1-install.XXXXXX)"
 curl -fsSL https://raw.githubusercontent.com/lexlapax/allbert-assist/main/scripts/install/install.sh | sh
-#   ALLBERT_VERSION=v0.64.3   pin a packaged version (default: latest)
+#   ALLBERT_VERSION=v1.0.1    pin a packaged version (default: latest)
 #   ALLBERT_PREFIX=~/.local   install prefix
 export PATH="$HOME/.local/bin:$PATH"
-allbert --version                 # allbert 0.64.3
+allbert --version                 # allbert 1.0.1
 allbert admin status              # renders operator status through the spine
 ```
 
@@ -306,7 +317,7 @@ Prepare the Linux artifacts:
 
 ```sh
 ALLBERT_ASSIST_CHECKOUT="${ALLBERT_ASSIST_CHECKOUT:-$(pwd)}"  # run from allbert-assist checkout
-VERSION=v0.64.3
+VERSION=v1.0.1
 WORK="/tmp/allbert-${VERSION}"
 mkdir -p "$WORK/artifacts"
 gh release download "$VERSION" --repo lexlapax/allbert-assist \
@@ -380,14 +391,14 @@ Allbert Home preservation.
 Use one ledger for the release rather than splitting proof across terminal
 scrollback:
 
-| Evidence class | What it proves | Typical command/source | v0.62b owner |
+| Evidence class | What it proves | Typical command/source | Owner |
 | --- | --- | --- | --- |
-| Source gate | checkout compiles, tests, and release-specific evals pass | `mix allbert.test release.v0NN` (e.g. `release.v063`) | current line |
-| Artifact matrix | published artifacts boot and pass binary smoke | `.github/workflows/release-artifacts.yml` | v0.62 |
+| Source gate | frozen 1.0 contracts and release-specific checks pass on the release commit | `mix allbert.test release.v1` + active point gate (for example `release.v101`) | current line |
+| Artifact matrix | published artifacts boot and pass binary smoke | `.github/workflows/release-artifacts.yml` | current line |
 | Tap fill | formula version, URLs, and checksums match release checksums | `homebrew/fill-sha256.sh`; `brew audit --strict --online --formula` | current packaged line |
-| Package-manager install | package installs and invokes packaged binary | `brew install`; `brew test`; uninstall | v0.62b M2 |
-| Packaged TUI | installed binary runs the warm console in a TTY | `script ... allbert tui` | v0.62b M3 |
-| Docker Linux package smoke | both Linux artifacts install/start/attach/uninstall in containers | `docker run --platform linux/arm64`; `docker run --platform linux/amd64` | v0.62b M4 |
+| Package-manager install | package installs and invokes packaged binary | `brew install`; `brew test`; uninstall | current line |
+| Packaged TUI | installed binary runs the warm console in a TTY | `script ... allbert tui` | current line |
+| Docker Linux package smoke | both Linux artifacts install/start/attach/uninstall in containers | `docker run --platform linux/arm64`; `docker run --platform linux/amd64` | current line |
 | Real-host service/vault | launchd/systemd and OS keychain integration on actual hosts | host service/vault commands | operator closeout |
 
 ## 7. Historical v0.62 Evidence

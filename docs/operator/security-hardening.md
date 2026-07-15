@@ -136,8 +136,10 @@ mix allbert.settings set permissions.sandbox_trial denied
 Every runtime capability class Allbert ships — first-run onboarding + provider doctor,
 intent routing, active memory, MCP integrations, channels, artifacts/media, the browser,
 the public protocol, the packaged CLI/daemon, and the OS-vault credential model — has
-executable eval coverage that runs in the deterministic release gate
-(`mix allbert.test release.v0NN` and the security sweeps). The invariants are the same
+executable eval coverage that runs in deterministic release gates. On 1.x, every
+release runs `mix allbert.test release.v1` plus the active plan's point-release gate
+(for example `release.v101`); both include the applicable security sweeps. The
+invariants are the same
 across surfaces: no authority is granted without an explicit, confirmation-gated,
 durably-traced operator approval; secrets are never surfaced in output, logs, or traces;
 and every action is scoped by Security Central. The per-surface eval-row catalog and its

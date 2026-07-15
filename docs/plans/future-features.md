@@ -27,8 +27,8 @@ verbatim and grouped by category.
 Supersedes any per-entry `Slice: 1.1` tag where they conflict — flagships are
 sequenced one per minor, foundational-first:
 
-- **1.0.1 / 1.0.x** — as tagged (R15, btn drift, offline test, DIT-5 transcript;
-  then test speed & isolation increments, v0.58 tails, docs items, and the
+- **1.0.1 / 1.0.x** — 1.0.1 planned (R15, btn drift, offline test, DIT-5 transcript;
+  after it ships: test speed & isolation increments, v0.58 tails, docs items, and the
   technical-debt train incl. vendored `:memento` removal when upstream unblocks).
 - **1.1 — Zero-Click First Run** + its direct enablers (model chooser/catalog,
   model fallback/degradation for the detect states, consent ADR, folded TUI scope).
@@ -1869,6 +1869,20 @@ was attested during the v1.0 closeout but has not been dropped into
 `docs/validation/v1.0/`. Drop the file to complete the evidence set.
 
 Deferred at: v1.0 release closeout (operator-attested).
+
+### Service-Worker Asset Discovery Follow-On
+
+Class: Could (confirmed 2026-07-15) · Effort: S · Slice: 1.0.x housekeeping
+
+Status: parked.
+
+`workspace-sw.js` retains plain-path `DEFAULT_SHELL_ASSETS` entries while the runtime
+asset message adapts to rendered digest URLs. The `app.js` DOM selector also keys on
+digested `src` attributes and does not include every equivalent asset-link shape.
+Undigested files remain available, so neither detail blocks v1.0.1, but the pair should
+be reconciled in a later service-worker cleanup with packaged-cache regression proof.
+
+Deferred at: `v1.0.1-plan` second-pass implementation-readiness audit.
 
 ### v0.58 Minor-Cleanup Tail A
 

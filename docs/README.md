@@ -30,6 +30,7 @@ sources. The plan/request-flow set for every released version lives in
 [plans/archives](plans/archives/README.md); the current line is:
 
 - Current shipped line: **v1.0.0** — [v1.0 plan](plans/archives/v1.0-plan.md) · [v1.0 request flow](plans/archives/v1.0-request-flow.md)
+- Active point-release plan: **v1.0.1** — [plan](plans/v1.0.1-plan.md) · [request flow](plans/v1.0.1-request-flow.md)
 
 For release-specific validation, use the matching request-flow document rather
 than this index.
