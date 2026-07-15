@@ -1519,7 +1519,7 @@ Deferred at: `v0.24-plan:2590`.
 
 ### Broad Office, Archive, And Unknown-Binary Extraction
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold
 
 Status: parked.
 
@@ -1536,7 +1536,7 @@ Still parked:
 
 ### Authenticated Browser Operation And Persistent Profiles
 
-Class: Could (proposed) · Effort: L
+Class: Could (confirmed 2026-07-14) · Effort: L · Slice: hold
 
 Status: parked.
 
@@ -1571,7 +1571,7 @@ redaction, and eval story before re-entry.
 
 ### XPath Selectors
 
-Class: Could (proposed) · Effort: S
+Class: Could (confirmed 2026-07-14) · Effort: S · Slice: hold
 
 Status: parked.
 
@@ -1582,7 +1582,7 @@ Deferred at: `v0.43-plan:540`.
 
 ### Browser Artifact Cache Lifecycle / Sweep Policy
 
-Class: Should (proposed) · Effort: S
+Class: Should (confirmed 2026-07-14) · Effort: S · Slice: hold
 
 Status: parked.
 
@@ -1593,8 +1593,7 @@ Deferred at: `v0.50-plan:614`.
 
 ### Capsule Pluggable Artifact-Store Backend (S3)
 
-Class: Could (proposed) · Effort: M · Verify: any real demand — ADR 0053
-parked this itself with no consumer
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold
 
 Status: verify.
 
@@ -1607,7 +1606,7 @@ Deferred at: `v0.50-plan:54`, `adr/0053:45`.
 
 ### Code-Bearing Remote Plugin Distribution
 
-Class: Could (proposed) · Effort: L
+Class: Could (confirmed 2026-07-14) · Effort: L · Slice: hold
 
 Status: parked.
 
@@ -1629,7 +1628,7 @@ entry.
 
 ### Marketplace Community Submission / Review Governance
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold
 
 Status: parked. Added in the post-v0.37 planning pass.
 
@@ -1646,7 +1645,7 @@ Promote post-1.0 when the project decides on governance.
 
 ### Remote Workflow Distribution / Marketplace Workflows
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold
 
 Status: parked. Added in the post-v0.43 planning pass.
 
@@ -1662,7 +1661,7 @@ the catalog never installs workflow files into the live
 
 ### Plugin Auto-Update Story
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold
 
 Status: parked. Added in the post-v0.37 planning pass.
 
@@ -1679,8 +1678,7 @@ Still parked:
 
 ### Public Plugin Hook Contribution API
 
-Class: Could (proposed) · Effort: M · Verify: whether the current plugin
-contract already exposes enough hook surface for third parties
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold
 
 Status: verify.
 
@@ -1693,7 +1691,7 @@ Deferred at: `v0.25-plan:1571`.
 
 ### Hosted Multi-User Authorization
 
-Class: Won't-now (proposed) · Effort: L
+Class: Won't-now (confirmed 2026-07-14) · Effort: L
 
 Status: parked.
 
@@ -1703,7 +1701,7 @@ future work.
 
 ### Remote Sync Service
 
-Class: Won't-now (proposed) · Effort: L
+Class: Won't-now (confirmed 2026-07-14) · Effort: L
 
 Status: parked.
 
@@ -1719,7 +1717,7 @@ Still parked:
 
 ### Broader Distributed Operation
 
-Class: Won't-now (proposed) · Effort: L
+Class: Won't-now (confirmed 2026-07-14) · Effort: L
 
 Status: parked.
 
@@ -1735,7 +1733,7 @@ Still parked:
 
 ### Unified Cost Dashboard And Budget Enforcement
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold — future input to cost-aware adaptive BYOK suggestions
 
 Status: parked. Added in the post-v0.37 planning pass.
 
@@ -1754,7 +1752,7 @@ Still parked:
 
 ### Anonymous Telemetry Policy
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold
 
 Status: parked. Added in the post-v0.37 planning pass.
 
@@ -1774,7 +1772,7 @@ Still parked:
 
 ### Raw Daisy `btn` Class Drift In Operator Surfaces
 
-Class: Should (proposed) · Effort: S
+Class: Should (confirmed 2026-07-14) · Effort: S · Slice: 1.0.1
 
 Status: parked (operator-known from the v1.0 closeout).
 
@@ -1787,7 +1785,7 @@ Deferred at: v1.0 release closeout (operator-attested).
 
 ### Offline Service-Worker Test Failure
 
-Class: Should (proposed) · Effort: S
+Class: Should (confirmed 2026-07-14) · Effort: S · Slice: 1.0.1
 
 Status: parked (operator-known from the v1.0 closeout).
 
@@ -1799,7 +1797,7 @@ Deferred at: v1.0 release closeout (operator-attested).
 
 ### DIT-5 Operator Transcript Drop
 
-Class: Must (proposed) · Effort: S
+Class: Must (confirmed 2026-07-14) · Effort: S · Slice: 1.0.1
 
 Status: parked (evidence gap, trivially closable).
 
@@ -1811,7 +1809,7 @@ Deferred at: v1.0 release closeout (operator-attested).
 
 ### v0.58 Minor-Cleanup Tail A
 
-Class: Could (proposed) · Effort: S
+Class: Could (confirmed 2026-07-14) · Effort: S · Slice: 1.0.x opportunistic
 
 Status: parked (from the v0.58 closeout deferral list).
 
@@ -1823,7 +1821,7 @@ Deferred at: `v0.58-plan:633-640`.
 
 ### v0.58 Minor-Cleanup Tail B
 
-Class: Could (proposed) · Effort: S
+Class: Could (confirmed 2026-07-14) · Effort: S · Slice: 1.0.x opportunistic
 
 Status: parked (from the v0.58 closeout deferral list).
 
@@ -1835,8 +1833,7 @@ Deferred at: `v0.58-plan:636-640`.
 
 ### Legacy `intent.*model_profile` Settings Removal
 
-Class: Should (proposed) · Effort: S · Verify: whether the legacy keys still
-exist and what reads them
+Class: Should (confirmed 2026-07-14) · Effort: S · Slice: 1.1 — third consumer of the Settings Runtime Migration Runner
 
 Status: verify (blocked on the Settings Runtime Migration Runner for a
 non-additive removal).
@@ -1848,7 +1845,7 @@ Deferred at: `v0.48-plan:441`.
 
 ### Optional Git-Hook Installation
 
-Class: Could (proposed) · Effort: S
+Class: Could (confirmed 2026-07-14) · Effort: S · Slice: hold
 
 Status: parked.
 
@@ -1858,8 +1855,7 @@ Deferred at: the v0.45.1 plan (sweep-flagged, no single line ref).
 
 ### Web `external_runtime_serial` Fast-Local Split
 
-Class: Could (proposed) · Effort: S · Verify: whether the lane split is still
-needed given current suite timings
+Class: Folded (2026-07-14) into Test Suite Speed & Isolation — same workstream; body preserved
 
 Status: verify (subsumed-by candidate: Test Suite Speed & Isolation above).
 
