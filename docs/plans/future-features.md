@@ -77,7 +77,7 @@ post-v0.52 "test speed + isolation" version.
 
 ### PermissionGate Deletion / Parity Pass
 
-Class: Must (foundational) (proposed) · Effort: M
+Class: Must (foundational) (confirmed 2026-07-14) · Effort: M · Slice: 1.1 (not frozen — verified against public-contract-freeze.md)
 
 Status: parked.
 
@@ -89,8 +89,7 @@ Deferred at: `v0.31-rf:112`.
 
 ### Full Cross-Action Param-Contract Enforcement
 
-Class: Must (foundational) (proposed) · Effort: M · Verify: what v0.59
-actually shipped versus the full v0.54 enforcement scope
+Class: Must (foundational) (confirmed 2026-07-14) · Effort: M · Slice: 1.1 · Verify first: diff the v0.59-shipped scope against the full v0.54 cross-action scope
 
 Status: verify.
 
@@ -115,7 +114,7 @@ Deferred at: `v1.0-plan:516`.
 
 ### Core-Action `app_id` Ownership (Option 2)
 
-Class: Should (proposed) · Effort: M
+Class: Should (confirmed 2026-07-14) · Effort: M · Slice: hold until app-scoped routing pain appears
 
 Status: parked.
 
@@ -127,8 +126,7 @@ Deferred at: `v0.54-plan:133`.
 
 ### App-Registry Membership Check At Action Boundary
 
-Class: Should (proposed) · Effort: S · Verify: whether any boundary check
-landed in later releases or the gap still exists
+Class: Should (confirmed 2026-07-14) · Effort: S · Slice: 1.1 · Verify first: whether later releases already added a boundary check
 
 Status: verify.
 
@@ -173,7 +171,7 @@ Deferred at: `v0.13-rf:147`.
 
 ### `objectives.rehydrate_window_minutes` Setting
 
-Class: Could (proposed) · Effort: S
+Class: Could (confirmed 2026-07-14) · Effort: S · Slice: hold until operator need
 
 Status: parked.
 
@@ -196,7 +194,7 @@ Deferred at: `v0.54-plan:512` (intent_candidates trace-block),
 
 ### `:operator` Exposure Expansion
 
-Class: Could (proposed) · Effort: S
+Class: Could (confirmed 2026-07-14) · Effort: S · Slice: hold — needs its own ADR per v0.55b
 
 Status: parked.
 
