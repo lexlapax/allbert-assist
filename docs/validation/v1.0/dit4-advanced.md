@@ -1,5 +1,66 @@
 # DIT-4 — Live Advanced-Surface Regression (v1.0 freeze prerequisite)
 
+## v1.0.1 M4.2.2 class (a) closure attempt — 2026-07-15
+
+**Verdict: FAIL — the two-stage approval flow is present, but the navigation-grant
+resume fails and the research objective does not complete. DIT-4 remains open.**
+This fourth class-only pass tested source commit `642afc27` as a locally rebuilt
+`allbert 1.0.1` release plus the live Mix external smokes. It reused the disposable
+Home `/tmp/allbert-dit4-v101.ACjz0J/home`; it did not use or modify the Homebrew
+`allbert 1.0.0` installation.
+
+The focused regression and both real browser harnesses were green:
+
+```text
+$ MIX_ENV=test mix test \
+    apps/allbert_assist/test/allbert_assist/actions/browser_research_turn_test.exs
+10 tests, 0 failures
+
+$ ALLBERT_TEST_KEEP_TMP=1 MIX_ENV=test mix allbert.test external-smoke -- browser_research
+1 test, 0 failures
+
+$ ALLBERT_TEST_KEEP_TMP=1 MIX_ENV=test mix allbert.test external-smoke -- browser_research_delegate
+1 test, 0 failures
+```
+
+The locally rebuilt release was served on port 4147 and received the exact §I
+web-chat prompt:
+
+```text
+Research https://elixir-lang.org and report the title of its latest blog post.
+Use the browser research capability and include the source URL.
+```
+
+It selected `browser_research_handoff`, created objective
+`obj_cc0b2b54-0a1c-4010-b057-874b043355c5`, and paused for session confirmation
+`conf_1784128002000000_6658`. Approving that confirmation re-drove the delegate
+step and produced the expected second pause for navigation-grant confirmation
+`conf_1784128067000000_8002`.
+
+The second confirmation was not listed in the web Settings Central pending queue.
+Submitting its exact typed callback through the web composer was treated as a new
+marketplace intent rather than a confirmation decision, so the packaged admin CLI
+was used against the same disposable Home after stopping the server. The approval
+recorded successfully, but target execution failed:
+
+```text
+$ allbert admin confirmations approve conf_1784128067000000_8002 \
+    --reason "DIT-4 navigation grant validation"
+conf_1784128067000000_8002 status=approved
+Resolver: local/cli
+Browser session: session-7810
+Browser target URL: https://elixir-lang.org
+Browser resource remote_url browser_navigate fetch \
+  url_prefix:https://elixir-lang.org/ consumer=browser_navigator
+Target: browser_navigate status=failed
+```
+
+After restarting the same release and Home, the objective page reported
+`failed delegate_agent` and `Objective step failed.` No completed objective,
+summary, source URL, or Research tile was produced. M4.2.2 therefore proves that
+session approval re-drives the delegate and preserves the navigation floor, but
+does not yet satisfy the class (a) end-to-end acceptance contract.
+
 ## v1.0.1 M4.2.1 class (a) closure attempt — 2026-07-15
 
 **Verdict: FAIL — routing is fixed, but approval cannot resume the packaged
