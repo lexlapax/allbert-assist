@@ -207,7 +207,7 @@ Deferred at: `v0.55b-plan:100`.
 
 ### Apple Notarization / Hardened-Runtime Staple
 
-Class: Must (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14; demoted from Must — paid-platform distribution polish is not a current priority) · Effort: M · Slice: hold
 
 Status: parked (named as a v0.64 item; never shipped).
 
@@ -220,7 +220,7 @@ Deferred at: `v0.62-plan:383`.
 
 ### Automated Migration Rollback
 
-Class: Must (proposed) · Effort: M
+Class: Must (confirmed 2026-07-14) · Effort: M · Slice: 1.1, one milestone with the Settings Runtime Migration Runner
 
 Status: parked (deferred from v0.62 to v0.64; never shipped).
 
@@ -229,20 +229,9 @@ partway. Today recovery is the manual DB-backup path.
 
 Deferred at: `v0.62-plan:384`.
 
-### Full TUI First-Run Repair Panels
-
-Class: Should (proposed) · Effort: M
-
-Status: parked.
-
-v0.64 shipped a bounded first-run TUI; the full repair-panel set (doctor-led
-fix-it flows in the TUI) was deferred.
-
-Deferred at: `v0.64-plan:176`.
-
 ### DIT-1 Windows/WSL2 Install Walkthrough
 
-Class: Should (proposed) · Effort: S
+Class: Could (confirmed 2026-07-14; Windows is not a current priority) · Effort: S · Slice: hold
 
 Status: parked (scoped out of the v1.0 handoff matrix, not done).
 
@@ -253,7 +242,7 @@ Deferred at: `v1.0-handoff:87`.
 
 ### Tier-2 → Tier-1 Platform Promotion ADR Process
 
-Class: Should (proposed) · Effort: S
+Class: Should (confirmed 2026-07-14) · Effort: S · Slice: 1.0.x, docs-only
 
 Status: parked.
 
@@ -264,8 +253,7 @@ Deferred at: `v1.0-plan:373`.
 
 ### Packaging-Trust Re-Parked Exceptions (ADR 0076)
 
-Class: Should (proposed) · Effort: M · Verify: which ADR 0076 exceptions
-remain open after the v0.64/v1.0 trust work
+Class: Should (confirmed 2026-07-14) · Effort: M · Slice: verify first — may dissolve to nothing
 
 Status: verify.
 
@@ -275,22 +263,9 @@ cosign verification and the release gates.
 
 Deferred at: `v0.64-plan:234`.
 
-### Rich TUI Onboarding Slash-Command Wizard
-
-Class: Could (proposed) · Effort: M · Verify: whether the v0.64 TUI first-run
-flow already subsumed this v0.63 idea
-
-Status: verify.
-
-v0.63 sketched a rich TUI onboarding wizard driven by slash commands; unclear
-how much survived into the v0.64 first-run TUI.
-
-Deferred at: `v0.63-plan:1264`.
-
 ### Native Windows Packaging
 
-Class: Could (proposed) · Effort: L · Verify: operator demand versus keeping
-the Tier-2 WSL2-only posture
+Class: Could (confirmed 2026-07-14) · Effort: L · Slice: hold — WSL2 remains the Windows path
 
 Status: verify.
 
@@ -302,8 +277,7 @@ Deferred at: `v0.62-plan:2221`.
 
 ### Bundled Executable Packaging For Capability Helpers
 
-Class: Could (proposed) · Effort: M · Verify: whether the v0.62 packaged
-binary already covers the helper-executable story
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold
 
 Status: verify.
 
@@ -314,7 +288,7 @@ Deferred at: `developer/provider-capabilities:210`.
 
 ### Native Packaged UI
 
-Class: Could (proposed) · Effort: L
+Class: Could (confirmed 2026-07-14) · Effort: L · Slice: hold — web-first remains the posture
 
 Status: parked.
 
@@ -602,6 +576,13 @@ Related entries: Model Chooser / Catalog (Packaging & Distribution); the
 curated-model settings defaults (`first_model.curated_model`, shipped v1.0
 M7.5); Rich TUI Onboarding Slash-Command (triage table — the TUI first-run
 should follow the same inversion).
+
+Folded in (operator decision 2026-07-14): the TUI first-run follows the same
+inversion inside this feature — the post-v0.64 "Full TUI First-Run Repair
+Panels" promise (`v0.64-plan:176`) and the v0.63 "Rich TUI Onboarding
+Slash-Command Wizard" deferral (`v0.63-plan:1264`; verify what the v0.64 TUI
+first-run already covers) are scope items of the zero-click redesign, not
+standalone features.
 
 Deferred at: operator intake (post-1.0 planning, 2026-07-14).
 
