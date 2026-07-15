@@ -2,6 +2,12 @@ defmodule AllbertAssistWeb.Workspace.OfflineTest do
   use ExUnit.Case, async: true
   @moduletag :pure_async
 
+  # v1.0.1 M3: compile-time version, NOT Application.spec/2 — this file is
+  # :pure_async and must not read runtime app state (in aggregated runs where
+  # :allbert_assist_web is not loaded, spec(:vsn) is :undefined and the
+  # CACHE_NAME assertion below could never match).
+  @web_vsn Mix.Project.config()[:version]
+
   @app_js_path Path.expand("../../../assets/js/app.js", __DIR__)
   @package_json_path Path.expand("../../../assets/package.json", __DIR__)
   @service_worker_path Path.expand("../../../priv/static/workspace-sw.js", __DIR__)
@@ -70,10 +76,8 @@ defmodule AllbertAssistWeb.Workspace.OfflineTest do
     # cache-first for /assets/* and the activate-time purge of superseded
     # caches only fires when this name changes, so a missed bump (as at the
     # 0.61.1 closeout) quietly strands old caches.
-    version = to_string(Application.spec(:allbert_assist_web, :vsn))
-
     assert service_worker =~
-             ~s(const CACHE_NAME = "allbert-workspace-shell-v#{version}")
+             ~s(const CACHE_NAME = "allbert-workspace-shell-v#{@web_vsn}")
 
     assert service_worker =~ "/workspace-offline.html"
     assert service_worker =~ "/images/allbert-mark.svg"
