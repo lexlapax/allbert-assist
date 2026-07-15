@@ -1,5 +1,66 @@
 # DIT-4 — Live Advanced-Surface Regression (v1.0 freeze prerequisite)
 
+## v1.0.1 M4.2.1 class (a) closure attempt — 2026-07-15
+
+**Verdict: FAIL — routing is fixed, but approval cannot resume the packaged
+research objective. DIT-4 remains open.** This class-only rerun tested source commit
+`35b775d6` as a locally rebuilt `allbert 1.0.1` release plus the live Mix external
+smokes. It reused the disposable Home `/tmp/allbert-dit4-v101.ACjz0J/home`; it did
+not use or modify the Homebrew `allbert 1.0.0` installation.
+
+The focused regression and both real browser harnesses are green:
+
+```text
+$ MIX_ENV=test mix test \
+    apps/allbert_assist/test/allbert_assist/intent/intent_agent_router_test.exs
+exit 0
+
+$ MIX_ENV=test mix allbert.test external-smoke -- browser_research
+1 test, 0 failures
+
+$ MIX_ENV=test mix allbert.test external-smoke -- browser_research_delegate
+1 test, 0 failures
+```
+
+The exact packaged §I web-chat prompt now clears the prior routing failure:
+
+```text
+Research https://elixir-lang.org and report the title of its latest blog post.
+Use the browser research capability and include the source URL.
+```
+
+Instead of selecting `external_network_request`, the fixed release selected
+`browser_research_handoff`, created objective
+`obj_e2ee11d5-1e88-4d62-b2e0-5f740ce046aa`, and rendered an honest approval:
+
+```text
+Browser research on https://elixir-lang.org started as objective
+obj_e2ee11d5-1e88-4d62-b2e0-5f740ce046aa and is waiting for your approval
+(confirmation conf_1784123935000000_5634). After approval it resumes; results land
+in the workspace Research app.
+Status: needs_confirmation
+```
+
+The browser confirmation was then approved. Resume failed:
+
+```text
+Confirmation conf_1784123935000000_5634 is adapter_unavailable.
+Approved, but not executed: this historical target had no adapter when it was
+created. New v0.10 external-network requests use the confirmed Req adapter.
+```
+
+Packaged `admin objectives list` subsequently reported:
+
+```text
+obj_e2ee11d5-1e88-4d62-b2e0-5f740ce046aa blocked app=allbert_research research.specialist
+```
+
+No summary, source URL, completed objective, or Research tile was produced. The
+M4.2.1 ladder fix therefore closes the `external_network_request` misroute but not
+the end-to-end acceptance contract. The remaining seam is confirmation resume for
+the plugin-scoped `browser_research_handoff` target: the UI promises resumption, but
+the confirmation resolver has no adapter for that target.
+
 ## v1.0.1 fix re-attestation — 2026-07-15
 
 **Verdict: FAIL (3 classes PASS; class (a) still fails through the packaged chat
