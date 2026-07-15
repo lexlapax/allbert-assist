@@ -1,0 +1,149 @@
+DIT-5: Home portability + teardown
+Operator-attested: 2026-07-15
+Verdict: PASS
+
+Scope and provenance
+--------------------
+
+This is a redacted transcript of a live disposable-Home run. Paths below are
+labels for disposable locations; no archive or portability envelope is committed.
+
+The historical GitHub v0.66.0 release asset was no longer available. The source
+side therefore used a real packaged release built from the exact annotated
+v0.66.0 tag at commit 08d821bb. The target side used the locally packaged 1.0.1
+release candidate. The binary-uninstall leg independently used the published,
+cosign-verified v1.0.0 macOS arm64 artifact installed into a disposable prefix.
+
+  $ $V066_PACKAGE/bin/allbert --version
+  allbert 0.66.0
+
+  $ $V101_PACKAGE/bin/allbert --version
+  allbert 1.0.1
+
+Source Home preparation
+-----------------------
+
+The v0.66.0 package was pointed at $SOURCE_HOME. A connected notes root at
+$CONNECTED_NOTES contained marker DIT5-CONNECTED-NOTE-20260715. One memory with
+marker DIT5-KEPT-MEMORY-20260715 was reviewed to status :kept.
+
+  $ ALLBERT_HOME=$SOURCE_HOME $V066_PACKAGE/bin/allbert admin notes show
+  Notes root: $CONNECTED_NOTES
+
+  $ ALLBERT_HOME=$SOURCE_HOME $V066_PACKAGE/bin/allbert admin memory list --status kept
+  dit5-kept-marker status=kept
+
+  $ ALLBERT_HOME=$SOURCE_HOME $V066_PACKAGE/bin/allbert admin memory retrieve --query DIT5-KEPT-MEMORY-20260715
+  Retrieved 1 active chunk.
+  Status: completed
+
+Portability envelope and file-level transfer
+--------------------------------------------
+
+The v0.66 packaged CLI had a historical defect: `admin home export --out` ignored
+the output path. The same exact-tag implementation was therefore invoked through
+its Mix task to produce the authentic redacted envelope. The Home payload itself
+moved separately at file level, as required by the corrected DIT-5 runbook.
+
+  $ ALLBERT_HOME=$SOURCE_HOME MIX_ENV=prod mix allbert.home.export --out $ENVELOPE
+  Exported redacted Allbert Home envelope.
+  envelope_version=1 fragments=49 files=11 secret_refs=0 redacted=true
+
+  $ shasum -a 256 $ENVELOPE $HOME_ARCHIVE
+  c323815003f7256c1ea976faa407b46d7ed018df5f45cbbb1682bf92886019bd  $ENVELOPE
+  8e634ccf2cc1e767ea178d48695e7fd55b745f88303f9499ac52f63949d85878  $HOME_ARCHIVE
+
+  $ tar -C $TRANSFER_ROOT -xzf $HOME_ARCHIVE
+  [exit 0]
+
+Upgrade validation against transferred Home
+-------------------------------------------
+
+The 1.0.1 package opened $TRANSFER_HOME, ran its migrations during normal startup,
+and validated the envelope as a dry run only. The representative kept-memory file
+was byte-identical before and after import validation.
+
+  $ shasum -a 256 $TRANSFER_HOME/memory/identity/dit5-kept-marker.md
+  2547857147ab536f4e18f23e6953777c409a2df8a679b2f3282e8b626a97b42d  .../dit5-kept-marker.md
+
+  $ ALLBERT_HOME=$TRANSFER_HOME $V101_PACKAGE/bin/allbert admin home import $ENVELOPE
+  import dry-run
+
+  $ shasum -a 256 $TRANSFER_HOME/memory/identity/dit5-kept-marker.md
+  2547857147ab536f4e18f23e6953777c409a2df8a679b2f3282e8b626a97b42d  .../dit5-kept-marker.md
+
+  $ ALLBERT_HOME=$TRANSFER_HOME $V101_PACKAGE/bin/allbert admin health
+  Health: ok.
+  service_platform=launchd service_manager_available=true
+
+  $ ALLBERT_HOME=$TRANSFER_HOME $V101_PACKAGE/bin/allbert admin notes show
+  Notes root: $CONNECTED_NOTES
+
+  $ ALLBERT_HOME=$TRANSFER_HOME $V101_PACKAGE/bin/allbert admin memory list --status kept
+  dit5-kept-marker status=kept
+
+  $ ALLBERT_HOME=$TRANSFER_HOME $V101_PACKAGE/bin/allbert admin memory retrieve --query DIT5-KEPT-MEMORY-20260715
+  Retrieved 1 active chunk.
+  Status: completed
+
+Confirmation-gated service uninstall
+------------------------------------
+
+A disposable launchd user agent was registered under the disposable target user
+root. The real user service and plist were confirmed absent before setup. The
+product uninstall first created a durable confirmation and changed nothing; the
+operator then approved that exact request. The target resumed and completed.
+
+  $ ALLBERT_HOME=$TRANSFER_HOME $V101_PACKAGE/bin/allbert admin service uninstall
+  Service uninstall is ready for approval. Confirmation request: conf_1784150511000000_771. Nothing was changed.
+
+  $ ALLBERT_HOME=$TRANSFER_HOME $V101_PACKAGE/bin/allbert admin confirmations approve conf_1784150511000000_771 --reason "DIT-5 disposable service uninstall proof"
+  conf_1784150511000000_771 status=approved
+  Resolver: local/cli
+  Target: service_control status=completed
+
+  $ launchctl print gui/$UID/com.lexlapax.allbert
+  Could not find service "com.lexlapax.allbert" in domain for user gui: $UID
+
+  $ test -e $DISPOSABLE_USER/Library/LaunchAgents/com.lexlapax.allbert.plist
+  [exit 1: removed]
+
+Published binary uninstall without purge
+----------------------------------------
+
+The published v1.0.0 macOS arm64 artifact was downloaded into $DISPOSABLE_PREFIX
+through scripts/install/install.sh. Its checksum and cosign bundle verified before
+installation. The uninstall command was run without --purge.
+
+  $ ALLBERT_VERSION=1.0.0 ALLBERT_PREFIX=$DISPOSABLE_PREFIX ALLBERT_HOME=$TRANSFER_HOME sh scripts/install/install.sh
+  allbert: verifying release signature
+  Verified OK
+  allbert: verifying checksum
+  allbert: installing to $DISPOSABLE_PREFIX/lib/allbert
+  allbert: installed.
+
+  $ ALLBERT_HOME=$TRANSFER_HOME $DISPOSABLE_PREFIX/bin/allbert --version
+  allbert 1.0.0
+
+  $ ALLBERT_PREFIX=$DISPOSABLE_PREFIX ALLBERT_HOME=$TRANSFER_HOME sh scripts/install/uninstall.sh
+  allbert: removed installed files.
+  allbert: Allbert Home preserved. Re-run with --purge to remove your data.
+
+  $ test -e $DISPOSABLE_PREFIX/bin/allbert
+  [exit 1: removed]
+
+Home preservation after both uninstall legs
+-------------------------------------------
+
+  $ test -d $TRANSFER_HOME
+  [exit 0]
+
+  $ shasum -a 256 $TRANSFER_HOME/memory/identity/dit5-kept-marker.md $CONNECTED_NOTES/dit5-connected-note.md
+  2547857147ab536f4e18f23e6953777c409a2df8a679b2f3282e8b626a97b42d  .../dit5-kept-marker.md
+  80c96d354c472a25792a352f11c8f91d12bd41ad1cf66dd98ef71a590261f0cb  .../dit5-connected-note.md
+
+PASS: the exact-tag v0.66.0 packaged Home transferred to the 1.0.1 package;
+the redacted envelope validated without applying; health, connected notes, and
+the :kept memory survived; confirmation-gated service uninstall completed; the
+published binary uninstall removed installed files without --purge; Allbert Home
+and both representative marker hashes remained intact.
