@@ -15,10 +15,16 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
 
 ## The Ladder
 
-1. **1.0.1** — first point release: R15 digest-manifest cache-busting, operator-surface
-   `btn` class drift, offline service-worker test fix, DIT-5 transcript drop.
-   Plan: [v1.0.1-plan.md](v1.0.1-plan.md) + [v1.0.1-request-flow.md](v1.0.1-request-flow.md)
-   (implementation-ready 2026-07-15).
+1. **1.0.1 — SHIPPED** (tagged `v1.0.1` 2026-07-15, source/docs point tag with
+   `[skip-artifacts]` by operator decision — `v1.0.0` stays the packaged Latest;
+   the fixes reach the artifact line with the next binary release): R15
+   digest-manifest cache-busting, `btn` drift, offline service-worker guard,
+   DIT-5 transcript, DIT-4 remediation M4.1–M4.5 (TUI launch, browser research
+   end-to-end behind one consent gate, channel-send routing, packaged ACP
+   handshake, cross-surface confirmation conformance), and the first standing
+   dependency refresh (vendored `:memento` removed, ADR 0050 superseded).
+   Plan: [archives/v1.0.1-plan.md](archives/v1.0.1-plan.md) +
+   [archives/v1.0.1-request-flow.md](archives/v1.0.1-request-flow.md).
 2. **1.0.x** — incremental: test suite speed & isolation (lane-by-lane, incl. the
    fast-local web split), v0.58 cleanup tails, Tier-2->Tier-1 promotion ADR (docs),
    intent-pipeline refinements (opportunistic), and the technical-debt train.

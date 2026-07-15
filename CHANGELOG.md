@@ -12,11 +12,11 @@ changelog entries or release notes.
 
 ## v1.0.1 - Post-1.0 Remediation Point Release
 
-Status: **ready to tag — `release.v101` 13/13 GREEN, DIT-4 closed (six-pass
-remediation), DIT-5 transcript landed.** Ships as a **source/docs point tag
-(`[skip-artifacts]`, operator decision 2026-07-15)**: no packaged artifacts,
-`v1.0.0` remains the packaged GitHub Latest, and these fixes reach the packaged
-artifact line with the next binary release. Validation evidence is the locally
+Status: **released — tagged `v1.0.1` (2026-07-15), source/docs point tag with
+`[skip-artifacts]` (operator decision): no packaged artifacts, `v1.0.0` remains
+the packaged GitHub Latest, and these fixes reach the packaged artifact line
+with the next binary release.** `release.v101` 13/13 GREEN at the tagged commit;
+DIT-4 closed after a six-pass remediation; validation evidence is the locally
 rebuilt 1.0.1 (DIT-4 closure, §B/§C packaged smokes). No new capability, no
 contract changes; `release.v1` stays green.
 

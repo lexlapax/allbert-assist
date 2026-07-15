@@ -27,9 +27,11 @@ verbatim and grouped by category.
 Supersedes any per-entry `Slice: 1.1` tag where they conflict — flagships are
 sequenced one per minor, foundational-first:
 
-- **1.0.1 / 1.0.x** — 1.0.1 planned (R15, btn drift, offline test, DIT-5 transcript;
-  after it ships: test speed & isolation increments, v0.58 tails, docs items, and the
-  technical-debt train incl. vendored `:memento` removal when upstream unblocks).
+- **1.0.1 / 1.0.x** — **1.0.1 SHIPPED** (tagged 2026-07-15, source/docs point tag:
+  R15, btn drift, offline SW test, DIT-5 transcript, DIT-4 remediation M4.1–M4.5,
+  dependency refresh incl. vendored `:memento` removal). Next 1.0.x increments:
+  test speed & isolation, v0.58 tails, docs items; the next **binary** release
+  carries the 1.0.1 fixes into the packaged artifact line.
 - **1.1 — Zero-Click First Run** + its direct enablers (model chooser/catalog,
   model fallback/degradation for the detect states, consent ADR, folded TUI scope).
 - **1.2 — Long-Term User Memory** (research phase first; folded retrieval/FTS/
@@ -126,18 +128,6 @@ boundary — completes the contract story that generated actions, workflows,
 and public protocol surfaces all lean on.
 
 Deferred at: `v0.54-plan:1291`.
-
-### R15 Digest-Manifest Cache-Busting
-
-Class: Must (foundational) (confirmed 2026-07-14) · Effort: S · Slice: 1.0.1
-
-Status: planned — `docs/plans/v1.0.1-plan.md` M1 (implementation-ready 2026-07-15).
-
-Digest-manifest cache-busting for web assets, identified in the v1.0
-remediation pass but not shipped. Prevents stale-asset classes of bug for
-every future web release.
-
-Deferred at: `v1.0-plan:516`.
 
 ### Core-Action `app_id` Ownership (Option 2)
 
@@ -1833,43 +1823,6 @@ Still parked:
 
 ## Housekeeping & Known Debt
 
-### Raw Daisy `btn` Class Drift In Operator Surfaces
-
-Class: Should (confirmed 2026-07-14) · Effort: S · Slice: 1.0.1
-
-Status: planned — `docs/plans/v1.0.1-plan.md` M2 (implementation-ready 2026-07-15).
-
-Raw daisy `btn` classes have drifted into operator surfaces:
-`design_system_tokens_test` fails when run out-of-lane, and `onboarding.ex`
-carries ~11 baseline hits. Bring the surfaces back onto design-system tokens
-and re-tighten the test.
-
-Deferred at: v1.0 release closeout (operator-attested).
-
-### Offline Service-Worker Test Failure
-
-Class: Should (confirmed 2026-07-14) · Effort: S · Slice: 1.0.1
-
-Status: planned — `docs/plans/v1.0.1-plan.md` M3 (implementation-ready 2026-07-15).
-
-The offline service-worker test fails when run out-of-lane; pre-existing, not
-a v1.0 regression. Fix or lane-scope it as part of the Test Suite Speed &
-Isolation work above.
-
-Deferred at: v1.0 release closeout (operator-attested).
-
-### DIT-5 Operator Transcript Drop
-
-Class: Must (confirmed 2026-07-14) · Effort: S · Slice: 1.0.1
-
-Status: planned — `docs/plans/v1.0.1-plan.md` M4 (implementation-ready 2026-07-15).
-
-The DIT-5 upgrade/uninstall operator transcript (`dit5-upgrade-uninstall.log`)
-was attested during the v1.0 closeout but has not been dropped into
-`docs/validation/v1.0/`. Drop the file to complete the evidence set.
-
-Deferred at: v1.0 release closeout (operator-attested).
-
 ### Service-Worker Asset Discovery Follow-On
 
 Class: Could (confirmed 2026-07-15) · Effort: S · Slice: 1.0.x housekeeping
@@ -1940,33 +1893,6 @@ v0.41 flagged splitting the web `external_runtime_serial` test lane into a
 fast-local portion.
 
 Deferred at: the v0.41 plan (sweep-flagged, no single line ref).
-
-### Vendored Memento Removal (Jido Upstream Fix)
-
-Class: Should-candidate (operator intake 2026-07-15; operator slotted it on the
-1.0.x technical-debt train) · Effort: S · Slice: 1.0.1 (unblocked at the M5
-refresh)
-
-Status: planned — `docs/plans/v1.0.1-plan.md` M5.1 (implemented 2026-07-15:
-`jido_signal` 2.2.2 dropped the `:memento` pin; vendored copy + override
-deleted, ADR 0050 superseded; entry removed at tag-closeout).
-
-Allbert maintains a vendored copy of Hex `:memento` 0.5.0 at `vendor/memento`
-(`{:memento, path: "../../vendor/memento", override: true}` in
-`apps/allbert_assist/mix.exs:94`) solely because `:jido_signal` 2.2.0 requires
-`:memento ~> 0.5.0`, which fails to compile on Elixir 1.19+ (`record/0` became
-a built-in typespec; the vendored copy renames it to `memento_record/0` with
-runtime behavior unchanged — `vendor/memento/ALLBERT_PATCHES.md`, ADR 0050).
-Once a Jido release drops or relaxes the `:memento` requirement, or an
-upstream `:memento` release fixes the typespec clash, bump the Jido stack to
-that version, delete `vendor/memento` and the path override, and mark ADR 0050
-superseded. ADR 0050 already records the exit conditions (upstream no longer
-fails on Elixir 1.19+; the release gates stay green). The per-release
-upstream-dependency-refresh working rule (roadmap Working Rules, confirmed
-2026-07-15) is the recurring checkpoint for this exit.
-
-Deferred at: `docs/adr/0050-vendored-memento-compatibility-override.md` (exit
-conditions); `vendor/memento/ALLBERT_PATCHES.md` (removal note).
 
 ## Triage Notes
 
