@@ -151,12 +151,19 @@ defmodule AllbertAssist.FirstModel.Ollama do
       |> Keyword.merge(TLS.connect_options())
       |> Keyword.merge(Application.get_env(:allbert_assist, @req_options_key, []))
 
-    case Req.request(opts) do
-      {:ok, %{status: 200, body: body}} ->
-        decode_body(body)
+    # v1.0.1 M4.1(A) defense-in-depth: if the HTTP client's supervision tree is
+    # not up (a launcher probing before `:req` starts), treat it as a failed
+    # probe (:error → conservative "missing") instead of crashing the caller.
+    try do
+      case Req.request(opts) do
+        {:ok, %{status: 200, body: body}} ->
+          decode_body(body)
 
-      _other ->
-        :error
+        _other ->
+          :error
+      end
+    catch
+      :exit, _reason -> :error
     end
   end
 

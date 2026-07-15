@@ -16,6 +16,13 @@ defmodule AllbertAssist.CLI.Tui do
   @doc "Launch the interactive TUI console; blocks until the session exits."
   @spec launch() :: :ok | {:error, term()}
   def launch do
+    # v1.0.1 M4.1(A): the dispatcher evals this under `release eval` where OTP
+    # apps are LOADED but not STARTED, and `readiness_guard/0` reaches the Ollama
+    # first-model probe (Req → Req.FinchSupervisor). Every other CLI verb gets
+    # `:req` from `CLI.run_entry/1` (v0.63 M8.1); `tui` bypasses that entry
+    # point, so start the HTTP client here too — idempotent, HTTP-only.
+    ensure_http_started()
+
     with :ok <- readiness_guard() do
       enable_supervised_tui_child!()
       {:ok, _started} = Application.ensure_all_started(:allbert_assist)
@@ -27,6 +34,13 @@ defmodule AllbertAssist.CLI.Tui do
         other -> {:error, other}
       end
     end
+  end
+
+  @doc false
+  @spec ensure_http_started() :: :ok
+  def ensure_http_started do
+    _ = Application.ensure_all_started(:req)
+    :ok
   end
 
   @doc false

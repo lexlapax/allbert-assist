@@ -15,6 +15,16 @@ defmodule AllbertAssist.Channels.TUI.InputDriver do
     GenServer.start_link(__MODULE__, {owner, opts})
   end
 
+  @doc """
+  Start an UNLINKED input driver (v1.0.1 M4.1B). The adapter monitors the driver
+  and owns the line-mode fallback on `:DOWN`; a link would kill the adapter when
+  raw-terminal init fails (e.g. `:enotsup` with no TTY), turning a degradable
+  condition into a whole-app boot abort.
+  """
+  def start(owner, opts \\ []) when is_pid(owner) do
+    GenServer.start(__MODULE__, {owner, opts})
+  end
+
   @doc "Ask the driver to render a prompt and collect the next line."
   def prompt(driver, prompt) when is_pid(driver) do
     GenServer.cast(driver, {:prompt, prompt})

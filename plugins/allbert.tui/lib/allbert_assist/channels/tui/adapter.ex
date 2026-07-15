@@ -53,8 +53,18 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   end
 
   def run_supervised_forever(supervisor \\ AllbertAssist.Channels.Supervisor) do
-    with {:ok, pid} <- supervised_pid(supervisor) do
-      wait_for_supervised_child(supervisor, pid)
+    case supervised_pid(supervisor) do
+      {:ok, pid} ->
+        wait_for_supervised_child(supervisor, pid)
+
+      # v1.0.1 M4.1C: a :transient tui child that already exited :normal (e.g.
+      # the session finished before the launcher attached) is a completed
+      # session, not "not started".
+      :completed ->
+        :normal
+
+      {:error, _reason} = error ->
+        error
     end
   end
 
@@ -194,6 +204,11 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
         state = maybe_schedule_next_prompt(state)
         {:noreply, state}
 
+      # v1.0.1 M4.1B: a closed stdin in line mode used to normalize to nil and
+      # reschedule the prompt forever; EOF is a finished session.
+      :eof ->
+        {:stop, :normal, state}
+
       command when is_binary(command) ->
         if MapSet.member?(@quit_commands, command) do
           {:stop, :normal, state}
@@ -235,7 +250,9 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       live_status_active?: false,
       input_fun: Keyword.get(opts, :input_fun, &default_input/1),
       input_driver?: Keyword.get(opts, :input_driver?, false),
-      input_driver_fun: Keyword.get(opts, :input_driver_fun, &InputDriver.start_link/2),
+      # v1.0.1 M4.1B: unlinked start — the adapter monitors the driver and falls
+      # back to line input on failure; a link made init failures fatal.
+      input_driver_fun: Keyword.get(opts, :input_driver_fun, &InputDriver.start/2),
       input_driver_opts: Keyword.get(opts, :input_driver_opts, []),
       input_driver: nil,
       escape_monitor?:
@@ -1074,6 +1091,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     )
     |> maybe_attach_coding_context(state)
   end
+
   defp maybe_attach_coding_context(context, %{pi_session: nil}), do: context
 
   defp maybe_attach_coding_context(context, state) do
@@ -1447,10 +1465,13 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     |> Enum.find_value(fn
       {"tui", pid, :worker, _modules} when is_pid(pid) -> {:ok, pid}
       {__MODULE__, pid, :worker, _modules} when is_pid(pid) -> {:ok, pid}
+      {"tui", :undefined, :worker, _modules} -> :completed
+      {__MODULE__, :undefined, :worker, _modules} -> :completed
       _child -> nil
     end)
     |> case do
       {:ok, pid} -> {:ok, pid}
+      :completed -> :completed
       nil -> {:error, :tui_child_not_started}
     end
   catch
@@ -1585,6 +1606,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
 
   defp normalize_input(:escape), do: :escape
   defp normalize_input({:escape, _reason}), do: :escape
+  defp normalize_input(:eof), do: :eof
 
   defp normalize_input(value) when is_binary(value) do
     case String.trim(value) do

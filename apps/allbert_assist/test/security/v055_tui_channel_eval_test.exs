@@ -233,6 +233,63 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
     assert :normal == Task.await(launcher, 1_000)
   end
 
+  # v1.0.1 M4.1C: a :transient child that exited :normal before the launcher
+  # attached is kept by the supervisor as {"tui", :undefined, ...}; the launcher
+  # must read that as a finished session, not :tui_child_not_started.
+  test "run_supervised_forever treats a completed transient tui child as a finished session" do
+    assert_eval_group!(:tui_supervision)
+
+    tui_child =
+      tui_descriptor_child_spec!(
+        name: nil,
+        enabled?: true,
+        auto_input?: false,
+        live_screen?: false,
+        output_fun: fn _line -> :ok end,
+        restart: :transient
+      )
+
+    assert {:ok, supervisor} = Supervisor.start_link([tui_child], strategy: :one_for_one)
+
+    pid = child_pid!(supervisor, "tui")
+    GenServer.stop(pid, :normal)
+
+    assert :normal == TUIAdapter.run_supervised_forever(supervisor)
+  end
+
+  # v1.0.1 M4.1B: raw-terminal init failure (e.g. :enotsup with no TTY) must
+  # degrade to line input — the driver starts UNLINKED, so its init {:stop, ...}
+  # cannot kill the adapter and abort the whole app boot.
+  test "raw-terminal init failure degrades to line input instead of killing the adapter" do
+    assert_eval_group!(:tui_supervision)
+
+    parent = self()
+
+    tui_child =
+      tui_descriptor_child_spec!(
+        name: nil,
+        enabled?: true,
+        auto_input?: true,
+        emit_banner?: false,
+        escape_monitor?: false,
+        live_screen?: false,
+        output_fun: fn line -> send(parent, {:tui_output, line}) end,
+        input_driver?: true,
+        input_driver_opts: [enable_raw: fn -> {:error, :enotsup} end],
+        input_fun: fn _prompt -> :eof end,
+        restart: :transient
+      )
+
+    assert {:ok, supervisor} = Supervisor.start_link([tui_child], strategy: :one_for_one)
+
+    assert_receive {:tui_output, fallback_line}, 2_000
+    assert fallback_line =~ "Falling back to line input"
+
+    # The line-mode loop then reads :eof (closed stdin) and finishes the session
+    # normally instead of re-prompting forever.
+    assert :normal == TUIAdapter.run_supervised_forever(supervisor)
+  end
+
   test "TUI approval rendering honors typed-command/list primitives and same-channel resolution" do
     assert_eval_group!(:approvals)
 
