@@ -45,11 +45,14 @@ Lifecycle helpers are intentionally narrow. `browser_list_sessions`,
 `browser_close_session`, and `browser_sweep_cache` authorize through
 `:browser_extract` because they read or clean already-created browser
 session/cache artifacts; they do not authorize navigation, interaction, form
-fill, or download. `browser_research_handoff` is `:read_only`,
-agent-exposed, and advisory-only for browser-specific page summary,
-screenshot, render, and extract prompts. v0.46 research phrases route to
-the `research.specialist` delegate when research is enabled; the browser
-handoff does not grant or replace that delegate authority.
+fill, or download. `browser_research_handoff` is `:read_only` and
+agent-exposed for browser-specific page summary, screenshot, render, and
+extract prompts. Since v1.0.1 M4.2.3 it raises ONE up-front research consent
+confirmation (carrying the `browser_navigate` url-prefix resource ref) and,
+on operator approval — which records the durable navigation grant through the
+standard grant handoff — re-runs once to start the `research.specialist`
+delegate and run it to completion. Model output still grants nothing; see ADR
+0040's amendment section.
 
 `browser_fill` and `browser_download` are registered so workflows and evals can
 see the complete v0.43 surface, but both default to denied. Their opt-in path

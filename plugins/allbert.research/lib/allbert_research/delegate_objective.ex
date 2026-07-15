@@ -22,8 +22,14 @@ defmodule AllbertResearch.DelegateObjective do
       omitted, the delegate starts its own session behind the existing
       confirmation machinery.
     * `:max_sources` — bound the source count.
-    * `:channel` — origin channel recorded on browser actions (default `:cli`).
+    * `:channel` — origin channel recorded on browser actions and persisted as
+      the objective's `source_channel` (default `:cli`).
+    * `:surface` — origin surface persisted as the objective's `source_surface`.
     * `:extract_format` — extraction format forwarded to the delegate.
+    * `:session_approved` — scoped per-run session allowance (v1.0.1 M4.2.3):
+      set only by the approved `browser_research_handoff` re-run so the
+      delegate's session start replays the operator approval for exactly this
+      run. Never durable — per ADR 0040 the session floor is not grantable.
     * `:source_intent` — objective provenance (default `"mix allbert.research"`).
     * `:trace_prefix` — trace id prefix (default `"cli_research"`).
 
@@ -75,14 +81,17 @@ defmodule AllbertResearch.DelegateObjective do
   end
 
   defp create_objective(user_id, target, opts) do
-    Objectives.create_objective(%{
+    %{
       user_id: user_id,
       title: "research.specialist",
       objective: "Research #{target}.",
       active_app: "allbert_research",
       status: "open",
       source_intent: Keyword.get(opts, :source_intent, "mix allbert.research")
-    })
+    }
+    |> maybe_put(:source_channel, channel_value(Keyword.get(opts, :channel)))
+    |> maybe_put(:source_surface, surface_value(Keyword.get(opts, :surface)))
+    |> Objectives.create_objective()
   end
 
   defp create_step(objective, command, target, user_id, opts) do
@@ -110,7 +119,21 @@ defmodule AllbertResearch.DelegateObjective do
     |> maybe_put(:session_id, Keyword.get(opts, :session_id))
     |> maybe_put(:max_sources, Keyword.get(opts, :max_sources))
     |> maybe_put(:extract_format, Keyword.get(opts, :extract_format))
+    |> maybe_put(:session_approved, if(Keyword.get(opts, :session_approved) == true, do: true))
   end
+
+  defp channel_value(nil), do: nil
+  defp channel_value(%{name: name}), do: channel_value(name)
+  defp channel_value(%{"name" => name}), do: channel_value(name)
+  defp channel_value(channel) when is_atom(channel), do: Atom.to_string(channel)
+  defp channel_value(channel) when is_binary(channel) and channel != "", do: channel
+  defp channel_value(_channel), do: nil
+
+  defp surface_value(surface) when is_binary(surface) and surface != "", do: surface
+  defp surface_value(surface) when is_atom(surface) and not is_nil(surface),
+    do: Atom.to_string(surface)
+
+  defp surface_value(_surface), do: nil
 
   defp maybe_observe_completed(objective, %{status: :completed, step: step}, trace_prefix)
        when not is_nil(step) do

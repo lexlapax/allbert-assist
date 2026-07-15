@@ -54,7 +54,7 @@ and close the session in cleanup. `--extract-format` accepts `text`,
 | `browser_list_sessions` | List sessions in the current runtime process. |
 | `browser_close_session` | Close a session in the current runtime process. |
 | `browser_sweep_cache` | Remove expired browser cache artifacts. |
-| `browser_research_handoff` | Agent-only advisory handoff for page summary, screenshot, render, and extract prompts; proposes the browser action sequence and grants no authority. |
+| `browser_research_handoff` | Agent-only handoff for page summary, render, and extract prompts. Raises one up-front research consent confirmation; your approval records the site's navigation grant and runs the research delegate once to completion. The action itself grants no authority. |
 
 The `mix allbert.browser sessions list` and `sessions close <id>` helpers call
 the same registered actions for sessions visible to the current node.

@@ -18,6 +18,8 @@ defmodule AllbertAssist.Objectives.Objective do
 
     field :user_id, :string
     field :source_thread_id, :string
+    field :source_channel, :string
+    field :source_surface, :string
     field :session_id, :string
     field :active_app, :string
     field :status, :string, default: "open"
@@ -46,6 +48,8 @@ defmodule AllbertAssist.Objectives.Objective do
       :id,
       :user_id,
       :source_thread_id,
+      :source_channel,
+      :source_surface,
       :session_id,
       :active_app,
       :status,
@@ -68,6 +72,8 @@ defmodule AllbertAssist.Objectives.Objective do
     |> validate_length(:id, min: 5, max: 80)
     |> validate_length(:user_id, min: 1, max: 128)
     |> validate_length(:source_thread_id, max: 128)
+    |> validate_length(:source_channel, max: 64)
+    |> validate_length(:source_surface, max: 200)
     |> validate_length(:session_id, max: 128)
     |> validate_length(:active_app, max: 64)
     |> validate_length(:title, min: 1, max: 200)

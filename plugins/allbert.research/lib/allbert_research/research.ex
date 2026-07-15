@@ -74,8 +74,7 @@ defmodule AllbertResearch.Research do
         session_id,
         context,
         extract_format(params),
-        extract_cap(),
-        approved_urls(params)
+        extract_cap()
       )
 
     close_result = close_session(session_id, context)
@@ -92,8 +91,8 @@ defmodule AllbertResearch.Research do
     end
   end
 
-  defp collect_sources_safely(sources, session_id, context, extract_format, max_bytes, approved) do
-    collect_sources(sources, session_id, context, extract_format, max_bytes, approved)
+  defp collect_sources_safely(sources, session_id, context, extract_format, max_bytes) do
+    collect_sources(sources, session_id, context, extract_format, max_bytes)
   rescue
     exception ->
       {:error, unexpected_runner_response({:exception, Exception.message(exception)})}
@@ -102,9 +101,9 @@ defmodule AllbertResearch.Research do
       {:error, unexpected_runner_response({kind, reason})}
   end
 
-  defp collect_sources(sources, session_id, context, extract_format, max_bytes, approved) do
+  defp collect_sources(sources, session_id, context, extract_format, max_bytes) do
     Enum.reduce_while(sources, {:ok, []}, fn url, {:ok, collected} ->
-      with {:ok, :navigated} <- navigate(session_id, url, context, approved),
+      with {:ok, :navigated} <- navigate(session_id, url, context),
            {:ok, source} <- extract(session_id, url, extract_format, max_bytes, context) do
         {:cont, {:ok, [source | collected]}}
       else
@@ -118,9 +117,7 @@ defmodule AllbertResearch.Research do
     end
   end
 
-  defp navigate(session_id, url, context, approved_urls) do
-    context = navigate_context(context, url, approved_urls)
-
+  defp navigate(session_id, url, context) do
     case run_browser_action("browser_navigate", %{session_id: session_id, url: url}, context) do
       {:ok, %{status: :completed}} -> {:ok, :navigated}
       {:ok, %{status: :needs_confirmation} = response} -> {:pending, response}
@@ -372,27 +369,19 @@ defmodule AllbertResearch.Research do
 
   defp extract_format(params), do: field(params, :extract_format, @default_extract_format)
 
-  # ── Approval-resume vouchers (v1.0.1 M4.2.2) ────────────────────────────────
+  # ── Scoped session allowance (v1.0.1 M4.2.3, ADR 0040) ─────────────────────
   #
-  # When a delegate run blocks on a browser confirmation, `approve_confirmation`
-  # stores a voucher on the objective step's action params after the operator
-  # approves that exact confirmation, then re-drives the step. The voucher
-  # replays only the approved action — a session start, or navigation to the
-  # exact approved URLs — as an approval resume; every other browser action
-  # still goes through the normal confirmation machinery.
+  # The approved `browser_research_handoff` re-run passes `session_approved` so
+  # the delegate's session start replays the operator approval for exactly this
+  # bounded run — the session floor is not grantable, so this per-run allowance
+  # is the correct shape (never durable). Navigation carries NO voucher: it is
+  # authorized by the durable url-prefix grant the operator approval recorded
+  # (or it raises its own confirmation, fail-closed).
 
   defp session_context(params) do
     context = browser_context(params)
 
     if session_approved?(params) do
-      approval_resume_context(context)
-    else
-      context
-    end
-  end
-
-  defp navigate_context(context, url, approved_urls) do
-    if url in approved_urls do
       approval_resume_context(context)
     else
       context
@@ -405,13 +394,6 @@ defmodule AllbertResearch.Research do
 
   defp session_approved?(params) do
     field(params, :session_approved) in [true, "true"]
-  end
-
-  defp approved_urls(params) do
-    params
-    |> field(:approved_urls, [])
-    |> List.wrap()
-    |> Enum.filter(&is_binary/1)
   end
 
   defp browser_context(params) do

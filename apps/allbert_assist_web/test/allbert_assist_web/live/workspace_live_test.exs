@@ -1521,6 +1521,85 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
              )
   end
 
+  # v1.0.1 M4.2.3 (ADR 0073): the web composer intercepts typed confirmation
+  # callbacks through the shared Channels.ConfirmationCallback guard — the
+  # TUI/Slack/Telegram analogue — instead of routing them into the intent
+  # router as free text.
+  test "typed confirmation callbacks resolve in the composer without an intent turn",
+       %{conn: conn} do
+    assert {:ok, candidate} = Confirmations.create(confirmation_attrs("conf_typed_web_approve"))
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+
+    show_html =
+      view
+      |> element("#agent-form")
+      |> render_submit(%{"prompt" => "ALLBERT:SHOW:#{candidate["id"]}"})
+
+    assert show_html =~ "Confirmation #{candidate["id"]}: pending."
+    assert {:ok, %{"status" => "pending"}} = Confirmations.read(candidate["id"])
+
+    approve_html =
+      view
+      |> element("#agent-form")
+      |> render_submit(%{"prompt" => "ALLBERT:APPROVE:#{candidate["id"]}"})
+
+    assert {:ok, approved} = Confirmations.read(candidate["id"])
+    refute approved["status"] == "pending"
+    assert has_element?(view, "#agent-response")
+    assert approve_html =~ "Confirmation #{candidate["id"]} is #{approved["status"]}."
+
+    # The typed command never became an intent-routed runtime turn.
+    refute_receive {:runtime_request, _request}, 100
+  end
+
+  test "typed approval for a foreign-channel confirmation renders the rejection honestly",
+       %{conn: conn} do
+    attrs = confirmation_attrs("conf_typed_wrong_channel")
+    attrs = %{attrs | origin: %{actor: "local", channel: :tui, surface: "tui_prompt"}}
+    assert {:ok, candidate} = Confirmations.create(attrs)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+
+    html =
+      view
+      |> element("#agent-form")
+      |> render_submit(%{"prompt" => "ALLBERT:APPROVE:#{candidate["id"]}"})
+
+    assert html =~ "Confirmation approve for #{candidate["id"]} was not applied:"
+    assert html =~ "this confirmation expects resolution from its origin channel"
+    assert {:ok, %{"status" => "pending"}} = Confirmations.read(candidate["id"])
+    refute_receive {:runtime_request, _request}, 100
+  end
+
+  # v1.0.1 M4.2.3: the Settings Central pending queue live-updates on
+  # confirmation lifecycle signals instead of snapshotting at panel-open.
+  test "settings central pending queue live-appends and removes confirmations while open",
+       %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:settings")
+    thread_id = workspace_thread_id(view)
+
+    assert has_element?(view, "#workspace-settings-panel")
+    assert has_element?(view, "#no-pending-confirmations")
+
+    attrs = confirmation_attrs("conf_settings_live_append")
+
+    attrs = %{
+      attrs
+      | origin: Map.merge(attrs.origin, %{user_id: "local", thread_id: thread_id})
+    }
+
+    assert {:ok, candidate} = Confirmations.create(attrs)
+
+    html = render_until(view, "confirmation-pending-#{candidate["id"]}")
+    assert html =~ candidate["id"]
+
+    assert {:ok, _resolved} = Confirmations.resolve(candidate["id"], :denied)
+
+    render_until_missing(view, "#confirmation-pending-#{candidate["id"]}")
+    assert has_element?(view, "#no-pending-confirmations")
+  end
+
   # v0.61b M7 (relocation rows 3/15): the appbar thread switcher is retired —
   # the sidebar Conversations section lists and switches threads; "Copy
   # conversation id" survives in the sidebar-footer overflow menu.

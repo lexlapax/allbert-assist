@@ -107,7 +107,9 @@ defmodule AllbertAssist.Actions.BrowserM4Test do
                )
 
       assert candidate.trace_metadata.descriptor.capability.permission == :read_only
-      assert candidate.trace_metadata.descriptor.capability.confirmation == :not_required
+      # v1.0.1 M4.2.3: the handoff raises the single up-front research consent
+      # gate itself — the descriptor still proposes no browser authority.
+      assert candidate.trace_metadata.descriptor.capability.confirmation == :required
 
       refute candidate.trace_metadata.descriptor.capability.permission in [
                :browser_session_start,

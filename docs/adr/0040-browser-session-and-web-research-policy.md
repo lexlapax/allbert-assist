@@ -5,6 +5,9 @@
 Accepted for v0.43 Browser And Web Research (`docs/plans/archives/v0.43-plan.md`).
 Operational closeout evidence is recorded in the v0.43 plan, request flow, and
 CHANGELOG after the R5-R7 remediation follow-up.
+Amended for v1.0.1 M4.2.3 — see "Amended (v1.0.1 M4.2.3): the research handoff
+raises the single up-front consent gate" below; the rest of the decision is
+unchanged.
 
 ## Context
 
@@ -138,7 +141,10 @@ over this vocabulary:
   navigation, click, form-fill, download, or new page authority.
 - `browser_research_handoff` is `:read_only`, agent-exposed, and advisory
   only. It proposes the browser action sequence but writes no grant and does
-  not authorize a browser session.
+  not authorize a browser session. *(Amended for v1.0.1 M4.2.3: the handoff
+  now raises the single up-front research consent gate — see the amendment
+  section at the end of this ADR. Model output still grants nothing; the
+  operator approval records the grant.)*
 
 Cross-operation grant authority is forbidden:
 
@@ -324,3 +330,38 @@ Tracked in `docs/plans/future-features.md`:
 - `evaluate_js`, network HAR capture, and other power-user browser primitives.
 - Headed mode and operator-visible browser windows.
 - Browser-driven captive-portal/SSO flows.
+
+## Amended (v1.0.1 M4.2.3): the research handoff raises the single up-front consent gate
+
+`browser_research_handoff` is no longer advisory-only. Mirroring
+`start_plan_run`'s single `:workflow_run_start` gate, the handoff raises ONE
+up-front operator confirmation for the whole bounded research run before any
+objective or browser work starts. The confirmation's `params_summary` carries
+the `browser_navigate` url-prefix resource ref for the research URL (plus a
+`url_prefix` remember-scope default), and its `target_permission` reuses the
+existing `:browser_navigate` class — no new permission class.
+
+What changed, and what did not:
+
+- **Model output still grants nothing.** The handoff writes no grant when it
+  runs; it only creates the confirmation. It is the OPERATOR approval that
+  records the durable url-prefix navigation grant, through the same
+  `GrantHandoff.remember_from_confirmation` machinery every other approval
+  uses. The grant scope stays one domain via the existing `:url_prefix` scope
+  kind, exactly as the "Per-domain remembered grants" section above defines.
+- **Approval re-runs the handoff once, server-side.** The approved re-run
+  starts the `research.specialist` delegate objective and runs it to
+  completion: navigation is authorized by the recorded durable grant;
+  same-domain extraction stays `:browser_extract` (`:allowed` floor);
+  off-domain navigation still fails closed and raises its own confirmation.
+- **The session floor stays separate and is still not grantable.** The
+  approved re-run passes a scoped `session_approved` allowance to the delegate
+  so the session start replays the operator approval for exactly that run.
+  This per-run allowance is never durable and never remembered; the
+  `:browser_session_start` confirmation floor is unchanged for every other
+  path.
+- **The v1.0.1 M4.2.2 step-bound voucher/re-drive machinery is removed.**
+  Standalone `browser_start_session`/`browser_navigate` confirmations (direct
+  action use outside objectives) still resume as a generic re-run of exactly
+  the approved target (ADR 0008). Cross-operation grant authority remains
+  forbidden as decided above.

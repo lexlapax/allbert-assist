@@ -32,7 +32,6 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Objectives
-  alias AllbertAssist.Objectives.Engine.Agent, as: EngineAgent
   alias AllbertAssist.PlanBuild
   alias AllbertAssist.Resources.GrantHandoff
   alias AllbertAssist.Runtime.MediaOutputs
@@ -107,13 +106,14 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     apply_persona_profile
   ]
 
-  # v1.0.1 M4.2.2: browser confirmations raised by the research delegate path.
-  # When the confirmation is bound to a blocked `delegate_agent` objective step,
-  # approval stores a voucher for exactly the approved action on the step's
-  # params and re-drives the step through the objective engine (mirroring how
-  # `plan_step_confirm` approval advances a plan run); a standalone browser
-  # confirmation resumes through the generic opt-in re-run instead. This is a
-  # deliberate, explicit extension — the historical catch-all below and the
+  # v1.0.1 M4.2.3: standalone browser confirmations (direct action use outside
+  # objectives) resume through the generic opt-in re-run of exactly the
+  # approved target, with the `action` routing marker stripped first (the
+  # param contract rejects unknown keys). The M4.2.2 step-bound voucher +
+  # objective re-drive machinery is deleted: research runs are now authorized
+  # ONCE up front by the `browser_research_handoff` consent gate (see
+  # `resume_research_handoff/5`), so no browser confirmation is raised
+  # mid-objective on the approved path. The historical catch-all below and the
   # v0.54 generic list above stay regression-locked.
   @browser_resume_actions ~w[
     browser_start_session
@@ -446,6 +446,17 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
          context,
          permission_decision,
          target_decision,
+         "browser_research_handoff"
+       ) do
+    resume_research_handoff(record, reason, context, permission_decision, target_decision)
+  end
+
+  defp resume_registered_action(
+         record,
+         reason,
+         context,
+         permission_decision,
+         target_decision,
          action_name
        )
        when action_name in @browser_resume_actions do
@@ -523,15 +534,11 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     end
   end
 
-  # v1.0.1 M4.2.2: browser confirmation resume. A browser confirmation bound to
-  # a blocked `delegate_agent` objective step resumes by (1) recording a voucher
-  # for exactly the approved action on the step's delegate params and (2)
-  # re-driving the step through the objective engine, so the operator's
-  # approval itself un-blocks the objective (mirrors the plan_step_confirm →
-  # PlanBuild.Runtime.advance resume). A standalone browser confirmation
-  # re-runs its own target through the generic opt-in resume instead. Only the
-  # explicitly approved target is replayed; any further browser action still
-  # raises its own confirmation.
+  # v1.0.1 M4.2.3: standalone browser confirmation resume (ADR 0008). A
+  # `browser_start_session` / `browser_navigate` confirmation raised by direct
+  # action use re-runs exactly the approved target through the generic opt-in
+  # resume. The resume params carry an `action` routing marker that the param
+  # contract would reject as an unknown key — drop it before the re-run.
   defp resume_browser_action(
          record,
          reason,
@@ -540,129 +547,22 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
          target_decision,
          action_name
        ) do
-    case browser_delegate_step(record) do
-      {:ok, objective, step} ->
-        resume_browser_delegate_step(
-          record,
-          reason,
-          context,
-          permission_decision,
-          target_decision,
-          action_name,
-          objective,
-          step
-        )
+    record = Map.update(record, "resume_params_ref", %{}, &Map.drop(&1, ["action", :action]))
 
-      :standalone ->
-        # Browser resume params carry an `action` routing marker that the
-        # param contract would reject as an unknown key — drop it before the
-        # generic re-run of the approved target.
-        record =
-          Map.update(record, "resume_params_ref", %{}, &Map.drop(&1, ["action", :action]))
-
-        resume_generic(action_name, record, reason, context, permission_decision, target_decision)
-    end
+    resume_generic(action_name, record, reason, context, permission_decision, target_decision)
   end
 
-  defp browser_delegate_step(record) do
-    with {:ok, step} <- Objectives.get_step_by_confirmation(Map.fetch!(record, "id")),
-         true <- step.kind == "delegate_agent",
-         false <- terminal_step?(step),
-         {:ok, objective} <- Objectives.get_objective(step.objective_id),
-         false <- terminal_objective?(objective) do
-      {:ok, objective, step}
-    else
-      _other -> :standalone
-    end
-  rescue
-    # No objectives store in this runtime (e.g. Repo not started): the
-    # confirmation cannot be step-bound, so resume the target standalone.
-    _error -> :standalone
-  end
-
-  defp resume_browser_delegate_step(
-         record,
-         reason,
-         context,
-         permission_decision,
-         target_decision,
-         action_name,
-         objective,
-         step
-       ) do
-    case put_browser_resume_voucher(step, action_name, record) do
-      {:ok, step} ->
-        approve_then_redrive_browser_step(
-          record,
-          reason,
-          context,
-          permission_decision,
-          target_decision,
-          objective,
-          step
-        )
-
-      {:error, voucher_error} ->
-        resolve_status(
-          record,
-          :denied,
-          reason || "Browser resume could not be recorded: #{inspect(voucher_error)}",
-          context,
-          permission_decision,
-          %{
-            target_policy_decision: target_decision,
-            target_resumed?: false,
-            target_status: :failed
-          }
-        )
-    end
-  end
-
-  defp put_browser_resume_voucher(step, action_name, record) do
-    action_params = decoded_action_params(step)
-
-    params =
-      (Map.get(action_params, "params") || Map.get(action_params, :params))
-      |> map_or_empty()
-
-    updated_params =
-      case action_name do
-        "browser_start_session" ->
-          Map.put(params, "session_approved", true)
-
-        "browser_navigate" ->
-          approved_url = param_value(Map.get(record, "resume_params_ref", %{}), "url")
-          existing = params |> Map.get("approved_urls") |> List.wrap()
-          Map.put(params, "approved_urls", Enum.uniq(existing ++ List.wrap(approved_url)))
-      end
-
-    Objectives.update_step(step, %{
-      action_params:
-        action_params
-        |> Map.delete(:params)
-        |> Map.put("params", updated_params)
-    })
-  end
-
-  defp decoded_action_params(%{action_params: action_params}) when is_binary(action_params) do
-    case Jason.decode(action_params) do
-      {:ok, %{} = decoded} -> decoded
-      _other -> %{}
-    end
-  end
-
-  defp decoded_action_params(%{action_params: %{} = action_params}), do: action_params
-  defp decoded_action_params(_step), do: %{}
-
-  defp approve_then_redrive_browser_step(
-         record,
-         reason,
-         context,
-         permission_decision,
-         target_decision,
-         objective,
-         step
-       ) do
+  # v1.0.1 M4.2.3: browser research consent-gate resume. The single up-front
+  # `browser_research_handoff` confirmation is approved FIRST — which records
+  # the durable url-prefix navigation grant through the standard
+  # maybe_remember_grants → GrantHandoff path (the record's params_summary
+  # carries the browser_navigate resource ref plus a `url_prefix`
+  # remember-scope default) — and then the action re-runs once with approved
+  # context, starting the delegate objective server-side and running it to
+  # completion with no mid-flight confirmations. Sync for CLI; async Task for
+  # live_view (run_analysis precedent), with the outcome annotated onto the
+  # resolved confirmation.
+  defp resume_research_handoff(record, reason, context, permission_decision, target_decision) do
     confirmation_id = Map.fetch!(record, "id")
     async? = channel_key(channel(context)) == "live_view"
 
@@ -670,7 +570,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       target_policy_decision: target_decision,
       target_resumed?: true,
       target_status: :resuming,
-      target_result: %{status: :resuming, objective_id: objective.id, step_id: step.id},
+      target_result: %{status: :resuming},
       target_async?: async?
     }
 
@@ -684,23 +584,17 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
              initial_metadata
            ) do
       if async? do
-        start_browser_redrive_task(confirmation_id, objective, step)
-
-        {:ok,
-         put_browser_redrive_output(approved, %{
-           objective_id: objective.id,
-           step_id: step.id,
-           run_status: :resuming
-         })}
+        start_research_handoff_task(confirmation_id, record, context)
+        {:ok, put_research_run_output(approved, %{run_status: :resuming})}
       else
-        finish_browser_redrive_sync(approved, confirmation_id, objective, step)
+        finish_research_handoff_sync(approved, confirmation_id, record, context)
       end
     end
   end
 
-  defp finish_browser_redrive_sync(approved, confirmation_id, objective, step) do
-    outcome = redrive_browser_delegate_step(objective, step)
-    metadata = browser_redrive_metadata(outcome)
+  defp finish_research_handoff_sync(approved, confirmation_id, record, context) do
+    outcome = run_research_handoff_target(record, context)
+    metadata = research_handoff_metadata(outcome)
 
     updated_record =
       case Confirmations.annotate_resolution(confirmation_id, metadata) do
@@ -711,17 +605,17 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     {:ok,
      approved
      |> put_resume_approval_metadata(metadata, updated_record)
-     |> put_browser_redrive_output(outcome)}
+     |> put_research_run_output(outcome)}
   end
 
-  defp start_browser_redrive_task(confirmation_id, objective, step) do
+  defp start_research_handoff_task(confirmation_id, record, context) do
     task = fn ->
-      outcome = redrive_browser_delegate_step(objective, step)
+      outcome = run_research_handoff_target(record, context)
 
       _ =
         Confirmations.annotate_resolution(
           confirmation_id,
-          Map.put(browser_redrive_metadata(outcome), :target_async?, true)
+          Map.put(research_handoff_metadata(outcome), :target_async?, true)
         )
 
       :ok
@@ -733,54 +627,36 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     end
   end
 
-  defp redrive_browser_delegate_step(objective, step) do
-    trace_id = "confirmation_resume_#{System.unique_integer([:positive])}"
+  defp run_research_handoff_target(record, context) do
+    target_context =
+      record
+      |> target_context(context)
+      |> put_in([:confirmation, :approved?], true)
 
-    case EngineAgent.execute_step(%{step_id: step.id, trace_id: trace_id}) do
-      {:ok, %{status: :completed} = result} ->
-        _ = EngineAgent.observe_step(%{step_id: step.id, trace_id: "#{trace_id}_observe"})
-
-        drop_nil_values(%{
-          objective_id: objective.id,
-          step_id: step.id,
-          run_status: :completed,
-          objective_status: refreshed_objective_status(objective),
-          summary: browser_redrive_summary(result),
-          sources: browser_redrive_sources(result)
-        })
-
-      {:ok, %{status: :needs_confirmation} = result} ->
-        next_confirmation_id = Map.get(result, :confirmation_id)
+    case Runner.run(
+           "browser_research_handoff",
+           Map.get(record, "resume_params_ref", %{}),
+           target_context
+         ) do
+      {:ok, response} ->
+        output_data = map_or_empty(Map.get(response, :output_data))
 
         drop_nil_values(%{
-          objective_id: objective.id,
-          step_id: step.id,
-          run_status: :needs_confirmation,
-          confirmation_id: next_confirmation_id,
-          summary:
-            "Browser research resumed and is now waiting for confirmation " <>
-              "#{next_confirmation_id}."
+          run_status: Map.get(response, :status, :failed),
+          objective_id: Map.get(response, :objective_id) || Map.get(output_data, :objective_id),
+          summary: Map.get(output_data, :summary) || Map.get(response, :message),
+          sources: Map.get(output_data, :sources)
         })
 
-      {:ok, result} ->
-        drop_nil_values(%{
-          objective_id: objective.id,
-          step_id: step.id,
-          run_status: Map.get(result, :status) || :failed,
-          summary: browser_redrive_summary(result)
-        })
-
-      {:error, resume_error} ->
+      other ->
         %{
-          objective_id: objective.id,
-          step_id: step.id,
           run_status: :failed,
-          summary: "Objective step resume failed: #{inspect(resume_error)}"
+          summary: "Browser research re-run failed: #{inspect(other)}"
         }
     end
   end
 
-  defp browser_redrive_metadata(outcome) do
+  defp research_handoff_metadata(outcome) do
     %{
       target_resumed?: true,
       target_status: Map.get(outcome, :run_status, :failed),
@@ -788,7 +664,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     }
   end
 
-  defp put_browser_redrive_output(approved, outcome) do
+  defp put_research_run_output(approved, outcome) do
     output_data =
       approved
       |> Map.get(:output_data)
@@ -796,31 +672,6 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       |> Map.merge(outcome)
 
     Map.put(approved, :output_data, output_data)
-  end
-
-  defp browser_redrive_summary(execute_result) when is_map(execute_result) do
-    response = Map.get(execute_result, :result) || %{}
-
-    get_in(response, [:delegate_response, :summary]) ||
-      get_in(response, [:delegate_response, :message]) ||
-      Map.get(response, :message) ||
-      "Objective step resume finished: #{inspect(Map.get(execute_result, :status))}."
-  end
-
-  defp browser_redrive_sources(execute_result) when is_map(execute_result) do
-    response = Map.get(execute_result, :result) || %{}
-
-    case get_in(response, [:delegate_response, :output_data, :sources]) do
-      sources when is_list(sources) -> sources
-      _other -> nil
-    end
-  end
-
-  defp refreshed_objective_status(objective) do
-    case Objectives.get_objective(objective.id) do
-      {:ok, refreshed} -> refreshed.status
-      {:error, _reason} -> objective.status
-    end
   end
 
   defp resume_conversation_resume(record, reason, context, permission_decision, target_decision) do
@@ -2041,8 +1892,32 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   defp maybe_remember_grants(_record, status, _context) when status != :approved, do: {:ok, []}
 
   defp maybe_remember_grants(record, :approved, context) do
-    params = Map.get(context, :approval_params, %{})
+    params =
+      context
+      |> Map.get(:approval_params, %{})
+      |> put_default_remember_scope(record)
+
     GrantHandoff.remember_from_confirmation(record, params, context)
+  end
+
+  # v1.0.1 M4.2.3: a confirmation may declare its own remember-scope default in
+  # params_summary (the browser research consent gate sets "url_prefix" so the
+  # approval records the durable navigation grant without the operator having
+  # to spell the scope). An explicit operator choice always wins.
+  defp put_default_remember_scope(params, record) do
+    default = get_in(record, ["params_summary", "remember_scope"])
+
+    if is_binary(default) and default != "" and not remember_scope_chosen?(params) do
+      Map.put(params, :remember_scope, default)
+    else
+      params
+    end
+  end
+
+  defp remember_scope_chosen?(params) do
+    Enum.any?([:remember_scope, "remember_scope", :scope, "scope"], fn key ->
+      Map.get(params, key) not in [nil, ""]
+    end)
   end
 
   defp approval_surface_allowed(record, context) do

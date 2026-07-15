@@ -16,6 +16,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Artifacts.MediaRetention
   alias AllbertAssist.Channels
+  alias AllbertAssist.Channels.ConfirmationCallback
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.LocalSurface
   alias AllbertAssist.Confirmations
@@ -96,6 +97,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         user_id: user_id,
         thread_id: thread_id,
         session_id: session_id,
+        live_view_identity_proof: identity.identity_proof,
         active_app: active_app,
         canvas_destination: canvas_destination,
         artifacts_browser_filters: artifacts_browser_filters,
@@ -718,17 +720,29 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   def handle_info({:fragment, %Envelope{} = envelope}, socket) do
-    {:noreply, handle_fragment(envelope, socket)}
+    {:noreply,
+     handle_fragment(envelope, maybe_refresh_settings_central_confirmations(socket, envelope))}
   end
 
   def handle_info({:workspace_event, %Signal{} = signal}, socket) do
-    {:noreply, handle_workspace_event(signal, socket)}
+    {:noreply,
+     handle_workspace_event(signal, maybe_refresh_settings_central_confirmations(socket, signal))}
   end
 
   # v0.64.3: an onboarding/model-repair component registers itself as the live
   # target for streamed first-model pull-progress frames (see refresh_after_workspace_event).
   def handle_info({:register_model_pull_target, %Phoenix.LiveComponent.CID{} = cid}, socket) do
     {:noreply, assign(socket, :model_pull_target, cid)}
+  end
+
+  # v1.0.1 M4.2.3: Settings Central registers as the live target for
+  # confirmation lifecycle refreshes while its panel is open (same pattern as
+  # :register_model_pull_target).
+  def handle_info(
+        {:register_settings_central_confirmations, %Phoenix.LiveComponent.CID{} = cid},
+        socket
+      ) do
+    {:noreply, assign(socket, :settings_central_target, cid)}
   end
 
   def handle_info(:refresh_objectives, socket) do
@@ -1293,8 +1307,34 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     %{
       external_user_id: external_user_id,
       user_id: user_id,
-      session_id: Channels.derive_session_id("live_view", external_user_id, nil)
+      session_id: Channels.derive_session_id("live_view", external_user_id, nil),
+      identity_proof: live_view_identity_proof(external_user_id, identity_map, user_id)
     }
+  end
+
+  # v1.0.1 M4.2.3 (ADR 0073): the typed-confirmation interceptor re-proves the
+  # operator's identity through the shared `Channels.ConfirmationCallback`
+  # guard. When the session's external id resolved through the identity map the
+  # proof carries that pair; when mount fell back to the default operator the
+  # proof carries the default pair (which resolves to the same fallback user).
+  defp live_view_identity_proof(external_user_id, identity_map, user_id) do
+    case Identity.resolve("live_view", external_user_id, identity_map) do
+      {:ok, ^user_id} ->
+        %{
+          channel: "live_view",
+          user_id: user_id,
+          external_user_id: external_user_id,
+          identity_map: identity_map
+        }
+
+      _fallback ->
+        %{
+          channel: "live_view",
+          user_id: user_id,
+          external_user_id: @default_external_user_id,
+          identity_map: @default_identity_map
+        }
+    end
   end
 
   defp live_view_external_user_id(params, session) do
@@ -1454,6 +1494,48 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       value when value in ["", "nil", "null"] -> nil
       value -> value
     end
+  end
+
+  # v1.0.1 M4.2.3: Settings Central's pending-confirmations queue live-updates
+  # instead of snapshotting at panel-open. A confirmation raised after the
+  # panel opened arrives as an :approval_card fragment carrying a
+  # confirmation_id (Emitters.confirmation_requested); a resolution arrives as
+  # an `allbert.workspace.ephemeral.closed` signal (Emitters.confirmation_resolved).
+  # Both forward a refresh token to the registered component, which re-runs the
+  # same global-by-status `list_confirmations` read — no new authority.
+  defp maybe_refresh_settings_central_confirmations(socket, %Envelope{
+         kind: kind,
+         metadata: metadata
+       }) do
+    if normalize_kind(kind) == "approval_card" do
+      notify_settings_central_confirmations(socket, metadata)
+    end
+
+    socket
+  end
+
+  defp maybe_refresh_settings_central_confirmations(socket, %Signal{
+         type: "allbert.workspace.ephemeral.closed",
+         data: data
+       }) do
+    notify_settings_central_confirmations(socket, metadata_value(data, :metadata))
+    socket
+  end
+
+  defp maybe_refresh_settings_central_confirmations(socket, _message), do: socket
+
+  defp notify_settings_central_confirmations(socket, metadata) do
+    confirmation_id = metadata_value(metadata, :confirmation_id)
+
+    with %Phoenix.LiveComponent.CID{} = cid <- socket.assigns[:settings_central_target],
+         true <- is_binary(confirmation_id) and confirmation_id != "",
+         true <- socket.assigns.canvas_destination == "workspace:settings" do
+      send_update(cid, refresh_confirmations: System.unique_integer([:positive]))
+    else
+      _not_applicable -> :ok
+    end
+
+    :ok
   end
 
   defp handle_workspace_event(%Signal{} = signal, socket) do
@@ -2298,32 +2380,142 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   defp validate_voice_capture_window(_capture), do: {:error, :missing_voice_capture_approval}
 
-  defp submit_workspace_prompt(socket, prompt) when is_binary(prompt) do
-    prompt = String.trim(prompt)
-
-    if prompt == "" do
-      socket
-    else
-      do_submit_workspace_prompt(socket, prompt)
-    end
-  end
-
-  defp submit_workspace_prompt(socket, _prompt), do: socket
+  defp submit_workspace_prompt(socket, prompt), do: submit_workspace_prompt(socket, prompt, nil)
 
   defp submit_workspace_prompt(socket, prompt, metadata) when is_binary(prompt) do
-    prompt = String.trim(prompt)
+    case String.trim(prompt) do
+      "" ->
+        socket
 
-    if prompt == "" do
-      socket
-    else
-      do_submit_workspace_prompt(socket, prompt, metadata)
+      prompt ->
+        # v1.0.1 M4.2.3 (ADR 0073): a typed confirmation callback
+        # (`ALLBERT:APPROVE|DENY|SHOW:<id>`) resolves through the shared
+        # channel guard — the TUI/Slack/Telegram analogue — and must never
+        # reach `Runtime.submit_user_input` as a free-text prompt.
+        case ConfirmationCallback.parse_typed_command(prompt) do
+          {:ok, action, confirmation_id} ->
+            resolve_typed_confirmation(socket, action, confirmation_id)
+
+          :ignore ->
+            do_submit_workspace_prompt(socket, prompt, metadata)
+        end
     end
   end
 
   defp submit_workspace_prompt(socket, _prompt, _metadata), do: socket
 
-  defp do_submit_workspace_prompt(socket, prompt),
-    do: do_submit_workspace_prompt(socket, prompt, nil)
+  # v1.0.1 M4.2.3 (ADR 0073): resolve a typed confirmation callback through
+  # the shared `Channels.ConfirmationCallback` guard (same-user + same-channel
+  # verification) and render the outcome in the thread like a turn result.
+  # Rejections (wrong channel, wrong user, not pending, not found) render
+  # honestly — the operator typed at the prompt the gate pointed them to.
+  defp resolve_typed_confirmation(socket, action, confirmation_id) do
+    command = "ALLBERT:#{action |> to_string() |> String.upcase()}:#{confirmation_id}"
+
+    event =
+      EventRecorder.record_inbound(:live_view, %{
+        user_id: socket.assigns.user_id,
+        session_id: socket.assigns.session_id,
+        thread_id: socket.assigns.thread_id,
+        payload_summary: command
+      })
+
+    callback = %{
+      action: action,
+      confirmation_id: confirmation_id,
+      channel: "live_view",
+      user_id: socket.assigns.user_id,
+      session_id: socket.assigns.session_id,
+      surface: "live_view_typed_command",
+      identity_proof: socket.assigns.live_view_identity_proof,
+      resolver_metadata: %{command: command}
+    }
+
+    case ConfirmationCallback.run(callback) do
+      {:ok, response} ->
+        EventRecorder.mark_result(event, {:ok, response})
+        typed_confirmation_resolved(socket, response)
+
+      {:error, reason} ->
+        EventRecorder.mark_rejected(event, reason)
+        typed_confirmation_rejected(socket, action, confirmation_id, reason)
+    end
+  end
+
+  defp typed_confirmation_resolved(socket, response) do
+    socket
+    |> assign(
+      prompt: "",
+      asking?: false,
+      error: nil,
+      response: ConfirmationCallback.reply_text(response),
+      status: Map.get(response, :status, :completed),
+      signal_id: nil,
+      trace_id: nil
+    )
+    |> update_typed_confirmation_handoff(response, Map.get(response, :confirmation))
+    |> refresh_objectives()
+    |> refresh_workspace()
+  end
+
+  defp update_typed_confirmation_handoff(socket, response, confirmation)
+       when is_map(confirmation) do
+    handoff = update_handoff_status(socket.assigns.approval_handoff, confirmation)
+
+    if pending_confirmation?(confirmation) do
+      assign(socket,
+        approval_result: approval_resolution_message(response, confirmation),
+        approval_handoff: handoff,
+        approval_lines: ApprovalHandoff.lines(handoff)
+      )
+    else
+      assign(socket,
+        approval_result: approval_resolution_message(response, confirmation),
+        approval_handoff: nil,
+        approval_lines: [],
+        show_approval_details?: false
+      )
+    end
+  end
+
+  defp update_typed_confirmation_handoff(socket, _response, _confirmation), do: socket
+
+  defp typed_confirmation_rejected(socket, action, confirmation_id, reason) do
+    message =
+      "Confirmation #{action} for #{confirmation_id} was not applied: " <>
+        typed_confirmation_rejection_text(reason)
+
+    assign(socket,
+      prompt: "",
+      asking?: false,
+      error: nil,
+      response: message,
+      status: :rejected,
+      signal_id: nil,
+      trace_id: nil
+    )
+  end
+
+  defp typed_confirmation_rejection_text(:wrong_channel),
+    do: "this confirmation expects resolution from its origin channel"
+
+  defp typed_confirmation_rejection_text(:wrong_user),
+    do: "this confirmation belongs to a different user"
+
+  defp typed_confirmation_rejection_text(:not_mapped),
+    do: "this workspace identity is not mapped"
+
+  defp typed_confirmation_rejection_text(:expired),
+    do: "the confirmation has expired"
+
+  defp typed_confirmation_rejection_text({:confirmation_not_pending, status}),
+    do: "the confirmation is no longer pending (status: #{status})"
+
+  defp typed_confirmation_rejection_text({:confirmation_not_found, _id}),
+    do: "no confirmation with this id was found"
+
+  defp typed_confirmation_rejection_text(reason),
+    do: inspect(Redactor.redact(reason))
 
   defp do_submit_workspace_prompt(socket, prompt, metadata) do
     with {:ok, image_inputs} <- consume_image_inputs(socket) do

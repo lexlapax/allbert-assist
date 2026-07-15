@@ -73,6 +73,8 @@ defmodule AllbertAssist.Objectives.Commands do
     %{
       user_id: param(params, :user_id),
       source_thread_id: param(params, :source_thread_id),
+      source_channel: channel_value(param(params, :source_channel)),
+      source_surface: surface_value(param(params, :source_surface)),
       session_id: param(params, :session_id),
       active_app: app_value(param(params, :active_app)),
       status: param(params, :status) || "open",
@@ -177,6 +179,34 @@ defmodule AllbertAssist.Objectives.Commands do
   end
 
   defp normalized_proposer_hint(_hint), do: :skip
+
+  @doc """
+  Merge the objective's persisted origin channel/surface into a runner context
+  (v1.0.1 M4.2.3 piece 4), so any confirmation raised by objective-driven work
+  carries origin attribution like a turn-raised request.
+  """
+  def merge_objective_origin(context, %Objective{} = objective) do
+    context
+    |> put_origin(:channel, objective.source_channel)
+    |> put_origin(:surface, objective.source_surface)
+  end
+
+  defp put_origin(context, _key, value) when value in [nil, ""], do: context
+  defp put_origin(context, key, value), do: Map.put(context, key, value)
+
+  @doc false
+  def channel_value(nil), do: nil
+  def channel_value(%{name: name}), do: channel_value(name)
+  def channel_value(%{"name" => name}), do: channel_value(name)
+  def channel_value(channel) when is_atom(channel), do: Atom.to_string(channel)
+  def channel_value(channel) when is_binary(channel) and channel != "", do: channel
+  def channel_value(_channel), do: nil
+
+  @doc false
+  def surface_value(nil), do: nil
+  def surface_value(surface) when is_atom(surface), do: Atom.to_string(surface)
+  def surface_value(surface) when is_binary(surface) and surface != "", do: surface
+  def surface_value(_surface), do: nil
 
   defp param(params, key), do: Map.get(params, key) || Map.get(params, Atom.to_string(key))
 
@@ -709,7 +739,8 @@ defmodule AllbertAssist.Objectives.Commands.AuthorizeStep do
   end
 
   defp runner_context(objective, step, params, context) do
-    Map.merge(context, %{
+    context
+    |> Map.merge(%{
       user_id: objective.user_id,
       operator_id: objective.user_id,
       thread_id: objective.source_thread_id,
@@ -724,6 +755,7 @@ defmodule AllbertAssist.Objectives.Commands.AuthorizeStep do
         status: objective.status
       }
     })
+    |> Commands.merge_objective_origin(objective)
   end
 
   defp resolve_action(%Step{candidate_action: action}) when is_binary(action) do
@@ -1055,7 +1087,8 @@ defmodule AllbertAssist.Objectives.Commands.ExecuteStep do
   defp unwrap_or_rollback({:error, reason}), do: Repo.rollback(reason)
 
   defp runner_context(objective, step, params, context) do
-    Map.merge(context, %{
+    context
+    |> Map.merge(%{
       user_id: objective.user_id,
       operator_id: objective.user_id,
       thread_id: objective.source_thread_id,
@@ -1070,6 +1103,7 @@ defmodule AllbertAssist.Objectives.Commands.ExecuteStep do
         status: objective.status
       }
     })
+    |> Commands.merge_objective_origin(objective)
   end
 
   defp resolve_action(%Step{candidate_action: action}) when is_binary(action) do

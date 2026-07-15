@@ -22,6 +22,14 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
   @default_key "operator.communication_style"
 
   @impl true
+  # v1.0.1 M4.2.3: the parent LiveView forwards confirmation lifecycle events
+  # (requested/resolved) here via `send_update/2` so the pending queue
+  # live-updates instead of snapshotting at panel-open. The refresh re-runs the
+  # same global-by-status `list_confirmations` read — no new authority.
+  def update(%{refresh_confirmations: _token}, socket) do
+    {:ok, refresh_confirmations(socket)}
+  end
+
   def update(assigns, socket) do
     selected_key = Map.get(assigns, :selected_key, @default_key)
     context = Map.get(assigns, :renderer_context, %{})
@@ -60,6 +68,13 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
         to_form(%{"provider" => "openai", "api_key" => ""}, as: :provider)
       end)
       |> assign(:settings_panel_open?, open?)
+
+    # v1.0.1 M4.2.3: while the panel is open, register as the parent's live
+    # target for confirmation lifecycle refreshes (the
+    # :register_model_pull_target pattern).
+    if open? and connected?(socket) do
+      send(self(), {:register_settings_central_confirmations, socket.assigns.myself})
+    end
 
     if open? and connected?(socket) and (not loaded? or current_key != selected_key) do
       {:ok, refresh(socket, selected_key)}
@@ -938,6 +953,22 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
         socket
         |> assign(:settings_loaded?, true)
         |> assign(:diagnostics, inspect(reason))
+    end
+  end
+
+  # v1.0.1 M4.2.3: partial refresh for confirmation lifecycle events — only the
+  # pending/resolved confirmation reads re-run; the rest of the panel state is
+  # untouched. Skips when the panel is not open (nothing rendered to update).
+  defp refresh_confirmations(socket) do
+    with true <- Map.get(socket.assigns, :settings_panel_open?, false),
+         {:ok, pending_response} <- completed_action("list_confirmations", %{status: "pending"}),
+         {:ok, resolved_response} <-
+           completed_action("list_confirmations", %{status: "resolved"}) do
+      socket
+      |> assign(:pending_confirmations, pending_response.confirmations)
+      |> assign(:resolved_confirmations, recently_resolved(resolved_response.confirmations))
+    else
+      _not_refreshable -> socket
     end
   end
 
