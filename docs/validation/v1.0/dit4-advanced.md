@@ -1,5 +1,78 @@
 # DIT-4 — Live Advanced-Surface Regression (v1.0 freeze prerequisite)
 
+## v1.0.1 M4.2.4 class (a) closure — 2026-07-15
+
+**Verdict: PASS — class (a) now satisfies the packaged §I contract. Combined
+with the prior class (b), (c), and (d) passes, DIT-4 is CLOSED.** This sixth
+class-only pass tested pushed source commit `5b77b39e` as a locally rebuilt
+`allbert 1.0.1` release plus the live Mix external smokes. It used the fresh
+disposable Home `/tmp/allbert-dit4-sixth.F5en8g/home`; it did not use or modify
+the Homebrew `allbert 1.0.0` installation.
+
+The 18 focused M4.2.4 regressions passed when run in their isolated primary
+files, and both real browser harnesses were green:
+
+```text
+$ MIX_ENV=test mix test \
+    apps/allbert_assist/test/allbert_assist/actions/browser_research_turn_test.exs
+14 tests, 0 failures
+
+$ MIX_ENV=test mix test \
+    apps/allbert_assist/test/allbert_assist/workspace/emitters_research_test.exs
+4 tests, 0 failures
+
+$ ALLBERT_TEST_KEEP_TMP=1 MIX_ENV=test mix allbert.test external-smoke -- browser_research
+1 test, 0 failures
+
+$ ALLBERT_TEST_KEEP_TMP=1 MIX_ENV=test mix allbert.test external-smoke -- browser_research_delegate
+1 test, 0 failures
+```
+
+The locally rebuilt release was served on port 4149 with `browser.enabled=true`
+and `research.enabled=true`. In Chrome, the exact §I prompt produced exactly one
+up-front consent and no objective before approval:
+
+```text
+Research https://elixir-lang.org and report the title of its latest blog post.
+Use the browser research capability and include the source URL.
+
+Browser research on https://elixir-lang.org needs your approval (confirmation
+conf_1784149027000000_265154). Approving grants navigation on that site's URL
+prefix and runs the research once through research.specialist; results land in
+the workspace Research app.
+```
+
+The confirmation appeared both as the thread consent card and as the sole live
+Settings Central pending row. That row named `browser_navigate`, target
+`https://elixir-lang.org`, and scope `url_prefix:https://elixir-lang.org/`.
+Approving it from the live pending queue ran the research once with zero further
+confirmations.
+
+All three delivery paths then passed:
+
+- the originating thread rendered an assistant completion message containing the
+  real research summary, `Source: https://elixir-lang.org`, and objective
+  `obj_5640f125-6701-4c8d-8a41-385c30e7b804`;
+- `/objectives` showed that objective `completed`, app `allbert_research`, and
+  `thread=thr_7cec4818-0173-4b08-b760-e8c5df6fce16`; and
+- Output advanced from `0/64` to `2/64 tiles` and rendered both `Objective
+  Progress` (`Objective completed.`) and `Browser Research` (summary plus
+  `Source: elixir-lang.org`) cards.
+
+The durable authorization was also visible in Settings Central's Security &
+Permissions resource-grant view:
+
+```text
+Active: 1 · Total: 1
+grant_1784149093869680_256067 · active · fetch · browser_navigator
+url_prefix:https://elixir-lang.org/
+```
+
+This pass closes the final DIT-4 blocker: consent is singular and honest,
+authority remains a durable URL-prefix grant, the delegated objective is
+thread-attributed, and the result is delivered both conversationally and through
+the persistent Output canvas.
+
 ## v1.0.1 M4.2.3 class (a) closure attempt — 2026-07-15
 
 **Verdict: FAIL — consent, callback, grant, and server-side execution pass, but
