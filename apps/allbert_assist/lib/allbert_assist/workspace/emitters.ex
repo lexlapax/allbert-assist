@@ -206,7 +206,10 @@ defmodule AllbertAssist.Workspace.Emitters do
         scope: :canvas,
         kind: :analysis_card,
         emitted_at: DateTime.utc_now(),
-        metadata: %{source: "allbert_research", objective_id: string_value(payload, :objective_id)}
+        metadata: %{
+          source: "allbert_research",
+          objective_id: string_value(payload, :objective_id)
+        }
       })
     end
   end
