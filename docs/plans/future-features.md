@@ -45,7 +45,7 @@ Provenance shorthand used in `Deferred at:` lines: `vX.YY-plan:N` and
 
 ### Settings Runtime Migration Runner
 
-Class: Must (foundational) (confirmed 2026-07-14) · Effort: M · Slice: 1.1, conditional — build when the first non-additive settings migration enters scope
+Class: Must (foundational) (confirmed 2026-07-14) · Effort: M · Slice: 1.1 — unconditional; first consumer is the Telegram/Email plugin-owned-settings migration
 
 Status: parked (deferred until the first non-additive settings migration).
 
@@ -308,7 +308,7 @@ Still parked:
 
 ### SMS Channel Adapter
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold
 
 Status: parked.
 
@@ -326,7 +326,7 @@ Still parked:
 
 ### WhatsApp Live Channel Release
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold
 
 Status: parked after v0.53 M11 (reconfirmed open in the v1.0 sweep:
 implementation shipped, live validation still provider-blocked).
@@ -350,7 +350,7 @@ Until then, v0.53 records WhatsApp as implemented-not-released through ADR 0066.
 
 ### Signal Advanced-Bridge Release
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold
 
 Status: parked after v0.53 M11 (reconfirmed open in the v1.0 sweep:
 implementation shipped, live validation still requires operator-managed
@@ -373,7 +373,7 @@ Until then, v0.53 records Signal as implemented-not-released through ADR 0066.
 
 ### Viber Channel Adapter
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold
 
 Status: parked (validated on paper in the v0.53 pass; build deferred).
 
@@ -405,7 +405,7 @@ Still parked:
 
 ### iMessage Channel Adapter
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold
 
 Status: parked. Moved from v0.53 to parking in the post-v0.37 planning pass.
 
@@ -421,7 +421,7 @@ Still parked:
 
 ### Proactive Notifications Policy
 
-Class: Should (proposed) · Effort: M
+Class: Should (confirmed 2026-07-14) · Effort: M · Slice: 1.1 — scoped as the suggestion-delivery stage of Adaptive Usage Profiling
 
 Status: parked. Added in the post-v0.37 planning pass.
 
@@ -446,7 +446,7 @@ Still parked:
 
 ### Email OAuth (XOAUTH2; Gmail / Microsoft OAuth-Only Mailboxes)
 
-Class: Should (proposed) · Effort: M
+Class: Should (confirmed 2026-07-14) · Effort: M · Slice: 1.1
 
 Status: parked.
 
@@ -460,7 +460,7 @@ Deferred at: `operator/email-channel:14` (XOAUTH2), `v0.53-plan:516`
 
 ### IMAP IDLE Push
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold
 
 Status: parked.
 
@@ -470,7 +470,7 @@ Deferred at: `v0.16-rf:465`.
 
 ### SMTP Provider API Delivery (Mailgun / SendGrid)
 
-Class: Could (proposed) · Effort: S
+Class: Could (confirmed 2026-07-14) · Effort: S · Slice: hold
 
 Status: parked.
 
@@ -481,7 +481,7 @@ Deferred at: `v0.16-rf:554`.
 
 ### Separate Channel Registry
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold
 
 Status: parked.
 
@@ -492,7 +492,7 @@ Deferred at: `v0.17-plan:42`.
 
 ### Discord Adapter Deferred Remainder
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold
 
 Status: parked.
 
@@ -508,7 +508,7 @@ Deferred at: `v0.52-plan:1063` (Interactions HTTP transport),
 
 ### Slack Adapter Deferred Remainder
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold
 
 Status: parked.
 
@@ -521,7 +521,7 @@ Deferred at: `v0.52-plan:1065` (Events API HTTP transport), `v0.52-plan:147`
 
 ### Telegram/Email Plugin-Owned-Settings Migration
 
-Class: Should (proposed) · Effort: S
+Class: Should (confirmed 2026-07-14) · Effort: S · Slice: 1.1, one milestone with the Settings Runtime Migration Runner (its first real migration — makes the runner unconditional in 1.1)
 
 Status: parked (blocked on the Settings Runtime Migration Runner above).
 
@@ -532,7 +532,7 @@ Deferred at: `v0.52-plan:2312`.
 
 ### Matrix E2EE Encrypted Rooms
 
-Class: Could (proposed) · Effort: L
+Class: Could (confirmed 2026-07-14) · Effort: L · Slice: hold
 
 Status: parked.
 
