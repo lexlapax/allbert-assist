@@ -937,7 +937,7 @@ Deferred at: v0.49 plan/readiness notes (sweep-flagged, no single line ref).
 
 ### Agent URI Execution And Broader Agent Endpoints
 
-Class: Could (proposed) · Effort: L
+Class: Could (confirmed 2026-07-14) · Effort: L · Slice: hold
 
 Status: parked.
 
@@ -953,7 +953,7 @@ Still parked:
 
 ### Operator-Authorable And Third-Party Delegate Agents
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold
 
 Status: v0.46 shipped the developer-authored delegate-agent extension point;
 operator no-code authoring remains parked. Added in the post-v0.45 planning
@@ -997,7 +997,7 @@ Still parked (the remainder):
 
 ### Workflow YAML Loops And Parallel Fan-Out
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold — folded consideration under Adaptive Usage Profiling stages (suggested automations drive workflow-vocabulary needs)
 
 Status: parked. Added in the post-v0.43 planning pass.
 
@@ -1014,7 +1014,7 @@ actually take.
 
 ### Sub-Workflow Includes And Imports
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold — folded consideration under Adaptive Usage Profiling stages (suggested automations drive workflow-vocabulary needs)
 
 Status: parked. Added in the post-v0.43 planning pass.
 
@@ -1028,7 +1028,7 @@ start producing reusable sub-pieces.
 
 ### Auto-Triggered Workflows (`on:` Clauses)
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold — folded consideration under Adaptive Usage Profiling stages (suggested automations drive workflow-vocabulary needs)
 
 Status: parked. Added in the post-v0.43 planning pass.
 
@@ -1044,7 +1044,7 @@ boundary analysis.
 
 ### Workflow Retry/Backoff, `env:`, And ask_user-On-Error
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold — folded consideration under Adaptive Usage Profiling stages (suggested automations drive workflow-vocabulary needs)
 
 Status: parked.
 
@@ -1056,7 +1056,7 @@ Deferred at: `v0.44-plan:167`, `v0.44-plan:436`.
 
 ### Per-Objective ACL Scoping
 
-Class: Should (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14; demoted — multi-user is Won't-now) · Effort: M · Slice: hold
 
 Status: parked.
 
@@ -1067,7 +1067,7 @@ Deferred at: `v0.24-rf:79`.
 
 ### LLM-Assisted Acceptance Evaluator
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold — revisit with adaptive stage (c) effectiveness scoring
 
 Status: parked.
 
@@ -1078,7 +1078,7 @@ Deferred at: `v0.24-plan:2589`.
 
 ### StockSage Objective-Framing Generalization
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold
 
 Status: parked.
 
@@ -1089,7 +1089,7 @@ Deferred at: `v0.33-plan:507`.
 
 ### StockSage TradingAgents Prompt Adaptation (License-Gated)
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold (license-gated)
 
 Status: parked (license-gated).
 
@@ -1100,7 +1100,7 @@ Deferred at: `adr/0022:429`, `v0.25-plan:1045`.
 
 ### FetchSentiment Live APIs (StockTwits + Reddit)
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold
 
 Status: parked.
 
@@ -1111,7 +1111,7 @@ Deferred at: `v0.25-plan:1197`.
 
 ### Deeper Native/Python Parity Tuning
 
-Class: Could (proposed) · Effort: S
+Class: Could (confirmed 2026-07-14) · Effort: S · Slice: hold
 
 Status: parked.
 
@@ -1122,8 +1122,7 @@ Deferred at: `v0.25-rf:652`.
 
 ### ADR 0021 Reserved Abstractions & Advisory-Provider Vocabulary
 
-Class: Won't-now (proposed) · Effort: L · Verify: whether any consumer has
-materialized for the reserved abstractions since v0.24
+Class: Won't-now (confirmed 2026-07-14) · Effort: L — the adaptive loop may become the first AdvisoryProvider consumer that un-reserves this
 
 Status: verify.
 
