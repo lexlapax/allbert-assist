@@ -38,6 +38,10 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    app-registry boundary check.
 7. **Beyond** — System Memory Distillation is the post-1.3 co-flagship candidate;
    the Won't-now cluster stays in future-features.md with its review cadence.
+8. **2.0 horizon — Self-Hosting Development.** Allbert develops Allbert (pi-mode
+   target on its own checkout; plan/build/test/document roles in-product, supervised).
+   Its OAuth hosted-LLM providers sub-capability (Claude/OpenAI/Gemini subscription
+   plans, not just API keys) lands earlier on the 1.4/1.5 train.
 
 ## Working Rules
 
