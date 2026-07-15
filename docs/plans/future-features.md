@@ -545,7 +545,7 @@ Deferred at: `v0.53-plan:62`.
 
 ### Zero-Click First Run (Chat-Ready Default)
 
-Class: Must (proposed) · Effort: L
+Class: Must (confirmed 2026-07-14) · Effort: L · Slice: 1.1 FLAGSHIP — consent ADR + folded TUI first-run scope
 
 Status: parked (operator-directed, post-1.0 intake 2026-07-14).
 
@@ -588,7 +588,7 @@ Deferred at: operator intake (post-1.0 planning, 2026-07-14).
 
 ### Workspace Canvas Snapshot / Undo / Time-Travel
 
-Class: Should (proposed) · Effort: M
+Class: Should (confirmed 2026-07-14) · Effort: M · Slice: hold
 
 Status: parked. Promoted from "post-v0.38 deferred" to an explicit
 parking-lot entry in the post-v0.37 planning pass.
@@ -607,7 +607,7 @@ Still parked:
 
 ### Multi-User Collaborative Plan Editing
 
-Class: Won't-now (proposed) · Effort: L
+Class: Won't-now (confirmed 2026-07-14) · Effort: L
 
 Status: parked. Added in the post-v0.43 planning pass.
 
@@ -621,8 +621,7 @@ the table.
 
 ### Drag-Drop Tile Reordering / Resize / Durable Layout
 
-Class: Should (proposed) · Effort: M · Verify: exact scope of the StockSage
-cards portion (`adr/0023:583` vs `roadmap:1724`)
+Class: Should (confirmed 2026-07-14) · Effort: M · Slice: hold — polish; the first-run mandate is simplification
 
 Status: verify.
 
@@ -634,7 +633,7 @@ Deferred at: `v0.26-plan:2071`, `adr/0023:583`, `roadmap:1724`.
 
 ### Multi-Canvas-Per-Thread
 
-Class: Could (proposed) · Effort: M
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold
 
 Status: parked.
 
@@ -645,7 +644,7 @@ Deferred at: `adr/0023:584`, `v0.26-plan:2074`.
 
 ### Theme File-Watcher Live Reload
 
-Class: Could (proposed) · Effort: S
+Class: Could (confirmed 2026-07-14) · Effort: S · Slice: hold
 
 Status: parked.
 
@@ -656,7 +655,7 @@ Deferred at: `adr/0025:172`.
 
 ### Per-Identity Theme Scope
 
-Class: Could (proposed) · Effort: S
+Class: Could (confirmed 2026-07-14) · Effort: S · Slice: hold
 
 Status: parked.
 
@@ -667,7 +666,7 @@ Deferred at: `v0.61b-plan:1643`.
 
 ### Dynamic Mobile Breakpoints
 
-Class: Could (proposed) · Effort: S
+Class: Could (confirmed 2026-07-14) · Effort: S · Slice: hold
 
 Status: parked.
 
@@ -678,7 +677,7 @@ Deferred at: `v0.26-plan:683`.
 
 ### Canvas.Agent Revisit
 
-Class: Could (proposed) · Effort: S
+Class: Could (confirmed 2026-07-14) · Effort: S · Slice: hold — revisit only with new canvas features
 
 Status: parked.
 
@@ -688,7 +687,7 @@ Deferred at: `v0.26-plan:175`.
 
 ### Workspace Zone/Destination Naming Evolution
 
-Class: Could (proposed) · Effort: S
+Class: Closed (confirmed 2026-07-14) — a freeze carve-out (naming freedom), not scheduled work
 
 Status: parked.
 
@@ -699,7 +698,7 @@ Deferred at: `v1.0-plan:293`.
 
 ### Surface DSL Additive Components Carve-Out
 
-Class: Should (proposed) · Effort: S
+Class: Closed (confirmed 2026-07-14) — additive-as-needed alongside features; no standalone milestone
 
 Status: parked.
 
@@ -711,9 +710,7 @@ Deferred at: `v1.0-plan:229`.
 
 ### Plugin Workspace-Region Graduation Confirm
 
-Class: Could (proposed) · Effort: S · Verify: whether v0.31 actually
-graduated the plugin workspace-region contribution path as the v0.26 plan
-claims
+Class: Could (confirmed 2026-07-14) · Effort: S · Slice: quick verify (did v0.31 graduate plugin regions?), then close
 
 Status: verify.
 
