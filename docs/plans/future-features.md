@@ -723,7 +723,7 @@ Deferred at: `v0.26-plan:2079`.
 
 ### Long-Term User Memory (Periodic Consolidation, Prompt-Time Context)
 
-Class: Must (proposed) · Effort: L (research-first; multi-release)
+Class: Must (confirmed 2026-07-14) · Effort: L · Slice: 1.1 CO-FLAGSHIP — research phase first
 
 Status: parked (operator-directed, post-1.0 intake 2026-07-14).
 
@@ -769,7 +769,7 @@ Deferred at: operator intake (post-1.0 planning, 2026-07-14).
 
 ### System Memory Distillation
 
-Class: Won't-now (proposed) · Effort: L
+Class: Must-candidate (confirmed 2026-07-14; co-flagship candidate for the 1.2/1.3 horizon, after the deterministic adaptive loop proves out) · Effort: L
 
 Status: parked.
 
@@ -799,7 +799,7 @@ memory pinning are also parked under this entry (no separate section).
 
 ### Cross-Thread / Cross-App Memory Retrieval
 
-Class: Could (proposed) · Effort: M
+Class: Should (confirmed 2026-07-14) · Effort: M · Slice: foundational input to the Long-Term User Memory research phase (retrieval scope) — research to confirm
 
 Status: parked. Added in the post-v0.37 planning pass.
 
@@ -818,7 +818,7 @@ Still parked:
 
 ### Conversation History Full-Text Search
 
-Class: Should (proposed) · Effort: M
+Class: Should (confirmed 2026-07-14) · Effort: M · Slice: foundational input to the Long-Term User Memory research phase (retrieval substrate) — research to confirm
 
 Status: parked. Added in the post-v0.37 planning pass.
 
@@ -835,7 +835,7 @@ Still parked:
 
 ### Model Fallback / Degradation Policy
 
-Class: Should (proposed) · Effort: M
+Class: Should (confirmed 2026-07-14) · Effort: M · Slice: 1.1 — required by the zero-click detect states
 
 Status: parked. Added in the post-v0.37 planning pass after the v0.39 plan
 dropped the unspecified "explicit operator opt-in" wording. Reaffirmed in
@@ -857,7 +857,7 @@ Still parked:
 
 ### Post-v0.48 Media Follow-Ons
 
-Class: Won't-now (proposed) · Effort: L
+Class: Won't-now (confirmed 2026-07-14) · Effort: L
 
 Status: parked. Added during the v0.48 third-pass readiness sweep.
 
@@ -878,7 +878,7 @@ doctor fields, and release evidence before implementation:
 
 ### Model Chooser / Catalog
 
-Class: Should (proposed) · Effort: M
+Class: Should (confirmed 2026-07-14) · Effort: M · Slice: 1.1 — enabler for zero-click and adaptive suggestions
 
 Status: parked.
 
@@ -890,7 +890,7 @@ Deferred at: `v0.64-plan:171`.
 
 ### Per-Role Fast/Capable/Thinking Model Profiles
 
-Class: Should (proposed) · Effort: M
+Class: Should (confirmed 2026-07-14) · Effort: M · Slice: 1.1 — the target surface of adaptive model suggestions
 
 Status: parked.
 
@@ -936,8 +936,7 @@ Deferred at: `v0.39b-plan:105`.
 
 ### Local Ollama Multimodal Profile
 
-Class: Could (proposed) · Effort: S · Verify: whether a local Ollama
-multimodal profile works against the current v0.49 media bridge
+Class: Could (confirmed 2026-07-14) · Effort: S · Slice: hold (1.4-or-later horizon)
 
 Status: verify.
 
