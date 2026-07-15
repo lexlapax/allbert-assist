@@ -1310,6 +1310,54 @@ Deferred at: v0.51 plan notes (sweep-flagged, no single line ref).
 
 ## Self-Improvement & Dynamic Capability
 
+### Adaptive Usage Profiling & One-Click Customization Suggestions
+
+Class: Must (proposed) · Effort: L (multi-release; stages below)
+
+Status: parked (operator-directed, post-1.0 intake 2026-07-14).
+
+A **system memory** distinct from user/operator memory: the system records its
+own construct usage (which intents route, which actions/apps/surfaces/models
+are invoked, how often, with what outcomes) as the operator uses Allbert. Two
+scheduled jobs close the loop:
+
+1. **Distill (small cadence)** — e.g. after every ~N operator invocations,
+   categorize and summarize raw usage into the system-memory namespace.
+2. **Suggest (large cadence)** — analyze the distilled usage **plus the
+   user/operator memory** and produce *suggestions* that tune the system to
+   respond more accurately in fewer interactions. Every suggestion is a
+   **one-click / one-action apply** — a registered, confirmed action that
+   takes effect for the next invocation.
+3. **Feedback** — a mechanism to learn whether an applied customization
+   actually helped (accept/dismiss/undo signals at minimum; effectiveness
+   scoring against subsequent usage).
+
+Operator-supplied examples of the suggestion vocabulary:
+
+- Frequent web searching → raise web-search intent priority.
+- Frequent coding asks → configure a stronger coding model profile (up to
+  suggesting a BYOK hosted LLM) and make pi-mode the default.
+- Web research + note-taking pattern → suggest scaffolding a custom
+  note-based research app (in the StockSage spirit, via the templated
+  creation path).
+- A thing the operator asks to do repeatedly → auto-draft a skill that knows
+  it (through the v0.47 supervised-draft path).
+
+Builds on shipped precursors rather than replacing them: the v0.39b inert
+`identity` system-memory namespace, the v0.47 trace-derived supervised draft
+suggestions, the v0.56 learned-review miner (shipped inert), the jobs
+scheduler, and templated creation. Authority posture is unchanged: system
+memory is inspectable via the memory review surface, suggestions are traced,
+and apply is always operator-approved — this is the supervised middle path
+between today's static profiles and the parked full-autonomy cluster (see
+System Memory Distillation, Autonomous Skill Creation, Learned-Review
+Autonomous Producers — this entry is the staged, consented route toward
+them). Likely decomposition when promoted: (a) system usage-memory substrate +
+distill job; (b) suggestion engine + one-click apply surface; (c) feedback/
+effectiveness loop.
+
+Deferred at: operator intake (post-1.0 planning, 2026-07-14).
+
 ### Autonomous Skill Creation Beyond Supervised Drafts
 
 Class: Won't-now (proposed) · Effort: L
