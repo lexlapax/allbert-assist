@@ -745,7 +745,7 @@ confusion:
   - actual: none
     count: 11
     expected: none
-corpus_case_count: 294
+corpus_case_count: 295
 gate:
   failures: []
   status: pass

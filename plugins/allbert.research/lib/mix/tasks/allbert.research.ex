@@ -9,11 +9,10 @@ defmodule Mix.Tasks.Allbert.Research do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.App.Registry, as: AppRegistry
-  alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.AgentRegistry
-  alias AllbertAssist.Objectives.Engine.Agent, as: EngineAgent
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
+  alias AllbertResearch.DelegateObjective
 
   @shortdoc "Run a research.specialist delegate objective"
   @usage_exit 64
@@ -60,28 +59,27 @@ defmodule Mix.Tasks.Allbert.Research do
     ensure_research_enabled!()
     ensure_browser_ready!()
 
-    command = command_for_target(target)
     max_sources = Keyword.get(opts, :max_sources)
     {:ok, session_id} = start_session!(target, user_id)
 
     with {:ok, entry} <- AgentRegistry.lookup(AllbertResearch.Runtime.agent_id()),
-         {:ok, objective} <- create_objective(user_id, target),
-         {:ok, step} <- create_step(objective, command, target, session_id, max_sources, user_id),
-         {:ok, execute_result} <-
-           EngineAgent.execute_step(%{
-             step_id: step.id,
-             trace_id: "cli_research_#{System.unique_integer([:positive])}"
-           }),
-         {:ok, objective} <- maybe_observe_completed(objective, execute_result) do
+         {:ok, run} <-
+           DelegateObjective.start(user_id, target,
+             session_id: session_id,
+             max_sources: max_sources,
+             channel: :cli,
+             source_intent: "mix allbert.research",
+             trace_prefix: "cli_research"
+           ) do
       {:ok,
        %{
          agent: entry,
-         command: command,
-         objective: objective,
-         step: Map.get(execute_result, :step),
-         result: Map.get(execute_result, :result),
-         status: Map.get(execute_result, :status),
-         confirmation_id: Map.get(execute_result, :confirmation_id),
+         command: run.command,
+         objective: run.objective,
+         step: run.step,
+         result: run.result,
+         status: run.status,
+         confirmation_id: run.confirmation_id,
          session_id: session_id
        }}
     else
@@ -110,45 +108,6 @@ defmodule Mix.Tasks.Allbert.Research do
       end)
     end
   end
-
-  defp create_objective(user_id, target) do
-    Objectives.create_objective(%{
-      user_id: user_id,
-      title: "research.specialist",
-      objective: "Research #{target}.",
-      active_app: "allbert_research",
-      status: "open",
-      source_intent: "mix allbert.research"
-    })
-  end
-
-  defp create_step(objective, command, target, session_id, max_sources, user_id) do
-    Objectives.create_step(%{
-      objective_id: objective.id,
-      kind: "delegate_agent",
-      status: "selected",
-      stage: "execute_step",
-      delegate_agent_id: AllbertResearch.Runtime.agent_id(),
-      action_params: %{
-        command: Atom.to_string(command),
-        params: params_for(command, target, session_id, max_sources, user_id)
-      }
-    })
-  end
-
-  defp maybe_observe_completed(objective, %{status: :completed, step: step})
-       when not is_nil(step) do
-    case EngineAgent.observe_step(%{
-           step_id: step.id,
-           trace_id: "cli_research_observe_#{System.unique_integer([:positive])}"
-         }) do
-      {:ok, %{objective: objective}} -> {:ok, objective}
-      {:error, _reason} -> Objectives.get_objective(objective.id)
-    end
-  end
-
-  defp maybe_observe_completed(objective, _execute_result),
-    do: Objectives.get_objective(objective.id)
 
   defp start_session!(target, user_id) do
     context = %{
@@ -261,41 +220,6 @@ defmodule Mix.Tasks.Allbert.Research do
     end
   end
 
-  defp params_for(:summarize_url, target, session_id, max_sources, user_id) do
-    %{
-      url: target,
-      session_id: session_id,
-      user_id: user_id,
-      channel: :cli
-    }
-    |> maybe_put(:max_sources, max_sources)
-  end
-
-  defp params_for(:research, target, session_id, max_sources, user_id) do
-    %{
-      topic: target,
-      session_id: session_id,
-      user_id: user_id,
-      channel: :cli
-    }
-    |> maybe_put(:max_sources, max_sources)
-  end
-
-  defp command_for_target(target) do
-    if url_target?(target), do: :summarize_url, else: :research
-  end
-
-  defp url_target?(target) do
-    case URI.parse(String.trim(target)) do
-      %URI{scheme: scheme, host: host}
-      when scheme in ["http", "https"] and is_binary(host) and host != "" ->
-        true
-
-      _other ->
-        false
-    end
-  end
-
   defp expected_domain(target) do
     case URI.parse(String.trim(target)) do
       %URI{host: host} when is_binary(host) and host != "" -> host
@@ -336,9 +260,6 @@ defmodule Mix.Tasks.Allbert.Research do
         "local"
     end
   end
-
-  defp maybe_put(map, _key, nil), do: map
-  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp reject_invalid!([]), do: :ok
   defp reject_invalid!(invalid), do: fail!(@usage_exit, "Unknown options: #{inspect(invalid)}")
