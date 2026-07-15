@@ -49,17 +49,45 @@ defmodule AllbertResearch.DelegateObjective do
              trace_id: "#{trace_prefix}_#{System.unique_integer([:positive])}"
            }),
          {:ok, objective} <- maybe_observe_completed(objective, execute_result, trace_prefix) do
-      {:ok,
-       %{
-         command: command,
-         objective: objective,
-         step: Map.get(execute_result, :step),
-         result: Map.get(execute_result, :result),
-         status: Map.get(execute_result, :status),
-         confirmation_id: Map.get(execute_result, :confirmation_id)
-       }}
+      run = %{
+        command: command,
+        objective: objective,
+        step: Map.get(execute_result, :step),
+        result: Map.get(execute_result, :result),
+        status: Map.get(execute_result, :status),
+        confirmation_id: Map.get(execute_result, :confirmation_id)
+      }
+
+      emit_research_result(run, target)
+      {:ok, run}
     end
   end
+
+  # v1.0.1 M4.2.4: deliver the completed research as a canvas card attributed
+  # to the originating user/thread. Best-effort rendering of an
+  # already-authorized result; skipped when no thread attribution exists.
+  defp emit_research_result(%{status: :completed} = run, target) do
+    # The delegate Runner response nests the payload: summary/message live on
+    # result.delegate_response, sources on its output_data (the same seams the
+    # handoff action reads).
+    result = Map.get(run, :result) || %{}
+    delegate_response = Map.get(result, :delegate_response) || %{}
+    output_data = Map.get(delegate_response, :output_data) || %{}
+
+    AllbertAssist.Workspace.Emitters.research_result(%{
+      user_id: run.objective.user_id,
+      thread_id: Map.get(run.objective, :source_thread_id),
+      objective_id: run.objective.id,
+      target: target,
+      summary: Map.get(delegate_response, :summary) || Map.get(delegate_response, :message),
+      sources: Map.get(output_data, :sources) || []
+    })
+  end
+
+  defp emit_research_result(_run, _target), do: :ok
+
+  defp thread_value(value) when is_binary(value) and value != "", do: value
+  defp thread_value(_value), do: nil
 
   @doc "Return the delegate command for a research target."
   @spec command_for_target(String.t()) :: :summarize_url | :research
@@ -91,6 +119,7 @@ defmodule AllbertResearch.DelegateObjective do
     }
     |> maybe_put(:source_channel, channel_value(Keyword.get(opts, :channel)))
     |> maybe_put(:source_surface, surface_value(Keyword.get(opts, :surface)))
+    |> maybe_put(:source_thread_id, thread_value(Keyword.get(opts, :source_thread_id)))
     |> Objectives.create_objective()
   end
 

@@ -22,6 +22,9 @@ defmodule AllbertAssist.Workspace.Emitters do
   @intent_emitter "AllbertAssist.Agents.IntentAgent"
   @objective_emitter "AllbertAssist.Objectives"
   @stocksage_emitter "StockSage.Actions.RunAnalysis"
+  # The registered research delegate agent id — an allowed objective-agent
+  # emitter (Guard.objective_agent_emitter?).
+  @research_emitter "research.specialist"
 
   @analysis_requested "allbert.stocksage.analysis_requested"
   @analysis_completed "allbert.stocksage.analysis_completed"
@@ -148,6 +151,95 @@ defmodule AllbertAssist.Workspace.Emitters do
   end
 
   def stocksage_signal(_type, _payload), do: :ok
+
+  @doc """
+  Emit the research-result canvas card for a completed research delegate run
+  (v1.0.1 M4.2.4). Delivery of an already-authorized result — best-effort,
+  non-authoritative; skipped without workspace context (user_id + thread_id).
+  """
+  def research_result(payload) when is_map(payload) do
+    safe_emit(fn -> emit_research_fragment(payload) end)
+  end
+
+  def research_result(_payload), do: :ok
+
+  defp emit_research_fragment(payload) do
+    with {:ok, context} <- payload_context(payload) do
+      payload = Redactor.redact(payload)
+      id = string_value(payload, :objective_id) || "research"
+      summary = string_value(payload, :summary) || "Browser research completed."
+      # Workspace surface props must not carry remote URLs (unsafe_prop_value
+      # guard) — the tile names the source HOST; the full URL is delivered in
+      # the thread message and the objective record.
+      source_host = payload |> research_source() |> url_host()
+
+      body =
+        case source_host do
+          nil -> truncate(summary, 500)
+          host -> truncate("#{truncate(summary, 400)} Source: #{host}", 500)
+        end
+
+      emit_fragment(%{
+        id: "research_result_#{safe_id(id)}",
+        surface:
+          surface(
+            :workspace_objective_card,
+            :allbert,
+            "Browser Research",
+            "/workspace",
+            :workspace,
+            body,
+            [
+              node("research-result-#{safe_id(id)}", :analysis_card, %{
+                title: "Browser research completed",
+                body: body,
+                status: "completed",
+                objective_id: string_value(payload, :objective_id),
+                source: source_host
+              })
+            ],
+            %{source: "allbert_research", fragment_id: "research_result_#{safe_id(id)}"}
+          ),
+        emitter_id: @research_emitter,
+        user_id: context.user_id,
+        thread_id: context.thread_id,
+        scope: :canvas,
+        kind: :analysis_card,
+        emitted_at: DateTime.utc_now(),
+        metadata: %{source: "allbert_research", objective_id: string_value(payload, :objective_id)}
+      })
+    end
+  end
+
+  defp url_host(nil), do: nil
+
+  defp url_host(value) when is_binary(value) do
+    case URI.parse(value) do
+      %URI{host: host} when is_binary(host) and host != "" -> host
+      _other -> nil
+    end
+  end
+
+  # Surface fallback_text is capped at 512; keep the tile body inside it.
+  defp truncate(value, max) when is_binary(value) and byte_size(value) > max do
+    String.slice(value, 0, max - 1) <> "…"
+  end
+
+  defp truncate(value, _max), do: value
+
+  # Research sources arrive as maps (%{url:, title:, ...}) from the delegate —
+  # extract a printable URL/string; never interpolate a map.
+  defp research_source(payload) do
+    payload
+    |> map_value(:sources)
+    |> List.wrap()
+    |> List.first()
+    |> case do
+      %{} = entry -> string_value(entry, :url) || string_value(entry, :title)
+      value when is_binary(value) -> value
+      _other -> nil
+    end
+  end
 
   defp emit_stocksage_fragments(type, payload) do
     with {:ok, context} <- payload_context(payload) do

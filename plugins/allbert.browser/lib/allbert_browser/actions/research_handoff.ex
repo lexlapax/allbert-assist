@@ -281,6 +281,7 @@ defmodule AllbertBrowser.Actions.ResearchHandoff do
         session_approved: true
       ]
       |> maybe_opt(:extract_format, extract_format(params))
+      |> maybe_opt(:source_thread_id, thread_id(context))
 
     case DelegateObjective.start(user_id, target, opts) do
       {:ok, run} ->
@@ -410,6 +411,16 @@ defmodule AllbertBrowser.Actions.ResearchHandoff do
 
   defp surface(context) do
     origin_field(context, :surface) || present(Actions.field(context, :surface))
+  end
+
+  # v1.0.1 M4.2.4: the originating thread — the confirmation's recorded origin
+  # on the approved re-run, the turn's own thread otherwise — so the delegate
+  # objective (and its delivered results) attribute to the thread that asked.
+  defp thread_id(context) do
+    case origin_field(context, :thread_id) || Actions.field(context, :thread_id) do
+      value when is_binary(value) and value != "" -> value
+      _other -> nil
+    end
   end
 
   defp context_channel(context) do

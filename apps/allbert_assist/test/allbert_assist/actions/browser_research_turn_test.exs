@@ -14,6 +14,7 @@ defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Conversations
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.AgentRegistry
   alias AllbertAssist.Objectives.Engine.Agent, as: EngineAgent
@@ -21,6 +22,7 @@ defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Resources.{Grants, Ref, ResourceURI, Scope}
   alias AllbertAssist.Settings
+  alias AllbertAssist.Workspace
   alias AllbertBrowser.Session
 
   setup do
@@ -67,6 +69,10 @@ defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
     setup do
       assert {:ok, _setting} = Settings.put("browser.enabled", true, %{audit?: false})
       assert {:ok, _setting} = Settings.put("research.enabled", true, %{audit?: false})
+      # The async approval resume runs as a supervised Task that shares this
+      # test's sandbox connection; drain it before the sandbox owner stops so
+      # a leftover task cannot poison the next test.
+      on_exit(fn -> drain_resume_tasks() end)
       :ok
     end
 
@@ -366,6 +372,175 @@ defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
     end
   end
 
+  describe "result delivery to the originating thread (M4.2.4)" do
+    setup do
+      assert {:ok, _setting} = Settings.put("browser.enabled", true, %{audit?: false})
+      assert {:ok, _setting} = Settings.put("research.enabled", true, %{audit?: false})
+      # See the consent-gate describe: drain async resume tasks before the
+      # sandbox owner stops.
+      on_exit(fn -> drain_resume_tasks() end)
+      :ok
+    end
+
+    test "the approved sync run attributes the objective to the origin thread and emits the research canvas tile" do
+      assert {:ok, thread} =
+               Conversations.create_thread(%{user_id: "alice", title: "research origin"})
+
+      assert {:ok, response} =
+               Runner.run(
+                 "browser_research_handoff",
+                 %{url: "https://example.com/docs/a"},
+                 %{
+                   user_id: "alice",
+                   operator_id: "alice",
+                   channel: :cli,
+                   thread_id: thread.id,
+                   active_app: :allbert_browser
+                 }
+               )
+
+      assert response.status == :needs_confirmation
+
+      assert {:ok, approval} =
+               Runner.run("approve_confirmation", %{id: response.confirmation_id}, %{
+                 actor: "alice",
+                 user_id: "alice",
+                 channel: :cli,
+                 surface: "mix allbert.confirmations"
+               })
+
+      assert approval.status == :completed
+      assert approval.output_data.run_status == :completed
+
+      # The objective is attributed to the confirmation's ORIGIN thread — the
+      # thread that asked — not to the approval surface.
+      assert [objective] = Objectives.list_objectives("alice", status: "completed", limit: 1)
+      assert objective.source_thread_id == thread.id
+
+      # The completed run delivered a durable analysis_card canvas tile to the
+      # origin thread.
+      assert {:ok, tiles} = Workspace.canvas_tiles(thread.id, "alice")
+      assert [tile] = Enum.filter(tiles, &(&1.kind == "analysis_card"))
+      assert tile.id == "research_result_#{objective.id}"
+      assert tile.metadata["emitter_id"] == "research.specialist"
+
+      # Workspace props never carry a full remote URL (unsafe_prop_value
+      # guard): at most the source HOST appears.
+      # The workspace guard forbids props that ARE remote URLs; free text may
+      # mention one. The structured source prop must be host-only.
+      props = get_in(tile.body, ["surface", "nodes", Access.at(0), "props"])
+      assert props["source"] == "example.com"
+      refute String.starts_with?(props["source"], "https://")
+      refute inspect(tile.metadata) =~ "https://"
+    end
+
+    test "the async (live_view) approved run delivers the tile and appends the completion message to the origin thread" do
+      assert {:ok, thread} =
+               Conversations.create_thread(%{user_id: "alice", title: "research origin async"})
+
+      assert {:ok, response} =
+               Runner.run(
+                 "browser_research_handoff",
+                 %{url: "https://example.com/docs/a"},
+                 %{
+                   user_id: "alice",
+                   operator_id: "alice",
+                   channel: :liveview,
+                   thread_id: thread.id,
+                   active_app: :allbert_browser
+                 }
+               )
+
+      assert response.status == :needs_confirmation
+
+      assert {:ok, approval} =
+               Runner.run("approve_confirmation", %{id: response.confirmation_id}, %{
+                 actor: "alice",
+                 user_id: "alice",
+                 channel: :liveview,
+                 surface: "/workspace"
+               })
+
+      assert approval.status == :completed
+      assert approval.output_data.run_status == :resuming
+
+      objective =
+        eventually_db(fn ->
+          case Objectives.list_objectives("alice", status: "completed", limit: 1) do
+            [%{source_intent: "browser_research_handoff"} = objective] -> {:ok, objective}
+            _other -> :retry
+          end
+        end)
+
+      assert objective.source_thread_id == thread.id
+
+      # The async resume appended an assistant completion message to the
+      # ORIGIN thread's conversation.
+      message =
+        eventually_db(fn ->
+          thread
+          |> Conversations.list_messages()
+          |> Enum.find(fn message ->
+            message.role == "assistant" and
+              String.starts_with?(message.content, "Browser research completed:")
+          end)
+          |> case do
+            nil -> :retry
+            message -> {:ok, message}
+          end
+        end)
+
+      # The thread message (unlike the workspace tile) may carry the full
+      # source URL; sources arrive as maps and are never interpolated raw.
+      assert message.content =~ "Source: https://example.com/docs/a"
+      assert message.content =~ "(objective #{objective.id})"
+      refute message.content =~ "%{"
+      assert message.metadata["source"] == "browser_research_approval_resume"
+      assert message.metadata["objective_id"] == objective.id
+
+      # The canvas tile landed on the origin thread, host-only.
+      assert {:ok, tiles} = Workspace.canvas_tiles(thread.id, "alice")
+      assert [tile] = Enum.filter(tiles, &(&1.kind == "analysis_card"))
+      assert tile.id == "research_result_#{objective.id}"
+      # The workspace guard forbids props that ARE remote URLs; free text may
+      # mention one. The structured source prop must be host-only.
+      props = get_in(tile.body, ["surface", "nodes", Access.at(0), "props"])
+      assert props["source"] == "example.com"
+      refute String.starts_with?(props["source"], "https://")
+      refute inspect(tile.metadata) =~ "https://"
+    end
+
+    test "without an origin thread the run still completes and skips delivery" do
+      assert {:ok, response} =
+               Runner.run(
+                 "browser_research_handoff",
+                 %{url: "https://example.com/docs/a"},
+                 %{
+                   user_id: "alice",
+                   operator_id: "alice",
+                   channel: :cli,
+                   active_app: :allbert_browser
+                 }
+               )
+
+      assert response.status == :needs_confirmation
+
+      assert {:ok, approval} =
+               Runner.run("approve_confirmation", %{id: response.confirmation_id}, %{
+                 actor: "alice",
+                 user_id: "alice",
+                 channel: :cli,
+                 surface: "mix allbert.confirmations"
+               })
+
+      assert approval.status == :completed
+      assert approval.output_data.run_status == :completed
+
+      assert [objective] = Objectives.list_objectives("alice", status: "completed", limit: 1)
+      assert objective.source_thread_id == nil
+    end
+  end
+
   describe "honest blocked reporting (preconditions unmet)" do
     test "browser.enabled off (default) blocks with the exact setting named" do
       assert {:ok, response} =
@@ -415,6 +590,40 @@ defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
       assert response.message =~ "research.specialist"
       assert Objectives.list_objectives("alice", limit: 5) == []
     end
+  end
+
+  # Poll like eventually/2, but tolerate sandbox-connection contention while
+  # the async resume Task holds the shared SQLite connection.
+  defp eventually_db(fun, attempts \\ 200) do
+    eventually(
+      fn ->
+        try do
+          fun.()
+        rescue
+          DBConnection.ConnectionError -> :retry
+        end
+      end,
+      attempts
+    )
+  end
+
+  defp drain_resume_tasks(attempts \\ 200) do
+    case Process.whereis(AllbertAssist.TaskSupervisor) do
+      nil ->
+        :ok
+
+      pid ->
+        cond do
+          Task.Supervisor.children(pid) == [] -> :ok
+          attempts <= 0 -> :ok
+          true -> drain_resume_tasks_retry(attempts)
+        end
+    end
+  end
+
+  defp drain_resume_tasks_retry(attempts) do
+    Process.sleep(25)
+    drain_resume_tasks(attempts - 1)
   end
 
   defp eventually(fun, attempts \\ 200) do

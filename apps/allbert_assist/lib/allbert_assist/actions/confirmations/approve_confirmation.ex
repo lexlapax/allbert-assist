@@ -596,6 +596,11 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     outcome = run_research_handoff_target(record, context)
     metadata = research_handoff_metadata(outcome)
 
+    # v1.0.1 M4.2.4: the originating thread gets the completion message on the
+    # sync path too — a CLI approval must still deliver to the web thread that
+    # asked.
+    _ = append_research_handoff_message(record, context, confirmation_id, outcome)
+
     updated_record =
       case Confirmations.annotate_resolution(confirmation_id, metadata) do
         {:ok, updated} -> updated
@@ -617,6 +622,11 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
           confirmation_id,
           Map.put(research_handoff_metadata(outcome), :target_async?, true)
         )
+
+      # v1.0.1 M4.2.4: deliver the outcome to the originating thread (the
+      # run_analysis async precedent) — best-effort rendering of an
+      # already-authorized result.
+      _ = append_research_handoff_message(record, context, confirmation_id, outcome)
 
       :ok
     end
@@ -651,6 +661,67 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       sources: Map.get(output_data, :sources)
     })
   end
+
+  defp append_research_handoff_message(record, context, confirmation_id, outcome) do
+    with user_id when is_binary(user_id) and user_id != "" <-
+           run_analysis_message_user_id(record, context),
+         thread_id when is_binary(thread_id) and thread_id != "" <-
+           run_analysis_message_thread_id(record, outcome, context),
+         {:ok, thread} <- Conversations.get_thread(user_id, thread_id) do
+      _ =
+        Conversations.append_assistant_message(
+          thread,
+          research_handoff_message(outcome),
+          %{
+            trace_id: Map.get(context, :trace_id),
+            action_log: %{
+              confirmation_id: confirmation_id,
+              target_status: Map.get(outcome, :run_status)
+            },
+            metadata: %{
+              source: "browser_research_approval_resume",
+              confirmation_id: confirmation_id,
+              objective_id: Map.get(outcome, :objective_id)
+            }
+          }
+        )
+
+      :ok
+    else
+      _other -> :ok
+    end
+  end
+
+  defp research_handoff_message(outcome) do
+    case Map.get(outcome, :run_status) do
+      :completed ->
+        "Browser research completed: #{research_outcome_text(Map.get(outcome, :summary), "(no summary)")} " <>
+          "Source: #{research_outcome_source(outcome)} " <>
+          "(objective #{Map.get(outcome, :objective_id) || "unknown"})"
+
+      other ->
+        "Browser research did not complete (status: #{inspect(other)}). " <>
+          research_outcome_text(Map.get(outcome, :summary), "")
+    end
+  end
+
+  # Delegate sources arrive as maps (%{url:, title:, ...}); never interpolate
+  # a map into the thread message.
+  defp research_outcome_source(outcome) do
+    outcome
+    |> Map.get(:sources)
+    |> List.wrap()
+    |> List.first()
+    |> case do
+      %{} = entry -> Map.get(entry, :url) || Map.get(entry, "url") || inspect(entry, limit: 5)
+      value when is_binary(value) -> value
+      _other -> "n/a"
+    end
+  end
+
+  defp research_outcome_text(value, _default) when is_binary(value), do: value
+  defp research_outcome_text(nil, default), do: default
+  defp research_outcome_text(value, _default), do: inspect(value, limit: 10)
 
   defp research_handoff_metadata(outcome) do
     %{
