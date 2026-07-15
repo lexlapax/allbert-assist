@@ -1,5 +1,163 @@
 # DIT-4 — Live Advanced-Surface Regression (v1.0 freeze prerequisite)
 
+## v1.0.1 fix re-attestation — 2026-07-15
+
+**Verdict: FAIL (3 classes PASS; class (a) still fails through the packaged chat
+surface).** This rerun tested source commit `509831b3` in two explicitly different
+forms:
+
+- locally built release `_build/prod/rel/allbert` reporting `allbert 1.0.1` for
+  packaged TUI, channel-routing, ACP, MCP HTTP, OpenAI-compatible HTTP, and web-chat
+  checks; and
+- `MIX_ENV=test mix allbert.test external-smoke` for the repository's real browser
+  and Telegram provider attestation harnesses.
+
+It did **not** use the Homebrew `allbert 1.0.0` binary and is not Homebrew/tap proof.
+All durable state used the disposable Home
+`/tmp/allbert-dit4-v101.ACjz0J/home`; provider credentials came from the operator
+`.env`, with no credential value printed or retained here.
+
+| Class | Result |
+|---|---|
+| (a) Browser research + delegate | **FAIL / mixed** — both real Mix smokes pass, but the required locally built release web-chat prompt still routes to `external_network_request` and is denied instead of starting `browser_research_handoff`. |
+| (b) Channels — outbound + inbound (Telegram) | **PASS** — packaged natural-language routing reached `send_channel_message`, approval completed, and the outbound marker arrived; the real inbound long-poll smoke received the operator-sent marker and passed. |
+| (c) Public protocols — MCP / OpenAI-compatible / ACP | **PASS** — authenticated MCP and OpenAI-compatible calls passed; the new packaged ACP status and real initialize handshake passed with exit 0. |
+| (d) Plan/Build approval smoke | **PASS** — the packaged TUI starts without the Req/Finch crash, accepts the workflow request, resolves the typed same-channel approval, resumes, and completes the objective step. |
+
+### (a) Browser research + delegate — Mix PASS, packaged chat FAIL
+
+The real external-smoke harnesses both passed on the fixed source:
+
+```text
+$ MIX_ENV=test mix allbert.test external-smoke -- browser_research
+1 test, 0 failures
+
+$ MIX_ENV=test mix allbert.test external-smoke -- browser_research_delegate
+1 test, 0 failures
+```
+
+The locally built release was then run with `browser.enabled=true` and
+`research.enabled=true`. In the real web workspace, the exact §I prompt was sent:
+
+```text
+Research https://elixir-lang.org and report the title of its latest blog post.
+Use the browser research capability and include the source URL.
+```
+
+It failed twice, including after a server restart and with the Research app open:
+
+```text
+External network request was denied: :external_services_disabled.
+Status: denied
+```
+
+The Research app remained at `0/64 tiles`, `0 ephemerals`, and `No canvas tiles
+yet`. No research objective was created. This is not the old inert
+`Browser research handoff proposed.` result, but it still fails the packaged-chat
+acceptance contract: the request is routed to `external_network_request` rather than
+the now-wired `browser_research_handoff`. The M4.2 action implementation and its Mix
+smokes are green; the chat routing seam remains unproven/broken.
+
+### (b) Telegram outbound + inbound — PASS
+
+The locally built release configured the real Telegram token and mapped identity;
+`admin channels telegram doctor` reported `status=ok`, `auth_ok=true`, and
+`endpoint_ok=true`. The §G request:
+
+```text
+Send the exact message ALLBERT-V101-M43-OUTBOUND to my configured Telegram channel.
+```
+
+routed correctly:
+
+```text
+Status: needs_confirmation
+Actions:
+- send_channel_message needs_confirmation
+```
+
+Approval `conf_1784121959000000_323` resolved as `local/cli`; the target
+`send_channel_message` completed, and the marker was visibly received in the mapped
+Telegram chat at 06:26. The previous `external_network_request :missing_url`
+misroute did not recur.
+
+The real provider harnesses also passed:
+
+```text
+$ MIX_ENV=test mix allbert.test external-smoke -- telegram
+1 test, 0 failures
+
+$ ALLBERT_TEST_KEEP_TMP=1 MIX_ENV=test \
+    mix allbert.test external-smoke -- inbound_telegram
+marker: allbert-v053-inbound-1784121379 telegram
+1 test, 0 failures (142.3s)
+```
+
+The operator sent that exact inbound marker from mapped Telegram user `7336421071`.
+The retained JSON was copied before cleanup to
+`/tmp/allbert-dit4-v101.ACjz0J/evidence/external-smoke-inbound-telegram-1784121379.json`.
+
+### (c) MCP / OpenAI-compatible / ACP — PASS
+
+With per-client tokens created in the disposable Home:
+
+- authenticated MCP HTTP `tools/list` returned exactly `direct_answer`,
+  `external_network_request`, and `get_public_call_result`;
+- authenticated OpenAI-compatible `/v1/models` returned only `local`;
+- a real `/v1/chat/completions` call returned exactly
+  `ALLBERT-DIT4-V101-PROTOCOL`; and
+- the new packaged ACP commands returned:
+
+```text
+acp_server.enabled=true
+acp_stdio.enabled=true
+acp_protocol_version=1
+acp_transport=stdio_jsonrpc_ndjson
+acp_prompt_capabilities=text_only
+handshake=ok
+handshake_result_protocol_version=1
+handshake exit=0
+```
+
+This closes the v1.0.0 packaged revalidation's ACP proof gap.
+
+### (d) Packaged TUI + Plan/Build same-channel approval — PASS
+
+The empty-Home crash-seam probe exited normally with the designed setup guidance and
+no `Req.FinchSupervisor` / `no process` failure:
+
+```text
+Allbert TUI is waiting for setup. Start the packaged service or run
+`allbert serve --open`, then complete `allbert onboard`.
+```
+
+After packaged QuickStart, TUI identity mapping/enabling, and validation of the
+one-step `dit4_smoke` workflow, the locally built release accepted a real PTY session.
+`help` reached the runtime and returned a response. The default
+`two_stage_local` router then produced the required gate:
+
+```text
+allbert:default> run workflow dit4_smoke
+Approval: conf_1784120938000000_1666 status=pending target=start_plan_run
+Result return: same_channel=true channel=tui
+- ALLBERT:APPROVE:conf_1784120938000000_1666
+- ALLBERT:DENY:conf_1784120938000000_1666
+- ALLBERT:SHOW:conf_1784120938000000_1666
+```
+
+Typing the exact approval in the same TUI session created objective
+`obj_d9d6ab57-1309-4491-9b5c-5277ae159068`, ran and completed its `direct_answer`
+step, and printed:
+
+```text
+Confirmation conf_1784120938000000_1666 is approved.
+Confirmations (1, status=all):
+- conf_1784120938000000_1666: status=approved target=start_plan_run
+```
+
+`/quit` then exited cleanly. The v1.0.0 packaged TUI startup failure and the earlier
+same-channel approval defects did not recur.
+
 ## Packaged v1.0.0 revalidation — 2026-07-15
 
 **Verdict: FAIL.** The source-checkout attestation below is not reproducible from the
