@@ -429,7 +429,7 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
 
   test "local-knowledge-v066-handoff-current-001: the v0.66 no-docs validation handoff is current" do
     flow = read!("docs/plans/archives/v0.65-request-flow.md")
-    roadmap = read!("docs/plans/roadmap.md")
+    roadmap = read!("docs/plans/archives/1.0-roadmap.md")
 
     assert flow =~ "local-knowledge-v066-handoff-current-001"
     assert flow =~ "v0.66 handoff is current"

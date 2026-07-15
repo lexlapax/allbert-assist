@@ -198,7 +198,7 @@ defmodule AllbertAssist.Security.V064SweepEvalTest do
 
   test "first-run-v065-handoff-current-001: local files, notes, and memory handoff is current" do
     v065 = read!("docs/plans/archives/v0.65-plan.md")
-    roadmap = read!("docs/plans/roadmap.md")
+    roadmap = read!("docs/plans/archives/1.0-roadmap.md")
     normalized_v065 = String.replace(v065, ~r/\s+/, " ")
 
     assert v065 =~ "# Allbert v0.65 Local Knowledge: Files, Notes, And Agent Memory"

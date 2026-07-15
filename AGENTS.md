@@ -143,3 +143,19 @@ business-logic debugging, code review, or repository-specific architecture revie
 - Add or revise ADRs when a decision constrains future design.
 - Commit titles follow `<version> <milestone> <small title>` or
   `<version> <small title>`.
+
+## Post-1.0 Release Model (always applies)
+
+- v1.0 froze the public contracts: `mix allbert.test release.v1` must stay green on
+  every change; Tier-2 contracts evolve additively only; Tier-1 changes need a major
+  version and an ADR.
+- Every release is a binary release: tag → CI build → cosign → GitHub Release →
+  Homebrew tap fill (tap push is manual). No source-only releases; `[skip-artifacts]`
+  tags are for docs/source point tags only.
+- Each versioned plan ships one or more features as point tags (1.0.1, 1.0.2, ...)
+  accumulating to the next minor; each minor carries ONE flagship, foundational-first.
+  The sequencing lives in `docs/plans/roadmap.md` (ladder) and
+  `docs/plans/future-features.md` (classified inventory — new ideas enter there with
+  class/effort/provenance before any plan work).
+- Released plan/request-flow docs move to `docs/plans/archives/` at closeout; operator
+  runbook steps must be paste-executable with inline PASS criteria.
