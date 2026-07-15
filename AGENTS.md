@@ -165,7 +165,6 @@ business-logic debugging, code review, or repository-specific architecture revie
 - Every binary release plan carries an upstream-dependency-refresh milestone:
   review tree updates, apply bounded updates, absorb the code changes, gates prove
   it. Major/breaking upgrades or hotfix releases may scope the apply step out with
-  the reason recorded in the plan; the vendored `:memento` exit (ADR 0050) is
-  re-verified at every refresh.
+  the reason recorded in the plan.
 - Released plan/request-flow docs move to `docs/plans/archives/` at closeout; operator
   runbook steps must be paste-executable with inline PASS criteria.

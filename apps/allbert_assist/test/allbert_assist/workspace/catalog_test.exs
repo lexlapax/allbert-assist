@@ -11,7 +11,7 @@ defmodule AllbertAssist.Workspace.CatalogTest do
   test "known components returns the current workspace allow-list" do
     components = Catalog.known_components()
 
-    assert length(components) == 59
+    assert length(components) == 60
     assert Enum.uniq(components) == components
 
     assert Enum.all?(
@@ -43,6 +43,7 @@ defmodule AllbertAssist.Workspace.CatalogTest do
                :ephemeral_surface,
                :approval_card,
                :memory_review_card,
+               :notes_files_panel,
                :analysis_card,
                :debate_round_card
              ],
@@ -81,7 +82,9 @@ defmodule AllbertAssist.Workspace.CatalogTest do
              "workspace:models",
              "workspace:channels",
              "workspace:surface_policy",
-             "workspace:settings"
+             "workspace:settings",
+             "workspace:notes",
+             "workspace:memory"
            ]
 
     assert Enum.find(destinations, &(&1.id == "output")).non_hideable?

@@ -2,7 +2,18 @@
 
 ## Status
 
-Accepted for v0.41 M1 dependency compatibility unblock.
+Superseded — override removed at v1.0.1 M5.1 (2026-07-15). `jido_signal` 2.2.2
+dropped its `:memento ~> 0.5.0` dependency entirely (the only consumer in the
+tree), so the removal criteria below were met by upstream deletion rather than an
+upstream fix: the Jido stack was bumped to `jido` 2.3.2 / `jido_action` 2.3.1 /
+`jido_signal` 2.2.2, `vendor/memento` and the `apps/allbert_assist/mix.exs` path
+override were deleted, `mix deps.tree` shows no `memento`, and
+`mix compile --warnings-as-errors` plus the focused v1.0.1 gate files pass without
+it. Criterion 2 (`mix deps.compile memento`) is moot — the package is no longer a
+dependency. Historical benchmark references in `docs/developer/test-strategy.md`
+and `docs/plans/archives/v0.41-plan.md` remain verbatim as shipped history.
+
+Previously: Accepted for v0.41 M1 dependency compatibility unblock.
 
 ## Context
 

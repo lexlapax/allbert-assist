@@ -11,8 +11,9 @@ defmodule AllbertAssist.Surface.CatalogTest do
   test "component membership is shared by Surface and Workspace catalog facades" do
     assert Catalog.known_components() == Surface.known_components()
     assert Catalog.known_components() == Workspace.Catalog.known_components()
-    # 59 since v0.61 M10.3 P0-7 (channels panel wiring); reconciled at v0.61b M0.2.
-    assert length(Catalog.known_components()) == 59
+    # 60 since v0.65 M3 added :notes_files_panel (59 at v0.61b M0.2); count pin
+    # reconciled at v1.0.1 M5 drift review.
+    assert length(Catalog.known_components()) == 60
     assert :chat in Catalog.known_components()
     assert :workspace_shell in Catalog.known_components()
     assert :app_launcher in Catalog.known_components()

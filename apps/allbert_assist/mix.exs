@@ -91,7 +91,6 @@ defmodule AllbertAssist.MixProject do
       # Jido agent framework + ecosystem
       # Local override until upstream Memento releases an Elixir 1.19-safe
       # replacement for its conflicting `record/0` typespec.
-      {:memento, path: "../../vendor/memento", override: true},
       {:jido, "~> 2.3"},
       {:jido_action, "~> 2.3"},
       {:jido_signal, "~> 2.2"},

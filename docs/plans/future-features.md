@@ -1944,10 +1944,12 @@ Deferred at: the v0.41 plan (sweep-flagged, no single line ref).
 ### Vendored Memento Removal (Jido Upstream Fix)
 
 Class: Should-candidate (operator intake 2026-07-15; operator slotted it on the
-1.0.x technical-debt train) · Effort: S · Slice: 1.0.x technical-debt train,
-blocked on upstream
+1.0.x technical-debt train) · Effort: S · Slice: 1.0.1 (unblocked at the M5
+refresh)
 
-Status: parked (blocked on upstream; re-verify at every dependency refresh).
+Status: planned — `docs/plans/v1.0.1-plan.md` M5.1 (implemented 2026-07-15:
+`jido_signal` 2.2.2 dropped the `:memento` pin; vendored copy + override
+deleted, ADR 0050 superseded; entry removed at tag-closeout).
 
 Allbert maintains a vendored copy of Hex `:memento` 0.5.0 at `vendor/memento`
 (`{:memento, path: "../../vendor/memento", override: true}` in

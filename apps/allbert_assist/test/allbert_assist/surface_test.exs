@@ -84,9 +84,10 @@ defmodule AllbertAssist.SurfaceTest do
   end
 
   test "known components include the current workspace catalog" do
-    # 59 = 57 + the two component atoms added by v0.61 M10.3 P0-7 (channels
-    # panel wiring); the count was never reconciled at that closeout (v0.61b M0.2).
-    assert Surface.known_components() |> length() == 59
+    # 60 = 59 (v0.61b M0.2 reconciliation) + :notes_files_panel (v0.65 M3);
+    # the count pin was never reconciled at the v0.65 closeout — caught and
+    # fixed at v1.0.1 M5 drift review.
+    assert Surface.known_components() |> length() == 60
     assert :chat in Surface.known_components()
     assert :route in Surface.known_components()
     assert :action_button in Surface.known_components()

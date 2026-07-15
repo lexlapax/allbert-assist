@@ -21,9 +21,9 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    (implementation-ready 2026-07-15).
 2. **1.0.x** — incremental: test suite speed & isolation (lane-by-lane, incl. the
    fast-local web split), v0.58 cleanup tails, Tier-2->Tier-1 promotion ADR (docs),
-   intent-pipeline refinements (opportunistic), technical-debt train: vendored
-   `:memento` removal when the Jido/upstream fix lands (ADR 0050 exit, re-verified
-   at every dependency refresh per the Working Rules below).
+   intent-pipeline refinements (opportunistic), and the technical-debt train.
+   (The vendored `:memento` removal landed early: 1.0.1's M5 refresh found
+   `jido_signal` 2.2.2 dropped the pin — ADR 0050 superseded.)
 3. **1.1 — Zero-Click First Run.** Chat-ready default with an auto-detected local
    model; onboarding optional and step-addressable; consent ADR; TUI first-run scope
    folded in. Enablers: model chooser/catalog, model fallback/degradation policy.
@@ -59,8 +59,8 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
   code changes, gates prove the result. A major/breaking upgrade may be scoped out
   to its own milestone or the next release with the reason recorded in the plan;
   an emergency hotfix release may skip the apply step (review still runs) with the
-  skip recorded. The vendored `:memento` exit (ADR 0050) is re-verified at every
-  refresh.
+  skip recorded. (The rule's first standing checkpoint — the vendored `:memento`
+  exit, ADR 0050 — resolved at the v1.0.1 M5 refresh.)
 - Backlog lifecycle: an item that gains an implementation plan is marked
   `Status: planned — <plan doc>` in future-features.md and its ladder entry here
   links the plan triad. After the plan is implemented and tagged, the item is
