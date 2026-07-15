@@ -26,11 +26,10 @@ For contributors:
 
 For the shipped release line, feature summary, and history, see the
 [CHANGELOG](../CHANGELOG.md) and [roadmap](plans/roadmap.md) — the canonical
-sources. The full plan/request-flow set for every release lives in
-[plans](plans/README.md); the current and next lines are:
+sources. The plan/request-flow set for every released version lives in
+[plans/archives](plans/archives/README.md); the current line is:
 
-- Current shipped line: [v0.65 plan](plans/v0.65-plan.md) · [v0.65 request flow](plans/v0.65-request-flow.md)
-- Integrated product RC: [v0.66 plan](plans/v0.66-plan.md) · [v0.66 request flow](plans/v0.66-request-flow.md)
+- Current shipped line: **v1.0.0** — [v1.0 plan](plans/archives/v1.0-plan.md) · [v1.0 request flow](plans/archives/v1.0-request-flow.md)
 
 For release-specific validation, use the matching request-flow document rather
 than this index.
