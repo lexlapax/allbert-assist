@@ -1,6 +1,5 @@
 defmodule Mix.Tasks.Allbert.McpTest do
-  use AllbertAssist.DataCase, async: false
-  @moduletag :app_env_serial
+  use AllbertAssist.DataCase, async: false, lane: :external_runtime_serial
 
   import ExUnit.CaptureIO
 

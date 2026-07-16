@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Intent.RankerTest do
   use ExUnit.Case, async: false
+  @moduletag :app_env_serial
 
   alias AllbertAssist.Intent.EvalFixtures
   alias AllbertAssist.Intent.Ranker

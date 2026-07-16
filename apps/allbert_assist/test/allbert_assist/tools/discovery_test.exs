@@ -1,6 +1,5 @@
 defmodule AllbertAssist.Tools.DiscoveryTest do
-  use AllbertAssist.DataCase, async: false
-  @moduletag :external_runtime_serial
+  use AllbertAssist.DataCase, async: false, lane: :external_runtime_serial
 
   alias AllbertAssist.McpRegistryFixtures
   alias AllbertAssist.Paths

@@ -32,8 +32,7 @@ defmodule AllbertBrowser.Actions.ResearchHandoff do
     tags: ["browser", "intent", "handoff", "confirmation_required"],
     schema: [
       url: [type: :string, required: false],
-      format: [type: :string, required: false],
-      user_id: [type: :string, required: false]
+      format: [type: :string, required: false]
     ],
     output_schema: [
       message: [type: :string, required: true],
@@ -150,8 +149,8 @@ defmodule AllbertBrowser.Actions.ResearchHandoff do
 
   defp consent_message(response, _target), do: response
 
-  defp resume_params(target, params, context) do
-    base = %{url: target, user_id: user_id(params, context)}
+  defp resume_params(target, params, _context) do
+    base = %{url: target}
 
     case extract_format(params) do
       nil -> base
@@ -270,7 +269,7 @@ defmodule AllbertBrowser.Actions.ResearchHandoff do
   # approval recorded, so the run completes with no mid-flight confirmations.
 
   defp start_research(target, params, context, decision) do
-    user_id = user_id(params, context)
+    user_id = user_id(context)
 
     opts =
       [
@@ -394,9 +393,11 @@ defmodule AllbertBrowser.Actions.ResearchHandoff do
   defp failure_summary(%{message: message}) when is_binary(message), do: message
   defp failure_summary(result), do: inspect(result)
 
-  defp user_id(params, context) do
-    Actions.field(params, :user_id) ||
-      Actions.field(context, :user_id) ||
+  # Identity comes from runner context only, never from action params: the
+  # schema must not expose a model-controlled user_id (param-contract policy).
+  # On the approved re-run the approver's context supplies it.
+  defp user_id(context) do
+    Actions.field(context, :user_id) ||
       Actions.field(Actions.field(context, :request) || %{}, :user_id) ||
       "local"
   end

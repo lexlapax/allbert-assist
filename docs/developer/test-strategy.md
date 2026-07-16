@@ -720,6 +720,50 @@ adds the final census/timing comparison and a 20-seed full-suite table
 recording seed, duration, result, failure classification, and isolated
 reproduction/disposition (a one-time ~4.5–7.5h backgrounded campaign).
 
+### v1.0.2 M1 Post-Reconciliation Baseline — 2026-07-15
+
+Pre and post measured with identical commands on the same host, strictly
+sequentially (no concurrent runs). **Pre** = a clean git worktree of HEAD
+`5b014a69` (v1.0.1 + the M0 docs commit), freshly compiled. **Post** = the M1
+tree (this commit). All exits checked unpiped. Pre wall times carry cold-cache
+effects; the load-bearing columns are exit status and tests executed.
+
+| Metric | Pre (HEAD worktree) | Post (M1) |
+| --- | --- | --- |
+| `inventory --check-tags` | exit 1, **173 findings** | exit 0, **0 findings** |
+| Residue matrix (7 §A invocations) | **3/7 failed this run** (rows 1, 3, 4); earlier pre-fix observations failed different subsets (2, 5, 6/7) — nondeterministic | **7/7 green**, deterministic |
+| `fast-local --core-lanes -p4` (quick) | **exit 1** @199s, 1,088 tests executed, aborts at db_serial p1 | **exit 0** @394s, **1,774 tests** executed |
+| `fast-local` high-coverage (core+stocksage+web, p4) | **exit 1** @255s, 1,088 executed (abort truncates web/stocksage) | **exit 0** @653s, **2,009 tests** executed |
+| `prepush` | **exit 1** @234s, same abort | **exit 0** @671s, 2,009 executed in the test phase |
+| `release.v1` | exit 0 @172s, 31 executed | exit 0 @45s, 31 executed |
+
+The pre-side gate failure is the Ranker slot-boost compounding bug
+(research_descriptor_test in db_serial p1): **v1.0.1 HEAD cannot pass its own
+fast-local/prepush gates once its first partitioned lane actually runs** — the
+lane runner then aborts the phase, so everything behind it (including nine
+more latent defects fixed in M1, see the plan's Build Progress) stayed
+invisible. Executed-count deltas (+686 quick / +921 high-coverage) quantify
+the tests that existed but never ran pre-reconciliation.
+
+Single-VM lanes (release-gate phases), post-M1, all green:
+`external_runtime_serial` 590 tests (12 skipped) @~8min;
+`security_eval_serial` 349 tests @~4min; web `mix test` and stocksage suites
+green inside high-coverage/release runs.
+
+Lane census (504 files, checker-agreed): app_env_serial 116, db_serial 112,
+external_runtime_serial 88, pure_async 58, security_eval_serial 47,
+global_process_serial 32, liveview_serial 31, home_fs_serial 20.
+
+Per-lane partition wall times, post-M1 high-coverage run (`--partitions 4`,
+p1–p4 in order): core db_serial 71.8/72.6/103.8/55.6s;
+core app_env_serial 83.0/111.8/69.6/130.2s;
+core home_fs_serial 23.7/5.9/5.5/4.1s;
+core global_process_serial 10.9/17.9/8.6/30.0s;
+stocksage db_serial 55.6/17.8/1.5/1.5s;
+stocksage app_env_serial 1.0/0.8/0.6s; stocksage global_process 2.0/0.05/2.3s;
+web liveview_serial 132.4/75.0/156.6/51.9s. The M4 web-split and M3
+conversion targets measure against these numbers.
+
 The M3 isolation lock freezes these root derivations for helpers and gates:
 
 | Resource | Required test derivation |

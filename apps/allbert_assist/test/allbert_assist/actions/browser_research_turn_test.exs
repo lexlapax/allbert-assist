@@ -10,7 +10,6 @@ defmodule AllbertAssist.Actions.BrowserResearchTurnTest do
   """
 
   use AllbertAssist.DataCase, async: false
-  @moduletag :home_fs_serial
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations

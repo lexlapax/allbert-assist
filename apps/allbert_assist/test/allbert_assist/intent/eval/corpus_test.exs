@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Intent.Eval.CorpusTest do
   use ExUnit.Case, async: true
+  @moduletag :home_fs_serial
 
   alias AllbertAssist.Intent.Eval.Corpus
 

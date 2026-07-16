@@ -4,6 +4,7 @@ defmodule AllbertAssistWeb.Workspace.FirstRunTest do
   completed onboarding with no usable model opens the standalone model repair panel.
   """
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   # v0.63 M7.7: part of the web onboarding coverage `release.v063` runs.
   @moduletag :onboarding_wizard

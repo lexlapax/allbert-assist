@@ -11,7 +11,6 @@ defmodule AllbertAssist.Security.V1SweepEvalTest do
   presence, not exhaustive equality. Every proof calls `AssertBinding.check!/2`.
   """
   use AllbertAssist.SecurityEvalCase, async: false
-  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Actions.Runner

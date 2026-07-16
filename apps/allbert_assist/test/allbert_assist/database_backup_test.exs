@@ -5,6 +5,7 @@ defmodule AllbertAssist.DatabaseBackupTest do
   failed backup refuses the boot (not silent, not automated rollback).
   """
   use ExUnit.Case, async: false
+  @moduletag :db_serial
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Database

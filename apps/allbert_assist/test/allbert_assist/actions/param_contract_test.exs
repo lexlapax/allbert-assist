@@ -1,6 +1,5 @@
 defmodule AllbertAssist.Actions.ParamContractTest do
-  use AllbertAssist.DataCase, async: false, lane: :app_env_serial
-  @moduletag :app_env_serial
+  use AllbertAssist.DataCase, async: false
   @moduletag :param_contract
 
   alias AllbertAssist.Actions.ParamContract
@@ -476,6 +475,7 @@ defmodule AllbertAssist.Actions.ParamContractTest do
   defp effectful_replay_dispositions do
     %{
       "append_memory" => "memory-write action with no identity params in schema",
+      "browser_research_handoff" => "confirmation-gated browser research delegate handoff",
       "cancel_objective" => "objective engine action with explicit objective id params",
       "continue_objective" => "confirmation-gated objective engine action",
       "create_skill" => "confirmation-gated skill-write action",

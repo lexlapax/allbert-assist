@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Resources.ImageBoundsTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.Resources.ImageBounds
 

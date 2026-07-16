@@ -1076,6 +1076,17 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
       Enum.each(provider_env_keys, &System.delete_env/1)
       System.put_env("OLLAMA_HOST", "https://example.invalid")
+
+      # v1.0.2 M1 residue (a): `CLI.FirstRun.detect/0`'s first gate is
+      # `home_initialized?` = Home dir present AND `<home>/db/allbert.sqlite3`
+      # present. The per-test tmp home has neither, so solo runs detect
+      # `:home_missing` and the repair destination never resolves. Own the
+      # Home marker alongside the onboarding markers below (the file-level
+      # setup already owns the Paths env and removes the root in on_exit).
+      home = Paths.home()
+      File.mkdir_p!(Path.join(home, "db"))
+      File.touch!(Path.join([home, "db", "allbert.sqlite3"]))
+
       FirstRun.reset_onboarding()
       FirstRun.mark_onboarding_complete()
       FirstRun.mark_profile_reviewed()

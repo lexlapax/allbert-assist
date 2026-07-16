@@ -1,7 +1,6 @@
 defmodule AllbertAssist.External.SignalSmokeTest do
   use ExUnit.Case, async: false
   @moduletag :external_runtime_serial
-  @moduletag :home_fs_serial
 
   if System.get_env("ALLBERT_SIGNAL_EXTERNAL_SMOKE") != "1" do
     @moduletag skip: "set ALLBERT_SIGNAL_EXTERNAL_SMOKE=1 to run the real Signal smoke"

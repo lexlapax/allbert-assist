@@ -1,5 +1,6 @@
 defmodule AllbertAssist.TracePlanBuildTest do
   use ExUnit.Case, async: false
+  @moduletag :global_process_serial
 
   alias AllbertAssist.Trace
 

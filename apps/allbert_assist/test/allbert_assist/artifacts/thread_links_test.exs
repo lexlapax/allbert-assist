@@ -9,9 +9,6 @@ defmodule AllbertAssist.Artifacts.ThreadLinksTest do
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
 
-  @moduletag :home_fs_serial
-  @moduletag :app_env_serial
-
   @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR", "ALLBERT_SETTINGS_ROOT"]
 
   setup do

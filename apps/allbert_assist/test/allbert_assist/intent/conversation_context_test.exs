@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Intent.ConversationContextTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.Intent.ConversationContext, as: CC
 

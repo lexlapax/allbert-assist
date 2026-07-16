@@ -576,6 +576,9 @@ defmodule AllbertAssist.App.ValidatorTest do
              # this exact list was never reconciled at that closeout (v0.61b M0.2).
              :core_channels_panel,
              :core_surface_policy_panel,
+             # v0.65 M4 added the memory review panel (order 49); stale here until
+             # the v1.0.2 M1 lane reconciliation made this lane actually run.
+             :core_memory_panel,
              :core_settings_panel,
              :plan_build_preview_panel,
              :plan_build_run_progress_panel,

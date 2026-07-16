@@ -6,6 +6,7 @@ defmodule AllbertAssist.CLI.FirstRunTest do
   `blocked` state).
   """
   use ExUnit.Case, async: false
+  @moduletag :app_env_serial
 
   alias AllbertAssist.CLI.FirstRun
 

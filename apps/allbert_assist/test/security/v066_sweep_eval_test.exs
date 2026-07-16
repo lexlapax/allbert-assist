@@ -16,7 +16,6 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
   that exist at each commit (no magic number until M11 finalizes the full set).
   """
   use AllbertAssist.SecurityEvalCase, async: false
-  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Actions.Memory.ReviewMemoryEntry
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry

@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Voice.TranscriptResponseTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.Voice.TranscriptResponse
 

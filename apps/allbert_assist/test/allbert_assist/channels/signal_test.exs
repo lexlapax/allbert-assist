@@ -1,5 +1,5 @@
 defmodule AllbertAssist.Channels.SignalTest do
-  use AllbertAssist.DataCase, async: false
+  use AllbertAssist.DataCase, async: false, lane: :external_runtime_serial
 
   import Ecto.Query
   import Plug.Conn

@@ -1,6 +1,6 @@
 defmodule AllbertAssist.Intent.Router.PendingStoreTest do
   use ExUnit.Case, async: false
-  @moduletag :app_env_serial
+  @moduletag :global_process_serial
 
   alias AllbertAssist.Intent.PendingClarification
   alias AllbertAssist.Intent.Router.PendingStore

@@ -1,7 +1,6 @@
 defmodule AllbertAssist.PublicProtocol.HttpIngressTest do
   use ExUnit.Case, async: false
-  @moduletag :app_env_serial
-  @moduletag :global_process_serial
+  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Paths
   alias AllbertAssist.PublicProtocol.HttpIngress

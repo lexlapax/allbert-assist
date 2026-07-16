@@ -5,6 +5,7 @@ defmodule AllbertAssist.Plugin.PathsTest do
   machine's checkout path into the artifact).
   """
   use ExUnit.Case, async: false
+  @moduletag :app_env_serial
 
   alias AllbertAssist.Plugin.Paths
 

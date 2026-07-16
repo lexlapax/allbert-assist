@@ -23,6 +23,28 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
 
+    # v1.0.2 M1 residue (c): the action-surface pin below reads the GLOBAL
+    # plugin registry (`Registry.agent_modules/0` folds in plugin actions), so
+    # solo-vs-batch registry contents flipped the assertion. Seed a
+    # deterministic baseline matching the core+browser+notes+stocksage combo
+    # (mirrors intent/engine_test.exs); restore the prior registrations after.
+    original_plugins = PluginRegistry.registered_plugins()
+    original_diagnostics = PluginRegistry.diagnostics()
+
+    PluginRegistry.clear()
+    assert {:ok, "stocksage"} = PluginRegistry.register_module(StockSage.Plugin)
+    assert {:ok, "allbert.notes_files"} = PluginRegistry.register_module(AllbertNotesFiles.Plugin)
+    assert {:ok, "allbert.browser"} = PluginRegistry.register_module(AllbertBrowser.Plugin)
+
+    on_exit(fn ->
+      PluginRegistry.clear()
+      Enum.each(original_plugins, &PluginRegistry.register_entry/1)
+
+      Enum.each(original_diagnostics, fn {plugin_id, diagnostics} ->
+        PluginRegistry.put_diagnostics(plugin_id, diagnostics)
+      end)
+    end)
+
     root =
       Path.join(
         System.tmp_dir!(),
@@ -81,6 +103,9 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
       "list_settings",
       "read_setting",
       "update_setting",
+      # v0.65: set_notes_root joined the static @agent_actions surface
+      # (Actions.Registry); the pin drifted until v1.0.2 M1 re-baselined it.
+      "set_notes_root",
       "explain_setting",
       "list_provider_profiles",
       "list_model_profiles",

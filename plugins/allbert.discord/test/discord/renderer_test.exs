@@ -1,5 +1,6 @@
 defmodule AllbertDiscord.RendererTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.Channels.Discord.Renderer
 

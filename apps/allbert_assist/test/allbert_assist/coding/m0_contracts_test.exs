@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Coding.M0ContractsTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.Channels.TUI.Renderer
   alias AllbertAssist.Coding.StreamEvent

@@ -1,7 +1,6 @@
 defmodule AllbertAssist.External.BrowserResearchDelegateSmokeTest do
   use ExUnit.Case, async: false
   @moduletag :external_runtime_serial
-  @moduletag :home_fs_serial
 
   if System.get_env("ALLBERT_BROWSER_RESEARCH_DELEGATE_EXTERNAL_SMOKE") != "1" do
     @moduletag skip:

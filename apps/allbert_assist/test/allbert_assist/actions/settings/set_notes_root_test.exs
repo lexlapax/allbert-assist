@@ -1,6 +1,6 @@
 defmodule AllbertAssist.Actions.Settings.SetNotesRootTest do
   use ExUnit.Case, async: false
-  @moduletag :external_runtime_serial
+  @moduletag :app_env_serial
 
   alias AllbertAssist.Actions.Settings.SetNotesRoot
   alias AllbertAssist.Settings

@@ -1,6 +1,5 @@
 defmodule AllbertAssist.Actions.PlanBuildActionsTest do
   use AllbertAssist.DataCase, async: false
-  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Channels.ConfirmationCallback

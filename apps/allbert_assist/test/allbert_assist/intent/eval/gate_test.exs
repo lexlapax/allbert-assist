@@ -1,12 +1,22 @@
 defmodule AllbertAssist.Intent.Eval.GateTest do
   use ExUnit.Case, async: false
-  @moduletag :external_runtime_serial
+  @moduletag :app_env_serial
 
   alias AllbertAssist.Intent.Eval.Gate
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ProviderPreconditions
 
   setup do
+    # v1.0.2 M1: retagged external_runtime_serial → app_env_serial; earlier
+    # suites in this lane can leave the GLOBAL app/plugin registries partial,
+    # and the promotion check resolves live descriptors — re-assert the corpus
+    # domains (golden_set_test.exs precedent) or domain accuracy collapses.
+    ProviderPreconditions.ensure_stocksage_descriptors!()
+    ProviderPreconditions.ensure_notes_files_descriptors!()
+    ProviderPreconditions.ensure_browser_descriptors!()
+    ProviderPreconditions.ensure_research_descriptors!()
+
     original_home = System.get_env("ALLBERT_HOME")
     original_paths = Application.get_env(:allbert_assist, Paths)
     original_settings = Application.get_env(:allbert_assist, Settings)

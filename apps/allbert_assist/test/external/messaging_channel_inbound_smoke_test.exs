@@ -1,8 +1,6 @@
 defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
   use ExUnit.Case, async: false
   @moduletag :external_runtime_serial
-  @moduletag :home_fs_serial
-  @moduletag :app_env_serial
   # The test waits for an operator to send a real inbound message; ExUnit's
   # default per-test timeout is 60s, which would kill the wait early. Let the
   # internal deadline (ALLBERT_MESSAGING_CHANNEL_INBOUND_TIMEOUT_MS) govern.

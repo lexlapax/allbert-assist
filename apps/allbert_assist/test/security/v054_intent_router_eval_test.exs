@@ -8,7 +8,6 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
   """
   use ExUnit.Case, async: false
   @moduletag :security_eval_serial
-  @moduletag :app_env_serial
 
   alias AllbertAssist.Actions.Calendar.CreateCalendarEvent
   alias AllbertAssist.Actions.Channels.SendChannelMessage

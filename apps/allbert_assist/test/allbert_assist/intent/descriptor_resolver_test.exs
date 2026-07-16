@@ -1,7 +1,7 @@
 defmodule AllbertAssist.Intent.Router.DescriptorResolverTest do
   @moduledoc "v0.54 M9.3a — layered descriptor resolution."
   use ExUnit.Case, async: false
-  @moduletag :global_process_serial
+  @moduletag :app_env_serial
 
   alias AllbertAssist.Extensions.Registry, as: ExtensionsRegistry
   alias AllbertAssist.Intent.Router.DescriptorResolver

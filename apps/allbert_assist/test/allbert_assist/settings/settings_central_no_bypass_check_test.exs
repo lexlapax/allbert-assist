@@ -6,6 +6,7 @@ Code.require_file(
 
 defmodule AllbertAssist.SettingsCentralNoBypassCheckTest do
   use ExUnit.Case, async: true
+  @moduletag :home_fs_serial
 
   alias AllbertAssist.Credo.Check.SettingsCentralNoBypass
   alias Credo.SourceFile

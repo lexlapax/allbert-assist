@@ -1,6 +1,5 @@
 defmodule Mix.Tasks.Allbert.SelfImprovementTest do
   use AllbertAssist.DataCase, async: false
-  @moduletag :app_env_serial
 
   import ExUnit.CaptureIO
 

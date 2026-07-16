@@ -1,5 +1,6 @@
 defmodule Mix.Tasks.Allbert.TuiTest do
   use ExUnit.Case, async: false
+  @moduletag :db_serial
 
   alias AllbertAssist.Repo
   alias Mix.Tasks.Allbert.Tui

@@ -1,6 +1,5 @@
 defmodule AllbertAssist.Actions.SelfImprovementDraftActionsTest do
   use AllbertAssist.DataCase, async: false
-  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner

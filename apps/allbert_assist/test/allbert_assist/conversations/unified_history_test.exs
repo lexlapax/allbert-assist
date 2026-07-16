@@ -1,6 +1,5 @@
 defmodule AllbertAssist.Conversations.UnifiedHistoryTest do
   use AllbertAssist.DataCase, async: false
-  @moduletag :global_process_serial
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations

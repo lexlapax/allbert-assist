@@ -1,6 +1,6 @@
 defmodule AllbertAssist.Settings.ModelPreferencesTest do
   use ExUnit.Case, async: false
-  @moduletag :external_runtime_serial
+  @moduletag :app_env_serial
 
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings

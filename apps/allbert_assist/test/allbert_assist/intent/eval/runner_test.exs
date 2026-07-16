@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Intent.Eval.RunnerTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.Intent.Descriptor
   alias AllbertAssist.Intent.Eval.Corpus

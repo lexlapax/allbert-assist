@@ -1,6 +1,5 @@
 defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
   use AllbertAssist.SecurityEvalCase, async: false
-  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.App.Registry, as: AppRegistry

@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Surface.RendererTest do
   use ExUnit.Case, async: true
+  @moduletag :home_fs_serial
 
   alias AllbertAssist.Surface.Renderer
 

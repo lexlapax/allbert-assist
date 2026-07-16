@@ -5,6 +5,7 @@ defmodule AllbertAssistWeb.Workspace.VisualHierarchyTest do
   cards read as larger panels, and empty/first-run states are soft, legible cards.
   """
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   @moduletag :v061_hierarchy
 

@@ -1,7 +1,5 @@
 defmodule AllbertAssist.Security.V044PlanBuildEvalTest do
-  use AllbertAssist.DataCase, async: false
-  @moduletag :security_eval_serial
-  @moduletag :home_fs_serial
+  use AllbertAssist.DataCase, async: false, lane: :security_eval_serial
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Objectives

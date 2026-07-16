@@ -1,6 +1,5 @@
 defmodule Mix.Tasks.Allbert.TestTaskTest do
   use ExUnit.Case, async: false
-  @moduletag :home_fs_serial
   @moduletag :app_env_serial
 
   import ExUnit.CaptureIO
@@ -223,14 +222,22 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
              "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:829"
   end
 
-  test "docs gate scope includes active plans and v1 handoff" do
+  # Post-v1.0.0 (3c6c7230): released version docs live in docs/plans/archives/,
+  # indexed via the plans README; the active scope is the living planning docs.
+  # The original archives/v0.66 expectation here went stale in that turnover —
+  # surfaced by the v1.0.2 M1 lane reconciliation (this file was double-tagged
+  # and its lane barely ran pre-reconciliation).
+  test "docs gate scope is the living planning docs with an archives index check" do
     source =
       Path.expand("../../../lib/mix/tasks/allbert.test.ex", __DIR__)
       |> File.read!()
 
     assert source =~ ~s(@docs_active_plan_files)
-    assert source =~ ~s("docs/plans/archives/v0.66-plan.md")
-    assert source =~ ~s("docs/plans/archives/v1.0-handoff.md")
+    assert source =~ ~s("docs/plans/README.md")
+    assert source =~ ~s("docs/plans/roadmap.md")
+    assert source =~ ~s("docs/plans/allbert-jido-vision.md")
+    assert source =~ ~s("docs/plans/future-features.md")
+    refute source =~ ~s("docs/plans/v0.66-plan.md")
     assert source =~ ~s(defp docs_check_plan_index)
     assert source =~ ~s(operator/developer/design/plans indexes complete)
   end

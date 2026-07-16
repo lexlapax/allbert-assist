@@ -10,6 +10,7 @@ defmodule AllbertAssistWeb.V061b.DarkLockstepTest do
   itself is the operator's S3 judgment, not this proof).
   """
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   @moduletag :dark_tokens
 

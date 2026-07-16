@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Docs.V058RequestFlowTest do
   use ExUnit.Case, async: true
+  @moduletag :external_runtime_serial
 
   @request_flow Path.expand("../../../../../docs/plans/archives/v0.58-request-flow.md", __DIR__)
 

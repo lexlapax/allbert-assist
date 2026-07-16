@@ -4,6 +4,7 @@ defmodule Mix.Tasks.Allbert.OnboardTest do
   dev mirror of `allbert onboard`); the legacy objective flow is retired.
   """
   use ExUnit.Case, async: false
+  @moduletag :app_env_serial
 
   import ExUnit.CaptureIO
 

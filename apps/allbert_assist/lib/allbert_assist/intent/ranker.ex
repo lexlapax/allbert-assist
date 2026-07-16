@@ -107,7 +107,13 @@ defmodule AllbertAssist.Intent.Ranker do
     do: field(candidate, :kind) == :app_intent and required_slots != []
 
   defp apply_descriptor_slot_signal(candidate, extracted_slots, [], scoring) do
-    if map_size(extracted_slots) > 0 do
+    # The engine ranks candidate lists more than once (decide/1 and
+    # put_candidate_metadata/2 both re-rank collect_candidates output), so this
+    # boost must be idempotent like apply_descriptor_text_match/3 — otherwise a
+    # slot-complete descriptor compounds +boost per pass and outranks stronger
+    # text matches.
+    if map_size(extracted_slots) > 0 and
+         get_in_trace(candidate, :slot_ranking_reason) != :complete_required_slots do
       candidate
       |> put_field(:score, score(candidate) + scoring.complete_required_slots_boost)
       |> put_trace(:slot_ranking_reason, :complete_required_slots)

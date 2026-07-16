@@ -1,8 +1,6 @@
 defmodule AllbertAssist.External.MatrixInboundSmokeTest do
   use ExUnit.Case, async: false
   @moduletag :external_runtime_serial
-  @moduletag :home_fs_serial
-  @moduletag :app_env_serial
   @moduletag timeout: :infinity
 
   if System.get_env("ALLBERT_MATRIX_INBOUND_EXTERNAL_SMOKE") != "1" do

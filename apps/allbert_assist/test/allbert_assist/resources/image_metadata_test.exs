@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Resources.ImageMetadataTest do
   use ExUnit.Case, async: true
+  @moduletag :home_fs_serial
 
   alias AllbertAssist.Resources.ImageMetadata
 

@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Coding.M4StreamRenderingTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.Channels.TUI.LiveRegion
   alias AllbertAssist.Channels.TUI.Renderer

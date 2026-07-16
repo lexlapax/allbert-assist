@@ -1,7 +1,6 @@
 defmodule AllbertAssistWeb.PerfCspBaselineTest do
   use AllbertAssistWeb.ConnCase, async: false
 
-  @moduletag :app_env_serial
   @moduletag :perf_csp_baseline
 
   alias AllbertAssist.Paths

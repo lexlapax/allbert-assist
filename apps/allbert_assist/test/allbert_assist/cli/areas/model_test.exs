@@ -1,5 +1,6 @@
 defmodule AllbertAssist.CLI.Areas.ModelTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.CLI.Areas.Model, as: Area
 

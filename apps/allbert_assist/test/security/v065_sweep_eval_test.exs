@@ -12,7 +12,6 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
   keep the row inventory complete, routed, and bound.
   """
   use AllbertAssist.SecurityEvalCase, async: false
-  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Actions.Memory.DeleteMemoryEntry
   alias AllbertAssist.Actions.Memory.ReviewMemoryEntry

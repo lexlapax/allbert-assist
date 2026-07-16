@@ -1,8 +1,6 @@
 defmodule AllbertAssist.Security.V045MarketplaceEvalTest do
   use ExUnit.Case, async: false
   @moduletag :security_eval_serial
-  @moduletag :home_fs_serial
-  @moduletag :app_env_serial
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Marketplace

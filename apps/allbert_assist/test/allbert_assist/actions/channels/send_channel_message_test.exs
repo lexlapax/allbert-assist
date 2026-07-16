@@ -1,6 +1,6 @@
 defmodule AllbertAssist.Actions.Channels.SendChannelMessageTest do
   use ExUnit.Case, async: false
-  @moduletag :home_fs_serial
+  @moduletag :global_process_serial
 
   alias AllbertAssist.Actions.Channels.SendChannelMessage
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry

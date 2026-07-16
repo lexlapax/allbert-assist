@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Voice.ProviderAdapterTest do
   use ExUnit.Case, async: true
+  @moduletag :home_fs_serial
 
   alias AllbertAssist.Voice.Adapters
   alias AllbertAssist.Voice.ProviderAdapter

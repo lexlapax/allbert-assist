@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Settings.ProviderCatalogTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.Settings.ProviderCatalog
 

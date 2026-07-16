@@ -1,6 +1,7 @@
 defmodule AllbertAssist.CLI.Areas.OnboardingTest do
   @moduledoc "v0.63 M1 — the `allbert onboard` area dispatcher (flags + reset guard)."
   use ExUnit.Case, async: false
+  @moduletag :app_env_serial
 
   alias AllbertAssist.CLI.Areas.Onboarding, as: Area
   alias AllbertAssist.CLI.FirstRun

@@ -37,6 +37,17 @@ defmodule AllbertAssist.TestSupport.ProviderPreconditions do
     assert intent_descriptors_present?(:allbert_browser, ["browser_research_handoff"])
   end
 
+  def ensure_research_descriptors! do
+    ensure_research_plugin!()
+
+    unless intent_descriptors_present?(:allbert_research, ["research"]) do
+      AppRegistry.unregister(:allbert_research)
+      assert {:ok, :allbert_research} = AppRegistry.register(AllbertResearch.App)
+    end
+
+    assert intent_descriptors_present?(:allbert_research, ["research"])
+  end
+
   def ensure_tui_settings_schema! do
     case PluginRegistry.lookup("allbert.tui") do
       {:ok, _entry} ->
@@ -78,6 +89,17 @@ defmodule AllbertAssist.TestSupport.ProviderPreconditions do
       {:error, :not_found} ->
         assert {:ok, "allbert.browser"} =
                  PluginRegistry.register_module(AllbertBrowser.Plugin)
+    end
+  end
+
+  defp ensure_research_plugin! do
+    case PluginRegistry.lookup("allbert.research") do
+      {:ok, _entry} ->
+        :ok
+
+      {:error, :not_found} ->
+        assert {:ok, "allbert.research"} =
+                 PluginRegistry.register_module(AllbertResearch.Plugin)
     end
   end
 end

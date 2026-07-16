@@ -1,5 +1,5 @@
 defmodule AllbertAssist.PublicProtocol.AcpMappingTest do
-  use AllbertAssist.DataCase, async: false, lane: :app_env_serial
+  use AllbertAssist.DataCase, async: false, lane: :external_runtime_serial
 
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths

@@ -1,5 +1,5 @@
 defmodule AllbertAssist.Actions.Channels.MatrixDoctorTest do
-  use AllbertAssist.DataCase, async: false
+  use AllbertAssist.DataCase, async: false, lane: :external_runtime_serial
 
   import Plug.Conn
 

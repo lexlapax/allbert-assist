@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Intent.Eval.CrossSurfaceTest do
   use ExUnit.Case, async: false
+  @moduletag :global_process_serial
 
   alias AllbertAssist.Intent.Eval.{Corpus, Runner, Scorer}
 

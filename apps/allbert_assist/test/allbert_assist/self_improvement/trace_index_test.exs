@@ -1,6 +1,6 @@
 defmodule AllbertAssist.SelfImprovement.TraceIndexTest do
   use ExUnit.Case, async: false
-  @moduletag :external_runtime_serial
+  @moduletag :app_env_serial
 
   alias AllbertAssist.Paths
   alias AllbertAssist.SelfImprovement.TraceIndex

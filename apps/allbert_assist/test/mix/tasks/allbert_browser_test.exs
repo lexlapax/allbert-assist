@@ -1,6 +1,6 @@
 defmodule Mix.Tasks.Allbert.BrowserTest do
   use ExUnit.Case, async: false
-  @moduletag :home_fs_serial
+  @moduletag :app_env_serial
 
   import ExUnit.CaptureIO
 

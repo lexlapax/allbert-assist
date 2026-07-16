@@ -6,6 +6,7 @@ defmodule AllbertAssist.Runtime.WriterLockTest do
   guidance instead of corrupting the database.
   """
   use ExUnit.Case, async: false
+  @moduletag :home_fs_serial
 
   alias AllbertAssist.Runtime.WriterLock
 

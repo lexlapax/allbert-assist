@@ -1,6 +1,5 @@
 defmodule Mix.Tasks.Allbert.ResearchTest do
   use AllbertAssist.DataCase, async: false
-  @moduletag :home_fs_serial
 
   import ExUnit.CaptureIO
 

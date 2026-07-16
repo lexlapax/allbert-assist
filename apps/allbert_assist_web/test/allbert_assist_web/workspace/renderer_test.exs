@@ -1,5 +1,5 @@
 defmodule AllbertAssistWeb.Workspace.RendererTest do
-  use AllbertAssistWeb.ConnCase, async: false
+  use AllbertAssistWeb.ConnCase, async: false, lane: :external_runtime_serial
 
   import Phoenix.LiveViewTest
 

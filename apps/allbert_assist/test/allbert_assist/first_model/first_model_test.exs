@@ -5,7 +5,7 @@ defmodule AllbertAssist.FirstModelTest do
   confirmation (the M4 Authority Contract), record their command/egress, and
   degrade to BYOK below the floor / on decline.
   """
-  use AllbertAssist.DataCase, async: false
+  use AllbertAssist.DataCase, async: false, lane: :external_runtime_serial
 
   alias AllbertAssist.Actions.FirstModel.{InstallOllama, PullModel}
   alias AllbertAssist.Actions.Runner

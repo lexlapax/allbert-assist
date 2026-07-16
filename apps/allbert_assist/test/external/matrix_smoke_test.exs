@@ -1,7 +1,6 @@
 defmodule AllbertAssist.External.MatrixSmokeTest do
   use ExUnit.Case, async: false
   @moduletag :external_runtime_serial
-  @moduletag :home_fs_serial
 
   if System.get_env("ALLBERT_MATRIX_EXTERNAL_SMOKE") != "1" do
     @moduletag skip: "set ALLBERT_MATRIX_EXTERNAL_SMOKE=1 to run the real Matrix smoke"

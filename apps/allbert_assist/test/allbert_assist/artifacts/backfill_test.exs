@@ -8,7 +8,6 @@ defmodule AllbertAssist.Artifacts.BackfillTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
 
-  @moduletag :home_fs_serial
   @moduletag :app_env_serial
 
   @png Base.decode64!(

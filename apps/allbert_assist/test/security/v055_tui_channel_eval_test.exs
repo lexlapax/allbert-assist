@@ -1,8 +1,9 @@
 defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
-  use AllbertAssist.DataCase, async: false
-  @moduletag :security_eval_serial
-  @moduletag :app_env_serial
-  @moduletag :global_process_serial
+  # v1.0.2 M1 lane reconciliation: exactly one primary lane. This eval file is
+  # DB-backed and mutates app env + global registries, but the strongest
+  # resource class is the security-eval release lane; the DB/app-env/global
+  # blockers are secondary (recorded in the inventory, not as primary tags).
+  use AllbertAssist.DataCase, async: false, lane: :security_eval_serial
 
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.ChannelParity
@@ -371,8 +372,18 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
     assert_receive {:runtime_request, request}
     assert {:ok, %{messages: messages}} = Conversations.show_thread("alice", request.thread_id)
     assert event.thread_id == request.thread_id
-    assert Enum.at(messages, 1).content == "v0.55 model: split payload"
-    refute Enum.any?(messages, &String.contains?(&1.content, "[surface]"))
+
+    # v1.0.2 M1 residue (b): the runtime reuses the user's most recent general
+    # thread with no recency window, so this thread can carry rows committed by
+    # earlier runs of other suites against the shared SQLite test file.
+    # Assert on THIS turn's user/assistant tail instead of absolute positions.
+    assert [
+             %{role: "user", content: "split payload"},
+             %{role: "assistant", content: assistant_content}
+           ] = Enum.take(messages, -2)
+
+    assert assistant_content == "v0.55 model: split payload"
+    refute assistant_content =~ "[surface]"
 
     assert {:module, Owl.Data} = Code.ensure_loaded(Owl.Data)
     assert {:module, Owl.LiveScreen} = Code.ensure_loaded(Owl.LiveScreen)

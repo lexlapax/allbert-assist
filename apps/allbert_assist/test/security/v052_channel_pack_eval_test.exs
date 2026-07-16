@@ -1,8 +1,5 @@
 defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
-  use AllbertAssist.DataCase, async: false
-  @moduletag :security_eval_serial
-  @moduletag :app_env_serial
-  @moduletag :global_process_serial
+  use AllbertAssist.DataCase, async: false, lane: :security_eval_serial
 
   setup {Req.Test, :verify_on_exit!}
 

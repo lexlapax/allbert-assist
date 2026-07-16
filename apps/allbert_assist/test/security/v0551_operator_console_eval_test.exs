@@ -1,8 +1,5 @@
 defmodule AllbertAssist.Security.V0551OperatorConsoleEvalTest do
-  use AllbertAssist.DataCase, async: false
-  @moduletag :security_eval_serial
-  @moduletag :app_env_serial
-  @moduletag :global_process_serial
+  use AllbertAssist.DataCase, async: false, lane: :security_eval_serial
 
   import ExUnit.CaptureIO
 

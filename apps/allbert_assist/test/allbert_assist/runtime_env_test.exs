@@ -6,6 +6,7 @@ defmodule AllbertAssist.RuntimeEnvTest do
   by `config/config.exs` so the semantics hold with or without Mix.
   """
   use ExUnit.Case, async: true
+  @moduletag :app_env_serial
 
   alias AllbertAssist.RuntimeEnv
 

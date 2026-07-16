@@ -1,6 +1,7 @@
 defmodule AllbertAssist.CLI.Areas.PublicProtocolAcpTest do
   # async: false — `acp status`/`handshake` read Settings (global runtime state).
   use ExUnit.Case, async: false
+  @moduletag :global_process_serial
 
   alias AllbertAssist.CLI.Areas.PublicProtocol, as: Area
   alias AllbertAssist.PublicProtocol.Acp.Mapping

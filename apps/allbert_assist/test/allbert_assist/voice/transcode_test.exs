@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Voice.TranscodeTest do
   use ExUnit.Case, async: true
+  @moduletag :home_fs_serial
 
   alias AllbertAssist.Voice.Transcode
 

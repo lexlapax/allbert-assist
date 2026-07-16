@@ -8,6 +8,11 @@ defmodule AllbertAssist.Intent.GoldenSetTest do
   `mix allbert.intent bench`, not this test.
   """
   use ExUnit.Case, async: false
+
+  # v1.0.2 M1 lane adjudication: the checker suggested :app_env_serial (the
+  # file does put_env in one test), but setup registers modules into the
+  # GLOBAL App/Plugin registries via ProviderPreconditions — fixed named
+  # processes — which is the stronger resource class. Keep :global_process_serial.
   @moduletag :global_process_serial
 
   alias AllbertAssist.Extensions.Registry, as: Ext
@@ -20,6 +25,10 @@ defmodule AllbertAssist.Intent.GoldenSetTest do
     ProviderPreconditions.ensure_stocksage_descriptors!()
     ProviderPreconditions.ensure_notes_files_descriptors!()
     ProviderPreconditions.ensure_browser_descriptors!()
+    # v1.0.2 M1 residue (e): the research-001 anchor targets the "research"
+    # descriptor from AllbertResearch.App; batch predecessors that clear the
+    # global App registry and restore without the research app dropped it.
+    ProviderPreconditions.ensure_research_descriptors!()
     :ok
   end
 

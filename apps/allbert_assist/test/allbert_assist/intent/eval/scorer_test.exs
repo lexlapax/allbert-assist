@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Intent.Eval.ScorerTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.Intent.Eval.Corpus
   alias AllbertAssist.Intent.Eval.Scorer

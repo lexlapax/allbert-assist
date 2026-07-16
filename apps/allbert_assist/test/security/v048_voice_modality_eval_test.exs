@@ -1,9 +1,5 @@
 defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
-  use AllbertAssist.DataCase, async: false
-  @moduletag :security_eval_serial
-  @moduletag :home_fs_serial
-  @moduletag :app_env_serial
-  @moduletag :external_runtime_serial
+  use AllbertAssist.DataCase, async: false, lane: :security_eval_serial
 
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Actions.Runner

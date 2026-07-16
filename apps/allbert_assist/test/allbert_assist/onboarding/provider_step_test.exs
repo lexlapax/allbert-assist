@@ -6,6 +6,7 @@ defmodule AllbertAssist.Onboarding.ProviderStepTest do
   verify the wizard-layer interpretation + one integration tie-in.
   """
   use ExUnit.Case, async: false
+  @moduletag :app_env_serial
 
   alias AllbertAssist.Actions.Settings.SetProviderCredential
   alias AllbertAssist.Onboarding.ProviderStep

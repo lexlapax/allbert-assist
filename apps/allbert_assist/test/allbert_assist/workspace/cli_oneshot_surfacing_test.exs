@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Workspace.CliOneshotSurfacingTest do
   use ExUnit.Case, async: false
+  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Marketplace.Panels.Catalog
   alias AllbertAssist.Workspace.DiscoverySuggestions

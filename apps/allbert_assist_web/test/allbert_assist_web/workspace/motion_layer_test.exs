@@ -6,6 +6,7 @@ defmodule AllbertAssistWeb.Workspace.MotionLayerTest do
   axis. Presentation-only.
   """
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   @moduletag :v061_motion
 

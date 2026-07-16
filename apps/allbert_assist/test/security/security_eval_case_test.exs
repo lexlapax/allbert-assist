@@ -106,7 +106,12 @@ defmodule AllbertAssist.SecurityEvalCaseTest do
                :v062,
                :v063,
                :v064,
-               :v065
+               :v065,
+               # v0.66 product-rc rows + v1.0 freeze rows were added without
+               # extending this enum; stale until the v1.0.2 M1 reconciliation
+               # made the security_eval lane actually run this test.
+               :v066,
+               :v1
              ]
 
       assert row.expected in [:allowed, :needs_confirmation, :denied, :dropped, :error]

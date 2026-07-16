@@ -1,5 +1,5 @@
 defmodule Mix.Tasks.Allbert.ChannelsTest do
-  use AllbertAssist.DataCase, async: false
+  use AllbertAssist.DataCase, async: false, lane: :external_runtime_serial
 
   import ExUnit.CaptureIO
 

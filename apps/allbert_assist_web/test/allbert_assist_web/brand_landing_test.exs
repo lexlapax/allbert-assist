@@ -6,6 +6,7 @@ defmodule AllbertAssistWeb.BrandLandingTest do
   through the shell contract with no operator-data leak.
   """
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   @moduletag :v061_brand
 

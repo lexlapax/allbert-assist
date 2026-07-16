@@ -1,6 +1,5 @@
 defmodule Mix.Tasks.Allbert.ConversationsTest do
   use AllbertAssist.DataCase, async: false
-  @moduletag :global_process_serial
 
   import ExUnit.CaptureIO
 

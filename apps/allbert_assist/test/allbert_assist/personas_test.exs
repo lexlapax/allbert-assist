@@ -5,6 +5,7 @@ defmodule AllbertAssist.PersonasTest do
   `@safe_write_key`, and only the 8 envelope fields are allowed.
   """
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.Personas
   alias AllbertAssist.Settings

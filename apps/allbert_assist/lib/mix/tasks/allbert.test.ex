@@ -7663,11 +7663,46 @@ defmodule Mix.Tasks.Allbert.Test do
       text =~ "TraderBridge" or text =~ "bridge"
   end
 
-  defp primary_lane(_path, async, template, classes) do
-    resource_lane(classes) ||
+  # v1.0.2 M1: the text-scan heuristic misclassifies two directions —
+  # false NEGATIVES on real egress that happens inside production modules the
+  # scan cannot see (env-gated smokes; Coding.Bash → Execution.LocalRunner
+  # System.cmd), and false POSITIVES on inert string literals ("bridge" in
+  # Playwright error messages; "MCP" in intent-corpus utterances). Two recorded
+  # corrections: a path rule (everything under test/external/ is the real-egress
+  # smoke lane by house convention), and an explicit per-file adjudication map —
+  # each entry carries the audit reason and wins over the text scan.
+  @lane_adjudications %{
+    # Real OS subprocess via production LocalRunner (System.cmd in lib/, not in
+    # the test text): stays in the external policy lane.
+    "apps/allbert_assist/test/allbert_assist/coding/m3_bash_action_test.exs" =>
+      :external_runtime_serial,
+    # "bridge" appears only in Playwright error-string literals; drivers are
+    # put_env fakes. Audited resource class is the owned-home filesystem.
+    "apps/allbert_assist/test/allbert_assist/actions/browser_actions_test.exs" => :home_fs_serial,
+    # "MCP" appears only inside intent-corpus utterance data; the file's real
+    # resource class is the global action/plugin registry.
+    "apps/allbert_assist/test/allbert_assist/intent/eval/corpus_completeness_test.exs" =>
+      :global_process_serial,
+    "apps/allbert_assist/test/allbert_assist/intent/golden_set_test.exs" => :global_process_serial
+  }
+
+  defp primary_lane(path, async, template, classes) do
+    adjudicated_lane(path) ||
+      external_smoke_path_lane(path) ||
+      resource_lane(classes) ||
       template_lane(template) ||
       async_lane(async) ||
       :global_process_serial
+  end
+
+  defp adjudicated_lane(path) do
+    Enum.find_value(@lane_adjudications, fn {adjudicated_path, lane} ->
+      if String.ends_with?(to_string(path), adjudicated_path), do: lane
+    end)
+  end
+
+  defp external_smoke_path_lane(path) do
+    if to_string(path) =~ ~r{/test/external/}, do: :external_runtime_serial
   end
 
   defp resource_lane(classes) do

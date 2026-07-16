@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Capabilities.ReleaseAvailabilityTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.Capabilities.ReleaseAvailability
   alias AllbertAssist.Plugin.Entry

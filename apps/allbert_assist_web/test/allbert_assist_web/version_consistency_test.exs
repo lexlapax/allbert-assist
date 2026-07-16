@@ -1,5 +1,6 @@
 defmodule AllbertAssistWeb.VersionConsistencyTest do
   use ExUnit.Case, async: true
+  @moduletag :external_runtime_serial
 
   alias AllbertAssist.App.CoreApp
 

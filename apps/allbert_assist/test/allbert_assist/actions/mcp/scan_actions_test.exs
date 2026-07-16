@@ -2,8 +2,7 @@ defmodule AllbertAssist.Actions.Mcp.ScanActionsTest do
   @moduledoc """
   v0.62 M8.19: MCP discovery scan lifecycle commands run on-spine through Runner.
   """
-  use AllbertAssist.DataCase, async: false
-  @moduletag :app_env_serial
+  use AllbertAssist.DataCase, async: false, lane: :external_runtime_serial
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Jobs

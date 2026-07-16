@@ -1,6 +1,6 @@
 defmodule AllbertAssist.PublicProtocol.ExposureFilterTest do
   use ExUnit.Case, async: false
-  @moduletag :pure_async
+  @moduletag :global_process_serial
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.PublicProtocol.ExposureFilter

@@ -1,6 +1,6 @@
 defmodule AllbertAssist.Coding.M7TrustApprovalTest do
   use ExUnit.Case, async: false
-  @moduletag :external_runtime_serial
+  @moduletag :app_env_serial
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Coding.CommandGrants

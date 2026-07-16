@@ -8,6 +8,7 @@ defmodule AllbertAssistWeb.V061b.ChatTypeHierarchyTest do
   not as raw strings, per the plan's `chat-type-hierarchy-001` eval row.
   """
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   @moduletag :chat_type
 

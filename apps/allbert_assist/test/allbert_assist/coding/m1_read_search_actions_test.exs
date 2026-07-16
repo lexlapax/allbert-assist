@@ -1,6 +1,6 @@
 defmodule AllbertAssist.Coding.M1ReadSearchActionsTest do
   use ExUnit.Case, async: false
-  @moduletag :external_runtime_serial
+  @moduletag :app_env_serial
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner

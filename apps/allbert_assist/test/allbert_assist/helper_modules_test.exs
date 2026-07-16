@@ -1,5 +1,6 @@
 defmodule AllbertAssist.HelperModulesTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.Maps
   alias AllbertAssist.Serialization

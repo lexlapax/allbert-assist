@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Artifacts.MediaRetentionTest do
   use ExUnit.Case, async: true
+  @moduletag :home_fs_serial
 
   alias AllbertAssist.Artifacts.MediaRetention
 

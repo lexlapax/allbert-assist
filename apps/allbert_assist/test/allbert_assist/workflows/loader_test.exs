@@ -1,6 +1,6 @@
 defmodule AllbertAssist.Workflows.LoaderTest do
   use ExUnit.Case, async: false
-  @moduletag :external_runtime_serial
+  @moduletag :app_env_serial
 
   alias AllbertAssist.Workflows.Loader
 

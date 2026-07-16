@@ -1,6 +1,5 @@
 defmodule AllbertAssist.Intent.SelfImprovementRoutingTest do
   use AllbertAssist.DataCase, async: false
-  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Agents.IntentAgent
   alias AllbertAssist.Paths

@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Plugins.WhatsApp.RendererTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.Channels.WhatsApp.Renderer
 

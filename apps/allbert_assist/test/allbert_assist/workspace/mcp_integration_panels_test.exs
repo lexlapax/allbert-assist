@@ -1,6 +1,5 @@
 defmodule AllbertAssist.Workspace.McpIntegrationPanelsTest do
-  use AllbertAssist.DataCase, async: false
-  @moduletag :external_runtime_serial
+  use AllbertAssist.DataCase, async: false, lane: :external_runtime_serial
 
   alias AllbertAssist.Paths
   alias AllbertAssist.Resources.{Grants, Ref, ResourceURI, Scope}

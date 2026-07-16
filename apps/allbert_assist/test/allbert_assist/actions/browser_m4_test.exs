@@ -1,6 +1,5 @@
 defmodule AllbertAssist.Actions.BrowserM4Test do
   use AllbertAssist.DataCase, async: false
-  @moduletag :home_fs_serial
 
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Confirmations.ResourceMetadata

@@ -1,6 +1,6 @@
 defmodule AllbertAssist.ActionTest do
   use ExUnit.Case, async: true
-  @moduletag :pure_async
+  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Action
 

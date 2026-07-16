@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Resources.OperationClassTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.Resources.OperationClass
 

@@ -1,5 +1,5 @@
 defmodule AllbertAssistWeb.PublicProtocol.WhatsAppWebhookControllerTest do
-  use AllbertAssistWeb.ConnCase, async: false, lane: :global_process_serial
+  use AllbertAssistWeb.ConnCase, async: false
 
   alias AllbertAssist.Paths
   alias AllbertAssist.PublicProtocol.RateLimiter

@@ -1,6 +1,6 @@
 defmodule AllbertAssist.Integrations.CapabilityInventoryTest do
   use ExUnit.Case, async: false
-  @moduletag :app_env_serial
+  @moduletag :external_runtime_serial
 
   import ExUnit.CaptureIO
 

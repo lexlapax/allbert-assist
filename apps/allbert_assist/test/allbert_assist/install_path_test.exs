@@ -6,6 +6,7 @@ defmodule AllbertAssist.InstallPathTest do
   absent `--purge`.
   """
   use ExUnit.Case, async: true
+  @moduletag :external_runtime_serial
 
   alias AllbertAssist.SecurityFixtures.AssertBinding
 
@@ -81,17 +82,38 @@ defmodule AllbertAssist.InstallPathTest do
 
   test "the Homebrew formula is a formula with a service block and per-platform urls" do
     body = File.read!(@formula)
-    version = project_version()
+    project = project_version()
 
     assert body =~ "class Allbert < Formula"
-    assert body =~ ~s(version "#{version}")
+
+    assert [_, formula_version] = Regex.run(~r/^\s*version "([^"]+)"$/m, body)
+
+    # Release-model invariant (v1.0.1): a `[skip-artifacts]` source/docs tag does
+    # not move the packaged line, so the formula (the tap's source of truth) may
+    # lag the project version ONLY when the CHANGELOG section for the project
+    # version records that decision and names the formula's version as the
+    # surviving packaged Latest.
+    if formula_version != project do
+      changelog_section =
+        @repo_root
+        |> Path.join("CHANGELOG.md")
+        |> File.read!()
+        |> String.split(~r/^## /m)
+        |> Enum.find(&String.starts_with?(&1, "v#{project}"))
+
+      assert changelog_section, "CHANGELOG has no section for the project version v#{project}"
+      assert changelog_section =~ "[skip-artifacts]"
+      assert changelog_section =~ "`v#{formula_version}` remains"
+    end
+
     # Formula (not cask) so `brew services` works for `allbert serve`.
     assert body =~ "service do"
     assert body =~ ~s{run [opt_bin/"allbert", "serve"]}
-    # Per-platform prebuilt artifacts + checksums (placeholders filled at release).
+    # Per-platform prebuilt artifacts + checksums (placeholders filled at release);
+    # url/version consistency is asserted against the formula's own version.
     for target <- ["macos-arm64", "linux-x64", "linux-arm64"] do
-      assert body =~ "allbert-v#{version}-#{target}.tar.gz"
-      assert body =~ "releases/download/v#{version}"
+      assert body =~ "allbert-v#{formula_version}-#{target}.tar.gz"
+      assert body =~ "releases/download/v#{formula_version}"
     end
 
     assert body =~ "sha256"

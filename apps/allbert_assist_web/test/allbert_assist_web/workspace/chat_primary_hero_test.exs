@@ -6,6 +6,7 @@ defmodule AllbertAssistWeb.Workspace.ChatPrimaryHeroTest do
   tokens (not hardcoded shadows/radii). Presentation-only; no data-layer change.
   """
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   @moduletag :v061_screens
 

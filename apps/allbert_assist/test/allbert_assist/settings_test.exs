@@ -2010,7 +2010,12 @@ defmodule AllbertAssist.SettingsTest do
     assert ModelRuntime.max_tokens(%{local | max_tokens: 8}, 8) == 8
 
     System.put_env("OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1")
-    System.put_env("OPENAI_API_KEY", "sk-test-must-not-leak")
+    System.put_env("OPENAI_API_KEY", "sk-test-env-tier-key")
+
+    on_exit(fn ->
+      System.delete_env("OLLAMA_BASE_URL")
+      System.delete_env("OPENAI_API_KEY")
+    end)
 
     local_opts = ModelRuntime.request_opts(local)
 
@@ -2020,7 +2025,13 @@ defmodule AllbertAssist.SettingsTest do
     assert Keyword.fetch!(local_opts, :api_key) == "ollama"
 
     refute Keyword.has_key?(ModelRuntime.request_opts(fast), :base_url)
-    refute Keyword.has_key?(ModelRuntime.request_opts(fast), :api_key)
+
+    # v0.63 M8.3/F2: the vault reads through to the documented tier-3 env source,
+    # so an env OPENAI_API_KEY legitimately resolves for the openai profile (the
+    # pre-v0.63 refute here asserted the opposite and went stale — this lane
+    # never ran it until the v1.0.2 M1 reconciliation).
+    assert Keyword.fetch!(ModelRuntime.request_opts(fast), :api_key) ==
+             "sk-test-env-tier-key"
   end
 
   test "secret writes encrypt raw value and store only secret ref in settings", %{home: home} do

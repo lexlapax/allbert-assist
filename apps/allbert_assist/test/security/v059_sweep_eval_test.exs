@@ -389,7 +389,10 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
 
     for needle <- [
           "v0.62 Packaged-Install Home Layout",
-          "v0.64 Product RC Revalidation",
+          # b5bae19e (v0.64 rescope) rephrased the v0.64 consumer; the old
+          # "v0.64 Product RC Revalidation" needle was stale until the v1.0.2
+          # M1 reconciliation made this lane actually run.
+          "v0.64 (re-validates portability on the packaged layout)",
           "v1.0 Contract Freeze",
           "Allbert Home export envelope",
           "dry-run import diagnostic",

@@ -6,6 +6,7 @@ defmodule AllbertAssist.CLI.CommandsTest do
   the `cli-command-inventory-spine-map-001` invariant asserted as data.
   """
   use ExUnit.Case, async: true
+  @moduletag :db_serial
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.CLI.Commands

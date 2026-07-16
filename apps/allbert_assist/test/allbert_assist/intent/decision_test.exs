@@ -1,6 +1,6 @@
 defmodule AllbertAssist.Intent.DecisionTest do
   use ExUnit.Case, async: false
-  @moduletag :external_runtime_serial
+  @moduletag :global_process_serial
 
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Intent.Decision
