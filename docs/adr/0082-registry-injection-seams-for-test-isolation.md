@@ -17,9 +17,10 @@ wall-clock cost — and (b) leaks state across serially-ordered files — the
 documented order-dependence class (five root-caused residue failures in the
 v1.0.1 build, plus the operator-known ~20 full-`mix test` estimate).
 
-Both registries already expose per-server seams (`server(opts)` at
-`app/registry.ex:579-580` / `plugin/registry.ex:314-315`; `name:` start options)
-and `DynamicPlugins.ActionsOverlay` / `Extensions.Registry` read functions are
+Both registries already accept `server:` through their public read/write functions
+and accept `name:` at `start_link/1`; their `server/1` helpers are private. A private
+instance must also receive a unique `table_name:` because the backing ETS tables are
+named. `DynamicPlugins.ActionsOverlay` / `Extensions.Registry` read functions are
 already parametric — but the production READ paths break the chain by calling
 with defaults and accepting no options: `Actions.Registry.agent_modules/0`,
 `internal_capabilities/0`, `plugin_actions/0` (`actions/registry.ex:502/:528/
@@ -35,42 +36,52 @@ invariant.
 
 ## Decision
 
-1. **Registry-reading production functions accept an optional registry
-   context** — an `opts` keyword (`:app_registry`, `:plugin_registry`, and
-   where applicable `:actions_overlay`) naming the server(s) to read —
-   **defaulting to the global singletons**. The initial thread-through covers
-   `Actions.Registry.agent_modules/internal_capabilities/plugin_actions`, the
-   `Intent.Engine` read sites, and `Skills.Registry`; any NEW code that reads a
-   registry must accept and propagate the same context rather than hard-coding
-   the global.
-2. **Production call sites pass nothing.** The default path must be
-   byte-for-byte behavior-identical; the freeze sweep (`release.v1`), Dialyzer,
-   and the unchanged existing suites prove each thread-through.
-3. **Tests own private registries instead of mutating the global.** A test
-   starts supervised, uniquely-named `App.Registry`/`Plugin.Registry` instances,
-   registers exactly the fixture set it needs (upholding the ADR 0015/0031
-   invariant inside its private world), and passes the context through the
-   seam. Global clear+register+restore is deprecated for new tests and burned
-   down lane-by-lane in existing ones.
-4. **The seams grant nothing.** Registry context selects WHERE registrations
-   are read from; it must never be used to bypass registration, permission, or
-   confirmation authority (Security Central remains the authority boundary;
-   registration still happens through the same registration paths inside the
-   private instance). Passing a registry context through any public protocol,
-   channel, or operator surface is forbidden.
-5. **Lane demotion follows isolation, not the reverse.** A file's primary lane
-   tag changes only after it provably owns all its global state (registry
-   context + owned home/settings + no fixed-name processes); the
-   `inventory --check-tags` reconciliation and solo/batch determinism runs are
-   the proof.
+1. **Registry-reading production functions accept one optional internal
+   `RegistryContext` keyword**:
+   `app: [server: app_server]`, `plugin: [server: plugin_server]`, and
+   `actions_overlay: overlay_server`. Omission means the current global defaults.
+   The context is translated to the existing nested `app:` / `plugin:` option
+   shape at `Extensions.Registry`. It is never accepted from serialized params,
+   channels, public protocols, or operator surfaces.
+2. **The initial thread-through is complete for the named conversion targets.**
+   It covers `Actions.Registry` module, name, capability, metadata/provenance,
+   diagnostics, and agent/internal wrappers; `Intent.Engine` action, descriptor,
+   surface, app-normalization, and active-app reads; `Skills.Registry` app/plugin
+   root discovery; `Extensions.Registry`; and app/plugin provenance lookups used
+   while building capabilities. Adding context to only
+   `agent_modules/internal_capabilities/plugin_actions` is insufficient.
+3. **Production call sites pass nothing.** The default path must return identical
+   values, ordering, diagnostics, provenance, and authority decisions. This is
+   proved by focused registry/intent/skills suites, compile warnings-as-errors,
+   Credo, Dialyzer, `release.v1`, and the authoritative release gate.
+4. **Tests use a reusable private-registry fixture.** Each fixture starts supervised
+   App and Plugin registries with unique process names AND unique ETS `table_name`
+   values, registers exactly its fixture set, and passes the context explicitly.
+   Negative tests start two contexts concurrently and prove that registrations,
+   descriptors, capabilities, diagnostics, and provenance do not cross-contaminate.
+5. **Private registration is side-effect isolated.** Registry registration gains an
+   internal-only `side_effects: false` mode for fixtures. It suppresses global
+   registration signals and shared Settings-schema cache invalidation while keeping
+   validation and registry-local state identical. The production default remains
+   `side_effects: true`. A test is not isolation-safe while its private registration
+   still mutates either global facility.
+6. **The seams grant nothing.** Registry context selects WHERE registrations
+   are read from; it must never bypass registration, permission, confirmation, or
+   Settings-schema authority. Registration still uses the same validators and
+   local invariant inside the private instance.
+7. **Lane demotion follows a complete resource audit, not the reverse.** A file's
+   primary lane changes only after it owns registry context, database/home/settings,
+   process names, HTTP stubs, and filesystem roots. DB-bound files remain
+   `db_serial` or `db_partition_safe`; registry isolation alone never makes them
+   `pure_async`.
 
 ## Consequences
 
 - Serial-lane files whose only global dependency is the registries become
   convertible to `pure_async` (v1.0.2 M3 converts the first wave; the
   remainder burns down on the Test Suite Speed & Isolation track).
-- The five documented residue failures lose their shared root cause; new
-  registry-dependent tests have a sanctioned isolated pattern from day one.
+- The registry-dependent residue failures lose their shared root cause. The TUI
+  runner/configuration failure remains a separate singleton-resolution issue.
 - A small, permanent API tax: registry-reading functions carry an `opts`
   parameter and new readers must propagate it. This is the accepted cost of a
   concurrent suite.
@@ -78,10 +89,11 @@ invariant.
 
 ## Validation
 
-- v1.0.2 M2: compile `--warnings-as-errors`, Credo strict, Dialyzer, the
-  `release.v1` freeze sweep, and all existing suites green with zero
-  production call-site changes; one proof-test converted to the private-registry
-  pattern.
+- v1.0.2 M2: focused App/Plugin/Extensions/Actions/Intent/Skills suites, the
+  concurrent two-context negative test, compile `--warnings-as-errors`, Credo,
+  Dialyzer, `release.v1`, and the authoritative release gate are green. ADR 0082
+  becomes Accepted only in the same commit that proves this complete context and
+  side-effect contract.
 - v1.0.2 M3: converted files green solo, in-batch, and full-lane;
   `inventory --check-tags` reconciles; timings recorded against the M0
   baseline.

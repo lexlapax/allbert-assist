@@ -31,7 +31,9 @@ sequenced one per minor, foundational-first:
   R15, btn drift, offline SW test, DIT-5 transcript, DIT-4 remediation M4.1–M4.5,
   dependency refresh incl. vendored `:memento` removal). Next 1.0.x increments:
   test speed & isolation, v0.58 tails, docs items; the next **binary** release
-  carries the 1.0.1 fixes into the packaged artifact line.
+  carries the 1.0.1 fixes into the packaged artifact line. Its final measured
+  isolation remainder is written back here before the v1.0.2 tag; shipped
+  entries are removed only after published-artifact validation and closeout.
 - **1.1 — Zero-Click First Run** + its direct enablers (model chooser/catalog,
   model fallback/degradation for the detect states, consent ADR, folded TUI scope).
 - **1.2 — Long-Term User Memory** (research phase first; folded retrieval/FTS/
@@ -1843,9 +1845,9 @@ Class: Could (confirmed 2026-07-14) · Effort: S · Slice: 1.0.x opportunistic
 
 Status: planned — `docs/plans/v1.0.2-plan.md` M5 (implementation-ready 2026-07-15).
 
-The mechanical long tail: the `field/3` ~128-copy duplication, `limit/1`
-clamp folding, the `"local"`/`"web-local"` identity string literals, and the
-Objectives-nav wart.
+The currently verified mechanical tail: 262 private `field` definitions,
+repeated limit clamps, `"local"`/`"web-local"` identity constants, and
+Objectives links that still leave the consolidated workspace shell.
 
 Deferred at: `v0.58-plan:633-640`.
 
@@ -1855,9 +1857,10 @@ Class: Could (confirmed 2026-07-14) · Effort: S · Slice: 1.0.x opportunistic
 
 Status: planned — `docs/plans/v1.0.2-plan.md` M5 (implementation-ready 2026-07-15).
 
-The correctness-adjacent tail: the `data-theme=null` check, a missing
-ErrorExtraction unit test, the bespoke `response_error/1`, the
-`stringify_keys` falsy latent bug, and the stale `CHANGELOG:296` line.
+The currently verified correctness-adjacent tail: the `data-theme=null` check,
+bespoke marketplace/voice `response_error/1`, and `Maps.get_any/3` falsy-value
+semantics. The ErrorExtraction unit test and cited CHANGELOG cleanup already
+exist and are not v1.0.2 work.
 
 Deferred at: `v0.58-plan:636-640`.
 

@@ -691,6 +691,31 @@ Async or partition-safe tests must satisfy these ownership rules:
 
 No test may write to a real operator `~/.allbert`.
 
+### v1.0.2 private-registry and web-split readiness
+
+ADR 0082 adds an internal registry context with nested `app:` and `plugin:`
+server options plus an actions-overlay selector. A private-registry test is not
+isolation-safe unless it owns both process names and named ETS table names and
+uses fixture registration that suppresses global registration signals and the
+shared Settings-schema cache clear. Conversion evidence includes a concurrent
+two-context negative test; default-path values, ordering, diagnostics,
+provenance, and authority behavior; and a complete DB/env/home/process/HTTP/
+filesystem ownership audit. DB-bound tests remain DB-classified.
+
+For the v1.0.2 WorkspaceLiveTest split, `liveview_serial` is allowed only when
+the file runs with `server: false`, owns home/settings/Repo state, and touches no
+unowned Runtime singleton, external browser/endpoint process, fixed OS port, or
+other shared OS resource. Such tests remain in an enumerated
+`external_runtime_serial` remainder. Inventory reconciliation and solo plus
+partitioned runs are hard gates. The measurement target is also explicit: no
+split file exceeds 25% of the post-split web release phase, and the total web
+phase measurably improves from the post-M1 v1.0.2 baseline.
+
+The v1.0.2 baseline is captured only after the known missing primary tag is
+reconciled in M1. M8 adds the final census/timing comparison and a 20-seed
+full-suite table recording seed, duration, result, failure classification, and
+isolated reproduction/disposition.
+
 The M3 isolation lock freezes these root derivations for helpers and gates:
 
 | Resource | Required test derivation |

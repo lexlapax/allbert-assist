@@ -32,7 +32,11 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    **binary ship that carries the 1.0.1 fixes into the packaged artifact line**
    (first tap fill since 1.0.0). Plan:
    [v1.0.2-plan.md](v1.0.2-plan.md) + [v1.0.2-request-flow.md](v1.0.2-request-flow.md)
-   (implementation-ready 2026-07-15). Later 1.0.x: remaining isolation phases,
+   (implementation-ready after the second-pass documentation repair of
+   2026-07-15). The tagged commit includes final measurements, backlog
+   dispositions, accepted ADRs, release docs, and all source gates; publication,
+   packaged validation, then post-tag archive/roadmap administration follow in
+   that order. Later 1.0.x: remaining isolation phases,
    intent-pipeline refinements (opportunistic), technical-debt train. (The
    vendored `:memento` removal landed early at 1.0.1's M5 refresh — ADR 0050
    superseded.)

@@ -18,13 +18,22 @@ Binary release is the post-1.0 default. `[skip-artifacts]` remains only for an
 explicitly approved docs/source point tag that is not a product release; it does not
 replace the binary-release obligation of a versioned feature plan.
 
+Set this once from the release checkout; every active command below consumes it:
+
+```sh
+export VERSION="${VERSION:?set VERSION, for example v1.0.2}"
+export EXPECTED_VERSION="${VERSION#v}"
+export REPO="${REPO:-lexlapax/allbert-assist}"
+export EVIDENCE_ROOT="${EVIDENCE_ROOT:-$(mktemp -d /tmp/allbert-release-evidence.XXXXXX)}"
+export ALLBERT_HOME="${ALLBERT_HOME:-$(mktemp -d /tmp/allbert-release-home.XXXXXX)}"
+```
+
 ## 1. Publish the release
 
 For every 1.x product release, the tag is operator-held. Push the reviewed release
 commit, prove branch parity, then cut the annotated tag on that exact commit:
 
 ```sh
-VERSION=v1.0.1
 git push origin main
 HEAD_SHA="$(git rev-parse HEAD)"
 REMOTE_SHA="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
@@ -51,31 +60,33 @@ The tag push fires `.github/workflows/release-artifacts.yml`:
 - **publish** (tag only, gated on the Linux rehearsal): collects the per-target
   tarballs, adds version-less aliases (`allbert-<target>.tar.gz` for the `latest`
   install path), writes `SHA256SUMS`, creates the release (`--prerelease` for a
-  hyphen tag such as `v0.62.0-rc1`) + the optional out-of-band
+  hyphen tag such as `v0.62.0-rc1`) plus the mandatory
   `SHA256SUMS.cosign.bundle`, and uploads everything to the GitHub release.
 
 ### Exceptional docs/source point tag (no packaged artifacts)
 
-An explicitly approved point tag that ships only source/docs/script fixes (historical
-example: `v0.64.5`) must
+An explicitly approved point tag that ships only source/docs/script fixes must
 NOT create packaged artifacts or steal `Latest` from the product release that owns the
-tarballs + `latest` aliases (`v0.64.3`). Mark its annotated tag `[skip-artifacts]` so
+tarballs + `latest` aliases. Mark its annotated tag `[skip-artifacts]` so
 the `gate` job skips the packaged pipeline:
 
 ```sh
-git tag -a v0.64.5 -m "Allbert v0.64.5 - release-doc closeout [skip-artifacts]"
-git push origin v0.64.5
-# Verify: no v0.64.5 GitHub Release is created, and v0.64.3 stays the packaged line.
-gh release list --repo lexlapax/allbert-assist
+DOC_VERSION="${DOC_VERSION:?set the exceptional docs/source tag}"
+PACKAGED_VERSION="${PACKAGED_VERSION:?set the current packaged release tag}"
+git tag -a "$DOC_VERSION" -m "Allbert ${DOC_VERSION#v} - release-doc closeout [skip-artifacts]"
+git push origin "$DOC_VERSION"
+# Verify: no DOC_VERSION release exists and PACKAGED_VERSION stays Latest.
+test "$(gh release view --repo "$REPO" --json tagName --jq .tagName)" = "$PACKAGED_VERSION"
+if gh release view "$DOC_VERSION" --repo "$REPO"; then exit 1; fi
 ```
 
 Verify release and tag state after publish:
 
 ```sh
-gh release view v0.64.3 --repo lexlapax/allbert-assist \
+gh release view "$PACKAGED_VERSION" --repo "$REPO" \
   --json tagName,publishedAt,url
-git ls-remote --tags origin 'v0.64*'
-git rev-parse v0.64.3^{}
+git ls-remote --tags origin "$DOC_VERSION" "$PACKAGED_VERSION"
+git rev-parse "$PACKAGED_VERSION^{}"
 ```
 
 **Trust model note.** v0.62/v0.63 used SHA256 verification over the same HTTPS release
@@ -87,13 +98,13 @@ package-manager path: the trusted tap formula pins release URLs and SHA256 value
 Homebrew verifies the artifact against those formula values. To verify a release by hand:
 
 ```sh
-VERSION=v1.0.1
 mkdir -p "/tmp/allbert-${VERSION}"
-gh release download "$VERSION" --repo lexlapax/allbert-assist \
+gh release download "$VERSION" --repo "$REPO" \
   --pattern 'SHA256SUMS*' --dir "/tmp/allbert-${VERSION}"
 cosign verify-blob --bundle "/tmp/allbert-${VERSION}/SHA256SUMS.cosign.bundle" \
   "/tmp/allbert-${VERSION}/SHA256SUMS" \
-  --certificate-identity-regexp '.*' --certificate-oidc-issuer-regexp '.*'
+  --certificate-identity-regexp 'https://github.com/lexlapax/allbert-assist/.github/workflows/release-artifacts.yml@refs/tags/.*' \
+  --certificate-oidc-issuer 'https://token.actions.githubusercontent.com'
 ```
 
 You can dry-run build+smoke without publishing:
@@ -111,23 +122,23 @@ helper updates version, per-target URLs, and SHA256 rows together:
 
 ```sh
 ALLBERT_ASSIST_CHECKOUT="${ALLBERT_ASSIST_CHECKOUT:-$(pwd)}"  # run from allbert-assist checkout
-VERSION=v1.0.1
+TAP_CHECKOUT="$(mktemp -d /tmp/homebrew-allbert.XXXXXX)"
 mkdir -p "/tmp/allbert-${VERSION}"
-gh release download "$VERSION" --repo lexlapax/allbert-assist \
+gh release download "$VERSION" --repo "$REPO" \
   --pattern SHA256SUMS --dir "/tmp/allbert-${VERSION}"
-git clone https://github.com/lexlapax/homebrew-allbert /tmp/homebrew-allbert
+git clone https://github.com/lexlapax/homebrew-allbert "$TAP_CHECKOUT"
 sh "$ALLBERT_ASSIST_CHECKOUT/homebrew/fill-sha256.sh" \
   "/tmp/allbert-${VERSION}/SHA256SUMS" \
-  /tmp/homebrew-allbert/Formula/allbert.rb
+  "$TAP_CHECKOUT/Formula/allbert.rb"
 ```
 
 Audit and publish from the tap checkout:
 
 ```sh
-cd /tmp/homebrew-allbert
+cd "$TAP_CHECKOUT"
 git diff -- Formula/allbert.rb
 rg -n 'PLACEHOLDER|TODO|sha256' Formula/allbert.rb
-brew tap lexlapax/allbert /tmp/homebrew-allbert --custom-remote
+brew tap lexlapax/allbert "$TAP_CHECKOUT" --custom-remote
 brew trust --formula lexlapax/allbert/allbert
 brew audit --strict --online --formula allbert
 git add Formula/allbert.rb
@@ -151,23 +162,22 @@ requested; set a disposable `ALLBERT_HOME` for rehearsal.
 ### curl installer (macOS + Linux)
 
 ```sh
-export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v1-install.XXXXXX)"
+export ALLBERT_VERSION="$VERSION"
 curl -fsSL https://raw.githubusercontent.com/lexlapax/allbert-assist/main/scripts/install/install.sh | sh
-#   ALLBERT_VERSION=v1.0.1    pin a packaged version (default: latest)
+#   omit ALLBERT_VERSION to exercise the latest alias
 #   ALLBERT_PREFIX=~/.local   install prefix
 export PATH="$HOME/.local/bin:$PATH"
-allbert --version                 # allbert 1.0.1
+test "$(allbert --version)" = "allbert $EXPECTED_VERSION"
 allbert admin status              # renders operator status through the spine
 ```
 
 ### Homebrew (macOS + Linux)
 
 ```sh
-export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v064-brew.XXXXXX)"
 brew tap lexlapax/allbert
 brew trust --formula lexlapax/allbert/allbert   # if Homebrew requires tap trust
 brew install lexlapax/allbert/allbert
-allbert --version
+test "$(allbert --version)" = "allbert $EXPECTED_VERSION"
 allbert admin status
 brew test allbert
 ```
@@ -175,7 +185,7 @@ brew test allbert
 Before the tap commit is pushed, validate the local formula path instead:
 
 ```sh
-brew install /tmp/homebrew-allbert/Formula/allbert.rb
+brew install "$TAP_CHECKOUT/Formula/allbert.rb"
 ```
 
 ### serve + health + attach
@@ -183,9 +193,11 @@ brew install /tmp/homebrew-allbert/Formula/allbert.rb
 ```sh
 allbert serve &
 ALLBERT_DAEMON_PID=$!
+trap 'kill "$ALLBERT_DAEMON_PID" 2>/dev/null || true' EXIT INT TERM
 curl -fsS http://localhost:4000/health
 allbert admin status              # attaches to the running daemon; no second writer
 kill "$ALLBERT_DAEMON_PID"
+trap - EXIT INT TERM
 ```
 
 Attach and health checks require host socket/port access. If running inside a
@@ -275,11 +287,11 @@ The TUI proof must run from the packaged binary (`allbert tui`), not from
 `mix allbert.tui`.
 
 ```sh
-export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v062-tui.XXXXXX)"
+export ALLBERT_HOME="$(mktemp -d /tmp/allbert-release-tui.XXXXXX)"
 allbert admin settings set channels.tui.identity_map \
   '[{"external_user_id":"default","user_id":"local","enabled":true}]'
 allbert admin settings set channels.tui.enabled true
-script "$ALLBERT_HOME/v062-tui-transcript.txt" allbert tui
+script "$EVIDENCE_ROOT/${VERSION}-tui-transcript.txt" allbert tui
 ```
 
 Inside the session:
@@ -317,10 +329,9 @@ Prepare the Linux artifacts:
 
 ```sh
 ALLBERT_ASSIST_CHECKOUT="${ALLBERT_ASSIST_CHECKOUT:-$(pwd)}"  # run from allbert-assist checkout
-VERSION=v1.0.1
 WORK="/tmp/allbert-${VERSION}"
 mkdir -p "$WORK/artifacts"
-gh release download "$VERSION" --repo lexlapax/allbert-assist \
+gh release download "$VERSION" --repo "$REPO" \
   --pattern "allbert-${VERSION}-linux-*.tar.gz" \
   --pattern SHA256SUMS \
   --dir "$WORK/artifacts"
@@ -378,7 +389,7 @@ single mapped executable memory region. Omit that flag for native x64 Linux
 hosts unless the local emulator requires it. If Docker Hub credential helpers
 hang or fail while pulling public Ubuntu images, rerun the rehearsal with a
 throwaway Docker client config such as
-`DOCKER_CONFIG=/tmp/allbert-v062-docker-config`.
+`DOCKER_CONFIG="$(mktemp -d /tmp/allbert-docker-config.XXXXXX)"`.
 
 If `scripts/smoke/linux_rehearsal.sh` needs to be bypassed for diagnosis, run the
 equivalent manual checks inside the container and record the commands: checksum
@@ -391,6 +402,16 @@ Allbert Home preservation.
 Use one ledger for the release rather than splitting proof across terminal
 scrollback:
 
+Store transcripts and downloaded metadata under `$EVIDENCE_ROOT`. Every row
+records owner, release commit/tag, CI run URL/id or host/architecture, exact
+artifact checksum, command/transcript path, outcome, redaction review, and any
+policy-accepted SKIP reason. A current 1.x binary release requires: CI artifact
+matrix PASS for macOS arm64, Linux x64, and Linux arm64; local macOS
+package-manager/TUI/browser PASS; both Linux container artifacts PASS; and the
+real-host Linux service/vault row explicitly PASS or explicitly SKIP under the
+active release plan. Uninstall evidence must prove the disposable Allbert Home
+and representative data remain without `--purge`.
+
 | Evidence class | What it proves | Typical command/source | Owner |
 | --- | --- | --- | --- |
 | Source gate | frozen 1.0 contracts and release-specific checks pass on the release commit | `mix allbert.test release.v1` + active point gate (for example `release.v101`) | current line |
@@ -400,6 +421,11 @@ scrollback:
 | Packaged TUI | installed binary runs the warm console in a TTY | `script ... allbert tui` | current line |
 | Docker Linux package smoke | both Linux artifacts install/start/attach/uninstall in containers | `docker run --platform linux/arm64`; `docker run --platform linux/amd64` | current line |
 | Real-host service/vault | launchd/systemd and OS keychain integration on actual hosts | host service/vault commands | operator closeout |
+
+Also record the cosign verification transcript, GitHub Release asset listing,
+Homebrew tap commit/audit, packaged channel-send trace, ACP transcript, and
+browser-research transcript/screenshot references when the active release owns
+those surfaces.
 
 ## 7. Historical v0.62 Evidence
 

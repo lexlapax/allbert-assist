@@ -20,9 +20,12 @@ the sweep row that enforces it? The roadmap parks "Tier-2→Tier-1 promotion ADR
 
 1. **Promotion criteria.** A Tier-2 contract is eligible for promotion when ALL
    hold:
-   - it has shipped unchanged (no additive drift to its frozen core shape)
-     across at least **two released minors** (or an operator-waived equivalent
-     for point-release-only periods);
+   - it has shipped unchanged across at least **two released minors**. Unchanged
+     means no rename, removal, semantic narrowing, incompatible shape change, or
+     dependency on undocumented behavior. Additive growth does not reset the
+     clock unless it changes the core proposed for promotion. Earlier promotion
+     requires its own ADR with explicit equivalent stability evidence; an
+     undocumented operator waiver is not sufficient;
    - it is exercised by at least one **gate-bound** proof (an eval row,
      sweep assertion, or release-gate step that fails on rename/removal);
    - no open intake entry in `future-features.md` proposes redesigning it;
@@ -30,11 +33,13 @@ the sweep row that enforces it? The roadmap parks "Tier-2→Tier-1 promotion ADR
      (promote dependency-first or together).
 2. **Promotion mechanics — one change, three artifacts.** A promotion ships as
    a single reviewed change containing:
-   - an **ADR** (or an amendment section in this ADR's ledger, below) naming
-     the contract, its exact frozen names, and the eligibility evidence;
+   - a **dedicated ADR per contract or inseparable contract group** naming the
+     exact frozen names, behaviors/shapes, and eligibility evidence; this ADR's
+     ledger indexes that promotion ADR;
    - the **freeze-sweep row(s)**: the `:v1` exact-name sweep
-     (`test/security/v1_sweep_eval_test.exs`) gains the assertions that make
-     rename/removal fail the `release.v1` gate;
+     (`test/security/v1_sweep_eval_test.exs`) gains exact-name assertions plus
+     behavioral/shape assertions wherever name existence alone would not enforce
+     the promoted guarantee;
    - the **`public-contract-freeze.md` move**: the contract's entry relocates
      from the Tier-2 section to Tier-1 verbatim, with the promotion date and
      ADR reference.

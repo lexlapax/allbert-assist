@@ -15,6 +15,9 @@ Enforcement is deterministic: `mix allbert.test release.v1` runs the `:v1` freez
 contract below still exists **by exact name**. Renaming or removing a frozen symbol fails
 its row; Tier-2 additive changes stay green (the rows assert presence, not exhaustive
 equality). See the plan's Freeze Enforcement section for the assertion primitives.
+The promotion process is defined by
+[ADR 0081](../adr/0081-tier2-to-tier1-promotion-process.md). v1.0.2 establishes
+that process only; it promotes no current Tier-2 contract.
 
 Consumer counts are the number of first-party consumers at v1.0 (the "≥ 2 consumers"
 Tier-1 rule is nominal against the compressed release timeline; newer surface area
