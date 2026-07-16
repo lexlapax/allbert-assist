@@ -711,6 +711,18 @@ partitioned runs are hard gates. The measurement target is also explicit: no
 split file exceeds 25% of the post-split web release phase, and the total web
 phase measurably improves from the post-M1 v1.0.2 baseline.
 
+Executed at v1.0.2 M4 (2026-07-16): seven `liveview_serial` topic files under
+`test/allbert_assist_web/live/workspace/` (shell_nav 13 tests, chat_turn 14,
+onboarding 10, confirmations 5, canvas_tiles 15, settings_central 10,
+destinations 19; shared setup in `WorkspaceLiveCase`) + the 5-test live-Runtime
+remainder at the original path (`lane: :external_runtime_serial`, adjudicated
+in `@lane_adjudications`). Largest split file = 14.4% of the 1,517.5s
+post-split web phase (cap 25%); the 86 partitionable tests run at
+max-partition ≈388s vs ~959s serial before; remainder 89.7s (~8.6% of the old
+file, vs 83% of web wall-clock pre-split). New workspace LiveView tests go in
+the matching topic file — the remainder accepts ONLY tests that must drive the
+live Runtime singleton.
+
 The v1.0.2 baseline is captured only after lane reconciliation completes in
 M1 — the executed 2026-07-15 M0 preflight found **173 findings** (66 files
 with no primary lane tag, 42 mis-tagged vs the checker's expectation, 65 with

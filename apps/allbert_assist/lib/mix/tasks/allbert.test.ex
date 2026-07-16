@@ -811,7 +811,7 @@ defmodule Mix.Tasks.Allbert.Test do
       title: "workspace panel forms and Approval Handoff",
       cwd: :web,
       executable: "mix",
-      args: ["test", "test/allbert_assist_web/live/workspace_live_test.exs"],
+      args: ["test", "test/allbert_assist_web/live/workspace/workspace_destinations_test.exs"],
       coverage: [
         "Discovery Suggestions connect affordance",
         "calendar create-event form arguments",
@@ -1043,8 +1043,8 @@ defmodule Mix.Tasks.Allbert.Test do
       executable: "mix",
       args: [
         "test",
-        "test/allbert_assist_web/live/workspace_live_test.exs:153",
-        "test/allbert_assist_web/live/workspace_live_test.exs:736"
+        "test/allbert_assist_web/live/workspace/workspace_destinations_test.exs:256",
+        "test/allbert_assist_web/live/workspace/workspace_settings_central_test.exs:165"
       ],
       coverage: [
         "workspace Marketplace Catalog panel render",
@@ -1346,7 +1346,7 @@ defmodule Mix.Tasks.Allbert.Test do
       title: "workspace microphone confirmation, upload, and transcript handoff",
       cwd: :web,
       executable: "mix",
-      args: ["test", "test/allbert_assist_web/live/workspace_live_test.exs"],
+      args: ["test", "test/allbert_assist_web/live/workspace/workspace_chat_turn_test.exs"],
       coverage: [
         "workspace capture confirmation state",
         "approved LiveView upload to transcribe_voice",
@@ -1466,7 +1466,7 @@ defmodule Mix.Tasks.Allbert.Test do
       title: "workspace image upload controls and vision handoff",
       cwd: :web,
       executable: "mix",
-      args: ["test", "test/allbert_assist_web/live/workspace_live_test.exs"],
+      args: ["test", "test/allbert_assist_web/live/workspace/workspace_chat_turn_test.exs"],
       coverage: [
         "workspace image upload disabled when vision is off",
         "approved LiveView image upload writes bounded image metadata",
@@ -1574,7 +1574,7 @@ defmodule Mix.Tasks.Allbert.Test do
       title: "workspace retained voice and image ingestion",
       cwd: :web,
       executable: "mix",
-      args: ["test", "test/allbert_assist_web/live/workspace_live_test.exs"],
+      args: ["test", "test/allbert_assist_web/live/workspace/workspace_chat_turn_test.exs"],
       coverage: [
         "workspace retained voice upload stores through Artifacts Central",
         "workspace retained image upload stores through Artifacts Central",
@@ -1648,7 +1648,7 @@ defmodule Mix.Tasks.Allbert.Test do
       args: [
         "test",
         "test/allbert_assist_web/live/artifacts_live_test.exs",
-        "test/allbert_assist_web/live/workspace_live_test.exs"
+        "test/allbert_assist_web/live/workspace/workspace_chat_turn_test.exs"
       ],
       coverage: [
         "/apps/artifacts/:sha validates sha before store reads",
@@ -1865,7 +1865,7 @@ defmodule Mix.Tasks.Allbert.Test do
       title: "workspace unified-history continuity strip",
       cwd: :web,
       executable: "mix",
-      args: ["test", "test/allbert_assist_web/live/workspace_live_test.exs"],
+      args: ["test", "test/allbert_assist_web/live/workspace/workspace_chat_turn_test.exs"],
       coverage: [
         "LiveView renders redacted cross-channel continuity without owning channel authority",
         "workspace UI keeps stable layout across provider channel chips"
@@ -3387,12 +3387,12 @@ defmodule Mix.Tasks.Allbert.Test do
         "test/allbert_assist_web/workspace/accessibility_test.exs",
         "test/allbert_assist_web/workspace/responsive_test.exs",
         "test/allbert_assist_web/workspace/renderer_test.exs",
-        "test/allbert_assist_web/live/workspace_live_test.exs:84",
-        "test/allbert_assist_web/live/workspace_live_test.exs:491",
-        "test/allbert_assist_web/live/workspace_live_test.exs:685",
-        "test/allbert_assist_web/live/workspace_live_test.exs:1122",
-        "test/allbert_assist_web/live/workspace_live_test.exs:1143",
-        "test/allbert_assist_web/live/workspace_live_test.exs:2176"
+        "test/allbert_assist_web/live/workspace/workspace_shell_nav_test.exs:16",
+        "test/allbert_assist_web/live/workspace/workspace_destinations_test.exs:296",
+        "test/allbert_assist_web/live/workspace/workspace_shell_nav_test.exs:103",
+        "test/allbert_assist_web/live/workspace/workspace_onboarding_test.exs:249",
+        "test/allbert_assist_web/live/workspace/workspace_onboarding_test.exs:249",
+        "test/allbert_assist_web/live/workspace/workspace_canvas_tiles_test.exs:309"
       ],
       coverage: [
         "global tokens, component variants, and shared modal pattern stay enforced",
@@ -4713,7 +4713,7 @@ defmodule Mix.Tasks.Allbert.Test do
       args: [
         "test",
         "apps/allbert_assist_web/test/allbert_assist_web/workspace/first_run_test.exs",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_onboarding_test.exs",
         "--only",
         "onboarding_wizard"
       ],
@@ -4903,8 +4903,8 @@ defmodule Mix.Tasks.Allbert.Test do
       args: [
         "test",
         "apps/allbert_assist_web/test/allbert_assist_web/workspace/first_run_test.exs",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:829",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:875"
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_onboarding_test.exs:199",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_onboarding_test.exs:249"
       ],
       coverage: [
         "completed onboarding with an unavailable model opens workspace:models",
@@ -5117,10 +5117,10 @@ defmodule Mix.Tasks.Allbert.Test do
       executable: "mix",
       args: [
         "test",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:196",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:206",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:261",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:271"
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_destinations_test.exs:45",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_destinations_test.exs:55",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_destinations_test.exs:110",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_destinations_test.exs:120"
       ],
       coverage: [
         "the Notes nav item and workspace:notes destination render the action-backed notes panel with a real note",
@@ -5295,11 +5295,11 @@ defmodule Mix.Tasks.Allbert.Test do
         # Representative workspace render/dispatch (routing + notes/memory/channels/
         # settings destinations) — a targeted subset of the ~600-assert file, not the
         # whole suite, so the gate stays practical (workspace_live_test is 256-1400s).
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:173",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:206",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:271",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:322",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:807",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_destinations_test.exs:22",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_destinations_test.exs:55",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_destinations_test.exs:120",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_destinations_test.exs:171",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_settings_central_test.exs:9",
         "apps/allbert_assist_web/test/allbert_assist_web/live/jobs_live_test.exs",
         "apps/allbert_assist_web/test/allbert_assist_web/live/objectives_live_test.exs"
       ],
@@ -7689,7 +7689,14 @@ defmodule Mix.Tasks.Allbert.Test do
     # fixture subdirectories of the per-run test home (partition-keyed, rm_rf
     # bounded to the owned root) and its registries are start_supervised!
     # privates with unique names/ETS tables — no shared home state is mutated.
-    "apps/allbert_assist/test/allbert_assist/registry_context_test.exs" => :pure_async
+    "apps/allbert_assist/test/allbert_assist/registry_context_test.exs" => :pure_async,
+    # v1.0.2 M4 split remainder: every test drops the fixture agent_runner and
+    # drives the LIVE default Runtime singleton (real agent runtime + the
+    # provider/tool supervision it owns) — a shared runtime resource the
+    # liveview_serial partition runner does not own. Adjudicated explicitly so
+    # the classification never depends on incidental comment text.
+    "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs" =>
+      :external_runtime_serial
   }
 
   defp primary_lane(path, async, template, classes) do

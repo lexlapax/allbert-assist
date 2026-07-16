@@ -441,7 +441,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       boundary: :workspace_url_params,
       expected: :denied,
       assert: [:denied, :handoff_required, :neutral_runtime_context],
-      test_module: "AllbertAssistWeb.WorkspaceLiveTest"
+      test_module: "AllbertAssistWeb.WorkspaceDestinationsTest"
     },
     %{
       id: "theme-snippet-import-reject-001",

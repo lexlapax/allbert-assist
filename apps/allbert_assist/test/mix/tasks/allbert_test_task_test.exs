@@ -218,8 +218,10 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
 
     assert release_v064_steps =~ ~s(id: "v064_web_model_repair")
 
+    # v1.0.2 M4: the workspace LiveView monolith split into topic files; the
+    # v0.64 web-repair step now pins the repair-panel test in its new home.
     assert release_v064_steps =~
-             "apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs:829"
+             "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_onboarding_test.exs:199"
   end
 
   # Post-v1.0.0 (3c6c7230): released version docs live in docs/plans/archives/,
