@@ -711,11 +711,11 @@ partitioned runs are hard gates. The measurement target is also explicit: no
 split file exceeds 25% of the post-split web release phase, and the total web
 phase measurably improves from the post-M1 v1.0.2 baseline.
 
-The v1.0.2 baseline is captured only after the missing primary tags are
-reconciled in M1 — the verified 2026-07-15 preflight found **66 files without a
-primary lane tag** (not one), and `inventory --check-tags` currently exits 0
-despite findings; M1 tags all 66 (checker-suggested lanes, spot-reviewed) and
-makes the checker fail on findings so reconciliation is actually enforced. M8
+The v1.0.2 baseline is captured only after lane reconciliation completes in
+M1 — the executed 2026-07-15 M0 preflight found **173 findings** (66 files
+with no primary lane tag, 42 mis-tagged vs the checker's expectation, 65 with
+more than one primary tag); the checker itself fails correctly (exit 1) — the
+earlier "exits 0" reads were the documented `mix | tail` exit-masking trap. M8
 adds the final census/timing comparison and a 20-seed full-suite table
 recording seed, duration, result, failure classification, and isolated
 reproduction/disposition (a one-time ~4.5–7.5h backgrounded campaign).
