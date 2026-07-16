@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.Channels.SignalDoctorTest do
   alias AllbertAssist.Plugins.Signal, as: SignalPlugin
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
+  alias AllbertAssist.TestSupport.ShippedRegistries
 
   @aci "2f8f8f44-8f1a-4db3-a56a-8e0612f6f001"
 
@@ -15,7 +16,6 @@ defmodule AllbertAssist.Actions.Channels.SignalDoctorTest do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_doctor_opts = Application.get_env(:allbert_assist, :signal_doctor_client_opts)
-    original_plugins = PluginRegistry.registered_plugins()
 
     root =
       Path.join(
@@ -36,7 +36,7 @@ defmodule AllbertAssist.Actions.Channels.SignalDoctorTest do
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_app_env(:signal_doctor_client_opts, original_doctor_opts)
-      restore_plugins(original_plugins)
+      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)
@@ -81,11 +81,6 @@ defmodule AllbertAssist.Actions.Channels.SignalDoctorTest do
              )
 
     assert {:ok, _setting} = Settings.put("channels.signal.enabled", true, %{audit?: false})
-  end
-
-  defp restore_plugins(original_plugins) do
-    PluginRegistry.clear()
-    Enum.each(original_plugins, &PluginRegistry.register_entry/1)
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

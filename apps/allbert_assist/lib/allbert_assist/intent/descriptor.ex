@@ -10,6 +10,7 @@ defmodule AllbertAssist.Intent.Descriptor do
   alias AllbertAssist.Actions.Capability
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.RegistryContext
   alias AllbertAssist.Runtime.Redactor
 
   @enforce_keys [:id, :app_id, :action_name, :label]
@@ -78,7 +79,7 @@ defmodule AllbertAssist.Intent.Descriptor do
   def normalize(attrs, opts \\ [])
 
   def normalize(attrs, opts) when is_map(attrs) and is_list(opts) do
-    with {:ok, app_id} <- app_id(field(attrs, :app_id), Keyword.get(opts, :app_id)),
+    with {:ok, app_id} <- app_id(field(attrs, :app_id), Keyword.get(opts, :app_id), opts),
          {:ok, action_name} <- action_name(field(attrs, :action_name)),
          {:ok, capability} <- capability(app_id, action_name, attrs, opts),
          {:ok, label} <- bounded_required_string(field(attrs, :label), :label),
@@ -168,12 +169,12 @@ defmodule AllbertAssist.Intent.Descriptor do
     |> Redactor.redact()
   end
 
-  defp app_id(nil, nil), do: {:error, :missing_app_id}
+  defp app_id(nil, nil, _opts), do: {:error, :missing_app_id}
 
-  defp app_id(value, fallback) do
+  defp app_id(value, fallback, opts) do
     value = value || fallback
 
-    case AppRegistry.normalize_app_id(value) do
+    case AppRegistry.normalize_app_id(value, RegistryContext.app_opts(opts)) do
       {:ok, app_id} when is_atom(app_id) -> {:ok, app_id}
       {:error, reason} -> {:error, {:invalid_app_id, reason}}
     end
@@ -204,16 +205,16 @@ defmodule AllbertAssist.Intent.Descriptor do
         if field(capability_attrs, :registered?, true) == false do
           inert_capability(app_id, action_name, capability_attrs, opts)
         else
-          registered_capability(app_id, action_name)
+          registered_capability(app_id, action_name, opts)
         end
 
       _other ->
-        registered_capability(app_id, action_name)
+        registered_capability(app_id, action_name, opts)
     end
   end
 
-  defp registered_capability(app_id, action_name) do
-    case ActionsRegistry.capability(action_name) do
+  defp registered_capability(app_id, action_name, opts) do
+    case ActionsRegistry.capability(action_name, RegistryContext.take(opts)) do
       {:ok, capability} ->
         cond do
           not app_id_matches?(capability.app_id, app_id) ->

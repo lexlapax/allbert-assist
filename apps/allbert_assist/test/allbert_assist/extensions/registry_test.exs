@@ -6,9 +6,9 @@ defmodule AllbertAssist.Extensions.RegistryTest do
   alias AllbertAssist.Extensions.Registry
   alias AllbertAssist.Plugin.Entry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.TestSupport.ShippedRegistries
 
   setup do
-    original_plugins = PluginRegistry.registered_plugins()
     PluginRegistry.clear()
 
     assert {:ok, "stocksage"} = PluginRegistry.register_module(StockSage.Plugin)
@@ -36,9 +36,7 @@ defmodule AllbertAssist.Extensions.RegistryTest do
     assert {:ok, "m7.example"} = PluginRegistry.register_entry(entry)
 
     on_exit(fn ->
-      PluginRegistry.clear()
-      Enum.each(original_plugins, &PluginRegistry.register_entry/1)
-      unless app_registered?, do: AppRegistry.unregister(:stocksage)
+      ShippedRegistries.restore!()
     end)
 
     :ok

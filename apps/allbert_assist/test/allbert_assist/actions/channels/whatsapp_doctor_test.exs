@@ -9,6 +9,7 @@ defmodule AllbertAssist.Actions.Channels.WhatsAppDoctorTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ShippedRegistries
 
   setup {Req.Test, :verify_on_exit!}
 
@@ -16,7 +17,6 @@ defmodule AllbertAssist.Actions.Channels.WhatsAppDoctorTest do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_doctor_opts = Application.get_env(:allbert_assist, :whatsapp_doctor_client_opts)
-    original_plugins = PluginRegistry.registered_plugins()
 
     root =
       Path.join(
@@ -40,7 +40,7 @@ defmodule AllbertAssist.Actions.Channels.WhatsAppDoctorTest do
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_app_env(:whatsapp_doctor_client_opts, original_doctor_opts)
-      restore_plugins(original_plugins)
+      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)
@@ -96,11 +96,6 @@ defmodule AllbertAssist.Actions.Channels.WhatsAppDoctorTest do
              Settings.put("channels.whatsapp.webhook_enabled", true, %{audit?: false})
 
     assert {:ok, _setting} = Settings.put("channels.whatsapp.enabled", true, %{audit?: false})
-  end
-
-  defp restore_plugins(original_plugins) do
-    PluginRegistry.clear()
-    Enum.each(original_plugins, &PluginRegistry.register_entry/1)
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

@@ -18,6 +18,7 @@ defmodule AllbertAssist.Channels.SignalTest do
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias AllbertSignal.Settings.Fragment, as: SignalSettingsFragment
 
@@ -31,7 +32,6 @@ defmodule AllbertAssist.Channels.SignalTest do
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
-    original_plugins = PluginRegistry.registered_plugins()
 
     root =
       Path.join(
@@ -70,7 +70,7 @@ defmodule AllbertAssist.Channels.SignalTest do
       restore_env(Runtime, original_runtime_config)
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
-      restore_plugins(original_plugins)
+      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)
@@ -304,11 +304,6 @@ defmodule AllbertAssist.Channels.SignalTest do
              Settings.put("channels.signal.allowed_aci_ids", [@aci], %{audit?: false})
 
     assert {:ok, _setting} = Settings.put("channels.signal.enabled", true, %{audit?: false})
-  end
-
-  defp restore_plugins(original_plugins) do
-    PluginRegistry.clear()
-    Enum.each(original_plugins, &PluginRegistry.register_entry/1)
   end
 
   defp json(conn, body) do

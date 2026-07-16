@@ -8,6 +8,7 @@ defmodule AllbertAssist.App.SupervisorRestartTest do
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Session
+  alias AllbertAssist.TestSupport.ShippedRegistries
 
   defmodule ValidApp do
     use AllbertAssist.App
@@ -69,10 +70,7 @@ defmodule AllbertAssist.App.SupervisorRestartTest do
     PluginRegistry.register_module(StockSage.Plugin)
 
     on_exit(fn ->
-      PluginRegistry.clear()
-      PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
-      PluginRegistry.register_module(AllbertAssist.Plugins.Email)
-      PluginRegistry.register_module(StockSage.Plugin)
+      ShippedRegistries.restore!()
       restore_env(:apps, original_apps)
       restore_env(:apps_bootstrap, original_bootstrap)
     end)

@@ -2,8 +2,9 @@
 
 ## Status
 
-Proposed for v1.0.2 M2 (accepted when the seam lands; binding on M2/M3 and on
-all future registry-reading code).
+Accepted at v1.0.2 M2 (2026-07-16, the commit that landed the complete seam,
+side-effect-isolated fixture, and concurrent cross-contamination proof).
+Binding on M2/M3 and on all future registry-reading code.
 
 ## Context
 

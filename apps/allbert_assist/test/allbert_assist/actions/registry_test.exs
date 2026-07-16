@@ -9,6 +9,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias Jido.Signal.Bus
 
   defmodule PluginEcho do
@@ -74,9 +75,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
     PluginRegistry.clear()
 
     on_exit(fn ->
-      PluginRegistry.clear()
-      PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
-      PluginRegistry.register_module(AllbertAssist.Plugins.Email)
+      ShippedRegistries.restore!()
     end)
 
     :ok

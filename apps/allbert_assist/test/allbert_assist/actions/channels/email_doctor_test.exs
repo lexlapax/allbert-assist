@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.Channels.EmailDoctorTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ShippedRegistries
 
   defmodule FakeImapClient do
     def connect(_host, _port, opts), do: {:ok, %{opts: opts}}
@@ -21,7 +22,6 @@ defmodule AllbertAssist.Actions.Channels.EmailDoctorTest do
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
-    original_plugins = PluginRegistry.registered_plugins()
     original_imap_client = Application.get_env(:allbert_assist, :email_doctor_imap_client)
     original_imap_opts = Application.get_env(:allbert_assist, :email_doctor_imap_opts)
 
@@ -47,7 +47,7 @@ defmodule AllbertAssist.Actions.Channels.EmailDoctorTest do
       restore_env(Settings, original_settings_config)
       restore_app_env(:email_doctor_imap_client, original_imap_client)
       restore_app_env(:email_doctor_imap_opts, original_imap_opts)
-      restore_plugins(original_plugins)
+      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)
@@ -122,11 +122,6 @@ defmodule AllbertAssist.Actions.Channels.EmailDoctorTest do
       channel: :test,
       request: %{channel: :test, user_id: "local", operator_id: "local"}
     }
-  end
-
-  defp restore_plugins(original_plugins) do
-    PluginRegistry.clear()
-    Enum.each(original_plugins, &PluginRegistry.register_entry/1)
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

@@ -10,6 +10,7 @@ defmodule AllbertAssist.Skills.Registry do
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.RegistryContext
   alias AllbertAssist.Security.Policy
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills.CapabilityContract
@@ -254,8 +255,8 @@ defmodule AllbertAssist.Skills.Registry do
         2
       )
     ] ++
-      app_roots() ++
-      plugin_roots() ++
+      app_roots(registry_context(context)) ++
+      plugin_roots(registry_context(context)) ++
       [
         root_spec(:user_native, Paths.skills_root(), :trusted, true, 5),
         root_spec(:user_interoperable, user_interoperable_root(context), :trusted, true, 6)
@@ -274,12 +275,16 @@ defmodule AllbertAssist.Skills.Registry do
     }
   end
 
-  defp app_roots do
+  defp app_roots(registry) do
     plugin_skill_paths =
-      PluginRegistry.registered_skill_paths()
+      registry
+      |> RegistryContext.plugin_opts()
+      |> PluginRegistry.registered_skill_paths()
       |> Map.new(fn %{plugin_id: plugin_id, path: path} -> {Path.expand(path), plugin_id} end)
 
-    AppRegistry.registered_skill_paths()
+    registry
+    |> RegistryContext.app_opts()
+    |> AppRegistry.registered_skill_paths()
     |> Enum.map(fn %{app_id: app_id, path: path} ->
       :app
       |> root_spec(path, :trusted, true, 3)
@@ -295,8 +300,10 @@ defmodule AllbertAssist.Skills.Registry do
     end
   end
 
-  defp plugin_roots do
-    PluginRegistry.registered_skill_paths()
+  defp plugin_roots(registry) do
+    registry
+    |> RegistryContext.plugin_opts()
+    |> PluginRegistry.registered_skill_paths()
     |> Enum.map(fn %{plugin_id: plugin_id, path: path, trust_status: trust_status, source: source} ->
       :plugin
       |> root_spec(path, trust_status, true, 4)
@@ -304,6 +311,11 @@ defmodule AllbertAssist.Skills.Registry do
       |> Map.put(:plugin_source, source)
     end)
   end
+
+  # v1.0.2 M2 (ADR 0082): the context map accepts an optional internal
+  # `:registry` key holding the RegistryContext keyword so app/plugin skill-root
+  # discovery can read private registries. Omission means the global defaults.
+  defp registry_context(context), do: Map.get(context, :registry, [])
 
   defp configured_roots(settings, project_root) do
     settings["scan_paths"]

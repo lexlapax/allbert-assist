@@ -30,6 +30,7 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Schema
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
 
   @tool_names ~w(read grep glob write edit bash)
@@ -92,7 +93,6 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
-    original_plugins = PluginRegistry.registered_plugins()
 
     root = Path.join(System.tmp_dir!(), "allbert-v057-coding-eval-#{unique()}")
     home = Path.join(root, "home")
@@ -129,7 +129,7 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
       restore_app_env(Runtime, original_runtime_config)
       restore_app_env(Settings, original_settings_config)
       restore_app_env(Trace, original_trace_config)
-      restore_plugins(original_plugins)
+      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)
@@ -769,11 +769,6 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
 
   defp restore_app_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_app_env(module, value), do: Application.put_env(:allbert_assist, module, value)
-
-  defp restore_plugins(original_plugins) do
-    PluginRegistry.clear()
-    Enum.each(original_plugins, &PluginRegistry.register_entry/1)
-  end
 
   defp unique, do: System.unique_integer([:positive])
 end

@@ -12,6 +12,7 @@ defmodule AllbertAssist.SettingsTest do
   alias AllbertAssist.Settings.ModelRuntime
   alias AllbertAssist.Settings.ProviderCatalog
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertResearch.Settings.Fragment, as: ResearchSettingsFragment
 
   @env_vars [
@@ -65,10 +66,7 @@ defmodule AllbertAssist.SettingsTest do
     System.put_env("ALLBERT_HOME", home)
 
     on_exit(fn ->
-      AppRegistry.unregister(:settings_fixture_app)
-      PluginRegistry.clear()
-      PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
-      PluginRegistry.register_module(AllbertAssist.Plugins.Email)
+      ShippedRegistries.restore!()
       File.rm_rf!(home)
       restore_env(original_env)
       restore_app_env(Paths, original_paths_config)

@@ -12,6 +12,7 @@ defmodule AllbertAssist.Channels.TUIIntentsModelsTest do
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
 
   setup do
@@ -19,7 +20,6 @@ defmodule AllbertAssist.Channels.TUIIntentsModelsTest do
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
-    original_plugins = PluginRegistry.registered_plugins()
 
     root =
       Path.join(
@@ -56,7 +56,7 @@ defmodule AllbertAssist.Channels.TUIIntentsModelsTest do
       restore_env(Runtime, original_runtime_config)
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
-      restore_plugins(original_plugins)
+      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)
@@ -145,9 +145,4 @@ defmodule AllbertAssist.Channels.TUIIntentsModelsTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)
-
-  defp restore_plugins(entries) do
-    PluginRegistry.clear()
-    Enum.each(entries, &PluginRegistry.register_entry/1)
-  end
 end

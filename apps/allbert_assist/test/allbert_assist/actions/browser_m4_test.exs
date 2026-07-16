@@ -7,6 +7,7 @@ defmodule AllbertAssist.Actions.BrowserM4Test do
   alias AllbertAssist.Intent.EvalFixtures
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Security.Redactor
+  alias AllbertAssist.TestSupport.ShippedRegistries
 
   setup do
     PluginRegistry.clear()
@@ -16,10 +17,7 @@ defmodule AllbertAssist.Actions.BrowserM4Test do
     assert {:ok, :allbert_browser} = AppRegistry.register(AllbertBrowser.App)
 
     on_exit(fn ->
-      PluginRegistry.clear()
-      restore_default_plugins()
-      AppRegistry.clear()
-      restore_default_apps()
+      ShippedRegistries.restore!()
     end)
 
     :ok
@@ -116,16 +114,5 @@ defmodule AllbertAssist.Actions.BrowserM4Test do
                :browser_interact
              ]
     end
-  end
-
-  defp restore_default_apps do
-    _ = AppRegistry.register(AllbertAssist.App.CoreApp)
-    _ = AppRegistry.register(StockSage.App)
-  end
-
-  defp restore_default_plugins do
-    _ = PluginRegistry.register_module(StockSage.Plugin)
-    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
-    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
   end
 end

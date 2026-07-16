@@ -9,6 +9,7 @@ defmodule AllbertAssist.Conversations.UnifiedHistoryTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ShippedRegistries
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -30,9 +31,7 @@ defmodule AllbertAssist.Conversations.UnifiedHistoryTest do
     PluginRegistry.register_module(AllbertAssist.Plugins.Slack)
 
     on_exit(fn ->
-      PluginRegistry.clear()
-      PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
-      PluginRegistry.register_module(AllbertAssist.Plugins.Email)
+      ShippedRegistries.restore!()
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       File.rm_rf!(root)

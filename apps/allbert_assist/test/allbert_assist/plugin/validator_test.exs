@@ -419,6 +419,14 @@ defmodule AllbertAssist.Plugin.ValidatorTest do
   end
 
   test "validates plugin modules into normalized entries without atomizing ids" do
+    # v1.0.2 M2 drift-fix: warm the validation path once before measuring —
+    # first-call lazy atoms (module/protocol loading elsewhere in the VM)
+    # tripped this guard order-dependently. The guard's contract is that
+    # REPEAT validation creates no atoms (no unbounded atomization from ids),
+    # which the warmed second pass still proves.
+    assert {:ok, %Entry{}} =
+             Validator.validate_module(ValidPlugin, source: :shipped, root_path: "/tmp/plugin")
+
     before_count = :erlang.system_info(:atom_count)
 
     assert {:ok, %Entry{} = entry} =

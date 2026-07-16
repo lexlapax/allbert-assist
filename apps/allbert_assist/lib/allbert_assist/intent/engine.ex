@@ -24,27 +24,32 @@ defmodule AllbertAssist.Intent.Engine do
   alias AllbertAssist.Memory.Index, as: MemoryIndex
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Objective
+  alias AllbertAssist.RegistryContext
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills
 
-  @spec decide(map()) :: {:ok, Decision.t()} | {:error, term()}
-  def decide(%{route_decision: %Decision{} = decision} = request) when is_map(request) do
+  @spec decide(map(), keyword()) :: {:ok, Decision.t()} | {:error, term()}
+  def decide(request, opts \\ [])
+
+  def decide(%{route_decision: %Decision{} = decision} = request, opts) when is_map(request) do
     if explicit_route_hint?(request) do
-      {:ok, put_candidate_metadata(decision, %{request: request})}
+      {:ok,
+       put_candidate_metadata(decision, metadata_context(request, RegistryContext.take(opts)))}
     else
-      decide_without_explicit_route(request)
+      decide_without_explicit_route(request, opts)
     end
   end
 
-  def decide(request) when is_map(request) do
-    decide_without_explicit_route(request)
+  def decide(request, opts) when is_map(request) do
+    decide_without_explicit_route(request, opts)
   end
 
-  def decide(value), do: {:error, {:invalid_request, value}}
+  def decide(value, _opts), do: {:error, {:invalid_request, value}}
 
-  defp decide_without_explicit_route(request) do
-    app_context = active_app_context(request)
-    candidates = ranked_candidates(request)
+  defp decide_without_explicit_route(request, opts) do
+    registry = RegistryContext.take(opts)
+    app_context = active_app_context(request, registry)
+    candidates = ranked_candidates(request, registry)
     {classifier_candidate, classifier_diagnostic} = classifier_candidate(candidates, request)
 
     attrs =
@@ -71,15 +76,16 @@ defmodule AllbertAssist.Intent.Engine do
         end
 
     with {:ok, decision} <- build_decision(attrs, request, classifier_diagnostic) do
-      {:ok, put_candidate_metadata(decision, %{request: request})}
+      {:ok, put_candidate_metadata(decision, metadata_context(request, registry))}
     end
   end
 
   @spec put_candidate_metadata(Decision.t(), map()) :: Decision.t()
   def put_candidate_metadata(%Decision{} = decision, context) do
     request = request_from_context(context)
-    collected_candidates = collect_candidates(request, objective_opts(context))
-    selected = selected_candidate(decision, collected_candidates)
+    registry = registry_opts(context)
+    collected_candidates = collect_candidates(request, objective_opts(context) ++ registry)
+    selected = selected_candidate(decision, collected_candidates, registry)
 
     candidates =
       collected_candidates
@@ -91,7 +97,7 @@ defmodule AllbertAssist.Intent.Engine do
 
     trace_metadata =
       decision.trace_metadata
-      |> Map.put(:active_app, normalized_active_app(request))
+      |> Map.put(:active_app, normalized_active_app(request, registry))
       |> Map.put(:intent_candidates, %{
         selected: selected |> Candidate.to_map(),
         rejected: rejected,
@@ -316,9 +322,9 @@ defmodule AllbertAssist.Intent.Engine do
     }
   end
 
-  defp ranked_candidates(request) do
+  defp ranked_candidates(request, registry) do
     request
-    |> collect_candidates()
+    |> collect_candidates(registry)
     |> Ranker.rank(request)
     |> Candidate.bound(total_limit: max_candidates())
   end
@@ -379,89 +385,100 @@ defmodule AllbertAssist.Intent.Engine do
     end
   end
 
-  defp selected_candidate(%Decision{} = decision, candidates) when is_list(candidates) do
+  defp selected_candidate(%Decision{} = decision, candidates, registry)
+       when is_list(candidates) do
     case route_hint_candidate(candidates) do
       %{id: id, kind: kind} = candidate ->
-        selected = Candidate.selected_from_decision(decision)
+        selected = Candidate.selected_from_decision(decision, registry)
 
         if selected.id == id and selected.kind == kind do
           candidate
         else
-          selected_candidate(decision)
+          selected_candidate(decision, registry)
         end
 
       nil ->
-        selected_candidate(decision)
+        selected_candidate(decision, registry)
     end
   end
 
-  defp selected_candidate(%Decision{intent: :open_surface} = decision) do
+  defp selected_candidate(%Decision{intent: :open_surface} = decision, registry) do
     case field(decision.trace_metadata, :surface_target) do
       %{} = surface ->
-        Candidate.new!(%{
-          kind: :surface,
-          id: field(surface, :id),
-          label: field(surface, :label),
-          source: :app,
-          status: :selected,
-          selected?: true,
-          score: 1.0,
-          reason: "Selected registered surface #{field(surface, :label)}.",
-          surface_id: field(surface, :surface_id),
-          app_id: field(surface, :app_id),
-          trace_metadata: surface
-        })
+        Candidate.new!(
+          %{
+            kind: :surface,
+            id: field(surface, :id),
+            label: field(surface, :label),
+            source: :app,
+            status: :selected,
+            selected?: true,
+            score: 1.0,
+            reason: "Selected registered surface #{field(surface, :label)}.",
+            surface_id: field(surface, :surface_id),
+            app_id: field(surface, :app_id),
+            trace_metadata: surface
+          },
+          registry
+        )
 
       _other ->
-        Candidate.selected_from_decision(decision)
+        Candidate.selected_from_decision(decision, registry)
     end
   end
 
-  defp selected_candidate(%Decision{intent: intent} = decision)
+  defp selected_candidate(%Decision{intent: intent} = decision, registry)
        when intent in [:app_handoff, :clarify_intent] do
     handoff = field(decision.trace_metadata, :intent_handoff, %{})
 
-    Candidate.new!(%{
-      kind: :app_intent,
-      id:
-        field(handoff, :candidate_id) ||
-          "#{field(handoff, :app_id)}:#{field(handoff, :action_name)}",
-      label: field(handoff, :label),
-      source: :app,
-      status: :selected,
-      selected?: true,
-      score: decision.confidence,
-      reason: decision.reason,
-      action_name: field(handoff, :action_name),
-      app_id: field(handoff, :app_id),
-      permission: field(handoff, :permission),
-      execution_mode: field(handoff, :execution_mode),
-      confirmation: field(handoff, :confirmation),
-      trace_metadata: %{intent: intent, intent_handoff: handoff}
-    })
+    Candidate.new!(
+      %{
+        kind: :app_intent,
+        id:
+          field(handoff, :candidate_id) ||
+            "#{field(handoff, :app_id)}:#{field(handoff, :action_name)}",
+        label: field(handoff, :label),
+        source: :app,
+        status: :selected,
+        selected?: true,
+        score: decision.confidence,
+        reason: decision.reason,
+        action_name: field(handoff, :action_name),
+        app_id: field(handoff, :app_id),
+        permission: field(handoff, :permission),
+        execution_mode: field(handoff, :execution_mode),
+        confirmation: field(handoff, :confirmation),
+        trace_metadata: %{intent: intent, intent_handoff: handoff}
+      },
+      registry
+    )
   rescue
-    _exception -> Candidate.selected_from_decision(decision)
+    _exception -> Candidate.selected_from_decision(decision, registry)
   end
 
-  defp selected_candidate(%Decision{} = decision), do: Candidate.selected_from_decision(decision)
+  defp selected_candidate(%Decision{} = decision, registry),
+    do: Candidate.selected_from_decision(decision, registry)
 
   defp do_collect_candidates(request, opts) do
-    route_hint_candidates(request) ++
-      action_candidates(request) ++
-      descriptor_candidates(request) ++
-      surface_candidates() ++
-      relevant_job_candidates(request) ++
+    registry = RegistryContext.take(opts)
+
+    route_hint_candidates(request, registry) ++
+      action_candidates(request, registry) ++
+      descriptor_candidates(request, registry) ++
+      surface_candidates(registry) ++
+      relevant_job_candidates(request, registry) ++
       relevant_channel_candidates(request) ++
       memory_candidates(request) ++
-      objective_candidates(request, Keyword.get(opts, :objective)) ++
+      objective_candidates(request, Keyword.get(opts, :objective), registry) ++
       refusal_candidates(request) ++
-      relevant_skill_candidates(request)
+      relevant_skill_candidates(request, registry)
   end
 
-  defp descriptor_candidates(request) do
+  defp descriptor_candidates(request, registry) do
     if descriptors_enabled?() do
-      DescriptorResolver.resolve()
-      |> Enum.map(&candidate_from_descriptor(&1, request))
+      registry
+      |> DescriptorResolver.resolve()
+      |> Enum.map(&candidate_from_descriptor(&1, request, registry))
       |> Enum.reject(&is_nil/1)
     else
       []
@@ -782,66 +799,76 @@ defmodule AllbertAssist.Intent.Engine do
     ]
   end
 
-  defp candidate_from_descriptor(descriptor, request) do
+  defp candidate_from_descriptor(descriptor, request, registry) do
     slots = Descriptor.extract_slots(descriptor, field(request, :text) || "")
     capability = descriptor.capability
 
-    Candidate.new!(%{
-      kind: :app_intent,
-      id: descriptor.id,
-      label: descriptor.label,
-      source: descriptor.source || :app,
-      status: :candidate,
-      score: 0.2,
-      reason: "App intent descriptor #{descriptor.label}.",
-      action_name: descriptor.action_name,
-      app_id: descriptor.app_id,
-      plugin_id: Map.get(capability, :plugin_id),
-      permission: Map.get(capability, :permission),
-      execution_mode: Map.get(capability, :execution_mode),
-      confirmation: Map.get(capability, :confirmation),
-      trace_metadata: %{
-        intent: :app_intent,
-        descriptor: Descriptor.to_map(descriptor),
-        extracted_slots: slots.extracted_slots,
-        missing_slots: slots.missing_slots,
-        handoff_required?: descriptor.handoff_required?
-      }
-    })
+    Candidate.new!(
+      %{
+        kind: :app_intent,
+        id: descriptor.id,
+        label: descriptor.label,
+        source: descriptor.source || :app,
+        status: :candidate,
+        score: 0.2,
+        reason: "App intent descriptor #{descriptor.label}.",
+        action_name: descriptor.action_name,
+        app_id: descriptor.app_id,
+        plugin_id: Map.get(capability, :plugin_id),
+        permission: Map.get(capability, :permission),
+        execution_mode: Map.get(capability, :execution_mode),
+        confirmation: Map.get(capability, :confirmation),
+        trace_metadata: %{
+          intent: :app_intent,
+          descriptor: Descriptor.to_map(descriptor),
+          extracted_slots: slots.extracted_slots,
+          missing_slots: slots.missing_slots,
+          handoff_required?: descriptor.handoff_required?
+        }
+      },
+      registry
+    )
   rescue
     _exception -> nil
   end
 
-  defp action_candidates(request) do
-    ActionsRegistry.agent_capabilities()
-    |> Enum.map(&candidate_from_capability(&1, request))
+  defp action_candidates(request, registry) do
+    registry
+    |> ActionsRegistry.agent_capabilities()
+    |> Enum.map(&candidate_from_capability(&1, request, registry))
     |> Enum.reject(&is_nil/1)
   end
 
-  defp candidate_from_capability(%Capability{} = capability, request) do
-    Candidate.new!(%{
-      kind: :action,
-      id: capability.name,
-      label: capability.name,
-      source: provenance_source(capability),
-      status: :candidate,
-      score: 0.25,
-      reason: "Registered action #{capability.name}.",
-      action_name: capability.name,
-      app_id: capability.app_id,
-      plugin_id: capability.plugin_id,
-      permission: capability.permission,
-      execution_mode: capability.execution_mode,
-      confirmation: capability.confirmation,
-      resource_access: action_resource_access(capability, request),
-      trace_metadata: Capability.summary(capability)
-    })
+  defp candidate_from_capability(%Capability{} = capability, request, registry) do
+    Candidate.new!(
+      %{
+        kind: :action,
+        id: capability.name,
+        label: capability.name,
+        source: provenance_source(capability),
+        status: :candidate,
+        score: 0.25,
+        reason: "Registered action #{capability.name}.",
+        action_name: capability.name,
+        app_id: capability.app_id,
+        plugin_id: capability.plugin_id,
+        permission: capability.permission,
+        execution_mode: capability.execution_mode,
+        confirmation: capability.confirmation,
+        resource_access: action_resource_access(capability, request),
+        trace_metadata: Capability.summary(capability)
+      },
+      registry
+    )
   rescue
     _exception -> nil
   end
 
-  defp route_hint_candidates(%{route_decision: %Decision{} = decision, route_hint: route_hint}) do
-    selected = Candidate.selected_from_decision(decision)
+  defp route_hint_candidates(
+         %{route_decision: %Decision{} = decision, route_hint: route_hint},
+         registry
+       ) do
+    selected = Candidate.selected_from_decision(decision, registry)
 
     [
       %{
@@ -861,10 +888,10 @@ defmodule AllbertAssist.Intent.Engine do
     _exception -> []
   end
 
-  defp route_hint_candidates(_request), do: []
+  defp route_hint_candidates(_request, _registry), do: []
 
-  defp skill_candidates(request) do
-    {:ok, skills} = Skills.list(%{request: request})
+  defp skill_candidates(request, registry) do
+    {:ok, skills} = Skills.list(skills_context(request, registry))
 
     skills
     |> Enum.map(&candidate_from_skill/1)
@@ -873,9 +900,14 @@ defmodule AllbertAssist.Intent.Engine do
     _exception -> []
   end
 
-  defp relevant_skill_candidates(request) do
-    if skill_candidates_relevant?(request), do: skill_candidates(request), else: []
+  defp relevant_skill_candidates(request, registry) do
+    if skill_candidates_relevant?(request), do: skill_candidates(request, registry), else: []
   end
+
+  # Only annotate the skills context with the internal registry keyword when a
+  # caller provided one, so the default path stays identical.
+  defp skills_context(request, []), do: %{request: request}
+  defp skills_context(request, registry), do: %{request: request, registry: registry}
 
   defp candidate_from_skill(skill) do
     Candidate.new!(%{
@@ -900,9 +932,11 @@ defmodule AllbertAssist.Intent.Engine do
     _exception -> nil
   end
 
-  defp surface_candidates do
-    AppRegistry.registered_surfaces()
-    |> Enum.map(&candidate_from_surface/1)
+  defp surface_candidates(registry) do
+    registry
+    |> RegistryContext.app_opts()
+    |> AppRegistry.registered_surfaces()
+    |> Enum.map(&candidate_from_surface(&1, registry))
     |> Enum.reject(&is_nil/1)
   rescue
     _exception -> []
@@ -910,68 +944,74 @@ defmodule AllbertAssist.Intent.Engine do
     :exit, _reason -> []
   end
 
-  defp candidate_from_surface(surface) do
+  defp candidate_from_surface(surface, registry) do
     id = field(surface, :id)
     app_id = field(surface, :app_id)
     path = field(surface, :path)
     label = field(surface, :label) || to_string(id)
 
-    Candidate.new!(%{
-      kind: :surface,
-      id: "#{app_id}:#{id}",
-      label: label,
-      source: :app,
-      status: :candidate,
-      score: 0.15,
-      reason: "Registered app surface #{label}.",
-      surface_id: id,
-      app_id: app_id,
-      trace_metadata: %{
-        path: path,
-        kind: field(surface, :kind),
-        provider?: field(surface, :provider?, false),
-        status: field(surface, :status)
-      }
-    })
+    Candidate.new!(
+      %{
+        kind: :surface,
+        id: "#{app_id}:#{id}",
+        label: label,
+        source: :app,
+        status: :candidate,
+        score: 0.15,
+        reason: "Registered app surface #{label}.",
+        surface_id: id,
+        app_id: app_id,
+        trace_metadata: %{
+          path: path,
+          kind: field(surface, :kind),
+          provider?: field(surface, :provider?, false),
+          status: field(surface, :status)
+        }
+      },
+      registry
+    )
   rescue
     _exception -> nil
   end
 
-  defp job_candidates(request) do
+  defp job_candidates(request, registry) do
     user_id = field(request, :user_id) || field(request, :operator_id) || "local"
 
     user_id
     |> Jobs.list_jobs(limit: 10)
-    |> Enum.map(&candidate_from_job/1)
+    |> Enum.map(&candidate_from_job(&1, registry))
     |> Enum.reject(&is_nil/1)
   rescue
     _exception -> []
   end
 
-  defp relevant_job_candidates(request) do
+  defp relevant_job_candidates(request, registry) do
     text = field(request, :text) || ""
 
-    if job_text?(text), do: job_candidates(request), else: []
+    if job_text?(text), do: job_candidates(request, registry), else: []
   end
 
-  defp candidate_from_job(job) do
-    Candidate.new!(%{
-      kind: :job,
-      id: job.id,
-      label: job.name,
-      source: :job,
-      status: :candidate,
-      score: 0.18,
-      reason: "Scheduled job #{job.name}.",
-      job_id: job.id,
-      app_id: app_id_from_string(job.app_id),
-      trace_metadata: %{
-        status: job.status,
-        target_type: job.target_type,
-        schedule_kind: field(job.schedule, :kind),
-        thread_mode: job.thread_mode
-      }
-    })
+  defp candidate_from_job(job, registry) do
+    Candidate.new!(
+      %{
+        kind: :job,
+        id: job.id,
+        label: job.name,
+        source: :job,
+        status: :candidate,
+        score: 0.18,
+        reason: "Scheduled job #{job.name}.",
+        job_id: job.id,
+        app_id: app_id_from_string(job.app_id, registry),
+        trace_metadata: %{
+          status: job.status,
+          target_type: job.target_type,
+          schedule_kind: field(job.schedule, :kind),
+          thread_mode: job.thread_mode
+        }
+      },
+      registry
+    )
   rescue
     _exception -> nil
   end
@@ -1117,60 +1157,63 @@ defmodule AllbertAssist.Intent.Engine do
     end
   end
 
-  defp objective_candidates(_request, nil), do: []
+  defp objective_candidates(_request, nil, _registry), do: []
 
-  defp objective_candidates(request, true) do
+  defp objective_candidates(request, true, registry) do
     user_id = field(request, :user_id) || field(request, :operator_id) || "local"
 
     user_id
     |> Objectives.list_objectives(status: ["open", "running", "blocked"], limit: 5)
-    |> Enum.map(&candidate_from_objective/1)
+    |> Enum.map(&candidate_from_objective(&1, registry))
     |> Enum.reject(&is_nil/1)
   rescue
     _exception -> []
   end
 
-  defp objective_candidates(_request, %Objective{} = objective) do
-    [candidate_from_objective(objective)]
+  defp objective_candidates(_request, %Objective{} = objective, registry) do
+    [candidate_from_objective(objective, registry)]
     |> Enum.reject(&is_nil/1)
   end
 
-  defp objective_candidates(_request, objectives) when is_list(objectives) do
+  defp objective_candidates(_request, objectives, registry) when is_list(objectives) do
     objectives
-    |> Enum.map(&candidate_from_objective/1)
+    |> Enum.map(&candidate_from_objective(&1, registry))
     |> Enum.reject(&is_nil/1)
   end
 
-  defp objective_candidates(_request, %{} = objective) do
-    [candidate_from_objective(objective)]
+  defp objective_candidates(_request, %{} = objective, registry) do
+    [candidate_from_objective(objective, registry)]
     |> Enum.reject(&is_nil/1)
   end
 
-  defp objective_candidates(_request, _objective), do: []
+  defp objective_candidates(_request, _objective, _registry), do: []
 
-  defp candidate_from_objective(objective) do
+  defp candidate_from_objective(objective, registry) do
     id = field(objective, :id)
     title = field(objective, :title)
 
-    Candidate.new!(%{
-      kind: :objective,
-      id: id,
-      label: title,
-      source: :objective,
-      status: :candidate,
-      score: 0.2,
-      reason: title || "Active objective #{id}.",
-      app_id: app_id_from_string(field(objective, :active_app)),
-      trace_metadata: %{
-        objective_id: id,
-        title: title,
-        objective: field(objective, :objective),
-        status: field(objective, :status),
-        source_thread_id: field(objective, :source_thread_id),
-        current_step_id: field(objective, :current_step_id),
-        loop_count: field(objective, :loop_count)
-      }
-    })
+    Candidate.new!(
+      %{
+        kind: :objective,
+        id: id,
+        label: title,
+        source: :objective,
+        status: :candidate,
+        score: 0.2,
+        reason: title || "Active objective #{id}.",
+        app_id: app_id_from_string(field(objective, :active_app), registry),
+        trace_metadata: %{
+          objective_id: id,
+          title: title,
+          objective: field(objective, :objective),
+          status: field(objective, :status),
+          source_thread_id: field(objective, :source_thread_id),
+          current_step_id: field(objective, :current_step_id),
+          loop_count: field(objective, :loop_count)
+        }
+      },
+      registry
+    )
   rescue
     _exception -> nil
   end
@@ -1254,13 +1297,13 @@ defmodule AllbertAssist.Intent.Engine do
     }
   end
 
-  defp active_app_context(request) do
+  defp active_app_context(request, registry) do
     requested = field(request, :active_app) || field(request, :app_id)
-    do_active_app_context(requested)
+    do_active_app_context(requested, registry)
   end
 
-  defp do_active_app_context(requested) do
-    case AppRegistry.normalize_app_id(requested) do
+  defp do_active_app_context(requested, registry) do
+    case AppRegistry.normalize_app_id(requested, RegistryContext.app_opts(registry)) do
       {:ok, nil} ->
         %{active_app: :allbert, diagnostics: []}
 
@@ -1297,7 +1340,8 @@ defmodule AllbertAssist.Intent.Engine do
       }
   end
 
-  defp normalized_active_app(request), do: active_app_context(request).active_app
+  defp normalized_active_app(request, registry),
+    do: active_app_context(request, registry).active_app
 
   defp route_hint_direct_answer?(request) do
     case field(request, :route_hint) do
@@ -1372,6 +1416,20 @@ defmodule AllbertAssist.Intent.Engine do
   defp objective_opts(%{"objective" => objective}), do: [objective: objective]
   defp objective_opts(_context), do: []
 
+  # v1.0.2 M2 (ADR 0082): the internal registry context rides the metadata
+  # context map (mirroring objective_opts/1) so put_candidate_metadata/2 collects
+  # against the same registries the decision was produced with.
+  defp registry_opts(%{registry: registry}) when is_list(registry),
+    do: RegistryContext.take(registry)
+
+  defp registry_opts(%{"registry" => registry}) when is_list(registry),
+    do: RegistryContext.take(registry)
+
+  defp registry_opts(_context), do: []
+
+  defp metadata_context(request, []), do: %{request: request}
+  defp metadata_context(request, registry), do: %{request: request, registry: registry}
+
   defp trace_rejected_candidates? do
     case Settings.get("intent.trace_rejected_candidates") do
       {:ok, false} -> false
@@ -1426,10 +1484,10 @@ defmodule AllbertAssist.Intent.Engine do
     end
   end
 
-  defp app_id_from_string(nil), do: nil
+  defp app_id_from_string(nil, _registry), do: nil
 
-  defp app_id_from_string(app_id) when is_binary(app_id) do
-    case AppRegistry.normalize_app_id(app_id) do
+  defp app_id_from_string(app_id, registry) when is_binary(app_id) do
+    case AppRegistry.normalize_app_id(app_id, RegistryContext.app_opts(registry)) do
       {:ok, app_id} -> app_id
       {:error, _reason} -> nil
     end
@@ -1437,8 +1495,8 @@ defmodule AllbertAssist.Intent.Engine do
     :exit, _reason -> nil
   end
 
-  defp app_id_from_string(app_id) when is_atom(app_id), do: app_id
-  defp app_id_from_string(_app_id), do: nil
+  defp app_id_from_string(app_id, _registry) when is_atom(app_id), do: app_id
+  defp app_id_from_string(_app_id, _registry), do: nil
 
   defp memory_append_text?(text) when is_binary(text) do
     normalized = String.downcase(text)

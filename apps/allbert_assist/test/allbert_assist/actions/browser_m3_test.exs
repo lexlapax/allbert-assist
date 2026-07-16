@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.BrowserM3Test do
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
   alias AllbertAssist.Surface
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertBrowser.{Cache, Extractors}
 
   setup do
@@ -31,10 +32,7 @@ defmodule AllbertAssist.Actions.BrowserM3Test do
     assert {:ok, :allbert_browser} = AppRegistry.register(AllbertBrowser.App)
 
     on_exit(fn ->
-      PluginRegistry.clear()
-      restore_default_plugins()
-      AppRegistry.clear()
-      restore_default_apps()
+      ShippedRegistries.restore!()
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_env(:allbert_browser, :driver, original_driver)
@@ -170,17 +168,6 @@ defmodule AllbertAssist.Actions.BrowserM3Test do
     assert [%{status: "paused", target: %{"action_name" => "browser_sweep_cache"}}] =
              Jobs.list_jobs("local", limit: 100)
              |> Enum.filter(&(&1.name == "Allbert Browser cache sweep"))
-  end
-
-  defp restore_default_apps do
-    _ = AppRegistry.register(AllbertAssist.App.CoreApp)
-    _ = AppRegistry.register(StockSage.App)
-  end
-
-  defp restore_default_plugins do
-    _ = PluginRegistry.register_module(StockSage.Plugin)
-    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
-    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
   end
 
   defp ensure_browser_supervisor do

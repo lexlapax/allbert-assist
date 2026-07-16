@@ -28,6 +28,7 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
 
   defmodule MissingPrimitivesPlugin do
@@ -122,7 +123,6 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
-    original_plugins = PluginRegistry.registered_plugins()
     original_slack_stub_result = Application.get_env(:allbert_assist, :slack_client_stub_result)
 
     original_discord_stub_result =
@@ -178,8 +178,7 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
       restore_env(Trace, original_trace_config)
       restore_app_env(:slack_client_stub_result, original_slack_stub_result)
       restore_app_env(:discord_client_stub_result, original_discord_stub_result)
-      PluginRegistry.clear()
-      Enum.each(original_plugins, &PluginRegistry.register_entry/1)
+      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)

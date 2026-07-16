@@ -21,6 +21,7 @@ defmodule AllbertAssist.Channels.MatrixTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias AllbertMatrix.Settings.Fragment, as: MatrixSettingsFragment
 
@@ -32,7 +33,6 @@ defmodule AllbertAssist.Channels.MatrixTest do
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
-    original_plugins = PluginRegistry.registered_plugins()
 
     root =
       Path.join(
@@ -65,7 +65,7 @@ defmodule AllbertAssist.Channels.MatrixTest do
       restore_env(Runtime, original_runtime_config)
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
-      restore_plugins(original_plugins)
+      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)
@@ -699,11 +699,6 @@ defmodule AllbertAssist.Channels.MatrixTest do
                }
              }
            }
-  end
-
-  defp restore_plugins(original_plugins) do
-    PluginRegistry.clear()
-    Enum.each(original_plugins, &PluginRegistry.register_entry/1)
   end
 
   defp json(conn, body) do

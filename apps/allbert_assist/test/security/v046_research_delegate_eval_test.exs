@@ -13,6 +13,7 @@ defmodule AllbertAssist.Security.V046ResearchDelegateEvalTest do
   alias AllbertAssist.Resources.{Grants, Ref, ResourceURI, Scope}
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertBrowser.Session
 
   @eval_ids [
@@ -64,10 +65,7 @@ defmodule AllbertAssist.Security.V046ResearchDelegateEvalTest do
     on_exit(fn ->
       close_all_sessions()
       AgentRegistry.unregister(AllbertResearch.Runtime.agent_id())
-      PluginRegistry.clear()
-      restore_default_plugins()
-      AppRegistry.clear()
-      restore_default_apps()
+      ShippedRegistries.restore!()
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_env(Confirmations, original_confirmations_config)
@@ -326,27 +324,6 @@ defmodule AllbertAssist.Security.V046ResearchDelegateEvalTest do
             |> Map.take([:role, :prompt_file, :prompt_version, :type, :tool_modules, :tool_names])
             |> Map.put(:app_id, :stocksage)
         }
-    end
-  end
-
-  defp restore_default_apps do
-    _ = AppRegistry.register(AllbertAssist.App.CoreApp)
-    _ = AppRegistry.register(StockSage.App)
-    _ = AppRegistry.register(AllbertNotesFiles.App)
-    _ = AppRegistry.register(AllbertBrowser.App)
-    _ = AppRegistry.register(AllbertResearch.App)
-  end
-
-  defp restore_default_plugins do
-    for module <- [
-          AllbertAssist.Plugins.Telegram,
-          AllbertAssist.Plugins.Email,
-          AllbertNotesFiles.Plugin,
-          AllbertBrowser.Plugin,
-          AllbertResearch.Plugin,
-          StockSage.Plugin
-        ] do
-      _ = PluginRegistry.register_module(module)
     end
   end
 

@@ -24,6 +24,7 @@ defmodule AllbertAssist.Security.V056IntentEvalTest do
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ShippedRegistries
 
   defmodule ValidLLM do
     def generate_object(spec, prompt, schema, opts) do
@@ -137,8 +138,6 @@ defmodule AllbertAssist.Security.V056IntentEvalTest do
   setup do
     original_home = System.get_env("ALLBERT_HOME")
     original_home_dir = System.get_env("ALLBERT_HOME_DIR")
-    original_apps = AppRegistry.registered_apps()
-    original_plugins = PluginRegistry.registered_plugins()
     original_paths = Application.get_env(:allbert_assist, Paths)
     original_settings = Application.get_env(:allbert_assist, Settings)
     original_embedder = Application.get_env(:allbert_assist, :intent_router_embedder)
@@ -182,8 +181,7 @@ defmodule AllbertAssist.Security.V056IntentEvalTest do
         do: System.put_env("ALLBERT_HOME_DIR", original_home_dir),
         else: System.delete_env("ALLBERT_HOME_DIR")
 
-      restore_plugins(original_plugins)
-      restore_apps(original_apps)
+      ShippedRegistries.restore!()
       restore_env(Paths, original_paths)
       restore_env(Settings, original_settings)
       restore_env(:intent_router_embedder, original_embedder)
@@ -554,20 +552,6 @@ defmodule AllbertAssist.Security.V056IntentEvalTest do
 
   defp restore_env(key, value) when is_atom(key),
     do: Application.put_env(:allbert_assist, key, value)
-
-  defp restore_plugins(plugins) do
-    PluginRegistry.clear()
-    Enum.each(plugins, &PluginRegistry.register_entry/1)
-  end
-
-  defp restore_apps(apps) do
-    AppRegistry.clear()
-
-    Enum.each(apps, fn
-      %{module: module} when is_atom(module) -> AppRegistry.register(module)
-      _entry -> :ok
-    end)
-  end
 
   defp reset_bootstrap_registries! do
     PluginRegistry.clear()

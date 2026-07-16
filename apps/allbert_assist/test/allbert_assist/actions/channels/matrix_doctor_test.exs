@@ -11,13 +11,13 @@ defmodule AllbertAssist.Actions.Channels.MatrixDoctorTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ShippedRegistries
 
   setup {Req.Test, :verify_on_exit!}
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
-    original_plugins = PluginRegistry.registered_plugins()
     original_matrix_doctor_opts = Application.get_env(:allbert_assist, :matrix_doctor_client_opts)
 
     root =
@@ -40,7 +40,7 @@ defmodule AllbertAssist.Actions.Channels.MatrixDoctorTest do
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_app_env(:matrix_doctor_client_opts, original_matrix_doctor_opts)
-      restore_plugins(original_plugins)
+      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)
@@ -120,11 +120,6 @@ defmodule AllbertAssist.Actions.Channels.MatrixDoctorTest do
       channel: :test,
       request: %{channel: :test, user_id: "local", operator_id: "local"}
     }
-  end
-
-  defp restore_plugins(original_plugins) do
-    PluginRegistry.clear()
-    Enum.each(original_plugins, &PluginRegistry.register_entry/1)
   end
 
   defp json(conn, body) do

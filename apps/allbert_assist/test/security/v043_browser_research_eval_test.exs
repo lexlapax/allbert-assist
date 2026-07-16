@@ -12,6 +12,7 @@ defmodule AllbertAssist.Security.V043BrowserResearchEvalTest do
   alias AllbertAssist.Security.Redactor
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertBrowser.{Extractors, NetworkPolicy, Session}
 
   @eval_ids [
@@ -65,10 +66,7 @@ defmodule AllbertAssist.Security.V043BrowserResearchEvalTest do
 
     on_exit(fn ->
       close_all_sessions()
-      PluginRegistry.clear()
-      restore_default_plugins()
-      AppRegistry.clear()
-      restore_default_apps()
+      ShippedRegistries.restore!()
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_env(Confirmations, original_confirmations_config)
@@ -373,17 +371,6 @@ defmodule AllbertAssist.Security.V043BrowserResearchEvalTest do
     Enum.each(Session.list(), fn %{session_id: session_id} ->
       Session.close(session_id)
     end)
-  end
-
-  defp restore_default_apps do
-    _ = AppRegistry.register(AllbertAssist.App.CoreApp)
-    _ = AppRegistry.register(StockSage.App)
-  end
-
-  defp restore_default_plugins do
-    _ = PluginRegistry.register_module(StockSage.Plugin)
-    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
-    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
   end
 
   defp restore_env(module, key, nil), do: Application.delete_env(module, key)

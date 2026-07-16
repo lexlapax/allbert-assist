@@ -10,6 +10,7 @@ defmodule AllbertAssist.Extensions.Registry do
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Intent.Descriptor
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.RegistryContext
 
   @type contribution_summary :: %{
           apps: [map()],
@@ -80,7 +81,7 @@ defmodule AllbertAssist.Extensions.Registry do
   def registered_intent_descriptors(opts \\ []) do
     opts
     |> intent_descriptor_sources()
-    |> Enum.flat_map(&descriptors_from_source/1)
+    |> Enum.flat_map(&descriptors_from_source(&1, RegistryContext.take(opts)))
     |> Enum.uniq_by(&{&1.app_id, &1.action_name})
   end
 
@@ -144,15 +145,17 @@ defmodule AllbertAssist.Extensions.Registry do
     app_sources ++ plugin_sources
   end
 
-  defp descriptors_from_source(%{module: module} = source) when is_atom(module) do
+  defp descriptors_from_source(%{module: module} = source, registry) when is_atom(module) do
     if Code.ensure_loaded?(module) and function_exported?(module, :intent_descriptors, 0) do
       module
       |> apply(:intent_descriptors, [])
       |> Descriptor.normalize_many(
-        app_id: source.app_id,
-        plugin_id: Map.get(source, :plugin_id),
-        source: source.source,
-        source_module: module
+        [
+          app_id: source.app_id,
+          plugin_id: Map.get(source, :plugin_id),
+          source: source.source,
+          source_module: module
+        ] ++ registry
       )
       |> Map.fetch!(:descriptors)
     else
@@ -164,7 +167,7 @@ defmodule AllbertAssist.Extensions.Registry do
     :exit, _reason -> []
   end
 
-  defp descriptors_from_source(_source), do: []
+  defp descriptors_from_source(_source, _registry), do: []
 
   defp app_id_for_module(module) do
     if Code.ensure_loaded?(module) and function_exported?(module, :app_id, 0) do

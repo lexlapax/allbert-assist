@@ -21,6 +21,7 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolver do
   alias AllbertAssist.Extensions.Registry, as: ExtensionsRegistry
   alias AllbertAssist.Intent.Descriptor
   alias AllbertAssist.Intent.Router.DescriptorStore
+  alias AllbertAssist.RegistryContext
   alias AllbertAssist.Settings
 
   # F5 Q2: intents whose backing capability is operator-toggled; when the setting is off
@@ -94,19 +95,24 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolver do
 
   defp app_plugin_layer(opts), do: ExtensionsRegistry.registered_intent_descriptors(opts)
 
-  defp action_module_layer(_opts) do
-    ActionsRegistry.modules()
+  defp action_module_layer(opts) do
+    registry = RegistryContext.take(opts)
+
+    registry
+    |> ActionsRegistry.modules()
     |> Enum.filter(&function_exported?(&1, :intent_descriptors, 0))
-    |> Enum.flat_map(&descriptors_from_action_module/1)
+    |> Enum.flat_map(&descriptors_from_action_module(&1, registry))
   end
 
-  defp descriptors_from_action_module(module) do
+  defp descriptors_from_action_module(module, registry) do
     module
     |> apply(:intent_descriptors, [])
     |> Descriptor.normalize_many(
-      app_id: action_app_id(module),
-      source: :action,
-      source_module: module
+      [
+        app_id: action_app_id(module, registry),
+        source: :action,
+        source_module: module
+      ] ++ registry
     )
     |> Map.fetch!(:descriptors)
   rescue
@@ -117,8 +123,8 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolver do
 
   # Core actions carry app_id: nil; descriptorize them under the reserved :allbert
   # id (Descriptor.normalize accepts the match — ADR 0062 Option 1).
-  defp action_app_id(module) do
-    case ActionsRegistry.capability(module.name()) do
+  defp action_app_id(module, registry) do
+    case ActionsRegistry.capability(module.name(), registry) do
       {:ok, capability} -> capability.app_id || :allbert
       _other -> :allbert
     end

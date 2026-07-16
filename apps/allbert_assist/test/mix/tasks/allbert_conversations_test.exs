@@ -8,6 +8,7 @@ defmodule Mix.Tasks.Allbert.ConversationsTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias Mix.Tasks.Allbert.Conversations, as: ConversationsTask
 
   setup do
@@ -31,9 +32,7 @@ defmodule Mix.Tasks.Allbert.ConversationsTest do
 
     on_exit(fn ->
       Mix.Task.reenable("allbert.conversations")
-      PluginRegistry.clear()
-      PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
-      PluginRegistry.register_module(AllbertAssist.Plugins.Email)
+      ShippedRegistries.restore!()
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       File.rm_rf!(home)

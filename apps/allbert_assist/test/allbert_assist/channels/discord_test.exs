@@ -18,6 +18,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias AllbertDiscord.Settings.Fragment, as: DiscordSettingsFragment
 
@@ -52,7 +53,6 @@ defmodule AllbertAssist.Channels.DiscordTest do
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
-    original_plugins = PluginRegistry.registered_plugins()
     original_stub_result = Application.get_env(:allbert_assist, :discord_client_stub_result)
 
     root =
@@ -89,7 +89,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
       restore_app_env(:discord_client_stub_result, original_stub_result)
-      restore_plugins(original_plugins)
+      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)
@@ -831,11 +831,6 @@ defmodule AllbertAssist.Channels.DiscordTest do
       socket: socket,
       transport: :tcp
     }
-  end
-
-  defp restore_plugins(original_plugins) do
-    PluginRegistry.clear()
-    Enum.each(original_plugins, &PluginRegistry.register_entry/1)
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

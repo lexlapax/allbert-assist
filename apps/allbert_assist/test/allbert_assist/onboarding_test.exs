@@ -8,6 +8,7 @@ defmodule AllbertAssist.OnboardingTest do
   alias AllbertAssist.Personas
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ShippedRegistries
 
   @env_vars [
     "ALLBERT_HOME",
@@ -20,7 +21,6 @@ defmodule AllbertAssist.OnboardingTest do
     original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
-    registered_plugins = PluginRegistry.registered_plugins()
     registered_diagnostics = PluginRegistry.diagnostics()
 
     Enum.each(@env_vars, &System.delete_env/1)
@@ -43,7 +43,8 @@ defmodule AllbertAssist.OnboardingTest do
       restore_env(original_env)
       restore_app_env(Paths, original_paths_config)
       restore_app_env(Settings, original_settings_config)
-      restore_plugin_registry(registered_plugins, registered_diagnostics)
+      ShippedRegistries.restore!()
+      Enum.each(registered_diagnostics, &restore_plugin_diagnostics/1)
     end)
 
     :ok
@@ -470,12 +471,6 @@ defmodule AllbertAssist.OnboardingTest do
       {:ok, _plugin_id} -> :ok
       {:error, {:plugin_id_taken, _plugin_id}} -> :ok
     end
-  end
-
-  defp restore_plugin_registry(plugins, diagnostics) do
-    PluginRegistry.clear()
-    Enum.each(plugins, &PluginRegistry.register_entry/1)
-    Enum.each(diagnostics, &restore_plugin_diagnostics/1)
   end
 
   defp restore_plugin_diagnostics({plugin_id, diagnostics}) do

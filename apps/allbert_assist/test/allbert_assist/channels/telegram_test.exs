@@ -15,6 +15,7 @@ defmodule AllbertAssist.Channels.TelegramTest do
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias Plug.Conn.Query
 
@@ -24,7 +25,6 @@ defmodule AllbertAssist.Channels.TelegramTest do
     original_env = Map.new(["ALLBERT_HOME", "ALLBERT_HOME_DIR"], &{&1, System.get_env(&1)})
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
     original_paths_config = Application.get_env(:allbert_assist, Paths)
-    original_plugins = PluginRegistry.registered_plugins()
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
@@ -47,7 +47,7 @@ defmodule AllbertAssist.Channels.TelegramTest do
 
     on_exit(fn ->
       File.rm_rf!(home)
-      restore_plugins(original_plugins)
+      ShippedRegistries.restore!()
       restore_env(original_env)
       restore_app_env(Confirmations, original_confirmations_config)
       restore_app_env(Paths, original_paths_config)
@@ -57,11 +57,6 @@ defmodule AllbertAssist.Channels.TelegramTest do
     end)
 
     :ok
-  end
-
-  defp restore_plugins(original_plugins) do
-    PluginRegistry.clear()
-    Enum.each(original_plugins, &PluginRegistry.register_entry/1)
   end
 
   describe "parser" do

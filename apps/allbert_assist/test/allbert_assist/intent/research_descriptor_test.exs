@@ -7,6 +7,7 @@ defmodule AllbertAssist.Intent.ResearchDescriptorTest do
   alias AllbertAssist.Intent.Engine
   alias AllbertAssist.Intent.EvalFixtures
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.TestSupport.ShippedRegistries
 
   setup do
     PluginRegistry.clear()
@@ -17,10 +18,7 @@ defmodule AllbertAssist.Intent.ResearchDescriptorTest do
     register_app!(AllbertResearch.App, :allbert_research)
 
     on_exit(fn ->
-      PluginRegistry.clear()
-      restore_default_plugins()
-      AppRegistry.clear()
-      restore_default_apps()
+      ShippedRegistries.restore!()
     end)
 
     :ok
@@ -96,27 +94,6 @@ defmodule AllbertAssist.Intent.ResearchDescriptorTest do
 
     refute decision.intent == :registry_action
     refute decision.selected_action == "research"
-  end
-
-  defp restore_default_apps do
-    _ = AppRegistry.register(AllbertAssist.App.CoreApp)
-    _ = AppRegistry.register(StockSage.App)
-    _ = AppRegistry.register(AllbertNotesFiles.App)
-    _ = AppRegistry.register(AllbertBrowser.App)
-    _ = AppRegistry.register(AllbertResearch.App)
-  end
-
-  defp restore_default_plugins do
-    for module <- [
-          AllbertAssist.Plugins.Telegram,
-          AllbertAssist.Plugins.Email,
-          AllbertNotesFiles.Plugin,
-          AllbertBrowser.Plugin,
-          AllbertResearch.Plugin,
-          StockSage.Plugin
-        ] do
-      _ = PluginRegistry.register_module(module)
-    end
   end
 
   defp register_app!(module, app_id) do

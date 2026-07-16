@@ -21,6 +21,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias Mix.Tasks.Allbert.Channels, as: ChannelsTask
 
@@ -37,7 +38,6 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
   setup do
     original_memory_config = Application.get_env(:allbert_assist, Memory)
     original_paths_config = Application.get_env(:allbert_assist, Paths)
-    original_plugins = PluginRegistry.registered_plugins()
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
@@ -86,7 +86,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     on_exit(fn ->
       restore_env(Memory, original_memory_config)
       restore_env(Paths, original_paths_config)
-      restore_plugins(original_plugins)
+      ShippedRegistries.restore!()
       restore_env(Runtime, original_runtime_config)
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
@@ -114,11 +114,6 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     PluginRegistry.register_module(SignalPlugin)
     PluginRegistry.register_module(TUIPlugin)
     Fragments.clear_cache()
-  end
-
-  defp restore_plugins(original_plugins) do
-    PluginRegistry.clear()
-    Enum.each(original_plugins, &PluginRegistry.register_entry/1)
   end
 
   test "lists and shows channel summaries through registered actions" do

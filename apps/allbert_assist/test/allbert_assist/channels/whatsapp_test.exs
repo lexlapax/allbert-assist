@@ -19,6 +19,7 @@ defmodule AllbertAssist.Channels.WhatsAppTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias AllbertWhatsApp.Settings.Fragment, as: WhatsAppSettingsFragment
 
@@ -30,7 +31,6 @@ defmodule AllbertAssist.Channels.WhatsAppTest do
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
-    original_plugins = PluginRegistry.registered_plugins()
 
     root =
       Path.join(
@@ -70,7 +70,7 @@ defmodule AllbertAssist.Channels.WhatsAppTest do
       restore_env(Runtime, original_runtime_config)
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
-      restore_plugins(original_plugins)
+      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)
@@ -435,11 +435,6 @@ defmodule AllbertAssist.Channels.WhatsAppTest do
       security_decision: %{permission: :external_network, decision: :needs_confirmation},
       params_summary: %{url: "https://example.com"}
     })
-  end
-
-  defp restore_plugins(original_plugins) do
-    PluginRegistry.clear()
-    Enum.each(original_plugins, &PluginRegistry.register_entry/1)
   end
 
   defp json(conn, body) do

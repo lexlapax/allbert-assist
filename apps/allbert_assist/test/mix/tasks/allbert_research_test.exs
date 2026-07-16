@@ -11,6 +11,7 @@ defmodule Mix.Tasks.Allbert.ResearchTest do
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Resources.{Grants, Ref, ResourceURI, Scope}
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertBrowser.Session
   alias Mix.Tasks.Allbert.Research, as: ResearchTask
 
@@ -55,10 +56,7 @@ defmodule Mix.Tasks.Allbert.ResearchTest do
     on_exit(fn ->
       close_all_sessions()
       Mix.Task.reenable("allbert.research")
-      PluginRegistry.clear()
-      restore_default_plugins()
-      AppRegistry.clear()
-      restore_default_apps()
+      ShippedRegistries.restore!()
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_env(Confirmations, original_confirmations_config)
@@ -146,27 +144,6 @@ defmodule Mix.Tasks.Allbert.ResearchTest do
     Enum.each(Session.list(), fn %{session_id: session_id} ->
       Session.close(session_id)
     end)
-  end
-
-  defp restore_default_apps do
-    _ = AppRegistry.register(AllbertAssist.App.CoreApp)
-    _ = AppRegistry.register(StockSage.App)
-    _ = AppRegistry.register(AllbertNotesFiles.App)
-    _ = AppRegistry.register(AllbertBrowser.App)
-    _ = AppRegistry.register(AllbertResearch.App)
-  end
-
-  defp restore_default_plugins do
-    for module <- [
-          AllbertAssist.Plugins.Telegram,
-          AllbertAssist.Plugins.Email,
-          AllbertNotesFiles.Plugin,
-          AllbertBrowser.Plugin,
-          AllbertResearch.Plugin,
-          StockSage.Plugin
-        ] do
-      _ = PluginRegistry.register_module(module)
-    end
   end
 
   defp register_app!(module, app_id) do

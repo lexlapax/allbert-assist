@@ -10,6 +10,7 @@ defmodule AllbertAssist.Actions.ResearchDelegateTest do
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Resources.{Grants, Ref, ResourceURI, Scope}
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertBrowser.Session
 
   setup do
@@ -43,8 +44,7 @@ defmodule AllbertAssist.Actions.ResearchDelegateTest do
     on_exit(fn ->
       close_all_sessions()
       AgentRegistry.unregister(AllbertResearch.Runtime.agent_id())
-      PluginRegistry.clear()
-      restore_default_plugins()
+      ShippedRegistries.restore!()
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_env(Confirmations, original_confirmations_config)
@@ -275,19 +275,6 @@ defmodule AllbertAssist.Actions.ResearchDelegateTest do
     name = :"objectives_engine_research_#{System.unique_integer([:positive])}"
     start_supervised!({EngineAgent, name: name, id: Atom.to_string(name), child_id: name})
     name
-  end
-
-  defp restore_default_plugins do
-    for module <- [
-          AllbertAssist.Plugins.Telegram,
-          AllbertAssist.Plugins.Email,
-          AllbertNotesFiles.Plugin,
-          AllbertBrowser.Plugin,
-          AllbertResearch.Plugin,
-          StockSage.Plugin
-        ] do
-      _ = PluginRegistry.register_module(module)
-    end
   end
 
   defp restore_env(module, key, nil), do: Application.delete_env(module, key)

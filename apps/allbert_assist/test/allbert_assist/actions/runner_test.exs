@@ -8,11 +8,11 @@ defmodule AllbertAssist.Actions.RunnerTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Discovery, as: PluginDiscovery
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills.ActionPlan
+  alias AllbertAssist.TestSupport.ShippedRegistries
 
   defmodule PluginEcho do
     use Jido.Action,
@@ -59,7 +59,6 @@ defmodule AllbertAssist.Actions.RunnerTest do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_logger_level = Logger.level()
-    original_plugins = PluginRegistry.registered_plugins()
 
     root =
       Path.join(
@@ -79,7 +78,7 @@ defmodule AllbertAssist.Actions.RunnerTest do
       restore_env(Memory, original_memory_config)
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
-      restore_plugins!(original_plugins)
+      ShippedRegistries.restore!()
       File.rm_rf!(root)
     end)
 
@@ -285,26 +284,6 @@ defmodule AllbertAssist.Actions.RunnerTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
-
-  defp restore_plugins!([]), do: restore_shipped_plugins!()
-
-  defp restore_plugins!(plugins) do
-    PluginRegistry.clear()
-
-    Enum.each(plugins, fn plugin ->
-      assert {:ok, _plugin_id} = PluginRegistry.register_entry(plugin)
-    end)
-  end
-
-  defp restore_shipped_plugins! do
-    PluginRegistry.clear()
-
-    PluginDiscovery.shipped_modules()
-    |> Enum.sort_by(fn {plugin_id, _module} -> plugin_id end)
-    |> Enum.each(fn {_plugin_id, module} ->
-      assert {:ok, _plugin_id} = PluginRegistry.register_module(module)
-    end)
-  end
 
   defp configure_external do
     assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})

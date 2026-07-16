@@ -9,6 +9,7 @@ defmodule Mix.Tasks.Allbert.BrowserTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias Mix.Tasks.Allbert.Browser, as: BrowserTask
 
   setup do
@@ -36,7 +37,7 @@ defmodule Mix.Tasks.Allbert.BrowserTest do
 
     on_exit(fn ->
       close_all_sessions()
-      PluginRegistry.clear()
+      ShippedRegistries.restore!()
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_env(Confirmations, original_confirmations_config)

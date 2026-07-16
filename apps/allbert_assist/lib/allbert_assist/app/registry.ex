@@ -17,7 +17,7 @@ defmodule AllbertAssist.App.Registry do
 
   @default_table :allbert_app_registry
   @nil_aliases ["", "none", "general"]
-  @control_opts [:server]
+  @control_opts [:server, :side_effects]
 
   defstruct table_name: @default_table,
             enabled?: true,
@@ -62,7 +62,7 @@ defmodule AllbertAssist.App.Registry do
   def register(module, opts \\ []) do
     result = GenServer.call(server(opts), {:register, module, registration_opts(opts)})
 
-    if match?({:ok, _app_id}, result) do
+    if match?({:ok, _app_id}, result) and side_effects?(opts) do
       clear_settings_schema_cache()
       {:ok, app_id} = result
       emit_app_registered(module, app_id)
@@ -77,8 +77,12 @@ defmodule AllbertAssist.App.Registry do
   def unregister(app_id, opts \\ []) do
     existed? = known_app_id?(app_id, opts)
     result = GenServer.call(server(opts), {:unregister, app_id})
-    clear_settings_schema_cache()
-    if existed?, do: emit_app_unregistered(app_id)
+
+    if side_effects?(opts) do
+      clear_settings_schema_cache()
+      if existed?, do: emit_app_unregistered(app_id)
+    end
+
     result
   catch
     :exit, _reason -> :ok
@@ -88,8 +92,12 @@ defmodule AllbertAssist.App.Registry do
   def clear(opts \\ []) do
     count = opts |> registered_apps() |> length()
     result = GenServer.call(server(opts), :clear)
-    clear_settings_schema_cache()
-    if count > 0, do: emit_app_registry_cleared(count)
+
+    if side_effects?(opts) do
+      clear_settings_schema_cache()
+      if count > 0, do: emit_app_registry_cleared(count)
+    end
+
     result
   catch
     :exit, _reason -> :ok
@@ -578,6 +586,13 @@ defmodule AllbertAssist.App.Registry do
 
   defp server(opts) when is_list(opts), do: Keyword.get(opts, :server, __MODULE__)
   defp server(_opts), do: __MODULE__
+
+  # v1.0.2 M2 (ADR 0082): internal-only fixture mode. `side_effects: false`
+  # suppresses the shared Settings-schema cache invalidation and global
+  # registration signals while keeping validation, the GenServer call, and
+  # registry-local state identical. The production default stays true.
+  defp side_effects?(opts) when is_list(opts), do: Keyword.get(opts, :side_effects, true)
+  defp side_effects?(_opts), do: true
 
   defp call(opts, message, default) do
     GenServer.call(server(opts), message)

@@ -8,6 +8,7 @@ defmodule AllbertAssist.Skills.RegistryTest do
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Skills
+  alias AllbertAssist.TestSupport.ShippedRegistries
 
   @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR"]
 
@@ -36,8 +37,6 @@ defmodule AllbertAssist.Skills.RegistryTest do
     original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_app_config = Application.get_env(:allbert_assist, AppSkillApp)
-    original_stocksage_app = registered_app_module(:stocksage)
-    original_notes_files_app = registered_app_module(:notes_files)
 
     Enum.each(@env_vars, &System.delete_env/1)
     Application.delete_env(:allbert_assist, Paths)
@@ -55,11 +54,7 @@ defmodule AllbertAssist.Skills.RegistryTest do
 
     on_exit(fn ->
       File.rm_rf!(root)
-      AppRegistry.unregister(:skill_registry_app)
-      restore_app(:stocksage, original_stocksage_app || StockSage.App)
-      restore_app(:notes_files, original_notes_files_app)
-      PluginRegistry.clear()
-      restore_shipped_plugins()
+      ShippedRegistries.restore!()
       restore_env(original_env)
       restore_app_env(Paths, original_paths_config)
       restore_app_env(AppSkillApp, original_app_config)
@@ -424,26 +419,4 @@ defmodule AllbertAssist.Skills.RegistryTest do
 
   defp restore_app_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_app_env(module, value), do: Application.put_env(:allbert_assist, module, value)
-
-  defp registered_app_module(app_id) do
-    case AppRegistry.lookup(app_id) do
-      {:ok, entry} -> entry.module
-      {:error, :not_found} -> nil
-    end
-  end
-
-  defp restore_app(_app_id, nil), do: :ok
-
-  defp restore_app(app_id, module) do
-    AppRegistry.unregister(app_id)
-    AppRegistry.register(module)
-    :ok
-  end
-
-  defp restore_shipped_plugins do
-    PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
-    PluginRegistry.register_module(AllbertAssist.Plugins.Email)
-    PluginRegistry.register_module(StockSage.Plugin)
-    :ok
-  end
 end

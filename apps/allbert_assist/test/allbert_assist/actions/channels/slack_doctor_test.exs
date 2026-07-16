@@ -7,11 +7,11 @@ defmodule AllbertAssist.Actions.Channels.SlackDoctorTest do
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
+  alias AllbertAssist.TestSupport.ShippedRegistries
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
-    original_plugins = PluginRegistry.registered_plugins()
     original_stub_result = Application.get_env(:allbert_assist, :slack_client_stub_result)
 
     root =
@@ -37,7 +37,7 @@ defmodule AllbertAssist.Actions.Channels.SlackDoctorTest do
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_app_env(:slack_client_stub_result, original_stub_result)
-      restore_plugins(original_plugins)
+      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)
@@ -108,11 +108,6 @@ defmodule AllbertAssist.Actions.Channels.SlackDoctorTest do
       channel: :test,
       request: %{channel: :test, user_id: "local", operator_id: "local"}
     }
-  end
-
-  defp restore_plugins(original_plugins) do
-    PluginRegistry.clear()
-    Enum.each(original_plugins, &PluginRegistry.register_entry/1)
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

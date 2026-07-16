@@ -11,6 +11,7 @@ defmodule AllbertAssist.Intent.EngineTest do
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ShippedRegistries
 
   defmodule PluginEcho do
     use Jido.Action,
@@ -33,7 +34,6 @@ defmodule AllbertAssist.Intent.EngineTest do
   end
 
   setup do
-    original_plugins = PluginRegistry.registered_plugins()
     original_diagnostics = PluginRegistry.diagnostics()
 
     PluginRegistry.clear()
@@ -57,10 +57,7 @@ defmodule AllbertAssist.Intent.EngineTest do
     end
 
     on_exit(fn ->
-      PluginRegistry.clear()
-      Enum.each(original_plugins, &PluginRegistry.register_entry/1)
-      unless app_registered?, do: AppRegistry.unregister(:stocksage)
-      unless notes_app_registered?, do: AppRegistry.unregister(:notes_files)
+      ShippedRegistries.restore!()
 
       Enum.each(original_diagnostics, fn {plugin_id, diagnostics} ->
         PluginRegistry.put_diagnostics(plugin_id, diagnostics)

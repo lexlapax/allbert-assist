@@ -21,10 +21,9 @@ defmodule AllbertAssist.StockSageRegistryCase do
 
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.TestSupport.ShippedRegistries
 
   def setup(_context \\ %{}) do
-    registered_plugins = PluginRegistry.registered_plugins()
-    registered_diagnostics = PluginRegistry.diagnostics()
     plugin_registered? = match?({:ok, _entry}, PluginRegistry.lookup("stocksage"))
     app_registered? = AppRegistry.known_app_id?(:stocksage)
 
@@ -36,24 +35,18 @@ defmodule AllbertAssist.StockSageRegistryCase do
       assert {:ok, :stocksage} = AppRegistry.register(StockSage.App)
     end
 
+    # v1.0.2 M2 drift-fix: the previous on_exit restored a SNAPSHOT taken at
+    # this setup — if an earlier serial test had already left the registry
+    # partial, the snapshot re-applied that damage and wiped every later
+    # registration (watchdog-traced propagation). If stocksage was absent at
+    # setup the registry was NOT in its baseline state, so converge to the
+    # full shipped baseline instead of restoring the broken snapshot.
     ExUnit.Callbacks.on_exit(fn ->
-      unless app_registered?, do: AppRegistry.unregister(:stocksage)
-
-      unless plugin_registered? do
-        restore_plugin_registry(registered_plugins, registered_diagnostics)
+      unless plugin_registered? and app_registered? do
+        ShippedRegistries.restore!()
       end
     end)
 
     :ok
-  end
-
-  defp restore_plugin_registry(plugins, diagnostics) do
-    PluginRegistry.clear()
-    Enum.each(plugins, &PluginRegistry.register_entry/1)
-    Enum.each(diagnostics, &restore_plugin_diagnostics/1)
-  end
-
-  defp restore_plugin_diagnostics({plugin_id, diagnostics}) do
-    PluginRegistry.put_diagnostics(plugin_id, diagnostics)
   end
 end

@@ -16,6 +16,7 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ShippedRegistries
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -43,9 +44,7 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
 
     on_exit(fn ->
       close_all_sessions()
-      PluginRegistry.clear()
-      restore_default_plugins()
-      restore_default_apps()
+      ShippedRegistries.restore!()
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_env(Confirmations, original_confirmations_config)
@@ -432,18 +431,6 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
     else
       true
     end
-  end
-
-  defp restore_default_apps do
-    _ = AllbertAssist.App.Registry.clear()
-    _ = AllbertAssist.App.Registry.register(AllbertAssist.App.CoreApp)
-    _ = AllbertAssist.App.Registry.register(StockSage.App)
-  end
-
-  defp restore_default_plugins do
-    _ = PluginRegistry.register_module(StockSage.Plugin)
-    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
-    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
   end
 
   defp restore_env(module, key, nil), do: Application.delete_env(module, key)

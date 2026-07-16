@@ -234,6 +234,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.DynamicPlugins.ActionsOverlay
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.RegistryContext
   alias AllbertAssist.Signals
 
   @agent_actions [
@@ -494,117 +495,125 @@ defmodule AllbertAssist.Actions.Registry do
   @actions @agent_actions ++ @internal_actions
 
   @doc "Return registered runtime action modules in stable display order."
-  @spec modules() :: nonempty_list(module())
-  def modules, do: @actions ++ plugin_actions() ++ dynamic_actions()
+  @spec modules(keyword()) :: nonempty_list(module())
+  def modules(opts \\ []), do: @actions ++ plugin_actions(opts) ++ dynamic_actions(opts)
 
   @doc "Return action modules that can be exposed to the intent agent."
-  @spec agent_modules() :: nonempty_list(module())
-  def agent_modules do
+  @spec agent_modules(keyword()) :: nonempty_list(module())
+  def agent_modules(opts \\ []) do
     @agent_actions ++
-      Enum.filter(plugin_actions(), fn module ->
+      Enum.filter(plugin_actions(opts), fn module ->
         module
         |> module_capability_attrs()
         |> case do
           {:ok, attrs} -> attrs.exposure == :agent
           {:error, _reason} -> false
         end
-      end) ++ ActionsOverlay.agent_modules()
+      end) ++ ActionsOverlay.agent_modules(RegistryContext.overlay_server(opts))
   end
 
   @doc "Return registered action names in stable display order."
-  @spec names() :: [String.t()]
-  def names, do: Enum.map(modules(), & &1.name())
+  @spec names(keyword()) :: [String.t()]
+  def names(opts \\ []), do: Enum.map(modules(opts), & &1.name())
 
   @doc "Return canonical capability metadata for all registered actions."
-  @spec capabilities() :: [Capability.t()]
-  def capabilities, do: Enum.map(modules(), &capability_for_module!/1)
+  @spec capabilities(keyword()) :: [Capability.t()]
+  def capabilities(opts \\ []), do: Enum.map(modules(opts), &capability_for_module!(&1, opts))
 
   @doc "Return canonical capability metadata for intent-agent actions."
-  @spec agent_capabilities() :: [Capability.t()]
-  def agent_capabilities, do: Enum.map(agent_modules(), &capability_for_module!/1)
+  @spec agent_capabilities(keyword()) :: [Capability.t()]
+  def agent_capabilities(opts \\ []),
+    do: Enum.map(agent_modules(opts), &capability_for_module!(&1, opts))
 
   @doc "Return canonical capability metadata for internal-only actions."
-  @spec internal_capabilities() :: [Capability.t()]
-  def internal_capabilities do
+  @spec internal_capabilities(keyword()) :: [Capability.t()]
+  def internal_capabilities(opts \\ []) do
     internal_plugin_actions =
-      Enum.reject(plugin_actions(), fn module ->
-        module in agent_modules()
+      Enum.reject(plugin_actions(opts), fn module ->
+        module in agent_modules(opts)
       end)
 
     dynamic_internal_actions =
-      Enum.reject(dynamic_actions(), fn module ->
-        module in ActionsOverlay.agent_modules()
+      Enum.reject(dynamic_actions(opts), fn module ->
+        module in ActionsOverlay.agent_modules(RegistryContext.overlay_server(opts))
       end)
 
     Enum.map(
       @internal_actions ++ internal_plugin_actions ++ dynamic_internal_actions,
-      &capability_for_module!/1
+      &capability_for_module!(&1, opts)
     )
   end
 
   @doc "Return action capabilities contributed by one registered app."
-  @spec capabilities_for_app(atom()) :: [Capability.t()]
-  def capabilities_for_app(app_id) when is_atom(app_id) do
+  @spec capabilities_for_app(atom(), keyword()) :: [Capability.t()]
+  def capabilities_for_app(app_id, opts \\ [])
+
+  def capabilities_for_app(app_id, opts) when is_atom(app_id) do
     app_id
-    |> AppRegistry.actions_for()
-    |> Kernel.++(ActionsOverlay.actions_for_app(app_id))
-    |> Enum.map(&capability_for_module!/1)
+    |> AppRegistry.actions_for(RegistryContext.app_opts(opts))
+    |> Kernel.++(ActionsOverlay.actions_for_app(app_id, RegistryContext.overlay_server(opts)))
+    |> Enum.map(&capability_for_module!(&1, opts))
   end
 
-  def capabilities_for_app(_app_id), do: []
+  def capabilities_for_app(_app_id, _opts), do: []
 
   @doc "Resolve a registered action by module, string name, or atom name."
-  @spec resolve(module() | String.t() | atom()) ::
+  @spec resolve(module() | String.t() | atom(), keyword()) ::
           {:ok, module()} | {:error, {:unknown_action, term()}}
-  def resolve(action) when is_atom(action) do
-    if action in modules() do
+  def resolve(action, opts \\ [])
+
+  def resolve(action, opts) when is_atom(action) do
+    if action in modules(opts) do
       {:ok, action}
     else
       action
       |> Atom.to_string()
       |> String.replace_prefix("Elixir.", "")
-      |> resolve_name(action)
+      |> resolve_name(action, opts)
     end
   end
 
-  def resolve(action) when is_binary(action), do: resolve_name(action, action)
+  def resolve(action, opts) when is_binary(action), do: resolve_name(action, action, opts)
 
-  def resolve(action), do: {:error, {:unknown_action, action}}
+  def resolve(action, _opts), do: {:error, {:unknown_action, action}}
 
   @doc "Resolve canonical capability metadata by registered action name or module."
-  @spec capability(module() | String.t() | atom()) ::
+  @spec capability(module() | String.t() | atom(), keyword()) ::
           {:ok, Capability.t()} | {:error, {:unknown_action, term()}}
-  def capability(action) do
-    with {:ok, module} <- resolve(action) do
-      {:ok, capability_for_module!(module)}
+  def capability(action, opts \\ []) do
+    with {:ok, module} <- resolve(action, opts) do
+      {:ok, capability_for_module!(module, opts)}
     end
   end
 
   @doc "Return true when a registered action may be resumed from a durable confirmation."
-  @spec resumable?(module() | String.t() | atom()) :: boolean()
-  def resumable?(action) do
-    case capability(action) do
+  @spec resumable?(module() | String.t() | atom(), keyword()) :: boolean()
+  def resumable?(action, opts \\ []) do
+    case capability(action, opts) do
       {:ok, capability} -> capability.resumable?
       {:error, _reason} -> false
     end
   end
 
   @doc "Return true when the module is registered for runtime invocation."
-  @spec registered_module?(module()) :: boolean()
-  def registered_module?(module), do: module in modules()
+  @spec registered_module?(module(), keyword()) :: boolean()
+  def registered_module?(module, opts \\ []), do: module in modules(opts)
 
   @doc "Return duplicate registered names. This should always be empty."
-  @spec duplicate_names() :: [String.t()]
-  def duplicate_names do
-    names()
+  @spec duplicate_names(keyword()) :: [String.t()]
+  def duplicate_names(opts \\ []) do
+    names(opts)
     |> Enum.frequencies()
     |> Enum.filter(fn {_name, count} -> count > 1 end)
     |> Enum.map(fn {name, _count} -> name end)
   end
 
   @doc "Return action registry diagnostics, including plugin action collisions."
-  @spec diagnostics() :: [map()]
-  def diagnostics, do: plugin_action_diagnostics() ++ ActionsOverlay.diagnostics()
+  @spec diagnostics(keyword()) :: [map()]
+  def diagnostics(opts \\ []) do
+    plugin_action_diagnostics(opts) ++
+      ActionsOverlay.diagnostics(RegistryContext.overlay_server(opts))
+  end
 
   @doc "Emit an advisory action-registry-changed signal for index subscribers."
   @spec emit_registry_changed(atom(), map()) :: :ok
@@ -618,19 +627,19 @@ defmodule AllbertAssist.Actions.Registry do
     Signals.emit_registration(:action_registry_changed, metadata)
   end
 
-  defp resolve_name(name, original) do
+  defp resolve_name(name, original, opts) do
     normalized = normalize_name(name)
 
-    case Enum.find(modules(), &(normalize_name(&1.name()) == normalized)) do
+    case Enum.find(modules(opts), &(normalize_name(&1.name()) == normalized)) do
       nil -> {:error, {:unknown_action, original}}
       module -> {:ok, module}
     end
   end
 
-  defp capability_for_module!(module) do
+  defp capability_for_module!(module, opts) do
     attrs = capability_attrs!(module)
-    app_id = AppRegistry.app_id_for_action(module)
-    plugin_id = PluginRegistry.plugin_id_for_action(module)
+    app_id = AppRegistry.app_id_for_action(module, RegistryContext.app_opts(opts))
+    plugin_id = PluginRegistry.plugin_id_for_action(module, RegistryContext.plugin_opts(opts))
 
     module
     |> Capability.new(attrs)
@@ -659,8 +668,8 @@ defmodule AllbertAssist.Actions.Registry do
     end
   end
 
-  defp plugin_actions do
-    entries = plugin_action_entries()
+  defp plugin_actions(opts) do
+    entries = plugin_action_entries(opts)
     static_names = static_action_names()
     duplicate_names = duplicate_plugin_action_names(entries)
 
@@ -669,10 +678,12 @@ defmodule AllbertAssist.Actions.Registry do
     |> Enum.map(& &1.module)
   end
 
-  defp dynamic_actions, do: ActionsOverlay.modules()
+  defp dynamic_actions(opts), do: ActionsOverlay.modules(RegistryContext.overlay_server(opts))
 
-  defp plugin_action_entries do
-    PluginRegistry.registered_plugins()
+  defp plugin_action_entries(opts) do
+    opts
+    |> RegistryContext.plugin_opts()
+    |> PluginRegistry.registered_plugins()
     |> Enum.flat_map(fn plugin ->
       plugin.actions
       |> Enum.filter(&valid_plugin_action?/1)
@@ -685,8 +696,8 @@ defmodule AllbertAssist.Actions.Registry do
     MapSet.member?(static_names, entry.name) or MapSet.member?(duplicate_names, entry.name)
   end
 
-  defp plugin_action_diagnostics do
-    entries = plugin_action_entries()
+  defp plugin_action_diagnostics(opts) do
+    entries = plugin_action_entries(opts)
     static_names = static_action_names()
     duplicate_names = duplicate_plugin_action_names(entries)
 

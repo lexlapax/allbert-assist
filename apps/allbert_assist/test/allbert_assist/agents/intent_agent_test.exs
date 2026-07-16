@@ -15,6 +15,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
   alias AllbertAssist.SecurityFixtures.AssertBinding
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills.ActionPlan
+  alias AllbertAssist.TestSupport.ShippedRegistries
 
   setup do
     original_config = Application.get_env(:allbert_assist, Memory)
@@ -27,8 +28,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     # plugin registry (`Registry.agent_modules/0` folds in plugin actions), so
     # solo-vs-batch registry contents flipped the assertion. Seed a
     # deterministic baseline matching the core+browser+notes+stocksage combo
-    # (mirrors intent/engine_test.exs); restore the prior registrations after.
-    original_plugins = PluginRegistry.registered_plugins()
+    # (mirrors intent/engine_test.exs); converge to the shipped baseline after.
     original_diagnostics = PluginRegistry.diagnostics()
 
     PluginRegistry.clear()
@@ -37,8 +37,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert {:ok, "allbert.browser"} = PluginRegistry.register_module(AllbertBrowser.Plugin)
 
     on_exit(fn ->
-      PluginRegistry.clear()
-      Enum.each(original_plugins, &PluginRegistry.register_entry/1)
+      ShippedRegistries.restore!()
 
       Enum.each(original_diagnostics, fn {plugin_id, diagnostics} ->
         PluginRegistry.put_diagnostics(plugin_id, diagnostics)

@@ -16,6 +16,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Models
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias AllbertAssist.Voice.ProviderAdapter
   alias AllbertAssist.Voice.ProviderHTTP
@@ -54,7 +55,6 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
     original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
     original_paths_config = Application.get_env(:allbert_assist, Paths)
-    original_plugins = PluginRegistry.registered_plugins()
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
@@ -86,8 +86,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
       restore_app_env(Runtime, original_runtime_config)
       restore_app_env(Settings, original_settings_config)
       restore_app_env(Trace, original_trace_config)
-      PluginRegistry.clear()
-      Enum.each(original_plugins, &PluginRegistry.register_entry/1)
+      ShippedRegistries.restore!()
     end)
 
     {:ok, home: home, context: context()}

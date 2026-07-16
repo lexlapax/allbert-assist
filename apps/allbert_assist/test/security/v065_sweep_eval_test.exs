@@ -28,6 +28,7 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
   alias AllbertAssist.SecurityFixtures.AssertBinding
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertNotesFiles.Actions.WriteNote
 
   @now "2026-05-28T12:00:00Z"
@@ -63,7 +64,6 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
     original_memory = Application.get_env(:allbert_assist, Memory)
     original_settings = Application.get_env(:allbert_assist, Settings)
     original_confirmations = Application.get_env(:allbert_assist, Confirmations)
-    original_plugins = PluginRegistry.registered_plugins()
     notes_app_registered? = AppRegistry.known_app_id?(:notes_files)
 
     home =
@@ -89,9 +89,7 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
       restore_env(Memory, original_memory)
       restore_env(Settings, original_settings)
       restore_env(Confirmations, original_confirmations)
-      PluginRegistry.clear()
-      Enum.each(original_plugins, &PluginRegistry.register_entry/1)
-      unless notes_app_registered?, do: AppRegistry.unregister(:notes_files)
+      ShippedRegistries.restore!()
       File.rm_rf!(home)
     end)
 

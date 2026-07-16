@@ -21,6 +21,7 @@ defmodule AllbertAssist.Channels.TUITest do
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
 
   setup do
@@ -28,7 +29,6 @@ defmodule AllbertAssist.Channels.TUITest do
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
-    original_plugins = PluginRegistry.registered_plugins()
 
     root =
       Path.join(
@@ -64,7 +64,7 @@ defmodule AllbertAssist.Channels.TUITest do
       restore_env(Runtime, original_runtime_config)
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
-      restore_plugins(original_plugins)
+      ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
     end)
@@ -128,8 +128,17 @@ defmodule AllbertAssist.Channels.TUITest do
     assert is_binary(stored_event.input_signal_id)
 
     assert {:ok, %{messages: messages}} = Conversations.show_thread("alice", request.thread_id)
-    assert Enum.at(messages, 1).content == "Clean TUI response: hello tui"
-    refute Enum.any?(messages, &String.contains?(&1.content, "[surface]"))
+
+    # v1.0.2 M2 drift-fix (v055 eval precedent): the runtime can attach the
+    # turn to a reused general thread carrying rows from earlier suites/runs,
+    # so assert on THIS turn's user/assistant tail, not absolute positions.
+    assert [
+             %{role: "user", content: "hello tui"},
+             %{role: "assistant", content: assistant_content}
+           ] = Enum.take(messages, -2)
+
+    assert assistant_content == "Clean TUI response: hello tui"
+    refute assistant_content =~ "[surface]"
   end
 
   test "non-interactive supervised child stays quiet without launcher opts" do
@@ -1134,9 +1143,4 @@ defmodule AllbertAssist.Channels.TUITest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)
-
-  defp restore_plugins(original_plugins) do
-    PluginRegistry.clear()
-    Enum.each(original_plugins, &PluginRegistry.register_entry/1)
-  end
 end

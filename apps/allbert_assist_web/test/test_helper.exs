@@ -1,6 +1,14 @@
 ExUnit.start()
 Ecto.Adapters.SQL.Sandbox.mode(AllbertAssist.Repo, :manual)
 
+# v1.0.2 M2 drift-fix (v0.63 F5 oversight): F5 hides capability-gated and demo
+# (StockSage) intents from the default shortlist and bypassed the gate in the
+# CORE test_helper only — the web suite never got the same bypass, so every
+# StockSage chat-routing LiveView test (e.g. the run_analysis approval-handoff
+# flow) silently routed to list_analyses instead. Mirror the core suite-wide
+# bypass; the production gate keeps its focused core-side proof.
+Application.put_env(:allbert_assist, :intent_descriptor_include_all, true)
+
 # v0.62 M8.24 (test isolation): register the shipped stocksage plugin's App once
 # for the whole web suite (idempotent, never torn down) so LiveView tests that use
 # `app_id: :stocksage` (e.g. intent-handoff) don't depend on ambient global

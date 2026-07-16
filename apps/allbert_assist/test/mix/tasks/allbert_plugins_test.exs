@@ -6,6 +6,7 @@ defmodule Mix.Tasks.Allbert.PluginsTest do
 
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias Mix.Tasks.Allbert.Plugins, as: PluginsTask
 
   defmodule DuplicateDirectAnswer do
@@ -31,9 +32,12 @@ defmodule Mix.Tasks.Allbert.PluginsTest do
   setup do
     ensure_default_plugins()
 
+    # v1.0.2 M2 drift-fix: the previous on_exit cleared the GLOBAL plugin
+    # registry and restored ONLY telegram+email, leaving every later serial
+    # test with a partial registry (watchdog-traced original damager).
+    # Converge to the full shipped baseline instead.
     on_exit(fn ->
-      PluginRegistry.clear()
-      ensure_default_plugins()
+      ShippedRegistries.restore!()
       Mix.Task.reenable("allbert.plugins")
     end)
   end

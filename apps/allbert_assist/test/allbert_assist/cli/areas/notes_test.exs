@@ -5,8 +5,16 @@ defmodule AllbertAssist.CLI.Areas.NotesTest do
   alias AllbertAssist.CLI.Areas.Notes, as: Area
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ProviderPreconditions
 
   setup do
+    # v1.0.2 M2 drift-fix: `set-root` validates `apps.notes_files.notes_root`
+    # against the Settings schema, which only knows the key while the
+    # notes_files app is registered (ADR 0031). An earlier serial test can
+    # leave the global registry without it — own the precondition
+    # (golden_set/gate_test precedent).
+    ProviderPreconditions.ensure_notes_files_descriptors!()
+
     original_paths = Application.get_env(:allbert_assist, Paths)
     original_settings = Application.get_env(:allbert_assist, Settings)
 

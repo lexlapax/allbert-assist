@@ -13,6 +13,7 @@ defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Settings.Store, as: SettingsStore
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Tools.Discovery
   alias AllbertAssist.Tools.ToolCandidate
   alias AllbertAssist.Workspace.McpIntegrationPanels
@@ -44,7 +45,6 @@ defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
     original_memory = Application.get_env(:allbert_assist, Memory)
     original_paths = Application.get_env(:allbert_assist, Paths)
     original_settings = Application.get_env(:allbert_assist, Settings)
-    original_plugins = PluginRegistry.registered_plugins()
     notes_app_registered? = AppRegistry.known_app_id?(:notes_files)
 
     root =
@@ -79,9 +79,7 @@ defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
       restore_env(Memory, original_memory)
       restore_env(Paths, original_paths)
       restore_env(Settings, original_settings)
-      PluginRegistry.clear()
-      Enum.each(original_plugins, &PluginRegistry.register_entry/1)
-      unless notes_app_registered?, do: AppRegistry.unregister(:notes_files)
+      ShippedRegistries.restore!()
       File.rm_rf!(root)
     end)
 

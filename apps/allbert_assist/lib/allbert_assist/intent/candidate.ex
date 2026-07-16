@@ -9,6 +9,7 @@ defmodule AllbertAssist.Intent.Candidate do
 
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.RegistryContext
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime.SafeTerm
 
@@ -79,14 +80,16 @@ defmodule AllbertAssist.Intent.Candidate do
           trace_metadata: map()
         }
 
-  @spec new(map()) :: {:ok, t()} | {:error, term()}
-  def new(attrs) when is_map(attrs) do
+  @spec new(map(), keyword()) :: {:ok, t()} | {:error, term()}
+  def new(attrs, opts \\ [])
+
+  def new(attrs, opts) when is_map(attrs) do
     with {:ok, kind} <- normalize_member(field(attrs, :kind), @kinds, :invalid_kind),
          {:ok, source} <-
            normalize_member(field(attrs, :source, :deterministic), @sources, :invalid_source),
          {:ok, status} <-
            normalize_member(field(attrs, :status, :candidate), @statuses, :invalid_status),
-         {:ok, app_id} <- normalize_app_id(field(attrs, :app_id)),
+         {:ok, app_id} <- normalize_app_id(field(attrs, :app_id), opts),
          {:ok, action_name} <-
            normalize_action_name(kind, action_name_attr(kind, attrs), status) do
       candidate = %__MODULE__{
@@ -117,18 +120,18 @@ defmodule AllbertAssist.Intent.Candidate do
     end
   end
 
-  def new(value), do: {:error, {:invalid_candidate, value}}
+  def new(value, _opts), do: {:error, {:invalid_candidate, value}}
 
-  @spec new!(map()) :: t()
-  def new!(attrs) do
-    case new(attrs) do
+  @spec new!(map(), keyword()) :: t()
+  def new!(attrs, opts \\ []) do
+    case new(attrs, opts) do
       {:ok, candidate} -> candidate
       {:error, reason} -> raise ArgumentError, inspect(reason)
     end
   end
 
-  @spec selected_from_decision(map() | struct()) :: t()
-  def selected_from_decision(decision) do
+  @spec selected_from_decision(map() | struct(), keyword()) :: t()
+  def selected_from_decision(decision, opts \\ []) do
     selected_action = field(decision, :selected_action)
     selected_skill = field(decision, :selected_skill)
 
@@ -139,23 +142,27 @@ defmodule AllbertAssist.Intent.Candidate do
         true -> :direct_answer
       end
 
-    new!(%{
-      kind: kind,
-      id:
-        selected_action || selected_skill || to_string(field(decision, :intent, "direct_answer")),
-      source: :deterministic,
-      status: :selected,
-      selected?: true,
-      score: 1.0,
-      action_name: selected_action,
-      skill_name: selected_skill,
-      app_id: field(decision, :active_app),
-      permission: field(decision, :permission),
-      execution_mode: field(decision, :execution_mode),
-      confirmation: field(decision, :confirmation),
-      resource_access: field(decision, :resource_access, []),
-      reason: field(decision, :reason)
-    })
+    new!(
+      %{
+        kind: kind,
+        id:
+          selected_action || selected_skill ||
+            to_string(field(decision, :intent, "direct_answer")),
+        source: :deterministic,
+        status: :selected,
+        selected?: true,
+        score: 1.0,
+        action_name: selected_action,
+        skill_name: selected_skill,
+        app_id: field(decision, :active_app),
+        permission: field(decision, :permission),
+        execution_mode: field(decision, :execution_mode),
+        confirmation: field(decision, :confirmation),
+        resource_access: field(decision, :resource_access, []),
+        reason: field(decision, :reason)
+      },
+      opts
+    )
   end
 
   @spec to_map(t()) :: map()
@@ -229,10 +236,10 @@ defmodule AllbertAssist.Intent.Candidate do
   defp action_name_attr(:action, attrs), do: field(attrs, :action_name) || field(attrs, :id)
   defp action_name_attr(_kind, attrs), do: field(attrs, :action_name)
 
-  defp normalize_app_id(nil), do: {:ok, nil}
+  defp normalize_app_id(nil, _opts), do: {:ok, nil}
 
-  defp normalize_app_id(app_id) do
-    case AppRegistry.normalize_app_id(app_id) do
+  defp normalize_app_id(app_id, opts) do
+    case AppRegistry.normalize_app_id(app_id, RegistryContext.app_opts(opts)) do
       {:ok, app_id} -> {:ok, app_id}
       {:error, _reason} -> {:error, {:unknown_app_id, app_id}}
     end

@@ -4,16 +4,14 @@ defmodule AllbertAssist.Actions.Channels.ListChannelsTest do
   alias AllbertAssist.Actions.Channels.ListChannels
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Plugins.TUI, as: TUIPlugin
+  alias AllbertAssist.TestSupport.ShippedRegistries
 
   setup do
-    original_plugins = PluginRegistry.registered_plugins()
-
     PluginRegistry.clear()
     assert {:ok, "allbert.tui"} = PluginRegistry.register_module(TUIPlugin)
 
     on_exit(fn ->
-      PluginRegistry.clear()
-      Enum.each(original_plugins, &PluginRegistry.register_entry/1)
+      ShippedRegistries.restore!()
     end)
 
     :ok

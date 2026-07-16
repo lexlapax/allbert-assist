@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Channels.SendChannelMessageTest do
 
   alias AllbertAssist.Actions.Channels.SendChannelMessage
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.TestSupport.ShippedRegistries
 
   defmodule PausedChannelPlugin do
     use AllbertAssist.Plugin
@@ -50,14 +51,11 @@ defmodule AllbertAssist.Actions.Channels.SendChannelMessageTest do
   end
 
   setup do
-    original_plugins = PluginRegistry.registered_plugins()
-
     PluginRegistry.clear()
     assert {:ok, "example.paused_channel"} = PluginRegistry.register_module(PausedChannelPlugin)
 
     on_exit(fn ->
-      PluginRegistry.clear()
-      Enum.each(original_plugins, &PluginRegistry.register_entry/1)
+      ShippedRegistries.restore!()
     end)
 
     :ok

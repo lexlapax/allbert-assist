@@ -18,6 +18,7 @@ defmodule AllbertAssist.Security.V0551OperatorConsoleEvalTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias Mix.Tasks.Allbert.Channels, as: ChannelsTask
 
@@ -56,7 +57,6 @@ defmodule AllbertAssist.Security.V0551OperatorConsoleEvalTest do
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
-    original_plugins = PluginRegistry.registered_plugins()
 
     parent = self()
 
@@ -95,8 +95,7 @@ defmodule AllbertAssist.Security.V0551OperatorConsoleEvalTest do
       restore_env(Runtime, original_runtime_config)
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
-      PluginRegistry.clear()
-      Enum.each(original_plugins, &PluginRegistry.register_entry/1)
+      ShippedRegistries.restore!()
       Mix.Task.reenable("allbert.channels")
       Fragments.clear_cache()
       File.rm_rf!(root)
