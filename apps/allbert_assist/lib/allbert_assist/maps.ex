@@ -29,12 +29,17 @@ defmodule AllbertAssist.Maps do
   def get_any(value, keys, default \\ nil)
 
   def get_any(%{} = map, keys, default) when is_list(keys) do
-    Enum.find_value(keys, default, fn key ->
+    keys
+    |> Enum.find_value(fn key ->
       case field(map, key, :__allbert_missing__) do
-        :__allbert_missing__ -> false
-        value -> value
+        :__allbert_missing__ -> nil
+        value -> {:found, value}
       end
     end)
+    |> case do
+      {:found, value} -> value
+      nil -> default
+    end
   end
 
   def get_any(_value, _keys, default), do: default

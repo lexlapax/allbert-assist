@@ -12,6 +12,7 @@ defmodule AllbertAssist.Objectives do
   alias AllbertAssist.Objectives.{AcceptanceCriteria, Event, Objective, Step}
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime.Redactor
+  alias AllbertAssist.Validation
 
   @active_statuses ~w[open running blocked]
   @default_list_limit 50
@@ -392,7 +393,7 @@ defmodule AllbertAssist.Objectives do
   defp normalize_limit(nil, default, _max), do: default
 
   defp normalize_limit(limit, _default, max) when is_integer(limit),
-    do: limit |> max(1) |> min(max)
+    do: Validation.clamp_limit(limit, 1, max)
 
   defp normalize_limit(limit, default, max) when is_binary(limit) do
     case Integer.parse(limit) do

@@ -3,6 +3,7 @@ defmodule AllbertAssist.Workspace.DiscoverySuggestions do
   Passive workspace panel for inert discovery and self-improvement suggestions.
   """
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
   alias AllbertAssist.Tools.Discovery
@@ -177,13 +178,7 @@ defmodule AllbertAssist.Workspace.DiscoverySuggestions do
     |> Enum.map_join(" ", &String.capitalize/1)
   end
 
-  defp field(map, key, default \\ nil)
-
-  defp field(map, key, default) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
-
-  defp field(_map, _key, default), do: default
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 
   defp blank?(value), do: value in [nil, ""]
 

@@ -11,6 +11,7 @@ defmodule AllbertAssist.Coding.TurnSupervisor do
 
   alias AllbertAssist.Coding.Config
   alias AllbertAssist.Coding.StreamEvent
+  alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime.Response
 
@@ -390,13 +391,7 @@ defmodule AllbertAssist.Coding.TurnSupervisor do
     )
   end
 
-  defp field(map, key) do
-    cond do
-      Map.has_key?(map, key) -> Map.get(map, key)
-      Map.has_key?(map, Atom.to_string(key)) -> Map.get(map, Atom.to_string(key))
-      true -> nil
-    end
-  end
+  defp field(map, key), do: Maps.field(map, key)
 
   defp supervisor_available?(name) when is_atom(name), do: is_pid(Process.whereis(name))
   defp supervisor_available?(pid) when is_pid(pid), do: Process.alive?(pid)

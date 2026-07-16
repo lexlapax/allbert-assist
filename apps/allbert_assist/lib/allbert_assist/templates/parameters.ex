@@ -6,6 +6,8 @@ defmodule AllbertAssist.Templates.Parameters do
   strings that later reviewed code may compare or render as inert source.
   """
 
+  alias AllbertAssist.Maps
+
   @name_regex ~r/^[a-z][a-z0-9_]*$/
 
   @doc "Validate a pattern parameter schema against raw params."
@@ -227,7 +229,7 @@ defmodule AllbertAssist.Templates.Parameters do
     ArgumentError -> :error
   end
 
-  defp field(map, key), do: Map.get(map, key, Map.get(map, Atom.to_string(key)))
+  defp field(map, key), do: Maps.field(map, key)
   defp normalize_name(name) when is_atom(name), do: Atom.to_string(name)
   defp normalize_name(name) when is_binary(name), do: String.trim(name)
   defp normalize_name(_name), do: nil

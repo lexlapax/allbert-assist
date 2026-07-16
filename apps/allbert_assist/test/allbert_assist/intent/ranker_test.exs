@@ -9,23 +9,47 @@ defmodule AllbertAssist.Intent.RankerTest do
 
   setup {AllbertAssist.StockSageRegistryCase, :setup}
 
+  # v1.0.2 M5 — own every input of `Paths.settings_root/0`, not just ALLBERT_HOME.
+  # ALLBERT_SETTINGS_ROOT outranks the per-test home, and gate lanes export
+  # ALLBERT_HOME_DIR: a leaked/exported value would point all tests in this file
+  # at one shared settings.yml, letting the zero-boost writes from the Settings
+  # Central scoring test contaminate the descriptor text-match tests (the
+  # in-lane ~0.2 no-boost flake).
+  @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR", "ALLBERT_SETTINGS_ROOT"]
+
   setup do
-    original_home = System.get_env("ALLBERT_HOME")
+    original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
     original_paths = Application.get_env(:allbert_assist, Paths)
     original_settings = Application.get_env(:allbert_assist, Settings)
 
-    System.put_env(
-      "ALLBERT_HOME",
-      Path.join(System.tmp_dir!(), "allbert-ranker-#{System.unique_integer([:positive])}")
-    )
+    Enum.each(@env_vars, &System.delete_env/1)
+
+    # The per-test home must be unique ACROSS BEAM runs, not just within one:
+    # `System.unique_integer/1` restarts its sequence on every VM boot, so a
+    # bare integer suffix collides with the tmp home a PREVIOUS run's Settings
+    # Central scoring test wrote its zero-boost settings.yml into (stale homes
+    # accumulate because nothing deleted them). Loaded gate lanes boot many VMs
+    # with identical sequences — the source of the in-lane ranker flake. Qualify
+    # with the OS pid, pre-clean, and delete the home on exit.
+    home =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-ranker-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
+
+    File.rm_rf!(home)
+    System.put_env("ALLBERT_HOME", home)
 
     Application.delete_env(:allbert_assist, Paths)
     Application.delete_env(:allbert_assist, Settings)
 
     on_exit(fn ->
-      if original_home,
-        do: System.put_env("ALLBERT_HOME", original_home),
-        else: System.delete_env("ALLBERT_HOME")
+      File.rm_rf!(home)
+
+      Enum.each(original_env, fn
+        {key, nil} -> System.delete_env(key)
+        {key, value} -> System.put_env(key, value)
+      end)
 
       restore(Paths, original_paths)
       restore(Settings, original_settings)

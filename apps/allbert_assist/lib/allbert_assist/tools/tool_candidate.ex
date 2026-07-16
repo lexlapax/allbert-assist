@@ -6,6 +6,8 @@ defmodule AllbertAssist.Tools.ToolCandidate do
   until the `mcp_server_connect` confirmation gate persists a configured server.
   """
 
+  alias AllbertAssist.Maps
+
   @type source :: :local_action | :local_skill | :configured_mcp | :remote_mcp
   @type requirement :: :none | :connect_confirmation
 
@@ -93,9 +95,7 @@ defmodule AllbertAssist.Tools.ToolCandidate do
     }
   end
 
-  defp field(attrs, key, default \\ nil) do
-    Map.get(attrs, key, Map.get(attrs, Atom.to_string(key), default))
-  end
+  defp field(attrs, key, default \\ nil), do: Maps.field(attrs, key, default)
 
   defp normalize_source(source) when source in @sources, do: {:ok, source}
 

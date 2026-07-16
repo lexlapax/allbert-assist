@@ -7,6 +7,7 @@ defmodule AllbertAssist.Resources.Grant do
   and current resource params before using a remembered grant.
   """
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Resources.Ref
 
   @enforce_keys [:resource_uri, :origin_kind, :scope_kind, :operation_class, :access_mode]
@@ -77,7 +78,5 @@ defmodule AllbertAssist.Resources.Grant do
     ]
   end
 
-  defp field(map, key, default \\ nil) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 end

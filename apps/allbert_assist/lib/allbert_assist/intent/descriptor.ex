@@ -10,6 +10,7 @@ defmodule AllbertAssist.Intent.Descriptor do
   alias AllbertAssist.Actions.Capability
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Maps
   alias AllbertAssist.RegistryContext
   alias AllbertAssist.Runtime.Redactor
 
@@ -646,9 +647,5 @@ defmodule AllbertAssist.Intent.Descriptor do
   defp put_if_present(map, _key, nil), do: map
   defp put_if_present(map, key, value), do: Map.put(map, key, value)
 
-  defp field(map, key, default \\ nil)
-
-  defp field(map, key, default) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 end

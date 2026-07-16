@@ -2,6 +2,7 @@ defmodule AllbertAssist.App.Validator do
   @moduledoc false
 
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
+  alias AllbertAssist.Maps
 
   @required_exports [
     app_id: 0,
@@ -612,8 +613,5 @@ defmodule AllbertAssist.App.Validator do
   defp reason_message({kind, detail}), do: "#{kind}: #{inspect(detail)}"
   defp reason_message(reason), do: inspect(reason)
 
-  defp field(map, key, default \\ nil)
-
-  defp field(map, key, default) when is_map(map),
-    do: Map.get(map, key, Map.get(map, Atom.to_string(key), default))
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 end

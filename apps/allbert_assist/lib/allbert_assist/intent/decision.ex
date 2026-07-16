@@ -11,6 +11,7 @@ defmodule AllbertAssist.Intent.Decision do
   alias AllbertAssist.Actions.Capability
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Intent.ResourceAccess
+  alias AllbertAssist.Maps
   alias AllbertAssist.Security
   alias AllbertAssist.Session.AppId
   alias AllbertAssist.Skills
@@ -440,11 +441,7 @@ defmodule AllbertAssist.Intent.Decision do
   defp normalize_list(list) when is_list(list), do: list
   defp normalize_list(value), do: [value]
 
-  defp field(map, key, default \\ nil)
-
-  defp field(map, key, default) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 
   defp has_field?(map, key) when is_map(map) do
     Map.has_key?(map, key) or Map.has_key?(map, Atom.to_string(key))

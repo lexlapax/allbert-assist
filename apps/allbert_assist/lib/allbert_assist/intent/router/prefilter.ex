@@ -14,6 +14,7 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
   alias AllbertAssist.Intent.Router.Embedder
   alias AllbertAssist.Intent.Router.Index
   alias AllbertAssist.Intent.Router.ScoringProfile
+  alias AllbertAssist.Maps
   alias AllbertAssist.Settings
 
   @type ranked :: %{
@@ -243,9 +244,5 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
     end
   end
 
-  defp field(map, key, default) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
-
-  defp field(_map, _key, default), do: default
+  defp field(map, key, default), do: Maps.field(map, key, default)
 end

@@ -7,6 +7,7 @@ defmodule AllbertAssist.Runtime.MediaOutputs do
   envelope instead of depending on every provider action shape.
   """
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.Redactor
 
   @mime_types_by_extension %{
@@ -195,10 +196,5 @@ defmodule AllbertAssist.Runtime.MediaOutputs do
     end)
   end
 
-  defp field(value, key, default \\ nil)
-
-  defp field(%{} = map, key, default),
-    do: Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-
-  defp field(_value, _key, default), do: default
+  defp field(value, key, default \\ nil), do: Maps.field(value, key, default)
 end

@@ -26,6 +26,8 @@ defmodule AllbertAssist.CLI.Areas.Jobs do
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Surfaces.ContextBuilder
 
+  @local_user_id "local"
+
   @switches [
     active: :boolean,
     cron: :string,
@@ -352,7 +354,7 @@ defmodule AllbertAssist.CLI.Areas.Jobs do
         %{user_id: operator, operator_id: operator}
 
       true ->
-        %{user_id: "local", operator_id: "local"}
+        %{user_id: @local_user_id, operator_id: @local_user_id}
     end
   end
 

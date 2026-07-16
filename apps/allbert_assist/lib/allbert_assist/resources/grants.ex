@@ -7,6 +7,7 @@ defmodule AllbertAssist.Resources.Grants do
   revocation, and canonical resource scope are re-checked.
   """
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Resources.Ref
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Security.PermissionGate
@@ -531,11 +532,7 @@ defmodule AllbertAssist.Resources.Grants do
 
   defp present?(value), do: value not in [nil, ""]
 
-  defp field(map, key, default \\ nil)
-
-  defp field(map, key, default) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 
   defp drop_nil_values(map) do
     Map.reject(map, fn {_key, value} -> value in [nil, ""] end)

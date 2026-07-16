@@ -11,6 +11,7 @@ defmodule AllbertAssist.Coding.ToolLoop do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Intent.ApprovalHandoff
+  alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime.Response
 
@@ -363,13 +364,5 @@ defmodule AllbertAssist.Coding.ToolLoop do
     Enum.find_value(sources, default, &field(&1, key))
   end
 
-  defp field(map, key) when is_map(map) do
-    cond do
-      Map.has_key?(map, key) -> Map.get(map, key)
-      Map.has_key?(map, Atom.to_string(key)) -> Map.get(map, Atom.to_string(key))
-      true -> nil
-    end
-  end
-
-  defp field(_map, _key), do: nil
+  defp field(map, key), do: Maps.field(map, key)
 end

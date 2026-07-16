@@ -8,6 +8,7 @@ defmodule AllbertAssist.Intent.Classifier do
   """
 
   alias AllbertAssist.Intent.Candidate
+  alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Models
@@ -238,7 +239,5 @@ defmodule AllbertAssist.Intent.Classifier do
 
   defp bounded_text(value), do: value |> inspect() |> bounded_text()
 
-  defp field(map, key, default \\ nil) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 end

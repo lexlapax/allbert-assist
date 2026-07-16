@@ -28,6 +28,7 @@ defmodule AllbertAssist.Actions.Mcp.ReadResource do
 
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
+  alias AllbertAssist.Maps
   alias AllbertAssist.Mcp.Client
   alias AllbertAssist.Mcp.ServerConfig
   alias AllbertAssist.Resources.GrantHandoff
@@ -352,11 +353,7 @@ defmodule AllbertAssist.Actions.Mcp.ReadResource do
     |> drop_nil_values()
   end
 
-  defp field(map, key, default \\ nil)
-
-  defp field(map, key, default) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 
   defp drop_nil_values(map), do: Map.reject(map, fn {_key, value} -> value in [nil, ""] end)
 end

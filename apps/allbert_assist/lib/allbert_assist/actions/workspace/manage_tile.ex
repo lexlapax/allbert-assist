@@ -23,6 +23,7 @@ defmodule AllbertAssist.Actions.Workspace.ManageTile do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Workspace
 
@@ -157,11 +158,5 @@ defmodule AllbertAssist.Actions.Workspace.ManageTile do
     end
   end
 
-  defp field(map, key, default \\ nil)
-
-  defp field(map, key, default) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
-
-  defp field(_map, _key, default), do: default
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 end

@@ -24,6 +24,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
   alias AllbertAssist.Intent.Router.Outcome
   alias AllbertAssist.Intent.Router.PendingStore
   alias AllbertAssist.Intent.Slots
+  alias AllbertAssist.Maps
   alias AllbertAssist.Objectives.Engine.Agent, as: ObjectivesEngine
   alias AllbertAssist.Resources.Ref
   alias AllbertAssist.Resources.ResourceURI
@@ -333,17 +334,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
   defp truthy?(value) when value in [true, "true", "1", 1], do: true
   defp truthy?(_value), do: false
 
-  defp field(map, key, default \\ nil)
-
-  defp field(map, key, default) when is_map(map) do
-    cond do
-      Map.has_key?(map, key) -> Map.get(map, key)
-      Map.has_key?(map, Atom.to_string(key)) -> Map.get(map, Atom.to_string(key))
-      true -> default
-    end
-  end
-
-  defp field(_map, _key, default), do: default
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 
   defp run_deterministic_route(route, text, context, %Decision{} = decision) do
     cond do

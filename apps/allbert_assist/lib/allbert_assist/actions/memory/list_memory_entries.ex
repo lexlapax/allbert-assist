@@ -31,6 +31,7 @@ defmodule AllbertAssist.Actions.Memory.ListMemoryEntries do
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Entry
   alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Validation
 
   @impl true
   def run(params, context) do
@@ -125,7 +126,7 @@ defmodule AllbertAssist.Actions.Memory.ListMemoryEntries do
   defp value(params, key), do: Map.get(params, key) || Map.get(params, Atom.to_string(key))
 
   defp limit(nil), do: 50
-  defp limit(limit) when is_integer(limit), do: min(max(limit, 1), 200)
+  defp limit(limit) when is_integer(limit), do: Validation.clamp_limit(limit, 1, 200)
 
   defp limit(limit) when is_binary(limit) do
     case Integer.parse(limit) do

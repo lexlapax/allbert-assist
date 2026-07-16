@@ -5,7 +5,11 @@ defmodule AllbertAssistWeb.V061b.StatusLinkChipTest do
   objective title, its accessible name predicts the navigation
   ("View objective <title> — status: <status>"), it carries the link
   affordance class, and three or more active objectives collapse to the two
-  most recent chips plus a "+N more" link to `/objectives`.
+  most recent chips plus a "+N more" link.
+
+  Reconciled for v1.0.2 M5: the chips stay inside the consolidated workspace
+  shell — they patch to the `workspace:objectives` destination instead of
+  navigating out to the operator `/objectives` routes.
   """
   use AllbertAssistWeb.ConnCase, async: false
 
@@ -34,7 +38,8 @@ defmodule AllbertAssistWeb.V061b.StatusLinkChipTest do
     assert html =~ "Running · Ship weekly digest"
     assert html =~ ~s(aria-label="View objective Ship weekly digest — status: running")
     assert html =~ "allbert-chip-link"
-    assert html =~ ~s(href="/objectives/#{objective.id}")
+    assert html =~ "destination=workspace%3Aobjectives"
+    refute html =~ ~s(href="/objectives/#{objective.id}")
   end
 
   test "long titles truncate in the visible label but not the accessible name", %{conn: conn} do
@@ -76,7 +81,10 @@ defmodule AllbertAssistWeb.V061b.StatusLinkChipTest do
 
     assert chip_count == 2
     assert has_element?(view, "#objective-badges-overflow", "+1 more")
-    assert render(element(view, "#objective-badges-overflow")) =~ ~s(href="/objectives")
+
+    overflow_html = render(element(view, "#objective-badges-overflow"))
+    assert overflow_html =~ "destination=workspace%3Aobjectives"
+    refute overflow_html =~ ~s(href="/objectives")
 
     IO.puts(
       "status-chip-link-labeling-001 status=pass label=status+title overflow=+N_more " <>

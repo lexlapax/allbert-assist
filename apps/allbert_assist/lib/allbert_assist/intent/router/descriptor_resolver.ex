@@ -21,6 +21,7 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolver do
   alias AllbertAssist.Extensions.Registry, as: ExtensionsRegistry
   alias AllbertAssist.Intent.Descriptor
   alias AllbertAssist.Intent.Router.DescriptorStore
+  alias AllbertAssist.Maps
   alias AllbertAssist.RegistryContext
   alias AllbertAssist.Settings
 
@@ -199,9 +200,5 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolver do
   defp truthy?("true"), do: true
   defp truthy?(_value), do: false
 
-  defp field(map, key, default \\ nil)
-
-  defp field(map, key, default) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 end

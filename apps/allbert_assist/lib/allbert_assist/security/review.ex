@@ -6,6 +6,7 @@ defmodule AllbertAssist.Security.Review do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
+  alias AllbertAssist.Validation
 
   @default_limit 10
   @max_limit 50
@@ -173,7 +174,8 @@ defmodule AllbertAssist.Security.Review do
     |> Enum.take(limit)
   end
 
-  defp normalize_limit(value) when is_integer(value), do: value |> max(1) |> min(@max_limit)
+  defp normalize_limit(value) when is_integer(value),
+    do: Validation.clamp_limit(value, 1, @max_limit)
 
   defp normalize_limit(value) when is_binary(value) do
     case Integer.parse(value) do

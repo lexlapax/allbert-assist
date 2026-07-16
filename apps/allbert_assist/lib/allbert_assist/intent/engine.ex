@@ -20,6 +20,7 @@ defmodule AllbertAssist.Intent.Engine do
   alias AllbertAssist.Intent.Ranker
   alias AllbertAssist.Intent.Router.DescriptorResolver
   alias AllbertAssist.Jobs
+  alias AllbertAssist.Maps
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Index, as: MemoryIndex
   alias AllbertAssist.Objectives
@@ -1607,11 +1608,5 @@ defmodule AllbertAssist.Intent.Engine do
     _exception -> 80
   end
 
-  defp field(map, key, default \\ nil)
-
-  defp field(map, key, default) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
-
-  defp field(_value, _key, default), do: default
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 end

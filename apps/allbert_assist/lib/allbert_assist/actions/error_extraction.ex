@@ -3,6 +3,8 @@ defmodule AllbertAssist.Actions.ErrorExtraction do
   Extracts a compact error reason from action responses.
   """
 
+  alias AllbertAssist.Maps
+
   @metadata_keys [
     :settings_metadata,
     :confirmation_metadata,
@@ -37,10 +39,5 @@ defmodule AllbertAssist.Actions.ErrorExtraction do
   defp direct_error(map) when is_map(map), do: field(map, :error)
   defp direct_error(_value), do: nil
 
-  defp field(map, key) when is_map(map) do
-    case Map.fetch(map, key) do
-      {:ok, value} -> value
-      :error -> Map.get(map, Atom.to_string(key))
-    end
-  end
+  defp field(map, key), do: Maps.field(map, key)
 end

@@ -7,6 +7,7 @@ defmodule AllbertAssist.Intent.Handoff do
   """
 
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.Redactor
 
   @kinds [:app_handoff, :clarify_intent]
@@ -301,11 +302,5 @@ defmodule AllbertAssist.Intent.Handoff do
 
   defp destination_label(destination), do: destination
 
-  defp field(map, key, default \\ nil)
-
-  defp field(map, key, default) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
-
-  defp field(_map, _key, default), do: default
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 end

@@ -21,6 +21,7 @@ defmodule AllbertAssist.Actions.Resources.RevokeResourceGrant do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Resources.GrantHandoff
   alias AllbertAssist.Resources.Grants
   alias AllbertAssist.Security.PermissionGate
@@ -93,7 +94,5 @@ defmodule AllbertAssist.Actions.Resources.RevokeResourceGrant do
   defp channel(context), do: field(context, :channel, :unknown)
   defp surface(context), do: field(context, :surface, "resource_grants")
 
-  defp field(map, key, default) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
+  defp field(map, key, default), do: Maps.field(map, key, default)
 end

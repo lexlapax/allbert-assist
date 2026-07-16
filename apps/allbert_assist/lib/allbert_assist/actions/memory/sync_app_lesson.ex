@@ -46,6 +46,7 @@ defmodule AllbertAssist.Actions.Memory.SyncAppLesson do
 
   alias AllbertAssist.Actions.Memory.Context
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Maps
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Entry
   alias AllbertAssist.Security.PermissionGate
@@ -323,7 +324,7 @@ defmodule AllbertAssist.Actions.Memory.SyncAppLesson do
     end
   end
 
-  defp field(map, key) when is_map(map), do: Map.get(map, key, Map.get(map, Atom.to_string(key)))
+  defp field(map, key), do: Maps.field(map, key)
 
   defp context_value(map, key, default) when is_map(map) do
     Map.get(map, key, Map.get(map, Atom.to_string(key), default))

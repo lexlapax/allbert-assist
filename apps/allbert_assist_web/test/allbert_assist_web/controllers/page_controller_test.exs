@@ -92,6 +92,19 @@ defmodule AllbertAssistWeb.PageControllerTest do
     refute html =~ ~s(id="workspace-shell")
   end
 
+  test "root layout never renders a null or empty data-theme", %{conn: conn} do
+    # v1.0.2 M5 — regression guard for the v0.60b/v0.61 theme-attribute bug shape:
+    # an unset theme mode must render the explicit "system" marker, never a
+    # stringified nil (`data-theme="null"`) or an empty attribute (both silently
+    # fall back to light and desync from the OS preference).
+    conn = get(conn, ~p"/")
+    html = html_response(conn, 200)
+
+    assert html =~ ~s(<html lang="en" data-theme="system">)
+    refute html =~ ~s(data-theme="null")
+    refute html =~ ~s(data-theme="")
+  end
+
   defp temp_path(name) do
     Path.join(
       System.tmp_dir!(),

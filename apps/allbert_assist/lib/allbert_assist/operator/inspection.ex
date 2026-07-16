@@ -14,6 +14,7 @@ defmodule AllbertAssist.Operator.Inspection do
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
+  alias AllbertAssist.Validation
 
   @default_event_limit 10
   @max_event_limit 50
@@ -47,7 +48,7 @@ defmodule AllbertAssist.Operator.Inspection do
     }
   end
 
-  @spec events(map()) :: %{count: non_neg_integer(), events: [any()], limit: integer()}
+  @spec events(map()) :: %{count: non_neg_integer(), events: [any()], limit: pos_integer()}
   def events(params \\ %{}) when is_map(params) do
     limit = event_limit(params)
 
@@ -303,7 +304,8 @@ defmodule AllbertAssist.Operator.Inspection do
     |> normalize_limit()
   end
 
-  defp normalize_limit(limit) when is_integer(limit), do: limit |> max(1) |> min(@max_event_limit)
+  defp normalize_limit(limit) when is_integer(limit),
+    do: Validation.clamp_limit(limit, 1, @max_event_limit)
 
   defp normalize_limit(limit) when is_binary(limit) do
     case Integer.parse(limit) do

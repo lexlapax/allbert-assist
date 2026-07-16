@@ -6,6 +6,7 @@ defmodule AllbertAssist.Marketplace.Panels.Catalog do
   and emits action-button bindings back to registered actions.
   """
 
+  alias AllbertAssist.Actions.ErrorExtraction
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Surface.ActionBinding
@@ -18,6 +19,7 @@ defmodule AllbertAssist.Marketplace.Panels.Catalog do
     "plugin_index" => "Plugin Index"
   }
   @installable_kinds ["skill", "template"]
+  @local_user_id "local"
 
   @spec node(map()) :: Node.t()
   def node(context \\ %{}) when is_map(context) do
@@ -183,9 +185,9 @@ defmodule AllbertAssist.Marketplace.Panels.Catalog do
 
   defp action_context(context) do
     %{
-      actor: Map.get(context, :user_id, "local"),
-      user_id: Map.get(context, :user_id, "local"),
-      operator_id: Map.get(context, :operator_id, Map.get(context, :user_id, "local")),
+      actor: Map.get(context, :user_id, @local_user_id),
+      user_id: Map.get(context, :user_id, @local_user_id),
+      operator_id: Map.get(context, :operator_id, Map.get(context, :user_id, @local_user_id)),
       thread_id: Map.get(context, :thread_id),
       session_id: Map.get(context, :session_id),
       active_app: Map.get(context, :active_app, :allbert),
@@ -194,8 +196,7 @@ defmodule AllbertAssist.Marketplace.Panels.Catalog do
     }
   end
 
-  defp response_error(%{error: error}), do: error
-  defp response_error(%{message: message}), do: message
+  defp response_error(response), do: ErrorExtraction.from_response(response)
 
   defp group_body("plugin_index", entries) do
     "#{length(entries)} browse-only reviewed-source descriptor."

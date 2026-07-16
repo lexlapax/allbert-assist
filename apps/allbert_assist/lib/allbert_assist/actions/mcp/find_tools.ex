@@ -29,6 +29,7 @@ defmodule AllbertAssist.Actions.Mcp.FindTools do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Tools.Source.McpRegistry
   alias AllbertAssist.Tools.ToolCandidate
@@ -108,7 +109,5 @@ defmodule AllbertAssist.Actions.Mcp.FindTools do
     end
   end
 
-  defp field(map, key, default \\ nil) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 end

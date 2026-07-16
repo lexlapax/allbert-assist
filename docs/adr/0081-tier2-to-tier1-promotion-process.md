@@ -2,8 +2,9 @@
 
 ## Status
 
-Proposed for v1.0.2 M6 (docs-only; accepted with that milestone). Changes no
-code and no current tier assignment.
+Accepted at v1.0.2 M6 (2026-07-16, docs-only). Changes no code and no current
+tier assignment; `public-contract-freeze.md` references this process and
+records that v1.0.2 promotes no contract.
 
 ## Context
 

@@ -233,7 +233,8 @@ defmodule AllbertAssist.Mcp.Registry.Official do
     |> Validation.clamp_limit(@default_limit, @max_limit)
   end
 
-  defp page_limit(limit), do: min(max(limit * 2, @default_limit), @max_limit)
+  defp page_limit(limit),
+    do: Validation.clamp_limit(limit * 2, @default_limit, @max_limit, @default_limit)
 
   defp max_pages(opts) do
     case Map.get(opts, :max_pages, Map.get(opts, "max_pages", @default_max_pages)) do

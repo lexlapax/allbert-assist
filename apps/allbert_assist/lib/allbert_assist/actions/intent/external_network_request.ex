@@ -52,6 +52,7 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
   alias AllbertAssist.Confirmations.Origin
   alias AllbertAssist.External.HttpClient
   alias AllbertAssist.External.RequestSpec
+  alias AllbertAssist.Maps
   alias AllbertAssist.Resources.GrantHandoff
   alias AllbertAssist.Resources.OperationClass
   alias AllbertAssist.Resources.Ref
@@ -460,11 +461,7 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
     "External network request ran and returned HTTP status #{status}."
   end
 
-  defp field(map, key, default \\ nil)
-
-  defp field(map, key, default) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 
   defp result_event(%{status: :completed}), do: :succeeded
   defp result_event(_result), do: :failed

@@ -7,6 +7,7 @@ defmodule AllbertAssist.Resources.Ref do
   confirmations and future approval handoff. They never authorize or execute.
   """
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Resources.OperationClass
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
@@ -451,13 +452,7 @@ defmodule AllbertAssist.Resources.Ref do
     |> Map.new()
   end
 
-  defp field(map, key, default \\ nil)
-
-  defp field(map, key, default) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
-
-  defp field(_map, _key, default), do: default
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 
   defp blank?(value), do: value in [nil, ""]
 

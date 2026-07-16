@@ -7,6 +7,7 @@ defmodule AllbertAssist.Confirmations.ObjectiveContext do
   LiveView, Telegram, and email renderers on the same stale-warning rule.
   """
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Objectives
   alias AllbertAssist.Runtime.Redactor
 
@@ -108,13 +109,7 @@ defmodule AllbertAssist.Confirmations.ObjectiveContext do
     end
   end
 
-  defp field(map, key, default \\ nil)
-
-  defp field(map, key, default) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
-
-  defp field(_map, _key, default), do: default
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 
   defp blank?(nil), do: true
   defp blank?(""), do: true

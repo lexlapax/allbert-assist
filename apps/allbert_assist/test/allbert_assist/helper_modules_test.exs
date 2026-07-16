@@ -23,6 +23,12 @@ defmodule AllbertAssist.HelperModulesTest do
     assert Maps.get_any(nil, [:id], "fallback") == "fallback"
   end
 
+  test "Maps.get_any returns present falsy values instead of the default" do
+    assert Maps.get_any(%{a: false}, [:a, :b], :dft) == false
+    assert Maps.get_any(%{"a" => nil}, ["a"], :dft) == nil
+    assert Maps.get_any(%{a: false, b: "later"}, [:a, :b], :dft) == false
+  end
+
   test "Serialization.stringify_keys recursively stringifies keys" do
     assert Serialization.stringify_keys(%{a: %{b: 1}, list: [%{c: :kept}]}) == %{
              "a" => %{"b" => 1},

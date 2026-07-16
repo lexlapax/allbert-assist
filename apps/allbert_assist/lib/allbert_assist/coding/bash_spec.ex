@@ -11,6 +11,7 @@ defmodule AllbertAssist.Coding.BashSpec do
   alias AllbertAssist.Coding.PathPolicy
   alias AllbertAssist.Execution.CommandSpec
   alias AllbertAssist.Execution.Policy
+  alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Security.PermissionGate
 
@@ -354,11 +355,5 @@ defmodule AllbertAssist.Coding.BashSpec do
     |> Map.delete(Atom.to_string(key))
   end
 
-  defp field(map, key) when is_map(map) do
-    cond do
-      Map.has_key?(map, key) -> Map.get(map, key)
-      Map.has_key?(map, Atom.to_string(key)) -> Map.get(map, Atom.to_string(key))
-      true -> nil
-    end
-  end
+  defp field(map, key), do: Maps.field(map, key)
 end

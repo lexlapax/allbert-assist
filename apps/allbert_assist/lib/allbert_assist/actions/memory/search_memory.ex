@@ -31,6 +31,7 @@ defmodule AllbertAssist.Actions.Memory.SearchMemory do
   alias AllbertAssist.Memory.Index
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
+  alias AllbertAssist.Validation
 
   @impl true
   def run(%{query: query} = params, context), do: do_run(query, params, context)
@@ -161,7 +162,7 @@ defmodule AllbertAssist.Actions.Memory.SearchMemory do
 
   defp limit(params) do
     case Map.get(params, :limit) || Map.get(params, "limit") do
-      value when is_integer(value) -> min(max(value, 1), 50)
+      value when is_integer(value) -> Validation.clamp_limit(value, 1, 50)
       _other -> 10
     end
   end

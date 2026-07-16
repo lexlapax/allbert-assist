@@ -16,6 +16,7 @@ defmodule AllbertAssist.Artifacts.IngestionConsumer do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Artifacts.IngestionSupervisor
   alias AllbertAssist.Artifacts.Store
+  alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
   alias AllbertAssist.Signals
@@ -192,11 +193,7 @@ defmodule AllbertAssist.Artifacts.IngestionConsumer do
 
   defp context_value(_context, _key, default), do: default
 
-  defp field(map, key) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key)))
-  end
-
-  defp field(_map, _key), do: nil
+  defp field(map, key), do: Maps.field(map, key)
 
   defp ingestion_timeout_ms do
     case Settings.get("artifacts.ingestion_timeout_ms") do

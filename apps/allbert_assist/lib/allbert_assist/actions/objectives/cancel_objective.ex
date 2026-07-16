@@ -26,6 +26,7 @@ defmodule AllbertAssist.Actions.Objectives.CancelObjective do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Objectives.Engine.Agent, as: EngineAgent
   alias AllbertAssist.Security.PermissionGate
 
@@ -157,11 +158,5 @@ defmodule AllbertAssist.Actions.Objectives.CancelObjective do
     end
   end
 
-  defp field(map, key, default \\ nil)
-
-  defp field(map, key, default) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
-
-  defp field(_map, _key, default), do: default
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 end

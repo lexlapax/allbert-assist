@@ -8,6 +8,7 @@ defmodule AllbertAssist.Artifacts.MediaRetention do
 
   alias AllbertAssist.Artifacts.IngestionConsumer
   alias AllbertAssist.Artifacts.Store
+  alias AllbertAssist.Maps
   alias AllbertAssist.Paths
 
   @type kind :: :voice_audio | :vision_media | :generated_image
@@ -179,7 +180,5 @@ defmodule AllbertAssist.Artifacts.MediaRetention do
 
   defp extension(_path), do: nil
 
-  defp field(map, key) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key)))
-  end
+  defp field(map, key), do: Maps.field(map, key)
 end

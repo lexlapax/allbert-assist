@@ -792,6 +792,16 @@ partition root on exit, but must never remove a parent such as `/private/tmp`,
 the repository, or any path derived from a real operator home. Tests that need
 to mutate `Application` or `System` env restore the previous value in `on_exit`.
 
+Per-test tmp homes named with a bare `System.unique_integer/1` suffix are
+cross-run poisonous: the sequence restarts on every BEAM boot, so a later run
+can COLLIDE with a stale home a previous run left behind and read its settings
+(the v1.0.2 M5 ranker-flake root cause — a sibling test's zero-boost
+`settings.yml` survived in tmp and was re-adopted by fresh VMs). Qualify tmp
+homes with `System.pid()` (or the partition id), pre-clean the path, and delete
+it in `on_exit`. A test that writes Settings must also own every input of
+`Paths.settings_root/0` (`ALLBERT_HOME`, `ALLBERT_HOME_DIR`,
+`ALLBERT_SETTINGS_ROOT`), not just `ALLBERT_HOME`.
+
 Partition helpers must run the same Allbert and StockSage migrations before the
 test lane starts. The M1 web slowest rerun proved why this is required: a fresh
 web-only DB setup misses StockSage plugin tables even though the v0.40

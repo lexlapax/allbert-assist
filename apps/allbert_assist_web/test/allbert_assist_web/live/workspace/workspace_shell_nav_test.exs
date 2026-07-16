@@ -128,6 +128,12 @@ defmodule AllbertAssistWeb.WorkspaceShellNavTest do
 
     {:ok, reloaded, _html} = live(conn, ~p"/workspace")
     assert has_element?(reloaded, "#workspace-shell[data-theme='dark']")
+
+    # v1.0.2 M5 — regression guard: the theme attribute must never render a
+    # stringified nil (`data-theme="null"`) or an empty attribute.
+    reloaded_html = render(reloaded)
+    refute reloaded_html =~ ~s(data-theme="null")
+    refute reloaded_html =~ ~s(data-theme="")
   end
 
   test "workspace mobile tab toggle switches active section", %{conn: conn} do
@@ -390,6 +396,27 @@ defmodule AllbertAssistWeb.WorkspaceShellNavTest do
     {:ok, view, _html} = live(conn, ~p"/workspace")
 
     assert has_element?(view, "#objective-badge-#{objective.id}")
+
+    # v1.0.2 M5 — objective chips stay inside the consolidated workspace shell:
+    # the badge patches to the workspace:objectives destination instead of
+    # navigating out to the operator /objectives routes.
+    refute has_element?(
+             view,
+             "#objective-badge-#{objective.id}[href='/objectives/#{objective.id}']"
+           )
+
+    thread_id = workspace_thread_id(view)
+
+    view
+    |> element("#objective-badge-#{objective.id}")
+    |> render_click()
+
+    assert_patch(
+      view,
+      ~p"/workspace?#{[thread_id: thread_id, destination: "workspace:objectives"]}"
+    )
+
+    assert has_element?(view, "#workspace-canvas[data-destination='workspace:objectives']")
   end
 
   defp html_position(html, marker) do

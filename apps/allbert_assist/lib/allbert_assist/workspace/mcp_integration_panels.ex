@@ -12,6 +12,8 @@ defmodule AllbertAssist.Workspace.McpIntegrationPanels do
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
 
+  @local_user_id "local"
+
   @spec surfaces(map()) :: [Surface.t()]
   def surfaces(context \\ %{}) when is_map(context) do
     [
@@ -530,11 +532,11 @@ defmodule AllbertAssist.Workspace.McpIntegrationPanels do
       :external,
       "external"
     ])
-    |> Map.put_new(:actor, Map.get(context, :user_id, "local"))
-    |> Map.put_new(:user_id, Map.get(context, :user_id, "local"))
+    |> Map.put_new(:actor, Map.get(context, :user_id, @local_user_id))
+    |> Map.put_new(:user_id, Map.get(context, :user_id, @local_user_id))
     |> Map.put_new(
       :operator_id,
-      Map.get(context, :operator_id, Map.get(context, :user_id, "local"))
+      Map.get(context, :operator_id, Map.get(context, :user_id, @local_user_id))
     )
     |> Map.put_new(:channel, :workspace)
     |> Map.put(:surface, "workspace:#{spec.id}")

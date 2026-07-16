@@ -20,6 +20,7 @@ defmodule AllbertAssist.Actions.Workspace.SetTheme do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
 
@@ -119,11 +120,5 @@ defmodule AllbertAssist.Actions.Workspace.SetTheme do
     |> Map.put(:permission_decision, permission_decision)
   end
 
-  defp field(map, key, default \\ nil)
-
-  defp field(map, key, default) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
-
-  defp field(_map, _key, default), do: default
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 end

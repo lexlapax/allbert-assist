@@ -9,6 +9,7 @@ defmodule AllbertAssist.Resources.GrantHandoff do
   """
 
   alias AllbertAssist.Coding.CommandGrants
+  alias AllbertAssist.Maps
   alias AllbertAssist.Resources.Grants
 
   @none [nil, "", "none", :none, false]
@@ -321,11 +322,5 @@ defmodule AllbertAssist.Resources.GrantHandoff do
   defp attrs_map(attrs) when is_map(attrs), do: attrs
   defp attrs_map(attrs) when is_list(attrs), do: Map.new(attrs)
 
-  defp field(map, key, default \\ nil)
-
-  defp field(map, key, default) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
-
-  defp field(_map, _key, default), do: default
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 end

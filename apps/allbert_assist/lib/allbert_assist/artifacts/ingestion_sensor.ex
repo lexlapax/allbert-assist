@@ -17,6 +17,7 @@ defmodule AllbertAssist.Artifacts.IngestionSensor do
 
   @behaviour Jido.Sensor
 
+  alias AllbertAssist.Maps
   alias Jido.Sensor.Spec
 
   @doc "Return the Jido sensor name."
@@ -94,9 +95,5 @@ defmodule AllbertAssist.Artifacts.IngestionSensor do
     field(request, :user_id) || field(request, :operator_id)
   end
 
-  defp field(map, key) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key)))
-  end
-
-  defp field(_map, _key), do: nil
+  defp field(map, key), do: Maps.field(map, key)
 end

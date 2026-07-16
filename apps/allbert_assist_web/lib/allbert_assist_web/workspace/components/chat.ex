@@ -107,7 +107,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
           <.link
             :for={objective <- visible_objectives(@active_objectives)}
             id={"objective-badge-#{objective.id}"}
-            navigate={~p"/objectives/#{objective.id}"}
+            patch={workspace_destination_path(@thread_id, "workspace:objectives")}
             class="allbert-chip allbert-chip-link"
             aria-label={objective_chip_aria_label(objective)}
             title={objective_chip_aria_label(objective)}
@@ -118,7 +118,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
           <.link
             :if={objective_overflow_count(@active_objectives) > 0}
             id="objective-badges-overflow"
-            navigate={~p"/objectives"}
+            patch={workspace_destination_path(@thread_id, "workspace:objectives")}
             class="allbert-chip allbert-chip-link"
             aria-label={"View all objectives — #{objective_overflow_count(@active_objectives)} more active"}
           >
@@ -759,7 +759,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
         action_name: "list_objectives",
         permission: "read_only",
         execution_mode: "objectives_read",
-        navigate: "/objectives"
+        navigate: "/workspace?destination=workspace:objectives"
       },
       %{
         id: "channels",

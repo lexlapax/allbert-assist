@@ -4,11 +4,14 @@ defmodule AllbertAssistWeb.WorkspaceMediaController do
   use AllbertAssistWeb, :controller
 
   alias AllbertAssist.Conversations
+  alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.Paths, as: RuntimePaths
+
+  @local_user_id "local"
 
   def show(conn, %{"message_id" => message_id, "index" => index}) do
     with {:ok, index} <- parse_index(index),
-         {:ok, message} <- Conversations.get_message("local", message_id),
+         {:ok, message} <- Conversations.get_message(@local_user_id, message_id),
          {:ok, output} <- media_output(message, index),
          {:ok, local_path} <- local_path(output),
          {:ok, safe_path} <- safe_media_path(local_path),
@@ -118,10 +121,5 @@ defmodule AllbertAssistWeb.WorkspaceMediaController do
     end
   end
 
-  defp field(value, key, default \\ nil)
-
-  defp field(%{} = map, key, default),
-    do: Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-
-  defp field(_value, _key, default), do: default
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 end

@@ -7,6 +7,7 @@ defmodule AllbertAssist.Intent.ResourceAccess do
   fetches, imports, installs, or executes.
   """
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Resources.Ref
 
   @enforce_keys [
@@ -214,11 +215,7 @@ defmodule AllbertAssist.Intent.ResourceAccess do
 
   defp present?(value), do: value not in [nil, "", [], %{}]
 
-  defp field(map, key, default \\ nil)
-
-  defp field(map, key, default) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 
   defp normalize_list(nil), do: []
   defp normalize_list(list) when is_list(list), do: list

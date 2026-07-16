@@ -37,6 +37,7 @@ defmodule AllbertAssist.Actions.Coding.Bash do
   alias AllbertAssist.Coding.BashSpec
   alias AllbertAssist.Coding.SessionGuard
   alias AllbertAssist.Execution.LocalRunner
+  alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Security.PermissionGate
 
@@ -277,11 +278,5 @@ defmodule AllbertAssist.Actions.Coding.Bash do
   defp channel_name(%{"channel" => channel}), do: channel
   defp channel_name(_context), do: :unknown
 
-  defp field(map, key) when is_map(map) do
-    cond do
-      Map.has_key?(map, key) -> Map.get(map, key)
-      Map.has_key?(map, Atom.to_string(key)) -> Map.get(map, Atom.to_string(key))
-      true -> nil
-    end
-  end
+  defp field(map, key), do: Maps.field(map, key)
 end

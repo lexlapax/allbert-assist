@@ -3,6 +3,7 @@ defmodule AllbertAssist.Coding.Config do
   Settings-backed defaults for the v0.57 coding tool substrate.
   """
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Settings
 
   @defaults %{
@@ -218,11 +219,5 @@ defmodule AllbertAssist.Coding.Config do
 
   defp context_value(_context, _key), do: nil
 
-  defp field(map, key) do
-    cond do
-      Map.has_key?(map, key) -> Map.get(map, key)
-      Map.has_key?(map, Atom.to_string(key)) -> Map.get(map, Atom.to_string(key))
-      true -> nil
-    end
-  end
+  defp field(map, key), do: Maps.field(map, key)
 end

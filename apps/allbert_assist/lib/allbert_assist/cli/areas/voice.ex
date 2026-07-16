@@ -15,6 +15,7 @@ defmodule AllbertAssist.CLI.Areas.Voice do
   `Process.sleep(:infinity)`.
   """
 
+  alias AllbertAssist.Actions.ErrorExtraction
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.CLI.Areas.Render
   alias AllbertAssist.Surfaces.ContextBuilder
@@ -127,7 +128,10 @@ defmodule AllbertAssist.CLI.Areas.Voice do
 
   defp render({:usage, usage}), do: Render.usage(usage)
 
-  defp response_error(%{message: message, error: error}), do: "#{message} #{inspect(error)}"
-  defp response_error(%{message: message}), do: message
-  defp response_error(response), do: inspect(response)
+  defp response_error(response) do
+    case ErrorExtraction.from_response(response) do
+      error when is_binary(error) -> error
+      error -> inspect(error)
+    end
+  end
 end

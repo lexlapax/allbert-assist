@@ -27,6 +27,7 @@ defmodule AllbertAssist.Actions.Objectives.ShowObjective do
 
   alias AllbertAssist.Objectives
   alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Validation
 
   @impl true
   def run(params, context) do
@@ -148,7 +149,7 @@ defmodule AllbertAssist.Actions.Objectives.ShowObjective do
 
   defp event_limit(params) do
     case field(params, :event_limit) do
-      value when is_integer(value) -> value |> max(1) |> min(100)
+      value when is_integer(value) -> Validation.clamp_limit(value, 1, 100)
       _other -> 25
     end
   end

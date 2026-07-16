@@ -9,6 +9,7 @@ defmodule AllbertAssist.Channels.ConfirmationCallback do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Maps
   alias AllbertAssist.Surfaces.ContextBuilder
 
   @typed_command_re ~r/\AALLBERT:(APPROVE|DENY|SHOW):([A-Za-z0-9_-]+)\z/i
@@ -204,5 +205,5 @@ defmodule AllbertAssist.Channels.ConfirmationCallback do
   defp channel_key("liveview"), do: "live_view"
   defp channel_key(value), do: normalize(value)
 
-  defp field(map, key), do: Map.get(map, key, Map.get(map, Atom.to_string(key)))
+  defp field(map, key), do: Maps.field(map, key)
 end

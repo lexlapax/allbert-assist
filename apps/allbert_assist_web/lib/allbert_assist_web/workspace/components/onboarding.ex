@@ -19,6 +19,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
   alias AllbertAssist.Settings
   alias AllbertAssistWeb.Workspace.Components.Patterns
 
+  @local_user_id "local"
+
   # v0.63 M2/M5: operator readiness labels — the web surface never renders a raw
   # internal probe/readiness atom (Readiness Label Mapping Contract).
   @readiness_copy %{
@@ -829,7 +831,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
     }
   end
 
-  defp user_id(context), do: field(context, :user_id) || "local"
+  defp user_id(context), do: field(context, :user_id) || @local_user_id
 
   defp field(map, key) when is_map(map),
     do: Map.get(map, key) || Map.get(map, Atom.to_string(key))

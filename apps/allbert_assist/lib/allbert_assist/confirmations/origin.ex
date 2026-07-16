@@ -7,6 +7,8 @@ defmodule AllbertAssist.Confirmations.Origin do
   from without creating a second job-specific approval queue.
   """
 
+  alias AllbertAssist.Maps
+
   @doc "Build a redaction-safe origin map from runner context."
   @spec from_context(map(), String.t()) :: map()
   def from_context(context, default_surface) when is_map(context) do
@@ -34,14 +36,7 @@ defmodule AllbertAssist.Confirmations.Origin do
   def from_context(_context, default_surface),
     do: %{actor: "local", channel: :unknown, surface: default_surface}
 
-  defp field(map, key, default \\ nil)
-
-  defp field(map, key, default) when is_map(map) do
-    case Map.fetch(map, key) do
-      {:ok, value} -> value
-      :error -> Map.get(map, Atom.to_string(key), default)
-    end
-  end
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 
   defp session_snapshot(context, request) do
     first_map(field(context, :session), field(request, :session))

@@ -21,6 +21,8 @@ defmodule AllbertAssist.CLI.Areas.Workspace do
   alias AllbertAssist.Workspace
   alias AllbertAssist.Workspace.Catalog
 
+  @local_user_id "local"
+
   @usage """
   Usage:
     mix allbert.workspace rotate-signing-secret
@@ -184,7 +186,7 @@ defmodule AllbertAssist.CLI.Areas.Workspace do
   end
 
   defp render({:ok, {:inspect, opts}}) do
-    user_id = Keyword.get(opts, :user, "local")
+    user_id = Keyword.get(opts, :user, @local_user_id)
     thread_id = Keyword.get(opts, :thread, "local-default")
     surface = Catalog.workspace_tree(user_id: user_id, thread_id: thread_id)
 

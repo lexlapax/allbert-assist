@@ -25,6 +25,7 @@ defmodule AllbertAssist.Actions.Mcp.FetchServerManifest do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Mcp.Registry.Official
   alias AllbertAssist.Mcp.Registry.PulseMcp
   alias AllbertAssist.Security.PermissionGate
@@ -147,7 +148,5 @@ defmodule AllbertAssist.Actions.Mcp.FetchServerManifest do
     end
   end
 
-  defp field(map, key, default \\ nil) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 end

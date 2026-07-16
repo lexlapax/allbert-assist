@@ -16,6 +16,7 @@ defmodule AllbertAssist.Coding.StreamingTurn do
   alias AllbertAssist.Coding.StreamPipeline
   alias AllbertAssist.Coding.ToolLoop
   alias AllbertAssist.Coding.TurnSupervisor
+  alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.ModelRuntime
@@ -555,13 +556,5 @@ defmodule AllbertAssist.Coding.StreamingTurn do
     binary_part(text, 0, @max_prompt_bytes) <> "...[truncated]"
   end
 
-  defp field(map, key) when is_map(map) do
-    cond do
-      Map.has_key?(map, key) -> Map.get(map, key)
-      Map.has_key?(map, Atom.to_string(key)) -> Map.get(map, Atom.to_string(key))
-      true -> nil
-    end
-  end
-
-  defp field(_map, _key), do: nil
+  defp field(map, key), do: Maps.field(map, key)
 end

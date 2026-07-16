@@ -9,6 +9,7 @@ defmodule AllbertAssist.Intent.ApprovalHandoff do
 
   alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Intent.ResourceAccess
+  alias AllbertAssist.Maps
 
   @statuses ~w[pending approved denied expired resolved]a
 
@@ -284,13 +285,7 @@ defmodule AllbertAssist.Intent.ApprovalHandoff do
   defp context_value(context, key) when is_map(context), do: field(context, key)
   defp context_value(_context, _key), do: nil
 
-  defp field(map, key, default \\ nil)
-
-  defp field(map, key, default) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
-
-  defp field(_map, _key, default), do: default
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 
   defp normalize_list(nil), do: []
   defp normalize_list(list) when is_list(list), do: list

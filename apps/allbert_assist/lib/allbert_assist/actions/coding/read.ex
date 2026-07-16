@@ -29,6 +29,7 @@ defmodule AllbertAssist.Actions.Coding.Read do
   alias AllbertAssist.Coding.Config
   alias AllbertAssist.Coding.PathPolicy
   alias AllbertAssist.Coding.SessionGuard
+  alias AllbertAssist.Maps
   alias AllbertAssist.Security.PermissionGate
 
   @impl true
@@ -153,13 +154,5 @@ defmodule AllbertAssist.Actions.Coding.Read do
     end
   end
 
-  defp field(map, key) when is_map(map) do
-    cond do
-      Map.has_key?(map, key) -> Map.get(map, key)
-      Map.has_key?(map, Atom.to_string(key)) -> Map.get(map, Atom.to_string(key))
-      true -> nil
-    end
-  end
-
-  defp field(_map, _key), do: nil
+  defp field(map, key), do: Maps.field(map, key)
 end
