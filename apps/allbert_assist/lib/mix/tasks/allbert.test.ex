@@ -7683,7 +7683,13 @@ defmodule Mix.Tasks.Allbert.Test do
     # resource class is the global action/plugin registry.
     "apps/allbert_assist/test/allbert_assist/intent/eval/corpus_completeness_test.exs" =>
       :global_process_serial,
-    "apps/allbert_assist/test/allbert_assist/intent/golden_set_test.exs" => :global_process_serial
+    "apps/allbert_assist/test/allbert_assist/intent/golden_set_test.exs" =>
+      :global_process_serial,
+    # ADR 0082 proof suite: file writes are scoped to owned, uniquely-named
+    # fixture subdirectories of the per-run test home (partition-keyed, rm_rf
+    # bounded to the owned root) and its registries are start_supervised!
+    # privates with unique names/ETS tables — no shared home state is mutated.
+    "apps/allbert_assist/test/allbert_assist/registry_context_test.exs" => :pure_async
   }
 
   defp primary_lane(path, async, template, classes) do

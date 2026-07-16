@@ -1,14 +1,17 @@
 defmodule AllbertAssist.Skills.RegistryTest do
   use ExUnit.Case, async: false
+
+  # v1.0.2 M3: app/plugin skill roots now come from a private ADR 0082 registry
+  # context, so this file no longer mutates the global registries. It stays
+  # `app_env_serial` because it still owns and mutates System env
+  # (ALLBERT_HOME/ALLBERT_HOME_DIR) and Application env (Paths, AppSkillApp).
   @moduletag :app_env_serial
 
-  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Discovery
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Skills
-  alias AllbertAssist.TestSupport.ShippedRegistries
+  alias AllbertAssist.TestSupport.RegistryIsolationFixtures, as: Fixtures
 
   @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR"]
 
@@ -40,9 +43,8 @@ defmodule AllbertAssist.Skills.RegistryTest do
 
     Enum.each(@env_vars, &System.delete_env/1)
     Application.delete_env(:allbert_assist, Paths)
-    PluginRegistry.clear()
-    AppRegistry.unregister(:stocksage)
-    AppRegistry.unregister(:notes_files)
+
+    registry = Fixtures.start_isolated_registries(:skills_registry)
 
     root = temp_path("root")
     home = Path.join(root, "home")
@@ -54,13 +56,13 @@ defmodule AllbertAssist.Skills.RegistryTest do
 
     on_exit(fn ->
       File.rm_rf!(root)
-      ShippedRegistries.restore!()
       restore_env(original_env)
       restore_app_env(Paths, original_paths_config)
       restore_app_env(AppSkillApp, original_app_config)
     end)
 
     {:ok,
+     registry: registry,
      root: root,
      home: home,
      project_root: project_root,
@@ -144,7 +146,7 @@ defmodule AllbertAssist.Skills.RegistryTest do
     write_skill(Path.join(context.home, "skills"), "shared-skill", "shared-skill")
 
     Application.put_env(:allbert_assist, AppSkillApp, [app_root])
-    assert {:ok, :skill_registry_app} = AppRegistry.register(AppSkillApp)
+    assert Fixtures.register_app!(context.registry, AppSkillApp) == :skill_registry_app
 
     assert {:ok, [skill]} = Skills.list(registry_context(context))
     assert skill.name == "shared-skill"
@@ -167,17 +169,16 @@ defmodule AllbertAssist.Skills.RegistryTest do
     write_skill(plugin_root, "shared-skill", "shared-skill")
     write_skill(Path.join(context.home, "skills"), "shared-skill", "shared-skill")
 
-    assert {:ok, "example.skills"} =
-             PluginRegistry.register_entry(%PluginEntry{
-               plugin_id: "example.skills",
-               display_name: "Example Skills",
-               version: "0.1.0",
-               kind: "skills",
-               source: :project,
-               status: :enabled,
-               trust_status: :trusted,
-               skill_paths: [plugin_root]
-             })
+    assert Fixtures.register_plugin!(context.registry, %PluginEntry{
+             plugin_id: "example.skills",
+             display_name: "Example Skills",
+             version: "0.1.0",
+             kind: "skills",
+             source: :project,
+             status: :enabled,
+             trust_status: :trusted,
+             skill_paths: [plugin_root]
+           }) == "example.skills"
 
     assert {:ok, [skill]} = Skills.list(registry_context(context))
     assert skill.name == "shared-skill"
@@ -198,17 +199,16 @@ defmodule AllbertAssist.Skills.RegistryTest do
     plugin_root = Path.join(context.root, "pending-plugin-skills")
     write_skill(plugin_root, "pending-plugin-skill", "pending-plugin-skill")
 
-    assert {:ok, "example.pending"} =
-             PluginRegistry.register_entry(%PluginEntry{
-               plugin_id: "example.pending",
-               display_name: "Example Pending",
-               version: "0.1.0",
-               kind: "skills",
-               source: :home,
-               status: :enabled,
-               trust_status: :pending,
-               skill_paths: [plugin_root]
-             })
+    assert Fixtures.register_plugin!(context.registry, %PluginEntry{
+             plugin_id: "example.pending",
+             display_name: "Example Pending",
+             version: "0.1.0",
+             kind: "skills",
+             source: :home,
+             status: :enabled,
+             trust_status: :pending,
+             skill_paths: [plugin_root]
+           }) == "example.pending"
 
     assert {:ok, []} = Skills.list(registry_context(context))
     assert {:ok, diagnostics} = Skills.diagnostics(registry_context(context))
@@ -251,7 +251,7 @@ defmodule AllbertAssist.Skills.RegistryTest do
 
     assert [{:entry, entry}] = discoveries
     assert entry.trust_status == :trusted
-    assert {:ok, "example.skills"} = PluginRegistry.register_entry(entry)
+    assert Fixtures.register_plugin!(context.registry, entry) == "example.skills"
 
     assert {:ok, [skill]} = Skills.list(registry_context(context))
     assert skill.name == "folder-plugin-skill"
@@ -368,6 +368,7 @@ defmodule AllbertAssist.Skills.RegistryTest do
 
   defp registry_context(context, overrides \\ []) do
     %{
+      registry: context.registry,
       built_in_root: context.built_in_root,
       project_root: context.project_root,
       user_interoperable_root: context.user_interoperable_root,
