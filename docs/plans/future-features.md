@@ -690,9 +690,41 @@ identity/persona) rather than globally.
 
 Deferred at: `v0.61b-plan:1643`.
 
+### Mobile-Ready Web UI/UX → Lightweight Native Mobile App
+
+Class: Must (confirmed 2026-07-18) · Effort: L · Slice: horizon (placed at the next ladder review; stage 1 may ride an earlier minor as non-flagship scope on operator direction)
+
+Status: operator intake 2026-07-18.
+
+Mobile-ready UI/UX for the web workspace, staged so the mobile-ready
+frontend can later be encapsulated into a lightweight native mobile app
+that calls APIs. That end-state may require readying the backend with API
+endpoints for remote-or-local frontend↔backend connectivity, including
+user auth for the remote path.
+
+Rough decomposition (stages, each independently valuable):
+1. **Mobile-ready web UI/UX** — first-class phone-form-factor workspace
+   (the existing mobile tabs/responsive work as the base; the parked
+   Dynamic Mobile Breakpoints entry folds in here as an enabler).
+2. **API surface readiness** — the frontend↔backend contract exposed as
+   stable API endpoints usable by a non-LiveView client (interacts with
+   the Public Protocols & Interop surfaces; local-first remains the
+   default posture).
+3. **User auth for remote connectivity** — authenticated remote
+   frontend→backend access (today's posture is local-single-operator;
+   remote auth is a new authority surface and needs its own ADR; relates
+   to the parked non-local bind hardening item on the 1.3 horizon).
+4. **Lightweight native shell** — the mobile-ready frontend wrapped as a
+   native app calling those APIs (distinct from the parked desktop
+   packaged-GUI cluster under Packaging & Distribution, which stays
+   parked).
+
+Provenance: operator intake, 2026-07-18 (v1.0.2 M8 window).
+
 ### Dynamic Mobile Breakpoints
 
-Class: Could (confirmed 2026-07-14) · Effort: S · Slice: hold
+Class: Could (confirmed 2026-07-14) · Effort: S · Slice: hold — folds into the
+Mobile-Ready Web UI/UX intake (stage 1 enabler) if/when that is slotted
 
 Status: parked.
 
