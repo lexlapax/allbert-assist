@@ -54,6 +54,19 @@ and gate-bound abuse-case coverage.
 
 ## Decision
 
+0. **Consent may be granted in-channel exactly once, via typed command.**
+   (Operator readiness-audit addition, 2026-07-18.) A channel's FIRST fan-out
+   kickoff ack may append a ONE-TIME offer — `ALLBERT:NOTIFY:ON` (buttons
+   where the channel has them). Accepting writes
+   `channels.<id>.autonomous_notify.enabled=true` through the standard
+   audited settings path with channel-identity re-proof (the
+   `ConfirmationCallback` typed-command family); dismissal or any answer
+   retires the offer durably (per-channel offered marker) — it never
+   repeats. Free text NEVER changes the setting; only the typed
+   command/button path does. This is a consent-capture affordance, not a
+   second authority path: the setting it writes is the same one, with the
+   same audit row, as a Settings Central edit.
+
 1. **Autonomous channel notification is a distinct authority class**, granted
    ONLY by per-channel operator settings in Settings Central and enforced at
    ONE boundary, `AllbertAssist.Channels.Notify`. No other module may
