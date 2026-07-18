@@ -43,10 +43,13 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
 3. **1.1 — Asynchronous Background Agent Fan-Out With In-Channel Steering.**
    (Operator intake 2026-07-18, inserted foundational-first. **Planned:**
    `docs/plans/v1.1-plan.md` + request-flow + ADR 0083/0084/0085.) On a prompt
-   that decomposes into multiple tasks, Allbert fans out background
-   agents/actions, streams their status, joins on completion, and reports to
-   the originating channel (TUI/web/Telegram/…) — the channel stays open, and
-   mid-flight input is contextually routed as steering vs a new request.
+   that decomposes into multiple tasks, Allbert delivers a kickoff receipt,
+   then fans out background agents/actions, streams their status, joins on
+   completion, and reports to the originating caller — chat channels stay
+   open, and mid-flight input is contextually routed as steering vs a new
+   request. The two-phase receipt/start contract applies to every Runtime
+   caller; work never starts before the caller confirms that the kickoff was
+   delivered or durably recorded.
    Builds on the delegate-agent substrate, Objectives channel attribution, and
    the intent engine; later minors' background jobs build on it. Carries the
    merged mid-action interruption + child-process cancellation enablers and

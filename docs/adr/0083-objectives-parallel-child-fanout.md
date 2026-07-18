@@ -53,68 +53,55 @@ on 2026-07-18.
 
 ## Decision
 
-1. **A fan-out frames CHILD objectives.** The Stage-0 decomposition of a
-   prompt becomes one PARENT objective plus one child objective per task, each
-   child carrying `parent_objective_id`, its own steps, its own
-   `source_channel`/`source_surface`/`source_thread_id` attribution (copied
-   from the parent), and an additive `fanout_role` column
-   (`"parent"`/`"child"`/nil) distinguishing fan-out children from plan/build
-   parentage. Durable state in Objectives is authoritative; the OTP tree is
-   ONLY the executor. No step graph, queue, or result lives solely in process
-   state.
-2. **Each child runs in a supervised, temporary, Registry-addressed run
-   process.** A `DynamicSupervisor` per run scope
-   (`Objectives.Runs.Supervisor`) starts one `Objectives.Runs.RunServer` per
-   executing child with `restart: :temporary`; every run registers in an
-   Elixir `Registry` (`Objectives.Runs.Registry`, unique keys
-   `{:run, objective_id}` / `{:fanout, parent_objective_id}`). Runs are plain
-   GenServers by the pragmatic-substrate rule (the per-run lifecycle is a
-   thin idle→running→cancelling machine; steering arrives as
-   Registry-addressed messages; Jido.Agent's signal routing and skill
-   composition buy nothing here) — the choice is documented in the
-   `@moduledoc`. Run processes execute the existing step pipeline
-   (authorize → `Actions.Runner.run/3` → observe → advance) against the
-   Objectives API directly; they do NOT dispatch through the serialized
-   `Engine.Agent`, which remains the coordinator for interactive
-   single-objective flows.
-3. **Join = monitors + durable status reduction, never polling.** A
-   `Objectives.Runs.Coordinator` (one per active fan-out, also supervised,
-   `restart: :temporary`) holds `Process.monitor/1` refs on its runs; child
-   terminal status is written to the child objective row first, then reduced
-   into the parent (`progress_summary`, join events). The parent reaches a
-   terminal status only when every child is terminal
-   (`completed`/`failed`/`cancelled`); the join report always enumerates
-   per-child outcomes — partial failure never silently degrades to success.
-4. **Crash ⇒ rehydrate from Objectives.** A `:DOWN` for a run marks the child
-   objective from its last durable step (crash reason recorded as an
-   objective event) and the coordinator applies a bounded restart policy (one
-   supervised re-start per child per fan-out; a second crash is a terminal
-   `failed`). On application restart, boot-time rehydration (extending the
-   engine's existing `rebuild_state/1` projection rebuild) restarts
-   coordinators for parents whose children are still `running`/`open` within
-   the existing rehydrate window; work resumes from the last durable step.
-5. **Backpressure is explicit.** `DynamicSupervisor` `max_children` bounds the
-   run scope; the coordinator maintains a FIFO queue of not-yet-started
-   children and starts at most `objectives.fanout.max_concurrent_runs`
-   (Settings Central) at a time; queued children stay durable in status
-   `open`. Overflow is visible (queued positions in status output), never an
-   unbounded process spray. No GenStage/Flow — the queue is a few dozen
-   entries owned by one coordinator, and the demand model would be
-   machinery without a consumer.
-6. **Decomposition is advisory and grants nothing.** The Stage-0 decomposer
-   may use the local model (the `propose_steps` precedent) or a deterministic
-   split; its output is ALWAYS surfaced in-channel before runs start. It
-   never short-circuits confirmation, permission, or Security Central —
-   `objective_id`/`step_id` are never authority (AGENTS.md). Every child step
-   executes through registered actions with their unchanged confirmation
-   classes; a background-raised `needs_confirmation` parks that run
-   (`step.confirmation_id`, `objectives/step.ex:30`) without blocking
-   siblings.
-7. **A supervised process has no authority by virtue of being supervised.**
-   Run processes carry the same runner context/identity rules as inline
-   execution; Security Central decisions are identical whether a step runs
-   inline or in a run process. Report-back delivery authority is a separate
-   concern (ADR 0084), and cancellation semantics are ADR 0085.
+1. **A fan-out frames CHILD objectives.** A decomposition becomes one parent
+   plus one child per task. Children copy origin attribution and carry
+   `parent_objective_id` plus additive `fanout_role`. Durable fields also
+   record delivery state/receipt digest, queue position, run-attempt count,
+   review reason, and `join_outcome`. Objectives is authoritative: no queue,
+   retry counter, delivery state, or result exists only in process memory.
+2. **Kickoff delivery precedes execution for every Runtime caller.** Framing
+   returns the additive kickoff response plus an opaque, identity-bound,
+   single-use start receipt and starts no child. Remote chat acknowledges
+   after transport success, web/TUI after render/print, public HTTP protocols
+   after response commit, CLI after output, and Jobs after a durable kickoff
+   event. Acknowledgement is idempotent and non-authoritative. Failure leaves
+   the fan-out blocked for retry or cancellation. A caller without this
+   contract fails closed to the existing single-turn path.
+3. **Each child runs in a supervised, temporary, Registry-addressed
+   process.** One global `Objectives.Runs.Supervisor` DynamicSupervisor starts
+   temporary `RunServer` and `Coordinator` GenServers; the unique Registry
+   uses `{:run, objective_id}` / `{:fanout, parent_objective_id}`. RunServer
+   is a plain GenServer under the pragmatic-substrate rule, documented in its
+   `@moduledoc`, and executes authorize → `Actions.Runner.run/3` → observe →
+   advance directly against Objectives, not the serialized Engine.Agent.
+4. **Join uses monitors plus durable reduction, never polling.** Each
+   Coordinator monitors its runs; terminal child state is durable before
+   reduction. Parent status/outcome reduces as: all completed →
+   `completed/success`; any completed plus failed or cancelled →
+   `completed/partial`; no completed and any failed → `failed/failed`; all
+   cancelled → `cancelled/cancelled`. Reports always enumerate every child.
+5. **Crash recovery never guesses about effects.** The Coordinator applies
+   one restart per child from the persisted attempt count. A second crash is
+   terminal failed. Boot rehydration reconstructs coordinators within the
+   existing window. Only action steps whose contract proves retry
+   safety/idempotency auto-resume. A possibly committed external effect with
+   no durable observation becomes `blocked`/`uncertain_effect`; explicit
+   retry or skip is required.
+6. **Backpressure is explicit and reconstructible.** DynamicSupervisor
+   `max_children` bounds the global executor; each Coordinator derives FIFO
+   order from persisted queue positions and starts at most
+   `objectives.fanout.max_concurrent_runs`. Queued children remain durable
+   `open`, with visible positions. No GenStage/Flow.
+7. **Decomposition is broad, advisory, and grants nothing.** Stage 0 may fan
+   out any prompt judged to contain at least two independent tasks; explicit
+   parallel language is unnecessary. Single-task, uncertain, unsupported,
+   and nested proposals use the existing single-turn path. Output is
+   delivered or durably recorded before execution and never bypasses action
+   confirmation, permission, or Security Central. A background confirmation
+   parks only that child.
+8. **A supervised process has no authority by virtue of supervision.** Run
+   processes carry the inline runner's context/identity rules. Report-back
+   authority remains ADR 0084 and cancellation semantics remain ADR 0085.
 
 ## Consequences
 
@@ -142,15 +129,20 @@ on 2026-07-18.
 ## Validation
 
 - v1.1 M1: additive migration round-trip; child-set framing, join reduction,
-  and partial-failure enumeration proven by focused objectives suites;
+  delivery/queue/attempt reconstruction, and every join-outcome reduction
+  proven by focused objectives suites;
   existing objectives suites green unchanged.
 - v1.1 M2: supervised executor proofs — concurrent runs make independent
-  progress (no serialization through the engine agent); kill -9 of a run
+  progress (no serialization through the engine agent); forced
+  `Process.exit(pid, :kill)` of a run
   process yields the bounded-restart path and a correct join; BEAM restart
   mid-fan-out rehydrates and completes; `max_concurrent_runs` backpressure
   observable (queued children start only as slots free); Registry keys unique
   per run; no polling loop anywhere (signal/monitor driven, asserted via the
   signal taxonomy in `docs/plans/v1.1-request-flow.md`).
+- v1.1 M3: every Runtime caller proves no execution before acknowledgement;
+  duplicate acknowledgement is idempotent; delivery failure remains blocked;
+  retry survives BEAM restart; an uncertain external effect never auto-replays.
 - Release: `release.v1` stays green (Tier-1/Tier-2 untouched; runtime
   response gains only additive fields per ADR 0029) and `release.v11` binds
   the fan-out eval rows.

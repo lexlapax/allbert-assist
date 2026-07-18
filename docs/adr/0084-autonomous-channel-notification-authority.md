@@ -115,6 +115,12 @@ and gate-bound abuse-case coverage.
    the turn response) is likewise a turn response, not an autonomous send.
    This line is what lets the default stay OFF without making fan-out
    useless.
+   The fan-out kickoff is also a turn response, but ADR 0083 makes its
+   successful delivery an execution precondition: framing returns a start
+   receipt and no child runs until the originating caller acknowledges the
+   rendered, transported, committed, printed, or durably recorded kickoff.
+   A delivery failure leaves the fan-out blocked; it cannot be reclassified
+   as autonomous notify and cannot trigger background execution.
 7. **The parity contract is renegotiated, additively.** Channel descriptors
    gain an optional `streaming:` capability field
    (`:turn_complete | :progress_messages | :live_region`, absent =
@@ -169,5 +175,7 @@ and gate-bound abuse-case coverage.
   `fanout-notify-redaction-001`, `fanout-steer-no-approve-001` at minimum).
 - v1.1 M11: per-channel operator validation matrix
   (`docs/plans/v1.1-request-flow.md` §J) — notify OFF silence and notify ON
-  behavior attested live on every operator-configured channel; `release.v1`
-  green at the tag (the class is additive; no frozen contract moves).
+  behavior attested live on every released, operator-configured channel.
+  Full simulated end-to-end evidence is mandatory for WhatsApp/Signal while
+  ReleaseAvailability-gated; their live row becomes mandatory only when
+  released and configured. `release.v1` is green at the tag.
