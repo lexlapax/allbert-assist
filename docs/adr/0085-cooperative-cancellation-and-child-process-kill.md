@@ -71,6 +71,11 @@ nothing and follows the existing no-confirmation precedent of
    fails closed; there is no fallback to an untracked spawn. Container-backed
    execution uses the container runtime's stop/kill while preserving the same
    scoped-handle contract inside the namespace.
+   A supervised `Execution.ProcessOwner`, independent of RunServer, owns each
+   helper port and registers by run/execution id. Cancellation addresses the
+   owner before terminating RunServer. Helper control-channel EOF triggers
+   TERM→KILL cleanup, so owner or BEAM failure cannot orphan the group; no
+   recovery path reconstructs authority from a stale OS pid.
 3. **Kill scope is exactly what the run spawned.** Tier 3 addresses ONLY the
    process group(s) captured by that run's executions — never a pattern
    match on process names, never other runs' children, never daemon
@@ -130,8 +135,10 @@ nothing and follows the existing no-confirmation precedent of
   and Linux; (c) tier-1 checkpoint cancel completes the current operation;
   (d) tier-2 drain preserves the last durable step; (e) a sibling run's group
   survives adjacent cancel; (f) missing, malformed, or crashed helper
-  handshakes fail closed; (g) packaged/Homebrew rehearsal locates and runs the
-  helper.
+  handshakes fail closed; (g) RunServer/ProcessOwner/BEAM loss triggers helper
+  EOF cleanup; (h) delegate token reaches both shipped consumers and their
+  checkpoints return cancelled; (i) packaged/Homebrew rehearsal locates and
+  runs the helper.
 - v1.1 M8: end-to-end in-channel cancel against a live fan-out (focused
   integration test + the §J validation matrix row 11: `ps` proves no orphan).
 - v1.1 M10: `fanout-cancel-kill-scope-001` gate-bound in `release.v11`;

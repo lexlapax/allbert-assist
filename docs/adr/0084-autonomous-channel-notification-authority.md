@@ -2,11 +2,11 @@
 
 ## Status
 
-Proposed (v1.1 planning, 2026-07-18). Binding on v1.1 M6 once Accepted;
-Accepted only in the commit that lands the `Channels.Notify` boundary, the
-settings schema (defaults OFF), the audit/redaction path, and the gate-bound
-`:v11` eval rows together. This is a security ADR: it defines a NEW authority
-class and must be reviewed as one.
+Proposed (v1.1 planning, 2026-07-18). Binding on v1.1 M6/M7 once Accepted;
+Accepted in M7 only after `Channels.Notify`, defaults-OFF settings, the
+restart-safe delivery ledger/edit path, redacted markdown audit, and focused
+authority proofs land together. Gate-bound `:v11` eval rows follow at M10.
+This is a security ADR defining a NEW authority class.
 
 ## Context
 
@@ -102,14 +102,26 @@ and gate-bound abuse-case coverage.
    address**. A target that does not resolve to the objective owner's mapped
    identity on the origin channel is denied. Every decision — delivered,
    suppressed (with reason), failed — emits
-   `allbert.channels.notify.{delivered,suppressed,failed}` and a
-   `Security.Audit` row. Where the channel descriptor declares
+   `allbert.channels.notify.{delivered,suppressed,failed}`. Operational state
+   is persisted in an additive delivery ledger; redacted append-only operator
+   evidence is written through `Runtime.Audit :channel_notify` to monthly
+   files at `<ALLBERT_HOME>/channels/notify/audit/YYYY-MM.md`; the matching
+   `Paths` resolver and `ensure_home!/0` entry own the directory. Where the
+   channel descriptor declares
    `status_update_mode: :edit_in_place` (v1.1 M7, plan Locked Decision 11),
    `:status` delivery maintains ONE status message per fan-out per channel
    and edits it in place; an edit IS a delivery for the throttle window
    (edits cannot evade (d)), edit failure falls back to an audited append,
    and `:completion`/`:confirmation_request` kinds are ALWAYS new messages —
    an approval prompt never replaces history.
+   The ledger persists local user/channel/origin identity, provider message
+   id, throttle timestamp, terminal-event idempotency key,
+   attempt/error class, and one-time-offer state, but never payload text,
+   secrets, raw external identity, or free-text addresses. Restart
+   resumes editing the same status message; append fallback replaces its id.
+   If provider acceptance is possible but no receipt persisted, state becomes
+   `uncertain`: autonomous retry is suppressed and the durable report falls
+   back to status/next-turn retrieval with an audit warning.
 4. **Redaction is mandatory.** All notify payloads (status summaries,
    completion reports, confirmation prompts) pass `Security.Redactor` before
    rendering; secrets/vault material never appear in transport payloads,
@@ -166,7 +178,7 @@ and gate-bound abuse-case coverage.
 | Silent scope creep (new code sending via adapters directly) | single boundary (1); adapters' `deliver_outbound/3` reachable only via `Channels.Outbound` (operator class) or `Channels.Notify` (this class); review rule recorded here + parity `outbound` column stays honest |
 | Unreleased-channel probing (whatsapp/signal) | `ReleaseAvailability` check first (3a) |
 | Notification flooding after failures | bounded retry (one, post-interval), then suppress-with-reason; report falls back to next-turn delivery — failure never loops |
-| Replay/duplication of a completion report | notify is keyed per (fanout, kind, terminal transition); joins are idempotent in the coordinator; audit rows make duplicates visible |
+| Replay/duplication of a completion report | delivery-ledger unique key per (fanout, kind, terminal transition); uncertain sends suppress autonomous retry and retain next-turn fallback |
 
 ## Consequences
 
@@ -193,11 +205,14 @@ and gate-bound abuse-case coverage.
   transport calls on fixture adapters), per-kind/level matrix, throttle and
   coalescing, cross-user denial, unreleased-channel denial, redaction
   asserts, audit-row completeness — green; per-adapter outbound unit suites
-  on fixture transports; ADR flips Accepted in that commit.
+  on fixture transports; additive ledger migration round-trip from a pre-M6
+  database plus delivery-ledger and monthly markdown-audit persistence
+  proven; ADR remains Proposed pending edit/restart proof.
 - v1.1 M7: the edit-in-place delivery suite — one status message edited per
   fan-out on the four declaring channels' fixture transports, audited
   append fallback on edit failure, completion/confirmation never edited,
-  edits throttle-counted — green.
+  edits throttle-counted, restart resumes the same message id, uncertain
+  sends suppress retry — green. ADR flips Accepted here.
 - v1.1 M10: `:v11` eval rows bound into `release.v11`
   (`fanout-notify-default-off-001`, `fanout-notify-cross-user-001`,
   `fanout-notify-redaction-001`, `fanout-steer-no-approve-001` at minimum).

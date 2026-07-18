@@ -2,9 +2,10 @@
 
 ## Status
 
-Proposed (v1.1 planning, 2026-07-18). Binding on the v1.1 M1/M2 build once
-Accepted; Accepted only in the commit that lands the child-objective model,
-the supervised run executor, and the crash/rehydration proof together.
+Proposed (v1.1 planning, 2026-07-18). Binding on the v1.1 M1–M3 build once
+Accepted; Accepted only in M3 after the child model, fair scheduler/full
+lifecycle executor, crash recovery, and delivery-before-start contract are
+proven together.
 
 ## Context
 
@@ -59,21 +60,23 @@ on 2026-07-18.
    record delivery state/receipt digest, queue position, run-attempt count,
    review reason, and `join_outcome`. Objectives is authoritative: no queue,
    retry counter, delivery state, or result exists only in process memory.
-2. **Kickoff delivery precedes execution for every Runtime caller.** Framing
+2. **Kickoff delivery precedes execution for every fan-out-capable caller.** Framing
    returns the additive kickoff response plus an opaque, identity-bound,
    single-use start receipt and starts no child. Remote chat acknowledges
-   after transport success, web/TUI after render/print, public HTTP protocols
-   after response commit, CLI after output, and Jobs after a durable kickoff
+   after transport success, web/TUI after render/print, CLI after output, and
+   Jobs after a durable kickoff
    event. Acknowledgement is idempotent and non-authoritative. Failure leaves
    the fan-out blocked for retry or cancellation. A caller without this
-   contract fails closed to the existing single-turn path.
+   contract fails closed to the existing single-turn path. OpenAI-compatible
+   and ACP remain on their frozen synchronous single-turn paths in 1.1.
 3. **Each child runs in a supervised, temporary, Registry-addressed
    process.** One global `Objectives.Runs.Supervisor` DynamicSupervisor starts
    temporary `RunServer` and `Coordinator` GenServers; the unique Registry
    uses `{:run, objective_id}` / `{:fanout, parent_objective_id}`. RunServer
    is a plain GenServer under the pragmatic-substrate rule, documented in its
-   `@moduledoc`, and executes authorize → `Actions.Runner.run/3` → observe →
-   advance directly against Objectives, not the serialized Engine.Agent.
+   `@moduledoc`, and executes propose → evaluate → authorize →
+   `Actions.Runner.run/3` → observe → advance directly against Objectives,
+   not the serialized Engine.Agent.
 4. **Join uses monitors plus durable reduction, never polling.** Each
    Coordinator monitors its runs; terminal child state is durable before
    reduction. Parent status/outcome reduces as: all completed →
@@ -83,19 +86,23 @@ on 2026-07-18.
 5. **Crash recovery never guesses about effects.** The Coordinator applies
    one restart per child from the persisted attempt count. A second crash is
    terminal failed. Boot rehydration reconstructs coordinators within the
-   existing window. Only action steps whose contract proves retry
-   safety/idempotency auto-resume. A possibly committed external effect with
+   existing window. Registered actions declare optional
+   `retry_safety: :safe | :unsafe | :unknown`, default `:unknown`; only
+   `:safe` auto-resumes. A possibly committed external effect with
    no durable observation becomes `blocked`/`uncertain_effect`; explicit
    retry or skip is required.
-6. **Backpressure is explicit and reconstructible.** DynamicSupervisor
-   `max_children` bounds the global executor; each Coordinator derives FIFO
-   order from persisted queue positions and starts at most
+6. **Backpressure is fair and reconstructible.** A permanent supervised
+   `Objectives.Runs.Scheduler` grants capacity round-robin across fan-outs,
+   preserves durable FIFO within each, monitors/restarts temporary
+   Coordinators, and reconstructs from Objectives. DynamicSupervisor
+   `max_children` bounds the global executor; each fan-out starts at most
    `objectives.fanout.max_concurrent_runs`. Queued children remain durable
    `open`, with visible positions. No GenStage/Flow.
 7. **Decomposition is broad, advisory, and grants nothing.** Stage 0 may fan
    out any prompt judged to contain at least two independent tasks; explicit
    parallel language is unnecessary. Single-task, uncertain, unsupported,
-   and nested proposals use the existing single-turn path. Output is
+   and nested proposals use the existing single-turn path. A proposal above
+   `max_children` clarifies before framing and never drops/merges tasks. Output is
    delivered or durably recorded before execution and never bypasses action
    confirmation, permission, or Security Central. A background confirmation
    parks only that child.
@@ -112,8 +119,9 @@ on 2026-07-18.
 - Objectives gains a second execution mode; the serialized engine agent stays
   authoritative for interactive continue/advance, so existing single-objective
   behavior is unchanged (proved by the objectives suites and `release.v1`).
-- The additive schema change (`fanout_role`, `join_policy`, index on
-  `parent_objective_id`) stays inside the additive-migration envelope; the
+- The additive schema change (`fanout_role`, `join_policy`, `join_outcome`,
+  delivery/queue/attempt/review fields, index on `parent_objective_id`) stays
+  inside the additive-migration envelope; the
   1.5-horizon migration-runner cluster is not pulled forward.
 - SQLite write serialization becomes a shared resource across concurrent
   runs; run processes write through the same Repo pool and the step cadence
@@ -132,17 +140,19 @@ on 2026-07-18.
   delivery/queue/attempt reconstruction, and every join-outcome reduction
   proven by focused objectives suites;
   existing objectives suites green unchanged.
-- v1.1 M2: supervised executor proofs — concurrent runs make independent
+- v1.1 M2: full-lifecycle/fair-scheduler proofs — concurrent runs make independent
   progress (no serialization through the engine agent); forced
   `Process.exit(pid, :kill)` of a run
   process yields the bounded-restart path and a correct join; BEAM restart
   mid-fan-out rehydrates and completes; `max_concurrent_runs` backpressure
-  observable (queued children start only as slots free); Registry keys unique
-  per run; no polling loop anywhere (signal/monitor driven, asserted via the
+  observable; round-robin across fan-outs and FIFO within each; Scheduler and
+  Coordinator crash reconstruction; Registry keys unique per run; no polling loop anywhere (signal/monitor driven, asserted via the
   signal taxonomy in `docs/plans/v1.1-request-flow.md`).
-- v1.1 M3: every Runtime caller proves no execution before acknowledgement;
+- v1.1 M3: every fan-out-capable caller proves no execution before acknowledgement;
   duplicate acknowledgement is idempotent; delivery failure remains blocked;
-  retry survives BEAM restart; an uncertain external effect never auto-replays.
+  retry/status reuses the receipt after uncertainty; overflow clarifies with
+  no task loss; OpenAI/ACP frozen paths remain unchanged; an uncertain
+  external effect never auto-replays. ADR flips Accepted here.
 - Release: `release.v1` stays green (Tier-1/Tier-2 untouched; runtime
   response gains only additive fields per ADR 0029) and `release.v11` binds
   the fan-out eval rows.
