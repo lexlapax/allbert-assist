@@ -40,28 +40,37 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    intent-pipeline refinements (opportunistic), technical-debt train. (The
    vendored `:memento` removal landed early at 1.0.1's M5 refresh — ADR 0050
    superseded.)
-3. **1.1 — Zero-Click First Run.** Chat-ready default with an auto-detected local
+3. **1.1 — Asynchronous Background Agent Fan-Out With In-Channel Steering.**
+   (Operator intake 2026-07-18, inserted foundational-first.) On a prompt that
+   decomposes into multiple tasks, Allbert fans out background agents/actions,
+   streams their status, joins on completion, and reports to the originating
+   channel (TUI/web/Telegram/…) — the channel stays open, and mid-flight input
+   is contextually routed as steering vs a new request. Builds on the
+   delegate-agent substrate, Objectives channel attribution, and the intent
+   engine; later minors' background jobs build on it.
+4. **1.2 — Zero-Click First Run.** Chat-ready default with an auto-detected local
    model; onboarding optional and step-addressable; consent ADR; TUI first-run scope
    folded in. Enablers: model chooser/catalog, model fallback/degradation policy.
-4. **1.2 — Long-Term User Memory.** Research phase first (STM/LTM/usage-history onto
+5. **1.3 — Long-Term User Memory.** Research phase first (STM/LTM/usage-history onto
    the Active Memory substrate), then periodic consolidation to reviewable drafts and
    prompt-time context for zero-shot answers. Horizon items: free-form provider URLs,
    non-local bind hardening.
-5. **1.3 — Adaptive Usage Profiling.** System usage memory + distill/suggest jobs +
+6. **1.4 — Adaptive Usage Profiling.** System usage memory + distill/suggest jobs +
    one-click confirmed customizations + effectiveness feedback. Per-role model
    profiles and proactive notifications ride here.
-6. **1.4 / 1.5 — enabler releases.** Migration-runner cluster (runner + telegram/email
+7. **1.5 / 1.6 — enabler releases.** Migration-runner cluster (runner + telegram/email
    settings migration + legacy `intent.*model_profile` removal + automated rollback;
    pulled earlier if any prior release needs a non-additive migration), email OAuth
    (XOAUTH2), MCP 2025-11-25 spec parity, full param-contract enforcement,
    PermissionGate deletion, mid-action interruption + child-process cancellation,
    app-registry boundary check.
-7. **Beyond** — System Memory Distillation is the post-1.3 co-flagship candidate;
-   the Won't-now cluster stays in future-features.md with its review cadence.
-8. **2.0 horizon — Self-Hosting Development.** Allbert develops Allbert (pi-mode
+8. **Beyond** — System Memory Distillation is the post-profiling co-flagship
+   candidate; the Won't-now cluster stays in future-features.md with its review
+   cadence.
+9. **2.0 horizon — Self-Hosting Development.** Allbert develops Allbert (pi-mode
    target on its own checkout; plan/build/test/document roles in-product, supervised).
    Its OAuth hosted-LLM providers sub-capability (Claude/OpenAI/Gemini subscription
-   plans, not just API keys) lands earlier on the 1.4/1.5 train.
+   plans, not just API keys) lands earlier on the 1.5/1.6 enabler train.
 
 ## Working Rules
 

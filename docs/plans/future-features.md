@@ -34,20 +34,27 @@ sequenced one per minor, foundational-first:
   carries the 1.0.1 fixes into the packaged artifact line. Its final measured
   isolation remainder is written back here before the v1.0.2 tag; shipped
   entries are removed only after published-artifact validation and closeout.
-- **1.1 — Zero-Click First Run** + its direct enablers (model chooser/catalog,
+- **1.1 — Asynchronous Background Agent Fan-Out With In-Channel Steering**
+  (operator intake 2026-07-18, inserted as the new first minor: the async
+  runtime/interaction model is foundational — 1.3's memory consolidation jobs
+  and 1.4's profiling analysis are themselves background agents and build on
+  this substrate rather than retrofit it).
+- **1.2 — Zero-Click First Run** + its direct enablers (model chooser/catalog,
   model fallback/degradation for the detect states, consent ADR, folded TUI scope).
-- **1.2 — Long-Term User Memory** (research phase first; folded retrieval/FTS/
+- **1.3 — Long-Term User Memory** (research phase first; folded retrieval/FTS/
   working-memory scope). Free-form provider URLs and bind hardening stay on this
   horizon as tagged.
-- **1.3 — Adaptive Usage Profiling** (stages a/b/c; per-role model profiles and
-  proactive notifications ride here; consumes 1.2's memory substrate).
-- **1.4 / 1.5 — the remaining confirmed-1.1 enablers**, sliced by need: the
+- **1.4 — Adaptive Usage Profiling** (stages a/b/c; per-role model profiles and
+  proactive notifications ride here; consumes 1.3's memory substrate).
+- **1.5 / 1.6 — the remaining confirmed enablers**, sliced by need: the
   migration-runner cluster (runner + telegram/email settings migration + legacy
-  intent.*model_profile removal + automated rollback — pulled EARLIER if any 1.1-1.3
+  intent.*model_profile removal + automated rollback — pulled EARLIER if any 1.1-1.4
   release needs a non-additive migration), email OAuth, MCP spec parity,
   param-contract completion, PermissionGate deletion, mid-action interruption +
   child-process cancellation, app-registry boundary check. System Memory
-  Distillation remains the post-1.3 co-flagship candidate. **2.0 horizon**: Self-Hosting Development (Allbert develops Allbert, pi-mode target), with OAuth hosted-LLM providers landing earlier on the 1.4/1.5 train.
+  Distillation remains the post-profiling co-flagship candidate. **2.0 horizon**:
+  Self-Hosting Development (Allbert develops Allbert, pi-mode target), with OAuth
+  hosted-LLM providers landing earlier on the 1.5/1.6 enabler train.
 ## Classification
 
 Classes are **proposed** pending the operator's category-by-category
@@ -968,6 +975,34 @@ profile is supported end-to-end for image understanding.
 Deferred at: v0.49 plan/readiness notes (sweep-flagged, no single line ref).
 
 ## Agents & Workflows
+
+### Asynchronous Background Agent Fan-Out With In-Channel Steering
+
+Class: Must (confirmed 2026-07-18) · Effort: L · Slice: 1.1 flagship (operator-slotted 2026-07-18; ladder renumbered — zero-click → 1.2, user memory → 1.3, profiling → 1.4, enablers → 1.5/1.6)
+
+Status: operator intake 2026-07-18; next-minor flagship.
+
+The runtime must support asynchronous background agents that can be run and
+controlled via the channel — whatever the channel (TUI, web, Telegram, …).
+When a user gives a prompt and Allbert determines (plausibly via the intent
+engine) that it decomposes into multiple small tasks, Allbert kicks off
+multiple agents/actions behind the scenes, continuously communicates with
+them for status, waits for all to complete, and reports back — per user
+instruction or default behavior — to the originating channel. The channel
+stays open for user communication throughout. If the user adds input while
+agents are running, Allbert determines from context whether it applies to
+the in-flight agent jobs (steer/adjust/cancel) or is a new independent
+request, and acts accordingly.
+
+Decomposes roughly into: intent-engine multi-task decomposition; concurrent
+fan-out over the delegate-agent substrate (`Objectives.AgentRegistry`,
+`:delegate_agent` steps) with join/aggregation semantics; continuous
+status/progress streaming to the originating channel (builds on the v1.0.1
+`source_channel`/`source_surface` objective attribution); non-blocking
+channel turns while jobs run; and mid-flight follow-up disambiguation
+(steering vs new request) in the intent pipeline.
+
+Provenance: operator intake, 2026-07-18 (v1.0.2 M8 window).
 
 ### Agent URI Execution And Broader Agent Endpoints
 
