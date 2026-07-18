@@ -41,13 +41,17 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    vendored `:memento` removal landed early at 1.0.1's M5 refresh — ADR 0050
    superseded.)
 3. **1.1 — Asynchronous Background Agent Fan-Out With In-Channel Steering.**
-   (Operator intake 2026-07-18, inserted foundational-first.) On a prompt that
-   decomposes into multiple tasks, Allbert fans out background agents/actions,
-   streams their status, joins on completion, and reports to the originating
-   channel (TUI/web/Telegram/…) — the channel stays open, and mid-flight input
-   is contextually routed as steering vs a new request. Builds on the
-   delegate-agent substrate, Objectives channel attribution, and the intent
-   engine; later minors' background jobs build on it.
+   (Operator intake 2026-07-18, inserted foundational-first. **Planned:**
+   `docs/plans/v1.1-plan.md` + request-flow + ADR 0083/0084/0085.) On a prompt
+   that decomposes into multiple tasks, Allbert fans out background
+   agents/actions, streams their status, joins on completion, and reports to
+   the originating channel (TUI/web/Telegram/…) — the channel stays open, and
+   mid-flight input is contextually routed as steering vs a new request.
+   Builds on the delegate-agent substrate, Objectives channel attribution, and
+   the intent engine; later minors' background jobs build on it. Carries the
+   merged mid-action interruption + child-process cancellation enablers and
+   the app-registry action-boundary membership check (operator-pulled,
+   2026-07-18).
 4. **1.2 — Zero-Click First Run.** Chat-ready default with an auto-detected local
    model; onboarding optional and step-addressable; consent ADR; TUI first-run scope
    folded in. Enablers: model chooser/catalog, model fallback/degradation policy.
@@ -62,8 +66,8 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    settings migration + legacy `intent.*model_profile` removal + automated rollback;
    pulled earlier if any prior release needs a non-additive migration), email OAuth
    (XOAUTH2), MCP 2025-11-25 spec parity, full param-contract enforcement,
-   PermissionGate deletion, mid-action interruption + child-process cancellation,
-   app-registry boundary check.
+   PermissionGate deletion. (Mid-action interruption, child-process
+   cancellation, and the app-registry boundary check moved into 1.1.)
 8. **Beyond** — System Memory Distillation is the post-profiling co-flagship
    candidate; the Won't-now cluster stays in future-features.md with its review
    cadence.

@@ -152,9 +152,9 @@ Deferred at: `v0.54-plan:133`.
 
 ### App-Registry Membership Check At Action Boundary
 
-Class: Should (confirmed 2026-07-14) · Effort: S · Slice: 1.1 · Verify first: whether later releases already added a boundary check
+Class: Should (confirmed 2026-07-14) · Effort: S · Slice: 1.1 (operator-confirmed 2026-07-18 over the roadmap's 1.5/1.6 listing) · Verify first: whether later releases already added a boundary check
 
-Status: verify.
+Status: planned — `docs/plans/v1.1-plan.md` M0 (verify) + M7 (implementation).
 
 v0.15 deferred validating app-registry membership at the action boundary
 (actions trusting the caller-supplied app identity).
@@ -165,7 +165,7 @@ Deferred at: `v0.15-plan:670`.
 
 Class: Should (confirmed 2026-07-14) · Effort: M · Slice: 1.1 (one milestone with Child-Process Cancellation)
 
-Status: parked.
+Status: planned — `docs/plans/v1.1-plan.md` M4 / ADR 0085.
 
 v0.24 deferred interrupting or killing an in-flight action mid-execution.
 Operators can only wait out a long-running action today.
@@ -176,7 +176,7 @@ Deferred at: `v0.24-rf:466`.
 
 Class: Should (confirmed 2026-07-14) · Effort: M · Slice: 1.1 (merged with Mid-Action Interruption)
 
-Status: parked.
+Status: planned — `docs/plans/v1.1-plan.md` M4 / ADR 0085.
 
 v0.57 deferred defining cancellation semantics for spawned child processes
 (what happens to external work when the owning request dies). Related to
@@ -1012,7 +1012,7 @@ Deferred at: v0.49 plan/readiness notes (sweep-flagged, no single line ref).
 
 Class: Must (confirmed 2026-07-18) · Effort: L · Slice: 1.1 flagship (operator-slotted 2026-07-18; ladder renumbered — zero-click → 1.2, user memory → 1.3, profiling → 1.4, enablers → 1.5/1.6)
 
-Status: operator intake 2026-07-18; next-minor flagship.
+Status: planned — `docs/plans/v1.1-plan.md` (initial plan committed 2026-07-18; triad: plan + request-flow + ADR 0083/0084/0085).
 
 The runtime must support asynchronous background agents that can be run and
 controlled via the channel — whatever the channel (TUI, web, Telegram, …).
