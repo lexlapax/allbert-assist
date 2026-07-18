@@ -111,10 +111,13 @@ nothing and follows the existing no-confirmation precedent of
   protocol, and the installed Homebrew binary exercises it in rehearsal.
 - Actions gain an optional cooperative contract; existing actions work
   unchanged (tier 2/3 covers them) and can adopt checkpoints incrementally.
-- The delegate-agent substrate is unchanged in v1.1: a `:delegate_agent`
-  dispatch blocks only its own run and dies with it (tier 2); pushing the
-  token INTO delegate agents is future work recorded at closeout intake, not
-  scope.
+- The delegate-agent substrate gains the cooperative token (operator
+  fold-in, 2026-07-18 intake walk): `AgentRegistry.dispatch/4` carries
+  `cancel_token` in the delegate signal payload, the delegate developer
+  contract documents checkpoint polling, and the two shipped consumers
+  adopt checkpoints. Unconverted delegates degrade to exactly the prior
+  tier-2 behavior (unchecked token ⇒ supervised shutdown after grace) —
+  the contract change is additive.
 - Platform nuance is contained behind the helper protocol. macOS and Linux
   are equally strong Tier-1 contracts; Windows/WSL2 stays out of scope with
   the standing WSL2 deferral.
@@ -129,7 +132,7 @@ nothing and follows the existing no-confirmation precedent of
   survives adjacent cancel; (f) missing, malformed, or crashed helper
   handshakes fail closed; (g) packaged/Homebrew rehearsal locates and runs the
   helper.
-- v1.1 M7: end-to-end in-channel cancel against a live fan-out (focused
+- v1.1 M8: end-to-end in-channel cancel against a live fan-out (focused
   integration test + the §J validation matrix row 11: `ps` proves no orphan).
-- v1.1 M9: `fanout-cancel-kill-scope-001` gate-bound in `release.v11`;
+- v1.1 M10: `fanout-cancel-kill-scope-001` gate-bound in `release.v11`;
   sandbox/skill-script/coding suites green unchanged; `release.v1` green.

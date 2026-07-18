@@ -103,7 +103,13 @@ and gate-bound abuse-case coverage.
    identity on the origin channel is denied. Every decision — delivered,
    suppressed (with reason), failed — emits
    `allbert.channels.notify.{delivered,suppressed,failed}` and a
-   `Security.Audit` row.
+   `Security.Audit` row. Where the channel descriptor declares
+   `status_update_mode: :edit_in_place` (v1.1 M7, plan Locked Decision 11),
+   `:status` delivery maintains ONE status message per fan-out per channel
+   and edits it in place; an edit IS a delivery for the throttle window
+   (edits cannot evade (d)), edit failure falls back to an audited append,
+   and `:completion`/`:confirmation_request` kinds are ALWAYS new messages —
+   an approval prompt never replaces history.
 4. **Redaction is mandatory.** All notify payloads (status summaries,
    completion reports, confirmation prompts) pass `Security.Redactor` before
    rendering; secrets/vault material never appear in transport payloads,
@@ -139,8 +145,13 @@ and gate-bound abuse-case coverage.
    (`:turn_complete | :progress_messages | :live_region`, absent =
    `:turn_complete`); `ChannelParity` derives the streaming column from
    declarations instead of the `:98` hardcode and validates that
-   `:live_region` is declared only by local surfaces. Capability
-   (`streaming:`) and authority (`autonomous_notify.*`) are independent axes:
+   `:live_region` is declared only by local surfaces. v1.1 M7 adds a second
+   additive capability field on the same pattern —
+   `status_update_mode: :append_only | :edit_in_place`, absent =
+   `:append_only`; telegram/discord/slack/matrix declare `:edit_in_place`.
+   Capability
+   (`streaming:`, `status_update_mode:`) and authority
+   (`autonomous_notify.*`) are independent axes:
    a channel can be capable but ungranted (the default), and a grant on an
    incapable kind is inert.
 
@@ -183,10 +194,14 @@ and gate-bound abuse-case coverage.
   coalescing, cross-user denial, unreleased-channel denial, redaction
   asserts, audit-row completeness — green; per-adapter outbound unit suites
   on fixture transports; ADR flips Accepted in that commit.
-- v1.1 M9: `:v11` eval rows bound into `release.v11`
+- v1.1 M7: the edit-in-place delivery suite — one status message edited per
+  fan-out on the four declaring channels' fixture transports, audited
+  append fallback on edit failure, completion/confirmation never edited,
+  edits throttle-counted — green.
+- v1.1 M10: `:v11` eval rows bound into `release.v11`
   (`fanout-notify-default-off-001`, `fanout-notify-cross-user-001`,
   `fanout-notify-redaction-001`, `fanout-steer-no-approve-001` at minimum).
-- v1.1 M11: per-channel operator validation matrix
+- v1.1 M12: per-channel operator validation matrix
   (`docs/plans/v1.1-request-flow.md` §J) — notify OFF silence and notify ON
   behavior attested live on every released, operator-configured channel.
   Full simulated end-to-end evidence is mandatory for WhatsApp/Signal while
