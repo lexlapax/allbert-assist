@@ -418,10 +418,10 @@ defmodule StockSage.App do
   defp zone_label(:canvas_panels), do: "canvas"
 
   defp context_value(context, key),
-    do: Map.get(context, key) || Map.get(context, Atom.to_string(key))
+    do: AllbertAssist.Maps.field_truthy(context, key)
 
   defp value(map, key) when is_map(map) and is_atom(key),
-    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
+    do: AllbertAssist.Maps.field_truthy(map, key)
 
   defp value(_map, _key), do: nil
 

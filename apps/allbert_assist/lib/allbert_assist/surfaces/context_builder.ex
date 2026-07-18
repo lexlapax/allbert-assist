@@ -6,6 +6,8 @@ defmodule AllbertAssist.Surfaces.ContextBuilder do
   consistent while preserving the caller's explicit params.
   """
 
+  alias AllbertAssist.Maps
+
   @default_user_id "local"
 
   @spec cli_context(map() | keyword()) :: map()
@@ -198,9 +200,5 @@ defmodule AllbertAssist.Surfaces.ContextBuilder do
   defp channel_for_surface("openai_api"), do: :openai_api
   defp channel_for_surface(surface), do: surface
 
-  defp field(map, key) when is_map(map) do
-    Map.get(map, key) || Map.get(map, Atom.to_string(key))
-  end
-
-  defp field(_map, _key), do: nil
+  defp field(map, key), do: Maps.field_truthy(map, key)
 end

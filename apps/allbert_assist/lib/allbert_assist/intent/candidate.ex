@@ -8,10 +8,10 @@ defmodule AllbertAssist.Intent.Candidate do
   """
 
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
-  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.RegistryContext
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime.SafeTerm
+  alias AllbertAssist.Session.AppId
 
   @kinds ~w[action skill surface job channel memory objective refusal app_intent direct_answer]a
   @sources ~w[
@@ -91,7 +91,7 @@ defmodule AllbertAssist.Intent.Candidate do
            normalize_member(field(attrs, :status, :candidate), @statuses, :invalid_status),
          {:ok, app_id} <- normalize_app_id(field(attrs, :app_id), opts),
          {:ok, action_name} <-
-           normalize_action_name(kind, action_name_attr(kind, attrs), status) do
+           normalize_action_name(kind, action_name_attr(kind, attrs), status, opts) do
       candidate = %__MODULE__{
         kind: kind,
         id: bounded_string(field(attrs, :id) || action_name || fallback_id(kind, attrs)),
@@ -219,33 +219,28 @@ defmodule AllbertAssist.Intent.Candidate do
     |> Map.new()
   end
 
-  defp normalize_action_name(:action, action, :rejected),
+  defp normalize_action_name(:action, action, :rejected, _opts),
     do: {:ok, optional_bounded_string(action)}
 
-  defp normalize_action_name(_kind, nil, _status), do: {:ok, nil}
+  defp normalize_action_name(_kind, nil, _status, _opts), do: {:ok, nil}
 
-  defp normalize_action_name(:action, action, _status) do
-    case ActionsRegistry.capability(action) do
+  defp normalize_action_name(:action, action, _status, opts) do
+    case ActionsRegistry.capability(action, RegistryContext.take(opts)) do
       {:ok, capability} -> {:ok, capability.name}
       {:error, reason} -> {:error, {:unknown_action, action, reason}}
     end
   end
 
-  defp normalize_action_name(_kind, action, _status), do: {:ok, optional_bounded_string(action)}
+  defp normalize_action_name(_kind, action, _status, _opts),
+    do: {:ok, optional_bounded_string(action)}
 
   defp action_name_attr(:action, attrs), do: field(attrs, :action_name) || field(attrs, :id)
   defp action_name_attr(_kind, attrs), do: field(attrs, :action_name)
 
   defp normalize_app_id(nil, _opts), do: {:ok, nil}
 
-  defp normalize_app_id(app_id, opts) do
-    case AppRegistry.normalize_app_id(app_id, RegistryContext.app_opts(opts)) do
-      {:ok, app_id} -> {:ok, app_id}
-      {:error, _reason} -> {:error, {:unknown_app_id, app_id}}
-    end
-  catch
-    :exit, _reason -> {:error, {:unknown_app_id, app_id}}
-  end
+  defp normalize_app_id(app_id, opts),
+    do: AppId.normalize_or(app_id, opts, fn _reason -> {:unknown_app_id, app_id} end)
 
   defp normalize_member(value, allowed, reason) when is_binary(value) do
     value

@@ -5,6 +5,7 @@ defmodule AllbertAssist.Objectives.Commands.EvaluateSteps do
     name: "allbert_objectives_evaluate_steps",
     description: "Private objective acceptance evaluation command."
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Commands
   alias AllbertAssist.Objectives.Evaluator
@@ -62,8 +63,5 @@ defmodule AllbertAssist.Objectives.Commands.EvaluateSteps do
     Map.put(state, key, Map.put(current, nested_key, value))
   end
 
-  defp field(map, key) when is_map(map),
-    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
-
-  defp field(_value, _key), do: nil
+  defp field(map, key), do: Maps.field_truthy(map, key)
 end

@@ -8,6 +8,7 @@ defmodule AllbertAssist.Intent.ConversationContext do
   — never raw thread history, and never traced raw. Size is bounded by
   `intent.context_window`; gated by `intent.multiturn_enabled`.
   """
+  alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
 
@@ -86,8 +87,7 @@ defmodule AllbertAssist.Intent.ConversationContext do
 
   defp bounded(value, _limit), do: to_string(value)
 
-  defp field(map, key) when is_map(map), do: Map.get(map, key) || Map.get(map, to_string(key))
-  defp field(_map, _key), do: nil
+  defp field(map, key), do: Maps.field_truthy(map, key)
 
   defp multiturn_enabled?(opts) do
     case Keyword.fetch(opts, :multiturn_enabled) do

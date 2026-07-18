@@ -32,6 +32,7 @@ defmodule AllbertAssist.Actions.Conversations.ResumeThreadOnChannel do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
   alias AllbertAssist.Conversations.UnifiedHistory
+  alias AllbertAssist.Maps
   alias AllbertAssist.Security.PermissionGate
 
   @permission :conversation_write
@@ -173,8 +174,5 @@ defmodule AllbertAssist.Actions.Conversations.ResumeThreadOnChannel do
     end)
   end
 
-  defp field(map, key) when is_map(map),
-    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
-
-  defp field(_map, _key), do: nil
+  defp field(map, key), do: Maps.field_truthy(map, key)
 end

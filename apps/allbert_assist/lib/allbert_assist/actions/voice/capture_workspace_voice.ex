@@ -26,6 +26,7 @@ defmodule AllbertAssist.Actions.Voice.CaptureWorkspaceVoice do
 
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
+  alias AllbertAssist.Maps
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Security.PermissionGate
@@ -256,6 +257,5 @@ defmodule AllbertAssist.Actions.Voice.CaptureWorkspaceVoice do
     }
   end
 
-  defp field(map, key) when is_map(map),
-    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
+  defp field(map, key) when is_map(map), do: Maps.field_truthy(map, key)
 end

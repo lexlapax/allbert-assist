@@ -309,7 +309,7 @@ defmodule AllbertAssist.Jobs.Runner do
   defp maybe_block_job(attrs, _run), do: attrs
 
   defp response_field(map, key) when is_map(map) do
-    Map.get(map, key) || Map.get(map, Atom.to_string(key))
+    AllbertAssist.Maps.field_truthy(map, key)
   end
 
   defp atomize_existing_keys(%{} = map) do

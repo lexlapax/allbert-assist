@@ -11,6 +11,7 @@ defmodule AllbertAssist.Intent.Eval.CorpusCompletenessTest do
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Intent.Eval.Corpus
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.TestSupport.ShippedRegistries
 
   # v1.0.2 M1 residue (d): the committed 295-case corpus and its pinned release
   # baseline predate two static registry additions that never received corpus
@@ -38,7 +39,6 @@ defmodule AllbertAssist.Intent.Eval.CorpusCompletenessTest do
     # assertions. Seed the deterministic baseline the committed corpus is
     # baselined against (stocksage + notes_files + browser, mirroring
     # intent/engine_test.exs); restore prior registrations after.
-    original_plugins = PluginRegistry.registered_plugins()
     original_diagnostics = PluginRegistry.diagnostics()
 
     PluginRegistry.clear()
@@ -50,8 +50,9 @@ defmodule AllbertAssist.Intent.Eval.CorpusCompletenessTest do
     assert {:ok, "allbert.browser"} = PluginRegistry.register_module(AllbertBrowser.Plugin)
 
     on_exit(fn ->
-      PluginRegistry.clear()
-      Enum.each(original_plugins, &PluginRegistry.register_entry/1)
+      # v1.0.2 M8 drift-fix: shipped-baseline convergence (a snapshot restore
+      # re-applies earlier damage — M2 sweep class; out-of-scope straggler).
+      ShippedRegistries.restore!()
 
       Enum.each(original_diagnostics, fn {plugin_id, diagnostics} ->
         PluginRegistry.put_diagnostics(plugin_id, diagnostics)

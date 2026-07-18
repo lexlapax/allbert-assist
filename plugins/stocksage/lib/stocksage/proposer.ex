@@ -6,6 +6,8 @@ defmodule StockSage.Proposer do
   not call the bridge, create confirmations, or write StockSage domain rows.
   """
 
+  alias AllbertAssist.Maps
+
   @behaviour AllbertAssist.Objectives.ProposerBehaviour
 
   @stopwords MapSet.new(~w[
@@ -150,9 +152,7 @@ defmodule StockSage.Proposer do
 
   defp field(%_struct{} = struct, key), do: Map.get(struct, key)
 
-  defp field(map, key) when is_map(map) do
-    Map.get(map, key) || Map.get(map, Atom.to_string(key))
-  end
+  defp field(map, key) when is_map(map), do: Maps.field_truthy(map, key)
 
   defp field(_value, _key), do: nil
 end

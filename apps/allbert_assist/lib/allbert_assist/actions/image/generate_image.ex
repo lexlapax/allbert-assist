@@ -26,6 +26,7 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
   alias AllbertAssist.Artifacts.MediaRetention
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
+  alias AllbertAssist.Maps
   alias AllbertAssist.Resources.{ImageBounds, ImageMetadata, ResourceURI}
   alias AllbertAssist.Runtime.Paths, as: RuntimePaths
   alias AllbertAssist.Runtime.Redactor
@@ -763,10 +764,7 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
   defp approved_resume?(%{"confirmation" => %{"approved?" => true}}), do: true
   defp approved_resume?(_context), do: false
 
-  defp field(map, key) when is_map(map),
-    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
-
-  defp field(_map, _key), do: nil
+  defp field(map, key), do: Maps.field_truthy(map, key)
 
   defp sha256(value), do: :crypto.hash(:sha256, value) |> Base.encode16(case: :lower)
 end

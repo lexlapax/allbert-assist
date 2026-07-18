@@ -9,10 +9,10 @@ defmodule AllbertAssist.Intent.Descriptor do
 
   alias AllbertAssist.Actions.Capability
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
-  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Maps
   alias AllbertAssist.RegistryContext
   alias AllbertAssist.Runtime.Redactor
+  alias AllbertAssist.Session.AppId
 
   @enforce_keys [:id, :app_id, :action_name, :label]
   defstruct [
@@ -172,16 +172,8 @@ defmodule AllbertAssist.Intent.Descriptor do
 
   defp app_id(nil, nil, _opts), do: {:error, :missing_app_id}
 
-  defp app_id(value, fallback, opts) do
-    value = value || fallback
-
-    case AppRegistry.normalize_app_id(value, RegistryContext.app_opts(opts)) do
-      {:ok, app_id} when is_atom(app_id) -> {:ok, app_id}
-      {:error, reason} -> {:error, {:invalid_app_id, reason}}
-    end
-  catch
-    :exit, reason -> {:error, {:invalid_app_id, reason}}
-  end
+  defp app_id(value, fallback, opts),
+    do: AppId.normalize_or(value || fallback, opts, &{:invalid_app_id, &1})
 
   defp action_name(value) when is_atom(value), do: action_name(Atom.to_string(value))
 

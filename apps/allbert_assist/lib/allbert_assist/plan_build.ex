@@ -7,7 +7,7 @@ defmodule AllbertAssist.PlanBuild do
   milestones add preview contracts, registered actions, and panels.
   """
 
-  alias AllbertAssist.{Confirmations, Objectives, Workflows}
+  alias AllbertAssist.{Confirmations, Maps, Objectives, Workflows}
   alias AllbertAssist.PlanBuild.Runtime
   alias AllbertAssist.Security.PermissionGate
 
@@ -205,10 +205,7 @@ defmodule AllbertAssist.PlanBuild do
   defp normalize_origin_channel(channel) when is_binary(channel), do: channel
   defp normalize_origin_channel(_channel), do: "cli"
 
-  defp field(map, key) when is_map(map),
-    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
-
-  defp field(_map, _key), do: nil
+  defp field(map, key), do: Maps.field_truthy(map, key)
 
   defp json_safe(%_struct{} = struct), do: struct |> Map.from_struct() |> json_safe()
 

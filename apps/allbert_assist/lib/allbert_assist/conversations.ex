@@ -10,6 +10,7 @@ defmodule AllbertAssist.Conversations do
 
   alias AllbertAssist.Conversations.Message
   alias AllbertAssist.Conversations.Thread
+  alias AllbertAssist.Maps
   alias AllbertAssist.Repo
   alias AllbertAssist.Workspace.Ephemeral
 
@@ -392,9 +393,7 @@ defmodule AllbertAssist.Conversations do
     end)
   end
 
-  defp field(attrs, key) do
-    Map.get(attrs, key) || Map.get(attrs, Atom.to_string(key))
-  end
+  defp field(attrs, key), do: Maps.field_truthy(attrs, key)
 
   defp json_safe(%DateTime{} = datetime), do: DateTime.to_iso8601(datetime)
   defp json_safe(%NaiveDateTime{} = datetime), do: NaiveDateTime.to_iso8601(datetime)

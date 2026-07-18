@@ -6,6 +6,7 @@ defmodule AllbertAssist.Objectives.Commands.ContinueObjective do
     description: "Private objective continuation command."
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Maps
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Commands
   alias AllbertAssist.Objectives.Step
@@ -240,9 +241,7 @@ defmodule AllbertAssist.Objectives.Commands.ContinueObjective do
 
   defp field(%_struct{} = struct, key), do: Map.get(struct, key)
 
-  defp field(map, key) when is_map(map) do
-    Map.get(map, key) || Map.get(map, Atom.to_string(key))
-  end
+  defp field(map, key) when is_map(map), do: Maps.field_truthy(map, key)
 
   defp field(_value, _key), do: nil
 end

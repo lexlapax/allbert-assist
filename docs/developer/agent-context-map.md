@@ -102,6 +102,12 @@ Primary lane labels: `pure_async`, `db_serial`, `db_partition_safe`,
 `app_env_serial`, `home_fs_serial`, `global_process_serial`, `liveview_serial`,
 `security_eval_serial`, and `external_runtime_serial`.
 
+Test-run metrics: gate/lane/partition runs append structured records to the
+project test-metrics store; `mix allbert.test metrics` renders trend and
+slowest-file reports (`docs/developer/test-strategy.md` § test-run metrics).
+Runtime-optimization and flake claims cite this store; hot/flaky metrics are
+prompts to inspect the exercised PRODUCTION code for logic sprawl.
+
 ## Version specific Guidance
 
 This section holds temporary in-flight guidance while a specific version is being

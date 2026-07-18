@@ -23,6 +23,7 @@ defmodule AllbertAssist.Actions.Objectives.ContinueObjective do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Objectives
   alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Security.PermissionGate
@@ -213,9 +214,7 @@ defmodule AllbertAssist.Actions.Objectives.ContinueObjective do
 
   defp field(%_struct{} = struct, key), do: Map.get(struct, key)
 
-  defp field(map, key) when is_map(map) do
-    Map.get(map, key) || Map.get(map, Atom.to_string(key))
-  end
+  defp field(map, key) when is_map(map), do: Maps.field_truthy(map, key)
 
   defp field(_value, _key), do: nil
 end

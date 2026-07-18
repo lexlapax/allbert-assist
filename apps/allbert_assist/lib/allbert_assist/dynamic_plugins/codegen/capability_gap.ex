@@ -7,6 +7,7 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.CapabilityGap do
   trust a draft, run a sandbox gate, or integrate runtime actions.
   """
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
 
@@ -224,9 +225,7 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.CapabilityGap do
     end
   end
 
-  defp field(map, key) do
-    Map.get(map, key) || Map.get(map, Atom.to_string(key))
-  end
+  defp field(map, key), do: Maps.field_truthy(map, key)
 
   defp truthy?(value), do: value in [true, "true", "yes", "1", 1]
 

@@ -10,6 +10,7 @@ defmodule AllbertAssist.Workspace.Emitters do
   require Logger
 
   alias AllbertAssist.Intent.Handoff
+  alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
@@ -756,9 +757,7 @@ defmodule AllbertAssist.Workspace.Emitters do
 
   defp map_value(nil, _key), do: nil
 
-  defp map_value(map, key) when is_map(map) do
-    Map.get(map, key) || Map.get(map, to_string(key))
-  end
+  defp map_value(map, key) when is_map(map), do: Maps.field_truthy(map, key)
 
   defp map_value(_map, _key), do: nil
 

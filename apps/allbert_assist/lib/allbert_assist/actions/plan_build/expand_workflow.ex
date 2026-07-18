@@ -14,6 +14,7 @@ defmodule AllbertAssist.Actions.PlanBuild.ExpandWorkflow do
     schema: [workflow_id: [type: :string, required: true], inputs: [type: :map, required: false]],
     output_schema: []
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Workflows
 
@@ -66,5 +67,5 @@ defmodule AllbertAssist.Actions.PlanBuild.ExpandWorkflow do
       }
       |> Map.merge(metadata)
 
-  defp field(map, key), do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
+  defp field(map, key), do: Maps.field_truthy(map, key)
 end

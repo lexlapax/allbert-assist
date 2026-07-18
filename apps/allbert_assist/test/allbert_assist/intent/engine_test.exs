@@ -1,7 +1,13 @@
 defmodule AllbertAssist.Intent.EngineTest do
   use AllbertAssist.DataCase, async: false
 
-  alias AllbertAssist.App.Registry, as: AppRegistry
+  # v1.0.2 M8.2: engine reads now come from a private ADR 0082 registry
+  # context (M8.2 closed the Decision.new/Handoff.new app-id normalization and
+  # channel-candidate seam gaps recorded at M3), so this file no longer clears
+  # or mutates the global registries. It stays `db_serial` (DataCase/Repo
+  # writes — ADR 0082 decision 7); one test additionally owns ALLBERT_HOME +
+  # Application env with save/restore, within the stricter serial lane.
+
   alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Intent.Engine
   alias AllbertAssist.Intent.EvalFixtures
@@ -9,9 +15,9 @@ defmodule AllbertAssist.Intent.EngineTest do
   alias AllbertAssist.Memory.Compiler
   alias AllbertAssist.Objectives
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.RegistryContext
   alias AllbertAssist.Settings
-  alias AllbertAssist.TestSupport.ShippedRegistries
+  alias AllbertAssist.TestSupport.RegistryIsolationFixtures, as: Fixtures
 
   defmodule PluginEcho do
     use Jido.Action,
@@ -34,41 +40,23 @@ defmodule AllbertAssist.Intent.EngineTest do
   end
 
   setup do
-    original_diagnostics = PluginRegistry.diagnostics()
+    registry = Fixtures.start_isolated_registries(:intent_engine)
 
-    PluginRegistry.clear()
+    Fixtures.register_app!(registry, AllbertAssist.App.CoreApp)
+    Fixtures.register_app!(registry, StockSage.App)
+    Fixtures.register_app!(registry, AllbertNotesFiles.App)
 
-    assert {:ok, "allbert.telegram"} =
-             PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
+    Fixtures.register_plugin!(registry, AllbertAssist.Plugins.Telegram)
+    Fixtures.register_plugin!(registry, AllbertAssist.Plugins.Email)
+    Fixtures.register_plugin!(registry, StockSage.Plugin)
+    Fixtures.register_plugin!(registry, AllbertNotesFiles.Plugin)
 
-    assert {:ok, "allbert.email"} = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
-    assert {:ok, "stocksage"} = PluginRegistry.register_module(StockSage.Plugin)
-    assert {:ok, "allbert.notes_files"} = PluginRegistry.register_module(AllbertNotesFiles.Plugin)
-
-    app_registered? = AppRegistry.known_app_id?(:stocksage)
-    notes_app_registered? = AppRegistry.known_app_id?(:notes_files)
-
-    unless app_registered? do
-      assert {:ok, :stocksage} = AppRegistry.register(StockSage.App)
-    end
-
-    unless notes_app_registered? do
-      assert {:ok, :notes_files} = AppRegistry.register(AllbertNotesFiles.App)
-    end
-
-    on_exit(fn ->
-      ShippedRegistries.restore!()
-
-      Enum.each(original_diagnostics, fn {plugin_id, diagnostics} ->
-        PluginRegistry.put_diagnostics(plugin_id, diagnostics)
-      end)
-    end)
-
-    :ok
+    %{registry: registry}
   end
 
-  test "decide returns the v0.11 decision shape for a direct-answer turn" do
-    assert {:ok, decision} = Engine.decide(EvalFixtures.request(text: "tell me a tiny joke"))
+  test "decide returns the v0.11 decision shape for a direct-answer turn", %{registry: registry} do
+    assert {:ok, decision} =
+             Engine.decide(EvalFixtures.request(text: "tell me a tiny joke"), registry)
 
     assert %Decision{} = decision
     assert decision.intent == :direct_answer
@@ -79,7 +67,7 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert decision.trace_metadata.intent_candidates.engine_version == "v0.19"
   end
 
-  test "operator report phrasing stays in normal action routing" do
+  test "operator report phrasing stays in normal action routing", %{registry: registry} do
     for text <- [
           "what are my recent channel events and model settings?",
           "whar are my recent channel events and model settings?"
@@ -89,7 +77,8 @@ defmodule AllbertAssist.Intent.EngineTest do
                  EvalFixtures.request(
                    text: text,
                    channel: :tui
-                 )
+                 ),
+                 registry
                )
 
       assert decision.intent == :registry_action
@@ -100,7 +89,9 @@ defmodule AllbertAssist.Intent.EngineTest do
     end
   end
 
-  test "decide preserves a deterministic route decision as the engine-selected route" do
+  test "decide preserves a deterministic route decision as the engine-selected route", %{
+    registry: registry
+  } do
     assert {:ok, decision} =
              Decision.new(%{
                intent: :list_skills,
@@ -118,7 +109,7 @@ defmodule AllbertAssist.Intent.EngineTest do
       })
       |> Map.put(:route_decision, decision)
 
-    assert {:ok, selected} = Engine.decide(request)
+    assert {:ok, selected} = Engine.decide(request, registry)
 
     assert selected.selected_action == "list_skills"
     assert selected.trace_metadata.intent_candidates.selected.id == "list_skills"
@@ -126,7 +117,9 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert selected.trace_metadata.intent_candidates.total > 1
   end
 
-  test "put_candidate_metadata annotates existing decisions without changing selected action" do
+  test "put_candidate_metadata annotates existing decisions without changing selected action", %{
+    registry: registry
+  } do
     assert {:ok, decision} =
              Decision.new(%{
                intent: :list_skills,
@@ -135,15 +128,15 @@ defmodule AllbertAssist.Intent.EngineTest do
                context: %{request: EvalFixtures.request()}
              })
 
-    annotated = Engine.put_candidate_metadata(decision)
+    annotated = Engine.put_candidate_metadata(decision, %{request: %{}, registry: registry})
 
     assert annotated.selected_action == "list_skills"
     assert annotated.trace_metadata.intent_candidates.selected.id == "list_skills"
     assert annotated.trace_metadata.intent_candidates.total > 1
   end
 
-  test "collects registry-driven action skill and surface candidates" do
-    candidates = Engine.collect_candidates(EvalFixtures.request())
+  test "collects registry-driven action skill and surface candidates", %{registry: registry} do
+    candidates = Engine.collect_candidates(EvalFixtures.request(), registry)
 
     assert Enum.any?(candidates, &match?(%{kind: :action, action_name: "direct_answer"}, &1))
     assert Enum.any?(candidates, &match?(%{kind: :skill, skill_name: "direct-answer"}, &1))
@@ -151,9 +144,11 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert length(candidates) <= 80
   end
 
-  test "neutral app registered intent descriptor selects the registry action" do
+  test "neutral app registered intent descriptor selects the registry action", %{
+    registry: registry
+  } do
     request = EvalFixtures.request(text: "analyze CIEN", active_app: :allbert)
-    candidates = Engine.collect_candidates(request)
+    candidates = Engine.collect_candidates(request, registry)
 
     assert descriptor =
              Enum.find(
@@ -165,7 +160,7 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert descriptor.trace_metadata.extracted_slots == %{ticker: "CIEN"}
     assert descriptor.trace_metadata.missing_slots == []
 
-    assert {:ok, decision} = Engine.decide(request)
+    assert {:ok, decision} = Engine.decide(request, registry)
     assert decision.intent == :registry_action
     assert decision.selected_action == "run_analysis"
     assert decision.active_app == :allbert
@@ -179,14 +174,16 @@ defmodule AllbertAssist.Intent.EngineTest do
            )
   end
 
-  test "neutral app descriptor path uses layered outbound action descriptors" do
+  test "neutral app descriptor path uses layered outbound action descriptors", %{
+    registry: registry
+  } do
     request =
       EvalFixtures.request(
         text: "send an email to you@example.com saying hello",
         active_app: :allbert
       )
 
-    candidates = Engine.collect_candidates(request)
+    candidates = Engine.collect_candidates(request, registry)
 
     assert descriptor =
              Enum.find(
@@ -200,7 +197,7 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert descriptor.trace_metadata.extracted_slots == %{to: "you@example.com", body: "hello"}
     assert descriptor.trace_metadata.missing_slots == []
 
-    assert {:ok, decision} = Engine.decide(request)
+    assert {:ok, decision} = Engine.decide(request, registry)
     assert decision.intent == :registry_action
     assert decision.selected_action == "send_email"
     assert decision.trace_metadata.descriptor_candidate_id == "allbert:send_email"
@@ -209,9 +206,9 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert decision.trace_metadata.missing_slots == []
   end
 
-  test "missing app descriptor slots ask for clarification" do
+  test "missing app descriptor slots ask for clarification", %{registry: registry} do
     assert {:ok, decision} =
-             Engine.decide(EvalFixtures.request(text: "analyze", active_app: :allbert))
+             Engine.decide(EvalFixtures.request(text: "analyze", active_app: :allbert), registry)
 
     assert decision.intent == :clarify_intent
     refute decision.selected_action == "run_analysis"
@@ -219,9 +216,9 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert decision.trace_metadata.intent_handoff.missing_slots == ["ticker"]
   end
 
-  test "active app descriptor with optional symbol selects get_trends" do
+  test "active app descriptor with optional symbol selects get_trends", %{registry: registry} do
     request = EvalFixtures.request(text: "show trends for AAPL", active_app: :stocksage)
-    candidates = Engine.collect_candidates(request)
+    candidates = Engine.collect_candidates(request, registry)
 
     assert descriptor =
              Enum.find(
@@ -232,17 +229,18 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert descriptor.trace_metadata.extracted_slots == %{symbol: "AAPL"}
     assert descriptor.trace_metadata.missing_slots == []
 
-    assert {:ok, decision} = Engine.decide(request)
+    assert {:ok, decision} = Engine.decide(request, registry)
     assert decision.intent == :registry_action
     assert decision.selected_action == "get_trends"
     assert decision.trace_metadata.descriptor_candidate_id == "stocksage:get_trends"
     assert decision.trace_metadata.extracted_slots == %{symbol: "AAPL"}
   end
 
-  test "neutral queue descriptor selects the registered queue action" do
+  test "neutral queue descriptor selects the registered queue action", %{registry: registry} do
     assert {:ok, decision} =
              Engine.decide(
-               EvalFixtures.request(text: "queue analysis for AAPL", active_app: :allbert)
+               EvalFixtures.request(text: "queue analysis for AAPL", active_app: :allbert),
+               registry
              )
 
     assert decision.intent == :registry_action
@@ -251,9 +249,14 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert decision.trace_metadata.extracted_slots == %{symbol: "AAPL"}
   end
 
-  test "neutral queue descriptor with missing symbol asks for clarification" do
+  test "neutral queue descriptor with missing symbol asks for clarification", %{
+    registry: registry
+  } do
     assert {:ok, decision} =
-             Engine.decide(EvalFixtures.request(text: "queue analysis", active_app: :allbert))
+             Engine.decide(
+               EvalFixtures.request(text: "queue analysis", active_app: :allbert),
+               registry
+             )
 
     assert decision.intent == :clarify_intent
     refute decision.selected_action == "queue_analysis"
@@ -261,7 +264,7 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert decision.trace_metadata.intent_handoff.missing_slots == ["symbol"]
   end
 
-  test "registered integration descriptors select their registry actions" do
+  test "registered integration descriptors select their registry actions", %{registry: registry} do
     cases = [
       {"show me today's agenda", :allbert, "open_calendar_panel", "workspace:calendar"},
       {"summarize my inbox", :allbert, "open_mail_panel", "workspace:mail"},
@@ -271,7 +274,7 @@ defmodule AllbertAssist.Intent.EngineTest do
 
     for {text, app_id, action_name, destination} <- cases do
       assert {:ok, decision} =
-               Engine.decide(EvalFixtures.request(text: text, active_app: :allbert))
+               Engine.decide(EvalFixtures.request(text: text, active_app: :allbert), registry)
 
       assert decision.intent == :registry_action
       assert decision.selected_action == action_name
@@ -292,21 +295,24 @@ defmodule AllbertAssist.Intent.EngineTest do
     end
   end
 
-  test "descriptor handoff can be disabled through Settings Central" do
+  test "descriptor handoff can be disabled through Settings Central", %{registry: registry} do
     on_exit(fn -> Settings.put("intent.descriptors_enabled", true, %{audit?: false}) end)
 
     assert {:ok, _setting} = Settings.put("intent.descriptors_enabled", false, %{audit?: false})
 
     assert {:ok, decision} =
-             Engine.decide(EvalFixtures.request(text: "analyze CIEN", active_app: :allbert))
+             Engine.decide(
+               EvalFixtures.request(text: "analyze CIEN", active_app: :allbert),
+               registry
+             )
 
     assert decision.intent == :direct_answer
     assert decision.selected_action == "direct_answer"
   end
 
-  test "plugin-contributed action candidates carry plugin provenance" do
-    assert {:ok, "example.intent_engine"} =
-             PluginRegistry.register_entry(%PluginEntry{
+  test "plugin-contributed action candidates carry plugin provenance", %{registry: registry} do
+    assert "example.intent_engine" =
+             Fixtures.register_plugin!(registry, %PluginEntry{
                plugin_id: "example.intent_engine",
                display_name: "Intent Engine Plugin",
                version: "0.1.0",
@@ -318,7 +324,10 @@ defmodule AllbertAssist.Intent.EngineTest do
              })
 
     assert Enum.any?(
-             Engine.collect_candidates(EvalFixtures.request(text: "run plugin echo v019")),
+             Engine.collect_candidates(
+               EvalFixtures.request(text: "run plugin echo v019"),
+               registry
+             ),
              &match?(
                %{
                  kind: :action,
@@ -331,12 +340,16 @@ defmodule AllbertAssist.Intent.EngineTest do
            )
   end
 
-  test "collects channel memory and refusal candidates" do
-    assert Enum.any?(AllbertAssist.Channels.list_channels(), &(&1.channel == "telegram"))
+  test "collects channel memory and refusal candidates", %{registry: registry} do
+    assert Enum.any?(
+             AllbertAssist.Channels.list_channels(RegistryContext.plugin_opts(registry)),
+             &(&1.channel == "telegram")
+           )
 
     candidates =
       Engine.collect_candidates(
-        EvalFixtures.request(text: "Remember this and show my telegram channels")
+        EvalFixtures.request(text: "Remember this and show my telegram channels"),
+        registry
       )
 
     assert Enum.any?(
@@ -350,21 +363,14 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert Enum.any?(candidates, &match?(%{kind: :memory, id: "markdown_memory:append"}, &1))
 
     refusal_candidates =
-      Engine.collect_candidates(EvalFixtures.request(text: "Read local file ./mix.exs"))
+      Engine.collect_candidates(EvalFixtures.request(text: "Read local file ./mix.exs"), registry)
 
     assert Enum.any?(refusal_candidates, &match?(%{kind: :refusal}, &1))
   end
 
-  test "collect_candidates/2 includes objective candidates only when requested" do
-    registered? = AppRegistry.known_app_id?(:stocksage)
-
-    unless registered? do
-      assert {:ok, "stocksage"} = PluginRegistry.register_module(StockSage.Plugin)
-      assert {:ok, :stocksage} = AppRegistry.register(StockSage.App)
-    end
-
-    on_exit(fn -> unless registered?, do: AppRegistry.unregister(:stocksage) end)
-
+  test "collect_candidates/2 includes objective candidates only when requested", %{
+    registry: registry
+  } do
     assert {:ok, objective} =
              Objectives.create_objective(%{
                user_id: "alice",
@@ -375,9 +381,9 @@ defmodule AllbertAssist.Intent.EngineTest do
 
     request = EvalFixtures.request(text: "continue the AAPL objective", user_id: "alice")
 
-    refute Enum.any?(Engine.collect_candidates(request), &(&1.kind == :objective))
+    refute Enum.any?(Engine.collect_candidates(request, registry), &(&1.kind == :objective))
 
-    candidates = Engine.collect_candidates(request, objective: true)
+    candidates = Engine.collect_candidates(request, [objective: true] ++ registry)
 
     assert %{kind: :objective, id: id, source: :objective, app_id: :stocksage} =
              Enum.find(candidates, &(&1.kind == :objective))
@@ -385,7 +391,9 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert id == objective.id
   end
 
-  test "collects index-backed markdown memory candidates without bodies or secrets" do
+  test "collects index-backed markdown memory candidates without bodies or secrets", %{
+    registry: registry
+  } do
     with_memory_home(fn ->
       assert {:ok, _entry} =
                Memory.append(%{
@@ -401,7 +409,8 @@ defmodule AllbertAssist.Intent.EngineTest do
 
       candidates =
         Engine.collect_candidates(
-          EvalFixtures.request(text: "recall concise release notes", user_id: "alice")
+          EvalFixtures.request(text: "recall concise release notes", user_id: "alice"),
+          registry
         )
 
       assert %{trace_metadata: trace_metadata} =
@@ -420,7 +429,9 @@ defmodule AllbertAssist.Intent.EngineTest do
     end)
   end
 
-  test "does not collect flagged prune-nominated disabled or stale memory index entries" do
+  test "does not collect flagged prune-nominated disabled or stale memory index entries", %{
+    registry: registry
+  } do
     with_memory_home(fn ->
       assert {:ok, flagged} =
                Memory.append(%{
@@ -461,7 +472,7 @@ defmodule AllbertAssist.Intent.EngineTest do
       assert {:ok, _result} = Compiler.compile_index(Memory.root())
 
       request = EvalFixtures.request(text: "recall launch notes", user_id: "alice")
-      refute indexed_memory_candidate?(Engine.collect_candidates(request))
+      refute indexed_memory_candidate?(Engine.collect_candidates(request, registry))
 
       assert {:ok, active} =
                Memory.append(%{
@@ -478,17 +489,17 @@ defmodule AllbertAssist.Intent.EngineTest do
                  user_id: "alice"
                )
 
-      refute indexed_memory_candidate?(Engine.collect_candidates(request))
+      refute indexed_memory_candidate?(Engine.collect_candidates(request, registry))
 
       assert {:ok, _result} = Compiler.compile_index(Memory.root())
-      assert indexed_memory_candidate?(Engine.collect_candidates(request))
+      assert indexed_memory_candidate?(Engine.collect_candidates(request, registry))
 
       assert {:ok, _setting} = Settings.put("memory.index_enabled", false, %{audit?: false})
-      refute indexed_memory_candidate?(Engine.collect_candidates(request))
+      refute indexed_memory_candidate?(Engine.collect_candidates(request, registry))
     end)
   end
 
-  test "candidate metadata includes rejected registry candidates" do
+  test "candidate metadata includes rejected registry candidates", %{registry: registry} do
     assert {:ok, decision} =
              Decision.new(%{
                intent: :list_skills,
@@ -497,13 +508,17 @@ defmodule AllbertAssist.Intent.EngineTest do
                context: %{request: EvalFixtures.request()}
              })
 
-    annotated = Engine.put_candidate_metadata(decision, %{request: EvalFixtures.request()})
+    annotated =
+      Engine.put_candidate_metadata(decision, %{
+        request: EvalFixtures.request(),
+        registry: registry
+      })
 
     assert %{rejected: rejected} = annotated.trace_metadata.intent_candidates
     assert Enum.any?(rejected, &(&1.kind == :action and &1.id == "direct_answer"))
   end
 
-  test "candidate metadata can hide rejected candidates through settings" do
+  test "candidate metadata can hide rejected candidates through settings", %{registry: registry} do
     original_home = System.get_env("ALLBERT_HOME")
     original_paths = Application.get_env(:allbert_assist, AllbertAssist.Paths)
     original_settings = Application.get_env(:allbert_assist, AllbertAssist.Settings)
@@ -538,14 +553,20 @@ defmodule AllbertAssist.Intent.EngineTest do
                context: %{request: EvalFixtures.request()}
              })
 
-    annotated = Engine.put_candidate_metadata(decision, %{request: EvalFixtures.request()})
+    annotated =
+      Engine.put_candidate_metadata(decision, %{
+        request: EvalFixtures.request(),
+        registry: registry
+      })
 
     assert annotated.trace_metadata.intent_candidates.rejected == []
   end
 
-  test "decide returns inert surface navigation when a registered surface matches" do
+  test "decide returns inert surface navigation when a registered surface matches", %{
+    registry: registry
+  } do
     assert {:ok, decision} =
-             Engine.decide(EvalFixtures.request(text: "Open Allbert chat for me"))
+             Engine.decide(EvalFixtures.request(text: "Open Allbert chat for me"), registry)
 
     assert decision.intent == :open_surface
     assert decision.selected_action == nil
@@ -555,11 +576,14 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert decision.trace_metadata.intent_candidates.selected.surface_id == "workspace"
   end
 
-  test "unknown active app falls back to allbert without creating atoms" do
+  test "unknown active app falls back to allbert without creating atoms", %{registry: registry} do
     unknown = "__allbert_unknown_app_#{System.unique_integer([:positive])}__"
 
     assert {:ok, decision} =
-             Engine.decide(EvalFixtures.request(text: "what can you do?", active_app: unknown))
+             Engine.decide(
+               EvalFixtures.request(text: "what can you do?", active_app: unknown),
+               registry
+             )
 
     assert decision.active_app == :allbert
     assert %{kind: :unknown_app_id, fallback: :allbert} = hd(decision.diagnostics)

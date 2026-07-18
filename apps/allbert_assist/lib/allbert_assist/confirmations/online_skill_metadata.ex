@@ -3,6 +3,8 @@ defmodule AllbertAssist.Confirmations.OnlineSkillMetadata do
   Operator-facing online-skill metadata extracted from confirmation records.
   """
 
+  alias AllbertAssist.Maps
+
   @online_actions ~w[
     search_online_skills
     show_online_skill
@@ -115,11 +117,7 @@ defmodule AllbertAssist.Confirmations.OnlineSkillMetadata do
     Enum.reject(items, fn {_label, value} -> value in [nil, ""] end)
   end
 
-  defp field(map, key) when is_map(map) do
-    Map.get(map, key) || Map.get(map, String.to_atom(key))
-  end
-
-  defp field(_map, _key), do: nil
+  defp field(map, key), do: Maps.field_truthy(map, key)
 
   defp action_online_summary(action) do
     field(action, "online_skill") ||

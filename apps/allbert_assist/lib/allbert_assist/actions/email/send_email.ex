@@ -34,6 +34,7 @@ defmodule AllbertAssist.Actions.Email.SendEmail do
   alias AllbertAssist.Actions.Outbound.Gate
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Email.SmtpClient
+  alias AllbertAssist.Maps
   alias AllbertAssist.Settings.Secrets
 
   def intent_descriptors do
@@ -132,6 +133,5 @@ defmodule AllbertAssist.Actions.Email.SendEmail do
     end
   end
 
-  defp field(map, key) when is_map(map), do: Map.get(map, key) || Map.get(map, to_string(key))
-  defp field(_map, _key), do: nil
+  defp field(map, key), do: Maps.field_truthy(map, key)
 end

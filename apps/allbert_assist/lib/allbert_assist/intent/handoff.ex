@@ -6,9 +6,9 @@ defmodule AllbertAssist.Intent.Handoff do
   sets active app context, authorizes permissions, or executes the action.
   """
 
-  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.Redactor
+  alias AllbertAssist.Session.AppId
 
   @kinds [:app_handoff, :clarify_intent]
   @max_text_bytes 480
@@ -59,10 +59,12 @@ defmodule AllbertAssist.Intent.Handoff do
           diagnostics: [map()]
         }
 
-  @spec new(map()) :: {:ok, t()} | {:error, term()}
-  def new(attrs) when is_map(attrs) do
+  @spec new(map(), keyword()) :: {:ok, t()} | {:error, term()}
+  def new(attrs, opts \\ [])
+
+  def new(attrs, opts) when is_map(attrs) do
     with {:ok, kind} <- kind(field(attrs, :kind)),
-         {:ok, app_id} <- app_id(field(attrs, :app_id)),
+         {:ok, app_id} <- app_id(field(attrs, :app_id), opts),
          {:ok, action_name} <- required_string(field(attrs, :action_name), :action_name),
          {:ok, label} <- required_string(field(attrs, :label), :label) do
       handoff = %__MODULE__{
@@ -90,11 +92,11 @@ defmodule AllbertAssist.Intent.Handoff do
     end
   end
 
-  def new(value), do: {:error, {:invalid_handoff, value}}
+  def new(value, _opts), do: {:error, {:invalid_handoff, value}}
 
-  @spec new!(map()) :: t()
-  def new!(attrs) do
-    case new(attrs) do
+  @spec new!(map(), keyword()) :: t()
+  def new!(attrs, opts \\ []) do
+    case new(attrs, opts) do
       {:ok, handoff} -> handoff
       {:error, reason} -> raise ArgumentError, inspect(reason)
     end
@@ -177,14 +179,7 @@ defmodule AllbertAssist.Intent.Handoff do
 
   defp kind(kind), do: {:error, {:invalid_kind, kind}}
 
-  defp app_id(value) do
-    case AppRegistry.normalize_app_id(value) do
-      {:ok, app_id} when is_atom(app_id) -> {:ok, app_id}
-      {:error, reason} -> {:error, {:invalid_app_id, reason}}
-    end
-  catch
-    :exit, reason -> {:error, {:invalid_app_id, reason}}
-  end
+  defp app_id(value, opts), do: AppId.normalize_or(value, opts, &{:invalid_app_id, &1})
 
   defp required_string(value, field_name) do
     case optional_string(value) do

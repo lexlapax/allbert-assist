@@ -31,7 +31,7 @@ defmodule AllbertAssist.Actions.Jobs.Identity do
   def field(%_struct{} = struct, key), do: Map.get(struct, key)
 
   def field(map, key) when is_map(map) do
-    Map.get(map, key) || Map.get(map, Atom.to_string(key))
+    AllbertAssist.Maps.field_truthy(map, key)
   end
 
   def field(_value, _key), do: nil

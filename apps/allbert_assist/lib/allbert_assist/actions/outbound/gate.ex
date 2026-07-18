@@ -19,6 +19,7 @@ defmodule AllbertAssist.Actions.Outbound.Gate do
   alias AllbertAssist.Coding.CommandGrants
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
+  alias AllbertAssist.Maps
   alias AllbertAssist.Security.PermissionGate
 
   @type spec :: %{
@@ -176,11 +177,9 @@ defmodule AllbertAssist.Actions.Outbound.Gate do
   defp confirmation_id(%{"id" => id}), do: id
   defp confirmation_id(%{id: id}), do: id
 
-  defp field(map, key) when is_map(map),
-    do: Map.get(map, key) || Map.get(map, to_string(key))
+  defp field(map, key) when is_map(map), do: Maps.field_truthy(map, key)
 
-  defp field(map, key, default) when is_map(map),
-    do: Map.get(map, key, Map.get(map, to_string(key), default))
+  defp field(map, key, default) when is_map(map), do: Maps.field(map, key, default)
 
   defp map_value(value) when is_map(value), do: value
   defp map_value(_value), do: %{}

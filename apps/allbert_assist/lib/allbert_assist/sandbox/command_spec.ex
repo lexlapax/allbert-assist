@@ -262,7 +262,7 @@ defmodule AllbertAssist.Sandbox.CommandSpec do
 
   defp normalize_profile(_profile), do: :invalid
 
-  defp value(map, key), do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
+  defp value(map, key), do: AllbertAssist.Maps.field_truthy(map, key)
 
   defp deny(spec, reason) do
     %{

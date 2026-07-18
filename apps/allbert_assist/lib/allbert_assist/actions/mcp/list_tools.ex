@@ -22,6 +22,7 @@ defmodule AllbertAssist.Actions.Mcp.ListTools do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Mcp.Client
   alias AllbertAssist.Mcp.ServerConfig
   alias AllbertAssist.Runtime.Audit
@@ -103,8 +104,5 @@ defmodule AllbertAssist.Actions.Mcp.ListTools do
     end
   end
 
-  defp field(map, key) when is_map(map),
-    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
-
-  defp field(_map, _key), do: nil
+  defp field(map, key), do: Maps.field_truthy(map, key)
 end

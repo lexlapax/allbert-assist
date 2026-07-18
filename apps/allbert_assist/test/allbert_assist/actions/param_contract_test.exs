@@ -6,15 +6,14 @@ defmodule AllbertAssist.Actions.ParamContractTest do
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Agents.IntentAgent
-  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Intent.Router.FakeRouter
   alias AllbertAssist.Intent.Router.Outcome
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Discovery, as: PluginDiscovery
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Workspace.Fragment.Guard
 
   @identity_context_keys ~w(user_id thread_id session_id)
@@ -105,8 +104,6 @@ defmodule AllbertAssist.Actions.ParamContractTest do
     original_confirmations = Application.get_env(:allbert_assist, Confirmations)
     original_paths = Application.get_env(:allbert_assist, Paths)
     original_settings = Application.get_env(:allbert_assist, Settings)
-    original_plugins = PluginRegistry.registered_plugins()
-    notes_app_registered? = AppRegistry.known_app_id?(:notes_files)
 
     root =
       Path.join(
@@ -118,13 +115,12 @@ defmodule AllbertAssist.Actions.ParamContractTest do
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
 
-    PluginRegistry.clear()
-    restore_shipped_plugins!()
+    # v1.0.2 M8 drift-fix: converge on the shipped baseline (both registries)
+    # instead of a plugin-only shipped restore + conditional app register —
+    # the snapshot/conditional pattern re-applied earlier damage (M2 sweep
+    # class; this file was an out-of-scope straggler).
+    ShippedRegistries.restore!()
     Guard.reset_for_test()
-
-    unless notes_app_registered? do
-      assert {:ok, :notes_files} = AppRegistry.register(AllbertNotesFiles.App)
-    end
 
     assert {:ok, "example.param_contract"} =
              PluginRegistry.register_entry(%PluginEntry{
@@ -142,9 +138,8 @@ defmodule AllbertAssist.Actions.ParamContractTest do
       restore_env(Confirmations, original_confirmations)
       restore_env(Paths, original_paths)
       restore_env(Settings, original_settings)
-      restore_plugins!(original_plugins)
+      ShippedRegistries.restore!()
       Guard.reset_for_test()
-      unless notes_app_registered?, do: AppRegistry.unregister(:notes_files)
       File.rm_rf!(root)
     end)
 
@@ -523,24 +518,4 @@ defmodule AllbertAssist.Actions.ParamContractTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
-
-  defp restore_plugins!([]), do: restore_shipped_plugins!()
-
-  defp restore_plugins!(plugins) do
-    PluginRegistry.clear()
-
-    Enum.each(plugins, fn plugin ->
-      assert {:ok, _plugin_id} = PluginRegistry.register_entry(plugin)
-    end)
-  end
-
-  defp restore_shipped_plugins! do
-    PluginRegistry.clear()
-
-    PluginDiscovery.shipped_modules()
-    |> Enum.sort_by(fn {plugin_id, _module} -> plugin_id end)
-    |> Enum.each(fn {_plugin_id, module} ->
-      assert {:ok, _plugin_id} = PluginRegistry.register_module(module)
-    end)
-  end
 end

@@ -21,12 +21,22 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
     original_error = Application.get_env(:allbert_assist, :intent_router_embedder_error)
     original_override = Application.get_env(:allbert_assist, :intent_router_strategy_override)
 
+    # v1.0.2 M8.6 drift-fix (M8.3 ranker pattern): this file's scoring test
+    # writes Settings values, and a bare unique_integer home suffix collides
+    # ACROSS BEAM boots (the sequence restarts per VM) — a later run adopts
+    # the stale poisoned settings.yml. Pid-qualify, pre-clean, delete on
+    # exit, and own every settings_root input.
     home =
       Path.join(
         System.tmp_dir!(),
-        "allbert-router-prefilter-#{System.unique_integer([:positive])}"
+        "allbert-router-prefilter-#{System.pid()}-#{System.unique_integer([:positive])}"
       )
 
+    File.rm_rf!(home)
+    original_home_dir = System.get_env("ALLBERT_HOME_DIR")
+    original_settings_root = System.get_env("ALLBERT_SETTINGS_ROOT")
+    System.delete_env("ALLBERT_HOME_DIR")
+    System.delete_env("ALLBERT_SETTINGS_ROOT")
     System.put_env("ALLBERT_HOME", home)
     Application.delete_env(:allbert_assist, Paths)
     Application.delete_env(:allbert_assist, Settings)
@@ -40,6 +50,15 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
         do: System.put_env("ALLBERT_HOME", original_home),
         else: System.delete_env("ALLBERT_HOME")
 
+      if original_home_dir,
+        do: System.put_env("ALLBERT_HOME_DIR", original_home_dir),
+        else: System.delete_env("ALLBERT_HOME_DIR")
+
+      if original_settings_root,
+        do: System.put_env("ALLBERT_SETTINGS_ROOT", original_settings_root),
+        else: System.delete_env("ALLBERT_SETTINGS_ROOT")
+
+      File.rm_rf!(home)
       restore(Paths, original_paths)
       restore(Settings, original_settings)
       restore(:intent_router_embedder, original_embedder)

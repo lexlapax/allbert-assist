@@ -20,6 +20,7 @@ defmodule AllbertAssist.Actions.PlanBuild.PreviewPlan do
     ],
     output_schema: []
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Workflows
 
@@ -78,5 +79,5 @@ defmodule AllbertAssist.Actions.PlanBuild.PreviewPlan do
       }
       |> Map.merge(metadata)
 
-  defp field(map, key), do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
+  defp field(map, key), do: Maps.field_truthy(map, key)
 end

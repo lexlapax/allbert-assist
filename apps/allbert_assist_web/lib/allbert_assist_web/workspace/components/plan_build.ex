@@ -457,7 +457,7 @@ defmodule AllbertAssistWeb.Workspace.Components.PlanRunProgressPanel do
   defp step_value(step, key), do: value(step, key)
   defp event_value(event, key), do: value(event, key)
 
-  defp value(map, key) when is_map(map), do: Map.get(map, key) || Map.get(map, to_string(key))
+  defp value(map, key) when is_map(map), do: AllbertAssist.Maps.field_truthy(map, key)
   defp value(_map, _key), do: nil
 
   defp prop(map, key, fallback) when is_map(map),

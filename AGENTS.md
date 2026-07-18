@@ -143,6 +143,22 @@ business-logic debugging, code review, or repository-specific architecture revie
 - Add or revise ADRs when a decision constrains future design.
 - Commit titles follow `<version> <milestone> <small title>` or
   `<version> <small title>`.
+- **The release plan's Purpose section is the acceptance bar.** Before
+  assembling a release candidate, check every Purpose outcome against what
+  actually landed. Do not redefine success as the subset that got done.
+- **Scope deferral is an operator decision.** Moving any in-plan goal,
+  acceptance criterion, or Purpose outcome to future-features (or otherwise
+  out of the release) requires explicit operator sign-off — propose the
+  deferral with the evidence and cost, do not enact it. Writing a
+  "remainder" to future-features without that sign-off is a scope cut, not
+  bookkeeping.
+- **Test runs record metrics.** Gate, lane, and partition runs append
+  structured run records (git sha, gate/lane/partition, seed, counts,
+  wall-clock, slowest files) to the project's test-metrics store
+  (`docs/developer/test-strategy.md` names the store and report task).
+  Optimization and regression claims cite recorded metrics, not memory;
+  test metrics that flag hot or flaky areas are also prompts to inspect the
+  PRODUCTION code they exercise for logic sprawl, not just the tests.
 
 ## Post-1.0 Release Model (always applies)
 
@@ -162,6 +178,14 @@ business-logic debugging, code review, or repository-specific architecture revie
   ladder. After the plan is implemented and tagged, remove the item from
   future-features.md (only unplanned remainders stay, reparked) and update the
   roadmap accordingly.
+- **future-features.md entries are operator demand only.** Agents never add,
+  reword, or repark entries on their own: new candidates discovered during a
+  build are recorded in the active plan's Build Progress as
+  "intake candidates — pending operator disposition" and surfaced to the
+  operator, who decides what (if anything) enters future-features. The
+  "reparked remainders" clause above applies only to items the operator
+  already placed there — re-parking an existing entry at closeout, never
+  authoring a new one.
 - Every binary release plan carries an upstream-dependency-refresh milestone:
   review tree updates, apply bounded updates, absorb the code changes, gates prove
   it. Major/breaking upgrades or hotfix releases may scope the apply step out with

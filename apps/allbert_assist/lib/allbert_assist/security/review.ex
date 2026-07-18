@@ -4,6 +4,7 @@ defmodule AllbertAssist.Security.Review do
   """
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
   alias AllbertAssist.Validation
@@ -215,9 +216,7 @@ defmodule AllbertAssist.Security.Review do
 
   defp contains_value?(_value, _needle), do: false
 
-  defp field(map, key, default) when is_map(map) do
-    Map.get(map, key) || Map.get(map, to_string(key)) || default
-  end
+  defp field(map, key, default) when is_map(map), do: Maps.field_truthy(map, key) || default
 
   defp field(opts, key, default) when is_list(opts), do: Keyword.get(opts, key, default)
   defp field(_value, _key, default), do: default

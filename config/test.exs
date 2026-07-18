@@ -35,7 +35,35 @@ database_path =
       Path.expand(Path.join([home, "db", "allbert.sqlite3"]))
 
     true ->
-      Path.expand("../allbert_assist_test.db", __DIR__)
+      # v1.0.2 M8.5b: direct (solo) `mix test` runs used to fall back to the
+      # shared `allbert_assist_test.db` in the repo root, which accumulated
+      # stale committed rows across days and diverged from gate behavior
+      # (gate lanes always export an owned DATABASE_PATH — see
+      # `owned_env/2` in mix/tasks/allbert.test.ex). Default solo runs into
+      # an owned per-boot database instead, using the M8.3 suite-home idiom:
+      # OS-pid-qualified (bare `unique_integer` restarts each BEAM boot and
+      # collides with stale dirs), pre-cleaned against pid reuse, and swept
+      # at VM exit. The path is memoized in `:persistent_term` so a re-eval
+      # of this config inside the same BEAM (e.g. umbrella app hops) never
+      # deletes the live database mid-run. The `test` alias's
+      # `allbert.ecto.migrate` step migrates the fresh file automatically.
+      # Explicit DATABASE_PATH / ALLBERT_HOME / partition runs are untouched
+      # by this branch; dev and prod database resolution live elsewhere.
+      case :persistent_term.get({:allbert_assist, :solo_test_database_path}, nil) do
+        nil ->
+          solo_db_home =
+            Path.join([System.tmp_dir!(), "allbert-assist-test-db", "p#{System.pid()}"])
+
+          File.rm_rf!(solo_db_home)
+          System.at_exit(fn _status -> File.rm_rf(solo_db_home) end)
+
+          solo_db_path = Path.join(solo_db_home, "allbert.sqlite3")
+          :persistent_term.put({:allbert_assist, :solo_test_database_path}, solo_db_path)
+          solo_db_path
+
+        memoized_path ->
+          memoized_path
+      end
   end
 
 if partition && is_nil(env_value.("DATABASE_PATH")) do

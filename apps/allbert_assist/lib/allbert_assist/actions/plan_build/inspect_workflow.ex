@@ -14,6 +14,7 @@ defmodule AllbertAssist.Actions.PlanBuild.InspectWorkflow do
     schema: [workflow_id: [type: :string, required: true]],
     output_schema: []
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Workflows
 
@@ -63,5 +64,5 @@ defmodule AllbertAssist.Actions.PlanBuild.InspectWorkflow do
     }
   end
 
-  defp field(map, key), do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
+  defp field(map, key), do: Maps.field_truthy(map, key)
 end

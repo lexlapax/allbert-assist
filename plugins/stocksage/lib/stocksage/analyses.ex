@@ -267,7 +267,7 @@ defmodule StockSage.Analyses do
   end
 
   defp required_string(attrs, key) do
-    value = Map.get(attrs, key) || Map.get(attrs, Atom.to_string(key))
+    value = AllbertAssist.Maps.field_truthy(attrs, key)
 
     if is_binary(value) and String.trim(value) != "" do
       {:ok, String.trim(value)}

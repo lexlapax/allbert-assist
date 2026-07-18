@@ -776,6 +776,41 @@ stocksage app_env_serial 1.0/0.8/0.6s; stocksage global_process 2.0/0.05/2.3s;
 web liveview_serial 132.4/75.0/156.6/51.9s. The M4 web-split and M3
 conversion targets measure against these numbers.
 
+### Test-Run Metrics Store (v1.0.2 M8.1)
+
+Every gate, lane-partition, and release-step run appends one JSONL record to
+the repo-local store `.test_metrics/runs.jsonl` (gitignored raw data):
+UTC timestamp, git sha, gate, phase/step, lane, partition, seed, ExUnit
+totals (singular/plural-safe, summed across nested runs), wall ms, status,
+and the `--slowest 10` test list. Recording never fails a gate (rescue+warn);
+in-process gate tests redirect the store via the `:test_metrics_store` app
+env. `mix allbert.test metrics` renders the committed summary
+(`docs/validation/test-metrics/summary.md`: per-gate runs, per-lane wall
+clock, aggregated slowest files); `--ingest-campaign DIR` imports seed-
+campaign logs. Runtime-optimization and flake claims cite this store, and
+hot/flaky entries are prompts to inspect the exercised PRODUCTION code for
+logic sprawl (AGENTS.md Workflow). Known limits: ingestion does not dedup;
+historical v042–v066 gate step runners and the pure_async group runner do
+not record (their runs surface via the release gate's phase records).
+
+### v1.0.2 M8 Final Measurement — 2026-07-17
+
+Census: **512 test files** (505 at M1 + the seven M4 split files), zero
+unclassified, zero double-counts, checker exit 0. Deltas vs the M1 baseline:
+
+| Metric | M1 (2026-07-15) | M8 final |
+| --- | --- | --- |
+| `inventory --check-tags` | exit 0 / 0 findings | exit 0 / 0 findings (512 files) |
+| Residue matrix | 7/7 green (ad-hoc runs) | permanent `release.v102` steps: five solos + both batch orders, green |
+| Web release surface | one 91-test file, ~256s serial, 83% of web wall-clock | 7 partitionable topic files (max-partition ≈388s for 214 lane tests incl. pre-existing web files) + 5-test live-Runtime remainder (~90s) |
+| Registry contamination class | partial/snapshot restores in ~54 files | converged on `ShippedRegistries.restore!()`; watchdog-verified quiet |
+| Full `mix allbert.test release` | not reliably green (4 consecutive failures on rotating victims) | green (M2, M4, M8 runs) |
+| Release gates | release.v1 only | release.v1 + `release.v102` (release.v1 quintet + 10 focused steps, 566 tests / 0 failures first roll) |
+
+The 20-seed full-suite flake table lands below when the M8 campaign
+completes (a one-time ~4.5–7.5h backgrounded measurement; seeds
+1000–20000 step 1000, pre-recorded).
+
 The M3 isolation lock freezes these root derivations for helpers and gates:
 
 | Resource | Required test derivation |

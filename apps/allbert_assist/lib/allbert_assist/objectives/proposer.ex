@@ -24,6 +24,7 @@ defmodule AllbertAssist.Objectives.Proposer do
   """
 
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.Redactor
 
   @registry_key {__MODULE__, :registered_proposers}
@@ -213,7 +214,5 @@ defmodule AllbertAssist.Objectives.Proposer do
 
   defp field(%_struct{} = struct, key), do: Map.get(struct, key)
 
-  defp field(map, key) when is_map(map) do
-    Map.get(map, key) || Map.get(map, Atom.to_string(key))
-  end
+  defp field(map, key) when is_map(map), do: Maps.field_truthy(map, key)
 end

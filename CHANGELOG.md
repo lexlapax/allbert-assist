@@ -10,6 +10,49 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v1.0.2 - Test Isolation Phase 1 & Catch-up Binary Release
+
+Status: **release candidate** — first BINARY release since v1.0.0; carries the
+v1.0.1 source-only fixes (TUI crash, browser research one-consent flow,
+channel-send ladder, R15 digest CSS, memento removal) into the packaged
+artifact line. Tag WITHOUT `[skip-artifacts]`; Latest moves 1.0.0 → 1.0.2 and
+the Homebrew tap follows.
+
+Engineering hardening, no new product capability:
+
+- **Test isolation phase 1.** Lane taxonomy reconciled (173 findings → 0;
+  every test file carries exactly one audited primary lane); the five
+  documented order-dependent residue failures de-flaked red-first; the global
+  App/Plugin registries gained internal injection seams (ADR 0082, Accepted)
+  with a private-registry fixture and concurrent cross-contamination proof;
+  ~54 test files converged on a shipped-baseline registry restore, retiring
+  the partial/snapshot-restore leak class; the 3,495-line workspace LiveView
+  monolith split into seven partitionable topic files plus a 5-test
+  live-Runtime remainder (largest split file 14.4% of the post-split web
+  phase, vs one file at 83% before).
+- **Latent defects fixed along the way** (exposed by honest lanes): the
+  intent ranker's non-idempotent slot boost (a real routing bug — a
+  registered URL-slot intent could outrank the research app's locked
+  summarize_url handoff), a model-controlled `user_id` schema param on
+  `browser_research_handoff`, `Maps.get_any/3` dropping present-but-false
+  values, the v0.63 F5 demo-intent test bypass missing from the web suite,
+  and a cross-BEAM tmp-home collision that poisoned ranker scoring
+  (documented in test-strategy.md).
+- **v0.58 cleanup tails.** 55 modules' private `field/3` copies delegate to
+  `Maps.field`; 7 limit clamps consolidated to `Validation.clamp_limit`;
+  ErrorExtraction adopted in the marketplace catalog and voice-local panels;
+  `data-theme=null` regression asserts; Objectives chat links stay in the
+  workspace shell.
+- **Dependency refresh** (standing rule, two waves): swoosh 1.26.3
+  (CVE-2026-54893 hygiene), tailwind wrapper 0.5.1 (compiled CSS
+  byte-identical), jsv 0.21.2; ecto 3.14.1 / ecto_sql 3.14.0 /
+  ecto_sqlite3 0.24.1 / decimal 3.1.1 with exqlite 0.39.0 accepted on a
+  green migration/backup/full-core battery.
+- **Process.** ADR 0081 (Tier-2→Tier-1 promotion) Accepted — process only,
+  no contract promoted. New `release.v102` gate = the release.v1 quintet plus
+  focused v1.0.2 steps (lane reconciliation, residue solos + both batch
+  orders, web-lane fold, dependency proofs).
+
 ## v1.0.1 - Post-1.0 Remediation Point Release
 
 Status: **released — tagged `v1.0.1` (2026-07-15), source/docs point tag with

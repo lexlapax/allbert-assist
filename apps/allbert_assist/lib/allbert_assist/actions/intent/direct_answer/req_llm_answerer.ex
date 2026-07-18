@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
 
   @max_prompt_bytes 4_000
   @max_active_memory_prompt_bytes 8_000
+  alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.SafeTerm
   alias AllbertAssist.Settings.ModelRuntime
   alias ReqLLM.{Context, Response}
@@ -235,9 +236,5 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
     _exception -> nil
   end
 
-  defp field(map, key) when is_map(map) do
-    Map.get(map, key) || Map.get(map, Atom.to_string(key))
-  end
-
-  defp field(_map, _key), do: nil
+  defp field(map, key), do: Maps.field_truthy(map, key)
 end

@@ -21,6 +21,11 @@ defmodule AllbertAssist.Settings do
   defdelegate read_user_settings(), to: Store
   defdelegate write_user_settings(settings, opts \\ []), to: Store
 
+  # v1.0.2 M8.4: turn-scoped resolved-settings snapshot — pin one resolution
+  # per intent turn / policy evaluation. See `Store.with_resolved_settings/1`
+  # for the write-visibility semantics.
+  defdelegate with_resolved_settings(fun), to: Store
+
   def defaults, do: Schema.defaults()
   def schema, do: Schema.schema()
   def safe_write_keys, do: Schema.safe_write_keys()

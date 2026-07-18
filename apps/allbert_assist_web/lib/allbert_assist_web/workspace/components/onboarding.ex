@@ -13,6 +13,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
 
   alias AllbertAssist.Actions.ErrorExtraction
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Maps
   alias AllbertAssist.Onboarding, as: OnboardingContext
   alias AllbertAssist.Onboarding.ProviderStep
   alias AllbertAssist.Personas
@@ -833,8 +834,5 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
 
   defp user_id(context), do: field(context, :user_id) || @local_user_id
 
-  defp field(map, key) when is_map(map),
-    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
-
-  defp field(_value, _key), do: nil
+  defp field(map, key), do: Maps.field_truthy(map, key)
 end

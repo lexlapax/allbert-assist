@@ -6,6 +6,8 @@ defmodule AllbertAssist.Confirmations.ShellCommandMetadata do
   semantics stay behind registered actions.
   """
 
+  alias AllbertAssist.Maps
+
   @doc "Return true when a confirmation targets v0.08 shell execution."
   @spec shell_confirmation?(map()) :: boolean()
   def shell_confirmation?(confirmation) when is_map(confirmation) do
@@ -141,9 +143,7 @@ defmodule AllbertAssist.Confirmations.ShellCommandMetadata do
 
   defp blank?(value), do: value in [nil, ""]
 
-  defp field(map, key) when is_map(map) do
-    Map.get(map, key) || Map.get(map, String.to_atom(key))
-  end
+  defp field(map, key) when is_map(map), do: Maps.field_truthy(map, key)
 
   defp action_name(action), do: field(action, "name")
 end

@@ -419,20 +419,34 @@ defmodule AllbertAssist.Plugin.ValidatorTest do
   end
 
   test "validates plugin modules into normalized entries without atomizing ids" do
-    # v1.0.2 M2 drift-fix: warm the validation path once before measuring —
-    # first-call lazy atoms (module/protocol loading elsewhere in the VM)
-    # tripped this guard order-dependently. The guard's contract is that
-    # REPEAT validation creates no atoms (no unbounded atomization from ids),
-    # which the warmed second pass still proves.
+    # v1.0.2 M8 drift-fix (supersedes the M2 warm-up): background processes
+    # (signal subscribers, supervisors reacting to a neighboring test's
+    # events) can create atoms asynchronously DURING the measured window, so
+    # a single absolute before/after compare is order-dependent under lane
+    # load. The guard's real contract is that repeat validation creates no
+    # atoms of its own — a truly atomizing validator NEVER produces a clean
+    # window, while transient background churn does within a few attempts.
     assert {:ok, %Entry{}} =
              Validator.validate_module(ValidPlugin, source: :shipped, root_path: "/tmp/plugin")
 
-    before_count = :erlang.system_info(:atom_count)
+    {entry, before_count, after_count} =
+      Enum.reduce_while(1..5, nil, fn _attempt, _acc ->
+        before_count = :erlang.system_info(:atom_count)
 
-    assert {:ok, %Entry{} = entry} =
-             Validator.validate_module(ValidPlugin, source: :shipped, root_path: "/tmp/plugin")
+        assert {:ok, %Entry{} = entry} =
+                 Validator.validate_module(ValidPlugin,
+                   source: :shipped,
+                   root_path: "/tmp/plugin"
+                 )
 
-    after_count = :erlang.system_info(:atom_count)
+        after_count = :erlang.system_info(:atom_count)
+
+        if after_count == before_count do
+          {:halt, {entry, before_count, after_count}}
+        else
+          {:cont, {entry, before_count, after_count}}
+        end
+      end)
 
     assert entry.plugin_id == "example.valid"
     assert entry.kind == "mixed"

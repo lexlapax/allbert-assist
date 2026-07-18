@@ -11,7 +11,9 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     original_runner = Application.get_env(:allbert_assist, :gate_command_runner)
     original_evidence_root = Application.get_env(:allbert_assist, :gate_evidence_root)
     original_changed_files = Application.get_env(:allbert_assist, :gate_changed_files)
+    original_metrics_store = Application.get_env(:allbert_assist, :test_metrics_store)
     evidence_root = temp_path("evidence")
+    metrics_store = Path.join(temp_path("metrics"), "runs.jsonl")
     parent = self()
 
     runner = fn phase ->
@@ -21,20 +23,28 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
 
     Application.put_env(:allbert_assist, :gate_command_runner, runner)
     Application.put_env(:allbert_assist, :gate_evidence_root, evidence_root)
+    # v1.0.2 M8.1: in-process gate runs must not append to the repo-local
+    # .test_metrics store; redirect recording to an owned temp store.
+    Application.put_env(:allbert_assist, :test_metrics_store, metrics_store)
 
     on_exit(fn ->
       restore_app_env(:gate_command_runner, original_runner)
       restore_app_env(:gate_evidence_root, original_evidence_root)
       restore_app_env(:gate_changed_files, original_changed_files)
+      restore_app_env(:test_metrics_store, original_metrics_store)
       File.rm_rf!(evidence_root)
+      File.rm_rf!(Path.dirname(metrics_store))
       Mix.Task.reenable("allbert.test")
       Mix.Task.reenable("precommit")
     end)
 
-    {:ok, evidence_root: evidence_root}
+    {:ok, evidence_root: evidence_root, metrics_store: metrics_store}
   end
 
-  test "release runs explicit phases and does not delegate to precommit", %{evidence_root: root} do
+  test "release runs explicit phases and does not delegate to precommit", %{
+    evidence_root: root,
+    metrics_store: metrics_store
+  } do
     output =
       capture_io(fn ->
         assert %{status: "passed"} = AllbertTestTask.run(["release"])
@@ -72,6 +82,47 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert length(phase_logs) == 11
     assert Enum.all?(phase_logs, &File.exists?/1)
     refute Enum.any?(phase_logs, &(File.read!(&1) =~ "secret-token"))
+
+    # v1.0.2 M8.1: the phase runner emits one metrics record per phase.
+    records =
+      metrics_store
+      |> File.read!()
+      |> String.split("\n", trim: true)
+      |> Enum.map(&Jason.decode!/1)
+
+    assert length(records) == 11
+    assert Enum.all?(records, &(&1["gate"] == "release"))
+    assert Enum.all?(records, &(&1["status"] == "passed"))
+    assert Enum.map(records, & &1["phase_or_step"]) |> List.last() == "dialyzer"
+    assert Enum.all?(records, &(&1["tests"] == 3 and &1["failures"] == 0))
+    assert Enum.all?(records, &is_integer(&1["wall_ms"]))
+  end
+
+  test "test-run metrics substrate wires every M8.1 completion point" do
+    task_source =
+      Path.expand("../../../lib/mix/tasks/allbert.test.ex", __DIR__)
+      |> File.read!()
+
+    phase_runner_source =
+      Path.expand("../../../lib/allbert_assist/dev_gates/phase_runner.ex", __DIR__)
+      |> File.read!()
+
+    # (a) serial lane partitions record one run each and carry --slowest 10.
+    assert task_source =~ ~s(defp record_serial_partition_metrics)
+    assert task_source =~ ~s("--slowest")
+
+    # (b) the phase runner records one run per phase with the gate name.
+    assert phase_runner_source =~ ~s(TestMetrics.record)
+    assert phase_runner_source =~ ~s(phase_or_step: phase.id)
+
+    # (c) release.v1/v101/v102 step runners record one run per step.
+    assert task_source =~ ~s(gate: "release.v1",)
+    assert task_source =~ ~s(gate: "release.v101",)
+    assert task_source =~ ~s(gate: "release.v102",)
+
+    # metrics subcommand + usage surface.
+    assert task_source =~ ~s{def run(["metrics" | rest]), do: metrics(rest)}
+    assert task_source =~ "mix allbert.test metrics [--ingest-campaign DIR]"
   end
 
   test "prepush runs high coverage fast-local with requested partitions" do

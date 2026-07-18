@@ -5,6 +5,7 @@ defmodule AllbertAssist.Security.Context do
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Coding.CommandGrants
+  alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime.SafeTerm
   alias AllbertAssist.Skills
@@ -309,9 +310,7 @@ defmodule AllbertAssist.Security.Context do
     }
   end
 
-  defp map_value(map, key) when is_map(map) do
-    Map.get(map, key) || Map.get(map, to_string(key))
-  end
+  defp map_value(map, key) when is_map(map), do: Maps.field_truthy(map, key)
 
   defp map_value(_map, _key), do: nil
 

@@ -16,6 +16,7 @@ defmodule AllbertAssist.Conversations.UnifiedHistory do
   alias AllbertAssist.Conversations.Message
   alias AllbertAssist.Conversations.Thread
   alias AllbertAssist.Conversations.ThreadChannelRef
+  alias AllbertAssist.Maps
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
@@ -559,7 +560,7 @@ defmodule AllbertAssist.Conversations.UnifiedHistory do
     end)
   end
 
-  defp field(attrs, key), do: Map.get(attrs, key) || Map.get(attrs, Atom.to_string(key))
+  defp field(attrs, key), do: Maps.field_truthy(attrs, key)
 
   defp required_string(value) do
     value

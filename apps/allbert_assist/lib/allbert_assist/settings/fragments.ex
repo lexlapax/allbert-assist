@@ -13,6 +13,8 @@ defmodule AllbertAssist.Settings.Fragments do
   alias AllbertAssist.Settings.Schema
 
   @composition_cache_key {__MODULE__, :default_composition}
+  @composition_pin_key {__MODULE__, :pinned_composition}
+  @composition_read_hook_key {__MODULE__, :composition_read_hook}
 
   @type source :: :core | :app | :plugin
 
@@ -34,6 +36,38 @@ defmodule AllbertAssist.Settings.Fragments do
     :ok
   rescue
     ArgumentError -> :ok
+  end
+
+  @doc """
+  Run `fun` with ONE default-composition snapshot pinned to the calling process.
+
+  A settings read-merge-validate pass (`Store.resolved_settings/0` and the
+  Store write paths) reads the composition several times — fragments for the
+  version contract, defaults for the merge, schema for validation. Each
+  unpinned read hits the shared `persistent_term` cache, so an async
+  registration-signal invalidation landing between two reads can hand ONE call
+  two different compositions; validation then fails with
+  `{:error, {:unknown_setting, _}}` against a transiently partial registry
+  (v1.0.2 M8.3, root-caused in M8.2). Pinning takes a single snapshot per call.
+
+  Reentrant: a nested call keeps the outer snapshot. Only default-composition
+  reads (`opts == []`) are pinned; explicit-context reads are unaffected.
+  """
+  @spec with_composition((-> result)) :: result when result: term()
+  def with_composition(fun) when is_function(fun, 0) do
+    case Process.get(@composition_pin_key) do
+      nil ->
+        Process.put(@composition_pin_key, default_composition())
+
+        try do
+          fun.()
+        after
+          Process.delete(@composition_pin_key)
+        end
+
+      _pinned ->
+        fun.()
+    end
   end
 
   @spec fragment_for_key(String.t(), keyword()) :: {:ok, Fragment.t()} | {:error, :not_found}
@@ -116,6 +150,17 @@ defmodule AllbertAssist.Settings.Fragments do
   end
 
   defp composition([]) do
+    case Process.get(@composition_pin_key) do
+      nil -> default_composition()
+      pinned -> pinned
+    end
+  end
+
+  defp composition(opts), do: build_composition(opts)
+
+  defp default_composition do
+    read_hook()
+
     case :persistent_term.get(@composition_cache_key, nil) do
       nil ->
         composition = build_composition([])
@@ -127,7 +172,16 @@ defmodule AllbertAssist.Settings.Fragments do
     end
   end
 
-  defp composition(opts), do: build_composition(opts)
+  # Test-only seam (v1.0.2 M8.3): fires before each default-composition cache
+  # read so the composition-race regression test can swap the cache between two
+  # reads deterministically. Production processes never set the hook; the
+  # process-dictionary probe is effectively free.
+  defp read_hook do
+    case Process.get(@composition_read_hook_key) do
+      nil -> :ok
+      fun when is_function(fun, 0) -> fun.()
+    end
+  end
 
   defp build_composition(opts) do
     app_fragments = app_fragments(opts)

@@ -282,7 +282,7 @@ defmodule AllbertAssistWeb.Workspace.Components.TileInspector do
   defp tile_id(tile), do: value(tile, :id)
   defp tile_kind(tile), do: value(tile, :kind) || "tile"
 
-  defp value(%{} = map, key), do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
+  defp value(%{} = map, key), do: AllbertAssist.Maps.field_truthy(map, key)
   defp value(_map, _key), do: nil
 
   defp metadata_value(tile, key) do

@@ -6,6 +6,8 @@ defmodule AllbertAssist.Confirmations.SkillScriptMetadata do
   semantics stay behind registered actions.
   """
 
+  alias AllbertAssist.Maps
+
   @doc "Return true when a confirmation targets v0.09 skill script execution."
   @spec script_confirmation?(map()) :: boolean()
   def script_confirmation?(confirmation) when is_map(confirmation) do
@@ -132,9 +134,7 @@ defmodule AllbertAssist.Confirmations.SkillScriptMetadata do
 
   defp blank?(value), do: value in [nil, ""]
 
-  defp field(map, key) when is_map(map) do
-    Map.get(map, key) || Map.get(map, String.to_atom(key))
-  end
+  defp field(map, key) when is_map(map), do: Maps.field_truthy(map, key)
 
   defp action_name(action), do: field(action, "name")
 end

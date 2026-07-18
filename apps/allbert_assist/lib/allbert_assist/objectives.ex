@@ -434,7 +434,7 @@ defmodule AllbertAssist.Objectives do
   end
 
   defp facade_field(map, key) when is_map(map) do
-    Map.get(map, key) || Map.get(map, Atom.to_string(key))
+    AllbertAssist.Maps.field_truthy(map, key)
   end
 
   defp facade_user_id(intent_decision, context) do

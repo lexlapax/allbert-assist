@@ -18,6 +18,7 @@ defmodule AllbertAssist.Intent.Router.Optimizer do
   alias AllbertAssist.Intent.Descriptor
   alias AllbertAssist.Intent.Eval.Gate
   alias AllbertAssist.Intent.Router.{DescriptorResolver, DescriptorStore, Index}
+  alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.ModelRuntime
@@ -594,9 +595,8 @@ defmodule AllbertAssist.Intent.Router.Optimizer do
     :exit, _reason -> []
   end
 
-  defp field(map, key, default \\ nil) when is_map(map) do
-    Map.get(map, key) || Map.get(map, to_string(key)) || default
-  end
+  defp field(map, key, default \\ nil) when is_map(map),
+    do: Maps.field_truthy(map, key) || default
 
   defp setting_int(key, default) do
     case Settings.get(key) do

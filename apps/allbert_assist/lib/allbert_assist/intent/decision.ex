@@ -67,10 +67,12 @@ defmodule AllbertAssist.Intent.Decision do
           trace_metadata: map()
         }
 
-  @spec new(map()) :: {:ok, t()} | {:error, term()}
-  def new(attrs) when is_map(attrs) do
+  @spec new(map(), keyword()) :: {:ok, t()} | {:error, term()}
+  def new(attrs, opts \\ [])
+
+  def new(attrs, opts) when is_map(attrs) do
     context = field(attrs, :context, %{}) || %{}
-    {active_app, active_app_diagnostics} = active_app(attrs, context)
+    {active_app, active_app_diagnostics} = active_app(attrs, context, opts)
 
     decision =
       %__MODULE__{
@@ -113,11 +115,11 @@ defmodule AllbertAssist.Intent.Decision do
     end
   end
 
-  def new(value), do: {:error, {:invalid_decision, value}}
+  def new(value, _opts), do: {:error, {:invalid_decision, value}}
 
-  @spec new!(map()) :: t()
-  def new!(attrs) do
-    case new(attrs) do
+  @spec new!(map(), keyword()) :: t()
+  def new!(attrs, opts \\ []) do
+    case new(attrs, opts) do
       {:ok, decision} -> decision
       {:error, reason} -> raise ArgumentError, inspect(reason)
     end
@@ -384,27 +386,29 @@ defmodule AllbertAssist.Intent.Decision do
     |> to_string()
   end
 
-  defp active_app(attrs, context) do
+  defp active_app(attrs, context, opts) do
     context_active_app = context_value(context, :active_app)
 
     if has_field?(attrs, :active_app) do
       candidate = field(attrs, :active_app)
 
-      case AppId.normalize(candidate) do
+      case AppId.normalize(candidate, opts) do
         {:ok, app_id} ->
           {app_id, []}
 
         {:error, reason} ->
-          {fallback, fallback_diagnostics} = normalize_context_active_app(context_active_app)
+          {fallback, fallback_diagnostics} =
+            normalize_context_active_app(context_active_app, opts)
+
           {fallback, [active_app_diagnostic(candidate, reason) | fallback_diagnostics]}
       end
     else
-      normalize_context_active_app(context_active_app)
+      normalize_context_active_app(context_active_app, opts)
     end
   end
 
-  defp normalize_context_active_app(active_app) do
-    case AppId.normalize(active_app) do
+  defp normalize_context_active_app(active_app, opts) do
+    case AppId.normalize(active_app, opts) do
       {:ok, app_id} -> {app_id, []}
       {:error, reason} -> {nil, [active_app_diagnostic(active_app, reason)]}
     end

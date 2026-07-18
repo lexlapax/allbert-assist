@@ -267,7 +267,7 @@ defmodule AllbertAssist.Session do
   defp has_key?(attrs, key),
     do: Map.has_key?(attrs, key) or Map.has_key?(attrs, Atom.to_string(key))
 
-  defp value(attrs, key), do: Map.get(attrs, key) || Map.get(attrs, Atom.to_string(key))
+  defp value(attrs, key), do: AllbertAssist.Maps.field_truthy(attrs, key)
 
   defp maybe_put(map, _key, :__absent__), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)

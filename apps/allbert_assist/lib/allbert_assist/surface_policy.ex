@@ -30,8 +30,14 @@ defmodule AllbertAssist.SurfacePolicy do
     |> Map.fetch!(:render_mode)
   end
 
+  # v1.0.2 M8.4: one turn-scoped settings pin per policy evaluation (nests as
+  # a no-op inside a pinned intent turn; see Store.with_resolved_settings/1).
   @spec report_policy(String.t(), map(), map()) :: map()
   def report_policy(action_name, params, context) do
+    Store.with_resolved_settings(fn -> report_policy_pinned(action_name, params, context) end)
+  end
+
+  defp report_policy_pinned(action_name, params, context) do
     requested = requested_render_mode(params, context)
     policy = policy_for(surface_id(params, context), action_name)
 

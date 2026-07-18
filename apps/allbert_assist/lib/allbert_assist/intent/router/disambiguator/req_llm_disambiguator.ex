@@ -10,6 +10,7 @@ defmodule AllbertAssist.Intent.Router.Disambiguator.ReqLLMDisambiguator do
   @behaviour AllbertAssist.Intent.Router.Disambiguator.Behaviour
 
   alias AllbertAssist.Intent.Slots
+  alias AllbertAssist.Maps
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.ModelRuntime
 
@@ -143,8 +144,7 @@ defmodule AllbertAssist.Intent.Router.Disambiguator.ReqLLMDisambiguator do
   # canonical coercion to a map (decoding JSON, degrading malformed payloads).
   defp parse_slots(value), do: Slots.normalize(value)
 
-  defp field(map, key) when is_map(map),
-    do: Map.get(map, key) || Map.get(map, to_string(key))
+  defp field(map, key) when is_map(map), do: Maps.field_truthy(map, key)
 
   defp setting_int(key, default) do
     case Settings.get(key) do

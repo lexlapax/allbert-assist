@@ -32,17 +32,26 @@ defmodule AllbertAssist.Intent.Engine do
   @spec decide(map(), keyword()) :: {:ok, Decision.t()} | {:error, term()}
   def decide(request, opts \\ [])
 
+  # v1.0.2 M8.4: each decide clause pins ONE turn-scoped resolved-settings
+  # snapshot (safety pin — IntentAgent.respond/1 pins the full turn and this
+  # nests as a no-op), so the dozens of Settings reads under one decide
+  # (flags, thresholds, classifier/router tuning) share a single ~44-48ms
+  # resolution instead of one each.
   def decide(%{route_decision: %Decision{} = decision} = request, opts) when is_map(request) do
-    if explicit_route_hint?(request) do
-      {:ok,
-       put_candidate_metadata(decision, metadata_context(request, RegistryContext.take(opts)))}
-    else
-      decide_without_explicit_route(request, opts)
-    end
+    Settings.with_resolved_settings(fn ->
+      if explicit_route_hint?(request) do
+        {:ok,
+         put_candidate_metadata(decision, metadata_context(request, RegistryContext.take(opts)))}
+      else
+        decide_without_explicit_route(request, opts)
+      end
+    end)
   end
 
   def decide(request, opts) when is_map(request) do
-    decide_without_explicit_route(request, opts)
+    Settings.with_resolved_settings(fn ->
+      decide_without_explicit_route(request, opts)
+    end)
   end
 
   def decide(value, _opts), do: {:error, {:invalid_request, value}}
@@ -50,7 +59,10 @@ defmodule AllbertAssist.Intent.Engine do
   defp decide_without_explicit_route(request, opts) do
     registry = RegistryContext.take(opts)
     app_context = active_app_context(request, registry)
-    candidates = ranked_candidates(request, registry)
+    # v1.0.2 M8.2: collect_candidates/2 already ranks and bounds its output;
+    # the former ranked_candidates/2 re-rank+re-bound was a measured hot-path
+    # no-op (M1 made the ranking boosts idempotent).
+    candidates = collect_candidates(request, registry)
     {classifier_candidate, classifier_diagnostic} = classifier_candidate(candidates, request)
 
     attrs =
@@ -59,24 +71,32 @@ defmodule AllbertAssist.Intent.Engine do
         request,
         app_context,
         classifier_diagnostic,
-        classifier_candidate
+        classifier_candidate,
+        registry
       ) ||
         descriptor_action_attrs(
           candidates,
           request,
           app_context,
           classifier_diagnostic,
-          classifier_candidate
+          classifier_candidate,
+          registry
         ) ||
         case selected_route_candidate(classifier_candidate, candidates, request) do
           nil ->
             direct_answer_attrs(request, app_context, classifier_diagnostic)
 
           candidate ->
-            decision_attrs_for_candidate(candidate, request, app_context, classifier_diagnostic)
+            decision_attrs_for_candidate(
+              candidate,
+              request,
+              app_context,
+              classifier_diagnostic,
+              registry
+            )
         end
 
-    with {:ok, decision} <- build_decision(attrs, request, classifier_diagnostic) do
+    with {:ok, decision} <- build_decision(attrs, request, classifier_diagnostic, registry) do
       {:ok, put_candidate_metadata(decision, metadata_context(request, registry))}
     end
   end
@@ -88,10 +108,14 @@ defmodule AllbertAssist.Intent.Engine do
     collected_candidates = collect_candidates(request, objective_opts(context) ++ registry)
     selected = selected_candidate(decision, collected_candidates, registry)
 
+    # v1.0.2 M8.2: collected_candidates is already ranked and bounded;
+    # include_selected/2 places the selected candidate at the head — exactly
+    # where the former Ranker.rank re-pass sorted it (its selected?/status
+    # sort boosts always order the selected candidate first) — so no re-rank
+    # (and no re-applied boosts) is needed to preserve order.
     candidates =
       collected_candidates
       |> include_selected(selected)
-      |> Ranker.rank(request)
       |> Candidate.bound(total_limit: max_candidates())
 
     rejected = rejected_candidates(candidates, selected)
@@ -158,7 +182,8 @@ defmodule AllbertAssist.Intent.Engine do
          %{kind: :surface} = surface,
          request,
          app_context,
-         classifier_diagnostic
+         classifier_diagnostic,
+         _registry
        ) do
     surface_navigation_attrs(surface, request, app_context, classifier_diagnostic)
   end
@@ -167,7 +192,8 @@ defmodule AllbertAssist.Intent.Engine do
          %{kind: :action} = candidate,
          request,
          app_context,
-         classifier_diagnostic
+         classifier_diagnostic,
+         _registry
        ) do
     %{
       intent: :registry_action,
@@ -191,7 +217,8 @@ defmodule AllbertAssist.Intent.Engine do
          %{kind: :skill} = candidate,
          request,
          app_context,
-         classifier_diagnostic
+         classifier_diagnostic,
+         _registry
        ) do
     %{
       intent: :registry_skill,
@@ -215,7 +242,8 @@ defmodule AllbertAssist.Intent.Engine do
          %{kind: :memory} = candidate,
          request,
          app_context,
-         classifier_diagnostic
+         classifier_diagnostic,
+         _registry
        ) do
     %{
       intent: field(candidate, :trace_metadata, %{}) |> field(:intent, :direct_answer),
@@ -240,7 +268,8 @@ defmodule AllbertAssist.Intent.Engine do
          %{kind: :objective} = candidate,
          request,
          app_context,
-         classifier_diagnostic
+         classifier_diagnostic,
+         _registry
        ) do
     %{
       intent: :continue_objective,
@@ -265,9 +294,17 @@ defmodule AllbertAssist.Intent.Engine do
          %{kind: :app_intent} = candidate,
          request,
          app_context,
-         classifier_diagnostic
+         classifier_diagnostic,
+         registry
        ) do
-    descriptor_decision_attrs([candidate], request, app_context, classifier_diagnostic, candidate) ||
+    descriptor_decision_attrs(
+      [candidate],
+      request,
+      app_context,
+      classifier_diagnostic,
+      candidate,
+      registry
+    ) ||
       direct_answer_attrs(request, app_context, classifier_diagnostic)
   end
 
@@ -275,7 +312,8 @@ defmodule AllbertAssist.Intent.Engine do
          %{kind: kind} = candidate,
          request,
          app_context,
-         classifier_diagnostic
+         classifier_diagnostic,
+         _registry
        )
        when kind in [:job, :channel, :refusal] do
     %{
@@ -297,7 +335,13 @@ defmodule AllbertAssist.Intent.Engine do
     }
   end
 
-  defp decision_attrs_for_candidate(_candidate, request, app_context, classifier_diagnostic) do
+  defp decision_attrs_for_candidate(
+         _candidate,
+         request,
+         app_context,
+         classifier_diagnostic,
+         _registry
+       ) do
     direct_answer_attrs(request, app_context, classifier_diagnostic)
   end
 
@@ -321,13 +365,6 @@ defmodule AllbertAssist.Intent.Engine do
         |> put_classifier(classifier_diagnostic),
       context: %{request: request}
     }
-  end
-
-  defp ranked_candidates(request, registry) do
-    request
-    |> collect_candidates(registry)
-    |> Ranker.rank(request)
-    |> Candidate.bound(total_limit: max_candidates())
   end
 
   defp selected_route_candidate(classifier_candidate, candidates, request) do
@@ -468,7 +505,7 @@ defmodule AllbertAssist.Intent.Engine do
       descriptor_candidates(request, registry) ++
       surface_candidates(registry) ++
       relevant_job_candidates(request, registry) ++
-      relevant_channel_candidates(request) ++
+      relevant_channel_candidates(request, registry) ++
       memory_candidates(request) ++
       objective_candidates(request, Keyword.get(opts, :objective), registry) ++
       refusal_candidates(request) ++
@@ -495,7 +532,8 @@ defmodule AllbertAssist.Intent.Engine do
          request,
          app_context,
          classifier_diagnostic,
-         classifier_candidate
+         classifier_candidate,
+         registry
        ) do
     with true <- descriptors_enabled?(),
          true <- neutral_app?(app_context.active_app),
@@ -510,16 +548,31 @@ defmodule AllbertAssist.Intent.Engine do
             candidates,
             request,
             app_context,
-            classifier_diagnostic
+            classifier_diagnostic,
+            registry
           ),
         else:
-          descriptor_handoff_attrs(top, candidates, request, app_context, classifier_diagnostic)
+          descriptor_handoff_attrs(
+            top,
+            candidates,
+            request,
+            app_context,
+            classifier_diagnostic,
+            registry
+          )
     else
       _no_descriptor_action -> nil
     end
   end
 
-  defp registered_descriptor_attrs(top, candidates, request, app_context, classifier_diagnostic) do
+  defp registered_descriptor_attrs(
+         top,
+         candidates,
+         request,
+         app_context,
+         classifier_diagnostic,
+         registry
+       ) do
     case descriptor_action_kind(top) do
       :registry_action ->
         descriptor_registry_action_attrs(top, request, app_context, classifier_diagnostic)
@@ -530,7 +583,8 @@ defmodule AllbertAssist.Intent.Engine do
           candidates,
           request,
           app_context,
-          classifier_diagnostic
+          classifier_diagnostic,
+          registry
         )
     end
   end
@@ -540,7 +594,8 @@ defmodule AllbertAssist.Intent.Engine do
          candidates,
          request,
          app_context,
-         classifier_diagnostic
+         classifier_diagnostic,
+         registry
        ) do
     with {:ok, handoff} <-
            Handoff.new(
@@ -549,7 +604,8 @@ defmodule AllbertAssist.Intent.Engine do
                candidate,
                request,
                descriptor_margin(candidate, candidates)
-             )
+             ),
+             registry
            ) do
       %{
         intent: handoff.kind,
@@ -578,7 +634,8 @@ defmodule AllbertAssist.Intent.Engine do
          request,
          app_context,
          classifier_diagnostic,
-         classifier_candidate
+         classifier_candidate,
+         registry
        ) do
     with true <- descriptors_enabled?(),
          false <- neutral_app?(app_context.active_app),
@@ -599,7 +656,8 @@ defmodule AllbertAssist.Intent.Engine do
             candidates,
             request,
             app_context,
-            classifier_diagnostic
+            classifier_diagnostic,
+            registry
           )
       end
     else
@@ -639,7 +697,8 @@ defmodule AllbertAssist.Intent.Engine do
          candidates,
          request,
          app_context,
-         classifier_diagnostic
+         classifier_diagnostic,
+         registry
        ) do
     with {:ok, handoff} <-
            Handoff.new(
@@ -648,7 +707,8 @@ defmodule AllbertAssist.Intent.Engine do
                candidate,
                request,
                descriptor_margin(candidate, candidates)
-             )
+             ),
+             registry
            ) do
       %{
         intent: :clarify_intent,
@@ -1017,18 +1077,20 @@ defmodule AllbertAssist.Intent.Engine do
     _exception -> nil
   end
 
-  defp channel_candidates do
-    Channels.list_channels()
+  defp channel_candidates(registry) do
+    registry
+    |> RegistryContext.plugin_opts()
+    |> Channels.list_channels()
     |> Enum.map(&candidate_from_channel/1)
     |> Enum.reject(&is_nil/1)
   rescue
     _exception -> []
   end
 
-  defp relevant_channel_candidates(request) do
+  defp relevant_channel_candidates(request, registry) do
     text = field(request, :text) || ""
 
-    if channel_text?(text), do: channel_candidates(), else: []
+    if channel_text?(text), do: channel_candidates(registry), else: []
   end
 
   defp candidate_from_channel(channel) do
@@ -1265,15 +1327,21 @@ defmodule AllbertAssist.Intent.Engine do
     end
   end
 
-  defp build_decision(attrs, %{route_decision: %Decision{} = decision}, classifier_diagnostic) do
+  defp build_decision(
+         attrs,
+         %{route_decision: %Decision{} = decision},
+         classifier_diagnostic,
+         registry
+       ) do
     if selected_route_decision_attrs?(attrs) do
       {:ok, put_classifier_on_decision(decision, classifier_diagnostic)}
     else
-      Decision.new(attrs)
+      Decision.new(attrs, registry)
     end
   end
 
-  defp build_decision(attrs, _request, _classifier_diagnostic), do: Decision.new(attrs)
+  defp build_decision(attrs, _request, _classifier_diagnostic, registry),
+    do: Decision.new(attrs, registry)
 
   defp selected_route_decision_attrs?(attrs) do
     attrs[:trace_metadata]

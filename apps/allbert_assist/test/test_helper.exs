@@ -25,11 +25,24 @@ System.put_env("ALLBERT_VAULT_BACKEND", "encrypted_file")
 # this flag to prove the production gate).
 Application.put_env(:allbert_assist, :intent_descriptor_include_all, true)
 
+# v1.0.2 M8.3: the suite home must be OS-pid-qualified and pre-cleaned — bare
+# `System.unique_integer/1` RESTARTS each BEAM boot, so successive `mix test`
+# invocations collided with STALE homes left by earlier runs (hundreds in tmp,
+# many carrying settings.yml with plugin-owned keys such as `stocksage:`).
+# A test that deliberately narrows the global plugin registry (e.g.
+# list_channels_test's TUI-only setup) then fails settings validation against
+# the stale user settings (`{:unknown_setting, "stocksage"}`) and SurfacePolicy
+# degrades — the solo-flake class root-caused in M8.2/M8.3. Same pattern and
+# fix as the v1.0.2 M5 RankerTest stale-home root cause; the home is deleted
+# again at VM exit so runs never accumulate poison.
 test_home =
   Path.join(
     System.tmp_dir!(),
-    "allbert-assist-test-home-#{System.unique_integer([:positive])}"
+    "allbert-assist-test-home-#{System.pid()}-#{System.unique_integer([:positive])}"
   )
+
+File.rm_rf!(test_home)
+System.at_exit(fn _status -> File.rm_rf(test_home) end)
 
 Application.put_env(:allbert_assist, AllbertAssist.Paths, home: test_home)
 

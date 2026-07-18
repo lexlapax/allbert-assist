@@ -20,6 +20,7 @@ defmodule AllbertAssist.Actions.Settings.DoctorModelProfile do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings.DoctorDiagnostics
   alias AllbertAssist.Settings.ModelDoctor
@@ -136,8 +137,5 @@ defmodule AllbertAssist.Actions.Settings.DoctorModelProfile do
     |> Enum.join(" ")
   end
 
-  defp field(map, key) when is_map(map),
-    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
-
-  defp field(_value, _key), do: nil
+  defp field(map, key), do: Maps.field_truthy(map, key)
 end

@@ -5,6 +5,7 @@ defmodule AllbertAssist.Objectives.Commands.AdvanceObjective do
     name: "allbert_objectives_advance_objective",
     description: "Private objective step execution and observation command."
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Commands
   alias AllbertAssist.Objectives.Step
@@ -107,8 +108,5 @@ defmodule AllbertAssist.Objectives.Commands.AdvanceObjective do
     field(params, :trace_id) || field(context, :trace_id)
   end
 
-  defp field(map, key) when is_map(map),
-    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
-
-  defp field(_value, _key), do: nil
+  defp field(map, key), do: Maps.field_truthy(map, key)
 end

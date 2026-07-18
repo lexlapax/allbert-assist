@@ -16,6 +16,29 @@ defmodule AllbertAssist.HelperModulesTest do
     assert Maps.field(nil, :missing, "fallback") == "fallback"
   end
 
+  test "Maps.field_truthy falls through nil/false to the cross-type key" do
+    # nil/false fall through to the other key spelling (`||` semantics)
+    assert Maps.field_truthy(%{:enabled => false, "enabled" => true}, :enabled) == true
+    assert Maps.field_truthy(%{:name => nil, "name" => "string"}, :name) == "string"
+    assert Maps.field_truthy(%{:flag => true, "flag" => false}, "flag") == true
+    # a falsy fallback value passes through as-is (matches the local
+    # `Map.get(map, key) || Map.get(map, to_string(key))` copies exactly)
+    assert Maps.field_truthy(%{:a => false, "a" => false}, :a, :dft) == false
+    # nothing truthy and no fallback present -> default
+    assert Maps.field_truthy(%{a: nil}, :a, :dft) == :dft
+    assert Maps.field_truthy(%{}, :missing, "fallback") == "fallback"
+    assert Maps.field_truthy(nil, :missing, "fallback") == "fallback"
+    # string keys resolve the atom spelling only via existing atoms
+    assert Maps.field_truthy(%{flag: true}, "flag") == true
+  end
+
+  test "Maps.field_truthy contrasts with presence-based Maps.field" do
+    mixed = %{:enabled => false, "enabled" => true}
+
+    assert Maps.field(mixed, :enabled) == false
+    assert Maps.field_truthy(mixed, :enabled) == true
+  end
+
   test "Maps.get_any returns the first present mixed-key value" do
     assert Maps.get_any(%{"id" => "string-id"}, [:missing, :id]) == "string-id"
     assert Maps.get_any(%{id: "atom-id"}, ["missing", "id"]) == "atom-id"

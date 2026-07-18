@@ -15,6 +15,7 @@ defmodule AllbertAssist.Trace do
   alias AllbertAssist.Confirmations.PackageInstallMetadata
   alias AllbertAssist.Confirmations.ResourceMetadata
   alias AllbertAssist.Confirmations.ShellCommandMetadata
+  alias AllbertAssist.Maps
   alias AllbertAssist.Memory
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
@@ -1370,9 +1371,7 @@ defmodule AllbertAssist.Trace do
 
   defp bounded_trace_value(value, _max_bytes), do: value
 
-  defp map_value(map, key) when is_map(map) do
-    Map.get(map, key) || Map.get(map, to_string(key))
-  end
+  defp map_value(map, key) when is_map(map), do: Maps.field_truthy(map, key)
 
   defp map_value(_map, _key), do: nil
 end

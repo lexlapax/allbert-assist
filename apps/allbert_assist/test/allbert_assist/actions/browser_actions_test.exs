@@ -1,5 +1,12 @@
 defmodule AllbertAssist.Actions.BrowserActionsTest do
   use ExUnit.Case, async: false
+
+  # v1.0.2 M8.2: browser actions resolve through a private ADR 0082 registry
+  # context carried in the Runner context map (`:registry`), so this file no
+  # longer clears or mutates the global Plugin.Registry. Lane audit (M8.2):
+  # stays `home_fs_serial` — it still owns System tmp homes plus Application
+  # env (Paths/Settings/Confirmations and the :allbert_browser driver), and it
+  # drives the named AllbertBrowser.Supervisor/Session singletons.
   @moduletag :home_fs_serial
 
   defmodule MissingBridgeDriver do
@@ -14,9 +21,8 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.ResourceMetadata
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
-  alias AllbertAssist.TestSupport.ShippedRegistries
+  alias AllbertAssist.TestSupport.RegistryIsolationFixtures, as: Fixtures
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -35,8 +41,8 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
     Application.put_env(:allbert_browser, :driver, AllbertBrowser.Driver.Stub)
 
-    PluginRegistry.clear()
-    assert {:ok, "allbert.browser"} = PluginRegistry.register_module(AllbertBrowser.Plugin)
+    registry = Fixtures.start_isolated_registries(:browser_actions)
+    assert "allbert.browser" = Fixtures.register_plugin!(registry, AllbertBrowser.Plugin)
 
     ensure_browser_supervisor()
     close_all_sessions()
@@ -44,7 +50,6 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
 
     on_exit(fn ->
       close_all_sessions()
-      ShippedRegistries.restore!()
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_env(Confirmations, original_confirmations_config)
@@ -52,29 +57,37 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
       File.rm_rf!(root)
     end)
 
-    %{root: root}
+    %{root: root, registry: registry}
   end
 
-  test "doctor live check persists ok state and start session requires approval" do
-    assert {:ok, doctor} = Runner.run("browser_doctor", %{}, %{})
+  test "doctor live check persists ok state and start session requires approval", %{
+    registry: registry
+  } do
+    assert {:ok, doctor} = Runner.run("browser_doctor", %{}, %{registry: registry})
     assert doctor.status == :completed
     assert doctor.doctor.live_check_status == :ok
 
-    assert {:ok, pending} = Runner.run("browser_start_session", %{}, %{})
+    assert {:ok, pending} = Runner.run("browser_start_session", %{}, %{registry: registry})
     assert pending.status == :needs_confirmation
     assert is_binary(pending.confirmation_id)
 
     assert {:ok, started} =
-             Runner.run("browser_start_session", %{}, %{confirmation: %{approved?: true}})
+             Runner.run("browser_start_session", %{}, %{
+               confirmation: %{approved?: true},
+               registry: registry
+             })
 
     assert started.status == :completed
     assert is_binary(started.session_id)
   end
 
-  test "doctor failure persists a structured unavailable error category", %{root: root} do
+  test "doctor failure persists a structured unavailable error category", %{
+    root: root,
+    registry: registry
+  } do
     Application.put_env(:allbert_browser, :driver, MissingBridgeDriver)
 
-    assert {:ok, doctor} = Runner.run("browser_doctor", %{}, %{})
+    assert {:ok, doctor} = Runner.run("browser_doctor", %{}, %{registry: registry})
     assert doctor.status == :completed
     assert doctor.doctor.status == :error
     assert doctor.doctor.live_check_status == :unavailable
@@ -91,65 +104,82 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
     assert persisted.live_check_status == "unavailable"
 
     assert {:ok, denied} =
-             Runner.run("browser_start_session", %{}, %{confirmation: %{approved?: true}})
+             Runner.run("browser_start_session", %{}, %{
+               confirmation: %{approved?: true},
+               registry: registry
+             })
 
     assert denied.status == :denied
     assert denied.error == {:doctor_not_ok, :unavailable}
   end
 
-  test "doctor runtime failure persists a structured failed error category" do
+  test "doctor runtime failure persists a structured failed error category", %{registry: registry} do
     Application.put_env(:allbert_browser, :driver, RuntimeFailureDriver)
 
-    assert {:ok, doctor} = Runner.run("browser_doctor", %{}, %{})
+    assert {:ok, doctor} = Runner.run("browser_doctor", %{}, %{registry: registry})
     assert doctor.doctor.status == :error
     assert doctor.doctor.live_check_status == :failed
     assert doctor.doctor.error_category == :chromium_launch_failed
     assert doctor.doctor.error =~ "Chromium launch failed"
   end
 
-  test "navigate, extract, and screenshot use the stub driver after approval" do
-    assert {:ok, _doctor} = Runner.run("browser_doctor", %{}, %{})
+  test "navigate, extract, and screenshot use the stub driver after approval", %{
+    registry: registry
+  } do
+    assert {:ok, _doctor} = Runner.run("browser_doctor", %{}, %{registry: registry})
 
     assert {:ok, started} =
-             Runner.run("browser_start_session", %{}, %{confirmation: %{approved?: true}})
+             Runner.run("browser_start_session", %{}, %{
+               confirmation: %{approved?: true},
+               registry: registry
+             })
 
     assert {:ok, navigated} =
              Runner.run(
                "browser_navigate",
                %{session_id: started.session_id, url: "https://example.com/status"},
-               %{confirmation: %{approved?: true}}
+               %{confirmation: %{approved?: true}, registry: registry}
              )
 
     assert navigated.status == :completed
     assert navigated.page.url == "https://example.com/status"
 
     assert {:ok, extracted} =
-             Runner.run("browser_extract", %{session_id: started.session_id, format: "text"}, %{})
+             Runner.run("browser_extract", %{session_id: started.session_id, format: "text"}, %{
+               registry: registry
+             })
 
     assert extracted.status == :completed
     assert extracted.extraction.text =~ "Stub browser extraction"
     assert extracted.extraction.cache_ref =~ "cache://browser/#{started.session_id}/"
 
     assert {:ok, screenshot} =
-             Runner.run("browser_screenshot", %{session_id: started.session_id}, %{})
+             Runner.run("browser_screenshot", %{session_id: started.session_id}, %{
+               registry: registry
+             })
 
     assert screenshot.status == :completed
     assert screenshot.screenshot.redacted_credential_inputs?
     assert screenshot.screenshot.screenshot_ref =~ "cache://browser/#{started.session_id}/"
 
-    assert {:ok, listed} = Runner.run("browser_list_sessions", %{}, %{})
+    assert {:ok, listed} = Runner.run("browser_list_sessions", %{}, %{registry: registry})
     assert [%{session_id: session_id, last_visited_host: "example.com"}] = listed.sessions
     assert session_id == started.session_id
 
     assert {:ok, closed} =
-             Runner.run("browser_close_session", %{session_id: started.session_id}, %{})
+             Runner.run("browser_close_session", %{session_id: started.session_id}, %{
+               registry: registry
+             })
 
     assert closed.status == :completed
-    assert {:ok, relisted} = Runner.run("browser_list_sessions", %{}, %{})
+    assert {:ok, relisted} = Runner.run("browser_list_sessions", %{}, %{registry: registry})
     assert relisted.sessions == []
   end
 
-  test "analyze browser screenshot bridges cached screenshot into vision input", %{root: root} do
+  test "analyze browser screenshot bridges cached screenshot into vision input", %{
+    root: root,
+    registry: registry
+  } do
     assert {:ok, _setting} =
              Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
 
@@ -160,13 +190,18 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
                audit?: false
              })
 
-    assert {:ok, _doctor} = Runner.run("browser_doctor", %{}, %{})
+    assert {:ok, _doctor} = Runner.run("browser_doctor", %{}, %{registry: registry})
 
     assert {:ok, started} =
-             Runner.run("browser_start_session", %{}, %{confirmation: %{approved?: true}})
+             Runner.run("browser_start_session", %{}, %{
+               confirmation: %{approved?: true},
+               registry: registry
+             })
 
     assert {:ok, screenshot} =
-             Runner.run("browser_screenshot", %{session_id: started.session_id}, %{})
+             Runner.run("browser_screenshot", %{session_id: started.session_id}, %{
+               registry: registry
+             })
 
     screenshot_ref = screenshot.screenshot.screenshot_ref
 
@@ -174,7 +209,7 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
              Runner.run(
                "analyze_browser_screenshot",
                %{screenshot_ref: screenshot_ref, text: "What changed on this page?"},
-               %{actor: "operator", user_id: "operator"}
+               %{actor: "operator", user_id: "operator", registry: registry}
              )
 
     assert analyzed.status == :completed
@@ -197,47 +232,58 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
     refute inspect(analyzed) =~ root
   end
 
-  test "session closes automatically after max lifetime" do
+  test "session closes automatically after max lifetime", %{registry: registry} do
     assert {:ok, _setting} =
              Settings.put("browser.session.max_lifetime_ms", 1_000, %{audit?: false})
 
     assert {:ok, _setting} =
              Settings.put("browser.session.idle_timeout_ms", 60_000, %{audit?: false})
 
-    assert {:ok, _doctor} = Runner.run("browser_doctor", %{}, %{})
+    assert {:ok, _doctor} = Runner.run("browser_doctor", %{}, %{registry: registry})
 
     assert {:ok, started} =
-             Runner.run("browser_start_session", %{}, %{confirmation: %{approved?: true}})
+             Runner.run("browser_start_session", %{}, %{
+               confirmation: %{approved?: true},
+               registry: registry
+             })
 
     assert eventually_session_closed?(started.session_id)
   end
 
-  test "session closes automatically after idle timeout" do
+  test "session closes automatically after idle timeout", %{registry: registry} do
     assert {:ok, _setting} =
              Settings.put("browser.session.max_lifetime_ms", 60_000, %{audit?: false})
 
     assert {:ok, _setting} =
              Settings.put("browser.session.idle_timeout_ms", 1_000, %{audit?: false})
 
-    assert {:ok, _doctor} = Runner.run("browser_doctor", %{}, %{})
+    assert {:ok, _doctor} = Runner.run("browser_doctor", %{}, %{registry: registry})
 
     assert {:ok, started} =
-             Runner.run("browser_start_session", %{}, %{confirmation: %{approved?: true}})
+             Runner.run("browser_start_session", %{}, %{
+               confirmation: %{approved?: true},
+               registry: registry
+             })
 
     assert eventually_session_closed?(started.session_id)
   end
 
-  test "click requires confirmation with selector and bounded visible label preview" do
-    assert {:ok, _doctor} = Runner.run("browser_doctor", %{}, %{})
+  test "click requires confirmation with selector and bounded visible label preview", %{
+    registry: registry
+  } do
+    assert {:ok, _doctor} = Runner.run("browser_doctor", %{}, %{registry: registry})
 
     assert {:ok, started} =
-             Runner.run("browser_start_session", %{}, %{confirmation: %{approved?: true}})
+             Runner.run("browser_start_session", %{}, %{
+               confirmation: %{approved?: true},
+               registry: registry
+             })
 
     assert {:ok, _navigated} =
              Runner.run(
                "browser_navigate",
                %{session_id: started.session_id, url: "https://example.com/click"},
-               %{confirmation: %{approved?: true}}
+               %{confirmation: %{approved?: true}, registry: registry}
              )
 
     label = String.duplicate("Launch ", 40)
@@ -250,7 +296,7 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
                  selector: "button.launch",
                  visible_label_preview: label
                },
-               %{}
+               %{registry: registry}
              )
 
     assert pending.status == :needs_confirmation
@@ -268,24 +314,29 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
                  selector: "button.launch",
                  visible_label_preview: label
                },
-               %{confirmation: %{approved?: true}}
+               %{confirmation: %{approved?: true}, registry: registry}
              )
 
     assert clicked.status == :completed
     assert clicked.click.selector == "button.launch"
   end
 
-  test "form fill and download deny by default and require confirmation after opt-in" do
-    assert {:ok, _doctor} = Runner.run("browser_doctor", %{}, %{})
+  test "form fill and download deny by default and require confirmation after opt-in", %{
+    registry: registry
+  } do
+    assert {:ok, _doctor} = Runner.run("browser_doctor", %{}, %{registry: registry})
 
     assert {:ok, started} =
-             Runner.run("browser_start_session", %{}, %{confirmation: %{approved?: true}})
+             Runner.run("browser_start_session", %{}, %{
+               confirmation: %{approved?: true},
+               registry: registry
+             })
 
     assert {:ok, denied_fill} =
              Runner.run(
                "browser_fill",
                %{session_id: started.session_id, selector: "input[name=email]", value: "raw"},
-               %{}
+               %{registry: registry}
              )
 
     assert denied_fill.status == :denied
@@ -295,7 +346,7 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
              Runner.run(
                "browser_download",
                %{session_id: started.session_id, url: "https://example.com/file.pdf"},
-               %{}
+               %{registry: registry}
              )
 
     assert denied_download.status == :denied
@@ -318,7 +369,7 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
                  selector: "input[name=email]",
                  value: "raw@example.com"
                },
-               %{}
+               %{registry: registry}
              )
 
     assert pending_fill.status == :needs_confirmation
@@ -332,7 +383,7 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
                  selector: "input[name=email]",
                  value: "raw@example.com"
                },
-               %{confirmation: %{approved?: true}}
+               %{confirmation: %{approved?: true}, registry: registry}
              )
 
     assert filled.status == :completed
@@ -342,7 +393,7 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
              Runner.run(
                "browser_download",
                %{session_id: started.session_id, url: "https://example.com/file.pdf"},
-               %{}
+               %{registry: registry}
              )
 
     assert pending_download.status == :needs_confirmation
@@ -355,21 +406,21 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
                  url: "https://example.com/file.pdf",
                  filename: "file.pdf"
                },
-               %{confirmation: %{approved?: true}}
+               %{confirmation: %{approved?: true}, registry: registry}
              )
 
     assert downloaded.status == :completed
     assert downloaded.download.download_ref =~ "cache://browser/#{started.session_id}/"
   end
 
-  test "navigation preflight denies private hosts before session call" do
-    assert {:ok, _doctor} = Runner.run("browser_doctor", %{}, %{})
+  test "navigation preflight denies private hosts before session call", %{registry: registry} do
+    assert {:ok, _doctor} = Runner.run("browser_doctor", %{}, %{registry: registry})
 
     assert {:ok, response} =
              Runner.run(
                "browser_navigate",
                %{session_id: "missing", url: "https://127.0.0.1/status"},
-               %{confirmation: %{approved?: true}}
+               %{confirmation: %{approved?: true}, registry: registry}
              )
 
     assert response.status == :denied

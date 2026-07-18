@@ -7,6 +7,7 @@ defmodule AllbertAssist.DevGates.PhaseRunner do
   """
 
   alias AllbertAssist.DevGates.OutputTail
+  alias AllbertAssist.DevGates.TestMetrics
 
   @default_tail_limit 12_000
 
@@ -142,6 +143,14 @@ defmodule AllbertAssist.DevGates.PhaseRunner do
       opts,
       "==> #{gate} #{phase.id} finished in #{duration_ms(started_at, finished_at)}ms status=#{status}"
     )
+
+    TestMetrics.record(%{
+      gate: gate,
+      phase_or_step: phase.id,
+      status: status,
+      wall_ms: duration_ms(started_at, finished_at),
+      output: output
+    })
 
     %{
       id: phase.id,

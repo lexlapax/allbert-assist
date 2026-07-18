@@ -13,6 +13,7 @@ defmodule AllbertAssist.Workspace.Catalog do
 
   alias AllbertAssist.App.CoreApp
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.Persistence
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Catalog, as: SurfaceCatalog
@@ -236,9 +237,8 @@ defmodule AllbertAssist.Workspace.Catalog do
 
   defp app_label(_app), do: "Allbert"
 
-  defp field(map, key, fallback) when is_map(map) do
-    Map.get(map, key) || Map.get(map, Atom.to_string(key), fallback)
-  end
+  defp field(map, key, fallback) when is_map(map),
+    do: Maps.field_truthy(map, key, fallback)
 
   defp panel_context(context) do
     catalogs = Map.get(context, :surface_catalogs, %{})

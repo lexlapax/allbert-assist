@@ -6,6 +6,8 @@ defmodule AllbertAssist.Confirmations.PackageInstallMetadata do
   approvals still resume only through `approve_confirmation`.
   """
 
+  alias AllbertAssist.Maps
+
   @doc "Return true when a confirmation targets v0.10 package execution."
   @spec package_confirmation?(map()) :: boolean()
   def package_confirmation?(confirmation) when is_map(confirmation) do
@@ -132,9 +134,7 @@ defmodule AllbertAssist.Confirmations.PackageInstallMetadata do
 
   defp blank?(value), do: value in [nil, ""]
 
-  defp field(map, key) when is_map(map) do
-    Map.get(map, key) || Map.get(map, String.to_atom(key))
-  end
+  defp field(map, key) when is_map(map), do: Maps.field_truthy(map, key)
 
   defp action_name(action), do: field(action, "name")
 end

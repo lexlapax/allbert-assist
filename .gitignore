@@ -58,3 +58,7 @@ Thumbs.db
 # Keep the entire `.claude/` directory local to each machine; selectively
 # allow specific shared files if needed.
 /.claude/
+
+# Test-run metrics raw store (v1.0.2 M8.1); the committed summary lives in
+# docs/validation/test-metrics/.
+/.test_metrics/

@@ -1659,7 +1659,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   defp normalize_kind(kind), do: to_string(kind)
 
   defp metadata_value(metadata, key) when is_map(metadata) do
-    Map.get(metadata, key) || Map.get(metadata, Atom.to_string(key))
+    AllbertAssist.Maps.field_truthy(metadata, key)
   end
 
   defp metadata_value(_metadata, _key), do: nil
@@ -2155,7 +2155,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   defp default_value(value, _default), do: value
 
   defp capture_value(map, key) when is_map(map) do
-    Map.get(map, key) || Map.get(map, Atom.to_string(key))
+    AllbertAssist.Maps.field_truthy(map, key)
   end
 
   defp setting(settings, key, default) do

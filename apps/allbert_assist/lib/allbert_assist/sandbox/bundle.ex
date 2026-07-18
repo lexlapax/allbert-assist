@@ -390,7 +390,7 @@ defmodule AllbertAssist.Sandbox.Bundle do
   end
 
   defp value(map, key) do
-    Map.get(map, key) || Map.get(map, Atom.to_string(key))
+    AllbertAssist.Maps.field_truthy(map, key)
   end
 
   defp error(reason), do: %{status: :denied, reason: reason, diagnostics: [%{reason: reason}]}

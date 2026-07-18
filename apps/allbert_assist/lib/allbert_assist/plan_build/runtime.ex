@@ -9,6 +9,7 @@ defmodule AllbertAssist.PlanBuild.Runtime do
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Maps
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.{Engine, Objective, Step}
   alias AllbertAssist.Security.PermissionGate
@@ -602,6 +603,5 @@ defmodule AllbertAssist.PlanBuild.Runtime do
 
   defp trace_id(context), do: field(context, :trace_id)
 
-  defp field(map, key) when is_map(map),
-    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
+  defp field(map, key) when is_map(map), do: Maps.field_truthy(map, key)
 end

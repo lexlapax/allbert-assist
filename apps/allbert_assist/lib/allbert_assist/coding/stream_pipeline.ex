@@ -9,6 +9,7 @@ defmodule AllbertAssist.Coding.StreamPipeline do
   """
 
   alias AllbertAssist.Coding.StreamEvent
+  alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime.Response
 
@@ -150,7 +151,5 @@ defmodule AllbertAssist.Coding.StreamPipeline do
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
-  defp field(map, key) when is_map(map) do
-    Map.get(map, key) || Map.get(map, Atom.to_string(key))
-  end
+  defp field(map, key) when is_map(map), do: Maps.field_truthy(map, key)
 end

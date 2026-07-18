@@ -131,9 +131,10 @@ defmodule AllbertAssist.Channels do
     end
   end
 
-  @spec list_channels() :: [map()]
-  def list_channels do
-    PluginRegistry.registered_channels()
+  @spec list_channels(keyword()) :: [map()]
+  def list_channels(opts \\ []) do
+    opts
+    |> PluginRegistry.registered_channels()
     |> Enum.sort_by(&channel_order/1)
     |> Enum.map(&channel_summary/1)
   end

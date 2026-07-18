@@ -13,6 +13,7 @@ defmodule AllbertAssist.Conversations.ChannelThread do
   alias AllbertAssist.Conversations.CrossChannelIdentityLink
   alias AllbertAssist.Conversations.Message
   alias AllbertAssist.Conversations.ThreadChannelRef
+  alias AllbertAssist.Maps
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime.Redactor
 
@@ -785,9 +786,7 @@ defmodule AllbertAssist.Conversations.ChannelThread do
     end)
   end
 
-  defp field(attrs, key) do
-    Map.get(attrs, key) || Map.get(attrs, Atom.to_string(key))
-  end
+  defp field(attrs, key), do: Maps.field_truthy(attrs, key)
 
   defp to_attrs(attrs) when is_map(attrs), do: attrs
   defp to_attrs(attrs) when is_list(attrs), do: Map.new(attrs)

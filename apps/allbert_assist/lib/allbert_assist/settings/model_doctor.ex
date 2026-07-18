@@ -8,6 +8,7 @@ defmodule AllbertAssist.Settings.ModelDoctor do
   """
 
   alias AllbertAssist.External.TLS
+  alias AllbertAssist.Maps
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.DoctorDiagnostics
   alias AllbertAssist.Settings.ProviderCatalog
@@ -678,8 +679,5 @@ defmodule AllbertAssist.Settings.ModelDoctor do
   defp maybe_put(options, _key, nil), do: options
   defp maybe_put(options, key, value), do: Keyword.put(options, key, value)
 
-  defp field(map, key, fallback) when is_map(map),
-    do: Map.get(map, key) || Map.get(map, Atom.to_string(key), fallback)
-
-  defp field(_value, _key, fallback), do: fallback
+  defp field(map, key, fallback), do: Maps.field_truthy(map, key, fallback)
 end

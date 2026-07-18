@@ -292,7 +292,7 @@ defmodule AllbertAssist.Runtime do
   end
 
   defp fetch_value(attrs, key) do
-    Map.get(attrs, key) || Map.get(attrs, Atom.to_string(key))
+    AllbertAssist.Maps.field_truthy(attrs, key)
   end
 
   defp normalize_channel_thread_ref(channel, attrs) do

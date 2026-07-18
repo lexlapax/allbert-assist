@@ -13,6 +13,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test partition-smoke [--partitions N]
       mix allbert.test serial-core --lane LANE [--partitions N]
       mix allbert.test param-contract-sweep
+      mix allbert.test metrics [--ingest-campaign DIR]
       mix allbert.test release
       mix allbert.test release.v042
       mix allbert.test release.v043
@@ -46,6 +47,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v066
       mix allbert.test release.v1
       mix allbert.test release.v101
+      mix allbert.test release.v102
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
@@ -71,6 +73,7 @@ defmodule Mix.Tasks.Allbert.Test do
   use Mix.Task
 
   alias AllbertAssist.DevGates.PhaseRunner
+  alias AllbertAssist.DevGates.TestMetrics
 
   @shortdoc "Run Allbert developer test gates"
 
@@ -130,6 +133,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["partition-smoke" | rest]), do: partition_smoke(rest)
   def run(["serial-core" | rest]), do: serial_core(rest)
   def run(["param-contract-sweep"]), do: param_contract_sweep()
+  def run(["metrics" | rest]), do: metrics(rest)
   def run(["release"]), do: release()
   def run(["release.v042"]), do: release_v042()
   def run(["release.v043"]), do: release_v043()
@@ -163,6 +167,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v066"]), do: release_v066()
   def run(["release.v1"]), do: release_v1()
   def run(["release.v101"]), do: release_v101()
+  def run(["release.v102"]), do: release_v102()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -464,17 +469,17 @@ defmodule Mix.Tasks.Allbert.Test do
 
     if core_lanes? do
       [:db_serial, :app_env_serial, :home_fs_serial, :global_process_serial]
-      |> Enum.each(&run_serial_partitions!(:core, &1, partitions))
+      |> Enum.each(&run_serial_partitions!("fast-local", :core, &1, partitions))
     end
 
     if stocksage_lanes? do
       [:db_serial, :app_env_serial, :global_process_serial]
-      |> Enum.each(&run_serial_partitions!(:stocksage, &1, partitions))
+      |> Enum.each(&run_serial_partitions!("fast-local", :stocksage, &1, partitions))
     end
 
     if web_lanes? do
       [:liveview_serial]
-      |> Enum.each(&run_serial_partitions!(:web, &1, partitions))
+      |> Enum.each(&run_serial_partitions!("fast-local", :web, &1, partitions))
     end
   end
 
@@ -522,14 +527,15 @@ defmodule Mix.Tasks.Allbert.Test do
       Mix.raise("#{lane} must run as a single-VM serial or external smoke lane")
     end
 
-    run_serial_partitions!(:core, lane, partitions)
+    run_serial_partitions!("serial-core", :core, lane, partitions)
   end
 
-  defp run_serial_partitions!(owner, lane, partitions) do
+  defp run_serial_partitions!(gate, owner, lane, partitions) do
     1..partitions
     |> Enum.map(fn partition ->
       %{
         label: "serial-#{owner} #{lane} p#{partition}/#{partitions}",
+        gate: gate,
         owner: owner,
         partition: partition,
         partitions: partitions,
@@ -568,6 +574,28 @@ defmodule Mix.Tasks.Allbert.Test do
       ],
       env
     )
+  end
+
+  # v1.0.2 M8.1: render the committed metrics summary from the JSONL store;
+  # --ingest-campaign folds pre-recorded seed-campaign logs into the store first.
+  defp metrics(args) do
+    {opts, rest, invalid} = OptionParser.parse(args, strict: [ingest_campaign: :string])
+
+    reject_invalid!(invalid)
+    reject_rest!(rest)
+
+    case Keyword.get(opts, :ingest_campaign) do
+      nil ->
+        :ok
+
+      dir ->
+        dir = Path.expand(dir, root())
+        count = TestMetrics.ingest_campaign!(dir)
+        Mix.shell().info("ingested #{count} seed-campaign record(s) from #{dir}")
+    end
+
+    summary_path = TestMetrics.render_summary!()
+    Mix.shell().info("test metrics summary: #{Path.relative_to(summary_path, root())}")
   end
 
   defp commit_phases do
@@ -5631,6 +5659,14 @@ defmodule Mix.Tasks.Allbert.Test do
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v1 #{step.id}", output)
 
+    TestMetrics.record(%{
+      gate: "release.v1",
+      phase_or_step: step.id,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      wall_ms: duration_ms,
+      output: output
+    })
+
     %{
       id: step.id,
       title: step.title,
@@ -5749,6 +5785,196 @@ defmodule Mix.Tasks.Allbert.Test do
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v101 #{step.id}", output)
+
+    TestMetrics.record(%{
+      gate: "release.v101",
+      phase_or_step: step.id,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      wall_ms: duration_ms,
+      output: output
+    })
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
+  @v102_focused_steps [
+    %{
+      id: "v102_lane_reconciliation",
+      title: "lane taxonomy reconciles: every test file carries exactly one audited primary lane",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "inventory", "--check-tags"],
+      coverage: [
+        "inventory --check-tags exits 0 with zero findings (M1 reconciliation holds; adjudications audited)"
+      ]
+    },
+    %{
+      id: "v102_residue_workspace",
+      title: "residue (a): first-run marker test deterministic in its post-split home",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_onboarding_test.exs:199"
+      ],
+      coverage: [
+        "owned home + db/allbert.sqlite3 marker keeps the completed-onboarding repair panel deterministic (M1 fix (a), M4 home)"
+      ]
+    },
+    %{
+      id: "v102_residue_tui",
+      title:
+        "residue (b): v0.55 TUI channel eval asserts on the turn tail, not absolute positions",
+      cwd: :core,
+      executable: "mix",
+      args: ["test", "test/security/v055_tui_channel_eval_test.exs"],
+      coverage: [
+        "runtime thread reuse cannot flip the eval; security_eval_serial lane contract holds (M1 fix (b))"
+      ]
+    },
+    %{
+      id: "v102_residue_intent_agent",
+      title: "residue (c): intent agent registry baseline is seeded per test",
+      cwd: :core,
+      executable: "mix",
+      args: ["test", "test/allbert_assist/agents/intent_agent_test.exs:62"],
+      coverage: [
+        "registry baseline seeding keeps the exposed-action list deterministic (M1 fix (c))"
+      ]
+    },
+    %{
+      id: "v102_residue_corpus",
+      title: "residue (d): corpus completeness owns its registry seed",
+      cwd: :core,
+      executable: "mix",
+      args: ["test", "test/allbert_assist/intent/eval/corpus_completeness_test.exs"],
+      coverage: ["corpus rows resolve against a seeded registry (M1 fix (d))"]
+    },
+    %{
+      id: "v102_residue_golden",
+      title: "residue (e): golden set re-asserts research descriptors before running",
+      cwd: :core,
+      executable: "mix",
+      args: ["test", "test/allbert_assist/intent/golden_set_test.exs"],
+      coverage: [
+        "ensure_research_descriptors! precondition keeps the golden set order-independent (M1 fix (e))"
+      ]
+    },
+    %{
+      id: "v102_residue_batch_matrix",
+      title: "residue leak pair green in BOTH previously-flipping orders",
+      cwd: :core,
+      executable: "sh",
+      args: [
+        "-c",
+        "MIX_ENV=test mix test test/security/v046_research_delegate_eval_test.exs test/allbert_assist/intent/golden_set_test.exs --seed 0 && MIX_ENV=test mix test test/allbert_assist/intent/golden_set_test.exs test/security/v046_research_delegate_eval_test.exs --seed 0"
+      ],
+      coverage: [
+        "the v046+golden leak pair passes in both recorded prior-failing orders (M1 residue matrix rows 6/7)"
+      ]
+    },
+    %{
+      id: "v102_web_lanes",
+      title: "post-split web lanes run partitioned and green",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "fast-local", "--web-lanes", "--partitions", "4"],
+      coverage: [
+        "the seven M4 split files fold into --web-lanes; the live-Runtime remainder stays out (Locked Decision 5)"
+      ]
+    },
+    %{
+      id: "v102_deps_migration_backup",
+      title:
+        "M7 wave-2 persistence layer: migration serialization and backup/restore hold on ecto 3.14 + exqlite 0.39",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/database_test.exs",
+        "test/allbert_assist/database_backup_test.exs"
+      ],
+      coverage: [
+        "startup migrations serialize concurrent first-boot attempts and backup-before-migrate restores on the refreshed ecto/exqlite pack"
+      ]
+    },
+    %{
+      id: "v102_deps_workflows",
+      title: "M7 wave-1 jsv 0.21 still validates the workflow YAML surface",
+      cwd: :core,
+      executable: "mix",
+      args: ["test", "test/allbert_assist/workflows"],
+      coverage: ["workflow schema/validator suites green on jsv 0.21.2"]
+    }
+  ]
+
+  @release_v102_steps @release_v1_steps ++ @v102_focused_steps
+
+  defp release_v102 do
+    env = owned_env("release-v102", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v102")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v102_steps, &run_release_v102_step(&1, env))
+
+    status = if Enum.all?(results, &(&1.status == "passed")), do: "passed", else: "failed"
+
+    evidence = %{
+      gate: "mix allbert.test release.v102",
+      version: "v1.0.2",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; the release.v1 freeze/product-RC prefix re-runs unchanged, then the v1.0.2 focused steps prove lane reconciliation, the five de-flaked residues (solo + both batch orders), the post-split web lanes, and the refreshed dependency surfaces deterministically. Packaged artifact validation is M9 (operator-held, published-artifact attestations).",
+      notes:
+        "v1.0.2 Test Isolation Phase 1 & Catch-up Binary Release: steps = the release.v1 quintet plus focused v1.0.2 steps (lane reconciliation, residue solos + batch matrix, web-lane fold, M7 dependency proofs).",
+      steps: results
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v102-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v102 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v102 failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v102_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v102 #{step.id}", output)
+
+    TestMetrics.record(%{
+      gate: "release.v102",
+      phase_or_step: step.id,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      wall_ms: duration_ms,
+      output: output
+    })
 
     %{
       id: step.id,
@@ -7301,6 +7527,7 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_serial_partition(%{
          label: label,
+         gate: gate,
          owner: owner,
          env: env,
          lane: lane,
@@ -7310,6 +7537,7 @@ defmodule Mix.Tasks.Allbert.Test do
     env = [{"MIX_TEST_PARTITION", to_string(partition)} | env]
     test_paths = serial_lane_paths(owner, lane)
     validate_serial_lane_paths!(owner, test_paths)
+    started = System.monotonic_time(:millisecond)
 
     output =
       with {migrate_output, 0} <-
@@ -7330,7 +7558,9 @@ defmodule Mix.Tasks.Allbert.Test do
                  "--only",
                  Atom.to_string(lane),
                  "--max-cases",
-                 "1"
+                 "1",
+                 "--slowest",
+                 "10"
                ] ++ test_paths,
                cd: app_cwd(owner),
                env: env,
@@ -7350,8 +7580,30 @@ defmodule Mix.Tasks.Allbert.Test do
         {output, status} -> {:error, label, status, output}
       end
 
+    record_serial_partition_metrics(gate, lane, partition, partitions, started, output)
     cleanup_owned_env(env)
     output
+  end
+
+  # v1.0.2 M8.1: one metrics record per lane partition VM run; recording is
+  # best-effort inside TestMetrics.record/1 and can never fail the gate.
+  defp record_serial_partition_metrics(gate, lane, partition, partitions, started, result) do
+    {status, output} =
+      case result do
+        {:ok, _label, output} -> {"passed", output}
+        {:error, _label, _exit_status, output} -> {"failed", output}
+      end
+
+    TestMetrics.record(%{
+      gate: gate,
+      phase_or_step: "serial-#{lane}",
+      lane: Atom.to_string(lane),
+      partition: partition,
+      partitions: partitions,
+      status: status,
+      wall_ms: System.monotonic_time(:millisecond) - started,
+      output: output
+    })
   end
 
   defp empty_partition_output?(output, test_paths) do
@@ -7849,6 +8101,12 @@ defmodule Mix.Tasks.Allbert.Test do
   defp validate_partitions!(partitions) when is_integer(partitions) and partitions > 0, do: :ok
   defp validate_partitions!(_partitions), do: Mix.raise("--partitions must be a positive integer")
 
+  # v1.0.2 M8.3 item 2: per-owner core-p6 tuning was applied, measured on the
+  # final tree (quick 464s/1,797, high 947s/2,119, prepush 965s/2,119 — all
+  # green), and REVERTED: M8.2's solo-lane p6 gains (db 191.3->148.4s,
+  # app_env 155.2->115.3s) did not replicate in-gate (db p6 max-partition wall
+  # 188.1s vs p4 185.9s; app_env 160.4s vs 152.7s; home_fs 38.7s vs 29.1s) and
+  # the gate walls stayed neutral, so the uniform p4 default stands.
   defp default_partition_count do
     System.schedulers_online()
     |> min(4)
@@ -7881,6 +8139,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test partition-smoke [--partitions N]
       mix allbert.test serial-core --lane LANE [--partitions N]
       mix allbert.test param-contract-sweep
+      mix allbert.test metrics [--ingest-campaign DIR]
       mix allbert.test release
       mix allbert.test release.v042
       mix allbert.test release.v043
@@ -7914,6 +8173,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v066
       mix allbert.test release.v1
       mix allbert.test release.v101
+      mix allbert.test release.v102
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate

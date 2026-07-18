@@ -6,6 +6,8 @@ defmodule AllbertAssist.Confirmations.ExternalRequestMetadata do
   not own network policy, approval, storage, or execution.
   """
 
+  alias AllbertAssist.Maps
+
   def external_confirmation?(confirmation) when is_map(confirmation) do
     get_in(confirmation, ["target_action", "name"]) == "external_network_request"
   end
@@ -131,9 +133,7 @@ defmodule AllbertAssist.Confirmations.ExternalRequestMetadata do
     Enum.reject(items, fn {_label, value} -> value in [nil, ""] end)
   end
 
-  defp field(map, key) when is_map(map) do
-    Map.get(map, key) || Map.get(map, String.to_atom(key))
-  end
+  defp field(map, key) when is_map(map), do: Maps.field_truthy(map, key)
 
   defp action_name(action), do: field(action, "name")
 end

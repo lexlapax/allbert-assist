@@ -27,6 +27,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Coding.Config, as: CodingConfig
   alias AllbertAssist.Coding.StreamingTurn
+  alias AllbertAssist.Maps
   alias AllbertAssist.Memory.ActiveMemory
   alias AllbertAssist.Resources.{ImageBounds, ImageMetadata}
   alias AllbertAssist.Runtime.Redactor
@@ -496,9 +497,5 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
     end)
   end
 
-  defp field(map, key) when is_map(map) and is_atom(key) do
-    Map.get(map, key) || Map.get(map, Atom.to_string(key))
-  end
-
-  defp field(_map, _key), do: nil
+  defp field(map, key), do: Maps.field_truthy(map, key)
 end

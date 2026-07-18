@@ -50,6 +50,22 @@ defmodule AllbertAssist.Session.AppIdTest do
     assert {:error, :unknown_app} = AppId.normalize(:not_registered_app_id_for_test)
   end
 
+  test "normalize_or wraps failures with the caller's error shape" do
+    # v1.0.2 M8.3: single source for the Handoff/Descriptor/Candidate
+    # normalize-or-error variants — success passes through, failure (unknown
+    # app or registry exit) returns the caller-wrapped error term.
+    assert {:ok, :stocksage} = AppId.normalize_or(:stocksage, [], &{:invalid_app_id, &1})
+    assert {:ok, nil} = AppId.normalize_or(nil, [], &{:invalid_app_id, &1})
+
+    assert {:error, {:invalid_app_id, :unknown_app}} =
+             AppId.normalize_or(:not_registered_app_id_for_test, [], &{:invalid_app_id, &1})
+
+    app_id = "__allbert_unknown_app_#{System.unique_integer([:positive])}__"
+
+    assert {:error, {:unknown_app_id, ^app_id}} =
+             AppId.normalize_or(app_id, [], fn _reason -> {:unknown_app_id, app_id} end)
+  end
+
   test "labels only known registered atoms" do
     assert AppId.label(nil) == "none"
     assert AppId.label(:allbert) == "allbert"

@@ -34,6 +34,7 @@ defmodule AllbertAssist.Actions.Calendar.CreateCalendarEvent do
     ]
 
   alias AllbertAssist.Actions.Outbound.Gate
+  alias AllbertAssist.Maps
   alias AllbertAssist.Mcp.Client, as: McpClient
   alias AllbertAssist.Mcp.ServerConfig
   alias AllbertAssist.Settings
@@ -143,6 +144,5 @@ defmodule AllbertAssist.Actions.Calendar.CreateCalendarEvent do
     end
   end
 
-  defp field(map, key) when is_map(map), do: Map.get(map, key) || Map.get(map, to_string(key))
-  defp field(_map, _key), do: nil
+  defp field(map, key), do: Maps.field_truthy(map, key)
 end

@@ -7,6 +7,7 @@ defmodule AllbertAssist.Actions.Runner do
   alias AllbertAssist.Actions.ParamContract
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Capabilities.ReleaseAvailability
+  alias AllbertAssist.RegistryContext
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Signals
@@ -24,7 +25,7 @@ defmodule AllbertAssist.Actions.Runner do
   def run(action_or_name, params, context \\ %{})
 
   def run(action_or_name, params, context) when is_map(params) and is_map(context) do
-    case Registry.resolve(action_or_name) do
+    case Registry.resolve(action_or_name, registry_opts(context)) do
       {:ok, action_module} ->
         run_registered(action_module, params, context)
 
@@ -49,7 +50,7 @@ defmodule AllbertAssist.Actions.Runner do
     runner_context = runner_context(context, action_module, requested_signal)
 
     response =
-      case release_availability_check(action_name, action_module) do
+      case release_availability_check(action_name, action_module, registry_opts(context)) do
         :ok -> app_scope_or_run(action_module, params, runner_context)
         {:denied, response} -> {:ok, response}
       end
@@ -125,6 +126,15 @@ defmodule AllbertAssist.Actions.Runner do
       {:denied, response} -> {:ok, response}
     end
   end
+
+  # v1.0.2 M8.2 (ADR 0082): the internal registry context rides the action
+  # context map under `:registry` (mirroring `selected_skill`/`action_capability`
+  # — never serialized params) so Runner registry reads resolve against the same
+  # registries the caller holds. Production callers pass nothing.
+  defp registry_opts(%{registry: registry}) when is_list(registry),
+    do: RegistryContext.take(registry)
+
+  defp registry_opts(_context), do: []
 
   defp runner_context(context, action_module, requested_signal) do
     Map.merge(context, %{
@@ -251,15 +261,15 @@ defmodule AllbertAssist.Actions.Runner do
 
   defp action_capability(context, action_module) do
     Map.get(context, :action_capability) ||
-      case Registry.capability(action_module) do
+      case Registry.capability(action_module, registry_opts(context)) do
         {:ok, capability} -> Capability.summary(capability)
         {:error, _reason} -> nil
       end
   end
 
-  defp release_availability_check(action_name, action_module) do
+  defp release_availability_check(action_name, action_module, registry) do
     action_module
-    |> release_refs(action_name)
+    |> release_refs(action_name, registry)
     |> Enum.find_value(:ok, fn ref ->
       case ReleaseAvailability.ensure_live_use_allowed(ref) do
         :ok ->
@@ -271,9 +281,9 @@ defmodule AllbertAssist.Actions.Runner do
     end)
   end
 
-  defp release_refs(action_module, action_name) do
+  defp release_refs(action_module, action_name, registry) do
     capability =
-      case Registry.capability(action_module) do
+      case Registry.capability(action_module, registry) do
         {:ok, capability} -> capability
         {:error, _reason} -> %{}
       end
@@ -312,7 +322,7 @@ defmodule AllbertAssist.Actions.Runner do
   end
 
   defp app_scope_check(action_module, context) do
-    case Registry.capability(action_module) do
+    case Registry.capability(action_module, registry_opts(context)) do
       {:ok, %{app_id: expected_app}} when not is_nil(expected_app) ->
         check_active_app_scope(action_module, expected_app, active_app(context))
 

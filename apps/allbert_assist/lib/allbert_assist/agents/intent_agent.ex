@@ -175,6 +175,17 @@ defmodule AllbertAssist.Agents.IntentAgent do
   """
   @spec respond(map()) :: {:ok, map()} | {:error, term()}
   def respond(%{text: text} = request) when is_binary(text) do
+    # v1.0.2 M8.4: the whole intent turn runs under ONE turn-scoped
+    # resolved-settings snapshot (route predicates, Engine.decide, action
+    # execution). A settings write during the turn refreshes the pin
+    # (read-your-own-write); another process's write lands next turn. See
+    # Store.with_resolved_settings/1.
+    Settings.with_resolved_settings(fn -> respond_pinned(text, request) end)
+  end
+
+  def respond(_request), do: {:error, :missing_text}
+
+  defp respond_pinned(text, request) do
     text = String.trim(text)
     context = %{request: request, agent: __MODULE__}
 
@@ -198,8 +209,6 @@ defmodule AllbertAssist.Agents.IntentAgent do
         {:ok, invalid_decision_response(reason, text, context)}
     end
   end
-
-  def respond(_request), do: {:error, :missing_text}
 
   defp engine_request(request, route, %Decision{} = decision) do
     force_direct_answer? = route == :direct_answer and job_channel?(%{request: request})

@@ -8,6 +8,7 @@ defmodule AllbertAssist.Voice.LocalRuntime do
   through the existing voice actions and local provider adapter.
   """
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Voice.LocalRuntime.Config
 
   def doctor(opts \\ []) do
@@ -117,5 +118,5 @@ defmodule AllbertAssist.Voice.LocalRuntime do
     |> Enum.uniq()
   end
 
-  defp field(map, "model"), do: Map.get(map, "model") || Map.get(map, :model)
+  defp field(map, "model"), do: Maps.field_truthy(map, "model")
 end

@@ -19,6 +19,7 @@ defmodule AllbertAssist.Actions.PlanBuild.CancelPlanRun do
     output_schema: []
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Maps
 
   @impl true
   def run(params, context) do
@@ -31,5 +32,5 @@ defmodule AllbertAssist.Actions.PlanBuild.CancelPlanRun do
     end
   end
 
-  defp field(map, key), do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
+  defp field(map, key), do: Maps.field_truthy(map, key)
 end

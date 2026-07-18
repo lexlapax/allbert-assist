@@ -173,7 +173,7 @@ defmodule AllbertAssist.Workspace.Fragment.Body do
 
   defp decode_binding(_attrs), do: {:error, :invalid_fragment_body}
 
-  defp value(map, key), do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
+  defp value(map, key), do: AllbertAssist.Maps.field_truthy(map, key)
 
   defp map_value(value) when is_map(value), do: {:ok, value}
   defp map_value(_value), do: {:error, :invalid_fragment_body}

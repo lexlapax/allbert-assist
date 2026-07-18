@@ -376,7 +376,7 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
   end
 
   defp map_value(map, key) when is_atom(key) do
-    Map.get(map, key) || Map.get(map, Atom.to_string(key))
+    AllbertAssist.Maps.field_truthy(map, key)
   end
 
   defp map_value(map, key) when is_binary(key) do

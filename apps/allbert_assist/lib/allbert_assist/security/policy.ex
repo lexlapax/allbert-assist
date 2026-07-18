@@ -3,6 +3,7 @@ defmodule AllbertAssist.Security.Policy do
   Settings-backed policy lookup with v0.05 built-in safety floors.
   """
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Schema
 
@@ -564,8 +565,7 @@ defmodule AllbertAssist.Security.Policy do
     _exception -> default
   end
 
-  defp field(map, key) when is_map(map),
-    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
+  defp field(map, key) when is_map(map), do: Maps.field_truthy(map, key)
 
   defp configured_policy(permission) do
     setting_key = Map.get(@permission_settings, permission)

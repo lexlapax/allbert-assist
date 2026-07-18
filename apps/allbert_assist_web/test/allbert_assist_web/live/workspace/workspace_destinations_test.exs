@@ -135,8 +135,11 @@ defmodule AllbertAssistWeb.WorkspaceDestinationsTest do
       live(conn, ~p"/workspace?thread_id=#{thread.id}&destination=workspace:memory")
 
     # Reaches the interactive memory panel and lists the unreviewed candidates.
+    # v1.0.2 M8.6 drift-fix: the memory card loads candidates asynchronously
+    # (force_load?), so wait for the loaded content instead of racing the
+    # first render (the recorded first-roll liveview flake family).
     assert has_element?(view, "#workspace-memory-panel")
-    assert render(view) =~ "Keep this milestone note."
+    assert render_until(view, "Keep this milestone note.")
     refute render(view) =~ "Bob should not appear here."
 
     # Keep dispatches review_memory_entry status=kept.

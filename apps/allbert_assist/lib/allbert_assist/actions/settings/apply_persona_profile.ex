@@ -40,6 +40,7 @@ defmodule AllbertAssist.Actions.Settings.ApplyPersonaProfile do
     ]
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Maps
   alias AllbertAssist.Personas
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
@@ -305,10 +306,7 @@ defmodule AllbertAssist.Actions.Settings.ApplyPersonaProfile do
     |> Map.put(:permission_decision, permission_decision)
   end
 
-  defp field(map, key) when is_map(map),
-    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
-
-  defp field(_value, _key), do: nil
+  defp field(map, key), do: Maps.field_truthy(map, key)
 
   # The persona being applied on resume must match the one the operator reviewed
   # (carried in the confirmation's params_summary). If the record carries no reviewed

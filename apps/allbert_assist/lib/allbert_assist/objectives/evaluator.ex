@@ -7,6 +7,7 @@ defmodule AllbertAssist.Objectives.Evaluator do
   work.
   """
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Objective
 
@@ -149,9 +150,7 @@ defmodule AllbertAssist.Objectives.Evaluator do
 
   defp field(%_struct{} = struct, key), do: Map.get(struct, key)
 
-  defp field(map, key) when is_map(map) do
-    Map.get(map, key) || Map.get(map, Atom.to_string(key))
-  end
+  defp field(map, key) when is_map(map), do: Maps.field_truthy(map, key)
 
   defp field(_value, _key), do: nil
 end

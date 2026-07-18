@@ -9,6 +9,7 @@ defmodule AllbertAssist.Coding.CommandGrants do
   """
 
   alias AllbertAssist.Coding.Config
+  alias AllbertAssist.Maps
   alias AllbertAssist.Resources.Grants
   alias AllbertAssist.Resources.ResourceURI
 
@@ -436,9 +437,8 @@ defmodule AllbertAssist.Coding.CommandGrants do
   defp attrs_map(attrs) when is_map(attrs), do: attrs
   defp attrs_map(attrs) when is_list(attrs), do: Map.new(attrs)
 
-  defp field(map, key, default \\ nil) when is_map(map) do
-    Map.get(map, key) || Map.get(map, to_string(key)) || default
-  end
+  defp field(map, key, default \\ nil) when is_map(map),
+    do: Maps.field_truthy(map, key) || default
 
   defp present?(value), do: value not in [nil, ""]
 end

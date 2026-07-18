@@ -48,7 +48,7 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Budget do
   end
 
   defp integer_field(map, key, default) do
-    value = Map.get(map, key) || Map.get(map, Atom.to_string(key))
+    value = AllbertAssist.Maps.field_truthy(map, key)
 
     cond do
       is_integer(value) and value >= 0 ->
