@@ -47,10 +47,10 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    then fans out background agents/actions, streams their status, joins on
    completion, and reports to the originating caller — chat channels stay
    open, and mid-flight input is contextually routed as steering vs a new
-   request. The two-phase receipt/start contract applies to fan-out-capable
-   chat, CLI, and Job callers; work never starts before the caller confirms
-   that the kickoff was delivered or durably recorded. Frozen OpenAI/ACP
-   protocols remain synchronous single-turn in 1.1.
+   request. The two-phase receipt/start contract applies to every Runtime
+   caller; work never starts before the caller confirms that the kickoff was
+   delivered or durably recorded. OpenAI/ACP requests hold until join —
+   the report arrives in-band with a timeout fallback, no wire change.
    Builds on the delegate-agent substrate, Objectives channel attribution, and
    the intent engine; later minors' background jobs build on it. Carries the
    merged mid-action interruption + child-process cancellation enablers and

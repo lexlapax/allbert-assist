@@ -72,7 +72,12 @@ nothing and follows the existing no-confirmation precedent of
    execution uses the container runtime's stop/kill while preserving the same
    scoped-handle contract inside the namespace.
    A supervised `Execution.ProcessOwner`, independent of RunServer, owns each
-   helper port and registers by run/execution id. Cancellation addresses the
+   helper port: children of a new `Execution.ProcessOwners` DynamicSupervisor
+   (`restart: :temporary`, an application-tree sibling of the execution
+   runners — NOT under `Objectives.Runs.Supervisor`, since coding turns and
+   direct commands use the same helper), registered in a unique
+   `Execution.ProcessRegistry` keyed `{:execution, execution_id}`.
+   Cancellation addresses the
    owner before terminating RunServer. Helper control-channel EOF triggers
    TERM→KILL cleanup, so owner or BEAM failure cannot orphan the group; no
    recovery path reconstructs authority from a stale OS pid.

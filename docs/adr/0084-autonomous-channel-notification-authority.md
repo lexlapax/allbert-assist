@@ -102,7 +102,8 @@ and gate-bound abuse-case coverage.
    address**. A target that does not resolve to the objective owner's mapped
    identity on the origin channel is denied. Every decision — delivered,
    suppressed (with reason), failed — emits
-   `allbert.channels.notify.{delivered,suppressed,failed}`. Operational state
+   `allbert.channels.notify.{delivered,suppressed,failed,uncertain}`.
+   Operational state
    is persisted in an additive delivery ledger; redacted append-only operator
    evidence is written through `Runtime.Audit :channel_notify` to monthly
    files at `<ALLBERT_HOME>/channels/notify/audit/YYYY-MM.md`; the matching
@@ -215,7 +216,9 @@ and gate-bound abuse-case coverage.
   sends suppress retry — green. ADR flips Accepted here.
 - v1.1 M10: `:v11` eval rows bound into `release.v11`
   (`fanout-notify-default-off-001`, `fanout-notify-cross-user-001`,
-  `fanout-notify-redaction-001`, `fanout-steer-no-approve-001` at minimum).
+  `fanout-notify-redaction-001`, `fanout-steer-no-approve-001`,
+  `fanout-notify-consent-free-text-001` — the Decision 0 control — at
+  minimum).
 - v1.1 M12: per-channel operator validation matrix
   (`docs/plans/v1.1-request-flow.md` §J) — notify OFF silence and notify ON
   behavior attested live on every released, operator-configured channel.

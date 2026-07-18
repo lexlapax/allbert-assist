@@ -60,15 +60,19 @@ on 2026-07-18.
    record delivery state/receipt digest, queue position, run-attempt count,
    review reason, and `join_outcome`. Objectives is authoritative: no queue,
    retry counter, delivery state, or result exists only in process memory.
-2. **Kickoff delivery precedes execution for every fan-out-capable caller.** Framing
+2. **Kickoff delivery precedes execution for every Runtime caller.** Framing
    returns the additive kickoff response plus an opaque, identity-bound,
    single-use start receipt and starts no child. Remote chat acknowledges
-   after transport success, web/TUI after render/print, CLI after output, and
-   Jobs after a durable kickoff
+   after transport success, web/TUI after render/print, public HTTP protocols
+   after response commit, CLI after output, and Jobs after a durable kickoff
    event. Acknowledgement is idempotent and non-authoritative. Failure leaves
    the fan-out blocked for retry or cancellation. A caller without this
    contract fails closed to the existing single-turn path. OpenAI-compatible
-   and ACP remain on their frozen synchronous single-turn paths in 1.1.
+   and ACP requests HOLD until join (plan Locked Decision 17, restored third
+   pass 2026-07-18): response-commit acknowledges, children run, and the
+   response completes with the join report bounded by the request timeout
+   (timeout ⇒ ack + receipt, report via `pending_reports`) — no wire-format
+   change.
 3. **Each child runs in a supervised, temporary, Registry-addressed
    process.** One global `Objectives.Runs.Supervisor` DynamicSupervisor starts
    temporary `RunServer` and `Coordinator` GenServers; the unique Registry
@@ -88,7 +92,9 @@ on 2026-07-18.
    terminal failed. Boot rehydration reconstructs coordinators within the
    existing window. Registered actions declare optional
    `retry_safety: :safe | :unsafe | :unknown`, default `:unknown`; only
-   `:safe` auto-resumes. A possibly committed external effect with
+   `:safe` auto-resumes. M2 sweeps the shipped action catalog so read-only/
+   idempotent actions carry `:safe` from day one — auto-resume must be real,
+   not vacuously absent. A possibly committed external effect with
    no durable observation becomes `blocked`/`uncertain_effect`; explicit
    retry or skip is required.
 6. **Backpressure is fair and reconstructible.** A permanent supervised
@@ -148,10 +154,11 @@ on 2026-07-18.
   observable; round-robin across fan-outs and FIFO within each; Scheduler and
   Coordinator crash reconstruction; Registry keys unique per run; no polling loop anywhere (signal/monitor driven, asserted via the
   signal taxonomy in `docs/plans/v1.1-request-flow.md`).
-- v1.1 M3: every fan-out-capable caller proves no execution before acknowledgement;
+- v1.1 M3: every Runtime caller proves no execution before acknowledgement;
   duplicate acknowledgement is idempotent; delivery failure remains blocked;
   retry/status reuses the receipt after uncertainty; overflow clarifies with
-  no task loss; OpenAI/ACP frozen paths remain unchanged; an uncertain
+  no task loss; OpenAI/ACP hold-until-join proves report-in-band with the
+  timeout fallback to ack + `pending_reports`; an uncertain
   external effect never auto-replays. ADR flips Accepted here.
 - Release: `release.v1` stays green (Tier-1/Tier-2 untouched; runtime
   response gains only additive fields per ADR 0029) and `release.v11` binds
