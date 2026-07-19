@@ -95,46 +95,6 @@ settings migration, legacy-key removal, and any rename.
 
 Deferred at: `roadmap:2850`, `adr/0046:67`, `v0.59-plan:135`, `v1.0-plan:137`.
 
-### Test Suite Speed & Isolation
-
-Class: Must (foundational) (confirmed 2026-07-14) · Effort: L · Slice: 1.0.x incremental (lane-by-lane)
-
-Status: phase 1 SHIPPED in v1.0.2 (closeout write-back 2026-07-19, operator
-intake walk 2026-07-18). Phase-1 measured results (test-strategy.md M1
-baseline + M8 final + 20-seed campaign tables): reconciliation 173→0;
-gates quick 475→442s / high 947→883s / prepush 971→897s; web max-partition
-≈959→≈388s; residue matrix 7/7 deterministic; monolith flake surface
-reduced to the two documented Non-Goal classes (a third — OnboardingTest
-wizard-rewind order dependence — eliminated, 0/20 seeds); full monolith
-≈4.2% faster per seed.
-
-**Phase-2 remainder (measured scoping, metrics store 2026-07-19):** the
-wall-clock floor is now the big serial lanes — `app_env_serial` 116 files,
-`db_serial` 112, `external_runtime_serial` 88 (~590 tests, ~8 min
-single-VM). Store-aggregated hotspots to convert or split first:
-`v056_intent_eval_test` (90.6s agg), `allbert_intent_test` (78.4s),
-`operator_mutation_actions_test` (51.5s), `skill_script_spec_test` (50.4s),
-`dynamic_codegen_eval_test` (45.1s). Conversion seams exist: ADR 0082
-registry injection (adoptable by more serial tests), the engine
-`channel_candidates` seam gaps recorded at v1.0.2 M3/M8.2, and the ADR 0031
-global-read boundary that keeps `browser_actions` in `home_fs_serial`. The
-two monolith-only residual classes (SidebarConsolidation DBConnection
-ownership; ListChannels registry/SurfacePolicy) are also phase-2 targets —
-fixing their global-state ownership converts their neighborhoods to async.
-Awaiting operator slotting.
-
-Full `mix test` carries ~20 pre-existing order-dependent flakes; slowness and
-flakiness share one root cause — global-state tests forced into serial lanes.
-A "test speed + isolation" version was proposed post-v0.52 but the v0.53 slot
-went to the Channel Pack instead, so the work was never planned. The v1.0
-plan records the pre-existing order-dependent intent-battery flakes as
-out-of-scope. Unblocks trustworthy full-suite runs and faster gates for all
-future work.
-
-Deferred at: `v1.0-plan:478` (intent-battery flakes); operator-known
-(~20 order-dependent flakes in full `mix test`); the proposed-but-never-planned
-post-v0.52 "test speed + isolation" version.
-
 ### PermissionGate Deletion / Parity Pass
 
 Class: Must (foundational) (confirmed 2026-07-14) · Effort: M · Slice: 1.1 (not frozen — verified against public-contract-freeze.md)
@@ -1977,7 +1937,7 @@ Deferred at: the v0.45.1 plan (sweep-flagged, no single line ref).
 
 ### Web `external_runtime_serial` Fast-Local Split
 
-Class: Folded (2026-07-14) into Test Suite Speed & Isolation — same workstream; body preserved
+Class: Folded (2026-07-14) into Test Suite Speed & Isolation — same workstream (that entry left the backlog 2026-07-19: phase 1 shipped in v1.0.2, phase 2 planned as `docs/plans/v1.0.3-plan.md`)
 
 Status: planned — `docs/plans/v1.0.2-plan.md` M4 (the WorkspaceLiveTest split; implementation-ready 2026-07-15).
 

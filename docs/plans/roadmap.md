@@ -25,22 +25,29 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    dependency refresh (vendored `:memento` removed, ADR 0050 superseded).
    Plan: [archives/v1.0.1-plan.md](archives/v1.0.1-plan.md) +
    [archives/v1.0.1-request-flow.md](archives/v1.0.1-request-flow.md).
-2. **1.0.2 (planned)** — Test Suite Speed & Isolation phase 1 (residue de-flake,
-   registry injection seams per ADR 0082, lane conversions, the WorkspaceLiveTest
-   web split), v0.58 cleanup tails A+B, Tier-2->Tier-1 promotion ADR 0081, the
-   queued dependency refresh (ecto pair, swoosh, tailwind wrapper, jsv), and the
-   **binary ship that carries the 1.0.1 fixes into the packaged artifact line**
-   (first tap fill since 1.0.0). Plan:
-   [v1.0.2-plan.md](v1.0.2-plan.md) + [v1.0.2-request-flow.md](v1.0.2-request-flow.md)
-   (implementation-ready after the second-pass documentation repair of
-   2026-07-15). The tagged commit includes final measurements, backlog
-   dispositions, accepted ADRs, release docs, and all source gates; publication,
-   packaged validation, then post-tag archive/roadmap administration follow in
-   that order. Later 1.0.x: remaining isolation phases,
-   intent-pipeline refinements (opportunistic), technical-debt train. (The
-   vendored `:memento` removal landed early at 1.0.1's M5 refresh — ADR 0050
-   superseded.)
-3. **1.1 — Asynchronous Background Agent Fan-Out With In-Channel Steering.**
+2. **1.0.2 (SHIPPED as a source commit, 2026-07-19)** — Test Suite Speed &
+   Isolation phase 1 (residue de-flake, registry injection seams per ADR
+   0082, lane conversions, the WorkspaceLiveTest web split, cost-packed
+   partitions, decide-turn remediation −83% cumulative), v0.58 cleanup
+   tails A+B, Tier-2->Tier-1 promotion ADR 0081, and the queued dependency
+   refresh. **Operator decision 2026-07-19: no tag, no artifacts — the
+   catch-up binary decision moved to 1.0.3**; v1.0.0 stays packaged Latest
+   until then. Plan: [v1.0.2-plan.md](v1.0.2-plan.md) +
+   [v1.0.2-request-flow.md](v1.0.2-request-flow.md).
+3. **1.0.3 (planned)** — Test Suite Speed & Isolation phase 2 **and the
+   catch-up binary release**: the five ADR 0086 conversion contracts
+   (sandbox ownership, app-env context, named-process injection, per-test
+   homes, external-runtime partitioning go/no-go), store-ranked serial→async
+   conversion waves, retirement of both monolith-only failure classes at
+   their ownership roots, prefilter tokenization remediation, then the
+   transferred binary publication (tag → CI/cosign → tap 1.0.0→1.0.3 →
+   packaged validation; the artifact line then carries 1.0.1 + 1.0.2 +
+   1.0.3 fixes). Plan: [v1.0.3-plan.md](v1.0.3-plan.md) +
+   [v1.0.3-request-flow.md](v1.0.3-request-flow.md) + ADR 0086. Later
+   1.0.x: intent-pipeline refinements (opportunistic), technical-debt
+   train. (The vendored `:memento` removal landed early at 1.0.1's M5
+   refresh — ADR 0050 superseded.)
+4. **1.1 — Asynchronous Background Agent Fan-Out With In-Channel Steering.**
    (Operator intake 2026-07-18, inserted foundational-first. **Planned:**
    `docs/plans/v1.1-plan.md` + request-flow + ADR 0083/0084/0085.) On a prompt
    that decomposes into multiple tasks, Allbert delivers a kickoff receipt,
@@ -56,26 +63,26 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    merged mid-action interruption + child-process cancellation enablers and
    the app-registry action-boundary membership check (operator-pulled,
    2026-07-18).
-4. **1.2 — Zero-Click First Run.** Chat-ready default with an auto-detected local
+5. **1.2 — Zero-Click First Run.** Chat-ready default with an auto-detected local
    model; onboarding optional and step-addressable; consent ADR; TUI first-run scope
    folded in. Enablers: model chooser/catalog, model fallback/degradation policy.
-5. **1.3 — Long-Term User Memory.** Research phase first (STM/LTM/usage-history onto
+6. **1.3 — Long-Term User Memory.** Research phase first (STM/LTM/usage-history onto
    the Active Memory substrate), then periodic consolidation to reviewable drafts and
    prompt-time context for zero-shot answers. Horizon items: free-form provider URLs,
    non-local bind hardening.
-6. **1.4 — Adaptive Usage Profiling.** System usage memory + distill/suggest jobs +
+7. **1.4 — Adaptive Usage Profiling.** System usage memory + distill/suggest jobs +
    one-click confirmed customizations + effectiveness feedback. Per-role model
    profiles and proactive notifications ride here.
-7. **1.5 / 1.6 — enabler releases.** Migration-runner cluster (runner + telegram/email
+8. **1.5 / 1.6 — enabler releases.** Migration-runner cluster (runner + telegram/email
    settings migration + legacy `intent.*model_profile` removal + automated rollback;
    pulled earlier if any prior release needs a non-additive migration), email OAuth
    (XOAUTH2), MCP 2025-11-25 spec parity, full param-contract enforcement,
    PermissionGate deletion. (Mid-action interruption, child-process
    cancellation, and the app-registry boundary check moved into 1.1.)
-8. **Beyond** — System Memory Distillation is the post-profiling co-flagship
+9. **Beyond** — System Memory Distillation is the post-profiling co-flagship
    candidate; the Won't-now cluster stays in future-features.md with its review
    cadence.
-9. **2.0 horizon — Self-Hosting Development.** Allbert develops Allbert (pi-mode
+10. **2.0 horizon — Self-Hosting Development.** Allbert develops Allbert (pi-mode
    target on its own checkout; plan/build/test/document roles in-product, supervised).
    Its OAuth hosted-LLM providers sub-capability (Claude/OpenAI/Gemini subscription
    plans, not just API keys) lands earlier on the 1.5/1.6 enabler train.
