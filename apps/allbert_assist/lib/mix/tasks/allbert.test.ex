@@ -1192,8 +1192,8 @@ defmodule Mix.Tasks.Allbert.Test do
       executable: "mix",
       args: [
         "test",
-        "test/allbert_assist_web/live/workspace/workspace_destinations_test.exs:256",
-        "test/allbert_assist_web/live/workspace/workspace_settings_central_test.exs:165"
+        "test/allbert_assist_web/live/workspace/workspace_destinations_test.exs",
+        "test/allbert_assist_web/live/workspace/workspace_settings_central_test.exs"
       ],
       coverage: [
         "workspace Marketplace Catalog panel render",
@@ -1402,7 +1402,7 @@ defmodule Mix.Tasks.Allbert.Test do
       executable: "mix",
       args: [
         "test",
-        "test/allbert_assist/dynamic_plugins/codegen_test.exs:392",
+        "test/allbert_assist/dynamic_plugins/codegen_test.exs",
         "test/allbert_assist/dynamic_plugins/loader_test.exs"
       ],
       coverage: [
@@ -3536,12 +3536,10 @@ defmodule Mix.Tasks.Allbert.Test do
         "test/allbert_assist_web/workspace/accessibility_test.exs",
         "test/allbert_assist_web/workspace/responsive_test.exs",
         "test/allbert_assist_web/workspace/renderer_test.exs",
-        "test/allbert_assist_web/live/workspace/workspace_shell_nav_test.exs:16",
-        "test/allbert_assist_web/live/workspace/workspace_destinations_test.exs:296",
-        "test/allbert_assist_web/live/workspace/workspace_shell_nav_test.exs:103",
-        "test/allbert_assist_web/live/workspace/workspace_onboarding_test.exs:249",
-        "test/allbert_assist_web/live/workspace/workspace_onboarding_test.exs:249",
-        "test/allbert_assist_web/live/workspace/workspace_canvas_tiles_test.exs:309"
+        "test/allbert_assist_web/live/workspace/workspace_shell_nav_test.exs",
+        "test/allbert_assist_web/live/workspace/workspace_destinations_test.exs",
+        "test/allbert_assist_web/live/workspace/workspace_onboarding_test.exs",
+        "test/allbert_assist_web/live/workspace/workspace_canvas_tiles_test.exs"
       ],
       coverage: [
         "global tokens, component variants, and shared modal pattern stay enforced",
@@ -5052,8 +5050,7 @@ defmodule Mix.Tasks.Allbert.Test do
       args: [
         "test",
         "apps/allbert_assist_web/test/allbert_assist_web/workspace/first_run_test.exs",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_onboarding_test.exs:199",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_onboarding_test.exs:249"
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_onboarding_test.exs"
       ],
       coverage: [
         "completed onboarding with an unavailable model opens workspace:models",
@@ -5237,7 +5234,7 @@ defmodule Mix.Tasks.Allbert.Test do
       executable: "mix",
       args: [
         "test",
-        "test/allbert_assist/onboarding_test.exs:193"
+        "test/allbert_assist/onboarding_test.exs"
       ],
       coverage: [
         "first_chat_prompts append the shared notes+memory local-knowledge set regardless of applied persona"
@@ -5266,10 +5263,7 @@ defmodule Mix.Tasks.Allbert.Test do
       executable: "mix",
       args: [
         "test",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_destinations_test.exs:45",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_destinations_test.exs:55",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_destinations_test.exs:110",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_destinations_test.exs:120"
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_destinations_test.exs"
       ],
       coverage: [
         "the Notes nav item and workspace:notes destination render the action-backed notes panel with a real note",
@@ -5442,13 +5436,12 @@ defmodule Mix.Tasks.Allbert.Test do
       args: [
         "test",
         # Representative workspace render/dispatch (routing + notes/memory/channels/
-        # settings destinations) — a targeted subset of the ~600-assert file, not the
-        # whole suite, so the gate stays practical (workspace_live_test is 256-1400s).
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_destinations_test.exs:22",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_destinations_test.exs:55",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_destinations_test.exs:120",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_destinations_test.exs:171",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_settings_central_test.exs:9",
+        # settings destinations). M8.11b: full split files, never `file:LINE` — a
+        # stale line pin excludes everything and false-greens the step. The
+        # ~600-assert workspace_live_test monolith stays out entirely, so the gate
+        # stays practical (workspace_live_test is 256-1400s).
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_destinations_test.exs",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_settings_central_test.exs",
         "apps/allbert_assist_web/test/allbert_assist_web/live/jobs_live_test.exs",
         "apps/allbert_assist_web/test/allbert_assist_web/live/objectives_live_test.exs"
       ],
@@ -5779,13 +5772,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v1 #{step.id}", output)
+    status = release_step_status("release.v1", step.id, exit_status, output)
 
     TestMetrics.record(%{
       gate: "release.v1",
       command: gate_command(),
       cwd: Path.relative_to(cwd, root()),
       phase_or_step: step.id,
-      status: if(exit_status == 0, do: "passed", else: "failed"),
+      status: status,
       wall_ms: duration_ms,
       output: output
     })
@@ -5793,7 +5787,7 @@ defmodule Mix.Tasks.Allbert.Test do
     %{
       id: step.id,
       title: step.title,
-      status: if(exit_status == 0, do: "passed", else: "failed"),
+      status: status,
       exit_status: exit_status,
       duration_ms: duration_ms,
       cwd: Path.relative_to(cwd, root()),
@@ -5802,6 +5796,40 @@ defmodule Mix.Tasks.Allbert.Test do
       output_sha256: sha256(output),
       redacted_output_tail: output |> redact_release_output() |> tail(12_000)
     }
+  end
+
+  # M8.11b false-green repair: a release step that exits 0 while its ExUnit
+  # output shows ZERO executed tests is a FALSE GREEN, not a pass — the
+  # recorded failure mode is a stale `file:LINE` pin excluding every test
+  # ("All tests have been excluded." then "0 tests, 0 failures (N excluded)"
+  # with exit 0). Any step whose output carries ExUnit totals must have
+  # executed at least one test; steps that never run ExUnit (format, credo,
+  # dialyzer, docs, file-presence checks) print no totals line and are
+  # judged by exit status alone.
+  @exunit_totals_marker ~r/\b\d+ tests?, \d+ failures?/
+
+  @doc false
+  def release_step_status(gate, step_id, exit_status, output) do
+    cond do
+      exit_status != 0 ->
+        "failed"
+
+      exunit_ran_zero_tests?(output) ->
+        Mix.shell().error(
+          "#{gate} #{step_id}: FAILED — ExUnit executed zero tests " <>
+            "(totals sum to 0; \"All tests have been excluded\" is red, not green)"
+        )
+
+        "failed"
+
+      true ->
+        "passed"
+    end
+  end
+
+  defp exunit_ran_zero_tests?(output) do
+    Regex.match?(@exunit_totals_marker, output) and
+      TestMetrics.sum_exunit_totals(output).tests == 0
   end
 
   # v1.0.1: the point gate is the full v1 freeze/product-RC prefix plus focused
@@ -5908,13 +5936,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v101 #{step.id}", output)
+    status = release_step_status("release.v101", step.id, exit_status, output)
 
     TestMetrics.record(%{
       gate: "release.v101",
       command: gate_command(),
       cwd: Path.relative_to(cwd, root()),
       phase_or_step: step.id,
-      status: if(exit_status == 0, do: "passed", else: "failed"),
+      status: status,
       wall_ms: duration_ms,
       output: output
     })
@@ -5922,7 +5951,7 @@ defmodule Mix.Tasks.Allbert.Test do
     %{
       id: step.id,
       title: step.title,
-      status: if(exit_status == 0, do: "passed", else: "failed"),
+      status: status,
       exit_status: exit_status,
       duration_ms: duration_ms,
       cwd: Path.relative_to(cwd, root()),
@@ -5961,7 +5990,7 @@ defmodule Mix.Tasks.Allbert.Test do
       executable: "mix",
       args: [
         "test",
-        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_onboarding_test.exs:199"
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_onboarding_test.exs"
       ],
       coverage: [
         "owned home + db/allbert.sqlite3 marker keeps the completed-onboarding repair panel deterministic (M1 fix (a), M4 home)"
@@ -5983,7 +6012,7 @@ defmodule Mix.Tasks.Allbert.Test do
       title: "residue (c): intent agent registry baseline is seeded per test",
       cwd: :core,
       executable: "mix",
-      args: ["test", "test/allbert_assist/agents/intent_agent_test.exs:62"],
+      args: ["test", "test/allbert_assist/agents/intent_agent_test.exs"],
       coverage: [
         "registry baseline seeding keeps the exposed-action list deterministic (M1 fix (c))"
       ]
@@ -6102,13 +6131,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v102 #{step.id}", output)
+    status = release_step_status("release.v102", step.id, exit_status, output)
 
     TestMetrics.record(%{
       gate: "release.v102",
       command: gate_command(),
       cwd: Path.relative_to(cwd, root()),
       phase_or_step: step.id,
-      status: if(exit_status == 0, do: "passed", else: "failed"),
+      status: status,
       wall_ms: duration_ms,
       output: output
     })
@@ -6116,7 +6146,7 @@ defmodule Mix.Tasks.Allbert.Test do
     %{
       id: step.id,
       title: step.title,
-      status: if(exit_status == 0, do: "passed", else: "failed"),
+      status: status,
       exit_status: exit_status,
       duration_ms: duration_ms,
       cwd: Path.relative_to(cwd, root()),

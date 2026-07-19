@@ -279,9 +279,85 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert release_v064_steps =~ ~s(id: "v064_web_model_repair")
 
     # v1.0.2 M4: the workspace LiveView monolith split into topic files; the
-    # v0.64 web-repair step now pins the repair-panel test in its new home.
+    # v0.64 web-repair step runs the repair-panel test in its new home.
+    # M8.11b: full file, never `file:LINE` — a stale line pin excludes every
+    # test and false-greens the step.
     assert release_v064_steps =~
-             "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_onboarding_test.exs:199"
+             "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_onboarding_test.exs"
+  end
+
+  # v1.0.2 M8.11b: release.v102 PASSED a step whose stale `file:LINE` pin
+  # (intent_agent_test.exs:62 after the test moved to :83) excluded every
+  # test — ExUnit printed "All tests have been excluded." then
+  # "0 tests, 0 failures (33 excluded)" and exited 0. The repair is
+  # two-sided: no release step may pin a test line, and a zero-executed-test
+  # ExUnit run fails the step even when the command exits 0.
+  describe "release step false-green repair (M8.11b)" do
+    @zero_test_fixture """
+    Running ExUnit with seed: 78230, max_cases: 40
+    Excluding tags: [:test]
+    Including tags: [location: {"test/allbert_assist/agents/intent_agent_test.exs", 62}]
+
+    All tests have been excluded.
+
+    Finished in 0.5 seconds (0.00s async, 0.5s sync)
+    0 tests, 0 failures (33 excluded)
+    """
+
+    test "zero executed ExUnit tests fail a release step despite exit 0" do
+      stderr =
+        capture_io(:stderr, fn ->
+          assert AllbertTestTask.release_step_status(
+                   "release.v102",
+                   "v102_residue_intent_agent",
+                   0,
+                   @zero_test_fixture
+                 ) == "failed"
+        end)
+
+      assert stderr =~ "release.v102 v102_residue_intent_agent"
+      assert stderr =~ "ExUnit executed zero tests"
+    end
+
+    test "executed tests with exit 0 pass; nonzero exit always fails" do
+      passing = "Running ExUnit with seed: 1, max_cases: 40\n33 tests, 0 failures\n"
+      assert AllbertTestTask.release_step_status("release.v102", "step", 0, passing) == "passed"
+      assert AllbertTestTask.release_step_status("release.v102", "step", 2, passing) == "failed"
+    end
+
+    test "multi-run steps sum their totals lines before the zero-test check" do
+      # e.g. the residue batch-matrix step runs `mix test` twice in one sh -c.
+      output = "0 tests, 0 failures (4 excluded)\n5 tests, 0 failures\n"
+      assert AllbertTestTask.release_step_status("release.v102", "step", 0, output) == "passed"
+    end
+
+    test "steps that never run ExUnit are judged by exit status alone" do
+      output = "Checking 412 source files ...\nAnalysis took 3.4 seconds.\n"
+
+      assert AllbertTestTask.release_step_status("release.v1", "credo_strict", 0, output) ==
+               "passed"
+
+      assert AllbertTestTask.release_step_status("release.v1", "credo_strict", 1, output) ==
+               "failed"
+    end
+
+    test "no release step pins a test line (file:LINE selectors are banned)" do
+      task_source =
+        Path.expand("../../../lib/mix/tasks/allbert.test.ex", __DIR__)
+        |> File.read!()
+
+      refute Regex.match?(~r/_test\.exs:\d/, task_source)
+    end
+
+    test "all three point-release step runners route status through the zero-test guard" do
+      task_source =
+        Path.expand("../../../lib/mix/tasks/allbert.test.ex", __DIR__)
+        |> File.read!()
+
+      for gate <- ["release.v1", "release.v101", "release.v102"] do
+        assert task_source =~ ~s{release_step_status("#{gate}", step.id, exit_status, output)}
+      end
+    end
   end
 
   # Post-v1.0.0 (3c6c7230): released version docs live in docs/plans/archives/,

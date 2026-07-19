@@ -76,6 +76,11 @@ Engineering hardening, no new product capability:
   no contract promoted. New `release.v102` gate = the release.v1 quintet plus
   focused v1.0.2 steps (lane reconciliation, residue solos + both batch
   orders, web-lane fold, dependency proofs).
+- **Source/package divergence (M8.11).** v1.0.2 ships with no tag at all — a
+  stronger form of the v1.0.1 `[skip-artifacts]` decision (no tag, no
+  artifacts) — so the Homebrew formula stays on the packaged line:
+  `v1.0.0` remains packaged Latest and the tap's source of truth; v1.0.3
+  advances the formula straight 1.0.0 → 1.0.3 with the catch-up binary.
 
 ## v1.0.1 - Post-1.0 Remediation Point Release
 
