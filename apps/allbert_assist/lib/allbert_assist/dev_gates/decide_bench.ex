@@ -41,6 +41,8 @@ defmodule AllbertAssist.DevGates.DecideBench do
   """
 
   alias AllbertAssist.DevGates.TestMetrics
+  alias AllbertAssist.Intent.Engine
+  alias AllbertAssist.Intent.EvalFixtures
 
   def corpus_id, do: @corpus_id
   def corpus_v1, do: @corpus_v1
@@ -106,8 +108,8 @@ defmodule AllbertAssist.DevGates.DecideBench do
   end
 
   defp decide_turn(text) do
-    request = AllbertAssist.Intent.EvalFixtures.request(text: text)
-    {us, _result} = :timer.tc(fn -> AllbertAssist.Intent.Engine.decide(request) end)
+    request = EvalFixtures.request(text: text)
+    {us, _result} = :timer.tc(fn -> Engine.decide(request) end)
     us / 1000
   end
 end
