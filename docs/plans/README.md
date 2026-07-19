@@ -12,8 +12,8 @@ plan and request-flow documents.
 
 ## Archives
 
-Every released version's plan/request-flow pair (v0.01 through v1.0, plus the v1.0
-handoff) lives in [archives/](archives/). They are shipped-history working records:
+Every released version's plan/request-flow pair (v0.01 through v1.0.2, plus the
+v1.0 handoff) lives in [archives/](archives/). They are shipped-history working records:
 search them for provenance and past decisions; the roadmap and CHANGELOG are the
 authoritative summaries.
 
@@ -21,7 +21,7 @@ authoritative summaries.
 
 - `vX.Y-plan.md` defines release scope, milestones, dependencies, and gates.
 - `vX.Y-request-flow.md` defines operator flows, validation, and evidence.
-- Historical version plans remain in this directory for auditability.
+- Historical version plans move to [archives/](archives/) for auditability.
 - Superseded broad planning notes live in [archives](../archives/README.md).
 
 ## Release Status

@@ -248,17 +248,6 @@ was scoped out rather than completed. Pairs with the Tier-2 posture below.
 
 Deferred at: `v1.0-handoff:87`.
 
-### Tier-2 → Tier-1 Platform Promotion ADR Process
-
-Class: Should (confirmed 2026-07-14) · Effort: S · Slice: 1.0.x, docs-only
-
-Status: planned — `docs/plans/v1.0.2-plan.md` M6 / ADR 0081 (implementation-ready 2026-07-15).
-
-The v1.0 plan names a future ADR-driven process for promoting a Tier-2
-platform (Linux variants, WSL2) to Tier-1 support, without defining it.
-
-Deferred at: `v1.0-plan:373`.
-
 ### Packaging-Trust Re-Parked Exceptions (ADR 0076)
 
 Class: Should (confirmed 2026-07-14) · Effort: M · Slice: verify first — may dissolve to nothing
@@ -1888,31 +1877,6 @@ be reconciled in a later service-worker cleanup with packaged-cache regression p
 
 Deferred at: `v1.0.1-plan` second-pass implementation-readiness audit.
 
-### v0.58 Minor-Cleanup Tail A
-
-Class: Could (confirmed 2026-07-14) · Effort: S · Slice: 1.0.x opportunistic
-
-Status: planned — `docs/plans/v1.0.2-plan.md` M5 (implementation-ready 2026-07-15).
-
-The currently verified mechanical tail: 262 private `field` definitions,
-repeated limit clamps, `"local"`/`"web-local"` identity constants, and
-Objectives links that still leave the consolidated workspace shell.
-
-Deferred at: `v0.58-plan:633-640`.
-
-### v0.58 Minor-Cleanup Tail B
-
-Class: Could (confirmed 2026-07-14) · Effort: S · Slice: 1.0.x opportunistic
-
-Status: planned — `docs/plans/v1.0.2-plan.md` M5 (implementation-ready 2026-07-15).
-
-The currently verified correctness-adjacent tail: the `data-theme=null` check,
-bespoke marketplace/voice `response_error/1`, and `Maps.get_any/3` falsy-value
-semantics. The ErrorExtraction unit test and cited CHANGELOG cleanup already
-exist and are not v1.0.2 work.
-
-Deferred at: `v0.58-plan:636-640`.
-
 ### Legacy `intent.*model_profile` Settings Removal
 
 Class: Should (confirmed 2026-07-14) · Effort: S · Slice: 1.1 — third consumer of the Settings Runtime Migration Runner
@@ -1934,17 +1898,6 @@ Status: parked.
 v0.45.1 deferred an optional developer git-hook installation step.
 
 Deferred at: the v0.45.1 plan (sweep-flagged, no single line ref).
-
-### Web `external_runtime_serial` Fast-Local Split
-
-Class: Folded (2026-07-14) into Test Suite Speed & Isolation — same workstream (that entry left the backlog 2026-07-19: phase 1 shipped in v1.0.2, phase 2 planned as `docs/plans/v1.0.3-plan.md`)
-
-Status: planned — `docs/plans/v1.0.2-plan.md` M4 (the WorkspaceLiveTest split; implementation-ready 2026-07-15).
-
-v0.41 flagged splitting the web `external_runtime_serial` test lane into a
-fast-local portion.
-
-Deferred at: the v0.41 plan (sweep-flagged, no single line ref).
 
 ## Triage Notes
 

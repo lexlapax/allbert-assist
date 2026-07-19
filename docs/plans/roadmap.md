@@ -25,16 +25,20 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    dependency refresh (vendored `:memento` removed, ADR 0050 superseded).
    Plan: [archives/v1.0.1-plan.md](archives/v1.0.1-plan.md) +
    [archives/v1.0.1-request-flow.md](archives/v1.0.1-request-flow.md).
-2. **1.0.2 (source ship pending M8.9-M8.12; no tag — operator final
-   disposition 2026-07-19)** — Test Suite Speed & Isolation phase 1
+2. **1.0.2 — SHIPPED** (implementation evidence SHA `1d41956c`; the
+   administrative closeout commit is source/docs tag `v1.0.2` and carries
+   `[skip-artifacts]`; operator audit accepted 2026-07-19) — Test Suite Speed
+   & Isolation phase 1
    (residue de-flake, registry injection seams per ADR 0082, lane
    conversions, the WorkspaceLiveTest web split, cost-packed partitions,
    measured decide-turn remediation), v0.58 cleanup tails A+B,
    Tier-2->Tier-1 promotion ADR 0081, and the queued dependency refresh.
-   The post-implementation audit's M8.9-M8.12 (no-loss closure, metrics
-   provenance, reconciliation, clean-SHA proof) remain required as
-   ship-commit quality bars; the binary moved to 1.0.3. Plan: [v1.0.2-plan.md](v1.0.2-plan.md) +
-   [v1.0.2-request-flow.md](v1.0.2-request-flow.md).
+   The post-implementation audit's M8.9-M8.12 closed no-loss, metrics
+   provenance, release-state reconciliation, and clean-SHA proof at the
+   implementation evidence commit. No v1.0.2 binary artifacts were produced;
+   the binary moved to 1.0.3.
+   Plan: [v1.0.2-plan.md](archives/v1.0.2-plan.md) +
+   [v1.0.2-request-flow.md](archives/v1.0.2-request-flow.md).
 3. **1.0.3 (planned)** — Test Suite Speed & Isolation phase 2 **and the
    catch-up binary release** (operator final disposition 2026-07-19): the
    five ADR 0086 conversion contracts (sandbox ownership, app-env context,

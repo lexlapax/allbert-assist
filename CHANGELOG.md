@@ -12,12 +12,13 @@ changelog entries or release notes.
 
 ## v1.0.2 - Test Isolation Phase 1
 
-Status: **shipped as a source commit once M8.9-M8.12 close (operator final
-disposition 2026-07-19): no v1.0.2 tag or artifacts — the catch-up binary
-ships at v1.0.3** carrying the v1.0.1 + v1.0.2 + v1.0.3 fixes together.
-M8.9-M8.12 (test-feature equivalence, metrics provenance, release-state
-reconciliation, clean-SHA proof) remain required as ship-commit quality
-bars. v1.0.0 remains packaged Latest until the v1.0.3 tag.
+Status: **released — implementation evidence SHA `1d41956c`; the later
+administrative closeout commit is annotated source/docs tag `v1.0.2` and
+carries `[skip-artifacts]` (operator audit accepted 2026-07-19).** No v1.0.2
+binary artifacts are produced; the catch-up binary ships at v1.0.3 carrying
+the v1.0.1 + v1.0.2 + v1.0.3 fixes together. M8.9-M8.12 closed
+test-feature equivalence, metrics provenance, release-state reconciliation,
+and clean-SHA proof. v1.0.0 remains packaged Latest until the v1.0.3 tag.
 
 Engineering hardening, no new product capability:
 
@@ -76,9 +77,9 @@ Engineering hardening, no new product capability:
   no contract promoted. New `release.v102` gate = the release.v1 quintet plus
   focused v1.0.2 steps (lane reconciliation, residue solos + both batch
   orders, web-lane fold, dependency proofs).
-- **Source/package divergence (M8.11).** v1.0.2 ships with no tag at all — a
-  stronger form of the v1.0.1 `[skip-artifacts]` decision (no tag, no
-  artifacts) — so the Homebrew formula stays on the packaged line:
+- **Source/package divergence (M8.11 plus administrative closeout).** v1.0.2
+  ships with a source/docs tag carrying `[skip-artifacts]` and no binary
+  artifacts, so the Homebrew formula stays on the packaged line:
   `v1.0.0` remains packaged Latest and the tap's source of truth; v1.0.3
   advances the formula straight 1.0.0 → 1.0.3 with the catch-up binary.
 
