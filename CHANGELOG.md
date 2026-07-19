@@ -12,11 +12,12 @@ changelog entries or release notes.
 
 ## v1.0.2 - Test Isolation Phase 1
 
-Status: **shipped as a source commit** (operator decision 2026-07-19): the
-catch-up BINARY release decision moves to v1.0.3, which carries Test
-Isolation Phase 2 and then ships the packaged artifact line (v1.0.1 +
-v1.0.2 fixes included). v1.0.0 stays the packaged Latest until the v1.0.3
-tag; no v1.0.2 tag or artifacts are produced.
+Status: **post-implementation remediation; binary tag pending.** The
+2026-07-19 source-only stop is retained in the plan's Build Progress as an
+operator decision, but the later post-implementation audit reopened the
+Purpose/Definition-of-Done binary acceptance bar. M8.9-M8.12 must close
+test-feature-equivalence, metrics-provenance, and clean-RC evidence before the
+operator-held v1.0.2 tag. v1.0.0 remains packaged Latest until M9 succeeds.
 
 Engineering hardening, no new product capability:
 
@@ -48,7 +49,8 @@ Engineering hardening, no new product capability:
   byte-identical), jsv 0.21.2; ecto 3.14.1 / ecto_sql 3.14.0 /
   ecto_sqlite3 0.24.1 / decimal 3.1.1 with exqlite 0.39.0 accepted on a
   green migration/backup/full-core battery.
-- **Measured speed remediation (M8.8).** Serial test lanes now partition by
+- **Measured speed remediation (M8.8; claims pending M8.10 evidence
+  reconciliation).** Serial test lanes now partition by
   MEASURED per-file cost (greedy bin-pack from the repo test-metrics store)
   instead of ExUnit's name hash — quick gate 444.7→362.3 s (−18.5%) with
   per-lane test totals proven identical. Profiling the intent turn exposed
@@ -56,8 +58,10 @@ Engineering hardening, no new product capability:
   resolution re-normalized the full catalog per lookup (static first-match
   index now answers in O(1)) and redaction scanned sensitive-key fragments
   one at a time (single compiled multi-pattern now) — `Engine.decide`
-  875.6→548.8 ms mean per turn (−37%; −83% cumulative from the v1.0.1
-  baseline 3,158 ms).
+  875.6→548.8 ms mean per turn in the development scratchpad. M8.10 must
+  reproduce and retain these figures through structured identical-command
+  metrics before they become release claims; the former cumulative −83% claim
+  is withdrawn unless its full comparable series is reconstructed.
 - **20-seed full-monolith campaign** (pre/post the isolation work): flake
   surface reduced to the two documented monolith-only Non-Goal classes; a
   third class (onboarding wizard-rewind order dependence) eliminated; full

@@ -861,6 +861,35 @@ from the v1.0.1 baseline: 3,158→549 ms (−83%). Remaining attribution
 (prefilter-class regex tokenization, ~15%/turn) is recorded in the Test
 Suite Speed & Isolation phase-2 entry, not pursued in 1.0.2.
 
+### v1.0.2 Post-Implementation Evidence Audit — 2026-07-19
+
+The audit of `b29340a3..25e55ff0` reopened release evidence before the binary
+tag. Static identities are preserved across the load-bearing topology edits:
+M4 web declarations are 292→292 and M8.7 repository declarations are
+3,200→3,200. Current inventory is 517 files, zero unclassified, zero
+double-counted. These static checks are necessary but not sufficient.
+
+M8.9 must commit an owner/path/module/test/lane/skip/multiplicity manifest and
+prove exact equivalence at M4, M8.7, M8.8, and the final RC. M8.8's existing
+633/648/142/126 table covers only four core lanes even though cost packing is
+used by core, StockSage, and web runners. The proof expands to every affected
+lane. The external-runtime records' 590→587 change is unresolved until the
+three executions are identified as an intentional condition or restored.
+
+M8.10 also tightens the metrics contract. A release-proof record identifies the
+full SHA, dirty-tree state plus tree/diff identity, exact command/cwd, relevant
+environment, host class, partition count, and benchmark corpus. A dirty run
+recorded under its current `HEAD` cannot attest that clean commit. Performance
+claims require identical-command structured pre/post rows; profiling
+scratchpads explain attribution but are not release evidence. The M8.8 quick
+and decide-turn figures remain provisional until this reconciliation, and the
+cumulative decide-turn percentage is not a release claim unless the complete
+comparable series is reconstructed.
+
+M8.12 reruns docs, inventory, precommit, `release.v1`, `release.v102`, and the
+authoritative release gate at one clean candidate SHA. Only records for that
+SHA with `dirty: false`, plus the complete no-loss manifest, permit tagging.
+
 The M3 isolation lock freezes these root derivations for helpers and gates:
 
 | Resource | Required test derivation |
