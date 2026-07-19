@@ -7604,10 +7604,21 @@ defmodule Mix.Tasks.Allbert.Test do
   # test counts (PartitionPacker doc). The same lane files always run —
   # only their partition assignment moves off ExUnit's name hash, which the
   # store measured at 4.4x imbalance on db_serial (39.6/174.7/165.1/52.0 s).
+  # M8.9: a lane's list includes every file carrying that lane's tag at ANY
+  # level (module/describe/test), not just primary-lane files — `--only`
+  # still filters inside the VM, so each test runs exactly once per lane.
+  # This provably restores the pre-M8.8 whole-dir `--only` selection; the
+  # onboarding_test describetag block is the proven counterexample to
+  # primary-lane-only lists.
   defp packed_lane_paths(owner, lane, partitions) do
+    lane_tag = ":#{lane}"
+
     files =
       inventory_records()
-      |> Enum.filter(&(&1.owner == owner and &1.primary_lane == lane))
+      |> Enum.filter(fn record ->
+        record.owner == owner and
+          (record.primary_lane == lane or String.contains?(record.tags, lane_tag))
+      end)
       |> Enum.map(&%{path: relative_test_path(&1.path, owner), test_count: &1.test_count})
 
     PartitionPacker.pack(files, partitions, TestMetrics.file_costs())
@@ -7875,8 +7886,11 @@ defmodule Mix.Tasks.Allbert.Test do
     |> Enum.find(&String.match?(&1, ~r/^  use\s+[A-Za-z0-9_.]+/))
   end
 
+  # M8.9: @describetag included — its omission is how a describe-level lane
+  # tag escaped every inventory check and let packed primary-lane lists drop
+  # 3 tests (the 590→587 delta, root-caused in the plan).
   defp tags(text) do
-    ~r/@(?:module)?tag\s+([^\n]+)/
+    ~r/@(?:module|describe)?tag\s+([^\n]+)/
     |> Regex.scan(text)
     |> Enum.map(fn [_, tag] -> String.trim(tag) end)
   end
