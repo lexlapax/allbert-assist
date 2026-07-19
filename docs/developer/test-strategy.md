@@ -866,10 +866,13 @@ provenance); they stay recorded here as history, not release evidence. The
 cumulative −83% claim is WITHDRAWN as a cross-protocol chain; per operator
 disposition it is re-measured single-protocol — corpus v1 against a clean
 v1.0.1 worktree (`ea7b4219`) and against the clean RC SHA.
-TODO(measured at M8.12): the corpus-v1 pre/post numbers land here from
-those two store-recorded runs. Remaining attribution
-(prefilter-class regex tokenization, ~15%/turn) is recorded in the Test
-Suite Speed & Isolation phase-2 entry, not pursued in 1.0.2.
+MEASURED at M8.12 (2026-07-19, store-cited, single protocol corpus
+`decide-v1`, both rows `dirty: false`): clean v1.0.1 worktree
+(`ea7b4219`) mean 3,257.3 ms / p50 3,425.2; clean v1.0.2 RC
+(`9061c833`) mean 529.6 ms / p50 435.0 — cumulative **−83.7%** across
+the release, replacing the withdrawn cross-protocol chain. Per-stage
+history (M8.4 −67% on its own protocol; M8.8 scratchpad figures) stays
+recorded as superseded context.
 
 ### v1.0.2 Post-Implementation Evidence Audit — 2026-07-19
 
