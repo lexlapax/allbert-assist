@@ -17,6 +17,7 @@ defmodule AllbertAssist.External.TelegramEmailSmokeTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias Ecto.Adapters.SQL.Sandbox
 
   @telegram_required ["ALLBERT_TELEGRAM_BOT_TOKEN", "ALLBERT_TELEGRAM_CHAT_ID"]
@@ -50,7 +51,6 @@ defmodule AllbertAssist.External.TelegramEmailSmokeTest do
 
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
-    original_plugins = PluginRegistry.registered_plugins()
 
     Application.put_env(:allbert_assist, Paths, home: home)
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
@@ -85,7 +85,7 @@ defmodule AllbertAssist.External.TelegramEmailSmokeTest do
     on_exit(fn ->
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
-      restore_plugins(original_plugins)
+      ShippedRegistries.restore!()
       Fragments.clear_cache()
     end)
 
@@ -291,11 +291,6 @@ defmodule AllbertAssist.External.TelegramEmailSmokeTest do
 
   defp put_secret!(secret_ref, value) do
     assert {:ok, _secret} = Secrets.put_secret(secret_ref, value, %{audit?: false})
-  end
-
-  defp restore_plugins(original_plugins) do
-    PluginRegistry.clear()
-    Enum.each(original_plugins, &PluginRegistry.register_entry/1)
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

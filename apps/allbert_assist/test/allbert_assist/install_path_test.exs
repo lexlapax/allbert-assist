@@ -124,8 +124,12 @@ defmodule AllbertAssist.InstallPathTest do
     assert {_, 0} = System.cmd("sh", ["-n", @fill_sha256], stderr_to_stdout: true)
 
     tmp =
-      Path.join(System.tmp_dir!(), "allbert-fill-sha256-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-fill-sha256-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(tmp)
     File.mkdir_p!(tmp)
     on_exit(fn -> File.rm_rf!(tmp) end)
 

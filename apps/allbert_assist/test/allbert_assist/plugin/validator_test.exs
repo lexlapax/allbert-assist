@@ -549,7 +549,13 @@ defmodule AllbertAssist.Plugin.ValidatorTest do
   end
 
   test "loads plugin-owned release availability YAML" do
-    root = Path.join(System.tmp_dir!(), "plugin-validator-#{System.unique_integer([:positive])}")
+    root =
+      Path.join(
+        System.tmp_dir!(),
+        "plugin-validator-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
+
+    File.rm_rf!(root)
     File.mkdir_p!(Path.join([root, "priv", "allbert"]))
 
     File.write!(Path.join([root, "priv", "allbert", "release_availability.yaml"]), """
@@ -592,8 +598,14 @@ defmodule AllbertAssist.Plugin.ValidatorTest do
   end
 
   test "normalizes valid skill-only manifests" do
-    root = Path.join(System.tmp_dir!(), "plugin-validator-#{System.unique_integer([:positive])}")
+    root =
+      Path.join(
+        System.tmp_dir!(),
+        "plugin-validator-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
+
     skills_root = Path.join(root, "skills")
+    File.rm_rf!(root)
     File.mkdir_p!(skills_root)
     manifest_path = Path.join(root, "allbert_plugin.json")
 
@@ -618,7 +630,13 @@ defmodule AllbertAssist.Plugin.ValidatorTest do
   end
 
   test "rejects path traversal and code-bearing home manifests" do
-    root = Path.join(System.tmp_dir!(), "plugin-validator-#{System.unique_integer([:positive])}")
+    root =
+      Path.join(
+        System.tmp_dir!(),
+        "plugin-validator-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
+
+    File.rm_rf!(root)
     File.mkdir_p!(root)
     manifest_path = Path.join(root, "allbert_plugin.json")
 

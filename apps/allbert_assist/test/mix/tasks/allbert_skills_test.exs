@@ -25,8 +25,12 @@ defmodule Mix.Tasks.Allbert.SkillsTest do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
 
     root =
-      Path.join(System.tmp_dir!(), "allbert-skills-task-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-skills-task-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(root)
     home = Path.join(root, "home")
 
     Application.put_env(:allbert_assist, Paths,

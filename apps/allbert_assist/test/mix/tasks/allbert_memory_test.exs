@@ -16,8 +16,12 @@ defmodule Mix.Tasks.Allbert.MemoryTest do
     original_settings = Application.get_env(:allbert_assist, Settings)
 
     home =
-      Path.join(System.tmp_dir!(), "allbert-memory-cli-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-memory-cli-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(home)
     Application.put_env(:allbert_assist, Paths, home: home)
     Application.put_env(:allbert_assist, Memory, root: Path.join(home, "memory"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))

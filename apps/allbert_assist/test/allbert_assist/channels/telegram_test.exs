@@ -37,8 +37,12 @@ defmodule AllbertAssist.Channels.TelegramTest do
     Application.delete_env(:allbert_assist, Trace)
 
     home =
-      Path.join(System.tmp_dir!(), "allbert-telegram-test-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-telegram-test-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(home)
     System.put_env("ALLBERT_HOME", home)
     PluginRegistry.clear()
 

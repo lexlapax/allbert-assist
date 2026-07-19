@@ -167,6 +167,7 @@ defmodule AllbertAssist.SandboxTest do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     home = temp_path("home")
+    File.rm_rf!(home)
 
     Application.put_env(:allbert_assist, Paths, home: home)
     Application.delete_env(:allbert_assist, Settings)
@@ -378,6 +379,8 @@ defmodule AllbertAssist.SandboxTest do
   test "cleanup only removes marked sandbox bundle roots" do
     project = fixture_project("cleanup-confined")
     outside = temp_path("cleanup-outside")
+    File.rm_rf!(outside)
+    on_exit(fn -> File.rm_rf!(outside) end)
     File.mkdir_p!(outside)
     File.write!(Path.join(outside, "keep.txt"), "keep")
 
@@ -1104,7 +1107,10 @@ defmodule AllbertAssist.SandboxTest do
   end
 
   defp temp_path(name) do
-    Path.join(System.tmp_dir!(), "allbert-sandbox-#{name}-#{System.unique_integer([:positive])}")
+    Path.join(
+      System.tmp_dir!(),
+      "allbert-sandbox-#{name}-#{System.pid()}-#{System.unique_integer([:positive])}"
+    )
   end
 
   defp restore_app_env(module, nil), do: Application.delete_env(:allbert_assist, module)

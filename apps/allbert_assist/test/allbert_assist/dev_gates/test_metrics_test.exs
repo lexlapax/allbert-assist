@@ -117,7 +117,10 @@ defmodule AllbertAssist.DevGates.TestMetricsTest do
 
     test "never raises: an unwritable store warns and returns :ok" do
       blocker =
-        Path.join(System.tmp_dir!(), "metrics-blocker-#{System.unique_integer([:positive])}")
+        Path.join(
+          System.tmp_dir!(),
+          "metrics-blocker-#{System.pid()}-#{System.unique_integer([:positive])}"
+        )
 
       File.write!(blocker, "not a directory")
       on_exit(fn -> File.rm_rf!(blocker) end)

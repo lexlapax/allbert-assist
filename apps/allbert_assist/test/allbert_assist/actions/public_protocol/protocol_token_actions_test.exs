@@ -22,6 +22,7 @@ defmodule AllbertAssist.Actions.PublicProtocol.ProtocolTokenActionsTest do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     root = temp_root("protocol-token-actions")
 
+    File.rm_rf!(root)
     Application.put_env(:allbert_assist, Settings, root: root)
 
     on_exit(fn ->
@@ -100,7 +101,10 @@ defmodule AllbertAssist.Actions.PublicProtocol.ProtocolTokenActionsTest do
   defp ctx, do: %{actor: "operator", user_id: "operator", channel: :cli, audit?: false}
 
   defp temp_root(prefix) do
-    Path.join(System.tmp_dir!(), "allbert-#{prefix}-#{System.unique_integer([:positive])}")
+    Path.join(
+      System.tmp_dir!(),
+      "allbert-#{prefix}-#{System.pid()}-#{System.unique_integer([:positive])}"
+    )
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

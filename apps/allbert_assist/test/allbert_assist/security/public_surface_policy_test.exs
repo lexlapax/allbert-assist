@@ -9,6 +9,7 @@ defmodule AllbertAssist.Security.PublicSurfacePolicyTest do
   setup do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     root = temp_root("public-surface-policy")
+    File.rm_rf!(root)
 
     Application.put_env(:allbert_assist, Settings, root: root)
 
@@ -53,7 +54,10 @@ defmodule AllbertAssist.Security.PublicSurfacePolicyTest do
   end
 
   defp temp_root(prefix) do
-    Path.join(System.tmp_dir!(), "allbert-#{prefix}-#{System.unique_integer([:positive])}")
+    Path.join(
+      System.tmp_dir!(),
+      "allbert-#{prefix}-#{System.pid()}-#{System.unique_integer([:positive])}"
+    )
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

@@ -71,8 +71,12 @@ defmodule AllbertAssist.Channels.EmailTest do
     Application.delete_env(:allbert_assist, Trace)
 
     home =
-      Path.join(System.tmp_dir!(), "allbert-email-test-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-email-test-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(home)
     System.put_env("ALLBERT_HOME", home)
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
     PluginRegistry.clear()

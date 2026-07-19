@@ -21,8 +21,12 @@ defmodule AllbertAssist.Workspace.FragmentTest do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
 
     home =
-      Path.join(System.tmp_dir!(), "allbert-fragment-test-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-fragment-test-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(home)
     Application.put_env(:allbert_assist, Paths, home: home)
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
     Guard.reset_for_test()

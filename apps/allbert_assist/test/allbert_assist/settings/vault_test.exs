@@ -31,8 +31,12 @@ defmodule AllbertAssist.Settings.VaultTest do
     original_backend = System.get_env("ALLBERT_VAULT_BACKEND")
 
     root =
-      Path.join(System.tmp_dir!(), "allbert-vault-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-vault-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(root)
     Application.put_env(:allbert_assist, Settings, root: root)
 
     on_exit(fn ->

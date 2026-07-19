@@ -15,8 +15,12 @@ defmodule AllbertAssist.Actions.PlanBuildActionsTest do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
 
     home =
-      Path.join(System.tmp_dir!(), "allbert-plan-actions-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-plan-actions-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(home)
     System.put_env("ALLBERT_HOME", home)
     Application.put_env(:allbert_assist, AllbertAssist.Paths, home: home)
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))

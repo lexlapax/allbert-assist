@@ -11,8 +11,12 @@ defmodule AllbertAssist.CLI.Areas.OnboardingTest do
     original = System.get_env("ALLBERT_HOME")
 
     home =
-      Path.join(System.tmp_dir!(), "allbert-onboard-area-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-onboard-area-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(home)
     System.put_env("ALLBERT_HOME", home)
 
     on_exit(fn ->
@@ -225,8 +229,12 @@ defmodule AllbertAssist.CLI.Areas.OnboardingTest do
       original_settings = Application.get_env(:allbert_assist, Settings)
 
       root =
-        Path.join(System.tmp_dir!(), "allbert-onboard-auth-#{System.unique_integer([:positive])}")
+        Path.join(
+          System.tmp_dir!(),
+          "allbert-onboard-auth-#{System.pid()}-#{System.unique_integer([:positive])}"
+        )
 
+      File.rm_rf!(root)
       Application.put_env(:allbert_assist, Settings, root: root)
 
       on_exit(fn ->

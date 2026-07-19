@@ -11,6 +11,7 @@ defmodule AllbertAssist.External.BrowserResearchSmokeTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ShippedRegistries
 
   @host "allbert-browser-smoke.test"
 
@@ -48,8 +49,7 @@ defmodule AllbertAssist.External.BrowserResearchSmokeTest do
     on_exit(fn ->
       close_all_sessions()
       stop_fixture_server(server)
-      PluginRegistry.clear()
-      restore_default_plugins()
+      ShippedRegistries.restore!()
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_env(Confirmations, original_confirmations_config)
@@ -185,12 +185,6 @@ defmodule AllbertAssist.External.BrowserResearchSmokeTest do
     Enum.each(AllbertBrowser.Session.list(), fn %{session_id: session_id} ->
       AllbertBrowser.Session.close(session_id)
     end)
-  end
-
-  defp restore_default_plugins do
-    _ = PluginRegistry.register_module(StockSage.Plugin)
-    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
-    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
   end
 
   defp restore_env(module, key, nil), do: Application.delete_env(module, key)

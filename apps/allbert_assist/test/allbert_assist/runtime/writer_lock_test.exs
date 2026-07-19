@@ -11,7 +11,13 @@ defmodule AllbertAssist.Runtime.WriterLockTest do
   alias AllbertAssist.Runtime.WriterLock
 
   setup do
-    dir = Path.join(System.tmp_dir!(), "writerlock-#{System.unique_integer([:positive])}")
+    dir =
+      Path.join(
+        System.tmp_dir!(),
+        "writerlock-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
+
+    File.rm_rf!(dir)
     File.mkdir_p!(dir)
     db = Path.join(dir, "allbert.sqlite3")
     on_exit(fn -> File.rm_rf!(dir) end)

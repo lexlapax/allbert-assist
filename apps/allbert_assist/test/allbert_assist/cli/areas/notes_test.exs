@@ -18,7 +18,13 @@ defmodule AllbertAssist.CLI.Areas.NotesTest do
     original_paths = Application.get_env(:allbert_assist, Paths)
     original_settings = Application.get_env(:allbert_assist, Settings)
 
-    home = Path.join(System.tmp_dir!(), "allbert-notes-cli-#{System.unique_integer([:positive])}")
+    home =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-notes-cli-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
+
+    File.rm_rf!(home)
     Application.put_env(:allbert_assist, Paths, home: home)
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
 

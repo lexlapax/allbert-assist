@@ -15,8 +15,12 @@ defmodule AllbertAssistWeb.Workspace.AccessibilityTest do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
 
     root =
-      Path.join(System.tmp_dir!(), "allbert-workspace-a11y-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-workspace-a11y-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(root)
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))

@@ -146,6 +146,7 @@ defmodule AllbertAssist.PathsTest do
 
     System.put_env("ALLBERT_HOME", home)
 
+    File.rm_rf!(home)
     assert Paths.ensure_home!() == home
 
     for path <- [
@@ -210,7 +211,10 @@ defmodule AllbertAssist.PathsTest do
   end
 
   defp temp_path(name) do
-    Path.join(System.tmp_dir!(), "allbert-paths-#{name}-#{System.unique_integer([:positive])}")
+    Path.join(
+      System.tmp_dir!(),
+      "allbert-paths-#{name}-#{System.pid()}-#{System.unique_integer([:positive])}"
+    )
   end
 
   defp restore_env(original_env) do

@@ -19,7 +19,13 @@ defmodule AllbertAssist.Templates.ScaffoldTest do
   alias Mix.Tasks.Allbert.ValidateApp, as: ValidateAppTask
 
   setup do
-    tmp = Path.join(System.tmp_dir!(), "allbert-templates-#{System.unique_integer([:positive])}")
+    tmp =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-templates-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
+
+    File.rm_rf!(tmp)
     File.mkdir_p!(tmp)
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)

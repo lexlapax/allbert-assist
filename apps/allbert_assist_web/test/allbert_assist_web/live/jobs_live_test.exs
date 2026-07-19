@@ -21,8 +21,13 @@ defmodule AllbertAssistWeb.JobsLiveTest do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
 
-    root = Path.join(System.tmp_dir!(), "allbert-jobs-live-#{System.unique_integer([:positive])}")
+    root =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-jobs-live-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(root)
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Memory, root: Path.join(root, "memory"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))

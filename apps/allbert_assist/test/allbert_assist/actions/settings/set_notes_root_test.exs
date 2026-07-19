@@ -11,8 +11,12 @@ defmodule AllbertAssist.Actions.Settings.SetNotesRootTest do
     original_settings = Application.get_env(:allbert_assist, Settings)
 
     root =
-      Path.join(System.tmp_dir!(), "allbert-set-notes-root-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-set-notes-root-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(root)
     Application.put_env(:allbert_assist, Settings, root: root)
 
     on_exit(fn ->
@@ -27,7 +31,13 @@ defmodule AllbertAssist.Actions.Settings.SetNotesRootTest do
   end
 
   test "connects an existing directory as the notes root (config-free)" do
-    dir = Path.join(System.tmp_dir!(), "notes-#{System.unique_integer([:positive])}")
+    dir =
+      Path.join(
+        System.tmp_dir!(),
+        "notes-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
+
+    File.rm_rf!(dir)
     File.mkdir_p!(dir)
     on_exit(fn -> File.rm_rf!(dir) end)
 
@@ -41,7 +51,11 @@ defmodule AllbertAssist.Actions.Settings.SetNotesRootTest do
   end
 
   test "fails closed on a path that is not an existing directory" do
-    missing = Path.join(System.tmp_dir!(), "nope-#{System.unique_integer([:positive])}")
+    missing =
+      Path.join(
+        System.tmp_dir!(),
+        "nope-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
     assert {:ok, response} = SetNotesRoot.run(%{path: missing}, @context)
     assert response.status == :denied
@@ -49,7 +63,12 @@ defmodule AllbertAssist.Actions.Settings.SetNotesRootTest do
   end
 
   test "fails closed on a path that is a file, not a directory" do
-    file = Path.join(System.tmp_dir!(), "notes-file-#{System.unique_integer([:positive])}.md")
+    file =
+      Path.join(
+        System.tmp_dir!(),
+        "notes-file-#{System.pid()}-#{System.unique_integer([:positive])}.md"
+      )
+
     File.write!(file, "# not a dir")
     on_exit(fn -> File.rm_rf!(file) end)
 

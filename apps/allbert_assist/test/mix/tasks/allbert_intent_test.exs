@@ -20,8 +20,12 @@ defmodule Mix.Tasks.Allbert.IntentTest do
     original_settings = Application.get_env(:allbert_assist, Settings)
 
     home =
-      Path.join(System.tmp_dir!(), "allbert-intent-task-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-intent-task-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(home)
     System.put_env("ALLBERT_HOME", home)
     System.delete_env("ALLBERT_HOME_DIR")
     Application.delete_env(:allbert_assist, Paths)

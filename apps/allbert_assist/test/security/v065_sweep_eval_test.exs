@@ -67,8 +67,12 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
     notes_app_registered? = AppRegistry.known_app_id?(:notes_files)
 
     home =
-      Path.join(System.tmp_dir!(), "allbert-v065-sweep-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-v065-sweep-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(home)
     Application.put_env(:allbert_assist, Paths, home: home)
     Application.put_env(:allbert_assist, Memory, root: Path.join(home, "memory"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
@@ -124,7 +128,13 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
   end
 
   test "local-knowledge-notes-root-explicit-001: the notes root is one explicit safe key" do
-    dir = Path.join(System.tmp_dir!(), "notes-explicit-#{System.unique_integer([:positive])}")
+    dir =
+      Path.join(
+        System.tmp_dir!(),
+        "notes-explicit-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
+
+    File.rm_rf!(dir)
     File.mkdir_p!(dir)
     on_exit(fn -> File.rm_rf!(dir) end)
 
@@ -150,7 +160,13 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
     # The connect affordance carries the existing :settings_write class, no new authority.
     assert SetNotesRoot.capability().permission == :settings_write
 
-    dir = Path.join(System.tmp_dir!(), "notes-connect-#{System.unique_integer([:positive])}")
+    dir =
+      Path.join(
+        System.tmp_dir!(),
+        "notes-connect-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
+
+    File.rm_rf!(dir)
     File.mkdir_p!(dir)
     on_exit(fn -> File.rm_rf!(dir) end)
 
@@ -160,7 +176,9 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
 
     # The action validates the path and fails closed on a non-directory — the config-free
     # affordance never silently writes a broken root.
-    missing = Path.join(System.tmp_dir!(), "nope-#{System.unique_integer([:positive])}")
+    missing =
+      Path.join(System.tmp_dir!(), "nope-#{System.pid()}-#{System.unique_integer([:positive])}")
+
     assert {:ok, denied} = SetNotesRoot.run(%{path: missing}, action_context())
     assert denied.status == :denied
 
@@ -236,7 +254,12 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
     assert get_in(read, [:runner_metadata, :action_capability, :app_id]) == :notes_files
 
     # A path outside the configured root is denied by root/extension path bounding.
-    outside = Path.join(System.tmp_dir!(), "outside-#{System.unique_integer([:positive])}.md")
+    outside =
+      Path.join(
+        System.tmp_dir!(),
+        "outside-#{System.pid()}-#{System.unique_integer([:positive])}.md"
+      )
+
     on_exit(fn -> File.rm_rf!(outside) end)
     File.write!(outside, "# Secret\n\nMust never be reachable through the notes root.\n")
 

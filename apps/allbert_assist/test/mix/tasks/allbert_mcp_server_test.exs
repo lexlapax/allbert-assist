@@ -18,9 +18,10 @@ defmodule Mix.Tasks.AllbertMcpServerTest do
     root =
       Path.join(
         System.tmp_dir!(),
-        "allbert-mcp-server-task-#{System.unique_integer([:positive])}"
+        "allbert-mcp-server-task-#{System.pid()}-#{System.unique_integer([:positive])}"
       )
 
+    File.rm_rf!(root)
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
@@ -100,6 +101,7 @@ defmodule Mix.Tasks.AllbertMcpServerTest do
 
   test "stdio subprocess keeps stdout reserved for protocol frames" do
     root = temp_root("mcp-stdio-subprocess")
+    File.rm_rf!(root)
     File.mkdir_p!(root)
 
     stdout_path = Path.join(root, "stdout.log")
@@ -184,7 +186,10 @@ defmodule Mix.Tasks.AllbertMcpServerTest do
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 
   defp temp_root(prefix) do
-    Path.join(System.tmp_dir!(), "allbert-#{prefix}-#{System.unique_integer([:positive])}")
+    Path.join(
+      System.tmp_dir!(),
+      "allbert-#{prefix}-#{System.pid()}-#{System.unique_integer([:positive])}"
+    )
   end
 
   defp shell_quote(value) do

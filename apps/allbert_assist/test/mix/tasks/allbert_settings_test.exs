@@ -12,8 +12,12 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
 
     root =
-      Path.join(System.tmp_dir!(), "allbert-settings-task-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-settings-task-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(root)
     Application.put_env(:allbert_assist, Settings, root: root)
     ProviderPreconditions.ensure_tui_settings_schema!()
 

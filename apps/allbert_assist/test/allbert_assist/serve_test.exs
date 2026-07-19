@@ -135,7 +135,14 @@ defmodule AllbertAssist.ServeTest do
 
     test "install rejects a symlink or non-executable binary (M8.18)" do
       approved = %{user_id: "local", confirmation: %{approved?: true}}
-      dir = Path.join(System.tmp_dir!(), "allbert-svc-#{System.unique_integer([:positive])}")
+
+      dir =
+        Path.join(
+          System.tmp_dir!(),
+          "allbert-svc-#{System.pid()}-#{System.unique_integer([:positive])}"
+        )
+
+      File.rm_rf!(dir)
       File.mkdir_p!(dir)
       on_exit(fn -> File.rm_rf!(dir) end)
 

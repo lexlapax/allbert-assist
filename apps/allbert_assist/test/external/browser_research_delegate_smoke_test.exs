@@ -17,6 +17,7 @@ defmodule AllbertAssist.External.BrowserResearchDelegateSmokeTest do
   alias AllbertAssist.Repo
   alias AllbertAssist.Resources.{Grants, Ref, ResourceURI, Scope}
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias Ecto.Adapters.SQL.Sandbox
   alias Mix.Tasks.Allbert.Research, as: ResearchTask
 
@@ -67,10 +68,7 @@ defmodule AllbertAssist.External.BrowserResearchDelegateSmokeTest do
       close_all_sessions()
       stop_fixture_server(server)
       Mix.Task.reenable("allbert.research")
-      PluginRegistry.clear()
-      restore_default_plugins()
-      AppRegistry.clear()
-      restore_default_apps()
+      ShippedRegistries.restore!()
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_env(Confirmations, original_confirmations_config)
@@ -202,23 +200,6 @@ defmodule AllbertAssist.External.BrowserResearchDelegateSmokeTest do
     Enum.each(AllbertBrowser.Session.list(), fn %{session_id: session_id} ->
       AllbertBrowser.Session.close(session_id)
     end)
-  end
-
-  defp restore_default_apps do
-    _ = AppRegistry.register(AllbertAssist.App.CoreApp)
-    _ = AppRegistry.register(StockSage.App)
-    _ = AppRegistry.register(AllbertNotesFiles.App)
-    _ = AppRegistry.register(AllbertBrowser.App)
-    _ = AppRegistry.register(AllbertResearch.App)
-  end
-
-  defp restore_default_plugins do
-    _ = PluginRegistry.register_module(StockSage.Plugin)
-    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
-    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
-    _ = PluginRegistry.register_module(AllbertNotesFiles.Plugin)
-    _ = PluginRegistry.register_module(AllbertBrowser.Plugin)
-    _ = PluginRegistry.register_module(AllbertResearch.Plugin)
   end
 
   defp restore_env(module, key, nil), do: Application.delete_env(module, key)

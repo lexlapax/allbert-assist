@@ -8,7 +8,14 @@ defmodule AllbertAssist.Workflows.ExpanderTest do
   setup do
     original_home = System.get_env("ALLBERT_HOME")
     original_paths_config = Application.get_env(:allbert_assist, AllbertAssist.Paths)
-    home = Path.join(System.tmp_dir!(), "allbert-expander-#{System.unique_integer([:positive])}")
+
+    home =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-expander-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
+
+    File.rm_rf!(home)
     System.put_env("ALLBERT_HOME", home)
     Application.put_env(:allbert_assist, AllbertAssist.Paths, home: home)
     File.mkdir_p!(Path.join(home, "workflows"))

@@ -63,6 +63,7 @@ defmodule AllbertAssist.SettingsTest do
     Application.delete_env(:allbert_assist, Settings)
 
     home = temp_path("home")
+    File.rm_rf!(home)
     System.put_env("ALLBERT_HOME", home)
 
     on_exit(fn ->
@@ -2145,7 +2146,10 @@ defmodule AllbertAssist.SettingsTest do
   end
 
   defp temp_path(name) do
-    Path.join(System.tmp_dir!(), "allbert-settings-#{name}-#{System.unique_integer([:positive])}")
+    Path.join(
+      System.tmp_dir!(),
+      "allbert-settings-#{name}-#{System.pid()}-#{System.unique_integer([:positive])}"
+    )
   end
 
   defp channel_settings_plugin(plugin_id, channel, opts \\ []) do

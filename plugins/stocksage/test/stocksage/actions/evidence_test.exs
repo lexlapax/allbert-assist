@@ -11,8 +11,12 @@ defmodule StockSage.Actions.EvidenceTest do
     original = Application.get_env(:allbert_assist, Settings)
 
     root =
-      Path.join(System.tmp_dir!(), "stocksage-evidence-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "stocksage-evidence-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(root)
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     PluginRegistry.register_module(StockSage.Plugin)
 

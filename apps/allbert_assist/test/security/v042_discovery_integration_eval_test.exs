@@ -48,8 +48,12 @@ defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
     notes_app_registered? = AppRegistry.known_app_id?(:notes_files)
 
     root =
-      Path.join(System.tmp_dir!(), "allbert-v042-security-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-v042-security-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(root)
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
     Application.put_env(:allbert_assist, Memory, root: Path.join(root, "memory"))

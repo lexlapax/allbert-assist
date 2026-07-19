@@ -24,6 +24,7 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias Ecto.Adapters.SQL.Sandbox
 
@@ -68,7 +69,6 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
-    original_plugins = PluginRegistry.registered_plugins()
 
     Application.put_env(:allbert_assist, Paths, home: home)
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
@@ -111,7 +111,7 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
       restore_env(Runtime, original_runtime_config)
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
-      restore_plugins(original_plugins)
+      ShippedRegistries.restore!()
       Fragments.clear_cache()
     end)
 
@@ -477,11 +477,6 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
       nil -> 120_000
       value -> String.to_integer(value)
     end
-  end
-
-  defp restore_plugins(original_plugins) do
-    PluginRegistry.clear()
-    Enum.each(original_plugins, &PluginRegistry.register_entry/1)
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

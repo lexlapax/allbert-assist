@@ -47,6 +47,7 @@ defmodule AllbertAssist.Skills.RegistryTest do
     registry = Fixtures.start_isolated_registries(:skills_registry)
 
     root = temp_path("root")
+    File.rm_rf!(root)
     home = Path.join(root, "home")
     project_root = Path.join(root, "project")
     built_in_root = Path.join(root, "built-in-skills")
@@ -408,7 +409,10 @@ defmodule AllbertAssist.Skills.RegistryTest do
   end
 
   defp temp_path(name) do
-    Path.join(System.tmp_dir!(), "allbert-registry-#{name}-#{System.unique_integer([:positive])}")
+    Path.join(
+      System.tmp_dir!(),
+      "allbert-registry-#{name}-#{System.pid()}-#{System.unique_integer([:positive])}"
+    )
   end
 
   defp restore_env(original_env) do

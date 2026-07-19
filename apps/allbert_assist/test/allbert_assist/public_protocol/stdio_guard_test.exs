@@ -4,6 +4,7 @@ defmodule AllbertAssist.PublicProtocol.StdioGuardTest do
 
   test "stdio guard routes Logger output away from stdout" do
     root = temp_root("stdio-guard")
+    File.rm_rf!(root)
     File.mkdir_p!(root)
     stdout_path = Path.join(root, "stdout.log")
     stderr_path = Path.join(root, "stderr.log")
@@ -42,7 +43,10 @@ defmodule AllbertAssist.PublicProtocol.StdioGuardTest do
   end
 
   defp temp_root(prefix) do
-    Path.join(System.tmp_dir!(), "allbert-#{prefix}-#{System.unique_integer([:positive])}")
+    Path.join(
+      System.tmp_dir!(),
+      "allbert-#{prefix}-#{System.pid()}-#{System.unique_integer([:positive])}"
+    )
   end
 
   defp shell_quote(value) do

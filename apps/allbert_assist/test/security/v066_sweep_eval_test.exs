@@ -366,7 +366,10 @@ defmodule AllbertAssist.Security.V066SweepEvalTest do
     # Importing an Allbert Home is a dry-run that blocks before applying any change —
     # a missing/invalid envelope path still returns a dry-run diagnostic, never a write.
     missing =
-      Path.join(System.tmp_dir!(), "v066-missing-#{System.unique_integer([:positive])}.json")
+      Path.join(
+        System.tmp_dir!(),
+        "v066-missing-#{System.pid()}-#{System.unique_integer([:positive])}.json"
+      )
 
     assert {:error, diag} = PortabilityImport.dry_run(missing)
     assert diag["dry_run"] == true

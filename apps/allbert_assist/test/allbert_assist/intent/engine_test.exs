@@ -524,8 +524,12 @@ defmodule AllbertAssist.Intent.EngineTest do
     original_settings = Application.get_env(:allbert_assist, AllbertAssist.Settings)
 
     home =
-      Path.join(System.tmp_dir!(), "allbert-engine-test-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-engine-test-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(home)
     System.put_env("ALLBERT_HOME", home)
     Application.delete_env(:allbert_assist, AllbertAssist.Paths)
     Application.delete_env(:allbert_assist, AllbertAssist.Settings)
@@ -602,8 +606,12 @@ defmodule AllbertAssist.Intent.EngineTest do
     original_settings = Application.get_env(:allbert_assist, Settings)
 
     home =
-      Path.join(System.tmp_dir!(), "allbert-engine-memory-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-engine-memory-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(home)
     Application.put_env(:allbert_assist, AllbertAssist.Paths, home: home)
     Application.put_env(:allbert_assist, Memory, root: Path.join(home, "memory"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))

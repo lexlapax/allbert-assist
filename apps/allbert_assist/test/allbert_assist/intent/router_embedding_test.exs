@@ -17,8 +17,12 @@ defmodule AllbertAssist.Intent.RouterEmbeddingTest do
     original_error = Application.get_env(:allbert_assist, :intent_router_embedder_error)
 
     home =
-      Path.join(System.tmp_dir!(), "allbert-router-embed-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-router-embed-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(home)
     System.put_env("ALLBERT_HOME", home)
     Application.delete_env(:allbert_assist, Paths)
     Application.delete_env(:allbert_assist, Settings)
@@ -26,6 +30,8 @@ defmodule AllbertAssist.Intent.RouterEmbeddingTest do
     Application.delete_env(:allbert_assist, :intent_router_embedder_error)
 
     on_exit(fn ->
+      File.rm_rf!(home)
+
       if original_home,
         do: System.put_env("ALLBERT_HOME", original_home),
         else: System.delete_env("ALLBERT_HOME")

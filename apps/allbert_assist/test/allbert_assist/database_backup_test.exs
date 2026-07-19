@@ -24,7 +24,13 @@ defmodule AllbertAssist.DatabaseBackupTest do
       restore_app_env(Repo, original_repo_config)
     end)
 
-    home = Path.join(System.tmp_dir!(), "allbert-db-backup-#{System.unique_integer([:positive])}")
+    home =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-db-backup-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
+
+    File.rm_rf!(home)
     File.mkdir_p!(home)
     on_exit(fn -> File.rm_rf!(home) end)
 

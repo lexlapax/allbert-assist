@@ -170,8 +170,12 @@ defmodule AllbertAssist.Security.V062SweepEvalTest do
     original_backend = System.get_env("ALLBERT_VAULT_BACKEND")
 
     root =
-      Path.join(System.tmp_dir!(), "allbert-v062-noleak-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-v062-noleak-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(root)
     Application.put_env(:allbert_assist, Settings, root: root)
     System.put_env("ALLBERT_VAULT_BACKEND", "encrypted_file")
 

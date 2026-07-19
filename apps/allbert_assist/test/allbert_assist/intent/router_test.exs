@@ -29,9 +29,13 @@ defmodule AllbertAssist.Intent.RouterTest do
     original_override = Application.get_env(:allbert_assist, :intent_router_strategy_override)
 
     home =
-      Path.join(System.tmp_dir!(), "allbert-router-test-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-router-test-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
     database_path = Path.join([home, "db", "allbert_router_test.db"])
+    File.rm_rf!(home)
     File.mkdir_p!(Path.dirname(database_path))
     System.put_env("ALLBERT_HOME", home)
     System.put_env("ALLBERT_HOME_DIR", home)
@@ -40,6 +44,8 @@ defmodule AllbertAssist.Intent.RouterTest do
     Application.delete_env(:allbert_assist, Settings)
 
     on_exit(fn ->
+      File.rm_rf!(home)
+
       if original_home,
         do: System.put_env("ALLBERT_HOME", original_home),
         else: System.delete_env("ALLBERT_HOME")

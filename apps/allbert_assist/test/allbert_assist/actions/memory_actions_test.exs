@@ -28,8 +28,12 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
     original_confirmations = Application.get_env(:allbert_assist, Confirmations)
 
     home =
-      Path.join(System.tmp_dir!(), "allbert-memory-actions-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-memory-actions-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(home)
     Application.put_env(:allbert_assist, Paths, home: home)
     Application.put_env(:allbert_assist, Memory, root: Path.join(home, "memory"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))

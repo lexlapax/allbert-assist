@@ -168,7 +168,13 @@ defmodule AllbertAssist.Security.V064SweepEvalTest do
       end
     end
 
-    root = Path.join(System.tmp_dir!(), "allbert-v064-tui-#{System.unique_integer([:positive])}")
+    root =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-v064-tui-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
+
+    File.rm_rf!(root)
     on_exit(fn -> File.rm_rf!(root) end)
 
     Application.put_env(:allbert_assist, Paths, home: root)

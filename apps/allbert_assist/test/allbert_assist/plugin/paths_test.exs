@@ -31,7 +31,13 @@ defmodule AllbertAssist.Plugin.PathsTest do
   end
 
   test "RELEASE_ROOT/plugins wins (the packaged layout, no cwd dependency)" do
-    tmp = Path.join(System.tmp_dir!(), "paths-rel-#{System.unique_integer([:positive])}")
+    tmp =
+      Path.join(
+        System.tmp_dir!(),
+        "paths-rel-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
+
+    File.rm_rf!(tmp)
     File.mkdir_p!(Path.join([tmp, "plugins", "stocksage", "priv", "repo", "migrations"]))
     System.put_env("RELEASE_ROOT", tmp)
 
@@ -45,7 +51,13 @@ defmodule AllbertAssist.Plugin.PathsTest do
   end
 
   test "ALLBERT_PLUGINS_ROOT overrides RELEASE_ROOT" do
-    override = Path.join(System.tmp_dir!(), "paths-ovr-#{System.unique_integer([:positive])}")
+    override =
+      Path.join(
+        System.tmp_dir!(),
+        "paths-ovr-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
+
+    File.rm_rf!(override)
     File.mkdir_p!(override)
     System.put_env("ALLBERT_PLUGINS_ROOT", override)
     System.put_env("RELEASE_ROOT", "/nonexistent/release")

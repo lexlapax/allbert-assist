@@ -26,8 +26,12 @@ defmodule AllbertAssistWeb.DarkModeResolutionTest do
     Application.delete_env(:allbert_assist, Settings)
 
     home =
-      Path.join(System.tmp_dir!(), "allbert-dark-mode-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-dark-mode-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(home)
     System.put_env("ALLBERT_HOME", home)
     Paths.ensure_home!()
 

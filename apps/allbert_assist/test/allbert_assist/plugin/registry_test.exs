@@ -172,12 +172,18 @@ defmodule AllbertAssist.Plugin.RegistryTest do
   end
 
   test "discovery records missing, invalid, and disabled plugin diagnostics" do
-    root = Path.join(System.tmp_dir!(), "plugin-discovery-#{System.unique_integer([:positive])}")
+    root =
+      Path.join(
+        System.tmp_dir!(),
+        "plugin-discovery-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
+
     plugins_root = Path.join(root, "plugins")
     invalid_root = Path.join(plugins_root, "invalid")
     disabled_root = Path.join(plugins_root, "disabled")
     missing_root = Path.join(root, "missing")
 
+    File.rm_rf!(root)
     File.mkdir_p!(invalid_root)
     File.mkdir_p!(disabled_root)
 

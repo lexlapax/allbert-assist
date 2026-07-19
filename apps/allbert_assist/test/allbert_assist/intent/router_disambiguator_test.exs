@@ -28,10 +28,14 @@ defmodule AllbertAssist.Intent.RouterDisambiguatorTest do
       override: Application.get_env(:allbert_assist, :intent_router_strategy_override)
     }
 
-    System.put_env(
-      "ALLBERT_HOME",
-      Path.join(System.tmp_dir!(), "allbert-router-disamb-#{System.unique_integer([:positive])}")
-    )
+    home =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-router-disamb-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
+
+    File.rm_rf!(home)
+    System.put_env("ALLBERT_HOME", home)
 
     Application.delete_env(:allbert_assist, Paths)
     Application.delete_env(:allbert_assist, Settings)
@@ -40,6 +44,8 @@ defmodule AllbertAssist.Intent.RouterDisambiguatorTest do
     Application.delete_env(:allbert_assist, :intent_router_embedder_error)
 
     on_exit(fn ->
+      File.rm_rf!(home)
+
       if original.home,
         do: System.put_env("ALLBERT_HOME", original.home),
         else: System.delete_env("ALLBERT_HOME")

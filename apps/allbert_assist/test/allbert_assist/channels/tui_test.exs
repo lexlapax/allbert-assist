@@ -605,8 +605,12 @@ defmodule AllbertAssist.Channels.TUITest do
 
   test "auto input driver cancels an async Pi-mode turn without escape monitor helper" do
     repo =
-      Path.join(System.tmp_dir!(), "allbert-tui-pi-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-tui-pi-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(repo)
     File.mkdir_p!(repo)
     on_exit(fn -> File.rm_rf(repo) end)
     configure_pi_tui!(repo)
@@ -698,8 +702,12 @@ defmodule AllbertAssist.Channels.TUITest do
 
   test "auto input waits for an async Pi-mode turn before opening the next prompt" do
     repo =
-      Path.join(System.tmp_dir!(), "allbert-tui-pi-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-tui-pi-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(repo)
     File.mkdir_p!(repo)
     on_exit(fn -> File.rm_rf(repo) end)
     configure_pi_tui!(repo)
@@ -829,8 +837,12 @@ defmodule AllbertAssist.Channels.TUITest do
 
   test "auto input escape monitor cancels an async Pi-mode turn before the next prompt" do
     repo =
-      Path.join(System.tmp_dir!(), "allbert-tui-pi-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-tui-pi-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(repo)
     File.mkdir_p!(repo)
     on_exit(fn -> File.rm_rf(repo) end)
     configure_pi_tui!(repo)

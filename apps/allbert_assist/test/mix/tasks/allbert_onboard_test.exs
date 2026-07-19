@@ -16,8 +16,12 @@ defmodule Mix.Tasks.Allbert.OnboardTest do
     original_home = System.get_env("ALLBERT_HOME")
 
     home =
-      Path.join(System.tmp_dir!(), "allbert-onboard-task-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-onboard-task-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(home)
     System.put_env("ALLBERT_HOME", home)
 
     Application.put_env(:allbert_assist, Mix.Tasks.Allbert.Onboard,

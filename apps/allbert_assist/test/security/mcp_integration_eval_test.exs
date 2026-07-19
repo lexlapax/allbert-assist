@@ -28,8 +28,12 @@ defmodule AllbertAssist.Security.McpIntegrationEvalTest do
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
 
     root =
-      Path.join(System.tmp_dir!(), "allbert-mcp-security-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-mcp-security-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(root)
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))

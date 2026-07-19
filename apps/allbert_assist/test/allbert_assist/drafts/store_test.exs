@@ -14,8 +14,12 @@ defmodule AllbertAssist.Drafts.StoreTest do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
 
     home =
-      Path.join(System.tmp_dir!(), "allbert-drafts-store-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-drafts-store-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(home)
     Application.put_env(:allbert_assist, Paths, home: home)
 
     on_exit(fn ->

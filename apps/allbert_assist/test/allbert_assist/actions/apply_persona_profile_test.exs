@@ -28,7 +28,13 @@ defmodule AllbertAssist.Actions.ApplyPersonaProfileTest do
     Application.delete_env(:allbert_assist, Paths)
     Application.delete_env(:allbert_assist, Settings)
 
-    home = Path.join(System.tmp_dir!(), "allbert-persona-#{System.unique_integer([:positive])}")
+    home =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-persona-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
+
+    File.rm_rf!(home)
     System.put_env("ALLBERT_HOME", home)
 
     on_exit(fn ->

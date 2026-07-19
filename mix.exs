@@ -227,7 +227,11 @@ defmodule AllbertAssist.Umbrella.MixProject do
   end
 
   defp prepare_test_database(_args) do
-    Mix.Task.run("ecto.migrate.allbert", ["--quiet"])
+    # In-process, NOT the "ecto.migrate.allbert" alias: that alias shells out
+    # (`cmd mix …`), and the subprocess BEAM's pid-qualified solo test DB
+    # (config/test.exs) is a different file than this BEAM opens — root
+    # `mix test` then boots against an unmigrated database.
+    Mix.Task.run("allbert.ecto.migrate", ["--quiet"])
     Application.put_env(:allbert_assist, :test_database_prepared?, true)
   end
 end

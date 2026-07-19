@@ -13,7 +13,13 @@ defmodule AllbertAssist.Docs.V058RequestFlowTest do
     assert {:ok, _regex} = Regex.compile(pattern)
 
     if rg = System.find_executable("rg") do
-      root = Path.join(System.tmp_dir!(), "allbert-v058-rg-#{System.unique_integer([:positive])}")
+      root =
+        Path.join(
+          System.tmp_dir!(),
+          "allbert-v058-rg-#{System.pid()}-#{System.unique_integer([:positive])}"
+        )
+
+      File.rm_rf!(root)
       File.mkdir_p!(root)
       File.write!(Path.join(root, "clean.txt"), "token=[REDACTED]\n")
 

@@ -27,8 +27,12 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
     original_home_dir = System.get_env("ALLBERT_HOME_DIR")
 
     root =
-      Path.join(System.tmp_dir!(), "allbert-renderer-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-renderer-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(root)
     System.put_env("ALLBERT_HOME", root)
     System.delete_env("ALLBERT_HOME_DIR")
     Application.put_env(:allbert_assist, Paths, home: root)

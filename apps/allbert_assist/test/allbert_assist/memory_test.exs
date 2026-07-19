@@ -12,8 +12,12 @@ defmodule AllbertAssist.MemoryTest do
     original_config = Application.get_env(:allbert_assist, Memory)
 
     root =
-      Path.join(System.tmp_dir!(), "allbert-memory-test-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-memory-test-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(root)
     Application.put_env(:allbert_assist, Memory, root: root)
 
     on_exit(fn ->

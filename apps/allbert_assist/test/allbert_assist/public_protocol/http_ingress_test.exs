@@ -14,6 +14,7 @@ defmodule AllbertAssist.PublicProtocol.HttpIngressTest do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     root = temp_root("public-http-ingress")
 
+    File.rm_rf!(root)
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     RateLimiter.reset_for_test()
@@ -110,7 +111,10 @@ defmodule AllbertAssist.PublicProtocol.HttpIngressTest do
   defp context, do: %{actor: "test", channel: "test", audit?: false}
 
   defp temp_root(prefix) do
-    Path.join(System.tmp_dir!(), "allbert-#{prefix}-#{System.unique_integer([:positive])}")
+    Path.join(
+      System.tmp_dir!(),
+      "allbert-#{prefix}-#{System.pid()}-#{System.unique_integer([:positive])}"
+    )
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

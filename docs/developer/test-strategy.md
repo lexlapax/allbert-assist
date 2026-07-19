@@ -807,9 +807,28 @@ unclassified, zero double-counts, checker exit 0. Deltas vs the M1 baseline:
 | Full `mix allbert.test release` | not reliably green (4 consecutive failures on rotating victims) | green (M2, M4, M8 runs) |
 | Release gates | release.v1 only | release.v1 + `release.v102` (release.v1 quintet + 10 focused steps, 566 tests / 0 failures first roll) |
 
-The 20-seed full-suite flake table lands below when the M8 campaign
-completes (a one-time ~4.5–7.5h backgrounded measurement; seeds
-1000–20000 step 1000, pre-recorded).
+### v1.0.2 M8 20-Seed Full-Monolith Campaign — completed 2026-07-19
+
+Post = 20 seeds (1000–20000 step 1000) of full `mix test --seed N` on the RC
+tree (`b29340a3`), one clean pid-qualified home per seed, sequential, ~32h
+wall. Pre = the 6 complete banked pre-optimization seeds (pre-M8-wave tree,
+same protocol) plus one interrupted 7th seed (core phase only — noted where
+relevant). Raw rows ingested into the metrics store
+(`mix allbert.test metrics --ingest-campaign`, 20 records, 2026-07-19).
+
+| Signature | Classification (plan taxonomy) | Pre (6 seeds) | Post (20 seeds) |
+|---|---|---|---|
+| `SidebarConsolidationTest` "every destination … deep-linkable" | reproduced residue — deterministic-in-monolith DBConnection-ownership class; documented Non-Goal, absent from the gate surface | 6/6 | 20/20 |
+| `ListChannelsTest` "operator report mode requires the explicit raw-report affordance" | reproduced residue — registry/SurfacePolicy class fed by monolith-only neighbors; documented Non-Goal, absent from the gate surface | 4/6 (67%) | 7/20 (35%) — seeds 1000, 3000, 4000, 7000, 11000, 16000, 17000 |
+| `OnboardingTest` "v1.0 R2 wizard rewind … never revokes intent enablement" | order dependence, pre only | 1 sighting (interrupted 7th seed) | **0/20 — class eliminated** |
+
+- Zero NEW signatures across 20 post seeds; zero environment failures; zero
+  aborts. Failures per seed: 13×1, 7×2 (mean 1.35).
+- Per-seed wall: pre 5,927–6,099 s (mean ≈6,011); post 5,681–5,860 s
+  (mean ≈5,757) — ≈4.2% faster full monolith.
+- Both surviving classes are green solo and green in their gate lanes (store
+  records); they reproduce ONLY under full-monolith composition, which the
+  gates deliberately do not run (lane architecture, this doc).
 
 The M3 isolation lock freezes these root derivations for helpers and gates:
 

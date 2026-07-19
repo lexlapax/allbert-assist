@@ -12,8 +12,12 @@ defmodule AllbertAssist.Memory.IndexTest do
     original_paths = Application.get_env(:allbert_assist, Paths)
 
     home =
-      Path.join(System.tmp_dir!(), "allbert-memory-index-#{System.unique_integer([:positive])}")
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-memory-index-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
 
+    File.rm_rf!(home)
     Application.put_env(:allbert_assist, Paths, home: home)
     Application.put_env(:allbert_assist, Memory, root: Path.join(home, "memory"))
 

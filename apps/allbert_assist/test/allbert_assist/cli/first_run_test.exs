@@ -52,8 +52,14 @@ defmodule AllbertAssist.CLI.FirstRunTest do
 
   describe "detect/0" do
     setup do
-      root = Path.join(System.tmp_dir!(), "firstrun-#{System.unique_integer([:positive])}")
+      root =
+        Path.join(
+          System.tmp_dir!(),
+          "firstrun-#{System.pid()}-#{System.unique_integer([:positive])}"
+        )
+
       saved = Application.get_env(:allbert_assist, AllbertAssist.Paths)
+      File.rm_rf!(root)
       Application.put_env(:allbert_assist, AllbertAssist.Paths, home: root)
 
       on_exit(fn ->

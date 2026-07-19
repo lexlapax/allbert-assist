@@ -34,7 +34,13 @@ defmodule AllbertAssist.JobsTest do
     Application.delete_env(:allbert_assist, Settings)
     Application.delete_env(:allbert_assist, Trace)
 
-    home = Path.join(System.tmp_dir!(), "allbert-jobs-test-#{System.unique_integer([:positive])}")
+    home =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-jobs-test-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
+
+    File.rm_rf!(home)
     System.put_env("ALLBERT_HOME", home)
     Application.put_env(:allbert_assist, Memory, root: Path.join(home, "memory"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
