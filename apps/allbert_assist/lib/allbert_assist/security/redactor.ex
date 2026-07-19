@@ -126,7 +126,28 @@ defmodule AllbertAssist.Security.Redactor do
     normalized not in @status_keys and
       normalized not in @non_sensitive_key_names and
       (normalized in @sensitive_key_names or
-         Enum.any?(@sensitive_key_fragments, &String.contains?(normalized, &1)))
+         String.contains?(normalized, sensitive_fragment_pattern()))
+  end
+
+  # M8.8: redaction walks every key of every payload it touches, and the
+  # fragment check ran one String.contains? per fragment per key (~150k
+  # binary scans inside one Engine.decide, eprof). One compiled multi-
+  # pattern keeps the exact any-fragment-contained semantics in a single
+  # scan per key. compile_pattern returns a runtime ref, so it cannot live
+  # in a module attribute; the fragment list is compile-constant, so the
+  # persistent_term memo never needs invalidation.
+  defp sensitive_fragment_pattern do
+    key = {__MODULE__, :sensitive_fragment_pattern}
+
+    case :persistent_term.get(key, nil) do
+      nil ->
+        pattern = :binary.compile_pattern(@sensitive_key_fragments)
+        :persistent_term.put(key, pattern)
+        pattern
+
+      pattern ->
+        pattern
+    end
   end
 
   defp redact_authorization_line(value) do

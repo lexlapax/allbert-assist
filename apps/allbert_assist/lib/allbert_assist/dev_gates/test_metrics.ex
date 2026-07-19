@@ -17,7 +17,10 @@ defmodule AllbertAssist.DevGates.TestMetrics do
   @store_relative ".test_metrics/runs.jsonl"
   @summary_relative "docs/validation/test-metrics/summary.md"
   @campaign_csv "results-pre-optimization.csv"
-  @slowest_limit 10
+  # 25 (was 10, v1.0.2 M8.8): deeper --slowest capture feeds the per-file
+  # cost model behind PartitionPacker; ranking quality degrades with only
+  # the top 10 when serial lanes carry 100+ files.
+  @slowest_limit 25
   @gate_table_limit 20
   @slowest_aggregate_limit 50
   @slowest_table_limit 20
@@ -126,6 +129,35 @@ defmodule AllbertAssist.DevGates.TestMetrics do
     File.mkdir_p!(Path.dirname(output))
     File.write!(output, summary_markdown(records))
     output
+  end
+
+  @doc """
+  Per-file expected wall (ms) aggregated from recorded `--slowest` reports.
+
+  Within one record a file's cost is the sum of its slowest-test entries;
+  the returned map holds each file's average across the records where it
+  appeared. Coverage is partial by construction (top-#{@slowest_limit}
+  tests per run), so callers must estimate files absent from the map —
+  `AllbertAssist.DevGates.PartitionPacker` does.
+  """
+  def file_costs(opts \\ []) do
+    store = Keyword.get(opts, :store) || readable_store()
+
+    store
+    |> read_records()
+    |> Enum.sort_by(&Map.get(&1, "recorded_at", ""), :desc)
+    |> Enum.take(@slowest_aggregate_limit)
+    |> Enum.flat_map(fn record ->
+      record
+      |> Map.get("slowest")
+      |> List.wrap()
+      |> Enum.group_by(&slowest_file/1)
+      |> Enum.map(fn {file, entries} ->
+        {file, entries |> Enum.map(&Map.get(&1, "ms", 0)) |> Enum.sum()}
+      end)
+    end)
+    |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
+    |> Map.new(fn {file, sums} -> {file, Enum.sum(sums) / length(sums)} end)
   end
 
   def default_store_path, do: Path.join(repo_root(), @store_relative)

@@ -72,6 +72,7 @@ defmodule Mix.Tasks.Allbert.Test do
 
   use Mix.Task
 
+  alias AllbertAssist.DevGates.PartitionPacker
   alias AllbertAssist.DevGates.PhaseRunner
   alias AllbertAssist.DevGates.TestMetrics
 
@@ -531,6 +532,8 @@ defmodule Mix.Tasks.Allbert.Test do
   end
 
   defp run_serial_partitions!(gate, owner, lane, partitions) do
+    packed = packed_lane_paths(owner, lane, partitions)
+
     1..partitions
     |> Enum.map(fn partition ->
       %{
@@ -540,6 +543,7 @@ defmodule Mix.Tasks.Allbert.Test do
         partition: partition,
         partitions: partitions,
         lane: lane,
+        test_paths: Enum.at(packed, partition - 1),
         env: owned_env("serial-#{owner}-#{lane}", partition)
       }
     end)
@@ -7532,57 +7536,81 @@ defmodule Mix.Tasks.Allbert.Test do
          env: env,
          lane: lane,
          partitions: partitions,
-         partition: partition
+         partition: partition,
+         test_paths: test_paths
        }) do
     env = [{"MIX_TEST_PARTITION", to_string(partition)} | env]
-    test_paths = serial_lane_paths(owner, lane)
     validate_serial_lane_paths!(owner, test_paths)
     started = System.monotonic_time(:millisecond)
 
     output =
-      with {migrate_output, 0} <-
-             System.cmd(
-               "mix",
-               ["ecto.migrate.allbert", "--quiet"],
-               cd: app_cwd(:core),
-               env: env,
-               stderr_to_stdout: true
-             ),
-           {test_output, status} <-
-             System.cmd(
-               "mix",
-               [
-                 "allbert.test.raw",
-                 "--partitions",
-                 to_string(partitions),
-                 "--only",
-                 Atom.to_string(lane),
-                 "--max-cases",
-                 "1",
-                 "--slowest",
-                 "10"
-               ] ++ test_paths,
-               cd: app_cwd(owner),
-               env: env,
-               stderr_to_stdout: true
-             ) do
-        cond do
-          status == 0 ->
-            {:ok, label, migrate_output <> test_output}
-
-          empty_partition_output?(test_output, test_paths) ->
-            {:ok, label, migrate_output <> empty_partition_message(lane)}
-
-          true ->
-            {:error, label, status, migrate_output <> test_output}
-        end
+      if test_paths == [] do
+        {:ok, label, empty_partition_message(lane)}
       else
-        {output, status} -> {:error, label, status, output}
+        run_serial_partition_cmd(label, owner, lane, env, test_paths)
       end
 
     record_serial_partition_metrics(gate, lane, partition, partitions, started, output)
     cleanup_owned_env(env)
     output
+  end
+
+  # M8.8: partitions receive PACKED explicit file lists (PartitionPacker),
+  # so ExUnit's hash split (`--partitions`) is no longer passed — each VM
+  # runs exactly its assigned files. MIX_TEST_PARTITION stays exported for
+  # the per-partition owned-env naming contract.
+  defp run_serial_partition_cmd(label, owner, lane, env, test_paths) do
+    with {migrate_output, 0} <-
+           System.cmd(
+             "mix",
+             ["ecto.migrate.allbert", "--quiet"],
+             cd: app_cwd(:core),
+             env: env,
+             stderr_to_stdout: true
+           ),
+         {test_output, status} <-
+           System.cmd(
+             "mix",
+             [
+               "allbert.test.raw",
+               "--only",
+               Atom.to_string(lane),
+               "--max-cases",
+               "1",
+               "--slowest",
+               "25"
+             ] ++ test_paths,
+             cd: app_cwd(owner),
+             env: env,
+             stderr_to_stdout: true
+           ) do
+      cond do
+        status == 0 ->
+          {:ok, label, migrate_output <> test_output}
+
+        empty_partition_output?(test_output, test_paths) ->
+          {:ok, label, migrate_output <> empty_partition_message(lane)}
+
+        true ->
+          {:error, label, status, migrate_output <> test_output}
+      end
+    else
+      {output, status} -> {:error, label, status, output}
+    end
+  end
+
+  # M8.8: cost-balanced explicit partition lists. Measured per-file costs
+  # come from the metrics store; unmeasured files are estimated from their
+  # test counts (PartitionPacker doc). The same lane files always run —
+  # only their partition assignment moves off ExUnit's name hash, which the
+  # store measured at 4.4x imbalance on db_serial (39.6/174.7/165.1/52.0 s).
+  defp packed_lane_paths(owner, lane, partitions) do
+    files =
+      inventory_records()
+      |> Enum.filter(&(&1.owner == owner and &1.primary_lane == lane))
+      |> Enum.map(&%{path: relative_test_path(&1.path, owner), test_count: &1.test_count})
+
+    PartitionPacker.pack(files, partitions, TestMetrics.file_costs())
   end
 
   # v1.0.2 M8.1: one metrics record per lane partition VM run; recording is
@@ -7621,20 +7649,6 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp empty_partition_message(lane),
     do: "no #{lane} tests assigned to this partition\n"
-
-  defp serial_lane_paths(:core, _lane), do: []
-
-  defp serial_lane_paths(:stocksage, lane) do
-    inventory_records()
-    |> Enum.filter(&(&1.owner == :stocksage and &1.primary_lane == lane))
-    |> Enum.map(&relative_test_path(&1.path, :stocksage))
-  end
-
-  defp serial_lane_paths(:web, lane) do
-    inventory_records()
-    |> Enum.filter(&(&1.owner == :web and &1.primary_lane == lane))
-    |> Enum.map(&relative_test_path(&1.path, :web))
-  end
 
   defp validate_serial_lane_paths!(owner, paths) do
     Enum.each(paths, fn path ->
@@ -7756,6 +7770,7 @@ defmodule Mix.Tasks.Allbert.Test do
       async: async,
       tags: Enum.join(tags, "; "),
       resource_classes: Enum.map_join(resource_classes, ";", &Atom.to_string/1),
+      test_count: length(Regex.scan(~r/^\s*(?:test|property)\s/m, text)),
       primary_lane: primary_lane,
       migration_action: migration_action(primary_lane, async),
       template_default?: if(Map.has_key?(@template_defaults, template), do: "yes", else: "no")

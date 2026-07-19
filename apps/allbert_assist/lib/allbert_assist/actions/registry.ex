@@ -627,12 +627,26 @@ defmodule AllbertAssist.Actions.Registry do
     Signals.emit_registration(:action_registry_changed, metadata)
   end
 
+  # M8.8: resolve walked the FULL catalog re-normalizing every action name
+  # per lookup — 110k normalize_name calls inside one Engine.decide (eprof).
+  # The static catalog is compile-constant and ordered ahead of plugin/
+  # dynamic modules, so a first-match static index answers most lookups in
+  # O(1) with identical resolution semantics; only misses scan the (small,
+  # registry-context-dependent) plugin + dynamic tail.
   defp resolve_name(name, original, opts) do
     normalized = normalize_name(name)
 
-    case Enum.find(modules(opts), &(normalize_name(&1.name()) == normalized)) do
-      nil -> {:error, {:unknown_action, original}}
-      module -> {:ok, module}
+    case Map.fetch(static_name_index(), normalized) do
+      {:ok, module} ->
+        {:ok, module}
+
+      :error ->
+        plugin_and_dynamic = plugin_actions(opts) ++ dynamic_actions(opts)
+
+        case Enum.find(plugin_and_dynamic, &(normalize_name(&1.name()) == normalized)) do
+          nil -> {:error, {:unknown_action, original}}
+          module -> {:ok, module}
+        end
     end
   end
 
@@ -724,9 +738,40 @@ defmodule AllbertAssist.Actions.Registry do
     |> MapSet.new()
   end
 
+  # M8.8: both derivations below are pure functions of the compile-constant
+  # @actions list, yet were recomputed on every modules/1 and resolve call
+  # (plugin_actions/1 alone re-normalized the whole static catalog per
+  # invocation). Memoized in persistent_term; no invalidation is needed —
+  # the inputs cannot change without a recompile.
+  @static_names_key {__MODULE__, :static_action_names}
+  @static_index_key {__MODULE__, :static_name_index}
+
   defp static_action_names do
-    Enum.map(@actions, &normalize_name(&1.name()))
-    |> MapSet.new()
+    case :persistent_term.get(@static_names_key, nil) do
+      nil ->
+        names = @actions |> Enum.map(&normalize_name(&1.name())) |> MapSet.new()
+        :persistent_term.put(@static_names_key, names)
+        names
+
+      names ->
+        names
+    end
+  end
+
+  defp static_name_index do
+    case :persistent_term.get(@static_index_key, nil) do
+      nil ->
+        index =
+          Enum.reduce(@actions, %{}, fn module, acc ->
+            Map.put_new(acc, normalize_name(module.name()), module)
+          end)
+
+        :persistent_term.put(@static_index_key, index)
+        index
+
+      index ->
+        index
+    end
   end
 
   defp valid_plugin_action?(module) do

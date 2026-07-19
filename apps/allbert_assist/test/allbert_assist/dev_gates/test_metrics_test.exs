@@ -76,9 +76,9 @@ defmodule AllbertAssist.DevGates.TestMetricsTest do
       assert TestMetrics.parse_slowest("no report") == []
     end
 
-    test "caps merged sections at ten entries, slowest first" do
+    test "caps merged sections at the slowest limit, slowest first" do
       entries = TestMetrics.parse_slowest(@sample_output <> extra_slowest_section())
-      assert length(entries) <= 10
+      assert length(entries) <= 25
       assert entries == Enum.sort_by(entries, & &1["ms"], :desc)
     end
   end

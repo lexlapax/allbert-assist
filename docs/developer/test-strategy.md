@@ -830,6 +830,37 @@ relevant). Raw rows ingested into the metrics store
   records); they reproduce ONLY under full-monolith composition, which the
   gates deliberately do not run (lane architecture, this doc).
 
+### v1.0.2 M8.8 Measured Remediation — 2026-07-19
+
+**Cost-packed partitions.** Serial lanes now receive explicit per-partition
+file lists from `DevGates.PartitionPacker` — greedy bin-pack over
+`TestMetrics.file_costs/0` (per-file averages from recorded `--slowest`
+reports, deepened 10→25), with unmeasured files estimated from test counts —
+replacing ExUnit's name-hash split. Same-day identical-command pre/post:
+
+| Lane | Pre max-partition (hash) | Post max-partition (packed) | Test totals pre=post |
+| --- | --- | --- | --- |
+| `db_serial` | 174.7 s (39.6/174.7/165.1/52.0) | 123.8 s (119.0/74.7/123.8/97.2) | 633 = 633 |
+| `app_env_serial` | 153.7 s | 134.3 s | 648 = 648 |
+| `global_process_serial` | 33.0 s | 26.5 s | 142 = 142 |
+| `home_fs_serial` | 32.2 s | 25.8 s | 126 = 126 |
+| **quick gate wall** | **444.7 s** | **362.3 s (−18.5%)** | — |
+
+The estimator sharpens as 25-deep slowest data accumulates; the identical
+lane totals are the no-coverage-loss proof (assignment moved, tests didn't).
+
+**Decide-turn remediation (production).** eprof attribution of the
+post-M8.4 turn found `Actions.Registry.resolve` re-normalizing the FULL
+catalog per lookup (110,001 `normalize_name/1` calls in one decide) and
+`Security.Redactor.sensitive_key?` scanning fragments one `String.contains?`
+at a time (~150k binary scans per decide). Both fixed with identical
+semantics (compile-constant static name index; one
+`:binary.compile_pattern`). `Engine.decide` per-turn (10-prompt × 3-round
+warmed corpus): mean 875.6→548.8 ms (−37%), p50 762.5→456.7 ms. Cumulative
+from the v1.0.1 baseline: 3,158→549 ms (−83%). Remaining attribution
+(prefilter-class regex tokenization, ~15%/turn) is recorded in the Test
+Suite Speed & Isolation phase-2 entry, not pursued in 1.0.2.
+
 The M3 isolation lock freezes these root derivations for helpers and gates:
 
 | Resource | Required test derivation |

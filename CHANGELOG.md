@@ -10,13 +10,13 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
-## v1.0.2 - Test Isolation Phase 1 & Catch-up Binary Release
+## v1.0.2 - Test Isolation Phase 1
 
-Status: **release candidate** — first BINARY release since v1.0.0; carries the
-v1.0.1 source-only fixes (TUI crash, browser research one-consent flow,
-channel-send ladder, R15 digest CSS, memento removal) into the packaged
-artifact line. Tag WITHOUT `[skip-artifacts]`; Latest moves 1.0.0 → 1.0.2 and
-the Homebrew tap follows.
+Status: **shipped as a source commit** (operator decision 2026-07-19): the
+catch-up BINARY release decision moves to v1.0.3, which carries Test
+Isolation Phase 2 and then ships the packaged artifact line (v1.0.1 +
+v1.0.2 fixes included). v1.0.0 stays the packaged Latest until the v1.0.3
+tag; no v1.0.2 tag or artifacts are produced.
 
 Engineering hardening, no new product capability:
 
@@ -48,6 +48,22 @@ Engineering hardening, no new product capability:
   byte-identical), jsv 0.21.2; ecto 3.14.1 / ecto_sql 3.14.0 /
   ecto_sqlite3 0.24.1 / decimal 3.1.1 with exqlite 0.39.0 accepted on a
   green migration/backup/full-core battery.
+- **Measured speed remediation (M8.8).** Serial test lanes now partition by
+  MEASURED per-file cost (greedy bin-pack from the repo test-metrics store)
+  instead of ExUnit's name hash — quick gate 444.7→362.3 s (−18.5%) with
+  per-lane test totals proven identical. Profiling the intent turn exposed
+  two production hot paths fixed with identical semantics: action-name
+  resolution re-normalized the full catalog per lookup (static first-match
+  index now answers in O(1)) and redaction scanned sensitive-key fragments
+  one at a time (single compiled multi-pattern now) — `Engine.decide`
+  875.6→548.8 ms mean per turn (−37%; −83% cumulative from the v1.0.1
+  baseline 3,158 ms).
+- **20-seed full-monolith campaign** (pre/post the isolation work): flake
+  surface reduced to the two documented monolith-only Non-Goal classes; a
+  third class (onboarding wizard-rewind order dependence) eliminated; full
+  monolith ≈4.2% faster per seed. Solo `mix test` from the repo root also
+  fixed — it previously booted an unmigrated per-boot database (subprocess
+  migrate targeted a different BEAM's solo DB path).
 - **Process.** ADR 0081 (Tier-2→Tier-1 promotion) Accepted — process only,
   no contract promoted. New `release.v102` gate = the release.v1 quintet plus
   focused v1.0.2 steps (lane reconciliation, residue solos + both batch
