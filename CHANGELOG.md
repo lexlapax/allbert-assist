@@ -12,12 +12,12 @@ changelog entries or release notes.
 
 ## v1.0.2 - Test Isolation Phase 1
 
-Status: **post-implementation remediation; binary tag pending.** The
-2026-07-19 source-only stop is retained in the plan's Build Progress as an
-operator decision, but the later post-implementation audit reopened the
-Purpose/Definition-of-Done binary acceptance bar. M8.9-M8.12 must close
-test-feature-equivalence, metrics-provenance, and clean-RC evidence before the
-operator-held v1.0.2 tag. v1.0.0 remains packaged Latest until M9 succeeds.
+Status: **shipped as a source commit once M8.9-M8.12 close (operator final
+disposition 2026-07-19): no v1.0.2 tag or artifacts — the catch-up binary
+ships at v1.0.3** carrying the v1.0.1 + v1.0.2 + v1.0.3 fixes together.
+M8.9-M8.12 (test-feature equivalence, metrics provenance, release-state
+reconciliation, clean-SHA proof) remain required as ship-commit quality
+bars. v1.0.0 remains packaged Latest until the v1.0.3 tag.
 
 Engineering hardening, no new product capability:
 

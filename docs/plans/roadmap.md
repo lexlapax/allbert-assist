@@ -25,25 +25,25 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    dependency refresh (vendored `:memento` removed, ADR 0050 superseded).
    Plan: [archives/v1.0.1-plan.md](archives/v1.0.1-plan.md) +
    [archives/v1.0.1-request-flow.md](archives/v1.0.1-request-flow.md).
-2. **1.0.2 (post-implementation remediation; binary tag pending)** — Test Suite Speed &
-   Isolation phase 1 (residue de-flake, registry injection seams per ADR
-   0082, lane conversions, the WorkspaceLiveTest web split, cost-packed
-   partitions, measured decide-turn remediation), v0.58 cleanup
-   tails A+B, Tier-2->Tier-1 promotion ADR 0081, and the queued dependency
-   refresh. A post-implementation audit reopened the binary acceptance bar:
-   M8.9-M8.12 close no-loss, metrics-provenance, and clean-RC evidence before
-   the operator-held v1.0.2 tag; M9 then publishes/cosigns, fills the tap, and
-   validates the packaged v1.0.1+v1.0.2 catch-up. v1.0.0 stays packaged Latest
-   until that succeeds. Plan: [v1.0.2-plan.md](v1.0.2-plan.md) +
+2. **1.0.2 (source ship pending M8.9-M8.12; no tag — operator final
+   disposition 2026-07-19)** — Test Suite Speed & Isolation phase 1
+   (residue de-flake, registry injection seams per ADR 0082, lane
+   conversions, the WorkspaceLiveTest web split, cost-packed partitions,
+   measured decide-turn remediation), v0.58 cleanup tails A+B,
+   Tier-2->Tier-1 promotion ADR 0081, and the queued dependency refresh.
+   The post-implementation audit's M8.9-M8.12 (no-loss closure, metrics
+   provenance, reconciliation, clean-SHA proof) remain required as
+   ship-commit quality bars; the binary moved to 1.0.3. Plan: [v1.0.2-plan.md](v1.0.2-plan.md) +
    [v1.0.2-request-flow.md](v1.0.2-request-flow.md).
-3. **1.0.3 (planned)** — Test Suite Speed & Isolation phase 2: the five ADR
-   0086 conversion contracts
-   (sandbox ownership, app-env context, named-process injection, per-test
-   homes, external-runtime partitioning go/no-go), store-ranked serial→async
-   conversion waves, retirement of both monolith-only failure classes at
-   their ownership roots, prefilter tokenization remediation, then the
-   its normal version-scoped binary publication after v1.0.2 has discharged
-   the earlier artifact catch-up. Plan: [v1.0.3-plan.md](v1.0.3-plan.md) +
+3. **1.0.3 (planned)** — Test Suite Speed & Isolation phase 2 **and the
+   catch-up binary release** (operator final disposition 2026-07-19): the
+   five ADR 0086 conversion contracts (sandbox ownership, app-env context,
+   named-process injection, per-test homes, external-runtime partitioning
+   go/no-go), store-ranked serial→async conversion waves, retirement of
+   both monolith-only failure classes at their ownership roots, prefilter
+   tokenization remediation, then the transferred M9 catch-up publication —
+   tag → CI/cosign → tap 1.0.0→1.0.3 → packaged validation; the artifact
+   line then carries the v1.0.1 + v1.0.2 + v1.0.3 fixes together. Plan: [v1.0.3-plan.md](v1.0.3-plan.md) +
    [v1.0.3-request-flow.md](v1.0.3-request-flow.md) + ADR 0086. Later
    1.0.x: intent-pipeline refinements (opportunistic), technical-debt
    train. (The vendored `:memento` removal landed early at 1.0.1's M5
