@@ -38,7 +38,7 @@ defmodule AllbertAssist.DevGates.TestMetrics do
   @doc """
   Appends one metrics record. Never raises; failures warn and return `:ok`.
 
-  Known keys: `:gate`, `:phase_or_step`, `:lane`, `:partition`,
+  Known keys: `:gate`, `:phase_or_step`, `:owner`, `:lane`, `:partition`,
   `:partitions`, `:wall_ms`, `:status` (`"passed"`/`"failed"`), plus
   optional `:output` (raw gate output — parsed for seed, summed ExUnit
   totals, and the `--slowest` report) and explicit overrides for any
@@ -136,8 +136,11 @@ defmodule AllbertAssist.DevGates.TestMetrics do
 
   Within one record a file's cost is the sum of its slowest-test entries;
   the returned map holds each file's average across the records where it
-  appeared. Coverage is partial by construction (top-#{@slowest_limit}
-  tests per run), so callers must estimate files absent from the map —
+  appeared. Records carrying an `owner` field key their files
+  `"owner:path"` — output-relative paths can collide across owners
+  (v1.0.2 M8.9) — while legacy owner-less records keep bare-path keys.
+  Coverage is partial by construction (top-#{@slowest_limit} tests per
+  run), so callers must estimate files absent from the map —
   `AllbertAssist.DevGates.PartitionPacker` does.
   """
   def file_costs(opts \\ []) do
@@ -148,17 +151,22 @@ defmodule AllbertAssist.DevGates.TestMetrics do
     |> Enum.sort_by(&Map.get(&1, "recorded_at", ""), :desc)
     |> Enum.take(@slowest_aggregate_limit)
     |> Enum.flat_map(fn record ->
+      owner = Map.get(record, "owner")
+
       record
       |> Map.get("slowest")
       |> List.wrap()
       |> Enum.group_by(&slowest_file/1)
       |> Enum.map(fn {file, entries} ->
-        {file, entries |> Enum.map(&Map.get(&1, "ms", 0)) |> Enum.sum()}
+        {cost_key(owner, file), entries |> Enum.map(&Map.get(&1, "ms", 0)) |> Enum.sum()}
       end)
     end)
     |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
     |> Map.new(fn {file, sums} -> {file, Enum.sum(sums) / length(sums)} end)
   end
+
+  defp cost_key(nil, file), do: file
+  defp cost_key(owner, file), do: "#{owner}:#{file}"
 
   def default_store_path, do: Path.join(repo_root(), @store_relative)
 
@@ -188,6 +196,7 @@ defmodule AllbertAssist.DevGates.TestMetrics do
       git_sha: Map.get_lazy(attrs, :git_sha, &cached_git_sha/0),
       gate: Map.get(attrs, :gate),
       phase_or_step: Map.get(attrs, :phase_or_step),
+      owner: Map.get(attrs, :owner),
       lane: Map.get(attrs, :lane),
       partition: Map.get(attrs, :partition),
       partitions: Map.get(attrs, :partitions),

@@ -20,12 +20,16 @@ defmodule AllbertAssist.DevGates.PartitionPacker do
   @doc """
   Packs `files` into `partitions` lists balanced by expected cost.
 
-  `files` is a list of `%{path: String.t(), test_count: non_neg_integer}`;
-  `costs` maps a path (as it appears in gate output, relative to the owner
-  app cwd) to measured milliseconds. Unmeasured files are estimated at
-  `test_count *` the median measured per-test cost of this call's measured
-  files (falling back to `test_count * 400.0`), floored at
-  #{trunc(@minimum_cost_ms)} ms so empty/tiny files still occupy a slot.
+  `files` is a list of `%{path: String.t(), test_count: non_neg_integer}`
+  with an optional `:owner` atom; `costs` maps a path (as it appears in
+  gate output, relative to the owner app cwd) or an owner-qualified
+  `"owner:path"` key to measured milliseconds. Owner-carrying files prefer
+  their qualified key — output-relative paths can collide across owners
+  (v1.0.2 M8.9) — and fall back to the bare path for legacy records.
+  Unmeasured files are estimated at `test_count *` the median measured
+  per-test cost of this call's measured files (falling back to
+  `test_count * 400.0`), floored at #{trunc(@minimum_cost_ms)} ms so
+  empty/tiny files still occupy a slot.
 
   Deterministic: files are seated heaviest-first (ties broken by path) onto
   the lightest bin (ties broken by bin index). Returns exactly `partitions`
@@ -46,8 +50,8 @@ defmodule AllbertAssist.DevGates.PartitionPacker do
   end
 
   @doc "Expected cost (ms) for one file — measured when present, estimated otherwise."
-  def expected_cost(%{path: path, test_count: test_count}, costs, per_test_ms) do
-    case Map.fetch(costs, path) do
+  def expected_cost(%{test_count: test_count} = file, costs, per_test_ms) do
+    case fetch_cost(costs, file) do
       {:ok, measured} -> max(measured * 1.0, @minimum_cost_ms)
       :error -> max(test_count * per_test_ms, @minimum_cost_ms)
     end
@@ -60,15 +64,30 @@ defmodule AllbertAssist.DevGates.PartitionPacker do
   """
   def median_per_test(files, costs) do
     samples =
-      for %{path: path, test_count: test_count} <- files,
+      for %{test_count: test_count} = file <- files,
           test_count > 0,
-          {:ok, measured} <- [Map.fetch(costs, path)] do
+          {:ok, measured} <- [fetch_cost(costs, file)] do
         measured / test_count
       end
 
     case Enum.sort(samples) do
       [] -> 400.0
       sorted -> Enum.at(sorted, div(length(sorted), 2)) * 1.0
+    end
+  end
+
+  # M8.9: cost keys are gate-output-relative paths that two owners can
+  # share; an owner-carrying file prefers its "owner:path" key and falls
+  # back to the bare path so legacy records (no owner field) keep pricing.
+  defp fetch_cost(costs, %{path: path} = file) do
+    case Map.get(file, :owner) do
+      nil ->
+        Map.fetch(costs, path)
+
+      owner ->
+        with :error <- Map.fetch(costs, "#{owner}:#{path}") do
+          Map.fetch(costs, path)
+        end
     end
   end
 

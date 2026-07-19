@@ -5,7 +5,7 @@ defmodule Mix.Tasks.Allbert.Test do
   ## Usage
 
       mix allbert.test docs
-      mix allbert.test inventory [--output PATH] [--check-tags]
+      mix allbert.test inventory [--output PATH] [--check-tags] [--manifest] [--check-manifest]
       mix allbert.test focused -- FILE [FILE...]
       mix allbert.test commit
       mix allbert.test prepush [--partitions N]
@@ -74,6 +74,7 @@ defmodule Mix.Tasks.Allbert.Test do
 
   alias AllbertAssist.DevGates.PartitionPacker
   alias AllbertAssist.DevGates.PhaseRunner
+  alias AllbertAssist.DevGates.TestManifest
   alias AllbertAssist.DevGates.TestMetrics
 
   @shortdoc "Run Allbert developer test gates"
@@ -335,7 +336,14 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp inventory(args) do
     {opts, rest, invalid} =
-      OptionParser.parse(args, strict: [output: :string, check_tags: :boolean])
+      OptionParser.parse(args,
+        strict: [
+          output: :string,
+          check_tags: :boolean,
+          manifest: :boolean,
+          check_manifest: :boolean
+        ]
+      )
 
     reject_invalid!(invalid)
     reject_rest!(rest)
@@ -346,9 +354,22 @@ defmodule Mix.Tasks.Allbert.Test do
       check_lane_tags!(records)
     end
 
+    cond do
+      Keyword.get(opts, :manifest, false) ->
+        write_manifest!(records)
+
+      Keyword.get(opts, :check_manifest, false) ->
+        check_manifest!(records)
+
+      true ->
+        emit_inventory_csv(records, Keyword.get(opts, :output))
+    end
+  end
+
+  defp emit_inventory_csv(records, output) do
     csv = inventory_csv(records)
 
-    case Keyword.get(opts, :output) do
+    case output do
       nil ->
         Mix.shell().info(csv)
 
@@ -358,6 +379,55 @@ defmodule Mix.Tasks.Allbert.Test do
         File.write!(path, csv)
         Mix.shell().info("wrote #{Path.relative_to(path, root())}")
     end
+  end
+
+  # M8.9: the committed per-test manifest is the standing no-loss invariant.
+  # --manifest regenerates docs/validation/test-manifest.csv from the live
+  # tree; --check-manifest diffs an in-memory regeneration against the
+  # committed file and fails on any difference, so identity/lane/multiplicity
+  # drift breaks gates (release.v102 step v102_manifest_drift) instead of
+  # hiding until the next audit.
+  defp write_manifest!(records) do
+    rows = manifest_rows(records)
+    path = Path.join(root(), TestManifest.manifest_relative_path())
+    File.mkdir_p!(Path.dirname(path))
+    File.write!(path, TestManifest.csv(rows))
+    Mix.shell().info("wrote #{TestManifest.manifest_relative_path()} (#{length(rows)} rows)")
+  end
+
+  defp check_manifest!(records) do
+    rows = manifest_rows(records)
+    relative = TestManifest.manifest_relative_path()
+    path = Path.join(root(), relative)
+
+    committed =
+      case File.read(path) do
+        {:ok, content} ->
+          content
+
+        {:error, reason} ->
+          Mix.raise(
+            "committed test manifest unreadable (#{relative}: #{reason}); " <>
+              "generate it with: mix allbert.test inventory --manifest"
+          )
+      end
+
+    case TestManifest.check(TestManifest.csv(rows), committed) do
+      :ok ->
+        Mix.shell().info("test manifest ok: #{length(rows)} rows match #{relative}")
+
+      {:error, summary} ->
+        Mix.raise("""
+        test manifest drift against #{relative}:
+        #{summary}
+        Review the drift, then regenerate with: mix allbert.test inventory --manifest
+        """)
+    end
+  end
+
+  @doc false
+  def manifest_rows(records \\ inventory_records()) do
+    TestManifest.rows(records, root(), @lanes)
   end
 
   defp focused(args) do
@@ -5824,6 +5894,16 @@ defmodule Mix.Tasks.Allbert.Test do
       ]
     },
     %{
+      id: "v102_manifest_drift",
+      title: "committed per-test manifest matches a live regeneration (M8.9 no-loss invariant)",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "inventory", "--check-manifest"],
+      coverage: [
+        "inventory --check-manifest exits 0: docs/validation/test-manifest.csv reconciles per-test identities, lane tags, skip tags, and execution multiplicities against the live tree (M8.9)"
+      ]
+    },
+    %{
       id: "v102_residue_workspace",
       title: "residue (a): first-run marker test deterministic in its post-split home",
       cwd: :root,
@@ -7550,7 +7630,7 @@ defmodule Mix.Tasks.Allbert.Test do
         run_serial_partition_cmd(label, owner, lane, env, test_paths)
       end
 
-    record_serial_partition_metrics(gate, lane, partition, partitions, started, output)
+    record_serial_partition_metrics(gate, owner, lane, partition, partitions, started, output)
     cleanup_owned_env(env)
     output
   end
@@ -7609,24 +7689,34 @@ defmodule Mix.Tasks.Allbert.Test do
   # still filters inside the VM, so each test runs exactly once per lane.
   # This provably restores the pre-M8.8 whole-dir `--only` selection; the
   # onboarding_test describetag block is the proven counterexample to
-  # primary-lane-only lists.
-  defp packed_lane_paths(owner, lane, partitions) do
+  # primary-lane-only lists. Cost lookups are owner-qualified (M8.9): two
+  # owners can share an output-relative path, so the packer prefers the
+  # "owner:path" cost key and falls back to the bare path for legacy records.
+  @doc false
+  def packed_lane_paths(owner, lane, partitions) do
+    files = lane_packing_files(inventory_records(), owner, lane)
+    PartitionPacker.pack(files, partitions, TestMetrics.file_costs())
+  end
+
+  @doc false
+  def lane_packing_files(records, owner, lane) do
     lane_tag = ":#{lane}"
 
-    files =
-      inventory_records()
-      |> Enum.filter(fn record ->
-        record.owner == owner and
-          (record.primary_lane == lane or String.contains?(record.tags, lane_tag))
-      end)
-      |> Enum.map(&%{path: relative_test_path(&1.path, owner), test_count: &1.test_count})
-
-    PartitionPacker.pack(files, partitions, TestMetrics.file_costs())
+    records
+    |> Enum.filter(fn record ->
+      record.owner == owner and
+        (record.primary_lane == lane or String.contains?(record.tags, lane_tag))
+    end)
+    |> Enum.map(
+      &%{path: relative_test_path(&1.path, owner), test_count: &1.test_count, owner: owner}
+    )
   end
 
   # v1.0.2 M8.1: one metrics record per lane partition VM run; recording is
   # best-effort inside TestMetrics.record/1 and can never fail the gate.
-  defp record_serial_partition_metrics(gate, lane, partition, partitions, started, result) do
+  # M8.9: the record carries the owner so file_costs can emit owner-qualified
+  # cost keys (two owners can share an output-relative path).
+  defp record_serial_partition_metrics(gate, owner, lane, partition, partitions, started, result) do
     {status, output} =
       case result do
         {:ok, _label, output} -> {"passed", output}
@@ -7636,6 +7726,7 @@ defmodule Mix.Tasks.Allbert.Test do
     TestMetrics.record(%{
       gate: gate,
       phase_or_step: "serial-#{lane}",
+      owner: Atom.to_string(owner),
       lane: Atom.to_string(lane),
       partition: partition,
       partitions: partitions,
@@ -7759,7 +7850,8 @@ defmodule Mix.Tasks.Allbert.Test do
     Enum.join([Enum.map_join(headers, ",", &csv/1)] ++ rows, "\n") <> "\n"
   end
 
-  defp inventory_records do
+  @doc false
+  def inventory_records do
     @roots
     |> Enum.flat_map(&Path.wildcard(Path.join(root(), Path.join(&1, "**/*_test.exs"))))
     |> Enum.map(&Path.relative_to(&1, root()))
@@ -8160,7 +8252,7 @@ defmodule Mix.Tasks.Allbert.Test do
     Mix.raise("""
     Usage:
       mix allbert.test docs
-      mix allbert.test inventory [--output PATH] [--check-tags]
+      mix allbert.test inventory [--output PATH] [--check-tags] [--manifest] [--check-manifest]
       mix allbert.test focused -- FILE [FILE...]
       mix allbert.test commit
       mix allbert.test prepush [--partitions N]
