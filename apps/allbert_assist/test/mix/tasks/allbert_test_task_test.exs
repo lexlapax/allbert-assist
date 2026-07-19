@@ -120,9 +120,18 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert task_source =~ ~s(gate: "release.v101",)
     assert task_source =~ ~s(gate: "release.v102",)
 
-    # metrics subcommand + usage surface.
-    assert task_source =~ ~s{def run(["metrics" | rest]), do: metrics(rest)}
+    # metrics subcommand + usage surface (M8.10: run/1 captures the
+    # invocation for provenance and dispatches through do_run/1).
+    assert task_source =~ ~s{defp do_run(["metrics" | rest]), do: metrics(rest)}
     assert task_source =~ "mix allbert.test metrics [--ingest-campaign DIR]"
+
+    # (d) M8.10 provenance threading: gate call sites carry the captured
+    # invocation, and bench-decide is a first-class runner.
+    assert task_source =~ ":persistent_term.put({__MODULE__, :invocation}"
+    assert task_source =~ ~s{command: gate_command(),}
+    assert phase_runner_source =~ ~s{command: Keyword.get(opts, :command),}
+    assert task_source =~ ~s{defp do_run(["bench-decide"]), do: bench_decide()}
+    assert task_source =~ "mix allbert.test bench-decide"
   end
 
   test "prepush runs high coverage fast-local with requested partitions" do

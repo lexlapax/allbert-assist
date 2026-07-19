@@ -10,6 +10,16 @@ defmodule AllbertAssist.DevGates.TestMetrics do
   tables into `docs/validation/test-metrics/summary.md` and can ingest
   seed-campaign logs retroactively.
 
+  Provenance (v1.0.2 M8.10): every record additionally carries `full_sha`
+  (full `git rev-parse HEAD`), `dirty` (`git status --porcelain` non-empty),
+  `command` (the operator-visible gate subcommand + args), `cwd` (relative
+  to the repo root), `host_class` (os-arch-scheduler count), and `corpus_id`
+  (nil unless the row is a benchmark run, e.g. `bench-decide`'s
+  `"decide-v1"`). Rows missing these fields are LEGACY. Legacy rows and
+  `dirty: true` rows are never release evidence — recording on dirty trees
+  stays allowed for dev iteration, but a dirty row cannot prove a
+  clean-HEAD release claim.
+
   This module is development tooling only. It does not grant runtime
   authority and does not participate in Security Central decisions.
   """
@@ -39,12 +49,15 @@ defmodule AllbertAssist.DevGates.TestMetrics do
   Appends one metrics record. Never raises; failures warn and return `:ok`.
 
   Known keys: `:gate`, `:phase_or_step`, `:owner`, `:lane`, `:partition`,
-  `:partitions`, `:wall_ms`, `:status` (`"passed"`/`"failed"`), plus
-  optional `:output` (raw gate output — parsed for seed, summed ExUnit
-  totals, and the `--slowest` report) and explicit overrides for any
-  derived field (`:seed`, `:tests`, `:failures`, `:excluded`, `:skipped`,
-  `:slowest`, `:recorded_at`, `:git_sha`). `:store` overrides the store
-  path (test seam); `:test_metrics_store` app env overrides it globally.
+  `:partitions`, `:wall_ms`, `:status` (`"passed"`/`"failed"`), the M8.10
+  provenance/benchmark keys `:command`, `:corpus_id`, and `:stats`
+  (benchmark wall stats map), plus optional `:output` (raw gate output —
+  parsed for seed, summed ExUnit totals, and the `--slowest` report) and
+  explicit overrides for any derived field (`:seed`, `:tests`, `:failures`,
+  `:excluded`, `:skipped`, `:slowest`, `:recorded_at`, `:git_sha`,
+  `:full_sha`, `:dirty`, `:cwd`, `:host_class`). `:store` overrides the
+  store path (test seam); `:test_metrics_store` app env overrides it
+  globally.
   """
   def record(attrs) when is_map(attrs) do
     case resolve_store(attrs) do
@@ -194,6 +207,13 @@ defmodule AllbertAssist.DevGates.TestMetrics do
     %{
       recorded_at: Map.get_lazy(attrs, :recorded_at, &utc_now_iso8601/0),
       git_sha: Map.get_lazy(attrs, :git_sha, &cached_git_sha/0),
+      full_sha: Map.get_lazy(attrs, :full_sha, fn -> cached_provenance().full_sha end),
+      dirty: Map.get_lazy(attrs, :dirty, fn -> cached_provenance().dirty end),
+      command: Map.get(attrs, :command),
+      cwd: Map.get_lazy(attrs, :cwd, &default_cwd/0),
+      host_class: Map.get_lazy(attrs, :host_class, &host_class/0),
+      corpus_id: Map.get(attrs, :corpus_id),
+      stats: Map.get(attrs, :stats),
       gate: Map.get(attrs, :gate),
       phase_or_step: Map.get(attrs, :phase_or_step),
       owner: Map.get(attrs, :owner),
@@ -237,6 +257,64 @@ defmodule AllbertAssist.DevGates.TestMetrics do
     end
   rescue
     _error -> nil
+  end
+
+  # M8.10: full-SHA + dirty-tree snapshot, cached once per VM (same
+  # :persistent_term rationale as the short sha) — the provenance identifies
+  # the tree the run started on.
+  defp cached_provenance do
+    case :persistent_term.get({__MODULE__, :provenance}, :unset) do
+      :unset ->
+        provenance = %{full_sha: compute_full_sha(), dirty: compute_dirty()}
+        :persistent_term.put({__MODULE__, :provenance}, provenance)
+        provenance
+
+      provenance ->
+        provenance
+    end
+  end
+
+  defp compute_full_sha do
+    case System.cmd("git", ["rev-parse", "HEAD"], cd: repo_root(), stderr_to_stdout: true) do
+      {sha, 0} -> String.trim(sha)
+      {_output, _status} -> nil
+    end
+  rescue
+    _error -> nil
+  end
+
+  defp compute_dirty do
+    case System.cmd("git", ["status", "--porcelain"], cd: repo_root(), stderr_to_stdout: true) do
+      {output, 0} -> String.trim(output) != ""
+      {_output, _status} -> nil
+    end
+  rescue
+    _error -> nil
+  end
+
+  defp default_cwd do
+    cwd = File.cwd!()
+
+    if String.starts_with?(cwd, repo_root()) do
+      Path.relative_to(cwd, repo_root())
+    else
+      cwd
+    end
+  rescue
+    _error -> nil
+  end
+
+  defp host_class do
+    {_family, os} = :os.type()
+
+    arch =
+      :system_architecture
+      |> :erlang.system_info()
+      |> List.to_string()
+      |> String.split("-")
+      |> hd()
+
+    "#{os}-#{arch}-#{System.schedulers_online()}"
   end
 
   defp totals_key("test" <> _rest), do: :tests
@@ -295,10 +373,18 @@ defmodule AllbertAssist.DevGates.TestMetrics do
     output = File.read!(path)
     totals = sum_exunit_totals(output)
 
+    # Retroactive ingests deliberately carry nil provenance (M8.10): the
+    # current process's sha/dirty/cwd/host would misattribute the historical
+    # run, so campaign rows read as LEGACY and are never release evidence.
     record(%{
       store: Keyword.get(opts, :store),
       recorded_at: file_mtime_iso8601(path),
       git_sha: nil,
+      full_sha: nil,
+      dirty: nil,
+      command: nil,
+      cwd: nil,
+      host_class: nil,
       gate: "seed-campaign",
       phase_or_step: "full-suite",
       seed: seed,

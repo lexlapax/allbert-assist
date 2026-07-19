@@ -58,10 +58,14 @@ Engineering hardening, no new product capability:
   resolution re-normalized the full catalog per lookup (static first-match
   index now answers in O(1)) and redaction scanned sensitive-key fragments
   one at a time (single compiled multi-pattern now) — `Engine.decide`
-  875.6→548.8 ms mean per turn in the development scratchpad. M8.10 must
-  reproduce and retain these figures through structured identical-command
-  metrics before they become release claims; the former cumulative −83% claim
-  is withdrawn unless its full comparable series is reconstructed.
+  875.6→548.8 ms mean per turn in the development scratchpad (scratchpad
+  protocol, superseded by `mix allbert.test bench-decide` corpus-v1 store
+  records; retained as history, not release evidence). M8.10 landed the
+  structured benchmark (provenance-carrying store rows: full SHA, dirty
+  flag, command, cwd, host class, corpus id — legacy and dirty rows are
+  never release evidence); the former cumulative −83% claim remains
+  withdrawn until the corpus-v1 pre/post runs against the clean v1.0.1
+  worktree and the clean RC SHA — measured at M8.12.
 - **20-seed full-monolith campaign** (pre/post the isolation work): flake
   surface reduced to the two documented monolith-only Non-Goal classes; a
   third class (onboarding wizard-rewind order dependence) eliminated; full

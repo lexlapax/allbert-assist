@@ -144,8 +144,13 @@ defmodule AllbertAssist.DevGates.PhaseRunner do
       "==> #{gate} #{phase.id} finished in #{duration_ms(started_at, finished_at)}ms status=#{status}"
     )
 
+    # M8.10 provenance: `:command` is the operator-visible gate invocation
+    # threaded by the caller (nil when run outside `mix allbert.test`);
+    # `cwd` is the phase's actual working directory.
     TestMetrics.record(%{
       gate: gate,
+      command: Keyword.get(opts, :command),
+      cwd: relative_cwd(phase.cwd),
       phase_or_step: phase.id,
       status: status,
       wall_ms: duration_ms(started_at, finished_at),

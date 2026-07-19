@@ -857,7 +857,17 @@ at a time (~150k binary scans per decide). Both fixed with identical
 semantics (compile-constant static name index; one
 `:binary.compile_pattern`). `Engine.decide` per-turn (10-prompt × 3-round
 warmed corpus): mean 875.6→548.8 ms (−37%), p50 762.5→456.7 ms. Cumulative
-from the v1.0.1 baseline: 3,158→549 ms (−83%). Remaining attribution
+from the v1.0.1 baseline: 3,158→549 ms (−83%). **M8.10 claim audit:** the
+per-turn figures in this paragraph are scratchpad protocol
+(`decide_profile.exs`), superseded by `mix allbert.test bench-decide`
+corpus-v1 store records (`corpus_id: "decide-v1"` — the same 10 prompts,
+warmup + 3 timed rounds, now recorded with full-SHA/dirty/command/cwd/host
+provenance); they stay recorded here as history, not release evidence. The
+cumulative −83% claim is WITHDRAWN as a cross-protocol chain; per operator
+disposition it is re-measured single-protocol — corpus v1 against a clean
+v1.0.1 worktree (`ea7b4219`) and against the clean RC SHA.
+TODO(measured at M8.12): the corpus-v1 pre/post numbers land here from
+those two store-recorded runs. Remaining attribution
 (prefilter-class regex tokenization, ~15%/turn) is recorded in the Test
 Suite Speed & Isolation phase-2 entry, not pursued in 1.0.2.
 
@@ -884,7 +894,9 @@ claims require identical-command structured pre/post rows; profiling
 scratchpads explain attribution but are not release evidence. The M8.8 quick
 and decide-turn figures remain provisional until this reconciliation, and the
 cumulative decide-turn percentage is not a release claim unless the complete
-comparable series is reconstructed.
+comparable series is reconstructed. (M8.10 schema + `bench-decide` corpus-v1
+runner landed 2026-07-19; the corpus-v1 pre/post re-measurement is measured
+at M8.12.)
 
 M8.12 reruns docs, inventory, precommit, `release.v1`, `release.v102`, and the
 authoritative release gate at one clean candidate SHA. Only records for that

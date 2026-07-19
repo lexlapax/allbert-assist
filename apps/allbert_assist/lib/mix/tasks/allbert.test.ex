@@ -14,6 +14,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test serial-core --lane LANE [--partitions N]
       mix allbert.test param-contract-sweep
       mix allbert.test metrics [--ingest-campaign DIR]
+      mix allbert.test bench-decide
       mix allbert.test release
       mix allbert.test release.v042
       mix allbert.test release.v043
@@ -126,52 +127,60 @@ defmodule Mix.Tasks.Allbert.Test do
   ]a
 
   @impl true
-  def run(["docs"]), do: docs()
-  def run(["inventory" | rest]), do: inventory(rest)
-  def run(["focused" | rest]), do: focused(rest)
-  def run(["commit" | rest]), do: commit(rest)
-  def run(["prepush" | rest]), do: prepush(rest)
-  def run(["fast-local" | rest]), do: fast_local(rest)
-  def run(["partition-smoke" | rest]), do: partition_smoke(rest)
-  def run(["serial-core" | rest]), do: serial_core(rest)
-  def run(["param-contract-sweep"]), do: param_contract_sweep()
-  def run(["metrics" | rest]), do: metrics(rest)
-  def run(["release"]), do: release()
-  def run(["release.v042"]), do: release_v042()
-  def run(["release.v043"]), do: release_v043()
-  def run(["release.v044"]), do: release_v044()
-  def run(["release.v045"]), do: release_v045()
-  def run(["release.v046"]), do: release_v046()
-  def run(["release.v047"]), do: release_v047()
-  def run(["release.v047b"]), do: release_v047b()
-  def run(["release.v048"]), do: release_v048()
-  def run(["release.v049"]), do: release_v049()
-  def run(["release.v050"]), do: release_v050()
-  def run(["release.v050b"]), do: release_v050b()
-  def run(["release.v051"]), do: release_v051()
-  def run(["release.v052"]), do: release_v052()
-  def run(["release.v053"]), do: release_v053()
-  def run(["release.v054"]), do: release_v054()
-  def run(["release.v055"]), do: release_v055()
-  def run(["release.v0551"]), do: release_v0551()
-  def run(["release.v056"]), do: release_v056()
-  def run(["release.v057"]), do: release_v057()
-  def run(["release.v058"]), do: release_v058()
-  def run(["release.v059"]), do: release_v059()
-  def run(["release.v060"]), do: release_v060()
-  def run(["release.v060b"]), do: release_v060b()
-  def run(["release.v061"]), do: release_v061()
-  def run(["release.v061b"]), do: release_v061b()
-  def run(["release.v062"]), do: release_v062()
-  def run(["release.v063"]), do: release_v063()
-  def run(["release.v064"]), do: release_v064()
-  def run(["release.v065"]), do: release_v065()
-  def run(["release.v066"]), do: release_v066()
-  def run(["release.v1"]), do: release_v1()
-  def run(["release.v101"]), do: release_v101()
-  def run(["release.v102"]), do: release_v102()
-  def run(["external-smoke" | rest]), do: external_smoke(rest)
-  def run(_args), do: usage!()
+  def run(args) do
+    # M8.10 provenance: stash the operator-visible gate subcommand + args
+    # once per VM so every metrics record cites the exact invocation.
+    :persistent_term.put({__MODULE__, :invocation}, Enum.join(args, " "))
+    do_run(args)
+  end
+
+  defp do_run(["docs"]), do: docs()
+  defp do_run(["inventory" | rest]), do: inventory(rest)
+  defp do_run(["focused" | rest]), do: focused(rest)
+  defp do_run(["commit" | rest]), do: commit(rest)
+  defp do_run(["prepush" | rest]), do: prepush(rest)
+  defp do_run(["fast-local" | rest]), do: fast_local(rest)
+  defp do_run(["partition-smoke" | rest]), do: partition_smoke(rest)
+  defp do_run(["serial-core" | rest]), do: serial_core(rest)
+  defp do_run(["param-contract-sweep"]), do: param_contract_sweep()
+  defp do_run(["metrics" | rest]), do: metrics(rest)
+  defp do_run(["bench-decide"]), do: bench_decide()
+  defp do_run(["release"]), do: release()
+  defp do_run(["release.v042"]), do: release_v042()
+  defp do_run(["release.v043"]), do: release_v043()
+  defp do_run(["release.v044"]), do: release_v044()
+  defp do_run(["release.v045"]), do: release_v045()
+  defp do_run(["release.v046"]), do: release_v046()
+  defp do_run(["release.v047"]), do: release_v047()
+  defp do_run(["release.v047b"]), do: release_v047b()
+  defp do_run(["release.v048"]), do: release_v048()
+  defp do_run(["release.v049"]), do: release_v049()
+  defp do_run(["release.v050"]), do: release_v050()
+  defp do_run(["release.v050b"]), do: release_v050b()
+  defp do_run(["release.v051"]), do: release_v051()
+  defp do_run(["release.v052"]), do: release_v052()
+  defp do_run(["release.v053"]), do: release_v053()
+  defp do_run(["release.v054"]), do: release_v054()
+  defp do_run(["release.v055"]), do: release_v055()
+  defp do_run(["release.v0551"]), do: release_v0551()
+  defp do_run(["release.v056"]), do: release_v056()
+  defp do_run(["release.v057"]), do: release_v057()
+  defp do_run(["release.v058"]), do: release_v058()
+  defp do_run(["release.v059"]), do: release_v059()
+  defp do_run(["release.v060"]), do: release_v060()
+  defp do_run(["release.v060b"]), do: release_v060b()
+  defp do_run(["release.v061"]), do: release_v061()
+  defp do_run(["release.v061b"]), do: release_v061b()
+  defp do_run(["release.v062"]), do: release_v062()
+  defp do_run(["release.v063"]), do: release_v063()
+  defp do_run(["release.v064"]), do: release_v064()
+  defp do_run(["release.v065"]), do: release_v065()
+  defp do_run(["release.v066"]), do: release_v066()
+  defp do_run(["release.v1"]), do: release_v1()
+  defp do_run(["release.v101"]), do: release_v101()
+  defp do_run(["release.v102"]), do: release_v102()
+  defp do_run(["external-smoke" | rest]), do: external_smoke(rest)
+  defp do_run(_args), do: usage!()
 
   defp docs do
     run_cmd!("docs", root(), "git", ["diff", "--check"], [])
@@ -672,6 +681,44 @@ defmodule Mix.Tasks.Allbert.Test do
     Mix.shell().info("test metrics summary: #{Path.relative_to(summary_path, root())}")
   end
 
+  # v1.0.2 M8.10: the M8.8 decide-turn profiling protocol promoted to a
+  # first-class runner. Boots the test env in an owned gate home (migrate
+  # first, the serial-lane pattern), runs corpus v1 in the child VM
+  # (`DecideBench.record_run!/0` — warmup pass + 3 timed rounds), and
+  # records ONE provenance-carrying store row (corpus_id "decide-v1").
+  defp bench_decide do
+    env = owned_env("bench-decide", 0)
+
+    try do
+      {migrate_output, migrate_status} =
+        System.cmd("mix", ["ecto.migrate.allbert", "--quiet"],
+          cd: app_cwd(:core),
+          env: env,
+          stderr_to_stdout: true
+        )
+
+      if migrate_status != 0 do
+        print_output("bench-decide migrate", migrate_output)
+        Mix.raise("bench-decide migrate failed with status #{migrate_status}")
+      end
+
+      {output, status} =
+        System.cmd("mix", ["run", "-e", "AllbertAssist.DevGates.DecideBench.record_run!()"],
+          cd: app_cwd(:core),
+          env: env,
+          stderr_to_stdout: true
+        )
+
+      print_output("bench-decide", output)
+
+      if status != 0 do
+        Mix.raise("bench-decide failed with status #{status}")
+      end
+    after
+      cleanup_owned_env(env)
+    end
+  end
+
   defp commit_phases do
     env = owned_env("commit", 0)
 
@@ -795,7 +842,7 @@ defmodule Mix.Tasks.Allbert.Test do
       PhaseRunner.run_gate!(
         gate,
         phases,
-        Keyword.merge(opts, env: env)
+        Keyword.merge(opts, env: env, command: gate_command())
       )
     after
       if Keyword.get(opts, :cleanup?, true) do
@@ -5735,6 +5782,8 @@ defmodule Mix.Tasks.Allbert.Test do
 
     TestMetrics.record(%{
       gate: "release.v1",
+      command: gate_command(),
+      cwd: Path.relative_to(cwd, root()),
       phase_or_step: step.id,
       status: if(exit_status == 0, do: "passed", else: "failed"),
       wall_ms: duration_ms,
@@ -5862,6 +5911,8 @@ defmodule Mix.Tasks.Allbert.Test do
 
     TestMetrics.record(%{
       gate: "release.v101",
+      command: gate_command(),
+      cwd: Path.relative_to(cwd, root()),
       phase_or_step: step.id,
       status: if(exit_status == 0, do: "passed", else: "failed"),
       wall_ms: duration_ms,
@@ -6054,6 +6105,8 @@ defmodule Mix.Tasks.Allbert.Test do
 
     TestMetrics.record(%{
       gate: "release.v102",
+      command: gate_command(),
+      cwd: Path.relative_to(cwd, root()),
       phase_or_step: step.id,
       status: if(exit_status == 0, do: "passed", else: "failed"),
       wall_ms: duration_ms,
@@ -7725,6 +7778,8 @@ defmodule Mix.Tasks.Allbert.Test do
 
     TestMetrics.record(%{
       gate: gate,
+      command: gate_command(),
+      cwd: Path.relative_to(app_cwd(owner), root()),
       phase_or_step: "serial-#{lane}",
       owner: Atom.to_string(owner),
       lane: Atom.to_string(lane),
@@ -8247,6 +8302,12 @@ defmodule Mix.Tasks.Allbert.Test do
     Path.expand("../../../../..", __DIR__)
   end
 
+  # M8.10: the gate subcommand + args captured in run/1; nil outside a
+  # `mix allbert.test` invocation (such records read as LEGACY provenance).
+  defp gate_command do
+    :persistent_term.get({__MODULE__, :invocation}, nil)
+  end
+
   @spec usage!() :: no_return()
   defp usage! do
     Mix.raise("""
@@ -8261,6 +8322,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test serial-core --lane LANE [--partitions N]
       mix allbert.test param-contract-sweep
       mix allbert.test metrics [--ingest-campaign DIR]
+      mix allbert.test bench-decide
       mix allbert.test release
       mix allbert.test release.v042
       mix allbert.test release.v043

@@ -115,6 +115,57 @@ defmodule AllbertAssist.DevGates.TestMetricsTest do
       assert [%{"ms" => 1400.0} | _rest] = record["slowest"]
     end
 
+    test "M8.10 provenance fields default from the environment" do
+      store = temp_store()
+      on_exit(fn -> File.rm_rf!(Path.dirname(store)) end)
+
+      assert :ok = TestMetrics.record(%{store: store, gate: "fast-local", status: "passed"})
+
+      assert [record] = read_store(store)
+      assert record["full_sha"] =~ ~r/^[0-9a-f]{40}$/
+      assert is_boolean(record["dirty"])
+      # no threaded gate invocation here: command stays nil (a LEGACY row)
+      assert record["command"] == nil
+      assert is_binary(record["cwd"])
+      assert record["host_class"] =~ ~r/^[a-z]+-[A-Za-z0-9_]+-\d+$/
+      assert record["corpus_id"] == nil
+      assert record["stats"] == nil
+    end
+
+    test "M8.10 provenance overrides and benchmark fields are recorded verbatim" do
+      store = temp_store()
+      on_exit(fn -> File.rm_rf!(Path.dirname(store)) end)
+
+      assert :ok =
+               TestMetrics.record(%{
+                 store: store,
+                 gate: "bench-decide",
+                 status: "passed",
+                 full_sha: "aaaabbbbccccddddeeeeffff0000111122223333",
+                 dirty: true,
+                 command: "bench-decide",
+                 cwd: "apps/allbert_assist",
+                 host_class: "testos-testarch-8",
+                 corpus_id: "decide-v1",
+                 stats: %{turns: 30, mean_ms: 548.8, p50_ms: 456.7, max_ms: 900.1}
+               })
+
+      assert [record] = read_store(store)
+      assert record["full_sha"] == "aaaabbbbccccddddeeeeffff0000111122223333"
+      assert record["dirty"] == true
+      assert record["command"] == "bench-decide"
+      assert record["cwd"] == "apps/allbert_assist"
+      assert record["host_class"] == "testos-testarch-8"
+      assert record["corpus_id"] == "decide-v1"
+
+      assert record["stats"] == %{
+               "turns" => 30,
+               "mean_ms" => 548.8,
+               "p50_ms" => 456.7,
+               "max_ms" => 900.1
+             }
+    end
+
     test "never raises: an unwritable store warns and returns :ok" do
       blocker =
         Path.join(
@@ -180,6 +231,14 @@ defmodule AllbertAssist.DevGates.TestMetricsTest do
       assert first["status"] == "failed"
       assert first["git_sha"] == nil
       assert first["slowest"] == []
+
+      # retroactive ingests carry nil provenance by design: LEGACY rows,
+      # never release evidence (M8.10)
+      assert first["full_sha"] == nil
+      assert first["dirty"] == nil
+      assert first["command"] == nil
+      assert first["cwd"] == nil
+      assert first["host_class"] == nil
 
       assert second["seed"] == 2000
       assert second["wall_ms"] == 6_099_000
