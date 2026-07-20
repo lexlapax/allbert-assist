@@ -47,6 +47,15 @@ classification in `--check-tags`, and (e) store-cited pre/post.
    `Ecto.Adapters.SQL.Sandbox` owner per test. The missing contract is
    allowance propagation to every spawned process (LiveView mounts, Tasks,
    agents, delegate calls) plus an empirical SQLite concurrency verdict.
+   **VERDICT ANSWERED (v1.0.3 M4, 2026-07-20):** lane concurrency cannot be
+   bought by raising `--max-cases` alone — ExUnit schedules only
+   `async: true` tests concurrently, and every serial-lane test is
+   `async: false`, so a 1-vs-4 A/B over 86 liveview tests measured
+   identical walls (1,132 s, `0.00s async`). Conversion to `async: true`
+   through this contract is the PRECONDITION; the runner's per-lane
+   `--max-cases` lift is a required follow-on for DB-backed lanes and
+   applies only to lanes whose files are converted. `pure_async`
+   conversions need no lift.
    Repo-backed tests do not become `pure_async`; successful candidates use
    `db_partition_safe` unless the taxonomy and runner are deliberately
    amended with evidence. SQLite's single-writer reality stays respected:
