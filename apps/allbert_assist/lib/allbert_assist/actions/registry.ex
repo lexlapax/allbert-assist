@@ -785,11 +785,46 @@ defmodule AllbertAssist.Actions.Registry do
   defp maybe_put_plugin_id(capability, nil), do: capability
   defp maybe_put_plugin_id(capability, plugin_id), do: %{capability | plugin_id: plugin_id}
 
+  # v1.0.3 M7: 5,416 calls inside one `Engine.decide` (3,293 from
+  # `plugin_action_entries/1`, which re-derives and re-normalizes the whole
+  # plugin action list per lookup, 2,123 from `resolve_name/3`), each running
+  # a Unicode downcase plus a `Regex.replace/4`. Single byte walk, byte-
+  # identical on the domain it accepts.
+  #
+  # Equivalence argument. The fast path accepts ONLY all-ASCII binaries
+  # (every byte < 0x80); anything else falls through to the original
+  # pipeline, so Unicode case folding is never approximated. On ASCII,
+  # `String.downcase/1` is byte-wise `A-Z` -> `a-z`, `[^a-z0-9]+ -> "_"`
+  # collapses each maximal run of non-alphanumeric bytes to one underscore,
+  # and `String.trim("_")` drops the leading/trailing one — which the walk
+  # achieves by never emitting a separator before the first kept byte and
+  # never flushing a trailing one.
   defp normalize_name(name) do
-    name
-    |> to_string()
-    |> String.downcase()
-    |> String.replace(~r/[^a-z0-9]+/, "_")
-    |> String.trim("_")
+    binary = to_string(name)
+
+    case normalize_name_ascii(binary, <<>>, false) do
+      :non_ascii ->
+        binary
+        |> String.downcase()
+        |> String.replace(~r/[^a-z0-9]+/, "_")
+        |> String.trim("_")
+
+      normalized ->
+        normalized
+    end
   end
+
+  defp normalize_name_ascii(<<c, rest::binary>>, acc, pending?) when c < 0x80 do
+    c = if c >= ?A and c <= ?Z, do: c + 32, else: c
+
+    if (c >= ?a and c <= ?z) or (c >= ?0 and c <= ?9) do
+      acc = if pending?, do: <<acc::binary, ?_>>, else: acc
+      normalize_name_ascii(rest, <<acc::binary, c>>, false)
+    else
+      normalize_name_ascii(rest, acc, acc != <<>>)
+    end
+  end
+
+  defp normalize_name_ascii(<<>>, acc, _pending?), do: acc
+  defp normalize_name_ascii(_binary, _acc, _pending?), do: :non_ascii
 end

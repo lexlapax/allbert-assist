@@ -502,14 +502,58 @@ defmodule AllbertAssist.Intent.Ranker do
     end)
   end
 
+  # v1.0.3 M7: ranking normalizes the SAME strings over and over — 3,582
+  # calls inside one `Engine.decide` (2,500 of them from
+  # `descriptor_phrase_match_score/3`, which re-normalized the invariant user
+  # text once per candidate phrase), each running a Unicode downcase plus two
+  # `Regex.replace/4` passes. The pipeline below is a single byte walk that
+  # produces a byte-identical result for the inputs it accepts.
+  #
+  # Equivalence argument. The fast path accepts ONLY binaries whose every
+  # byte is printable ASCII (0x20..0x7E) or tab/LF/CR — anything else,
+  # including VT/FF (whose membership in PCRE `\s` is version-dependent) and
+  # every byte >= 0x80 (where Unicode case folding applies), falls through to
+  # the original pipeline unchanged. On that restricted domain:
+  #
+  #   * `String.downcase/1` is byte-wise `A-Z` -> `a-z`.
+  #   * `[_\-:.\/]+ -> " "` followed by `\s+ -> " "` collapses any maximal run
+  #     of separator-or-whitespace bytes to exactly one space (the first pass
+  #     rewrites separator runs to spaces, the second merges them with the
+  #     adjacent whitespace), which is what the pending-separator flag does.
+  #   * `String.trim/1` then drops the leading/trailing space, which the walk
+  #     achieves by never emitting a separator before the first kept byte and
+  #     never flushing a trailing one.
   defp normalize_text(value) do
-    value
-    |> to_string()
-    |> String.downcase()
-    |> String.replace(~r/[_\-:.\/]+/, " ")
-    |> String.replace(~r/\s+/, " ")
-    |> String.trim()
+    binary = to_string(value)
+
+    case normalize_text_ascii(binary, <<>>, false) do
+      :non_ascii ->
+        binary
+        |> String.downcase()
+        |> String.replace(~r/[_\-:.\/]+/, " ")
+        |> String.replace(~r/\s+/, " ")
+        |> String.trim()
+
+      normalized ->
+        normalized
+    end
   end
+
+  @text_separators [?_, ?-, ?:, ?., ?/, ?\s, ?\t, ?\n, ?\r]
+
+  defp normalize_text_ascii(<<c, rest::binary>>, acc, _pending?) when c in @text_separators do
+    normalize_text_ascii(rest, acc, acc != <<>>)
+  end
+
+  defp normalize_text_ascii(<<c, rest::binary>>, acc, pending?)
+       when c >= 0x20 and c <= 0x7E do
+    acc = if pending?, do: <<acc::binary, ?\s>>, else: acc
+    c = if c >= ?A and c <= ?Z, do: c + 32, else: c
+    normalize_text_ascii(rest, <<acc::binary, c>>, false)
+  end
+
+  defp normalize_text_ascii(<<>>, acc, _pending?), do: acc
+  defp normalize_text_ascii(_binary, _acc, _pending?), do: :non_ascii
 
   defp boost(candidate, amount, kind, reason) do
     candidate

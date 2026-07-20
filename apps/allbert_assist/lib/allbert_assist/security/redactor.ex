@@ -54,6 +54,32 @@ defmodule AllbertAssist.Security.Redactor do
   ]
   @phone_value_pattern ~r/(^|[^A-Za-z0-9_])(\+[1-9]\d{6,14})(?![A-Za-z0-9_])/
 
+  # v1.0.3 M7: every binary value walked by `redact/1` ran the full
+  # ten-regex pipeline unconditionally — 35,040 `Regex.replace` invocations
+  # inside one `Engine.decide` (eprof; 73% of all regex work in the turn).
+  # Each pattern has a MANDATORY literal that must appear in the subject for
+  # any match to exist, so a single Aho-Corasick prescan per step decides
+  # "cannot match" far cheaper than running the regex, and `Regex.replace`
+  # on a non-matching subject returns the subject unchanged. The guards are
+  # therefore exactly equivalent, not approximations:
+  #
+  #   * authorization: `(authorization:\s*)…/i` — group 1 is mandatory, and
+  #     every case variant of "authorization" contains `z` or `Z`.
+  #   * cookie: `((set-cookie|cookie):\s*)…/i` — both alternatives contain
+  #     "cookie", hence `k` or `K`.
+  #   * bearer: `\b(bearer\s+)…/i` — mandatory "bearer", hence `b` or `B`.
+  #   * secret shapes: all six patterns are case-SENSITIVE, so their literal
+  #     prefixes are exact byte sequences.
+  #   * phone: the pattern requires a literal `+`.
+  #   * url: `redact_url/1` only rewrites when `URI.parse/1` yields an
+  #     http(s) scheme, and a scheme exists only when the value contains `:`.
+  @authorization_markers ["z", "Z"]
+  @cookie_markers ["k", "K"]
+  @bearer_markers ["b", "B"]
+  @secret_shape_markers ["sk-", "ghp_", "xox", "xapp-", "AIza", "AKIA", "ASIA"]
+  @phone_markers ["+"]
+  @url_markers [":"]
+
   @type posture :: %{
           sensitive_key_fragments: nonempty_list(String.t()),
           secret_ref_display: String.t(),
@@ -121,7 +147,7 @@ defmodule AllbertAssist.Security.Redactor do
     normalized =
       key
       |> to_string()
-      |> String.downcase()
+      |> downcase_key()
 
     normalized not in @status_keys and
       normalized not in @non_sensitive_key_names and
@@ -137,11 +163,50 @@ defmodule AllbertAssist.Security.Redactor do
   # in a module attribute; the fragment list is compile-constant, so the
   # persistent_term memo never needs invalidation.
   defp sensitive_fragment_pattern do
-    key = {__MODULE__, :sensitive_fragment_pattern}
+    compiled_pattern(:sensitive_fragment_pattern, @sensitive_key_fragments)
+  end
+
+  # v1.0.3 M7: `sensitive_key?/1` runs on every key of every payload
+  # redaction touches — 11,711 calls inside one `Engine.decide`, and
+  # `String.downcase/1` walked each key grapheme-by-grapheme through the
+  # Unicode tables (the single largest `String.Unicode.downcase/3` caller in
+  # the turn). Map keys are overwhelmingly already-lowercase ASCII atoms, so
+  # classify the bytes once: a pure-ASCII binary with no `A-Z` is already its
+  # own downcase and is returned untouched, a pure-ASCII binary with `A-Z`
+  # lowers byte-wise (identical to `String.downcase/1` on ASCII, which has no
+  # multi-codepoint or locale-dependent foldings below U+0080), and anything
+  # with a byte >= 0x80 falls back to `String.downcase/1` unchanged.
+  defp downcase_key(binary) do
+    case ascii_case(binary, false) do
+      :lower -> binary
+      :mixed -> ascii_downcase(binary, <<>>)
+      :non_ascii -> String.downcase(binary)
+    end
+  end
+
+  defp ascii_case(<<c, rest::binary>>, upper?) when c < 0x80 do
+    ascii_case(rest, upper? or (c >= ?A and c <= ?Z))
+  end
+
+  defp ascii_case(<<>>, true), do: :mixed
+  defp ascii_case(<<>>, false), do: :lower
+  defp ascii_case(_binary, _upper?), do: :non_ascii
+
+  defp ascii_downcase(<<c, rest::binary>>, acc) when c >= ?A and c <= ?Z do
+    ascii_downcase(rest, <<acc::binary, c + 32>>)
+  end
+
+  defp ascii_downcase(<<c, rest::binary>>, acc), do: ascii_downcase(rest, <<acc::binary, c>>)
+  defp ascii_downcase(<<>>, acc), do: acc
+
+  # M7 generalization of the M8.8 memo: every literal list here is
+  # compile-constant, so a cached compiled pattern never needs invalidation.
+  defp compiled_pattern(name, literals) do
+    key = {__MODULE__, name}
 
     case :persistent_term.get(key, nil) do
       nil ->
-        pattern = :binary.compile_pattern(@sensitive_key_fragments)
+        pattern = :binary.compile_pattern(literals)
         :persistent_term.put(key, pattern)
         pattern
 
@@ -150,29 +215,61 @@ defmodule AllbertAssist.Security.Redactor do
     end
   end
 
+  defp may_match?(value, name, literals) do
+    :binary.match(value, compiled_pattern(name, literals)) != :nomatch
+  end
+
   defp redact_authorization_line(value) do
-    Regex.replace(~r/(authorization:\s*)(bearer\s+)?[^\s\r\n]+/i, value, "\\1\\2#{@redacted}")
+    if may_match?(value, :authorization_markers, @authorization_markers) do
+      Regex.replace(~r/(authorization:\s*)(bearer\s+)?[^\s\r\n]+/i, value, "\\1\\2#{@redacted}")
+    else
+      value
+    end
   end
 
   defp redact_cookie_line(value) do
-    Regex.replace(~r/((set-cookie|cookie):\s*)[^\r\n]+/i, value, "\\1#{@redacted}")
+    if may_match?(value, :cookie_markers, @cookie_markers) do
+      Regex.replace(~r/((set-cookie|cookie):\s*)[^\r\n]+/i, value, "\\1#{@redacted}")
+    else
+      value
+    end
   end
 
   defp redact_bearer_value(value) do
-    Regex.replace(~r/\b(bearer\s+)[^\s\r\n]+/i, value, "\\1#{@redacted}")
+    if may_match?(value, :bearer_markers, @bearer_markers) do
+      Regex.replace(~r/\b(bearer\s+)[^\s\r\n]+/i, value, "\\1#{@redacted}")
+    else
+      value
+    end
   end
 
   defp redact_secret_shapes(value) do
-    Enum.reduce(@secret_value_patterns, value, fn pattern, acc ->
-      Regex.replace(pattern, acc, @redacted)
-    end)
+    if may_match?(value, :secret_shape_markers, @secret_shape_markers) do
+      Enum.reduce(@secret_value_patterns, value, fn pattern, acc ->
+        Regex.replace(pattern, acc, @redacted)
+      end)
+    else
+      value
+    end
   end
 
   defp redact_phone_numbers(value) do
-    Regex.replace(@phone_value_pattern, value, "\\1#{@phone_redaction}")
+    if may_match?(value, :phone_markers, @phone_markers) do
+      Regex.replace(@phone_value_pattern, value, "\\1#{@phone_redaction}")
+    else
+      value
+    end
   end
 
   defp redact_url(value) do
+    if may_match?(value, :url_markers, @url_markers) do
+      redact_parsed_url(value)
+    else
+      value
+    end
+  end
+
+  defp redact_parsed_url(value) do
     uri = URI.parse(value)
 
     if uri.scheme in ["http", "https"] and is_binary(uri.host) do
