@@ -89,7 +89,10 @@ classification in `--check-tags`, and (e) store-cited pre/post.
    single-VM. Honest floor over flaky split.
 
 **Monolith-class corollary.** The two residual classes are fixed at the
-ownership root (contract 1 allowance threading for Sidebar; ShippedRegistries
+ownership root (for Sidebar: the ownership-LEASE derivation landed at
+v1.0.3 M2 — contract 1's allowance propagation is real and used elsewhere,
+e.g. the M1 db pilot's engine-agent allowance, but the Sidebar class turned
+out to be lease expiry, corrected here after measurement; ShippedRegistries
 or private-context convergence plus `ListChannels.run/2` forwarding registry
 opts to `Channels.list_channels/1` for ListChannels) — never by
 retries, deletions, or monolith-specific skips. Acceptance is the rerun

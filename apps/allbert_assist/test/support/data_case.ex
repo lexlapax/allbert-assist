@@ -51,12 +51,59 @@ defmodule AllbertAssist.DataCase do
     :ok
   end
 
+  # DBConnection's ownership lease (`:ownership_timeout`,
+  # `DBConnection.Ownership.Proxy`) defaults to 120_000 ms and is completely
+  # independent of ExUnit's per-test `:timeout` budget. When a test declares a
+  # budget LONGER than the lease, the lease is the binding deadline: the proxy
+  # disconnects the connection, the shared owner goes down, the pool mode
+  # reverts to `:manual`, and every subsequent Repo call — including the ones a
+  # freshly mounted LiveView makes — raises
+  # `DBConnection.OwnershipError: cannot find ownership process … using mode
+  # :manual`. That is the v1.0.3 M2 monolith class (ADR 0086 monolith-class
+  # corollary).
+  @dbconnection_default_ownership_timeout 120_000
+
+  # The lease must outlive the budget so ExUnit's timeout, never the sandbox,
+  # is the deadline that fires. The headroom covers the setup work that runs
+  # before checkout and the `on_exit` cleanup that runs after the body.
+  @ownership_headroom 30_000
+
   @doc """
-  Sets up the sandbox based on the test tags.
+  Sets up the sandbox based on the test tags. Returns the owner pid.
   """
   def setup_sandbox(tags) do
-    pid = Sandbox.start_owner!(Repo, shared: not tags[:async])
-    on_exit(fn -> Sandbox.stop_owner(pid) end)
+    pid =
+      Sandbox.start_owner!(Repo,
+        shared: not tags[:async],
+        ownership_timeout: sandbox_ownership_timeout(tags)
+      )
+
+    # Tolerant of an owner the test retired itself (the M2 lease regression
+    # replaces the case-provided owner); `stop_owner/1` on a dead pid exits.
+    on_exit(fn -> if Process.alive?(pid), do: Sandbox.stop_owner(pid) end)
+    pid
+  end
+
+  @doc """
+  The sandbox ownership lease for a test, derived from its declared ExUnit
+  budget (ADR 0086 contract 1, v1.0.3 M2).
+
+  The invariant: the lease STRICTLY exceeds the test's own `:timeout` tag, so a
+  test can never outlive its sandbox connection. A test that declares no
+  integer budget (or `:infinity`) keeps the DBConnection default / an infinite
+  lease respectively.
+  """
+  def sandbox_ownership_timeout(tags) do
+    case tags[:timeout] do
+      :infinity ->
+        :infinity
+
+      budget when is_integer(budget) and budget > 0 ->
+        budget + @ownership_headroom
+
+      _other ->
+        @dbconnection_default_ownership_timeout
+    end
   end
 
   @doc """

@@ -36,7 +36,13 @@ defmodule AllbertAssistWeb.ConnCase do
   end
 
   setup tags do
-    AllbertAssist.DataCase.setup_sandbox(tags)
-    {:ok, conn: Phoenix.ConnTest.build_conn()}
+    # v1.0.3 M2: the sandbox owner is exposed so the ownership-lease regression
+    # can retire the case-provided lease and drive the LiveView boundary
+    # explicitly. The lease itself is sized from the test's declared ExUnit
+    # budget by `DataCase.setup_sandbox/1` — LiveView mounts and the processes
+    # they spawn reach the connection through this owner, so a lease that
+    # expires mid-test is exactly what strips their ownership.
+    owner = AllbertAssist.DataCase.setup_sandbox(tags)
+    {:ok, conn: Phoenix.ConnTest.build_conn(), sandbox_owner: owner}
   end
 end
