@@ -21,7 +21,7 @@ replace the binary-release obligation of a versioned feature plan.
 Set this once from the release checkout; every active command below consumes it:
 
 ```sh
-export VERSION="${VERSION:?set VERSION, for example v1.0.2}"
+export VERSION="${VERSION:?set VERSION, for example v1.0.3}"
 export EXPECTED_VERSION="${VERSION#v}"
 export REPO="${REPO:-lexlapax/allbert-assist}"
 export EVIDENCE_ROOT="${EVIDENCE_ROOT:-$(mktemp -d /tmp/allbert-release-evidence.XXXXXX)}"
@@ -158,6 +158,36 @@ third-party taps are refused. Audit by tapped formula name after trusting the ta
 Do this on each Tier-1 OS path that is in scope. Install/uninstall must not touch
 the operator's real Allbert Home (`~/.allbert`) unless `--purge` is explicitly
 requested; set a disposable `ALLBERT_HOME` for rehearsal.
+
+For v1.0.3 catch-up, the required ledger is macOS; linux-x64 and linux-arm64
+container artifacts; a real-host Linux service/vault row (PASS or
+policy-owned SKIP); and WSL2 using the Linux tarball (PASS or operator-owned
+SKIP). Record CI run id, tag/release URL, asset inventory, cosign transcript,
+tap commit/audit, install transcript, TUI, channel-send, ACP, browser,
+service/vault, and preserved-Home uninstall evidence under `EVIDENCE_ROOT`.
+
+### Windows / WSL2 Tier-2 catch-up (v1.0.3)
+
+Inside WSL2, use a disposable Home and install the published linux-x64
+tarball through the same verified installer path:
+
+```sh
+export VERSION="${VERSION:-v1.0.3}"
+export EXPECTED_VERSION="${VERSION#v}"
+export ALLBERT_HOME="$(mktemp -d /tmp/allbert-wsl2-home.XXXXXX)"
+export ALLBERT_VERSION="$VERSION"
+curl -fsSL https://raw.githubusercontent.com/lexlapax/allbert-assist/main/scripts/install/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+test "$(allbert --version)" = "allbert $EXPECTED_VERSION"
+allbert admin status
+allbert admin vault
+```
+
+Then attest first chat against a real configured local model, one warm TUI
+session, and service install/status/uninstall basics. PASS requires the
+published Linux artifact, not a source checkout. A SKIP requires an owner,
+policy reason, and follow-up location; absence of a WSL2 host is not silently
+treated as PASS.
 
 ### curl installer (macOS + Linux)
 

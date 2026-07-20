@@ -45,7 +45,8 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    named-process injection, per-test homes, external-runtime partitioning
    go/no-go), store-ranked serial→async conversion waves, retirement of
    both monolith-only failure classes at their ownership roots, prefilter
-   tokenization remediation, then the transferred M9 catch-up publication —
+   tokenization remediation, bounded dependency refresh, then the transferred
+   M10 catch-up publication —
    tag → CI/cosign → tap 1.0.0→1.0.3 → packaged validation; the artifact
    line then carries the v1.0.1 + v1.0.2 + v1.0.3 fixes together. Plan: [v1.0.3-plan.md](v1.0.3-plan.md) +
    [v1.0.3-request-flow.md](v1.0.3-request-flow.md) + ADR 0086. Later

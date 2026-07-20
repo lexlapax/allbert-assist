@@ -723,6 +723,34 @@ file, vs 83% of web wall-clock pre-split). New workspace LiveView tests go in
 the matching topic file — the remainder accepts ONLY tests that must drive the
 live Runtime singleton.
 
+### v1.0.3 global-state ownership conversion contract
+
+ADR 0086 governs phase-2 conversions. `DataCase` already starts a sandbox
+owner; phase 2 adds spawned-process allowances and tests SQLite concurrency.
+Repo-backed tests remain `db_partition_safe`, never `pure_async`, unless a
+separate evidence-backed taxonomy/runner amendment lands. App-env conversion
+uses a distinct internal process-scoped configuration context explicitly
+propagated to Paths, Settings, Tasks, LiveViews, agents, and supervised
+children. `Store.with_resolved_settings/1` is only a validated-read snapshot;
+`RegistryContext` only selects registries.
+
+Every conversion requires: red-first ownership evidence; solo ×3 and both
+composition orders; a reviewed test-body diff showing no removed or weakened
+assertion; `inventory --check-manifest` identity/lane/skip/multiplicity
+equivalence; `inventory --check-tags` classification; and store-cited
+identical-command pre/post. M0 commits the bounded candidate ledger before
+waves begin. M4/M5 examine at most the top 20 files or the files covering 50%
+of measured lane cost, whichever is smaller; M6 examines small-lane candidates
+above 1% of lane wall. Security evals remain serial. External runtimes are
+never converted to async; their only experiment is the ADR 0086 2-VM owned-env
+go/no-go.
+
+The two permanent composition regressions are the Sidebar sandbox-allowance
+path and `ListChannels.run/2` forwarding registry context to
+`Channels.list_channels/1`. Final campaign acceptance is 20 clean seeds
+(1000–20000 step 1000), both retired classes 0/20, and no new unexplained
+signature.
+
 The v1.0.2 baseline is captured only after lane reconciliation completes in
 M1 — the executed 2026-07-15 M0 preflight found **173 findings** (66 files
 with no primary lane tag, 42 mis-tagged vs the checker's expectation, 65 with

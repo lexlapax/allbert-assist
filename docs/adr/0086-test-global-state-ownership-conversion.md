@@ -16,7 +16,7 @@ external_runtime ~8 min single-VM; store-cited). Partition packing (M8.8)
 exhausted the assignment lever; further reduction requires changing HOW
 tests isolate. The same root cause produces the two remaining monolith-only
 failure classes (SidebarConsolidation DBConnection ownership 20/20 seeds;
-ListChannels registry/SurfacePolicy 7/20).
+ListChannels registry propagation 7/20).
 
 The risk of conversion is silent test-feature loss: a test "converted" by
 weakening its assertions, retrying, or skipping under composition is a
@@ -28,23 +28,35 @@ pre/post, identical-totals proofs) must bind conversions too.
 Five class contracts. A serial test converts ONLY through its class
 contract — no bespoke per-file isolation inventions. Every conversion
 carries: (a) a red-first proof of the pre-conversion serial requirement,
-(b) unchanged assertions (identity review), (c) solo ×3 + both-orders
-composition green, (d) lane-total equivalence in `inventory --check-tags`,
-(e) store-cited pre/post.
+(b) a reviewed test-body diff proving no assertion was removed or weakened,
+(c) solo ×3 + both-orders composition green, (d) per-test identity, lane,
+skip, and multiplicity equivalence in `inventory --check-manifest`, plus
+classification in `--check-tags`, and (e) store-cited pre/post.
 
-1. **Sandbox checkout ownership (db class).** `DataCase` gains an
-   async-capable mode: explicit `Ecto.Adapters.SQL.Sandbox` checkout per
-   test with allowance helpers for every spawned process (LiveView mounts,
-   Tasks, agents, delegate calls). The pool is already
-   `Ecto.Adapters.SQL.Sandbox` (config/test.exs); what phase 1 never did is
-   exercise per-test ownership. SQLite's single-writer reality stays
-   respected: `busy_timeout` bounds are part of the contract, and a file
-   whose test semantics genuinely require cross-process shared writes
-   records that reason and stays serial.
-2. **Process-scoped app-env context (app_env class).** Reads move to the
-   pinned/context path (`Store.with_resolved_settings/1`, ADR 0082
-   `RegistryContext`); writes become per-test pins, never global
-   `Application.put_env`. A file whose exercised PRODUCTION path still
+1. **Sandbox checkout ownership (db class).** `DataCase` already starts an
+   `Ecto.Adapters.SQL.Sandbox` owner per test. The missing contract is
+   allowance propagation to every spawned process (LiveView mounts, Tasks,
+   agents, delegate calls) plus an empirical SQLite concurrency verdict.
+   Repo-backed tests do not become `pure_async`; successful candidates use
+   `db_partition_safe` unless the taxonomy and runner are deliberately
+   amended with evidence. SQLite's single-writer reality stays respected:
+   `busy_timeout` bounds are part of the contract, and a file whose
+   semantics require cross-process shared writes records that reason and
+   stays serial.
+2. **Process-scoped app-env context (app_env class).** Add one internal
+   configuration-context shape:
+   `config_context: [home: path, settings_root: path, app: keyword]`.
+   `home` and `settings_root` override only their corresponding Paths reads;
+   `app` is the allowlisted module/key configuration needed by the converted
+   path, never arbitrary application state. It is passed explicitly at
+   public internal seams and installed process-locally only within a bounded
+   test/runtime call; Tasks,
+   LiveViews, agents, and supervised children receive it explicitly.
+   `Store.with_resolved_settings/1` remains a validated-read snapshot and
+   ADR 0082 `RegistryContext` remains registry selection—neither substitutes
+   for app-env writes. Production omission preserves current defaults.
+   Negative concurrent tests prove two contexts cannot cross-contaminate.
+   A file whose exercised production path still
    reads a global records the seam gap (the engine `channel_candidates`
    list seeds this) and stays serial — the gap list is the phase-3 intake,
    not a silent skip.
@@ -68,7 +80,8 @@ composition green, (d) lane-total equivalence in `inventory --check-tags`,
 
 **Monolith-class corollary.** The two residual classes are fixed at the
 ownership root (contract 1 allowance threading for Sidebar; ShippedRegistries
-convergence + contract-2/3 context adoption for ListChannels) — never by
+or private-context convergence plus `ListChannels.run/2` forwarding registry
+opts to `Channels.list_channels/1` for ListChannels) — never by
 retries, deletions, or monolith-specific skips. Acceptance is the rerun
 campaign at zero occurrences.
 
@@ -83,21 +96,22 @@ campaign at zero occurrences.
   recorded seam gaps, ADR 0031 boundary) — the contracts make "stays
   serial" an explicit recorded outcome instead of an implicit default, so
   the residual serial set is exactly the honest floor.
-- check-tags becomes the no-loss ledger: every wave's lane moves are
-  visible as re-tags with identical totals.
+- the committed manifest is the no-loss ledger; `check-tags` separately
+  proves lane-classification validity.
 - The monolith stops being the only composition that reproduces the two
   classes — their minimal-composition repros become permanent regression
   tests in the gate surface.
 
 ## Validation
 
-- v1.0.3 M1: contracts documented in test-strategy + four red-first pilots
-  (one per convertible class) green solo ×3 and both orders; ADR flips
-  Accepted.
+- v1.0.3 M1: all five contracts documented in test-strategy + four
+  successful red-first pilots (one per convertible class) green solo ×3 and
+  both orders + an executable external-runtime experiment contract; ADR
+  flips Accepted.
 - v1.0.3 M2/M3: minimal-composition repros for both monolith classes
   red-first, then green; 5-seed spot campaigns without the signatures.
 - v1.0.3 M4–M6: per-wave no-loss proofs + measured lane reductions vs the
   M0 baseline (store-cited); external-runtime experiment verdict recorded
   with evidence either way.
-- v1.0.3 M8: 10-seed campaign — retired classes 0/10, no new signatures;
-  `release.v103` binds the pilot + repro + no-loss checks.
+- v1.0.3 M9: 20-seed campaign — retired classes 0/20, no new unexplained
+  signatures; `release.v103` binds the pilot + repro + no-loss checks.
