@@ -10,6 +10,95 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v1.0.3 - Test Isolation Phase 2 & Catch-up Binary Release
+
+Status: **release candidate — gate wiring, version bumps, and final measured
+tables assembled; the operator runs the full gate cascade (precommit,
+release.v1, release.v103, full release) at one clean SHA before tagging.** This
+is the packaged catch-up: the artifact line advances 1.0.0 → 1.0.3 carrying the
+v1.0.1 + v1.0.2 + v1.0.3 fixes together. The Homebrew formula stays on packaged
+Latest 1.0.0 through the RC; the tap is filled only after published 1.0.3
+checksums exist.
+
+**Acceptance basis (operator decision, 2026-07-20): the 20-seed monolith RC
+campaign is SKIPPED.** v1.0.3 ships on the two banked clean scratchpad seeds
+(1000/2000: exit 0, 0 failures, both retired-class signatures absent) PLUS two
+PERMANENT regression tests wired into `release.v103` that guard both flake
+classes deterministically in every gate run — `v103_sidebar_ownership` (the
+DBConnection-ownership class) and `v103_list_channels_context` (the
+registry/ListChannels class). That deterministic pair, not a seed sweep, is the
+campaign-class acceptance.
+
+Engineering hardening, no new product capability:
+
+- **Test isolation phase 2 — both monolith-only flake classes retired at their
+  roots, with permanent regression guards.** The DBConnection-ownership class
+  was fixed at the sandbox OWNERSHIP LEASE (not a missing allowance):
+  `DataCase.setup_sandbox/1` now sizes the lease from the test's own declared
+  budget via `DataCase.sandbox_ownership_timeout/1` (`budget + 30_000 ms`
+  headroom; `:infinity` budgets get an infinite lease), so ExUnit's timeout —
+  never the sandbox lease — is the deadline that fires. Single-root fix:
+  `ConnCase` delegates to the same function, covering every DataCase/ConnCase
+  test and every LiveView mount. The registry/ListChannels class was fixed by
+  forwarding the internal registry context through `ListChannels.run/2` →
+  `Channels.list_channels/1`, so a neighbor's registry mutation cannot
+  cross-contaminate the channel list. Each class carries a permanent
+  minimal-composition regression test.
+- **ADR 0086 (global-state ownership conversion contracts) Accepted** — five
+  conversion contracts documented in test-strategy, with four red-first pilots
+  landed, one per convertible class: `db_partition_safe` (per-test non-shared
+  owner + `DataCase.allow_sandbox/2`), `pure_async` via the new internal
+  process-scoped `AllbertAssist.ConfigContext` seam (contract 2), `pure_async`
+  via private supervised registry pairs (contract 3, ADR 0082 pattern), and a
+  home_fs owned-root proof that stays serial by the ADR 0031 decision
+  (contract 4). Production changes are additive-only (context-first Paths reads
+  with byte-identical omission behavior). The contract-2 lesson — solo ×3 plus
+  pairwise composition is NOT sufficient; a positive **residency proof** (the
+  artifact must land under the owned root) is required — is written into ADR
+  0086.
+- **Intent decide-turn hot-path remediation (M7, identical semantics).**
+  `bench-decide` corpus `decide-v1`: **507.4 → 439.4 ms mean (−13.4%)**,
+  clean-tree store-cited. A warmed eprof corrected the milestone's premise —
+  the residual regex/downcase class is real but lives in `Security.Redactor`,
+  `Intent.Ranker`, and `Actions.Registry`, NOT the Stage-1 prefilter. Fixes:
+  `may_match?` literal prescans (`:binary.compile_pattern`, memoized in
+  `persistent_term`) guard the six redaction `Regex.replace` steps, a byte-wise
+  ASCII `downcase_key/1` replaces `String.downcase/1` in `sensitive_key?/1`,
+  and single-byte-walk ASCII fast paths land in `Ranker.normalize_text/1` and
+  `Registry.normalize_name/1`. Both new normalizers were differentially tested
+  over 40,012 inputs with 0 mismatches; zero test adaptations, no test file
+  touched.
+- **Honestly-recorded non-wins (nothing silently deferred).** The
+  `app_env_serial → pure_async` wave (M5(a)) is **PARKED**: 12 files converted
+  correctly but the wave both makes the `pure_async` core group RED under
+  concurrency pressure on a 5 s registry call and buys no measured
+  max-partition reduction (test-count ranking selected fast files; the wall is
+  a handful of slow ones) — resolution is a production/runner change outside
+  contract 2, held for operator disposition. The `liveview_serial → async`
+  wave (M5(b)) measured the phase-2 prize — **658.2 s serial vs 226.8 s at
+  4-way concurrency, a 2.9× / 431 s reduction on 48 tests** — but it is
+  blocked behind three named production seams (a LiveView config-context mount
+  seam, a `Runtime.agent_runner` contract-2 read, and SQLite write concurrency
+  at the LiveView mount path), so zero files were converted and the tree is
+  unchanged. The dominant decide-turn residue — a **skills-registry re-parse**
+  (58 `SKILL.md` files re-read per turn, now 57% of the turn) — is held for
+  operator disposition because collecting it needs a cached registry snapshot
+  with an invalidation contract, a deliberate architectural change to a module
+  whose statelessness is its stated design (prize: plausibly ~439 ms → under
+  250 ms).
+- **Bounded dependency refresh** (standing rule, lock-only, `mix.lock` only):
+  erlex 0.2.9, lazy_html 0.1.12, zoi 0.18.6, elixir_make 0.10.0 (wave 1);
+  ex_aws_auth 1.4.1, peri 0.9.0 (wave 2). req_llm 1.13→1.17 SCOPED OUT (a
+  4-minor jump carrying a breaking streaming-API migration across a large hot
+  ReqLLM surface; llm_db moves only with it); hackney and its
+  certifi/idna/metrics/parse_trans chain BLOCKED by parent pins;
+  phoenix_live_view 1.2 held behind its deliberate `~> 1.1.0` pin.
+- **Process.** New `release.v103` gate = the release.v1 quintet plus eight
+  focused v1.0.3 steps: lane reconciliation, manifest drift, the four M1
+  ownership-contract pilots, and the two permanent flake-class regressions.
+  Every focused test-file step selects a full split file (never `file:LINE`)
+  and honors the M8.11b zero-executed-test guard.
+
 ## v1.0.2 - Test Isolation Phase 1
 
 Status: **released — implementation evidence SHA `1d41956c`; the later

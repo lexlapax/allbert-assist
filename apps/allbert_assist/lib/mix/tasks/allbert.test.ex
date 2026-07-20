@@ -49,6 +49,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v1
       mix allbert.test release.v101
       mix allbert.test release.v102
+      mix allbert.test release.v103
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
@@ -179,6 +180,7 @@ defmodule Mix.Tasks.Allbert.Test do
   defp do_run(["release.v1"]), do: release_v1()
   defp do_run(["release.v101"]), do: release_v101()
   defp do_run(["release.v102"]), do: release_v102()
+  defp do_run(["release.v103"]), do: release_v103()
   defp do_run(["external-smoke" | rest]), do: external_smoke(rest)
   defp do_run(_args), do: usage!()
 
@@ -6160,6 +6162,181 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   end
 
+  # v1.0.3 Test Isolation Phase 2 & Catch-up Binary Release. The gate is the
+  # full v1 freeze/product-RC prefix (@release_v1_steps) plus focused v1.0.3
+  # steps that prove, deterministically in every gate run, the two root-fixed
+  # flake classes and the four M1 ownership-contract pilots.
+  #
+  # Operator decision (2026-07-20, recorded): the 20-seed monolith RC campaign
+  # is SKIPPED. v1.0.3 ships on the two banked clean scratchpad seeds
+  # (1000/2000: exit 0, 0 failures, both retired-class signatures absent) PLUS
+  # the two PERMANENT regression steps below (v103_sidebar_ownership,
+  # v103_list_channels_context) that guard both classes deterministically in
+  # every gate run — that pair, not a seed sweep, is the acceptance basis.
+  #
+  # Every focused test-file step selects a FULL split file (never file:LINE) so
+  # the M8.11b zero-test guard in release_step_status/4 can never false-green on
+  # an over-excluded pin, and no step passes --slowest (which would force
+  # ExUnit to max_cases: 1 and defeat the concurrency the lanes now buy).
+  @v103_focused_steps [
+    %{
+      id: "v103_lane_reconciliation",
+      title: "lane taxonomy reconciles: every test file carries exactly one audited primary lane",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "inventory", "--check-tags"],
+      coverage: [
+        "inventory --check-tags exits 0 with zero findings (M1/M2/M3 re-laning holds; adjudications audited)"
+      ]
+    },
+    %{
+      id: "v103_manifest_drift",
+      title: "committed per-test manifest matches a live regeneration (M8.9 no-loss invariant)",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "inventory", "--check-manifest"],
+      coverage: [
+        "inventory --check-manifest exits 0: docs/validation/test-manifest.csv reconciles per-test identities, lane tags, skip tags, and execution multiplicities against the live tree"
+      ]
+    },
+    %{
+      id: "v103_pilot_db",
+      title: "M1 db pilot: contract-1 sandbox-ownership proof holds (db_partition_safe)",
+      cwd: :core,
+      executable: "mix",
+      args: ["test", "test/allbert_assist/objectives/objective_test.exs"],
+      coverage: [
+        "objectives frame/cancel run under a per-test non-shared owner with an allowance for the engine agent; the committed ownership-fence proof is green (ADR 0086 contract 1)"
+      ]
+    },
+    %{
+      id: "v103_pilot_app_env",
+      title: "M1 app_env pilot: contract-2 ConfigContext isolation proof holds (pure_async)",
+      cwd: :core,
+      executable: "mix",
+      args: ["test", "test/allbert_assist/intent/eval/gate_test.exs"],
+      coverage: [
+        "concurrent contradictory operator floors resolve per-process; a context-free parent still resolves the default (ADR 0086 contract 2)"
+      ]
+    },
+    %{
+      id: "v103_pilot_global_process",
+      title: "M1 global_process pilot: contract-3 two-context negative proof holds (pure_async)",
+      cwd: :core,
+      executable: "mix",
+      args: ["test", "test/allbert_assist/actions/app_actions_test.exs"],
+      coverage: [
+        "private supervised registry pairs host two contexts without the singleton :app_id_taken clash; reads travel the internal registry context (ADR 0086 contract 3, ADR 0082 pattern)"
+      ]
+    },
+    %{
+      id: "v103_pilot_home_fs",
+      title: "M1 home_fs pilot: contract-4 owned-root proof holds (home_fs_serial)",
+      cwd: :core,
+      executable: "mix",
+      args: ["test", "test/allbert_assist/actions/browser_actions_test.exs"],
+      coverage: [
+        "the OS-pid-qualified, pre-cleaned owned root keeps every exercised Paths read inside it and sweeps planted stale poison (ADR 0086 contract 4, ADR 0031 stay-serial decision)"
+      ]
+    },
+    %{
+      id: "v103_sidebar_ownership",
+      title:
+        "M2 permanent regression: DBConnection-ownership class retired at the sandbox lease root",
+      cwd: :web,
+      executable: "mix",
+      args: ["test", "test/allbert_assist_web/v103/sidebar_ownership_test.exs"],
+      coverage: [
+        "the sandbox lease is sized from the test's declared budget (DataCase.sandbox_ownership_timeout/1); ExUnit's timeout fires first, so the workspace mount never raises the campaign 'using mode :manual' ownership signature"
+      ]
+    },
+    %{
+      id: "v103_list_channels_context",
+      title:
+        "M3 permanent regression: registry/ListChannels class retired via plugin-context propagation",
+      cwd: :core,
+      executable: "mix",
+      args: ["test", "test/allbert_assist/actions/channels/list_channels_context_test.exs"],
+      coverage: [
+        "ListChannels.run/2 forwards the internal registry context to Channels.list_channels/1, so a neighbor's registry mutation cannot cross-contaminate the channel list"
+      ]
+    }
+  ]
+
+  @release_v103_steps @release_v1_steps ++ @v103_focused_steps
+
+  defp release_v103 do
+    env = owned_env("release-v103", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v103")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v103_steps, &run_release_v103_step(&1, env))
+
+    status = if Enum.all?(results, &(&1.status == "passed")), do: "passed", else: "failed"
+
+    evidence = %{
+      gate: "mix allbert.test release.v103",
+      version: "v1.0.3",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; the release.v1 freeze/product-RC prefix re-runs unchanged, then the v1.0.3 focused steps prove lane reconciliation, manifest no-loss, the four M1 ownership-contract pilots, and the two permanent monolith-class regressions (M2 sidebar ownership, M3 ListChannels context) deterministically. The 20-seed RC campaign is SKIPPED by operator decision; the two permanent regression steps are the campaign-class acceptance. Packaged artifact validation is M10 (operator-held, published-artifact attestations).",
+      notes:
+        "v1.0.3 Test Isolation Phase 2 & Catch-up Binary Release: steps = the release.v1 quintet plus focused v1.0.3 steps (lane reconciliation, manifest drift, four M1 pilots, two permanent flake-class regressions).",
+      steps: results
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v103-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v103 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v103 failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v103_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v103 #{step.id}", output)
+    status = release_step_status("release.v103", step.id, exit_status, output)
+
+    TestMetrics.record(%{
+      gate: "release.v103",
+      command: gate_command(),
+      cwd: Path.relative_to(cwd, root()),
+      phase_or_step: step.id,
+      status: status,
+      wall_ms: duration_ms,
+      output: output
+    })
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: status,
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
   defp cleanup_release_v046_evidence!(evidence_dir) do
     evidence_dir
     |> Path.join("release-v046-*.json")
@@ -8423,6 +8600,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v1
       mix allbert.test release.v101
       mix allbert.test release.v102
+      mix allbert.test release.v103
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate

@@ -1086,6 +1086,51 @@ test lane starts. The M1 web slowest rerun proved why this is required: a fresh
 web-only DB setup misses StockSage plugin tables even though the v0.40
 monolithic precommit order hides that by migrating through the core app first.
 
+### v1.0.3 M9 Final Measurement — 2026-07-20
+
+Phase-2 gate walls vs the M0 baseline (all M0 rows `dirty: false`, full SHA
+`0b43733c`; identical commands). Both flake classes are retired at their roots
+(M2 sandbox-lease sizing, M3 registry-context propagation) and guarded by two
+permanent `release.v103` regression steps rather than a seed sweep — the 20-seed
+RC campaign is skipped by operator decision.
+
+| Metric | M0 baseline (`0b43733c`, dirty:false) | M9 disposition |
+| --- | --- | --- |
+| Quick gate wall | 309.7 s green | packing holds; no lane conversion shipped (M5(a) parked, M5(b) tree unchanged) |
+| Prepush wall | 853.0 s green (`high_coverage_fast_local` phase 844 s) | unchanged tree; re-measured by the operator on the committed RC |
+| Full release phase total | ≈3,153 s green | unchanged tree; operator re-measures on the RC SHA |
+| `liveview` max partition | 470.3 s (release web phase) | +≈156 s from the M2 boundary regression (`sidebar_ownership`); operator may give it a dedicated partition |
+| `db_serial` max partition | 111.4 s | unchanged (M6 db conversion not attempted; floor recorded) |
+| `app_env` max partition | 119.8 s | unchanged (M5(a) wave parked — test-count ranking bought no max-partition move) |
+| `global_process` / `home_fs` max partition | 20.0 s / 25.5 s | unchanged |
+| `inventory --check-tags` / `--check-manifest` | exit 0 | exit 0 (3,217-row manifest, RC tree) |
+| Release gates | release.v1 + release.v102 | + `release.v103` (release.v1 quintet + 8 focused steps) |
+
+**Decide-turn (M7, production hot path).** `bench-decide` corpus `decide-v1`,
+clean-tree store-cited:
+
+| bench-decide (decide-v1) | mean | p50 |
+| --- | --- | --- |
+| M0 baseline (`0b43733c`, dirty:false) | 522.7 ms | 428.5 ms |
+| M7 session pre (clean, `c44625c1`) | 507.4 ms | 415.7 ms |
+| M7 post (clean-tree) | **439.4 ms (−13.4%)** | 357.1 ms |
+
+The regex + downcase eprof class dropped 17.1% → 2.3% of the turn via
+`may_match?` literal prescans in `Security.Redactor` and ASCII fast paths in
+`Intent.Ranker` / `Actions.Registry` (identical semantics, 40,012-input
+differential proof, zero test adaptations). The dominant residue — the stateless
+skills-registry re-parse, now ~57% of the turn — is held for operator
+disposition (a cached snapshot with an invalidation contract, outside M7's
+zero-behaviour-change rule; prize plausibly ~439 ms → under 250 ms).
+
+**M5(b) liveview floor (measured, not collected).** The three top liveview
+files run **658.2 s serial vs 226.8 s at 4-way concurrency (2.9× / 431 s on 48
+tests)** — the largest single lever in phase 2 — but it is gated behind three
+production seams (a LiveView config-context mount seam, a `Runtime.agent_runner`
+contract-2 read, and SQLite write concurrency at the mount path) plus a
+`--slowest`/`--max-cases` runner resolution, so zero files were converted and the
+tree is unchanged. Recorded as an honest floor for M6.
+
 ## Gate Matrix
 
 | Gate | Use | Evidence |

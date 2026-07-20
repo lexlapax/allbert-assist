@@ -115,10 +115,11 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert phase_runner_source =~ ~s(TestMetrics.record)
     assert phase_runner_source =~ ~s(phase_or_step: phase.id)
 
-    # (c) release.v1/v101/v102 step runners record one run per step.
+    # (c) release.v1/v101/v102/v103 step runners record one run per step.
     assert task_source =~ ~s(gate: "release.v1",)
     assert task_source =~ ~s(gate: "release.v101",)
     assert task_source =~ ~s(gate: "release.v102",)
+    assert task_source =~ ~s(gate: "release.v103",)
 
     # metrics subcommand + usage surface (M8.10: run/1 captures the
     # invocation for provenance and dispatches through do_run/1).
@@ -349,14 +350,52 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
       refute Regex.match?(~r/_test\.exs:\d/, task_source)
     end
 
-    test "all three point-release step runners route status through the zero-test guard" do
+    test "all four point-release step runners route status through the zero-test guard" do
       task_source =
         Path.expand("../../../lib/mix/tasks/allbert.test.ex", __DIR__)
         |> File.read!()
 
-      for gate <- ["release.v1", "release.v101", "release.v102"] do
+      for gate <- ["release.v1", "release.v101", "release.v102", "release.v103"] do
         assert task_source =~ ~s{release_step_status("#{gate}", step.id, exit_status, output)}
       end
+    end
+
+    test "release.v103 is exposed and its focused step targets all exist" do
+      task_source =
+        Path.expand("../../../lib/mix/tasks/allbert.test.ex", __DIR__)
+        |> File.read!()
+
+      # command exposed and dispatched
+      assert task_source =~ ~s{defp do_run(["release.v103"]), do: release_v103()}
+      assert task_source =~ ~s(mix allbert.test release.v103)
+
+      # every focused test-file step points at a file that exists on disk, so a
+      # zero-executed-test false-green cannot come from a missing/renamed target
+      # (the M8.11b guard catches over-excluded pins; this catches missing files)
+      app_root = Path.expand("../../..", __DIR__)
+      web_root = Path.expand("../../../../allbert_assist_web", __DIR__)
+
+      core_targets = [
+        "test/allbert_assist/objectives/objective_test.exs",
+        "test/allbert_assist/intent/eval/gate_test.exs",
+        "test/allbert_assist/actions/app_actions_test.exs",
+        "test/allbert_assist/actions/browser_actions_test.exs",
+        "test/allbert_assist/actions/channels/list_channels_context_test.exs"
+      ]
+
+      for rel <- core_targets do
+        assert File.exists?(Path.join(app_root, rel)),
+               "release.v103 focused step target missing: #{rel}"
+
+        assert task_source =~ rel
+      end
+
+      web_target = "test/allbert_assist_web/v103/sidebar_ownership_test.exs"
+
+      assert File.exists?(Path.join(web_root, web_target)),
+             "release.v103 focused step target missing: #{web_target}"
+
+      assert task_source =~ web_target
     end
   end
 
