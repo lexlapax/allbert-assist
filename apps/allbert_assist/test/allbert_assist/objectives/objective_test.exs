@@ -1,5 +1,22 @@
 defmodule AllbertAssist.Objectives.ObjectiveTest do
-  use AllbertAssist.DataCase, async: false
+  # v1.0.3 M1 pilot conversion (ADR 0086 contract 1): db_serial →
+  # db_partition_safe. `async: true` starts a NON-shared sandbox owner per
+  # test, so sandbox access is per-test ownership instead of VM-ambient
+  # shared mode. Red-first serial-requirement proof (recorded in the plan's
+  # M1 Build Progress entry):
+  #   (a) flipping only `async: true` fails "public facade scopes reads…"
+  #       with DBConnection.OwnershipError — Objectives.frame/cancel
+  #       delegate through the long-lived Engine agent, whose Jido.Exec
+  #       Task.Supervised children carry the agent (not the test) in
+  #       `$callers`; and
+  #   (b) under the old `async: false` shared mode the "contract-1
+  #       ownership proof" test below is RED: an out-of-chain process gets
+  #       ambient sandbox access, i.e. the file had NO ownership fence and
+  #       needed the serial db_serial lane.
+  # The conversion grants the engine agent an explicit per-test allowance
+  # (`allow_sandbox/2`, DataCase). Repo-backed tests stay in the
+  # partitioned db lane — never pure_async (SQLite single-writer).
+  use AllbertAssist.DataCase, async: true, lane: :db_partition_safe
 
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.AcceptanceCriteria
@@ -7,6 +24,14 @@ defmodule AllbertAssist.Objectives.ObjectiveTest do
   alias AllbertAssist.Repo
 
   @fixtures Path.expand("../../fixtures/v0.24/acceptance_criteria", __DIR__)
+
+  setup do
+    # Contract-1 allowance: the engine agent is a supervised singleton; its
+    # delegate tasks resolve sandbox ownership through the agent's
+    # `$callers`, so the agent itself must be allowed on this test's owner.
+    allow_sandbox(AllbertAssist.Objectives.Engine.Agent)
+    :ok
+  end
 
   test "acceptance criteria fixtures round-trip through JSON validation" do
     for file <- ["single_step_run_analysis.json", "two_step_stocksage_compare.json"] do
@@ -108,6 +133,48 @@ defmodule AllbertAssist.Objectives.ObjectiveTest do
   test "public facade requires explicit user identity when framing" do
     assert {:error, :missing_user_id} =
              Objectives.frame(%{title: "No user", objective: "Do not silently default."}, %{})
+  end
+
+  # ADR 0086 contract-1 ownership proof (v1.0.3 M1, release.v103
+  # `v103_pilot_db`): sandbox access is explicit per-test ownership, not
+  # VM-ambient. A process OUTSIDE the `$callers` chain — the same shape as
+  # the engine's Task.Supervised children behind a long-lived agent — has
+  # no access until the test allows it. Under the pre-conversion
+  # `async: false` shared mode this test is RED (the unallowed process
+  # reads ambiently), which is the recorded red-first proof of why the file
+  # previously required the serial `db_serial` lane.
+  test "contract-1 ownership proof: out-of-chain processes need an explicit sandbox allowance" do
+    parent = self()
+
+    count_objectives = fn ->
+      try do
+        {:ok, Repo.aggregate(Objective, :count)}
+      rescue
+        error in DBConnection.OwnershipError -> {:error, error}
+      end
+    end
+
+    unallowed =
+      spawn(fn ->
+        receive do
+          :go -> send(parent, {:unallowed, count_objectives.()})
+        end
+      end)
+
+    send(unallowed, :go)
+    assert_receive {:unallowed, {:error, %DBConnection.OwnershipError{}}}
+
+    allowed =
+      spawn(fn ->
+        receive do
+          :go -> send(parent, {:allowed, count_objectives.()})
+        end
+      end)
+
+    allow_sandbox(allowed)
+    send(allowed, :go)
+    assert_receive {:allowed, {:ok, count}}
+    assert is_integer(count)
   end
 
   defp unique_user(prefix) do

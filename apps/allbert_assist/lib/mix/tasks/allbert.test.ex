@@ -548,7 +548,10 @@ defmodule Mix.Tasks.Allbert.Test do
     run_parallel_tests!(async_groups)
 
     if core_lanes? do
-      [:db_serial, :app_env_serial, :home_fs_serial, :global_process_serial]
+      # v1.0.3 M1: db_partition_safe joins the packed core lanes — converted
+      # Repo-backed files leave db_serial but stay partition-executed
+      # (--max-cases 1 per owned-env partition; never the pure_async group).
+      [:db_serial, :db_partition_safe, :app_env_serial, :home_fs_serial, :global_process_serial]
       |> Enum.each(&run_serial_partitions!("fast-local", :core, &1, partitions))
     end
 
@@ -8136,7 +8139,30 @@ defmodule Mix.Tasks.Allbert.Test do
       :external_runtime_serial,
     # "bridge" appears only in Playwright error-string literals; drivers are
     # put_env fakes. Audited resource class is the owned-home filesystem.
+    # v1.0.3 M1 (ADR 0086 contract 4): stays home_fs_serial by RECORDED
+    # decision — pid-qualified pre-cleaned root landed, but the ADR 0031
+    # driver app-env read and the named AllbertBrowser singletons keep it in
+    # the class (seam gaps recorded in the file header).
     "apps/allbert_assist/test/allbert_assist/actions/browser_actions_test.exs" => :home_fs_serial,
+    # v1.0.3 M1 pilot (ADR 0086 contract 1): objective_test converted to
+    # per-test non-shared sandbox ownership with explicit engine-agent
+    # allowances (use-line `lane: :db_partition_safe`). Repo-backed: the text
+    # scan's :db class is correct, but the audited lane is the partitioned
+    # db_partition_safe lane, never pure_async.
+    "apps/allbert_assist/test/allbert_assist/objectives/objective_test.exs" => :db_partition_safe,
+    # v1.0.3 M1 pilot (ADR 0086 contract 2): gate_test reads Settings floors
+    # through the process-scoped ConfigContext inside bounded with_context
+    # calls and resolves descriptors from a PRIVATE shipped-baseline registry
+    # pair. The text scan's app_env/home_fs/global_process hits are comment
+    # references and owned tmp roots; audited resource ownership is complete.
+    "apps/allbert_assist/test/allbert_assist/intent/eval/gate_test.exs" => :pure_async,
+    # v1.0.3 M1 pilot (ADR 0086 contract 3): app_actions_test registers only
+    # into supervised private registry pairs (unique names + ETS tables,
+    # side_effects: false) and reads through the Runner `:registry` context;
+    # the "Registry"/"Supervisor" text hits are the private fixtures. The
+    # log-assertion test uses a module-scoped Logger level override
+    # (put_module_level, deleted on_exit) — no VM-wide primary-level mutation.
+    "apps/allbert_assist/test/allbert_assist/actions/app_actions_test.exs" => :pure_async,
     # "MCP" appears only inside intent-corpus utterance data; the file's real
     # resource class is the global action/plugin registry.
     "apps/allbert_assist/test/allbert_assist/intent/eval/corpus_completeness_test.exs" =>
@@ -8198,6 +8224,9 @@ defmodule Mix.Tasks.Allbert.Test do
   defp migration_action(:pure_async, "true"), do: "already_async"
   defp migration_action(:pure_async, _async), do: "pure_async_candidate"
   defp migration_action(:db_serial, _async), do: "needs_partition_database"
+  # v1.0.3 M1: converted files (ADR 0086 contract 1) own per-test sandbox
+  # checkout + allowances; they run in the packed db_partition_safe lane.
+  defp migration_action(:db_partition_safe, _async), do: "partition_database_owned"
 
   defp migration_action(lane, _async)
        when lane in [:app_env_serial, :home_fs_serial, :global_process_serial, :liveview_serial],

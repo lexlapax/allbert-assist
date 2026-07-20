@@ -751,6 +751,128 @@ path and `ListChannels.run/2` forwarding registry context to
 (1000–20000 step 1000), both retired classes 0/20, and no new unexplained
 signature.
 
+### v1.0.3 M1 Conversion Contracts (ADR 0086, Accepted) — 2026-07-20
+
+The five class contracts below are the ONLY sanctioned conversion mechanisms
+for serial tests (Locked Decision 4: no bespoke per-file isolation
+inventions). ADR 0086 flipped to Accepted with this section plus one
+red-first pilot per convertible class; the pilot evidence table closes the
+section. Every conversion — pilot or wave — carries the full obligation
+chain: (a) a red-first serial-requirement proof (a reproducible composition
+failure or write/collision trace, committed as a comment-referenced proof
+test in the converted file); (b) conversion through the class contract only;
+(c) solo green ×3 plus both-orders composition green (`mix test A B --seed 0`
+then `B A --seed 0` from the owner app dir, unpiped exits); (d) regenerated
+committed manifest with `inventory --check-manifest` and `--check-tags`
+green — per-test identity/lane/skip/multiplicity equivalence is the no-loss
+proof; and (e) a reviewed test-body diff showing no assertion removed or
+weakened.
+
+**Contract 1 — sandbox checkout ownership (db class).**
+`use AllbertAssist.DataCase, async: true, lane: :db_partition_safe` starts a
+NON-shared `Ecto.Adapters.SQL.Sandbox` owner per test, so sandbox access is
+explicit per-test ownership instead of VM-ambient shared mode. Spawned
+processes are found through `$callers`; that chain breaks at any long-lived
+process (named agents/GenServers and the Tasks they spawn), which must be
+granted access explicitly with `AllbertAssist.DataCase.allow_sandbox/2`
+(pid or registered name; allowance dies with the owner). Converted files
+land in the `db_partition_safe` lane — packed, `--max-cases 1`, owned
+per-partition envs, wired into the core fast-local/release lane list —
+NEVER `pure_async`. SQLite in-VM verdict (M1): in-VM cross-module async
+concurrency against one SQLite file remains unproven; the lane runner keeps
+converted files partition-executed, and amending that requires a separate
+evidence-backed taxonomy/runner change (ADR 0086 contract 1 terms). A file
+whose semantics require cross-process shared writes records that reason and
+stays `db_serial`.
+
+**Contract 2 — process-scoped configuration context (app_env class).**
+`AllbertAssist.ConfigContext` carries the fixed internal shape
+`config_context: [home: path, settings_root: path, app: keyword]` installed
+process-locally only inside a bounded `with_context/2` call. `home` and
+`settings_root` override ONLY their corresponding `Paths` reads (context →
+app config → env → default; production omission preserves the pre-context
+chains byte-for-byte); `app` is the allowlisted module/key configuration a
+converted path needs, never arbitrary application state (no consumer yet —
+the first wave file that needs it adopts `ConfigContext.app_env/3` in its
+exercised read). The context is deliberately NOT inherited: Tasks,
+LiveViews, agents, and supervised children receive it explicitly
+(`current/0` at spawn, `with_context/2` in the child).
+`Store.with_resolved_settings/1` (validated-read snapshot) and
+`RegistryContext` (registry selection) are distinct seams and never
+substitute for app-env writes. Every conversion includes a negative
+concurrent proof: two contexts with contradictory Settings state cannot
+cross-contaminate, and a context-free process still resolves the untouched
+defaults. A file whose exercised PRODUCTION path still reads a global
+records the seam gap and stays serial (the phase-3 intake list).
+
+**Contract 3 — named-process injection (global_process class).** The ADR
+0082 pattern generalized: test-facing constructors accept a name/registry
+override; tests start private supervised instances with pid/partition-
+qualified unique names AND unique named-ETS tables via
+`RegistryIsolationFixtures` (`start_isolated_registries/1`, or
+`start_shipped_registries/1` for the complete private shipped baseline),
+registering with `side_effects: false` so no global signal or shared
+Settings-schema cache is touched. Reads travel the internal registry
+context — `opts` at registry-reading functions, the `:registry` key on the
+Runner/action context map (`ListApps`/`ShowApp` adopted at M1; production
+call sites pass nothing and are behavior-identical). Every conversion
+includes a two-context negative proof. Supervised singletons that cannot
+take an override yet get the seam recorded and their dependents stay serial
+(`AllbertBrowser.Supervisor`/`Session` seed the list).
+
+**Contract 4 — per-test filesystem homes (home_fs class).** The
+M8.3/M8.7 owned-home idiom is mandatory: roots are OS-pid-qualified (bare
+`System.unique_integer/1` restarts each BEAM boot — two fresh VMs measurably
+mint the SAME first suffix — so bare-suffix homes collide with stale
+poisoned state across runs), PRE-CLEANED before use, and deleted again
+on exit; env-triple/root ownership means every input of the exercised
+`Paths` reads resolves inside the owned root (dominant app-config override
+or the owned `ALLBERT_HOME`/`ALLBERT_HOME_DIR`/`DATABASE_PATH` triple).
+The ADR 0031 global-read boundary (browser_actions class) is decided under
+this contract: convert only if the read can take context without weakening
+the ADR 0031 validation contract, otherwise STAY with the reason recorded
+(the M1 decision for `browser_actions_test.exs` below).
+
+**Contract 5 — external-runtime partitioning (executable experiment
+protocol, M6).** External runtimes are never converted to async; the only
+lever is multi-VM partitioning with fully owned envs. The M6 experiment is
+this exact protocol, run from the repo root with unpiped exits:
+
+1. Split: generate the 2-VM packed partition lists for
+   `external_runtime_serial` from `DevGates.PartitionPacker` over
+   `TestMetrics.file_costs/0` (the same mechanism the serial lanes use) and
+   record both file lists as the experiment manifest.
+2. Owned envs: each VM gets its own gate env (`owned_env` contract —
+   distinct `ALLBERT_HOME`/`ALLBERT_HOME_DIR`/`DATABASE_PATH`,
+   `MIX_TEST_PARTITION` 1/2), fresh migrations, and runs
+   `mix allbert.test.raw --only external_runtime_serial --max-cases 1
+   <its packed files>` from the core app; the two VMs of one run execute
+   concurrently.
+3. Acceptance (go): THREE consecutive dual-VM runs, identical commands,
+   all four VM exits 0 recorded unpiped, combined executed-test totals
+   equal to the single-VM lane totals (manifest multiplicity), AND zero
+   cross-VM interference evidence — no port/browser/driver/OS-resource
+   collision signature in either VM's output across all three runs.
+4. Verdict: recorded either way in this doc and the metrics store. Any
+   failure or interference signature is an automatic measured NO-GO — the
+   lane stays single-VM (Locked Decision 6: honest floor over flaky split).
+
+**M1 pilot evidence (one per convertible class, all commands from
+`apps/allbert_assist`, exits captured unpiped):**
+
+| Pilot (class → destination) | File | Red-first proof (recorded) | Proofs (green) |
+| --- | --- | --- | --- |
+| db: `db_serial` → `db_partition_safe` | `objectives/objective_test.exs` | (a) `async: true` alone fails "public facade scopes reads…" with `DBConnection.OwnershipError` — `Objectives.frame` delegates through the Engine agent whose Jido `Task.Supervised` children carry the agent, not the test, in `$callers`; (b) under `async: false` shared mode the committed contract-1 ownership-proof test is RED (an out-of-chain `spawn` reads ambiently: `{:ok, 0}`) | solo ×3 (6 tests) + both orders with `objectives/commands_test.exs` (9 tests each) + `serial-core --lane db_partition_safe --partitions 2` (p1 6 tests, p2 empty-green) |
+| app_env: `app_env_serial` → `pure_async` | `intent/eval/gate_test.exs` | substituting the pre-conversion `System.put_env("ALLBERT_HOME", …)` + `Application.delete_env` idiom into the committed contract-2 proof test's children makes it RED — the strict-floor child read the lenient child's LAST-written global home and returned `:ok` | solo ×3 (5 tests) + both orders with `intent/golden_set_test.exs` (10 tests each); descriptors resolve from the private shipped baseline (`start_shipped_registries/1`) through the public `descriptors:` option |
+| global_process: `global_process_serial` → `pure_async` | `actions/app_actions_test.exs` | pointing the committed two-context negative-proof test at the GLOBAL registry pair (the pre-conversion idiom) is RED deterministically: `{:error, {:app_id_taken, :allbert}}` — the singleton cannot host two contexts | solo ×3 (5 tests) + both orders with `registry_context_test.exs` (10 tests each); log assertions kept via a module-scoped `Logger.put_module_level(AllbertAssist.Signals, :info)` deleted on_exit (no VM-wide primary-level mutation) |
+| home_fs: within-class conversion, STAYS `home_fs_serial` (recorded ADR 0031 decision) | `actions/browser_actions_test.exs` | reverting the pre-clean helper to the pre-conversion non-cleaning idiom makes the committed contract-4 owned-root proof RED (a planted stale `settings.yml` survives — the v1.0.2 M5 ranker-flake class); two fresh VM boots minted the identical first `unique_integer` suffix (2690 = 2690) | solo ×3 (13 tests) + both orders with `intent/eval/corpus_test.exs` (19 tests each); stay reasons recorded: ADR 0031-guarded `:allbert_browser, :driver` app-env read, named `AllbertBrowser.Supervisor`/`Session` singletons (contract-3 seam gap), env writes read by non-test browser processes |
+
+No-loss proof at M1: manifest regenerated (3,211 rows), 13 pre-existing
+test identities re-laned in place, 3 permanent contract-proof tests added,
+ZERO rows removed; `inventory --check-manifest` and `--check-tags` both
+exit 0 (521 files, zero unclassified, zero double-counts). Reviewed
+test-body diffs per pilot: no assertion removed or weakened.
+
 The v1.0.2 baseline is captured only after lane reconciliation completes in
 M1 — the executed 2026-07-15 M0 preflight found **173 findings** (66 files
 with no primary lane tag, 42 mis-tagged vs the checker's expectation, 65 with

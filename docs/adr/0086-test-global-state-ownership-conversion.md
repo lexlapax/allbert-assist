@@ -2,9 +2,19 @@
 
 ## Status
 
-Proposed (v1.0.3 planning, 2026-07-19). Binding on v1.0.3 M1–M6 once
-Accepted; Accepted at M1 in the commit that lands all five contracts plus
-one red-first pilot conversion per convertible class.
+Accepted at v1.0.3 M1 (2026-07-20, the commit that lands all five contracts
+documented in `docs/developer/test-strategy.md` ("v1.0.3 M1 Conversion
+Contracts") plus one red-first pilot conversion per convertible class:
+contract 1 `objectives/objective_test.exs` → `db_partition_safe` with
+non-shared checkout ownership and the `allow_sandbox/2` allowance helper;
+contract 2 `intent/eval/gate_test.exs` → `pure_async` through
+`AllbertAssist.ConfigContext`; contract 3 `actions/app_actions_test.exs` →
+`pure_async` through the ADR 0082 injection seam with the two-context
+negative proof; contract 4 `actions/browser_actions_test.exs` converted
+within-class to the pid-qualified pre-cleaned owned-root idiom with the
+ADR 0031 convert-vs-stay decision recorded as STAY; contract 5 documented
+as the executable 2-VM experiment protocol for M6). Binding on v1.0.3
+M1–M6 and on all future serial-test conversions.
 
 ## Context
 

@@ -14,11 +14,17 @@ defmodule AllbertAssist.Paths do
 
   @app :allbert_assist
 
+  alias AllbertAssist.ConfigContext
+
   @doc """
   Return the canonical Allbert Home.
 
   Precedence:
 
+  0. process-scoped `AllbertAssist.ConfigContext` `:home` override
+     (ADR 0086 contract 2 — installed only inside bounded
+     `ConfigContext.with_context/2` calls; never set in production, so
+     omission preserves the chain below unchanged)
   1. `config :allbert_assist, AllbertAssist.Paths, home: "..."`
   2. `ALLBERT_HOME`
   3. `ALLBERT_HOME_DIR`
@@ -27,7 +33,12 @@ defmodule AllbertAssist.Paths do
   @spec home() :: String.t()
   def home do
     first_path(
-      [configured(:home), env_path("ALLBERT_HOME"), env_path("ALLBERT_HOME_DIR")],
+      [
+        ConfigContext.home(),
+        configured(:home),
+        env_path("ALLBERT_HOME"),
+        env_path("ALLBERT_HOME_DIR")
+      ],
       Path.expand("~/.allbert")
     )
   end
@@ -98,11 +109,19 @@ defmodule AllbertAssist.Paths do
     home
   end
 
-  @doc "Return the Settings Central root."
+  @doc """
+  Return the Settings Central root.
+
+  The process-scoped `ConfigContext` `:settings_root` override (ADR 0086
+  contract 2) takes precedence when installed; with no context the
+  pre-context chain runs unchanged (a context `:home` still cascades into
+  the `home()/settings` default).
+  """
   @spec settings_root() :: String.t()
   def settings_root do
     first_path(
       [
+        ConfigContext.settings_root(),
         app_root(AllbertAssist.Settings),
         configured(:settings_root),
         env_path("ALLBERT_SETTINGS_ROOT")

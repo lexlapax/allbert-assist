@@ -7,6 +7,26 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
   # stays `home_fs_serial` — it still owns System tmp homes plus Application
   # env (Paths/Settings/Confirmations and the :allbert_browser driver), and it
   # drives the named AllbertBrowser.Supervisor/Session singletons.
+  #
+  # v1.0.3 M1 pilot (ADR 0086 contract 4): converted WITHIN the home_fs class
+  # to the M8.3/M8.7 owned-home idiom — the per-test root is now
+  # OS-pid-qualified (bare `System.unique_integer/1` restarts each BEAM boot,
+  # so successive runs collided with STALE poisoned homes — the v1.0.2 M5
+  # ranker-flake class; red-first proof recorded in the plan's M1 Build
+  # Progress entry) and PRE-CLEANED before use. Contract-4 convert-vs-stay
+  # DECISION (recorded): the file STAYS `home_fs_serial`. Reasons (seam
+  # gaps, phase-3 intake): (a) the exercised production path reads the
+  # `:allbert_browser, :driver` Application env at the ADR 0031-guarded
+  # runner boundary — the driver read cannot take a process-scoped context
+  # without extending contract 2 into the browser plugin's own processes,
+  # which would weaken the ADR 0031 validation contract if done from test
+  # scaffolding; (b) it drives the NAMED AllbertBrowser.Supervisor/Session
+  # singletons, whose constructors do not yet take a name/registry override
+  # (contract-3 seam recorded); and (c) the Paths/Settings/Confirmations
+  # Application env writes are read by those browser processes — not by the
+  # test process — so `ConfigContext` (deliberately not inherited) cannot
+  # carry them across without those production seams. Within-class
+  # ownership is proven by the "contract-4 owned-root proof" test below.
   @moduletag :home_fs_serial
 
   defmodule MissingBridgeDriver do
@@ -30,11 +50,7 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
     original_driver = Application.get_env(:allbert_browser, :driver)
 
-    root =
-      Path.join(
-        System.tmp_dir!(),
-        "allbert-browser-actions-#{System.unique_integer([:positive])}"
-      )
+    root = owned_root()
 
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
@@ -456,6 +472,54 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
 
     assert {:error, {:host_not_allowlisted, "blocked.example"}} =
              AllbertBrowser.NavigationPolicy.preflight("https://blocked.example/page")
+  end
+
+  # ADR 0086 contract-4 owned-root proof (v1.0.3 M1, release.v103
+  # `v103_pilot_home_fs`): (a) every Paths read this file exercises resolves
+  # INSIDE the pid-qualified owned root — no dependence on the ambient suite
+  # home or environment; (b) the idiom PRE-CLEANS the root, so a stale
+  # poisoned home surviving from an earlier BEAM (bare-unique_integer
+  # collision, the v1.0.2 M5 ranker-flake class) cannot leak settings into a
+  # fresh test. Reverting (b)'s helper to the pre-conversion non-cleaning
+  # idiom makes this test RED — the recorded red-first proof for the
+  # home_fs class.
+  test "contract-4 owned-root proof: pid-qualified pre-cleaned home owns every exercised root", %{
+    root: root
+  } do
+    assert Paths.home() == root
+    assert Paths.settings_root() == Path.join(root, "settings")
+    assert Paths.confirmations_root() == Path.join(root, "confirmations")
+    assert String.starts_with?(Paths.cache_root(), root)
+
+    stale =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-browser-actions-stale-probe-#{System.pid()}"
+      )
+
+    poison = Path.join([stale, "settings", "settings.yml"])
+    File.mkdir_p!(Path.dirname(poison))
+    File.write!(poison, "intent:\n  poisoned: true\n")
+
+    assert ^stale = pre_cleaned_root(stale)
+    refute File.exists?(poison)
+    File.rm_rf!(stale)
+  end
+
+  # M8.3/M8.7 owned-home idiom (ADR 0086 contract 4): OS-pid-qualified and
+  # pre-cleaned; the on_exit File.rm_rf!(root) in setup deletes it again so
+  # runs never accumulate poison.
+  defp owned_root do
+    Path.join(
+      System.tmp_dir!(),
+      "allbert-browser-actions-#{System.pid()}-#{System.unique_integer([:positive])}"
+    )
+    |> pre_cleaned_root()
+  end
+
+  defp pre_cleaned_root(root) do
+    File.rm_rf!(root)
+    root
   end
 
   defp ensure_browser_supervisor do

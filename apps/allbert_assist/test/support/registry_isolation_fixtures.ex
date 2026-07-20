@@ -15,6 +15,7 @@ defmodule AllbertAssist.TestSupport.RegistryIsolationFixtures do
   import ExUnit.Callbacks, only: [start_supervised!: 1]
 
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Plugin.Discovery, as: PluginDiscovery
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
 
@@ -46,6 +47,35 @@ defmodule AllbertAssist.TestSupport.RegistryIsolationFixtures do
     )
 
     [app: [server: app_name], plugin: [server: plugin_name]]
+  end
+
+  @doc """
+  Start a private registry pair carrying the FULL shipped baseline
+  (v1.0.3 M1, ADR 0086 contract 2/3): every `Plugin.Discovery` shipped
+  plugin module plus `CoreApp` and each plugin's apps, registered privately
+  with `side_effects: false`. This is the private-context mirror of
+  `TestSupport.ShippedRegistries.restore!/0` — complete by construction, so
+  descriptor-resolving tests (eval gate, golden set) no longer depend on
+  what earlier suites left in the GLOBAL registries.
+  """
+  @spec start_shipped_registries(term()) :: keyword()
+  def start_shipped_registries(context_tag) do
+    context = start_isolated_registries(context_tag)
+
+    PluginDiscovery.shipped_modules()
+    |> Enum.sort_by(fn {plugin_id, _module} -> plugin_id end)
+    |> Enum.each(fn {_plugin_id, module} -> register_plugin!(context, module) end)
+
+    plugin_apps =
+      [server: plugin_server(context)]
+      |> PluginRegistry.registered_plugins()
+      |> Enum.flat_map(& &1.apps)
+
+    [AllbertAssist.App.CoreApp | plugin_apps]
+    |> Enum.uniq()
+    |> Enum.each(fn module -> register_app!(context, module) end)
+
+    context
   end
 
   @doc "Register an app module into the private App.Registry, without global side effects."

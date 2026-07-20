@@ -19,16 +19,23 @@ defmodule AllbertAssist.Actions.Apps.ShowApp do
     ]
 
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.RegistryContext
   alias AllbertAssist.Security.PermissionGate
 
   @impl true
   def run(%{app_id: raw_app_id}, context) do
     permission_decision = PermissionGate.authorize(:read_only, context)
 
+    # v1.0.3 M1 (ADR 0086 contract 3 / ADR 0082): honor the internal
+    # registry context riding the action context map under `:registry`.
+    # Production call sites pass nothing and read the global default.
+    app_opts = context |> registry_opts() |> RegistryContext.app_opts()
+
     with true <- PermissionGate.allowed?(permission_decision),
-         {:ok, app_id} when not is_nil(app_id) <- AppRegistry.normalize_app_id(raw_app_id),
-         {:ok, entry} <- AppRegistry.lookup(app_id) do
-      app = detail(entry)
+         {:ok, app_id} when not is_nil(app_id) <-
+           AppRegistry.normalize_app_id(raw_app_id, app_opts),
+         {:ok, entry} <- AppRegistry.lookup(app_id, app_opts) do
+      app = detail(entry, app_opts)
 
       {:ok,
        %{
@@ -57,7 +64,12 @@ defmodule AllbertAssist.Actions.Apps.ShowApp do
     denied(nil, permission_decision, :invalid_params)
   end
 
-  defp detail(entry) do
+  defp registry_opts(%{registry: registry}) when is_list(registry),
+    do: RegistryContext.take(registry)
+
+  defp registry_opts(_context), do: []
+
+  defp detail(entry, app_opts) do
     %{
       app_id: entry.app_id,
       display_name: entry.display_name,
@@ -72,12 +84,12 @@ defmodule AllbertAssist.Actions.Apps.ShowApp do
       surfaces: entry.surfaces,
       provider_surfaces: Enum.map(Map.get(entry, :provider_surfaces, []), &surface_summary/1),
       surface_catalog_count: length(Map.get(entry, :surface_catalog, [])),
-      diagnostics: diagnostics(entry.app_id)
+      diagnostics: diagnostics(entry.app_id, app_opts)
     }
   end
 
-  defp diagnostics(app_id) do
-    AppRegistry.diagnostics()
+  defp diagnostics(app_id, app_opts) do
+    AppRegistry.diagnostics(app_opts)
     |> Map.get(app_id, [])
     |> Enum.map(fn diagnostic ->
       %{

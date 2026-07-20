@@ -19,6 +19,7 @@ defmodule AllbertAssist.Actions.Apps.ListApps do
     ]
 
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.RegistryContext
   alias AllbertAssist.Security.PermissionGate
 
   @impl true
@@ -26,8 +27,12 @@ defmodule AllbertAssist.Actions.Apps.ListApps do
     permission_decision = PermissionGate.authorize(:read_only, context)
 
     if PermissionGate.allowed?(permission_decision) do
-      apps = Enum.map(AppRegistry.registered_apps(), &summary/1)
-      diagnostics = diagnostics()
+      # v1.0.3 M1 (ADR 0086 contract 3 / ADR 0082): honor the internal
+      # registry context riding the action context map under `:registry`.
+      # Production call sites pass nothing and read the global default.
+      app_opts = context |> registry_opts() |> RegistryContext.app_opts()
+      apps = Enum.map(AppRegistry.registered_apps(app_opts), &summary/1)
+      diagnostics = diagnostics(app_opts)
 
       {:ok,
        %{
@@ -63,8 +68,13 @@ defmodule AllbertAssist.Actions.Apps.ListApps do
     }
   end
 
-  defp diagnostics do
-    AppRegistry.diagnostics()
+  defp registry_opts(%{registry: registry}) when is_list(registry),
+    do: RegistryContext.take(registry)
+
+  defp registry_opts(_context), do: []
+
+  defp diagnostics(app_opts) do
+    AppRegistry.diagnostics(app_opts)
     |> Enum.flat_map(fn {app_id, diagnostics} ->
       Enum.map(diagnostics, &diagnostic_summary(app_id, &1))
     end)
