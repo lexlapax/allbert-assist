@@ -88,11 +88,20 @@ defmodule AllbertAssist.InstallPathTest do
 
     assert [_, formula_version] = Regex.run(~r/^\s*version "([^"]+)"$/m, body)
 
-    # Release-model invariant (v1.0.1): a `[skip-artifacts]` source/docs tag does
-    # not move the packaged line, so the formula (the tap's source of truth) may
-    # lag the project version ONLY when the CHANGELOG section for the project
-    # version records that decision and names the formula's version as the
-    # surviving packaged Latest.
+    # Release-model invariant: the formula (the tap's source of truth) may lag
+    # the project version ONLY when the CHANGELOG section for the project version
+    # DOCUMENTS the lag and names the formula's version as the surviving packaged
+    # Latest. Two legitimate lag reasons are accepted (v1.0.3 M9 broadening — the
+    # original test recognized only the first):
+    #   (a) a `[skip-artifacts]` source/docs tag that PERMANENTLY does not move
+    #       the packaged line (v1.0.1, v1.0.2); or
+    #   (b) an RC-WINDOW lag on a binary release, where the formula stays on the
+    #       prior packaged Latest through the RC and the tap is FILLED to the
+    #       project version at tag/publish time (v1.0.3 catch-up). This is a
+    #       temporary lag that M10 closes, not a permanent divergence.
+    # The invariant's protection — a lagging formula must be explained in the
+    # CHANGELOG, never silently shipped — holds in both cases; only the accepted
+    # explanation is broadened.
     if formula_version != project do
       changelog_section =
         @repo_root
@@ -102,8 +111,28 @@ defmodule AllbertAssist.InstallPathTest do
         |> Enum.find(&String.starts_with?(&1, "v#{project}"))
 
       assert changelog_section, "CHANGELOG has no section for the project version v#{project}"
-      assert changelog_section =~ "[skip-artifacts]"
-      assert changelog_section =~ "`v#{formula_version}` remains"
+
+      # Collapse whitespace so a documentation phrase is recognized regardless of
+      # where the CHANGELOG's prose line-wrap falls — the invariant is about the
+      # words being present, not their line breaks.
+      normalized = changelog_section |> String.replace(~r/\s+/, " ")
+
+      # Each branch names formula_version as the surviving packaged Latest, in
+      # its own phrasing — the shared protection is preserved, not dropped.
+      skip_artifacts_tag? =
+        normalized =~ "[skip-artifacts]" and
+          normalized =~ "`v#{formula_version}` remains"
+
+      binary_rc_fill? =
+        normalized =~ "packaged Latest #{formula_version}" and
+          normalized =~ "tap is filled" and
+          normalized =~ "#{formula_version} → #{project}"
+
+      assert skip_artifacts_tag? or binary_rc_fill?,
+             "CHANGELOG v#{project} must document the formula lag as either a " <>
+               "[skip-artifacts] source tag (`v#{formula_version}` remains) or a " <>
+               "binary catch-up that fills the formula #{formula_version} → " <>
+               "#{project} at publish (packaged Latest #{formula_version})"
     end
 
     # Formula (not cask) so `brew services` works for `allbert serve`.
