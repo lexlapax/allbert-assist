@@ -8137,6 +8137,13 @@ defmodule Mix.Tasks.Allbert.Test do
     # the test text): stays in the external policy lane.
     "apps/allbert_assist/test/allbert_assist/coding/m3_bash_action_test.exs" =>
       :external_runtime_serial,
+    # v1.0.3 M3 permanent minimal-composition regression: the channel-surface
+    # heuristic reads it as external, but it touches no real channel runtime —
+    # it plants a settings-root residue and reads a PRIVATE registry through
+    # the action context. Repo-backed via DataCase: db_serial is the audited
+    # class.
+    "apps/allbert_assist/test/allbert_assist/actions/channels/list_channels_context_test.exs" =>
+      :db_serial,
     # "bridge" appears only in Playwright error-string literals; drivers are
     # put_env fakes. Audited resource class is the owned-home filesystem.
     # v1.0.3 M1 (ADR 0086 contract 4): stays home_fs_serial by RECORDED

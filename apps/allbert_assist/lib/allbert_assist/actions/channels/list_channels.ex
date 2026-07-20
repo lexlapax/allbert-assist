@@ -23,6 +23,7 @@ defmodule AllbertAssist.Actions.Channels.ListChannels do
     ]
 
   alias AllbertAssist.Channels
+  alias AllbertAssist.RegistryContext
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.SurfacePolicy
 
@@ -32,7 +33,13 @@ defmodule AllbertAssist.Actions.Channels.ListChannels do
     policy = SurfacePolicy.report_policy(name(), params, context)
 
     if PermissionGate.allowed?(permission_decision) do
-      channels = Channels.list_channels()
+      # v1.0.3 M3 (ADR 0086 monolith-class corollary / ADR 0082): honor the
+      # internal registry context riding the action context map under
+      # `:registry` (the M1 ListApps/ShowApp pattern). Production call sites
+      # pass nothing and read the global default. SurfacePolicy above stays a
+      # Settings read — it is not a registry seam.
+      plugin_opts = context |> registry_opts() |> RegistryContext.plugin_opts()
+      channels = Channels.list_channels(plugin_opts)
       visible_channels = bounded(channels, policy)
 
       {:ok,
@@ -89,6 +96,11 @@ defmodule AllbertAssist.Actions.Channels.ListChannels do
       "I can discuss channel setup safely here, but I won't dump the operator inventory " <>
       "in chat. Use `/channels` for the TUI operator report."
   end
+
+  defp registry_opts(%{registry: registry}) when is_list(registry),
+    do: RegistryContext.take(registry)
+
+  defp registry_opts(_context), do: []
 
   defp action(status, permission_decision, metadata) do
     %{
