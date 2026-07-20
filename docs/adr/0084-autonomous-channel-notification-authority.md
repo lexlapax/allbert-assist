@@ -148,9 +148,11 @@ and gate-bound abuse-case coverage.
    This line is what lets the default stay OFF without making fan-out
    useless.
    The fan-out kickoff is also a turn response, but ADR 0083 makes its
-   successful delivery an execution precondition: framing returns a start
-   receipt and no child runs until the originating caller acknowledges the
-   rendered, transported, committed, printed, or durably recorded kickoff.
+   successful delivery—or the public protocol's specified durable
+   equivalent—an execution precondition: framing returns a start receipt and
+   no child runs until the originating caller acknowledges the rendered,
+   transported, printed, or durably recorded kickoff. Non-streaming HTTP uses
+   durable server-side recording; SSE uses successful kickoff-event flush.
    A delivery failure leaves the fan-out blocked; it cannot be reclassified
    as autonomous notify and cannot trigger background execution.
 7. **The parity contract is renegotiated, additively.** Channel descriptors

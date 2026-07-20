@@ -60,19 +60,25 @@ on 2026-07-18.
    record delivery state/receipt digest, queue position, run-attempt count,
    review reason, and `join_outcome`. Objectives is authoritative: no queue,
    retry counter, delivery state, or result exists only in process memory.
-2. **Kickoff delivery precedes execution for every Runtime caller.** Framing
+2. **Kickoff delivery or its protocol-specific durable equivalent precedes
+   execution for every Runtime caller.** Framing
    returns the additive kickoff response plus an opaque, identity-bound,
    single-use start receipt and starts no child. Remote chat acknowledges
-   after transport success, web/TUI after render/print, public HTTP protocols
-   after response commit, CLI after output, and Jobs after a durable kickoff
-   event. Acknowledgement is idempotent and non-authoritative. Failure leaves
+   after transport success, web/TUI after render/print, non-streaming public
+   HTTP protocols after durable server-side kickoff recording, SSE after the
+   kickoff event flushes successfully, CLI after output, and Jobs after a
+   durable kickoff event. Acknowledgement is idempotent and
+   non-authoritative. Failure leaves
    the fan-out blocked for retry or cancellation. A caller without this
    contract fails closed to the existing single-turn path. OpenAI-compatible
    and ACP requests HOLD until join (plan Locked Decision 17, restored third
-   pass 2026-07-18): response-commit acknowledges, children run, and the
+   pass 2026-07-18; clarified 2026-07-19): durable kickoff recording
+   satisfies the non-streaming start precondition, children run, and the
    response completes with the join report bounded by the request timeout
-   (timeout ⇒ ack + receipt, report via `pending_reports`) — no wire-format
-   change.
+   (timeout ⇒ ack + receipt, report via `pending_reports`). SSE starts only
+   after the kickoff event flushes. Disconnect-before-record/flush never
+   starts work; disconnect after durable recording retains the pending
+   report. No wire-format change.
 3. **Each child runs in a supervised, temporary, Registry-addressed
    process.** One global `Objectives.Runs.Supervisor` DynamicSupervisor starts
    temporary `RunServer` and `Coordinator` GenServers; the unique Registry

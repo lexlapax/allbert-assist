@@ -3,9 +3,10 @@
 ## Status
 
 Proposed (v1.1 planning, 2026-07-18). Binding on v1.1 M4 once Accepted;
-Accepted only in the commit that lands the cancel-token seam, the
-port-based OS spawn with process-group kill, and the orphan-regression proof
-together. Merges two operator-slotted 1.1 enablers: Mid-Action Interruption /
+Accepted only in the commit that lands the cancel-token seam, scoped OS
+execution ownership with process-group/container kill, and the
+orphan-regression proof together. Merges two operator-slotted 1.1 enablers:
+Mid-Action Interruption /
 In-Flight Kill (deferred at `v0.24-rf:466`) and Child-Process Cancellation
 Semantics (deferred at `v0.57-plan:845`) —
 `docs/plans/future-features.md:164-185`.
@@ -56,37 +57,45 @@ nothing and follows the existing no-confirmation precedent of
      `CodingTurnSupervisor` template, `coding/turn_supervisor.ex:145-159`)
      is shut down through the supervisor; terminate drains to the last
      durable step.
-   - **Tier 3 — OS child-process kill:** any OS processes the cancelled work
-     spawned are killed by process group: SIGTERM to the group → grace
+   - **Tier 3 — OS child-process kill:** processes that remain in the
+     execution's captured process group are killed by SIGTERM to the group → grace
      (default 5s, configurable) → SIGKILL. Tier 3 also runs on every
      TIMEOUT path — the current orphan-on-timeout behavior is a bug this
      ADR retires, not a compatibility surface.
-2. **OS spawns capture a portable kill handle at spawn time.** A small,
-   reviewed C launcher is compiled for macOS and Linux, bundled in every
-   binary release/Homebrew artifact, and invoked through an Erlang port by
-   `Execution.LocalRunner`, `SkillScriptRunner`, and sandbox command
-   backends. Its narrow protocol creates a new process group, reports the
-   leader pid/handle, forwards child output and exit status, and accepts
-   scoped TERM/KILL escalation. If the helper or handshake fails, execution
-   fails closed; there is no fallback to an untracked spawn. Container-backed
-   execution uses the container runtime's stop/kill while preserving the same
-   scoped-handle contract inside the namespace.
+2. **OS spawns capture a portable kill handle at spawn time by reusing the
+   packaged execution substrates.** `Execution.LocalRunner`,
+   `SkillScriptRunner`, and sandbox command backends use `erlexec` process
+   groups (`{group, 0}` + `kill_group`) on macOS/Linux, MuonTrap with cgroups
+   where configured for stronger Linux descendant containment, and the
+   container runtime's stop/kill handle for container execution. The adapter
+   protocol reports the scoped pid/process-group/container handle, forwards
+   output and exit status, and accepts TERM/KILL escalation. If substrate
+   startup or its handshake fails, execution fails closed; there is no
+   fallback to an untracked spawn. A new C or Rust helper may be proposed
+   only after a named red acceptance test fails against every applicable
+   existing substrate and this ADR records the evidence and packaging cost.
    A supervised `Execution.ProcessOwner`, independent of RunServer, owns each
-   helper port: children of a new `Execution.ProcessOwners` DynamicSupervisor
+   execution port/handle: children of a new `Execution.ProcessOwners` DynamicSupervisor
    (`restart: :temporary`, an application-tree sibling of the execution
    runners — NOT under `Objectives.Runs.Supervisor`, since coding turns and
-   direct commands use the same helper), registered in a unique
+   direct commands use the same execution substrate), registered in a unique
    `Execution.ProcessRegistry` keyed `{:execution, execution_id}`.
    Cancellation addresses the
-   owner before terminating RunServer. Helper control-channel EOF triggers
+   owner before terminating RunServer. Execution-owner/control-channel loss triggers
    TERM→KILL cleanup, so owner or BEAM failure cannot orphan the group; no
    recovery path reconstructs authority from a stale OS pid.
-3. **Kill scope is exactly what the run spawned.** Tier 3 addresses ONLY the
-   process group(s) captured by that run's executions — never a pattern
+3. **Kill scope is the captured execution boundary, stated honestly.** Tier 3
+   addresses ONLY the process group(s), cgroup(s), or container(s) captured
+   by that run's executions — never a pattern
    match on process names, never other runs' children, never daemon
    processes owned by channel supervision (ADR 0058 daemons are supervised
    restarts, not cancel targets). This is the scope rule the
-   `fanout-cancel-kill-scope-001` eval row proves.
+   `fanout-cancel-kill-scope-001` eval row proves. A plain process group does
+   not contain a descendant that deliberately creates a new session; cgroups
+   and container namespaces provide the stronger containment contract where
+   available. macOS and Linux expose the same cancellation API and
+   ordinary-child behavior, but their maximum containment strength is not
+   claimed to be identical.
 4. **Cancel is not an authority event, and needs no confirmation.**
    `cancel_objective_run` (registered action, `confirmation: :none`) follows
    the `Objectives.cancel/3` precedent: a user/operator cancelling their own
@@ -107,8 +116,10 @@ nothing and follows the existing no-confirmation precedent of
 ## Consequences
 
 - "Cancel" in every surface (steer-by-reply, workspace affordance, TUI
-  escape offer) becomes truthful: work stops, including OS children, and the
-  user sees which tier it took.
+  escape offer) becomes truthful for the captured execution boundary, and
+  the user sees `cancel_requested` → `stopping` → terminal `cancelled` plus
+  the tier reached. The terminal state is not emitted before cleanup
+  completes.
 - Timeout behavior tightens everywhere the execution runners are used —
   long-running commands that previously leaked past their deadline now die
   with their process group. Tests that depended on orphan survival (none
@@ -116,9 +127,10 @@ nothing and follows the existing no-confirmation precedent of
 - A small per-spawn overhead (group leadership + pid capture) in exchange
   for a kill handle; measured at M4 and expected to be noise against command
   runtimes.
-- Binary builds gain one narrow native artifact. Release CI compiles it for
-  each supported macOS/Linux target, packages it, verifies its checksum and
-  protocol, and the installed Homebrew binary exercises it in rehearsal.
+- Binary builds reuse the already-packaged erlexec/MuonTrap port artifacts.
+  Release CI and the installed Homebrew rehearsal exercise the selected
+  substrate and verify its protocol; no third native artifact is added
+  without the red-test exception in Decision 2.
 - Actions gain an optional cooperative contract; existing actions work
   unchanged (tier 2/3 covers them) and can adopt checkpoints incrementally.
 - The delegate-agent substrate gains the cooperative token (operator
@@ -128,22 +140,29 @@ nothing and follows the existing no-confirmation precedent of
   adopt checkpoints. Unconverted delegates degrade to exactly the prior
   tier-2 behavior (unchecked token ⇒ supervised shutdown after grace) —
   the contract change is additive.
-- Platform nuance is contained behind the helper protocol. macOS and Linux
-  are equally strong Tier-1 contracts; Windows/WSL2 stays out of scope with
+- Platform nuance is contained behind the execution-owner protocol. macOS
+  and Linux share the Tier-1 user-visible cancellation contract for ordinary
+  process-group members; Linux cgroups/containers can provide stronger
+  descendant containment. Windows/WSL2 stays out of scope with
   the standing WSL2 deferral.
 
 ## Validation
 
-- v1.1 M4, red-first: (a) the ORPHAN PROOF on pre-fix code — a
+- v1.1 M4, red-first: first record a capability matrix for erlexec, MuonTrap,
+  and container-runtime handles covering owner death, timeout, cwd/env/output
+  parity, packaging, and containment. Then: (a) the ORPHAN PROOF on pre-fix code — a
   sleeping child/grandchild fixture survives today's timeout path; (b)
   post-fix: the full group is dead after tier-3 cancel AND timeout on macOS
   and Linux; (c) tier-1 checkpoint cancel completes the current operation;
   (d) tier-2 drain preserves the last durable step; (e) a sibling run's group
-  survives adjacent cancel; (f) missing, malformed, or crashed helper
-  handshakes fail closed; (g) RunServer/ProcessOwner/BEAM loss triggers helper
-  EOF cleanup; (h) delegate token reaches both shipped consumers and their
+  survives adjacent cancel; (f) missing, malformed, or crashed substrate
+  handshakes fail closed; (g) RunServer/ProcessOwner/BEAM loss triggers
+  execution-owner cleanup; (h) delegate token reaches both shipped consumers and their
   checkpoints return cancelled; (i) packaged/Homebrew rehearsal locates and
-  runs the helper.
+  runs the selected substrate. The fixture also covers ignored SIGTERM,
+  closed stdio, high-volume output, exit-during-cancel, and a session-escape
+  case whose documented result distinguishes process-group from
+  cgroup/container containment.
 - v1.1 M8: end-to-end in-channel cancel against a live fan-out (focused
   integration test + the §J validation matrix row 11: `ps` proves no orphan).
 - v1.1 M10: `fanout-cancel-kill-scope-001` gate-bound in `release.v11`;
