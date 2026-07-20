@@ -75,6 +75,19 @@ classification in `--check-tags`, and (e) store-cited pre/post.
    ADR 0082 `RegistryContext` remains registry selection—neither substitutes
    for app-env writes. Production omission preserves current defaults.
    Negative concurrent tests prove two contexts cannot cross-contaminate.
+   **RESIDENCY PROOF REQUIRED (amended v1.0.3 M5(a), 2026-07-20).** A
+   conversion MUST assert positively that the artifact it writes lands under
+   the owned root — e.g. `assert File.exists?(Path.join(owned_root, …))` or
+   an equivalent on-disk/DB check — in addition to the behavioural
+   assertions. Rationale, paid for by M5(a): the Confirmations gap passes
+   solo ×3 AND both-orders composition while writing to the SHARED home,
+   because `pending_path/1` is an in-process delegate that reports the owned
+   home regardless of where the singleton `Store.Agent` actually writes.
+   Behavioural assertions read the delegate and stay green, so the old proof
+   set cannot distinguish a correct conversion from silent cross-test
+   corruption. Three files were fully "proven" before a probe caught this;
+   one sibling went red only on its third solo run. Solo ×3 + composition is
+   NECESSARY BUT NOT SUFFICIENT for contract 2.
    A file whose exercised production path still
    reads a global records the seam gap (the engine `channel_candidates`
    list seeds this) and stays serial — the gap list is the phase-3 intake,
