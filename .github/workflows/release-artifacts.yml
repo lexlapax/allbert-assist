@@ -95,6 +95,7 @@ jobs:
           ls -la dist/
 
       - name: Provision browser runtime prerequisites outside the artifact
+        if: matrix.target != 'linux-arm64'
         shell: bash
         run: |
           set -euo pipefail
@@ -116,11 +117,41 @@ jobs:
           echo "PLAYWRIGHT_NODE_PATH=$runtime/node_modules" >> "$GITHUB_ENV"
           echo "BROWSER_BINARY_PATH=$browser" >> "$GITHUB_ENV"
 
-      - name: Smoke the artifact (boot, plugins, browser doctor, health, attach, no-Mix, crypto)
+      - name: Smoke the artifact on the runner (boot, browser doctor, health, attach)
+        if: matrix.target != 'linux-arm64'
         run: |
           WORK=$(mktemp -d)
           tar -xzf dist/allbert-v*-${{ matrix.target }}.tar.gz -C "$WORK"
           bash scripts/smoke/artifact_smoke.sh "$WORK/allbert" "${{ matrix.target }}" | tee "smoke-${{ matrix.target }}.log"
+
+      - name: Smoke linux-arm64 with Debian OS browser prerequisites
+        if: matrix.target == 'linux-arm64'
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --platform linux/arm64 \
+            --mount type=bind,source="$PWD",target=/repo,readonly \
+            --workdir /tmp node:22-bookworm \
+            bash -lc 'set -euo pipefail
+              apt-get update
+              apt-get install -y ca-certificates chromium libstdc++6 openssl
+              runtime=/tmp/allbert-playwright-host
+              PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install \
+                --prefix "$runtime" --ignore-scripts --no-audit --no-fund --no-save \
+                playwright@1.58.2
+              actual="$(node -e '\''process.stdout.write(require(process.argv[1]).version)'\'' \
+                "$runtime/node_modules/playwright/package.json")"
+              test "$actual" = 1.58.2
+              test -x /usr/bin/chromium
+              mkdir -p /tmp/extract
+              tar -xzf /repo/dist/allbert-v*-linux-arm64.tar.gz -C /tmp/extract
+              chown -R node:node /tmp/extract "$runtime"
+              su -s /bin/bash node -c "set -euo pipefail
+                export PLAYWRIGHT_NODE_PATH=$runtime/node_modules
+                export BROWSER_BINARY_PATH=/usr/bin/chromium
+                bash /repo/scripts/smoke/artifact_smoke.sh \
+                  /tmp/extract/allbert linux-arm64"' \
+            | tee smoke-linux-arm64.log
 
       - name: Upload smoke evidence
         if: always()

@@ -1154,6 +1154,13 @@ regenerated after the final v1.0.4 test additions. The current final inventory
 is 3,226 rows across 524 reconciled files; both counts are rechecked immediately
 before the clean-SHA cascade.
 
+The hosted ubuntu-22.04-arm image has no Chromium/Chrome executable. The ARM
+matrix build remains native on that runner, while its extracted artifact smoke
+runs as a non-root user in a native Debian ARM64 container with OS-packaged
+Chromium and separately installed pinned Playwright. The container cannot turn
+those host prerequisites into artifact content because the boundary check runs
+against the already-created tarball before the live doctor.
+
 **M5(b) liveview floor (measured, not collected).** The three top liveview
 files run **658.2 s serial vs 226.8 s at 4-way concurrency (2.9× / 431 s on 48
 tests)** — the largest single lever in phase 2 — but it is gated behind three
