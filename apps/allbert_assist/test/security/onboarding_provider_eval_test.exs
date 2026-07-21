@@ -1,10 +1,8 @@
 defmodule AllbertAssist.Security.OnboardingProviderEvalTest do
   use AllbertAssist.SecurityEvalCase, async: false
 
-  alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Memory
-  alias AllbertAssist.Onboarding
   alias AllbertAssist.Paths
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
@@ -56,9 +54,7 @@ defmodule AllbertAssist.Security.OnboardingProviderEvalTest do
              |> Enum.map(& &1.id)
   end
 
-  test "onboarding evals keep secrets redacted and writes behind safe registered actions", %{
-    home: home
-  } do
+  test "onboarding evals keep secrets redacted and writes behind safe registered actions" do
     put_secret!("secret://providers/openai/api_key", @secret)
 
     redaction =
