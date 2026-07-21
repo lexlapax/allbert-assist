@@ -10,9 +10,36 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v1.0.5 - macOS Packaged Browser Port Correction
+
+Status: **operator-approved corrective candidate.** Published v1.0.4 proved
+the external browser-runtime ownership model and both Linux artifacts, but its
+macOS Homebrew `browser_doctor` crashed OS Chrome in
+`TransformProcessType`. Isolation proved direct headless Chrome, direct
+Playwright 1.58.2, the packaged bridge, and BEAM `Port.open/2` without `:hide`
+all passed; the production driver with `:hide` reproduced SIGABRT. Erlang's
+`:hide` port option suppresses a new console window on Windows and is not a
+portable background-process control.
+
+v1.0.5 is bounded to applying `:hide` only on Windows, adding a permanent
+platform-option regression, rerunning the complete clean-SHA release cascade,
+publishing/cosigning all three artifacts, moving the tap from 1.0.4 to 1.0.5,
+and repeating macOS and both Linux artifact rehearsals. Node, Playwright,
+Chromium, `node_modules`, and browser caches remain forbidden artifact content;
+the host-package prerequisite contract from v1.0.4 is unchanged. The immutable
+v1.0.4 tag remains at `337e3ddbbc14a3832d700d2ac63655a2e068c721` and is not
+moved or rewritten.
+
 ## v1.0.4 - Packaged Browser Recovery
 
-Status: **approved hotfix; implementation/RC proof in progress.** v1.0.4 exists because
+Status: **published 2026-07-21; binary acceptance not closed.** v1.0.4 is tag
+`v1.0.4` at `337e3ddbbc14a3832d700d2ac63655a2e068c721`; CI run
+`29841331741` built, smoked, cosigned, and published all three artifacts; tap
+commit `5a970b994dcfe03136f0ed106a0da40f95081835` moved the formula to 1.0.4.
+The curl install and both published Linux container rehearsals passed. macOS
+Homebrew browser acceptance failed because the driver supplied port option
+`:hide`, causing OS Chrome to abort; the operator approved v1.0.5 to correct
+that platform option and repeat the complete binary ledger. v1.0.4 exists because
 published v1.0.3 passed source gates, CI publication, cosign, and tap fill but
 failed its required macOS packaged-browser acceptance: the artifact staged the
 Playwright bridge and manifests while omitting `node_modules` and Chromium, so
@@ -40,11 +67,10 @@ review applies no lock change: only `req_llm`
 1.13.0 -> 1.17.1 is directly updateable, and its breaking streaming migration
 remains outside this corrective hotfix.
 
-**Formula state:** the public tap is 1.0.3, while the repository formula
-remains on 1.0.0 until v1.0.4 has published checksums and the complete platform
-ledger is accepted. The accepted hotfix closeout syncs the filled 1.0.4 formula
-back into this repository; moving the formula before publication would invent
-checksums.
+**Formula state:** the public tap is 1.0.4, while the repository formula
+remains on its deliberate template state until the accepted corrective
+closeout syncs the filled 1.0.5 formula back into this repository. Moving the
+source formula before publication would invent checksums.
 
 ## v1.0.3 - Test Isolation Phase 2 & Catch-up Binary Release
 

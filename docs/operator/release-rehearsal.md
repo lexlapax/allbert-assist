@@ -21,7 +21,7 @@ replace the binary-release obligation of a versioned feature plan.
 Set this once from the release checkout; every active command below consumes it:
 
 ```sh
-export VERSION="${VERSION:?set VERSION, for example v1.0.4}"
+export VERSION="${VERSION:?set VERSION, for example v1.0.5}"
 export EXPECTED_VERSION="${VERSION#v}"
 export REPO="${REPO:-lexlapax/allbert-assist}"
 export PLAYWRIGHT_VERSION="${PLAYWRIGHT_VERSION:-1.58.2}"
@@ -187,7 +187,7 @@ Do this on each Tier-1 OS path that is in scope. Install/uninstall must not touc
 the operator's real Allbert Home (`~/.allbert`) unless `--purge` is explicitly
 requested; set a disposable `ALLBERT_HOME` for rehearsal.
 
-The active plan defines the exact platform ledger. v1.0.4 requires macOS;
+The active recovery plan defines the exact platform ledger. v1.0.5 requires macOS;
 linux-x64 and linux-arm64 container artifacts; a real-host Linux
 service/vault/browser row; and WSL2 using the Linux tarball. Record CI run id,
 tag/release URL, asset inventory, cosign transcript, tap commit/audit, install
@@ -200,7 +200,7 @@ Inside WSL2, use a disposable Home and install the published linux-x64
 tarball through the same verified installer path:
 
 ```sh
-export VERSION="${VERSION:?set VERSION, for example v1.0.4}"
+export VERSION="${VERSION:?set VERSION, for example v1.0.5}"
 export EXPECTED_VERSION="${VERSION#v}"
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-wsl2-home.XXXXXX)"
 export ALLBERT_VERSION="$VERSION"

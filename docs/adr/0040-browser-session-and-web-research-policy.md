@@ -8,11 +8,14 @@ CHANGELOG after the R5-R7 remediation follow-up.
 Amended for v1.0.1 M4.2.3 — see "Amended (v1.0.1 M4.2.3): the research handoff
 raises the single up-front consent gate" below; the rest of the decision is
 unchanged.
-Amended for v1.0.4 packaged-browser recovery, then corrected by operator on
+Amended for v1.0.4 packaged-browser recovery, corrected by operator on
 2026-07-20: release artifacts must not contain Node, Playwright, Chromium, or
 their caches. They carry the reviewed Allbert bridge/manifests and must prove a
 live doctor against explicit host-package paths before publication; see the
-Ownership amendment below.
+Ownership amendment below. Amended again for the operator-approved v1.0.5
+corrective tag on 2026-07-21: Erlang port option `:hide` is Windows-only and is
+omitted on Darwin/Linux after the v1.0.4 macOS packaged doctor proved it caused
+OS Chrome to abort.
 
 ## Context
 
@@ -136,6 +139,14 @@ page content is descriptive, never authoritative.
   guard shims and empty temp cache roots prove Allbert did not install or
   download anything during the check. This closes the v1.0.3 escape in which
   plugin registration was green while runtime ownership was undeclared.
+- **Platform port visibility (v1.0.5 amendment).** The Playwright bridge uses
+  Erlang `open_port/2` option `:hide` only on `{:win32, _}`. Erlang defines the
+  option as preventing a new console window on Windows; it is not a portable
+  daemon/backgrounding primitive. Darwin and Linux omit it. v1.0.4 publication
+  proved the external-runtime boundary but failed local macOS acceptance when
+  Chrome aborted in `TransformProcessType`; direct launch and the same BEAM
+  port without `:hide` passed. A unit regression locks platform option
+  selection and a packaged live doctor remains the release acceptance proof.
 - **Session-start consults the doctor (v0.42 R2 lesson).**
   `browser_start_session` fails closed before any driver work when the
   doctor has never been run successfully, the last `live_check_status`

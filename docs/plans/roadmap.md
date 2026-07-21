@@ -60,14 +60,18 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    external-runtime experiment remain intake candidates pending later operator
    disposition, with no v1.0.3 lane-floor claim. Plan: [v1.0.3-plan.md](v1.0.3-plan.md) +
    [v1.0.3-request-flow.md](v1.0.3-request-flow.md) + ADR 0086.
-4. **1.0.4 (approved hotfix; M1-M4 implementation/RC in progress)** — Packaged Browser Recovery.
-   Keep Node, Playwright, Chromium, and caches outside every artifact; resolve
-   them through explicit host-package paths; add an artifact-absence boundary
-   plus a live browser doctor to all three matrix smokes; repair operator-flow drift
-   found during v1.0.3 M10, and repeat tag/cosign/Release/tap/platform
-   validation. This release contains no new feature scope; it exists solely
-   because published v1.0.3 did not meet its own binary Definition of Done.
-   Real-host Linux and WSL2 remain operator-held closeout barriers. Plan:
+4. **1.0.4 PUBLISHED, BINARY ACCEPTANCE NOT CLOSED -> 1.0.5 APPROVED
+   CORRECTIVE TAG** — Packaged Browser Recovery. v1.0.4 is immutable at
+   `337e3ddb` (CI `29841331741`; tap `5a970b9`): its artifacts correctly keep
+   Node, Playwright, Chromium, and caches external, and both published Linux
+   rehearsals passed. Its macOS packaged doctor failed when BEAM port option
+   `:hide` caused OS Chrome to abort in `TransformProcessType`; direct Chrome,
+   direct Playwright, the packaged bridge, and the same BEAM port without
+   `:hide` passed. The operator approved v1.0.5 on 2026-07-21 to apply `:hide`
+   only on Windows, repeat tag/cosign/Release/tap and all agent-runnable
+   platform validation, then stop for real-host Linux and WSL2. Neither prior
+   immutable tag is moved, and this corrective line contains no feature scope.
+   Plan:
    [v1.0.4-plan.md](v1.0.4-plan.md) +
    [v1.0.4-request-flow.md](v1.0.4-request-flow.md) + amended ADR 0040. Later
    1.0.x: intent-pipeline refinements (opportunistic), technical-debt
