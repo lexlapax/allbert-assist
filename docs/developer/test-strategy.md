@@ -1161,6 +1161,13 @@ Chromium and separately installed pinned Playwright. The container cannot turn
 those host prerequisites into artifact content because the boundary check runs
 against the already-created tarball before the live doctor.
 
+Workflow-dispatch rehearsals cannot manufacture a tag-identity certificate:
+keyless signing records `refs/heads/main`, which the production installer must
+reject. Branch dry-runs therefore use the rehearsal's exact-checksum
+preverified-stage path. Tag-triggered runs keep the real local cosign-bundle +
+installer path, so publication still depends on proof under the exact release
+identity rather than a permissive branch exception.
+
 **M5(b) liveview floor (measured, not collected).** The three top liveview
 files run **658.2 s serial vs 226.8 s at 4-way concurrency (2.9× / 431 s on 48
 tests)** — the largest single lever in phase 2 — but it is gated behind three

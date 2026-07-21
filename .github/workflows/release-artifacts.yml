@@ -208,11 +208,27 @@ jobs:
           echo "BROWSER_BINARY_PATH=$browser" >> "$GITHUB_ENV"
       - name: Install Secret Service tooling (gnome-keyring + secret-tool)
         run: sudo apt-get update && sudo apt-get install -y gnome-keyring libsecret-tools dbus-x11
+      - name: Select Linux rehearsal trust path
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            echo "ALLBERT_REHEARSAL_SIGN_CHECKSUMS=1" >> "$GITHUB_ENV"
+          else
+            version="$(grep -m1 'version:' mix.exs | sed 's/.*version: "\(.*\)".*/\1/')"
+            artifact="allbert-v${version}-linux-x64.tar.gz"
+            stage="$RUNNER_TEMP/allbert-preverified-stage"
+            mkdir -p "$stage"
+            test -f "dist/$artifact"
+            cp "dist/$artifact" "$stage/$artifact"
+            (cd "$stage" && sha256sum "$artifact" > SHA256SUMS)
+            echo "ALLBERT_REHEARSAL_PREVERIFIED_STAGE=$stage" >> "$GITHUB_ENV"
+            echo "ALLBERT_REHEARSAL_VERSION=v$version" >> "$GITHUB_ENV"
+          fi
       - name: Install cosign for signed local installer rehearsal
+        if: github.ref_type == 'tag'
         uses: sigstore/cosign-installer@v3
       - name: Linux rehearsal (install / smoke / vault / service / uninstall)
-        env:
-          ALLBERT_REHEARSAL_SIGN_CHECKSUMS: "1"
         run: |
           set -o pipefail
           # A D-Bus session + an unlocked login keyring so the Secret Service
