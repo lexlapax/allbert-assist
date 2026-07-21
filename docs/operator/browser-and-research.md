@@ -17,11 +17,39 @@ The doctor records a redacted live-check envelope under
 `<ALLBERT_HOME>/cache/browser/doctor/state.json`. Session start fails closed
 when the doctor has never succeeded, is stale, or reports anything other than
 `ok`. The Playwright bridge dependencies live under
-`plugins/allbert.browser/priv/playwright_bridge/`; package managers are not run
-during plugin discovery or browser action execution.
+`plugins/allbert.browser/priv/playwright_bridge/` in a source checkout, but
+packaged artifacts intentionally carry only the reviewed bridge/manifests.
+They do not contain Node, Playwright, Chromium, `node_modules`, or a browser
+cache.
+
+Node, the Playwright module, and Chromium/Chrome are explicit host
+prerequisites. Install Node and Chromium/Chrome through the OS package manager.
+Install the pinned Playwright package into a host-managed directory without a
+browser download, then point Allbert at the resulting locations before running
+doctor:
+
+```sh
+export ALLBERT_PLAYWRIGHT_ROOT="$HOME/.local/share/allbert/playwright-1.58.2"
+PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install \
+  --prefix "$ALLBERT_PLAYWRIGHT_ROOT" \
+  --ignore-scripts --no-audit --no-fund --no-save playwright@1.58.2
+allbert admin settings set browser.driver.node_path /absolute/path/to/node
+allbert admin settings set browser.driver.node_module_path \
+  "$ALLBERT_PLAYWRIGHT_ROOT/node_modules"
+allbert admin settings set browser.driver.version_pin 1.58.2
+allbert admin settings set browser.driver.binary_path \
+  /absolute/path/to/chromium-or-chrome
+```
+
+The module path is the directory containing `playwright/package.json`, not the
+package directory itself. Allbert never invokes npm, npx, Homebrew, apt, or a
+browser downloader during discovery, doctor, or actions. Every binary artifact
+first proves the runtime trees are absent and then launches a live doctor
+against explicit host paths before CI uploads it.
 
 On failure, the persisted doctor state includes a stable `error_category` for
-operator troubleshooting: `node_unavailable`, `playwright_bridge_missing`,
+operator troubleshooting: `node_unavailable`, `playwright_unavailable`,
+`playwright_version_mismatch`, `playwright_bridge_missing`,
 `playwright_bridge_start_failed`, `bridge_timeout`, `bridge_exited`,
 `bridge_protocol_error`, `browser_live_check_timeout`,
 `chromium_launch_failed`, `playwright_runtime_error`, or

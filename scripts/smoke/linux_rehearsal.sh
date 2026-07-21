@@ -17,6 +17,7 @@ set -uo pipefail
 REL_ROOT_ARG="${1:?usage: linux_rehearsal.sh <extracted-release-root>}"
 REL_ROOT="$(cd "$REL_ROOT_ARG" && pwd)"
 PORT="${REHEARSAL_PORT:-4199}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 WORK="$(mktemp -d)"
 STAGE="$WORK/stage"
@@ -41,18 +42,46 @@ case "$(uname -m)" in
   *)       fail arch "unsupported Linux arch $(uname -m)" ;;
 esac
 
-# 1) Install via the curl installer's symlink path (local file:// base).
-tar -czf "$STAGE/allbert-${TARGET}.tar.gz" -C "$(dirname "$REL_ROOT")" "$(basename "$REL_ROOT")"
-( cd "$STAGE" && sha256sum "allbert-${TARGET}.tar.gz" > SHA256SUMS )
-if [ "${ALLBERT_REHEARSAL_SIGN_CHECKSUMS:-}" = "1" ]; then
-  command -v cosign >/dev/null 2>&1 || fail install "cosign unavailable for local checksum signing"
-  ( cd "$STAGE" && cosign sign-blob --yes --bundle SHA256SUMS.cosign.bundle SHA256SUMS >/dev/null ) \
-    || fail install "failed to sign local SHA256SUMS"
-fi
-if ! ALLBERT_BASE_URL="file://$STAGE" ALLBERT_VERSION="latest" ALLBERT_PREFIX="$PREFIX" \
-  sh "$(dirname "$0")/../install/install.sh" >"$WORK/install.out" 2>&1; then
-  cat "$WORK/install.out"
-  fail install "install.sh failed"
+# 1) CI signs a local checksum with GitHub OIDC and exercises the real installer.
+# Published-container rehearsal receives a stage whose bundle was already
+# verified by the host command in the operator runbook. It re-checks the exact
+# SHA256 row inside the container, then reproduces the install layout directly;
+# this avoids adding a signature-verification bypass to install.sh or bootstrapping
+# an unverified Linux cosign binary inside the container.
+if [ -n "${ALLBERT_REHEARSAL_PREVERIFIED_STAGE:-}" ]; then
+  STAGE="$(cd "$ALLBERT_REHEARSAL_PREVERIFIED_STAGE" && pwd)"
+  VERSION="${ALLBERT_REHEARSAL_VERSION:?set ALLBERT_REHEARSAL_VERSION (for example v1.0.4)}"
+  VERSION="v${VERSION#v}"
+  ARTIFACT="allbert-${VERSION}-${TARGET}.tar.gz"
+  [ -f "$STAGE/$ARTIFACT" ] || fail install-preverified "missing $STAGE/$ARTIFACT"
+  [ -f "$STAGE/SHA256SUMS" ] || fail install-preverified "missing SHA256SUMS"
+  expected="$(awk -v f="$ARTIFACT" '$2 == f {print $1}' "$STAGE/SHA256SUMS")"
+  [ -n "$expected" ] || fail install-preverified "no exact checksum row for $ARTIFACT"
+  actual="$(sha256sum "$STAGE/$ARTIFACT" | awk '{print $1}')"
+  [ "$actual" = "$expected" ] || fail install-preverified "checksum mismatch"
+
+  LIB_DIR="$PREFIX/lib/allbert"
+  mkdir -p "$LIB_DIR" "$PREFIX/bin"
+  tar -xzf "$STAGE/$ARTIFACT" -C "$LIB_DIR" --strip-components=1
+  ln -sf "$LIB_DIR/bin/allbert" "$PREFIX/bin/allbert"
+  {
+    echo "$LIB_DIR"
+    echo "$PREFIX/bin/allbert"
+  } >"$LIB_DIR/.install-manifest"
+  echo "linux-rehearsal:install-preverified PASS exact published checksum and install layout"
+else
+  tar -czf "$STAGE/allbert-${TARGET}.tar.gz" -C "$(dirname "$REL_ROOT")" "$(basename "$REL_ROOT")"
+  ( cd "$STAGE" && sha256sum "allbert-${TARGET}.tar.gz" > SHA256SUMS )
+  if [ "${ALLBERT_REHEARSAL_SIGN_CHECKSUMS:-}" = "1" ]; then
+    command -v cosign >/dev/null 2>&1 || fail install "cosign unavailable for local checksum signing"
+    ( cd "$STAGE" && cosign sign-blob --yes --bundle SHA256SUMS.cosign.bundle SHA256SUMS >/dev/null ) \
+      || fail install "failed to sign local SHA256SUMS"
+  fi
+  if ! ALLBERT_BASE_URL="file://$STAGE" ALLBERT_VERSION="latest" ALLBERT_PREFIX="$PREFIX" \
+    sh "$(dirname "$0")/../install/install.sh" >"$WORK/install.out" 2>&1; then
+    cat "$WORK/install.out"
+    fail install "install.sh failed"
+  fi
 fi
 BIN="$PREFIX/bin/allbert"
 [ -L "$BIN" ] || fail install "installed entry is not a symlink"
@@ -60,11 +89,72 @@ echo "linux-rehearsal:install PASS symlinked to $(readlink "$BIN")"
 
 # 2) CLI smoke through the installed symlink (this is where the symlink-resolution
 # bug the macOS rehearsal caught would resurface on Linux).
-run() { env ALLBERT_HOME="$HOME_DIR" "$BIN" "$@"; }
+NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
+[ -x "$NODE_BIN" ] || fail browser-doctor "node host prerequisite unavailable"
+NODE_MAJOR="$($NODE_BIN -p 'Number(process.versions.node.split(".")[0])')"
+[ "$NODE_MAJOR" -ge 18 ] || fail browser-doctor "Node >=18 required; found major $NODE_MAJOR"
+RUNTIME_BIN="$WORK/runtime-bin"
+PACKAGE_MANAGER_AUDIT="$WORK/package-manager.audit"
+mkdir -p "$RUNTIME_BIN"
+ln -sf "$NODE_BIN" "$RUNTIME_BIN/node"
+for package_manager in npm npx apt apt-get brew dnf pacman yum; do
+  {
+    echo '#!/bin/sh'
+    echo 'printf "%s\n" "$(basename "$0") $*" >> "$ALLBERT_PACKAGE_MANAGER_AUDIT"'
+    echo 'exit 97'
+  } > "$RUNTIME_BIN/$package_manager"
+  chmod +x "$RUNTIME_BIN/$package_manager"
+done
+
+run() {
+  env HOME="$WORK" ALLBERT_HOME="$HOME_DIR" \
+    PATH="$RUNTIME_BIN:/usr/bin:/bin" \
+    NODE_PATH="${PLAYWRIGHT_NODE_PATH:-}" \
+    PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-}" \
+    ALLBERT_PACKAGE_MANAGER_AUDIT="$PACKAGE_MANAGER_AUDIT" \
+    "$BIN" "$@"
+}
 VSN="$(run --version 2>/dev/null | tail -n1)"
 case "$VSN" in allbert\ *) echo "linux-rehearsal:version PASS $VSN" ;; *) fail version "got '$VSN'" ;; esac
 run admin status >"$WORK/status.out" 2>/dev/null || fail status "admin status non-zero"
 echo "linux-rehearsal:status PASS admin status ok"
+
+# 2a) v1.0.4: Node, Playwright, and Chromium are explicit host dependencies.
+# The artifact carries only the reviewed Allbert bridge/manifests; it may not
+# carry a Node package tree or browser payload.
+bash "$SCRIPT_DIR/browser_runtime_boundary_smoke.sh" "$REL_ROOT" || \
+  fail browser-external-runtime "artifact contains a forbidden browser runtime"
+echo "linux-rehearsal:browser-external-runtime PASS no runtime bundled"
+
+PLAYWRIGHT_NODE_PATH="${PLAYWRIGHT_NODE_PATH:?set PLAYWRIGHT_NODE_PATH to the host package directory containing playwright}"
+BROWSER_BINARY_PATH="${BROWSER_BINARY_PATH:?set BROWSER_BINARY_PATH to the host Chromium/Chrome executable}"
+[ -f "$PLAYWRIGHT_NODE_PATH/playwright/package.json" ] || \
+  fail browser-doctor "host Playwright package missing below PLAYWRIGHT_NODE_PATH=$PLAYWRIGHT_NODE_PATH"
+[ -x "$BROWSER_BINARY_PATH" ] || \
+  fail browser-doctor "host Chromium executable unavailable at BROWSER_BINARY_PATH=$BROWSER_BINARY_PATH"
+run admin settings set browser.driver.binary_path "$BROWSER_BINARY_PATH" >/dev/null
+run admin settings set browser.driver.node_path "$NODE_BIN" >/dev/null
+run admin settings set browser.driver.node_module_path "$PLAYWRIGHT_NODE_PATH" >/dev/null
+run admin settings set browser.driver.version_pin 1.58.2 >/dev/null
+
+if browser_doctor="$(run eval 'Application.ensure_all_started(:allbert_assist); case AllbertAssist.Actions.Runner.run("browser_doctor", %{}, %{actor: "linux-rehearsal", channel: :cli}) do {:ok, %{doctor: %{live_check_status: :ok, details: %{playwright_version: "1.58.2"}}}} -> IO.puts("packaged-browser-doctor-ok"); other -> IO.inspect(other); System.halt(1) end' 2>&1)"; then
+  echo "$browser_doctor" >"$WORK/browser-doctor.out"
+  grep -q 'packaged-browser-doctor-ok' "$WORK/browser-doctor.out" || \
+    fail browser-doctor "doctor did not emit the success marker"
+  echo "linux-rehearsal:browser-doctor PASS host Playwright 1.58.2 and OS Chromium about:blank launch"
+else
+  echo "$browser_doctor"
+  fail browser-doctor "packaged browser doctor failed"
+fi
+
+if [ -s "$PACKAGE_MANAGER_AUDIT" ]; then
+  cat "$PACKAGE_MANAGER_AUDIT"
+  fail browser-no-download "runtime attempted a package-manager invocation"
+elif [ -e "$WORK/.cache/ms-playwright" ] || [ -e "$WORK/Library/Caches/ms-playwright" ]; then
+  fail browser-no-download "doctor created a default Playwright browser cache"
+else
+  echo "linux-rehearsal:browser-no-download PASS no package-manager invocation or default browser cache"
+fi
 
 # 2b) v0.63 M8.8: bare / first-run command through the packaged `eval` dispatch — the
 # path that crashed with `unknown registry: Req.Finch` (eval loads-but-does-not-start OTP

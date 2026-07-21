@@ -94,7 +94,29 @@ jobs:
           tar -czf "dist/allbert-v${VERSION}-${{ matrix.target }}.tar.gz" -C _build/prod/rel allbert
           ls -la dist/
 
-      - name: Smoke the artifact (boot, plugins, /health, attach, no-Mix, crypto linkage)
+      - name: Provision browser runtime prerequisites outside the artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          runtime="$RUNNER_TEMP/allbert-playwright-host"
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+            npm install --prefix "$runtime" --ignore-scripts --no-audit --no-fund --no-save \
+            playwright@1.58.2
+          actual="$(node -e 'process.stdout.write(require(process.argv[1]).version)' \
+            "$runtime/node_modules/playwright/package.json")"
+          test "$actual" = 1.58.2
+
+          if [ "$RUNNER_OS" = macOS ]; then
+            browser="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+          else
+            browser="$(command -v chromium || command -v google-chrome-stable || command -v google-chrome)"
+          fi
+
+          test -x "$browser"
+          echo "PLAYWRIGHT_NODE_PATH=$runtime/node_modules" >> "$GITHUB_ENV"
+          echo "BROWSER_BINARY_PATH=$browser" >> "$GITHUB_ENV"
+
+      - name: Smoke the artifact (boot, plugins, browser doctor, health, attach, no-Mix, crypto)
         run: |
           WORK=$(mktemp -d)
           tar -xzf dist/allbert-v*-${{ matrix.target }}.tar.gz -C "$WORK"
@@ -138,6 +160,21 @@ jobs:
           mkdir -p work
           tar -xzf dist/*.tar.gz -C work
           echo "REL_ROOT=$PWD/work/allbert" >> "$GITHUB_ENV"
+      - name: Provision browser runtime prerequisites outside the artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          runtime="$RUNNER_TEMP/allbert-playwright-host"
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+            npm install --prefix "$runtime" --ignore-scripts --no-audit --no-fund --no-save \
+            playwright@1.58.2
+          actual="$(node -e 'process.stdout.write(require(process.argv[1]).version)' \
+            "$runtime/node_modules/playwright/package.json")"
+          test "$actual" = 1.58.2
+          browser="$(command -v chromium || command -v google-chrome-stable || command -v google-chrome)"
+          test -x "$browser"
+          echo "PLAYWRIGHT_NODE_PATH=$runtime/node_modules" >> "$GITHUB_ENV"
+          echo "BROWSER_BINARY_PATH=$browser" >> "$GITHUB_ENV"
       - name: Install Secret Service tooling (gnome-keyring + secret-tool)
         run: sudo apt-get update && sudo apt-get install -y gnome-keyring libsecret-tools dbus-x11
       - name: Install cosign for signed local installer rehearsal

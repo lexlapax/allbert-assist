@@ -13,6 +13,8 @@ class Allbert < Formula
   version "1.0.0"
   license "MIT"
 
+  depends_on "node"
+
   on_macos do
     on_arm do
       url "https://github.com/lexlapax/allbert-assist/releases/download/v1.0.0/allbert-v1.0.0-macos-arm64.tar.gz"
@@ -34,6 +36,25 @@ class Allbert < Formula
   def install
     libexec.install Dir["*"]
     (bin/"allbert").write_env_script libexec/"bin/allbert", SHELL: "/bin/sh"
+  end
+
+  def caveats
+    <<~EOS
+      Browser/research is optional and its runtime is intentionally not bundled.
+      Install Playwright into a host-managed directory without downloading a browser:
+
+        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install \
+          --prefix "$HOME/.local/share/allbert/playwright-1.58.2" \
+          --ignore-scripts --no-audit --no-fund --no-save playwright@1.58.2
+        allbert admin settings set browser.driver.node_module_path \
+          "$HOME/.local/share/allbert/playwright-1.58.2/node_modules"
+        allbert admin settings set browser.driver.version_pin 1.58.2
+        allbert admin settings set browser.driver.binary_path \
+          /absolute/path/to/your/OS-managed/chromium-or-chrome
+
+      Node is a formula dependency. Chromium/Chrome remains an OS-managed host
+      package. Allbert never runs npm or a browser downloader at runtime.
+    EOS
   end
 
   service do

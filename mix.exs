@@ -4,7 +4,7 @@ defmodule AllbertAssist.Umbrella.MixProject do
   def project do
     [
       apps_path: "apps",
-      version: "1.0.3",
+      version: "1.0.4",
       start_permanent: Mix.env() == :prod,
       releases: releases(),
       deps: deps(),
@@ -99,13 +99,50 @@ defmodule AllbertAssist.Umbrella.MixProject do
         for item <- ["allbert_plugin.json", "priv", "skills"],
             path = Path.join(source, item),
             File.exists?(path) do
-          File.cp_r!(path, Path.join(dest, item))
+          stage_plugin_item!(plugin_id, item, path, Path.join(dest, item))
         end
       end
     end)
 
+    assert_external_browser_boundary!(release.path)
+
     Mix.shell().info("==> staged shipped plugins into " <> target)
     release
+  end
+
+  defp stage_plugin_item!("allbert.browser", "priv", source, dest) do
+    excluded = Path.join([source, "playwright_bridge", "node_modules"])
+    File.rm_rf!(dest)
+    copy_runtime_tree_without!(source, dest, excluded)
+  end
+
+  defp stage_plugin_item!(_plugin_id, _item, source, dest) do
+    File.cp_r!(source, dest)
+  end
+
+  defp copy_runtime_tree_without!(source, dest, excluded) do
+    unless Path.expand(source) == Path.expand(excluded) do
+      if File.dir?(source) do
+        File.mkdir_p!(dest)
+
+        source
+        |> File.ls!()
+        |> Enum.each(fn child ->
+          copy_runtime_tree_without!(Path.join(source, child), Path.join(dest, child), excluded)
+        end)
+      else
+        File.cp!(source, dest)
+      end
+    end
+  end
+
+  defp assert_external_browser_boundary!(release_root) do
+    script = Path.join(["scripts", "smoke", "browser_runtime_boundary_smoke.sh"])
+
+    case System.cmd("bash", [script, release_root], into: IO.stream(:stdio, :line)) do
+      {_output, 0} -> :ok
+      {_output, status} -> Mix.raise("external browser runtime boundary failed (#{status})")
+    end
   end
 
   # v0.62 M1 (M0 spike finding): a Homebrew/brew-built ERTS dynamically links

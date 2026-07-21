@@ -8,9 +8,11 @@ CHANGELOG after the R5-R7 remediation follow-up.
 Amended for v1.0.1 M4.2.3 — see "Amended (v1.0.1 M4.2.3): the research handoff
 raises the single up-front consent gate" below; the rest of the decision is
 unchanged.
-Amended for v1.0.4 packaged-browser recovery — release artifacts must contain
-the pinned Playwright package tree and target Chromium and must prove a live
-doctor before publication; see the Ownership amendment below.
+Amended for v1.0.4 packaged-browser recovery, then corrected by operator on
+2026-07-20: release artifacts must not contain Node, Playwright, Chromium, or
+their caches. They carry the reviewed Allbert bridge/manifests and must prove a
+live doctor against explicit host-package paths before publication; see the
+Ownership amendment below.
 
 ## Context
 
@@ -111,27 +113,29 @@ page content is descriptive, never authoritative.
   is a real Playwright doctor check plus an external smoke that navigates a
   local fixture, extracts content, captures a screenshot, closes the session,
   and uses a temporary Allbert home.
-- **Packaged-runtime contract (v1.0.4 amendment).** A binary release that ships
-  the browser plugin assembles the exact lockfile-pinned Node package tree and
-  a target-matching Chromium during the trusted native artifact build. The
-  payload lives below
-  `plugins/allbert.browser/priv/playwright_bridge/node_modules/`; Chromium is
-  installed with `PLAYWRIGHT_BROWSERS_PATH=0`, and the spawned bridge receives
-  that same environment so resolution cannot fall back to a developer or user
-  cache. `npm`, `npx`, package scripts, and browser downloads are forbidden
-  during plugin discovery, doctor, session start, and action execution.
-- Node itself remains an explicit host prerequisite for this plugin and is
-  resolved from `browser.driver.node_path` or PATH; absence remains a stable,
-  redacted `node_unavailable` doctor result. Package-manager installs declare
-  that prerequisite, standalone installs document it, and artifact smokes use
-  a real Node executable. This does not authorize Allbert to install Node.
+- **Packaged-runtime contract (v1.0.4 amendment, operator-corrected).** A binary
+  release that ships the browser plugin contains only the reviewed Allbert
+  bridge and dependency manifests. `node_modules`, `.local-browsers`, Node,
+  Playwright code, Chromium/browser executables, and their caches are forbidden
+  artifact content. Release staging excludes those paths even when they exist
+  in the developer checkout, and artifact assembly never runs npm/npx or a
+  browser downloader.
+- Node, the Playwright module, and Chromium/Chrome are explicit host
+  prerequisites. Node resolves from `browser.driver.node_path` or PATH; the
+  host module root resolves from `browser.driver.node_module_path` or
+  `NODE_PATH`; the OS browser resolves from `browser.driver.binary_path`.
+  Absence remains fail-closed with stable redacted categories
+  (`node_unavailable`, `playwright_unavailable`, or
+  `chromium_launch_failed`). An optional `browser.driver.version_pin` rejects a
+  mismatched host Playwright version. This does not authorize Allbert to invoke
+  a host package manager or installer.
 - Structure-only release checks are insufficient. Every target in the binary
-  artifact matrix verifies the pinned `playwright/package.json`, an executable
-  under `playwright-core/.local-browsers`, and a live packaged
-  `browser_doctor` launch of `about:blank` through an extracted release and a
-  disposable Allbert Home. Missing payload or a cache-dependent pass blocks
-  publication. This closes the v1.0.3 escape in which plugin registration was
-  green while the ignored package/browser payload was absent.
+  artifact matrix first proves the forbidden runtime trees are absent, then
+  launches `browser_doctor` against separately provisioned host paths,
+  navigates to `about:blank`, and uses a disposable Allbert Home. Package-manager
+  guard shims and empty temp cache roots prove Allbert did not install or
+  download anything during the check. This closes the v1.0.3 escape in which
+  plugin registration was green while runtime ownership was undeclared.
 - **Session-start consults the doctor (v0.42 R2 lesson).**
   `browser_start_session` fails closed before any driver work when the
   doctor has never been run successfully, the last `live_check_status`

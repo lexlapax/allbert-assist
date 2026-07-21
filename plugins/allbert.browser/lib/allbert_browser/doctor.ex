@@ -87,6 +87,9 @@ defmodule AllbertBrowser.Doctor do
   end
 
   defp error_category(:node_unavailable), do: :node_unavailable
+  defp error_category({:playwright_unavailable, _message}), do: :playwright_unavailable
+  defp error_category({:playwright_version_mismatch, _message}),
+    do: :playwright_version_mismatch
   defp error_category({:playwright_bridge_missing, _path}), do: :playwright_bridge_missing
   defp error_category({:playwright_bridge_start_failed, _reason}), do: :playwright_bridge_start_failed
   defp error_category(:playwright_bridge_timeout), do: :bridge_timeout
@@ -118,7 +121,12 @@ defmodule AllbertBrowser.Doctor do
   defp error_category(_reason), do: :unknown_browser_doctor_error
 
   defp live_check_status(category)
-       when category in [:node_unavailable, :playwright_bridge_missing, :playwright_bridge_start_failed],
+       when category in [
+              :node_unavailable,
+              :playwright_unavailable,
+              :playwright_bridge_missing,
+              :playwright_bridge_start_failed
+            ],
        do: :unavailable
 
   defp live_check_status(_category), do: :failed

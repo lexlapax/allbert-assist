@@ -185,8 +185,8 @@ defmodule AllbertBrowser.Driver.Playwright do
   def close(_state), do: :ok
 
   defp open_bridge(opts) do
-    with {:ok, node} <- node_path(),
-         {:ok, bridge} <- bridge_path() do
+    with {:ok, node} <- node_path(opts),
+         {:ok, bridge} <- bridge_path(opts) do
       port_opts = [
         :binary,
         :exit_status,
@@ -269,6 +269,7 @@ defmodule AllbertBrowser.Driver.Playwright do
     %{
       timeout_ms: timeout_ms(opts),
       executable_path: setting("browser.driver.binary_path", nil),
+      version_pin: Keyword.get(opts, :version_pin) || setting("browser.driver.version_pin", nil),
       user_agent: setting("browser.session.user_agent", "AllbertBrowser/0.43 (+local research)"),
       javascript_enabled: setting("browser.session.javascript_enabled", true),
       host_resolver_rules: setting("browser.driver.host_resolver_rules", nil)
@@ -290,8 +291,8 @@ defmodule AllbertBrowser.Driver.Playwright do
 
   defp normalize_wait_until(_value), do: "domcontentloaded"
 
-  defp node_path do
-    configured = setting("browser.driver.node_path", nil)
+  defp node_path(opts) do
+    configured = Keyword.get(opts, :node_path) || setting("browser.driver.node_path", nil)
 
     cond do
       is_binary(configured) and configured != "" and File.exists?(configured) ->
@@ -305,21 +306,34 @@ defmodule AllbertBrowser.Driver.Playwright do
     end
   end
 
-  defp bridge_path do
+  defp bridge_path(opts) do
     # v0.62 M1: resolve through the release-safe plugins root at runtime —
     # `__DIR__` freezes the build machine's checkout path into the artifact.
     path =
-      Paths.plugin_path("allbert.browser", [
-        "priv",
-        "playwright_bridge",
-        "bridge.js"
-      ]) || Path.expand("../../../priv/playwright_bridge/bridge.js", __DIR__)
+      Keyword.get(opts, :bridge_path) ||
+        Paths.plugin_path("allbert.browser", [
+          "priv",
+          "playwright_bridge",
+          "bridge.js"
+        ]) || Path.expand("../../../priv/playwright_bridge/bridge.js", __DIR__)
 
     if File.exists?(path), do: {:ok, path}, else: {:error, {:playwright_bridge_missing, path}}
   end
 
-  defp port_env(_opts) do
-    []
+  defp port_env(opts) do
+    env = opts |> Keyword.get(:env, %{}) |> Map.new()
+
+    env =
+      case Keyword.get(opts, :node_module_path) ||
+             setting("browser.driver.node_module_path", nil) do
+        path when is_binary(path) and path != "" -> Map.put(env, "NODE_PATH", path)
+        _other -> env
+      end
+
+    env
+    |> Enum.map(fn {key, value} ->
+      {String.to_charlist(to_string(key)), String.to_charlist(to_string(value))}
+    end)
   end
 
   defp close_port(port) when is_port(port) do

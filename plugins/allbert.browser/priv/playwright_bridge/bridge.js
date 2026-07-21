@@ -2,8 +2,9 @@
 
 const readline = require("node:readline");
 const {Buffer} = require("node:buffer");
-const playwrightPackage = require("playwright/package.json");
-const {chromium} = require("playwright");
+
+let playwrightPackage = null;
+let chromium = null;
 
 const sessions = new Map();
 let browser = null;
@@ -74,6 +75,7 @@ async function dispatch(op, params) {
 }
 
 async function verify(params) {
+  loadPlaywright(params);
   const probeBrowser = await launchBrowser(params);
   const context = await probeBrowser.newContext(contextOptions(params));
   const page = await context.newPage();
@@ -255,6 +257,7 @@ async function ensureBrowser(params) {
 }
 
 async function launchBrowser(params) {
+  loadPlaywright(params);
   const options = {headless: true};
 
   if (params.executable_path) {
@@ -276,6 +279,27 @@ async function launchBrowser(params) {
   }
 
   return chromium.launch(options);
+}
+
+function loadPlaywright(params) {
+  if (!playwrightPackage || !chromium) {
+    try {
+      playwrightPackage = require("playwright/package.json");
+      ({chromium} = require("playwright"));
+    } catch (_error) {
+      throw bridgeError(
+        "playwright_unavailable",
+        "The host Playwright package is unavailable; install it through the supported host package path and configure NODE_PATH."
+      );
+    }
+  }
+
+  if (params.version_pin && playwrightPackage.version !== params.version_pin) {
+    throw bridgeError(
+      "playwright_version_mismatch",
+      `Host Playwright version ${playwrightPackage.version} does not match required ${params.version_pin}.`
+    );
+  }
 }
 
 function contextOptions(params) {

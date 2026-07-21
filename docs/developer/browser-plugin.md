@@ -8,7 +8,14 @@ Runtime authority stays at the registered action boundary:
 - `AllbertBrowser.Driver` is the behaviour; release tests use
   `AllbertBrowser.Driver.Stub`. The operational driver is
   `AllbertBrowser.Driver.Playwright`, which talks JSON over stdio to the
-  plugin-owned Node bridge in `priv/playwright_bridge/`. Its callbacks cover
+  plugin-owned Node bridge in `priv/playwright_bridge/`. Binary assembly stages
+  the bridge/manifests but explicitly excludes `node_modules`,
+  `.local-browsers`, Node, and browser executables. Node, the Playwright module,
+  and Chromium are host prerequisites supplied through
+  `browser.driver.node_path`, `browser.driver.node_module_path`/`NODE_PATH`,
+  and `browser.driver.binary_path`. Missing Node or Playwright surfaces as
+  `node_unavailable` or `playwright_unavailable`; Allbert never runs a package
+  manager or downloader. Its callbacks cover
   navigate, click, fill, download, extract, screenshot, and close.
 - `AllbertBrowser.NavigationPolicy` reuses `External.HttpPolicy` for top-level
   URL preflight.
@@ -32,7 +39,8 @@ developer/operator setup step, not plugin discovery or action execution.
 `AllbertBrowser.Doctor` persists redacted live-check state under Allbert Home.
 Failure results include a stable `error_category` field so operator tooling can
 distinguish local dependency misses (`node_unavailable`,
-`playwright_bridge_missing`, `playwright_bridge_start_failed`) from bridge
+`playwright_unavailable`, `playwright_bridge_missing`,
+`playwright_bridge_start_failed`) from bridge
 timeouts/protocol failures and Chromium/Playwright runtime failures without
 parsing the redacted `error` string.
 

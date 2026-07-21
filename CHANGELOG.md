@@ -12,7 +12,7 @@ changelog entries or release notes.
 
 ## v1.0.4 - Packaged Browser Recovery
 
-Status: **approved hotfix; implementation in progress.** v1.0.4 exists because
+Status: **approved hotfix; implementation/RC proof in progress.** v1.0.4 exists because
 published v1.0.3 passed source gates, CI publication, cosign, and tap fill but
 failed its required macOS packaged-browser acceptance: the artifact staged the
 Playwright bridge and manifests while omitting `node_modules` and Chromium, so
@@ -20,17 +20,36 @@ Playwright bridge and manifests while omitting `node_modules` and Chromium, so
 The immutable v1.0.3 tag remains at `329b9d28`; the operator transferred its
 unmet binary acceptance to v1.0.4 on 2026-07-20.
 
-This hotfix is bounded to release-owned browser payload assembly and hermetic
-resolution, a live packaged doctor in all three artifact matrix jobs, the
-operator-runbook corrections exposed by the v1.0.3 rehearsal, and a repeat of
-the binary ceremony/platform ledger. It adds no feature scope. See
+This hotfix is bounded to an explicit external browser-runtime boundary, a live
+packaged doctor against host-managed dependencies in all three artifact matrix
+jobs, the operator-runbook corrections exposed by the v1.0.3 rehearsal, and a
+repeat of the binary ceremony/platform ledger. It adds no feature scope. See
 `docs/plans/v1.0.4-plan.md`, its request-flow, and the v1.0.4 amendment to ADR
 0040 for the acceptance contract.
 
+**Implementation state and operator correction:** an initial bundled-runtime
+prototype launched `about:blank` but produced a 317,912,214-byte (303.2 MiB)
+macOS artifact, versus 24,937,364 bytes for v1.0.3 (12.75x,
++292,974,850 bytes / +1,174.8%). The operator rejected that direction on
+2026-07-20: Allbert artifacts contain direct Allbert dependencies only and must
+exclude Node, Playwright, Chromium, `node_modules`, and browser caches. Those
+runtimes are host-package prerequisites resolved by explicit paths; the live
+doctor and no-installer/download audit still gate all three targets. The
+prototype size is rejected evidence, not shipped state. The bounded dependency
+review applies no lock change: only `req_llm`
+1.13.0 -> 1.17.1 is directly updateable, and its breaking streaming migration
+remains outside this corrective hotfix.
+
+**Formula state:** the public tap is 1.0.3, while the repository formula
+remains on 1.0.0 until v1.0.4 has published checksums and the complete platform
+ledger is accepted. The accepted hotfix closeout syncs the filled 1.0.4 formula
+back into this repository; moving the formula before publication would invent
+checksums.
+
 ## v1.0.3 - Test Isolation Phase 2 & Catch-up Binary Release
 
-Status: **published 2026-07-20; binary acceptance not closed.** The tag is
-`v1.0.3` at `329b9d28`; CI run `29797899746` built/cosigned/published all three
+Status: **published 2026-07-20; binary acceptance not closed.** Published v1.0.3
+is tag `v1.0.3` at `329b9d28`; CI run `29797899746` built/cosigned/published all three
 artifacts; the tap moved to 1.0.3 at `28ef6c2`. macOS curl/Homebrew install,
 health/attach, ACP, TUI, and both Linux container artifacts passed. Packaged
 browser acceptance failed because the artifact omitted the Playwright package
@@ -39,7 +58,7 @@ tag/assets are immutable and are not described as closed; the operator
 authorized v1.0.4 to repair and complete these rows.
 
 **Formula state:** the public tap is 1.0.3. The repository formula remains on
-the older source template until the accepted hotfix closeout syncs the newly
+1.0.0 until the accepted hotfix closeout syncs the newly
 published formula; this is recorded release administration, not evidence that
 v1.0.3 met its packaged Definition of Done.
 

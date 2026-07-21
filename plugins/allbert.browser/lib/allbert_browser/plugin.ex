@@ -56,6 +56,7 @@ defmodule AllbertBrowser.Plugin do
         allowed_values: ["playwright_chromium"]
       ),
       schema("browser.driver.node_path", :string_or_nil, nil),
+      schema("browser.driver.node_module_path", :string_or_nil, nil),
       schema("browser.driver.binary_path", :string_or_nil, nil),
       schema("browser.driver.version_pin", :string_or_nil, nil),
       schema("browser.driver.host_resolver_rules", :string_or_nil, nil),

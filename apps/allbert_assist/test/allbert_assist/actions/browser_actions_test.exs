@@ -37,6 +37,16 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
     def verify(_opts), do: {:error, {:playwright_error, "Chromium launch failed"}}
   end
 
+  defmodule MissingPlaywrightDriver do
+    def verify(_opts),
+      do: {:error, {:playwright_unavailable, "The host Playwright package is unavailable"}}
+  end
+
+  defmodule MismatchedPlaywrightDriver do
+    def verify(_opts),
+      do: {:error, {:playwright_version_mismatch, "host=1.58.1 required=1.58.2"}}
+  end
+
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.ResourceMetadata
@@ -137,6 +147,20 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
     assert doctor.doctor.live_check_status == :failed
     assert doctor.doctor.error_category == :chromium_launch_failed
     assert doctor.doctor.error =~ "Chromium launch failed"
+  end
+
+  test "doctor distinguishes missing and mismatched host Playwright", %{registry: registry} do
+    Application.put_env(:allbert_browser, :driver, MissingPlaywrightDriver)
+
+    assert {:ok, missing} = Runner.run("browser_doctor", %{}, %{registry: registry})
+    assert missing.doctor.live_check_status == :unavailable
+    assert missing.doctor.error_category == :playwright_unavailable
+
+    Application.put_env(:allbert_browser, :driver, MismatchedPlaywrightDriver)
+
+    assert {:ok, mismatch} = Runner.run("browser_doctor", %{}, %{registry: registry})
+    assert mismatch.doctor.live_check_status == :failed
+    assert mismatch.doctor.error_category == :playwright_version_mismatch
   end
 
   test "navigate, extract, and screenshot use the stub driver after approval", %{

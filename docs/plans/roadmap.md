@@ -60,10 +60,10 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    external-runtime experiment remain intake candidates pending later operator
    disposition, with no v1.0.3 lane-floor claim. Plan: [v1.0.3-plan.md](v1.0.3-plan.md) +
    [v1.0.3-request-flow.md](v1.0.3-request-flow.md) + ADR 0086.
-4. **1.0.4 (approved hotfix; M0 in progress)** — Packaged Browser Recovery.
-   Assemble the lockfile-pinned Playwright package tree and target Chromium
-   into every artifact, force hermetic runtime resolution, add a live packaged
-   browser doctor to all three matrix smokes, repair the operator-flow drift
+4. **1.0.4 (approved hotfix; M1-M4 implementation/RC in progress)** — Packaged Browser Recovery.
+   Keep Node, Playwright, Chromium, and caches outside every artifact; resolve
+   them through explicit host-package paths; add an artifact-absence boundary
+   plus a live browser doctor to all three matrix smokes; repair operator-flow drift
    found during v1.0.3 M10, and repeat tag/cosign/Release/tap/platform
    validation. This release contains no new feature scope; it exists solely
    because published v1.0.3 did not meet its own binary Definition of Done.

@@ -21,6 +21,7 @@ defmodule AllbertAssist.InstallPathTest do
   @root_mix Path.join(@repo_root, "mix.exs")
   @overlay Path.join(@repo_root, "rel/overlays/bin/allbert-dispatch")
   @smoke Path.join(@repo_root, "scripts/smoke/artifact_smoke.sh")
+  @browser_runtime_smoke Path.join(@repo_root, "scripts/smoke/browser_runtime_boundary_smoke.sh")
   @linux_rehearsal Path.join(@repo_root, "scripts/smoke/linux_rehearsal.sh")
   @service Path.join(@repo_root, "apps/allbert_assist/lib/allbert_assist/service.ex")
 
@@ -85,6 +86,11 @@ defmodule AllbertAssist.InstallPathTest do
     project = project_version()
 
     assert body =~ "class Allbert < Formula"
+    assert body =~ ~s(depends_on "node")
+    assert body =~ "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1"
+    assert body =~ "playwright@1.58.2"
+    assert body =~ "browser.driver.node_module_path"
+    assert body =~ "browser.driver.binary_path"
 
     assert [_, formula_version] = Regex.run(~r/^\s*version "([^"]+)"$/m, body)
 
@@ -98,7 +104,12 @@ defmodule AllbertAssist.InstallPathTest do
     #       the packaged line (v1.0.1, v1.0.2); or
     #   (b) an RC-WINDOW lag on a binary release, where the formula stays on the
     #       prior packaged Latest through the RC and the tap is FILLED to the
-    #       project version at tag/publish time (v1.0.3 catch-up). This is a
+    #       project version at tag/publish time (v1.0.3 catch-up); or
+    #   (c) a published binary failed post-publication acceptance and an
+    #       immutable hotfix owns the repair. The public tap names the failed
+    #       binary while this repository's formula template stays on its last
+    #       reconciled value until the hotfix publishes real checksums.
+    # Branch (b) is
     #       temporary lag that M10 closes, not a permanent divergence. The
     #       changelog must carry the exact PRE-PUBLICATION ONLY marker so this
     #       exception cannot be described as a completed release state.
@@ -133,13 +144,21 @@ defmodule AllbertAssist.InstallPathTest do
           normalized =~ "Formula state: PRE-PUBLICATION ONLY" and
           normalized =~ "that filled formula is synced back into the repository"
 
-      assert skip_artifacts_tag? or binary_rc_fill?,
+      immutable_hotfix_recovery? =
+        (normalized =~ "published v1.0.3" or normalized =~ "Published v1.0.3") and
+          normalized =~ "public tap is 1.0.3" and
+          normalized =~ "repository formula remains on #{formula_version}" and
+          normalized =~ "accepted hotfix closeout" and
+          normalized =~ "v1.0.4"
+
+      assert skip_artifacts_tag? or binary_rc_fill? or immutable_hotfix_recovery?,
              "CHANGELOG v#{project} must document the formula lag as either a " <>
                "[skip-artifacts] source tag (`v#{formula_version}` remains) or a " <>
                "binary catch-up that fills the formula #{formula_version} → " <>
                "#{project} at publish (packaged Latest #{formula_version}) and " <>
                "is explicitly marked PRE-PUBLICATION ONLY until repository " <>
-               "formula convergence"
+               "formula convergence, or an immutable-hotfix recovery that " <>
+               "names both the public tap and repository formula versions"
     end
 
     # Formula (not cask) so `brew services` works for `allbert serve`.
@@ -255,6 +274,82 @@ defmodule AllbertAssist.InstallPathTest do
     assert smoke =~ "Application.ensure_all_started(:allbert_assist)"
     # Proves attach and health against the live daemon, not just boot.
     assert smoke =~ "/health" and smoke =~ "attach"
+
+    # v1.0.4: the matrix must reject bundled Node/Playwright/Chromium and launch
+    # the real doctor against explicitly provisioned host dependencies.
+    assert smoke =~ "browser_runtime_boundary_smoke.sh"
+    assert smoke =~ "smoke:browser_external_runtime PASS"
+    assert smoke =~ "smoke:browser_doctor PASS"
+    assert smoke =~ "smoke:browser_no_download PASS"
+    assert smoke =~ "PLAYWRIGHT_NODE_PATH"
+    assert smoke =~ "BROWSER_BINARY_PATH"
+    assert smoke =~ "ALLBERT_PACKAGE_MANAGER_AUDIT"
+    assert smoke =~ "package-manager invocation"
+  end
+
+  test "the browser runtime boundary accepts bridge source without external runtimes" do
+    release_root = temp_release_root("external-browser-runtime")
+    bridge = Path.join(release_root, "plugins/allbert.browser/priv/playwright_bridge")
+    File.mkdir_p!(bridge)
+    File.write!(Path.join(bridge, "bridge.js"), "// staged bridge\n")
+    File.write!(Path.join(bridge, "package.json"), ~s({"dependencies":{"playwright":"1.58.2"}}))
+    File.write!(Path.join(bridge, "package-lock.json"), ~s({"lockfileVersion":3}))
+
+    assert {output, 0} =
+             System.cmd("bash", [@browser_runtime_smoke, release_root], stderr_to_stdout: true)
+
+    assert output =~ "browser-runtime-boundary:external PASS"
+  end
+
+  test "the browser runtime boundary rejects bundled Node packages and browsers" do
+    release_root = temp_release_root("bundled-browser-runtime")
+    bridge = Path.join(release_root, "plugins/allbert.browser/priv/playwright_bridge")
+    File.mkdir_p!(bridge)
+    File.write!(Path.join(bridge, "bridge.js"), "// staged bridge\n")
+    File.write!(Path.join(bridge, "package.json"), ~s({"dependencies":{"playwright":"1.58.2"}}))
+    File.write!(Path.join(bridge, "package-lock.json"), ~s({"lockfileVersion":3}))
+
+    node_modules =
+      Path.join(bridge, "node_modules/playwright-core/.local-browsers/chromium-123")
+
+    File.mkdir_p!(node_modules)
+
+    assert {output, status} =
+             System.cmd("bash", [@browser_runtime_smoke, release_root], stderr_to_stdout: true)
+
+    assert status != 0
+    assert output =~ "browser-runtime-boundary:external FAIL"
+    assert output =~ "must be supplied by the host"
+  end
+
+  test "release staging removes generated browser runtimes before packaging" do
+    mix = File.read!(@root_mix)
+
+    refute mix =~ "&build_browser_payload/1"
+    refute mix =~ ~s|["install", "chromium"]|
+    assert mix =~ "copy_runtime_tree_without!"
+    assert mix =~ ~s|"playwright_bridge", "node_modules"|
+    assert mix =~ "browser_runtime_boundary_smoke.sh"
+  end
+
+  test "the browser runtime boundary rejects staged host executables" do
+    release_root = temp_release_root("bundled-browser-executable")
+    bridge = Path.join(release_root, "plugins/allbert.browser/priv/playwright_bridge")
+    executable = Path.join(release_root, "host-runtime/chromium")
+    File.mkdir_p!(bridge)
+    File.write!(Path.join(bridge, "bridge.js"), "// staged bridge\n")
+    File.write!(Path.join(bridge, "package.json"), ~s({"dependencies":{"playwright":"1.58.2"}}))
+    File.write!(Path.join(bridge, "package-lock.json"), ~s({"lockfileVersion":3}))
+    File.mkdir_p!(Path.dirname(executable))
+    File.write!(executable, "#!/bin/sh\n")
+    File.chmod!(executable, 0o755)
+
+    assert {output, status} =
+             System.cmd("bash", [@browser_runtime_smoke, release_root], stderr_to_stdout: true)
+
+    assert status != 0
+    assert output =~ "browser-runtime-boundary:external FAIL"
+    assert output =~ "host runtimes may not be staged"
   end
 
   test "the release workflow publishes checksums and attaches to the release" do
@@ -296,6 +391,22 @@ defmodule AllbertAssist.InstallPathTest do
     assert rehearsal =~ "SHA256SUMS.cosign.bundle"
     assert rehearsal =~ "cosign sign-blob"
     assert rehearsal =~ "ALLBERT_REHEARSAL_SIGN_CHECKSUMS"
+
+    # v1.0.4: browser runtimes stay outside the tarball. Matrix/rehearsal jobs
+    # provision explicit host paths and launch the extracted binary's doctor.
+    assert body =~ "PLAYWRIGHT_NODE_PATH"
+    assert body =~ "BROWSER_BINARY_PATH"
+    assert body =~ "browser runtime prerequisites"
+    refute body =~ "node_modules/playwright/cli.js"
+    assert rehearsal =~ "browser_runtime_boundary_smoke.sh"
+    assert rehearsal =~ "linux-rehearsal:browser-doctor PASS"
+    assert rehearsal =~ "PLAYWRIGHT_NODE_PATH"
+    assert rehearsal =~ "BROWSER_BINARY_PATH"
+    assert rehearsal =~ "ALLBERT_PACKAGE_MANAGER_AUDIT"
+    assert rehearsal =~ "package-manager invocation"
+    assert rehearsal =~ "ALLBERT_REHEARSAL_PREVERIFIED_STAGE"
+    assert rehearsal =~ "install-preverified"
+    assert rehearsal =~ "sha256sum"
   end
 
   defp project_version do
@@ -303,5 +414,18 @@ defmodule AllbertAssist.InstallPathTest do
     |> File.read!()
     |> then(&Regex.run(~r/version: "([^"]+)"/, &1))
     |> List.last()
+  end
+
+  defp temp_release_root(label) do
+    path =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-#{label}-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
+
+    File.rm_rf!(path)
+    File.mkdir_p!(path)
+    on_exit(fn -> File.rm_rf!(path) end)
+    path
   end
 end

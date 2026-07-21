@@ -22,6 +22,7 @@ REL_ROOT_ARG="${1:?usage: artifact_smoke.sh <release-root> [target]}"
 REL_ROOT="$(cd "$REL_ROOT_ARG" && pwd)"
 TARGET="${2:-$(uname -s)-$(uname -m)}"
 PORT="${SMOKE_PORT:-4137}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 [ -x "$REL_ROOT/bin/allbert" ] || { echo "smoke:fatal no executable at $REL_ROOT/bin/allbert"; exit 1; }
 
@@ -34,6 +35,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
+fail() { echo "smoke:$1 FAIL ${2:-}"; exit 1; }
+
 # Exercise the SAME entry an operator gets: the installer/Homebrew symlink
 # `<prefix>/bin/allbert -> <release>/bin/allbert`. This is where the dispatcher
 # must resolve its own real directory to find `bin/allbert-release`; testing the
@@ -41,15 +44,32 @@ trap cleanup EXIT
 mkdir -p "$WORK/bin"
 ln -sf "$REL_ROOT/bin/allbert" "$WORK/bin/allbert"
 BIN="$WORK/bin/allbert"
+NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
+[ -x "$NODE_BIN" ] || fail browser_doctor "node host prerequisite unavailable"
+NODE_MAJOR="$($NODE_BIN -p 'Number(process.versions.node.split(".")[0])')"
+[ "$NODE_MAJOR" -ge 18 ] || fail browser_doctor "Node >=18 required; found major $NODE_MAJOR"
+RUNTIME_BIN="$WORK/runtime-bin"
+PACKAGE_MANAGER_AUDIT="$WORK/package-manager.audit"
+mkdir -p "$RUNTIME_BIN"
+ln -sf "$NODE_BIN" "$RUNTIME_BIN/node"
+for package_manager in npm npx apt apt-get brew dnf pacman yum; do
+  {
+    echo '#!/bin/sh'
+    echo 'printf "%s\n" "$(basename "$0") $*" >> "$ALLBERT_PACKAGE_MANAGER_AUDIT"'
+    echo 'exit 97'
+  } > "$RUNTIME_BIN/$package_manager"
+  chmod +x "$RUNTIME_BIN/$package_manager"
+done
 
 # A deliberately minimal environment: no Elixir/Erlang toolchain on PATH, proving
 # the release runs on its bundled ERTS. SHELL is set because erlexec requires it.
 run_cli() {
-  env -i HOME="$WORK" PATH=/usr/bin:/bin SHELL=/bin/sh LANG=C.UTF-8 \
-    ALLBERT_HOME="$HOME_DIR" "$BIN" "$@"
+  env -i HOME="$WORK" PATH="$RUNTIME_BIN:/usr/bin:/bin" SHELL=/bin/sh LANG=C.UTF-8 \
+    ALLBERT_HOME="$HOME_DIR" \
+    NODE_PATH="${PLAYWRIGHT_NODE_PATH:-}" \
+    PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-}" \
+    ALLBERT_PACKAGE_MANAGER_AUDIT="$PACKAGE_MANAGER_AUDIT" "$BIN" "$@"
 }
-
-fail() { echo "smoke:$1 FAIL ${2:-}"; exit 1; }
 
 # 1) Toolchain-free boot through the CLI spine.
 if run_cli admin status >"$WORK/status.out" 2>&1; then
@@ -74,7 +94,43 @@ case "$PLUGIN_COUNT" in
        || fail plugins "no plugins registered from the packaged root" ;;
 esac
 
-# 4) Daemon: serve, then a live /health, then an attach round-trip.
+# 4) v1.0.4 packaged-browser escape gate. Node, Playwright, and Chromium are
+# explicit host dependencies and must never be copied into the artifact.
+bash "$SCRIPT_DIR/browser_runtime_boundary_smoke.sh" "$REL_ROOT"
+echo "smoke:browser_external_runtime PASS no Node, Playwright, or Chromium bundled"
+
+PLAYWRIGHT_NODE_PATH="${PLAYWRIGHT_NODE_PATH:?set PLAYWRIGHT_NODE_PATH to the host package directory containing playwright}"
+BROWSER_BINARY_PATH="${BROWSER_BINARY_PATH:?set BROWSER_BINARY_PATH to the host Chromium/Chrome executable}"
+[ -f "$PLAYWRIGHT_NODE_PATH/playwright/package.json" ] || \
+  fail browser_doctor "host Playwright package missing below PLAYWRIGHT_NODE_PATH=$PLAYWRIGHT_NODE_PATH"
+[ -x "$BROWSER_BINARY_PATH" ] || \
+  fail browser_doctor "host Chromium executable unavailable at BROWSER_BINARY_PATH=$BROWSER_BINARY_PATH"
+run_cli admin settings set browser.driver.binary_path "$BROWSER_BINARY_PATH" >/dev/null
+run_cli admin settings set browser.driver.node_path "$NODE_BIN" >/dev/null
+run_cli admin settings set browser.driver.node_module_path "$PLAYWRIGHT_NODE_PATH" >/dev/null
+run_cli admin settings set browser.driver.version_pin 1.58.2 >/dev/null
+
+if DOCTOR_OUTPUT="$(run_cli eval 'Application.ensure_all_started(:allbert_assist); case AllbertAssist.Actions.Runner.run("browser_doctor", %{}, %{actor: "artifact-smoke", channel: :cli}) do {:ok, %{doctor: %{live_check_status: :ok, details: %{playwright_version: "1.58.2"}}}} -> IO.puts("packaged-browser-doctor-ok"); other -> IO.inspect(other); System.halt(1) end' 2>&1)"; then
+  echo "$DOCTOR_OUTPUT" >"$WORK/browser-doctor.out"
+  grep -q 'packaged-browser-doctor-ok' "$WORK/browser-doctor.out" || \
+    fail browser_doctor "doctor did not emit the success marker"
+  echo "smoke:browser_doctor PASS host Playwright 1.58.2 and OS Chromium about:blank launch"
+else
+  echo "$DOCTOR_OUTPUT"
+  fail browser_doctor "packaged browser doctor failed"
+fi
+
+if [ -s "$PACKAGE_MANAGER_AUDIT" ]; then
+  cat "$PACKAGE_MANAGER_AUDIT"
+  fail browser_no_download "runtime attempted a package-manager invocation"
+elif [ -e "$WORK/.cache/ms-playwright" ] || \
+   [ -e "$WORK/Library/Caches/ms-playwright" ]; then
+  fail browser_no_download "doctor created a default Playwright browser cache"
+else
+  echo "smoke:browser_no_download PASS no package-manager invocation or user/default browser cache"
+fi
+
+# 5) Daemon: serve, then a live /health, then an attach round-trip.
 env -i HOME="$WORK" PATH=/usr/bin:/bin SHELL=/bin/sh LANG=C.UTF-8 \
   ALLBERT_HOME="$HOME_DIR" PHX_SERVER=1 PORT="$PORT" \
   "$BIN" serve >"$WORK/serve.out" 2>&1 &
@@ -110,14 +166,14 @@ kill "$SERVE_PID" 2>/dev/null || true
 wait "$SERVE_PID" 2>/dev/null || true
 SERVE_PID=""
 
-# 5) No Mix modules in the shipped image (prod release must exclude :mix).
+# 6) No Mix modules in the shipped image (prod release must exclude :mix).
 if find "$REL_ROOT" -name 'Elixir.Mix.beam' -o -name 'mix-*.ez' | grep -q .; then
   fail no_mix "Mix modules present in the release image"
 else
   echo "smoke:no_mix PASS no Mix modules in image"
 fi
 
-# 6) ERTS crypto linkage portability: the crypto NIF must not dangle against a
+# 7) ERTS crypto linkage portability: the crypto NIF must not dangle against a
 # host-specific OpenSSL. On macOS the bundled dylib is repointed to
 # @loader_path; on Linux it links the system libcrypto by design.
 CRYPTO_SO="$(find "$REL_ROOT" -name 'crypto.so' | head -n1 || true)"

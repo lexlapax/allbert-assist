@@ -50,6 +50,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v101
       mix allbert.test release.v102
       mix allbert.test release.v103
+      mix allbert.test release.v104
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
@@ -181,6 +182,7 @@ defmodule Mix.Tasks.Allbert.Test do
   defp do_run(["release.v101"]), do: release_v101()
   defp do_run(["release.v102"]), do: release_v102()
   defp do_run(["release.v103"]), do: release_v103()
+  defp do_run(["release.v104"]), do: release_v104()
   defp do_run(["external-smoke" | rest]), do: external_smoke(rest)
   defp do_run(_args), do: usage!()
 
@@ -208,7 +210,11 @@ defmodule Mix.Tasks.Allbert.Test do
     "docs/plans/README.md",
     "docs/plans/roadmap.md",
     "docs/plans/allbert-jido-vision.md",
-    "docs/plans/future-features.md"
+    "docs/plans/future-features.md",
+    "docs/plans/v1.0.3-plan.md",
+    "docs/plans/v1.0.3-request-flow.md",
+    "docs/plans/v1.0.4-plan.md",
+    "docs/plans/v1.0.4-request-flow.md"
   ]
 
   defp docs_staleness_check! do
@@ -6339,6 +6345,156 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   end
 
+  # v1.0.4 Packaged Browser Recovery. Source-level proof keeps the permanent
+  # v1.0.3 ownership guards, adds release assembly/runtime contracts for the
+  # explicit external-browser boundary, and leaves the real extracted-artifact
+  # doctor to the native CI matrix.
+  @v104_focused_steps [
+    %{
+      id: "v104_lane_reconciliation",
+      title: "lane taxonomy remains reconciled after hotfix tests",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "inventory", "--check-tags"],
+      coverage: ["every test file carries exactly one audited primary lane"]
+    },
+    %{
+      id: "v104_manifest_drift",
+      title: "committed per-test manifest matches the live hotfix tree",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "inventory", "--check-manifest"],
+      coverage: ["no test identity, lane, skip, or multiplicity disappeared"]
+    },
+    %{
+      id: "v104_release_boundary_contract",
+      title: "release assembly excludes host browser runtimes and requires live external proof",
+      cwd: :core,
+      executable: "mix",
+      args: ["test", "test/allbert_assist/install_path_test.exs"],
+      coverage: [
+        "Node/Playwright/Chromium are absent from artifacts; the artifact harness requires explicit host paths, a live doctor, and no runtime installer/download"
+      ]
+    },
+    %{
+      id: "v104_playwright_runtime_contract",
+      title: "Playwright bridge preserves host-managed runtime paths and diagnostics",
+      cwd: :core,
+      executable: "mix",
+      args: ["test", "test/allbert_assist/browser/playwright_driver_test.exs"],
+      coverage: [
+        "the spawned bridge uses explicit host module/browser paths and reports missing Playwright without running a package manager"
+      ]
+    },
+    %{
+      id: "v104_browser_doctor_categories",
+      title: "browser doctor preserves actionable host-runtime categories",
+      cwd: :core,
+      executable: "mix",
+      args: ["test", "test/allbert_assist/actions/browser_actions_test.exs"],
+      coverage: [
+        "missing host Playwright is unavailable; a version mismatch is a failed compatibility check; both persist stable categories"
+      ]
+    },
+    %{
+      id: "v104_version_consistency",
+      title: "mix applications and service-worker cache identify v1.0.4",
+      cwd: :web,
+      executable: "mix",
+      args: ["test", "test/allbert_assist_web/version_consistency_test.exs"],
+      coverage: ["mix trio, CoreApp version, service-worker cache, and gzip stay in lockstep"]
+    },
+    %{
+      id: "v104_sidebar_ownership",
+      title: "v1.0.3 DBConnection ownership regression remains retired",
+      cwd: :web,
+      executable: "mix",
+      args: ["test", "test/allbert_assist_web/v103/sidebar_ownership_test.exs"],
+      coverage: ["hotfix work does not lose the permanent sandbox-lease ownership guard"]
+    },
+    %{
+      id: "v104_list_channels_context",
+      title: "v1.0.3 registry/ListChannels regression remains retired",
+      cwd: :core,
+      executable: "mix",
+      args: ["test", "test/allbert_assist/actions/channels/list_channels_context_test.exs"],
+      coverage: ["hotfix work does not lose the permanent registry-context guard"]
+    }
+  ]
+
+  @release_v104_steps @release_v1_steps ++ @v104_focused_steps
+
+  defp release_v104 do
+    env = owned_env("release-v104", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v104")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v104_steps, &run_release_v104_step(&1, env))
+    status = if Enum.all?(results, &(&1.status == "passed")), do: "passed", else: "failed"
+
+    evidence = %{
+      gate: "mix allbert.test release.v104",
+      version: "v1.0.4",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; release.v104 proves source contracts only. Native CI provisions pinned Playwright and an OS browser outside each artifact, then every extracted artifact must pass the live doctor before upload.",
+      notes:
+        "v1.0.4 Packaged Browser Recovery: release.v1 plus inventory/manifest, external browser-runtime boundary, version consistency, and the two v1.0.3 permanent ownership regressions.",
+      steps: results
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v104-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v104 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v104 failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v104_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v104 #{step.id}", output)
+    status = release_step_status("release.v104", step.id, exit_status, output)
+
+    TestMetrics.record(%{
+      gate: "release.v104",
+      command: gate_command(),
+      cwd: Path.relative_to(cwd, root()),
+      phase_or_step: step.id,
+      status: status,
+      wall_ms: duration_ms,
+      output: output
+    })
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: status,
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
   defp cleanup_release_v046_evidence!(evidence_dir) do
     evidence_dir
     |> Path.join("release-v046-*.json")
@@ -8603,6 +8759,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v101
       mix allbert.test release.v102
       mix allbert.test release.v103
+      mix allbert.test release.v104
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate

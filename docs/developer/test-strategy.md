@@ -1131,6 +1131,29 @@ skills-registry re-parse, now ~57% of the turn — is held for operator
 disposition (a cached snapshot with an invalidation contract, outside M7's
 zero-behaviour-change rule; prize plausibly ~439 ms → under 250 ms).
 
+### v1.0.4 Packaged-Browser Escape Gate — 2026-07-20
+
+`mix allbert.test release.v104` is the v1.0.4 source gate. It is the complete
+`release.v1` five-step contract prefix plus eight focused steps: lane
+reconciliation, manifest drift, browser runtime-boundary contract, Playwright
+runtime contract, browser-doctor category contract, version consistency, and
+the two permanent v1.0.3 ownership regressions. Every ExUnit step selects a
+complete file and the shared
+zero-executed-test guard applies.
+
+This source gate cannot substitute for artifact proof. Each target-native CI
+job must pass three separately named assertions:
+`browser_external_runtime`, live `browser_doctor`, and `browser_no_download`.
+The first fails if the artifact contains `node_modules`, `.local-browsers`, or
+another staged Node/browser runtime. CI separately provisions explicit host
+Node, Playwright-module, and OS-browser paths; the doctor uses those paths and
+a disposable Home. The gate fails if the external dependency is missing, the
+optional version pin is violated, `about:blank` cannot launch, Allbert invokes
+a package manager, or a new browser cache appears. The test manifest is
+regenerated after the final v1.0.4 test additions. The current final inventory
+is 3,226 rows across 524 reconciled files; both counts are rechecked immediately
+before the clean-SHA cascade.
+
 **M5(b) liveview floor (measured, not collected).** The three top liveview
 files run **658.2 s serial vs 226.8 s at 4-way concurrency (2.9× / 431 s on 48
 tests)** — the largest single lever in phase 2 — but it is gated behind three

@@ -24,6 +24,7 @@ Set this once from the release checkout; every active command below consumes it:
 export VERSION="${VERSION:?set VERSION, for example v1.0.4}"
 export EXPECTED_VERSION="${VERSION#v}"
 export REPO="${REPO:-lexlapax/allbert-assist}"
+export PLAYWRIGHT_VERSION="${PLAYWRIGHT_VERSION:-1.58.2}"
 export EVIDENCE_ROOT="${EVIDENCE_ROOT:-$(mktemp -d /tmp/allbert-release-evidence.XXXXXX)}"
 export ALLBERT_HOME="${ALLBERT_HOME:-$(mktemp -d /tmp/allbert-release-home.XXXXXX)}"
 ```
@@ -127,6 +128,10 @@ mkdir -p "/tmp/allbert-${VERSION}"
 gh release download "$VERSION" --repo "$REPO" \
   --pattern SHA256SUMS --dir "/tmp/allbert-${VERSION}"
 git clone https://github.com/lexlapax/homebrew-allbert "$TAP_CHECKOUT"
+# The repository formula is the source of truth for dependencies and service
+# declarations; the fill helper owns only version, URLs, and checksums.
+cp "$ALLBERT_ASSIST_CHECKOUT/homebrew/allbert.rb" \
+  "$TAP_CHECKOUT/Formula/allbert.rb"
 sh "$ALLBERT_ASSIST_CHECKOUT/homebrew/fill-sha256.sh" \
   "/tmp/allbert-${VERSION}/SHA256SUMS" \
   "$TAP_CHECKOUT/Formula/allbert.rb"
@@ -379,8 +384,24 @@ Use the packaged binary, an explicit browser/research setting, and the
 
 ```sh
 command -v node
+export PLAYWRIGHT_VERSION="${PLAYWRIGHT_VERSION:?set the active plan's exact Playwright version}"
+export ALLBERT_PLAYWRIGHT_ROOT="$(mktemp -d /tmp/allbert-release-playwright.XXXXXX)"
+export BROWSER_BINARY_PATH="${BROWSER_BINARY_PATH:?set an absolute OS-managed Chromium/Chrome executable}"
+test -x "$BROWSER_BINARY_PATH"
+PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install \
+  --prefix "$ALLBERT_PLAYWRIGHT_ROOT" \
+  --ignore-scripts --no-audit --no-fund --no-save \
+  "playwright@$PLAYWRIGHT_VERSION"
+test "$(node -e 'process.stdout.write(require(process.argv[1]).version)' \
+  "$ALLBERT_PLAYWRIGHT_ROOT/node_modules/playwright/package.json")" = \
+  "$PLAYWRIGHT_VERSION"
 allbert admin settings set browser.enabled true
 allbert admin settings set research.enabled true
+allbert admin settings set browser.driver.node_path "$(command -v node)"
+allbert admin settings set browser.driver.node_module_path \
+  "$ALLBERT_PLAYWRIGHT_ROOT/node_modules"
+allbert admin settings set browser.driver.version_pin "$PLAYWRIGHT_VERSION"
+allbert admin settings set browser.driver.binary_path "$BROWSER_BINARY_PATH"
 allbert eval 'Application.ensure_all_started(:allbert_assist); IO.inspect(AllbertAssist.Actions.Runner.run("browser_doctor", %{}, %{actor: "release", channel: :cli}))' \
   | tee "$EVIDENCE_ROOT/${VERSION}-browser-doctor.log"
 rg 'live_check_status: :ok|"live_check_status":"ok"' \
@@ -400,7 +421,8 @@ wait "$BROWSER_DAEMON_PID" 2>/dev/null || true
 trap - EXIT INT TERM
 ```
 
-PASS: the doctor launches packaged Chromium and reports `ok`; the workspace is
+PASS: the doctor resolves the pinned host Playwright package, launches the
+explicit OS-managed Chromium/Chrome executable, and reports `ok`; the workspace is
 served at `localhost`; research navigates/extracts through the real configured
 provider; cleanup stops the daemon before any subsequent TUI run.
 
@@ -446,43 +468,69 @@ docker run --rm --platform linux/arm64 \
   --mount type=bind,source="$WORK",target=/work,readonly \
   --mount type=bind,source="$ALLBERT_ASSIST_CHECKOUT",target=/repo,readonly \
   --env VERSION="$VERSION" \
+  --env PLAYWRIGHT_VERSION="$PLAYWRIGHT_VERSION" \
   --workdir /tmp \
-  ubuntu:22.04 \
+  node:22-bookworm \
   bash -lc 'set -euo pipefail
     apt-get update
-    apt-get install -y ca-certificates curl tar gzip libstdc++6 openssl nodejs
-    useradd -m -u 1000 allbert
+    apt-get install -y ca-certificates chromium curl tar gzip libstdc++6 openssl
     mkdir -p /tmp/rehearsal
     cp -R /work/artifacts /tmp/rehearsal/artifacts
-    chown -R allbert:allbert /tmp/rehearsal
-    su -s /bin/bash allbert -c "set -euo pipefail
+    mkdir -p /tmp/rehearsal/extract-arm64 /tmp/rehearsal/playwright-host
+    tar -xzf /tmp/rehearsal/artifacts/allbert-${VERSION}-linux-arm64.tar.gz \
+      -C /tmp/rehearsal/extract-arm64
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install \
+      --prefix /tmp/rehearsal/playwright-host \
+      --ignore-scripts --no-audit --no-fund --no-save \
+      playwright@${PLAYWRIGHT_VERSION}
+    test "$(node -e '\''process.stdout.write(require(process.argv[1]).version)'\'' \
+      /tmp/rehearsal/playwright-host/node_modules/playwright/package.json)" = \
+      "${PLAYWRIGHT_VERSION}"
+    test -x /usr/bin/chromium
+    chown -R node:node /tmp/rehearsal
+    su -s /bin/bash node -c "set -euo pipefail
     cd /tmp/rehearsal
     export LANG=C.UTF-8 LC_ALL=C.UTF-8
+    export PLAYWRIGHT_NODE_PATH=/tmp/rehearsal/playwright-host/node_modules
+    export BROWSER_BINARY_PATH=/usr/bin/chromium
     (cd artifacts && sha256sum -c SHA256SUMS --ignore-missing)
-    mkdir -p extract-arm64
-    tar -xzf artifacts/allbert-${VERSION}-linux-arm64.tar.gz -C extract-arm64
-    /repo/scripts/smoke/linux_rehearsal.sh /tmp/rehearsal/extract-arm64/allbert"'
+    ALLBERT_REHEARSAL_PREVERIFIED_STAGE=/tmp/rehearsal/artifacts \
+      ALLBERT_REHEARSAL_VERSION=${VERSION} \
+      /repo/scripts/smoke/linux_rehearsal.sh /tmp/rehearsal/extract-arm64/allbert"'
 
 docker run --rm --platform linux/amd64 \
   --mount type=bind,source="$WORK",target=/work,readonly \
   --mount type=bind,source="$ALLBERT_ASSIST_CHECKOUT",target=/repo,readonly \
   --env VERSION="$VERSION" \
+  --env PLAYWRIGHT_VERSION="$PLAYWRIGHT_VERSION" \
   --workdir /tmp \
-  ubuntu:22.04 \
+  node:22-bookworm \
   bash -lc 'set -euo pipefail
     apt-get update
-    apt-get install -y ca-certificates curl tar gzip libstdc++6 openssl nodejs
-    useradd -m -u 1000 allbert
+    apt-get install -y ca-certificates chromium curl tar gzip libstdc++6 openssl
     mkdir -p /tmp/rehearsal
     cp -R /work/artifacts /tmp/rehearsal/artifacts
-    chown -R allbert:allbert /tmp/rehearsal
-    su -s /bin/bash allbert -c "set -euo pipefail
+    mkdir -p /tmp/rehearsal/extract-x64 /tmp/rehearsal/playwright-host
+    tar -xzf /tmp/rehearsal/artifacts/allbert-${VERSION}-linux-x64.tar.gz \
+      -C /tmp/rehearsal/extract-x64
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install \
+      --prefix /tmp/rehearsal/playwright-host \
+      --ignore-scripts --no-audit --no-fund --no-save \
+      playwright@${PLAYWRIGHT_VERSION}
+    test "$(node -e '\''process.stdout.write(require(process.argv[1]).version)'\'' \
+      /tmp/rehearsal/playwright-host/node_modules/playwright/package.json)" = \
+      "${PLAYWRIGHT_VERSION}"
+    test -x /usr/bin/chromium
+    chown -R node:node /tmp/rehearsal
+    su -s /bin/bash node -c "set -euo pipefail
     cd /tmp/rehearsal
     export LANG=C.UTF-8 LC_ALL=C.UTF-8 ERL_AFLAGS=\"+JMsingle true\"
+    export PLAYWRIGHT_NODE_PATH=/tmp/rehearsal/playwright-host/node_modules
+    export BROWSER_BINARY_PATH=/usr/bin/chromium
     (cd artifacts && sha256sum -c SHA256SUMS --ignore-missing)
-    mkdir -p extract-x64
-    tar -xzf artifacts/allbert-${VERSION}-linux-x64.tar.gz -C extract-x64
-    /repo/scripts/smoke/linux_rehearsal.sh /tmp/rehearsal/extract-x64/allbert"'
+    ALLBERT_REHEARSAL_PREVERIFIED_STAGE=/tmp/rehearsal/artifacts \
+      ALLBERT_REHEARSAL_VERSION=${VERSION} \
+      /repo/scripts/smoke/linux_rehearsal.sh /tmp/rehearsal/extract-x64/allbert"'
 ```
 
 On Apple Silicon Docker Desktop, the `linux/amd64` rehearsal runs under

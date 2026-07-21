@@ -1,7 +1,9 @@
 # Installing Allbert
 
-Allbert ships as a self-contained binary with its own Erlang/OTP runtime — no
-Elixir/OTP toolchain is required on your machine. Your data lives in **Allbert
+Allbert ships its direct runtime dependencies and Erlang/OTP runtime — no
+Elixir/OTP toolchain is required on your machine. Optional browser research
+uses host-managed Node, Playwright, and Chromium/Chrome; those runtimes are not
+inside the Allbert artifact. Your data lives in **Allbert
 Home** (`~/.allbert` by default) and is never touched by install, upgrade, or
 uninstall unless you explicitly ask.
 
@@ -11,7 +13,7 @@ uninstall unless you explicitly ask.
   arm64). The binary, Homebrew + curl install, the `launchd`/`systemd` daemon,
   and OS-keychain credentials all work here.
 - **Tier 2 (best-effort):** Windows via **WSL2** — install the Linux build
-  inside WSL2. Native Windows packaging is not provided in the v0.64 release line.
+  inside WSL2. Native Windows packaging is not provided.
 
 ## Homebrew (recommended on macOS and Linux)
 
@@ -30,6 +32,28 @@ the normal first-run path for a packaged install.
 The public tap installs directly with the command above. A newer Homebrew may
 prompt once to trust a third-party tap on first install; approve the prompt if it
 appears — no separate trust command is required for a normal install.
+
+Browser research is optional. The formula installs Node but deliberately does
+not embed Playwright or a browser. Install pinned Playwright into a
+host-managed directory without browser downloads, use an OS-installed
+Chromium/Chrome, and record both paths in Settings Central:
+
+```sh
+export ALLBERT_PLAYWRIGHT_ROOT="$HOME/.local/share/allbert/playwright-1.58.2"
+PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install \
+  --prefix "$ALLBERT_PLAYWRIGHT_ROOT" \
+  --ignore-scripts --no-audit --no-fund --no-save playwright@1.58.2
+allbert admin settings set browser.driver.node_module_path \
+  "$ALLBERT_PLAYWRIGHT_ROOT/node_modules"
+allbert admin settings set browser.driver.version_pin 1.58.2
+allbert admin settings set browser.driver.binary_path \
+  /absolute/path/to/os-managed/chromium-or-chrome
+```
+
+The final path is commonly
+`/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` on macOS or the
+result of `command -v chromium` / `command -v google-chrome` on Linux. Allbert
+never runs these install commands itself.
 
 ## curl installer
 
@@ -52,6 +76,10 @@ install without signature verification. It installs to `~/.local` by default
 (`ALLBERT_PREFIX` to override), writes an uninstall manifest, and never writes to
 Allbert Home.
 
+The curl installer does not install optional browser prerequisites. Install
+Node and Chromium/Chrome through the host OS package manager, then use the
+pinned external Playwright block above.
+
 After a curl install, use the confirmation-gated service setup when a user
 service manager is available:
 
@@ -72,9 +100,10 @@ Every release publishes `SHA256SUMS` and `SHA256SUMS.cosign.bundle`. To check a
 download by hand:
 
 ```sh
+VERSION="${VERSION:?set the exact tag, for example v1.0.4}"
 cosign verify-blob \
   --bundle SHA256SUMS.cosign.bundle \
-  --certificate-identity-regexp 'https://github.com/lexlapax/allbert-assist/.github/workflows/release-artifacts.yml@refs/tags/.*' \
+  --certificate-identity "https://github.com/lexlapax/allbert-assist/.github/workflows/release-artifacts.yml@refs/tags/$VERSION" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   SHA256SUMS
 sha256sum -c SHA256SUMS   # or: shasum -a 256 -c SHA256SUMS on macOS
@@ -96,8 +125,9 @@ preserved** unless you pass `--purge`.
 
 ## Packaged layout
 
-The OTP release bundles its own ERTS and all runtime code, so no Elixir/Erlang
-toolchain is needed on the target. Two roots matter at runtime:
+The OTP release bundles its own ERTS and direct Allbert runtime code, so no
+Elixir/Erlang toolchain is needed on the target. Optional external browser
+runtime packages remain outside the release root. Two roots matter at runtime:
 
 - **Release root** — where the artifact is unpacked (Homebrew Cellar, or the
   curl installer's prefix). `RELEASE_ROOT` points here; the bundled plugins live
@@ -143,8 +173,10 @@ ALLBERT_HOME=~/.allbert-dev PORT=4100 mix phx.server
 The install and first run touch the network in exactly these ways, and no
 others: the install-script/Homebrew artifact fetch, and (only if you opt into
 the guided local-model setup) the Ollama installer fetch and model pull, each
-behind an explicit confirmation. The binary itself performs **no telemetry, no
-phone-home, and no auto-update check**.
+behind an explicit confirmation. Optional browser prerequisites are separate,
+operator-run host package-manager actions; Allbert does not invoke them. The
+binary itself performs **no telemetry, no phone-home, and no auto-update
+check**.
 
 **Current trust model (packaged releases).** The curl installer is fail-closed on the signed
 checksum bundle: it downloads `SHA256SUMS.cosign.bundle`, requires `cosign`, verifies
