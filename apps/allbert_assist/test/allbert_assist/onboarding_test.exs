@@ -64,7 +64,9 @@ defmodule AllbertAssist.OnboardingTest do
       state =
         ~w(welcome track_select model_path profile_select)
         |> Enum.reduce(state, fn step, _acc ->
-          assert {:ok, s} = Onboarding.wizard_advance(step)
+          assert {:ok, s} =
+                   Onboarding.wizard_advance(step, %{}, first_model_state: :local_ready)
+
           s
         end)
 
@@ -80,9 +82,30 @@ defmodule AllbertAssist.OnboardingTest do
       refute state.complete?
 
       # Reaching first useful chat completes onboarding (optional_connect deferred).
-      assert {:ok, state} = Onboarding.wizard_advance("first_chat")
+      assert {:ok, state} =
+               Onboarding.wizard_advance("first_chat", %{}, first_model_state: :local_ready)
+
       assert state.complete?
       assert FirstRun.read_marker()["onboarding_complete"] == true
+    end
+
+    test "last step does not claim completion while the configured model is unavailable" do
+      Onboarding.wizard_start(:quickstart)
+
+      for step <- ~w(welcome track_select model_path profile_select profile_review health_check) do
+        assert {:ok, _state} =
+                 Onboarding.wizard_advance(step, %{}, first_model_state: :runtime_unhealthy)
+      end
+
+      assert {:ok, state} =
+               Onboarding.wizard_advance(
+                 "first_chat",
+                 %{},
+                 first_model_state: :runtime_unhealthy
+               )
+
+      refute state.complete?
+      refute FirstRun.read_marker()["onboarding_complete"] == true
     end
 
     test "advancing a non-current step is rejected" do
@@ -155,7 +178,9 @@ defmodule AllbertAssist.OnboardingTest do
       state =
         ~w(welcome track_select model_path profile_select profile_review health_check)
         |> Enum.reduce(nil, fn step, _ ->
-          assert {:ok, s} = Onboarding.wizard_advance(step)
+          assert {:ok, s} =
+                   Onboarding.wizard_advance(step, %{}, first_model_state: :local_ready)
+
           s
         end)
 
@@ -167,7 +192,13 @@ defmodule AllbertAssist.OnboardingTest do
       refute state.complete?
       assert state.step == "optional_connect"
 
-      assert {:ok, state} = Onboarding.wizard_advance("optional_connect")
+      assert {:ok, state} =
+               Onboarding.wizard_advance(
+                 "optional_connect",
+                 %{},
+                 first_model_state: :local_ready
+               )
+
       assert state.complete?
       assert state.step == "optional_connect"
       assert FirstRun.read_marker()["onboarding_complete"] == true
@@ -180,7 +211,10 @@ defmodule AllbertAssist.OnboardingTest do
         ~w(welcome track_select model_path profile_select profile_review health_check first_chat)
         |> Enum.reduce(state, fn step, acc ->
           refute acc.step == "optional_connect"
-          assert {:ok, s} = Onboarding.wizard_advance(step)
+
+          assert {:ok, s} =
+                   Onboarding.wizard_advance(step, %{}, first_model_state: :local_ready)
+
           s
         end)
 
@@ -380,7 +414,8 @@ defmodule AllbertAssist.OnboardingTest do
                Onboarding.wizard_advance("model_path", %{}, first_model_state: :local_ready)
 
       for step <- ~w(profile_select profile_review health_check first_chat) do
-        assert {:ok, _} = Onboarding.wizard_advance(step)
+        assert {:ok, _} =
+                 Onboarding.wizard_advance(step, %{}, first_model_state: :local_ready)
       end
 
       assert FirstRun.read_marker()["onboarding_complete"] == true

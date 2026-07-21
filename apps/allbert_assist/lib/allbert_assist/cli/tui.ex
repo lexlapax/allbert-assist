@@ -44,9 +44,10 @@ defmodule AllbertAssist.CLI.Tui do
   end
 
   @doc false
-  @spec readiness_guard() :: :ok | {:error, {:first_run_not_ready, FirstRun.state()}}
-  def readiness_guard do
-    details = FirstRun.detect_details()
+  @spec readiness_guard(keyword()) ::
+          :ok | {:error, {:first_run_not_ready, FirstRun.state()}}
+  def readiness_guard(opts \\ []) do
+    details = FirstRun.detect_details(opts)
 
     if details.state == :product_ready do
       :ok

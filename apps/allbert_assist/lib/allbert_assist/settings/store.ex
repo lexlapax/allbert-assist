@@ -5,6 +5,7 @@ defmodule AllbertAssist.Settings.Store do
   alias AllbertAssist.Settings.Audit
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Schema
+  alias AllbertAssist.Settings.StoreLock
   alias AllbertAssist.Settings.VersionContract
   alias AllbertAssist.Settings.YamlCodec
 
@@ -47,16 +48,7 @@ defmodule AllbertAssist.Settings.Store do
   def write_user_settings(settings, opts \\ []) when is_map(settings) and is_list(opts) do
     settings = normalize_user_settings(settings)
 
-    Fragments.with_composition(fn ->
-      with :ok <- VersionContract.reject_forward_versions(settings),
-           {:ok, merged} <- merge_user_settings(settings),
-           :ok <- Schema.validate_settings(merged) do
-        ensure_root!()
-        write_atomic(settings_path(), YamlCodec.encode!(settings))
-        refresh_resolved_pin()
-        {:ok, settings}
-      end
-    end)
+    StoreLock.with_lock(root(), fn -> write_user_settings_locked(settings) end)
   rescue
     exception ->
       {:error, {:settings_write_failed, {exception.__struct__, Exception.message(exception)}}}
@@ -164,7 +156,9 @@ defmodule AllbertAssist.Settings.Store do
   end
 
   def put_user_setting(key, value, context \\ %{}) do
-    Fragments.with_composition(fn -> put_user_setting_snapshotted(key, value, context) end)
+    StoreLock.with_lock(root(), fn ->
+      Fragments.with_composition(fn -> put_user_setting_snapshotted(key, value, context) end)
+    end)
   end
 
   defp put_user_setting_snapshotted(key, value, context) do
@@ -176,7 +170,7 @@ defmodule AllbertAssist.Settings.Store do
       updated_merged = Schema.put_dotted(merged, key, value)
 
       with :ok <- Schema.validate_settings(updated_merged),
-           {:ok, _settings} <- write_user_settings(updated_user_settings) do
+           {:ok, _settings} <- write_user_settings_locked(updated_user_settings) do
         diagnostics = audit_write(key, old_value, value, context)
         {:ok, updated_merged, updated_user_settings, diagnostics}
       end
@@ -190,7 +184,7 @@ defmodule AllbertAssist.Settings.Store do
 
   def write_atomic(path, content) when is_binary(path) and is_binary(content) do
     path |> Path.dirname() |> File.mkdir_p!()
-    tmp_path = "#{path}.tmp-#{System.unique_integer([:positive])}"
+    tmp_path = "#{path}.tmp-#{System.pid()}-#{System.unique_integer([:positive])}"
 
     with :ok <- File.write(tmp_path, content),
          :ok <- File.rename(tmp_path, path) do
@@ -204,6 +198,21 @@ defmodule AllbertAssist.Settings.Store do
 
   def app_config do
     Application.get_env(@app, AllbertAssist.Settings, [])
+  end
+
+  defp write_user_settings_locked(settings) do
+    Fragments.with_composition(fn -> validate_and_write(settings) end)
+  end
+
+  defp validate_and_write(settings) do
+    with :ok <- VersionContract.reject_forward_versions(settings),
+         {:ok, merged} <- merge_user_settings(settings),
+         :ok <- Schema.validate_settings(merged),
+         _root <- ensure_root!(),
+         :ok <- write_atomic(settings_path(), YamlCodec.encode!(settings)) do
+      refresh_resolved_pin()
+      {:ok, settings}
+    end
   end
 
   defp audit_write(_key, _old_value, _value, %{audit?: false}), do: []

@@ -193,5 +193,96 @@ defmodule AllbertAssist.ServeTest do
       assert record
       assert record["resume_params_ref"]["operation"] == "install"
     end
+
+    test "approval is durable before the injected systemd lifecycle runs" do
+      root =
+        Path.join(
+          System.tmp_dir!(),
+          "allbert-service-lifecycle-#{System.unique_integer([:positive])}"
+        )
+
+      unit_path = Path.join(root, "allbert.service")
+      binary = Path.join(root, "allbert")
+      File.mkdir_p!(root)
+      File.write!(binary, "#!/bin/sh\n")
+      File.chmod!(binary, 0o755)
+
+      previous_service = Application.get_env(:allbert_assist, Service)
+      previous_control = Application.get_env(:allbert_assist, ServiceControl)
+      test_pid = self()
+
+      Application.put_env(:allbert_assist, Service,
+        platform: :systemd,
+        unit_path: unit_path,
+        manager_available: true
+      )
+
+      Application.put_env(:allbert_assist, ServiceControl,
+        command_runner: fn cmd, args, _opts ->
+          send(test_pid, {:service_command, [cmd | args]})
+
+          if "disable" in args do
+            {"Unit allbert.service not loaded", 5}
+          else
+            {"", 0}
+          end
+        end
+      )
+
+      on_exit(fn ->
+        restore_env(Service, previous_service)
+        restore_env(ServiceControl, previous_control)
+        File.rm_rf!(root)
+      end)
+
+      assert {:ok, _} =
+               AllbertAssist.Settings.put("permissions.command_execute", "needs_confirmation", %{
+                 audit?: false
+               })
+
+      assert {:ok, request} =
+               Runner.run("service_control", %{operation: "install", binary: binary}, %{
+                 actor: "local",
+                 channel: :cli
+               })
+
+      assert {:ok, approval} =
+               Runner.run("approve_confirmation", %{id: request.confirmation_id}, %{
+                 actor: "local",
+                 channel: :cli
+               })
+
+      assert approval.confirmation["status"] == "approved"
+
+      assert get_in(approval.actions, [Access.at(0), :confirmation_metadata, :target_status]) ==
+               :completed
+
+      assert_receive {:service_command, ["systemctl", "--user", "daemon-reload"]}
+
+      assert_receive {:service_command, ["systemctl", "--user", "enable", "allbert.service"]}
+
+      assert_receive {:service_command,
+                      ["systemctl", "--user", "start", "--no-block", "allbert.service"]}
+
+      assert File.exists?(unit_path)
+
+      assert {:ok, %{status: :completed}} =
+               ServiceControl.run(%{operation: "uninstall"}, %{
+                 user_id: "local",
+                 confirmation: %{approved?: true}
+               })
+
+      refute File.exists?(unit_path)
+
+      assert_receive {:service_command, ["systemctl", "--user", "disable", "allbert.service"]}
+
+      assert_receive {:service_command,
+                      ["systemctl", "--user", "stop", "--no-block", "allbert.service"]}
+
+      assert_receive {:service_command, ["systemctl", "--user", "daemon-reload"]}
+    end
   end
+
+  defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
+  defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)
 end

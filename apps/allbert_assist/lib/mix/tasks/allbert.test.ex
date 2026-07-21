@@ -6501,6 +6501,53 @@ defmodule Mix.Tasks.Allbert.Test do
   # regression for the platform-specific Erlang port visibility option.
   @v105_focused_steps [
     %{
+      id: "v105_settings_cross_process_transaction",
+      title: "Settings writes are one cross-process transaction",
+      cwd: :core,
+      executable: "mix",
+      args: ["test", "test/allbert_assist/settings/store_cross_process_race_test.exs"],
+      coverage: ["Separate BEAM processes preserve disjoint Settings writes in one Allbert Home"]
+    },
+    %{
+      id: "v105_service_confirmation_lifecycle",
+      title: "Service approval and manager lifecycle remain distinct",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/serve_test.exs",
+        "test/allbert_assist/actions/confirmations_actions_test.exs",
+        "test/mix/tasks/allbert_confirmations_test.exs"
+      ],
+      coverage: [
+        "Approved service control remains approved while systemd outcome is annotated separately"
+      ]
+    },
+    %{
+      id: "v105_configured_local_first_run",
+      title: "Configured local endpoints drive first-run readiness",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/cli/first_run_test.exs",
+        "test/allbert_assist/cli/areas/model_test.exs"
+      ],
+      coverage: ["A reachable selected model on a configured local endpoint is local-ready"]
+    },
+    %{
+      id: "v105_onboarding_tui_completion",
+      title: "Onboarding and TUI share first-chat readiness",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/onboarding_test.exs",
+        "test/allbert_assist/cli/tui_test.exs"
+      ],
+      coverage: ["The wizard cannot complete while the selected model is unavailable"]
+    },
+    %{
       id: "v105_platform_port_visibility",
       title: "Playwright bridge hides its console only on Windows",
       cwd: :core,
@@ -6537,7 +6584,7 @@ defmodule Mix.Tasks.Allbert.Test do
       external_network:
         "disabled; release.v105 proves source contracts only. Native CI supplies host-managed Node, Playwright, and the OS browser, then requires every extracted artifact to pass the live doctor.",
       notes:
-        "v1.0.5 macOS packaged-browser correction: the complete release.v104 step set plus the explicit Windows-only port-visibility regression.",
+        "v1.0.5 RC remediation: complete release.v104 coverage plus cross-process Settings, service lifecycle, configured-local readiness, onboarding/TUI completion, and platform port visibility regressions.",
       steps: results
     }
 

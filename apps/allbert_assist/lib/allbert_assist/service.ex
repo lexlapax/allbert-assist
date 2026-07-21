@@ -19,21 +19,23 @@ defmodule AllbertAssist.Service do
   @doc "The OS this build targets for service management."
   @spec platform() :: :launchd | :systemd | :unsupported
   def platform do
-    case :os.type() do
-      {:unix, :darwin} -> :launchd
-      {:unix, _linux} -> :systemd
-      _other -> :unsupported
-    end
+    configured(:platform) ||
+      case :os.type() do
+        {:unix, :darwin} -> :launchd
+        {:unix, _linux} -> :systemd
+        _other -> :unsupported
+      end
   end
 
   @doc "The service unit/plist path for the current user."
   @spec unit_path() :: String.t()
   def unit_path do
-    case platform() do
-      :launchd -> Path.expand("~/Library/LaunchAgents/#{@label}.plist")
-      :systemd -> Path.expand("~/.config/systemd/user/allbert.service")
-      :unsupported -> ""
-    end
+    configured(:unit_path) ||
+      case platform() do
+        :launchd -> Path.expand("~/Library/LaunchAgents/#{@label}.plist")
+        :systemd -> Path.expand("~/.config/systemd/user/allbert.service")
+        :unsupported -> ""
+      end
   end
 
   @doc "Render the unit/plist content for a given `allbert` binary path."
@@ -62,7 +64,8 @@ defmodule AllbertAssist.Service do
       :systemd ->
         [
           {"systemctl", ["--user", "daemon-reload"]},
-          {"systemctl", ["--user", "enable", "--now", "allbert.service"]}
+          {"systemctl", ["--user", "enable", "allbert.service"]},
+          {"systemctl", ["--user", "start", "--no-block", "allbert.service"]}
         ]
 
       :unsupported ->
@@ -79,10 +82,22 @@ defmodule AllbertAssist.Service do
         [{"launchctl", ["bootout", "gui/#{uid}/#{@label}"]}]
 
       :systemd ->
-        [{"systemctl", ["--user", "disable", "--now", "allbert.service"]}]
+        [
+          {"systemctl", ["--user", "disable", "allbert.service"]},
+          {"systemctl", ["--user", "stop", "--no-block", "allbert.service"]}
+        ]
 
       :unsupported ->
         []
+    end
+  end
+
+  @doc "Reload the service manager after an accepted uninstall removed its unit."
+  @spec reload_commands() :: [{String.t(), [String.t()]}]
+  def reload_commands do
+    case platform() do
+      :systemd -> [{"systemctl", ["--user", "daemon-reload"]}]
+      _other -> []
     end
   end
 
@@ -93,16 +108,22 @@ defmodule AllbertAssist.Service do
   """
   @spec manager_available?() :: boolean()
   def manager_available? do
-    case platform() do
-      :launchd ->
-        true
+    case configured(:manager_available) do
+      value when is_boolean(value) ->
+        value
 
-      :systemd ->
-        System.get_env("XDG_RUNTIME_DIR") not in [nil, ""] and
-          match?({_, 0}, safe_cmd("systemctl", ["--user", "is-system-running"]))
+      nil ->
+        case platform() do
+          :launchd ->
+            true
 
-      :unsupported ->
-        false
+          :systemd ->
+            System.get_env("XDG_RUNTIME_DIR") not in [nil, ""] and
+              match?({_, 0}, safe_cmd("systemctl", ["--user", "is-system-running"]))
+
+          :unsupported ->
+            false
+        end
     end
   end
 
@@ -201,5 +222,9 @@ defmodule AllbertAssist.Service do
     System.cmd(cmd, args, stderr_to_stdout: true)
   rescue
     _error -> {"", 1}
+  end
+
+  defp configured(key) do
+    Application.get_env(:allbert_assist, __MODULE__, []) |> Keyword.get(key)
   end
 end

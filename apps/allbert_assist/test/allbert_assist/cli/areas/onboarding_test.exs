@@ -102,6 +102,20 @@ defmodule AllbertAssist.CLI.Areas.OnboardingTest do
 
     test "drives the same canonical step IDs to completion, no fork" do
       FirstRun.reset_onboarding()
+      original_override = Application.get_env(:allbert_assist, :first_model_state_override)
+      Application.put_env(:allbert_assist, :first_model_state_override, :local_ready)
+
+      on_exit(fn ->
+        if original_override,
+          do:
+            Application.put_env(
+              :allbert_assist,
+              :first_model_state_override,
+              original_override
+            ),
+          else: Application.delete_env(:allbert_assist, :first_model_state_override)
+      end)
+
       # Track chooser "q" then Enter for each step.
       {io, out} = scripted_io(["q" | List.duplicate("", 10)])
 

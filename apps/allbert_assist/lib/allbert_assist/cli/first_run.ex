@@ -10,10 +10,12 @@ defmodule AllbertAssist.CLI.FirstRun do
   states the entry points consume (there is no synthetic `blocked` state — operator
   readiness labels `Needs credentials`/`Needs review` come from the provider/product
   layer, per the plan's Readiness Label Mapping Contract). Detection is **read-only**
-  (it never writes) but is NOT network-free: `first_model_state/0` runs a **localhost**
-  Ollama probe (via `Req`) on the paths that reach it — no external egress, and the
-  guided-install egress is M4's, always behind explicit consent. Because that probe
-  needs Req's HTTP pool, the packaged `eval` entry starts `:req` first (M8.1).
+  (it never writes) but is NOT network-free: `first_model_state/0` first probes the
+  configured local provider through Model Doctor, then falls back to host-local
+  Ollama discovery. This lets WSL2 use a Windows-host runtime without bundling or
+  installing Ollama in the Linux artifact. Guided-install egress remains M4's and
+  always requires explicit consent. The packaged `eval` entry starts `:req` first
+  because both probes need its HTTP pool (M8.1).
 
   Onboarding state lives in a Home-directory marker file
   (`<Allbert Home>/onboarding.json`) — additive, outside the Settings Central
@@ -25,6 +27,8 @@ defmodule AllbertAssist.CLI.FirstRun do
 
   alias AllbertAssist.FirstModel.Ollama
   alias AllbertAssist.Paths
+  alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.ModelDoctor
 
   @onboarding_file "onboarding.json"
 
@@ -95,7 +99,23 @@ defmodule AllbertAssist.CLI.FirstRun do
   # only when the cond actually reaches this branch (post-completion), preserving the
   # no-probe-during-onboarding short-circuit.
   defp resolved_model_state(opts) do
-    Keyword.get_lazy(opts, :first_model_state, &first_model_state/0)
+    Keyword.get_lazy(opts, :first_model_state, fn ->
+      case Application.get_env(:allbert_assist, :first_model_state_override) do
+        state
+        when state in [
+               :local_ready,
+               :runtime_missing,
+               :runtime_unhealthy,
+               :model_missing,
+               :below_hardware_floor,
+               :byok_ready
+             ] ->
+          state
+
+        _other ->
+          first_model_state()
+      end
+    end)
   end
 
   @doc """
@@ -106,11 +126,29 @@ defmodule AllbertAssist.CLI.FirstRun do
   """
   @spec first_model_state(keyword()) :: model_state()
   def first_model_state(deps \\ []) do
-    ollama = Keyword.get(deps, :ollama_probe, &default_ollama_probe/0)
     floor_ok = Keyword.get(deps, :hardware_ok?, fn -> true end)
     byok? = Keyword.get(deps, :byok_ready?, &byok_ready?/0)
+    classify_model_probe(resolve_model_probe(deps), floor_ok, byok?)
+  end
 
-    case ollama.() do
+  defp resolve_model_probe(deps) do
+    ollama = Keyword.get(deps, :ollama_probe, &default_ollama_probe/0)
+    configured = Keyword.get(deps, :configured_local_probe, configured_probe(deps))
+
+    case configured.() do
+      :not_configured -> ollama.()
+      result -> result
+    end
+  end
+
+  defp configured_probe(deps) do
+    if Keyword.has_key?(deps, :ollama_probe),
+      do: fn -> :not_configured end,
+      else: &configured_local_probe/0
+  end
+
+  defp classify_model_probe(probe, floor_ok, byok?) do
+    case probe do
       :model_ready -> :local_ready
       :model_missing -> if floor_ok.(), do: :model_missing, else: :below_hardware_floor
       :unhealthy -> :runtime_unhealthy
@@ -205,6 +243,23 @@ defmodule AllbertAssist.CLI.FirstRun do
   @spec default_ollama_probe() :: :model_ready | :model_missing | :unhealthy | :missing
   defp default_ollama_probe do
     Ollama.probe()
+  end
+
+  # v1.0.5 M8.4: a configured, reachable local endpoint is local runtime.
+  # Reuse ModelDoctor's bounded/read-only provider probe so WSL2 can use a
+  # Windows-host Ollama without pretending an Ollama binary exists in Linux.
+  defp configured_local_probe do
+    with {:ok, profile} <- Settings.get("model_preferences.primary"),
+         {:ok, summary} <- ModelDoctor.diagnose(profile),
+         :local_endpoint <- summary.endpoint_kind do
+      cond do
+        summary.endpoint_ok and summary.model_available == true -> :model_ready
+        summary.endpoint_ok and summary.model_available == false -> :model_missing
+        true -> :unhealthy
+      end
+    else
+      _other -> :not_configured
+    end
   end
 
   # -- Home marker -----------------------------------------------------------

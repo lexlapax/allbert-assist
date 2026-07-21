@@ -232,6 +232,17 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
          context,
          permission_decision,
          target_decision,
+         "service_control"
+       ) do
+    resume_service_control(record, reason, context, permission_decision, target_decision)
+  end
+
+  defp resume_registered_action(
+         record,
+         reason,
+         context,
+         permission_decision,
+         target_decision,
          action_name
        )
        when action_name in @dynamic_integration_action_names do
@@ -495,6 +506,52 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       target_resumed?: false,
       adapter_unavailable?: true
     })
+  end
+
+  # v1.0.5 M8.3: approval is a durable operator decision, not a prediction of
+  # the service manager result. Resolve it before the target can stop the
+  # attached CLI process; annotate the eventual target outcome independently.
+  defp resume_service_control(record, reason, context, permission_decision, target_decision) do
+    confirmation_id = Map.fetch!(record, "id")
+
+    queued = %{
+      target_policy_decision: target_decision,
+      target_resumed?: true,
+      target_status: :queued,
+      target_result: %{status: :queued}
+    }
+
+    with {:ok, approval} <-
+           resolve_status(record, :approved, reason, context, permission_decision, queued) do
+      target_context =
+        record
+        |> target_context(context)
+        |> put_in([:confirmation, :approved?], true)
+
+      {:ok, response} =
+        Runner.run(
+          "service_control",
+          Map.get(record, "resume_params_ref", %{}),
+          target_context
+        )
+
+      status = Map.get(response, :status, :error)
+
+      metadata = %{
+        target_policy_decision: target_decision,
+        target_resumed?: true,
+        target_status: status,
+        target_result: %{status: status, actions: Map.get(response, :actions, [])}
+      }
+
+      updated_record =
+        case Confirmations.annotate_resolution(confirmation_id, resolution_metadata(metadata)) do
+          {:ok, updated} -> updated
+          {:error, _reason} -> Map.get(approval, :confirmation)
+        end
+
+      {:ok, put_resume_approval_metadata(approval, metadata, updated_record)}
+    end
   end
 
   # v0.54 M10 (ADR 0063): generic opt-in resume — re-run the opted-in action via

@@ -165,9 +165,21 @@ defmodule AllbertAssist.Actions.Serve.ServiceControl do
   end
 
   defp execute("uninstall", _params, permission_decision) do
-    result = run_all(Service.uninstall_commands(), "uninstall", permission_decision)
-    File.rm(Service.unit_path())
-    result
+    case run_commands(Service.uninstall_commands(), allow_absent?: true) do
+      {:ok, results} ->
+        _ = File.rm(Service.unit_path())
+
+        case run_commands(Service.reload_commands()) do
+          {:ok, reload_results} ->
+            completed("uninstall", permission_decision, results ++ reload_results)
+
+          {:error, reload_results} ->
+            failed("uninstall", permission_decision, results ++ reload_results)
+        end
+
+      {:error, results} ->
+        failed("uninstall", permission_decision, results)
+    end
   end
 
   # v0.62 M8.8: the `binary` param is templated into the boot-persistent
@@ -211,15 +223,48 @@ defmodule AllbertAssist.Actions.Serve.ServiceControl do
   end
 
   defp run_all(commands, operation, permission_decision) do
-    results =
-      Enum.map(commands, fn {cmd, args} ->
-        {out, code} = System.cmd(cmd, args, stderr_to_stdout: true)
-        %{command: [cmd | args], exit: code, output: String.slice(out, 0, 500)}
-      end)
+    case run_commands(commands) do
+      {:ok, results} -> completed(operation, permission_decision, results)
+      {:error, results} -> failed(operation, permission_decision, results)
+    end
+  end
 
-    failed? = Enum.any?(results, &(&1.exit != 0))
-    status = if failed?, do: :error, else: :completed
+  defp run_commands(commands, opts \\ []) do
+    allow_absent? = Keyword.get(opts, :allow_absent?, false)
 
+    Enum.reduce_while(commands, {:ok, []}, fn {cmd, args}, {:ok, results} ->
+      {out, code} = command_runner().(cmd, args, stderr_to_stdout: true)
+      result = %{command: [cmd | args], exit: code, output: String.slice(out, 0, 500)}
+
+      if code == 0 or (allow_absent? and already_absent?(out)) do
+        {:cont, {:ok, results ++ [result]}}
+      else
+        {:halt, {:error, results ++ [result]}}
+      end
+    end)
+  end
+
+  defp already_absent?(output) do
+    String.match?(
+      String.downcase(output),
+      ~r/not loaded|not found|could not be found|does not exist/
+    )
+  end
+
+  defp command_runner do
+    Application.get_env(:allbert_assist, __MODULE__, [])
+    |> Keyword.get(:command_runner, &System.cmd/3)
+  end
+
+  defp completed(operation, permission_decision, results) do
+    response(operation, :completed, permission_decision, results)
+  end
+
+  defp failed(operation, permission_decision, results) do
+    response(operation, :error, permission_decision, results)
+  end
+
+  defp response(operation, status, permission_decision, results) do
     {:ok,
      %{
        message: "Service #{operation} #{status}.",

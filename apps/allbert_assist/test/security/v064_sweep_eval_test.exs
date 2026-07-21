@@ -178,7 +178,6 @@ defmodule AllbertAssist.Security.V064SweepEvalTest do
     on_exit(fn -> File.rm_rf!(root) end)
 
     Application.put_env(:allbert_assist, Paths, home: root)
-    Application.put_env(:allbert_assist, :first_model_state_override, :runtime_missing)
     clear_provider_env!()
     File.mkdir_p!(Path.join([root, "db"]))
     File.write!(Path.join([root, "db", "allbert.sqlite3"]), "x")
@@ -187,7 +186,8 @@ defmodule AllbertAssist.Security.V064SweepEvalTest do
 
     output =
       capture_io(:stderr, fn ->
-        assert {:error, {:first_run_not_ready, :first_model_not_ready}} = Tui.readiness_guard()
+        assert {:error, {:first_run_not_ready, :first_model_not_ready}} =
+                 Tui.readiness_guard(first_model_state: :runtime_missing)
       end)
 
     assert output =~ "workspace:models"

@@ -13,6 +13,20 @@ defmodule AllbertAssist.CLI.FirstRunTest do
   @moduletag :cli_dispatcher
 
   describe "first_model_state/1 (all six states reachable via injection)" do
+    test "configured local endpoint takes precedence over a missing host binary" do
+      assert FirstRun.first_model_state(
+               configured_local_probe: fn -> :model_ready end,
+               ollama_probe: fn -> :missing end
+             ) == :local_ready
+    end
+
+    test "an unreachable configured local endpoint remains not ready" do
+      assert FirstRun.first_model_state(
+               configured_local_probe: fn -> :unhealthy end,
+               ollama_probe: fn -> :model_ready end
+             ) == :runtime_unhealthy
+    end
+
     test "local_ready when the model is present" do
       assert FirstRun.first_model_state(ollama_probe: fn -> :model_ready end) == :local_ready
     end
@@ -120,6 +134,18 @@ defmodule AllbertAssist.CLI.FirstRunTest do
                state: :first_model_not_ready,
                first_model_state: :model_missing
              }
+
+      original = Application.get_env(:allbert_assist, :first_model_state_override)
+      Application.put_env(:allbert_assist, :first_model_state_override, :model_missing)
+
+      on_exit(fn ->
+        if original,
+          do: Application.put_env(:allbert_assist, :first_model_state_override, original),
+          else: Application.delete_env(:allbert_assist, :first_model_state_override)
+      end)
+
+      assert FirstRun.detect() == :first_model_not_ready
+      assert FirstRun.detect_details().first_model_state == :model_missing
     end
 
     test "v0.63 M1: reset_onboarding clears the marker (Home preserved)", %{root: root} do

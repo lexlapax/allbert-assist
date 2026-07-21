@@ -11,6 +11,7 @@ defmodule AllbertAssist.CLI.DispatcherTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Runtime.Attach
   alias AllbertAssist.SecurityFixtures.AssertBinding
+  alias AllbertAssist.Settings
 
   @moduletag :cli_dispatcher
 
@@ -23,6 +24,13 @@ defmodule AllbertAssist.CLI.DispatcherTest do
   test "bare allbert renders model repair copy without raw probe atoms" do
     with_first_run_home(fn ->
       with_no_model_provider_env(fn ->
+        assert {:ok, _} =
+                 Settings.put(
+                   "providers.local_ollama.base_url",
+                   "http://127.0.0.1:1/v1",
+                   %{audit?: false}
+                 )
+
         {out, 0} = CLI.run([])
 
         assert out =~ "No usable model yet."

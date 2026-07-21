@@ -277,14 +277,18 @@ defmodule AllbertAssist.Onboarding do
 
         FirstRun.merge_marker(%{"wizard_done" => new_done, "wizard_step" => next || step})
         if step == "profile_review", do: FirstRun.mark_profile_reviewed()
-        # v0.63 M7.1: completion fires on the *track's* last step — `first_chat` for
-        # QuickStart (optional_connect deferred), `optional_connect` for Advanced — so
-        # Advanced's optional_connect stays reachable and `complete?`/`step` agree.
-        if step == last_wizard_step(track), do: FirstRun.mark_onboarding_complete()
-
         state = wizard_state(opts)
         maybe_enable_model_answer(step, state)
-        {:ok, state}
+        state = wizard_state(opts)
+
+        # v1.0.5 M8.4: reaching the last screen is not completion. The marker
+        # becomes complete only when the same readiness contract used by TUI
+        # proves a first model-backed chat can run.
+        if step == last_wizard_step(track) and first_chat_ready?(state) do
+          FirstRun.mark_onboarding_complete()
+        end
+
+        {:ok, wizard_state(opts)}
     end
   end
 

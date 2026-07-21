@@ -7,6 +7,7 @@ defmodule AllbertAssist.CLI.TuiTest do
   alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.CLI.Tui
   alias AllbertAssist.Paths
+  alias AllbertAssist.Settings
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -46,6 +47,13 @@ defmodule AllbertAssist.CLI.TuiTest do
       File.write!(Path.join([root, "db", "allbert.sqlite3"]), "x")
       FirstRun.mark_onboarding_complete()
       FirstRun.mark_profile_reviewed()
+
+      assert {:ok, _} =
+               Settings.put(
+                 "providers.local_ollama.base_url",
+                 "http://127.0.0.1:1/v1",
+                 %{audit?: false}
+               )
 
       output =
         capture_io(:stderr, fn ->

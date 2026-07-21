@@ -445,7 +445,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
       end
     end
 
-    test "release.v105 carries the v1.0.4 contracts and the platform port regression" do
+    test "release.v105 carries v1.0.4 plus every v1.0.5 RC remediation contract" do
       task_source =
         Path.expand("../../../lib/mix/tasks/allbert.test.ex", __DIR__)
         |> File.read!()
@@ -453,7 +453,12 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
       assert task_source =~ ~s{defp do_run(["release.v105"]), do: release_v105()}
       assert task_source =~ ~s(mix allbert.test release.v105)
       assert task_source =~ ~s(id: "v105_platform_port_visibility")
+      assert task_source =~ ~s(id: "v105_settings_cross_process_transaction")
+      assert task_source =~ ~s(id: "v105_service_confirmation_lifecycle")
+      assert task_source =~ ~s(id: "v105_configured_local_first_run")
+      assert task_source =~ ~s(id: "v105_onboarding_tui_completion")
       assert task_source =~ ~s(test/allbert_assist/browser/playwright_driver_test.exs)
+      assert task_source =~ ~s(test/allbert_assist/settings/store_cross_process_race_test.exs)
       assert task_source =~ ~s(@release_v105_steps @release_v104_steps ++ @v105_focused_steps)
     end
   end
