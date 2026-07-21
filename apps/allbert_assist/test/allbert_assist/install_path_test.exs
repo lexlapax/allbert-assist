@@ -384,6 +384,12 @@ defmodule AllbertAssist.InstallPathTest do
     # prerelease `-rc1` hyphen would mangle).
     assert body =~ "needs: [build, linux-rehearsal]"
     assert body =~ ~s{cp "$f" "allbert-$target.tar.gz"}
+    # v1.0.5 RC: a tag-built filename must carry the exact tag, not only the
+    # internal product version, so ALLBERT_VERSION=v1.0.5-rc.1 resolves the
+    # signed prerelease asset while the executable still reports 1.0.5.
+    assert body =~ ~S|ARTIFACT_VERSION="v${VERSION}"|
+    assert body =~ ~S|ARTIFACT_VERSION="${GITHUB_REF_NAME}"|
+    assert body =~ ~S|dist/allbert-${ARTIFACT_VERSION}-${{ matrix.target }}.tar.gz|
     # v0.62b: a docs/source point-release tag marked `[skip-artifacts]` must NOT
     # build or publish packaged artifacts (so v0.62.0 stays the Latest packaged
     # release). The gate job reads the tag message; build depends on its output.

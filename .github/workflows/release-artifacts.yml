@@ -90,8 +90,12 @@ jobs:
       - name: Package artifact
         run: |
           VERSION=$(grep -m1 'version:' mix.exs | sed 's/.*version: "\(.*\)".*/\1/')
+          ARTIFACT_VERSION="v${VERSION}"
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            ARTIFACT_VERSION="${GITHUB_REF_NAME}"
+          fi
           mkdir -p dist
-          tar -czf "dist/allbert-v${VERSION}-${{ matrix.target }}.tar.gz" -C _build/prod/rel allbert
+          tar -czf "dist/allbert-${ARTIFACT_VERSION}-${{ matrix.target }}.tar.gz" -C _build/prod/rel allbert
           ls -la dist/
 
       - name: Provision browser runtime prerequisites outside the artifact

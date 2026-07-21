@@ -13,7 +13,8 @@ changelog entries or release notes.
 ## v1.0.5 - macOS Packaged Browser Port Correction
 
 Status: **operator-approved corrective candidate assembled; clean-SHA gates
-and publication pending.** Published v1.0.4 proved
+and signed prerelease pending. Stable publication is blocked on real-host Linux
+and WSL2.** Published v1.0.4 proved
 the external browser-runtime ownership model and both Linux artifacts, but its
 macOS Homebrew `browser_doctor` crashed OS Chrome in
 `TransformProcessType`. Isolation proved direct headless Chrome, direct
@@ -24,8 +25,13 @@ portable background-process control.
 
 v1.0.5 is bounded to applying `:hide` only on Windows, adding a permanent
 platform-option regression, rerunning the complete clean-SHA release cascade,
-publishing/cosigning all three artifacts, moving the tap from 1.0.4 to 1.0.5,
-and repeating macOS and both Linux artifact rehearsals. Node, Playwright,
+publishing/cosigning all three artifacts, and repeating macOS and both Linux
+artifact rehearsals. The first binary is signed GitHub prerelease
+`v1.0.5-rc.1`: it must remain non-Latest and must not move the tap. Real-host
+Linux and WSL2 validate that RC before stable publication; host-discovered
+corrections stay in v1.0.5 as immutable `rc.2+` candidates. Only the accepted
+candidate is rebuilt as stable v1.0.5, after which the tap moves 1.0.4 -> 1.0.5.
+Node, Playwright,
 Chromium, `node_modules`, and browser caches remain forbidden artifact content;
 the host-package prerequisite contract from v1.0.4 is unchanged. The immutable
 v1.0.4 tag remains at `337e3ddbbc14a3832d700d2ac63655a2e068c721` and is not
@@ -36,11 +42,14 @@ Darwin/Linux omit it. The focused suite passed (4 tests, 0 failures), and a
 real source-build macOS doctor through BEAM launched OS Chrome 150 through the
 external Playwright 1.58.2 root without a new crash. The 1.0.5 version trio,
 service-worker gzip, `release.v105`, and 3,228-row no-loss manifest are
-assembled; the clean-SHA cascade and publication remain M6.3.
+assembled. Tag-built filenames now use exact `GITHUB_REF_NAME`, with the full
+11-test install/release-path suite green; the clean-SHA cascade and prerelease
+remain M6.3. Stable publication remains M9 after host acceptance.
 
-**Formula state: PRE-PUBLICATION ONLY.** The public tap is 1.0.4 while this
+**Formula state: PRE-STABLE-PUBLICATION ONLY.** The public tap is 1.0.4 while this
 repository formula remains on 1.0.0, its last reconciled value, until v1.0.5
-has real published checksums. At publication the tap moves 1.0.4 → 1.0.5; that
+has final stable checksums. RC checksums never fill the tap. At stable
+publication the tap moves 1.0.4 → 1.0.5; that
 filled formula is synced back into the repository during the accepted
 corrective closeout. This lag is explicit release administration, not a claim
 that v1.0.5 already exists.

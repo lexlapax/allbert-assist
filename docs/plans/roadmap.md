@@ -61,16 +61,21 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    disposition, with no v1.0.3 lane-floor claim. Plan: [v1.0.3-plan.md](v1.0.3-plan.md) +
    [v1.0.3-request-flow.md](v1.0.3-request-flow.md) + ADR 0086.
 4. **1.0.4 PUBLISHED, BINARY ACCEPTANCE NOT CLOSED -> 1.0.5 APPROVED
-   CORRECTIVE TAG** — Packaged Browser Recovery. v1.0.4 is immutable at
+   CORRECTIVE RC CYCLE** — Packaged Browser Recovery. v1.0.4 is immutable at
    `337e3ddb` (CI `29841331741`; tap `5a970b9`): its artifacts correctly keep
    Node, Playwright, Chromium, and caches external, and both published Linux
    rehearsals passed. Its macOS packaged doctor failed when BEAM port option
    `:hide` caused OS Chrome to abort in `TransformProcessType`; direct Chrome,
    direct Playwright, the packaged bridge, and the same BEAM port without
    `:hide` passed. The operator approved v1.0.5 on 2026-07-21 to apply `:hide`
-   only on Windows, repeat tag/cosign/Release/tap and all agent-runnable
-   platform validation, then stop for real-host Linux and WSL2. Neither prior
-   immutable tag is moved, and this corrective line contains no feature scope.
+   only on Windows. On the same date the operator placed real-host Linux and
+   WSL2 ahead of stable publication: signed GitHub prerelease
+   `v1.0.5-rc.1` supplies the binary, remains non-Latest, and does not move the
+   tap. Host failures remain v1.0.5 work and produce immutable `rc.2+`
+   candidates; stable `v1.0.5` is built/cosigned/published and moves the tap
+   only after those rows pass or receive explicit operator disposition.
+   Neither prior immutable tag is moved, and this corrective line contains no
+   feature scope.
    Plan:
    [v1.0.4-plan.md](v1.0.4-plan.md) +
    [v1.0.4-request-flow.md](v1.0.4-request-flow.md) + amended ADR 0040. Later
