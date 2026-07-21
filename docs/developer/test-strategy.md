@@ -745,11 +745,14 @@ above 1% of lane wall. Security evals remain serial. External runtimes are
 never converted to async; their only experiment is the ADR 0086 2-VM owned-env
 go/no-go.
 
-The two permanent composition regressions are the Sidebar sandbox-allowance
-path and `ListChannels.run/2` forwarding registry context to
-`Channels.list_channels/1`. Final campaign acceptance is 20 clean seeds
-(1000–20000 step 1000), both retired classes 0/20, and no new unexplained
-signature.
+The two permanent composition regressions are the Sidebar sandbox-lease path
+and `ListChannels.run/2` forwarding registry context to
+`Channels.list_channels/1`. v1.0.3 did not run the planned 20-seed RC
+campaign. By explicit operator acceptance on 2026-07-20, its release evidence
+is two clean banked monolith seeds (1000/2000) plus the two permanent
+`release.v103` guards. This proves the two known roots deterministically in
+every point gate while accepting residual risk from unknown full-suite
+orderings; it must not be described as equivalent to a 20-seed campaign.
 
 ### v1.0.3 M1 Conversion Contracts (ADR 0086, Accepted) — 2026-07-20
 
@@ -1091,14 +1094,19 @@ monolithic precommit order hides that by migrating through the core app first.
 Phase-2 gate walls vs the M0 baseline (all M0 rows `dirty: false`, full SHA
 `0b43733c`; identical commands). Both flake classes are retired at their roots
 (M2 sandbox-lease sizing, M3 registry-context propagation) and guarded by two
-permanent `release.v103` regression steps rather than a seed sweep — the 20-seed
-RC campaign is skipped by operator decision.
+permanent `release.v103` regression steps rather than a seed sweep — the
+20-seed RC campaign is skipped by explicit operator decision. The final RC
+cascade was re-rolled at pushed clean SHA `3999c115` with 62 passing,
+`dirty: false` metrics rows across commit, fast-local, serial-core,
+`release.v1`, `release.v103`, and authoritative release evidence. The M10
+reconciliation commit must receive the same four-gate clean-SHA proof before
+tagging.
 
 | Metric | M0 baseline (`0b43733c`, dirty:false) | M9 disposition |
 | --- | --- | --- |
 | Quick gate wall | 309.7 s green | packing holds; no lane conversion shipped (M5(a) parked, M5(b) tree unchanged) |
-| Prepush wall | 853.0 s green (`high_coverage_fast_local` phase 844 s) | unchanged tree; re-measured by the operator on the committed RC |
-| Full release phase total | ≈3,153 s green | unchanged tree; operator re-measures on the RC SHA |
+| Prepush wall | 853.0 s green (`high_coverage_fast_local` phase 844 s) | unchanged lane tree; clean-SHA gate evidence re-rolled at `3999c115` |
+| Full release phase total | ≈3,153 s green | authoritative release green at `3999c115`; M10 re-runs on the tag candidate |
 | `liveview` max partition | 470.3 s (release web phase) | +≈156 s from the M2 boundary regression (`sidebar_ownership`); operator may give it a dedicated partition |
 | `db_serial` max partition | 111.4 s | unchanged (M6 db conversion not attempted; floor recorded) |
 | `app_env` max partition | 119.8 s | unchanged (M5(a) wave parked — test-count ranking bought no max-partition move) |

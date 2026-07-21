@@ -12,13 +12,19 @@ changelog entries or release notes.
 
 ## v1.0.3 - Test Isolation Phase 2 & Catch-up Binary Release
 
-Status: **release candidate — gate wiring, version bumps, and final measured
-tables assembled; the operator runs the full gate cascade (precommit,
-release.v1, release.v103, full release) at one clean SHA before tagging.** This
-is the packaged catch-up: the artifact line advances 1.0.0 → 1.0.3 carrying the
-v1.0.1 + v1.0.2 + v1.0.3 fixes together. The Homebrew formula stays on packaged
-Latest 1.0.0 through the RC; the tap is filled only after published 1.0.3
-checksums exist.
+Status: **release candidate complete; M10 pre-tag reconciliation in progress.**
+The full four-gate cascade passed at `c1c85182` and was re-rolled at pushed
+clean SHA `3999c115` (62 passed, `dirty: false` metrics rows). The M10
+reconciliation commit becomes the tag candidate and receives the same cascade
+before tagging. This is the packaged catch-up: the artifact line advances
+1.0.0 → 1.0.3 carrying the v1.0.1 + v1.0.2 + v1.0.3 fixes together.
+
+**Formula state: PRE-PUBLICATION ONLY.** `homebrew/allbert.rb` stays on
+packaged Latest 1.0.0 through the RC; in M10 the tap is filled only after
+published 1.0.3 checksums exist, then that filled formula is synced back into
+the repository
+after the platform ledger is accepted. This marker must be removed in the
+post-tag administrative closeout when project/formula equality is restored.
 
 **Acceptance basis (operator decision, 2026-07-20): the 20-seed monolith RC
 campaign is SKIPPED.** v1.0.3 ships on the two banked clean scratchpad seeds
@@ -28,6 +34,9 @@ classes deterministically in every gate run — `v103_sidebar_ownership` (the
 DBConnection-ownership class) and `v103_list_channels_context` (the
 registry/ListChannels class). That deterministic pair, not a seed sweep, is the
 campaign-class acceptance.
+The operator explicitly accepted on 2026-07-20 that this proves the two known
+ownership roots but is narrower than a 20-seed unknown-ordering campaign; the
+residual composition risk is accepted, not described as equivalent evidence.
 
 Engineering hardening, no new product capability:
 
@@ -86,6 +95,10 @@ Engineering hardening, no new product capability:
   with an invalidation contract, a deliberate architectural change to a module
   whose statelessness is its stated design (prize: plausibly ~439 ms → under
   250 ms).
+  By explicit operator scope disposition on 2026-07-20, the parked wave,
+  LiveView/runner/registry production prerequisites, and unrun external-runtime
+  2-VM experiment remain intake candidates pending later operator disposition;
+  v1.0.3 makes no lane-floor reduction or experiment-verdict claim.
 - **Bounded dependency refresh** (standing rule, lock-only, `mix.lock` only):
   erlex 0.2.9, lazy_html 0.1.12, zoi 0.18.6, elixir_make 0.10.0 (wave 1);
   ex_aws_auth 1.4.1, peri 0.9.0 (wave 2). req_llm 1.13→1.17 SCOPED OUT (a

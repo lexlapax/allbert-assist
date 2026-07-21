@@ -103,7 +103,7 @@ gh release download "$VERSION" --repo "$REPO" \
   --pattern 'SHA256SUMS*' --dir "/tmp/allbert-${VERSION}"
 cosign verify-blob --bundle "/tmp/allbert-${VERSION}/SHA256SUMS.cosign.bundle" \
   "/tmp/allbert-${VERSION}/SHA256SUMS" \
-  --certificate-identity-regexp 'https://github.com/lexlapax/allbert-assist/.github/workflows/release-artifacts.yml@refs/tags/.*' \
+  --certificate-identity "https://github.com/lexlapax/allbert-assist/.github/workflows/release-artifacts.yml@refs/tags/$VERSION" \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com'
 ```
 
@@ -149,6 +149,22 @@ git push origin main
 Evidence to record: tap commit hash, audit output, `brew info lexlapax/allbert/allbert`
 showing the current version, the three formula SHA256 rows, and confirmation that no
 placeholder checksum or old release URL remains.
+
+The repository copy is the formula source of truth. After every required platform
+row is PASS or has an operator-approved policy SKIP, sync the filled tap formula back
+into the release repository before archival:
+
+```sh
+cp "$TAP_CHECKOUT/Formula/allbert.rb" "$ALLBERT_ASSIST_CHECKOUT/homebrew/allbert.rb"
+cd "$ALLBERT_ASSIST_CHECKOUT"
+test "$(sed -n 's/^  version "\([^"]*\)"/\1/p' homebrew/allbert.rb)" = "$EXPECTED_VERSION"
+rg -n 'PLACEHOLDER|REPLACE_' homebrew/allbert.rb && exit 1 || true
+test "$(rg -c "releases/download/$VERSION" homebrew/allbert.rb)" -eq 3
+```
+
+PASS: repository and tap formulae are byte-identical, name 1.0.3, contain the
+three published checksums, and have no placeholder or old-release URL. Commit this
+with the post-tag documentation/roadmap archival; never move the product tag.
 
 Homebrew 6 note: path-based `brew audit [path ...]` is disabled, and untrusted
 third-party taps are refused. Audit by tapped formula name after trusting the tap.

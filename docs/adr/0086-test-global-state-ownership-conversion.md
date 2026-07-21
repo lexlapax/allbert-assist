@@ -117,14 +117,19 @@ e.g. the M1 db pilot's engine-agent allowance, but the Sidebar class turned
 out to be lease expiry, corrected here after measurement; ShippedRegistries
 or private-context convergence plus `ListChannels.run/2` forwarding registry
 opts to `Channels.list_channels/1` for ListChannels) — never by
-retries, deletions, or monolith-specific skips. Acceptance is the rerun
-campaign at zero occurrences.
+retries, deletions, or monolith-specific skips. The planned 20-seed RC
+campaign was not run. By explicit operator acceptance on 2026-07-20, v1.0.3
+uses two clean banked monolith seeds plus the two permanent focused guards as
+its bounded evidence for these known roots. This is a narrower risk posture,
+not evidence equivalent to an exhaustive randomized campaign.
 
 ## Consequences
 
-- The pure_async group grows wave by wave; the packer immediately exploits
-  every conversion (converted files leave serial bins entirely) — speed
-  gains compound without re-tuning.
+- A successful future conversion grows the `pure_async` group or a deliberately
+  concurrent DB lane, and the packer exploits files that leave serial bins.
+  v1.0.3's bounded M5 attempts shipped no conversion wave: M5(a) was parked
+  after a red concurrency ceiling and no material max-partition movement;
+  M5(b) stopped with zero files converted after exposing production seams.
 - `DataCase`/case templates gain an ownership-mode axis; existing serial
   tests are untouched until their wave.
 - Some files will legitimately never convert (shared-write semantics,
@@ -145,8 +150,13 @@ campaign at zero occurrences.
   flips Accepted.
 - v1.0.3 M2/M3: minimal-composition repros for both monolith classes
   red-first, then green; 5-seed spot campaigns without the signatures.
-- v1.0.3 M4–M6: per-wave no-loss proofs + measured lane reductions vs the
-  M0 baseline (store-cited); external-runtime experiment verdict recorded
-  with evidence either way.
-- v1.0.3 M9: 20-seed campaign — retired classes 0/20, no new unexplained
-  signatures; `release.v103` binds the pilot + repro + no-loss checks.
+- v1.0.3 M4–M6 actual disposition: M4/M5 recorded the confounded-runner
+  correction, the parked app-env patch, the zero-conversion LiveView stop, and
+  the no-loss/tree-identity proofs. The production prerequisites and 2-VM
+  external-runtime experiment remain intake candidates pending later operator
+  disposition; no lane-floor reduction or experiment verdict is claimed for
+  v1.0.3.
+- v1.0.3 M9: two clean banked monolith seeds plus permanent
+  `v103_sidebar_ownership` and `v103_list_channels_context` steps replace the
+  planned 20-seed campaign by explicit operator acceptance; `release.v103`
+  binds the pilots, repros, inventory reconciliation, and manifest drift guard.

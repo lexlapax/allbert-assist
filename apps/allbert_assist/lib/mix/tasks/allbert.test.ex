@@ -6173,6 +6173,8 @@ defmodule Mix.Tasks.Allbert.Test do
   # the two PERMANENT regression steps below (v103_sidebar_ownership,
   # v103_list_channels_context) that guard both classes deterministically in
   # every gate run — that pair, not a seed sweep, is the acceptance basis.
+  # The operator explicitly accepted that this proves the two known roots but
+  # is narrower than a 20-seed unknown-ordering campaign.
   #
   # Every focused test-file step selects a FULL split file (never file:LINE) so
   # the M8.11b zero-test guard in release_step_status/4 can never false-green on
@@ -6287,7 +6289,7 @@ defmodule Mix.Tasks.Allbert.Test do
       database_path: database,
       evidence_dir: evidence_dir,
       external_network:
-        "disabled; the release.v1 freeze/product-RC prefix re-runs unchanged, then the v1.0.3 focused steps prove lane reconciliation, manifest no-loss, the four M1 ownership-contract pilots, and the two permanent monolith-class regressions (M2 sidebar ownership, M3 ListChannels context) deterministically. The 20-seed RC campaign is SKIPPED by operator decision; the two permanent regression steps are the campaign-class acceptance. Packaged artifact validation is M10 (operator-held, published-artifact attestations).",
+        "disabled; the release.v1 freeze/product-RC prefix re-runs unchanged, then the v1.0.3 focused steps prove lane reconciliation, manifest no-loss, the four M1 ownership-contract pilots, and the two permanent monolith-class regressions (M2 sidebar ownership, M3 ListChannels context) deterministically. The 20-seed RC campaign is SKIPPED by operator decision; two clean banked monolith seeds plus the permanent regression steps are the narrower accepted evidence for the two known roots, not an exhaustive ordering campaign. Packaged artifact validation is M10 (operator-held, published-artifact attestations).",
       notes:
         "v1.0.3 Test Isolation Phase 2 & Catch-up Binary Release: steps = the release.v1 quintet plus focused v1.0.3 steps (lane reconciliation, manifest drift, four M1 pilots, two permanent flake-class regressions).",
       steps: results

@@ -39,16 +39,20 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    the binary moved to 1.0.3.
    Plan: [v1.0.2-plan.md](archives/v1.0.2-plan.md) +
    [v1.0.2-request-flow.md](archives/v1.0.2-request-flow.md).
-3. **1.0.3 (planned)** — Test Suite Speed & Isolation phase 2 **and the
-   catch-up binary release** (operator final disposition 2026-07-19): the
-   five ADR 0086 conversion contracts (sandbox ownership, app-env context,
-   named-process injection, per-test homes, external-runtime partitioning
-   go/no-go), store-ranked serial→async conversion waves, retirement of
-   both monolith-only failure classes at their ownership roots, prefilter
-   tokenization remediation, bounded dependency refresh, then the transferred
-   M10 catch-up publication —
+3. **1.0.3 (release candidate; M10 in progress)** — Test Suite Speed &
+   Isolation phase 2 **and the catch-up binary release** (operator final scope
+   disposition 2026-07-20): the five ADR 0086 conversion contracts (sandbox
+   ownership, app-env context, named-process injection, per-test homes,
+   external-runtime partitioning go/no-go), four red-first pilots, retirement
+   of both known monolith-only failure classes at their ownership roots,
+   measured decide-turn remediation, bounded dependency refresh, then the
+   transferred M10 catch-up publication —
    tag → CI/cosign → tap 1.0.0→1.0.3 → packaged validation; the artifact
-   line then carries the v1.0.1 + v1.0.2 + v1.0.3 fixes together. Plan: [v1.0.3-plan.md](v1.0.3-plan.md) +
+   line then carries the v1.0.1 + v1.0.2 + v1.0.3 fixes together. The bounded
+   conversion waves shipped no lane move: M5(a) was parked and M5(b) stopped
+   with zero conversions; their production prerequisites and the unrun 2-VM
+   external-runtime experiment remain intake candidates pending later operator
+   disposition, with no v1.0.3 lane-floor claim. Plan: [v1.0.3-plan.md](v1.0.3-plan.md) +
    [v1.0.3-request-flow.md](v1.0.3-request-flow.md) + ADR 0086. Later
    1.0.x: intent-pipeline refinements (opportunistic), technical-debt
    train. (The vendored `:memento` removal landed early at 1.0.1's M5

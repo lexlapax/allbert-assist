@@ -88,7 +88,8 @@ defmodule AllbertAssist.InstallPathTest do
 
     assert [_, formula_version] = Regex.run(~r/^\s*version "([^"]+)"$/m, body)
 
-    # Release-model invariant: the formula (the tap's source of truth) may lag
+    # Release-model invariant: the repository formula (synced to the tap after
+    # publication) may lag
     # the project version ONLY when the CHANGELOG section for the project version
     # DOCUMENTS the lag and names the formula's version as the surviving packaged
     # Latest. Two legitimate lag reasons are accepted (v1.0.3 M9 broadening — the
@@ -98,7 +99,9 @@ defmodule AllbertAssist.InstallPathTest do
     #   (b) an RC-WINDOW lag on a binary release, where the formula stays on the
     #       prior packaged Latest through the RC and the tap is FILLED to the
     #       project version at tag/publish time (v1.0.3 catch-up). This is a
-    #       temporary lag that M10 closes, not a permanent divergence.
+    #       temporary lag that M10 closes, not a permanent divergence. The
+    #       changelog must carry the exact PRE-PUBLICATION ONLY marker so this
+    #       exception cannot be described as a completed release state.
     # The invariant's protection — a lagging formula must be explained in the
     # CHANGELOG, never silently shipped — holds in both cases; only the accepted
     # explanation is broadened.
@@ -126,13 +129,17 @@ defmodule AllbertAssist.InstallPathTest do
       binary_rc_fill? =
         normalized =~ "packaged Latest #{formula_version}" and
           normalized =~ "tap is filled" and
-          normalized =~ "#{formula_version} → #{project}"
+          normalized =~ "#{formula_version} → #{project}" and
+          normalized =~ "Formula state: PRE-PUBLICATION ONLY" and
+          normalized =~ "that filled formula is synced back into the repository"
 
       assert skip_artifacts_tag? or binary_rc_fill?,
              "CHANGELOG v#{project} must document the formula lag as either a " <>
                "[skip-artifacts] source tag (`v#{formula_version}` remains) or a " <>
                "binary catch-up that fills the formula #{formula_version} → " <>
-               "#{project} at publish (packaged Latest #{formula_version})"
+               "#{project} at publish (packaged Latest #{formula_version}) and " <>
+               "is explicitly marked PRE-PUBLICATION ONLY until repository " <>
+               "formula convergence"
     end
 
     # Formula (not cask) so `brew services` works for `allbert serve`.
