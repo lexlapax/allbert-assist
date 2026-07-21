@@ -285,6 +285,7 @@ defmodule AllbertAssist.InstallPathTest do
     assert smoke =~ "BROWSER_BINARY_PATH"
     assert smoke =~ "ALLBERT_PACKAGE_MANAGER_AUDIT"
     assert smoke =~ "package-manager invocation"
+    assert smoke =~ "browser.navigation.timeout_ms 60000"
   end
 
   test "the browser runtime boundary accepts bridge source without external runtimes" do
@@ -410,6 +411,7 @@ defmodule AllbertAssist.InstallPathTest do
     assert rehearsal =~ "BROWSER_BINARY_PATH"
     assert rehearsal =~ "ALLBERT_PACKAGE_MANAGER_AUDIT"
     assert rehearsal =~ "package-manager invocation"
+    assert rehearsal =~ "browser.navigation.timeout_ms 60000"
     assert rehearsal =~ "ALLBERT_REHEARSAL_PREVERIFIED_STAGE"
     assert rehearsal =~ "install-preverified"
     assert rehearsal =~ "sha256sum"

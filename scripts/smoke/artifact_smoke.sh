@@ -109,6 +109,10 @@ run_cli admin settings set browser.driver.binary_path "$BROWSER_BINARY_PATH" >/d
 run_cli admin settings set browser.driver.node_path "$NODE_BIN" >/dev/null
 run_cli admin settings set browser.driver.node_module_path "$PLAYWRIGHT_NODE_PATH" >/dev/null
 run_cli admin settings set browser.driver.version_pin 1.58.2 >/dev/null
+# Release runners can be materially slower than an interactive host while
+# starting an OS-packaged browser. Keep the product default unchanged, but give
+# this live acceptance probe a bounded 60-second startup/navigation budget.
+run_cli admin settings set browser.navigation.timeout_ms 60000 >/dev/null
 
 if DOCTOR_OUTPUT="$(run_cli eval 'Application.ensure_all_started(:allbert_assist); case AllbertAssist.Actions.Runner.run("browser_doctor", %{}, %{actor: "artifact-smoke", channel: :cli}) do {:ok, %{doctor: %{live_check_status: :ok, details: %{playwright_version: "1.58.2"}}}} -> IO.puts("packaged-browser-doctor-ok"); other -> IO.inspect(other); System.halt(1) end' 2>&1)"; then
   echo "$DOCTOR_OUTPUT" >"$WORK/browser-doctor.out"

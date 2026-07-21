@@ -136,6 +136,10 @@ run admin settings set browser.driver.binary_path "$BROWSER_BINARY_PATH" >/dev/n
 run admin settings set browser.driver.node_path "$NODE_BIN" >/dev/null
 run admin settings set browser.driver.node_module_path "$PLAYWRIGHT_NODE_PATH" >/dev/null
 run admin settings set browser.driver.version_pin 1.58.2 >/dev/null
+# Hosted release runners can take longer than the 30-second interactive default
+# to start an OS Chromium process. Bound only this disposable rehearsal Home at
+# 60 seconds; the live doctor and exact-version assertions remain mandatory.
+run admin settings set browser.navigation.timeout_ms 60000 >/dev/null
 
 if browser_doctor="$(run eval 'Application.ensure_all_started(:allbert_assist); case AllbertAssist.Actions.Runner.run("browser_doctor", %{}, %{actor: "linux-rehearsal", channel: :cli}) do {:ok, %{doctor: %{live_check_status: :ok, details: %{playwright_version: "1.58.2"}}}} -> IO.puts("packaged-browser-doctor-ok"); other -> IO.inspect(other); System.halt(1) end' 2>&1)"; then
   echo "$browser_doctor" >"$WORK/browser-doctor.out"
