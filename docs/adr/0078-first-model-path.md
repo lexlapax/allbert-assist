@@ -158,3 +158,37 @@ an embedded downloader. That keeps binary size, licensing, update, and offline-s
 questions out of the pre-1.0 path while still matching the consumer expectation that no
 manual model CLI or hosted provider key is required. A literal no-external-runtime
 artifact would require a later ADR amendment and a separate release scope.
+
+## Amendment (v1.0.5 M8, 2026-07-21) — configured local endpoints are local-ready
+
+The `v1.0.5-rc.1` WSL2 rehearsal configured the shipped `local` model profile to
+Windows-host Ollama at the WSL gateway. The focused model doctor returned
+`endpoint_ok=true` and `model_available=true`, and a real model turn returned the
+exact acceptance marker. First-run detection nevertheless probed only a WSL
+Ollama executable/`localhost:11434`, reported `Needs runtime`, and kept TUI
+blocked. That is a split source of truth and violates this ADR's existing
+Advanced/custom-endpoint and no-dead-end contracts.
+
+The First-Model Path therefore defines local readiness from the active configured
+model/provider contract:
+
+- a `local_ollama` provider with an operator-configured base URL, a successful
+  bounded endpoint probe, and the selected model present resolves
+  `:local_ready`, whether Ollama runs in the same OS namespace, on the Windows
+  host side of WSL2, or at another explicitly configured local endpoint;
+- the implementation reuses the focused model doctor's provider URL parsing,
+  endpoint-kind policy, timeout, redaction, and model-availability semantics;
+  it does not keep a second localhost/binary-only readiness rule;
+- the probe is read-only and may contact only the operator-configured provider
+  endpoint. It installs, starts, pulls, or downloads nothing and grants no new
+  authority. Ollama remains host-managed and outside the Allbert artifact; and
+- an absent/unhealthy configured endpoint preserves the existing repairable
+  `Needs runtime`/`Needs model` mapping. It is never promoted merely because a
+  URL is configured.
+
+QuickStart completion is also tied to the existing
+`Onboarding.first_chat_ready?/1` go-signal. A final step cannot write
+`onboarding_complete=true` while readiness is non-ready or direct answer remains
+disabled. Conversely, advancing the configured-local ready path uses the
+existing readiness-gated enablement and admits the same endpoint to first chat
+and TUI.

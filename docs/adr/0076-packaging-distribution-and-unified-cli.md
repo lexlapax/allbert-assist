@@ -264,3 +264,54 @@ Allbert runtime. Any non-DB runtime dependency a pure command needs must be star
 same way; relying on `eval` to have started it is a defect. The release smoke rehearsal
 (M8.8) now exercises a bare/first-run command through the packaged `eval` path so this
 class of "loaded-not-started" gap is caught before an operator.
+
+## Amendment (v1.0.5 M8, 2026-07-21) — cross-process settings and service lifecycle
+
+The signed `v1.0.5-rc.1` WSL2 rehearsal exposed two packaged-process failures
+that the checkout and container gates did not exercise together:
+
+- concurrent short-lived release CLIs operating on one Home could observe
+  malformed `settings.yml`; same-directory atomic rename alone did not serialize
+  the full read-modify-write transaction or guarantee a temporary name unique
+  across separate BEAM OS processes; and
+- a confirmed systemd install used `enable --now` from an embedded runtime that
+  still held the same Home/database while `systemctl` waited for the new service.
+  The service waited for the startup migration lock, producing a wait cycle.
+  Uninstall also removed the unit independently of the returned manager result,
+  while the generic confirmation resume could represent a target `:error` as a
+  denied operator decision.
+
+The packaged-process contract is amended:
+
+1. Settings Central owns a Settings-specific SQLite sidecar lock at
+   `<ALLBERT_HOME>/settings/settings.lock.db`, using the already-shipped Exqlite
+   `BEGIN EXCLUSIVE`/connection-lifetime pattern from `Runtime.WriterLock` (50 ms
+   retry, 5-second bound). It does not reuse the runtime's long-lived database
+   writer lock. A writer acquires it before the read-modify-validate-write
+   transaction, re-reads inside the lock, writes
+   `settings.yml.tmp-<OS pid>-<unique integer>` in the same directory,
+   flushes/closes it, and atomically renames it. Readers consume only the stable
+   path. Timeout or lock failure preserves the last valid generation and returns
+   a stable diagnostic.
+2. Service-control confirmation records the operator's approval durably before
+   a manager effect that may start or stop the runtime executing that command.
+   Target execution status is separate annotation: a failed target remains an
+   approved attempt with `target_status: error`, not an invented denial.
+3. systemd install runs daemon-reload, `enable allbert.service`, then
+   `start --no-block allbert.service`; uninstall runs
+   `disable allbert.service`, then `stop --no-block allbert.service`.
+   `target_status: queued` is durable before start/stop. This lets a one-shot CLI
+   release its writer lock before the new service boots and lets a running
+   service retain the approved decision even if its own stop wins the response
+   race. A surviving caller annotates the terminal target result.
+   Operator validation polls the manager and `/health` to a bounded terminal
+   state; a queued command is not called healthy merely because it was accepted.
+4. Unit removal follows an accepted successful or named already-absent stop/
+   disable result and is followed by daemon-reload. Other failures retain the
+   unit and return exact redacted command results. Install and uninstall are
+   idempotent.
+
+All execution still resolves through `Actions.Registry` and
+`Actions.Runner.run/3`; the amendment changes process/effect ordering, not
+authority. Release tests inject manager commands and never operate a developer's
+real service. The signed-RC real-host rows remain the final systemd proof.

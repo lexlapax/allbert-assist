@@ -12,9 +12,9 @@ changelog entries or release notes.
 
 ## v1.0.5 - macOS Packaged Browser Port Correction
 
-Status: **operator-approved corrective candidate assembled; clean-SHA gates
-and signed prerelease pending. Stable publication is blocked on real-host Linux
-and WSL2.** Published v1.0.4 proved
+Status: **signed RC.1 published; WSL2 acceptance failed; M8 remediation and
+immutable RC.2 are required. Stable publication is blocked on the remediated
+WSL2 rerun and real-host Linux.** Published v1.0.4 proved
 the external browser-runtime ownership model and both Linux artifacts, but its
 macOS Homebrew `browser_doctor` crashed OS Chrome in
 `TransformProcessType`. Isolation proved direct headless Chrome, direct
@@ -27,10 +27,16 @@ v1.0.5 is bounded to applying `:hide` only on Windows, adding a permanent
 platform-option regression, rerunning the complete clean-SHA release cascade,
 publishing/cosigning all three artifacts, and repeating macOS and both Linux
 artifact rehearsals. The first binary is signed GitHub prerelease
-`v1.0.5-rc.1`: it must remain non-Latest and must not move the tap. Real-host
-Linux and WSL2 validate that RC before stable publication; host-discovered
-corrections stay in v1.0.5 as immutable `rc.2+` candidates. Only the accepted
-candidate is rebuilt as stable v1.0.5, after which the tap moves 1.0.4 -> 1.0.5.
+`v1.0.5-rc.1` at `032d3a12e559aaaf655505928788985575d86002` (CI
+`29856150356`). It remains non-Latest and did not move the tap. Its WSL2 row
+found three product roots: cross-process Settings persistence could expose
+malformed YAML; confirmed systemd install/uninstall could contend with the same
+Home and disagree with the reported confirmation/target result; and first-run/
+TUI readiness ignored a healthy configured Windows-host Ollama endpoint. RC.1
+is superseded but immutable. v1.0.5 M8 repairs these roots with permanent
+regressions and publishes RC.2; every affected platform row is rerun and no
+RC.1 product PASS is carried forward. Only the accepted candidate is rebuilt
+as stable v1.0.5, after which the tap moves 1.0.4 -> 1.0.5.
 Node, Playwright,
 Chromium, `node_modules`, and browser caches remain forbidden artifact content;
 the host-package prerequisite contract from v1.0.4 is unchanged. The immutable
@@ -43,8 +49,13 @@ real source-build macOS doctor through BEAM launched OS Chrome 150 through the
 external Playwright 1.58.2 root without a new crash. The 1.0.5 version trio,
 service-worker gzip, `release.v105`, and 3,228-row no-loss manifest are
 assembled. Tag-built filenames now use exact `GITHUB_REF_NAME`, with the full
-11-test install/release-path suite green; the clean-SHA cascade and prerelease
-remain M6.3. Stable publication remains M9 after host acceptance.
+11-test install/release-path suite green; RC.1 publication integrity passed.
+The WSL2 evidence group is preserved at `/tmp/allbert-v105-wsl2.2iZhG4` with
+its disposable Home at `/tmp/allbert-v105-wsl2-home.D3qYVb`: signed install,
+focused Windows-host Ollama doctor, exact real-provider marker, and safe
+uninstall/Home preservation succeeded, while systemd/Settings and onboarding/
+TUI acceptance failed. Stable publication remains M9 after M8 and both
+operator-host rows pass or receive explicit operator disposition.
 
 **Formula state: PRE-STABLE-PUBLICATION ONLY.** The public tap is 1.0.4 while this
 repository formula remains on 1.0.0, its last reconciled value, until v1.0.5

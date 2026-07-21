@@ -204,3 +204,30 @@ section) resolves them, with these amendments to the decisions above:
   render real masked provider entry, inline doctor, provider switch, and the persona
   review diff (M5 shipped a step-ticker that drove neither); readiness copy stays
   operator-language.
+
+## Amendment (v1.0.5 M8, 2026-07-21) — completion must produce an admissible first chat
+
+The signed `v1.0.5-rc.1` WSL2 terminal wizard allowed every step to advance and
+printed `Onboarding complete` while its own final status remained
+`readiness=Needs runtime`; the immediately following TUI correctly refused to
+launch. The operator had already proved a healthy configured Windows-host
+Ollama endpoint and real model turn, so this exposed both a stale readiness
+source and a false-complete state transition.
+
+The shared wizard contract is tightened without adding a step or persistence
+store:
+
+- `first_chat` (QuickStart) and `optional_connect` (Advanced) may mark completion
+  only when `Onboarding.first_chat_ready?/1` is true for the single resolved
+  readiness snapshot used by that advance;
+- when the go-signal is false, the wizard retains completed review/health work,
+  stays on the repairable model/first-chat path, writes no complete marker, and
+  renders one exact next action;
+- a healthy configured local endpoint uses ADR 0078's amended configured-provider
+  readiness and triggers the existing direct-answer/model-assist enablement; and
+- terminal status, web status, bare first-run dispatch, and TUI guard must derive
+  from that same state. `complete` plus `Needs runtime` is an invalid combination
+  covered by a permanent regression.
+
+This is a correctness repair to the accepted two-surfaces/one-flow decision. It
+does not auto-install Ollama, bypass confirmation, or weaken the TUI guard.

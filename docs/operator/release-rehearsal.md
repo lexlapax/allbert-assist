@@ -22,7 +22,7 @@ Set this once from the release checkout; every active command below consumes it:
 
 ```sh
 export VERSION="${VERSION:?set VERSION, for example v1.0.5}"
-export EXPECTED_VERSION="${VERSION#v}"
+export EXPECTED_VERSION="${EXPECTED_VERSION:?set product version, for example 1.0.5}"
 export REPO="${REPO:-lexlapax/allbert-assist}"
 export PLAYWRIGHT_VERSION="${PLAYWRIGHT_VERSION:-1.58.2}"
 export EVIDENCE_ROOT="${EVIDENCE_ROOT:-$(mktemp -d /tmp/allbert-release-evidence.XXXXXX)}"
@@ -197,15 +197,24 @@ uninstall evidence under `EVIDENCE_ROOT`.
 ### Windows / WSL2 Tier-2 validation
 
 Inside WSL2, use a disposable Home and install the published linux-x64
-tarball through the same verified installer path:
+tarball through the same verified installer path. A prerelease tag and the
+binary's product version are distinct (`v1.0.5-rc.2` may report `1.0.5`), so set
+both variables explicitly. The active release request-flow is authoritative for
+the exact Windows-host Ollama endpoint, focused doctor, onboarding/TUI, service,
+evidence-hash, and uninstall commands; do not substitute a second WSL Ollama for
+that topology.
 
 ```sh
-export VERSION="${VERSION:?set VERSION, for example v1.0.5}"
-export EXPECTED_VERSION="${VERSION#v}"
+export VERSION="${VERSION:?set VERSION, for example v1.0.5-rc.2}"
+export EXPECTED_VERSION="${EXPECTED_VERSION:?set product version, for example 1.0.5}"
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-wsl2-home.XXXXXX)"
+export ALLBERT_PREFIX="$(mktemp -d /tmp/allbert-wsl2-prefix.XXXXXX)"
 export ALLBERT_VERSION="$VERSION"
-curl -fsSL https://raw.githubusercontent.com/lexlapax/allbert-assist/main/scripts/install/install.sh | sh
-export PATH="$HOME/.local/bin:$PATH"
+curl -fsSL \
+  "https://raw.githubusercontent.com/lexlapax/allbert-assist/$VERSION/scripts/install/install.sh" \
+  | ALLBERT_PREFIX="$ALLBERT_PREFIX" ALLBERT_HOME="$ALLBERT_HOME" \
+      ALLBERT_VERSION="$VERSION" sh
+export PATH="$ALLBERT_PREFIX/bin:$PATH"
 test "$(allbert --version)" = "allbert $EXPECTED_VERSION"
 allbert admin status
 allbert admin vault
@@ -273,12 +282,41 @@ a product pass.
 ### service (launchd / systemd, confirmation-gated)
 
 ```sh
-allbert admin service install --dry-run           # preview exact launchctl/systemctl commands
-allbert admin service install                     # -> needs_confirmation
-allbert admin confirmations approve <ID>          # installs the per-user service
-# macOS: ~/Library/LaunchAgents/...; Linux: systemctl --user (linger for boot-start)
-allbert admin service uninstall                   # confirmation-gated; removes the unit
+allbert admin service install --dry-run
+allbert admin settings set permissions.command_execute needs_confirmation
+
+INSTALL_OUTPUT="$(allbert admin service install)"
+printf '%s\n' "$INSTALL_OUTPUT"
+INSTALL_ID="$(
+  printf '%s\n' "$INSTALL_OUTPUT" \
+    | sed -n 's/.*Confirmation request: \(conf_[0-9][0-9_]*\).*/\1/p' \
+    | tail -n 1
+)"
+test -n "$INSTALL_ID"
+allbert admin confirmations approve "$INSTALL_ID"
+
+# Use the active request-flow's bounded manager/health poll here. Only after it
+# passes, request uninstall; underscore is valid in every confirmation id.
+UNINSTALL_OUTPUT="$(allbert admin service uninstall)"
+printf '%s\n' "$UNINSTALL_OUTPUT"
+UNINSTALL_ID="$(
+  printf '%s\n' "$UNINSTALL_OUTPUT" \
+    | sed -n 's/.*Confirmation request: \(conf_[0-9][0-9_]*\).*/\1/p' \
+    | tail -n 1
+)"
+test -n "$UNINSTALL_ID"
+allbert admin confirmations approve "$UNINSTALL_ID"
+allbert admin confirmations list
+allbert admin settings set permissions.command_execute denied
+allbert admin settings get permissions.command_execute
 ```
+
+PASS: both confirmation IDs resolve `approved`; manager state reaches the
+active/healthy then absent/inactive conditions named by the active request-flow;
+the unit is removed; and `permissions.command_execute` is restored to `denied`.
+A queued manager command, a disconnected self-stop, or an approved operator
+decision with `target_status: error` is inspected rather than rewritten as
+denial or called healthy.
 
 ### v0.64+ readiness overlay
 
@@ -307,8 +345,15 @@ allbert admin vault                               # shows the resolved tier
 allbert admin settings providers set-key openai   # stores in the Keychain, writes the api_key_ref
 allbert admin settings providers list             # confirm the provider shows configured
 # Migrating pre-existing encrypted-store keys into the OS vault stays confirmation-gated:
-allbert admin secrets migrate                     # -> needs_confirmation
-allbert admin confirmations approve <ID>          # moves encrypted-store secrets into the OS vault
+MIGRATE_OUTPUT="$(allbert admin secrets migrate)"
+printf '%s\n' "$MIGRATE_OUTPUT"
+MIGRATE_ID="$(
+  printf '%s\n' "$MIGRATE_OUTPUT" \
+    | sed -n 's/.*Confirmation request: \(conf_[0-9][0-9_]*\).*/\1/p' \
+    | tail -n 1
+)"
+test -n "$MIGRATE_ID"
+allbert admin confirmations approve "$MIGRATE_ID"
 ```
 
 Headless Linux without a D-Bus keyring resolves to the encrypted-file tier with a

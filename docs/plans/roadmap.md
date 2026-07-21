@@ -74,6 +74,13 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    tap. Host failures remain v1.0.5 work and produce immutable `rc.2+`
    candidates; stable `v1.0.5` is built/cosigned/published and moves the tap
    only after those rows pass or receive explicit operator disposition.
+   RC.1 is immutable at `032d3a12` (CI `29856150356`) and its WSL2 row failed
+   on 2026-07-21 after exposing cross-process Settings YAML, confirmed systemd
+   lifecycle, and configured Windows-host Ollama readiness/onboarding/TUI
+   defects. The signed install, real model marker, and safe uninstall remain
+   diagnostic evidence, not a carried acceptance PASS. v1.0.5 M8.1-M8.5 now
+   repair those roots, wire permanent `release.v105` regressions, and publish
+   RC.2 before repeating macOS, both Linux artifacts, WSL2, and real-host Linux.
    Neither prior immutable tag is moved, and this corrective line contains no
    feature scope.
    Plan:
