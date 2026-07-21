@@ -39,8 +39,10 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    the binary moved to 1.0.3.
    Plan: [v1.0.2-plan.md](archives/v1.0.2-plan.md) +
    [v1.0.2-request-flow.md](archives/v1.0.2-request-flow.md).
-3. **1.0.3 (release candidate; M10 in progress)** — Test Suite Speed &
-   Isolation phase 2 **and the catch-up binary release** (operator final scope
+3. **1.0.3 — PUBLISHED, BINARY ACCEPTANCE NOT CLOSED** (tagged `v1.0.3`
+   at `329b9d28` on 2026-07-20; CI run `29797899746`; tap commit
+   `28ef6c2`) — Test Suite Speed &
+   Isolation phase 2 **and the attempted catch-up binary release** (operator final scope
    disposition 2026-07-20): the five ADR 0086 conversion contracts (sandbox
    ownership, app-env context, named-process injection, per-test homes,
    external-runtime partitioning go/no-go), four red-first pilots, retirement
@@ -48,16 +50,30 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    measured decide-turn remediation, bounded dependency refresh, then the
    transferred M10 catch-up publication —
    tag → CI/cosign → tap 1.0.0→1.0.3 → packaged validation; the artifact
-   line then carries the v1.0.1 + v1.0.2 + v1.0.3 fixes together. The bounded
+   line carries the v1.0.1 + v1.0.2 + v1.0.3 source fixes together. Publication
+   and tap fill succeeded, but the macOS packaged-browser row failed because
+   the artifacts contained the bridge manifests without `node_modules` or a
+   Chromium payload. The immutable tag is not moved; the operator transferred
+   the unmet binary acceptance to immediate hotfix v1.0.4 on 2026-07-20. The bounded
    conversion waves shipped no lane move: M5(a) was parked and M5(b) stopped
    with zero conversions; their production prerequisites and the unrun 2-VM
    external-runtime experiment remain intake candidates pending later operator
    disposition, with no v1.0.3 lane-floor claim. Plan: [v1.0.3-plan.md](v1.0.3-plan.md) +
-   [v1.0.3-request-flow.md](v1.0.3-request-flow.md) + ADR 0086. Later
+   [v1.0.3-request-flow.md](v1.0.3-request-flow.md) + ADR 0086.
+4. **1.0.4 (approved hotfix; M0 in progress)** — Packaged Browser Recovery.
+   Assemble the lockfile-pinned Playwright package tree and target Chromium
+   into every artifact, force hermetic runtime resolution, add a live packaged
+   browser doctor to all three matrix smokes, repair the operator-flow drift
+   found during v1.0.3 M10, and repeat tag/cosign/Release/tap/platform
+   validation. This release contains no new feature scope; it exists solely
+   because published v1.0.3 did not meet its own binary Definition of Done.
+   Real-host Linux and WSL2 remain operator-held closeout barriers. Plan:
+   [v1.0.4-plan.md](v1.0.4-plan.md) +
+   [v1.0.4-request-flow.md](v1.0.4-request-flow.md) + amended ADR 0040. Later
    1.0.x: intent-pipeline refinements (opportunistic), technical-debt
    train. (The vendored `:memento` removal landed early at 1.0.1's M5
    refresh — ADR 0050 superseded.)
-4. **1.1 — Asynchronous Background Agent Fan-Out With In-Channel Steering.**
+5. **1.1 — Asynchronous Background Agent Fan-Out With In-Channel Steering.**
    (Operator intake 2026-07-18, inserted foundational-first. **Planned:**
    `docs/plans/v1.1-plan.md` + request-flow + ADR 0083/0084/0085.) On a prompt
    that decomposes into multiple tasks, Allbert delivers a kickoff receipt,
@@ -73,26 +89,26 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    merged mid-action interruption + child-process cancellation enablers and
    the app-registry action-boundary membership check (operator-pulled,
    2026-07-18).
-5. **1.2 — Zero-Click First Run.** Chat-ready default with an auto-detected local
+6. **1.2 — Zero-Click First Run.** Chat-ready default with an auto-detected local
    model; onboarding optional and step-addressable; consent ADR; TUI first-run scope
    folded in. Enablers: model chooser/catalog, model fallback/degradation policy.
-6. **1.3 — Long-Term User Memory.** Research phase first (STM/LTM/usage-history onto
+7. **1.3 — Long-Term User Memory.** Research phase first (STM/LTM/usage-history onto
    the Active Memory substrate), then periodic consolidation to reviewable drafts and
    prompt-time context for zero-shot answers. Horizon items: free-form provider URLs,
    non-local bind hardening.
-7. **1.4 — Adaptive Usage Profiling.** System usage memory + distill/suggest jobs +
+8. **1.4 — Adaptive Usage Profiling.** System usage memory + distill/suggest jobs +
    one-click confirmed customizations + effectiveness feedback. Per-role model
    profiles and proactive notifications ride here.
-8. **1.5 / 1.6 — enabler releases.** Migration-runner cluster (runner + telegram/email
+9. **1.5 / 1.6 — enabler releases.** Migration-runner cluster (runner + telegram/email
    settings migration + legacy `intent.*model_profile` removal + automated rollback;
    pulled earlier if any prior release needs a non-additive migration), email OAuth
    (XOAUTH2), MCP 2025-11-25 spec parity, full param-contract enforcement,
    PermissionGate deletion. (Mid-action interruption, child-process
    cancellation, and the app-registry boundary check moved into 1.1.)
-9. **Beyond** — System Memory Distillation is the post-profiling co-flagship
+10. **Beyond** — System Memory Distillation is the post-profiling co-flagship
    candidate; the Won't-now cluster stays in future-features.md with its review
    cadence.
-10. **2.0 horizon — Self-Hosting Development.** Allbert develops Allbert (pi-mode
+11. **2.0 horizon — Self-Hosting Development.** Allbert develops Allbert (pi-mode
    target on its own checkout; plan/build/test/document roles in-product, supervised).
    Its OAuth hosted-LLM providers sub-capability (Claude/OpenAI/Gemini subscription
    plans, not just API keys) lands earlier on the 1.5/1.6 enabler train.

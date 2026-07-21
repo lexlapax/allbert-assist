@@ -10,21 +10,38 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v1.0.4 - Packaged Browser Recovery
+
+Status: **approved hotfix; implementation in progress.** v1.0.4 exists because
+published v1.0.3 passed source gates, CI publication, cosign, and tap fill but
+failed its required macOS packaged-browser acceptance: the artifact staged the
+Playwright bridge and manifests while omitting `node_modules` and Chromium, so
+`browser_doctor` exited with `Cannot find module 'playwright/package.json'`.
+The immutable v1.0.3 tag remains at `329b9d28`; the operator transferred its
+unmet binary acceptance to v1.0.4 on 2026-07-20.
+
+This hotfix is bounded to release-owned browser payload assembly and hermetic
+resolution, a live packaged doctor in all three artifact matrix jobs, the
+operator-runbook corrections exposed by the v1.0.3 rehearsal, and a repeat of
+the binary ceremony/platform ledger. It adds no feature scope. See
+`docs/plans/v1.0.4-plan.md`, its request-flow, and the v1.0.4 amendment to ADR
+0040 for the acceptance contract.
+
 ## v1.0.3 - Test Isolation Phase 2 & Catch-up Binary Release
 
-Status: **release candidate complete; M10 pre-tag reconciliation in progress.**
-The full four-gate cascade passed at `c1c85182` and was re-rolled at pushed
-clean SHA `3999c115` (62 passed, `dirty: false` metrics rows). The M10
-reconciliation commit becomes the tag candidate and receives the same cascade
-before tagging. This is the packaged catch-up: the artifact line advances
-1.0.0 → 1.0.3 carrying the v1.0.1 + v1.0.2 + v1.0.3 fixes together.
+Status: **published 2026-07-20; binary acceptance not closed.** The tag is
+`v1.0.3` at `329b9d28`; CI run `29797899746` built/cosigned/published all three
+artifacts; the tap moved to 1.0.3 at `28ef6c2`. macOS curl/Homebrew install,
+health/attach, ACP, TUI, and both Linux container artifacts passed. Packaged
+browser acceptance failed because the artifact omitted the Playwright package
+tree and Chromium. Real-host Linux and WSL2 also remained outstanding. The
+tag/assets are immutable and are not described as closed; the operator
+authorized v1.0.4 to repair and complete these rows.
 
-**Formula state: PRE-PUBLICATION ONLY.** `homebrew/allbert.rb` stays on
-packaged Latest 1.0.0 through the RC; in M10 the tap is filled only after
-published 1.0.3 checksums exist, then that filled formula is synced back into
-the repository
-after the platform ledger is accepted. This marker must be removed in the
-post-tag administrative closeout when project/formula equality is restored.
+**Formula state:** the public tap is 1.0.3. The repository formula remains on
+the older source template until the accepted hotfix closeout syncs the newly
+published formula; this is recorded release administration, not evidence that
+v1.0.3 met its packaged Definition of Done.
 
 **Acceptance basis (operator decision, 2026-07-20): the 20-seed monolith RC
 campaign is SKIPPED.** v1.0.3 ships on the two banked clean scratchpad seeds

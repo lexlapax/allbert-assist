@@ -21,7 +21,7 @@ replace the binary-release obligation of a versioned feature plan.
 Set this once from the release checkout; every active command below consumes it:
 
 ```sh
-export VERSION="${VERSION:?set VERSION, for example v1.0.3}"
+export VERSION="${VERSION:?set VERSION, for example v1.0.4}"
 export EXPECTED_VERSION="${VERSION#v}"
 export REPO="${REPO:-lexlapax/allbert-assist}"
 export EVIDENCE_ROOT="${EVIDENCE_ROOT:-$(mktemp -d /tmp/allbert-release-evidence.XXXXXX)}"
@@ -138,6 +138,9 @@ Audit and publish from the tap checkout:
 cd "$TAP_CHECKOUT"
 git diff -- Formula/allbert.rb
 rg -n 'PLACEHOLDER|TODO|sha256' Formula/allbert.rb
+if brew tap | rg -qx 'lexlapax/allbert'; then
+  brew untap --force lexlapax/allbert
+fi
 brew tap lexlapax/allbert "$TAP_CHECKOUT" --custom-remote
 brew trust --formula lexlapax/allbert/allbert
 brew audit --strict --online --formula allbert
@@ -149,6 +152,10 @@ git push origin main
 Evidence to record: tap commit hash, audit output, `brew info lexlapax/allbert/allbert`
 showing the current version, the three formula SHA256 rows, and confirmation that no
 placeholder checksum or old release URL remains.
+
+The explicit untap/retap above is required when auditing a freshly cloned tap.
+`brew tap` against an already-registered custom remote can leave Homebrew reading
+an older local worktree even after the upstream tap was pushed.
 
 The repository copy is the formula source of truth. After every required platform
 row is PASS or has an operator-approved policy SKIP, sync the filled tap formula back
@@ -162,7 +169,7 @@ rg -n 'PLACEHOLDER|REPLACE_' homebrew/allbert.rb && exit 1 || true
 test "$(rg -c "releases/download/$VERSION" homebrew/allbert.rb)" -eq 3
 ```
 
-PASS: repository and tap formulae are byte-identical, name 1.0.3, contain the
+PASS: repository and tap formulae are byte-identical, name `$EXPECTED_VERSION`, contain the
 three published checksums, and have no placeholder or old-release URL. Commit this
 with the post-tag documentation/roadmap archival; never move the product tag.
 
@@ -175,20 +182,20 @@ Do this on each Tier-1 OS path that is in scope. Install/uninstall must not touc
 the operator's real Allbert Home (`~/.allbert`) unless `--purge` is explicitly
 requested; set a disposable `ALLBERT_HOME` for rehearsal.
 
-For v1.0.3 catch-up, the required ledger is macOS; linux-x64 and linux-arm64
-container artifacts; a real-host Linux service/vault row (PASS or
-policy-owned SKIP); and WSL2 using the Linux tarball (PASS or operator-owned
-SKIP). Record CI run id, tag/release URL, asset inventory, cosign transcript,
-tap commit/audit, install transcript, TUI, channel-send, ACP, browser,
-service/vault, and preserved-Home uninstall evidence under `EVIDENCE_ROOT`.
+The active plan defines the exact platform ledger. v1.0.4 requires macOS;
+linux-x64 and linux-arm64 container artifacts; a real-host Linux
+service/vault/browser row; and WSL2 using the Linux tarball. Record CI run id,
+tag/release URL, asset inventory, cosign transcript, tap commit/audit, install
+transcript, TUI, channel-send, ACP, browser, service/vault, and preserved-Home
+uninstall evidence under `EVIDENCE_ROOT`.
 
-### Windows / WSL2 Tier-2 catch-up (v1.0.3)
+### Windows / WSL2 Tier-2 validation
 
 Inside WSL2, use a disposable Home and install the published linux-x64
 tarball through the same verified installer path:
 
 ```sh
-export VERSION="${VERSION:-v1.0.3}"
+export VERSION="${VERSION:?set VERSION, for example v1.0.4}"
 export EXPECTED_VERSION="${VERSION#v}"
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-wsl2-home.XXXXXX)"
 export ALLBERT_VERSION="$VERSION"
@@ -197,13 +204,16 @@ export PATH="$HOME/.local/bin:$PATH"
 test "$(allbert --version)" = "allbert $EXPECTED_VERSION"
 allbert admin status
 allbert admin vault
+command -v node
+allbert admin settings set browser.enabled true
+allbert eval 'Application.ensure_all_started(:allbert_assist); IO.inspect(AllbertAssist.Actions.Runner.run("browser_doctor", %{}, %{actor: "release", channel: :cli}))'
 ```
 
 Then attest first chat against a real configured local model, one warm TUI
-session, and service install/status/uninstall basics. PASS requires the
-published Linux artifact, not a source checkout. A SKIP requires an owner,
-policy reason, and follow-up location; absence of a WSL2 host is not silently
-treated as PASS.
+session with no daemon running, and service install/status/uninstall basics.
+PASS requires the published Linux artifact, a live browser doctor reporting
+`ok`, and not a source checkout. A SKIP requires an owner, policy reason, and
+follow-up location; absence of a WSL2 host is not silently treated as PASS.
 
 ### curl installer (macOS + Linux)
 
@@ -227,6 +237,10 @@ test "$(allbert --version)" = "allbert $EXPECTED_VERSION"
 allbert admin status
 brew test allbert
 ```
+
+The browser plugin has an explicit Node host prerequisite. The Homebrew formula
+declares it; standalone/curl hosts must install a supported `node` before
+running browser doctor. Allbert never invokes a package manager to install it.
 
 Before the tap commit is pushed, validate the local formula path instead:
 
@@ -330,10 +344,15 @@ test -d "$ALLBERT_HOME"                           # expected unless --purge was 
 ## 4. Packaged TUI Rehearsal
 
 The TUI proof must run from the packaged binary (`allbert tui`), not from
-`mix allbert.tui`.
+`mix allbert.tui`. Stop and wait for any foreground daemon first: the daemon
+and the standalone TUI cannot both own the same SQLite Home.
 
 ```sh
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-release-tui.XXXXXX)"
+if pgrep -f 'allbert.*serve' >/dev/null; then
+  echo 'STOP: an Allbert daemon is still running; stop it and wait before TUI'
+  exit 1
+fi
 allbert admin settings set channels.tui.identity_map \
   '[{"external_user_id":"default","user_id":"local","enabled":true}]'
 allbert admin settings set channels.tui.enabled true
@@ -352,6 +371,38 @@ Inside the session:
 
 Record the redacted transcript path and whether every slash read rendered
 in-session without using cold Mix inspection tasks.
+
+### Packaged browser doctor and workspace
+
+Use the packaged binary, an explicit browser/research setting, and the
+`localhost` origin accepted by the endpoint configuration:
+
+```sh
+command -v node
+allbert admin settings set browser.enabled true
+allbert admin settings set research.enabled true
+allbert eval 'Application.ensure_all_started(:allbert_assist); IO.inspect(AllbertAssist.Actions.Runner.run("browser_doctor", %{}, %{actor: "release", channel: :cli}))' \
+  | tee "$EVIDENCE_ROOT/${VERSION}-browser-doctor.log"
+rg 'live_check_status: :ok|"live_check_status":"ok"' \
+  "$EVIDENCE_ROOT/${VERSION}-browser-doctor.log"
+allbert serve > "$EVIDENCE_ROOT/${VERSION}-browser-serve.log" 2>&1 &
+BROWSER_DAEMON_PID=$!
+trap 'kill "$BROWSER_DAEMON_PID" 2>/dev/null || true' EXIT INT TERM
+for _ in $(seq 1 30); do
+  curl -fsS http://localhost:4000/health && break
+  sleep 1
+done
+open http://localhost:4000/workspace  # macOS; use the host browser on Linux
+# Run the active plan's real configured-provider browser-research prompt and
+# record its redacted transcript and screenshot reference.
+kill "$BROWSER_DAEMON_PID"
+wait "$BROWSER_DAEMON_PID" 2>/dev/null || true
+trap - EXIT INT TERM
+```
+
+PASS: the doctor launches packaged Chromium and reports `ok`; the workspace is
+served at `localhost`; research navigates/extracts through the real configured
+provider; cleanup stops the daemon before any subsequent TUI run.
 
 ## 5. Docker Linux Package Rehearsals
 
@@ -380,7 +431,12 @@ mkdir -p "$WORK/artifacts"
 gh release download "$VERSION" --repo "$REPO" \
   --pattern "allbert-${VERSION}-linux-*.tar.gz" \
   --pattern SHA256SUMS \
+  --pattern SHA256SUMS.cosign.bundle \
   --dir "$WORK/artifacts"
+cosign verify-blob --bundle "$WORK/artifacts/SHA256SUMS.cosign.bundle" \
+  "$WORK/artifacts/SHA256SUMS" \
+  --certificate-identity "https://github.com/lexlapax/allbert-assist/.github/workflows/release-artifacts.yml@refs/tags/$VERSION" \
+  --certificate-oidc-issuer 'https://token.actions.githubusercontent.com'
 ```
 
 Run both Linux targets:
@@ -394,7 +450,7 @@ docker run --rm --platform linux/arm64 \
   ubuntu:22.04 \
   bash -lc 'set -euo pipefail
     apt-get update
-    apt-get install -y ca-certificates curl tar gzip libstdc++6 openssl
+    apt-get install -y ca-certificates curl tar gzip libstdc++6 openssl nodejs
     useradd -m -u 1000 allbert
     mkdir -p /tmp/rehearsal
     cp -R /work/artifacts /tmp/rehearsal/artifacts
@@ -415,7 +471,7 @@ docker run --rm --platform linux/amd64 \
   ubuntu:22.04 \
   bash -lc 'set -euo pipefail
     apt-get update
-    apt-get install -y ca-certificates curl tar gzip libstdc++6 openssl
+    apt-get install -y ca-certificates curl tar gzip libstdc++6 openssl nodejs
     useradd -m -u 1000 allbert
     mkdir -p /tmp/rehearsal
     cp -R /work/artifacts /tmp/rehearsal/artifacts

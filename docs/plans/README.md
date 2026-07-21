@@ -7,6 +7,10 @@ plan and request-flow documents.
 ## Current And Next
 
 - [Roadmap](roadmap.md)
+- [v1.0.4 packaged-browser recovery plan](v1.0.4-plan.md) and
+  [request flow](v1.0.4-request-flow.md)
+- [v1.0.3 published-but-unclosed release record](v1.0.3-plan.md) and
+  [request flow](v1.0.3-request-flow.md)
 - [Allbert Jido vision](allbert-jido-vision.md)
 - [Future features](future-features.md)
 
