@@ -115,12 +115,13 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert phase_runner_source =~ ~s(TestMetrics.record)
     assert phase_runner_source =~ ~s(phase_or_step: phase.id)
 
-    # (c) release.v1/v101/v102/v103/v104 step runners record one run per step.
+    # (c) release.v1/v101/v102/v103/v104/v105 step runners record one run per step.
     assert task_source =~ ~s(gate: "release.v1",)
     assert task_source =~ ~s(gate: "release.v101",)
     assert task_source =~ ~s(gate: "release.v102",)
     assert task_source =~ ~s(gate: "release.v103",)
     assert task_source =~ ~s(gate: "release.v104",)
+    assert task_source =~ ~s(gate: "release.v105",)
 
     # metrics subcommand + usage surface (M8.10: run/1 captures the
     # invocation for provenance and dispatches through do_run/1).
@@ -356,7 +357,14 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
         Path.expand("../../../lib/mix/tasks/allbert.test.ex", __DIR__)
         |> File.read!()
 
-      for gate <- ["release.v1", "release.v101", "release.v102", "release.v103", "release.v104"] do
+      for gate <- [
+            "release.v1",
+            "release.v101",
+            "release.v102",
+            "release.v103",
+            "release.v104",
+            "release.v105"
+          ] do
         assert task_source =~ ~s{release_step_status("#{gate}", step.id, exit_status, output)}
       end
     end
@@ -435,6 +443,18 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
 
         assert task_source =~ rel
       end
+    end
+
+    test "release.v105 carries the v1.0.4 contracts and the platform port regression" do
+      task_source =
+        Path.expand("../../../lib/mix/tasks/allbert.test.ex", __DIR__)
+        |> File.read!()
+
+      assert task_source =~ ~s{defp do_run(["release.v105"]), do: release_v105()}
+      assert task_source =~ ~s(mix allbert.test release.v105)
+      assert task_source =~ ~s(id: "v105_platform_port_visibility")
+      assert task_source =~ ~s(test/allbert_assist/browser/playwright_driver_test.exs)
+      assert task_source =~ ~s(@release_v105_steps @release_v104_steps ++ @v105_focused_steps)
     end
   end
 

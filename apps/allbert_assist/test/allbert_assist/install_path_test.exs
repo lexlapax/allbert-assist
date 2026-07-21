@@ -145,11 +145,19 @@ defmodule AllbertAssist.InstallPathTest do
           normalized =~ "that filled formula is synced back into the repository"
 
       immutable_hotfix_recovery? =
-        (normalized =~ "published v1.0.3" or normalized =~ "Published v1.0.3") and
-          normalized =~ "public tap is 1.0.3" and
-          normalized =~ "repository formula remains on #{formula_version}" and
-          normalized =~ "accepted hotfix closeout" and
-          normalized =~ "v1.0.4"
+        case Regex.run(~r/public tap is (\d+\.\d+\.\d+)/i, normalized) do
+          [_, tap_version] ->
+            tap_version not in [formula_version, project] and
+              (normalized =~ "published v#{tap_version}" or
+                 normalized =~ "Published v#{tap_version}") and
+              normalized =~ "repository formula remains on #{formula_version}" and
+              normalized =~ "tap moves #{tap_version} → #{project}" and
+              normalized =~ "that filled formula is synced back into the repository" and
+              normalized =~ "accepted corrective closeout"
+
+          _other ->
+            false
+        end
 
       assert skip_artifacts_tag? or binary_rc_fill? or immutable_hotfix_recovery?,
              "CHANGELOG v#{project} must document the formula lag as either a " <>

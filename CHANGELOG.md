@@ -12,8 +12,8 @@ changelog entries or release notes.
 
 ## v1.0.5 - macOS Packaged Browser Port Correction
 
-Status: **operator-approved corrective candidate; platform fix implemented,
-candidate assembly pending.** Published v1.0.4 proved
+Status: **operator-approved corrective candidate assembled; clean-SHA gates
+and publication pending.** Published v1.0.4 proved
 the external browser-runtime ownership model and both Linux artifacts, but its
 macOS Homebrew `browser_doctor` crashed OS Chrome in
 `TransformProcessType`. Isolation proved direct headless Chrome, direct
@@ -34,8 +34,16 @@ moved or rewritten.
 The red-first driver regression now proves Windows includes `:hide` while
 Darwin/Linux omit it. The focused suite passed (4 tests, 0 failures), and a
 real source-build macOS doctor through BEAM launched OS Chrome 150 through the
-external Playwright 1.58.2 root without a new crash. Version/gate/publication
-work remains M6.3.
+external Playwright 1.58.2 root without a new crash. The 1.0.5 version trio,
+service-worker gzip, `release.v105`, and 3,228-row no-loss manifest are
+assembled; the clean-SHA cascade and publication remain M6.3.
+
+**Formula state: PRE-PUBLICATION ONLY.** The public tap is 1.0.4 while this
+repository formula remains on 1.0.0, its last reconciled value, until v1.0.5
+has real published checksums. At publication the tap moves 1.0.4 → 1.0.5; that
+filled formula is synced back into the repository during the accepted
+corrective closeout. This lag is explicit release administration, not a claim
+that v1.0.5 already exists.
 
 ## v1.0.4 - Packaged Browser Recovery
 

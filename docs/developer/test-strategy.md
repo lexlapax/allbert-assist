@@ -1168,6 +1168,24 @@ preverified-stage path. Tag-triggered runs keep the real local cosign-bundle +
 installer path, so publication still depends on proof under the exact release
 identity rather than a permissive branch exception.
 
+### v1.0.5 macOS Port-Visibility Gate — 2026-07-21
+
+`mix allbert.test release.v105` is the corrective source gate. It preserves the
+complete `release.v104` step set and appends the separately named
+`v105_platform_port_visibility` step. That step runs the complete
+`playwright_driver_test.exs` file and proves the real `Playwright.verify/1`
+path passes `:hide` to `Port.open/2` only for `{:win32, _}` while Darwin/Linux
+omit it. The file-level duplication with the inherited v1.0.4 runtime-contract
+step is intentional: release steps never select `file:LINE`, and the shared
+zero-test guard remains load-bearing.
+
+The source regression does not replace the packaged product proof. Native CI
+must still prove all three external-runtime boundaries/live doctors, and the
+macOS Homebrew rehearsal must launch OS Chrome through the packaged BEAM
+driver without SIGABRT. The v1.0.5 inventory is 3,228 rows across 524
+reconciled files after the two new regression identities; `--check-tags` and
+`--check-manifest` must pass at the clean candidate SHA.
+
 **M5(b) liveview floor (measured, not collected).** The three top liveview
 files run **658.2 s serial vs 226.8 s at 4-way concurrency (2.9× / 431 s on 48
 tests)** — the largest single lever in phase 2 — but it is gated behind three

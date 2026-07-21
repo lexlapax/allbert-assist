@@ -51,6 +51,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v102
       mix allbert.test release.v103
       mix allbert.test release.v104
+      mix allbert.test release.v105
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
@@ -183,6 +184,7 @@ defmodule Mix.Tasks.Allbert.Test do
   defp do_run(["release.v102"]), do: release_v102()
   defp do_run(["release.v103"]), do: release_v103()
   defp do_run(["release.v104"]), do: release_v104()
+  defp do_run(["release.v105"]), do: release_v105()
   defp do_run(["external-smoke" | rest]), do: external_smoke(rest)
   defp do_run(_args), do: usage!()
 
@@ -6398,7 +6400,7 @@ defmodule Mix.Tasks.Allbert.Test do
     },
     %{
       id: "v104_version_consistency",
-      title: "mix applications and service-worker cache identify v1.0.4",
+      title: "mix applications and service-worker cache identify one current release version",
       cwd: :web,
       executable: "mix",
       args: ["test", "test/allbert_assist_web/version_consistency_test.exs"],
@@ -6473,6 +6475,94 @@ defmodule Mix.Tasks.Allbert.Test do
 
     TestMetrics.record(%{
       gate: "release.v104",
+      command: gate_command(),
+      cwd: Path.relative_to(cwd, root()),
+      phase_or_step: step.id,
+      status: status,
+      wall_ms: duration_ms,
+      output: output
+    })
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: status,
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
+  # v1.0.5 preserves every v1.0.4 recovery contract and adds an explicit
+  # regression for the platform-specific Erlang port visibility option.
+  @v105_focused_steps [
+    %{
+      id: "v105_platform_port_visibility",
+      title: "Playwright bridge hides its console only on Windows",
+      cwd: :core,
+      executable: "mix",
+      args: ["test", "test/allbert_assist/browser/playwright_driver_test.exs"],
+      coverage: [
+        "Windows retains :hide while Darwin/Linux omit it, preventing the packaged macOS Chrome TransformProcessType crash"
+      ]
+    }
+  ]
+
+  @release_v105_steps @release_v104_steps ++ @v105_focused_steps
+
+  defp release_v105 do
+    env = owned_env("release-v105", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v105")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v105_steps, &run_release_v105_step(&1, env))
+    status = if Enum.all?(results, &(&1.status == "passed")), do: "passed", else: "failed"
+
+    evidence = %{
+      gate: "mix allbert.test release.v105",
+      version: "v1.0.5",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; release.v105 proves source contracts only. Native CI supplies host-managed Node, Playwright, and the OS browser, then requires every extracted artifact to pass the live doctor.",
+      notes:
+        "v1.0.5 macOS packaged-browser correction: the complete release.v104 step set plus the explicit Windows-only port-visibility regression.",
+      steps: results
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v105-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v105 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v105 failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v105_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v105 #{step.id}", output)
+    status = release_step_status("release.v105", step.id, exit_status, output)
+
+    TestMetrics.record(%{
+      gate: "release.v105",
       command: gate_command(),
       cwd: Path.relative_to(cwd, root()),
       phase_or_step: step.id,
@@ -8760,6 +8850,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v102
       mix allbert.test release.v103
       mix allbert.test release.v104
+      mix allbert.test release.v105
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate

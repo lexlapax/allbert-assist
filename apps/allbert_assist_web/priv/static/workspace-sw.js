@@ -1,4 +1,4 @@
-const CACHE_NAME = "allbert-workspace-shell-v1.0.4";
+const CACHE_NAME = "allbert-workspace-shell-v1.0.5";
 const OFFLINE_SHELL_URL = "/workspace-offline.html";
 const DEFAULT_SHELL_ASSETS = [
   OFFLINE_SHELL_URL,

@@ -50,7 +50,7 @@ esac
 # an unverified Linux cosign binary inside the container.
 if [ -n "${ALLBERT_REHEARSAL_PREVERIFIED_STAGE:-}" ]; then
   STAGE="$(cd "$ALLBERT_REHEARSAL_PREVERIFIED_STAGE" && pwd)"
-  VERSION="${ALLBERT_REHEARSAL_VERSION:?set ALLBERT_REHEARSAL_VERSION (for example v1.0.4)}"
+  VERSION="${ALLBERT_REHEARSAL_VERSION:?set ALLBERT_REHEARSAL_VERSION (for example v1.0.5)}"
   VERSION="v${VERSION#v}"
   ARTIFACT="allbert-${VERSION}-${TARGET}.tar.gz"
   [ -f "$STAGE/$ARTIFACT" ] || fail install-preverified "missing $STAGE/$ARTIFACT"
