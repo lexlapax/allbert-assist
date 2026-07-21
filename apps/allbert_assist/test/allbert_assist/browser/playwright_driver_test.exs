@@ -6,6 +6,33 @@ defmodule AllbertAssist.Browser.PlaywrightDriverTest do
 
   @repo_root Path.expand("../../../../../", __DIR__)
 
+  test "the bridge hides its console only on Windows" do
+    node = fake_node()
+    caller = self()
+
+    port_open = fn command, options ->
+      send(caller, {:port_options, options})
+      Port.open(command, options)
+    end
+
+    for {os_type, hide?} <- [
+          {{:win32, :nt}, true},
+          {{:unix, :darwin}, false},
+          {{:unix, :linux}, false}
+        ] do
+      assert {:ok, _result} =
+               Playwright.verify(
+                 node_path: node,
+                 timeout_ms: 2_000,
+                 os_type: os_type,
+                 port_open: port_open
+               )
+
+      assert_receive {:port_options, options}
+      assert :hide in options == hide?
+    end
+  end
+
   test "the bridge process preserves host-managed runtime paths" do
     node = fake_node()
 

@@ -187,24 +187,31 @@ defmodule AllbertBrowser.Driver.Playwright do
   defp open_bridge(opts) do
     with {:ok, node} <- node_path(opts),
          {:ok, bridge} <- bridge_path(opts) do
-      port_opts = [
-        :binary,
-        :exit_status,
-        :hide,
-        :use_stdio,
-        {:args, [bridge]},
-        {:cd, Path.dirname(bridge)},
-        {:line, @line_max_bytes},
-        {:env, port_env(opts)}
-      ]
+      port_opts =
+        [
+          :binary,
+          :exit_status
+        ] ++
+          visibility_options(Keyword.get(opts, :os_type, :os.type())) ++
+          [
+            :use_stdio,
+            {:args, [bridge]},
+            {:cd, Path.dirname(bridge)},
+            {:line, @line_max_bytes},
+            {:env, port_env(opts)}
+          ]
 
-      {:ok, Port.open({:spawn_executable, node}, port_opts)}
+      port_open = Keyword.get(opts, :port_open, &Port.open/2)
+      {:ok, port_open.({:spawn_executable, node}, port_opts)}
     end
   rescue
     exception -> {:error, {:playwright_bridge_start_failed, Exception.message(exception)}}
   catch
     :exit, reason -> {:error, {:playwright_bridge_start_failed, reason}}
   end
+
+  defp visibility_options({:win32, _name}), do: [:hide]
+  defp visibility_options(_os_type), do: []
 
   defp command(port, op, params, timeout_ms) do
     id = "pw-#{System.unique_integer([:positive])}"

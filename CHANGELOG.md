@@ -12,7 +12,8 @@ changelog entries or release notes.
 
 ## v1.0.5 - macOS Packaged Browser Port Correction
 
-Status: **operator-approved corrective candidate.** Published v1.0.4 proved
+Status: **operator-approved corrective candidate; platform fix implemented,
+candidate assembly pending.** Published v1.0.4 proved
 the external browser-runtime ownership model and both Linux artifacts, but its
 macOS Homebrew `browser_doctor` crashed OS Chrome in
 `TransformProcessType`. Isolation proved direct headless Chrome, direct
@@ -29,6 +30,12 @@ Chromium, `node_modules`, and browser caches remain forbidden artifact content;
 the host-package prerequisite contract from v1.0.4 is unchanged. The immutable
 v1.0.4 tag remains at `337e3ddbbc14a3832d700d2ac63655a2e068c721` and is not
 moved or rewritten.
+
+The red-first driver regression now proves Windows includes `:hide` while
+Darwin/Linux omit it. The focused suite passed (4 tests, 0 failures), and a
+real source-build macOS doctor through BEAM launched OS Chrome 150 through the
+external Playwright 1.58.2 root without a new crash. Version/gate/publication
+work remains M6.3.
 
 ## v1.0.4 - Packaged Browser Recovery
 
