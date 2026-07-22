@@ -97,7 +97,7 @@ nothing and follows the existing no-confirmation precedent of
    ordinary-child behavior, but their maximum containment strength is not
    claimed to be identical.
 4. **Cancel is not an authority event, and needs no confirmation.**
-   `cancel_objective_run` (registered action, `confirmation: :none`) follows
+   `cancel_objective_run` (registered action, `confirmation: :not_required`) follows
    the `Objectives.cancel/3` precedent: a user/operator cancelling their own
    run is the safety action. What cancel may never do is masquerade as
    approval or run new effectful work; a steer-then-retry after cancel goes
@@ -143,8 +143,10 @@ nothing and follows the existing no-confirmation precedent of
 - Platform nuance is contained behind the execution-owner protocol. macOS
   and Linux share the Tier-1 user-visible cancellation contract for ordinary
   process-group members; Linux cgroups/containers can provide stronger
-  descendant containment. Windows/WSL2 stays out of scope with
-  the standing WSL2 deferral.
+  descendant containment. WSL2 must pass cooperative and supervised
+  cancellation using the packaged Linux artifact; descendant containment
+  beyond ordinary process-group members remains Tier-2 best-effort and is
+  reported explicitly. Native Windows packaging remains out of scope.
 
 ## Validation
 
@@ -163,6 +165,9 @@ nothing and follows the existing no-confirmation precedent of
   closed stdio, high-volume output, exit-during-cancel, and a session-escape
   case whose documented result distinguishes process-group from
   cgroup/container containment.
+- WSL2 acceptance exercises cooperative cancellation and supervised shutdown
+  from the packaged Linux artifact and records the best-effort descendant-
+  containment result without claiming native-Linux cgroup equivalence.
 - v1.1 M8: end-to-end in-channel cancel against a live fan-out (focused
   integration test + the §J validation matrix row 11: `ps` proves no orphan).
 - v1.1 M10: `fanout-cancel-kill-scope-001` gate-bound in `release.v11`;

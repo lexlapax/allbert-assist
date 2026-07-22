@@ -48,8 +48,9 @@ sequenced one per minor, foundational-first:
   migration-runner cluster (runner + telegram/email settings migration + legacy
   intent.*model_profile removal + automated rollback — pulled EARLIER if any 1.1-1.4
   release needs a non-additive migration), email OAuth, MCP spec parity,
-  param-contract completion, PermissionGate deletion, mid-action interruption +
-  child-process cancellation, app-registry boundary check. System Memory
+  param-contract completion, PermissionGate deletion. Mid-action interruption,
+  child-process cancellation, and the app-registry boundary check are planned
+  in 1.1. System Memory
   Distillation remains the post-profiling co-flagship candidate. **2.0 horizon**:
   Self-Hosting Development (Allbert develops Allbert, pi-mode target), with OAuth
   hosted-LLM providers landing earlier on the 1.5/1.6 enabler train.
@@ -134,7 +135,7 @@ Deferred at: `v0.54-plan:133`.
 
 Class: Should (confirmed 2026-07-14) · Effort: S · Slice: 1.1 (operator-confirmed 2026-07-18 over the roadmap's 1.5/1.6 listing) · Verify first: whether later releases already added a boundary check
 
-Status: planned — `docs/plans/v1.1-plan.md` M0 (verify) + M7 (implementation).
+Status: planned — `docs/plans/v1.1-plan.md` M0 (verify) + M2 (implementation).
 
 v0.15 deferred validating app-registry membership at the action boundary
 (actions trusting the caller-supplied app identity).

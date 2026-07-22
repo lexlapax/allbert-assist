@@ -57,11 +57,13 @@ and gate-bound abuse-case coverage.
 0. **Consent may be granted in-channel exactly once, via typed command.**
    (Operator readiness-audit addition, 2026-07-18.) A channel's FIRST fan-out
    kickoff ack may append a ONE-TIME offer — `ALLBERT:NOTIFY:ON` (buttons
-   where the channel has them). Accepting writes
-   `channels.<id>.autonomous_notify.enabled=true` through the standard
-   audited settings path with channel-identity re-proof (the
-   `ConfirmationCallback` typed-command family); dismissal or any answer
-   retires the offer durably (per-channel offered marker) — it never
+   where the channel has them). Accepting invokes registered
+   `configure_channel_setting` through Runner to write
+   `channels.<id>.autonomous_notify.enabled=true`; a dedicated callback
+   re-proves channel/user identity under the same rules as
+   `ConfirmationCallback`. Successful offer delivery writes the durable
+   per-channel marker, so ignoring, dismissal, or any answer never causes a
+   repeat. It never
    repeats. Free text NEVER changes the setting; only the typed
    command/button path does. This is a consent-capture affordance, not a
    second authority path: the setting it writes is the same one, with the
@@ -96,15 +98,22 @@ and gate-bound abuse-case coverage.
    permitted by `level`; (d) throttle/coalescing window respected; (e)
    Security Central policy consult (the class is deniable by policy
    independent of settings); (f) target re-derivation: the transport target
-   is derived at send time from the channel identity map plus the
-   objective's origin (`source_channel` + recorded channel thread refs) —
+   is derived at send time by loading the exact origin thread-ref id/digest,
+   receiver-account ref, channel, and local user persisted at framing, then
+   re-proving that ref against the current channel identity map —
    **stored free text, model output, and action params are never an
    address**. A target that does not resolve to the objective owner's mapped
    identity on the origin channel is denied. Every decision — delivered,
    suppressed (with reason), failed — emits
    `allbert.channels.notify.{delivered,suppressed,failed,uncertain}`.
    Operational state
-   is persisted in an additive delivery ledger; redacted append-only operator
+   is persisted in an additive delivery ledger with state machine
+   `reserved → sending → delivered | failed | uncertain | suppressed` and a
+   unique delivery key reserved before transport. Definitive failures may
+   receive the one bounded retry; possible provider acceptance is
+   `uncertain` and never retried autonomously. Rows are not automatically
+   pruned in v1.1; a future retention policy must preserve terminal
+   idempotency keys and requires an operator decision. Redacted append-only operator
    evidence is written through `Runtime.Audit :channel_notify` to monthly
    files at `<ALLBERT_HOME>/channels/notify/audit/YYYY-MM.md`; the matching
    `Paths` resolver and `ensure_home!/0` entry own the directory. Where the
@@ -115,10 +124,11 @@ and gate-bound abuse-case coverage.
    (edits cannot evade (d)), edit failure falls back to an audited append,
    and `:completion`/`:confirmation_request` kinds are ALWAYS new messages —
    an approval prompt never replaces history.
-   The ledger persists local user/channel/origin identity, provider message
-   id, throttle timestamp, terminal-event idempotency key,
-   attempt/error class, and one-time-offer state, but never payload text,
-   secrets, raw external identity, or free-text addresses. Restart
+   The additive `channel_notify_deliveries` table persists unique
+   `delivery_key`, fanout/child id, local user id, channel, origin-thread-ref
+   id/digest, kind, state, provider message id, throttle timestamp,
+   attempt/error class, one-time-offer state, and timestamps, but never payload
+   text, secrets, external user id, or free-text addresses. Restart
    resumes editing the same status message; append fallback replaces its id.
    If provider acceptance is possible but no receipt persisted, state becomes
    `uncertain`: autonomous retry is suppressed and the durable report falls
@@ -139,7 +149,8 @@ and gate-bound abuse-case coverage.
    a grant surface.
 6. **The attended-surface boundary.** Push rendering to an ATTACHED live
    local surface — an open workspace LiveView session (SignalBridge PubSub)
-   or an attached TUI TTY session — is NOT autonomous notification: the user
+   or an attached TUI TTY session registered ephemerally through
+   `Channels.TUI.Subscriptions` — is NOT autonomous notification: the user
    is present, the delivery is session-scoped, and no unattended transport
    send occurs. The class covers transport sends to remote channel
    identities (telegram/email/discord/slack/matrix/whatsapp/signal) and any
@@ -207,7 +218,9 @@ and gate-bound abuse-case coverage.
 - v1.1 M6: the notify authority suite — default-off suppression (zero
   transport calls on fixture adapters), per-kind/level matrix, throttle and
   coalescing, cross-user denial, unreleased-channel denial, redaction
-  asserts, audit-row completeness — green; per-adapter outbound unit suites
+  exact-origin cross-account/remap denial, one-time offer delivery marker +
+  identity-reproved `configure_channel_setting` callback, audit-row
+  completeness — green; per-adapter outbound unit suites
   on fixture transports; additive ledger migration round-trip from a pre-M6
   database plus delivery-ledger and monthly markdown-audit persistence
   proven; ADR remains Proposed pending edit/restart proof.
@@ -219,6 +232,7 @@ and gate-bound abuse-case coverage.
 - v1.1 M10: `:v11` eval rows bound into `release.v11`
   (`fanout-notify-default-off-001`, `fanout-notify-cross-user-001`,
   `fanout-notify-redaction-001`, `fanout-steer-no-approve-001`,
+  `fanout-notify-origin-ref-cross-account-001`,
   `fanout-notify-consent-free-text-001` — the Decision 0 control — at
   minimum).
 - v1.1 M12: per-channel operator validation matrix

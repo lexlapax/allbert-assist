@@ -56,9 +56,18 @@ on 2026-07-18.
 
 1. **A fan-out frames CHILD objectives.** A decomposition becomes one parent
    plus one child per task. Children copy origin attribution and carry
-   `parent_objective_id` plus additive `fanout_role`. Durable fields also
-   record delivery state/receipt digest, queue position, run-attempt count,
-   review reason, and `join_outcome`. Objectives is authoritative: no queue,
+   `parent_objective_id` plus additive `fanout_role`. Exact additive columns
+   are `fanout_role`, `join_policy`, `join_outcome`,
+   `kickoff_delivery_state`, `fanout_start_receipt_digest`,
+   `report_delivery_state`, `report_delivery_receipt_digest`,
+   `origin_thread_ref_id`, `origin_thread_ref_digest`,
+   `origin_receiver_account_ref`, `queue_position`, `run_attempt_count`, and
+   `review_reason`. Kickoff states are `pending | blocked | acknowledged |
+   cancelled`; report states are `not_ready | pending | delivered`. Receipt
+   digests are uniquely indexed when non-null and acknowledgement is a
+   compare-and-set transition. The origin digest covers channel + opaque
+   receiver-account ref + provider-thread key, never an external user id or
+   free-text address. Objectives is authoritative: no queue,
    retry counter, delivery state, or result exists only in process memory.
 2. **Kickoff delivery or its protocol-specific durable equivalent precedes
    execution for every Runtime caller.** Framing
@@ -75,18 +84,26 @@ on 2026-07-18.
    pass 2026-07-18; clarified 2026-07-19): durable kickoff recording
    satisfies the non-streaming start precondition, children run, and the
    response completes with the join report bounded by the request timeout
-   (timeout ⇒ ack + receipt, report via `pending_reports`). SSE starts only
+   (timeout ⇒ kickoff, report retained behind an unconsumed delivery receipt
+   in `pending_reports`). SSE starts only
    after the kickoff event flushes. Disconnect-before-record/flush never
    starts work; disconnect after durable recording retains the pending
-   report. No wire-format change.
+   report. Public callers await/subscribe through an additive fan-out
+   continuation API outside `submit_user_input/1`; OpenAI SSE becomes truly
+   chunked, and ACP prompt execution is concurrent with its stdio reader so
+   `session/cancel` remains serviceable. No existing request field or terminal
+   response shape is removed.
+   Pending next-turn reports are non-destructive reads with identity-bound,
+   idempotent delivery receipts; transport failure cannot consume a report.
 3. **Each child runs in a supervised, temporary, Registry-addressed
    process.** One global `Objectives.Runs.Supervisor` DynamicSupervisor starts
    temporary `RunServer` and `Coordinator` GenServers; the unique Registry
    uses `{:run, objective_id}` / `{:fanout, parent_objective_id}`. RunServer
    is a plain GenServer under the pragmatic-substrate rule, documented in its
    `@moduledoc`, and executes propose → evaluate → authorize →
-   `Actions.Runner.run/3` → observe → advance directly against Objectives,
-   not the serialized Engine.Agent.
+   `Actions.Runner.run/3` → observe → advance through a new
+   `Objectives.Lifecycle` transactional/CAS facade, not the serialized
+   Engine.Agent or private Jido command modules.
 4. **Join uses monitors plus durable reduction, never polling.** Each
    Coordinator monitors its runs; terminal child state is durable before
    reduction. Parent status/outcome reduces as: all completed →
@@ -104,17 +121,19 @@ on 2026-07-18.
    no durable observation becomes `blocked`/`uncertain_effect`; explicit
    retry or skip is required.
 6. **Backpressure is fair and reconstructible.** A permanent supervised
-   `Objectives.Runs.Scheduler` grants capacity round-robin across fan-outs,
+   `Objectives.Runs.Scheduler` grants `max_concurrent_runs_global` capacity
+   round-robin across fan-outs,
    preserves durable FIFO within each, monitors/restarts temporary
-   Coordinators, and reconstructs from Objectives. DynamicSupervisor
-   `max_children` bounds the global executor; each fan-out starts at most
-   `objectives.fanout.max_concurrent_runs`. Queued children remain durable
+   Coordinators, and reconstructs from Objectives. Each fan-out starts at most
+   `max_concurrent_runs_per_fanout`; `max_children_per_fanout` only bounds
+   decomposition size. DynamicSupervisor uses a static safety ceiling above
+   Scheduler capacity and does not count Coordinators as run slots. Queued children remain durable
    `open`, with visible positions. No GenStage/Flow.
 7. **Decomposition is broad, advisory, and grants nothing.** Stage 0 may fan
    out any prompt judged to contain at least two independent tasks; explicit
    parallel language is unnecessary. Single-task, uncertain, unsupported,
    and nested proposals use the existing single-turn path. A proposal above
-   `max_children` clarifies before framing and never drops/merges tasks. Output is
+   `max_children_per_fanout` clarifies before framing and never drops/merges tasks. Output is
    delivered or durably recorded before execution and never bypasses action
    confirmation, permission, or Security Central. A background confirmation
    parks only that child.
@@ -124,15 +143,18 @@ on 2026-07-18.
 
 ## Consequences
 
-- Channels stop owning turn latency for decomposable work: the fan-out turn
-  returns an ack quickly and the OTP tree carries the work. The
+- Interactive channels stop owning execution latency for decomposable work:
+  the fan-out turn returns an ack quickly and the OTP tree carries the work.
+  OpenAI/ACP intentionally await through the separate bounded continuation.
+  The
   `streaming: "turn_complete"` parity contract hardcoded at
   `channels/channel_parity.ex:98` must be renegotiated per channel (v1.1 M5).
 - Objectives gains a second execution mode; the serialized engine agent stays
   authoritative for interactive continue/advance, so existing single-objective
   behavior is unchanged (proved by the objectives suites and `release.v1`).
 - The additive schema change (`fanout_role`, `join_policy`, `join_outcome`,
-  delivery/queue/attempt/review fields, index on `parent_objective_id`) stays
+  kickoff/report receipt, exact-origin, queue/attempt/review fields, indexes
+  and unique receipt constraints) stays
   inside the additive-migration envelope; the
   1.5-horizon migration-runner cluster is not pulled forward.
 - SQLite write serialization becomes a shared resource across concurrent
@@ -149,22 +171,27 @@ on 2026-07-18.
 ## Validation
 
 - v1.1 M1: additive migration round-trip; child-set framing, join reduction,
-  delivery/queue/attempt reconstruction, and every join-outcome reduction
+  kickoff/report receipt + exact-origin/queue/attempt reconstruction, receipt
+  uniqueness, and every join-outcome reduction
   proven by focused objectives suites;
   existing objectives suites green unchanged.
 - v1.1 M2: full-lifecycle/fair-scheduler proofs — concurrent runs make independent
-  progress (no serialization through the engine agent); forced
+  progress through `Objectives.Lifecycle` (no serialization through the engine
+  agent or private command modules); forced
   `Process.exit(pid, :kill)` of a run
   process yields the bounded-restart path and a correct join; BEAM restart
-  mid-fan-out rehydrates and completes; `max_concurrent_runs` backpressure
-  observable; round-robin across fan-outs and FIFO within each; Scheduler and
+  mid-fan-out rehydrates and completes; global/per-fanout run limits remain
+  independent from decomposition size; round-robin across fan-outs and FIFO
+  within each; Scheduler and
   Coordinator crash reconstruction; Registry keys unique per run; no polling loop anywhere (signal/monitor driven, asserted via the
   signal taxonomy in `docs/plans/v1.1-request-flow.md`).
 - v1.1 M3: every Runtime caller proves no execution before acknowledgement;
   duplicate acknowledgement is idempotent; delivery failure remains blocked;
   retry/status reuses the receipt after uncertainty; overflow clarifies with
-  no task loss; OpenAI/ACP hold-until-join proves report-in-band with the
-  timeout fallback to ack + `pending_reports`; an uncertain
+  no task loss; OpenAI/ACP continuation-based hold-until-join proves
+  report-in-band, true SSE + cancellable ACP prompt handling, and timeout
+  fallback to kickoff + unconsumed report receipt; failed next-turn transport
+  retains the report; exact-origin cross-account denial; an uncertain
   external effect never auto-replays. ADR flips Accepted here.
 - Release: `release.v1` stays green (Tier-1/Tier-2 untouched; runtime
   response gains only additive fields per ADR 0029) and `release.v11` binds

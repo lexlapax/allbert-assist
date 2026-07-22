@@ -108,7 +108,10 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    request. The two-phase receipt/start contract applies to every Runtime
    caller; work never starts before the caller confirms that the kickoff was
    delivered or durably recorded. OpenAI/ACP requests hold until join —
-   the report arrives in-band with a timeout fallback, no wire change.
+   through an additive continuation outside the Runtime turn; OpenAI SSE is
+   truly chunked and ACP remains cancellable while prompting. On timeout the
+   kickoff returns and the report remains pending until its delivery receipt
+   is acknowledged; no existing request or terminal response shape is removed.
    Builds on the delegate-agent substrate, Objectives channel attribution, and
    the intent engine; later minors' background jobs build on it. Carries the
    merged mid-action interruption + child-process cancellation enablers and
