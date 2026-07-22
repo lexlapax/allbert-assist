@@ -221,6 +221,10 @@ defmodule AllbertAssist.ServeTest do
         command_runner: fn cmd, args, _opts ->
           send(test_pid, {:service_command, [cmd | args]})
 
+          if "stop" in args do
+            send(test_pid, {:unit_present_when_stop_issued, File.exists?(unit_path)})
+          end
+
           if "disable" in args do
             {"Unit allbert.service not loaded", 5}
           else
@@ -279,7 +283,53 @@ defmodule AllbertAssist.ServeTest do
       assert_receive {:service_command,
                       ["systemctl", "--user", "stop", "--no-block", "allbert.service"]}
 
+      assert_receive {:unit_present_when_stop_issued, false}
+
       assert_receive {:service_command, ["systemctl", "--user", "daemon-reload"]}
+    end
+
+    test "launchd plist is absent before terminal bootout can stop the daemon" do
+      root =
+        Path.join(
+          System.tmp_dir!(),
+          "allbert-launchd-uninstall-#{System.unique_integer([:positive])}"
+        )
+
+      plist_path = Path.join(root, "com.lexlapax.allbert.plist")
+      File.mkdir_p!(root)
+      File.write!(plist_path, "installed")
+
+      previous_service = Application.get_env(:allbert_assist, Service)
+      previous_control = Application.get_env(:allbert_assist, ServiceControl)
+      test_pid = self()
+
+      Application.put_env(:allbert_assist, Service,
+        platform: :launchd,
+        unit_path: plist_path,
+        manager_available: true
+      )
+
+      Application.put_env(:allbert_assist, ServiceControl,
+        command_runner: fn cmd, args, _opts ->
+          send(test_pid, {:launchd_command, [cmd | args], File.exists?(plist_path)})
+          {"", 0}
+        end
+      )
+
+      on_exit(fn ->
+        restore_env(Service, previous_service)
+        restore_env(ServiceControl, previous_control)
+        File.rm_rf!(root)
+      end)
+
+      assert {:ok, %{status: :completed}} =
+               ServiceControl.run(%{operation: "uninstall"}, %{
+                 user_id: "local",
+                 confirmation: %{approved?: true}
+               })
+
+      refute File.exists?(plist_path)
+      assert_receive {:launchd_command, ["launchctl", "bootout" | _], false}
     end
   end
 

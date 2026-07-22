@@ -165,20 +165,37 @@ defmodule AllbertAssist.Actions.Serve.ServiceControl do
   end
 
   defp execute("uninstall", _params, permission_decision) do
-    case run_commands(Service.uninstall_commands(), allow_absent?: true) do
-      {:ok, results} ->
-        _ = File.rm(Service.unit_path())
-
-        case run_commands(Service.reload_commands()) do
-          {:ok, reload_results} ->
-            completed("uninstall", permission_decision, results ++ reload_results)
-
-          {:error, reload_results} ->
-            failed("uninstall", permission_decision, results ++ reload_results)
-        end
-
-      {:error, results} ->
+    # The approved action can execute inside the daemon it is uninstalling.
+    # Remove the durable unit and reload the manager before the terminal stop;
+    # otherwise systemctl/launchctl can kill this process while the unit still
+    # exists, leaving a disabled but boot-persistent orphan behind.
+    with {:ok, prepare_results} <-
+           run_commands(Service.uninstall_prepare_commands(), allow_absent?: true),
+         :ok <- remove_unit(),
+         {:ok, reload_results} <- run_commands(Service.reload_commands()),
+         {:ok, terminal_results} <-
+           run_commands(Service.uninstall_terminal_commands(), allow_absent?: true) do
+      completed(
+        "uninstall",
+        permission_decision,
+        prepare_results ++ reload_results ++ terminal_results
+      )
+    else
+      {:error, results} when is_list(results) ->
         failed("uninstall", permission_decision, results)
+
+      {:error, reason} ->
+        failed("uninstall", permission_decision, [
+          %{command: ["remove", Service.unit_path()], exit: 1, output: inspect(reason)}
+        ])
+    end
+  end
+
+  defp remove_unit do
+    case File.rm(Service.unit_path()) do
+      :ok -> :ok
+      {:error, :enoent} -> :ok
+      {:error, reason} -> {:error, reason}
     end
   end
 

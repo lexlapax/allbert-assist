@@ -76,16 +76,34 @@ defmodule AllbertAssist.Service do
   @doc "The command sequence to stop + uninstall the user service."
   @spec uninstall_commands() :: [{String.t(), [String.t()]}]
   def uninstall_commands do
+    uninstall_prepare_commands() ++ uninstall_terminal_commands()
+  end
+
+  @doc "Commands that must run while the installed unit is still present."
+  @spec uninstall_prepare_commands() :: [{String.t(), [String.t()]}]
+  def uninstall_prepare_commands do
+    case platform() do
+      :launchd ->
+        []
+
+      :systemd ->
+        [{"systemctl", ["--user", "disable", "allbert.service"]}]
+
+      :unsupported ->
+        []
+    end
+  end
+
+  @doc "Terminal stop command, issued only after the unit is removed and reloaded."
+  @spec uninstall_terminal_commands() :: [{String.t(), [String.t()]}]
+  def uninstall_terminal_commands do
     case platform() do
       :launchd ->
         uid = System.get_env("UID") || uid_from_id()
         [{"launchctl", ["bootout", "gui/#{uid}/#{@label}"]}]
 
       :systemd ->
-        [
-          {"systemctl", ["--user", "disable", "allbert.service"]},
-          {"systemctl", ["--user", "stop", "--no-block", "allbert.service"]}
-        ]
+        [{"systemctl", ["--user", "stop", "--no-block", "allbert.service"]}]
 
       :unsupported ->
         []
