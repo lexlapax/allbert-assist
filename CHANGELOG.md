@@ -12,8 +12,12 @@ changelog entries or release notes.
 
 ## v1.0.5 - macOS Packaged Browser Port Correction
 
-Status: **RC.4 accepted at `1d4d5634`; stable publication in progress.**
-Workflow `29931185956`, macOS, both Linux artifacts, WSL2, and Arch Linux
+Status: **shipped 2026-07-22.** Stable tag `v1.0.5` points to accepted RC.4
+product SHA `1d4d56341386c1abaab637ef2ed3cf37ab2e3d5a`. Stable workflow
+`29952510231` rebuilt, smoked, cosigned, and published all three artifacts;
+GitHub Latest is v1.0.5 and tap commit
+`faabb0f37f49934343ff7a49988fa458ce3f19f1` moved the formula to 1.0.5.
+RC workflow `29931185956`, macOS, both Linux artifacts, WSL2, and Arch Linux
 real-host validation passed with no policy SKIP. Published v1.0.4 proved
 the external browser-runtime ownership model and both Linux artifacts, but its
 macOS Homebrew `browser_doctor` crashed OS Chrome in
@@ -57,17 +61,15 @@ uninstall/Home preservation succeeded, while systemd/Settings and onboarding/
 TUI acceptance failed. RC.2 and RC.3 subsequently exposed and repaired the
 packaged-TUI bootstrap and self-terminating service-uninstall roots. RC.4
 passed the complete clean-SHA, signed-artifact, macOS, WSL2, and Arch Linux
-real-host acceptance line. Stable v1.0.5 is built from the identical accepted
+real-host acceptance line. Stable v1.0.5 was built from the identical accepted
 RC.4 product SHA; later documentation-only administration commits do not alter
 the binary source.
 
-**Formula state: PRE-STABLE-PUBLICATION ONLY.** The public tap is 1.0.4 while this
-repository formula remains on 1.0.0, its last reconciled value, until v1.0.5
-has final stable checksums. RC checksums never fill the tap. At stable
-publication the tap moves 1.0.4 → 1.0.5; that
-filled formula is synced back into the repository during the accepted
-corrective closeout. This lag is explicit release administration, not a claim
-that v1.0.5 already exists.
+**Formula state:** the public tap and repository formula are reconciled at
+1.0.5 using the final stable checksums. RC checksums never filled the tap.
+The stable macOS tap install/live-browser smoke and both stable Linux artifact
+rehearsals passed; the artifacts contain no Node, Playwright package tree,
+Chromium, or browser cache and use host-managed prerequisites.
 
 ## v1.0.4 - Packaged Browser Recovery
 
@@ -90,7 +92,7 @@ This hotfix is bounded to an explicit external browser-runtime boundary, a live
 packaged doctor against host-managed dependencies in all three artifact matrix
 jobs, the operator-runbook corrections exposed by the v1.0.3 rehearsal, and a
 repeat of the binary ceremony/platform ledger. It adds no feature scope. See
-`docs/plans/v1.0.4-plan.md`, its request-flow, and the v1.0.4 amendment to ADR
+`docs/plans/archives/v1.0.4-plan.md`, its request-flow, and the v1.0.4 amendment to ADR
 0040 for the acceptance contract.
 
 **Implementation state and operator correction:** an initial bundled-runtime

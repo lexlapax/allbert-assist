@@ -1,5 +1,8 @@
 # Installing Allbert
 
+The current packaged release is **v1.0.5**. Homebrew and the default curl
+installer resolve to that stable GitHub Latest release.
+
 Allbert ships its direct runtime dependencies and Erlang/OTP runtime — no
 Elixir/OTP toolchain is required on your machine. Optional browser research
 uses host-managed Node, Playwright, and Chromium/Chrome; those runtimes are not
@@ -100,7 +103,7 @@ Every release publishes `SHA256SUMS` and `SHA256SUMS.cosign.bundle`. To check a
 download by hand:
 
 ```sh
-VERSION="${VERSION:?set the exact tag, for example v1.0.4}"
+VERSION="${VERSION:?set the exact tag, for example v1.0.5}"
 cosign verify-blob \
   --bundle SHA256SUMS.cosign.bundle \
   --certificate-identity "https://github.com/lexlapax/allbert-assist/.github/workflows/release-artifacts.yml@refs/tags/$VERSION" \

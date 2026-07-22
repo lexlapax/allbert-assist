@@ -1,7 +1,7 @@
 # Operator Workspace
 
 Introduced in v0.58 and consolidated into the single shell in v0.61b (ADR 0080).
-The shipped v1.0.0 packaged path starts first run from the service/browser, auto-opens
+The shipped v1.0.5 packaged path starts first run from the service/browser, auto-opens
 onboarding, routes missing-model states to the standalone Models repair panel, and
 streams curated model-pull progress in the web workspace (see
 [onboarding.md](onboarding.md)).
@@ -96,8 +96,8 @@ confirmation is required, policy cannot override that decision.
 
 ## Manual Validation Evidence
 
-For the current release, follow `docs/plans/archives/v0.65-request-flow.md`, then the
-matching request-flow document for later releases. Historical v0.58 validation
+For the current release, follow
+`docs/plans/archives/v1.0.4-request-flow.md`. Historical v0.58 validation
 followed `docs/plans/archives/v0.58-request-flow.md`; evidence is kept
 outside the repository under:
 

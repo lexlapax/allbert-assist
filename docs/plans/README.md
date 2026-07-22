@@ -7,16 +7,14 @@ plan and request-flow documents.
 ## Current And Next
 
 - [Roadmap](roadmap.md)
-- [v1.0.4→v1.0.5 packaged-browser recovery plan](v1.0.4-plan.md) and
-  [request flow](v1.0.4-request-flow.md)
-- [v1.0.3 published-but-unclosed release record](v1.0.3-plan.md) and
-  [request flow](v1.0.3-request-flow.md)
+- [v1.1 asynchronous fan-out plan](v1.1-plan.md) and
+  [request flow](v1.1-request-flow.md)
 - [Allbert Jido vision](allbert-jido-vision.md)
 - [Future features](future-features.md)
 
 ## Archives
 
-Every released version's plan/request-flow pair (v0.01 through v1.0.2, plus the
+Every released version's plan/request-flow pair (v0.01 through v1.0.5, plus the
 v1.0 handoff) lives in [archives/](archives/). They are shipped-history working records:
 search them for provenance and past decisions; the roadmap and CHANGELOG are the
 authoritative summaries.

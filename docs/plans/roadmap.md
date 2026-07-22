@@ -58,10 +58,12 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    conversion waves shipped no lane move: M5(a) was parked and M5(b) stopped
    with zero conversions; their production prerequisites and the unrun 2-VM
    external-runtime experiment remain intake candidates pending later operator
-   disposition, with no v1.0.3 lane-floor claim. Plan: [v1.0.3-plan.md](v1.0.3-plan.md) +
-   [v1.0.3-request-flow.md](v1.0.3-request-flow.md) + ADR 0086.
-4. **1.0.4 PUBLISHED, BINARY ACCEPTANCE NOT CLOSED -> 1.0.5 RC.4 ACCEPTED;
-   STABLE PUBLICATION IN PROGRESS** — Packaged Browser Recovery. v1.0.4 is immutable at
+   disposition, with no v1.0.3 lane-floor claim. Plan:
+   [archives/v1.0.3-plan.md](archives/v1.0.3-plan.md) +
+   [archives/v1.0.3-request-flow.md](archives/v1.0.3-request-flow.md) + ADR 0086.
+4. **1.0.4 PUBLISHED, BINARY ACCEPTANCE NOT CLOSED -> 1.0.5 SHIPPED**
+   (stable tag `v1.0.5` at `1d4d5634` on 2026-07-22; CI run
+   `29952510231`; tap commit `faabb0f`) — Packaged Browser Recovery. v1.0.4 is immutable at
    `337e3ddb` (CI `29841331741`; tap `5a970b9`): its artifacts correctly keep
    Node, Playwright, Chromium, and caches external, and both published Linux
    rehearsals passed. Its macOS packaged doctor failed when BEAM port option
@@ -84,13 +86,15 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    RC.2 and RC.3 exposed and repaired the packaged-TUI bootstrap and
    self-terminating service-uninstall roots. RC.4 is accepted at `1d4d5634`:
    workflow `29931185956`, macOS, both Linux artifact rows, WSL2, and Arch Linux
-   real-host acceptance all passed without policy SKIP. Stable v1.0.5 must be a
-   fresh build from that exact accepted product SHA; the newer mainline commits
-   are documentation-only release administration. Neither prior immutable tag
-   is moved, and this corrective line contains no feature scope.
+   real-host acceptance all passed without policy SKIP. Stable v1.0.5 was then
+   freshly built, cosigned, published as Latest, installed from the filled tap,
+   and revalidated on macOS plus both Linux artifact architectures from that
+   exact accepted product SHA. The newer mainline commits are documentation-only
+   release administration. Neither prior immutable tag was moved, and this
+   corrective line contains no feature scope.
    Plan:
-   [v1.0.4-plan.md](v1.0.4-plan.md) +
-   [v1.0.4-request-flow.md](v1.0.4-request-flow.md) + amended ADR 0040. Later
+   [archives/v1.0.4-plan.md](archives/v1.0.4-plan.md) +
+   [archives/v1.0.4-request-flow.md](archives/v1.0.4-request-flow.md) + amended ADR 0040. Later
    1.0.x: intent-pipeline refinements (opportunistic), technical-debt
    train. (The vendored `:memento` removal landed early at 1.0.1's M5
    refresh — ADR 0050 superseded.)

@@ -34,8 +34,8 @@ becoming opaque or unbounded.
 
 ## Current Shape
 
-This README is the stable project orientation. For the current packaged release
-line, its features, and the full release-by-release history, see the
+This README is the stable project orientation. The current packaged release is
+**v1.0.5**. For its features and the full release-by-release history, see the
 [CHANGELOG](CHANGELOG.md); forward planning lives in the
 [roadmap](docs/plans/roadmap.md).
 

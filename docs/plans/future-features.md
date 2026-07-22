@@ -27,13 +27,11 @@ verbatim and grouped by category.
 Supersedes any per-entry `Slice: 1.1` tag where they conflict — flagships are
 sequenced one per minor, foundational-first:
 
-- **1.0.1 / 1.0.x** — **1.0.1 SHIPPED** (tagged 2026-07-15, source/docs point tag:
-  R15, btn drift, offline SW test, DIT-5 transcript, DIT-4 remediation M4.1–M4.5,
-  dependency refresh incl. vendored `:memento` removal). Next 1.0.x increments:
-  test speed & isolation, v0.58 tails, docs items; the next **binary** release
-  carries the 1.0.1 fixes into the packaged artifact line. Its final measured
-  isolation remainder is written back here before the v1.0.2 tag; shipped
-  entries are removed only after published-artifact validation and closeout.
+- **1.0.1–1.0.5 — SHIPPED.** The source-only 1.0.1/1.0.2 work, 1.0.3 test
+  isolation follow-up, and 1.0.4 packaged-browser recovery all converge in the
+  accepted stable v1.0.5 binary line. Shipped history and exact evidence live
+  in the roadmap, CHANGELOG, and archived release plans; this inventory keeps
+  only unplanned remainder.
 - **1.1 — Asynchronous Background Agent Fan-Out With In-Channel Steering**
   (operator intake 2026-07-18, inserted as the new first minor: the async
   runtime/interaction model is foundational — 1.3's memory consolidation jobs

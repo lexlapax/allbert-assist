@@ -213,10 +213,8 @@ defmodule Mix.Tasks.Allbert.Test do
     "docs/plans/roadmap.md",
     "docs/plans/allbert-jido-vision.md",
     "docs/plans/future-features.md",
-    "docs/plans/v1.0.3-plan.md",
-    "docs/plans/v1.0.3-request-flow.md",
-    "docs/plans/v1.0.4-plan.md",
-    "docs/plans/v1.0.4-request-flow.md"
+    "docs/plans/v1.1-plan.md",
+    "docs/plans/v1.1-request-flow.md"
   ]
 
   defp docs_staleness_check! do

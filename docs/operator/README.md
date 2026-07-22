@@ -64,5 +64,6 @@ The non-developer entry sequence (same order across the top-level
 Release-specific operator validation belongs in the matching request-flow
 document under [plans](../plans/README.md). For the current packaged release line,
 see the [CHANGELOG](../../CHANGELOG.md) and [roadmap](../plans/roadmap.md); each
-release's validation lives in its `docs/plans/vNN-request-flow.md`. The integrated
-product-RC validation is the [v0.66 request flow](../plans/archives/v0.66-request-flow.md).
+release's validation lives in its archived request flow. The current v1.0.5
+binary-validation record is the
+[v1.0.4→v1.0.5 request flow](../plans/archives/v1.0.4-request-flow.md).

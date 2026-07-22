@@ -187,9 +187,10 @@ Do this on each Tier-1 OS path that is in scope. Install/uninstall must not touc
 the operator's real Allbert Home (`~/.allbert`) unless `--purge` is explicitly
 requested; set a disposable `ALLBERT_HOME` for rehearsal.
 
-The active recovery plan defines the exact platform ledger. v1.0.5 requires macOS;
-linux-x64 and linux-arm64 container artifacts; a real-host Linux
-service/vault/browser row; and WSL2 using the Linux tarball. Record CI run id,
+The active release plan defines the exact platform ledger. The completed v1.0.5
+recovery required macOS; linux-x64 and linux-arm64 container artifacts; a
+real-host Linux service/vault/browser row; and WSL2 using the Linux tarball.
+Record CI run id,
 tag/release URL, asset inventory, cosign transcript, tap commit/audit, install
 transcript, TUI, channel-send, ACP, browser, service/vault, and preserved-Home
 uninstall evidence under `EVIDENCE_ROOT`.
@@ -198,15 +199,16 @@ uninstall evidence under `EVIDENCE_ROOT`.
 
 Inside WSL2, use a disposable Home and install the published linux-x64
 tarball through the same verified installer path. A prerelease tag and the
-binary's product version are distinct (`v1.0.5-rc.2` may report `1.0.5`), so set
+binary's product version are distinct (for example an RC tag may report the
+eventual stable product version), so set
 both variables explicitly. The active release request-flow is authoritative for
 the exact Windows-host Ollama endpoint, focused doctor, onboarding/TUI, service,
 evidence-hash, and uninstall commands; do not substitute a second WSL Ollama for
 that topology.
 
 ```sh
-export VERSION="${VERSION:?set VERSION, for example v1.0.5-rc.2}"
-export EXPECTED_VERSION="${EXPECTED_VERSION:?set product version, for example 1.0.5}"
+export VERSION="${VERSION:?set the exact release or RC tag}"
+export EXPECTED_VERSION="${EXPECTED_VERSION:?set the binary product version}"
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-wsl2-home.XXXXXX)"
 export ALLBERT_PREFIX="$(mktemp -d /tmp/allbert-wsl2-prefix.XXXXXX)"
 export ALLBERT_VERSION="$VERSION"
