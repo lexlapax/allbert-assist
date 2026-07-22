@@ -186,8 +186,10 @@ defmodule AllbertAssist.Channels do
 
   @spec channel_child_specs(keyword()) :: [Supervisor.child_spec()]
   def channel_child_specs(opts \\ []) do
+    excluded = opts |> Keyword.get(:exclude_channels, []) |> MapSet.new()
+
     PluginRegistry.registered_channels()
-    |> Enum.filter(&(&1.status == :enabled))
+    |> Enum.filter(&(&1.status == :enabled and not MapSet.member?(excluded, &1.channel_id)))
     |> Enum.map(&descriptor_child_spec(&1, descriptor_child_opts(&1, opts)))
   end
 
@@ -212,6 +214,7 @@ defmodule AllbertAssist.Channels do
 
     opts
     |> Keyword.delete(:channel_child_opts)
+    |> Keyword.delete(:exclude_channels)
     |> Keyword.merge(channel_child_opts)
   end
 

@@ -22,6 +22,15 @@ defmodule AllbertAssist.ChannelsTest do
     :ok
   end
 
+  test "channel child specs honor launch-time exclusions" do
+    ids =
+      Channels.channel_child_specs(exclude_channels: ["tui"])
+      |> Enum.map(& &1.id)
+
+    refute "tui" in ids
+    assert "tui" in Enum.map(Channels.channel_child_specs(), & &1.id)
+  end
+
   describe "channel events" do
     test "creates and updates durable events" do
       assert {:ok, %Event{} = event} =

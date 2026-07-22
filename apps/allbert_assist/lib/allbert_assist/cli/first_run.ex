@@ -249,16 +249,22 @@ defmodule AllbertAssist.CLI.FirstRun do
   # Reuse ModelDoctor's bounded/read-only provider probe so WSL2 can use a
   # Windows-host Ollama without pretending an Ollama binary exists in Linux.
   defp configured_local_probe do
-    with {:ok, profile} <- Settings.get("model_preferences.primary"),
-         {:ok, summary} <- ModelDoctor.diagnose(profile),
-         :local_endpoint <- summary.endpoint_kind do
-      cond do
-        summary.endpoint_ok and summary.model_available == true -> :model_ready
-        summary.endpoint_ok and summary.model_available == false -> :model_missing
-        true -> :unhealthy
+    Settings.with_resolved_settings(fn ->
+      with {:ok, profile} <- Settings.get("model_preferences.primary"),
+           {:ok, summary} <- ModelDoctor.diagnose(profile),
+           :local_endpoint <- summary.endpoint_kind do
+        configured_local_result(summary)
+      else
+        _other -> :not_configured
       end
-    else
-      _other -> :not_configured
+    end)
+  end
+
+  defp configured_local_result(summary) do
+    cond do
+      summary.endpoint_ok and summary.model_available == true -> :model_ready
+      summary.endpoint_ok and summary.model_available == false -> :model_missing
+      true -> :unhealthy
     end
   end
 

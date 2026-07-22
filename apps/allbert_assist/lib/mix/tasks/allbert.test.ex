@@ -6548,6 +6548,20 @@ defmodule Mix.Tasks.Allbert.Test do
       coverage: ["The wizard cannot complete while the selected model is unavailable"]
     },
     %{
+      id: "v105_packaged_tui_bootstrap",
+      title: "Packaged TUI waits for registry and Settings readiness",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/cli/tui_test.exs",
+        "test/allbert_assist/channels_test.exs"
+      ],
+      coverage: [
+        "A fresh release process resolves a persisted host-local provider before starting the interactive TUI child"
+      ]
+    },
+    %{
       id: "v105_platform_port_visibility",
       title: "Playwright bridge hides its console only on Windows",
       cwd: :core,

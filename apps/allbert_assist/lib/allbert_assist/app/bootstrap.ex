@@ -15,6 +15,12 @@ defmodule AllbertAssist.App.Bootstrap do
     GenServer.start_link(__MODULE__, opts, name: name)
   end
 
+  @doc "Wait until configured app registration has completed."
+  @spec await_ready(GenServer.server(), timeout()) :: :ok
+  def await_ready(server \\ __MODULE__, timeout \\ 30_000) do
+    GenServer.call(server, :await_ready, timeout)
+  end
+
   @impl true
   def init(opts), do: {:ok, opts, {:continue, :register_apps}}
 
@@ -26,6 +32,9 @@ defmodule AllbertAssist.App.Bootstrap do
 
     {:noreply, Map.new(opts)}
   end
+
+  @impl true
+  def handle_call(:await_ready, _from, state), do: {:reply, :ok, state}
 
   defp register_configured_apps(opts) do
     registry = Keyword.get(opts, :registry, AllbertAssist.App.Registry)

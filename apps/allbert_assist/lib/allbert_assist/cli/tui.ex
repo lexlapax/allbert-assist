@@ -7,32 +7,52 @@ defmodule AllbertAssist.CLI.Tui do
   `allbert tui` can run it (the launcher overlay invokes it in a real TTY).
   """
 
+  alias AllbertAssist.App.Bootstrap, as: AppBootstrap
+  alias AllbertAssist.Channels
   alias AllbertAssist.Channels.TUI.Adapter
   alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.Onboarding
+  alias AllbertAssist.Settings.Fragments, as: SettingsFragments
 
   @supervisor AllbertAssist.Channels.Supervisor
 
   @doc "Launch the interactive TUI console; blocks until the session exits."
   @spec launch() :: :ok | {:error, term()}
   def launch do
-    # v1.0.1 M4.1(A): the dispatcher evals this under `release eval` where OTP
-    # apps are LOADED but not STARTED, and `readiness_guard/0` reaches the Ollama
-    # first-model probe (Req → Req.FinchSupervisor). Every other CLI verb gets
-    # `:req` from `CLI.run_entry/1` (v0.63 M8.1); `tui` bypasses that entry
-    # point, so start the HTTP client here too — idempotent, HTTP-only.
-    ensure_http_started()
-
-    with :ok <- readiness_guard() do
-      enable_supervised_tui_child!()
-      {:ok, _started} = Application.ensure_all_started(:allbert_assist)
-
+    with :ok <- prepare() do
       case Adapter.run_supervised_forever(@supervisor) do
         :normal -> :ok
         :shutdown -> :ok
         {:shutdown, _reason} -> :ok
         other -> {:error, other}
       end
+    end
+  end
+
+  @doc false
+  def prepare do
+    # The release launcher uses `eval`, so the application is loaded but not
+    # started. Readiness resolves plugin-owned Settings fragments and therefore
+    # must run after the complete registry/bootstrap spine is alive. Starting
+    # only :req made host-local Ollama work but discarded a persisted configured
+    # endpoint in a fresh process (v1.0.5 RC.2 WSL2 failure).
+    ensure_http_started()
+    exclude_tui_during_boot!()
+
+    case Application.ensure_all_started(:allbert_assist) do
+      {:ok, _started} ->
+        prepare_started_runtime()
+
+      {:error, reason} ->
+        {:error, {:runtime_start_failed, reason}}
+    end
+  end
+
+  defp prepare_started_runtime do
+    with :ok <- AppBootstrap.await_ready() do
+      SettingsFragments.clear_cache()
+
+      with :ok <- readiness_guard(), do: start_supervised_tui_child!()
     end
   end
 
@@ -80,10 +100,21 @@ defmodule AllbertAssist.CLI.Tui do
     "Allbert TUI is waiting for setup. Complete web onboarding or run `allbert onboard`."
   end
 
-  # Mutates the Channels.Supervisor config to enable the TUI child before the
-  # supervisor starts (mirrors mix allbert.tui). Release-safe: Application env
-  # only, no Mix.
-  defp enable_supervised_tui_child! do
+  # The adapter resolves Settings in init. Keep it out of the supervision tree
+  # until app/plugin registration and the readiness decision are complete, then
+  # add the same transient child used by `mix allbert.tui`.
+  defp exclude_tui_during_boot! do
+    opts = Application.get_env(:allbert_assist, @supervisor, [])
+    excluded = opts |> Keyword.get(:exclude_channels, []) |> List.wrap()
+
+    Application.put_env(
+      :allbert_assist,
+      @supervisor,
+      Keyword.put(opts, :exclude_channels, Enum.uniq(["tui" | excluded]))
+    )
+  end
+
+  defp start_supervised_tui_child! do
     opts = Application.get_env(:allbert_assist, @supervisor, [])
 
     channel_child_opts =
@@ -105,10 +136,20 @@ defmodule AllbertAssist.CLI.Tui do
         restart: :transient
       )
 
-    Application.put_env(
-      :allbert_assist,
-      @supervisor,
-      Keyword.put(opts, :channel_child_opts, Map.put(channel_child_opts, "tui", tui_child_opts))
-    )
+    child_opts =
+      opts
+      |> Keyword.delete(:exclude_channels)
+      |> Keyword.put(:channel_child_opts, Map.put(channel_child_opts, "tui", tui_child_opts))
+
+    case Enum.find(Channels.channel_child_specs(child_opts), &(&1.id == "tui")) do
+      nil -> {:error, :tui_channel_unavailable}
+      child_spec -> normalize_start_child(Supervisor.start_child(@supervisor, child_spec))
+    end
   end
+
+  defp normalize_start_child({:ok, _pid}), do: :ok
+  defp normalize_start_child({:ok, _pid, _info}), do: :ok
+  defp normalize_start_child({:error, {:already_started, _pid}}), do: :ok
+  defp normalize_start_child({:error, :already_present}), do: :ok
+  defp normalize_start_child({:error, reason}), do: {:error, {:tui_start_failed, reason}}
 end
