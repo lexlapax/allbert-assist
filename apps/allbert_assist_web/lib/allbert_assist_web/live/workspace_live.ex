@@ -775,7 +775,10 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       )
       |> refresh_after_runtime_response(response)
 
-    {:noreply, socket}
+    case Runtime.acknowledge_deliveries(response, %{channel: :web}) do
+      :ok -> {:noreply, socket}
+      {:error, reason} -> {:noreply, assign(socket, :error, inspect(reason))}
+    end
   end
 
   def handle_async(:ask, {:ok, {:error, reason}}, socket) do

@@ -2,10 +2,10 @@
 
 ## Status
 
-Proposed (v1.1 planning, 2026-07-18). Binding on the v1.1 M1–M3 build once
-Accepted; Accepted only in M3 after the child model, fair scheduler/full
-lifecycle executor, crash recovery, and delivery-before-start contract are
-proven together.
+Accepted (v1.1 M3, 2026-07-22). The child model, fair scheduler/full lifecycle
+executor, crash recovery, restart-stable receipts, delivery-before-start
+barrier, public-protocol continuations, and cross-surface automatic-rollout
+corpus are proven together.
 
 ## Context
 

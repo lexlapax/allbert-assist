@@ -225,8 +225,11 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
          {:ok, response} <- submit_runtime(text, user_id, session_id, fields, new_thread?),
          {:ok, chunks, keyboard} <- render_response(response, state),
          {:ok, delivered} <-
-           deliver_chunks(fields.external_chat_id, chunks, keyboard, state, fields),
+           Runtime.track_delivery(response, %{channel: "telegram"}, fn ->
+             deliver_chunks(fields.external_chat_id, chunks, keyboard, state, fields)
+           end),
          :ok <- record_outbound_refs(response, fields, delivered),
+         :ok <- Runtime.acknowledge_deliveries(response, %{channel: "telegram"}),
          {:ok, _event} <- mark_processed(event, response, user_id, session_id) do
       {:ok, :processed}
     else
@@ -264,8 +267,11 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
                ),
              {:ok, chunks, keyboard} <- render_response(response, state),
              {:ok, delivered} <-
-               deliver_chunks(fields.external_chat_id, chunks, keyboard, state, fields),
+               Runtime.track_delivery(response, %{channel: "telegram"}, fn ->
+                 deliver_chunks(fields.external_chat_id, chunks, keyboard, state, fields)
+               end),
              :ok <- record_outbound_refs(response, fields, delivered),
+             :ok <- Runtime.acknowledge_deliveries(response, %{channel: "telegram"}),
              {:ok, _event} <- mark_processed(event, response, user_id, session_id) do
           {:ok, :processed}
         end

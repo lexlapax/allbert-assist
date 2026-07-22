@@ -3573,7 +3573,7 @@ defmodule AllbertAssist.Settings.Schema do
       "trace_detail" => "operator",
       "fanout" => %{
         "enabled" => true,
-        "rollout_mode" => "explicit",
+        "rollout_mode" => "automatic",
         "max_concurrent_runs_per_fanout" => 3,
         "max_concurrent_runs_global" => 6,
         "max_children_per_fanout" => 8,

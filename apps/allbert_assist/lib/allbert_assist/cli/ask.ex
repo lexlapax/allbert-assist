@@ -59,8 +59,22 @@ defmodule AllbertAssist.CLI.Ask do
       |> put_present(:new_thread, opts[:new_thread])
 
     case Runtime.submit_user_input(request) do
-      {:ok, response} -> render(response)
+      {:ok, response} -> render_and_acknowledge(response, channel)
       {:error, reason} -> Render.error("Allbert request failed: #{inspect(reason)}")
+    end
+  end
+
+  defp render_and_acknowledge(response, channel) do
+    rendered = render(response)
+
+    case Runtime.acknowledge_deliveries(response, %{channel: channel}) do
+      :ok ->
+        rendered
+
+      {:error, reason} ->
+        Render.error(
+          "Allbert delivered the response but could not acknowledge it: #{inspect(reason)}"
+        )
     end
   end
 

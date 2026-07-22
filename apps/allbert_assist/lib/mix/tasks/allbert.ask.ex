@@ -171,12 +171,14 @@ defmodule Mix.Tasks.Allbert.Ask do
       Enum.each(response.actions, &print_action/1)
     end
 
-    :ok
+    Runtime.acknowledge_deliveries(response, %{channel: response_channel(response)})
   end
 
   defp print_result({:error, reason}) do
     Mix.raise("Allbert request failed: #{inspect(reason)}")
   end
+
+  defp response_channel(response), do: Map.get(response, :channel, :cli)
 
   defp print_speech_result(nil), do: :ok
 

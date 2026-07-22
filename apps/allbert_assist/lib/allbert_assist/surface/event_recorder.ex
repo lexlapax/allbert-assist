@@ -51,6 +51,25 @@ defmodule AllbertAssist.Surface.EventRecorder do
 
   def mark_result(nil, _result), do: :ok
 
+  @doc "Persist a successful result and report write failure to delivery-barrier callers."
+  @spec mark_result_durable(Event.t() | nil, map()) :: :ok | {:error, term()}
+  def mark_result_durable(%Event{} = event, response) when is_map(response) do
+    status = Response.status(response)
+
+    attrs =
+      response
+      |> response_attrs()
+      |> Map.put(:status, event_status(status))
+      |> maybe_put_reason(status)
+
+    case Channels.update_event(event, attrs) do
+      {:ok, _event} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def mark_result_durable(nil, _response), do: {:error, :event_not_recorded}
+
   @spec mark_failed(Event.t() | nil, term()) :: :ok
   def mark_failed(%Event{} = event, reason) do
     update(event, %{status: "failed", error: inspect(reason)})

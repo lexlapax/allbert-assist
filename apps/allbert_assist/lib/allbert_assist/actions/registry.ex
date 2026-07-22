@@ -136,6 +136,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Objectives.DelegateAgent
   alias AllbertAssist.Actions.Objectives.ListObjectives
   alias AllbertAssist.Actions.Objectives.ShowObjective
+  alias AllbertAssist.Actions.Objectives.StartFanout
   alias AllbertAssist.Actions.Operator.Channels, as: OperatorChannels
   alias AllbertAssist.Actions.Operator.Confirmations, as: OperatorConfirmations
   alias AllbertAssist.Actions.Operator.Events, as: OperatorEvents
@@ -303,6 +304,7 @@ defmodule AllbertAssist.Actions.Registry do
     CodingWrite,
     CodingEdit,
     CodingBash,
+    StartFanout,
     # Channel doctors declare exposure: :internal; keep them out of the agent set
     # so agent_modules/0 agrees with capability exposure (v0.54 M9.1 reconcile).
     WhatsAppDoctor,

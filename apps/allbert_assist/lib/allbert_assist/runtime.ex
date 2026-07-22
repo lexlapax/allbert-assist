@@ -25,14 +25,21 @@ defmodule AllbertAssist.Runtime do
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.LocalSurface
   alias AllbertAssist.Coding.TurnSupervisor, as: CodingTurnSupervisor
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ChannelThread
+  alias AllbertAssist.Intent.Decomposer
+  alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Runs.Scheduler
   alias AllbertAssist.Runtime.MediaOutputs
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Session
+  alias AllbertAssist.Settings
   alias AllbertAssist.Signals
   alias Jido.Signal
+  alias Jido.Signal.Bus
 
   @input_received "allbert.input.received"
   @agent_responded "allbert.agent.responded"
@@ -62,6 +69,10 @@ defmodule AllbertAssist.Runtime do
         }
 
   @type response :: %{
+          optional(:fanout) => map(),
+          optional(:fanout_start_receipt) => String.t(),
+          optional(:pending_reports) => [map()],
+          channel: atom() | String.t(),
           message: String.t(),
           model_payload: String.t(),
           surface_payload: String.t(),
@@ -121,7 +132,7 @@ defmodule AllbertAssist.Runtime do
          request <- put_user_message_id(request, user_message),
          request <- maybe_record_inbound_channel_refs(request, user_message),
          request <- put_thread_context(request, user_message),
-         {:ok, agent_response} <- run_agent_turn(input_signal, request),
+         {:ok, agent_response} <- run_stage_zero_or_agent(input_signal, request),
          {:ok, response_signal} <- new_response_signal(input_signal, request, agent_response),
          :ok <- log_signal(response_signal) do
       response = build_response(input_signal, response_signal, agent_response, request)
@@ -136,6 +147,178 @@ defmodule AllbertAssist.Runtime do
   end
 
   def submit_user_input(_attrs), do: {:error, :invalid_request}
+
+  @doc "Acknowledge successful kickoff delivery and make the fan-out runnable."
+  @spec acknowledge_fanout_start(String.t(), map()) :: :ok | {:error, term()}
+  def acknowledge_fanout_start(receipt, delivery_context) do
+    with :ok <- Fanout.acknowledge_start(receipt, delivery_context),
+         {:ok, parent} <- fanout_parent_for_start_receipt(receipt, delivery_context) do
+      case Settings.get("objectives.fanout.confirm_before_start") do
+        {:ok, true} -> :ok
+        _other -> start_acknowledged_fanout(parent.id)
+      end
+    end
+  end
+
+  @doc "Acknowledge a pending report only after its caller-specific delivery succeeds."
+  @spec acknowledge_report_delivery(String.t(), map()) ::
+          :ok | {:error, :invalid_receipt | :receipt_identity_mismatch}
+  def acknowledge_report_delivery(receipt, delivery_context),
+    do: Fanout.acknowledge_report(receipt, delivery_context)
+
+  @doc "Record a failed kickoff delivery so retry/status can reuse the same receipt."
+  @spec delivery_failed(map(), map()) ::
+          :ok | {:error, :invalid_receipt | :receipt_identity_mismatch}
+  def delivery_failed(response, delivery_context \\ %{})
+      when is_map(response) and is_map(delivery_context) do
+    case Map.get(response, :fanout_start_receipt) do
+      nil ->
+        :ok
+
+      receipt ->
+        context =
+          delivery_context
+          |> Map.put_new(:user_id, Map.get(response, :user_id))
+          |> Map.put_new(:thread_id, Map.get(response, :thread_id))
+          |> Map.merge(get_in(response, [:fanout, :delivery_context]) || %{})
+
+        Fanout.mark_start_delivery_failed(receipt, context)
+    end
+  end
+
+  @doc "Run one caller delivery and durably block a fan-out kickoff if it fails."
+  @spec track_delivery(map(), map(), (-> term())) :: term()
+  def track_delivery(response, delivery_context, delivery_fun)
+      when is_map(response) and is_map(delivery_context) and is_function(delivery_fun, 0) do
+    case delivery_fun.() do
+      {:error, _reason} = error ->
+        _ = delivery_failed(response, delivery_context)
+        error
+
+      result ->
+        result
+    end
+  end
+
+  @doc "Wait for one owned fan-out to join without polling durable state."
+  @spec await_fanout(String.t(), String.t(), non_neg_integer()) ::
+          {:ok, Fanout.report()} | {:timeout, fanout_kickoff()} | {:error, term()}
+  def await_fanout(parent_id, user_id, timeout_ms)
+      when is_binary(parent_id) and is_binary(user_id) and is_integer(timeout_ms) and
+             timeout_ms >= 0 do
+    with {:ok, parent} <- owned_fanout(parent_id, user_id) do
+      case Fanout.join_status(parent) do
+        %{terminal?: true} -> {:ok, Fanout.report(parent)}
+        _pending -> await_join_signal(parent, user_id, timeout_ms)
+      end
+    end
+  end
+
+  @doc "Subscribe a process to fan-out lifecycle signals after proving ownership."
+  @spec subscribe_fanout(String.t(), String.t(), pid()) ::
+          {:ok, String.t()} | {:error, term()}
+  def subscribe_fanout(parent_id, user_id, sink)
+      when is_binary(parent_id) and is_binary(user_id) and is_pid(sink) do
+    with {:ok, _parent} <- owned_fanout(parent_id, user_id) do
+      Bus.subscribe(AllbertAssist.SignalBus, "allbert.objectives.**",
+        dispatch: {:pid, target: sink}
+      )
+    end
+  end
+
+  @doc false
+  def fanout_continuation_timeout_ms do
+    :allbert_assist
+    |> Application.get_env(__MODULE__, [])
+    |> Keyword.get(:fanout_timeout_ms, @default_timeout_ms)
+  end
+
+  @doc "Acknowledge every fan-out handle in a response after caller delivery succeeds."
+  @spec acknowledge_deliveries(map(), map()) :: :ok | {:error, term()}
+  def acknowledge_deliveries(response, delivery_context \\ %{})
+      when is_map(response) and is_map(delivery_context) do
+    base_context =
+      delivery_context
+      |> Map.put_new(:user_id, Map.get(response, :user_id))
+      |> Map.put_new(:thread_id, Map.get(response, :thread_id))
+
+    start_context = Map.merge(base_context, get_in(response, [:fanout, :delivery_context]) || %{})
+
+    with :ok <-
+           acknowledge_optional_start(Map.get(response, :fanout_start_receipt), start_context) do
+      acknowledge_pending_reports(Map.get(response, :pending_reports, []), base_context)
+    end
+  end
+
+  defp acknowledge_pending_reports(pending_reports, base_context) do
+    Enum.reduce_while(pending_reports, :ok, fn pending, :ok ->
+      context = Map.merge(base_context, Map.get(pending, :delivery_context, %{}))
+
+      case acknowledge_report_delivery(Map.get(pending, :report_delivery_receipt), context) do
+        :ok -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp acknowledge_optional_start(nil, _context), do: :ok
+
+  defp acknowledge_optional_start(receipt, context),
+    do: acknowledge_fanout_start(receipt, context)
+
+  defp owned_fanout(parent_id, user_id) do
+    case Objectives.get_objective(parent_id) do
+      {:ok, %{fanout_role: "parent", user_id: ^user_id} = parent} -> {:ok, parent}
+      {:ok, _parent} -> {:error, :fanout_identity_mismatch}
+      {:error, _reason} -> {:error, :fanout_not_found}
+    end
+  end
+
+  defp await_join_signal(parent, user_id, timeout_ms) do
+    with {:ok, subscription_id} <- subscribe_fanout(parent.id, user_id, self()) do
+      try do
+        case Fanout.join_status(parent) do
+          %{terminal?: true} -> {:ok, Fanout.report(parent)}
+          _pending -> receive_join(parent, System.monotonic_time(:millisecond) + timeout_ms)
+        end
+      after
+        Bus.unsubscribe(AllbertAssist.SignalBus, subscription_id)
+      end
+    end
+  end
+
+  defp receive_join(parent, deadline_ms) do
+    remaining_ms = max(deadline_ms - System.monotonic_time(:millisecond), 0)
+
+    receive do
+      {:signal, %Signal{type: "allbert.objectives.fanout.joined", data: data}}
+      when is_map(data) ->
+        if fetch_value(data, :parent_id) == parent.id do
+          {:ok, Fanout.report(parent)}
+        else
+          receive_join(parent, deadline_ms)
+        end
+    after
+      remaining_ms -> {:timeout, fanout_kickoff(parent)}
+    end
+  end
+
+  defp fanout_kickoff(parent) do
+    %{
+      parent_id: parent.id,
+      status: parent.status,
+      delivery_state: parent.kickoff_delivery_state,
+      children:
+        Enum.map(Fanout.children(parent), &%{id: &1.id, title: &1.title, status: &1.status})
+    }
+  end
+
+  @typep fanout_kickoff :: %{
+           parent_id: String.t(),
+           status: String.t(),
+           delivery_state: String.t() | nil,
+           children: [map()]
+         }
 
   defp normalize_request(attrs) do
     text =
@@ -516,6 +699,192 @@ defmodule AllbertAssist.Runtime do
 
   defp run_agent_turn(input_signal, request), do: agent_runner().(input_signal, request)
 
+  defp run_stage_zero_or_agent(input_signal, request) do
+    case fanout_proposal(request) do
+      {:fanout, tasks} -> frame_fanout_response(request, tasks)
+      {:clarify, clarification} -> {:ok, overflow_response(clarification)}
+      :single -> run_agent_turn(input_signal, request)
+    end
+  end
+
+  defp fanout_proposal(%{coding_turn?: true}), do: :single
+
+  defp fanout_proposal(request) do
+    with {:ok, true} <- Settings.get("objectives.fanout.enabled"),
+         {:ok, rollout} when rollout in ["explicit", "shadow", "automatic"] <-
+           Settings.get("objectives.fanout.rollout_mode"),
+         {:ok, max_children} <- Settings.get("objectives.fanout.max_children_per_fanout") do
+      proposal =
+        decomposer().(request.text, %{
+          max_children_per_fanout: max_children,
+          active_fanout?: active_fanout?(request),
+          steering_turn?: steering_turn?(request),
+          timeout_ms: min(request.timeout_ms, 4_000)
+        })
+
+      apply_rollout(proposal, rollout, request)
+    else
+      _other -> :single
+    end
+  end
+
+  defp apply_rollout(_proposal, "shadow", _request), do: :single
+  defp apply_rollout(proposal, "automatic", _request), do: proposal
+
+  defp apply_rollout(proposal, "explicit", request) do
+    if explicit_fanout?(request), do: proposal, else: :single
+  end
+
+  defp explicit_fanout?(request) do
+    truthy?(fetch_value(request.metadata, :fanout)) or
+      Regex.match?(~r/\b(in parallel|simultaneously|separately|independently)\b/iu, request.text)
+  end
+
+  defp active_fanout?(request) do
+    request.user_id
+    |> Objectives.list_objectives()
+    |> Enum.any?(fn objective ->
+      objective.fanout_role == "parent" and objective.source_thread_id == request.thread_id and
+        objective.status in ~w[open running blocked]
+    end)
+  end
+
+  defp steering_turn?(request) do
+    active_fanout?(request) and
+      Regex.match?(
+        ~r/^\s*(status|progress|cancel|stop|pause|resume|retry|skip)(?:\s|$)/iu,
+        request.text
+      )
+  end
+
+  defp frame_fanout_response(request, tasks) do
+    attrs = %{
+      user_id: request.user_id,
+      title: String.slice(request.text, 0, 160),
+      objective: request.text,
+      source_channel: to_string(request.channel),
+      source_surface: source_surface(request.channel),
+      source_thread_id: request.thread_id,
+      session_id: request.session_id,
+      active_app: optional_to_string(request.active_app),
+      origin_receiver_account_ref: origin_field(request, :receiver_account_ref),
+      origin_thread_ref_digest: origin_ref_digest(request.channel_thread_ref)
+    }
+
+    with {:ok, framed} <- Fanout.frame(attrs, tasks) do
+      {:ok, kickoff_response(framed)}
+    end
+  end
+
+  defp kickoff_response(%{parent: parent, children: children, fanout_start_receipt: receipt}) do
+    labels = Enum.map_join(children, "\n", &"#{&1.queue_position + 1}. #{&1.title}")
+
+    response =
+      Response.completed(
+        "I split this into #{length(children)} tasks:\n#{labels}\n\n" <>
+          "Reply in this thread to steer them. I'll report when you next message; enable autonomous notifications in settings to have results pushed here.",
+        fanout: %{
+          parent_id: parent.id,
+          children: Enum.map(children, &%{id: &1.id, title: &1.title, status: &1.status}),
+          delivery_state: parent.kickoff_delivery_state,
+          delivery_context: fanout_delivery_context(parent)
+        },
+        fanout_start_receipt: receipt
+      )
+
+    maybe_add_start_confirmation(response, parent)
+  end
+
+  defp maybe_add_start_confirmation(response, parent) do
+    case Settings.get("objectives.fanout.confirm_before_start") do
+      {:ok, true} ->
+        add_start_confirmation(response, parent)
+
+      _other ->
+        response
+    end
+  end
+
+  defp add_start_confirmation(response, parent) do
+    case Confirmations.create(start_confirmation_attrs(parent)) do
+      {:ok, confirmation} ->
+        response
+        |> Map.put(:status, :needs_confirmation)
+        |> Map.put(:approval_handoff, %{confirmation_id: confirmation["id"]})
+        |> Map.update!(:message, &(&1 <> "\n\nApproval is required before these tasks start."))
+
+      {:error, _reason} ->
+        response
+    end
+  end
+
+  defp start_confirmation_attrs(parent) do
+    %{
+      origin: %{actor: parent.user_id, channel: parent.source_channel},
+      target_action: %{
+        name: "start_fanout",
+        module: inspect(AllbertAssist.Actions.Objectives.StartFanout)
+      },
+      target_permission: :objective_write,
+      target_execution_mode: :objective_engine,
+      security_decision: %{
+        decision: :needs_confirmation,
+        reason: "Fan-out start confirmation enabled."
+      },
+      params_summary: %{parent_id: parent.id, child_count: length(Fanout.children(parent))},
+      resume_params_ref: %{parent_id: parent.id, user_id: parent.user_id},
+      objective_id: parent.id
+    }
+  end
+
+  defp start_acknowledged_fanout(parent_id) do
+    case Scheduler.start_fanout(parent_id) do
+      {:ok, _coordinator} -> :ok
+      {:error, {:already_started, _pid}} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp overflow_response(%{task_count: count, max_children: max, tasks: tasks}) do
+    Response.advisory(
+      "I found #{count} separate tasks, but this installation allows at most #{max} per fan-out. Please narrow the list or ask me to batch it explicitly.",
+      decomposition_overflow: %{task_count: count, max_children: max, tasks: tasks}
+    )
+  end
+
+  defp source_surface(channel) when channel in [:web, "web"], do: "web"
+  defp source_surface(_channel), do: "channel"
+  defp optional_to_string(nil), do: nil
+  defp optional_to_string(value), do: to_string(value)
+
+  defp origin_field(%{channel_thread_ref: ref}, key) when is_map(ref), do: Map.get(ref, key)
+  defp origin_field(_request, _key), do: nil
+
+  defp origin_ref_digest(nil), do: nil
+
+  defp origin_ref_digest(ref) do
+    ref
+    |> Jason.encode!()
+    |> then(&:crypto.hash(:sha256, &1))
+    |> Base.encode16(case: :lower)
+  end
+
+  defp fanout_delivery_context(parent) do
+    %{
+      origin_thread_ref_id: parent.origin_thread_ref_id,
+      origin_thread_ref_digest: parent.origin_thread_ref_digest,
+      origin_receiver_account_ref: parent.origin_receiver_account_ref
+    }
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Map.new()
+  end
+
+  defp decomposer do
+    :allbert_assist
+    |> Application.get_env(__MODULE__, [])
+    |> Keyword.get(:decomposer, &Decomposer.propose/2)
+  end
+
   defp coding_turn_metadata(input_signal, request) do
     %{
       turn_id: request.coding_turn_id || "coding-turn-#{input_signal.id}",
@@ -532,6 +901,7 @@ defmodule AllbertAssist.Runtime do
   defp build_response(input_signal, response_signal, agent_response, request) do
     agent_response = Response.normalize(agent_response)
     media_outputs = MediaOutputs.collect(agent_response)
+    pending_reports = Fanout.pending_reports(request.user_id, request.thread_id)
 
     %{
       message: agent_response.message,
@@ -543,6 +913,7 @@ defmodule AllbertAssist.Runtime do
       input_signal_id: input_signal.id,
       user_message_id: request.user_message_id,
       assistant_message_id: nil,
+      channel: request.channel,
       user_id: request.user_id,
       operator_id: request.operator_id,
       thread_id: request.thread_id,
@@ -558,7 +929,48 @@ defmodule AllbertAssist.Runtime do
     |> maybe_put(:turn_id, Map.get(agent_response, :turn_id))
     |> maybe_put(:coding_turn, Map.get(agent_response, :coding_turn))
     |> maybe_put(:coding_session_context, Map.get(agent_response, :coding_session_context))
+    |> maybe_put(:fanout, Map.get(agent_response, :fanout))
+    |> maybe_put(:fanout_start_receipt, Map.get(agent_response, :fanout_start_receipt))
+    |> Map.put(:pending_reports, pending_reports)
+    |> attach_pending_report_text(pending_reports)
     |> maybe_put_media_outputs(media_outputs)
+  end
+
+  defp attach_pending_report_text(response, []), do: response
+
+  defp attach_pending_report_text(response, pending_reports) do
+    text =
+      pending_reports
+      |> Enum.map_join("\n\n", fn pending -> format_fanout_report(pending.report) end)
+
+    Enum.reduce([:message, :model_payload, :surface_payload], response, fn field, acc ->
+      Map.update(acc, field, text, fn existing -> existing <> "\n\n" <> text end)
+    end)
+  end
+
+  defp format_fanout_report(report) do
+    children =
+      Enum.map_join(report.children, "\n", fn child ->
+        "- #{child.title}: #{child.status}" <>
+          if(child.result_summary, do: " — #{child.result_summary}", else: "")
+      end)
+
+    "Fan-out #{report.status}:\n#{children}"
+  end
+
+  defp fanout_parent_for_start_receipt(receipt, context) do
+    user_id = fetch_value(context, :user_id)
+
+    user_id
+    |> Objectives.list_objectives()
+    |> Enum.find(fn objective ->
+      objective.fanout_role == "parent" and
+        Fanout.receipt_for(:start, objective.id) == receipt
+    end)
+    |> case do
+      nil -> {:error, :fanout_not_found}
+      parent -> {:ok, parent}
+    end
   end
 
   defp persist_user_message(request, input_signal) do

@@ -176,7 +176,11 @@ defmodule AllbertAssist.Jobs.Runner do
       |> success_run_attrs(duration_ms, run)
       |> Map.put(:finished_at, utc_now())
 
-    with {:ok, finished_run} <- Jobs.update_run(run, attrs),
+    with {:ok, finished_run} <-
+           Runtime.track_delivery(response, %{channel: :job}, fn ->
+             Jobs.update_run(run, attrs)
+           end),
+         :ok <- Runtime.acknowledge_deliveries(response, %{channel: :job}),
          {:ok, updated_job} <- update_job_after_run(job, finished_run) do
       {:ok, %{job: updated_job, run: finished_run, response: response}}
     end

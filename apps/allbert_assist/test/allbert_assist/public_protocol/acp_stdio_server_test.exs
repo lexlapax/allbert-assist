@@ -3,6 +3,7 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
 
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Paths
   alias AllbertAssist.PublicProtocol.Acp.Server
   alias AllbertAssist.PublicProtocol.ResultReadback
@@ -176,6 +177,81 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
              session_id: ^session_id
            } =
              Repo.get_by(Event, channel: "acp_stdio", status: "processed")
+  end
+
+  test "session/prompt acknowledges a durable kickoff and holds for the joined report" do
+    enable_acp_stdio!()
+
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    {session_id, state} = started_session()
+
+    {:ok, [update, response], _state} =
+      Server.handle_message(
+        %{
+          "jsonrpc" => "2.0",
+          "id" => 33,
+          "method" => "session/prompt",
+          "params" => %{
+            "sessionId" => session_id,
+            "prompt" => [%{"type" => "text", "text" => "first task; second task"}]
+          }
+        },
+        state
+      )
+
+    assert update["params"]["update"]["content"]["text"] =~ "Fan-out completed"
+    assert response["result"]["stopReason"] == "end_turn"
+
+    [parent] =
+      "public-protocol:zed-fixture"
+      |> AllbertAssist.Objectives.list_objectives()
+      |> Enum.filter(&(&1.fanout_role == "parent"))
+
+    assert parent.kickoff_delivery_state == "acknowledged"
+    assert Enum.all?(Fanout.children(parent), &(&1.status == "completed"))
+  end
+
+  test "session/prompt timeout returns kickoff and leaves the eventual report pending" do
+    enable_acp_stdio!()
+
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    runtime_config = Application.get_env(:allbert_assist, Runtime, [])
+
+    Application.put_env(
+      :allbert_assist,
+      Runtime,
+      Keyword.put(runtime_config, :fanout_timeout_ms, 0)
+    )
+
+    {session_id, state} = started_session()
+
+    {:ok, [update, response], _state} =
+      Server.handle_message(
+        %{
+          "jsonrpc" => "2.0",
+          "id" => 34,
+          "method" => "session/prompt",
+          "params" => %{
+            "sessionId" => session_id,
+            "prompt" => [%{"type" => "text", "text" => "first task; second task"}]
+          }
+        },
+        state
+      )
+
+    assert update["params"]["update"]["content"]["text"] =~ "I split this into 2 tasks"
+    assert response["result"]["stopReason"] == "end_turn"
+
+    [parent] =
+      "public-protocol:zed-fixture"
+      |> AllbertAssist.Objectives.list_objectives()
+      |> Enum.filter(&(&1.fanout_role == "parent"))
+
+    eventually(fn -> Repo.reload!(parent).report_delivery_state == "pending" end)
   end
 
   test "session/prompt returns structured runtime errors and records failed audit events" do
@@ -412,4 +488,16 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp eventually(fun, attempts \\ 100)
+  defp eventually(fun, 0), do: assert(fun.())
+
+  defp eventually(fun, attempts) do
+    if fun.() do
+      :ok
+    else
+      Process.sleep(20)
+      eventually(fun, attempts - 1)
+    end
+  end
 end

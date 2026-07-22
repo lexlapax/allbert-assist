@@ -155,8 +155,12 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
          {:ok, response} <-
            submit_runtime(text, user_id, session_id, fields, new_thread?, inbound_trust),
          {:ok, chunks} <- Renderer.render_response(response, renderer_opts(state)),
-         {:ok, delivered} <- deliver_chunks(fields, chunks, state),
+         {:ok, delivered} <-
+           Runtime.track_delivery(response, %{channel: "signal"}, fn ->
+             deliver_chunks(fields, chunks, state)
+           end),
          :ok <- record_outbound_refs(response, fields, delivered),
+         :ok <- Runtime.acknowledge_deliveries(response, %{channel: "signal"}),
          {:ok, _event} <- mark_processed(event, response, user_id, session_id) do
       {:ok, :processed}
     else

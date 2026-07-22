@@ -146,6 +146,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "write",
              "edit",
              "bash",
+             "start_fanout",
              "whatsapp_doctor",
              "signal_doctor",
              "mcp_doctor_server",
@@ -388,6 +389,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "write",
              "edit",
              "bash",
+             "start_fanout",
              "whatsapp_doctor",
              "signal_doctor",
              "mcp_doctor_server",
@@ -1043,6 +1045,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert Registry.resumable?("mcp_call_tool")
     assert Registry.resumable?("capture_workspace_voice")
     assert Registry.resumable?("transcribe_voice")
+    assert Registry.resumable?("start_fanout")
     assert Registry.resumable?("synthesize_voice")
     assert Registry.resumable?("generate_image")
     assert Registry.resumable?("write")

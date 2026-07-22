@@ -9,6 +9,7 @@ defmodule AllbertAssist.Objectives.Fanout do
   import Ecto.Query
 
   alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.Fanout.ReceiptSecret
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime.Redactor
@@ -45,6 +46,27 @@ defmodule AllbertAssist.Objectives.Fanout do
     |> Repo.all()
   end
 
+  @doc "Return pending join reports without consuming their delivery receipts."
+  @spec pending_reports(String.t(), String.t()) :: [map()]
+  def pending_reports(user_id, thread_id) when is_binary(user_id) and is_binary(thread_id) do
+    Objective
+    |> where(
+      [o],
+      o.fanout_role == "parent" and o.user_id == ^user_id and
+        o.source_thread_id == ^thread_id and o.report_delivery_state == "pending"
+    )
+    |> order_by([o], asc: o.completed_at, asc: o.id)
+    |> Repo.all()
+    |> Enum.map(fn parent ->
+      %{
+        parent_objective_id: parent.id,
+        report: report(parent),
+        report_delivery_receipt: receipt_for(:report, parent.id),
+        delivery_context: receipt_delivery_context(parent)
+      }
+    end)
+  end
+
   @spec join_status(Objective.t() | String.t()) :: %{
           terminal?: boolean(),
           status: String.t(),
@@ -56,7 +78,14 @@ defmodule AllbertAssist.Objectives.Fanout do
     %{terminal?: Enum.all?(children, &(&1.status in @terminal)), status: status, outcome: outcome}
   end
 
-  @spec report(Objective.t() | String.t()) :: map()
+  @type report :: %{
+          parent_objective_id: String.t(),
+          status: String.t(),
+          join_outcome: String.t() | nil,
+          children: [map()]
+        }
+
+  @spec report(Objective.t() | String.t()) :: report()
   def report(%Objective{id: id}), do: report(id)
 
   def report(parent_id) when is_binary(parent_id) do
@@ -83,12 +112,40 @@ defmodule AllbertAssist.Objectives.Fanout do
   @spec acknowledge_start(String.t(), map()) ::
           :ok | {:error, :invalid_receipt | :receipt_identity_mismatch}
   def acknowledge_start(receipt, context) when is_binary(receipt) and is_map(context) do
+    case acknowledge_receipt(
+           :fanout_start_receipt_digest,
+           digest(receipt),
+           :kickoff_delivery_state,
+           "pending",
+           "acknowledged",
+           context
+         ) do
+      {:error, :receipt_identity_mismatch} ->
+        acknowledge_receipt(
+          :fanout_start_receipt_digest,
+          digest(receipt),
+          :kickoff_delivery_state,
+          "blocked",
+          "acknowledged",
+          context
+        )
+
+      result ->
+        result
+    end
+  end
+
+  @doc "Mark a failed kickoff delivery as blocked without consuming its stable receipt."
+  @spec mark_start_delivery_failed(String.t(), map()) ::
+          :ok | {:error, :invalid_receipt | :receipt_identity_mismatch}
+  def mark_start_delivery_failed(receipt, context)
+      when is_binary(receipt) and is_map(context) do
     acknowledge_receipt(
       :fanout_start_receipt_digest,
       digest(receipt),
       :kickoff_delivery_state,
       "pending",
-      "acknowledged",
+      "blocked",
       context
     )
   end
@@ -109,7 +166,7 @@ defmodule AllbertAssist.Objectives.Fanout do
     case {Repo.get(Objective, parent_id), join_status(parent_id)} do
       {%Objective{fanout_role: "parent", report_delivery_state: "not_ready"} = parent,
        %{terminal?: true} = joined} ->
-        receipt = random_receipt()
+        receipt = receipt_for(:report, parent_id)
 
         attrs = %{
           status: joined.status,
@@ -155,8 +212,8 @@ defmodule AllbertAssist.Objectives.Fanout do
   end
 
   defp frame_transaction!(attrs, tasks) do
-    receipt = random_receipt()
     parent_id = Map.get(attrs, :id) || Map.get(attrs, "id") || Objectives.new_id("fanout")
+    receipt = receipt_for(:start, parent_id)
 
     parent_attrs =
       attrs
@@ -287,12 +344,30 @@ defmodule AllbertAssist.Objectives.Fanout do
 
     objective = Repo.one(query)
 
+    if objective && identity_matches?(objective, context) do
+      transition_receipt(query, objective, state_field, to, digest_field, receipt_digest, context)
+    else
+      idempotent_or_denied(digest_field, receipt_digest, state_field, to, context)
+    end
+  end
+
+  defp transition_receipt(
+         query,
+         objective,
+         state_field,
+         to,
+         digest_field,
+         receipt_digest,
+         context
+       ) do
     case Repo.update_all(query, set: [{state_field, to}, {:updated_at, DateTime.utc_now()}]) do
       {1, _} ->
         kind =
-          if state_field == :kickoff_delivery_state,
-            do: "fanout_acknowledged",
-            else: "report_delivered"
+          case {state_field, to} do
+            {:kickoff_delivery_state, "acknowledged"} -> "fanout_acknowledged"
+            {:kickoff_delivery_state, "blocked"} -> "fanout_delivery_blocked"
+            _other -> "report_delivered"
+          end
 
         record_event!(objective.id, kind, %{state: to})
         :ok
@@ -321,29 +396,49 @@ defmodule AllbertAssist.Objectives.Fanout do
 
   defp identity_matches?(objective, context) do
     objective.user_id == context_field(context, :user_id) and
-      optional_match?(
+      required_if_stored?(
         objective.source_channel,
         context_field(context, :source_channel) || context_field(context, :channel)
       ) and
-      optional_match?(
+      required_if_stored?(
         objective.source_thread_id,
         context_field(context, :source_thread_id) || context_field(context, :thread_id)
       ) and
-      optional_match?(
+      required_if_stored?(
         objective.origin_thread_ref_id,
         context_field(context, :origin_thread_ref_id)
       ) and
-      optional_match?(
+      required_if_stored?(
         objective.origin_thread_ref_digest,
         context_field(context, :origin_thread_ref_digest)
+      ) and
+      required_if_stored?(
+        objective.origin_receiver_account_ref,
+        context_field(context, :origin_receiver_account_ref) ||
+          context_field(context, :receiver_account_ref)
       )
   end
 
-  defp optional_match?(_stored, nil), do: true
-  defp optional_match?(stored, supplied), do: stored == supplied
+  defp required_if_stored?(nil, _supplied), do: true
+  defp required_if_stored?(stored, supplied), do: stored == supplied
+
+  defp receipt_delivery_context(parent) do
+    %{
+      origin_thread_ref_id: parent.origin_thread_ref_id,
+      origin_thread_ref_digest: parent.origin_thread_ref_digest,
+      origin_receiver_account_ref: parent.origin_receiver_account_ref
+    }
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Map.new()
+  end
 
   defp context_field(map, key), do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
 
-  defp random_receipt, do: Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
+  @doc false
+  def receipt_for(kind, parent_id) when kind in [:start, :report] and is_binary(parent_id) do
+    :crypto.mac(:hmac, :sha256, ReceiptSecret.ensure!(), "#{kind}:#{parent_id}")
+    |> Base.url_encode64(padding: false)
+  end
+
   defp digest(receipt), do: Base.encode16(:crypto.hash(:sha256, receipt), case: :lower)
 end

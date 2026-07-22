@@ -257,8 +257,12 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
       :ignore ->
         with {:ok, response} <- submit_runtime(fields, user_id, session_id, inbound_trust),
              {:ok, rendered} <- Renderer.render_response(response, renderer_opts(state)),
-             {:ok, delivered} <- deliver_rendered(fields, rendered, state),
+             {:ok, delivered} <-
+               Runtime.track_delivery(response, %{channel: "discord"}, fn ->
+                 deliver_rendered(fields, rendered, state)
+               end),
              :ok <- record_outbound_refs(response, fields, delivered),
+             :ok <- Runtime.acknowledge_deliveries(response, %{channel: "discord"}),
              {:ok, event} <- mark_processed(event, response, user_id, session_id) do
           {:ok, event, rendered}
         end

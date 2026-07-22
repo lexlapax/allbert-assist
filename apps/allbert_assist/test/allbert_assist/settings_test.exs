@@ -453,12 +453,18 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, 5} = Settings.get("objectives.max_loop_count")
     assert {:ok, "operator"} = Settings.get("objectives.trace_detail")
     assert {:ok, true} = Settings.get("objectives.fanout.enabled")
-    assert {:ok, "explicit"} = Settings.get("objectives.fanout.rollout_mode")
+    assert {:ok, "automatic"} = Settings.get("objectives.fanout.rollout_mode")
     assert {:ok, 3} = Settings.get("objectives.fanout.max_concurrent_runs_per_fanout")
     assert {:ok, 6} = Settings.get("objectives.fanout.max_concurrent_runs_global")
     assert {:ok, 8} = Settings.get("objectives.fanout.max_children_per_fanout")
     assert {:ok, false} = Settings.get("objectives.fanout.confirm_before_start")
     assert {:ok, false} = Settings.get("conversations.unified_history.include_e2ee_origin")
+
+    assert {:ok, explicit} =
+             Settings.put("objectives.fanout.rollout_mode", "explicit", %{audit?: false})
+
+    assert explicit.value == "explicit"
+    assert {:ok, "explicit"} = Settings.get("objectives.fanout.rollout_mode")
 
     assert {:ok, resolved} = Settings.put("objectives.enabled", false, %{audit?: false})
     assert resolved.value == false

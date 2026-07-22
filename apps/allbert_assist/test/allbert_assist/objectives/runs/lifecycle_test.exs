@@ -108,7 +108,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     assert completed.last_observation_summary =~ "objective(s)"
   end
 
-  test "missing proposal parks without marking a failed effect" do
+  test "missing proposal is filled by an inert intent decision before execution" do
     assert {:ok, child} =
              Objectives.create_objective(%{
                user_id: "alice",
@@ -117,10 +117,11 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
                fanout_role: "child"
              })
 
-    assert {:blocked, :awaiting_proposal} = Lifecycle.run(child.id)
-    assert {:ok, blocked} = Objectives.get_objective(child.id)
-    assert blocked.status == "blocked"
-    assert blocked.review_reason =~ "awaiting_proposal"
+    assert {:ok, completed} = Lifecycle.run(child.id)
+    assert completed.status == "completed"
+
+    assert [%{candidate_action: "direct_answer", status: "selected"}] =
+             Objectives.list_steps(child.id)
   end
 
   test "each operation receives its own resolved-settings pin" do

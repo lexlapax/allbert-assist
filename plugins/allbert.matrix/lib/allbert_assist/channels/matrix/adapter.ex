@@ -261,8 +261,12 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
              state
            ),
          {:ok, chunks} <- render_processed_response(response, record_refs?, state),
-         {:ok, delivered} <- deliver_chunks(fields.room_id, chunks, state, fields),
+         {:ok, delivered} <-
+           Runtime.track_delivery(response, %{channel: "matrix"}, fn ->
+             deliver_chunks(fields.room_id, chunks, state, fields)
+           end),
          :ok <- maybe_record_outbound_refs(record_refs?, response, fields, delivered),
+         :ok <- Runtime.acknowledge_deliveries(response, %{channel: "matrix"}),
          {:ok, _event} <- mark_processed(event, response, user_id, session_id) do
       {:ok, :processed}
     else

@@ -1179,7 +1179,11 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
          {:ok, rendered} <-
            Renderer.render_response(response, max_text_bytes: state.max_text_bytes),
          state <- clear_live_status(state),
-         :ok <- emit_rendered(rendered, state),
+         :ok <-
+           Runtime.track_delivery(response, %{channel: @channel}, fn ->
+             emit_rendered(rendered, state)
+           end),
+         :ok <- Runtime.acknowledge_deliveries(response, %{channel: @channel}),
          {:ok, event} <- mark_processed(event, response, user_id, session_id) do
       {{:ok, {:processed, event, rendered}}, state}
     else

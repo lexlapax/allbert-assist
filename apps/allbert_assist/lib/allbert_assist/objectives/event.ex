@@ -21,6 +21,7 @@ defmodule AllbertAssist.Objectives.Event do
     impasse
     fanout_proposed
     fanout_acknowledged
+    fanout_delivery_blocked
     fanout_joined
     report_delivered
     run_started

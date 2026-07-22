@@ -142,6 +142,14 @@ defmodule AllbertAssist.PublicProtocol.OpenAI.Mapping do
 
   @spec sse_payload(map()) :: String.t()
   def sse_payload(completion) when is_map(completion) do
+    sse_chunk(completion, finish?: true) <> "data: [DONE]\n\n"
+  end
+
+  @doc "Encode one genuine SSE completion chunk without implicitly closing the stream."
+  @spec sse_chunk(map(), keyword()) :: String.t()
+  def sse_chunk(completion, opts \\ []) when is_map(completion) do
+    finish? = Keyword.get(opts, :finish?, false)
+
     chunk =
       %{
         "id" => completion["id"],
@@ -155,7 +163,7 @@ defmodule AllbertAssist.PublicProtocol.OpenAI.Mapping do
               "role" => "assistant",
               "content" => completion_content(completion)
             },
-            "finish_reason" => "stop"
+            "finish_reason" => if(finish?, do: "stop", else: nil)
           }
         ],
         "usage" => nil
@@ -164,7 +172,7 @@ defmodule AllbertAssist.PublicProtocol.OpenAI.Mapping do
       |> maybe_copy(completion, "allbert_public_call_id")
       |> maybe_copy(completion, "allbert_trace_id")
 
-    "data: #{Jason.encode!(chunk)}\n\ndata: [DONE]\n\n"
+    "data: #{Jason.encode!(chunk)}\n\n"
   end
 
   @spec ingress_error(term()) :: error()

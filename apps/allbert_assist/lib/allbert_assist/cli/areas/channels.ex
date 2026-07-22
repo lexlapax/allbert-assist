@@ -906,7 +906,8 @@ defmodule AllbertAssist.CLI.Areas.Channels do
              metadata: simulate_metadata("telegram", "telegram_bot_api", event, nil)
            }),
          {:ok, rendered, _keyboard} <- Telegram.Renderer.render_response(response),
-         {:ok, event} <- mark_simulated_event(event, response, user_id, session_id) do
+         {:ok, event} <- mark_simulated_event(event, response, user_id, session_id),
+         :ok <- Runtime.acknowledge_deliveries(response, %{channel: "telegram"}) do
       {:ok, {:simulate, event, rendered}}
     end
   end
@@ -938,7 +939,8 @@ defmodule AllbertAssist.CLI.Areas.Channels do
              metadata: simulate_metadata("email", "email_imap", event, nil)
            }),
          {:ok, _subject, body, _html} <- Email.Renderer.render_response(response),
-         {:ok, event} <- mark_simulated_event(event, response, user_id, session_id) do
+         {:ok, event} <- mark_simulated_event(event, response, user_id, session_id),
+         :ok <- Runtime.acknowledge_deliveries(response, %{channel: "email"}) do
       {:ok, {:simulate, event, [body]}}
     end
   end
@@ -971,7 +973,8 @@ defmodule AllbertAssist.CLI.Areas.Channels do
              metadata: simulate_metadata("matrix", "matrix_client_server", event, nil)
            }),
          {:ok, rendered} <- Matrix.Renderer.render_response(response),
-         {:ok, event} <- mark_simulated_event(event, response, user_id, session_id) do
+         {:ok, event} <- mark_simulated_event(event, response, user_id, session_id),
+         :ok <- Runtime.acknowledge_deliveries(response, %{channel: "matrix"}) do
       {:ok, {:simulate, event, rendered}}
     end
   end

@@ -207,8 +207,12 @@ defmodule AllbertAssist.Channels.WhatsApp.Adapter do
              state
            ),
          {:ok, rendered} <- render_processed_response(response, callback?, state),
-         {:ok, delivered} <- deliver_rendered(fields, rendered, state),
+         {:ok, delivered} <-
+           Runtime.track_delivery(response, %{channel: "whatsapp"}, fn ->
+             deliver_rendered(fields, rendered, state)
+           end),
          :ok <- maybe_record_outbound_refs(callback?, response, fields, delivered),
+         :ok <- Runtime.acknowledge_deliveries(response, %{channel: "whatsapp"}),
          {:ok, _event} <- mark_text_processed(callback?, event, response, user_id, session_id) do
       {:ok, :processed}
     else

@@ -5,6 +5,7 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
 
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Paths
   alias AllbertAssist.PublicProtocol.RateLimiter
   alias AllbertAssist.PublicProtocol.ResultReadback
@@ -17,6 +18,7 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
+
     parent = self()
 
     root =
@@ -182,6 +184,88 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
     assert conn.resp_body =~ "data: [DONE]"
   end
 
+  test "fanout non-streaming records kickoff before start and holds for joined report", %{
+    conn: conn,
+    token: token
+  } do
+    enable_automatic_fanout!()
+
+    conn =
+      conn
+      |> auth_conn(token)
+      |> post_json(%{
+        "model" => "local",
+        "messages" => [%{"role" => "user", "content" => "first task; second task"}]
+      })
+
+    body = json_response(conn, 200)
+    assert get_in(body, ["choices", Access.at(0), "message", "content"]) =~ "Fan-out completed"
+
+    [parent] =
+      "public-protocol:openai-client"
+      |> AllbertAssist.Objectives.list_objectives()
+      |> Enum.filter(&(&1.fanout_role == "parent"))
+
+    assert parent.kickoff_delivery_state == "acknowledged"
+    assert Enum.all?(Fanout.children(parent), &(&1.status == "completed"))
+    assert AllbertAssist.Repo.reload!(parent).report_delivery_state == "delivered"
+  end
+
+  test "fanout streaming flushes kickoff, working status, joined report, and DONE", %{
+    conn: conn,
+    token: token
+  } do
+    enable_automatic_fanout!()
+
+    conn =
+      conn
+      |> auth_conn(token)
+      |> post_json(%{
+        "model" => "local",
+        "stream" => true,
+        "messages" => [%{"role" => "user", "content" => "first task; second task"}]
+      })
+
+    assert conn.status == 200
+    assert conn.resp_body =~ "I split this into 2 tasks"
+    assert conn.resp_body =~ ~s("allbert_status":"working")
+    assert conn.resp_body =~ "Fan-out completed"
+    assert conn.resp_body =~ "data: [DONE]"
+  end
+
+  test "fanout timeout returns kickoff while the eventual report remains pending", %{
+    conn: conn,
+    token: token
+  } do
+    enable_automatic_fanout!()
+
+    runtime_config = Application.get_env(:allbert_assist, Runtime, [])
+
+    Application.put_env(
+      :allbert_assist,
+      Runtime,
+      Keyword.put(runtime_config, :fanout_timeout_ms, 0)
+    )
+
+    conn =
+      conn
+      |> auth_conn(token)
+      |> post_json(%{
+        "model" => "local",
+        "messages" => [%{"role" => "user", "content" => "first task; second task"}]
+      })
+
+    assert get_in(json_response(conn, 200), ["choices", Access.at(0), "message", "content"]) =~
+             "I split this into 2 tasks"
+
+    [parent] =
+      "public-protocol:openai-client"
+      |> AllbertAssist.Objectives.list_objectives()
+      |> Enum.filter(&(&1.fanout_role == "parent"))
+
+    eventually(fn -> AllbertAssist.Repo.reload!(parent).report_delivery_state == "pending" end)
+  end
+
   test "confirmation-pending turns create client-owned readback ids", %{conn: conn, token: token} do
     Application.put_env(:allbert_assist, Runtime,
       agent_runner: fn _signal, request ->
@@ -264,6 +348,11 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
              Settings.put("openai_api.models_enabled", ["local"], %{audit?: false})
   end
 
+  defp enable_automatic_fanout! do
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+  end
+
   defp set_rate_limit!(client_id, rate_limit) do
     {:ok, clients} = Settings.get("openai_api.clients")
     entry = Map.fetch!(clients, client_id)
@@ -276,4 +365,16 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp eventually(fun, attempts \\ 100)
+  defp eventually(fun, 0), do: assert(fun.())
+
+  defp eventually(fun, attempts) do
+    if fun.() do
+      :ok
+    else
+      Process.sleep(20)
+      eventually(fun, attempts - 1)
+    end
+  end
 end

@@ -181,8 +181,12 @@ defmodule AllbertAssist.Channels.Email.Adapter do
          {text, new_thread?} <- prompt_text(fields.subject, text_body),
          {:ok, response} <- submit_runtime(text, user_id, session_id, fields, uid, new_thread?),
          {:ok, subject, body, _html_body} <- render_response(response, fields, state),
-         {:ok, delivered} <- deliver_reply(fields, subject, body, state),
+         {:ok, delivered} <-
+           Runtime.track_delivery(response, %{channel: "email"}, fn ->
+             deliver_reply(fields, subject, body, state)
+           end),
          :ok <- record_outbound_ref(response, fields, delivered),
+         :ok <- Runtime.acknowledge_deliveries(response, %{channel: "email"}),
          {:ok, _event} <- mark_processed(event, response, user_id, session_id) do
       :processed
     else

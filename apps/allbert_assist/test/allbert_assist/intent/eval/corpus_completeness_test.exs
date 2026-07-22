@@ -23,7 +23,13 @@ defmodule AllbertAssist.Intent.Eval.CorpusCompletenessTest do
   # - restore_database_backup (v0.62 M5) is a static internal action whose
   #   negative-internal row was never added alongside its v0.62 siblings.
   @agent_actions_without_positive_rows MapSet.new(["set_notes_root"])
-  @internal_actions_without_negative_rows MapSet.new(["restore_database_backup"])
+  @internal_actions_without_negative_rows MapSet.new([
+                                            "restore_database_backup",
+                                            # v1.1 M3: continuation-only confirmation target. It is
+                                            # never collected as an intent candidate; the dedicated
+                                            # fan-out corpus proves prompts cannot select it.
+                                            "start_fanout"
+                                          ])
 
   @intentionally_uncovered_actions MapSet.new([
                                      # Research app descriptors are inert handoff descriptors; the

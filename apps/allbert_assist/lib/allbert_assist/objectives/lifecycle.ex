@@ -252,14 +252,18 @@ defmodule AllbertAssist.Objectives.Lifecycle do
   end
 
   defmodule DefaultAdapter do
-    @moduledoc false
+    @moduledoc """
+    Uses the shared intent engine to propose one inert registered-action step,
+    then executes it through the normal Registry/Runner authority boundary.
+    """
 
     alias AllbertAssist.Actions.{Registry, Runner}
+    alias AllbertAssist.Intent.{Decision, Engine}
     alias AllbertAssist.Objectives
 
     def operation(:propose, %{objective: objective} = state, _opts) do
       case Objectives.list_steps(objective.id) do
-        [] -> {:blocked, :awaiting_proposal, state}
+        [] -> propose_step(objective, state)
         steps -> {:ok, Map.put(state, :step, List.last(steps))}
       end
     end
@@ -304,6 +308,57 @@ defmodule AllbertAssist.Objectives.Lifecycle do
 
     def operation(:observe, state, _opts), do: {:ok, state}
     def operation(:advance, state, _opts), do: {:ok, state}
+
+    defp propose_step(objective, state) do
+      request = %{
+        text: objective.objective,
+        user_id: objective.user_id,
+        thread_id: objective.source_thread_id,
+        session_id: objective.session_id,
+        active_app: objective.active_app,
+        channel: objective.source_channel
+      }
+
+      with {:ok, decision} <- Engine.decide(request),
+           {:ok, action} <- selected_action(decision),
+           {:ok, step} <-
+             Objectives.create_step(%{
+               objective_id: objective.id,
+               kind: "action",
+               status: "selected",
+               stage: "propose_steps",
+               candidate_action: action,
+               action_params: Jason.encode!(action_params(action, decision, objective.objective)),
+               resource_access:
+                 decision
+                 |> Decision.to_map()
+                 |> Map.get(:resource_access, [])
+                 |> Jason.encode!()
+             }) do
+        {:ok, Map.put(state, :step, step)}
+      else
+        {:error, reason} -> {:blocked, {:proposal_failed, reason}, state}
+      end
+    end
+
+    defp selected_action(%{selected_action: action}) when is_binary(action) do
+      case Registry.resolve(action) do
+        {:ok, _capability} -> {:ok, action}
+        {:error, _reason} -> {:ok, "direct_answer"}
+      end
+    end
+
+    defp selected_action(_decision), do: {:ok, "direct_answer"}
+
+    defp action_params(action, decision, text) do
+      slots = get_in(decision.trace_metadata, [:extracted_slots]) || %{}
+
+      case action do
+        "direct_answer" -> Map.put_new(slots, :text, text)
+        "external_network_request" -> Map.put_new(slots, :request, text)
+        _other -> slots
+      end
+    end
 
     defp decode_params(nil), do: %{}
 
