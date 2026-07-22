@@ -23,12 +23,41 @@ defmodule AllbertAssist.Actions.Capability do
     :skill_backed?,
     :app_id,
     :plugin_id,
+    retry_safety: :unknown,
     confirmation: nil,
     notes: nil,
     resumable?: false
   ]
 
   @type exposure :: :agent | :internal
+  @reviewed_safe_execution_modes [
+    :artifact_doctor,
+    :artifact_read,
+    :browser_diagnostic,
+    :channel_diagnostic,
+    :confirmation_read,
+    :intent_operator_read,
+    :marketplace_browse,
+    :marketplace_diagnostic,
+    :mcp_discovery,
+    :mcp_doctor,
+    :mcp_resource_read,
+    :memory_index_compile,
+    :memory_read,
+    :objectives_read,
+    :package_install_plan,
+    :plan_preview,
+    :read_only,
+    :resource_grant_read,
+    :security_status,
+    :self_improvement_discovery,
+    :settings_read,
+    :skill_validation,
+    :template_render,
+    :template_validate,
+    :unsupported_resource_workflow,
+    :workflow_expand
+  ]
   @type execution_mode ::
           :read_only
           | :memory_write
@@ -81,6 +110,7 @@ defmodule AllbertAssist.Actions.Capability do
           skill_backed?: boolean(),
           app_id: atom() | nil,
           plugin_id: String.t() | nil,
+          retry_safety: :safe | :unsafe | :unknown,
           confirmation: nil | atom(),
           notes: nil | String.t(),
           resumable?: boolean()
@@ -98,6 +128,7 @@ defmodule AllbertAssist.Actions.Capability do
       skill_backed?: Map.fetch!(attrs, :skill_backed?),
       app_id: Map.get(attrs, :app_id),
       plugin_id: Map.get(attrs, :plugin_id),
+      retry_safety: reviewed_retry_safety(attrs),
       confirmation: Map.get(attrs, :confirmation),
       notes: Map.get(attrs, :notes),
       resumable?: Map.get(attrs, :resumable?, false)
@@ -116,7 +147,8 @@ defmodule AllbertAssist.Actions.Capability do
       execution_mode: capability.execution_mode,
       skill_backed?: capability.skill_backed?,
       confirmation: capability.confirmation,
-      resumable?: capability.resumable?
+      resumable?: capability.resumable?,
+      retry_safety: capability.retry_safety
     }
     |> put_if_present(:app_id, capability.app_id)
     |> put_if_present(:plugin_id, capability.plugin_id)
@@ -124,4 +156,15 @@ defmodule AllbertAssist.Actions.Capability do
 
   defp put_if_present(map, _key, nil), do: map
   defp put_if_present(map, key, value), do: Map.put(map, key, value)
+
+  # M2 catalog sweep: only execution modes reviewed as read-only/idempotent
+  # upgrade the additive default. Every other or future mode stays unknown
+  # unless its action declares an explicit value.
+  defp reviewed_retry_safety(%{retry_safety: safety}) when safety in [:safe, :unsafe], do: safety
+
+  defp reviewed_retry_safety(attrs) do
+    if Map.get(attrs, :execution_mode) in @reviewed_safe_execution_modes,
+      do: :safe,
+      else: :unknown
+  end
 end

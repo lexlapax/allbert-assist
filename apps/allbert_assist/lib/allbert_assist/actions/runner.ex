@@ -6,6 +6,7 @@ defmodule AllbertAssist.Actions.Runner do
   alias AllbertAssist.Actions.Capability
   alias AllbertAssist.Actions.ParamContract
   alias AllbertAssist.Actions.Registry
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Capabilities.ReleaseAvailability
   alias AllbertAssist.RegistryContext
   alias AllbertAssist.Runtime.Redactor
@@ -324,10 +325,23 @@ defmodule AllbertAssist.Actions.Runner do
   defp app_scope_check(action_module, context) do
     case Registry.capability(action_module, registry_opts(context)) do
       {:ok, %{app_id: expected_app}} when not is_nil(expected_app) ->
-        check_active_app_scope(action_module, expected_app, active_app(context))
+        with :ok <- check_app_membership(action_module, expected_app, context) do
+          check_active_app_scope(action_module, expected_app, active_app(context))
+        end
 
       _other ->
         :ok
+    end
+  end
+
+  defp check_app_membership(action_module, expected_app, context) do
+    app_opts = context |> registry_opts() |> RegistryContext.app_opts()
+
+    if AppRegistry.known_app_id?(expected_app, app_opts) do
+      :ok
+    else
+      {:denied,
+       app_scope_denied(action_module, expected_app, active_app(context), :unregistered_app)}
     end
   end
 

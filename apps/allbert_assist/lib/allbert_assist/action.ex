@@ -17,7 +17,8 @@ defmodule AllbertAssist.Action do
     :app_id,
     :plugin_id,
     :notes,
-    :resumable?
+    :resumable?,
+    :retry_safety
   ]
   @required_capability_keys [
     :permission,
@@ -36,7 +37,8 @@ defmodule AllbertAssist.Action do
           optional(:app_id) => atom(),
           optional(:plugin_id) => String.t(),
           optional(:notes) => String.t(),
-          optional(:resumable?) => boolean()
+          optional(:resumable?) => boolean(),
+          optional(:retry_safety) => :safe | :unsafe | :unknown
         }
   @type capability_key ::
           :permission
@@ -48,6 +50,7 @@ defmodule AllbertAssist.Action do
           | :plugin_id
           | :notes
           | :resumable?
+          | :retry_safety
 
   defmacro __using__(opts) do
     {capability_opts, jido_opts} = Keyword.split(opts, @capability_keys)
@@ -107,6 +110,9 @@ defmodule AllbertAssist.Action do
       not atom?(Map.get(attrs, :confirmation)) ->
         {:error, {:invalid_confirmation, Map.get(attrs, :confirmation)}}
 
+      Map.get(attrs, :retry_safety, :unknown) not in [:safe, :unsafe, :unknown] ->
+        {:error, {:invalid_retry_safety, Map.get(attrs, :retry_safety)}}
+
       true ->
         {:ok, normalize_capability(attrs)}
     end
@@ -141,6 +147,7 @@ defmodule AllbertAssist.Action do
     attrs
     |> Map.take(@capability_keys)
     |> Map.put_new(:resumable?, false)
+    |> Map.put_new(:retry_safety, :unknown)
   end
 
   defp atom?(value), do: is_atom(value) and not is_nil(value)

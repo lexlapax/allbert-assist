@@ -23,6 +23,12 @@ defmodule AllbertAssist.Objectives.Event do
     fanout_acknowledged
     fanout_joined
     report_delivered
+    run_started
+    run_progress
+    run_blocked
+    run_completed
+    run_failed
+    run_cancelled
   ]
 
   @primary_key {:id, :string, autogenerate: false}

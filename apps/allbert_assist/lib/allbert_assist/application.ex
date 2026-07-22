@@ -39,6 +39,9 @@ defmodule AllbertAssist.Application do
         AllbertAssist.PublicProtocol.RateLimiter,
         AllbertAssist.PublicProtocol.ResultReadbackSweeper,
         AllbertAssist.Objectives.AgentRegistry,
+        {Registry, keys: :unique, name: AllbertAssist.Objectives.Runs.Registry},
+        AllbertAssist.Objectives.Runs.Supervisor,
+        AllbertAssist.Objectives.Runs.Scheduler,
         AllbertAssist.Intent.Router.Index,
         AllbertAssist.Intent.Router.PendingStore,
         AllbertAssist.Jido

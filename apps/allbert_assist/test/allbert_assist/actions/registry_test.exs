@@ -81,6 +81,14 @@ defmodule AllbertAssist.Actions.RegistryTest do
     :ok
   end
 
+  test "retry safety is safe only for reviewed idempotent modes and unknown otherwise" do
+    assert {:ok, safe} = Registry.capability("list_settings")
+    assert safe.retry_safety == :safe
+
+    assert {:ok, unknown} = Registry.capability("send_channel_message")
+    assert unknown.retry_safety == :unknown
+  end
+
   test "returns the canonical runtime action names in stable order" do
     assert Registry.names() == [
              "direct_answer",

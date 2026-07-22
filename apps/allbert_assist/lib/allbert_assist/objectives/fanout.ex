@@ -32,6 +32,19 @@ defmodule AllbertAssist.Objectives.Fanout do
     |> Repo.all()
   end
 
+  @doc "Return acknowledged fan-out parents eligible for executor reconciliation."
+  @spec runnable_parents() :: [Objective.t()]
+  def runnable_parents do
+    Objective
+    |> where(
+      [o],
+      o.fanout_role == "parent" and o.kickoff_delivery_state == "acknowledged" and
+        o.status in ["open", "running", "blocked"]
+    )
+    |> order_by([o], asc: o.inserted_at, asc: o.id)
+    |> Repo.all()
+  end
+
   @spec join_status(Objective.t() | String.t()) :: %{
           terminal?: boolean(),
           status: String.t(),

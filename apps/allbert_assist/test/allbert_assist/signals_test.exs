@@ -131,6 +131,25 @@ defmodule AllbertAssist.SignalsTest do
     assert completed.data.trace_id == "trace_1"
   end
 
+  test "fanout lifecycle signals are pushed through the bus and redacted" do
+    assert {:ok, _subscription_id} =
+             Bus.subscribe(AllbertAssist.SignalBus, "allbert.objectives.run.**")
+
+    assert :ok =
+             Signals.emit_fanout(:run_progress, %{
+               parent_id: "parent-1",
+               child_id: "child-1",
+               operation: :execute,
+               api_key: "sk-secret"
+             })
+
+    assert_receive {:signal, signal}, 1_000
+    assert signal.type == "allbert.objectives.run.progress"
+    assert signal.data.child_id == "child-1"
+    assert signal.data.api_key == "[REDACTED]"
+    refute inspect(signal.data) =~ "sk-secret"
+  end
+
   test "objective signal payloads are bounded" do
     assert {:ok, signal} =
              Signals.objective_lifecycle(:observed, %{

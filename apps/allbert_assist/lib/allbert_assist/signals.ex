@@ -71,6 +71,18 @@ defmodule AllbertAssist.Signals do
     impasse: "allbert.objective.impasse"
   }
 
+  @fanout_signal_types %{
+    fanout_started: "allbert.objectives.fanout.started",
+    fanout_joined: "allbert.objectives.fanout.joined",
+    run_started: "allbert.objectives.run.started",
+    run_progress: "allbert.objectives.run.progress",
+    run_blocked: "allbert.objectives.run.blocked",
+    run_completed: "allbert.objectives.run.completed",
+    run_failed: "allbert.objectives.run.failed",
+    run_cancelled: "allbert.objectives.run.cancelled",
+    run_steered: "allbert.objectives.run.steered"
+  }
+
   @channel_signal_types %{
     update_received: "allbert.channel.update_received",
     message_rejected: "allbert.channel.message_rejected",
@@ -103,6 +115,28 @@ defmodule AllbertAssist.Signals do
   @doc "Return objective lifecycle signal names."
   @spec objective_signal_types() :: %{atom() => String.t()}
   def objective_signal_types, do: @objective_signal_types
+
+  @doc "Return v1.1 fan-out/run lifecycle signal names."
+  @spec fanout_signal_types() :: %{atom() => String.t()}
+  def fanout_signal_types, do: @fanout_signal_types
+
+  @doc "Publish a redaction-safe v1.1 fan-out/run lifecycle signal."
+  @spec emit_fanout(atom(), map()) :: :ok
+  def emit_fanout(kind, metadata) when is_atom(kind) and is_map(metadata) do
+    case Map.fetch(@fanout_signal_types, kind) do
+      {:ok, type} ->
+        case Signal.new(type, Redactor.redact(metadata),
+               source: "/allbert/objectives/fanout/#{kind}",
+               subject: Map.get(metadata, :child_id) || Map.get(metadata, :parent_id)
+             ) do
+          {:ok, signal} -> log(signal)
+          {:error, reason} -> Logger.debug("fanout signal skipped reason=#{inspect(reason)}")
+        end
+
+      :error ->
+        Logger.debug("fanout signal skipped unknown_kind=#{inspect(kind)}")
+    end
+  end
 
   @doc "Return sandbox lifecycle signal names."
   @spec sandbox_signal_types() :: %{atom() => String.t()}

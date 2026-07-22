@@ -7,6 +7,7 @@ defmodule AllbertAssist.Actions.Objectives.ListObjectives do
     execution_mode: :objectives_read,
     skill_backed?: false,
     confirmation: :not_required,
+    retry_safety: :safe,
     name: "list_objectives",
     description: "List bounded objective summaries for a local user.",
     category: "objectives",

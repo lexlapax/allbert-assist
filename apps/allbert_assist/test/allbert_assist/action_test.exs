@@ -57,7 +57,8 @@ defmodule AllbertAssist.ActionTest do
              execution_mode: :read_only,
              skill_backed?: false,
              confirmation: :not_required,
-             resumable?: false
+             resumable?: false,
+             retry_safety: :unknown
            }
   end
 

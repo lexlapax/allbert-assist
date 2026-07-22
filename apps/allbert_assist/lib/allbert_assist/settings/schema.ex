@@ -29,6 +29,12 @@ defmodule AllbertAssist.Settings.Schema do
     "objectives.max_steps_per_turn",
     "objectives.max_loop_count",
     "objectives.trace_detail",
+    "objectives.fanout.enabled",
+    "objectives.fanout.rollout_mode",
+    "objectives.fanout.max_concurrent_runs_per_fanout",
+    "objectives.fanout.max_concurrent_runs_global",
+    "objectives.fanout.max_children_per_fanout",
+    "objectives.fanout.confirm_before_start",
     "conversations.unified_history.include_e2ee_origin",
     "runtime.trace_default",
     "runtime.trace_recent_entries_limit",
@@ -561,6 +567,49 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false,
       allowed_values: ["operator", "debug"]
+    },
+    "objectives.fanout.enabled" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "objectives.fanout.rollout_mode" => %{
+      type: :enum,
+      default: "explicit",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["explicit", "shadow", "automatic"]
+    },
+    "objectives.fanout.max_concurrent_runs_per_fanout" => %{
+      type: :bounded_integer,
+      default: 3,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 8
+    },
+    "objectives.fanout.max_concurrent_runs_global" => %{
+      type: :bounded_integer,
+      default: 6,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 32
+    },
+    "objectives.fanout.max_children_per_fanout" => %{
+      type: :bounded_integer,
+      default: 8,
+      writable?: true,
+      sensitive?: false,
+      min: 2,
+      max: 16
+    },
+    "objectives.fanout.confirm_before_start" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
     },
     "conversations.unified_history.include_e2ee_origin" => %{
       type: :boolean,
@@ -3521,7 +3570,15 @@ defmodule AllbertAssist.Settings.Schema do
       "enabled" => true,
       "max_steps_per_turn" => 3,
       "max_loop_count" => 5,
-      "trace_detail" => "operator"
+      "trace_detail" => "operator",
+      "fanout" => %{
+        "enabled" => true,
+        "rollout_mode" => "explicit",
+        "max_concurrent_runs_per_fanout" => 3,
+        "max_concurrent_runs_global" => 6,
+        "max_children_per_fanout" => 8,
+        "confirm_before_start" => false
+      }
     },
     "operator" => %{
       "display_name" => "local",
