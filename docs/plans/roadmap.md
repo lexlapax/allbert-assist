@@ -60,8 +60,8 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    external-runtime experiment remain intake candidates pending later operator
    disposition, with no v1.0.3 lane-floor claim. Plan: [v1.0.3-plan.md](v1.0.3-plan.md) +
    [v1.0.3-request-flow.md](v1.0.3-request-flow.md) + ADR 0086.
-4. **1.0.4 PUBLISHED, BINARY ACCEPTANCE NOT CLOSED -> 1.0.5 APPROVED
-   CORRECTIVE RC CYCLE** — Packaged Browser Recovery. v1.0.4 is immutable at
+4. **1.0.4 PUBLISHED, BINARY ACCEPTANCE NOT CLOSED -> 1.0.5 RC.4 ACCEPTED;
+   STABLE PUBLICATION IN PROGRESS** — Packaged Browser Recovery. v1.0.4 is immutable at
    `337e3ddb` (CI `29841331741`; tap `5a970b9`): its artifacts correctly keep
    Node, Playwright, Chromium, and caches external, and both published Linux
    rehearsals passed. Its macOS packaged doctor failed when BEAM port option
@@ -81,8 +81,13 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    diagnostic evidence, not a carried acceptance PASS. v1.0.5 M8.1-M8.5 now
    repair those roots, wire permanent `release.v105` regressions, and publish
    RC.2 before repeating macOS, both Linux artifacts, WSL2, and real-host Linux.
-   Neither prior immutable tag is moved, and this corrective line contains no
-   feature scope.
+   RC.2 and RC.3 exposed and repaired the packaged-TUI bootstrap and
+   self-terminating service-uninstall roots. RC.4 is accepted at `1d4d5634`:
+   workflow `29931185956`, macOS, both Linux artifact rows, WSL2, and Arch Linux
+   real-host acceptance all passed without policy SKIP. Stable v1.0.5 must be a
+   fresh build from that exact accepted product SHA; the newer mainline commits
+   are documentation-only release administration. Neither prior immutable tag
+   is moved, and this corrective line contains no feature scope.
    Plan:
    [v1.0.4-plan.md](v1.0.4-plan.md) +
    [v1.0.4-request-flow.md](v1.0.4-request-flow.md) + amended ADR 0040. Later

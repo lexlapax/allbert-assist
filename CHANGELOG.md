@@ -12,9 +12,9 @@ changelog entries or release notes.
 
 ## v1.0.5 - macOS Packaged Browser Port Correction
 
-Status: **signed RC.1 published; WSL2 acceptance failed; M8 remediation and
-immutable RC.2 are required. Stable publication is blocked on the remediated
-WSL2 rerun and real-host Linux.** Published v1.0.4 proved
+Status: **RC.4 accepted at `1d4d5634`; stable publication in progress.**
+Workflow `29931185956`, macOS, both Linux artifacts, WSL2, and Arch Linux
+real-host validation passed with no policy SKIP. Published v1.0.4 proved
 the external browser-runtime ownership model and both Linux artifacts, but its
 macOS Homebrew `browser_doctor` crashed OS Chrome in
 `TransformProcessType`. Isolation proved direct headless Chrome, direct
@@ -54,8 +54,12 @@ The WSL2 evidence group is preserved at `/tmp/allbert-v105-wsl2.2iZhG4` with
 its disposable Home at `/tmp/allbert-v105-wsl2-home.D3qYVb`: signed install,
 focused Windows-host Ollama doctor, exact real-provider marker, and safe
 uninstall/Home preservation succeeded, while systemd/Settings and onboarding/
-TUI acceptance failed. Stable publication remains M9 after M8 and both
-operator-host rows pass or receive explicit operator disposition.
+TUI acceptance failed. RC.2 and RC.3 subsequently exposed and repaired the
+packaged-TUI bootstrap and self-terminating service-uninstall roots. RC.4
+passed the complete clean-SHA, signed-artifact, macOS, WSL2, and Arch Linux
+real-host acceptance line. Stable v1.0.5 is built from the identical accepted
+RC.4 product SHA; later documentation-only administration commits do not alter
+the binary source.
 
 **Formula state: PRE-STABLE-PUBLICATION ONLY.** The public tap is 1.0.4 while this
 repository formula remains on 1.0.0, its last reconciled value, until v1.0.5
