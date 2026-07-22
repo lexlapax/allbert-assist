@@ -19,6 +19,10 @@ defmodule AllbertAssist.Objectives.Event do
     completed
     cancelled
     impasse
+    fanout_proposed
+    fanout_acknowledged
+    fanout_joined
+    report_delivered
   ]
 
   @primary_key {:id, :string, autogenerate: false}

@@ -30,7 +30,11 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
     {20_260_518_000_000, AllbertAssist.Repo.Migrations.AddWorkspaceCanvasTables,
      "apps/allbert_assist/priv/repo/migrations/20260518000000_add_workspace_canvas_tables.exs"},
     {20_260_518_000_100, AllbertAssist.Repo.Migrations.AddCompletedAtToConversationThreads,
-     "apps/allbert_assist/priv/repo/migrations/20260518000100_add_completed_at_to_conversation_threads.exs"}
+     "apps/allbert_assist/priv/repo/migrations/20260518000100_add_completed_at_to_conversation_threads.exs"},
+    {20_260_715_000_000, AllbertAssist.Repo.Migrations.AddObjectiveOriginColumns,
+     "apps/allbert_assist/priv/repo/migrations/20260715000000_add_objective_origin_columns.exs"},
+    {20_260_722_000_100, AllbertAssist.Repo.Migrations.AddObjectiveFanoutColumns,
+     "apps/allbert_assist/priv/repo/migrations/20260722000100_add_objective_fanout_columns.exs"}
   ]
 
   test "objective and workspace migrations run up and down on an isolated sqlite database" do
@@ -74,6 +78,10 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
     assert column_exists?("workspace_canvas_tile_revisions", "yjs_update")
     assert column_exists?("workspace_ephemeral_surfaces", "dismissed_by")
     assert column_exists?("conversation_threads", "completed_at")
+    assert column_exists?("objectives", "fanout_role")
+    assert column_exists?("objectives", "report_delivery_receipt_digest")
+    assert index_exists?("objectives_parent_id_idx")
+    assert index_exists?("objectives_fanout_start_receipt_digest_index")
 
     @migrations
     |> Enum.reverse()
@@ -120,5 +128,16 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
     %{rows: rows} = SQL.query!(MigrationRepo, "PRAGMA table_info(#{table})", [])
 
     Enum.any?(rows, fn row -> Enum.at(row, 1) == column end)
+  end
+
+  defp index_exists?(index) do
+    %{rows: rows} =
+      SQL.query!(
+        MigrationRepo,
+        "SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?",
+        [index]
+      )
+
+    rows != []
   end
 end
