@@ -34,6 +34,7 @@ defmodule AllbertAssist.Plugins.WhatsApp do
         session_strategy: {:whatsapp_direct, prefix: "ch_wa_"},
         primitives: [:button, :typed_command, :link, :list],
         threading: :reply_chain,
+        streaming: :progress_messages,
         trust_class: :server_readable,
         can_create_thread: false,
         reply_key_type: :opaque_id,

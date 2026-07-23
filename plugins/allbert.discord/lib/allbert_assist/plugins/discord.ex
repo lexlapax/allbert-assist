@@ -36,6 +36,7 @@ defmodule AllbertAssist.Plugins.Discord do
         session_strategy: {:discord_native_thread, prefix: "ch_di_"},
         primitives: [:button, :typed_command, :list],
         threading: :native_threads,
+        streaming: :progress_messages,
         trust_class: :server_readable,
         can_create_thread: false,
         reply_key_type: :opaque_id,

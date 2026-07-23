@@ -30,6 +30,7 @@ defmodule AllbertAssist.Plugins.Signal do
         session_strategy: {:signal_aci, prefix: "ch_si_"},
         primitives: [:typed_command, :link, :list],
         threading: :reply_chain,
+        streaming: :progress_messages,
         trust_class: :e2ee_origin,
         can_create_thread: false,
         reply_key_type: :timestamp,

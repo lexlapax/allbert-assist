@@ -33,6 +33,7 @@ defmodule AllbertAssist.Plugins.Email do
         session_strategy: {:email_sender, prefix: "ch_em_"},
         primitives: [:typed_command, :list],
         threading: :reply_chain,
+        streaming: :turn_complete,
         trust_class: :server_readable,
         plugin_id: plugin_id(),
         source: :shipped,

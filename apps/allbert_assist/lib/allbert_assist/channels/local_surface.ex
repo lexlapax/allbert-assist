@@ -23,6 +23,7 @@ defmodule AllbertAssist.Channels.LocalSurface do
     provider: "phoenix_live_view",
     primitives: [:button, :typed_command, :list],
     threading: :rich,
+    streaming: :live_region,
     trust_class: :local,
     receiver_account_ref: "web:workspace"
   }

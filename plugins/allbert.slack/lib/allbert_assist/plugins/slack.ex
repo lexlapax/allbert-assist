@@ -38,6 +38,7 @@ defmodule AllbertAssist.Plugins.Slack do
         session_strategy: {:slack_native_thread, prefix: "ch_sl_"},
         primitives: [:button, :typed_command, :list],
         threading: :native_threads,
+        streaming: :progress_messages,
         trust_class: :server_readable,
         can_create_thread: false,
         reply_key_type: :timestamp,

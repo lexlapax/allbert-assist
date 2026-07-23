@@ -30,6 +30,7 @@ defmodule AllbertAssist.Plugins.Matrix do
         session_strategy: {:matrix_room, prefix: "ch_mx_"},
         primitives: [:typed_command, :link, :list],
         threading: :native_threads,
+        streaming: :progress_messages,
         trust_class: :server_readable,
         can_create_thread: false,
         reply_key_type: :opaque_id,

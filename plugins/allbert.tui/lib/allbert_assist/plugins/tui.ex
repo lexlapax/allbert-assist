@@ -30,6 +30,7 @@ defmodule AllbertAssist.Plugins.TUI do
         session_strategy: {:tui_session, prefix: "ch_tui_"},
         primitives: [:typed_command, :list],
         threading: :rich,
+        streaming: :live_region,
         trust_class: :local,
         can_create_thread: true,
         plugin_id: plugin_id(),

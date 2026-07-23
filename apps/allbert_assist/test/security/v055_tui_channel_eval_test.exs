@@ -125,7 +125,7 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
              threading: :rich,
              identity_mapping: "channels.tui.identity_map",
              approval_rendering: "typed_command+list",
-             streaming: "turn_complete",
+             streaming: "live_region",
              outbound: "none"
            } = row!(rows, "tui")
 

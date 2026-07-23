@@ -1,15 +1,17 @@
 defmodule AllbertAssist.Channels.ChannelParity do
   @moduledoc """
-  Descriptor-derived channel parity matrix for v0.55.
+  Descriptor-derived channel parity matrix.
 
   The matrix is generated from registered channel descriptors plus the declared
-  local surfaces. It intentionally keeps v0.55 streaming posture explicit:
-  every channel is turn-complete until a later ADR changes that contract.
+  local surfaces. Streaming posture is declared by each descriptor; descriptors
+  without the additive field retain the `:turn_complete` default.
   """
 
   alias AllbertAssist.Capabilities.ReleaseAvailability
   alias AllbertAssist.Channels.LocalSurface
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+
+  @streaming_modes [:turn_complete, :progress_messages, :live_region]
 
   @type row :: %{
           required(:channel) => String.t(),
@@ -32,7 +34,7 @@ defmodule AllbertAssist.Channels.ChannelParity do
   def matrix(opts \\ []) do
     registered =
       opts
-      |> PluginRegistry.registered_channels()
+      |> registered_channels()
       |> Enum.map(&row(&1, :registered_channel))
 
     local =
@@ -41,6 +43,13 @@ defmodule AllbertAssist.Channels.ChannelParity do
 
     (registered ++ local)
     |> Enum.sort_by(&{row_order(&1), &1.channel})
+  end
+
+  defp registered_channels(opts) do
+    case Keyword.fetch(opts, :registered_channels) do
+      {:ok, descriptors} when is_list(descriptors) -> descriptors
+      _other -> PluginRegistry.registered_channels(opts)
+    end
   end
 
   @spec verify(keyword()) :: :ok | {:error, [map()]}
@@ -95,7 +104,7 @@ defmodule AllbertAssist.Channels.ChannelParity do
       identity_mapping: identity_mapping(descriptor, kind),
       approval_rendering: approval_rendering(Map.get(descriptor, :primitives, [])),
       attachments: attachments(channel),
-      streaming: "turn_complete",
+      streaming: streaming(descriptor),
       outbound: outbound(descriptor, kind),
       release_status: release.release_status,
       live_use_allowed?: release.live_use_allowed?
@@ -107,7 +116,31 @@ defmodule AllbertAssist.Channels.ChannelParity do
     |> maybe_error(row.primitives == [], row, :missing_primitives)
     |> maybe_error(:list not in row.primitives, row, :missing_list_fallback)
     |> maybe_error(is_nil(row.threading), row, :missing_threading)
+    |> maybe_error(
+      row.streaming not in Enum.map(@streaming_modes, &Atom.to_string/1),
+      row,
+      :invalid_streaming
+    )
+    |> maybe_error(live_region_not_local?(row), row, :live_region_not_local)
   end
+
+  defp streaming(descriptor) do
+    case Map.get(descriptor, :streaming, :turn_complete) do
+      mode when mode in @streaming_modes -> Atom.to_string(mode)
+      mode when is_atom(mode) -> Atom.to_string(mode)
+      mode when is_binary(mode) -> mode
+      mode -> inspect(mode)
+    end
+  end
+
+  defp live_region_not_local?(%{
+         streaming: "live_region",
+         kind: :registered_channel,
+         channel: channel
+       }),
+       do: channel != "tui"
+
+  defp live_region_not_local?(_row), do: false
 
   defp maybe_error(errors, false, _row, _reason), do: errors
 

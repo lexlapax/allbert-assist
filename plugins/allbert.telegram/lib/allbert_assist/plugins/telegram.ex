@@ -30,6 +30,7 @@ defmodule AllbertAssist.Plugins.Telegram do
         session_strategy: {:telegram_chat, prefix: "ch_tg_"},
         primitives: [:button, :typed_command, :list],
         threading: :reply_chain,
+        streaming: :progress_messages,
         trust_class: :server_readable,
         plugin_id: plugin_id(),
         source: :shipped,
