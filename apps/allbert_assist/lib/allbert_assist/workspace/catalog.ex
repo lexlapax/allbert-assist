@@ -537,7 +537,11 @@ defmodule AllbertAssist.Workspace.Catalog do
   defp inject_runtime_node(%Node{component: :canvas} = node, context, panel_context) do
     destination = canvas_destination(context)
     tiles = if destination == {:output}, do: Map.get(context, :canvas_tiles, []), else: []
-    panels = Map.get(panel_context.nodes_by_zone, :canvas_panels, [])
+
+    panels =
+      panel_context.nodes_by_zone
+      |> Map.get(:canvas_panels, [])
+      |> focus_objective_nodes(Map.get(context, :objective_focus))
 
     if tiles == [] and panels == [] do
       %{node | props: Map.merge(node.props || %{}, %{destination: destination_prop(destination)})}
@@ -644,6 +648,27 @@ defmodule AllbertAssist.Workspace.Catalog do
   defp destination_prop({:output}), do: "output"
   defp destination_prop({:app, app_id}), do: "app:#{app_id}"
   defp destination_prop({:workspace, tool}), do: "workspace:#{tool}"
+
+  defp focus_objective_nodes(nodes, nil), do: nodes
+
+  defp focus_objective_nodes(nodes, objective) when is_map(objective) do
+    Enum.map(nodes, fn
+      %Node{component: :objective_card} = node ->
+        %{
+          node
+          | props:
+              Map.merge(node.props || %{}, %{
+                title: Map.get(objective, :title),
+                body: Map.get(objective, :objective),
+                status: Map.get(objective, :status),
+                objective_id: Map.get(objective, :id)
+              })
+        }
+
+      %Node{children: children} = node ->
+        %{node | children: focus_objective_nodes(children, objective)}
+    end)
+  end
 
   defp tile_nodes(tiles) do
     tiles

@@ -32,6 +32,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.UnifiedHistory
   alias AllbertAssist.Intent.ApprovalHandoff
+  alias AllbertAssist.Objectives
   alias AllbertAssist.Resources.ImageBounds
   alias AllbertAssist.Resources.ImageMetadata
   alias AllbertAssist.Resources.ResourceURI
@@ -77,6 +78,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     {thread_id, thread_notice, sync_thread_url?} = resolve_workspace_thread(params, user_id)
     active_app = resolve_workspace_active_app(user_id, session_id)
     canvas_destination = resolve_canvas_destination(params)
+    objective_focus = resolve_objective_focus(params, canvas_destination, user_id)
     artifacts_browser_filters = resolve_artifacts_browser_filters(params)
     settings = workspace_settings_snapshot(user_id, session_id)
 
@@ -100,6 +102,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         live_view_identity_proof: identity.identity_proof,
         active_app: active_app,
         canvas_destination: canvas_destination,
+        objective_focus: objective_focus,
         artifacts_browser_filters: artifacts_browser_filters,
         workspace_theme: workspace_theme(settings),
         workspace_high_contrast?: workspace_high_contrast?(settings),
@@ -153,7 +156,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
           [],
           active_app,
           canvas_destination,
-          artifacts_browser_filters
+          artifacts_browser_filters,
+          objective_focus
         )
       )
       |> maybe_sync_thread_url(sync_thread_url?, thread_id, canvas_destination)
@@ -164,10 +168,12 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   @impl true
   def handle_params(%{} = params, _uri, socket) do
     destination = resolve_canvas_destination(params)
+    objective_focus = resolve_objective_focus(params, destination, socket.assigns.user_id)
 
     socket =
       socket
       |> assign_canvas_destination(destination)
+      |> assign_objective_focus(objective_focus)
       |> assign(:page_title, workspace_page_title(destination))
       |> assign_artifacts_browser_filters(resolve_artifacts_browser_filters(params))
       |> assign(:workspace_overflow_open?, false)
@@ -1382,6 +1388,21 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     end
   end
 
+  defp resolve_objective_focus(params, "workspace:objectives", user_id) do
+    case param(params, "objective_id") do
+      objective_id when is_binary(objective_id) and byte_size(objective_id) in 1..160 ->
+        case Objectives.get_objective(user_id, objective_id) do
+          {:ok, objective} -> objective
+          {:error, _reason} -> nil
+        end
+
+      _other ->
+        nil
+    end
+  end
+
+  defp resolve_objective_focus(_params, _destination, _user_id), do: nil
+
   defp first_run_default_destination do
     WorkspaceFirstRun.default_destination() || Layout.default_destination()
   end
@@ -1427,6 +1448,16 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       socket
       |> assign(:canvas_destination, destination)
       |> maybe_open_canvas_drawer(destination)
+      |> refresh_workspace()
+    end
+  end
+
+  defp assign_objective_focus(socket, objective_focus) do
+    if Map.get(socket.assigns, :objective_focus) == objective_focus do
+      socket
+    else
+      socket
+      |> assign(:objective_focus, objective_focus)
       |> refresh_workspace()
     end
   end
@@ -1677,7 +1708,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         socket.assigns.workspace_badges,
         socket.assigns.active_app,
         socket.assigns.canvas_destination,
-        socket.assigns.artifacts_browser_filters
+        socket.assigns.artifacts_browser_filters,
+        socket.assigns.objective_focus
       )
     )
   rescue
@@ -1732,7 +1764,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
          workspace_badges,
          active_app,
          canvas_destination,
-         artifacts_browser_filters
+         artifacts_browser_filters,
+         objective_focus
        ) do
     tiles = canvas_tiles(thread_id, user_id)
     surfaces = ephemeral_surfaces(thread_id, user_id)
@@ -1744,7 +1777,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       session_id: session_id,
       active_app: active_app,
       canvas_destination: canvas_destination,
-      artifacts_browser_filters: artifacts_browser_filters
+      artifacts_browser_filters: artifacts_browser_filters,
+      objective_focus: objective_focus
     }
 
     layout = Layout.current(base_context)
@@ -1770,6 +1804,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
           workspace_badges: workspace_badges,
           active_app: active_app,
           canvas_destination: canvas_destination,
+          objective_focus: objective_focus,
           registered_apps: apps,
           workspace_layout: layout,
           panel_surfaces: surface_context.panel_surfaces,
@@ -1797,6 +1832,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       workspace_badges: socket.assigns.workspace_badges,
       active_app: socket.assigns.active_app,
       canvas_destination: socket.assigns.canvas_destination,
+      objective_focus: socket.assigns.objective_focus,
       registered_apps: socket.assigns.registered_apps,
       workspace_layout: socket.assigns.workspace_layout,
       panel_surfaces: surface_context.panel_surfaces,

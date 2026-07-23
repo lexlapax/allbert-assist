@@ -107,7 +107,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
           <.link
             :for={objective <- visible_objectives(@active_objectives)}
             id={"objective-badge-#{objective.id}"}
-            patch={workspace_destination_path(@thread_id, "workspace:objectives")}
+            patch={workspace_destination_path(@thread_id, "workspace:objectives", objective.id)}
             class="allbert-chip allbert-chip-link"
             aria-label={objective_chip_aria_label(objective)}
             title={objective_chip_aria_label(objective)}
@@ -848,13 +848,24 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
   defp humanize_app(_app), do: "App"
 
   defp workspace_destination_path(thread_id, destination) do
+    workspace_destination_path(thread_id, destination, nil)
+  end
+
+  defp workspace_destination_path(thread_id, destination, objective_id) do
     query =
       []
       |> maybe_put_thread_id(thread_id)
       |> maybe_put_destination(destination)
+      |> maybe_put_objective_id(objective_id)
 
     ~p"/workspace?#{query}"
   end
+
+  defp maybe_put_objective_id(query, objective_id)
+       when is_binary(objective_id) and objective_id != "",
+       do: Keyword.put(query, :objective_id, objective_id)
+
+  defp maybe_put_objective_id(query, _objective_id), do: query
 
   defp maybe_put_thread_id(query, thread_id) when is_binary(thread_id) and thread_id != "" do
     Keyword.put(query, :thread_id, thread_id)

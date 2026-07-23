@@ -39,7 +39,39 @@ defmodule AllbertAssistWeb.V061b.StatusLinkChipTest do
     assert html =~ ~s(aria-label="View objective Ship weekly digest — status: running")
     assert html =~ "allbert-chip-link"
     assert html =~ "destination=workspace%3Aobjectives"
+    assert html =~ "objective_id=#{objective.id}"
     refute html =~ ~s(href="/objectives/#{objective.id}")
+
+    view |> element("#objective-badge-#{objective.id}") |> render_click()
+
+    focused_html = render(view)
+
+    assert focused_html =~ "Ship weekly digest"
+    assert focused_html =~ "Produce and send the weekly digest."
+    assert focused_html =~ ~s(data-copy-value="#{objective.id}")
+  end
+
+  test "missing and foreign objective ids fall back to the owned objectives index", %{conn: conn} do
+    assert {:ok, foreign} =
+             Objectives.create_objective(%{
+               user_id: "other-user",
+               title: "Foreign objective",
+               objective: "Must not render.",
+               status: "running"
+             })
+
+    for objective_id <- ["missing-objective", foreign.id, String.duplicate("x", 161)] do
+      {:ok, view, html} =
+        live(
+          conn,
+          ~p"/workspace?#{[destination: "workspace:objectives", objective_id: objective_id]}"
+        )
+
+      assert has_element?(view, "#workspace-canvas[data-destination='workspace:objectives']")
+      refute html =~ "Foreign objective"
+      refute html =~ "Must not render."
+      refute html =~ ~s(data-copy-value="#{foreign.id}")
+    end
   end
 
   test "long titles truncate in the visible label but not the accessible name", %{conn: conn} do
