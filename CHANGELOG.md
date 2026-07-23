@@ -10,6 +10,43 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v1.1.0 - Asynchronous Background Agent Fan-Out With In-Channel Steering
+
+Status: **release candidate preparation; not yet tagged or published.** The
+implementation and automated v1.1 gate are complete. Overall operator
+validation, binary publication/cosign, tap fill, packaged-platform rehearsal,
+and stable-release administration remain operator-held after the final
+implementation audit.
+
+**Formula state: PRE-PUBLICATION ONLY.** packaged Latest 1.0.5 and the
+repository formula remain at 1.0.5 during the RC window. At publish, the tap is
+filled 1.0.5 → 1.1.0 from signed artifact checksums, and that filled formula is
+synced back into the repository before release closeout.
+
+Allbert can now decompose eligible turns into durable child objectives, return
+an honest kickoff task list before execution starts, run children concurrently
+under bounded OTP supervision, recover after crashes, and join every child
+outcome into one report. Mid-flight replies can request status, steer, cancel,
+or start a new request. Steering and cancellation use registered actions and
+cannot approve or lower the confirmation floor of effectful work.
+
+Background status and completion delivery introduces the ADR 0084 autonomous
+notification authority. It is disabled by default per channel. When explicitly
+enabled in Settings Central, reports are redacted, exact-origin and
+identity-bound, ledgered, audited, throttled, and restart-safe. Telegram,
+Discord, Slack, and Matrix can edit one status message in place; other surfaces
+append according to their declared primitives, and Email remains
+completion-only. With notification disabled, durable reports wait for the next
+turn. Web and TUI attached sessions receive local live-region updates without
+granting remote delivery authority.
+
+The release also adds fair global/per-fan-out scheduling, cooperative through
+OS-process cancellation tiers, Signal daemon wiring, Email outbound delivery,
+descriptor-derived streaming/status parity, fan-out controls in Web and TUI,
+the additive `release.v11` security/runtime/channel/web gate, and a bounded
+ReqLLM refresh from 1.13.0 to 1.17.1. The frozen `release.v1` contract remains
+green; all public-contract changes are additive.
+
 ## v1.0.5 - macOS Packaged Browser Port Correction
 
 Status: **shipped 2026-07-22.** Stable tag `v1.0.5` points to accepted RC.4

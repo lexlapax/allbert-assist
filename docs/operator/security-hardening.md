@@ -155,6 +155,33 @@ this operator guide.
 - Confirmation approval should stay on a local/operator-controlled channel
   unless a later plan explicitly hardens remote approval.
 
+## Autonomous Channel Reports
+
+Background report-back is a separate ADR 0084 authority, not a side effect of
+starting a task or connecting a channel. It is OFF by default for every remote
+channel. Opt in deliberately with Settings Central:
+
+```sh
+allbert admin settings set channels.telegram.autonomous_notify.enabled true
+allbert admin settings set channels.telegram.autonomous_notify.level status_and_completion
+allbert admin settings set channels.telegram.autonomous_notify.min_interval_seconds 30
+```
+
+Replace `telegram` with the configured channel. Allowed levels are
+`completion` and `status_and_completion`; Email is completion-only regardless
+of the requested level. Enabling delivery grants no tool, data, confirmation,
+or cross-thread authority. Each send re-proves the local identity mapping and
+the exact originating account/thread, redacts content, passes Security Central,
+and records a durable delivery row. Uncertain provider acceptance is not
+blindly retried.
+
+The append-only operator audit is stored under
+`<ALLBERT_HOME>/channels/notify/audit/YYYY-MM.md`; durable delivery state is in
+the Allbert database and appears in the objective experience. If a delivery is
+failed or uncertain, inspect the objective and audit entry, then use the normal
+originating thread or next turn to recover. Do not delete ledger rows or resend
+outside the registered channel boundary.
+
 ## Exposed Services
 
 - Use `Req` through registered actions for HTTP. Do not add another HTTP

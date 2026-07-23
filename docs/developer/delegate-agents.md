@@ -61,6 +61,13 @@ that do not yet checkpoint remain eligible for supervised shutdown after the
 configured grace period. A token grants no authority and must never be used
 as an approval signal.
 
+For v1.1 fan-out, `Objectives.Runs.RunServer` owns the complete child lifecycle
+and invokes delegate steps through this same registered action. The fair
+`Objectives.Runs.Scheduler` bounds running children globally and per parent;
+the Coordinator rebuilds from durable Objectives state and owns join reporting.
+Delegate agents must not create their own durable fan-out loop, acknowledge a
+kickoff receipt, or deliver channel reports directly.
+
 ## Objective Step Shape
 
 Workflow YAML and Plan/Build delegate steps use the v0.44 nested action

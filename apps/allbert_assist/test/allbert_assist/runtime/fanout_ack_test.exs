@@ -4,6 +4,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Runs.Supervisor, as: RunsSupervisor
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
 
@@ -20,6 +21,14 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put("objectives.fanout.confirm_before_start", false, %{audit?: false})
 
     on_exit(fn ->
+      if Process.whereis(RunsSupervisor) do
+        RunsSupervisor
+        |> DynamicSupervisor.which_children()
+        |> Enum.each(fn {_id, pid, _type, _modules} ->
+          DynamicSupervisor.terminate_child(RunsSupervisor, pid)
+        end)
+      end
+
       if original,
         do: Application.put_env(:allbert_assist, Runtime, original),
         else: Application.delete_env(:allbert_assist, Runtime)

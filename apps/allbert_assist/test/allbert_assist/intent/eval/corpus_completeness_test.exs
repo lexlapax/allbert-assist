@@ -22,7 +22,15 @@ defmodule AllbertAssist.Intent.Eval.CorpusCompletenessTest do
   #   dedicated CLI/web paths (its capability declares exposure: :internal).
   # - restore_database_backup (v0.62 M5) is a static internal action whose
   #   negative-internal row was never added alongside its v0.62 siblings.
-  @agent_actions_without_positive_rows MapSet.new(["set_notes_root"])
+  @agent_actions_without_positive_rows MapSet.new([
+                                         "set_notes_root",
+                                         # v1.1 M8: contextual-only mutations. The dedicated
+                                         # 150-row steering corpus owns positive selection;
+                                         # the general intent corpus must not select them
+                                         # without an active owned fan-out target.
+                                         "cancel_objective_run",
+                                         "steer_objective_run"
+                                       ])
   @internal_actions_without_negative_rows MapSet.new([
                                             "restore_database_backup",
                                             # v1.1 M3: continuation-only confirmation target. It is

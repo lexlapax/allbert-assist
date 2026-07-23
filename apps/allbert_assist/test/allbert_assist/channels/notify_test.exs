@@ -1,5 +1,5 @@
 defmodule AllbertAssist.Channels.NotifyTest do
-  use AllbertAssist.DataCase, async: false, lane: :db_serial
+  use AllbertAssist.DataCase, async: false, lane: :app_env_serial
 
   alias AllbertAssist.Channels.Notify
   alias AllbertAssist.Channels.NotifyAudit

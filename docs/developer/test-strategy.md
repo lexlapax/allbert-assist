@@ -1311,6 +1311,19 @@ Required fields:
 If a milestone does not have this annotation, treat the plan as not
 implementation-ready. Do not infer parallel safety from small scope.
 
+### v1.1 Fan-Out And Channel Authority Suites — 2026-07-22
+
+The v1.1 run scheduler, Coordinator/RunServer recovery, steering, cancellation,
+notification ledger/edit behavior, and ObjectiveLive operator tree remain in
+their existing serial isolation classes because they exercise shared database,
+registered-process, application-environment, or LiveView state. They are not
+promoted into a partition-safe lane by the release work. The authoritative
+`mix allbert.test release.v11` gate composes the unchanged `release.v1` prefix
+with focused `v11_authority_sweep`, `v11_runtime_fanout`,
+`v11_channel_authority`, and `v11_web_operator` steps; every step records the
+normal structured metrics row and redacted evidence under the temporary
+Allbert Home.
+
 ## Migration Order
 
 0. Apply case-template default lanes (the bulk classification) and reconcile lane
@@ -1320,6 +1333,7 @@ implementation-ready. Do not infer parallel safety from small scope.
 3. Add the lane-agnostic per-partition database/home/roots harness; prove it on
    a small DB smoke and then on the expensive core intent/runtime DB and
    app-env lanes identified by M1.
+
 4. Move StockSage objective/action lanes onto partition-safe DB/home roots once
    the core harness is stable.
 5. Add unique-home helpers for low-cost filesystem-only tests opportunistically,

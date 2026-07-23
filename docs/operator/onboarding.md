@@ -58,6 +58,13 @@ allbert admin service status
 allbert admin confirmations list
 ```
 
+For a first long-running request, ask for two or three clearly separable
+outcomes. Allbert shows the proposed task list before background execution
+starts; open the Objectives view to watch children, steer one, or cancel it.
+Remote background reports remain off until you explicitly opt in per channel
+in Settings Central, so a new installation does not begin sending autonomous
+messages merely because a channel was connected.
+
 ## Operator Onboarding
 
 Allbert ships a guided onboarding wizard over one shared flow on both surfaces — the

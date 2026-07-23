@@ -47,6 +47,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :mcp_resource_read,
              :public_surface_call_inbound,
              :channel_message_inbound,
+             :channel_autonomous_notify,
              :browser_session_start,
              :browser_navigate,
              :browser_extract,

@@ -78,9 +78,45 @@ mix allbert.plan show obj_00000000-0000-0000-0000-000000000000
 mix allbert.plan cancel obj_00000000-0000-0000-0000-000000000000 --reason "operator cancelled"
 ```
 
-Cancellation is cooperative. The currently executing step may finish, no
-new step should start, and the cancellation reason is recorded in
-objective events.
+Cancellation starts cooperatively at action checkpoints, then escalates through
+supervised process shutdown and scoped OS child-process termination when work
+does not stop within the configured grace period. No new step starts after a
+cancel request. The reached tier and reason are recorded in objective events;
+an uncertain effect remains blocked for operator review rather than being
+silently retried.
+
+## Background Fan-Out And Steering
+
+An eligible multi-part request can return a kickoff receipt listing its child
+tasks. Child execution begins only after that receipt has been delivered or
+durably recorded. The children then run concurrently within Settings Central's
+global and per-fan-out bounds, and the final report lists every child as
+completed, failed, blocked, or cancelled—partial success is never presented as
+total success.
+
+While a fan-out is active, reply in its originating thread to steer it. Plain
+language can request status, adjust a child, cancel work, or begin a separate
+request. Classification is advisory: effectful changes dispatch through
+registered actions, ownership is re-proved, and text such as “yes” never
+approves a pending confirmation. In Web, open `/objectives/:id` for the
+parent/child tree and use a child's steer or cancel control. In an attached TUI,
+status arrives in the live region, normal input can steer, and Escape offers
+cancellation.
+
+Relevant Settings Central keys and shipped defaults:
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `objectives.fanout.enabled` | `true` | Enable the shared fan-out runtime. |
+| `objectives.fanout.rollout_mode` | `automatic` | `explicit`, `shadow`, or broad automatic decomposition. |
+| `objectives.fanout.max_concurrent_runs_per_fanout` | `3` | Fair per-parent running-child bound. |
+| `objectives.fanout.max_concurrent_runs_global` | `6` | Runtime-wide running-child bound. |
+| `objectives.fanout.max_children_per_fanout` | `8` | Decomposition ceiling (allowed 2–16). |
+| `objectives.fanout.confirm_before_start` | `false` | Require an explicit start confirmation in addition to kickoff delivery. |
+
+These knobs change scheduling or friction, not action authority. Inspect them
+with `allbert admin settings get <key>` (or `mix allbert.settings get <key>` in
+a checkout) and change them only through Settings Central.
 
 ## Security Notes
 

@@ -472,6 +472,7 @@ defmodule AllbertAssist.Actions.ParamContractTest do
       "append_memory" => "memory-write action with no identity params in schema",
       "browser_research_handoff" => "confirmation-gated browser research delegate handoff",
       "cancel_objective" => "objective engine action with explicit objective id params",
+      "cancel_objective_run" => "ownership-checked fan-out child cancellation action",
       "continue_objective" => "confirmation-gated objective engine action",
       "create_skill" => "confirmation-gated skill-write action",
       "external_network_request" => "confirmation-gated network request",
@@ -488,6 +489,7 @@ defmodule AllbertAssist.Actions.ParamContractTest do
       "set_notes_root" => "settings-write action with no identity params in schema",
       "set_provider_credential" => "secret-write action with no identity params in schema",
       "show_online_skill" => "confirmation-gated online skill detail fetch",
+      "steer_objective_run" => "ownership-checked durable steering action",
       "synthesize_voice" => "confirmation-gated provider call",
       "update_setting" => "settings-write action with no identity params in schema"
     }
