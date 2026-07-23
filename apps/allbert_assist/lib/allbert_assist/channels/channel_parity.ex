@@ -12,6 +12,7 @@ defmodule AllbertAssist.Channels.ChannelParity do
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
 
   @streaming_modes [:turn_complete, :progress_messages, :live_region]
+  @status_update_modes [:append_only, :edit_in_place]
 
   @type row :: %{
           required(:channel) => String.t(),
@@ -25,6 +26,7 @@ defmodule AllbertAssist.Channels.ChannelParity do
           required(:approval_rendering) => String.t(),
           required(:attachments) => String.t(),
           required(:streaming) => String.t(),
+          required(:status_update_mode) => String.t(),
           required(:outbound) => String.t(),
           required(:release_status) => atom(),
           required(:live_use_allowed?) => boolean()
@@ -80,6 +82,7 @@ defmodule AllbertAssist.Channels.ChannelParity do
         "approval",
         "attachments",
         "streaming",
+        "status_update",
         "outbound",
         "release",
         "live"
@@ -105,6 +108,7 @@ defmodule AllbertAssist.Channels.ChannelParity do
       approval_rendering: approval_rendering(Map.get(descriptor, :primitives, [])),
       attachments: attachments(channel),
       streaming: streaming(descriptor),
+      status_update_mode: status_update_mode(descriptor),
       outbound: outbound(descriptor, kind),
       release_status: release.release_status,
       live_use_allowed?: release.live_use_allowed?
@@ -122,11 +126,25 @@ defmodule AllbertAssist.Channels.ChannelParity do
       :invalid_streaming
     )
     |> maybe_error(live_region_not_local?(row), row, :live_region_not_local)
+    |> maybe_error(
+      row.status_update_mode not in Enum.map(@status_update_modes, &Atom.to_string/1),
+      row,
+      :invalid_status_update_mode
+    )
   end
 
   defp streaming(descriptor) do
     case Map.get(descriptor, :streaming, :turn_complete) do
       mode when mode in @streaming_modes -> Atom.to_string(mode)
+      mode when is_atom(mode) -> Atom.to_string(mode)
+      mode when is_binary(mode) -> mode
+      mode -> inspect(mode)
+    end
+  end
+
+  defp status_update_mode(descriptor) do
+    case Map.get(descriptor, :status_update_mode, :append_only) do
+      mode when mode in @status_update_modes -> Atom.to_string(mode)
       mode when is_atom(mode) -> Atom.to_string(mode)
       mode when is_binary(mode) -> mode
       mode -> inspect(mode)
@@ -198,6 +216,7 @@ defmodule AllbertAssist.Channels.ChannelParity do
       row.approval_rendering,
       row.attachments,
       row.streaming,
+      row.status_update_mode,
       row.outbound,
       to_string(row.release_status),
       to_string(row.live_use_allowed?)

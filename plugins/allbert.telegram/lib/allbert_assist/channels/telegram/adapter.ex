@@ -941,7 +941,8 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
 
     client_opts =
       opts
-      |> Keyword.take([:req_options, :receive_timeout])
+      |> Keyword.get(:req_options, [])
+      |> Keyword.merge(Keyword.take(opts, [:receive_timeout]))
       |> Keyword.merge(
         reply_to_message_id:
           Map.get(thread, "reply_to_message_id") || Map.get(thread, :reply_to_message_id),
@@ -954,6 +955,36 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
          {:ok, token} <- resolve_token(settings),
          {:ok, result} <- Client.send_message(token, target, body, client_opts) do
       {:ok, %{channel: "telegram", target: target, result: result}}
+    end
+  end
+
+  @doc false
+  def edit_outbound(target, provider_message_id, body, opts)
+      when is_binary(target) and is_binary(provider_message_id) and is_binary(body) do
+    client_opts =
+      opts
+      |> Keyword.get(:req_options, [])
+      |> Keyword.merge(Keyword.take(opts, [:receive_timeout]))
+
+    with {:ok, settings} <- AllbertAssist.Channels.channel_settings("telegram"),
+         {:ok, token} <- resolve_token(settings),
+         {:ok, message_id} <- telegram_message_id(provider_message_id),
+         {:ok, result} <-
+           Client.edit_message(token, target, message_id, body, client_opts) do
+      {:ok,
+       %{
+         channel: "telegram",
+         target: target,
+         provider_message_id: provider_message_id,
+         result: result
+       }}
+    end
+  end
+
+  defp telegram_message_id(value) do
+    case Integer.parse(value) do
+      {id, ""} when id > 0 -> {:ok, id}
+      _other -> {:error, :invalid_telegram_message_id}
     end
   end
 end

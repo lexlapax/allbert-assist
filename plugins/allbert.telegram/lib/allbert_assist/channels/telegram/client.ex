@@ -60,6 +60,23 @@ defmodule AllbertAssist.Channels.Telegram.Client do
     )
   end
 
+  def edit_message(token, chat_id, message_id, text, opts \\ []) do
+    request(
+      :post,
+      token,
+      "editMessageText",
+      [
+        json: %{
+          "chat_id" => chat_id,
+          "message_id" => message_id,
+          "text" => text
+        },
+        receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)
+      ],
+      opts
+    )
+  end
+
   defp reply_parameters(opts) do
     case Keyword.get(opts, :reply_to_message_id) do
       nil -> nil

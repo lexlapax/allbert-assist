@@ -49,10 +49,21 @@ defmodule AllbertAssist.Channels.Slack.Client do
     end
   end
 
+  def chat_update(token_ref, payload, opts \\ []) do
+    case client_mode(opts) do
+      :stub -> stub_chat_update(payload, opts)
+      :real -> request(:post, token_ref, "/chat.update", [json: payload], opts)
+    end
+  end
+
   def auth_test_request(token_ref), do: build_request(:post, token_ref, "/auth.test", [])
 
   def chat_post_message_request(token_ref, payload) do
     build_request(:post, token_ref, "/chat.postMessage", json: payload)
+  end
+
+  def chat_update_request(token_ref, payload) do
+    build_request(:post, token_ref, "/chat.update", json: payload)
   end
 
   def apps_connections_open_request(app_token_ref) do
@@ -271,6 +282,27 @@ defmodule AllbertAssist.Channels.Slack.Client do
              "text" => text,
              "thread_ts" => Map.get(payload, :thread_ts, Map.get(payload, "thread_ts"))
            }
+         }}
+
+      :unauthorized ->
+        {:error, {:slack_error, "invalid_auth"}}
+
+      :unavailable ->
+        {:error, {:transport_error, :econnrefused}}
+    end
+  end
+
+  defp stub_chat_update(payload, opts) do
+    case stub_result(opts) do
+      :success ->
+        maybe_capture(opts, {:slack_chat_update, payload})
+
+        {:ok,
+         %{
+           "ok" => true,
+           "channel" => Map.get(payload, :channel, Map.get(payload, "channel")),
+           "ts" => Map.get(payload, :ts, Map.get(payload, "ts")),
+           "text" => Map.get(payload, :text, Map.get(payload, "text", ""))
          }}
 
       :unauthorized ->

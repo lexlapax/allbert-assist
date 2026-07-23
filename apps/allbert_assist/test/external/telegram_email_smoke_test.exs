@@ -154,6 +154,18 @@ defmodule AllbertAssist.External.TelegramEmailSmokeTest do
                reply_to_message_id: parent_message_id
              )
 
+    reply_message_id = Map.fetch!(reply, "message_id")
+
+    assert {:ok, edited} =
+             TelegramClient.edit_message(
+               context.telegram_token,
+               context.telegram_chat_id,
+               reply_message_id,
+               "#{marker} Telegram status edited"
+             )
+
+    assert Map.fetch!(edited, "message_id") == reply_message_id
+
     assert {:ok, assistant} = Conversations.append_assistant_message(thread, "Telegram sent")
 
     receiver = telegram_receiver(context.telegram_chat_id)
@@ -169,14 +181,14 @@ defmodule AllbertAssist.External.TelegramEmailSmokeTest do
                },
                canonical_thread_id: thread.id,
                canonical_message_id: assistant.id,
-               provider_message_id: Map.fetch!(reply, "message_id"),
+               provider_message_id: reply_message_id,
                direction: :out
              })
 
     assert ChannelThread.echo?(%{
              channel: "telegram",
              receiver_account_ref: receiver,
-             provider_message_id: Map.fetch!(reply, "message_id")
+             provider_message_id: reply_message_id
            })
 
     %{
@@ -184,7 +196,8 @@ defmodule AllbertAssist.External.TelegramEmailSmokeTest do
       bot_username: Map.get(bot, "username"),
       chat_id: context.telegram_chat_id,
       parent_message_id: parent_message_id,
-      reply_message_id: Map.fetch!(reply, "message_id"),
+      reply_message_id: reply_message_id,
+      edit_in_place?: true,
       echo_suppression_recorded?: true
     }
   end

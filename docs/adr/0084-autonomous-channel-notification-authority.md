@@ -2,11 +2,11 @@
 
 ## Status
 
-Proposed (v1.1 planning, 2026-07-18). Binding on v1.1 M6/M7 once Accepted;
-Accepted in M7 only after `Channels.Notify`, defaults-OFF settings, the
-restart-safe delivery ledger/edit path, redacted markdown audit, and focused
-authority proofs land together. Gate-bound `:v11` eval rows follow at M10.
-This is a security ADR defining a NEW authority class.
+Accepted (v1.1 M7, 2026-07-22). `Channels.Notify`, defaults-OFF settings, the
+restart-safe delivery ledger/edit path, redacted markdown audit, exact-origin
+binding, bounded retry/uncertainty behavior, and focused authority proofs are
+implemented. Gate-bound `:v11` eval rows follow at M10. This is a security ADR
+defining a NEW authority class.
 
 ## Context
 

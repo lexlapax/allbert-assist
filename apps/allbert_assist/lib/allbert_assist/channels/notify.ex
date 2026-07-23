@@ -128,7 +128,8 @@ defmodule AllbertAssist.Channels.Notify do
          {:ok, target, thread} <- exact_target(fanout, settings),
          {:ok, sending} <-
            transition(delivery, %{state: "sending", attempt_count: delivery.attempt_count + 1}),
-         result <- outbound(opts, channel, target, Redactor.redact(body), thread) do
+         result <-
+           dispatch(opts, sending, fanout, kind, channel, target, Redactor.redact(body), thread) do
       settle_transport(sending, result, decision)
     else
       {:terminal, %NotifyDelivery{} = existing} -> {:ok, existing}
@@ -306,6 +307,78 @@ defmodule AllbertAssist.Channels.Notify do
     end
   end
 
+  defp dispatch(opts, delivery, fanout, :status, channel, target, body, thread) do
+    if edit_in_place?(channel) do
+      edit_or_append(opts, delivery, fanout, channel, target, body, thread)
+    else
+      outbound(opts, channel, target, body, thread)
+    end
+  end
+
+  defp dispatch(opts, _delivery, _fanout, _kind, channel, target, body, thread),
+    do: outbound(opts, channel, target, body, thread)
+
+  defp edit_or_append(opts, delivery, fanout, channel, target, body, thread) do
+    case latest_status_message(fanout, delivery) do
+      nil ->
+        outbound(opts, channel, target, body, thread)
+
+      provider_message_id ->
+        case edit_outbound(opts, channel, target, provider_message_id, body, thread) do
+          {:ok, receipt} ->
+            {:ok, Map.put(receipt, :provider_message_id, provider_message_id)}
+
+          {:error, {:uncertain, _reason}} = uncertain ->
+            uncertain
+
+          {:error, edit_reason} ->
+            append_after_edit_failure(opts, channel, target, body, thread, edit_reason)
+        end
+    end
+  end
+
+  defp append_after_edit_failure(opts, channel, target, body, thread, edit_reason) do
+    case outbound(opts, channel, target, body, thread) do
+      {:ok, receipt} -> {:ok, receipt, {:edit_fallback, edit_reason}}
+      error -> error
+    end
+  end
+
+  defp edit_outbound(opts, channel, target, provider_message_id, body, thread) do
+    configured = Application.get_env(:allbert_assist, __MODULE__, [])
+
+    case Keyword.get(opts, :edit_fun) || Keyword.get(configured, :edit_fun) do
+      fun when is_function(fun, 5) ->
+        fun.(channel, target, provider_message_id, body, thread: thread)
+
+      _other ->
+        Outbound.edit(channel, target, provider_message_id, body, thread: thread)
+    end
+  end
+
+  defp edit_in_place?(channel) do
+    case Channels.channel_descriptor(channel) do
+      {:ok, descriptor} ->
+        Map.get(descriptor, :status_update_mode, :append_only) == :edit_in_place
+
+      _other ->
+        false
+    end
+  end
+
+  defp latest_status_message(fanout, delivery) do
+    from(d in NotifyDelivery,
+      where:
+        d.id != ^delivery.id and d.fanout_id == ^fanout.id and d.channel == ^fanout.source_channel and
+          d.kind == "status" and d.state == "delivered" and
+          not is_nil(d.provider_message_id),
+      order_by: [desc: d.throttle_at, desc: d.inserted_at],
+      limit: 1,
+      select: d.provider_message_id
+    )
+    |> Repo.one()
+  end
+
   defp settle_transport(delivery, {:ok, receipt}, decision) do
     provider_message_id = receipt_id(receipt)
 
@@ -319,6 +392,22 @@ defmodule AllbertAssist.Channels.Notify do
         error_class: nil,
         offer_state:
           if(delivery.kind == "consent_offer", do: "delivered", else: delivery.offer_state)
+      },
+      decision
+    )
+  end
+
+  defp settle_transport(delivery, {:ok, receipt, {:edit_fallback, reason}}, decision) do
+    provider_message_id = receipt_id(receipt)
+
+    complete(
+      delivery,
+      :delivered,
+      %{
+        state: "delivered",
+        provider_message_id: provider_message_id,
+        throttle_at: DateTime.utc_now(),
+        error_class: "edit_fallback:" <> safe_reason(reason)
       },
       decision
     )
@@ -412,11 +501,20 @@ defmodule AllbertAssist.Channels.Notify do
   end
 
   defp receipt_id(receipt) when is_map(receipt) do
-    field(receipt, "provider_message_id") || field(receipt, "message_id") || field(receipt, "id") ||
-      receipt_id(field(receipt, "result"))
+    receipt
+    |> then(fn receipt ->
+      field(receipt, "provider_message_id") || field(receipt, "message_id") ||
+        field(receipt, "event_id") || field(receipt, "ts") || field(receipt, "id") ||
+        receipt_id(field(receipt, "result"))
+    end)
+    |> normalize_receipt_id()
   end
 
   defp receipt_id(_receipt), do: nil
+
+  defp normalize_receipt_id(value) when is_binary(value), do: value
+  defp normalize_receipt_id(value) when is_integer(value), do: Integer.to_string(value)
+  defp normalize_receipt_id(_value), do: nil
 
   defp safe_reason(reason),
     do: reason |> Redactor.redact() |> inspect(limit: 20) |> String.slice(0, 128)

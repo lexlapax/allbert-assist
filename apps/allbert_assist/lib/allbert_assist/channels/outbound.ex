@@ -1,8 +1,8 @@
 defmodule AllbertAssist.Channels.Outbound do
   @moduledoc """
-  v0.54 M10 (ADR 0063) — the single boundary for sending an **operator-initiated**
-  outbound message to a channel. `send_channel_message` calls only this; it never
-  touches a provider client directly.
+  Transport dispatch for authority-gated channel sends. Operator-initiated
+  compose reaches this module only after ADR 0063 confirmation; autonomous
+  notification reaches it only after ADR 0084 `Channels.Notify` authorization.
 
   Resolves the channel's adapter module (from its registered descriptor) and
   dispatches to the adapter's `deliver_outbound/3` callback. Adapters that have not
@@ -20,6 +20,13 @@ defmodule AllbertAssist.Channels.Outbound do
   """
   @callback deliver_outbound(target :: String.t(), body :: String.t(), opts :: keyword()) ::
               {:ok, map()} | {:error, term()}
+  @callback edit_outbound(
+              target :: String.t(),
+              provider_message_id :: String.t(),
+              body :: String.t(),
+              opts :: keyword()
+            ) :: {:ok, map()} | {:error, term()}
+  @optional_callbacks edit_outbound: 4
 
   @spec send(String.t(), String.t(), String.t(), keyword()) :: {:ok, map()} | {:error, term()}
   def send(channel, target, body, opts \\ [])
@@ -34,6 +41,29 @@ defmodule AllbertAssist.Channels.Outbound do
     else
       {:error, reason} -> {:error, reason}
       false -> {:error, :outbound_not_implemented}
+    end
+  rescue
+    exception -> {:error, Exception.message(exception)}
+  catch
+    :exit, reason -> {:error, reason}
+  end
+
+  @doc "Edit an existing provider message through a capability-declaring adapter."
+  @spec edit(String.t(), String.t(), String.t(), String.t(), keyword()) ::
+          {:ok, map()} | {:error, term()}
+  def edit(channel, target, provider_message_id, body, opts \\ [])
+      when is_binary(channel) and is_binary(target) and is_binary(provider_message_id) and
+             is_binary(body) do
+    with true <-
+           Channels.channel_live_use_allowed?(channel) ||
+             {:error, Channels.channel_live_use_error(channel)},
+         {:ok, module} <- adapter_module(channel),
+         true <-
+           function_exported?(module, :edit_outbound, 4) || {:error, :edit_not_implemented} do
+      module.edit_outbound(target, provider_message_id, body, opts)
+    else
+      {:error, reason} -> {:error, reason}
+      false -> {:error, :edit_not_implemented}
     end
   rescue
     exception -> {:error, Exception.message(exception)}

@@ -97,6 +97,16 @@ defmodule AllbertAssist.External.MatrixSmokeTest do
                content
              )
 
+    assert {:ok, %{"event_id" => edit_event_id}} =
+             Client.replace_message(
+               context.homeserver_url,
+               context.access_token,
+               context.room_id,
+               Ecto.UUID.generate(),
+               event_id,
+               "#{marker} Matrix status edited"
+             )
+
     assert {:ok, assistant} = Conversations.append_assistant_message(thread, "Matrix sent")
     receiver = matrix_receiver(context.homeserver_url, context.room_id)
 
@@ -126,6 +136,8 @@ defmodule AllbertAssist.External.MatrixSmokeTest do
         account_user_id: Map.get(account, "user_id"),
         room_id: context.room_id,
         event_id: event_id,
+        edit_event_id: edit_event_id,
+        edit_in_place?: true,
         echo_suppression_recorded?: true
       })
 

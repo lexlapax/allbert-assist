@@ -38,6 +38,21 @@ defmodule AllbertAssist.Channels.Discord.Client do
     end
   end
 
+  def update_message(token_ref, channel_id, message_id, payload, opts \\ []) do
+    case client_mode(opts) do
+      :stub -> stub_update_message(channel_id, message_id, payload, opts)
+
+      :real ->
+        request(
+          :patch,
+          token_ref,
+          "/channels/#{URI.encode(to_string(channel_id))}/messages/#{URI.encode(to_string(message_id))}",
+          [json: payload],
+          opts
+        )
+    end
+  end
+
   def interaction_callback(interaction_id, interaction_token, payload, opts \\ []) do
     case client_mode(opts) do
       :stub ->
@@ -53,6 +68,15 @@ defmodule AllbertAssist.Channels.Discord.Client do
       :post,
       token_ref,
       "/channels/#{URI.encode(to_string(channel_id))}/messages",
+      json: payload
+    )
+  end
+
+  def update_message_request(token_ref, channel_id, message_id, payload) do
+    build_request(
+      :patch,
+      token_ref,
+      "/channels/#{URI.encode(to_string(channel_id))}/messages/#{URI.encode(to_string(message_id))}",
       json: payload
     )
   end
@@ -165,7 +189,7 @@ defmodule AllbertAssist.Channels.Discord.Client do
       allowed_hosts: ["discord.com"],
       blocked_hosts: [],
       allowed_paths: ["/api/v10"],
-      allowed_methods: ["GET", "POST"]
+      allowed_methods: ["GET", "POST", "PATCH"]
     }
 
     case HttpPolicy.validate(spec) do
@@ -260,6 +284,29 @@ defmodule AllbertAssist.Channels.Discord.Client do
            "components" => Map.get(payload, :components, Map.get(payload, "components", [])),
            "message_reference" =>
              Map.get(payload, :message_reference, Map.get(payload, "message_reference"))
+         }}
+
+      :unauthorized ->
+        {:error, {:discord_error, 401, %{message: "Unauthorized"}}}
+
+      :unavailable ->
+        {:error, {:transport_error, :econnrefused}}
+    end
+  end
+
+  defp stub_update_message(channel_id, message_id, payload, opts) do
+    case stub_result(opts) do
+      :success ->
+        maybe_capture(
+          opts,
+          {:discord_update_message, to_string(channel_id), to_string(message_id), payload}
+        )
+
+        {:ok,
+         %{
+           "id" => to_string(message_id),
+           "channel_id" => to_string(channel_id),
+           "content" => Map.get(payload, :content, Map.get(payload, "content", ""))
          }}
 
       :unauthorized ->

@@ -39,6 +39,7 @@ defmodule AllbertAssist.Plugins.Slack do
         primitives: [:button, :typed_command, :list],
         threading: :native_threads,
         streaming: :progress_messages,
+        status_update_mode: :edit_in_place,
         trust_class: :server_readable,
         can_create_thread: false,
         reply_key_type: :timestamp,

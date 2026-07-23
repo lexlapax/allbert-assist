@@ -641,6 +641,45 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
     end
   end
 
+  @doc false
+  def edit_outbound(target, provider_message_id, body, opts)
+      when is_binary(target) and is_binary(provider_message_id) and is_binary(body) do
+    with {:ok, settings} <- Channels.channel_settings("matrix"),
+         :ok <- validate_outbound_room(target, settings),
+         {:ok, homeserver_url} <- homeserver_url(settings),
+         {:ok, access_token} <- resolve_access_token(settings) do
+      txn_id = Keyword.get(opts, :txn_id, Ecto.UUID.generate())
+      req_options = Keyword.get(opts, :req_options, [])
+
+      case Client.replace_message(
+             homeserver_url,
+             access_token,
+             target,
+             txn_id,
+             provider_message_id,
+             body,
+             req_options
+           ) do
+        {:ok, %{"event_id" => edit_event_id} = result} ->
+          {:ok,
+           %{
+             channel: "matrix",
+             target: target,
+             provider_message_id: provider_message_id,
+             edit_event_id: edit_event_id,
+             txn_id: txn_id,
+             result: result
+           }}
+
+        {:ok, result} ->
+          {:error, {:missing_event_id, result}}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
   defp validate_outbound_room(room_id, settings) do
     allowed = Map.get(settings, "allowed_room_ids", [])
 

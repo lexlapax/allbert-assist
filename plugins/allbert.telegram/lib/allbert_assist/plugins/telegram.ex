@@ -31,6 +31,7 @@ defmodule AllbertAssist.Plugins.Telegram do
         primitives: [:button, :typed_command, :list],
         threading: :reply_chain,
         streaming: :progress_messages,
+        status_update_mode: :edit_in_place,
         trust_class: :server_readable,
         plugin_id: plugin_id(),
         source: :shipped,

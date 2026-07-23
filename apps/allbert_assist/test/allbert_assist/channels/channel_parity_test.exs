@@ -60,6 +60,28 @@ defmodule AllbertAssist.Channels.ChannelParityTest do
     end
   end
 
+  defmodule InvalidStatusUpdatePlugin do
+    use AllbertAssist.Plugin
+
+    def plugin_id, do: "test.invalid_status_update"
+    def display_name, do: "Invalid Status Update Test"
+    def version, do: "1.0.0"
+    def validate(_opts), do: :ok
+
+    def channels do
+      [
+        %{
+          channel_id: "invalid_status_update",
+          provider: "test",
+          primitives: [:typed_command, :list],
+          threading: :reply_chain,
+          status_update_mode: :overwrite_history,
+          trust_class: :server_readable
+        }
+      ]
+    end
+  end
+
   test "matrix derives streaming posture and preserves the absent-field default" do
     descriptors = Enum.flat_map(@shipped_plugins, & &1.channels())
     rows = ChannelParity.matrix(registered_channels: descriptors)
@@ -76,6 +98,24 @@ defmodule AllbertAssist.Channels.ChannelParityTest do
              "tui" => "live_region",
              "whatsapp" => "progress_messages"
            }
+
+    assert status_update_by_channel(rows) == %{
+             "cli" => "append_only",
+             "discord" => "edit_in_place",
+             "email" => "append_only",
+             "live_view" => "append_only",
+             "matrix" => "edit_in_place",
+             "signal" => "append_only",
+             "slack" => "edit_in_place",
+             "telegram" => "edit_in_place",
+             "tui" => "append_only",
+             "whatsapp" => "append_only"
+           }
+
+    for channel <- ~w[telegram discord slack matrix] do
+      descriptor = Enum.find(descriptors, &(&1.channel_id == channel))
+      assert function_exported?(descriptor.adapter, :edit_outbound, 4)
+    end
 
     assert :ok = ChannelParity.verify(registered_channels: descriptors)
   end
@@ -94,5 +134,15 @@ defmodule AllbertAssist.Channels.ChannelParityTest do
     assert %{channel: "remote_live_region", reason: :live_region_not_local} in errors
   end
 
+  test "verify rejects an unknown status update declaration" do
+    assert {:error, errors} =
+             ChannelParity.verify(registered_channels: InvalidStatusUpdatePlugin.channels())
+
+    assert %{channel: "invalid_status_update", reason: :invalid_status_update_mode} in errors
+  end
+
   defp streaming_by_channel(rows), do: Map.new(rows, &{&1.channel, &1.streaming})
+
+  defp status_update_by_channel(rows),
+    do: Map.new(rows, &{&1.channel, &1.status_update_mode})
 end

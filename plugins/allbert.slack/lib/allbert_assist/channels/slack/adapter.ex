@@ -687,13 +687,40 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
       {:ok, settings} ->
         token_ref = Map.get(settings, "bot_token_ref", "secret://channels/slack/bot_token")
 
-        case Client.chat_post_message(token_ref, payload, Keyword.take(opts, [:req_options])) do
+        req_options = Keyword.get(opts, :req_options, [])
+
+        case Client.chat_post_message(token_ref, payload, req_options) do
           {:ok, result} -> {:ok, %{channel: "slack", target: target, result: result}}
           {:error, reason} -> {:error, reason}
         end
 
       _other ->
         {:error, :slack_not_configured}
+    end
+  end
+
+
+  @doc false
+  def edit_outbound(target, provider_message_id, body, opts)
+      when is_binary(target) and is_binary(provider_message_id) and is_binary(body) do
+    with {:ok, settings} <- AllbertAssist.Channels.channel_settings("slack") do
+      token_ref = Map.get(settings, "bot_token_ref", "secret://channels/slack/bot_token")
+      payload = %{channel: target, ts: provider_message_id, text: body}
+      req_options = Keyword.get(opts, :req_options, [])
+
+      case Client.chat_update(token_ref, payload, req_options) do
+        {:ok, result} ->
+          {:ok,
+           %{
+             channel: "slack",
+             target: target,
+             provider_message_id: provider_message_id,
+             result: result
+           }}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
     end
   end
 end

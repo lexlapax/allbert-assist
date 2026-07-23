@@ -643,13 +643,45 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
       {:ok, settings} ->
         token_ref = Map.get(settings, "bot_token_ref", "secret://channels/discord/bot_token")
 
-        case Client.create_message(token_ref, target, payload, Keyword.take(opts, [:req_options])) do
+        req_options = Keyword.get(opts, :req_options, [])
+
+        case Client.create_message(token_ref, target, payload, req_options) do
           {:ok, result} -> {:ok, %{channel: "discord", target: target, result: result}}
           {:error, reason} -> {:error, reason}
         end
 
       _other ->
         {:error, :discord_not_configured}
+    end
+  end
+
+
+  @doc false
+  def edit_outbound(target, provider_message_id, body, opts)
+      when is_binary(target) and is_binary(provider_message_id) and is_binary(body) do
+    with {:ok, settings} <- AllbertAssist.Channels.channel_settings("discord") do
+      token_ref = Map.get(settings, "bot_token_ref", "secret://channels/discord/bot_token")
+      req_options = Keyword.get(opts, :req_options, [])
+
+      case Client.update_message(
+             token_ref,
+             target,
+             provider_message_id,
+             %{content: body},
+             req_options
+           ) do
+        {:ok, result} ->
+          {:ok,
+           %{
+             channel: "discord",
+             target: target,
+             provider_message_id: provider_message_id,
+             result: result
+           }}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
     end
   end
 end

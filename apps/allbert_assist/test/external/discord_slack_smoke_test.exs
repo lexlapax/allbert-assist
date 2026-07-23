@@ -146,6 +146,19 @@ defmodule AllbertAssist.External.DiscordSlackSmokeTest do
 
     assert slack_reply["message"]["thread_ts"] in [slack_parent["ts"], slack_reply["ts"]]
 
+    assert {:ok, slack_edited} =
+             SlackClient.chat_update(
+               "secret://channels/slack/bot_token",
+               %{
+                 channel: context.slack_channel_id,
+                 ts: slack_reply["ts"],
+                 text: "#{marker} Slack status edited"
+               },
+               mode: :real
+             )
+
+    assert slack_edited["ts"] == slack_reply["ts"]
+
     assert {:ok, slack_assistant} = Conversations.append_assistant_message(thread, "Slack sent")
     slack_receiver = "slack:team:#{slack_team_id}"
 
@@ -175,6 +188,7 @@ defmodule AllbertAssist.External.DiscordSlackSmokeTest do
       channel_id: context.slack_channel_id,
       parent_ts: slack_parent["ts"],
       reply_ts: slack_reply["ts"],
+      edit_in_place?: true,
       echo_suppression_recorded?: true
     }
   end
@@ -204,6 +218,17 @@ defmodule AllbertAssist.External.DiscordSlackSmokeTest do
              )
 
     assert get_in(discord_reply, ["message_reference", "message_id"]) == discord_parent["id"]
+
+    assert {:ok, discord_edited} =
+             DiscordClient.update_message(
+               "secret://channels/discord/bot_token",
+               context.discord_channel_id,
+               discord_reply["id"],
+               %{content: "#{marker} Discord status edited", allowed_mentions: %{parse: []}},
+               mode: :real
+             )
+
+    assert discord_edited["id"] == discord_reply["id"]
 
     assert {:ok, discord_assistant} =
              Conversations.append_assistant_message(thread, "Discord sent")
@@ -238,6 +263,7 @@ defmodule AllbertAssist.External.DiscordSlackSmokeTest do
       channel_id: context.discord_channel_id,
       parent_message_id: discord_parent["id"],
       reply_message_id: discord_reply["id"],
+      edit_in_place?: true,
       echo_suppression_recorded?: true
     }
   end

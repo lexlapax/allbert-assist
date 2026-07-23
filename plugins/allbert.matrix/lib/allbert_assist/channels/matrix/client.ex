@@ -30,6 +30,25 @@ defmodule AllbertAssist.Channels.Matrix.Client do
     )
   end
 
+  def replace_message(
+        homeserver_url,
+        access_token,
+        room_id,
+        txn_id,
+        event_id,
+        body,
+        opts \\ []
+      ) do
+    content = %{
+      "msgtype" => "m.text",
+      "body" => "* #{body}",
+      "m.new_content" => %{"msgtype" => "m.text", "body" => body},
+      "m.relates_to" => %{"rel_type" => "m.replace", "event_id" => event_id}
+    }
+
+    send_message(homeserver_url, access_token, room_id, txn_id, content, opts)
+  end
+
   def messages(homeserver_url, access_token, room_id, from_token, limit, opts \\ []) do
     params =
       %{"dir" => "b", "limit" => limit}
