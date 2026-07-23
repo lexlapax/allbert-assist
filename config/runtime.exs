@@ -134,8 +134,8 @@ if config_env() == :prod do
   #       api_key: System.get_env("MAILGUN_API_KEY"),
   #       domain: System.get_env("MAILGUN_DOMAIN")
   #
-  # Most non-SMTP adapters require an API client. Swoosh supports Req, Hackney,
-  # and Finch out-of-the-box. This configuration is typically done at
+  # Most non-SMTP adapters require an API client. Allbert uses Req; Swoosh
+  # also supports Finch out of the box. This configuration is typically done at
   # compile-time in your config/prod.exs:
   #
   #     config :swoosh, :api_client, Swoosh.ApiClient.Req

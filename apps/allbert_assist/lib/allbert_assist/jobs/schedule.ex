@@ -3,7 +3,7 @@ defmodule AllbertAssist.Jobs.Schedule do
   Normalization and next-due calculation for local scheduled jobs.
   """
 
-  @timezone_database Tzdata.TimeZoneDatabase
+  @timezone_database TimeZoneInfo.TimeZoneDatabase
   @max_cron_scan_minutes 366 * 24 * 60
 
   @weekdays %{

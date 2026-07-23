@@ -84,7 +84,7 @@ defmodule AllbertAssist.MixProject do
       {:muontrap, "~> 1.8"},
       {:erlexec, "~> 2.3"},
       {:owl, "~> 0.13"},
-      {:tzdata, "~> 1.1"},
+      {:time_zone_info, "~> 0.7.15"},
       {:jsv, "~> 0.19"},
       {:yaml_elixir, "~> 2.12"},
       {:ymlr, "~> 5.0"},
@@ -104,7 +104,7 @@ defmodule AllbertAssist.MixProject do
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
-      setup: ["deps.get", "ecto.setup"],
+      setup: ["deps.get", "hex.audit", "ecto.setup"],
       "ecto.setup": ["ecto.create", "ecto.migrate.allbert", "run #{__DIR__}/priv/repo/seeds.exs"],
       "ecto.migrate.allbert": ["allbert.ecto.migrate"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],

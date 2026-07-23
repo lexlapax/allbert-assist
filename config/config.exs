@@ -67,9 +67,8 @@ config :logger, :default_formatter,
   format: "$time $metadata[$level] $message\n",
   metadata: [:request_id]
 
-# Keep operator and release-validation output deterministic. Allbert ships
-# bundled Tzdata tables and should not poll IANA during CLI startup.
-config :tzdata, :autoupdate, :disabled
+# TimeZoneInfo ships bundled IANA tables and defaults updates to disabled, so
+# operator and release-validation startup remains deterministic and offline.
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason

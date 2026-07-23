@@ -54,6 +54,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     phase_ids = Enum.map(phases, fn {id, _cwd, _args} -> id end)
 
     assert phase_ids == [
+             "hex_audit",
              "static_compile",
              "deps_unused",
              "format",
@@ -79,7 +80,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     refute File.read!(evidence_path) =~ "secret-token"
 
     phase_logs = Enum.map(evidence["phases"], &Map.fetch!(&1, "redacted_output_log_path"))
-    assert length(phase_logs) == 11
+    assert length(phase_logs) == 12
     assert Enum.all?(phase_logs, &File.exists?/1)
     refute Enum.any?(phase_logs, &(File.read!(&1) =~ "secret-token"))
 
@@ -90,7 +91,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
       |> String.split("\n", trim: true)
       |> Enum.map(&Jason.decode!/1)
 
-    assert length(records) == 11
+    assert length(records) == 12
     assert Enum.all?(records, &(&1["gate"] == "release"))
     assert Enum.all?(records, &(&1["status"] == "passed"))
     assert Enum.map(records, & &1["phase_or_step"]) |> List.last() == "dialyzer"
@@ -163,7 +164,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
       end)
 
     phase_ids = drain_phases() |> Enum.map(fn {id, _cwd, _args} -> id end)
-    assert phase_ids == ["static_compile", "format", "credo"]
+    assert phase_ids == ["hex_audit", "static_compile", "format", "credo"]
     assert output =~ "commit gate is not release evidence"
     assert output =~ "before sharing: mix allbert.test prepush"
     assert output =~ "before release handoff: mix allbert.test release"
@@ -191,7 +192,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
       end)
 
     phase_ids = drain_phases() |> Enum.map(fn {id, _cwd, _args} -> id end)
-    assert phase_ids == ["static_compile", "format", "credo"]
+    assert phase_ids == ["hex_audit", "static_compile", "format", "credo"]
     assert output =~ "commit gate is not release evidence"
   end
 

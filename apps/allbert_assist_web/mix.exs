@@ -77,7 +77,7 @@ defmodule AllbertAssistWeb.MixProject do
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
-      setup: ["deps.get", "assets.npm", "assets.setup", "assets.build"],
+      setup: ["deps.get", "hex.audit", "assets.npm", "assets.setup", "assets.build"],
       "assets.npm": [&npm_install/1],
       test: [&prepare_test_database/1, "test"],
       "ecto.migrate.allbert": ["allbert.ecto.migrate"],

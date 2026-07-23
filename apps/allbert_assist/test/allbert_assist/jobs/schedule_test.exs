@@ -97,5 +97,32 @@ defmodule AllbertAssist.Jobs.ScheduleTest do
 
       assert DateTime.to_iso8601(due) == "2026-05-14T15:00:00Z"
     end
+
+    test "daily schedules advance through a daylight-saving spring gap" do
+      assert {:ok, ~U[2026-03-08 10:00:00Z]} =
+               Schedule.next_due(
+                 %{"kind" => "daily", "at" => "02:30"},
+                 "America/Los_Angeles",
+                 ~U[2026-03-08 07:00:00Z]
+               )
+    end
+
+    test "daily schedules choose the first occurrence of an ambiguous fall time" do
+      assert {:ok, ~U[2026-11-01 08:30:00Z]} =
+               Schedule.next_due(
+                 %{"kind" => "daily", "at" => "01:30"},
+                 "America/Los_Angeles",
+                 ~U[2026-11-01 07:00:00Z]
+               )
+    end
+  end
+
+  describe "validate_timezone/1" do
+    test "accepts IANA names and rejects unknown zones" do
+      assert :ok = Schedule.validate_timezone("America/Los_Angeles")
+
+      assert {:error, {:invalid_timezone, _reason}} =
+               Schedule.validate_timezone("America/Definitely_Not_A_Zone")
+    end
   end
 end

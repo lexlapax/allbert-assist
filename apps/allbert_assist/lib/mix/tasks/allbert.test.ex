@@ -736,6 +736,7 @@ defmodule Mix.Tasks.Allbert.Test do
     env = owned_env("commit", 0)
 
     [
+      phase("hex_audit", root(), "mix", ["hex.audit"], env),
       phase("static_compile", root(), "mix", ["compile", "--warnings-as-errors"], env),
       phase("format", root(), "mix", ["format", "--check-formatted"], env),
       phase("credo", root(), "mix", ["credo", "--strict"], env)
@@ -746,6 +747,7 @@ defmodule Mix.Tasks.Allbert.Test do
     env = owned_env("prepush", 0)
 
     [
+      phase("hex_audit", root(), "mix", ["hex.audit"], env),
       phase(
         "static_compile",
         root(),
@@ -778,6 +780,7 @@ defmodule Mix.Tasks.Allbert.Test do
     partitions = default_partition_count()
 
     [
+      phase("hex_audit", root(), "mix", ["hex.audit"], env),
       phase(
         "static_compile",
         root(),
@@ -5663,6 +5666,14 @@ defmodule Mix.Tasks.Allbert.Test do
   # Attested acceptance-matrix rows (install/browser/model/cross-host) are the DIT
   # milestones in docs/plans/archives/v1.0-handoff.md, recorded under docs/validation/v1.0/.
   @release_v1_steps [
+    %{
+      id: "hex_audit",
+      title: "audit locked dependencies for advisories and retirements",
+      cwd: :root,
+      executable: "mix",
+      args: ["hex.audit"],
+      coverage: ["known dependency vulnerabilities fail the v1.0 freeze gate"]
+    },
     %{
       id: "migrate",
       title: "prepare disposable database",
