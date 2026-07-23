@@ -57,6 +57,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.DynamicPlugins.ShowDynamicDraft
   alias AllbertAssist.Actions.DynamicPlugins.ShowDynamicIntegration
   alias AllbertAssist.Actions.Email.SendEmail
+  alias AllbertAssist.Actions.Execution.ReleaseCancellationProof
   alias AllbertAssist.Actions.FirstModel.Detect, as: FirstModelDetect
   alias AllbertAssist.Actions.FirstModel.InstallOllama
   alias AllbertAssist.Actions.FirstModel.PullModel
@@ -451,6 +452,7 @@ defmodule AllbertAssist.Actions.Registry do
     # (command_execute, confirmed). Named internal actions, not off-spine shell.
     ServeHealth,
     ServiceControl,
+    ReleaseCancellationProof,
     RestoreDatabaseBackup,
     # v0.62 M7: three-tier secret vault — vault status (read-only) + migrate
     # secrets into the OS vault (settings_write, confirmed). Named internal

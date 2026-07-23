@@ -8763,6 +8763,11 @@ defmodule Mix.Tasks.Allbert.Test do
     # the test text): stays in the external policy lane.
     "apps/allbert_assist/test/allbert_assist/coding/m3_bash_action_test.exs" =>
       :external_runtime_serial,
+    # M12.4 cancellation rehearsal runs fixed real OS process trees through
+    # ProcessOwner. The external-runtime tag is the primary ownership lane;
+    # incidental Registry references must not create a dual-lane manifest row.
+    "apps/allbert_assist/test/allbert_assist/execution/cancellation_proof_test.exs" =>
+      :external_runtime_serial,
     # v1.0.3 M3 permanent minimal-composition regression: the channel-surface
     # heuristic reads it as external, but it touches no real channel runtime —
     # it plants a settings-root residue and reads a PRIVATE registry through

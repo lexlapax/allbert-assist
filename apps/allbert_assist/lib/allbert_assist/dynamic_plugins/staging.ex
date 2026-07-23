@@ -251,7 +251,7 @@ defmodule AllbertAssist.DynamicPlugins.Staging do
         root =
           Path.join(
             System.tmp_dir!(),
-            "allbert-dynamic-stage-#{draft.slug}-#{System.unique_integer([:positive])}"
+            "allbert-dynamic-stage-#{draft.slug}-#{Ecto.UUID.generate()}"
           )
 
         {:ok, root}

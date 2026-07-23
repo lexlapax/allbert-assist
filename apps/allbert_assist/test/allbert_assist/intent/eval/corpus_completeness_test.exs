@@ -254,6 +254,7 @@ defmodule AllbertAssist.Intent.Eval.CorpusCompletenessTest do
     assert baseline["schema_version"] == 1
     assert baseline["id"] == "v056-release-baseline"
     assert baseline["corpus_case_count"] == length(cases)
+    # 296 = 295 + the v1.1 M12.4 internal packaged-cancellation-proof guard.
     # 295 = 294 + the v1.0.1 M4.3 natural-form channel-send negative guard
     # (outbound-channel-natural-001).
     # 294 = 277 + the twelve v0.62 M8.15 negative-internal rows for the newly
@@ -263,7 +264,7 @@ defmodule AllbertAssist.Intent.Eval.CorpusCompletenessTest do
     # create/rotate/revoke_protocol_token; ensure_voice_token) + five v0.62 M8.19
     # rows (workspace signing-secret rotation and MCP scan lifecycle/run-once).
     # 277 = 269 + the eight earlier v0.62 rows (M0.1/M4/M5/M7) recaptured at M7.
-    assert baseline["corpus_case_count"] == 295
+    assert baseline["corpus_case_count"] == 296
     assert baseline["overall_accuracy"] == 1.0
     assert is_map(baseline["per_domain"])
     assert get_in(baseline, ["gate", "status"]) == "pass"

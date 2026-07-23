@@ -55,6 +55,7 @@ defmodule AllbertAssist.CLI.Commands do
     ["admin", "model", "install"] => {:action, "install_ollama"},
     ["admin", "model", "pull"] => {:action, "pull_model"},
     ["admin", "health"] => {:action, "serve_health"},
+    ["admin", "cancellation-proof"] => {:area, Areas.CancellationProof},
     ["admin", "service", "status"] => {:action, "serve_health"},
     ["admin", "service"] => {:action, "service_control"},
     ["admin", "db"] => {:area, Areas.Database},

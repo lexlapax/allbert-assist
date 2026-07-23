@@ -105,6 +105,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     service_control
     apply_persona_profile
     start_fanout
+    release_cancellation_proof
   ]
 
   # v1.0.1 M4.2.3: standalone browser confirmations (direct action use outside
