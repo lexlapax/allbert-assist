@@ -31,6 +31,7 @@ defmodule AllbertAssist.Runtime do
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Intent.Decomposer
+  alias AllbertAssist.Intent.Steering
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Runs.Scheduler
@@ -703,14 +704,28 @@ defmodule AllbertAssist.Runtime do
   defp run_agent_turn(input_signal, request), do: agent_runner().(input_signal, request)
 
   defp run_stage_zero_or_agent(input_signal, request) do
+    case Steering.handle(request) do
+      {:ok, response} ->
+        {:ok, response}
+
+      :not_steering ->
+        run_non_steering_stage_zero(input_signal, request)
+    end
+  end
+
+  defp run_non_steering_stage_zero(input_signal, request) do
     if NotifyConsentCallback.typed_command?(request.text) do
       {:ok, request |> NotifyConsentCallback.run() |> NotifyConsentCallback.response()}
     else
-      case fanout_proposal(request) do
-        {:fanout, tasks} -> frame_fanout_response(request, tasks)
-        {:clarify, clarification} -> {:ok, overflow_response(clarification)}
-        :single -> run_agent_turn(input_signal, request)
-      end
+      run_fanout_or_agent(input_signal, request)
+    end
+  end
+
+  defp run_fanout_or_agent(input_signal, request) do
+    case fanout_proposal(request) do
+      {:fanout, tasks} -> frame_fanout_response(request, tasks)
+      {:clarify, clarification} -> {:ok, overflow_response(clarification)}
+      :single -> run_agent_turn(input_signal, request)
     end
   end
 

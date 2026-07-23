@@ -11,6 +11,7 @@ defmodule AllbertAssist.Objectives.Lifecycle do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Objectives.Runs.CancelToken
+  alias AllbertAssist.Objectives.Steering
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings.Store
   alias AllbertAssist.Signals
@@ -81,6 +82,8 @@ defmodule AllbertAssist.Objectives.Lifecycle do
   end
 
   defp operation_result(adapter, operation, current, opts) do
+    current = reconcile_steering(current)
+
     case Keyword.get(opts, :cancel_token) do
       %CancelToken{} = token ->
         if CancelToken.cancelled?(token) do
@@ -91,6 +94,13 @@ defmodule AllbertAssist.Objectives.Lifecycle do
 
       nil ->
         pinned_operation(adapter, operation, current, opts)
+    end
+  end
+
+  defp reconcile_steering(%{objective: objective} = state) do
+    case Steering.apply_pending(objective.id) do
+      {:ok, updated} -> %{state | objective: updated}
+      {:error, _reason} -> state
     end
   end
 

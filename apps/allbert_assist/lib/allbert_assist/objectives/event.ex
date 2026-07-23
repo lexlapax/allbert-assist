@@ -30,6 +30,8 @@ defmodule AllbertAssist.Objectives.Event do
     run_completed
     run_failed
     run_cancelled
+    steer_directive
+    steer_applied
   ]
 
   @primary_key {:id, :string, autogenerate: false}

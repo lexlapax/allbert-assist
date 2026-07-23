@@ -141,6 +141,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "continue_objective",
              "cancel_objective",
              "cancel_objective_run",
+             "steer_objective_run",
              "read",
              "grep",
              "glob",
