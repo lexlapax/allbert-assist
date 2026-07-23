@@ -55,6 +55,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :v065
           | :v066
           | :v1
+          | :v11
 
   @type required_surface ::
           :resource_execution
@@ -6829,6 +6830,117 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
         :a20_cross_linked
       ],
       test_module: "AllbertAssist.Security.V1SweepEvalTest"
+    },
+    # ── v1.1 Fan-out authority and denial contracts ──────────────────────────
+    %{
+      id: "v11-fanout-model-001",
+      milestone: :v11,
+      surface: :fanout_model,
+      scenario: "The durable v1.1 parent/child fan-out model or event contract regresses",
+      boundary: :durable_fanout,
+      expected: :allowed,
+      assert: [:contract_present, :deny_path_bound, :runner_or_durable_boundary],
+      test_module: "AllbertAssist.Security.V11SweepEvalTest"
+    },
+    %{
+      id: "v11-scheduler-bounds-001",
+      milestone: :v11,
+      surface: :scheduler,
+      scenario: "The bounded scheduler or cooperative cancellation checkpoint regresses",
+      boundary: :bounded_execution,
+      expected: :allowed,
+      assert: [:contract_present, :deny_path_bound, :runner_or_durable_boundary],
+      test_module: "AllbertAssist.Security.V11SweepEvalTest"
+    },
+    %{
+      id: "v11-app-boundary-001",
+      milestone: :v11,
+      surface: :app_registry,
+      scenario: "Background dispatch stops re-proving active App Registry membership",
+      boundary: :dispatch_membership,
+      expected: :allowed,
+      assert: [:contract_present, :deny_path_bound, :runner_or_durable_boundary],
+      test_module: "AllbertAssist.Security.V11SweepEvalTest"
+    },
+    %{
+      id: "v11-cancel-tiers-001",
+      milestone: :v11,
+      surface: :cancellation,
+      scenario: "Fan-out cancellation stops using the registered cooperative and OS tiers",
+      boundary: :tiered_cancel,
+      expected: :allowed,
+      assert: [:contract_present, :deny_path_bound, :runner_or_durable_boundary],
+      test_module: "AllbertAssist.Security.V11SweepEvalTest"
+    },
+    %{
+      id: "v11-channel-parity-001",
+      milestone: :v11,
+      surface: :channels,
+      scenario: "Channel streaming and in-place status capability declarations drift",
+      boundary: :declared_streaming,
+      expected: :allowed,
+      assert: [:contract_present, :deny_path_bound, :runner_or_durable_boundary],
+      test_module: "AllbertAssist.Security.V11SweepEvalTest"
+    },
+    %{
+      id: "v11-notify-default-off-001",
+      milestone: :v11,
+      surface: :channel_notify,
+      scenario: "Autonomous channel report-back no longer defaults off for every channel",
+      boundary: :default_off,
+      expected: :allowed,
+      assert: [:contract_present, :deny_path_bound, :runner_or_durable_boundary],
+      test_module: "AllbertAssist.Security.V11SweepEvalTest"
+    },
+    %{
+      id: "v11-notify-origin-deny-001",
+      milestone: :v11,
+      surface: :channel_notify,
+      scenario: "Autonomous report-back stops re-proving exact origin and mapped identity",
+      boundary: :origin_binding,
+      expected: :allowed,
+      assert: [:contract_present, :deny_path_bound, :runner_or_durable_boundary],
+      test_module: "AllbertAssist.Security.V11SweepEvalTest"
+    },
+    %{
+      id: "v11-status-edit-001",
+      milestone: :v11,
+      surface: :channel_notify,
+      scenario: "A channel declares in-place status but loses the bounded edit boundary",
+      boundary: :in_place_status,
+      expected: :allowed,
+      assert: [:contract_present, :deny_path_bound, :runner_or_durable_boundary],
+      test_module: "AllbertAssist.Security.V11SweepEvalTest"
+    },
+    %{
+      id: "v11-steer-ownership-001",
+      milestone: :v11,
+      surface: :steering,
+      scenario: "Steering can mutate an objective without current user ownership",
+      boundary: :owned_objective,
+      expected: :allowed,
+      assert: [:contract_present, :deny_path_bound, :runner_or_durable_boundary],
+      test_module: "AllbertAssist.Security.V11SweepEvalTest"
+    },
+    %{
+      id: "v11-free-text-no-approve-001",
+      milestone: :v11,
+      surface: :steering,
+      scenario: "Free text is incorrectly interpreted as confirmation or notify approval",
+      boundary: :no_approval_authority,
+      expected: :allowed,
+      assert: [:contract_present, :deny_path_bound, :runner_or_durable_boundary],
+      test_module: "AllbertAssist.Security.V11SweepEvalTest"
+    },
+    %{
+      id: "v11-surface-dispatch-001",
+      milestone: :v11,
+      surface: :operator_surface,
+      scenario: "Web or TUI steering bypasses registered Runner-dispatched actions",
+      boundary: :runner_dispatch,
+      expected: :allowed,
+      assert: [:contract_present, :deny_path_bound, :runner_or_durable_boundary],
+      test_module: "AllbertAssist.Security.V11SweepEvalTest"
     }
   ]
 
