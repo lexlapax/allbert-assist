@@ -413,7 +413,7 @@ defmodule AllbertAssistWeb.WorkspaceShellNavTest do
 
     assert_patch(
       view,
-      ~p"/workspace?#{[thread_id: thread_id, destination: "workspace:objectives"]}"
+      ~p"/workspace?#{[thread_id: thread_id, destination: "workspace:objectives", objective_id: objective.id]}"
     )
 
     assert has_element?(view, "#workspace-canvas[data-destination='workspace:objectives']")
