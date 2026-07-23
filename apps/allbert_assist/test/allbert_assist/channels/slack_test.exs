@@ -404,6 +404,32 @@ defmodule AllbertAssist.Channels.SlackTest do
     assert resolved["operator_resolution"]["resolver_metadata"]["callback_data"] =~ "deny"
   end
 
+  test "notify consent button re-proves identity and enables the channel setting" do
+    assert {:ok, false} = Settings.get("channels.slack.autonomous_notify.enabled")
+
+    assert {:ok, adapter} =
+             Adapter.start_link(name: nil, client_opts: [mode: :stub, capture_to: self()])
+
+    interactive =
+      Parser.simulated_interactive(%{
+        team_id: "T0123ABCDE",
+        channel_id: "C0123ABCDE",
+        user_id: "U0123ABCDE",
+        action_id: "ALLBERT:NOTIFY:ON"
+      })
+
+    assert {:ok, {:processed, event, [rendered]}} =
+             Adapter.simulate_socket_envelope(adapter, interactive)
+
+    assert_receive {:slack_chat_post_message, payload}
+    assert payload.text =~ "now enabled"
+    assert rendered.text =~ "now enabled"
+    assert event.user_id == "alice"
+    assert {:ok, true} = Settings.get("channels.slack.autonomous_notify.enabled")
+
+    GenServer.stop(adapter)
+  end
+
   test "Slack callbacks cannot resolve Discord-origin confirmations" do
     assert {:ok, confirmation} = create_confirmation!("conf_discord_origin", "discord")
 

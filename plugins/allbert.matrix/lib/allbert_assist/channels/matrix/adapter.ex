@@ -449,6 +449,7 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
   defp matrix_provider_thread_ref(fields) do
     %{
       provider: "matrix",
+      origin_identity_digest: ChannelThread.identity_digest(fields.external_user_id),
       room_id: fields.room_id,
       provider_thread_root:
         fields.thread_root_event_id || fields.reply_to_event_id || fields.external_message_id,
@@ -607,7 +608,16 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
          :ok <- validate_outbound_room(target, settings),
          {:ok, homeserver_url} <- homeserver_url(settings),
          {:ok, access_token} <- resolve_access_token(settings) do
-      content = Renderer.message_content(body)
+      thread = Keyword.get(opts, :thread, %{})
+
+      content =
+        Renderer.message_content(body, %{
+          thread_root_event_id:
+            Map.get(thread, "thread_root_event_id") || Map.get(thread, :thread_root_event_id),
+          reply_to_event_id:
+            Map.get(thread, "external_message_id") || Map.get(thread, :external_message_id)
+        })
+
       txn_id = Keyword.get(opts, :txn_id, Ecto.UUID.generate())
       req_options = Keyword.get(opts, :req_options, [])
 

@@ -79,6 +79,8 @@ defmodule AllbertAssist.Paths do
       Path.join(external_root(), "audit"),
       mcp_root(),
       mcp_audit_root(),
+      channel_notify_root(),
+      channel_notify_audit_root(),
       external_cache_root(),
       memory_root(),
       Path.join(memory_root(), "notes"),
@@ -283,6 +285,14 @@ defmodule AllbertAssist.Paths do
   @doc "Return the MCP client audit root."
   @spec mcp_audit_root() :: String.t()
   def mcp_audit_root, do: Path.join(mcp_root(), "audit")
+
+  @doc "Return the autonomous channel-notification runtime root."
+  @spec channel_notify_root() :: String.t()
+  def channel_notify_root, do: Path.join([home(), "channels", "notify"])
+
+  @doc "Return the autonomous channel-notification audit root."
+  @spec channel_notify_audit_root() :: String.t()
+  def channel_notify_audit_root, do: Path.join(channel_notify_root(), "audit")
 
   @doc "Return the local SQLite database path."
   @spec db_path() :: String.t()

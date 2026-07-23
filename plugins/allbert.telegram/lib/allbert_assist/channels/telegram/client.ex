@@ -9,8 +9,17 @@ defmodule AllbertAssist.Channels.Telegram.Client do
 
   def get_me(token, opts \\ []) do
     case client_mode(opts) do
-      :stub -> stub_get_me(token, opts)
-      :real -> request(:get, token, "getMe", [receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)], opts)
+      :stub ->
+        stub_get_me(token, opts)
+
+      :real ->
+        request(
+          :get,
+          token,
+          "getMe",
+          [receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)],
+          opts
+        )
     end
   end
 

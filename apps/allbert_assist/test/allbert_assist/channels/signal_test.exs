@@ -10,6 +10,7 @@ defmodule AllbertAssist.Channels.SignalTest do
   alias AllbertAssist.Channels.Signal.Client
   alias AllbertAssist.Channels.Signal.Daemon
   alias AllbertAssist.Channels.Signal.Parser
+  alias AllbertAssist.Channels.Signal.Supervisor, as: SignalSupervisor
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -175,6 +176,27 @@ defmodule AllbertAssist.Channels.SignalTest do
                 ["--config", data_dir, "daemon", "--socket", socket_file],
                 [log_output: :debug, log_prefix: "signal-cli: "]
               ]}
+  end
+
+  test "plugin child spec mounts the daemon beside the adapter and forwards JSON lines" do
+    assert [descriptor] = SignalPlugin.channels()
+    assert descriptor.child_spec == {SignalSupervisor, []}
+
+    assert {:ok, {_flags, children}} = SignalSupervisor.init(adapter_name: self())
+    assert length(children) == 2
+
+    daemon = Enum.find(children, &(&1.id == :signal_cli_daemon))
+
+    assert %{start: {MuonTrap.Daemon, :start_link, [_path, _args, daemon_opts]}} = daemon
+    logger_fun = Keyword.fetch!(daemon_opts, :logger_fun)
+    notification = Parser.simulated_receive_notification(%{source_aci: @aci, text: "hello"})
+
+    logger_fun.(Jason.encode!(notification))
+
+    assert_receive {
+      :"$gen_cast",
+      {:handle_notification, ^notification, %{surface: "signal_daemon"}}
+    }
   end
 
   test "adapter processes stubbed daemon inbound, quotes by timestamp, and stamps e2ee_origin" do

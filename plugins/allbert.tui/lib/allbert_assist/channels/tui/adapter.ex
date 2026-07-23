@@ -14,12 +14,14 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   alias AllbertAssist.Channels.TUI.LiveRegion
   alias AllbertAssist.Channels.TUI.Renderer
   alias AllbertAssist.Channels.TUI.SlashCommands
+  alias AllbertAssist.Channels.TUI.Subscriptions
   alias AllbertAssist.Coding.Config, as: CodingConfig
   alias AllbertAssist.Coding.Session, as: CodingSession
   alias AllbertAssist.Coding.TurnSupervisor, as: CodingTurnSupervisor
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.Redactor
+  alias Jido.Signal
   alias AllbertAssist.Surfaces.ContextBuilder
 
   @provider "terminal"
@@ -74,6 +76,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       opts
       |> load_state()
       |> emit_banner()
+      |> subscribe_fanout_events()
 
     if state.enabled? and state.auto_input? do
       state = start_auto_input(state)
@@ -86,6 +89,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   @impl true
   def terminate(_reason, state) do
     stop_input_driver(state)
+    unsubscribe_fanout_events(state)
     :ok
   end
 
@@ -107,6 +111,14 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     state.input_fun.(Renderer.prompt(state.profile))
     |> normalize_input()
     |> handle_auto_input(state)
+  end
+
+  def handle_info({:signal, %Signal{type: "allbert.objectives." <> _rest} = signal}, state) do
+    if Subscriptions.attached_user_signal?(signal, Map.get(state.settings, "identity_map", [])) do
+      output_fun(state).(Subscriptions.status_line(signal))
+    end
+
+    {:noreply, state}
   end
 
   def handle_info(
@@ -264,7 +276,8 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       pi_session: Keyword.get(opts, :pi_session),
       current_turn: nil,
       active_fanout: nil,
-      queued_correction: nil
+      queued_correction: nil,
+      fanout_subscription_id: nil
     }
   end
 
@@ -690,7 +703,11 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     do: emit_output("Cancellation requested for coding turn #{turn_id}.", state)
 
   defp maybe_emit_cancel_feedback({:ok, {:fanout_cancel_offer, parent_id}}, state),
-    do: emit_output("Fan-out #{parent_id} is still running. Reply with ‘cancel it’ to stop it.", state)
+    do:
+      emit_output(
+        "Fan-out #{parent_id} is still running. Reply with ‘cancel it’ to stop it.",
+        state
+      )
 
   defp maybe_emit_cancel_feedback({:error, :no_current_turn}, state),
     do: emit_output("No coding turn is currently running.", state)
@@ -1423,6 +1440,20 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   defp output_fun(%{output_fun: output_fun}) when is_function(output_fun, 1), do: output_fun
   defp output_fun(%{input_driver: %{pid: pid}}) when is_pid(pid), do: &raw_terminal_output/1
   defp output_fun(_state), do: &default_output/1
+
+  defp subscribe_fanout_events(%{enabled?: false} = state), do: state
+
+  defp subscribe_fanout_events(state) do
+    case Subscriptions.register(true) do
+      {:ok, subscription_id} -> %{state | fanout_subscription_id: subscription_id}
+      {:error, _reason} -> state
+    end
+  end
+
+  defp unsubscribe_fanout_events(%{fanout_subscription_id: id}) when is_binary(id),
+    do: Subscriptions.unregister(id)
+
+  defp unsubscribe_fanout_events(_state), do: :ok
 
   defp raw_terminal_output(chardata) do
     text =

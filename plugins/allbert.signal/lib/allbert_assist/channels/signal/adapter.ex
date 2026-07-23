@@ -32,6 +32,10 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
     GenServer.call(server, {:handle_notification, notification, %{surface: "signal_simulate"}})
   end
 
+  def daemon_notification(server \\ __MODULE__, notification) do
+    GenServer.cast(server, {:handle_notification, notification, %{surface: "signal_daemon"}})
+  end
+
   def status(server \\ __MODULE__) do
     case GenServer.whereis(server) do
       nil -> :not_started
@@ -59,6 +63,17 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
       end
 
     {:reply, reply, state}
+  end
+
+  @impl true
+  def handle_cast({:handle_notification, notification, auth_context}, state) do
+    {_reply, state} =
+      case ensure_live_use_allowed(auth_context) do
+        :ok -> process_notification(notification, auth_context, state)
+        {:error, _reason} -> {{:error, :live_use_denied}, state}
+      end
+
+    {:noreply, state}
   end
 
   defp channel_status(state) do
@@ -438,6 +453,7 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
   defp provider_thread_ref(fields) do
     %{
       provider: "signal",
+      origin_identity_digest: ChannelThread.identity_digest(fields.source_aci),
       provider_thread_root: fields.source_aci,
       source_aci: fields.source_aci,
       message_timestamp_ms: fields.timestamp_ms,
@@ -527,13 +543,13 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
   # v0.54 M10 (ADR 0063): outbound compose boundary callback. `target` is a Signal
   # recipient (ACI/number per the account's identity policy).
   @doc false
-  def deliver_outbound(target, body, _opts) when is_binary(target) and is_binary(body) do
+  def deliver_outbound(target, body, opts) when is_binary(target) and is_binary(body) do
     with :ok <- ReleaseAvailability.ensure_live_use_allowed({:channel, "signal"}) do
       case AllbertAssist.Channels.channel_settings("signal") do
         {:ok, settings} ->
           account = Map.get(settings, "account_identifier")
 
-          case Client.send_message(account, target, body, []) do
+          case Client.send_message(account, target, body, Keyword.take(opts, [:req_options])) do
             {:ok, result} -> {:ok, %{channel: "signal", target: target, result: result}}
             {:error, reason} -> {:error, reason}
           end

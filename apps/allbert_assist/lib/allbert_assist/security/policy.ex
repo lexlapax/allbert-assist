@@ -46,6 +46,7 @@ defmodule AllbertAssist.Security.Policy do
     mcp_resource_read: "permissions.mcp_resource_read",
     public_surface_call_inbound: "permissions.public_surface_call_inbound",
     channel_message_inbound: "permissions.channel_message_inbound",
+    channel_autonomous_notify: "permissions.channel_autonomous_notify",
     browser_session_start: "permissions.browser_session_start",
     browser_navigate: "permissions.browser_navigate",
     browser_extract: "permissions.browser_extract",
@@ -104,6 +105,7 @@ defmodule AllbertAssist.Security.Policy do
     mcp_resource_read: :allowed,
     public_surface_call_inbound: :needs_confirmation,
     channel_message_inbound: :needs_confirmation,
+    channel_autonomous_notify: :allowed,
     browser_session_start: :needs_confirmation,
     browser_navigate: :needs_confirmation,
     browser_extract: :allowed,
@@ -182,6 +184,7 @@ defmodule AllbertAssist.Security.Policy do
           | :mcp_resource_read
           | :public_surface_call_inbound
           | :channel_message_inbound
+          | :channel_autonomous_notify
           | :browser_session_start
           | :browser_navigate
           | :browser_extract
@@ -244,6 +247,7 @@ defmodule AllbertAssist.Security.Policy do
       :mcp_resource_read,
       :public_surface_call_inbound,
       :channel_message_inbound,
+      :channel_autonomous_notify,
       :browser_session_start,
       :browser_navigate,
       :browser_extract,

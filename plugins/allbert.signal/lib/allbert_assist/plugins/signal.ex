@@ -22,7 +22,7 @@ defmodule AllbertAssist.Plugins.Signal do
         channel_id: "signal",
         provider: "signal_cli_jsonrpc",
         adapter: AllbertAssist.Channels.Signal.Adapter,
-        child_spec: {AllbertAssist.Channels.Signal.Adapter, []},
+        child_spec: {AllbertAssist.Channels.Signal.Supervisor, []},
         secret_refs: ["channels.signal.control_auth_ref"],
         summary_fields: ["enabled", "account_identifier", "control_mode", "socket_path"],
         settings_prefix: "channels.signal",
@@ -50,5 +50,8 @@ defmodule AllbertAssist.Plugins.Signal do
   end
 
   @impl true
-  def settings_schema, do: AllbertSignal.Settings.Fragment.settings_schema()
+  def settings_schema,
+    do:
+      AllbertSignal.Settings.Fragment.settings_schema() ++
+        AllbertAssist.Channels.Notify.settings_schema("signal")
 end

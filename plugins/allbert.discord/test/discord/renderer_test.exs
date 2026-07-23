@@ -12,6 +12,18 @@ defmodule AllbertDiscord.RendererTest do
     assert second.content == "x"
   end
 
+  test "renders the one-time notify offer as a consent button" do
+    assert {:ok, [message]} =
+             Renderer.render_response(%{
+               message: "Fan-out started.",
+               notify_offer: %{channel: "discord", user_id: "alice"}
+             })
+
+    assert [%{components: [button]}] = message.components
+    assert button.custom_id == "ALLBERT:NOTIFY:ON"
+    assert button.label == "Enable notifications"
+  end
+
   test "renders approval handoff as Discord button components" do
     assert {:ok, [message]} =
              Renderer.render_response(%{

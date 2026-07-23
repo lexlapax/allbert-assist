@@ -25,6 +25,19 @@ defmodule AllbertAssist.Plugins.Telegram.RendererTest do
     refute text =~ "/tmp/allbert-secret"
   end
 
+  test "renders the one-time notify offer as an identity-reproved callback button" do
+    assert {:ok, ["Fan-out started."], %{"inline_keyboard" => [[button]]}} =
+             Renderer.render_response(%{
+               message: "Fan-out started.",
+               notify_offer: %{channel: "telegram", user_id: "alice"}
+             })
+
+    assert button == %{
+             "text" => "Enable notifications",
+             "callback_data" => "ALLBERT:NOTIFY:ON"
+           }
+  end
+
   test "approval handoff rendering includes objective context and stale warning" do
     assert {:ok, objective} =
              Objectives.create_objective(%{

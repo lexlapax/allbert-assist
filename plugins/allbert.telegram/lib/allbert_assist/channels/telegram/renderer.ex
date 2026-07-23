@@ -31,7 +31,7 @@ defmodule AllbertAssist.Channels.Telegram.Renderer do
           {:ok, SurfaceRenderer.chunks(text, @telegram_limit), keyboard}
 
         _kind ->
-          {:ok, rendered.chunks, nil}
+          {:ok, rendered.chunks, notify_offer_keyboard(runtime_response, opts)}
       end
     end
   end
@@ -106,6 +106,16 @@ defmodule AllbertAssist.Channels.Telegram.Renderer do
   end
 
   defp approval_keyboard(_payload), do: nil
+
+  defp notify_offer_keyboard(response, opts) do
+    if response_field(response, :notify_offer) && Keyword.get(opts, :render_buttons, true) do
+      %{
+        "inline_keyboard" => [
+          [%{"text" => "Enable notifications", "callback_data" => "ALLBERT:NOTIFY:ON"}]
+        ]
+      }
+    end
+  end
 
   defp typed_command_text(%{text: text, commands: commands}) when is_list(commands) do
     [

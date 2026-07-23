@@ -9,6 +9,17 @@ defmodule AllbertAssist.Plugins.WhatsApp.RendererTest do
              Renderer.render_response(%{message: "hello"})
   end
 
+  test "renders the one-time notify offer as a consent button" do
+    assert {:ok, [%{type: :interactive_buttons, body: body, buttons: [button]}]} =
+             Renderer.render_response(%{
+               message: "Fan-out started.",
+               notify_offer: %{channel: "whatsapp", user_id: "alice"}
+             })
+
+    assert body == "Fan-out started."
+    assert button == %{id: "ALLBERT:NOTIFY:ON", title: "Enable notifications"}
+  end
+
   test "renders approval handoff as in-session buttons" do
     assert {:ok, [%{type: :interactive_buttons, body: body, buttons: buttons}]} =
              Renderer.render_response(%{

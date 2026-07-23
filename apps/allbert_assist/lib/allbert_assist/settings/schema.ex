@@ -196,6 +196,7 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.mcp_resource_read",
     "permissions.public_surface_call_inbound",
     "permissions.channel_message_inbound",
+    "permissions.channel_autonomous_notify",
     "mcp_server.schema_version",
     "mcp_server.enabled",
     "mcp_server.stdio.enabled",
@@ -2887,6 +2888,13 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["allowed", "needs_confirmation", "denied"]
     },
+    "permissions.channel_autonomous_notify" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "denied"]
+    },
     "permissions.calendar_write" => %{
       type: :enum,
       default: "needs_confirmation",
@@ -3908,6 +3916,7 @@ defmodule AllbertAssist.Settings.Schema do
       "mcp_resource_read" => "allowed",
       "public_surface_call_inbound" => "needs_confirmation",
       "channel_message_inbound" => "needs_confirmation",
+      "channel_autonomous_notify" => "allowed",
       "browser_session_start" => "needs_confirmation",
       "browser_navigate" => "needs_confirmation",
       "browser_extract" => "allowed",

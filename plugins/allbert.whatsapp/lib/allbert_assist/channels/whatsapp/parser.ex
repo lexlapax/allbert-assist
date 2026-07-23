@@ -108,9 +108,13 @@ defmodule AllbertAssist.Channels.WhatsApp.Parser do
   end
 
   def parse_callback_id(custom_id) when is_binary(custom_id) do
-    case Regex.run(@button_callback_re, custom_id) do
-      [_full, verb, confirmation_id] -> {:ok, {String.to_atom(verb), confirmation_id}}
-      _match -> {:error, :invalid_callback_id}
+    if custom_id == "ALLBERT:NOTIFY:ON" do
+      {:ok, {:notify_consent, nil}}
+    else
+      case Regex.run(@button_callback_re, custom_id) do
+        [_full, verb, confirmation_id] -> {:ok, {String.to_atom(verb), confirmation_id}}
+        _match -> {:error, :invalid_callback_id}
+      end
     end
   end
 

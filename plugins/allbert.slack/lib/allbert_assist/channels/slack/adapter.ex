@@ -9,6 +9,7 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
   alias AllbertAssist.Channels.ConfirmationCallback
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.InboundTrust
+  alias AllbertAssist.Channels.NotifyConsentCallback
   alias AllbertAssist.Channels.Slack.Client
   alias AllbertAssist.Channels.Slack.Client.SocketModePort
   alias AllbertAssist.Channels.Slack.Parser
@@ -502,6 +503,26 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
 
   defp run_confirmation_callback(
          fields,
+         _state,
+         user_id,
+         session_id,
+         :notify_consent,
+         _confirmation_id,
+         _inbound_trust
+       ) do
+    result =
+      NotifyConsentCallback.run(%{
+        channel: "slack",
+        user_id: user_id,
+        session_id: session_id,
+        resolver_metadata: %{external_user_id: fields.external_user_id}
+      })
+
+    {:ok, NotifyConsentCallback.response(result)}
+  end
+
+  defp run_confirmation_callback(
+         fields,
          state,
          user_id,
          session_id,
@@ -651,12 +672,22 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
   # v0.54 M10 (ADR 0063): outbound compose boundary callback. Resolves the bot token
   # from channel settings and posts to `target` (a channel/conversation id).
   @doc false
-  def deliver_outbound(target, body, _opts) when is_binary(target) and is_binary(body) do
+  def deliver_outbound(target, body, opts) when is_binary(target) and is_binary(body) do
+    thread = Keyword.get(opts, :thread, %{})
+
+    thread_ts =
+      Map.get(thread, "thread_ts") || Map.get(thread, :thread_ts) || Map.get(thread, "ts") ||
+        Map.get(thread, :ts)
+
+    payload =
+      %{channel: target, text: body}
+      |> then(&if(is_binary(thread_ts), do: Map.put(&1, :thread_ts, thread_ts), else: &1))
+
     case AllbertAssist.Channels.channel_settings("slack") do
       {:ok, settings} ->
         token_ref = Map.get(settings, "bot_token_ref", "secret://channels/slack/bot_token")
 
-        case Client.chat_post_message(token_ref, %{channel: target, text: body}, []) do
+        case Client.chat_post_message(token_ref, payload, Keyword.take(opts, [:req_options])) do
           {:ok, result} -> {:ok, %{channel: "slack", target: target, result: result}}
           {:error, reason} -> {:error, reason}
         end

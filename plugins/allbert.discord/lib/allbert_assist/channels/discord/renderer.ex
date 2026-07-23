@@ -21,7 +21,7 @@ defmodule AllbertAssist.Channels.Discord.Renderer do
            ) do
       case rendered.kind do
         :approval_handoff -> {:ok, [approval_message(rendered.primitive, rendered.payload)]}
-        _kind -> {:ok, Enum.map(rendered.chunks, &%{content: &1})}
+        _kind -> {:ok, text_messages(rendered.chunks, runtime_response, opts)}
       end
     end
   end
@@ -69,6 +69,26 @@ defmodule AllbertAssist.Channels.Discord.Renderer do
   end
 
   defp approval_message(_primitive, %{text: text}), do: %{content: text}
+
+  defp text_messages(chunks, response, opts) do
+    chunks
+    |> Enum.map(&%{content: &1})
+    |> maybe_add_notify_offer(response, opts)
+  end
+
+  defp maybe_add_notify_offer([first | rest], response, opts) do
+    if response_field(response, :notify_offer) && Keyword.get(opts, :render_buttons, true) do
+      button = %{type: 2, style: 3, label: "Enable notifications", custom_id: "ALLBERT:NOTIFY:ON"}
+      [Map.put(first, :components, [%{type: 1, components: [button]}]) | rest]
+    else
+      [first | rest]
+    end
+  end
+
+  defp maybe_add_notify_offer(messages, _response, _opts), do: messages
+
+  defp response_field(map, key) when is_map(map),
+    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
 
   defp button_style(:approve), do: 3
   defp button_style(:deny), do: 4

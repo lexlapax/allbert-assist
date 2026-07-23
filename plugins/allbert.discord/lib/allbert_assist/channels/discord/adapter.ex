@@ -13,6 +13,7 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
   alias AllbertAssist.Channels.Discord.Renderer
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.InboundTrust
+  alias AllbertAssist.Channels.NotifyConsentCallback
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.Redactor
@@ -449,6 +450,26 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
 
   defp run_confirmation_callback(
          fields,
+         _state,
+         user_id,
+         session_id,
+         :notify_consent,
+         _confirmation_id,
+         _inbound_trust
+       ) do
+    result =
+      NotifyConsentCallback.run(%{
+        channel: "discord",
+        user_id: user_id,
+        session_id: session_id,
+        resolver_metadata: %{external_user_id: fields.external_user_id}
+      })
+
+    {:ok, NotifyConsentCallback.response(result)}
+  end
+
+  defp run_confirmation_callback(
+         fields,
          state,
          user_id,
          session_id,
@@ -609,12 +630,20 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
   # v0.54 M10 (ADR 0063): outbound compose boundary callback. `target` is a Discord
   # channel id.
   @doc false
-  def deliver_outbound(target, body, _opts) when is_binary(target) and is_binary(body) do
+  def deliver_outbound(target, body, opts) when is_binary(target) and is_binary(body) do
+    thread = Keyword.get(opts, :thread, %{})
+    reference_id = Map.get(thread, "external_message_id") || Map.get(thread, :external_message_id)
+
+    payload =
+      if is_binary(reference_id),
+        do: %{content: body, message_reference: %{message_id: reference_id}},
+        else: %{content: body}
+
     case AllbertAssist.Channels.channel_settings("discord") do
       {:ok, settings} ->
         token_ref = Map.get(settings, "bot_token_ref", "secret://channels/discord/bot_token")
 
-        case Client.create_message(token_ref, target, %{content: body}, []) do
+        case Client.create_message(token_ref, target, payload, Keyword.take(opts, [:req_options])) do
           {:ok, result} -> {:ok, %{channel: "discord", target: target, result: result}}
           {:error, reason} -> {:error, reason}
         end

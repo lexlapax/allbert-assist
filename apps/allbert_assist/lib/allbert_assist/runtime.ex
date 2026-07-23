@@ -24,6 +24,8 @@ defmodule AllbertAssist.Runtime do
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.LocalSurface
+  alias AllbertAssist.Channels.Notify
+  alias AllbertAssist.Channels.NotifyConsentCallback
   alias AllbertAssist.Coding.TurnSupervisor, as: CodingTurnSupervisor
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
@@ -245,7 +247,8 @@ defmodule AllbertAssist.Runtime do
     start_context = Map.merge(base_context, get_in(response, [:fanout, :delivery_context]) || %{})
 
     with :ok <-
-           acknowledge_optional_start(Map.get(response, :fanout_start_receipt), start_context) do
+           acknowledge_optional_start(Map.get(response, :fanout_start_receipt), start_context),
+         :ok <- Notify.mark_consent_offer_delivered(Map.get(response, :notify_offer, %{})) do
       acknowledge_pending_reports(Map.get(response, :pending_reports, []), base_context)
     end
   end
@@ -700,10 +703,14 @@ defmodule AllbertAssist.Runtime do
   defp run_agent_turn(input_signal, request), do: agent_runner().(input_signal, request)
 
   defp run_stage_zero_or_agent(input_signal, request) do
-    case fanout_proposal(request) do
-      {:fanout, tasks} -> frame_fanout_response(request, tasks)
-      {:clarify, clarification} -> {:ok, overflow_response(clarification)}
-      :single -> run_agent_turn(input_signal, request)
+    if NotifyConsentCallback.typed_command?(request.text) do
+      {:ok, request |> NotifyConsentCallback.run() |> NotifyConsentCallback.response()}
+    else
+      case fanout_proposal(request) do
+        {:fanout, tasks} -> frame_fanout_response(request, tasks)
+        {:clarify, clarification} -> {:ok, overflow_response(clarification)}
+        :single -> run_agent_turn(input_signal, request)
+      end
     end
   end
 
@@ -768,6 +775,7 @@ defmodule AllbertAssist.Runtime do
       session_id: request.session_id,
       active_app: optional_to_string(request.active_app),
       origin_receiver_account_ref: origin_field(request, :receiver_account_ref),
+      origin_thread_ref_id: origin_field(request, :id),
       origin_thread_ref_digest: origin_ref_digest(request.channel_thread_ref)
     }
 
@@ -779,10 +787,18 @@ defmodule AllbertAssist.Runtime do
   defp kickoff_response(%{parent: parent, children: children, fanout_start_receipt: receipt}) do
     labels = Enum.map_join(children, "\n", &"#{&1.queue_position + 1}. #{&1.title}")
 
+    offer? = Notify.prepare_consent_offer(parent)
+
+    offer_text =
+      if offer?,
+        do: "\n\nReply `ALLBERT:NOTIFY:ON` to get reports pushed here. This offer appears once.",
+        else: ""
+
     response =
       Response.completed(
         "I split this into #{length(children)} tasks:\n#{labels}\n\n" <>
-          "Reply in this thread to steer them. I'll report when you next message; enable autonomous notifications in settings to have results pushed here.",
+          "Reply in this thread to steer them. I'll report when you next message; enable autonomous notifications in settings to have results pushed here." <>
+          offer_text,
         fanout: %{
           parent_id: parent.id,
           children: Enum.map(children, &%{id: &1.id, title: &1.title, status: &1.status}),
@@ -791,6 +807,17 @@ defmodule AllbertAssist.Runtime do
         },
         fanout_start_receipt: receipt
       )
+
+    response =
+      if offer? do
+        Map.put(response, :notify_offer, %{
+          fanout_id: parent.id,
+          channel: parent.source_channel,
+          user_id: parent.user_id
+        })
+      else
+        response
+      end
 
     maybe_add_start_confirmation(response, parent)
   end
@@ -950,13 +977,17 @@ defmodule AllbertAssist.Runtime do
 
   defp format_fanout_report(report) do
     children =
-      Enum.map_join(report.children, "\n", fn child ->
-        "- #{child.title}: #{child.status}" <>
-          if(child.result_summary, do: " — #{child.result_summary}", else: "")
+      Enum.map_join(report.children, "; ", fn child ->
+        "#{report_glyph(child.status)} #{child.title}"
       end)
 
-    "Fan-out #{report.status}:\n#{children}"
+    "#{report.title} — #{report.join_outcome || report.status}: #{children}"
   end
+
+  defp report_glyph("completed"), do: "✓"
+  defp report_glyph("cancelled"), do: "⊘"
+  defp report_glyph("failed"), do: "✗"
+  defp report_glyph(_status), do: "•"
 
   defp fanout_parent_for_start_receipt(receipt, context) do
     user_id = fetch_value(context, :user_id)
@@ -1004,8 +1035,8 @@ defmodule AllbertAssist.Runtime do
 
   defp record_channel_thread_link(request, ref) do
     case ChannelThread.link_thread(ref) do
-      {:ok, _thread_ref} ->
-        request
+      {:ok, thread_ref} ->
+        Map.update!(request, :channel_thread_ref, &Map.put(&1, :id, to_string(thread_ref.id)))
 
       {:error, reason} ->
         add_request_diagnostic(request, %{

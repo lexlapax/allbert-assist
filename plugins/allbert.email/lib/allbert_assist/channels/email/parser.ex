@@ -181,8 +181,10 @@ defmodule AllbertAssist.Channels.Email.Parser do
   defp normalize_optional_message_id(value), do: normalize_message_id(value)
 
   defp decode_header_value(value) do
-    Regex.replace(~r/=\?([^?]+)\?([bBqQ])\?([^?]+)\?=/, value, fn original, charset, encoding,
-                                                                   encoded ->
+    Regex.replace(~r/=\?([^?]+)\?([bBqQ])\?([^?]+)\?=/, value, fn original,
+                                                                  charset,
+                                                                  encoding,
+                                                                  encoded ->
       with {:ok, bytes} <- decode_encoded_word(encoding, encoded),
            {:ok, text} <- decode_charset(bytes, charset) do
         text

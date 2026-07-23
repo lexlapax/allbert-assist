@@ -8,6 +8,7 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Identity
+  alias AllbertAssist.Channels.NotifyConsentCallback
   alias AllbertAssist.Channels.Telegram.Client
   alias AllbertAssist.Channels.Telegram.Parser
   alias AllbertAssist.Channels.Telegram.Renderer
@@ -403,6 +404,7 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
   defp telegram_provider_thread_ref(fields, provider_thread_root \\ nil) do
     %{
       provider: "telegram",
+      origin_identity_digest: ChannelThread.identity_digest(fields.external_user_id),
       chat_id: fields.external_chat_id,
       chat_type: Map.get(fields, :chat_type),
       message_thread_id: Map.get(fields, :message_thread_id),
@@ -775,13 +777,29 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
 
   defp parse_callback_data(data) when is_binary(data) do
     if byte_size(data) <= 64 do
-      case Regex.run(@callback_data_re, data) do
-        [_, action, confirmation_id] -> {:ok, action, confirmation_id}
-        _match -> {:error, :malformed_callback_data}
+      if data == NotifyConsentCallback.command() do
+        {:ok, "notify_consent", nil}
+      else
+        case Regex.run(@callback_data_re, data) do
+          [_, action, confirmation_id] -> {:ok, action, confirmation_id}
+          _match -> {:error, :malformed_callback_data}
+        end
       end
     else
       {:error, :callback_data_too_long}
     end
+  end
+
+  defp run_confirmation_action("notify_consent", _confirmation_id, user_id, session_id, fields) do
+    result =
+      NotifyConsentCallback.run(%{
+        channel: "telegram",
+        user_id: user_id,
+        session_id: session_id,
+        resolver_metadata: %{external_user_id: fields.external_user_id}
+      })
+
+    {:ok, NotifyConsentCallback.response(result)}
   end
 
   defp run_confirmation_action(action, confirmation_id, user_id, session_id, fields) do
@@ -918,10 +936,23 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
   # v0.54 M10 (ADR 0063): outbound compose boundary callback. Sends `body` to
   # `target` (a chat id) via the bot token resolved from channel settings.
   @doc false
-  def deliver_outbound(target, body, _opts) when is_binary(target) and is_binary(body) do
+  def deliver_outbound(target, body, opts) when is_binary(target) and is_binary(body) do
+    thread = Keyword.get(opts, :thread, %{})
+
+    client_opts =
+      opts
+      |> Keyword.take([:req_options, :receive_timeout])
+      |> Keyword.merge(
+        reply_to_message_id:
+          Map.get(thread, "reply_to_message_id") || Map.get(thread, :reply_to_message_id),
+        message_thread_id:
+          Map.get(thread, "message_thread_id") || Map.get(thread, :message_thread_id)
+      )
+      |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+
     with {:ok, settings} <- AllbertAssist.Channels.channel_settings("telegram"),
          {:ok, token} <- resolve_token(settings),
-         {:ok, result} <- Client.send_message(token, target, body, []) do
+         {:ok, result} <- Client.send_message(token, target, body, client_opts) do
       {:ok, %{channel: "telegram", target: target, result: result}}
     end
   end

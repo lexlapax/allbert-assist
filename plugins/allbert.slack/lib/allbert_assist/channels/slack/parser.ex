@@ -126,6 +126,7 @@ defmodule AllbertAssist.Channels.Slack.Parser do
       provider_thread_ref =
         %{
           provider: "slack",
+          origin_identity_digest: ChannelThread.identity_digest(user_id),
           team_id: team_id,
           channel_id: channel_id,
           thread_ts: thread_ts,
@@ -188,9 +189,13 @@ defmodule AllbertAssist.Channels.Slack.Parser do
   defp action_id(_payload), do: {:error, "missing action_id"}
 
   defp parse_callback_id(action_id) do
-    case Regex.run(@callback_re, action_id) do
-      [_full, verb, confirmation_id] -> {:ok, {String.to_atom(verb), confirmation_id}}
-      _match -> {:error, "invalid action_id"}
+    if action_id == "ALLBERT:NOTIFY:ON" do
+      {:ok, {:notify_consent, nil}}
+    else
+      case Regex.run(@callback_re, action_id) do
+        [_full, verb, confirmation_id] -> {:ok, {String.to_atom(verb), confirmation_id}}
+        _match -> {:error, "invalid action_id"}
+      end
     end
   end
 

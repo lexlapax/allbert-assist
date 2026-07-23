@@ -51,6 +51,6 @@ defmodule AllbertAssist.Plugins.Email do
       %{key: "channels.email.enabled", type: :boolean},
       %{key: "channels.email.imap_password_ref", type: :channel_secret_ref},
       %{key: "channels.email.smtp_password_ref", type: :channel_secret_ref}
-    ]
+    ] ++ AllbertAssist.Channels.Notify.settings_schema("email", completion_only: true)
   end
 end

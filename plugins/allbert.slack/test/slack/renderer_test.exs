@@ -12,6 +12,18 @@ defmodule AllbertSlack.RendererTest do
     assert second.text == "x"
   end
 
+  test "renders the one-time notify offer as a consent button" do
+    assert {:ok, [message]} =
+             Renderer.render_response(%{
+               message: "Fan-out started.",
+               notify_offer: %{channel: "slack", user_id: "alice"}
+             })
+
+    assert [%{type: "section"}, %{type: "actions", elements: [button]}] = message.blocks
+    assert button.action_id == "ALLBERT:NOTIFY:ON"
+    assert button.value == "ALLBERT:NOTIFY:ON"
+  end
+
   test "renders approval handoff as Block Kit button actions" do
     assert {:ok, [message]} =
              Renderer.render_response(%{

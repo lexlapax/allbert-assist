@@ -22,7 +22,7 @@ defmodule AllbertAssist.Channels.WhatsApp.Renderer do
            ) do
       case rendered.kind do
         :approval_handoff -> {:ok, [approval_message(rendered.primitive, rendered.payload)]}
-        _kind -> {:ok, Enum.map(rendered.chunks, &%{type: :text, body: &1})}
+        _kind -> {:ok, text_messages(rendered.chunks, runtime_response, opts)}
       end
     end
   end
@@ -91,6 +91,31 @@ defmodule AllbertAssist.Channels.WhatsApp.Renderer do
   end
 
   defp approval_message(_primitive, %{text: text}), do: %{type: :text, body: text}
+
+  defp text_messages(chunks, response, opts) do
+    chunks
+    |> Enum.map(&%{type: :text, body: &1})
+    |> maybe_add_notify_offer(response, opts)
+  end
+
+  defp maybe_add_notify_offer([first | rest], response, opts) do
+    if response_field(response, :notify_offer) && Keyword.get(opts, :render_buttons, true) do
+      offer = %{
+        type: :interactive_buttons,
+        body: first.body,
+        buttons: [%{id: "ALLBERT:NOTIFY:ON", title: "Enable notifications"}]
+      }
+
+      [offer | rest]
+    else
+      [first | rest]
+    end
+  end
+
+  defp maybe_add_notify_offer(messages, _response, _opts), do: messages
+
+  defp response_field(map, key) when is_map(map),
+    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
 
   defp bounded(value, limit) do
     SurfaceRenderer.bound_text(to_string(value), limit, "")

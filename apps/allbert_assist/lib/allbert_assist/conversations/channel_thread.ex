@@ -92,6 +92,16 @@ defmodule AllbertAssist.Conversations.ChannelThread do
       Base.url_encode64(:crypto.hash(:sha256, canonical_encode(value)), padding: false)
   end
 
+  @doc "Return the normalized one-way identity digest stored in origin thread metadata."
+  def identity_digest(value) do
+    value
+    |> to_string()
+    |> String.trim()
+    |> String.downcase()
+    |> then(&:crypto.hash(:sha256, &1))
+    |> Base.encode16(case: :lower)
+  end
+
   @doc "Look up an existing canonical thread id for a normalized provider ref."
   @spec lookup_thread(map()) :: {:ok, String.t()} | {:error, :not_found | term()}
   def lookup_thread(attrs) when is_map(attrs) do

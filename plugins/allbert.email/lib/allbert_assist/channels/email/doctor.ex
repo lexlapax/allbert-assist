@@ -82,7 +82,12 @@ defmodule AllbertAssist.Channels.Email.Doctor do
   end
 
   defp imap_probe(settings, imap_password, opts) do
-    client = Keyword.get(opts, :imap_client, Application.get_env(:allbert_assist, :email_doctor_imap_client, ImapClient))
+    client =
+      Keyword.get(
+        opts,
+        :imap_client,
+        Application.get_env(:allbert_assist, :email_doctor_imap_client, ImapClient)
+      )
 
     with {:ok, conn} <-
            client.connect(

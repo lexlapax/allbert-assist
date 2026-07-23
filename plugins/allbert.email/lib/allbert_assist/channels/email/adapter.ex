@@ -298,6 +298,7 @@ defmodule AllbertAssist.Channels.Email.Adapter do
   defp email_provider_thread_ref(fields, receiver_account_ref) do
     %{
       provider: "email",
+      origin_identity_digest: ChannelThread.identity_digest(fields.from_address),
       mailbox: receiver_account_ref,
       from_address: fields.from_address,
       provider_thread_root: email_thread_root(fields),
@@ -654,4 +655,49 @@ defmodule AllbertAssist.Channels.Email.Adapter do
 
   defp redact({:imap_command_failed, response}), do: {:imap_command_failed, response}
   defp redact(reason), do: reason
+
+  @doc false
+  def deliver_outbound(target, body, opts) when is_binary(target) and is_binary(body) do
+    thread = Keyword.get(opts, :thread, %{})
+    smtp_client = Keyword.get(opts, :smtp_client, AllbertAssist.Channels.Email.SmtpClient)
+
+    with {:ok, settings} <- Channels.channel_settings("email"),
+         {:ok, password} <-
+           AllbertAssist.Settings.Secrets.get_secret(Map.get(settings, "smtp_password_ref")) do
+      message_id = "#{Ecto.UUID.generate()}@allbert.local"
+      subject = Keyword.get(opts, :subject, "Allbert background report")
+
+      smtp_opts =
+        [
+          host: Map.fetch!(settings, "smtp_host"),
+          port: Map.fetch!(settings, "smtp_port"),
+          username: Map.get(settings, "smtp_username"),
+          password: password,
+          tls: Map.get(settings, "smtp_tls", true),
+          from_name: Map.get(settings, "from_name"),
+          message_id: message_id,
+          in_reply_to: Map.get(thread, "message_id") || Map.get(thread, :message_id),
+          references: Map.get(thread, "references") || Map.get(thread, :references),
+          test_pid: Keyword.get(opts, :test_pid)
+        ]
+        |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+
+      case smtp_client.send(
+             Map.fetch!(settings, "from_address"),
+             target,
+             subject,
+             body,
+             smtp_opts
+           ) do
+        result when result in [:ok, {:ok, :sent}] ->
+          {:ok, %{channel: "email", target: target, message_id: message_id}}
+
+        {:ok, _receipt} ->
+          {:ok, %{channel: "email", target: target, message_id: message_id}}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
 end

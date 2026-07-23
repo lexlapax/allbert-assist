@@ -89,7 +89,11 @@ defmodule AllbertAssist.Signals do
     runtime_submitted: "allbert.channel.runtime_submitted",
     response_sent: "allbert.channel.response_sent",
     delivery_failed: "allbert.channel.delivery_failed",
-    callback_received: "allbert.channel.callback_received"
+    callback_received: "allbert.channel.callback_received",
+    notify_delivered: "allbert.channels.notify.delivered",
+    notify_suppressed: "allbert.channels.notify.suppressed",
+    notify_failed: "allbert.channels.notify.failed",
+    notify_uncertain: "allbert.channels.notify.uncertain"
   }
 
   @doc "Return action lifecycle signal names."
@@ -111,6 +115,25 @@ defmodule AllbertAssist.Signals do
   @doc "Return channel lifecycle signal names."
   @spec channel_signal_types() :: %{atom() => String.t()}
   def channel_signal_types, do: @channel_signal_types
+
+  @doc "Publish one redaction-safe autonomous-notification decision signal."
+  def emit_channel_notify(event, metadata) when is_atom(event) and is_map(metadata) do
+    key = String.to_existing_atom("notify_#{event}")
+
+    case Map.fetch(@channel_signal_types, key) do
+      {:ok, type} ->
+        case Signal.new(type, Redactor.redact(metadata),
+               source: "/allbert/channels/notify/#{event}",
+               subject: Map.get(metadata, :fanout_id)
+             ) do
+          {:ok, signal} -> log(signal)
+          {:error, reason} -> Logger.debug("notify signal skipped reason=#{inspect(reason)}")
+        end
+
+      :error ->
+        Logger.debug("notify signal skipped unknown_event=#{inspect(event)}")
+    end
+  end
 
   @doc "Return objective lifecycle signal names."
   @spec objective_signal_types() :: %{atom() => String.t()}

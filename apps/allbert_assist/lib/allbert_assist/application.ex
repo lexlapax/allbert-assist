@@ -32,6 +32,7 @@ defmodule AllbertAssist.Application do
         {DNSCluster, query: Application.get_env(:allbert_assist, :dns_cluster_query) || :ignore},
         {Phoenix.PubSub, name: AllbertAssist.PubSub},
         {Jido.Signal.Bus, name: AllbertAssist.SignalBus},
+        notify_consumer_child(),
         {Registry, keys: :unique, name: AllbertAssist.Coding.TurnRegistry},
         {Task.Supervisor, name: AllbertAssist.TaskSupervisor},
         {Registry, keys: :unique, name: AllbertAssist.Execution.ProcessRegistry},
@@ -65,6 +66,11 @@ defmodule AllbertAssist.Application do
     if WriterLockHolder.enabled?() do
       WriterLockHolder
     end
+  end
+
+  defp notify_consumer_child do
+    opts = Application.get_env(:allbert_assist, AllbertAssist.Channels.NotifyConsumer, [])
+    if Keyword.get(opts, :enabled?, true), do: {AllbertAssist.Channels.NotifyConsumer, opts}
   end
 
   defp maybe_add_attach_server(children) do

@@ -43,6 +43,7 @@ defmodule AllbertAssist.Channels.Outbound do
 
   defp adapter_module(channel) do
     case Channels.channel_descriptor(channel) do
+      {:ok, %{adapter: module}} when is_atom(module) -> {:ok, module}
       {:ok, %{child_spec: {module, _opts}}} when is_atom(module) -> {:ok, module}
       {:ok, _descriptor} -> {:error, :no_adapter_module}
       {:error, reason} -> {:error, reason}

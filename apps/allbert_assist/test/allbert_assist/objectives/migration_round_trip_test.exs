@@ -34,7 +34,9 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
     {20_260_715_000_000, AllbertAssist.Repo.Migrations.AddObjectiveOriginColumns,
      "apps/allbert_assist/priv/repo/migrations/20260715000000_add_objective_origin_columns.exs"},
     {20_260_722_000_100, AllbertAssist.Repo.Migrations.AddObjectiveFanoutColumns,
-     "apps/allbert_assist/priv/repo/migrations/20260722000100_add_objective_fanout_columns.exs"}
+     "apps/allbert_assist/priv/repo/migrations/20260722000100_add_objective_fanout_columns.exs"},
+    {20_260_722_000_200, AllbertAssist.Repo.Migrations.CreateChannelNotifyDeliveries,
+     "apps/allbert_assist/priv/repo/migrations/20260722000200_create_channel_notify_deliveries.exs"}
   ]
 
   test "objective and workspace migrations run up and down on an isolated sqlite database" do
@@ -59,9 +61,26 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
       File.rm(db_path)
     end)
 
-    Enum.each(@migrations, fn {version, module, _path} ->
+    Enum.each(Enum.drop(@migrations, -1), fn {version, module, _path} ->
       assert :ok = Ecto.Migrator.up(MigrationRepo, version, module, log: false)
     end)
+
+    SQL.query!(
+      MigrationRepo,
+      "INSERT INTO objectives (id, user_id, status, title, objective, inserted_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [
+        "pre-m6-objective",
+        "alice",
+        "open",
+        "Existing",
+        "Preserve me",
+        "2026-07-22T00:00:00Z",
+        "2026-07-22T00:00:00Z"
+      ]
+    )
+
+    {version, module, _path} = List.last(@migrations)
+    assert :ok = Ecto.Migrator.up(MigrationRepo, version, module, log: false)
 
     assert table_exists?("objectives")
     assert table_exists?("objective_steps")
@@ -82,6 +101,12 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
     assert column_exists?("objectives", "report_delivery_receipt_digest")
     assert index_exists?("objectives_parent_id_idx")
     assert index_exists?("objectives_fanout_start_receipt_digest_index")
+    assert table_exists?("channel_notify_deliveries")
+    assert index_exists?("channel_notify_deliveries_delivery_key_index")
+
+    assert SQL.query!(MigrationRepo, "SELECT count(*) FROM objectives WHERE id = ?", [
+             "pre-m6-objective"
+           ]).rows == [[1]]
 
     @migrations
     |> Enum.reverse()
@@ -100,6 +125,7 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
     refute table_exists?("workspace_canvas_tiles")
     refute table_exists?("workspace_canvas_tile_revisions")
     refute table_exists?("workspace_ephemeral_surfaces")
+    refute table_exists?("channel_notify_deliveries")
     refute table_exists?("conversation_threads")
   end
 

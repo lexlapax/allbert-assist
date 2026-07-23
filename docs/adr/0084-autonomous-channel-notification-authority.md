@@ -10,7 +10,7 @@ This is a security ADR defining a NEW authority class.
 
 ## Context
 
-Until v1.1, Allbert sends a message on a remote channel in exactly two ways:
+Before v1.1 M6, Allbert sent a message on a remote channel in exactly two ways:
 
 1. **As a turn response** — the reply to an inbound message, delivered on the
    same blocking call path the user just exercised. The user is, by
@@ -21,8 +21,8 @@ Until v1.1, Allbert sends a message on a remote channel in exactly two ways:
    the single `Channels.Outbound.send/4` boundary
    (`channels/outbound.ex:24-42`).
 
-There is NO path by which the runtime, on its own initiative, sends anything
-to anyone. The v0.55 parity matrix makes this posture explicit by pinning
+There was no path by which the runtime, on its own initiative, sent anything
+to anyone. The v0.55 parity matrix made this posture explicit by pinning
 `streaming: "turn_complete"` for every channel
 (`channels/channel_parity.ex:98` — "until a later ADR changes that contract";
 this is that ADR).
@@ -33,7 +33,7 @@ requests have no delivery path: objectives carry
 `source_channel`/`source_surface` attribution (`objectives/objective.ex:21-22`,
 v1.0.1) but nothing consumes them; `Confirmations.Origin` carries a
 `response_target` (`confirmations/origin.ex:29`) with no out-of-band delivery
-consumer — only the approval-side plumbing exists
+consumer before M6 — only the approval-side plumbing existed
 (`channels/confirmation_callback.ex` typed commands, channel buttons).
 
 An unattended machine-initiated message to a human's phone/inbox/workspace is

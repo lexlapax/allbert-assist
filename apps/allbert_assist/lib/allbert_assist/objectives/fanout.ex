@@ -93,6 +93,7 @@ defmodule AllbertAssist.Objectives.Fanout do
 
     Redactor.redact(%{
       parent_objective_id: parent_id,
+      title: parent_title(parent_id),
       status: result.status,
       join_outcome: result.outcome,
       children:
@@ -106,6 +107,13 @@ defmodule AllbertAssist.Objectives.Fanout do
           }
         end)
     })
+  end
+
+  defp parent_title(parent_id) do
+    case Repo.get(Objective, parent_id) do
+      %Objective{title: title} -> title
+      nil -> "Fan-out"
+    end
   end
 
   @doc "Atomically records successful kickoff delivery. The receipt is single-use and identity-bound."

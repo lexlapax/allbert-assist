@@ -683,6 +683,36 @@ defmodule AllbertAssist.Channels.DiscordTest do
     assert resolved["operator_resolution"]["resolver_metadata"]["callback_data"] =~ "deny"
   end
 
+  test "notify consent button re-proves identity and enables the channel setting" do
+    assert {:ok, false} = Settings.get("channels.discord.autonomous_notify.enabled")
+
+    assert {:ok, adapter} =
+             Adapter.start_link(name: nil, client_opts: [mode: :stub, capture_to: self()])
+
+    interaction = %{
+      "t" => "INTERACTION_CREATE",
+      "d" => %{
+        "id" => "discord_notify_consent",
+        "token" => "interaction-token-secret",
+        "guild_id" => "987654321",
+        "channel_id" => "22222",
+        "user" => %{"id" => "11111"},
+        "data" => %{"custom_id" => "ALLBERT:NOTIFY:ON"}
+      }
+    }
+
+    assert {:ok, {:processed, event, [rendered]}} =
+             Adapter.simulate_gateway_event(adapter, interaction)
+
+    assert {:discord_create_message, "22222", payload} = receive_discord_capture()
+    assert payload.content =~ "now enabled"
+    assert rendered.content =~ "now enabled"
+    assert event.user_id == "alice"
+    assert {:ok, true} = Settings.get("channels.discord.autonomous_notify.enabled")
+
+    GenServer.stop(adapter)
+  end
+
   test "typed confirmation commands resolve without runtime submission" do
     assert {:ok, confirmation} = create_confirmation!("conf_discord_typed", "discord")
 

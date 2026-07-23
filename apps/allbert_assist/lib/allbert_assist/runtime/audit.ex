@@ -8,6 +8,7 @@ defmodule AllbertAssist.Runtime.Audit do
   durable formats; it routes to the existing subsystem writers.
   """
 
+  alias AllbertAssist.Channels.NotifyAudit
   alias AllbertAssist.Execution.Audit, as: ShellAudit
   alias AllbertAssist.Execution.CommandSpec
   alias AllbertAssist.Execution.SkillScriptAudit
@@ -26,6 +27,7 @@ defmodule AllbertAssist.Runtime.Audit do
           | :package_install
           | :external_request
           | :mcp
+          | :channel_notify
 
   @type audit_spec ::
           CommandSpec.t()
@@ -33,6 +35,7 @@ defmodule AllbertAssist.Runtime.Audit do
           | InstallSpec.t()
           | RequestSpec.t()
           | ServerConfig.t()
+          | map()
   @type audit_event ::
           :requested
           | :approved
@@ -40,6 +43,9 @@ defmodule AllbertAssist.Runtime.Audit do
           | :stale
           | :succeeded
           | :failed
+          | :delivered
+          | :uncertain
+          | :suppressed
           | :timed_out
           | :digest_mismatch
   @type audit_error ::
@@ -47,6 +53,7 @@ defmodule AllbertAssist.Runtime.Audit do
           | {:skill_script_audit_failed, atom() | {atom(), String.t()}}
           | {:package_install_audit_failed, atom() | {atom(), String.t()}}
           | {:external_audit_failed, atom() | {atom(), String.t()}}
+          | {:channel_notify_audit_failed, atom() | {atom(), String.t()}}
 
   @doc "Build a redacted Security Central audit event map."
   @spec security_event(map()) :: map()
@@ -79,6 +86,11 @@ defmodule AllbertAssist.Runtime.Audit do
     McpAudit.append(event, spec, permission_decision, attrs)
   end
 
+  def append(:channel_notify, event, attrs, _permission_decision, _extra)
+      when is_atom(event) and is_map(attrs) do
+    NotifyAudit.append(event, attrs)
+  end
+
   @doc "Return the audit root for a runtime audit kind."
   @spec audit_root(audit_kind()) :: String.t()
   def audit_root(:shell_command), do: ShellAudit.audit_root()
@@ -86,6 +98,7 @@ defmodule AllbertAssist.Runtime.Audit do
   def audit_root(:package_install), do: PackageAudit.audit_root()
   def audit_root(:external_request), do: ExternalAudit.audit_root()
   def audit_root(:mcp), do: McpAudit.audit_root()
+  def audit_root(:channel_notify), do: NotifyAudit.audit_root()
 
   @doc "Return the monthly audit path for a runtime audit kind."
   @spec audit_path(audit_kind()) :: String.t()
@@ -96,4 +109,5 @@ defmodule AllbertAssist.Runtime.Audit do
   def audit_path(:package_install, now), do: PackageAudit.audit_path(now)
   def audit_path(:external_request, now), do: ExternalAudit.audit_path(now)
   def audit_path(:mcp, now), do: McpAudit.audit_path(now)
+  def audit_path(:channel_notify, now), do: NotifyAudit.audit_path(now)
 end

@@ -54,5 +54,8 @@ defmodule AllbertAssist.Plugins.Slack do
   def actions, do: [AllbertAssist.Actions.Channels.SlackDoctor]
 
   @impl true
-  def settings_schema, do: AllbertSlack.Settings.Fragment.settings_schema()
+  def settings_schema,
+    do:
+      AllbertSlack.Settings.Fragment.settings_schema() ++
+        AllbertAssist.Channels.Notify.settings_schema("slack")
 end

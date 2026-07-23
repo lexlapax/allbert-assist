@@ -127,8 +127,8 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert [%{parent_objective_id: ^parent_id, report_delivery_receipt: ^receipt}] =
              next_turn.pending_reports
 
-    assert next_turn.message =~ "Fan-out completed"
-    assert next_turn.message =~ "one: completed"
+    assert next_turn.message =~ "Finished work"
+    assert next_turn.message =~ "✓ one"
 
     assert {:error, :receipt_identity_mismatch} =
              Runtime.acknowledge_report_delivery(receipt, %{

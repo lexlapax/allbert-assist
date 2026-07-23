@@ -503,6 +503,28 @@ defmodule AllbertAssist.Channels.EmailTest do
     end
   end
 
+  test "generic outbound sends a threaded SMTP reply" do
+    configure_email!()
+
+    assert {:ok, receipt} =
+             Adapter.deliver_outbound("alice@example.com", "background complete",
+               smtp_client: FakeSmtpClient,
+               test_pid: self(),
+               subject: "Re: Background work",
+               thread: %{"message_id" => "origin@example.com", "references" => "root@example.com"}
+             )
+
+    assert receipt.channel == "email"
+    assert receipt.target == "alice@example.com"
+    assert is_binary(receipt.message_id)
+
+    assert_receive {:smtp_sent, "allbert@example.com", "alice@example.com", "Re: Background work",
+                    "background complete", opts}
+
+    assert opts[:in_reply_to] == "origin@example.com"
+    assert opts[:references] == "root@example.com"
+  end
+
   defp configure_email!(opts \\ []) do
     assert {:ok, _secret} =
              Secrets.put_secret("secret://channels/email/imap_password", "imap-pass", %{

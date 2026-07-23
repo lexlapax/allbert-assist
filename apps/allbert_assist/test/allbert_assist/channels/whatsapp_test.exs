@@ -172,6 +172,18 @@ defmodule AllbertAssist.Channels.WhatsAppTest do
     assert button_fields.verb == :approve
     assert button_fields.confirmation_id == "confirm_123"
     assert button_fields.button_id == "allbert:v1:approve:confirm_123"
+
+    consent_payload =
+      Parser.simulated_button_webhook(%{
+        from: "+15550001111",
+        phone_number_id: "15551234567",
+        message_id: "wamid.notify-consent",
+        button_id: "ALLBERT:NOTIFY:ON"
+      })
+
+    assert [{:button_reply, consent_fields}] = Parser.parse_webhook(consent_payload)
+    assert consent_fields.verb == :notify_consent
+    assert consent_fields.confirmation_id == nil
   end
 
   test "adapter processes simulated webhook, sends quoted reply, records refs, and redacts phones" do
@@ -313,6 +325,37 @@ defmodule AllbertAssist.Channels.WhatsAppTest do
     assert {:ok, resolved} = Confirmations.read(confirmation["id"])
     assert resolved["status"] == "denied"
 
+    GenServer.stop(pid)
+  end
+
+  test "notify consent button re-proves identity and enables the channel setting" do
+    assert {:ok, false} = Settings.get("channels.whatsapp.autonomous_notify.enabled")
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      {:ok, body, conn} = read_body(conn)
+      assert Jason.decode!(body)["text"]["body"] =~ "now enabled"
+      json(conn, %{"messages" => [%{"id" => "wamid.notify.enabled"}]})
+    end)
+
+    payload =
+      Parser.simulated_button_webhook(%{
+        from: "+15550001111",
+        phone_number_id: "15551234567",
+        message_id: "wamid.notify.button",
+        button_id: "ALLBERT:NOTIFY:ON"
+      })
+
+    server = :"whatsapp-notify-consent-#{System.unique_integer([:positive])}"
+
+    assert {:ok, pid} =
+             Adapter.start_link(name: server, req_options: [plug: {Req.Test, __MODULE__}])
+
+    Req.Test.allow(__MODULE__, self(), pid)
+
+    assert {:ok, %{processed: 1, rejected: 0, failed: 0}} =
+             Adapter.simulate_webhook_event(server, payload)
+
+    assert {:ok, true} = Settings.get("channels.whatsapp.autonomous_notify.enabled")
     GenServer.stop(pid)
   end
 

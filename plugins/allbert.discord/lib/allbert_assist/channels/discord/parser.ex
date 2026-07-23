@@ -32,6 +32,7 @@ defmodule AllbertAssist.Channels.Discord.Parser do
       provider_thread_ref =
         %{
           provider: "discord",
+          origin_identity_digest: ChannelThread.identity_digest(author_id),
           guild_id: guild_id || "dm",
           channel_id: parent_channel_id || channel_id,
           thread_channel_id: thread_root,
@@ -180,9 +181,13 @@ defmodule AllbertAssist.Channels.Discord.Parser do
   defp interaction_custom_id(_data), do: {:error, "missing interaction custom_id"}
 
   defp parse_callback_id(custom_id) do
-    case Regex.run(@interaction_callback_re, custom_id) do
-      [_full, verb, confirmation_id] -> {:ok, {String.to_atom(verb), confirmation_id}}
-      _match -> {:error, "invalid interaction custom_id"}
+    if custom_id == "ALLBERT:NOTIFY:ON" do
+      {:ok, {:notify_consent, nil}}
+    else
+      case Regex.run(@interaction_callback_re, custom_id) do
+        [_full, verb, confirmation_id] -> {:ok, {String.to_atom(verb), confirmation_id}}
+        _match -> {:error, "invalid interaction custom_id"}
+      end
     end
   end
 

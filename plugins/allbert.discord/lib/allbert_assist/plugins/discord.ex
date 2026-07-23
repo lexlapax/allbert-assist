@@ -52,5 +52,8 @@ defmodule AllbertAssist.Plugins.Discord do
   def actions, do: [AllbertAssist.Actions.Channels.DiscordDoctor]
 
   @impl true
-  def settings_schema, do: AllbertDiscord.Settings.Fragment.settings_schema()
+  def settings_schema,
+    do:
+      AllbertDiscord.Settings.Fragment.settings_schema() ++
+        AllbertAssist.Channels.Notify.settings_schema("discord")
 end

@@ -50,5 +50,8 @@ defmodule AllbertAssist.Plugins.WhatsApp do
   def actions, do: [AllbertAssist.Actions.Channels.WhatsAppDoctor]
 
   @impl true
-  def settings_schema, do: AllbertWhatsApp.Settings.Fragment.settings_schema()
+  def settings_schema,
+    do:
+      AllbertWhatsApp.Settings.Fragment.settings_schema() ++
+        AllbertAssist.Channels.Notify.settings_schema("whatsapp")
 end

@@ -614,6 +614,38 @@ defmodule AllbertAssist.Channels.TelegramTest do
       assert is_binary(event.input_signal_id)
     end
 
+    test "notify consent button re-proves identity and enables the channel setting" do
+      configure_telegram!(identity_map: [%{external_user_id: "123", user_id: "alice"}])
+      assert {:ok, false} = Settings.get("channels.telegram.autonomous_notify.enabled")
+
+      Req.Test.stub(__MODULE__, fn
+        %{request_path: "/bottoken/getUpdates"} = conn ->
+          json(conn, %{
+            "ok" => true,
+            "result" => [callback_update(225, "ALLBERT:NOTIFY:ON")]
+          })
+
+        %{request_path: "/bottoken/sendMessage"} = conn ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          assert Jason.decode!(body)["text"] =~ "now enabled"
+          json(conn, %{"ok" => true, "result" => %{"message_id" => 105}})
+
+        %{request_path: "/bottoken/answerCallbackQuery"} = conn ->
+          json(conn, %{"ok" => true, "result" => true})
+      end)
+
+      server = :"telegram-notify-consent-#{System.unique_integer([:positive])}"
+      start_telegram_server!(server)
+
+      assert {:ok, %{processed: 1, rejected: 0}} = Adapter.poll_once(server)
+      assert {:ok, true} = Settings.get("channels.telegram.autonomous_notify.enabled")
+
+      event = Channels.get_event_by_external_id("telegram", "225")
+      assert event.direction == "callback"
+      assert event.status == "processed"
+      assert event.user_id == "alice"
+    end
+
     test "malformed confirmation callbacks are rejected and acknowledged" do
       configure_telegram!(identity_map: [%{external_user_id: "123", user_id: "alice"}])
 

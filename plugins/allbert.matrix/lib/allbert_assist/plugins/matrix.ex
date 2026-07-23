@@ -45,5 +45,8 @@ defmodule AllbertAssist.Plugins.Matrix do
   def actions, do: [AllbertAssist.Actions.Channels.MatrixDoctor]
 
   @impl true
-  def settings_schema, do: AllbertMatrix.Settings.Fragment.settings_schema()
+  def settings_schema,
+    do:
+      AllbertMatrix.Settings.Fragment.settings_schema() ++
+        AllbertAssist.Channels.Notify.settings_schema("matrix")
 end

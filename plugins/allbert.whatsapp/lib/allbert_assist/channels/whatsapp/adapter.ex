@@ -10,6 +10,7 @@ defmodule AllbertAssist.Channels.WhatsApp.Adapter do
   alias AllbertAssist.Channels.ConfirmationCallback
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.InboundTrust
+  alias AllbertAssist.Channels.NotifyConsentCallback
   alias AllbertAssist.Channels.WhatsApp.Client
   alias AllbertAssist.Channels.WhatsApp.Parser
   alias AllbertAssist.Channels.WhatsApp.Renderer
@@ -483,6 +484,22 @@ defmodule AllbertAssist.Channels.WhatsApp.Adapter do
   defp maybe_put_known_thread_id(attrs, _fields, _new_thread?), do: attrs
 
   defp run_confirmation_callback(fields, state, user_id, session_id, inbound_trust) do
+    if fields.verb == :notify_consent do
+      result =
+        NotifyConsentCallback.run(%{
+          channel: "whatsapp",
+          user_id: user_id,
+          session_id: session_id,
+          resolver_metadata: %{external_user_id: fields.external_user_id}
+        })
+
+      {:ok, NotifyConsentCallback.response(result)}
+    else
+      run_confirmation_callback(fields, state, user_id, session_id, inbound_trust, :confirmation)
+    end
+  end
+
+  defp run_confirmation_callback(fields, state, user_id, session_id, inbound_trust, :confirmation) do
     ConfirmationCallback.run(%{
       action: fields.verb,
       confirmation_id: fields.confirmation_id,
@@ -661,6 +678,7 @@ defmodule AllbertAssist.Channels.WhatsApp.Adapter do
   defp provider_thread_ref(fields) do
     %{
       provider: "whatsapp",
+      origin_identity_digest: ChannelThread.identity_digest(fields.external_user_id),
       phone_number_id: fields.phone_number_id,
       provider_thread_root: fields.context_message_id || fields.external_message_id,
       context_message_id: fields.context_message_id,
@@ -794,13 +812,22 @@ defmodule AllbertAssist.Channels.WhatsApp.Adapter do
   # v0.54 M10 (ADR 0063): outbound compose boundary callback. `target` is a WhatsApp
   # recipient phone number (E.164).
   @doc false
-  def deliver_outbound(target, body, _opts) when is_binary(target) and is_binary(body) do
+  def deliver_outbound(target, body, opts) when is_binary(target) and is_binary(body) do
+    thread = Keyword.get(opts, :thread, %{})
+
+    context_message_id =
+      Map.get(thread, "external_message_id") || Map.get(thread, :external_message_id)
+
+    client_opts =
+      Keyword.take(opts, [:req_options]) ++
+        if(is_binary(context_message_id), do: [context_message_id: context_message_id], else: [])
+
     with :ok <- ReleaseAvailability.ensure_live_use_allowed({:channel, "whatsapp"}),
          {:ok, settings} <- AllbertAssist.Channels.channel_settings("whatsapp"),
          {:ok, token} <-
            AllbertAssist.Settings.Secrets.get_secret(Map.get(settings, "access_token_ref")),
          phone_id when is_binary(phone_id) <- Map.get(settings, "phone_number_id"),
-         {:ok, result} <- Client.send_text(token, phone_id, target, body, []) do
+         {:ok, result} <- Client.send_text(token, phone_id, target, body, client_opts) do
       {:ok, %{channel: "whatsapp", target: target, result: result}}
     else
       {:error, reason} -> {:error, reason}

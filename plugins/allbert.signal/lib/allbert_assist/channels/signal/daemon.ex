@@ -88,8 +88,10 @@ defmodule AllbertAssist.Channels.Signal.Daemon do
   defp daemon_opts(_settings, opts) do
     [
       log_output: Keyword.get(opts, :log_output, :debug),
-      log_prefix: Keyword.get(opts, :log_prefix, "signal-cli: ")
+      log_prefix: Keyword.get(opts, :log_prefix, "signal-cli: "),
+      logger_fun: Keyword.get(opts, :logger_fun)
     ]
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
   end
 
   defp socket_diagnostics(settings) do

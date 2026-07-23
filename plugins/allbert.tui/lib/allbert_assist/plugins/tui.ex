@@ -41,5 +41,8 @@ defmodule AllbertAssist.Plugins.TUI do
   end
 
   @impl true
-  def settings_schema, do: AllbertTUI.Settings.Fragment.settings_schema()
+  def settings_schema,
+    do:
+      AllbertTUI.Settings.Fragment.settings_schema() ++
+        AllbertAssist.Channels.Notify.settings_schema("tui")
 end

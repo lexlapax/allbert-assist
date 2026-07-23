@@ -1,5 +1,7 @@
 import Config
 
+config :allbert_assist, AllbertAssist.Channels.NotifyConsumer, enabled?: false
+
 env_value = fn name ->
   case System.get_env(name) do
     value when is_binary(value) ->

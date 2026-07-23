@@ -47,6 +47,6 @@ defmodule AllbertAssist.Plugins.Telegram do
     [
       %{key: "channels.telegram.enabled", type: :boolean},
       %{key: "channels.telegram.bot_token_ref", type: :channel_secret_ref}
-    ]
+    ] ++ AllbertAssist.Channels.Notify.settings_schema("telegram")
   end
 end
