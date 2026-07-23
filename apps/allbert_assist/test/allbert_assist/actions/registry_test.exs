@@ -140,6 +140,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "create_skill",
              "continue_objective",
              "cancel_objective",
+             "cancel_objective_run",
              "read",
              "grep",
              "glob",

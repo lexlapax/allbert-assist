@@ -7,6 +7,7 @@ defmodule AllbertAssist.Execution.SkillScriptRunner do
   """
 
   alias AllbertAssist.Execution.OutputBuffer
+  alias AllbertAssist.Execution.ProcessOwner
   alias AllbertAssist.Execution.SkillScriptSpec
 
   @type result :: %{
@@ -22,18 +23,18 @@ defmodule AllbertAssist.Execution.SkillScriptRunner do
           script: map()
         }
 
-  @spec run(SkillScriptSpec.t()) :: {:ok, result()}
-  def run(%SkillScriptSpec{policy_decision: :allowed} = spec) do
+  @spec run(SkillScriptSpec.t(), keyword()) :: {:ok, result()} | {:error, term()}
+  def run(spec, opts \\ [])
+
+  def run(%SkillScriptSpec{policy_decision: :allowed} = spec, opts) do
     with :ok <- ensure_cwd(spec) do
-      spec
-      |> run_task()
-      |> await_result(spec)
+      run_owned(spec, opts)
     else
       {:error, reason} -> {:ok, denied_result(spec, reason)}
     end
   end
 
-  def run(%SkillScriptSpec{} = spec) do
+  def run(%SkillScriptSpec{} = spec, _opts) do
     {:ok, denied_result(spec, spec.denial_reason || :policy_not_allowed)}
   end
 
@@ -48,45 +49,41 @@ defmodule AllbertAssist.Execution.SkillScriptRunner do
     if File.dir?(cwd), do: :ok, else: {:error, {:cwd_missing, cwd}}
   end
 
-  defp run_task(spec) do
-    Task.async(fn -> run_system_cmd(spec) end)
-  end
-
-  defp await_result(task, spec) do
-    case Task.yield(task, spec.timeout_ms) || Task.shutdown(task, :brutal_kill) do
-      {:ok, result} -> {:ok, result}
-      nil -> {:ok, timeout_result(spec)}
+  defp run_owned(spec, opts) do
+    with {:ok, owned} <-
+           ProcessOwner.run(spec.resolved_executable, spec.args,
+             cd: spec.resolved_cwd,
+             env: runner_env(spec.env),
+             timeout_ms: spec.timeout_ms,
+             max_output_bytes: spec.max_output_bytes,
+             execution_id: Keyword.get(opts, :execution_id, Ecto.UUID.generate())
+           ) do
+      {:ok,
+       %{
+         status:
+           if(owned.timed_out?, do: :timed_out, else: exit_status_to_status(owned.exit_status)),
+         exit_status: owned.exit_status,
+         timed_out?: owned.timed_out?,
+         truncated?: owned.truncated?,
+         stdout: owned.output,
+         stderr: "",
+         stderr_merged?: true,
+         output_bytes: owned.output_bytes,
+         diagnostics:
+           if(owned.timed_out?,
+             do: [%{reason: :timeout, timeout_ms: spec.timeout_ms}],
+             else:
+               diagnostics(%OutputBuffer{
+                 limit: spec.max_output_bytes,
+                 truncated?: owned.truncated?
+               })
+           ),
+         script: SkillScriptSpec.summary(spec)
+       }}
     end
-  end
-
-  defp run_system_cmd(spec) do
-    output_buffer = OutputBuffer.new(spec.max_output_bytes)
-
-    {buffer, exit_status} =
-      System.cmd(spec.resolved_executable, spec.args,
-        cd: spec.resolved_cwd,
-        env: runner_env(spec.env),
-        stderr_to_stdout: true,
-        into: output_buffer
-      )
-
-    output = OutputBuffer.output(buffer)
-
-    %{
-      status: exit_status_to_status(exit_status),
-      exit_status: exit_status,
-      timed_out?: false,
-      truncated?: buffer.truncated?,
-      stdout: output,
-      stderr: "",
-      stderr_merged?: true,
-      output_bytes: byte_size(output),
-      diagnostics: diagnostics(buffer),
-      script: SkillScriptSpec.summary(spec)
-    }
   rescue
     exception ->
-      denied_result(spec, {exception.__struct__, Exception.message(exception)})
+      {:ok, denied_result(spec, {exception.__struct__, Exception.message(exception)})}
   end
 
   defp runner_env(env) do
@@ -100,21 +97,6 @@ defmodule AllbertAssist.Execution.SkillScriptRunner do
       |> Enum.map(&{&1, nil})
 
     cleared ++ Enum.to_list(env)
-  end
-
-  defp timeout_result(spec) do
-    %{
-      status: :timed_out,
-      exit_status: nil,
-      timed_out?: true,
-      truncated?: false,
-      stdout: "",
-      stderr: "",
-      stderr_merged?: true,
-      output_bytes: 0,
-      diagnostics: [%{reason: :timeout, timeout_ms: spec.timeout_ms}],
-      script: SkillScriptSpec.summary(spec)
-    }
   end
 
   defp denied_result(spec, reason) do

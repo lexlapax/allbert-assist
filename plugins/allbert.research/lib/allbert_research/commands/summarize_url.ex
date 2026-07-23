@@ -6,6 +6,7 @@ defmodule AllbertResearch.Commands.SummarizeUrl do
     description: "Run delegated browser extraction and summary for one URL."
 
   alias AllbertResearch.Research
+  alias AllbertAssist.Objectives.Runs.CancelToken
 
   @impl true
   def run(params, context) do
@@ -15,7 +16,10 @@ defmodule AllbertResearch.Commands.SummarizeUrl do
         _other -> params
       end
 
-    Research.run(:summarize_url, params, context)
+    case CancelToken.checkpoint(params) do
+      :ok -> Research.run(:summarize_url, params, context)
+      :cancelled -> {:ok, %{last_result: {:error, :cancelled}}}
+    end
   end
 
   defp field(map, key) when is_map(map), do: Map.get(map, key, Map.get(map, Atom.to_string(key)))

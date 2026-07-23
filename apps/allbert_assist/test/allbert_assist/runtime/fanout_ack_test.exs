@@ -1,5 +1,5 @@
 defmodule AllbertAssist.Runtime.FanoutAckTest do
-  use AllbertAssist.DataCase, async: false, lane: :app_env_serial
+  use AllbertAssist.DataCase, async: false
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Objectives

@@ -17,6 +17,7 @@ defmodule AllbertAssist.Sandbox.Backends.ContainerRunner do
             Command.run(engine, argv,
               timeout_ms: spec.timeout_ms,
               max_output_bytes: spec.output_bytes,
+              execution_id: spec.execution_id || Ecto.UUID.generate(),
               on_timeout: fn -> cleanup_timed_out_container(engine, argv) end
             )} do
       backend_id

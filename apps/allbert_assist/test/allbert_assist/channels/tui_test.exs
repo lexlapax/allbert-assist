@@ -141,6 +141,26 @@ defmodule AllbertAssist.Channels.TUITest do
     refute assistant_content =~ "[surface]"
   end
 
+  test "escape offers cancellation for an attached fan-out" do
+    configure_tui!()
+
+    assert {:ok, server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: false,
+               enabled?: true,
+               live_screen?: false,
+               output_fun: fn _line -> :ok end
+             )
+
+    assert {:ok, {:processed, _event, rendered}} =
+             Adapter.submit(server, "first task; second task", external_event_id: "evt-fanout")
+
+    assert Enum.any?(rendered, &String.contains?(&1, "first task"))
+    assert {:ok, {:fanout_cancel_offer, parent_id}} = Adapter.cancel_current_turn(server)
+    assert String.starts_with?(parent_id, "fanout_")
+  end
+
   test "non-interactive supervised child stays quiet without launcher opts" do
     configure_tui!()
     parent = self()

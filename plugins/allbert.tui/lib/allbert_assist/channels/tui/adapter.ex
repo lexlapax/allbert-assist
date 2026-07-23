@@ -263,6 +263,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       coding_mode?: Keyword.get(opts, :coding_mode?, false),
       pi_session: Keyword.get(opts, :pi_session),
       current_turn: nil,
+      active_fanout: nil,
       queued_correction: nil
     }
   end
@@ -590,6 +591,12 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     state
   end
 
+  defp cancel_current_turn_state(
+         _reason,
+         %{current_turn: nil, active_fanout: %{parent_id: parent_id}} = state
+       ),
+       do: {{:ok, {:fanout_cancel_offer, parent_id}}, state}
+
   defp cancel_current_turn_state(_reason, %{current_turn: nil} = state),
     do: {{:error, :no_current_turn}, state}
 
@@ -682,6 +689,9 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   defp maybe_emit_cancel_feedback({:ok, {:cancel_requested, %{turn_id: turn_id}}}, state),
     do: emit_output("Cancellation requested for coding turn #{turn_id}.", state)
 
+  defp maybe_emit_cancel_feedback({:ok, {:fanout_cancel_offer, parent_id}}, state),
+    do: emit_output("Fan-out #{parent_id} is still running. Reply with ‘cancel it’ to stop it.", state)
+
   defp maybe_emit_cancel_feedback({:error, :no_current_turn}, state),
     do: emit_output("No coding turn is currently running.", state)
 
@@ -689,6 +699,11 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     do: emit_output("Coding steering is disabled.", state)
 
   defp maybe_emit_cancel_feedback(_reply, _state), do: :ok
+
+  defp track_active_fanout(%{fanout: %{parent_id: parent_id}}, state) when is_binary(parent_id),
+    do: %{state | active_fanout: %{parent_id: parent_id}}
+
+  defp track_active_fanout(_response, state), do: state
 
   defp coding_turn_id(opts) do
     Keyword.get(opts, :coding_turn_id) ||
@@ -1176,6 +1191,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
          {:ok, response} <-
            process_text_or_callback(command, fields, state, user_id, session_id, inbound_trust),
          state <- maybe_update_pi_session_from_response(response, state),
+         state <- track_active_fanout(response, state),
          {:ok, rendered} <-
            Renderer.render_response(response, max_text_bytes: state.max_text_bytes),
          state <- clear_live_status(state),

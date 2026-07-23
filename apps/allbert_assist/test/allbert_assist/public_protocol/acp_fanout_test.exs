@@ -11,6 +11,6 @@ defmodule AllbertAssist.PublicProtocol.AcpFanoutTest do
     assert source =~ "Runtime.await_fanout"
     assert source =~ ~s("session/cancel")
     assert source =~ ~s(Runner.run(
-        "cancel_objective")
+        "cancel_objective_run")
   end
 end

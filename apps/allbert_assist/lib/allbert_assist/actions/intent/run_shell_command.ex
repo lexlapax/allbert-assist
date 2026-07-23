@@ -195,7 +195,7 @@ defmodule AllbertAssist.Actions.Intent.RunShellCommand do
   defp execute_spec(spec, permission_decision, context) do
     confirmation_id = get_in(context, [:confirmation, :id])
 
-    with {:ok, result} <- LocalRunner.run(spec) do
+    with {:ok, result} <- LocalRunner.run(spec, execution_opts(context)) do
       _approved_audit =
         Audit.append(:shell_command, :approved, spec, permission_decision, %{
           confirmation_id: confirmation_id
@@ -229,6 +229,9 @@ defmodule AllbertAssist.Actions.Intent.RunShellCommand do
        }}
     end
   end
+
+  defp execution_opts(%{objective_id: id}) when is_binary(id), do: [execution_id: id]
+  defp execution_opts(_context), do: []
 
   defp command_context(spec, context) do
     Map.merge(context, %{

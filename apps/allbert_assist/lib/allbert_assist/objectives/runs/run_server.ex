@@ -28,10 +28,10 @@ defmodule AllbertAssist.Objectives.Runs.RunServer do
   def init(opts) do
     child_id = Keyword.fetch!(opts, :child_id)
 
-    case Registry.register(AllbertAssist.Objectives.Runs.Registry, {:run, child_id}, nil) do
-      {:ok, _} ->
-        cancel_token = Keyword.get_lazy(opts, :cancel_token, &CancelToken.new/0)
+    cancel_token = Keyword.get_lazy(opts, :cancel_token, &CancelToken.new/0)
 
+    case Registry.register(AllbertAssist.Objectives.Runs.Registry, {:run, child_id}, cancel_token) do
+      {:ok, _} ->
         {:ok,
          %{
            child_id: child_id,

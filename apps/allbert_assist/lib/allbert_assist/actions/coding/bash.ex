@@ -81,7 +81,7 @@ defmodule AllbertAssist.Actions.Coding.Bash do
       context = action_context(params, context)
 
       spec
-      |> Gate.run(context, fn -> run_command(prepared) end)
+      |> Gate.run(context, fn -> run_command(prepared, context) end)
       |> enrich_response(prepared)
     else
       {:error, error} ->
@@ -92,11 +92,14 @@ defmodule AllbertAssist.Actions.Coding.Bash do
     end
   end
 
-  defp run_command(prepared) do
-    with {:ok, result} <- LocalRunner.run(prepared.command_spec) do
+  defp run_command(prepared, context) do
+    with {:ok, result} <- LocalRunner.run(prepared.command_spec, execution_opts(context)) do
       {:ok, result_summary(result, prepared)}
     end
   end
+
+  defp execution_opts(%{objective_id: id}) when is_binary(id), do: [execution_id: id]
+  defp execution_opts(_context), do: []
 
   defp enrich_response({:ok, response}, prepared) do
     status = normalized_status(response)

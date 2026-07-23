@@ -214,7 +214,7 @@ defmodule AllbertAssist.Actions.Packages.RunPackageInstall do
     confirmation_id = get_in(context, [:confirmation, :id])
     command_spec = command_spec(spec)
 
-    with {:ok, result} <- LocalRunner.run(command_spec) do
+    with {:ok, result} <- LocalRunner.run(command_spec, execution_opts(context)) do
       _approved_audit =
         Audit.append(
           :package_install,
@@ -254,6 +254,9 @@ defmodule AllbertAssist.Actions.Packages.RunPackageInstall do
        }}
     end
   end
+
+  defp execution_opts(%{objective_id: id}) when is_binary(id), do: [execution_id: id]
+  defp execution_opts(_context), do: []
 
   defp grant_execution_context(summary, permission, context) do
     case GrantHandoff.find_applicable(Map.get(summary, :resource_refs, []), permission, context) do

@@ -34,6 +34,8 @@ defmodule AllbertAssist.Application do
         {Jido.Signal.Bus, name: AllbertAssist.SignalBus},
         {Registry, keys: :unique, name: AllbertAssist.Coding.TurnRegistry},
         {Task.Supervisor, name: AllbertAssist.TaskSupervisor},
+        {Registry, keys: :unique, name: AllbertAssist.Execution.ProcessRegistry},
+        AllbertAssist.Execution.ProcessOwners,
         AllbertAssist.Settings.Supervisor,
         AllbertAssist.Artifacts.GC,
         AllbertAssist.PublicProtocol.RateLimiter,

@@ -132,6 +132,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Memory.SyncAppLesson
   alias AllbertAssist.Actions.Memory.UpdateMemoryEntry
   alias AllbertAssist.Actions.Objectives.CancelObjective
+  alias AllbertAssist.Actions.Objectives.CancelObjectiveRun
   alias AllbertAssist.Actions.Objectives.ContinueObjective
   alias AllbertAssist.Actions.Objectives.DelegateAgent
   alias AllbertAssist.Actions.Objectives.ListObjectives
@@ -292,7 +293,8 @@ defmodule AllbertAssist.Actions.Registry do
     InstallMarketplaceBundle,
     CreateSkill,
     ContinueObjective,
-    CancelObjective
+    CancelObjective,
+    CancelObjectiveRun
   ]
 
   @internal_actions [

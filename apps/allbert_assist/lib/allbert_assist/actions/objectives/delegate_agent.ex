@@ -41,7 +41,8 @@ defmodule AllbertAssist.Actions.Objectives.DelegateAgent do
          {:ok, command} <- command(params, entry),
          {:ok, result} <-
            AgentRegistry.dispatch(agent_id, command, field(params, :params, %{}),
-             timeout: delegate_timeout_ms(params)
+             timeout: delegate_timeout_ms(params),
+             cancel_token: field(context, :cancel_token)
            ) do
       delegate_response = delegate_response(result)
       status = action_status(delegate_response)

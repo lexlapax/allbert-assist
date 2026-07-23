@@ -51,6 +51,16 @@ command against `:execute` plus the entry's `allowed_commands` metadata,
 normalizes string or atom commands without dynamic atom creation, and then
 dispatches through `AgentRegistry.dispatch/4`.
 
+The objective runner also passes its additive `cancel_token` in the dispatch
+options and signal params. Delegate commands must call
+`Objectives.Runs.CancelToken.checkpoint/1` at natural boundaries (before a
+provider/browser/evidence round and between bounded rounds). `:cancelled`
+means return without beginning more work. The registry checks immediately
+before and after dispatch as a compatibility floor; third-party delegates
+that do not yet checkpoint remain eligible for supervised shutdown after the
+configured grace period. A token grants no authority and must never be used
+as an approval signal.
+
 ## Objective Step Shape
 
 Workflow YAML and Plan/Build delegate steps use the v0.44 nested action

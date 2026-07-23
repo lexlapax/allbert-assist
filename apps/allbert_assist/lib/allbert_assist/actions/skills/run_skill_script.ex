@@ -221,7 +221,7 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
         confirmation_id: confirmation_id
       })
 
-    with {:ok, result} <- SkillScriptRunner.run(spec) do
+    with {:ok, result} <- SkillScriptRunner.run(spec, execution_opts(context)) do
       result_summary = result_summary(result, spec, confirmation_id)
 
       _result_audit =
@@ -252,6 +252,9 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
        }}
     end
   end
+
+  defp execution_opts(%{objective_id: id}) when is_binary(id), do: [execution_id: id]
+  defp execution_opts(_context), do: []
 
   defp confirmation_message(spec, permission_decision, confirmation) do
     summary = SkillScriptSpec.summary(spec)

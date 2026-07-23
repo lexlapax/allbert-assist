@@ -40,6 +40,7 @@ defmodule AllbertAssist.Sandbox.CommandSpec do
   defstruct @enforce_keys ++
               [
                 env: %{},
+                execution_id: nil,
                 status: :pending,
                 denial_reason: nil,
                 diagnostics: []
@@ -53,6 +54,7 @@ defmodule AllbertAssist.Sandbox.CommandSpec do
           timeout_ms: pos_integer(),
           output_bytes: pos_integer(),
           env: %{String.t() => String.t()},
+          execution_id: String.t() | nil,
           status: :pending | :allowed | :denied,
           denial_reason: term(),
           diagnostics: [map()]
@@ -72,7 +74,8 @@ defmodule AllbertAssist.Sandbox.CommandSpec do
       profile: normalize_profile(value(params, :profile)),
       timeout_ms: value(params, :timeout_ms) || policy.timeout_ms,
       output_bytes: value(params, :output_bytes) || policy.output_bytes,
-      env: value(params, :env) || %{}
+      env: value(params, :env) || %{},
+      execution_id: value(params, :execution_id)
     }
 
     validate(spec, policy, bundle)

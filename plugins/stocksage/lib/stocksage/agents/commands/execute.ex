@@ -15,6 +15,7 @@ defmodule StockSage.Agents.Commands.Execute do
     description: "Return a bounded advisory report packet for a StockSage native agent."
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Objectives.Runs.CancelToken
   alias StockSage.Agents
   alias StockSage.Evidence
   alias StockSage.Agents.LLM
@@ -22,6 +23,14 @@ defmodule StockSage.Agents.Commands.Execute do
 
   @impl true
   def run(params, context) do
+    if CancelToken.checkpoint(params) == :cancelled do
+      {:ok, %{last_command: :execute, last_result: {:error, :cancelled}}}
+    else
+      run_active(params, context)
+    end
+  end
+
+  defp run_active(params, context) do
     agent_id =
       context
       |> Map.get(:state, %{})

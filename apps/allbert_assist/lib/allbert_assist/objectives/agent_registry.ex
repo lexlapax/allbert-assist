@@ -16,6 +16,7 @@ defmodule AllbertAssist.Objectives.AgentRegistry do
 
   use GenServer
 
+  alias AllbertAssist.Objectives.Runs.CancelToken
   alias Jido.AgentServer
   alias Jido.Signal
 
@@ -45,17 +46,32 @@ defmodule AllbertAssist.Objectives.AgentRegistry do
   @spec list() :: [entry()]
   def list, do: GenServer.call(__MODULE__, :list)
 
-  @spec dispatch(String.t(), atom(), map(), keyword()) :: {:ok, map()} | {:error, term()}
+  @spec dispatch(String.t(), atom(), map(), keyword()) ::
+          {:ok, %{agent_id: String.t(), state: term()}} | {:error, term()}
   def dispatch(agent_id, command, params, opts \\ [])
       when is_binary(agent_id) and is_atom(command) and is_map(params) do
-    with {:ok, entry} <- lookup(agent_id),
+    params = maybe_put_cancel_token(params, Keyword.get(opts, :cancel_token))
+
+    with :ok <- ensure_active(params),
+         {:ok, entry} <- lookup(agent_id),
          {:ok, signal} <-
            Signal.new("allbert.objectives.delegate.#{command}", params,
              source: "/allbert/objectives/delegate/#{agent_id}"
            ),
          {:ok, agent} <-
-           AgentServer.call(entry.server, signal, Keyword.get(opts, :timeout, 5_000)) do
+           AgentServer.call(entry.server, signal, Keyword.get(opts, :timeout, 5_000)),
+         :ok <- ensure_active(params) do
       {:ok, %{agent_id: agent_id, state: agent.state}}
+    end
+  end
+
+  defp maybe_put_cancel_token(params, nil), do: params
+  defp maybe_put_cancel_token(params, token), do: Map.put(params, :cancel_token, token)
+
+  defp ensure_active(params) do
+    case CancelToken.checkpoint(params) do
+      :ok -> :ok
+      :cancelled -> {:error, :cancelled}
     end
   end
 

@@ -35,6 +35,7 @@ defmodule AllbertAssist.Settings.Schema do
     "objectives.fanout.max_concurrent_runs_global",
     "objectives.fanout.max_children_per_fanout",
     "objectives.fanout.confirm_before_start",
+    "execution.cancel.grace_ms",
     "conversations.unified_history.include_e2ee_origin",
     "runtime.trace_default",
     "runtime.trace_recent_entries_limit",
@@ -576,7 +577,7 @@ defmodule AllbertAssist.Settings.Schema do
     },
     "objectives.fanout.rollout_mode" => %{
       type: :enum,
-      default: "explicit",
+      default: "automatic",
       writable?: true,
       sensitive?: false,
       allowed_values: ["explicit", "shadow", "automatic"]
@@ -610,6 +611,14 @@ defmodule AllbertAssist.Settings.Schema do
       default: false,
       writable?: true,
       sensitive?: false
+    },
+    "execution.cancel.grace_ms" => %{
+      type: :bounded_integer,
+      default: 5_000,
+      writable?: true,
+      sensitive?: false,
+      min: 100,
+      max: 60_000
     },
     "conversations.unified_history.include_e2ee_origin" => %{
       type: :boolean,
@@ -4285,6 +4294,7 @@ defmodule AllbertAssist.Settings.Schema do
       }
     },
     "execution" => %{
+      "cancel" => %{"grace_ms" => 5_000},
       "local" => %{
         "enabled" => false,
         "allowed_roots" => [],

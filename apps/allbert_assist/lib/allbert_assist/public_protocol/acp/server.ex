@@ -271,7 +271,7 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
     end)
     |> Enum.each(fn objective ->
       Runner.run(
-        "cancel_objective",
+        "cancel_objective_run",
         %{objective_id: objective.id, reason: "ACP session/cancel"},
         %{
           user_id: user_id,

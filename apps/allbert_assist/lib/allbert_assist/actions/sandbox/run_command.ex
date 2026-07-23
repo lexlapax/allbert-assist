@@ -37,7 +37,11 @@ defmodule AllbertAssist.Actions.Sandbox.RunCommand do
     with true <- PermissionGate.allowed?(permission_decision),
          {:ok, bundle} <- fetch_bundle(params),
          {:ok, report} <-
-           Sandbox.run_command(bundle, Map.fetch!(params, :command), sandbox_opts(context)) do
+           Sandbox.run_command(
+             bundle,
+             put_execution_id(Map.fetch!(params, :command), context),
+             sandbox_opts(context)
+           ) do
       {:ok, completed(permission_decision, report)}
     else
       false ->
@@ -65,6 +69,11 @@ defmodule AllbertAssist.Actions.Sandbox.RunCommand do
       Map.get(context, :user_id) || Map.get(context, "user_id") ||
       Map.get(context, :actor) || Map.get(context, "actor")
   end
+
+  defp put_execution_id(command, %{objective_id: id}) when is_binary(id),
+    do: Map.put(command, :execution_id, id)
+
+  defp put_execution_id(command, _context), do: command
 
   defp completed(permission_decision, %Report{} = report) do
     report_map = Report.to_map(report)

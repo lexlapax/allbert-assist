@@ -289,6 +289,7 @@ defmodule AllbertAssist.Objectives.Lifecycle do
         channel: objective.source_channel,
         surface: objective.source_surface,
         objective_id: objective.id,
+        cancel_token: Keyword.get(opts, :cancel_token),
         registry: Keyword.get(opts, :registry, [])
       }
 

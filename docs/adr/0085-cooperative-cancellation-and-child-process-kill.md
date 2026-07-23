@@ -2,9 +2,8 @@
 
 ## Status
 
-Proposed (v1.1 planning, 2026-07-18). Binding on v1.1 M4 once Accepted;
-Accepted only in the commit that lands the cancel-token seam, scoped OS
-execution ownership with process-group/container kill, and the
+Accepted (v1.1 M4, 2026-07-22). The accepting commit lands the cancel-token
+seam, scoped OS execution ownership with process-group/container kill, and the
 orphan-regression proof together. Merges two operator-slotted 1.1 enablers:
 Mid-Action Interruption /
 In-Flight Kill (deferred at `v0.24-rf:466`) and Child-Process Cancellation

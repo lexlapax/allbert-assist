@@ -6,9 +6,13 @@ defmodule AllbertResearch.Commands.Research do
     description: "Run bounded delegated browser research."
 
   alias AllbertResearch.Research
+  alias AllbertAssist.Objectives.Runs.CancelToken
 
   @impl true
   def run(params, context) do
-    Research.run(:research, params, context)
+    case CancelToken.checkpoint(params) do
+      :ok -> Research.run(:research, params, context)
+      :cancelled -> {:ok, %{last_result: {:error, :cancelled}}}
+    end
   end
 end

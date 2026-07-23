@@ -23,4 +23,12 @@ defmodule AllbertAssist.Objectives.Runs.CancelToken do
 
   @spec cancelled?(t()) :: boolean()
   def cancelled?(%__MODULE__{ref: ref}), do: :atomics.get(ref, 1) == 1
+
+  @spec checkpoint(map()) :: :ok | :cancelled
+  def checkpoint(params) when is_map(params) do
+    case Map.get(params, :cancel_token, Map.get(params, "cancel_token")) do
+      %__MODULE__{} = token -> if(cancelled?(token), do: :cancelled, else: :ok)
+      _other -> :ok
+    end
+  end
 end
