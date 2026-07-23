@@ -13,7 +13,8 @@ defmodule AllbertAssist.Intent.Steering do
   @active ~w[open running blocked]
   @status ~r/^\s*(?:status|progress|how(?:'s| is)|what(?:'s| is) the status)\b/iu
   @cancel ~r/^\s*(?:cancel|stop|skip)\b/iu
-  @steer ~r/^\s*(?:steer|adjust|change|redirect|revise|instead|actually|make)\b/iu
+  @adjust ~r/^\s*(?:adjust|refine|tweak|shorten|expand|add|remove)\b/iu
+  @steer ~r/^\s*(?:steer|change|redirect|revise|instead|actually|make)\b/iu
   @approval ~r/^\s*(?:approve|deny)\s+(?:confirmation\s+)?[A-Za-z0-9_-]+\s*$/iu
 
   @spec handle(map()) :: :not_steering | {:ok, map()}
@@ -28,6 +29,7 @@ defmodule AllbertAssist.Intent.Steering do
       {:status, targets} -> {:ok, status_response(targets)}
       {:clarify, message} -> {:ok, response(message, :clarification)}
       {:cancel, [target]} -> run_cancel(request, target)
+      {:adjust, [target]} -> run_steer(request, target)
       {:steer, [target]} -> run_steer(request, target)
     end
   end
@@ -41,6 +43,7 @@ defmodule AllbertAssist.Intent.Steering do
       Regex.match?(@approval, text) -> :new_request
       Regex.match?(@status, text) -> {:status, status_targets(text, parents)}
       Regex.match?(@cancel, text) -> mutation(:cancel, text, parents)
+      Regex.match?(@adjust, text) -> mutation(:adjust, text, parents)
       Regex.match?(@steer, text) -> mutation(:steer, text, parents)
       true -> assisted_classification(text, parents, opts)
     end
@@ -51,7 +54,7 @@ defmodule AllbertAssist.Intent.Steering do
       fun when is_function(fun, 2) ->
         case fun.(text, Enum.flat_map(parents, &Fanout.children/1)) do
           :status -> {:status, status_targets(text, parents)}
-          kind when kind in [:cancel, :steer] -> mutation(kind, text, parents)
+          kind when kind in [:adjust, :cancel, :steer] -> mutation(kind, text, parents)
           _ -> :new_request
         end
 
@@ -81,26 +84,25 @@ defmodule AllbertAssist.Intent.Steering do
     children = Enum.flat_map(parents, &Fanout.children/1)
     normalized = normalize(text)
 
-    case ordinal(normalized) do
-      nil ->
+    case ordinal_indices(normalized) do
+      [] ->
         title_matches(normalized, children)
 
-      index ->
-        children
-        |> Enum.sort_by(&{&1.parent_objective_id, &1.queue_position})
-        |> Enum.at(index)
-        |> List.wrap()
+      indices ->
+        sorted = Enum.sort_by(children, &{&1.parent_objective_id, &1.queue_position})
+        indices |> Enum.map(&Enum.at(sorted, &1)) |> Enum.reject(&is_nil/1)
     end
   end
 
-  defp ordinal(text) do
-    cond do
-      Regex.match?(~r/\b(?:first|one|1|#1)\b/u, text) -> 0
-      Regex.match?(~r/\b(?:second|two|2|#2)\b/u, text) -> 1
-      Regex.match?(~r/\b(?:third|three|3|#3)\b/u, text) -> 2
-      Regex.match?(~r/\b(?:fourth|four|4|#4)\b/u, text) -> 3
-      true -> nil
-    end
+  defp ordinal_indices(text) do
+    [
+      {0, ~r/\b(?:first|one|1|#1)\b/u},
+      {1, ~r/\b(?:second|two|2|#2)\b/u},
+      {2, ~r/\b(?:third|three|3|#3)\b/u},
+      {3, ~r/\b(?:fourth|four|4|#4)\b/u}
+    ]
+    |> Enum.filter(fn {_index, pattern} -> Regex.match?(pattern, text) end)
+    |> Enum.map(&elem(&1, 0))
   end
 
   defp title_matches(text, children) do
@@ -122,7 +124,7 @@ defmodule AllbertAssist.Intent.Steering do
   defp tokens(text),
     do:
       String.split(text) --
-        ~w[status progress cancel stop skip steer adjust change redirect revise instead actually make task research the a an]
+        ~w[status progress cancel stop skip steer adjust refine tweak shorten expand add remove change redirect revise instead actually make task research the a an]
 
   defp normalize(text),
     do: text |> String.downcase() |> String.replace(~r/[^\p{L}\p{N}#]+/u, " ") |> String.trim()

@@ -1031,6 +1031,18 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert {:error, {:unknown_action, "missing_action"}} = Registry.capability("missing_action")
   end
 
+  test "retry-safety inventory is generated from the shipped capability catalog" do
+    inventory = Enum.frequencies_by(Registry.capabilities(), & &1.retry_safety)
+
+    assert Map.keys(inventory) |> Enum.sort() == [:safe, :unknown]
+    assert Enum.sum(Map.values(inventory)) == length(Registry.modules())
+
+    IO.puts(
+      "retry-safety-inventory safe=#{inventory.safe} unsafe=#{Map.get(inventory, :unsafe, 0)} " <>
+        "unknown=#{inventory.unknown} total=#{length(Registry.modules())}"
+    )
+  end
+
   test "reports resumable targets from capability metadata" do
     assert Registry.resumable?("external_network_request")
     assert Registry.resumable?(:run_shell_command)

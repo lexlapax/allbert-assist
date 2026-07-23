@@ -94,6 +94,41 @@ defmodule AllbertAssist.Intent.DecomposerTest do
              )
   end
 
+  test "model proposer matrix stays bounded and advisory" do
+    cases = [
+      {{:ok, ["Research sources", "Draft summary"]}, {:fanout, 2}},
+      {{:ok, %{tasks: ["one", "two"], confidence: 0.2}}, :single},
+      {{:ok, ["one", 2, nil]}, :single},
+      {{:error, :malformed_json}, :single},
+      {{:ok, Enum.map(1..9, &"task #{&1}")}, {:clarify, 9}},
+      {{:ok, ["Send the email", "Delete the backup"]}, {:fanout, 2}}
+    ]
+
+    for {model_result, expected} <- cases do
+      actual =
+        Decomposer.propose("consider this and also maybe that",
+          model_proposer: RecordingProposer,
+          model_result: model_result,
+          test_pid: self(),
+          max_children_per_fanout: 8
+        )
+
+      case {expected, actual} do
+        {{:fanout, count}, {:fanout, tasks}} -> assert length(tasks) == count
+        {{:clarify, count}, {:clarify, result}} -> assert result.task_count == count
+        {:single, :single} -> :ok
+        mismatch -> flunk("unexpected bounded proposer result: #{inspect(mismatch)}")
+      end
+    end
+
+    assert :single =
+             Decomposer.propose("Research then draft",
+               nested_fanout?: true,
+               model_proposer: RecordingProposer,
+               test_pid: self()
+             )
+  end
+
   test "200-row cross-surface corpus meets the automatic rollout numeric gate" do
     cases = DecomposerCorpus.cases()
 
