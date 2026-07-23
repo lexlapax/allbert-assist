@@ -44,6 +44,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert {:ok, response} =
              Runtime.submit_user_input(%{
                text: "Research alpha and then draft beta",
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
                channel: :test,
                user_id: "alice"
              })
@@ -73,7 +74,13 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert {:ok, _setting} =
              Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
 
-    request = %{text: "first task; second task", channel: :test, user_id: "alice"}
+    request = %{
+      text: "first task; second task",
+      channel: :test,
+      user_id: "alice",
+      delivery_ack_capability: Runtime.fanout_delivery_ack_capability()
+    }
+
     assert {:ok, response} = Runtime.submit_user_input(request)
 
     assert {:ok, parent} = Objectives.get_objective(response.fanout.parent_id)
@@ -235,6 +242,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert {:ok, response} =
              Runtime.submit_user_input(%{
                text: "first task; second task",
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
                channel: :test,
                user_id: "alice"
              })
@@ -264,6 +272,28 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
       Fanout.children(response.fanout.parent_id)
       |> Enum.all?(&(&1.status == "completed"))
     end)
+  end
+
+  test "missing or malformed delivery acknowledgement capability fails closed to one turn" do
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    for capability <- [nil, false, true, "fanout_delivery_ack_v2", :fanout_delivery_ack_v1] do
+      request = %{
+        text: "first task; second task",
+        channel: :test,
+        user_id: "unadapted-#{inspect(capability)}"
+      }
+
+      request =
+        if is_nil(capability),
+          do: request,
+          else: Map.put(request, :delivery_ack_capability, capability)
+
+      assert {:ok, response} = Runtime.submit_user_input(request)
+      assert response.message =~ "single:"
+      assert Map.get(response, :fanout) == nil
+    end
   end
 
   defp eventually(fun, attempts \\ 100)

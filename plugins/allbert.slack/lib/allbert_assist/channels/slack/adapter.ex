@@ -443,6 +443,7 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
   defp submit_runtime(fields, user_id, session_id, inbound_trust) do
     Runtime.submit_user_input(%{
       text: fields.text,
+      delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
       channel: "slack",
       user_id: user_id,
       operator_id: user_id,
@@ -698,7 +699,6 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
         {:error, :slack_not_configured}
     end
   end
-
 
   @doc false
   def edit_outbound(target, provider_message_id, body, opts)

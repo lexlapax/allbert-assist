@@ -11,6 +11,7 @@ defmodule AllbertAssist.Execution.ProcessOwner do
   use GenServer, restart: :temporary
 
   alias AllbertAssist.Execution.OutputBuffer
+  alias AllbertAssist.Settings
 
   @default_kill_grace_ms 5_000
 
@@ -50,7 +51,7 @@ defmodule AllbertAssist.Execution.ProcessOwner do
   def init(opts) do
     Process.flag(:trap_exit, true)
     execution_id = Keyword.fetch!(opts, :execution_id)
-    run_opts = Keyword.fetch!(opts, :opts)
+    run_opts = opts |> Keyword.fetch!(:opts) |> resolve_kill_grace()
 
     with {:ok, _} <-
            Registry.register(
@@ -167,6 +168,15 @@ defmodule AllbertAssist.Execution.ProcessOwner do
     Enum.map(env, fn
       {key, nil} -> {to_charlist(key), false}
       {key, value} -> {to_charlist(key), to_charlist(value)}
+    end)
+  end
+
+  defp resolve_kill_grace(opts) do
+    Keyword.put_new_lazy(opts, :kill_grace_ms, fn ->
+      case Settings.get("execution.cancel.grace_ms") do
+        {:ok, value} when is_integer(value) and value > 0 -> value
+        _other -> @default_kill_grace_ms
+      end
     end)
   end
 

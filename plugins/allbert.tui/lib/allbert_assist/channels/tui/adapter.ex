@@ -1350,6 +1350,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
 
     %{
       text: fields.text,
+      delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
       channel: @channel,
       user_id: user_id,
       operator_id: user_id,

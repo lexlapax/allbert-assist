@@ -89,6 +89,7 @@ defmodule AllbertAssist.Jobs.Runner do
     request =
       %{
         text: Map.get(target, "text"),
+        delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
         channel: :job,
         user_id: job.user_id,
         operator_id: job.operator_id,

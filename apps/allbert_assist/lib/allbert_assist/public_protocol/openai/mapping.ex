@@ -8,6 +8,7 @@ defmodule AllbertAssist.PublicProtocol.OpenAI.Mapping do
   """
 
   alias AllbertAssist.PublicProtocol.{HttpIngress, ResultReadback}
+  alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Settings
   alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
@@ -69,6 +70,7 @@ defmodule AllbertAssist.PublicProtocol.OpenAI.Mapping do
   def runtime_request(chat, auth) do
     %{
       text: chat.text,
+      delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
       channel: :openai_api,
       user_id: chat.user_id,
       operator_id: chat.user_id,

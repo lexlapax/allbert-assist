@@ -254,6 +254,10 @@ defmodule AllbertAssist.Runtime do
     end
   end
 
+  @doc "Closed caller capability required before the runtime may frame fan-out work."
+  @spec fanout_delivery_ack_capability() :: String.t()
+  def fanout_delivery_ack_capability, do: "fanout_delivery_ack_v1"
+
   defp acknowledge_pending_reports(pending_reports, base_context) do
     Enum.reduce_while(pending_reports, :ok, fn pending, :ok ->
       context = Map.merge(base_context, Map.get(pending, :delivery_context, %{}))
@@ -361,6 +365,7 @@ defmodule AllbertAssist.Runtime do
          coding_turn_id: coding_turn_id(attrs),
          coding_req_llm_context: fetch_value(attrs, :coding_req_llm_context),
          stream_event_sink: fetch_value(attrs, :stream_event_sink),
+         delivery_ack_capability: fetch_value(attrs, :delivery_ack_capability),
          diagnostics: session_context.diagnostics ++ app_context.diagnostics,
          timeout_ms: fetch_value(attrs, :timeout_ms) || @default_timeout_ms
        }}
@@ -730,6 +735,10 @@ defmodule AllbertAssist.Runtime do
   end
 
   defp fanout_proposal(%{coding_turn?: true}), do: :single
+
+  defp fanout_proposal(%{delivery_ack_capability: capability})
+       when capability != "fanout_delivery_ack_v1",
+       do: :single
 
   defp fanout_proposal(request) do
     with {:ok, true} <- Settings.get("objectives.fanout.enabled"),

@@ -8,6 +8,7 @@ defmodule AllbertAssist.PublicProtocol.Acp.Mapping do
 
   alias AllbertAssist.App.CoreApp
   alias AllbertAssist.PublicProtocol.ResultReadback
+  alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Settings
   alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
@@ -138,6 +139,7 @@ defmodule AllbertAssist.PublicProtocol.Acp.Mapping do
 
     %{
       text: text,
+      delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
       channel: :acp_stdio,
       user_id: user_id,
       operator_id: user_id,

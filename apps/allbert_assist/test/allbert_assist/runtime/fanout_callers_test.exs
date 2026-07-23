@@ -22,6 +22,13 @@ defmodule AllbertAssist.Runtime.FanoutCallersTest do
       "apps/allbert_assist_web/lib/allbert_assist_web/controllers/public_protocol/openai_controller.ex"
   }
 
+  @capability_sources Map.merge(@callers, %{
+                        "ACP" =>
+                          "apps/allbert_assist/lib/allbert_assist/public_protocol/acp/mapping.ex",
+                        "OpenAI" =>
+                          "apps/allbert_assist/lib/allbert_assist/public_protocol/openai/mapping.ex"
+                      })
+
   test "every production Runtime caller acknowledges only at its delivery boundary" do
     for {surface, relative_path} <- @callers do
       source = File.read!(Path.join(@root, relative_path))
@@ -40,5 +47,19 @@ defmodule AllbertAssist.Runtime.FanoutCallersTest do
       assert source =~ "Runtime.track_delivery",
              "#{surface} lost failed-delivery tracking"
     end
+  end
+
+  test "every acknowledged caller family declares the closed fan-out capability" do
+    for {surface, relative_path} <- @capability_sources do
+      source = File.read!(Path.join(@root, relative_path))
+
+      assert source =~ "Runtime.fanout_delivery_ack_capability()",
+             "#{surface} acknowledges delivery but does not declare the closed capability"
+    end
+
+    simulations =
+      File.read!(Path.join(@root, "apps/allbert_assist/lib/allbert_assist/cli/areas/channels.ex"))
+
+    assert length(Regex.scan(~r/delivery_ack_capability:/, simulations)) == 3
   end
 end

@@ -103,7 +103,8 @@ defmodule Mix.Tasks.Allbert.Ask do
     request =
       %{
         text: prompt,
-        channel: channel
+        channel: channel,
+        delivery_ack_capability: Runtime.fanout_delivery_ack_capability()
       }
       |> maybe_put(:user_id, blank_to_nil(opts[:user]))
       |> maybe_put(:operator_id, blank_to_nil(opts[:operator]))

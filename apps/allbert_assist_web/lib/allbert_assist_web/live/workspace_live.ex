@@ -2535,6 +2535,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     runtime_request =
       %{
         text: prompt,
+        delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
         channel: :live_view,
         user_id: socket.assigns.user_id,
         operator_id: socket.assigns.user_id,

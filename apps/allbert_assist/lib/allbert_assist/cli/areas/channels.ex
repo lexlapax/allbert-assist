@@ -898,6 +898,7 @@ defmodule AllbertAssist.CLI.Areas.Channels do
          {:ok, response} <-
            Runtime.submit_user_input(%{
              text: prompt,
+             delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
              channel: "telegram",
              user_id: user_id,
              operator_id: user_id,
@@ -931,6 +932,7 @@ defmodule AllbertAssist.CLI.Areas.Channels do
          {:ok, response} <-
            Runtime.submit_user_input(%{
              text: prompt,
+             delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
              channel: "email",
              user_id: user_id,
              operator_id: user_id,
@@ -965,6 +967,7 @@ defmodule AllbertAssist.CLI.Areas.Channels do
          {:ok, response} <-
            Runtime.submit_user_input(%{
              text: prompt,
+             delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
              channel: "matrix",
              user_id: user_id,
              operator_id: user_id,

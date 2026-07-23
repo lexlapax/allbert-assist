@@ -425,6 +425,7 @@ defmodule AllbertAssist.Channels.Email.Adapter do
   defp submit_runtime(text, user_id, session_id, fields, uid, new_thread?) do
     %{
       text: text,
+      delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
       channel: "email",
       user_id: user_id,
       operator_id: user_id,

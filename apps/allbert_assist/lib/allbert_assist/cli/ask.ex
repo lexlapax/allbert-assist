@@ -49,7 +49,11 @@ defmodule AllbertAssist.CLI.Ask do
 
   defp submit_with_channel(prompt, opts, channel) do
     request =
-      %{text: prompt, channel: channel}
+      %{
+        text: prompt,
+        channel: channel,
+        delivery_ack_capability: Runtime.fanout_delivery_ack_capability()
+      }
       |> put_present(:user_id, blank_to_nil(opts[:user]))
       |> put_present(:operator_id, blank_to_nil(opts[:operator]))
       |> put_present(:trace, opts[:trace])

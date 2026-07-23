@@ -486,6 +486,7 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
   defp submit_runtime(text, user_id, session_id, fields, new_thread?) do
     %{
       text: text,
+      delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
       channel: "matrix",
       user_id: user_id,
       operator_id: user_id,

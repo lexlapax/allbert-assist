@@ -1,8 +1,25 @@
 defmodule AllbertAssist.Execution.ProcessGroupCancelTest do
-  use ExUnit.Case, async: false
+  use AllbertAssist.DataCase, async: false, lane: :external_runtime_serial
   @moduletag :external_runtime_serial
 
   alias AllbertAssist.Execution.ProcessOwner
+  alias AllbertAssist.Settings
+
+  test "normal spawns pin the Settings Central grace while explicit overrides win" do
+    assert {:ok, _} = Settings.put("execution.cancel.grace_ms", 321, %{audit?: false})
+
+    inherited = Task.async(fn -> run_sleep("settings-grace", []) end)
+    inherited_owner = await_owner("settings-grace")
+    assert :sys.get_state(inherited_owner).kill_grace_ms == 321
+    assert {:ok, :os_kill} = ProcessOwner.cancel("settings-grace")
+    assert {:ok, _} = Task.await(inherited, 5_000)
+
+    overridden = Task.async(fn -> run_sleep("explicit-grace", kill_grace_ms: 77) end)
+    overridden_owner = await_owner("explicit-grace")
+    assert :sys.get_state(overridden_owner).kill_grace_ms == 77
+    assert {:ok, :os_kill} = ProcessOwner.cancel("explicit-grace")
+    assert {:ok, _} = Task.await(overridden, 5_000)
+  end
 
   test "timeout kills an ordinary child and grandchild in the captured group" do
     assert {:ok, result} = run_tree("timeout-tree", 200)
@@ -59,6 +76,20 @@ defmodule AllbertAssist.Execution.ProcessGroupCancelTest do
       timeout_ms: timeout_ms,
       kill_grace_ms: 100,
       max_output_bytes: 4_096
+    )
+  end
+
+  defp run_sleep(id, extra_opts) do
+    ProcessOwner.run(
+      "/bin/sh",
+      ["-c", "trap '' TERM; sleep 30"],
+      [
+        execution_id: id,
+        cd: System.tmp_dir!(),
+        env: [],
+        timeout_ms: 30_000,
+        max_output_bytes: 4_096
+      ] ++ extra_opts
     )
   end
 
