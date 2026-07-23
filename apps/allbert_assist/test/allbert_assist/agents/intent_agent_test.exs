@@ -141,7 +141,9 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
       "install_marketplace_bundle",
       "create_skill",
       "continue_objective",
-      "cancel_objective"
+      "cancel_objective",
+      "cancel_objective_run",
+      "steer_objective_run"
     ]
 
     browser_actions = [
