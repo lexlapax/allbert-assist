@@ -56,9 +56,10 @@ Install dependencies and set up child apps from the umbrella root:
 mix setup
 ```
 
-Setup fails when `mix hex.audit` finds a locked dependency with a published
-security advisory or retirement. Use Hex 2.5 or newer; do not ignore findings
-without a documented release-plan disposition.
+Setup fails when `mix allbert.hex_audit` finds a locked dependency with a
+published security advisory or retirement, and it rejects Hex older than 2.5
+before auditing. Do not ignore findings without a documented release-plan
+disposition.
 
 Run the full project gate:
 
@@ -143,7 +144,7 @@ ADR 0050 before changing dependencies.
 | --- | --- | --- |
 | Docs | Docs-only changes. | `git diff --check` plus reference/link checks. |
 | Focused | Every implementation milestone. | Explicit test files named in the active plan/request-flow doc. |
-| Static | Code changes. | `mix hex.audit`, `mix compile --warnings-as-errors`, `mix format --check-formatted`, `mix credo --strict`, and Dialyzer when required. |
+| Static | Code changes. | `mix allbert.hex_audit`, `mix compile --warnings-as-errors`, `mix format --check-formatted`, `mix credo --strict`, and Dialyzer when required. |
 | Commit | Fast commit-time confidence. | `mix allbert.test commit`; `mix precommit` is a compatibility shortcut for this gate after v0.45.1. Not release evidence. |
 | Prepush | High-coverage local handoff before sharing. | `mix allbert.test prepush`; runs the partitioned high-coverage local gate with timing evidence. |
 | Fast local | Daily development feedback after v0.41 implementation. | `mix allbert.test fast-local`; add `--core-lanes --stocksage-lanes --web-lanes --partitions N` for the high-coverage local gate. |

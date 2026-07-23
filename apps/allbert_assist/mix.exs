@@ -104,7 +104,7 @@ defmodule AllbertAssist.MixProject do
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
-      setup: ["deps.get", "hex.audit", "ecto.setup"],
+      setup: ["deps.get", "allbert.hex_audit", "ecto.setup"],
       "ecto.setup": ["ecto.create", "ecto.migrate.allbert", "run #{__DIR__}/priv/repo/seeds.exs"],
       "ecto.migrate.allbert": ["allbert.ecto.migrate"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],

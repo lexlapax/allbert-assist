@@ -736,7 +736,7 @@ defmodule Mix.Tasks.Allbert.Test do
     env = owned_env("commit", 0)
 
     [
-      phase("hex_audit", root(), "mix", ["hex.audit"], env),
+      phase("hex_audit", root(), "mix", ["allbert.hex_audit"], env),
       phase("static_compile", root(), "mix", ["compile", "--warnings-as-errors"], env),
       phase("format", root(), "mix", ["format", "--check-formatted"], env),
       phase("credo", root(), "mix", ["credo", "--strict"], env)
@@ -747,7 +747,7 @@ defmodule Mix.Tasks.Allbert.Test do
     env = owned_env("prepush", 0)
 
     [
-      phase("hex_audit", root(), "mix", ["hex.audit"], env),
+      phase("hex_audit", root(), "mix", ["allbert.hex_audit"], env),
       phase(
         "static_compile",
         root(),
@@ -780,7 +780,7 @@ defmodule Mix.Tasks.Allbert.Test do
     partitions = default_partition_count()
 
     [
-      phase("hex_audit", root(), "mix", ["hex.audit"], env),
+      phase("hex_audit", root(), "mix", ["allbert.hex_audit"], env),
       phase(
         "static_compile",
         root(),
@@ -5671,7 +5671,7 @@ defmodule Mix.Tasks.Allbert.Test do
       title: "audit locked dependencies for advisories and retirements",
       cwd: :root,
       executable: "mix",
-      args: ["hex.audit"],
+      args: ["allbert.hex_audit"],
       coverage: ["known dependency vulnerabilities fail the v1.0 freeze gate"]
     },
     %{

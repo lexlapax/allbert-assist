@@ -53,6 +53,8 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     phases = drain_phases()
     phase_ids = Enum.map(phases, fn {id, _cwd, _args} -> id end)
 
+    assert {"hex_audit", _cwd, ["allbert.hex_audit"]} = List.first(phases)
+
     assert phase_ids == [
              "hex_audit",
              "static_compile",

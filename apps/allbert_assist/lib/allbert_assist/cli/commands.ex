@@ -100,7 +100,7 @@ defmodule AllbertAssist.CLI.Commands do
   # ---- developer / CI: Mix-only, never on the binary -----------------------
 
   @mix_only ~w(
-    test test.raw ecto.migrate sandbox validate_app
+    test test.raw hex_audit ecto.migrate sandbox validate_app
     gen.app gen.plugin gen.flow gen.tool gen.support
   )
 
@@ -151,6 +151,7 @@ defmodule AllbertAssist.CLI.Commands do
     # developer / CI
     "test" => :mix_only,
     "test.raw" => :mix_only,
+    "hex_audit" => :mix_only,
     "ecto.migrate" => :mix_only,
     "sandbox" => :mix_only,
     "validate_app" => :mix_only,
