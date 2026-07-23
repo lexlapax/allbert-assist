@@ -97,13 +97,26 @@ defmodule Mix.Tasks.Allbert.TestLanePackingTest do
     assert PartitionPacker.pack(files, 4, %{}) == [["test/a_test.exs"], [], [], []]
   end
 
-  test "real-tree manifest records multiplicity 2 for exactly the three dual-lane tests" do
+  test "real-tree manifest records the intentional dual-lane tests" do
     rows = AllbertTestTask.inventory_records() |> AllbertTestTask.manifest_rows()
     dual = Enum.filter(rows, &(&1.multiplicity > 1))
 
-    assert length(dual) == 3
+    assert length(dual) == 4
 
-    for row <- dual do
+    {security, onboarding} =
+      Enum.split_with(
+        dual,
+        &(&1.path == "apps/allbert_assist/test/security/v11_sweep_eval_test.exs")
+      )
+
+    assert [security_row] = security
+    assert security_row.name == "fanout-cancel-kill-scope-001"
+    assert security_row.multiplicity == 2
+    assert security_row.lane_tags == "test:external_runtime_serial"
+
+    assert length(onboarding) == 3
+
+    for row <- onboarding do
       assert row.path == "apps/allbert_assist/#{@onboarding}"
       assert row.describe == "v0.63 M6 --authorize pre-authorization"
       assert row.multiplicity == 2

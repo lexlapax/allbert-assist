@@ -1,6 +1,5 @@
 defmodule AllbertAssist.Execution.ProcessGroupCancelTest do
   use AllbertAssist.DataCase, async: false, lane: :external_runtime_serial
-  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Execution.ProcessOwner
   alias AllbertAssist.Settings
