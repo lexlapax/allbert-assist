@@ -566,8 +566,6 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Roles do
     end
   end
 
-  defp source_delegate_facades(_source), do: {:error, :missing_source}
-
   defp collect_source_delegate_facade(
          {{:., _meta, [module_ast, :run]}, _call_meta, [facade_name, _params, _context]} = node,
          acc

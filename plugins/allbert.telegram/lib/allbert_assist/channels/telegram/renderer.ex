@@ -67,15 +67,13 @@ defmodule AllbertAssist.Channels.Telegram.Renderer do
   defp render_handoff_payload(_primitive, payload, _handoff_data), do: {payload.text, nil}
 
   defp fallback_handoff_payload(handoff_data) do
-    with {:ok, rendered} <-
-           SurfaceRenderer.render_approval_handoff(handoff_data, %{
-             primitives: [:typed_command, :list],
-             threading: :reply_chain
-           }) do
-      render_handoff_payload(rendered.primitive, rendered.payload, handoff_data)
-    else
-      _error -> {"Approval required.", nil}
-    end
+    {:ok, rendered} =
+      SurfaceRenderer.render_approval_handoff(handoff_data, %{
+        primitives: [:typed_command, :list],
+        threading: :reply_chain
+      })
+
+    render_handoff_payload(rendered.primitive, rendered.payload, handoff_data)
   end
 
   defp effective_descriptor(opts) do

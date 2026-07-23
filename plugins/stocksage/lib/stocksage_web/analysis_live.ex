@@ -1070,8 +1070,6 @@ defmodule StockSageWeb.AnalysisLive do
   defp analysis_field(nil, _field), do: nil
   defp analysis_field(analysis, field), do: Map.get(analysis, field)
 
-  defp detail_surface_nodes(nil), do: []
-
   defp detail_surface_nodes(analysis_id) do
     [
       %Node{

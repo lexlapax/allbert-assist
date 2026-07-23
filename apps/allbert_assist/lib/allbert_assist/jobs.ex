@@ -538,8 +538,8 @@ defmodule AllbertAssist.Jobs do
   end
 
   defp normalize_string(value) when is_binary(value), do: String.trim(value)
-  defp normalize_string(value) when is_atom(value), do: value |> Atom.to_string() |> String.trim()
   defp normalize_string(nil), do: ""
+  defp normalize_string(value) when is_atom(value), do: value |> Atom.to_string() |> String.trim()
   defp normalize_string(value), do: value |> to_string() |> String.trim()
 
   defp normalize_limit(value) when is_integer(value) and value > 0, do: min(value, 100)

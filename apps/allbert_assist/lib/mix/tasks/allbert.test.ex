@@ -746,7 +746,13 @@ defmodule Mix.Tasks.Allbert.Test do
     env = owned_env("prepush", 0)
 
     [
-      phase("static_compile", root(), "mix", ["compile", "--warnings-as-errors"], env),
+      phase(
+        "static_compile",
+        root(),
+        "mix",
+        ["compile", "--force", "--warnings-as-errors"],
+        env
+      ),
       phase("format", root(), "mix", ["format", "--check-formatted"], env),
       phase("credo", root(), "mix", ["credo", "--strict"], env),
       phase(
@@ -772,7 +778,13 @@ defmodule Mix.Tasks.Allbert.Test do
     partitions = default_partition_count()
 
     [
-      phase("static_compile", root(), "mix", ["compile", "--warnings-as-errors"], env),
+      phase(
+        "static_compile",
+        root(),
+        "mix",
+        ["compile", "--force", "--warnings-as-errors"],
+        env
+      ),
       phase("deps_unused", root(), "mix", ["deps.unlock", "--unused"], env),
       phase("format", root(), "mix", ["format", "--check-formatted"], env),
       phase("credo", root(), "mix", ["credo", "--strict"], env),
@@ -5672,8 +5684,8 @@ defmodule Mix.Tasks.Allbert.Test do
       title: "compile the v1.0 freeze with warnings as errors",
       cwd: :root,
       executable: "mix",
-      args: ["compile", "--warnings-as-errors"],
-      coverage: ["compiler warnings fail the v1.0 freeze gate"]
+      args: ["compile", "--force", "--warnings-as-errors"],
+      coverage: ["a forced rebuild makes compiler warnings fail the v1.0 freeze gate"]
     },
     %{
       id: "credo_strict",

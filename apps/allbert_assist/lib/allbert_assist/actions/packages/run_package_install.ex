@@ -327,19 +327,13 @@ defmodule AllbertAssist.Actions.Packages.RunPackageInstall do
     "Package install timed out."
   end
 
-  defp execution_message(%{status: :denied}) do
-    "Package install was denied before the package runner started."
-  end
-
   defp result_status(%{status: :completed, exit_status: 0}), do: :completed
   defp result_status(%{status: :completed}), do: :failed
   defp result_status(%{status: :timed_out}), do: :timed_out
-  defp result_status(%{status: :denied}), do: :denied
 
   defp result_event(%{status: :timed_out}), do: :timed_out
   defp result_event(%{status: :completed, exit_status: 0}), do: :succeeded
   defp result_event(%{status: :completed}), do: :failed
-  defp result_event(%{status: :denied}), do: :denied
 
   defp result_summary(result) do
     %{

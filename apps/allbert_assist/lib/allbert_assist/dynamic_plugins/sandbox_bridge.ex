@@ -281,7 +281,6 @@ defmodule AllbertAssist.DynamicPlugins.SandboxBridge do
     }
   end
 
-  defp report_id(nil), do: nil
   defp report_id(path), do: Path.basename(path, ".json")
 
   defp cleanup_staging(%Staging{} = staging, opts) do

@@ -975,9 +975,8 @@ defmodule StockSage.Actions.RunAnalysis do
   defp to_json_safe(value) when is_binary(value) or is_number(value) or is_boolean(value),
     do: value
 
-  defp to_json_safe(value) when is_atom(value), do: Atom.to_string(value)
-
   defp to_json_safe(nil), do: nil
+  defp to_json_safe(value) when is_atom(value), do: Atom.to_string(value)
   defp to_json_safe(value), do: inspect(value, limit: 20, printable_limit: 1_000)
 
   defp json_key(key) when is_atom(key), do: Atom.to_string(key)

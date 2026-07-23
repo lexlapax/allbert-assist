@@ -421,7 +421,6 @@ defmodule AllbertAssist.Coding.CommandGrants do
   defp maybe_put_string(map, _key, ""), do: map
   defp maybe_put_string(map, key, value), do: Map.put(map, key, to_string(value))
 
-  defp maybe_put_datetime(map, _key, nil), do: map
   defp maybe_put_datetime(map, key, value), do: Map.put(map, key, datetime_text(value))
 
   defp stringify_record(record) when is_map(record) do

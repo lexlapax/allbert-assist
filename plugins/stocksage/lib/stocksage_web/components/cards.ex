@@ -316,8 +316,8 @@ defmodule StockSageWeb.Components.Cards do
 
   defp status_class(_status), do: "bg-zinc-800 text-zinc-200"
 
-  defp humanize(value) when is_atom(value), do: value |> Atom.to_string() |> humanize()
   defp humanize(value) when is_boolean(value), do: if(value, do: "passed", else: "review")
+  defp humanize(value) when is_atom(value), do: value |> Atom.to_string() |> humanize()
 
   defp humanize(value) when is_binary(value),
     do: value |> String.replace("_", " ") |> String.trim()
@@ -326,9 +326,9 @@ defmodule StockSageWeb.Components.Cards do
 
   defp format_value({key, value}), do: "#{key}: #{format_value(value)}"
   defp format_value(value) when is_binary(value), do: value
+  defp format_value(nil), do: ""
+  defp format_value(value) when is_boolean(value), do: to_string(value)
   defp format_value(value) when is_atom(value), do: Atom.to_string(value)
   defp format_value(value) when is_number(value), do: to_string(value)
-  defp format_value(value) when is_boolean(value), do: to_string(value)
-  defp format_value(nil), do: ""
   defp format_value(value), do: inspect(value)
 end

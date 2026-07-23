@@ -342,6 +342,5 @@ defmodule AllbertAssist.Channels.Telegram.Client do
 
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, key, value) when is_map(map), do: Map.put(map, key, value)
-  defp maybe_put(opts, _key, nil), do: opts
   defp maybe_put(opts, key, value), do: Keyword.put(opts, key, value)
 end

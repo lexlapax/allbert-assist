@@ -11,6 +11,10 @@ defmodule AllbertAssist.Actions.ResourceRefsTest do
 
   @digest String.duplicate("a", 64)
 
+  test "scope rejects a missing value instead of stringifying nil" do
+    assert {:error, :missing_scope_value} = Scope.new(:exact_file, nil)
+  end
+
   test "shell cwd and path operands create local resource refs" do
     cwd = Path.expand(Path.join(System.tmp_dir!(), "allbert-resource-ref-shell"))
     readme = Path.join(cwd, "README.md")

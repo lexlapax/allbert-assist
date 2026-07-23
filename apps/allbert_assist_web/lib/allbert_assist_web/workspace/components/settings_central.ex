@@ -1045,7 +1045,6 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
     ["allowed_safe_keys", "needs_confirmation", "denied"]
   end
 
-  defp permission_options(%{setting_key: nil}), do: []
   defp permission_options(_policy), do: ["allowed", "needs_confirmation", "denied"]
 
   defp permission_dom_id(permission) do

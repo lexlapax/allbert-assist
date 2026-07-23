@@ -149,10 +149,6 @@ defmodule AllbertAssist.Objectives.Commands do
         current = Map.get(state, :proposer_hints, %{})
         Map.put(state, :proposer_hints, Map.put(current, id, normalized_hint))
 
-      :delete ->
-        current = Map.get(state, :proposer_hints, %{})
-        Map.put(state, :proposer_hints, Map.delete(current, id))
-
       :skip ->
         state
     end
@@ -165,8 +161,6 @@ defmodule AllbertAssist.Objectives.Commands do
 
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
-
-  defp normalized_proposer_hint(nil), do: :delete
 
   defp normalized_proposer_hint(hint) when is_binary(hint) do
     with {:ok, %{} = hint_map} <- Jason.decode(hint),

@@ -72,11 +72,11 @@ defmodule AllbertAssist.Resources.Scope do
     if value == "", do: {:error, :empty_scope_value}, else: {:ok, value}
   end
 
+  defp normalize_value(nil), do: {:error, :missing_scope_value}
   defp normalize_value(value) when is_atom(value), do: normalize_value(Atom.to_string(value))
 
   defp normalize_value(value) when is_integer(value),
     do: normalize_value(Integer.to_string(value))
 
-  defp normalize_value(nil), do: {:error, :missing_scope_value}
   defp normalize_value(value), do: normalize_value(to_string(value))
 end

@@ -42,7 +42,7 @@ defmodule AllbertAssist.Templates.Parameters do
     base_name = Map.get(params, "name") || Map.get(params, "slug")
 
     with {:ok, slug} <- slug(base_name) do
-      display_name = display_name(Map.get(params, "display_name") || base_name || slug)
+      display_name = display_name(Map.get(params, "display_name") || base_name)
       module_basename = module_basename(slug)
 
       {:ok,

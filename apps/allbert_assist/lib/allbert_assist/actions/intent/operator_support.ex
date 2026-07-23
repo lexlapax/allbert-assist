@@ -326,9 +326,9 @@ defmodule AllbertAssist.Actions.Intent.OperatorSupport do
     Map.get(coverage, :review, Map.get(coverage, :review_pending, 0))
   end
 
+  defp app_id_label(nil), do: nil
   defp app_id_label(value) when is_atom(value), do: Atom.to_string(value)
   defp app_id_label(value) when is_binary(value), do: value
-  defp app_id_label(nil), do: nil
   defp app_id_label(value), do: to_string(value)
 
   defp truthy?(true), do: true

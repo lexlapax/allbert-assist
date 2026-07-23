@@ -52,6 +52,19 @@ defmodule AllbertAssist.Resources.ImageMetadataTest do
     assert {:error, :invalid_jpeg_header} = ImageMetadata.from_path(path)
   end
 
+  test "extracts jpeg dimensions after skipping a metadata segment" do
+    jpeg =
+      <<0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x04, 0xAA, 0xBB, 0xFF, 0xC0, 0x00, 0x07, 0x08, 0x00, 0x03,
+        0x00, 0x05>>
+
+    path = write_temp!("allbert-image-metadata-segmented", ".jpg", jpeg)
+
+    assert {:ok, metadata} = ImageMetadata.from_path(path)
+    assert metadata.image_format == "jpeg"
+    assert metadata.width == 5
+    assert metadata.height == 3
+  end
+
   defp write_temp!(prefix, extension, bytes) do
     path =
       Path.join(

@@ -112,7 +112,7 @@ defmodule AllbertAssist.External.RequestSpec do
           url: URI.to_string(uri),
           uri: uri,
           profile: profile,
-          host: String.downcase(uri.host || ""),
+          host: String.downcase(uri.host),
           path: path(uri),
           query: uri.query,
           headers: headers,

@@ -5993,8 +5993,6 @@ defmodule AllbertAssist.Settings.Schema do
     )
   end
 
-  defp surface_policy_key?(_key), do: false
-
   defp surface_policy_field(key) do
     key
     |> split_key()
@@ -6356,8 +6354,6 @@ defmodule AllbertAssist.Settings.Schema do
   defp mcp_secret_ref?(value) when is_binary(value) do
     Regex.match?(~r/^secret:\/\/mcp\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+$/, value)
   end
-
-  defp mcp_secret_ref?(_value), do: false
 
   defp valid_email?(value) when is_binary(value) do
     String.length(value) <= 254 and

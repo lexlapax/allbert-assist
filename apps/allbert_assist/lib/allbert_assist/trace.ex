@@ -433,7 +433,7 @@ defmodule AllbertAssist.Trace do
     target = map_value(metadata, :target_action) || action_name(action)
     origin = map_value(metadata, :origin) || %{}
 
-    "#{id} status=#{status || "unknown"} target=#{target || "unknown"} origin=#{map_value(origin, :channel) || "unknown"}"
+    "#{id} status=#{status || "unknown"} target=#{target} origin=#{map_value(origin, :channel) || "unknown"}"
   end
 
   defp confirmation_metadata_text(actions) do

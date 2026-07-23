@@ -197,8 +197,8 @@ defmodule AllbertAssist.Channels.ConfirmationCallback do
   end
 
   defp normalize(value) when is_binary(value), do: String.trim(value)
-  defp normalize(value) when is_atom(value), do: Atom.to_string(value)
   defp normalize(nil), do: ""
+  defp normalize(value) when is_atom(value), do: Atom.to_string(value)
   defp normalize(value), do: value |> to_string() |> String.trim()
 
   defp channel_key(:liveview), do: "live_view"

@@ -143,7 +143,7 @@ defmodule AllbertAssist.Resources.ImageMetadata do
 
     with true <- segment_size >= 5,
          true <- byte_size(tail) >= segment_size,
-         <<segment::binary-size(segment_size), _next::binary>> <- tail do
+         <<segment::binary-size(^segment_size), _next::binary>> <- tail do
       jpeg_segment_dimensions(segment)
     else
       _other -> {:error, :invalid_jpeg_header}
@@ -166,7 +166,7 @@ defmodule AllbertAssist.Resources.ImageMetadata do
         {:error, :invalid_jpeg_header}
 
       byte_size(tail) >= skip ->
-        <<_segment::binary-size(skip), next::binary>> = tail
+        <<_segment::binary-size(^skip), next::binary>> = tail
         jpeg_dimensions(next)
 
       true ->

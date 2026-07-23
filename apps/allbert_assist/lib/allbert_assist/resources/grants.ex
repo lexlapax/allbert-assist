@@ -455,7 +455,6 @@ defmodule AllbertAssist.Resources.Grants do
 
   defp datetime_text(%DateTime{} = datetime), do: DateTime.to_iso8601(datetime)
   defp datetime_text(value) when is_binary(value), do: value
-  defp datetime_text(nil), do: nil
 
   defp maybe_put_string(map, _key, nil), do: map
   defp maybe_put_string(map, _key, ""), do: map

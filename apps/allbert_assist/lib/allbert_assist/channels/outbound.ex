@@ -40,7 +40,6 @@ defmodule AllbertAssist.Channels.Outbound do
       module.deliver_outbound(target, body, opts)
     else
       {:error, reason} -> {:error, reason}
-      false -> {:error, :outbound_not_implemented}
     end
   rescue
     exception -> {:error, Exception.message(exception)}
@@ -63,7 +62,6 @@ defmodule AllbertAssist.Channels.Outbound do
       module.edit_outbound(target, provider_message_id, body, opts)
     else
       {:error, reason} -> {:error, reason}
-      false -> {:error, :edit_not_implemented}
     end
   rescue
     exception -> {:error, Exception.message(exception)}

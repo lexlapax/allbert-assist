@@ -816,7 +816,6 @@ defmodule AllbertAssist.Workspace.Catalog do
   end
 
   defp title(%{id: id}, fallback), do: "#{fallback} #{id}"
-  defp title(_record, fallback), do: fallback
 
   defp safe_id(id) do
     id

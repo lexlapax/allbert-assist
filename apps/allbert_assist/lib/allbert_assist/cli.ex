@@ -262,7 +262,6 @@ defmodule AllbertAssist.CLI do
       {:ok, {:area, module}} -> run_area(module, rest)
       {:ok, :builtin} -> run_builtin(path, rest)
       {:ok, :mix_only} -> {mix_only_message(path), 2}
-      {:ok, :retired} -> {"That command was retired.", 2}
       :error -> unknown(path)
     end
   end

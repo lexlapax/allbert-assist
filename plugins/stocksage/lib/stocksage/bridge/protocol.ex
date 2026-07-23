@@ -30,7 +30,6 @@ defmodule StockSage.Bridge.Protocol do
       {:ok, json <> "\n"}
     else
       {:error, reason} -> {:error, reason}
-      false -> {:error, :unknown_action}
     end
   end
 

@@ -823,7 +823,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
 
         resolve_status(record, :approved, reason, context, permission_decision, %{
           target_policy_decision: target_decision,
-          target_resumed?: target_status == :completed,
+          target_resumed?: false,
           target_status: target_status,
           target_result: Map.take(response, [:message, :error, :status])
         })
@@ -1680,7 +1680,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   end
 
   defp final_run_analysis_metadata(response) when is_map(response) do
-    status = Map.get(response, :status, Map.get(response, "status", :failed))
+    status = Map.get(response, "status", :failed)
 
     %{
       target_resumed?: true,
