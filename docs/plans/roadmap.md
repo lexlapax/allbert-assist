@@ -99,7 +99,9 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    train. (The vendored `:memento` removal landed early at 1.0.1's M5
    refresh — ADR 0050 superseded.)
 5. **1.1 — Asynchronous Background Agent Fan-Out With In-Channel Steering.**
-   (Operator intake 2026-07-18, inserted foundational-first. **Planned:**
+   (Operator intake 2026-07-18, inserted foundational-first. **Implementation
+   complete; post-implementation audit remediation M12.3 planned before
+   operator validation:**
    `docs/plans/v1.1-plan.md` + request-flow + ADR 0083/0084/0085.) On a prompt
    that decomposes into multiple tasks, Allbert delivers a kickoff receipt,
    then fans out background agents/actions, streams their status, joins on
