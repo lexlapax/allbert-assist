@@ -4,6 +4,7 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
   import Phoenix.LiveViewTest
 
   alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Surface.Catalog
 
   test "renders objective details and cancels through registered action", %{conn: conn} do
@@ -189,6 +190,33 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
 
     assert render(view) =~ "Shared topic objective"
     assert Process.alive?(view.pid)
+  end
+
+  test "renders a live fan-out tree and steers a child through the registered action", %{
+    conn: conn
+  } do
+    assert {:ok, %{parent: parent, children: [first, second]}} =
+             Fanout.frame(
+               %{user_id: "local", title: "Parallel launch", objective: "Parallel launch"},
+               ["Research risks", "Draft brief"]
+             )
+
+    {:ok, view, html} = live(conn, ~p"/objectives/#{parent.id}")
+    assert html =~ "Fan-out tasks"
+    assert has_element?(view, "#fanout-child-#{first.id}")
+    assert has_element?(view, "#fanout-child-#{second.id}")
+
+    html =
+      view
+      |> form("#fanout-child-#{first.id} form", %{
+        "child-id" => first.id,
+        "directive" => "Use primary sources"
+      })
+      |> render_submit()
+
+    assert html =~ "Steering queued"
+    assert {:ok, steered} = Objectives.get_objective(first.id)
+    assert Enum.any?(Objectives.list_events(steered.id), &(&1.kind == "steer_directive"))
   end
 
   defp assert_catalog_components_known!(html) do

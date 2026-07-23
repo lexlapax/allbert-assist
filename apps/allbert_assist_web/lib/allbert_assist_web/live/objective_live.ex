@@ -35,6 +35,7 @@ defmodule AllbertAssistWeb.ObjectiveLive do
         objective: nil,
         steps: [],
         events: [],
+        children: [],
         error: nil,
         show_cancel?: false
       )
@@ -107,6 +108,34 @@ defmodule AllbertAssistWeb.ObjectiveLive do
     end
   end
 
+  def handle_event(
+        "steer_fanout_child",
+        %{"child-id" => child_id, "directive" => directive},
+        socket
+      ) do
+    params = %{objective_id: child_id, directive: directive}
+
+    case Runner.run("steer_objective_run", params, context(socket)) do
+      {:ok, %{status: :steered} = response} ->
+        {:noreply, socket |> assign(response: response_text(response), error: nil) |> refresh()}
+
+      {:ok, response} ->
+        {:noreply, assign(socket, error: response_error(response))}
+    end
+  end
+
+  def handle_event("cancel_fanout_child", %{"child-id" => child_id}, socket) do
+    params = %{objective_id: child_id, reason: "Cancelled from fan-out objective view."}
+
+    case Runner.run("cancel_objective_run", params, context(socket)) do
+      {:ok, %{status: :cancelled} = response} ->
+        {:noreply, socket |> assign(response: response_text(response), error: nil) |> refresh()}
+
+      {:ok, response} ->
+        {:noreply, assign(socket, error: response_error(response))}
+    end
+  end
+
   @impl true
   def handle_info({:objective_event, _signal}, socket), do: {:noreply, refresh(socket)}
 
@@ -155,6 +184,48 @@ defmodule AllbertAssistWeb.ObjectiveLive do
               renderer_context={%{user_id: @user_id, page: :objectives}}
               workspace_state={%{}}
             />
+          </section>
+
+          <section
+            :if={@children != []}
+            id="fanout-tree"
+            class="operator-catalog-section"
+            aria-labelledby="fanout-tree-title"
+          >
+            <h2 id="fanout-tree-title" class="operator-section-title">Fan-out tasks</h2>
+            <p class="text-sm text-base-content/70">
+              Status is live from durable objective events. Steering is applied before the next effect.
+            </p>
+            <article
+              :for={child <- @children}
+              id={"fanout-child-#{child.id}"}
+              class="mt-3 rounded border border-base-300 p-3"
+            >
+              <header class="flex items-center justify-between gap-3">
+                <h3 class="font-medium">{child.title}</h3>
+                <span class="allbert-chip">{child.status}</span>
+              </header>
+              <p class="mt-1 text-sm">{child[:progress_summary] || "No progress recorded yet."}</p>
+              <form phx-submit="steer_fanout_child" class="mt-3 flex flex-wrap gap-2">
+                <input type="hidden" name="child-id" value={child.id} />
+                <input
+                  id={"fanout-steer-directive-#{child.id}"}
+                  name="directive"
+                  required
+                  aria-label={"Steering directive for #{child.title}"}
+                  class="input input-bordered min-w-64 flex-1"
+                />
+                <button type="submit" class={Patterns.button_class!("primary")}>Steer</button>
+                <button
+                  type="button"
+                  phx-click="cancel_fanout_child"
+                  phx-value-child-id={child.id}
+                  class={Patterns.button_class!("danger")}
+                >
+                  Cancel
+                </button>
+              </form>
+            </article>
           </section>
 
           <Patterns.workspace_modal
@@ -405,7 +476,7 @@ defmodule AllbertAssistWeb.ObjectiveLive do
           props: %{
             dom_id: "objective-event-#{event.id}",
             title: event.kind,
-            body: event.summary
+            body: Map.get(event, :summary) || "No event summary."
           }
         }
       end)
@@ -491,11 +562,12 @@ defmodule AllbertAssistWeb.ObjectiveLive do
           objective: response.objective,
           steps: response.steps,
           events: response.events,
+          children: response.children,
           error: nil
         )
 
       {:ok, %{status: :not_found}} ->
-        assign(socket, objective: nil, steps: [], events: [], error: nil)
+        assign(socket, objective: nil, steps: [], events: [], children: [], error: nil)
 
       {:ok, response} ->
         assign(socket, error: response_error(response))

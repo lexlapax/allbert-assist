@@ -22,11 +22,13 @@ defmodule AllbertAssist.Actions.Objectives.ShowObjective do
       objective: [type: :map, required: false],
       steps: [type: {:list, :map}, required: true],
       events: [type: {:list, :map}, required: true],
+      children: [type: {:list, :map}, required: true],
       actions: [type: {:list, :map}, required: true]
     ]
 
   alias AllbertAssist.Maps
   alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Validation
 
@@ -45,6 +47,13 @@ defmodule AllbertAssist.Actions.Objectives.ShowObjective do
         |> Objectives.list_events(limit: event_limit(params))
         |> Enum.map(&event_map/1)
 
+      children =
+        if objective.fanout_role == "parent" do
+          objective.id |> Fanout.children() |> Enum.map(&objective_map/1)
+        else
+          []
+        end
+
       {:ok,
        %{
          message: "Objective #{objective.id}: #{objective.title}",
@@ -53,6 +62,7 @@ defmodule AllbertAssist.Actions.Objectives.ShowObjective do
          objective: objective_map(objective),
          steps: steps,
          events: events,
+         children: children,
          actions: [
            action(:completed, permission_decision, %{
              user_id: user_id,
@@ -162,6 +172,7 @@ defmodule AllbertAssist.Actions.Objectives.ShowObjective do
       permission_decision: permission_decision,
       steps: [],
       events: [],
+      children: [],
       actions: [action(:denied, permission_decision, %{error: :permission_denied})]
     }
   end
@@ -174,6 +185,7 @@ defmodule AllbertAssist.Actions.Objectives.ShowObjective do
       permission_decision: permission_decision,
       steps: [],
       events: [],
+      children: [],
       actions: [action(:not_found, permission_decision, %{error: :not_found})]
     }
   end
@@ -186,6 +198,7 @@ defmodule AllbertAssist.Actions.Objectives.ShowObjective do
       permission_decision: permission_decision,
       steps: [],
       events: [],
+      children: [],
       actions: [action(:error, permission_decision, %{error: reason})]
     }
   end

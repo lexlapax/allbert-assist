@@ -327,6 +327,17 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
 
       <div :if={@settings_panel_open?} class="workspace-settings-panel-body">
         <div class="grid gap-6">
+          <section id="autonomous-notify-settings" class="rounded border border-base-300 p-3">
+            <h2 class="text-lg font-medium">Background report-back</h2>
+            <p class="mt-1 text-sm text-base-content/70">
+              Off by default. Enabling a channel authorizes Allbert to send status or completion
+              after your turn ends; it does not grant new tool or data permissions.
+            </p>
+            <p class="mt-1 text-xs text-base-content/60">
+              Select a channels.&lt;channel&gt;.autonomous_notify setting below to review or change it.
+              Email supports completion only.
+            </p>
+          </section>
           <section id="settings-list" class="space-y-2">
             <button
               :for={setting <- @settings}
