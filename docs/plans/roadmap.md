@@ -122,16 +122,35 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    merged mid-action interruption + child-process cancellation enablers and
    the app-registry action-boundary membership check (operator-pulled,
    2026-07-18).
-6. **1.2 — Zero-Click First Run.** Chat-ready default with an auto-detected local
-   model; onboarding optional and step-addressable; consent ADR; TUI first-run scope
-   folded in. Enablers: model chooser/catalog, model fallback/degradation policy.
-7. **1.3 — Long-Term User Memory.** Research phase first (STM/LTM/usage-history onto
-   the Active Memory substrate), then periodic consolidation to reviewable drafts and
-   prompt-time context for zero-shot answers. Horizon items: free-form provider URLs,
-   non-local bind hardening.
-8. **1.4 — Adaptive Usage Profiling.** System usage memory + distill/suggest jobs +
-   one-click confirmed customizations + effectiveness feedback. Per-role model
-   profiles and proactive notifications ride here.
+6. **1.2 — Zero-Click First Run.** (**Planned — triad ready 2026-07-24:**
+   `docs/plans/v1.2-plan.md` + request-flow + ADR 0087 (detection-based
+   enablement consent, operator-locked: auto-enable on any detected
+   configured provider, local-first) / ADR 0088 (model catalog/chooser +
+   fallback policy); ADR 0078/0069 amended. **Build starts after v1.1
+   closeout.**) Chat-ready default with an auto-detected provisioned
+   provider; onboarding optional and step-addressable; TUI first-run scope
+   folded in. Enablers: model chooser/catalog, model fallback/degradation
+   policy. Additive-only (migration runner stays at 1.5/1.6).
+7. **1.3 — Long-Term User Memory.** (**Planned — research-gated triad ready
+   2026-07-24:** `docs/plans/v1.3-plan.md` + request-flow + ADR 0089
+   (memory architecture + consent; M1 research resolves LD-R1–R5 with
+   operator sign-off). **Build starts after v1.2 closeout.**) Research
+   phase first (STM/LTM/usage-history onto the Active Memory substrate),
+   then periodic consolidation to a reviewable system-proposed tier and
+   prompt-time context for zero-shot answers; only operator-kept entries
+   ever enter prompts. Conversation FTS / cross-thread retrieval decided
+   in/out at M1. Horizon items: free-form provider URLs, non-local bind
+   hardening.
+8. **1.4 — Adaptive Usage Profiling.** (**Planned — triad ready
+   2026-07-24:** `docs/plans/v1.4-plan.md` + request-flow + ADR 0090
+   (profiling + confirmed customization) + ADR 0084 amendment
+   (`:suggestion` kind, quiet hours, rate limit). **Build starts after
+   v1.3 closeout.**) System usage memory + distill/suggest jobs +
+   one-click CONFIRMED customizations (allowlisted, safety-floor-pinned)
+   + effectiveness feedback. Per-role model profiles and proactive
+   suggestion notifications ride here — and, by operator decision
+   2026-07-24, **Mobile-Ready Web stage 1** rides as non-flagship scope
+   (Dynamic Mobile Breakpoints folds in; stages 2–4 stay at horizon).
 9. **1.5 / 1.6 — enabler releases.** Migration-runner cluster (runner + telegram/email
    settings migration + legacy `intent.*model_profile` removal + automated rollback;
    pulled earlier if any prior release needs a non-additive migration), email OAuth

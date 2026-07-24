@@ -241,3 +241,48 @@ and gate-bound abuse-case coverage.
   Full simulated end-to-end evidence is mandatory for WhatsApp/Signal while
   ReleaseAvailability-gated; their live row becomes mandatory only when
   released and configured. `release.v1` is green at the tag.
+
+## Amendment (v1.4 planning, 2026-07-24) — additive `:suggestion` notification kind
+
+v1.4 (ADR 0090, Adaptive Usage Profiling) adds proactive suggestion
+delivery — "a suggestion card is ready" — as an **additive notification
+kind on this boundary**, not a second spine:
+
+- **Kind:** `:suggestion` joins the `Channels.Notify` kinds and the
+  delivery-ledger kind set. It is always a NEW message (never an edit),
+  passes the same ordered check chain (live-use → grant → level/class →
+  throttle → Security policy → exact-origin binding), the same redaction,
+  ledger states, and monthly audit.
+- **Separate opt-in, default OFF:** a per-channel
+  `channels.<id>.autonomous_notify.suggestions_enabled` key (additive,
+  default `false`) gates the kind independently of status/completion.
+  Enabling status/completion never enables suggestions, and vice versa.
+  The one-time typed consent-offer pattern (Decision 0) may be reused for
+  suggestion opt-in; free text still never changes the setting.
+- **Quiet hours and per-class rate limit (additive keys, all kinds may
+  adopt):** `channels.<id>.autonomous_notify.quiet_hours` (local-time
+  window; deliveries inside it are suppressed-with-reason or deferred to
+  the window edge — the v1.4 plan fixes the semantics per class) and a
+  per-class rate limit for `:suggestion`
+  (`channels.<id>.autonomous_notify.suggestion_max_per_day`, additive,
+  conservative default). Ledger rows record quiet-hours/rate-limit
+  suppression reasons; the backlog's proactive-notification policy items
+  (per-class opt-in, quiet hours, rate limiting, audit, revocation) land
+  through these keys.
+- **Payload rule:** a suggestion notification carries the card's redacted
+  title/benefit line and a pointer to the workspace/CLI surface — never
+  the full evidence body, never actionable approval semantics. Approving
+  the underlying customization remains the ADR 0090 confirmed path on the
+  ordinary confirmation surfaces; a notification is never an approval
+  channel beyond the existing typed-command/button machinery.
+- **Non-goals unchanged:** no other proactive classes (meeting starts,
+  provider disconnects, job completions outside fan-out reports) are
+  granted by this amendment; each would need its own kind decision here.
+  Email remains digest-class (completion-only posture; suggestion
+  delivery on email is completion-shaped or absent — the v1.4 plan
+  records the per-channel matrix).
+
+Precedent note: the kinds list has evolved additively before
+(`:consent_offer` in v1.1 M6); this amendment follows that pattern and is
+gate-bound by v1.4 `:v14` eval rows (default-off, quiet-hours, and
+rate-limit suppression proven at the Notify boundary).

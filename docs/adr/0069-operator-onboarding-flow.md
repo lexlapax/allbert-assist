@@ -231,3 +231,19 @@ store:
 
 This is a correctness repair to the accepted two-surfaces/one-flow decision. It
 does not auto-install Ollama, bypass confirmation, or weaken the TUI guard.
+
+## Amendment (v1.2 planning, 2026-07-24) — onboarding becomes optional and step-addressable (ADR 0087)
+
+ADR 0087 (Zero-Click First Run And Detection-Based Enablement) demotes the
+guided wizard from the mandatory first-run gate to an **optional,
+step-addressable customization surface**: chat readiness is decided by
+detection of already-provisioned providers, `onboarding_complete` stops
+gating chat or the TUI, and every wizard step becomes directly addressable
+at any time — including after completion — generalizing the shipped
+`wizard_rewind` navigation. The two-surfaces/one-flow contract, the
+QuickStart/Advanced tracks, the shared state machine, the v1.0.5
+false-complete repair above, and the single-resolved-readiness-snapshot rule
+all stand: the wizard still may not print `Onboarding complete` while
+readiness is non-ready. What changes is only the gate direction — the wizard
+enriches an already-usable product instead of unlocking it. See ADR 0087 for
+the detect-state matrix and the redefined acceptance criteria.

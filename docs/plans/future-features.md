@@ -419,7 +419,10 @@ Still parked:
 
 Class: Should (confirmed 2026-07-14) · Effort: M · Slice: 1.1 — scoped as the suggestion-delivery stage of Adaptive Usage Profiling
 
-Status: parked. Added in the post-v0.37 planning pass.
+Status: planned (suggestion-delivery stage only) — `docs/plans/v1.4-plan.md`
+M6 / ADR 0084 amendment 2026-07-24 (`:suggestion` kind, per-class opt-in,
+quiet hours, rate limit). Broader proactive classes remain parked below.
+Previously parked; added in the post-v0.37 planning pass.
 
 Allbert is reactive through v1.0, with one narrow carve-out: v0.42 adds an
 opt-in, paused-by-default background MCP-discovery scan (per ADR 0048) that runs
@@ -543,7 +546,9 @@ Deferred at: `v0.53-plan:62`.
 
 Class: Must (confirmed 2026-07-14) · Effort: L · Slice: 1.1 FLAGSHIP — consent ADR + folded TUI first-run scope
 
-Status: parked (operator-directed, post-1.0 intake 2026-07-14).
+Status: planned — `docs/plans/v1.2-plan.md` (triad + ADR 0087 consent ADR +
+ADR 0088; operator consent decision 2026-07-24: auto-enable on any detected
+configured provider, local-first).
 
 Invert the first-run model: instead of requiring the non-developer to press
 "Start QuickStart" and walk the wizard before chat works, the first run
@@ -664,7 +669,10 @@ Deferred at: `v0.61b-plan:1643`.
 
 Class: Must (confirmed 2026-07-18) · Effort: L · Slice: horizon (placed at the next ladder review; stage 1 may ride an earlier minor as non-flagship scope on operator direction)
 
-Status: operator intake 2026-07-18.
+Status: stage 1 planned — `docs/plans/v1.4-plan.md` M7 (operator decision
+2026-07-24: stage 1 rides v1.4 as non-flagship scope; Dynamic Mobile
+Breakpoints folds in). Stages 2–4 remain at horizon. Operator intake
+2026-07-18.
 
 Mobile-ready UI/UX for the web workspace, staged so the mobile-ready
 frontend can later be encapsulated into a lightweight native mobile app
@@ -696,7 +704,8 @@ Provenance: operator intake, 2026-07-18 (v1.0.2 M8 window).
 Class: Could (confirmed 2026-07-14) · Effort: S · Slice: hold — folds into the
 Mobile-Ready Web UI/UX intake (stage 1 enabler) if/when that is slotted
 
-Status: parked.
+Status: planned (folded) — stage 1 slotted into `docs/plans/v1.4-plan.md` M7
+(2026-07-24); this entry rides it as the breakpoint-roles enabler.
 
 v0.26 deferred dynamic (content-aware) mobile breakpoints for workspace
 layout.
@@ -753,7 +762,8 @@ Deferred at: `v0.26-plan:2079`.
 
 Class: Must (confirmed 2026-07-14) · Effort: L · Slice: 1.1 CO-FLAGSHIP — research phase first
 
-Status: parked (operator-directed, post-1.0 intake 2026-07-14).
+Status: planned — `docs/plans/v1.3-plan.md` (research-gated triad + ADR 0089;
+M1 is the research milestone with operator sign-off, 2026-07-24).
 
 The user-facing sibling of Adaptive Usage Profiling (Self-Improvement
 category): over time, build a **long-term user memory** that remembers facts
@@ -829,7 +839,9 @@ memory pinning are also parked under this entry (no separate section).
 
 Class: Should (confirmed 2026-07-14) · Effort: M · Slice: foundational input to the Long-Term User Memory research phase (retrieval scope) — research to confirm
 
-Status: parked. Added in the post-v0.37 planning pass.
+Status: research input — `docs/plans/v1.3-plan.md` M1 decides scope at
+operator sign-off (2026-07-24). Previously parked; added in the post-v0.37
+planning pass.
 
 v0.39b Active Memory retrieval is scoped to `{thread_id, active_app,
 identity_namespace}` with neutral/core context limited to identity + general
@@ -848,7 +860,9 @@ Still parked:
 
 Class: Should (confirmed 2026-07-14) · Effort: M · Slice: foundational input to the Long-Term User Memory research phase (retrieval substrate) — research to confirm
 
-Status: parked. Added in the post-v0.37 planning pass.
+Status: research input — `docs/plans/v1.3-plan.md` M1 decides in/out; M7 is
+the conditional implementation milestone (2026-07-24). Previously parked;
+added in the post-v0.37 planning pass.
 
 Markdown memory has full-text search through v0.21. SQLite `Thread`/`Message`
 conversation history does not. Operators may want to search prior threads.
@@ -865,7 +879,8 @@ Still parked:
 
 Class: Should (confirmed 2026-07-14) · Effort: M · Slice: 1.1 — required by the zero-click detect states
 
-Status: parked. Added in the post-v0.37 planning pass after the v0.39 plan
+Status: planned — `docs/plans/v1.2-plan.md` M5 / ADR 0088 (2026-07-24).
+Previously parked; added in the post-v0.37 planning pass after the v0.39 plan
 dropped the unspecified "explicit operator opt-in" wording. Reaffirmed in
 the post-v0.38 readiness review on 2026-05-27: v0.39 ships the two-branch
 provider doctor (per ADR 0047) which reports availability but does **not**
@@ -923,7 +938,7 @@ Deferred at: operator intake (post-1.0 planning, 2026-07-15).
 
 Class: Should (confirmed 2026-07-14) · Effort: M · Slice: 1.1 — enabler for zero-click and adaptive suggestions
 
-Status: parked.
+Status: planned — `docs/plans/v1.2-plan.md` M4 / ADR 0088 (2026-07-24).
 
 v0.64 deferred a model chooser/catalog surface (browse available models with
 size/capability metadata instead of typing a model id). High-value first-run
@@ -935,7 +950,7 @@ Deferred at: `v0.64-plan:171`.
 
 Class: Should (confirmed 2026-07-14) · Effort: M · Slice: 1.1 — the target surface of adaptive model suggestions
 
-Status: parked.
+Status: planned — `docs/plans/v1.4-plan.md` M5 / ADR 0090 (2026-07-24).
 
 v0.37 deferred per-role model profiles (a fast model for ranking, a capable
 model for main responses, a thinking model for planning) instead of one

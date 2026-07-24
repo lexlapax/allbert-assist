@@ -192,3 +192,19 @@ QuickStart completion is also tied to the existing
 disabled. Conversely, advancing the configured-local ready path uses the
 existing readiness-gated enablement and admits the same endpoint to first chat
 and TUI.
+
+## Amendment (v1.2 planning, 2026-07-24) — enablement point superseded by ADR 0087
+
+ADR 0087 (Zero-Click First Run And Detection-Based Enablement) supersedes the
+v0.63 M8.5 amendment's placement of the enablement point inside the onboarding
+wizard: detection of any already-provisioned provider (local runtime,
+configured local endpoint, or hosted key) auto-enables direct answers with an
+audited provenance record and a one-time disclosure, in strict local-first
+order, and onboarding becomes an optional step-addressable customization
+surface. Everything else in this ADR stands unchanged — the assisted-local
+default, honest BYOK fallback, the rejected managed-hosted default, the
+detect + guided-install mechanism, the one-click curated pull, and the v1.0.5
+configured-endpoint local-readiness rule (which ADR 0087's detection chain
+consumes as written). The wizard and persona flip sites remain valid,
+idempotent enablement paths. See ADR 0087 for the redefined detect-state
+matrix and first-run acceptance criteria.
