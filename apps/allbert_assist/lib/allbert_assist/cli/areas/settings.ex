@@ -188,7 +188,37 @@ defmodule AllbertAssist.CLI.Areas.Settings do
       channel_identity_map_setting?(key) -> parse_channel_identity_map(value)
       string_list_setting?(key) -> parse_string_list(value)
       string_map_setting?(key) -> parse_string_map(value)
+      string_scalar_setting?(key) -> {:ok, value}
       true -> {:ok, parse_scalar_value(value)}
+    end
+  end
+
+  defp string_scalar_setting?(key) do
+    case Map.get(Settings.schema(), key) do
+      %{type: type}
+      when type in [
+             :channel_secret_ref,
+             :email_or_empty,
+             :enum,
+             :hex_secret_or_nil,
+             :loopback_bind_host,
+             :loopback_http_base_url,
+             :mcp_secret_ref_or_nil,
+             :profile_ref,
+             :provider_ref,
+             :public_api_path_prefix,
+             :public_protocol_secret_ref,
+             :secret_ref_or_nil,
+             :string,
+             :string_or_empty,
+             :string_or_nil,
+             :timezone,
+             :url_or_nil
+           ] ->
+        true
+
+      _schema ->
+        false
     end
   end
 

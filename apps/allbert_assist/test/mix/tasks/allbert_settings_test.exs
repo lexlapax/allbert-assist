@@ -52,6 +52,16 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
     assert set_output =~ "Audit:"
     assert {:ok, "balanced"} = Settings.get("operator.communication_style")
 
+    Mix.Task.reenable("allbert.settings")
+
+    numeric_string_output =
+      capture_io(fn ->
+        assert :ok = SettingsTask.run(["set", "operator.display_name", "+15551234567"])
+      end)
+
+    assert numeric_string_output =~ "Updated: operator.display_name=\"+15551234567\""
+    assert {:ok, "+15551234567"} = Settings.get("operator.display_name")
+
     list_set_output =
       capture_io(fn ->
         assert :ok =
