@@ -24,11 +24,12 @@ defmodule AllbertAssist.Actions.Objectives.CancelObjectiveRun do
   alias AllbertAssist.Maps
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
-  alias AllbertAssist.Objectives.Runs.Cancel
+  alias AllbertAssist.Objectives.Runs.{Cancel, Coordinator}
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Signals
 
   @tiers %{cooperative: 1, supervised: 2, os_kill: 3}
+  @cancellable_statuses ~w[open running blocked]
 
   @impl true
   def run(params, context) do
@@ -65,17 +66,24 @@ defmodule AllbertAssist.Actions.Objectives.CancelObjectiveRun do
   end
 
   defp cancel_targets(%{fanout_role: "parent"} = parent, user_id, reason) do
-    targets = Fanout.children(parent) ++ [parent]
-    cancel_all(targets, user_id, reason)
+    active_children =
+      parent
+      |> Fanout.children()
+      |> Enum.filter(&(&1.status in @cancellable_statuses))
+
+    cancel_all([parent | active_children], user_id, reason)
   end
 
   defp cancel_targets(objective, user_id, reason), do: cancel_all([objective], user_id, reason)
 
   defp cancel_all(targets, user_id, reason) do
     Enum.reduce_while(targets, {:ok, :cooperative}, fn objective, {:ok, highest} ->
-      with {:ok, tier} <- Cancel.cancel(objective.id),
+      with {:ok, _requested} <-
+             Objectives.request_cancellation(user_id, objective.id, reason),
+           {:ok, tier} <- Cancel.cancel(objective.id),
            {:ok, _result} <- Objectives.cancel(user_id, objective.id, reason),
-           {:ok, _event} <- record_tier(objective.id, tier, reason) do
+           {:ok, _event} <- record_tier(objective.id, tier, reason),
+           :ok <- Coordinator.durable_terminal(objective.parent_objective_id, objective.id) do
         Signals.emit_fanout(:run_cancelled, %{
           child_id: objective.id,
           parent_id: objective.parent_objective_id,

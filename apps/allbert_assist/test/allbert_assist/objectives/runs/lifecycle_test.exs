@@ -388,6 +388,26 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     assert Enum.any?(Objectives.list_events(child.id), &(&1.kind == "run_cancelled"))
   end
 
+  test "a blocked or terminal objective cannot begin another run attempt" do
+    for status <- ~w[blocked completed cancelled failed abandoned] do
+      assert {:ok, child} =
+               Objectives.create_objective(%{
+                 user_id: "alice",
+                 title: "Non-runnable #{status}",
+                 objective: "Stay #{status}",
+                 fanout_role: "child",
+                 status: status,
+                 run_attempt_count: 1
+               })
+
+      assert {:error, {:objective_not_runnable, ^status}} = Lifecycle.run(child.id)
+      assert {:ok, unchanged} = Objectives.get_objective(child.id)
+      assert unchanged.status == status
+      assert unchanged.run_attempt_count == 1
+      refute Enum.any?(Objectives.list_events(child.id), &(&1.kind == "run_started"))
+    end
+  end
+
   test "confirmation parking persists the step receipt without blocking another run" do
     assert {:ok, child} =
              Objectives.create_objective(%{

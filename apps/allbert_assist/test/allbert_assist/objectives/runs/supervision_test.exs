@@ -1,9 +1,11 @@
 defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
   use AllbertAssist.DataCase, async: false, lane: :db_serial
 
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Runs.Scheduler
+  alias AllbertAssist.Settings
 
   defmodule PausingAdapter do
     def operation(operation, state, opts) do
@@ -217,6 +219,104 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert {:ok, failed} = Objectives.get_objective(failing.id)
     assert failed.run_attempt_count == 2
     assert Enum.count(Objectives.list_events(failing.id), &(&1.kind == "run_started")) == 2
+  end
+
+  test "supervised cancellation is terminal before recovery and join" do
+    assert {:ok, _setting} =
+             Settings.put("execution.cancel.grace_ms", 500, %{audit?: false})
+
+    %{parent: parent, children: [cancelled, sibling], receipt: receipt} = frame_two()
+    cancelled_id = cancelled.id
+    add_safe_step(cancelled)
+    add_safe_step(sibling)
+    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    run_opts = [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
+    assert {:ok, _coordinator} = Scheduler.start_fanout(parent.id, run_opts: run_opts)
+
+    cancelled_pid = await_paused_run(cancelled.id)
+    sibling_pid = await_paused_run(sibling.id)
+
+    cancel_task =
+      Task.async(fn ->
+        Runner.run(
+          "cancel_objective_run",
+          %{objective_id: cancelled.id, reason: "operator skipped child"},
+          %{user_id: "alice", channel: "test"}
+        )
+      end)
+
+    eventually(fn ->
+      match?(
+        {:ok, %{status: "blocked", review_reason: "cancellation_requested"}},
+        Objectives.get_objective(cancelled.id)
+      )
+    end)
+
+    assert {:ok, response} = Task.await(cancel_task, 2_000)
+
+    assert response.status == :cancelled, inspect(response)
+    assert response.cancellation_tier == :supervised
+    refute Process.alive?(cancelled_pid)
+    send(sibling_pid, :continue)
+
+    eventually(fn ->
+      with {:ok, child} <- Objectives.get_objective(cancelled.id),
+           {:ok, joined} <- Objectives.get_objective(parent.id) do
+        child.status == "cancelled" and child.run_attempt_count == 1 and
+          joined.join_outcome == "partial"
+      end
+    end)
+
+    assert {:ok, stable} = Objectives.get_objective(cancelled.id)
+    assert stable.review_reason == "operator skipped child"
+    stable_updated_at = stable.updated_at
+    Process.sleep(200)
+    assert {:ok, unchanged} = Objectives.get_objective(cancelled.id)
+    assert unchanged.status == "cancelled"
+    assert unchanged.run_attempt_count == 1
+    assert unchanged.updated_at == stable_updated_at
+    assert Enum.count(Objectives.list_events(cancelled.id), &(&1.kind == "run_started")) == 1
+    refute_receive {:run_operation, ^cancelled_id, :execute, _pid}, 200
+  end
+
+  test "parent cancellation succeeds when completed and active children coexist" do
+    assert {:ok, _setting} =
+             Settings.put("execution.cancel.grace_ms", 100, %{audit?: false})
+
+    %{parent: parent, children: [completed, active], receipt: receipt} = frame_two()
+    add_safe_step(completed)
+    add_safe_step(active)
+    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    run_opts = [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
+    assert {:ok, _coordinator} = Scheduler.start_fanout(parent.id, run_opts: run_opts)
+
+    completed_pid = await_paused_run(completed.id)
+    _active_pid = await_paused_run(active.id)
+    send(completed_pid, :continue)
+
+    eventually(fn ->
+      match?({:ok, %{status: "completed"}}, Objectives.get_objective(completed.id))
+    end)
+
+    assert {:ok, response} =
+             Runner.run(
+               "cancel_objective_run",
+               %{objective_id: parent.id, reason: "stop remaining work"},
+               %{user_id: "alice", channel: "test"}
+             )
+
+    assert response.status == :cancelled, inspect(response)
+
+    eventually(fn ->
+      with {:ok, completed_child} <- Objectives.get_objective(completed.id),
+           {:ok, cancelled_child} <- Objectives.get_objective(active.id),
+           {:ok, joined} <- Objectives.get_objective(parent.id) do
+        completed_child.status == "completed" and cancelled_child.status == "cancelled" and
+          joined.status == "completed" and joined.join_outcome == "partial"
+      end
+    end)
   end
 
   test "scheduler restart reconstructs live capacity without duplicating runs" do

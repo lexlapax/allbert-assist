@@ -52,14 +52,18 @@ defmodule AllbertAssist.Objectives.Lifecycle do
 
   defp begin_attempt(child_id) do
     with {:ok, objective} <- Objectives.get_objective(child_id) do
-      attempt = (objective.run_attempt_count || 0) + 1
+      if objective.status in ~w[open running] do
+        attempt = (objective.run_attempt_count || 0) + 1
 
-      persist_transition(
-        objective,
-        %{status: "running", run_attempt_count: attempt, review_reason: nil},
-        "run_started",
-        %{attempt: attempt}
-      )
+        persist_transition(
+          objective,
+          %{status: "running", run_attempt_count: attempt, review_reason: nil},
+          "run_started",
+          %{attempt: attempt}
+        )
+      else
+        {:error, {:objective_not_runnable, objective.status}}
+      end
     end
     |> case do
       {:ok, objective} ->

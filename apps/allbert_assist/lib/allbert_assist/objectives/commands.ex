@@ -1493,6 +1493,7 @@ defmodule AllbertAssist.Objectives.Commands.CancelObjective do
         |> Objectives.update_objective(%{
           status: "cancelled",
           progress_summary: "Cancelled: #{reason}",
+          review_reason: String.slice(reason, 0, 240),
           completed_at: now
         })
         |> unwrap_or_rollback()

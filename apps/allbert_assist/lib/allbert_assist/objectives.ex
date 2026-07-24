@@ -130,6 +130,70 @@ defmodule AllbertAssist.Objectives do
     })
   end
 
+  @doc "Durably mark an owned active objective as awaiting cancellation cleanup."
+  @spec request_cancellation(String.t(), String.t(), String.t()) :: objective_result()
+  def request_cancellation(user_id, objective_id, reason)
+      when is_binary(user_id) and is_binary(objective_id) and is_binary(reason) do
+    now = DateTime.utc_now()
+
+    query =
+      from objective in Objective,
+        where:
+          objective.id == ^objective_id and objective.user_id == ^user_id and
+            objective.status in ^@active_statuses and
+            not (objective.status == "blocked" and
+                   objective.review_reason == "cancellation_requested")
+
+    transaction = fn ->
+      request_cancellation_transaction(query, user_id, objective_id, reason, now)
+    end
+
+    case Repo.transaction(transaction) do
+      {:ok, objective} -> {:ok, objective}
+      {:error, transaction_error} -> {:error, transaction_error}
+    end
+  end
+
+  defp request_cancellation_transaction(query, user_id, objective_id, reason, now) do
+    updates = [
+      status: "blocked",
+      review_reason: "cancellation_requested",
+      updated_at: now
+    ]
+
+    case Repo.update_all(query, set: updates) do
+      {1, _rows} -> persist_cancellation_request(user_id, objective_id, reason)
+      {0, _rows} -> existing_cancellation_request(user_id, objective_id)
+    end
+  end
+
+  defp persist_cancellation_request(user_id, objective_id, reason) do
+    objective = Repo.get_by!(Objective, id: objective_id, user_id: user_id)
+
+    case create_event(%{
+           objective_id: objective_id,
+           kind: "run_blocked",
+           summary: "Objective cancellation requested",
+           payload: %{reason: reason}
+         }) do
+      {:ok, _event} -> objective
+      {:error, event_error} -> Repo.rollback(event_error)
+    end
+  end
+
+  defp existing_cancellation_request(user_id, objective_id) do
+    case Repo.get_by(Objective, id: objective_id, user_id: user_id) do
+      %Objective{status: "blocked", review_reason: "cancellation_requested"} = objective ->
+        objective
+
+      %Objective{status: status} ->
+        Repo.rollback({:objective_not_cancellable, status})
+
+      nil ->
+        Repo.rollback(:not_found)
+    end
+  end
+
   @doc "Continue an objective through the engine."
   @spec continue(String.t(), String.t()) :: {:ok, map()} | {:error, term()}
   def continue(user_id, objective_id) when is_binary(user_id) and is_binary(objective_id) do

@@ -168,6 +168,52 @@ defmodule AllbertAssist.Objectives.DelegateCancelTest do
            end)
   end
 
+  test "durable cancellation intent is owned and idempotent" do
+    assert {:ok, %{children: [child, _sibling]}} = frame()
+
+    assert {:error, :not_found} =
+             Objectives.request_cancellation("other-user", child.id, "not owned")
+
+    assert {:ok, requested} =
+             Objectives.request_cancellation("cancel-user", child.id, "operator requested")
+
+    assert requested.status == "blocked"
+    assert requested.review_reason == "cancellation_requested"
+
+    assert {:ok, duplicate} =
+             Objectives.request_cancellation("cancel-user", child.id, "operator requested")
+
+    assert duplicate.id == requested.id
+
+    assert Enum.count(
+             Objectives.list_events(child.id),
+             &(&1.kind == "run_blocked" and &1.summary == "Objective cancellation requested")
+           ) == 1
+  end
+
+  test "parent cancellation preserves completed children and cancels active children" do
+    assert {:ok, %{parent: parent, children: [completed, active]}} = frame()
+
+    assert {:ok, _completed} =
+             Objectives.update_objective(completed, %{
+               status: "completed",
+               completed_at: DateTime.utc_now(),
+               last_observation_summary: "finished before parent cancellation"
+             })
+
+    assert {:ok, response} =
+             Runner.run(
+               "cancel_objective_run",
+               %{objective_id: parent.id, reason: "stop remaining work"},
+               %{user_id: "cancel-user", channel: "test"}
+             )
+
+    assert response.status == :cancelled
+    assert {:ok, %{status: "completed"}} = Objectives.get_objective(completed.id)
+    assert {:ok, %{status: "cancelled"}} = Objectives.get_objective(active.id)
+    assert {:ok, %{status: "cancelled"}} = Objectives.get_objective(parent.id)
+  end
+
   defp frame do
     Fanout.frame(
       %{

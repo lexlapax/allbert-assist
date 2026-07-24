@@ -32,6 +32,20 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
     GenServer.start_link(__MODULE__, opts)
   end
 
+  @doc "Wake the owning coordinator after an out-of-process terminal commit."
+  @spec durable_terminal(String.t() | nil, String.t()) :: :ok
+  def durable_terminal(nil, _child_id), do: :ok
+
+  def durable_terminal(parent_id, child_id)
+      when is_binary(parent_id) and is_binary(child_id) do
+    case Registry.lookup(AllbertAssist.Objectives.Runs.Registry, {:fanout, parent_id}) do
+      [{pid, _value}] -> send(pid, {:durable_terminal, child_id})
+      [] -> :ok
+    end
+
+    :ok
+  end
+
   @impl true
   def init(opts) do
     parent_id = Keyword.fetch!(opts, :parent_id)
@@ -73,6 +87,12 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
     Scheduler.release(child_id)
     state = drop_monitor(state, child_id)
     state = reconcile_terminal_state(child_id, result, state)
+    {:noreply, maybe_join(state)}
+  end
+
+  def handle_info({:durable_terminal, child_id}, state) do
+    Scheduler.release(child_id)
+    state = drop_monitor(state, child_id)
     {:noreply, maybe_join(state)}
   end
 
