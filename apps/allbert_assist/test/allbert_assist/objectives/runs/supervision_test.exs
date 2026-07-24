@@ -36,6 +36,23 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     def operation(_operation, state, _opts), do: {:ok, state}
   end
 
+  defmodule TerminalPersistenceFailureAdapter do
+    def operation(:execute, %{objective: %{id: id}} = state, opts) do
+      message =
+        if id == Keyword.fetch!(opts, :failing_child_id) do
+          # 600 control characters fit the objective field but exceed the
+          # event payload after JSON escaping, forcing terminal persistence to fail.
+          String.duplicate(<<1>>, 600)
+        else
+          "finished"
+        end
+
+      {:ok, Map.put(state, :response, %{message: message})}
+    end
+
+    def operation(_operation, state, _opts), do: {:ok, state}
+  end
+
   test "acknowledgement is a hard start barrier and siblings progress around a parked child" do
     %{parent: parent, children: [parked, runnable], receipt: receipt} = frame_two()
     add_safe_step(parked)
@@ -150,9 +167,10 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert {:ok, _coordinator} = Scheduler.start_fanout(parent.id, run_opts: run_opts)
 
     first_pid = await_paused_run(crashing.id)
-    Process.exit(first_pid, :kill)
+    crash_reason = {:fixture_crash, String.duplicate("x", 500)}
+    Process.exit(first_pid, crash_reason)
     second_pid = await_paused_run(crashing.id)
-    Process.exit(second_pid, :kill)
+    Process.exit(second_pid, crash_reason)
 
     sibling_pid = await_paused_run(sibling.id)
     send(sibling_pid, :continue)
@@ -162,11 +180,43 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
            {:ok, joined} <- Objectives.get_objective(parent.id) do
         failed.status == "failed" and failed.run_attempt_count == 2 and
           failed.review_reason =~ "retry_exhausted" and
+          String.length(failed.review_reason) <= 240 and
           joined.join_outcome == "partial"
       end
     end)
 
     refute_receive {:run_operation, ^crashing_id, :execute, _pid}, 200
+  end
+
+  test "a safe run whose terminal persistence fails gets one restart, never an unbounded loop" do
+    %{parent: parent, children: [failing, sibling], receipt: receipt} = frame_two()
+    add_safe_step(failing)
+    add_safe_step(sibling)
+    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    run_opts = [
+      lifecycle_opts: [
+        adapter: TerminalPersistenceFailureAdapter,
+        failing_child_id: failing.id
+      ]
+    ]
+
+    assert {:ok, _coordinator} = Scheduler.start_fanout(parent.id, run_opts: run_opts)
+
+    eventually(fn ->
+      with {:ok, failed} <- Objectives.get_objective(failing.id),
+           {:ok, completed} <- Objectives.get_objective(sibling.id),
+           {:ok, joined} <- Objectives.get_objective(parent.id) do
+        failed.status == "failed" and failed.run_attempt_count == 2 and
+          failed.review_reason =~ "retry_exhausted" and completed.status == "completed" and
+          joined.join_outcome == "partial"
+      end
+    end)
+
+    Process.sleep(100)
+    assert {:ok, failed} = Objectives.get_objective(failing.id)
+    assert failed.run_attempt_count == 2
+    assert Enum.count(Objectives.list_events(failing.id), &(&1.kind == "run_started")) == 2
   end
 
   test "scheduler restart reconstructs live capacity without duplicating runs" do

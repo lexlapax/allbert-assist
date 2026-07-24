@@ -16,6 +16,7 @@ defmodule AllbertAssist.Intent.Steering do
   @adjust ~r/^\s*(?:adjust|refine|tweak|shorten|expand|add|remove)\b/iu
   @steer ~r/^\s*(?:steer|change|redirect|revise|instead|actually|make)\b/iu
   @approval ~r/^\s*(?:approve|deny)\s+(?:confirmation\s+)?[A-Za-z0-9_-]+\s*$/iu
+  @report_request ~r/^\s*(?:show|display|give|return)\b.*\b(?:completed\s+)?fan[- ]out\s+report\b/iu
 
   @spec handle(map()) :: :not_steering | {:ok, map()}
   def handle(%{coding_turn?: true}), do: :not_steering
@@ -23,14 +24,18 @@ defmodule AllbertAssist.Intent.Steering do
   def handle(request) do
     parents = active_parents(request)
 
-    case classify(request.text, parents) do
-      :new_request -> :not_steering
-      :not_steering -> :not_steering
-      {:status, targets} -> {:ok, status_response(targets)}
-      {:clarify, message} -> {:ok, response(message, :clarification)}
-      {:cancel, [target]} -> run_cancel(request, target)
-      {:adjust, [target]} -> run_steer(request, target)
-      {:steer, [target]} -> run_steer(request, target)
+    if Regex.match?(@report_request, request.text) do
+      {:ok, report_response(request, parents)}
+    else
+      case classify(request.text, parents) do
+        :new_request -> :not_steering
+        :not_steering -> :not_steering
+        {:status, targets} -> {:ok, status_response(targets)}
+        {:clarify, message} -> {:ok, response(message, :clarification)}
+        {:cancel, [target]} -> run_cancel(request, target)
+        {:adjust, [target]} -> run_steer(request, target)
+        {:steer, [target]} -> run_steer(request, target)
+      end
     end
   end
 
@@ -169,6 +174,18 @@ defmodule AllbertAssist.Intent.Steering do
       )
 
     response(Enum.join(lines, "\n"), :status)
+  end
+
+  defp report_response(_request, [_ | _] = parents) do
+    status = parents |> Enum.flat_map(&Fanout.children/1) |> status_response()
+    %{status | message: "Fan-out is still running:\n" <> status.message}
+  end
+
+  defp report_response(request, []) do
+    case Fanout.pending_reports(request.user_id, request.thread_id) do
+      [] -> response("There is no active or pending fan-out report in this thread.", :status)
+      _pending -> response("Completed fan-out report:", :completed)
+    end
   end
 
   defp response(message, status), do: %{message: message, status: status, actions: []}

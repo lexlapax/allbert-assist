@@ -222,6 +222,71 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     refute next_turn.message =~ "stale progress"
   end
 
+  test "an explicit fan-out report request returns active status or the joined report without intent routing" do
+    assert {:ok, first_turn} =
+             Runtime.submit_user_input(%{text: "hello", channel: :test, user_id: "alice"})
+
+    assert {:ok, %{parent: parent, children: children}} =
+             Fanout.frame(
+               %{
+                 user_id: "alice",
+                 title: "Controlled report",
+                 objective: "Controlled report",
+                 source_channel: "test",
+                 source_surface: "channel",
+                 source_thread_id: first_turn.thread_id
+               },
+               ["one", "two"]
+             )
+
+    test_pid = self()
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, _request ->
+        send(test_pid, :report_phrase_reached_agent)
+        {:ok, %{message: ":missing_plan_source", status: :completed}}
+      end
+    )
+
+    assert {:ok, active} =
+             Runtime.submit_user_input(%{
+               text: "show the completed fan-out report",
+               channel: :test,
+               user_id: "alice",
+               thread_id: first_turn.thread_id
+             })
+
+    refute_received :report_phrase_reached_agent
+    assert active.message =~ "still running"
+    assert active.message =~ "1. one: open"
+    refute active.message =~ "missing_plan_source"
+
+    for child <- children do
+      assert {:ok, _completed} =
+               Objectives.update_objective(child, %{
+                 status: "completed",
+                 last_observation_summary: "result #{child.queue_position + 1}",
+                 completed_at: DateTime.utc_now()
+               })
+    end
+
+    assert {:ok, _join} = Fanout.finalize_join(parent)
+
+    assert {:ok, joined} =
+             Runtime.submit_user_input(%{
+               text: "show the completed fan-out report",
+               channel: :test,
+               user_id: "alice",
+               thread_id: first_turn.thread_id
+             })
+
+    refute_received :report_phrase_reached_agent
+    refute joined.message =~ "missing_plan_source"
+    assert joined.message =~ "Controlled report — success"
+    assert joined.message =~ "✓ one — result 1"
+    assert joined.message =~ "✓ two — result 2"
+  end
+
   test "exact origin binding denies missing or changed account context" do
     assert {:ok, %{parent: parent, fanout_start_receipt: receipt}} =
              Fanout.frame(

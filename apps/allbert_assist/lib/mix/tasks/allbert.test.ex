@@ -8802,6 +8802,11 @@ defmodule Mix.Tasks.Allbert.Test do
       :global_process_serial,
     "apps/allbert_assist/test/allbert_assist/intent/golden_set_test.exs" =>
       :global_process_serial,
+    # The v1.1 operator-prompt regression contains the literal names
+    # "GenServer" and "Agent" as user text. It starts no shared process and
+    # the module is async-safe; keep those inert prompt words from moving the
+    # entire file into the global-process lane.
+    "apps/allbert_assist/test/allbert_assist/intent/decomposer_test.exs" => :pure_async,
     # ADR 0082 proof suite: file writes are scoped to owned, uniquely-named
     # fixture subdirectories of the per-run test home (partition-keyed, rm_rf
     # bounded to the owned root) and its registries are start_supervised!

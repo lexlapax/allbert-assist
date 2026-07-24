@@ -48,6 +48,22 @@ defmodule AllbertAssist.Intent.DecomposerTest do
     refute_received {:model_consulted, _text}
   end
 
+  test "strips orchestration wording from the first semicolon-delimited child" do
+    prompt =
+      "Do these three tasks in parallel: explain OTP supervision in five numbered points; " <>
+        "compare GenServer and Agent in five numbered points; " <>
+        "summarize this conversation in five numbered points"
+
+    assert {:fanout,
+            [
+              "explain OTP supervision in five numbered points",
+              "compare GenServer and Agent in five numbered points",
+              "summarize this conversation in five numbered points"
+            ]} = Decomposer.propose(prompt, model_proposer: RecordingProposer, test_pid: self())
+
+    refute_received {:model_consulted, _text}
+  end
+
   test "ordinary single turns do not pay a model round trip" do
     assert :single =
              Decomposer.propose("Explain why the sky is blue",

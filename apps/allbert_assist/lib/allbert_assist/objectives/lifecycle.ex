@@ -13,10 +13,13 @@ defmodule AllbertAssist.Objectives.Lifecycle do
   alias AllbertAssist.Objectives.Runs.CancelToken
   alias AllbertAssist.Objectives.Steering
   alias AllbertAssist.Repo
+  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings.Store
   alias AllbertAssist.Signals
 
   @operations ~w[propose evaluate authorize execute observe advance]a
+  @max_event_summary_chars 500
+  @max_summary_chars 2_000
 
   @spec run(String.t(), keyword()) :: {:ok, Objective.t()} | {:blocked, term()} | {:error, term()}
   def run(child_id, opts \\ []) when is_binary(child_id) do
@@ -74,16 +77,32 @@ defmodule AllbertAssist.Objectives.Lifecycle do
   end
 
   defp run_operations(adapter, state, opts) do
-    Enum.reduce_while(@operations, {:ok, state}, fn operation, {:ok, current} ->
-      adapter
-      |> operation_result(operation, current, opts)
-      |> reduce_operation_result(operation, current)
-    end)
+    run_operations(adapter, @operations, state, opts)
+  end
+
+  defp run_operations(_adapter, [], state, _opts), do: {:ok, state}
+
+  defp run_operations(adapter, [operation | rest], state, opts) do
+    {current, steered?} = reconcile_steering(state)
+
+    case prepare_steered_operation(operation, current, steered?) do
+      {:continue, current} ->
+        adapter
+        |> operation_result(operation, current, opts)
+        |> continue_operations(adapter, operation, rest, current, opts)
+
+      {:restart, current} ->
+        run_operations(adapter, @operations, current, opts)
+
+      {:blocked, reason, current} ->
+        {:blocked, reason, current}
+
+      {:error, reason, current} ->
+        {:error, reason, current}
+    end
   end
 
   defp operation_result(adapter, operation, current, opts) do
-    current = reconcile_steering(current)
-
     case Keyword.get(opts, :cancel_token) do
       %CancelToken{} = token ->
         if CancelToken.cancelled?(token) do
@@ -99,19 +118,57 @@ defmodule AllbertAssist.Objectives.Lifecycle do
 
   defp reconcile_steering(%{objective: objective} = state) do
     case Steering.apply_pending(objective.id) do
-      {:ok, updated} -> %{state | objective: updated}
-      {:error, _reason} -> state
+      {:ok, updated} ->
+        steered? =
+          updated.objective != objective.objective or updated.title != objective.title or
+            updated.progress_summary != objective.progress_summary
+
+        {%{state | objective: updated}, steered?}
+
+      {:error, _reason} ->
+        {state, false}
     end
   end
+
+  defp prepare_steered_operation(_operation, state, false), do: {:continue, state}
+
+  defp prepare_steered_operation(operation, state, true) do
+    if Map.has_key?(state, :response) and retry_safety(state.objective.id) != :safe do
+      {:blocked, :steer_after_effect_requires_review, state}
+    else
+      case supersede_current_step(state) do
+        {:ok, current} when operation == :propose -> {:continue, current}
+        {:ok, current} -> {:restart, current}
+        {:error, reason} -> {:error, reason, state}
+      end
+    end
+  end
+
+  defp supersede_current_step(%{step: step} = state) do
+    result =
+      if step.status in ~w[completed skipped cancelled failed] do
+        {:ok, step}
+      else
+        Objectives.update_step(step, %{status: "cancelled"})
+      end
+
+    case result do
+      {:ok, _step} -> {:ok, Map.drop(state, [:step, :response])}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp supersede_current_step(state), do: {:ok, Map.drop(state, [:step, :response])}
 
   defp pinned_operation(adapter, operation, current, opts) do
     Store.with_resolved_settings(fn -> adapter.operation(operation, current, opts) end)
   end
 
-  defp reduce_operation_result({:cancelled, next}, _operation, _current),
-    do: {:halt, {:cancelled, next}}
+  defp continue_operations({:cancelled, next}, _adapter, _operation, _rest, _current, _opts),
+    do: {:cancelled, next}
 
-  defp reduce_operation_result({:ok, next}, operation, current) when is_map(next) do
+  defp continue_operations({:ok, next}, adapter, operation, rest, current, opts)
+       when is_map(next) do
     case event(current.objective, "run_progress", %{operation: operation}) do
       {:ok, _event} ->
         Signals.emit_fanout(:run_progress, %{
@@ -120,27 +177,50 @@ defmodule AllbertAssist.Objectives.Lifecycle do
           operation: operation
         })
 
-        {:cont, {:ok, next}}
+        run_operations(adapter, rest, next, opts)
 
       {:error, reason} ->
-        {:halt, {:error, reason, current}}
+        {:error, reason, current}
     end
   end
 
-  defp reduce_operation_result({:blocked, reason, next}, _operation, _current),
-    do: {:halt, {:blocked, reason, next}}
+  defp continue_operations(
+         {:blocked, reason, next},
+         _adapter,
+         _operation,
+         _rest,
+         _current,
+         _opts
+       ),
+       do: {:blocked, reason, next}
 
-  defp reduce_operation_result({:error, reason, next}, _operation, _current),
-    do: {:halt, {:error, reason, next}}
+  defp continue_operations(
+         {:error, reason, next},
+         _adapter,
+         _operation,
+         _rest,
+         _current,
+         _opts
+       ),
+       do: {:error, reason, next}
 
-  defp reduce_operation_result({:error, reason}, _operation, current),
-    do: {:halt, {:error, reason, current}}
+  defp continue_operations(
+         {:error, reason},
+         _adapter,
+         _operation,
+         _rest,
+         current,
+         _opts
+       ),
+       do: {:error, reason, current}
 
-  defp reduce_operation_result(other, operation, current),
-    do: {:halt, {:error, {:invalid_lifecycle_result, operation, other}, current}}
+  defp continue_operations(other, _adapter, operation, _rest, current, _opts),
+    do: {:error, {:invalid_lifecycle_result, operation, other}, current}
 
   defp complete(%{objective: objective} = state) do
-    summary = get_in(state, [:response, :message]) || objective.progress_summary || "Completed."
+    summary =
+      (get_in(state, [:response, :message]) || objective.progress_summary || "Completed.")
+      |> bounded_summary()
 
     with {:ok, objective} <-
            persist_transition(
@@ -151,7 +231,7 @@ defmodule AllbertAssist.Objectives.Lifecycle do
                completed_at: DateTime.utc_now()
              },
              "run_completed",
-             %{summary: summary}
+             %{summary: String.slice(summary, 0, @max_event_summary_chars)}
            ) do
       Signals.emit_fanout(:run_completed, %{
         child_id: objective.id,
@@ -160,6 +240,16 @@ defmodule AllbertAssist.Objectives.Lifecycle do
       })
 
       {:ok, objective}
+    end
+  end
+
+  defp bounded_summary(summary) do
+    summary = summary |> Redactor.redact(:signals) |> to_string()
+
+    if String.length(summary) > @max_summary_chars do
+      String.slice(summary, 0, @max_summary_chars - 1) <> "…"
+    else
+      summary
     end
   end
 
@@ -272,9 +362,15 @@ defmodule AllbertAssist.Objectives.Lifecycle do
     alias AllbertAssist.Objectives
 
     def operation(:propose, %{objective: objective} = state, _opts) do
-      case Objectives.list_steps(objective.id) do
-        [] -> propose_step(objective, state)
-        steps -> {:ok, Map.put(state, :step, List.last(steps))}
+      active_step =
+        objective.id
+        |> Objectives.list_steps()
+        |> Enum.reject(&(&1.status in ~w[completed skipped cancelled failed]))
+        |> List.last()
+
+      case active_step do
+        nil -> propose_step(objective, state)
+        step -> {:ok, Map.put(state, :step, step)}
       end
     end
 

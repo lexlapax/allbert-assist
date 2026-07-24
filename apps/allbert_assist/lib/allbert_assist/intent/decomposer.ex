@@ -14,6 +14,7 @@ defmodule AllbertAssist.Intent.Decomposer do
   @steering_only ~r/^\s*(status|progress|cancel|stop|pause|resume|retry|skip)(?:\s|$)/iu
   @numbered_line ~r/^\s*(?:\d+[.)]|[-*])\s+(.+?)\s*$/u
   @counted_parallel ~r/^\s*do\s+(?<count>two|three|four|five|six|seven|eight|\d+)\s+(?:things|tasks)\s*:\s*(?<tasks>.+?)[.!?]\s+work on them in parallel(?:\s+and\s+report back)?[.!?]?\s*$/isu
+  @orchestration_prefix ~r/^\s*do\s+(?:these\s+)?(?:(?:two|three|four|five|six|seven|eight|\d+)\s+)?(?:things|tasks)\s+in parallel\s*:\s*/iu
 
   @type result :: {:fanout, [String.t()]} | {:clarify, map()} | :single
 
@@ -166,7 +167,7 @@ defmodule AllbertAssist.Intent.Decomposer do
     tasks =
       tasks
       |> Enum.filter(&is_binary/1)
-      |> Enum.map(&String.trim/1)
+      |> Enum.map(&strip_orchestration_prefix/1)
       |> Enum.reject(&(&1 == ""))
       |> Enum.uniq()
 
@@ -184,6 +185,10 @@ defmodule AllbertAssist.Intent.Decomposer do
 
   defp bounded_max(value) when is_integer(value), do: value |> max(2) |> min(16)
   defp bounded_max(_value), do: 8
+
+  defp strip_orchestration_prefix(task),
+    do: task |> String.replace(@orchestration_prefix, "") |> String.trim()
+
   defp normalize_context(context) when is_list(context), do: Map.new(context)
   defp normalize_context(context) when is_map(context), do: context
   defp normalize_context(_context), do: %{}

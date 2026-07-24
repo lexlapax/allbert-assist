@@ -13,7 +13,10 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Runs.{RunServer, Scheduler, Supervisor}
   alias AllbertAssist.Repo
+  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Signals
+
+  @max_review_reason_chars 240
 
   def child_spec(opts) do
     parent_id = Keyword.fetch!(opts, :parent_id)
@@ -66,9 +69,10 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
 
   def handle_info(:scheduler_reconcile, state), do: handle_continue(:reconcile, state)
 
-  def handle_info({:run_terminal, child_id, _result}, state) do
+  def handle_info({:run_terminal, child_id, result}, state) do
     Scheduler.release(child_id)
     state = drop_monitor(state, child_id)
+    state = reconcile_terminal_state(child_id, result, state)
     {:noreply, maybe_join(state)}
   end
 
@@ -168,6 +172,28 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
     end
   end
 
+  # The worker result is advisory; the durable objective is authoritative. A
+  # worker that exits normally while its objective is still running failed to
+  # persist a terminal observation and must enter the same bounded recovery
+  # path as a crashed worker. Without this reconciliation, maybe_join/1 sees an
+  # unmonitored running child and can start it repeatedly.
+  defp reconcile_terminal_state(child_id, result, state) do
+    case Objectives.get_objective(child_id) do
+      {:ok, %{status: status}} when status in ~w[completed cancelled failed abandoned blocked] ->
+        state
+
+      {:ok, child} ->
+        retry_or_park(child, terminal_failure_reason(result))
+        state
+
+      _other ->
+        state
+    end
+  end
+
+  defp terminal_failure_reason({:error, _reason}), do: :missing_durable_observation
+  defp terminal_failure_reason(_result), do: :terminal_without_durable_observation
+
   defp retry_or_park(child, reason) do
     case {Objectives.Lifecycle.retry_safety(child.id), child.run_attempt_count} do
       {:safe, attempts} when attempts <= 1 ->
@@ -179,13 +205,13 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
       {_not_safe, _attempts} ->
         Objectives.update_objective(child, %{
           status: "blocked",
-          review_reason: "uncertain_effect: #{inspect(reason, limit: 10)}"
+          review_reason: bounded_review_reason("uncertain_effect", reason)
         })
     end
   end
 
   defp fail_exhausted_retry(child, reason) do
-    reason_text = "retry_exhausted: #{inspect(reason, limit: 10)}"
+    reason_text = bounded_review_reason("retry_exhausted", reason)
 
     case Repo.transaction(fn -> persist_exhausted_retry(child, reason_text) end) do
       {:ok, failed} ->
@@ -217,6 +243,11 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
     else
       {:error, reason} -> Repo.rollback(reason)
     end
+  end
+
+  defp bounded_review_reason(prefix, reason) do
+    detail = reason |> Redactor.redact(:signals) |> inspect(limit: 10, printable_limit: 160)
+    String.slice("#{prefix}: #{detail}", 0, @max_review_reason_chars)
   end
 
   defp retry_or_park_id(child_id, reason) do

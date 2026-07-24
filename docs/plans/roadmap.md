@@ -102,8 +102,9 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    (Operator intake 2026-07-18, inserted foundational-first. **Implementation
    through M12.12 complete; validation-only product/harness scaffolding is
    removed. FV-01 then exposed lifecycle retry, effective-steering, and
-   report-control defects; corrective M12.13 is planned and blocks resumed
-   operator validation:**
+   report-control defects; corrective M12.13 is implemented with focused,
+   pre-push, frozen v1, and derived v1.1 gates green, while the authoritative
+   release run at the committed SHA still blocks resumed operator validation:**
    `docs/plans/v1.1-plan.md` + request-flow + ADR 0083/0084/0085.) On a prompt
    that decomposes into multiple tasks, Allbert delivers a kickoff receipt,
    then fans out background agents/actions, streams their status, joins on
