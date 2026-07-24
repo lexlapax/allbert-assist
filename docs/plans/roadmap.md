@@ -100,8 +100,9 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    refresh — ADR 0050 superseded.)
 5. **1.1 — Asynchronous Background Agent Fan-Out With In-Channel Steering.**
    (Operator intake 2026-07-18, inserted foundational-first. **Implementation
-   through M12.9 complete; the final implementation candidate passed its
-   authoritative gate and operator validation is open:**
+   through M12.10 complete; operator validation is temporarily re-blocked by
+   M12.10.1 nested-gate root-isolation remediation after the first OV-00
+   attempt failed safely before product mutation:**
    `docs/plans/v1.1-plan.md` + request-flow + ADR 0083/0084/0085.) On a prompt
    that decomposes into multiple tasks, Allbert delivers a kickoff receipt,
    then fans out background agents/actions, streams their status, joins on
