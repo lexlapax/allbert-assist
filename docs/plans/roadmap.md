@@ -101,9 +101,9 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
 5. **1.1 — Asynchronous Background Agent Fan-Out With In-Channel Steering.**
    (Operator intake 2026-07-18, inserted foundational-first. **Implementation
    through M12.12 complete; validation-only product/harness scaffolding is
-   removed. Corrective M12.12 closes the deterministic-decomposition and
-   result-bearing-join defects found by the first focused walkthrough; focused
-   operator validation is open:**
+   removed. FV-01 then exposed lifecycle retry, effective-steering, and
+   report-control defects; corrective M12.13 is planned and blocks resumed
+   operator validation:**
    `docs/plans/v1.1-plan.md` + request-flow + ADR 0083/0084/0085.) On a prompt
    that decomposes into multiple tasks, Allbert delivers a kickoff receipt,
    then fans out background agents/actions, streams their status, joins on
