@@ -291,6 +291,8 @@ defmodule AllbertAssist.Channels.NotifyTest do
 
     assert_receive {:consumer_sent, "telegram", "1006", body, _opts}, 2_000
     assert body =~ "Notify fan-out"
+    assert body =~ "✓ One — done"
+    assert body =~ "✓ Two — done"
 
     assert eventually(fn -> Objectives.get_objective(joined.id) end).report_delivery_state ==
              "delivered"

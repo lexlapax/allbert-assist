@@ -1002,7 +1002,7 @@ defmodule AllbertAssist.Runtime do
   defp format_fanout_report(report) do
     children =
       Enum.map_join(report.children, "; ", fn child ->
-        "#{report_glyph(child.status)} #{child.title}"
+        "#{report_glyph(child.status)} #{child.title} — #{Fanout.report_child_detail(child)}"
       end)
 
     "#{report.title} — #{report.join_outcome || report.status}: #{children}"

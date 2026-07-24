@@ -118,7 +118,9 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
   defp compact_report(report) do
     children =
       report.children
-      |> Enum.map_join("; ", fn child -> "#{glyph(child.status)} #{child.title}" end)
+      |> Enum.map_join("; ", fn child ->
+        "#{glyph(child.status)} #{child.title} — #{Fanout.report_child_detail(child)}"
+      end)
 
     "#{report.title} — #{report.join_outcome}. #{children}"
   end

@@ -89,6 +89,23 @@ defmodule AllbertAssist.Objectives.FanoutTest do
     assert Enum.map(children, & &1.status) == ["completed", "failed"]
   end
 
+  test "child report detail is bounded and prioritizes truthful terminal reasons" do
+    assert Fanout.report_child_detail(%{
+             status: "completed",
+             result_summary: String.duplicate("x", 600),
+             review_reason: nil
+           }) == String.duplicate("x", 500)
+
+    assert Fanout.report_child_detail(%{
+             status: "cancelled",
+             result_summary: "stale progress",
+             review_reason: "cancelled by operator"
+           }) == "cancelled by operator"
+
+    assert Fanout.report_child_detail(%{status: "failed"}) ==
+             "No terminal reason recorded."
+  end
+
   test "unique receipt digests and fanout value domains are enforced" do
     attrs = %{user_id: "alice", title: "One", objective: "One", fanout_role: "parent"}
 

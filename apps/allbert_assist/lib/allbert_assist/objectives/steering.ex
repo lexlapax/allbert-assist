@@ -110,6 +110,7 @@ defmodule AllbertAssist.Objectives.Steering do
     Repo.transaction(fn ->
       with {:ok, updated} <-
              Objectives.update_objective(objective, %{
+               title: String.slice(directive, 0, 200),
                objective: directive,
                progress_summary: "Steered: #{String.slice(directive, 0, 180)}",
                review_reason: nil,

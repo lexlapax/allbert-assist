@@ -38,4 +38,36 @@ defmodule AllbertAssist.Objectives.FanoutSteeringTest do
 
     assert {:error, :terminal} = Steering.steer("alice", objective.id, "Again")
   end
+
+  test "terminal fan-in identifies the effective steered child and its result" do
+    {:ok, %{parent: parent, children: [child | _]}} =
+      Fanout.frame(%{user_id: "alice", title: "Work", objective: "Work"}, ["One", "Two"])
+
+    assert {:ok, _steer} =
+             Steering.steer("alice", child.id, "Explain OTP supervision as a restaurant analogy")
+
+    assert {:ok, steered} = Steering.apply_pending(child.id)
+
+    assert {:ok, _completed} =
+             Objectives.update_objective(steered, %{
+               status: "completed",
+               last_observation_summary: "The supervisor is the restaurant manager.",
+               completed_at: DateTime.utc_now()
+             })
+
+    [_steered_child, other] = Fanout.children(parent)
+
+    assert {:ok, _completed} =
+             Objectives.update_objective(other, %{
+               status: "completed",
+               last_observation_summary: "Second result",
+               completed_at: DateTime.utc_now()
+             })
+
+    report = Fanout.report(parent)
+    [steered_report | _] = report.children
+
+    assert steered_report.title == "Explain OTP supervision as a restaurant analogy"
+    assert steered_report.result_summary == "The supervisor is the restaurant manager."
+  end
 end

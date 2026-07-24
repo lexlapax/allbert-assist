@@ -15,6 +15,7 @@ defmodule AllbertAssist.Objectives.Fanout do
   alias AllbertAssist.Runtime.Redactor
 
   @terminal ~w[completed cancelled failed abandoned]
+  @report_detail_limit 500
 
   @spec frame(map(), [map() | String.t()]) :: {:ok, map()} | {:error, term()}
   def frame(parent_attrs, tasks) when is_map(parent_attrs) and is_list(tasks) do
@@ -107,6 +108,26 @@ defmodule AllbertAssist.Objectives.Fanout do
           }
         end)
     })
+  end
+
+  @doc "Returns one bounded, redacted, truthful child result or terminal reason."
+  @spec report_child_detail(map()) :: String.t()
+  def report_child_detail(child) when is_map(child) do
+    status = Map.get(child, :status) || Map.get(child, "status")
+    result = Map.get(child, :result_summary) || Map.get(child, "result_summary")
+    reason = Map.get(child, :review_reason) || Map.get(child, "review_reason")
+
+    value = if status == "completed", do: result, else: reason || result
+
+    fallback =
+      if status == "completed",
+        do: "No result summary recorded.",
+        else: "No terminal reason recorded."
+
+    case value |> Redactor.redact() |> to_string() |> String.trim() do
+      "" -> fallback
+      detail -> String.slice(detail, 0, @report_detail_limit)
+    end
   end
 
   defp parent_title(parent_id) do

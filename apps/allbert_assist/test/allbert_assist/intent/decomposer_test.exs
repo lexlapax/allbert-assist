@@ -30,6 +30,24 @@ defmodule AllbertAssist.Intent.DecomposerTest do
     refute_received {:model_consulted, _text}
   end
 
+  test "decomposes the flagship counted list without framing report choreography" do
+    prompt =
+      "Do three things: research the elixir-lang.org homepage title, list my notes roots, and summarize this thread. Work on them in parallel and report back."
+
+    assert {:fanout,
+            [
+              "research the elixir-lang.org homepage title",
+              "list my notes roots",
+              "summarize this thread"
+            ]} =
+             Decomposer.propose(prompt,
+               model_proposer: RecordingProposer,
+               test_pid: self()
+             )
+
+    refute_received {:model_consulted, _text}
+  end
+
   test "ordinary single turns do not pay a model round trip" do
     assert :single =
              Decomposer.propose("Explain why the sky is blue",

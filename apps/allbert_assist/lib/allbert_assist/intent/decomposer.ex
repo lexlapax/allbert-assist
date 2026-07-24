@@ -13,6 +13,7 @@ defmodule AllbertAssist.Intent.Decomposer do
   @parallel_signal ~r/\b(in parallel|simultaneously|separately|independently|at the same time|also|and then|then)\b/iu
   @steering_only ~r/^\s*(status|progress|cancel|stop|pause|resume|retry|skip)(?:\s|$)/iu
   @numbered_line ~r/^\s*(?:\d+[.)]|[-*])\s+(.+?)\s*$/u
+  @counted_parallel ~r/^\s*do\s+(?<count>two|three|four|five|six|seven|eight|\d+)\s+(?:things|tasks)\s*:\s*(?<tasks>.+?)[.!?]\s+work on them in parallel(?:\s+and\s+report back)?[.!?]?\s*$/isu
 
   @type result :: {:fanout, [String.t()]} | {:clarify, map()} | :single
 
@@ -61,6 +62,8 @@ defmodule AllbertAssist.Intent.Decomposer do
   end
 
   defp deterministic_tasks(text) do
+    counted = counted_parallel_tasks(text)
+
     numbered =
       text
       |> String.split("\n")
@@ -72,6 +75,9 @@ defmodule AllbertAssist.Intent.Decomposer do
       end)
 
     cond do
+      counted ->
+        counted
+
       length(numbered) >= 2 ->
         numbered
 
@@ -86,6 +92,47 @@ defmodule AllbertAssist.Intent.Decomposer do
 
       true ->
         nil
+    end
+  end
+
+  defp counted_parallel_tasks(text) do
+    with %{"count" => count, "tasks" => tasks} <- Regex.named_captures(@counted_parallel, text),
+         {:ok, expected_count} <- parse_count(count),
+         parsed when length(parsed) == expected_count <-
+           split_counted_tasks(tasks, expected_count) do
+      parsed
+    else
+      _other -> nil
+    end
+  end
+
+  defp split_counted_tasks(tasks, 2) do
+    split_on(tasks, ~r/\s*(?:,\s*)?\band\b\s*/iu) || []
+  end
+
+  defp split_counted_tasks(tasks, _count) do
+    tasks
+    |> String.split(~r/\s*,\s*/u, trim: true)
+    |> Enum.map(&String.replace(&1, ~r/^and\s+/iu, ""))
+  end
+
+  defp parse_count(count) do
+    case String.downcase(count) do
+      "two" -> {:ok, 2}
+      "three" -> {:ok, 3}
+      "four" -> {:ok, 4}
+      "five" -> {:ok, 5}
+      "six" -> {:ok, 6}
+      "seven" -> {:ok, 7}
+      "eight" -> {:ok, 8}
+      digits -> parse_numeric_count(digits)
+    end
+  end
+
+  defp parse_numeric_count(digits) do
+    case Integer.parse(digits) do
+      {count, ""} when count >= 2 -> {:ok, count}
+      _other -> :error
     end
   end
 

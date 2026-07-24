@@ -224,8 +224,7 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
     message =
       report.children
       |> Enum.map_join("\n", fn child ->
-        "- #{child.title}: #{child.status}" <>
-          if(child.result_summary, do: " — #{child.result_summary}", else: "")
+        "- #{child.title}: #{child.status} — #{Fanout.report_child_detail(child)}"
       end)
 
     Map.put(response, :message, "Fan-out #{report.status}:\n#{message}")

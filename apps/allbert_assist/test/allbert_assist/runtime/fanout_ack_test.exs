@@ -144,7 +144,8 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              next_turn.pending_reports
 
     assert next_turn.message =~ "Finished work"
-    assert next_turn.message =~ "✓ one"
+    assert next_turn.message =~ "✓ one — done 0"
+    assert next_turn.message =~ "✓ two — done 1"
 
     assert {:error, :receipt_identity_mismatch} =
              Runtime.acknowledge_report_delivery(receipt, %{
@@ -164,6 +165,61 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              })
 
     assert Fanout.pending_reports("alice", first_turn.thread_id) == []
+  end
+
+  test "pending reports render truthful terminal reasons for non-success children" do
+    assert {:ok, first_turn} =
+             Runtime.submit_user_input(%{text: "hello", channel: :test, user_id: "alice"})
+
+    assert {:ok, %{parent: parent, children: [completed, cancelled, failed]}} =
+             Fanout.frame(
+               %{
+                 user_id: "alice",
+                 title: "Mixed work",
+                 objective: "Mixed work",
+                 source_channel: "test",
+                 source_surface: "channel",
+                 source_thread_id: first_turn.thread_id
+               },
+               ["completed task", "cancelled task", "failed task"]
+             )
+
+    assert {:ok, _objective} =
+             Objectives.update_objective(completed, %{
+               status: "completed",
+               last_observation_summary: "completed result",
+               completed_at: DateTime.utc_now()
+             })
+
+    assert {:ok, _objective} =
+             Objectives.update_objective(cancelled, %{
+               status: "cancelled",
+               last_observation_summary: "stale progress",
+               review_reason: "cancelled by operator",
+               completed_at: DateTime.utc_now()
+             })
+
+    assert {:ok, _objective} =
+             Objectives.update_objective(failed, %{
+               status: "failed",
+               review_reason: "provider unavailable",
+               completed_at: DateTime.utc_now()
+             })
+
+    assert {:ok, _join} = Fanout.finalize_join(parent)
+
+    assert {:ok, next_turn} =
+             Runtime.submit_user_input(%{
+               text: "report",
+               channel: :test,
+               user_id: "alice",
+               thread_id: first_turn.thread_id
+             })
+
+    assert next_turn.message =~ "✓ completed task — completed result"
+    assert next_turn.message =~ "⊘ cancelled task — cancelled by operator"
+    assert next_turn.message =~ "✗ failed task — provider unavailable"
+    refute next_turn.message =~ "stale progress"
   end
 
   test "exact origin binding denies missing or changed account context" do
