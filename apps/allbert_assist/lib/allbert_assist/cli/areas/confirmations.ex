@@ -272,62 +272,30 @@ defmodule AllbertAssist.CLI.Areas.Confirmations do
 
     target_action_name = get_in(confirmation, ["target_action", "name"])
 
-    if target_result == %{} do
-      []
-    else
-      render_target_result(target_action_name, target_status, target_result)
+    cond do
+      target_result == %{} ->
+        []
+
+      target_action_name == "run_analysis" ->
+        [
+          "Target: run_analysis status=#{bounded_string(target_status || "unknown", 40)}#{maybe_kv(target_result, "stub", "stub")}#{maybe_kv(target_result, "engine", "engine")}#{maybe_kv(target_result, "bridge_duration_ms", "bridge_duration_ms")}#{maybe_kv(target_result, "truncated", "truncated")}"
+        ] ++
+          target_field_line(target_result, "analysis_id", "Analysis id") ++
+          target_field_line(target_result, "ticker", "Ticker") ++
+          target_field_line(target_result, "analysis_date", "Analysis date") ++
+          target_field_line(target_result, "summary", "Summary", 240)
+
+      true ->
+        # Generic fallback: surface status only (bounded). Anything more would
+        # risk leaking domain-specific fields without a vetted formatter;
+        # per-target formatters (like the run_analysis branch above) can be
+        # added when their docs make a stub/decision/etc. field
+        # operator-visible.
+        [
+          "Target: #{bounded_string(target_action_name || "unknown", 80)} status=#{bounded_string(target_status || "unknown", 40)}"
+        ]
     end
   end
-
-  defp render_target_result("run_analysis", target_status, target_result) do
-    [
-      "Target: run_analysis status=#{bounded_string(target_status || "unknown", 40)}#{maybe_kv(target_result, "stub", "stub")}#{maybe_kv(target_result, "engine", "engine")}#{maybe_kv(target_result, "bridge_duration_ms", "bridge_duration_ms")}#{maybe_kv(target_result, "truncated", "truncated")}"
-    ] ++
-      target_field_line(target_result, "analysis_id", "Analysis id") ++
-      target_field_line(target_result, "ticker", "Ticker") ++
-      target_field_line(target_result, "analysis_date", "Analysis date") ++
-      target_field_line(target_result, "summary", "Summary", 240)
-  end
-
-  defp render_target_result("release_cancellation_proof", _target_status, target_result) do
-    [render_cancellation_proof(Map.get(target_result, "output_data", %{}))]
-  end
-
-  defp render_target_result(target_action_name, target_status, _target_result) do
-    # Generic fallback: surface status only (bounded). Anything more would risk
-    # leaking domain-specific fields without a vetted formatter; per-target
-    # formatters can be added when their operator-visible fields are documented.
-    [
-      "Target: #{bounded_string(target_action_name || "unknown", 80)} status=#{bounded_string(target_status || "unknown", 40)}"
-    ]
-  end
-
-  defp render_cancellation_proof(proof) do
-    ordered = [
-      "status",
-      "mode",
-      "containment",
-      "boundary",
-      "timed_out?",
-      "target_tree_dead?",
-      "sibling_survived?",
-      "cleanup_complete?"
-    ]
-
-    values =
-      Enum.flat_map(ordered, fn key ->
-        case Map.fetch(proof, key) do
-          {:ok, value} -> ["#{key}=#{proof_value(key, value)}"]
-          :error -> []
-        end
-      end)
-
-    "OV12 " <> Enum.join(values, " ")
-  end
-
-  defp proof_value("status", value) when value in [:passed, "passed"], do: "PASS"
-  defp proof_value("status", value), do: value |> to_string() |> String.upcase()
-  defp proof_value(_key, value), do: bounded_string(value, 80)
 
   defp maybe_kv(map, key, label) do
     case Map.get(map, key) do

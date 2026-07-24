@@ -518,7 +518,6 @@ defmodule AllbertAssist.CLI do
 
     Operate (each `admin <area>` has its own subcommands; run one for usage)
       allbert admin status | health | trace | registry | events
-      allbert admin cancellation-proof cancel|timeout|session-escape
       allbert admin settings | channels | jobs | objectives | confirmations
       allbert admin threads | sessions | memory | skills | plugins | apps
       allbert admin mcp | intent | workspace | workflows | plan | tools

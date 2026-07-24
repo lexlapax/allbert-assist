@@ -18,6 +18,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
 
     runner = fn phase ->
       send(parent, {:phase, phase.id, phase.cwd, phase.args})
+      send(parent, {:phase_env, phase.id, phase.env})
       {"#{phase.id} token=secret-token\n3 tests, 0 failures\n", 0}
     end
 
@@ -99,6 +100,55 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert Enum.map(records, & &1["phase_or_step"]) |> List.last() == "dialyzer"
     assert Enum.all?(records, &(&1["tests"] == 3 and &1["failures"] == 0))
     assert Enum.all?(records, &is_integer(&1["wall_ms"]))
+  end
+
+  test "release gates clear inherited roots and confine defaults to their owned Home" do
+    inherited =
+      ~w[
+        ALLBERT_SETTINGS_ROOT
+        ALLBERT_MEMORY_ROOT
+        ALLBERT_ARTIFACTS_ROOT
+        ALLBERT_PLUGINS_ROOT
+        ALLBERT_VAULT_BACKEND
+        XDG_CONFIG_HOME
+        XDG_DATA_HOME
+        XDG_STATE_HOME
+        XDG_CACHE_HOME
+        XDG_RUNTIME_DIR
+      ]
+
+    originals = Map.new(inherited, &{&1, System.get_env(&1)})
+    Enum.each(inherited, &System.put_env(&1, "/hostile/outside-gate"))
+
+    on_exit(fn ->
+      Enum.each(originals, fn
+        {key, nil} -> System.delete_env(key)
+        {key, value} -> System.put_env(key, value)
+      end)
+    end)
+
+    capture_io(fn ->
+      assert %{status: "passed"} = AllbertTestTask.run(["release"])
+    end)
+
+    [{"hex_audit", env} | _rest] = drain_phase_envs()
+    env = Map.new(env)
+    home = Map.fetch!(env, "ALLBERT_HOME")
+
+    on_exit(fn -> File.rm_rf!(Path.dirname(home)) end)
+
+    assert env["ALLBERT_HOME_DIR"] == home
+    assert env["ALLBERT_SETTINGS_ROOT"] == nil
+    assert env["ALLBERT_MEMORY_ROOT"] == nil
+    assert env["ALLBERT_ARTIFACTS_ROOT"] == nil
+    assert env["DATABASE_PATH"] == Path.join([home, "db", "allbert_test.db"])
+    assert env["ALLBERT_PLUGINS_ROOT"] == nil
+    assert env["ALLBERT_VAULT_BACKEND"] == nil
+    assert env["XDG_CONFIG_HOME"] == Path.join([home, "xdg", "config"])
+    assert env["XDG_DATA_HOME"] == Path.join([home, "xdg", "data"])
+    assert env["XDG_STATE_HOME"] == Path.join([home, "xdg", "state"])
+    assert env["XDG_CACHE_HOME"] == Path.join([home, "xdg", "cache"])
+    assert env["XDG_RUNTIME_DIR"] == Path.join([home, "xdg", "runtime"])
   end
 
   test "test-run metrics substrate wires every M8.1 completion point" do
@@ -636,6 +686,14 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
   defp drain_phases(acc \\ []) do
     receive do
       {:phase, id, cwd, args} -> drain_phases(acc ++ [{id, cwd, args}])
+    after
+      0 -> acc
+    end
+  end
+
+  defp drain_phase_envs(acc \\ []) do
+    receive do
+      {:phase_env, id, env} -> drain_phase_envs(acc ++ [{id, env}])
     after
       0 -> acc
     end

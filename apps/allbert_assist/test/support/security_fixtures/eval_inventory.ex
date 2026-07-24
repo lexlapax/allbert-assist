@@ -6901,16 +6901,6 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.V11SweepEvalTest"
     },
     %{
-      id: "fanout-cancel-kill-scope-001",
-      milestone: :v11,
-      surface: :cancellation,
-      scenario: "Escalated cancellation kills beyond the owned process scope",
-      boundary: :process_owner,
-      expected: :allowed,
-      assert: [:owned_tree_terminated, :sibling_survives, :proof_cleanup_complete],
-      test_module: "AllbertAssist.Security.V11SweepEvalTest"
-    },
-    %{
       id: "fanout-ack-cross-user-001",
       milestone: :v11,
       surface: :kickoff_delivery,

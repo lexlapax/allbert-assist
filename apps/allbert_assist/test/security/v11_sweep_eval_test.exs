@@ -7,7 +7,6 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
   alias AllbertAssist.Channels.NotifyConsentCallback
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ChannelThread
-  alias AllbertAssist.Execution.CancellationProof
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Steering
@@ -26,7 +25,6 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
     fanout-notify-redaction-001
     fanout-steer-no-approve-001
     fanout-steer-cross-user-001
-    fanout-cancel-kill-scope-001
     fanout-ack-cross-user-001
     fanout-report-ack-cross-user-001
     fanout-notify-origin-ref-cross-account-001
@@ -63,10 +61,10 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
   test "§I inventory is exact and every scenario has a distinct behavioral binding" do
     rows = EvalInventory.rows_for_milestone(:v11)
     assert MapSet.new(Enum.map(rows, & &1.id)) == MapSet.new(@ids)
-    assert length(rows) == 11
+    assert length(rows) == 10
     assert Enum.all?(rows, &(&1.test_module == inspect(__MODULE__)))
     assert Enum.all?(rows, &(length(&1.assert) == 3))
-    assert rows |> Enum.map(&MapSet.new(&1.assert)) |> Enum.uniq() |> length() == 11
+    assert rows |> Enum.map(&MapSet.new(&1.assert)) |> Enum.uniq() |> length() == 10
   end
 
   test "fanout-decomposition-advisory-001" do
@@ -178,18 +176,6 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
       :owner_lookup_scoped,
       :cross_user_returns_not_found,
       :objective_unchanged
-    ])
-  end
-
-  @tag :external_runtime_serial
-  test "fanout-cancel-kill-scope-001" do
-    assert {:ok, %{status: :passed} = proof} = CancellationProof.run("cancel")
-    assert proof.target_tree_dead? and proof.sibling_survived? and proof.cleanup_complete?
-
-    bind("fanout-cancel-kill-scope-001", [
-      :owned_tree_terminated,
-      :sibling_survives,
-      :proof_cleanup_complete
     ])
   end
 

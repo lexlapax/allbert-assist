@@ -28,19 +28,6 @@ defmodule AllbertAssist.CLI.CommandsTest do
     end
   end
 
-  test "packaged cancellation proof routes through its internal registered action" do
-    assert {:ok, {:area, AllbertAssist.CLI.Areas.CancellationProof}} =
-             Commands.lookup(["admin", "cancellation-proof"])
-
-    assert {:ok, capability} = Registry.capability("release_cancellation_proof")
-    assert capability.permission == :command_execute
-    assert capability.exposure == :internal
-    assert capability.confirmation == :required
-
-    agent_names = Enum.map(Registry.agent_capabilities(), & &1.name)
-    refute "release_cancellation_proof" in agent_names
-  end
-
   test "every disposition is one of the allowed kinds (no direct store access)" do
     for {path, disposition} <- Commands.operator_table() do
       case disposition do

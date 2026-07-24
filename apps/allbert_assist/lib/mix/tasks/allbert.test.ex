@@ -8763,11 +8763,6 @@ defmodule Mix.Tasks.Allbert.Test do
     # the test text): stays in the external policy lane.
     "apps/allbert_assist/test/allbert_assist/coding/m3_bash_action_test.exs" =>
       :external_runtime_serial,
-    # M12.4 cancellation rehearsal runs fixed real OS process trees through
-    # ProcessOwner. The external-runtime tag is the primary ownership lane;
-    # incidental Registry references must not create a dual-lane manifest row.
-    "apps/allbert_assist/test/allbert_assist/execution/cancellation_proof_test.exs" =>
-      :external_runtime_serial,
     # v1.0.3 M3 permanent minimal-composition regression: the channel-surface
     # heuristic reads it as external, but it touches no real channel runtime —
     # it plants a settings-root residue and reads a PRIVATE registry through
@@ -8934,7 +8929,17 @@ defmodule Mix.Tasks.Allbert.Test do
       {"MIX_ENV", "test"},
       {"ALLBERT_HOME", home},
       {"ALLBERT_HOME_DIR", home},
+      {"ALLBERT_SETTINGS_ROOT", nil},
+      {"ALLBERT_MEMORY_ROOT", nil},
+      {"ALLBERT_ARTIFACTS_ROOT", nil},
+      {"ALLBERT_PLUGINS_ROOT", nil},
+      {"ALLBERT_VAULT_BACKEND", nil},
       {"DATABASE_PATH", database},
+      {"XDG_CONFIG_HOME", Path.join([home, "xdg", "config"])},
+      {"XDG_DATA_HOME", Path.join([home, "xdg", "data"])},
+      {"XDG_STATE_HOME", Path.join([home, "xdg", "state"])},
+      {"XDG_CACHE_HOME", Path.join([home, "xdg", "cache"])},
+      {"XDG_RUNTIME_DIR", Path.join([home, "xdg", "runtime"])},
       {"ALLBERT_TEST_GATE_ROOT", root_path}
     ]
   end
