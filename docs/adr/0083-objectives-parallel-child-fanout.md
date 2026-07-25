@@ -269,9 +269,12 @@ authority class.
   inside the additive-migration envelope; the
   1.5-horizon migration-runner cluster is not pulled forward.
 - SQLite write serialization becomes a shared resource across concurrent
-  runs; run processes write through the same Repo pool and the step cadence
-  (model + action latency dominated) keeps contention negligible — measured
-  at M2 acceptance via the test-metrics store.
+  runs. M12.16 operator evidence disproved the earlier claim that ordinary
+  step cadence makes contention negligible: all three fresh child-start
+  transactions can lose the write boundary at once. A durably open attempt-0
+  child proves no effect began, so transient SQLite/DBConnection failure at
+  that boundary releases capacity and retries with capped backoff; it is never
+  parked as `uncertain_effect`. Post-`run_started` recovery retains Decision 5.
 - Delegate-agent dispatch (`AgentRegistry`) is unchanged for existing
   consumers; a run process may still use `:delegate_agent` steps, and that
   call blocks only its own run.
