@@ -4,6 +4,8 @@
 
 Accepted (v1.1 M3, 2026-07-22); the M12.15 atomic-terminal-reduction amendment
 was implemented and its focused invariant/fault matrix passed on 2026-07-25.
+The final confirmation compatibility and policy-denial correction passed its
+focused rejoin.
 The child model, fair scheduler/full lifecycle executor, restart-stable
 receipts, delivery-before-start barrier, public-protocol continuations, and
 cross-surface automatic-rollout corpus remain. The expanded `release.v11`,
@@ -176,7 +178,24 @@ authority class.
    monotonic and cannot reopen or consume another attempt. Non-fan-out engine
    behavior is unchanged. Approval of a confirmation-blocked fan-out child
    resumes Scheduler/RunServer/Lifecycle rather than executing or terminalizing
-   that child through the generic confirmation/interactive Engine path.
+   that child through the generic confirmation/interactive Engine path. New
+   confirmation records carry objective-binding contract v2 with an internally
+   stamped kind: `ordinary`, `objective`, or `fanout_child`. Ordinary records
+   lack a complete objective/step pair and do not query Objectives. Objective
+   records durably prove that the pair is not a fan-out child before generic
+   resumption. Fan-out-child creation requires complete trusted child, step,
+   parent, and user context; approval then validates those rows plus the stored
+   target action and owner exactly before resolving. The short-lived local
+   version-1 transition shape remains readable and retains its complete-pair
+   classification. An unversioned record from the pushed first candidate also
+   keeps exact complete-provenance classification. An older unversioned record
+   without complete provenance may recover through only one durable
+   `Step.confirmation_id` link; duplicates fail ambiguous and the confirmation
+   remains pending. A target-policy denial runs this same classification before
+   resolution: a valid fan-out child resolves denied and wakes its Scheduler so
+   Lifecycle can cancel the child and reduce the parent; stale or ambiguous
+   records remain pending and cannot wake another run. Binding metadata routes
+   validation but is never authority.
 3. **Coordinator messages and signals are advisory projections.** They release
    capacity, update attached surfaces quickly, and wake delivery consumers, but
    neither is required for durable join/report truth. A lost `run_terminal`,
@@ -277,9 +296,12 @@ authority class.
   Scheduler slot monitoring, control-query depth, multi-parent ambiguity,
   cancellation truth, canonical CLI/ACP/TUI/web projections, and attended
   exact-receipt ACK behavior are green. The derived `release.v11` inventory is
-  expanded to retain these core, channel/TUI, and web/OpenAI suites.
+  expanded to retain these core, channel/TUI, and web/OpenAI suites. The final
+  five-file confirmation/fan-out/Plan-Build matrix passes 77 / 0, including
+  unversioned compatibility and policy-denial recovery; its affected
+  four-partition `app_env_serial` lane passes 665 / 0.
 - Release: `release.v1` stays green (Tier-1/Tier-2 untouched; runtime
   response gains only additive fields per ADR 0029) and `release.v11` binds
-  all eleven fan-out authority rows plus the M12.15 focused suites. Both gates
-  and the authoritative release gate remain pending at the final committed
-  implementation SHA.
+  all eleven fan-out authority rows plus the M12.15 focused suites. Both
+  versioned gates, pre-push, and the authoritative release gate remain pending
+  at the final committed implementation SHA.

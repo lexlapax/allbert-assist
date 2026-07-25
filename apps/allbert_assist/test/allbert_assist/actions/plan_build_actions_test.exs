@@ -115,6 +115,32 @@ defmodule AllbertAssist.Actions.PlanBuildActionsTest do
     refute summarize_text =~ "${steps.collect.issues}"
   end
 
+  test "start_plan_run preserves fan-out child binding in its confirmation", %{context: context} do
+    child_context =
+      Map.merge(context, %{
+        objective_id: "obj_plan_child",
+        step_id: "step_plan_child",
+        parent_objective_id: "fanout_plan_parent"
+      })
+
+    assert {:ok, pending} =
+             Runner.run(
+               "start_plan_run",
+               %{workflow_id: "multi_step", inputs: %{since: "today"}},
+               child_context
+             )
+
+    assert pending.status == :needs_confirmation
+    assert {:ok, confirmation} = Confirmations.read(pending.confirmation_id)
+    assert confirmation["objective_binding_version"] == 2
+    assert confirmation["objective_binding_kind"] == "fanout_child"
+    assert confirmation["objective_id"] == "obj_plan_child"
+    assert confirmation["step_id"] == "step_plan_child"
+    assert get_in(confirmation, ["origin", "parent_objective_id"]) == "fanout_plan_parent"
+    assert get_in(confirmation, ["origin", "user_id"]) == "local"
+    assert get_in(confirmation, ["target_action", "name"]) == "start_plan_run"
+  end
+
   test "start_plan_run stamps the requesting channel and same-channel typed approval resolves",
        %{context: context} do
     tui_context = %{context | channel: :tui}

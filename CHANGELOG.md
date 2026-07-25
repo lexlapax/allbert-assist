@@ -13,11 +13,12 @@ changelog entries or release notes.
 ## v1.1.0 - Asynchronous Background Agent Fan-Out With In-Channel Steering
 
 Status: **release candidate preparation; not yet tagged or published.** The
-implementation and focused M12.15 remediation are complete. The expanded
-automated v1.1 gate is defined but its one-commit release executions and overall
-operator validation remain pending. Binary publication/cosign, tap fill,
-packaged-platform rehearsal, and stable-release administration remain
-operator-held after those checks.
+implementation and atomic M12.15 invariant/fault remediation are complete. A
+final confirmation compatibility and policy-denial correction has passed its
+focused rejoin. The expanded automated v1.1 gate is defined, but its final
+clean-SHA executions and overall operator validation remain pending. Binary
+publication/cosign, tap fill, packaged-platform rehearsal, and stable-release
+administration remain operator-held after those checks.
 
 **Formula state: PRE-PUBLICATION ONLY.** packaged Latest 1.0.5 and the
 repository formula remain at 1.0.5 during the RC window. At publish, the tap is
@@ -31,7 +32,21 @@ last child transition into one durable parent join and report receipt. The repor
 labels mixed completed/failed/cancelled work as partial, and all-cancelled work
 as cancelled. Mid-flight replies can request status, steer, cancel, or start a
 new request. Steering and cancellation use registered actions and cannot approve
-or lower the confirmation floor of effectful work.
+or lower the confirmation floor of effectful work. New confirmation records
+carry an explicit ordinary/objective/fan-out-child binding kind. Ordinary
+records without a complete objective/step binding do not depend on the
+Objectives database; objective-bound records are durably classified before
+approval; and fan-out-child records require exact child, step, parent, action,
+and owner agreement. Version-1 transition records retain their
+complete-provenance classification as a local compatibility format.
+Unversioned records written by the pushed first candidate retain exact
+complete-provenance classification; older records without that provenance
+recover only through one unambiguous durable Step link. A target-policy denial
+still classifies the binding first: a valid parked child is denied and woken so
+Lifecycle can cancel it and let the parent join, while stale or ambiguous
+approval is denied without resolving the pending confirmation. The operator
+can then safely deny that record and retry the task instead of risking the
+wrong child.
 
 Background status and completion delivery introduces the ADR 0084 autonomous
 notification authority. It is disabled by default per channel. When explicitly

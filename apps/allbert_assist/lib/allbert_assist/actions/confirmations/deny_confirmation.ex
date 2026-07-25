@@ -117,6 +117,13 @@ defmodule AllbertAssist.Actions.Confirmations.DenyConfirmation do
      }}
   end
 
+  defp maybe_wake_fanout(%{
+         "objective_binding_version" => 2,
+         "objective_binding_kind" => kind
+       })
+       when kind in ["ordinary", "objective"],
+       do: :ok
+
   defp maybe_wake_fanout(%{} = confirmation) do
     case Objectives.fanout_confirmation_target(confirmation) do
       {:ok, %{parent_id: parent_id}} -> Scheduler.wake_parent(parent_id)

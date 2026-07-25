@@ -71,6 +71,219 @@ defmodule AllbertAssist.Objectives.FanoutTest do
     assert length(Objectives.list_objectives("alice")) == before_count
   end
 
+  test "versioned and candidate-unversioned records enforce exact fan-out provenance" do
+    assert {:ok, %{parent: parent, children: [parked, sibling]}} =
+             Fanout.frame(
+               %{user_id: "alice", title: "Legacy confirmation", objective: "Resume safely"},
+               ["first", "second"]
+             )
+
+    confirmation_id = "conf_legacy_fanout"
+
+    assert {:ok, parked_step} =
+             Objectives.create_step(%{
+               objective_id: parked.id,
+               kind: "action",
+               status: "selected",
+               stage: "authorize_step",
+               candidate_action: "list_objectives",
+               action_params: %{}
+             })
+
+    modern_record = %{
+      "id" => confirmation_id,
+      "objective_binding_version" => 2,
+      "objective_binding_kind" => "fanout_child",
+      "objective_id" => parked.id,
+      "step_id" => parked_step.id,
+      "target_action" => %{"name" => "list_objectives"},
+      "origin" => %{
+        "user_id" => parked.user_id,
+        "objective_id" => parked.id,
+        "step_id" => parked_step.id,
+        "parent_objective_id" => parked.parent_objective_id
+      }
+    }
+
+    # Pushed candidate 107a5ce2 wrote trusted objective/step/parent/action
+    # provenance but predated the binding version and kind. Only the newly
+    # added owner field is absent from that real historical record shape.
+    candidate_unversioned_record =
+      modern_record
+      |> Map.drop(["objective_binding_version", "objective_binding_kind"])
+      |> update_in(["origin"], &Map.delete(&1, "user_id"))
+
+    assert {:ok, %{child: binding_child, step: binding_step, phase: :binding}} =
+             Objectives.fanout_confirmation_target(modern_record)
+
+    assert binding_child.id == parked.id
+    assert binding_step.id == parked_step.id
+
+    assert {:ok, %{child: unversioned_child, step: unversioned_step, phase: :binding}} =
+             Objectives.fanout_confirmation_target(candidate_unversioned_record)
+
+    assert unversioned_child.id == parked.id
+    assert unversioned_step.id == parked_step.id
+
+    candidate_v1_record =
+      modern_record
+      |> Map.delete("objective_binding_kind")
+      |> Map.put("objective_binding_version", 1)
+      |> put_in(["origin"], %{})
+
+    assert {:ok, %{child: v1_child, phase: :binding}} =
+             Objectives.fanout_confirmation_target(candidate_v1_record)
+
+    assert v1_child.id == parked.id
+
+    objective_record =
+      modern_record
+      |> Map.put("objective_binding_kind", "objective")
+      |> put_in(["origin"], %{})
+
+    assert {:error, :stale_fanout_confirmation} =
+             Objectives.fanout_confirmation_target(objective_record)
+
+    assert {:ok, parked_step} =
+             Objectives.transition_step(parked_step, "blocked", %{
+               confirmation_id: confirmation_id
+             })
+
+    assert {:ok, _parked} =
+             TerminalTransitions.transition_active_child(
+               parked,
+               %{status: "blocked", current_step_id: parked_step.id},
+               "run_blocked",
+               %{confirmation_id: confirmation_id}
+             )
+
+    assert {:ok, %{phase: :bound}} = Objectives.fanout_confirmation_target(modern_record)
+
+    assert {:ok, %{phase: :bound}} =
+             Objectives.fanout_confirmation_target(candidate_v1_record)
+
+    assert {:ok, %{phase: :bound}} =
+             Objectives.fanout_confirmation_target(candidate_unversioned_record)
+
+    assert {:error, :stale_fanout_confirmation} =
+             modern_record
+             |> put_in(["target_action", "name"], "run_shell_command")
+             |> Objectives.fanout_confirmation_target()
+
+    assert {:error, :stale_fanout_confirmation} =
+             modern_record
+             |> put_in(["origin", "user_id"], "mallory")
+             |> Objectives.fanout_confirmation_target()
+
+    assert {1, _rows} =
+             Objective
+             |> where([objective], objective.id == ^parent.id)
+             |> Repo.update_all(set: [user_id: "mallory"])
+
+    assert {:error, :stale_fanout_confirmation} =
+             Objectives.fanout_confirmation_target(modern_record)
+
+    assert {1, _rows} =
+             Objective
+             |> where([objective], objective.id == ^parent.id)
+             |> Repo.update_all(set: [user_id: parked.user_id])
+
+    assert {:error, :stale_fanout_confirmation} =
+             modern_record
+             |> put_in(["origin", "parent_objective_id"], "fanout_wrong_parent")
+             |> Objectives.fanout_confirmation_target()
+
+    assert {:error, :stale_fanout_confirmation} =
+             candidate_unversioned_record
+             |> put_in(["target_action", "name"], "run_shell_command")
+             |> Objectives.fanout_confirmation_target()
+
+    assert {:error, :stale_fanout_confirmation} =
+             candidate_unversioned_record
+             |> put_in(["origin", "parent_objective_id"], "fanout_wrong_parent")
+             |> Objectives.fanout_confirmation_target()
+
+    assert {:ok, sibling_step} =
+             Objectives.create_step(%{
+               objective_id: sibling.id,
+               kind: "action",
+               status: "selected",
+               stage: "authorize_step",
+               candidate_action: "list_objectives",
+               action_params: %{}
+             })
+
+    assert {:ok, _sibling_step} =
+             Objectives.transition_step(sibling_step, "blocked", %{
+               confirmation_id: confirmation_id
+             })
+
+    assert {:error, :ambiguous_confirmation_target} =
+             Objectives.fanout_confirmation_target(modern_record)
+
+    assert {:error, :ambiguous_confirmation_target} =
+             Objectives.fanout_confirmation_target(candidate_unversioned_record)
+  end
+
+  test "provenance-free unversioned records use only a unique durable Step link" do
+    assert {:ok, %{children: [parked, sibling]}} =
+             Fanout.frame(
+               %{user_id: "alice", title: "Older confirmation", objective: "Resume safely"},
+               ["first", "second"]
+             )
+
+    confirmation_id = "conf_provenance_free_fanout"
+
+    assert {:ok, parked_step} =
+             Objectives.create_step(%{
+               objective_id: parked.id,
+               kind: "action",
+               status: "selected",
+               stage: "authorize_step",
+               candidate_action: "list_objectives",
+               action_params: %{}
+             })
+
+    assert {:ok, parked_step} =
+             Objectives.transition_step(parked_step, "blocked", %{
+               confirmation_id: confirmation_id
+             })
+
+    assert {:ok, _parked} =
+             TerminalTransitions.transition_active_child(
+               parked,
+               %{status: "blocked", current_step_id: parked_step.id},
+               "run_blocked",
+               %{confirmation_id: confirmation_id}
+             )
+
+    # A pre-contract record has no binding version or top-level provenance;
+    # its durable Step link remains upgrade-compatible, but only when unique.
+    assert {:ok, %{child: target_child, step: target_step, phase: :bound}} =
+             Objectives.fanout_confirmation_target(%{"id" => confirmation_id})
+
+    assert target_child.id == parked.id
+    assert target_step.id == parked_step.id
+
+    assert {:ok, sibling_step} =
+             Objectives.create_step(%{
+               objective_id: sibling.id,
+               kind: "action",
+               status: "selected",
+               stage: "authorize_step",
+               candidate_action: "list_objectives",
+               action_params: %{}
+             })
+
+    assert {:ok, _sibling_step} =
+             Objectives.transition_step(sibling_step, "blocked", %{
+               confirmation_id: confirmation_id
+             })
+
+    assert {:error, :ambiguous_confirmation_target} =
+             Objectives.fanout_confirmation_target(%{"id" => confirmation_id})
+  end
+
   test "the last public lifecycle completion atomically joins its parent" do
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(

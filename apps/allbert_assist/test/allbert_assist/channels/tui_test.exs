@@ -146,58 +146,16 @@ defmodule AllbertAssist.Channels.TUITest do
     refute assistant_content =~ "[surface]"
   end
 
-  for output_failure <- [:returned_error, :raise, :exit] do
-    test "failed kickoff output (#{output_failure}) preserves the start barrier" do
-      configure_tui!()
+  test "failed kickoff returned error preserves the start barrier" do
+    assert_failed_kickoff_output_preserves_start_barrier(:returned_error)
+  end
 
-      assert {:ok, _setting} =
-               Settings.put("objectives.fanout.enabled", true, %{audit?: false})
+  test "failed kickoff raise preserves the start barrier" do
+    assert_failed_kickoff_output_preserves_start_barrier(:raise)
+  end
 
-      assert {:ok, _setting} =
-               Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
-
-      assert {:ok, _setting} =
-               Settings.put("objectives.fanout.confirm_before_start", false, %{audit?: false})
-
-      output_fun =
-        case unquote(output_failure) do
-          :returned_error -> fn _line -> {:error, :closed_terminal} end
-          :raise -> fn _line -> raise "terminal closed" end
-          :exit -> fn _line -> exit(:terminal_closed) end
-        end
-
-      assert {:ok, server} =
-               Adapter.start_link(
-                 name: nil,
-                 auto_input?: false,
-                 enabled?: true,
-                 live_screen?: false,
-                 output_fun: output_fun
-               )
-
-      assert {:ok, :rejected} =
-               Adapter.submit(server, "first task; second task",
-                 external_event_id: "evt-failed-kickoff-#{unquote(output_failure)}"
-               )
-
-      assert Process.alive?(server)
-
-      parent =
-        Repo.one!(
-          from objective in Objective,
-            where: objective.user_id == "alice" and objective.fanout_role == "parent",
-            order_by: [desc: objective.inserted_at],
-            limit: 1
-        )
-
-      refute parent.kickoff_delivery_state == "acknowledged"
-      assert parent.kickoff_delivery_state == "blocked"
-
-      Process.sleep(50)
-
-      assert Fanout.children(parent)
-             |> Enum.all?(&(&1.status == "open" and &1.run_attempt_count == 0))
-    end
+  test "failed kickoff exit preserves the start barrier" do
+    assert_failed_kickoff_output_preserves_start_barrier(:exit)
   end
 
   test "escape offers cancellation only for a durably active attached fan-out" do
@@ -1415,6 +1373,58 @@ defmodule AllbertAssist.Channels.TUITest do
   end
 
   defp eventually(_fun, 0), do: flunk("condition did not become true")
+
+  defp assert_failed_kickoff_output_preserves_start_barrier(output_failure) do
+    configure_tui!()
+
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.confirm_before_start", false, %{audit?: false})
+
+    output_fun =
+      case output_failure do
+        :returned_error -> fn _line -> {:error, :closed_terminal} end
+        :raise -> fn _line -> raise "terminal closed" end
+        :exit -> fn _line -> exit(:terminal_closed) end
+      end
+
+    assert {:ok, server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: false,
+               enabled?: true,
+               live_screen?: false,
+               output_fun: output_fun
+             )
+
+    assert {:ok, :rejected} =
+             Adapter.submit(server, "first task; second task",
+               external_event_id: "evt-failed-kickoff-#{output_failure}"
+             )
+
+    assert Process.alive?(server)
+
+    parent =
+      Repo.one!(
+        from objective in Objective,
+          where: objective.user_id == "alice" and objective.fanout_role == "parent",
+          order_by: [desc: objective.inserted_at],
+          limit: 1
+      )
+
+    refute parent.kickoff_delivery_state == "acknowledged"
+    assert parent.kickoff_delivery_state == "blocked"
+
+    Process.sleep(50)
+
+    assert Fanout.children(parent)
+           |> Enum.all?(&(&1.status == "open" and &1.run_attempt_count == 0))
+  end
 
   defp configure_tui! do
     assert {:ok, _setting} = Settings.put("channels.tui.enabled", true, %{audit?: false})

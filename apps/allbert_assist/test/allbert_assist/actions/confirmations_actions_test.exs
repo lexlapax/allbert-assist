@@ -60,6 +60,9 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
     assert {:ok, approval_candidate} =
              Confirmations.create(Map.put(base_attrs(), :id, "conf_approve"))
 
+    assert approval_candidate["objective_binding_version"] == 2
+    assert approval_candidate["objective_binding_kind"] == "ordinary"
+
     assert {:ok, approve_response} =
              Runner.run(
                "approve_confirmation",
@@ -133,6 +136,62 @@ defmodule AllbertAssist.Actions.ConfirmationsActionsTest do
     assert response.status == :completed
     assert response.confirmation["status"] == "adapter_unavailable"
     assert response.confirmation["operator_resolution"]["target_resumed?"] == false
+  end
+
+  test "ordinary approval and objective-bound denial avoid unnecessary objective SQL" do
+    # This suite deliberately owns no SQL sandbox connection. A successful
+    # pair of Runner decisions proves that ordinary approval and the safe
+    # denial of an objective-bound request do not probe the objective database.
+    assert {:ok, approval_record} =
+             Confirmations.create(
+               Map.put(base_attrs(), :id, "conf_incomplete_ordinary_approve"),
+               %{objective_id: "obj_ordinary"}
+             )
+
+    assert approval_record["objective_binding_version"] == 2
+    assert approval_record["objective_binding_kind"] == "ordinary"
+    assert approval_record["objective_id"] == "obj_ordinary"
+    refute Map.has_key?(approval_record, "step_id")
+
+    assert {:ok, approval} =
+             Runner.run("approve_confirmation", %{id: approval_record["id"]}, %{
+               actor: "local",
+               channel: :cli
+             })
+
+    assert approval.status == :completed
+    assert approval.confirmation["status"] == "adapter_unavailable"
+
+    assert {:ok, denial_record} =
+             Confirmations.create(
+               Map.put(base_attrs(), :id, "conf_complete_objective_deny"),
+               %{objective_id: "obj_ordinary", step_id: "step_ordinary"}
+             )
+
+    assert denial_record["objective_binding_kind"] == "objective"
+
+    assert {:ok, denial} =
+             Runner.run(
+               "deny_confirmation",
+               %{id: denial_record["id"], reason: "operator declined"},
+               %{actor: "local", channel: :cli}
+             )
+
+    assert denial.status == :completed
+    assert denial.confirmation["status"] == "denied"
+  end
+
+  test "incomplete explicit fan-out provenance is rejected before prompting" do
+    attrs = Map.put(base_attrs(), :id, "conf_incomplete_fanout")
+
+    assert {:error, {:invalid_confirmation_binding, :fanout_provenance}} =
+             Confirmations.create(attrs, %{
+               objective_id: "obj_incomplete_child",
+               parent_objective_id: "fanout_missing_provenance"
+             })
+
+    assert {:error, {:confirmation_not_found, "conf_incomplete_fanout"}} =
+             Confirmations.read("conf_incomplete_fanout")
   end
 
   test "approval respects target policy changes before resolution" do

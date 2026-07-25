@@ -165,13 +165,97 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     end
   end
 
-  defp resolve_after_recheck(
+  defp resolve_after_recheck(record, reason, context, permission_decision, target_decision) do
+    case Objectives.fanout_confirmation_target(record) do
+      {:ok, target} ->
+        resolve_fanout_after_recheck(
+          record,
+          target,
+          reason,
+          context,
+          permission_decision,
+          target_decision
+        )
+
+      {:error, :not_fanout_confirmation} ->
+        resolve_non_fanout_after_recheck(
+          record,
+          reason,
+          context,
+          permission_decision,
+          target_decision
+        )
+
+      {:error, reason} ->
+        Context.denied(
+          "approve_confirmation",
+          :confirmation_decide,
+          permission_decision,
+          reason
+        )
+    end
+  end
+
+  defp resolve_fanout_after_recheck(
+         record,
+         target,
+         reason,
+         context,
+         permission_decision,
+         %{decision: :denied} = target_decision
+       ) do
+    with {:ok, response} <-
+           resolve_policy_denial(
+             record,
+             reason,
+             context,
+             permission_decision,
+             target_decision
+           ),
+         :ok <- Scheduler.wake_parent(target.parent_id) do
+      {:ok, response}
+    end
+  end
+
+  defp resolve_fanout_after_recheck(
+         record,
+         target,
+         reason,
+         context,
+         permission_decision,
+         target_decision
+       ) do
+    queue_fanout_approval(
+      record,
+      target,
+      reason,
+      context,
+      permission_decision,
+      target_decision
+    )
+  end
+
+  defp resolve_non_fanout_after_recheck(
          record,
          reason,
          context,
          permission_decision,
          %{decision: :denied} = target_decision
        ) do
+    resolve_policy_denial(record, reason, context, permission_decision, target_decision)
+  end
+
+  defp resolve_non_fanout_after_recheck(
+         record,
+         reason,
+         context,
+         permission_decision,
+         target_decision
+       ) do
+    resume_non_fanout(record, reason, context, permission_decision, target_decision)
+  end
+
+  defp resolve_policy_denial(record, reason, context, permission_decision, target_decision) do
     resolve_status(
       record,
       :denied,
@@ -184,31 +268,6 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
         blocked_by_policy?: true
       }
     )
-  end
-
-  defp resolve_after_recheck(record, reason, context, permission_decision, target_decision) do
-    case Objectives.fanout_confirmation_target(record) do
-      {:ok, target} ->
-        queue_fanout_approval(
-          record,
-          target,
-          reason,
-          context,
-          permission_decision,
-          target_decision
-        )
-
-      {:error, :not_fanout_confirmation} ->
-        resume_non_fanout(record, reason, context, permission_decision, target_decision)
-
-      {:error, reason} ->
-        Context.denied(
-          "approve_confirmation",
-          :confirmation_decide,
-          permission_decision,
-          reason
-        )
-    end
   end
 
   defp queue_fanout_approval(
@@ -254,6 +313,13 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       )
     end
   end
+
+  defp maybe_wake_fanout(%{
+         "objective_binding_version" => 2,
+         "objective_binding_kind" => kind
+       })
+       when kind in ["ordinary", "objective"],
+       do: :ok
 
   defp maybe_wake_fanout(%{} = confirmation) do
     case Objectives.fanout_confirmation_target(confirmation) do

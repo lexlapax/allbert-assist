@@ -5,6 +5,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Confirmations.Store.Persistence, as: ConfirmationPersistence
   alias AllbertAssist.Execution.Audit
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
@@ -12,6 +13,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
   alias AllbertAssist.Objectives.Runs.Scheduler
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.YamlCodec
 
   defmodule PausingAdapter do
     def operation(operation, state, opts) do
@@ -156,6 +158,26 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
       end
     end)
 
+    for tampered <- [
+          put_in(confirmation, ["target_action", "name"], "run_shell_command"),
+          put_in(confirmation, ["origin", "user_id"], "mallory")
+        ] do
+      write_confirmation!(tampered)
+
+      assert {:ok, denied} =
+               Runner.run("approve_confirmation", %{id: confirmation["id"]}, %{
+                 user_id: "alice",
+                 actor: "alice",
+                 channel: "test"
+               })
+
+      assert denied.status == :denied
+      assert denied.error == :stale_fanout_confirmation
+      assert {:ok, %{"status" => "pending"}} = Confirmations.read(confirmation["id"])
+    end
+
+    write_confirmation!(confirmation)
+
     assert {:ok, approval} =
              Runner.run("approve_confirmation", %{id: confirmation["id"]}, %{
                user_id: "alice",
@@ -187,6 +209,222 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
              })
 
     assert duplicate.status == :completed
+    refute_receive {:approved_target_executed, _id}, 200
+  end
+
+  test "unversioned approval recovers a uniquely linked parked child through supervision" do
+    %{parent: parent, children: [parked, sibling], receipt: receipt} = frame_two()
+    step = add_safe_step(parked)
+    add_safe_step(sibling)
+
+    assert {:ok, confirmation} = create_child_confirmation(parked, step)
+    legacy_confirmation = rewrite_as_candidate_unversioned!(confirmation)
+    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    run_opts = [
+      lifecycle_opts: [
+        adapter: DurableConfirmationAdapter,
+        confirmation_child_id: parked.id,
+        confirmation_id: legacy_confirmation["id"],
+        test_pid: self()
+      ]
+    ]
+
+    assert {:ok, _coordinator} = Scheduler.start_fanout(parent.id, run_opts: run_opts)
+
+    eventually(fn ->
+      with {:ok, blocked} <- Objectives.get_objective(parked.id),
+           {:ok, completed} <- Objectives.get_objective(sibling.id) do
+        blocked.status == "blocked" and completed.status == "completed"
+      end
+    end)
+
+    assert {:ok, approval} =
+             Runner.run("approve_confirmation", %{id: legacy_confirmation["id"]}, %{
+               user_id: "alice",
+               actor: "alice",
+               channel: "test"
+             })
+
+    assert approval.status == :completed
+    assert approval.confirmation["status"] == "approved"
+
+    eventually(fn ->
+      with {:ok, completed} <- Objectives.get_objective(parked.id),
+           {:ok, joined} <- Objectives.get_objective(parent.id) do
+        completed.status == "completed" and joined.report_delivery_state == "pending"
+      end
+    end)
+
+    assert_receive {:approved_target_executed, parked_id}, 2_000
+    assert parked_id == parked.id
+    assert Enum.count(Objectives.list_events(parent.id), &(&1.kind == "fanout_joined")) == 1
+  end
+
+  test "ambiguous unversioned approval is denied and remains pending" do
+    %{children: [first, second]} = frame_two()
+    first_step = add_safe_step(first)
+    second_step = add_safe_step(second)
+
+    assert {:ok, confirmation} = create_child_confirmation(first, first_step)
+    legacy_confirmation = rewrite_as_provenance_free_unversioned!(confirmation)
+
+    assert {:ok, _first_step} =
+             Objectives.transition_step(first_step, "blocked", %{
+               confirmation_id: legacy_confirmation["id"]
+             })
+
+    assert {:ok, _second_step} =
+             Objectives.transition_step(second_step, "blocked", %{
+               confirmation_id: legacy_confirmation["id"]
+             })
+
+    assert {:ok, response} =
+             Runner.run("approve_confirmation", %{id: legacy_confirmation["id"]}, %{
+               user_id: "alice",
+               actor: "alice",
+               channel: "test"
+             })
+
+    assert response.status == :denied
+    assert response.error == :ambiguous_confirmation_target
+
+    assert {:ok, %{"status" => "pending"}} =
+             Confirmations.read(legacy_confirmation["id"])
+  end
+
+  test "policy-denied approval wakes the exact child and joins the parent as partial" do
+    assert {:ok, original_policy} = Settings.get("permissions.external_network")
+
+    on_exit(fn ->
+      Settings.put("permissions.external_network", original_policy, %{audit?: false})
+    end)
+
+    assert {:ok, _setting} =
+             Settings.put("permissions.external_network", "needs_confirmation", %{audit?: false})
+
+    %{parent: parent, children: [parked, sibling], receipt: receipt} = frame_two()
+    step = add_action_step(parked, "external_network_request")
+    add_safe_step(sibling)
+
+    assert {:ok, confirmation} =
+             create_child_confirmation(parked, step,
+               permission: :external_network,
+               execution_mode: :req_http,
+               decision: :needs_confirmation
+             )
+
+    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    run_opts = [
+      lifecycle_opts: [
+        adapter: DurableConfirmationAdapter,
+        confirmation_child_id: parked.id,
+        confirmation_id: confirmation["id"],
+        test_pid: self()
+      ]
+    ]
+
+    assert {:ok, _coordinator} = Scheduler.start_fanout(parent.id, run_opts: run_opts)
+
+    eventually(fn ->
+      with {:ok, blocked} <- Objectives.get_objective(parked.id),
+           {:ok, completed} <- Objectives.get_objective(sibling.id) do
+        blocked.status == "blocked" and completed.status == "completed"
+      end
+    end)
+
+    assert {:ok, _setting} =
+             Settings.put("permissions.external_network", "denied", %{audit?: false})
+
+    assert {:ok, response} =
+             Runner.run("approve_confirmation", %{id: confirmation["id"]}, %{
+               user_id: "alice",
+               actor: "alice",
+               channel: "test"
+             })
+
+    assert response.status == :completed
+    assert response.confirmation["status"] == "denied"
+    assert response.actions |> hd() |> get_in([:confirmation_metadata, :blocked_by_policy?])
+    refute response.actions |> hd() |> get_in([:confirmation_metadata, :target_resumed?])
+
+    eventually(fn ->
+      with {:ok, cancelled} <- Objectives.get_objective(parked.id),
+           {:ok, completed} <- Objectives.get_objective(sibling.id),
+           {:ok, joined} <- Objectives.get_objective(parent.id) do
+        cancelled.status == "cancelled" and completed.status == "completed" and
+          joined.status == "completed" and joined.join_outcome == "partial" and
+          joined.report_delivery_state == "pending"
+      end
+    end)
+
+    assert [%{status: "cancelled"}] = Objectives.list_steps(parked.id)
+    refute_receive {:approved_target_executed, _id}, 200
+  end
+
+  test "policy-denied approval leaves a tampered fan-out confirmation pending" do
+    assert {:ok, original_policy} = Settings.get("permissions.external_network")
+
+    on_exit(fn ->
+      Settings.put("permissions.external_network", original_policy, %{audit?: false})
+    end)
+
+    assert {:ok, _setting} =
+             Settings.put("permissions.external_network", "needs_confirmation", %{audit?: false})
+
+    %{parent: parent, children: [parked, sibling], receipt: receipt} = frame_two()
+    step = add_action_step(parked, "external_network_request")
+    add_safe_step(sibling)
+
+    assert {:ok, confirmation} =
+             create_child_confirmation(parked, step,
+               permission: :external_network,
+               execution_mode: :req_http,
+               decision: :needs_confirmation
+             )
+
+    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    run_opts = [
+      lifecycle_opts: [
+        adapter: DurableConfirmationAdapter,
+        confirmation_child_id: parked.id,
+        confirmation_id: confirmation["id"],
+        test_pid: self()
+      ]
+    ]
+
+    assert {:ok, _coordinator} = Scheduler.start_fanout(parent.id, run_opts: run_opts)
+
+    eventually(fn ->
+      with {:ok, blocked} <- Objectives.get_objective(parked.id),
+           {:ok, completed} <- Objectives.get_objective(sibling.id) do
+        blocked.status == "blocked" and completed.status == "completed"
+      end
+    end)
+
+    tampered = put_in(confirmation, ["target_action", "name"], "run_shell_command")
+    write_confirmation!(tampered)
+
+    assert {:ok, _setting} =
+             Settings.put("permissions.external_network", "denied", %{audit?: false})
+
+    assert {:ok, response} =
+             Runner.run("approve_confirmation", %{id: confirmation["id"]}, %{
+               user_id: "alice",
+               actor: "alice",
+               channel: "test"
+             })
+
+    assert response.status == :denied
+    assert response.error == :stale_fanout_confirmation
+    assert {:ok, %{"status" => "pending"}} = Confirmations.read(confirmation["id"])
+    assert {:ok, %{status: "blocked"}} = Objectives.get_objective(parked.id)
+
+    assert {:ok, %{status: "open", report_delivery_state: "not_ready"}} =
+             Objectives.get_objective(parent.id)
+
     refute_receive {:approved_target_executed, _id}, 200
   end
 
@@ -908,37 +1146,87 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
       do: DynamicSupervisor.terminate_child(AllbertAssist.Objectives.Runs.Supervisor, pid)
   end
 
-  defp add_safe_step(child) do
+  defp add_safe_step(child), do: add_action_step(child, "list_objectives")
+
+  defp add_action_step(child, action) do
     assert {:ok, step} =
              Objectives.create_step(%{
                objective_id: child.id,
                kind: "action",
                status: "selected",
                stage: "authorize_step",
-               candidate_action: "list_objectives",
+               candidate_action: action,
                action_params: %{user_id: child.user_id}
              })
 
     step
   end
 
-  defp create_child_confirmation(child, step) do
-    Confirmations.create(%{
-      origin: %{actor: child.user_id, channel: "test"},
-      target_action: %{name: "list_objectives"},
-      target_permission: :read_only,
-      target_execution_mode: :read_only,
-      security_decision: %{permission: :read_only, decision: :allowed},
-      params_summary: %{
+  defp create_child_confirmation(child, step, opts \\ []) do
+    permission = Keyword.get(opts, :permission, :read_only)
+    execution_mode = Keyword.get(opts, :execution_mode, :read_only)
+    decision = Keyword.get(opts, :decision, :allowed)
+
+    Confirmations.create(
+      %{
+        origin: %{actor: child.user_id, channel: "test"},
+        target_action: %{name: step.candidate_action},
+        target_permission: permission,
+        target_execution_mode: execution_mode,
+        security_decision: %{permission: permission, decision: decision},
+        params_summary: %{
+          objective_id: child.id,
+          step_id: step.id,
+          objective_title: child.title,
+          objective_status: child.status
+        },
+        resume_params_ref: %{}
+      },
+      %{
+        user_id: child.user_id,
         objective_id: child.id,
         step_id: step.id,
-        objective_title: child.title,
-        objective_status: child.status
-      },
-      resume_params_ref: %{},
-      objective_id: child.id,
-      step_id: step.id
-    })
+        parent_objective_id: child.parent_objective_id,
+        selected_action: step.candidate_action
+      }
+    )
+  end
+
+  defp rewrite_as_candidate_unversioned!(confirmation) do
+    legacy =
+      confirmation
+      |> Map.drop(["objective_binding_version", "objective_binding_kind"])
+      |> Map.update!("origin", &Map.delete(&1, "user_id"))
+
+    write_confirmation!(legacy)
+
+    assert {:ok, ^legacy} = Confirmations.read(confirmation["id"])
+    legacy
+  end
+
+  defp rewrite_as_provenance_free_unversioned!(confirmation) do
+    legacy =
+      confirmation
+      |> Map.drop([
+        "objective_binding_version",
+        "objective_binding_kind",
+        "objective_id",
+        "step_id"
+      ])
+      |> Map.update!("origin", fn origin ->
+        Map.drop(origin, ["objective_id", "step_id", "parent_objective_id"])
+      end)
+
+    write_confirmation!(legacy)
+
+    assert {:ok, ^legacy} = Confirmations.read(confirmation["id"])
+    legacy
+  end
+
+  defp write_confirmation!(confirmation) do
+    confirmation["id"]
+    |> ConfirmationPersistence.pending_path()
+    |> File.write!(YamlCodec.encode!(confirmation))
   end
 
   defp command_success_count(workspace) do

@@ -5,12 +5,15 @@ defmodule AllbertAssist.Confirmations.Record do
 
   @pending_status "pending"
   @statuses ~w(pending approved denied expired cancelled adapter_unavailable)
+  @objective_binding_version 2
+  @objective_binding_kinds ~w(ordinary objective fanout_child)
 
   @required_string_fields ~w(id status requested_at expires_at)
   @required_map_fields ~w(origin target_action security_decision params_summary)
 
   @doc "Build a validated pending confirmation record."
-  def new(attrs, now, ttl_minutes) when is_map(attrs) and is_integer(ttl_minutes) do
+  def new(attrs, now, ttl_minutes, objective_binding_kind \\ "ordinary")
+      when is_map(attrs) and is_integer(ttl_minutes) do
     now = DateTime.truncate(now, :second)
     expires_at = DateTime.add(now, ttl_minutes * 60, :second)
     id = value(attrs, :id) || generate_id(now)
@@ -31,6 +34,8 @@ defmodule AllbertAssist.Confirmations.Record do
         "security_decision" => redacted_map(value(attrs, :security_decision, %{})),
         "source_signal_id" => stringify(value(attrs, :source_signal_id)),
         "source_trace_id" => stringify(value(attrs, :source_trace_id)),
+        "objective_binding_version" => @objective_binding_version,
+        "objective_binding_kind" => stringify(objective_binding_kind),
         "objective_id" => stringify(value(attrs, :objective_id)),
         "step_id" => stringify(value(attrs, :step_id)),
         "runner_metadata" => redacted_map(value(attrs, :runner_metadata, %{})),
@@ -68,6 +73,7 @@ defmodule AllbertAssist.Confirmations.Record do
     with :ok <- validate_required_strings(record),
          :ok <- validate_required_maps(record),
          :ok <- validate_status(Map.get(record, "status")),
+         :ok <- validate_objective_binding(record),
          :ok <- validate_datetime(record, "requested_at"),
          :ok <- validate_datetime(record, "expires_at"),
          :ok <- validate_optional_datetime(record, "resolved_at") do
@@ -109,6 +115,89 @@ defmodule AllbertAssist.Confirmations.Record do
 
   defp validate_status(status) when status in @statuses, do: :ok
   defp validate_status(status), do: {:error, {:invalid_confirmation_status, status}}
+
+  # Unversioned records written before the binding contract, including the
+  # first M12.15 candidate, remain readable. So does the short-lived local v1
+  # transition shape. Only v2 carries an explicit internally derived kind;
+  # that kind keeps ordinary confirmations off the Objectives store while
+  # fan-out confirmations retain exact durable provenance checks.
+  defp validate_objective_binding(record) do
+    version = Map.get(record, "objective_binding_version")
+    kind = Map.get(record, "objective_binding_kind")
+
+    case {version, kind} do
+      {nil, nil} ->
+        :ok
+
+      {1, nil} ->
+        :ok
+
+      {@objective_binding_version, kind} when kind in @objective_binding_kinds ->
+        validate_current_binding_shape(record, kind)
+
+      {@objective_binding_version, kind} ->
+        {:error, {:invalid_confirmation_record, {"objective_binding_kind", kind}}}
+
+      {version, _kind} ->
+        {:error, {:invalid_confirmation_record, {"objective_binding_version", version}}}
+    end
+  end
+
+  defp validate_current_binding_shape(record, "ordinary") do
+    if parent_bound?(record) or complete_objective_binding?(record) or
+         orphan_step_binding?(record),
+       do: invalid_binding_kind("ordinary"),
+       else: :ok
+  end
+
+  defp validate_current_binding_shape(record, "objective") do
+    if complete_objective_binding?(record) and not parent_bound?(record),
+      do: :ok,
+      else: invalid_binding_kind("objective")
+  end
+
+  defp validate_current_binding_shape(record, "fanout_child") do
+    if complete_objective_binding?(record) and parent_bound?(record) and binding_user?(record) and
+         target_action_bound?(record),
+       do: :ok,
+       else: invalid_binding_kind("fanout_child")
+  end
+
+  defp complete_objective_binding?(record) do
+    present_string?(Map.get(record, "objective_id")) and
+      present_string?(Map.get(record, "step_id"))
+  end
+
+  defp orphan_step_binding?(record) do
+    present_string?(Map.get(record, "step_id")) and
+      not present_string?(Map.get(record, "objective_id"))
+  end
+
+  defp parent_bound?(record) do
+    record
+    |> Map.get("origin", %{})
+    |> Map.get("parent_objective_id")
+    |> present_string?()
+  end
+
+  defp binding_user?(record) do
+    record
+    |> Map.get("origin", %{})
+    |> Map.get("user_id")
+    |> present_string?()
+  end
+
+  defp target_action_bound?(record) do
+    record
+    |> Map.get("target_action", %{})
+    |> Map.get("name")
+    |> present_string?()
+  end
+
+  defp present_string?(value), do: is_binary(value) and value != ""
+
+  defp invalid_binding_kind(kind),
+    do: {:error, {:invalid_confirmation_record, {"objective_binding_kind", kind}}}
 
   defp validate_datetime(record, field) do
     case parse_datetime(Map.get(record, field)) do

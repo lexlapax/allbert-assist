@@ -47,11 +47,12 @@ defmodule AllbertAssist.Confirmations.Store.Persistence do
   def create(attrs, opts \\ []) when is_map(attrs) and is_list(opts) do
     now = Keyword.get(opts, :now, DateTime.utc_now())
     ttl_minutes = Keyword.get(opts, :ttl_minutes, default_ttl_minutes())
+    objective_binding_kind = Keyword.get(opts, :objective_binding_kind, :ordinary)
     audit_path = audit_path(now)
 
     attrs = Map.put(attrs, :audit_path, audit_path)
 
-    with {:ok, record} <- Record.new(attrs, now, ttl_minutes),
+    with {:ok, record} <- Record.new(attrs, now, ttl_minutes, objective_binding_kind),
          :ok <- write_pending(record),
          {:ok, _path} <- append_audit(record, "requested", now) do
       WorkspaceEmitters.confirmation_requested(record)

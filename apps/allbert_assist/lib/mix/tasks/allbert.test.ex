@@ -5861,6 +5861,8 @@ defmodule Mix.Tasks.Allbert.Test do
         "test/allbert_assist/objectives/delegate_cancel_test.exs",
         "test/allbert_assist/intent/steering_test.exs",
         "test/allbert_assist/actions/objectives/read_actions_test.exs",
+        "test/allbert_assist/actions/confirmations_actions_test.exs",
+        "test/allbert_assist/actions/plan_build_actions_test.exs",
         "test/allbert_assist/confirmations_test.exs",
         "test/allbert_assist/intent/engine_test.exs",
         "test/allbert_assist/objectives/migration_round_trip_test.exs",
@@ -5874,7 +5876,7 @@ defmodule Mix.Tasks.Allbert.Test do
         "test/mix/tasks/allbert_objectives_test.exs"
       ],
       coverage: [
-        "atomic fan-in, recovery, ownership, steering, cancellation, ACK, ACP, and CLI contracts"
+        "atomic fan-in, confirmation and Plan/Build binding, recovery, ownership, steering, cancellation, ACK, ACP, and CLI contracts"
       ]
     },
     %{

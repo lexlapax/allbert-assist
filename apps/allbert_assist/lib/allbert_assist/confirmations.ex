@@ -14,12 +14,19 @@ defmodule AllbertAssist.Confirmations do
 
   defdelegate root(), to: Store
   defdelegate ensure_root!(), to: Store
-  @doc "Create a durable confirmation without objective-run provenance."
+
+  @doc """
+  Create a durable confirmation without trusted Runner context.
+
+  A complete objective/step pair supplied by an internal domain is classified
+  for durable objective verification. Fan-out-child binding is never inferred
+  here; it requires the context-bound API below.
+  """
   @spec create(map(), keyword() | map()) :: {:ok, map()} | {:error, term()}
   def create(attrs, opts_or_context \\ [])
 
   def create(attrs, opts) when is_map(attrs) and is_list(opts),
-    do: Store.create(attrs, opts)
+    do: Store.create(attrs, binding_opts(opts, objective_binding_kind(attrs, %{})))
 
   def create(attrs, context) when is_map(attrs) and is_map(context),
     do: create(attrs, context, [])
@@ -36,9 +43,12 @@ defmodule AllbertAssist.Confirmations do
   def create(attrs, context, opts)
       when is_map(attrs) and is_map(context) and is_list(opts) do
     with :ok <- validate_context_binding(attrs, context) do
-      attrs
-      |> bind_objective_context(context)
-      |> Store.create(opts)
+      bound_attrs = bind_objective_context(attrs, context)
+
+      Store.create(
+        bound_attrs,
+        binding_opts(opts, objective_binding_kind(bound_attrs, context))
+      )
     end
   end
 
@@ -177,6 +187,7 @@ defmodule AllbertAssist.Confirmations do
 
   defp objective_context_snapshot(context) do
     %{
+      user_id: Maps.field(context, :user_id),
       objective_id: Maps.field(context, :objective_id),
       step_id: Maps.field(context, :step_id),
       parent_objective_id: Maps.field(context, :parent_objective_id)
@@ -199,7 +210,8 @@ defmodule AllbertAssist.Confirmations do
   end
 
   defp validate_context_binding(attrs, context) do
-    with :ok <- validate_matching_value(attrs, context, :objective_id),
+    with :ok <- validate_objective_binding_shape(context),
+         :ok <- validate_matching_value(attrs, context, :objective_id),
          :ok <- validate_matching_value(attrs, context, :step_id),
          :ok <- validate_target_action(attrs, context),
          :ok <- validate_resume_params(attrs, context) do
@@ -263,6 +275,41 @@ defmodule AllbertAssist.Confirmations do
   end
 
   defp present?(value), do: value not in [nil, ""]
+
+  defp objective_binding_kind(attrs, context) do
+    cond do
+      present?(Maps.field(context, :parent_objective_id)) ->
+        :fanout_child
+
+      present?(Maps.field(attrs, :objective_id)) and present?(Maps.field(attrs, :step_id)) ->
+        :objective
+
+      true ->
+        :ordinary
+    end
+  end
+
+  defp validate_objective_binding_shape(context) do
+    objective? = present?(Maps.field(context, :objective_id))
+    step? = present?(Maps.field(context, :step_id))
+    parent? = present?(Maps.field(context, :parent_objective_id))
+
+    cond do
+      parent? and not (objective? and step?) ->
+        {:error, {:invalid_confirmation_binding, :fanout_provenance}}
+
+      parent? and not present?(Maps.field(context, :user_id)) ->
+        {:error, {:invalid_confirmation_binding, :fanout_owner}}
+
+      step? and not objective? ->
+        {:error, {:invalid_confirmation_binding, :objective_provenance}}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp binding_opts(opts, kind), do: Keyword.put(opts, :objective_binding_kind, kind)
 
   defp trusted_module_name(module) when is_atom(module) and module != nil,
     do: inspect(module)

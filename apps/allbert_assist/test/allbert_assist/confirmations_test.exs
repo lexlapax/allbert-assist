@@ -3,6 +3,7 @@ defmodule AllbertAssist.ConfirmationsTest do
   @moduletag :app_env_serial
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Confirmations.Record
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
 
@@ -49,6 +50,8 @@ defmodule AllbertAssist.ConfirmationsTest do
     pending_path = Path.join([home, "confirmations", "pending", "#{id}.yml"])
 
     assert record["status"] == "pending"
+    assert record["objective_binding_version"] == 2
+    assert record["objective_binding_kind"] == "ordinary"
     assert record["origin"]["channel"] == "cli"
     assert record["params_summary"]["api_key"] == "[REDACTED]"
     assert record["resume_params_ref"]["secret_ref"] == "[REDACTED]"
@@ -61,6 +64,22 @@ defmodule AllbertAssist.ConfirmationsTest do
     assert {:ok, ^record} = Confirmations.read(id)
     assert [^record] = Confirmations.list()
 
+    assert :ok =
+             record
+             |> Map.drop(["objective_binding_kind"])
+             |> Map.put("objective_binding_version", 1)
+             |> Record.validate()
+
+    assert {:error, {:invalid_confirmation_record, {"objective_binding_version", 3}}} =
+             record
+             |> Map.put("objective_binding_version", 3)
+             |> Record.validate()
+
+    assert {:error, {:invalid_confirmation_record, {"objective_binding_kind", "forged"}}} =
+             record
+             |> Map.put("objective_binding_kind", "forged")
+             |> Record.validate()
+
     audit = File.read!(Path.join([home, "confirmations", "audit", "2026-05.md"]))
     assert audit =~ "requested"
     assert audit =~ id
@@ -68,6 +87,7 @@ defmodule AllbertAssist.ConfirmationsTest do
 
   test "context-bound create persists trusted objective, step, and action provenance" do
     context = %{
+      "user_id" => "alice",
       "objective_id" => "obj-child",
       "step_id" => "step-action",
       "parent_objective_id" => "fanout-parent",
@@ -80,6 +100,8 @@ defmodule AllbertAssist.ConfirmationsTest do
     assert {:ok, record} = Confirmations.create(base_attrs(), context, now: now())
     assert record["objective_id"] == "obj-child"
     assert record["step_id"] == "step-action"
+    assert record["objective_binding_version"] == 2
+    assert record["objective_binding_kind"] == "fanout_child"
     assert record["origin"]["parent_objective_id"] == "fanout-parent"
     assert record["origin"]["objective_id"] == "obj-child"
     assert record["target_action"]["name"] == "external_network_request"
@@ -123,18 +145,48 @@ defmodule AllbertAssist.ConfirmationsTest do
     assert {:ok, record} =
              Confirmations.create(base_attrs(), %{user_id: "alice", channel: :test}, now: now())
 
+    assert record["objective_binding_kind"] == "ordinary"
     assert record["target_action"]["name"] == "external_network_request"
     refute Map.has_key?(record["target_action"], "module")
   end
 
-  test "production actions and plugins bind confirmation creation to runner context" do
+  test "complete non-fan-out objective context is classified for durable verification" do
+    assert {:ok, record} =
+             Confirmations.create(
+               base_attrs(),
+               %{objective_id: "obj-root", step_id: "step-root"},
+               now: now()
+             )
+
+    assert record["objective_binding_version"] == 2
+    assert record["objective_binding_kind"] == "objective"
+    assert record["objective_id"] == "obj-root"
+    assert record["step_id"] == "step-root"
+  end
+
+  test "caller attributes cannot forge the internally derived binding kind" do
+    attrs = Map.put(base_attrs(), :objective_binding_kind, "fanout_child")
+
+    assert {:ok, record} = Confirmations.create(attrs, now: now())
+    assert record["objective_binding_version"] == 2
+    assert record["objective_binding_kind"] == "ordinary"
+  end
+
+  test "production action entrypoints bind confirmation creation to runner context" do
     repo_root = Path.expand("../../../..", __DIR__)
 
     files =
       Path.wildcard(
         Path.join(repo_root, "apps/allbert_assist/lib/allbert_assist/actions/**/*.ex")
       ) ++
-        Path.wildcard(Path.join(repo_root, "plugins/*/lib/**/*.ex"))
+        Path.wildcard(Path.join(repo_root, "plugins/*/lib/**/*.ex")) ++
+        [
+          Path.join(repo_root, "apps/allbert_assist/lib/allbert_assist/plan_build.ex"),
+          Path.join(repo_root, "apps/allbert_assist/lib/allbert_assist/runtime.ex")
+        ] ++
+        Path.wildcard(
+          Path.join(repo_root, "apps/allbert_assist/lib/allbert_assist/plan_build/**/*.ex")
+        )
 
     raw_sites =
       Enum.flat_map(files, fn path ->
@@ -153,7 +205,12 @@ defmodule AllbertAssist.ConfirmationsTest do
         sites
       end)
 
-    assert raw_sites == []
+    assert raw_sites
+           |> Enum.map(fn {path, _line} -> Path.relative_to(path, repo_root) end)
+           |> Enum.sort() == [
+             "apps/allbert_assist/lib/allbert_assist/plan_build/runtime.ex",
+             "apps/allbert_assist/lib/allbert_assist/runtime.ex"
+           ]
   end
 
   test "resolve moves pending records to resolved state and keeps channel handoff", %{home: home} do

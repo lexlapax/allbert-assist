@@ -534,24 +534,30 @@ defmodule AllbertAssist.Objectives do
              | :ambiguous_confirmation_target
              | term()}
   def fanout_confirmation_target(%{} = confirmation) do
-    confirmation_id = facade_field(confirmation, :id)
-    objective_id = facade_field(confirmation, :objective_id)
-    step_id = facade_field(confirmation, :step_id)
+    origin = facade_field(confirmation, :origin) || %{}
+    target_action = facade_field(confirmation, :target_action) || %{}
 
-    cond do
-      Enum.all?([confirmation_id, objective_id, step_id], &(is_binary(&1) and &1 != "")) ->
-        fanout_confirmation_target_by_provenance(confirmation_id, objective_id, step_id)
-
-      fanout_confirmation_marker?(confirmation, objective_id) ->
-        {:error, :stale_fanout_confirmation}
-
-      true ->
-        fanout_confirmation_target(confirmation_id)
-    end
+    resolve_fanout_confirmation_binding(%{
+      confirmation_id: facade_field(confirmation, :id),
+      objective_id: facade_field(confirmation, :objective_id),
+      step_id: facade_field(confirmation, :step_id),
+      binding_version: facade_field(confirmation, :objective_binding_version),
+      binding_kind: facade_field(confirmation, :objective_binding_kind),
+      parent_objective_id: fanout_parent_marker(confirmation),
+      target_action_name: facade_field(target_action, :name),
+      origin_user_id: facade_field(origin, :user_id)
+    })
   end
 
   def fanout_confirmation_target(confirmation_id)
       when is_binary(confirmation_id) and confirmation_id != "" do
+    fanout_confirmation_target_by_id(confirmation_id, %{})
+  end
+
+  def fanout_confirmation_target(_missing), do: {:error, :not_fanout_confirmation}
+
+  defp fanout_confirmation_target_by_id(confirmation_id, expectations)
+       when is_binary(confirmation_id) and confirmation_id != "" do
     steps =
       Step
       |> where([step], step.confirmation_id == ^confirmation_id)
@@ -560,7 +566,12 @@ defmodule AllbertAssist.Objectives do
 
     case steps do
       [%Step{} = step] ->
-        fanout_confirmation_target_by_provenance(confirmation_id, step.objective_id, step.id)
+        fanout_confirmation_target_by_provenance(
+          confirmation_id,
+          step.objective_id,
+          step.id,
+          expectations
+        )
 
       [] ->
         {:error, :not_fanout_confirmation}
@@ -570,14 +581,233 @@ defmodule AllbertAssist.Objectives do
     end
   end
 
-  def fanout_confirmation_target(_missing), do: {:error, :not_fanout_confirmation}
+  defp fanout_confirmation_target_by_id(_missing, _expectations),
+    do: {:error, :not_fanout_confirmation}
 
-  defp fanout_confirmation_target_by_provenance(confirmation_id, objective_id, step_id) do
+  defp resolve_fanout_confirmation_binding(%{binding_version: 2} = binding),
+    do: resolve_current_fanout_binding(binding)
+
+  defp resolve_fanout_confirmation_binding(%{binding_version: 1} = binding),
+    do: resolve_candidate_v1_fanout_binding(binding)
+
+  defp resolve_fanout_confirmation_binding(%{binding_version: nil} = binding),
+    do: resolve_legacy_fanout_binding(binding)
+
+  defp resolve_fanout_confirmation_binding(%{}),
+    do: {:error, :stale_fanout_confirmation}
+
+  defp resolve_current_fanout_binding(%{
+         binding_kind: "objective",
+         confirmation_id: confirmation_id,
+         objective_id: objective_id,
+         step_id: step_id,
+         parent_objective_id: nil
+       })
+       when is_binary(confirmation_id) and confirmation_id != "" and is_binary(objective_id) and
+              objective_id != "" and is_binary(step_id) and step_id != "" do
+    objective_confirmation_target_by_provenance(confirmation_id, objective_id, step_id)
+  end
+
+  defp resolve_current_fanout_binding(
+         %{
+           binding_kind: "fanout_child",
+           confirmation_id: confirmation_id,
+           objective_id: objective_id,
+           step_id: step_id,
+           parent_objective_id: parent_objective_id
+         } = binding
+       )
+       when is_binary(confirmation_id) and confirmation_id != "" and is_binary(objective_id) and
+              objective_id != "" and is_binary(step_id) and step_id != "" and
+              is_binary(parent_objective_id) do
+    fanout_confirmation_target_by_provenance(
+      confirmation_id,
+      objective_id,
+      step_id,
+      binding_expectations(binding, true)
+    )
+  end
+
+  defp resolve_current_fanout_binding(%{
+         binding_kind: "ordinary",
+         objective_id: objective_id,
+         step_id: step_id,
+         parent_objective_id: nil
+       }) do
+    if complete_confirmation_provenance?(objective_id, step_id),
+      do: {:error, :stale_fanout_confirmation},
+      else: {:error, :not_fanout_confirmation}
+  end
+
+  defp resolve_current_fanout_binding(%{}), do: {:error, :stale_fanout_confirmation}
+
+  # The short-lived local v1 transition records predate the explicit binding
+  # kind. Preserve their decision rule: complete objective/step provenance
+  # receives durable classification even when the parent marker is absent;
+  # incomplete parent-marked records fail closed; all other v1 records are
+  # ordinary.
+  defp resolve_candidate_v1_fanout_binding(
+         %{
+           binding_kind: nil,
+           confirmation_id: confirmation_id,
+           objective_id: objective_id,
+           step_id: step_id
+         } = binding
+       )
+       when is_binary(confirmation_id) and confirmation_id != "" and is_binary(objective_id) and
+              objective_id != "" and is_binary(step_id) and step_id != "" do
+    fanout_confirmation_target_by_provenance(
+      confirmation_id,
+      objective_id,
+      step_id,
+      binding_expectations(binding, false)
+    )
+  end
+
+  defp resolve_candidate_v1_fanout_binding(%{
+         binding_kind: nil,
+         parent_objective_id: nil
+       }),
+       do: {:error, :not_fanout_confirmation}
+
+  defp resolve_candidate_v1_fanout_binding(%{}), do: {:error, :stale_fanout_confirmation}
+
+  # The first M12.15 candidate wrote complete child/step provenance without a
+  # binding version. Preserve that real on-disk shape before considering the
+  # older confirmation-id-only recovery path. Durable rows, not the record's
+  # unversioned metadata, still decide whether the target is a valid fan-out
+  # child and whether its action, owner, parent, and phase agree.
+  defp resolve_legacy_fanout_binding(
+         %{
+           binding_kind: nil,
+           confirmation_id: confirmation_id,
+           objective_id: objective_id,
+           step_id: step_id
+         } = binding
+       )
+       when is_binary(confirmation_id) and confirmation_id != "" and is_binary(objective_id) and
+              objective_id != "" and is_binary(step_id) and step_id != "" do
+    fanout_confirmation_target_by_provenance(
+      confirmation_id,
+      objective_id,
+      step_id,
+      binding_expectations(binding, false)
+    )
+  end
+
+  defp resolve_legacy_fanout_binding(%{binding_kind: nil} = binding) do
+    if legacy_fanout_child_marker?(binding.objective_id) or
+         present_binding?(binding.parent_objective_id) do
+      {:error, :stale_fanout_confirmation}
+    else
+      fanout_confirmation_target_by_id(
+        binding.confirmation_id,
+        binding_expectations(binding, false)
+      )
+    end
+  end
+
+  defp resolve_legacy_fanout_binding(%{}), do: {:error, :stale_fanout_confirmation}
+
+  defp complete_confirmation_provenance?(objective_id, step_id) do
+    is_binary(objective_id) and objective_id != "" and is_binary(step_id) and step_id != ""
+  end
+
+  defp present_binding?(value), do: is_binary(value) and value != ""
+
+  defp binding_expectations(binding, required?) do
+    %{
+      parent_objective_id: Map.get(binding, :parent_objective_id),
+      target_action_name: Map.get(binding, :target_action_name),
+      user_id: Map.get(binding, :origin_user_id),
+      required?: required?
+    }
+  end
+
+  defp objective_confirmation_target_by_provenance(confirmation_id, objective_id, step_id) do
+    with %Objective{} = objective <- Repo.get(Objective, objective_id),
+         %Step{} = step <- Enum.find(list_steps(objective_id), &(&1.id == step_id)),
+         :ok <- verify_unique_confirmation_step(confirmation_id, step) do
+      case objective do
+        %Objective{fanout_role: "child"} -> {:error, :stale_fanout_confirmation}
+        %Objective{} -> {:error, :not_fanout_confirmation}
+      end
+    else
+      nil -> {:error, :stale_fanout_confirmation}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp fanout_confirmation_target_by_provenance(
+         confirmation_id,
+         objective_id,
+         step_id,
+         expectations
+       ) do
     with %Objective{} = child <- Repo.get(Objective, objective_id),
-         %Step{} = step <- Enum.find(list_steps(objective_id), &(&1.id == step_id)) do
+         %Step{} = step <- Enum.find(list_steps(objective_id), &(&1.id == step_id)),
+         :ok <- verify_unique_confirmation_step(confirmation_id, step),
+         :ok <-
+           verify_fanout_parent_marker(child, Map.get(expectations, :parent_objective_id)),
+         :ok <- verify_confirmation_target_metadata(child, step, expectations) do
       classify_fanout_confirmation_target(confirmation_id, child, step)
     else
       nil -> {:error, :stale_fanout_confirmation}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp verify_fanout_parent_marker(_child, nil), do: :ok
+
+  defp verify_fanout_parent_marker(%Objective{parent_objective_id: parent_id}, parent_id),
+    do: :ok
+
+  defp verify_fanout_parent_marker(%Objective{}, _expected_parent_id),
+    do: {:error, :stale_fanout_confirmation}
+
+  defp verify_confirmation_target_metadata(child, step, expectations) do
+    with :ok <-
+           verify_expected_binding(
+             step.candidate_action,
+             Map.get(expectations, :target_action_name),
+             Map.get(expectations, :required?, false)
+           ),
+         :ok <-
+           verify_expected_binding(
+             child.user_id,
+             Map.get(expectations, :user_id),
+             Map.get(expectations, :required?, false)
+           ) do
+      :ok
+    end
+  end
+
+  defp verify_expected_binding(actual, expected, _required?)
+       when is_binary(expected) and expected != "" and actual == expected,
+       do: :ok
+
+  defp verify_expected_binding(_actual, expected, false) when expected in [nil, ""], do: :ok
+
+  defp verify_expected_binding(_actual, _expected, _required?),
+    do: {:error, :stale_fanout_confirmation}
+
+  defp verify_unique_confirmation_step(confirmation_id, step) do
+    linked_steps =
+      Step
+      |> where([candidate], candidate.confirmation_id == ^confirmation_id)
+      |> select([candidate], {candidate.objective_id, candidate.id})
+      |> limit(2)
+      |> Repo.all()
+
+    case linked_steps do
+      [] ->
+        :ok
+
+      [{objective_id, step_id}] when objective_id == step.objective_id and step_id == step.id ->
+        :ok
+
+      _other ->
+        {:error, :ambiguous_confirmation_target}
     end
   end
 
@@ -616,8 +846,12 @@ defmodule AllbertAssist.Objectives do
 
   defp classify_fanout_confirmation_parent(
          phase,
-         %Objective{fanout_role: "parent", report_delivery_state: "not_ready"},
-         child,
+         %Objective{
+           fanout_role: "parent",
+           report_delivery_state: "not_ready",
+           user_id: user_id
+         },
+         %Objective{user_id: user_id} = child,
          step,
          parent_id
        )
@@ -627,18 +861,18 @@ defmodule AllbertAssist.Objectives do
   defp classify_fanout_confirmation_parent(_phase, _parent, _child, _step, _parent_id),
     do: {:error, :stale_fanout_confirmation}
 
-  defp fanout_confirmation_marker?(confirmation, objective_id) do
+  defp fanout_parent_marker(confirmation) do
     origin = facade_field(confirmation, :origin) || %{}
     parent_id = facade_field(origin, :parent_objective_id)
 
-    (is_binary(parent_id) and parent_id != "") or
-      fanout_child_marker?(objective_id)
+    if is_binary(parent_id) and parent_id != "", do: parent_id
   end
 
-  defp fanout_child_marker?(objective_id) when is_binary(objective_id) and objective_id != "",
-    do: match?(%Objective{fanout_role: "child"}, Repo.get(Objective, objective_id))
+  defp legacy_fanout_child_marker?(objective_id)
+       when is_binary(objective_id) and objective_id != "",
+       do: match?(%Objective{fanout_role: "child"}, Repo.get(Objective, objective_id))
 
-  defp fanout_child_marker?(_objective_id), do: false
+  defp legacy_fanout_child_marker?(_objective_id), do: false
 
   @doc "Create an event."
   @spec create_event(map()) :: event_result()
