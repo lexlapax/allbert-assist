@@ -61,7 +61,8 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
              Keyword.get(opts, :run_starter, fn child_spec ->
                DynamicSupervisor.start_child(Supervisor, child_spec)
              end),
-           run_start_retries: %{}
+           run_start_retries: %{},
+           pre_effect_retries: %{}
          }, {:continue, :reconcile}}
 
       {:error, {:already_registered, pid}} ->
@@ -198,7 +199,7 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
   end
 
   defp reconcile_run_down({:ok, child}, child_id, reason, state) do
-    retry_or_park(child, reason)
+    state = recover_run_failure(child, reason, state)
     Scheduler.release(child_id)
     {:noreply, maybe_join(state)}
   end
@@ -245,16 +246,51 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
         state
 
       {:ok, child} ->
-        retry_or_park(child, terminal_failure_reason(result))
-        state
+        recover_run_failure(child, terminal_failure_reason(result), state)
 
       _other ->
         state
     end
   end
 
-  defp terminal_failure_reason({:error, _reason}), do: :missing_durable_observation
+  defp terminal_failure_reason({:error, reason}), do: {:lifecycle_error, reason}
   defp terminal_failure_reason(_result), do: :terminal_without_durable_observation
+
+  defp recover_run_failure(child, reason, state) do
+    if pre_effect_database_failure?(child, reason) do
+      Logger.warning(
+        "fan-out child start deferred before durable attempt child=#{child.id} " <>
+          "reason=#{bounded_review_reason("transient_database", reason)}"
+      )
+
+      schedule_pre_effect_retry(state, child.id)
+    else
+      retry_or_park(child, reason)
+      state
+    end
+  end
+
+  defp pre_effect_database_failure?(child, reason) do
+    child.status == "open" and (child.run_attempt_count || 0) == 0 and
+      transient_database_failure?(reason)
+  end
+
+  defp transient_database_failure?(%Exqlite.Error{} = exception),
+    do: transient_sqlite_error?(exception)
+
+  defp transient_database_failure?(%DBConnection.ConnectionError{}), do: true
+  defp transient_database_failure?(%DBConnection.OwnershipError{}), do: true
+
+  defp transient_database_failure?(reason) when is_tuple(reason) do
+    reason
+    |> Tuple.to_list()
+    |> Enum.any?(&transient_database_failure?/1)
+  end
+
+  defp transient_database_failure?(reason) when is_list(reason),
+    do: Enum.any?(reason, &transient_database_failure?/1)
+
+  defp transient_database_failure?(_reason), do: false
 
   defp maybe_schedule_blocked_reconcile(child_id) do
     case Objectives.get_objective(child_id) do
@@ -402,5 +438,18 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
 
     Process.send_after(self(), :scheduler_reconcile, delay)
     %{state | run_start_retries: Map.put(state.run_start_retries, child_id, attempt + 1)}
+  end
+
+  defp schedule_pre_effect_retry(state, child_id) do
+    attempt = Map.get(state.pre_effect_retries, child_id, 0)
+
+    delay =
+      min(
+        @run_start_retry_delay_ms * Integer.pow(2, min(attempt, 7)),
+        @max_run_start_retry_delay_ms
+      )
+
+    Process.send_after(self(), :scheduler_reconcile, delay)
+    %{state | pre_effect_retries: Map.put(state.pre_effect_retries, child_id, attempt + 1)}
   end
 end

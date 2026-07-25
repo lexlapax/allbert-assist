@@ -741,6 +741,94 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert Enum.count(Objectives.list_events(parent.id), &(&1.kind == "fanout_joined")) == 1
   end
 
+  test "transient database failures before run_started retry without uncertain-effect parking" do
+    %{parent: parent, children: [contended, sibling], receipt: receipt} = frame_two()
+    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    {:ok, attempts} = Agent.start_link(fn -> %{} end)
+    test_pid = self()
+
+    run_starter = fn {run_server, opts} ->
+      child_id = Keyword.fetch!(opts, :child_id)
+
+      attempt =
+        Agent.get_and_update(attempts, fn counts ->
+          attempt = Map.get(counts, child_id, 0) + 1
+          {attempt, Map.put(counts, child_id, attempt)}
+        end)
+
+      if child_id == contended.id and attempt in [1, 2] do
+        coordinator = Keyword.fetch!(opts, :coordinator)
+
+        reason =
+          if attempt == 1 do
+            %Exqlite.Error{
+              message: "database is locked",
+              statement: "BEGIN IMMEDIATE TRANSACTION"
+            }
+          else
+            %DBConnection.ConnectionError{
+              message: "connection is closed because of an error, disconnect or timeout",
+              severity: :error,
+              reason: :error
+            }
+          end
+
+        pid =
+          if attempt == 1 do
+            spawn(fn ->
+              test_ref = Process.monitor(test_pid)
+              Process.sleep(25)
+              send(coordinator, {:run_terminal, child_id, {:error, reason}})
+
+              receive do
+                :stop -> :ok
+                {:DOWN, ^test_ref, :process, ^test_pid, _reason} -> :ok
+              end
+            end)
+          else
+            spawn(fn ->
+              Process.sleep(25)
+              exit({:database_start_failure, reason})
+            end)
+          end
+
+        {:ok, pid}
+      else
+        DynamicSupervisor.start_child(
+          AllbertAssist.Objectives.Runs.Supervisor,
+          {run_server, opts}
+        )
+      end
+    end
+
+    assert {:ok, _coordinator} =
+             Scheduler.start_fanout(parent.id,
+               run_starter: run_starter,
+               run_opts: [lifecycle_opts: [adapter: FreshChildAdapter]]
+             )
+
+    eventually(fn ->
+      with {:ok, retried} <- Objectives.get_objective(contended.id),
+           {:ok, completed} <- Objectives.get_objective(sibling.id),
+           {:ok, joined} <- Objectives.get_objective(parent.id) do
+        retried.status == "completed" and retried.run_attempt_count == 1 and
+          completed.status == "completed" and joined.join_outcome == "success"
+      end
+    end)
+
+    assert Agent.get(attempts, &Map.fetch!(&1, contended.id)) == 3
+    refute Enum.any?(Objectives.list_events(contended.id), &(&1.kind == "run_blocked"))
+    assert Enum.count(Objectives.list_events(contended.id), &(&1.kind == "run_started")) == 1
+    assert Enum.count(Objectives.list_events(parent.id), &(&1.kind == "fanout_joined")) == 1
+
+    eventually(fn ->
+      Registry.lookup(AllbertAssist.Objectives.Runs.Registry, {:fanout, parent.id}) == []
+    end)
+
+    Process.sleep(100)
+  end
+
   test "supervised cancellation is terminal before recovery and join" do
     assert {:ok, _setting} =
              Settings.put("execution.cancel.grace_ms", 500, %{audit?: false})

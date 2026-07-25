@@ -13,14 +13,15 @@ changelog entries or release notes.
 ## v1.1.0 - Asynchronous Background Agent Fan-Out With In-Channel Steering
 
 Status: **release candidate preparation; not yet tagged or published.** The
-implementation and atomic M12.15 invariant/fault remediation are complete. A
-final confirmation compatibility and policy-denial correction has passed its
-focused rejoin. Candidate `5601e67e` passed expanded `release.v11`, frozen
-`release.v1`, and pre-push, then the authoritative release gate exposed one
-ACP-timeout Coordinator that survived its rolled-back parent and caused a
-downstream supervision cascade. The replacement lifecycle containment is
-focused-green, but all four automated gates must repeat at the next clean SHA
-before focused flagship operator validation. Binary
+implementation and atomic M12.15 invariant/fault remediation are complete.
+M12.16 closes the focused operator finding that transient first-attempt
+database contention could falsely park never-started children and attended TUI
+lifecycle output could race an immediately typed steering line. Its focused,
+static, Dialyzer, and no-loss-manifest rejoin is green; derived `release.v11`
+remains the clean-SHA barrier before focused flagship operator validation. By
+operator decision, the long authoritative release gate follows the flagship
+walkthrough and any resulting remediation, while remaining mandatory before
+closeout. Binary
 publication/cosign, tap fill, packaged-platform rehearsal, and stable-release
 administration remain operator-held after those checks.
 
@@ -77,6 +78,16 @@ also retain Scheduler backoff, while programming and schema/query defects remain
 visible to OTP instead of being mislabeled as transient. Operators may briefly
 see `finalizing`/`recovering` during a database interruption, after which the
 same durable report completes without a duplicate fan-out.
+
+A child that is still durably open at attempt 0 has not crossed an effect
+boundary. Known SQLite lock or DBConnection failure at that boundary now
+releases its scheduler slot and retries with capped backoff instead of writing
+`uncertain_effect`; once `run_started` commits, the existing retry-safety and
+one-restart rules still apply. In the TUI, the raw input driver now also owns
+attended output. Lifecycle lines redraw the exact prompt and in-progress
+buffer, while characters typed between turn submission and the next prompt are
+retained as type-ahead, so an immediate fan-out steer is neither truncated nor
+held until child completion.
 
 The release also adds fair global/per-fan-out scheduling, cooperative through
 OS-process cancellation tiers, Signal daemon wiring, Email outbound delivery,

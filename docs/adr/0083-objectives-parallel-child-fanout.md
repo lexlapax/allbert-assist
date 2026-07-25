@@ -8,7 +8,10 @@ The confirmation/policy correction candidate `5601e67e` passed expanded
 `release.v11`, frozen `release.v1`, and pre-push, then authoritative
 `external_runtime_serial` exposed one leaked ACP-timeout Coordinator and a
 downstream supervision cascade. The replacement permanent/transient/crash-
-visibility lifecycle contract is focused-green.
+visibility lifecycle contract is focused-green. The M12.16 pre-effect-start
+amendment is implemented: known database failures before the first durable
+attempt retry, and attended TUI lifecycle output preserves exact in-progress
+input through one raw-terminal owner.
 The child model, fair scheduler/full lifecycle executor, restart-stable
 receipts, delivery-before-start barrier, public-protocol continuations, and
 cross-surface automatic-rollout corpus remain. The expanded `release.v11`,
@@ -324,6 +327,16 @@ authority class.
   at seed `19746`. The complete `external_runtime_serial` replacement lane
   passes 617 / 0 with 12 skips at seed `97040`; the live manifest contains
   3,479 rows.
+- v1.1 M12.16 focused: lifecycle-returned SQLite contention and a monitored
+  DBConnection-closed exit both recover from durable attempt 0 without a
+  `run_blocked` event, then start/complete/join once. Inter-prompt type-ahead
+  and lifecycle-output redraw preserve the exact steering line. Exact
+  regressions pass 4 / 0; TUI + supervision pass 64 / 0; isolated fan-out,
+  Lifecycle, Scheduler, and Runtime caller suites pass 21 / 0, 12 / 0, 5 / 0,
+  and 20 / 0. Static/Hex/Dialyzer gates are clean, and the 3,482-row manifest
+  reconciles 550 files without a lane finding. Derived `release.v11` remains
+  the clean-SHA pre-FV barrier; the authoritative release gate follows FV-01
+  by explicit operator sequencing and is still required before closeout.
 - Release: `release.v1` stays green (Tier-1/Tier-2 untouched; runtime
   response gains only additive fields per ADR 0029) and `release.v11` binds
   all eleven fan-out authority rows plus the M12.15 focused suites. Candidate

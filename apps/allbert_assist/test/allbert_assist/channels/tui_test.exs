@@ -1,7 +1,6 @@
 defmodule AllbertAssist.Channels.TUITest do
   use AllbertAssist.DataCase, async: false
 
-  import ExUnit.CaptureIO
   import Ecto.Query
 
   alias AllbertAssist.Actions.Registry
@@ -735,44 +734,115 @@ defmodule AllbertAssist.Channels.TUITest do
     assert_receive {:input_driver_raw, :disabled}
   end
 
+  test "input driver preserves steering typed before the next prompt is rendered" do
+    parent = self()
+    callbacks = input_driver_callbacks(parent)
+
+    assert {:ok, driver} =
+             InputDriver.start_link(parent,
+               enable_raw: callbacks.enable_raw,
+               disable_raw: callbacks.disable_raw,
+               start_reader: callbacks.start_reader,
+               output_fun: callbacks.output_fun
+             )
+
+    assert_receive {:input_driver_raw, :enabled}
+    assert_receive {:input_driver_reader, reader}
+
+    InputDriver.prompt(driver, "allbert:default> ")
+    assert_receive {:input_driver_output, "allbert:default> "}
+
+    send_input_driver_line(reader, "first turn")
+    assert_receive {:tui_input_line, ^driver, "first turn"}
+
+    "change task 1"
+    |> String.graphemes()
+    |> Enum.each(fn char -> send(driver, {:tui_input_driver_char, reader, char}) end)
+
+    InputDriver.prompt(driver, "allbert:default> ")
+    assert_receive {:input_driver_output, "allbert:default> "}
+    send(driver, {:tui_input_driver_char, reader, "\n"})
+
+    assert_receive {:tui_input_line, ^driver, "change task 1"}
+
+    GenServer.stop(driver)
+    assert_receive {:input_driver_raw, :disabled}
+  end
+
+  test "input driver redraws the exact prompt and steering buffer after lifecycle output" do
+    parent = self()
+    callbacks = input_driver_callbacks(parent)
+
+    assert {:ok, driver} =
+             InputDriver.start_link(parent,
+               enable_raw: callbacks.enable_raw,
+               disable_raw: callbacks.disable_raw,
+               start_reader: callbacks.start_reader,
+               output_fun: callbacks.output_fun
+             )
+
+    assert_receive {:input_driver_raw, :enabled}
+    assert_receive {:input_driver_reader, reader}
+
+    InputDriver.prompt(driver, "allbert:default> ")
+    assert_receive {:input_driver_output, "allbert:default> "}
+
+    "change task 1"
+    |> String.graphemes()
+    |> Enum.each(fn char -> send(driver, {:tui_input_driver_char, reader, char}) end)
+
+    assert :ok = InputDriver.write(driver, "[fan-out] run progress")
+
+    assert_receive {
+      :input_driver_output,
+      "\r\e[2K[fan-out] run progress\r\nallbert:default> change task 1"
+    }
+
+    send(driver, {:tui_input_driver_char, reader, "\n"})
+    assert_receive {:tui_input_line, ^driver, "change task 1"}
+
+    GenServer.stop(driver)
+    assert_receive {:input_driver_raw, :disabled}
+  end
+
   test "auto input driver keeps adapter output in raw-terminal line discipline" do
     parent = self()
     callbacks = input_driver_callbacks(parent)
 
-    output =
-      capture_io(fn ->
-        assert {:ok, server} =
-                 Adapter.start_link(
-                   name: nil,
-                   auto_input?: true,
-                   input_driver?: true,
-                   emit_banner?: false,
-                   enabled?: true,
-                   live_screen?: false,
-                   input_driver_opts: [
-                     enable_raw: callbacks.enable_raw,
-                     disable_raw: callbacks.disable_raw,
-                     start_reader: callbacks.start_reader,
-                     output_fun: callbacks.output_fun
-                   ]
-                 )
+    assert {:ok, server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: true,
+               input_driver?: true,
+               emit_banner?: false,
+               enabled?: true,
+               live_screen?: false,
+               input_driver_opts: [
+                 enable_raw: callbacks.enable_raw,
+                 disable_raw: callbacks.disable_raw,
+                 start_reader: callbacks.start_reader,
+                 output_fun: callbacks.output_fun
+               ]
+             )
 
-        assert_receive {:input_driver_raw, :enabled}
-        assert_receive {:input_driver_reader, reader}
-        assert_receive {:input_driver_output, "allbert:default> "}
+    assert_receive {:input_driver_raw, :enabled}
+    assert_receive {:input_driver_reader, reader}
+    assert_receive {:input_driver_output, "allbert:default> "}
 
-        send_input_driver_line(reader, "/mode")
-        assert_receive {:input_driver_output, "\r\n"}
-        assert_receive {:input_driver_output, "allbert:default> "}
+    send_input_driver_line(reader, "/mode")
+    assert_receive {:input_driver_output, "\r\n"}
 
-        ref = Process.monitor(server)
-        send_input_driver_line(reader, "/quit")
-        assert_receive {:DOWN, ^ref, :process, ^server, :normal}
-        assert_receive {:input_driver_raw, :disabled}
-      end)
+    assert_receive {
+      :input_driver_output,
+      "Slash command unavailable: terminal profile is not mapped to an Allbert user.\r\n"
+    }
 
-    assert output =~
-             "Slash command unavailable: terminal profile is not mapped to an Allbert user.\r\n"
+    assert_receive {:input_driver_output, "allbert:default> "}
+
+    ref = Process.monitor(server)
+    send_input_driver_line(reader, "/quit")
+    assert_receive {:DOWN, ^ref, :process, ^server, :normal}
+    assert_receive {:input_driver_raw, :disabled}
   end
 
   test "input driver emits standalone escape without echoing terminal controls" do

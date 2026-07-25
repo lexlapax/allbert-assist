@@ -30,6 +30,11 @@ defmodule AllbertAssist.Channels.TUI.InputDriver do
     GenServer.cast(driver, {:prompt, prompt})
   end
 
+  @doc "Write one attended output line and redraw any active prompt buffer atomically."
+  def write(driver, line) when is_pid(driver) do
+    GenServer.call(driver, {:write, line}, 5_000)
+  end
+
   @doc "Put the driver in active-turn mode so Esc can cancel without a prompt."
   def active_turn(driver, turn_id) when is_pid(driver) do
     GenServer.cast(driver, {:active_turn, turn_id})
@@ -85,6 +90,7 @@ defmodule AllbertAssist.Channels.TUI.InputDriver do
                reader_pid: reader_pid,
                reader_ref: Process.monitor(reader_pid),
                mode: :idle,
+               prompt: "",
                buffer: "",
                turn_id: nil
              }}
@@ -108,12 +114,24 @@ defmodule AllbertAssist.Channels.TUI.InputDriver do
 
   @impl true
   def handle_cast({:prompt, prompt}, state) do
+    prompt = IO.iodata_to_binary(prompt)
     state.callbacks.output_fun.(prompt)
-    {:noreply, %{state | mode: :prompt, buffer: "", turn_id: nil}}
+
+    if state.buffer != "" do
+      state.callbacks.output_fun.(state.buffer)
+    end
+
+    {:noreply, %{state | mode: :prompt, prompt: prompt, turn_id: nil}}
   end
 
   def handle_cast({:active_turn, turn_id}, state) do
     {:noreply, %{state | mode: :active_turn, buffer: "", turn_id: turn_id}}
+  end
+
+  @impl true
+  def handle_call({:write, line}, _from, state) do
+    output = attended_output(line, state)
+    {:reply, safe_output(state.callbacks.output_fun, output), state}
   end
 
   @impl true
@@ -145,7 +163,8 @@ defmodule AllbertAssist.Channels.TUI.InputDriver do
     :ok
   end
 
-  defp handle_char(char, %{mode: mode} = state) when mode in [:prompt, :active_turn] do
+  defp handle_char(char, %{mode: mode} = state)
+       when mode in [:prompt, :awaiting_prompt, :active_turn] do
     cond do
       escape?(char) ->
         send(state.owner, {:tui_input_escape, self()})
@@ -171,7 +190,10 @@ defmodule AllbertAssist.Channels.TUI.InputDriver do
         %{state | mode: :idle, buffer: ""}
 
       printable?(char) ->
-        state.callbacks.output_fun.(char)
+        if state.mode != :awaiting_prompt do
+          state.callbacks.output_fun.(char)
+        end
+
         %{state | buffer: state.buffer <> char}
 
       true ->
@@ -188,12 +210,15 @@ defmodule AllbertAssist.Channels.TUI.InputDriver do
   end
 
   defp next_mode_after_line(%{mode: :active_turn}), do: :active_turn
-  defp next_mode_after_line(_state), do: :idle
+  defp next_mode_after_line(_state), do: :awaiting_prompt
 
   defp erase_last_char(%{buffer: ""} = state), do: state
 
   defp erase_last_char(state) do
-    state.callbacks.output_fun.("\b \b")
+    if state.mode != :awaiting_prompt do
+      state.callbacks.output_fun.("\b \b")
+    end
+
     %{state | buffer: drop_last_grapheme(state.buffer)}
   end
 
@@ -306,6 +331,38 @@ defmodule AllbertAssist.Channels.TUI.InputDriver do
 
   defp default_output(chardata) do
     IO.write(chardata)
+  end
+
+  defp attended_output(line, state) do
+    line = normalize_line(line)
+
+    case state.mode do
+      :prompt -> ["\r\e[2K", line, state.prompt, state.buffer]
+      :active_turn -> ["\r\e[2K", line, state.buffer]
+      _other -> line
+    end
+  end
+
+  defp normalize_line(chardata) do
+    text =
+      chardata
+      |> IO.iodata_to_binary()
+      |> String.replace("\r\n", "\n")
+      |> String.replace("\n", "\r\n")
+
+    if String.ends_with?(text, "\r\n"), do: text, else: text <> "\r\n"
+  end
+
+  defp safe_output(output_fun, output) do
+    case output_fun.(output) do
+      {:error, _reason} = error -> error
+      _delivered -> :ok
+    end
+  rescue
+    error -> {:error, {:output_exception, Exception.message(error)}}
+  catch
+    :exit, reason -> {:error, {:output_exit, reason}}
+    kind, reason -> {:error, {kind, reason}}
   end
 
   defp proof_line(output_fun, text) do
