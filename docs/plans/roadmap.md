@@ -104,9 +104,9 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    removed. FV-01 then exposed lifecycle retry, effective-steering, and
    report-control defects; corrective M12.13 is complete. FV-01 subsequently
    exposed a supervised-cancellation/restart race; corrective M12.14 is
-   implemented with focused and pre-push gates green, while committed-SHA
-   frozen v1, derived v1.1, and authoritative release runs still block resumed
-   operator validation:**
+   complete with focused, pre-push, frozen v1, derived v1.1, and authoritative
+   release gates green at `32202415`; focused FV-01 operator validation is
+   open with a new disposable Home:**
    `docs/plans/v1.1-plan.md` + request-flow + ADR 0083/0084/0085.) On a prompt
    that decomposes into multiple tasks, Allbert delivers a kickoff receipt,
    then fans out background agents/actions, streams their status, joins on
