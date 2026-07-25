@@ -1,15 +1,27 @@
 defmodule AllbertAssist.Channels.NotifyConsumer do
-  @moduledoc "Signal-driven bridge from durable fan-out lifecycle to ADR 0084 Notify."
+  @moduledoc """
+  Signal-driven wakeup and durable completion-outbox recovery for ADR 0084.
+
+  Signals provide low-latency delivery, but the pending fan-out parent and
+  notification ledger remain authoritative. The consumer monitors SignalBus,
+  re-subscribes after a bus-only restart, and reconciles completion work after
+  startup and every successful subscription.
+  """
 
   use GenServer
 
   require Logger
 
   alias AllbertAssist.Channels.Notify
+  alias AllbertAssist.Channels.NotifyDelivery
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias Jido.Signal
   alias Jido.Signal.Bus
+
+  @signal_path "allbert.objectives.**"
+  @reconnect_delay_ms 100
+  @retry_delay_ms 1_000
 
   def start_link(opts \\ []) do
     case Keyword.get(opts, :name, __MODULE__) do
@@ -20,66 +32,154 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
 
   @impl true
   def init(opts) do
-    subscribe_fun = Keyword.get(opts, :subscribe_fun, &Bus.subscribe/2)
+    state = %{
+      bus: Keyword.get(opts, :bus, AllbertAssist.SignalBus),
+      bus_pid: nil,
+      bus_monitor: nil,
+      subscription_id: nil,
+      reconnect_timer: nil,
+      retry_timers: %{},
+      subscribe_fun: Keyword.get(opts, :subscribe_fun, &Bus.subscribe/2),
+      unsubscribe_fun: Keyword.get(opts, :unsubscribe_fun, &Bus.unsubscribe/2),
+      whereis_fun: Keyword.get(opts, :whereis_fun, &Bus.whereis/1),
+      notify_opts: Keyword.get(opts, :notify_opts, []),
+      retry_delay_ms: Keyword.get(opts, :retry_delay_ms, @retry_delay_ms)
+    }
 
-    case subscribe_fun.(AllbertAssist.SignalBus, "allbert.objectives.**") do
-      {:ok, subscription_id} -> {:ok, %{subscription_id: subscription_id}}
-      {:error, reason} -> {:stop, {:notify_subscription_failed, reason}}
-    end
+    {:ok, connect_bus(state)}
   end
 
   @impl true
   def handle_info({:signal, %Signal{} = signal}, state) do
-    try do
-      handle_signal(signal)
-    rescue
-      exception ->
-        Logger.warning("channel notify consumer failed: #{Exception.message(exception)}")
-    catch
-      kind, reason -> Logger.warning("channel notify consumer failed: #{inspect({kind, reason})}")
-    end
+    state = safely(fn -> handle_signal(signal, state) end, state)
+    {:noreply, state}
+  end
+
+  def handle_info(:reconcile_completion_outbox, state) do
+    state = safely(fn -> reconcile_outbox(state) end, state)
+    {:noreply, state}
+  end
+
+  def handle_info({:retry_completion, parent_id}, state) do
+    state = %{state | retry_timers: Map.delete(state.retry_timers, parent_id)}
+
+    state =
+      safely(
+        fn ->
+          case Objectives.get_objective(parent_id) do
+            {:ok, parent} -> reconcile_parent(parent, state)
+            {:error, _reason} -> state
+          end
+        end,
+        state
+      )
+
+    {:noreply, state}
+  end
+
+  def handle_info(:connect_signal_bus, state) do
+    {:noreply, connect_bus(%{state | reconnect_timer: nil})}
+  end
+
+  def handle_info(
+        {:DOWN, monitor, :process, pid, _reason},
+        %{bus_monitor: monitor, bus_pid: pid} = state
+      ) do
+    state =
+      state
+      |> Map.merge(%{bus_pid: nil, bus_monitor: nil, subscription_id: nil})
+      |> schedule_reconnect()
 
     {:noreply, state}
   end
 
   def handle_info(_message, state), do: {:noreply, state}
 
-  defp handle_signal(%Signal{type: "allbert.objectives.fanout.joined", data: data}) do
-    parent_id = field(data, :parent_id)
+  @impl true
+  def terminate(_reason, state) do
+    if state.subscription_id && state.bus_pid && Process.alive?(state.bus_pid) do
+      _ = state.unsubscribe_fun.(state.bus, state.subscription_id)
+    end
 
-    with {:ok, parent} <- Objectives.get_objective(parent_id) do
-      summary = compact_report(Fanout.report(parent))
+    :ok
+  end
 
-      case Notify.deliver(parent, :completion, summary, event_key: "joined") do
-        {:ok, %{state: "delivered"}} -> acknowledge_report(parent)
-        _other -> :ok
-      end
+  defp connect_bus(%{subscription_id: id, bus_pid: pid} = state)
+       when not is_nil(id) and is_pid(pid),
+       do: state
+
+  defp connect_bus(state) do
+    with {:ok, bus_pid} <- state.whereis_fun.(state.bus),
+         true <- Process.alive?(bus_pid),
+         {:ok, subscription_id} <- state.subscribe_fun.(state.bus, @signal_path) do
+      monitor = Process.monitor(bus_pid)
+      send(self(), :reconcile_completion_outbox)
+
+      %{
+        state
+        | bus_pid: bus_pid,
+          bus_monitor: monitor,
+          subscription_id: subscription_id,
+          reconnect_timer: nil
+      }
+    else
+      _reason -> schedule_reconnect(state)
     end
   end
 
-  defp handle_signal(%Signal{type: "allbert.objectives.run.blocked", data: data}) do
+  defp schedule_reconnect(%{reconnect_timer: nil} = state) do
+    timer = Process.send_after(self(), :connect_signal_bus, @reconnect_delay_ms)
+    %{state | reconnect_timer: timer}
+  end
+
+  defp schedule_reconnect(state), do: state
+
+  defp reconcile_outbox(state) do
+    Enum.reduce(Notify.pending_completion_work(), state, &reconcile_parent/2)
+  end
+
+  defp handle_signal(
+         %Signal{type: "allbert.objectives.fanout.joined", data: data},
+         state
+       ) do
+    parent_id = field(data, :parent_id)
+
+    case Objectives.get_objective(parent_id) do
+      {:ok, %{fanout_role: "parent", report_delivery_state: "pending"} = parent} ->
+        reconcile_parent(parent, state)
+
+      _other ->
+        state
+    end
+  end
+
+  defp handle_signal(%Signal{type: "allbert.objectives.run.blocked", data: data, id: id}, state) do
     child_id = field(data, :child_id)
 
     with {:ok, child} <- Objectives.get_objective(child_id),
          {:ok, parent} <- Objectives.get_objective(child.parent_objective_id) do
       case Objectives.list_steps(child.id) |> List.last() do
-        %{confirmation_id: id} when is_binary(id) and id != "" ->
+        %{confirmation_id: confirmation_id}
+        when is_binary(confirmation_id) and confirmation_id != "" ->
           body =
             "Approval needed for #{child.title}. " <>
-              "Reply ALLBERT:SHOW:#{id}, ALLBERT:APPROVE:#{id}, or ALLBERT:DENY:#{id}."
+              "Reply ALLBERT:SHOW:#{confirmation_id}, ALLBERT:APPROVE:#{confirmation_id}, or ALLBERT:DENY:#{confirmation_id}."
 
-          Notify.deliver(parent, :confirmation_request, body,
-            child_objective_id: child.id,
-            event_key: "confirmation:#{id}"
-          )
+          _ =
+            Notify.deliver(parent, :confirmation_request, body,
+              child_objective_id: child.id,
+              event_key: "confirmation:#{confirmation_id}"
+            )
 
         _other ->
-          status(parent, child, "blocked")
+          status(parent, child, "blocked", id)
       end
     end
+
+    state
   end
 
-  defp handle_signal(%Signal{type: type, data: data})
+  defp handle_signal(%Signal{type: type, data: data, id: id}, state)
        when type in [
               "allbert.objectives.run.started",
               "allbert.objectives.run.progress",
@@ -91,11 +191,77 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
 
     with {:ok, child} <- Objectives.get_objective(child_id),
          {:ok, parent} <- Objectives.get_objective(child.parent_objective_id) do
-      status(parent, child, String.replace_prefix(type, "allbert.objectives.run.", ""))
+      status(parent, child, String.replace_prefix(type, "allbert.objectives.run.", ""), id)
+    end
+
+    state
+  end
+
+  defp handle_signal(_signal, state), do: state
+
+  defp reconcile_parent(parent, state) do
+    case Notify.recover_completion(parent, state.notify_opts) do
+      {:ok, %NotifyDelivery{state: "delivered"}} ->
+        _ = acknowledge_report(parent)
+        clear_retry(parent.id, state)
+
+      {:ok, %NotifyDelivery{state: "failed", attempt_count: attempts}} when attempts < 2 ->
+        schedule_retry(parent.id, state)
+
+      {:ok, _terminal_or_skipped} ->
+        clear_retry(parent.id, state)
+
+      {:error, {:audit_failed, reason, %NotifyDelivery{state: "delivered"}}} ->
+        Logger.warning(
+          "channel completion audit failed after durable delivery parent=#{parent.id} reason=#{inspect(reason)}"
+        )
+
+        _ = acknowledge_report(parent)
+        clear_retry(parent.id, state)
+
+      {:error, {:audit_failed, reason, %NotifyDelivery{state: "failed", attempt_count: attempts}}}
+      when attempts < 2 ->
+        Logger.warning(
+          "channel completion audit failed after definitive failure parent=#{parent.id} reason=#{inspect(reason)}"
+        )
+
+        schedule_retry(parent.id, state)
+
+      {:error, {:audit_failed, reason, %NotifyDelivery{}}} ->
+        Logger.warning(
+          "channel completion audit failed parent=#{parent.id} reason=#{inspect(reason)}"
+        )
+
+        clear_retry(parent.id, state)
+
+      {:error, reason} ->
+        Logger.warning(
+          "channel completion recovery failed parent=#{parent.id} reason=#{inspect(reason)}"
+        )
+
+        state
     end
   end
 
-  defp handle_signal(_signal), do: :ok
+  defp schedule_retry(parent_id, %{retry_timers: timers} = state) do
+    if Map.has_key?(timers, parent_id) do
+      state
+    else
+      timer = Process.send_after(self(), {:retry_completion, parent_id}, state.retry_delay_ms)
+      %{state | retry_timers: Map.put(timers, parent_id, timer)}
+    end
+  end
+
+  defp clear_retry(parent_id, %{retry_timers: timers} = state) do
+    case Map.pop(timers, parent_id) do
+      {nil, timers} ->
+        %{state | retry_timers: timers}
+
+      {timer, timers} ->
+        Process.cancel_timer(timer)
+        %{state | retry_timers: timers}
+    end
+  end
 
   defp acknowledge_report(parent) do
     Fanout.acknowledge_report(Fanout.receipt_for(:report, parent.id), %{
@@ -108,27 +274,27 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
     })
   end
 
-  defp status(parent, child, state) do
-    Notify.deliver(parent, :status, "#{parent.title}: #{child.title} — #{state}",
-      child_objective_id: child.id,
-      event_key: "#{child.id}:#{state}:#{System.unique_integer([:positive])}"
-    )
+  defp status(parent, child, status, signal_id) do
+    _ =
+      Notify.deliver(parent, :status, "#{parent.title}: #{child.title} — #{status}",
+        child_objective_id: child.id,
+        event_key: signal_id || "#{child.id}:#{status}"
+      )
+
+    :ok
   end
 
-  defp compact_report(report) do
-    children =
-      report.children
-      |> Enum.map_join("; ", fn child ->
-        "#{glyph(child.status)} #{child.title} — #{Fanout.report_child_detail(child)}"
-      end)
-
-    "#{report.title} — #{report.join_outcome}. #{children}"
+  defp safely(fun, fallback) do
+    fun.()
+  rescue
+    exception ->
+      Logger.warning("channel notify consumer failed: #{Exception.message(exception)}")
+      fallback
+  catch
+    kind, reason ->
+      Logger.warning("channel notify consumer failed: #{inspect({kind, reason})}")
+      fallback
   end
-
-  defp glyph("completed"), do: "✓"
-  defp glyph("cancelled"), do: "⊘"
-  defp glyph("failed"), do: "✗"
-  defp glyph(_status), do: "•"
 
   defp field(map, key), do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
 end

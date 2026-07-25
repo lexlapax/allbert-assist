@@ -2,6 +2,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
   use AllbertAssist.DataCase, async: false, lane: :db_serial
 
   alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Lifecycle
   alias AllbertAssist.Objectives.Runs.CancelToken
   alias AllbertAssist.Objectives.Steering
@@ -141,7 +142,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
 
   test "runs the full lifecycle in order and persists attempt, progress, and completion" do
     assert {:ok, child} =
-             Objectives.create_objective(%{
+             create_child(%{
                user_id: "alice",
                title: "Child",
                objective: "Do child work",
@@ -172,7 +173,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
 
   test "a long successful result completes once with a redacted bounded durable summary" do
     assert {:ok, child} =
-             Objectives.create_objective(%{
+             create_child(%{
                user_id: "alice",
                title: "Long child",
                objective: "Return a long result",
@@ -192,7 +193,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
 
   test "steering received during proposal replans before execution" do
     assert {:ok, child} =
-             Objectives.create_objective(%{
+             create_child(%{
                user_id: "alice",
                title: "Original task",
                objective: "Explain OTP supervision as a restaurant",
@@ -224,7 +225,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
 
   test "steering received during a safe execution reruns from the effective objective" do
     assert {:ok, child} =
-             Objectives.create_objective(%{
+             create_child(%{
                user_id: "alice",
                title: "Original task",
                objective: "Explain OTP supervision as a restaurant",
@@ -254,7 +255,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
 
   test "steering after a possibly effectful execution blocks instead of replaying it" do
     assert {:ok, child} =
-             Objectives.create_objective(%{
+             create_child(%{
                user_id: "alice",
                title: "Original task",
                objective: "Send an operator message",
@@ -294,7 +295,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
 
   test "default adapter executes a registered action through Runner" do
     assert {:ok, child} =
-             Objectives.create_objective(%{
+             create_child(%{
                user_id: "alice",
                title: "Child",
                objective: "List objectives",
@@ -318,7 +319,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
 
   test "missing proposal is filled by an inert intent decision before execution" do
     assert {:ok, child} =
-             Objectives.create_objective(%{
+             create_child(%{
                user_id: "alice",
                title: "Child",
                objective: "Wait",
@@ -328,7 +329,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     assert {:ok, completed} = Lifecycle.run(child.id)
     assert completed.status == "completed"
 
-    assert [%{candidate_action: "direct_answer", status: "selected"}] =
+    assert [%{candidate_action: "direct_answer", status: "completed"}] =
              Objectives.list_steps(child.id)
   end
 
@@ -337,7 +338,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     Process.put(@resolution_hook_key, fn -> :counters.add(counter, 1, 1) end)
 
     assert {:ok, child} =
-             Objectives.create_objective(%{
+             create_child(%{
                user_id: "alice",
                title: "Pinned child",
                objective: "Check settings boundaries",
@@ -357,7 +358,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
              })
 
     assert {:ok, child} =
-             Objectives.create_objective(%{
+             create_child(%{
                user_id: "alice",
                title: "Settings child",
                objective: "Observe operation pins",
@@ -375,7 +376,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     token = CancelToken.new()
 
     assert {:ok, child} =
-             Objectives.create_objective(%{
+             create_child(%{
                user_id: "alice",
                title: "Cancelled child",
                objective: "Stop safely",
@@ -391,7 +392,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
   test "a blocked or terminal objective cannot begin another run attempt" do
     for status <- ~w[blocked completed cancelled failed abandoned] do
       assert {:ok, child} =
-               Objectives.create_objective(%{
+               create_child(%{
                  user_id: "alice",
                  title: "Non-runnable #{status}",
                  objective: "Stay #{status}",
@@ -410,7 +411,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
 
   test "confirmation parking persists the step receipt without blocking another run" do
     assert {:ok, child} =
-             Objectives.create_objective(%{
+             create_child(%{
                user_id: "alice",
                title: "Confirmation child",
                objective: "Wait for authority",
@@ -433,5 +434,23 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     assert parked.id == step.id
     assert parked.status == "blocked"
     assert parked.confirmation_id == "confirm-123"
+  end
+
+  defp create_child(attrs) do
+    sibling = %{
+      title: "fixture sibling #{System.unique_integer([:positive])}",
+      objective: "Remain open while the lifecycle child is exercised."
+    }
+
+    parent = %{
+      user_id: Map.fetch!(attrs, :user_id),
+      title: "lifecycle fixture #{System.unique_integer([:positive])}",
+      objective: "Exercise one child lifecycle in a valid fan-out."
+    }
+
+    case Fanout.frame(parent, [Map.delete(attrs, :fanout_role), sibling]) do
+      {:ok, %{children: [child, _sibling]}} -> {:ok, child}
+      {:error, reason} -> {:error, reason}
+    end
   end
 end

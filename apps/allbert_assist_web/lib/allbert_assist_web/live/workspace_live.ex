@@ -33,6 +33,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   alias AllbertAssist.Conversations.UnifiedHistory
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Resources.ImageBounds
   alias AllbertAssist.Resources.ImageMetadata
   alias AllbertAssist.Resources.ResourceURI
@@ -117,6 +118,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         prompt: "",
         prompt_placeholder: @default_prompt_placeholder,
         response: nil,
+        attached_fanout_reports: [],
+        runtime_delivery_handles: [],
         error: nil,
         thread_notice: thread_notice,
         asking?: false,
@@ -720,7 +723,85 @@ defmodule AllbertAssistWeb.WorkspaceLive do
      })}
   end
 
+  def handle_event(
+        "ack_attached_fanout_report",
+        %{"parent_id" => parent_id},
+        socket
+      ) do
+    case Enum.find(socket.assigns.attached_fanout_reports, &(&1.parent_id == parent_id)) do
+      %{receipt: receipt, delivery_context: delivery_context} ->
+        with {:ok, parent} <- Objectives.get_objective(socket.assigns.user_id, parent_id),
+             %{phase: :joined, authoritatively_joined?: true} <-
+               Fanout.parent_projection(parent),
+             true <- parent.source_thread_id == socket.assigns.thread_id,
+             true <- attached_web_origin?(parent),
+             :ok <- Runtime.acknowledge_report_delivery(receipt, delivery_context) do
+          remaining =
+            Enum.reject(socket.assigns.attached_fanout_reports, &(&1.parent_id == parent_id))
+
+          {:noreply, assign(socket, :attached_fanout_reports, remaining)}
+        else
+          reason ->
+            Logger.warning(
+              "live fan-in browser acknowledgement failed reason=#{inspect(Redactor.redact(reason))}"
+            )
+
+            {:noreply,
+             assign(
+               socket,
+               :error,
+               "The fan-in report is visible, but delivery could not be recorded; it will remain available on your next turn."
+             )}
+        end
+
+      _stale_or_forged ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event(
+        "ack_runtime_deliveries",
+        %{"delivery_id" => delivery_id},
+        socket
+      ) do
+    case Enum.find(socket.assigns.runtime_delivery_handles, &(&1.id == delivery_id)) do
+      %{response: response, delivery_context: delivery_context} ->
+        case Runtime.acknowledge_deliveries(response, delivery_context) do
+          :ok ->
+            remaining =
+              Enum.reject(socket.assigns.runtime_delivery_handles, &(&1.id == delivery_id))
+
+            {:noreply, assign(socket, :runtime_delivery_handles, remaining)}
+
+          {:error, reason} ->
+            Logger.warning(
+              "live runtime browser acknowledgement failed reason=#{inspect(Redactor.redact(reason))}"
+            )
+
+            {:noreply,
+             assign(
+               socket,
+               :error,
+               "The response is visible, but delivery could not be recorded; pending fan-out work will remain stopped until it can be acknowledged."
+             )}
+        end
+
+      _stale_or_forged ->
+        {:noreply, socket}
+    end
+  end
+
   @impl true
+  def handle_info(
+        {:objective_event, %Signal{type: "allbert.objectives.fanout.joined"} = signal},
+        socket
+      ) do
+    {:noreply,
+     socket
+     |> refresh_objectives()
+     |> maybe_deliver_attached_fanout(signal)}
+  end
+
   def handle_info({:objective_event, _signal}, socket) do
     {:noreply, refresh_objectives(socket)}
   end
@@ -780,11 +861,9 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         prompt: ""
       )
       |> refresh_after_runtime_response(response)
+      |> put_runtime_delivery_handle(response)
 
-    case Runtime.acknowledge_deliveries(response, %{channel: :web}) do
-      :ok -> {:noreply, socket}
-      {:error, reason} -> {:noreply, assign(socket, :error, inspect(reason))}
-    end
+    {:noreply, socket}
   end
 
   def handle_async(:ask, {:ok, {:error, reason}}, socket) do
@@ -905,6 +984,30 @@ defmodule AllbertAssistWeb.WorkspaceLive do
             renderer_context={renderer_context(assigns)}
             workspace_state={workspace_state(assigns)}
           />
+
+          <div
+            :for={delivery <- @runtime_delivery_handles}
+            id={"runtime-delivery-#{delivery.id}"}
+            data-delivery-id={delivery.id}
+            phx-mounted={JS.push("ack_runtime_deliveries", value: %{delivery_id: delivery.id})}
+            hidden
+            aria-hidden="true"
+          >
+          </div>
+
+          <div
+            :for={pending_report <- @attached_fanout_reports}
+            id={"attached-fanout-report-#{pending_report.parent_id}"}
+            data-parent-id={pending_report.parent_id}
+            phx-mounted={
+              JS.push("ack_attached_fanout_report",
+                value: %{parent_id: pending_report.parent_id}
+              )
+            }
+            hidden
+            aria-hidden="true"
+          >
+          </div>
 
           <button
             id="workspace-canvas-reopen"
@@ -1246,6 +1349,101 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   defp refresh_objectives(socket) do
     assign(socket, :active_objectives, active_objectives(socket.assigns.user_id))
+  end
+
+  defp maybe_deliver_attached_fanout(socket, %Signal{data: data} = signal) do
+    parent_id = Map.get(data, :parent_id) || Map.get(data, "parent_id")
+
+    with true <- connected?(socket),
+         true <- is_binary(parent_id),
+         {:ok, parent} <- Objectives.get_objective(socket.assigns.user_id, parent_id),
+         true <- parent.fanout_role == "parent",
+         %{phase: :joined, parent: ^parent} = projection <- Fanout.parent_projection(parent),
+         true <- parent.report_delivery_state == "pending",
+         true <- parent.source_thread_id == socket.assigns.thread_id,
+         true <- attached_web_origin?(parent) do
+      report = Fanout.report(projection)
+
+      reports =
+        put_attached_fanout_report(socket.assigns.attached_fanout_reports, %{
+          parent_id: parent.id,
+          body: Fanout.format_report(report),
+          receipt: Fanout.receipt_for(:report, parent.id),
+          delivery_context: fanout_delivery_context(parent)
+        })
+
+      delivered =
+        assign(socket,
+          response: Enum.map_join(reports, "\n\n", & &1.body),
+          status: report.status,
+          signal_id: signal.id,
+          trace_id: nil,
+          error: nil,
+          attached_fanout_reports: reports
+        )
+
+      delivered
+    else
+      _not_deliverable -> socket
+    end
+  end
+
+  defp attached_web_origin?(parent), do: parent.source_channel == "live_view"
+
+  defp put_runtime_delivery_handle(socket, response) do
+    if runtime_delivery_required?(response) do
+      handle = %{
+        id: runtime_delivery_id(response),
+        response: response,
+        delivery_context: %{channel: to_string(response.channel)}
+      }
+
+      handles =
+        socket.assigns.runtime_delivery_handles
+        |> Enum.reject(&(&1.id == handle.id))
+        |> Kernel.++([handle])
+
+      assign(socket, :runtime_delivery_handles, handles)
+    else
+      socket
+    end
+  end
+
+  defp runtime_delivery_required?(response) do
+    is_binary(Map.get(response, :fanout_start_receipt)) or
+      Map.get(response, :pending_reports, []) != [] or
+      Map.get(response, :notify_offer, %{}) != %{}
+  end
+
+  defp runtime_delivery_id(response) do
+    get_in(response, [:fanout, :parent_id]) || Map.get(response, :signal_id) ||
+      Ecto.UUID.generate()
+  end
+
+  defp put_attached_fanout_report(reports, report) do
+    if Enum.any?(reports, &(&1.parent_id == report.parent_id)) do
+      Enum.map(reports, &replace_attached_fanout_report(&1, report))
+    else
+      reports ++ [report]
+    end
+  end
+
+  defp replace_attached_fanout_report(%{parent_id: parent_id}, %{parent_id: parent_id} = report),
+    do: report
+
+  defp replace_attached_fanout_report(existing, _report), do: existing
+
+  defp fanout_delivery_context(parent) do
+    %{
+      user_id: parent.user_id,
+      channel: parent.source_channel,
+      thread_id: parent.source_thread_id,
+      origin_thread_ref_id: parent.origin_thread_ref_id,
+      origin_thread_ref_digest: parent.origin_thread_ref_digest,
+      origin_receiver_account_ref: parent.origin_receiver_account_ref
+    }
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Map.new()
   end
 
   defp resolve_workspace_thread(params, user_id) do

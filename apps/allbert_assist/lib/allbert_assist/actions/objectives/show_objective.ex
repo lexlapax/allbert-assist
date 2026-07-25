@@ -29,6 +29,7 @@ defmodule AllbertAssist.Actions.Objectives.ShowObjective do
   alias AllbertAssist.Maps
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Runs.Scheduler
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Validation
 
@@ -47,19 +48,27 @@ defmodule AllbertAssist.Actions.Objectives.ShowObjective do
         |> Objectives.list_events(limit: event_limit(params))
         |> Enum.map(&event_map/1)
 
+      projection =
+        if objective.fanout_role == "parent", do: Fanout.parent_projection(objective)
+
+      if projection && projection.phase == :recovering,
+        do: wake_parent(projection.parent.id)
+
+      projected_parent = if projection, do: projection.parent, else: objective
+
       children =
-        if objective.fanout_role == "parent" do
-          objective.id |> Fanout.children() |> Enum.map(&objective_map/1)
-        else
-          []
-        end
+        if projection,
+          do: Enum.map(projection.children, &objective_map/1),
+          else: []
+
+      projected_objective = objective_map(projected_parent, projection)
 
       {:ok,
        %{
-         message: "Objective #{objective.id}: #{objective.title}",
+         message: "Objective #{objective.id}: #{objective.title} — #{projected_objective.status}",
          status: :completed,
          permission_decision: permission_decision,
-         objective: objective_map(objective),
+         objective: projected_objective,
          steps: steps,
          events: events,
          children: children,
@@ -84,7 +93,7 @@ defmodule AllbertAssist.Actions.Objectives.ShowObjective do
     end
   end
 
-  defp objective_map(objective) do
+  defp objective_map(objective, projection \\ nil) do
     %{
       id: objective.id,
       user_id: objective.user_id,
@@ -92,6 +101,16 @@ defmodule AllbertAssist.Actions.Objectives.ShowObjective do
       objective: objective.objective,
       acceptance_criteria: decode(objective.acceptance_criteria),
       status: objective.status,
+      fanout_role: objective.fanout_role,
+      parent_objective_id: objective.parent_objective_id,
+      fanout_phase: projection && projection.phase,
+      persisted_status: projection && projection.persisted_status,
+      derived_status: projection && projection.derived_status,
+      join_outcome: objective.join_outcome,
+      derived_join_outcome: projection && projection.derived_join_outcome,
+      kickoff_delivery_state: objective.kickoff_delivery_state,
+      report_delivery_state: objective.report_delivery_state,
+      children_terminal?: projection && projection.children_terminal?,
       active_app: objective.active_app,
       source_intent: objective.source_intent,
       source_thread_id: objective.source_thread_id,
@@ -99,12 +118,23 @@ defmodule AllbertAssist.Actions.Objectives.ShowObjective do
       current_step_id: objective.current_step_id,
       progress_summary: objective.progress_summary,
       last_observation_summary: objective.last_observation_summary,
+      review_reason: objective.review_reason,
       proposer_hint: decode(objective.proposer_hint),
       loop_count: objective.loop_count,
       inserted_at: objective.inserted_at,
       updated_at: objective.updated_at
     }
+    |> maybe_project_status(projection)
     |> drop_nil()
+  end
+
+  defp maybe_project_status(map, nil), do: map
+  defp maybe_project_status(map, projection), do: Map.put(map, :status, projection.display_status)
+
+  defp wake_parent(parent_id) do
+    Scheduler.wake_parent(parent_id)
+  catch
+    :exit, _reason -> :ok
   end
 
   defp step_map(step) do

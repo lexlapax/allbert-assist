@@ -5,11 +5,12 @@
 Accepted (v1.1 M7, 2026-07-22). `Channels.Notify`, defaults-OFF settings, the
 restart-safe delivery ledger/edit path, redacted markdown audit, exact-origin
 binding, bounded retry/uncertainty behavior, and focused authority proofs are
-implemented. The M12.15 replay/in-flight-status amendment below is approved for
-corrective implementation after FV evidence showed that signal-only completion
-wakeup and per-progress disabled-status reservations did not satisfy the
-restart/operability intent. Gate-bound `:v11` eval rows follow at M10. This is a
-security ADR defining a NEW authority class.
+implemented. The M12.15 replay/in-flight-status amendment below is implemented
+and focused-green: the durable parent outbox now drives restart recovery,
+disabled/completion-only status work is bounded, attended output ACKs are exact,
+and send-time origin/authority is re-proved. The expanded `release.v11`, frozen
+`release.v1`, pre-push, and authoritative release gates remain pending at the
+final committed SHA. This is a security ADR defining a NEW authority class.
 
 ## Context
 
@@ -106,7 +107,14 @@ and gate-bound abuse-case coverage.
    re-proving that ref against the current channel identity map —
    **stored free text, model output, and action params are never an
    address**. A target that does not resolve to the objective owner's mapped
-   identity on the origin channel is denied. Every decision — delivered,
+   identity on the origin channel is denied. The stable origin digest hashes
+   exactly channel, receiver-account ref, and provider-thread key. Mutable
+   provider metadata/display refs may refresh on the same durable row without
+   invalidating the origin; account or thread-key remapping changes the digest
+   and is denied. Settings, release availability, kind/level, throttle,
+   Security policy, row identity, and current user mapping are re-authorized
+   immediately before transport—framing-time consent and ledger reservation
+   are not send authority. Every decision — delivered,
    suppressed (with reason), failed — emits
    `allbert.channels.notify.{delivered,suppressed,failed,uncertain}`.
    Operational state
@@ -160,7 +168,12 @@ and gate-bound abuse-case coverage.
    future unattended medium. Next-turn report delivery (`pending_reports` in
    the turn response) is likewise a turn response, not an autonomous send.
    This line is what lets the default stay OFF without making fan-out
-   useless.
+   useless. Attached web/TUI and next-turn response paths never reserve an
+   autonomous ledger row. They acknowledge one exact report receipt only after
+   its complete browser render/stdout write succeeds; failed or partial output
+   leaves it pending, and rendering one of several queued reports cannot consume
+   another. A detached local surface has no attended push and falls back to the
+   same next-turn receipt path.
    The fan-out kickoff is also a turn response, but ADR 0083 makes its
    successful delivery—or the public protocol's specified durable
    equivalent—an execution precondition: framing returns a start receipt and
@@ -237,13 +250,14 @@ and gate-bound abuse-case coverage.
   `fanout-notify-redaction-001`, `fanout-steer-no-approve-001`,
   `fanout-notify-origin-ref-cross-account-001`,
   `fanout-notify-consent-free-text-001` — the Decision 0 control — at
-  minimum).
-- v1.1 M12: per-channel operator validation matrix
-  (`docs/plans/v1.1-request-flow.md` §J) — notify OFF silence and notify ON
-  behavior attested live on every released, operator-configured channel.
-  Full simulated end-to-end evidence is mandatory for WhatsApp/Signal while
-  ReleaseAvailability-gated; their live row becomes mandatory only when
-  released and configured. `release.v1` is green at the tag.
+  minimum). These are the notify subset of the eleven distinct v1.1 authority
+  rows; the inventory meta-contract rejects reused generic bindings.
+- v1.1 M12: every surface's attended/autonomous boundary, OFF/ON behavior,
+  exact origin, ACK timing, and delivery primitive is automated in the expanded
+  `release.v11` core, channel/TUI, and web/OpenAI steps. Configured-provider
+  live smokes remain release diagnostics. The one manual §J walkthrough is
+  deliberately the fan-out/fan-in flagship, not a second per-channel authority
+  harness. `release.v1` stays green at the tag.
 
 ## Amendment (v1.1 M12.15, 2026-07-24) — completion replay and bounded status work
 
@@ -278,10 +292,13 @@ not grant another notification class.
    autonomous duplicate plus durable next-turn fallback, not impossible
    exactly-once behavior at an external transport.
 
-M12.15 validation binds pending-with-no-ledger, `reserved`, stale `sending`,
-`delivered` before parent acknowledgement, definitive `failed`, consumer
-restart, SignalBus-only restart, disabled/completion-only write amplification,
-and enabled send-time re-authorization into the derived `release.v11` gate.
+M12.15 focused validation is green for pending-with-no-ledger, `reserved`,
+stale `sending`, `delivered` before parent acknowledgement, definitive
+`failed`, consumer restart, SignalBus-only restart,
+disabled/completion-only write amplification, attached exact-receipt ACK, and
+enabled send-time re-authorization. Those suites are now explicit inputs to
+the derived `release.v11` gate; that gate and the authoritative release gate
+remain pending at the final committed implementation SHA.
 
 ## Amendment (v1.4 planning, 2026-07-24) — additive `:suggestion` notification kind
 

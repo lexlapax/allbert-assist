@@ -9,7 +9,9 @@ defmodule AllbertAssist.Objectives.Fanout do
   import Ecto.Query
 
   alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.Event
   alias AllbertAssist.Objectives.Fanout.ReceiptSecret
+  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime.Redactor
@@ -41,15 +43,30 @@ defmodule AllbertAssist.Objectives.Fanout do
     |> where(
       [o],
       o.fanout_role == "parent" and o.kickoff_delivery_state == "acknowledged" and
-        o.status in ["open", "running", "blocked"]
+        o.report_delivery_state == "not_ready"
     )
     |> order_by([o], asc: o.inserted_at, asc: o.id)
     |> Repo.all()
   end
 
+  @doc "True when an acknowledged parent still requires durable reconciliation."
+  @spec recovery_required?(Objective.t() | String.t()) :: boolean()
+  def recovery_required?(%Objective{} = parent) do
+    parent.fanout_role == "parent" and parent.kickoff_delivery_state == "acknowledged" and
+      parent.report_delivery_state == "not_ready"
+  end
+
+  def recovery_required?(parent_id) when is_binary(parent_id) do
+    case Repo.get(Objective, parent_id) do
+      %Objective{} = parent -> recovery_required?(parent)
+      nil -> false
+    end
+  end
+
   @doc "Return pending join reports without consuming their delivery receipts."
-  @spec pending_reports(String.t(), String.t()) :: [map()]
-  def pending_reports(user_id, thread_id) when is_binary(user_id) and is_binary(thread_id) do
+  @spec pending_reports(String.t(), String.t(), map()) :: [map()]
+  def pending_reports(user_id, thread_id, delivery_identity)
+      when is_binary(user_id) and is_binary(thread_id) and is_map(delivery_identity) do
     Objective
     |> where(
       [o],
@@ -58,15 +75,52 @@ defmodule AllbertAssist.Objectives.Fanout do
     )
     |> order_by([o], asc: o.completed_at, asc: o.id)
     |> Repo.all()
-    |> Enum.map(fn parent ->
-      %{
-        parent_objective_id: parent.id,
-        report: report(parent),
-        report_delivery_receipt: receipt_for(:report, parent.id),
-        delivery_context: receipt_delivery_context(parent)
-      }
+    |> Enum.filter(&delivery_identity_matches?(&1, delivery_identity))
+    |> Enum.flat_map(fn parent ->
+      projection = parent_projection(parent)
+
+      if projection.phase == :joined and projection.authoritatively_joined? do
+        [
+          %{
+            parent_objective_id: parent.id,
+            report: report(projection),
+            report_delivery_receipt: receipt_for(:report, parent.id),
+            delivery_context: receipt_delivery_context(projection.parent)
+          }
+        ]
+      else
+        []
+      end
     end)
   end
+
+  defp delivery_identity_matches?(parent, context) do
+    ref = map_field(context, :channel_thread_ref)
+
+    presented = %{
+      channel: context |> map_field(:channel) |> optional_string(),
+      origin_thread_ref_id: map_field(context, :origin_thread_ref_id) || map_field(ref, :id),
+      origin_thread_ref_digest: map_field(context, :origin_thread_ref_digest),
+      origin_receiver_account_ref:
+        map_field(context, :origin_receiver_account_ref) ||
+          map_field(context, :receiver_account_ref) || map_field(ref, :receiver_account_ref)
+    }
+
+    parent.source_channel == presented.channel and
+      optional_identity_matches?(
+        parent.origin_receiver_account_ref,
+        presented.origin_receiver_account_ref
+      )
+  end
+
+  defp optional_identity_matches?(nil, _presented), do: true
+  defp optional_identity_matches?(stored, presented), do: stored == presented
+
+  defp map_field(nil, _key), do: nil
+  defp map_field(map, key) when is_map(map), do: Map.get(map, key) || Map.get(map, to_string(key))
+
+  defp optional_string(nil), do: nil
+  defp optional_string(value), do: to_string(value)
 
   @spec join_status(Objective.t() | String.t()) :: %{
           terminal?: boolean(),
@@ -74,10 +128,151 @@ defmodule AllbertAssist.Objectives.Fanout do
           outcome: String.t() | nil
         }
   def join_status(parent) do
-    children = children(parent)
-    {status, outcome} = reduce(children)
-    %{terminal?: Enum.all?(children, &(&1.status in @terminal)), status: status, outcome: outcome}
+    projection = parent_projection(parent)
+
+    %{
+      terminal?: projection.children_terminal?,
+      status: projection.derived_status,
+      outcome: projection.derived_join_outcome
+    }
   end
+
+  @type parent_projection :: %{
+          parent: Objective.t() | nil,
+          children: [Objective.t()],
+          phase: :awaiting_kickoff | :running | :recovering | :joined | :inconsistent,
+          display_status: String.t(),
+          persisted_status: String.t() | nil,
+          derived_status: String.t(),
+          persisted_join_outcome: String.t() | nil,
+          derived_join_outcome: String.t() | nil,
+          children_terminal?: boolean(),
+          authoritatively_joined?: boolean(),
+          recovery_required?: boolean()
+        }
+
+  @doc "Project one fan-out parent and one ordered child snapshot for operator reads."
+  @spec parent_projection(Objective.t() | String.t()) :: parent_projection()
+  def parent_projection(%Objective{id: id}), do: parent_projection(id)
+
+  def parent_projection(parent_id) when is_binary(parent_id) do
+    parent = Repo.get(Objective, parent_id)
+    children = children(parent_id)
+    {derived_status, derived_outcome} = reduce(children)
+    children_terminal? = children != [] and Enum.all?(children, &(&1.status in @terminal))
+    authoritatively_joined? = authoritatively_joined?(parent_id, parent)
+    recovery_required? = recovery_required_parent?(parent)
+
+    state = %{
+      parent: parent,
+      children: children,
+      children_terminal?: children_terminal?,
+      authoritatively_joined?: authoritatively_joined?,
+      reduction_matches?:
+        reduction_matches?(parent, children_terminal?, derived_status, derived_outcome),
+      recovery_required?: recovery_required?
+    }
+
+    phase = projection_phase(state)
+
+    %{
+      parent: parent,
+      children: children,
+      phase: phase,
+      display_status: projection_display_status(phase, parent),
+      persisted_status: parent && parent.status,
+      derived_status: derived_status,
+      persisted_join_outcome: parent && parent.join_outcome,
+      derived_join_outcome: derived_outcome,
+      children_terminal?: children_terminal?,
+      authoritatively_joined?: authoritatively_joined?,
+      recovery_required?: recovery_required?
+    }
+  end
+
+  defp authoritatively_joined?(parent_id, parent) do
+    joined_marker? = joined_marker?(parent)
+    receipt_matches? = report_receipt_matches?(parent_id, parent)
+    join_event? = join_event_recorded?(parent_id)
+
+    joined_marker? and receipt_matches? and join_event?
+  end
+
+  defp joined_marker?(%Objective{fanout_role: "parent", report_delivery_state: state})
+       when state in ["pending", "delivered"],
+       do: true
+
+  defp joined_marker?(_parent), do: false
+
+  defp report_receipt_matches?(parent_id, %Objective{report_delivery_receipt_digest: digest})
+       when is_binary(digest),
+       do: digest == digest(receipt_for(:report, parent_id))
+
+  defp report_receipt_matches?(_parent_id, _parent), do: false
+
+  defp join_event_recorded?(parent_id) do
+    Repo.exists?(
+      from event in Event,
+        where: event.objective_id == ^parent_id and event.kind == "fanout_joined"
+    )
+  end
+
+  defp reduction_matches?(parent, children_terminal?, derived_status, derived_outcome) do
+    children_terminal? and match?(%Objective{}, parent) and parent.status == derived_status and
+      parent.join_outcome == derived_outcome
+  end
+
+  defp recovery_required_parent?(%Objective{
+         fanout_role: "parent",
+         kickoff_delivery_state: "acknowledged",
+         report_delivery_state: "not_ready"
+       }),
+       do: true
+
+  defp recovery_required_parent?(_parent), do: false
+
+  defp projection_phase(%{
+         parent: %Objective{fanout_role: "parent"},
+         children: [_child | _rest],
+         authoritatively_joined?: true,
+         reduction_matches?: true
+       }),
+       do: :joined
+
+  defp projection_phase(%{
+         parent: %Objective{fanout_role: "parent"},
+         children: [_child | _rest],
+         authoritatively_joined?: true
+       }),
+       do: :inconsistent
+
+  defp projection_phase(%{
+         parent: %Objective{fanout_role: "parent"},
+         children: [_child | _rest],
+         recovery_required?: true,
+         children_terminal?: true
+       }),
+       do: :recovering
+
+  defp projection_phase(%{
+         parent: %Objective{fanout_role: "parent"},
+         children: [_child | _rest],
+         recovery_required?: true
+       }),
+       do: :running
+
+  defp projection_phase(%{
+         parent: %Objective{
+           fanout_role: "parent",
+           kickoff_delivery_state: state,
+           report_delivery_state: "not_ready"
+         },
+         children: [_child | _rest]
+       })
+       when state in ["pending", "blocked"],
+       do: :awaiting_kickoff
+
+  defp projection_phase(_state), do: :inconsistent
 
   @type report :: %{
           parent_objective_id: String.t(),
@@ -86,19 +281,26 @@ defmodule AllbertAssist.Objectives.Fanout do
           children: [map()]
         }
 
-  @spec report(Objective.t() | String.t()) :: report()
+  @spec report(Objective.t() | String.t() | parent_projection()) :: report()
   def report(%Objective{id: id}), do: report(id)
 
-  def report(parent_id) when is_binary(parent_id) do
-    result = join_status(parent_id)
+  def report(%{parent: _parent, children: _children} = projection),
+    do: report_from_projection(projection)
 
+  def report(parent_id) when is_binary(parent_id) do
+    parent_id
+    |> parent_projection()
+    |> report_from_projection()
+  end
+
+  defp report_from_projection(projection) do
     Redactor.redact(%{
-      parent_objective_id: parent_id,
-      title: parent_title(parent_id),
-      status: result.status,
-      join_outcome: result.outcome,
+      parent_objective_id: projection.parent && projection.parent.id,
+      title: (projection.parent && projection.parent.title) || "Fan-out",
+      status: projection.derived_status,
+      join_outcome: projection.derived_join_outcome,
       children:
-        Enum.map(children(parent_id), fn child ->
+        Enum.map(projection.children, fn child ->
           %{
             id: child.id,
             title: child.title,
@@ -130,12 +332,27 @@ defmodule AllbertAssist.Objectives.Fanout do
     end
   end
 
-  defp parent_title(parent_id) do
-    case Repo.get(Objective, parent_id) do
-      %Objective{title: title} -> title
-      nil -> "Fan-out"
-    end
+  @doc false
+  @spec format_report(report()) :: String.t()
+  def format_report(report) when is_map(report) do
+    children =
+      Enum.map_join(report.children, "; ", fn child ->
+        "#{report_glyph(child.status)} #{child.title} — #{report_child_detail(child)}"
+      end)
+
+    "#{report.title} — #{report.join_outcome || report.status}: #{children}"
   end
+
+  defp projection_display_status(:recovering, _parent), do: "finalizing"
+  defp projection_display_status(:running, _parent), do: "running"
+  defp projection_display_status(:inconsistent, _parent), do: "inconsistent"
+  defp projection_display_status(_phase, %Objective{status: status}), do: status
+  defp projection_display_status(_phase, nil), do: "inconsistent"
+
+  defp report_glyph("completed"), do: "✓"
+  defp report_glyph("cancelled"), do: "⊘"
+  defp report_glyph("failed"), do: "✗"
+  defp report_glyph(_status), do: "•"
 
   @doc "Atomically records successful kickoff delivery. The receipt is single-use and identity-bound."
   @spec acknowledge_start(String.t(), map()) ::
@@ -164,6 +381,29 @@ defmodule AllbertAssist.Objectives.Fanout do
     end
   end
 
+  @doc false
+  @spec parent_for_start_receipt(String.t(), map()) ::
+          {:ok, Objective.t()} | {:error, :invalid_receipt | :receipt_identity_mismatch}
+  def parent_for_start_receipt(receipt, context)
+      when is_binary(receipt) and is_map(context) do
+    receipt_digest = digest(receipt)
+
+    case Repo.one(
+           from objective in Objective,
+             where:
+               objective.fanout_role == "parent" and
+                 objective.fanout_start_receipt_digest == ^receipt_digest
+         ) do
+      %Objective{} = parent ->
+        if identity_matches?(parent, context),
+          do: {:ok, parent},
+          else: {:error, :receipt_identity_mismatch}
+
+      nil ->
+        {:error, :invalid_receipt}
+    end
+  end
+
   @doc "Mark a failed kickoff delivery as blocked without consuming its stable receipt."
   @spec mark_start_delivery_failed(String.t(), map()) ::
           :ok | {:error, :invalid_receipt | :receipt_identity_mismatch}
@@ -179,50 +419,34 @@ defmodule AllbertAssist.Objectives.Fanout do
     )
   end
 
-  @doc "Persists a terminal join and returns the report delivery receipt once."
+  @doc "Idempotently reconcile a parent from durable child state."
+  @spec reconcile_parent(Objective.t() | String.t(), keyword()) ::
+          {:ok, TerminalTransitions.join_result()} | {:error, term()}
+  def reconcile_parent(parent, opts \\ [])
+  def reconcile_parent(%Objective{id: id}, opts), do: reconcile_parent(id, opts)
+
+  def reconcile_parent(parent_id, opts) when is_binary(parent_id) and is_list(opts),
+    do: TerminalTransitions.reconcile_parent(parent_id, opts)
+
+  @doc "Persists or reads a terminal join and returns its stable report receipt."
   @spec finalize_join(Objective.t() | String.t()) :: {:ok, map()} | {:error, term()}
   def finalize_join(%Objective{id: id}), do: finalize_join(id)
 
   def finalize_join(parent_id) when is_binary(parent_id) do
-    case Repo.transaction(fn -> finalize_join_transaction(parent_id) end) do
-      {:ok, {:ok, result}} -> {:ok, result}
-      {:ok, {:error, reason}} -> {:error, reason}
-      {:error, reason} -> {:error, reason}
-    end
-  end
+    case reconcile_parent(parent_id, recovered?: false) do
+      {:ok, {state, parent}} when state in [:joined_now, :already_joined] ->
+        {:ok,
+         %{
+           parent: parent,
+           report: report(parent),
+           report_delivery_receipt: receipt_for(:report, parent_id)
+         }}
 
-  defp finalize_join_transaction(parent_id) do
-    case {Repo.get(Objective, parent_id), join_status(parent_id)} do
-      {%Objective{fanout_role: "parent", report_delivery_state: "not_ready"} = parent,
-       %{terminal?: true} = joined} ->
-        receipt = receipt_for(:report, parent_id)
-
-        attrs = %{
-          status: joined.status,
-          join_outcome: joined.outcome,
-          report_delivery_state: "pending",
-          report_delivery_receipt_digest: digest(receipt),
-          completed_at: DateTime.utc_now()
-        }
-
-        case Objectives.update_objective(parent, attrs) do
-          {:ok, updated} ->
-            record_event!(updated.id, "fanout_joined", %{
-              status: joined.status,
-              join_outcome: joined.outcome
-            })
-
-            {:ok, %{parent: updated, report: report(updated), report_delivery_receipt: receipt}}
-
-          error ->
-            error
-        end
-
-      {%Objective{fanout_role: "parent"}, _joined} ->
+      {:ok, :not_terminal} ->
         {:error, :fanout_not_terminal_or_already_finalized}
 
-      _other ->
-        {:error, :fanout_not_found}
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 

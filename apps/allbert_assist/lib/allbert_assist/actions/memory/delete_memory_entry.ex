@@ -89,20 +89,23 @@ defmodule AllbertAssist.Actions.Memory.DeleteMemoryEntry do
   defp create_confirmation(path, user_id, context, permission_decision) do
     with {:ok, entry} <- Memory.read_entry(path, user_id: user_id),
          {:ok, confirmation} <-
-           Confirmations.create(%{
-             origin: origin(context, user_id),
-             target_action: %{name: "delete_memory_entry", module: inspect(__MODULE__)},
-             target_permission: :memory_write,
-             target_execution_mode: :memory_archive,
-             security_decision: permission_decision,
-             params_summary: %{
-               path: entry.path,
-               category: entry.category,
-               summary: entry.summary,
-               user_id: user_id
+           Confirmations.create(
+             %{
+               origin: origin(context, user_id),
+               target_action: %{name: "delete_memory_entry", module: inspect(__MODULE__)},
+               target_permission: :memory_write,
+               target_execution_mode: :memory_archive,
+               security_decision: permission_decision,
+               params_summary: %{
+                 path: entry.path,
+                 category: entry.category,
+                 summary: entry.summary,
+                 user_id: user_id
+               },
+               resume_params_ref: %{path: entry.path, user_id: user_id}
              },
-             resume_params_ref: %{path: entry.path, user_id: user_id}
-           }) do
+             context
+           ) do
       {:ok,
        %{
          message:

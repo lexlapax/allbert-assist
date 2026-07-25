@@ -82,7 +82,7 @@ defmodule AllbertAssist.Actions.DynamicPlugins.IntegrateDraft do
     with {:ok, draft} <- MetadataStore.get_draft(slug),
          :ok <- ensure_gate_passed(draft),
          {:ok, confirmation} <-
-           Confirmations.create(confirmation_attrs(draft, context, permission_decision)),
+           Confirmations.create(confirmation_attrs(draft, context, permission_decision), context),
          {:ok, draft} <- cache_confirmation(draft, confirmation) do
       {:ok,
        %{

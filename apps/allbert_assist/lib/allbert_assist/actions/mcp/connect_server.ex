@@ -124,7 +124,7 @@ defmodule AllbertAssist.Actions.Mcp.ConnectServer do
       resume_params_ref: resume_params(spec, params)
     }
 
-    case Confirmations.create(attrs) do
+    case Confirmations.create(attrs, context) do
       {:ok, confirmation} ->
         {:ok,
          %{

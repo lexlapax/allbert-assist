@@ -83,7 +83,7 @@ token streaming or granting autonomous notification authority:
 
 | surfaces | `streaming` | operator experience |
 |---|---|---|
-| Web, TUI | `:live_region` | status can update in the attached local interface |
+| Web, TUI | `:live_region` | status and joined reports update in the attached local interface; output precedes receipt acknowledgement |
 | Telegram, Discord, Slack, Matrix, WhatsApp, Signal | `:progress_messages` | status can arrive as channel messages once ADR 0084 authority is enabled |
 | Email | `:turn_complete` | completion-oriented delivery only |
 | CLI | omitted → `:turn_complete` | backward-compatible next-turn output |
@@ -92,6 +92,13 @@ token streaming or granting autonomous notification authority:
 remote descriptor other than the local TUI. These declarations describe surface
 capability only. Settings Central plus Security Central still decide whether an
 autonomous report may be sent; that authority remains default off.
+
+Attached Web/TUI output and attended CLI/public-protocol responses never become
+autonomous merely because a descriptor can stream. They use the Runtime's exact
+kickoff/report receipts and acknowledge only after successful render or write;
+remote adapters use the separate notification ledger only after per-channel
+ADR 0084 opt-in and send-time reauthorization. TUI `[fan-out]` lifecycle lines
+are operator-facing `:live_region` output, not Logger diagnostics.
 
 ## v1.1 Status Update Declarations
 

@@ -117,7 +117,7 @@ defmodule AllbertNotesFiles.Actions.WriteNote do
       resume_params_ref: resume_params(request)
     }
 
-    case Confirmations.create(attrs) do
+    case Confirmations.create(attrs, context) do
       {:ok, confirmation} ->
         {:ok,
          %{

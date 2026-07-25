@@ -10,7 +10,10 @@ defmodule AllbertAssist.PublicProtocol.AcpFanoutTest do
     assert source =~ "Task.Supervisor.async_nolink(AllbertAssist.TaskSupervisor"
     assert source =~ "Runtime.await_fanout"
     assert source =~ ~s("session/cancel")
-    assert source =~ ~s(Runner.run(
-        "cancel_objective_run")
+    assert source =~ "Runner.run("
+    assert source =~ ~s("cancel_objective_run")
+    assert source =~ "worker_state.report_deliveries"
+    assert source =~ "acknowledge_report_deliveries("
+    refute source =~ "acknowledge_session_reports("
   end
 end

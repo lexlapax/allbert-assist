@@ -4,6 +4,8 @@ defmodule AllbertAssistWeb.ObjectivesLiveTest do
   import Phoenix.LiveViewTest
 
   alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Surface.Catalog
 
   test "renders a populated objectives index through the catalog renderer", %{conn: conn} do
@@ -90,6 +92,44 @@ defmodule AllbertAssistWeb.ObjectivesLiveTest do
     refute html =~ "phx-click=\"continue"
     assert_catalog_components_known!(html)
   end
+
+  test "refreshes a joined fan-out from objective signals without a page reload", %{conn: conn} do
+    assert {:ok, %{parent: parent, children: children}} =
+             Fanout.frame(
+               %{user_id: "local", title: "Live index fan-out", objective: "Refresh the index"},
+               ["one", "two"]
+             )
+
+    {:ok, view, html} = live(conn, ~p"/objectives")
+    assert html =~ "Live index fan-out"
+
+    Enum.each(children, fn child ->
+      assert {:ok, _transition} =
+               TerminalTransitions.terminalize_child(
+                 child,
+                 %{status: "completed", completed_at: DateTime.utc_now()},
+                 "run_completed",
+                 %{}
+               )
+    end)
+
+    assert_eventually(fn ->
+      has_element?(view, "#objective-index-#{parent.id}", "completed")
+    end)
+  end
+
+  defp assert_eventually(fun, attempts \\ 100)
+
+  defp assert_eventually(fun, attempts) when attempts > 0 do
+    if fun.() do
+      :ok
+    else
+      Process.sleep(10)
+      assert_eventually(fun, attempts - 1)
+    end
+  end
+
+  defp assert_eventually(_fun, 0), do: flunk("condition did not become true")
 
   defp assert_catalog_components_known!(html) do
     known_components = Catalog.known_components() |> Enum.map(&Atom.to_string/1)

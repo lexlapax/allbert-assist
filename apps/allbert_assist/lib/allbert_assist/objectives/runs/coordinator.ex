@@ -9,14 +9,20 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
 
   use GenServer, restart: :temporary
 
+  require Logger
+
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Runs.{RunServer, Scheduler, Supervisor}
-  alias AllbertAssist.Repo
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Signals
 
   @max_review_reason_chars 240
+  @join_retry_delay_ms 50
+  @max_join_retry_delay_ms 5_000
+  @run_start_retry_delay_ms 50
+  @max_run_start_retry_delay_ms 5_000
 
   def child_spec(opts) do
     parent_id = Keyword.fetch!(opts, :parent_id)
@@ -32,20 +38,6 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
     GenServer.start_link(__MODULE__, opts)
   end
 
-  @doc "Wake the owning coordinator after an out-of-process terminal commit."
-  @spec durable_terminal(String.t() | nil, String.t()) :: :ok
-  def durable_terminal(nil, _child_id), do: :ok
-
-  def durable_terminal(parent_id, child_id)
-      when is_binary(parent_id) and is_binary(child_id) do
-    case Registry.lookup(AllbertAssist.Objectives.Runs.Registry, {:fanout, parent_id}) do
-      [{pid, _value}] -> send(pid, {:durable_terminal, child_id})
-      [] -> :ok
-    end
-
-    :ok
-  end
-
   @impl true
   def init(opts) do
     parent_id = Keyword.fetch!(opts, :parent_id)
@@ -53,13 +45,23 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
     case Registry.register(AllbertAssist.Objectives.Runs.Registry, {:fanout, parent_id}, nil) do
       {:ok, _} ->
         Scheduler.track_coordinator(parent_id, self())
-        Signals.emit_fanout(:fanout_started, %{parent_id: parent_id})
+
+        recovery? = Keyword.get(opts, :recovery?, false)
+        unless recovery?, do: Signals.emit_fanout(:fanout_started, %{parent_id: parent_id})
 
         {:ok,
          %{
            parent_id: parent_id,
            run_opts: Keyword.get(opts, :run_opts, []),
-           monitors: %{}
+           monitors: %{},
+           recovery?: recovery?,
+           join_reconciler: Keyword.get(opts, :join_reconciler, &Fanout.reconcile_parent/2),
+           join_retry_count: 0,
+           run_starter:
+             Keyword.get(opts, :run_starter, fn child_spec ->
+               DynamicSupervisor.start_child(Supervisor, child_spec)
+             end),
+           run_start_retries: %{}
          }, {:continue, :reconcile}}
 
       {:error, {:already_registered, pid}} ->
@@ -82,11 +84,13 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
   def handle_info({:run_grant, child_id}, state), do: {:noreply, start_run(child_id, state)}
 
   def handle_info(:scheduler_reconcile, state), do: handle_continue(:reconcile, state)
+  def handle_info(:retry_join, state), do: {:noreply, maybe_join(state)}
 
   def handle_info({:run_terminal, child_id, result}, state) do
     Scheduler.release(child_id)
     state = drop_monitor(state, child_id)
     state = reconcile_terminal_state(child_id, result, state)
+    maybe_schedule_blocked_reconcile(child_id)
     {:noreply, maybe_join(state)}
   end
 
@@ -102,23 +106,7 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
         {:noreply, state}
 
       {child_id, _ref} ->
-        state = %{state | monitors: Map.delete(state.monitors, child_id)}
-
-        case Objectives.get_objective(child_id) do
-          {:ok, %{status: status}}
-          when status in ~w[completed cancelled failed abandoned blocked] ->
-            Scheduler.release(child_id)
-            {:noreply, maybe_join(state)}
-
-          {:ok, child} ->
-            retry_or_park(child, reason)
-            Scheduler.release(child_id)
-            {:noreply, maybe_join(state)}
-
-          _ ->
-            Scheduler.release(child_id)
-            {:noreply, maybe_join(state)}
-        end
+        handle_run_down(child_id, reason, state)
     end
   end
 
@@ -147,6 +135,26 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
     end
   end
 
+  defp reconcile_missing_run(%{status: "blocked"} = child, state) do
+    case Objectives.Lifecycle.reconcile_blocked(child.id) do
+      {:ok, :runnable} ->
+        request_or_start(child.id, state)
+
+      {:ok, :parked} ->
+        state
+
+      {:ok, {:terminalized, _child}} ->
+        state
+
+      {:error, reason} ->
+        Logger.warning(
+          "fan-out blocked-child reconciliation failed child=#{child.id} reason=#{inspect(reason)}"
+        )
+
+        state
+    end
+  end
+
   defp reconcile_missing_run(_blocked_or_terminal, state), do: state
 
   defp request_or_start(child_id, state) do
@@ -159,7 +167,7 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
   defp start_run(child_id, state) do
     opts = [child_id: child_id, parent_id: state.parent_id, coordinator: self()] ++ state.run_opts
 
-    case DynamicSupervisor.start_child(Supervisor, {RunServer, opts}) do
+    case state.run_starter.({RunServer, opts}) do
       {:ok, pid} ->
         monitor_run(child_id, pid, state)
 
@@ -167,17 +175,51 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
         monitor_run(child_id, pid, state)
 
       {:error, reason} ->
-        retry_or_park_id(child_id, reason)
+        Logger.warning(
+          "fan-out worker start failed before execution child=#{child_id} reason=#{inspect(reason)}"
+        )
+
         Scheduler.release(child_id)
-        state
+        schedule_run_start_retry(state, child_id)
     end
   end
+
+  defp handle_run_down(child_id, reason, state) do
+    state = %{state | monitors: Map.delete(state.monitors, child_id)}
+    result = Objectives.get_objective(child_id)
+    reconcile_run_down(result, child_id, reason, state)
+  end
+
+  defp reconcile_run_down({:ok, %{status: status}}, child_id, _reason, state)
+       when status in ~w[completed cancelled failed abandoned blocked] do
+    Scheduler.release(child_id)
+    maybe_reconcile_blocked(status)
+    {:noreply, maybe_join(state)}
+  end
+
+  defp reconcile_run_down({:ok, child}, child_id, reason, state) do
+    retry_or_park(child, reason)
+    Scheduler.release(child_id)
+    {:noreply, maybe_join(state)}
+  end
+
+  defp reconcile_run_down(_missing, child_id, _reason, state) do
+    Scheduler.release(child_id)
+    {:noreply, maybe_join(state)}
+  end
+
+  defp maybe_reconcile_blocked("blocked"), do: send(self(), :scheduler_reconcile)
+  defp maybe_reconcile_blocked(_status), do: :ok
 
   defp monitor_run(child_id, pid, state) do
     if Map.has_key?(state.monitors, child_id) do
       state
     else
-      %{state | monitors: Map.put(state.monitors, child_id, Process.monitor(pid))}
+      %{
+        state
+        | monitors: Map.put(state.monitors, child_id, Process.monitor(pid)),
+          run_start_retries: Map.delete(state.run_start_retries, child_id)
+      }
     end
   end
 
@@ -214,6 +256,13 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
   defp terminal_failure_reason({:error, _reason}), do: :missing_durable_observation
   defp terminal_failure_reason(_result), do: :terminal_without_durable_observation
 
+  defp maybe_schedule_blocked_reconcile(child_id) do
+    case Objectives.get_objective(child_id) do
+      {:ok, %{status: "blocked"}} -> send(self(), :scheduler_reconcile)
+      _other -> :ok
+    end
+  end
+
   defp retry_or_park(child, reason) do
     case {Objectives.Lifecycle.retry_safety(child.id), child.run_attempt_count} do
       {:safe, attempts} when attempts <= 1 ->
@@ -223,45 +272,37 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
         fail_exhausted_retry(child, reason)
 
       {_not_safe, _attempts} ->
-        Objectives.update_objective(child, %{
-          status: "blocked",
-          review_reason: bounded_review_reason("uncertain_effect", reason)
-        })
+        reason_text = bounded_review_reason("uncertain_effect", reason)
+
+        TerminalTransitions.transition_active_child(
+          child,
+          %{status: "blocked", review_reason: reason_text},
+          "run_blocked",
+          %{reason: reason_text},
+          signal: {:run_blocked, %{reason: reason_text}}
+        )
     end
   end
 
   defp fail_exhausted_retry(child, reason) do
     reason_text = bounded_review_reason("retry_exhausted", reason)
 
-    case Repo.transaction(fn -> persist_exhausted_retry(child, reason_text) end) do
-      {:ok, failed} ->
-        Signals.emit_fanout(:run_failed, %{
-          child_id: failed.id,
-          parent_id: failed.parent_objective_id,
-          reason: reason_text
-        })
-
-      {:error, _reason} ->
-        :ok
-    end
-  end
-
-  defp persist_exhausted_retry(child, reason_text) do
-    with {:ok, failed} <-
-           Objectives.update_objective(child, %{
+    case TerminalTransitions.terminalize_child(
+           child,
+           %{
              status: "failed",
              review_reason: reason_text,
              completed_at: DateTime.utc_now()
-           }),
-         {:ok, _event} <-
-           Objectives.create_event(%{
-             objective_id: failed.id,
-             kind: "run_failed",
-             payload: %{reason: reason_text}
-           }) do
-      failed
-    else
-      {:error, reason} -> Repo.rollback(reason)
+           },
+           "run_failed",
+           %{reason: reason_text},
+           signal: {:run_failed, %{reason: reason_text}}
+         ) do
+      {:ok, _transition} ->
+        :ok
+
+      {:error, _reason} ->
+        :ok
     end
   end
 
@@ -270,39 +311,60 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
     String.slice("#{prefix}: #{detail}", 0, @max_review_reason_chars)
   end
 
-  defp retry_or_park_id(child_id, reason) do
-    case Objectives.get_objective(child_id) do
-      {:ok, child} -> retry_or_park(child, reason)
-      _ -> :ok
-    end
-  end
-
   defp maybe_join(state) do
-    case Fanout.join_status(state.parent_id) do
-      %{terminal?: true} ->
-        case Fanout.finalize_join(state.parent_id) do
-          {:ok, %{parent: parent}} ->
-            Signals.emit_fanout(:fanout_joined, %{
-              parent_id: parent.id,
-              status: parent.status,
-              join_outcome: parent.join_outcome
-            })
-
-            Scheduler.finish_fanout(parent.id)
-
-          _ ->
+    case state.join_reconciler.(state.parent_id, recovered?: state.recovery?) do
+      {:ok, {joined, parent}} when joined in [:joined_now, :already_joined] ->
+        case Objectives.Lifecycle.reconcile_confirmation_outcomes(parent.id) do
+          :ok ->
             :ok
+
+          {:error, reason} ->
+            Logger.warning(
+              "fan-out confirmation outcome reconciliation failed parent=#{parent.id} reason=#{inspect(reason)}"
+            )
         end
 
+        Scheduler.finish_fanout(parent.id)
         Process.send_after(self(), :stop_after_join, 0)
-        state
+        %{state | join_retry_count: 0}
 
-      _ ->
+      {:ok, :not_terminal} ->
         # Safe crashed runs remain non-terminal and must be enqueued again.
         state.parent_id
         |> Fanout.children()
         |> Enum.filter(&(&1.status == "running" and not Map.has_key?(state.monitors, &1.id)))
-        |> Enum.reduce(state, &request_or_start(&1.id, &2))
+        |> Enum.reduce(%{state | join_retry_count: 0}, &request_or_start(&1.id, &2))
+
+      {:error, reason} ->
+        Logger.warning(
+          "fan-out parent reconciliation failed parent=#{state.parent_id} reason=#{inspect(reason)}"
+        )
+
+        retry_join(state)
     end
+  end
+
+  defp retry_join(%{join_retry_count: retries} = state) do
+    delay =
+      min(
+        @join_retry_delay_ms * Integer.pow(2, min(retries, 7)),
+        @max_join_retry_delay_ms
+      )
+
+    Process.send_after(self(), :retry_join, delay)
+    %{state | join_retry_count: retries + 1}
+  end
+
+  defp schedule_run_start_retry(state, child_id) do
+    attempt = Map.get(state.run_start_retries, child_id, 0)
+
+    delay =
+      min(
+        @run_start_retry_delay_ms * Integer.pow(2, min(attempt, 7)),
+        @max_run_start_retry_delay_ms
+      )
+
+    Process.send_after(self(), :scheduler_reconcile, delay)
+    %{state | run_start_retries: Map.put(state.run_start_retries, child_id, attempt + 1)}
   end
 end

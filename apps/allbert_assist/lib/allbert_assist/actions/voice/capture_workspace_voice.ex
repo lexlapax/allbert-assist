@@ -74,7 +74,7 @@ defmodule AllbertAssist.Actions.Voice.CaptureWorkspaceVoice do
       resume_params_ref: capture_resume_params(capture)
     }
 
-    case Confirmations.create(attrs) do
+    case Confirmations.create(attrs, context) do
       {:ok, confirmation} ->
         {:ok,
          %{

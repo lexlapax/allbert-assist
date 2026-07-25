@@ -175,6 +175,14 @@ the exact originating account/thread, redacts content, passes Security Central,
 and records a durable delivery row. Uncertain provider acceptance is not
 blindly retried.
 
+Attached Web/TUI sessions and attended CLI, OpenAI-compatible, and ACP
+request/response paths do not use this autonomous authority or create its
+delivery ledger. They present or write a report first, then acknowledge only
+that exact durable report receipt. A failed browser render, terminal/stdout
+write, or bounded public-protocol wait leaves the report pending for the next
+same-origin turn. This is delivery bookkeeping, not an approval or capability
+grant.
+
 The append-only operator audit is stored under
 `<ALLBERT_HOME>/channels/notify/audit/YYYY-MM.md`; durable delivery state is in
 the Allbert database and appears in the objective experience. If a delivery is

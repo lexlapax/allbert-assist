@@ -44,6 +44,15 @@ timeline and composer stay visible as the primary workspace surface. Streaming
 responses should remain in the chat column; canvas output should be opened only
 when the operator chooses it.
 
+For a v1.1 fan-out, the originating conversation receives the kickoff and then
+the joined child report. The kickoff does not release child execution until its
+exact hidden delivery marker mounts in that browser; a stale/forged marker or
+failed acknowledgement leaves kickoff pending and every child open. Multiple
+completed fan-outs may be visible at once; the browser acknowledges each exact
+report only after its DOM marker mounts. If that acknowledgement fails, the
+report remains visible, an error explains that delivery was not recorded, and
+it remains pending for the next turn.
+
 ## Docked Canvas Pane
 
 Use the sidebar's workspace destinations (or the chat-header Canvas button) for
@@ -61,6 +70,19 @@ fully (reopen with the left-edge tab).
 Approvals, clarification prompts, and short-lived operator decisions should appear
 as modals or popovers with keyboard focus, Esc dismissal, and visible action
 buttons. Treat a modal as a temporary decision surface, not a separate route.
+
+## Fan-Out Objective Controls
+
+The Objectives index refreshes from durable lifecycle signals. An objective
+detail page shows the parent/child tree, terminal outcomes, and the authoritative
+joined projection. A mixed result is `partial`, not success; all-cancelled work
+is `cancelled`. Steer and cancel controls re-prove the signed-in operator owns
+the objective, the child belongs to the displayed parent, and the child is still
+active. A stale, forged, or cross-parent child id changes nothing and produces a
+bounded error.
+
+These are attached Web controls. Rendering a local report does not opt the
+operator into default-off remote autonomous notifications.
 
 ## Intents Panel
 
@@ -120,6 +142,9 @@ Pass:
 - ephemerals are accessible modals/popovers;
 - panels render action-backed DTOs with redaction;
 - `/jobs` and `/objectives` use the shared shell and tokens;
+- joined fan-out reports are visible before their individual delivery receipts
+  are acknowledged;
+- parent/child controls fail closed for stale, forged, or cross-parent ids;
 - warm TUI, CLI, and web panel DTOs agree;
 - MCP/OpenAI public smokes expose only public-safe tools.
 

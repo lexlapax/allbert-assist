@@ -12,7 +12,9 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias AllbertAssist.{Confirmations, Runtime, Session, Settings}
+  alias AllbertAssist.{Confirmations, Conversations, Objectives, Runtime, Session, Settings}
+  alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
 
   @runtime_async_timeout 60_000
 
@@ -162,6 +164,249 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert {:ok, still_pending} = Confirmations.read(pending["id"])
     assert still_pending["status"] == "pending"
   end
+
+  test "attached Web renders and acknowledges one origin-thread fan-in report", %{conn: conn} do
+    assert {:ok, thread} = Conversations.create_general_thread("local", "Fan-out origin")
+
+    assert {:ok, %{parent: parent, children: children}} =
+             Fanout.frame(
+               %{
+                 user_id: "local",
+                 source_channel: "live_view",
+                 source_surface: "channel",
+                 source_thread_id: thread.id,
+                 title: "Web fan-in",
+                 objective: "Render in the origin thread"
+               },
+               ["research", "draft"]
+             )
+
+    {:ok, view, _html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")
+    complete_fanout_children!(children)
+
+    html = eventually_render(view, "Web fan-in — success")
+    assert html =~ "✓ research — result 0"
+    assert html =~ "✓ draft — result 1"
+    assert has_element?(view, "#attached-fanout-report-#{parent.id}")
+
+    assert Fanout.parent_projection(parent).parent.report_delivery_state == "pending"
+
+    render_hook(view, "ack_attached_fanout_report", %{"parent_id" => parent.id})
+
+    assert Fanout.parent_projection(parent).parent.report_delivery_state == "delivered"
+    refute has_element?(view, "#attached-fanout-report-#{parent.id}")
+
+    send(
+      view.pid,
+      {:objective_event,
+       Jido.Signal.new!("allbert.objectives.fanout.joined", %{parent_id: parent.id})}
+    )
+
+    duplicate_html = render(view)
+    assert length(Regex.scan(~r/Web fan-in — success/, duplicate_html)) == 1
+  end
+
+  test "a different Web thread does not consume a pending fan-in report", %{conn: conn} do
+    assert {:ok, origin} = Conversations.create_general_thread("local", "Origin thread")
+    assert {:ok, other} = Conversations.create_general_thread("local", "Other thread")
+
+    assert {:ok, %{parent: parent, children: children}} =
+             Fanout.frame(
+               %{
+                 user_id: "local",
+                 source_channel: "live_view",
+                 source_surface: "channel",
+                 source_thread_id: origin.id,
+                 title: "Thread-bound fan-in",
+                 objective: "Do not leak across threads"
+               },
+               ["one", "two"]
+             )
+
+    {:ok, other_view, _html} = live(conn, ~p"/workspace?thread_id=#{other.id}")
+    complete_fanout_children!(children)
+
+    send(
+      other_view.pid,
+      {:objective_event,
+       Jido.Signal.new!("allbert.objectives.fanout.joined", %{parent_id: parent.id})}
+    )
+
+    refute render(other_view) =~ "Thread-bound fan-in — success"
+    assert Fanout.parent_projection(parent).parent.report_delivery_state == "pending"
+  end
+
+  test "two Web fan-ins queued before browser acknowledgement remain independently deliverable",
+       %{
+         conn: conn
+       } do
+    assert {:ok, thread} = Conversations.create_general_thread("local", "Two Web fan-ins")
+
+    frames =
+      for title <- ["Web fan-in A", "Web fan-in B"] do
+        assert {:ok, frame} =
+                 Fanout.frame(
+                   %{
+                     user_id: "local",
+                     source_channel: "live_view",
+                     source_surface: "channel",
+                     source_thread_id: thread.id,
+                     title: title,
+                     objective: "Render every joined report"
+                   },
+                   ["one", "two"]
+                 )
+
+        frame
+      end
+
+    {:ok, view, _html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")
+    Enum.each(frames, &complete_fanout_children!(&1.children))
+
+    _html = eventually_render(view, "Web fan-in A — success")
+    html = eventually_render(view, "Web fan-in B — success")
+    assert html =~ "Web fan-in B — success"
+
+    for frame <- frames do
+      assert has_element?(view, "#attached-fanout-report-#{frame.parent.id}")
+      assert Fanout.parent_projection(frame.parent).parent.report_delivery_state == "pending"
+    end
+
+    [first, second] = frames
+
+    render_hook(view, "ack_attached_fanout_report", %{"parent_id" => first.parent.id})
+
+    assert Fanout.parent_projection(first.parent).parent.report_delivery_state == "delivered"
+    assert Fanout.parent_projection(second.parent).parent.report_delivery_state == "pending"
+    refute has_element?(view, "#attached-fanout-report-#{first.parent.id}")
+    assert has_element?(view, "#attached-fanout-report-#{second.parent.id}")
+
+    render_hook(view, "ack_attached_fanout_report", %{"parent_id" => second.parent.id})
+
+    assert Fanout.parent_projection(second.parent).parent.report_delivery_state == "delivered"
+  end
+
+  test "same-thread non-Web fan-in and forged report acknowledgement remain pending", %{
+    conn: conn
+  } do
+    assert {:ok, thread} = Conversations.create_general_thread("local", "Channel isolation")
+
+    assert {:ok, %{parent: parent, children: children}} =
+             Fanout.frame(
+               %{
+                 user_id: "local",
+                 source_channel: "tui",
+                 source_surface: "channel",
+                 source_thread_id: thread.id,
+                 title: "Wrong-channel fan-in",
+                 objective: "Do not render in Web"
+               },
+               ["one", "two"]
+             )
+
+    {:ok, view, _html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")
+    complete_fanout_children!(children)
+
+    send(
+      view.pid,
+      {:objective_event,
+       Jido.Signal.new!("allbert.objectives.fanout.joined", %{parent_id: parent.id})}
+    )
+
+    refute render(view) =~ "Wrong-channel fan-in — success"
+    refute has_element?(view, "#attached-fanout-report-#{parent.id}")
+
+    render_hook(view, "ack_attached_fanout_report", %{"parent_id" => parent.id})
+    assert Fanout.parent_projection(parent).parent.report_delivery_state == "pending"
+  end
+
+  test "real Workspace kickoff acknowledgement uses the persisted live_view identity", %{
+    conn: conn
+  } do
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.confirm_before_start", true, %{audit?: false})
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    thread_id = workspace_thread_id(view)
+
+    view
+    |> element("#agent-form")
+    |> render_submit(%{"prompt" => "first task; second task"})
+
+    html = render_async(view, @runtime_async_timeout)
+    assert html =~ "I split this into 2 tasks"
+
+    parent = eventually_fanout_parent(thread_id)
+    assert parent.source_channel == "live_view"
+    assert parent.source_surface == "channel"
+    assert parent.kickoff_delivery_state == "pending"
+    assert Enum.all?(Fanout.children(parent), &(&1.status == "open"))
+    assert has_element?(view, "#runtime-delivery-#{parent.id}")
+
+    render_hook(view, "ack_runtime_deliveries", %{"delivery_id" => "forged"})
+    assert Fanout.parent_projection(parent).parent.kickoff_delivery_state == "pending"
+
+    render_hook(view, "ack_runtime_deliveries", %{"delivery_id" => parent.id})
+
+    assert Fanout.parent_projection(parent).parent.kickoff_delivery_state == "acknowledged"
+    refute has_element?(view, "#runtime-delivery-#{parent.id}")
+  end
+
+  defp complete_fanout_children!(children) do
+    Enum.each(children, fn child ->
+      assert {:ok, _transition} =
+               TerminalTransitions.terminalize_child(
+                 child,
+                 %{
+                   status: "completed",
+                   last_observation_summary: "result #{child.queue_position}",
+                   completed_at: DateTime.utc_now()
+                 },
+                 "run_completed",
+                 %{}
+               )
+    end)
+  end
+
+  defp eventually_render(view, expected, attempts \\ 100)
+
+  defp eventually_render(view, expected, attempts) when attempts > 0 do
+    html = render(view)
+
+    if html =~ expected do
+      html
+    else
+      Process.sleep(10)
+      eventually_render(view, expected, attempts - 1)
+    end
+  end
+
+  defp eventually_render(_view, expected, 0),
+    do: flunk("workspace did not render #{inspect(expected)}")
+
+  defp eventually_fanout_parent(thread_id, attempts \\ 100)
+
+  defp eventually_fanout_parent(thread_id, attempts) when attempts > 0 do
+    parent =
+      Enum.find(Objectives.list_objectives("local"), fn objective ->
+        objective.fanout_role == "parent" and objective.source_thread_id == thread_id
+      end)
+
+    case parent && Objectives.get_objective(parent.id) do
+      {:ok, persisted} ->
+        persisted
+
+      _pending ->
+        Process.sleep(10)
+        eventually_fanout_parent(thread_id, attempts - 1)
+    end
+  end
+
+  defp eventually_fanout_parent(_thread_id, 0),
+    do: flunk("Workspace fan-out kickoff was not persisted")
 
   defp configure_external do
     assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})

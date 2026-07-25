@@ -1,5 +1,7 @@
 defmodule AllbertAssist.Channels.NotifyTest do
-  use AllbertAssist.DataCase, async: false, lane: :app_env_serial
+  use AllbertAssist.DataCase, async: false, lane: :db_serial
+
+  import Ecto.Query
 
   alias AllbertAssist.Channels.Notify
   alias AllbertAssist.Channels.NotifyAudit
@@ -8,8 +10,11 @@ defmodule AllbertAssist.Channels.NotifyTest do
   alias AllbertAssist.Channels.NotifyDelivery
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ChannelThread
+  alias AllbertAssist.Conversations.ThreadChannelRef
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
+  alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Paths
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
@@ -17,21 +22,26 @@ defmodule AllbertAssist.Channels.NotifyTest do
   alias AllbertAssist.Signals
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias Ecto.Adapters.SQL.Sandbox
+  alias Jido.Signal.Bus
 
   setup do
     original_paths = Application.get_env(:allbert_assist, Paths)
     original_notify = Application.get_env(:allbert_assist, Notify)
+    original_settings = Application.get_env(:allbert_assist, Settings)
 
     root =
       Path.join(System.tmp_dir!(), "allbert-notify-test-#{System.unique_integer([:positive])}")
 
     Application.put_env(:allbert_assist, Paths, home: root)
+    Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     ShippedRegistries.restore!()
     Fragments.clear_cache()
+    assert Settings.root() == Path.join(root, "settings")
 
     on_exit(fn ->
       restore_env(Paths, original_paths)
       restore_env(Notify, original_notify)
+      restore_env(Settings, original_settings)
       ShippedRegistries.restore!()
       Fragments.clear_cache()
       File.rm_rf!(root)
@@ -74,6 +84,56 @@ defmodule AllbertAssist.Channels.NotifyTest do
     assert_receive {:sent, "telegram", "1002", body, [thread: thread]}
     refute body =~ "sk-test"
     assert thread["chat_id"] == "1002"
+  end
+
+  test "mutable provider metadata preserves the stable origin while key remapping suppresses" do
+    parent = fanout!("alice", "1002-stable")
+    enable_notify!("alice-ext")
+    ref_id = String.to_integer(parent.origin_thread_ref_id)
+    ref = Repo.get!(ThreadChannelRef, ref_id)
+
+    assert {:ok, updated_ref} =
+             ChannelThread.link_thread(%{
+               canonical_thread_id: ref.canonical_thread_id,
+               channel: ref.channel,
+               receiver_account_ref: ref.receiver_account_ref,
+               provider_thread_key: ref.provider_thread_key,
+               provider_thread_ref:
+                 Map.merge(ref.provider_thread_ref, %{
+                   "message_id" => "later-provider-message",
+                   "reply_depth" => 4
+                 })
+             })
+
+    assert updated_ref.id == ref.id
+    assert ChannelThread.canonical_ref_digest(updated_ref) == parent.origin_thread_ref_digest
+
+    assert {:ok, delivered} =
+             Notify.deliver(parent, :completion, "stable delivery",
+               delivery_key: "stable-origin-delivery",
+               outbound_fun: fn _channel, _target, _body, opts ->
+                 assert opts[:thread]["message_id"] == "later-provider-message"
+                 {:ok, %{message_id: "stable-provider-id"}}
+               end
+             )
+
+    assert delivered.state == "delivered"
+
+    assert {1, _rows} =
+             ThreadChannelRef
+             |> where([thread_ref], thread_ref.id == ^ref.id)
+             |> Repo.update_all(set: [provider_thread_key: "remapped-provider-key"])
+
+    assert {:ok, suppressed} =
+             Notify.deliver(parent, :completion, "must not deliver",
+               delivery_key: "remapped-origin-delivery",
+               outbound_fun: fn _, _, _, _ ->
+                 flunk("remapped origin must not reach transport")
+               end
+             )
+
+    assert suppressed.state == "suppressed"
+    assert suppressed.error_class =~ "origin_thread_ref_mismatch"
   end
 
   test "status level and throttle suppress independently" do
@@ -167,6 +227,31 @@ defmodule AllbertAssist.Channels.NotifyTest do
              )
 
     assert same.id == uncertain.id
+  end
+
+  test "transport raises and exits are quarantined as uncertain without retry" do
+    parent = fanout!("alice", "1004-transport-exception")
+    enable_notify!("alice-ext")
+
+    for {key, outbound_fun} <- [
+          {"raising-send", fn _, _, _, _ -> raise "transport exploded" end},
+          {"exiting-send", fn _, _, _, _ -> exit(:transport_exited) end}
+        ] do
+      assert {:ok, %{state: "uncertain", attempt_count: 1} = uncertain} =
+               Notify.deliver(parent, :completion, "done",
+                 delivery_key: key,
+                 outbound_fun: outbound_fun
+               )
+
+      assert {:ok, same} =
+               Notify.deliver(parent, :completion, "done",
+                 delivery_key: key,
+                 outbound_fun: fn _, _, _, _ -> flunk("uncertain transport must not retry") end
+               )
+
+      assert same.id == uncertain.id
+      assert same.state == "uncertain"
+    end
   end
 
   test "definitive transport failure receives exactly one bounded retry" do
@@ -278,16 +363,20 @@ defmodule AllbertAssist.Channels.NotifyTest do
     Sandbox.allow(Repo, self(), consumer)
 
     for child <- Fanout.children(parent) do
-      assert {:ok, _child} =
-               Objectives.update_objective(child, %{
-                 status: "completed",
-                 last_observation_summary: "done",
-                 completed_at: DateTime.utc_now()
-               })
+      assert {:ok, _transition} =
+               TerminalTransitions.terminalize_child(
+                 child,
+                 %{
+                   status: "completed",
+                   last_observation_summary: "done",
+                   completed_at: DateTime.utc_now()
+                 },
+                 "run_completed",
+                 %{summary: "done"}
+               )
     end
 
-    assert {:ok, %{parent: joined}} = Fanout.finalize_join(parent)
-    Signals.emit_fanout(:fanout_joined, %{parent_id: joined.id})
+    assert {:ok, joined} = Objectives.get_objective(parent.id)
 
     assert_receive {:consumer_sent, "telegram", "1006", body, _opts}, 2_000
     assert body =~ "Notify fan-out"
@@ -299,6 +388,356 @@ defmodule AllbertAssist.Channels.NotifyTest do
 
     assert Repo.get_by!(NotifyDelivery, fanout_id: joined.id, kind: "completion").state ==
              "delivered"
+  end
+
+  test "attached local status produces no autonomous ledger or audit writes" do
+    {:ok, %{parent: parent}} =
+      Fanout.frame(
+        %{
+          user_id: "alice",
+          title: "Attached fan-out",
+          objective: "Do two things",
+          source_channel: "tui",
+          source_surface: "tui"
+        },
+        ["One", "Two"]
+      )
+
+    for index <- 1..100 do
+      assert {:ok, :attached_surface} =
+               Notify.deliver(parent, :status, "progress #{index}", event_key: "sig-#{index}")
+    end
+
+    refute Repo.exists?(from delivery in NotifyDelivery, where: delivery.fanout_id == ^parent.id)
+    refute File.exists?(NotifyAudit.audit_path())
+  end
+
+  test "in-band local and public-protocol surfaces never enter autonomous delivery bookkeeping" do
+    for channel <- ~w[tui web live_view cli acp_stdio openai_api job] do
+      assert {:ok, %{parent: parent}} =
+               Fanout.frame(
+                 %{
+                   user_id: "surface-#{channel}",
+                   title: "#{channel} fan-out",
+                   objective: "Stay in-band",
+                   source_channel: channel,
+                   source_thread_id: "thread-#{channel}"
+                 },
+                 ["one", "two"]
+               )
+
+      assert {:ok, :attached_surface} =
+               Notify.deliver(parent, :completion, "completion",
+                 outbound_fun: fn _, _, _, _ ->
+                   flunk("#{channel} must not use autonomous transport")
+                 end
+               )
+
+      refute Repo.exists?(
+               from delivery in NotifyDelivery, where: delivery.fanout_id == ^parent.id
+             )
+    end
+  end
+
+  test "disabled and completion-only status decisions are each coalesced before reservation" do
+    disabled = fanout!("alice", "1008")
+
+    for index <- 1..100 do
+      assert {:ok, %{state: "suppressed"}} =
+               Notify.deliver(disabled, :status, "progress #{index}", event_key: "off-#{index}")
+    end
+
+    assert Repo.aggregate(
+             from(delivery in NotifyDelivery,
+               where: delivery.fanout_id == ^disabled.id and delivery.kind == "status"
+             ),
+             :count
+           ) == 1
+
+    completion_only = fanout!("alice", "1009")
+    enable_notify!("alice-ext")
+
+    for index <- 1..100 do
+      assert {:ok, %{state: "suppressed"}} =
+               Notify.deliver(completion_only, :status, "progress #{index}",
+                 event_key: "completion-only-#{index}"
+               )
+    end
+
+    assert Repo.aggregate(
+             from(delivery in NotifyDelivery,
+               where: delivery.fanout_id == ^completion_only.id and delivery.kind == "status"
+             ),
+             :count
+           ) == 1
+
+    audit = File.read!(NotifyAudit.audit_path())
+    assert length(Regex.scan(~r/^## .* suppressed$/m, audit)) == 2
+  end
+
+  test "completion recovery resumes reserved, quarantines sending, and preserves delivered" do
+    enable_notify!("alice-ext")
+    test_pid = self()
+
+    reserved = fanout!("alice", "1010") |> join_parent!()
+    insert_completion_delivery!(reserved, "reserved", 0)
+
+    assert {:ok, %{state: "delivered", attempt_count: 1}} =
+             Notify.recover_completion(reserved,
+               outbound_fun: fn _, _, _, _ ->
+                 send(test_pid, {:recovery_transport, reserved.id})
+                 {:ok, %{message_id: "reserved-provider"}}
+               end
+             )
+
+    assert_receive {:recovery_transport, reserved_id}
+    assert reserved_id == reserved.id
+
+    sending = fanout!("alice", "1011") |> join_parent!()
+    insert_completion_delivery!(sending, "sending", 1)
+
+    assert {:ok, %{state: "uncertain"}} =
+             Notify.recover_completion(sending,
+               outbound_fun: fn _, _, _, _ -> flunk("interrupted send must not retry") end
+             )
+
+    delivered = fanout!("alice", "1012") |> join_parent!()
+    insert_completion_delivery!(delivered, "delivered", 1, "provider-done")
+
+    assert {:ok, %{state: "delivered", provider_message_id: "provider-done"}} =
+             Notify.recover_completion(delivered,
+               outbound_fun: fn _, _, _, _ -> flunk("delivered work must not resend") end
+             )
+  end
+
+  test "consumer startup replay sends one pending completion and only acknowledges once" do
+    parent = fanout!("alice", "1013") |> join_parent!()
+    enable_notify!("alice-ext")
+    test_pid = self()
+
+    consumer =
+      start_supervised!(
+        {NotifyConsumer,
+         name: nil,
+         retry_delay_ms: 25,
+         notify_opts: [
+           outbound_fun: fn _, _, _, _ ->
+             send(test_pid, {:startup_replay_sent, parent.id})
+             {:ok, %{message_id: "startup-provider"}}
+           end
+         ]}
+      )
+
+    Sandbox.allow(Repo, self(), consumer)
+    send(consumer, :reconcile_completion_outbox)
+
+    assert_receive {:startup_replay_sent, parent_id}, 2_000
+    assert parent_id == parent.id
+
+    assert eventually(fn -> Objectives.get_objective(parent.id) end).report_delivery_state ==
+             "delivered"
+
+    send(consumer, :reconcile_completion_outbox)
+    refute_receive {:startup_replay_sent, _parent_id}, 200
+  end
+
+  test "consumer acknowledges durable delivery when its audit append fails" do
+    parent = fanout!("alice", "1013-audit") |> join_parent!()
+    enable_notify!("alice-ext")
+    test_pid = self()
+
+    consumer =
+      start_supervised!(
+        {NotifyConsumer,
+         name: nil,
+         retry_delay_ms: 25,
+         notify_opts: [
+           outbound_fun: fn _, _, _, _ ->
+             send(test_pid, {:audit_failure_transport, parent.id})
+             {:ok, %{message_id: "audit-failure-provider"}}
+           end,
+           audit_fun: fn :channel_notify, :delivered, _metadata, _decision ->
+             {:error, :injected_audit_failure}
+           end
+         ]}
+      )
+
+    Sandbox.allow(Repo, self(), consumer)
+    send(consumer, :reconcile_completion_outbox)
+
+    assert_receive {:audit_failure_transport, parent_id}, 2_000
+    assert parent_id == parent.id
+
+    assert eventually(fn -> Objectives.get_objective(parent.id) end).report_delivery_state ==
+             "delivered"
+
+    assert Repo.get_by!(NotifyDelivery, fanout_id: parent.id, kind: "completion").state ==
+             "delivered"
+
+    send(consumer, :reconcile_completion_outbox)
+    refute_receive {:audit_failure_transport, _parent_id}, 200
+  end
+
+  test "consumer reauthorizes before retry and stops when notification consent is revoked" do
+    parent = fanout!("alice", "1014") |> join_parent!()
+    enable_notify!("alice-ext")
+    attempts = :atomics.new(1, signed: false)
+    test_pid = self()
+
+    consumer =
+      start_supervised!(
+        {NotifyConsumer,
+         name: nil,
+         retry_delay_ms: 50,
+         notify_opts: [
+           outbound_fun: fn _, _, _, _ ->
+             attempt = :atomics.add_get(attempts, 1, 1)
+             send(test_pid, {:retry_attempt, attempt, self()})
+
+             receive do
+               :return_definitive_failure -> {:error, :connection_refused}
+             after
+               1_000 -> {:error, :test_timeout}
+             end
+           end
+         ]}
+      )
+
+    Sandbox.allow(Repo, self(), consumer)
+    send(consumer, :reconcile_completion_outbox)
+
+    assert_receive {:retry_attempt, 1, transport_pid}, 2_000
+    put!("channels.telegram.autonomous_notify.enabled", false)
+    send(transport_pid, :return_definitive_failure)
+    refute_receive {:retry_attempt, 2, _pid}, 250
+    assert :atomics.get(attempts, 1) == 1
+
+    assert {:ok, pending} = Objectives.get_objective(parent.id)
+    assert pending.report_delivery_state == "pending"
+
+    delivery = eventually_delivery(parent.id, "suppressed")
+    assert delivery.state == "suppressed"
+    assert delivery.error_class =~ "notify_disabled"
+  end
+
+  test "a duplicate completion claimant cannot start a second transport" do
+    parent = fanout!("alice", "1015") |> join_parent!()
+    enable_notify!("alice-ext")
+    test_pid = self()
+    delivery_key = Notify.completion_delivery_key(parent)
+
+    first =
+      Task.async(fn ->
+        Notify.deliver(parent, :completion, "done",
+          delivery_key: delivery_key,
+          outbound_fun: fn _, _, _, _ ->
+            send(test_pid, {:claim_transport_started, self()})
+
+            receive do
+              :finish_claim_transport -> {:ok, %{message_id: "claim-provider"}}
+            end
+          end
+        )
+      end)
+
+    Sandbox.allow(Repo, self(), first.pid)
+    assert_receive {:claim_transport_started, transport_pid}, 2_000
+
+    second =
+      Task.async(fn ->
+        Notify.deliver(parent, :completion, "duplicate",
+          delivery_key: delivery_key,
+          outbound_fun: fn _, _, _, _ -> flunk("second claimant must not reach transport") end
+        )
+      end)
+
+    Sandbox.allow(Repo, self(), second.pid)
+    assert {:ok, %{state: "sending"}} = Task.await(second, 2_000)
+    send(transport_pid, :finish_claim_transport)
+    assert {:ok, %{state: "delivered"}} = Task.await(first, 2_000)
+  end
+
+  test "SignalBus-only restart re-subscribes and replays pending completion work" do
+    enable_notify!("alice-ext")
+    test_pid = self()
+    bus = :"notify-recovery-bus-#{System.unique_integer([:positive])}"
+    bus_child = {:notify_recovery_bus, bus}
+
+    _bus_pid = start_supervised!({Bus, name: bus}, id: bus_child)
+
+    consumer =
+      start_supervised!(
+        {NotifyConsumer,
+         name: nil,
+         bus: bus,
+         retry_delay_ms: 25,
+         notify_opts: [
+           outbound_fun: fn _, _, _, _ ->
+             send(test_pid, :bus_restart_replay_sent)
+             {:ok, %{message_id: "bus-restart-provider"}}
+           end
+         ]}
+      )
+
+    Sandbox.allow(Repo, self(), consumer)
+    assert :ok = stop_supervised(bus_child)
+
+    parent = fanout!("alice", "1016") |> join_parent!()
+    _restarted_bus = start_supervised!({Bus, name: bus}, id: bus_child)
+
+    assert_receive :bus_restart_replay_sent, 2_000
+    refute_receive :bus_restart_replay_sent, 150
+
+    assert eventually(fn -> Objectives.get_objective(parent.id) end).report_delivery_state ==
+             "delivered"
+  end
+
+  test "a forged joined signal cannot deliver a corrupted pending parent" do
+    enable_notify!("alice-ext")
+    parent = fanout!("alice", "1017")
+
+    # Simulate corrupted historical state: the outbox marker exists while its
+    # children are still active. Production transition authority cannot create it.
+    assert {1, _rows} =
+             Objective
+             |> where([objective], objective.id == ^parent.id)
+             |> Repo.update_all(
+               set: [
+                 status: "completed",
+                 join_outcome: "success",
+                 report_delivery_state: "pending",
+                 completed_at: DateTime.utc_now()
+               ]
+             )
+
+    test_pid = self()
+
+    consumer =
+      start_supervised!(
+        {NotifyConsumer,
+         name: nil,
+         notify_opts: [
+           outbound_fun: fn _, _, _, _ ->
+             send(test_pid, :forged_completion_sent)
+             {:ok, %{message_id: "must-not-send"}}
+           end
+         ]}
+      )
+
+    Sandbox.allow(Repo, self(), consumer)
+    assert :ok = Signals.emit_fanout(:fanout_joined, %{parent_id: parent.id})
+
+    refute_receive :forged_completion_sent, 200
+
+    refute Repo.exists?(
+             from delivery in NotifyDelivery,
+               where: delivery.fanout_id == ^parent.id and delivery.kind == "completion"
+           )
+
+    assert {:ok, :not_joined} =
+             Notify.recover_completion(parent,
+               outbound_fun: fn _, _, _, _ -> flunk("corrupted report must not send") end
+             )
   end
 
   defp fanout!(user_id, chat_id) do
@@ -316,21 +755,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
         }
       })
 
-    ref_map = %{
-      id: to_string(ref.id),
-      owner_scope: ref.owner_scope,
-      channel: ref.channel,
-      receiver_account_ref: ref.receiver_account_ref,
-      provider_thread_key: ref.provider_thread_key,
-      provider_thread_ref: ref.provider_thread_ref,
-      trust_class: ref.trust_class
-    }
-
-    digest =
-      ref_map
-      |> Jason.encode!()
-      |> then(&:crypto.hash(:sha256, &1))
-      |> Base.encode16(case: :lower)
+    digest = ChannelThread.canonical_ref_digest(ref)
 
     {:ok, %{parent: parent}} =
       Fanout.frame(
@@ -349,6 +774,44 @@ defmodule AllbertAssist.Channels.NotifyTest do
       )
 
     parent
+  end
+
+  defp join_parent!(parent) do
+    for child <- Fanout.children(parent) do
+      assert {:ok, _transition} =
+               TerminalTransitions.terminalize_child(
+                 child,
+                 %{
+                   status: "completed",
+                   last_observation_summary: "done",
+                   completed_at: DateTime.utc_now()
+                 },
+                 "run_completed",
+                 %{summary: "done"}
+               )
+    end
+
+    assert {:ok, joined} = Objectives.get_objective(parent.id)
+    assert joined.report_delivery_state == "pending"
+    joined
+  end
+
+  defp insert_completion_delivery!(parent, state, attempts, provider_message_id \\ nil) do
+    %NotifyDelivery{}
+    |> NotifyDelivery.changeset(%{
+      delivery_key: Notify.completion_delivery_key(parent),
+      fanout_id: parent.id,
+      local_user_id: parent.user_id,
+      channel: parent.source_channel,
+      origin_thread_ref_id: parent.origin_thread_ref_id,
+      origin_thread_ref_digest: parent.origin_thread_ref_digest,
+      kind: "completion",
+      state: state,
+      attempt_count: attempts,
+      provider_message_id: provider_message_id,
+      offer_state: "not_applicable"
+    })
+    |> Repo.insert!()
   end
 
   defp enable_notify!(external_user_id) do
@@ -377,6 +840,25 @@ defmodule AllbertAssist.Channels.NotifyTest do
       _other ->
         Process.sleep(25)
         eventually(fun, attempts - 1)
+    end
+  end
+
+  defp eventually_delivery(parent_id, state, attempts \\ 40)
+
+  defp eventually_delivery(parent_id, state, 0) do
+    delivery = Repo.get_by!(NotifyDelivery, fanout_id: parent_id, kind: "completion")
+    assert delivery.state == state
+    delivery
+  end
+
+  defp eventually_delivery(parent_id, state, attempts) do
+    case Repo.get_by(NotifyDelivery, fanout_id: parent_id, kind: "completion") do
+      %NotifyDelivery{state: ^state} = delivery ->
+        delivery
+
+      _other ->
+        Process.sleep(25)
+        eventually_delivery(parent_id, state, attempts - 1)
     end
   end
 end

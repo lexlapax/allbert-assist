@@ -39,15 +39,18 @@ defmodule AllbertAssist.Actions.SelfImprovement.PromotionAction do
     execution_mode = Map.fetch!(opts, :execution_mode)
     module = Map.fetch!(opts, :module)
 
-    case Confirmations.create(%{
-           origin: origin(context),
-           target_action: %{name: action_name, module: inspect(module)},
-           target_permission: permission,
-           target_execution_mode: execution_mode,
-           security_decision: permission_decision,
-           params_summary: %{draft_id: id, kind: kind},
-           resume_params_ref: %{id: id}
-         }) do
+    case Confirmations.create(
+           %{
+             origin: origin(context),
+             target_action: %{name: action_name, module: inspect(module)},
+             target_permission: permission,
+             target_execution_mode: execution_mode,
+             security_decision: permission_decision,
+             params_summary: %{draft_id: id, kind: kind},
+             resume_params_ref: %{id: id}
+           },
+           context
+         ) do
       {:ok, confirmation} ->
         {:ok,
          %{

@@ -125,27 +125,30 @@ defmodule AllbertAssist.Actions.Memory.SyncAppLesson do
   defp create_confirmation(attrs, context, permission_decision) do
     preview = attrs.lesson_text |> String.replace(~r/\s+/, " ") |> String.slice(0, 240)
 
-    case Confirmations.create(%{
-           origin: origin(context, attrs),
-           target_action: %{name: "sync_app_lesson", module: inspect(__MODULE__)},
-           target_permission: :memory_write,
-           target_execution_mode: :app_memory_sync,
-           security_decision: permission_decision,
-           params_summary: %{
-             user_id: attrs.user_id,
-             app_id: attrs.app_id,
-             namespace: attrs.namespace,
-             kind: @kind,
-             analysis_id: attrs.analysis_id,
-             outcome_id: attrs.outcome_id,
-             objective_id: attrs.objective_id,
-             ticker: attrs.ticker,
-             idempotency_key: attrs.idempotency_key,
-             source_ref: attrs.source_ref,
-             lesson_preview: preview
+    case Confirmations.create(
+           %{
+             origin: origin(context, attrs),
+             target_action: %{name: "sync_app_lesson", module: inspect(__MODULE__)},
+             target_permission: :memory_write,
+             target_execution_mode: :app_memory_sync,
+             security_decision: permission_decision,
+             params_summary: %{
+               user_id: attrs.user_id,
+               app_id: attrs.app_id,
+               namespace: attrs.namespace,
+               kind: @kind,
+               analysis_id: attrs.analysis_id,
+               outcome_id: attrs.outcome_id,
+               objective_id: attrs.objective_id,
+               ticker: attrs.ticker,
+               idempotency_key: attrs.idempotency_key,
+               source_ref: attrs.source_ref,
+               lesson_preview: preview
+             },
+             resume_params_ref: Map.take(attrs, resume_keys())
            },
-           resume_params_ref: Map.take(attrs, resume_keys())
-         }) do
+           context
+         ) do
       {:ok, confirmation} ->
         {:ok,
          %{

@@ -167,7 +167,7 @@ defmodule AllbertAssist.Actions.Mcp.CallTool do
       resume_params_ref: resume_params(config, tool_name, arguments, params)
     }
 
-    case Confirmations.create(attrs) do
+    case Confirmations.create(attrs, context) do
       {:ok, confirmation} ->
         _audit =
           Audit.append(:mcp, :requested, config, permission_decision, %{

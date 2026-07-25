@@ -80,7 +80,7 @@ defmodule AllbertBrowser.Actions do
       resume_params_ref: resume_params
     }
 
-    case Confirmations.create(attrs) do
+    case Confirmations.create(attrs, context) do
       {:ok, confirmation} ->
         id = Map.get(confirmation, "id")
 

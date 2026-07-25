@@ -201,48 +201,51 @@ defmodule StockSage.Actions.RunAnalysis do
   end
 
   defp request_confirmation(validated, context, permission_decision) do
-    case Confirmations.create(%{
-           origin: origin(context, validated),
-           objective_id: validated.objective_id,
-           step_id: validated.step_id,
-           source_signal_id:
-             Actions.field(context, :input_signal_id) ||
-               Actions.field(context, :runner_requested_signal_id),
-           source_trace_id: Actions.field(context, :trace_id),
-           target_action: %{name: "run_analysis", module: inspect(__MODULE__)},
-           target_permission: :stocksage_analyze,
-           target_execution_mode: target_execution_mode(validated.engine),
-           security_decision: permission_decision,
-           params_summary: %{
-             ticker: validated.ticker,
-             analysis_date: Date.to_iso8601(validated.analysis_date),
-             engine: validated.engine,
-             evidence_mode: validated.evidence_mode,
-             user_id: validated.user_id,
-             queue_entry_id: validated.queue_entry_id,
-             source_analysis_id: validated.source_analysis_id,
+    case Confirmations.create(
+           %{
+             origin: origin(context, validated),
              objective_id: validated.objective_id,
              step_id: validated.step_id,
-             objective_title: get_in(context, [:objective, :title]),
-             objective_status: get_in(context, [:objective, :status]),
-             force_stub: validated.force_stub,
-             disclosure: confirmation_disclosure(validated)
+             source_signal_id:
+               Actions.field(context, :input_signal_id) ||
+                 Actions.field(context, :runner_requested_signal_id),
+             source_trace_id: Actions.field(context, :trace_id),
+             target_action: %{name: "run_analysis", module: inspect(__MODULE__)},
+             target_permission: :stocksage_analyze,
+             target_execution_mode: target_execution_mode(validated.engine),
+             security_decision: permission_decision,
+             params_summary: %{
+               ticker: validated.ticker,
+               analysis_date: Date.to_iso8601(validated.analysis_date),
+               engine: validated.engine,
+               evidence_mode: validated.evidence_mode,
+               user_id: validated.user_id,
+               queue_entry_id: validated.queue_entry_id,
+               source_analysis_id: validated.source_analysis_id,
+               objective_id: validated.objective_id,
+               step_id: validated.step_id,
+               objective_title: get_in(context, [:objective, :title]),
+               objective_status: get_in(context, [:objective, :status]),
+               force_stub: validated.force_stub,
+               disclosure: confirmation_disclosure(validated)
+             },
+             resume_params_ref: %{
+               ticker: validated.ticker,
+               analysis_date: Date.to_iso8601(validated.analysis_date),
+               engine: validated.engine,
+               evidence_mode: validated.evidence_mode,
+               user_id: validated.user_id,
+               queue_entry_id: validated.queue_entry_id,
+               source_analysis_id: validated.source_analysis_id,
+               objective_id: validated.objective_id,
+               step_id: validated.step_id,
+               thread_id: validated.thread_id,
+               session_id: validated.session_id,
+               force_stub: validated.force_stub
+             }
            },
-           resume_params_ref: %{
-             ticker: validated.ticker,
-             analysis_date: Date.to_iso8601(validated.analysis_date),
-             engine: validated.engine,
-             evidence_mode: validated.evidence_mode,
-             user_id: validated.user_id,
-             queue_entry_id: validated.queue_entry_id,
-             source_analysis_id: validated.source_analysis_id,
-             objective_id: validated.objective_id,
-             step_id: validated.step_id,
-             thread_id: validated.thread_id,
-             session_id: validated.session_id,
-             force_stub: validated.force_stub
-           }
-         }) do
+           context
+         ) do
       {:ok, confirmation} ->
         {:ok,
          %{

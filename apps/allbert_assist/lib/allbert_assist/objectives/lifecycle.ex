@@ -8,7 +8,13 @@ defmodule AllbertAssist.Objectives.Lifecycle do
   the next boundary. Durable transitions and events remain authoritative.
   """
 
+  require Logger
+
+  alias AllbertAssist.Confirmations
+  alias AllbertAssist.Confirmations.Record, as: ConfirmationRecord
   alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Objectives.Runs.CancelToken
   alias AllbertAssist.Objectives.Steering
@@ -27,8 +33,9 @@ defmodule AllbertAssist.Objectives.Lifecycle do
 
     with {:ok, objective} <- begin_attempt(child_id),
          {:ok, state} <- run_operations(adapter, %{objective: objective}, opts) do
-      complete(state)
+      complete_after_final_steering_boundary(adapter, state, opts)
     else
+      {:terminal, objective} -> {:ok, objective}
       {:cancelled, state} -> cancel(state)
       {:blocked, reason, state} -> block(state, reason)
       {:error, reason, state} -> fail(state, reason)
@@ -52,19 +59,23 @@ defmodule AllbertAssist.Objectives.Lifecycle do
 
   defp begin_attempt(child_id) do
     with {:ok, objective} <- Objectives.get_objective(child_id) do
-      if objective.status in ~w[open running] do
-        attempt = (objective.run_attempt_count || 0) + 1
-
-        persist_transition(
-          objective,
-          %{status: "running", run_attempt_count: attempt, review_reason: nil},
-          "run_started",
-          %{attempt: attempt}
-        )
-      else
-        {:error, {:objective_not_runnable, objective.status}}
+      case objective.status do
+        status when status in ~w[open running] -> begin_new_attempt(objective)
+        "blocked" -> begin_blocked_attempt(objective)
+        status -> {:error, {:objective_not_runnable, status}}
       end
     end
+  end
+
+  defp begin_new_attempt(objective) do
+    attempt = (objective.run_attempt_count || 0) + 1
+
+    persist_transition(
+      objective,
+      %{status: "running", run_attempt_count: attempt, review_reason: nil},
+      "run_started",
+      %{attempt: attempt}
+    )
     |> case do
       {:ok, objective} ->
         Signals.emit_fanout(:run_started, %{
@@ -77,6 +88,224 @@ defmodule AllbertAssist.Objectives.Lifecycle do
 
       error ->
         error
+    end
+  end
+
+  defp begin_blocked_attempt(objective) do
+    case Steering.apply_pending(objective.id) do
+      {:ok, %Objective{status: "running"} = steered} ->
+        Signals.emit_fanout(:run_resumed, %{
+          child_id: steered.id,
+          parent_id: steered.parent_objective_id,
+          reason: "operator_steering",
+          attempt: steered.run_attempt_count
+        })
+
+        {:ok, steered}
+
+      {:ok, %Objective{status: "blocked"} = blocked} ->
+        begin_blocked_confirmation(blocked)
+
+      {:ok, %Objective{status: status}} ->
+        {:error, {:objective_not_runnable, status}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp begin_blocked_confirmation(objective) do
+    case blocked_confirmation(objective) do
+      {:ok, step, %{"status" => "approved"} = confirmation} ->
+        resume_approved_confirmation(objective, step, confirmation)
+
+      {:ok, step, %{"status" => "denied"} = confirmation} ->
+        terminalize_denied_confirmation(objective, step, confirmation)
+
+      {:ok, _step, confirmation} ->
+        {:error, {:confirmation_not_resumable, effective_confirmation_status(confirmation)}}
+
+      {:error, {:confirmation_not_found, _child_id}} ->
+        {:error, {:objective_not_runnable, "blocked"}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp resume_approved_confirmation(objective, step, confirmation) do
+    result =
+      persist_transition(
+        objective,
+        %{status: "running", review_reason: nil},
+        "run_resumed",
+        %{confirmation_id: confirmation["id"], attempt: objective.run_attempt_count}
+      )
+
+    publish_confirmation_resume(result, step, confirmation)
+  end
+
+  defp publish_confirmation_resume({:ok, resumed}, step, confirmation) do
+    Signals.emit_fanout(:run_resumed, %{
+      child_id: resumed.id,
+      parent_id: resumed.parent_objective_id,
+      confirmation_id: confirmation["id"],
+      step_id: step.id,
+      attempt: resumed.run_attempt_count
+    })
+
+    {:ok, resumed}
+  end
+
+  defp publish_confirmation_resume(error, _step, _confirmation), do: error
+
+  defp terminalize_denied_confirmation(objective, step, confirmation) do
+    case cancel_denied_confirmation(objective, step, confirmation) do
+      {:ok, %{child: cancelled}} -> {:terminal, cancelled}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc "Reconcile one blocked fan-out child after a durable confirmation decision."
+  @spec reconcile_blocked(String.t()) ::
+          {:ok, :runnable | :parked | {:terminalized, Objective.t()}} | {:error, term()}
+  def reconcile_blocked(child_id) when is_binary(child_id) do
+    with {:ok, %Objective{status: "blocked"} = objective} <- Objectives.get_objective(child_id) do
+      case Steering.apply_pending(objective.id) do
+        {:ok, %Objective{status: "running"}} ->
+          {:ok, :runnable}
+
+        {:ok, %Objective{status: "blocked"} = blocked} ->
+          reconcile_blocked_confirmation(blocked)
+
+        {:ok, %Objective{status: status}}
+        when status in ~w[completed cancelled failed abandoned] ->
+          {:ok, :parked}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    else
+      {:ok, %Objective{status: status}} when status in ~w[completed cancelled failed abandoned] ->
+        {:ok, :parked}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp reconcile_blocked_confirmation(objective) do
+    with {:ok, step, confirmation} <- blocked_confirmation(objective) do
+      reconcile_confirmation_status(
+        effective_confirmation_status(confirmation),
+        objective,
+        step,
+        confirmation
+      )
+    else
+      {:error, {:confirmation_not_found, _child_id}} -> {:ok, :parked}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp reconcile_confirmation_status("approved", _objective, _step, _confirmation),
+    do: {:ok, :runnable}
+
+  defp reconcile_confirmation_status("denied", objective, step, confirmation) do
+    case cancel_denied_confirmation(objective, step, confirmation) do
+      {:ok, %{child: child}} -> {:ok, {:terminalized, child}}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp reconcile_confirmation_status(_status, _objective, _step, _confirmation),
+    do: {:ok, :parked}
+
+  defp blocked_confirmation(objective) do
+    step =
+      objective.id
+      |> Objectives.list_steps()
+      |> Enum.find(&(&1.id == objective.current_step_id))
+
+    case step do
+      %{status: "blocked", confirmation_id: id} = step when is_binary(id) and id != "" ->
+        case Confirmations.read(id) do
+          {:ok, confirmation} -> {:ok, step, confirmation}
+          {:error, reason} -> {:error, reason}
+        end
+
+      _other ->
+        {:error, {:confirmation_not_found, objective.id}}
+    end
+  end
+
+  defp effective_confirmation_status(%{"status" => "pending"} = confirmation) do
+    if ConfirmationRecord.expired?(confirmation, DateTime.utc_now()),
+      do: "expired",
+      else: "pending"
+  end
+
+  defp effective_confirmation_status(confirmation), do: Map.get(confirmation, "status")
+
+  defp cancel_denied_confirmation(objective, step, confirmation) do
+    reason =
+      get_in(confirmation, ["operator_resolution", "resolution_reason"]) ||
+        "confirmation_denied"
+
+    case TerminalTransitions.terminalize_child(
+           objective,
+           %{
+             status: "cancelled",
+             review_reason: "confirmation_denied: #{String.slice(to_string(reason), 0, 210)}",
+             completed_at: DateTime.utc_now()
+           },
+           "run_cancelled",
+           %{confirmation_id: confirmation["id"], reason: "confirmation_denied"},
+           transaction_hook: fn _child -> finalize_step(step, "cancelled", reason) end,
+           signal:
+             {:run_cancelled,
+              %{confirmation_id: confirmation["id"], reason: "confirmation_denied"}}
+         ) do
+      {:ok, %{child: child}} = result ->
+        annotate_confirmation_record(confirmation, child, step, "cancelled", reason)
+        result
+
+      {:error, _reason} = error ->
+        error
+    end
+  end
+
+  @doc "Repair terminal fan-out confirmation resolution after a process restart."
+  @spec reconcile_confirmation_outcomes(String.t()) :: :ok | {:error, term()}
+  def reconcile_confirmation_outcomes(parent_id) when is_binary(parent_id) do
+    parent_id
+    |> Fanout.children()
+    |> Enum.filter(&(&1.status in ~w[completed cancelled failed abandoned]))
+    |> Enum.reduce_while(:ok, fn child, :ok ->
+      step = Enum.find(Objectives.list_steps(child.id), &(&1.id == child.current_step_id))
+
+      case step do
+        %{confirmation_id: id} when is_binary(id) and id != "" ->
+          reconcile_confirmation_record(child, step, id)
+
+        _other ->
+          {:cont, :ok}
+      end
+    end)
+  end
+
+  defp reconcile_confirmation_record(child, step, confirmation_id) do
+    case Confirmations.read(confirmation_id) do
+      {:ok, %{"status" => status} = confirmation} when status in ~w[approved denied] ->
+        summary = child.last_observation_summary || child.review_reason || "#{child.status}."
+
+        case annotate_confirmation_record(confirmation, child, step, child.status, summary) do
+          :ok -> {:cont, :ok}
+          {:error, reason} -> {:halt, {:error, {child.id, reason}}}
+        end
+
+      _other ->
+        {:cont, :ok}
     end
   end
 
@@ -226,26 +455,51 @@ defmodule AllbertAssist.Objectives.Lifecycle do
       (get_in(state, [:response, :message]) || objective.progress_summary || "Completed.")
       |> bounded_summary()
 
-    with {:ok, objective} <-
-           persist_transition(
-             objective,
-             %{
-               status: "completed",
-               last_observation_summary: summary,
-               completed_at: DateTime.utc_now()
-             },
-             "run_completed",
-             %{summary: String.slice(summary, 0, @max_event_summary_chars)}
-           ) do
-      Signals.emit_fanout(:run_completed, %{
-        child_id: objective.id,
-        parent_id: objective.parent_objective_id,
-        summary: summary
-      })
+    case TerminalTransitions.terminalize_child(
+           objective,
+           %{
+             status: "completed",
+             last_observation_summary: summary,
+             completed_at: DateTime.utc_now()
+           },
+           "run_completed",
+           %{summary: String.slice(summary, 0, @max_event_summary_chars)},
+           transaction_hook: fn _child -> finalize_state_step(state, "completed", summary) end,
+           signal: {:run_completed, %{summary: summary}}
+         ) do
+      {:ok, %{child: completed}} ->
+        annotate_confirmation_outcome(state, "completed", summary)
+        {:ok, completed}
 
-      {:ok, objective}
+      {:error, reason} ->
+        {:error, reason}
     end
   end
+
+  defp complete_after_final_steering_boundary(adapter, state, opts) do
+    {current, steered?} = reconcile_steering(state)
+
+    if steered? do
+      adapter
+      |> run_operations(current, opts)
+      |> finish_rerun(adapter, opts)
+    else
+      case complete(current) do
+        {:error, :pending_steering_directive} ->
+          complete_after_final_steering_boundary(adapter, current, opts)
+
+        result ->
+          result
+      end
+    end
+  end
+
+  defp finish_rerun({:ok, state}, adapter, opts),
+    do: complete_after_final_steering_boundary(adapter, state, opts)
+
+  defp finish_rerun({:cancelled, state}, _adapter, _opts), do: cancel(state)
+  defp finish_rerun({:blocked, reason, state}, _adapter, _opts), do: block(state, reason)
+  defp finish_rerun({:error, reason, state}, _adapter, _opts), do: fail(state, reason)
 
   defp bounded_summary(summary) do
     summary = summary |> Redactor.redact(:signals) |> to_string()
@@ -259,11 +513,16 @@ defmodule AllbertAssist.Objectives.Lifecycle do
 
   defp block(%{objective: objective} = state, reason) do
     reason_text = inspect(reason, limit: 20, printable_limit: 300)
+    current_step_id = state |> Map.get(:step, %{}) |> Map.get(:id)
 
     with {:ok, objective} <-
            persist_transition(
              objective,
-             %{status: "blocked", review_reason: reason_text},
+             %{
+               status: "blocked",
+               review_reason: reason_text,
+               current_step_id: current_step_id
+             },
              "run_blocked",
              %{reason: reason_text},
              fn -> park_step(state, reason) end
@@ -287,48 +546,122 @@ defmodule AllbertAssist.Objectives.Lifecycle do
 
   defp park_step(_state, _reason), do: :ok
 
-  defp cancel(%{objective: objective}) do
-    with {:ok, objective} <-
-           persist_transition(
-             objective,
-             %{
-               status: "cancelled",
-               review_reason: "cancelled",
-               completed_at: DateTime.utc_now()
-             },
-             "run_cancelled",
-             %{}
-           ) do
-      Signals.emit_fanout(:run_cancelled, %{
-        child_id: objective.id,
-        parent_id: objective.parent_objective_id
-      })
+  defp cancel(%{objective: objective} = state) do
+    case TerminalTransitions.terminalize_child(
+           objective,
+           %{
+             status: "cancelled",
+             review_reason: "cancelled",
+             completed_at: DateTime.utc_now()
+           },
+           "run_cancelled",
+           %{},
+           transaction_hook: fn _child ->
+             finalize_state_step(state, "cancelled", "cancelled")
+           end,
+           signal: {:run_cancelled, %{}}
+         ) do
+      {:ok, %{child: cancelled}} ->
+        annotate_confirmation_outcome(state, "cancelled", "cancelled")
+        {:ok, cancelled}
 
-      {:ok, objective}
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
-  defp fail(%{objective: objective}, reason) do
+  defp fail(%{objective: objective} = state, reason) do
     reason_text = inspect(reason, limit: 20, printable_limit: 300)
 
-    with {:ok, objective} <-
-           persist_transition(
-             objective,
-             %{
-               status: "failed",
-               review_reason: reason_text,
-               completed_at: DateTime.utc_now()
-             },
-             "run_failed",
-             %{reason: reason_text}
-           ) do
-      Signals.emit_fanout(:run_failed, %{
-        child_id: objective.id,
-        parent_id: objective.parent_objective_id,
-        reason: reason_text
-      })
+    case TerminalTransitions.terminalize_child(
+           objective,
+           %{
+             status: "failed",
+             review_reason: reason_text,
+             completed_at: DateTime.utc_now()
+           },
+           "run_failed",
+           %{reason: reason_text},
+           transaction_hook: fn _child -> finalize_state_step(state, "failed", reason_text) end,
+           signal: {:run_failed, %{reason: reason_text}}
+         ) do
+      {:ok, %{child: _failed}} ->
+        annotate_confirmation_outcome(state, "failed", reason_text)
+        {:error, reason}
 
-      {:error, reason}
+      {:error, transition_reason} ->
+        {:error, transition_reason}
+    end
+  end
+
+  defp annotate_confirmation_outcome(
+         %{objective: objective, step: %{confirmation_id: id} = step},
+         status,
+         summary
+       )
+       when is_binary(id) and id != "" do
+    case Confirmations.read(id) do
+      {:ok, confirmation} ->
+        annotate_confirmation_record(confirmation, objective, step, status, summary)
+
+      {:error, reason} ->
+        log_confirmation_annotation_error(id, status, reason)
+    end
+  end
+
+  defp annotate_confirmation_outcome(_state, _status, _summary), do: :ok
+
+  defp annotate_confirmation_record(confirmation, objective, step, status, summary) do
+    id = confirmation["id"]
+    resumed? = confirmation["status"] == "approved"
+    resolution = Map.get(confirmation, "operator_resolution", %{}) || %{}
+
+    if resolution["target_status"] == status and
+         resolution["target_resumed?"] == resumed? do
+      :ok
+    else
+      case Confirmations.annotate_resolution(id, %{
+             target_resumed?: resumed?,
+             target_status: status,
+             target_result: %{
+               objective_id: objective.id,
+               step_id: step.id,
+               status: status,
+               summary: bounded_summary(summary)
+             }
+           }) do
+        {:ok, _record} ->
+          :ok
+
+        {:error, reason} ->
+          log_confirmation_annotation_error(id, status, reason)
+      end
+    end
+  end
+
+  defp log_confirmation_annotation_error(id, status, reason) do
+    Logger.warning(
+      "could not annotate terminal confirmation outcome confirmation_id=#{id} status=#{status} reason=#{inspect(reason)}"
+    )
+
+    {:error, reason}
+  end
+
+  defp finalize_state_step(%{step: step}, status, summary),
+    do: finalize_step(step, status, summary)
+
+  defp finalize_state_step(_state, _status, _summary), do: {:ok, %{}}
+
+  defp finalize_step(step, status, summary) do
+    if step.status in ~w[completed failed cancelled skipped] do
+      {:ok, %{step_id: step.id}}
+    else
+      case Objectives.transition_step(step, status, %{
+             result_summary: String.slice(to_string(summary), 0, 2_000)
+           }) do
+        {:ok, updated} -> {:ok, %{step_id: updated.id, step_status: updated.status}}
+        {:error, reason} -> {:error, reason}
+      end
     end
   end
 
@@ -337,11 +670,17 @@ defmodule AllbertAssist.Objectives.Lifecycle do
   end
 
   defp persist_transition(objective, attrs, kind, payload, before \\ fn -> :ok end) do
-    transaction = fn -> do_persist_transition(objective, attrs, kind, payload, before) end
+    if objective.fanout_role == "child" do
+      TerminalTransitions.transition_active_child(objective, attrs, kind, payload,
+        transaction_hook: fn _updated -> before.() end
+      )
+    else
+      transaction = fn -> do_persist_transition(objective, attrs, kind, payload, before) end
 
-    case Repo.transaction(transaction) do
-      {:ok, updated} -> {:ok, updated}
-      {:error, reason} -> {:error, reason}
+      case Repo.transaction(transaction) do
+        {:ok, updated} -> {:ok, updated}
+        {:error, reason} -> {:error, reason}
+      end
     end
   end
 
@@ -391,29 +730,40 @@ defmodule AllbertAssist.Objectives.Lifecycle do
     def operation(:authorize, state, _opts), do: {:ok, state}
 
     def operation(:execute, %{objective: objective, step: step} = state, opts) do
-      params = decode_params(step.action_params)
+      context =
+        %{
+          user_id: objective.user_id,
+          operator_id: objective.user_id,
+          actor: objective.user_id,
+          active_app: objective.active_app,
+          channel: objective.source_channel,
+          surface: objective.source_surface,
+          thread_id: objective.source_thread_id,
+          session_id: objective.session_id,
+          objective_id: objective.id,
+          step_id: step.id,
+          parent_objective_id: objective.parent_objective_id,
+          objective_title: objective.title,
+          objective_status: objective.status,
+          cancel_token: Keyword.get(opts, :cancel_token),
+          registry: Keyword.get(opts, :registry, [])
+        }
 
-      context = %{
-        user_id: objective.user_id,
-        active_app: objective.active_app,
-        channel: objective.source_channel,
-        surface: objective.source_surface,
-        objective_id: objective.id,
-        cancel_token: Keyword.get(opts, :cancel_token),
-        registry: Keyword.get(opts, :registry, [])
-      }
+      with {:ok, params, context} <- execution_request(objective, step, context) do
+        case Runner.run(step.candidate_action, params, context) do
+          {:ok, %{status: :needs_confirmation} = response} ->
+            {:blocked, {:needs_confirmation, Map.get(response, :confirmation_id)},
+             Map.put(state, :response, response)}
 
-      case Runner.run(step.candidate_action, params, context) do
-        {:ok, %{status: :needs_confirmation} = response} ->
-          {:blocked, {:needs_confirmation, Map.get(response, :confirmation_id)},
-           Map.put(state, :response, response)}
+          {:ok, %{status: status} = response} when status in [:completed, :advisory] ->
+            {:ok, Map.put(state, :response, response)}
 
-        {:ok, %{status: status} = response} when status in [:completed, :advisory] ->
-          {:ok, Map.put(state, :response, response)}
-
-        {:ok, response} ->
-          {:error, {:action_not_completed, Map.get(response, :status)},
-           Map.put(state, :response, response)}
+          {:ok, response} ->
+            {:error, {:action_not_completed, Map.get(response, :status)},
+             Map.put(state, :response, response)}
+        end
+      else
+        {:error, reason} -> {:error, reason, state}
       end
     end
 
@@ -479,5 +829,42 @@ defmodule AllbertAssist.Objectives.Lifecycle do
         _ -> %{}
       end
     end
+
+    defp execution_request(_objective, %{confirmation_id: nil} = step, context),
+      do: {:ok, decode_params(step.action_params), context}
+
+    defp execution_request(objective, %{confirmation_id: id} = step, context)
+         when is_binary(id) and id != "" do
+      case AllbertAssist.Confirmations.read(id) do
+        {:ok, %{"status" => "approved"} = record} ->
+          with target_action when target_action == step.candidate_action <-
+                 get_in(record, ["target_action", "name"]),
+               {:ok, %{child: %{id: child_id}, step: %{id: step_id}}} <-
+                 Objectives.fanout_confirmation_target(record),
+               true <- child_id == objective.id and step_id == step.id,
+               %{} = params <- Map.get(record, "resume_params_ref", %{}) do
+            confirmation = %{
+              id: id,
+              approved?: true,
+              status: "approved",
+              origin: Map.get(record, "origin", %{}),
+              params_summary: Map.get(record, "params_summary", %{})
+            }
+
+            {:ok, params, Map.put(context, :confirmation, confirmation)}
+          else
+            _mismatch -> {:error, :confirmation_target_mismatch}
+          end
+
+        {:ok, %{"status" => status}} ->
+          {:error, {:confirmation_not_approved, status}}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+
+    defp execution_request(_objective, step, context),
+      do: {:ok, decode_params(step.action_params), context}
   end
 end

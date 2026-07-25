@@ -113,7 +113,7 @@ defmodule AllbertAssist.Actions.Skills.AuditOnlineSkill do
       resume_params_ref: %{source: source.id, id: id}
     }
 
-    case Confirmations.create(attrs) do
+    case Confirmations.create(attrs, context) do
       {:ok, confirmation} ->
         {:ok,
          %{

@@ -7,20 +7,34 @@ defmodule AllbertAssist.Objectives.Steering do
   makes steering safe across executor restarts.
   """
 
-  alias AllbertAssist.{Confirmations, Objectives, Repo, Signals}
+  alias AllbertAssist.{Confirmations, Objectives, Repo}
+  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
+  alias AllbertAssist.Objectives.Runs.Scheduler
 
   def steer(user_id, objective_id, directive)
       when is_binary(user_id) and is_binary(objective_id) and is_binary(directive) do
     with {:ok, objective} <- Objectives.get_objective(user_id, objective_id),
+         :ok <- ensure_fanout_child(objective),
          :ok <- ensure_active(objective),
-         {:ok, event} <- record_directive(objective, String.trim(directive)) do
+         {:ok, {objective, event}} <-
+           record_directive(objective, user_id, String.trim(directive)) do
       notify_runner(objective.id, event.id)
+
+      if objective.fanout_role == "child",
+        do: Scheduler.wake_parent(objective.parent_objective_id)
+
       {:ok, %{objective: objective, directive_event: event}}
     end
   end
 
   defp ensure_active(%{status: status}) when status in ~w[open running blocked], do: :ok
   defp ensure_active(_objective), do: {:error, :terminal}
+
+  defp ensure_fanout_child(%{fanout_role: "child", parent_objective_id: parent_id})
+       when is_binary(parent_id),
+       do: :ok
+
+  defp ensure_fanout_child(_objective), do: {:error, :not_fanout_child}
 
   @spec apply_pending(String.t()) :: {:ok, map()} | {:error, term()}
   def apply_pending(objective_id) when is_binary(objective_id) do
@@ -46,31 +60,37 @@ defmodule AllbertAssist.Objectives.Steering do
     end
   end
 
-  defp record_directive(objective, directive) when directive != "" do
+  defp record_directive(objective, user_id, directive) when directive != "" do
     event_id = Objectives.new_id("evt")
 
-    Repo.transaction(fn ->
-      with :ok <- cancel_parked_confirmation(objective, event_id),
-           {:ok, event} <-
-             Objectives.create_event(%{
-               id: event_id,
-               objective_id: objective.id,
-               kind: "steer_directive",
-               summary: "Operator steered objective",
-               payload: %{directive: directive}
-             }) do
-        event
-      else
-        {:error, reason} -> Repo.rollback(reason)
-      end
-    end)
+    Repo.transaction(
+      fn ->
+        with {:ok, current} <- Objectives.get_objective(user_id, objective.id),
+             :ok <- ensure_fanout_child(current),
+             :ok <- ensure_active(current),
+             :ok <- cancel_parked_confirmation(current, event_id),
+             {:ok, event} <-
+               Objectives.create_event(%{
+                 id: event_id,
+                 objective_id: current.id,
+                 kind: "steer_directive",
+                 summary: "Operator steered objective",
+                 payload: %{directive: directive}
+               }) do
+          {current, event}
+        else
+          {:error, reason} -> Repo.rollback(reason)
+        end
+      end,
+      mode: :immediate
+    )
     |> case do
-      {:ok, event} -> {:ok, event}
+      {:ok, result} -> {:ok, result}
       {:error, reason} -> {:error, reason}
     end
   end
 
-  defp record_directive(_objective, ""), do: {:error, :empty_directive}
+  defp record_directive(_objective, _user_id, ""), do: {:error, :empty_directive}
 
   defp cancel_parked_confirmation(objective, steering_event_id) do
     objective.id
@@ -88,8 +108,9 @@ defmodule AllbertAssist.Objectives.Steering do
     case Confirmations.read(confirmation_id) do
       {:ok, %{"status" => "pending"}} ->
         Confirmations.resolve(confirmation_id, "cancelled", %{
-          "reason" => "superseded_by_steer",
-          "steering_event_id" => steering_event_id
+          resolution_reason: "superseded_by_steer",
+          resolver_metadata: %{steering_event_id: steering_event_id},
+          decision_source: "operator_steering"
         })
         |> case do
           {:ok, _record} -> :ok
@@ -107,39 +128,19 @@ defmodule AllbertAssist.Objectives.Steering do
   defp apply_one(objective, event) do
     directive = payload(event)["directive"]
 
-    Repo.transaction(fn ->
-      with {:ok, updated} <-
-             Objectives.update_objective(objective, %{
-               title: String.slice(directive, 0, 200),
-               objective: directive,
-               progress_summary: "Steered: #{String.slice(directive, 0, 180)}",
-               review_reason: nil,
-               status: "running"
-             }),
-           {:ok, _} <-
-             Objectives.create_event(%{
-               objective_id: objective.id,
-               kind: "steer_applied",
-               summary: "Steering applied at lifecycle boundary",
-               payload: %{directive_event_id: event.id}
-             }) do
-        updated
-      else
-        {:error, reason} -> Repo.rollback(reason)
-      end
-    end)
-    |> case do
-      {:ok, updated} ->
-        Signals.emit_fanout(:run_steered, %{
-          child_id: updated.id,
-          parent_id: updated.parent_objective_id
-        })
-
-        {:ok, updated}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
+    TerminalTransitions.transition_active_child(
+      objective,
+      %{
+        title: String.slice(directive, 0, 200),
+        objective: directive,
+        progress_summary: "Steered: #{String.slice(directive, 0, 180)}",
+        review_reason: nil,
+        status: "running"
+      },
+      "steer_applied",
+      %{directive_event_id: event.id},
+      signal: {:run_steered, %{}}
+    )
   end
 
   defp notify_runner(child_id, event_id) do

@@ -1,6 +1,8 @@
 defmodule AllbertAssist.Intent.EngineTest do
   use AllbertAssist.DataCase, async: false
 
+  import Ecto.Query
+
   # v1.0.2 M8.2: engine reads now come from a private ADR 0082 registry
   # context (M8.2 closed the Decision.new/Handoff.new app-id normalization and
   # channel-candidate seam gaps recorded at M3), so this file no longer clears
@@ -14,8 +16,11 @@ defmodule AllbertAssist.Intent.EngineTest do
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Compiler
   alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
   alias AllbertAssist.RegistryContext
+  alias AllbertAssist.Repo
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.RegistryIsolationFixtures, as: Fixtures
 
@@ -389,6 +394,83 @@ defmodule AllbertAssist.Intent.EngineTest do
              Enum.find(candidates, &(&1.kind == :objective))
 
     assert id == objective.id
+  end
+
+  test "recovering fan-out parents are not actionable objective candidates", %{
+    registry: registry
+  } do
+    assert {:ok, ordinary} =
+             Objectives.create_objective(%{
+               user_id: "alice",
+               title: "Ordinary active objective",
+               objective: "Keep this candidate"
+             })
+
+    assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
+             Fanout.frame(
+               %{user_id: "alice", title: "Recovering parent", objective: "Finalize only"},
+               ["one", "two"]
+             )
+
+    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    assert {2, _rows} =
+             Objective
+             |> where([objective], objective.id in ^Enum.map(children, & &1.id))
+             |> Repo.update_all(set: [status: "completed", completed_at: DateTime.utc_now()])
+
+    assert Fanout.parent_projection(parent).phase == :recovering
+
+    candidates =
+      Engine.collect_candidates(
+        EvalFixtures.request(text: "continue active work", user_id: "alice"),
+        [objective: true] ++ registry
+      )
+
+    objective_ids = for candidate <- candidates, candidate.kind == :objective, do: candidate.id
+    assert ordinary.id in objective_ids
+    refute parent.id in objective_ids
+  end
+
+  test "recovering parents beyond the old scan limit cannot starve an actionable objective", %{
+    registry: registry
+  } do
+    assert {:ok, ordinary} =
+             Objectives.create_objective(%{
+               user_id: "scan-owner",
+               title: "Old but actionable objective",
+               objective: "Keep this candidate"
+             })
+
+    for index <- 1..24 do
+      assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
+               Fanout.frame(
+                 %{
+                   user_id: "scan-owner",
+                   title: "Recovering parent #{index}",
+                   objective: "Finalize only"
+                 },
+                 ["one", "two"]
+               )
+
+      assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "scan-owner"})
+
+      assert {2, _rows} =
+               Objective
+               |> where([objective], objective.id in ^Enum.map(children, & &1.id))
+               |> Repo.update_all(set: [status: "completed", completed_at: DateTime.utc_now()])
+
+      assert Fanout.parent_projection(parent).phase == :recovering
+    end
+
+    candidates =
+      Engine.collect_candidates(
+        EvalFixtures.request(text: "continue active work", user_id: "scan-owner"),
+        [objective: true] ++ registry
+      )
+
+    objective_ids = for candidate <- candidates, candidate.kind == :objective, do: candidate.id
+    assert ordinary.id in objective_ids
   end
 
   test "collects index-backed markdown memory candidates without bodies or secrets", %{

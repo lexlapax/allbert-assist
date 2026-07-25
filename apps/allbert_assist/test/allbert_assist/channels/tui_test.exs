@@ -2,6 +2,7 @@ defmodule AllbertAssist.Channels.TUITest do
   use AllbertAssist.DataCase, async: false
 
   import ExUnit.CaptureIO
+  import Ecto.Query
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Channels
@@ -14,6 +15,9 @@ defmodule AllbertAssist.Channels.TUITest do
   alias AllbertAssist.Coding.TurnSupervisor
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
+  alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
+  alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Plugins.TUI, as: TUIPlugin
@@ -23,6 +27,7 @@ defmodule AllbertAssist.Channels.TUITest do
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
+  alias Jido.Signal
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -141,7 +146,61 @@ defmodule AllbertAssist.Channels.TUITest do
     refute assistant_content =~ "[surface]"
   end
 
-  test "escape offers cancellation for an attached fan-out" do
+  for output_failure <- [:returned_error, :raise, :exit] do
+    test "failed kickoff output (#{output_failure}) preserves the start barrier" do
+      configure_tui!()
+
+      assert {:ok, _setting} =
+               Settings.put("objectives.fanout.enabled", true, %{audit?: false})
+
+      assert {:ok, _setting} =
+               Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+      assert {:ok, _setting} =
+               Settings.put("objectives.fanout.confirm_before_start", false, %{audit?: false})
+
+      output_fun =
+        case unquote(output_failure) do
+          :returned_error -> fn _line -> {:error, :closed_terminal} end
+          :raise -> fn _line -> raise "terminal closed" end
+          :exit -> fn _line -> exit(:terminal_closed) end
+        end
+
+      assert {:ok, server} =
+               Adapter.start_link(
+                 name: nil,
+                 auto_input?: false,
+                 enabled?: true,
+                 live_screen?: false,
+                 output_fun: output_fun
+               )
+
+      assert {:ok, :rejected} =
+               Adapter.submit(server, "first task; second task",
+                 external_event_id: "evt-failed-kickoff-#{unquote(output_failure)}"
+               )
+
+      assert Process.alive?(server)
+
+      parent =
+        Repo.one!(
+          from objective in Objective,
+            where: objective.user_id == "alice" and objective.fanout_role == "parent",
+            order_by: [desc: objective.inserted_at],
+            limit: 1
+        )
+
+      refute parent.kickoff_delivery_state == "acknowledged"
+      assert parent.kickoff_delivery_state == "blocked"
+
+      Process.sleep(50)
+
+      assert Fanout.children(parent)
+             |> Enum.all?(&(&1.status == "open" and &1.run_attempt_count == 0))
+    end
+  end
+
+  test "escape offers cancellation only for a durably active attached fan-out" do
     configure_tui!()
 
     assert {:ok, server} =
@@ -153,12 +212,200 @@ defmodule AllbertAssist.Channels.TUITest do
                output_fun: fn _line -> :ok end
              )
 
-    assert {:ok, {:processed, _event, rendered}} =
-             Adapter.submit(server, "first task; second task", external_event_id: "evt-fanout")
+    assert {:ok, %{parent: parent, fanout_start_receipt: receipt}} = attached_fanout!()
+    assert :ok = Fanout.acknowledge_start(receipt, attached_delivery_context())
+    set_active_fanout(server, parent.id)
 
-    assert Enum.any?(rendered, &String.contains?(&1, "first task"))
     assert {:ok, {:fanout_cancel_offer, parent_id}} = Adapter.cancel_current_turn(server)
-    assert String.starts_with?(parent_id, "fanout_")
+    assert parent_id == parent.id
+  end
+
+  test "joined signal prints one full report, acknowledges it, and clears only its cache" do
+    configure_tui!()
+    test_pid = self()
+
+    assert {:ok, server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: false,
+               enabled?: true,
+               live_screen?: false,
+               output_fun: fn line -> send(test_pid, {:tui_output, line}) end
+             )
+
+    assert {:ok, %{parent: parent, children: children}} = attached_fanout!()
+    set_active_fanout(server, parent.id)
+    complete_children!(children)
+
+    assert_receive {:tui_output, "[fan-out] fanout joined: Attached fan-out"}, 1_000
+    assert_receive {:tui_output, report}, 1_000
+    assert report =~ "Attached fan-out — success"
+    assert report =~ "✓ first — result 0"
+    assert report =~ "✓ second — result 1"
+
+    eventually(fn ->
+      Fanout.parent_projection(parent).parent.report_delivery_state == "delivered"
+    end)
+
+    assert :sys.get_state(server).active_fanout == nil
+    assert {:error, :no_current_turn} = Adapter.cancel_current_turn(server)
+
+    send(
+      server,
+      {:signal, Signal.new!("allbert.objectives.fanout.joined", %{parent_id: parent.id})}
+    )
+
+    refute_receive {:tui_output, _duplicate}, 100
+  end
+
+  test "two attached fan-outs each deliver exactly once regardless of completion order" do
+    configure_tui!()
+
+    for order <- [:first_then_second, :second_then_first] do
+      test_pid = self()
+
+      assert {:ok, server} =
+               Adapter.start_link(
+                 name: nil,
+                 auto_input?: false,
+                 enabled?: true,
+                 live_screen?: false,
+                 output_fun: fn line -> send(test_pid, {:multi_tui_output, order, line}) end
+               )
+
+      assert {:ok, first} = attached_fanout!("Attached fan-out A #{order}")
+      assert {:ok, second} = attached_fanout!("Attached fan-out B #{order}")
+      set_active_fanout(server, first.parent.id)
+      set_active_fanout(server, second.parent.id)
+
+      sequence =
+        if order == :first_then_second,
+          do: [first, second],
+          else: [second, first]
+
+      Enum.each(sequence, fn frame ->
+        complete_children!(frame.children)
+
+        assert_receive {:multi_tui_output, ^order, "[fan-out] fanout joined: " <> joined_title},
+                       1_000
+
+        assert joined_title == frame.parent.title
+        report = receive_output_containing(order, "#{frame.parent.title} — success")
+        assert report =~ "#{frame.parent.title} — success"
+
+        eventually(fn ->
+          Fanout.parent_projection(frame.parent).parent.report_delivery_state == "delivered"
+        end)
+      end)
+
+      state = :sys.get_state(server)
+      assert state.active_fanout == nil
+      assert state.attached_fanouts == %{}
+      drain_multi_tui_output(order)
+
+      Enum.each(sequence, fn frame ->
+        send(
+          server,
+          {:signal,
+           Signal.new!("allbert.objectives.fanout.joined", %{parent_id: frame.parent.id})}
+        )
+      end)
+
+      refute_receive {:multi_tui_output, ^order, _duplicate}, 100
+      GenServer.stop(server)
+    end
+  end
+
+  test "failed attached output preserves the pending next-turn report" do
+    configure_tui!()
+
+    assert {:ok, server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: false,
+               enabled?: true,
+               live_screen?: false,
+               output_fun: fn _line -> {:error, :closed_terminal} end
+             )
+
+    assert {:ok, %{parent: parent, children: children}} = attached_fanout!()
+    set_active_fanout(server, parent.id)
+    complete_children!(children)
+
+    eventually(fn ->
+      projection = Fanout.parent_projection(parent)
+      projection.phase == :joined and projection.parent.report_delivery_state == "pending"
+    end)
+
+    eventually(fn -> :sys.get_state(server).active_fanout == nil end)
+  end
+
+  test "raised or exited attached output cannot crash the adapter or consume the report" do
+    configure_tui!()
+
+    for {label, output_fun} <- [
+          {:raise, fn _line -> raise "terminal closed" end},
+          {:exit, fn _line -> exit(:terminal_closed) end}
+        ] do
+      assert {:ok, server} =
+               Adapter.start_link(
+                 name: nil,
+                 auto_input?: false,
+                 enabled?: true,
+                 live_screen?: false,
+                 output_fun: output_fun
+               )
+
+      assert {:ok, %{parent: parent, children: children}} = attached_fanout!()
+      set_active_fanout(server, parent.id)
+      complete_children!(children)
+
+      eventually(fn ->
+        projection = Fanout.parent_projection(parent)
+
+        Process.alive?(server) and projection.phase == :joined and
+          projection.parent.report_delivery_state == "pending"
+      end)
+
+      assert :sys.get_state(server).active_fanout == nil, inspect(label)
+      GenServer.stop(server)
+    end
+  end
+
+  test "escape reports finalizing for an orphaned reduction and wakes recovery" do
+    configure_tui!()
+
+    assert {:ok, server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: false,
+               enabled?: true,
+               live_screen?: false,
+               output_fun: fn _line -> :ok end
+             )
+
+    assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
+             attached_fanout!()
+
+    assert :ok = Fanout.acknowledge_start(receipt, attached_delivery_context())
+
+    assert {2, _rows} =
+             Objective
+             |> where([objective], objective.id in ^Enum.map(children, & &1.id))
+             |> Repo.update_all(
+               set: [
+                 status: "completed",
+                 last_observation_summary: "orphaned result",
+                 completed_at: DateTime.utc_now()
+               ]
+             )
+
+    set_active_fanout(server, parent.id)
+    assert {:ok, {:fanout_finalizing, parent_id}} = Adapter.cancel_current_turn(server)
+    assert parent_id == parent.id
+    refute match?({:ok, {:fanout_cancel_offer, _}}, Adapter.cancel_current_turn(server))
+
+    eventually(fn -> Fanout.parent_projection(parent).phase == :joined end)
   end
 
   test "non-interactive supervised child stays quiet without launcher opts" do
@@ -1085,6 +1332,89 @@ defmodule AllbertAssist.Channels.TUITest do
     assert event.status == "rejected"
     assert event.reason == ":not_mapped"
   end
+
+  defp attached_fanout!(title \\ "Attached fan-out") do
+    Fanout.frame(
+      %{
+        user_id: "alice",
+        source_channel: "tui",
+        source_surface: "tui",
+        source_thread_id: "attached-thread",
+        title: title,
+        objective: "Exercise attached completion"
+      },
+      ["first", "second"]
+    )
+  end
+
+  defp attached_delivery_context do
+    %{user_id: "alice", channel: "tui", thread_id: "attached-thread"}
+  end
+
+  defp set_active_fanout(server, parent_id) do
+    attachment = %{
+      parent_id: parent_id,
+      thread_id: "attached-thread",
+      session_id: nil
+    }
+
+    :sys.replace_state(
+      server,
+      fn state ->
+        state
+        |> Map.put(:active_fanout, attachment)
+        |> Map.update!(:attached_fanouts, &Map.put(&1, parent_id, attachment))
+      end
+    )
+  end
+
+  defp complete_children!(children) do
+    Enum.each(children, fn child ->
+      assert {:ok, %{child: %{status: "completed"}}} =
+               TerminalTransitions.terminalize_child(
+                 child,
+                 %{
+                   status: "completed",
+                   last_observation_summary: "result #{child.queue_position}",
+                   completed_at: DateTime.utc_now()
+                 },
+                 "run_completed",
+                 %{}
+               )
+    end)
+  end
+
+  defp receive_output_containing(order, needle) do
+    receive do
+      {:multi_tui_output, ^order, line} ->
+        if String.contains?(line, needle),
+          do: line,
+          else: receive_output_containing(order, needle)
+    after
+      1_000 -> flunk("TUI output did not contain #{inspect(needle)}")
+    end
+  end
+
+  defp drain_multi_tui_output(order) do
+    receive do
+      {:multi_tui_output, ^order, _line} -> drain_multi_tui_output(order)
+    after
+      0 -> :ok
+    end
+  end
+
+  defp eventually(fun, attempts \\ 100)
+
+  defp eventually(fun, attempts) when attempts > 0 do
+    if fun.() do
+      :ok
+    else
+      Process.sleep(10)
+      eventually(fun, attempts - 1)
+    end
+  end
+
+  defp eventually(_fun, 0), do: flunk("condition did not become true")
 
   defp configure_tui! do
     assert {:ok, _setting} = Settings.put("channels.tui.enabled", true, %{audit?: false})

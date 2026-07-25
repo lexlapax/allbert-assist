@@ -1,6 +1,7 @@
 defmodule AllbertAssistWeb.SignalBridgeTest do
   use AllbertAssistWeb.ConnCase, async: false, lane: :external_runtime_serial
 
+  alias AllbertAssist.Objectives
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Signals
@@ -51,7 +52,63 @@ defmodule AllbertAssistWeb.SignalBridgeTest do
     )
 
     assert_receive {:subscribed, "allbert.objective.**"}
+    assert_receive {:subscribed, "allbert.objectives.**"}
     assert_receive {:subscribed, "allbert.workspace.**"}
+  end
+
+  test "routes plural fan-out signals through durable objective ownership" do
+    name = :"signal_bridge_fanout_#{System.unique_integer([:positive])}"
+    start_supervised!({SignalBridge, name: name})
+
+    test_pid = self()
+
+    alice_listener =
+      spawn(fn ->
+        Phoenix.PubSub.subscribe(AllbertAssistWeb.PubSub, SignalBridge.topic_for("alice"))
+        send(test_pid, :alice_listener_ready)
+        forward_objective_events(test_pid)
+      end)
+
+    on_exit(fn -> Process.exit(alice_listener, :kill) end)
+    assert_receive :alice_listener_ready
+
+    Phoenix.PubSub.subscribe(AllbertAssistWeb.PubSub, SignalBridge.topic_for("mallory"))
+
+    assert {:ok, parent} =
+             Objectives.create_objective(%{
+               user_id: "alice",
+               title: "Owned fan-out",
+               objective: "Route durable ownership",
+               fanout_role: "parent"
+             })
+
+    assert :ok =
+             Signals.emit_fanout(:run_progress, %{
+               parent_id: parent.id,
+               child_id: "child-not-required-for-owner-resolution",
+               progress_summary: "halfway"
+             })
+
+    assert_receive {:alice_objective_event, received}, 1_000
+    assert received.type == "allbert.objectives.run.progress"
+    assert received.data.parent_id == parent.id
+
+    assert :ok =
+             Signals.emit_fanout(:run_progress, %{
+               parent_id: parent.id,
+               user_id: "mallory",
+               progress_summary: "forged owner"
+             })
+
+    assert_receive {:alice_objective_event,
+                    %{data: %{progress_summary: "forged owner"}} = forged},
+                   1_000
+
+    assert forged.data.parent_id == parent.id
+    refute_receive {:objective_event, %{data: %{progress_summary: "forged owner"}}}, 200
+
+    assert :ok = Signals.emit_fanout(:run_progress, %{parent_id: "unknown-parent"})
+    refute_receive {:objective_event, %{data: %{parent_id: "unknown-parent"}}}, 200
   end
 
   test "broadcasts objective events, fragment envelopes, and generic workspace signals" do
@@ -198,6 +255,14 @@ defmodule AllbertAssistWeb.SignalBridgeTest do
       {:workspace_event, _signal} -> receive_workspace_event(type)
     after
       1_000 -> flunk("expected workspace event #{type}")
+    end
+  end
+
+  defp forward_objective_events(test_pid) do
+    receive do
+      {:objective_event, signal} ->
+        send(test_pid, {:alice_objective_event, signal})
+        forward_objective_events(test_pid)
     end
   end
 end

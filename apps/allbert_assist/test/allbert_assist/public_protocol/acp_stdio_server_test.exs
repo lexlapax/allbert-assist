@@ -3,7 +3,9 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
 
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Paths
   alias AllbertAssist.PublicProtocol.Acp.Server
   alias AllbertAssist.PublicProtocol.ResultReadback
@@ -187,7 +189,7 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
 
     {session_id, state} = started_session()
 
-    {:ok, [update, response], _state} =
+    {:ok, [update, response], worker_state} =
       Server.handle_message(
         %{
           "jsonrpc" => "2.0",
@@ -211,6 +213,8 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
 
     assert parent.kickoff_delivery_state == "acknowledged"
     assert Enum.all?(Fanout.children(parent), &(&1.status == "completed"))
+    assert worker_state.report_deliveries == [parent.id]
+    assert Repo.reload!(parent).report_delivery_state == "pending"
   end
 
   test "session/prompt timeout returns kickoff and leaves the eventual report pending" do
@@ -229,7 +233,7 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
 
     {session_id, state} = started_session()
 
-    {:ok, [update, response], _state} =
+    {:ok, [update, response], worker_state} =
       Server.handle_message(
         %{
           "jsonrpc" => "2.0",
@@ -252,6 +256,144 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
       |> Enum.filter(&(&1.fanout_role == "parent"))
 
     eventually(fn -> Repo.reload!(parent).report_delivery_state == "pending" end)
+    assert worker_state.report_deliveries == []
+  end
+
+  test "a timeout's eventual report is emitted and acknowledged by the next successful prompt write" do
+    enable_acp_stdio!()
+
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    runtime_config = Application.get_env(:allbert_assist, Runtime, [])
+
+    Application.put_env(
+      :allbert_assist,
+      Runtime,
+      Keyword.put(runtime_config, :fanout_timeout_ms, 0)
+    )
+
+    {session_id, state} = started_session()
+
+    {:ok, [_kickoff_update, _kickoff_response], first_worker_state} =
+      Server.handle_message(
+        %{
+          "jsonrpc" => "2.0",
+          "id" => 340,
+          "method" => "session/prompt",
+          "params" => %{
+            "sessionId" => session_id,
+            "prompt" => [%{"type" => "text", "text" => "first task; second task"}]
+          }
+        },
+        state
+      )
+
+    [parent] =
+      "public-protocol:zed-fixture"
+      |> Objectives.list_objectives()
+      |> Enum.filter(&(&1.fanout_role == "parent"))
+
+    eventually(fn -> Repo.reload!(parent).report_delivery_state == "pending" end)
+
+    {:ok, [report_update, report_response], second_worker_state} =
+      Server.handle_message(
+        %{
+          "jsonrpc" => "2.0",
+          "id" => 341,
+          "method" => "session/prompt",
+          "params" => %{
+            "sessionId" => session_id,
+            "prompt" => [%{"type" => "text", "text" => "what next?"}]
+          }
+        },
+        first_worker_state
+      )
+
+    assert report_update["params"]["update"]["content"]["text"] =~ parent.title
+    assert report_response["result"]["stopReason"] == "end_turn"
+    assert second_worker_state.report_deliveries == [parent.id]
+
+    assert :ok =
+             Server.acknowledge_written_reports(
+               [report_update, report_response],
+               second_worker_state,
+               session_id,
+               state,
+               fn _message -> :ok end
+             )
+
+    assert Repo.reload!(parent).report_delivery_state == "delivered"
+  end
+
+  test "ACP output acknowledges only named reports and leaves all reports pending on write failure" do
+    enable_acp_stdio!()
+    {session_id, state} = started_session()
+    first = joined_acp_fanout!(session_id, "ACP report A")
+    second = joined_acp_fanout!(session_id, "ACP report B")
+
+    first_worker_state = %{state | report_deliveries: [first.id]}
+
+    assert :ok =
+             Server.acknowledge_written_reports(
+               ["report A\n", "response\n"],
+               first_worker_state,
+               session_id,
+               state,
+               fn _line -> :ok end
+             )
+
+    assert Repo.reload!(first).report_delivery_state == "delivered"
+    assert Repo.reload!(second).report_delivery_state == "pending"
+
+    second_worker_state = %{state | report_deliveries: [second.id]}
+
+    assert {:error, {:stdio_write_failed, :closed}} =
+             Server.acknowledge_written_reports(
+               ["report B\n", "response\n"],
+               second_worker_state,
+               session_id,
+               state,
+               fn _line -> {:error, :closed} end
+             )
+
+    assert Repo.reload!(second).report_delivery_state == "pending"
+  end
+
+  test "session cancellation finds its fan-out beyond the old generic objective limit" do
+    enable_acp_stdio!()
+    {session_id, state} = started_session()
+
+    assert {:ok, %{parent: parent}} =
+             Fanout.frame(
+               %{
+                 user_id: "public-protocol:zed-fixture",
+                 title: "Old session fan-out",
+                 objective: "Cancel through the session",
+                 source_channel: "acp_stdio",
+                 source_thread_id: "acp-thread-#{session_id}",
+                 session_id: session_id
+               },
+               ["one", "two"]
+             )
+
+    for index <- 1..65 do
+      assert {:ok, _ordinary} =
+               Objectives.create_objective(%{
+                 user_id: "public-protocol:zed-fixture",
+                 title: "Newer ordinary #{index}",
+                 objective: "Newer ordinary #{index}",
+                 session_id: session_id
+               })
+    end
+
+    assert :ok = Server.cancel_session_fanouts(session_id, state)
+
+    eventually(fn ->
+      projection = Fanout.parent_projection(parent)
+
+      projection.phase == :joined and projection.derived_join_outcome == "cancelled"
+    end)
   end
 
   test "session/prompt returns structured runtime errors and records failed audit events" do
@@ -484,6 +626,34 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
   defp enable_acp_stdio! do
     assert {:ok, _setting} = Settings.put("acp_server.enabled", true, %{audit?: false})
     assert {:ok, _setting} = Settings.put("acp_server.stdio.enabled", true, %{audit?: false})
+  end
+
+  defp joined_acp_fanout!(session_id, title) do
+    assert {:ok, %{parent: parent, children: children}} =
+             Fanout.frame(
+               %{
+                 user_id: "public-protocol:zed-fixture",
+                 title: title,
+                 objective: title,
+                 source_channel: "acp_stdio",
+                 source_thread_id: "acp-thread-#{session_id}",
+                 session_id: session_id
+               },
+               ["one", "two"]
+             )
+
+    Enum.each(children, fn child ->
+      assert {:ok, _transition} =
+               TerminalTransitions.terminalize_child(
+                 child,
+                 %{status: "completed", completed_at: DateTime.utc_now()},
+                 "run_completed",
+                 %{}
+               )
+    end)
+
+    assert Fanout.parent_projection(parent).phase == :joined
+    Repo.reload!(parent)
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

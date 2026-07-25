@@ -66,6 +66,96 @@ defmodule AllbertAssist.ConfirmationsTest do
     assert audit =~ id
   end
 
+  test "context-bound create persists trusted objective, step, and action provenance" do
+    context = %{
+      "objective_id" => "obj-child",
+      "step_id" => "step-action",
+      "parent_objective_id" => "fanout-parent",
+      "objective_title" => "Bound child",
+      "objective_status" => "running",
+      "selected_action" => "external_network_request",
+      "selected_action_module" => AllbertAssist.Actions.Intent.ExternalNetworkRequest
+    }
+
+    assert {:ok, record} = Confirmations.create(base_attrs(), context, now: now())
+    assert record["objective_id"] == "obj-child"
+    assert record["step_id"] == "step-action"
+    assert record["origin"]["parent_objective_id"] == "fanout-parent"
+    assert record["origin"]["objective_id"] == "obj-child"
+    assert record["target_action"]["name"] == "external_network_request"
+
+    assert record["target_action"]["module"] ==
+             "AllbertAssist.Actions.Intent.ExternalNetworkRequest"
+
+    assert record["params_summary"]["execution_objective_id"] == "obj-child"
+    assert record["params_summary"]["execution_step_id"] == "step-action"
+    assert record["resume_params_ref"]["url"] == "https://example.com"
+  end
+
+  test "context-bound create rejects conflicting authority provenance" do
+    context = %{
+      objective_id: "obj-child",
+      step_id: "step-action",
+      selected_action: "external_network_request",
+      selected_action_module: AllbertAssist.Actions.Intent.ExternalNetworkRequest
+    }
+
+    assert {:error, {:confirmation_binding_mismatch, :objective_id}} =
+             Confirmations.create(Map.put(base_attrs(), :objective_id, "obj-other"), context)
+
+    assert {:error, {:confirmation_binding_mismatch, :step_id}} =
+             Confirmations.create(Map.put(base_attrs(), :step_id, "step-other"), context)
+
+    assert {:error, {:confirmation_binding_mismatch, :target_action}} =
+             Confirmations.create(
+               put_in(base_attrs(), [:target_action, :name], "run_shell_command"),
+               context
+             )
+
+    assert {:error, {:confirmation_binding_mismatch, :target_action_module}} =
+             Confirmations.create(
+               put_in(base_attrs(), [:target_action, :module], "Wrong.Module"),
+               context
+             )
+  end
+
+  test "context-bound create does not fabricate absent runner provenance" do
+    assert {:ok, record} =
+             Confirmations.create(base_attrs(), %{user_id: "alice", channel: :test}, now: now())
+
+    assert record["target_action"]["name"] == "external_network_request"
+    refute Map.has_key?(record["target_action"], "module")
+  end
+
+  test "production actions and plugins bind confirmation creation to runner context" do
+    repo_root = Path.expand("../../../..", __DIR__)
+
+    files =
+      Path.wildcard(
+        Path.join(repo_root, "apps/allbert_assist/lib/allbert_assist/actions/**/*.ex")
+      ) ++
+        Path.wildcard(Path.join(repo_root, "plugins/*/lib/**/*.ex"))
+
+    raw_sites =
+      Enum.flat_map(files, fn path ->
+        {:ok, ast} = path |> File.read!() |> Code.string_to_quoted(file: path)
+
+        {_ast, sites} =
+          Macro.prewalk(ast, [], fn
+            {{:., meta, [{:__aliases__, _, [:Confirmations]}, :create]}, _, [_attrs]} = node,
+            sites ->
+              {node, [{path, meta[:line]} | sites]}
+
+            node, sites ->
+              {node, sites}
+          end)
+
+        sites
+      end)
+
+    assert raw_sites == []
+  end
+
   test "resolve moves pending records to resolved state and keeps channel handoff", %{home: home} do
     assert {:ok, record} = Confirmations.create(base_attrs(), now: now())
     id = record["id"]

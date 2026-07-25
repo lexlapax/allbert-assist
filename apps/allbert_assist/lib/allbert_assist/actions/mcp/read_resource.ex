@@ -142,7 +142,7 @@ defmodule AllbertAssist.Actions.Mcp.ReadResource do
       resume_params_ref: resume_params(config, uri, params, ref)
     }
 
-    case Confirmations.create(attrs) do
+    case Confirmations.create(attrs, context) do
       {:ok, confirmation} ->
         _audit =
           Audit.append(:mcp, :requested, config, permission_decision, %{

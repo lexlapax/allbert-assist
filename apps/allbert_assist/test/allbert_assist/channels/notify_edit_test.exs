@@ -175,19 +175,7 @@ defmodule AllbertAssist.Channels.NotifyEditTest do
         }
       })
 
-    digest =
-      %{
-        id: to_string(ref.id),
-        owner_scope: ref.owner_scope,
-        channel: ref.channel,
-        receiver_account_ref: ref.receiver_account_ref,
-        provider_thread_key: ref.provider_thread_key,
-        provider_thread_ref: ref.provider_thread_ref,
-        trust_class: ref.trust_class
-      }
-      |> Jason.encode!()
-      |> then(&:crypto.hash(:sha256, &1))
-      |> Base.encode16(case: :lower)
+    digest = ChannelThread.canonical_ref_digest(ref)
 
     {:ok, %{parent: parent}} =
       Fanout.frame(

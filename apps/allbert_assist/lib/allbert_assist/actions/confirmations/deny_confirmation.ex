@@ -23,6 +23,8 @@ defmodule AllbertAssist.Actions.Confirmations.DenyConfirmation do
 
   alias AllbertAssist.Actions.Confirmations.Context
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.Runs.Scheduler
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
 
@@ -59,6 +61,7 @@ defmodule AllbertAssist.Actions.Confirmations.DenyConfirmation do
         resolve_denial(record, reason, context, permission_decision)
 
       {:ok, record} ->
+        _ = maybe_wake_fanout(record)
         completed(record, permission_decision, idempotent?: true)
 
       {:error, reason} ->
@@ -71,7 +74,9 @@ defmodule AllbertAssist.Actions.Confirmations.DenyConfirmation do
 
     case Confirmations.resolve(id, :denied, Context.resolution_attrs(context, reason, record)) do
       {:ok, record} ->
-        completed(record, permission_decision, idempotent?: false)
+        with :ok <- maybe_wake_fanout(record) do
+          completed(record, permission_decision, idempotent?: false)
+        end
 
       {:error, {:confirmation_not_pending, ^id}} ->
         idempotent(id, permission_decision)
@@ -110,6 +115,13 @@ defmodule AllbertAssist.Actions.Confirmations.DenyConfirmation do
          )
        ]
      }}
+  end
+
+  defp maybe_wake_fanout(%{} = confirmation) do
+    case Objectives.fanout_confirmation_target(confirmation) do
+      {:ok, %{parent_id: parent_id}} -> Scheduler.wake_parent(parent_id)
+      _other -> :ok
+    end
   end
 
   defp denial_reason_required? do

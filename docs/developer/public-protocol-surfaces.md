@@ -106,8 +106,10 @@ Do not silently ignore a feature that could change authority or media handling.
   Action-level denial returns an error tool result. Confirmation-required calls
   return a successful tool result with `status: "confirmation_pending"` and
   `public_call_id`.
-- OpenAI-compatible success returns `chat.completion`; streaming returns one
-  bounded `chat.completion.chunk` SSE event for the completed turn and `[DONE]`.
+- OpenAI-compatible success returns `chat.completion`; ordinary streaming emits
+  bounded `chat.completion.chunk` SSE frames followed by `[DONE]`. For a v1.1
+  fan-out, the controller sends kickoff and working frames before the final
+  joined completion frame.
   `/v1/models` returns a list of enabled Allbert model/profile aliases from
   Settings Central. Pending confirmation uses
   `allbert_status: "pending"` and `allbert_public_call_id` extension fields.
@@ -119,6 +121,32 @@ Do not silently ignore a feature that could change authority or media handling.
   may emit ACP `session/request_permission` for client UI display, but ACP
   permission responses are advisory only and never authorize Allbert execution.
   Errors are JSON-RPC-shaped and redacted.
+
+## v1.1 Fan-Out Continuation And Delivery Receipts
+
+OpenAI-compatible and ACP adapters reuse the Runtime two-phase kickoff contract
+and durable fan-in projection. They are attended public protocol calls, not ADR
+0084 autonomous channel delivery, and must not reserve autonomous notification
+ledger rows.
+
+- OpenAI non-streaming acknowledges a durably recorded kickoff, waits for the
+  join within `Runtime.fanout_continuation_timeout_ms/0`, writes the final body,
+  then acknowledges the exact joined-report receipt. SSE writes its kickoff
+  frame before acknowledging kickoff delivery, holds the connection through the
+  additive continuation, and acknowledges the joined report only after the
+  final completion and `[DONE]` writes succeed.
+- ACP handles `session/prompt` in a supervised worker so the stdio owner remains
+  available for `session/cancel`. It records exact report ids in worker state,
+  writes every outbound frame, and only then acknowledges those ids. Partial or
+  failed stdout output acknowledges none of that worker's reports.
+- A bounded wait timeout returns the kickoff shape and leaves the later report
+  pending. Pending lookup is owned by the same public user/session/thread and
+  the next successful response may carry and acknowledge it.
+
+Protocol client ids, session ids, report ids, and receipts remain identity or
+delivery correlation only. They grant no action, confirmation, or cancellation
+authority; session cancellation still dispatches through the registered
+`cancel_objective_run` action and uses the dedicated unbounded fan-out lookup.
 
 ## Ingress
 

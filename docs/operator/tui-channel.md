@@ -77,6 +77,30 @@ To suppress even warnings while checking the prompt/rendering path:
 ALLBERT_TUI_LOG_LEVEL=none mix allbert.tui
 ```
 
+`ALLBERT_TUI_LOG_LEVEL` controls application diagnostics, not Allbert's
+operator-facing lifecycle output. Lines such as `[fan-out] run started`,
+`run progress`, and `fanout joined` are product status from an attached fan-out
+and therefore remain visible at `none`.
+
+## v1.1 Fan-Out Experience
+
+An eligible multi-task turn first prints a kickoff list. Once that output is
+accepted, child tasks run concurrently and the attached TUI prints
+`[fan-out]` lifecycle lines without enabling autonomous channel authority. The
+start barrier requires every kickoff line to be written successfully; a
+returned terminal error, exception, exit, or partial write leaves the kickoff
+blocked and all children open for safe retry or cancellation. The
+joined report lists every child and labels mixed outcomes `partial`; it is
+printed before Allbert marks the exact durable report receipt delivered. If
+terminal output fails, the receipt stays pending and the report can return on a
+later turn.
+
+One TUI session can track multiple active fan-outs. Each completion clears only
+its own attachment, so reports can finish in either order without hiding one
+another. Plain replies can steer or cancel a named child. If more than one
+fan-out is active, an unqualified Escape cancellation names the ambiguity and
+asks you to identify the target rather than cancelling arbitrary work.
+
 ## Verify
 
 Run the deterministic focused tests before live validation:

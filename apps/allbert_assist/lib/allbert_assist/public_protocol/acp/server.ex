@@ -10,18 +10,21 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Runs.Scheduler
   alias AllbertAssist.PublicProtocol.Acp.Mapping
   alias AllbertAssist.Runtime
   alias AllbertAssist.Surface.EventRecorder
 
   defstruct initialized?: false,
             client_id: Mapping.default_client_id(),
-            sessions: %{}
+            sessions: %{},
+            report_deliveries: []
 
   @type state :: %__MODULE__{
           initialized?: boolean(),
           client_id: String.t(),
-          sessions: map()
+          sessions: map(),
+          report_deliveries: [String.t()]
         }
 
   @spec new_state() :: state()
@@ -104,10 +107,12 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
             serve_loop(next_state, maybe_cancel_worker(line, workers, state))
         end
 
-      {ref, {:ok, outbound, _worker_state}} when is_map_key(workers, ref) ->
+      {ref, {:ok, outbound, worker_state}} when is_map_key(workers, ref) ->
         Process.demonitor(ref, [:flush])
-        Enum.each(outbound, &IO.write(:stdio, &1))
-        acknowledge_session_reports(workers[ref].session_id, state)
+
+        _result =
+          acknowledge_written_reports(outbound, worker_state, workers[ref].session_id, state)
+
         serve_loop(state, Map.delete(workers, ref))
 
       {:DOWN, ref, :process, _pid, _reason} when is_map_key(workers, ref) ->
@@ -164,7 +169,7 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
            :ok <- persist_and_acknowledge(event, runtime_response),
            {:ok, final_response} <- await_response(runtime_response),
            {:ok, outbound} <- Mapping.prompt_outbound(final_response, session, request_id) do
-        {:ok, outbound, state}
+        {:ok, outbound, %{state | report_deliveries: report_delivery_ids(final_response)}}
       else
         {:error, reason} ->
           EventRecorder.mark_failed(event, reason)
@@ -200,7 +205,7 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
   defp persist_and_acknowledge(event, response) do
     case EventRecorder.mark_result_durable(event, response) do
       :ok ->
-        Runtime.acknowledge_deliveries(response, %{channel: "acp_stdio"})
+        Runtime.acknowledge_kickoff_delivery(response, %{channel: "acp_stdio"})
 
       {:error, _reason} = error ->
         _ = Runtime.delivery_failed(response, %{channel: "acp_stdio"})
@@ -227,7 +232,12 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
         "- #{child.title}: #{child.status} — #{Fanout.report_child_detail(child)}"
       end)
 
-    Map.put(response, :message, "Fan-out #{report.status}:\n#{message}")
+    response
+    |> Map.put(
+      :message,
+      Enum.join([response.message, "Fan-out #{report.status}:\n#{message}"], "\n\n")
+    )
+    |> Map.put(:joined_report_parent_id, report.parent_objective_id)
   end
 
   defp prompt_session_id(line) do
@@ -259,47 +269,120 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
     |> Enum.each(fn {_ref, worker} -> Task.shutdown(worker.task, :brutal_kill) end)
   end
 
-  defp cancel_session_fanouts(session_id, state) do
+  @doc false
+  @spec cancel_session_fanouts(String.t(), state()) :: :ok
+  def cancel_session_fanouts(session_id, %__MODULE__{} = state) do
     user_id = "public-protocol:#{state.client_id}"
 
     user_id
-    |> Objectives.list_objectives()
-    |> Enum.filter(fn objective ->
-      objective.fanout_role == "parent" and objective.session_id == session_id and
-        objective.status in ~w[open running blocked]
-    end)
+    |> Objectives.control_objectives(session_id: session_id, fanout_role: "parent")
     |> Enum.each(fn objective ->
-      Runner.run(
-        "cancel_objective_run",
-        %{objective_id: objective.id, reason: "ACP session/cancel"},
-        %{
-          user_id: user_id,
-          channel: "acp_stdio",
-          session_id: session_id
-        }
+      case Fanout.parent_projection(objective) do
+        %{phase: phase} when phase in [:awaiting_kickoff, :running] ->
+          Runner.run(
+            "cancel_objective_run",
+            %{objective_id: objective.id, reason: "ACP session/cancel"},
+            %{
+              user_id: user_id,
+              channel: "acp_stdio",
+              session_id: session_id
+            }
+          )
+
+        %{phase: :recovering} ->
+          Scheduler.wake_parent(objective.id)
+
+        _not_active ->
+          :ok
+      end
+    end)
+
+    :ok
+  end
+
+  defp report_delivery_ids(response) do
+    pending_ids =
+      response
+      |> Map.get(:pending_reports, [])
+      |> Enum.map(&Map.get(&1, :parent_objective_id))
+
+    [Map.get(response, :joined_report_parent_id) | pending_ids]
+    |> Enum.filter(&(is_binary(&1) and &1 != ""))
+    |> Enum.uniq()
+  end
+
+  @doc false
+  @spec acknowledge_written_reports([term()], state(), String.t(), state(), function()) ::
+          :ok | {:error, term()}
+  def acknowledge_written_reports(
+        outbound,
+        %__MODULE__{} = worker_state,
+        session_id,
+        %__MODULE__{} = owner_state,
+        writer_fun \\ &IO.write(:stdio, &1)
       )
+      when is_list(outbound) and is_binary(session_id) and is_function(writer_fun, 1) do
+    with :ok <- write_all(outbound, writer_fun) do
+      acknowledge_report_deliveries(
+        worker_state.report_deliveries,
+        session_id,
+        owner_state
+      )
+    end
+  end
+
+  defp write_all(outbound, writer_fun) do
+    Enum.reduce_while(outbound, :ok, fn line, :ok ->
+      case safe_write(writer_fun, line) do
+        :ok -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, {:stdio_write_failed, reason}}}
+      end
     end)
   end
 
-  defp acknowledge_session_reports(session_id, state) do
-    user_id = "public-protocol:#{state.client_id}"
+  defp safe_write(writer_fun, line) do
+    case writer_fun.(line) do
+      :ok -> :ok
+      {:error, reason} -> {:error, reason}
+      other -> {:error, {:invalid_write_result, other}}
+    end
+  rescue
+    exception -> {:error, {exception.__struct__, Exception.message(exception)}}
+  catch
+    kind, reason -> {:error, {kind, reason}}
+  end
 
-    user_id
-    |> Objectives.list_objectives()
-    |> Enum.filter(fn objective ->
-      objective.fanout_role == "parent" and objective.session_id == session_id and
-        objective.report_delivery_state == "pending"
-    end)
-    |> Enum.each(fn parent ->
-      Runtime.acknowledge_report_delivery(Fanout.receipt_for(:report, parent.id), %{
-        user_id: user_id,
-        thread_id: parent.source_thread_id,
-        channel: "acp_stdio",
-        origin_thread_ref_id: parent.origin_thread_ref_id,
-        origin_thread_ref_digest: parent.origin_thread_ref_digest,
-        origin_receiver_account_ref: parent.origin_receiver_account_ref
-      })
-    end)
+  defp acknowledge_report_deliveries(parent_ids, session_id, state) do
+    user_id = "public-protocol:#{state.client_id}"
+    Enum.reduce_while(parent_ids, :ok, &acknowledge_report(&1, &2, user_id, session_id))
+  end
+
+  defp acknowledge_report(parent_id, :ok, user_id, session_id) do
+    case Objectives.get_objective(user_id, parent_id) do
+      {:ok,
+       %{fanout_role: "parent", report_delivery_state: "pending", session_id: ^session_id} =
+           parent} ->
+        acknowledge_pending_report(parent, user_id)
+
+      _not_delivered_by_worker ->
+        {:cont, :ok}
+    end
+  end
+
+  defp acknowledge_pending_report(parent, user_id) do
+    context = %{
+      user_id: user_id,
+      thread_id: parent.source_thread_id,
+      channel: "acp_stdio",
+      origin_thread_ref_id: parent.origin_thread_ref_id,
+      origin_thread_ref_digest: parent.origin_thread_ref_digest,
+      origin_receiver_account_ref: parent.origin_receiver_account_ref
+    }
+
+    case Runtime.acknowledge_report_delivery(Fanout.receipt_for(:report, parent.id), context) do
+      :ok -> {:cont, :ok}
+      {:error, reason} -> {:halt, {:error, {parent.id, reason}}}
+    end
   end
 
   defp ensure_initialized(%{initialized?: true}), do: :ok

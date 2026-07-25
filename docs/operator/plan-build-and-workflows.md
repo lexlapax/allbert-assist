@@ -91,17 +91,33 @@ An eligible multi-part request can return a kickoff receipt listing its child
 tasks. Child execution begins only after that receipt has been delivered or
 durably recorded. The children then run concurrently within Settings Central's
 global and per-fan-out bounds, and the final report lists every child as
-completed, failed, blocked, or cancelled—partial success is never presented as
-total success.
+completed, failed, abandoned, or cancelled—partial success is never presented as
+total success. A mix of terminal outcomes is reported as `partial`; a fan-out
+whose children were all cancelled is reported as `cancelled`. Completion is one
+durable fan-in transition, so a crash or restart cannot legitimately leave an
+all-terminal child set looking like a still-running parent.
+
+A supervisor admission failure before a child worker or effect exists is retried
+automatically with capped backoff; it is not shown as `uncertain_effect`.
+Crashes after a worker starts still follow the action's retry-safety contract.
 
 While a fan-out is active, reply in its originating thread to steer it. Plain
 language can request status, adjust a child, cancel work, or begin a separate
 request. Classification is advisory: effectful changes dispatch through
 registered actions, ownership is re-proved, and text such as “yes” never
 approves a pending confirmation. In Web, open `/objectives/:id` for the
-parent/child tree and use a child's steer or cancel control. In an attached TUI,
-status arrives in the live region, normal input can steer, and Escape offers
-cancellation.
+parent/child tree and use a child's steer or cancel control; controls re-check
+that the named child belongs to that parent and is still active. In an attached
+TUI, status arrives in the live region, normal input can steer, and Escape offers
+cancellation. The TUI tracks concurrent fan-outs independently. If more than one
+is active, an unqualified Escape cancellation asks you to name the fan-out or
+child instead of guessing.
+
+Attached Web and TUI sessions show the joined report before recording its exact
+delivery receipt. Failed rendering/output leaves that report pending for the
+next turn. This attended behavior does not enable autonomous remote
+notifications; remote report-back remains a separate, default-off per-channel
+setting described in the security guide.
 
 Relevant Settings Central keys and shipped defaults:
 

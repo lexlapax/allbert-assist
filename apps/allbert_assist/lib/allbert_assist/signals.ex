@@ -75,11 +75,13 @@ defmodule AllbertAssist.Signals do
     fanout_started: "allbert.objectives.fanout.started",
     fanout_joined: "allbert.objectives.fanout.joined",
     run_started: "allbert.objectives.run.started",
+    run_resumed: "allbert.objectives.run.resumed",
     run_progress: "allbert.objectives.run.progress",
     run_blocked: "allbert.objectives.run.blocked",
     run_completed: "allbert.objectives.run.completed",
     run_failed: "allbert.objectives.run.failed",
     run_cancelled: "allbert.objectives.run.cancelled",
+    run_abandoned: "allbert.objectives.run.abandoned",
     run_steered: "allbert.objectives.run.steered"
   }
 

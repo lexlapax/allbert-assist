@@ -1,9 +1,14 @@
 defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
   use AllbertAssist.DataCase, async: false
 
+  import Ecto.Query
+
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Objective
+  alias AllbertAssist.Repo
 
   test "list_objectives is user scoped and goes through action runner metadata" do
     user = unique_user("read_actions")
@@ -115,6 +120,33 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
     assert response.error == :missing_user_id
   end
 
+  test "fan-out list and show responses use one coherent durable projection" do
+    user = unique_user("fanout_projection")
+
+    assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
+             Fanout.frame(
+               %{user_id: user, title: "Recovering read", objective: "Read coherently"},
+               ["one", "two"]
+             )
+
+    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: user})
+
+    assert {2, _rows} =
+             Objective
+             |> where([objective], objective.id in ^Enum.map(children, & &1.id))
+             |> Repo.update_all(set: [status: "completed", completed_at: DateTime.utc_now()])
+
+    assert {:ok, listed} = Runner.run("list_objectives", %{user_id: user}, %{})
+    listed_parent = Enum.find(listed.objectives, &(&1.id == parent.id))
+    assert_coherent_fanout_read(listed_parent)
+
+    assert {:ok, shown} =
+             Runner.run("show_objective", %{id: parent.id, user_id: user}, %{})
+
+    assert_coherent_fanout_read(shown.objective)
+    assert Enum.map(shown.children, & &1.id) == Enum.map(children, & &1.id)
+  end
+
   test "cancel_objective transitions objective and pending steps cooperatively" do
     user = unique_user("cancel_objective")
 
@@ -156,6 +188,18 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
     assert cancelled_step.status == "cancelled"
 
     assert Enum.any?(Objectives.list_events(objective.id), &(&1.kind == "cancelled"))
+  end
+
+  defp assert_coherent_fanout_read(%{fanout_phase: :recovering} = objective) do
+    assert objective.status == "finalizing"
+    assert objective.persisted_status == "open"
+    assert objective.report_delivery_state == "not_ready"
+  end
+
+  defp assert_coherent_fanout_read(%{fanout_phase: :joined} = objective) do
+    assert objective.status == "completed"
+    assert objective.persisted_status == "completed"
+    assert objective.report_delivery_state in ["pending", "delivered"]
   end
 
   test "continue_objective returns advisory statuses for pending and terminal objectives" do

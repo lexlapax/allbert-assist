@@ -26,7 +26,9 @@ defmodule AllbertAssist.Actions.Objectives.CancelObjective do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Maps
+  alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Engine.Agent, as: EngineAgent
   alias AllbertAssist.Security.PermissionGate
 
@@ -38,14 +40,10 @@ defmodule AllbertAssist.Actions.Objectives.CancelObjective do
          {:ok, user_id} <- user_id(params, context),
          {:ok, objective_id} <- objective_id(params),
          {:ok, reason} <- reason(params),
-         {:ok, result} <-
-           EngineAgent.cancel_objective(%{
-             id: objective_id,
-             user_id: user_id,
-             reason: reason,
-             trace_id: field(context, :trace_id)
-           }) do
-      {:ok, cancelled_response(result, permission_decision)}
+         {:ok, objective} <- Objectives.get_objective(user_id, objective_id),
+         {:ok, response} <-
+           cancel_target(objective, user_id, reason, context, permission_decision) do
+      {:ok, response}
     else
       {:allowed, false} ->
         {:ok, denied(permission_decision)}
@@ -55,6 +53,27 @@ defmodule AllbertAssist.Actions.Objectives.CancelObjective do
 
       {:error, reason} ->
         {:ok, error(permission_decision, reason)}
+    end
+  end
+
+  defp cancel_target(%{fanout_role: role} = objective, _user_id, reason, context, _decision)
+       when role in ["parent", "child"] do
+    Runner.run(
+      "cancel_objective_run",
+      %{objective_id: objective.id, reason: reason},
+      context
+    )
+  end
+
+  defp cancel_target(objective, user_id, reason, context, permission_decision) do
+    with {:ok, result} <-
+           EngineAgent.cancel_objective(%{
+             id: objective.id,
+             user_id: user_id,
+             reason: reason,
+             trace_id: field(context, :trace_id)
+           }) do
+      {:ok, cancelled_response(result, permission_decision)}
     end
   end
 

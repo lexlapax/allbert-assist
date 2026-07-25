@@ -10,6 +10,8 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
 
   use GenServer
 
+  require Logger
+
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Runs.{Coordinator, Supervisor}
@@ -17,6 +19,8 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
 
   @default_global 6
   @default_per_fanout 3
+  @recovery_retry_delay_ms 50
+  @max_recovery_retry_delay_ms 5_000
 
   defstruct max_global: @default_global,
             max_per_fanout: @default_per_fanout,
@@ -24,7 +28,9 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
             waiting: %{},
             rotation: [],
             coordinators: %{},
-            monitor_refs: %{}
+            monitor_refs: %{},
+            orphan_run_monitor_refs: %{},
+            recovery_attempts: %{}
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: Keyword.get(opts, :name, __MODULE__))
@@ -46,6 +52,22 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
 
   def start_fanout(parent_id, opts \\ [], server \\ __MODULE__) do
     GenServer.call(server, {:start_fanout, parent_id, opts})
+  end
+
+  @doc "Best-effort wake after a durable child-side decision. Startup reconciliation is the fallback."
+  @spec wake_parent(String.t(), GenServer.server()) :: :ok
+  def wake_parent(parent_id, server \\ __MODULE__) when is_binary(parent_id) do
+    case GenServer.whereis(server) do
+      nil ->
+        :ok
+
+      _pid ->
+        try do
+          GenServer.call(server, {:wake_parent, parent_id})
+        catch
+          :exit, _reason -> :ok
+        end
+    end
   end
 
   def snapshot(server \\ __MODULE__), do: GenServer.call(server, :snapshot)
@@ -74,12 +96,21 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
 
   @impl true
   def handle_continue(:reconcile, state) do
-    Enum.each(Fanout.runnable_parents(), fn parent ->
-      case Registry.lookup(AllbertAssist.Objectives.Runs.Registry, {:fanout, parent.id}) do
-        [{pid, _}] -> send(pid, :scheduler_reconcile)
-        [] -> send(self(), {:recover_coordinator, parent.id})
-      end
-    end)
+    parents = Fanout.runnable_parents()
+    state = recover_live_run_slots(state, parents)
+
+    state =
+      Enum.reduce(parents, state, fn parent, state ->
+        case Registry.lookup(AllbertAssist.Objectives.Runs.Registry, {:fanout, parent.id}) do
+          [{pid, _}] ->
+            send(pid, :scheduler_reconcile)
+            track_coordinator_state(state, parent.id, pid)
+
+          [] ->
+            send(self(), {:recover_coordinator, parent.id})
+            state
+        end
+      end)
 
     {:noreply, state}
   end
@@ -104,7 +135,12 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
   def handle_call({:start_fanout, parent_id, opts}, _from, state) do
     result =
       case Objectives.get_objective(parent_id) do
-        {:ok, %{fanout_role: "parent", kickoff_delivery_state: "acknowledged"}} ->
+        {:ok,
+         %{
+           fanout_role: "parent",
+           kickoff_delivery_state: "acknowledged",
+           report_delivery_state: "not_ready"
+         }} ->
           DynamicSupervisor.start_child(
             Supervisor,
             {Coordinator, Keyword.merge(opts, parent_id: parent_id)}
@@ -120,6 +156,15 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
     {:reply, normalize_start(result), state}
   end
 
+  def handle_call({:wake_parent, parent_id}, _from, state) do
+    case Map.get(state.coordinators, parent_id) do
+      pid when is_pid(pid) -> send(pid, :scheduler_reconcile)
+      nil -> send(self(), {:recover_coordinator, parent_id})
+    end
+
+    {:reply, :ok, state}
+  end
+
   def handle_call(:snapshot, _from, state) do
     {:reply,
      %{
@@ -133,6 +178,7 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
 
   def handle_call({:finish_fanout, parent_id}, _from, state) do
     state = untrack_coordinator(state, parent_id)
+    state = clear_orphan_run_monitors(state, parent_id)
 
     active =
       state.active
@@ -143,7 +189,8 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
       state
       | active: active,
         waiting: Map.delete(state.waiting, parent_id),
-        rotation: Enum.reject(state.rotation, &(&1 == parent_id))
+        rotation: Enum.reject(state.rotation, &(&1 == parent_id)),
+        recovery_attempts: Map.delete(state.recovery_attempts, parent_id)
     }
 
     {:reply, :ok, grant_waiters(state)}
@@ -151,31 +198,23 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
 
   @impl true
   def handle_cast({:release, child_id}, state) do
-    state = %{state | active: Map.delete(state.active, child_id)}
+    state = release_active_run(state, child_id)
     {:noreply, grant_waiters(state)}
   end
 
   def handle_cast({:recover_slot, parent_id, child_id}, state) do
-    {:noreply, put_active(state, parent_id, child_id)}
+    {:noreply, recover_live_run_slot(state, parent_id, child_id)}
   end
 
   def handle_cast({:track_coordinator, parent_id, pid}, state) do
-    state = untrack_coordinator(state, parent_id)
-    ref = Process.monitor(pid)
-
-    {:noreply,
-     %{
-       state
-       | coordinators: Map.put(state.coordinators, parent_id, pid),
-         monitor_refs: Map.put(state.monitor_refs, ref, parent_id)
-     }}
+    {:noreply, track_coordinator_state(state, parent_id, pid)}
   end
 
   @impl true
   def handle_info({:DOWN, ref, :process, _pid, _reason}, state) do
     case Map.pop(state.monitor_refs, ref) do
       {nil, _refs} ->
-        {:noreply, state}
+        handle_orphan_run_down(ref, state)
 
       {parent_id, refs} ->
         state = %{
@@ -184,19 +223,38 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
             coordinators: Map.delete(state.coordinators, parent_id)
         }
 
-        if recoverable_parent?(parent_id), do: send(self(), {:recover_coordinator, parent_id})
-        {:noreply, state}
+        state = purge_waiting_parent(state, parent_id)
+        state = monitor_orphaned_active_runs(state, parent_id)
+
+        if Fanout.recovery_required?(parent_id),
+          do: send(self(), {:recover_coordinator, parent_id})
+
+        {:noreply, grant_waiters(state)}
     end
   end
 
   def handle_info({:recover_coordinator, parent_id}, state) do
-    case DynamicSupervisor.start_child(Supervisor, {Coordinator, parent_id: parent_id}) do
-      {:ok, _pid} -> :ok
-      {:error, {:already_started, _pid}} -> :ok
-      {:error, _reason} -> :ok
-    end
+    if Fanout.recovery_required?(parent_id) do
+      case DynamicSupervisor.start_child(
+             Supervisor,
+             {Coordinator, parent_id: parent_id, recovery?: true}
+           ) do
+        {:ok, pid} ->
+          {:noreply, track_coordinator_state(state, parent_id, pid)}
 
-    {:noreply, state}
+        {:error, {:already_started, pid}} ->
+          {:noreply, track_coordinator_state(state, parent_id, pid)}
+
+        {:error, reason} ->
+          Logger.warning(
+            "fan-out coordinator recovery failed parent=#{parent_id} reason=#{inspect(reason)}"
+          )
+
+          {:noreply, schedule_recovery_retry(state, parent_id)}
+      end
+    else
+      {:noreply, clear_recovery_attempt(state, parent_id)}
+    end
   end
 
   defp normalize_start({:ok, pid}), do: {:ok, pid}
@@ -280,6 +338,157 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
     end
   end
 
+  defp track_coordinator_state(state, parent_id, pid) do
+    state = untrack_coordinator(state, parent_id)
+    ref = Process.monitor(pid)
+
+    %{
+      state
+      | coordinators: Map.put(state.coordinators, parent_id, pid),
+        monitor_refs: Map.put(state.monitor_refs, ref, parent_id),
+        recovery_attempts: Map.delete(state.recovery_attempts, parent_id)
+    }
+  end
+
+  defp schedule_recovery_retry(state, parent_id) do
+    attempt = Map.get(state.recovery_attempts, parent_id, 0)
+
+    delay =
+      min(
+        @recovery_retry_delay_ms * Integer.pow(2, min(attempt, 7)),
+        @max_recovery_retry_delay_ms
+      )
+
+    Process.send_after(self(), {:recover_coordinator, parent_id}, delay)
+    %{state | recovery_attempts: Map.put(state.recovery_attempts, parent_id, attempt + 1)}
+  end
+
+  defp clear_recovery_attempt(state, parent_id) do
+    %{state | recovery_attempts: Map.delete(state.recovery_attempts, parent_id)}
+  end
+
+  defp recover_live_run_slots(state, parents) do
+    Enum.reduce(parents, state, fn parent, state ->
+      parent
+      |> Fanout.children()
+      |> Enum.reduce(state, fn child, state ->
+        recover_live_run_slot(state, parent.id, child.id)
+      end)
+    end)
+  end
+
+  # A reconstructed slot must be monitored before coordinator recovery begins.
+  # Otherwise a worker that exits between Registry discovery and coordinator
+  # attachment can leave a permanently occupied global-capacity slot.
+  defp recover_live_run_slot(state, parent_id, child_id) do
+    case Registry.lookup(AllbertAssist.Objectives.Runs.Registry, {:run, child_id}) do
+      [{pid, _value}] ->
+        state
+        |> put_active(parent_id, child_id)
+        |> monitor_recovered_run(parent_id, child_id, pid)
+
+      [] ->
+        release_active_run(state, child_id)
+    end
+  end
+
+  defp monitor_recovered_run(state, parent_id, child_id, pid) do
+    if orphan_run_monitored?(state, child_id) do
+      state
+    else
+      ref = Process.monitor(pid)
+
+      %{
+        state
+        | orphan_run_monitor_refs:
+            Map.put(state.orphan_run_monitor_refs, ref, {parent_id, child_id})
+      }
+    end
+  end
+
+  defp release_active_run(state, child_id) do
+    {matching, remaining} =
+      Enum.split_with(state.orphan_run_monitor_refs, fn {_ref, {_parent_id, id}} ->
+        id == child_id
+      end)
+
+    Enum.each(matching, fn {ref, _value} -> Process.demonitor(ref, [:flush]) end)
+
+    %{
+      state
+      | active: Map.delete(state.active, child_id),
+        orphan_run_monitor_refs: Map.new(remaining)
+    }
+  end
+
+  defp purge_waiting_parent(state, parent_id) do
+    %{
+      state
+      | waiting: Map.delete(state.waiting, parent_id),
+        rotation: Enum.reject(state.rotation, &(&1 == parent_id))
+    }
+  end
+
+  defp monitor_orphaned_active_runs(state, parent_id) do
+    state.active
+    |> Enum.filter(fn {_child_id, active_parent_id} -> active_parent_id == parent_id end)
+    |> Enum.reduce(state, fn {child_id, _parent_id}, state ->
+      monitor_or_release_orphan_run(state, parent_id, child_id)
+    end)
+  end
+
+  defp monitor_or_release_orphan_run(state, parent_id, child_id) do
+    if orphan_run_monitored?(state, child_id),
+      do: state,
+      else: monitor_or_release_untracked_run(state, parent_id, child_id)
+  end
+
+  defp monitor_or_release_untracked_run(state, parent_id, child_id) do
+    case Registry.lookup(AllbertAssist.Objectives.Runs.Registry, {:run, child_id}) do
+      [{pid, _value}] ->
+        ref = Process.monitor(pid)
+
+        %{
+          state
+          | orphan_run_monitor_refs:
+              Map.put(state.orphan_run_monitor_refs, ref, {parent_id, child_id})
+        }
+
+      [] ->
+        %{state | active: Map.delete(state.active, child_id)}
+    end
+  end
+
+  defp orphan_run_monitored?(state, child_id) do
+    Enum.any?(state.orphan_run_monitor_refs, fn {_ref, {_parent_id, id}} -> id == child_id end)
+  end
+
+  defp handle_orphan_run_down(ref, state) do
+    case Map.pop(state.orphan_run_monitor_refs, ref) do
+      {nil, _refs} ->
+        {:noreply, state}
+
+      {{_parent_id, child_id}, refs} ->
+        state = %{
+          state
+          | orphan_run_monitor_refs: refs,
+            active: Map.delete(state.active, child_id)
+        }
+
+        {:noreply, grant_waiters(state)}
+    end
+  end
+
+  defp clear_orphan_run_monitors(state, parent_id) do
+    {matching, remaining} =
+      Enum.split_with(state.orphan_run_monitor_refs, fn {_ref, {id, _child_id}} ->
+        id == parent_id
+      end)
+
+    Enum.each(matching, fn {ref, _value} -> Process.demonitor(ref, [:flush]) end)
+    %{state | orphan_run_monitor_refs: Map.new(remaining)}
+  end
+
   defp demonitor_coordinator(monitor_refs, parent_id) do
     case Enum.find(monitor_refs, fn {_ref, id} -> id == parent_id end) do
       {ref, _} ->
@@ -288,19 +497,6 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
 
       nil ->
         monitor_refs
-    end
-  end
-
-  defp recoverable_parent?(parent_id) do
-    case Objectives.get_objective(parent_id) do
-      {:ok, %{status: status}} when status in ~w[open running blocked] ->
-        Enum.any?(
-          Fanout.children(parent_id),
-          &(&1.status not in ~w[completed cancelled failed abandoned])
-        )
-
-      _ ->
-        false
     end
   end
 

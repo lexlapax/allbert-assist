@@ -112,7 +112,7 @@ defmodule AllbertAssist.Actions.Skills.ImportLocalSkill do
       resume_params_ref: %{path: path}
     }
 
-    case Confirmations.create(attrs) do
+    case Confirmations.create(attrs, context) do
       {:ok, confirmation} ->
         {:ok,
          %{

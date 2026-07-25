@@ -5,6 +5,7 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
 
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Surface.Catalog
 
   test "renders objective details and cancels through registered action", %{conn: conn} do
@@ -217,6 +218,129 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
     assert html =~ "Steering queued"
     assert {:ok, steered} = Objectives.get_objective(first.id)
     assert Enum.any?(Objectives.list_events(steered.id), &(&1.kind == "steer_directive"))
+  end
+
+  test "rejects tampered child ids from another fan-out", %{conn: conn} do
+    assert {:ok, %{parent: parent}} =
+             Fanout.frame(
+               %{user_id: "local", title: "Visible launch", objective: "Visible launch"},
+               ["Visible research", "Visible draft"]
+             )
+
+    assert {:ok, %{children: [foreign | _]}} =
+             Fanout.frame(
+               %{user_id: "local", title: "Other launch", objective: "Other launch"},
+               ["Other research", "Other draft"]
+             )
+
+    {:ok, view, _html} = live(conn, ~p"/objectives/#{parent.id}")
+
+    assert render_hook(view, "steer_fanout_child", %{
+             "child-id" => foreign.id,
+             "directive" => "Ignore the visible launch"
+           }) =~ "That fan-out task is not active in this objective."
+
+    assert Objectives.list_events(foreign.id) == []
+
+    assert render_hook(view, "cancel_fanout_child", %{"child-id" => foreign.id}) =~
+             "That fan-out task is not active in this objective."
+
+    assert {:ok, unchanged} = Objectives.get_objective(foreign.id)
+    assert unchanged.status == "open"
+    assert Objectives.list_events(foreign.id) == []
+  end
+
+  test "stopping a fan-out preserves finished work and renders the partial outcome", %{conn: conn} do
+    assert {:ok, %{parent: parent, children: [completed, active]}} =
+             Fanout.frame(
+               %{
+                 user_id: "local",
+                 title: "Partially finished launch",
+                 objective: "Join two tasks"
+               },
+               ["Finished research", "Active draft"]
+             )
+
+    assert {:ok, _transition} =
+             TerminalTransitions.terminalize_child(
+               completed,
+               %{
+                 status: "completed",
+                 last_observation_summary: "Finished evidence is retained",
+                 completed_at: DateTime.utc_now()
+               },
+               "run_completed",
+               %{}
+             )
+
+    {:ok, view, _html} = live(conn, ~p"/objectives/#{parent.id}")
+
+    assert has_element?(view, "#objective-cancel-button", "Stop remaining work")
+
+    cancel_html =
+      view
+      |> element("#objective-cancel-button")
+      |> render_click()
+
+    assert cancel_html =~ "Completed child results are preserved"
+    assert cancel_html =~ "partial rather than cancelled"
+
+    result_html =
+      view
+      |> form("#objective-cancel-modal", %{reason: "Enough evidence collected"})
+      |> render_submit()
+
+    assert result_html =~ "final outcome is completed/partial"
+    assert result_html =~ "Finished evidence is retained"
+    assert {:ok, %{status: "completed"}} = Objectives.get_objective(completed.id)
+    assert {:ok, %{status: "cancelled"}} = Objectives.get_objective(active.id)
+
+    assert {:ok, %{status: "completed", join_outcome: "partial"}} =
+             Objectives.get_objective(parent.id)
+
+    refute has_element?(view, "#objective-cancel-button")
+  end
+
+  test "renders truthful joined child results without stale controls", %{conn: conn} do
+    assert {:ok, %{parent: parent, children: [completed, failed]}} =
+             Fanout.frame(
+               %{user_id: "local", title: "Joined launch", objective: "Join two tasks"},
+               ["Completed research", "Failed draft"]
+             )
+
+    assert {:ok, _transition} =
+             TerminalTransitions.terminalize_child(
+               completed,
+               %{
+                 status: "completed",
+                 last_observation_summary: "Primary sources reviewed",
+                 completed_at: DateTime.utc_now()
+               },
+               "run_completed",
+               %{}
+             )
+
+    assert {:ok, _transition} =
+             TerminalTransitions.terminalize_child(
+               failed,
+               %{
+                 status: "failed",
+                 progress_summary: "stale draft progress",
+                 review_reason: "Provider became unavailable",
+                 completed_at: DateTime.utc_now()
+               },
+               "run_failed",
+               %{}
+             )
+
+    {:ok, view, html} = live(conn, ~p"/objectives/#{parent.id}")
+
+    assert html =~ "Primary sources reviewed"
+    assert html =~ "Provider became unavailable"
+    refute html =~ "stale draft progress"
+    refute has_element?(view, "#fanout-child-#{completed.id} form")
+    refute has_element?(view, "#fanout-child-#{failed.id} form")
+    refute has_element?(view, "#objective-cancel-button")
   end
 
   defp assert_catalog_components_known!(html) do

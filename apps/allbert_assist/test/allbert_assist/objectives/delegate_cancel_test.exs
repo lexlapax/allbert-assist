@@ -1,14 +1,19 @@
 defmodule AllbertAssist.Objectives.DelegateCancelTest do
   use AllbertAssist.DataCase, async: false
 
+  import Ecto.Query
+
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Execution.ProcessOwner
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.AgentRegistry
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Lifecycle
+  alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Objectives.Runs.Cancel
   alias AllbertAssist.Objectives.Runs.CancelToken
+  alias AllbertAssist.Repo
 
   defmodule CheckpointAdapter do
     def operation(operation, state, opts) do
@@ -194,12 +199,17 @@ defmodule AllbertAssist.Objectives.DelegateCancelTest do
   test "parent cancellation preserves completed children and cancels active children" do
     assert {:ok, %{parent: parent, children: [completed, active]}} = frame()
 
-    assert {:ok, _completed} =
-             Objectives.update_objective(completed, %{
-               status: "completed",
-               completed_at: DateTime.utc_now(),
-               last_observation_summary: "finished before parent cancellation"
-             })
+    assert {:ok, %{child: %{status: "completed"}}} =
+             TerminalTransitions.terminalize_child(
+               completed,
+               %{
+                 status: "completed",
+                 completed_at: DateTime.utc_now(),
+                 last_observation_summary: "finished before parent cancellation"
+               },
+               "run_completed",
+               %{}
+             )
 
     assert {:ok, response} =
              Runner.run(
@@ -211,7 +221,138 @@ defmodule AllbertAssist.Objectives.DelegateCancelTest do
     assert response.status == :cancelled
     assert {:ok, %{status: "completed"}} = Objectives.get_objective(completed.id)
     assert {:ok, %{status: "cancelled"}} = Objectives.get_objective(active.id)
-    assert {:ok, %{status: "cancelled"}} = Objectives.get_objective(parent.id)
+
+    assert {:ok,
+            %{
+              status: "completed",
+              join_outcome: "partial",
+              report_delivery_state: "pending"
+            }} = Objectives.get_objective(parent.id)
+
+    assert Enum.count(Objectives.list_events(parent.id), &(&1.kind == "fanout_joined")) == 1
+  end
+
+  test "joined cancellation is idempotent and inconsistent cancellation fails closed" do
+    assert {:ok, %{parent: joined_parent, children: joined_children}} = frame()
+
+    Enum.each(joined_children, fn child ->
+      assert {:ok, _transition} =
+               TerminalTransitions.terminalize_child(
+                 child,
+                 %{status: "completed", completed_at: DateTime.utc_now()},
+                 "run_completed",
+                 %{}
+               )
+    end)
+
+    assert {:ok, already_finished} =
+             Runner.run(
+               "cancel_objective_run",
+               %{objective_id: joined_parent.id, reason: "late cancel"},
+               %{user_id: "cancel-user", channel: "test"}
+             )
+
+    assert already_finished.status == :already_finished
+
+    assert Enum.count(Objectives.list_events(joined_parent.id), &(&1.kind == "fanout_joined")) ==
+             1
+
+    assert {:ok, %{parent: corrupt_parent, children: corrupt_children}} = frame()
+
+    assert {1, _rows} =
+             Objective
+             |> where([objective], objective.id == ^corrupt_parent.id)
+             |> Repo.update_all(
+               set: [
+                 status: "completed",
+                 join_outcome: "success",
+                 report_delivery_state: "pending",
+                 completed_at: DateTime.utc_now()
+               ]
+             )
+
+    assert Fanout.parent_projection(corrupt_parent).phase == :inconsistent
+
+    assert {:ok, refused} =
+             Runner.run(
+               "cancel_objective_run",
+               %{objective_id: corrupt_parent.id, reason: "must fail closed"},
+               %{user_id: "cancel-user", channel: "test"}
+             )
+
+    assert refused.status == :error
+    assert refused.error == :fanout_state_inconsistent
+
+    assert Enum.all?(corrupt_children, fn child ->
+             match?({:ok, %{status: "open"}}, Objectives.get_objective(child.id))
+           end)
+
+    assert Enum.all?(corrupt_children, &(Objectives.list_events(&1.id) == []))
+  end
+
+  test "generic cancel_objective delegates fan-out parents to the fan-out cancellation action" do
+    assert {:ok, %{parent: parent, children: children}} = frame()
+
+    assert {:ok, response} =
+             Runner.run(
+               "cancel_objective",
+               %{objective_id: parent.id, reason: "delegate this cancellation"},
+               %{user_id: "cancel-user", channel: "test"}
+             )
+
+    assert response.status == :cancelled
+
+    assert Enum.all?(children, fn child ->
+             match?({:ok, %{status: "cancelled"}}, Objectives.get_objective(child.id))
+           end)
+  end
+
+  test "parent cancellation converges when a child completes during the cancellation boundary" do
+    for _iteration <- 1..8 do
+      assert {:ok, %{parent: parent, children: [racing, _sibling]}} = frame()
+
+      completion =
+        Task.async(fn ->
+          receive do: (:go -> :ok)
+
+          TerminalTransitions.terminalize_child(
+            racing,
+            %{
+              status: "completed",
+              last_observation_summary: "won the cancellation race",
+              completed_at: DateTime.utc_now()
+            },
+            "run_completed",
+            %{}
+          )
+        end)
+
+      cancellation =
+        Task.async(fn ->
+          receive do: (:go -> :ok)
+
+          Runner.run(
+            "cancel_objective_run",
+            %{objective_id: parent.id, reason: "race cancellation"},
+            %{user_id: "cancel-user", channel: "test"}
+          )
+        end)
+
+      send(completion.pid, :go)
+      send(cancellation.pid, :go)
+      _completion_result = Task.await(completion, 2_000)
+      assert {:ok, response} = Task.await(cancellation, 2_000)
+      assert response.status in [:cancelled, :already_finished]
+
+      eventually(fn -> Fanout.parent_projection(parent).phase == :joined end)
+
+      assert Enum.all?(Fanout.children(parent), fn child ->
+               child.status in ~w[completed cancelled failed abandoned] and
+                 child.review_reason != "cancellation_requested"
+             end)
+
+      assert Enum.count(Objectives.list_events(parent.id), &(&1.kind == "fanout_joined")) == 1
+    end
   end
 
   defp frame do

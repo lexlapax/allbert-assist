@@ -32,7 +32,8 @@ defmodule AllbertAssist.Actions.Support.ConfirmationRequest do
             Map.merge(
               %{origin: origin(context), security_decision: permission_decision},
               attrs
-            )
+            ),
+            context
           )
 
         {:needs_confirmation, confirmation}

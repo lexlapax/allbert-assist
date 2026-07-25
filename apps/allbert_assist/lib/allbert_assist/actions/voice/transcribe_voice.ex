@@ -210,7 +210,7 @@ defmodule AllbertAssist.Actions.Voice.TranscribeVoice do
       }
     }
 
-    case Confirmations.create(attrs) do
+    case Confirmations.create(attrs, context) do
       {:ok, confirmation} ->
         confirmation_id = confirmation_id(confirmation)
 

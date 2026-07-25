@@ -25,6 +25,8 @@ defmodule AllbertAssist.Actions.Objectives.ContinueObjective do
 
   alias AllbertAssist.Maps
   alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.Lifecycle
+  alias AllbertAssist.Objectives.Runs.Scheduler
   alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Security.PermissionGate
 
@@ -35,7 +37,8 @@ defmodule AllbertAssist.Actions.Objectives.ContinueObjective do
     with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
          {:ok, user_id} <- user_id(params, context),
          {:ok, objective_id} <- objective_id(params),
-         {:ok, result} <- Objectives.continue(user_id, objective_id) do
+         {:ok, objective} <- Objectives.get_objective(user_id, objective_id),
+         {:ok, result} <- continue_target(objective, user_id) do
       {:ok, response(result, permission_decision)}
     else
       {:allowed, false} ->
@@ -48,6 +51,74 @@ defmodule AllbertAssist.Actions.Objectives.ContinueObjective do
         {:ok, error(permission_decision, reason)}
     end
   end
+
+  defp continue_target(%{fanout_role: "child", status: "blocked"} = objective, _user_id) do
+    case Lifecycle.reconcile_blocked(objective.id) do
+      {:ok, :runnable} ->
+        :ok = Scheduler.wake_parent(objective.parent_objective_id)
+
+        {:ok,
+         %{
+           status: :queued,
+           objective: objective,
+           message: "Fan-out child #{objective.id} is queued to resume under supervision."
+         }}
+
+      {:ok, :parked} ->
+        {:ok,
+         %{
+           status: :still_blocked,
+           objective: objective,
+           reason: "Its durable confirmation is still pending or not resumable."
+         }}
+
+      {:ok, {:terminalized, child}} ->
+        {:ok,
+         %{
+           status: :objective_cancelled,
+           objective: child,
+           reason: child.review_reason || "The confirmation was denied."
+         }}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp continue_target(%{fanout_role: "child", status: status} = objective, _user_id)
+       when status in ~w[open running] do
+    :ok = Scheduler.wake_parent(objective.parent_objective_id)
+
+    {:ok,
+     %{
+       status: :queued,
+       objective: objective,
+       message: "Fan-out child #{objective.id} remains under supervised execution."
+     }}
+  end
+
+  defp continue_target(%{fanout_role: "child"} = objective, _user_id) do
+    status =
+      case objective.status do
+        "completed" -> :completed
+        "cancelled" -> :objective_cancelled
+        "failed" -> :objective_failed
+        "abandoned" -> :objective_abandoned
+      end
+
+    {:ok,
+     %{
+       status: status,
+       objective: objective,
+       reason: "Fan-out child is already #{objective.status}."
+     }}
+  end
+
+  defp continue_target(%{fanout_role: "parent"}, _user_id),
+    do: {:error, :fanout_parent_continuation_not_supported}
+
+  defp continue_target(objective, user_id),
+    do: Objectives.continue(user_id, objective.id)
 
   defp response(%{status: :completed, objective: objective, step: step}, permission_decision) do
     %{
@@ -80,6 +151,16 @@ defmodule AllbertAssist.Actions.Objectives.ContinueObjective do
          permission_decision
        ) do
     still_blocked(objective, permission_decision, reason)
+  end
+
+  defp response(%{status: :queued, objective: objective, message: message}, permission_decision) do
+    %{
+      message: message,
+      status: :queued,
+      objective: objective_map(objective),
+      permission_decision: permission_decision,
+      actions: [action(:queued, permission_decision, %{objective_id: objective.id})]
+    }
   end
 
   defp response(%{status: status, objective: objective, reason: reason}, permission_decision)

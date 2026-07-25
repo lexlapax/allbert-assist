@@ -1449,6 +1449,7 @@ defmodule AllbertAssist.Objectives.Commands.CancelObjective do
 
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Commands
+  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.{Objective, Step}
   alias AllbertAssist.Repo
 
@@ -1483,6 +1484,53 @@ defmodule AllbertAssist.Objectives.Commands.CancelObjective do
 
   defp cancel(%Objective{status: "abandoned"}, _reason, _params, _context),
     do: {:error, :objective_abandoned}
+
+  defp cancel(%Objective{fanout_role: "parent"}, _reason, _params, _context),
+    do: {:error, :fanout_parent_requires_registered_cancellation}
+
+  defp cancel(%Objective{fanout_role: "child"} = objective, reason, params, context) do
+    trace_id = trace_id(params, context)
+
+    transaction_hook = fn _cancelled ->
+      steps =
+        objective.id
+        |> Objectives.list_steps()
+        |> Enum.map(&cancel_step(&1, reason, params, context))
+
+      {:ok, %{cancelled_step_count: Enum.count(steps, &(&1.status == "cancelled"))}}
+    end
+
+    with {:ok, %{child: cancelled}} <-
+           TerminalTransitions.terminalize_child(
+             objective,
+             %{
+               status: "cancelled",
+               progress_summary: "Cancelled: #{reason}",
+               review_reason: String.slice(reason, 0, 240),
+               completed_at: DateTime.utc_now()
+             },
+             "cancelled",
+             %{reason: reason, trace_id: trace_id},
+             transaction_hook: transaction_hook,
+             signal: {:run_cancelled, %{reason: reason}}
+           ) do
+      Commands.emit_objective(:cancelled, cancelled, %{
+        stage: :cancel_objective,
+        reason: reason,
+        trace_id: trace_id
+      })
+
+      {:ok,
+       %{
+         objective: cancelled,
+         steps: Objectives.list_steps(cancelled.id),
+         event: List.first(Objectives.list_events(cancelled.id)),
+         reason: reason,
+         stage: "cancel_objective",
+         trace_id: trace_id
+       }}
+    end
+  end
 
   defp cancel(%Objective{} = objective, reason, params, context) do
     Repo.transaction(fn ->

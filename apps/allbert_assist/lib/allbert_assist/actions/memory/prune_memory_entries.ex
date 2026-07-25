@@ -134,19 +134,22 @@ defmodule AllbertAssist.Actions.Memory.PruneMemoryEntries do
   end
 
   defp create_confirmation(candidates, user_id, context, permission_decision) do
-    case Confirmations.create(%{
-           origin: origin(context, user_id),
-           target_action: %{name: "prune_memory_entries", module: inspect(__MODULE__)},
-           target_permission: :memory_write,
-           target_execution_mode: :memory_archive,
-           security_decision: permission_decision,
-           params_summary: %{
-             user_id: user_id,
-             candidate_count: length(candidates),
-             paths: Enum.map(candidates, & &1.path)
+    case Confirmations.create(
+           %{
+             origin: origin(context, user_id),
+             target_action: %{name: "prune_memory_entries", module: inspect(__MODULE__)},
+             target_permission: :memory_write,
+             target_execution_mode: :memory_archive,
+             security_decision: permission_decision,
+             params_summary: %{
+               user_id: user_id,
+               candidate_count: length(candidates),
+               paths: Enum.map(candidates, & &1.path)
+             },
+             resume_params_ref: %{user_id: user_id, write: true}
            },
-           resume_params_ref: %{user_id: user_id, write: true}
-         }) do
+           context
+         ) do
       {:ok, confirmation} ->
         {:ok,
          %{

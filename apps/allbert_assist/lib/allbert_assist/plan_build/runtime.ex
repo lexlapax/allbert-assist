@@ -193,6 +193,8 @@ defmodule AllbertAssist.PlanBuild.Runtime do
       },
       target_permission: permission,
       target_execution_mode: :plan_step_confirm,
+      objective_id: objective.id,
+      step_id: step.id,
       security_decision: permission_decision,
       params_summary: %{
         objective_id: objective.id,

@@ -1,14 +1,17 @@
 defmodule AllbertAssist.Security.V11SweepEvalTest do
   @moduledoc "Behavior-bound v1.1 fan-out authority and denial contracts."
 
-  use AllbertAssist.SecurityEvalCase, async: false, lane: :app_env_serial
+  use AllbertAssist.SecurityEvalCase, async: false, lane: :security_eval_serial
 
   alias AllbertAssist.Channels.Notify
   alias AllbertAssist.Channels.NotifyConsentCallback
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ChannelThread
+  alias AllbertAssist.Execution.ProcessOwner
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
+  alias AllbertAssist.Objectives.Runs.Cancel
   alias AllbertAssist.Objectives.Steering
   alias AllbertAssist.Paths
   alias AllbertAssist.Runtime
@@ -25,6 +28,7 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
     fanout-notify-redaction-001
     fanout-steer-no-approve-001
     fanout-steer-cross-user-001
+    fanout-cancel-kill-scope-001
     fanout-ack-cross-user-001
     fanout-report-ack-cross-user-001
     fanout-notify-origin-ref-cross-account-001
@@ -61,10 +65,10 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
   test "§I inventory is exact and every scenario has a distinct behavioral binding" do
     rows = EvalInventory.rows_for_milestone(:v11)
     assert MapSet.new(Enum.map(rows, & &1.id)) == MapSet.new(@ids)
-    assert length(rows) == 10
+    assert length(rows) == 11
     assert Enum.all?(rows, &(&1.test_module == inspect(__MODULE__)))
     assert Enum.all?(rows, &(length(&1.assert) == 3))
-    assert rows |> Enum.map(&MapSet.new(&1.assert)) |> Enum.uniq() |> length() == 10
+    assert rows |> Enum.map(&MapSet.new(&1.assert)) |> Enum.uniq() |> length() == 11
   end
 
   test "fanout-decomposition-advisory-001" do
@@ -179,6 +183,36 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
     ])
   end
 
+  test "fanout-cancel-kill-scope-001" do
+    cancelled_id = "eval-cancelled-#{System.unique_integer([:positive])}"
+    sibling_id = "eval-sibling-#{System.unique_integer([:positive])}"
+
+    on_exit(fn ->
+      _ = ProcessOwner.cancel(cancelled_id)
+      _ = ProcessOwner.cancel(sibling_id)
+    end)
+
+    cancelled = Task.async(fn -> run_uncooperative_process(cancelled_id) end)
+    sibling = Task.async(fn -> run_uncooperative_process(sibling_id) end)
+
+    cancelled_pid = await_os_pid(cancelled_id)
+    sibling_pid = await_os_pid(sibling_id)
+
+    assert {:ok, :os_kill} = Cancel.cancel(cancelled_id, grace_ms: 100)
+    assert {:ok, %{exit_status: nil}} = Task.await(cancelled, 5_000)
+    eventually(fn -> not os_process_alive?(cancelled_pid) end)
+    assert os_process_alive?(sibling_pid)
+
+    assert {:ok, :os_kill} = Cancel.cancel(sibling_id, grace_ms: 100)
+    assert {:ok, %{exit_status: nil}} = Task.await(sibling, 5_000)
+
+    bind("fanout-cancel-kill-scope-001", [
+      :addressed_group_terminated,
+      :sibling_group_survives,
+      :os_kill_tier_reported
+    ])
+  end
+
   test "fanout-ack-cross-user-001" do
     {:ok, %{parent: parent, fanout_start_receipt: receipt}} = bound_fanout!()
 
@@ -200,10 +234,12 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
 
     Enum.each(children, fn child ->
       {:ok, _} =
-        Objectives.update_objective(child, %{
-          status: "completed",
-          completed_at: DateTime.utc_now()
-        })
+        TerminalTransitions.terminalize_child(
+          child,
+          %{status: "completed", completed_at: DateTime.utc_now()},
+          "run_completed",
+          %{}
+        )
     end)
 
     assert {:ok, %{report_delivery_receipt: receipt}} = Fanout.finalize_join(parent)
@@ -269,6 +305,47 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
     )
   end
 
+  defp run_uncooperative_process(execution_id) do
+    ProcessOwner.run("/bin/sh", ["-c", "trap '' TERM; sleep 30"],
+      execution_id: execution_id,
+      cd: System.tmp_dir!(),
+      env: [],
+      timeout_ms: 30_000,
+      kill_grace_ms: 100,
+      max_output_bytes: 1_024
+    )
+  end
+
+  defp await_os_pid(execution_id) do
+    eventually(fn ->
+      case Registry.lookup(AllbertAssist.Execution.ProcessRegistry, {:execution, execution_id}) do
+        [{owner, _metadata}] -> :sys.get_state(owner).os_pid
+        [] -> false
+      end
+    end)
+  end
+
+  defp os_process_alive?(pid) do
+    match?(
+      {_, 0},
+      System.cmd("/bin/kill", ["-0", Integer.to_string(pid)], stderr_to_stdout: true)
+    )
+  end
+
+  defp eventually(fun, attempts \\ 100)
+  defp eventually(fun, 0), do: flunk("condition did not become true: #{inspect(fun.())}")
+
+  defp eventually(fun, attempts) do
+    case fun.() do
+      value when value in [false, nil] ->
+        Process.sleep(20)
+        eventually(fun, attempts - 1)
+
+      value ->
+        value
+    end
+  end
+
   defp bound_context(user_id),
     do: %{
       user_id: user_id,
@@ -293,21 +370,7 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
         }
       })
 
-    ref_map = %{
-      id: to_string(ref.id),
-      owner_scope: ref.owner_scope,
-      channel: ref.channel,
-      receiver_account_ref: ref.receiver_account_ref,
-      provider_thread_key: ref.provider_thread_key,
-      provider_thread_ref: ref.provider_thread_ref,
-      trust_class: ref.trust_class
-    }
-
-    digest =
-      ref_map
-      |> Jason.encode!()
-      |> then(&:crypto.hash(:sha256, &1))
-      |> Base.encode16(case: :lower)
+    digest = ChannelThread.canonical_ref_digest(ref)
 
     {:ok, %{parent: parent}} =
       Fanout.frame(

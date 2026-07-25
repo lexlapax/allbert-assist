@@ -13,10 +13,11 @@ changelog entries or release notes.
 ## v1.1.0 - Asynchronous Background Agent Fan-Out With In-Channel Steering
 
 Status: **release candidate preparation; not yet tagged or published.** The
-implementation and automated v1.1 gate are complete. Overall operator
-validation, binary publication/cosign, tap fill, packaged-platform rehearsal,
-and stable-release administration remain operator-held after the final
-implementation audit.
+implementation and focused M12.15 remediation are complete. The expanded
+automated v1.1 gate is defined but its one-commit release executions and overall
+operator validation remain pending. Binary publication/cosign, tap fill,
+packaged-platform rehearsal, and stable-release administration remain
+operator-held after those checks.
 
 **Formula state: PRE-PUBLICATION ONLY.** packaged Latest 1.0.5 and the
 repository formula remain at 1.0.5 during the RC window. At publish, the tap is
@@ -25,10 +26,12 @@ synced back into the repository before release closeout.
 
 Allbert can now decompose eligible turns into durable child objectives, return
 an honest kickoff task list before execution starts, run children concurrently
-under bounded OTP supervision, recover after crashes, and join every child
-outcome into one report. Mid-flight replies can request status, steer, cancel,
-or start a new request. Steering and cancellation use registered actions and
-cannot approve or lower the confirmation floor of effectful work.
+under bounded OTP supervision, recover after crashes, and atomically reduce the
+last child transition into one durable parent join and report receipt. The report
+labels mixed completed/failed/cancelled work as partial, and all-cancelled work
+as cancelled. Mid-flight replies can request status, steer, cancel, or start a
+new request. Steering and cancellation use registered actions and cannot approve
+or lower the confirmation floor of effectful work.
 
 Background status and completion delivery introduces the ADR 0084 autonomous
 notification authority. It is disabled by default per channel. When explicitly
@@ -38,14 +41,22 @@ Discord, Slack, and Matrix can edit one status message in place; other surfaces
 append according to their declared primitives, and Email remains
 completion-only. With notification disabled, durable reports wait for the next
 turn. Web and TUI attached sessions receive local live-region updates without
-granting remote delivery authority.
+granting remote delivery authority or creating an autonomous-delivery ledger.
+Their kickoff cannot release child execution until the complete TUI write or an
+exact browser-mounted Web delivery marker succeeds. They render each report before
+acknowledging its exact durable receipt; TUI can track multiple active fan-outs,
+and Web acknowledges multiple visible reports independently. OpenAI and ACP
+remain attended request/response surfaces: they hold for fan-in within a bound,
+leave a timed-out report pending for the next same-session turn, and acknowledge
+only after response output succeeds.
 
 The release also adds fair global/per-fan-out scheduling, cooperative through
 OS-process cancellation tiers, Signal daemon wiring, Email outbound delivery,
 descriptor-derived streaming/status parity, fan-out controls in Web and TUI,
-the additive `release.v11` security/runtime/channel/web gate, and a bounded
-ReqLLM refresh from 1.13.0 to 1.17.1. The frozen `release.v1` contract remains
-green; all public-contract changes are additive.
+the additive `release.v11` security/runtime/channel/web gate definition, and a
+bounded ReqLLM refresh from 1.13.0 to 1.17.1. The frozen `release.v1` contract is
+unchanged and must be re-proved at the final candidate SHA; all public-contract
+changes are additive.
 
 ## v1.0.5 - macOS Packaged Browser Port Correction
 

@@ -116,7 +116,7 @@ defmodule AllbertAssist.Actions.Skills.SearchOnlineSkills do
         permission_decision
       )
 
-    case Confirmations.create(attrs) do
+    case Confirmations.create(attrs, context) do
       {:ok, confirmation} ->
         {:ok,
          %{

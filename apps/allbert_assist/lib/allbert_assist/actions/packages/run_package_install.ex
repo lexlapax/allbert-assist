@@ -158,7 +158,7 @@ defmodule AllbertAssist.Actions.Packages.RunPackageInstall do
       resume_params_ref: InstallSpec.resume_params(spec, params)
     }
 
-    case Confirmations.create(attrs) do
+    case Confirmations.create(attrs, context) do
       {:ok, confirmation} ->
         _audit =
           Audit.append(:package_install, :requested, spec, permission_decision, %{
@@ -371,9 +371,7 @@ defmodule AllbertAssist.Actions.Packages.RunPackageInstall do
   defp confirmation_id(%{"id" => id}), do: id
   defp confirmation_id(_confirmation), do: nil
 
-  defp confirmation_metadata(nil), do: nil
-
-  defp confirmation_metadata(confirmation) do
+  defp confirmation_metadata(confirmation) when is_map(confirmation) do
     %{
       id: Map.get(confirmation, "id"),
       status: Map.get(confirmation, "status"),

@@ -14,6 +14,7 @@ defmodule AllbertAssist.Channels.Notify do
   alias AllbertAssist.Channels.Outbound
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Conversations.ThreadChannelRef
+  alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime.Audit
@@ -22,6 +23,9 @@ defmodule AllbertAssist.Channels.Notify do
   alias AllbertAssist.Signals
 
   @kinds [:status, :completion, :confirmation_request, :consent_offer]
+  @live_attached_channels ~w[tui live_view]
+  @non_autonomous_channels ~w[tui web live_view cli acp_stdio openai_api job]
+  @completion_event_key "joined"
 
   @doc "Settings Central fragment shared by channel plugins."
   def settings_schema(channel, opts \\ []) when is_binary(channel) do
@@ -51,13 +55,75 @@ defmodule AllbertAssist.Channels.Notify do
   @doc "Deliver one redacted notification, or persist why it was suppressed."
   def deliver(fanout_or_id, kind, body, opts \\ [])
       when kind in @kinds and is_binary(body) and is_list(opts) do
-    with {:ok, fanout} <- fanout(fanout_or_id),
-         {:ok, delivery} <- reserve(fanout, kind, opts) do
-      authorize_and_send(delivery, fanout, kind, body, opts)
-    else
+    with {:ok, fanout} <- fanout(fanout_or_id) do
+      deliver_preflight(fanout, kind, body, opts, delivery_preflight(fanout, kind, opts))
+    end
+  end
+
+  defp deliver_preflight(_fanout, _kind, _body, _opts, :attached_surface),
+    do: {:ok, :attached_surface}
+
+  defp deliver_preflight(fanout, kind, _body, opts, {:suppress, reason, preflight_opts}) do
+    reserve_then(fanout, kind, preflight_opts, &suppress(&1, reason, opts))
+  end
+
+  defp deliver_preflight(fanout, kind, body, opts, :send) do
+    reserve_then(
+      fanout,
+      kind,
+      opts,
+      &authorize_and_send(&1, fanout, kind, body, opts)
+    )
+  end
+
+  defp reserve_then(fanout, kind, opts, continuation) do
+    case reserve(fanout, kind, opts) do
+      {:ok, delivery} -> continuation.(delivery)
       {:terminal, %NotifyDelivery{} = delivery} -> {:ok, delivery}
       {:error, reason} -> {:error, reason}
     end
+  end
+
+  @doc "Recover one durable pending completion outbox without duplicate transport."
+  @spec recover_completion(Objective.t() | String.t(), keyword()) ::
+          {:ok, NotifyDelivery.t() | :attached_surface | :not_joined | :not_pending}
+          | {:error, term()}
+  def recover_completion(fanout_or_id, opts \\ []) when is_list(opts) do
+    with {:ok, fanout} <- fanout(fanout_or_id) do
+      projection = Fanout.parent_projection(fanout)
+
+      cond do
+        fanout.report_delivery_state != "pending" ->
+          {:ok, :not_pending}
+
+        projection.phase != :joined or not projection.authoritatively_joined? ->
+          {:ok, :not_joined}
+
+        autonomous_delivery_suppressed?(fanout) ->
+          {:ok, :attached_surface}
+
+        true ->
+          recover_completion_delivery(fanout, opts)
+      end
+    end
+  end
+
+  @doc "List durable completion outboxes that can make progress after restart."
+  @spec pending_completion_work() :: [Objective.t()]
+  def pending_completion_work do
+    Objective
+    |> where(
+      [objective],
+      objective.fanout_role == "parent" and objective.report_delivery_state == "pending"
+    )
+    |> order_by([objective], asc: objective.completed_at, asc: objective.id)
+    |> Repo.all()
+    |> Enum.reject(&autonomous_delivery_suppressed?/1)
+    |> Enum.filter(fn parent ->
+      projection = Fanout.parent_projection(parent)
+      projection.phase == :joined and projection.authoritatively_joined?
+    end)
+    |> Enum.filter(&completion_recoverable?/1)
   end
 
   @doc "Reserve the one-time in-band consent offer; true means it should render."
@@ -74,15 +140,7 @@ defmodule AllbertAssist.Channels.Notify do
   end
 
   defp consent_offer_blocked?(fanout) do
-    local_surface? = fanout.source_channel in ["web", "live_view", "cli", "tui"]
-
-    enabled? =
-      case Channels.channel_settings(fanout.source_channel) do
-        {:ok, settings} -> get_in(settings, ["autonomous_notify", "enabled"]) == true
-        _other -> false
-      end
-
-    local_surface? or enabled?
+    autonomous_delivery_suppressed?(fanout) or autonomous_enabled?(fanout)
   end
 
   defp consent_offer_pending?({status, %NotifyDelivery{offer_state: state}})
@@ -126,18 +184,26 @@ defmodule AllbertAssist.Channels.Notify do
          :ok <- throttle(fanout, channel, kind, settings, delivery),
          {:ok, decision} <- security(fanout, channel, kind),
          {:ok, target, thread} <- exact_target(fanout, settings),
-         {:ok, sending} <-
-           transition(delivery, %{state: "sending", attempt_count: delivery.attempt_count + 1}),
+         {:ok, sending} <- claim_delivery(delivery),
          result <-
-           dispatch(opts, sending, fanout, kind, channel, target, Redactor.redact(body), thread) do
-      settle_transport(sending, result, decision)
+           safe_dispatch(
+             opts,
+             sending,
+             fanout,
+             kind,
+             channel,
+             target,
+             Redactor.redact(body),
+             thread
+           ) do
+      settle_transport(sending, result, decision, opts)
     else
       {:terminal, %NotifyDelivery{} = existing} -> {:ok, existing}
-      {:error, reason} -> suppress(delivery, reason)
+      {:error, reason} -> suppress(delivery, reason, opts)
     end
   end
 
-  defp fanout(%Objective{} = objective), do: {:ok, objective}
+  defp fanout(%Objective{id: id}), do: fanout(id)
 
   defp fanout(id) when is_binary(id) do
     case Repo.get(Objective, id) do
@@ -176,11 +242,68 @@ defmodule AllbertAssist.Channels.Notify do
       %NotifyDelivery{state: "failed", attempt_count: attempts} = delivery when attempts < 2 ->
         {:ok, delivery}
 
+      %NotifyDelivery{state: "reserved"} = delivery ->
+        {:ok, delivery}
+
       %NotifyDelivery{} = delivery ->
         {:terminal, delivery}
 
       nil ->
         {:error, changeset}
+    end
+  end
+
+  defp delivery_preflight(fanout, _kind, _opts)
+       when fanout.source_channel in @non_autonomous_channels,
+       do: :attached_surface
+
+  defp delivery_preflight(fanout, :status, opts) do
+    case Channels.channel_settings(fanout.source_channel) do
+      {:ok, settings} ->
+        cond do
+          get_in(settings, ["autonomous_notify", "enabled"]) != true ->
+            {:suppress, :notify_disabled,
+             stable_status_suppression_opts(opts, fanout, :notify_disabled)}
+
+          get_in(settings, ["autonomous_notify", "level"]) != "status_and_completion" ->
+            {:suppress, :status_level_disabled,
+             stable_status_suppression_opts(opts, fanout, :status_level_disabled)}
+
+          true ->
+            :send
+        end
+
+      {:error, reason} ->
+        {:suppress, reason, stable_status_suppression_opts(opts, fanout, reason)}
+    end
+  end
+
+  defp delivery_preflight(_fanout, _kind, _opts), do: :send
+
+  defp stable_status_suppression_opts(opts, fanout, reason) do
+    Keyword.put(
+      opts,
+      :delivery_key,
+      delivery_key(fanout.id, :status, event_key: "suppressed:#{safe_reason(reason)}")
+    )
+  end
+
+  @doc false
+  @spec live_attached_surface?(Objective.t()) :: boolean()
+  def live_attached_surface?(%Objective{source_channel: channel}),
+    do: channel in @live_attached_channels
+
+  @doc false
+  @spec autonomous_delivery_suppressed?(Objective.t()) :: boolean()
+  def autonomous_delivery_suppressed?(%Objective{source_channel: channel}),
+    do: channel in @non_autonomous_channels
+
+  @doc false
+  @spec autonomous_enabled?(Objective.t()) :: boolean()
+  def autonomous_enabled?(%Objective{source_channel: channel}) do
+    case Channels.channel_settings(channel) do
+      {:ok, settings} -> get_in(settings, ["autonomous_notify", "enabled"]) == true
+      _other -> false
     end
   end
 
@@ -242,7 +365,7 @@ defmodule AllbertAssist.Channels.Notify do
          %ThreadChannelRef{} = ref <- Repo.get(ThreadChannelRef, id),
          true <- ref.channel == fanout.source_channel,
          true <- ref.receiver_account_ref == fanout.origin_receiver_account_ref,
-         true <- digest(ref) == fanout.origin_thread_ref_digest,
+         true <- ChannelThread.canonical_ref_digest(ref) == fanout.origin_thread_ref_digest,
          {:ok, external_user_id} <- unique_current_identity(settings, fanout.user_id),
          :ok <- verify_origin_identity(ref.provider_thread_ref, external_user_id),
          {:ok, target} <- transport_target(ref.channel, ref.provider_thread_ref, external_user_id) do
@@ -304,6 +427,16 @@ defmodule AllbertAssist.Channels.Notify do
     case Keyword.get(opts, :outbound_fun) || Keyword.get(configured, :outbound_fun) do
       fun when is_function(fun, 4) -> fun.(channel, target, body, thread: thread)
       _other -> Outbound.send(channel, target, body, thread: thread)
+    end
+  end
+
+  defp safe_dispatch(opts, delivery, fanout, kind, channel, target, body, thread) do
+    try do
+      dispatch(opts, delivery, fanout, kind, channel, target, body, thread)
+    rescue
+      exception -> {:error, {:uncertain, {exception.__struct__, Exception.message(exception)}}}
+    catch
+      caught_kind, reason -> {:error, {:uncertain, {caught_kind, reason}}}
     end
   end
 
@@ -379,7 +512,7 @@ defmodule AllbertAssist.Channels.Notify do
     |> Repo.one()
   end
 
-  defp settle_transport(delivery, {:ok, receipt}, decision) do
+  defp settle_transport(delivery, {:ok, receipt}, decision, opts) do
     provider_message_id = receipt_id(receipt)
 
     complete(
@@ -393,11 +526,12 @@ defmodule AllbertAssist.Channels.Notify do
         offer_state:
           if(delivery.kind == "consent_offer", do: "delivered", else: delivery.offer_state)
       },
-      decision
+      decision,
+      opts
     )
   end
 
-  defp settle_transport(delivery, {:ok, receipt, {:edit_fallback, reason}}, decision) do
+  defp settle_transport(delivery, {:ok, receipt, {:edit_fallback, reason}}, decision, opts) do
     provider_message_id = receipt_id(receipt)
 
     complete(
@@ -409,52 +543,119 @@ defmodule AllbertAssist.Channels.Notify do
         throttle_at: DateTime.utc_now(),
         error_class: "edit_fallback:" <> safe_reason(reason)
       },
-      decision
+      decision,
+      opts
     )
   end
 
-  defp settle_transport(delivery, {:error, {:uncertain, reason}}, decision) do
+  defp settle_transport(delivery, {:error, {:uncertain, reason}}, decision, opts) do
     complete(
       delivery,
       :uncertain,
       %{state: "uncertain", error_class: safe_reason(reason)},
-      decision
+      decision,
+      opts
     )
   end
 
-  defp settle_transport(delivery, {:error, reason}, decision) do
-    complete(delivery, :failed, %{state: "failed", error_class: safe_reason(reason)}, decision)
+  defp settle_transport(delivery, {:error, reason}, decision, opts) do
+    complete(
+      delivery,
+      :failed,
+      %{state: "failed", error_class: safe_reason(reason)},
+      decision,
+      opts
+    )
   end
 
-  defp settle_transport(delivery, other, decision),
-    do: settle_transport(delivery, {:error, {:invalid_transport_result, other}}, decision)
+  defp settle_transport(delivery, other, decision, opts),
+    do: settle_transport(delivery, {:error, {:invalid_transport_result, other}}, decision, opts)
 
-  defp suppress(delivery, reason) do
+  defp suppress(delivery, reason, opts) do
     decision = Security.authorize(:channel_autonomous_notify, %{})
 
     complete(
       delivery,
       :suppressed,
       %{state: "suppressed", error_class: safe_reason(reason)},
-      decision
+      decision,
+      opts
     )
   end
 
-  defp complete(delivery, event, attrs, decision) do
-    with {:ok, updated} <- transition(delivery, attrs) do
-      metadata = audit_metadata(updated, event)
-      audit_result = Audit.append(:channel_notify, event, metadata, decision)
-      Signals.emit_channel_notify(event, metadata)
+  defp complete(delivery, event, attrs, decision, opts) do
+    case transition(delivery, attrs) do
+      {:ok, updated} ->
+        metadata = audit_metadata(updated, event)
+        audit_result = append_audit(opts, event, metadata, decision)
+        Signals.emit_channel_notify(event, metadata)
 
-      case audit_result do
-        {:ok, _path} -> {:ok, updated}
-        {:error, reason} -> {:error, {:audit_failed, reason, updated}}
-      end
+        case audit_result do
+          {:ok, _path} -> {:ok, updated}
+          {:error, reason} -> {:error, {:audit_failed, reason, updated}}
+        end
+
+      {:terminal, current} ->
+        {:ok, current}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
-  defp transition(delivery, attrs),
-    do: delivery |> NotifyDelivery.changeset(attrs) |> Repo.update()
+  defp append_audit(opts, event, metadata, decision) do
+    case Keyword.get(opts, :audit_fun) do
+      fun when is_function(fun, 4) -> fun.(:channel_notify, event, metadata, decision)
+      _other -> Audit.append(:channel_notify, event, metadata, decision)
+    end
+  end
+
+  defp claim_delivery(%NotifyDelivery{state: state, attempt_count: attempts} = delivery)
+       when state == "reserved" or (state == "failed" and attempts < 2) do
+    now = DateTime.utc_now()
+
+    attrs = %{
+      state: "sending",
+      attempt_count: attempts + 1,
+      throttle_at: now,
+      error_class: nil,
+      updated_at: now
+    }
+
+    case compare_and_set(delivery, attrs) do
+      {:ok, claimed} -> {:ok, claimed}
+      {:terminal, current} -> {:terminal, current}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp claim_delivery(%NotifyDelivery{} = delivery), do: {:terminal, delivery}
+
+  defp transition(%NotifyDelivery{} = delivery, attrs) when is_map(attrs) do
+    changeset = NotifyDelivery.changeset(delivery, attrs)
+
+    if changeset.valid? do
+      changes = Map.put(changeset.changes, :updated_at, DateTime.utc_now())
+      compare_and_set(delivery, changes)
+    else
+      {:error, changeset}
+    end
+  end
+
+  defp compare_and_set(delivery, changes) do
+    query =
+      from current in NotifyDelivery,
+        where:
+          current.id == ^delivery.id and current.state == ^delivery.state and
+            current.attempt_count == ^delivery.attempt_count
+
+    case Repo.update_all(query, set: Map.to_list(changes)) do
+      {1, _rows} -> {:ok, Repo.get!(NotifyDelivery, delivery.id)}
+      {0, _rows} -> {:terminal, Repo.get!(NotifyDelivery, delivery.id)}
+    end
+  rescue
+    exception -> {:error, {exception.__struct__, Exception.message(exception)}}
+  end
 
   defp audit_metadata(delivery, event) do
     %{
@@ -475,7 +676,7 @@ defmodule AllbertAssist.Channels.Notify do
       Keyword.get(
         opts,
         :event_key,
-        if(kind == :status, do: System.unique_integer([:positive]), else: "terminal")
+        if(kind == :status, do: "status", else: "terminal")
       )
 
     digest =
@@ -485,20 +686,80 @@ defmodule AllbertAssist.Channels.Notify do
     "notify_#{digest}"
   end
 
-  defp digest(ref) do
-    %{
-      id: to_string(ref.id),
-      owner_scope: ref.owner_scope,
-      channel: ref.channel,
-      receiver_account_ref: ref.receiver_account_ref,
-      provider_thread_key: ref.provider_thread_key,
-      provider_thread_ref: ref.provider_thread_ref,
-      trust_class: ref.trust_class
-    }
-    |> Jason.encode!()
-    |> then(&:crypto.hash(:sha256, &1))
-    |> Base.encode16(case: :lower)
+  defp recover_completion_delivery(fanout, opts) do
+    key = completion_delivery_key(fanout)
+
+    case Repo.get_by(NotifyDelivery, delivery_key: key) do
+      nil ->
+        deliver(
+          fanout,
+          :completion,
+          completion_body(fanout),
+          Keyword.put(opts, :delivery_key, key)
+        )
+
+      %NotifyDelivery{state: "reserved"} ->
+        deliver(
+          fanout,
+          :completion,
+          completion_body(fanout),
+          Keyword.put(opts, :delivery_key, key)
+        )
+
+      %NotifyDelivery{state: "failed", attempt_count: attempts} when attempts < 2 ->
+        deliver(
+          fanout,
+          :completion,
+          completion_body(fanout),
+          Keyword.put(opts, :delivery_key, key)
+        )
+
+      %NotifyDelivery{state: "sending"} = delivery ->
+        decision = Security.authorize(:channel_autonomous_notify, %{})
+
+        complete(
+          delivery,
+          :uncertain,
+          %{state: "uncertain", error_class: "interrupted_while_sending"},
+          decision,
+          opts
+        )
+
+      %NotifyDelivery{} = delivery ->
+        {:ok, delivery}
+    end
   end
+
+  defp completion_recoverable?(fanout) do
+    case Repo.get_by(NotifyDelivery, delivery_key: completion_delivery_key(fanout)) do
+      nil -> true
+      %NotifyDelivery{state: state} when state in ~w[reserved sending delivered] -> true
+      %NotifyDelivery{state: "failed", attempt_count: attempts} when attempts < 2 -> true
+      %NotifyDelivery{} -> false
+    end
+  end
+
+  @doc false
+  @spec completion_delivery_key(Objective.t()) :: String.t()
+  def completion_delivery_key(%Objective{fanout_role: "parent"} = fanout) do
+    delivery_key(fanout.id, :completion, event_key: @completion_event_key)
+  end
+
+  defp completion_body(fanout) do
+    report = Fanout.report(fanout)
+
+    children =
+      Enum.map_join(report.children, "; ", fn child ->
+        "#{glyph(child.status)} #{child.title} — #{Fanout.report_child_detail(child)}"
+      end)
+
+    "#{report.title} — #{report.join_outcome}. #{children}"
+  end
+
+  defp glyph("completed"), do: "✓"
+  defp glyph("cancelled"), do: "⊘"
+  defp glyph("failed"), do: "✗"
+  defp glyph(_status), do: "•"
 
   defp receipt_id(receipt) when is_map(receipt) do
     receipt

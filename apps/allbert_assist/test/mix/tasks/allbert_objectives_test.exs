@@ -4,6 +4,8 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
   import ExUnit.CaptureIO
 
   alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias Mix.Tasks.Allbert.Objectives, as: ObjectivesTask
 
   setup do
@@ -97,6 +99,39 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
 
     assert {:ok, cancelled} = Objectives.get_objective(objective.id)
     assert cancelled.status == "cancelled"
+  end
+
+  test "show renders the authoritative fan-out phase, outcome, delivery, and child results" do
+    assert {:ok, %{parent: parent, children: children}} =
+             Fanout.frame(
+               %{user_id: "alice", title: "CLI fan-in", objective: "Render the joined tree"},
+               ["one", "two"]
+             )
+
+    Enum.each(children, fn child ->
+      assert {:ok, _transition} =
+               TerminalTransitions.terminalize_child(
+                 child,
+                 %{
+                   status: "completed",
+                   last_observation_summary: "result #{child.queue_position}",
+                   completed_at: DateTime.utc_now()
+                 },
+                 "run_completed",
+                 %{}
+               )
+    end)
+
+    output =
+      capture_io(fn ->
+        assert :ok = ObjectivesTask.run(["show", parent.id, "--user", "alice"])
+      end)
+
+    assert output =~ "Fan-out phase: joined"
+    assert output =~ "Join outcome: success"
+    assert output =~ "Report delivery: pending"
+    assert output =~ "- completed one — result 0"
+    assert output =~ "- completed two — result 1"
   end
 
   test "operator alias must match user" do

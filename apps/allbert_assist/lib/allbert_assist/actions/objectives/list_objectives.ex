@@ -28,6 +28,8 @@ defmodule AllbertAssist.Actions.Objectives.ListObjectives do
 
   alias AllbertAssist.Maps
   alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Runs.Scheduler
   alias AllbertAssist.Security.PermissionGate
 
   @impl true
@@ -73,22 +75,53 @@ defmodule AllbertAssist.Actions.Objectives.ListObjectives do
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
   end
 
-  defp objective_map(objective) do
+  defp objective_map(%{fanout_role: "parent"} = objective) do
+    projection = Fanout.parent_projection(objective)
+    if projection.phase == :recovering, do: wake_parent(projection.parent.id)
+
+    projection.parent
+    |> base_objective_map()
+    |> Map.merge(%{
+      status: projection.display_status,
+      fanout_role: "parent",
+      fanout_phase: projection.phase,
+      persisted_status: projection.persisted_status,
+      derived_status: projection.derived_status,
+      join_outcome: projection.persisted_join_outcome,
+      derived_join_outcome: projection.derived_join_outcome,
+      report_delivery_state: projection.parent.report_delivery_state,
+      children_terminal?: projection.children_terminal?
+    })
+    |> drop_nil()
+  end
+
+  defp objective_map(objective), do: objective |> base_objective_map() |> drop_nil()
+
+  defp wake_parent(parent_id) do
+    Scheduler.wake_parent(parent_id)
+  catch
+    :exit, _reason -> :ok
+  end
+
+  defp base_objective_map(objective) do
     %{
       id: objective.id,
       user_id: objective.user_id,
       title: objective.title,
       objective: objective.objective,
       status: objective.status,
+      fanout_role: objective.fanout_role,
+      parent_objective_id: objective.parent_objective_id,
       active_app: objective.active_app,
       source_thread_id: objective.source_thread_id,
       current_step_id: objective.current_step_id,
       loop_count: objective.loop_count,
       updated_at: objective.updated_at
     }
-    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
-    |> Map.new()
   end
+
+  defp drop_nil(map),
+    do: map |> Enum.reject(fn {_key, value} -> is_nil(value) end) |> Map.new()
 
   defp user_id(params, context) do
     case field(context, :user_id) || get_in_field(context, [:request, :user_id]) ||

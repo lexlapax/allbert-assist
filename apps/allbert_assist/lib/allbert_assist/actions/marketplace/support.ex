@@ -126,7 +126,7 @@ defmodule AllbertAssist.Actions.Marketplace.Support do
       resume_params_ref: params
     }
 
-    case Confirmations.create(attrs) do
+    case Confirmations.create(attrs, context) do
       {:ok, confirmation} ->
         {:ok,
          %{

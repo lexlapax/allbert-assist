@@ -11,12 +11,14 @@ defmodule AllbertAssistWeb.SignalBridge do
 
   require Logger
 
+  alias AllbertAssist.Objectives
   alias AllbertAssist.Workspace.Fragment
   alias AllbertAssist.Workspace.Fragment.Envelope
   alias Jido.Signal
   alias Jido.Signal.Bus
 
   @objective_pattern "allbert.objective.**"
+  @fanout_pattern "allbert.objectives.**"
   @workspace_pattern "allbert.workspace.**"
   @topic_prefix "objectives:"
   @workspace_topic_prefix "workspace:"
@@ -40,6 +42,7 @@ defmodule AllbertAssistWeb.SignalBridge do
     subscription_ids =
       %{
         objective: @objective_pattern,
+        fanout: @fanout_pattern,
         workspace: @workspace_pattern
       }
       |> Enum.map(fn {kind, pattern} -> {kind, subscribe(kind, pattern, subscribe_fun)} end)
@@ -51,8 +54,9 @@ defmodule AllbertAssistWeb.SignalBridge do
   @impl true
   def handle_info({:signal, %Signal{} = signal}, state) do
     cond do
-      String.starts_with?(signal.type, "allbert.objective.") ->
-        broadcast(signal, :objective_event)
+      String.starts_with?(signal.type, "allbert.objective.") or
+          String.starts_with?(signal.type, "allbert.objectives.") ->
+        broadcast_objective(signal)
 
       signal.type == "allbert.workspace.fragment.emitted" ->
         broadcast_fragment(signal)
@@ -68,6 +72,46 @@ defmodule AllbertAssistWeb.SignalBridge do
   end
 
   def handle_info(_message, state), do: {:noreply, state}
+
+  defp broadcast_objective(%Signal{data: data} = signal) when is_map(data) do
+    case signal_user_id(data) do
+      user_id when is_binary(user_id) and user_id != "" ->
+        Phoenix.PubSub.broadcast(
+          AllbertAssistWeb.PubSub,
+          topic_for(user_id),
+          {:objective_event, signal}
+        )
+
+      _missing ->
+        :ok
+    end
+  end
+
+  defp broadcast_objective(_signal), do: :ok
+
+  defp signal_user_id(data) do
+    durable_objective_user(data) || Map.get(data, :user_id) || Map.get(data, "user_id")
+  end
+
+  defp durable_objective_user(data) do
+    objective_id =
+      Map.get(data, :parent_id) || Map.get(data, "parent_id") ||
+        Map.get(data, :child_id) || Map.get(data, "child_id") ||
+        Map.get(data, :objective_id) || Map.get(data, "objective_id")
+
+    if is_binary(objective_id), do: safely_resolve_objective_user(objective_id)
+  end
+
+  defp safely_resolve_objective_user(objective_id) do
+    case Objectives.get_objective(objective_id) do
+      {:ok, objective} -> objective.user_id
+      _missing -> nil
+    end
+  rescue
+    _repo_unavailable -> nil
+  catch
+    :exit, _repo_unavailable -> nil
+  end
 
   defp subscribe(kind, pattern, subscribe_fun) do
     case subscribe_fun.(AllbertAssist.SignalBus, pattern) do

@@ -91,6 +91,48 @@ defmodule AllbertAssist.Intent.SteeringTest do
     assert Enum.all?(Fanout.children(foreign.parent), &(&1.status == "open"))
   end
 
+  test "ordinal mutations across multiple fan-outs clarify until the parent is named", ctx do
+    {:ok, second} =
+      Fanout.frame(
+        %{
+          user_id: "alice",
+          source_thread_id: "thread-1",
+          title: "Launch batch",
+          objective: "Launch batch"
+        },
+        ["Verify launch assets", "Draft launch announcement"]
+      )
+
+    assert {:clarify, message} =
+             Steering.classify("cancel the first task", [ctx.parent, second.parent])
+
+    assert message =~ "More than one fan-out is active"
+
+    assert {:ok, response} =
+             Steering.handle(%{
+               text: "cancel the first task",
+               user_id: "alice",
+               thread_id: "thread-1",
+               channel: :test,
+               coding_turn?: false
+             })
+
+    assert response.status == :clarification
+
+    for parent <- [ctx.parent, second.parent], child <- Fanout.children(parent) do
+      assert child.status == "open"
+      refute Enum.any?(Objectives.list_events(child.id), &(&1.kind == "cancellation_requested"))
+    end
+
+    assert {:cancel, [target]} =
+             Steering.classify("cancel the first task in Launch batch", [
+               ctx.parent,
+               second.parent
+             ])
+
+    assert target.title == "Verify launch assets"
+  end
+
   test "reviewable varied corpus meets per-class precision and recall floors", ctx do
     rows = steering_corpus()
     assert length(rows) == 150

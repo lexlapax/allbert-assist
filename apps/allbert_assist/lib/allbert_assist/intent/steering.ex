@@ -9,6 +9,7 @@ defmodule AllbertAssist.Intent.Steering do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Runs.Scheduler
 
   @active ~w[open running blocked]
   @status ~r/^\s*(?:status|progress|how(?:'s| is)|what(?:'s| is) the status)\b/iu
@@ -69,12 +70,54 @@ defmodule AllbertAssist.Intent.Steering do
   end
 
   defp mutation(kind, text, parents) do
-    targets = resolve_targets(text, parents)
+    scoped_parents = mutation_scope(text, parents)
+
+    if scoped_parents == :ambiguous do
+      {:clarify,
+       "More than one fan-out is active. Name the fan-out or a specific child before steering or cancelling it."}
+    else
+      resolve_mutation(kind, text, scoped_parents, parents)
+    end
+  end
+
+  defp resolve_mutation(kind, text, scoped_parents, parents) do
+    targets = Enum.filter(resolve_targets(text, scoped_parents), &(&1.status in @active))
 
     case targets do
-      [target] -> {kind, [target]}
-      [] -> {:clarify, "Which active task do you mean? Reply with its number or title."}
-      _ -> {:clarify, "That matches more than one active task. Reply with its number or title."}
+      [target] ->
+        {kind, [target]}
+
+      [] ->
+        missing_mutation_target(parents)
+
+      _many ->
+        {:clarify, "That matches more than one active task. Reply with its number or title."}
+    end
+  end
+
+  defp missing_mutation_target(parents) do
+    if Enum.any?(parents, &(Fanout.parent_projection(&1).phase == :recovering)) do
+      {:clarify, "All tasks are terminal; Allbert is finalizing the fan-out report."}
+    else
+      {:clarify, "Which active task do you mean? Reply with its number or title."}
+    end
+  end
+
+  defp mutation_scope(_text, [_one] = parents), do: parents
+
+  defp mutation_scope(text, parents) do
+    normalized = normalize(text)
+
+    matches =
+      Enum.filter(parents, fn parent ->
+        String.contains?(text, parent.id) or
+          (normalize(parent.title || "") != "" and
+             String.contains?(normalized, normalize(parent.title || "")))
+      end)
+
+    case matches do
+      [parent] -> [parent]
+      _other -> if ordinal_indices(normalized) != [], do: :ambiguous, else: parents
     end
   end
 
@@ -136,13 +179,23 @@ defmodule AllbertAssist.Intent.Steering do
 
   defp active_parents(request) do
     request.user_id
-    |> Objectives.list_objectives(
+    |> Objectives.control_objectives(
       source_thread_id: request.thread_id,
-      statuses: @active,
-      limit: 20
+      fanout_role: "parent"
     )
-    |> Enum.filter(&(&1.fanout_role == "parent"))
+    |> Enum.filter(&active_parent?/1)
   end
+
+  defp active_parent?(%{fanout_role: "parent"} = objective) do
+    projection = Fanout.parent_projection(objective)
+    maybe_wake_recovery(objective.id, projection.phase)
+    projection.phase in [:awaiting_kickoff, :running, :recovering]
+  end
+
+  defp active_parent?(_objective), do: false
+
+  defp maybe_wake_recovery(parent_id, :recovering), do: Scheduler.wake_parent(parent_id)
+  defp maybe_wake_recovery(_parent_id, _phase), do: :ok
 
   defp run_cancel(request, target) do
     {:ok, result} =
@@ -177,12 +230,22 @@ defmodule AllbertAssist.Intent.Steering do
   end
 
   defp report_response(_request, [_ | _] = parents) do
-    status = parents |> Enum.flat_map(&Fanout.children/1) |> status_response()
-    %{status | message: "Fan-out is still running:\n" <> status.message}
+    projections = Enum.map(parents, &Fanout.parent_projection/1)
+    running = Enum.filter(projections, &(&1.phase in [:awaiting_kickoff, :running]))
+
+    if running == [] and Enum.any?(projections, &(&1.phase == :recovering)) do
+      response(
+        "All tasks are terminal; Allbert is finalizing the fan-out report.",
+        :status
+      )
+    else
+      status = running |> Enum.flat_map(& &1.children) |> status_response()
+      %{status | message: "Fan-out is still running:\n" <> status.message}
+    end
   end
 
   defp report_response(request, []) do
-    case Fanout.pending_reports(request.user_id, request.thread_id) do
+    case Fanout.pending_reports(request.user_id, request.thread_id, request) do
       [] -> response("There is no active or pending fan-out report in this thread.", :status)
       _pending -> response("Completed fan-out report:", :completed)
     end

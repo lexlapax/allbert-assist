@@ -23,6 +23,7 @@ defmodule AllbertAssist.CLI.Areas.Objectives do
   alias AllbertAssist.CLI.Areas.Render
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.AgentRegistry
+  alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Surfaces.ContextBuilder
 
   @usage_exit 64
@@ -245,11 +246,33 @@ defmodule AllbertAssist.CLI.Areas.Objectives do
     ] ++
       field_line("Active app", objective[:active_app]) ++
       field_line("Thread", objective[:source_thread_id]) ++
+      fanout_lines(objective, response.children) ++
       ["", objective.objective, "", "Steps:"] ++
       step_lines(response.steps) ++
       ["", "Events:"] ++
       event_lines(response.events)
   end
+
+  defp fanout_lines(%{fanout_role: "parent"} = objective, children) do
+    [
+      "Fan-out phase: #{objective[:fanout_phase] || "unknown"}",
+      "Join outcome: #{objective[:join_outcome] || objective[:derived_join_outcome] || "pending"}",
+      "Report delivery: #{objective[:report_delivery_state] || "not_ready"}",
+      "Fan-out tasks:"
+    ] ++
+      Enum.map(children, fn child ->
+        detail =
+          Fanout.report_child_detail(%{
+            status: child.status,
+            result_summary: child[:last_observation_summary] || child[:progress_summary],
+            review_reason: child[:review_reason]
+          })
+
+        "- #{child.status} #{child.title} — #{detail}"
+      end)
+  end
+
+  defp fanout_lines(_objective, _children), do: []
 
   defp continue_lines(response) do
     [response.message] ++
@@ -297,7 +320,7 @@ defmodule AllbertAssist.CLI.Areas.Objectives do
 
   defp event_lines(events) do
     Enum.map(events, fn event ->
-      "- #{event.kind} #{event.summary || ""}"
+      "- #{event.kind} #{Map.get(event, :summary, "")}"
     end)
   end
 

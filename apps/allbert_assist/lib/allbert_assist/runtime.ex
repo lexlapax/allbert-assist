@@ -152,13 +152,14 @@ defmodule AllbertAssist.Runtime do
   def submit_user_input(_attrs), do: {:error, :invalid_request}
 
   @doc "Acknowledge successful kickoff delivery and make the fan-out runnable."
-  @spec acknowledge_fanout_start(String.t(), map()) :: :ok | {:error, term()}
+  @spec acknowledge_fanout_start(String.t(), map()) ::
+          :ok | {:error, :invalid_receipt | :receipt_identity_mismatch}
   def acknowledge_fanout_start(receipt, delivery_context) do
     with :ok <- Fanout.acknowledge_start(receipt, delivery_context),
-         {:ok, parent} <- fanout_parent_for_start_receipt(receipt, delivery_context) do
+         {:ok, parent} <- Fanout.parent_for_start_receipt(receipt, delivery_context) do
       case Settings.get("objectives.fanout.confirm_before_start") do
         {:ok, true} -> :ok
-        _other -> start_acknowledged_fanout(parent.id)
+        _other -> start_acknowledged_fanout(parent)
       end
     end
   end
@@ -210,9 +211,16 @@ defmodule AllbertAssist.Runtime do
       when is_binary(parent_id) and is_binary(user_id) and is_integer(timeout_ms) and
              timeout_ms >= 0 do
     with {:ok, parent} <- owned_fanout(parent_id, user_id) do
-      case Fanout.join_status(parent) do
-        %{terminal?: true} -> {:ok, Fanout.report(parent)}
-        _pending -> await_join_signal(parent, user_id, timeout_ms)
+      case Fanout.parent_projection(parent) do
+        %{phase: :joined, authoritatively_joined?: true} ->
+          {:ok, Fanout.report(parent)}
+
+        %{phase: :recovering} ->
+          _ = Scheduler.wake_parent(parent.id)
+          await_join_signal(parent, user_id, timeout_ms)
+
+        _pending ->
+          await_join_signal(parent, user_id, timeout_ms)
       end
     end
   end
@@ -245,13 +253,24 @@ defmodule AllbertAssist.Runtime do
       |> Map.put_new(:user_id, Map.get(response, :user_id))
       |> Map.put_new(:thread_id, Map.get(response, :thread_id))
 
-    start_context = Map.merge(base_context, get_in(response, [:fanout, :delivery_context]) || %{})
-
-    with :ok <-
-           acknowledge_optional_start(Map.get(response, :fanout_start_receipt), start_context),
+    with :ok <- acknowledge_kickoff_delivery(response, delivery_context),
          :ok <- Notify.mark_consent_offer_delivered(Map.get(response, :notify_offer, %{})) do
       acknowledge_pending_reports(Map.get(response, :pending_reports, []), base_context)
     end
+  end
+
+  @doc "Acknowledge only the kickoff handle after its caller-specific delivery succeeds."
+  @spec acknowledge_kickoff_delivery(map(), map()) ::
+          :ok | {:error, :invalid_receipt | :receipt_identity_mismatch}
+  def acknowledge_kickoff_delivery(response, delivery_context \\ %{})
+      when is_map(response) and is_map(delivery_context) do
+    base_context =
+      delivery_context
+      |> Map.put_new(:user_id, Map.get(response, :user_id))
+      |> Map.put_new(:thread_id, Map.get(response, :thread_id))
+
+    start_context = Map.merge(base_context, get_in(response, [:fanout, :delivery_context]) || %{})
+    acknowledge_optional_start(Map.get(response, :fanout_start_receipt), start_context)
   end
 
   @doc "Closed caller capability required before the runtime may frame fan-out work."
@@ -285,9 +304,16 @@ defmodule AllbertAssist.Runtime do
   defp await_join_signal(parent, user_id, timeout_ms) do
     with {:ok, subscription_id} <- subscribe_fanout(parent.id, user_id, self()) do
       try do
-        case Fanout.join_status(parent) do
-          %{terminal?: true} -> {:ok, Fanout.report(parent)}
-          _pending -> receive_join(parent, System.monotonic_time(:millisecond) + timeout_ms)
+        case Fanout.parent_projection(parent) do
+          %{phase: :joined, authoritatively_joined?: true} ->
+            {:ok, Fanout.report(parent)}
+
+          %{phase: :recovering} ->
+            _ = Scheduler.wake_parent(parent.id)
+            receive_join(parent, System.monotonic_time(:millisecond) + timeout_ms)
+
+          _pending ->
+            receive_join(parent, System.monotonic_time(:millisecond) + timeout_ms)
         end
       after
         Bus.unsubscribe(AllbertAssist.SignalBus, subscription_id)
@@ -302,7 +328,17 @@ defmodule AllbertAssist.Runtime do
       {:signal, %Signal{type: "allbert.objectives.fanout.joined", data: data}}
       when is_map(data) ->
         if fetch_value(data, :parent_id) == parent.id do
-          {:ok, Fanout.report(parent)}
+          case Fanout.parent_projection(parent) do
+            %{phase: :joined, authoritatively_joined?: true} ->
+              {:ok, Fanout.report(parent)}
+
+            %{phase: :recovering} ->
+              _ = Scheduler.wake_parent(parent.id)
+              receive_join(parent, deadline_ms)
+
+            _not_joined ->
+              receive_join(parent, deadline_ms)
+          end
         else
           receive_join(parent, deadline_ms)
         end
@@ -312,18 +348,29 @@ defmodule AllbertAssist.Runtime do
   end
 
   defp fanout_kickoff(parent) do
+    projection = Fanout.parent_projection(parent)
+
+    if projection.phase == :recovering do
+      _ = Scheduler.wake_parent(parent.id)
+    end
+
     %{
       parent_id: parent.id,
-      status: parent.status,
+      status: projection.display_status,
+      fanout_phase: projection.phase,
       delivery_state: parent.kickoff_delivery_state,
       children:
-        Enum.map(Fanout.children(parent), &%{id: &1.id, title: &1.title, status: &1.status})
+        Enum.map(
+          projection.children,
+          &%{id: &1.id, title: &1.title, status: &1.status}
+        )
     }
   end
 
   @typep fanout_kickoff :: %{
            parent_id: String.t(),
            status: String.t(),
+           fanout_phase: atom(),
            delivery_state: String.t() | nil,
            children: [map()]
          }
@@ -776,7 +823,7 @@ defmodule AllbertAssist.Runtime do
     |> Objectives.list_objectives()
     |> Enum.any?(fn objective ->
       objective.fanout_role == "parent" and objective.source_thread_id == request.thread_id and
-        objective.status in ~w[open running blocked]
+        Fanout.parent_projection(objective).phase in [:awaiting_kickoff, :running]
     end)
   end
 
@@ -821,7 +868,7 @@ defmodule AllbertAssist.Runtime do
     response =
       Response.completed(
         "I split this into #{length(children)} tasks:\n#{labels}\n\n" <>
-          "Reply in this thread to steer them. I'll report when you next message; enable autonomous notifications in settings to have results pushed here." <>
+          kickoff_delivery_message(parent) <>
           offer_text,
         fanout: %{
           parent_id: parent.id,
@@ -844,6 +891,19 @@ defmodule AllbertAssist.Runtime do
       end
 
     maybe_add_start_confirmation(response, parent)
+  end
+
+  defp kickoff_delivery_message(parent) do
+    cond do
+      Notify.live_attached_surface?(parent) ->
+        "Reply in this thread to steer them. I'll show the final report here as soon as it is ready."
+
+      Notify.autonomous_enabled?(parent) ->
+        "Reply in this thread to steer them. Status and the final report will be pushed here."
+
+      true ->
+        "Reply in this thread to steer them. I'll report when you next message; enable autonomous notifications in settings to have results pushed here."
+    end
   end
 
   defp maybe_add_start_confirmation(response, parent) do
@@ -888,11 +948,17 @@ defmodule AllbertAssist.Runtime do
     }
   end
 
-  defp start_acknowledged_fanout(parent_id) do
-    case Scheduler.start_fanout(parent_id) do
-      {:ok, _coordinator} -> :ok
-      {:error, {:already_started, _pid}} -> :ok
-      {:error, reason} -> {:error, reason}
+  defp start_acknowledged_fanout(parent) do
+    if Fanout.recovery_required?(parent) do
+      case Scheduler.start_fanout(parent.id) do
+        {:ok, _coordinator} ->
+          :ok
+
+        {:error, _transient_reason} ->
+          Scheduler.wake_parent(parent.id)
+      end
+    else
+      :ok
     end
   end
 
@@ -912,13 +978,7 @@ defmodule AllbertAssist.Runtime do
   defp origin_field(_request, _key), do: nil
 
   defp origin_ref_digest(nil), do: nil
-
-  defp origin_ref_digest(ref) do
-    ref
-    |> Jason.encode!()
-    |> then(&:crypto.hash(:sha256, &1))
-    |> Base.encode16(case: :lower)
-  end
+  defp origin_ref_digest(ref), do: ChannelThread.canonical_ref_digest(ref)
 
   defp fanout_delivery_context(parent) do
     %{
@@ -952,7 +1012,7 @@ defmodule AllbertAssist.Runtime do
   defp build_response(input_signal, response_signal, agent_response, request) do
     agent_response = Response.normalize(agent_response)
     media_outputs = MediaOutputs.collect(agent_response)
-    pending_reports = Fanout.pending_reports(request.user_id, request.thread_id)
+    pending_reports = Fanout.pending_reports(request.user_id, request.thread_id, request)
 
     %{
       message: agent_response.message,
@@ -992,40 +1052,11 @@ defmodule AllbertAssist.Runtime do
   defp attach_pending_report_text(response, pending_reports) do
     text =
       pending_reports
-      |> Enum.map_join("\n\n", fn pending -> format_fanout_report(pending.report) end)
+      |> Enum.map_join("\n\n", fn pending -> Fanout.format_report(pending.report) end)
 
     Enum.reduce([:message, :model_payload, :surface_payload], response, fn field, acc ->
       Map.update(acc, field, text, fn existing -> existing <> "\n\n" <> text end)
     end)
-  end
-
-  defp format_fanout_report(report) do
-    children =
-      Enum.map_join(report.children, "; ", fn child ->
-        "#{report_glyph(child.status)} #{child.title} — #{Fanout.report_child_detail(child)}"
-      end)
-
-    "#{report.title} — #{report.join_outcome || report.status}: #{children}"
-  end
-
-  defp report_glyph("completed"), do: "✓"
-  defp report_glyph("cancelled"), do: "⊘"
-  defp report_glyph("failed"), do: "✗"
-  defp report_glyph(_status), do: "•"
-
-  defp fanout_parent_for_start_receipt(receipt, context) do
-    user_id = fetch_value(context, :user_id)
-
-    user_id
-    |> Objectives.list_objectives()
-    |> Enum.find(fn objective ->
-      objective.fanout_role == "parent" and
-        Fanout.receipt_for(:start, objective.id) == receipt
-    end)
-    |> case do
-      nil -> {:error, :fanout_not_found}
-      parent -> {:ok, parent}
-    end
   end
 
   defp persist_user_message(request, input_signal) do
@@ -1060,7 +1091,7 @@ defmodule AllbertAssist.Runtime do
   defp record_channel_thread_link(request, ref) do
     case ChannelThread.link_thread(ref) do
       {:ok, thread_ref} ->
-        Map.update!(request, :channel_thread_ref, &Map.put(&1, :id, to_string(thread_ref.id)))
+        Map.put(request, :channel_thread_ref, ChannelThread.canonical_ref(thread_ref))
 
       {:error, reason} ->
         add_request_diagnostic(request, %{

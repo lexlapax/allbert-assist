@@ -4,6 +4,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Runs.Supervisor, as: RunsSupervisor
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
@@ -19,6 +20,9 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     assert {:ok, _setting} =
              Settings.put("objectives.fanout.confirm_before_start", false, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("channels.telegram.autonomous_notify.enabled", false, %{audit?: false})
 
     on_exit(fn ->
       if Process.whereis(RunsSupervisor) do
@@ -68,6 +72,144 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     assert Enum.map(Fanout.children(response.fanout.parent_id), &{&1.status, &1.review_reason}) ==
              [{"completed", nil}, {"completed", nil}]
+  end
+
+  test "exact kickoff receipt lookup is not starved by newer objective rows" do
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "first task; second task",
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+               channel: :test,
+               user_id: "receipt-owner"
+             })
+
+    for index <- 1..75 do
+      assert {:ok, _objective} =
+               Objectives.create_objective(%{
+                 user_id: "receipt-owner",
+                 title: "newer objective #{index}",
+                 objective: "newer objective #{index}"
+               })
+    end
+
+    identity = %{user_id: "receipt-owner", channel: "test", thread_id: response.thread_id}
+    assert :ok = Runtime.acknowledge_fanout_start(response.fanout_start_receipt, identity)
+
+    eventually(fn ->
+      Fanout.children(response.fanout.parent_id)
+      |> Enum.all?(&(&1.status == "completed"))
+    end)
+  end
+
+  test "kickoff acknowledgement after an authoritative join is a no-op" do
+    assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
+             Fanout.frame(
+               %{
+                 user_id: "alice",
+                 title: "Already joined",
+                 objective: "Do not restart",
+                 source_channel: "test",
+                 source_thread_id: "joined-thread"
+               },
+               ["one", "two"]
+             )
+
+    context = %{user_id: "alice", channel: "test", thread_id: "joined-thread"}
+    assert :ok = Fanout.acknowledge_start(receipt, context)
+
+    Enum.each(children, fn child ->
+      assert {:ok, _transition} =
+               TerminalTransitions.terminalize_child(
+                 child,
+                 %{
+                   status: "completed",
+                   last_observation_summary: "done",
+                   completed_at: DateTime.utc_now()
+                 },
+                 "run_completed",
+                 %{}
+               )
+    end)
+
+    assert Fanout.parent_projection(parent).phase == :joined
+    attempts_before = Enum.map(Fanout.children(parent), & &1.run_attempt_count)
+    assert :ok = Runtime.acknowledge_fanout_start(receipt, context)
+    assert Enum.map(Fanout.children(parent), & &1.run_attempt_count) == attempts_before
+    assert Enum.count(Objectives.list_events(parent.id), &(&1.kind == "fanout_joined")) == 1
+  end
+
+  test "kickoff copy tells attached surfaces that the final report will arrive in place" do
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    for channel <- [:tui, :live_view] do
+      assert {:ok, response} =
+               Runtime.submit_user_input(%{
+                 text: "first task; second task",
+                 channel: channel,
+                 user_id: "attached-#{channel}",
+                 delivery_ack_capability: Runtime.fanout_delivery_ack_capability()
+               })
+
+      assert response.message =~ "I'll show the final report here as soon as it is ready."
+      refute response.message =~ "I'll report when you next message"
+      refute Map.has_key?(response, :notify_offer)
+    end
+  end
+
+  test "kickoff copy keeps next-turn and opt-in guidance for detached channels" do
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "first task; second task",
+               channel: :telegram,
+               user_id: "detached",
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability()
+             })
+
+    assert response.message =~ "I'll report when you next message"
+    assert response.message =~ "enable autonomous notifications"
+  end
+
+  test "kickoff copy promises push delivery when a remote channel is already authorized" do
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("channels.telegram.autonomous_notify.enabled", true, %{audit?: false})
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "first task; second task",
+               channel: :telegram,
+               user_id: "authorized-remote",
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability()
+             })
+
+    assert response.message =~ "Status and the final report will be pushed here."
+    refute response.message =~ "enable autonomous notifications"
+  end
+
+  test "one-shot CLI kickoff does not promise an unattended in-place report" do
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "first task; second task",
+               channel: :cli,
+               user_id: "one-shot-cli",
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability()
+             })
+
+    assert response.message =~ "I'll report when you next message"
+    refute response.message =~ "as soon as it is ready"
+    refute Map.has_key?(response, :notify_offer)
   end
 
   test "an undelivered kickoff stays pending and retry reuses its receipt" do
@@ -121,12 +263,17 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              )
 
     for child <- children do
-      assert {:ok, _completed} =
-               Objectives.update_objective(child, %{
-                 status: "completed",
-                 last_observation_summary: "done #{child.queue_position}",
-                 completed_at: DateTime.utc_now()
-               })
+      assert {:ok, %{child: %{status: "completed"}}} =
+               TerminalTransitions.terminalize_child(
+                 child,
+                 %{
+                   status: "completed",
+                   last_observation_summary: "done #{child.queue_position}",
+                   completed_at: DateTime.utc_now()
+                 },
+                 "run_completed",
+                 %{}
+               )
     end
 
     assert {:ok, %{report_delivery_receipt: receipt}} = Fanout.finalize_join(parent)
@@ -155,7 +302,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              })
 
     assert [%{report_delivery_receipt: ^receipt}] =
-             Fanout.pending_reports("alice", first_turn.thread_id)
+             Fanout.pending_reports("alice", first_turn.thread_id, %{channel: "test"})
 
     assert :ok =
              Runtime.acknowledge_report_delivery(receipt, %{
@@ -164,7 +311,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                thread_id: first_turn.thread_id
              })
 
-    assert Fanout.pending_reports("alice", first_turn.thread_id) == []
+    assert Fanout.pending_reports("alice", first_turn.thread_id, %{channel: "test"}) == []
   end
 
   test "pending reports render truthful terminal reasons for non-success children" do
@@ -184,27 +331,42 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                ["completed task", "cancelled task", "failed task"]
              )
 
-    assert {:ok, _objective} =
-             Objectives.update_objective(completed, %{
-               status: "completed",
-               last_observation_summary: "completed result",
-               completed_at: DateTime.utc_now()
-             })
+    assert {:ok, %{child: %{status: "completed"}}} =
+             TerminalTransitions.terminalize_child(
+               completed,
+               %{
+                 status: "completed",
+                 last_observation_summary: "completed result",
+                 completed_at: DateTime.utc_now()
+               },
+               "run_completed",
+               %{}
+             )
 
-    assert {:ok, _objective} =
-             Objectives.update_objective(cancelled, %{
-               status: "cancelled",
-               last_observation_summary: "stale progress",
-               review_reason: "cancelled by operator",
-               completed_at: DateTime.utc_now()
-             })
+    assert {:ok, %{child: %{status: "cancelled"}}} =
+             TerminalTransitions.terminalize_child(
+               cancelled,
+               %{
+                 status: "cancelled",
+                 last_observation_summary: "stale progress",
+                 review_reason: "cancelled by operator",
+                 completed_at: DateTime.utc_now()
+               },
+               "run_cancelled",
+               %{}
+             )
 
-    assert {:ok, _objective} =
-             Objectives.update_objective(failed, %{
-               status: "failed",
-               review_reason: "provider unavailable",
-               completed_at: DateTime.utc_now()
-             })
+    assert {:ok, %{child: %{status: "failed"}}} =
+             TerminalTransitions.terminalize_child(
+               failed,
+               %{
+                 status: "failed",
+                 review_reason: "provider unavailable",
+                 completed_at: DateTime.utc_now()
+               },
+               "run_failed",
+               %{}
+             )
 
     assert {:ok, _join} = Fanout.finalize_join(parent)
 
@@ -220,6 +382,112 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert next_turn.message =~ "⊘ cancelled task — cancelled by operator"
     assert next_turn.message =~ "✗ failed task — provider unavailable"
     refute next_turn.message =~ "stale progress"
+  end
+
+  test "same user and thread on another channel cannot read or consume a pending report" do
+    assert {:ok, first_turn} =
+             Runtime.submit_user_input(%{text: "hello", channel: :test, user_id: "alice"})
+
+    assert {:ok, %{parent: parent, children: children}} =
+             Fanout.frame(
+               %{
+                 user_id: "alice",
+                 title: "Channel-bound report",
+                 objective: "Keep the result on its origin channel",
+                 source_channel: "test",
+                 source_surface: "channel",
+                 source_thread_id: first_turn.thread_id
+               },
+               ["one", "two"]
+             )
+
+    for child <- children do
+      assert {:ok, _transition} =
+               TerminalTransitions.terminalize_child(
+                 child,
+                 %{
+                   status: "completed",
+                   last_observation_summary: "origin-only result",
+                   completed_at: DateTime.utc_now()
+                 },
+                 "run_completed",
+                 %{}
+               )
+    end
+
+    assert {:ok, wrong_channel} =
+             Runtime.submit_user_input(%{
+               text: "show completed fan-out report",
+               channel: :other,
+               user_id: "alice",
+               thread_id: first_turn.thread_id
+             })
+
+    refute wrong_channel.message =~ "Channel-bound report"
+    assert Fanout.parent_projection(parent).parent.report_delivery_state == "pending"
+
+    assert {:ok, origin_channel} =
+             Runtime.submit_user_input(%{
+               text: "show completed fan-out report",
+               channel: :test,
+               user_id: "alice",
+               thread_id: first_turn.thread_id
+             })
+
+    assert origin_channel.message =~ "Channel-bound report"
+    assert [%{parent_objective_id: parent_id}] = origin_channel.pending_reports
+    assert parent_id == parent.id
+  end
+
+  test "next-turn report retrieval accepts a refreshed provider ref only for the same account" do
+    assert {:ok, %{parent: parent, children: children}} =
+             Fanout.frame(
+               %{
+                 user_id: "alice",
+                 title: "Stable thread report",
+                 objective: "Survive mutable provider metadata",
+                 source_channel: "telegram",
+                 source_thread_id: "canonical-thread",
+                 origin_thread_ref_id: "41",
+                 origin_thread_ref_digest: "stable-origin-digest",
+                 origin_receiver_account_ref: "telegram:bot:primary"
+               },
+               ["one", "two"]
+             )
+
+    Enum.each(children, fn child ->
+      assert {:ok, _transition} =
+               TerminalTransitions.terminalize_child(
+                 child,
+                 %{status: "completed", completed_at: DateTime.utc_now()},
+                 "run_completed",
+                 %{}
+               )
+    end)
+
+    refreshed_ref = %{
+      id: "99",
+      channel: "telegram",
+      receiver_account_ref: "telegram:bot:primary",
+      provider_thread_ref: %{"message_id" => "new-message"}
+    }
+
+    assert [%{parent_objective_id: parent_id}] =
+             Fanout.pending_reports("alice", "canonical-thread", %{
+               channel: "telegram",
+               channel_thread_ref: refreshed_ref
+             })
+
+    assert parent_id == parent.id
+
+    assert [] =
+             Fanout.pending_reports("alice", "canonical-thread", %{
+               channel: "telegram",
+               channel_thread_ref: %{
+                 refreshed_ref
+                 | receiver_account_ref: "telegram:bot:secondary"
+               }
+             })
   end
 
   test "an explicit fan-out report request returns active status or the joined report without intent routing" do
@@ -262,12 +530,17 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     refute active.message =~ "missing_plan_source"
 
     for child <- children do
-      assert {:ok, _completed} =
-               Objectives.update_objective(child, %{
-                 status: "completed",
-                 last_observation_summary: "result #{child.queue_position + 1}",
-                 completed_at: DateTime.utc_now()
-               })
+      assert {:ok, %{child: %{status: "completed"}}} =
+               TerminalTransitions.terminalize_child(
+                 child,
+                 %{
+                   status: "completed",
+                   last_observation_summary: "result #{child.queue_position + 1}",
+                   completed_at: DateTime.utc_now()
+                 },
+                 "run_completed",
+                 %{}
+               )
     end
 
     assert {:ok, _join} = Fanout.finalize_join(parent)

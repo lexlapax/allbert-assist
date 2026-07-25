@@ -94,15 +94,18 @@ defmodule AllbertAssist.Actions.Conversations.ResumeThreadOnChannel do
       |> Map.new()
       |> Map.put(:confirmed_trust_downgrade?, true)
 
-    case Confirmations.create(%{
-           origin: Origin.from_context(context, "resume_thread_on_channel"),
-           target_action: %{name: "resume_thread_on_channel", module: inspect(__MODULE__)},
-           target_permission: @permission,
-           target_execution_mode: :conversation_resume,
-           security_decision: confirmation_decision,
-           params_summary: downgrade,
-           resume_params_ref: resume_params
-         }) do
+    case Confirmations.create(
+           %{
+             origin: Origin.from_context(context, "resume_thread_on_channel"),
+             target_action: %{name: "resume_thread_on_channel", module: inspect(__MODULE__)},
+             target_permission: @permission,
+             target_execution_mode: :conversation_resume,
+             security_decision: confirmation_decision,
+             params_summary: downgrade,
+             resume_params_ref: resume_params
+           },
+           context
+         ) do
       {:ok, confirmation} ->
         {:ok,
          %{

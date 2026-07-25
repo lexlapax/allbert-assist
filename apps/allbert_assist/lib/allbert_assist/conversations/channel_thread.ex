@@ -102,6 +102,52 @@ defmodule AllbertAssist.Conversations.ChannelThread do
     |> Base.encode16(case: :lower)
   end
 
+  @doc "Return the stable durable fields used to bind delivery to one provider thread row."
+  @type canonical_thread_ref :: %{
+          id: String.t() | nil,
+          owner_scope: term(),
+          channel: term(),
+          receiver_account_ref: term(),
+          provider_thread_key: term(),
+          provider_thread_ref: term(),
+          trust_class: term()
+        }
+  @spec canonical_ref(map()) :: canonical_thread_ref()
+  def canonical_ref(%ThreadChannelRef{} = ref) do
+    %{
+      id: to_string(ref.id),
+      owner_scope: ref.owner_scope,
+      channel: ref.channel,
+      receiver_account_ref: ref.receiver_account_ref,
+      provider_thread_key: ref.provider_thread_key,
+      provider_thread_ref: ref.provider_thread_ref,
+      trust_class: ref.trust_class
+    }
+  end
+
+  def canonical_ref(ref) when is_map(ref) do
+    %{
+      id: optional_string(field(ref, :id)),
+      owner_scope: field(ref, :owner_scope),
+      channel: field(ref, :channel),
+      receiver_account_ref: field(ref, :receiver_account_ref),
+      provider_thread_key: field(ref, :provider_thread_key),
+      provider_thread_ref: field(ref, :provider_thread_ref),
+      trust_class: field(ref, :trust_class)
+    }
+  end
+
+  @doc "Digest one canonical durable provider-thread row for exact-origin delivery proof."
+  @spec canonical_ref_digest(map()) :: String.t()
+  def canonical_ref_digest(ref) do
+    ref
+    |> canonical_ref()
+    |> Map.take([:channel, :receiver_account_ref, :provider_thread_key])
+    |> Jason.encode!()
+    |> then(&:crypto.hash(:sha256, &1))
+    |> Base.encode16(case: :lower)
+  end
+
   @doc "Look up an existing canonical thread id for a normalized provider ref."
   @spec lookup_thread(map()) :: {:ok, String.t()} | {:error, :not_found | term()}
   def lookup_thread(attrs) when is_map(attrs) do
@@ -770,6 +816,9 @@ defmodule AllbertAssist.Conversations.ChannelThread do
     |> to_string()
     |> String.trim()
   end
+
+  defp optional_string(nil), do: nil
+  defp optional_string(value), do: to_string(value)
 
   defp atomize_message_ref_keys(attrs) do
     atomize_known_keys(attrs, [

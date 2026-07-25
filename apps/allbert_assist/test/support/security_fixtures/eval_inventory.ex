@@ -6901,6 +6901,16 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.V11SweepEvalTest"
     },
     %{
+      id: "fanout-cancel-kill-scope-001",
+      milestone: :v11,
+      surface: :resource_execution,
+      scenario: "Cancelling one fan-out child attempts to kill a sibling execution group",
+      boundary: :execution_process_group,
+      expected: :allowed,
+      assert: [:addressed_group_terminated, :sibling_group_survives, :os_kill_tier_reported],
+      test_module: "AllbertAssist.Security.V11SweepEvalTest"
+    },
+    %{
       id: "fanout-ack-cross-user-001",
       milestone: :v11,
       surface: :kickoff_delivery,

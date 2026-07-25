@@ -181,7 +181,7 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
       resume_params_ref: Map.merge(RequestSpec.resume_params(spec), consumer_params(params))
     }
 
-    case Confirmations.create(attrs) do
+    case Confirmations.create(attrs, context) do
       {:ok, confirmation} ->
         _audit =
           Audit.append(:external_request, :requested, spec, permission_decision, %{
@@ -492,9 +492,7 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
   defp confirmation_id(%{"id" => id}), do: id
   defp confirmation_id(_confirmation), do: nil
 
-  defp confirmation_metadata(nil), do: nil
-
-  defp confirmation_metadata(confirmation) do
+  defp confirmation_metadata(confirmation) when is_map(confirmation) do
     %{
       id: Map.get(confirmation, "id"),
       status: Map.get(confirmation, "status"),

@@ -5847,7 +5847,7 @@ defmodule Mix.Tasks.Allbert.Test do
       cwd: :core,
       executable: "mix",
       args: ["test", "test/security/v11_sweep_eval_test.exs"],
-      coverage: ["eleven :v11 rows are concrete, routed, and AssertBinding-bound"]
+      coverage: ["eleven :v11 rows plus the inventory meta-contract are behavior-bound"]
     },
     %{
       id: "v11_runtime_fanout",
@@ -5859,9 +5859,23 @@ defmodule Mix.Tasks.Allbert.Test do
         "test/allbert_assist/objectives/fanout_test.exs",
         "test/allbert_assist/objectives/fanout_steering_test.exs",
         "test/allbert_assist/objectives/delegate_cancel_test.exs",
-        "test/allbert_assist/intent/steering_test.exs"
+        "test/allbert_assist/intent/steering_test.exs",
+        "test/allbert_assist/actions/objectives/read_actions_test.exs",
+        "test/allbert_assist/confirmations_test.exs",
+        "test/allbert_assist/intent/engine_test.exs",
+        "test/allbert_assist/objectives/migration_round_trip_test.exs",
+        "test/allbert_assist/objectives/runs/lifecycle_test.exs",
+        "test/allbert_assist/objectives/runs/scheduler_test.exs",
+        "test/allbert_assist/objectives/runs/supervision_test.exs",
+        "test/allbert_assist/runtime/fanout_ack_test.exs",
+        "test/allbert_assist/runtime/fanout_callers_test.exs",
+        "test/allbert_assist/public_protocol/acp_fanout_test.exs",
+        "test/allbert_assist/public_protocol/acp_stdio_server_test.exs",
+        "test/mix/tasks/allbert_objectives_test.exs"
       ],
-      coverage: ["durable fan-out, ownership, steering accuracy, and tiered cancellation"]
+      coverage: [
+        "atomic fan-in, recovery, ownership, steering, cancellation, ACK, ACP, and CLI contracts"
+      ]
     },
     %{
       id: "v11_channel_authority",
@@ -5870,19 +5884,32 @@ defmodule Mix.Tasks.Allbert.Test do
       executable: "mix",
       args: [
         "test",
+        "test/allbert_assist/channels/channel_parity_test.exs",
         "test/allbert_assist/channels/notify_test.exs",
         "test/allbert_assist/channels/notify_edit_test.exs",
-        "test/allbert_assist/channels/tui_subscriptions_test.exs"
+        "test/allbert_assist/channels/tui_subscriptions_test.exs",
+        "test/allbert_assist/channels/tui_test.exs"
       ],
-      coverage: ["default-off authority, exact origin, edit-in-place, ephemeral TUI subscription"]
+      coverage: [
+        "default-off authority, exact origin, attended report output/ACK, and multi-fan-out TUI state"
+      ]
     },
     %{
       id: "v11_web_operator",
       title: "web fan-out operator controls",
       cwd: :web,
       executable: "mix",
-      args: ["test", "test/allbert_assist_web/live/objective_live_test.exs"],
-      coverage: ["fan-out tree and Runner-dispatched steer/cancel controls"]
+      args: [
+        "test",
+        "test/allbert_assist_web/live/objective_live_test.exs",
+        "test/allbert_assist_web/live/objectives_live_test.exs",
+        "test/allbert_assist_web/live/workspace_live_test.exs",
+        "test/allbert_assist_web/signal_bridge_test.exs",
+        "test/allbert_assist_web/public_protocol/openai_fanout_test.exs"
+      ],
+      coverage: [
+        "browser-render ACK, durable ownership, fan-out controls, index refresh, and OpenAI join hold"
+      ]
     }
   ]
 

@@ -89,7 +89,7 @@ defmodule AllbertAssist.Actions.Outbound.Gate do
       resume_params_ref: spec.resume_params
     }
 
-    case Confirmations.create(attrs) do
+    case Confirmations.create(attrs, context) do
       {:ok, confirmation} ->
         id = confirmation_id(confirmation)
 

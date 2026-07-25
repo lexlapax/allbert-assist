@@ -81,7 +81,10 @@ defmodule AllbertAssist.Actions.DynamicPlugins.RollbackIntegration do
   defp create_confirmation(slug, revision, context, permission_decision) do
     with {:ok, integration} <- MetadataStore.get_integration(slug, revision),
          {:ok, confirmation} <-
-           Confirmations.create(confirmation_attrs(integration, context, permission_decision)),
+           Confirmations.create(
+             confirmation_attrs(integration, context, permission_decision),
+             context
+           ),
          {:ok, integration} <- cache_confirmation(integration, confirmation),
          {:ok, _draft} <- cache_draft_confirmation(integration, confirmation) do
       {:ok,

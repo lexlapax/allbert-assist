@@ -24,6 +24,7 @@ defmodule AllbertAssist.Intent.Engine do
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Index, as: MemoryIndex
   alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.RegistryContext
   alias AllbertAssist.Settings
@@ -1226,9 +1227,10 @@ defmodule AllbertAssist.Intent.Engine do
     user_id = field(request, :user_id) || field(request, :operator_id) || "local"
 
     user_id
-    |> Objectives.list_objectives(status: ["open", "running", "blocked"], limit: 5)
+    |> Objectives.control_objectives()
     |> Enum.map(&candidate_from_objective(&1, registry))
     |> Enum.reject(&is_nil/1)
+    |> Enum.take(5)
   rescue
     _exception -> []
   end
@@ -1251,7 +1253,24 @@ defmodule AllbertAssist.Intent.Engine do
 
   defp objective_candidates(_request, _objective, _registry), do: []
 
+  defp candidate_from_objective(%Objective{fanout_role: "parent"} = objective, registry) do
+    case Fanout.parent_projection(objective) do
+      %{phase: phase, parent: parent} when phase in [:awaiting_kickoff, :running] ->
+        build_objective_candidate(parent, registry, phase)
+
+      _not_actionable ->
+        nil
+    end
+  end
+
   defp candidate_from_objective(objective, registry) do
+    if field(objective, :status) in ["open", "running", "blocked"] and
+         field(objective, :fanout_role) != "parent" do
+      build_objective_candidate(objective, registry, field(objective, :fanout_phase))
+    end
+  end
+
+  defp build_objective_candidate(objective, registry, fanout_phase) do
     id = field(objective, :id)
     title = field(objective, :title)
 
@@ -1272,7 +1291,10 @@ defmodule AllbertAssist.Intent.Engine do
           status: field(objective, :status),
           source_thread_id: field(objective, :source_thread_id),
           current_step_id: field(objective, :current_step_id),
-          loop_count: field(objective, :loop_count)
+          loop_count: field(objective, :loop_count),
+          fanout_role: field(objective, :fanout_role),
+          parent_objective_id: field(objective, :parent_objective_id),
+          fanout_phase: fanout_phase
         }
       },
       registry

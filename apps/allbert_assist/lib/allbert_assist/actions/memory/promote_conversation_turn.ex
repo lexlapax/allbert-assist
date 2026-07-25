@@ -90,28 +90,31 @@ defmodule AllbertAssist.Actions.Memory.PromoteConversationTurn do
   defp create_confirmation(attrs, user_id, thread_id, message_id, context, permission_decision) do
     preview = attrs.body |> String.replace(~r/\s+/, " ") |> String.slice(0, 240)
 
-    case Confirmations.create(%{
-           origin: origin(context, user_id),
-           target_action: %{name: "promote_conversation_turn", module: inspect(__MODULE__)},
-           target_permission: :memory_write,
-           target_execution_mode: :memory_promotion,
-           security_decision: permission_decision,
-           params_summary: %{
-             user_id: user_id,
-             thread_id: thread_id,
-             message_id: message_id,
-             category: attrs.category,
-             summary: attrs.summary,
-             body_preview: preview
+    case Confirmations.create(
+           %{
+             origin: origin(context, user_id),
+             target_action: %{name: "promote_conversation_turn", module: inspect(__MODULE__)},
+             target_permission: :memory_write,
+             target_execution_mode: :memory_promotion,
+             security_decision: permission_decision,
+             params_summary: %{
+               user_id: user_id,
+               thread_id: thread_id,
+               message_id: message_id,
+               category: attrs.category,
+               summary: attrs.summary,
+               body_preview: preview
+             },
+             resume_params_ref: %{
+               user_id: user_id,
+               thread_id: thread_id,
+               message_id: message_id,
+               category: attrs.category,
+               summary: attrs.summary
+             }
            },
-           resume_params_ref: %{
-             user_id: user_id,
-             thread_id: thread_id,
-             message_id: message_id,
-             category: attrs.category,
-             summary: attrs.summary
-           }
-         }) do
+           context
+         ) do
       {:ok, confirmation} ->
         {:ok,
          %{

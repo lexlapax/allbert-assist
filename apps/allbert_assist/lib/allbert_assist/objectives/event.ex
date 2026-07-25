@@ -25,11 +25,13 @@ defmodule AllbertAssist.Objectives.Event do
     fanout_joined
     report_delivered
     run_started
+    run_resumed
     run_progress
     run_blocked
     run_completed
     run_failed
     run_cancelled
+    run_abandoned
     steer_directive
     steer_applied
   ]

@@ -116,6 +116,29 @@ ACP v0.51 accepts text content blocks only. `cwd`, `additionalDirectories`,
 filesystem or MCP-client authority. ACP permission responses are advisory UI
 signals only; Allbert confirmation approval remains operator-owned.
 
+## v1.1 Fan-Out Continuations
+
+OpenAI-compatible and ACP requests are attended request/response surfaces, not
+autonomous channel notifications. An eligible multi-task request records and
+delivers its kickoff, then waits within a configured bound for the durable
+fan-in report:
+
+- OpenAI non-streaming holds the response for the joined report. SSE sends a
+  real kickoff chunk, a working-status chunk, then the joined completion and
+  `[DONE]`.
+- ACP runs a prompt in a supervised worker so the stdio owner can still accept
+  `session/cancel`; successful prompts emit the joined report before
+  `end_turn`.
+- If either surface reaches its continuation timeout, it returns the honest
+  kickoff and leaves the eventual report pending. The next turn in the same
+  owned session can carry that report.
+
+A report is marked delivered only after its HTTP chunk/body or ACP stdout
+frames have been written successfully. Only the report ids named by that
+response are acknowledged; a closed stream or failed write leaves them pending.
+None of this enables the default-off ADR 0084 remote report-back setting or
+creates an autonomous notification ledger.
+
 ## Artifacts
 
 v0.51 does not serve artifacts as MCP resources and does not expose artifacts
@@ -132,6 +155,10 @@ Run the deterministic release lane first:
 ```sh
 MIX_ENV=test mix allbert.test release.v051
 ```
+
+For v1.1 fan-out continuation and receipt behavior, the additive candidate gate
+is `MIX_ENV=test mix allbert.test release.v11`; its final candidate execution is
+required before operator validation.
 
 The gate writes its evidence JSON (including the secret scan) under
 `<gate-home>/release_evidence/<version>/`; the path is printed at the end of each run.

@@ -36,7 +36,11 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
     {20_260_722_000_100, AllbertAssist.Repo.Migrations.AddObjectiveFanoutColumns,
      "apps/allbert_assist/priv/repo/migrations/20260722000100_add_objective_fanout_columns.exs"},
     {20_260_722_000_200, AllbertAssist.Repo.Migrations.CreateChannelNotifyDeliveries,
-     "apps/allbert_assist/priv/repo/migrations/20260722000200_create_channel_notify_deliveries.exs"}
+     "apps/allbert_assist/priv/repo/migrations/20260722000200_create_channel_notify_deliveries.exs"},
+    {20_260_725_052_804, AllbertAssist.Repo.Migrations.EnforceUniqueFanoutJoinEvent,
+     "apps/allbert_assist/priv/repo/migrations/20260725052804_enforce_unique_fanout_join_event.exs"},
+    {20_260_725_052_900, AllbertAssist.Repo.Migrations.IndexPendingFanoutReportOutbox,
+     "apps/allbert_assist/priv/repo/migrations/20260725052900_index_pending_fanout_report_outbox.exs"}
   ]
 
   test "objective and workspace migrations run up and down on an isolated sqlite database" do
@@ -61,7 +65,7 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
       File.rm(db_path)
     end)
 
-    Enum.each(Enum.drop(@migrations, -1), fn {version, module, _path} ->
+    Enum.each(Enum.drop(@migrations, -2), fn {version, module, _path} ->
       assert :ok = Ecto.Migrator.up(MigrationRepo, version, module, log: false)
     end)
 
@@ -79,8 +83,19 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
       ]
     )
 
-    {version, module, _path} = List.last(@migrations)
-    assert :ok = Ecto.Migrator.up(MigrationRepo, version, module, log: false)
+    for event_id <- ["legacy-join-1", "legacy-join-2"] do
+      SQL.query!(
+        MigrationRepo,
+        "INSERT INTO objective_events (id, objective_id, kind, payload, recorded_at) VALUES (?, ?, 'fanout_joined', '{}', ?)",
+        [event_id, "pre-m6-objective", "2026-07-22T00:00:00Z"]
+      )
+    end
+
+    @migrations
+    |> Enum.take(-2)
+    |> Enum.each(fn {version, module, _path} ->
+      assert :ok = Ecto.Migrator.up(MigrationRepo, version, module, log: false)
+    end)
 
     assert table_exists?("objectives")
     assert table_exists?("objective_steps")
@@ -103,6 +118,22 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
     assert index_exists?("objectives_fanout_start_receipt_digest_index")
     assert table_exists?("channel_notify_deliveries")
     assert index_exists?("channel_notify_deliveries_delivery_key_index")
+    assert trigger_exists?("objective_events_one_fanout_join_insert")
+    assert trigger_exists?("objective_events_one_fanout_join_update")
+    assert index_exists?("objectives_pending_fanout_report_outbox_idx")
+
+    assert SQL.query!(
+             MigrationRepo,
+             "SELECT count(*) FROM objective_events WHERE objective_id = ? AND kind = 'fanout_joined'",
+             ["pre-m6-objective"]
+           ).rows == [[2]]
+
+    assert {:error, _constraint} =
+             SQL.query(
+               MigrationRepo,
+               "INSERT INTO objective_events (id, objective_id, kind, payload, recorded_at) VALUES ('new-join', ?, 'fanout_joined', '{}', ?)",
+               ["pre-m6-objective", "2026-07-25T00:00:00Z"]
+             )
 
     assert SQL.query!(MigrationRepo, "SELECT count(*) FROM objectives WHERE id = ?", [
              "pre-m6-objective"
@@ -162,6 +193,17 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
         MigrationRepo,
         "SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?",
         [index]
+      )
+
+    rows != []
+  end
+
+  defp trigger_exists?(trigger) do
+    %{rows: rows} =
+      SQL.query!(
+        MigrationRepo,
+        "SELECT name FROM sqlite_master WHERE type = 'trigger' AND name = ?",
+        [trigger]
       )
 
     rows != []

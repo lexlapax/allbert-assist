@@ -32,6 +32,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.Runs.Scheduler
   alias AllbertAssist.PlanBuild
   alias AllbertAssist.Resources.GrantHandoff
   alias AllbertAssist.Runtime.MediaOutputs
@@ -144,6 +145,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
         approve_pending(record, reason, context, permission_decision)
 
       {:ok, record} ->
+        _ = maybe_wake_fanout(record)
         completed(record, permission_decision, idempotent?: true)
 
       {:error, reason} ->
@@ -185,6 +187,58 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   end
 
   defp resolve_after_recheck(record, reason, context, permission_decision, target_decision) do
+    case Objectives.fanout_confirmation_target(record) do
+      {:ok, target} ->
+        queue_fanout_approval(
+          record,
+          target,
+          reason,
+          context,
+          permission_decision,
+          target_decision
+        )
+
+      {:error, :not_fanout_confirmation} ->
+        resume_non_fanout(record, reason, context, permission_decision, target_decision)
+
+      {:error, reason} ->
+        Context.denied(
+          "approve_confirmation",
+          :confirmation_decide,
+          permission_decision,
+          reason
+        )
+    end
+  end
+
+  defp queue_fanout_approval(
+         record,
+         target,
+         reason,
+         context,
+         permission_decision,
+         target_decision
+       ) do
+    metadata = %{
+      target_policy_decision: target_decision,
+      target_resumed?: false,
+      target_status: :queued,
+      target_result: %{status: :queued, objective_id: target.child.id}
+    }
+
+    with {:ok, %{confirmation: %{"status" => "approved"}} = approval} <-
+           resolve_status(record, :approved, reason, context, permission_decision, metadata),
+         :ok <- Scheduler.wake_parent(target.parent_id) do
+      {:ok,
+       Map.put(
+         approval,
+         :message,
+         "Confirmation #{record["id"]} is approved; #{target.child.title} is queued to resume under fan-out supervision."
+       )}
+    end
+  end
+
+  defp resume_non_fanout(record, reason, context, permission_decision, target_decision) do
     action_name = target_action_name(record)
 
     if action_name == PlanBuild.Runtime.plan_step_confirm_action() do
@@ -198,6 +252,13 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
         target_decision,
         action_name
       )
+    end
+  end
+
+  defp maybe_wake_fanout(%{} = confirmation) do
+    case Objectives.fanout_confirmation_target(confirmation) do
+      {:ok, %{parent_id: parent_id}} -> Scheduler.wake_parent(parent_id)
+      _other -> :ok
     end
   end
 

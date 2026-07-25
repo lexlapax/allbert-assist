@@ -19,6 +19,8 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   alias AllbertAssist.Coding.Session, as: CodingSession
   alias AllbertAssist.Coding.TurnSupervisor, as: CodingTurnSupervisor
   alias AllbertAssist.Intent.ApprovalHandoff
+  alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Runs.Scheduler
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.Redactor
   alias Jido.Signal
@@ -114,9 +116,25 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   end
 
   def handle_info({:signal, %Signal{type: "allbert.objectives." <> _rest} = signal}, state) do
-    if Subscriptions.attached_user_signal?(signal, Map.get(state.settings, "identity_map", [])) do
-      output_fun(state).(Subscriptions.status_line(signal))
-    end
+    state =
+      case Subscriptions.delivery(
+             signal,
+             Map.get(state.settings, "identity_map", []),
+             Map.merge(
+               %{
+                 channel: @channel,
+                 receiver_account_ref: "tui:#{state.profile}",
+                 fanouts: state.attached_fanouts
+               },
+               if(map_size(state.attached_fanouts) == 0,
+                 do: state.active_fanout || %{},
+                 else: %{}
+               )
+             )
+           ) do
+        {:ok, delivery} -> deliver_attached_fanout(delivery, state)
+        :ignore -> state
+      end
 
     {:noreply, state}
   end
@@ -208,6 +226,44 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     {:noreply, state}
   end
 
+  defp deliver_attached_fanout(delivery, state) do
+    delivered? =
+      Enum.reduce_while(delivery.lines, true, fn line, _delivered? ->
+        case safe_emit_output(line, state) do
+          {:error, reason} ->
+            Logger.debug("tui fan-out delivery failed: #{inspect(Redactor.redact(reason))}")
+            {:halt, false}
+
+          _delivered ->
+            {:cont, true}
+        end
+      end)
+
+    if delivered? and delivery.report do
+      case Runtime.acknowledge_report_delivery(
+             delivery.report.receipt,
+             delivery.report.delivery_context
+           ) do
+        :ok ->
+          :ok
+
+        {:error, reason} ->
+          Logger.debug("tui fan-out report acknowledgement failed: #{inspect(reason)}")
+      end
+    end
+
+    maybe_clear_active_fanout(state, delivery.parent_id)
+  end
+
+  defp safe_emit_output(line, state) do
+    emit_output(line, state)
+  rescue
+    error -> {:error, {:output_exception, Exception.message(error)}}
+  catch
+    :exit, reason -> {:error, {:output_exit, reason}}
+    kind, reason -> {:error, {kind, reason}}
+  end
+
   defp handle_auto_input(input, state) do
     case input do
       :escape ->
@@ -276,6 +332,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       pi_session: Keyword.get(opts, :pi_session),
       current_turn: nil,
       active_fanout: nil,
+      attached_fanouts: %{},
       queued_correction: nil,
       fanout_subscription_id: nil
     }
@@ -606,9 +663,39 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
 
   defp cancel_current_turn_state(
          _reason,
+         %{current_turn: nil, attached_fanouts: fanouts} = state
+       )
+       when map_size(fanouts) > 1 do
+    {{:ok, {:fanout_cancel_ambiguous, Map.keys(fanouts)}}, state}
+  end
+
+  defp cancel_current_turn_state(
+         _reason,
          %{current_turn: nil, active_fanout: %{parent_id: parent_id}} = state
-       ),
-       do: {{:ok, {:fanout_cancel_offer, parent_id}}, state}
+       ) do
+    case Fanout.parent_projection(parent_id) do
+      %{phase: phase} when phase in [:awaiting_kickoff, :running] ->
+        {{:ok, {:fanout_cancel_offer, parent_id}}, state}
+
+      %{phase: :recovering} ->
+        _ = Scheduler.wake_parent(parent_id)
+        {{:ok, {:fanout_finalizing, parent_id}}, maybe_clear_active_fanout(state, parent_id)}
+
+      %{phase: :joined} = projection ->
+        report = projection |> Fanout.report() |> Fanout.format_report()
+        {{:ok, {:fanout_joined, parent_id, report}}, maybe_clear_active_fanout(state, parent_id)}
+
+      %{phase: :inconsistent} ->
+        {{:ok, {:fanout_review_required, parent_id}}, maybe_clear_active_fanout(state, parent_id)}
+
+      _not_active ->
+        {{:error, :no_current_turn}, maybe_clear_active_fanout(state, parent_id)}
+    end
+  rescue
+    error ->
+      Logger.debug("tui fan-out cancellation projection failed: #{Exception.message(error)}")
+      {{:error, :no_current_turn}, maybe_clear_active_fanout(state, parent_id)}
+  end
 
   defp cancel_current_turn_state(_reason, %{current_turn: nil} = state),
     do: {{:error, :no_current_turn}, state}
@@ -709,6 +796,30 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
         state
       )
 
+  defp maybe_emit_cancel_feedback({:ok, {:fanout_finalizing, parent_id}}, state),
+    do:
+      emit_output(
+        "Fan-out #{parent_id} has no active tasks. Allbert is finalizing its durable report.",
+        state
+      )
+
+  defp maybe_emit_cancel_feedback({:ok, {:fanout_joined, _parent_id, report}}, state),
+    do: emit_output(report, state)
+
+  defp maybe_emit_cancel_feedback({:ok, {:fanout_review_required, parent_id}}, state),
+    do:
+      emit_output(
+        "Fan-out #{parent_id} has inconsistent durable state. No cancellation was sent; inspect its objective details.",
+        state
+      )
+
+  defp maybe_emit_cancel_feedback({:ok, {:fanout_cancel_ambiguous, parent_ids}}, state),
+    do:
+      emit_output(
+        "More than one fan-out is active (#{Enum.join(parent_ids, ", ")}). Name the fan-out or child you want to cancel.",
+        state
+      )
+
   defp maybe_emit_cancel_feedback({:error, :no_current_turn}, state),
     do: emit_output("No coding turn is currently running.", state)
 
@@ -717,10 +828,39 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
 
   defp maybe_emit_cancel_feedback(_reply, _state), do: :ok
 
-  defp track_active_fanout(%{fanout: %{parent_id: parent_id}}, state) when is_binary(parent_id),
-    do: %{state | active_fanout: %{parent_id: parent_id}}
+  defp track_active_fanout(%{fanout: %{parent_id: parent_id}} = response, state)
+       when is_binary(parent_id) do
+    attachment = %{
+      parent_id: parent_id,
+      thread_id: Map.get(response, :thread_id),
+      session_id: Map.get(response, :session_id)
+    }
+
+    %{
+      state
+      | active_fanout: attachment,
+        attached_fanouts: Map.put(state.attached_fanouts, parent_id, attachment)
+    }
+  end
 
   defp track_active_fanout(_response, state), do: state
+
+  defp maybe_clear_active_fanout(
+         %{active_fanout: %{parent_id: parent_id}} = state,
+         parent_id
+       ) do
+    remaining = Map.delete(state.attached_fanouts, parent_id)
+
+    %{
+      state
+      | active_fanout: remaining |> Map.values() |> List.last(),
+        attached_fanouts: remaining
+    }
+  end
+
+  defp maybe_clear_active_fanout(%{attached_fanouts: fanouts} = state, parent_id) do
+    %{state | attached_fanouts: Map.delete(fanouts, parent_id)}
+  end
 
   defp coding_turn_id(opts) do
     Keyword.get(opts, :coding_turn_id) ||
@@ -1214,7 +1354,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
          state <- clear_live_status(state),
          :ok <-
            Runtime.track_delivery(response, %{channel: @channel}, fn ->
-             emit_rendered(rendered, state)
+             emit_delivery(rendered, state)
            end),
          :ok <- Runtime.acknowledge_deliveries(response, %{channel: @channel}),
          {:ok, event} <- mark_processed(event, response, user_id, session_id) do
@@ -1427,6 +1567,15 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   defp emit_rendered(rendered, state) do
     Enum.each(rendered, &emit_output(&1, state))
     :ok
+  end
+
+  defp emit_delivery(rendered, state) do
+    Enum.reduce_while(rendered, :ok, fn line, :ok ->
+      case safe_emit_output(line, state) do
+        {:error, _reason} = error -> {:halt, error}
+        _delivered -> {:cont, :ok}
+      end
+    end)
   end
 
   defp emit_output(line, %{output_fun: output_fun}) when is_function(output_fun, 1) do

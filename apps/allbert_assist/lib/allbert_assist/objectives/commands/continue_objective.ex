@@ -65,6 +65,9 @@ defmodule AllbertAssist.Objectives.Commands.ContinueObjective do
      }}
   end
 
+  defp continue(%{fanout_role: role}, _params, _context) when role in ["parent", "child"],
+    do: {:error, :fanout_continue_requires_scheduler}
+
   defp continue(objective, params, context) do
     with {:ok, step} <- current_step(objective),
          :ok <- step_ready(step) do

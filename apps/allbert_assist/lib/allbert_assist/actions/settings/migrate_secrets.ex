@@ -107,15 +107,18 @@ defmodule AllbertAssist.Actions.Settings.MigrateSecrets do
   defp request_confirmation(permission_decision, resolution, context) do
     if resolution.tier == :os do
       {:ok, confirmation} =
-        Confirmations.create(%{
-          origin: origin(context),
-          target_action: %{name: name(), module: inspect(__MODULE__)},
-          target_permission: :settings_write,
-          target_execution_mode: :settings_write,
-          security_decision: permission_decision,
-          params_summary: %{target_tier: resolution.tier, refs: migratable_refs()},
-          resume_params_ref: %{}
-        })
+        Confirmations.create(
+          %{
+            origin: origin(context),
+            target_action: %{name: name(), module: inspect(__MODULE__)},
+            target_permission: :settings_write,
+            target_execution_mode: :settings_write,
+            security_decision: permission_decision,
+            params_summary: %{target_tier: resolution.tier, refs: migratable_refs()},
+            resume_params_ref: %{}
+          },
+          context
+        )
 
       {:ok,
        %{

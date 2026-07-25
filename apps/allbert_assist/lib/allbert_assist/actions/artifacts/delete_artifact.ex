@@ -81,22 +81,25 @@ defmodule AllbertAssist.Actions.Artifacts.DeleteArtifact do
   defp create_confirmation(artifact_ref, context, permission_decision) do
     with {:ok, artifact} <- Artifacts.get(artifact_ref),
          {:ok, confirmation} <-
-           Confirmations.create(%{
-             origin: Origin.from_context(context, @action_name),
-             target_action: %{name: @action_name, module: inspect(__MODULE__)},
-             target_permission: @permission,
-             target_execution_mode: :artifact_delete,
-             security_decision: permission_decision,
-             source_signal_id: Support.context_value(context, :runner_requested_signal_id),
-             params_summary: %{
-               sha256: artifact.sha256,
-               artifact_uri: artifact.artifact_uri,
-               metadata: Redactor.redact_artifact_metadata(artifact.metadata)
+           Confirmations.create(
+             %{
+               origin: Origin.from_context(context, @action_name),
+               target_action: %{name: @action_name, module: inspect(__MODULE__)},
+               target_permission: @permission,
+               target_execution_mode: :artifact_delete,
+               security_decision: permission_decision,
+               source_signal_id: Support.context_value(context, :runner_requested_signal_id),
+               params_summary: %{
+                 sha256: artifact.sha256,
+                 artifact_uri: artifact.artifact_uri,
+                 metadata: Redactor.redact_artifact_metadata(artifact.metadata)
+               },
+               resume_params_ref: %{
+                 sha256: artifact.sha256
+               }
              },
-             resume_params_ref: %{
-               sha256: artifact.sha256
-             }
-           }) do
+             context
+           ) do
       confirmation_id = confirmation["id"] || confirmation[:id]
 
       {:ok,

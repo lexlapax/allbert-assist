@@ -23,6 +23,7 @@ defmodule AllbertAssistWeb.ObjectivesLive do
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
   alias AllbertAssist.Surfaces.ContextBuilder
+  alias AllbertAssistWeb.SignalBridge
   alias AllbertAssistWeb.Workspace.Components.Patterns
   alias AllbertAssistWeb.Workspace.Renderer, as: WorkspaceRenderer
 
@@ -30,6 +31,10 @@ defmodule AllbertAssistWeb.ObjectivesLive do
 
   @impl true
   def mount(_params, _session, socket) do
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(AllbertAssistWeb.PubSub, SignalBridge.topic_for(@user_id))
+    end
+
     objectives = list_objectives(@user_id)
 
     {:ok,
@@ -40,6 +45,11 @@ defmodule AllbertAssistWeb.ObjectivesLive do
        objectives_surface: objectives_surface(objectives)
      )}
   end
+
+  @impl true
+  def handle_info({:objective_event, _signal}, socket), do: {:noreply, refresh(socket)}
+  def handle_info({:fragment, _envelope}, socket), do: {:noreply, socket}
+  def handle_info({:workspace_event, _signal}, socket), do: {:noreply, socket}
 
   @impl true
   def render(assigns) do
@@ -98,6 +108,11 @@ defmodule AllbertAssistWeb.ObjectivesLive do
       {:ok, %{status: :completed, objectives: objectives}} -> objectives
       _other -> []
     end
+  end
+
+  defp refresh(socket) do
+    objectives = list_objectives(socket.assigns.user_id)
+    assign(socket, objectives: objectives, objectives_surface: objectives_surface(objectives))
   end
 
   defp objectives_surface(objectives) do

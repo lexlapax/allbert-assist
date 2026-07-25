@@ -7,6 +7,7 @@ defmodule AllbertAssistWeb.ObjectiveLive do
 
   alias AllbertAssist.Actions.ErrorExtraction
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
   alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
@@ -54,9 +55,17 @@ defmodule AllbertAssistWeb.ObjectiveLive do
   end
 
   def handle_event("cancel_objective", %{"reason" => reason}, socket) do
-    params = %{id: socket.assigns.objective_id, user_id: socket.assigns.user_id, reason: reason}
+    objective = socket.assigns.objective
 
-    case Runner.run("cancel_objective", params, context(socket)) do
+    {action, params} =
+      if objective && objective[:fanout_role] in ["parent", "child"] do
+        {"cancel_objective_run", %{objective_id: objective.id, reason: reason}}
+      else
+        {"cancel_objective",
+         %{id: socket.assigns.objective_id, user_id: socket.assigns.user_id, reason: reason}}
+      end
+
+    case Runner.run(action, params, context(socket)) do
       {:ok, %{status: :cancelled} = response} ->
         {:noreply,
          socket
@@ -113,26 +122,34 @@ defmodule AllbertAssistWeb.ObjectiveLive do
         %{"child-id" => child_id, "directive" => directive},
         socket
       ) do
-    params = %{objective_id: child_id, directive: directive}
+    if active_assigned_child?(socket, child_id) do
+      params = %{objective_id: child_id, directive: directive}
 
-    case Runner.run("steer_objective_run", params, context(socket)) do
-      {:ok, %{status: :steered} = response} ->
-        {:noreply, socket |> assign(response: response_text(response), error: nil) |> refresh()}
+      case Runner.run("steer_objective_run", params, context(socket)) do
+        {:ok, %{status: :steered} = response} ->
+          {:noreply, socket |> assign(response: response_text(response), error: nil) |> refresh()}
 
-      {:ok, response} ->
-        {:noreply, assign(socket, error: response_error(response))}
+        {:ok, response} ->
+          {:noreply, assign(socket, error: response_error(response))}
+      end
+    else
+      {:noreply, assign(socket, error: "That fan-out task is not active in this objective.")}
     end
   end
 
   def handle_event("cancel_fanout_child", %{"child-id" => child_id}, socket) do
-    params = %{objective_id: child_id, reason: "Cancelled from fan-out objective view."}
+    if active_assigned_child?(socket, child_id) do
+      params = %{objective_id: child_id, reason: "Cancelled from fan-out objective view."}
 
-    case Runner.run("cancel_objective_run", params, context(socket)) do
-      {:ok, %{status: :cancelled} = response} ->
-        {:noreply, socket |> assign(response: response_text(response), error: nil) |> refresh()}
+      case Runner.run("cancel_objective_run", params, context(socket)) do
+        {:ok, %{status: :cancelled} = response} ->
+          {:noreply, socket |> assign(response: response_text(response), error: nil) |> refresh()}
 
-      {:ok, response} ->
-        {:noreply, assign(socket, error: response_error(response))}
+        {:ok, response} ->
+          {:noreply, assign(socket, error: response_error(response))}
+      end
+    else
+      {:noreply, assign(socket, error: "That fan-out task is not active in this objective.")}
     end
   end
 
@@ -193,6 +210,13 @@ defmodule AllbertAssistWeb.ObjectiveLive do
             aria-labelledby="fanout-tree-title"
           >
             <h2 id="fanout-tree-title" class="operator-section-title">Fan-out tasks</h2>
+            <p
+              :if={@objective[:fanout_phase] == :recovering}
+              id="fanout-finalizing"
+              class="text-sm text-warning"
+            >
+              All tasks are terminal. Allbert is finalizing the durable fan-in report.
+            </p>
             <p class="text-sm text-base-content/70">
               Status is live from durable objective events. Steering is applied before the next effect.
             </p>
@@ -205,8 +229,12 @@ defmodule AllbertAssistWeb.ObjectiveLive do
                 <h3 class="font-medium">{child.title}</h3>
                 <span class="allbert-chip">{child.status}</span>
               </header>
-              <p class="mt-1 text-sm">{child[:progress_summary] || "No progress recorded yet."}</p>
-              <form phx-submit="steer_fanout_child" class="mt-3 flex flex-wrap gap-2">
+              <p class="mt-1 text-sm">{fanout_child_detail(child)}</p>
+              <form
+                :if={child.status in ["open", "running", "blocked"]}
+                phx-submit="steer_fanout_child"
+                class="mt-3 flex flex-wrap gap-2"
+              >
                 <input type="hidden" name="child-id" value={child.id} />
                 <input
                   id={"fanout-steer-directive-#{child.id}"}
@@ -245,10 +273,10 @@ defmodule AllbertAssistWeb.ObjectiveLive do
               <header class="workspace-pane-header">
                 <div class="workspace-pane-title-block">
                   <h2 id="objective-cancel-title" class="workspace-pane-title">
-                    Cancel Objective
+                    {cancel_dialog_title(@objective)}
                   </h2>
                   <p id="objective-cancel-help" class="workspace-pane-subtitle">
-                    The registered cancel action records the reason and updates every open step.
+                    {cancel_dialog_help(@objective)}
                   </p>
                 </div>
               </header>
@@ -349,6 +377,25 @@ defmodule AllbertAssistWeb.ObjectiveLive do
   defp objective_title(nil), do: "Objective"
   defp objective_title(objective), do: objective.title
 
+  defp fanout_child_detail(%{status: status} = child)
+       when status in ["open", "running", "blocked"] do
+    child[:progress_summary] || child[:last_observation_summary] || "No progress recorded yet."
+  end
+
+  defp fanout_child_detail(child) do
+    Fanout.report_child_detail(%{
+      status: child.status,
+      result_summary: child[:last_observation_summary] || child[:progress_summary],
+      review_reason: child[:review_reason]
+    })
+  end
+
+  defp active_assigned_child?(socket, child_id) do
+    Enum.any?(socket.assigns.children, fn child ->
+      child.id == child_id and child.status in ["open", "running", "blocked"]
+    end)
+  end
+
   defp objective_subtitle(nil, objective_id), do: objective_id
   defp objective_subtitle(objective, _objective_id), do: objective.id
 
@@ -381,19 +428,23 @@ defmodule AllbertAssistWeb.ObjectiveLive do
   end
 
   defp cancel_objective_node(objective) do
-    if objective.status not in ["cancelled", "completed", "failed", "abandoned"] do
+    if objective.status not in ["cancelled", "completed", "failed", "abandoned"] and
+         objective[:fanout_phase] not in [:recovering, :inconsistent] do
       %Node{
         id: "objective-cancel",
         component: :button,
         props: %{
           dom_id: "objective-cancel-button",
-          title: "Cancel",
+          title:
+            if(objective[:fanout_role] == "parent", do: "Stop remaining work", else: "Cancel"),
           phx_click: "show_cancel",
           variant: "danger"
         }
       }
     end
   end
+
+  defp continue_objective_node(%{fanout_role: role}) when role in ["parent", "child"], do: nil
 
   defp continue_objective_node(%{status: "blocked"}) do
     %Node{
@@ -409,6 +460,17 @@ defmodule AllbertAssistWeb.ObjectiveLive do
   end
 
   defp continue_objective_node(_objective), do: nil
+
+  defp cancel_dialog_title(%{fanout_role: "parent"}), do: "Stop Remaining Work"
+  defp cancel_dialog_title(_objective), do: "Cancel Objective"
+
+  defp cancel_dialog_help(%{fanout_role: "parent"}) do
+    "Active children will be stopped. Completed child results are preserved, so the final fan-in outcome may be partial rather than cancelled."
+  end
+
+  defp cancel_dialog_help(_objective) do
+    "The registered cancel action records the reason and updates every open step."
+  end
 
   defp objective_acceptance_surface(objective) do
     nodes =

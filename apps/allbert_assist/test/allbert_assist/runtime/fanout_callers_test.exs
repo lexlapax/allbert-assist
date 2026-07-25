@@ -29,14 +29,27 @@ defmodule AllbertAssist.Runtime.FanoutCallersTest do
                           "apps/allbert_assist/lib/allbert_assist/public_protocol/openai/mapping.ex"
                       })
 
+  @acknowledgement_markers Map.put(
+                             Map.new(@callers, fn {surface, _path} ->
+                               {surface, ["Runtime.acknowledge_deliveries"]}
+                             end),
+                             "ACP",
+                             [
+                               "Runtime.acknowledge_kickoff_delivery",
+                               "Runtime.acknowledge_report_delivery"
+                             ]
+                           )
+
   test "every production Runtime caller acknowledges only at its delivery boundary" do
     for {surface, relative_path} <- @callers do
       source = File.read!(Path.join(@root, relative_path))
 
       assert source =~ "Runtime.submit_user_input", "#{surface} no longer calls Runtime"
 
-      assert source =~ "Runtime.acknowledge_deliveries",
-             "#{surface} lost the kickoff/report delivery acknowledgement"
+      for marker <- Map.fetch!(@acknowledgement_markers, surface) do
+        assert source =~ marker,
+               "#{surface} lost the delivery acknowledgement boundary #{marker}"
+      end
     end
   end
 

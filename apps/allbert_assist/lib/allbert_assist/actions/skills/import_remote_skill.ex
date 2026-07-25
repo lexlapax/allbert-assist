@@ -113,7 +113,7 @@ defmodule AllbertAssist.Actions.Skills.ImportRemoteSkill do
       resume_params_ref: %{url: spec.url}
     }
 
-    case Confirmations.create(attrs) do
+    case Confirmations.create(attrs, context) do
       {:ok, confirmation} ->
         {:ok,
          %{

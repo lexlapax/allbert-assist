@@ -64,9 +64,14 @@ as an approval signal.
 For v1.1 fan-out, `Objectives.Runs.RunServer` owns the complete child lifecycle
 and invokes delegate steps through this same registered action. The fair
 `Objectives.Runs.Scheduler` bounds running children globally and per parent;
-the Coordinator rebuilds from durable Objectives state and owns join reporting.
-Delegate agents must not create their own durable fan-out loop, acknowledge a
-kickoff receipt, or deliver channel reports directly.
+the Coordinator rebuilds live supervision from durable Objectives state. Every
+child terminal writer delegates to `Objectives.Fanout.TerminalTransitions`,
+whose immediate transaction records the child terminal result, reduces the
+parent once, appends the unique join event, and exposes the pending report
+receipt atomically. The Coordinator may reconcile that state but does not own a
+second best-effort join path. Delegate agents must not create their own durable
+fan-out loop, acknowledge a kickoff/report receipt, or deliver channel reports
+directly.
 
 ## Objective Step Shape
 

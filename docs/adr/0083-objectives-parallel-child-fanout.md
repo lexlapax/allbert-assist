@@ -2,14 +2,13 @@
 
 ## Status
 
-Accepted (v1.1 M3, 2026-07-22), with the M12.15 atomic-terminal-reduction
-amendment below approved for corrective implementation on 2026-07-24. The
-child model, fair scheduler/full lifecycle executor, restart-stable receipts,
-delivery-before-start barrier, public-protocol continuations, and cross-surface
-automatic-rollout corpus remain. FV evidence proved that the original
-Coordinator-side finalization did not fully satisfy this ADR's durable-truth
-and reconstructibility requirements; M12.15 is release-blocking until the
-amendment is implemented and gate-proven.
+Accepted (v1.1 M3, 2026-07-22); the M12.15 atomic-terminal-reduction amendment
+was implemented and its focused invariant/fault matrix passed on 2026-07-25.
+The child model, fair scheduler/full lifecycle executor, restart-stable
+receipts, delivery-before-start barrier, public-protocol continuations, and
+cross-surface automatic-rollout corpus remain. The expanded `release.v11`,
+frozen `release.v1`, pre-push, and authoritative release gates are still
+required at the final committed SHA before the focused operator walkthrough.
 
 ## Context
 
@@ -77,12 +76,15 @@ on 2026-07-18.
    execution for every Runtime caller.** Framing
    returns the additive kickoff response plus an opaque, identity-bound,
    single-use start receipt and starts no child. Remote chat acknowledges
-   after transport success, web/TUI after render/print, non-streaming public
-   HTTP protocols after durable server-side kickoff recording, SSE after the
-   kickoff event flushes successfully, CLI after output, and Jobs after a
-   durable kickoff event. Acknowledgement is idempotent and
-   non-authoritative. Failure leaves
-   the fan-out blocked for retry or cancellation. A caller without this
+   after transport success, Web after the exact response marker mounts in the
+   browser, TUI after every kickoff line is written, non-streaming public HTTP
+   protocols after durable server-side kickoff recording, SSE after the kickoff
+   event flushes successfully, CLI after output, and Jobs after a durable
+   kickoff event. An absent, stale, or forged Web marker leaves kickoff
+   `pending`; a returned TUI output error, exception, exit, or partial write
+   records `blocked`. Neither acknowledges the receipt or starts children, and
+   both remain retryable or cancellable. Acknowledgement is idempotent and
+   non-authoritative. A caller without this
    contract fails closed to the existing single-turn path. OpenAI-compatible
    and ACP requests HOLD until join (plan Locked Decision 17, restored third
    pass 2026-07-18; clarified 2026-07-19): durable kickoff recording
@@ -107,7 +109,11 @@ on 2026-07-18.
    `@moduledoc`, and executes propose → evaluate → authorize →
    `Actions.Runner.run/3` → observe → advance through a new
    `Objectives.Lifecycle` transactional/CAS facade, not the serialized
-   Engine.Agent or private Jido command modules.
+   Engine.Agent or private Jido command modules. Failure to start a fresh
+   RunServer occurs before any child effect: the Coordinator releases the
+   scheduler slot and retries with bounded backoff. It does not apply the
+   uncertain-effect crash policy reserved for a worker that actually existed
+   and may have crossed an effect boundary.
 4. **Join uses monitors plus durable reduction, never polling.** Each
    Coordinator monitors its runs; terminal child state is durable before
    reduction. Parent status/outcome reduces as: all completed →
@@ -159,8 +165,10 @@ authority class.
    `report_delivery_state=pending`. Whichever child terminalizes last closes
    the parent. A committed all-terminal child set with a `not_ready` parent is
    forbidden for new transitions. Parent compare-and-set is the primary
-   idempotency rule; an additive partial unique database index on
-   `fanout_joined` per parent is defense in depth.
+   idempotency rule. Upgrade-safe insert/update guards prevent every new
+   duplicate `fanout_joined` event while preserving append-only evidence in an
+   older Home that may already contain duplicates; no migration rewrites that
+   history merely to make a unique index fit.
 2. **Every production fan-out terminal writer uses that boundary.** Normal
    completion/failure/cooperative cancellation, registered-action cancellation
    after scoped cleanup, retry exhaustion, and stale abandonment cannot update
@@ -181,6 +189,12 @@ authority class.
    all-terminal/open historical row. Coordinator initialization reconciles the
    parent before scheduling children. Boot and in-process recovery use this
    same predicate and repair historical stranded rows without operator action.
+   The canonical `parent_projection` accepts joined truth only when the durable
+   delivery marker, deterministic report receipt, join event, and child
+   reduction agree; otherwise operators see recovering/finalizing or
+   inconsistent state and the runtime wakes repair. Correctness-sensitive
+   steering/session-cancellation discovery uses dedicated scoped active-row
+   queries, not the human list command's display limit.
 5. **The pending parent report is the durable completion outbox.** ADR 0084's
    unique delivery ledger is still reserved before remote transport and remains
    its authority/idempotency boundary. The joined signal is a low-latency
@@ -191,6 +205,19 @@ authority class.
    acknowledges a still-pending parent. Default-OFF rows remain pending for
    next-turn delivery. Successful recovery creates no global startup chatter
    and never duplicates a normal completion report.
+6. **Steering and terminalization serialize on durable state.** Directive
+   recording re-reads an owned active child in an immediate transaction.
+   Non-cancellation terminalization refuses while an unapplied directive
+   exists, and Lifecycle rechecks at its final boundary. Either the directive
+   commits first and is applied, or terminalization commits first and the steer
+   receives a terminal-target result. With several active parents, an ordinal
+   target is parent-local and therefore clarifies until the parent/title or an
+   exact child is named; read-only status may aggregate every parent.
+7. **Scheduler recovery cannot leak capacity.** A Registry-proved live
+   RunServer is monitored before Coordinator recovery and occupies one
+   reconstructed global slot. If it exits or disappears during rehydration,
+   that monitor releases the slot; stale process memory cannot permanently
+   reduce global fan-out capacity.
 
 ## Consequences
 
@@ -244,6 +271,15 @@ authority class.
   fallback to kickoff + unconsumed report receipt; failed next-turn transport
   retains the report; exact-origin cross-account denial; an uncertain
   external effect never auto-replays. ADR flips Accepted here.
+- v1.1 M12.15 focused: concurrent last-child transitions produce one parent
+  join/outbox; every terminal source converges on the boundary; terminal versus
+  steering races have no orphaned directive; live/boot historical repair,
+  Scheduler slot monitoring, control-query depth, multi-parent ambiguity,
+  cancellation truth, canonical CLI/ACP/TUI/web projections, and attended
+  exact-receipt ACK behavior are green. The derived `release.v11` inventory is
+  expanded to retain these core, channel/TUI, and web/OpenAI suites.
 - Release: `release.v1` stays green (Tier-1/Tier-2 untouched; runtime
   response gains only additive fields per ADR 0029) and `release.v11` binds
-  the fan-out eval rows.
+  all eleven fan-out authority rows plus the M12.15 focused suites. Both gates
+  and the authoritative release gate remain pending at the final committed
+  implementation SHA.

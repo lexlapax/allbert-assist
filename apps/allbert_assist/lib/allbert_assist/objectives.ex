@@ -10,11 +10,26 @@ defmodule AllbertAssist.Objectives do
   import Ecto.Query
 
   alias AllbertAssist.Objectives.{AcceptanceCriteria, Event, Objective, Step}
+  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Validation
 
   @active_statuses ~w[open running blocked]
+  @terminal_statuses ~w[completed cancelled failed abandoned]
+  @fanout_structural_fields [
+    :fanout_role,
+    :parent_objective_id,
+    :join_policy,
+    :join_outcome,
+    :kickoff_delivery_state,
+    :fanout_start_receipt_digest,
+    :report_delivery_state,
+    :report_delivery_receipt_digest,
+    :queue_position,
+    :completed_at,
+    :run_attempt_count
+  ]
   @default_list_limit 50
   @rehydrate_window_seconds 60 * 60
   @known_keys MapSet.new([
@@ -232,9 +247,81 @@ defmodule AllbertAssist.Objectives do
       |> update_if_present(:acceptance_criteria, &encode_jsonish/1)
       |> update_if_present(:proposer_hint, &encode_jsonish/1)
 
+    with :ok <- authorize_objective_update(objective, attrs) do
+      if objective.fanout_role == "child" do
+        update_active_fanout_child(objective, attrs)
+      else
+        objective
+        |> Objective.changeset(attrs)
+        |> Repo.update()
+      end
+    end
+  end
+
+  defp authorize_objective_update(
+         %Objective{fanout_role: "child", status: status},
+         _attrs
+       )
+       when status in @terminal_statuses,
+       do: {:error, :fanout_terminal_immutable}
+
+  defp authorize_objective_update(%Objective{fanout_role: "child"}, attrs) do
+    cond do
+      Map.has_key?(attrs, :status) ->
+        {:error, :fanout_active_transition_required}
+
+      Enum.any?(@fanout_structural_fields, &Map.has_key?(attrs, &1)) ->
+        {:error, :fanout_structure_immutable}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp authorize_objective_update(%Objective{fanout_role: "parent"}, _attrs),
+    do: {:error, :fanout_parent_transition_required}
+
+  defp authorize_objective_update(%Objective{}, _attrs), do: :ok
+
+  defp update_active_fanout_child(objective, attrs) do
     objective
     |> Objective.changeset(attrs)
-    |> Repo.update()
+    |> persist_active_fanout_child(objective)
+  end
+
+  defp persist_active_fanout_child(%Ecto.Changeset{valid?: false} = changeset, _objective),
+    do: {:error, changeset}
+
+  defp persist_active_fanout_child(%Ecto.Changeset{changes: changes}, objective)
+       when map_size(changes) == 0,
+       do: {:ok, objective}
+
+  defp persist_active_fanout_child(changeset, objective) do
+    updates =
+      changeset.changes
+      |> Map.put(:updated_at, DateTime.utc_now())
+      |> Map.to_list()
+
+    objective
+    |> active_fanout_child_query()
+    |> Repo.update_all(set: updates)
+    |> active_fanout_child_update_result(objective.id)
+  end
+
+  defp active_fanout_child_query(objective) do
+    from current in Objective,
+      where:
+        current.id == ^objective.id and current.fanout_role == "child" and
+          current.status in ^@active_statuses and
+          current.updated_at == ^objective.updated_at
+  end
+
+  defp active_fanout_child_update_result({1, _rows}, objective_id),
+    do: {:ok, Repo.get!(Objective, objective_id)}
+
+  defp active_fanout_child_update_result({0, _rows}, objective_id) do
+    current = Repo.get(Objective, objective_id)
+    {:error, {:fanout_active_compare_and_set_failed, current && current.status}}
   end
 
   @doc "Fetch an objective by id."
@@ -278,6 +365,21 @@ defmodule AllbertAssist.Objectives do
     |> Repo.all()
   end
 
+  @doc false
+  @spec control_objectives(String.t(), keyword()) :: [Objective.t()]
+  def control_objectives(user_id, opts \\ []) when is_binary(user_id) and is_list(opts) do
+    Objective
+    |> where(
+      [objective],
+      objective.user_id == ^user_id and objective.status in ^@active_statuses
+    )
+    |> maybe_filter(:source_thread_id, Keyword.get(opts, :source_thread_id))
+    |> maybe_filter(:session_id, Keyword.get(opts, :session_id))
+    |> maybe_filter(:fanout_role, Keyword.get(opts, :fanout_role))
+    |> order_by([objective], desc: objective.updated_at, desc: objective.inserted_at)
+    |> Repo.all()
+  end
+
   @doc "Find the newest active objective for a user and source intent marker."
   @spec find_active_by_source_intent(String.t(), String.t()) :: objective_result()
   def find_active_by_source_intent(user_id, source_intent)
@@ -307,19 +409,67 @@ defmodule AllbertAssist.Objectives do
   end
 
   @doc "Mark stale active objectives abandoned and return the count."
-  @spec abandon_stale_objectives(keyword()) :: {:ok, non_neg_integer()}
+  @spec abandon_stale_objectives(keyword()) ::
+          {:ok, non_neg_integer()} | {:error, term()}
   def abandon_stale_objectives(opts \\ []) do
     now = Keyword.get(opts, :now, DateTime.utc_now())
     window_seconds = Keyword.get(opts, :window_seconds, @rehydrate_window_seconds)
     cutoff = DateTime.add(now, -window_seconds, :second)
 
-    {count, _} =
+    stale =
       Objective
       |> where([objective], objective.status in ^@active_statuses)
       |> where([objective], objective.updated_at < ^cutoff)
+
+    {ordinary_count, _} =
+      stale
+      |> where([objective], is_nil(objective.fanout_role))
       |> Repo.update_all(set: [status: "abandoned", updated_at: now])
 
-    {:ok, count}
+    stale_children =
+      stale
+      |> where([objective], objective.fanout_role == "child")
+      |> join(:inner, [child], parent in Objective,
+        on:
+          parent.id == child.parent_objective_id and parent.fanout_role == "parent" and
+            parent.kickoff_delivery_state == "acknowledged" and
+            parent.report_delivery_state == "not_ready"
+      )
+      |> order_by([objective], asc: objective.parent_objective_id, asc: objective.queue_position)
+      |> select([child, _parent], child)
+      |> Repo.all()
+
+    case abandon_stale_fanout_children(stale_children, cutoff, now) do
+      {:ok, child_count} -> {:ok, ordinary_count + child_count}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp abandon_stale_fanout_children(children, cutoff, now) do
+    Enum.reduce_while(children, {:ok, 0}, fn child, {:ok, count} ->
+      case TerminalTransitions.terminalize_child(
+             child,
+             %{
+               status: "abandoned",
+               progress_summary: "Abandoned after exceeding the recovery window.",
+               review_reason: "stale_recovery_window_exceeded",
+               completed_at: now
+             },
+             "run_abandoned",
+             %{reason: "stale_recovery_window_exceeded"},
+             updated_before: cutoff,
+             signal: {:run_abandoned, %{reason: "stale_recovery_window_exceeded"}}
+           ) do
+        {:ok, _transition} ->
+          {:cont, {:ok, count + 1}}
+
+        {:error, {:objective_not_terminalizable, _status}} ->
+          {:cont, {:ok, count}}
+
+        {:error, reason} ->
+          {:halt, {:error, reason}}
+      end
+    end)
   end
 
   @doc "Create a step."
@@ -368,6 +518,127 @@ defmodule AllbertAssist.Objectives do
     |> order_by([step], asc: step.inserted_at, asc: step.id)
     |> Repo.all()
   end
+
+  @doc "Resolve durable confirmation provenance to its unique fan-out child and step."
+  @spec fanout_confirmation_target(map() | String.t()) ::
+          {:ok,
+           %{
+             child: Objective.t(),
+             step: Step.t(),
+             parent_id: String.t(),
+             phase: :binding | :bound
+           }}
+          | {:error,
+             :not_fanout_confirmation
+             | :stale_fanout_confirmation
+             | :ambiguous_confirmation_target
+             | term()}
+  def fanout_confirmation_target(%{} = confirmation) do
+    confirmation_id = facade_field(confirmation, :id)
+    objective_id = facade_field(confirmation, :objective_id)
+    step_id = facade_field(confirmation, :step_id)
+
+    cond do
+      Enum.all?([confirmation_id, objective_id, step_id], &(is_binary(&1) and &1 != "")) ->
+        fanout_confirmation_target_by_provenance(confirmation_id, objective_id, step_id)
+
+      fanout_confirmation_marker?(confirmation, objective_id) ->
+        {:error, :stale_fanout_confirmation}
+
+      true ->
+        fanout_confirmation_target(confirmation_id)
+    end
+  end
+
+  def fanout_confirmation_target(confirmation_id)
+      when is_binary(confirmation_id) and confirmation_id != "" do
+    steps =
+      Step
+      |> where([step], step.confirmation_id == ^confirmation_id)
+      |> limit(2)
+      |> Repo.all()
+
+    case steps do
+      [%Step{} = step] ->
+        fanout_confirmation_target_by_provenance(confirmation_id, step.objective_id, step.id)
+
+      [] ->
+        {:error, :not_fanout_confirmation}
+
+      [_first, _second] ->
+        {:error, :ambiguous_confirmation_target}
+    end
+  end
+
+  def fanout_confirmation_target(_missing), do: {:error, :not_fanout_confirmation}
+
+  defp fanout_confirmation_target_by_provenance(confirmation_id, objective_id, step_id) do
+    with %Objective{} = child <- Repo.get(Objective, objective_id),
+         %Step{} = step <- Enum.find(list_steps(objective_id), &(&1.id == step_id)) do
+      classify_fanout_confirmation_target(confirmation_id, child, step)
+    else
+      nil -> {:error, :stale_fanout_confirmation}
+    end
+  end
+
+  defp classify_fanout_confirmation_target(
+         confirmation_id,
+         %Objective{fanout_role: "child", parent_objective_id: parent_id} = child,
+         %Step{} = step
+       )
+       when is_binary(parent_id) do
+    phase = fanout_confirmation_phase(confirmation_id, child, step)
+    parent = Repo.get(Objective, parent_id)
+    classify_fanout_confirmation_parent(phase, parent, child, step, parent_id)
+  end
+
+  defp classify_fanout_confirmation_target(_confirmation_id, %Objective{}, %Step{}),
+    do: {:error, :not_fanout_confirmation}
+
+  defp fanout_confirmation_phase(confirmation_id, child, step) do
+    cond do
+      bound_fanout_confirmation?(confirmation_id, child, step) -> :bound
+      binding_fanout_confirmation?(confirmation_id, child, step) -> :binding
+      true -> :stale
+    end
+  end
+
+  defp bound_fanout_confirmation?(confirmation_id, child, step) do
+    child.status == "blocked" and child.current_step_id == step.id and
+      step.status == "blocked" and step.confirmation_id == confirmation_id
+  end
+
+  defp binding_fanout_confirmation?(confirmation_id, child, step) do
+    child.status in ~w[open running] and
+      step.status not in ~w[completed failed cancelled skipped] and
+      step.confirmation_id in [nil, confirmation_id]
+  end
+
+  defp classify_fanout_confirmation_parent(
+         phase,
+         %Objective{fanout_role: "parent", report_delivery_state: "not_ready"},
+         child,
+         step,
+         parent_id
+       )
+       when phase in [:binding, :bound],
+       do: {:ok, %{child: child, step: step, parent_id: parent_id, phase: phase}}
+
+  defp classify_fanout_confirmation_parent(_phase, _parent, _child, _step, _parent_id),
+    do: {:error, :stale_fanout_confirmation}
+
+  defp fanout_confirmation_marker?(confirmation, objective_id) do
+    origin = facade_field(confirmation, :origin) || %{}
+    parent_id = facade_field(origin, :parent_objective_id)
+
+    (is_binary(parent_id) and parent_id != "") or
+      fanout_child_marker?(objective_id)
+  end
+
+  defp fanout_child_marker?(objective_id) when is_binary(objective_id) and objective_id != "",
+    do: match?(%Objective{fanout_role: "child"}, Repo.get(Objective, objective_id))
+
+  defp fanout_child_marker?(_objective_id), do: false
 
   @doc "Create an event."
   @spec create_event(map()) :: event_result()
