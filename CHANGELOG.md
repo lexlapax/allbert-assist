@@ -15,8 +15,12 @@ changelog entries or release notes.
 Status: **release candidate preparation; not yet tagged or published.** The
 implementation and atomic M12.15 invariant/fault remediation are complete. A
 final confirmation compatibility and policy-denial correction has passed its
-focused rejoin. The expanded automated v1.1 gate is defined, but its final
-clean-SHA executions and overall operator validation remain pending. Binary
+focused rejoin. Candidate `5601e67e` passed expanded `release.v11`, frozen
+`release.v1`, and pre-push, then the authoritative release gate exposed one
+ACP-timeout Coordinator that survived its rolled-back parent and caused a
+downstream supervision cascade. The replacement lifecycle containment is
+focused-green, but all four automated gates must repeat at the next clean SHA
+before focused flagship operator validation. Binary
 publication/cosign, tap fill, packaged-platform rehearsal, and stable-release
 administration remain operator-held after those checks.
 
@@ -64,6 +68,15 @@ and Web acknowledges multiple visible reports independently. OpenAI and ACP
 remain attended request/response surfaces: they hold for fan-in within a bound,
 leave a timed-out report pending for the next same-session turn, and acknowledge
 only after response output succeeds.
+
+Completed or timed-out attended requests now leave no phantom Coordinator.
+Permanent durable-parent absence retires and frees capacity; known transient
+database ownership/connection and SQLite lock failures recover with bounded
+backoff rather than collapsing Settings or channel registries. Repeated crashes
+also retain Scheduler backoff, while programming and schema/query defects remain
+visible to OTP instead of being mislabeled as transient. Operators may briefly
+see `finalizing`/`recovering` during a database interruption, after which the
+same durable report completes without a duplicate fan-out.
 
 The release also adds fair global/per-fan-out scheduling, cooperative through
 OS-process cancellation tiers, Signal daemon wiring, Email outbound delivery,

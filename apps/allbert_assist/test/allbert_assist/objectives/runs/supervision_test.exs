@@ -1033,6 +1033,187 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert Enum.count(Objectives.list_events(parent.id), &(&1.kind == "fanout_joined")) == 1
   end
 
+  test "join reconciliation contains transient database exceptions and retries" do
+    %{parent: parent, children: children, receipt: receipt} = frame_two()
+    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    for child <- children do
+      assert {1, _rows} =
+               Objective
+               |> where([objective], objective.id == ^child.id)
+               |> Repo.update_all(
+                 set: [
+                   status: "completed",
+                   last_observation_summary: "durable result",
+                   completed_at: DateTime.utc_now()
+                 ]
+               )
+    end
+
+    {:ok, attempts} = Agent.start_link(fn -> 0 end)
+
+    join_reconciler = fn parent_id, opts ->
+      attempt = Agent.get_and_update(attempts, fn count -> {count, count + 1} end)
+
+      case attempt do
+        0 -> raise %DBConnection.ConnectionError{message: "injected connection failure"}
+        1 -> raise %Exqlite.Error{message: "Database is busy"}
+        _attempt -> Fanout.reconcile_parent(parent_id, opts)
+      end
+    end
+
+    assert {:ok, coordinator} =
+             Scheduler.start_fanout(parent.id, join_reconciler: join_reconciler)
+
+    monitor_ref = Process.monitor(coordinator)
+
+    eventually(fn ->
+      projection = Fanout.parent_projection(parent)
+
+      projection.phase == :joined and projection.parent.report_delivery_state == "pending"
+    end)
+
+    assert Agent.get(attempts, & &1) >= 3
+    assert_receive {:DOWN, ^monitor_ref, :process, ^coordinator, :normal}, 1_000
+    assert Enum.count(Objectives.list_events(parent.id), &(&1.kind == "fanout_joined")) == 1
+  end
+
+  test "join reconciliation keeps programming errors crash-visible" do
+    %{parent: parent, children: children, receipt: receipt} = frame_two()
+    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    for child <- children do
+      assert {1, _rows} =
+               Objective
+               |> where([objective], objective.id == ^child.id)
+               |> Repo.update_all(
+                 set: [
+                   status: "completed",
+                   last_observation_summary: "durable result",
+                   completed_at: DateTime.utc_now()
+                 ]
+               )
+    end
+
+    {:ok, attempts} = Agent.start_link(fn -> 0 end)
+
+    join_reconciler = fn _parent_id, _opts ->
+      Agent.update(attempts, &(&1 + 1))
+      raise "injected programming error"
+    end
+
+    assert {:ok, coordinator} =
+             Scheduler.start_fanout(parent.id, join_reconciler: join_reconciler)
+
+    monitor_ref = Process.monitor(coordinator)
+
+    assert_receive {:DOWN, ^monitor_ref, :process, ^coordinator,
+                    {%RuntimeError{message: "injected programming error"}, _stacktrace}},
+                   500
+
+    assert Agent.get(attempts, & &1) == 1
+
+    eventually(fn ->
+      projection = Fanout.parent_projection(parent)
+
+      projection.phase == :joined and projection.parent.report_delivery_state == "pending" and
+        Registry.lookup(AllbertAssist.Objectives.Runs.Registry, {:fanout, parent.id}) == []
+    end)
+  end
+
+  test "persistent coordinator crashes retain scheduler recovery backoff" do
+    %{parent: parent, receipt: receipt} = frame_two()
+    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    test_pid = self()
+
+    coordinator_starter = fn _opts ->
+      scheduler_pid = self()
+
+      pid =
+        spawn(fn ->
+          scheduler_ref = Process.monitor(scheduler_pid)
+
+          receive do
+            :stop -> :ok
+            {:DOWN, ^scheduler_ref, :process, ^scheduler_pid, _reason} -> :ok
+          end
+        end)
+
+      send(test_pid, {:recovery_candidate, pid})
+      {:ok, pid}
+    end
+
+    scheduler =
+      start_isolated_scheduler(
+        rehydrate?: false,
+        coordinator_starter: coordinator_starter
+      )
+
+    initial = spawn(fn -> receive do: (:stop -> :ok) end)
+    Scheduler.track_coordinator(parent.id, initial, scheduler)
+    _snapshot = Scheduler.snapshot(scheduler)
+    Process.exit(initial, :kill)
+
+    for _attempt <- 1..2 do
+      assert_receive {:recovery_candidate, candidate}, 1_000
+      Process.exit(candidate, :kill)
+    end
+
+    eventually(fn ->
+      state = :sys.get_state(scheduler)
+      Map.get(state.recovery_attempts, parent.id, 0) >= 3
+    end)
+
+    assert_receive {:recovery_candidate, stable_candidate}, 1_000
+    Scheduler.recovery_stable(parent.id, stable_candidate, scheduler)
+
+    eventually(fn ->
+      state = :sys.get_state(scheduler)
+      not Map.has_key?(state.recovery_attempts, parent.id)
+    end)
+
+    send(stable_candidate, :stop)
+  end
+
+  test "a coordinator retires when its durable parent no longer exists" do
+    %{parent: parent, children: children, receipt: receipt} = frame_two()
+    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    for child <- children do
+      assert {1, _rows} =
+               Objective
+               |> where([objective], objective.id == ^child.id)
+               |> Repo.update_all(
+                 set: [
+                   status: "completed",
+                   last_observation_summary: "durable result",
+                   completed_at: DateTime.utc_now()
+                 ]
+               )
+    end
+
+    test_pid = self()
+
+    missing_parent = fn reconciled_parent_id, _opts ->
+      send(test_pid, {:missing_parent_reconciled, reconciled_parent_id})
+      {:error, :fanout_parent_not_found}
+    end
+
+    assert {:ok, coordinator} =
+             Scheduler.start_fanout(parent.id, join_reconciler: missing_parent)
+
+    monitor_ref = Process.monitor(coordinator)
+
+    assert_receive {:missing_parent_reconciled, parent_id}, 1_000
+    assert parent_id == parent.id
+    assert_receive {:DOWN, ^monitor_ref, :process, ^coordinator, :normal}, 500
+    refute_receive {:missing_parent_reconciled, ^parent_id}, 100
+    assert Registry.lookup(AllbertAssist.Objectives.Runs.Registry, {:fanout, parent.id}) == []
+    assert Process.alive?(Process.whereis(Scheduler))
+    assert %{active: %{}, waiting: %{}, rotation: []} = Scheduler.snapshot()
+  end
+
   test "boot reconciliation resumes safe work and parks unknown in-flight work" do
     %{parent: parent, children: [safe, unknown], receipt: receipt} = frame_two()
     add_safe_step(safe)

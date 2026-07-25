@@ -215,6 +215,7 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
     assert Enum.all?(Fanout.children(parent), &(&1.status == "completed"))
     assert worker_state.report_deliveries == [parent.id]
     assert Repo.reload!(parent).report_delivery_state == "pending"
+    assert_fanout_quiesced(parent.id)
   end
 
   test "session/prompt timeout returns kickoff and leaves the eventual report pending" do
@@ -257,6 +258,7 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
 
     eventually(fn -> Repo.reload!(parent).report_delivery_state == "pending" end)
     assert worker_state.report_deliveries == []
+    assert_fanout_quiesced(parent.id)
   end
 
   test "a timeout's eventual report is emitted and acknowledged by the next successful prompt write" do
@@ -324,6 +326,7 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
              )
 
     assert Repo.reload!(parent).report_delivery_state == "delivered"
+    assert_fanout_quiesced(parent.id)
   end
 
   test "ACP output acknowledges only named reports and leaves all reports pending on write failure" do
@@ -669,5 +672,11 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
       Process.sleep(20)
       eventually(fun, attempts - 1)
     end
+  end
+
+  defp assert_fanout_quiesced(parent_id) do
+    eventually(fn ->
+      Registry.lookup(AllbertAssist.Objectives.Runs.Registry, {:fanout, parent_id}) == []
+    end)
   end
 end

@@ -312,7 +312,7 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
   end
 
   defp maybe_join(state) do
-    case state.join_reconciler.(state.parent_id, recovered?: state.recovery?) do
+    case reconcile_join(state) do
       {:ok, {joined, parent}} when joined in [:joined_now, :already_joined] ->
         case Objectives.Lifecycle.reconcile_confirmation_outcomes(parent.id) do
           :ok ->
@@ -329,11 +329,22 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
         %{state | join_retry_count: 0}
 
       {:ok, :not_terminal} ->
+        Scheduler.recovery_stable(state.parent_id, self())
+
         # Safe crashed runs remain non-terminal and must be enqueued again.
         state.parent_id
         |> Fanout.children()
         |> Enum.filter(&(&1.status == "running" and not Map.has_key?(state.monitors, &1.id)))
         |> Enum.reduce(%{state | join_retry_count: 0}, &request_or_start(&1.id, &2))
+
+      {:error, :fanout_parent_not_found} ->
+        Logger.warning(
+          "fan-out coordinator retired because durable parent is absent parent=#{state.parent_id}"
+        )
+
+        Scheduler.finish_fanout(state.parent_id)
+        Process.send_after(self(), :stop_after_join, 0)
+        %{state | join_retry_count: 0}
 
       {:error, reason} ->
         Logger.warning(
@@ -342,6 +353,31 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
 
         retry_join(state)
     end
+  end
+
+  defp reconcile_join(state) do
+    state.join_reconciler.(state.parent_id, recovered?: state.recovery?)
+  rescue
+    exception in [DBConnection.OwnershipError, DBConnection.ConnectionError] ->
+      {:error,
+       {:join_reconcile_exception, bounded_review_reason("join_reconcile_exception", exception)}}
+
+    exception in Exqlite.Error ->
+      if transient_sqlite_error?(exception) do
+        {:error,
+         {:join_reconcile_exception, bounded_review_reason("join_reconcile_exception", exception)}}
+      else
+        reraise exception, __STACKTRACE__
+      end
+  end
+
+  defp transient_sqlite_error?(%Exqlite.Error{message: message}) do
+    message = String.downcase(message || "")
+
+    Enum.any?(
+      ["database is busy", "database is locked", "database table is locked"],
+      &String.contains?(message, &1)
+    )
   end
 
   defp retry_join(%{join_retry_count: retries} = state) do

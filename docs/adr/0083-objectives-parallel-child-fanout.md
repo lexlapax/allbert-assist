@@ -4,8 +4,11 @@
 
 Accepted (v1.1 M3, 2026-07-22); the M12.15 atomic-terminal-reduction amendment
 was implemented and its focused invariant/fault matrix passed on 2026-07-25.
-The final confirmation compatibility and policy-denial correction passed its
-focused rejoin.
+The confirmation/policy correction candidate `5601e67e` passed expanded
+`release.v11`, frozen `release.v1`, and pre-push, then authoritative
+`external_runtime_serial` exposed one leaked ACP-timeout Coordinator and a
+downstream supervision cascade. The replacement permanent/transient/crash-
+visibility lifecycle contract is focused-green.
 The child model, fair scheduler/full lifecycle executor, restart-stable
 receipts, delivery-before-start barrier, public-protocol continuations, and
 cross-surface automatic-rollout corpus remain. The expanded `release.v11`,
@@ -202,8 +205,12 @@ authority class.
    Coordinator exit, or lost `fanout.joined` signal cannot strand a parent or
    discard completion work.
 4. **Reconciliation is idempotent and common to live and boot recovery.** It
-   returns joined-now, already-joined, or not-terminal distinctly; real failures
-   remain observable and retryable. Scheduler recovery selects every
+   returns joined-now, already-joined, or not-terminal distinctly. Permanent
+   durable-parent absence retires the Coordinator and frees capacity without
+   retry. Only known transient database ownership/connection and message-
+   qualified SQLite busy/locked failures receive bounded redacted retry.
+   Programming, schema, query, throw, and exit faults remain crash-visible.
+   Scheduler recovery selects every
    acknowledged parent whose report state is `not_ready`, including an
    all-terminal/open historical row. Coordinator initialization reconciles the
    parent before scheduling children. Boot and in-process recovery use this
@@ -232,11 +239,18 @@ authority class.
    receives a terminal-target result. With several active parents, an ordinal
    target is parent-local and therefore clarifies until the parent/title or an
    exact child is named; read-only status may aggregate every parent.
-7. **Scheduler recovery cannot leak capacity.** A Registry-proved live
+7. **Scheduler recovery cannot leak capacity or collapse unrelated runtime
+   children.** A Registry-proved live
    RunServer is monitored before Coordinator recovery and occupies one
    reconstructed global slot. If it exits or disappears during rehydration,
    that monitor releases the slot; stale process memory cannot permanently
-   reduce global fan-out capacity.
+   reduce global fan-out capacity. Boot rehydration reads the complete durable
+   parent/child snapshot before installing monitors, so transient mid-snapshot
+   failure cannot accumulate duplicate monitors. Live recovery and the entire
+   boot path contain transient database unavailability with capped backoff.
+   Repeated Coordinator crashes retain capped Scheduler backoff until the
+   current Coordinator reports successful reconciliation; they cannot hot-loop
+   the top supervisor or take Settings/channel registries down with it.
 
 ## Consequences
 
@@ -299,9 +313,18 @@ authority class.
   expanded to retain these core, channel/TUI, and web/OpenAI suites. The final
   five-file confirmation/fan-out/Plan-Build matrix passes 77 / 0, including
   unversioned compatibility and policy-denial recovery; its affected
-  four-partition `app_env_serial` lane passes 665 / 0.
+  four-partition `app_env_serial` lane passes 665 / 0. The lifecycle correction
+  additionally proves missing-parent retirement, transient DB/SQLite recovery,
+  programming-error visibility, single-monitor snapshot retry, persistent-crash
+  backoff, and ACP/OpenAI quiescence: core/ACP 46 / 0, OpenAI 10 / 0 at seed
+  `122487`, and the exact ACP → Sandbox → Settings replay 94 / 0 with two skips
+  at seed `19746`. The complete `external_runtime_serial` replacement lane
+  passes 617 / 0 with 12 skips at seed `97040`; the live manifest contains
+  3,479 rows.
 - Release: `release.v1` stays green (Tier-1/Tier-2 untouched; runtime
   response gains only additive fields per ADR 0029) and `release.v11` binds
-  all eleven fan-out authority rows plus the M12.15 focused suites. Both
-  versioned gates, pre-push, and the authoritative release gate remain pending
-  at the final committed implementation SHA.
+  all eleven fan-out authority rows plus the M12.15 focused suites. Candidate
+  `5601e67e` passed both versioned gates and pre-push, but its authoritative
+  release failed from the leaked Coordinator described above. That partial
+  cascade is superseded diagnostic evidence; all four gates remain pending at
+  the final committed implementation SHA.

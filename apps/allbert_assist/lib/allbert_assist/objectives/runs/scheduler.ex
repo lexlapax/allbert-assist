@@ -15,12 +15,14 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Runs.{Coordinator, Supervisor}
+  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
 
   @default_global 6
   @default_per_fanout 3
   @recovery_retry_delay_ms 50
   @max_recovery_retry_delay_ms 5_000
+  @max_recovery_reason_chars 240
 
   defstruct max_global: @default_global,
             max_per_fanout: @default_per_fanout,
@@ -30,7 +32,10 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
             coordinators: %{},
             monitor_refs: %{},
             orphan_run_monitor_refs: %{},
-            recovery_attempts: %{}
+            recovery_attempts: %{},
+            rehydration_retry_count: 0,
+            rehydration_loader: nil,
+            coordinator_starter: nil
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: Keyword.get(opts, :name, __MODULE__))
@@ -48,6 +53,10 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
 
   def track_coordinator(parent_id, pid, server \\ __MODULE__) do
     GenServer.cast(server, {:track_coordinator, parent_id, pid})
+  end
+
+  def recovery_stable(parent_id, pid, server \\ __MODULE__) do
+    GenServer.cast(server, {:recovery_stable, parent_id, pid})
   end
 
   def start_fanout(parent_id, opts \\ [], server \\ __MODULE__) do
@@ -86,7 +95,9 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
       max_per_fanout:
         Keyword.get_lazy(opts, :max_concurrent_runs_per_fanout, fn ->
           setting("objectives.fanout.max_concurrent_runs_per_fanout", @default_per_fanout)
-        end)
+        end),
+      rehydration_loader: Keyword.get(opts, :rehydration_loader, &load_rehydration_snapshot/0),
+      coordinator_starter: Keyword.get(opts, :coordinator_starter, &start_coordinator/1)
     }
 
     if Keyword.get(opts, :rehydrate?, true),
@@ -96,23 +107,7 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
 
   @impl true
   def handle_continue(:reconcile, state) do
-    parents = Fanout.runnable_parents()
-    state = recover_live_run_slots(state, parents)
-
-    state =
-      Enum.reduce(parents, state, fn parent, state ->
-        case Registry.lookup(AllbertAssist.Objectives.Runs.Registry, {:fanout, parent.id}) do
-          [{pid, _}] ->
-            send(pid, :scheduler_reconcile)
-            track_coordinator_state(state, parent.id, pid)
-
-          [] ->
-            send(self(), {:recover_coordinator, parent.id})
-            state
-        end
-      end)
-
-    {:noreply, state}
+    {:noreply, reconcile_runnable_parents(state)}
   end
 
   @impl true
@@ -141,10 +136,7 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
            kickoff_delivery_state: "acknowledged",
            report_delivery_state: "not_ready"
          }} ->
-          DynamicSupervisor.start_child(
-            Supervisor,
-            {Coordinator, Keyword.merge(opts, parent_id: parent_id)}
-          )
+          state.coordinator_starter.(Keyword.merge(opts, parent_id: parent_id))
 
         {:ok, _objective} ->
           {:error, :kickoff_not_acknowledged}
@@ -210,8 +202,21 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
     {:noreply, track_coordinator_state(state, parent_id, pid)}
   end
 
+  def handle_cast({:recovery_stable, parent_id, pid}, state) do
+    state =
+      if Map.get(state.coordinators, parent_id) == pid,
+        do: clear_recovery_attempt(state, parent_id),
+        else: state
+
+    {:noreply, state}
+  end
+
   @impl true
-  def handle_info({:DOWN, ref, :process, _pid, _reason}, state) do
+  def handle_info(:retry_rehydrate, state) do
+    {:noreply, reconcile_runnable_parents(state)}
+  end
+
+  def handle_info({:DOWN, ref, :process, _pid, reason}, state) do
     case Map.pop(state.monitor_refs, ref) do
       {nil, _refs} ->
         handle_orphan_run_down(ref, state)
@@ -226,34 +231,48 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
         state = purge_waiting_parent(state, parent_id)
         state = monitor_orphaned_active_runs(state, parent_id)
 
-        if Fanout.recovery_required?(parent_id),
-          do: send(self(), {:recover_coordinator, parent_id})
+        state = grant_waiters(state)
 
-        {:noreply, grant_waiters(state)}
+        case recovery_required(parent_id) do
+          {:ok, true} ->
+            log_recovery_failure(
+              parent_id,
+              {:coordinator_down, bounded_recovery_reason(:exit, reason)}
+            )
+
+            {:noreply, schedule_recovery_retry(state, parent_id)}
+
+          {:ok, false} ->
+            {:noreply, clear_recovery_attempt(state, parent_id)}
+
+          {:error, reason} ->
+            log_recovery_failure(parent_id, reason)
+            {:noreply, schedule_recovery_retry(state, parent_id)}
+        end
     end
   end
 
   def handle_info({:recover_coordinator, parent_id}, state) do
-    if Fanout.recovery_required?(parent_id) do
-      case DynamicSupervisor.start_child(
-             Supervisor,
-             {Coordinator, parent_id: parent_id, recovery?: true}
-           ) do
-        {:ok, pid} ->
-          {:noreply, track_coordinator_state(state, parent_id, pid)}
+    case recovery_required(parent_id) do
+      {:ok, true} ->
+        case state.coordinator_starter.(parent_id: parent_id, recovery?: true) do
+          {:ok, pid} ->
+            {:noreply, track_coordinator_state(state, parent_id, pid)}
 
-        {:error, {:already_started, pid}} ->
-          {:noreply, track_coordinator_state(state, parent_id, pid)}
+          {:error, {:already_started, pid}} ->
+            {:noreply, track_coordinator_state(state, parent_id, pid)}
 
-        {:error, reason} ->
-          Logger.warning(
-            "fan-out coordinator recovery failed parent=#{parent_id} reason=#{inspect(reason)}"
-          )
+          {:error, reason} ->
+            log_recovery_failure(parent_id, reason)
+            {:noreply, schedule_recovery_retry(state, parent_id)}
+        end
 
-          {:noreply, schedule_recovery_retry(state, parent_id)}
-      end
-    else
-      {:noreply, clear_recovery_attempt(state, parent_id)}
+      {:ok, false} ->
+        {:noreply, clear_recovery_attempt(state, parent_id)}
+
+      {:error, reason} ->
+        log_recovery_failure(parent_id, reason)
+        {:noreply, schedule_recovery_retry(state, parent_id)}
     end
   end
 
@@ -345,8 +364,7 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
     %{
       state
       | coordinators: Map.put(state.coordinators, parent_id, pid),
-        monitor_refs: Map.put(state.monitor_refs, ref, parent_id),
-        recovery_attempts: Map.delete(state.recovery_attempts, parent_id)
+        monitor_refs: Map.put(state.monitor_refs, ref, parent_id)
     }
   end
 
@@ -367,11 +385,101 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
     %{state | recovery_attempts: Map.delete(state.recovery_attempts, parent_id)}
   end
 
-  defp recover_live_run_slots(state, parents) do
-    Enum.reduce(parents, state, fn parent, state ->
-      parent
-      |> Fanout.children()
-      |> Enum.reduce(state, fn child, state ->
+  defp reconcile_runnable_parents(state) do
+    try do
+      do_reconcile_runnable_parents(state)
+    rescue
+      exception in [DBConnection.OwnershipError, DBConnection.ConnectionError] ->
+        reason = bounded_recovery_reason(:exception, exception)
+        Logger.warning("fan-out scheduler reconciliation deferred reason=#{inspect(reason)}")
+        schedule_rehydration_retry(state)
+
+      exception in Exqlite.Error ->
+        if transient_sqlite_error?(exception) do
+          reason = bounded_recovery_reason(:exception, exception)
+          Logger.warning("fan-out scheduler reconciliation deferred reason=#{inspect(reason)}")
+          schedule_rehydration_retry(state)
+        else
+          reraise exception, __STACKTRACE__
+        end
+    end
+  end
+
+  defp do_reconcile_runnable_parents(state) do
+    snapshot = state.rehydration_loader.()
+    state = recover_live_run_slots(state, snapshot)
+
+    state =
+      Enum.reduce(snapshot, state, fn {parent, _children}, state ->
+        case Registry.lookup(AllbertAssist.Objectives.Runs.Registry, {:fanout, parent.id}) do
+          [{pid, _}] ->
+            send(pid, :scheduler_reconcile)
+            track_coordinator_state(state, parent.id, pid)
+
+          [] ->
+            send(self(), {:recover_coordinator, parent.id})
+            state
+        end
+      end)
+
+    %{state | rehydration_retry_count: 0}
+  end
+
+  defp load_rehydration_snapshot do
+    Fanout.runnable_parents()
+    |> Enum.map(fn parent -> {parent, Fanout.children(parent.id)} end)
+  end
+
+  defp start_coordinator(opts) do
+    DynamicSupervisor.start_child(Supervisor, {Coordinator, opts})
+  end
+
+  defp schedule_rehydration_retry(%{rehydration_retry_count: retries} = state) do
+    delay =
+      min(
+        @recovery_retry_delay_ms * Integer.pow(2, min(retries, 7)),
+        @max_recovery_retry_delay_ms
+      )
+
+    Process.send_after(self(), :retry_rehydrate, delay)
+    %{state | rehydration_retry_count: retries + 1}
+  end
+
+  defp recovery_required(parent_id) do
+    {:ok, Fanout.recovery_required?(parent_id)}
+  rescue
+    exception in [DBConnection.OwnershipError, DBConnection.ConnectionError] ->
+      {:error, bounded_recovery_reason(:exception, exception)}
+
+    exception in Exqlite.Error ->
+      if transient_sqlite_error?(exception),
+        do: {:error, bounded_recovery_reason(:exception, exception)},
+        else: reraise(exception, __STACKTRACE__)
+  end
+
+  defp transient_sqlite_error?(%Exqlite.Error{message: message}) do
+    message = String.downcase(message || "")
+
+    Enum.any?(
+      ["database is busy", "database is locked", "database table is locked"],
+      &String.contains?(message, &1)
+    )
+  end
+
+  defp bounded_recovery_reason(kind, reason) do
+    detail = reason |> Redactor.redact(:signals) |> inspect(limit: 10, printable_limit: 160)
+    {kind, String.slice(detail, 0, @max_recovery_reason_chars)}
+  end
+
+  defp log_recovery_failure(parent_id, reason) do
+    Logger.warning(
+      "fan-out coordinator recovery deferred parent=#{parent_id} reason=#{inspect(reason)}"
+    )
+  end
+
+  defp recover_live_run_slots(state, snapshot) do
+    Enum.reduce(snapshot, state, fn {parent, children}, state ->
+      Enum.reduce(children, state, fn child, state ->
         recover_live_run_slot(state, parent.id, child.id)
       end)
     end)

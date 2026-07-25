@@ -47,7 +47,105 @@ defmodule AllbertAssist.Objectives.Runs.SchedulerTest do
     assert length(Scheduler.snapshot(name).waiting["a"]) == 1
   end
 
+  test "an unavailable durable recovery check cannot restart the scheduler" do
+    name = unique_name()
+    scheduler = start_supervised!({Scheduler, name: name, rehydrate?: false})
+    scheduler_ref = Process.monitor(scheduler)
+
+    coordinator = spawn(fn -> receive do: (:stop -> :ok) end)
+    Scheduler.track_coordinator("missing-parent", coordinator, name)
+    _snapshot = Scheduler.snapshot(name)
+
+    Process.exit(coordinator, :kill)
+
+    refute_receive {:DOWN, ^scheduler_ref, :process, ^scheduler, _reason}, 200
+    assert Process.alive?(scheduler)
+    assert %{active: %{}, waiting: %{}, rotation: []} = Scheduler.snapshot(name)
+  end
+
+  test "unavailable durable state at startup cannot restart the scheduler" do
+    name = unique_name()
+    scheduler = start_supervised!({Scheduler, name: name})
+    scheduler_ref = Process.monitor(scheduler)
+
+    refute_receive {:DOWN, ^scheduler_ref, :process, ^scheduler, _reason}, 200
+    assert Process.alive?(scheduler)
+    assert %{active: %{}, waiting: %{}, rotation: []} = Scheduler.snapshot(name)
+  end
+
+  test "transient rehydration failure retries before installing one live-run monitor" do
+    name = unique_name()
+    worker = start_registry_fixture({:run, "rehydrated-child"})
+    _coordinator = start_registry_fixture({:fanout, "rehydrated-parent"})
+    {:ok, attempts} = Agent.start_link(fn -> 0 end)
+
+    rehydration_loader = fn ->
+      attempt = Agent.get_and_update(attempts, fn count -> {count, count + 1} end)
+
+      if attempt == 0 do
+        raise %DBConnection.ConnectionError{message: "injected snapshot failure"}
+      else
+        [{%{id: "rehydrated-parent"}, [%{id: "rehydrated-child"}]}]
+      end
+    end
+
+    scheduler =
+      start_supervised!(
+        {Scheduler,
+         name: name,
+         max_concurrent_runs_global: 1,
+         max_concurrent_runs_per_fanout: 1,
+         rehydration_loader: rehydration_loader}
+      )
+
+    eventually(fn ->
+      Scheduler.snapshot(name).active == %{"rehydrated-child" => "rehydrated-parent"}
+    end)
+
+    assert Agent.get(attempts, & &1) == 2
+    assert {:monitors, monitors} = Process.info(scheduler, :monitors)
+    assert Enum.count(monitors, &(&1 == {:process, worker})) == 1
+  end
+
   defp unique_name do
     String.to_atom("scheduler_test_#{System.unique_integer([:positive])}")
+  end
+
+  defp start_registry_fixture(key) do
+    owner = self()
+
+    pid =
+      spawn(fn ->
+        result = Registry.register(AllbertAssist.Objectives.Runs.Registry, key, nil)
+        send(owner, {:registry_fixture_started, self(), result})
+        registry_fixture_loop()
+      end)
+
+    assert_receive {:registry_fixture_started, ^pid, {:ok, _owner}}, 1_000
+
+    on_exit(fn ->
+      if Process.alive?(pid), do: send(pid, :stop)
+    end)
+
+    pid
+  end
+
+  defp registry_fixture_loop do
+    receive do
+      :stop -> :ok
+      _message -> registry_fixture_loop()
+    end
+  end
+
+  defp eventually(fun, attempts \\ 100)
+  defp eventually(fun, 0), do: assert(fun.())
+
+  defp eventually(fun, attempts) do
+    if fun.() do
+      :ok
+    else
+      Process.sleep(20)
+      eventually(fun, attempts - 1)
+    end
   end
 end

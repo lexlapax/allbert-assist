@@ -209,6 +209,7 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
     assert parent.kickoff_delivery_state == "acknowledged"
     assert Enum.all?(Fanout.children(parent), &(&1.status == "completed"))
     assert AllbertAssist.Repo.reload!(parent).report_delivery_state == "delivered"
+    assert_fanout_quiesced(parent.id)
   end
 
   test "fanout streaming flushes kickoff, working status, joined report, and DONE", %{
@@ -231,6 +232,14 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
     assert conn.resp_body =~ ~s("allbert_status":"working")
     assert conn.resp_body =~ "Fan-out completed"
     assert conn.resp_body =~ "data: [DONE]"
+
+    [parent] =
+      "public-protocol:openai-client"
+      |> AllbertAssist.Objectives.list_objectives()
+      |> Enum.filter(&(&1.fanout_role == "parent"))
+
+    eventually(fn -> AllbertAssist.Repo.reload!(parent).report_delivery_state == "delivered" end)
+    assert_fanout_quiesced(parent.id)
   end
 
   test "fanout timeout returns kickoff while the eventual report remains pending", %{
@@ -264,6 +273,7 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
       |> Enum.filter(&(&1.fanout_role == "parent"))
 
     eventually(fn -> AllbertAssist.Repo.reload!(parent).report_delivery_state == "pending" end)
+    assert_fanout_quiesced(parent.id)
   end
 
   test "confirmation-pending turns create client-owned readback ids", %{conn: conn, token: token} do
@@ -376,5 +386,11 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
       Process.sleep(20)
       eventually(fun, attempts - 1)
     end
+  end
+
+  defp assert_fanout_quiesced(parent_id) do
+    eventually(fn ->
+      Registry.lookup(AllbertAssist.Objectives.Runs.Registry, {:fanout, parent_id}) == []
+    end)
   end
 end
