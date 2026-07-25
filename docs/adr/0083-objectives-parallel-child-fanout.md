@@ -2,10 +2,14 @@
 
 ## Status
 
-Accepted (v1.1 M3, 2026-07-22). The child model, fair scheduler/full lifecycle
-executor, crash recovery, restart-stable receipts, delivery-before-start
-barrier, public-protocol continuations, and cross-surface automatic-rollout
-corpus are proven together.
+Accepted (v1.1 M3, 2026-07-22), with the M12.15 atomic-terminal-reduction
+amendment below approved for corrective implementation on 2026-07-24. The
+child model, fair scheduler/full lifecycle executor, restart-stable receipts,
+delivery-before-start barrier, public-protocol continuations, and cross-surface
+automatic-rollout corpus remain. FV evidence proved that the original
+Coordinator-side finalization did not fully satisfy this ADR's durable-truth
+and reconstructibility requirements; M12.15 is release-blocking until the
+amendment is implemented and gate-proven.
 
 ## Context
 
@@ -140,6 +144,53 @@ on 2026-07-18.
 8. **A supervised process has no authority by virtue of supervision.** Run
    processes carry the inline runner's context/identity rules. Report-back
    authority remains ADR 0084 and cancellation semantics remain ADR 0085.
+
+### M12.15 amendment — atomic terminal reduction and durable report work
+
+The original Decisions 4 and 6 are refined as follows. This is a correction of
+their durability/reconstruction intent, not a new fan-out architecture or
+authority class.
+
+1. **A fan-out child terminal transition and its possible parent join share one
+   database transaction.** The authoritative transition writes the child's
+   terminal state and lifecycle event, reduces all siblings, and, when the set
+   is terminal, compare-and-set finalizes the parent with its deterministic
+   status/outcome, one `fanout_joined` event, one report receipt, and
+   `report_delivery_state=pending`. Whichever child terminalizes last closes
+   the parent. A committed all-terminal child set with a `not_ready` parent is
+   forbidden for new transitions. Parent compare-and-set is the primary
+   idempotency rule; an additive partial unique database index on
+   `fanout_joined` per parent is defense in depth.
+2. **Every production fan-out terminal writer uses that boundary.** Normal
+   completion/failure/cooperative cancellation, registered-action cancellation
+   after scoped cleanup, retry exhaustion, and stale abandonment cannot update
+   fan-out children through an alternate terminal path. Terminal children are
+   monotonic and cannot reopen or consume another attempt. Non-fan-out engine
+   behavior is unchanged. Approval of a confirmation-blocked fan-out child
+   resumes Scheduler/RunServer/Lifecycle rather than executing or terminalizing
+   that child through the generic confirmation/interactive Engine path.
+3. **Coordinator messages and signals are advisory projections.** They release
+   capacity, update attached surfaces quickly, and wake delivery consumers, but
+   neither is required for durable join/report truth. A lost `run_terminal`,
+   Coordinator exit, or lost `fanout.joined` signal cannot strand a parent or
+   discard completion work.
+4. **Reconciliation is idempotent and common to live and boot recovery.** It
+   returns joined-now, already-joined, or not-terminal distinctly; real failures
+   remain observable and retryable. Scheduler recovery selects every
+   acknowledged parent whose report state is `not_ready`, including an
+   all-terminal/open historical row. Coordinator initialization reconciles the
+   parent before scheduling children. Boot and in-process recovery use this
+   same predicate and repair historical stranded rows without operator action.
+5. **The pending parent report is the durable completion outbox.** ADR 0084's
+   unique delivery ledger is still reserved before remote transport and remains
+   its authority/idempotency boundary. The joined signal is a low-latency
+   wakeup; notification-consumer restart, SignalBus-only restart, and
+   re-subscription also reconcile pending authorized completion work. A
+   pre-send `reserved` completion may resume; an interrupted `sending` delivery
+   becomes uncertain and is not retried; a delivered ledger row idempotently
+   acknowledges a still-pending parent. Default-OFF rows remain pending for
+   next-turn delivery. Successful recovery creates no global startup chatter
+   and never duplicates a normal completion report.
 
 ## Consequences
 

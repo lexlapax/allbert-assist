@@ -101,12 +101,12 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
 5. **1.1 — Asynchronous Background Agent Fan-Out With In-Channel Steering.**
    (Operator intake 2026-07-18, inserted foundational-first. **Implementation
    through M12.14 complete; validation-only product/harness scaffolding is
-   removed. FV-01 then exposed lifecycle retry, effective-steering, and
-   report-control defects; corrective M12.13 is complete. FV-01 subsequently
-   exposed a supervised-cancellation/restart race; corrective M12.14 is
-   complete with focused, pre-push, frozen v1, derived v1.1, and authoritative
-   release gates green at `32202415`; focused FV-01 operator validation is
-   open with a new disposable Home:**
+   removed. Post-M12.14 FV-01 then proved an all-children-terminal/open-parent
+   fan-in liveness breach. M12.15 replaces Coordinator-side best-effort join
+   with an atomic durable terminal reduction, unifies every terminal writer,
+   and makes live/boot/report recovery idempotent. Operator validation is
+   stopped until M12.15 passes its invariant/fault suite, frozen v1, derived
+   v1.1, and authoritative release gate at one committed SHA:**
    `docs/plans/v1.1-plan.md` + request-flow + ADR 0083/0084/0085.) On a prompt
    that decomposes into multiple tasks, Allbert delivers a kickoff receipt,
    then fans out background agents/actions, streams their status, joins on

@@ -5,8 +5,11 @@
 Accepted (v1.1 M7, 2026-07-22). `Channels.Notify`, defaults-OFF settings, the
 restart-safe delivery ledger/edit path, redacted markdown audit, exact-origin
 binding, bounded retry/uncertainty behavior, and focused authority proofs are
-implemented. Gate-bound `:v11` eval rows follow at M10. This is a security ADR
-defining a NEW authority class.
+implemented. The M12.15 replay/in-flight-status amendment below is approved for
+corrective implementation after FV evidence showed that signal-only completion
+wakeup and per-progress disabled-status reservations did not satisfy the
+restart/operability intent. Gate-bound `:v11` eval rows follow at M10. This is a
+security ADR defining a NEW authority class.
 
 ## Context
 
@@ -241,6 +244,44 @@ and gate-bound abuse-case coverage.
   Full simulated end-to-end evidence is mandatory for WhatsApp/Signal while
   ReleaseAvailability-gated; their live row becomes mandatory only when
   released and configured. `release.v1` is green at the tag.
+
+## Amendment (v1.1 M12.15, 2026-07-24) — completion replay and bounded status work
+
+This amendment preserves the authority chain and payload-minimization rules. It
+corrects restart semantics and excessive suppressed-status persistence; it does
+not grant another notification class.
+
+1. A joined fan-out's durable `report_delivery_state=pending` parent row is the
+   completion outbox. `allbert.objectives.fanout.joined` remains a low-latency
+   wakeup, not the only discovery mechanism. NotifyConsumer reconciles pending
+   completion work after its own startup/restart and after SignalBus
+   re-subscription. It monitors bus ownership and re-subscribes after a bus-only
+   restart without changing the application's global supervision strategy.
+2. Completion-ledger recovery is explicit and fail-safe: `reserved` means
+   transport did not begin and may resume; a stale/interrupted `sending` row is
+   `uncertain` and never autonomously retried; `delivered` with a still-pending
+   parent idempotently acknowledges the report receipt; a definitive `failed`
+   first attempt receives only the existing bounded retry. `uncertain` and
+   `suppressed` retain next-turn fallback. No payload body is added to the
+   ledger; completion text is reconstructed from durable Objectives state.
+3. Status candidates that cannot be sent because autonomous notify is OFF or
+   completion-only are coalesced before per-progress delivery reservation.
+   `Channels.Notify` remains the final send-time authority for every actual
+   send, and one bounded suppression decision per fan-out/status class preserves
+   auditable denial. Completion suppression remains one durable decision. A
+   unique-per-signal status key may not turn internal progress volume into
+   unbounded SQLite and markdown-audit writes.
+4. Recovery produces no ordinary kickoff/start notification and no global
+   startup chatter. Operator status/audit may expose recovery, and the normal
+   completion is delivered at most once through the ledger rules. An uncertain
+   external-provider acceptance remains honestly uncertain; the guarantee is no
+   autonomous duplicate plus durable next-turn fallback, not impossible
+   exactly-once behavior at an external transport.
+
+M12.15 validation binds pending-with-no-ledger, `reserved`, stale `sending`,
+`delivered` before parent acknowledgement, definitive `failed`, consumer
+restart, SignalBus-only restart, disabled/completion-only write amplification,
+and enabled send-time re-authorization into the derived `release.v11` gate.
 
 ## Amendment (v1.4 planning, 2026-07-24) — additive `:suggestion` notification kind
 
