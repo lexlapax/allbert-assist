@@ -23,7 +23,7 @@ defmodule AllbertAssist.Database.SQLiteTopologyTest do
   ]
 
   @approved_transaction_calls %{
-    "apps/allbert_assist/lib/allbert_assist/conversations.ex" => 3,
+    "apps/allbert_assist/lib/allbert_assist/conversations.ex" => 4,
     "apps/allbert_assist/lib/allbert_assist/jobs.ex" => 1,
     "apps/allbert_assist/lib/allbert_assist/objectives.ex" => 1,
     "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex" => 7,
