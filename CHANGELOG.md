@@ -25,9 +25,12 @@ no-loss-manifest rejoin is green. M12.21 also makes the attached Web fan-in
 report one canonical conversation message across joined-signal, next-turn, and
 remount paths, keeps browser acknowledgement bound to that exact rendered
 message, labels active fan-out truthfully, and adds bounded linked child-result
-previews. Its focused/static rejoin is green; bounded WV-01 plus the expanded
-final `release.v11`, pre-push, and authoritative release gates remain mandatory
-at one clean pushed SHA before closeout. Binary
+previews. Its focused/static rejoin is green. WV-01 also passed at pushed
+candidate `9ca0e3fd` with real Ollama, one exact
+steer, one remount-stable canonical report, three completed linked children,
+and a delivered successful parent. The expanded final `release.v11`, pre-push,
+and authoritative release gates remain mandatory at one clean pushed SHA
+before closeout. Binary
 publication/cosign, tap fill, packaged-platform rehearsal, and stable-release
 administration remain operator-held after those checks.
 

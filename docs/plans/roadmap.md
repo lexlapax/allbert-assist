@@ -160,7 +160,10 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    paths, preserves exact browser-render acknowledgement, and corrects those
    bounded presentation projections. Its 63 / 0 core/security, 19 / 0 delivery,
    34 / 0 Web, static, Hex, Dialyzer, lane, and 3,521-row manifest rejoin is
-   green; bounded WV-01 and replacement final clean-SHA gates remain:**
+   green. Real-provider WV-01 passed at pushed candidate `9ca0e3fd` with one
+   exact steer, one canonical remount-stable report, three completed linked
+   children, and a delivered successful parent; replacement final clean-SHA
+   gates remain:**
    `docs/plans/v1.1-plan.md` + request-flow + ADR 0083/0084/0085.) On a prompt
    that decomposes into multiple tasks, Allbert delivers a kickoff receipt,
    then fans out background agents/actions, streams their status, joins on
