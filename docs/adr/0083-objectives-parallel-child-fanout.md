@@ -378,6 +378,14 @@ authority class.
   the 3,492-row manifest reconciles 551 files. Clean pushed implementation
   candidate `516fc7b9` passed all 14 `release.v11` steps; evidence is
   `release-v11-1785033817.json`, satisfying the pre-FV barrier.
+- v1.1 M12.19 planned: FV-01 at `386a6650` proves receipt isolation is not a
+  substitute for SQLite write ownership. Development/production converge on
+  one Repo connection with immediate, effect-free durable phases; atomic
+  idempotent inbound admission prevents a message-without-reference partial
+  commit; channel failure and TUI wording are bounded; and a non-Sandbox
+  concurrency regression must separately measure prompt display, line
+  acceptance, next-prompt display, and Runtime execution while re-proving
+  steering plus report acknowledgement before FV-01 reopens.
 - Release: `release.v1` stays green (Tier-1/Tier-2 untouched; runtime
   response gains only additive fields per ADR 0029) and `release.v11` binds
   all eleven fan-out authority rows plus the M12.15 focused suites. Candidate

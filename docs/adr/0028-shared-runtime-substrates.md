@@ -51,6 +51,28 @@ separate migration plan is accepted.
 - No weakening of redaction.
 - No new sandbox backend by itself.
 
+## v1.1 M12.19 Amendment: Local SQLite Write Ownership
+
+Allbert's local SQLite database has one application writer connection in
+development and packaged production. WAL retains concurrent reads, while write
+transactions use immediate mode and contain only bounded Repo work. Provider
+calls, registered actions, signals, confirmation/YAML/file persistence, sleeps,
+and process waits do not execute while a SQLite transaction is open. Signals
+derived from a durable transition publish only after commit.
+
+Runtime inbound admission is one immediate transaction for the canonical user
+message/thread timestamp plus normalized channel-thread and provider-message
+references. Stable ids and uniqueness make the boundary idempotent; failure
+rolls the admission back rather than leaving partial canonical state. Channel
+provider-event dedupe remains outside that transaction and records a definitive
+failed result if admission cannot commit. The test SQL Sandbox may use a larger
+pool for isolated ownership, but it is not evidence of operator topology; a
+non-Sandbox one-writer regression is mandatory.
+
+This amendment does not serialize model/action work, add a database daemon, or
+move away from SQLite. It serializes only the short writes SQLite already
+executes one at a time and removes effectful work from those critical sections.
+
 ## Relates To
 
 - Applies ADR 0026's facade discipline to five named substrates: paths,

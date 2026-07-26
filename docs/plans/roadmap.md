@@ -122,8 +122,16 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    cross-surface suites pass 176 / 0; static/docs/Hex/Dialyzer are clean; and
    the 3,492-row manifest reconciles 551 files without a finding. Clean pushed
    implementation candidate `516fc7b9` passed all 14 `release.v11` steps
-   (`release-v11-1785033817.json`), so FV-01 is ready against its documentation-
-   only closeout descendant. The expanded
+   (`release-v11-1785033817.json`). FV-01 against documentation descendant
+   `386a6650` then proved the M12.18 survival/redelivery contract but exposed
+   production-shaped multi-connection SQLite contention: the steering message
+   partially committed, its provider reference and directive did not, the
+   channel event stayed `received`, and a raw stack reached the TUI. M12.19 is
+   planned as the systemic correction: one production/dev SQLite connection,
+   immediate effect-free transactions, atomic idempotent inbound admission,
+   bounded operator errors, measured prompt/line responsiveness during active
+   fan-out output, and a non-Sandbox concurrency proof. FV-01 is
+   blocked until that focused/static/derived-v1.1 rejoin. The expanded
    `release.v11` definition covers the
    invariant/fault, exact-receipt, attended-surface, autonomous-channel,
    public-protocol, and operator-control paths. Its frozen-v1, derived-v1.1,

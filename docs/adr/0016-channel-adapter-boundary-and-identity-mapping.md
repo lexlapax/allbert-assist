@@ -169,6 +169,14 @@ for dedupe, status, and traceability. Conversation text remains in v0.12
 SQLite `Thread`/`Message` history after runtime acceptance. Channel events keep
 redacted/truncated summaries rather than full raw provider payload dumps.
 
+**v1.1 M12.19 amendment:** provider-event dedupe remains the adapter boundary,
+but Runtime admission of the canonical user message, thread timestamp,
+channel-thread link, and provider-message reference is one idempotent immediate
+SQLite transaction. Admission failure records a definitive failed channel
+event and a bounded operator-facing retry message; it cannot leave the event
+`received`, commit only the user message, or expose an adapter exception/stack.
+Raw provider text is still excluded from channel-event summaries and logs.
+
 Email attachments are never downloaded, extracted, parsed, rendered, forwarded
 to the runtime, or used as memory.
 
