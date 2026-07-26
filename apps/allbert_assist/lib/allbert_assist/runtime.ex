@@ -35,6 +35,7 @@ defmodule AllbertAssist.Runtime do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Runs.Scheduler
+  alias AllbertAssist.Runtime.DeliveryAcknowledgement
   alias AllbertAssist.Runtime.MediaOutputs
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime.Response
@@ -152,11 +153,12 @@ defmodule AllbertAssist.Runtime do
   def submit_user_input(_attrs), do: {:error, :invalid_request}
 
   @doc "Acknowledge successful kickoff delivery and make the fan-out runnable."
-  @spec acknowledge_fanout_start(String.t(), map()) ::
-          :ok | {:error, :invalid_receipt | :receipt_identity_mismatch}
+  @spec acknowledge_fanout_start(String.t(), map()) :: :ok | {:error, term()}
   def acknowledge_fanout_start(receipt, delivery_context) do
-    with :ok <- Fanout.acknowledge_start(receipt, delivery_context),
-         {:ok, parent} <- Fanout.parent_for_start_receipt(receipt, delivery_context) do
+    with {:ok, parent} <-
+           DeliveryAcknowledgement.run(fn ->
+             acknowledge_start_receipt(receipt, delivery_context)
+           end) do
       case Settings.get("objectives.fanout.confirm_before_start") do
         {:ok, true} -> :ok
         _other -> start_acknowledged_fanout(parent)
@@ -165,14 +167,15 @@ defmodule AllbertAssist.Runtime do
   end
 
   @doc "Acknowledge a pending report only after its caller-specific delivery succeeds."
-  @spec acknowledge_report_delivery(String.t(), map()) ::
-          :ok | {:error, :invalid_receipt | :receipt_identity_mismatch}
-  def acknowledge_report_delivery(receipt, delivery_context),
-    do: Fanout.acknowledge_report(receipt, delivery_context)
+  @spec acknowledge_report_delivery(String.t(), map()) :: :ok | {:error, term()}
+  def acknowledge_report_delivery(receipt, delivery_context) do
+    DeliveryAcknowledgement.run(fn ->
+      Fanout.acknowledge_report(receipt, delivery_context)
+    end)
+  end
 
   @doc "Record a failed kickoff delivery so retry/status can reuse the same receipt."
-  @spec delivery_failed(map(), map()) ::
-          :ok | {:error, :invalid_receipt | :receipt_identity_mismatch}
+  @spec delivery_failed(map(), map()) :: :ok | {:error, term()}
   def delivery_failed(response, delivery_context \\ %{})
       when is_map(response) and is_map(delivery_context) do
     case Map.get(response, :fanout_start_receipt) do
@@ -186,7 +189,9 @@ defmodule AllbertAssist.Runtime do
           |> Map.put_new(:thread_id, Map.get(response, :thread_id))
           |> Map.merge(get_in(response, [:fanout, :delivery_context]) || %{})
 
-        Fanout.mark_start_delivery_failed(receipt, context)
+        DeliveryAcknowledgement.run(fn ->
+          Fanout.mark_start_delivery_failed(receipt, context)
+        end)
     end
   end
 
@@ -260,8 +265,7 @@ defmodule AllbertAssist.Runtime do
   end
 
   @doc "Acknowledge only the kickoff handle after its caller-specific delivery succeeds."
-  @spec acknowledge_kickoff_delivery(map(), map()) ::
-          :ok | {:error, :invalid_receipt | :receipt_identity_mismatch}
+  @spec acknowledge_kickoff_delivery(map(), map()) :: :ok | {:error, term()}
   def acknowledge_kickoff_delivery(response, delivery_context \\ %{})
       when is_map(response) and is_map(delivery_context) do
     base_context =
@@ -292,6 +296,12 @@ defmodule AllbertAssist.Runtime do
 
   defp acknowledge_optional_start(receipt, context),
     do: acknowledge_fanout_start(receipt, context)
+
+  defp acknowledge_start_receipt(receipt, delivery_context) do
+    with :ok <- Fanout.acknowledge_start(receipt, delivery_context) do
+      Fanout.parent_for_start_receipt(receipt, delivery_context)
+    end
+  end
 
   defp owned_fanout(parent_id, user_id) do
     case Objectives.get_objective(parent_id) do

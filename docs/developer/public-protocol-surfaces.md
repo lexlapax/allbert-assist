@@ -142,6 +142,13 @@ ledger rows.
 - A bounded wait timeout returns the kickoff shape and leaves the later report
   pending. Pending lookup is owned by the same public user/session/thread and
   the next successful response may carry and acknowledge it.
+- Every successful public-protocol write consumes its receipt through the same
+  Runtime acknowledgement boundary as channel and local surfaces. That
+  boundary retries only the idempotent transition for the closed set of known
+  transient DBConnection and SQLite busy/locked failures. Receipt or identity
+  errors do not retry, and exhaustion after a completed transport leaves the
+  report pending for honest later redelivery; it never re-emits protocol output
+  or converts transport success into a false durable `delivered` claim.
 
 Protocol client ids, session ids, report ids, and receipts remain identity or
 delivery correlation only. They grant no action, confirmation, or cancellation

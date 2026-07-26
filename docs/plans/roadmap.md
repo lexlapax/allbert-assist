@@ -115,10 +115,13 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    against documentation-closeout candidate `c8c4598e` then proved fan-out,
    steering, durable status, and one joined report, but exposed a post-render
    receipt failure that restarted the TUI Adapter and stranded an unrelated
-   admitted turn. M12.18 is planned as a systemic correction: shared transient
-   database classification and bounded idempotent receipt retry across Runtime
-   callers, plus deduplicated unlinked TUI acknowledgement after stdout. FV-01
-   is blocked until its focused/static/derived-v1.1 rejoin. The expanded
+   admitted turn. M12.18 implements the systemic correction: one shared
+   transient database classifier and bounded idempotent receipt retry across
+   Runtime callers, plus bounded deduplicated TUI acknowledgement linked only
+   to the application TaskSupervisor after stdout. Its exact overlap and
+   cross-surface suites pass 176 / 0; static/docs/Hex/Dialyzer are clean; and
+   the 3,492-row manifest reconciles 551 files without a finding. FV-01 remains
+   blocked only until clean pushed-SHA `release.v11` passes. The expanded
    `release.v11` definition covers the
    invariant/fault, exact-receipt, attended-surface, autonomous-channel,
    public-protocol, and operator-control paths. Its frozen-v1, derived-v1.1,

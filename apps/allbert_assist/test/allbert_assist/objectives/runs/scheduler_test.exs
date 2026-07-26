@@ -82,10 +82,18 @@ defmodule AllbertAssist.Objectives.Runs.SchedulerTest do
     rehydration_loader = fn ->
       attempt = Agent.get_and_update(attempts, fn count -> {count, count + 1} end)
 
-      if attempt == 0 do
-        raise %DBConnection.ConnectionError{message: "injected snapshot failure"}
-      else
-        [{%{id: "rehydrated-parent"}, [%{id: "rehydrated-child"}]}]
+      case attempt do
+        0 ->
+          raise %DBConnection.ConnectionError{message: "injected snapshot failure"}
+
+        1 ->
+          exit({:shutdown, %DBConnection.ConnectionError{message: "injected snapshot exit"}})
+
+        3 ->
+          exit(:injected_programming_exit)
+
+        _attempt ->
+          [{%{id: "rehydrated-parent"}, [%{id: "rehydrated-child"}]}]
       end
     end
 
@@ -102,9 +110,15 @@ defmodule AllbertAssist.Objectives.Runs.SchedulerTest do
       Scheduler.snapshot(name).active == %{"rehydrated-child" => "rehydrated-parent"}
     end)
 
-    assert Agent.get(attempts, & &1) == 2
+    assert Agent.get(attempts, & &1) == 3
     assert {:monitors, monitors} = Process.info(scheduler, :monitors)
     assert Enum.count(monitors, &(&1 == {:process, worker})) == 1
+
+    scheduler_ref = Process.monitor(scheduler)
+    send(scheduler, :retry_rehydrate)
+
+    assert_receive {:DOWN, ^scheduler_ref, :process, ^scheduler, :injected_programming_exit},
+                   1_000
   end
 
   defp unique_name do

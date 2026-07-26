@@ -12,6 +12,7 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
 
   require Logger
 
+  alias AllbertAssist.Database.TransientError
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Runs.{Coordinator, Supervisor}
@@ -389,18 +390,22 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
     try do
       do_reconcile_runnable_parents(state)
     rescue
-      exception in [DBConnection.OwnershipError, DBConnection.ConnectionError] ->
-        reason = bounded_recovery_reason(:exception, exception)
-        Logger.warning("fan-out scheduler reconciliation deferred reason=#{inspect(reason)}")
-        schedule_rehydration_retry(state)
-
-      exception in Exqlite.Error ->
-        if transient_sqlite_error?(exception) do
+      exception ->
+        if TransientError.transient?(exception) do
           reason = bounded_recovery_reason(:exception, exception)
           Logger.warning("fan-out scheduler reconciliation deferred reason=#{inspect(reason)}")
           schedule_rehydration_retry(state)
         else
           reraise exception, __STACKTRACE__
+        end
+    catch
+      :exit, reason ->
+        if TransientError.transient?(reason) do
+          reason = bounded_recovery_reason(:exit, reason)
+          Logger.warning("fan-out scheduler reconciliation deferred reason=#{inspect(reason)}")
+          schedule_rehydration_retry(state)
+        else
+          exit(reason)
         end
     end
   end
@@ -448,22 +453,15 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
   defp recovery_required(parent_id) do
     {:ok, Fanout.recovery_required?(parent_id)}
   rescue
-    exception in [DBConnection.OwnershipError, DBConnection.ConnectionError] ->
-      {:error, bounded_recovery_reason(:exception, exception)}
-
-    exception in Exqlite.Error ->
-      if transient_sqlite_error?(exception),
+    exception ->
+      if TransientError.transient?(exception),
         do: {:error, bounded_recovery_reason(:exception, exception)},
         else: reraise(exception, __STACKTRACE__)
-  end
-
-  defp transient_sqlite_error?(%Exqlite.Error{message: message}) do
-    message = String.downcase(message || "")
-
-    Enum.any?(
-      ["database is busy", "database is locked", "database table is locked"],
-      &String.contains?(message, &1)
-    )
+  catch
+    :exit, reason ->
+      if TransientError.transient?(reason),
+        do: {:error, bounded_recovery_reason(:exit, reason)},
+        else: exit(reason)
   end
 
   defp bounded_recovery_reason(kind, reason) do

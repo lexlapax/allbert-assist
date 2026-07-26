@@ -30,6 +30,8 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   @channel "tui"
   @quit_commands MapSet.new(["/quit", "/exit"])
   @max_attended_turn_queue 32
+  @max_report_acknowledgements 32
+  @max_displayed_unacknowledged_reports 32
 
   def child_spec(opts) do
     %{
@@ -195,10 +197,30 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     end
   end
 
+  def handle_info({:tui_report_acknowledged, ack_id, parent_id, result}, state) do
+    case Map.get(state.report_acknowledgements, parent_id) do
+      %{ack_id: ^ack_id, monitor_ref: monitor_ref} ->
+        Process.demonitor(monitor_ref, [:flush])
+
+        state =
+          state
+          |> remove_report_acknowledgement(parent_id)
+          |> finish_report_acknowledgement(parent_id, result)
+
+        {:noreply, state}
+
+      _stale ->
+        {:noreply, state}
+    end
+  end
+
   def handle_info(:advance_attended_turn_queue, state), do: advance_attended_turn_queue(state)
 
   def handle_info({:DOWN, monitor_ref, :process, pid, reason}, state) do
     cond do
+      report_acknowledgement_down?(state, monitor_ref, pid) ->
+        {:noreply, handle_report_acknowledgement_down(state, monitor_ref, reason)}
+
       attended_turn_down?(state, monitor_ref, pid) ->
         handle_attended_turn_down(reason, state)
 
@@ -266,6 +288,15 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   end
 
   defp deliver_attached_fanout(delivery, state) do
+    if delivery.report &&
+         MapSet.member?(state.displayed_unacknowledged_reports, delivery.parent_id) do
+      state
+    else
+      do_deliver_attached_fanout(delivery, state)
+    end
+  end
+
+  defp do_deliver_attached_fanout(delivery, state) do
     delivered? =
       Enum.reduce_while(delivery.lines, true, fn line, _delivered? ->
         case safe_emit_output(line, state) do
@@ -278,20 +309,13 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
         end
       end)
 
-    if delivered? and delivery.report do
-      case Runtime.acknowledge_report_delivery(
-             delivery.report.receipt,
-             delivery.report.delivery_context
-           ) do
-        :ok ->
-          :ok
+    cond do
+      delivered? and delivery.report ->
+        start_report_acknowledgement(delivery, state)
 
-        {:error, reason} ->
-          Logger.debug("tui fan-out report acknowledgement failed: #{inspect(reason)}")
-      end
+      true ->
+        maybe_clear_active_fanout(state, delivery.parent_id)
     end
-
-    maybe_clear_active_fanout(state, delivery.parent_id)
   end
 
   defp safe_emit_output(line, state) do
@@ -301,6 +325,137 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   catch
     :exit, reason -> {:error, {:output_exit, reason}}
     kind, reason -> {:error, {kind, reason}}
+  end
+
+  defp start_report_acknowledgement(delivery, state) do
+    ack_id = make_ref()
+    owner = self()
+    parent_id = delivery.parent_id
+    acknowledge_fun = state.report_acknowledge_fun
+    receipt = delivery.report.receipt
+    delivery_context = delivery.report.delivery_context
+
+    state = remember_displayed_unacknowledged_report(state, parent_id)
+
+    if map_size(state.report_acknowledgements) >= @max_report_acknowledgements do
+      state
+      |> report_acknowledgement_warning(parent_id, :acknowledgement_capacity_reached)
+      |> maybe_clear_active_fanout(parent_id)
+    else
+      do_start_report_acknowledgement(
+        state,
+        ack_id,
+        owner,
+        parent_id,
+        acknowledge_fun,
+        receipt,
+        delivery_context
+      )
+    end
+  end
+
+  defp do_start_report_acknowledgement(
+         state,
+         ack_id,
+         owner,
+         parent_id,
+         acknowledge_fun,
+         receipt,
+         delivery_context
+       ) do
+    case start_turn_task(fn ->
+           result = acknowledge_fun.(receipt, delivery_context)
+
+           send(owner, {:tui_report_acknowledged, ack_id, parent_id, result})
+         end) do
+      {:ok, pid} ->
+        acknowledgement = %{
+          ack_id: ack_id,
+          pid: pid,
+          monitor_ref: Process.monitor(pid)
+        }
+
+        put_in(state.report_acknowledgements[parent_id], acknowledgement)
+
+      {:error, reason} ->
+        state
+        |> report_acknowledgement_warning(parent_id, {:task_start_failed, reason})
+        |> maybe_clear_active_fanout(parent_id)
+    end
+  end
+
+  defp finish_report_acknowledgement(state, parent_id, :ok) do
+    state
+    |> Map.update!(:displayed_unacknowledged_reports, &MapSet.delete(&1, parent_id))
+    |> maybe_clear_active_fanout(parent_id)
+  end
+
+  defp finish_report_acknowledgement(state, parent_id, {:error, reason}) do
+    state
+    |> report_acknowledgement_warning(parent_id, reason)
+    |> maybe_clear_active_fanout(parent_id)
+  end
+
+  defp finish_report_acknowledgement(state, parent_id, result) do
+    state
+    |> report_acknowledgement_warning(parent_id, {:invalid_result, result})
+    |> maybe_clear_active_fanout(parent_id)
+  end
+
+  defp report_acknowledgement_warning(state, parent_id, reason) do
+    Logger.warning(
+      "tui fan-out report acknowledgement deferred parent=#{parent_id} " <>
+        "reason=#{inspect(Redactor.redact(reason))}"
+    )
+
+    _ =
+      safe_emit_output(
+        "[fan-out] report delivery could not be recorded; it remains available on your next turn.",
+        state
+      )
+
+    state
+  end
+
+  defp report_acknowledgement_down?(state, monitor_ref, pid) do
+    Enum.any?(state.report_acknowledgements, fn {_parent_id, acknowledgement} ->
+      acknowledgement.monitor_ref == monitor_ref and acknowledgement.pid == pid
+    end)
+  end
+
+  defp handle_report_acknowledgement_down(state, monitor_ref, reason) do
+    case Enum.find(state.report_acknowledgements, fn {_parent_id, acknowledgement} ->
+           acknowledgement.monitor_ref == monitor_ref
+         end) do
+      {parent_id, _acknowledgement} ->
+        state
+        |> remove_report_acknowledgement(parent_id)
+        |> report_acknowledgement_warning(parent_id, {:worker_down, reason})
+        |> maybe_clear_active_fanout(parent_id)
+
+      nil ->
+        state
+    end
+  end
+
+  defp remove_report_acknowledgement(state, parent_id) do
+    %{state | report_acknowledgements: Map.delete(state.report_acknowledgements, parent_id)}
+  end
+
+  defp remember_displayed_unacknowledged_report(state, parent_id) do
+    displayed = MapSet.put(state.displayed_unacknowledged_reports, parent_id)
+
+    displayed =
+      if MapSet.size(displayed) > @max_displayed_unacknowledged_reports do
+        case Enum.find(displayed, &(&1 != parent_id)) do
+          nil -> displayed
+          evicted_parent_id -> MapSet.delete(displayed, evicted_parent_id)
+        end
+      else
+        displayed
+      end
+
+    %{state | displayed_unacknowledged_reports: displayed}
   end
 
   defp handle_auto_input(input, state) do
@@ -401,6 +556,8 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
         Keyword.get(opts, :escape_monitor?, Keyword.get(opts, :auto_input?, false)),
       escape_monitor_fun: Keyword.get(opts, :escape_monitor_fun, &EscapeMonitor.start/2),
       output_fun: Keyword.get(opts, :output_fun),
+      report_acknowledge_fun:
+        Keyword.get(opts, :report_acknowledge_fun, &Runtime.acknowledge_report_delivery/2),
       max_text_bytes: Map.get(settings, "max_text_bytes", 12_000),
       coding_mode?: Keyword.get(opts, :coding_mode?, false),
       pi_session: Keyword.get(opts, :pi_session),
@@ -410,6 +567,8 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       attended_turn_owner: nil,
       active_fanout: nil,
       attached_fanouts: %{},
+      report_acknowledgements: %{},
+      displayed_unacknowledged_reports: MapSet.new(),
       queued_correction: nil,
       fanout_subscription_id: nil
     }

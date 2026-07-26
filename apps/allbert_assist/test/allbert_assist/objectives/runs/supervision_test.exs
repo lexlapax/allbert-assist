@@ -1146,6 +1146,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
       case attempt do
         0 -> raise %DBConnection.ConnectionError{message: "injected connection failure"}
         1 -> raise %Exqlite.Error{message: "Database is busy"}
+        2 -> exit({:shutdown, %DBConnection.ConnectionError{message: "injected connection exit"}})
         _attempt -> Fanout.reconcile_parent(parent_id, opts)
       end
     end
@@ -1161,7 +1162,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
       projection.phase == :joined and projection.parent.report_delivery_state == "pending"
     end)
 
-    assert Agent.get(attempts, & &1) >= 3
+    assert Agent.get(attempts, & &1) >= 4
     assert_receive {:DOWN, ^monitor_ref, :process, ^coordinator, :normal}, 1_000
     assert Enum.count(Objectives.list_events(parent.id), &(&1.kind == "fanout_joined")) == 1
   end

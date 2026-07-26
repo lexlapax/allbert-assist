@@ -22,6 +22,7 @@ defmodule AllbertAssist.Channels.TUITest do
   alias AllbertAssist.Plugins.TUI, as: TUIPlugin
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
+  alias AllbertAssist.Runtime.DeliveryAcknowledgement
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.TestSupport.ShippedRegistries
@@ -213,6 +214,204 @@ defmodule AllbertAssist.Channels.TUITest do
     )
 
     refute_receive {:tui_output, _duplicate}, 100
+  end
+
+  test "transient report acknowledgement cannot restart the raw TUI or interrupt its attended FIFO" do
+    configure_tui!()
+    assert {:ok, _setting} = Settings.put("objectives.fanout.enabled", false, %{audit?: false})
+    parent = self()
+    attempts = :counters.new(1, [:atomics])
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        send(parent, {:overlap_runtime_started, request.text, self()})
+
+        if request.text == "held independent turn" do
+          receive do
+            :release_overlap_turn -> :ok
+          end
+        end
+
+        {:ok,
+         %{
+           model_payload: "overlap response: #{request.text}",
+           surface_payload: "overlap response: #{request.text}",
+           status: :completed
+         }}
+      end
+    )
+
+    acknowledge_fun = fn receipt, context ->
+      DeliveryAcknowledgement.run(fn ->
+        :counters.add(attempts, 1, 1)
+        attempt = :counters.get(attempts, 1)
+        send(parent, {:report_ack_attempt, attempt})
+
+        if attempt == 1 do
+          raise %DBConnection.ConnectionError{message: "injected acknowledgement contention"}
+        else
+          Runtime.acknowledge_report_delivery(receipt, context)
+        end
+      end)
+    end
+
+    {server, reader} =
+      start_raw_tui!(parent, report_acknowledge_fun: acknowledge_fun)
+
+    server_monitor = Process.monitor(server)
+    assert {:ok, %{parent: fanout_parent, children: children}} = attached_fanout!("Overlap")
+    set_active_fanout(server, fanout_parent.id)
+
+    send_input_driver_line(reader, "held independent turn")
+    assert_receive {:overlap_runtime_started, "held independent turn", held_worker}, 1_000
+    assert_receive {:input_driver_output, "allbert:default> "}, 200
+
+    complete_children!(children)
+
+    joined_output = receive_input_driver_output_containing("[fan-out] fanout joined: Overlap")
+    assert joined_output =~ "[fan-out] fanout joined: Overlap"
+    report_output = receive_input_driver_output_containing("Overlap — success")
+    assert report_output =~ "Overlap — success"
+    assert_receive {:report_ack_attempt, 1}, 1_000
+
+    send_input_driver_line(reader, "queued independent turn")
+    assert_receive {:input_driver_output, "allbert:default> "}, 200
+    refute_receive {:overlap_runtime_started, "queued independent turn", _worker}, 100
+    refute_receive {:DOWN, ^server_monitor, :process, ^server, _reason}, 100
+
+    send(held_worker, :release_overlap_turn)
+    assert_receive {:overlap_runtime_started, "queued independent turn", _worker}, 1_000
+    assert_receive {:report_ack_attempt, 2}, 1_000
+
+    eventually(fn ->
+      Process.alive?(server) and
+        Fanout.parent_projection(fanout_parent).parent.report_delivery_state == "delivered" and
+        :sys.get_state(server).attended_turn == nil
+    end)
+
+    drain_input_driver_output()
+
+    send(
+      server,
+      {:signal, Signal.new!("allbert.objectives.fanout.joined", %{parent_id: fanout_parent.id})}
+    )
+
+    refute Enum.any?(
+             collect_input_driver_output(100),
+             &String.contains?(&1, "[fan-out] fanout joined: Overlap")
+           )
+  end
+
+  test "exhausted or crashing report acknowledgement warns once and preserves pending truth" do
+    configure_tui!()
+    test_pid = self()
+
+    failures = [
+      exhausted: fn _receipt, _context ->
+        DeliveryAcknowledgement.run(
+          fn ->
+            {:error, %DBConnection.ConnectionError{message: "persistent contention"}}
+          end,
+          attempts: 2,
+          delay_fun: fn _delay -> :ok end
+        )
+      end,
+      programming_error: fn _receipt, _context -> raise "injected acknowledgement bug" end
+    ]
+
+    Enum.each(failures, fn {label, acknowledge_fun} ->
+      assert {:ok, server} =
+               Adapter.start_link(
+                 name: nil,
+                 auto_input?: false,
+                 enabled?: true,
+                 live_screen?: false,
+                 output_fun: fn line -> send(test_pid, {:failed_ack_output, label, line}) end,
+                 report_acknowledge_fun: acknowledge_fun
+               )
+
+      server_monitor = Process.monitor(server)
+
+      assert {:ok, %{parent: fanout_parent, children: children}} =
+               attached_fanout!("Failed ACK #{label}")
+
+      set_active_fanout(server, fanout_parent.id)
+      complete_children!(children)
+
+      assert_receive {:failed_ack_output, ^label, "[fan-out] fanout joined: " <> _title}, 1_000
+      assert_receive {:failed_ack_output, ^label, report}, 1_000
+      assert report =~ "Failed ACK #{label} — success"
+
+      assert_receive {
+                       :failed_ack_output,
+                       ^label,
+                       "[fan-out] report delivery could not be recorded; it remains available on your next turn."
+                     },
+                     1_000
+
+      eventually(fn ->
+        state = :sys.get_state(server)
+
+        Process.alive?(server) and state.active_fanout == nil and
+          MapSet.member?(state.displayed_unacknowledged_reports, fanout_parent.id) and
+          Fanout.parent_projection(fanout_parent).parent.report_delivery_state == "pending"
+      end)
+
+      refute_receive {:DOWN, ^server_monitor, :process, ^server, _reason}, 100
+      refute_receive {:failed_ack_output, ^label, _second_warning}, 100
+
+      send(
+        server,
+        {:signal, Signal.new!("allbert.objectives.fanout.joined", %{parent_id: fanout_parent.id})}
+      )
+
+      refute_receive {:failed_ack_output, ^label, _duplicate}, 100
+      GenServer.stop(server)
+    end)
+  end
+
+  test "a written report acknowledgement can finish after the TUI adapter exits" do
+    configure_tui!()
+    test_pid = self()
+
+    acknowledge_fun = fn receipt, context ->
+      send(test_pid, {:detached_ack_worker, self()})
+
+      receive do
+        :finish_detached_ack -> Runtime.acknowledge_report_delivery(receipt, context)
+      end
+    end
+
+    assert {:ok, server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: false,
+               enabled?: true,
+               live_screen?: false,
+               output_fun: fn line -> send(test_pid, {:detached_ack_output, line}) end,
+               report_acknowledge_fun: acknowledge_fun
+             )
+
+    assert {:ok, %{parent: fanout_parent, children: children}} =
+             attached_fanout!("Detached ACK")
+
+    set_active_fanout(server, fanout_parent.id)
+    complete_children!(children)
+
+    assert_receive {:detached_ack_output, "[fan-out] fanout joined: Detached ACK"}, 1_000
+    assert_receive {:detached_ack_output, report}, 1_000
+    assert report =~ "Detached ACK — success"
+    assert_receive {:detached_ack_worker, worker}, 1_000
+
+    assert :ok = GenServer.stop(server, :normal)
+    assert Process.alive?(worker)
+    assert Fanout.parent_projection(fanout_parent).parent.report_delivery_state == "pending"
+
+    send(worker, :finish_detached_ack)
+
+    eventually(fn ->
+      Fanout.parent_projection(fanout_parent).parent.report_delivery_state == "delivered"
+    end)
   end
 
   test "two attached fan-outs each deliver exactly once regardless of completion order" do
@@ -1663,6 +1862,33 @@ defmodule AllbertAssist.Channels.TUITest do
     end
   end
 
+  defp receive_input_driver_output_containing(needle) do
+    receive do
+      {:input_driver_output, line} ->
+        if String.contains?(line, needle),
+          do: line,
+          else: receive_input_driver_output_containing(needle)
+    after
+      1_000 -> flunk("raw TUI output did not contain #{inspect(needle)}")
+    end
+  end
+
+  defp drain_input_driver_output do
+    receive do
+      {:input_driver_output, _line} -> drain_input_driver_output()
+    after
+      0 -> :ok
+    end
+  end
+
+  defp collect_input_driver_output(timeout_ms, output \\ []) do
+    receive do
+      {:input_driver_output, line} -> collect_input_driver_output(timeout_ms, [line | output])
+    after
+      timeout_ms -> Enum.reverse(output)
+    end
+  end
+
   defp drain_multi_tui_output(order) do
     receive do
       {:multi_tui_output, ^order, _line} -> drain_multi_tui_output(order)
@@ -1792,24 +2018,28 @@ defmodule AllbertAssist.Channels.TUITest do
     }
   end
 
-  defp start_raw_tui!(parent) do
+  defp start_raw_tui!(parent, opts \\ []) do
     callbacks = input_driver_callbacks(parent)
 
+    adapter_opts =
+      [
+        name: nil,
+        auto_input?: true,
+        input_driver?: true,
+        emit_banner?: false,
+        enabled?: true,
+        live_screen?: false,
+        input_driver_opts: [
+          enable_raw: callbacks.enable_raw,
+          disable_raw: callbacks.disable_raw,
+          start_reader: callbacks.start_reader,
+          output_fun: callbacks.output_fun
+        ]
+      ]
+      |> Keyword.merge(opts)
+
     assert {:ok, server} =
-             Adapter.start_link(
-               name: nil,
-               auto_input?: true,
-               input_driver?: true,
-               emit_banner?: false,
-               enabled?: true,
-               live_screen?: false,
-               input_driver_opts: [
-                 enable_raw: callbacks.enable_raw,
-                 disable_raw: callbacks.disable_raw,
-                 start_reader: callbacks.start_reader,
-                 output_fun: callbacks.output_fun
-               ]
-             )
+             Adapter.start_link(adapter_opts)
 
     assert_receive {:input_driver_raw, :enabled}
     assert_receive {:input_driver_reader, reader}

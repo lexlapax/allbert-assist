@@ -361,7 +361,7 @@ authority class.
   Dialyzer checks are clean, and the 3,486-row manifest reconciles 550 files.
   Clean-SHA `release.v11` passes all 14 steps at pushed implementation
   candidate `28ee2d86`; evidence is `release-v11-1785027587.json`.
-- v1.1 M12.18 planned: post-render receipt persistence cannot own or terminate
+- v1.1 M12.18 implemented/focused-green: post-render receipt persistence cannot own or terminate
   an attended surface. Known recursive DBConnection and Exqlite busy/locked
   failures share one classifier and receive bounded idempotent retry through
   the Runtime receipt boundary; identity/receipt errors do not retry and
@@ -370,6 +370,13 @@ authority class.
   receipt while the Adapter and unrelated attended FIFO worker remain alive.
   Retry never reprints output. Exhaustion leaves the joined parent pending for
   honest later redelivery; no new durable outbox or retry daemon is introduced.
+  Runtime retry encloses only the idempotent receipt transition/lookup, never
+  scheduling. Scheduler and Coordinator consume the same closed classifier for
+  raised and exited database failures, while unknown errors remain
+  crash-visible. TUI acknowledgement workers and in-session suppression claims
+  are each capped at 32. The focused cross-surface rejoin passes 176 / 0 and
+  the 3,492-row manifest reconciles 551 files; clean-SHA `release.v11` remains
+  the pre-FV barrier.
 - Release: `release.v1` stays green (Tier-1/Tier-2 untouched; runtime
   response gains only additive fields per ADR 0029) and `release.v11` binds
   all eleven fan-out authority rows plus the M12.15 focused suites. Candidate

@@ -98,7 +98,13 @@ autonomous merely because a descriptor can stream. They use the Runtime's exact
 kickoff/report receipts and acknowledge only after successful render or write;
 remote adapters use the separate notification ledger only after per-channel
 ADR 0084 opt-in and send-time reauthorization. TUI `[fan-out]` lifecycle lines
-are operator-facing `:live_region` output, not Logger diagnostics.
+are operator-facing `:live_region` output, not Logger diagnostics. After a
+complete joined-report write, TUI records a bounded ephemeral suppression claim
+and delegates the idempotent receipt transition to a task linked only to the
+application TaskSupervisor. Known transient database failures receive bounded
+Runtime retry without reprinting; exhaustion warns once, preserves the durable
+pending report for later delivery, and cannot terminate terminal input or an
+unrelated attended turn.
 
 ## v1.1 Status Update Declarations
 

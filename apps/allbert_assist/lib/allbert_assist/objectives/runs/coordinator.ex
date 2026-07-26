@@ -11,6 +11,7 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
 
   require Logger
 
+  alias AllbertAssist.Database.TransientError
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
@@ -272,25 +273,8 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
 
   defp pre_effect_database_failure?(child, reason) do
     child.status == "open" and (child.run_attempt_count || 0) == 0 and
-      transient_database_failure?(reason)
+      TransientError.transient?(reason)
   end
-
-  defp transient_database_failure?(%Exqlite.Error{} = exception),
-    do: transient_sqlite_error?(exception)
-
-  defp transient_database_failure?(%DBConnection.ConnectionError{}), do: true
-  defp transient_database_failure?(%DBConnection.OwnershipError{}), do: true
-
-  defp transient_database_failure?(reason) when is_tuple(reason) do
-    reason
-    |> Tuple.to_list()
-    |> Enum.any?(&transient_database_failure?/1)
-  end
-
-  defp transient_database_failure?(reason) when is_list(reason),
-    do: Enum.any?(reason, &transient_database_failure?/1)
-
-  defp transient_database_failure?(_reason), do: false
 
   defp maybe_schedule_blocked_reconcile(child_id) do
     case Objectives.get_objective(child_id) do
@@ -394,26 +378,21 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
   defp reconcile_join(state) do
     state.join_reconciler.(state.parent_id, recovered?: state.recovery?)
   rescue
-    exception in [DBConnection.OwnershipError, DBConnection.ConnectionError] ->
-      {:error,
-       {:join_reconcile_exception, bounded_review_reason("join_reconcile_exception", exception)}}
-
-    exception in Exqlite.Error ->
-      if transient_sqlite_error?(exception) do
+    exception ->
+      if TransientError.transient?(exception) do
         {:error,
          {:join_reconcile_exception, bounded_review_reason("join_reconcile_exception", exception)}}
       else
         reraise exception, __STACKTRACE__
       end
-  end
-
-  defp transient_sqlite_error?(%Exqlite.Error{message: message}) do
-    message = String.downcase(message || "")
-
-    Enum.any?(
-      ["database is busy", "database is locked", "database table is locked"],
-      &String.contains?(message, &1)
-    )
+  catch
+    :exit, reason ->
+      if TransientError.transient?(reason) do
+        {:error,
+         {:join_reconcile_exception, bounded_review_reason("join_reconcile_exit", reason)}}
+      else
+        exit(reason)
+      end
   end
 
   defp retry_join(%{join_retry_count: retries} = state) do

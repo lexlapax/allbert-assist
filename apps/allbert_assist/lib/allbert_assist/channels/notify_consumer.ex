@@ -16,6 +16,7 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
   alias AllbertAssist.Channels.NotifyDelivery
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Runtime
   alias Jido.Signal
   alias Jido.Signal.Bus
 
@@ -264,7 +265,7 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
   end
 
   defp acknowledge_report(parent) do
-    Fanout.acknowledge_report(Fanout.receipt_for(:report, parent.id), %{
+    Runtime.acknowledge_report_delivery(Fanout.receipt_for(:report, parent.id), %{
       user_id: parent.user_id,
       channel: parent.source_channel,
       thread_id: parent.source_thread_id,
