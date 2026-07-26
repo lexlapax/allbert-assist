@@ -2,7 +2,12 @@
 
 ## Status
 
-Proposed (v1.2 planning, 2026-07-24). Binding on v1.2 M2–M5; flips Accepted at
+Proposed (v1.2 planning, 2026-07-24; amended by the third implementation-
+readiness pass 2026-07-26 — §1 gains the repairability split and the per-key
+multi-key write rule, §4 gains the `runtime_unhealthy` and
+`enabled_unavailable` rows and the hosted-key qualifiers, §5 gains the
+wizard-completion decoupling). Binding on v1.2 M1–M3 (ADR 0088 carries
+M4–M5); flips Accepted at
 the v1.2 milestone that proves the detection→enablement→disclosure chain on
 web, TUI, and CLI together (`docs/plans/v1.2-plan.md`). This is a **consent
 ADR**: it deliberately redefines the enablement point that ADR 0078's v0.63
@@ -104,6 +109,34 @@ explicit primary, task candidate order, then one stable documented order.
 is selected. ADR 0078's local-first posture and its rejection of a managed
 hosted default are unchanged.
 
+**The strict order resolves cleanly only when the local rungs are absent
+(third readiness pass, operator 2026-07-26).** When a local runtime IS
+detected but currently unusable, the rule is repairability, not ordering —
+`classify_model_probe/3` consults key presence on exactly one branch today
+(`:missing`), and this amendment says which of the remaining branches join it:
+
+- `below_hardware_floor` + hosted key → **auto-enable hosted.** The local path
+  can never work on this host, so withholding an answer buys nothing.
+- `model_missing` + hosted key → **repair-first.** No hosted enablement; the
+  one-click curated pull remains the single primary CTA. A local model is one
+  confirmed action away, and silently beginning paid inference instead is a
+  consent surprise this ADR exists to prevent.
+- `runtime_unhealthy` + hosted key → **repair-first**, same reasoning, with the
+  restart/repair CTA.
+
+Repair-first is not a dead end: chat is open, the deterministic fallback
+answers, and the operator may enable the hosted path explicitly at any time
+through the ordinary settings path.
+
+**Stickiness is per key across the whole write set.**
+`intent.direct_answer_model_enabled` decides whether enablement runs at all;
+`intent.model_assist_enabled` and the selected profile are each written only
+when raw-absent. An explicitly stored value on any of the three survives
+detection, and the provenance row records which keys were written and which
+were already present. Because the pair must be all-or-nothing and the
+Settings `StoreLock` is not reentrant, the compare-and-write primitive is
+multi-key by construction: one lock, one raw read, one validation, one write.
+
 ### 2. What auto-enablement may and may not do
 
 - **Detection reads; it never provisions.** The probe chain contacts only the
@@ -153,13 +186,18 @@ is open, honest about its current capability, and never a dead end**:
 
 | Detect state | Meaning | First-run behavior |
 |---|---|---|
-| `detected_ready` | local ready (configured endpoint or localhost) or hosted key present | auto-enable per §1; chat answers with the model; disclosure shown |
-| `detected_needs_model` | local runtime healthy, no usable model | chat opens with deterministic fallback; single primary CTA: one-click curated pull (existing progress surface); BYOK secondary |
+| `detected_ready` | local ready (configured endpoint or localhost), or no local runtime at all with a hosted key present, or below-floor hardware with a hosted key present | auto-enable per §1; chat answers with the model; disclosure shown |
+| `detected_needs_model` | local runtime healthy, no usable model — **with or without a hosted key** (§1 repair-first) | chat opens with deterministic fallback; single primary CTA: one-click curated pull (existing progress surface); BYOK secondary |
+| `runtime_unhealthy` | local runtime reachable but failing — **with or without a hosted key** (§1 repair-first) | chat opens with deterministic fallback; single primary CTA: restart/repair the local runtime; BYOK secondary |
 | `nothing_detected` | no runtime, no endpoint, no key | chat opens with deterministic fallback; single primary CTA: guided install / BYOK (ADR 0078 repair paths) |
-| `below_floor` | hardware below curated floor | chat opens with fallback; BYOK-first guidance (ADR 0078 degrade path) |
+| `below_floor` | hardware below curated floor, no hosted key | chat opens with fallback; BYOK-first guidance (ADR 0078 degrade path) |
+| `enabled_unavailable` | consent key already `true` from an earlier detection, but the provider it selected is gone | chat opens with the honest unavailable text and the repair CTA of the underlying state; the disclosure is not re-shown |
 
 These are presentations of the existing six first-model states
-(`cli/first_run.ex:35-49`); no parallel state machine is introduced.
+(`cli/first_run.ex:42-49`); no parallel state machine is introduced. The
+binding cell-by-cell derivation (six `model_state` values × hosted-key
+presence) lives in `docs/plans/v1.2-request-flow.md` §D.0 and every cell
+carries a regression.
 
 ### 5. Onboarding becomes optional and step-addressable
 
@@ -169,7 +207,17 @@ These are presentations of the existing six first-model states
   Rewinding or re-entering a step never revokes enablement and never
   re-gates chat (today rewind clears `onboarding_complete`, which would
   re-trigger the auto-open and the TUI block; that coupling is removed).
-- `onboarding_complete` stops gating anything user-facing. The TUI
+- `onboarding_complete` stops gating anything user-facing, and **wizard
+  completion is decoupled from consent** (third readiness pass, operator
+  2026-07-26). `first_chat_ready?/1` today requires readiness `:ready` AND
+  `intent.direct_answer_model_enabled == true`, so a Home carrying an
+  operator-stored `false` could never finish the wizard — a permanent dead end
+  of exactly the class §4 removes. Completion requires only a genuinely ready
+  model path; the model step records an explicit decline and carries a
+  one-time "re-enable model answers?" affordance that never nags again. The
+  ADR 0069 false-complete rule is preserved in its real sense: the wizard
+  still cannot claim complete while readiness is non-ready.
+- The TUI
   `readiness_guard` hard block is inverted: the TUI always starts, and
   non-ready detect states render as in-TUI guidance instead of an stderr
   refusal. `mix allbert.tui` (dev) and `allbert tui` (packaged) adopt the
@@ -184,7 +232,9 @@ question" is retired. The v1.2 criteria:
 
 - fresh Home + any reachable provisioned provider → the **first question is
   answered by the model with zero prior clicks**, and the disclosure is
-  visible;
+  visible. "Reachable provisioned" means a §4 `detected_ready` cell; a
+  detected-but-repairable local runtime is not reachable, and §1's
+  repair-first rule governs it even when a hosted key is present;
 - fresh Home + nothing provisioned → the chat surface still opens, the
   deterministic fallback answers, and exactly one repair CTA per §4 is
   presented — zero clicks to a working (fallback) chat, no wizard wall;
