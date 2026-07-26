@@ -1,7 +1,7 @@
 # Operator Workspace
 
 Introduced in v0.58 and consolidated into the single shell in v0.61b (ADR 0080).
-The shipped v1.0.5 packaged path starts first run from the service/browser, auto-opens
+The shipped v1.1.0 packaged path starts first run from the service/browser, auto-opens
 onboarding, routes missing-model states to the standalone Models repair panel, and
 streams curated model-pull progress in the web workspace (see
 [onboarding.md](onboarding.md)).

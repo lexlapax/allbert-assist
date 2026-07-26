@@ -12,8 +12,13 @@ changelog entries or release notes.
 
 ## v1.1.0 - Asynchronous Background Agent Fan-Out With In-Channel Steering
 
-Status: **release candidate accepted and stable publication authorized by the
-operator on 2026-07-26; not yet tagged or published.** The
+Status: **shipped 2026-07-26.** Stable annotated tag `v1.1.0` points to
+`fdd52e53`; binary workflow
+[30222827984](https://github.com/lexlapax/allbert-assist/actions/runs/30222827984)
+built and smoked macOS arm64, Linux x64, and Linux arm64, passed the Linux
+install/service/vault rehearsal, signed checksums with GitHub Actions OIDC, and
+published the non-prerelease GitHub Latest. Tap commit `090e59a` fills all three
+verified v1.1.0 assets. The
 implementation, atomic M12.15 invariant/fault remediation, and M12.16–M12.21
 operator/audit corrections are complete. The focused FV-01 walkthrough passed
 against `b74a3405` in one fresh disposable Home: all three children completed,
@@ -35,18 +40,15 @@ then passed the expanded `release.v11`
 (`prepush-2026-07-26T20_32_10Z.json`), and uninterrupted 12-phase authoritative
 release cascade in 3,997 seconds
 (`release-2026-07-26T20_48_52Z.json`). Binary
-publication/cosign, tap fill, packaged-platform rehearsal, and stable-release
-administration remain operator-held after those checks.
-The authorized stable sequence is one annotated `v1.1.0` tag with no
-`[skip-artifacts]` marker, the repository `release-artifacts` binary/cosign
-workflow, GitHub Latest verification, checksum-derived tap fill, and a packaged
-install rehearsal. Shipped status is recorded only after all of those steps
-pass.
+publication closeout verified all six alias/versioned tarballs against
+`SHA256SUMS`, verified `SHA256SUMS.cosign.bundle` against the tag-qualified
+workflow identity, passed strict online Homebrew audit and formula style,
+installed and tested public formula 1.1.0, and passed packaged version/status,
+health, and attach checks with a disposable Allbert Home.
 
-**Formula state: PRE-PUBLICATION ONLY.** packaged Latest 1.0.5 and the
-repository formula remain at 1.0.5 during the RC window. At publish, the tap is
-filled 1.0.5 → 1.1.0 from signed artifact checksums, and that filled formula is
-synced back into the repository before release closeout.
+**Formula state: SHIPPED.** GitHub Latest, the public tap, the installed
+rehearsal package, and the repository formula all resolve to 1.1.0 with the
+published signed checksums.
 
 Allbert can now decompose eligible turns into durable child objectives, return
 an honest kickoff task list before execution starts, run children concurrently

@@ -27,16 +27,11 @@ verbatim and grouped by category.
 Supersedes any per-entry `Slice: 1.1` tag where they conflict — flagships are
 sequenced one per minor, foundational-first:
 
-- **1.0.1–1.0.5 — SHIPPED.** The source-only 1.0.1/1.0.2 work, 1.0.3 test
-  isolation follow-up, and 1.0.4 packaged-browser recovery all converge in the
-  accepted stable v1.0.5 binary line. Shipped history and exact evidence live
+- **1.0.1–1.1.0 — SHIPPED.** The source-only 1.0.1/1.0.2 work, 1.0.3 test
+  isolation follow-up, 1.0.4 packaged-browser recovery, and 1.1 asynchronous
+  fan-out all reached accepted stable binary lines. Shipped history and exact evidence live
   in the roadmap, CHANGELOG, and archived release plans; this inventory keeps
   only unplanned remainder.
-- **1.1 — Asynchronous Background Agent Fan-Out With In-Channel Steering**
-  (operator intake 2026-07-18, inserted as the new first minor: the async
-  runtime/interaction model is foundational — 1.3's memory consolidation jobs
-  and 1.4's profiling analysis are themselves background agents and build on
-  this substrate rather than retrofit it).
 - **1.2 — Zero-Click First Run** + its direct enablers (model chooser/catalog,
   model fallback/degradation for the detect states, consent ADR, folded TUI scope).
 - **1.3 — Long-Term User Memory** (research phase first; folded retrieval/FTS/
@@ -48,9 +43,7 @@ sequenced one per minor, foundational-first:
   migration-runner cluster (runner + telegram/email settings migration + legacy
   intent.*model_profile removal + automated rollback — pulled EARLIER if any 1.1-1.4
   release needs a non-additive migration), email OAuth, MCP spec parity,
-  param-contract completion, PermissionGate deletion. Mid-action interruption,
-  child-process cancellation, and the app-registry boundary check are planned
-  in 1.1. System Memory
+  param-contract completion, PermissionGate deletion. System Memory
   Distillation remains the post-profiling co-flagship candidate. **2.0 horizon**:
   Self-Hosting Development (Allbert develops Allbert, pi-mode target), with OAuth
   hosted-LLM providers landing earlier on the 1.5/1.6 enabler train.
@@ -130,40 +123,6 @@ recorded "Option 2" (proper ownership semantics for core actions) as the
 follow-on.
 
 Deferred at: `v0.54-plan:133`.
-
-### App-Registry Membership Check At Action Boundary
-
-Class: Should (confirmed 2026-07-14) · Effort: S · Slice: 1.1 (operator-confirmed 2026-07-18 over the roadmap's 1.5/1.6 listing) · Verify first: whether later releases already added a boundary check
-
-Status: planned — `docs/plans/v1.1-plan.md` M0 (verify) + M2 (implementation).
-
-v0.15 deferred validating app-registry membership at the action boundary
-(actions trusting the caller-supplied app identity).
-
-Deferred at: `v0.15-plan:670`.
-
-### Mid-Action Interruption / In-Flight Kill
-
-Class: Should (confirmed 2026-07-14) · Effort: M · Slice: 1.1 (one milestone with Child-Process Cancellation)
-
-Status: planned — `docs/plans/v1.1-plan.md` M4 / ADR 0085.
-
-v0.24 deferred interrupting or killing an in-flight action mid-execution.
-Operators can only wait out a long-running action today.
-
-Deferred at: `v0.24-rf:466`.
-
-### Child-Process Cancellation Semantics
-
-Class: Should (confirmed 2026-07-14) · Effort: M · Slice: 1.1 (merged with Mid-Action Interruption)
-
-Status: planned — `docs/plans/v1.1-plan.md` M4 / ADR 0085.
-
-v0.57 deferred defining cancellation semantics for spawned child processes
-(what happens to external work when the owning request dies). Related to
-"Mid-Action Interruption / In-Flight Kill" above.
-
-Deferred at: `v0.57-plan:845`.
 
 ### Force/Retry Job Mode
 
@@ -992,34 +951,6 @@ profile is supported end-to-end for image understanding.
 Deferred at: v0.49 plan/readiness notes (sweep-flagged, no single line ref).
 
 ## Agents & Workflows
-
-### Asynchronous Background Agent Fan-Out With In-Channel Steering
-
-Class: Must (confirmed 2026-07-18) · Effort: L · Slice: 1.1 flagship (operator-slotted 2026-07-18; ladder renumbered — zero-click → 1.2, user memory → 1.3, profiling → 1.4, enablers → 1.5/1.6)
-
-Status: planned — `docs/plans/v1.1-plan.md` (initial plan committed 2026-07-18; triad: plan + request-flow + ADR 0083/0084/0085).
-
-The runtime must support asynchronous background agents that can be run and
-controlled via the channel — whatever the channel (TUI, web, Telegram, …).
-When a user gives a prompt and Allbert determines (plausibly via the intent
-engine) that it decomposes into multiple small tasks, Allbert kicks off
-multiple agents/actions behind the scenes, continuously communicates with
-them for status, waits for all to complete, and reports back — per user
-instruction or default behavior — to the originating channel. The channel
-stays open for user communication throughout. If the user adds input while
-agents are running, Allbert determines from context whether it applies to
-the in-flight agent jobs (steer/adjust/cancel) or is a new independent
-request, and acts accordingly.
-
-Decomposes roughly into: intent-engine multi-task decomposition; concurrent
-fan-out over the delegate-agent substrate (`Objectives.AgentRegistry`,
-`:delegate_agent` steps) with join/aggregation semantics; continuous
-status/progress streaming to the originating channel (builds on the v1.0.1
-`source_channel`/`source_surface` objective attribution); non-blocking
-channel turns while jobs run; and mid-flight follow-up disambiguation
-(steering vs new request) in the intent pipeline.
-
-Provenance: operator intake, 2026-07-18 (v1.0.2 M8 window).
 
 ### Agent URI Execution And Broader Agent Endpoints
 

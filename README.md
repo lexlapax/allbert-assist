@@ -35,7 +35,7 @@ becoming opaque or unbounded.
 ## Current Shape
 
 This README is the stable project orientation. The current packaged release is
-**v1.0.5**. For its features and the full release-by-release history, see the
+**v1.1.0**. For its features and the full release-by-release history, see the
 [CHANGELOG](CHANGELOG.md); forward planning lives in the
 [roadmap](docs/plans/roadmap.md).
 
@@ -44,6 +44,8 @@ Today, Allbert includes:
 - A local assistant runtime that routes user input through registered actions.
 - A web workspace at `/workspace`, plus terminal/CLI operator surfaces.
 - Durable confirmations for sensitive work.
+- Durable supervised fan-out with in-channel steering and one honest joined
+  report across terminal, Web, and supported chat surfaces.
 - Settings Central for operator-tunable configuration.
 - Security Central for permission and policy decisions.
 - Markdown-first memory under Allbert Home, plus local files/notes as a launch

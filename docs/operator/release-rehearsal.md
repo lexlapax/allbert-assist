@@ -21,8 +21,8 @@ replace the binary-release obligation of a versioned feature plan.
 Set this once from the release checkout; every active command below consumes it:
 
 ```sh
-export VERSION="${VERSION:?set VERSION, for example v1.0.5}"
-export EXPECTED_VERSION="${EXPECTED_VERSION:?set product version, for example 1.0.5}"
+export VERSION="${VERSION:?set VERSION, for example v1.1.0}"
+export EXPECTED_VERSION="${EXPECTED_VERSION:?set product version, for example 1.1.0}"
 export REPO="${REPO:-lexlapax/allbert-assist}"
 export PLAYWRIGHT_VERSION="${PLAYWRIGHT_VERSION:-1.58.2}"
 export EVIDENCE_ROOT="${EVIDENCE_ROOT:-$(mktemp -d /tmp/allbert-release-evidence.XXXXXX)}"

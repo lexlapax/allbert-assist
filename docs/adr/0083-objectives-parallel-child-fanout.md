@@ -311,7 +311,7 @@ authority class.
   independent from decomposition size; round-robin across fan-outs and FIFO
   within each; Scheduler and
   Coordinator crash reconstruction; Registry keys unique per run; no polling loop anywhere (signal/monitor driven, asserted via the
-  signal taxonomy in `docs/plans/v1.1-request-flow.md`).
+  signal taxonomy in `docs/plans/archives/v1.1-request-flow.md`).
 - v1.1 M3: every Runtime caller proves no execution before acknowledgement;
   duplicate acknowledgement is idempotent; delivery failure remains blocked;
   retry/status reuses the receipt after uncertainty; overflow clarifies with
