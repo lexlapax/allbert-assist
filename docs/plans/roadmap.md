@@ -111,12 +111,19 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    remains responsive without concurrent Runtime turns; its focused, complete
    TUI, static, Dialyzer, and 3,486-row no-loss-manifest rejoin is green. The
    clean-SHA `release.v11` gate passed all 14 steps at pushed implementation
-   candidate `28ee2d86`; evidence is `release-v11-1785027587.json`, and FV-01
-   is open. The expanded `release.v11` definition covers the
+   candidate `28ee2d86`; evidence is `release-v11-1785027587.json`. FV-01
+   against documentation-closeout candidate `c8c4598e` then proved fan-out,
+   steering, durable status, and one joined report, but exposed a post-render
+   receipt failure that restarted the TUI Adapter and stranded an unrelated
+   admitted turn. M12.18 is planned as a systemic correction: shared transient
+   database classification and bounded idempotent receipt retry across Runtime
+   callers, plus deduplicated unlinked TUI acknowledgement after stdout. FV-01
+   is blocked until its focused/static/derived-v1.1 rejoin. The expanded
+   `release.v11` definition covers the
    invariant/fault, exact-receipt, attended-surface, autonomous-channel,
    public-protocol, and operator-control paths. Its frozen-v1, derived-v1.1,
    pre-push, and authoritative release executions at the final committed SHA.
-   M12.17's derived-v1.1 rejoin and flagship operator validation come first;
+   M12.18's derived-v1.1 rejoin and flagship operator validation come first;
    the longer release cascade follows them by explicit operator sequencing:**
    `docs/plans/v1.1-plan.md` + request-flow + ADR 0083/0084/0085.) On a prompt
    that decomposes into multiple tasks, Allbert delivers a kickoff receipt,
