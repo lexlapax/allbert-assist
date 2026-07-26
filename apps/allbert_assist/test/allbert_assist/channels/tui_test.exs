@@ -807,42 +807,282 @@ defmodule AllbertAssist.Channels.TUITest do
 
   test "auto input driver keeps adapter output in raw-terminal line discipline" do
     parent = self()
-    callbacks = input_driver_callbacks(parent)
-
-    assert {:ok, server} =
-             Adapter.start_link(
-               name: nil,
-               auto_input?: true,
-               input_driver?: true,
-               emit_banner?: false,
-               enabled?: true,
-               live_screen?: false,
-               input_driver_opts: [
-                 enable_raw: callbacks.enable_raw,
-                 disable_raw: callbacks.disable_raw,
-                 start_reader: callbacks.start_reader,
-                 output_fun: callbacks.output_fun
-               ]
-             )
-
-    assert_receive {:input_driver_raw, :enabled}
-    assert_receive {:input_driver_reader, reader}
-    assert_receive {:input_driver_output, "allbert:default> "}
+    {server, reader} = start_raw_tui!(parent)
 
     send_input_driver_line(reader, "/mode")
     assert_receive {:input_driver_output, "\r\n"}
 
     assert_receive {
       :input_driver_output,
-      "Slash command unavailable: terminal profile is not mapped to an Allbert user.\r\n"
+      "\r\e[2KSlash command unavailable: terminal profile is not mapped to an Allbert user.\r\nallbert:default> "
     }
-
-    assert_receive {:input_driver_output, "allbert:default> "}
 
     ref = Process.monitor(server)
     send_input_driver_line(reader, "/quit")
     assert_receive {:DOWN, ^ref, :process, ^server, :normal}
     assert_receive {:input_driver_raw, :disabled}
+  end
+
+  test "raw TUI accepts lifecycle output and the next line while a Runtime turn is held" do
+    configure_tui!()
+    assert {:ok, _setting} = Settings.put("objectives.fanout.enabled", false, %{audit?: false})
+
+    parent = self()
+
+    blocker =
+      spawn(fn ->
+        receive do
+          {:hold, runner} ->
+            send(parent, {:ordered_runtime_started, "first slow turn", runner})
+
+            receive do
+              :release -> send(runner, :release_attended_turn)
+            end
+        end
+      end)
+
+    on_exit(fn -> send(blocker, :release) end)
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        case request.text do
+          "first slow turn" ->
+            send(blocker, {:hold, self()})
+
+            receive do
+              :release_attended_turn -> :ok
+            end
+
+          text ->
+            send(parent, {:ordered_runtime_started, text, self()})
+
+            receive do
+              :release_attended_turn -> :ok
+            end
+        end
+
+        {:ok,
+         %{
+           model_payload: "ordered response: #{request.text}",
+           surface_payload: "ordered response: #{request.text}",
+           status: :completed
+         }}
+      end
+    )
+
+    {server, reader} = start_raw_tui!(parent)
+
+    assert {:ok, %{parent: fanout_parent}} = attached_fanout!("Held-turn lifecycle")
+    set_active_fanout(server, fanout_parent.id)
+
+    send_input_driver_line(reader, "first slow turn")
+    assert_receive {:ordered_runtime_started, "first slow turn", first_runner}, 1_000
+    first_monitor = Process.monitor(first_runner)
+    assert_receive {:input_driver_output, "allbert:default> "}, 200
+
+    "second "
+    |> String.graphemes()
+    |> Enum.each(fn char -> send(reader, {:send_char, char}) end)
+
+    send(
+      server,
+      {:signal,
+       Signal.new!("allbert.objectives.run.progress", %{
+         parent_id: fanout_parent.id,
+         title: "held runtime"
+       })}
+    )
+
+    assert_receive {
+                     :input_driver_output,
+                     "\r\e[2K[fan-out] run progress: held runtime\r\nallbert:default> second "
+                   },
+                   200
+
+    send_input_driver_line(reader, "turn")
+    assert_receive {:input_driver_output, "allbert:default> "}, 200
+    refute_receive {:ordered_runtime_started, "second turn", _runner}, 100
+
+    send(blocker, :release)
+
+    assert_receive {
+                     :input_driver_output,
+                     "\r\e[2Kordered response: first slow turn\r\nallbert:default> "
+                   },
+                   1_000
+
+    assert_receive {:DOWN, ^first_monitor, :process, ^first_runner, :normal}, 1_000
+    assert_receive {:ordered_runtime_started, "second turn", second_runner}, 1_000
+    refute second_runner == first_runner
+    second_monitor = Process.monitor(second_runner)
+    send(second_runner, :release_attended_turn)
+
+    assert_receive {
+                     :input_driver_output,
+                     "\r\e[2Kordered response: second turn\r\nallbert:default> "
+                   },
+                   1_000
+
+    assert_receive {:DOWN, ^second_monitor, :process, ^second_runner, :normal}, 1_000
+    eventually(fn -> :sys.get_state(server).attended_turn == nil end)
+  end
+
+  test "raw TUI hands its fanout attachment back before kickoff acknowledgement" do
+    configure_tui!()
+
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.confirm_before_start", true, %{audit?: false})
+
+    parent = self()
+
+    {server, reader} = start_raw_tui!(parent)
+
+    send_input_driver_line(reader, "first handoff task; second handoff task")
+    assert_receive {:input_driver_output, "\r\n"}
+    assert_receive {:input_driver_output, "allbert:default> "}
+
+    eventually(fn ->
+      Repo.exists?(
+        from objective in Objective,
+          where: objective.user_id == "alice" and objective.fanout_role == "parent"
+      )
+    end)
+
+    fanout_parent =
+      Repo.one!(
+        from objective in Objective,
+          where: objective.user_id == "alice" and objective.fanout_role == "parent",
+          order_by: [desc: objective.inserted_at],
+          limit: 1
+      )
+
+    eventually(fn ->
+      state = :sys.get_state(server)
+
+      state.active_fanout == %{
+        parent_id: fanout_parent.id,
+        thread_id: fanout_parent.source_thread_id,
+        session_id: fanout_parent.session_id
+      }
+    end)
+
+    eventually(fn ->
+      Fanout.parent_projection(fanout_parent).parent.kickoff_delivery_state == "acknowledged"
+    end)
+
+    assert Enum.all?(Fanout.children(fanout_parent), &(&1.run_attempt_count == 0))
+    eventually(fn -> :sys.get_state(server).attended_turn == nil end)
+  end
+
+  test "raw TUI advances its attended FIFO when the active worker exits" do
+    configure_tui!()
+    assert {:ok, _setting} = Settings.put("objectives.fanout.enabled", false, %{audit?: false})
+    parent = self()
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        send(parent, {:crash_runtime_started, request.text, self()})
+
+        if request.text == "worker to stop" do
+          receive do
+            :unexpected_release -> :ok
+          end
+        end
+
+        {:ok,
+         %{
+           model_payload: "recovered response: #{request.text}",
+           surface_payload: "recovered response: #{request.text}",
+           status: :completed
+         }}
+      end
+    )
+
+    {server, reader} = start_raw_tui!(parent)
+
+    send_input_driver_line(reader, "worker to stop")
+    assert_receive {:crash_runtime_started, "worker to stop", worker}, 1_000
+    worker_monitor = Process.monitor(worker)
+    assert_receive {:input_driver_output, "allbert:default> "}, 200
+
+    send_input_driver_line(reader, "queued after stop")
+    assert_receive {:input_driver_output, "allbert:default> "}, 200
+    refute_receive {:crash_runtime_started, "queued after stop", _worker}, 100
+
+    Process.exit(worker, :kill)
+
+    assert_receive {:DOWN, ^worker_monitor, :process, ^worker, :killed}, 1_000
+
+    assert_receive {
+                     :input_driver_output,
+                     "\r\e[2KTUI request stopped before completion: :killed.\r\nallbert:default> "
+                   },
+                   1_000
+
+    assert_receive {:crash_runtime_started, "queued after stop", _worker}, 1_000
+
+    assert_receive {
+                     :input_driver_output,
+                     "\r\e[2Krecovered response: queued after stop\r\nallbert:default> "
+                   },
+                   1_000
+
+    eventually(fn -> :sys.get_state(server).attended_turn == nil end)
+  end
+
+  test "raw TUI bounds its attended FIFO and stops its active worker on shutdown" do
+    configure_tui!()
+    assert {:ok, _setting} = Settings.put("objectives.fanout.enabled", false, %{audit?: false})
+    parent = self()
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        send(parent, {:bounded_runtime_started, request.text, self()})
+
+        receive do
+          :unexpected_release -> :ok
+        end
+
+        {:ok,
+         %{
+           model_payload: "unexpected response",
+           surface_payload: "unexpected response",
+           status: :completed
+         }}
+      end
+    )
+
+    {server, reader} = start_raw_tui!(parent)
+
+    send_input_driver_line(reader, "held for bounded queue")
+    assert_receive {:bounded_runtime_started, "held for bounded queue", worker}, 1_000
+    worker_monitor = Process.monitor(worker)
+
+    Enum.each(1..33, fn index ->
+      send_input_driver_line(reader, "queued turn #{index}")
+    end)
+
+    assert_receive {
+                     :input_driver_output,
+                     "\r\e[2KTUI input queue is full; wait for an earlier request to finish and retry.\r\nallbert:default> "
+                   },
+                   2_000
+
+    eventually(fn -> :queue.len(:sys.get_state(server).attended_turn_queue) == 32 end)
+    refute_receive {:bounded_runtime_started, "queued turn 1", _worker}, 100
+
+    server_monitor = Process.monitor(server)
+    GenServer.stop(server, :normal)
+
+    assert_receive {:DOWN, ^server_monitor, :process, ^server, :normal}, 1_000
+    assert_receive {:DOWN, ^worker_monitor, :process, ^worker, :shutdown}, 1_000
+    assert_receive {:input_driver_raw, :disabled}, 1_000
   end
 
   test "input driver emits standalone escape without echoing terminal controls" do
@@ -1550,6 +1790,32 @@ defmodule AllbertAssist.Channels.TUITest do
         send(parent, {:input_driver_output, IO.iodata_to_binary(chardata)})
       end
     }
+  end
+
+  defp start_raw_tui!(parent) do
+    callbacks = input_driver_callbacks(parent)
+
+    assert {:ok, server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: true,
+               input_driver?: true,
+               emit_banner?: false,
+               enabled?: true,
+               live_screen?: false,
+               input_driver_opts: [
+                 enable_raw: callbacks.enable_raw,
+                 disable_raw: callbacks.disable_raw,
+                 start_reader: callbacks.start_reader,
+                 output_fun: callbacks.output_fun
+               ]
+             )
+
+    assert_receive {:input_driver_raw, :enabled}
+    assert_receive {:input_driver_reader, reader}
+    assert_receive {:input_driver_output, "allbert:default> "}
+
+    {server, reader}
   end
 
   defp input_driver_reader_loop(driver) do

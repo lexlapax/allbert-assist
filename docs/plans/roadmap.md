@@ -107,9 +107,11 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    `6b00b784` passed derived `release.v11`; its focused FV-01 retry proved
    three-child completion, one durable join/report, and post-report usability,
    then exposed a remaining 16.7-second synchronous TUI steering turn. M12.17
-   now owns one supervised ordered attended-turn FIFO so the Adapter remains
-   responsive without concurrent Runtime turns. The expanded `release.v11`
-   definition covers the
+   implements one bounded, supervised ordered attended-turn FIFO so the Adapter
+   remains responsive without concurrent Runtime turns; its focused, complete
+   TUI, static, Dialyzer, and 3,486-row no-loss-manifest rejoin is green. The
+   clean-SHA `release.v11` execution remains the pre-FV barrier. The expanded
+   `release.v11` definition covers the
    invariant/fault, exact-receipt, attended-surface, autonomous-channel,
    public-protocol, and operator-control paths. Its frozen-v1, derived-v1.1,
    pre-push, and authoritative release executions at the final committed SHA.

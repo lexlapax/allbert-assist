@@ -11,11 +11,12 @@ downstream supervision cascade. The replacement permanent/transient/crash-
 visibility lifecycle contract is focused-green. The M12.16 pre-effect-start
 amendment is implemented: known database failures before the first durable
 attempt retry, and attended TUI lifecycle output preserves exact in-progress
-input through one raw-terminal owner. M12.17 is planned after focused operator
-evidence showed that a database-backed steering turn can still occupy the TUI
-Adapter mailbox: ordinary raw-TUI turns will execute one at a time through a
-supervised FIFO while the Adapter remains available for input and lifecycle
-delivery.
+input through one raw-terminal owner. M12.17 is implemented after focused
+operator evidence showed that a database-backed steering turn could still
+occupy the TUI Adapter mailbox: ordinary raw-TUI turns now execute one at a
+time through a bounded supervised FIFO while the Adapter remains available for
+input and lifecycle delivery. Its clean-SHA `release.v11` rejoin remains the
+pre-FV barrier.
 The child model, fair scheduler/full lifecycle executor, restart-stable
 receipts, delivery-before-start barrier, public-protocol continuations, and
 cross-surface automatic-rollout corpus remain. The expanded `release.v11`,
@@ -349,12 +350,16 @@ authority class.
   reconciles 550 files without a lane finding. Derived `release.v11` remains
   the clean-SHA pre-FV barrier; the authoritative release gate follows FV-01
   by explicit operator sequencing and is still required before closeout.
-- v1.1 M12.17 planned: a public raw-Adapter tracer holds one foreground Runtime
-  turn, submits another complete line, interleaves lifecycle output, and proves
-  immediate prompt/input acceptance plus FIFO non-concurrent execution when
-  the first turn is released. The complete TUI, Runtime acknowledgement/caller,
-  fan-out steering, static, manifest, and clean-SHA `release.v11` rejoin follows
-  before FV-01 resumes.
+- v1.1 M12.17 implemented: a public raw-Adapter tracer holds one foreground
+  Runtime turn, submits another complete line, interleaves lifecycle output,
+  and proves immediate prompt/input acceptance plus FIFO non-concurrent
+  execution when the first turn is released. Companion rows prove exact
+  pre-acknowledgement attachment handoff, monitored worker-failure advancement,
+  bounded queue rejection/shutdown cleanup, and Pi-mode transition compatibility.
+  The six-row focused slice passes 6 / 0, complete TUI passes 41 / 0, the
+  acknowledgement/caller plus steering matrix passes 34 / 0, static/Hex/
+  Dialyzer checks are clean, and the 3,486-row manifest reconciles 550 files.
+  Clean-SHA `release.v11` remains the final pre-FV rejoin.
 - Release: `release.v1` stays green (Tier-1/Tier-2 untouched; runtime
   response gains only additive fields per ADR 0029) and `release.v11` binds
   all eleven fan-out authority rows plus the M12.15 focused suites. Candidate

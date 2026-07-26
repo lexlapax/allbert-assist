@@ -16,12 +16,14 @@ Status: **release candidate preparation; not yet tagged or published.** The
 implementation and atomic M12.15 invariant/fault remediation are complete.
 M12.16 closes the focused operator finding that transient first-attempt
 database contention could falsely park never-started children and attended TUI
-lifecycle output could race an immediately typed steering line. Its focused,
-static, Dialyzer, and no-loss-manifest rejoin is green; derived `release.v11`
-remains the clean-SHA barrier before focused flagship operator validation. By
-operator decision, the long authoritative release gate follows the flagship
-walkthrough and any resulting remediation, while remaining mandatory before
-closeout. Binary
+lifecycle output could race an immediately typed steering line. M12.17 then
+moves ordinary raw-TUI turns into one supervised, bounded FIFO so Repo,
+Runtime, or provider latency cannot occupy the Adapter mailbox that accepts
+later input and fan-out updates. Its focused, complete-TUI, static, Dialyzer,
+and no-loss-manifest rejoin is green; derived `release.v11` remains the
+clean-SHA barrier before focused flagship operator validation. By operator
+decision, the long authoritative release gate follows the flagship walkthrough
+and any resulting remediation, while remaining mandatory before closeout. Binary
 publication/cosign, tap fill, packaged-platform rehearsal, and stable-release
 administration remain operator-held after those checks.
 
@@ -87,7 +89,12 @@ one-restart rules still apply. In the TUI, the raw input driver now also owns
 attended output. Lifecycle lines redraw the exact prompt and in-progress
 buffer, while characters typed between turn submission and the next prompt are
 retained as type-ahead, so an immediate fan-out steer is neither truncated nor
-held until child completion.
+held until child completion. Ordinary raw-TUI turns now also return the prompt
+at admission, run one at a time outside the Adapter mailbox, retain later
+complete lines in order, and keep lifecycle redraw responsive while a steering
+turn is waiting on Runtime. Kickoff attachment state is handed back before its
+delivery receipt is acknowledged; Pi-mode, line-mode, and synchronous adapter
+callers keep their existing execution semantics.
 
 The release also adds fair global/per-fan-out scheduling, cooperative through
 OS-process cancellation tiers, Signal daemon wiring, Email outbound delivery,

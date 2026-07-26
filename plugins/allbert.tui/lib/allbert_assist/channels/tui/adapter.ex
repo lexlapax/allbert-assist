@@ -29,6 +29,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   @provider "terminal"
   @channel "tui"
   @quit_commands MapSet.new(["/quit", "/exit"])
+  @max_attended_turn_queue 32
 
   def child_spec(opts) do
     %{
@@ -90,7 +91,10 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
 
   @impl true
   def terminate(_reason, state) do
-    stop_input_driver(state)
+    state
+    |> stop_attended_turn()
+    |> stop_input_driver()
+
     unsubscribe_fanout_events(state)
     :ok
   end
@@ -104,6 +108,21 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   def handle_call({:cancel_current_turn, reason}, _from, state) do
     {reply, state} = cancel_current_turn_state(reason, state)
     {:reply, reply, state}
+  end
+
+  def handle_call(
+        {:attended_turn_handoff, turn_id, response},
+        _from,
+        %{attended_turn: %{turn_id: turn_id}} = state
+      ) do
+    state = maybe_update_pi_session_from_response(response, state)
+    state = track_active_fanout(response, state)
+
+    {:reply, :ok, state}
+  end
+
+  def handle_call({:attended_turn_handoff, _turn_id, _response}, _from, state) do
+    {:reply, {:error, :stale_attended_turn}, state}
   end
 
   @impl true
@@ -161,8 +180,28 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     {:stop, :normal, state}
   end
 
+  def handle_info({:tui_attended_turn_finished, turn_id, _reply, state_delta}, state) do
+    case state.attended_turn do
+      %{turn_id: ^turn_id, monitor_ref: monitor_ref} ->
+        Process.demonitor(monitor_ref, [:flush])
+
+        state
+        |> apply_attended_turn_state_delta(state_delta)
+        |> Map.put(:attended_turn, nil)
+        |> advance_attended_turn_queue()
+
+      _other ->
+        {:noreply, state}
+    end
+  end
+
+  def handle_info(:advance_attended_turn_queue, state), do: advance_attended_turn_queue(state)
+
   def handle_info({:DOWN, monitor_ref, :process, pid, reason}, state) do
     cond do
+      attended_turn_down?(state, monitor_ref, pid) ->
+        handle_attended_turn_down(reason, state)
+
       input_driver_down?(state, monitor_ref, pid) ->
         {:noreply, handle_input_driver_down(reason, state)}
 
@@ -278,18 +317,53 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
         {:stop, :normal, state}
 
       command when is_binary(command) ->
-        if MapSet.member?(@quit_commands, command) do
-          {:stop, :normal, state}
-        else
-          state = update_live_status(state, :processing)
-          {reply, state} = handle_text_submission(command, [async?: state.coding_mode?], state)
-          state = maybe_schedule_next_read(reply, state)
-          {:noreply, state}
+        cond do
+          raw_attended_input?(state) ->
+            handle_raw_attended_input(command, state)
+
+          MapSet.member?(@quit_commands, command) ->
+            {:stop, :normal, state}
+
+          true ->
+            state = update_live_status(state, :processing)
+            {reply, state} = handle_text_submission(command, [async?: state.coding_mode?], state)
+            state = maybe_schedule_next_read(reply, state)
+            {:noreply, state}
         end
 
       _other ->
         state = maybe_schedule_next_prompt(state)
         {:noreply, state}
+    end
+  end
+
+  defp raw_attended_input?(%{
+         auto_input?: true,
+         coding_mode?: false,
+         input_driver: %{pid: pid}
+       })
+       when is_pid(pid),
+       do: true
+
+  defp raw_attended_input?(_state), do: false
+
+  defp handle_raw_attended_input(command, state) do
+    if MapSet.member?(@quit_commands, command) do
+      case state.attended_turn do
+        nil ->
+          {:stop, :normal, state}
+
+        _active ->
+          {:noreply, enqueue_attended_quit(state)}
+      end
+    else
+      state =
+        state
+        |> update_live_status(:processing)
+        |> accept_attended_turn(command, [])
+        |> maybe_schedule_next_prompt()
+
+      {:noreply, state}
     end
   end
 
@@ -331,6 +405,9 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       coding_mode?: Keyword.get(opts, :coding_mode?, false),
       pi_session: Keyword.get(opts, :pi_session),
       current_turn: nil,
+      attended_turn: nil,
+      attended_turn_queue: :queue.new(),
+      attended_turn_owner: nil,
       active_fanout: nil,
       attached_fanouts: %{},
       queued_correction: nil,
@@ -845,6 +922,17 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
 
   defp track_active_fanout(_response, state), do: state
 
+  defp handoff_attended_turn(response, %{
+         attended_turn_owner: {owner, turn_id}
+       })
+       when is_pid(owner) do
+    GenServer.call(owner, {:attended_turn_handoff, turn_id, response}, 5_000)
+  catch
+    :exit, reason -> {:error, {:attended_turn_handoff_failed, Redactor.redact(reason)}}
+  end
+
+  defp handoff_attended_turn(_response, _state), do: :ok
+
   defp maybe_clear_active_fanout(
          %{active_fanout: %{parent_id: parent_id}} = state,
          parent_id
@@ -867,6 +955,138 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       Keyword.get(opts, :turn_id) ||
       "tui-coding-#{Ecto.UUID.generate()}"
   end
+
+  defp accept_attended_turn(state, text, opts) do
+    case state.attended_turn do
+      nil ->
+        start_attended_turn(state, text, opts)
+
+      _active ->
+        enqueue_attended_turn(state, text, opts)
+    end
+  end
+
+  defp enqueue_attended_turn(state, text, opts) do
+    if :queue.len(state.attended_turn_queue) < @max_attended_turn_queue do
+      %{state | attended_turn_queue: :queue.in({text, opts}, state.attended_turn_queue)}
+    else
+      emit_output(
+        "TUI input queue is full; wait for an earlier request to finish and retry.",
+        state
+      )
+
+      state
+    end
+  end
+
+  defp enqueue_attended_quit(state) do
+    %{state | attended_turn_queue: :queue.in(:quit, state.attended_turn_queue)}
+  end
+
+  defp start_attended_turn(state, text, opts) do
+    turn_id = "tui-attended-#{Ecto.UUID.generate()}"
+    owner = self()
+    worker_state = %{state | attended_turn_owner: {owner, turn_id}, auto_input?: false}
+
+    case start_turn_task(fn ->
+           receive do
+             {:start_attended_turn, ^turn_id} ->
+               {reply, worker_state} = handle_text_submission(text, opts, worker_state)
+
+               send(
+                 owner,
+                 {:tui_attended_turn_finished, turn_id, reply,
+                  attended_turn_state_delta(worker_state)}
+               )
+           end
+         end) do
+      {:ok, pid} ->
+        monitor_ref = Process.monitor(pid)
+        send(pid, {:start_attended_turn, turn_id})
+
+        %{
+          state
+          | attended_turn: %{
+              turn_id: turn_id,
+              pid: pid,
+              monitor_ref: monitor_ref,
+              text: text
+            }
+        }
+
+      {:error, reason} ->
+        emit_output(
+          "TUI request could not start: #{inspect(Redactor.redact(reason))}.",
+          state
+        )
+
+        send(self(), :advance_attended_turn_queue)
+        state
+    end
+  end
+
+  defp advance_attended_turn_queue(state) do
+    case :queue.out(state.attended_turn_queue) do
+      {:empty, _queue} ->
+        {:noreply, state}
+
+      {{:value, :quit}, queue} ->
+        {:stop, :normal, %{state | attended_turn_queue: queue}}
+
+      {{:value, {text, opts}}, queue} ->
+        state = %{state | attended_turn_queue: queue}
+        dispatch_queued_attended_input(text, opts, state)
+    end
+  end
+
+  defp dispatch_queued_attended_input(text, opts, %{coding_mode?: true} = state) do
+    {_reply, state} = handle_text_submission(text, Keyword.put(opts, :async?, true), state)
+    {:noreply, state}
+  end
+
+  defp dispatch_queued_attended_input(text, opts, state) do
+    {:noreply, start_attended_turn(state, text, opts)}
+  end
+
+  defp attended_turn_state_delta(state) do
+    Map.take(state, [:coding_mode?, :pi_session, :queued_correction])
+  end
+
+  defp apply_attended_turn_state_delta(state, state_delta) do
+    Map.merge(state, state_delta)
+  end
+
+  defp attended_turn_down?(
+         %{attended_turn: %{pid: pid, monitor_ref: monitor_ref}},
+         ref,
+         down_pid
+       ),
+       do: ref == monitor_ref and down_pid == pid
+
+  defp attended_turn_down?(_state, _ref, _pid), do: false
+
+  defp handle_attended_turn_down(reason, state) do
+    emit_output(
+      "TUI request stopped before completion: #{inspect(Redactor.redact(reason))}.",
+      state
+    )
+
+    state
+    |> Map.put(:attended_turn, nil)
+    |> advance_attended_turn_queue()
+  end
+
+  defp stop_attended_turn(%{attended_turn: %{pid: pid, monitor_ref: monitor_ref}} = state) do
+    Process.demonitor(monitor_ref, [:flush])
+
+    if Process.alive?(pid) do
+      Process.exit(pid, :shutdown)
+    end
+
+    %{state | attended_turn: nil, attended_turn_queue: :queue.new()}
+  end
+
+  defp stop_attended_turn(state), do: state
 
   defp start_turn_task(fun) do
     if Process.whereis(AllbertAssist.TaskSupervisor) do
@@ -1356,6 +1576,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
            Runtime.track_delivery(response, %{channel: @channel}, fn ->
              emit_delivery(rendered, state)
            end),
+         :ok <- handoff_attended_turn(response, state),
          :ok <- Runtime.acknowledge_deliveries(response, %{channel: @channel}),
          {:ok, event} <- mark_processed(event, response, user_id, session_id) do
       {{:ok, {:processed, event, rendered}}, state}
