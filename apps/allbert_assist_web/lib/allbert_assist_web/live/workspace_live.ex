@@ -867,7 +867,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   def handle_async(:ask, {:ok, {:error, reason}}, socket) do
-    {:noreply, assign(socket, asking?: false, error: inspect(reason))}
+    error = Runtime.operator_error_message(reason) || inspect(reason)
+    {:noreply, assign(socket, asking?: false, error: error)}
   end
 
   def handle_async(:ask, {:exit, reason}, socket) do

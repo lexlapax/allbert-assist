@@ -10,6 +10,7 @@ defmodule AllbertAssist.Conversations.ChannelThreadTest do
   alias AllbertAssist.Trace
 
   setup do
+    original_conversations_config = Application.get_env(:allbert_assist, Conversations)
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
@@ -24,6 +25,7 @@ defmodule AllbertAssist.Conversations.ChannelThreadTest do
     Application.delete_env(:allbert_assist, Trace)
 
     on_exit(fn ->
+      restore_app_env(Conversations, original_conversations_config)
       restore_app_env(Runtime, original_runtime_config)
       restore_app_env(Settings, original_settings_config)
       restore_app_env(Trace, original_trace_config)
@@ -377,6 +379,100 @@ defmodule AllbertAssist.Conversations.ChannelThreadTest do
              })
 
     assert second.thread_id == first.thread_id
+  end
+
+  test "runtime rolls back the complete inbound admission when its provider reference is invalid" do
+    install_runtime_runner()
+
+    assert {:ok, thread} = Conversations.create_general_thread("alice", "Atomic admission")
+    original_last_message_at = thread.last_message_at
+    ref = slack_ref("1718040000.000450")
+
+    assert {:error, {:inbound_admission_failed, :invalid_message_reference}} =
+             Runtime.submit_user_input(%{
+               text: "must not partially persist",
+               channel: "slack",
+               user_id: "alice",
+               thread_id: thread.id,
+               channel_thread_ref: ref,
+               provider_message_id: String.duplicate("x", 161)
+             })
+
+    assert {:ok, unchanged_thread} = Conversations.get_thread("alice", thread.id)
+    assert unchanged_thread.last_message_at == original_last_message_at
+    assert Conversations.message_count(thread) == 0
+    assert {:error, :not_found} = ChannelThread.lookup_thread(ref)
+    assert Repo.aggregate(ConversationMessageRef, :count, :id) == 0
+  end
+
+  test "runtime normalizes a raised SQLite busy admission without leaking partial state" do
+    install_runtime_runner()
+
+    Application.put_env(:allbert_assist, Conversations,
+      transaction_runner: fn _admission ->
+        raise %Exqlite.Error{message: "Database busy"}
+      end
+    )
+
+    assert {:ok, thread} = Conversations.create_general_thread("alice", "Busy admission")
+    ref = slack_ref("1718040000.000460")
+
+    assert {:error, {:inbound_admission_failed, :persistence_unavailable}} =
+             Runtime.submit_user_input(%{
+               text: "busy must be bounded",
+               channel: "slack",
+               user_id: "alice",
+               thread_id: thread.id,
+               channel_thread_ref: ref,
+               provider_message_id: "user-1718040000.000461"
+             })
+
+    assert Conversations.message_count(thread) == 0
+    assert {:error, :not_found} = ChannelThread.lookup_thread(ref)
+    assert Repo.aggregate(ConversationMessageRef, :count, :id) == 0
+  end
+
+  test "a transient busy retry reuses one stable admission and commits it exactly once" do
+    install_runtime_runner()
+    attempts = :counters.new(1, [])
+
+    Application.put_env(:allbert_assist, Conversations,
+      transaction_retry_delay_fun: fn _delay -> :ok end,
+      transaction_runner: fn admission ->
+        :counters.add(attempts, 1, 1)
+
+        if :counters.get(attempts, 1) == 1 do
+          raise %Exqlite.Error{message: "Database busy"}
+        else
+          Repo.transaction(admission, mode: :immediate)
+        end
+      end
+    )
+
+    assert {:ok, thread} = Conversations.create_general_thread("alice", "Retried admission")
+    ref = slack_ref("1718040000.000470")
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "commit exactly once",
+               channel: "slack",
+               user_id: "alice",
+               thread_id: thread.id,
+               channel_thread_ref: ref,
+               provider_message_id: "user-1718040000.000471"
+             })
+
+    assert :counters.get(attempts, 1) == 2
+    assert Conversations.message_count(thread) == 2
+    assert {:ok, thread.id} == ChannelThread.lookup_thread(ref)
+
+    assert [%{canonical_message_id: message_id}] =
+             Repo.all(
+               from message_ref in ConversationMessageRef,
+                 where: message_ref.provider_message_id == "user-1718040000.000471"
+             )
+
+    assert message_id == response.user_message_id
   end
 
   test "provider thread refs do not authorize cross-user thread access" do

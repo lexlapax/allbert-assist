@@ -406,6 +406,9 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
 
   defp prompt_error(%{} = error), do: error
 
+  defp prompt_error({:inbound_admission_failed, _kind} = reason),
+    do: Mapping.invalid_params(Runtime.operator_error_message(reason), "runtime_error", nil)
+
   defp prompt_error(reason),
     do: Mapping.invalid_params("ACP prompt failed: #{inspect(reason)}.", "runtime_error", nil)
 

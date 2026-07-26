@@ -189,6 +189,9 @@ defmodule AllbertAssist.PublicProtocol.OpenAI.Mapping do
   end
 
   @spec runtime_error(term()) :: error()
+  def runtime_error({:inbound_admission_failed, _kind} = reason),
+    do: invalid(Runtime.operator_error_message(reason), "runtime_error")
+
   def runtime_error(reason),
     do: invalid("Allbert runtime failed: #{inspect(reason)}.", "runtime_error")
 

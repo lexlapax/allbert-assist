@@ -12,6 +12,7 @@ defmodule AllbertAssist.Database.TransientError do
 
   @max_summary_bytes 240
   @sqlite_transient_messages [
+    "database busy",
     "database is busy",
     "database is locked",
     "database table is locked"

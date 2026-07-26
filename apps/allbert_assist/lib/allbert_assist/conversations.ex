@@ -8,8 +8,10 @@ defmodule AllbertAssist.Conversations do
 
   import Ecto.Query
 
+  alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Conversations.Message
   alias AllbertAssist.Conversations.Thread
+  alias AllbertAssist.Database.TransientError
   alias AllbertAssist.Maps
   alias AllbertAssist.Repo
   alias AllbertAssist.Workspace.Ephemeral
@@ -17,6 +19,8 @@ defmodule AllbertAssist.Conversations do
   @default_kind "general"
   @default_list_limit 20
   @default_context_limit 12
+  @default_admission_attempts 3
+  @default_admission_retry_delay_ms 25
 
   @type thread_result :: {:ok, Thread.t()} | {:error, term()}
 
@@ -210,8 +214,9 @@ defmodule AllbertAssist.Conversations do
   @spec complete_thread(String.t(), String.t()) :: thread_result()
   def complete_thread(user_id, thread_id) do
     with {:ok, thread} <- get_thread(user_id, thread_id),
-         {:ok, %Thread{} = completed} <-
+         {:ok, {%Thread{} = completed, dismissed}} <-
            Repo.transaction(fn -> complete_thread_and_dismiss_ephemerals(thread) end) do
+      Ephemeral.publish_thread_dismissals(dismissed)
       {:ok, completed}
     end
   end
@@ -232,6 +237,46 @@ defmodule AllbertAssist.Conversations do
   def append_user_message(%Thread{} = thread, content, attrs \\ %{}) do
     append_message(thread, Map.merge(to_attrs(attrs), %{role: "user", content: content}))
   end
+
+  @doc "Atomically admit one inbound user message and its normalized provider references."
+  @spec admit_user_message(Thread.t(), String.t(), map() | keyword()) ::
+          {:ok, %{message: Message.t(), channel_thread_ref: map() | nil}}
+          | {:error, {:inbound_admission_failed, atom()}}
+  def admit_user_message(%Thread{completed_at: completed_at}, _content, _attrs)
+      when not is_nil(completed_at),
+      do: {:error, {:inbound_admission_failed, :thread_completed}}
+
+  def admit_user_message(%Thread{} = thread, content, attrs) when is_binary(content) do
+    attrs = to_attrs(attrs)
+    timestamp = utc_now()
+
+    message_attrs =
+      message_attrs(
+        thread,
+        attrs
+        |> Map.drop([:channel_thread_ref, :provider_message_id, :provider_message_part_id])
+        |> Map.merge(%{role: "user", content: content})
+      )
+
+    admission = fn ->
+      message = insert_message_and_touch_thread(thread, message_attrs, timestamp)
+
+      with {:ok, channel_thread_ref} <-
+             admit_channel_thread_ref(thread, message, attrs) do
+        %{message: message, channel_thread_ref: channel_thread_ref}
+      else
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end
+
+    case run_inbound_admission(admission) do
+      {:ok, admitted} -> {:ok, admitted}
+      {:error, reason} -> {:error, {:inbound_admission_failed, admission_error(reason)}}
+    end
+  end
+
+  def admit_user_message(_thread, _content, _attrs),
+    do: {:error, {:inbound_admission_failed, :invalid_message}}
 
   @doc "Append an assistant-authored message to a thread."
   @spec append_assistant_message(Thread.t(), String.t(), map() | keyword()) ::
@@ -315,18 +360,22 @@ defmodule AllbertAssist.Conversations do
     timestamp = utc_now()
 
     with {:ok, completed} <- Repo.update(Thread.complete_changeset(thread, timestamp)),
-         {:ok, _dismissed} <-
-           Ephemeral.dismiss_for_thread(completed.id, completed.user_id, :thread_closed) do
-      completed
+         {:ok, dismissed} <-
+           Ephemeral.dismiss_for_thread_transaction(
+             completed.id,
+             completed.user_id,
+             :thread_closed
+           ) do
+      {completed, dismissed}
     else
       {:error, reason} -> Repo.rollback(reason)
     end
   end
 
   defp complete_thread_and_dismiss_ephemerals(%Thread{} = thread) do
-    with {:ok, _dismissed} <-
-           Ephemeral.dismiss_for_thread(thread.id, thread.user_id, :thread_closed) do
-      thread
+    with {:ok, dismissed} <-
+           Ephemeral.dismiss_for_thread_transaction(thread.id, thread.user_id, :thread_closed) do
+      {thread, dismissed}
     else
       {:error, reason} -> Repo.rollback(reason)
     end
@@ -340,6 +389,96 @@ defmodule AllbertAssist.Conversations do
       {:error, reason} -> Repo.rollback(reason)
     end
   end
+
+  defp admit_channel_thread_ref(thread, message, attrs) do
+    case Map.get(attrs, :channel_thread_ref) do
+      nil ->
+        {:ok, nil}
+
+      ref ->
+        ref = Map.put(ref, :canonical_thread_id, thread.id)
+
+        with {:ok, thread_ref} <- ChannelThread.link_thread(ref),
+             :ok <- maybe_admit_message_ref(thread, message, ref, attrs) do
+          {:ok, ChannelThread.canonical_ref(thread_ref)}
+        end
+    end
+  end
+
+  defp maybe_admit_message_ref(thread, message, ref, attrs) do
+    case Map.get(attrs, :provider_message_id) do
+      nil ->
+        :ok
+
+      provider_message_id ->
+        ref
+        |> Map.merge(%{
+          canonical_message_id: message.id,
+          canonical_thread_id: thread.id,
+          provider_message_id: provider_message_id,
+          part_id: Map.get(attrs, :provider_message_part_id),
+          direction: :in
+        })
+        |> ChannelThread.record_message_ref()
+        |> case do
+          {:ok, _message_ref} -> :ok
+          {:error, reason} -> {:error, {:message_reference, reason}}
+        end
+    end
+  end
+
+  defp run_inbound_admission(admission) do
+    config = Application.get_env(:allbert_assist, __MODULE__, [])
+    attempts = Keyword.get(config, :transaction_attempts, @default_admission_attempts)
+    delay_ms = Keyword.get(config, :transaction_retry_delay_ms, @default_admission_retry_delay_ms)
+    delay_fun = Keyword.get(config, :transaction_retry_delay_fun, &Process.sleep/1)
+
+    do_run_inbound_admission(admission, attempts, delay_ms, delay_fun)
+  end
+
+  defp do_run_inbound_admission(admission, attempts, delay_ms, delay_fun) do
+    case safely_run_inbound_admission(admission) do
+      {:error, :persistence_unavailable} when attempts > 1 ->
+        delay_fun.(delay_ms)
+        do_run_inbound_admission(admission, attempts - 1, delay_ms, delay_fun)
+
+      result ->
+        result
+    end
+  end
+
+  defp safely_run_inbound_admission(admission) do
+    inbound_transaction_runner().(admission)
+  rescue
+    exception ->
+      if TransientError.transient?(exception) do
+        {:error, :persistence_unavailable}
+      else
+        reraise exception, __STACKTRACE__
+      end
+  catch
+    :exit, reason ->
+      if TransientError.transient?(reason) do
+        {:error, :persistence_unavailable}
+      else
+        exit(reason)
+      end
+  end
+
+  defp inbound_transaction_runner do
+    :allbert_assist
+    |> Application.get_env(__MODULE__, [])
+    |> Keyword.get(:transaction_runner, fn admission ->
+      Repo.transaction(admission, mode: :immediate)
+    end)
+  end
+
+  defp admission_error({:message_reference, _reason}), do: :invalid_message_reference
+  defp admission_error({:thread_ref_conflict, _thread_id}), do: :thread_reference_conflict
+  defp admission_error(:thread_completed), do: :thread_completed
+  defp admission_error(:persistence_unavailable), do: :persistence_unavailable
+  defp admission_error(%Ecto.Changeset{}), do: :invalid_message
+  defp admission_error(_reason), do: :persistence_failure
 
   defp message_attrs(%Thread{} = thread, attrs) do
     attrs

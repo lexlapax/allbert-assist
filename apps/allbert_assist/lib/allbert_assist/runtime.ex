@@ -132,9 +132,9 @@ defmodule AllbertAssist.Runtime do
          {:ok, input_signal} <- new_input_signal(request),
          :ok <- log_signal(input_signal),
          :ok <- log_runtime_turn_started(input_signal, request),
-         {:ok, user_message} <- persist_user_message(request, input_signal),
-         request <- put_user_message_id(request, user_message),
-         request <- maybe_record_inbound_channel_refs(request, user_message),
+         {:ok, admission} <- persist_user_message(request, input_signal),
+         user_message <- admission.message,
+         request <- put_inbound_admission(request, admission),
          request <- put_thread_context(request, user_message),
          {:ok, agent_response} <- run_stage_zero_or_agent(input_signal, request),
          {:ok, response_signal} <- new_response_signal(input_signal, request, agent_response),
@@ -151,6 +151,13 @@ defmodule AllbertAssist.Runtime do
   end
 
   def submit_user_input(_attrs), do: {:error, :invalid_request}
+
+  @doc "Return bounded operator wording for persistence failures that must not expose internals."
+  @spec operator_error_message(term()) :: String.t() | nil
+  def operator_error_message({:inbound_admission_failed, _kind}),
+    do: "Allbert could not save that request. Nothing was started; retry it."
+
+  def operator_error_message(_reason), do: nil
 
   @doc "Acknowledge successful kickoff delivery and make the fan-out runnable."
   @spec acknowledge_fanout_start(String.t(), map()) :: :ok | {:error, term()}
@@ -1077,64 +1084,19 @@ defmodule AllbertAssist.Runtime do
       }
       |> maybe_put(:active_app, request.active_app)
 
-    Conversations.append_user_message(request.conversation_thread, request.text, %{
+    Conversations.admit_user_message(request.conversation_thread, request.text, %{
       input_signal_id: input_signal.id,
-      metadata: metadata
+      metadata: metadata,
+      channel_thread_ref: request.channel_thread_ref,
+      provider_message_id: request.provider_message_id,
+      provider_message_part_id: request.provider_message_part_id
     })
   end
 
-  defp put_user_message_id(request, user_message) do
-    Map.put(request, :user_message_id, user_message.id)
-  end
-
-  defp maybe_record_inbound_channel_refs(%{channel_thread_ref: nil} = request, _user_message),
-    do: request
-
-  defp maybe_record_inbound_channel_refs(request, user_message) do
-    ref = Map.put(request.channel_thread_ref, :canonical_thread_id, request.thread_id)
-
+  defp put_inbound_admission(request, admission) do
     request
-    |> record_channel_thread_link(ref)
-    |> record_inbound_message_ref(ref, user_message)
-  end
-
-  defp record_channel_thread_link(request, ref) do
-    case ChannelThread.link_thread(ref) do
-      {:ok, thread_ref} ->
-        Map.put(request, :channel_thread_ref, ChannelThread.canonical_ref(thread_ref))
-
-      {:error, reason} ->
-        add_request_diagnostic(request, %{
-          source: :channel_thread,
-          operation: :link_thread,
-          error: inspect(Redactor.redact(reason))
-        })
-    end
-  end
-
-  defp record_inbound_message_ref(%{provider_message_id: nil} = request, _ref, _user_message),
-    do: request
-
-  defp record_inbound_message_ref(request, ref, user_message) do
-    attrs =
-      ref
-      |> Map.put(:canonical_message_id, user_message.id)
-      |> Map.put(:canonical_thread_id, request.thread_id)
-      |> Map.put(:provider_message_id, request.provider_message_id)
-      |> Map.put(:part_id, request.provider_message_part_id)
-      |> Map.put(:direction, :in)
-
-    case ChannelThread.record_message_ref(attrs) do
-      {:ok, _message_ref} ->
-        request
-
-      {:error, reason} ->
-        add_request_diagnostic(request, %{
-          source: :channel_thread,
-          operation: :record_message_ref,
-          error: inspect(Redactor.redact(reason))
-        })
-    end
+    |> Map.put(:user_message_id, admission.message.id)
+    |> Map.put(:channel_thread_ref, admission.channel_thread_ref)
   end
 
   defp put_thread_context(request, user_message) do
@@ -1341,10 +1303,6 @@ defmodule AllbertAssist.Runtime do
   end
 
   defp add_diagnostic(response, diagnostic), do: Response.append_diagnostic(response, diagnostic)
-
-  defp add_request_diagnostic(request, diagnostic) do
-    Map.update!(request, :diagnostics, &(&1 ++ [diagnostic]))
-  end
 
   defp normalize_session_id(attrs) do
     case fetch_value(attrs, :session_id) do

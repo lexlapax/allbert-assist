@@ -2,6 +2,7 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
   use AllbertAssist.DataCase, async: false
 
   alias AllbertAssist.Actions.Registry
+  alias AllbertAssist.DynamicPlugins.ActionsOverlay
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.AgentRegistry
   alias AllbertAssist.Objectives.Engine.Agent, as: EngineAgent
@@ -10,6 +11,33 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
   alias AllbertAssist.Repo
   alias Jido.AgentServer
   alias Jido.Signal.Bus
+
+  defmodule TransactionProbeAction do
+    use Jido.Action,
+      name: "objective_transaction_probe",
+      description: "Reports whether Runner invoked the action inside a Repo transaction.",
+      schema: []
+
+    def capability do
+      %{
+        permission: :read_only,
+        exposure: :internal,
+        execution_mode: :read_only,
+        skill_backed?: false,
+        confirmation: :not_required
+      }
+    end
+
+    @impl true
+    def run(_params, _context) do
+      send(:persistent_term.get({__MODULE__, :test_pid}), {
+        :runner_in_transaction,
+        AllbertAssist.Repo.in_transaction?()
+      })
+
+      {:ok, %{status: :completed, message: "transaction probe completed"}}
+    end
+  end
 
   test "private engine command modules are not registered capability actions" do
     assert EngineAgent.command_modules() == [
@@ -218,6 +246,51 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
 
     assert {:ok, %{agent: %{state: state}}} = AgentServer.state(name)
     assert state.last_acceptance_verdicts[objective.id] == :met
+  end
+
+  test "authorize_step commits selection before Runner executes outside the Repo transaction" do
+    ActionsOverlay.clear()
+    :persistent_term.put({TransactionProbeAction, :test_pid}, self())
+
+    on_exit(fn ->
+      ActionsOverlay.clear()
+      :persistent_term.erase({TransactionProbeAction, :test_pid})
+    end)
+
+    assert :ok =
+             ActionsOverlay.register_many([
+               %{
+                 name: TransactionProbeAction.name(),
+                 module: TransactionProbeAction,
+                 slug: "objective-transaction-probe",
+                 revision: "1",
+                 exposure: :internal
+               }
+             ])
+
+    name = start_test_engine()
+
+    assert {:ok, objective} =
+             Objectives.create_objective(%{
+               user_id: "alice",
+               title: "Transaction boundary",
+               objective: "Run outside the database transaction."
+             })
+
+    assert {:ok, step} =
+             Objectives.create_step(%{
+               objective_id: objective.id,
+               kind: "action",
+               status: "proposed",
+               stage: "propose_steps",
+               candidate_action: TransactionProbeAction.name(),
+               action_params: %{}
+             })
+
+    assert {:ok, %{step: %{status: "completed"}}} =
+             EngineAgent.authorize_step(name, %{step_id: step.id})
+
+    assert_receive {:runner_in_transaction, false}
   end
 
   test "prune_stale command prunes and can return a conservative schedule directive" do

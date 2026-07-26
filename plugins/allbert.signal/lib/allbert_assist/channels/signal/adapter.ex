@@ -498,6 +498,10 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
     Channels.update_event(event, %{status: "failed", error: inspect(Redactor.redact(reason))})
   end
 
+  defp mark_rejected_or_failed(event, {:inbound_admission_failed, _kind}) do
+    Channels.update_event(event, %{status: "failed", reason: "inbound_admission_failed"})
+  end
+
   defp mark_rejected_or_failed(event, reason) do
     status =
       if reason in [:disabled, :not_mapped, :signal_aci_not_allowed, :invalid_signal_aci],

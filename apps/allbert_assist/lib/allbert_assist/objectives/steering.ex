@@ -17,7 +17,8 @@ defmodule AllbertAssist.Objectives.Steering do
          :ok <- ensure_fanout_child(objective),
          :ok <- ensure_active(objective),
          {:ok, {objective, event}} <-
-           record_directive(objective, user_id, String.trim(directive)) do
+           record_directive(objective, user_id, String.trim(directive)),
+         :ok <- cancel_parked_confirmation(objective, event.id) do
       notify_runner(objective.id, event.id)
 
       if objective.fanout_role == "child",
@@ -54,8 +55,10 @@ defmodule AllbertAssist.Objectives.Steering do
   end
 
   defp apply_pending_event(event, {:ok, current}) do
-    case apply_one(current, event) do
-      {:ok, updated} -> {:cont, {:ok, updated}}
+    with :ok <- cancel_parked_confirmation(current, event.id),
+         {:ok, updated} <- apply_one(current, event) do
+      {:cont, {:ok, updated}}
+    else
       error -> {:halt, error}
     end
   end
@@ -68,7 +71,6 @@ defmodule AllbertAssist.Objectives.Steering do
         with {:ok, current} <- Objectives.get_objective(user_id, objective.id),
              :ok <- ensure_fanout_child(current),
              :ok <- ensure_active(current),
-             :ok <- cancel_parked_confirmation(current, event_id),
              {:ok, event} <-
                Objectives.create_event(%{
                  id: event_id,

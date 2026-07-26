@@ -46,8 +46,10 @@ if config_env() == :prod do
 
   config :allbert_assist, AllbertAssist.Repo,
     database: database_path,
-    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "5"),
-    busy_timeout: 15_000
+    pool_size: 1,
+    journal_mode: :wal,
+    default_transaction_mode: :immediate,
+    busy_timeout: 1_000
 
   # The secret key base signs/encrypts cookies and similar secrets. v0.62 M1
   # (Locked Decision 13): when the env doesn't provide one, generate it on

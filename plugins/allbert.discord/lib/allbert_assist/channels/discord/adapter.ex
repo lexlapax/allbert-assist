@@ -608,8 +608,13 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
           "failed"
       end
 
-    Channels.update_event(event, %{status: status, reason: inspect(Redactor.redact(reason))})
+    Channels.update_event(event, %{status: status, reason: bounded_event_reason(reason)})
   end
+
+  defp bounded_event_reason({:inbound_admission_failed, _kind}),
+    do: "inbound_admission_failed"
+
+  defp bounded_event_reason(reason), do: inspect(Redactor.redact(reason))
 
   defp event_result({:ok, %AllbertAssist.Channels.Event{} = event}, success),
     do: {:ok, success || event}

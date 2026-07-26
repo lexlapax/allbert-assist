@@ -146,6 +146,48 @@ defmodule AllbertAssist.Channels.TUITest do
     refute assistant_content =~ "[surface]"
   end
 
+  test "inbound admission failure is definitive, bounded, and leaves the TUI usable" do
+    configure_tui!()
+    parent = self()
+
+    assert {:ok, server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: false,
+               enabled?: true,
+               live_screen?: false,
+               output_fun: fn line -> send(parent, {:tui_output, line}) end
+             )
+
+    assert {:ok, :rejected} =
+             Adapter.submit(server, "must roll back",
+               external_event_id: "evt-tui-admission-failed",
+               external_message_id: String.duplicate("x", 161)
+             )
+
+    assert_receive {:tui_output,
+                    "Allbert could not save that request. Nothing was started; retry it."}
+
+    event =
+      Repo.get_by!(Event,
+        channel: "tui",
+        external_event_id: "evt-tui-admission-failed"
+      )
+
+    assert event.status == "failed"
+    assert event.reason == "inbound_admission_failed"
+    refute event.reason =~ "Exqlite"
+    refute event.reason =~ "conversation_message_refs"
+    assert Process.alive?(server)
+
+    assert {:ok, {:processed, _event, ["[surface] next turn"]}} =
+             Adapter.submit(server, "next turn",
+               external_event_id: "evt-tui-after-admission-failed"
+             )
+
+    assert_receive {:runtime_request, %{text: "next turn"}}
+  end
+
   test "failed kickoff returned error preserves the start barrier" do
     assert_failed_kickoff_output_preserves_start_barrier(:returned_error)
   end
@@ -1072,6 +1114,22 @@ defmodule AllbertAssist.Channels.TUITest do
     {server, reader} = start_raw_tui!(parent)
 
     assert {:ok, %{parent: fanout_parent}} = attached_fanout!("Held-turn lifecycle")
+
+    progress_signal =
+      Signal.new!("allbert.objectives.run.progress", %{
+        parent_id: fanout_parent.id,
+        child_id: "held-runtime-child",
+        title: "held runtime"
+      })
+
+    send(server, {:signal, progress_signal})
+
+    refute_receive {
+                     :input_driver_output,
+                     "\r\e[2K[fan-out] run progress: held runtime\r\nallbert:default> "
+                   },
+                   50
+
     set_active_fanout(server, fanout_parent.id)
 
     send_input_driver_line(reader, "first slow turn")
@@ -1083,14 +1141,7 @@ defmodule AllbertAssist.Channels.TUITest do
     |> String.graphemes()
     |> Enum.each(fn char -> send(reader, {:send_char, char}) end)
 
-    send(
-      server,
-      {:signal,
-       Signal.new!("allbert.objectives.run.progress", %{
-         parent_id: fanout_parent.id,
-         title: "held runtime"
-       })}
-    )
+    Enum.each(1..25, fn _index -> send(server, {:signal, progress_signal}) end)
 
     assert_receive {
                      :input_driver_output,
@@ -1100,6 +1151,13 @@ defmodule AllbertAssist.Channels.TUITest do
 
     send_input_driver_line(reader, "turn")
     assert_receive {:input_driver_output, "allbert:default> "}, 200
+
+    refute_receive {
+                     :input_driver_output,
+                     "\r\e[2K[fan-out] run progress: held runtime\r\nallbert:default> second "
+                   },
+                   100
+
     refute_receive {:ordered_runtime_started, "second turn", _runner}, 100
 
     send(blocker, :release)
@@ -1220,7 +1278,7 @@ defmodule AllbertAssist.Channels.TUITest do
 
     assert_receive {
                      :input_driver_output,
-                     "\r\e[2KTUI request stopped before completion: :killed.\r\nallbert:default> "
+                     "\r\e[2KTUI request stopped before completion. Nothing new was started; retry the request.\r\nallbert:default> "
                    },
                    1_000
 

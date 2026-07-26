@@ -63,8 +63,14 @@ defmodule AllbertAssist.CLI.Ask do
       |> put_present(:new_thread, opts[:new_thread])
 
     case Runtime.submit_user_input(request) do
-      {:ok, response} -> render_and_acknowledge(response, channel)
-      {:error, reason} -> Render.error("Allbert request failed: #{inspect(reason)}")
+      {:ok, response} ->
+        render_and_acknowledge(response, channel)
+
+      {:error, {:inbound_admission_failed, _kind} = reason} ->
+        Render.error(Runtime.operator_error_message(reason))
+
+      {:error, reason} ->
+        Render.error("Allbert request failed: #{inspect(reason)}")
     end
   end
 

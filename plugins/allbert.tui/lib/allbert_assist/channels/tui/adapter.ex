@@ -32,6 +32,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   @max_attended_turn_queue 32
   @max_report_acknowledgements 32
   @max_displayed_unacknowledged_reports 32
+  @max_displayed_progress_runs 128
 
   def child_spec(opts) do
     %{
@@ -137,24 +138,35 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   end
 
   def handle_info({:signal, %Signal{type: "allbert.objectives." <> _rest} = signal}, state) do
+    {delivery?, progress_key, state} = admit_fanout_lifecycle_output(signal, state)
+
     state =
-      case Subscriptions.delivery(
-             signal,
-             Map.get(state.settings, "identity_map", []),
-             Map.merge(
-               %{
-                 channel: @channel,
-                 receiver_account_ref: "tui:#{state.profile}",
-                 fanouts: state.attached_fanouts
-               },
-               if(map_size(state.attached_fanouts) == 0,
-                 do: state.active_fanout || %{},
-                 else: %{}
+      if delivery? do
+        case Subscriptions.delivery(
+               signal,
+               Map.get(state.settings, "identity_map", []),
+               Map.merge(
+                 %{
+                   channel: @channel,
+                   receiver_account_ref: "tui:#{state.profile}",
+                   fanouts: state.attached_fanouts
+                 },
+                 if(map_size(state.attached_fanouts) == 0,
+                   do: state.active_fanout || %{},
+                   else: %{}
+                 )
                )
-             )
-           ) do
-        {:ok, delivery} -> deliver_attached_fanout(delivery, state)
-        :ignore -> state
+             ) do
+          {:ok, delivery} ->
+            state
+            |> remember_displayed_progress(progress_key)
+            |> then(&deliver_attached_fanout(delivery, &1))
+
+          :ignore ->
+            state
+        end
+      else
+        state
       end
 
     {:noreply, state}
@@ -285,6 +297,56 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       end
 
     {:noreply, state}
+  end
+
+  defp admit_fanout_lifecycle_output(
+         %Signal{type: "allbert.objectives.run.progress", data: data},
+         state
+       ) do
+    key = fanout_progress_key(data)
+
+    if MapSet.member?(state.displayed_progress_runs, key) do
+      {false, nil, state}
+    else
+      {true, key, state}
+    end
+  end
+
+  defp admit_fanout_lifecycle_output(%Signal{type: type, data: data}, state)
+       when type in [
+              "allbert.objectives.run.steered",
+              "allbert.objectives.run.resumed",
+              "allbert.objectives.run.blocked"
+            ] do
+    displayed = MapSet.delete(state.displayed_progress_runs, fanout_progress_key(data))
+    {true, nil, %{state | displayed_progress_runs: displayed}}
+  end
+
+  defp admit_fanout_lifecycle_output(_signal, state), do: {true, nil, state}
+
+  defp remember_displayed_progress(state, nil), do: state
+
+  defp remember_displayed_progress(state, key) do
+    displayed = bounded_progress_set(MapSet.put(state.displayed_progress_runs, key), key)
+    %{state | displayed_progress_runs: displayed}
+  end
+
+  defp fanout_progress_key(data) do
+    {Map.get(data, :parent_id) || Map.get(data, "parent_id"),
+     Map.get(data, :child_id) || Map.get(data, "child_id")}
+  end
+
+  defp bounded_progress_set(displayed, current_key) do
+    if MapSet.size(displayed) > @max_displayed_progress_runs do
+      displayed
+      |> Enum.find(&(&1 != current_key))
+      |> case do
+        nil -> displayed
+        evicted -> MapSet.delete(displayed, evicted)
+      end
+    else
+      displayed
+    end
   end
 
   defp deliver_attached_fanout(delivery, state) do
@@ -569,6 +631,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       attached_fanouts: %{},
       report_acknowledgements: %{},
       displayed_unacknowledged_reports: MapSet.new(),
+      displayed_progress_runs: MapSet.new(),
       queued_correction: nil,
       fanout_subscription_id: nil
     }
@@ -1225,14 +1288,23 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   defp attended_turn_down?(_state, _ref, _pid), do: false
 
   defp handle_attended_turn_down(reason, state) do
+    Logger.error("tui attended turn stopped: #{bounded_attended_turn_reason(reason)}")
+
     emit_output(
-      "TUI request stopped before completion: #{inspect(Redactor.redact(reason))}.",
+      "TUI request stopped before completion. Nothing new was started; retry the request.",
       state
     )
 
     state
     |> Map.put(:attended_turn, nil)
     |> advance_attended_turn_queue()
+  end
+
+  defp bounded_attended_turn_reason(reason) do
+    reason
+    |> Redactor.redact()
+    |> inspect(limit: 8, printable_limit: 240)
+    |> String.slice(0, 240)
   end
 
   defp stop_attended_turn(%{attended_turn: %{pid: pid, monitor_ref: monitor_ref}} = state) do
@@ -1740,6 +1812,19 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
          {:ok, event} <- mark_processed(event, response, user_id, session_id) do
       {{:ok, {:processed, event, rendered}}, state}
     else
+      {:error, {:inbound_admission_failed, _kind} = reason} ->
+        state = clear_live_status(state)
+        Logger.warning("tui inbound admission failed")
+        {:ok, _event} = mark_inbound_admission_failed(event)
+
+        :ok =
+          emit_rendered(
+            [Runtime.operator_error_message(reason)],
+            state
+          )
+
+        {{:ok, :rejected}, state}
+
       {:error, reason} ->
         state = clear_live_status(state)
         Logger.debug("tui event rejected: #{inspect(Redactor.redact(reason))}")
@@ -2014,6 +2099,10 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
          else: "failed"
 
     Channels.update_event(event, %{status: status, reason: inspect(Redactor.redact(reason))})
+  end
+
+  defp mark_inbound_admission_failed(event) do
+    Channels.update_event(event, %{status: "failed", reason: "inbound_admission_failed"})
   end
 
   defp event_result({:ok, %AllbertAssist.Channels.Event{} = event}), do: {:ok, event}

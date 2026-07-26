@@ -599,6 +599,10 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
     Channels.update_event(event, %{status: "failed", error: inspect(redact(reason))})
   end
 
+  defp mark_rejected_or_failed(event, {:inbound_admission_failed, _kind}) do
+    Channels.update_event(event, %{status: "failed", reason: "inbound_admission_failed"})
+  end
+
   defp mark_rejected_or_failed(event, reason) do
     Channels.update_event(event, %{status: "rejected", reason: inspect(reason)})
   end

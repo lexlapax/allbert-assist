@@ -352,40 +352,53 @@ defmodule AllbertAssist.Objectives.Commands.ProposeSteps do
   end
 
   defp record_cap_impasse(objective, cap_hit, payload) do
-    Repo.transaction(fn ->
-      blocked =
-        objective
-        |> Objectives.update_objective(%{
-          status: "blocked",
-          progress_summary: "#{cap_hit} objective cap reached."
-        })
-        |> case do
-          {:ok, objective} -> objective
-          {:error, reason} -> Repo.rollback(reason)
-        end
+    case Repo.transaction(fn -> persist_cap_impasse(objective, cap_hit, payload) end) do
+      {:ok, result} ->
+        publish_cap_impasse(result, cap_hit)
+        {:ok, result}
 
-      {:ok, event} =
-        Objectives.create_event(%{
-          objective_id: blocked.id,
-          kind: "impasse",
-          summary: "#{cap_hit} reached.",
-          payload: Map.put(payload, :cap_hit, cap_hit)
-        })
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
 
-      Commands.emit_objective(:impasse, blocked, %{
+  defp persist_cap_impasse(objective, cap_hit, payload) do
+    blocked =
+      objective
+      |> Objectives.update_objective(%{
+        status: "blocked",
+        progress_summary: "#{cap_hit} objective cap reached."
+      })
+      |> unwrap_or_rollback()
+
+    event =
+      Objectives.create_event(%{
+        objective_id: blocked.id,
+        kind: "impasse",
+        summary: "#{cap_hit} reached.",
+        payload: Map.put(payload, :cap_hit, cap_hit)
+      })
+      |> unwrap_or_rollback()
+
+    %{objective: blocked, steps: [], event: event, impasse: cap_hit, stage: "propose_steps"}
+  end
+
+  defp publish_cap_impasse(result, cap_hit) do
+    _ =
+      Commands.emit_objective(:impasse, result.objective, %{
         stage: :propose_steps,
         cap_hit: cap_hit,
         trace_id: nil
       })
 
-      Commands.emit_objective(:blocked, blocked, %{
+    _ =
+      Commands.emit_objective(:blocked, result.objective, %{
         stage: :propose_steps,
         reason: Atom.to_string(cap_hit),
         trace_id: nil
       })
 
-      %{objective: blocked, steps: [], event: event, impasse: cap_hit, stage: "propose_steps"}
-    end)
+    :ok
   end
 
   defp update_hint(objective, :done),
@@ -533,6 +546,24 @@ defmodule AllbertAssist.Objectives.Commands.AuthorizeStep do
   end
 
   defp authorize(%Objective{} = objective, %Step{} = step, action, action_params, params, context) do
+    with {:ok, {running_objective, selected_step}} <-
+           persist_authorization_selection(objective, step),
+         :ok <- publish_step_selected(running_objective, selected_step, params, context),
+         runner_context <- runner_context(running_objective, selected_step, params, context),
+         runner_result <- Runner.run(action, action_params, runner_context),
+         {:ok, result} <-
+           persist_authorization_result(
+             runner_result,
+             running_objective,
+             selected_step,
+             params,
+             context
+           ) do
+      {:ok, result}
+    end
+  end
+
+  defp persist_authorization_selection(objective, step) do
     Repo.transaction(fn ->
       selected_step =
         step
@@ -545,9 +576,7 @@ defmodule AllbertAssist.Objectives.Commands.AuthorizeStep do
           selected_step,
           "step_selected",
           "Objective step selected.",
-          %{
-            candidate_action: selected_step.candidate_action
-          }
+          %{candidate_action: selected_step.candidate_action}
         )
 
       running_objective =
@@ -558,20 +587,39 @@ defmodule AllbertAssist.Objectives.Commands.AuthorizeStep do
         })
         |> unwrap_or_rollback()
 
+      {running_objective, selected_step}
+    end)
+  end
+
+  defp publish_step_selected(objective, step, params, context) do
+    _ =
       Commands.emit_objective(:step_selected, objective, %{
         stage: :authorize_step,
-        step_id: selected_step.id,
-        kind: selected_step.kind,
-        candidate_action: selected_step.candidate_action,
+        step_id: step.id,
+        kind: step.kind,
+        candidate_action: step.candidate_action,
         trace_id: trace_id(params, context)
       })
 
-      runner_context = runner_context(running_objective, selected_step, params, context)
+    :ok
+  end
 
-      action
-      |> Runner.run(action_params, runner_context)
-      |> handle_runner_result(objective, selected_step, params, context)
-    end)
+  defp persist_authorization_result(runner_result, objective, step, params, context) do
+    case Repo.transaction(fn ->
+           handle_runner_result(runner_result, objective, step, params, context)
+         end) do
+      {:ok, {result, signal}} ->
+        publish_authorization_result(signal)
+        {:ok, result}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp publish_authorization_result({kind, objective, metadata}) do
+    _ = Commands.emit_objective(kind, objective, metadata)
+    :ok
   end
 
   defp handle_runner_result(
@@ -608,20 +656,24 @@ defmodule AllbertAssist.Objectives.Commands.AuthorizeStep do
       step_id: blocked_step.id
     })
 
-    Commands.emit_objective(:blocked, blocked_objective, %{
-      stage: :authorize_step,
-      step_id: blocked_step.id,
-      reason: "confirmation_required",
-      trace_id: trace_id(params, context)
-    })
-
-    %{
+    result = %{
       objective: blocked_objective,
       step: blocked_step,
       response: response,
       confirmation_id: confirmation_id,
       stage: "authorize_step"
     }
+
+    signal =
+      {:blocked, blocked_objective,
+       %{
+         stage: :authorize_step,
+         step_id: blocked_step.id,
+         reason: "confirmation_required",
+         trace_id: trace_id(params, context)
+       }}
+
+    {result, signal}
   end
 
   defp handle_runner_result({:ok, %{status: status} = response}, objective, step, params, context)
@@ -653,19 +705,23 @@ defmodule AllbertAssist.Objectives.Commands.AuthorizeStep do
       %{status: status, result_summary: result_summary(response)}
     )
 
-    Commands.emit_objective(signal_kind, updated_objective, %{
-      stage: :execute_step,
-      step_id: finished_step.id,
-      result_summary: result_summary(response),
-      trace_id: trace_id(params, context)
-    })
-
-    %{
+    result = %{
       objective: updated_objective,
       step: finished_step,
       response: response,
       stage: "execute_step"
     }
+
+    signal =
+      {signal_kind, updated_objective,
+       %{
+         stage: :execute_step,
+         step_id: finished_step.id,
+         result_summary: result_summary(response),
+         trace_id: trace_id(params, context)
+       }}
+
+    {result, signal}
   end
 
   defp handle_runner_result({:ok, response}, objective, step, params, context) do
@@ -695,14 +751,23 @@ defmodule AllbertAssist.Objectives.Commands.AuthorizeStep do
       %{response_status: Map.get(response, :status)}
     )
 
-    Commands.emit_objective(:step_failed, failed_objective, %{
-      stage: :authorize_step,
-      step_id: failed_step.id,
-      error: inspect(Map.get(response, :status, :unknown)),
-      trace_id: trace_id(params, context)
-    })
+    result = %{
+      objective: failed_objective,
+      step: failed_step,
+      response: response,
+      stage: "authorize_step"
+    }
 
-    %{objective: failed_objective, step: failed_step, response: response, stage: "authorize_step"}
+    signal =
+      {:step_failed, failed_objective,
+       %{
+         stage: :authorize_step,
+         step_id: failed_step.id,
+         error: inspect(Map.get(response, :status, :unknown)),
+         trace_id: trace_id(params, context)
+       }}
+
+    {result, signal}
   end
 
   defp terminal_step_status(:completed), do: {"completed", :step_completed, "step_completed"}
@@ -933,7 +998,7 @@ defmodule AllbertAssist.Objectives.Commands.ExecuteStep do
   end
 
   defp block_from_confirmation(objective, step, response, params, context) do
-    Repo.transaction(fn ->
+    transaction = fn ->
       confirmation_id = Map.get(response, :confirmation_id)
       result_summary = "Waiting for confirmation #{confirmation_id}."
 
@@ -971,14 +1036,7 @@ defmodule AllbertAssist.Objectives.Commands.ExecuteStep do
         })
         |> unwrap_or_rollback()
 
-      Commands.emit_objective(:blocked, blocked_objective, %{
-        stage: :execute_step,
-        step_id: blocked_step.id,
-        reason: "confirmation_required",
-        trace_id: trace_id(params, context)
-      })
-
-      %{
+      result = %{
         objective: blocked_objective,
         step: blocked_step,
         result: response,
@@ -987,11 +1045,24 @@ defmodule AllbertAssist.Objectives.Commands.ExecuteStep do
         status: :needs_confirmation,
         stage: "execute_step"
       }
-    end)
+
+      signal =
+        {:blocked, blocked_objective,
+         %{
+           stage: :execute_step,
+           step_id: blocked_step.id,
+           reason: "confirmation_required",
+           trace_id: trace_id(params, context)
+         }}
+
+      {result, signal}
+    end
+
+    persist_and_publish(transaction)
   end
 
   defp complete_from_result(objective, step, status, result, params, context) do
-    Repo.transaction(fn ->
+    transaction = fn ->
       running =
         step
         |> Objectives.transition_step("running", %{
@@ -1034,21 +1105,38 @@ defmodule AllbertAssist.Objectives.Commands.ExecuteStep do
         })
         |> unwrap_or_rollback()
 
-      Commands.emit_objective(signal_kind, updated_objective, %{
-        stage: :execute_step,
-        step_id: finished.id,
-        result_summary: result_summary,
-        trace_id: trace_id(params, context)
-      })
-
-      %{
+      persisted = %{
         objective: updated_objective,
         step: finished,
         result: result,
         status: normalize_status(status),
         stage: "execute_step"
       }
-    end)
+
+      signal =
+        {signal_kind, updated_objective,
+         %{
+           stage: :execute_step,
+           step_id: finished.id,
+           result_summary: result_summary,
+           trace_id: trace_id(params, context)
+         }}
+
+      {persisted, signal}
+    end
+
+    persist_and_publish(transaction)
+  end
+
+  defp persist_and_publish(transaction) do
+    case Repo.transaction(transaction) do
+      {:ok, {result, {kind, objective, metadata}}} ->
+        _ = Commands.emit_objective(kind, objective, metadata)
+        {:ok, result}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
   defp confirmation_ready(%{"status" => "approved"}), do: :ok
@@ -1239,116 +1327,199 @@ defmodule AllbertAssist.Objectives.Commands.ObserveStep do
   end
 
   defp observe(%Objective{} = objective, %Step{} = step, params, context) do
-    Repo.transaction(fn ->
-      summary = observation_summary(step, params)
+    case Repo.transaction(fn -> persist_observation(objective, step, params, context) end) do
+      {:ok, {result, signals}} ->
+        Enum.each(signals, fn {kind, metadata} ->
+          _ = Commands.emit_objective(kind, result.objective, metadata)
+        end)
 
-      observed_step =
-        step
-        |> Objectives.update_step(%{stage: "observe_step", observation_summary: summary})
-        |> unwrap_or_rollback()
+        {:ok, result}
 
-      loop_count = (objective.loop_count || 0) + 1
-      preliminary_steps = replace_step(Objectives.list_steps(objective.id), observed_step)
-      verdict = Evaluator.evaluate(objective, preliminary_steps)
-      completed? = verdict == :met
-      cap_hit? = verdict == :needs_more_steps and loop_count >= max_loop_count()
-
-      objective_status =
-        cond do
-          completed? -> "completed"
-          cap_hit? -> "blocked"
-          true -> "running"
-        end
-
-      updated_objective =
-        objective
-        |> Objectives.update_objective(%{
-          status: objective_status,
-          current_step_id: observed_step.id,
-          loop_count: loop_count,
-          last_observation_summary: summary,
-          progress_summary: summary,
-          completed_at: completed_at(completed?),
-          proposer_hint: updated_proposer_hint(objective.proposer_hint, observed_step, verdict)
-        })
-        |> unwrap_or_rollback()
-
-      _observed =
-        Objectives.create_event(%{
-          objective_id: updated_objective.id,
-          step_id: observed_step.id,
-          kind: "observed",
-          summary: "Observed objective step result.",
-          payload: %{verdict: verdict, observation_summary: summary, loop_count: loop_count}
-        })
-        |> unwrap_or_rollback()
-
-      Commands.emit_objective(:observed, updated_objective, %{
-        stage: :observe_step,
-        step_id: observed_step.id,
-        observation_summary: summary,
-        loop_count: loop_count,
-        trace_id: trace_id(params, context)
-      })
-
-      if completed? do
-        _completed =
-          Objectives.create_event(%{
-            objective_id: updated_objective.id,
-            kind: "completed",
-            summary: "Objective acceptance criteria met.",
-            payload: %{verdict: verdict, progress_summary: summary}
-          })
-          |> unwrap_or_rollback()
-
-        Commands.emit_objective(:completed, updated_objective, %{
-          stage: :observe_step,
-          step_id: observed_step.id,
-          completed_at: updated_objective.completed_at,
-          progress_summary: summary,
-          trace_id: trace_id(params, context)
-        })
-      end
-
-      if cap_hit? do
-        _impasse =
-          Objectives.create_event(%{
-            objective_id: updated_objective.id,
-            kind: "impasse",
-            summary: "max_loop_count reached.",
-            payload: %{
-              cap_hit: :max_loop_count,
-              would_have_continued_verdict: verdict,
-              loop_count: loop_count
-            }
-          })
-          |> unwrap_or_rollback()
-
-        Commands.emit_objective(:impasse, updated_objective, %{
-          stage: :observe_step,
-          step_id: observed_step.id,
-          cap_hit: :max_loop_count,
-          would_have_continued_verdict: verdict,
-          trace_id: trace_id(params, context)
-        })
-
-        Commands.emit_objective(:blocked, updated_objective, %{
-          stage: :observe_step,
-          step_id: observed_step.id,
-          reason: "max_loop_count",
-          trace_id: trace_id(params, context)
-        })
-      end
-
-      %{
-        objective: updated_objective,
-        step: observed_step,
-        verdict: verdict,
-        observation_summary: summary,
-        stage: "observe_step"
-      }
-    end)
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
+
+  defp persist_observation(objective, step, params, context) do
+    observation = build_observation(objective, step, params)
+
+    persist_observed_event(observation)
+    maybe_persist_completed_event(observation)
+    maybe_persist_cap_event(observation)
+
+    {observation_result(observation), observation_signals(observation, params, context)}
+  end
+
+  defp build_observation(objective, step, params) do
+    summary = observation_summary(step, params)
+
+    observed_step =
+      step
+      |> Objectives.update_step(%{stage: "observe_step", observation_summary: summary})
+      |> unwrap_or_rollback()
+
+    loop_count = (objective.loop_count || 0) + 1
+    preliminary_steps = replace_step(Objectives.list_steps(objective.id), observed_step)
+    verdict = Evaluator.evaluate(objective, preliminary_steps)
+    completed? = verdict == :met
+    cap_hit? = verdict == :needs_more_steps and loop_count >= max_loop_count()
+
+    updated_objective =
+      objective
+      |> Objectives.update_objective(%{
+        status: observation_status(completed?, cap_hit?),
+        current_step_id: observed_step.id,
+        loop_count: loop_count,
+        last_observation_summary: summary,
+        progress_summary: summary,
+        completed_at: completed_at(completed?),
+        proposer_hint: updated_proposer_hint(objective.proposer_hint, observed_step, verdict)
+      })
+      |> unwrap_or_rollback()
+
+    %{
+      objective: updated_objective,
+      step: observed_step,
+      verdict: verdict,
+      summary: summary,
+      loop_count: loop_count,
+      completed?: completed?,
+      cap_hit?: cap_hit?
+    }
+  end
+
+  defp observation_status(true, _cap_hit?), do: "completed"
+  defp observation_status(false, true), do: "blocked"
+  defp observation_status(false, false), do: "running"
+
+  defp persist_observed_event(observation) do
+    Objectives.create_event(%{
+      objective_id: observation.objective.id,
+      step_id: observation.step.id,
+      kind: "observed",
+      summary: "Observed objective step result.",
+      payload: %{
+        verdict: observation.verdict,
+        observation_summary: observation.summary,
+        loop_count: observation.loop_count
+      }
+    })
+    |> unwrap_or_rollback()
+  end
+
+  defp maybe_persist_completed_event(%{completed?: false}), do: :ok
+
+  defp maybe_persist_completed_event(observation) do
+    Objectives.create_event(%{
+      objective_id: observation.objective.id,
+      kind: "completed",
+      summary: "Objective acceptance criteria met.",
+      payload: %{verdict: observation.verdict, progress_summary: observation.summary}
+    })
+    |> unwrap_or_rollback()
+  end
+
+  defp maybe_persist_cap_event(%{cap_hit?: false}), do: :ok
+
+  defp maybe_persist_cap_event(observation) do
+    Objectives.create_event(%{
+      objective_id: observation.objective.id,
+      kind: "impasse",
+      summary: "max_loop_count reached.",
+      payload: %{
+        cap_hit: :max_loop_count,
+        would_have_continued_verdict: observation.verdict,
+        loop_count: observation.loop_count
+      }
+    })
+    |> unwrap_or_rollback()
+  end
+
+  defp observation_result(observation) do
+    %{
+      objective: observation.objective,
+      step: observation.step,
+      verdict: observation.verdict,
+      observation_summary: observation.summary,
+      stage: "observe_step"
+    }
+  end
+
+  defp observation_signals(observation, params, context) do
+    [
+      {:observed,
+       %{
+         stage: :observe_step,
+         step_id: observation.step.id,
+         observation_summary: observation.summary,
+         loop_count: observation.loop_count,
+         trace_id: trace_id(params, context)
+       }}
+    ]
+    |> maybe_add_completed_signal(
+      observation.completed?,
+      observation.objective,
+      observation.step,
+      observation.summary,
+      params,
+      context
+    )
+    |> maybe_add_cap_signals(
+      observation.cap_hit?,
+      observation.step,
+      observation.verdict,
+      params,
+      context
+    )
+  end
+
+  defp maybe_add_completed_signal(
+         signals,
+         true,
+         objective,
+         step,
+         summary,
+         params,
+         context
+       ) do
+    signals ++
+      [
+        {:completed,
+         %{
+           stage: :observe_step,
+           step_id: step.id,
+           completed_at: objective.completed_at,
+           progress_summary: summary,
+           trace_id: trace_id(params, context)
+         }}
+      ]
+  end
+
+  defp maybe_add_completed_signal(signals, false, _objective, _step, _summary, _params, _context),
+    do: signals
+
+  defp maybe_add_cap_signals(signals, true, step, verdict, params, context) do
+    signals ++
+      [
+        {:impasse,
+         %{
+           stage: :observe_step,
+           step_id: step.id,
+           cap_hit: :max_loop_count,
+           would_have_continued_verdict: verdict,
+           trace_id: trace_id(params, context)
+         }},
+        {:blocked,
+         %{
+           stage: :observe_step,
+           step_id: step.id,
+           reason: "max_loop_count",
+           trace_id: trace_id(params, context)
+         }}
+      ]
+  end
+
+  defp maybe_add_cap_signals(signals, false, _step, _verdict, _params, _context), do: signals
 
   defp replace_step(steps, %Step{id: id} = replacement) do
     Enum.map(steps, fn
@@ -1533,51 +1704,58 @@ defmodule AllbertAssist.Objectives.Commands.CancelObjective do
   end
 
   defp cancel(%Objective{} = objective, reason, params, context) do
-    Repo.transaction(fn ->
-      now = DateTime.utc_now()
+    case Repo.transaction(fn ->
+           now = DateTime.utc_now()
 
-      cancelled =
-        objective
-        |> Objectives.update_objective(%{
-          status: "cancelled",
-          progress_summary: "Cancelled: #{reason}",
-          review_reason: String.slice(reason, 0, 240),
-          completed_at: now
-        })
-        |> unwrap_or_rollback()
+           cancelled =
+             objective
+             |> Objectives.update_objective(%{
+               status: "cancelled",
+               progress_summary: "Cancelled: #{reason}",
+               review_reason: String.slice(reason, 0, 240),
+               completed_at: now
+             })
+             |> unwrap_or_rollback()
 
-      steps =
-        objective.id
-        |> Objectives.list_steps()
-        |> Enum.map(&cancel_step(&1, reason, params, context))
+           steps =
+             objective.id
+             |> Objectives.list_steps()
+             |> Enum.map(&cancel_step(&1, reason, params, context))
 
-      {:ok, event} =
-        Objectives.create_event(%{
-          objective_id: cancelled.id,
-          kind: "cancelled",
-          summary: "Objective cancelled: #{reason}",
-          payload: %{
+           {:ok, event} =
+             Objectives.create_event(%{
+               objective_id: cancelled.id,
+               kind: "cancelled",
+               summary: "Objective cancelled: #{reason}",
+               payload: %{
+                 reason: reason,
+                 trace_id: trace_id(params, context),
+                 cancelled_step_count: Enum.count(steps, &(&1.status == "cancelled"))
+               }
+             })
+
+           %{
+             objective: cancelled,
+             steps: steps,
+             event: event,
+             reason: reason,
+             stage: "cancel_objective",
+             trace_id: trace_id(params, context)
+           }
+         end) do
+      {:ok, result} ->
+        _ =
+          Commands.emit_objective(:cancelled, result.objective, %{
+            stage: :cancel_objective,
             reason: reason,
-            trace_id: trace_id(params, context),
-            cancelled_step_count: Enum.count(steps, &(&1.status == "cancelled"))
-          }
-        })
+            trace_id: trace_id(params, context)
+          })
 
-      Commands.emit_objective(:cancelled, cancelled, %{
-        stage: :cancel_objective,
-        reason: reason,
-        trace_id: trace_id(params, context)
-      })
+        {:ok, result}
 
-      %{
-        objective: cancelled,
-        steps: steps,
-        event: event,
-        reason: reason,
-        stage: "cancel_objective",
-        trace_id: trace_id(params, context)
-      }
-    end)
+      {:error, transaction_error} ->
+        {:error, transaction_error}
+    end
   end
 
   defp cancel_step(%Step{status: status} = step, _reason, _params, _context)

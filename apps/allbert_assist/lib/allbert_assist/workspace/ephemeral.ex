@@ -67,6 +67,18 @@ defmodule AllbertAssist.Workspace.Ephemeral do
           {:ok, [surface()]} | {:error, term()}
   def dismiss_for_thread(thread_id, user_id, dismissed_by \\ "thread_closed")
       when is_binary(thread_id) and is_binary(user_id) do
+    with {:ok, dismissed} <- dismiss_for_thread_transaction(thread_id, user_id, dismissed_by),
+         {:ok, loaded} <- load_bodies(dismissed) do
+      publish_thread_dismissals(dismissed)
+      {:ok, loaded}
+    end
+  end
+
+  @doc false
+  @spec dismiss_for_thread_transaction(String.t(), String.t(), String.t() | atom()) ::
+          {:ok, [surface()]} | {:error, term()}
+  def dismiss_for_thread_transaction(thread_id, user_id, dismissed_by \\ "thread_closed")
+      when is_binary(thread_id) and is_binary(user_id) do
     surfaces =
       Surface
       |> where(
@@ -82,16 +94,8 @@ defmodule AllbertAssist.Workspace.Ephemeral do
       surface
       |> dismiss_changeset(dismissed_by, DateTime.utc_now())
       |> Repo.update()
-      |> load_body_result()
       |> case do
         {:ok, dismissed} ->
-          Events.ephemeral_closed(
-            dismissed.id,
-            dismissed.user_id,
-            dismissed.thread_id,
-            dismissed.dismissed_by
-          )
-
           {:cont, [dismissed | acc]}
 
         {:error, reason} ->
@@ -102,6 +106,21 @@ defmodule AllbertAssist.Workspace.Ephemeral do
       {:error, reason} -> {:error, reason}
       dismissed -> {:ok, Enum.reverse(dismissed)}
     end
+  end
+
+  @doc false
+  @spec publish_thread_dismissals([surface()]) :: :ok
+  def publish_thread_dismissals(surfaces) when is_list(surfaces) do
+    Enum.each(surfaces, fn dismissed ->
+      Events.ephemeral_closed(
+        dismissed.id,
+        dismissed.user_id,
+        dismissed.thread_id,
+        dismissed.dismissed_by
+      )
+    end)
+
+    :ok
   end
 
   defp get_user_surface(surface_id, user_id, thread_id) do
