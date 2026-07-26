@@ -1,8 +1,8 @@
 ---
 clarify_vs_execute:
   accuracy: 1.0
-  passed: 270
-  total: 270
+  passed: 271
+  total: 271
 confusion:
   - actual: answer
     count: 1
@@ -418,6 +418,9 @@ confusion:
   - actual: none
     count: 1
     expected: execute:persist_approval_media_response
+  - actual: none
+    count: 1
+    expected: execute:persist_attached_fanout_report
   - actual: execute:plan_package_install
     count: 1
     expected: execute:plan_package_install
@@ -745,7 +748,7 @@ confusion:
   - actual: none
     count: 11
     expected: none
-corpus_case_count: 295
+corpus_case_count: 296
 gate:
   failures: []
   status: pass
@@ -753,7 +756,7 @@ generated_at: 2026-07-06T08:05:37Z
 id: v056-release-baseline
 negative_violations: []
 overall_accuracy: 1.0
-passed: 294
+passed: 295
 per_domain:
   adversarial:
     accuracy: 1.0
@@ -825,8 +828,8 @@ per_domain:
     total: 13
   negative-internal:
     accuracy: 1.0
-    passed: 160
-    total: 160
+    passed: 161
+    total: 161
   negative-operator:
     accuracy: 1.0
     passed: 20
@@ -894,8 +897,8 @@ per_domain:
 per_surface:
   any:
     accuracy: 1.0
-    passed: 268
-    total: 268
+    passed: 269
+    total: 269
   discord:
     accuracy: 1.0
     passed: 1
@@ -937,4 +940,4 @@ slot_accuracy:
   accuracy: 1.0
   passed: 8
   total: 8
-total: 277
+total: 278

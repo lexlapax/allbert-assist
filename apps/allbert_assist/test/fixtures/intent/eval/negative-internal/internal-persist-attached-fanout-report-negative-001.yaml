@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-internal
+expected:
+  action: persist_attached_fanout_report
+  kind: execute
+id: internal-persist-attached-fanout-report-negative-001
+negative: true
+rationale: internal conversation continuity action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action persist_attached_fanout_report
