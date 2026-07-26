@@ -11,12 +11,18 @@ downstream supervision cascade. The replacement permanent/transient/crash-
 visibility lifecycle contract is focused-green. The M12.16 pre-effect-start
 amendment is implemented: known database failures before the first durable
 attempt retry, and attended TUI lifecycle output preserves exact in-progress
-input through one raw-terminal owner.
+input through one raw-terminal owner. M12.17 is planned after focused operator
+evidence showed that a database-backed steering turn can still occupy the TUI
+Adapter mailbox: ordinary raw-TUI turns will execute one at a time through a
+supervised FIFO while the Adapter remains available for input and lifecycle
+delivery.
 The child model, fair scheduler/full lifecycle executor, restart-stable
 receipts, delivery-before-start barrier, public-protocol continuations, and
 cross-surface automatic-rollout corpus remain. The expanded `release.v11`,
-frozen `release.v1`, pre-push, and authoritative release gates are still
-required at the final committed SHA before the focused operator walkthrough.
+frozen `release.v1`, pre-push, and authoritative release gates remain release
+barriers. M12.17 repeats `release.v11` before the focused walkthrough; by
+explicit operator sequencing the longer frozen/pre-push/authoritative cascade
+follows the walkthrough and any resulting remediation.
 
 ## Context
 
@@ -263,6 +269,12 @@ authority class.
   The
   `streaming: "turn_complete"` parity contract hardcoded at
   `channels/channel_parity.ex:98` must be renegotiated per channel (v1.1 M5).
+- The raw TUI also cannot put foreground Runtime latency in the Adapter mailbox.
+  Its ordinary turns are ordered through one supervised worker/FIFO; this is
+  concurrency at the surface boundary, not concurrent Runtime turns within one
+  conversation. The Adapter remains the attachment/lifecycle owner, the
+  `InputDriver` remains the sole raw-terminal writer, and durable Runtime,
+  Objectives, delivery, and receipt contracts stay unchanged.
 - Objectives gains a second execution mode; the serialized engine agent stays
   authoritative for interactive continue/advance, so existing single-objective
   behavior is unchanged (proved by the objectives suites and `release.v1`).
@@ -337,6 +349,12 @@ authority class.
   reconciles 550 files without a lane finding. Derived `release.v11` remains
   the clean-SHA pre-FV barrier; the authoritative release gate follows FV-01
   by explicit operator sequencing and is still required before closeout.
+- v1.1 M12.17 planned: a public raw-Adapter tracer holds one foreground Runtime
+  turn, submits another complete line, interleaves lifecycle output, and proves
+  immediate prompt/input acceptance plus FIFO non-concurrent execution when
+  the first turn is released. The complete TUI, Runtime acknowledgement/caller,
+  fan-out steering, static, manifest, and clean-SHA `release.v11` rejoin follows
+  before FV-01 resumes.
 - Release: `release.v1` stays green (Tier-1/Tier-2 untouched; runtime
   response gains only additive fields per ADR 0029) and `release.v11` binds
   all eleven fan-out authority rows plus the M12.15 focused suites. Candidate

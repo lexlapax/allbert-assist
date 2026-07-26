@@ -100,18 +100,21 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    refresh — ADR 0050 superseded.)
 5. **1.1 — Asynchronous Background Agent Fan-Out With In-Channel Steering.**
    (Operator intake 2026-07-18, inserted foundational-first. **Implementation
-   and atomic invariant/fault remediation through M12.15 are complete; the
-   final confirmation compatibility/policy-denial correction passed its focused
-   rejoin, and validation-only product/harness scaffolding is removed.
-   Post-M12.14 FV-01 proved an
-   all-children-terminal/open-parent fan-in liveness breach. M12.15 replaces
-   Coordinator-side best-effort join with one atomic durable terminal
-   reduction, unifies every terminal writer, and makes live/boot/report
-   recovery idempotent. The expanded `release.v11` definition now covers the
+   and atomic invariant/fault remediation through M12.16 are complete;
+   validation-only product/harness scaffolding is removed, pre-effect database
+   start failures recover without false uncertain-effect state, and one
+   raw-terminal owner preserves type-ahead through lifecycle redraw. Candidate
+   `6b00b784` passed derived `release.v11`; its focused FV-01 retry proved
+   three-child completion, one durable join/report, and post-report usability,
+   then exposed a remaining 16.7-second synchronous TUI steering turn. M12.17
+   now owns one supervised ordered attended-turn FIFO so the Adapter remains
+   responsive without concurrent Runtime turns. The expanded `release.v11`
+   definition covers the
    invariant/fault, exact-receipt, attended-surface, autonomous-channel,
    public-protocol, and operator-control paths. Its frozen-v1, derived-v1.1,
-   pre-push, and authoritative release executions at one committed SHA,
-   followed by flagship operator validation, remain pending:**
+   pre-push, and authoritative release executions at the final committed SHA.
+   M12.17's derived-v1.1 rejoin and flagship operator validation come first;
+   the longer release cascade follows them by explicit operator sequencing:**
    `docs/plans/v1.1-plan.md` + request-flow + ADR 0083/0084/0085.) On a prompt
    that decomposes into multiple tasks, Allbert delivers a kickoff receipt,
    then fans out background agents/actions, streams their status, joins on
