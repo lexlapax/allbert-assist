@@ -144,12 +144,13 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    audit at `41857507` then found one fail-open recovery asymmetry: when a
    blocked/failed safety transition does not persist, the post-worker join path
    can restart a durable `running` child without the boot path's retry-safety or
-   attempt-ceiling checks. Approved M12.20 pauses the final cascade, makes that
+   attempt-ceiling checks. Approved M12.20 paused the final cascade and now makes that
    recovery fail closed, binds five recent regression files into `release.v11`,
-   and adds actual pool-1 Allbert integration evidence. FV-01 remains accepted;
-   deterministic failure tests own M12.20. After its implementation/docs commit,
-   the frozen-v1-derived `release.v11`, pre-push, and longer authoritative
-   release cascade run once at the final clean pushed SHA:**
+   and adds actual pool-1 Allbert integration evidence. Its focused Coordinator,
+   TUI, steering, persistence, topology, lane, and 3,509-row manifest rejoin is
+   green. FV-01 remains accepted because no happy-path contract changed. The
+   frozen-v1-derived `release.v11`, pre-push, and longer authoritative release
+   cascade remain to run once at the final clean pushed SHA:**
    `docs/plans/v1.1-plan.md` + request-flow + ADR 0083/0084/0085.) On a prompt
    that decomposes into multiple tasks, Allbert delivers a kickoff receipt,
    then fans out background agents/actions, streams their status, joins on

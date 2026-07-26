@@ -1184,6 +1184,46 @@ defmodule AllbertAssist.Channels.TUITest do
     eventually(fn -> :sys.get_state(server).attended_turn == nil end)
   end
 
+  test "raw TUI shows the first progress line again after a durable retry attempt starts" do
+    configure_tui!()
+    parent = self()
+    {server, reader} = start_raw_tui!(parent)
+
+    assert {:ok, %{parent: fanout_parent}} = attached_fanout!("Retry progress")
+    set_active_fanout(server, fanout_parent.id)
+
+    signal_data = %{
+      parent_id: fanout_parent.id,
+      child_id: "retried-child",
+      title: "retried child"
+    }
+
+    progress_signal = Signal.new!("allbert.objectives.run.progress", signal_data)
+    send(server, {:signal, progress_signal})
+
+    assert_receive {:input_driver_output, first_progress}, 500
+    assert first_progress =~ "[fan-out] run progress: retried child"
+
+    send(server, {:signal, progress_signal})
+    refute_receive {:input_driver_output, _duplicate_progress}, 100
+
+    started_signal =
+      Signal.new!("allbert.objectives.run.started", Map.put(signal_data, :attempt, 2))
+
+    send(server, {:signal, started_signal})
+    assert_receive {:input_driver_output, second_start}, 500
+    assert second_start =~ "[fan-out] run started: retried child"
+
+    send(server, {:signal, progress_signal})
+    assert_receive {:input_driver_output, second_progress}, 500
+    assert second_progress =~ "[fan-out] run progress: retried child"
+
+    ref = Process.monitor(server)
+    send_input_driver_line(reader, "/quit")
+    assert_receive {:DOWN, ^ref, :process, ^server, :normal}
+    assert_receive {:input_driver_raw, :disabled}
+  end
+
   test "raw TUI hands its fanout attachment back before kickoff acknowledgement" do
     configure_tui!()
 

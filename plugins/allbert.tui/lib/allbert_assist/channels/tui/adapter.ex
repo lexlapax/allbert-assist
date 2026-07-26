@@ -33,6 +33,10 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   @max_report_acknowledgements 32
   @max_displayed_unacknowledged_reports 32
   @max_displayed_progress_runs 128
+  # The attended worker receives a snapshot while the Adapter remains the live
+  # owner of input, fan-out attachments, subscriptions, and presentation state.
+  # Only worker-owned conversational fields may cross back at handoff.
+  @attended_turn_state_fields [:coding_mode?, :pi_session, :queued_correction]
 
   def child_spec(opts) do
     %{
@@ -314,6 +318,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
 
   defp admit_fanout_lifecycle_output(%Signal{type: type, data: data}, state)
        when type in [
+              "allbert.objectives.run.started",
               "allbert.objectives.run.steered",
               "allbert.objectives.run.resumed",
               "allbert.objectives.run.blocked"
@@ -1271,7 +1276,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   end
 
   defp attended_turn_state_delta(state) do
-    Map.take(state, [:coding_mode?, :pi_session, :queued_correction])
+    Map.take(state, @attended_turn_state_fields)
   end
 
   defp apply_attended_turn_state_delta(state, state_delta) do

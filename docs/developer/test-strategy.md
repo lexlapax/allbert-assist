@@ -1321,12 +1321,17 @@ LiveView state. They are not promoted into a partition-safe lane by the release
 work.
 
 The authoritative `mix allbert.test release.v11` gate composes the unchanged
-`release.v1` prefix with four expanded focused steps:
+`release.v1` prefix with five expanded focused steps:
 
 - `v11_authority_sweep`: all v1.1 security rows plus the inventory binding;
 - `v11_runtime_fanout`: atomic fan-in and restart recovery, scheduling,
   steering/terminal races, cancellation, confirmation provenance, bounded
-  scans, migrations, exact kickoff/report receipts, CLI projections, and ACP;
+  scans, migrations, exact kickoff/report receipts, decomposition, atomic
+  conversation admission, Runner transaction separation, CLI projections, and
+  ACP;
+- `v11_operator_sqlite_topology`: dev/production option parity, transaction and
+  connection-holder census, plus real Allbert conversation/fan-in writes through
+  a production-shaped non-Sandbox pool of one in an isolated subprocess;
 - `v11_channel_authority`: parity declarations, default-off autonomous
   delivery, send-time origin/identity checks, retry/edit semantics, and TUI
   attended output with multiple active fan-outs;
@@ -1337,7 +1342,7 @@ The authoritative `mix allbert.test release.v11` gate composes the unchanged
 Every step records the normal structured metrics row and redacted evidence
 under a temporary Allbert Home. Focused suites may establish implementation
 readiness, but release status stays pending until the unchanged `release.v1`
-prefix, all four v1.1 steps, and the authoritative aggregate gate pass at the
+prefix, all five v1.1 steps, and the authoritative aggregate gate pass at the
 same committed SHA.
 
 ## Migration Order

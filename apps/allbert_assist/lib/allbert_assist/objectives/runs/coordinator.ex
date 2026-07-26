@@ -16,6 +16,7 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Runs.{RunServer, Scheduler, Supervisor}
+  alias AllbertAssist.Objectives.Steering
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Signals
 
@@ -62,8 +63,12 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
              Keyword.get(opts, :run_starter, fn child_spec ->
                DynamicSupervisor.start_child(Supervisor, child_spec)
              end),
+           recovery_transaction_hook: Keyword.get(opts, :recovery_transaction_hook),
            run_start_retries: %{},
-           pre_effect_retries: %{}
+           pre_effect_retries: %{},
+           recovery_transition_retries: %{},
+           recovery_transition_intents: %{},
+           recovery_transition_holds: MapSet.new()
          }, {:continue, :reconcile}}
 
       {:error, {:already_registered, pid}} ->
@@ -87,6 +92,29 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
 
   def handle_info(:scheduler_reconcile, state), do: handle_continue(:reconcile, state)
   def handle_info(:retry_join, state), do: {:noreply, maybe_join(state)}
+
+  def handle_info({:retry_recovery_transition, child_id}, state) do
+    state = release_recovery_transition_hold(state, child_id)
+
+    state =
+      case Objectives.get_objective(child_id) do
+        {:ok, %{status: "running"} = child} ->
+          case Map.fetch(state.recovery_transition_intents, child_id) do
+            {:ok, {intent, reason}} ->
+              child
+              |> persist_recovery_intent(intent, reason, state)
+              |> settle_recovery_transition(child, reason, intent, state)
+
+            :error ->
+              recover_missing_run(child, :recovery_transition_retry, state, start_safe?: false)
+          end
+
+        _terminal_missing_or_blocked ->
+          clear_recovery_transition_retry(state, child_id)
+      end
+
+    {:noreply, maybe_join(state)}
+  end
 
   def handle_info({:run_terminal, child_id, result}, state) do
     Scheduler.release(child_id)
@@ -129,12 +157,7 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
     do: request_or_start(child.id, state)
 
   defp reconcile_missing_run(%{status: "running"} = child, state) do
-    if child.run_attempt_count <= 1 and Objectives.Lifecycle.retry_safety(child.id) == :safe do
-      request_or_start(child.id, state)
-    else
-      retry_or_park(child, :missing_durable_observation)
-      state
-    end
+    recover_missing_run(child, :missing_durable_observation, state, start_safe?: true)
   end
 
   defp reconcile_missing_run(%{status: "blocked"} = child, state) do
@@ -220,7 +243,8 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
       %{
         state
         | monitors: Map.put(state.monitors, child_id, Process.monitor(pid)),
-          run_start_retries: Map.delete(state.run_start_retries, child_id)
+          run_start_retries: Map.delete(state.run_start_retries, child_id),
+          pre_effect_retries: Map.delete(state.pre_effect_retries, child_id)
       }
     end
   end
@@ -266,8 +290,7 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
 
       schedule_pre_effect_retry(state, child.id)
     else
-      retry_or_park(child, reason)
-      state
+      recover_missing_run(child, reason, state, start_safe?: false)
     end
   end
 
@@ -283,47 +306,170 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
     end
   end
 
-  defp retry_or_park(child, reason) do
-    case {Objectives.Lifecycle.retry_safety(child.id), child.run_attempt_count} do
-      {:safe, attempts} when attempts <= 1 ->
-        :ok
-
-      {:safe, _attempts} ->
-        fail_exhausted_retry(child, reason)
-
-      {_not_safe, _attempts} ->
-        reason_text = bounded_review_reason("uncertain_effect", reason)
-
-        TerminalTransitions.transition_active_child(
-          child,
-          %{status: "blocked", review_reason: reason_text},
-          "run_blocked",
-          %{reason: reason_text},
-          signal: {:run_blocked, %{reason: reason_text}}
-        )
+  defp recover_missing_run(child, reason, state, opts) do
+    if MapSet.member?(state.recovery_transition_holds, child.id) do
+      state
+    else
+      recover_unheld_missing_run(child, reason, state, opts)
     end
   end
 
-  defp fail_exhausted_retry(child, reason) do
+  defp recover_unheld_missing_run(child, reason, state, opts) do
+    case {Objectives.Lifecycle.retry_safety(child.id), child.run_attempt_count} do
+      {:safe, attempts} when attempts <= 1 ->
+        maybe_start_safe_recovery(child, state, opts)
+
+      {:safe, _attempts} ->
+        child
+        |> persist_recovery_intent(:fail_exhausted, reason, state)
+        |> settle_recovery_transition(child, reason, :fail_exhausted, state)
+
+      {_not_safe, _attempts} ->
+        child
+        |> persist_recovery_intent(:park_uncertain, reason, state)
+        |> settle_recovery_transition(child, reason, :park_uncertain, state)
+    end
+  end
+
+  defp maybe_start_safe_recovery(child, state, opts) do
+    if Keyword.get(opts, :start_safe?, false),
+      do: request_or_start(child.id, state),
+      else: state
+  end
+
+  defp persist_recovery_intent(child, :fail_exhausted, reason, state),
+    do: fail_exhausted_retry(child, reason, state)
+
+  defp persist_recovery_intent(child, :park_uncertain, reason, state),
+    do: park_uncertain_effect(child, reason, state)
+
+  defp persist_recovery_intent(child, :pending_steering_review, reason, state),
+    do: reconcile_pending_steering_before_review(child, reason, state)
+
+  defp park_uncertain_effect(child, reason, state) do
+    reason_text = bounded_review_reason("uncertain_effect", reason)
+
+    TerminalTransitions.transition_active_child(
+      child,
+      %{status: "blocked", review_reason: reason_text},
+      "run_blocked",
+      %{reason: reason_text},
+      recovery_transition_opts(state, {:run_blocked, %{reason: reason_text}})
+    )
+  end
+
+  defp fail_exhausted_retry(child, reason, state) do
     reason_text = bounded_review_reason("retry_exhausted", reason)
 
-    case TerminalTransitions.terminalize_child(
-           child,
-           %{
-             status: "failed",
-             review_reason: reason_text,
-             completed_at: DateTime.utc_now()
-           },
-           "run_failed",
-           %{reason: reason_text},
-           signal: {:run_failed, %{reason: reason_text}}
-         ) do
-      {:ok, _transition} ->
-        :ok
+    TerminalTransitions.terminalize_child(
+      child,
+      %{
+        status: "failed",
+        review_reason: reason_text,
+        completed_at: DateTime.utc_now()
+      },
+      "run_failed",
+      %{reason: reason_text},
+      recovery_transition_opts(state, {:run_failed, %{reason: reason_text}})
+    )
+  end
 
-      {:error, _reason} ->
-        :ok
+  defp settle_recovery_transition({:ok, _transition}, child, _reason, _intent, state),
+    do: clear_recovery_transition_retry(state, child.id)
+
+  defp settle_recovery_transition(
+         {:error, :pending_steering_directive},
+         child,
+         reason,
+         _intent,
+         state
+       ) do
+    child
+    |> reconcile_pending_steering_before_review(reason, state)
+    |> settle_recovery_transition(child, reason, :pending_steering_review, state)
+  end
+
+  defp settle_recovery_transition(
+         {:error, transition_reason},
+         child,
+         reason,
+         intent,
+         state
+       ) do
+    if TransientError.transient?(transition_reason) do
+      schedule_recovery_transition_retry(state, child.id, transition_reason, intent, reason)
+    else
+      Logger.error(
+        "fan-out recovery transition failed permanently; execution remains held " <>
+          "child=#{child.id} reason=#{bounded_review_reason("recovery_transition", transition_reason)}"
+      )
+
+      hold_recovery_transition(state, child.id)
     end
+  end
+
+  defp recovery_transition_opts(state, signal) do
+    [transaction_hook: state.recovery_transaction_hook, signal: signal]
+  end
+
+  defp reconcile_pending_steering_before_review(child, reason, state) do
+    reason_text = bounded_review_reason("uncertain_effect", reason)
+
+    with {:ok, steered} <- Steering.apply_pending(child.id) do
+      TerminalTransitions.transition_active_child(
+        steered,
+        %{status: "blocked", review_reason: reason_text},
+        "run_blocked",
+        %{reason: reason_text},
+        recovery_transition_opts(state, {:run_blocked, %{reason: reason_text}})
+      )
+    end
+  end
+
+  defp schedule_recovery_transition_retry(
+         state,
+         child_id,
+         transition_reason,
+         intent,
+         recovery_reason
+       ) do
+    attempt = Map.get(state.recovery_transition_retries, child_id, 0)
+
+    delay =
+      min(
+        @run_start_retry_delay_ms * Integer.pow(2, min(attempt, 7)),
+        @max_run_start_retry_delay_ms
+      )
+
+    Logger.warning(
+      "fan-out recovery transition deferred without replay child=#{child_id} " <>
+        "delay_ms=#{delay} reason=#{bounded_review_reason("transient_database", transition_reason)}"
+    )
+
+    Process.send_after(self(), {:retry_recovery_transition, child_id}, delay)
+
+    state
+    |> hold_recovery_transition(child_id)
+    |> Map.update!(:recovery_transition_retries, &Map.put(&1, child_id, attempt + 1))
+    |> Map.update!(
+      :recovery_transition_intents,
+      &Map.put(&1, child_id, {intent, recovery_reason})
+    )
+  end
+
+  defp hold_recovery_transition(state, child_id) do
+    Map.update!(state, :recovery_transition_holds, &MapSet.put(&1, child_id))
+  end
+
+  defp release_recovery_transition_hold(state, child_id) do
+    Map.update!(state, :recovery_transition_holds, &MapSet.delete(&1, child_id))
+  end
+
+  defp clear_recovery_transition_retry(state, child_id) do
+    state
+    |> release_recovery_transition_hold(child_id)
+    |> Map.update!(:recovery_transition_retries, &Map.delete(&1, child_id))
+    |> Map.update!(:recovery_transition_intents, &Map.delete(&1, child_id))
   end
 
   defp bounded_review_reason(prefix, reason) do
@@ -355,7 +501,7 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
         state.parent_id
         |> Fanout.children()
         |> Enum.filter(&(&1.status == "running" and not Map.has_key?(state.monitors, &1.id)))
-        |> Enum.reduce(%{state | join_retry_count: 0}, &request_or_start(&1.id, &2))
+        |> Enum.reduce(%{state | join_retry_count: 0}, &reconcile_child/2)
 
       {:error, :fanout_parent_not_found} ->
         Logger.warning(

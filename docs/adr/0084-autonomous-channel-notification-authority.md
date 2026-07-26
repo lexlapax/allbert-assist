@@ -8,9 +8,13 @@ binding, bounded retry/uncertainty behavior, and focused authority proofs are
 implemented. The M12.15 replay/in-flight-status amendment below is implemented
 and focused-green: the durable parent outbox now drives restart recovery,
 disabled/completion-only status work is bounded, attended output ACKs are exact,
-and send-time origin/authority is re-proved. The expanded `release.v11`, frozen
-`release.v1`, pre-push, and authoritative release gates remain pending at the
-final committed SHA. This is a security ADR defining a NEW authority class.
+and send-time origin/authority is re-proved. M12.18 additionally isolates
+report acknowledgement from the TUI Adapter and applies the shared transient
+database classifier plus bounded idempotent retry without consuming pending
+report truth. FV-01 passed this delivery contract; the expanded `release.v11`,
+frozen `release.v1`, pre-push, and authoritative release gates remain pending at
+the final clean pushed SHA. This is a security ADR defining a NEW authority
+class.
 
 ## Context
 
@@ -81,7 +85,7 @@ and gate-bound abuse-case coverage.
    runtime-initiated sends, exactly as the ADR 0063 action is the gate for
    operator-initiated sends. Adapters gain no new authority; they keep the
    dumb `deliver_outbound/3` transport callback.
-2. **Settings keys, defaults OFF.** Schema fragments (ADR 0031) per
+2. **Settings keys, effective default OFF.** Schema fragments (ADR 0031) per
    registered channel:
    - `channels.<id>.autonomous_notify.enabled` — boolean, **default
      `false`**. Absent/false means: zero autonomous sends on that channel,
@@ -95,7 +99,13 @@ and gate-bound abuse-case coverage.
    Notification kinds: `:status`, `:completion`, `:confirmation_request`.
    `:confirmation_request` and `:completion` are governed by `enabled` alone;
    `:status` additionally requires the higher level. There is no global
-   enable — the grant is per channel, deliberately.
+   enable — the grant is per channel, deliberately. The independent Security
+   Central ceiling `permissions.channel_autonomous_notify` defaults to
+   `"allowed"`; that means policy does not pre-deny an operator's later
+   per-channel grant. It does **not** enable delivery. Effective authority is
+   still OFF until `channels.<id>.autonomous_notify.enabled=true`, and changing
+   the Security ceiling to `"denied"` suppresses delivery even for an enabled
+   channel.
 3. **The enforcement chain runs in order, fail-closed, at send time:**
    (a) channel live-use allowed (`ReleaseAvailability` — unreleased channels
    cannot be notified even if enabled); (b) `enabled` true; (c) kind

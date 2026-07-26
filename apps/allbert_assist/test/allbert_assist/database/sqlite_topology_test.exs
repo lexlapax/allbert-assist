@@ -143,6 +143,36 @@ defmodule AllbertAssist.Database.SQLiteTopologyTest do
     assert actual == @approved_transaction_calls
   end
 
+  test "production code does not hold Repo connections through checkout or streams" do
+    forbidden_connection_holders = [
+      ~r/Repo\.checkout\s*\(/,
+      ~r/Repo\.stream\s*\(/,
+      ~r/Ecto\.Adapters\.SQL\.stream\s*\(/,
+      ~r/SQL\.stream\s*\(/
+    ]
+
+    actual =
+      [
+        "apps/allbert_assist/lib/**/*.ex",
+        "apps/allbert_assist_web/lib/**/*.ex",
+        "plugins/*/lib/**/*.ex"
+      ]
+      |> Enum.flat_map(&Path.wildcard(Path.join(@repo_root, &1)))
+      |> Enum.flat_map(fn path ->
+        source = File.read!(path)
+
+        Enum.flat_map(forbidden_connection_holders, fn pattern ->
+          if Regex.match?(pattern, source) do
+            [{Path.relative_to(path, @repo_root), Regex.source(pattern)}]
+          else
+            []
+          end
+        end)
+      end)
+
+    assert actual == []
+  end
+
   defp assert_repo_options(path, env) do
     repo_options =
       path

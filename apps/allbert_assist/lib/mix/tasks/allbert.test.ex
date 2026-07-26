@@ -5869,6 +5869,10 @@ defmodule Mix.Tasks.Allbert.Test do
         "test/allbert_assist/objectives/runs/lifecycle_test.exs",
         "test/allbert_assist/objectives/runs/scheduler_test.exs",
         "test/allbert_assist/objectives/runs/supervision_test.exs",
+        "test/allbert_assist/objectives/engine/agent_test.exs",
+        "test/allbert_assist/conversations/channel_thread_test.exs",
+        "test/allbert_assist/intent/decomposer_test.exs",
+        "test/allbert_assist/runtime/delivery_acknowledgement_test.exs",
         "test/allbert_assist/runtime/fanout_ack_test.exs",
         "test/allbert_assist/runtime/fanout_callers_test.exs",
         "test/allbert_assist/public_protocol/acp_fanout_test.exs",
@@ -5876,7 +5880,21 @@ defmodule Mix.Tasks.Allbert.Test do
         "test/mix/tasks/allbert_objectives_test.exs"
       ],
       coverage: [
-        "atomic fan-in, confirmation and Plan/Build binding, recovery, ownership, steering, cancellation, ACK, ACP, and CLI contracts"
+        "atomic fan-in, confirmation and Plan/Build binding, recovery, ownership, steering, cancellation, decomposition, ACK, ACP, and CLI contracts"
+      ]
+    },
+    %{
+      id: "v11_operator_sqlite_topology",
+      title: "production-shaped single-writer persistence and fan-in",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/database/sqlite_topology_test.exs",
+        "test/allbert_assist/database/operator_topology_integration_test.exs"
+      ],
+      coverage: [
+        "operator Repo options, connection-holder census, and real Allbert conversation/fan-in writes under a non-Sandbox pool of one"
       ]
     },
     %{

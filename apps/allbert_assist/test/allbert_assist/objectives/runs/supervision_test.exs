@@ -11,6 +11,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Objectives.Runs.Scheduler
+  alias AllbertAssist.Objectives.Steering
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.YamlCodec
@@ -696,6 +697,218 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert Enum.count(Objectives.list_events(failing.id), &(&1.kind == "run_started")) == 2
   end
 
+  test "a pending steer after exhausted safe work is preserved without a third execution" do
+    %{parent: parent, children: [crashing, sibling], receipt: receipt} = frame_two()
+    add_safe_step(crashing)
+    add_safe_step(sibling)
+    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    run_opts = [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
+    assert {:ok, _coordinator} = Scheduler.start_fanout(parent.id, run_opts: run_opts)
+
+    crashing_id = crashing.id
+    first_pid = await_paused_run(crashing_id)
+    Process.exit(first_pid, :kill)
+
+    second_pid = await_paused_run(crashing_id)
+    directive = "replace the exhausted task without replaying its earlier effect"
+    assert {:ok, _steer} = Steering.steer("alice", crashing_id, directive)
+    Process.exit(second_pid, :kill)
+
+    release_child_when_paused(sibling.id)
+
+    eventually(fn ->
+      with {:ok, blocked} <- Objectives.get_objective(crashing_id) do
+        blocked.status == "blocked" and blocked.run_attempt_count == 2 and
+          blocked.title == directive and blocked.review_reason =~ "uncertain_effect"
+      end
+    end)
+
+    refute_receive {:run_operation, ^crashing_id, :execute, _pid}, 200
+
+    events = Objectives.list_events(crashing_id)
+    assert Enum.count(events, &(&1.kind == "run_started")) == 2
+    assert Enum.count(events, &(&1.kind == "steer_applied")) == 1
+    assert Enum.count(events, &(&1.kind == "run_blocked")) == 1
+  end
+
+  test "a transient post-steer review write retains the blocked recovery intent" do
+    %{parent: parent, children: [crashing, sibling], receipt: receipt} = frame_two()
+    add_safe_step(crashing)
+    add_safe_step(sibling)
+    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    {:ok, transition_attempts} = Agent.start_link(fn -> 0 end)
+
+    recovery_transaction_hook = fn child ->
+      if child.id == crashing.id do
+        case Agent.get_and_update(transition_attempts, &{&1 + 1, &1 + 1}) do
+          1 -> {:error, %Exqlite.Error{message: "database is locked"}}
+          _later -> :ok
+        end
+      else
+        :ok
+      end
+    end
+
+    run_opts = [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
+
+    assert {:ok, _coordinator} =
+             Scheduler.start_fanout(parent.id,
+               run_opts: run_opts,
+               recovery_transaction_hook: recovery_transaction_hook
+             )
+
+    crashing_id = crashing.id
+    first_pid = await_paused_run(crashing_id)
+    Process.exit(first_pid, :kill)
+
+    second_pid = await_paused_run(crashing_id)
+    directive = "preserve this steered task for explicit review"
+    assert {:ok, _steer} = Steering.steer("alice", crashing_id, directive)
+    Process.exit(second_pid, :kill)
+    release_child_when_paused(sibling.id)
+
+    eventually(fn ->
+      with {:ok, blocked} <- Objectives.get_objective(crashing_id) do
+        blocked.status == "blocked" and blocked.run_attempt_count == 2 and
+          blocked.title == directive and blocked.review_reason =~ "uncertain_effect"
+      end
+    end)
+
+    refute_receive {:run_operation, ^crashing_id, :execute, _pid}, 200
+    assert Agent.get(transition_attempts, & &1) == 2
+  end
+
+  test "a transient uncertain-effect park failure retries persistence without replaying work" do
+    %{parent: parent, children: [uncertain, sibling], receipt: receipt} = frame_two()
+    add_safe_step(sibling)
+    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    {:ok, transition_attempts} = Agent.start_link(fn -> 0 end)
+
+    recovery_transaction_hook = fn child ->
+      if child.id == uncertain.id do
+        case Agent.get_and_update(transition_attempts, &{&1 + 1, &1 + 1}) do
+          1 -> {:error, %Exqlite.Error{message: "database is locked"}}
+          _later -> :ok
+        end
+      else
+        :ok
+      end
+    end
+
+    run_opts = [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
+
+    assert {:ok, _coordinator} =
+             Scheduler.start_fanout(parent.id,
+               run_opts: run_opts,
+               recovery_transaction_hook: recovery_transaction_hook
+             )
+
+    uncertain_id = uncertain.id
+    uncertain_pid = await_paused_run(uncertain_id)
+    Process.exit(uncertain_pid, :kill)
+    release_child_when_paused(sibling.id)
+
+    eventually(fn ->
+      with {:ok, parked} <- Objectives.get_objective(uncertain_id) do
+        parked.status == "blocked" and parked.run_attempt_count == 1 and
+          parked.review_reason =~ "uncertain_effect"
+      end
+    end)
+
+    refute_receive {:run_operation, ^uncertain_id, :execute, _pid}, 200
+    assert Agent.get(transition_attempts, & &1) == 2
+  end
+
+  test "a transient exhausted-retry failure persists terminal state without a third attempt" do
+    %{parent: parent, children: [crashing, sibling], receipt: receipt} = frame_two()
+    add_safe_step(crashing)
+    add_safe_step(sibling)
+    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    {:ok, transition_attempts} = Agent.start_link(fn -> 0 end)
+
+    recovery_transaction_hook = fn child ->
+      if child.id == crashing.id do
+        case Agent.get_and_update(transition_attempts, &{&1 + 1, &1 + 1}) do
+          1 -> {:error, %Exqlite.Error{message: "database is busy"}}
+          _later -> :ok
+        end
+      else
+        :ok
+      end
+    end
+
+    run_opts = [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
+
+    assert {:ok, _coordinator} =
+             Scheduler.start_fanout(parent.id,
+               run_opts: run_opts,
+               recovery_transaction_hook: recovery_transaction_hook
+             )
+
+    crashing_id = crashing.id
+    first_pid = await_paused_run(crashing_id)
+    Process.exit(first_pid, :kill)
+    second_pid = await_paused_run(crashing_id)
+    Process.exit(second_pid, :kill)
+    release_child_when_paused(sibling.id)
+
+    eventually(fn ->
+      with {:ok, failed} <- Objectives.get_objective(crashing_id) do
+        failed.status == "failed" and failed.run_attempt_count == 2 and
+          failed.review_reason =~ "retry_exhausted"
+      end
+    end)
+
+    refute_receive {:run_operation, ^crashing_id, :execute, _pid}, 200
+    assert Agent.get(transition_attempts, & &1) == 2
+    assert Enum.count(Objectives.list_events(crashing_id), &(&1.kind == "run_started")) == 2
+  end
+
+  test "a permanent recovery transition error stays held and never becomes an execution grant" do
+    %{parent: parent, children: [uncertain, sibling], receipt: receipt} = frame_two()
+    add_safe_step(sibling)
+    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    {:ok, transition_attempts} = Agent.start_link(fn -> 0 end)
+
+    recovery_transaction_hook = fn child ->
+      if child.id == uncertain.id do
+        Agent.update(transition_attempts, &(&1 + 1))
+        {:error, :injected_permanent_recovery_failure}
+      else
+        :ok
+      end
+    end
+
+    run_opts = [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
+
+    assert {:ok, coordinator} =
+             Scheduler.start_fanout(parent.id,
+               run_opts: run_opts,
+               recovery_transaction_hook: recovery_transaction_hook
+             )
+
+    uncertain_id = uncertain.id
+    uncertain_pid = await_paused_run(uncertain_id)
+    Process.exit(uncertain_pid, :kill)
+    release_child_when_paused(sibling.id)
+
+    eventually(fn -> Agent.get(transition_attempts, & &1) == 1 end)
+    Process.sleep(150)
+
+    assert Process.alive?(coordinator)
+
+    assert {:ok, %{status: "running", run_attempt_count: 1}} =
+             Objectives.get_objective(uncertain_id)
+
+    assert Agent.get(transition_attempts, & &1) == 1
+    refute_receive {:run_operation, ^uncertain_id, :execute, _pid}, 200
+  end
+
   test "a transient worker start failure retries the same child and joins exactly once" do
     %{parent: parent, children: [failing, sibling], receipt: receipt} = frame_two()
     assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
@@ -827,6 +1040,69 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     end)
 
     Process.sleep(100)
+  end
+
+  test "a successful worker start clears its pre-effect database retry history" do
+    %{parent: parent, children: [contended, sibling], receipt: receipt} = frame_two()
+    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    {:ok, attempts} = Agent.start_link(fn -> %{} end)
+    test_pid = self()
+
+    run_starter = fn {run_server, opts} ->
+      child_id = Keyword.fetch!(opts, :child_id)
+
+      attempt =
+        Agent.get_and_update(attempts, fn counts ->
+          attempt = Map.get(counts, child_id, 0) + 1
+          {attempt, Map.put(counts, child_id, attempt)}
+        end)
+
+      if child_id == contended.id and attempt == 1 do
+        coordinator = Keyword.fetch!(opts, :coordinator)
+
+        pid =
+          spawn(fn ->
+            test_ref = Process.monitor(test_pid)
+            Process.sleep(25)
+
+            send(
+              coordinator,
+              {:run_terminal, child_id, {:error, %Exqlite.Error{message: "database is locked"}}}
+            )
+
+            receive do
+              :stop -> :ok
+              {:DOWN, ^test_ref, :process, ^test_pid, _reason} -> :ok
+            end
+          end)
+
+        {:ok, pid}
+      else
+        DynamicSupervisor.start_child(
+          AllbertAssist.Objectives.Runs.Supervisor,
+          {run_server, opts}
+        )
+      end
+    end
+
+    assert {:ok, coordinator} =
+             Scheduler.start_fanout(parent.id,
+               run_starter: run_starter,
+               run_opts: [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
+             )
+
+    contended_pid = await_paused_run(contended.id)
+    refute Map.has_key?(:sys.get_state(coordinator).pre_effect_retries, contended.id)
+
+    send(contended_pid, :continue)
+    release_child_when_paused(sibling.id)
+
+    eventually(fn ->
+      with {:ok, joined} <- Objectives.get_objective(parent.id) do
+        joined.status == "completed" and joined.join_outcome == "success"
+      end
+    end)
   end
 
   test "supervised cancellation is terminal before recovery and join" do

@@ -160,12 +160,18 @@ allbert admin db restore latest
 allbert admin confirmations approve <ID>
 ```
 
-## Running alongside a development checkout
+## One live runtime per Allbert Home
 
-A packaged install and a `mix`-based dev checkout both default to Allbert Home
-`~/.allbert` and port 4000. **Do not run both against the same Home at once** —
-two runtimes on one SQLite database is a known failure mode. For a dev checkout
-beside a packaged install, point the checkout at a separate Home and port:
+Run only one live Allbert runtime against an Allbert Home. This includes two
+standalone TUI processes, a standalone command beside a TUI, or a packaged
+install beside a `mix`-based development checkout. A served/daemon runtime is
+the owner of its Home; use its attach-capable command path rather than booting a
+second runtime against the same SQLite database. For truly concurrent work,
+assign each standalone runtime a different `ALLBERT_HOME`.
+
+A packaged install and a development checkout both default to `~/.allbert` and
+port 4000. Point the checkout at a separate Home and port when running it beside
+the packaged runtime:
 
 ```sh
 ALLBERT_HOME=~/.allbert-dev PORT=4100 mix phx.server

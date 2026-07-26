@@ -2,28 +2,22 @@
 
 ## Status
 
-Accepted (v1.1 M3, 2026-07-22); the M12.15 atomic-terminal-reduction amendment
-was implemented and its focused invariant/fault matrix passed on 2026-07-25.
-The confirmation/policy correction candidate `5601e67e` passed expanded
-`release.v11`, frozen `release.v1`, and pre-push, then authoritative
-`external_runtime_serial` exposed one leaked ACP-timeout Coordinator and a
-downstream supervision cascade. The replacement permanent/transient/crash-
-visibility lifecycle contract is focused-green. The M12.16 pre-effect-start
-amendment is implemented: known database failures before the first durable
-attempt retry, and attended TUI lifecycle output preserves exact in-progress
-input through one raw-terminal owner. M12.17 is implemented after focused
-operator evidence showed that a database-backed steering turn could still
-occupy the TUI Adapter mailbox: ordinary raw-TUI turns now execute one at a
-time through a bounded supervised FIFO while the Adapter remains available for
-input and lifecycle delivery. Its clean-SHA `release.v11` rejoin passed all 14
-steps at pushed implementation candidate `28ee2d86`, opening FV-01.
-The child model, fair scheduler/full lifecycle executor, restart-stable
-receipts, delivery-before-start barrier, public-protocol continuations, and
-cross-surface automatic-rollout corpus remain. The expanded `release.v11`,
-frozen `release.v1`, pre-push, and authoritative release gates remain release
-barriers. M12.17 repeats `release.v11` before the focused walkthrough; by
-explicit operator sequencing the longer frozen/pre-push/authoritative cascade
-follows the walkthrough and any resulting remediation.
+Accepted (v1.1 M3, 2026-07-22), including the implemented M12.15 atomic terminal
+reduction, M12.16 pre-effect start recovery, M12.17 attended-turn isolation,
+M12.18 report-acknowledgement isolation, M12.19 serialized SQLite persistence,
+and M12.20 fail-closed missing-run recovery amendments. FV-01 passed against
+`b74a3405` on 2026-07-26 in one fresh disposable Home: three children
+completed, one steer applied exactly once, the parent joined/reported once, and
+the same TUI accepted an independent turn. The later static audit found that a
+failed uncertain-effect/retry-exhausted write could still be followed by a
+second join path that restarted the durable `running` child. M12.20 now routes
+boot, worker-down, terminal-persistence, and join recovery through one
+retry-safety/attempt policy; transition failures retry persistence without
+granting execution, and pending steering settles review-blocked. Focused
+Coordinator, steering, TUI, persistence, production-shaped pool-1, lane, and
+manifest proofs are green. The expanded `release.v11`, frozen `release.v1`,
+pre-push, and authoritative release gates remain barriers at the final clean
+pushed SHA.
 
 ## Context
 
@@ -378,14 +372,24 @@ authority class.
   the 3,492-row manifest reconciles 551 files. Clean pushed implementation
   candidate `516fc7b9` passed all 14 `release.v11` steps; evidence is
   `release-v11-1785033817.json`, satisfying the pre-FV barrier.
-- v1.1 M12.19 planned: FV-01 at `386a6650` proves receipt isolation is not a
-  substitute for SQLite write ownership. Development/production converge on
-  one Repo connection with immediate, effect-free durable phases; atomic
-  idempotent inbound admission prevents a message-without-reference partial
-  commit; channel failure and TUI wording are bounded; and a non-Sandbox
-  concurrency regression must separately measure prompt display, line
-  acceptance, next-prompt display, and Runtime execution while re-proving
-  steering plus report acknowledgement before FV-01 reopens.
+- v1.1 M12.19 implemented: development/production converge on one Repo
+  connection with immediate, effect-free durable phases; atomic idempotent
+  inbound admission prevents a message-without-reference partial commit;
+  action execution stays outside Repo transactions; and channel/TUI failures
+  are bounded. Pushed candidate `2892940e` passed all 14 then-current
+  `release.v11` steps (`release-v11-1785038793.json`). FV-01 against `b74a3405`
+  passed in one fresh disposable Home with exactly one steer, join, and report
+  plus a responsive independent turn.
+- v1.1 M12.20 implemented/focused-green: all unmonitored durable `running`
+  children now pass through one retry-safety/attempt disposition. A failed
+  uncertain-effect or retry-exhausted transition installs a non-execution hold
+  and retries only that persistence intent; pending steering applies before
+  the child settles review-blocked; permanent errors stay log-visible without
+  granting execution. TUI progress coalescing resets on durable
+  `run.started`. The release gate now binds the five omitted regression files
+  plus a real Allbert, non-Sandbox pool-1 subprocess step. Focused results are
+  supervision 33/0, TUI 46/0, fan-in/steering/lifecycle 47/0, newly bound files
+  42/0, and topology 5/0; 553 files reconcile to a 3,509-row manifest.
 - Release: `release.v1` stays green (Tier-1/Tier-2 untouched; runtime
   response gains only additive fields per ADR 0029) and `release.v11` binds
   all eleven fan-out authority rows plus the M12.15 focused suites. Candidate

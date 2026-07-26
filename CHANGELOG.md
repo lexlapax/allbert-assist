@@ -13,18 +13,16 @@ changelog entries or release notes.
 ## v1.1.0 - Asynchronous Background Agent Fan-Out With In-Channel Steering
 
 Status: **release candidate preparation; not yet tagged or published.** The
-implementation and atomic M12.15 invariant/fault remediation are complete.
-M12.16 closes the focused operator finding that transient first-attempt
-database contention could falsely park never-started children and attended TUI
-lifecycle output could race an immediately typed steering line. M12.17 then
-moves ordinary raw-TUI turns into one supervised, bounded FIFO so Repo,
-Runtime, or provider latency cannot occupy the Adapter mailbox that accepts
-later input and fan-out updates. Its focused, complete-TUI, static, Dialyzer,
-and no-loss-manifest rejoin is green. Derived `release.v11` passed all 14 steps
-at pushed implementation candidate `28ee2d86`; evidence is
-`release-v11-1785027587.json`, so focused flagship operator validation is open.
-By operator decision, the long authoritative release gate follows the flagship
-walkthrough and any resulting remediation, while remaining mandatory before
+implementation, atomic M12.15 invariant/fault remediation, and M12.16–M12.20
+operator/audit corrections are complete. The focused FV-01 walkthrough passed
+against `b74a3405` in one fresh disposable Home: all three children completed,
+the first child was steered exactly once, the parent joined and reported once,
+and the same TUI remained usable for a new turn. M12.20 subsequently closed a
+static-audit recovery hole without changing that happy path: a failed safety
+transition can no longer turn a durable `running` child into a new execution
+grant. Its focused Coordinator, TUI, steering, persistence, topology, lane, and
+no-loss-manifest rejoin is green. The expanded final `release.v11`, pre-push,
+and authoritative release gates remain mandatory at one clean pushed SHA before
 closeout. Binary
 publication/cosign, tap fill, packaged-platform rehearsal, and stable-release
 administration remain operator-held after those checks.
@@ -98,10 +96,32 @@ turn is waiting on Runtime. Kickoff attachment state is handed back before its
 delivery receipt is acknowledged; Pi-mode, line-mode, and synchronous adapter
 callers keep their existing execution semantics.
 
+Report acknowledgement now runs behind one shared transient-database
+classifier and bounded idempotent retry boundary. A failed or crashing
+acknowledgement worker cannot terminate the TUI Adapter or strand an unrelated
+admitted turn; pending durable report truth remains available for honest
+redelivery.
+
+Development and packaged production now use one SQLite connection with WAL,
+immediate transactions, and a one-second busy timeout. Inbound conversation
+message and provider-reference admission is atomic, and action execution stays
+outside Repo transactions. Operate only one live Allbert runtime per Allbert
+Home: attach to the served runtime where supported, or give a second standalone
+runtime a different `ALLBERT_HOME`.
+
+Coordinator recovery now uses one fail-closed missing-run disposition across
+boot, worker-down, terminal-persistence, and join reconciliation. Only declared
+safe work inside its one-retry ceiling can receive another execution grant.
+Failed uncertain-effect or retry-exhausted writes retry the durable transition,
+not the child; pending steering is preserved in review-blocked state; permanent
+transition errors remain visible while execution stays held. TUI progress
+coalescing resets at each durable `run.started` attempt boundary.
+
 The release also adds fair global/per-fan-out scheduling, cooperative through
 OS-process cancellation tiers, Signal daemon wiring, Email outbound delivery,
 descriptor-derived streaming/status parity, fan-out controls in Web and TUI,
-the additive `release.v11` security/runtime/channel/web gate definition, and a
+the additive `release.v11` security/runtime/persistence/channel/web gate
+definition, and a
 bounded ReqLLM refresh from 1.13.0 to 1.17.1. The frozen `release.v1` contract is
 unchanged and must be re-proved at the final candidate SHA; all public-contract
 changes are additive.
