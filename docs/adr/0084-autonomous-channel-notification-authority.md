@@ -14,11 +14,11 @@ database classifier plus bounded idempotent retry without consuming pending
 report truth. M12.21 preserves the attached-Web distinction: canonical message
 persistence is not acknowledgement, and only the exact browser-mounted marker
 for that message may consume the receipt; signal, next-turn, and remount paths
-converge idempotently while failures remain pending. Its focused/static rejoin
-is green and bounded WV-01 remains open. FV-01 passed this delivery contract;
-the expanded `release.v11`, frozen `release.v1`, pre-push, and authoritative
-release gates remain pending at the final clean pushed SHA. This is a security
-ADR defining a NEW authority class.
+converge idempotently while failures remain pending. FV-01 passed this delivery
+contract, bounded WV-01 passed at `9ca0e3fd`, and final implementation candidate
+`f81a49de` passed expanded `release.v11`, pre-push, and the uninterrupted
+authoritative release cascade on 2026-07-26. This is a security ADR defining a
+NEW authority class.
 
 ## Context
 
@@ -311,8 +311,10 @@ stale `sending`, `delivered` before parent acknowledgement, definitive
 `failed`, consumer restart, SignalBus-only restart,
 disabled/completion-only write amplification, attached exact-receipt ACK, and
 enabled send-time re-authorization. Those suites are now explicit inputs to
-the derived `release.v11` gate; that gate and the authoritative release gate
-remain pending at the final committed implementation SHA.
+the derived `release.v11` gate. Final implementation candidate `f81a49de`
+passed that expanded gate (`release-v11-1785097379.json`), pre-push
+(`prepush-2026-07-26T20_32_10Z.json`), and the authoritative release cascade
+(`release-2026-07-26T20_48_52Z.json`).
 
 ## Amendment (v1.4 planning, 2026-07-24) — additive `:suggestion` notification kind
 

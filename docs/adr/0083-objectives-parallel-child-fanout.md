@@ -15,13 +15,12 @@ boot, worker-down, terminal-persistence, and join recovery through one
 retry-safety/attempt policy; transition failures retry persistence without
 granting execution, and pending steering settles review-blocked. Focused
 Coordinator, steering, TUI, persistence, production-shaped pool-1, lane, and
-manifest proofs are green. The expanded `release.v11`, frozen `release.v1`,
-pre-push, and authoritative release gates remain barriers at the final clean
-pushed SHA. M12.21 additionally makes the attached Web join projection one
-idempotent canonical conversation message across joined-signal, missed-signal
-next-turn, and remount paths without changing decomposition, scheduling,
-steering, or atomic fan-in authority; its focused/static rejoin is green and
-bounded WV-01 remains open.
+manifest proofs are green. M12.21 additionally makes the attached Web join
+projection one idempotent canonical conversation message across joined-signal,
+missed-signal next-turn, and remount paths without changing decomposition,
+scheduling, steering, or atomic fan-in authority. Bounded WV-01 passed at `9ca0e3fd`, and
+final implementation candidate `f81a49de` passed expanded `release.v11`,
+pre-push, and the uninterrupted authoritative release cascade on 2026-07-26.
 
 ## Context
 
@@ -399,5 +398,8 @@ authority class.
   all eleven fan-out authority rows plus the M12.15 focused suites. Candidate
   `5601e67e` passed both versioned gates and pre-push, but its authoritative
   release failed from the leaked Coordinator described above. That partial
-  cascade is superseded diagnostic evidence; all four gates remain pending at
-  the final committed implementation SHA.
+  cascade is superseded diagnostic evidence. Final implementation candidate
+  `f81a49de` subsequently passed expanded `release.v11`
+  (`release-v11-1785097379.json`), pre-push
+  (`prepush-2026-07-26T20_32_10Z.json`), and the uninterrupted authoritative
+  release gate (`release-2026-07-26T20_48_52Z.json`).

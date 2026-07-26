@@ -98,8 +98,9 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    1.0.x: intent-pipeline refinements (opportunistic), technical-debt
    train. (The vendored `:memento` removal landed early at 1.0.1's M5
    refresh — ADR 0050 superseded.)
-5. **1.1 — Asynchronous Background Agent Fan-Out With In-Channel Steering.**
-   (Operator intake 2026-07-18, inserted foundational-first. **Implementation
+5. **1.1 — RELEASE AUTHORIZED — Asynchronous Background Agent Fan-Out With
+   In-Channel Steering.** (Operator intake 2026-07-18, inserted
+   foundational-first. **Implementation
    and atomic invariant/fault remediation through M12.16 are complete;
    validation-only product/harness scaffolding is removed, pre-effect database
    start failures recover without false uncertain-effect state, and one
@@ -165,8 +166,11 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    children, and a delivered successful parent. Final clean pushed
    implementation candidate `f81a49de` passed expanded `release.v11`, pre-push,
    and the uninterrupted 12-phase authoritative release cascade in 3,997
-   seconds; M12.21 implementation and validation are complete, while tagging
-   and binary release administration remain operator-held:**
+   seconds. On 2026-07-26 the operator authorized the stable `v1.1.0` binary
+   release sequence: annotated tag without `[skip-artifacts]`, CI build/cosign,
+   GitHub Latest, checksum-derived tap fill, packaged install rehearsal, and
+   post-artifact documentation/archive closeout. The item remains release-
+   authorized rather than shipped until that sequence passes:**
    `docs/plans/v1.1-plan.md` + request-flow + ADR 0083/0084/0085.) On a prompt
    that decomposes into multiple tasks, Allbert delivers a kickoff receipt,
    then fans out background agents/actions, streams their status, joins on

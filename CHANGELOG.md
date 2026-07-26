@@ -12,7 +12,8 @@ changelog entries or release notes.
 
 ## v1.1.0 - Asynchronous Background Agent Fan-Out With In-Channel Steering
 
-Status: **release candidate preparation; not yet tagged or published.** The
+Status: **release candidate accepted and stable publication authorized by the
+operator on 2026-07-26; not yet tagged or published.** The
 implementation, atomic M12.15 invariant/fault remediation, and M12.16–M12.21
 operator/audit corrections are complete. The focused FV-01 walkthrough passed
 against `b74a3405` in one fresh disposable Home: all three children completed,
@@ -36,6 +37,11 @@ release cascade in 3,997 seconds
 (`release-2026-07-26T20_48_52Z.json`). Binary
 publication/cosign, tap fill, packaged-platform rehearsal, and stable-release
 administration remain operator-held after those checks.
+The authorized stable sequence is one annotated `v1.1.0` tag with no
+`[skip-artifacts]` marker, the repository `release-artifacts` binary/cosign
+workflow, GitHub Latest verification, checksum-derived tap fill, and a packaged
+install rehearsal. Shipped status is recorded only after all of those steps
+pass.
 
 **Formula state: PRE-PUBLICATION ONLY.** packaged Latest 1.0.5 and the
 repository formula remain at 1.0.5 during the RC window. At publish, the tap is
