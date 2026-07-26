@@ -148,9 +148,17 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    recovery fail closed, binds five recent regression files into `release.v11`,
    and adds actual pool-1 Allbert integration evidence. Its focused Coordinator,
    TUI, steering, persistence, topology, lane, and 3,509-row manifest rejoin is
-   green. FV-01 remains accepted because no happy-path contract changed. The
-   frozen-v1-derived `release.v11`, pre-push, and longer authoritative release
-   cascade remain to run once at the final clean pushed SHA:**
+   green. FV-01 remains accepted because no happy-path contract changed.
+   Candidate `bbc69b90` then passed all 14 `release.v11` steps, pre-push, and
+   the uninterrupted 12-phase authoritative release cascade. A bounded
+   real-provider Web parity walkthrough proved the same decomposition,
+   concurrency, steering, join, acknowledgement, and post-report usability,
+   but found that the joined report is ephemeral in chat history after the next
+   turn/remount, alongside misleading kickoff/active-count labels and weak
+   child-result affordances. Approved M12.21 makes the Web report one canonical
+   idempotent conversation message, preserves exact browser-render
+   acknowledgement, and corrects those bounded presentation projections before
+   repeating the Web walkthrough and final clean-SHA gates:**
    `docs/plans/v1.1-plan.md` + request-flow + ADR 0083/0084/0085.) On a prompt
    that decomposes into multiple tasks, Allbert delivers a kickoff receipt,
    then fans out background agents/actions, streams their status, joins on
