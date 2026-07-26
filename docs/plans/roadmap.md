@@ -140,11 +140,16 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    remained responsive for the final independent turn. The expanded
    `release.v11` definition covers the
    invariant/fault, exact-receipt, attended-surface, autonomous-channel,
-   public-protocol, and operator-control paths. The final frozen-v1, pre-push,
-   and authoritative release executions remain due at the final committed SHA.
-   M12.19's derived-v1.1 rejoin and flagship operator validation are complete;
-   the frozen-v1, pre-push, and longer authoritative release cascade follows
-   by explicit operator sequencing:**
+   public-protocol, and operator-control paths. A static post-implementation
+   audit at `41857507` then found one fail-open recovery asymmetry: when a
+   blocked/failed safety transition does not persist, the post-worker join path
+   can restart a durable `running` child without the boot path's retry-safety or
+   attempt-ceiling checks. Approved M12.20 pauses the final cascade, makes that
+   recovery fail closed, binds five recent regression files into `release.v11`,
+   and adds actual pool-1 Allbert integration evidence. FV-01 remains accepted;
+   deterministic failure tests own M12.20. After its implementation/docs commit,
+   the frozen-v1-derived `release.v11`, pre-push, and longer authoritative
+   release cascade run once at the final clean pushed SHA:**
    `docs/plans/v1.1-plan.md` + request-flow + ADR 0083/0084/0085.) On a prompt
    that decomposes into multiple tasks, Allbert delivers a kickoff receipt,
    then fans out background agents/actions, streams their status, joins on
