@@ -396,6 +396,7 @@ defmodule AllbertAssistWeb.WorkspaceShellNavTest do
     {:ok, view, _html} = live(conn, ~p"/workspace")
 
     assert has_element?(view, "#objective-badge-#{objective.id}")
+    assert render(element(view, "#workspace-objective-count-chip")) =~ "1 active"
 
     # v1.0.2 M5 — objective chips stay inside the consolidated workspace shell:
     # the badge patches to the workspace:objectives destination instead of

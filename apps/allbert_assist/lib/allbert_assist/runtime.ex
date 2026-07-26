@@ -49,6 +49,7 @@ defmodule AllbertAssist.Runtime do
   @agent_responded "allbert.agent.responded"
   @action_requested "allbert.action.requested"
   @action_completed "allbert.action.completed"
+  @persist_attached_fanout_report "persist_attached_fanout_report"
   @memory_appended "allbert.memory.appended"
   @trace_recorded "allbert.trace.recorded"
 
@@ -1030,6 +1031,16 @@ defmodule AllbertAssist.Runtime do
     agent_response = Response.normalize(agent_response)
     media_outputs = MediaOutputs.collect(agent_response)
     pending_reports = Fanout.pending_reports(request.user_id, request.thread_id, request)
+    ensure_attached_web_reports(request, pending_reports)
+
+    pending_report_texts =
+      Enum.reject(pending_reports, fn pending ->
+        Conversations.fanout_report_message?(
+          request.user_id,
+          request.thread_id,
+          pending.parent_objective_id
+        )
+      end)
 
     %{
       message: agent_response.message,
@@ -1060,9 +1071,30 @@ defmodule AllbertAssist.Runtime do
     |> maybe_put(:fanout, Map.get(agent_response, :fanout))
     |> maybe_put(:fanout_start_receipt, Map.get(agent_response, :fanout_start_receipt))
     |> Map.put(:pending_reports, pending_reports)
-    |> attach_pending_report_text(pending_reports)
+    |> attach_pending_report_text(pending_report_texts)
     |> maybe_put_media_outputs(media_outputs)
   end
+
+  defp ensure_attached_web_reports(%{channel: channel} = request, pending_reports)
+       when channel in [:live_view, "live_view"] do
+    Enum.each(pending_reports, fn pending ->
+      case Runner.run(
+             @persist_attached_fanout_report,
+             %{thread_id: request.thread_id, parent_id: pending.parent_objective_id},
+             %{user_id: request.user_id, channel: "live_view", thread_id: request.thread_id}
+           ) do
+        {:ok, %{status: :completed}} ->
+          :ok
+
+        {:ok, response} ->
+          Logger.warning(
+            "Attached Web fan-in report remained noncanonical: #{inspect(Map.get(response, :error, response.status))}"
+          )
+      end
+    end)
+  end
+
+  defp ensure_attached_web_reports(_request, _pending_reports), do: :ok
 
   defp attach_pending_report_text(response, []), do: response
 

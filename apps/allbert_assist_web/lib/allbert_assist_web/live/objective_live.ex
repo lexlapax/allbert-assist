@@ -18,6 +18,7 @@ defmodule AllbertAssistWeb.ObjectiveLive do
   alias AllbertAssistWeb.Workspace.Renderer, as: WorkspaceRenderer
 
   @user_id "local"
+  @fanout_preview_limit 240
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -229,7 +230,23 @@ defmodule AllbertAssistWeb.ObjectiveLive do
                 <h3 class="font-medium">{child.title}</h3>
                 <span class="allbert-chip">{child.status}</span>
               </header>
-              <p class="mt-1 text-sm">{fanout_child_detail(child)}</p>
+              <div class="mt-2">
+                <p class="text-xs font-medium uppercase tracking-wide text-base-content/60">
+                  {fanout_child_preview_label(child)}
+                </p>
+                <p
+                  class="mt-1 text-sm"
+                  data-preview-kind={fanout_child_preview_kind(child)}
+                >
+                  {fanout_child_preview(child)}
+                </p>
+              </div>
+              <.link
+                navigate={~p"/objectives/#{child.id}"}
+                class="mt-2 inline-flex text-sm font-medium link link-primary"
+              >
+                Open task
+              </.link>
               <form
                 :if={child.status in ["open", "running", "blocked"]}
                 phx-submit="steer_fanout_child"
@@ -388,6 +405,48 @@ defmodule AllbertAssistWeb.ObjectiveLive do
       result_summary: child[:last_observation_summary] || child[:progress_summary],
       review_reason: child[:review_reason]
     })
+  end
+
+  defp fanout_child_preview(child) do
+    child
+    |> fanout_child_detail()
+    |> markdown_preview_text()
+    |> truncate_preview()
+  end
+
+  defp fanout_child_preview_label(%{status: status})
+       when status in ["open", "running", "blocked"],
+       do: "Progress"
+
+  defp fanout_child_preview_label(_child), do: "Result preview"
+
+  defp fanout_child_preview_kind(%{status: status})
+       when status in ["open", "running", "blocked"],
+       do: "progress"
+
+  defp fanout_child_preview_kind(_child), do: "result"
+
+  defp markdown_preview_text(value) do
+    value
+    |> to_string()
+    |> String.replace(~r/!\[([^\]]*)\]\([^)]*\)/u, "\\1")
+    |> String.replace(~r/\[([^\]]+)\]\([^)]*\)/u, "\\1")
+    |> String.replace(~r/<[^>]*>/u, " ")
+    |> String.replace(~r/^\s{0,3}(?:[#]{1,6}\s+|[-+*>]\s+)/mu, "")
+    |> String.replace(~r/[`*_~]+/u, "")
+    |> String.replace(~r/\s+/u, " ")
+    |> String.trim()
+  end
+
+  defp truncate_preview(value) do
+    if String.length(value) > @fanout_preview_limit do
+      value
+      |> String.slice(0, @fanout_preview_limit)
+      |> String.trim_trailing()
+      |> Kernel.<>("…")
+    else
+      value
+    end
   end
 
   defp active_assigned_child?(socket, child_id) do

@@ -17,7 +17,11 @@ granting execution, and pending steering settles review-blocked. Focused
 Coordinator, steering, TUI, persistence, production-shaped pool-1, lane, and
 manifest proofs are green. The expanded `release.v11`, frozen `release.v1`,
 pre-push, and authoritative release gates remain barriers at the final clean
-pushed SHA.
+pushed SHA. M12.21 additionally makes the attached Web join projection one
+idempotent canonical conversation message across joined-signal, missed-signal
+next-turn, and remount paths without changing decomposition, scheduling,
+steering, or atomic fan-in authority; its focused/static rejoin is green and
+bounded WV-01 remains open.
 
 ## Context
 

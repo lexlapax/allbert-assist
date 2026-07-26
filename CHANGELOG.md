@@ -13,7 +13,7 @@ changelog entries or release notes.
 ## v1.1.0 - Asynchronous Background Agent Fan-Out With In-Channel Steering
 
 Status: **release candidate preparation; not yet tagged or published.** The
-implementation, atomic M12.15 invariant/fault remediation, and M12.16–M12.20
+implementation, atomic M12.15 invariant/fault remediation, and M12.16–M12.21
 operator/audit corrections are complete. The focused FV-01 walkthrough passed
 against `b74a3405` in one fresh disposable Home: all three children completed,
 the first child was steered exactly once, the parent joined and reported once,
@@ -21,9 +21,13 @@ and the same TUI remained usable for a new turn. M12.20 subsequently closed a
 static-audit recovery hole without changing that happy path: a failed safety
 transition can no longer turn a durable `running` child into a new execution
 grant. Its focused Coordinator, TUI, steering, persistence, topology, lane, and
-no-loss-manifest rejoin is green. The expanded final `release.v11`, pre-push,
-and authoritative release gates remain mandatory at one clean pushed SHA before
-closeout. Binary
+no-loss-manifest rejoin is green. M12.21 also makes the attached Web fan-in
+report one canonical conversation message across joined-signal, next-turn, and
+remount paths, keeps browser acknowledgement bound to that exact rendered
+message, labels active fan-out truthfully, and adds bounded linked child-result
+previews. Its focused/static rejoin is green; bounded WV-01 plus the expanded
+final `release.v11`, pre-push, and authoritative release gates remain mandatory
+at one clean pushed SHA before closeout. Binary
 publication/cosign, tap fill, packaged-platform rehearsal, and stable-release
 administration remain operator-held after those checks.
 

@@ -10,6 +10,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   use AllbertAssistWeb.ConnCase, async: false, lane: :external_runtime_serial
   use AllbertAssistWeb.WorkspaceLiveCase
 
+  import ExUnit.CaptureLog
   import Phoenix.LiveViewTest
 
   alias AllbertAssist.{Confirmations, Conversations, Objectives, Runtime, Session, Settings}
@@ -189,6 +190,13 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert html =~ "✓ draft — result 1"
     assert has_element?(view, "#attached-fanout-report-#{parent.id}")
 
+    assert has_element?(
+             view,
+             "#attached-fanout-report-#{parent.id}[data-canonical-message-id='#{Conversations.fanout_report_message_id(parent.id)}']"
+           )
+
+    assert render(element(view, "#workspace-objective-count-chip")) =~ "0 active"
+
     assert Fanout.parent_projection(parent).parent.report_delivery_state == "pending"
 
     render_hook(view, "ack_attached_fanout_report", %{"parent_id" => parent.id})
@@ -196,14 +204,28 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert Fanout.parent_projection(parent).parent.report_delivery_state == "delivered"
     refute has_element?(view, "#attached-fanout-report-#{parent.id}")
 
+    assert [canonical_report] = Conversations.list_messages(thread)
+    assert canonical_report.role == "assistant"
+    assert canonical_report.metadata["parent_objective_id"] == parent.id
+
     send(
       view.pid,
       {:objective_event,
        Jido.Signal.new!("allbert.objectives.fanout.joined", %{parent_id: parent.id})}
     )
 
-    duplicate_html = render(view)
+    duplicate_html = render(element(view, "#workspace-chat-timeline"))
     assert length(Regex.scan(~r/Web fan-in — success/, duplicate_html)) == 1
+
+    assert {:ok, _ordinary_answer} =
+             Conversations.append_assistant_message(thread, "The result of 2 + 2 is 4.")
+
+    {:ok, remounted, _html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")
+    remounted_timeline = render(element(remounted, "#workspace-chat-timeline"))
+
+    assert remounted_timeline =~ "The result of 2 + 2 is 4."
+    assert length(Regex.scan(~r/Web fan-in — success/, remounted_timeline)) == 1
+    refute has_element?(remounted, "#attached-fanout-report-#{parent.id}")
   end
 
   test "a different Web thread does not consume a pending fan-in report", %{conn: conn} do
@@ -234,6 +256,77 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     refute render(other_view) =~ "Thread-bound fan-in — success"
     assert Fanout.parent_projection(parent).parent.report_delivery_state == "pending"
+  end
+
+  test "connected remount reconciles a persisted but unacknowledged Web report", %{conn: conn} do
+    assert {:ok, thread} = Conversations.create_general_thread("local", "Remount fan-in")
+
+    assert {:ok, %{parent: parent, children: children}} =
+             Fanout.frame(
+               %{
+                 user_id: "local",
+                 source_channel: "live_view",
+                 source_surface: "channel",
+                 source_thread_id: thread.id,
+                 title: "Remount recovery",
+                 objective: "Recover before browser acknowledgement"
+               },
+               ["one", "two"]
+             )
+
+    complete_fanout_children!(children)
+    assert Fanout.parent_projection(parent).parent.report_delivery_state == "pending"
+
+    {:ok, view, html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")
+
+    assert html =~ "Remount recovery — success"
+    assert has_element?(view, "#attached-fanout-report-#{parent.id}")
+    assert [_canonical_report] = Conversations.list_messages(thread)
+
+    render_hook(view, "ack_attached_fanout_report", %{"parent_id" => parent.id})
+
+    assert Fanout.parent_projection(parent).parent.report_delivery_state == "delivered"
+    refute has_element?(view, "#attached-fanout-report-#{parent.id}")
+  end
+
+  test "canonical persistence failure renders no marker and leaves the report pending", %{
+    conn: conn
+  } do
+    assert {:ok, thread} = Conversations.create_general_thread("local", "Closed origin")
+
+    assert {:ok, %{parent: parent, children: children}} =
+             Fanout.frame(
+               %{
+                 user_id: "local",
+                 source_channel: "live_view",
+                 source_surface: "channel",
+                 source_thread_id: thread.id,
+                 title: "Pending after write failure",
+                 objective: "Do not acknowledge failed persistence"
+               },
+               ["one", "two"]
+             )
+
+    {:ok, view, _html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")
+    assert {:ok, _completed_thread} = Conversations.complete_thread("local", thread.id)
+
+    log =
+      capture_log(fn ->
+        complete_fanout_children!(children)
+
+        Process.put(
+          :canonical_persistence_failure_html,
+          eventually_render(view, "could not be added to this conversation")
+        )
+      end)
+
+    html = Process.delete(:canonical_persistence_failure_html)
+
+    assert log =~ "live fan-in canonical persistence failed reason=:thread_completed"
+    refute html =~ "Pending after write failure — success"
+    refute has_element?(view, "#attached-fanout-report-#{parent.id}")
+    assert Fanout.parent_projection(parent).parent.report_delivery_state == "pending"
+    assert Conversations.list_messages(thread) == []
   end
 
   test "two Web fan-ins queued before browser acknowledgement remain independently deliverable",
@@ -327,6 +420,47 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
              Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
 
     assert {:ok, _setting} =
+             Settings.put("objectives.fanout.confirm_before_start", false, %{audit?: false})
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    thread_id = workspace_thread_id(view)
+
+    view
+    |> element("#agent-form")
+    |> render_submit(%{"prompt" => "first task; second task"})
+
+    html = render_async(view, @runtime_async_timeout)
+    assert html =~ "I split this into 2 tasks"
+    assert render(element(view, "#agent-status")) =~ "Fan-out started"
+    refute render(element(view, "#agent-status")) =~ "completed"
+
+    parent = eventually_fanout_parent(thread_id)
+    assert parent.source_channel == "live_view"
+    assert parent.source_surface == "channel"
+    assert parent.kickoff_delivery_state == "pending"
+    assert Enum.all?(Fanout.children(parent), &(&1.status == "open"))
+    assert has_element?(view, "#runtime-delivery-#{parent.id}")
+
+    # This test owns presentation and receipt identity, not background run
+    # execution. Reinstate the no-start barrier before exercising the ACK so no
+    # Coordinator can outlive the test transaction.
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.confirm_before_start", true, %{audit?: false})
+
+    render_hook(view, "ack_runtime_deliveries", %{"delivery_id" => "forged"})
+    assert Fanout.parent_projection(parent).parent.kickoff_delivery_state == "pending"
+
+    render_hook(view, "ack_runtime_deliveries", %{"delivery_id" => parent.id})
+
+    assert Fanout.parent_projection(parent).parent.kickoff_delivery_state == "acknowledged"
+    refute has_element?(view, "#runtime-delivery-#{parent.id}")
+  end
+
+  test "fan-out start confirmation remains visible instead of a running label", %{conn: conn} do
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    assert {:ok, _setting} =
              Settings.put("objectives.fanout.confirm_before_start", true, %{audit?: false})
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
@@ -338,21 +472,12 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     html = render_async(view, @runtime_async_timeout)
     assert html =~ "I split this into 2 tasks"
+    assert render(element(view, "#agent-status")) =~ "needs_confirmation"
+    refute render(element(view, "#agent-status")) =~ "Fan-out started"
 
     parent = eventually_fanout_parent(thread_id)
-    assert parent.source_channel == "live_view"
-    assert parent.source_surface == "channel"
-    assert parent.kickoff_delivery_state == "pending"
     assert Enum.all?(Fanout.children(parent), &(&1.status == "open"))
-    assert has_element?(view, "#runtime-delivery-#{parent.id}")
-
-    render_hook(view, "ack_runtime_deliveries", %{"delivery_id" => "forged"})
-    assert Fanout.parent_projection(parent).parent.kickoff_delivery_state == "pending"
-
-    render_hook(view, "ack_runtime_deliveries", %{"delivery_id" => parent.id})
-
-    assert Fanout.parent_projection(parent).parent.kickoff_delivery_state == "acknowledged"
-    refute has_element?(view, "#runtime-delivery-#{parent.id}")
+    assert Enum.all?(Fanout.children(parent), &(&1.run_attempt_count == 0))
   end
 
   defp complete_fanout_children!(children) do

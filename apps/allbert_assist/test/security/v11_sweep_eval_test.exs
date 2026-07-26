@@ -3,6 +3,7 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
 
   use AllbertAssist.SecurityEvalCase, async: false, lane: :security_eval_serial
 
+  alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Channels.Notify
   alias AllbertAssist.Channels.NotifyConsentCallback
   alias AllbertAssist.Conversations
@@ -69,6 +70,19 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
     assert Enum.all?(rows, &(&1.test_module == inspect(__MODULE__)))
     assert Enum.all?(rows, &(length(&1.assert) == 3))
     assert rows |> Enum.map(&MapSet.new(&1.assert)) |> Enum.uniq() |> length() == 11
+  end
+
+  test "attached Web report persistence reuses internal conversation-write authority" do
+    assert {:ok, capability} = ActionsRegistry.capability("persist_attached_fanout_report")
+    assert capability.permission == :conversation_write
+    assert capability.exposure == :internal
+    assert capability.execution_mode == :conversation_control
+    assert capability.retry_safety == :safe
+
+    refute "persist_attached_fanout_report" in Enum.map(
+             ActionsRegistry.agent_capabilities(),
+             & &1.name
+           )
   end
 
   test "fanout-decomposition-advisory-001" do

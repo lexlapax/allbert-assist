@@ -21,6 +21,7 @@ defmodule AllbertAssist.Conversations do
   @default_context_limit 12
   @default_admission_attempts 3
   @default_admission_retry_delay_ms 25
+  @fanout_report_message_prefix "msg_fanout_report_"
 
   @type thread_result :: {:ok, Thread.t()} | {:error, term()}
 
@@ -184,6 +185,28 @@ defmodule AllbertAssist.Conversations do
     end
   end
 
+  @doc "Return the stable canonical message id for one fan-out join report."
+  @spec fanout_report_message_id(String.t()) :: String.t()
+  def fanout_report_message_id(parent_id) when is_binary(parent_id) and parent_id != "",
+    do: @fanout_report_message_prefix <> parent_id
+
+  @doc "True when the owned thread already contains the canonical fan-out report message."
+  @spec fanout_report_message?(String.t(), String.t(), String.t()) :: boolean()
+  def fanout_report_message?(user_id, thread_id, parent_id)
+      when is_binary(user_id) and is_binary(thread_id) and is_binary(parent_id) and
+             parent_id != "" do
+    message_id = fanout_report_message_id(parent_id)
+
+    Repo.exists?(
+      from message in Message,
+        where:
+          message.id == ^message_id and message.user_id == ^user_id and
+            message.thread_id == ^thread_id and message.role == "assistant"
+    )
+  end
+
+  def fanout_report_message?(_user_id, _thread_id, _parent_id), do: false
+
   @doc "Fetch one user/thread-scoped message by its originating input signal id."
   @spec get_message_by_input_signal(String.t(), String.t(), String.t()) ::
           {:ok, Message.t()} | {:error, term()}
@@ -284,6 +307,41 @@ defmodule AllbertAssist.Conversations do
   def append_assistant_message(%Thread{} = thread, content, attrs \\ %{}) do
     append_message(thread, Map.merge(to_attrs(attrs), %{role: "assistant", content: content}))
   end
+
+  @doc """
+  Ensure one assistant-authored message with a caller-owned stable id.
+
+  Repeating the same write returns the existing message without moving the
+  thread's last-message timestamp. Reusing the id for different content,
+  metadata, role, user, or thread fails closed.
+  """
+  @spec ensure_assistant_message(Thread.t(), String.t(), String.t(), map() | keyword()) ::
+          {:ok, Message.t()} | {:error, term()}
+  def ensure_assistant_message(thread, id, content, attrs \\ %{})
+
+  def ensure_assistant_message(%Thread{completed_at: completed_at}, _id, _content, _attrs)
+      when not is_nil(completed_at),
+      do: {:error, :thread_completed}
+
+  def ensure_assistant_message(%Thread{} = thread, id, content, attrs)
+      when is_binary(id) and is_binary(content) do
+    now = utc_now()
+
+    message_attrs =
+      thread
+      |> message_attrs(Map.merge(to_attrs(attrs), %{id: id, role: "assistant", content: content}))
+
+    case Repo.transaction(
+           fn -> ensure_message_and_touch_thread(thread, message_attrs, now) end,
+           mode: :immediate
+         ) do
+      {:ok, message} -> {:ok, message}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def ensure_assistant_message(_thread, _id, _content, _attrs),
+    do: {:error, :invalid_message_attrs}
 
   @doc "Append one message and update the parent thread's last-message timestamp."
   @spec append_message(Thread.t(), map()) :: {:ok, Message.t()} | {:error, term()}
@@ -388,6 +446,32 @@ defmodule AllbertAssist.Conversations do
     else
       {:error, reason} -> Repo.rollback(reason)
     end
+  end
+
+  defp ensure_message_and_touch_thread(thread, attrs, timestamp) do
+    case Repo.get(Message, attrs.id) do
+      nil ->
+        insert_message_and_touch_thread(thread, attrs, timestamp)
+
+      %Message{} = existing ->
+        if idempotent_message_match?(existing, attrs) do
+          existing
+        else
+          Repo.rollback({:message_idempotency_conflict, attrs.id})
+        end
+    end
+  end
+
+  defp idempotent_message_match?(message, attrs) do
+    message.thread_id == attrs.thread_id and
+      message.user_id == attrs.user_id and
+      message.role == attrs.role and
+      message.content == attrs.content and
+      message.action_log == attrs.action_log and
+      message.metadata == attrs.metadata and
+      message.trace_id == Map.get(attrs, :trace_id) and
+      message.input_signal_id == Map.get(attrs, :input_signal_id) and
+      message.response_signal_id == Map.get(attrs, :response_signal_id)
   end
 
   defp admit_channel_thread_ref(thread, message, attrs) do

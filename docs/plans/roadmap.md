@@ -155,10 +155,12 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    concurrency, steering, join, acknowledgement, and post-report usability,
    but found that the joined report is ephemeral in chat history after the next
    turn/remount, alongside misleading kickoff/active-count labels and weak
-   child-result affordances. Approved M12.21 makes the Web report one canonical
-   idempotent conversation message, preserves exact browser-render
-   acknowledgement, and corrects those bounded presentation projections before
-   repeating the Web walkthrough and final clean-SHA gates:**
+   child-result affordances. M12.21 now makes the Web report one canonical
+   idempotent conversation message across joined-signal, next-turn, and remount
+   paths, preserves exact browser-render acknowledgement, and corrects those
+   bounded presentation projections. Its 63 / 0 core/security, 19 / 0 delivery,
+   34 / 0 Web, static, Hex, Dialyzer, lane, and 3,521-row manifest rejoin is
+   green; bounded WV-01 and replacement final clean-SHA gates remain:**
    `docs/plans/v1.1-plan.md` + request-flow + ADR 0083/0084/0085.) On a prompt
    that decomposes into multiple tasks, Allbert delivers a kickoff receipt,
    then fans out background agents/actions, streams their status, joins on

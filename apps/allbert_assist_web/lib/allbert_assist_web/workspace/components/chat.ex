@@ -92,7 +92,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
           title="Open objectives"
         >
           <.icon name="hero-flag-micro" class="size-4" />
-          {count_label(@active_objectives, "objective")}
+          {active_count_label(@active_objectives)}
         </.link>
         <span
           :for={badge <- @workspace_badges}
@@ -878,15 +878,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
   defp maybe_put_destination(query, destination),
     do: Keyword.put(query, :destination, destination)
 
-  defp count_label(items, label) when is_list(items) do
-    count = length(items)
-    "#{count} #{pluralize(label, count)}"
-  end
-
-  defp count_label(_items, label), do: "0 #{pluralize(label, 0)}"
-
-  defp pluralize(label, 1), do: label
-  defp pluralize(label, _count), do: "#{label}s"
+  defp active_count_label(items) when is_list(items), do: "#{length(items)} active"
+  defp active_count_label(_items), do: "0 active"
 
   defp badge_id(%{id: id}) when is_binary(id), do: id
   defp badge_id(_badge), do: "notice"

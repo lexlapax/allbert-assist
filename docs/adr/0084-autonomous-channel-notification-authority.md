@@ -11,10 +11,14 @@ disabled/completion-only status work is bounded, attended output ACKs are exact,
 and send-time origin/authority is re-proved. M12.18 additionally isolates
 report acknowledgement from the TUI Adapter and applies the shared transient
 database classifier plus bounded idempotent retry without consuming pending
-report truth. FV-01 passed this delivery contract; the expanded `release.v11`,
-frozen `release.v1`, pre-push, and authoritative release gates remain pending at
-the final clean pushed SHA. This is a security ADR defining a NEW authority
-class.
+report truth. M12.21 preserves the attached-Web distinction: canonical message
+persistence is not acknowledgement, and only the exact browser-mounted marker
+for that message may consume the receipt; signal, next-turn, and remount paths
+converge idempotently while failures remain pending. Its focused/static rejoin
+is green and bounded WV-01 remains open. FV-01 passed this delivery contract;
+the expanded `release.v11`, frozen `release.v1`, pre-push, and authoritative
+release gates remain pending at the final clean pushed SHA. This is a security
+ADR defining a NEW authority class.
 
 ## Context
 

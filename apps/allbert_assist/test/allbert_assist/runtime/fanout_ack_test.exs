@@ -2,6 +2,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
   use AllbertAssist.DataCase, async: false
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Conversations
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
@@ -382,6 +383,142 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert next_turn.message =~ "⊘ cancelled task — cancelled by operator"
     assert next_turn.message =~ "✗ failed task — provider unavailable"
     refute next_turn.message =~ "stale progress"
+  end
+
+  test "next Web turn acknowledges an already canonical report without repeating its text" do
+    assert {:ok, first_turn} =
+             Runtime.submit_user_input(%{text: "hello", channel: :live_view, user_id: "alice"})
+
+    assert {:ok, %{parent: parent, children: children}} =
+             Fanout.frame(
+               %{
+                 user_id: "alice",
+                 title: "Canonical before next turn",
+                 objective: "Render exactly once",
+                 source_channel: "live_view",
+                 source_surface: "channel",
+                 source_thread_id: first_turn.thread_id
+               },
+               ["one", "two"]
+             )
+
+    for child <- children do
+      assert {:ok, _transition} =
+               TerminalTransitions.terminalize_child(
+                 child,
+                 %{
+                   status: "completed",
+                   last_observation_summary: "done #{child.queue_position}",
+                   completed_at: DateTime.utc_now()
+                 },
+                 "run_completed",
+                 %{}
+               )
+    end
+
+    assert {:ok, canonical} =
+             Runner.run(
+               "persist_attached_fanout_report",
+               %{thread_id: first_turn.thread_id, parent_id: parent.id},
+               %{user_id: "alice"}
+             )
+
+    assert canonical.acknowledgement_required?
+
+    assert {:ok, next_turn} =
+             Runtime.submit_user_input(%{
+               text: "what next?",
+               channel: :live_view,
+               user_id: "alice",
+               thread_id: first_turn.thread_id
+             })
+
+    assert [%{parent_objective_id: parent_id}] = next_turn.pending_reports
+    assert parent_id == parent.id
+    assert next_turn.message == "single: what next?"
+    refute next_turn.message =~ "Canonical before next turn"
+
+    assert {:ok, thread} = Conversations.get_thread("alice", first_turn.thread_id)
+
+    report_messages =
+      thread
+      |> Conversations.list_messages(limit: 20)
+      |> Enum.filter(&(&1.metadata["parent_objective_id"] == parent.id))
+
+    assert [_one_report] = report_messages
+
+    assert :ok =
+             Runtime.acknowledge_deliveries(next_turn, %{
+               user_id: "alice",
+               channel: "live_view",
+               thread_id: first_turn.thread_id
+             })
+
+    assert Fanout.parent_projection(parent).parent.report_delivery_state == "delivered"
+  end
+
+  test "next Web turn canonicalizes a missed joined report before rendering it" do
+    assert {:ok, first_turn} =
+             Runtime.submit_user_input(%{text: "hello", channel: :live_view, user_id: "alice"})
+
+    assert {:ok, %{parent: parent, children: children}} =
+             Fanout.frame(
+               %{
+                 user_id: "alice",
+                 title: "Missed joined signal",
+                 objective: "Converge through the next Web turn",
+                 source_channel: "live_view",
+                 source_surface: "channel",
+                 source_thread_id: first_turn.thread_id
+               },
+               ["one", "two"]
+             )
+
+    for child <- children do
+      assert {:ok, _transition} =
+               TerminalTransitions.terminalize_child(
+                 child,
+                 %{
+                   status: "completed",
+                   last_observation_summary: "done #{child.queue_position}",
+                   completed_at: DateTime.utc_now()
+                 },
+                 "run_completed",
+                 %{}
+               )
+    end
+
+    assert {:ok, next_turn} =
+             Runtime.submit_user_input(%{
+               text: "what next?",
+               channel: :live_view,
+               user_id: "alice",
+               thread_id: first_turn.thread_id
+             })
+
+    assert [%{parent_objective_id: parent_id}] = next_turn.pending_reports
+    assert parent_id == parent.id
+    assert next_turn.message == "single: what next?"
+    refute next_turn.message =~ "Missed joined signal"
+
+    assert {:ok, thread} = Conversations.get_thread("alice", first_turn.thread_id)
+
+    report_messages =
+      thread
+      |> Conversations.list_messages(limit: 20)
+      |> Enum.filter(&(&1.metadata["parent_objective_id"] == parent.id))
+
+    assert [_one_report] = report_messages
+    assert Fanout.parent_projection(parent).parent.report_delivery_state == "pending"
+
+    assert :ok =
+             Runtime.acknowledge_deliveries(next_turn, %{
+               user_id: "alice",
+               channel: "live_view",
+               thread_id: first_turn.thread_id
+             })
+
+    assert Fanout.parent_projection(parent).parent.report_delivery_state == "delivered"
   end
 
   test "same user and thread on another channel cannot read or consume a pending report" do

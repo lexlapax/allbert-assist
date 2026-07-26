@@ -43,6 +43,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Confirmations.ShowConfirmation
   alias AllbertAssist.Actions.Conversations.CompleteThread
   alias AllbertAssist.Actions.Conversations.PersistApprovalMediaResponse
+  alias AllbertAssist.Actions.Conversations.PersistAttachedFanoutReport
   alias AllbertAssist.Actions.Conversations.RenameThread
   alias AllbertAssist.Actions.Conversations.ResumeThreadOnChannel
   alias AllbertAssist.Actions.Database.RestoreBackup, as: RestoreDatabaseBackup
@@ -439,6 +440,9 @@ defmodule AllbertAssist.Actions.Registry do
     # v0.61b M4: operator-surface thread rename; internal like the job controls —
     # the UI calls it via Runner; the intent router does not route to it.
     RenameThread,
+    # v1.1 M12.21: canonical attached-Web fan-in report persistence. Internal,
+    # idempotent, and receipt acknowledgement remains browser-owned.
+    PersistAttachedFanoutReport,
     # v0.62 M0.1: the approval-media assistant-message write, off the LiveView
     # direct-write path and onto the spine (internal, Runner-only).
     PersistApprovalMediaResponse,

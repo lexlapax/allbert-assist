@@ -273,6 +273,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "run_job",
              "create_job",
              "rename_thread",
+             "persist_attached_fanout_report",
              "persist_approval_media_response",
              "first_model_detect",
              "install_ollama",
@@ -370,6 +371,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
     refute "surface_policy_update" in agent_action_names
     refute "capture_workspace_voice" in agent_action_names
     refute "transcribe_voice" in agent_action_names
+    refute "persist_attached_fanout_report" in agent_action_names
     refute "record_trace" in agent_action_names
   end
 
@@ -516,6 +518,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "run_job",
              "create_job",
              "rename_thread",
+             "persist_attached_fanout_report",
              "persist_approval_media_response",
              "first_model_detect",
              "install_ollama",
@@ -607,6 +610,14 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert resume_thread_on_channel.permission == :conversation_write
     assert resume_thread_on_channel.exposure == :agent
     assert resume_thread_on_channel.execution_mode == :conversation_resume
+
+    assert {:ok, persist_attached_fanout_report} =
+             Registry.capability("persist_attached_fanout_report")
+
+    assert persist_attached_fanout_report.permission == :conversation_write
+    assert persist_attached_fanout_report.exposure == :internal
+    assert persist_attached_fanout_report.execution_mode == :conversation_control
+    assert persist_attached_fanout_report.retry_safety == :safe
 
     assert {:ok, mcp_doctor_server} = Registry.capability("mcp_doctor_server")
     assert mcp_doctor_server.permission == :read_only

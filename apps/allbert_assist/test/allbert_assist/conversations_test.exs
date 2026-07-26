@@ -131,6 +131,35 @@ defmodule AllbertAssist.ConversationsTest do
       assert DateTime.compare(reloaded.last_message_at, thread.last_message_at) in [:gt, :eq]
     end
 
+    test "stable assistant ids are idempotent and fail closed on conflicting reuse", %{
+      thread: thread
+    } do
+      attrs = %{metadata: %{kind: "fanout_join_report", parent_objective_id: "fanout_1"}}
+
+      assert {:ok, first} =
+               Conversations.ensure_assistant_message(thread, "msg_stable_1", "Joined.", attrs)
+
+      original_last_message_at = Repo.reload!(thread).last_message_at
+
+      assert {:ok, repeated} =
+               Conversations.ensure_assistant_message(thread, "msg_stable_1", "Joined.", attrs)
+
+      assert repeated.id == first.id
+      assert Repo.reload!(thread).last_message_at == original_last_message_at
+      assert [_message] = Conversations.list_messages(thread)
+
+      assert {:error, {:message_idempotency_conflict, "msg_stable_1"}} =
+               Conversations.ensure_assistant_message(
+                 thread,
+                 "msg_stable_1",
+                 "Different content.",
+                 attrs
+               )
+
+      assert [message] = Conversations.list_messages(thread)
+      assert message.content == "Joined."
+    end
+
     test "rejects invalid message roles", %{thread: thread} do
       assert {:error, changeset} =
                Conversations.append_message(thread, %{role: "system", content: "hidden"})

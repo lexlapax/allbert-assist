@@ -313,7 +313,8 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
                completed,
                %{
                  status: "completed",
-                 last_observation_summary: "Primary sources reviewed",
+                 last_observation_summary:
+                   "**Primary sources** reviewed " <> String.duplicate("detail ", 60) <> "TAIL",
                  completed_at: DateTime.utc_now()
                },
                "run_completed",
@@ -337,7 +338,26 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
 
     assert html =~ "Primary sources reviewed"
     assert html =~ "Provider became unavailable"
+    assert html =~ "Result preview"
+    assert html =~ "…"
+    refute html =~ "**Primary sources**"
+    refute html =~ "TAIL"
     refute html =~ "stale draft progress"
+    assert has_element?(view, "#fanout-child-#{completed.id} [data-preview-kind='result']")
+    assert has_element?(view, "#fanout-child-#{failed.id} [data-preview-kind='result']")
+
+    assert has_element?(
+             view,
+             "#fanout-child-#{completed.id} a[href='/objectives/#{completed.id}']",
+             "Open task"
+           )
+
+    assert has_element?(
+             view,
+             "#fanout-child-#{failed.id} a[href='/objectives/#{failed.id}']",
+             "Open task"
+           )
+
     refute has_element?(view, "#fanout-child-#{completed.id} form")
     refute has_element?(view, "#fanout-child-#{failed.id} form")
     refute has_element?(view, "#objective-cancel-button")

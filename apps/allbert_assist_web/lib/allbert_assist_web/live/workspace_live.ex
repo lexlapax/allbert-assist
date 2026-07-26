@@ -164,6 +164,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         )
       )
       |> maybe_sync_thread_url(sync_thread_url?, thread_id, canvas_destination)
+      |> reconcile_attached_fanout_reports()
 
     {:ok, socket}
   end
@@ -852,7 +853,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       |> assign(
         asking?: false,
         response: response_text(response),
-        status: response.status,
+        status: workspace_response_status(response),
         signal_id: response.signal_id,
         trace_id: Map.get(response, :trace_id),
         approval_handoff: Map.get(response, :approval_handoff),
@@ -1000,6 +1001,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
             :for={pending_report <- @attached_fanout_reports}
             id={"attached-fanout-report-#{pending_report.parent_id}"}
             data-parent-id={pending_report.parent_id}
+            data-canonical-message-id={pending_report.canonical_message_id}
             phx-mounted={
               JS.push("ack_attached_fanout_report",
                 value: %{parent_id: pending_report.parent_id}
@@ -1355,37 +1357,91 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   defp maybe_deliver_attached_fanout(socket, %Signal{data: data} = signal) do
     parent_id = Map.get(data, :parent_id) || Map.get(data, "parent_id")
 
-    with true <- connected?(socket),
-         true <- is_binary(parent_id),
-         {:ok, parent} <- Objectives.get_objective(socket.assigns.user_id, parent_id),
-         true <- parent.fanout_role == "parent",
-         %{phase: :joined, parent: ^parent} = projection <- Fanout.parent_projection(parent),
-         true <- parent.report_delivery_state == "pending",
-         true <- parent.source_thread_id == socket.assigns.thread_id,
-         true <- attached_web_origin?(parent) do
-      report = Fanout.report(projection)
+    if connected?(socket) and is_binary(parent_id) do
+      persist_attached_fanout_report(socket, parent_id, signal.id)
+    else
+      socket
+    end
+  end
 
-      reports =
-        put_attached_fanout_report(socket.assigns.attached_fanout_reports, %{
-          parent_id: parent.id,
-          body: Fanout.format_report(report),
-          receipt: Fanout.receipt_for(:report, parent.id),
-          delivery_context: fanout_delivery_context(parent)
-        })
+  defp reconcile_attached_fanout_reports(socket) do
+    if connected?(socket) do
+      socket.assigns.user_id
+      |> Fanout.pending_reports(socket.assigns.thread_id, %{channel: "live_view"})
+      |> Enum.reduce(socket, fn pending, current ->
+        persist_attached_fanout_report(current, pending.parent_objective_id, nil)
+      end)
+    else
+      socket
+    end
+  rescue
+    exception in [DBConnection.ConnectionError] ->
+      Logger.warning(
+        "live fan-in reconciliation deferred: database temporarily unavailable " <>
+          "thread_id=#{inspect(socket.assigns[:thread_id])} " <>
+          "reason=#{inspect(Redactor.redact(exception.reason))}"
+      )
 
-      delivered =
-        assign(socket,
-          response: Enum.map_join(reports, "\n\n", & &1.body),
-          status: report.status,
-          signal_id: signal.id,
+      socket
+  end
+
+  defp persist_attached_fanout_report(socket, parent_id, signal_id) do
+    case run_workspace_action(socket, "persist_attached_fanout_report", %{
+           thread_id: socket.assigns.thread_id,
+           parent_id: parent_id
+         }) do
+      {:ok, %{status: :completed} = persisted} ->
+        reports =
+          if persisted.acknowledgement_required? do
+            put_attached_fanout_report(socket.assigns.attached_fanout_reports, %{
+              parent_id: persisted.parent_id,
+              canonical_message_id: persisted.canonical_message_id,
+              receipt: persisted.report_delivery_receipt,
+              delivery_context: persisted.delivery_context
+            })
+          else
+            Enum.reject(
+              socket.assigns.attached_fanout_reports,
+              &(&1.parent_id == persisted.parent_id)
+            )
+          end
+
+        socket
+        |> assign(
+          status: :completed,
+          signal_id: signal_id || socket.assigns.signal_id,
           trace_id: nil,
           error: nil,
           attached_fanout_reports: reports
         )
+        |> refresh_workspace()
 
-      delivered
-    else
-      _not_deliverable -> socket
+      {:ok, %{status: :error, error: reason}}
+      when reason in [
+             :not_found,
+             :not_fanout_parent,
+             :origin_thread_mismatch,
+             :not_attached_web_origin
+           ] ->
+        socket
+
+      {:ok, %{status: :error, error: {:report_not_ready, _state}}} ->
+        socket
+
+      {:ok, %{status: :error, error: {:fanout_not_joined, _phase}}} ->
+        socket
+
+      {:ok, response} ->
+        Logger.warning(
+          "live fan-in canonical persistence failed " <>
+            "reason=#{inspect(Redactor.redact(Map.get(response, :error, response)))}"
+        )
+
+        assign(
+          socket,
+          :error,
+          "The fan-in report is ready, but could not be added to this conversation; it remains pending for retry."
+        )
     end
   end
 
@@ -1433,19 +1489,6 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     do: report
 
   defp replace_attached_fanout_report(existing, _report), do: existing
-
-  defp fanout_delivery_context(parent) do
-    %{
-      user_id: parent.user_id,
-      channel: parent.source_channel,
-      thread_id: parent.source_thread_id,
-      origin_thread_ref_id: parent.origin_thread_ref_id,
-      origin_thread_ref_digest: parent.origin_thread_ref_digest,
-      origin_receiver_account_ref: parent.origin_receiver_account_ref
-    }
-    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
-    |> Map.new()
-  end
 
   defp resolve_workspace_thread(params, user_id) do
     requested_thread_id = param(params, "thread_id")
@@ -3176,6 +3219,12 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   defp response_text(response) do
     SurfaceRenderer.response_text(response, %{payload: :surface_payload})
   end
+
+  defp workspace_response_status(%{status: :completed, fanout_start_receipt: receipt})
+       when is_binary(receipt),
+       do: "Fan-out started"
+
+  defp workspace_response_status(response), do: response.status
 
   defp workspace_path(thread_id, canvas_destination) do
     query =
