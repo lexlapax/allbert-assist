@@ -87,6 +87,19 @@ profile (when none is set) and `intent.direct_answer_model_enabled = true`
 The write records detection provenance in the audit trail
 (`enabled_by: detection`, profile, provider class local|hosted).
 
+“Absent” means absent from the raw operator settings map, not the effective
+default-merged value. The check and conditional write execute under one
+Settings StoreLock-owned transaction; a separate read followed by a write is
+forbidden. Concurrent explicit `false` wins and remains sticky.
+
+First-run selection cannot wait for the later chooser. A minimal deterministic
+usable-local-model predicate ships with enablement and is reused by the catalog:
+doctor-healthy configured local first, then the curated pulled tag, then a
+compatible pulled text-generation model if M0 can define that compatibility
+without guessing. Otherwise detection remains curated-tag-only. Hosted key
+presence is configured-but-unverified, not “reachable”; provider priority is
+explicit primary, task candidate order, then one stable documented order.
+
 **Local always outranks hosted.** When both are detected, the local profile
 is selected. ADR 0078's local-first posture and its rejection of a managed
 hosted default are unchanged.
@@ -114,8 +127,8 @@ hosted default are unchanged.
 
 ### 3. Disclosure, not confirmation
 
-The first auto-enabled session on each surface carries a one-time disclosure
-(durable marker, never repeats, not a modal, not a blocking step):
+The first auto-enabled session on each surface carries a durable disclosure
+(normally once, not a modal):
 
 - **which** profile/provider was selected and **why** ("detected running
   Ollama with llama3.2:3b" / "detected your configured OpenAI key");
@@ -125,9 +138,13 @@ The first auto-enabled session on each surface carries a one-time disclosure
 - **how to change or revert** — the ADR 0088 chooser, and the one-command
   revert (`allbert settings set intent.direct_answer_model_enabled false`).
 
-Web (chat surface), TUI (banner), and CLI (`allbert` first-run output) all
-render it. Disclosure text is generated from the audit provenance, so what is
-shown is what was done.
+Web (chat surface), TUI (banner), and CLI (`allbert` first-run output, including
+one-shot `allbert ask`) all render it. Disclosure text is generated from the
+audit provenance, so what is shown is what was done. For hosted inference the
+marker is `pending` until the surface acknowledges rendering; transport
+admission requires `acknowledged`. A crash before acknowledgement may repeat
+the disclosure but cannot send the prompt first. Local inference is not gated
+by this egress acknowledgement.
 
 ### 4. The redefined detect-state matrix
 

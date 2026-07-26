@@ -75,6 +75,20 @@ onboarding all render the same rows under surface policy. The catalog never
 performs hosted egress to build itself: hosted entries are static metadata;
 live probing stays local/configured-endpoint-only per ADR 0087.
 
+The v1.2 M0/M4 cross-platform bakeoff treats `llama3.2:3b` as the control and
+tests Qwen 3 4B instruct/non-thinking, `qwen3.5:4b` as the direct successor,
+and `qwen3.5:9b` as a higher-floor quality challenger. First-run trials force
+non-thinking behavior; thinking variants may be cataloged but are not
+zero-click defaults. A default or tier changes only when the precommitted
+Allbert quality/tool-conformance and latency rule passes. The current 8 GB
+floor may rise when the measured gain justifies reduced reach and the operator
+accepts that tradeoff. A higher-floor winner must either remain a prosumer
+recommendation beside a lower-floor consumer default or ship with a proven
+`below_floor` BYOK/repair path; no machine is silently treated as ready. Exact
+Ollama tag/digest, license, download, TTFT, throughput, peak RSS, malformed
+tool/JSON rate, multilingual behavior, and supported macOS/Linux/WSL2 rows are
+recorded across 8/16/32 GB cohorts.
+
 ### 2. The chooser writes through the spine, never around it
 
 The chooser UX (web ModelsPanel upgrade, TUI/CLI equivalents, and the
@@ -107,7 +121,10 @@ mid-session automatic failover when the resolved provider fails:
 - **Chain** — the per-task candidate list IS the chain (primary → secondary
   → local), operator-editable through the existing
   `model_preferences.tasks.*` list shape; no parallel chain schema.
-- **Failure classification per provider** — definitive failures
+- **Failure classification per provider** — provider adapters normalize
+  concrete ReqLLM/provider/streaming outcomes into typed definitive,
+  ambiguous, or partial results; the executor never parses exception strings.
+  Unknown outcomes are partial and never retried. Definitive failures
   (connection refused, auth rejected, model-not-found) advance the chain;
   ambiguous/timeout failures advance at most once; a provider that may have
   partially answered is never silently retried elsewhere (the v1.1
