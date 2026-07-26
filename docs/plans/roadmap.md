@@ -162,8 +162,11 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    34 / 0 Web, static, Hex, Dialyzer, lane, and 3,521-row manifest rejoin is
    green. Real-provider WV-01 passed at pushed candidate `9ca0e3fd` with one
    exact steer, one canonical remount-stable report, three completed linked
-   children, and a delivered successful parent; replacement final clean-SHA
-   gates remain:**
+   children, and a delivered successful parent. Final clean pushed
+   implementation candidate `f81a49de` passed expanded `release.v11`, pre-push,
+   and the uninterrupted 12-phase authoritative release cascade in 3,997
+   seconds; M12.21 implementation and validation are complete, while tagging
+   and binary release administration remain operator-held:**
    `docs/plans/v1.1-plan.md` + request-flow + ADR 0083/0084/0085.) On a prompt
    that decomposes into multiple tasks, Allbert delivers a kickoff receipt,
    then fans out background agents/actions, streams their status, joins on

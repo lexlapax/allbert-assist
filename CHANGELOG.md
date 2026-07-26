@@ -28,9 +28,12 @@ message, labels active fan-out truthfully, and adds bounded linked child-result
 previews. Its focused/static rejoin is green. WV-01 also passed at pushed
 candidate `9ca0e3fd` with real Ollama, one exact
 steer, one remount-stable canonical report, three completed linked children,
-and a delivered successful parent. The expanded final `release.v11`, pre-push,
-and authoritative release gates remain mandatory at one clean pushed SHA
-before closeout. Binary
+and a delivered successful parent. Final implementation candidate `f81a49de`
+then passed the expanded `release.v11`
+(`release-v11-1785097379.json`), pre-push
+(`prepush-2026-07-26T20_32_10Z.json`), and uninterrupted 12-phase authoritative
+release cascade in 3,997 seconds
+(`release-2026-07-26T20_48_52Z.json`). Binary
 publication/cosign, tap fill, packaged-platform rehearsal, and stable-release
 administration remain operator-held after those checks.
 
