@@ -126,18 +126,22 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    `386a6650` then proved the M12.18 survival/redelivery contract but exposed
    production-shaped multi-connection SQLite contention: the steering message
    partially committed, its provider reference and directive did not, the
-   channel event stayed `received`, and a raw stack reached the TUI. M12.19 is
-   planned as the systemic correction: one production/dev SQLite connection,
+   channel event stayed `received`, and a raw stack reached the TUI. M12.19
+   implements the systemic correction: one production/dev SQLite connection,
    immediate effect-free transactions, atomic idempotent inbound admission,
    bounded operator errors, measured prompt/line responsiveness during active
-   fan-out output, and a non-Sandbox concurrency proof. FV-01 is
-   blocked until that focused/static/derived-v1.1 rejoin. The expanded
+   fan-out output, and a non-Sandbox concurrency proof. Its focused/static
+   rejoin is clean, the 3,500-row manifest reconciles 552 files, and pushed
+   implementation candidate `2892940e` passed all 14 `release.v11` steps
+   (`release-v11-1785038793.json`). FV-01 is reopened against a fresh
+   disposable Home. The expanded
    `release.v11` definition covers the
    invariant/fault, exact-receipt, attended-surface, autonomous-channel,
-   public-protocol, and operator-control paths. Its frozen-v1, derived-v1.1,
-   pre-push, and authoritative release executions at the final committed SHA.
-   M12.18's derived-v1.1 rejoin and flagship operator validation come first;
-   the longer release cascade follows them by explicit operator sequencing:**
+   public-protocol, and operator-control paths. The final frozen-v1, pre-push,
+   and authoritative release executions remain due at the final committed SHA.
+   M12.19's derived-v1.1 rejoin is complete and flagship operator validation
+   comes next; the longer release cascade follows it by explicit operator
+   sequencing:**
    `docs/plans/v1.1-plan.md` + request-flow + ADR 0083/0084/0085.) On a prompt
    that decomposes into multiple tasks, Allbert delivers a kickoff receipt,
    then fans out background agents/actions, streams their status, joins on
