@@ -133,15 +133,18 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    fan-out output, and a non-Sandbox concurrency proof. Its focused/static
    rejoin is clean, the 3,500-row manifest reconciles 552 files, and pushed
    implementation candidate `2892940e` passed all 14 `release.v11` steps
-   (`release-v11-1785038793.json`). FV-01 is reopened against a fresh
-   disposable Home. The expanded
+   (`release-v11-1785038793.json`). FV-01 against documentation descendant
+   `b74a3405` then passed in one fresh disposable Home: three children
+   completed, the first child was steered exactly once, the parent joined once
+   with `success`, its result report was durably `delivered`, and the same TUI
+   remained responsive for the final independent turn. The expanded
    `release.v11` definition covers the
    invariant/fault, exact-receipt, attended-surface, autonomous-channel,
    public-protocol, and operator-control paths. The final frozen-v1, pre-push,
    and authoritative release executions remain due at the final committed SHA.
-   M12.19's derived-v1.1 rejoin is complete and flagship operator validation
-   comes next; the longer release cascade follows it by explicit operator
-   sequencing:**
+   M12.19's derived-v1.1 rejoin and flagship operator validation are complete;
+   the frozen-v1, pre-push, and longer authoritative release cascade follows
+   by explicit operator sequencing:**
    `docs/plans/v1.1-plan.md` + request-flow + ADR 0083/0084/0085.) On a prompt
    that decomposes into multiple tasks, Allbert delivers a kickoff receipt,
    then fans out background agents/actions, streams their status, joins on
