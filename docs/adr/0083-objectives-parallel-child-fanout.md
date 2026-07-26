@@ -375,8 +375,9 @@ authority class.
   raised and exited database failures, while unknown errors remain
   crash-visible. TUI acknowledgement workers and in-session suppression claims
   are each capped at 32. The focused cross-surface rejoin passes 176 / 0 and
-  the 3,492-row manifest reconciles 551 files; clean-SHA `release.v11` remains
-  the pre-FV barrier.
+  the 3,492-row manifest reconciles 551 files. Clean pushed implementation
+  candidate `516fc7b9` passed all 14 `release.v11` steps; evidence is
+  `release-v11-1785033817.json`, satisfying the pre-FV barrier.
 - Release: `release.v1` stays green (Tier-1/Tier-2 untouched; runtime
   response gains only additive fields per ADR 0029) and `release.v11` binds
   all eleven fan-out authority rows plus the M12.15 focused suites. Candidate

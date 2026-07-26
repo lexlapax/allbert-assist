@@ -120,8 +120,10 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    Runtime callers, plus bounded deduplicated TUI acknowledgement linked only
    to the application TaskSupervisor after stdout. Its exact overlap and
    cross-surface suites pass 176 / 0; static/docs/Hex/Dialyzer are clean; and
-   the 3,492-row manifest reconciles 551 files without a finding. FV-01 remains
-   blocked only until clean pushed-SHA `release.v11` passes. The expanded
+   the 3,492-row manifest reconciles 551 files without a finding. Clean pushed
+   implementation candidate `516fc7b9` passed all 14 `release.v11` steps
+   (`release-v11-1785033817.json`), so FV-01 is ready against its documentation-
+   only closeout descendant. The expanded
    `release.v11` definition covers the
    invariant/fault, exact-receipt, attended-surface, autonomous-channel,
    public-protocol, and operator-control paths. Its frozen-v1, derived-v1.1,
