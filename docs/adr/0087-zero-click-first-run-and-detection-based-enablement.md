@@ -3,10 +3,11 @@
 ## Status
 
 Proposed (v1.2 planning, 2026-07-24; amended by the third implementation-
-readiness pass 2026-07-26 — §1 gains the repairability split and the per-key
+readiness pass 2026-07-26, finalized by operator direction — §1 gains the
+availability-first/local-preferred projection and the per-key
 multi-key write rule, §4 gains the `runtime_unhealthy` and
 `enabled_unavailable` rows and the hosted-key qualifiers, §5 gains the
-wizard-completion decoupling). Binding on v1.2 M1–M3 (ADR 0088 carries
+wizard-completion decoupling). Binding on v1.2 M1a–M3 (ADR 0088 carries
 M4–M5); flips Accepted at
 the v1.2 milestone that proves the detection→enablement→disclosure chain on
 web, TUI, and CLI together (`docs/plans/v1.2-plan.md`). This is a **consent
@@ -76,8 +77,8 @@ separate wizard-owned enable step is retired as a gate.
 ### 1. The detection→enablement rule
 
 On first run and on every boot while unconfigured, Allbert runs the existing
-bounded read-only detection chain and resolves the **first** hit in strict
-local-first order:
+bounded read-only detection chain and resolves the **first usable** hit in
+strict local-first order:
 
 1. configured local provider (`model_preferences.primary` →
    `ModelDoctor.diagnose/2`, `endpoint_kind: :local_endpoint` — the v1.0.5
@@ -109,33 +110,26 @@ explicit primary, task candidate order, then one stable documented order.
 is selected. ADR 0078's local-first posture and its rejection of a managed
 hosted default are unchanged.
 
-**The strict order resolves cleanly only when the local rungs are absent
-(third readiness pass, operator 2026-07-26).** When a local runtime IS
-detected but currently unusable, the rule is repairability, not ordering —
-`classify_model_probe/3` consults key presence on exactly one branch today
-(`:missing`), and this amendment says which of the remaining branches join it:
-
-- `below_hardware_floor` + hosted key → **auto-enable hosted.** The local path
-  can never work on this host, so withholding an answer buys nothing.
-- `model_missing` + hosted key → **repair-first.** No hosted enablement; the
-  one-click curated pull remains the single primary CTA. A local model is one
-  confirmed action away, and silently beginning paid inference instead is a
-  consent surprise this ADR exists to prevent.
-- `runtime_unhealthy` + hosted key → **repair-first**, same reasoning, with the
-  restart/repair CTA.
-
-Repair-first is not a dead end: chat is open, the deterministic fallback
-answers, and the operator may enable the hosted path explicitly at any time
-through the ordinary settings path.
+**Availability-first, local-preferred projection (final readiness decision,
+operator 2026-07-26).** A healthy local rung always wins. When a local runtime
+is detected but currently unusable (`model_missing`, `runtime_unhealthy`, or
+`below_hardware_floor`) and a hosted key is configured, detection selects the
+hosted profile so the first question still receives a model answer. The
+pre-egress disclosure remains mandatory; local pull/restart/hardware guidance
+is secondary and never blocks chat. Without a hosted key, those same states
+remain honest repair states with one primary CTA. Detection itself still
+performs no hosted probe or egress.
 
 **Stickiness is per key across the whole write set.**
 `intent.direct_answer_model_enabled` decides whether enablement runs at all;
 `intent.model_assist_enabled` and the selected profile are each written only
 when raw-absent. An explicitly stored value on any of the three survives
 detection, and the provenance row records which keys were written and which
-were already present. Because the pair must be all-or-nothing and the
+were already present. The raw-absent subset is applied atomically. Because the
 Settings `StoreLock` is not reentrant, the compare-and-write primitive is
-multi-key by construction: one lock, one raw read, one validation, one write.
+multi-key by construction: one lock, one raw read, one validation, one write,
+one audit row per applied key, and one transaction provenance envelope naming
+applied and preserved keys. A validation failure writes none of the subset.
 
 ### 2. What auto-enablement may and may not do
 
@@ -186,9 +180,9 @@ is open, honest about its current capability, and never a dead end**:
 
 | Detect state | Meaning | First-run behavior |
 |---|---|---|
-| `detected_ready` | local ready (configured endpoint or localhost), or no local runtime at all with a hosted key present, or below-floor hardware with a hosted key present | auto-enable per §1; chat answers with the model; disclosure shown |
-| `detected_needs_model` | local runtime healthy, no usable model — **with or without a hosted key** (§1 repair-first) | chat opens with deterministic fallback; single primary CTA: one-click curated pull (existing progress surface); BYOK secondary |
-| `runtime_unhealthy` | local runtime reachable but failing — **with or without a hosted key** (§1 repair-first) | chat opens with deterministic fallback; single primary CTA: restart/repair the local runtime; BYOK secondary |
+| `detected_ready` | local ready, or any unusable/absent local state with a hosted key present | auto-enable per §1; local wins when healthy, otherwise hosted answers; disclosure shown |
+| `detected_needs_model` | local runtime healthy, no usable model, no hosted key | chat opens with deterministic fallback; single primary CTA: one-click curated pull (existing progress surface); BYOK secondary |
+| `runtime_unhealthy` | local runtime reachable but failing, no hosted key | chat opens with deterministic fallback; single primary CTA: restart/repair the local runtime; BYOK secondary |
 | `nothing_detected` | no runtime, no endpoint, no key | chat opens with deterministic fallback; single primary CTA: guided install / BYOK (ADR 0078 repair paths) |
 | `below_floor` | hardware below curated floor, no hosted key | chat opens with fallback; BYOK-first guidance (ADR 0078 degrade path) |
 | `enabled_unavailable` | consent key already `true` from an earlier detection, but the provider it selected is gone | chat opens with the honest unavailable text and the repair CTA of the underlying state; the disclosure is not re-shown |
@@ -232,9 +226,8 @@ question" is retired. The v1.2 criteria:
 
 - fresh Home + any reachable provisioned provider → the **first question is
   answered by the model with zero prior clicks**, and the disclosure is
-  visible. "Reachable provisioned" means a §4 `detected_ready` cell; a
-  detected-but-repairable local runtime is not reachable, and §1's
-  repair-first rule governs it even when a hosted key is present;
+  visible. "Reachable provisioned" means a §4 `detected_ready` cell; an
+  unusable local runtime does not mask a configured hosted provider;
 - fresh Home + nothing provisioned → the chat surface still opens, the
   deterministic fallback answers, and exactly one repair CTA per §4 is
   presented — zero clicks to a working (fallback) chat, no wizard wall;
