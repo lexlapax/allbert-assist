@@ -15,8 +15,8 @@ input through one raw-terminal owner. M12.17 is implemented after focused
 operator evidence showed that a database-backed steering turn could still
 occupy the TUI Adapter mailbox: ordinary raw-TUI turns now execute one at a
 time through a bounded supervised FIFO while the Adapter remains available for
-input and lifecycle delivery. Its clean-SHA `release.v11` rejoin remains the
-pre-FV barrier.
+input and lifecycle delivery. Its clean-SHA `release.v11` rejoin passed all 14
+steps at pushed implementation candidate `28ee2d86`, opening FV-01.
 The child model, fair scheduler/full lifecycle executor, restart-stable
 receipts, delivery-before-start barrier, public-protocol continuations, and
 cross-surface automatic-rollout corpus remain. The expanded `release.v11`,
@@ -359,7 +359,8 @@ authority class.
   The six-row focused slice passes 6 / 0, complete TUI passes 41 / 0, the
   acknowledgement/caller plus steering matrix passes 34 / 0, static/Hex/
   Dialyzer checks are clean, and the 3,486-row manifest reconciles 550 files.
-  Clean-SHA `release.v11` remains the final pre-FV rejoin.
+  Clean-SHA `release.v11` passes all 14 steps at pushed implementation
+  candidate `28ee2d86`; evidence is `release-v11-1785027587.json`.
 - Release: `release.v1` stays green (Tier-1/Tier-2 untouched; runtime
   response gains only additive fields per ADR 0029) and `release.v11` binds
   all eleven fan-out authority rows plus the M12.15 focused suites. Candidate

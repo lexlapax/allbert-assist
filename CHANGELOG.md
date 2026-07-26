@@ -20,10 +20,12 @@ lifecycle output could race an immediately typed steering line. M12.17 then
 moves ordinary raw-TUI turns into one supervised, bounded FIFO so Repo,
 Runtime, or provider latency cannot occupy the Adapter mailbox that accepts
 later input and fan-out updates. Its focused, complete-TUI, static, Dialyzer,
-and no-loss-manifest rejoin is green; derived `release.v11` remains the
-clean-SHA barrier before focused flagship operator validation. By operator
-decision, the long authoritative release gate follows the flagship walkthrough
-and any resulting remediation, while remaining mandatory before closeout. Binary
+and no-loss-manifest rejoin is green. Derived `release.v11` passed all 14 steps
+at pushed implementation candidate `28ee2d86`; evidence is
+`release-v11-1785027587.json`, so focused flagship operator validation is open.
+By operator decision, the long authoritative release gate follows the flagship
+walkthrough and any resulting remediation, while remaining mandatory before
+closeout. Binary
 publication/cosign, tap fill, packaged-platform rehearsal, and stable-release
 administration remain operator-held after those checks.
 
