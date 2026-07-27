@@ -1,0 +1,11 @@
+---
+context: {}
+domain: model
+expected:
+  action: list_model_catalog
+  kind: execute
+holdout: true
+id: model-catalog-001
+rationale: browse the curated model catalog
+schema_version: 1
+utterance: show the model catalog
