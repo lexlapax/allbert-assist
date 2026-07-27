@@ -31,10 +31,11 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.UnifiedHistory
-  alias AllbertAssist.FirstRun.Disclosure
+  alias AllbertAssist.FirstRun.{Disclosure, Enablement, Presentation}
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Onboarding
   alias AllbertAssist.Resources.ImageBounds
   alias AllbertAssist.Resources.ImageMetadata
   alias AllbertAssist.Resources.ResourceURI
@@ -83,6 +84,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     objective_focus = resolve_objective_focus(params, canvas_destination, user_id)
     artifacts_browser_filters = resolve_artifacts_browser_filters(params)
     settings = workspace_settings_snapshot(user_id, session_id)
+    first_run_presentation = web_first_run_presentation()
     model_disclosure = if connected?(socket), do: Disclosure.prepare_web_delivery(), else: :none
 
     if connected?(socket) do
@@ -138,6 +140,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         rail_flyout_open?: false,
         workspace_launcher_open?: false,
         workspace_badges: [],
+        first_run_presentation: first_run_presentation,
         model_disclosure: model_disclosure,
         composer_max_bytes: workspace_canvas_tile_body_max_bytes(settings),
         workspace_overflow_open?: false,
@@ -834,6 +837,20 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   def handle_info({:workspace_event, %Signal{} = signal}, socket) do
     {:noreply,
      handle_workspace_event(signal, maybe_refresh_settings_central_confirmations(socket, signal))}
+  end
+
+  def handle_info({:first_model_enablement_changed, result}, socket) when is_map(result) do
+    case web_presentation_for(result) do
+      nil ->
+        {:noreply, socket}
+
+      presentation ->
+        {:noreply,
+         assign(socket,
+           first_run_presentation: presentation,
+           model_disclosure: Disclosure.prepare_web_delivery()
+         )}
+    end
   end
 
   # v0.64.3: an onboarding/model-repair component registers itself as the live
@@ -1678,6 +1695,25 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   defp first_run_default_destination do
     WorkspaceFirstRun.default_destination() || Layout.default_destination()
   end
+
+  defp web_first_run_presentation do
+    model_state = Onboarding.safe_first_model_state()
+
+    case Enablement.preview(model_state) do
+      {:ok, result} -> web_presentation_for(result)
+      _not_available -> nil
+    end
+  rescue
+    _error -> nil
+  catch
+    :exit, _reason -> nil
+  end
+
+  defp web_presentation_for(%{state: state, model_state: model_state} = result)
+       when is_atom(state) and is_atom(model_state),
+       do: Presentation.for(result, :web)
+
+  defp web_presentation_for(_result), do: nil
 
   defp resolve_artifacts_browser_filters(params) do
     %{
@@ -3209,6 +3245,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       canvas_tiles: assigns.canvas_tiles,
       ephemeral_surfaces: assigns.ephemeral_surfaces,
       workspace_badges: assigns.workspace_badges,
+      first_run_presentation: assigns.first_run_presentation,
       workspace_theme: assigns.workspace_theme,
       workspace_high_contrast?: assigns.workspace_high_contrast?,
       workspace_reduce_motion?: assigns.workspace_reduce_motion?,

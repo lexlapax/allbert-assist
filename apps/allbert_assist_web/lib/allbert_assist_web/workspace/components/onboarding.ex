@@ -285,10 +285,12 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
   # Streamed progress frames arrive separately via the targeted `update/2` clause.
   @impl true
   def handle_async(:pull_model, {:ok, {:ok, %{status: :completed} = response}}, socket) do
+    notify_first_model_enablement(response)
+
     {:noreply,
      socket
      |> assign(:model_pulling?, false)
-     |> assign_action_success("Starter model pull approved and completed.", response)
+     |> assign_action_success(response_message(response), response)
      |> refresh_state()
      |> reprobe()}
   end
@@ -840,6 +842,24 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
     do: assign(socket, :model_pull_progress, progress)
 
   defp maybe_assign_pull_progress(socket, _response), do: socket
+
+  defp notify_first_model_enablement(response) do
+    output_data = Map.get(response, :output_data) || Map.get(response, "output_data") || %{}
+
+    case Map.get(output_data, :enablement) || Map.get(output_data, "enablement") do
+      %{} = result -> send(self(), {:first_model_enablement_changed, result})
+      _missing_or_failed -> :ok
+    end
+  end
+
+  defp response_message(response) do
+    output_data = Map.get(response, :output_data) || Map.get(response, "output_data") || %{}
+
+    Map.get(output_data, :enablement_operator_message) ||
+      Map.get(output_data, "enablement_operator_message") ||
+      Map.get(response, :message) || Map.get(response, "message") ||
+      "Starter model pull approved and completed."
+  end
 
   defp apply_persona(socket, persona_id) do
     context = action_context(socket)

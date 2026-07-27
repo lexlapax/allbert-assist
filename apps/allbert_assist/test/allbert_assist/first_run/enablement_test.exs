@@ -4,7 +4,7 @@ defmodule AllbertAssist.FirstRun.EnablementTest do
   @moduletag :app_env_serial
 
   alias AllbertAssist.CLI.FirstRun
-  alias AllbertAssist.FirstRun.Enablement
+  alias AllbertAssist.FirstRun.{Disclosure, Enablement}
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings.Audit
   alias AllbertAssist.Settings.Store
@@ -17,6 +17,15 @@ defmodule AllbertAssist.FirstRun.EnablementTest do
     :below_hardware_floor,
     :byok_ready
   ]
+
+  @provider_env_vars ~w(
+    ALLBERT_VAULT_BACKEND
+    ANTHROPIC_API_KEY
+    OPENAI_API_KEY
+    OPENROUTER_API_KEY
+    GOOGLE_API_KEY
+    GEMINI_API_KEY
+  )
 
   @local %{
     profile: "local",
@@ -32,6 +41,8 @@ defmodule AllbertAssist.FirstRun.EnablementTest do
   }
 
   setup do
+    original_env = Map.new(@provider_env_vars, &{&1, System.get_env(&1)})
+
     root =
       Path.join(
         System.tmp_dir!(),
@@ -42,6 +53,8 @@ defmodule AllbertAssist.FirstRun.EnablementTest do
     previous_paths = Application.get_env(:allbert_assist, Paths)
     Application.put_env(:allbert_assist, AllbertAssist.Settings, root: root)
     Application.put_env(:allbert_assist, Paths, home: root)
+    Enum.each(@provider_env_vars, &System.delete_env/1)
+    System.put_env("ALLBERT_VAULT_BACKEND", "env")
 
     on_exit(fn ->
       if previous,
@@ -51,6 +64,11 @@ defmodule AllbertAssist.FirstRun.EnablementTest do
       if previous_paths,
         do: Application.put_env(:allbert_assist, Paths, previous_paths),
         else: Application.delete_env(:allbert_assist, Paths)
+
+      Enum.each(original_env, fn
+        {name, nil} -> System.delete_env(name)
+        {name, value} -> System.put_env(name, value)
+      end)
 
       File.rm_rf!(root)
     end)
@@ -95,6 +113,137 @@ defmodule AllbertAssist.FirstRun.EnablementTest do
     assert {:ok, %{}} = Store.read_user_settings()
   end
 
+  test "presentation preview projects a usable model without settings or disclosure writes" do
+    assert {:ok, %{state: :auto_enabled, selection: @local, provenance: nil}} =
+             Enablement.preview(:local_ready,
+               settings: settings(),
+               user_settings: %{},
+               local_selection: @local
+             )
+
+    assert {:ok, %{}} = Store.read_user_settings()
+    refute Disclosure.pending?(:web)
+    refute Disclosure.pending?(:tui)
+    refute Disclosure.pending?(:cli)
+  end
+
+  test "raw explicit hosted primary overrides automatic local-first selection and disclosure" do
+    System.put_env("OPENAI_API_KEY", "operator-env-key")
+    user = %{"model_preferences" => %{"primary" => "fast"}}
+    assert {:ok, _settings} = Store.write_user_settings(user)
+    assert {:ok, resolved, persisted_user} = Store.resolved_settings()
+
+    assert {:ok, %{state: :auto_enabled, selection: selection}} =
+             Enablement.reconcile(:local_ready,
+               settings: resolved,
+               user_settings: persisted_user,
+               local_selection: @local,
+               context: %{audit?: false}
+             )
+
+    assert selection == @hosted
+    assert {:ok, persisted} = Store.read_user_settings()
+    assert get_in(persisted, ["model_preferences", "primary"]) == "fast"
+    assert get_in(persisted, ["intent", "direct_answer_model_enabled"]) == true
+    assert Disclosure.hosted_pending?(:web)
+    assert Disclosure.text(:web) =~ "selected fast from openai"
+    assert Disclosure.text(:web) =~ "will leave this device"
+  end
+
+  test "an unavailable raw primary prevents mismatched enablement and disclosure" do
+    user = %{"model_preferences" => %{"primary" => "coding_local"}}
+    assert {:ok, _settings} = Store.write_user_settings(user)
+    assert {:ok, resolved, persisted_user} = Store.resolved_settings()
+
+    assert {:ok, %{state: :enabled_unavailable, selection: nil}} =
+             Enablement.reconcile(:local_ready,
+               settings: resolved,
+               user_settings: persisted_user,
+               local_selection: @local,
+               hosted_selection: nil,
+               context: %{audit?: false}
+             )
+
+    assert {:ok, persisted} = Store.read_user_settings()
+    assert get_in(persisted, ["model_preferences", "primary"]) == "coding_local"
+    assert get_in(persisted, ["intent", "direct_answer_model_enabled"]) == nil
+    refute Disclosure.pending?(:web)
+    refute Disclosure.pending?(:tui)
+    refute Disclosure.pending?(:cli)
+  end
+
+  test "a primary change between selection and the Store lock aborts enablement" do
+    assert {:ok, %{state: :enabled_unavailable, selection: nil, provenance: provenance}} =
+             Enablement.reconcile(:local_ready,
+               settings: settings(),
+               user_settings: %{},
+               local_selection: @local,
+               before_write: fn ->
+                 assert {:ok, _merged, _user, _diagnostics} =
+                          Store.put_user_setting("model_preferences.primary", "fast", %{
+                            audit?: false
+                          })
+               end,
+               context: %{audit?: false}
+             )
+
+    assert provenance.disposition == :selection_changed
+    assert provenance.written == []
+    assert {:ok, persisted} = Store.read_user_settings()
+    assert get_in(persisted, ["model_preferences", "primary"]) == "fast"
+    assert get_in(persisted, ["intent", "direct_answer_model_enabled"]) == nil
+    refute Disclosure.pending?(:web)
+  end
+
+  test "an explicit disable between selection and the Store lock wins without partial writes" do
+    assert {:ok, %{state: :sticky_disabled, selection: nil, provenance: provenance}} =
+             Enablement.reconcile(:local_ready,
+               settings: settings(),
+               user_settings: %{},
+               local_selection: @local,
+               before_write: fn ->
+                 assert {:ok, _merged, _user, _diagnostics} =
+                          Store.put_user_setting(
+                            "intent.direct_answer_model_enabled",
+                            false,
+                            %{audit?: false}
+                          )
+               end,
+               context: %{audit?: false}
+             )
+
+    assert provenance.disposition == :explicitly_disabled
+    assert provenance.written == []
+    assert {:ok, persisted} = Store.read_user_settings()
+    assert get_in(persisted, ["intent", "direct_answer_model_enabled"]) == false
+    assert get_in(persisted, ["intent", "model_assist_enabled"]) == nil
+    assert get_in(persisted, ["model_preferences", "primary"]) == nil
+    refute Disclosure.pending?(:web)
+  end
+
+  test "a concurrent explicit enable keeps the matching hosted disclosure pending" do
+    assert {:ok, %{state: :auto_enabled, selection: @hosted, provenance: provenance}} =
+             Enablement.reconcile(:runtime_missing,
+               settings: settings(),
+               user_settings: %{},
+               hosted_selection: @hosted,
+               before_write: fn ->
+                 assert {:ok, _merged, _user, _diagnostics} =
+                          Store.put_user_setting(
+                            "intent.direct_answer_model_enabled",
+                            true,
+                            %{audit?: false}
+                          )
+               end,
+               context: %{audit?: false}
+             )
+
+    assert provenance.disposition == :applied
+    refute "intent.direct_answer_model_enabled" in provenance.written
+    assert Disclosure.hosted_pending?(:web)
+    assert Disclosure.text(:web) =~ "will leave this device"
+  end
+
   test "enabled but currently unusable projects enabled_unavailable" do
     user = %{"intent" => %{"direct_answer_model_enabled" => true}}
 
@@ -118,6 +267,29 @@ defmodule AllbertAssist.FirstRun.EnablementTest do
              )
 
     refute_receive :probe_called
+  end
+
+  test "raw explicit provider false blocks an env-provided hosted key without writes" do
+    System.put_env("ALLBERT_VAULT_BACKEND", "env")
+    System.put_env("OPENAI_API_KEY", "operator-env-key")
+
+    assert {:ok, _settings} =
+             Store.write_user_settings(%{
+               "providers" => %{"openai" => %{"enabled" => false}}
+             })
+
+    assert {:ok, settings, user_settings} = Store.resolved_settings()
+
+    assert {:ok, %{state: :nothing_detected, selection: nil}} =
+             Enablement.reconcile(:byok_ready,
+               settings: settings,
+               user_settings: user_settings,
+               context: %{audit?: false}
+             )
+
+    assert {:ok, persisted} = Store.read_user_settings()
+    assert get_in(persisted, ["providers", "openai", "enabled"]) == false
+    assert get_in(persisted, ["intent", "direct_answer_model_enabled"]) == nil
   end
 
   test "double boot and later wizard/persona-style writes remain idempotent" do

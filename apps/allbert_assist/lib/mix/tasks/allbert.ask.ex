@@ -31,6 +31,7 @@ defmodule Mix.Tasks.Allbert.Ask do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Channels.LocalSurface
+  alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.MediaOutputs
@@ -85,6 +86,10 @@ defmodule Mix.Tasks.Allbert.Ask do
     validate_thread_options!(opts)
     validate_session!(opts)
 
+    # Voice transcription may itself use a hosted provider. Consume any
+    # pending disclosure before the first provider-capable action, not merely
+    # before the final text turn.
+    render_disclosure_before_transport!()
     voice_result = maybe_transcribe_voice!(voice_file, opts)
     prompt = prompt_with_voice(prompt, voice_result)
 
@@ -93,6 +98,16 @@ defmodule Mix.Tasks.Allbert.Ask do
 
     print_result(result)
     print_speech_result(speech_result)
+  end
+
+  defp render_disclosure_before_transport! do
+    case Disclosure.render_and_ack(:cli, fn disclosure -> Mix.shell().info(disclosure) end) do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        Mix.raise("Allbert could not render the model disclosure: #{inspect(reason)}")
+    end
   end
 
   defp submit(prompt, opts, voice_result) do

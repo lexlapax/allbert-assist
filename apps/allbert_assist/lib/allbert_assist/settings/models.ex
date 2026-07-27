@@ -7,6 +7,7 @@ defmodule AllbertAssist.Settings.Models do
   """
 
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.ProviderEligibility
   alias AllbertAssist.Settings.ProviderCatalog
   alias AllbertAssist.Settings.Store
 
@@ -116,7 +117,7 @@ defmodule AllbertAssist.Settings.Models do
         explicit_primary?(user_settings)
       )
 
-    case first_capable_profile(candidates, capability, settings) do
+    case first_capable_profile(candidates, capability, settings, user_settings) do
       {:ok, profile, source, diagnostics} ->
         {:ok,
          %{
@@ -200,11 +201,11 @@ defmodule AllbertAssist.Settings.Models do
 
   defp primary_fallback(_candidates, _primary), do: []
 
-  defp first_capable_profile(candidates, capability, settings) do
+  defp first_capable_profile(candidates, capability, settings, user_settings) do
     candidates
     |> Enum.uniq_by(&elem(&1, 0))
     |> Enum.reduce_while({:error, []}, fn profile_name, {:error, diagnostics} ->
-      case validate_candidate(profile_name, capability, settings) do
+      case validate_candidate(profile_name, capability, settings, user_settings) do
         {:ok, profile, source} ->
           {:halt, {:ok, profile, source, Enum.reverse(diagnostics)}}
 
@@ -247,7 +248,7 @@ defmodule AllbertAssist.Settings.Models do
     candidates
     |> Enum.uniq_by(&elem(&1, 0))
     |> Enum.reduce({[], []}, fn candidate, {resolutions, diagnostics} ->
-      case validate_candidate(candidate, capability, settings) do
+      case validate_candidate(candidate, capability, settings, user_settings) do
         {:ok, profile, source} ->
           resolution = %{
             request: request_name,
@@ -282,12 +283,12 @@ defmodule AllbertAssist.Settings.Models do
     end
   end
 
-  defp validate_candidate({profile_name, source}, capability, settings) do
+  defp validate_candidate({profile_name, source}, capability, settings, user_settings) do
     with {:ok, attrs} <- fetch_profile_attrs(profile_name, settings),
          :ok <- validate_profile_capability(profile_name, attrs, capability),
-         :ok <- validate_provider_enabled(profile_name, attrs, settings),
+         :ok <- validate_provider_enabled(profile_name, attrs, settings, user_settings),
          {:ok, profile} <- Settings.resolve_model_profile(profile_name) do
-      {:ok, profile, source}
+      {:ok, Map.put(profile, :provider_enabled, true), source}
     else
       {:error, reason} -> {:skip, diagnostic(profile_name, reason)}
     end
@@ -310,13 +311,19 @@ defmodule AllbertAssist.Settings.Models do
     end
   end
 
-  defp validate_provider_enabled(profile_name, attrs, settings) do
+  defp validate_provider_enabled(profile_name, attrs, settings, user_settings) do
     provider = Map.get(attrs, "provider")
 
     case get_in(settings, ["providers", provider]) do
-      %{"enabled" => true} -> :ok
-      %{"enabled" => false} -> {:error, {:provider_disabled, profile_name, provider}}
-      _missing -> {:error, {:provider_missing, profile_name, provider}}
+      provider_attrs when is_map(provider_attrs) ->
+        if ProviderEligibility.enabled?(provider, provider_attrs, user_settings) do
+          :ok
+        else
+          {:error, {:provider_disabled, profile_name, provider}}
+        end
+
+      _missing ->
+        {:error, {:provider_missing, profile_name, provider}}
     end
   end
 

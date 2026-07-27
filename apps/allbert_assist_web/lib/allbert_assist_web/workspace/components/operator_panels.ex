@@ -475,10 +475,12 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
   # v0.64.3: finalize the async pull; streamed frames arrive via the targeted update/2.
   @impl true
   def handle_async(:pull_model, {:ok, {:ok, %{status: :completed} = response}}, socket) do
+    notify_first_model_enablement(response)
+
     {:noreply,
      socket
      |> assign(:model_pulling?, false)
-     |> assign_model_action_success("Starter model pull approved.", response)
+     |> assign_model_action_success(response_message(response), response)
      |> refresh()}
   end
 
@@ -804,6 +806,24 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
   defp maybe_assign_pull_progress(socket, _response), do: socket
 
   defp model_action_error(response), do: Map.get(response, :message, inspect(response))
+
+  defp notify_first_model_enablement(response) do
+    output_data = Map.get(response, :output_data) || Map.get(response, "output_data") || %{}
+
+    case Map.get(output_data, :enablement) || Map.get(output_data, "enablement") do
+      %{} = result -> send(self(), {:first_model_enablement_changed, result})
+      _missing_or_failed -> :ok
+    end
+  end
+
+  defp response_message(response) do
+    output_data = Map.get(response, :output_data) || Map.get(response, "output_data") || %{}
+
+    Map.get(output_data, :enablement_operator_message) ||
+      Map.get(output_data, "enablement_operator_message") ||
+      Map.get(response, :message) || Map.get(response, "message") ||
+      "Starter model pull approved."
+  end
 
   defp model_repair do
     probe = Onboarding.safe_first_model_state()

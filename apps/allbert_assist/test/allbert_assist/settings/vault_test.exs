@@ -238,12 +238,22 @@ defmodule AllbertAssist.Settings.VaultTest do
                Vault.get("secret://providers/openai/api_key", %{})
     end
 
-    test "the gemini provider ref maps to GEMINI_API_KEY (F2 mapping gap)" do
+    test "the gemini provider ref accepts both Gemini and Google env names" do
       System.put_env("ALLBERT_VAULT_BACKEND", "encrypted_file")
       System.put_env("GEMINI_API_KEY", "gm-env-gemini-xyz67890")
-      on_exit(fn -> System.delete_env("GEMINI_API_KEY") end)
+      System.put_env("GOOGLE_API_KEY", "gm-env-google-abc12345")
+
+      on_exit(fn ->
+        System.delete_env("GEMINI_API_KEY")
+        System.delete_env("GOOGLE_API_KEY")
+      end)
 
       assert {:ok, "gm-env-gemini-xyz67890"} =
+               Vault.get("secret://providers/gemini/api_key", %{})
+
+      System.delete_env("GEMINI_API_KEY")
+
+      assert {:ok, "gm-env-google-abc12345"} =
                Vault.get("secret://providers/gemini/api_key", %{})
     end
 

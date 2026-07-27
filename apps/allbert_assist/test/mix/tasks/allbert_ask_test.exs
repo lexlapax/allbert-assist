@@ -9,7 +9,9 @@ defmodule Mix.Tasks.Allbert.AskTest do
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Execution.Audit
+  alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Memory
+  alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Runtime
   alias AllbertAssist.Session
@@ -20,6 +22,7 @@ defmodule Mix.Tasks.Allbert.AskTest do
   setup do
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_memory_config = Application.get_env(:allbert_assist, Memory)
+    original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
     original_audit_config = Application.get_env(:allbert_assist, Audit)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
@@ -53,6 +56,7 @@ defmodule Mix.Tasks.Allbert.AskTest do
 
     Application.put_env(:allbert_assist, Runtime, agent_runner: runner)
     Application.put_env(:allbert_assist, Memory, root: root)
+    Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
     Application.put_env(:allbert_assist, Audit, root: Path.join(root, "execution"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
@@ -67,6 +71,7 @@ defmodule Mix.Tasks.Allbert.AskTest do
     on_exit(fn ->
       restore_env(Runtime, original_runtime_config)
       restore_env(Memory, original_memory_config)
+      restore_env(Paths, original_paths_config)
       restore_env(Confirmations, original_confirmations_config)
       restore_env(Audit, original_audit_config)
       restore_env(Settings, original_settings_config)
@@ -116,6 +121,77 @@ defmodule Mix.Tasks.Allbert.AskTest do
 
     assert %Event{channel: "cli", status: "processed", user_id: "local"} =
              Repo.get_by(Event, channel: "cli", external_event_id: provider_message_id)
+  end
+
+  test "renders and acknowledges a pending CLI model disclosure before transport" do
+    parent = self()
+
+    runner = fn _signal, request ->
+      send(parent, {:disclosure_pending_at_transport, Disclosure.pending?(:cli)})
+
+      {:ok,
+       %{
+         message: "CLI response: #{request.text}",
+         status: :completed,
+         actions: []
+       }}
+    end
+
+    Application.put_env(:allbert_assist, Runtime, agent_runner: runner)
+
+    assert :ok =
+             Disclosure.mark_pending(%{
+               profile: "fast",
+               provider: "openai",
+               provider_class: :hosted
+             })
+
+    first_output =
+      capture_io(fn ->
+        assert :ok = Ask.run(["first hosted turn"])
+      end)
+
+    assert first_output =~ "Allbert selected fast from openai"
+    assert first_output =~ "Your message will leave this device for openai"
+    assert first_output =~ "Status: completed"
+
+    assert disclosure_offset = :binary.match(first_output, "Allbert selected fast") |> elem(0)
+    assert response_offset = :binary.match(first_output, "Status: completed") |> elem(0)
+    assert disclosure_offset < response_offset
+
+    assert_received {:disclosure_pending_at_transport, false}
+    refute Disclosure.pending?(:cli)
+
+    second_output =
+      capture_io(fn ->
+        assert :ok = Ask.run(["second hosted turn"])
+      end)
+
+    refute second_output =~ "Allbert selected fast from openai"
+    refute second_output =~ "will leave this device"
+    assert second_output =~ "Status: completed"
+    assert_received {:disclosure_pending_at_transport, false}
+  end
+
+  test "renders pending disclosure before a voice action can fail or reach a provider" do
+    assert :ok =
+             Disclosure.mark_pending(%{
+               profile: "voice_stt_openai",
+               provider: "openai",
+               provider_class: :hosted
+             })
+
+    output =
+      capture_io(fn ->
+        assert_raise Mix.Error, ~r/Voice transcription failed/, fn ->
+          Ask.run(["--voice", "/definitely/missing/allbert-voice.wav"])
+        end
+      end)
+
+    assert output =~ "Allbert selected voice_stt_openai from openai"
+    assert output =~ "will leave this device for openai"
+    refute Disclosure.pending?(:cli)
+    refute_received {:agent_request, _request}
   end
 
   test "passes user and new thread options through the runtime" do

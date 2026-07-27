@@ -19,10 +19,14 @@ defmodule AllbertAssist.Settings.Vault.Env do
 
   @impl true
   def get(secret_ref, _context) do
-    case env_var_for(secret_ref) do
-      nil -> :missing
-      var -> if val = System.get_env(var), do: {:ok, val}, else: :missing
-    end
+    secret_ref
+    |> env_vars_for()
+    |> Enum.find_value(:missing, fn var ->
+      case System.get_env(var) do
+        value when is_binary(value) and value != "" -> {:ok, value}
+        _missing -> nil
+      end
+    end)
   end
 
   @impl true
@@ -34,12 +38,16 @@ defmodule AllbertAssist.Settings.Vault.Env do
     Enum.filter(@env_keys, &(System.get_env(&1) not in [nil, ""]))
   end
 
-  defp env_var_for("secret://providers/anthropic" <> _), do: "ANTHROPIC_API_KEY"
-  defp env_var_for("secret://providers/openai" <> _), do: "OPENAI_API_KEY"
-  defp env_var_for("secret://providers/openrouter" <> _), do: "OPENROUTER_API_KEY"
-  defp env_var_for("secret://providers/google" <> _), do: "GOOGLE_API_KEY"
-  # F2: the seeded provider is `gemini` (type=google); map it to the Gemini env key so an
-  # env-provided Gemini credential resolves like the other providers.
-  defp env_var_for("secret://providers/gemini" <> _), do: "GEMINI_API_KEY"
-  defp env_var_for(_other), do: nil
+  defp env_vars_for("secret://providers/anthropic" <> _), do: ["ANTHROPIC_API_KEY"]
+  defp env_vars_for("secret://providers/openai" <> _), do: ["OPENAI_API_KEY"]
+  defp env_vars_for("secret://providers/openrouter" <> _), do: ["OPENROUTER_API_KEY"]
+  defp env_vars_for("secret://providers/google" <> _), do: ["GOOGLE_API_KEY"]
+
+  # The seeded provider is named `gemini` but its provider type is `google`.
+  # Accept both established env names, preferring the provider-specific name
+  # when an operator deliberately supplies both.
+  defp env_vars_for("secret://providers/gemini" <> _),
+    do: ["GEMINI_API_KEY", "GOOGLE_API_KEY"]
+
+  defp env_vars_for(_other), do: []
 end

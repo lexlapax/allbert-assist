@@ -329,20 +329,43 @@ defmodule AllbertAssist.Settings.Store do
          {:ok, merged} <- merge_user_settings(user_settings) do
       {applied, preserved} = partition_absent_values(values, user_settings)
 
-      updated_user_settings = put_dotted_values(user_settings, applied)
-      updated_merged = put_dotted_values(merged, applied)
+      case auto_enablement_disposition(values, user_settings) do
+        :apply ->
+          updated_user_settings = put_dotted_values(user_settings, applied)
+          updated_merged = put_dotted_values(merged, applied)
 
-      with :ok <- Schema.validate_settings(updated_merged),
-           {:ok, _settings} <- write_absent_subset(updated_user_settings, applied) do
-        audit_absent_subset(applied, preserved, merged, context)
-        refresh_resolved_pin()
+          with :ok <- Schema.validate_settings(updated_merged),
+               {:ok, _settings} <- write_absent_subset(updated_user_settings, applied) do
+            audit_absent_subset(applied, preserved, merged, context)
+            refresh_resolved_pin()
 
-        {:ok,
-         %{
-           written: applied |> Map.keys() |> Enum.sort(),
-           present: preserved
-         }}
+            {:ok,
+             %{
+               disposition: :applied,
+               written: applied |> Map.keys() |> Enum.sort(),
+               present: preserved
+             }}
+          end
+
+        disposition ->
+          {:ok, %{disposition: disposition, written: [], present: preserved}}
       end
+    end
+  end
+
+  # The three values form one semantic enablement decision, even though raw
+  # per-key stickiness is preserved. If consent became explicitly false or the
+  # selected primary changed before this lock was acquired, applying the other
+  # absent keys would bind enablement/disclosure to stale selection state.
+  defp auto_enablement_disposition(values, user_settings) do
+    requested_primary = Map.get(values, "model_preferences.primary")
+    stored_primary = Schema.get_dotted(user_settings, "model_preferences.primary")
+    stored_consent = Schema.get_dotted(user_settings, "intent.direct_answer_model_enabled")
+
+    cond do
+      stored_consent == false -> :explicitly_disabled
+      stored_primary not in [nil, requested_primary] -> :selection_changed
+      true -> :apply
     end
   end
 

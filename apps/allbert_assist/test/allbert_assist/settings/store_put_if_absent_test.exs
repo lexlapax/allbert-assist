@@ -74,6 +74,32 @@ defmodule AllbertAssist.Settings.StorePutIfAbsentTest do
     assert {:ok, %{}} = Store.read_user_settings()
   end
 
+  test "abstains atomically when consent became false or the selected primary changed" do
+    assert {:ok, _merged, _user, _diagnostics} =
+             Store.put_user_setting("intent.direct_answer_model_enabled", false, %{audit?: false})
+
+    assert {:ok, %{disposition: :explicitly_disabled, written: []}} =
+             Store.put_user_settings_if_absent(@values, %{audit?: false})
+
+    assert {:ok, disabled_user} = Store.read_user_settings()
+    assert get_in(disabled_user, ["intent", "direct_answer_model_enabled"]) == false
+    assert get_in(disabled_user, ["intent", "model_assist_enabled"]) == nil
+    assert get_in(disabled_user, ["model_preferences", "primary"]) == nil
+
+    File.rm_rf!(Store.root())
+
+    assert {:ok, _merged, _user, _diagnostics} =
+             Store.put_user_setting("model_preferences.primary", "fast", %{audit?: false})
+
+    assert {:ok, %{disposition: :selection_changed, written: []}} =
+             Store.put_user_settings_if_absent(@values, %{audit?: false})
+
+    assert {:ok, changed_user} = Store.read_user_settings()
+    assert get_in(changed_user, ["model_preferences", "primary"]) == "fast"
+    assert get_in(changed_user, ["intent", "direct_answer_model_enabled"]) == nil
+    assert get_in(changed_user, ["intent", "model_assist_enabled"]) == nil
+  end
+
   test "audit contains one row per applied key and one provenance envelope" do
     assert {:ok, %{written: written}} =
              Store.put_user_settings_if_absent(@values, %{actor: "first-run"})

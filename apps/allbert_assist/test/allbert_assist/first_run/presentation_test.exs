@@ -13,6 +13,7 @@ defmodule AllbertAssist.FirstRun.PresentationTest do
     {%{state: :nothing_detected, model_state: :runtime_missing}, :install_runtime},
     {%{state: :below_floor, model_state: :below_hardware_floor}, :configure_hosted_provider},
     {%{state: :enabled_unavailable, model_state: :runtime_missing}, :install_runtime},
+    {%{state: :enabled_unavailable, model_state: :local_ready}, :select_model},
     {%{state: :enabled_unavailable, model_state: :model_missing}, :pull_curated_model},
     {%{state: :enabled_unavailable, model_state: :runtime_unhealthy}, :repair_runtime},
     {%{state: :enabled_unavailable, model_state: :below_hardware_floor},

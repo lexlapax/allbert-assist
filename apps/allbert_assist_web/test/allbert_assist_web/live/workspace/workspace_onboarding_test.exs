@@ -13,6 +13,7 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.Store
 
   @runtime_async_timeout 60_000
 
@@ -50,6 +51,30 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
       render_hook(view, "ack_model_disclosure", %{"handle" => handle})
       refute has_element?(view, "#workspace-model-disclosure")
       refute Disclosure.pending?(:web)
+    end
+
+    test "web first-run presentation preview never writes settings or disclosure state", %{
+      conn: conn
+    } do
+      saved_backend = System.get_env("ALLBERT_VAULT_BACKEND")
+      saved_openai = System.get_env("OPENAI_API_KEY")
+
+      on_exit(fn ->
+        restore_system_env("ALLBERT_VAULT_BACKEND", saved_backend)
+        restore_system_env("OPENAI_API_KEY", saved_openai)
+      end)
+
+      System.put_env("ALLBERT_VAULT_BACKEND", "env")
+      System.put_env("OPENAI_API_KEY", "web-preview-only-key")
+      FirstRun.reset_onboarding()
+      assert {:ok, %{}} = Store.read_user_settings()
+
+      {:ok, view, _html} = live(conn, ~p"/workspace")
+
+      assert {:ok, %{}} = Store.read_user_settings()
+      refute Disclosure.pending?(:web)
+      refute has_element?(view, "#workspace-model-disclosure")
+      refute has_element?(view, "#workspace-model-repair-cta")
     end
 
     test "a completed TUI turn remains available to the production web workspace", %{conn: conn} do
@@ -223,19 +248,82 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
       assert Settings.get("intent.direct_answer_model_enabled") == {:ok, true}
     end
 
-    test "v1.0 R12: one first-run entry point — the hero leads to guided setup until onboarding completes",
+    test "v1.2: fresh empty chat shows one primary repair CTA without a wizard wall",
          %{conn: conn} do
+      isolate_empty_provider_vault!()
       FirstRun.reset_onboarding()
       {:ok, view, _html} = live(conn, ~p"/workspace")
 
-      assert has_element?(view, "#workspace-suggested-action-guided-setup")
-      refute has_element?(view, "#workspace-suggested-action-first-model")
+      assert has_element?(
+               view,
+               "#workspace-model-repair-cta[data-primary-cta='install_runtime']"
+             )
 
-      FirstRun.merge_marker(%{"onboarding_complete" => true})
-      {:ok, view, _html} = live(conn, ~p"/workspace")
+      assert has_element?(
+               view,
+               "#workspace-model-repair-primary[data-model-repair-action='install_runtime']"
+             )
 
-      assert has_element?(view, "#workspace-suggested-action-first-model")
+      repair_html = view |> element("#workspace-model-repair-cta") |> render()
+      assert length(Regex.scan(~r/workspace-button-primary/, repair_html)) == 1
+      assert has_element?(view, "#workspace-onboarding-optional")
+      assert has_element?(view, "#agent-form")
+      refute has_element?(view, "#workspace-onboarding-wizard")
       refute has_element?(view, "#workspace-suggested-action-guided-setup")
+
+      view
+      |> form("#agent-form", %{"prompt" => "What is the capital of France?"})
+      |> render_submit()
+
+      _html = render_async(view, @runtime_async_timeout)
+
+      assert has_element?(view, "#agent-response")
+      assert has_element?(view, "#workspace-model-repair-cta")
+    end
+
+    test "v1.2: optional onboarding pull refreshes disclosure in the same LiveView",
+         %{conn: conn} do
+      isolate_empty_provider_vault!()
+      saved_override = Application.get_env(:allbert_assist, :first_model_state_override)
+      saved_puller = Application.get_env(:allbert_assist, :first_model_pull)
+      saved_post_pull = Application.get_env(:allbert_assist, :first_model_post_pull_enablement)
+
+      on_exit(fn ->
+        restore_app_env(:first_model_state_override, saved_override)
+        restore_app_env(:first_model_pull, saved_puller)
+        restore_app_env(:first_model_post_pull_enablement, saved_post_pull)
+      end)
+
+      FirstRun.reset_onboarding()
+
+      FirstRun.merge_marker(%{
+        "wizard_started" => true,
+        "wizard_direct_entry" => true,
+        "wizard_step" => "model_path"
+      })
+
+      Application.put_env(:allbert_assist, :first_model_state_override, :model_missing)
+      Application.delete_env(:allbert_assist, :first_model_post_pull_enablement)
+
+      Application.put_env(:allbert_assist, :first_model_pull, fn _model ->
+        {:ok, %{status: "success"}, []}
+      end)
+
+      {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:onboard")
+      live_view_pid = view.pid
+      assert has_element?(view, "#workspace-model-pull")
+
+      view |> element("#workspace-model-pull") |> render_click()
+      _html = render_async(view, @runtime_async_timeout)
+
+      assert eventually(fn ->
+               Settings.get("intent.direct_answer_model_enabled") == {:ok, true} and
+                 has_element?(view, "#workspace-model-disclosure")
+             end)
+
+      assert render(view) =~ "Pulled"
+      assert view.pid == live_view_pid
+      assert Process.alive?(live_view_pid)
     end
 
     test "v1.0 R11: an explicit go-signal appears once first chat is ready", %{conn: conn} do
@@ -464,6 +552,121 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
       send(puller_pid, :release_pull)
       _html = render_async(view, @runtime_async_timeout)
     end
+
+    test "v1.2: repair pull enables a model-backed answer in the same browser session",
+         %{conn: conn} do
+      isolate_empty_provider_vault!()
+      saved_override = Application.get_env(:allbert_assist, :first_model_state_override)
+      saved_puller = Application.get_env(:allbert_assist, :first_model_pull)
+      saved_post_pull = Application.get_env(:allbert_assist, :first_model_post_pull_enablement)
+      saved_runtime = Application.get_env(:allbert_assist, Runtime)
+
+      on_exit(fn ->
+        restore_app_env(:first_model_state_override, saved_override)
+        restore_app_env(:first_model_pull, saved_puller)
+        restore_app_env(:first_model_post_pull_enablement, saved_post_pull)
+        restore_app_env(Runtime, saved_runtime)
+      end)
+
+      FirstRun.reset_onboarding()
+      Application.put_env(:allbert_assist, :first_model_state_override, :runtime_missing)
+      Application.delete_env(:allbert_assist, :first_model_post_pull_enablement)
+
+      Application.put_env(:allbert_assist, :first_model_pull, fn _model ->
+        {:ok, %{status: "success"}, []}
+      end)
+
+      Application.put_env(:allbert_assist, Runtime,
+        agent_runner: fn _signal, _request ->
+          answer =
+            if Settings.get("intent.direct_answer_model_enabled") == {:ok, true} do
+              "Paris — model-backed answer"
+            else
+              "Model answers are unavailable; deterministic fallback remains available."
+            end
+
+          {:ok,
+           %{
+             message: answer,
+             model_payload: answer,
+             surface_payload: answer,
+             status: :completed,
+             actions: []
+           }}
+        end
+      )
+
+      {:ok, view, _html} = live(conn, ~p"/workspace")
+      live_view_pid = view.pid
+
+      assert has_element?(
+               view,
+               "#workspace-model-repair-cta[data-primary-cta='install_runtime']"
+             )
+
+      view
+      |> form("#agent-form", %{"prompt" => "What is the capital of France?"})
+      |> render_submit()
+
+      first_html = render_async(view, @runtime_async_timeout)
+      assert first_html =~ "deterministic fallback remains available"
+      assert has_element?(view, "#workspace-model-repair-primary")
+
+      # The runtime has now been started externally. Following the one repair
+      # destination re-probes the open Models panel and exposes the explicit pull.
+      Application.put_env(:allbert_assist, :first_model_state_override, :model_missing)
+      view |> element("#workspace-model-repair-primary") |> render_click()
+      assert has_element?(view, "#workspace-models-pull-model")
+
+      view |> element("#workspace-models-pull-model") |> render_click()
+      _html = render_async(view, @runtime_async_timeout)
+
+      assert eventually(fn ->
+               Settings.get("intent.direct_answer_model_enabled") == {:ok, true}
+             end)
+
+      assert eventually(fn ->
+               not has_element?(view, "#workspace-model-repair-cta") and
+                 has_element?(view, "#workspace-model-disclosure")
+             end)
+
+      view
+      |> form("#agent-form", %{"prompt" => "What is the capital of France?"})
+      |> render_submit()
+
+      repaired_html = render_async(view, @runtime_async_timeout)
+      assert repaired_html =~ "Paris — model-backed answer"
+      assert view.pid == live_view_pid
+      assert Process.alive?(live_view_pid)
+    end
+  end
+
+  defp restore_app_env(key, nil), do: Application.delete_env(:allbert_assist, key)
+  defp restore_app_env(key, value), do: Application.put_env(:allbert_assist, key, value)
+
+  defp restore_system_env(key, nil), do: System.delete_env(key)
+  defp restore_system_env(key, value), do: System.put_env(key, value)
+
+  defp isolate_empty_provider_vault! do
+    provider_env_keys =
+      ~w(ANTHROPIC_API_KEY OPENAI_API_KEY OPENROUTER_API_KEY GOOGLE_API_KEY GEMINI_API_KEY)
+
+    saved_provider_env = Map.new(provider_env_keys, &{&1, System.get_env(&1)})
+    saved_backend = System.get_env("ALLBERT_VAULT_BACKEND")
+
+    Enum.each(provider_env_keys, &System.delete_env/1)
+    System.put_env("ALLBERT_VAULT_BACKEND", "env")
+
+    on_exit(fn ->
+      Enum.each(saved_provider_env, fn
+        {key, nil} -> System.delete_env(key)
+        {key, value} -> System.put_env(key, value)
+      end)
+
+      if saved_backend,
+        do: System.put_env("ALLBERT_VAULT_BACKEND", saved_backend),
+        else: System.delete_env("ALLBERT_VAULT_BACKEND")
+    end)
   end
 
   defp eventually(fun, attempts \\ 50) do

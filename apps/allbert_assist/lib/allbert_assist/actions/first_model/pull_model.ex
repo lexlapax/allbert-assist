@@ -31,14 +31,19 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
       status: [type: :atom, required: true],
       permission_decision: [type: :map, required: true],
       actions: [type: {:list, :map}, required: true],
-      progress: [type: {:list, :map}, required: false]
+      progress: [type: {:list, :map}, required: false],
+      output_data: [type: :map, required: false]
     ]
 
   alias AllbertAssist.Actions.Support.ConfirmationRequest
   alias AllbertAssist.FirstModel.Ollama
+  alias AllbertAssist.FirstRun.Enablement
+  alias AllbertAssist.FirstRun.UsableModel
   alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Settings.Store
   alias AllbertAssist.Signals
 
+  @post_pull_enablement_key :first_model_post_pull_enablement
   @req_options_key :first_model_req_options
   @progress_private_key :allbert_first_model_pull_progress
 
@@ -111,17 +116,21 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
   defp pull(model, permission_decision, progress_context) do
     case do_pull(model, progress_context) do
       {:ok, summary, progress} ->
+        {message, output_data} = post_pull_enablement(model)
+
         {:ok,
          %{
-           message: "Pulled #{model}.",
+           message: message,
            status: :completed,
            permission_decision: permission_decision,
            progress: progress,
+           output_data: output_data,
            actions: [
              action(:completed, permission_decision, %{
                model: model,
                executed: true,
-               summary: summary
+               summary: summary,
+               enablement: Map.get(output_data, :enablement)
              })
            ]
          }}
@@ -134,6 +143,75 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
            permission_decision: permission_decision,
            actions: [action(:error, permission_decision, %{model: model, error: inspect(reason)})]
          }}
+    end
+  end
+
+  # A completed pull is an explicit provisioning event, so it immediately
+  # re-enters the existing detection-based enablement engine. The successful
+  # local pull is the bounded readiness evidence: select only a configured
+  # local profile for that exact tag and do not issue a second network probe.
+  defp post_pull_enablement(model) do
+    runner =
+      Application.get_env(
+        :allbert_assist,
+        @post_pull_enablement_key,
+        &default_post_pull_enablement/1
+      )
+
+    case runner.(model) do
+      {:ok, result} when is_map(result) ->
+        message = post_pull_message(model, result)
+
+        {message,
+         %{pulled_model: model, enablement: result, enablement_operator_message: message}}
+
+      {:error, reason} ->
+        message = "Pulled #{model}, but model answers could not be enabled: #{inspect(reason)}"
+
+        {message,
+         %{
+           pulled_model: model,
+           enablement_error: inspect(reason),
+           enablement_operator_message: message
+         }}
+
+      other ->
+        message = "Pulled #{model}, but model answers could not be enabled: #{inspect(other)}"
+
+        {message,
+         %{
+           pulled_model: model,
+           enablement_error: inspect(other),
+           enablement_operator_message: message
+         }}
+    end
+  end
+
+  defp post_pull_message(model, %{state: :sticky_disabled}),
+    do: "Pulled #{model}. Model answers remain disabled by your saved setting."
+
+  defp post_pull_message(model, %{state: :auto_enabled, selection: %{} = _selection}),
+    do: "Pulled #{model}. Model answers are ready."
+
+  defp post_pull_message(model, %{state: :enabled_unavailable}),
+    do:
+      "Pulled #{model}, but your saved model selection remains unavailable. Choose a ready profile in Models."
+
+  defp post_pull_message(model, _result),
+    do: "Pulled #{model}, but model answers are not ready. Review the Models panel."
+
+  defp default_post_pull_enablement(model) do
+    with {:ok, settings, _user_settings} <- Store.resolved_settings(),
+         {:ok, selection} <-
+           UsableModel.select_local(settings,
+             doctor: fn _profile -> {:error, :post_pull_probe_not_required} end,
+             tags: [model],
+             curated_model: model
+           ) do
+      Enablement.reconcile(:local_ready,
+        local_selection: selection,
+        context: %{trigger: :model_pull}
+      )
     end
   end
 

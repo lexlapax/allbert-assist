@@ -9,7 +9,7 @@ defmodule AllbertAssist.FirstRun.UsableModel do
 
   alias AllbertAssist.FirstModel.Ollama
   alias AllbertAssist.Settings.ModelDoctor
-  alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.Settings.ProviderEligibility
   alias AllbertAssist.Settings.Store
 
   @hosted_provider_order ~w(openai anthropic google openrouter)
@@ -23,10 +23,10 @@ defmodule AllbertAssist.FirstRun.UsableModel do
 
   @spec select(keyword()) :: {:ok, selection()} | {:error, :no_usable_model}
   def select(opts \\ []) do
-    with {:ok, settings, _user_settings} <- resolved_settings(opts) do
+    with {:ok, settings, user_settings} <- resolved_settings(opts) do
       case select_local(settings, opts) do
         {:ok, selection} -> {:ok, selection}
-        {:error, :no_usable_model} -> select_hosted(settings)
+        {:error, :no_usable_model} -> select_hosted(settings, user_settings)
       end
     else
       _error -> {:error, :no_usable_model}
@@ -52,12 +52,21 @@ defmodule AllbertAssist.FirstRun.UsableModel do
     end
   end
 
-  @spec select_hosted(map()) :: {:ok, selection()} | {:error, :no_usable_model}
-  def select_hosted(settings) when is_map(settings) do
-    settings
-    |> ordered_profile_names()
-    |> Enum.map(&{&1, get_in(settings, ["model_profiles", &1])})
-    |> Enum.filter(fn {_name, attrs} -> hosted_profile?(attrs, settings) end)
+  @spec select_hosted(map(), map()) :: {:ok, selection()} | {:error, :no_usable_model}
+  def select_hosted(settings, user_settings \\ %{})
+      when is_map(settings) and is_map(user_settings) do
+    profiles = hosted_text_profiles(settings)
+
+    eligible_providers =
+      profiles
+      |> Enum.map(fn {_name, attrs} -> attrs["provider"] end)
+      |> Enum.uniq()
+      |> Map.new(fn provider_name ->
+        {provider_name, hosted_provider_eligible?(provider_name, settings, user_settings)}
+      end)
+
+    profiles
+    |> Enum.filter(fn {_name, attrs} -> Map.get(eligible_providers, attrs["provider"], false) end)
     |> Enum.sort_by(fn {name, attrs} -> hosted_sort_key(name, attrs, settings) end)
     |> List.first()
     |> case do
@@ -110,24 +119,31 @@ defmodule AllbertAssist.FirstRun.UsableModel do
 
   defp local_profile?(_attrs, _settings), do: false
 
-  defp hosted_profile?(attrs, settings) when is_map(attrs) do
-    case get_in(settings, ["providers", attrs["provider"]]) do
-      %{"enabled" => true, "endpoint_kind" => "credentialed_remote"} = provider ->
-        provider_configured?(provider) and text_profile?(attrs)
+  defp hosted_text_profiles(settings) do
+    settings
+    |> ordered_profile_names()
+    |> Enum.map(&{&1, get_in(settings, ["model_profiles", &1])})
+    |> Enum.filter(fn {_name, attrs} ->
+      is_map(attrs) and text_profile?(attrs) and hosted_endpoint?(attrs, settings)
+    end)
+  end
+
+  defp hosted_endpoint?(attrs, settings) do
+    match?(
+      %{"endpoint_kind" => "credentialed_remote"},
+      get_in(settings, ["providers", attrs["provider"]])
+    )
+  end
+
+  defp hosted_provider_eligible?(provider_name, settings, user_settings) do
+    case get_in(settings, ["providers", provider_name]) do
+      %{"endpoint_kind" => "credentialed_remote"} = provider ->
+        ProviderEligibility.hosted_eligible?(provider_name, provider, user_settings)
 
       _other ->
         false
     end
   end
-
-  defp hosted_profile?(_attrs, _settings), do: false
-
-  defp provider_configured?(%{"credential_status" => :configured}), do: true
-
-  defp provider_configured?(%{"api_key_ref" => ref}) when is_binary(ref),
-    do: Secrets.status(ref) == :configured
-
-  defp provider_configured?(_provider), do: false
 
   defp text_profile?(%{"capabilities" => capabilities}) when is_list(capabilities),
     do: "text_generation" in capabilities
@@ -163,9 +179,10 @@ defmodule AllbertAssist.FirstRun.UsableModel do
   end
 
   defp resolved_settings(opts) do
-    case Keyword.fetch(opts, :settings) do
-      {:ok, settings} -> {:ok, settings, %{}}
-      :error -> Store.resolved_settings()
+    case {Keyword.fetch(opts, :settings), Keyword.fetch(opts, :user_settings)} do
+      {{:ok, settings}, {:ok, user_settings}} -> {:ok, settings, user_settings}
+      {{:ok, settings}, :error} -> {:ok, settings, %{}}
+      _other -> Store.resolved_settings()
     end
   end
 end

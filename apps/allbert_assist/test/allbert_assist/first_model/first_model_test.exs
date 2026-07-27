@@ -20,7 +20,21 @@ defmodule AllbertAssist.FirstModelTest do
   setup do
     original_req_options = Application.get_env(:allbert_assist, :first_model_req_options)
     original_pull = Application.get_env(:allbert_assist, :first_model_pull)
+
+    original_post_pull =
+      Application.get_env(:allbert_assist, :first_model_post_pull_enablement)
+
     original_host = System.get_env("OLLAMA_HOST")
+
+    Application.put_env(:allbert_assist, :first_model_post_pull_enablement, fn _model ->
+      {:ok,
+       %{
+         state: :auto_enabled,
+         model_state: :local_ready,
+         selection: nil,
+         provenance: nil
+       }}
+    end)
 
     on_exit(fn ->
       if original_req_options,
@@ -30,6 +44,15 @@ defmodule AllbertAssist.FirstModelTest do
       if original_pull,
         do: Application.put_env(:allbert_assist, :first_model_pull, original_pull),
         else: Application.delete_env(:allbert_assist, :first_model_pull)
+
+      if original_post_pull,
+        do:
+          Application.put_env(
+            :allbert_assist,
+            :first_model_post_pull_enablement,
+            original_post_pull
+          ),
+        else: Application.delete_env(:allbert_assist, :first_model_post_pull_enablement)
 
       if original_host,
         do: System.put_env("OLLAMA_HOST", original_host),
@@ -254,6 +277,132 @@ defmodule AllbertAssist.FirstModelTest do
                PullModel.run(%{}, %{confirmation: %{approved?: true}})
 
       assert summary.status == "success"
+    end
+
+    test "a completed pull event enables its exact configured local profile" do
+      root =
+        Path.join(
+          System.tmp_dir!(),
+          "allbert-post-pull-enable-#{System.pid()}-#{System.unique_integer([:positive])}"
+        )
+
+      saved_paths = Application.get_env(:allbert_assist, AllbertAssist.Paths)
+      saved_settings = Application.get_env(:allbert_assist, AllbertAssist.Settings)
+      saved_runner = Application.get_env(:allbert_assist, :first_model_post_pull_enablement)
+
+      Application.put_env(:allbert_assist, AllbertAssist.Paths, home: root)
+
+      Application.put_env(:allbert_assist, AllbertAssist.Settings,
+        root: Path.join(root, "settings")
+      )
+
+      Application.delete_env(:allbert_assist, :first_model_post_pull_enablement)
+
+      Application.put_env(:allbert_assist, :first_model_pull, fn _model ->
+        {:ok, %{status: "success"}, []}
+      end)
+
+      on_exit(fn ->
+        if saved_paths,
+          do: Application.put_env(:allbert_assist, AllbertAssist.Paths, saved_paths),
+          else: Application.delete_env(:allbert_assist, AllbertAssist.Paths)
+
+        if saved_settings,
+          do: Application.put_env(:allbert_assist, AllbertAssist.Settings, saved_settings),
+          else: Application.delete_env(:allbert_assist, AllbertAssist.Settings)
+
+        if saved_runner,
+          do:
+            Application.put_env(
+              :allbert_assist,
+              :first_model_post_pull_enablement,
+              saved_runner
+            ),
+          else: Application.delete_env(:allbert_assist, :first_model_post_pull_enablement)
+
+        File.rm_rf!(root)
+      end)
+
+      assert {:ok, response} =
+               PullModel.run(%{}, %{confirmation: %{approved?: true}, actor: "local"})
+
+      assert response.status == :completed
+      assert response.output_data.pulled_model == Ollama.curated_model()
+      assert response.output_data.enablement.state == :auto_enabled
+      assert response.output_data.enablement.selection.profile == "local"
+      assert AllbertAssist.Settings.get("intent.direct_answer_model_enabled") == {:ok, true}
+      assert AllbertAssist.Settings.get("model_preferences.primary") == {:ok, "local"}
+      assert AllbertAssist.FirstRun.Disclosure.pending?(:web)
+    end
+
+    test "a completed pull preserves and discloses an eligible raw hosted primary" do
+      root =
+        Path.join(
+          System.tmp_dir!(),
+          "allbert-post-pull-hosted-primary-#{System.pid()}-#{System.unique_integer([:positive])}"
+        )
+
+      saved_paths = Application.get_env(:allbert_assist, AllbertAssist.Paths)
+      saved_settings = Application.get_env(:allbert_assist, AllbertAssist.Settings)
+      saved_runner = Application.get_env(:allbert_assist, :first_model_post_pull_enablement)
+      saved_backend = System.get_env("ALLBERT_VAULT_BACKEND")
+      saved_openai = System.get_env("OPENAI_API_KEY")
+
+      Application.put_env(:allbert_assist, AllbertAssist.Paths, home: root)
+
+      Application.put_env(:allbert_assist, AllbertAssist.Settings,
+        root: Path.join(root, "settings")
+      )
+
+      Application.delete_env(:allbert_assist, :first_model_post_pull_enablement)
+      Application.put_env(:allbert_assist, :first_model_pull, fn _model -> {:ok, %{}, []} end)
+      System.put_env("ALLBERT_VAULT_BACKEND", "env")
+      System.put_env("OPENAI_API_KEY", "operator-env-key")
+
+      on_exit(fn ->
+        if saved_paths,
+          do: Application.put_env(:allbert_assist, AllbertAssist.Paths, saved_paths),
+          else: Application.delete_env(:allbert_assist, AllbertAssist.Paths)
+
+        if saved_settings,
+          do: Application.put_env(:allbert_assist, AllbertAssist.Settings, saved_settings),
+          else: Application.delete_env(:allbert_assist, AllbertAssist.Settings)
+
+        if saved_runner,
+          do:
+            Application.put_env(
+              :allbert_assist,
+              :first_model_post_pull_enablement,
+              saved_runner
+            ),
+          else: Application.delete_env(:allbert_assist, :first_model_post_pull_enablement)
+
+        if saved_backend,
+          do: System.put_env("ALLBERT_VAULT_BACKEND", saved_backend),
+          else: System.delete_env("ALLBERT_VAULT_BACKEND")
+
+        if saved_openai,
+          do: System.put_env("OPENAI_API_KEY", saved_openai),
+          else: System.delete_env("OPENAI_API_KEY")
+
+        File.rm_rf!(root)
+      end)
+
+      assert {:ok, _settings} =
+               AllbertAssist.Settings.Store.write_user_settings(%{
+                 "model_preferences" => %{"primary" => "fast"}
+               })
+
+      assert {:ok, response} =
+               PullModel.run(%{}, %{confirmation: %{approved?: true}, actor: "local"})
+
+      assert response.status == :completed
+      assert response.output_data.enablement.state == :auto_enabled
+      assert response.output_data.enablement.selection.profile == "fast"
+      assert response.output_data.enablement.selection.provider_class == :hosted
+      assert AllbertAssist.Settings.get("model_preferences.primary") == {:ok, "fast"}
+      assert AllbertAssist.FirstRun.Disclosure.hosted_pending?(:web)
+      assert AllbertAssist.FirstRun.Disclosure.text(:web) =~ "will leave this device"
     end
 
     test "approved pull streams bounded progress signals to the workspace topic" do

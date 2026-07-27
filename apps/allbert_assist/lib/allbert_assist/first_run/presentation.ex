@@ -37,6 +37,7 @@ defmodule AllbertAssist.FirstRun.Presentation do
   defp unavailable_cta(:runtime_unhealthy), do: :repair_runtime
   defp unavailable_cta(:model_missing), do: :pull_curated_model
   defp unavailable_cta(:below_hardware_floor), do: :configure_hosted_provider
+  defp unavailable_cta(:local_ready), do: :select_model
   defp unavailable_cta(_model_state), do: :install_runtime
 
   defp message(:auto_enabled, _model_state, _surface), do: "Model answers are ready."

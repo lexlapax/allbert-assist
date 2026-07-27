@@ -47,6 +47,20 @@ defmodule AllbertAssist.FirstRun.UsableModelTest do
     assert {:ok, %{provider: "openai"}} = UsableModel.select_hosted(settings)
   end
 
+  test "raw explicit provider false blocks a configured hosted profile" do
+    settings =
+      settings()
+      |> put_in(["model_preferences", "primary"], "fast")
+      |> put_in(["model_preferences", "tasks", "direct_answer"], ["fast"])
+      |> Map.update!("providers", &Map.take(&1, ["openai"]))
+      |> Map.update!("model_profiles", &Map.take(&1, ["fast"]))
+
+    user_settings = %{"providers" => %{"openai" => %{"enabled" => false}}}
+
+    assert {:error, :no_usable_model} =
+             UsableModel.select_hosted(settings, user_settings)
+  end
+
   defp settings do
     %{
       "model_preferences" => %{
@@ -74,7 +88,7 @@ defmodule AllbertAssist.FirstRun.UsableModelTest do
 
   defp hosted_provider(type) do
     %{
-      "enabled" => true,
+      "enabled" => false,
       "endpoint_kind" => "credentialed_remote",
       "credential_status" => :configured,
       "type" => type

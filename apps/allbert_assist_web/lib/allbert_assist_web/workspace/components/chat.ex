@@ -5,13 +5,13 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
 
   use AllbertAssistWeb, :live_component
 
-  alias AllbertAssist.CLI.FirstRun
   alias AllbertAssistWeb.Workspace.Components.Patterns
 
   @impl true
   def update(assigns, socket) do
     state = Map.get(assigns, :workspace_state, %{})
     context = Map.get(assigns, :renderer_context, %{})
+    first_run_presentation = Map.get(context, :first_run_presentation)
 
     {:ok,
      socket
@@ -45,7 +45,9 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
        # into the chat header.
        active_app: Map.get(context, :active_app, :allbert),
        thread_id: Map.get(context, :thread_id),
-       workspace_badges: Map.get(context, :workspace_badges, [])
+       workspace_badges: Map.get(context, :workspace_badges, []),
+       first_run_presentation: first_run_presentation,
+       first_run_primary_cta: first_run_primary_cta(first_run_presentation)
      )}
   end
 
@@ -165,6 +167,34 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
           <span>{@thread_notice}</span>
         </Patterns.status_callout>
       <% end %>
+
+      <Patterns.status_callout
+        :if={@first_run_primary_cta}
+        id="workspace-model-repair-cta"
+        title="Model setup"
+        message={first_run_message(@first_run_presentation)}
+        tone="warning"
+        data-primary-cta={Atom.to_string(@first_run_primary_cta)}
+      >
+        <:action>
+          <.link
+            id="workspace-model-repair-primary"
+            patch={first_run_cta_path(@thread_id, @first_run_primary_cta)}
+            class={Patterns.button_class!("primary")}
+            data-model-repair-action={Atom.to_string(@first_run_primary_cta)}
+          >
+            {first_run_cta_label(@first_run_primary_cta)}
+          </.link>
+          <.link
+            :if={@first_run_primary_cta != :configure_hosted_provider}
+            id="workspace-onboarding-optional"
+            patch={workspace_destination_path(@thread_id, "workspace:onboard")}
+            class={Patterns.button_class!("secondary")}
+          >
+            Customize setup
+          </.link>
+        </:action>
+      </Patterns.status_callout>
 
       <section
         :if={unified_history_messages(@unified_history) != []}
@@ -732,17 +762,12 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
   defp prompt_present?(prompt) when is_binary(prompt), do: String.trim(prompt) != ""
   defp prompt_present?(_prompt), do: false
 
-  # v0.61 M10.3 P1 — shaped by the First-Model Path (ADR 0078): the empty-handed
-  # first-run operator is led to set up a first model (local first, BYOK alternative)
-  # before anything else. Each affordance renders a read-only registered-action DTO and
-  # navigates to a real read surface — view-only (navigation is not authority).
-  # v1.0 M7.4 (R12): until onboarding completes there is exactly ONE first-run entry
-  # point — the guided-setup wizard. The v0.61 first-model shortcut competed with
-  # QuickStart on first run; it returns once onboarding is done, when it serves model
-  # maintenance rather than first-run setup.
+  # v1.2: FirstRun.Presentation projects model repair independently of wizard
+  # completion, so exactly one primary repair action survives both the empty
+  # hero and later fallback responses. These remain navigation-only links;
+  # onboarding is the optional customization path in the repair callout.
   defp suggested_action_dtos do
     [
-      first_run_suggested_action_dto(),
       %{
         id: "ask",
         label: "Ask a first question",
@@ -773,30 +798,24 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
     ]
   end
 
-  defp first_run_suggested_action_dto do
-    if FirstRun.read_marker()["onboarding_complete"] == true do
-      %{
-        id: "first-model",
-        label: "Set up your first model",
-        copy: "Local first, or bring your own provider key — checks model readiness.",
-        action_name: "model_doctor",
-        permission: "read_only",
-        execution_mode: "read_only",
-        navigate: "/workspace?destination=workspace:models"
-      }
-    else
-      %{
-        id: "guided-setup",
-        label: "Start guided setup",
-        copy:
-          "QuickStart downloads a local model and gets you to a safe first chat — no keys needed.",
-        action_name: "first_model_detect",
-        permission: "read_only",
-        execution_mode: "settings_read",
-        navigate: "/workspace?destination=workspace:onboard"
-      }
-    end
-  end
+  defp first_run_primary_cta(%{primary_ctas: [cta]}) when is_atom(cta), do: cta
+  defp first_run_primary_cta(_presentation), do: nil
+
+  defp first_run_message(%{message: message}) when is_binary(message), do: message
+  defp first_run_message(_presentation), do: nil
+
+  defp first_run_cta_label(:pull_curated_model), do: "Pull starter model"
+  defp first_run_cta_label(:repair_runtime), do: "Repair local runtime"
+  defp first_run_cta_label(:configure_hosted_provider), do: "Configure hosted provider"
+  defp first_run_cta_label(:install_runtime), do: "Set up a model"
+  defp first_run_cta_label(:select_model), do: "Choose a ready model"
+  defp first_run_cta_label(_cta), do: "Open Models"
+
+  defp first_run_cta_path(thread_id, :configure_hosted_provider),
+    do: workspace_destination_path(thread_id, "workspace:onboard")
+
+  defp first_run_cta_path(thread_id, _cta),
+    do: workspace_destination_path(thread_id, "workspace:models")
 
   attr :suggestion, :map, required: true
 

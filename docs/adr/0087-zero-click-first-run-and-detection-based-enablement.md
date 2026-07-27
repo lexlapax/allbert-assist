@@ -82,8 +82,8 @@ separate wizard-owned enable step is retired as a gate.
 ### 1. The detection→enablement rule
 
 On first run and on every boot while unconfigured, Allbert runs the existing
-bounded read-only detection chain and resolves the **first usable** hit in
-strict local-first order:
+bounded read-only detection chain. When `model_preferences.primary` is
+raw-absent, it resolves the **first usable** hit in strict local-first order:
 
 1. configured local provider (`model_preferences.primary` →
    `ModelDoctor.diagnose/2`, `endpoint_kind: :local_endpoint` — the v1.0.5
@@ -101,7 +101,12 @@ The write records detection provenance in the audit trail
 “Absent” means absent from the raw operator settings map, not the effective
 default-merged value. The check and conditional write execute under one
 Settings StoreLock-owned transaction; a separate read followed by a write is
-forbidden. Concurrent explicit `false` wins and remains sticky.
+forbidden. Concurrent explicit `false` wins and remains sticky. If consent
+becomes explicitly false or a different primary appears between selection and
+the Store lock, the transaction applies none of the enablement subset and the
+pending disclosure is cancelled; stale selection may never enable transport.
+A concurrent explicit `true` with the same selected route retains the pending
+marker, preferring a repeated disclosure over undisclosed hosted egress.
 
 First-run selection cannot wait for the later chooser. A minimal deterministic
 usable-local-model predicate ships with enablement and is reused by the catalog:
@@ -111,9 +116,14 @@ without guessing. Otherwise detection remains curated-tag-only. Hosted key
 presence is configured-but-unverified, not “reachable”; provider priority is
 explicit primary, task candidate order, then one stable documented order.
 
-**Local always outranks hosted.** When both are detected, the local profile
-is selected. ADR 0078's local-first posture and its rejection of a managed
-hosted default are unchanged.
+**Automatic selection is local-first; explicit selection is binding.** When
+the primary is raw-absent and both local and hosted are detected, local wins.
+A raw-explicit primary is an operator choice and must be the exact usable
+profile selected and disclosed; therefore an eligible explicit hosted primary
+may outrank a newly ready local model. If that exact explicit profile is not
+usable, enablement abstains and projects `enabled_unavailable` instead of
+selecting or disclosing a different profile. ADR 0078's rejection of a managed
+hosted default is unchanged.
 
 ### 1a. Local TUI launcher bootstrap
 
@@ -146,14 +156,15 @@ as the web surface's independent mapping; it grants no web access and creates
 no implicit cross-surface thread link.
 
 **Availability-first, local-preferred projection (final readiness decision,
-operator 2026-07-26).** A healthy local rung always wins. When a local runtime
-is detected but currently unusable (`model_missing`, `runtime_unhealthy`, or
-`below_hardware_floor`) and a hosted key is configured, detection selects the
-hosted profile so the first question still receives a model answer. The
-pre-egress disclosure remains mandatory; local pull/restart/hardware guidance
-is secondary and never blocks chat. Without a hosted key, those same states
-remain honest repair states with one primary CTA. Detection itself still
-performs no hosted probe or egress.
+operator 2026-07-26).** With no raw-explicit primary, a healthy local rung
+always wins. When a local runtime is detected but currently unusable
+(`model_missing`, `runtime_unhealthy`, or `below_hardware_floor`) and a hosted
+key is configured, detection selects the hosted profile so the first question
+still receives a model answer. A usable raw-explicit primary is the binding
+operator exception described in §1. The pre-egress disclosure remains
+mandatory; local pull/restart/hardware guidance is secondary and never blocks
+chat. Without a hosted key, those same states remain honest repair states with
+one primary CTA. Detection itself still performs no hosted probe or egress.
 
 **Stickiness is per key across the whole write set.**
 `intent.direct_answer_model_enabled` decides whether enablement runs at all;
@@ -165,6 +176,10 @@ Settings `StoreLock` is not reentrant, the compare-and-write primitive is
 multi-key by construction: one lock, one raw read, one validation, one write,
 one audit row per applied key, and one transaction provenance envelope naming
 applied and preserved keys. A validation failure writes none of the subset.
+If locked state now contains explicit consent `false` or a different primary
+than the selection being disclosed, the primitive applies none of the subset;
+the caller cancels the pending disclosure and projects `sticky_disabled` or
+`enabled_unavailable`.
 
 ### 2. What auto-enablement may and may not do
 
@@ -215,12 +230,12 @@ is open, honest about its current capability, and never a dead end**:
 
 | Detect state | Meaning | First-run behavior |
 |---|---|---|
-| `detected_ready` | local ready, or any unusable/absent local state with a hosted key present | auto-enable per §1; local wins when healthy, otherwise hosted answers; disclosure shown |
+| `detected_ready` | local ready, or any unusable/absent local state with a hosted key present | auto-enable per §1; automatic selection is local-first, while a usable raw-explicit primary is binding; disclosure names the actual route |
 | `detected_needs_model` | local runtime healthy, no usable model, no hosted key | chat opens with deterministic fallback; single primary CTA: one-click curated pull (existing progress surface); BYOK secondary |
 | `runtime_unhealthy` | local runtime reachable but failing, no hosted key | chat opens with deterministic fallback; single primary CTA: restart/repair the local runtime; BYOK secondary |
 | `nothing_detected` | no runtime, no endpoint, no key | chat opens with deterministic fallback; single primary CTA: guided install / BYOK (ADR 0078 repair paths) |
 | `below_floor` | hardware below curated floor, no hosted key | chat opens with fallback; BYOK-first guidance (ADR 0078 degrade path) |
-| `enabled_unavailable` | consent key already `true` from an earlier detection, but the provider it selected is gone | chat opens with the honest unavailable text and the repair CTA of the underlying state; the disclosure is not re-shown |
+| `enabled_unavailable` | consent key already `true` but its provider is gone, or the exact raw-explicit primary is not usable / changed before the enablement write | chat opens with honest unavailable text and a repair/selection CTA; no different profile is disclosed as ready |
 
 These are presentations of the existing six first-model states
 (`cli/first_run.ex:42-49`); no parallel state machine is introduced. The

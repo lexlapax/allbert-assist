@@ -12,7 +12,12 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
     "ALLBERT_HOME_DIR",
     "ALLBERT_SETTINGS_ROOT",
     "ALLBERT_SETTINGS_MASTER_KEY",
+    "ALLBERT_VAULT_BACKEND",
+    "ANTHROPIC_API_KEY",
     "OPENAI_API_KEY",
+    "OPENROUTER_API_KEY",
+    "GOOGLE_API_KEY",
+    "GEMINI_API_KEY",
     "OLLAMA_BASE_URL"
   ]
 
@@ -22,6 +27,7 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
 
     Enum.each(@env_vars, &System.delete_env/1)
+    System.put_env("ALLBERT_VAULT_BACKEND", "env")
     Application.delete_env(:allbert_assist, Paths)
     Application.delete_env(:allbert_assist, Settings)
 
@@ -163,6 +169,40 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
                %{reason: {:profile_missing_capability, "voice_stt_fake", "text_generation"}},
                &1
              )
+           )
+  end
+
+  test "env credential makes a raw-absent default-disabled hosted provider resolvable" do
+    System.put_env("ALLBERT_VAULT_BACKEND", "env")
+    System.put_env("OPENAI_API_KEY", "operator-env-key")
+
+    assert {:ok, false} = Settings.get("providers.openai.enabled")
+    assert {:ok, _setting} = Settings.put("model_preferences.primary", "fast", %{audit?: false})
+
+    assert {:ok, user_settings} = Settings.read_user_settings()
+    assert get_in(user_settings, ["providers", "openai", "enabled"]) == nil
+
+    assert {:ok, resolution} = Models.for(:direct_answer)
+    assert resolution.profile.name == "fast"
+    assert resolution.profile.provider == "openai"
+    assert resolution.profile.provider_enabled
+  end
+
+  test "raw explicit provider false blocks env credential during model resolution" do
+    System.put_env("ALLBERT_VAULT_BACKEND", "env")
+    System.put_env("OPENAI_API_KEY", "operator-env-key")
+
+    assert {:ok, _setting} =
+             Settings.put("providers.openai.enabled", false, %{audit?: false})
+
+    assert {:ok, _setting} = Settings.put("model_preferences.primary", "fast", %{audit?: false})
+
+    assert {:ok, resolution} = Models.for(:direct_answer)
+    assert resolution.profile.name == "local"
+
+    assert Enum.any?(
+             resolution.diagnostics,
+             &match?(%{reason: {:provider_disabled, "fast", "openai"}}, &1)
            )
   end
 
