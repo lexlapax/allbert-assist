@@ -26,6 +26,7 @@ defmodule AllbertAssist.CLI.FirstRun do
   require Logger
 
   alias AllbertAssist.FirstModel.Ollama
+  alias AllbertAssist.FirstRun.Enablement
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.ModelDoctor
@@ -47,6 +48,17 @@ defmodule AllbertAssist.CLI.FirstRun do
           | :model_missing
           | :below_hardware_floor
           | :byok_ready
+
+  @doc "Project one existing model state through detection-based enablement."
+  def enablement_state(model_state, opts \\ []) do
+    Enablement.reconcile(model_state, opts)
+  end
+
+  @doc "Run one fresh-process boot probe followed by the atomic enablement projection."
+  def reconcile_enablement(opts \\ []) do
+    model_state = Keyword.get_lazy(opts, :model_state, &first_model_state/0)
+    Enablement.reconcile_on_boot(model_state, Keyword.delete(opts, :model_state))
+  end
 
   @doc """
   Resolve the current first-run product state.

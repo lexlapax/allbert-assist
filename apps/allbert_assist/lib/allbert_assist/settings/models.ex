@@ -29,9 +29,9 @@ defmodule AllbertAssist.Settings.Models do
   @spec unquote(:for)(atom() | String.t() | {:task | :capability, atom() | String.t()}, map()) ::
           {:ok, resolution()} | {:error, term()}
   def unquote(:for)(request, context \\ %{}) do
-    with {:ok, settings, _user_settings} <- Store.resolved_settings(),
+    with {:ok, settings, user_settings} <- Store.resolved_settings(),
          {:ok, request_kind, request_name, capability} <- normalize_request(request, settings) do
-      resolve(request_kind, request_name, capability, settings, context)
+      resolve(request_kind, request_name, capability, settings, user_settings, context)
     end
   end
 
@@ -48,9 +48,9 @@ defmodule AllbertAssist.Settings.Models do
         ) ::
           {:ok, [resolution()]} | {:error, term()}
   def candidates_for(request, context \\ %{}) do
-    with {:ok, settings, _user_settings} <- Store.resolved_settings(),
+    with {:ok, settings, user_settings} <- Store.resolved_settings(),
          {:ok, request_kind, request_name, capability} <- normalize_request(request, settings) do
-      resolve_candidates(request_kind, request_name, capability, settings, context)
+      resolve_candidates(request_kind, request_name, capability, settings, user_settings, context)
     end
   end
 
@@ -97,12 +97,18 @@ defmodule AllbertAssist.Settings.Models do
     end
   end
 
-  defp resolve(request_kind, request_name, capability, settings, _context) do
+  defp resolve(request_kind, request_name, capability, settings, user_settings, _context) do
     preference_profiles = preference_profiles(settings, request_kind, request_name)
     primary = Settings.Schema.get_dotted(settings, "model_preferences.primary")
 
     candidates =
-      preference_candidates(preference_profiles) ++ primary_fallback(preference_profiles, primary)
+      ranked_candidates(
+        request_kind,
+        request_name,
+        preference_profiles,
+        primary,
+        explicit_primary?(user_settings)
+      )
 
     case first_capable_profile(candidates, capability, settings) do
       {:ok, profile, source, diagnostics} ->
@@ -140,6 +146,21 @@ defmodule AllbertAssist.Settings.Models do
 
   defp preference_candidates(profiles), do: Enum.map(profiles, &{&1, :preference})
 
+  # Detection records the selected first-answer profile as primary. Honor it
+  # before legacy direct-answer defaults so a selected hosted profile is not
+  # shadowed by the default local candidate.
+  defp ranked_candidates(:task, "direct_answer", preferences, primary, true) do
+    primary_fallback([], primary) ++ preference_candidates(preferences)
+  end
+
+  defp ranked_candidates(_kind, _name, preferences, primary, _explicit_primary?) do
+    preference_candidates(preferences) ++ primary_fallback(preferences, primary)
+  end
+
+  defp explicit_primary?(user_settings) do
+    Settings.Schema.get_dotted(user_settings, "model_preferences.primary") not in [nil, ""]
+  end
+
   defp primary_fallback(candidates, primary) when is_binary(primary) and primary != "" do
     if primary in candidates, do: [], else: [{primary, :primary}]
   end
@@ -164,12 +185,25 @@ defmodule AllbertAssist.Settings.Models do
     end
   end
 
-  defp resolve_candidates(request_kind, request_name, capability, settings, _context) do
+  defp resolve_candidates(
+         request_kind,
+         request_name,
+         capability,
+         settings,
+         user_settings,
+         _context
+       ) do
     preference_profiles = preference_profiles(settings, request_kind, request_name)
     primary = Settings.Schema.get_dotted(settings, "model_preferences.primary")
 
     candidates =
-      preference_candidates(preference_profiles) ++ primary_fallback(preference_profiles, primary)
+      ranked_candidates(
+        request_kind,
+        request_name,
+        preference_profiles,
+        primary,
+        explicit_primary?(user_settings)
+      )
 
     candidates
     |> Enum.uniq_by(&elem(&1, 0))

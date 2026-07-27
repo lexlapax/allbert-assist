@@ -1,6 +1,7 @@
 import Config
 
 config :allbert_assist, AllbertAssist.Channels.NotifyConsumer, enabled?: false
+config :allbert_assist, :first_run_enablement_boot?, false
 
 env_value = fn name ->
   case System.get_env(name) do

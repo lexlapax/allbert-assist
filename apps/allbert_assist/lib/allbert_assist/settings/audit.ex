@@ -88,12 +88,24 @@ defmodule AllbertAssist.Settings.Audit do
     - actor: #{context_value(context, :actor, "local")}
     - channel: #{context_value(context, :channel, "unknown")}
     - source_signal_id: #{context_value(context, :source_signal_id, "none")}
+    #{provenance_lines(context)}
     - permission: #{permission_text(entry.permission)}
     - validation: #{entry.validation}
     - old: #{value_text(entry.old)}
     - new: #{value_text(entry.new)}
     - audit_version: 1
     """
+  end
+
+  defp provenance_lines(context) do
+    [
+      {:enabled_by, context_value(context, :enabled_by, nil)},
+      {:profile, context_value(context, :profile, nil)},
+      {:provider, context_value(context, :provider, nil)},
+      {:provider_class, context_value(context, :provider_class, nil)}
+    ]
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Enum.map_join("\n", fn {key, value} -> "- #{key}: #{value_text(value)}" end)
   end
 
   defp context_value(context, key, default) do

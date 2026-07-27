@@ -5,6 +5,7 @@ defmodule AllbertAssist.Application do
 
   use Application
 
+  alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.Database
   alias AllbertAssist.Personas
   alias AllbertAssist.Runtime.Attach
@@ -37,6 +38,7 @@ defmodule AllbertAssist.Application do
         {Registry, keys: :unique, name: AllbertAssist.Execution.ProcessRegistry},
         AllbertAssist.Execution.ProcessOwners,
         AllbertAssist.Settings.Supervisor,
+        first_run_enablement_child(),
         notify_consumer_child(),
         AllbertAssist.Artifacts.GC,
         AllbertAssist.PublicProtocol.RateLimiter,
@@ -71,6 +73,16 @@ defmodule AllbertAssist.Application do
   defp notify_consumer_child do
     opts = Application.get_env(:allbert_assist, AllbertAssist.Channels.NotifyConsumer, [])
     if Keyword.get(opts, :enabled?, true), do: {AllbertAssist.Channels.NotifyConsumer, opts}
+  end
+
+  defp first_run_enablement_child do
+    if Application.get_env(:allbert_assist, :first_run_enablement_boot?, true) do
+      Supervisor.child_spec(
+        {Task, fn -> FirstRun.reconcile_enablement() end},
+        id: AllbertAssist.FirstRun.Enablement.BootTask,
+        restart: :temporary
+      )
+    end
   end
 
   defp maybe_add_attach_server(children) do
