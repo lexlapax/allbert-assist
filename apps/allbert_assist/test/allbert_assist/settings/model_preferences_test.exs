@@ -140,7 +140,7 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
     assert Keyword.fetch!(opts, :api_key) == "ollama"
   end
 
-  test "resolver skips disabled providers and incapable profiles before falling back" do
+  test "direct-answer resolver orders local profiles before hosted profiles" do
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.tasks.direct_answer",
@@ -152,9 +152,9 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
 
     assert resolution.profile.name == "local"
 
-    assert Enum.any?(
+    refute Enum.any?(
              resolution.diagnostics,
-             &match?(%{reason: {:provider_disabled, "fast", "openai"}}, &1)
+             &match?(%{profile: "fast"}, &1)
            )
 
     assert Enum.any?(

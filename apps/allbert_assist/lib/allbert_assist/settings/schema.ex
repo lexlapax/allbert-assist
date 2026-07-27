@@ -84,6 +84,9 @@ defmodule AllbertAssist.Settings.Schema do
     "model_preferences.capabilities.*",
     "first_model.curated_model",
     "first_model.curated_floor_gb",
+    "models.fallback.enabled",
+    "models.fallback.allow_local_to_hosted",
+    "models.fallback.max_failovers_per_turn",
     "coding.workspace.cwd_jail",
     "coding.read.default_limit",
     "coding.read.max_bytes",
@@ -970,6 +973,34 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       min: 1,
       max: 512
+    },
+    "models.catalog.version" => %{
+      type: :bounded_integer,
+      default: 1,
+      writable?: false,
+      sensitive?: false,
+      min: 1,
+      max: 1
+    },
+    "models.fallback.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "models.fallback.allow_local_to_hosted" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "models.fallback.max_failovers_per_turn" => %{
+      type: :bounded_integer,
+      default: 1,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 2
     },
     "active_memory.enabled" => %{
       type: :boolean,
@@ -3667,6 +3698,14 @@ defmodule AllbertAssist.Settings.Schema do
     "first_model" => %{
       "curated_model" => "llama3.2:3b",
       "curated_floor_gb" => 8
+    },
+    "models" => %{
+      "catalog" => %{"version" => 1},
+      "fallback" => %{
+        "enabled" => false,
+        "allow_local_to_hosted" => false,
+        "max_failovers_per_turn" => 1
+      }
     },
     "model_preferences" => %{
       "schema_version" => 1,

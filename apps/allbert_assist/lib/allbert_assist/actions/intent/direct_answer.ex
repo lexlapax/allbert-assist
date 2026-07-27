@@ -29,6 +29,8 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   alias AllbertAssist.Coding.StreamingTurn
   alias AllbertAssist.Maps
   alias AllbertAssist.Memory.ActiveMemory
+  alias AllbertAssist.Models.Failure
+  alias AllbertAssist.Models.FallbackAudit
   alias AllbertAssist.Resources.{ImageBounds, ImageMetadata}
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime.SafeTerm
@@ -101,29 +103,156 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   end
 
   defp text_model_answer(text, context) do
-    with {:ok, resolution} <- Models.for(:direct_answer, context),
-         profile <- resolution.profile,
-         active_memory <- retrieve_active_memory(text, context),
-         {:ok, response} <-
-           answerer().answer(
-             text,
-             Map.merge(context, %{model_profile: profile, active_memory: active_memory.chunks})
-           ) do
-      answer_result(
-        response.message,
-        %{
-          source: :model,
-          model_profile: profile.name,
-          provider: profile.provider,
-          model: profile.model,
-          model_resolution: resolution_metadata(resolution),
-          active_memory: ActiveMemory.trace_metadata(active_memory),
-          diagnostic: Map.get(response, :diagnostic, %{status: :used})
-        }
-      )
+    with {:ok, resolution} <- Models.for(:direct_answer, context) do
+      active_memory = retrieve_active_memory(text, context)
+
+      case call_answerer(text, context, active_memory, resolution) do
+        {:ok, response} ->
+          model_answer_result(response, resolution, active_memory)
+
+        {:error, reason} ->
+          maybe_failover(text, context, active_memory, resolution, reason)
+      end
     else
       {:error, reason} -> fallback({:model_unavailable, reason})
     end
+  end
+
+  defp call_answerer(text, context, active_memory, resolution) do
+    answerer().answer(
+      text,
+      Map.merge(context, %{
+        model_profile: resolution.profile,
+        active_memory: active_memory.chunks
+      })
+    )
+  end
+
+  defp model_answer_result(response, resolution, active_memory, fallback_metadata \\ nil) do
+    profile = resolution.profile
+
+    metadata = %{
+      source: :model,
+      model_profile: profile.name,
+      provider: profile.provider,
+      model: profile.model,
+      model_resolution: resolution_metadata(resolution),
+      active_memory: ActiveMemory.trace_metadata(active_memory),
+      diagnostic: Map.get(response, :diagnostic, %{status: :used})
+    }
+
+    metadata =
+      if fallback_metadata, do: Map.put(metadata, :fallback, fallback_metadata), else: metadata
+
+    answer_result(response.message, metadata)
+  end
+
+  defp maybe_failover(text, context, active_memory, primary, reason) do
+    case Settings.get("models.fallback.enabled") do
+      {:ok, true} -> attempt_failover(text, context, active_memory, primary, reason)
+      _disabled_or_unavailable -> fallback({:model_unavailable, reason})
+    end
+  end
+
+  defp attempt_failover(text, context, active_memory, primary, reason) do
+    classification = Failure.classify(reason)
+
+    with true <- classification in [:definitive, :ambiguous],
+         {:ok, candidates} <- Models.candidates_for(:direct_answer, context),
+         {:ok, candidate} <- next_failover_candidate(primary, candidates),
+         :ok <- allow_fallback_step(primary.profile, candidate.profile) do
+      case call_answerer(text, context, active_memory, candidate) do
+        {:ok, response} ->
+          audit_path =
+            audit_fallback(:answered, primary, classification, candidate.profile.name, context)
+
+          model_answer_result(response, candidate, active_memory, %{
+            used?: true,
+            failed_profile: primary.profile.name,
+            classification: classification,
+            answered_profile: candidate.profile.name,
+            provider_call_count: 2,
+            audit_path: audit_path
+          })
+
+        {:error, fallback_reason} ->
+          audit_path = audit_fallback(:chain_failed, primary, classification, nil, context)
+
+          chain_fallback(primary, candidate, classification, fallback_reason, audit_path)
+      end
+    else
+      false ->
+        audit_path = audit_fallback(:not_retried, primary, classification, nil, context)
+        chain_fallback(primary, nil, classification, reason, audit_path)
+
+      {:error, :local_to_hosted_not_allowed} ->
+        audit_path = audit_fallback(:egress_denied, primary, classification, nil, context)
+        chain_fallback(primary, nil, classification, :local_to_hosted_not_allowed, audit_path)
+
+      {:error, _reason} ->
+        audit_path = audit_fallback(:chain_exhausted, primary, classification, nil, context)
+        chain_fallback(primary, nil, classification, reason, audit_path)
+    end
+  end
+
+  defp next_failover_candidate(primary, candidates) do
+    candidates
+    |> Enum.reject(&(&1.profile.name == primary.profile.name))
+    |> Enum.sort_by(fn resolution -> if local_profile?(resolution.profile), do: 0, else: 1 end)
+    |> List.first()
+    |> case do
+      nil -> {:error, :no_fallback_candidate}
+      candidate -> {:ok, candidate}
+    end
+  end
+
+  defp allow_fallback_step(primary, candidate) do
+    if local_profile?(primary) and not local_profile?(candidate) do
+      case Settings.get("models.fallback.allow_local_to_hosted") do
+        {:ok, true} -> :ok
+        _other -> {:error, :local_to_hosted_not_allowed}
+      end
+    else
+      :ok
+    end
+  end
+
+  defp local_profile?(profile), do: profile.provider_endpoint_kind == "local_endpoint"
+
+  defp audit_fallback(event, primary, classification, answered_profile, context) do
+    attrs = %{
+      failed_profile: primary.profile.name,
+      classification: classification,
+      answered_profile: answered_profile,
+      outcome: event
+    }
+
+    case FallbackAudit.append(event, attrs, context) do
+      {:ok, path} -> path
+      {:error, _reason} -> nil
+    end
+  end
+
+  defp chain_fallback(primary, candidate, classification, reason, audit_path) do
+    chain = [primary.profile.name] ++ if(candidate, do: [candidate.profile.name], else: [])
+
+    %{
+      message: "The configured model chain failed: #{Enum.join(chain, " → ")}.",
+      direct_answer: %{
+        source: @fallback_source,
+        reason: bounded_reason(reason),
+        model_enabled?: model_enabled?(),
+        diagnostic: %{status: :fallback},
+        fallback: %{
+          used?: false,
+          failed_chain: chain,
+          classification: classification,
+          provider_call_count: length(chain),
+          audit_path: audit_path
+        }
+      },
+      attrs: %{}
+    }
   end
 
   defp coding_streaming_answer(text, context) do

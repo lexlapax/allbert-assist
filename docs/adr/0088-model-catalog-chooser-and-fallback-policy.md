@@ -2,11 +2,8 @@
 
 ## Status
 
-Proposed (v1.2 planning, 2026-07-24; M4 chooser half implemented and proven
-2026-07-26). Binding on the v1.2 catalog/chooser and
-fallback milestones (`docs/plans/v1.2-plan.md`); flips Accepted at the v1.2
-milestone that proves the chooser writes through Settings Central and the
-fallback policy's no-silent-egress denial row. Consumed again by v1.4
+Accepted (2026-07-26; M4 proved chooser writes through Settings Central and
+M5 proved the fallback policy's no-silent-egress denial row). Consumed again by v1.4
 (per-role model profiles read the catalog; adaptive suggestions propose
 catalog entries).
 
@@ -109,7 +106,9 @@ onboarding `model_path` step re-pointed at it) is render-and-dispatch only:
 **(a) Selection-time ordering (always on).** Choosing which configured
 profile serves a task — at first-run detection (ADR 0087) and at
 turn-time resolution — uses the existing `candidates_for/2` ranked-list
-shape, extended to text generation. Ordering is strict local-first; this
+shape, extended to text generation. An explicitly selected primary remains
+first; otherwise ordering is strict local-first, and the remaining chain is
+local-first. This
 mechanism only ever selects among providers the operator configured, so it
 introduces no egress and needs no opt-in.
 

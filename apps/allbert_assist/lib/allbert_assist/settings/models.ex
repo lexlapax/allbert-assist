@@ -109,6 +109,12 @@ defmodule AllbertAssist.Settings.Models do
         primary,
         explicit_primary?(user_settings)
       )
+      |> local_first(
+        request_kind,
+        request_name,
+        settings,
+        explicit_primary?(user_settings)
+      )
 
     case first_capable_profile(candidates, capability, settings) do
       {:ok, profile, source, diagnostics} ->
@@ -161,6 +167,33 @@ defmodule AllbertAssist.Settings.Models do
     Settings.Schema.get_dotted(user_settings, "model_preferences.primary") not in [nil, ""]
   end
 
+  # An explicit primary is the operator's current selection and remains first.
+  # Other configured candidates are local-first while retaining preference
+  # order within each endpoint class.
+  defp local_first(
+         [{primary, source} | rest],
+         :task,
+         "direct_answer",
+         settings,
+         true
+       ) do
+    [{primary, source} | Enum.sort_by(rest, &endpoint_rank(&1, settings))]
+  end
+
+  defp local_first(candidates, :task, "direct_answer", settings, false) do
+    Enum.sort_by(candidates, &endpoint_rank(&1, settings))
+  end
+
+  defp local_first(candidates, _request_kind, _request_name, _settings, _explicit_primary?),
+    do: candidates
+
+  defp endpoint_rank({profile_name, _source}, settings) do
+    provider = get_in(settings, ["model_profiles", profile_name, "provider"])
+    endpoint_kind = get_in(settings, ["providers", provider, "endpoint_kind"])
+
+    if provider == "local_ollama" or endpoint_kind == "local_endpoint", do: 0, else: 1
+  end
+
   defp primary_fallback(candidates, primary) when is_binary(primary) and primary != "" do
     if primary in candidates, do: [], else: [{primary, :primary}]
   end
@@ -202,6 +235,12 @@ defmodule AllbertAssist.Settings.Models do
         request_name,
         preference_profiles,
         primary,
+        explicit_primary?(user_settings)
+      )
+      |> local_first(
+        request_kind,
+        request_name,
+        settings,
         explicit_primary?(user_settings)
       )
 

@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
 
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Memory
+  alias AllbertAssist.Models.FallbackAudit
   alias AllbertAssist.Paths
   alias AllbertAssist.Resources.ImageMetadata
   alias AllbertAssist.Settings
@@ -24,6 +25,17 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
 
   defmodule FailingAnswerer do
     def answer(_text, _context), do: {:error, :timeout}
+  end
+
+  defmodule ScriptedAnswerer do
+    def answer(_text, %{model_profile: profile}) do
+      send(self(), {:provider_called, profile.name})
+
+      case Process.get({__MODULE__, profile.name}, {:error, :timeout}) do
+        {:ok, message} -> {:ok, %{message: message, diagnostic: %{status: :used}}}
+        {:error, reason} -> {:error, reason}
+      end
+    end
   end
 
   defmodule MemoryAwareAnswerer do
@@ -114,7 +126,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     refute inspect(response.direct_answer) =~ "What is Allbert?"
   end
 
-  test "enabled model path resolves direct-answer preference fallback" do
+  test "enabled model path resolves direct-answer preferences local-first" do
     Application.put_env(:allbert_assist, DirectAnswer, answerer: FakeAnswerer)
 
     assert {:ok, _setting} =
@@ -131,10 +143,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     assert response.direct_answer.source == :model
     assert response.direct_answer.model_profile == "local"
 
-    assert Enum.any?(
-             response.direct_answer.model_resolution.diagnostics,
-             &match?(%{reason: {:provider_disabled, "fast", "openai"}}, &1)
-           )
+    assert response.direct_answer.model_resolution.diagnostics == []
   end
 
   test "enabled model path receives bounded active memory context" do
@@ -264,6 +273,100 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     assert response.direct_answer.source == :bounded_fallback
     assert response.direct_answer[:model_enabled?] == true
     refute response.message =~ "Should this call a provider?"
+  end
+
+  test "runtime fallback is default off and makes exactly one provider call" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: ScriptedAnswerer)
+    enable_text_chain!()
+
+    assert {:ok, response} = DirectAnswer.run(%{text: "answer"}, %{actor: "alice"})
+
+    assert response.message =~ "configured direct-answer model was unavailable"
+    assert_receive {:provider_called, "local"}
+    refute_receive {:provider_called, "fast"}
+    refute Map.has_key?(response.direct_answer, :fallback)
+  end
+
+  test "local to hosted fallback is denied without the second acknowledgement" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: ScriptedAnswerer)
+    enable_text_chain!()
+    put_setting!("models.fallback.enabled", true)
+    Process.put({ScriptedAnswerer, "fast"}, {:ok, "hosted answer"})
+
+    assert {:ok, response} = DirectAnswer.run(%{text: "answer"}, %{actor: "alice"})
+
+    assert response.message == "The configured model chain failed: local."
+    assert response.direct_answer.fallback.classification == :ambiguous
+    assert response.direct_answer.fallback.provider_call_count == 1
+    assert_receive {:provider_called, "local"}
+    refute_receive {:provider_called, "fast"}
+    assert File.read!(FallbackAudit.audit_path()) =~ "model_fallback.egress_denied"
+  end
+
+  test "opted-in fallback names the non-primary answering profile and audits it" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: ScriptedAnswerer)
+    enable_text_chain!()
+    put_setting!("models.fallback.enabled", true)
+    put_setting!("models.fallback.allow_local_to_hosted", true)
+    Process.put({ScriptedAnswerer, "fast"}, {:ok, "hosted answer"})
+
+    assert {:ok, response} = DirectAnswer.run(%{text: "answer"}, %{actor: "alice"})
+
+    assert response.message == "hosted answer"
+    assert response.direct_answer.model_profile == "fast"
+    assert response.direct_answer.fallback.failed_profile == "local"
+    assert response.direct_answer.fallback.answered_profile == "fast"
+    assert response.direct_answer.fallback.provider_call_count == 2
+    assert_receive {:provider_called, "local"}
+    assert_receive {:provider_called, "fast"}
+
+    audit = File.read!(FallbackAudit.audit_path())
+    assert audit =~ "model_fallback.answered"
+    assert audit =~ "failed_profile: local"
+    assert audit =~ "answered_profile: fast"
+  end
+
+  test "unknown partial failures never retry" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: ScriptedAnswerer)
+    enable_text_chain!()
+    put_setting!("models.fallback.enabled", true)
+    put_setting!("models.fallback.allow_local_to_hosted", true)
+    Process.put({ScriptedAnswerer, "local"}, {:error, {:unknown_stream_state, :closed}})
+    Process.put({ScriptedAnswerer, "fast"}, {:ok, "must not appear"})
+
+    assert {:ok, response} = DirectAnswer.run(%{text: "answer"}, %{actor: "alice"})
+
+    assert response.direct_answer.fallback.classification == :partial
+    assert response.direct_answer.fallback.provider_call_count == 1
+    assert_receive {:provider_called, "local"}
+    refute_receive {:provider_called, "fast"}
+  end
+
+  test "fallback stops after one failover even when the setting permits two" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: ScriptedAnswerer)
+    enable_text_chain!(["local", "fast", "anthropic_fast"])
+    put_setting!("providers.anthropic.enabled", true)
+    put_setting!("models.fallback.enabled", true)
+    put_setting!("models.fallback.allow_local_to_hosted", true)
+    put_setting!("models.fallback.max_failovers_per_turn", 2)
+
+    assert {:ok, response} = DirectAnswer.run(%{text: "answer"}, %{actor: "alice"})
+
+    assert response.message == "The configured model chain failed: local → fast."
+    assert response.direct_answer.fallback.provider_call_count == 2
+    assert_receive {:provider_called, "local"}
+    assert_receive {:provider_called, "fast"}
+    refute_receive {:provider_called, "anthropic_fast"}
+  end
+
+  defp enable_text_chain!(profiles \\ ["local", "fast"]) do
+    put_setting!("intent.direct_answer_model_enabled", true)
+    put_setting!("providers.openai.enabled", true)
+    put_setting!("model_preferences.tasks.direct_answer", profiles)
+  end
+
+  defp put_setting!(key, value) do
+    assert {:ok, _setting} = Settings.put(key, value, %{audit?: false})
   end
 
   defp restore_home(nil), do: System.delete_env("ALLBERT_HOME")

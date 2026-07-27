@@ -9,6 +9,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
   @max_prompt_bytes 4_000
   @max_active_memory_prompt_bytes 8_000
   alias AllbertAssist.Maps
+  alias AllbertAssist.Models.Failure
   alias AllbertAssist.Runtime.SafeTerm
   alias AllbertAssist.Settings.ModelRuntime
   alias ReqLLM.{Context, Response}
@@ -68,12 +69,12 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
     else
       true -> {:error, :empty_model_text}
       nil -> {:error, :empty_model_text}
-      {:error, reason} -> {:error, reason}
+      {:error, reason} -> {:error, Failure.normalized(Failure.classify(reason), reason)}
     end
   rescue
-    exception -> {:error, Exception.message(exception)}
+    exception -> {:error, Failure.normalized(:partial, exception.__struct__)}
   catch
-    :exit, reason -> {:error, reason}
+    :exit, reason -> {:error, Failure.normalized(Failure.classify(reason), reason)}
   end
 
   def answer(_text, context),
