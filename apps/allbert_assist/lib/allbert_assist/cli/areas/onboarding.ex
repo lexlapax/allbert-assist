@@ -25,7 +25,9 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
     allbert onboard --quickstart        # start the QuickStart track
     allbert onboard --advanced          # start the Advanced track
     allbert onboard status              # compact wizard status
+    allbert onboard STEP                # open any step, including after completion
     allbert onboard advance STEP        # record the current step done (automation)
+    allbert onboard re-enable-model     # explicitly enable model-backed answers
     allbert onboard install-runtime     # install/start local model runtime (needs --authorize --yes)
     allbert onboard pull-model          # pull starter model (needs --authorize --yes)
     allbert onboard apply-persona ID    # apply a persona (needs --authorize)
@@ -148,6 +150,16 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
     end
   end
 
+  defp route(["re-enable-model"], _opts, _context) do
+    case Onboarding.reenable_model_answers() do
+      :ok ->
+        Render.ok("Model-backed answers re-enabled.")
+
+      {:error, reason} ->
+        Render.error("Could not re-enable model-backed answers: #{inspect(reason)}")
+    end
+  end
+
   defp route(["apply-persona", persona_id], opts, context),
     do: apply_persona(persona_id, opts, context)
 
@@ -183,6 +195,13 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
     ]
 
     Render.ok(lines)
+  end
+
+  defp route([step], _opts, _context) do
+    case Onboarding.wizard_enter(step) do
+      {:ok, state} -> render_state(state, "Opened #{step}.")
+      {:error, {:unknown_step, unknown}} -> Render.error("Unknown step: #{unknown}.")
+    end
   end
 
   defp route(_other, _opts, _context), do: Render.usage([@usage])
@@ -532,7 +551,7 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
           "Readiness: #{Map.get(@readiness_copy, state.readiness, "Unknown")}",
           "Profile reviewed: #{state.profile_reviewed?}",
           "Onboarding complete: #{state.complete?}"
-        ] ++ guidance_lines(state) ++ first_chat_lines(state)
+        ] ++ guidance_lines(state) ++ reenable_lines(state) ++ first_chat_lines(state)
 
     Render.ok(Enum.reject(lines, &is_nil/1))
   end
@@ -586,6 +605,19 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
   end
 
   defp tier_lines(_step), do: []
+
+  defp reenable_lines(%{step: "model_path"}) do
+    if Onboarding.claim_model_reenable_affordance() do
+      [
+        "",
+        "Model-backed answers are explicitly disabled. Re-enable them once with `allbert onboard re-enable-model`."
+      ]
+    else
+      []
+    end
+  end
+
+  defp reenable_lines(_state), do: []
 
   defp status_line(status) do
     "onboard status=#{if status.complete?, do: "complete", else: "in_progress"} " <>

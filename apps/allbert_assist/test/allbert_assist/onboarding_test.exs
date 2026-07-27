@@ -353,13 +353,8 @@ defmodule AllbertAssist.OnboardingTest do
   end
 
   describe "v1.0 R2 wizard rewind" do
-    test "first_chat_ready? requires both a ready model and enabled direct answers" do
+    test "first_chat_ready? is readiness-only and does not make consent a completion gate" do
       refute Onboarding.first_chat_ready?(%{readiness: :needs_model})
-      refute Onboarding.first_chat_ready?(%{readiness: :ready})
-
-      assert {:ok, _setting} =
-               Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
-
       assert Onboarding.first_chat_ready?(%{readiness: :ready})
       refute Onboarding.first_chat_ready?(%{readiness: :needs_runtime})
     end
@@ -447,6 +442,54 @@ defmodule AllbertAssist.OnboardingTest do
       # The current step itself is not rewindable (nothing to rewind past).
       assert {:error, {:not_rewindable, "track_select"}} =
                Onboarding.wizard_rewind("track_select")
+    end
+  end
+
+  describe "v1.2 M3 step entry and sticky-disabled completion" do
+    test "direct entry reaches every step after completion without changing completion history" do
+      Onboarding.wizard_start(:quickstart)
+
+      for step <-
+            ~w(welcome track_select model_path profile_select profile_review health_check first_chat) do
+        assert {:ok, _state} =
+                 Onboarding.wizard_advance(step, %{}, first_model_state: :local_ready)
+      end
+
+      before = FirstRun.read_marker()
+      assert before["onboarding_complete"] == true
+
+      for step <- Onboarding.wizard_steps() do
+        assert {:ok, state} = Onboarding.wizard_enter(step, first_model_state: :local_ready)
+        assert state.step == step
+        assert state.editing?
+        assert state.complete?
+        assert state.done == before["wizard_done"]
+      end
+
+      assert {:error, {:unknown_step, "unknown"}} = Onboarding.wizard_enter("unknown")
+    end
+
+    test "sticky false can complete and receives exactly one durable re-enable offer" do
+      assert {:ok, _setting} =
+               Settings.put("intent.direct_answer_model_enabled", false, %{audit?: false})
+
+      Onboarding.wizard_start(:quickstart)
+
+      for step <-
+            ~w(welcome track_select model_path profile_select profile_review health_check first_chat) do
+        assert {:ok, _state} =
+                 Onboarding.wizard_advance(step, %{}, first_model_state: :local_ready)
+      end
+
+      assert FirstRun.read_marker()["onboarding_complete"] == true
+      assert Settings.get("intent.direct_answer_model_enabled") == {:ok, false}
+      assert Onboarding.claim_model_reenable_affordance()
+      refute Onboarding.claim_model_reenable_affordance()
+      assert FirstRun.read_marker()["model_reenable_offered"] == true
+
+      assert :ok = Onboarding.reenable_model_answers()
+      assert Settings.get("intent.direct_answer_model_enabled") == {:ok, true}
+      assert Settings.get("intent.model_assist_enabled") == {:ok, true}
     end
   end
 

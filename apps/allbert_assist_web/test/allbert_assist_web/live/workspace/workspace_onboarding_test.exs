@@ -7,6 +7,7 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
   alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Paths
+  alias AllbertAssist.Settings
 
   @runtime_async_timeout 60_000
 
@@ -116,6 +117,54 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
       refute has_element?(view, "#workspace-wizard-rewind-welcome")
     end
 
+    test "v1.2 M3: every step opens after completion without clearing completion", %{conn: conn} do
+      FirstRun.reset_onboarding()
+
+      FirstRun.merge_marker(%{
+        "wizard_started" => true,
+        "track" => "quickstart",
+        "wizard_done" =>
+          ~w(welcome track_select model_path profile_select profile_review health_check first_chat),
+        "wizard_step" => "first_chat",
+        "onboarding_complete" => true
+      })
+
+      {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:onboard")
+
+      for step <- AllbertAssist.Onboarding.wizard_steps() do
+        assert has_element?(view, "#workspace-wizard-enter-#{step}")
+      end
+
+      view |> element("#workspace-wizard-enter-optional_connect") |> render_click()
+      assert has_element?(view, "#workspace-wizard-step-optional_connect[data-current='true']")
+      assert has_element?(view, "#workspace-wizard-step-controls")
+      assert FirstRun.read_marker()["onboarding_complete"] == true
+    end
+
+    test "v1.2 M3: sticky disable shows the re-enable affordance only once", %{conn: conn} do
+      FirstRun.reset_onboarding()
+
+      assert {:ok, _setting} =
+               Settings.put("intent.direct_answer_model_enabled", false, %{audit?: false})
+
+      FirstRun.merge_marker(%{
+        "wizard_started" => true,
+        "wizard_direct_entry" => true,
+        "wizard_step" => "model_path",
+        "model_answers_declined" => true
+      })
+
+      {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:onboard")
+      assert has_element?(view, "#workspace-model-reenable-affordance")
+      assert FirstRun.read_marker()["model_reenable_offered"] == true
+
+      {:ok, second_view, _html} = live(conn, ~p"/workspace?destination=workspace:onboard")
+      refute has_element?(second_view, "#workspace-model-reenable-affordance")
+
+      view |> element("#workspace-model-reenable") |> render_click()
+      assert Settings.get("intent.direct_answer_model_enabled") == {:ok, true}
+    end
+
     test "v1.0 R12: one first-run entry point — the hero leads to guided setup until onboarding completes",
          %{conn: conn} do
       FirstRun.reset_onboarding()
@@ -145,7 +194,7 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
       {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:onboard")
 
       view |> element("#workspace-onboarding-start-quickstart") |> render_click()
-      refute has_element?(view, "#workspace-onboarding-first-chat-ready")
+      assert has_element?(view, "#workspace-onboarding-first-chat-ready")
 
       view |> element("#workspace-wizard-advance-welcome") |> render_click()
       view |> element("#workspace-wizard-advance-track_select") |> render_click()

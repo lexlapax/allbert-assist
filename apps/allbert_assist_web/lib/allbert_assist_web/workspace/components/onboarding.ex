@@ -102,6 +102,39 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
     {:noreply, refresh_state(reprobe(socket))}
   end
 
+  def handle_event("wizard_enter", %{"step" => step}, socket) do
+    socket =
+      case OnboardingContext.wizard_enter(step) do
+        {:ok, _state} ->
+          assign(socket,
+            onboarding_notice: "Opened #{wizard_step_label(step)}.",
+            onboarding_error: nil
+          )
+
+        {:error, {:unknown_step, unknown}} ->
+          assign(socket, onboarding_error: "Unknown step: #{unknown}.")
+      end
+
+    {:noreply, refresh_state(reprobe(socket))}
+  end
+
+  def handle_event("reenable_model_answers", _params, socket) do
+    socket =
+      case OnboardingContext.reenable_model_answers() do
+        :ok ->
+          assign(socket,
+            onboarding_notice: "Model-backed answers re-enabled.",
+            onboarding_error: nil,
+            model_reenable_affordance?: false
+          )
+
+        {:error, reason} ->
+          assign(socket, onboarding_error: reason)
+      end
+
+    {:noreply, refresh_state(socket)}
+  end
+
   def handle_event("wizard_reset", _params, socket) do
     OnboardingContext.wizard_reset()
 
@@ -373,13 +406,23 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
             data-current={to_string(step == @onboarding_wizard.step)}
             data-done={to_string(step in @onboarding_wizard.done)}
           >
-            <span :if={step not in @onboarding_wizard.done}>{wizard_step_label(step)}</span>
             <button
-              :if={step in @onboarding_wizard.done}
+              :if={step in @onboarding_wizard.done and !@onboarding_wizard.complete?}
               type="button"
               id={"workspace-wizard-rewind-#{step}"}
               class={Patterns.button_class!("secondary", "workspace-button-compact px-0")}
               phx-click="wizard_rewind"
+              phx-value-step={step}
+              phx-target={@myself}
+            >
+              {wizard_step_label(step)}
+            </button>
+            <button
+              :if={step not in @onboarding_wizard.done or @onboarding_wizard.complete?}
+              type="button"
+              id={"workspace-wizard-enter-#{step}"}
+              class={Patterns.button_class!("secondary", "workspace-button-compact px-0")}
+              phx-click="wizard_enter"
               phx-value-step={step}
               phx-target={@myself}
             >
@@ -400,11 +443,31 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
         </ol>
 
         <div
-          :if={@onboarding_wizard.started? and !@onboarding_wizard.complete?}
+          :if={
+            @onboarding_wizard.started? and
+              (!@onboarding_wizard.complete? or @onboarding_wizard.editing?)
+          }
           id="workspace-wizard-step-controls"
           class="rounded border border-base-200 p-3 text-sm"
         >
           {render_step_controls(assigns)}
+        </div>
+
+        <div
+          :if={@model_reenable_affordance?}
+          id="workspace-model-reenable-affordance"
+          class="rounded border border-warning/40 bg-warning/10 p-2 text-sm"
+        >
+          <p>Model-backed answers are explicitly disabled. Re-enable them?</p>
+          <button
+            type="button"
+            id="workspace-model-reenable"
+            class={Patterns.compact_button_class!("primary")}
+            phx-click="reenable_model_answers"
+            phx-target={@myself}
+          >
+            Re-enable model answers
+          </button>
         </div>
 
         <div :if={@onboarding_wizard.started?}>
@@ -669,6 +732,11 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
     )
     |> assign(:step_guidance, step_guidance(wizard))
     |> assign(:first_chat_ready?, OnboardingContext.first_chat_ready?(wizard))
+    |> assign(
+      :model_reenable_affordance?,
+      Map.get(socket.assigns, :model_reenable_affordance?, false) or
+        claim_reenable_affordance(wizard, socket)
+    )
     |> assign(:provider_profiles, provider_profiles())
     |> assign(:tier_line, tier_line())
   end
@@ -678,7 +746,16 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
   defp step_guidance(%{started?: true, complete?: false, step: step}),
     do: OnboardingContext.step_guidance(step)
 
+  defp step_guidance(%{started?: true, editing?: true, step: step}),
+    do: OnboardingContext.step_guidance(step)
+
   defp step_guidance(_wizard), do: nil
+
+  defp claim_reenable_affordance(%{step: "model_path"}, socket) do
+    if connected?(socket), do: OnboardingContext.claim_model_reenable_affordance(), else: false
+  end
+
+  defp claim_reenable_affordance(_wizard, _socket), do: false
 
   defp trust_lines(nil), do: OnboardingContext.trust_spine()
   defp trust_lines(%{trust_lines: lines}), do: lines

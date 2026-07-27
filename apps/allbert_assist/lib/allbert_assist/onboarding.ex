@@ -15,6 +15,7 @@ defmodule AllbertAssist.Onboarding do
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Personas
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.Schema
 
   @source_intent "first_run_onboarding"
   # v0.63 M1: the authoritative guided-wizard state machine.
@@ -74,6 +75,7 @@ defmodule AllbertAssist.Onboarding do
           next: wizard_step() | nil,
           readiness: readiness(),
           profile_reviewed?: boolean(),
+          editing?: boolean(),
           complete?: boolean(),
           detect: FirstRun.state()
         }
@@ -239,6 +241,7 @@ defmodule AllbertAssist.Onboarding do
       next: next_wizard_step(step, wizard_track(marker)),
       readiness: readiness_label(first_model_state: probe),
       profile_reviewed?: marker["profile_reviewed"] == true,
+      editing?: marker["wizard_direct_entry"] == true,
       complete?: marker["onboarding_complete"] == true,
       detect: FirstRun.detect(first_model_state: probe)
     }
@@ -247,6 +250,27 @@ defmodule AllbertAssist.Onboarding do
   @doc "Resume the wizard — read-only current state."
   @spec wizard_resume(keyword()) :: wizard()
   def wizard_resume(opts \\ []), do: wizard_state(opts)
+
+  @doc """
+  Enter any canonical wizard step without changing completion or completed-step
+  history. This is customization navigation, not a rewind, and is valid after
+  completion and for steps outside the active track.
+  """
+  @spec wizard_enter(wizard_step(), keyword()) ::
+          {:ok, wizard()} | {:error, {:unknown_step, String.t()}}
+  def wizard_enter(step, opts \\ []) when is_binary(step) do
+    if step in @wizard_steps do
+      FirstRun.merge_marker(%{
+        "wizard_started" => true,
+        "wizard_step" => step,
+        "wizard_direct_entry" => true
+      })
+
+      {:ok, wizard_state(opts)}
+    else
+      {:error, {:unknown_step, step}}
+    end
+  end
 
   @doc """
   Advance past `step` (which must be the current step). Records step completion in
@@ -275,8 +299,14 @@ defmodule AllbertAssist.Onboarding do
         new_done = Enum.uniq(done ++ [step])
         next = next_wizard_step(step, track)
 
-        FirstRun.merge_marker(%{"wizard_done" => new_done, "wizard_step" => next || step})
+        FirstRun.merge_marker(%{
+          "wizard_done" => new_done,
+          "wizard_step" => next || step,
+          "wizard_direct_entry" => false
+        })
+
         if step == "profile_review", do: FirstRun.mark_profile_reviewed()
+        maybe_record_model_decline(step)
         state = wizard_state(opts)
         maybe_enable_model_answer(step, state)
         state = wizard_state(opts)
@@ -303,30 +333,67 @@ defmodule AllbertAssist.Onboarding do
   @model_answer_enable_steps ["model_path", "first_chat", "optional_connect"]
   defp maybe_enable_model_answer(step, %{readiness: :ready})
        when step in @model_answer_enable_steps do
-    Settings.put("intent.direct_answer_model_enabled", true, %{audit?: true})
-    # F5 Q1: with a ready model, also enable model-assisted intent classification so the
-    # router's fallback picks intents by meaning rather than weak keyword overlap. Both
-    # keys are seed-authority @safe_write_keys — no new grant. (The router hardening in
-    # DescriptorResolver/Disambiguator is what fixes the observed mis-routes; this raises
-    # fallback quality.)
-    Settings.put("intent.model_assist_enabled", true, %{audit?: true})
+    unless explicitly_disabled?() do
+      Settings.put("intent.direct_answer_model_enabled", true, %{audit?: true})
+      # F5 Q1: with a ready model, also enable model-assisted intent classification so the
+      # router's fallback picks intents by meaning rather than weak keyword overlap. Both
+      # keys are seed-authority @safe_write_keys — no new grant. (The router hardening in
+      # DescriptorResolver/Disambiguator is what fixes the observed mis-routes; this raises
+      # fallback quality.)
+      Settings.put("intent.model_assist_enabled", true, %{audit?: true})
+    end
+
     :ok
   end
 
   defp maybe_enable_model_answer(_step, _state), do: :ok
 
   @doc """
-  The first-chat go-signal (v1.0 R11): true exactly when a first model-backed
-  question will get an answer — the model probe is `:ready` AND onboarding has
-  enabled `intent.direct_answer_model_enabled`. Single source of truth for every
-  onboarding surface; derived, never stored.
+  The wizard-completion readiness signal: true when the model path is genuinely
+  ready. Consent is deliberately separate, so an operator-stored `false` does
+  not make the customization wizard impossible to complete.
   """
   @spec first_chat_ready?(wizard()) :: boolean()
-  def first_chat_ready?(%{readiness: :ready}) do
-    match?({:ok, true}, Settings.get("intent.direct_answer_model_enabled"))
-  end
+  def first_chat_ready?(%{readiness: :ready}), do: true
 
   def first_chat_ready?(_wizard), do: false
+
+  @doc """
+  Claim the sticky-disabled model step's one-time re-enable affordance. The
+  durable offered marker is written before returning true, so restarts do not
+  repeat it.
+  """
+  @spec claim_model_reenable_affordance() :: boolean()
+  def claim_model_reenable_affordance do
+    marker = FirstRun.read_marker()
+
+    if marker["model_answers_declined"] == true and
+         marker["model_reenable_offered"] != true and
+         match?({:ok, false}, Settings.get("intent.direct_answer_model_enabled")) do
+      FirstRun.merge_marker(%{"model_reenable_offered" => true})
+      true
+    else
+      false
+    end
+  end
+
+  @doc "Explicitly re-enable model-backed answers from the one-time affordance."
+  @spec reenable_model_answers() :: :ok | {:error, term()}
+  def reenable_model_answers do
+    with {:ok, _setting} <-
+           Settings.put("intent.direct_answer_model_enabled", true, %{audit?: true}),
+         {:ok, _setting} <- Settings.put("intent.model_assist_enabled", true, %{audit?: true}) do
+      FirstRun.merge_marker(%{"model_answers_declined" => false})
+    end
+  end
+
+  defp explicitly_disabled? do
+    with {:ok, user_settings} <- Settings.read_user_settings() do
+      Schema.get_dotted(user_settings, "intent.direct_answer_model_enabled") == false
+    else
+      _error -> false
+    end
+  end
 
   @doc """
   Rewind to `step` (v1.0 R2): an already-completed step (or one before the current
@@ -378,6 +445,14 @@ defmodule AllbertAssist.Onboarding do
   defp maybe_clear_flag(updates, marker, key, clear?) do
     if clear? and marker[key] == true, do: Map.put(updates, key, false), else: updates
   end
+
+  defp maybe_record_model_decline("model_path") do
+    if match?({:ok, false}, Settings.get("intent.direct_answer_model_enabled")) do
+      FirstRun.merge_marker(%{"model_answers_declined" => true})
+    end
+  end
+
+  defp maybe_record_model_decline(_step), do: :ok
 
   @doc """
   Reset the wizard: clears the marker (onboarding/profile/wizard progress) and
@@ -450,8 +525,12 @@ defmodule AllbertAssist.Onboarding do
   # every track step is done it stays on the track's last step — never a step outside
   # the track (M7.1: QuickStart never derives `optional_connect`).
   defp current_wizard_step(marker, done) do
-    steps = track_steps(wizard_track(marker))
-    Enum.find(steps, List.last(steps), &(&1 not in done))
+    if marker["wizard_direct_entry"] == true and marker["wizard_step"] in @wizard_steps do
+      marker["wizard_step"]
+    else
+      steps = track_steps(wizard_track(marker))
+      Enum.find(steps, List.last(steps), &(&1 not in done))
+    end
   end
 
   defp next_wizard_step(step, track) do

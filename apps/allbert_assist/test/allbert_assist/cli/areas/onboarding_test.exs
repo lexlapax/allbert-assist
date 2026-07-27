@@ -48,6 +48,16 @@ defmodule AllbertAssist.CLI.Areas.OnboardingTest do
     refute line =~ "runtime_missing"
   end
 
+  test "a canonical step opens directly and an unknown step is rejected" do
+    Area.dispatch(["--quickstart"])
+    assert {out, 0} = Area.dispatch(["optional_connect"])
+    assert out =~ "Opened optional_connect."
+    assert out =~ "Step: optional_connect"
+
+    assert {out, 1} = Area.dispatch(["not-a-step"])
+    assert out =~ "Unknown step"
+  end
+
   test "--reset requires explicit --yes (confirmation), then clears the marker" do
     Area.dispatch(["--quickstart"])
     FirstRun.mark_profile_reviewed()
