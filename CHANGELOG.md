@@ -12,8 +12,9 @@ changelog entries or release notes.
 
 ## v1.2.0 - Zero-Click First Run
 
-Status: **corrective release candidate in preparation; replacement exact-SHA
-gates, operator validation, and binary publication pending.**
+Status: **corrective release candidate awaiting the current clean pushed
+exact-SHA versioned barrier before operator validation. FV-01..03, the post-FV
+aggregate release phase, and binary publication remain pending.**
 
 Formula state: PRE-PUBLICATION ONLY. The packaged Latest 1.1.0 remains during
 the release-candidate window; at binary publication the tap is filled
@@ -44,14 +45,16 @@ Raw-present empty, custom, or disabled identity state remains sticky; the
 effective child profile is honored, and custom profiles receive no invented
 mapping. Raw-explicit channel `false` blocks before Adapter startup with a
 bounded package/source re-enable command; it is only an explicit operator
-settings action, never an onboarding outcome. Generic Adapter startup receives no
-fallback, and unmapped/disabled ordinary input now renders a bounded rejection
+settings action, never an onboarding outcome. Generic Adapter startup receives
+no fallback, and unmapped/disabled ordinary input now renders a bounded rejection
 instead of appearing to wait forever. Web independently maps `web-local` to the
 same canonical `local` user without inheriting TUI authentication or
 automatically selecting its thread; eligible same-user durable data remains
-available through the existing cross-surface contract. This corrects the FV-01 failure found at candidate `2e096750`,
+available through the existing cross-surface contract. This corrects the FV-01
+failure found at candidate `2e096750`,
 where model detection succeeded but the first terminal turn was rejected
-`:not_mapped`; replacement-gate and FV evidence remains pending.
+`:not_mapped`. Corrective focused/static/precommit and clean exact-SHA versioned
+gate evidence is green; replacement FV evidence remains pending.
 
 The Models surface now merges the shipped local catalog, live Ollama inventory,
 configured profiles, and bounded hosted metadata through one registered
@@ -71,11 +74,20 @@ Its original thirteen behavioral first-run authority/deny rows passed at M7/M8;
 the corrective gate adds a fourteenth launcher/Adapter row and explicitly binds
 the Store and development-Mix launcher suites alongside focused enablement,
 onboarding, catalog, fallback, and cross-surface coverage. Corrected
-`release.v12` and `release.v1` passed at the first corrective candidate; the
-aggregate gate then found and removed one stale unused dependency lock entry,
-invalidating that candidate before aggregate acceptance. Replacement exact-SHA
-release gates, operator FV-01..FV-03, signed binary workflow, tap fill, and
-install-rehearsal evidence remain pending.
+`release.v12` and `release.v1` passed at the first corrective candidate; an
+aggregate attempt then found and removed one stale unused dependency lock entry,
+invalidating that candidate. Clean pushed replacement
+`27a700593112e4419cb4908debc5c2f3dc23d053` passed exact-SHA `release.v1` and
+`release.v12`, proving the product correction met the FV barrier. The docs-only
+timing amendment's clean pushed successor is the FV candidate after the same
+two versioned gates pass there. An aggregate run already in flight passed
+static/high coverage, external-runtime 620 tests with 0 failures and 12 skipped,
+and security 377 tests with 0 failures before the operator stopped it during
+full web to apply the final timing. That partial aggregate is non-acceptance.
+The aggregate phase starts only after all FV rows pass and must finish green
+before tag/release. A failure is remediated there; only FV rows invalidated by
+the fix repeat before aggregate restarts. FV results, the accepted aggregate,
+signed binary workflow, tap fill, and install-rehearsal evidence remain pending.
 
 ## v1.1.0 - Asynchronous Background Agent Fan-Out With In-Channel Steering
 
