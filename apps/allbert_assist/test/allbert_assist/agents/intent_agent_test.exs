@@ -107,6 +107,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
       "set_notes_root",
       "explain_setting",
       "list_provider_profiles",
+      "list_model_catalog",
       "list_model_profiles",
       "set_provider_credential",
       "doctor_model_profile",

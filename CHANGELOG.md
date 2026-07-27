@@ -15,6 +15,11 @@ changelog entries or release notes.
 Status: **release candidate; operator validation and binary publication
 pending.**
 
+Formula state: PRE-PUBLICATION ONLY. The packaged Latest 1.1.0 remains during
+the release-candidate window; at binary publication the tap is filled
+1.1.0 → 1.2.0 from verified release checksums, and that filled formula is
+synced back into the repository before closeout.
+
 Allbert now treats install, open, chat as the primary first-run path. A fresh
 Home detects an already-usable local model or configured hosted provider,
 selects local first, atomically enables model-backed direct answers only when
