@@ -71,8 +71,11 @@ Its original thirteen behavioral first-run authority/deny rows passed at M7/M8;
 the corrective gate adds a fourteenth launcher/Adapter row and explicitly binds
 the Store and development-Mix launcher suites alongside focused enablement,
 onboarding, catalog, fallback, and cross-surface coverage. Corrected
-`release.v12`, exact-SHA authoritative-gate, operator FV-01..FV-03, signed
-binary workflow, tap fill, and install-rehearsal evidence remain pending.
+`release.v12` and `release.v1` passed at the first corrective candidate; the
+aggregate gate then found and removed one stale unused dependency lock entry,
+invalidating that candidate before aggregate acceptance. Replacement exact-SHA
+release gates, operator FV-01..FV-03, signed binary workflow, tap fill, and
+install-rehearsal evidence remain pending.
 
 ## v1.1.0 - Asynchronous Background Agent Fan-Out With In-Channel Steering
 
