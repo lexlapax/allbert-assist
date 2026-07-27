@@ -13,7 +13,11 @@ does not grant authority by being local. Every coding tool routes through
 
 - v0.55 `tui` channel and v0.55.1 warm operator console are present.
 - A disposable `ALLBERT_HOME` for validation and release smokes.
-- A mapped TUI identity for the terminal profile.
+- A mapped TUI identity for the terminal profile. On a fresh Home, v1.2 local
+  launchers atomically persist `channels.tui.enabled=true` and the built-in
+  `default → local` mapping when those keys are raw-absent. This guide keeps
+  both settings explicit because Pi-mode also binds a trusted coding operator
+  and workspace policy. Custom/raw-present mappings are never rewritten.
 - `coding.pi_mode.enabled=true`.
 - `coding.trusted_operator_id` set to the mapped local operator only for the
   validation home or the operator's intended Pi-mode home.
@@ -46,6 +50,7 @@ mix allbert.model doctor pi_coding_local
 Check the important values:
 
 ```sh
+mix allbert.settings get channels.tui.enabled
 mix allbert.settings get channels.tui.identity_map
 mix allbert.settings get coding.pi_mode.enabled
 mix allbert.settings get coding.trusted_operator_id
@@ -65,6 +70,14 @@ being validated. `execution.local.enabled` must be `true`,
 `execution.local.require_confirmation` must be `true`. If `bash` returns
 `:local_execution_disabled`, the Pi-mode approval mode has not been reached; fix
 the Level 1 execution settings in the same `ALLBERT_HOME` before continuing.
+
+An explicitly stored `channels.tui.enabled=false` blocks the launcher and is not
+auto-repaired. For this source workflow, re-enable it with
+`mix allbert.settings set channels.tui.enabled true`; the packaged equivalent is
+`allbert admin settings set channels.tui.enabled true`. A raw-present custom,
+empty, or disabled identity map is likewise sticky. An unmapped or disabled
+ordinary turn prints a bounded `Message not sent` rejection and never reaches
+the coding/runtime path.
 
 ## Coding Model Profile
 
@@ -242,6 +255,12 @@ script "$V057_MANUAL_HOME/v057-pi-mode-transcript.txt" mix allbert.tui
 
 Keep this session open for the entire manual punchlist. Do not fall back to cold
 `mix allbert.ask` turns during validation.
+
+If validation continues in the web workspace, first `/quit` and wait for the
+standalone TUI to release the same `ALLBERT_HOME`; do not run both SQLite owners
+concurrently. Web and TUI independently resolve to canonical user `local`, so
+eligible durable data can be selected on web, but the TUI mapping grants no web
+authorization and web does not automatically open the exact TUI/Pi-mode thread.
 
 ## Cancellation
 

@@ -40,7 +40,7 @@ case "${1:-}" in
     # M8.7: the interactive terminal console needs a real TTY and blocks until
     # exit — run it via `eval` (the M0 proof-6 raw-mode-through-launcher path)
     # rather than the pure dispatcher.
-    exec "$RELEASE_BIN" eval "AllbertAssist.CLI.Tui.launch()" ;;
+    exec "$RELEASE_BIN" eval "AllbertAssist.CLI.Tui.launch!()" ;;
   *)
     # Pass argv to the pure dispatcher; it prints and halts on its own code.
     exec "$RELEASE_BIN" eval "AllbertAssist.CLI.main(System.argv())" "$@" ;;

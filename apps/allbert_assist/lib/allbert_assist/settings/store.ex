@@ -19,6 +19,16 @@ defmodule AllbertAssist.Settings.Store do
                           "intent.model_assist_enabled",
                           "model_preferences.primary"
                         ])
+  @tui_identity_key "channels.tui.identity_map"
+  @tui_profile_key "channels.tui.profile"
+  @tui_enabled_key "channels.tui.enabled"
+  @default_tui_identity_map [
+    %{
+      "external_user_id" => "default",
+      "user_id" => "local",
+      "enabled" => true
+    }
+  ]
 
   def root, do: Paths.settings_root()
 
@@ -182,10 +192,136 @@ defmodule AllbertAssist.Settings.Store do
   def put_user_settings_if_absent(_values, _context),
     do: {:error, {:invalid_settings_if_absent, :expected_maps}}
 
+  @doc """
+  Atomically prepares Settings for an explicit local interactive TUI launch.
+
+  This exact-purpose launcher primitive is deliberately separate from the
+  closed three-key first-run model-enablement write. It activates the TUI when
+  activation is raw-absent and seeds the built-in identity only for the default
+  effective profile. Explicit `false` and every raw-present identity map are
+  preserved.
+  """
+  def prepare_local_tui_launch(context) when is_map(context) do
+    StoreLock.with_lock(root(), fn ->
+      Fragments.with_composition(fn ->
+        prepare_local_tui_launch_snapshotted(context)
+      end)
+    end)
+  end
+
+  def prepare_local_tui_launch(_context),
+    do: {:error, {:invalid_local_tui_launch_bootstrap, :expected_context_map}}
+
   defp put_user_settings_if_absent_locked(values, context) do
     Fragments.with_composition(fn ->
       put_user_settings_if_absent_snapshotted(values, context)
     end)
+  end
+
+  defp prepare_local_tui_launch_snapshotted(context) do
+    with {:ok, user_settings} <- read_user_settings(),
+         :ok <- VersionContract.reject_forward_versions(user_settings),
+         {:ok, merged} <- merge_user_settings(user_settings),
+         :ok <- Schema.validate_settings(merged) do
+      case Schema.get_dotted(user_settings, @tui_enabled_key) do
+        false ->
+          tui_launch_result(:explicitly_disabled, [], %{@tui_enabled_key => false})
+
+        _not_explicitly_disabled ->
+          maybe_write_local_tui_launch_defaults(user_settings, merged, context)
+      end
+    end
+  end
+
+  defp maybe_write_local_tui_launch_defaults(user_settings, merged, context) do
+    effective_profile =
+      Map.get(
+        context,
+        :profile,
+        Map.get(context, "profile", Schema.get_dotted(merged, @tui_profile_key))
+      )
+
+    desired =
+      if normalize_tui_profile(effective_profile) == "default" do
+        %{
+          @tui_enabled_key => true,
+          @tui_identity_key => @default_tui_identity_map
+        }
+      else
+        %{@tui_enabled_key => true}
+      end
+
+    {applied, preserved} = partition_absent_values(desired, user_settings)
+    updated_user_settings = put_dotted_values(user_settings, applied)
+    updated_merged = put_dotted_values(merged, applied)
+
+    with :ok <- Schema.validate_settings(updated_merged),
+         {:ok, _settings} <- write_absent_subset(updated_user_settings, applied) do
+      diagnostics = audit_local_tui_launch(applied, preserved, context)
+
+      refresh_resolved_pin()
+
+      tui_launch_result(
+        tui_launch_disposition(applied, effective_profile),
+        applied |> Map.keys() |> Enum.sort(),
+        preserved,
+        diagnostics
+      )
+    end
+  end
+
+  defp tui_launch_disposition(applied, _profile) when is_map_key(applied, @tui_identity_key),
+    do: :bootstrapped
+
+  defp tui_launch_disposition(applied, _profile) when map_size(applied) > 0, do: :activated
+
+  defp tui_launch_disposition(_applied, profile) do
+    if normalize_tui_profile(profile) == "default", do: :present, else: :custom_profile
+  end
+
+  defp audit_local_tui_launch(applied, _preserved, _context) when map_size(applied) == 0,
+    do: []
+
+  defp audit_local_tui_launch(_applied, _preserved, %{audit?: false}), do: []
+  defp audit_local_tui_launch(_applied, _preserved, %{"audit?" => false}), do: []
+
+  defp audit_local_tui_launch(applied, preserved, context) do
+    setting_diagnostics =
+      applied
+      |> Enum.sort_by(&elem(&1, 0))
+      |> Enum.flat_map(fn {key, value} -> audit_write(key, :absent, value, context) end)
+
+    transaction_diagnostics =
+      case Audit.append_settings_transaction(Map.keys(applied) |> Enum.sort(), preserved, context) do
+        {:ok, path} -> [%{source: :settings_audit, audit_path: path}]
+        {:error, reason} -> [%{source: :settings_audit, error: inspect(reason)}]
+      end
+
+    setting_diagnostics ++ transaction_diagnostics
+  end
+
+  defp normalize_tui_profile(nil), do: "default"
+
+  defp normalize_tui_profile(profile) when is_binary(profile) do
+    case String.trim(profile) do
+      "" -> "default"
+      normalized -> normalized
+    end
+  end
+
+  defp normalize_tui_profile(profile), do: profile
+
+  defp tui_launch_result(disposition, written, present),
+    do: tui_launch_result(disposition, written, present, [])
+
+  defp tui_launch_result(disposition, written, present, diagnostics) do
+    {:ok,
+     %{
+       disposition: disposition,
+       written: written,
+       present: present,
+       diagnostics: diagnostics
+     }}
   end
 
   defp put_user_settings_if_absent_snapshotted(values, context) do

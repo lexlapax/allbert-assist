@@ -142,10 +142,32 @@ If the selected model later becomes unavailable, opening the web workspace
 routes to the standalone Models repair panel (`workspace:models`) instead of
 reopening the wizard. The panel uses the same readiness guidance and repair
 actions. The warm terminal console (`allbert tui`) is a daily-use surface, not
-a repair wizard: it always starts. Without a usable model it retains working
-chat with the bounded response and points to repair without granting or pulling
-anything. Packaged `allbert tui` and development `mix allbert.tui` use the same
-non-gating readiness guard.
+a repair wizard: model readiness never prevents it from starting. Without a
+usable model it retains working chat with the bounded response and points to
+repair without granting or pulling anything. Packaged `allbert tui` and
+development `mix allbert.tui` use the same
+non-gating readiness guard and the same pre-adapter local identity bootstrap.
+On a fresh Home, an explicit local TUI launch atomically persists
+`channels.tui.enabled=true` and the ordinary `default → local` mapping, so the
+first question needs no identity setup command. This does not mark onboarding
+complete or skipped: `allbert onboard` remains available for later
+customization. An explicit empty/custom/disabled identity map remains sticky;
+custom profiles still require explicit Settings mapping.
+
+A raw `channels.tui.enabled=false` is deliberate operator state and blocks an
+explicit TUI launch without being repaired. Re-enable it with
+`allbert admin settings set channels.tui.enabled true` for the package, or
+`mix allbert.settings set channels.tui.enabled true` in a source checkout.
+Unmapped or disabled identity entries visibly reject ordinary input instead of
+silently dropping it.
+
+After `/quit`, the same preserved `ALLBERT_HOME` can be opened on the web
+surface once no standalone TUI process owns its SQLite database. TUI `default`
+and web `web-local` independently resolve to canonical user `local`, so eligible
+durable user and conversation data is shared. The TUI mapping grants no web
+authorization, and the workspace does not automatically open the exact TUI
+thread; select that thread explicitly when continuity is wanted. Do not run the
+standalone TUI and web/daemon process concurrently against the same Home.
 
 The shared model catalog is available from the web Models panel, TUI `/catalog`,
 and CLI:

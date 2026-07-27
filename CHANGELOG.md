@@ -12,8 +12,8 @@ changelog entries or release notes.
 
 ## v1.2.0 - Zero-Click First Run
 
-Status: **release candidate; operator validation and binary publication
-pending.**
+Status: **corrective release candidate in preparation; replacement exact-SHA
+gates, operator validation, and binary publication pending.**
 
 Formula state: PRE-PUBLICATION ONLY. The packaged Latest 1.1.0 remains during
 the release-candidate window; at binary publication the tap is filled
@@ -35,6 +35,24 @@ instead of enforcing an onboarding wall. Guided onboarding remains available
 as an optional, directly step-addressable customization and repair surface; its
 completion marker no longer gates chat.
 
+Fresh local TUI launch now also establishes identity admission: packaged
+`allbert tui` and development `mix allbert.tui` share one pre-adapter,
+raw-absent-only Settings transaction. A fresh built-in-profile launch
+atomically persists `channels.tui.enabled=true` and the ordinary list-shaped
+`default → local` mapping, with per-key and transaction audits emitted once.
+Raw-present empty, custom, or disabled identity state remains sticky; the
+effective child profile is honored, and custom profiles receive no invented
+mapping. Raw-explicit channel `false` blocks before Adapter startup with a
+bounded package/source re-enable command; it is only an explicit operator
+settings action, never an onboarding outcome. Generic Adapter startup receives no
+fallback, and unmapped/disabled ordinary input now renders a bounded rejection
+instead of appearing to wait forever. Web independently maps `web-local` to the
+same canonical `local` user without inheriting TUI authentication or
+automatically selecting its thread; eligible same-user durable data remains
+available through the existing cross-surface contract. This corrects the FV-01 failure found at candidate `2e096750`,
+where model detection succeeded but the first terminal turn was rejected
+`:not_mapped`; replacement-gate and FV evidence remains pending.
+
 The Models surface now merges the shipped local catalog, live Ollama inventory,
 configured profiles, and bounded hosted metadata through one registered
 read-only action. Selection remains a registered Settings action and pulls stay
@@ -48,11 +66,13 @@ egress setting, unknown or potentially partial failures never retry, and a turn
 makes at most one failover. Decisions are redacted and audited with the failed
 and answering profiles; image and voice ordering are unchanged.
 
-The derived `release.v12` gate retains the complete frozen-v1 and v1.1 prefix,
-then binds thirteen behavioral first-run authority/deny rows plus focused
-enablement, onboarding, catalog, fallback, and cross-surface suites. The final
-operator FV-01..FV-03 results, signed binary workflow, tap fill, and install
-rehearsal will be added after release-candidate validation.
+The derived `release.v12` gate retains the complete frozen-v1 and v1.1 prefix.
+Its original thirteen behavioral first-run authority/deny rows passed at M7/M8;
+the corrective gate adds a fourteenth launcher/Adapter row and explicitly binds
+the Store and development-Mix launcher suites alongside focused enablement,
+onboarding, catalog, fallback, and cross-surface coverage. Corrected
+`release.v12`, exact-SHA authoritative-gate, operator FV-01..FV-03, signed
+binary workflow, tap fill, and install-rehearsal evidence remain pending.
 
 ## v1.1.0 - Asynchronous Background Agent Fan-Out With In-Channel Steering
 

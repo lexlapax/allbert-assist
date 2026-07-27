@@ -253,6 +253,7 @@ defmodule AllbertAssist.InstallPathTest do
     # `$SELF_DIR/allbert` (which, once the overlay IS bin/allbert, self-loops).
     assert overlay =~ ~s(RELEASE_BIN="$SELF_DIR/allbert-release")
     refute overlay =~ ~s(RELEASE_BIN="$SELF_DIR/allbert\n")
+    assert overlay =~ "AllbertAssist.CLI.Tui.launch!()"
 
     # v0.62 M8.12: the installer/Homebrew symlink `<prefix>/bin/allbert` at the
     # dispatcher; SELF_DIR MUST resolve through symlinks or it looks for

@@ -1348,20 +1348,30 @@ same committed SHA.
 ### v1.2 Zero-Click First-Run Suites — 2026-07-26
 
 The authoritative `mix allbert.test release.v12` gate composes the unchanged
-`release.v11` prefix with four focused steps:
+`release.v11` prefix with four focused steps. The 2026-07-26 M7/M8 gate carried
+the original thirteen-row authority sweep. The 2026-07-27 LD26 correction adds
+the fourteenth row and expands the enablement/onboarding step; the historical
+thirteen-row green is not relabelled as corrective evidence:
 
-- `v12_authority_sweep`: thirteen behavioral `:v12` authority/deny rows and
+- `v12_authority_sweep`: fourteen behavioral `:v12` authority/deny rows and
   their exact-inventory/distinct-binding meta-contract;
 - `v12_enablement_and_onboarding`: atomic absent-only enablement, raw false
-  stickiness, disclosure ordering, optional step-addressable onboarding, and
-  non-gating packaged TUI behavior;
+  stickiness, disclosure ordering, optional step-addressable onboarding,
+  atomic raw-absent TUI activation/default identity preparation, effective
+  child-profile handling, explicit-disable pre-Adapter refusal, and shared
+  packaged/development launcher behavior. The release step explicitly includes
+  `test/allbert_assist/settings/store_tui_identity_bootstrap_test.exs` and
+  `test/mix/tasks/allbert_tui_test.exs`; Adapter rejection coverage remains in
+  the inherited v1.1 channel-authority step;
 - `v12_catalog_and_fallback`: four-source catalog and registered chooser paths,
   local-first text selection, typed default-off fallback, the hosted-egress
   gate, and the one-failover turn bound;
 - `v12_web_first_run`: the cross-surface derivation matrix, web repair routing,
   once-only disclosure, direct step entry, and action-backed model selection.
 
-The first roll passed all inherited and v1.2 steps. Evidence is written under
+The original thirteen-row first roll and its post-refresh reruns passed all
+inherited and then-current v1.2 steps. Corrected fourteen-row `release.v12`
+evidence is pending a clean pushed replacement SHA. Evidence is written under
 the gate-owned temporary Home at `release_evidence/v12/`. Security evals remain
 serial, and configured-provider/model/browser smokes remain separate real
 runtime evidence; neither is replaced by a canned release-gate fixture.

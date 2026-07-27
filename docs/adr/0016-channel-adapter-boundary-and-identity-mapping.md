@@ -21,6 +21,29 @@ channels: a list of entries mapping an external terminal profile id such as
 `"default"` to a local `user_id`, optionally disabled per entry. It must not
 introduce a terminal-only shorthand map or implicitly claim `"local"`.
 
+Accepted amendment (v1.2 M9, 2026-07-27): the two explicit local interactive
+launchers, packaged `allbert tui` and development `mix allbert.tui`, establish
+their durable launcher state through one Settings Central compare-and-write
+before adapter startup. When `channels.tui.enabled` is raw-absent, the launcher
+writes `true`. Only when the effective terminal profile is the built-in
+`"default"` and `channels.tui.identity_map` is raw-absent does it also write the
+ordinary list-shaped `"default"` to `"local"` entry. When both keys are absent,
+the two writes are atomic. A raw explicit `channels.tui.enabled = false` blocks
+before adapter startup with bounded re-enable guidance and leaves the identity
+map unchanged. Raw-present identity maps (including empty, custom, or disabled
+entries) and custom terminal profiles remain authoritative; they are never
+merged or replaced.
+
+This is launcher-owned durable setup, not an adapter fallback or a second
+identity authority. Generic supervised/direct adapter startup remains
+explicit-map-only. Every submitted turn and identity-requiring slash command
+still passes through `Identity.resolve/3`; remote channels receive no analogous
+bootstrap. The web surface resolves the canonical `"local"` user independently:
+the TUI mapping grants no web authentication and does not automatically select
+the TUI thread, while existing same-user eligible data remains available under
+the cross-surface contract. See ADR 0067's v1.2 identity amendment and ADR 0087
+§1a.
+
 Accepted amendment (v0.58): the normalize → `Identity.resolve` →
 session-derive → spine → render → record-event methodology defined here is
 extended to **every** surface, not only channels (ADR 0073, Cross-Surface
@@ -122,7 +145,11 @@ Channels do not own:
 The canonical local identity remains string `user_id` from ADR 0014. External
 provider identities map to local `user_id` values only through explicit
 Settings Central configuration. No external identity may implicitly claim
-`"local"` or any other existing local user.
+`"local"` or any other existing local user. The v1.2 local-TUI-launcher
+amendment above is the sole bounded exception: it durably enables the explicit
+local launcher and creates an ordinary Settings mapping for the built-in local
+terminal profile before the adapter starts; it does not let the adapter infer
+identity.
 
 For v0.16, Telegram and email are the first two proving adapters.
 

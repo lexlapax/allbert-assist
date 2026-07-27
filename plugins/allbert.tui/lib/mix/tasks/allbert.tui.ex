@@ -27,9 +27,7 @@ defmodule Mix.Tasks.Allbert.Tui do
         Mix.Task.run("app.config")
         silence_startup_logging!()
         quiet_repo_query_logs!()
-        enable_supervised_tui_child!()
-        Mix.Task.run("app.start")
-        :ok = readiness_guard()
+        prepare_runtime!()
         configure_operator_logging!()
         wait_for_tui_exit!()
         :ok
@@ -46,6 +44,23 @@ defmodule Mix.Tasks.Allbert.Tui do
 
   @doc false
   def readiness_guard(opts \\ []), do: ReleaseTui.readiness_guard(opts)
+
+  @doc false
+  def prepare_runtime!(prepare_fun \\ &ReleaseTui.prepare/0) when is_function(prepare_fun, 0) do
+    case prepare_fun.() do
+      :ok ->
+        :ok
+
+      {:error, {:tui_explicitly_disabled, guidance}} ->
+        Mix.raise("TUI is disabled. #{guidance}")
+
+      {:error, reason} ->
+        Mix.raise("TUI runtime could not start: #{inspect(reason)}")
+
+      other ->
+        Mix.raise("TUI runtime could not start: #{inspect(other)}")
+    end
+  end
 
   @doc false
   def configure_operator_logging! do
@@ -82,32 +97,6 @@ defmodule Mix.Tasks.Allbert.Tui do
     :ok
   end
 
-  defp enable_supervised_tui_child! do
-    opts = Application.get_env(:allbert_assist, @supervisor, [])
-    channel_child_opts = opts |> Keyword.get(:channel_child_opts, %{}) |> normalize_child_opts()
-
-    existing_tui_child_opts = Map.get(channel_child_opts, "tui", []) || []
-
-    tui_child_opts =
-      Keyword.merge(
-        existing_tui_child_opts,
-        enabled?: true,
-        auto_input?: true,
-        input_driver?: true,
-        escape_monitor?: false,
-        emit_banner?: true,
-        live_screen?: false,
-        restart: :transient
-      )
-
-    Application.put_env(
-      :allbert_assist,
-      @supervisor,
-      opts
-      |> Keyword.put(:channel_child_opts, Map.put(channel_child_opts, "tui", tui_child_opts))
-    )
-  end
-
   defp operator_log_level! do
     case System.get_env("ALLBERT_TUI_LOG_LEVEL", "warning")
          |> String.trim()
@@ -138,8 +127,6 @@ defmodule Mix.Tasks.Allbert.Tui do
     end
   end
 
-  defp normalize_child_opts(opts) when is_map(opts), do: opts
-  defp normalize_child_opts(_opts), do: %{}
   defp normalize_keyword(opts) when is_list(opts), do: opts
   defp normalize_keyword(_opts), do: []
 

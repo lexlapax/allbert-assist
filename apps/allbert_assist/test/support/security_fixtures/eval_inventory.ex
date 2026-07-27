@@ -7075,6 +7075,21 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.V12SweepEvalTest"
     },
     %{
+      id: "v12-tui-local-identity-bootstrap-001",
+      milestone: :v12,
+      surface: :identity_context,
+      scenario:
+        "A trusted local TUI launch may seed identity while generic adapter resolution remains explicit-map-only",
+      boundary: :tui_local_identity_bootstrap,
+      expected: :allowed,
+      assert: [
+        :launcher_activated_canonical_local,
+        :explicit_channel_and_identity_state_preserved,
+        :generic_resolver_has_no_fallback
+      ],
+      test_module: "AllbertAssist.Security.V12SweepEvalTest"
+    },
+    %{
       id: "v12-unusable-local-hosted-selection-001",
       milestone: :v12,
       surface: :first_run_onboarding,

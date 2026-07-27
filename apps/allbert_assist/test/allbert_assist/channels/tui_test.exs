@@ -8,6 +8,7 @@ defmodule AllbertAssist.Channels.TUITest do
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Channels.TUI.Adapter
   alias AllbertAssist.Channels.TUI.EscapeMonitor
+  alias AllbertAssist.Channels.TUI.IdentityBootstrap
   alias AllbertAssist.Channels.TUI.InputDriver
   alias AllbertAssist.Channels.TUI.Renderer
   alias AllbertAssist.Channels.TUI.SlashCommands
@@ -144,6 +145,34 @@ defmodule AllbertAssist.Channels.TUITest do
 
     assert assistant_content == "Clean TUI response: hello tui"
     refute assistant_content =~ "[surface]"
+  end
+
+  test "trusted local launcher bootstrap admits normal and slash turns as canonical local" do
+    assert {:ok, %{disposition: :bootstrapped}} = IdentityBootstrap.prepare_local_launch()
+    parent = self()
+
+    assert {:ok, server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: false,
+               enabled?: true,
+               live_screen?: false,
+               output_fun: fn line -> send(parent, {:tui_output, line}) end
+             )
+
+    assert {:ok, {:processed, _event, ["[surface] first local turn"]}} =
+             Adapter.submit(server, "first local turn", external_event_id: "evt-tui-bootstrap")
+
+    assert_receive {:runtime_request, %{user_id: "local", channel: "tui"}}
+
+    assert {:ok, {:slash, [setting]}} =
+             Adapter.submit(server, "/settings get channels.tui.identity_map",
+               external_event_id: "evt-tui-bootstrap-setting"
+             )
+
+    assert setting =~ "default"
+    assert setting =~ "local"
+    refute Repo.get_by(Event, channel: "tui", external_event_id: "evt-tui-bootstrap-setting")
   end
 
   test "inbound admission failure is definitive, bounded, and leaves the TUI usable" do
@@ -1064,6 +1093,77 @@ defmodule AllbertAssist.Channels.TUITest do
     assert_receive {:input_driver_raw, :disabled}
   end
 
+  test "auto input driver visibly rejects an unmapped ordinary turn and stays usable" do
+    parent = self()
+    {server, reader} = start_raw_tui!(parent)
+
+    send_input_driver_line(reader, "hello from an unmapped terminal")
+    assert_receive {:input_driver_output, "\r\n"}
+
+    assert_receive {
+      :input_driver_output,
+      "\r\e[2KMessage not sent: terminal profile is not mapped to an Allbert user. Configure channels.tui.identity_map.\r\nallbert:default> "
+    }
+
+    refute_received {:runtime_request, _request}
+
+    event =
+      Repo.get_by!(Event,
+        channel: "tui",
+        external_user_id: "default",
+        status: "rejected"
+      )
+
+    assert event.reason == ":not_mapped"
+
+    ref = Process.monitor(server)
+    send_input_driver_line(reader, "/quit")
+    assert_receive {:DOWN, ^ref, :process, ^server, :normal}
+    assert_receive {:input_driver_raw, :disabled}
+  end
+
+  test "auto input driver visibly rejects a disabled identity entry and stays usable" do
+    assert {:ok, _setting} =
+             Settings.put(
+               "channels.tui.identity_map",
+               [
+                 %{
+                   "external_user_id" => "default",
+                   "user_id" => "local",
+                   "enabled" => false
+                 }
+               ],
+               %{audit?: false}
+             )
+
+    parent = self()
+    {server, reader} = start_raw_tui!(parent)
+
+    send_input_driver_line(reader, "hello from a disabled terminal mapping")
+    assert_receive {:input_driver_output, "\r\n"}
+
+    assert_receive {
+      :input_driver_output,
+      "\r\e[2KMessage not sent: terminal profile mapping is disabled.\r\nallbert:default> "
+    }
+
+    refute_received {:runtime_request, _request}
+
+    event =
+      Repo.get_by!(Event,
+        channel: "tui",
+        external_user_id: "default",
+        status: "rejected"
+      )
+
+    assert event.reason == ":disabled"
+
+    ref = Process.monitor(server)
+    send_input_driver_line(reader, "/quit")
+    assert_receive {:DOWN, ^ref, :process, ^server, :normal}
+    assert_receive {:input_driver_raw, :disabled}
+  end
+
   test "raw TUI accepts lifecycle output and the next line while a Runtime turn is held" do
     configure_tui!()
     assert {:ok, _setting} = Settings.put("objectives.fanout.enabled", false, %{audit?: false})
@@ -1879,19 +1979,24 @@ defmodule AllbertAssist.Channels.TUITest do
     assert {:ok, _setting} = Settings.put("channels.tui.enabled", true, %{audit?: false})
     assert {:ok, _setting} = Settings.put("channels.tui.identity_map", [], %{audit?: false})
 
+    parent = self()
+
     assert {:ok, server} =
              Adapter.start_link(
                name: nil,
                auto_input?: false,
                enabled?: true,
                live_screen?: false,
-               output_fun: fn _line -> :ok end
+               output_fun: fn line -> send(parent, {:tui_output, line}) end
              )
 
     assert {:ok, :rejected} =
              Adapter.submit(server, "hello tui", external_event_id: "evt-tui-reject")
 
     refute_received {:runtime_request, _request}
+
+    assert_receive {:tui_output,
+                    "Message not sent: terminal profile is not mapped to an Allbert user. Configure channels.tui.identity_map."}
 
     event = Repo.get_by!(Event, channel: "tui", external_event_id: "evt-tui-reject")
     assert event.status == "rejected"

@@ -10,6 +10,9 @@ defmodule AllbertAssist.CLI.TuiTest do
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
 
+    original_channels_config =
+      Application.get_env(:allbert_assist, AllbertAssist.Channels.Supervisor)
+
     root =
       Path.join(
         System.tmp_dir!(),
@@ -22,6 +25,15 @@ defmodule AllbertAssist.CLI.TuiTest do
       if original_paths_config,
         do: Application.put_env(:allbert_assist, Paths, original_paths_config),
         else: Application.delete_env(:allbert_assist, Paths)
+
+      if original_channels_config,
+        do:
+          Application.put_env(
+            :allbert_assist,
+            AllbertAssist.Channels.Supervisor,
+            original_channels_config
+          ),
+        else: Application.delete_env(:allbert_assist, AllbertAssist.Channels.Supervisor)
 
       File.rm_rf!(root)
     end)
@@ -79,8 +91,23 @@ defmodule AllbertAssist.CLI.TuiTest do
     Application.delete_env(:allbert_assist, AllbertAssist.Paths)
     System.put_env("ALLBERT_HOME", #{inspect(root)})
     Application.delete_env(:allbert_assist, :first_model_state_override)
+    original_channels_config = [operator_marker: :preserved]
+    Application.put_env(:allbert_assist, AllbertAssist.Channels.Supervisor, original_channels_config)
     result = AllbertAssist.CLI.Tui.prepare()
     IO.puts("tui_prepare=\#{inspect(result)}")
+    expected = [%{"enabled" => true, "external_user_id" => "default", "user_id" => "local"}]
+    IO.puts("tui_enabled_ok=\#{AllbertAssist.Settings.get("channels.tui.enabled") == {:ok, true}}")
+    IO.puts("tui_identity_ok=\#{AllbertAssist.Settings.get("channels.tui.identity_map") == {:ok, expected}}")
+    second = AllbertAssist.CLI.Tui.bootstrap_local_launch()
+    IO.puts("tui_bootstrap_again=\#{inspect(second)}")
+    audit = File.read!(AllbertAssist.Settings.Audit.audit_path())
+    enabled_count = Regex.scan(~r/^## .* channels\\.tui\\.enabled$/m, audit) |> length()
+    identity_count = Regex.scan(~r/^## .* channels\\.tui\\.identity_map$/m, audit) |> length()
+    transaction_count = Regex.scan(~r/^## .* settings\\.transaction$/m, audit) |> length()
+    IO.puts("tui_enabled_audit_count=\#{enabled_count}")
+    IO.puts("tui_identity_audit_count=\#{identity_count}")
+    IO.puts("tui_transaction_audit_count=\#{transaction_count}")
+    IO.puts("tui_channels_config_restored=\#{Application.get_env(:allbert_assist, AllbertAssist.Channels.Supervisor) == original_channels_config}")
     """
 
     migration_expression = """
@@ -126,7 +153,51 @@ defmodule AllbertAssist.CLI.TuiTest do
 
     assert status == 0, output
     assert output =~ "tui_prepare=:ok", String.slice(output, -4_000, 4_000)
+
+    assert output =~ "tui_enabled_ok=true", String.slice(output, -4_000, 4_000)
+    assert output =~ "tui_identity_ok=true", String.slice(output, -4_000, 4_000)
+
+    assert output =~ "disposition: :present",
+           String.slice(output, -4_000, 4_000)
+
+    assert output =~ "tui_enabled_audit_count=1", String.slice(output, -4_000, 4_000)
+    assert output =~ "tui_identity_audit_count=1", String.slice(output, -4_000, 4_000)
+    assert output =~ "tui_transaction_audit_count=1", String.slice(output, -4_000, 4_000)
+    assert output =~ "tui_channels_config_restored=true", String.slice(output, -4_000, 4_000)
     assert Task.shutdown(server, :brutal_kill) in [nil, :ok]
+  end
+
+  test "explicit launcher preparation respects a stored channel disable" do
+    assert {:ok, _} = Settings.put("channels.tui.enabled", false, %{audit?: false})
+
+    assert {:ok, %{disposition: :explicitly_disabled, written: []}} =
+             Tui.bootstrap_local_launch("default")
+
+    assert Settings.get("channels.tui.enabled") == {:ok, false}
+    assert Settings.get("channels.tui.identity_map") == {:ok, []}
+
+    assert {:error, {:tui_explicitly_disabled, guidance}} = Tui.prepare()
+    assert guidance =~ "channels.tui.enabled true"
+  end
+
+  test "launcher child profile override is the effective bootstrap profile" do
+    assert {:ok, _} = Settings.put("channels.tui.enabled", true, %{audit?: false})
+
+    Application.put_env(
+      :allbert_assist,
+      AllbertAssist.Channels.Supervisor,
+      channel_child_opts: %{"tui" => [profile: "work"]}
+    )
+
+    assert Tui.effective_profile() == "work"
+    assert {:ok, %{disposition: :custom_profile}} = Tui.bootstrap_local_launch()
+    assert Settings.get("channels.tui.identity_map") == {:ok, []}
+  end
+
+  test "packaged launcher failure seam is visible and non-successful" do
+    assert_raise RuntimeError, ~r/TUI runtime could not start: :settings_failed/, fn ->
+      Tui.launch!(fn -> {:error, :settings_failed} end)
+    end
   end
 
   defp start_ollama_server do

@@ -2,14 +2,18 @@
 
 ## Status
 
-Accepted (v1.2 M2, 2026-07-26; proposed 2026-07-24 and amended by the third implementation-
+Accepted (v1.2 M2, 2026-07-26; v1.2 M9 launcher correction binding and proved
+2026-07-27; proposed 2026-07-24 and amended by the third implementation-
 readiness pass 2026-07-26, finalized by operator direction — §1 gains the
 availability-first/local-preferred projection and the per-key
-multi-key write rule, §4 gains the `runtime_unhealthy` and
-`enabled_unavailable` rows and the hosted-key qualifiers, §5 gains the
-wizard-completion decoupling). Binding on v1.2 M1a–M3 (ADR 0088 carries
-M4–M5). M2 proved the detection→enablement→disclosure chain on web, TUI, and
-CLI together and flipped this ADR to Accepted (`docs/plans/v1.2-plan.md`). This is a **consent
+multi-key write rule, and the 2026-07-27 FV-01/M9 correction adds the bounded
+local-TUI launcher enablement and identity bootstrap, §4 gains the
+`runtime_unhealthy` and `enabled_unavailable` rows and the hosted-key
+qualifiers, §5 gains the wizard-completion decoupling). Binding on v1.2 M1a–M3
+and the M9 correction (ADR 0088 carries M4–M5). M2 proved the
+detection→enablement→disclosure chain
+on web, TUI, and CLI together; M9 proved the shared packaged/development
+pre-adapter launcher correction (`docs/plans/v1.2-plan.md`). This is a **consent
 ADR**: it deliberately redefines the enablement point that ADR 0078's v0.63
 M8.5 amendment placed inside the onboarding wizard, and it redefines the
 first-run acceptance criteria (DIT-2 class) that assert QuickStart enables
@@ -24,7 +28,9 @@ mandatory gate to optional step-addressable customization surface), ADR 0088
 degradation machinery the detect states consume), ADR 0072 (recommended
 model profiles per purpose), ADR 0075 (persona profiles — persona seeds still
 flip the same keys), ADR 0006 (Security Central — unchanged), ADR 0031
-(Settings Central — all writes remain safe-write-key writes).
+(Settings Central — all writes remain safe-write-key writes), ADR 0016 and ADR
+0067 (their 2026-07-27 v1.2 M9 amendments bind the launcher-owned channel and
+identity boundary used by §1a).
 
 ## Context
 
@@ -108,6 +114,36 @@ explicit primary, task candidate order, then one stable documented order.
 **Local always outranks hosted.** When both are detected, the local profile
 is selected. ADR 0078's local-first posture and its rejection of a managed
 hosted default are unchanged.
+
+### 1a. Local TUI launcher bootstrap
+
+Zero-click TUI chat also requires admission identity, not only model
+enablement. Immediately before starting the adapter, the packaged and
+development local interactive launchers run one Settings Central
+compare-and-write. If `channels.tui.enabled` is raw-absent, the operation writes
+`true`. If the effective terminal profile is the built-in `default` and
+`channels.tui.identity_map` is also raw-absent, it writes the ordinary
+list-shaped `default → local` entry in the same atomic operation. If only one
+eligible key is absent, only that key is written. The values are validated and
+audited through Settings Central; concurrent first launches converge on the
+same durable state.
+
+A raw explicit `channels.tui.enabled = false` is authoritative: the launcher
+performs no identity-map write, blocks before Adapter startup, and renders
+bounded guidance to set the channel enabled again. Raw-present identity maps
+(including empty, custom, or disabled entries) and custom terminal profiles are
+also authoritative and are never replaced or merged. Generic adapter startup
+does not bootstrap. The adapter receives no identity override: normal turns and
+identity-requiring slash commands continue through
+`Channels.Identity.resolve/3`, and an unmapped/disabled turn is visibly rejected
+before runtime admission.
+
+`channels.tui.enabled` controls channel launch; it is not
+`onboarding_complete` or model consent. Bootstrapping it to `true` keeps the
+optional onboarding surface available and does not complete or suppress
+onboarding. The persisted TUI mapping resolves the same canonical `local` user
+as the web surface's independent mapping; it grants no web access and creates
+no implicit cross-surface thread link.
 
 **Availability-first, local-preferred projection (final readiness decision,
 operator 2026-07-26).** A healthy local rung always wins. When a local runtime
@@ -211,10 +247,15 @@ carries a regression.
   ADR 0069 false-complete rule is preserved in its real sense: the wizard
   still cannot claim complete while readiness is non-ready.
 - The TUI
-  `readiness_guard` hard block is inverted: the TUI always starts, and
-  non-ready detect states render as in-TUI guidance instead of an stderr
+  `readiness_guard` model-state hard block is inverted: absent an explicit
+  channel disable, the TUI starts in every detect state, and
+  non-ready detect states render as in-TUI guidance instead of a standard-error
   refusal. `mix allbert.tui` (dev) and `allbert tui` (packaged) adopt the
-  same posture — the current divergence is closed.
+  same posture — the current divergence is closed. On a fresh Home their
+  shared pre-adapter bootstrap from §1a enables the channel and makes the first
+  submitted turn admissible; guard inversion without channel and identity
+  admission is not sufficient. A raw explicit `channels.tui.enabled = false`
+  remains a deliberate launcher stop with bounded re-enable guidance.
 - The QuickStart and persona flip sites remain and stay idempotent; personas
   still seed the same keys through the same confirmation-gated action.
 
@@ -226,11 +267,17 @@ question" is retired. The v1.2 criteria:
 - fresh Home + any reachable provisioned provider → the **first question is
   answered by the model with zero prior clicks**, and the disclosure is
   visible. "Reachable provisioned" means a §4 `detected_ready` cell; an
-  unusable local runtime does not mask a configured hosted provider;
+  unusable local runtime does not mask a configured hosted provider. On TUI,
+  this includes atomic launcher bootstrap of raw-absent channel enablement and
+  the built-in terminal identity before adapter initialization; no settings
+  command is a prerequisite;
 - fresh Home + nothing provisioned → the chat surface still opens, the
   deterministic fallback answers, and exactly one repair CTA per §4 is
   presented — zero clicks to a working (fallback) chat, no wizard wall;
-- an operator-stored `false` is never overridden by detection.
+- an operator-stored `false` is never overridden by detection;
+- a raw operator-stored `channels.tui.enabled = false` blocks both packaged and
+  development TUI launchers before Adapter startup, preserves the identity map,
+  and gives bounded re-enable guidance.
 
 ## Consequences
 

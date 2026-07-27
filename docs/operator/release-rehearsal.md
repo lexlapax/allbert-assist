@@ -405,24 +405,82 @@ if pgrep -f 'allbert.*serve' >/dev/null; then
   echo 'STOP: an Allbert daemon is still running; stop it and wait before TUI'
   exit 1
 fi
-allbert admin settings set channels.tui.identity_map \
-  '[{"external_user_id":"default","user_id":"local","enabled":true}]'
-allbert admin settings set channels.tui.enabled true
-script "$EVIDENCE_ROOT/${VERSION}-tui-transcript.txt" allbert tui
+
+# macOS (BSD script)
+script "$EVIDENCE_ROOT/${VERSION}-tui-macos.txt" allbert tui
+
+# Linux (util-linux script; use instead of the macOS line)
+script -q -c 'allbert tui' "$EVIDENCE_ROOT/${VERSION}-tui-linux.txt"
 ```
+
+Precondition this v1.2 flagship row with a running real Ollama and the curated
+local model pulled. Do not pre-seed `channels.tui.identity_map` in this
+fresh-Home rehearsal: the packaged 1.2 launcher must prove one atomic write of
+`channels.tui.enabled=true` plus the ordinary `default → local` map. Inside
+the session, inspect all three v1.2 settings. Custom-profile and raw-present-map
+rehearsals remain explicit operator-configuration tests and are separate from
+this fresh-default proof.
 
 Inside the session:
 
 ```text
+What is the capital of France?
 /help
 /status
 /channels
+/settings get intent.direct_answer_model_enabled
 /settings get channels.tui.enabled
+/settings get channels.tui.identity_map
 /quit
 ```
 
-Record the redacted transcript path and whether every slash read rendered
-in-session without using cold Mix inspection tasks.
+PASS: the first input produces a real model-backed answer, not the deterministic
+fallback or a silent drop, and the local disclosure appears once. Every slash
+read renders in-session, both boolean settings are `true`, and the identity map
+has one enabled `default → local` entry. Record the redacted transcript
+without using cold Mix inspection tasks. A deliberately model-not-ready cell
+has separate honest-fallback validation and does not satisfy this flagship row.
+
+Relaunch once with the same Home using the matching host command above. Inspect
+the same three Settings keys, then `/quit`. The values must be unchanged and the
+disclosure must not repeat. After both sessions have exited, run the exact
+audit-count proof:
+
+```sh
+export V12_TUI_AUDIT_DIR="$ALLBERT_HOME/settings/audit"
+test "$(rg -A2 '^## .* channels\.tui\.enabled$' "$V12_TUI_AUDIT_DIR"/*.md | rg -c 'actor: first-run-local-tui-bootstrap')" -eq 1
+test "$(rg -A2 '^## .* channels\.tui\.identity_map$' "$V12_TUI_AUDIT_DIR"/*.md | rg -c 'actor: first-run-local-tui-bootstrap')" -eq 1
+test "$(rg -A2 '^## .* settings\.transaction$' "$V12_TUI_AUDIT_DIR"/*.md | rg -c 'actor: first-run-local-tui-bootstrap')" -eq 1
+echo 'PASS: one atomic local-TUI launcher bootstrap; restart added no duplicate'
+```
+
+Prove the explicit-disable boundary only after the counts above:
+
+```sh
+allbert admin settings set channels.tui.enabled false
+if allbert tui >"$EVIDENCE_ROOT/${VERSION}-tui-disabled.txt" 2>&1; then
+  echo 'FAIL: explicitly disabled TUI launched'
+  exit 1
+fi
+rg -F 'allbert admin settings set channels.tui.enabled true' \
+  "$EVIDENCE_ROOT/${VERSION}-tui-disabled.txt"
+allbert admin settings get channels.tui.enabled
+echo 'PASS: raw false was preserved and the launcher printed its re-enable command'
+allbert admin settings set channels.tui.enabled true
+```
+
+The failed launch must not alter the custom/raw-present identity map. A generic
+adapter or a disabled/unmapped identity entry is also never repaired; ordinary
+input prints a visible `Message not sent` rejection before Runtime admission.
+
+Finally, prove cross-surface continuity with the same preserved Home. Ensure the
+TUI has exited, run `allbert serve`, and open `/workspace`; stop the server before
+another standalone TUI run. TUI `default` and web `web-local` independently map
+to canonical user `local`, so eligible durable data and the completed TUI
+conversation are available to select. PASS: web does not automatically open the
+exact TUI thread, and the TUI map neither grants nor changes web authorization.
+Never let the standalone TUI and web/daemon process concurrently own the same
+SQLite Home.
 
 ### Packaged browser doctor and workspace
 
@@ -615,7 +673,7 @@ and representative data remain without `--purge`.
 | Artifact matrix | published artifacts boot and pass binary smoke | `.github/workflows/release-artifacts.yml` | current line |
 | Tap fill | formula version, URLs, and checksums match release checksums | `homebrew/fill-sha256.sh`; `brew audit --strict --online --formula` | current packaged line |
 | Package-manager install | package installs and invokes packaged binary | `brew install`; `brew test`; uninstall | current line |
-| Packaged TUI | installed binary runs the warm console in a TTY | `script ... allbert tui` | current line |
+| Packaged TUI | installed binary answers from the ready local model, atomically seeds fresh activation/identity once, restarts without duplicate audit, and preserves cross-surface Home continuity | macOS/Linux `script ... allbert tui`; exact audit counts; TUI exit then `allbert serve` | current line |
 | Docker Linux package smoke | both Linux artifacts install/start/attach/uninstall in containers | `docker run --platform linux/arm64`; `docker run --platform linux/amd64` | current line |
 | Real-host service/vault | launchd/systemd and OS keychain integration on actual hosts | host service/vault commands | operator closeout |
 

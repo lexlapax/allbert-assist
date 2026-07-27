@@ -5,6 +5,8 @@ defmodule AllbertAssist.Security.V12SweepEvalTest do
 
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Channels.Identity
+  alias AllbertAssist.Channels.TUI.IdentityBootstrap
   alias AllbertAssist.CLI.Tui
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.FirstRun.Enablement
@@ -27,6 +29,7 @@ defmodule AllbertAssist.Security.V12SweepEvalTest do
     v12-fallback-egress-gate-001
     v12-fallback-turn-bound-001
     v12-tui-guard-no-bypass-001
+    v12-tui-local-identity-bootstrap-001
     v12-unusable-local-hosted-selection-001
     v12-local-ready-wins-001
   ]
@@ -83,10 +86,10 @@ defmodule AllbertAssist.Security.V12SweepEvalTest do
   test "§G inventory is exact and every scenario has a distinct behavioral binding" do
     rows = EvalInventory.rows_for_milestone(:v12)
     assert MapSet.new(Enum.map(rows, & &1.id)) == MapSet.new(@ids)
-    assert length(rows) == 13
+    assert length(rows) == 14
     assert Enum.all?(rows, &(&1.test_module == inspect(__MODULE__)))
     assert Enum.all?(rows, &(length(&1.assert) == 3))
-    assert rows |> Enum.map(&MapSet.new(&1.assert)) |> Enum.uniq() |> length() == 13
+    assert rows |> Enum.map(&MapSet.new(&1.assert)) |> Enum.uniq() |> length() == 14
   end
 
   test "v12-detect-no-egress-001" do
@@ -298,6 +301,35 @@ defmodule AllbertAssist.Security.V12SweepEvalTest do
       :guard_returns_ok,
       :settings_remain_empty,
       :deterministic_fallback_available
+    ])
+  end
+
+  test "v12-tui-local-identity-bootstrap-001" do
+    assert {:ok, %{disposition: :bootstrapped}} = IdentityBootstrap.prepare_local_launch()
+    assert {:ok, true} = Settings.get("channels.tui.enabled")
+    assert {:ok, mapping} = Settings.get("channels.tui.identity_map")
+    assert Identity.resolve("tui", "default", mapping) == {:ok, "local"}
+
+    put!("channels.tui.identity_map", [])
+
+    assert {:ok, %{disposition: :present, written: []}} =
+             IdentityBootstrap.prepare_local_launch()
+
+    assert {:ok, []} = Settings.get("channels.tui.identity_map")
+    assert Identity.resolve("tui", "default", []) == {:error, :not_mapped}
+    assert Identity.resolve("tui", "arbitrary", []) == {:error, :not_mapped}
+
+    put!("channels.tui.enabled", false)
+
+    assert {:ok, %{disposition: :explicitly_disabled, written: []}} =
+             IdentityBootstrap.prepare_local_launch()
+
+    assert {:ok, false} = Settings.get("channels.tui.enabled")
+
+    bind("v12-tui-local-identity-bootstrap-001", [
+      :launcher_activated_canonical_local,
+      :explicit_channel_and_identity_state_preserved,
+      :generic_resolver_has_no_fallback
     ])
   end
 

@@ -54,6 +54,34 @@ defmodule Mix.Tasks.Allbert.TuiTest do
     end
   end
 
+  test "development launcher delegates runtime preparation to the shared TUI seam" do
+    parent = self()
+
+    assert :ok =
+             Tui.prepare_runtime!(fn ->
+               send(parent, :shared_prepare_called)
+               :ok
+             end)
+
+    assert_receive :shared_prepare_called
+  end
+
+  test "development launcher reports a bounded shared-prepare failure" do
+    assert_raise Mix.Error, ~r/TUI runtime could not start: :settings_failed/, fn ->
+      Tui.prepare_runtime!(fn -> {:error, :settings_failed} end)
+    end
+  end
+
+  test "development launcher gives the exact re-enable path when TUI is disabled" do
+    assert_raise Mix.Error, ~r/TUI is disabled.*channels\.tui\.enabled true/s, fn ->
+      Tui.prepare_runtime!(fn ->
+        {:error,
+         {:tui_explicitly_disabled,
+          "Re-enable with `mix allbert.settings set channels.tui.enabled true`."}}
+      end)
+    end
+  end
+
   defp restore_system_env(name, nil), do: System.delete_env(name)
   defp restore_system_env(name, value), do: System.put_env(name, value)
 

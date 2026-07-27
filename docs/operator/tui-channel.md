@@ -5,6 +5,9 @@ descriptor, basic `mix allbert.tui` launcher, identity mapping, split-payload
 rendering seam, typed approval rendering/resolution, warm TUI validation, and the
 deterministic `release.v055` gate. v0.56 extends the same warm console with
 read-only `/intents` and `/models` validation views.
+v1.2 adds a bounded fresh-Home activation-and-identity bootstrap for the
+built-in local interactive launchers; the historical explicit-map posture
+remains binding for custom or generic adapter startup.
 The full release-validation checklist is
 `docs/plans/archives/v0.55-request-flow.md#operator-validation-punchlist-v055-persistent-tui-session`.
 
@@ -12,20 +15,53 @@ The full release-validation checklist is
 
 - A local terminal that can run Mix tasks.
 - A disposable `ALLBERT_HOME` for validation when testing release behavior.
-- A mapped terminal profile. The default profile is `"default"` and must be
-  mapped through `channels.tui.identity_map`; the terminal never implicitly
-  claims `"local"`.
+- The built-in `default` profile. On a fresh Home, packaged `allbert tui` and
+  development `mix allbert.tui` atomically persist
+  `channels.tui.enabled=true` and the ordinary list-shaped `default → local`
+  Settings mapping before the adapter starts. Custom profiles and direct/generic
+  adapter startup are never auto-mapped. Any raw-present identity map is sticky.
 
 ## Configure
 
 ```sh
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-tui.XXXXXX)"
 mix allbert.ecto.migrate --quiet
+```
 
-mix allbert.settings set channels.tui.identity_map '[{"external_user_id":"default","user_id":"local","enabled":true}]'
+The first launch needs no identity setup command. At the first prompt, use
+`/settings get channels.tui.enabled` and
+`/settings get channels.tui.identity_map` to confirm both durable entries. The
+TUI remains available whether or not onboarding has run; this launcher bootstrap
+does not complete, skip, or otherwise mutate onboarding. A restart of the same
+Home preserves both settings and creates no second launcher-bootstrap audit.
+
+For a custom profile/user mapping, or to make operator intent explicit, set the
+full list before launch:
+
+```sh
+mix allbert.settings set channels.tui.identity_map \
+  '[{"external_user_id":"work","user_id":"alice","enabled":true}]'
+mix allbert.settings set channels.tui.profile work
 mix allbert.settings get channels.tui.identity_map
+```
+
+An explicitly stored empty map or disabled entry is sticky and is not repaired
+by launch. Ordinary input then prints one of these bounded explanations and
+never reaches Runtime:
+
+```text
+Message not sent: terminal profile is not mapped to an Allbert user. Configure channels.tui.identity_map.
+Message not sent: terminal profile mapping is disabled.
+```
+
+Set the intended full map through Settings Central to re-enable admission. A
+raw `channels.tui.enabled=false` is also authoritative: the interactive launcher
+exits before adapter startup and does not rewrite either setting. Re-enable it
+with the command for the launcher being used:
+
+```sh
+allbert admin settings set channels.tui.enabled true
 mix allbert.settings set channels.tui.enabled true
-mix allbert.settings get channels.tui.enabled
 ```
 
 Check the descriptor-derived channel summary and parity matrix:
@@ -46,7 +82,10 @@ mix allbert.tui
 ```
 
 The launcher boots the app with TUI-specific `Channels.Supervisor` child options
-and waits on the supervised TUI child. Completed responses render into normal
+and waits on the supervised TUI child. Both launchers use the same sequence:
+boot registries, atomically persist the raw-absent activation and built-in
+identity entries, then start the adapter so its settings snapshot contains both.
+Completed responses render into normal
 terminal scrollback. Streaming progress also uses transcript-stable, coalesced
 scrollback by default rather than erased live-screen blocks, so captured validation
 transcripts do not retain blank repaint gaps or per-token progress spam. The actual
@@ -115,6 +154,63 @@ ALLBERT_TEST_KEEP_TMP=1 MIX_ENV=test mix allbert.test release.v055
 `ALLBERT_TEST_KEEP_TMP=1` keeps the release gate's owned temporary home so the
 printed `release.v055 evidence:` path remains readable after the Mix task exits.
 
+## v1.2 Verify: Fresh Ready Launch And Web Continuity
+
+Precondition this flagship row with a running real Ollama and the curated local
+model pulled. Use a fresh, preserved Home and choose the transcript command for
+the host OS:
+
+```sh
+export V12_TUI_HOME="$(mktemp -d /tmp/allbert-v12-tui.XXXXXX)"
+export ALLBERT_HOME="$V12_TUI_HOME"
+mix allbert.ecto.migrate --quiet
+
+# macOS (BSD script)
+script "$V12_TUI_HOME/v12-tui-macos.txt" mix allbert.tui
+
+# Linux (util-linux script; use instead of the macOS line)
+script -q -c 'mix allbert.tui' "$V12_TUI_HOME/v12-tui-linux.txt"
+```
+
+At the first prompt, submit one ordinary question, inspect all three settings, and
+quit:
+
+```text
+What is the capital of France?
+/settings get intent.direct_answer_model_enabled
+/settings get channels.tui.enabled
+/settings get channels.tui.identity_map
+/quit
+```
+
+PASS: the first input produces a real model-backed answer, never the deterministic
+fallback and never a silent drop; the local disclosure appears once. Both boolean
+reads show `true`, and the identity read shows one enabled `default → local`
+entry. Relaunch once with the same Home, repeat the three reads, and `/quit`; the
+values must be unchanged and the disclosure must not repeat. Model-not-ready
+cells have separate honest-fallback validation and do not satisfy this flagship
+row.
+
+After both sessions exit, these cross-platform checks prove that the first
+launch wrote one per-key record plus one transaction record and that the restart
+wrote none:
+
+```sh
+export V12_TUI_AUDIT_DIR="$ALLBERT_HOME/settings/audit"
+test "$(rg -A2 '^## .* channels\.tui\.enabled$' "$V12_TUI_AUDIT_DIR"/*.md | rg -c 'actor: first-run-local-tui-bootstrap')" -eq 1
+test "$(rg -A2 '^## .* channels\.tui\.identity_map$' "$V12_TUI_AUDIT_DIR"/*.md | rg -c 'actor: first-run-local-tui-bootstrap')" -eq 1
+test "$(rg -A2 '^## .* settings\.transaction$' "$V12_TUI_AUDIT_DIR"/*.md | rg -c 'actor: first-run-local-tui-bootstrap')" -eq 1
+echo 'PASS: one atomic local-TUI launcher bootstrap; restart added no duplicate'
+```
+
+To continue on web, first ensure the TUI has exited, then start `mix phx.server`
+with this same `ALLBERT_HOME` and open `/workspace`. TUI `default` and web
+`web-local` independently resolve to canonical user `local`, so eligible durable
+conversation and user data can be selected on web. The TUI map does not grant
+web authorization, and opening web does not automatically open the exact TUI
+thread. Never run the standalone TUI and web/daemon process concurrently against
+the same SQLite Home.
+
 ## v0.55.1 Warm Console Standard
 
 v0.55.1 (`docs/plans/archives/v0.55b-request-flow.md`) hardens this same TUI into the
@@ -123,8 +219,8 @@ standard is:
 
 - run the deterministic `mix allbert.test release.v0551` gate first;
 - prepare a fresh `ALLBERT_HOME`, migrate it with `mix allbert.ecto.migrate
-  --quiet`, configure `channels.tui.identity_map`, enable `channels.tui.enabled`,
-  and preflight the Notes/files `write_note` route before launch;
+  --quiet`, explicitly configure identity only when replaying the historical
+  v0.55.1 contract, and preflight the Notes/files `write_note` route before launch;
 - launch one transcript-captured `mix allbert.tui` session and keep it open for
   the whole manual punchlist;
 - issue operator inspections through the in-session slash commands only:
@@ -212,5 +308,7 @@ operator docs.
 
 ## Cleanup
 
-Disable `channels.tui.enabled` in any temporary validation home and keep release
-evidence only under the selected `ALLBERT_HOME`.
+Stop every process that owns the Home. Preserve the Home and its audit/transcript
+evidence unless it was deliberately created as disposable validation state. Do
+not set `channels.tui.enabled=false` merely as cleanup: that is durable operator
+intent and will block the next explicit TUI launch.

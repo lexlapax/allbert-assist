@@ -6012,7 +6012,7 @@ defmodule Mix.Tasks.Allbert.Test do
       cwd: :core,
       executable: "mix",
       args: ["test", "test/security/v12_sweep_eval_test.exs"],
-      coverage: ["thirteen :v12 rows plus the inventory meta-contract are behavior-bound"]
+      coverage: ["fourteen :v12 rows plus the inventory meta-contract are behavior-bound"]
     },
     %{
       id: "v12_enablement_and_onboarding",
@@ -6023,12 +6023,14 @@ defmodule Mix.Tasks.Allbert.Test do
         "test",
         "test/allbert_assist/first_run",
         "test/allbert_assist/settings/store_put_if_absent_test.exs",
+        "test/allbert_assist/settings/store_tui_identity_bootstrap_test.exs",
         "test/allbert_assist/onboarding_test.exs",
         "test/allbert_assist/cli/areas/onboarding_test.exs",
-        "test/allbert_assist/cli/tui_test.exs"
+        "test/allbert_assist/cli/tui_test.exs",
+        "test/mix/tasks/allbert_tui_test.exs"
       ],
       coverage: [
-        "twelve-cell selection, sticky raw presence, atomic writes, disclosure ordering, optional onboarding, and non-gating TUI launch"
+        "twelve-cell selection, sticky raw presence, atomic model and local-TUI activation/identity writes, disclosure ordering, optional onboarding, and packaged/development launcher parity"
       ]
     },
     %{
@@ -6041,7 +6043,6 @@ defmodule Mix.Tasks.Allbert.Test do
         "test/allbert_assist/models/catalog_test.exs",
         "test/allbert_assist/settings/models_fallback_test.exs",
         "test/allbert_assist/settings/model_preferences_test.exs",
-        "test/allbert_assist/actions/models/list_model_catalog_test.exs",
         "test/allbert_assist/actions/intent/direct_answer_test.exs"
       ],
       coverage: [

@@ -1851,8 +1851,22 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     end
   end
 
-  # A typed approval command that fails must never be silent: the operator is
-  # standing at the prompt the gate told them to type into.
+  # An ordinary turn or typed approval command rejected at admission must not
+  # disappear while the operator is standing at the prompt.
+  defp emit_callback_rejection(:ignore, :not_mapped, state) do
+    emit_rendered(
+      [
+        "Message not sent: terminal profile is not mapped to an Allbert user. " <>
+          "Configure channels.tui.identity_map."
+      ],
+      state
+    )
+  end
+
+  defp emit_callback_rejection(:ignore, :disabled, state) do
+    emit_rendered(["Message not sent: terminal profile mapping is disabled."], state)
+  end
+
   defp emit_callback_rejection(:ignore, _reason, _state), do: :ok
 
   defp emit_callback_rejection({:ok, action, confirmation_id}, reason, state) do

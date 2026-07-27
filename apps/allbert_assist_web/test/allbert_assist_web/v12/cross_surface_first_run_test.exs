@@ -3,6 +3,8 @@ defmodule AllbertAssistWeb.V12.CrossSurfaceFirstRunTest do
 
   @moduletag :app_env_serial
 
+  alias AllbertAssist.Channels.Identity
+  alias AllbertAssist.Channels.TUI.IdentityBootstrap
   alias AllbertAssist.CLI.Tui
   alias AllbertAssist.FirstRun.Enablement
   alias AllbertAssist.FirstRun.Presentation
@@ -53,7 +55,7 @@ defmodule AllbertAssistWeb.V12.CrossSurfaceFirstRunTest do
     {:ok, root: root}
   end
 
-  test "all twelve fresh-Home cells agree across web, packaged/dev TUI, and CLI", %{root: root} do
+  test "all twelve fresh-Home presentation cells and readiness guards agree", %{root: root} do
     for model_state <- @states, hosted? <- [false, true] do
       reset_home!(root)
 
@@ -71,14 +73,32 @@ defmodule AllbertAssistWeb.V12.CrossSurfaceFirstRunTest do
       assert_surface_contract(result, :cli)
       assert_surface_contract(result, :tui)
 
-      # Both entry points are deliberately non-gating. The packaged launcher
-      # calls this guard; the dev Mix task starts the same TUI child directly.
+      # Both guard entry points are deliberately non-gating. Launcher identity
+      # bootstrap and adapter admission are proved separately below.
       assert :ok = Tui.readiness_guard(first_model_state: model_state)
       assert :ok = Mix.Tasks.Allbert.Tui.readiness_guard(first_model_state: model_state)
 
       assert WorkspaceFirstRun.default_destination(state: web_detect_state(result)) ==
                expected_web_destination(result)
     end
+  end
+
+  test "fresh TUI and web resolve independently to canonical local without cross-authorizing" do
+    assert {:ok, %{disposition: :bootstrapped}} = IdentityBootstrap.prepare_local_launch()
+    assert {:ok, tui_mapping} = Settings.get("channels.tui.identity_map")
+
+    web_mapping = [
+      %{
+        "external_user_id" => "web-local",
+        "user_id" => "local",
+        "enabled" => true
+      }
+    ]
+
+    assert Identity.resolve("tui", "default", tui_mapping) == {:ok, "local"}
+    assert Identity.resolve("live_view", "web-local", web_mapping) == {:ok, "local"}
+    assert Identity.resolve("live_view", "web-local", tui_mapping) == {:error, :not_mapped}
+    assert Identity.resolve("tui", "default", web_mapping) == {:error, :not_mapped}
   end
 
   test "sticky-disabled and enabled-unavailable remain chat-ready on every surface", %{root: root} do

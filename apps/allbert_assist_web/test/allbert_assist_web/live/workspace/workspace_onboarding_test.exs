@@ -4,9 +4,14 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
 
   import Phoenix.LiveViewTest
 
+  alias AllbertAssist.Channels.Event
+  alias AllbertAssist.Channels.TUI.Adapter
+  alias AllbertAssist.Channels.TUI.IdentityBootstrap
   alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Paths
+  alias AllbertAssist.Repo
+  alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
 
   @runtime_async_timeout 60_000
@@ -45,6 +50,49 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
       render_hook(view, "ack_model_disclosure", %{"handle" => handle})
       refute has_element?(view, "#workspace-model-disclosure")
       refute Disclosure.pending?(:web)
+    end
+
+    test "a completed TUI turn remains available to the production web workspace", %{conn: conn} do
+      parent = self()
+
+      Application.put_env(:allbert_assist, Runtime,
+        agent_runner: fn _signal, request ->
+          send(parent, {:tui_runtime_request, request})
+
+          {:ok,
+           %{
+             model_payload: "TUI continuity response",
+             surface_payload: "TUI continuity response",
+             status: :completed
+           }}
+        end
+      )
+
+      assert {:ok, %{disposition: :bootstrapped}} =
+               IdentityBootstrap.prepare_local_launch()
+
+      assert {:ok, adapter} =
+               Adapter.start_link(
+                 name: nil,
+                 auto_input?: false,
+                 enabled?: true,
+                 live_screen?: false,
+                 output_fun: fn _line -> :ok end
+               )
+
+      assert {:ok, {:processed, event, _rendered}} =
+               Adapter.submit(adapter, "tui to web continuity",
+                 external_event_id: "evt-v12-tui-web-continuity"
+               )
+
+      assert_receive {:tui_runtime_request, %{user_id: "local"}}
+      assert %Event{user_id: "local", thread_id: thread_id} = Repo.get!(Event, event.id)
+      GenServer.stop(adapter)
+
+      {:ok, _view, html} = live(conn, ~p"/workspace?thread_id=#{thread_id}")
+      assert html =~ "tui to web continuity"
+      assert html =~ "TUI continuity response"
+      assert Settings.get("channels.tui.enabled") == {:ok, true}
     end
   end
 

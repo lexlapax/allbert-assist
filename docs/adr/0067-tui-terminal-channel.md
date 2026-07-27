@@ -1,6 +1,6 @@
 # ADR 0067: TUI/Terminal Channel
 
-Status: Accepted (v0.55).
+Status: Accepted (v0.55; v1.2 M9 launcher amendment accepted 2026-07-27).
 Date: 2026-06-21
 Related: ADR 0016 (channel adapter boundary + identity mapping — this channel
 is registered under that contract; the v0.55 amendment already reserves
@@ -9,6 +9,8 @@ contracts — extended here with the split-payload pattern), ADR 0030 (unified
 surface catalog/renderer — the terminal surface registers here), ADR 0006
 (Security Central — a channel grants no authority), ADR 0056 (channel inbound
 trust tier — invariants unchanged).
+The v1.2 M9 launcher amendment is coordinated with ADR 0016's channel-boundary
+amendment and ADR 0087 §1a's zero-click launcher contract.
 Successor: ADR 0068 (v0.57 Pi-mode coding surface), which builds directly on
 this channel and on the split-result pattern established here. Pi-mode builds on
 this ADR's split-payload seam, scrollback rendering, and transient Owl
@@ -63,7 +65,22 @@ contract:
   identity through the same list-shaped identity-map seam every channel uses
   (`external_user_id` terminal profile → local `user_id`); the terminal is not
   an implicit super-user and does not get a shorthand `{"default":"local"}`
-  contract.
+  contract. **v1.2 M9 amendment (2026-07-27):** an explicit local interactive
+  launcher (`allbert tui` or `mix allbert.tui`) uses one Settings Central
+  compare-and-write before adapter startup. It writes
+  `channels.tui.enabled = true` when that key is raw-absent. Only for the
+  effective built-in `default` profile does it also seed the normal list-shaped
+  `default → local` entry when the raw identity-map key is absent; when both
+  keys are absent, both writes are atomic. Raw-present identity maps, including
+  empty, custom, or disabled entries, and custom terminal profiles are never
+  merged or overwritten. A raw explicit `channels.tui.enabled = false` blocks
+  before adapter startup, preserves the identity map, and produces bounded
+  guidance to re-enable the channel. Generic adapter/supervisor startup never
+  runs this bootstrap, and the adapter still resolves every turn through the
+  same identity-map seam. This is durable local-launch setup, not implicit
+  super-user behavior or an adapter fallback. The channel enable key is not an
+  onboarding-completion or model-consent key: writing it `true` leaves optional
+  onboarding available and does not mark onboarding complete.
 - **Event dedupe.** Inbound terminal events (keystrokes/submits/resubmits,
   reconnect replays) pass the same inbound dedupe the channel boundary requires.
 - **Approval primitives.** `confirmation: :required` actions surface the
@@ -186,6 +203,15 @@ console, not a new channel.
   semantics, or transport fields change for existing callers.
 - Future streamed terminal rendering has a contracted seam: surface framing never
   pollutes model context.
+- A fresh built-in-profile local launch durably enables the TUI and maps it to
+  the canonical `local` workspace without a prerequisite settings command. The
+  state persists across TUI restarts. A raw explicit channel disable instead
+  stops before adapter startup with re-enable guidance; raw-present mappings
+  and custom profiles remain sticky. The web surface independently resolves
+  the same canonical local identity: TUI setup neither authenticates web access
+  nor automatically resumes a thread across surfaces. An unmapped/disabled
+  ordinary turn renders a bounded rejection while still producing no runtime
+  submission.
 - This channel and the split-result pattern are the **substrate the v0.57
   Pi-mode coding surface (ADR 0068) builds on** — its streamed split-payload
   diffs and terminal coding loop depend on both decisions here.

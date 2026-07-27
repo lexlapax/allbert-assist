@@ -10,8 +10,10 @@ defmodule AllbertAssist.CLI.Tui do
   alias AllbertAssist.App.Bootstrap, as: AppBootstrap
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.TUI.Adapter
+  alias AllbertAssist.Channels.TUI.IdentityBootstrap
   alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.Onboarding
+  alias AllbertAssist.Security.Redactor
   alias AllbertAssist.Settings.Fragments, as: SettingsFragments
 
   @supervisor AllbertAssist.Channels.Supervisor
@@ -30,6 +32,21 @@ defmodule AllbertAssist.CLI.Tui do
   end
 
   @doc false
+  @spec launch!((-> :ok | {:error, term()})) :: :ok
+  def launch!(launch_fun \\ &launch/0) when is_function(launch_fun, 0) do
+    case launch_fun.() do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        raise "TUI runtime could not start: #{inspect(Redactor.redact(reason))}"
+
+      other ->
+        raise "TUI runtime could not start: #{inspect(Redactor.redact(other))}"
+    end
+  end
+
+  @doc false
   def prepare do
     # The release launcher uses `eval`, so the application is loaded but not
     # started. Readiness resolves plugin-owned Settings fragments and therefore
@@ -37,14 +54,19 @@ defmodule AllbertAssist.CLI.Tui do
     # only :req made host-local Ollama work but discarded a persisted configured
     # endpoint in a fresh process (v1.0.5 RC.2 WSL2 failure).
     ensure_http_started()
+    original_supervisor_config = Application.fetch_env(:allbert_assist, @supervisor)
     exclude_tui_during_boot!()
 
-    case Application.ensure_all_started(:allbert_assist) do
-      {:ok, _started} ->
-        prepare_started_runtime()
+    try do
+      case Application.ensure_all_started(:allbert_assist) do
+        {:ok, _started} ->
+          prepare_started_runtime()
 
-      {:error, reason} ->
-        {:error, {:runtime_start_failed, reason}}
+        {:error, reason} ->
+          {:error, {:runtime_start_failed, reason}}
+      end
+    after
+      restore_supervisor_config(original_supervisor_config)
     end
   end
 
@@ -52,8 +74,36 @@ defmodule AllbertAssist.CLI.Tui do
     with :ok <- AppBootstrap.await_ready() do
       SettingsFragments.clear_cache()
 
-      with :ok <- readiness_guard(), do: start_supervised_tui_child!()
+      with {:ok, bootstrap} <- bootstrap_local_launch(effective_profile()),
+           :ok <- require_enabled_launch(bootstrap),
+           :ok <- readiness_guard(),
+           do: start_supervised_tui_child!()
     end
+  end
+
+  @doc false
+  @spec bootstrap_local_launch(String.t()) :: {:ok, map()} | {:error, term()}
+  def bootstrap_local_launch(profile \\ effective_profile()),
+    do: IdentityBootstrap.prepare_local_launch(profile)
+
+  @doc false
+  @spec effective_profile() :: String.t()
+  def effective_profile do
+    opts = supervisor_config()
+
+    child_profile =
+      opts
+      |> Keyword.get(:channel_child_opts, %{})
+      |> child_opts_for_tui()
+      |> Keyword.get(:profile)
+
+    settings_profile =
+      case Channels.channel_settings("tui") do
+        {:ok, settings} -> Map.get(settings, "profile", "default")
+        {:error, _reason} -> "default"
+      end
+
+    normalize_profile(child_profile || settings_profile)
   end
 
   @doc false
@@ -99,11 +149,20 @@ defmodule AllbertAssist.CLI.Tui do
     "Onboarding is optional. Run `allbert onboard` to customize Allbert; chat remains available."
   end
 
+  defp require_enabled_launch(%{disposition: :explicitly_disabled}) do
+    {:error,
+     {:tui_explicitly_disabled,
+      "Re-enable with `allbert admin settings set channels.tui.enabled true` " <>
+        "or `mix allbert.settings set channels.tui.enabled true`."}}
+  end
+
+  defp require_enabled_launch(_bootstrap), do: :ok
+
   # The adapter resolves Settings in init. Keep it out of the supervision tree
   # until app/plugin registration and the readiness decision are complete, then
   # add the same transient child used by `mix allbert.tui`.
   defp exclude_tui_during_boot! do
-    opts = Application.get_env(:allbert_assist, @supervisor, [])
+    opts = supervisor_config()
     excluded = opts |> Keyword.get(:exclude_channels, []) |> List.wrap()
 
     Application.put_env(
@@ -113,8 +172,14 @@ defmodule AllbertAssist.CLI.Tui do
     )
   end
 
+  defp restore_supervisor_config({:ok, opts}),
+    do: Application.put_env(:allbert_assist, @supervisor, opts)
+
+  defp restore_supervisor_config(:error),
+    do: Application.delete_env(:allbert_assist, @supervisor)
+
   defp start_supervised_tui_child! do
-    opts = Application.get_env(:allbert_assist, @supervisor, [])
+    opts = supervisor_config()
 
     channel_child_opts =
       case Keyword.get(opts, :channel_child_opts, %{}) do
@@ -151,4 +216,30 @@ defmodule AllbertAssist.CLI.Tui do
   defp normalize_start_child({:error, {:already_started, _pid}}), do: :ok
   defp normalize_start_child({:error, :already_present}), do: :ok
   defp normalize_start_child({:error, reason}), do: {:error, {:tui_start_failed, reason}}
+
+  defp supervisor_config do
+    case Application.get_env(:allbert_assist, @supervisor, []) do
+      opts when is_list(opts) -> opts
+      _other -> []
+    end
+  end
+
+  defp child_opts_for_tui(child_opts) when is_map(child_opts) do
+    case Map.get(child_opts, "tui", []) do
+      opts when is_list(opts) -> opts
+      _other -> []
+    end
+  end
+
+  defp child_opts_for_tui(_other), do: []
+
+  defp normalize_profile(profile) do
+    profile
+    |> to_string()
+    |> String.trim()
+    |> case do
+      "" -> "default"
+      normalized -> normalized
+    end
+  end
 end
