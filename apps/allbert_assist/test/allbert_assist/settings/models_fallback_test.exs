@@ -1,29 +1,28 @@
 defmodule AllbertAssist.Settings.ModelsFallbackTest do
   use ExUnit.Case, async: false
-  @moduletag :db_serial
 
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Models
 
   setup do
-    original_home = System.get_env("ALLBERT_HOME")
     original_paths = Application.get_env(:allbert_assist, Paths)
+    original_settings = Application.get_env(:allbert_assist, Settings)
 
     home =
       Path.join(System.tmp_dir!(), "allbert-model-fallback-#{System.unique_integer([:positive])}")
 
-    System.put_env("ALLBERT_HOME", home)
-    Application.delete_env(:allbert_assist, Paths)
+    Application.put_env(:allbert_assist, Paths, home: home)
+    Application.put_env(:allbert_assist, Settings, root: home)
 
     on_exit(fn ->
-      if original_home,
-        do: System.put_env("ALLBERT_HOME", original_home),
-        else: System.delete_env("ALLBERT_HOME")
-
       if original_paths,
         do: Application.put_env(:allbert_assist, Paths, original_paths),
         else: Application.delete_env(:allbert_assist, Paths)
+
+      if original_settings,
+        do: Application.put_env(:allbert_assist, Settings, original_settings),
+        else: Application.delete_env(:allbert_assist, Settings)
 
       File.rm_rf!(home)
     end)

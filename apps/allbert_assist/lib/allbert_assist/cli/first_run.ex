@@ -27,9 +27,11 @@ defmodule AllbertAssist.CLI.FirstRun do
 
   alias AllbertAssist.FirstModel.Ollama
   alias AllbertAssist.FirstRun.Enablement
+  alias AllbertAssist.FirstRun.UsableModel
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.ModelDoctor
+  alias AllbertAssist.Settings.Store
 
   @onboarding_file "onboarding.json"
 
@@ -56,8 +58,30 @@ defmodule AllbertAssist.CLI.FirstRun do
 
   @doc "Run one fresh-process boot probe followed by the atomic enablement projection."
   def reconcile_enablement(opts \\ []) do
-    model_state = Keyword.get_lazy(opts, :model_state, &first_model_state/0)
-    Enablement.reconcile_on_boot(model_state, Keyword.delete(opts, :model_state))
+    Settings.with_resolved_settings(fn ->
+      {model_state, opts} = boot_detection(opts)
+      Enablement.reconcile_on_boot(model_state, Keyword.delete(opts, :model_state))
+    end)
+  end
+
+  defp boot_detection(opts) do
+    case Keyword.fetch(opts, :model_state) do
+      {:ok, model_state} ->
+        {model_state, opts}
+
+      :error ->
+        case Store.resolved_settings() do
+          {:ok, settings, _user_settings} -> detect_with_selection(settings, opts)
+          _error -> {first_model_state(), opts}
+        end
+    end
+  end
+
+  defp detect_with_selection(settings, opts) do
+    case UsableModel.select_local(settings, opts) do
+      {:ok, selection} -> {:local_ready, Keyword.put(opts, :local_selection, selection)}
+      {:error, :no_usable_model} -> {first_model_state(), opts}
+    end
   end
 
   @doc """

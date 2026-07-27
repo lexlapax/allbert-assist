@@ -958,7 +958,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
             phx-hook="ModelDisclosureAck"
             data-delivery-handle={elem(@model_disclosure, 1).handle}
             role="status"
-            class="mb-3 rounded-xl border border-amber-400/40 bg-amber-50 px-4 py-3 text-sm text-slate-900"
+            class="workspace-status-callout mb-3"
           >
             {elem(@model_disclosure, 1).text}
           </div>

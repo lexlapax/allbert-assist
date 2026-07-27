@@ -12,6 +12,7 @@ defmodule Mix.Tasks.Allbert.Tui do
 
   alias AllbertAssist.Channels.TUI.Adapter
   alias AllbertAssist.Channels.TUI.InputDriver
+  alias AllbertAssist.CLI.Tui, as: ReleaseTui
   alias AllbertAssist.PublicProtocol.StdioGuard
 
   @shortdoc "Run the local Allbert terminal TUI"
@@ -28,6 +29,7 @@ defmodule Mix.Tasks.Allbert.Tui do
         quiet_repo_query_logs!()
         enable_supervised_tui_child!()
         Mix.Task.run("app.start")
+        :ok = readiness_guard()
         configure_operator_logging!()
         wait_for_tui_exit!()
         :ok
@@ -41,6 +43,9 @@ defmodule Mix.Tasks.Allbert.Tui do
         Mix.raise("Usage: mix allbert.tui [--input-driver-proof]")
     end
   end
+
+  @doc false
+  def readiness_guard(opts \\ []), do: ReleaseTui.readiness_guard(opts)
 
   @doc false
   def configure_operator_logging! do

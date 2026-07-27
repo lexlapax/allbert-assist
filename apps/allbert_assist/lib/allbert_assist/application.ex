@@ -5,8 +5,8 @@ defmodule AllbertAssist.Application do
 
   use Application
 
-  alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.Database
+  alias AllbertAssist.FirstRun.Enablement.BootWorker
   alias AllbertAssist.Personas
   alias AllbertAssist.Runtime.Attach
   alias AllbertAssist.Runtime.WriterLock.Holder, as: WriterLockHolder
@@ -77,11 +77,7 @@ defmodule AllbertAssist.Application do
 
   defp first_run_enablement_child do
     if Application.get_env(:allbert_assist, :first_run_enablement_boot?, true) do
-      Supervisor.child_spec(
-        {Task, fn -> FirstRun.reconcile_enablement() end},
-        id: AllbertAssist.FirstRun.Enablement.BootTask,
-        restart: :temporary
-      )
+      {BootWorker, []}
     end
   end
 
