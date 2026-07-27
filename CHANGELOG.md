@@ -12,9 +12,10 @@ changelog entries or release notes.
 
 ## v1.2.0 - Zero-Click First Run
 
-Status: **corrective release candidate awaiting the current clean pushed
-exact-SHA versioned barrier before operator validation. FV-01..03, the post-FV
-aggregate release phase, and binary publication remain pending.**
+Status: **corrective release candidate. FV-01..03 remain pending and may begin
+only when the current clean pushed HEAD has green exact-SHA `release.v1` and
+`release.v12` evidence. The post-FV aggregate release phase and binary
+publication remain pending.**
 
 Formula state: PRE-PUBLICATION ONLY. The packaged Latest 1.1.0 remains during
 the release-candidate window; at binary publication the tap is filled
