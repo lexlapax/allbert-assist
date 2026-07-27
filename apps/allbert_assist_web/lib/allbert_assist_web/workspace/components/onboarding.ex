@@ -398,7 +398,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
           </button>
         </div>
 
-        <ol :if={@onboarding_wizard.started?} class="space-y-1 text-sm">
+        <ol class="space-y-1 text-sm">
           <li
             :for={step <- OnboardingContext.wizard_steps()}
             id={"workspace-wizard-step-#{step}"}
@@ -429,7 +429,10 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
               {wizard_step_label(step)}
             </button>
             <button
-              :if={step == @onboarding_wizard.step and !@onboarding_wizard.complete?}
+              :if={
+                @onboarding_wizard.started? and step == @onboarding_wizard.step and
+                  !@onboarding_wizard.complete?
+              }
               type="button"
               id={"workspace-wizard-advance-#{step}"}
               class={Patterns.compact_button_class!("primary")}
@@ -547,6 +550,18 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
       </section>
 
       <p class="text-xs text-base-content/70">{@tier_line}</p>
+
+      <div id="workspace-onboarding-model-catalog" class="space-y-1">
+        <div
+          :for={entry <- Enum.take(@model_catalog, 12)}
+          class="rounded border border-base-200 p-2 text-xs"
+        >
+          <span class="font-medium">{entry.label}</span>
+          <span>{" — #{entry.model}"}</span>
+          <span :if={entry.floor_gb}>{" · floor #{entry.floor_gb} GB"}</span>
+          <span>{" · #{Enum.join(entry.purposes, ", ")}"}</span>
+        </div>
+      </div>
 
       <.form
         for={@provider_form}
@@ -738,6 +753,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
         claim_reenable_affordance(wizard, socket)
     )
     |> assign(:provider_profiles, provider_profiles())
+    |> assign(:model_catalog, model_catalog(socket))
     |> assign(:tier_line, tier_line())
   end
 
@@ -759,6 +775,13 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
 
   defp trust_lines(nil), do: OnboardingContext.trust_spine()
   defp trust_lines(%{trust_lines: lines}), do: lines
+
+  defp model_catalog(socket) do
+    case run_action("list_model_catalog", %{}, action_context(socket)) do
+      {:ok, %{status: :completed, entries: entries}} -> entries
+      _error -> []
+    end
+  end
 
   # v0.64.3: async variant used by the live-progress pull. Returns the raw Runner
   # result tuple so `handle_async/3` finalizes the socket on the component.

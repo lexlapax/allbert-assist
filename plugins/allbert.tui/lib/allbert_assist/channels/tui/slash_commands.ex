@@ -10,6 +10,7 @@ defmodule AllbertAssist.Channels.TUI.SlashCommands do
     "/channels",
     "/intents",
     "/models",
+    "/catalog",
     "/jobs",
     "/objective",
     "/trace",
@@ -131,6 +132,9 @@ defmodule AllbertAssist.Channels.TUI.SlashCommands do
 
       ["/models"] ->
         {:action, "model_doctor", operator_report_params()}
+
+      ["/catalog"] ->
+        {:action, "list_model_catalog", %{}}
 
       # v0.62 M6 (ADR 0070 convergence): the enumerated remaining read set —
       # already-registered internal reads that lacked a slash surface.

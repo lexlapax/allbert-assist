@@ -84,6 +84,16 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
       end
     end
 
+    test "v1.2 M4: models panel and onboarding render the shared catalog", %{conn: conn} do
+      {:ok, models_view, _html} = live(conn, ~p"/workspace?destination=workspace:models")
+      assert has_element?(models_view, "#workspace-model-catalog")
+      assert has_element?(models_view, "[id^='workspace-catalog-row-ollama-llama3-2-3b']")
+
+      {:ok, onboarding_view, _html} = live(conn, ~p"/workspace?destination=workspace:onboard")
+      onboarding_view |> element("#workspace-wizard-enter-model_path") |> render_click()
+      assert has_element?(onboarding_view, "#workspace-onboarding-model-catalog")
+    end
+
     test "starts a track and advances the canonical steps through M1", %{conn: conn} do
       FirstRun.reset_onboarding()
       {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:onboard")

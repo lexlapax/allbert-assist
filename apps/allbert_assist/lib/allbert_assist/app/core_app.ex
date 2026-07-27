@@ -221,6 +221,15 @@ defmodule AllbertAssist.App.CoreApp do
       },
       %{
         app_id: :allbert,
+        action_name: "list_model_catalog",
+        label: "Browse model catalog",
+        examples: ["browse models", "show the model catalog", "which models fit this task"],
+        synonyms: ["model catalog", "browse models", "recommended models"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
         action_name: "list_model_profiles",
         label: "List model profiles",
         examples: ["what models do I have", "list model profiles", "show available models"],

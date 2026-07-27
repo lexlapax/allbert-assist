@@ -22,6 +22,7 @@ defmodule AllbertAssist.CLI.Areas.Model do
   @usage """
   Usage:
     allbert admin models list
+    allbert admin models catalog [PURPOSE]
     allbert admin models use PROFILE [--enable-assist]
     allbert admin models doctor PROFILE
   """
@@ -55,6 +56,9 @@ defmodule AllbertAssist.CLI.Areas.Model do
     end
   end
 
+  defp route(["catalog"], ctx), do: catalog(nil, ctx)
+  defp route(["catalog", purpose], ctx), do: catalog(purpose, ctx)
+
   defp route(["doctor", profile], ctx) do
     with {:ok, response} <- completed_action(doctor_action(profile), %{profile: profile}, ctx) do
       {:ok, {:doctor, response}}
@@ -77,6 +81,14 @@ defmodule AllbertAssist.CLI.Areas.Model do
   end
 
   defp route(_args, _ctx), do: {:usage, @usage}
+
+  defp catalog(purpose, ctx) do
+    params = if purpose, do: %{purpose: purpose}, else: %{}
+
+    with {:ok, response} <- completed_action("list_model_catalog", params, ctx) do
+      {:ok, {:catalog, response.entries, response.version}}
+    end
+  end
 
   defp render({:ok, {:list, providers, models, active_profile, assist_enabled?}}) do
     Render.ok(
@@ -113,6 +125,18 @@ defmodule AllbertAssist.CLI.Areas.Model do
         voice_doctor_lines(doctor) ++
         Enum.map(doctor.diagnostics, fn diagnostic ->
           "diagnostic=#{diagnostic.code}: #{diagnostic.message}"
+        end)
+    )
+  end
+
+  defp render({:ok, {:catalog, entries, version}}) do
+    Render.ok(
+      ["Model catalog v#{version}:"] ++
+        Enum.map(entries, fn entry ->
+          ready = if entry.pulled? or entry.configured?, do: " ready", else: ""
+          floor = if entry.floor_gb, do: " floor=#{entry.floor_gb}GB", else: ""
+
+          "- #{entry.id}: source=#{entry.source} purposes=#{Enum.join(entry.purposes, ",")}#{floor}#{ready}"
         end)
     )
   end

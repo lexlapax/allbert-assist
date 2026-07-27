@@ -193,6 +193,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Settings.DoctorModelProfile
   alias AllbertAssist.Actions.Settings.DoctorVoiceProvider
   alias AllbertAssist.Actions.Settings.ExplainSetting
+  alias AllbertAssist.Actions.Settings.ListModelCatalog
   alias AllbertAssist.Actions.Settings.ListModelProfiles
   alias AllbertAssist.Actions.Settings.ListProviderProfiles
   alias AllbertAssist.Actions.Settings.ListSettings
@@ -261,6 +262,7 @@ defmodule AllbertAssist.Actions.Registry do
     SetNotesRoot,
     ExplainSetting,
     ListProviderProfiles,
+    ListModelCatalog,
     ListModelProfiles,
     SetProviderCredential,
     DoctorModelProfile,

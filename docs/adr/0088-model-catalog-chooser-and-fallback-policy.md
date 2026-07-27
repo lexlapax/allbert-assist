@@ -2,7 +2,8 @@
 
 ## Status
 
-Proposed (v1.2 planning, 2026-07-24). Binding on the v1.2 catalog/chooser and
+Proposed (v1.2 planning, 2026-07-24; M4 chooser half implemented and proven
+2026-07-26). Binding on the v1.2 catalog/chooser and
 fallback milestones (`docs/plans/v1.2-plan.md`); flips Accepted at the v1.2
 milestone that proves the chooser writes through Settings Central and the
 fallback policy's no-silent-egress denial row. Consumed again by v1.4

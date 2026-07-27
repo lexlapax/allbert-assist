@@ -4,7 +4,8 @@ defmodule Mix.Tasks.Allbert.Model do
 
   ## Usage
 
-      mix allbert.model list
+    mix allbert.model list
+    mix allbert.model catalog [PURPOSE]
       mix allbert.model use PROFILE [--enable-assist]
       mix allbert.model doctor PROFILE
 

@@ -401,6 +401,7 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
       |> assign_new(:model_pulling?, fn -> false end)
       |> assign_new(:model_doctor, fn -> %{summary: %{}, rows: []} end)
       |> assign_new(:model_profiles, fn -> [] end)
+      |> assign_new(:model_catalog, fn -> [] end)
       |> assign_new(:provider_profiles, fn -> [] end)
       |> assign_new(:show_model_inventories?, fn -> false end)
 
@@ -416,6 +417,18 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
 
   @impl true
   def handle_event("refresh_models", _params, socket), do: {:noreply, refresh(socket)}
+
+  def handle_event("select_catalog_profile", %{"profile" => profile}, socket) do
+    context = Support.action_context(socket.assigns)
+
+    socket =
+      case ActionHelper.completed_action("set_active_model_profile", %{profile: profile}, context) do
+        {:ok, response} -> assign_model_action_success(socket, response.message, response)
+        {:error, reason} -> assign(socket, :models_diagnostics, inspect(reason))
+      end
+
+    {:noreply, refresh(socket)}
+  end
 
   def handle_event("install_runtime", _params, socket) do
     {:noreply,
@@ -604,6 +617,40 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
           </div>
         </section>
 
+        <section id="workspace-model-catalog" class="workspace-operator-panel-section">
+          <h3 class="workspace-rail-title">Model Catalog</h3>
+          <div
+            :for={entry <- @model_catalog}
+            id={"workspace-catalog-row-#{Support.safe_id(entry.id)}"}
+            class="workspace-operator-row"
+          >
+            <div class="min-w-0">
+              <div class="font-medium">{entry.label}</div>
+              <div class="text-xs">
+                {entry.provider} / {entry.model} · {Support.list_label(entry.purposes)}
+                <span :if={entry.floor_gb}>{" · floor #{entry.floor_gb} GB"}</span>
+              </div>
+              <div class="text-xs">
+                source={entry.source} status={entry.status} license={entry.license}
+              </div>
+            </div>
+            <button
+              :if={entry.configured? and Map.has_key?(entry, :profile)}
+              type="button"
+              id={"workspace-catalog-select-#{Support.safe_id(entry.profile)}"}
+              class={Support.button_class!("secondary")}
+              phx-click="select_catalog_profile"
+              phx-value-profile={entry.profile}
+              phx-target={@myself}
+            >
+              Use profile
+            </button>
+            <span :if={!entry.configured?} class="workspace-status-pill">
+              {if entry.pulled?, do: "Pulled", else: "Available"}
+            </span>
+          </div>
+        </section>
+
         <section id="workspace-models-rows" class="workspace-operator-panel-section">
           <div
             :for={row <- @model_doctor.rows}
@@ -681,6 +728,8 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
 
     with {:ok, doctor} <-
            ActionHelper.completed_action("model_doctor", operator_report_params(), context),
+         {:ok, catalog} <-
+           ActionHelper.completed_action("list_model_catalog", %{}, context),
          {:ok, providers} <- maybe_load_provider_profiles(socket, context),
          {:ok, models} <- maybe_load_model_profiles(socket, context) do
       assign(socket,
@@ -688,6 +737,7 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
         models_diagnostics: "",
         model_repair: model_repair(),
         model_doctor: doctor.model_doctor,
+        model_catalog: catalog.entries,
         provider_profiles: providers.providers,
         model_profiles: models.models
       )
