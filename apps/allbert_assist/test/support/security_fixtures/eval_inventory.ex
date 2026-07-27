@@ -56,6 +56,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :v066
           | :v1
           | :v11
+          | :v12
 
   @type required_surface ::
           :resource_execution
@@ -6953,6 +6954,149 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
         :setting_remains_disabled
       ],
       test_module: "AllbertAssist.Security.V11SweepEvalTest"
+    },
+    # ── v1.2 Zero-click first-run authority and denial contracts ───────────
+    %{
+      id: "v12-detect-no-egress-001",
+      milestone: :v12,
+      surface: :first_run_onboarding,
+      scenario: "Detection sees a configured hosted key and attempts provider transport",
+      boundary: :first_run_detection,
+      expected: :allowed,
+      assert: [:hosted_presence_detected, :selection_persisted, :hosted_transport_count_zero],
+      test_module: "AllbertAssist.Security.V12SweepEvalTest"
+    },
+    %{
+      id: "v12-sticky-false-001",
+      milestone: :v12,
+      surface: :first_run_onboarding,
+      scenario: "A stored explicit false is overwritten by ready-model detection",
+      boundary: :raw_setting_presence,
+      expected: :dropped,
+      assert: [:raw_false_observed, :enablement_write_skipped, :bounded_fallback_returned],
+      test_module: "AllbertAssist.Security.V12SweepEvalTest"
+    },
+    %{
+      id: "v12-no-silent-pull-001",
+      milestone: :v12,
+      surface: :first_run_onboarding,
+      scenario: "A missing local model triggers an unconfirmed model download",
+      boundary: :model_pull_confirmation,
+      expected: :dropped,
+      assert: [:needs_model_projected, :no_pull_receipt_created, :model_inventory_unchanged],
+      test_module: "AllbertAssist.Security.V12SweepEvalTest"
+    },
+    %{
+      id: "v12-enable-provenance-001",
+      milestone: :v12,
+      surface: :first_run_onboarding,
+      scenario: "Automatic enablement writes outside its closed set or omits provenance",
+      boundary: :atomic_enablement_write,
+      expected: :allowed,
+      assert: [
+        :closed_three_key_write,
+        :transaction_audit_present,
+        :disclosure_derived_from_selection
+      ],
+      test_module: "AllbertAssist.Security.V12SweepEvalTest"
+    },
+    %{
+      id: "v12-raw-presence-race-001",
+      milestone: :v12,
+      surface: :first_run_onboarding,
+      scenario: "Concurrent auto-enable overwrites an explicit operator disable",
+      boundary: :settings_store_lock,
+      expected: :dropped,
+      assert: [:writes_serialized, :explicit_false_persisted, :auto_enable_cannot_overwrite],
+      test_module: "AllbertAssist.Security.V12SweepEvalTest"
+    },
+    %{
+      id: "v12-hosted-disclosure-before-egress-001",
+      milestone: :v12,
+      surface: :first_run_onboarding,
+      scenario: "Hosted inference transport runs before its disclosure is delivered",
+      boundary: :hosted_disclosure,
+      expected: :denied,
+      assert: [:failed_render_keeps_pending, :pre_ack_transport_zero, :post_ack_transport_one],
+      test_module: "AllbertAssist.Security.V12SweepEvalTest"
+    },
+    %{
+      id: "v12-chooser-spine-001",
+      milestone: :v12,
+      surface: :first_run_onboarding,
+      scenario: "The model chooser bypasses the registered Settings action",
+      boundary: :model_chooser_write,
+      expected: :allowed,
+      assert: [
+        :registered_action_executed,
+        :settings_permission_proved,
+        :selected_profile_persisted
+      ],
+      test_module: "AllbertAssist.Security.V12SweepEvalTest"
+    },
+    %{
+      id: "v12-fallback-default-off-001",
+      milestone: :v12,
+      surface: :first_run_onboarding,
+      scenario: "A provider failure retries while runtime fallback remains disabled",
+      boundary: :model_fallback_setting,
+      expected: :dropped,
+      assert: [:fallback_default_false, :primary_called_once, :secondary_not_called],
+      test_module: "AllbertAssist.Security.V12SweepEvalTest"
+    },
+    %{
+      id: "v12-fallback-egress-gate-001",
+      milestone: :v12,
+      surface: :first_run_onboarding,
+      scenario: "Local failure crosses to hosted transport without the egress opt-in",
+      boundary: :fallback_egress_gate,
+      expected: :denied,
+      assert: [:fallback_enabled, :hosted_egress_disabled, :hosted_transport_count_zero],
+      test_module: "AllbertAssist.Security.V12SweepEvalTest"
+    },
+    %{
+      id: "v12-fallback-turn-bound-001",
+      milestone: :v12,
+      surface: :first_run_onboarding,
+      scenario: "A model fallback chain makes more than one failover in a turn",
+      boundary: :fallback_turn_budget,
+      expected: :dropped,
+      assert: [:three_candidates_resolved, :provider_call_count_two, :third_candidate_not_called],
+      test_module: "AllbertAssist.Security.V12SweepEvalTest"
+    },
+    %{
+      id: "v12-tui-guard-no-bypass-001",
+      milestone: :v12,
+      surface: :first_run_onboarding,
+      scenario: "The TUI readiness guard grants model authority on an empty Home",
+      boundary: :tui_readiness_guard,
+      expected: :dropped,
+      assert: [:guard_returns_ok, :settings_remain_empty, :deterministic_fallback_available],
+      test_module: "AllbertAssist.Security.V12SweepEvalTest"
+    },
+    %{
+      id: "v12-unusable-local-hosted-selection-001",
+      milestone: :v12,
+      surface: :first_run_onboarding,
+      scenario: "An unusable local runtime blocks an already-configured hosted provider",
+      boundary: :availability_first_selection,
+      expected: :allowed,
+      assert: [
+        :all_unusable_local_states_covered,
+        :hosted_selected_without_probe,
+        :no_local_provisioning
+      ],
+      test_module: "AllbertAssist.Security.V12SweepEvalTest"
+    },
+    %{
+      id: "v12-local-ready-wins-001",
+      milestone: :v12,
+      surface: :first_run_onboarding,
+      scenario: "A hosted key displaces a healthy local model during first-run selection",
+      boundary: :local_first_selection,
+      expected: :allowed,
+      assert: [:healthy_local_selected, :hosted_candidate_ignored, :hosted_transport_count_zero],
+      test_module: "AllbertAssist.Security.V12SweepEvalTest"
     }
   ]
 

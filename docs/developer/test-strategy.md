@@ -1345,6 +1345,27 @@ readiness, but release status stays pending until the unchanged `release.v1`
 prefix, all five v1.1 steps, and the authoritative aggregate gate pass at the
 same committed SHA.
 
+### v1.2 Zero-Click First-Run Suites — 2026-07-26
+
+The authoritative `mix allbert.test release.v12` gate composes the unchanged
+`release.v11` prefix with four focused steps:
+
+- `v12_authority_sweep`: thirteen behavioral `:v12` authority/deny rows and
+  their exact-inventory/distinct-binding meta-contract;
+- `v12_enablement_and_onboarding`: atomic absent-only enablement, raw false
+  stickiness, disclosure ordering, optional step-addressable onboarding, and
+  non-gating packaged TUI behavior;
+- `v12_catalog_and_fallback`: four-source catalog and registered chooser paths,
+  local-first text selection, typed default-off fallback, the hosted-egress
+  gate, and the one-failover turn bound;
+- `v12_web_first_run`: the cross-surface derivation matrix, web repair routing,
+  once-only disclosure, direct step entry, and action-backed model selection.
+
+The first roll passed all inherited and v1.2 steps. Evidence is written under
+the gate-owned temporary Home at `release_evidence/v12/`. Security evals remain
+serial, and configured-provider/model/browser smokes remain separate real
+runtime evidence; neither is replaced by a canned release-gate fixture.
+
 ## Migration Order
 
 0. Apply case-template default lanes (the bulk classification) and reconcile lane

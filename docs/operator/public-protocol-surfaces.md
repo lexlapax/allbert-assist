@@ -156,8 +156,10 @@ Run the deterministic release lane first:
 MIX_ENV=test mix allbert.test release.v051
 ```
 
-For v1.1 fan-out continuation and receipt behavior, the additive candidate gate
-is `MIX_ENV=test mix allbert.test release.v11`; its final candidate execution is
+For the active v1.2 candidate, the additive gate is
+`MIX_ENV=test mix allbert.test release.v12`. It includes the unchanged v1.1
+fan-out/receipt gate and adds the zero-click first-run authority, catalog,
+fallback, and cross-surface contracts; its final candidate execution is
 required before operator validation.
 
 The gate writes its evidence JSON (including the secret scan) under

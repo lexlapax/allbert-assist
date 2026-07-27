@@ -48,6 +48,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v066
       mix allbert.test release.v1
       mix allbert.test release.v11
+      mix allbert.test release.v12
       mix allbert.test release.v101
       mix allbert.test release.v102
       mix allbert.test release.v103
@@ -182,6 +183,7 @@ defmodule Mix.Tasks.Allbert.Test do
   defp do_run(["release.v066"]), do: release_v066()
   defp do_run(["release.v1"]), do: release_v1()
   defp do_run(["release.v11"]), do: release_v11()
+  defp do_run(["release.v12"]), do: release_v12()
   defp do_run(["release.v101"]), do: release_v101()
   defp do_run(["release.v102"]), do: release_v102()
   defp do_run(["release.v103"]), do: release_v103()
@@ -5981,6 +5983,137 @@ defmodule Mix.Tasks.Allbert.Test do
 
     TestMetrics.record(%{
       gate: "release.v11",
+      command: gate_command(),
+      cwd: Path.relative_to(cwd, root()),
+      phase_or_step: step.id,
+      status: status,
+      wall_ms: duration_ms,
+      output: output
+    })
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: status,
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
+  @v12_focused_steps [
+    %{
+      id: "v12_authority_sweep",
+      title: "v1.2 first-run authority and denial binding sweep",
+      cwd: :core,
+      executable: "mix",
+      args: ["test", "test/security/v12_sweep_eval_test.exs"],
+      coverage: ["thirteen :v12 rows plus the inventory meta-contract are behavior-bound"]
+    },
+    %{
+      id: "v12_enablement_and_onboarding",
+      title: "atomic first-run enablement, disclosure, and onboarding contracts",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/first_run",
+        "test/allbert_assist/settings/store_put_if_absent_test.exs",
+        "test/allbert_assist/onboarding_test.exs",
+        "test/allbert_assist/cli/areas/onboarding_test.exs",
+        "test/allbert_assist/cli/tui_test.exs"
+      ],
+      coverage: [
+        "twelve-cell selection, sticky raw presence, atomic writes, disclosure ordering, optional onboarding, and non-gating TUI launch"
+      ]
+    },
+    %{
+      id: "v12_catalog_and_fallback",
+      title: "model catalog, chooser, and bounded fallback contracts",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/models/catalog_test.exs",
+        "test/allbert_assist/settings/models_fallback_test.exs",
+        "test/allbert_assist/settings/model_preferences_test.exs",
+        "test/allbert_assist/actions/models/list_model_catalog_test.exs",
+        "test/allbert_assist/actions/intent/direct_answer_test.exs"
+      ],
+      coverage: [
+        "four-source catalog, registered chooser path, local-first text selection, typed default-off fallback, egress gate, and one-failover turn bound"
+      ]
+    },
+    %{
+      id: "v12_web_first_run",
+      title: "web zero-click, repair, chooser, and onboarding projections",
+      cwd: :web,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist_web/v12/cross_surface_first_run_test.exs",
+        "test/allbert_assist_web/live/workspace/workspace_onboarding_test.exs",
+        "test/allbert_assist_web/live/workspace/workspace_settings_central_test.exs"
+      ],
+      coverage: [
+        "cross-surface first-run matrix, once-only disclosure, repair destination, step entry, and action-backed model selection"
+      ]
+    }
+  ]
+
+  @release_v12_steps @release_v11_steps ++ @v12_focused_steps
+
+  defp release_v12 do
+    env = owned_env("release-v12", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v12")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v12_steps, &run_release_v12_step(&1, env))
+    status = if Enum.all?(results, &(&1.status == "passed")), do: "passed", else: "failed"
+
+    evidence = %{
+      gate: "mix allbert.test release.v12",
+      version: "v1.2",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; configured live model and browser validation are recorded separately",
+      notes:
+        "release.v11 prefix plus v1.2 first-run authority, enablement, catalog, fallback, and cross-surface contracts",
+      steps: results
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v12-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v12 evidence: #{evidence_path}")
+
+    if status != "passed", do: Mix.raise("release.v12 failed; evidence: #{evidence_path}")
+  end
+
+  defp run_release_v12_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v12 #{step.id}", output)
+    status = release_step_status("release.v12", step.id, exit_status, output)
+
+    TestMetrics.record(%{
+      gate: "release.v12",
       command: gate_command(),
       cwd: Path.relative_to(cwd, root()),
       phase_or_step: step.id,

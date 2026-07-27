@@ -112,7 +112,8 @@ defmodule AllbertAssist.SecurityEvalCaseTest do
                # made the security_eval lane actually run this test.
                :v066,
                :v1,
-               :v11
+               :v11,
+               :v12
              ]
 
       assert row.expected in [:allowed, :needs_confirmation, :denied, :dropped, :error]
