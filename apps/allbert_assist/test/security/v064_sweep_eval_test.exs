@@ -186,11 +186,12 @@ defmodule AllbertAssist.Security.V064SweepEvalTest do
 
     output =
       capture_io(:stderr, fn ->
-        assert {:error, {:first_run_not_ready, :first_model_not_ready}} =
-                 Tui.readiness_guard(first_model_state: :runtime_missing)
+        assert :ok = Tui.readiness_guard(first_model_state: :runtime_missing)
       end)
 
-    assert output =~ "workspace:models"
+    # v1.2 supersedes the v0.64 TUI onboarding wall: repair remains available
+    # through the shared model guidance, while chat itself must still open.
+    assert output == ""
     refute output =~ "runtime_missing"
 
     IO.puts("first-run-blocked-state-repairable-001 status=pass surfaces=web,cli,tui")

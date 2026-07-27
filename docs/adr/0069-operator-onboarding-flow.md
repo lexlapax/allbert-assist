@@ -1,7 +1,9 @@
 # ADR 0069: Guided Onboarding Flow
 
-Status: Accepted (v0.63; v1.2 step-addressable amendment implemented at M3,
-2026-07-26). Re-scoped 2026-06-25 from a v0.59 TUI-only "sequence the
+Status: Accepted (v0.63)
+
+The v1.2 step-addressable amendment was implemented at M3 on 2026-07-26.
+Re-scoped 2026-06-25 from a v0.59 TUI-only "sequence the
 existing steps" hardening sliver into a real guided-onboarding capability for the
 v0.63 Guided Onboarding & Profiles release; built and accepted at v0.63 M7 closeout.
 Date: 2026-06-21 (re-scoped 2026-06-25)
