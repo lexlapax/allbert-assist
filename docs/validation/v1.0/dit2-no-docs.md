@@ -1,5 +1,12 @@
 # DIT-2 — True Non-Developer, No-Docs First Run (v1.0 freeze prerequisite)
 
+> Historical v1.0 evidence. For v1.2 and later, this wizard-first criterion is
+> superseded by the flagship acceptance path: install → open chat → ask the
+> first question with zero setup clicks when a provider is usable. With no
+> usable provider, chat must still answer deterministically and expose exactly
+> one confirmed repair path; no wizard wall or silent pull is permitted. The
+> active proof is FV-01/FV-02 in `docs/plans/v1.2-request-flow.md`.
+
 **PASS** — operator-attested 2026-07-14, after three attempts across the second
 validation pass. Environment: macOS host, locally built packaged binary
 (`MIX_ENV=prod mix release allbert` from the freeze source on `origin/main` — no

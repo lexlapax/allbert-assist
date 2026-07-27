@@ -10,6 +10,45 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v1.2.0 - Zero-Click First Run
+
+Status: **release candidate; operator validation and binary publication
+pending.**
+
+Allbert now treats install, open, chat as the primary first-run path. A fresh
+Home detects an already-usable local model or configured hosted provider,
+selects local first, atomically enables model-backed direct answers only when
+the relevant settings are absent, and presents one durable per-surface
+disclosure. An explicit stored `false` is sticky across detection and restarts.
+Detection does not pull a model, probe a hosted provider, or grant authority
+beyond the closed Settings write defined by ADR 0087.
+
+When no model is usable, every surface still opens chat and returns the bounded
+side-effect-free answer. Web routes to one state-appropriate Models repair
+affordance, and both packaged and development TUI launchers remain usable
+instead of enforcing an onboarding wall. Guided onboarding remains available
+as an optional, directly step-addressable customization and repair surface; its
+completion marker no longer gates chat.
+
+The Models surface now merges the shipped local catalog, live Ollama inventory,
+configured profiles, and bounded hosted metadata through one registered
+read-only action. Selection remains a registered Settings action and pulls stay
+confirmation-gated. The curated default remains `llama3.2:3b`: Qwen 3 4B won
+the macOS quality comparison but exceeded the precommitted throughput-regression
+limit, and the operator-disposed Linux x64 promotion row was unavailable.
+
+Text direct answers also gain an independently opt-in fallback policy. Runtime
+fallback is off by default, local-to-hosted failover requires a second explicit
+egress setting, unknown or potentially partial failures never retry, and a turn
+makes at most one failover. Decisions are redacted and audited with the failed
+and answering profiles; image and voice ordering are unchanged.
+
+The derived `release.v12` gate retains the complete frozen-v1 and v1.1 prefix,
+then binds thirteen behavioral first-run authority/deny rows plus focused
+enablement, onboarding, catalog, fallback, and cross-surface suites. The final
+operator FV-01..FV-03 results, signed binary workflow, tap fill, and install
+rehearsal will be added after release-candidate validation.
+
 ## v1.1.0 - Asynchronous Background Agent Fan-Out With In-Channel Steering
 
 Status: **shipped 2026-07-26.** Stable annotated tag `v1.1.0` points to

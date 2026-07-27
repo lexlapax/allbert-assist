@@ -14,6 +14,15 @@ mix allbert.intent doctor              # intent-purpose rows (embedding/disambig
 mix allbert.settings model-doctor      # every purpose: recommended vs configured vs status
 ```
 
+For the first-chat catalog and selection surface, use
+`allbert admin models catalog [PURPOSE]`, TUI `/catalog`, or the web Models
+panel. These surfaces share one read-only registered action. The curated
+consumer default remains `llama3.2:3b`: Qwen 3 4B improved the macOS quality
+corpus materially, but missed the precommitted throughput bound, and the Linux
+x64 promotion row was unavailable. Qwen 3/3.5 therefore remain explicit
+catalog choices. Runtime text fallback is off by default; local-to-hosted
+fallback additionally requires `models.fallback.allow_local_to_hosted=true`.
+
 Status values: `ok` · `missing` (no profile set) · `under-capable` (model too
 small/wrong capability) · `not-pulled` (local model not downloaded) ·
 `remote-egress-warning` (a hosted profile is configured).

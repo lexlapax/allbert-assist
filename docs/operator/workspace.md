@@ -1,9 +1,10 @@
 # Operator Workspace
 
 Introduced in v0.58 and consolidated into the single shell in v0.61b (ADR 0080).
-The shipped v1.1.0 packaged path starts first run from the service/browser, auto-opens
-onboarding, routes missing-model states to the standalone Models repair panel, and
-streams curated model-pull progress in the web workspace (see
+The v1.2 candidate starts first run in chat. A detected usable provider answers
+the first question without a setup click; a missing or unhealthy model keeps
+chat open and routes to one state-appropriate Models repair action. Onboarding
+is optional, and confirmed local pulls stream progress in the workspace (see
 [onboarding.md](onboarding.md)).
 
 The operator workspace is `/workspace`. v0.58 keeps that route and changes the

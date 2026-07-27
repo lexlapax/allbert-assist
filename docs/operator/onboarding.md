@@ -67,15 +67,21 @@ messages merely because a channel was connected.
 
 ## Operator Onboarding
 
-Allbert ships a guided onboarding wizard over one shared flow on both surfaces — the
-auto-opening web wizard and the interactive `allbert onboard` TTY wizard — built and
-validated at the M7.x closeout. The old command-sequencing onboarding objective is
-retired; the shared wizard machine over the `<Home>/onboarding.json` marker is the
-sole onboarding source and surface.
+Allbert ships a guided onboarding wizard over one shared flow on web and the
+interactive `allbert onboard` TTY surface. The wizard is optional customization
+and repair, not the door to chat. The old command-sequencing onboarding
+objective is retired; the shared wizard machine over the
+`<Home>/onboarding.json` marker is the sole onboarding-progress source.
 
 How an operator gets running:
 
-- the packaged service starts the runtime and the web wizard auto-opens on first run.
+- the packaged service starts the runtime and opens chat. If a usable local
+  model or configured hosted provider is already present, Allbert selects it
+  local-first, enables direct answers when the setting is absent, and shows a
+  one-time disclosure. No wizard step or click precedes the first question.
+- if nothing usable is detected, chat still opens and gives the bounded
+  side-effect-free answer. Web presents one Models repair action for the
+  detected state; no model download starts without confirmation.
 - `allbert onboard` is the primary TTY wizard entry point. It resumes active
   onboarding or starts with a QuickStart/Advanced chooser; no-TTY/headless use falls
   back to the line-oriented flow.
@@ -132,12 +138,39 @@ switch. Switching a provider writes Settings Central keys and edits no config fi
 wizard surfaces which vault tier a new key lands in (OS vault → encrypted-store); the
 env tier is read-only.
 
-If onboarding is complete but the model later becomes unavailable, opening the web
-workspace routes to the standalone Models repair panel (`workspace:models`) instead of
-reopening the wizard. The panel uses the same readiness guidance and repair actions.
-The warm terminal console (`allbert tui`) is a daily-use surface, not a repair wizard:
-before setup is complete it prints a one-line pointer to onboarding or the Models repair
-panel and exits.
+If the selected model later becomes unavailable, opening the web workspace
+routes to the standalone Models repair panel (`workspace:models`) instead of
+reopening the wizard. The panel uses the same readiness guidance and repair
+actions. The warm terminal console (`allbert tui`) is a daily-use surface, not
+a repair wizard: it always starts. Without a usable model it retains working
+chat with the bounded response and points to repair without granting or pulling
+anything. Packaged `allbert tui` and development `mix allbert.tui` use the same
+non-gating readiness guard.
+
+The shared model catalog is available from the web Models panel, TUI `/catalog`,
+and CLI:
+
+```sh
+allbert admin models catalog
+allbert admin models catalog direct_answer
+```
+
+Catalog listing is read-only. Selecting a configured profile uses the registered
+Settings action, and pulling an uninstalled local model remains confirmation-
+gated. The curated first-run default remains `llama3.2:3b`; Qwen 3 and Qwen 3.5
+remain available catalog choices rather than silent replacements.
+
+Runtime text fallback is separately opt-in and off by default:
+
+```sh
+allbert admin settings set models.fallback.enabled true
+allbert admin settings set models.fallback.allow_local_to_hosted true
+```
+
+The second setting is required only to permit a local failure to cross the
+network boundary to a hosted profile. A turn makes at most one failover.
+Fallback decisions are recorded under
+`<Home>/settings/audit/model_fallback/`; prompts and credentials are not.
 
 ### User-category profile reference
 
@@ -159,12 +192,13 @@ lower no confirmation floor. The exact per-persona `settings_seeds` are pinned i
 After applying a persona, the `first_chat` step suggests that persona's starter
 prompts so you reach a first useful chat.
 
-When the `model_path` step confirms a usable model (readiness **Ready**), QuickStart
-enables model-backed direct answers automatically (`intent.direct_answer_model_enabled`),
-so `allbert ask` works from the first chat with no manual settings edit. If the model is
-not yet ready, the flag stays off and the wizard routes you to the concrete repair
-(runtime, model, or BYOK) first — a working model is never faked. Applying any persona
-also seeds this flag as part of its reviewed settings.
+First-run detection enables model-backed direct answers automatically only when
+`intent.direct_answer_model_enabled` is absent and a usable provider is selected.
+An explicit `false` is sticky: detection and wizard completion do not overwrite
+it. The `model_path` step can still repair or change the model, and a completed
+wizard offers a one-time reviewed re-enable affordance for a sticky-disabled
+Home. A working model is never faked. Applying a persona remains a reviewed
+Settings operation.
 
 ### The trust spine
 
