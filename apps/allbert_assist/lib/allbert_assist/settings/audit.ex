@@ -24,6 +24,18 @@ defmodule AllbertAssist.Settings.Audit do
     })
   end
 
+  def append_settings_transaction(applied_keys, preserved, context \\ %{})
+      when is_list(applied_keys) and is_map(preserved) do
+    append(%{
+      key: "settings.transaction",
+      old: %{preserved: preserved},
+      new: %{applied: applied_keys},
+      context: context,
+      permission: context_value(context, :permission_decision, :allowed),
+      validation: :ok
+    })
+  end
+
   def append_secret(secret_ref, old_status, new_status, context \\ %{}) do
     append(%{
       key: secret_ref,

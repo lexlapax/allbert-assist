@@ -14,6 +14,11 @@ defmodule AllbertAssist.Settings.Store do
   # v1.0.2 M8.4: process-scoped turn snapshot (see with_resolved_settings/1).
   @resolved_pin_key {__MODULE__, :pinned_resolved_settings}
   @resolution_hook_key {__MODULE__, :resolution_hook}
+  @auto_enablement_keys MapSet.new([
+                          "intent.direct_answer_model_enabled",
+                          "intent.model_assist_enabled",
+                          "model_preferences.primary"
+                        ])
 
   def root, do: Paths.settings_root()
 
@@ -159,6 +164,98 @@ defmodule AllbertAssist.Settings.Store do
     StoreLock.with_lock(root(), fn ->
       Fragments.with_composition(fn -> put_user_setting_snapshotted(key, value, context) end)
     end)
+  end
+
+  @doc """
+  Atomically writes the raw-absent subset of the first-run enablement keys.
+
+  Stored values, including `false`, are preserved. The closed key set keeps
+  this system-initiated write from becoming a general settings bypass.
+  """
+  def put_user_settings_if_absent(values, context)
+      when is_map(values) and is_map(context) do
+    with :ok <- validate_auto_enablement_keys(values) do
+      StoreLock.with_lock(root(), fn -> put_user_settings_if_absent_locked(values, context) end)
+    end
+  end
+
+  def put_user_settings_if_absent(_values, _context),
+    do: {:error, {:invalid_settings_if_absent, :expected_maps}}
+
+  defp put_user_settings_if_absent_locked(values, context) do
+    Fragments.with_composition(fn ->
+      put_user_settings_if_absent_snapshotted(values, context)
+    end)
+  end
+
+  defp put_user_settings_if_absent_snapshotted(values, context) do
+    with {:ok, user_settings} <- read_user_settings(),
+         {:ok, merged} <- merge_user_settings(user_settings) do
+      {applied, preserved} = partition_absent_values(values, user_settings)
+
+      updated_user_settings = put_dotted_values(user_settings, applied)
+      updated_merged = put_dotted_values(merged, applied)
+
+      with :ok <- Schema.validate_settings(updated_merged),
+           {:ok, _settings} <- write_absent_subset(updated_user_settings, applied) do
+        audit_absent_subset(applied, preserved, merged, context)
+        refresh_resolved_pin()
+
+        {:ok,
+         %{
+           written: applied |> Map.keys() |> Enum.sort(),
+           present: preserved
+         }}
+      end
+    end
+  end
+
+  defp validate_auto_enablement_keys(values) do
+    invalid_keys =
+      values
+      |> Map.keys()
+      |> Enum.reject(&MapSet.member?(@auto_enablement_keys, &1))
+      |> Enum.sort()
+
+    case invalid_keys do
+      [] -> :ok
+      keys -> {:error, {:settings_if_absent_keys_not_allowed, keys}}
+    end
+  end
+
+  defp partition_absent_values(values, user_settings) do
+    values
+    |> Enum.sort_by(&elem(&1, 0))
+    |> Enum.reduce({%{}, %{}}, fn {key, value}, {applied, preserved} ->
+      case Schema.get_dotted(user_settings, key) do
+        nil -> {Map.put(applied, key, value), preserved}
+        stored -> {applied, Map.put(preserved, key, stored)}
+      end
+    end)
+  end
+
+  defp put_dotted_values(settings, values) do
+    Enum.reduce(values, settings, fn {key, value}, acc -> Schema.put_dotted(acc, key, value) end)
+  end
+
+  defp write_absent_subset(_user_settings, applied) when map_size(applied) == 0, do: {:ok, :noop}
+  defp write_absent_subset(user_settings, _applied), do: write_user_settings_locked(user_settings)
+
+  defp audit_absent_subset(_applied, _preserved, _merged, %{audit?: false}), do: []
+  defp audit_absent_subset(_applied, _preserved, _merged, %{"audit?" => false}), do: []
+
+  defp audit_absent_subset(applied, preserved, merged, context) do
+    per_key =
+      applied
+      |> Enum.sort_by(&elem(&1, 0))
+      |> Enum.map(fn {key, value} ->
+        audit_write(key, Schema.get_dotted(merged, key), value, context)
+      end)
+
+    envelope =
+      Audit.append_settings_transaction(Map.keys(applied) |> Enum.sort(), preserved, context)
+
+    [per_key, envelope]
   end
 
   defp put_user_setting_snapshotted(key, value, context) do
