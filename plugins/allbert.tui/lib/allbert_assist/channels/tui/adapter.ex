@@ -753,9 +753,21 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   defp emit_banner(state) do
     state.profile
     |> Renderer.banner()
+    |> append_startup_guidance(AllbertAssist.CLI.Tui.startup_guidance())
     |> Enum.each(&emit_output(&1, state))
 
+    _ =
+      AllbertAssist.FirstRun.Disclosure.render_and_ack(:tui, fn disclosure ->
+        emit_output(disclosure, state)
+      end)
+
     state
+  end
+
+  defp append_startup_guidance(lines, nil), do: lines
+
+  defp append_startup_guidance(lines, guidance) do
+    List.update_at(lines, -1, fn line -> [line, " ", guidance] end)
   end
 
   defp process_text(_text, _opts, %{enabled?: false} = state), do: {{:error, :disabled}, state}

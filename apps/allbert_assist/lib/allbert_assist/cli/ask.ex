@@ -11,6 +11,7 @@ defmodule AllbertAssist.CLI.Ask do
   """
 
   alias AllbertAssist.CLI.Areas.Render
+  alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Runtime
   alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
 
@@ -62,6 +63,15 @@ defmodule AllbertAssist.CLI.Ask do
       |> put_present(:active_app, blank_to_nil(opts[:active_app]))
       |> put_present(:new_thread, opts[:new_thread])
 
+    with :ok <- render_disclosure_before_transport() do
+      submit_request(request, channel)
+    else
+      {:error, reason} ->
+        Render.error("Allbert could not render the model disclosure: #{inspect(reason)}")
+    end
+  end
+
+  defp submit_request(request, channel) do
     case Runtime.submit_user_input(request) do
       {:ok, response} ->
         render_and_acknowledge(response, channel)
@@ -72,6 +82,10 @@ defmodule AllbertAssist.CLI.Ask do
       {:error, reason} ->
         Render.error("Allbert request failed: #{inspect(reason)}")
     end
+  end
+
+  defp render_disclosure_before_transport do
+    Disclosure.render_and_ack(:cli, &IO.puts/1)
   end
 
   defp render_and_acknowledge(response, channel) do

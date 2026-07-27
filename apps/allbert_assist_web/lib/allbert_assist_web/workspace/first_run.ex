@@ -2,21 +2,19 @@ defmodule AllbertAssistWeb.Workspace.FirstRun do
   @moduledoc """
   Web first-run auto-open decision.
 
-  On workspace mount with no explicit destination, the shell opens the onboarding
-  wizard while onboarding/profile review is incomplete. v0.64 adds the completed-
-  onboarding-but-model-not-ready case: that opens the Models workspace repair panel,
-  not the wizard. Infrastructure states (`:home_missing`/`:schema_incompatible`) still
-  do not auto-open because they need install/upgrade repair, not an in-product loop.
+  Onboarding and profile review are optional and never auto-open. A model-not-ready
+  state opens the Models repair panel; infrastructure states do not auto-open because
+  they need install/upgrade repair, not an in-product loop.
   """
 
   alias AllbertAssist.CLI.FirstRun
 
-  @auto_open_states [:onboarding_incomplete, :profile_unreviewed, :first_model_not_ready]
+  @auto_open_states [:first_model_not_ready]
 
   @onboard_destination "workspace:onboard"
   @model_repair_destination "workspace:models"
 
-  @doc "The detect/0 states that auto-open the onboarding wizard."
+  @doc "The detect/0 states that auto-open a repair surface."
   @spec auto_open_states() :: [FirstRun.state()]
   def auto_open_states, do: @auto_open_states
 
@@ -42,7 +40,6 @@ defmodule AllbertAssistWeb.Workspace.FirstRun do
   @spec default_destination(keyword()) :: String.t() | nil
   def default_destination(opts \\ []) do
     case Keyword.get_lazy(opts, :state, &safe_detect/0) do
-      state when state in [:onboarding_incomplete, :profile_unreviewed] -> @onboard_destination
       :first_model_not_ready -> @model_repair_destination
       _other -> nil
     end

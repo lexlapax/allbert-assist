@@ -5,6 +5,7 @@ defmodule AllbertAssist.FirstRun.EnablementTest do
 
   alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.FirstRun.Enablement
+  alias AllbertAssist.Paths
   alias AllbertAssist.Settings.Audit
   alias AllbertAssist.Settings.Store
 
@@ -38,12 +39,18 @@ defmodule AllbertAssist.FirstRun.EnablementTest do
       )
 
     previous = Application.get_env(:allbert_assist, AllbertAssist.Settings)
+    previous_paths = Application.get_env(:allbert_assist, Paths)
     Application.put_env(:allbert_assist, AllbertAssist.Settings, root: root)
+    Application.put_env(:allbert_assist, Paths, home: root)
 
     on_exit(fn ->
       if previous,
         do: Application.put_env(:allbert_assist, AllbertAssist.Settings, previous),
         else: Application.delete_env(:allbert_assist, AllbertAssist.Settings)
+
+      if previous_paths,
+        do: Application.put_env(:allbert_assist, Paths, previous_paths),
+        else: Application.delete_env(:allbert_assist, Paths)
 
       File.rm_rf!(root)
     end)

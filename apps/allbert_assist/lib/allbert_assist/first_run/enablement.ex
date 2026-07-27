@@ -8,6 +8,7 @@ defmodule AllbertAssist.FirstRun.Enablement do
   providers.
   """
 
+  alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.FirstRun.UsableModel
   alias AllbertAssist.Settings.Schema
   alias AllbertAssist.Settings.Store
@@ -119,8 +120,15 @@ defmodule AllbertAssist.FirstRun.Enablement do
         provider_class: selection.provider_class
       })
 
+    # Pending-before-enable is the fail-closed order for hosted egress. A
+    # crash here may repeat a disclosure, but can never enable transport with
+    # no durable disclosure record.
+    :ok = Disclosure.mark_pending(selection)
+
     case Store.put_user_settings_if_absent(values, context) do
       {:ok, provenance} ->
+        cancel_unneeded_disclosure(provenance)
+
         {:ok,
          %{
            state: :auto_enabled,
@@ -132,6 +140,12 @@ defmodule AllbertAssist.FirstRun.Enablement do
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  defp cancel_unneeded_disclosure(%{written: written}) do
+    if "intent.direct_answer_model_enabled" in written,
+      do: :ok,
+      else: Disclosure.cancel_pending()
   end
 
   defp result(state, model_state, selection) do

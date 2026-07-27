@@ -31,6 +31,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.UnifiedHistory
+  alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
@@ -82,6 +83,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     objective_focus = resolve_objective_focus(params, canvas_destination, user_id)
     artifacts_browser_filters = resolve_artifacts_browser_filters(params)
     settings = workspace_settings_snapshot(user_id, session_id)
+    model_disclosure = if connected?(socket), do: Disclosure.prepare_web_delivery(), else: :none
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(AllbertAssistWeb.PubSub, SignalBridge.topic_for(user_id))
@@ -136,6 +138,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         rail_flyout_open?: false,
         workspace_launcher_open?: false,
         workspace_badges: [],
+        model_disclosure: model_disclosure,
         composer_max_bytes: workspace_canvas_tile_body_max_bytes(settings),
         workspace_overflow_open?: false,
         workspace_maximized_pane: nil,
@@ -188,10 +191,26 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   @impl true
   def handle_event("ask", %{"prompt" => prompt}, socket) do
-    {:noreply, submit_workspace_prompt(socket, prompt)}
+    if Disclosure.hosted_pending?(:web) do
+      {:noreply,
+       assign(
+         socket,
+         :error,
+         "Model disclosure is still pending; wait for it to render before sending."
+       )}
+    else
+      {:noreply, submit_workspace_prompt(socket, prompt)}
+    end
   end
 
   def handle_event("ask", _params, socket), do: {:noreply, socket}
+
+  def handle_event("ack_model_disclosure", %{"handle" => handle}, socket) do
+    case Disclosure.acknowledge_web(handle) do
+      :ok -> {:noreply, assign(socket, :model_disclosure, :none)}
+      {:error, :stale_delivery_handle} -> {:noreply, socket}
+    end
+  end
 
   def handle_event("accept_intent_handoff", %{"destination" => destination} = params, socket)
       when is_binary(destination) and destination != "" do
@@ -933,6 +952,17 @@ defmodule AllbertAssistWeb.WorkspaceLive do
           role="region"
           aria-labelledby="workspace-chat-title"
         >
+          <div
+            :if={match?({:ok, _}, @model_disclosure)}
+            id="workspace-model-disclosure"
+            phx-hook="ModelDisclosureAck"
+            data-delivery-handle={elem(@model_disclosure, 1).handle}
+            role="status"
+            class="mb-3 rounded-xl border border-amber-400/40 bg-amber-50 px-4 py-3 text-sm text-slate-900"
+          >
+            {elem(@model_disclosure, 1).text}
+          </div>
+
           <Patterns.status_callout
             id="workspace-offline-banner"
             class="workspace-offline-banner"

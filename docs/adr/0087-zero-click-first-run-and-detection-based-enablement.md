@@ -2,15 +2,14 @@
 
 ## Status
 
-Proposed (v1.2 planning, 2026-07-24; amended by the third implementation-
+Accepted (v1.2 M2, 2026-07-26; proposed 2026-07-24 and amended by the third implementation-
 readiness pass 2026-07-26, finalized by operator direction — §1 gains the
 availability-first/local-preferred projection and the per-key
 multi-key write rule, §4 gains the `runtime_unhealthy` and
 `enabled_unavailable` rows and the hosted-key qualifiers, §5 gains the
 wizard-completion decoupling). Binding on v1.2 M1a–M3 (ADR 0088 carries
-M4–M5); flips Accepted at
-the v1.2 milestone that proves the detection→enablement→disclosure chain on
-web, TUI, and CLI together (`docs/plans/v1.2-plan.md`). This is a **consent
+M4–M5). M2 proved the detection→enablement→disclosure chain on web, TUI, and
+CLI together and flipped this ADR to Accepted (`docs/plans/v1.2-plan.md`). This is a **consent
 ADR**: it deliberately redefines the enablement point that ADR 0078's v0.63
 M8.5 amendment placed inside the onboarding wizard, and it redefines the
 first-run acceptance criteria (DIT-2 class) that assert QuickStart enables

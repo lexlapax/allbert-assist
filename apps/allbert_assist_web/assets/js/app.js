@@ -72,6 +72,13 @@ const ThemeSync = {
   },
 }
 
+const ModelDisclosureAck = {
+  mounted() {
+    const handle = this.el.dataset.deliveryHandle
+    if (handle) this.pushEvent("ack_model_disclosure", {handle})
+  },
+}
+
 // v0.62 M0.1 (deferred v0.61b a11y) — roving arrow-key navigation for
 // role="menu" surfaces (the overflow menu, tile menus): ArrowDown/ArrowUp move
 // focus through the menuitems, Home/End jump, and the roving tabindex keeps
@@ -1064,6 +1071,7 @@ const liveSocket = csrfToken
         FocusTrap,
         MenuKeys,
         A11ySync,
+        ModelDisclosureAck,
         ThemeSync,
         WorkspaceSplitResizer,
         WorkspaceTabs,

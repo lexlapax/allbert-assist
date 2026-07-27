@@ -1,7 +1,7 @@
 defmodule AllbertAssistWeb.Workspace.FirstRunTest do
   @moduledoc """
-  Web first-run auto-open decision. Onboarding/profile states open the wizard; a
-  completed onboarding with no usable model opens the standalone model repair panel.
+  Web first-run auto-open decision. Optional onboarding/profile states stay in chat;
+  a missing usable model opens the standalone repair panel.
   """
   use ExUnit.Case, async: true
   @moduletag :pure_async
@@ -11,9 +11,9 @@ defmodule AllbertAssistWeb.Workspace.FirstRunTest do
 
   alias AllbertAssistWeb.Workspace.FirstRun, as: WorkspaceFirstRun
 
-  test "auto-opens while onboarding/profile/model repair is needed" do
-    assert WorkspaceFirstRun.auto_open?(state: :onboarding_incomplete)
-    assert WorkspaceFirstRun.auto_open?(state: :profile_unreviewed)
+  test "auto-opens only while model repair is needed" do
+    refute WorkspaceFirstRun.auto_open?(state: :onboarding_incomplete)
+    refute WorkspaceFirstRun.auto_open?(state: :profile_unreviewed)
     assert WorkspaceFirstRun.auto_open?(state: :first_model_not_ready)
   end
 
@@ -29,11 +29,8 @@ defmodule AllbertAssistWeb.Workspace.FirstRunTest do
   end
 
   test "maps first-run states to the right destinations" do
-    assert WorkspaceFirstRun.default_destination(state: :onboarding_incomplete) ==
-             "workspace:onboard"
-
-    assert WorkspaceFirstRun.default_destination(state: :profile_unreviewed) ==
-             "workspace:onboard"
+    assert WorkspaceFirstRun.default_destination(state: :onboarding_incomplete) == nil
+    assert WorkspaceFirstRun.default_destination(state: :profile_unreviewed) == nil
 
     assert WorkspaceFirstRun.default_destination(state: :first_model_not_ready) ==
              "workspace:models"

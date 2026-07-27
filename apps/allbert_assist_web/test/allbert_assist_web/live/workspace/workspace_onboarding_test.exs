@@ -5,9 +5,47 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
   import Phoenix.LiveViewTest
 
   alias AllbertAssist.CLI.FirstRun
+  alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Paths
 
   @runtime_async_timeout 60_000
+
+  describe "v1.2 model disclosure" do
+    setup do
+      saved = FirstRun.read_marker()
+
+      on_exit(fn ->
+        FirstRun.reset_onboarding()
+        if saved != %{}, do: FirstRun.merge_marker(saved)
+      end)
+
+      :ok
+    end
+
+    test "requires the exact mounted handle before hosted web transport is admitted", %{
+      conn: conn
+    } do
+      :ok =
+        Disclosure.mark_pending(%{
+          profile: "fast",
+          provider: "openai",
+          provider_class: :hosted
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/workspace")
+      html = view |> element("#workspace-model-disclosure") |> render()
+      assert html =~ "will leave this device for openai"
+      [handle] = Regex.run(~r/data-delivery-handle="([^"]+)"/, html, capture: :all_but_first)
+
+      render_hook(view, "ack_model_disclosure", %{"handle" => "forged"})
+      assert has_element?(view, "#workspace-model-disclosure")
+      assert Disclosure.hosted_pending?(:web)
+
+      render_hook(view, "ack_model_disclosure", %{"handle" => handle})
+      refute has_element?(view, "#workspace-model-disclosure")
+      refute Disclosure.pending?(:web)
+    end
+  end
 
   describe "v0.63 M5 guided wizard panel" do
     @describetag :onboarding_wizard

@@ -64,16 +64,15 @@ defmodule AllbertAssist.CLI.Tui do
   end
 
   @doc false
-  @spec readiness_guard(keyword()) ::
-          :ok | {:error, {:first_run_not_ready, FirstRun.state()}}
-  def readiness_guard(opts \\ []) do
-    details = FirstRun.detect_details(opts)
+  @spec readiness_guard(keyword()) :: :ok
+  def readiness_guard(_opts \\ []), do: :ok
 
-    if details.state == :product_ready do
-      :ok
-    else
-      IO.puts(:stderr, guard_message(details))
-      {:error, {:first_run_not_ready, details.state}}
+  @doc false
+  @spec startup_guidance(keyword()) :: String.t() | nil
+  def startup_guidance(opts \\ []) do
+    case FirstRun.detect_details(opts) do
+      %{state: :product_ready} -> nil
+      details -> guard_message(details)
     end
   end
 
@@ -81,23 +80,23 @@ defmodule AllbertAssist.CLI.Tui do
     readiness = Onboarding.readiness_label(first_model_state: model_state)
     guidance = Onboarding.model_guidance_for(readiness, :quickstart)
 
-    "Allbert TUI is waiting for setup. #{guidance.headline} Run `allbert onboard` or open `/workspace?destination=workspace:models`."
+    "#{guidance.headline} Open Models or run `allbert onboard`; chat remains available with the bounded fallback."
   end
 
   defp guard_message(%{state: :home_missing}) do
-    "Allbert TUI is waiting for setup. Start the packaged service or run `allbert serve --open`, then complete `allbert onboard`."
+    "Allbert Home is not initialized. Start the packaged service or run `allbert serve --open`; the TUI is not gated by onboarding."
   end
 
   defp guard_message(%{state: :schema_incompatible}) do
-    "Allbert TUI is waiting for setup. Allbert Home needs upgrade repair before the console can launch."
+    "Allbert Home needs upgrade repair. Chat stays open, but durable features may be unavailable."
   end
 
   defp guard_message(%{state: :profile_unreviewed}) do
-    "Allbert TUI is waiting for setup. Review the profile in the web workspace or run `allbert onboard`."
+    "Profile review is optional. Use `allbert onboard` to customize it; chat remains available."
   end
 
   defp guard_message(%{state: :onboarding_incomplete}) do
-    "Allbert TUI is waiting for setup. Complete web onboarding or run `allbert onboard`."
+    "Onboarding is optional. Run `allbert onboard` to customize Allbert; chat remains available."
   end
 
   # The adapter resolves Settings in init. Keep it out of the supervision tree

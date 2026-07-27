@@ -3,6 +3,7 @@ defmodule AllbertAssist.FirstRun.FlagshipCoreTest do
 
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.CLI.FirstRun
+  alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Store
 
@@ -20,12 +21,15 @@ defmodule AllbertAssist.FirstRun.FlagshipCoreTest do
       )
 
     settings_env = Application.get_env(:allbert_assist, Settings)
+    paths_env = Application.get_env(:allbert_assist, Paths)
     answer_env = Application.get_env(:allbert_assist, DirectAnswer)
     Application.put_env(:allbert_assist, Settings, root: root)
+    Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, DirectAnswer, answerer: Answerer)
 
     on_exit(fn ->
       restore(Settings, settings_env)
+      restore(Paths, paths_env)
       restore(DirectAnswer, answer_env)
       File.rm_rf!(root)
     end)

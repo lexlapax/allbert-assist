@@ -2,8 +2,6 @@ defmodule AllbertAssist.CLI.TuiTest do
   use ExUnit.Case, async: false
   @moduletag :external_runtime_serial
 
-  import ExUnit.CaptureIO
-
   alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.CLI.Tui
   alias AllbertAssist.Paths
@@ -31,17 +29,13 @@ defmodule AllbertAssist.CLI.TuiTest do
     {:ok, root: root}
   end
 
-  test "refuses to launch before Home is initialized" do
-    output =
-      capture_io(:stderr, fn ->
-        assert {:error, {:first_run_not_ready, :home_missing}} = Tui.readiness_guard()
-      end)
-
-    assert output =~ "Allbert TUI is waiting for setup."
-    assert output =~ "allbert onboard"
+  test "never blocks launch before Home is initialized" do
+    assert :ok = Tui.readiness_guard()
+    assert Tui.startup_guidance() =~ "Home is not initialized"
+    assert Tui.startup_guidance() =~ "not gated by onboarding"
   end
 
-  test "refuses to launch when onboarding is complete but no model path is ready", %{root: root} do
+  test "keeps launch open when onboarding is complete but no model path is ready", %{root: root} do
     with_no_model_provider_env(fn ->
       File.mkdir_p!(Path.join([root, "db"]))
       File.write!(Path.join([root, "db", "allbert.sqlite3"]), "x")
@@ -55,15 +49,11 @@ defmodule AllbertAssist.CLI.TuiTest do
                  %{audit?: false}
                )
 
-      output =
-        capture_io(:stderr, fn ->
-          assert {:error, {:first_run_not_ready, :first_model_not_ready}} =
-                   Tui.readiness_guard()
-        end)
-
-      assert output =~ "No local model runtime is running yet."
-      assert output =~ "workspace:models"
-      refute output =~ "runtime_missing"
+      assert :ok = Tui.readiness_guard()
+      guidance = Tui.startup_guidance()
+      assert guidance =~ "No local model runtime is running yet."
+      assert guidance =~ "chat remains available"
+      refute guidance =~ "runtime_missing"
     end)
   end
 
