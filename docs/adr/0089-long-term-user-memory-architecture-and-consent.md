@@ -63,7 +63,9 @@ anticipated), ADR 0045 (operator-supervised self-improvement — the draft
 trust tier the consolidation pipeline parallels), ADR 0061 (local
 embedding — routing-only; retrieval here stays lexical), ADR 0083/0084/0085
 (the v1.1 background-work substrate consolidation jobs ride), ADR 0031/0006
-(Settings/Security Central), and ADR 0090 (adaptive usage profiling — the
+(Settings/Security Central), ADR 0093 (canonical conversation deletion — the
+paired act that removes what was said, where Forget removes what Allbert
+concluded), and ADR 0090 (adaptive usage profiling — the
 system-facing sibling that consumes the same usage-history sources in
 v1.4).
 

@@ -18,8 +18,14 @@ query confirmation, bootstrap, and canonical delete targets binding. These
 additions close execution ambiguity without adding a scheduler, encryption
 layer, deletion ledger, query-grant store, or generic projection framework.
 
+The fifth readiness pass moved the canonical conversation delete contract out of
+§3 into **ADR 0093**: deleting the operator's history is a Corpus-owned
+destructive capability, and this ADR keeps only the reconciliation-input
+relationship to it.
+
 Related: ADR 0002 (canonical records versus projections), ADR 0006 (Security
-Central), ADR 0016/0057 (channel identity/thread scope), ADR 0070/0073
+Central), ADR 0016/0057 (channel identity/thread scope), ADR 0093 (canonical
+conversation deletion — the input Search reconciles against), ADR 0070/0073
 (registered reads and thin surfaces), ADR 0076 (per-target packaged native
 runtime), ADR 0089 (Memory collection/consent), and ADR 0091 (thin TUI consumes
 the same API).
@@ -142,61 +148,20 @@ changed canonical digest, identity remap, visibility change, or scope denial
 drops the hit. The index never grants access merely because it still contains
 text.
 
-Canonical retention remains unchanged. v1.3 adds the separately confirmed,
-registered `delete_conversation_content` action with
-`target_kind: message | thread`. It is `resumable?: true` and is explicitly
-allowlisted through the existing generic confirmation-resume path; its stored
-resume parameters contain only verified canonical user/operator id, target
-kind/id, non-secret key ref/version, and the opaque server preview binding. The
-target must belong to that user. The binding uses
-`allbert.conversations.delete-preview.v1` over the user/operator id plus message
-id/version/content digest, or thread id/version plus the stable ordered exact
-conversation-owned cascade of message and channel/message-reference row
-identities, versions, and content digests, followed by a versioned ordered
-known-core survivor/blocker count vector and disclosure version. A caller may
-also supply an optional expected digest, but resolved confirmation state does not retain plain
-content-derived hashes.
+Canonical retention remains unchanged, and Search Central does not own it.
+v1.3 adds the separately confirmed, registered `delete_conversation_content`
+action with `target_kind: message | thread`; its preview binding, exact
+conversation-owned cascade, live-dependency blocking, survivor disclosure, and
+crash-safe idempotency are specified in **ADR 0093**, and it is built by the
+Corpus workstream. Deleting the operator's history is a destructive capability
+over canonical user data, not a search concern.
 
-Approval recomputes that complete cascade and bound count/disclosure vector
-inside the immediate canonical Repo transaction. A concurrent append,
-reference, or known-core dependency change makes the confirmation
-stale instead of expanding its authority. Message deletion removes the one
-message and conversation-owned message references; thread deletion uses only
-the existing conversation thread/message/channel-reference cascade. Message
-deletion also recomputes `conversation_threads.last_message_at` from surviving
-messages, using `MAX(conversation_messages.inserted_at)` and falling back to the
-thread's own `inserted_at` when none survive. A thread title previously derived
-from the deleted message is retained and disclosed because the current schema
-has no title-provenance field; v1.3
-does not invent one merely to guess whether an operator renamed the title.
-
-The durable pending confirmation id and bound preview are the idempotency key.
-If the Repo commit succeeds but confirmation resolution does not, retrying that
-same pending approval finds the target absent, returns `already_deleted`, and
-re-drives idempotent Memory-stale/Search-dirty work. A fresh request for an
-absent target returns `not_found`. No cross-store transaction, action-receipt
-row, or deletion-ledger table is added.
-
-Before thread deletion, a best-effort known-schema inventory blocks on live
-execution-bearing references — active origin-thread Jobs/objectives,
-nonterminal fan-out delivery, or open workspace state — and returns finish,
-cancel, or rehome guidance. Approval rechecks those blockers inside the same
-immediate Repo transaction as the cascade. Historical Jobs/runs, objectives,
-StockSage rows, channel events/deliveries, artifacts, traces, and closed
-workspace state remain
-separately governed records whose readers show unavailable provenance. Unknown
-plugin copies are disclosed rather than covered by a false universal-cascade
-claim. The action returns only safe target/outcome/count metadata and marks
-Search dirty for ordinary reconciliation.
-
-Pending Memory proposals or legacy drafts whose only provenance is the deleted
-source become content-free stale outcomes; separately kept Memory claims remain
-governed by Archive/Forget. For a message target, the action does not remove a
-retained thread title, separately governed record, provider/server copy, export,
-backup, snapshot, trace, or filesystem remnant. A thread target does remove its
-canonical thread row and title as part of the disclosed conversation cascade.
-Search Central does not invent a separate canonical retention policy or claim
-canonical deletion merely because an index row was removed.
+Search consumes deletion only as a reconciliation input: the action commits
+canonically first, Corpus immediately reports the source missing or ineligible
+so query-time reauthorization covers the repair interval, and the action marks
+Search dirty for ordinary reconciliation. Search Central invents no separate
+canonical retention policy and never claims canonical deletion merely because
+an index row was removed.
 
 ### 4. Deliberately lexical query and deterministic page contract
 
@@ -335,7 +300,9 @@ keeps a renamed live SQLite handle and no pointer-service abstraction is added.
 
 The Memory projection needs this identical sequence, so the checkpoint → close
 → self-contained reopen → integrity proof → atomic promote → retain-previous
-steps live in one small shared private helper rather than being written twice
+steps live in one small shared private helper —
+`AllbertAssist.Projection.PromoteProtocol`, owned by the Memory milestone and
+consumed here after its contract rejoin — rather than being written twice
 (v1.3 plan LD 62). Each domain keeps its own schema, verification predicates,
 generation metadata, and rebuild source; only the promote sequence is shared.
 Memory's first generation milestone owns the helper and its failure contract;
@@ -422,7 +389,11 @@ Search action reports `complete | incomplete` plus its durable domain cursor;
 self-kicking before stale due advancement. This is the required lost-wakeup
 contract for every managed consumer, not Search-specific timer logic.
 
-One Search feature setting governs the ordinary local managed set; the operator
+One Search feature setting — **`search.enabled`** — governs both query
+availability and the ordinary local managed set, so "the feature is disabled" is
+an unambiguous state and the purge precondition stays testable. Disabling stops
+indexing and querying and leaves the projection on disk; removing bytes is the
+separate confirmed purge. The operator
 does not consent to each internal maintenance entry separately. Scope
 expansions such as E2EE projection remain separately opted in.
 
