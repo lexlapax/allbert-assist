@@ -1,5 +1,7 @@
 # Browser And Web Research
 
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md).
+
 Allbert ships a policy-bounded browser plugin (introduced in v0.43) for rendered page
 research, screenshots, and bounded HTML/text/markdown/PDF extraction. It
 controls local headless Chromium through the reviewed plugin-owned Playwright
@@ -9,7 +11,7 @@ bypasses confirmation.
 ## Enable And Doctor
 
 ```sh
-mix allbert.settings set browser.enabled true
+allbert admin settings set browser.enabled true
 mix allbert.browser doctor
 ```
 
@@ -56,6 +58,10 @@ operator troubleshooting: `node_unavailable`, `playwright_unavailable`,
 `unknown_browser_doctor_error`.
 
 ## Research CLI
+
+The browser helper below is a source-checkout validation command. Packaged
+operators use the Browser workspace panel or ask for a bounded research turn in
+chat.
 
 ```sh
 mix allbert.browser research "https://example.com" --extract-format=text

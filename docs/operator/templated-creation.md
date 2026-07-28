@@ -1,5 +1,7 @@
 # Operator Guide: Templated Creation
 
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md).
+
 Status: released and tagged as v0.38.1 on 2026-05-27 after operator manual
 verification.
 Developer scaffolds, Mix tasks, registered template actions, the `/workspace`
@@ -56,11 +58,11 @@ when you intend to use it. Disable for emergency posture.
 Emergency disable:
 
 ```sh
-mix allbert.settings set templates.create.enabled false
-mix allbert.settings set dynamic_codegen.live_loader_enabled false
-mix allbert.settings set dynamic_codegen.enabled false
-mix allbert.settings set sandbox.elixir.enabled false
-mix allbert.security review --recent --limit 25
+allbert admin settings set templates.create.enabled false
+allbert admin settings set dynamic_codegen.live_loader_enabled false
+allbert admin settings set dynamic_codegen.enabled false
+allbert admin settings set sandbox.elixir.enabled false
+allbert admin trust review --recent --limit 25
 ```
 
 ## Operator Flow Through `/workspace`

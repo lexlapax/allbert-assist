@@ -1,5 +1,8 @@
 # Telegram Channel Operator Guide
 
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md), then
+return here to connect Telegram.
+
 Status: implemented in v0.53 M5 as Channel Pack 1 retro-validation. This guide
 covers the shipped Telegram Bot API surface: long-poll inbound text, outbound
 delivery, ADR 0016 approval buttons or typed-command fallback, ADR 0056 inbound
@@ -25,11 +28,11 @@ when a future confirmation id would exceed it.
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-telegram.XXXXXX)"
 mix ecto.migrate.allbert --quiet
 
-mix allbert.channels telegram set-token "$ALLBERT_TELEGRAM_BOT_TOKEN"
-mix allbert.settings set channels.telegram.enabled true
-mix allbert.settings set channels.telegram.allowed_chat_ids '["'"$ALLBERT_TELEGRAM_CHAT_ID"'"]'
-mix allbert.settings set channels.telegram.allow_group_chats false
-mix allbert.channels telegram map --external-user "$ALLBERT_TELEGRAM_USER_ID" --user alice
+allbert admin channels telegram set-token "$ALLBERT_TELEGRAM_BOT_TOKEN"
+allbert admin settings set channels.telegram.enabled true
+allbert admin settings set channels.telegram.allowed_chat_ids '["'"$ALLBERT_TELEGRAM_CHAT_ID"'"]'
+allbert admin settings set channels.telegram.allow_group_chats false
+allbert admin channels telegram map --external-user "$ALLBERT_TELEGRAM_USER_ID" --user alice
 ```
 
 The settings output must show `channels.telegram.bot_token_ref` as a
@@ -46,8 +49,8 @@ MIX_ENV=test mix allbert.test release.v053
 Run the redacted doctor:
 
 ```sh
-mix allbert.channels telegram doctor
-mix allbert.channels show telegram
+allbert admin channels telegram doctor
+allbert admin channels show telegram
 ```
 
 The doctor calls Telegram `getMe`, reports redacted credential/endpoint state,

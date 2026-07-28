@@ -1,73 +1,53 @@
 # Settings Version Contract
 
-v0.59 records every Settings Central fragment with a first-class
-`schema_version`. The contract is fail-closed: if a Home contains a forward or
-invalid fragment version, Allbert refuses to silently load it.
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md).
 
-## Check Current Home
+Every Settings Central fragment carries a `schema_version`. The contract is
+fail-closed: Allbert does not silently load a forward or invalid fragment.
+
+## Check A Home
+
+Stop other runtimes using the Home, then run:
 
 ```sh
-set -euo pipefail
 export ALLBERT_HOME="/path/to/home"
-
-MIX_ENV=test mix allbert.settings doctor
-MIX_ENV=test mix allbert.security status
+allbert admin settings doctor
+allbert admin trust status
 ```
 
-Expected output:
-
-```text
-settings version contract status=ok
-forward=0
-invalid=0
-diagnostics=none
-```
-
-Pass condition: status is `ok`, every fragment is current, and no forward or
-invalid diagnostics are present.
+PASS: status is `ok`, all fragments are current, `forward=0`, `invalid=0`, and
+there are no diagnostics.
 
 ## Interpret Diagnostics
 
-`pending` means the stored Home is older than the runtime. v0.59 records this as a
-manual migration note because no non-additive migration exists yet.
+- `pending` — the stored Home is older than the running Allbert. Follow the
+  release's documented migration/upgrade path.
+- `forward` — the Home was written by a newer runtime. Stop and use that newer
+  version, or restore a backup compatible with the current runtime.
+- `invalid` — a fragment version is malformed. Treat this as corruption or an
+  unsafe manual edit and restore from backup before continuing.
 
-`forward` means the stored Home was written by a newer runtime. Stop and use the
-newer Allbert version, or restore a Home backup that matches the current runtime.
+Do not repair these states by editing a settings fragment in place.
 
-`invalid` means a fragment `schema_version` is not a positive integer. Treat this
-as Home corruption or a bad manual edit; restore from backup before continuing.
+## Export And Import Interaction
 
-## Export/Import Interaction
-
-`mix allbert.home.export` preserves each fragment version in the envelope.
-`mix allbert.home.import --dry-run` validates those versions against the target
-runtime and applies nothing.
-
-Operator proof:
+`allbert admin home export` preserves fragment versions in its redacted
+envelope. `allbert admin home import --dry-run` validates them against the
+target runtime and applies nothing:
 
 ```sh
-set -euo pipefail
-export V059_EVIDENCE_DIR="$HOME/.allbert-release-evidence/v059"
+export ALLBERT_EXPORT_DIR="$HOME/allbert-export"
 export ALLBERT_HOME="/path/to/target-home"
 
-MIX_ENV=test mix allbert.home.import --dry-run \
-  --in "$V059_EVIDENCE_DIR/home.envelope.json" \
-  --evidence-out "$V059_EVIDENCE_DIR/import-diagnostic.json"
+allbert admin home import --dry-run \
+  --in "$ALLBERT_EXPORT_DIR/home.envelope.json" \
+  --evidence-out "$ALLBERT_EXPORT_DIR/import-diagnostic.json"
 
 rg '"status": "ok"|"dry_run": true|"applied": false' \
-  "$V059_EVIDENCE_DIR/import-diagnostic.json"
+  "$ALLBERT_EXPORT_DIR/import-diagnostic.json"
 rg 'settings_version_contract|current|pending|forward|invalid' \
-  "$V059_EVIDENCE_DIR/import-diagnostic.json"
+  "$ALLBERT_EXPORT_DIR/import-diagnostic.json"
 ```
 
-Expected output:
-
-```text
-"dry_run": true
-"applied": false
-settings_version_contract
-current/pending/forward/invalid counts
-```
-
-The diagnostic file must live outside the target Home. The target Home must remain
-byte-identical before and after the dry run.
+Keep diagnostics outside the target Home and prove the Home is byte-identical
+before and after the dry run. See [Export/import](export-import.md).

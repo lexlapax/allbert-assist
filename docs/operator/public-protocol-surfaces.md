@@ -1,13 +1,16 @@
 # Public Protocol Surfaces
 
-Introduced in v0.51. The real-client validation steps below are a
-reusable replay runbook.
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md).
+
+This guide separates packaged HTTP operation from source-checkout stdio and
+release-validation commands.
 
 Allbert can be reached by three public protocol surfaces:
 
-- MCP stdio and MCP HTTP (`mix allbert.mcp_server ...`, `POST /mcp`)
+- MCP stdio and MCP HTTP (source `mix allbert.mcp_server ...`, packaged
+  `POST /mcp`)
 - OpenAI-compatible HTTP (`GET /v1/models`, `POST /v1/chat/completions`)
-- ACP stdio (`mix allbert.acp_server ...`)
+- ACP stdio (source `mix allbert.acp_server ...`)
 
 These are adapters over the existing Allbert runtime. They do not grant extra
 authority, cannot approve their own confirmations, and are default-off.
@@ -17,50 +20,47 @@ authority, cannot approve their own confirmations, and are default-off.
 Enable only the surface and allowlist entries you intend to test:
 
 ```sh
-mix allbert.settings set mcp_server.enabled true
-mix allbert.settings set mcp_server.stdio.enabled true
-mix allbert.settings set mcp_server.streamable_http.enabled true
-mix allbert.settings set mcp_server.tools_enabled direct_answer,external_network_request,get_public_call_result
-mix allbert.settings set mcp_server.memory_namespaces_enabled stocksage.stocksage
+allbert admin settings set mcp_server.enabled true
+allbert admin settings set mcp_server.stdio.enabled true
+allbert admin settings set mcp_server.streamable_http.enabled true
+allbert admin settings set mcp_server.tools_enabled direct_answer,external_network_request,get_public_call_result
+allbert admin settings set mcp_server.memory_namespaces_enabled stocksage.stocksage
 
-mix allbert.settings set openai_api.enabled true
-mix allbert.settings set openai_api.models_enabled local
-mix allbert.settings set openai_api.tools_enabled direct_answer,external_network_request,get_public_call_result
+allbert admin settings set openai_api.enabled true
+allbert admin settings set openai_api.models_enabled local
+allbert admin settings set openai_api.tools_enabled direct_answer,external_network_request,get_public_call_result
 
-mix allbert.settings set acp_server.enabled true
-mix allbert.settings set acp_server.stdio.enabled true
-mix allbert.settings set acp_server.tools_enabled direct_answer,external_network_request,get_public_call_result
-mix allbert.settings set acp_server.memory_namespaces_enabled stocksage.stocksage
+allbert admin settings set acp_server.enabled true
+allbert admin settings set acp_server.stdio.enabled true
+allbert admin settings set acp_server.tools_enabled direct_answer,external_network_request,get_public_call_result
+allbert admin settings set acp_server.memory_namespaces_enabled stocksage.stocksage
 ```
 
 All public protocol configuration goes through Settings Central. Do not use
 Application env, process env, protocol metadata, ad hoc client flags, or Hermes
 transport options as public-surface authority.
 
-For list-valued settings, the CLI accepts comma-separated strings and writes a
-real list value. Each manual validation write should print `Source: operator`
-and an `Updated:` line with bracketed list output. If a public list setting
-fails with `expected_public_tool_list`, `expected_public_memory_namespace_list`,
-or `expected_profile_ref_list`, switch to the corrected `v0.51.4` tag before
-continuing validation.
+For list-valued settings, the CLI accepts comma-separated strings, validates
+the members, and writes a real list value. A successful write prints
+`Source: operator` and an `Updated:` line with bracketed list output.
 
 ## Tokens
 
 HTTP surfaces require a client id and bearer token:
 
 ```sh
-mix allbert.public_protocol token create --surface mcp_http --client claude
-mix allbert.public_protocol token create --surface openai_api --client local-openai
-mix allbert.public_protocol token list --surface mcp_http
-mix allbert.public_protocol token rotate --surface openai_api --client local-openai
-mix allbert.public_protocol token revoke --surface mcp_http --client claude
+allbert admin public_protocol token create --surface mcp_http --client claude
+allbert admin public_protocol token create --surface openai_api --client local-openai
+allbert admin public_protocol token list --surface mcp_http
+allbert admin public_protocol token rotate --surface openai_api --client local-openai
+allbert admin public_protocol token revoke --surface mcp_http --client claude
 ```
 
 `create` and `rotate` print the raw token once. `list` and `revoke` redact it.
 
 ## MCP
 
-Inspect the enabled stdio surface:
+Source-checkout validation can inspect the enabled stdio surface:
 
 ```sh
 mix allbert.mcp_server status
@@ -76,7 +76,7 @@ protocol stream.
 MCP HTTP uses the Phoenix API ingress:
 
 ```sh
-PORT=4051 mix phx.server
+PORT=4051 allbert serve
 ```
 
 Clients call `POST http://127.0.0.1:4051/mcp` with:
@@ -104,7 +104,7 @@ change authority or routing.
 
 ## ACP
 
-Inspect or run the ACP stdio server:
+Source-checkout validation can inspect or run the ACP stdio server:
 
 ```sh
 mix allbert.acp_server status
@@ -156,11 +156,9 @@ Run the deterministic release lane first:
 MIX_ENV=test mix allbert.test release.v051
 ```
 
-For the active v1.2 candidate, the additive gate is
-`MIX_ENV=test mix allbert.test release.v12`. It includes the unchanged v1.1
-fan-out/receipt gate and adds the zero-click first-run authority, catalog,
-fallback, and cross-surface contracts; its final candidate execution is
-required before operator validation.
+For a current release candidate, use the exact gate and manual steps in its
+active request-flow document. Ordinary protocol operation does not begin with a
+release gate.
 
 The gate writes its evidence JSON (including the secret scan) under
 `<gate-home>/release_evidence/<version>/`; the path is printed at the end of each run.

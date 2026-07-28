@@ -1,5 +1,8 @@
 # Discord Channel Operator Guide
 
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md), then
+return here to connect Discord.
+
 Status: implemented in v0.52 as part of Channel Pack 1. This guide covers the
 shipped Discord text channel surface: Gateway-based message/callback ingestion,
 REST message delivery through `Req`, ADR 0016 approval primitives, ADR 0056
@@ -100,25 +103,25 @@ mix ecto.migrate.allbert --quiet
 
 Store the raw bot token under `secret://channels/discord/bot_token` through the
 Settings Central secret path available in the operator environment. Do not pass
-the raw token to `mix allbert.channels discord set-token`; v0.52 intentionally
+the raw token to `allbert admin channels discord set-token`; v0.52 intentionally
 rejects raw Discord token arguments.
 
 Then store the channel settings and identity map:
 
 ```sh
-mix allbert.channels discord set-token secret://channels/discord/bot_token
-mix allbert.channels discord set-application-id DISCORD_APPLICATION_ID
-mix allbert.channels discord add-guild DISCORD_GUILD_ID
-mix allbert.channels discord add-channel DISCORD_CHANNEL_ID
-mix allbert.channels discord map --external-user DISCORD_USER_ID --user alice
-mix allbert.settings set channels.discord.enabled true
+allbert admin channels discord set-token secret://channels/discord/bot_token
+allbert admin channels discord set-application-id DISCORD_APPLICATION_ID
+allbert admin channels discord add-guild DISCORD_GUILD_ID
+allbert admin channels discord add-channel DISCORD_CHANNEL_ID
+allbert admin channels discord map --external-user DISCORD_USER_ID --user alice
+allbert admin settings set channels.discord.enabled true
 ```
 
 For cross-channel resume, add an explicit identity link before resuming the same
 canonical thread into Discord:
 
 ```sh
-mix allbert.channels identity-links add --link alice-primary --channel discord --receiver discord:app:DISCORD_APPLICATION_ID:guild:DISCORD_GUILD_ID --external-user DISCORD_USER_ID --user alice
+allbert admin channels identity-links add --link alice-primary --channel discord --receiver discord:app:DISCORD_APPLICATION_ID:guild:DISCORD_GUILD_ID --external-user DISCORD_USER_ID --user alice
 mix allbert.conversations resume THREAD_ID --channel discord --user alice --receiver discord:app:DISCORD_APPLICATION_ID:guild:DISCORD_GUILD_ID --external-user DISCORD_USER_ID --provider-thread-key PROVIDER_THREAD_KEY
 ```
 
@@ -133,8 +136,8 @@ MIX_ENV=test mix allbert.test release.v052
 Run the redacted doctor:
 
 ```sh
-mix allbert.channels discord doctor
-mix allbert.channels show discord
+allbert admin channels discord doctor
+allbert admin channels show discord
 ```
 
 The doctor reports the **live** Gateway transport status (`running` when the
@@ -304,7 +307,7 @@ only **one account active at a time**, so run the two accounts in two surfaces.
 ### Part 6 — live channel checks (Allbert server running)
 
 31. 🤖 Agent configures the manual home and starts the live server, then re-runs
-    `mix allbert.channels discord doctor`. *Expected:* `gateway=running`;
+    `allbert admin channels discord doctor`. *Expected:* `gateway=running`;
     the bot shows **online (green)** in your member list.
 32. 🧑 **@mention.** In the allowlisted channel type `@allbert-assist`, select the
     bot from the autocomplete popup (it becomes a blue chip), add a question, e.g.
@@ -348,8 +351,8 @@ by the unmapped account (35) → teardown (below). Everything else is the agent.
 After validation, tear the sandbox down so no live credential or bot lingers:
 
 1. **Disable the channel** so Allbert stops opening the Gateway:
-   `mix allbert.settings set channels.discord.enabled false`. Confirm
-   `mix allbert.channels discord doctor` now reports `gateway=disabled`.
+   `allbert admin settings set channels.discord.enabled false`. Confirm
+   `allbert admin channels discord doctor` now reports `gateway=disabled`.
 2. **Reset the bot token** in the Developer Portal (Bot → Reset Token). This
    immediately invalidates the token Allbert held, even if a copy leaked.
 3. **Remove the bot from the test guild** (Server Settings → Integrations →

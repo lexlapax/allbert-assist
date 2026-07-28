@@ -1,5 +1,8 @@
 # Installing Allbert
 
+New to Allbert? Follow [Quickstart: Install, Open, Chat](quickstart.md); return
+here for alternate install paths, upgrades, uninstall, and artifact trust.
+
 The current packaged release is **v1.1.0**. Homebrew and the default curl
 installer resolve to that stable GitHub Latest release.
 
@@ -26,6 +29,9 @@ brew services start allbert
 curl -fsS http://localhost:4000/health
 allbert admin service status
 ```
+
+Continue at [Open the workspace](quickstart.md#2-open-the-workspace). Do not
+start a standalone TUI while this service owns the same Allbert Home.
 
 The formula ships prebuilt per-platform binaries and registers an `allbert
 serve` service, so `brew services start allbert` runs Allbert in the
@@ -116,7 +122,8 @@ sha256sum -c SHA256SUMS   # or: shasum -a 256 -c SHA256SUMS on macOS
 
 ```sh
 # Homebrew:
-brew uninstall allbert         # add: brew services stop allbert  (if running)
+brew services stop allbert
+brew uninstall allbert
 
 # curl install:
 sh scripts/install/uninstall.sh          # removes the binary; keeps your data

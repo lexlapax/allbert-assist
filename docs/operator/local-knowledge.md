@@ -1,5 +1,7 @@
 # Local Knowledge: Files, Notes, And Reviewed Memory
 
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md).
+
 The v0.65 launch path. After first chat, the primary useful workflow is local
 knowledge: point Allbert at a folder of your notes, ask about them, confirm a safe
 write, decide what Allbert may remember, and have that reviewed memory improve a later
@@ -21,8 +23,8 @@ and the ADR 0077 v0.65 amendment. Memory internals: `docs/operator/active-memory
 
 Set the notes root without hand-editing config, from any of:
 
-- **Onboarding** — the "Connect a notes folder" affordance on the first-chat step
-  (both QuickStart and Advanced reach it).
+- **Optional onboarding** — the "Connect a notes folder" integration step
+  (both QuickStart and Advanced reach it after chat is already available).
 - **CLI** — `allbert admin notes set-root PATH` (the `PATH` must be an existing
   directory; it fails closed otherwise). `allbert admin notes show` prints the current
   root.

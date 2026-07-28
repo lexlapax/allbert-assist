@@ -27,10 +27,13 @@ defmodule AllbertAssist.Actions.Settings.ListModelCatalog do
     {:ok, catalog} = Catalog.list()
     purpose = field(params, :purpose)
     entries = filter_purpose(catalog.entries, purpose)
+    message = "Model catalog has #{length(entries)} matching entries."
 
     {:ok,
      %{
-       message: "Model catalog has #{length(entries)} matching entries.",
+       message: message,
+       model_payload: "Model catalog listing.",
+       surface_payload: render(catalog.version, entries),
        status: PermissionGate.response_status(decision),
        version: catalog.version,
        entries: entries,
@@ -50,6 +53,19 @@ defmodule AllbertAssist.Actions.Settings.ListModelCatalog do
     do: Enum.filter(entries, &(purpose in &1.purposes))
 
   defp filter_purpose(entries, _purpose), do: entries
+
+  defp render(version, entries) do
+    ["Model catalog v#{version}:" | Enum.map(entries, &render_entry/1)]
+    |> Enum.join("\n")
+  end
+
+  defp render_entry(entry) do
+    readiness = if entry.pulled? or entry.configured?, do: " ready", else: ""
+    floor = if entry.floor_gb, do: " floor=#{entry.floor_gb}GB", else: ""
+
+    "- #{entry.id}: source=#{entry.source} " <>
+      "purposes=#{Enum.join(entry.purposes, ",")}#{floor}#{readiness}"
+  end
 
   defp field(map, key), do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
 end

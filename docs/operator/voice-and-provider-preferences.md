@@ -1,5 +1,7 @@
 # Voice And Provider Preferences
 
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md).
+
 Operator guide for voice (STT/TTS) and ranked provider/model preferences. Introduced in
 v0.48. Voice uses the same provider framework as text models: the
 operator chooses a primary provider/model profile for most work and can override it per
@@ -58,7 +60,7 @@ media upload, or video ingestion.
 CLI voice mode transcribes an audio file or fixture:
 
 ```sh
-mix allbert.settings set voice.enabled true
+allbert admin settings set voice.enabled true
 mix allbert.ask --voice test/fixtures/audio/hello.wav --trace
 ```
 

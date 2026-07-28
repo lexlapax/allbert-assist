@@ -1,5 +1,7 @@
 # Plan/Build And Workflow YAML
 
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md).
+
 Allbert exposes the Objective Runtime (introduced in v0.44) as an operator-visible
 Plan/Build surface. Workflow YAML is inert declarative data under
 Allbert Home; it does not execute scripts, install packages, grant
@@ -27,9 +29,9 @@ steps, package installs, or dynamic action names.
 Use the workflow CLI before running a workflow:
 
 ```sh
-mix allbert.workflows list
-mix allbert.workflows inspect multi_step
-mix allbert.workflows expand multi_step --input since="1 day ago"
+allbert admin workflows list
+allbert admin workflows inspect multi_step
+allbert admin workflows expand multi_step --input since="1 day ago"
 ```
 
 `inspect` validates the YAML and per-action `params:` against the
@@ -72,10 +74,10 @@ closed, and edits recompute through the registered `preview_plan` action.
 Plan runs are v0.24 objectives with a workflow source intent.
 
 ```sh
-mix allbert.plan list
-mix allbert.plan list --format ids
-mix allbert.plan show obj_00000000-0000-0000-0000-000000000000
-mix allbert.plan cancel obj_00000000-0000-0000-0000-000000000000 --reason "operator cancelled"
+allbert admin plan list
+allbert admin plan list --format ids
+allbert admin plan show obj_00000000-0000-0000-0000-000000000000
+allbert admin plan cancel obj_00000000-0000-0000-0000-000000000000 --reason "operator cancelled"
 ```
 
 Cancellation starts cooperatively at action checkpoints, then escalates through

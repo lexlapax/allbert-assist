@@ -1,264 +1,193 @@
-# Allbert Operator Onboarding
+# Optional Onboarding And Customization
 
-This guide is the package-first operator entry path for trying Allbert as a
-local assistant. It is not a release test matrix. Release-specific smoke
-commands live in the matching request-flow document.
+Start with [Quickstart: Install, Open, Chat](quickstart.md). In Allbert 1.2,
+onboarding is optional: chat opens first, whether a provider is ready or not.
+Use this guide when you want a guided profile, provider setup, integration
+choices, or model repair.
 
-## Orientation
+## Open The Wizard
 
-Read these first:
-
-- `README.md` for the project overview and current capability summary.
-- `CHANGELOG.md` for release status, safety notes, verification summary, and
-  expected tag.
-- `docs/plans/roadmap.md` for version sequencing.
-- `docs/plans/archives/v0.64-plan.md` and `docs/plans/archives/v0.64-request-flow.md` for the
-  trusted-install and non-developer first-run implementation contract.
-
-## First Packaged Run
-
-Install the packaged binary first; it includes its own Erlang/OTP runtime:
+The web and terminal wizard use one shared state machine and the same
+`<Allbert Home>/onboarding.json` progress marker. From a packaged install:
 
 ```sh
-brew install lexlapax/allbert/allbert
-brew services start allbert
-curl -fsS http://localhost:4000/health
+allbert onboard
 ```
 
-If Homebrew 6 refuses the third-party tap until it is trusted, run
-`brew trust --formula lexlapax/allbert/allbert`, then repeat the install.
+The interactive flow resumes unfinished progress or offers two tracks:
 
-Or use the curl installer from [install.md](install.md), then preview and approve
-the user service:
+- **QuickStart** reviews the smallest useful set of customization choices.
+- **Advanced** exposes provider, model, persona, and optional integrations up
+  front.
+
+Choose a track directly when needed:
 
 ```sh
-export PATH="$HOME/.local/bin:$PATH"
-allbert admin service install --dry-run
-allbert admin service install
-allbert admin confirmations approve <ID>
-curl -fsS http://localhost:4000/health
+allbert onboard --quickstart
+allbert onboard --advanced
 ```
 
-Open the workspace:
-
-```text
-http://localhost:4000/workspace
-```
-
-Foreground `allbert serve --open` is a diagnostic or repair fallback when the
-platform user service manager is unavailable. Source checkout (`mix setup`,
-`mix phx.server`) is for contributors, not the non-developer first-run path.
-
-Try the packaged CLI surface:
+Completing, skipping, or resetting this wizard does not control access to chat.
+Model readiness and onboarding completion are separate state. Reset is
+confirmation-gated and clears only onboarding/profile markers; it preserves
+settings, secrets, traces, memory, caches, conversations, and other Home data:
 
 ```sh
-allbert ask "hello"
-allbert admin health
-allbert admin service status
-allbert admin confirmations list
+allbert onboard --reset
 ```
 
-For a first long-running request, ask for two or three clearly separable
-outcomes. Allbert shows the proposed task list before background execution
-starts; open the Objectives view to watch children, steer one, or cancel it.
-Remote background reports remain off until you explicitly opt in per channel
-in Settings Central, so a new installation does not begin sending autonomous
-messages merely because a channel was connected.
+## What First Run Already Did
 
-## Operator Onboarding
+Before the wizard runs, zero-click detection may already have:
 
-Allbert ships a guided onboarding wizard over one shared flow on web and the
-interactive `allbert onboard` TTY surface. The wizard is optional customization
-and repair, not the door to chat. The old command-sequencing onboarding
-objective is retired; the shared wizard machine over the
-`<Home>/onboarding.json` marker is the sole onboarding-progress source.
+- selected a ready local provider, or a configured hosted provider when no
+  usable local provider exists;
+- enabled direct model answers only when the enablement setting was absent;
+- shown the applicable local-processing or hosted-egress disclosure once; and
+- kept chat open with a bounded fallback when no provider was usable.
 
-How an operator gets running:
-
-- the packaged service starts the runtime and opens chat. If a usable local
-  model or configured hosted provider is already present, Allbert selects it
-  local-first, enables direct answers when the setting is absent, and shows a
-  one-time disclosure. No wizard step or click precedes the first question.
-- if nothing usable is detected, chat still opens and gives the bounded
-  side-effect-free answer. Web presents one Models repair action for the
-  detected state; no model download starts without confirmation.
-- `allbert onboard` is the primary TTY wizard entry point. It resumes active
-  onboarding or starts with a QuickStart/Advanced chooser; no-TTY/headless use falls
-  back to the line-oriented flow.
-- `allbert onboard --quickstart` takes the fastest safe path to first chat.
-- `allbert onboard --advanced` exposes provider, model, profile, and optional
-  integration choices up front.
-- `allbert onboard --reset` requires confirmation and clears only onboarding and
-  profile marker state; it must preserve Home data, settings, secrets, traces,
-  memory, and caches.
-- `allbert onboard --non-interactive --authorize` is automation-only: it accepts
-  explicit flags/input refs, never prompts, refuses missing required inputs, and
-  records durable confirmations through the existing approval path. Deprecated
-  `--accept-risk` is accepted only as a warning compatibility alias.
-- Persona apply is two-step: `apply-persona <id> --authorize` shows the
-  current-to-proposed settings diff and writes nothing; only `apply-persona <id>
-  --authorize --yes` applies through the durable confirmation path.
-- Local runtime/model repair is also confirmation-gated: `allbert onboard
-  install-runtime --authorize` previews, and `--authorize --yes` applies; `allbert
-  onboard pull-model --authorize` previews the starter-model pull, and
-  `--authorize --yes` applies.
-
-The wizard should speak in operator readiness language, not internal probe names:
-`Ready`, `Needs model`, `Needs credentials`, `Needs runtime`, and `Needs review`.
-Every repair screen should show one next action.
-
-Profile application writes Settings Central keys after review/confirm. The shipped
-profiles are `general`, `researcher`, `developer`, `writer`, and `ops`; exact
-writes live in `docs/plans/archives/v0.63-plan.md` and
-`docs/adr/0075-user-category-settings-profiles.md`. Profiles are seed-only
-defaults and suggestions. They do not grant authority, connect channels, store
-secrets, lower confirmation floors, or change runtime behavior by themselves.
-
-Credential entry stores new secrets as Settings `*_ref` pointers in OS vault or
-encrypted-store fallback. Env-provided secrets are valid read-only inputs: the
-wizard can detect and verify them, but does not write to env.
-
-### Provider / model setup and switching
-
-At the `model_path` step the wizard shows operator readiness and the local-first
-repair path first: install/start the local runtime when absent, then pull the single
-curated starter model through Ollama's local API. The curated starter model is
-**`llama3.2:3b`** (~2 GB download; requires 8 GB RAM — machines below the floor route
-to BYOK guidance instead). Both are Settings Central defaults, operator-overridable
-before the pull:
+Detection does not probe a hosted provider, install Ollama, pull a model, or
+overwrite an explicit setting. A raw
+`intent.direct_answer_model_enabled=false` remains sticky. A completed wizard
+may offer one reviewed re-enable action, or use:
 
 ```sh
-mix allbert.settings set first_model.curated_model llama3.2:3b   # any local Ollama tag
-mix allbert.settings set first_model.curated_floor_gb 8
+allbert onboard re-enable-model
 ```
 
-Hosted BYOK and custom endpoints are the Advanced fallback. When a provider is needed, the wizard shows a masked key entry
-(stored in the vault, never echoed), an inline `doctor` round-trip, and a provider/model
-switch. Switching a provider writes Settings Central keys and edits no config file. The
-wizard surfaces which vault tier a new key lands in (OS vault → encrypted-store); the
-env tier is read-only.
+## Readiness And Repair
 
-If the selected model later becomes unavailable, opening the web workspace
-routes to the standalone Models repair panel (`workspace:models`) instead of
-reopening the wizard. The panel uses the same readiness guidance and repair
-actions. The warm terminal console (`allbert tui`) is a daily-use surface, not
-a repair wizard: model readiness never prevents it from starting. Without a
-usable model it retains working chat with the bounded response and points to
-repair without granting or pulling anything. Packaged `allbert tui` and
-development `mix allbert.tui` use the same
-non-gating readiness guard and the same pre-adapter local identity bootstrap.
-On a fresh Home, an explicit local TUI launch atomically persists
-`channels.tui.enabled=true` and the ordinary `default → local` mapping, so the
-first question needs no identity setup command. This does not mark onboarding
-complete or skipped: `allbert onboard` remains available for later
-customization. An explicit empty/custom/disabled identity map remains sticky;
-custom profiles still require explicit Settings mapping.
+The wizard and web Models panel use operator language: **Ready**, **Needs
+model**, **Needs credentials**, **Needs runtime**, and **Needs review**. Each
+repair state presents one primary next action.
 
-A raw `channels.tui.enabled=false` is deliberate operator state and blocks an
-explicit TUI launch without being repaired. Re-enable it with
-`allbert admin settings set channels.tui.enabled true` for the package, or
-`mix allbert.settings set channels.tui.enabled true` in a source checkout.
-Unmapped or disabled identity entries visibly reject ordinary input instead of
-silently dropping it.
+The local-first repair sequence is start/install the local runtime, then review
+and confirm a curated model pull. Neither action is automatic:
 
-After `/quit`, the same preserved `ALLBERT_HOME` can be opened on the web
-surface once no standalone TUI process owns its SQLite database. TUI `default`
-and web `web-local` independently resolve to canonical user `local`, so eligible
-durable user and conversation data is shared. The TUI mapping grants no web
-authorization, and the workspace does not automatically open the exact TUI
-thread; select that thread explicitly when continuity is wanted. Do not run the
-standalone TUI and web/daemon process concurrently against the same Home.
+```sh
+allbert onboard install-runtime --authorize       # preview
+allbert onboard install-runtime --authorize --yes # apply after review
+allbert onboard pull-model --authorize             # preview
+allbert onboard pull-model --authorize --yes       # apply after review
+```
 
-The shared model catalog is available from the web Models panel, TUI `/catalog`,
-and CLI:
+The curated consumer default remains `llama3.2:3b` with an 8 GB RAM floor.
+Qwen 3 and Qwen 3.5 remain explicit catalog choices; they did not replace the
+cross-platform default in v1.2. Operators can override the curated tag or floor
+before a pull:
+
+```sh
+allbert admin settings set first_model.curated_model llama3.2:3b
+allbert admin settings set first_model.curated_floor_gb 8
+```
+
+Inspect available choices and current health with:
 
 ```sh
 allbert admin models catalog
 allbert admin models catalog direct_answer
+allbert admin models list
+allbert admin settings model-doctor
 ```
 
-Catalog listing is read-only. Selecting a configured profile uses the registered
-Settings action, and pulling an uninstalled local model remains confirmation-
-gated. The curated first-run default remains `llama3.2:3b`; Qwen 3 and Qwen 3.5
-remain available catalog choices rather than silent replacements.
+The web Models panel exposes catalog selection and repair. TUI `/catalog`
+renders the shared read-only catalog and `/models` renders model health.
+Selecting a profile writes Settings Central. Pulling an uninstalled local
+model remains confirmation-gated.
 
-Runtime text fallback is separately opt-in and off by default:
+If a selected local model later becomes unavailable, the workspace opens the
+Models repair panel instead of reopening onboarding. A missing or unhealthy
+local runtime does not silently switch to a hosted route. Runtime text fallback
+is independently opt-in:
 
 ```sh
 allbert admin settings set models.fallback.enabled true
 allbert admin settings set models.fallback.allow_local_to_hosted true
 ```
 
-The second setting is required only to permit a local failure to cross the
-network boundary to a hosted profile. A turn makes at most one failover.
-Fallback decisions are recorded under
-`<Home>/settings/audit/model_fallback/`; prompts and credentials are not.
+The second setting is required before a local failure may cross the network
+boundary. A turn attempts at most one failover. Decisions are audited under
+`<Allbert Home>/settings/audit/model_fallback/` without prompts or credentials.
 
-### User-category profile reference
+## Hosted Providers And Secrets
 
-Pick a persona at `profile_select`; the review at `profile_review` shows every seeded
-key as `current → proposed` and writes nothing until you confirm. Personas are
-seed-only presets — they grant no authority, connect no channel, store no secret, and
-lower no confirmation floor. The exact per-persona `settings_seeds` are pinned in
-`docs/plans/archives/v0.63-plan.md` (§Settings Central Keys) and
-`docs/adr/0075-user-category-settings-profiles.md`.
+Advanced onboarding can store a hosted-provider key through masked input and
+run a provider doctor. New secrets become Settings `*_ref` pointers backed by
+the OS vault or encrypted-store fallback; they are never written into a config
+file or echoed. Environment-provided keys are valid read-only inputs and are
+not copied into the vault.
 
-| Persona | Emphasis (seed-only) |
+The standalone packaged path is also available:
+
+```sh
+allbert admin settings providers set-key openai
+allbert admin settings providers list
+allbert admin settings doctor
+```
+
+A configured key makes a provider eligible for first-run selection, but
+detection performs no hidden network validation or inference. The first hosted
+send remains behind the egress disclosure.
+
+## Personas Are Reviewed Defaults
+
+The shipped personas are `general`, `researcher`, `developer`, `writer`, and
+`ops`. At `profile_review`, onboarding shows every proposed Settings change as
+`current → proposed` and writes nothing until confirmation.
+
+| Persona | Seed emphasis |
 |---|---|
-| `general` | Balanced local-first assistant; modest objective budget. |
-| `researcher` | Detailed handoffs, active-memory tuning, local router/embedding profiles. |
-| `developer` | Concise, Pi-mode coding profile + reviewed coding read/search limits. |
-| `writer` | Detailed handoffs + active-memory tuning for drafting/revising. |
-| `ops` | Concise/brief, verbose diagnostics, debug trace detail, local router profiles. |
+| `general` | Balanced local-first assistant and modest objective budget. |
+| `researcher` | Detailed handoffs, active-memory tuning, and local routing profiles. |
+| `developer` | Concise responses, Pi-mode coding profile, and reviewed code search limits. |
+| `writer` | Detailed handoffs and active-memory tuning for drafting and revision. |
+| `ops` | Brief responses, verbose diagnostics, and local routing profiles. |
 
-After applying a persona, the `first_chat` step suggests that persona's starter
-prompts so you reach a first useful chat.
+Personas are seed-only suggestions. They grant no authority, connect no
+channel, store no secret, and lower no confirmation floor. The automation form
+retains the same review/apply split:
 
-First-run detection enables model-backed direct answers automatically only when
-`intent.direct_answer_model_enabled` is absent and a usable provider is selected.
-An explicit `false` is sticky: detection and wizard completion do not overwrite
-it. The `model_path` step can still repair or change the model, and a completed
-wizard offers a one-time reviewed re-enable affordance for a sticky-disabled
-Home. A working model is never faked. Applying a persona remains a reviewed
-Settings operation.
+```sh
+allbert onboard apply-persona developer --authorize       # preview
+allbert onboard apply-persona developer --authorize --yes # apply
+```
 
-### The trust spine
+## Terminal And Web Continuity
 
-Onboarding surfaces Allbert's trust spine as a feature (`allbert onboard trust`, and a
-section in the web wizard): risky actions pause for your explicit, durable, traced
-approval; every action is scoped by Security Central and onboarding grants no new
-authority; what Allbert does is recorded and locally inspectable; your data and model
-stay on your machine unless you connect a hosted provider; hosted-provider egress is
-opt-in and shown before network use; provider keys are vault references under OS-vault
-or encrypted-store custody; local notes and agent memory stay inspectable and review is
-explicit.
+`allbert tui` is a daily-use surface, not a repair wizard. On a fresh Home, an
+explicit built-in TUI launch atomically enables the channel and persists the
+ordinary `default → local` identity mapping before the first prompt. This does
+not mark onboarding complete or skipped. Explicitly disabled TUI state and an
+explicit empty/custom identity map remain sticky.
 
-## v0.64-v0.66 Planning Direction
+Re-enable a deliberately disabled channel with:
 
-The pre-1.0 plan now inserts three product-readiness releases after v0.63:
+```sh
+allbert admin settings set channels.tui.enabled true
+```
 
-- v0.64 makes packaged install, installer trust, and first-run repair the
-  primary non-developer path.
-- v0.65 makes local files, notes, and reviewed agent memory the launch-critical
-  first assistant workflow.
-- v0.66 validates the complete product path with no-docs evidence and
-  implemented-surface regression checks before v1.0.
+After `/quit`, the same Home may be opened in the web workspace once no
+standalone TUI owns its SQLite database. TUI `default` and web `web-local`
+independently resolve to canonical user `local`, so eligible durable data is
+shared; the TUI mapping grants no web authorization and the exact TUI thread is
+not automatically selected. Never run the service/web runtime and standalone
+TUI concurrently against the same Home. See [TUI channel](tui-channel.md).
 
-## Legacy Homes (pre-v0.63)
+## Automation And Legacy Homes
 
-Homes onboarded before v0.63 may carry a stale first-run *objective* record from the
-retired source-checkout onboarding flow. The wizard reconciles it once on first launch —
-there is nothing to do manually. The old `mix allbert.onboard complete|skip|channel`
-subcommands no longer exist; use `allbert onboard` (or `mix allbert.onboard`), which drives
-the shared wizard state machine described above.
+`allbert onboard --non-interactive --authorize` is automation-only. It accepts
+explicit flags or input references, never prompts, refuses missing required
+inputs, and records durable confirmations. Deprecated `--accept-risk` is a
+warning-only compatibility alias.
 
-## See also
+Homes created before v0.63 may contain an obsolete first-run objective. The
+wizard reconciles it once; no manual action is required. Retired
+`mix allbert.onboard complete|skip|channel` subcommands must not be used.
 
-- Provider/model setup, the model doctor, and recommended profiles —
-  [model-recommendations.md](model-recommendations.md).
-- The three-tier secret vault and where provider keys live —
-  [security-hardening.md](security-hardening.md) (§Secret Vault).
-- Templated document creation (`workspace:create`) — [templated-creation.md](templated-creation.md).
-- What each persona seeds and its exact reviewed keys — `docs/design/persona-model.md`.
-- What Allbert guarantees stable across upgrades (the 1.0 tiered contract freeze) —
-  [`docs/developer/public-contract-freeze.md`](../developer/public-contract-freeze.md).
+## Trust Boundaries
+
+Onboarding never grants authority. Sensitive actions still pass through
+Security Central and durable confirmation; hosted egress is disclosed; provider
+keys remain vault references; local notes and reviewed memory remain
+inspectable. See [Security hardening](security-hardening.md) and
+[Model recommendations](model-recommendations.md).

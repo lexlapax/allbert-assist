@@ -1,8 +1,9 @@
 # Allbert Model Recommendations (Which Model For What)
 
-Status: implemented and accepted for v0.56 (ADR 0072). This is the canonical
-operator guide for *which model to use for what
-purpose* in Allbert. It is **advice**: actual
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md).
+
+This is the canonical operator guide for *which model to use for what purpose*
+in Allbert (ADR 0072, extended by the v1.2 bakeoff). It is **advice**: actual
 configuration lives in Settings Central, and you override any row with the
 documented key. No recommendation enables network egress or lowers a safety
 floor — hosted profiles are always an explicit, audited operator opt-in.
@@ -10,18 +11,35 @@ floor — hosted profiles are always an explicit, audited operator opt-in.
 Verify your setup at any time:
 
 ```sh
-mix allbert.intent doctor              # intent-purpose rows (embedding/disambiguation/escalation/generation/eval)
-mix allbert.settings model-doctor      # every purpose: recommended vs configured vs status
+allbert admin intent doctor             # intent-purpose rows
+allbert admin settings model-doctor     # recommended vs configured vs status
 ```
 
 For the first-chat catalog and selection surface, use
 `allbert admin models catalog [PURPOSE]`, TUI `/catalog`, or the web Models
-panel. These surfaces share one read-only registered action. The curated
-consumer default remains `llama3.2:3b`: Qwen 3 4B improved the macOS quality
-corpus materially, but missed the precommitted throughput bound, and the Linux
-x64 promotion row was unavailable. Qwen 3/3.5 therefore remain explicit
-catalog choices. Runtime text fallback is off by default; local-to-hosted
-fallback additionally requires `models.fallback.allow_local_to_hosted=true`.
+panel. TUI `/models` is the separate model-health view. The catalog surfaces
+share one read-only registered action. Runtime text fallback is off by default;
+local-to-hosted fallback additionally requires
+`models.fallback.allow_local_to_hosted=true`.
+
+## v1.2 Local First-Chat Decision
+
+The curated consumer default remains `llama3.2:3b`. The M4 macOS arm64 bakeoff
+used 12 warm prompts per model across JSON, tool-shaped JSON, Spanish, and
+context recall with Qwen thinking disabled:
+
+| Model | Correct | Mean | Throughput | v1.2 disposition |
+|---|---:|---:|---:|---|
+| `llama3.2:3b` | 8/12 (66.7%) | 740.6 ms | 144.5 tok/s | Cross-platform consumer default; 8 GB floor. |
+| `qwen3:4b-instruct` | 12/12 (100%) | 811.4 ms | 121.0 tok/s | Recommended opt-in when tool/JSON conformance matters more than throughput; macOS-evidenced, not cross-platform-promoted. |
+| `qwen3.5:4b` | 10/12 (83.3%) | 956.5 ms | 106.2 tok/s | Catalog alternative for operators evaluating Qwen 3.5 behavior. |
+| `qwen3.5:9b` | 8/12 (66.7%) | 956.8 ms | 74.9 tok/s | 16 GB reasoning/catalog option; not recommended as the v1.2 first-chat replacement. |
+
+`qwen3:4b-instruct` cleared the fixed quality and mean-latency thresholds, but
+its 16.2% throughput regression exceeded the 10% promotion limit. Linux x64
+was unavailable, so no candidate had the required cross-platform promotion
+evidence. The result supports a task-specific Qwen recommendation, not a silent
+default or hardware-floor change.
 
 Status values: `ok` · `missing` (no profile set) · `under-capable` (model too
 small/wrong capability) · `not-pulled` (local model not downloaded) ·
@@ -65,8 +83,14 @@ ollama pull nomic-embed-text
 ollama pull llama3.1:8b
 ollama pull qwen2.5:7b     # Pi-mode tool-loop profile
 ollama pull gemma4:26b      # optional local escalation tier
-mix allbert.intent doctor   # confirm embedder + router model report ok
+allbert admin intent doctor # confirm embedder + router model report ok
 ```
+
+For the v1.2 first-chat alternatives, prefer the web Models panel so catalog
+selection and any pull stay on the reviewed Settings/confirmation path. If you
+explicitly manage Ollama yourself, the evaluated opt-in tag is
+`qwen3:4b-instruct`; `qwen3.5:9b` has a 16 GB catalog floor and is intended for
+reasoning experiments rather than first-chat replacement.
 
 > Tag note (rechecked against official Ollama library pages on 2026-06-22):
 > current Ollama model docs list `gemma4:26b` for local workstation escalation and

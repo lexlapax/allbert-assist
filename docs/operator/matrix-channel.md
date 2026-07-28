@@ -1,5 +1,8 @@
 # Matrix Channel Operator Guide
 
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md), then
+return here to connect Matrix.
+
 Status: implemented in v0.53 M6 as Channel Pack 2. This guide covers the
 shipped Matrix Client-Server API surface: bearer-auth `/sync` long polling for
 unencrypted text rooms, outbound `m.room.message` sends, Matrix `m.thread`
@@ -93,7 +96,7 @@ test "$ALLBERT_MATRIX_BOT_USER_ID" = "$ALLBERT_MATRIX_BOT_USER"
 ```
 
 The token has full access to the bot account. Store it only through
-`mix allbert.channels matrix set-token`. If `whoami.user_id` is not the bot MXID,
+`allbert admin channels matrix set-token`. If `whoami.user_id` is not the bot MXID,
 you have the wrong token; do not proceed with a mapped or unmapped user's token.
 
 Check the validation room for encryption state:
@@ -157,16 +160,16 @@ validation; use a sandbox homeserver that allows unencrypted rooms.
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-matrix.XXXXXX)"
 mix ecto.migrate.allbert --quiet
 
-mix allbert.settings set channels.matrix.homeserver_url "$ALLBERT_MATRIX_HOMESERVER_URL"
+allbert admin settings set channels.matrix.homeserver_url "$ALLBERT_MATRIX_HOMESERVER_URL"
 # This stores the bot account token. It must be for ALLBERT_MATRIX_BOT_USER,
 # not for ALLBERT_MATRIX_USER_ID or ALLBERT_MATRIX_UNMAPPED_USER_ID.
-mix allbert.channels matrix set-token "$ALLBERT_MATRIX_ACCESS_TOKEN"
-mix allbert.settings set channels.matrix.allowed_room_ids '["'"$ALLBERT_MATRIX_ROOM_ID"'"]'
+allbert admin channels matrix set-token "$ALLBERT_MATRIX_ACCESS_TOKEN"
+allbert admin settings set channels.matrix.allowed_room_ids '["'"$ALLBERT_MATRIX_ROOM_ID"'"]'
 # This maps the mapped human MXID to local user alice. No human token is used.
-mix allbert.channels matrix map --external-user "$ALLBERT_MATRIX_USER_ID" --user alice
-mix allbert.settings set channels.matrix.enabled true
-mix allbert.settings get channels.matrix.sync_timeout_ms
-mix allbert.settings get channels.matrix.sync_timeline_limit
+allbert admin channels matrix map --external-user "$ALLBERT_MATRIX_USER_ID" --user alice
+allbert admin settings set channels.matrix.enabled true
+allbert admin settings get channels.matrix.sync_timeout_ms
+allbert admin settings get channels.matrix.sync_timeline_limit
 ```
 
 The settings output must show `channels.matrix.access_token_ref` as a
@@ -189,9 +192,9 @@ MIX_ENV=test mix allbert.test release.v053
 Run the redacted doctor:
 
 ```sh
-mix allbert.channels setup-check matrix
-mix allbert.channels matrix doctor
-mix allbert.channels show matrix
+allbert admin channels setup-check matrix
+allbert admin channels matrix doctor
+allbert admin channels show matrix
 ```
 
 `setup-check` reports redacted Settings Central readiness, missing fields, the
@@ -245,18 +248,18 @@ Manual validation before tag:
 - Send from an unmapped MXID and confirm the request is rejected before runtime.
 - Trigger a note-write confirmation from the mapped MXID:
   `create a note titled matrixapproval with body hi`; run
-  `mix allbert.channels matrix poll-once`; capture the pending confirmation id
-  from `mix allbert.confirmations list`.
+  `allbert admin channels matrix poll-once`; capture the pending confirmation id
+  from `allbert admin confirmations list`.
 - From the mapped MXID, send `ALLBERT:APPROVE:<confirmation_id>` in the same
-  room; run `mix allbert.channels matrix poll-once`; confirm the bot replies and
-  `mix allbert.confirmations list --resolved` shows the confirmation approved.
+  room; run `allbert admin channels matrix poll-once`; confirm the bot replies and
+  `allbert admin confirmations list --resolved` shows the confirmation approved.
   Element may render reply/fallback text with a display-name prefix such as
   `Lex Lapax:ALLBERT:APPROVE:<confirmation_id>`; Matrix normalizes that bounded
   fallback before callback handling, but the safest operator action is still to
   send the exact command as a plain room message.
 - Trigger a second note-write confirmation, then send
   `ALLBERT:APPROVE:<confirmation_id>` from the unmapped MXID. After
-  `mix allbert.channels matrix poll-once`, the confirmation must still be
+  `allbert admin channels matrix poll-once`, the confirmation must still be
   pending. Clean it up from the mapped MXID with
   `ALLBERT:DENY:<confirmation_id>`.
 - Confirm outbound replies include `m.relates_to.rel_type = m.thread`,

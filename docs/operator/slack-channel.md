@@ -1,5 +1,8 @@
 # Slack Channel Operator Guide
 
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md), then
+return here to connect Slack.
+
 Status: implemented in v0.52 as part of Channel Pack 1. This guide covers the
 shipped Slack text channel surface: Socket Mode message/callback ingestion,
 Web API message delivery through `Req`, ADR 0016 approval primitives, ADR 0056
@@ -94,26 +97,26 @@ mix ecto.migrate.allbert --quiet
 Store the raw Slack bot token under `secret://channels/slack/bot_token` and the
 raw app-level token under `secret://channels/slack/app_token` through the
 Settings Central secret path available in the operator environment. Do not pass
-raw Slack tokens to `mix allbert.channels slack set-token` or
-`mix allbert.channels slack set-app-token`; v0.52 intentionally rejects raw
+raw Slack tokens to `allbert admin channels slack set-token` or
+`allbert admin channels slack set-app-token`; v0.52 intentionally rejects raw
 Slack token arguments.
 
 Then store the channel settings and identity map:
 
 ```sh
-mix allbert.channels slack set-token secret://channels/slack/bot_token
-mix allbert.channels slack set-app-token secret://channels/slack/app_token
-mix allbert.channels slack set-team-id SLACK_TEAM_ID
-mix allbert.channels slack add-channel SLACK_CHANNEL_ID
-mix allbert.channels slack map --external-user SLACK_USER_ID --user alice
-mix allbert.settings set channels.slack.enabled true
+allbert admin channels slack set-token secret://channels/slack/bot_token
+allbert admin channels slack set-app-token secret://channels/slack/app_token
+allbert admin channels slack set-team-id SLACK_TEAM_ID
+allbert admin channels slack add-channel SLACK_CHANNEL_ID
+allbert admin channels slack map --external-user SLACK_USER_ID --user alice
+allbert admin settings set channels.slack.enabled true
 ```
 
 For cross-channel resume, add an explicit identity link before resuming the same
 canonical thread into Slack:
 
 ```sh
-mix allbert.channels identity-links add --link alice-primary --channel slack --receiver slack:team:SLACK_TEAM_ID --external-user SLACK_USER_ID --user alice
+allbert admin channels identity-links add --link alice-primary --channel slack --receiver slack:team:SLACK_TEAM_ID --external-user SLACK_USER_ID --user alice
 mix allbert.conversations resume THREAD_ID --channel slack --user alice --receiver slack:team:SLACK_TEAM_ID --external-user SLACK_USER_ID --provider-thread-key PROVIDER_THREAD_KEY
 ```
 
@@ -128,8 +131,8 @@ MIX_ENV=test mix allbert.test release.v052
 Run the redacted doctor:
 
 ```sh
-mix allbert.channels slack doctor
-mix allbert.channels show slack
+allbert admin channels slack doctor
+allbert admin channels show slack
 ```
 
 The doctor reports the **live** Socket Mode transport status (`running` when the
@@ -300,7 +303,7 @@ env-var names match. All app-config steps are at
 
 ### Part 9 — live channel checks (Allbert server running)
 
-25. 🤖 Agent starts the live server and re-runs `mix allbert.channels slack
+25. 🤖 Agent starts the live server and re-runs `allbert admin channels slack
     doctor`. *Expected:* `socket_mode=running`; the bot shows active.
 26. 🧑 **@mention.** In the allowlisted channel type `@allbert-assist`, pick the
     bot from the autocomplete, add a question, send. *Expected:* the bot replies.
@@ -337,8 +340,8 @@ unmapped member (29) → teardown (below). Everything else is the agent.
 After validation, tear the sandbox down so no live credential or app lingers:
 
 1. **Disable the channel** so Allbert stops opening Socket Mode:
-   `mix allbert.settings set channels.slack.enabled false`. Confirm
-   `mix allbert.channels slack doctor` now reports `socket_mode_status=disabled`.
+   `allbert admin settings set channels.slack.enabled false`. Confirm
+   `allbert admin channels slack doctor` now reports `socket_mode_status=disabled`.
 2. **Revoke the tokens.** In the app's OAuth & Permissions page, *Revoke All
    OAuth Tokens* (invalidates the `xoxb-` bot token); on Basic Information,
    delete the `xapp-` app-level token. Both are immediately dead even if a copy

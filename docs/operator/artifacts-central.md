@@ -1,5 +1,7 @@
 # Artifacts Central Operator Guide
 
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md).
+
 Introduced in v0.50. This guide covers operating the core artifact
 store. The browsing panel, detail page, and `mix allbert.artifacts` CLI ship in
 the v0.50b/`0.50.1` Artifacts Browser sidecar; see
@@ -22,16 +24,16 @@ grant read, write, delete, thread, memory, export, or provider authority.
 Retention is default-off. Durable artifact writes require both:
 
 ```sh
-mix allbert.settings set artifacts.enabled true
-mix allbert.settings set artifacts.retention_enabled true
+allbert admin settings set artifacts.enabled true
+allbert admin settings set artifacts.retention_enabled true
 ```
 
 Artifact reads and writes use registered action permissions:
 
 ```sh
-mix allbert.settings set permissions.artifact_read allowed
-mix allbert.settings set permissions.artifact_write allowed
-mix allbert.settings set permissions.artifact_delete needs_confirmation
+allbert admin settings set permissions.artifact_read allowed
+allbert admin settings set permissions.artifact_write allowed
+allbert admin settings set permissions.artifact_delete needs_confirmation
 ```
 
 Delete remains confirmation-gated. Do not lower

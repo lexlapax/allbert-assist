@@ -1,6 +1,8 @@
 # Marketplace Lite
 
-Allbert v0.45 ships Marketplace Lite as a local, reviewed seed catalog.
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md).
+
+Allbert ships Marketplace Lite as a local, reviewed seed catalog.
 It is not a remote marketplace and it does not grant execution authority.
 
 ## Scope
@@ -25,16 +27,16 @@ a separate operator action outside v0.45 Marketplace Lite.
 Marketplace is enabled by default:
 
 ```sh
-mix allbert.settings get marketplace.enabled
-mix allbert.settings get marketplace.schema_version
-mix allbert.settings get marketplace.installed_state_path
+allbert admin settings get marketplace.enabled
+allbert admin settings get marketplace.schema_version
+allbert admin settings get marketplace.installed_state_path
 ```
 
 Emergency disable:
 
 ```sh
-mix allbert.settings set marketplace.enabled false
-mix allbert.settings set permissions.marketplace_install denied
+allbert admin settings set marketplace.enabled false
+allbert admin settings set permissions.marketplace_install denied
 ```
 
 `marketplace.schema_version` is read-only at `1`, following the ADR 0046 schema-version
@@ -50,14 +52,14 @@ write-action lock.
 ## Browse And Install
 
 ```sh
-mix allbert.marketplace doctor
-mix allbert.marketplace list
-mix allbert.marketplace list --kind skill
-mix allbert.marketplace show allbert/research-helpers
-mix allbert.marketplace verify allbert/research-helpers
-mix allbert.marketplace install allbert/research-helpers
-mix allbert.marketplace installed
-mix allbert.marketplace rollback allbert/research-helpers
+allbert admin marketplace doctor
+allbert admin marketplace list
+allbert admin marketplace list --kind skill
+allbert admin marketplace show allbert/research-helpers
+allbert admin marketplace verify allbert/research-helpers
+allbert admin marketplace install allbert/research-helpers
+allbert admin marketplace installed
+allbert admin marketplace rollback allbert/research-helpers
 ```
 
 Install checks the shipped catalog, verifies the bundle hash, writes files
@@ -68,8 +70,8 @@ reinstall.
 
 When validating marketplace intent routing in the same disposable
 `ALLBERT_HOME`, remember that install state persists. Run
-`mix allbert.marketplace rollback allbert/research-helpers` before
-`mix allbert.ask --trace "install the allbert/research-helpers skill"` if the
+`allbert admin marketplace rollback allbert/research-helpers` before
+`allbert ask --trace "install the allbert/research-helpers skill"` if the
 entry was already installed earlier in the validation flow. Otherwise the
 intent route correctly fails closed with `error_category: :already_installed`;
 that is duplicate-install protection, not the happy-path install smoke.
@@ -90,7 +92,7 @@ files; they do not become executable v0.38 template patterns.
 ## Doctor
 
 ```sh
-mix allbert.marketplace doctor
+allbert admin marketplace doctor
 ```
 
 The doctor returns an ADR 0047-style redacted envelope and writes

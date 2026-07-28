@@ -1,5 +1,11 @@
 # Dynamic Capability Integration Operator Guide
 
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md).
+
+Packaged settings, drafts, integrations, and confirmations use `allbert admin`.
+The sandbox/gate commands are the source-checkout portion and require the
+contributor toolchain.
+
 Introduced in v0.37 (loader contract finalized in v0.37.5).
 
 v0.37 is the first Allbert path that can turn generated Elixir/OTP source into
@@ -57,7 +63,7 @@ treat that line as a startup bootstrap defect, not expected noise.
 Enable the v0.36 sandbox first and confirm the doctor is green:
 
 ```sh
-mix allbert.settings set sandbox.elixir.enabled true
+allbert admin settings set sandbox.elixir.enabled true
 mix allbert.sandbox doctor
 ```
 
@@ -69,35 +75,35 @@ select the matching model profile:
 set -a
 source .env
 set +a
-mix allbert.settings set dynamic_codegen.enabled true
+allbert admin settings set dynamic_codegen.enabled true
 ```
 
 Choose exactly one provider profile for each smoke run:
 
 ```sh
 # Recommended remote coding smoke
-mix allbert.settings set providers.gemini.enabled true
-mix allbert.settings set dynamic_codegen.provider_profile coding
+allbert admin settings set providers.gemini.enabled true
+allbert admin settings set dynamic_codegen.provider_profile coding
 
 # OpenAI-backed smoke
-mix allbert.settings set providers.openai.enabled true
-mix allbert.settings set dynamic_codegen.provider_profile fast
+allbert admin settings set providers.openai.enabled true
+allbert admin settings set dynamic_codegen.provider_profile fast
 
 # Anthropic-backed smoke
-mix allbert.settings set providers.anthropic.enabled true
-mix allbert.settings set dynamic_codegen.provider_profile anthropic_fast
+allbert admin settings set providers.anthropic.enabled true
+allbert admin settings set dynamic_codegen.provider_profile anthropic_fast
 
 # OpenRouter-backed smoke
-mix allbert.settings set providers.openrouter.enabled true
-mix allbert.settings set dynamic_codegen.provider_profile openrouter_fast
+allbert admin settings set providers.openrouter.enabled true
+allbert admin settings set dynamic_codegen.provider_profile openrouter_fast
 ```
 
 Then finish the shared v0.37 capability-generation settings:
 
 ```sh
-mix allbert.settings set dynamic_codegen.live_loader_enabled true
-mix allbert.settings set dynamic_codegen.allowed_targets action
-mix allbert.settings set dynamic_codegen.allowed_action_permissions read_only
+allbert admin settings set dynamic_codegen.live_loader_enabled true
+allbert admin settings set dynamic_codegen.allowed_targets action
+allbert admin settings set dynamic_codegen.allowed_action_permissions read_only
 ```
 
 Use only one `dynamic_codegen.provider_profile` value per smoke run. The
@@ -113,7 +119,7 @@ Ollama profiles and must not override the real OpenAI provider endpoint:
 
 ```sh
 ollama pull qwen2.5-coder:7b
-mix allbert.settings set dynamic_codegen.provider_profile coding_local
+allbert admin settings set dynamic_codegen.provider_profile coding_local
 ```
 
 Gemini credentials use the Settings Central secret reference
@@ -134,8 +140,8 @@ Delegated writes are closed by default. Enable them only for a smoke that needs
 them, and only with the reviewed facade names you intend to allow:
 
 ```sh
-mix allbert.settings set dynamic_codegen.allowed_action_permissions read_only,memory_write,external_network
-mix allbert.settings set dynamic_codegen.allowed_facades append_memory,external_network_request
+allbert admin settings set dynamic_codegen.allowed_action_permissions read_only,memory_write,external_network
+allbert admin settings set dynamic_codegen.allowed_facades append_memory,external_network_request
 ```
 
 ## Request A Draft
@@ -151,7 +157,7 @@ The request action is controlled by `permissions.dynamic_codegen_request`
 (default `allowed`), separate from historical `permissions.skill_write`.
 
 ```sh
-mix allbert.dynamic drafts request weather_summary "Create a read-only weather summary action"
+allbert admin plugins drafts request weather_summary "Create a read-only weather summary action"
 ```
 
 For delegated memory or network actions, the generated action must declare the
@@ -159,7 +165,7 @@ matching permission and call the reviewed facade through a literal
 `AllbertAssist.DynamicPlugins.Delegate.run/3` facade name:
 
 ```sh
-mix allbert.dynamic drafts request delegated_memory "Create a memory_write action that appends operator-reviewed memory by delegating to append_memory"
+allbert admin plugins drafts request delegated_memory "Create a memory_write action that appends operator-reviewed memory by delegating to append_memory"
 ```
 
 Equivalent runtime entrypoint:
@@ -179,9 +185,9 @@ Low-confidence intent or advisory output cannot call this path by itself.
 Inspect dynamic artifacts with read-only commands:
 
 ```sh
-mix allbert.dynamic drafts list
-mix allbert.dynamic drafts show <slug>
-mix allbert.dynamic integrations show <slug>
+allbert admin plugins drafts list
+allbert admin plugins drafts show <slug>
+allbert admin plugins integrations show <slug>
 ```
 
 Review:
@@ -226,10 +232,10 @@ allowed by
 `dynamic_codegen.integration_approval_surfaces`:
 
 ```sh
-mix allbert.dynamic drafts integrate <slug>
-mix allbert.confirmations list
-mix allbert.confirmations show <confirmation-id>
-mix allbert.confirmations approve <confirmation-id> --reason "reviewed v0.37 gate evidence"
+allbert admin plugins drafts integrate <slug>
+allbert admin confirmations list
+allbert admin confirmations show <confirmation-id>
+allbert admin confirmations approve <confirmation-id> --reason "reviewed gate evidence"
 ```
 
 The integration action denies approval from Telegram, email, or cross-channel
@@ -244,8 +250,8 @@ audit, but it does not inherit the integration approval-surface restriction.
 After approval, inspect the registration state:
 
 ```sh
-mix allbert.dynamic integrations show <slug>
-mix allbert.security review --recent --limit 25
+allbert admin plugins integrations show <slug>
+allbert admin trust review --recent --limit 25
 ```
 
 Also inspect the dynamic lifecycle audit for compile/load/register events:
@@ -263,10 +269,10 @@ static, plugin, app, or other dynamic action names.
 Rollback also requires Security Central confirmation:
 
 ```sh
-mix allbert.dynamic integrations rollback <slug>
-mix allbert.confirmations list
-mix allbert.confirmations approve <confirmation-id> --reason "rollback dynamic capability"
-mix allbert.dynamic integrations show <slug>
+allbert admin plugins integrations rollback <slug>
+allbert admin confirmations list
+allbert admin confirmations approve <confirmation-id> --reason "rollback dynamic capability"
+allbert admin plugins integrations show <slug>
 ```
 
 Rollback removes dynamic action authority and records the result. Module
@@ -282,8 +288,8 @@ Discard an untrusted, failed, or already rolled-back draft when you no longer
 want it to be eligible for gate or integration:
 
 ```sh
-mix allbert.dynamic drafts discard <slug>
-mix allbert.dynamic drafts show <slug>
+allbert admin plugins drafts discard <slug>
+allbert admin plugins drafts show <slug>
 ```
 
 Discard is terminal for that draft revision. Integrated artifacts must be rolled
@@ -299,21 +305,21 @@ should roll it forward or archive the draft root before discarding.
 Disable live authority without deleting source:
 
 ```sh
-mix allbert.dynamic integrations disable
-mix allbert.security review --recent --limit 25
+allbert admin plugins integrations disable
+allbert admin trust review --recent --limit 25
 ```
 
 Disable generation as well:
 
 ```sh
-mix allbert.settings set dynamic_codegen.enabled false
+allbert admin settings set dynamic_codegen.enabled false
 ```
 
 Disable sandbox trials:
 
 ```sh
-mix allbert.settings set sandbox.elixir.enabled false
-mix allbert.settings set permissions.sandbox_trial denied
+allbert admin settings set sandbox.elixir.enabled false
+allbert admin settings set permissions.sandbox_trial denied
 ```
 
 Emergency disablement clears live dynamic actions. It does not delete draft or

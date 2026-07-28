@@ -1,56 +1,44 @@
 # Allbert Home Export And Dry-Run Import
 
-Allbert provides a redacted portability envelope (introduced in v0.59) and a dry-run import validator. It
-does not apply an import and does not include an executable rollback runner.
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md).
+
+Allbert can export a redacted portability envelope and validate it against a
+different Home. Import is deliberately preview-only: it applies no changes and
+has no automatic rollback runner.
 
 ## Export
 
+Stop any runtime using the source Home, then run:
+
 ```sh
-set -euo pipefail
 export ALLBERT_HOME="/path/to/source-home"
-export V059_EVIDENCE_DIR="$HOME/.allbert-release-evidence/v059"
-mkdir -p "$V059_EVIDENCE_DIR"
+export ALLBERT_EXPORT_DIR="$HOME/allbert-export"
+mkdir -p "$ALLBERT_EXPORT_DIR"
 
-MIX_ENV=test mix allbert.home.export \
-  --out "$V059_EVIDENCE_DIR/home.envelope.json"
+allbert admin home export \
+  --out "$ALLBERT_EXPORT_DIR/home.envelope.json"
 ```
 
-Expected output:
+A successful envelope reports its version, fragment/file/reference counts, and
+`redacted=true`. It contains redacted user settings, per-fragment schema
+versions, secret-reference status, and a hashes-only Home file manifest. It
+excludes secret values, `settings/secrets.yml.enc`,
+`settings/.settings_key`, caches, and temporary files.
 
-```text
-Exported Allbert Home envelope
-Envelope: <path>
-envelope_version=1
-fragments=<count>
-files=<count>
-secret_refs=<count>
-redacted=true
-```
+## Validate Against A Target Home
 
-The envelope includes redacted user settings, per-fragment schema versions,
-secret-reference status rows, and a hashes-only Home file manifest. It excludes
-`settings/secrets.yml.enc`, `settings/.settings_key`, cache files, tmp files, and
-secret values. Provider-shaped secret values are redacted even under innocuous
-setting names; benign hashes/checksums remain visible unless their setting path is
-sensitive.
-
-## Dry-Run Import
+Keep the evidence path outside the target Home:
 
 ```sh
-set -euo pipefail
 export ALLBERT_HOME="/path/to/target-home"
 export ALLBERT_HOME_DIR="$ALLBERT_HOME"
 
-MIX_ENV=test mix allbert.home.import --dry-run \
-  --in "$V059_EVIDENCE_DIR/home.envelope.json" \
-  --evidence-out "$V059_EVIDENCE_DIR/import-diagnostic.json"
+allbert admin home import --dry-run \
+  --in "$ALLBERT_EXPORT_DIR/home.envelope.json" \
+  --evidence-out "$ALLBERT_EXPORT_DIR/import-diagnostic.json"
 ```
 
-The evidence path must be outside the target Home. If `--evidence-out` is omitted,
-the diagnostic is written to stdout. The target Home must remain byte-identical
-before and after the dry run.
-
-Expected diagnostic fields:
+PASS requires:
 
 ```text
 status=ok
@@ -62,53 +50,46 @@ secret_references.missing=<count>
 inert_import_plan.applied_changes=none
 ```
 
-## Secret References
+The target Home must remain byte-identical before and after the dry run. If
+`--evidence-out` is omitted, the diagnostic is printed to stdout.
 
-The envelope round-trips secret references only. Secret values stay in the source
-Home encrypted secret store and are never exported. Values held in the tier-1 OS
-vault (macOS Keychain / Linux Secret Service — see the Secret Vault section of
-[security-hardening.md](security-hardening.md)) live outside Allbert Home, so
-they are likewise never in the archive; re-provision or re-run
-`allbert admin secrets migrate` on the destination host.
+## Restore Missing Secret References
 
-If the diagnostic reports missing target refs, restore those secrets manually in
-the target Home and rerun the dry-run import:
+The envelope carries references, never secret values. Tier-1 macOS Keychain or
+Linux Secret Service values live outside Allbert Home and must be reprovisioned
+on the destination. Tier-2 encrypted values are also excluded from this
+redacted envelope.
+
+Use the interactive vault-backed path so a key is not placed in shell history:
 
 ```sh
-set -euo pipefail
 export ALLBERT_HOME="/path/to/target-home"
+allbert admin settings providers set-key openai
 
-printf '%s\n' "$OPENAI_API_KEY" | MIX_ENV=test \
-  mix allbert.settings providers set-key openai
-
-MIX_ENV=test mix allbert.home.import --dry-run \
-  --in "$V059_EVIDENCE_DIR/home.envelope.json" \
-  --evidence-out "$V059_EVIDENCE_DIR/import-diagnostic-after-secrets.json"
+allbert admin home import --dry-run \
+  --in "$ALLBERT_EXPORT_DIR/home.envelope.json" \
+  --evidence-out "$ALLBERT_EXPORT_DIR/import-diagnostic-after-secrets.json"
 ```
 
-Pass condition: the target ref row changes from `target_status=missing` to
-`target_status=configured`. Do not paste secret values into the envelope,
-diagnostic, release evidence, chat, or terminal commands with positional secret
-arguments.
+PASS: the relevant reference changes from `target_status=missing` to
+`target_status=configured`. Never paste a secret into the envelope, diagnostic,
+chat, release evidence, or a positional command argument. See the
+[Secret Vault](security-hardening.md#secret-vault-three-tier).
 
-## Manual Rollback
+## Recovery
 
-v0.59 import is dry-run only, so rollback is normally just the proof that no files
-changed. For any future operator-applied import, use this manual procedure:
+Because import applies nothing, normal rollback is proof that the target Home
+did not change. If a future operator-applied migration modifies a Home:
 
-1. Stop Allbert processes that are using the target Home.
-2. Move the modified target Home aside:
+1. Stop every Allbert runtime using that Home.
+2. Preserve the modified Home under a clearly named recovery path.
+3. Restore the operator backup that matches the runtime version.
+4. Start Allbert and run:
+
    ```sh
-   mv "$ALLBERT_HOME" "$ALLBERT_HOME.rollback-$(date +%Y%m%d%H%M%S)"
-   ```
-3. Restore the prior Home directory from the operator backup.
-4. Start Allbert with the restored `ALLBERT_HOME`.
-5. Run:
-   ```sh
-   MIX_ENV=test mix allbert.security status
-   MIX_ENV=test mix allbert.settings doctor
+   allbert admin trust status
+   allbert admin settings doctor
    ```
 
-The rollback evidence is the pre/post Home hash proof plus the restored security
-and settings-version status output. There is no v0.59 command that auto-applies or
-auto-rolls-back an import.
+Do not delete or overwrite either Home until the restored runtime and its data
+have been verified.

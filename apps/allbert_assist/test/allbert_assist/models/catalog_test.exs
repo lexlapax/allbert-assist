@@ -64,6 +64,8 @@ defmodule AllbertAssist.Models.CatalogTest do
     assert response.status == :completed
     assert response.entries != []
     assert Enum.all?(response.entries, &("fast" in &1.purposes))
+    assert response.surface_payload =~ "Model catalog v1:"
+    assert response.surface_payload =~ "ollama:llama3.2:3b"
     assert Settings.read_user_settings() == {:ok, before_settings}
   end
 end

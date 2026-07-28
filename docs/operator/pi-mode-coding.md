@@ -1,18 +1,42 @@
 # Pi-Mode Coding Operator Guide
 
-Status: implemented and warm-validated for v0.57 release closeout. This guide
-describes the operator workflow for the Pi-mode coding surface. The
-release-authoritative validation checklist lives in
-`docs/plans/archives/v0.57-request-flow.md#operator-validation`.
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md).
 
 Pi-mode runs inside the persistent `tui` channel. It is not a separate runtime and
 does not grant authority by being local. Every coding tool routes through
 `Actions.Runner.run/3`, Security Central, trace, and audit.
 
+## Daily Packaged Setup
+
+Choose the repository root and enable only the execution boundary you intend to
+use. Start with a narrow command allowlist:
+
+```sh
+export ALLBERT_CODING_ROOT="$(pwd)"
+
+allbert admin settings set coding.pi_mode.enabled true
+allbert admin settings set coding.trusted_operator_id local
+allbert admin settings set coding.default_approval_mode default
+allbert admin settings set coding.workspace.cwd_jail "$ALLBERT_CODING_ROOT"
+allbert admin settings set coding.model_profile pi_coding_local
+allbert admin settings set execution.local.enabled true
+allbert admin settings set execution.local.allowed_roots \
+  "[\"$ALLBERT_CODING_ROOT\"]"
+allbert admin settings set execution.local.allowed_commands \
+  '["pwd","rg","git"]'
+allbert admin settings set execution.local.require_confirmation true
+allbert admin models doctor pi_coding_local
+```
+
+Stop the web/service runtime that owns this Home, then run `allbert tui` and
+enter `/pi`. Do not run Pi-mode beside the service against the same Home. Keep
+`execution.local.require_confirmation=true`; Pi approval mode does not replace
+Security Central or the registered-action boundary.
+
 ## Requirements
 
 - v0.55 `tui` channel and v0.55.1 warm operator console are present.
-- A disposable `ALLBERT_HOME` for validation and release smokes.
+- A disposable `ALLBERT_HOME` when replaying validation or release smokes.
 - A mapped TUI identity for the terminal profile. On a fresh Home, v1.2 local
   launchers atomically persist `channels.tui.enabled=true` and the built-in
   `default → local` mapping when those keys are raw-absent. This guide keeps
@@ -24,7 +48,7 @@ does not grant authority by being local. Every coding tool routes through
 - Level 1 local execution enabled only for the intended repo root and command
   set when validating or using Pi-mode `bash`.
 
-## Configure A Validation Home
+## Source-Checkout Validation Setup
 
 ```sh
 export V057_MANUAL_HOME="$(mktemp -d /tmp/allbert-v057-manual.XXXXXX)"

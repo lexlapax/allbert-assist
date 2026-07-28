@@ -1,5 +1,7 @@
 # Allbert MCP Servers Operator Guide
 
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md).
+
 Introduced in v0.40.
 
 This guide explains how to connect an MCP (Model Context Protocol) server to
@@ -44,13 +46,13 @@ export ALLBERT_TRACE_ENABLED=true
 ### Remote server (HTTP/SSE)
 
 ```sh
-mix allbert.settings set mcp.servers.github.transport streamable_http
-mix allbert.settings set mcp.servers.github.base_url https://your-github-mcp.example/mcp/
+allbert admin settings set mcp.servers.github.transport streamable_http
+allbert admin settings set mcp.servers.github.base_url https://your-github-mcp.example/mcp/
 # Enter the token as an encrypted secret through the Settings Central secret
 # path (stdin or the LiveView secret form), never as a plain argument, then
 # point auth_ref at the ref:
-mix allbert.settings set mcp.servers.github.auth_ref secret://mcp/github/token
-mix allbert.settings set mcp.servers.github.enabled true
+allbert admin settings set mcp.servers.github.auth_ref secret://mcp/github/token
+allbert admin settings set mcp.servers.github.enabled true
 ```
 
 HTTP/SSE egress is subject to Allbert's network posture: SSRF blocking, host
@@ -60,14 +62,14 @@ and header/body redaction.
 ### Local server (stdio)
 
 ```sh
-mix allbert.settings set mcp.stdio.allowed_launchers '["npx"]'
-mix allbert.settings set mcp.servers.calendar.transport stdio
-mix allbert.settings set mcp.servers.calendar.command npx
-mix allbert.settings set mcp.servers.calendar.args '["-y","@example/calendar-mcp"]'
+allbert admin settings set mcp.stdio.allowed_launchers '["npx"]'
+allbert admin settings set mcp.servers.calendar.transport stdio
+allbert admin settings set mcp.servers.calendar.command npx
+allbert admin settings set mcp.servers.calendar.args '["-y","@example/calendar-mcp"]'
 # Enter any stdio env secret through the Settings Central secret path, then
 # reference it from mcp.servers.calendar.env (value is a secret ref, not a
 # literal):
-mix allbert.settings set mcp.servers.calendar.enabled true
+allbert admin settings set mcp.servers.calendar.enabled true
 ```
 
 A stdio server is a local OS process. Allbert starts it with explicit argv and an
@@ -77,7 +79,7 @@ launcher command must appear in `mcp.stdio.allowed_launchers`; the default empty
 list denies stdio startup. Server stderr logs are kept separate from the MCP
 stdout JSON stream.
 
-`mix allbert.settings set` parses JSON values for MCP list/map settings, so
+`allbert admin settings set` parses JSON values for MCP list/map settings, so
 `args`, `tool_allowlist`, `tool_denylist`, `env`, and `headers` can be supplied
 as JSON objects or arrays when needed.
 
@@ -94,12 +96,12 @@ keyed sources such as PulseMCP are skipped unless their Settings secret refs are
 configured:
 
 ```sh
-mix allbert.settings set mcp.discovery.enabled true
-mix allbert.mcp discover "calendar"          # internet MCP registries
-mix allbert.tools find "calendar"            # local tools + internet, merged
+allbert admin settings set mcp.discovery.enabled true
+allbert admin mcp discover "calendar"          # internet MCP registries
+allbert admin tools find "calendar"            # local tools + internet, merged
 ```
 
-`mix allbert.tools find` always searches local registered actions, skills, and
+`allbert admin tools find` always searches local registered actions, skills, and
 already-configured MCP servers under the read-only permission. Its internet
 registry branch is conditional: `permissions.tool_discovery` must allow
 `:tool_discovery`, otherwise the command returns local candidates only plus a
@@ -111,8 +113,8 @@ confirmation-gated step that shows you the exact run command or URL before it
 writes any `mcp.servers.<id>` config:
 
 ```sh
-mix allbert.mcp connect --candidate-id "remote_mcp:official:..."  # exact, unambiguous
-mix allbert.mcp connect "io.example/calendar"                     # unique candidate name
+allbert admin mcp connect --candidate-id "remote_mcp:official:..."  # exact, unambiguous
+allbert admin mcp connect "io.example/calendar"                     # unique candidate name
 ```
 
 Bare connect input resolves an exact candidate id first, then a unique candidate
@@ -129,8 +131,8 @@ passive Discovery Suggestions panel you review on your own time — Allbert neve
 messages you unprompted and never connects from a scan:
 
 ```sh
-mix allbert.mcp scan enable        # then resume to schedule; or run once:
-mix allbert.mcp scan run-once
+allbert admin mcp scan enable        # then resume to schedule; or run once:
+allbert admin mcp scan run-once
 ```
 
 Allbert records registry manifest metadata separately from the live trust
@@ -174,12 +176,12 @@ server disabled until credentials are configured and doctor/list checks pass.
 
 <!-- v0.42-m6-config:calendar:start -->
 ```sh
-mix allbert.settings set mcp.servers.calendar.enabled false
-mix allbert.settings set mcp.servers.calendar.transport streamable_http
-mix allbert.settings set mcp.servers.calendar.base_url https://calendar-mcp.example.invalid/mcp/
-mix allbert.settings set mcp.servers.calendar.auth_ref secret://mcp/calendar/token
-mix allbert.settings set mcp.servers.calendar.tool_allowlist '["list_calendars","list_events","get_event","find_availability","create_event","update_event"]'
-mix allbert.settings set mcp.servers.calendar.confirmation required
+allbert admin settings set mcp.servers.calendar.enabled false
+allbert admin settings set mcp.servers.calendar.transport streamable_http
+allbert admin settings set mcp.servers.calendar.base_url https://calendar-mcp.example.invalid/mcp/
+allbert admin settings set mcp.servers.calendar.auth_ref secret://mcp/calendar/token
+allbert admin settings set mcp.servers.calendar.tool_allowlist '["list_calendars","list_events","get_event","find_availability","create_event","update_event"]'
+allbert admin settings set mcp.servers.calendar.confirmation required
 ```
 <!-- v0.42-m6-config:calendar:end -->
 
@@ -191,12 +193,12 @@ calls.
 
 <!-- v0.42-m6-config:mail:start -->
 ```sh
-mix allbert.settings set mcp.servers.mail.enabled false
-mix allbert.settings set mcp.servers.mail.transport streamable_http
-mix allbert.settings set mcp.servers.mail.base_url https://mail-mcp.example.invalid/mcp/
-mix allbert.settings set mcp.servers.mail.auth_ref secret://mcp/mail/token
-mix allbert.settings set mcp.servers.mail.tool_allowlist '["list_threads","read_message","search_messages","send_message","modify_labels"]'
-mix allbert.settings set mcp.servers.mail.confirmation required
+allbert admin settings set mcp.servers.mail.enabled false
+allbert admin settings set mcp.servers.mail.transport streamable_http
+allbert admin settings set mcp.servers.mail.base_url https://mail-mcp.example.invalid/mcp/
+allbert admin settings set mcp.servers.mail.auth_ref secret://mcp/mail/token
+allbert admin settings set mcp.servers.mail.tool_allowlist '["list_threads","read_message","search_messages","send_message","modify_labels"]'
+allbert admin settings set mcp.servers.mail.confirmation required
 ```
 <!-- v0.42-m6-config:mail:end -->
 
@@ -208,14 +210,14 @@ stdio. The example below keeps it disabled until the token is stored as
 
 <!-- v0.42-m6-config:github:start -->
 ```sh
-mix allbert.settings set mcp.stdio.allowed_launchers '["docker","npx","uvx"]'
-mix allbert.settings set mcp.servers.github.enabled false
-mix allbert.settings set mcp.servers.github.transport stdio
-mix allbert.settings set mcp.servers.github.command docker
-mix allbert.settings set mcp.servers.github.args '["run","-i","--rm","-e","GITHUB_PERSONAL_ACCESS_TOKEN","ghcr.io/github/github-mcp-server"]'
-mix allbert.settings set mcp.servers.github.env '{"GITHUB_PERSONAL_ACCESS_TOKEN":"secret://mcp/github/pat"}'
-mix allbert.settings set mcp.servers.github.tool_allowlist '["get_issue","list_issues","get_pull_request","list_pull_requests","create_issue_comment","search_code"]'
-mix allbert.settings set mcp.servers.github.confirmation required
+allbert admin settings set mcp.stdio.allowed_launchers '["docker","npx","uvx"]'
+allbert admin settings set mcp.servers.github.enabled false
+allbert admin settings set mcp.servers.github.transport stdio
+allbert admin settings set mcp.servers.github.command docker
+allbert admin settings set mcp.servers.github.args '["run","-i","--rm","-e","GITHUB_PERSONAL_ACCESS_TOKEN","ghcr.io/github/github-mcp-server"]'
+allbert admin settings set mcp.servers.github.env '{"GITHUB_PERSONAL_ACCESS_TOKEN":"secret://mcp/github/pat"}'
+allbert admin settings set mcp.servers.github.tool_allowlist '["get_issue","list_issues","get_pull_request","list_pull_requests","create_issue_comment","search_code"]'
+allbert admin settings set mcp.servers.github.confirmation required
 ```
 <!-- v0.42-m6-config:github:end -->
 
@@ -226,7 +228,7 @@ confirmation, and returns a redacted reachability/discovery summary. It does not
 grant any tool or resource authority.
 
 ```sh
-mix allbert.mcp doctor github
+allbert admin mcp doctor github
 ```
 
 The output reports transport kind, endpoint reachability, whether tools and
@@ -236,8 +238,8 @@ full URLs, or raw error bodies.
 ## List Tools And Resources
 
 ```sh
-mix allbert.mcp tools github
-mix allbert.mcp resources github
+allbert admin mcp tools github
+allbert admin mcp resources github
 ```
 
 These return descriptive metadata only. Listing authorizes nothing.
@@ -249,8 +251,8 @@ Resource Access grant for that `mcp://` scope. Once granted, in-scope reads
 proceed without prompting you again.
 
 ```sh
-mix allbert.mcp read github "repo://owner/name/README.md"   # approve grant
-mix allbert.mcp read github "repo://owner/name/README.md"   # no re-prompt
+allbert admin mcp read github "repo://owner/name/README.md"   # approve grant
+allbert admin mcp read github "repo://owner/name/README.md"   # no re-prompt
 ```
 
 A grant for one server does not authorize another, and a read grant never
@@ -262,7 +264,7 @@ Tool calls are effectful, so **every tool call is confirmed**. You approve each
 call before it runs; there is no silent or remembered tool-call approval.
 
 ```sh
-mix allbert.mcp call github create_issue '{"repo":"owner/name","title":"..."}'
+allbert admin mcp call github create_issue '{"repo":"owner/name","title":"..."}'
 ```
 
 You can tighten policy per server:

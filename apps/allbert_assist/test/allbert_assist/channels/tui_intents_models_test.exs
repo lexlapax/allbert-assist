@@ -64,7 +64,7 @@ defmodule AllbertAssist.Channels.TUIIntentsModelsTest do
     :ok
   end
 
-  test "/intents and /models are slash-only read views over registered actions" do
+  test "/intents, /models, and /catalog are read views over registered actions" do
     parent = self()
 
     assert {:ok, server} =
@@ -78,6 +78,7 @@ defmodule AllbertAssist.Channels.TUIIntentsModelsTest do
 
     assert SlashCommands.requires_identity?("/intents")
     assert SlashCommands.requires_identity?("/models")
+    assert SlashCommands.requires_identity?("/catalog")
 
     assert {:ok, {:slash, [intents]}} =
              Adapter.submit(server, "/intents", external_event_id: "evt-v056-slash-intents")
@@ -101,12 +102,25 @@ defmodule AllbertAssist.Channels.TUIIntentsModelsTest do
     refute_received {:runtime_request, _request}
     assert_receive {:tui_output, ^models}
     refute Repo.get_by(Event, channel: "tui", external_event_id: "evt-v056-slash-models")
+
+    assert {:ok, {:slash, [catalog]}} =
+             Adapter.submit(server, "/catalog", external_event_id: "evt-v12-slash-catalog")
+
+    assert catalog =~ "Model catalog v1:"
+    assert catalog =~ "ollama:llama3.2:3b"
+    assert catalog =~ "ollama:qwen3.5:9b"
+    refute catalog =~ "secret://"
+    refute catalog =~ "api_key"
+    refute_received {:runtime_request, _request}
+    assert_receive {:tui_output, ^catalog}
+    refute Repo.get_by(Event, channel: "tui", external_event_id: "evt-v12-slash-catalog")
   end
 
-  test "v0.56 TUI read slash commands are allowlisted but not routable intent candidates" do
+  test "TUI model reads retain their registered exposure boundaries" do
     commands = SlashCommands.canonical_commands()
     assert "/intents" in commands
     assert "/models" in commands
+    assert "/catalog" in commands
 
     agent_action_names = Enum.map(Registry.agent_modules(), & &1.name())
 
@@ -119,6 +133,13 @@ defmodule AllbertAssist.Channels.TUIIntentsModelsTest do
       assert capability.confirmation == :not_required
       refute action_name in agent_action_names
     end
+
+    assert {:ok, catalog_module} = Registry.resolve("list_model_catalog")
+    catalog_capability = catalog_module.capability()
+    assert catalog_capability.permission == :read_only
+    assert catalog_capability.exposure == :agent
+    assert catalog_capability.confirmation == :not_required
+    assert "list_model_catalog" in agent_action_names
   end
 
   defp configure_tui! do

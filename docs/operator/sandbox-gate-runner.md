@@ -1,5 +1,10 @@
 # Elixir Sandbox And Gate Runner Operator Guide
 
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md).
+
+This is a source/developer-operator workflow. Its Mix and container commands
+are deliberate and are not part of the packaged first-run interface.
+
 Introduced in v0.36.
 
 The v0.36 sandbox is a default-off local OS isolation boundary for generated

@@ -1,5 +1,7 @@
 # Vision And Image Generation Operator Guide
 
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md).
+
 Operator guide for vision (image/screenshot-to-text) and text-to-image generation.
 Introduced in v0.49. Design authority: ADR 0042, ADR 0047, ADR 0051.
 
@@ -31,8 +33,8 @@ Introduced in v0.49. Design authority: ADR 0042, ADR 0047, ADR 0051.
 Enable only the surface being validated:
 
 ```sh
-mix allbert.settings set vision.enabled true
-mix allbert.settings set image.enabled true
+allbert admin settings set vision.enabled true
+allbert admin settings set image.enabled true
 ```
 
 Useful bounds and retention keys:
@@ -55,7 +57,7 @@ files retained under Allbert Home.
 
 ```sh
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v049-vision.XXXXXX)"
-mix allbert.settings set vision.enabled true
+allbert admin settings set vision.enabled true
 PORT=4049 mix phx.server
 ```
 
@@ -77,7 +79,7 @@ the redacted media metadata.
 
 ```sh
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v049-image.XXXXXX)"
-mix allbert.settings set image.enabled true
+allbert admin settings set image.enabled true
 ```
 
 Request image generation through the runtime/action surface. Expected behavior:

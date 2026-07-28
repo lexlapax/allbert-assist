@@ -1,16 +1,18 @@
 # Operator Workspace
 
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md).
+
 Introduced in v0.58 and consolidated into the single shell in v0.61b (ADR 0080).
-The v1.2 candidate starts first run in chat. A detected usable provider answers
+Allbert 1.2 starts first run in chat. A detected usable provider answers
 the first question without a setup click; a missing or unhealthy model keeps
 chat open and routes to one state-appropriate Models repair action. Onboarding
 is optional, and confirmed local pulls stream progress in the workspace (see
 [onboarding.md](onboarding.md)).
 
-The operator workspace is `/workspace`. v0.58 keeps that route and changes the
-layout and panels on top of the existing authority spine.
+The operator workspace is [http://localhost:4000/workspace](http://localhost:4000/workspace).
+It is the primary browser surface over the existing authority spine.
 
-## What Changed In v0.58 (baseline; presentation since revised by v0.61/v0.61b)
+## Workspace At A Glance
 
 - Chat is the primary surface.
 - **Conversations** (UI label only) is a contextual section under the product
@@ -117,12 +119,12 @@ Surface policy controls presentation governance per surface/action:
 Surface policy does not grant authority. If Security Central denies an action or a
 confirmation is required, policy cannot override that decision.
 
-## Manual Validation Evidence
+## Release Validation Is Separate
 
-For the current release, follow
-`docs/plans/archives/v1.0.4-request-flow.md`. Historical v0.58 validation
-followed `docs/plans/archives/v0.58-request-flow.md`; evidence is kept
-outside the repository under:
+For the current release, follow its active request-flow document under
+[`docs/plans`](../plans/README.md). Historical evidence belongs with archived
+request flows; ordinary workspace use does not require a validation transcript.
+Release evidence is kept outside the repository under:
 
 ```text
 $HOME/.allbert-release-evidence/<version>
@@ -133,9 +135,9 @@ transcript, public-protocol JSON responses, redaction proof, and final settings
 guard output. Do not commit raw screenshots, transcripts containing secrets, raw
 tokens, or local evidence directories.
 
-## Pass/Fail Summary
+## Operating Invariants
 
-Pass:
+Expected:
 
 - chat-primary layout is default;
 - Conversations label appears only in UI strings;
@@ -149,7 +151,7 @@ Pass:
 - warm TUI, CLI, and web panel DTOs agree;
 - MCP/OpenAI public smokes expose only public-safe tools.
 
-Fail:
+Stop and investigate if:
 
 - web reads settings, confirmations, descriptor stores, or business stores
   directly from LiveView code;

@@ -1,5 +1,8 @@
 # Email Channel Operator Guide
 
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md), then
+return here to connect email.
+
 Status: implemented in v0.53 M5 as Channel Pack 1 retro-validation. This guide
 covers the shipped email surface: SMTP outbound delivery, IMAP inbound polling,
 ADR 0016 typed-command approvals, ADR 0056 inbound trust, and ADR 0057
@@ -37,20 +40,20 @@ plain text.
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-email.XXXXXX)"
 mix ecto.migrate.allbert --quiet
 
-mix allbert.settings set channels.email.enabled true
-mix allbert.settings set channels.email.imap_host "$ALLBERT_EMAIL_IMAP_HOST"
-mix allbert.settings set channels.email.imap_port "$ALLBERT_EMAIL_IMAP_PORT"
-mix allbert.settings set channels.email.imap_ssl true
-mix allbert.settings set channels.email.imap_username "$ALLBERT_EMAIL_IMAP_USERNAME"
-mix allbert.channels email set-password --type imap "$ALLBERT_EMAIL_IMAP_PASSWORD"
-mix allbert.settings set channels.email.imap_mailbox "${ALLBERT_EMAIL_IMAP_MAILBOX:-INBOX}"
-mix allbert.settings set channels.email.smtp_host "$ALLBERT_EMAIL_SMTP_HOST"
-mix allbert.settings set channels.email.smtp_port "$ALLBERT_EMAIL_SMTP_PORT"
-mix allbert.settings set channels.email.smtp_tls true
-mix allbert.settings set channels.email.smtp_username "$ALLBERT_EMAIL_SMTP_USERNAME"
-mix allbert.channels email set-password --type smtp "$ALLBERT_EMAIL_SMTP_PASSWORD"
-mix allbert.settings set channels.email.from_address "$ALLBERT_EMAIL_FROM_ADDRESS"
-mix allbert.channels email map --external-user "$ALLBERT_EMAIL_MAPPED_SENDER" --user alice
+allbert admin settings set channels.email.enabled true
+allbert admin settings set channels.email.imap_host "$ALLBERT_EMAIL_IMAP_HOST"
+allbert admin settings set channels.email.imap_port "$ALLBERT_EMAIL_IMAP_PORT"
+allbert admin settings set channels.email.imap_ssl true
+allbert admin settings set channels.email.imap_username "$ALLBERT_EMAIL_IMAP_USERNAME"
+allbert admin channels email set-password --type imap "$ALLBERT_EMAIL_IMAP_PASSWORD"
+allbert admin settings set channels.email.imap_mailbox "${ALLBERT_EMAIL_IMAP_MAILBOX:-INBOX}"
+allbert admin settings set channels.email.smtp_host "$ALLBERT_EMAIL_SMTP_HOST"
+allbert admin settings set channels.email.smtp_port "$ALLBERT_EMAIL_SMTP_PORT"
+allbert admin settings set channels.email.smtp_tls true
+allbert admin settings set channels.email.smtp_username "$ALLBERT_EMAIL_SMTP_USERNAME"
+allbert admin channels email set-password --type smtp "$ALLBERT_EMAIL_SMTP_PASSWORD"
+allbert admin settings set channels.email.from_address "$ALLBERT_EMAIL_FROM_ADDRESS"
+allbert admin channels email map --external-user "$ALLBERT_EMAIL_MAPPED_SENDER" --user alice
 ```
 
 Settings output must show IMAP/SMTP password refs as `secret://` values and must
@@ -67,8 +70,8 @@ MIX_ENV=test mix allbert.test release.v053
 Run the redacted doctor:
 
 ```sh
-mix allbert.channels email doctor
-mix allbert.channels show email
+allbert admin channels email doctor
+allbert admin channels show email
 ```
 
 The doctor probes IMAP login/mailbox access through the configured client,

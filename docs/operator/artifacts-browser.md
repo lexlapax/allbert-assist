@@ -1,5 +1,7 @@
 # Artifacts Browser Operator Guide
 
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md).
+
 Introduced in v0.50 (0.50b sidecar). Operating the
 Artifacts Central store.
 
@@ -8,7 +10,7 @@ artifacts. It exposes metadata-only browsing through:
 
 - `/workspace?destination=app%3Aallbert_artifacts`
 - `/apps/artifacts/<sha>`
-- `mix allbert.artifacts list|show|threads|doctor|rm`
+- source-checkout `mix allbert.artifacts list|show|threads|doctor|rm`
 
 The browser owns no store authority. Every read goes through the core
 `:artifact_read` actions, and delete goes through the core confirmation-gated
@@ -19,11 +21,11 @@ The browser owns no store authority. Every read goes through the core
 Use a disposable `ALLBERT_HOME` for validation. Durable writes require:
 
 ```sh
-mix allbert.settings set artifacts.enabled true
-mix allbert.settings set artifacts.retention_enabled true
-mix allbert.settings set permissions.artifact_read allowed
-mix allbert.settings set permissions.artifact_write allowed
-mix allbert.settings set permissions.artifact_delete needs_confirmation
+allbert admin settings set artifacts.enabled true
+allbert admin settings set artifacts.retention_enabled true
+allbert admin settings set permissions.artifact_read allowed
+allbert admin settings set permissions.artifact_write allowed
+allbert admin settings set permissions.artifact_delete needs_confirmation
 ```
 
 Do not lower `permissions.artifact_delete` below `needs_confirmation`.
@@ -68,6 +70,9 @@ control. Remove queues confirmation; the artifact remains stored until the core
 confirmation path approves deletion.
 
 ## CLI
+
+The artifact CLI below is a source-checkout plugin helper. Packaged operators
+use the workspace panel and confirmation UI.
 
 List recent artifacts:
 

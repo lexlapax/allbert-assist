@@ -1,5 +1,8 @@
 # WhatsApp Channel Operator Guide
 
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md), then
+return here to review WhatsApp's current support boundary.
+
 Status: implemented in v0.53 M7 as Channel Pack 2, but **not released for live
 use in v0.53**. ADR 0066 records WhatsApp as `implemented_not_released`; live
 send/inbound release remains parked until a future provider/onboarding milestone.
@@ -25,7 +28,7 @@ not part of M7.
 ## Requirements
 
 - A Meta WhatsApp Cloud API test or sandbox number.
-- A Cloud API access token stored through `mix allbert.channels whatsapp
+- A Cloud API access token stored through `allbert admin channels whatsapp
   set-token`.
 - The WABA id and `phone_number_id` for the business number.
 - A public HTTPS webhook URL, commonly through a short-lived validation tunnel.
@@ -54,7 +57,7 @@ release-evidence output must not expose raw phone numbers or tokens.
    `ALLBERT_WHATSAPP_TO_PHONE`.
 6. Add and verify a second recipient as `ALLBERT_WHATSAPP_UNMAPPED_PHONE` when
    available. If no second real WhatsApp handset is available, use
-   `mix allbert.channels whatsapp post-webhook --from ...` as the local signed
+   `allbert admin channels whatsapp post-webhook --from ...` as the local signed
    unmapped surrogate and record that exception in validation notes.
 7. In `App Settings` -> `Basic`, reveal/copy the App Secret as
    `ALLBERT_WHATSAPP_APP_SECRET`.
@@ -86,10 +89,10 @@ message.
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-whatsapp.XXXXXX)"
 mix ecto.migrate.allbert --quiet
 
-mix allbert.channels whatsapp set-token "$ALLBERT_WHATSAPP_ACCESS_TOKEN"
-mix allbert.settings set channels.whatsapp.phone_number_id "$ALLBERT_WHATSAPP_PHONE_NUMBER_ID"
-mix allbert.settings set channels.whatsapp.waba_id "$ALLBERT_WHATSAPP_WABA_ID"
-mix allbert.channels whatsapp map --external-user "$ALLBERT_WHATSAPP_MAPPED_PHONE" --user alice
+allbert admin channels whatsapp set-token "$ALLBERT_WHATSAPP_ACCESS_TOKEN"
+allbert admin settings set channels.whatsapp.phone_number_id "$ALLBERT_WHATSAPP_PHONE_NUMBER_ID"
+allbert admin settings set channels.whatsapp.waba_id "$ALLBERT_WHATSAPP_WABA_ID"
+allbert admin channels whatsapp map --external-user "$ALLBERT_WHATSAPP_MAPPED_PHONE" --user alice
 
 ALLBERT_WHATSAPP_APP_SECRET="$ALLBERT_WHATSAPP_APP_SECRET" \
   mix run --no-start -e 'AllbertAssist.Settings.Secrets.put_secret("secret://channels/whatsapp/app_secret", System.fetch_env!("ALLBERT_WHATSAPP_APP_SECRET"), %{actor: "operator", channel: :cli})'
@@ -97,8 +100,8 @@ ALLBERT_WHATSAPP_APP_SECRET="$ALLBERT_WHATSAPP_APP_SECRET" \
 ALLBERT_WHATSAPP_WEBHOOK_VERIFY_TOKEN="$ALLBERT_WHATSAPP_WEBHOOK_VERIFY_TOKEN" \
   mix run --no-start -e 'AllbertAssist.Settings.Secrets.put_secret("secret://channels/whatsapp/webhook_verify_token", System.fetch_env!("ALLBERT_WHATSAPP_WEBHOOK_VERIFY_TOKEN"), %{actor: "operator", channel: :cli})'
 
-mix allbert.settings set channels.whatsapp.webhook_enabled true
-mix allbert.settings set channels.whatsapp.enabled true
+allbert admin settings set channels.whatsapp.webhook_enabled true
+allbert admin settings set channels.whatsapp.enabled true
 ```
 
 Register the webhook URL in Meta as:
@@ -123,9 +126,9 @@ MIX_ENV=test mix allbert.test release.v053
 Run the redacted doctor:
 
 ```sh
-mix allbert.channels setup-check whatsapp
-mix allbert.channels whatsapp doctor
-mix allbert.channels show whatsapp
+allbert admin channels setup-check whatsapp
+allbert admin channels whatsapp doctor
+allbert admin channels show whatsapp
 ```
 
 `setup-check` reports redacted Settings Central readiness, missing fields, the
@@ -166,9 +169,9 @@ Manual validation when a working Meta Cloud API account is available:
   in-process and bypasses this auth — it is routing-only, not signature evidence.)
 
   ```sh
-  mix allbert.channels whatsapp post-webhook --url http://127.0.0.1:4000 \
+  allbert admin channels whatsapp post-webhook --url http://127.0.0.1:4000 \
     --from "$ALLBERT_WHATSAPP_TO_PHONE" "whatsapp inbound auth check"        # → HTTP 202
-  mix allbert.channels whatsapp post-webhook --url http://127.0.0.1:4000 --bad-signature \
+  allbert admin channels whatsapp post-webhook --url http://127.0.0.1:4000 --bad-signature \
     --from "$ALLBERT_WHATSAPP_TO_PHONE" "whatsapp deny check"               # → HTTP 401
   ```
 

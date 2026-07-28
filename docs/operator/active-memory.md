@@ -1,5 +1,7 @@
 # Allbert Active Memory And Identity Slot
 
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md).
+
 Introduced in v0.39b. The `workspace:memory` and `allbert admin memory status`
 surfaces are first-class over the same substrate (see the
 [roadmap](../plans/roadmap.md) and [CHANGELOG](../../CHANGELOG.md) for the current
@@ -15,8 +17,8 @@ namespace and Active Memory retrieval. Implementation details live in
 - `docs/plans/archives/v0.39b-plan.md` — implementation plan.
 - `docs/plans/archives/v0.39b-request-flow.md` — request flow and security evals.
 - `docs/research/active-memory-retrieval.md` — deterministic algorithm spec.
-- `docs/operator/onboarding.md` — first-run onboarding (v0.39); the
-  identity-slot preview step in onboarding points here.
+- [Optional onboarding](onboarding.md) — the identity-slot preview step can
+  point here after chat is already available.
 - `docs/operator/local-knowledge.md` — the v0.65 local files/notes + reviewed
   memory launch-path guide (connect → search/read → confirm write → review → recall).
 - `docs/plans/archives/v0.65-plan.md` and `docs/design/local-knowledge-path.md` —
@@ -40,7 +42,7 @@ boundaries) that Active Memory retrieval can surface before each reply.
 - **Write path**: programmatic system entries use
   `AllbertAssist.Memory.upsert_system_entry/1`; operators may also create or
   edit local markdown files and then use the existing v0.21 memory review
-  surface (`mix allbert.memory review`) to mark them `:kept`. v0.39b does not
+  surface (`allbert admin memory review`) to mark them `:kept`. v0.39b does not
   add a rich authoring UX.
 - **Authority**: identity content is **inert**. It never grants permission,
   never executes, never authorizes an action, and never becomes runtime
@@ -56,6 +58,9 @@ boundaries) that Active Memory retrieval can surface before each reply.
 Prerequisite for operator-visible model behavior:
 `intent.direct_answer_model_enabled=true` and a usable direct-answer model
 profile. Active Memory itself is enabled separately by `active_memory.enabled`.
+On Allbert 1.2, first-run detection writes the direct-answer setting only when
+it is absent and a usable provider is selected; an explicit `false` remains
+sticky.
 
 When `intent.direct_answer_model_enabled` is true, Allbert runs a
 deterministic top-K retrieval pass before each direct-answer model call over
@@ -117,7 +122,7 @@ the turn's markdown trace, placed after `## Intent Candidates` and before
 - top-K retrieved chunks with per-factor score breakdowns;
 - a bounded sample of high-scoring excluded chunks for debugging.
 
-`mix allbert.memory retrieve --query "..."` prints the same deterministic
+`allbert admin memory retrieve --query "..."` prints the same deterministic
 top-K for ad-hoc inspection.
 
 ## Quick Smoke
@@ -132,8 +137,8 @@ cat > "$ALLBERT_HOME/memory/identity/persona.md" <<'EOF'
 
 I prefer concise release reports with clear validation notes.
 EOF
-mix allbert.memory review "$ALLBERT_HOME/memory/identity/persona.md" --user local --status kept --note "Operator-authored identity"
-mix allbert.memory retrieve --user local --query "concise release reports"
+allbert admin memory review "$ALLBERT_HOME/memory/identity/persona.md" --user local --status kept --note "Operator-authored identity"
+allbert admin memory retrieve --user local --query "concise release reports"
 ```
 
 The retrieve command prints chunk ids and score breakdowns only. It does not

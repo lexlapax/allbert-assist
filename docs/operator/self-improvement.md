@@ -1,5 +1,7 @@
 # Operator-Supervised Self-Improvement
 
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md).
+
 Introduced in v0.47 (handoff extensions in v0.47b). This guide
 covers the discovery and local-draft surface plus inert capability-gap,
 objective, template-backed, and marketplace-backed handoff drafts;
@@ -22,25 +24,25 @@ The surface is disabled by default. Enable the top-level feature and the trace
 index before running discovery:
 
 ```sh
-mix allbert.settings set self_improvement.enabled true
-mix allbert.settings set self_improvement.trace_index.enabled true
+allbert admin settings set self_improvement.enabled true
+allbert admin settings set self_improvement.trace_index.enabled true
 ```
 
 Useful caps:
 
 ```sh
-mix allbert.settings set self_improvement.trace_index.max_indexed_entries 5000
-mix allbert.settings set self_improvement.trace_index.min_repetitions 3
-mix allbert.settings set self_improvement.suggestions.max_open 25
-mix allbert.settings set self_improvement.suggestions.ttl_days 14
-mix allbert.settings set self_improvement.drafts.max_open 50
+allbert admin settings set self_improvement.trace_index.max_indexed_entries 5000
+allbert admin settings set self_improvement.trace_index.min_repetitions 3
+allbert admin settings set self_improvement.suggestions.max_open 25
+allbert admin settings set self_improvement.suggestions.ttl_days 14
+allbert admin settings set self_improvement.drafts.max_open 50
 ```
 
 Emergency disable:
 
 ```sh
-mix allbert.settings set self_improvement.enabled false
-mix allbert.settings set self_improvement.trace_index.enabled false
+allbert admin settings set self_improvement.enabled false
+allbert admin settings set self_improvement.trace_index.enabled false
 ```
 
 `self_improvement.schema_version` is read-only and remains `1` in v0.47.
@@ -63,8 +65,8 @@ confirmation.
 CLI inspection:
 
 ```sh
-mix allbert.self_improvement list
-mix allbert.self_improvement inspect <suggestion_id>
+allbert admin self-improvement list
+allbert admin self-improvement inspect <suggestion_id>
 ```
 
 Current `discover_patterns` output is trace-derived and emits local v0.47
@@ -104,9 +106,9 @@ unified reviewed-draft store:
 CLI inspection and discard:
 
 ```sh
-mix allbert.self_improvement drafts list
-mix allbert.self_improvement drafts inspect <draft_id>
-mix allbert.self_improvement drafts discard <draft_id>
+allbert admin self-improvement drafts list
+allbert admin self-improvement drafts inspect <draft_id>
+allbert admin self-improvement drafts discard <draft_id>
 ```
 
 Discarding a draft marks it discarded. It must not leave an enabled skill,

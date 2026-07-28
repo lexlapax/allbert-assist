@@ -1,5 +1,7 @@
 # Research Specialist
 
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md).
+
 Introduced in v0.46 (`research.specialist`).
 
 The research specialist is a delegated objective agent contributed by
@@ -15,8 +17,8 @@ Use a disposable Allbert Home for validation:
 
 ```sh
 export ALLBERT_HOME=/tmp/allbert-research
-mix allbert.settings set browser.enabled true
-mix allbert.settings set research.enabled true
+allbert admin settings set browser.enabled true
+allbert admin settings set research.enabled true
 ```
 
 Navigation still uses the v0.43 browser confirmation/grant boundary. A URL
@@ -24,6 +26,9 @@ without a remembered `browser_navigate` grant returns a pending confirmation
 and leaves the objective blocked with that confirmation id.
 
 ## CLI
+
+These research helpers are source-checkout commands. Packaged operators ask for
+the same research handoff from chat after browser readiness is configured.
 
 ```sh
 mix allbert.research "https://example.com/docs/a" --max-sources=1

@@ -9,9 +9,13 @@ right document set.
 For operators trying Allbert locally (same entry sequence as the top-level
 [README](../README.md) and the [operator index](operator/README.md)):
 
-- [Operator onboarding](operator/onboarding.md) - first local run and orientation.
+- [Quickstart: Install, Open, Chat](operator/quickstart.md) - the canonical
+  Allbert 1.2 first-run path.
 - [Operator workspace](operator/workspace.md) - `/workspace`, panels, and controls.
+- [Optional onboarding](operator/onboarding.md) - guided profiles, provider setup,
+  integrations, and repair after chat is available.
 - [Local knowledge](operator/local-knowledge.md) - connect local files/notes and reviewed agent memory.
+- [Operator guide index](operator/README.md) - all task-focused operating guides.
 - [Current changelog](../CHANGELOG.md) - shipped behavior and release status.
 - [Roadmap](plans/roadmap.md) - release sequence and next milestones.
 

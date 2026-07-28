@@ -54,10 +54,11 @@ Today, Allbert includes:
 - Source-tree plugins and app surfaces, with StockSage as the main reference app.
 - Public protocol surfaces with bounded, policy-checked exposure.
 
-The packaged install and repairable first run make Allbert usable by a
-non-developer across the curl and Homebrew paths. The pre-1.0 plan closes the
-remaining launch gap explicitly: v0.66 owns no-docs product RC validation before
-v1.0 freezes the public contracts.
+The packaged install and zero-click first run make Allbert usable by a
+non-developer across the curl and Homebrew paths. In v1.2, install, open, and
+chat is the primary experience: onboarding is optional, an existing local or
+hosted provider is detected without hidden inference, and an unavailable model
+leaves chat open with one honest repair path.
 
 ## What Allbert Is For
 
@@ -99,15 +100,19 @@ sequence and [CHANGELOG.md](CHANGELOG.md) for shipped release details.
 
 If you want to try Allbert locally:
 
-- [docs/operator/onboarding.md](docs/operator/onboarding.md): first local run and
-  operator orientation.
+- [docs/operator/quickstart.md](docs/operator/quickstart.md): install, open, and
+  chat — the canonical Allbert 1.2 first run.
 - [docs/operator/workspace.md](docs/operator/workspace.md): the web workspace,
   panels, and operator-facing controls.
+- [docs/operator/onboarding.md](docs/operator/onboarding.md): optional guided
+  customization, provider setup, and repair after chat is available.
 - [docs/operator/local-knowledge.md](docs/operator/local-knowledge.md): connect
   local files/notes and reviewed agent memory (the launch integration).
 - [docs/operator/install.md](docs/operator/install.md): packaged install,
   upgrade, uninstall, and distribution-trust notes.
-- [docs/README.md](docs/README.md): the documentation map.
+- [docs/operator/README.md](docs/operator/README.md): the complete task-based
+  operator guide index.
+- [docs/README.md](docs/README.md): the full project documentation map.
 - [CHANGELOG.md](CHANGELOG.md) / [docs/plans/roadmap.md](docs/plans/roadmap.md):
   what has shipped and where the project is going next.
 

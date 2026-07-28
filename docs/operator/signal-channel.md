@@ -1,5 +1,8 @@
 # Signal Channel Operator Guide
 
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md), then
+return here to review Signal's current support boundary.
+
 Status: implemented in v0.53 M8 as Channel Pack 2, but **not released for live
 use in v0.53**. ADR 0066 records Signal as `implemented_not_released`; live
 bridge release remains parked until a future onboarding/provider milestone
@@ -173,13 +176,13 @@ export ALLBERT_SIGNAL_RECIPIENT="$ALLBERT_SIGNAL_MAPPED_ACI"
 # exposes it. If it is not exposed directly, record the source used for this
 # value in validation notes; mapped/unmapped authorization is enforced against
 # inbound sourceUuid.
-mix allbert.settings set channels.signal.account_identifier "$ALLBERT_SIGNAL_ACCOUNT"
-mix allbert.settings set channels.signal.local_aci "$ALLBERT_SIGNAL_LOCAL_ACI"
-mix allbert.settings set channels.signal.data_dir "$ALLBERT_HOME/signal"
-mix allbert.settings set channels.signal.control_mode socket
-mix allbert.settings set channels.signal.socket_path "$ALLBERT_HOME/signal/signal-cli.sock"
-mix allbert.channels signal map --aci "$ALLBERT_SIGNAL_MAPPED_ACI" --user alice
-mix allbert.settings set channels.signal.enabled true
+allbert admin settings set channels.signal.account_identifier "$ALLBERT_SIGNAL_ACCOUNT"
+allbert admin settings set channels.signal.local_aci "$ALLBERT_SIGNAL_LOCAL_ACI"
+allbert admin settings set channels.signal.data_dir "$ALLBERT_HOME/signal"
+allbert admin settings set channels.signal.control_mode socket
+allbert admin settings set channels.signal.socket_path "$ALLBERT_HOME/signal/signal-cli.sock"
+allbert admin channels signal map --aci "$ALLBERT_SIGNAL_MAPPED_ACI" --user alice
+allbert admin settings set channels.signal.enabled true
 ```
 
 For an HTTP daemon/proxy smoke, configure loopback HTTP explicitly and store the
@@ -190,8 +193,8 @@ export ALLBERT_SIGNAL_CONTROL_AUTH="${ALLBERT_SIGNAL_CONTROL_AUTH:-$(openssl ran
 ALLBERT_SIGNAL_CONTROL_AUTH="$ALLBERT_SIGNAL_CONTROL_AUTH" \
   mix run --no-start -e 'AllbertAssist.Settings.Secrets.put_secret("secret://channels/signal/control_auth", System.fetch_env!("ALLBERT_SIGNAL_CONTROL_AUTH"), %{actor: "operator", channel: :cli})'
 
-mix allbert.settings set channels.signal.control_mode loopback_http
-mix allbert.settings set channels.signal.loopback_http_base_url "$ALLBERT_SIGNAL_CONTROL_HTTP_BASE_URL"
+allbert admin settings set channels.signal.control_mode loopback_http
+allbert admin settings set channels.signal.loopback_http_base_url "$ALLBERT_SIGNAL_CONTROL_HTTP_BASE_URL"
 ```
 
 ## Verify
@@ -205,9 +208,9 @@ MIX_ENV=test mix allbert.test release.v053
 Run the redacted doctor:
 
 ```sh
-mix allbert.channels setup-check signal
-mix allbert.channels signal doctor
-mix allbert.channels show signal
+allbert admin channels setup-check signal
+allbert admin channels signal doctor
+allbert admin channels show signal
 ```
 
 `setup-check` reports redacted Settings Central readiness, missing fields, the

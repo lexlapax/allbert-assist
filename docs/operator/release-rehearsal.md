@@ -1,5 +1,10 @@
 # Release & Install Rehearsal (packaged releases)
 
+This is a release-maintainer runbook, not a first-run guide. Operators trying
+Allbert should use [Quickstart: Install, Open, Chat](quickstart.md). The active
+release request flow remains authoritative when its commands differ from this
+cross-release reference.
+
 This is the operator runbook for cutting a packaged Allbert release and
 validating the packaged `allbert` on Tier-1 OS paths before announcing it.
 Two automated layers precede the manual/operator layer: the permanent 1.x public-

@@ -1,5 +1,7 @@
 # Security Hardening Operator Notes
 
+New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md).
+
 Operational security guidance for the Allbert runtime boundaries: the review loop,
 emergency switches, deployment posture, the secret vault, and channel/service exposure.
 ADRs and milestone plans remain the design authority; the executable eval coverage for
@@ -11,15 +13,33 @@ Use the read-only review surface before enabling risky capabilities or after a
 failed run:
 
 ```sh
-mix allbert.security status
-mix allbert.security review --recent
-mix allbert.security review --recent --limit 25
+allbert admin trust status
+allbert admin trust review --recent
+allbert admin trust review --recent --limit 25
 ```
 
 The review output summarizes recent confirmations, denials, imports, external
 calls, redaction-applied records, and emergency switch state. It is intended to
 answer "what risky thing almost or actually happened?" without exposing raw
 secrets.
+
+## First-Run Consent And Egress
+
+Allbert 1.2 detection is side-effect-free. It may select a ready local profile
+or a hosted profile whose credential is already configured, and may enable
+model answers only when the setting has never been written. It does not probe a
+hosted provider, send a prompt, install a runtime, or pull a model.
+
+- Local processing and hosted egress each have a surface-specific disclosure.
+- The first hosted model send does not precede its disclosure.
+- `intent.direct_answer_model_enabled=false` is sticky operator state.
+- Missing/unhealthy local state remains repair-first; it is not an implicit
+  hosted-fallback grant.
+- A model pull, runtime install, or other effectful repair follows the normal
+  preview and durable-confirmation path.
+
+These rules apply independently on web, TUI, and CLI surfaces. A disclosure is
+an acknowledgement record, not permission to bypass Security Central.
 
 ## Emergency Switches
 
@@ -46,21 +66,21 @@ changes:
 Example:
 
 ```sh
-mix allbert.settings set external_services.enabled false
-mix allbert.settings set workspace.fragment.emission_enabled false
-mix allbert.settings set sandbox.elixir.enabled false
-mix allbert.settings set dynamic_codegen.enabled false
-mix allbert.settings set dynamic_codegen.live_loader_enabled false
-mix allbert.settings set templates.create.enabled false
-mix allbert.settings set marketplace.enabled false
-mix allbert.settings set self_improvement.enabled false
-mix allbert.settings set self_improvement.trace_index.enabled false
-mix allbert.settings set artifacts.enabled false
-mix allbert.settings set artifacts.retention_enabled false
-mix allbert.settings set permissions.artifact_write denied
-mix allbert.settings set permissions.artifact_delete needs_confirmation
-mix allbert.settings set permissions.marketplace_install denied
-mix allbert.settings set permissions.sandbox_trial denied
+allbert admin settings set external_services.enabled false
+allbert admin settings set workspace.fragment.emission_enabled false
+allbert admin settings set sandbox.elixir.enabled false
+allbert admin settings set dynamic_codegen.enabled false
+allbert admin settings set dynamic_codegen.live_loader_enabled false
+allbert admin settings set templates.create.enabled false
+allbert admin settings set marketplace.enabled false
+allbert admin settings set self_improvement.enabled false
+allbert admin settings set self_improvement.trace_index.enabled false
+allbert admin settings set artifacts.enabled false
+allbert admin settings set artifacts.retention_enabled false
+allbert admin settings set permissions.artifact_write denied
+allbert admin settings set permissions.artifact_delete needs_confirmation
+allbert admin settings set permissions.marketplace_install denied
+allbert admin settings set permissions.sandbox_trial denied
 ```
 
 ## Deployment Posture
@@ -255,10 +275,10 @@ Use [sandbox-gate-runner.md](sandbox-gate-runner.md) when testing generated
 Elixir/OTP drafts or future dynamic code paths. Emergency posture is:
 
 ```sh
-mix allbert.settings set sandbox.elixir.enabled false
-mix allbert.settings set permissions.sandbox_trial denied
+allbert admin settings set sandbox.elixir.enabled false
+allbert admin settings set permissions.sandbox_trial denied
 mix allbert.sandbox doctor
-mix allbert.security review --recent --limit 25
+allbert admin trust review --recent --limit 25
 ```
 
 The sandbox result is evidence only. It never grants live runtime authority.
@@ -269,10 +289,10 @@ Use [dynamic-capability-integration.md](dynamic-capability-integration.md) when
 reviewing v0.37 generated drafts. Emergency posture is:
 
 ```sh
-mix allbert.settings set dynamic_codegen.live_loader_enabled false
-mix allbert.settings set dynamic_codegen.enabled false
-mix allbert.settings set sandbox.elixir.enabled false
-mix allbert.security review --recent --limit 25
+allbert admin settings set dynamic_codegen.live_loader_enabled false
+allbert admin settings set dynamic_codegen.enabled false
+allbert admin settings set sandbox.elixir.enabled false
+allbert admin trust review --recent --limit 25
 ```
 
 Live dynamic integration is denied unless the draft is `:gate_passed`, source
