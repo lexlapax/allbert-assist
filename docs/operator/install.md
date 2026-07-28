@@ -3,7 +3,7 @@
 New to Allbert? Follow [Quickstart: Install, Open, Chat](quickstart.md); return
 here for alternate install paths, upgrades, uninstall, and artifact trust.
 
-The current packaged release is **v1.1.0**. Homebrew and the default curl
+The current packaged release is **v1.2.0**. Homebrew and the default curl
 installer resolve to that stable GitHub Latest release.
 
 Allbert ships its direct runtime dependencies and Erlang/OTP runtime — no
@@ -109,7 +109,7 @@ Every release publishes `SHA256SUMS` and `SHA256SUMS.cosign.bundle`. To check a
 download by hand:
 
 ```sh
-VERSION="${VERSION:?set the exact tag, for example v1.1.0}"
+VERSION="${VERSION:?set the exact tag, for example v1.2.0}"
 cosign verify-blob \
   --bundle SHA256SUMS.cosign.bundle \
   --certificate-identity "https://github.com/lexlapax/allbert-assist/.github/workflows/release-artifacts.yml@refs/tags/$VERSION" \

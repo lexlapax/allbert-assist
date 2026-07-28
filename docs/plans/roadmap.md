@@ -192,15 +192,18 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    merged mid-action interruption + child-process cancellation enablers and
    the app-registry action-boundary membership check (operator-pulled,
    2026-07-18).
-6. **1.2 — Zero-Click First Run.** (**Planned — triad ready 2026-07-24:**
-   `docs/plans/v1.2-plan.md` + request-flow + ADR 0087 (detection-based
-   enablement consent, operator-locked: auto-enable on any detected
-   configured provider, local-first) / ADR 0088 (model catalog/chooser +
-   fallback policy); ADR 0078/0069 amended. **Build starts after v1.1
-   closeout.**) Chat-ready default with an auto-detected provisioned
-   provider; onboarding optional and step-addressable; TUI first-run scope
-   folded in. Enablers: model chooser/catalog, model fallback/degradation
-   policy. Additive-only (migration runner stays at 1.5/1.6).
+6. **1.2 — Zero-Click First Run.** (**SHIPPED 2026-07-27:** stable annotated
+   tag `v1.2.0` at `af7b8848`; workflow `30332220900`; tap `6970688`;
+   published macOS arm64 and Linux x64/arm64 rehearsals passed. Archived
+   [plan](archives/v1.2-plan.md) +
+   [request flow](archives/v1.2-request-flow.md) + ADR 0087
+   (detection-based enablement consent) / ADR 0088 (model catalog/chooser +
+   fallback policy); ADR 0078/0069 amended.) Chat-ready default with an
+   auto-detected provisioned provider; onboarding optional and
+   step-addressable; TUI first-run scope folded in. The shared catalog and
+   opt-in bounded fallback shipped. `llama3.2:3b` remains the 8 GB default;
+   Qwen stays operator-selectable because the only completed primary bakeoff
+   row did not meet the frozen cross-platform promotion threshold.
 7. **1.3 — Long-Term User Memory.** (**Planned — research-gated triad ready
    2026-07-24:** `docs/plans/v1.3-plan.md` + request-flow + ADR 0089
    (memory architecture + consent; M1 research resolves LD-R1–R5 with

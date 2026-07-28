@@ -12,16 +12,20 @@ changelog entries or release notes.
 
 ## v1.2.0 - Zero-Click First Run
 
-Status: **release candidate ready for the operator-held annotated tag.
-FV-01..03 passed on macOS and Linux, M9.1 operator documentation was accepted,
-and the complete post-FV barrier passed at validated product SHA `4e712afe`.
-Binary publication, tap fill, install rehearsal, and post-artifact closeout
-remain pending.**
+Status: **shipped 2026-07-27.** Stable annotated tag `v1.2.0` points to
+`af7b8848`; binary workflow
+[30332220900](https://github.com/lexlapax/allbert-assist/actions/runs/30332220900)
+built and smoked macOS arm64, Linux x64, and Linux arm64, passed its gated Linux
+rehearsal, signed checksums with GitHub Actions OIDC, and published GitHub
+Latest. Tap commit `6970688` fills all three verified v1.2.0 assets. Published
+Homebrew on macOS, both Linux artifacts in clean containers, and the Linux x64
+artifact on Serenity passed the packaged release rehearsals; the Serenity row
+also proved Allbert's OS-vault tier resolution and confirmation-gated user-
+systemd install, attach, health, and uninstall.
 
-Formula state: PRE-PUBLICATION ONLY. The packaged Latest 1.1.0 remains during
-the release-candidate window; at binary publication the tap is filled
-1.1.0 → 1.2.0 from verified release checksums, and that filled formula is
-synced back into the repository before closeout.
+**Formula state: SHIPPED.** GitHub Latest, the public tap, the installed
+rehearsal packages, and the repository formula all resolve to 1.2.0 with the
+published signed checksums.
 
 Allbert now treats install, open, chat as the primary first-run path. A fresh
 Home detects an already-usable local model or configured hosted provider,
@@ -80,8 +84,16 @@ SHA `4e712afe9e02494bc634cf1d068dffdcaa1a450a`: precommit, `release.v1`, correct
 passed high coverage, 622 external-runtime tests (12 expected skips), 377
 security evals, 327 web tests, 198 StockSage tests, 35 channel-plugin tests, and
 Dialyzer with zero failures/errors. The later RC reconciliation is Markdown-
-only and preserves that product SHA. Signed binary workflow, tap fill, install
-rehearsal, and post-artifact closeout remain pending.
+only and preserves that product SHA. Publication then verified all three
+versioned tarballs against `SHA256SUMS` and the cosign bundle against the
+tag-qualified workflow identity. The macOS package passed `brew test`,
+version/status/vault, serve/health/attach, fresh-Home TUI first and second
+launches, cross-surface Web continuity, and confirmation-gated LaunchAgent
+install/uninstall. Linux arm64 and x64 container rows passed checksum,
+install/version, browser-doctor, first-run, CA, hosted-provider, health/attach,
+service dry-run, and Home-preserving uninstall checks. On the real Serenity
+x64 host, the package additionally passed OS-vault resolution and an actual
+user-systemd lifecycle with no residual unit or listener.
 
 ## v1.1.0 - Asynchronous Background Agent Fan-Out With In-Channel Steering
 

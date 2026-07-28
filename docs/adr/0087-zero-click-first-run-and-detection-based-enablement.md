@@ -13,7 +13,7 @@ qualifiers, §5 gains the wizard-completion decoupling). Binding on v1.2 M1a–M
 and the M9 correction (ADR 0088 carries M4–M5). M2 proved the
 detection→enablement→disclosure chain
 on web, TUI, and CLI together; M9 proved the shared packaged/development
-pre-adapter launcher correction (`docs/plans/v1.2-plan.md`). This is a **consent
+pre-adapter launcher correction (`docs/plans/archives/v1.2-plan.md`). This is a **consent
 ADR**: it deliberately redefines the enablement point that ADR 0078's v0.63
 M8.5 amendment placed inside the onboarding wizard, and it redefines the
 first-run acceptance criteria (DIT-2 class) that assert QuickStart enables
@@ -240,7 +240,7 @@ is open, honest about its current capability, and never a dead end**:
 These are presentations of the existing six first-model states
 (`cli/first_run.ex:42-49`); no parallel state machine is introduced. The
 binding cell-by-cell derivation (six `model_state` values × hosted-key
-presence) lives in `docs/plans/v1.2-request-flow.md` §D.0 and every cell
+presence) lives in `docs/plans/archives/v1.2-request-flow.md` §D.0 and every cell
 carries a regression.
 
 ### 5. Onboarding becomes optional and step-addressable

@@ -33,8 +33,8 @@ For the shipped release line, feature summary, and history, see the
 sources. The plan/request-flow set for every released version lives in
 [plans/archives](plans/archives/README.md); the current line is:
 
-- Current shipped line: **v1.1.0** — [fan-out plan](plans/archives/v1.1-plan.md) · [request flow](plans/archives/v1.1-request-flow.md)
-- Active release candidate: **v1.2.0** — [plan](plans/v1.2-plan.md) · [request flow](plans/v1.2-request-flow.md)
+- Current shipped line: **v1.2.0** — [zero-click plan](plans/archives/v1.2-plan.md) · [request flow](plans/archives/v1.2-request-flow.md)
+- Next planned line: **v1.3** — [long-term memory plan](plans/v1.3-plan.md) · [request flow](plans/v1.3-request-flow.md)
 
 For release-specific validation, use the matching request-flow document rather
 than this index.

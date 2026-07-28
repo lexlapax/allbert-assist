@@ -217,8 +217,6 @@ defmodule Mix.Tasks.Allbert.Test do
     "docs/plans/roadmap.md",
     "docs/plans/allbert-jido-vision.md",
     "docs/plans/future-features.md",
-    "docs/plans/v1.2-plan.md",
-    "docs/plans/v1.2-request-flow.md",
     "docs/plans/v1.3-plan.md",
     "docs/plans/v1.3-request-flow.md",
     "docs/plans/v1.4-plan.md",

@@ -5,8 +5,8 @@ do not need to complete onboarding, choose a persona, configure an identity
 map, or pull a model before opening chat.
 
 > **Version note:** the zero-click behavior in this guide requires Allbert
-> 1.2.0 or later. Check with `allbert --version`. Until the v1.2.0 tag is
-> published, package managers continue to install the current stable release.
+> 1.2.0 or later. The stable Homebrew and signed-curl paths now install 1.2.0;
+> verify the installed package with `allbert --version`.
 
 ## 1. Install And Start
 

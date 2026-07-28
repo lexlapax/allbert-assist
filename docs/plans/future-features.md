@@ -27,13 +27,12 @@ verbatim and grouped by category.
 Supersedes any per-entry `Slice: 1.1` tag where they conflict — flagships are
 sequenced one per minor, foundational-first:
 
-- **1.0.1–1.1.0 — SHIPPED.** The source-only 1.0.1/1.0.2 work, 1.0.3 test
-  isolation follow-up, 1.0.4 packaged-browser recovery, and 1.1 asynchronous
-  fan-out all reached accepted stable binary lines. Shipped history and exact evidence live
-  in the roadmap, CHANGELOG, and archived release plans; this inventory keeps
-  only unplanned remainder.
-- **1.2 — Zero-Click First Run** + its direct enablers (model chooser/catalog,
-  model fallback/degradation for the detect states, consent ADR, folded TUI scope).
+- **1.0.1–1.2.0 — SHIPPED.** The source-only 1.0.1/1.0.2 work, 1.0.3 test
+  isolation follow-up, 1.0.4 packaged-browser recovery, 1.1 asynchronous
+  fan-out, and 1.2 zero-click first run with its model catalog and bounded
+  fallback enablers all reached accepted stable binary lines. Shipped history
+  and exact evidence live in the roadmap, CHANGELOG, and archived release
+  plans; this inventory keeps only unplanned remainder.
 - **1.3 — Long-Term User Memory** (research phase first; folded retrieval/FTS/
   working-memory scope). The first post-1.2 readiness review evaluates the
   operator-confirmed daemon-backed TUI / thin terminal client as a foundational
@@ -548,51 +547,6 @@ Deferred at: `v0.53-plan:62`.
 
 ## Workspace & Web UI
 
-### Zero-Click First Run (Chat-Ready Default)
-
-Class: Must (confirmed 2026-07-14) · Effort: L · Slice: 1.1 FLAGSHIP — consent ADR + folded TUI first-run scope
-
-Status: planned — `docs/plans/v1.2-plan.md` (triad + ADR 0087 consent ADR +
-ADR 0088; operator consent decision 2026-07-24: auto-enable on any detected
-configured provider, local-first).
-
-Invert the first-run model: instead of requiring the non-developer to press
-"Start QuickStart" and walk the wizard before chat works, the first run
-**auto-detects a running local LLM**, auto-selects a local-model profile with
-the generic answer engine as the default, and is **chat-ready immediately** —
-no getting-started button on the critical path. Onboarding becomes a fully
-optional, always-available customization surface: the operator can open it
-anytime and jump **directly to any individual step** (track, model path,
-persona, connections) to customize — building on the v1.0 `wizard_rewind`
-step navigation and the first-chat go-signal, but generalized to arbitrary
-step entry at any time, including after completion. All first-run UX/UI is
-re-geared around this: drastic simplification of the first-run experience.
-
-Design tension to resolve at promotion (needs an ADR): ADR 0078 / v0.63
-treat enabling model-backed direct answers as an explicit consent step
-(`intent.direct_answer_model_enabled` defaults false; QuickStart flips it).
-Auto-enabling on detection is defensible for **local-only** inference (no
-egress; the trust spine's Local-first and Hosted-provider-egress lines are
-untouched — BYOK/hosted stays opt-in), but the consent semantics, the
-detect-state matrix (`local_ready` vs `model_missing` vs `below_floor` — what
-does "chat-ready" mean with no model present?), and the DIT-2 acceptance
-criteria (which currently assert QuickStart enables direct answers before the
-first question) must all be redefined deliberately, not incidentally.
-
-Related entries: Model Chooser / Catalog (Packaging & Distribution); the
-curated-model settings defaults (`first_model.curated_model`, shipped v1.0
-M7.5); Rich TUI Onboarding Slash-Command (triage table — the TUI first-run
-should follow the same inversion).
-
-Folded in (operator decision 2026-07-14): the TUI first-run follows the same
-inversion inside this feature — the post-v0.64 "Full TUI First-Run Repair
-Panels" promise (`v0.64-plan:176`) and the v0.63 "Rich TUI Onboarding
-Slash-Command Wizard" deferral (`v0.63-plan:1264`; verify what the v0.64 TUI
-first-run already covers) are scope items of the zero-click redesign, not
-standalone features.
-
-Deferred at: operator intake (post-1.0 planning, 2026-07-14).
-
 ### Workspace Canvas Snapshot / Undo / Time-Travel
 
 Class: Should (confirmed 2026-07-14) · Effort: M · Slice: hold
@@ -881,29 +835,6 @@ Still parked:
 - thread context retrieval into Active Memory (related to "Cross-Thread /
   Cross-App Memory Retrieval" above).
 
-### Model Fallback / Degradation Policy
-
-Class: Should (confirmed 2026-07-14) · Effort: M · Slice: 1.1 — required by the zero-click detect states
-
-Status: planned — `docs/plans/v1.2-plan.md` M5 / ADR 0088 (2026-07-24).
-Previously parked; added in the post-v0.37 planning pass after the v0.39 plan
-dropped the unspecified "explicit operator opt-in" wording. Reaffirmed in
-the post-v0.38 readiness review on 2026-05-27: v0.39 ships the two-branch
-provider doctor (per ADR 0047) which reports availability but does **not**
-implement runtime failover. Operators see doctor output and switch profiles
-manually.
-
-Operators may want graceful degradation when the primary LLM provider is
-down, rate-limited, or returning unusable output.
-
-Still parked:
-
-- explicit operator opt-in surface for fallback;
-- per-provider failure detection policy;
-- fallback-chain configuration (primary → secondary → local);
-- audit/trace of fallback events;
-- abuse prevention (prevent silent expensive failovers).
-
 ### Post-v0.48 Media Follow-Ons
 
 Class: Won't-now (confirmed 2026-07-14) · Effort: L
@@ -939,18 +870,6 @@ adaptive loop's "suggest a BYOK/hosted coding model" one-click path and the
 2.0 self-hosting flagship (developer-grade models on subscription plans).
 
 Deferred at: operator intake (post-1.0 planning, 2026-07-15).
-
-### Model Chooser / Catalog
-
-Class: Should (confirmed 2026-07-14) · Effort: M · Slice: 1.1 — enabler for zero-click and adaptive suggestions
-
-Status: planned — `docs/plans/v1.2-plan.md` M4 / ADR 0088 (2026-07-24).
-
-v0.64 deferred a model chooser/catalog surface (browse available models with
-size/capability metadata instead of typing a model id). High-value first-run
-and profile-switching UX.
-
-Deferred at: `v0.64-plan:171`.
 
 ### Per-Role Fast/Capable/Thinking Model Profiles
 
