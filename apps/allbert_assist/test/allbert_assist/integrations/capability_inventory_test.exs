@@ -74,6 +74,10 @@ defmodule AllbertAssist.Integrations.CapabilityInventoryTest do
         capture_io(fn -> SettingsTask.run(args) end)
         :ok
 
+      ["allbert", "admin", "settings" | args] ->
+        capture_io(fn -> SettingsTask.run(args) end)
+        :ok
+
       other ->
         flunk("unexpected settings example command: #{inspect(other)}")
     end
