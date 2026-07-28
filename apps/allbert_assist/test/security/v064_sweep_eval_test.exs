@@ -129,14 +129,21 @@ defmodule AllbertAssist.Security.V064SweepEvalTest do
 
   test "first-run-no-raw-mix-required-001: operator docs are package-first" do
     onboarding_doc = read!("docs/operator/onboarding.md")
+    quickstart_doc = read!("docs/operator/quickstart.md")
+    install_doc = read!("docs/operator/install.md")
+    readme = read!("README.md")
 
-    assert onboarding_doc =~ "Install the packaged binary first"
+    assert onboarding_doc =~ "Start with [Quickstart: Install, Open, Chat](quickstart.md)"
+    assert quickstart_doc =~ "brew install lexlapax/allbert/allbert"
+    refute quickstart_doc =~ "mix setup"
+    refute quickstart_doc =~ "mix phx.server"
 
-    assert onboarding_doc =~
-             "Source checkout (`mix setup`,\n`mix phx.server`) is for contributors"
+    assert readme =~ "For contributors working from source"
+    assert readme =~ "mix setup"
+    assert readme =~ "mix phx.server"
 
-    assert onboarding_doc =~
-             "Foreground `allbert serve --open` is a diagnostic or repair fallback"
+    assert install_doc =~
+             "Foreground `allbert serve` is a diagnostic or repair fallback"
 
     IO.puts("first-run-no-raw-mix-required-001 status=pass docs=package_first")
 
