@@ -130,11 +130,11 @@ defmodule AllbertAssistWeb.V061.RedesignedSurfaceProofTest do
       |> List.flatten()
       |> Enum.uniq()
 
-    # First-Model-Path shaped (ADR 0078); v1.0 M7.4 (R12): pre-onboarding, the single
-    # first-run entry point is the guided-setup wizard (backed by the read-only
-    # first_model_detect action). The model_doctor shortcut returns post-onboarding.
+    # v1.2 zero-click first run performs detection at boot and projects exactly one
+    # repair CTA outside this generic view-only suggestion list. Keep only the
+    # ordinary registered read DTOs here; first_model_detect remains an internal/admin
+    # diagnostic, not a first-run suggestion or onboarding gate.
     assert actions == [
-             "first_model_detect",
              "direct_answer",
              "list_objectives",
              "list_channels"
