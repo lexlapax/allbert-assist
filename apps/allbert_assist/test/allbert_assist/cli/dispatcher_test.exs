@@ -107,13 +107,13 @@ defmodule AllbertAssist.CLI.DispatcherTest do
     assert service_status_out =~ "service_manager_available"
     assert service_status_out =~ "service_platform"
 
-    onboarding_doc =
-      "../../../../../docs/operator/onboarding.md"
+    install_doc =
+      "../../../../../docs/operator/install.md"
       |> Path.expand(__DIR__)
       |> File.read!()
 
-    assert onboarding_doc =~
-             "Foreground `allbert serve --open` is a diagnostic or repair fallback"
+    assert install_doc =~
+             "Foreground `allbert serve` is a diagnostic or repair fallback"
 
     {pull_out, pull_code} =
       CLI.run(["admin", "model", "pull", "--dry-run", "--model", "llama3.2:3b"])
