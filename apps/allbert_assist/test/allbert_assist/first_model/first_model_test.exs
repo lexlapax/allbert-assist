@@ -10,7 +10,9 @@ defmodule AllbertAssist.FirstModelTest do
   alias AllbertAssist.Actions.FirstModel.{InstallOllama, PullModel}
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.FirstModel.{Hardware, Ollama}
+  alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.SecurityFixtures.AssertBinding
+  alias AllbertAssist.Settings.Store
   alias Jido.Signal.Bus
 
   @moduletag :first_model_path
@@ -332,7 +334,7 @@ defmodule AllbertAssist.FirstModelTest do
       assert response.output_data.enablement.selection.profile == "local"
       assert AllbertAssist.Settings.get("intent.direct_answer_model_enabled") == {:ok, true}
       assert AllbertAssist.Settings.get("model_preferences.primary") == {:ok, "local"}
-      assert AllbertAssist.FirstRun.Disclosure.pending?(:web)
+      assert Disclosure.pending?(:web)
     end
 
     test "a completed pull preserves and discloses an eligible raw hosted primary" do
@@ -389,7 +391,7 @@ defmodule AllbertAssist.FirstModelTest do
       end)
 
       assert {:ok, _settings} =
-               AllbertAssist.Settings.Store.write_user_settings(%{
+               Store.write_user_settings(%{
                  "model_preferences" => %{"primary" => "fast"}
                })
 
@@ -401,8 +403,8 @@ defmodule AllbertAssist.FirstModelTest do
       assert response.output_data.enablement.selection.profile == "fast"
       assert response.output_data.enablement.selection.provider_class == :hosted
       assert AllbertAssist.Settings.get("model_preferences.primary") == {:ok, "fast"}
-      assert AllbertAssist.FirstRun.Disclosure.hosted_pending?(:web)
-      assert AllbertAssist.FirstRun.Disclosure.text(:web) =~ "will leave this device"
+      assert Disclosure.hosted_pending?(:web)
+      assert Disclosure.text(:web) =~ "will leave this device"
     end
 
     test "approved pull streams bounded progress signals to the workspace topic" do

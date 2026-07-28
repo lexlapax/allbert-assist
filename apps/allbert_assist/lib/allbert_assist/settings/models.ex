@@ -7,8 +7,8 @@ defmodule AllbertAssist.Settings.Models do
   """
 
   alias AllbertAssist.Settings
-  alias AllbertAssist.Settings.ProviderEligibility
   alias AllbertAssist.Settings.ProviderCatalog
+  alias AllbertAssist.Settings.ProviderEligibility
   alias AllbertAssist.Settings.Store
 
   @task_capabilities %{

@@ -331,25 +331,29 @@ defmodule AllbertAssist.Settings.Store do
 
       case auto_enablement_disposition(values, user_settings) do
         :apply ->
-          updated_user_settings = put_dotted_values(user_settings, applied)
-          updated_merged = put_dotted_values(merged, applied)
-
-          with :ok <- Schema.validate_settings(updated_merged),
-               {:ok, _settings} <- write_absent_subset(updated_user_settings, applied) do
-            audit_absent_subset(applied, preserved, merged, context)
-            refresh_resolved_pin()
-
-            {:ok,
-             %{
-               disposition: :applied,
-               written: applied |> Map.keys() |> Enum.sort(),
-               present: preserved
-             }}
-          end
+          apply_absent_settings(user_settings, merged, applied, preserved, context)
 
         disposition ->
           {:ok, %{disposition: disposition, written: [], present: preserved}}
       end
+    end
+  end
+
+  defp apply_absent_settings(user_settings, merged, applied, preserved, context) do
+    updated_user_settings = put_dotted_values(user_settings, applied)
+    updated_merged = put_dotted_values(merged, applied)
+
+    with :ok <- Schema.validate_settings(updated_merged),
+         {:ok, _settings} <- write_absent_subset(updated_user_settings, applied) do
+      audit_absent_subset(applied, preserved, merged, context)
+      refresh_resolved_pin()
+
+      {:ok,
+       %{
+         disposition: :applied,
+         written: applied |> Map.keys() |> Enum.sort(),
+         present: preserved
+       }}
     end
   end
 
