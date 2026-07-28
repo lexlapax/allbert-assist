@@ -217,12 +217,17 @@ modify, fork, and redistribute it under those terms — including the packaged
 binary. The full text is in `LICENSE` at the repository root, and `NOTICE`
 carries the attribution to pass along if you redistribute.
 
-The release bundles ERTS and every runtime dependency. All of them are
-permissive (Apache-2.0, MIT, BSD-2-Clause, BSD-3-Clause, ISC, the Unlicense),
-plus public-domain SQLite, so running or redistributing a packaged Allbert
-triggers no copyleft source-disclosure obligation.
+The release bundles ERTS plus selected application, native-library, certificate,
+timezone, web-asset, and plugin payloads. Most known components use permissive
+terms or are public domain. One important file-level exception is Castore's
+Mozilla-derived CA bundle: Castore code is Apache-2.0, while the generated PEM
+remains MPL-2.0 and must retain its license and source/conversion provenance.
+This does not relicense the larger Allbert work under MPL.
 
-One gap to know about if you redistribute the binary yourself: a generated
-per-dependency notices file does **not** ship inside the package yet — it is
-planned for v1.3. Until then the authoritative list is the source tree
-(`deps/*/LICENSE*` and each `deps/*/hex_metadata.config`).
+Stable v1.2.0 does not yet ship a generated target inventory. The planned
+v1.2.1 binary adds a best-effort inventory of known shipped components, required
+license/source texts, a per-target manifest, and an offline `allbert licenses`
+viewer. It is not a complete SBOM or legal-compliance guarantee. Until v1.2.1
+ships, dependency metadata and source license files are useful inputs, but a
+redistributor must also inspect the actual target artifact and any staged
+native/data payloads.

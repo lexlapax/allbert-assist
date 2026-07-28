@@ -2,15 +2,14 @@
 
 ## Status
 
-Proposed (v1.3 planning, 2026-07-24). **Research-gated:** the v1.3 M1
-research milestone (`docs/research/long-term-user-memory.md`, produced
-during the build per `docs/plans/v1.3-plan.md`) resolves the named
-placeholders LD-R1/R2/R4/R5 below and amends this ADR before implementation
-milestones consume it; the operator signs the research outcomes at M1.
-(LD-R3 was subsumed by §7 at the 2026-07-28 readiness pass.)
-Flips Accepted at the v1.3 milestone that proves the full chain —
-consolidation → system-proposed review → operator keep → prompt-time
-context — together with the proposed-never-in-prompt denial row.
+Proposed (v1.3 implementation-ready, operator-signed second pass
+2026-07-28). The architecture choices formerly named LD-R1–R5 are resolved by
+§8, ADR 0092, and the active v1.3 plan. M1 now calibrates fixtures, quality
+floors, budgets, and runtime evidence only; it does not reopen source,
+proposal, extraction-authority, retrieval, model-egress, temporal, or Search
+ownership decisions. This ADR flips Accepted at the milestone that proves the
+full chain — consolidation → system-proposed review → operator keep →
+prompt-time context — together with the proposed-never-in-prompt denial row.
 
 **Amended 2026-07-28 (implementation-readiness pass, operator-signed).**
 The pass surveyed the deployed long-term-memory literature and found the
@@ -19,9 +18,19 @@ original decision modelled memory as append-only: it handled restatement
 fact lifecycle in response; §2 extends the consent boundary to cover
 unmaking a fact; §3 restricts what may originate a fact; §5 adds
 abstention to the measured claim; §6 gains FTS decision criteria. LD-R3
-is subsumed by §7 and retained only as pruning UX. LD-R1/R2/R4/R5 remain
-research-gated and M1 still signs them; M1 is now a confirm-and-calibrate
-milestone rather than an open survey.
+is subsumed by §7 and retained only as pruning UX. At this intermediate pass,
+LD-R1/R2/R4/R5 still awaited disposition; the second readiness amendment below
+resolves them and makes M1 calibration-only.
+
+**Amended 2026-07-28 (second implementation-readiness pass,
+operator-signed).** §8 below binds collection eligibility to a verified
+principal rather than a message role, separates Memory collection policy from
+Search policy, replaces mutable/newest-recorded-wins lifecycle language with an
+append-only valid-time/known-time claim stream, and defines the exceptional
+confirmed Forget path. It supersedes §1's broad episodic-source list, the
+conflicting collection/proposal rules in §§2–3, and §6's
+conditional/external-content design: ADR 0092 now owns Search Central, and
+there is no Search-to-Memory bridge.
 
 This is the **first ADR-level memory contract**: the v0.39b Active Memory
 baseline is bound today only by a research note
@@ -80,7 +89,11 @@ drafts or a distinct system-proposed tier, and **only reviewed entries
 become prompt context** — is adopted here as the binding rule, not
 relaxed.
 
-## Decision
+## Superseded Decision History (non-normative)
+
+Sections 1–7 preserve the original and first-pass decision history. Where they
+name an open LD-R choice or conflict with §8, §8 and ADR 0092 control; those
+older passages are not implementation alternatives and M1 is calibration-only.
 
 ### 1. Three-tier memory model
 
@@ -111,7 +124,7 @@ relaxed.
   until the operator reviews it. "Only the operator makes memory" governs
   invalidation exactly as it governs creation — there is no system path
   that removes a fact from prompt context.
-- **LD-R1 (research resolves): the proposal representation** — an
+- **Historical LD-R1 (resolved by §8): the proposal representation** — an
   additive `review_status: :system_proposed` value on memory entries
   (default posture: keeps review in the existing memory panel with
   bulk-accept), versus routing through the v0.47 `memory_update` draft
@@ -129,7 +142,7 @@ relaxed.
   caps), resumable, and record a run summary.
 - Sources: conversations, traces, objective history — local reads only;
   consolidation performs **zero egress** beyond the operator's configured
-  local model if model-assisted extraction is used (LD-R5).
+  local model if model-assisted extraction is used (resolved by §8).
 - **Only operator-authored content may originate a fact.** Extraction
   reads operator-authored turns (`conversation_messages.role`); assistant
   turns are readable as disambiguation context but can never be the
@@ -144,11 +157,11 @@ relaxed.
   secret blocklist generalized + `Security.Redactor`) **before** it is
   written; a proposal that trips the filter is dropped and counted, never
   stored redacted-in-place.
-- **LD-R2 (research resolves): extraction method** — deterministic
+- **Historical LD-R2 (resolved by §8): extraction method** — deterministic
   heuristics first (the TraceIndex pattern-type precedent) with
   local-model-assisted extraction as the bounded second stage, versus
   model-primary. Default posture: deterministic-first, model advisory,
-  fail-closed to fewer proposals; the research note must set the measured
+  fail-closed to fewer proposals; M1 calibration sets the measured
   precision floor the v1.3 plan gates on (seeded-corpus precision — no
   synthetic-template evidence).
   A **recall floor is gated beside the precision floor.** The precision/
@@ -187,7 +200,7 @@ relaxed.
 - LTM entries are user-global: they ride the existing
   identity-inclusion scope path (namespace-scoped inclusion beside
   thread/app affinity), not a new scope machine.
-- **LD-R4 (research resolves): retrieval budget accounting** — byte
+- **Historical LD-R4 (resolved by §8): retrieval budget accounting** — byte
   budgets (today's 8,000-byte block) versus estimated-token budgets, and
   the LTM/general split within the budget.
 
@@ -210,12 +223,12 @@ relaxed.
   and one whose fact has been superseded — each passing only when the
   answer declines to assert rather than producing the absent, unreviewed,
   or retired value.
-- **LD-R5 (research resolves): consolidation model usage** — whether
+- **Historical LD-R5 (resolved by §8): consolidation model usage** — whether
   extraction may call the configured local model, and under which
   fan-out/budget bounds (the v1.1 substrate is available but not
   required).
 
-### 6. Conversation history search (conditional substrate)
+### 6. Conversation history search (historical; superseded by ADR 0092)
 
 The backlog marks Conversation-History FTS and cross-thread retrieval as
 "foundational inputs — research to confirm". M1 decides whether bounded
@@ -235,7 +248,7 @@ with the exact documented trigger form (`INSERT INTO fts(fts, rowid, …)
 VALUES('delete', old.rowid, …)` before re-insert on update) — the
 malformed-trigger variants silently corrupt the index.
 
-### 7. Fact lifecycle: bi-temporal, non-destructive supersession
+### 7. Fact lifecycle (historical mutable shape; superseded by §8)
 
 Added 2026-07-28. The original decision modelled memory as append-only:
 idempotent dedupe caught a fact being *restated*, but nothing handled a
@@ -263,7 +276,7 @@ retrieved context rather than out-ranking them.
 - **Detection is deterministic first.** A conflict is a new claim on the
   same subject/predicate for the same namespace; resolution in the common
   case is newest-valid-wins by comparing recorded instants — an integer
-  comparison, not a model judgment. Model assistance (LD-R5) may only
+  comparison, not a model judgment. Model assistance (resolved by §8) may only
   *propose* that two claims concern the same subject; it never decides
   which wins. Ambiguous conflicts are proposed to the operator unresolved
   rather than guessed.
@@ -281,6 +294,183 @@ retrieved context rather than out-ranking them.
   proposes supersession, operator review enacts it. An unreviewed
   supersession proposal changes nothing about what retrieval returns.
 
+## Decision
+
+### 8. Source consent, append-only claim streams, and Forget
+
+Added by the operator-signed second readiness pass on 2026-07-28. This section
+supersedes conflicting source, proposal, search, and lifecycle language in
+§1's episodic-source list, §§2–3, and §§6–7.
+
+#### Memory CollectionPolicy is principal-verified and consumer-specific
+
+Memory collection and Search eligibility are separate policy decisions. Memory
+uses one `Memory.CollectionPolicy` classification per source:
+
+- `private_operator` admits local Web, CLI, and TUI turns plus a verified,
+  mapped one-to-one operator DM after one clear collection disclosure with an
+  opt-out. Group/shared conversations, programmatic callers, and unknown
+  principals are excluded.
+- E2EE-origin conversation collection is a separate audited opt-in. Enabling
+  ordinary private-operator collection does not enable it.
+- An identity remap pauses affected sources until the new mapping is
+  re-authorized. Revocation, remap, canonical deletion, or later
+  ineligibility immediately invalidates pending proposals sourced from that
+  material.
+
+A `role == "user"` field is not identity proof. Only a message whose principal
+the canonical conversation boundary verifies as the operator may originate a
+claim. Assistant messages may be read only as bounded, transient
+disambiguation context and are never persisted as proposal provenance or claim
+authority. Trace and objective identifiers may be attached as typed
+correlation references, but consolidation does not read trace/objective bodies
+as claim sources. Secrets and credential-shaped material are hard-dropped
+before any proposal record is written.
+
+#### Proposals retain claims, not transcripts
+
+One Memory-owned set of additive tables in the existing application Repo stores
+ordinary proposals, protected stubs, and frozen review results. It is
+authoritative for inert review state only, never for kept claims, and does not
+add another database. An ordinary proposal persists the normalized claim,
+typed canonical source identifiers, source digest, collection class,
+classifier result, and proposal revision id. It does not copy a transcript.
+Review re-authorizes those typed sources and may fetch only a bounded, redacted
+excerpt for display.
+Proposal rows follow the existing Repo backup/restore lifecycle. The redacted
+portability envelope exports no proposal content; a raw/full Home backup may
+contain it and therefore sits outside Forget's active-store erasure guarantee.
+
+Facts about a third party, minor, or dependent are protected proposals. Before
+review they persist only a redacted stub and typed evidence references; they
+require individual review and are never eligible for Keep All. Ordinary batch
+review freezes the visible proposal revision ids and digests, records a durable
+per-item outcome, allows explicit partial success, and resumes idempotently.
+An item that became stale, changed digest, lost eligibility, or failed
+re-authorization is skipped rather than accepted from the old batch snapshot.
+
+Source revocation or deletion invalidates an unreviewed proposal immediately.
+A separately reviewed and kept Memory claim remains until an explicit Memory
+archive, correction, retirement, or Forget action; deleting conversation
+history is not an implicit deletion or retrieval denial of operator-curated
+Memory. Retrieval still rechecks the claim's current operator/namespace scope;
+the lost source changes provenance availability, not the authority of the
+operator's separate review decision.
+
+After Keep/Edit successfully appends the authoritative claim revision, the
+proposal record is reduced to content-free result/provenance identifiers. It
+does not retain a second copy of normalized claim text. Frozen batch results
+store proposal/revision ids and outcomes, not claim content, and the bounded
+review excerpt is fetched transiently rather than cached durably.
+
+#### Proposal, extraction, and retrieval choices are closed
+
+The proposal representation is one inert durable Memory proposal record (or
+protected redacted stub), not a `:kept` claim and not an automatic route through
+the v0.47 draft pipeline. Keeping or editing an eligible proposal appends the
+authoritative reviewed claim revision. This resolves LD-R1 without creating a
+second review engine.
+
+Deterministic identity, consent, secret, classification, normalization,
+dedupe/conflict, and suppression gates are authoritative. One configured local
+model may advise bounded extraction. If it is unavailable or fails, the run
+produces only the deterministic high-confidence subset or abstains; there is no
+hosted fallback. Consolidation defaults disabled until the collection grant,
+then uses the cadence and caps fixed by the active plan. These decisions resolve
+LD-R2 and LD-R5.
+
+The managed consolidation action requires the additive `:memory_propose`
+permission. A current verified `Memory.CollectionPolicy` grant authorizes only
+bounded writes of inert proposal records, so the weekly job does not prompt on
+every run. `:memory_propose` cannot keep, edit, archive, restore, or Forget a
+claim. Those remain the existing operator-dispatched Memory write/review paths,
+with Forget carrying its separate destructive confirmation. Job identity and
+schedule metadata grant nothing.
+
+Retrieval stays deterministic and lexical over the complete rebuildable Memory
+projection and enters only the existing direct-answer/vision prompt seam. M1
+sets the measured numeric prompt budget/unit, extraction precision/recall
+floors, and pinned local reference profile; those are calibration outputs, not
+open ownership or authority choices. This resolves LD-R4 without adding a new
+prompt or retrieval architecture.
+
+#### The canonical Memory record is an append-only markdown claim stream
+
+Each claim has a stable claim id and an ordered stream beginning with an
+accepted keep/edit revision, followed only by reviewed correction/change,
+archive/restore, retirement, manual-import confirmation, and review transitions.
+Unreviewed proposals stay in the inert proposal store. Each claim revision
+records its previous-revision hash and own canonical-content digest. Compiled
+Memory projections are disposable. A raw well-formed append is a pending manual
+revision, not authority: it remains quarantined until the operator confirms that
+exact revision through the registered one-claim repair/import action. The action
+appends a content-free `manual_import_confirmed` transition referencing the
+unchanged pending revision digest and authenticated with a distinct domain-
+separated integrity tag from existing Key Custody. Rebuild accepts the manual
+revision only when that valid transition immediately follows it; no Repo ledger
+becomes a second authority. A broken hash link, duplicate/reordered revision,
+mutation/removal of prior content, or missing/invalid confirmation tag
+quarantines the claim. Manual file content never silently acquires authority.
+
+The two temporal axes are genuine and separate:
+
+- **valid time** is when the fact applies in the operator's world; and
+- **known time** is when Allbert held a reviewed revision as current.
+
+Both axes support explicit as-of reads and default independently to now. A
+later recorded statement does not automatically win. Conflict detection may
+propose a relationship, but operator review decides whether it is a correction
+of the prior record, a real-world change with a new validity interval, or an
+unresolved conflict. This supersedes §7's “newest-valid-wins by recorded
+instant” language and any implementation that mutates the prior markdown entry
+in place.
+
+Pre-v1.3 entries project as deterministic synthetic revision 0 streams without
+a bulk rewrite. Their first lifecycle mutation performs a lazy upgrade by
+appending the first native event while retaining the legacy content and its
+digest. Archive/retire is a reversible appended transition and retains the full
+claim history.
+
+#### Confirmed Forget is the narrow immutability exception
+
+Forget is a separately confirmed, audited operator action. It removes the claim
+stream and every active Allbert-managed content copy tied to that claim:
+Memory-projection rows/WAL state, any still-content-bearing proposal record,
+and any durable review/batch payload. Review excerpts are transient and must
+not survive the request. Content-free proposal/batch outcome identifiers may
+remain for audit, alongside the tombstone: claim id, deletion time, actor,
+reason, non-secret key reference/version, and a keyed per-Home suppression
+token. The token is an HMAC of the normalized forgotten claim under a
+domain-separated key derived through existing Key Custody; it stores neither
+the value nor a reversible digest. It
+suppresses re-proposal of that exact forgotten claim while allowing a genuinely
+new value for the same subject/predicate.
+
+Forget makes no promise about copies outside active Allbert-managed data,
+including pre-Forget Repo/Home backups, snapshots, exports, filesystem
+remnants, or storage-device wear leveling. Those boundaries are disclosed
+before confirmation.
+
+The current redacted portability envelope carries neither suppression tokens
+nor key material and its import remains dry-run, so it makes no cross-Home
+suppression promise. A same-Home full restore preserves suppression only when
+both tombstones and their existing Key Custody secret remain available. If a
+copied/restored tombstone's key reference is missing or mismatched, proposal-
+producing actions fail closed with `tombstone_key_unavailable` rather than
+silently resurrecting forgotten content. A genuinely fresh Home/new key has no
+knowledge of another Home's forgotten values; that limitation is documented,
+not hidden behind a key-export subsystem.
+
+#### Search is a separate read product, not a Memory producer
+
+ADR 0092's Search Central supersedes §6's conditional external-content FTS
+design. Consolidation reads canonical conversations through
+`Conversations.Corpus` under `Memory.CollectionPolicy`; it never reads the
+Search database or Search result pages. Search has no promote-to-Memory bridge.
+An explicit operator summarize action may send the selected, re-authorized
+search result set to the model for that response, but summary generation does
+not create a proposal or kept Memory.
+
 ## Consequences
 
 - Allbert gains durable, operator-curated knowledge of its operator with
@@ -291,7 +481,15 @@ retrieved context rather than out-ranking them.
 - Retrieval cost stops scaling with corpus size (index-backed candidates)
   — a precondition for consolidation being safe to leave on.
 - The v0.47 draft pipeline and explicit "remember" paths are unchanged;
-  consolidation is a third producer into the same reviewed store.
+  consolidation writes only the separate inert proposal store, whose accepted
+  items append through the same authoritative claim path as reviewed writes.
+- Collection eligibility is principal-verified and re-authorized at review;
+  message role and stale source snapshots grant nothing.
+- Append-only claim streams preserve reviewed history and quarantine manual
+  tampering, while confirmed Forget remains one narrow, honest deletion
+  exception.
+- Search and Memory remain independent consumers of the conversation corpus;
+  neither one's projection is authority for the other.
 - v1.4's profiling reads the same episodic sources and proposes through
   an analogous confirm-first boundary (ADR 0090) — the two releases share
   the propose/review grammar deliberately.
@@ -304,15 +502,20 @@ retrieved context rather than out-ranking them.
 - **No embeddings, no learned ranking, no trained memory artifacts**
   (System Memory Distillation stays parked).
 - **No egress**: consolidation reads local stores and may use only the
-  configured local model per LD-R5; nothing leaves the machine.
-- **No retention or deletion changes** beyond the additive proposal tier
-  and the lifecycle fields; pruning stays operator-driven through existing
-  surfaces, and supersession retires a fact without deleting it.
+  configured local model under §8; nothing leaves the machine.
+- **No automatic retention or deletion changes.** Pruning stays
+  operator-driven through existing surfaces, and supersession/archive retains
+  history. The separately confirmed §8 Forget action is the sole intentional
+  content-deletion exception.
 - **No inferred temporal queries.** As-of retrieval is an explicit
   parameter; natural-language temporal resolution ("what did I drive
   before this one") and multi-hop temporal reasoning are out of scope.
 - **No system-initiated invalidation.** Consolidation cannot retire a
   `:kept` fact; it can only propose the retirement.
+- **No role-only collection and no Search-to-Memory promotion.** A verified
+  principal and the Memory-specific collection policy are required.
+- **No automatic conflict winner.** Recorded time orders evidence; it does not
+  decide whether a newer statement is true, a correction, or a world change.
 - **Additive-only schema** (operator-locked for 1.2–1.4): new
   columns/statuses/tables only; the migration runner stays on the 1.5/1.6
   train.
@@ -322,11 +525,21 @@ retrieved context rather than out-ranking them.
 
 ## Validation
 
-Gate-bound behavioral rows (v1.3 plan §G): proposed-never-in-prompt,
-secret-filter drop, consolidation-grants-nothing, review-boundary
+Gate-bound behavioral rows (v1.3 request flow §J and plan M1/M8):
+proposed-never-in-prompt,
+secret-filter drop, proposal-only managed permission, review-boundary
 write-path, kept-only retrieval, zero-egress consolidation, kill-switch
 no-op — plus, from the 2026-07-28 amendment: superseded-never-retrieved,
 assistant-turn-is-not-a-fact, abstention, and as-of retrieval integrity.
+The second readiness amendment additionally requires principal-spoof denial,
+collection-class and E2EE opt-in rows, protected-proposal Keep-All denial,
+stale-review re-authorization, hash-chain tamper quarantine, legacy-revision
+lazy upgrade, manual-append quarantine followed by exact-revision confirmed
+import, archive/restore, one collection grant without per-run prompts, and
+confirmed Forget across every active content-bearing claim/proposal/review/
+projection/WAL copy without same-predicate overblocking. Portability validation
+proves same-Home restore with the original tombstone/key, redacted-envelope
+exclusion, and fail-closed copied tombstones with a missing/mismatched key.
 
 The Accepted flip requires the full propose→review→retrieve chain proven
 end to end, the measured zero-shot corpus result (uplift, token delta,

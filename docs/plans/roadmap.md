@@ -204,27 +204,37 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    opt-in bounded fallback shipped. `llama3.2:3b` remains the 8 GB default;
    Qwen stays operator-selectable because the only completed primary bakeoff
    row did not meet the frozen cross-platform promotion threshold.
-7. **1.3 — Long-Term User Memory.** (**Planned — research-gated triad ready
-   2026-07-24:** `docs/plans/v1.3-plan.md` + request-flow + ADR 0089
-   (memory architecture + consent; M1 research resolves LD-R1–R5 with
-   operator sign-off). **Build starts after v1.2 closeout.**) Research
-   phase first (STM/LTM/usage-history onto the Active Memory substrate),
-   then periodic consolidation to a reviewable system-proposed tier and
-   prompt-time context for zero-shot answers; only operator-kept entries
-   ever enter prompts. Conversation FTS / cross-thread retrieval decided
-   in/out at M1. **Readiness pass 2026-07-28 (operator-signed):** added
-   the bi-temporal fact lifecycle (ADR 0089 §7 — contradiction supersedes
-   non-destructively, retrieval is as-of, retirement is operator-reviewed),
-   operator-authored-only extraction, a recall floor beside the precision
-   floor, proposal backpressure, and **M0.a packaging license compliance**
-   (generated third-party notices in the binary + permissive-license policy
-   gate). M1 reduced to confirm-and-calibrate. Horizon items: free-form provider URLs, non-local bind
-   hardening. The first post-1.2 readiness review takes up the operator-confirmed
-   **daemon-backed TUI / thin terminal client** foundation. If promoted, it
-   ships as a point enabler without displacing Long-Term User Memory as the 1.3
-   flagship; the review determines exact sequencing and amends the 1.3 triad
-   only with explicit operator approval.
-8. **1.4 — Adaptive Usage Profiling.** (**Planned — triad ready
+7. **1.2.1 — Foundational Binary Enablers.** (**Planned — operator-approved
+   second-pass readiness 2026-07-28:** dedicated milestones in
+   `docs/plans/v1.3-plan.md` + request-flow, ADR 0076 amendment, and ADR 0091.)
+   This binary point release lands two independent foundations before v1.3
+   schema work begins: a small deterministic final-artifact license generator
+   with packaged notices/manifests and an offline `allbert licenses` viewer;
+   and the daemon-backed TUI, where one daemon owns Runtime/Repo/identity and
+   `allbert tui` is a thin authenticated terminal client. License and TUI work
+   may proceed in parallel but rejoin at one frozen three-target artifact shape,
+   `release.v121`, exact-SHA packaged smokes, and binary publication. The
+   license promise is a best-effort inventory of known shipped components, not
+   a universal scanner or SBOM guarantee. The TUI extends Attach v1 additively,
+   permits one session per Home initially, and never silently boots a second
+   runtime when attach fails.
+8. **1.3 — Long-Term User Memory + Search Central.** (**Planned —
+   implementation-readiness second pass approved 2026-07-28:**
+   `docs/plans/v1.3-plan.md` + request-flow + amended ADR 0089 + ADR 0092.
+   **Build starts only after v1.2.1 binary closeout.**) Long-Term User Memory
+   remains the flagship: verified operator-authored conversation turns can
+   produce reviewable proposals; only operator-kept append-only bi-temporal
+   claims enter prompt context. A canonical `Conversations.Corpus` boundary
+   supplies both Memory and the independent Search Central consumer. Search
+   owns one disposable SQLite FTS5 projection and typed API used by Web, TUI,
+   CLI, and mapped DMs; it never feeds Memory. Existing Jobs remains the sole
+   recurring engine for consolidation and visible managed search ingestion,
+   maintenance/pruning, and on-demand rebuild entries. M1 calibrates quality,
+   fixtures, and budgets only; it does not reopen the locked architecture.
+   Horizon items remain free-form provider URLs, non-local bind hardening,
+   semantic/fuzzy search, automatic canonical-history retention, and automatic
+   cross-app prompt mixing.
+9. **1.4 — Adaptive Usage Profiling.** (**Planned — triad ready
    2026-07-24:** `docs/plans/v1.4-plan.md` + request-flow + ADR 0090
    (profiling + confirmed customization) + ADR 0084 amendment
    (`:suggestion` kind, quiet hours, rate limit). **Build starts after
@@ -234,16 +244,16 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    suggestion notifications ride here — and, by operator decision
    2026-07-24, **Mobile-Ready Web stage 1** rides as non-flagship scope
    (Dynamic Mobile Breakpoints folds in; stages 2–4 stay at horizon).
-9. **1.5 / 1.6 — enabler releases.** Migration-runner cluster (runner + telegram/email
+10. **1.5 / 1.6 — enabler releases.** Migration-runner cluster (runner + telegram/email
    settings migration + legacy `intent.*model_profile` removal + automated rollback;
    pulled earlier if any prior release needs a non-additive migration), email OAuth
    (XOAUTH2), MCP 2025-11-25 spec parity, full param-contract enforcement,
    PermissionGate deletion. (Mid-action interruption, child-process
    cancellation, and the app-registry boundary check moved into 1.1.)
-10. **Beyond** — System Memory Distillation is the post-profiling co-flagship
+11. **Beyond** — System Memory Distillation is the post-profiling co-flagship
    candidate; the Won't-now cluster stays in future-features.md with its review
    cadence.
-11. **2.0 horizon — Self-Hosting Development.** Allbert develops Allbert (pi-mode
+12. **2.0 horizon — Self-Hosting Development.** Allbert develops Allbert (pi-mode
    target on its own checkout; plan/build/test/document roles in-product, supervised).
    Its OAuth hosted-LLM providers sub-capability (Claude/OpenAI/Gemini subscription
    plans, not just API keys) lands earlier on the 1.5/1.6 enabler train.

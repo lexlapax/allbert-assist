@@ -55,24 +55,32 @@ stale guidance.
   keep it minimal, because anything added there propagates downstream forever.
 - Contributions are licensed inbound under the same terms by Apache-2.0 §5.
   There is no CLA, and new source files do not need per-file license headers.
-- **Keep the tree copyleft-free.** Every dependency today is Apache-2.0, MIT,
-  BSD-2-Clause, BSD-3-Clause, ISC, or the Unlicense, plus public-domain SQLite.
-  A GPL/LGPL/AGPL/MPL/SSPL/BUSL dependency would change what the packaged
-  binary can be distributed under, so treat one as an architecture decision
-  needing an ADR, not a routine `mix.exs` line.
-- Check the license before adding a dependency:
+- Prefer dependencies and shipped payloads with terms compatible with the
+  Apache-2.0 distribution. A new reciprocal, source-available, or otherwise
+  exceptional license is an architecture and packaging decision needing an
+  ADR/catalog disposition, not a routine `mix.exs` line. The current narrow
+  exception is Castore's Mozilla-derived `priv/cacerts.pem`: Castore code is
+  Apache-2.0, while that file remains MPL-2.0 and must carry exact source,
+  conversion, digest, and license provenance. ADR 0076 records the file-level
+  exception; it is not a blanket MPL allowlist.
+- Package metadata is a useful starting point, not proof of every shipped
+  byte. Check it before adding a dependency, then inspect special `priv`, NIF,
+  asset, runtime, and staged-plugin payloads at the release boundary:
 
   ```sh
   grep -A3 '{<<"licenses">>' deps/<dep>/hex_metadata.config
   ```
 
-- Packaged releases bundle ERTS and every runtime dependency, so binary
-  distribution carries the MIT/BSD attribution obligation. A generated
-  per-dependency notices file is **not** in the release yet — it lands in v1.3
-  M0.a (`mix allbert.licenses`, which also enforces the permissive allowlist
-  above and drift-checks the committed notices; see `docs/plans/v1.3-plan.md`).
-  Until it lands, `deps/*/LICENSE*` plus the metadata field above is the
-  authoritative list.
+- Packaged releases include ERTS and selected runtime/native/data payloads, so
+  binary redistribution must carry the notices and source offers required by
+  the bytes in each target artifact. Stable v1.2.0 does not yet package a
+  generated inventory. v1.2.1 adds one deterministic final-artifact generator,
+  one reviewed catalog/exceptions file, target manifests, required texts, and a
+  pure offline viewer. Its honest claim is a best-effort inventory of known
+  shipped components; it is not a complete SBOM, universal ownership scanner,
+  or legal-compliance guarantee. Until that binary ships, dependency metadata,
+  source license files, and direct artifact inspection are complementary
+  evidence rather than a single complete authority.
 
 ## Fresh Checkout
 

@@ -33,11 +33,14 @@ sequenced one per minor, foundational-first:
   fallback enablers all reached accepted stable binary lines. Shipped history
   and exact evidence live in the roadmap, CHANGELOG, and archived release
   plans; this inventory keeps only unplanned remainder.
-- **1.3 — Long-Term User Memory** (research phase first; folded retrieval/FTS/
-  working-memory scope). The first post-1.2 readiness review evaluates the
-  operator-confirmed daemon-backed TUI / thin terminal client as a foundational
-  point enabler without displacing the memory flagship. Free-form provider URLs
-  and bind hardening stay on this horizon as tagged.
+- **1.2.1 — Foundational Binary Enablers** (planned in the active v1.3
+  release-line plan): packaged best-effort known-component licensing/viewer and
+  the daemon-backed TUI / thin terminal client, each with its own milestones.
+- **1.3 — Long-Term User Memory + Search Central.** Memory remains the
+  flagship; Search is the independent central conversation-history engine/API.
+  M1 calibrates fixtures, quality floors, and budgets rather than reopening the
+  architecture. Free-form provider URLs and bind hardening stay on this horizon
+  as tagged.
 - **1.4 — Adaptive Usage Profiling** (stages a/b/c; per-role model profiles and
   proactive notifications ride here; consumes 1.3's memory substrate).
 - **1.5 / 1.6 — the remaining confirmed enablers**, sliced by need: the
@@ -76,11 +79,11 @@ Provenance shorthand used in `Deferred at:` lines: `vX.YY-plan:N` and
 
 ### Daemon-Backed TUI / Thin Terminal Client
 
-Class: Must (foundational) (operator-confirmed 2026-07-27) · Effort: M · Slice: first post-1.2 readiness-review candidate; land before later work expands TUI/runtime concurrency
+Class: Must (foundational) (operator-confirmed 2026-07-27) · Effort: M · Slice: v1.2.1 point enabler before v1.3 schema work
 
-Status: parked — accepted operator demand; requires an implementation-readiness
-review and an attach/session-protocol ADR before promotion into a versioned
-plan. It is not v1.2 release scope.
+Status: planned — `docs/plans/v1.3-plan.md`, v1.2.1 milestones; operator
+promotion and second-pass architecture approved 2026-07-28. ADR 0091 owns the
+attach/session contract.
 
 The v0.62 packaged runtime shipped two adjacent but different behaviors:
 runtime-backed `allbert ask` / `allbert admin ...` invocations attach to a
@@ -90,7 +93,7 @@ embedded application tree to own the terminal. Operators must therefore stop
 the service before TUI use against the same Home. The target experience is one
 durable daemon per Home with `allbert tui` acting as its local terminal client.
 
-The readiness review must bind these minimum outcomes:
+The approved v1.2.1 milestones bind these minimum outcomes:
 
 - When a matching daemon is reachable, `allbert tui` opens no Repo, runs no
   migration, and starts no competing runtime. Terminal input/output is a
@@ -99,14 +102,16 @@ The readiness review must bind these minimum outcomes:
   application-version, protocol-version, bounded-frame, concurrency, and
   no-double-execution protections. A running daemon whose session attach fails
   produces repair guidance; it never silently falls back to a second writer.
-- The session protocol covers streaming output, slash commands, disclosures,
-  typed confirmation handoff, fan-out status/report delivery, Pi-mode raw
-  input and Escape cancellation, backpressure, clean detach, daemon shutdown,
-  terminal restoration, and explicit reconnect semantics.
-- The plan decides whether multiple simultaneous terminal clients are allowed,
-  how profile/user identity is selected per session, and what `allbert tui`
-  does when no daemon exists (embedded fallback, service start, or an explicit
-  operator choice).
+- The additive Attach v1 session protocol covers streaming output, slash
+  commands, disclosures, typed confirmation handoff, fan-out status/report
+  delivery, Pi-mode raw input and Escape cancellation, backpressure, clean
+  detach, daemon shutdown, and terminal restoration. Requests without the new
+  session kind retain legacy unary behavior.
+- v1.2.1 permits one terminal session per Home and no live resume. The daemon
+  selects the verified mapped operator identity. When no daemon exists or
+  attach fails, the client returns start/repair guidance and never boots an
+  embedded runtime. A session-socket loss closes the attachment; durable
+  background work may finish, while an effectful Pi turn cancels fail closed.
 - Focused protocol/security tests prove authentication and lifecycle failures;
   macOS and Linux operator validation keeps the service running before, during,
   and after TUI use and proves Web/TUI continuity from one daemon. Operator
@@ -720,10 +725,11 @@ Deferred at: `v0.26-plan:2079`.
 
 ### Long-Term User Memory (Periodic Consolidation, Prompt-Time Context)
 
-Class: Must (confirmed 2026-07-14) · Effort: L · Slice: 1.1 CO-FLAGSHIP — research phase first
+Class: Must (confirmed 2026-07-14) · Effort: L · Slice: v1.3 flagship after the v1.2.1 point enabler
 
-Status: planned — `docs/plans/v1.3-plan.md` (research-gated triad + ADR 0089;
-M1 is the research milestone with operator sign-off, 2026-07-24).
+Status: planned — `docs/plans/v1.3-plan.md` + amended ADR 0089; operator
+second-pass decisions approved 2026-07-28. M1 calibrates fixtures, quality
+floors, and budgets but does not reopen the architecture.
 
 The user-facing sibling of Adaptive Usage Profiling (Self-Improvement
 category): over time, build a **long-term user memory** that remembers facts
@@ -734,22 +740,16 @@ proper context for the LLM, so answers land **zero-shot**: the stated goal is
 shortening token usage and interaction count by giving the model the right
 context up front instead of re-deriving it conversationally.
 
-**Research phase required before promotion**: survey short-term vs long-term
-memory vs usage-history architectures (working/episodic/semantic splits,
-consolidation cadence, decay/refresh policies, retrieval-at-prompt-time
-budgets) and how they map onto the shipped substrate — v0.39b Active Memory
-(deterministic recency-weighted lexical retrieval over reviewed `:kept`
-entries), the memory namespaces, and the review surface. Output should be a
-research note under `docs/research/` feeding the promotion ADR.
-
-Consent boundary to resolve at promotion (needs an ADR): the trust spine says
-"memory review remains explicit", and the v0.24 non-goal "no automatic memory
-promotion" (triage table) is exactly this feature. The staged posture:
-system-consolidated memories land as **reviewable drafts** (or a distinct
-"system-proposed" tier the operator can bulk-accept), and only reviewed
-entries become prompt context — or the ADR consciously relaxes the explicit-
-review line for a bounded fact/preference class. Silent accumulation into
-prompts is not the default.
+The architecture is now locked: only verified operator-authored conversation
+turns can originate a proposal; assistant turns are bounded transient
+disambiguation only; traces/objectives do not originate or strengthen claims.
+System proposals require review, and only operator-kept append-only
+bi-temporal claims enter prompt context. Ordinary bulk review is frozen,
+partial, and idempotently resumable; protected claims require individual
+review. Archive is reversible, while separately confirmed Forget removes
+active Allbert-managed claim content and leaves only a content-free suppression
+tombstone. Search Central is an independent consumer of the canonical
+conversation corpus and never supplies memory facts.
 
 Related: Adaptive Usage Profiling (system-usage half of the same loop — the
 suggest job reads both memories); System Memory Distillation (the parked
@@ -797,43 +797,50 @@ memory pinning are also parked under this entry (no separate section).
 
 ### Cross-Thread / Cross-App Memory Retrieval
 
-Class: Should (confirmed 2026-07-14) · Effort: M · Slice: foundational input to the Long-Term User Memory research phase (retrieval scope) — research to confirm
+Class: Should (confirmed 2026-07-14) · Effort: M · Slice: v1.3 Search Central conversation-history scope
 
-Status: research input — `docs/plans/v1.3-plan.md` M1 decides scope at
-operator sign-off (2026-07-24). Previously parked; added in the post-v0.37
-planning pass.
+Status: planned — `docs/plans/v1.3-plan.md`, Search Central milestones;
+operator promotion approved 2026-07-28. Previously parked; added in the
+post-v0.37 planning pass.
 
 v0.39b Active Memory retrieval is scoped to `{thread_id, active_app,
 identity_namespace}` with neutral/core context limited to identity + general
 chunks. Operators may want assistant context drawn from prior threads or
 across apps.
 
-Still parked:
+Planned scope is explicit operator-intent conversation search through one typed
+central API. Local Web/TUI/CLI may search all eligible history; mapped operator
+DMs default to the same channel/thread and require confirmation before a
+cross-surface scope elevation. Search results are source-linked and
+reauthorized against the canonical corpus before disclosure.
 
-- cross-thread retrieval scope and ranking policy;
-- privacy/redaction policy when surfacing other-thread chunks;
-- across-app namespace mixing rules (notes_files chunks in a StockSage
-  thread, etc.);
-- operator-visible scope controls in the workspace.
+Still parked: automatic cross-app namespace mixing into prompt context,
+semantic retrieval/ranking, and non-conversation sources such as attachments
+or arbitrary app artifacts.
 
 ### Conversation History Full-Text Search
 
-Class: Should (confirmed 2026-07-14) · Effort: M · Slice: foundational input to the Long-Term User Memory research phase (retrieval substrate) — research to confirm
+Class: Should (confirmed 2026-07-14) · Effort: M · Slice: v1.3 Search Central
 
-Status: research input — `docs/plans/v1.3-plan.md` M1 decides in/out; M7 is
-the conditional implementation milestone (2026-07-24). Previously parked;
-added in the post-v0.37 planning pass.
+Status: planned — `docs/plans/v1.3-plan.md`, Search Central engine/jobs/surface
+milestones; operator promotion approved 2026-07-28. Previously parked; added
+in the post-v0.37 planning pass.
 
 Markdown memory has full-text search through v0.21. SQLite `Thread`/`Message`
 conversation history does not. Operators may want to search prior threads.
 
-Still parked:
+The planned implementation is one central typed Search API backed by a
+disposable redacted SQLite FTS5 projection under Allbert Home. Web, TUI, CLI,
+and mapped DMs consume that API; surfaces never query FTS directly. Existing
+Jobs owns visible managed ingestion/reconciliation, bounded
+maintenance/pruning, and on-demand rebuild entries. Query-time canonical
+authorization/digest checks suppress stale, deleted, or revoked hits. The
+v1.3 grammar is deterministic lexical terms, phrases, prefixes, filters, and
+BM25 ranking only.
 
-- SQLite FTS5 over Message bodies;
-- per-user and per-app filter;
-- redaction-aware indexing;
-- thread context retrieval into Active Memory (related to "Cross-Thread /
-  Cross-App Memory Retrieval" above).
+Still parked: Search-to-Memory promotion, fuzzy/trigram/vector/embedding
+retrieval, autonomous model search, automatic canonical-history retention, and
+non-conversation document sources.
 
 ### Post-v0.48 Media Follow-Ons
 

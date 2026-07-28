@@ -315,3 +315,103 @@ All execution still resolves through `Actions.Registry` and
 `Actions.Runner.run/3`; the amendment changes process/effect ordering, not
 authority. Release tests inject manager commands and never operate a developer's
 real service. The signed-RC real-host rows remain the final systemd proof.
+
+## Amendment (v1.2.1 → v1.3 readiness, 2026-07-28) — thin TUI and packaged license evidence
+
+Two additive post-1.0 decisions refine this ADR without changing the frozen CLI
+taxonomy or distribution channels.
+
+### Daemon-backed `allbert tui`
+
+ADR 0091 makes `allbert tui` a thin terminal client of the one daemon that owns
+the selected Allbert Home. The client opens no Repo, runs no migration, and
+boots no embedded application tree. The existing kind-absent attach-v1 command
+packet remains the legacy one-shot CLI contract; only the additive, bounded
+`:tui_session` frame family creates a long-lived terminal attachment.
+
+When no matching daemon is available, or a daemon is known to be running but its
+attach endpoint cannot authenticate or negotiate a session, the TUI returns
+repair/start guidance and exits. It never falls back to an embedded writer.
+When the daemon's attach listener cannot bind, the Web/runtime service remains
+up in an explicitly degraded health state, while commands that need to attach
+(including the TUI) fail closed. This supersedes this ADR's earlier
+TUI-specific embedded fallback; ordinary no-daemon one-shot CLI behavior remains
+unchanged unless its command requires daemon custody.
+
+### One small final-artifact license finalizer
+
+Every binary release carries `LICENSE`, the project's minimal relevant
+`NOTICE`, and generated third-party license/provenance material for the known
+components actually shipped in that target artifact. Generation is an offline
+release-build step after all artifact-mutating steps (including assets, plugins,
+native-library patching, and dispatcher installation) and before archive,
+checksum, and signing. The packaged CLI provides a read-only viewer over those
+files; it does not rescan dependencies, regenerate notices, contact a network,
+or maintain license runtime state.
+
+Implementation stays deliberately small: one finalizer, Mix's final release
+application closure as a baseline, and one reviewed declarative catalog for
+non-application and file-scoped exceptions. Target inspection covers known
+extras such as ERTS/OTP, Elixir, plugins/web assets, SQLite, a copied OpenSSL
+library where present, Mozilla-derived CA data, and IANA-derived time-zone data.
+Package-level SPDX metadata is evidence to check, not proof for every nested
+file. A missing or unapproved license for a known managed component fails the
+build; the system does not attempt a recursive universal license detector.
+
+Castore's code remains Apache-2.0, while its Mozilla-derived
+`priv/cacerts.pem` is one narrow file-scoped MPL-2.0 exception. The catalog
+binds that payload to exact source/conversion provenance and digest, packages
+the MPL text, and supplies either the exact source companion or an immutable
+exact-source retrieval reference with digest and conversion provenance. The
+build fails if neither source-availability path is present or the payload
+drifts. Publication qualification then proves one path: a packaged companion
+must match its recorded digest, or an unauthenticated fetch of the immutable
+reference must succeed and match the recorded source digest. The finalizer and
+packaged viewer remain network-free; a failed external availability check
+blocks publication. This does not create a blanket MPL allowlist.
+
+The claim is therefore **best-effort inventory of known shipped components**,
+not a complete SBOM, a legal-compliance guarantee, or proof about every byte.
+Apache-2.0 redistribution keeps the root NOTICE limited to relevant notices;
+file-level material and source provenance stay in the generated payload.
+
+The product-tag workflow builds each target once, records the versioned archive
+digests as immutable workflow artifacts, and then waits at a protected
+`release-promotion` environment. Exact-artifact license/TUI qualification occurs
+before approval. The resumed promotion job rehashes those staged bytes, signs
+the final checksum, and uploads without rebuilding; the release asset and
+installed archive must retain the qualified digest. The environment is
+pre-created with required-reviewer and product-tag protection; a missing or
+auto-created unprotected environment blocks tagging.
+
+### Per-target toolchain evidence
+
+Release builds pin exact OTP and Elixir versions and immutable full-SHA
+third-party build actions, use strict version resolution, and record the
+resolved tool/action versions, native linkage, and artifact hashes per target.
+The final binary must runtime-smoke native capabilities such as the loaded
+SQLite version and compile options. Equal logical tool versions across macOS
+and Linux do **not** imply byte-identical artifacts.
+
+Primary-source constraints:
+
+- Mix releases copy application code plus `ebin`, `priv`, and `include`;
+  dependency-root license files need explicit staging
+  ([Mix release docs](https://mix.hexdocs.pm/Mix.Tasks.Release.html),
+  [Elixir 1.19.5 source](https://github.com/elixir-lang/elixir/blob/v1.19.5/lib/mix/lib/mix/release.ex)).
+- Exact setup-beam versions with strict matching are the supported pinning
+  posture, and a full commit SHA is the immutable Actions reference
+  ([setup-beam](https://github.com/erlef/setup-beam#input-versioning),
+  [GitHub Actions secure use](https://docs.github.com/en/actions/reference/security/secure-use)).
+- GitHub Actions environments may require approval before a job starts, which
+  supplies the build/qualification/promotion pause
+  ([deployment environments](https://docs.github.com/en/actions/concepts/workflows-and-actions/deployment-environments)).
+- OpenSSL 3.0+ is Apache-2.0 while earlier releases use the historical dual
+  license, so classification is target/version-specific
+  ([OpenSSL licensing](https://openssl-library.org/source/license/index.html)).
+- SQLite deliverable code is public domain; Mozilla-derived CA PEM data is
+  MPL-2.0; and IANA tzdb has named BSD-3-Clause exceptions
+  ([SQLite](https://www.sqlite.org/copyright.html),
+  [curl CA extract](https://curl.se/docs/caextract.html),
+  [MPL 2.0](https://www.mozilla.org/en-US/MPL/2.0/),
+  [IANA tzdb license](https://data.iana.org/time-zones/tzdb/LICENSE)).
