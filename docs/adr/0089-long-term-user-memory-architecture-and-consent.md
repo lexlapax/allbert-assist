@@ -32,6 +32,14 @@ conflicting collection/proposal rules in §§2–3, and §6's
 conditional/external-content design: ADR 0092 now owns Search Central, and
 there is no Search-to-Memory bridge.
 
+**Amended 2026-07-28 (third implementation-readiness pass, operator-signed).**
+A code-level cross-check added §9 (legacy memory subsystems are absorbed rather
+than shipped beside the new model, behaviorally and without deleting public
+shapes), span provenance as the enforceable form of the assistant-authority
+rule in §8, and the retained-searchable-conversation clause in the Forget
+disclosure. It also recorded that the confirmed canonical conversation delete
+action required by the plan does not yet exist and is built in M2.
+
 This is the **first ADR-level memory contract**: the v0.39b Active Memory
 baseline is bound today only by a research note
 (`docs/research/active-memory-retrieval.md`) and an archived plan.
@@ -322,7 +330,18 @@ A `role == "user"` field is not identity proof. Only a message whose principal
 the canonical conversation boundary verifies as the operator may originate a
 claim. Assistant messages may be read only as bounded, transient
 disambiguation context and are never persisted as proposal provenance or claim
-authority. Trace and objective identifiers may be attached as typed
+authority.
+
+**Span provenance makes that enforceable** (added by the third readiness pass).
+Every field of an accepted claim must map to a recorded operator-authored
+source span, and the proposal persists the span reference per field. Bounded
+assistant context may resolve deixis — pronouns, ellipsis, "the second one" —
+and may never supply a field value; a proposal with an uncovered field is
+refused and counted. The earlier formulation asked acceptance to prove
+assistant text carried "no corroboration weight", which is not provable: once
+that text is in an opaque local model's prompt, its influence cannot be
+measured. Span coverage is instead a deterministic property of the stored
+proposal, so the invariant becomes a real gate rather than an assertion. Trace and objective identifiers may be attached as typed
 correlation references, but consolidation does not read trace/objective bodies
 as claim sources. Secrets and credential-shaped material are hard-dropped
 before any proposal record is written.
@@ -451,6 +470,18 @@ including pre-Forget Repo/Home backups, snapshots, exports, filesystem
 remnants, or storage-device wear leveling. Those boundaries are disclosed
 before confirmation.
 
+**Forget also does not delete the conversation the claim came from.** The
+originating message remains canonical and remains in the Search projection, so
+a conversation search still finds the operator's original statement while the
+claim itself is unretrievable and permanently blocked from re-proposal. That is
+the intended separation — Forget removes what Allbert concluded, canonical
+deletion removes what was said — but because v1.3 ships conversation search in
+the same release, the retained searchable conversation is named in the
+pre-confirmation disclosure beside the backup boundary, and the disclosure
+points to the confirmed canonical conversation delete action for an operator
+who wants both. An operator reading "Forget" as "erase" would otherwise be
+misled about precisely the thing they were protecting.
+
 The current redacted portability envelope carries neither suppression tokens
 nor key material and its import remains dry-run, so it makes no cross-Home
 suppression promise. A same-Home full restore preserves suppression only when
@@ -471,11 +502,40 @@ An explicit operator summarize action may send the selected, re-authorized
 search result set to the model for that response, but summary generation does
 not create a proposal or kept Memory.
 
+### 9. One memory system, reached through absorbed legacy shapes
+
+Added by the operator-signed third readiness pass on 2026-07-28. §8 designed
+the new memory model without dispositioning what already exists, so a
+code-level cross-check found five live subsystems that would have shipped
+beside it: the `search_memory` action, the compiled memory index with its
+`memory-index-rebuild` managed job and `memory.review_cadence` setting, the
+`prune_nominated` review status, `memory.auto_promote_sensitive_entries`, and
+the v0.47 `memory_promotion` / `memory_update` discovery drafts. Two of them
+contradicted stated contracts outright — one an over-broad "sole search engine"
+claim, the other a settings key whose name asserts the automatic promotion this
+ADR exists to forbid.
+
+v1.3 absorbs each into the new model. Absorption is **behavioral, not
+deletion**: every existing action name, settings key, and request shape keeps
+responding and routes into the new implementation, while the legacy store or
+job stops being a second authority. Deletion is not available, because removing
+a public shape inside the v1.0 Tier-2 freeze is a separate operator decision
+with its own major-version process; `delete_memory_entry`'s existing role as a
+compatibility alias for archive is the precedent. The per-item table lives in
+the v1.3 plan under Current Code State.
+
+The consequence worth stating at ADR level: after v1.3 there is exactly one
+memory-index authority, one managed memory-index entry per Home, and one
+system-suggests-memory surface. An operator sees one review workflow, not two,
+and no code path honors an auto-promotion setting.
+
 ## Consequences
 
 - Allbert gains durable, operator-curated knowledge of its operator with
   a consent story that strengthens rather than erodes the trust spine:
   the system may propose; only the operator makes memory.
+- One memory system replaces the previous index, suggestion pipeline, and
+  memory-search entry point; legacy shapes remain callable and route into it.
 - Every direct answer can start from the right context — the measured
   zero-shot uplift is the flagship's acceptance bar, not an aspiration.
 - Retrieval cost stops scaling with corpus size (index-backed candidates)
@@ -514,6 +574,12 @@ not create a proposal or kept Memory.
   `:kept` fact; it can only propose the retirement.
 - **No role-only collection and no Search-to-Memory promotion.** A verified
   principal and the Memory-specific collection policy are required.
+- **No claim field without an operator-authored span.** Assistant context
+  resolves deixis only; an uncovered field refuses the proposal.
+- **No deletion of legacy public shapes in v1.3.** Absorption keeps them
+  responding; removal is a later Tier-2 decision.
+- **Forget does not delete conversations.** The originating message stays
+  canonical and searchable, and the disclosure says so.
 - **No automatic conflict winner.** Recorded time orders evidence; it does not
   decide whether a newer statement is true, a correction, or a world change.
 - **Additive-only schema** (operator-locked for 1.2–1.4): new

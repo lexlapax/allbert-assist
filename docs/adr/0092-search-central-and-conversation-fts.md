@@ -37,11 +37,26 @@ synchronization system without adding authority.
 
 ### 1. One central typed Search API for every surface
 
-`AllbertAssist.Search` is the sole surface-facing search context. It exposes a
-typed query/page/error contract and one registered read action through
-`Actions.Registry` and `Actions.Runner.run/3`. Web, TUI, CLI, mapped DMs,
-and later surfaces adapt input and render the same result DTO; none opens the
-FTS database, constructs SQL, ranks rows, or applies scope locally.
+`AllbertAssist.Search` is the sole surface-facing **conversation** search
+context. It exposes a typed query/page/error contract and one registered read
+action through `Actions.Registry` and `Actions.Runner.run/3`. Web, TUI, CLI,
+mapped DMs, and later surfaces adapt input and render the same result DTO; none
+opens the FTS database, constructs SQL, ranks rows, or applies scope locally.
+
+The qualifier is load-bearing. The existing `search_memory` registered action
+(`actions/memory/search_memory.ex`, reached from `cli/areas/memory.ex`) searches
+Memory claims, not conversations, and continues to do so; an unqualified "sole
+surface-facing search engine" claim would have been false at merge. The two are
+different corpora with different authority models — claims are operator-curated
+and enter prompts, conversation rows are canonical history that never does — and
+the operator documentation names both.
+
+Result DTOs, the query grammar, and scope filters carry a `source_type`
+dimension from this first version, fixed to conversation in v1.3. Notes and
+files already ship as local knowledge and are the plausible second corpus;
+without the dimension present from the start, adding one later would be a
+breaking change to a Tier-2 contract instead of an additive one. Reserving the
+dimension is not a commitment to index anything else in v1.3.
 
 `AllbertAssist.Conversations.Corpus` is the canonical conversation authority.
 It classifies source visibility and principal/surface/thread eligibility,
@@ -144,7 +159,16 @@ create/insert/query smoke before promotion.
 Only a verified generation may be promoted. Promotion uses same-filesystem
 namespace rename only after `PRAGMA wal_checkpoint(TRUNCATE)` returns
 `busy = 0`, the builder connection closes, and a self-contained reopen plus
-integrity/query check proves no required `-wal`/`-shm` sidecar. It retains
+integrity/query check proves no required `-wal`/`-shm` sidecar.
+
+The Memory projection needs this identical sequence, so the checkpoint → close
+→ self-contained reopen → integrity proof → atomic promote → retain-previous
+steps live in one small shared private helper rather than being written twice
+(v1.3 plan LD 62). Each domain keeps its own schema, verification predicates,
+generation metadata, and rebuild source; only the promote sequence is shared.
+This is not the generic projection framework the plan's complexity budget
+excludes — it is deduplication of the one subtle sequence whose failure mode is
+silent data loss. It retains
 `current` plus one `previous`
 verified generation and leaves the current generation untouched on
 build/verification failure.
@@ -166,7 +190,18 @@ ordinary recurring-engine entries:
 
 One Search feature setting governs the ordinary local managed set; the operator
 does not consent to each internal maintenance entry separately. Scope
-expansions such as E2EE projection remain separately opted in. Jobs are
+expansions such as E2EE projection remain separately opted in.
+
+That feature setting **defaults on for local Web, CLI, and TUI**, so a fresh
+Home can search its own history without first discovering a switch. Mapped
+operator DMs and E2EE origins remain behind their separate grants. This is
+deliberately asymmetric with Memory's `memory.consolidation.enabled`, which
+defaults false: Search is local, read-only, produces no proposals, injects
+nothing into any prompt, and its entire database can be deleted and rebuilt,
+whereas Memory collection derives durable new claims about the operator.
+Indexing what the operator already wrote, for their own retrieval, is a
+different act from concluding things about them. Both defaults are stated
+together wherever either is documented. Jobs are
 idempotent, serialize the search writer, use bounded batches, expose
 watermark/lag/generation/counts without content, and never hold the canonical
 Repo and search writer in a claimed cross-database atomic transaction.
@@ -230,6 +265,10 @@ result/filtered counts, duration band, confirmation outcome, and error class.
 
 - No external-content table across database files, trigger-maintained mirror,
   or second canonical history store.
+- No claim that Search replaces `search_memory`; Memory-claim search stays a
+  separate corpus with its own action.
+- No second writer to any Search database file, and no cross-database
+  transaction with the canonical Repo or the Memory projection.
 - No raw FTS query language at a surface; no fuzzy, trigram, semantic, vector,
   or learned-ranking search.
 - No search-result authority, implicit cross-surface DM disclosure,

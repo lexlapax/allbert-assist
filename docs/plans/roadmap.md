@@ -227,7 +227,17 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    claims enter prompt context. A canonical `Conversations.Corpus` boundary
    supplies both Memory and the independent Search Central consumer. Search
    owns one disposable SQLite FTS5 projection and typed API used by Web, TUI,
-   CLI, and mapped DMs; it never feeds Memory. Existing Jobs remains the sole
+   CLI, and mapped DMs; it never feeds Memory. **Third readiness pass
+   2026-07-28 (operator-signed):** v1.3 also absorbs the five legacy memory
+   subsystems it would otherwise have shipped beside (memory search, the
+   compiled index and its managed job, `prune_nominated`, the auto-promote
+   setting, and the v0.47 memory drafts) behaviorally and without deleting
+   public shapes; adds span provenance, the missing confirmed canonical
+   conversation delete, writer ownership for all three databases, and the
+   retained-searchable-conversation clause in the Forget disclosure; Search
+   defaults on for local surfaces while Memory collection stays default-off.
+   Stage closeout and triad archive are distinct events (plan LD 63). Existing
+   Jobs remains the sole
    recurring engine for consolidation and visible managed search ingestion,
    maintenance/pruning, and on-demand rebuild entries. M1 calibrates quality,
    fixtures, and budgets only; it does not reopen the locked architecture.
