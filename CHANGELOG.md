@@ -12,10 +12,11 @@ changelog entries or release notes.
 
 ## v1.2.0 - Zero-Click First Run
 
-Status: **corrective release candidate. FV-01..03 remain pending and may begin
-only when the current clean pushed HEAD has green exact-SHA `release.v1` and
-`release.v12` evidence. The post-FV aggregate release phase and binary
-publication remain pending.**
+Status: **release candidate ready for the operator-held annotated tag.
+FV-01..03 passed on macOS and Linux, M9.1 operator documentation was accepted,
+and the complete post-FV barrier passed at validated product SHA `4e712afe`.
+Binary publication, tap fill, install rehearsal, and post-artifact closeout
+remain pending.**
 
 Formula state: PRE-PUBLICATION ONLY. The packaged Latest 1.1.0 remains during
 the release-candidate window; at binary publication the tap is filled
@@ -52,10 +53,10 @@ instead of appearing to wait forever. Web independently maps `web-local` to the
 same canonical `local` user without inheriting TUI authentication or
 automatically selecting its thread; eligible same-user durable data remains
 available through the existing cross-surface contract. This corrects the FV-01
-failure found at candidate `2e096750`,
-where model detection succeeded but the first terminal turn was rejected
-`:not_mapped`. Corrective focused/static/precommit and clean exact-SHA versioned
-gate evidence is green; replacement FV evidence remains pending.
+failure found at candidate `2e096750`, where model detection succeeded but the
+first terminal turn was rejected `:not_mapped`. Replacement FV-01 passed on
+both required hosts, including first-question model answers, one-time
+disclosure, durable identity mapping, and restart readiness.
 
 The Models surface now merges the shipped local catalog, live Ollama inventory,
 configured profiles, and bounded hosted metadata through one registered
@@ -70,25 +71,17 @@ egress setting, unknown or potentially partial failures never retry, and a turn
 makes at most one failover. Decisions are redacted and audited with the failed
 and answering profiles; image and voice ordering are unchanged.
 
-The derived `release.v12` gate retains the complete frozen-v1 and v1.1 prefix.
-Its original thirteen behavioral first-run authority/deny rows passed at M7/M8;
-the corrective gate adds a fourteenth launcher/Adapter row and explicitly binds
-the Store and development-Mix launcher suites alongside focused enablement,
-onboarding, catalog, fallback, and cross-surface coverage. Corrected
-`release.v12` and `release.v1` passed at the first corrective candidate; an
-aggregate attempt then found and removed one stale unused dependency lock entry,
-invalidating that candidate. Clean pushed replacement
-`27a700593112e4419cb4908debc5c2f3dc23d053` passed exact-SHA `release.v1` and
-`release.v12`, proving the product correction met the FV barrier. The docs-only
-timing amendment's clean pushed successor is the FV candidate after the same
-two versioned gates pass there. An aggregate run already in flight passed
-static/high coverage, external-runtime 620 tests with 0 failures and 12 skipped,
-and security 377 tests with 0 failures before the operator stopped it during
-full web to apply the final timing. That partial aggregate is non-acceptance.
-The aggregate phase starts only after all FV rows pass and must finish green
-before tag/release. A failure is remediated there; only FV rows invalidated by
-the fix repeat before aggregate restarts. FV results, the accepted aggregate,
-signed binary workflow, tap fill, and install-rehearsal evidence remain pending.
+The derived `release.v12` gate retains the complete frozen-v1 and v1.1 prefix
+and adds the launcher/Adapter authority row plus focused enablement, onboarding,
+catalog, fallback, and cross-surface coverage. After five bounded stale-contract
+remediations, final-barrier attempt 6 passed from clean pushed validated product
+SHA `4e712afe9e02494bc634cf1d068dffdcaa1a450a`: precommit, `release.v1`, corrected
+`release.v12`, and one uninterrupted 4,208-second aggregate. The aggregate
+passed high coverage, 622 external-runtime tests (12 expected skips), 377
+security evals, 327 web tests, 198 StockSage tests, 35 channel-plugin tests, and
+Dialyzer with zero failures/errors. The later RC reconciliation is Markdown-
+only and preserves that product SHA. Signed binary workflow, tap fill, install
+rehearsal, and post-artifact closeout remain pending.
 
 ## v1.1.0 - Asynchronous Background Agent Fan-Out With In-Channel Steering
 
