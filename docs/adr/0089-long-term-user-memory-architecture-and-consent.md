@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (v1.3 implementation-ready, operator-signed second pass
+Proposed (v1.3 implementation-ready, operator-signed final pass
 2026-07-28). The architecture choices formerly named LD-R1–R5 are resolved by
 §8, ADR 0092, and the active v1.3 plan. M1 now calibrates fixtures, quality
 floors, budgets, and runtime evidence only; it does not reopen source,
@@ -39,6 +39,17 @@ shapes), span provenance as the enforceable form of the assistant-authority
 rule in §8, and the retained-searchable-conversation clause in the Forget
 disclosure. It also recorded that the confirmed canonical conversation delete
 action required by the plan does not yet exist and is built in M2.
+
+**Amended 2026-07-28 (final implementation-readiness pass,
+operator-signed).** The final cross-document audit makes the consent grant
+origin-scoped, narrows span grounding to consolidation-produced conversation
+proposals, binds review and Forget to restart-safe idempotent protocols, and
+states the physical SQLite-deletion limit honestly. It also freezes destination-
+Home re-confirmation, authenticated native transitions, serialized claim
+compare-and-append, durable per-message principal evidence, ordered startup
+repair, content-free legacy-draft drainage through the one claim writer, stable
+legacy identity, and bounded canonical re-authorization of projection
+candidates. These are implementation contracts, not new subsystems.
 
 This is the **first ADR-level memory contract**: the v0.39b Active Memory
 baseline is bound today only by a research note
@@ -312,19 +323,30 @@ supersedes conflicting source, proposal, search, and lifecycle language in
 
 #### Memory CollectionPolicy is principal-verified and consumer-specific
 
-Memory collection and Search eligibility are separate policy decisions. Memory
-uses one `Memory.CollectionPolicy` classification per source:
+Memory collection and Search eligibility are separate consumer decisions. The
+verified `private_operator` trust class does not itself grant either consumer
+access. Each consumer records an origin-scoped grant:
 
-- `private_operator` admits local Web, CLI, and TUI turns plus a verified,
-  mapped one-to-one operator DM after one clear collection disclosure with an
-  opt-out. Group/shared conversations, programmatic callers, and unknown
-  principals are excluded.
-- E2EE-origin conversation collection is a separate audited opt-in. Enabling
-  ordinary private-operator collection does not enable it.
-- An identity remap pauses affected sources until the new mapping is
-  re-authorized. Revocation, remap, canonical deletion, or later
-  ineligibility immediately invalidates pending proposals sourced from that
-  material.
+- `local_operator` covers verified local Web, CLI, and TUI. Search's local
+  grant is implicit/default-on; Memory's is explicit/default-off.
+- `mapped_operator_dm` covers current and future verified mapped one-to-one
+  operator DMs after one clear grant for that consumer. It is not one prompt
+  per DM channel. Group/shared conversations, programmatic callers, and
+  unknown principals remain excluded.
+- `e2ee_operator` is an additional audited overlay for the named consumer.
+  Enabling ordinary local or mapped-DM access does not enable E2EE-origin
+  collection or projection.
+
+Canonical invalidation is shared; consumer-grant invalidation is not. Canonical
+deletion, lost canonical visibility, principal invalidation, or an unverified
+principal remap makes the source unavailable to both consumers. Once a remap is
+verified, each consumer re-evaluates it under its own current origin/E2EE grant.
+Revoking Memory collection, including its E2EE overlay, immediately invalidates
+affected pending Memory proposals but does not erase Search eligibility.
+Revoking Search eligibility removes or suppresses Search results but does not
+invalidate a Memory proposal or a separately reviewed kept claim. A kept
+Memory claim remains governed by its separate operator review and current
+namespace scope.
 
 A `role == "user"` field is not identity proof. Only a message whose principal
 the canonical conversation boundary verifies as the operator may originate a
@@ -332,19 +354,50 @@ claim. Assistant messages may be read only as bounded, transient
 disambiguation context and are never persisted as proposal provenance or claim
 authority.
 
-**Span provenance makes that enforceable** (added by the third readiness pass).
-Every field of an accepted claim must map to a recorded operator-authored
-source span, and the proposal persists the span reference per field. Bounded
-assistant context may resolve deixis — pronouns, ellipsis, "the second one" —
-and may never supply a field value; a proposal with an uncovered field is
-refused and counted. The earlier formulation asked acceptance to prove
-assistant text carried "no corroboration weight", which is not provable: once
-that text is in an opaque local model's prompt, its influence cannot be
-measured. Span coverage is instead a deterministic property of the stored
-proposal, so the invariant becomes a real gate rather than an assertion. Trace and objective identifiers may be attached as typed
-correlation references, but consolidation does not read trace/objective bodies
-as claim sources. Secrets and credential-shaped material are hard-dropped
-before any proposal record is written.
+That check is implementable from durable, additive admission evidence rather
+than a current-role guess. Every provider-backed message reference records the
+exact `thread_channel_ref_id` used for admission, an immutable domain-separated
+`origin_principal_digest` snapshot, and its `principal_normalizer_version`.
+The thread-ref foreign key identifies the exact origin row; the separate digest
+is required because that row is updated as provider metadata changes. Corpus
+reauthorization normalizes the currently enabled external identity mapping with
+the recorded version and requires its digest to match both the admission
+snapshot and the canonical message's operator/user ownership. It never stores
+a current mapping version as substitute authority.
+
+Verified local Web, CLI, and TUI messages need no fabricated provider row: they
+remain eligible only when canonical `message.user_id` matches the requested
+operator and the current source classification is local. Assistant rows carry
+assistant authorship and may be Search-visible but never originate Memory.
+Existing provider-backed rows are backfilled only when exactly one durable
+thread ref for the message's canonical thread/channel/account contains a
+principal digest that currently maps to that same canonical operator. Ambiguous,
+missing, disabled, or conflicting evidence is marked
+`legacy_principal_unverified` and is ineligible for both Memory collection and
+external-history Search until an explicit identity repair; implementation never
+guesses or broadens access to preserve recall.
+
+**Span provenance makes that enforceable for consolidation-produced
+conversation proposals.** Every semantic field records the canonical source
+id and digest, UTF-8 byte start/end, raw-span digest, normalized field value,
+and a versioned deterministic transform kind. The
+allowlist is intentionally small (for example trim, case normalization, and a
+calibrated date transform); arbitrary model rewriting cannot create grounding.
+At review, the canonical span is read again and its source/span digest must
+still match. Bounded assistant context may resolve deixis only to another
+operator-authored span. If a field value exists only in assistant text, the
+extractor abstains and counts the refusal.
+
+This grounding rule does not invent conversation spans for explicit operator
+remember/update actions, confirmed manual imports, or confirmed legacy drafts.
+Those paths carry typed actor/action provenance and their exact input or
+revision digest instead. Trace and objective identifiers may be attached as
+typed correlation references, but consolidation does not read trace/objective
+bodies as claim sources. Secrets and credential-shaped material are hard-
+dropped before any proposal record is written. The earlier formulation asked
+acceptance to prove assistant text carried "no corroboration weight", which is
+not measurable once it enters an opaque model prompt; the persisted grounding
+record is the deterministic gate.
 
 #### Proposals retain claims, not transcripts
 
@@ -367,6 +420,25 @@ review freezes the visible proposal revision ids and digests, records a durable
 per-item outcome, allows explicit partial success, and resumes idempotently.
 An item that became stale, changed digest, lost eligibility, or failed
 re-authorization is skipped rather than accepted from the old batch snapshot.
+
+Keep/Edit has an explicit cross-store recovery protocol rather than pretending
+the Repo and markdown filesystem share a transaction. The frozen proposal
+revision/digest, operator/namespace, and normalized review-decision payload
+digest (including edited claim, validity, and relationship fields) derive a
+deterministic claim-transition id. Review first persists an `applying` phase,
+temporarily freezing the normalized decision payload and digest in the existing
+proposal row, then appends the canonical claim transition with that id, then
+reduces the proposal to its content-free terminal outcome. On retry or startup
+reconciliation, a matching canonical transition completes the terminal
+reduction; an absent transition repeats current Corpus principal/grant/digest/
+classification authorization before safely retrying the same frozen payload.
+An already-ineligible source becomes stale. The last successful authorization
+before append is the linearization point; a later canonical deletion changes
+provenance availability but does not revoke the reviewed claim. A changed
+decision payload or conflicting transition fails closed for a new preview/
+operator repair. Crash injection after each phase must prove that
+review cannot append the same claim twice, accept a different edit under the
+old id, or leave a successfully kept proposal indefinitely content-bearing.
 
 Source revocation or deletion invalidates an unreviewed proposal immediately.
 A separately reviewed and kept Memory claim remains until an explicit Memory
@@ -420,16 +492,77 @@ accepted keep/edit revision, followed only by reviewed correction/change,
 archive/restore, retirement, manual-import confirmation, and review transitions.
 Unreviewed proposals stay in the inert proposal store. Each claim revision
 records its previous-revision hash and own canonical-content digest. Compiled
-Memory projections are disposable. A raw well-formed append is a pending manual
-revision, not authority: it remains quarantined until the operator confirms that
-exact revision through the registered one-claim repair/import action. The action
-appends a content-free `manual_import_confirmed` transition referencing the
-unchanged pending revision digest and authenticated with a distinct domain-
-separated integrity tag from existing Key Custody. Rebuild accepts the manual
-revision only when that valid transition immediately follows it; no Repo ledger
-becomes a second authority. A broken hash link, duplicate/reordered revision,
-mutation/removal of prior content, or missing/invalid confirmation tag
-quarantines the claim. Manual file content never silently acquires authority.
+Memory projections are disposable.
+
+Digest links alone cannot distinguish an action-written transition from text a
+file editor fabricated. Therefore every post-v1.3 authority-bearing native
+transition records its non-secret integrity-key reference/version and an HMAC-
+SHA-256 tag over the versioned canonical transition tuple fixed by ADR 0002.
+Accepted keep/edit, explicit remember/update, correction, archive/restore,
+retirement, legacy adoption, and review transitions all use the native-
+transition domain. A raw well-formed append has no such tag and is a pending
+manual revision, not authority: it remains quarantined until the operator
+confirms that exact revision through the registered one-claim repair/import
+action. That action appends a content-free `manual_import_confirmed` transition
+which binds the unchanged pending revision and whole prior-chain digest under a
+separate manual-confirmation domain. Rebuild accepts it only when the local tag
+verifies and no content revision intervenes. A broken hash link, duplicate or
+reordered revision, mutation/removal of prior content, fabricated native event,
+or missing/invalid tag quarantines the claim. No Repo ledger becomes a second
+authority, and file content never silently acquires authority.
+
+The one 32-byte per-Home secret is auto-provisioned before the first native
+write using shared ref `secret://system/integrity_v1` (record version `1`)
+through the existing Settings Secrets/Key Custody implementation's serialized
+system-secret `fetch_or_create` operation; it commits before any claim write.
+Claim transitions, manual confirmation, destination-
+chain confirmation, and Forget suppression use the four exact domains in ADR
+0002. A Home with no durable reference to the shared version may create it once;
+any TUI/Memory/Search/delete-preview reference prevents silent replacement.
+Missing native-event
+keys quarantine affected streams and block new writes; a missing Forget key
+also keeps proposal production fail-closed. There is no automatic material
+rotation. Settings master-key changes rewrap the same secret, and referenced
+old versions remain available. This operational dependency is intentionally
+one helper on the existing key seam, not a Memory key service.
+
+A same-Home restore with the original secret verifies normally. Moving claim
+files to another Home does not export that secret, so structurally valid streams
+remain readable but quarantined there. After an exact preview, one registered
+action may append `destination_chain_confirmed`, authenticating the unchanged
+whole-chain digest under the destination key and destination-chain-confirmation
+domain. That is a new destination-operator grant, not a claim that the source
+tags verified locally; it rewrites
+nothing and any chain change requires a new confirmation. This preserves
+readable file portability without creating key export or cross-Home trust
+infrastructure.
+
+Projection updates are retryable consequences of canonical transitions. An
+incremental accepted/reviewed mutation advances a projection revision; only a
+full rebuild or schema/configuration change promotes a new generation. Before
+prompt insertion, the bounded top-N projection candidates are rechecked through
+the canonical claim reader for claim id, revision digest, kept/current state,
+namespace, and Forget suppression. A mismatch is omitted immediately and
+queues ordinary projection repair. Thus a crash after archive, correction, or
+Forget cannot make a stale projection authoritative or place the stale fact in
+a prompt.
+
+Startup ownership is ordered without adding a coordinator. The supervised
+`Memory.Projection` process first discovers and verifies every tombstone and
+installs the fail-closed suppression set; it does not announce retrieval-ready
+or allow proposal production before that step completes. It then validates the
+current projection generation against canonical claims and records whether
+repair is needed. Pending tombstones or proposal/legacy-draft `applying` rows
+cause a bounded dirty kick of the existing `memory-index-rebuild` managed
+identity. Its registered repair action always completes tombstone cleanup
+before retrying applying rows, then repairs the projection. Every applying retry
+also passes through the claim writer's final tombstone check, so startup cannot
+recreate a forgotten value. If Jobs is paused or repair fails, reads and
+proposal production affected by pending recovery remain suppressed/degraded;
+unrelated canonically verified claims may still serve. A missing tombstone key
+retains the stricter global proposal-production pause. The explicit repair
+action remains available, and the projection process never performs domain
+effects or bypasses Runner itself.
 
 The two temporal axes are genuine and separate:
 
@@ -445,25 +578,81 @@ instant” language and any implementation that mutates the prior markdown entry
 in place.
 
 Pre-v1.3 entries project as deterministic synthetic revision 0 streams without
-a bulk rewrite. Their first lifecycle mutation performs a lazy upgrade by
-appending the first native event while retaining the legacy content and its
-digest. Archive/retire is a reversible appended transition and retains the full
-claim history.
+a bulk rewrite or retroactive tag. ADR 0002 fixes their synthetic claim id as
+UUIDv5 namespace `3a933b90-6d58-5d8c-9cdb-1233c996532f` over
+`legacy-memory-v1\0<category>\0<normalized-Home-relative-path>`; it never reads
+or hashes claim text or its normalized value. Before adoption, a rename is a
+removed legacy source plus a newly discovered one. Their first lifecycle
+mutation appends the requested signed native transition with a
+`legacy_adopted` envelope binding the synthetic id and complete legacy-file
+digest; the embedded id then survives later moves. Two files declaring one
+embedded id, or an otherwise impossible synthetic collision, quarantine both
+instead of selecting by timestamp or path. Forget suppression remains value-
+bound, so moving or copying an unadopted forgotten value under a new synthetic
+id cannot resurrect it. Archive/retire remains a reversible appended transition
+and retains the full claim history.
+
+All write paths use the single per-claim serialized
+`Memory.Claims.append(claim_id, expected_tail_digest, transition)` interface
+from ADR 0002. Under its
+claim lock, the writer rereads the full chain, rejects a stale expected tail,
+recognizes an identical deterministic transition as a retry, and rechecks
+pending/completed tombstones immediately before commit. It writes one complete
+same-directory temporary file, syncs it, atomically renames it, and syncs the
+parent directory before unlocking. Replacements preserve the existing mode;
+new streams use the private Memory-file default. Detected concurrent raw edits
+are preserved and return a typed stale-tail/manual-repair result; abandoned
+temporary files never enter discovery. This serialized compare-and-append is the
+linearization seam for proposal review, explicit actions, legacy drainage,
+Archive, and Forget-adjacent writes—no surface implements its own writer.
 
 #### Confirmed Forget is the narrow immutability exception
 
-Forget is a separately confirmed, audited operator action. It removes the claim
-stream and every active Allbert-managed content copy tied to that claim:
-Memory-projection rows/WAL state, any still-content-bearing proposal record,
-and any durable review/batch payload. Review excerpts are transient and must
-not survive the request. Content-free proposal/batch outcome identifiers may
-remain for audit, alongside the tombstone: claim id, deletion time, actor,
-reason, non-secret key reference/version, and a keyed per-Home suppression
-token. The token is an HMAC of the normalized forgotten claim under a
-domain-separated key derived through existing Key Custody; it stores neither
-the value nor a reversible digest. It
-suppresses re-proposal of that exact forgotten claim while allowing a genuinely
-new value for the same subject/predicate.
+Forget is a separately confirmed, audited operator action with a tombstone-
+first, fail-closed recovery protocol. Its durable confirmation binds claim id,
+expected tail digest, suppression-normalizer version, and the closed reason code;
+the exact claim preview is fetched transiently and is not copied into the
+confirmation record or audit. Before removing claim content it writes a single
+content-free Markdown tombstone at
+`<memory_root>/tombstones/<claim_id>.md`, resolving `memory_root` through
+`AllbertAssist.Paths`, carrying the non-content-derived claim id, deletion time,
+actor, closed `reason_code`, `pending | complete` phase, non-secret key
+reference/version, normalizer version, and a keyed per-Home suppression token.
+The durable reason is one of `operator_requested`, `privacy`, `incorrect`,
+`superseded`, or `other`; `other` carries no free-form suffix. Any human
+explanation is transient and redacted, never copied to the tombstone,
+confirmation result, trace, or audit. This file, not a Repo ledger or projection
+row, is the durable suppression/recovery authority. The token is an HMAC of the
+versioned normalized forgotten claim under the Forget domain fixed above; it
+stores neither the value nor a reversible digest. A pending tombstone
+immediately denies proposal production and canonical Memory retrieval exactly
+as a complete one does.
+
+The action then idempotently removes the canonical claim stream and every
+active content-bearing record linked by claim/transition/source digest. That
+traversal includes proposal, applying-review, frozen-batch, legacy memory-
+suggestion/draft metadata, and legacy draft artifact payloads; it preserves
+only content-free ids, digests, typed outcomes, and provenance references.
+It then rebuilds or repairs the disposable projection from remaining claims,
+retires obsolete generation files/sidecars, and marks the tombstone complete.
+Startup and explicit retry reconcile pending tombstones in the order above.
+Review excerpts are transient and must not survive the request. The versioned
+predicate suppresses re-proposal or applying-retry append of that exact
+forgotten claim while allowing a genuinely new value for the same subject/
+predicate and prevents a future normalizer change from silently resurrecting
+the old value.
+
+The success guarantee is logical and product-facing: no Allbert Memory
+Interface returns the claim, no prompt receives it, no active proposal carries
+it, and no openable/current or startup-recoverable projection generation
+contains it. Core SQLite `secure_delete` and a bounded WAL checkpoint are used
+for affected Repo proposal rows where supported, and obsolete disposable
+projection databases are removed wholesale,
+but SQLite free pages, a busy/untruncated WAL, deleted files, and storage media
+may retain forensic remnants. Those physical cleanup steps are bounded best
+effort and are never described as cryptographic or forensic erasure. A failed
+required logical/rebuild phase leaves the tombstone pending and visible for
+retry rather than returning a false completed result.
 
 Forget makes no promise about copies outside active Allbert-managed data,
 including pre-Forget Repo/Home backups, snapshots, exports, filesystem
@@ -479,7 +668,31 @@ deletion removes what was said — but because v1.3 ships conversation search in
 the same release, the retained searchable conversation is named in the
 pre-confirmation disclosure beside the backup boundary, and the disclosure
 points to the confirmed canonical conversation delete action for an operator
-who wants both. An operator reading "Forget" as "erase" would otherwise be
+who wants both.
+
+For the boundary this ADR relies on, that action accepts
+`target_kind: message | thread` and binds confirmation to the exact
+conversation-owned cascade. A message preview includes its row id/version/
+content digest and every message-reference row id/version. A thread preview
+also includes the thread row id/version, the stable ordered set of message
+ids/versions/content digests, and every thread/message-reference row id/version.
+The canonical Repo transaction recomputes the whole set before deleting it; any
+addition, removal, or version change makes the approval stale. The already-
+approved confirmation id and bound preview are the retry key rather than a
+fictional transaction with the filesystem confirmation store. After a commit,
+the same approved request against an absent target returns `already_deleted`
+and re-drives idempotent Search/proposal reconciliation; a fresh request for an
+absent target returns `not_found`.
+
+The cascade removes only Conversations-owned canonical message/thread and
+provider-reference rows, then causes Search reconciliation. Cross-domain
+Objectives, traces, jobs, drafts, and separately kept Memory are preserved;
+their source links become unavailable and any copied content they independently
+retain remains governed by their own lifecycle. The pre-confirmation disclosure
+names those active Allbert-managed copies as well as the messaging provider's
+server copy, exports, snapshots, and backups. The action is deliberately
+canonical-copy deletion, not a hidden cross-domain erasure cascade. An operator
+reading "Forget" or canonical delete as global "erase" would otherwise be
 misled about precisely the thing they were protecting.
 
 The current redacted portability envelope carries neither suppression tokens
@@ -524,6 +737,44 @@ with its own major-version process; `delete_memory_entry`'s existing role as a
 compatibility alias for archive is the precedent. The per-item table lives in
 the v1.3 plan under Current Code State.
 
+The producer cutoff is at
+`AllbertAssist.SelfImprovement.Discovery.suggestion_type/1`: after v1.3 it no
+longer creates new `memory_promotion` or `memory_update` suggestions. The
+legacy suggestion/store schemas and promote actions continue recognizing both
+kinds so existing rows can drain. Promotion re-authorizes the exact frozen
+draft digest, requires the existing operator confirmation, and appends through
+the one authoritative claim writer as typed `legacy_confirmed_draft`
+provenance. It never writes a kept entry through the old direct Memory path and
+does not fabricate conversation-span provenance that an old draft cannot have.
+After the canonical append commits, the drain protocol replaces the legacy
+draft's YAML payload, promotion detail, and content-bearing diagnostics with a
+content-free terminal outcome and removes its separate artifact file. The
+public action/result shape remains callable, but drained content fields return
+empty/unavailable rather than retaining a second claim copy. Until that scrub
+commits, the draft stays in a recoverable `applying` phase keyed by its exact
+draft/transition digest. Startup uses §8's ordered managed repair, and Forget
+traverses this phase plus the metadata/artifact before completion. A retry whose
+value matches a pending or complete tombstone is reduced to a content-free
+`forgotten` outcome and can never reappend the claim.
+
+Compatibility is per caller, not a new second index. `search_memory` preserves
+its response shape and bounded canonical-markdown fallback when the projection
+is disabled or unavailable. Intent preserves its existing disabled=no-indexed-
+candidate behavior, while direct-answer Active Memory remains independently
+projection-backed. `compile_memory_index` preserves its public shape while
+targeting the retained `memory-index-rebuild` managed entry; the review cadence
+and configured caps feed that one projection. `prune_nominated` and the
+existing prune action route to reversible archive transitions. The auto-promote
+setting remains readable/writable but deprecated and inert; implementation does
+not rewrite operator state merely to make it false.
+
+At upgrade, only a row with exact legacy
+`template_name: memory-index-rebuild`, `managed_by: memory.review_cadence`, compatible target,
+and canonical local operator is adopted in place. Its id, run history, allowed
+cadence, and pause survive while new owner/spec metadata and the projection
+target are installed atomically. A template-only or otherwise ambiguous row
+degrades as `managed_name_conflict`; it is never guessed into system ownership.
+
 The consequence worth stating at ADR level: after v1.3 there is exactly one
 memory-index authority, one managed memory-index entry per Home, and one
 system-suggests-memory surface. An operator sees one review workflow, not two,
@@ -540,14 +791,20 @@ and no code path honors an auto-promotion setting.
   zero-shot uplift is the flagship's acceptance bar, not an aspiration.
 - Retrieval cost stops scaling with corpus size (index-backed candidates)
   — a precondition for consolidation being safe to leave on.
-- The v0.47 draft pipeline and explicit "remember" paths are unchanged;
-  consolidation writes only the separate inert proposal store, whose accepted
-  items append through the same authoritative claim path as reviewed writes.
+- The v0.47 store/promotion shapes remain only to drain existing drafts; their
+  discovery producer stops creating new memory drafts, exact-digest confirmed
+  legacy promotions use the authoritative claim writer, and explicit
+  "remember" paths use that same writer.
 - Collection eligibility is principal-verified and re-authorized at review;
   message role and stale source snapshots grant nothing.
 - Append-only claim streams preserve reviewed history and quarantine manual
   tampering, while confirmed Forget remains one narrow, honest deletion
   exception.
+- Native claim authority now depends on one existing-Key-Custody per-Home
+  integrity secret; losing referenced material fails closed and destination
+  portability requires explicit whole-chain confirmation.
+- Canonical conversation deletion is exact and retryable but intentionally
+  preserves cross-domain records; its disclosure names those retained copies.
 - Search and Memory remain independent consumers of the conversation corpus;
   neither one's projection is authority for the other.
 - v1.4's profiling reads the same episodic sources and proposes through
@@ -574,8 +831,9 @@ and no code path honors an auto-promotion setting.
   `:kept` fact; it can only propose the retirement.
 - **No role-only collection and no Search-to-Memory promotion.** A verified
   principal and the Memory-specific collection policy are required.
-- **No claim field without an operator-authored span.** Assistant context
-  resolves deixis only; an uncovered field refuses the proposal.
+- **No ungrounded field in a consolidation-produced conversation proposal.**
+  Assistant context resolves only to operator-authored spans; explicit writes,
+  manual imports, and legacy drafts use their typed action/digest provenance.
 - **No deletion of legacy public shapes in v1.3.** Absorption keeps them
   responding; removal is a later Tier-2 decision.
 - **Forget does not delete conversations.** The originating message stays
@@ -601,11 +859,44 @@ The second readiness amendment additionally requires principal-spoof denial,
 collection-class and E2EE opt-in rows, protected-proposal Keep-All denial,
 stale-review re-authorization, hash-chain tamper quarantine, legacy-revision
 lazy upgrade, manual-append quarantine followed by exact-revision confirmed
-import, archive/restore, one collection grant without per-run prompts, and
-confirmed Forget across every active content-bearing claim/proposal/review/
-projection/WAL copy without same-predicate overblocking. Portability validation
-proves same-Home restore with the original tombstone/key, redacted-envelope
-exclusion, and fail-closed copied tombstones with a missing/mismatched key.
+import, archive/restore, one origin-scoped grant without per-run/per-DM prompts,
+and consumer-grant-specific revocation. Review crash injection covers `applying`,
+canonical append, and terminal reduction without duplicate claims. Forget crash
+injection covers tombstone-first denial, every cleanup phase, idempotent retry,
+bounded canonical read-through, and honest logical-versus-forensic deletion
+results without same-predicate overblocking. Portability validation proves
+same-Home restore with the original tombstone/key, destination-Home exact-
+whole-chain re-confirmation without key export, redacted-envelope exclusion, and
+fail-closed copied tombstones with a missing/mismatched key. Legacy validation
+proves the actual discovery producer emits no new memory drafts while one
+exact-digest confirmed existing draft reaches the authoritative claim writer.
+
+The final readiness contracts add focused rows for:
+
+- fabricated but correctly hash-chained native transitions, which quarantine
+  without a valid native-domain tag; first-write key provisioning, master-key
+  rewrap with unchanged material, referenced-version retention, and missing-key
+  write denial;
+- two distinct concurrent appends from one tail, which produce one commit and
+  one typed stale-tail result without lost content, plus crash injection before
+  file sync, rename, and directory sync;
+- deterministic legacy ids, pre-adoption rename semantics, signed first
+  adoption, duplicate embedded-id quarantine, and value-bound suppression after
+  a copied/renamed legacy file;
+- exact external-message thread-ref/principal evidence, verified local-message
+  eligibility without a provider ref, identity remap denial, deterministic safe
+  backfill, and ambiguous legacy rows excluded from both consumers;
+- startup with pending tombstones and applying proposal/draft rows, proving
+  suppression is installed first, tombstone cleanup precedes append recovery,
+  paused Jobs remains fail-closed, and explicit repair is idempotent;
+- successful and crash-interrupted legacy-draft promotion, proving the YAML
+  payload and artifact are scrubbed and a concurrent/later Forget cannot be
+  resurrected by recovery;
+- tombstones and durable confirmation/audit summaries containing only the
+  closed reason code and no free-form explanation; and
+- canonical message/thread deletion with a changed reference-row cascade,
+  same-confirmation crash retry, fresh absent target, Search reconciliation,
+  preserved cross-domain records, and exact retained-copy disclosure.
 
 The Accepted flip requires the full propose→review→retrieve chain proven
 end to end, the measured zero-shot corpus result (uplift, token delta,

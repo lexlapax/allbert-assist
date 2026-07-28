@@ -1370,11 +1370,41 @@ thirteen-row green is not relabelled as corrective evidence:
   once-only disclosure, direct step entry, and action-backed model selection.
 
 The original thirteen-row first roll and its post-refresh reruns passed all
-inherited and then-current v1.2 steps. Corrected fourteen-row `release.v12`
-evidence is pending a clean pushed replacement SHA. Evidence is written under
-the gate-owned temporary Home at `release_evidence/v12/`. Security evals remain
-serial, and configured-provider/model/browser smokes remain separate real
-runtime evidence; neither is replaced by a canned release-gate fixture.
+inherited and then-current v1.2 steps. The corrected gate later carried fifteen
+authority rows after final reconciliation and passed at clean pushed validated
+product SHA `4e712afe9e02494bc634cf1d068dffdcaa1a450a` with zero failures across
+the inherited and v1.2 steps (`release-v12-1785211078.json`). The uninterrupted
+authoritative aggregate then passed in 4,208 seconds, including 2,156 high-
+coverage tests, 622 external-runtime tests (12 expected skips), 377 security
+evals, 327 web tests, 198 StockSage tests, 35 channel-plugin tests, and Dialyzer
+with zero failures/errors. Stable tag `v1.2.0` is the Markdown-only descendant
+`af7b8848`; historical evidence is not relabelled as tag-byte execution.
+Evidence lives under the gate-owned temporary Home at
+`release_evidence/v12/`. Security evals remain serial, and configured-provider/
+model/browser smokes remain separate real-runtime evidence.
+
+### Future Point/Minor Gate Composition — 2026-07-28
+
+`release.v121` is planned as the exact ordered `release.v12` prefix plus focused
+license-finalizer/viewer and daemon-TUI protocol contracts. `release.v13` is
+planned as the exact ordered `release.v121` prefix plus focused Corpus, Memory,
+Search, Jobs, security, compatibility, and surface contracts. Before relying on
+either prefix, the gate emits its ordered step list and the release evidence
+records structural prefix equality at the candidate SHA. Do not serially rerun
+every inherited versioned gate when that equality is proved; retain the older
+gate as fallback when it is not.
+
+The active v1.3 plan names exact focused files and serial lanes per milestone.
+License catalog/finalizer fixtures and TUI packet/state-machine tests are source
+gates; native archives, the toolchain-free packaged viewer, protected-promotion
+evidence, real PTY/TTY behavior, and installed daemon continuity are external
+artifact rows. Corpus/Memory/Search/Jobs SQLite and application-state suites
+remain in their named DB/app-env/home/process lanes; security evaluations stay
+single-VM serial. Real local-model quality, configured messaging identities,
+E2EE disclosure, and packaged native SQLite behavior are explicit external/FV
+rows and never enter `fast-local`. One version-specific gate and one
+authoritative aggregate at the same clean pushed SHA remain the release rejoin;
+focused remediation does not repeatedly rebuild or rerun the aggregate.
 
 ## Migration Order
 

@@ -2,14 +2,21 @@
 
 ## Status
 
-Proposed (v1.3, operator-signed readiness decision 2026-07-28). Binding on the
-Search Central milestone in the v1.3 plan; flips Accepted when the central API,
-canonical re-authorization, generation lifecycle, recurring maintenance,
-surface scope rows, and packaged native-runtime proof are green.
+Proposed (v1.3, operator-signed final readiness decision 2026-07-28). Binding
+on the Search Central milestone in the v1.3 plan; flips Accepted when the
+central API, canonical re-authorization, generation lifecycle, recurring
+maintenance, surface scope rows, and packaged native-runtime proof are green.
 
 This ADR supersedes ADR 0089 §6's conditional external-content FTS design.
 Search ships as a central read product and point milestone without becoming a
 Memory authority or displacing Long-Term User Memory as the v1.3 flagship.
+
+The operator-signed final readiness pass makes origin-scoped grants,
+per-message origin evidence, Jobs-owned dirty wakeups and atomic admission,
+policy-bound repair/rebuild epochs, post-authorization page refill, trace-safe
+query confirmation, bootstrap, and canonical delete targets binding. These
+additions close execution ambiguity without adding a scheduler, encryption
+layer, deletion ledger, query-grant store, or generic projection framework.
 
 Related: ADR 0002 (canonical records versus projections), ADR 0006 (Security
 Central), ADR 0016/0057 (channel identity/thread scope), ADR 0070/0073
@@ -51,12 +58,11 @@ different corpora with different authority models — claims are operator-curate
 and enter prompts, conversation rows are canonical history that never does — and
 the operator documentation names both.
 
-Result DTOs, the query grammar, and scope filters carry a `source_type`
-dimension from this first version, fixed to conversation in v1.3. Notes and
-files already ship as local knowledge and are the plausible second corpus;
-without the dimension present from the start, adding one later would be a
-breaking change to a Tier-2 contract instead of an additive one. Reserving the
-dimension is not a commitment to index anything else in v1.3.
+Result DTOs may carry the optional constant `source_type: :conversation` as an
+additive discriminator. The v1.3 query/filter grammar does not branch on
+speculative corpora; another source type requires a separately accepted corpus
+adapter and can extend the optional field additively. Notes and files are not
+committed by this reservation.
 
 `AllbertAssist.Conversations.Corpus` is the canonical conversation authority.
 It classifies source visibility and principal/surface/thread eligibility,
@@ -69,17 +75,29 @@ back to an unbounded scan of canonical conversation tables.
 
 Search uses a dedicated plaintext `search.sqlite3` under Allbert Home, separate
 from the canonical Repo database and excluded from authoritative backups. It is
-safe to delete and rebuild. The database contains:
+safe to delete and rebuild. Each generation contains:
 
-- one ordinary **content-storing** FTS5 table with indexed text plus unindexed
-  stable source id, canonical digest, timestamp, and scope/classification
-  fields; and
-- the minimum generation/schema/tokenizer/source-watermark metadata needed to
-  verify and promote a generation.
+- one ordinary **content-storing** FTS5 table whose rowid identifies the
+  searchable redacted text;
+- one ordinary content-free locator table with `fts_rowid INTEGER PRIMARY KEY`,
+  a unique `(source_type, source_id)`, canonical source version/digest, timestamp
+  in one frozen integer unit, author/origin/surface/channel/thread/trust/source-
+  class fields, and the projection-revision fields needed by repair; and
+- the minimum generation/schema/tokenizer/redactor/source-watermark metadata
+  needed to verify and promote a generation.
+
+The locator, not an FTS `UNINDEXED` column, owns uniqueness, exact source lookup,
+typed-filter metadata, and deterministic chronological tie-break fields. SQLite
+virtual tables cannot receive normal secondary indexes, so M1 freezes the small
+set of locator B-tree indexes required by the shipped filters/orders. Projection
+upsert/delete mutates the locator, FTS row, and generation revision/watermark in
+one Search-database transaction. It preserves the integer rowid for an existing
+source and verifies a one-to-one locator/FTS pairing. No second table duplicates
+message text.
 
 It does not use external-content FTS, a duplicate local content table with
-triggers, or cross-database transaction claims. Text duplication is accepted
-inside this disposable projection because it removes a second synchronization
+triggers, or cross-database transaction claims. Text storage inside the FTS
+table is accepted because it removes a second content synchronization
 mechanism. SQLite WAL improves reader/writer concurrency but still permits only
 one writer for this database.
 
@@ -98,15 +116,87 @@ payloads, secrets, deleted/hidden rows, and non-conversation trace material are
 excluded. Index ingestion accepts only typed Corpus documents; an arbitrary
 role or surface-supplied map cannot become searchable.
 
+Remote source scope is per message, not inferred from canonical-thread
+membership. An admitted remote operator message binds the exact canonical
+thread-channel reference plus an immutable normalized origin-principal digest
+and version. An assistant message produced for that request persists a
+versioned, server-derived origin tuple — `owner_scope`, channel,
+`receiver_account_ref`, `provider_thread_key`, and canonical thread — from the
+verified admitted request. Caller-supplied message metadata cannot manufacture
+that evidence. A mapped-DM default-scope match requires the whole current origin
+tuple **and** canonical thread to match. This prevents a canonical thread that
+has been resumed or linked across surfaces from laundering local or another
+channel's history into the DM. Historical remote assistant rows whose exact
+origin cannot be proved are `legacy_origin_unverified`: local all-history Search
+may return them after ordinary canonical authorization, but mapped-DM default
+scope may not.
+
+Deterministic Search result-render turns carry a typed action/result marker and
+are excluded from the Search projection. Their canonical conversation/provider
+copies remain subject to ordinary retention, but snippets are not recursively
+indexed as new same-channel search sources.
+
 Every candidate is re-read or re-authorized through
 `Conversations.Corpus` immediately before return. A missing/deleted source,
 changed canonical digest, identity remap, visibility change, or scope denial
 drops the hit. The index never grants access merely because it still contains
 text.
 
-Canonical retention remains unchanged. Canonical conversation deletion is in
-v1.3 scope and becomes an input to reconciliation/purge; Search Central does
-not invent a separate canonical retention policy.
+Canonical retention remains unchanged. v1.3 adds the separately confirmed,
+registered `delete_conversation_content` action with
+`target_kind: message | thread`. It is `resumable?: true` and is explicitly
+allowlisted through the existing generic confirmation-resume path; its stored
+resume parameters contain only verified canonical user/operator id, target
+kind/id, non-secret key ref/version, and the opaque server preview binding. The
+target must belong to that user. The binding uses
+`allbert.conversations.delete-preview.v1` over the user/operator id plus message
+id/version/content digest, or thread id/version plus the stable ordered exact
+conversation-owned cascade of message and channel/message-reference row
+identities, versions, and content digests, followed by a versioned ordered
+known-core survivor/blocker count vector and disclosure version. A caller may
+also supply an optional expected digest, but resolved confirmation state does not retain plain
+content-derived hashes.
+
+Approval recomputes that complete cascade and bound count/disclosure vector
+inside the immediate canonical Repo transaction. A concurrent append,
+reference, or known-core dependency change makes the confirmation
+stale instead of expanding its authority. Message deletion removes the one
+message and conversation-owned message references; thread deletion uses only
+the existing conversation thread/message/channel-reference cascade. Message
+deletion also recomputes `conversation_threads.last_message_at` from surviving
+messages, using `MAX(conversation_messages.inserted_at)` and falling back to the
+thread's own `inserted_at` when none survive. A thread title previously derived
+from the deleted message is retained and disclosed because the current schema
+has no title-provenance field; v1.3
+does not invent one merely to guess whether an operator renamed the title.
+
+The durable pending confirmation id and bound preview are the idempotency key.
+If the Repo commit succeeds but confirmation resolution does not, retrying that
+same pending approval finds the target absent, returns `already_deleted`, and
+re-drives idempotent Memory-stale/Search-dirty work. A fresh request for an
+absent target returns `not_found`. No cross-store transaction, action-receipt
+row, or deletion-ledger table is added.
+
+Before thread deletion, a best-effort known-schema inventory blocks on live
+execution-bearing references — active origin-thread Jobs/objectives,
+nonterminal fan-out delivery, or open workspace state — and returns finish,
+cancel, or rehome guidance. Approval rechecks those blockers inside the same
+immediate Repo transaction as the cascade. Historical Jobs/runs, objectives,
+StockSage rows, channel events/deliveries, artifacts, traces, and closed
+workspace state remain
+separately governed records whose readers show unavailable provenance. Unknown
+plugin copies are disclosed rather than covered by a false universal-cascade
+claim. The action returns only safe target/outcome/count metadata and marks
+Search dirty for ordinary reconciliation.
+
+Pending Memory proposals or legacy drafts whose only provenance is the deleted
+source become content-free stale outcomes; separately kept Memory claims remain
+governed by Archive/Forget. For a message target, the action does not remove a
+retained thread title, separately governed record, provider/server copy, export,
+backup, snapshot, trace, or filesystem remnant. A thread target does remove its
+canonical thread row and title as part of the disclosed conversation cascade.
+Search Central does not invent a separate canonical retention policy or claim
+canonical deletion merely because an index row was removed.
 
 ### 4. Deliberately lexical query and deterministic page contract
 
@@ -124,29 +214,81 @@ can change collection statistics and therefore rank.
 
 Every committed ingestion/reconciliation mutation increments a monotonic
 projection revision in the current generation. Pagination cursors are opaque
-and bind at least the generation id, projection revision, normalized
-query/scope/order digest, and final ordering position. A cursor for a retired
-or mismatched generation/revision returns a typed stale-cursor error; it is not
-silently rebased onto differently ranked results after BM25 collection
-statistics change.
+and bind at least the generation id, projection revision, a domain-separated
+keyed normalized-request/scope/order binding, and final scanned ordering
+position plus non-secret key ref/version. The authenticated cursor uses
+`allbert.search.cursor.v1` with shared Key Custody ref
+`secret://system/integrity_v1` (record version `1`) and exposes no plain query/
+filter digest. The TUI milestone owns the additive system-secret
+`fetch_or_create` seam; Search creates no key service or additional Home key. A
+cursor for a retired or mismatched generation/revision returns a typed stale-cursor
+error; it is not silently rebased onto differently ranked results after BM25
+collection statistics change.
+
+Every Search/delete binding uses ADR 0091's shared two-step domain-key helper
+and canonical length-prefixed encoding. Search never handles the raw Home key
+outside that helper.
+
+Authorization filtering cannot underfill a page merely because stale or
+ineligible hits lead the ranking. Search overfetches candidates in bounded
+batches, re-authorizes each through Corpus, and continues until the requested
+page is full, the generation is exhausted, or a calibrated scan budget is
+reached. The cursor records the last **scanned** ordering tuple, not the last
+returned tuple, so filtered rows cannot loop or skip later eligible rows. The
+typed result includes scanned/filtered counts and an `incomplete` reason when
+the scan budget—not end of results—stops refill. Every surface receives this
+same behavior.
 
 ### 5. Surface policy is centralized and transport-aware
 
-- Verified local Web, TUI, and CLI operator surfaces are eligible to search all
-  history authorized to the local operator.
-- A verified mapped one-to-one operator DM defaults to its current
-  channel/thread. A request for cross-thread or cross-surface history requires
-  an explicit Security Central confirmation before any broader result is
-  returned.
+- Verified local Web, TUI, and CLI operator surfaces use the implicit/default-
+  on Search grant for origin scope `local_operator` and may search all history
+  authorized to the local operator.
+- A verified mapped one-to-one operator DM requires one Search-consumer grant
+  for origin scope `mapped_operator_dm`; that one grant covers current and
+  future verified mapped 1:1 DMs, not one prompt per channel. Query scope still
+  defaults to the intersection of the current canonical thread and the exact
+  current per-message origin tuple from §3. Canonical-thread membership,
+  channel name, or receiver account alone is insufficient. Cross-thread or
+  cross-surface history requires a second Security Central confirmation for
+  exactly one normalized query/cursor chain with bounded expiry.
+
+  The registered `authorize_search_query_scope` action is `resumable?: true`
+  and is explicitly allowlisted through the existing generic confirmation-
+  resume path. Its safe resume parameters contain the verified principal,
+  exact origin tuple, requested scope, expiry, source message id, safe filter
+  kinds/count, non-secret key ref/version, and an
+  `allbert.search.query-scope.v1` keyed request binding—not query text,
+  plain query/filter digests, operands, MATCH syntax, or snippets. Approval
+  invokes only this authorization action and returns
+  `query_resubmit_required`; it never executes the Search query from stored
+  confirmation state. The resolved confirmation id itself is the
+  `query_chain_id`, so no second query-grant table or index exists.
+
+  The client or DM adapter resubmits the exact transient request with that
+  confirmation id. An adapter may rehydrate the canonical source message by
+  id for this resubmission, but Search recomputes and verifies the keyed binding
+  against the still-current principal, origin, scope, expiry, and request before
+  admission; a missing or changed source is stale. Cursors bind that same
+  resolved confirmation and may paginate without another prompt until expiry,
+  scope change, or query-chain termination. A generation/revision change
+  invalidates the page cursor but permits an exact page-one resubmission under
+  the same still-valid query-chain binding; it does not manufacture or extend
+  another approval.
 - Group/shared, programmatic, unknown, and unmapped callers are excluded from
   Search in v1.3; transport or model output cannot elevate them.
 - E2EE-origin text requires the separate projection opt-in from §2 even when
   identity otherwise maps to the operator.
 
-Memory's `CollectionPolicy` and Search policy remain distinct. Eligibility to
+Memory's `CollectionPolicy` and Search policy remain distinct consumer grants.
+The verified `private_operator` trust class alone grants neither. Eligibility to
 search an assistant-visible message does not make that message eligible to
 originate a Memory fact. Search private/E2EE grants cannot authorize Memory
 collection, and Memory private/E2EE grants cannot authorize Search projection.
+Canonical deletion, lost canonical visibility, or principal invalidation
+suppresses both consumers; Search-only revocation does not stale Memory
+proposals, and Memory-only revocation does not remove otherwise eligible Search
+rows.
 
 ### 6. Verified generations, not in-place best-effort rebuilds
 
@@ -156,16 +298,50 @@ watermark and configuration, and verifies SQLite integrity, FTS integrity,
 expected eligibility/digest samples, schema/tokenizer version, and an actual
 create/insert/query smoke before promotion.
 
-Only a verified generation may be promoted. Promotion uses same-filesystem
-namespace rename only after `PRAGMA wal_checkpoint(TRUNCATE)` returns
-`busy = 0`, the builder connection closes, and a self-contained reopen plus
-integrity/query check proves no required `-wal`/`-shm` sidecar.
+`Conversations.Corpus` exposes two independent durable monotonic boundaries:
+the source high-water used to bound ordered ingestion and an
+`eligibility_epoch` used to invalidate work whose authorization population can
+shrink or move. Ordinary appends advance the source high-water and leave dirty
+work; they do not churn the eligibility epoch. Canonical deletion, visibility
+change, identity/principal remap or invalidation, Search-consumer grant
+revocation, and E2EE projection opt-out advance the eligibility epoch in the
+owning authority's mutation path. Schema, tokenizer, and redactor versions are
+separate generation-compatibility inputs rather than disguised source
+watermarks.
+
+Each reconciliation/repair run freezes its starting source high-water,
+eligibility epoch, projection revision, configuration versions, and starting
+index population. Its sweep removes only rows from that starting population;
+canonical writes after the high-water remain dirty for the next bounded run and
+cannot be swept as "missing." A full builder carries the same boundaries and
+must re-read them immediately before promotion. An eligibility-epoch or
+incompatible configuration mismatch aborts/restarts the builder; it never
+publishes an authorization-old snapshot. A source high-water advance alone
+does not discard an otherwise valid builder: promotion preserves that newer
+range as durable dirty work for immediate catch-up.
+
+Only a verified generation may be promoted. `Search.Projection`, the one writer
+and serving-handle owner, serializes promotion with queries and incremental
+writes. It stops new admissions, lets already-admitted reads finish within a
+bound, and closes both builder and affected current handles before namespace
+changes; a timeout leaves the current generation serving and aborts promotion.
+Promotion uses same-filesystem rename only after
+`PRAGMA wal_checkpoint(TRUNCATE)` returns `busy = 0` and a self-contained reopen
+plus integrity/query check proves no required `-wal`/`-shm` sidecar. After the
+fixed `current`/`previous` swap it opens and verifies the new current, publishes
+that handle, and only then re-admits calls. Failure reopens the untouched or
+retained previous verified generation and reports degraded state; no reader
+keeps a renamed live SQLite handle and no pointer-service abstraction is added.
 
 The Memory projection needs this identical sequence, so the checkpoint → close
 → self-contained reopen → integrity proof → atomic promote → retain-previous
 steps live in one small shared private helper rather than being written twice
 (v1.3 plan LD 62). Each domain keeps its own schema, verification predicates,
 generation metadata, and rebuild source; only the promote sequence is shared.
+Memory's first generation milestone owns the helper and its failure contract;
+Search may implement its schema/parser work in parallel but rejoins on that
+helper before its first promotion. The two real consumers use domain adapters;
+the helper does not become a public or extensible projection framework.
 This is not the generic projection framework the plan's complexity budget
 excludes — it is deduplication of the one subtle sequence whose failure mode is
 silent data loss. It retains
@@ -180,13 +356,71 @@ startup verification provide recovery.
 ### 7. Existing recurring Jobs own ingestion and maintenance
 
 Search adds no private scheduler. One small `Jobs.Managed` helper generalizes
-the existing managed-job sync pattern, and Search Central owns exactly three
-ordinary recurring-engine entries:
+the existing managed-job sync pattern over `scheduled_jobs` and
+`scheduled_job_runs`. Its identities are the deterministic reserved job names
+under the existing `(user_id, name)` unique constraint (the Repo already fixes
+the Home); it uses exact-name lookups and never a bounded list or metadata scan.
+Search Central owns exactly these three names:
 
-1. bounded incremental index/reconcile, with a durable canonical watermark;
-2. weekly bounded maintenance: prune/reconcile, FTS segment merge, integrity
-   check, and recorded health summary; and
-3. a paused/manual full rebuild entry used for repair and generation changes.
+1. `search-index`: bounded incremental ingest/reconcile, a coalesced dirty kick,
+   and hourly repair;
+2. `search-maintain`: weekly bounded prune/reconcile, incremental FTS merge,
+   integrity check, and content-free health summary; and
+3. `search-rebuild`: an **active** `manual`-schedule entry whose ordinary next
+   due is `nil`, used on demand for resumable repair and generation changes. It
+   is not represented as paused merely because it has no periodic due time.
+
+Reconciliation creates an absent reserved name once. An occupied name without
+the matching managed owner/spec, or a changed name, action, operation, or other
+invariant, produces `managed_name_conflict`/visible degraded repair guidance;
+it never overwrites an operator job, silently repairs an invariant, or creates
+a duplicate managed identity. The sole upgrade adoption is an existing
+`memory-index-rebuild` row whose exact legacy metadata has
+`template_name: memory-index-rebuild` and
+`managed_by: memory.review_cadence`, and whose local operator and target match
+the known legacy template. Reconcile preserves its id, run history, allowed
+cadence, and pause while atomically adding the new owner/spec metadata and
+retargeting the compatible rebuild action. A template-only or otherwise
+ambiguous row is a name conflict; this is not a generic adoption heuristic.
+Normal Jobs updates reject mutation of those
+managed invariants. The current Jobs interface has no generic delete operation,
+so v1.3 adds no deletion API merely to forbid it. If a generic delete seam is
+added later, it must reject positively identified managed rows while their
+spec exists and direct the operator to feature disablement.
+
+The durable job row is the authority for current allowed cadence and explicit
+operator pause; Settings Central supplies feature enablement, defaults, and
+bounds. Reconcile preserves an in-bounds operator cadence and pause instead of
+resetting them to defaults. Feature disablement gates admission and clears an
+effective due without erasing that operator intent, so re-enable cannot
+silently unpause a row. Canonical conversation writes only mark Search's
+durable source lag dirty and call `Jobs.Managed.kick/2` for `search-index`.
+A kick atomically advances a content-free managed wakeup sequence and moves the
+due time earlier only when the entry is active and feature-enabled. Paused or
+disabled entries retain dirty lag without acquiring a due time.
+
+Scheduler, manual, and dirty-trigger admission use one Jobs transaction, not a
+check followed by insert. It verifies effective eligibility, creates the
+`queued` run with its claimed due/wakeup sequence, and sets additive nullable
+`scheduled_job_runs.admission_key` to the job id. A partial unique index over
+non-null `admission_key` where status is `queued | running |
+needs_confirmation` closes the race. Pre-migration rows remain null and are not
+rewritten; the admission transaction still checks all legacy open rows before
+insert, while every post-migration path supplies the key. A competing trigger
+returns a typed coalesced/already-open outcome. Thus a manual run cannot overlap
+a scheduler run, and a
+queued or confirmation-blocked run is not mistaken for idle.
+
+The domain action executes outside that short transaction. Completion then
+atomically records the run result and reloads/merges the **current** job row; it
+never calls due advancement on the stale pre-action struct. An explicit pause
+or feature disable wins. Otherwise it consumes only the due/wakeup sequence the
+run actually claimed, preserves any later kick, and chooses the earliest of the
+next normal cadence, a later-kick due, and a bounded continuation due. A bounded
+Search action reports `complete | incomplete` plus its durable domain cursor;
+`incomplete` schedules that continuation in the completion merge rather than
+self-kicking before stale due advancement. This is the required lost-wakeup
+contract for every managed consumer, not Search-specific timer logic.
 
 One Search feature setting governs the ordinary local managed set; the operator
 does not consent to each internal maintenance entry separately. Scope
@@ -194,17 +428,32 @@ expansions such as E2EE projection remain separately opted in.
 
 That feature setting **defaults on for local Web, CLI, and TUI**, so a fresh
 Home can search its own history without first discovering a switch. Mapped
-operator DMs and E2EE origins remain behind their separate grants. This is
+operator DMs use the explicit `mapped_operator_dm` Search grant and E2EE
+origins require the additional Search-specific overlay. This is
 deliberately asymmetric with Memory's `memory.consolidation.enabled`, which
 defaults false: Search is local, read-only, produces no proposals, injects
 nothing into any prompt, and its entire database can be deleted and rebuilt,
 whereas Memory collection derives durable new claims about the operator.
 Indexing what the operator already wrote, for their own retrieval, is a
 different act from concluding things about them. Both defaults are stated
-together wherever either is documented. Jobs are
-idempotent, serialize the search writer, use bounded batches, expose
+together wherever either is documented. Managed rows stay visible when their
+feature is disabled; no deletion tombstone is needed. Jobs are idempotent,
+serialize the search writer, use bounded batches, expose
 watermark/lag/generation/counts without content, and never hold the canonical
 Repo and search writer in a claimed cross-database atomic transaction.
+
+Bootstrap uses these same jobs. After managed-row reconciliation, an enabled
+Search with no compatible verified generation—fresh Home, backup restore,
+corruption recovery, or schema/tokenizer/redactor mismatch—kicks
+`search-rebuild` unless the operator explicitly paused it. Queries return
+`search_not_ready` with content-free phase/progress while it runs; `search-index`
+does not open or mutate an unverified generation. Bounded rebuild work resumes
+through the ordinary incomplete-continuation merge. Recoverable I/O failures
+use the recurring engine's bounded backoff; a deterministic missing packaged
+SQLite/FTS capability reports visible degraded capability instead of retrying
+forever. Successful promotion kicks `search-index` to ingest writes beyond the
+builder high-water. The hourly repair path also detects a missed bootstrap or
+dirty kick without adding another process.
 
 Weekly work uses bounded FTS merge steps rather than a routinely unbounded
 `optimize`. Full optimization may occur only as measured manual rebuild
@@ -213,14 +462,43 @@ closeout.
 ### 8. Purge is separately confirmed and honestly best-effort
 
 Ordinary reconciliation removes rows no longer eligible in the canonical
-Corpus. An operator-requested Search purge is a separate confirmed action. Its
-affected canonical content must already be deleted/ineligible, or the affected
-Search source class/feature must first be disabled; otherwise the action fails
-its precondition because recurring ingestion would restore the text. Purge
-covers every Search-owned current, previous, build-temporary, failed, retired,
-or pending-prune database plus its `-wal`/`-shm` sidecars. No openable or
-startup-recoverable managed SQLite generation may retain the purged text.
-Memory Forget remains ADR 0089's distinct action.
+Corpus. Operator-requested purge uses the separately confirmed, registered
+`purge_search_projection` action. It is `resumable?: true` and explicitly
+allowlisted through the existing generic confirmation-resume path. Safe resume
+parameters contain only target kind/ids or source classes, the expected
+eligibility epoch, non-secret key ref/version, and an opaque
+`allbert.search.purge-preview.v1` keyed preview binding over the exact managed
+file/generation scope; they contain no query, message text, snippet, or plain
+content digest. The affected canonical content must already be deleted/
+ineligible, or the affected Search source class/feature must first be disabled;
+the action rechecks this under current Corpus policy before every destructive
+phase and otherwise returns a stale/precondition error because ingestion would
+restore the text. Memory Forget remains ADR 0089's distinct action.
+
+`AllbertAssist.Search.Control` owns one atomically replaced, content-free
+`search-control.json` manifest under the Search root, outside every generation
+database. It is the sole purge-recovery authority and records target ids/
+classes, keyed preview binding, pending confirmation id, eligibility/policy
+epoch, non-secret key ref/version, attempt metadata, and exactly one phase:
+`pending | connections_closed | files_replaced | verified | complete`.
+`last_error` and retry metadata are fields, not an `error` phase. It is neither
+a deletion ledger nor a general transaction framework. Each phase transition
+uses a same-directory temporary write, file sync, atomic rename, and parent-
+directory sync before destructive work for that phase begins; the pending
+confirmation id plus keyed preview identifies the one resumable attempt.
+
+Entering `pending` durably advances the projection/policy epoch, invalidates all
+cursors and resumable builders, and causes `Search.Projection` to quiesce new
+calls and drain/close existing handles. While any non-`complete` phase exists,
+queries and Search management operations other than continuation of that exact
+purge return `search_purge_in_progress`; managed-job kicks may remain durable
+for after completion but cannot reopen a database or erase operator pause.
+Startup resumes the recorded idempotent phase and never promotes or opens a
+pre-purge builder/generation.
+
+Purge covers every Search-owned current, previous, build-temporary, failed,
+retired, or pending-prune database plus its `-wal`/`-shm` sidecars. No openable
+or startup-recoverable managed SQLite generation may retain the purged text.
 
 For files that can be opened it combines FTS5 `secure-delete=1`, core
 `PRAGMA secure_delete=ON`, `wal_checkpoint(TRUNCATE)` with `busy = 0`, and
@@ -230,8 +508,13 @@ tombstoned terms retroactively, any generation that may contain historical
 deletes is replaced from the currently eligible canonical set; obsolete and
 failed generations are deleted wholesale. The replacement is closed,
 self-contained-reopened, integrity/query checked, and searched for the purged
-fixtures before success. Failure remains visible and does not produce a false
-“purged” result. This is best effort for every Allbert-managed Search SQLite
+fixtures before success. Each file/checkpoint/replacement/verification phase is
+idempotent, and only a verified clean replacement may advance the manifest to
+`complete`. Failure remains visible and does not produce a false “purged”
+result. On completion, Search reopens only the verified replacement (or remains
+not ready if none is eligible), then kicks `search-index` only when Search is
+enabled and the operator has not paused that entry. This is best effort for
+every Allbert-managed Search SQLite
 file and sidecar in the confirmed scope; it does not promise erasure from
 backups, snapshots, exported copies, filesystem remnants, or SSD wear leveling.
 
@@ -243,10 +526,35 @@ model context. An explicit operator summarize action may submit a selected,
 re-authorized result set to the model for that response only. It creates no
 Memory proposal and no Search-to-Memory promotion path exists.
 
-Query text, snippets, and filter operand values are not written to traces or
-audits. Trace-safe metadata may record query id, verified principal/surface,
-policy scope class, generation/revision, ordering mode, filter kinds/count,
-result/filtered counts, duration band, confirmation outcome, and error class.
+Search control/authorization/operational state, Security confirmation/resume
+state, Search action requested/completed/error signals, validation diagnostics,
+action logs, and Jobs target/run summaries do not store query text, MATCH
+syntax, snippets, result message text, plain query/filter digests, or filter
+operand values. Trace-safe metadata may record query/chain id, verified
+principal/surface, policy scope class, generation/revision, ordering mode,
+filter kinds/count, result/filtered counts, duration band, confirmation outcome,
+and error class.
+
+This redaction occurs before observability, not inside the Search action after
+Runner has already emitted input. The registered action supplies a trace-safe
+parameter/result projection that `Actions.Runner` invokes before
+`action_requested`, validation-error, and `action_completed` signals. Callback
+failure omits action parameters/results rather than falling back to raw values.
+The same projection governs action logs, Jobs run summaries, and confirmation
+summaries/resume references. The one-query DM approval stores only the resolved
+confirmation id, keyed binding, and safe source/scope metadata defined in §5;
+raw query text is transiently resubmitted after approval and never becomes
+durable confirmation state.
+
+This is intentionally a Search-owned-state claim, not a global retention
+promise. An operator's query is an ordinary canonical conversation message and
+may later enter the projection as ordinary eligible history; a deterministically
+rendered result may be an ordinary assistant message; and configured providers
+or general turn traces may retain their normal copies under existing policy.
+There is no additional Search-specific query log, and Search purge does not
+erase or permanently suppress those ordinary copies. The typed Search-result
+marker from §3 prevents a rendered result from re-entering the Search
+projection, but does not pretend the canonical/provider turn vanished.
 
 ## Consequences
 
@@ -260,6 +568,10 @@ result/filtered counts, duration band, confirmation outcome, and error class.
   subsystem, trigger mirror, or parallel scheduler.
 - Current/previous verified generations make rebuild and rollback additive
   without pretending that cross-database operations or rename are crash-durable.
+- Exact managed names and one atomic Jobs admission/completion seam make
+  recurring work visible and operator-controllable without a second job model.
+- Purge quiescence makes the best-effort file claim testable without expanding
+  it into canonical/provider/backup erasure.
 
 ## Non-goals And Guardrails
 
@@ -278,33 +590,78 @@ result/filtered counts, duration band, confirmation outcome, and error class.
 - No canonical retention rewrite, automatic conversation deletion, or forensic
   erasure guarantee.
 - No concurrent-writer or cross-database atomicity claim.
+- No Search-specific query-grant store, deletion ledger, generation-pointer
+  service, private wakeup process, or generic Jobs delete API.
 
 ## Validation
 
-Acceptance proves, against the native SQLite library loaded by each packaged
-target:
+Acceptance combines focused contract/race tests with proof against the native
+SQLite library loaded by each packaged target:
 
-- `SELECT sqlite_version()`, `PRAGMA compile_options`, FTS5
-  create/insert/phrase/prefix/query, tokenizer behavior, rank ties, cursor
-  generation/revision binding, and secure-delete/checkpoint behavior;
-- index eligibility and query-time drop for deletion, digest drift, identity
-  remap, visibility change, hidden/tool/system/secret/action-log rows, and scope
-  denial, including absence from every current/previous/build-temporary/failed/
-  retired/pending-prune database and sidecar state;
-- local Web/TUI/CLI parity, mapped-DM same-thread default, confirmed scope
-  elevation, E2EE opt-in/disclosure, and no query/snippet audit leakage;
-- bounded reconcile/weekly/manual jobs, one-writer behavior, failed-generation
-  non-promotion, `busy = 0` checkpoint/close/self-contained reopen promotion,
-  previous-generation recovery, purge across every Search-owned generation/
-  database/sidecar state including historical-delete rebuild, purge
-  precondition denial, authoritative export/backup exclusion with restore
-  rebuild, and no canonical scan fallback;
-  and
-- ordinary search isolation from model/Memory plus the explicit summarize-only
-  path.
+- `SELECT sqlite_version()`, `PRAGMA compile_options`, FTS5 create/insert/phrase/
+  prefix/query, `unicode61` behavior, rank ties, WAL, secure-delete, checkpoint,
+  and partial-index behavior on the shipped runtime;
+- duplicate source ingestion updates exactly one locator/FTS pair; lookup,
+  typed filters, timestamp ordering, and delete use the ordinary locator and its
+  frozen B-tree indexes rather than scanning FTS; integrity rejects duplicate,
+  missing, or mismatched rowid pairs;
+- index eligibility and immediate query-time drop cover canonical deletion,
+  digest drift, identity remap, visibility/grant change, legacy-unverified
+  assistant origin, hidden/tool/system/secret/action-log rows, and E2EE denial.
+  Exact mapped-DM origin tuple plus canonical-thread equality prevents a merged
+  thread from widening scope, and a typed Search-result turn never re-enters the
+  projection;
+- relevance/newest/oldest ties, generation/revision/request/scope binding,
+  bounded post-authorization refill with stale leading candidates,
+  last-scanned cursor position, incomplete scan-budget outcome, stale-cursor
+  restart, and no canonical scan fallback are deterministic across surfaces;
+- local Web/TUI/CLI parity, one mapped-DM consumer grant without per-channel
+  prompts, exact-origin same-DM default, E2EE disclosure/opt-in, and one-query
+  cross-surface elevation prove the allowlisted generic resume of
+  `authorize_search_query_scope`, `query_resubmit_required`, resolved
+  `confirmation_id` chain, changed-source/request/expiry rejection, pagination
+  without reprompt, and absence of any second grant store;
+- Search requested/completed/error/validation paths, confirmation/resume state,
+  action logs, and Jobs target/run summaries contain only the safe projection.
+  The same fixtures explicitly acknowledge the ordinary canonical query/result
+  turns and configured provider/general-trace retention rather than asserting a
+  false global no-query guarantee;
+- rebuild/repair proves independent source high-water and eligibility epoch,
+  post-high-water write survival, incompatible-epoch/config builder rejection,
+  one-writer serving-handle quiescence, `busy = 0` checkpoint/close/self-
+  contained reopen/swap, no renamed live handle, failed-generation
+  non-promotion, and previous-generation recovery;
+- fresh Home, authoritative-backup restore, corrupt/missing generation, and
+  schema/tokenizer/redactor mismatch bootstrap through the visible active/manual
+  `search-rebuild` row; explicit pause is preserved, recoverable failure backs
+  off, deterministic capability failure degrades, and successful rebuild kicks
+  post-high-water catch-up;
+- deterministic `search-index`, `search-maintain`, and `search-rebuild` names use
+  exact lookup; collision/invariant mutation degrades without overwrite or
+  duplicate; allowed cadence/pause survives reconcile/disable; and no generic
+  Jobs delete API is introduced. Scheduler/manual/dirty races admit one open
+  `queued | running | needs_confirmation` run, and completion tests prove a
+  later kick, pause, cadence edit, and `incomplete` continuation cannot be lost
+  to stale due advancement;
+- canonical message/thread deletion proves generic confirmation resume, exact
+  transaction-time cascade recheck under concurrent append/reference mutation,
+  post-commit `already_deleted` retry, fresh `not_found`, message
+  `last_message_at` recomputation, retained-title disclosure, live-dependency
+  blocking, surviving separately governed provenance, Memory staling, and
+  idempotent Search dirty repair;
+- `purge_search_projection` proves allowlisted resume and target/precondition
+  rebinding, atomic control-manifest phases, quiescence and
+  `search_purge_in_progress`, restart after each phase, historical-delete
+  replacement, negative fixture checks across every Search-owned generation/
+  database/sidecar, and conditional post-completion catch-up without claiming
+  backup/filesystem/hardware erasure; and
+- ordinary Search remains isolated from model/Memory except for the separately
+  explicit summarize-only path.
 
 Primary SQLite evidence: [FTS5](https://www.sqlite.org/fts5.html),
 [external-content constraints](https://www.sqlite.org/fts5.html#external_content_tables),
+[`CREATE INDEX` limits on virtual tables](https://www.sqlite.org/vtab.html),
+[partial indexes](https://www.sqlite.org/partialindex.html),
 [`unicode61`](https://www.sqlite.org/fts5.html#unicode61_tokenizer),
 [BM25](https://www.sqlite.org/fts5.html#the_bm25_function),
 [WAL](https://www.sqlite.org/wal.html),

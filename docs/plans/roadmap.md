@@ -205,7 +205,7 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    Qwen stays operator-selectable because the only completed primary bakeoff
    row did not meet the frozen cross-platform promotion threshold.
 7. **1.2.1 — Foundational Binary Enablers.** (**Planned — operator-approved
-   second-pass readiness 2026-07-28:** dedicated milestones in
+   final implementation readiness 2026-07-28:** dedicated milestones in
    `docs/plans/v1.3-plan.md` + request-flow, ADR 0076 amendment, and ADR 0091.)
    This binary point release lands two independent foundations before v1.3
    schema work begins: a small deterministic final-artifact license generator
@@ -219,7 +219,7 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    permits one session per Home initially, and never silently boots a second
    runtime when attach fails.
 8. **1.3 — Long-Term User Memory + Search Central.** (**Planned —
-   implementation-readiness second pass approved 2026-07-28:**
+   final implementation readiness approved 2026-07-28:**
    `docs/plans/v1.3-plan.md` + request-flow + amended ADR 0089 + ADR 0092.
    **Build starts only after v1.2.1 binary closeout.**) Long-Term User Memory
    remains the flagship: verified operator-authored conversation turns can
@@ -241,6 +241,13 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    recurring engine for consolidation and visible managed search ingestion,
    maintenance/pruning, and on-demand rebuild entries. M1 calibrates quality,
    fixtures, and budgets only; it does not reopen the locked architecture.
+   The final pass origin-scopes Memory/Search grants, routes Search dirty
+   wakeups through Jobs.Managed, makes review/Forget restart-safe and
+   tombstone-first, binds Search repair/paging/query privacy, and fixes the
+   confirmed canonical delete target to message or thread. Mapped DMs default
+   to the current canonical thread intersected with each message's verified
+   channel/account/provider-thread origin; one confirmed, expiring query/cursor
+   chain may broaden scope without Search-owned durable raw-query state.
    Horizon items remain free-form provider URLs, non-local bind hardening,
    semantic/fuzzy search, automatic canonical-history retention, and automatic
    cross-app prompt mixing.

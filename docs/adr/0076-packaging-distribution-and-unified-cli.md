@@ -316,10 +316,12 @@ All execution still resolves through `Actions.Registry` and
 authority. Release tests inject manager commands and never operate a developer's
 real service. The signed-RC real-host rows remain the final systemd proof.
 
-## Amendment (v1.2.1 → v1.3 readiness, 2026-07-28) — thin TUI and packaged license evidence
+## Amendment (v1.2.1 → v1.3 final readiness, 2026-07-28) — thin TUI and packaged license evidence
 
-Two additive post-1.0 decisions refine this ADR without changing the frozen CLI
-taxonomy or distribution channels.
+Two additive post-1.0 decisions refine this ADR without changing any existing
+command's meaning or the distribution channels. `licenses` is one additive
+read-only informational leaf under the Tier-2 CLI evolution rule, not a
+regrouping of the frozen command taxonomy.
 
 ### Daemon-backed `allbert tui`
 
@@ -349,6 +351,14 @@ checksum, and signing. The packaged CLI provides a read-only viewer over those
 files; it does not rescan dependencies, regenerate notices, contact a network,
 or maintain license runtime state.
 
+`allbert licenses` is a pre-runtime dispatcher case. Argument classification
+happens before the shared `run_entry` path initializes Req, starts the
+application/Repo, or attempts daemon attachment. The command starts only the
+release evaluation VM and the small packaged-file reader needed to render the
+already-generated material. It performs no network access. The finalizer and
+viewer remain one `AllbertAssist.Licenses` concern, not a supervised service,
+registry, database, or second dependency-management subsystem.
+
 Implementation stays deliberately small: one finalizer, Mix's final release
 application closure as a baseline, and one reviewed declarative catalog for
 non-application and file-scoped exceptions. Target inspection covers known
@@ -372,17 +382,118 @@ blocks publication. This does not create a blanket MPL allowlist.
 
 The claim is therefore **best-effort inventory of known shipped components**,
 not a complete SBOM, a legal-compliance guarantee, or proof about every byte.
-Apache-2.0 redistribution keeps the root NOTICE limited to relevant notices;
-file-level material and source provenance stay in the generated payload.
+Exact component-to-file claims apply only to catalogued managed components,
+declared build inputs, target conditions, and reviewed path rules. Unmatched or
+unclassified files produce bounded review warnings and evidence; they do not
+cause the finalizer to invent universal byte ownership. Apache-2.0
+redistribution keeps the root NOTICE limited to relevant notices; file-level
+material and source provenance stay in the generated payload.
 
-The product-tag workflow builds each target once, records the versioned archive
-digests as immutable workflow artifacts, and then waits at a protected
-`release-promotion` environment. Exact-artifact license/TUI qualification occurs
-before approval. The resumed promotion job rehashes those staged bytes, signs
-the final checksum, and uploads without rebuilding; the release asset and
-installed archive must retain the qualified digest. The environment is
-pre-created with required-reviewer and product-tag protection; a missing or
-auto-created unprotected environment blocks tagging.
+The product-tag source workflow selects each successful target archive from one
+builder attempt and uploads the versioned archives and digest manifest as
+immutable `upload-artifact@v4` artifacts with `retention-days: 30` and
+`overwrite: false`. Artifact names are attempt-qualified and collision-free:
+they include the source run id, the producer `run_attempt`, target, and artifact
+kind. Each upload's returned artifact id is captured. The digest manifest binds
+every archive as `{artifact_id, artifact_name, producer_run_attempt, target,
+sha256}` in addition to the product tag and peeled tag commit SHA.
+
+A failed builder may be rerun and produces a new attempt-qualified artifact;
+an already-successful builder is not rerun merely to retry qualification. Once
+an archive digest set has been admitted, qualification-only retries rerun only
+the failed qualification job(s) and reuse the recorded archive artifact ids.
+They never rebuild, overwrite, or silently substitute a previously admitted
+target. Native archive upload is the builder's final effect after its target
+smoke. On any later source-run attempt, a builder preflight queries that same
+run's prior target artifacts and job-attempt conclusion: exactly one artifact
+from a successful prior builder is verified and reused without invoking the
+toolchain, no accepted artifact permits a build, and duplicate accepted target
+artifacts fail closed. This makes even an accidental rerun-all qualification
+attempt unable to manufacture a second successful archive.
+
+M0.a3 uploads an attempt-qualified immutable container holding
+`m0a3-evidence.json`. M0.c3 consumes its artifact id, adds the TUI/FV rows, and
+uploads an attempt-qualified immutable container holding the final content-free
+`qualification-evidence-manifest.json`. Each evidence document records its own
+producer `run_attempt`; the final manifest binds the exact source archive and
+M0.a3 artifact ids, names, attempts, and digests. Every evidence/manifest upload
+also uses v4, `retention-days: 30`, and `overwrite: false`, and captures the v4
+artifact id as a job output and in the content-free source-run summary. The
+final container's id is necessarily bound by that upload output and the
+promotion input rather than self-recorded inside its already-hashed payload;
+promotion verifies its REST metadata against the source run, attempt, name,
+and expected digest. The source run stops before signing or publication.
+
+A separate protected `workflow_dispatch` promotion must run at the exact
+product-tag ref while every selected native-archive artifact is unexpired and
+no more than 21 days past its GitHub artifact `created_at`; later qualification
+attempts do not reset that clock. Its immutable inputs are
+`tag`, `source_run_id`, `source_run_attempt`, `digest_manifest_artifact_id`,
+`digest_manifest_sha256`, `qualification_manifest_artifact_id`, and
+`qualification_manifest_sha256`; `tag` must equal `GITHUB_REF_NAME`. Before any
+artifact download or publication, the promotion queries GitHub's REST API and
+authenticates the source run as all of:
+
+- the same repository id and full name;
+- the exact workflow id whose path is
+  `.github/workflows/release-artifacts.yml`;
+- event `push`, not `workflow_dispatch` or another manual/build source;
+- successful conclusion and current `run_attempt` equal to the dispatched
+  `source_run_attempt`;
+- source `head_sha` equal to the recursively peeled immutable product-tag
+  commit; and
+- source ref evidence naming that exact product tag: the attempt-qualified
+  source manifest records `github.ref == refs/tags/<tag>`,
+  `github.ref_type == tag`, and `github.ref_name == <tag>`.
+
+Any mismatch stops promotion. The promotion then downloads the explicitly
+bound artifacts by artifact id, verifies every name/attempt/tag/SHA/digest and
+per-target evidence binding, and rehashes the archives. It never selects an
+artifact by a floating name or "latest" run.
+
+The `release-promotion` environment is created and protected before the product
+tag. Pretag release evidence records the successful responses (and response
+digests) from
+`GET /repos/{owner}/{repo}/environments/release-promotion` and
+`GET /repos/{owner}/{repo}/environments/release-promotion/deployment-branch-policies`.
+PASS requires a non-empty required-reviewer rule, custom deployment branch/tag
+policies enabled, and a `type: tag` rule whose pattern matches the planned
+product tag (for example, the reviewed `v*` policy). Absence, an API/read
+failure, or GitHub's implicit creation of an unprotected environment blocks
+tagging. At promotion time that environment gates the job before GitHub
+allocates its runner or exposes environment secrets. Only after approval do
+explicit `actions: read`, `contents: write`, and `id-token: write` permissions
+permit download, signing, and publication. The promotion contains no build
+job.
+
+Publication is restartable without mutable replacement. Promotion resolves the
+release by exact tag, creates it as a draft only when absent, and never deletes
+or recreates an existing release. A different tag/target or incompatible
+release state stops. The release remains draft until the complete asset set and
+signature verify; a previously published exact-tag partial release may be
+completed only under the same byte checks. Promotion never uses `--clobber`.
+`SHA256SUMS` is deterministic: lowercase hex digest, two ASCII spaces, asset
+name, and LF, sorted by asset-name bytes with no timestamp. For every archive,
+versionless alias, and `SHA256SUMS` asset, an absent asset is uploaded, an
+existing asset is downloaded and skipped only when its SHA-256 equals the
+expected digest, and a differing existing asset stops the run. If the cosign
+bundle is absent, promotion signs and uploads it; if it already exists,
+promotion reuses it only after verifying it against the identical
+`SHA256SUMS` bytes, GitHub's OIDC issuer, and the approved tag-ref promotion-
+workflow identity. An invalid bundle or a bundle for different checksum bytes
+stops the run instead of being regenerated over the existing name. Only after
+that verification may promotion publish the draft and permit tap fill. The
+release asset and installed archive must retain the qualified digest.
+
+Failure handling preserves immutable tags and one-build evidence. An unchanged-
+byte qualification retry within the window reuses the staged archive ids. A
+source fix or any artifact-byte fix requires a new operator-authorized patch
+tag; an existing tag is never moved. A repository/workflow/event/ref/SHA/
+attempt/digest/evidence mismatch rejects promotion. Missing, older-than-window,
+or expired staged artifacts stop for operator disposition and are never
+silently rebuilt under an accepted digest set. The small license finalizer/
+viewer remains best-effort inventory functionality inside the release build,
+not a release-state service or legal-compliance subsystem.
 
 ### Per-target toolchain evidence
 
@@ -403,9 +514,28 @@ Primary-source constraints:
   posture, and a full commit SHA is the immutable Actions reference
   ([setup-beam](https://github.com/erlef/setup-beam#input-versioning),
   [GitHub Actions secure use](https://docs.github.com/en/actions/reference/security/secure-use)).
+- `upload-artifact@v4` artifacts are immutable, a repeated name fails unless
+  replacement is explicitly requested, and the action exposes the immutable
+  artifact id; cross-run downloads require an explicit token and run id
+  ([upload-artifact](https://github.com/actions/upload-artifact),
+  [download-artifact](https://github.com/actions/download-artifact#download-artifacts-from-other-workflow-runs-or-repositories)).
+- A rerun retains the workflow run id, ref, and SHA while incrementing the run
+  attempt, and the Actions REST record exposes the source workflow/event/SHA/
+  conclusion metadata that promotion authenticates
+  ([rerun behavior](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs),
+  [workflow-run REST API](https://docs.github.com/en/rest/actions/workflow-runs#get-a-workflow-run)).
+- GitHub release assets can be listed and downloaded for byte comparison, while
+  `gh release upload --clobber` explicitly replaces an existing asset; cosign
+  bundle verification binds checksum bytes to the expected OIDC identity
+  ([release-assets REST API](https://docs.github.com/en/rest/releases/assets),
+  [`gh release upload`](https://cli.github.com/manual/gh_release_upload),
+  [cosign blob verification](https://docs.sigstore.dev/cosign/verifying/verify_blob/)).
 - GitHub Actions environments may require approval before a job starts, which
-  supplies the build/qualification/promotion pause
-  ([deployment environments](https://docs.github.com/en/actions/concepts/workflows-and-actions/deployment-environments)).
+  supplies the qualification/promotion pause; environment and deployment-
+  policy REST endpoints expose the pretag reviewer/tag-policy evidence
+  ([deployment environments](https://docs.github.com/en/actions/concepts/workflows-and-actions/deployment-environments),
+  [environment REST API](https://docs.github.com/en/rest/deployments/environments#get-an-environment),
+  [branch-policy REST API](https://docs.github.com/en/rest/deployments/branch-policies#list-deployment-branch-policies)).
 - OpenSSL 3.0+ is Apache-2.0 while earlier releases use the historical dual
   license, so classification is target/version-specific
   ([OpenSSL licensing](https://openssl-library.org/source/license/index.html)).
