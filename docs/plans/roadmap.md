@@ -205,7 +205,8 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    Qwen stays operator-selectable because the only completed primary bakeoff
    row did not meet the frozen cross-platform promotion threshold.
 7. **1.2.1 — Foundational Binary Enablers.** (**Planned — operator-approved
-   final implementation readiness 2026-07-28:** dedicated milestones in
+   final implementation readiness 2026-07-28, five readiness passes:**
+   dedicated milestones M0.a1–M0.c3 in
    `docs/plans/v1.3-plan.md` + request-flow, ADR 0076 amendment, and ADR 0091.)
    This binary point release lands two independent foundations before v1.3
    schema work begins: a small deterministic final-artifact license generator
@@ -215,20 +216,41 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    may proceed in parallel but rejoin at one frozen three-target artifact shape,
    `release.v121`, exact-SHA packaged smokes, and binary publication. The
    license promise is a best-effort inventory of known shipped components, not
-   a universal scanner or SBOM guarantee. The TUI extends Attach v1 additively,
+   a universal scanner or SBOM guarantee; it fails closed only at managed seams,
+   commits one cross-platform union plus per-target manifests, and carries one
+   narrow file-scoped MPL-2.0 exception for the Castore/Mozilla CA payload with
+   proven source availability. The TUI extends Attach v1 additively,
    permits one session per Home initially, and never silently boots a second
-   runtime when attach fails.
+   runtime when attach fails. Three further pieces ride this stage because the
+   binary needs them: **release publication splits from the build** — a product
+   tag builds each target once, downstream jobs qualify those exact bytes, and a
+   separately dispatched promotion behind a protected environment signs and
+   publishes them with no rebuild and no `--clobber`; **one exact toolchain
+   contract** replaces the floating macOS Homebrew path, pinned by full action
+   SHA with recorded resolved versions and a one-time macOS requalification that
+   keeps the OpenSSL patch only on measured evidence; and **one per-Home system
+   integrity secret** with a domain-separated HMAC helper, first consumed by the
+   TUI input-receipt gate that stops ambiguous reconnects from double-executing,
+   then reused by every v1.3 Memory/Search/delete domain. Web asset digests are
+   cleaned and rebuilt so no historical file survives into an artifact.
 8. **1.3 — Long-Term User Memory + Search Central.** (**Planned —
-   final implementation readiness approved 2026-07-28:**
-   `docs/plans/v1.3-plan.md` + request-flow + amended ADR 0089 + ADR 0092.
+   final implementation readiness approved 2026-07-28 after five passes:**
+   `docs/plans/v1.3-plan.md` + request-flow + amended ADR 0002 and ADR 0089 +
+   new ADR 0092 and ADR 0093, milestones M1–M9.b.
    **Build starts only after v1.2.1 binary closeout.**) Long-Term User Memory
    remains the flagship: verified operator-authored conversation turns can
    produce reviewable proposals; only operator-kept append-only bi-temporal
-   claims enter prompt context. A canonical `Conversations.Corpus` boundary
-   supplies both Memory and the independent Search Central consumer. Search
-   owns one disposable SQLite FTS5 projection and typed API used by Web, TUI,
-   CLI, and mapped DMs; it never feeds Memory. **Third readiness pass
-   2026-07-28 (operator-signed):** v1.3 also absorbs the five legacy memory
+   claims enter prompt context. Claims are authenticated immutable Markdown
+   streams with valid-time and knowledge-time axes, per-claim
+   expected-tail appends, hash-chain plus integrity-tag forgery quarantine,
+   grandfathered legacy entries that upgrade lazily, and one complete
+   disposable SQLite projection. Review is frozen, partially successful, and
+   crash-resumable; reversible Archive and a separately confirmed,
+   tombstone-first Forget are distinct acts. A canonical `Conversations.Corpus`
+   boundary supplies both Memory and the independent Search Central consumer.
+   Search owns one disposable SQLite FTS5 projection and typed API used by Web,
+   TUI, CLI, and mapped DMs; it never feeds Memory. **Third readiness pass
+   (operator-signed):** v1.3 also absorbs the legacy memory
    subsystems it would otherwise have shipped beside (memory search, the
    compiled index and its managed job, `prune_nominated`, the auto-promote
    setting, and the v0.47 memory drafts) behaviorally and without deleting
@@ -241,13 +263,27 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    recurring engine for consolidation and visible managed search ingestion,
    maintenance/pruning, and on-demand rebuild entries. M1 calibrates quality,
    fixtures, and budgets only; it does not reopen the locked architecture.
-   The final pass origin-scopes Memory/Search grants, routes Search dirty
+   The fourth pass origin-scopes Memory/Search grants, routes Search dirty
    wakeups through Jobs.Managed, makes review/Forget restart-safe and
    tombstone-first, binds Search repair/paging/query privacy, and fixes the
    confirmed canonical delete target to message or thread. Mapped DMs default
    to the current canonical thread intersected with each message's verified
    channel/account/provider-thread origin; one confirmed, expiring query/cursor
    chain may broaden scope without Search-owned durable raw-query state.
+   **Fifth readiness pass (operator-signed):** names the two feature switches
+   and their deliberately opposite defaults (`search.enabled` true,
+   `memory.consolidation.enabled` false) and the frozen origin scopes; names
+   `AllbertAssist.Projection.PromoteProtocol`, the one promote sequence the
+   Memory and Search projections share; excludes the Memory projection from
+   authoritative export/backup on the same footing as Search; gates Purpose's
+   bounded-latency promise on measured numbers; and gives canonical
+   conversation deletion its own home in **ADR 0093** — a Corpus-owned
+   destructive capability with exact cascade, live-dependency blocking, and
+   best-effort survivor disclosure — rather than leaving it inside the search
+   ADR. Deletion and Forget ship as a deliberate pair: Forget removes what
+   Allbert concluded, deletion removes what was said, and each disclosure names
+   the other. STM gains its documented data-safety contract and nested patch
+   semantics without becoming persistent.
    Horizon items remain free-form provider URLs, non-local bind hardening,
    semantic/fuzzy search, automatic canonical-history retention, and automatic
    cross-app prompt mixing.
