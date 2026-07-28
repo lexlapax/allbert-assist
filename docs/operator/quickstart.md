@@ -115,8 +115,15 @@ matching the detected condition:
 
 - **Needs model:** review and confirm the curated model pull, or select an
   already available catalog entry.
-- **Needs runtime:** start or repair the local Ollama runtime; Allbert does not
-  replace an unhealthy runtime with hosted inference automatically.
+- **Needs runtime, Ollama is not installed:** select **Install local runtime**,
+  review the exact installer action, and approve it. Allbert uses Homebrew's
+  Ollama package on macOS and Ollama's upstream installer on Linux; detection
+  alone never downloads or installs anything.
+- **Needs runtime, Ollama is installed but not answering:** start or repair the
+  existing Ollama service instead of reinstalling it. Allbert does not replace
+  an unhealthy runtime with hosted inference automatically. See
+  [Onboarding: Readiness And Repair](onboarding.md#readiness-and-repair) for the
+  preview/apply command path.
 - **Needs credentials:** add a hosted-provider key through the vault-backed
   settings path.
 - **Needs review:** inspect the selected profile and the explicit

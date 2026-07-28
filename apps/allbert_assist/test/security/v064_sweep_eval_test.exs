@@ -135,6 +135,8 @@ defmodule AllbertAssist.Security.V064SweepEvalTest do
 
     assert onboarding_doc =~ "Start with [Quickstart: Install, Open, Chat](quickstart.md)"
     assert quickstart_doc =~ "brew install lexlapax/allbert/allbert"
+    assert quickstart_doc =~ "select **Install local runtime**"
+    assert quickstart_doc =~ "alone never downloads or installs anything."
     refute quickstart_doc =~ "mix setup"
     refute quickstart_doc =~ "mix phx.server"
 
