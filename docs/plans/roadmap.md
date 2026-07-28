@@ -210,7 +210,11 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    prompt-time context for zero-shot answers; only operator-kept entries
    ever enter prompts. Conversation FTS / cross-thread retrieval decided
    in/out at M1. Horizon items: free-form provider URLs, non-local bind
-   hardening.
+   hardening. The first post-1.2 readiness review takes up the operator-confirmed
+   **daemon-backed TUI / thin terminal client** foundation. If promoted, it
+   ships as a point enabler without displacing Long-Term User Memory as the 1.3
+   flagship; the review determines exact sequencing and amends the 1.3 triad
+   only with explicit operator approval.
 8. **1.4 — Adaptive Usage Profiling.** (**Planned — triad ready
    2026-07-24:** `docs/plans/v1.4-plan.md` + request-flow + ADR 0090
    (profiling + confirmed customization) + ADR 0084 amendment

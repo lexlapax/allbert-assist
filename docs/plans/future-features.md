@@ -35,8 +35,10 @@ sequenced one per minor, foundational-first:
 - **1.2 — Zero-Click First Run** + its direct enablers (model chooser/catalog,
   model fallback/degradation for the detect states, consent ADR, folded TUI scope).
 - **1.3 — Long-Term User Memory** (research phase first; folded retrieval/FTS/
-  working-memory scope). Free-form provider URLs and bind hardening stay on this
-  horizon as tagged.
+  working-memory scope). The first post-1.2 readiness review evaluates the
+  operator-confirmed daemon-backed TUI / thin terminal client as a foundational
+  point enabler without displacing the memory flagship. Free-form provider URLs
+  and bind hardening stay on this horizon as tagged.
 - **1.4 — Adaptive Usage Profiling** (stages a/b/c; per-role model profiles and
   proactive notifications ride here; consumes 1.3's memory substrate).
 - **1.5 / 1.6 — the remaining confirmed enablers**, sliced by need: the
@@ -72,6 +74,51 @@ Provenance shorthand used in `Deferred at:` lines: `vX.YY-plan:N` and
 `docs/developer/`. Line numbers are as of the 2026-07-14 consolidation sweep.
 
 ## Platform & Runtime Debt
+
+### Daemon-Backed TUI / Thin Terminal Client
+
+Class: Must (foundational) (operator-confirmed 2026-07-27) · Effort: M · Slice: first post-1.2 readiness-review candidate; land before later work expands TUI/runtime concurrency
+
+Status: parked — accepted operator demand; requires an implementation-readiness
+review and an attach/session-protocol ADR before promotion into a versioned
+plan. It is not v1.2 release scope.
+
+The v0.62 packaged runtime shipped two adjacent but different behaviors:
+runtime-backed `allbert ask` / `allbert admin ...` invocations attach to a
+running `allbert serve` daemon over the authenticated Home-local Unix socket,
+while `allbert tui` bypasses that attach-first dispatcher and boots a second
+embedded application tree to own the terminal. Operators must therefore stop
+the service before TUI use against the same Home. The target experience is one
+durable daemon per Home with `allbert tui` acting as its local terminal client.
+
+The readiness review must bind these minimum outcomes:
+
+- When a matching daemon is reachable, `allbert tui` opens no Repo, runs no
+  migration, and starts no competing runtime. Terminal input/output is a
+  session on the daemon-owned TUI/runtime spine.
+- The transport stays local-only and preserves the current token, Home, uid,
+  application-version, protocol-version, bounded-frame, concurrency, and
+  no-double-execution protections. A running daemon whose session attach fails
+  produces repair guidance; it never silently falls back to a second writer.
+- The session protocol covers streaming output, slash commands, disclosures,
+  typed confirmation handoff, fan-out status/report delivery, Pi-mode raw
+  input and Escape cancellation, backpressure, clean detach, daemon shutdown,
+  terminal restoration, and explicit reconnect semantics.
+- The plan decides whether multiple simultaneous terminal clients are allowed,
+  how profile/user identity is selected per session, and what `allbert tui`
+  does when no daemon exists (embedded fallback, service start, or an explicit
+  operator choice).
+- Focused protocol/security tests prove authentication and lifecycle failures;
+  macOS and Linux operator validation keeps the service running before, during,
+  and after TUI use and proves Web/TUI continuity from one daemon. Operator
+  docs then remove the current service stop/restart dance.
+
+Provenance: operator intake during the accepted v1.2 M9.1 release-barrier pause,
+2026-07-27; existing attach substrate in
+`apps/allbert_assist/lib/allbert_assist/runtime/attach.ex` and attach-first
+dispatch in `apps/allbert_assist/lib/allbert_assist/cli.ex`; standalone TUI
+overlay in `rel/overlays/bin/allbert-dispatch`; historical daemon-stop
+requirement in `v1.0.4-request-flow:340-346`.
 
 ### Settings Runtime Migration Runner
 
