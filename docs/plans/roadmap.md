@@ -212,7 +212,13 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    then periodic consolidation to a reviewable system-proposed tier and
    prompt-time context for zero-shot answers; only operator-kept entries
    ever enter prompts. Conversation FTS / cross-thread retrieval decided
-   in/out at M1. Horizon items: free-form provider URLs, non-local bind
+   in/out at M1. **Readiness pass 2026-07-28 (operator-signed):** added
+   the bi-temporal fact lifecycle (ADR 0089 §7 — contradiction supersedes
+   non-destructively, retrieval is as-of, retirement is operator-reviewed),
+   operator-authored-only extraction, a recall floor beside the precision
+   floor, proposal backpressure, and **M0.a packaging license compliance**
+   (generated third-party notices in the binary + permissive-license policy
+   gate). M1 reduced to confirm-and-calibrate. Horizon items: free-form provider URLs, non-local bind
    hardening. The first post-1.2 readiness review takes up the operator-confirmed
    **daemon-backed TUI / thin terminal client** foundation. If promoted, it
    ships as a point enabler without displacing Long-Term User Memory as the 1.3

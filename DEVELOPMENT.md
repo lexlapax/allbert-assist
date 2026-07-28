@@ -68,8 +68,10 @@ stale guidance.
 
 - Packaged releases bundle ERTS and every runtime dependency, so binary
   distribution carries the MIT/BSD attribution obligation. A generated
-  per-dependency notices file is **not** in the release yet — it is planned for
-  v1.3. Until it lands, `deps/*/LICENSE*` plus the metadata field above is the
+  per-dependency notices file is **not** in the release yet — it lands in v1.3
+  M0.a (`mix allbert.licenses`, which also enforces the permissive allowlist
+  above and drift-checks the committed notices; see `docs/plans/v1.3-plan.md`).
+  Until it lands, `deps/*/LICENSE*` plus the metadata field above is the
   authoritative list.
 
 ## Fresh Checkout
