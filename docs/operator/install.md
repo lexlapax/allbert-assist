@@ -209,3 +209,20 @@ at install time.
 
 See `docs/adr/0076-packaging-distribution-and-unified-cli.md` (Distribution
 Trust) for the full posture.
+
+## License
+
+Allbert Assist is licensed under the Apache License, Version 2.0. You may run,
+modify, fork, and redistribute it under those terms — including the packaged
+binary. The full text is in `LICENSE` at the repository root, and `NOTICE`
+carries the attribution to pass along if you redistribute.
+
+The release bundles ERTS and every runtime dependency. All of them are
+permissive (Apache-2.0, MIT, BSD-2-Clause, BSD-3-Clause, ISC, the Unlicense),
+plus public-domain SQLite, so running or redistributing a packaged Allbert
+triggers no copyleft source-disclosure obligation.
+
+One gap to know about if you redistribute the binary yourself: a generated
+per-dependency notices file does **not** ship inside the package yet — it is
+planned for v1.3. Until then the authoritative list is the source tree
+(`deps/*/LICENSE*` and each `deps/*/hex_metadata.config`).

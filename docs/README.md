@@ -25,6 +25,9 @@ For contributors:
 - [Agent instructions](../AGENTS.md) - repository rules for coding agents.
 - [Developer docs index](developer/README.md) - subsystem and implementation maps.
 - [ADR index](adr/README.md) - architectural decisions.
+- [License](../LICENSE) / [NOTICE](../NOTICE) - Apache-2.0 terms and the
+  attribution redistributors must carry; the dependency-license rules live in
+  the [development guide](../DEVELOPMENT.md).
 
 ## Current Release
 

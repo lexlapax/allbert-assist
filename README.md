@@ -1,25 +1,53 @@
 # Allbert Assist
 
-Allbert Assist is a local-first personal AI assistant workspace.
+Allbert Assist is my personal AI assistant, developed in the open.
 
-It is designed for people who want an assistant they can run, inspect, configure,
-and grow over time. Allbert can hold conversations, remember operator-reviewed
-information, route requests to approved capabilities, ask for confirmation before
-sensitive work, and keep records of what happened.
+It is built for a single user — me — running on my own machine, with data kept
+local. Everything in it is shaped by what I actually need an assistant to do:
+hold conversations, remember information I have reviewed, route requests to
+approved capabilities, ask before doing sensitive work, and keep an honest record
+of what happened.
 
-Allbert is not just a chatbot with tools attached. Its core idea is that every
+Allbert is not a chatbot with tools attached. Its core idea is that every
 surface — the web workspace, terminal/TUI, CLI tasks, channels, plugins, and
-public protocol endpoints — should go through the same runtime, settings,
-security, confirmation, and trace system. Asking from the browser or asking from
-the terminal should not create a different authority model.
+public protocol endpoints — goes through the same runtime, settings, security,
+confirmation, and trace system. Asking from the browser and asking from the
+terminal should not create a different authority model.
+
+Throughout the code and docs, the single person who runs and configures an
+Allbert instance is called the **operator**. If you run Allbert, that is you.
+
+## Running It Yourself
+
+You are welcome to. Install, first run, and onboarding are deliberately smooth,
+and that took real effort — a working install should get you to a chat without a
+developer standing next to you. If what you want is a local-first assistant you
+own and can inspect, Allbert may fit.
+
+What that welcome does not include:
+
+- **It is not a product.** There is no hosted service, no accounts, and no
+  multi-user or multi-tenant mode. One instance, one operator, one machine.
+- **There is no support.** I read issues when I have time. Please do not depend
+  on a reply, a fix, or a timeline.
+- **The roadmap follows my use, not a backlog.** Features land because I wanted
+  them. Requests are interesting to read but do not create obligations.
+- **No stability promises.** Releases are versioned and the CHANGELOG is honest,
+  but I will change things that get in my way.
+
+None of that is discouragement. It is just the accurate shape of the project, so
+you can decide with open eyes. The code is Apache-2.0 — see
+[License](#license) — so the permission to run, fork, and modify it is real
+regardless of what I can promise about support.
 
 ## Why It Exists
 
 Most agent systems become hard to understand as they gain tools, plugins, memory,
-background jobs, and external connections. Allbert exists to make that growth
-inspectable.
+background jobs, and external connections. I built Allbert to make that growth
+inspectable — because I intend to keep growing it, and I want to keep being able
+to see what it is doing.
 
-The project is built around a few practical rules:
+The rules I hold it to:
 
 - Keep local data local by default.
 - Make memory readable and reviewable.
@@ -54,15 +82,15 @@ Today, Allbert includes:
 - Source-tree plugins and app surfaces, with StockSage as the main reference app.
 - Public protocol surfaces with bounded, policy-checked exposure.
 
-The packaged install and zero-click first run make Allbert usable by a
-non-developer across the curl and Homebrew paths. In v1.2, install, open, and
-chat is the primary experience: onboarding is optional, an existing local or
-hosted provider is detected without hidden inference, and an unavailable model
-leaves chat open with one honest repair path.
+The packaged install and zero-click first run are what make Allbert runnable by
+someone who is not me, including a non-developer, across the curl and Homebrew
+paths. In v1.2, install, open, and chat is the primary experience: onboarding is
+optional, an existing local or hosted provider is detected without hidden
+inference, and an unavailable model leaves chat open with one honest repair path.
 
-## What Allbert Is For
+## What I Use It For
 
-Allbert is for building a personal AI environment where the assistant can:
+Allbert is a personal AI environment where the assistant can:
 
 - answer and route local requests;
 - remember information only through reviewable memory paths;
@@ -71,17 +99,17 @@ Allbert is for building a personal AI environment where the assistant can:
 - show what settings, models, intents, jobs, and policies are active;
 - connect to external tools only through explicit, policy-bounded actions.
 
-It is especially focused on the boundary between useful autonomy and operator
-control. Model output, plugin metadata, YAML, generated files, and app surfaces do
-not grant authority by themselves. Authority comes from registered actions,
+Most of my attention goes to the boundary between useful autonomy and operator
+control. Model output, plugin metadata, YAML, generated files, and app surfaces
+do not grant authority by themselves. Authority comes from registered actions,
 settings, policy checks, and confirmations.
 
 ## Built On
 
 Allbert is implemented with Elixir, OTP, Phoenix LiveView, SQLite, and Jido.
-Those details matter for contributors, but the user-facing promise is simpler:
-a supervised local assistant runtime with inspectable state, explicit authority
-boundaries, and multiple operator surfaces over the same core.
+Those details matter for contributors, but the promise to whoever is running it
+is simpler: a supervised local assistant runtime with inspectable state, explicit
+authority boundaries, and multiple operator surfaces over the same core.
 
 ## Where It Is Going
 
@@ -89,16 +117,16 @@ Allbert is moving toward a local assistant operating system: a place where
 conversations, memory, settings, tools, background work, plugins, and app
 surfaces share one authority model.
 
-The roadmap is intentionally incremental. Each release proves a small contract in
-the real runtime, documents the boundary, validates it, and only then makes that
-contract easier to reuse.
+The roadmap is intentionally incremental, and it tracks my own use. Each release
+proves a small contract in the real runtime, documents the boundary, validates
+it, and only then makes that contract easier to reuse.
 
 See [docs/plans/roadmap.md](docs/plans/roadmap.md) for the current milestone
 sequence and [CHANGELOG.md](CHANGELOG.md) for shipped release details.
 
 ## Start Here
 
-If you want to try Allbert locally:
+If you want to run Allbert on your own machine:
 
 - [docs/operator/quickstart.md](docs/operator/quickstart.md): install, open, and
   chat — the canonical Allbert 1.2 first run.
@@ -116,7 +144,7 @@ If you want to try Allbert locally:
 - [CHANGELOG.md](CHANGELOG.md) / [docs/plans/roadmap.md](docs/plans/roadmap.md):
   what has shipped and where the project is going next.
 
-If you are contributing to the codebase:
+If you are reading or changing the code — your own fork included:
 
 - [DEVELOPMENT.md](DEVELOPMENT.md): local setup, commands, and verification gates.
 - [AGENTS.md](AGENTS.md): repository rules for coding agents and agent-assisted
@@ -129,7 +157,7 @@ If you are contributing to the codebase:
 
 ## Local Development
 
-For contributors working from source (the packaged product install path is in
+For working from source (the packaged product install path is in
 [docs/operator/install.md](docs/operator/install.md)). The common loop:
 
 ```sh
@@ -143,3 +171,30 @@ mix phx.server
 Use a temporary `ALLBERT_HOME` for tests, release smoke checks, and manual
 verification so real local assistant data is never modified by accident. See
 [DEVELOPMENT.md](DEVELOPMENT.md) for the full command set and operator examples.
+
+## License
+
+Allbert Assist is licensed under the [Apache License, Version 2.0](LICENSE).
+Copyright 2026 Sandeep Puri. The [NOTICE](NOTICE) file carries the attribution
+that Apache-2.0 requires redistributors to pass along.
+
+Apache-2.0 matches the license of the stack Allbert is built on — Elixir and
+Erlang/OTP are both Apache-2.0 — and it gives you an explicit patent grant
+alongside the explicit "AS IS", no-warranty terms that match the no-promises
+posture above.
+
+Every upstream dependency is permissive: Apache-2.0, MIT, BSD-2-Clause,
+BSD-3-Clause, ISC, or the Unlicense, plus public-domain SQLite. There is no
+copyleft anywhere in the tree, so a packaged Allbert carries no reciprocal
+source-disclosure obligation. The one practical limit to know about is
+downstream: a GPLv2-**only** project cannot incorporate Apache-2.0 code. GPLv3
+and AGPLv3 can.
+
+If you contribute, your contribution is licensed under the same terms — that is
+Apache-2.0 §5, and there is no separate CLA.
+
+A generated per-dependency notices file is **not** in the packaged release yet;
+it is planned for v1.3. Until then, the authoritative license list is the
+dependency tree itself: `deps/*/LICENSE*`, the `licenses` field of each
+`deps/*/hex_metadata.config`, and the JavaScript packages under
+`apps/allbert_assist_web/assets`.

@@ -48,6 +48,30 @@ stale guidance.
   architecture, and development. Attribution belongs to the human project
   authors, not AI coding tools.
 
+## Licensing
+
+- Allbert Assist is Apache-2.0 (`LICENSE`), copyright 2026 Sandeep Puri.
+  `NOTICE` holds the attribution redistributors must pass along under §4(d);
+  keep it minimal, because anything added there propagates downstream forever.
+- Contributions are licensed inbound under the same terms by Apache-2.0 §5.
+  There is no CLA, and new source files do not need per-file license headers.
+- **Keep the tree copyleft-free.** Every dependency today is Apache-2.0, MIT,
+  BSD-2-Clause, BSD-3-Clause, ISC, or the Unlicense, plus public-domain SQLite.
+  A GPL/LGPL/AGPL/MPL/SSPL/BUSL dependency would change what the packaged
+  binary can be distributed under, so treat one as an architecture decision
+  needing an ADR, not a routine `mix.exs` line.
+- Check the license before adding a dependency:
+
+  ```sh
+  grep -A3 '{<<"licenses">>' deps/<dep>/hex_metadata.config
+  ```
+
+- Packaged releases bundle ERTS and every runtime dependency, so binary
+  distribution carries the MIT/BSD attribution obligation. A generated
+  per-dependency notices file is **not** in the release yet — it is planned for
+  v1.3. Until it lands, `deps/*/LICENSE*` plus the metadata field above is the
+  authoritative list.
+
 ## Fresh Checkout
 
 Install dependencies and set up child apps from the umbrella root:
@@ -202,6 +226,7 @@ for the coding agent to guess later.
 - `docs/developer/`: developer-facing guides and lazy-loaded agent context.
 - `docs/notes/`: origin notes and project context.
 - `notebooks/`: exploratory Livebook material.
+- `LICENSE` / `NOTICE`: Apache-2.0 terms and the redistribution attribution.
 
 ## Architecture Contract
 
