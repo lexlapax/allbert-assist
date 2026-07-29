@@ -246,8 +246,9 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     assert promote =~ "verify-blob"
     assert promote =~ "--certificate-identity"
     assert promote =~ "find_release"
-    assert promote =~ "--hostname uploads.github.com"
-    assert promote =~ ~S|/releases/${release_id}/assets?name=${name}|
+    assert promote =~ "https://uploads.github.com/repos/"
+    assert promote =~ ~S|${release_upload_url}?name=${name}|
+    refute promote =~ "--hostname uploads.github.com"
     assert promote =~ ~S|/releases/${release_id}|
     assert promote =~ "-F draft=false"
     refute promote =~ "release_cli upload"
@@ -630,7 +631,7 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
       printf '%s\n' "$args" >> "$FIXTURE_ROOT/gh-calls.log"
       case "$args" in
         "release create "*)
-          printf '%s' '{"id":700,"tag_name":"v1.2.1","prerelease":false,"draft":true}' \
+          printf '%s' '{"id":700,"tag_name":"v1.2.1","prerelease":false,"draft":true,"upload_url":"https://uploads.github.com/repos/lexlapax/allbert-assist/releases/700/assets{?name,label}"}' \
             > "$FIXTURE_ROOT/release.json"
           ;;
         *"/releases/700/assets?name="*)

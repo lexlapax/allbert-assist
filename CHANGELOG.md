@@ -75,6 +75,10 @@ The retry-safe promoter now resolves at most one matching draft through the
 authenticated release collection, uploads through its immutable release ID,
 and publishes that same ID only after the complete asset/signature set verifies.
 The draft remains unpublished while the corrected provisional generation runs.
+Corrected promotion run `30490681308` then proved that `gh api --hostname
+uploads.github.com` incorrectly resolves `api.uploads.github.com`; it uploaded
+no assets. Asset upload now consumes and exactly validates GitHub's returned
+`upload_url` hypermedia link instead of synthesizing a hostname.
 
 ## v1.2.5 - Failed Immutable Foundation Attempt
 

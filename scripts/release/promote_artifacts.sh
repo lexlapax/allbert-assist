@@ -392,9 +392,9 @@ compare_or_upload() {
   case "$count" in
     0)
       [[ "$name" =~ ^[A-Za-z0-9._-]+$ ]]
-      api --hostname uploads.github.com --method POST \
+      api --method POST \
         -H "Content-Type: application/octet-stream" --input "$path" \
-        "/repos/${GITHUB_REPOSITORY}/releases/${release_id}/assets?name=${name}" \
+        "${release_upload_url}?name=${name}" \
         >/dev/null
       ;;
     1)
@@ -435,6 +435,10 @@ publish() {
   fi
   release_id="$(printf '%s' "$release" | jq -r .id)"
   [[ "$release_id" =~ ^[1-9][0-9]*$ ]]
+  release_upload_url="$(printf '%s' "$release" | jq -r .upload_url)"
+  [ "$release_upload_url" = \
+    "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${release_id}/assets{?name,label}" ]
+  release_upload_url="${release_upload_url%%\{*}"
 
   expected_names="$WORK/expected-assets.txt"
   {
