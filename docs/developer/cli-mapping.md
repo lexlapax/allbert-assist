@@ -20,8 +20,9 @@ advertised-but-missing command).
 The packaged dispatcher scopes OTP `+Bc` to `allbert tui` so raw Ctrl-C reaches
 the client's state-aware detach or active-turn interrupt/cancel path; it does
 not change daemon signal handling. The source-checkout equivalent is
-`ERL_AFLAGS="${ERL_AFLAGS:+$ERL_AFLAGS }+Bc" mix allbert.tui`. The focused and
-attended v1.2.1 runners apply that posture only to their TUI child.
+`ERL_AFLAGS="${ERL_AFLAGS:+$ERL_AFLAGS }+Bc" mix allbert.tui`. The focused
+v1.2.1 PTY runner and documented operator command apply that posture only to
+their TUI child.
 
 The table maps legacy Mix task families to product command homes. v0.62 also
 adds explicit subcommands that have no one-to-one legacy Mix task row:

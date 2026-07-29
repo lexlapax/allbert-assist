@@ -60,6 +60,39 @@ defmodule AllbertAssist.Actions.ExternalNetworkRequestTest do
     assert pending["status"] == "pending"
   end
 
+  test "explicit same-channel denial never executes the external request" do
+    owner = self()
+
+    Req.Test.stub(__MODULE__, fn conn ->
+      send(owner, :unexpected_external_request)
+      Plug.Conn.send_resp(conn, 200, "unexpected")
+    end)
+
+    assert {:ok, response} =
+             Runner.run("external_network_request", %{url: "https://example.com/status"}, %{
+               actor: "local",
+               channel: :tui
+             })
+
+    assert response.status == :needs_confirmation
+
+    assert {:ok, denied} =
+             Runner.run(
+               "deny_confirmation",
+               %{id: response.confirmation_id, reason: "operator declined"},
+               %{
+                 actor: "local",
+                 channel: :tui,
+                 external: %{req_plug: {Req.Test, __MODULE__}}
+               }
+             )
+
+    assert denied.status == :completed
+    assert denied.confirmation["status"] == "denied"
+    assert denied.confirmation["operator_resolution"]["same_channel?"]
+    refute_receive :unexpected_external_request, 100
+  end
+
   test "resource refs keep canonical URL separate from redacted display URL" do
     assert {:ok, response} =
              Runner.run(

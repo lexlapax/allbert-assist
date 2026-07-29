@@ -859,10 +859,10 @@ class Qualification:
         self.daemon_suspended = False
         self.wait_health()
 
-    def http_get(self, path: str) -> tuple[int, bytes]:
+    def http_get(self, path: str, timeout: float = 1.0) -> tuple[int, bytes]:
         try:
             with self.http_opener.open(
-                f"http://127.0.0.1:{self.args.port}{path}", timeout=1
+                f"http://127.0.0.1:{self.args.port}{path}", timeout=timeout
             ) as response:
                 return response.status, response.read(64 * 1024)
         except urllib.error.HTTPError as error:
@@ -889,11 +889,15 @@ class Qualification:
         )
 
     def web_ok(self) -> bool:
-        status, _body = self.http_get("/")
+        # The first rendered page resolves Settings through the action spine and
+        # can legitimately take longer than the narrow health probe on a cold
+        # source checkout. Keep this bounded without treating startup work as a
+        # Web outage.
+        status, _body = self.http_get("/", timeout=5.0)
         return status == 200
 
     def wait_degraded_web(self) -> None:
-        deadline = time.monotonic() + 5.0
+        deadline = time.monotonic() + 15.0
         while time.monotonic() < deadline:
             if self.daemon is not None and self.daemon.poll() is not None:
                 raise QualificationFailure(

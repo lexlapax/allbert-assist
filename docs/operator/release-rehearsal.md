@@ -154,31 +154,24 @@ tag ref**, supplying all seven bindings:
 
 > **HARD STOP — operator TUI sign-off.** Before dispatching promotion or
 > approving its protected environment, the operator must personally complete
-> the attended exact-artifact procedure in [§4](#4-packaged-tui-rehearsal) and
-> return to this point. Automated PTY/CI evidence does not replace that session.
-> Do not continue unless its review block printed PASS and these bindings still
-> match the selected artifact:
+> the exact-artifact command sequence in [§4](#4-packaged-tui-rehearsal) and
+> return to this point. Automated PTY/CI evidence does not replace seeing the
+> packaged client attach and work. Do not continue unless the content-free
+> operator receipt exists and these bindings still match the selected artifact:
 
 ```sh
-: "${V121_TUI_ATTENDED_EVIDENCE:?complete section 4 operator TUI validation first}"
-test -f "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx "candidate_sha=$V121_EXPECTED_SOURCE_SHA" "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx "artifact_sha256=$V121_EXPECTED_SHA256" "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx "target=$V121_TARGET" "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx 'surface=tui' "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx 'checklist_schema=v121_tui_attended_v1' "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx 'expected_pass_clause=v121_tui_operator_attended_v1' "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx 'redacted_observation=operator_observed_all_named_rows_pass' \
-  "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx 'operator_attended=true' "$V121_TUI_ATTENDED_EVIDENCE"
-for evidence_key in \
-  real_provider_preflight ordinary_prompt confirmation_deny_no_effect \
-  fanout_named_steering_join independent_follow_up normal_quit \
-  terminal_exact_restore post_tui_daemon_health; do
-  grep -Fx "$evidence_key=pass" "$V121_TUI_ATTENDED_EVIDENCE"
-done
-grep -Fx 'raw_transcript_retained=false' "$V121_TUI_ATTENDED_EVIDENCE"
-echo 'PASS: operator-attended exact-artifact TUI evidence is bound and reviewed'
+: "${V121_TUI_OPERATOR_RECEIPT:?complete section 4 operator TUI validation first}"
+test -f "$V121_TUI_OPERATOR_RECEIPT"
+grep -Fx 'kind=v121_tui_operator_observation' "$V121_TUI_OPERATOR_RECEIPT"
+grep -Fx "candidate_sha=$V121_EXPECTED_SOURCE_SHA" "$V121_TUI_OPERATOR_RECEIPT"
+grep -Fx "artifact_sha256=$V121_EXPECTED_SHA256" "$V121_TUI_OPERATOR_RECEIPT"
+grep -Fx "target=$V121_TARGET" "$V121_TUI_OPERATOR_RECEIPT"
+grep -Fx 'surface=tui' "$V121_TUI_OPERATOR_RECEIPT"
+grep -Fx 'operator_attended=true' "$V121_TUI_OPERATOR_RECEIPT"
+grep -Fx 'attach_status_provider_quit=pass' "$V121_TUI_OPERATOR_RECEIPT"
+grep -Fx 'terminal_exact_restore=pass' "$V121_TUI_OPERATOR_RECEIPT"
+grep -Fx 'post_tui_daemon_health=pass' "$V121_TUI_OPERATOR_RECEIPT"
+echo 'PASS: operator exact-artifact TUI receipt is bound and reviewed'
 ```
 
 ```sh
@@ -558,87 +551,229 @@ no raw TUI/provider transcript. Linux x64 additionally consumes the protected,
 harness-only configured-provider inputs defined by the active request-flow;
 other targets report provider `not_required`.
 
-Automation supports but cannot replace the attended exact-artifact barrier.
-Prepare a disposable Home physically below `TMPDIR` or `/tmp` with a real
-provider/model through the packaged interactive vault path, record the exact
-archive digest, then run:
+Automation supports but cannot replace seeing the exact packaged client attach
+and work. This human row is a documented command sequence, not an attended
+mode in the automation harness. Prepare a disposable Home physically below
+`TMPDIR` or `/tmp` with a real provider/model through the packaged interactive
+vault path. Start a disposable Bash subshell with `bash --noprofile --norc`;
+set the required inputs there (or export them before starting it), then paste
+each block below into that same shell. Fail-fast and the `EXIT` trap prevent a
+failed check from publishing a receipt or leaving the daemon running:
 
 ```sh
-export V121_TARGET="${V121_TARGET:?macos-arm64, linux-x64, or linux-arm64}"
-export V121_ARTIFACT="/absolute/path/allbert-${VERSION}-${V121_TARGET}.tar.gz"
-export V121_DIGEST_MANIFEST="${V121_DIGEST_MANIFEST:?path to the authenticated immutable digest manifest}"
-export V121_EXPECTED_SHA256="$(jq -er --arg target "$V121_TARGET" \
-  '.archives[] | select(.target == $target) | .sha256' "$V121_DIGEST_MANIFEST")"
+set -Eeuo pipefail
+umask 077
+command -v awk curl grep jq script tee >/dev/null
+V121_TUI_DAEMON_PID=
+trap 'if test -n "${V121_TUI_DAEMON_PID:-}"; then kill "$V121_TUI_DAEMON_PID" 2>/dev/null || true; wait "$V121_TUI_DAEMON_PID" 2>/dev/null || true; fi' EXIT
+
+: "${V121_TARGET:?macos-arm64, linux-x64, or linux-arm64}"
+: "${V121_ARTIFACT:?absolute path to the selected target archive}"
+: "${V121_DIGEST_MANIFEST:?path to the authenticated immutable digest manifest}"
+: "${V121_TUI_HOME:?prepared disposable Home with the real provider/profile}"
+: "${V121_TUI_PROVIDER_PROFILE:?set the prepared real profile}"
+test -f "$V121_ARTIFACT"
+test -r "$V121_DIGEST_MANIFEST"
+case "$V121_ARTIFACT" in
+  /*) ;;
+  *) echo 'V121_ARTIFACT must be an absolute path' >&2; exit 1 ;;
+esac
+
+V121_HOST_OS=$(uname -s)
+V121_HOST_ARCH=$(uname -m)
+case "$V121_HOST_OS:$V121_HOST_ARCH" in
+  Darwin:arm64) V121_HOST_TARGET=macos-arm64 ;;
+  Linux:x86_64|Linux:amd64) V121_HOST_TARGET=linux-x64 ;;
+  Linux:aarch64|Linux:arm64) V121_HOST_TARGET=linux-arm64 ;;
+  *) echo "unsupported operator host: $V121_HOST_OS/$V121_HOST_ARCH" >&2; exit 1 ;;
+esac
+test "$V121_TARGET" = "$V121_HOST_TARGET"
+
+V121_EXPECTED_SHA256=$(jq -er --arg target "$V121_TARGET" \
+  '.archives[] | select(.target == $target) | .sha256' "$V121_DIGEST_MANIFEST")
 [[ "$V121_EXPECTED_SHA256" =~ ^[0-9a-f]{64}$ ]]
-export V121_EXPECTED_SOURCE_SHA="$(jq -er '.source_sha' "$V121_DIGEST_MANIFEST")"
+V121_EXPECTED_SOURCE_SHA=$(jq -er '.source_sha' "$V121_DIGEST_MANIFEST")
 [[ "$V121_EXPECTED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
-export V121_TUI_HOME="${V121_TUI_HOME:?prepared disposable Home with the real provider/profile}"
-test -d "$V121_TUI_HOME"
-export V121_TUI_HOME="$(cd -P -- "$V121_TUI_HOME" && pwd -P)"
-export V121_TUI_EVIDENCE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/allbert-v121-artifact-attended.XXXXXX")"
-export V121_TUI_PROVIDER_PROFILE="${V121_TUI_PROVIDER_PROFILE:?set the prepared real profile}"
-export V121_TUI_ATTENDED_EVIDENCE="$V121_TUI_EVIDENCE_DIR/v121-tui-attended-${V121_TARGET}-${V121_EXPECTED_SHA256}.txt"
-scripts/smoke/v121_tui_qualification.sh --artifact "$V121_ARTIFACT" --attended
+export V121_TARGET V121_ARTIFACT V121_DIGEST_MANIFEST
+export V121_EXPECTED_SHA256 V121_EXPECTED_SOURCE_SHA
+
+V121_TUI_HOME=$(cd -P -- "$V121_TUI_HOME" && pwd -P)
+V121_TMP_ROOT=$(cd -P -- "${TMPDIR:-/tmp}" && pwd -P)
+V121_SYSTEM_TMP_ROOT=$(cd -P -- /tmp && pwd -P)
+V121_USER_HOME=$(cd -P -- "${HOME:?HOME must be set}" && pwd -P)
+case "$V121_TUI_HOME" in
+  "$V121_TMP_ROOT"/*|"$V121_SYSTEM_TMP_ROOT"/*) ;;
+  *) echo 'V121_TUI_HOME must be physically below TMPDIR or /tmp' >&2; exit 1 ;;
+esac
+if test -d "$V121_USER_HOME/.allbert"; then
+  V121_DEFAULT_ALLBERT_HOME=$(cd -P -- "$V121_USER_HOME/.allbert" && pwd -P)
+  test "$V121_TUI_HOME" != "$V121_DEFAULT_ALLBERT_HOME"
+else
+  test "$V121_TUI_HOME" != "$V121_USER_HOME/.allbert"
+fi
+
+V121_TUI_EVIDENCE_DIR=$(mktemp -d "$V121_TMP_ROOT/allbert-v121-artifact-operator.XXXXXX")
+V121_TUI_EXTRACT_PARENT=$(mktemp -d "$V121_TMP_ROOT/allbert-v121-artifact-extract.XXXXXX")
+V121_TUI_EXTRACT_DIR="$V121_TUI_EXTRACT_PARENT/release"
+V121_TUI_PORT="${V121_TUI_PORT:-$((49152 + RANDOM % 16384))}"
+[[ "$V121_TUI_PORT" =~ ^[0-9]+$ ]]
+(( V121_TUI_PORT >= 1024 && V121_TUI_PORT <= 65535 ))
+if (exec 3<>"/dev/tcp/127.0.0.1/$V121_TUI_PORT") 2>/dev/null; then
+  echo "localhost port $V121_TUI_PORT is already in use; choose another" >&2
+  exit 1
+fi
+export V121_TUI_HOME V121_TUI_PROVIDER_PROFILE V121_TUI_EVIDENCE_DIR
+export V121_TUI_EXTRACT_PARENT V121_TUI_EXTRACT_DIR V121_TUI_PORT
+
+if command -v sha256sum >/dev/null 2>&1; then
+  V121_ACTUAL_SHA256=$(sha256sum "$V121_ARTIFACT" | awk '{print $1}')
+else
+  command -v shasum >/dev/null
+  V121_ACTUAL_SHA256=$(shasum -a 256 "$V121_ARTIFACT" | awk '{print $1}')
+fi
+test "$V121_ACTUAL_SHA256" = "$V121_EXPECTED_SHA256"
+bash scripts/release/stage_artifacts.sh extract-release \
+  "$V121_ARTIFACT" "$V121_TUI_EXTRACT_DIR"
+V121_ALLBERT="$V121_TUI_EXTRACT_DIR/allbert/bin/allbert"
+test -x "$V121_ALLBERT"
+export V121_ALLBERT
+export ALLBERT_HOME="$V121_TUI_HOME"
+
+"$V121_ALLBERT" admin models use \
+  "$V121_TUI_PROVIDER_PROFILE" --enable-assist
+"$V121_ALLBERT" admin settings set \
+  intent.direct_answer_model_profile "$V121_TUI_PROVIDER_PROFILE"
+"$V121_ALLBERT" admin settings set \
+  intent.direct_answer_model_enabled true
+"$V121_ALLBERT" admin models list \
+  2>&1 \
+  | tee "$V121_TUI_EVIDENCE_DIR/model-list.txt"
+"$V121_ALLBERT" admin models doctor "$V121_TUI_PROVIDER_PROFILE" \
+  2>&1 \
+  | tee "$V121_TUI_EVIDENCE_DIR/provider-doctor.txt"
+
+PORT="$V121_TUI_PORT" "$V121_ALLBERT" serve \
+  >"$V121_TUI_EVIDENCE_DIR/daemon.log" 2>&1 &
+V121_TUI_DAEMON_PID=$!
+V121_TUI_DAEMON_READY=false
+V121_TUI_HEALTH_JSON=
+for ((V121_READY_ATTEMPT=1; V121_READY_ATTEMPT<=90; V121_READY_ATTEMPT++)); do
+  if ! kill -0 "$V121_TUI_DAEMON_PID" 2>/dev/null; then
+    tail -n 80 "$V121_TUI_EVIDENCE_DIR/daemon.log" >&2 || true
+    exit 1
+  fi
+  if V121_TUI_HEALTH_JSON=$(curl -fsS --max-time 2 \
+      "http://127.0.0.1:$V121_TUI_PORT/health" 2>/dev/null) && \
+      printf '%s\n' "$V121_TUI_HEALTH_JSON" \
+        | grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'; then
+    V121_TUI_DAEMON_READY=true
+    break
+  fi
+  sleep 1
+done
+if test "$V121_TUI_DAEMON_READY" != true; then
+  tail -n 80 "$V121_TUI_EVIDENCE_DIR/daemon.log" >&2 || true
+  exit 1
+fi
+kill -0 "$V121_TUI_DAEMON_PID"
+printf '%s\n' "$V121_TUI_HEALTH_JSON" \
+  | tee "$V121_TUI_EVIDENCE_DIR/pre-tui-health.json"
+V121_STTY_BEFORE=$(stty -g)
+V121_TUI_TRANSCRIPT="$V121_TUI_EVIDENCE_DIR/tui-${V121_TARGET}.txt"
+export V121_TUI_TRANSCRIPT
 ```
 
-The script starts the exact artifact's daemon, checks health, performs a
-redacted real-provider doctor, and then gives the operator one warm client. It
-prints the exact pasteable sequence and expected observations: `/status`; the
-harmless `Fetch https://example.com/ from the internet` confirmation followed
-by its exact printed DENY command; the archived v1.1 three-task OTP/GenServer/
-restaurant fan-out; the task-1 hospital-analogy steer; `status?`; one joined
-report; `what is 2+2?`; and `/quit`. The operator must personally verify each
-named PASS clause, exact `stty` restoration, and post-client daemon health.
+Expected before opening the TUI: the model list names the selected active
+profile with model-assisted intent enabled; the redacted doctor reports that
+provider/model ready for an actual turn; and pre-TUI health contains
+`"status":"ok"`. Exit status alone is not enough—read the doctor output. The
+bounded readiness loop also proves that the daemon process stayed alive while
+reaching that state.
 
-Review the content-free evidence before returning to the promotion hard stop:
+In that same Bash shell, capture one normal packaged-client session; the daemon
+continues in the background:
 
 ```sh
-test -f "$V121_TUI_ATTENDED_EVIDENCE"
-V121_TUI_HOME_CANONICAL="$(cd -P -- "$V121_TUI_HOME" && pwd -P)"
-V121_HOME_PATH_SHA256="$(python3 -c \
-  'import hashlib,sys; print(hashlib.sha256(sys.argv[1].encode()).hexdigest())' \
-  "$V121_TUI_HOME_CANONICAL")"
-V121_EVIDENCE_PATH_SHA256="$(python3 -c \
-  'import hashlib,sys; print(hashlib.sha256(sys.argv[1].encode()).hexdigest())' \
-  "$V121_TUI_ATTENDED_EVIDENCE")"
-V121_PROVIDER_PROFILE_SHA256="$(python3 -c \
-  'import hashlib,sys; print(hashlib.sha256(sys.argv[1].encode()).hexdigest())' \
-  "$V121_TUI_PROVIDER_PROFILE")"
-grep -Fx 'schema=1' "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx 'kind=v121_tui_attended_qualification' "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx 'checklist_schema=v121_tui_attended_v1' "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx "candidate_sha=$V121_EXPECTED_SOURCE_SHA" "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx "target=$V121_TARGET" "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx "host_os=$(uname -s)" "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx "host_arch=$(uname -m)" "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx 'surface=tui' "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx "home_path_sha256=$V121_HOME_PATH_SHA256" "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx "provider_profile_sha256=$V121_PROVIDER_PROFILE_SHA256" \
-  "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx "artifact_sha256=$V121_EXPECTED_SHA256" "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx "evidence_path_sha256=$V121_EVIDENCE_PATH_SHA256" \
-  "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx 'expected_pass_clause=v121_tui_operator_attended_v1' \
-  "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx 'redacted_observation=operator_observed_all_named_rows_pass' \
-  "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx 'operator_attended=true' "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx 'real_provider_preflight=pass' "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx 'ordinary_prompt=pass' "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx 'confirmation_deny_no_effect=pass' "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx 'fanout_named_steering_join=pass' "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx 'independent_follow_up=pass' "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx 'normal_quit=pass' "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx 'terminal_exact_restore=pass' "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx 'post_tui_daemon_health=pass' "$V121_TUI_ATTENDED_EVIDENCE"
-grep -Fx 'raw_transcript_retained=false' "$V121_TUI_ATTENDED_EVIDENCE"
-echo 'PASS: attended TUI evidence reviewed; return to section 1 hard stop'
+if test "$V121_HOST_OS" = Darwin; then
+  script -q "$V121_TUI_TRANSCRIPT" "$V121_ALLBERT" tui
+else
+  printf -v V121_TUI_COMMAND '%q tui' "$V121_ALLBERT"
+  script -q -e -c "$V121_TUI_COMMAND" "$V121_TUI_TRANSCRIPT"
+fi
 ```
 
-The evidence binds candidate SHA, host/target, surface, hashed Home/profile and
-evidence-path names, artifact digest, checklist schema, a fixed redacted
-observation, and PASS booleans. It does not capture the conversation,
-confirmation id, provider output, secret, raw path, or terminal bytes.
+Inside the one client:
+
+1. Confirm the initial `Allbert TUI - daemon attached` banner and
+   `allbert:default>` prompt render normally.
+2. Enter `/status`. Expected: the report includes `channel: tui`,
+   `operator_id: local`, `external_user_id: default`, and
+   `Channels.Supervisor: running`. Pre/post `/health` commands, not `/status`,
+   prove daemon health.
+3. Enter `what is 2+2?`. Expected: the selected real provider answers `4`.
+4. Enter `/quit`. Expected: normal detach to a usable, visually intact shell.
+
+After `/quit`, prove continuity, stop the daemon, and write the content-free
+receipt only after every observation above passed:
+
+```sh
+V121_STTY_AFTER=$(stty -g)
+test "$V121_STTY_BEFORE" = "$V121_STTY_AFTER"
+kill -0 "$V121_TUI_DAEMON_PID"
+V121_TUI_POST_HEALTH_JSON=$(curl -fsS --max-time 5 \
+  "http://127.0.0.1:$V121_TUI_PORT/health")
+printf '%s\n' "$V121_TUI_POST_HEALTH_JSON" \
+  | tee "$V121_TUI_EVIDENCE_DIR/post-tui-health.json"
+printf '%s\n' "$V121_TUI_POST_HEALTH_JSON" \
+  | grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'
+if command -v sha256sum >/dev/null 2>&1; then
+  V121_ACTUAL_SHA256=$(sha256sum "$V121_ARTIFACT" | awk '{print $1}')
+else
+  V121_ACTUAL_SHA256=$(shasum -a 256 "$V121_ARTIFACT" | awk '{print $1}')
+fi
+test "$V121_ACTUAL_SHA256" = "$V121_EXPECTED_SHA256"
+kill "$V121_TUI_DAEMON_PID"
+wait "$V121_TUI_DAEMON_PID" || true
+V121_TUI_DAEMON_PID=
+
+V121_TUI_OPERATOR_RECEIPT="$V121_TUI_EVIDENCE_DIR/v121-tui-${V121_TARGET}-${V121_EXPECTED_SHA256}.txt"
+export V121_TUI_OPERATOR_RECEIPT
+test ! -e "$V121_TUI_OPERATOR_RECEIPT"
+(
+  set -o noclobber
+  printf '%s\n' \
+    'kind=v121_tui_operator_observation' \
+    "candidate_sha=$V121_EXPECTED_SOURCE_SHA" \
+    "artifact_sha256=$V121_EXPECTED_SHA256" \
+    "target=$V121_TARGET" \
+    'surface=tui' \
+    'operator_attended=true' \
+    'attach_status_provider_quit=pass' \
+    'terminal_exact_restore=pass' \
+    'post_tui_daemon_health=pass' \
+    >"$V121_TUI_OPERATOR_RECEIPT"
+)
+chmod 600 "$V121_TUI_OPERATOR_RECEIPT"
+```
+
+The transcript and command output stay in the private operator directory; do
+not commit or upload the raw transcript. Review and archive the content-free
+receipt, then return to the promotion hard stop:
+
+```sh
+test -f "$V121_TUI_OPERATOR_RECEIPT"
+grep -Fx 'kind=v121_tui_operator_observation' "$V121_TUI_OPERATOR_RECEIPT"
+grep -Fx "candidate_sha=$V121_EXPECTED_SOURCE_SHA" "$V121_TUI_OPERATOR_RECEIPT"
+grep -Fx "artifact_sha256=$V121_EXPECTED_SHA256" "$V121_TUI_OPERATOR_RECEIPT"
+grep -Fx "target=$V121_TARGET" "$V121_TUI_OPERATOR_RECEIPT"
+grep -Fx 'surface=tui' "$V121_TUI_OPERATOR_RECEIPT"
+grep -Fx 'operator_attended=true' "$V121_TUI_OPERATOR_RECEIPT"
+grep -Fx 'attach_status_provider_quit=pass' "$V121_TUI_OPERATOR_RECEIPT"
+grep -Fx 'terminal_exact_restore=pass' "$V121_TUI_OPERATOR_RECEIPT"
+grep -Fx 'post_tui_daemon_health=pass' "$V121_TUI_OPERATOR_RECEIPT"
+trap - EXIT
+echo 'PASS: operator TUI receipt reviewed; return to section 1 hard stop'
+```
 
 On a raw-absent Home, the authenticated daemon session still performs the one
 atomic `channels.tui.enabled=true` plus `default → local` bootstrap. The TUI
@@ -850,7 +985,7 @@ and representative data remain without `--purge`.
 | Artifact matrix | published artifacts boot and pass binary smoke | `.github/workflows/release-artifacts.yml` | current line |
 | Tap fill | formula version, URLs, and checksums match release checksums | `homebrew/fill-sha256.sh`; `brew audit --strict --online --formula` | current packaged line |
 | Package-manager install | package installs and invokes packaged binary | `brew install`; `brew test`; uninstall | current line |
-| Packaged TUI | exact thin client attaches to the one daemon, passes bounded protocol/TTY rows, answers from a ready real provider, restores the terminal, and preserves concurrent Web continuity | `scripts/smoke/v121_tui_qualification.sh`; attended exact-artifact barrier | current line |
+| Packaged TUI | exact thin client attaches to the one daemon, passes bounded protocol/TTY rows, answers from a ready real provider, restores the terminal, and preserves concurrent Web continuity | automated `scripts/smoke/v121_tui_qualification.sh`; §4 operator command sequence | current line |
 | Docker Linux package smoke | both Linux artifacts install/start/attach/uninstall in containers | `docker run --platform linux/arm64`; `docker run --platform linux/amd64` | current line |
 | Real-host service/vault | launchd/systemd and OS keychain integration on actual hosts | host service/vault commands | operator closeout |
 

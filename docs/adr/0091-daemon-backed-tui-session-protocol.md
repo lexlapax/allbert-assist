@@ -502,7 +502,8 @@ input receipt, it follows the `:operator_interrupt` cancel-then-detach path. An
 idle, error, or durable-background client with no unresolved input detaches
 without manufacturing a cancellation. It appends the flag without discarding
 existing emulator flags and does not change the daemon's signal posture.
-Source-checkout PTY and attended runners apply the same TUI-child-only posture.
+The source-checkout PTY runner and documented operator command apply the same
+TUI-child-only posture.
 This uses the supported launcher boundary rather than private `:prim_tty`
 terminal-mode mutation, a platform-specific `stty` subprocess, or a second
 signal implementation.
@@ -579,14 +580,17 @@ client-owned terminal restoration on every handled exit.
 
 Packaged macOS and Linux validation starts the service first, keeps it running
 before/during/after TUI use, proves the TUI process opens no Repo or migration,
-uses Web and TUI concurrently against the same conversation/runtime, exercises
-fan-out and Escape cancellation, kills each side of the socket, and verifies
-the terminal and service health after every handled failure. A separate
-uncatchable-client-termination row proves the documented `stty sane`/`reset`
-recovery without claiming in-process cleanup.
+and verifies Attach occupancy, bounded pressure, handled signals/socket loss,
+terminal restoration, and continuing Web health. The inherited focused fan-out
+and TUI gates own fan-out, steering/join, and Escape cancellation without making
+the operator repeat them. A separate uncatchable-client-termination row proves
+the documented `stty sane`/`reset` recovery without claiming in-process cleanup.
 
-M0.b2 focused evidence covers the daemon protocol/session queue, integrity,
-receipt, Adapter, confirmation, fan-out, and teardown rows. The operator-
-attended warm thin-client run and exact packaged-artifact TTY rows are
-mandatory M0.b3/M0.c3 evidence; automated PTY coverage supports but does not
-replace those release barriers.
+M0.b2/M0.b3 focused evidence covers the daemon protocol/session queue,
+integrity, receipt, Adapter, confirmation, fan-out/steering/join, pressure,
+signals, and teardown rows. The operator-attended warm thin-client run and
+exact packaged-artifact TTY rows are mandatory M0.b3/M0.c3 evidence, but their
+human scope is intentionally visual and narrow: attach/render, `/status`, one
+ordinary real-provider turn, `/quit`, and an intact terminal. Automated PTY
+coverage supports those release barriers and owns the exhaustive failure-path
+proof; it does not replace the operator's basic-use observation.
