@@ -21,6 +21,9 @@ For operators trying Allbert locally (same entry sequence as the top-level
 
 For contributors:
 
+- [Architecture diagrams](design/architecture-diagrams.md) - visual orientation
+  before the detail: component map, surface/daemon topology, turn and
+  confirmation flows, supervision tree, and Allbert Home layout.
 - [Development guide](../DEVELOPMENT.md) - setup, commands, and verification gates.
 - [Agent instructions](../AGENTS.md) - repository rules for coding agents.
 - [Developer docs index](developer/README.md) - subsystem and implementation maps.
@@ -47,7 +50,8 @@ than this index.
 - [adr](adr/README.md) - accepted and proposed architecture decisions.
 - [archives](archives/README.md) - superseded planning references retained for history.
 - [developer](developer/README.md) - implementation contracts, subsystem maps, and gates.
-- [design](design/README.md) - product-experience spec, IA, first-model path,
+- [design](design/README.md) - [architecture diagrams](design/architecture-diagrams.md),
+  product-experience spec, IA, first-model path,
   onboarding flow, persona model, entry-point/CLI UX, design-system gap artifacts,
   visual-direction captures, and layout-system/brand screenshots the shipped
   releases implement.

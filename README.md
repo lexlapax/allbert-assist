@@ -150,6 +150,10 @@ If you want to run Allbert on your own machine:
 
 If you are reading or changing the code — your own fork included:
 
+- [docs/design/architecture-diagrams.md](docs/design/architecture-diagrams.md):
+  start here for the shape of the system — component map, how every surface
+  reaches one runtime, a chat turn end to end, and the authority boundary every
+  effect passes through.
 - [DEVELOPMENT.md](DEVELOPMENT.md): local setup, commands, and verification gates.
 - [AGENTS.md](AGENTS.md): repository rules for coding agents and agent-assisted
   work.
