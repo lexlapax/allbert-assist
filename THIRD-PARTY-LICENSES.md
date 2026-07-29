@@ -790,11 +790,12 @@ the offline drift check can pass.
 
 - Kind: `managed_file`
 - License expression: `Apache-2.0`
-- Disposition: bundled when selected for the target
+- Disposition: bundled only when observed in the selected final target
 - Required texts: `Apache-2.0`
 - Managed application: `crypto`
 - Managed relative path: `priv/lib/libcrypto.3.dylib`
 - Targets: `["macos-arm64"]`
+- Presence: `observed`
 - Provenance: `{"reason":"conditional macOS ERTS closure","upstream":"https://openssl-library.org/"}`
 
 ### `otp-asn1` — Erlang/OTP asn1

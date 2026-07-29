@@ -18,6 +18,8 @@ defmodule AllbertAssist.InstallPathTest do
   @formula Path.join(@repo_root, "homebrew/allbert.rb")
   @fill_sha256 Path.join(@repo_root, "homebrew/fill-sha256.sh")
   @workflow Path.join(@repo_root, ".github/workflows/release-artifacts.yml")
+  @stage_script Path.join(@repo_root, "scripts/release/stage_artifacts.sh")
+  @promote_script Path.join(@repo_root, "scripts/release/promote_artifacts.sh")
   @root_mix Path.join(@repo_root, "mix.exs")
   @overlay Path.join(@repo_root, "rel/overlays/bin/allbert-dispatch")
   @smoke Path.join(@repo_root, "scripts/smoke/artifact_smoke.sh")
@@ -39,6 +41,16 @@ defmodule AllbertAssist.InstallPathTest do
     assert body =~ "docs.sigstore.dev/cosign/installation"
     assert body =~ "https://token.actions.githubusercontent.com"
     assert body =~ "release-artifacts.yml@refs/tags"
+
+    assert body =~
+             "--certificate-identity \"https://github.com/lexlapax/allbert-assist/.github/workflows/release-artifacts.yml@refs/tags/$RELEASE_TAG\""
+
+    refute body =~ "--certificate-identity-regexp"
+    assert body =~ "RELEASE_TAG=\"$VERSION\""
+    assert body =~ "releases/latest"
+    assert body =~ "%{url_effective}"
+    assert body =~ "releases/download/$RELEASE_TAG"
+    assert body =~ "ALLBERT_RELEASE_TAG"
     assert body =~ "checksum mismatch"
     assert body =~ "allbert admin service install --dry-run"
     assert body =~ "allbert admin confirmations approve <ID>"
@@ -56,7 +68,8 @@ defmodule AllbertAssist.InstallPathTest do
     assert body =~ ~s{awk -v f="$artifact" '$2 == f}
 
     workflow = File.read!(@workflow)
-    assert workflow =~ "cosign sign-blob"
+    promoter = File.read!(@promote_script)
+    assert promoter =~ "sign-blob"
     refute workflow =~ "continue-on-error: true"
 
     AssertBinding.check!("trusted-install-artifact-verification-001", [
@@ -362,35 +375,39 @@ defmodule AllbertAssist.InstallPathTest do
     assert output =~ "host runtimes may not be staged"
   end
 
-  test "the release workflow publishes checksums and attaches to the release" do
+  test "the release workflow stages once and protected promotion publishes unchanged bytes" do
     body = File.read!(@workflow)
+    stage = File.read!(@stage_script)
+    promoter = File.read!(@promote_script)
     rehearsal = File.read!(@linux_rehearsal)
 
     assert {_, 0} = System.cmd("bash", ["-n", @linux_rehearsal], stderr_to_stdout: true)
+    assert {_, 0} = System.cmd("bash", ["-n", @stage_script], stderr_to_stdout: true)
+    assert {_, 0} = System.cmd("bash", ["-n", @promote_script], stderr_to_stdout: true)
     assert body =~ "sha256sum"
-    assert body =~ "SHA256SUMS"
-    assert body =~ "cosign sign-blob"
+    assert promoter =~ "SHA256SUMS"
+    assert promoter =~ "sign-blob"
     refute body =~ "continue-on-error: true"
-    # v0.62 M8.25: the release must be CREATED before assets are uploaded — a
-    # pushed tag doesn't auto-create a Release, so `gh release upload` alone would
-    # fail on the first tag. Prerelease-aware for rc-tag build tests.
-    assert body =~ "gh release create" and body =~ "--verify-tag"
-    assert body =~ "--prerelease"
-    assert body =~ "gh release upload"
+    refute promoter =~ "continue-on-error: true"
+    # Promotion creates a draft only when absent, resumes identical assets, and
+    # never mutably replaces an existing release asset.
+    assert promoter =~ "release_cli create" and promoter =~ "--verify-tag"
+    assert promoter =~ "--prerelease"
+    assert promoter =~ "release_cli upload"
+    assert promoter =~ "existing asset $name differs; refusing replacement"
+    refute promoter =~ "--clobber"
     # Native per-target matrix (no cross-compilation).
     assert body =~ "macos-arm64" and body =~ "linux-x64" and body =~ "linux-arm64"
     assert body =~ "smoke"
-    # v0.62 M8.17: publish is gated on the Linux rehearsal, and the version-less
-    # alias is derived from the known target suffix (not a version regex that a
-    # prerelease `-rc1` hyphen would mangle).
+    # Digest staging waits for the Linux rehearsal; version-less aliases are
+    # derived from the exact target set only in protected promotion.
     assert body =~ "needs: [build, linux-rehearsal]"
-    assert body =~ ~s{cp "$f" "allbert-$target.tar.gz"}
+    assert promoter =~ ~S|allbert-${target}.tar.gz|
     # v1.0.5 RC: a tag-built filename must carry the exact tag, not only the
     # internal product version, so ALLBERT_VERSION=v1.0.5-rc.1 resolves the
     # signed prerelease asset while the executable still reports 1.0.5.
-    assert body =~ ~S|ARTIFACT_VERSION="v${VERSION}"|
-    assert body =~ ~S|ARTIFACT_VERSION="${GITHUB_REF_NAME}"|
-    assert body =~ ~S|dist/allbert-${ARTIFACT_VERSION}-${{ matrix.target }}.tar.gz|
+    assert body =~ ~S|archive="allbert-${GITHUB_REF_NAME}-${TARGET}.tar.gz"|
+    assert body =~ ~S|dist/allbert-${{ github.ref_name }}-${{ matrix.target }}.tar.gz|
     # v0.62b: a docs/source point-release tag marked `[skip-artifacts]` must NOT
     # build or publish packaged artifacts (so v0.62.0 stays the Latest packaged
     # release). The gate job reads the tag message; build depends on its output.
@@ -398,15 +415,18 @@ defmodule AllbertAssist.InstallPathTest do
     assert body =~ "needs.gate.outputs.artifacts == 'true'"
     assert body =~ "needs: gate"
 
-    # v0.64.1: the pre-publish Linux rehearsal uses install.sh's fail-closed
-    # verifier too, so its local file:// tarball must carry a real cosign bundle.
+    # Source-run qualification consumes a preverified immutable stage and has
+    # no OIDC/signing path. Only protected promotion receives id-token:write.
     assert body =~ "actions: read"
     assert body =~ "id-token: write"
-    assert body =~ "sigstore/cosign-installer@v3"
-    assert body =~ "ALLBERT_REHEARSAL_SIGN_CHECKSUMS"
+    assert body =~ "sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6"
+    assert body =~ ~S|[ "$resolved_cosign" = "v3.0.6" ]|
     assert body =~ "ALLBERT_REHEARSAL_PREVERIFIED_STAGE"
     assert body =~ "ALLBERT_REHEARSAL_VERSION"
-    assert body =~ "if: github.ref_type == 'tag'"
+    refute body =~ "ALLBERT_REHEARSAL_SIGN_CHECKSUMS"
+    assert body =~ "environment: release-promotion"
+    assert body =~ "github.event_name == 'workflow_dispatch'"
+    assert stage =~ "actions/artifacts/${id}/zip"
     assert rehearsal =~ "SHA256SUMS.cosign.bundle"
     assert rehearsal =~ "cosign sign-blob"
     assert rehearsal =~ "ALLBERT_REHEARSAL_SIGN_CHECKSUMS"

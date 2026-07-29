@@ -1161,12 +1161,15 @@ Chromium and separately installed pinned Playwright. The container cannot turn
 those host prerequisites into artifact content because the boundary check runs
 against the already-created tarball before the live doctor.
 
-Workflow-dispatch rehearsals cannot manufacture a tag-identity certificate:
-keyless signing records `refs/heads/main`, which the production installer must
-reject. Branch dry-runs therefore use the rehearsal's exact-checksum
-preverified-stage path. Tag-triggered runs keep the real local cosign-bundle +
-installer path, so publication still depends on proof under the exact release
-identity rather than a permissive branch exception.
+Workflow dispatch is no longer a branch build/rehearsal path: it is the protected
+promotion graph and must be dispatched at the exact immutable product-tag ref.
+The tag-push source graph builds, smokes, and stages attempt-qualified bytes with
+no OIDC/signing permission; its Linux rehearsal consumes a checksum-bound
+preverified stage. Only the environment-approved promotion graph receives
+`id-token: write`, signs the already-qualified checksum under the exact tag
+workflow identity, and publishes without rebuilding. Fixture/local-tree tests
+exercise ordering and failure contracts before a tag; they do not manufacture a
+branch-identity certificate or a lookalike release archive.
 
 ### v1.0.5 macOS Port-Visibility Gate — 2026-07-21
 

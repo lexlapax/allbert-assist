@@ -1,106 +1,200 @@
-# v0.62 M1 (Locked Decisions 2/3/4, S2-ratified 2026-07-06): native per-target
-# release artifacts. Freeze-blocking matrix: macos-arm64, linux-x64 (glibc
-# >= 2.35 via ubuntu-22.04), linux-arm64. No cross-compilation (rebar3 erlexec
-# and the muontrap/erlexec port executables forbid it). Toolchain pinned (LD-4);
-# macOS bundles its OpenSSL dylibs at assembly (patch_macos_openssl step).
+# v1.2.1 M0.a2: build each native target from the immutable tag once, retain
+# those exact bytes for qualification, and publish only through the protected,
+# evidence-bound promotion job in this same workflow. The stable workflow path
+# is part of the cosign certificate identity consumed by install.sh.
 name: release-artifacts
 
 on:
-  workflow_dispatch:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Immutable product tag; dispatch this workflow at the same tag ref
+        required: true
+        type: string
+      source_run_id:
+        description: Successful tag-push source workflow run ID
+        required: true
+        type: string
+      source_run_attempt:
+        description: Latest successful attempt of the source workflow run
+        required: true
+        type: string
+      digest_manifest_artifact_id:
+        description: Numeric ID of the attempt-qualified digest-manifest artifact
+        required: true
+        type: string
+      digest_manifest_sha256:
+        description: upload-artifact SHA-256 for the digest-manifest ZIP
+        required: true
+        type: string
+      qualification_manifest_artifact_id:
+        description: Numeric ID of the final qualification-evidence artifact
+        required: true
+        type: string
+      qualification_manifest_sha256:
+        description: upload-artifact SHA-256 for the qualification-evidence ZIP
+        required: true
+        type: string
 
-permissions:
-  contents: read
+permissions: {}
 
 env:
   MIX_ENV: prod
-  OTP_VERSION: "29.0"
+  OTP_VERSION: "29.0.1"
   ELIXIR_VERSION: "1.19.5"
+  REBAR3_VERSION: "3.25.1"
+  HEX_VERSION: "2.5.1"
+  SETUP_BEAM_SHA: "54075bcc5e249e4758d363f27d099f55d843f124"
+  RELEASE_WORKFLOW_PATH: ".github/workflows/release-artifacts.yml"
+  MAX_NATIVE_ARTIFACT_AGE_DAYS: "21"
 
 jobs:
-  # v0.62b: a docs/source point release (e.g. v0.62.1) must NOT produce packaged
-  # artifacts or steal GitHub "Latest" from the product release (v0.62.0), which
-  # owns the tarballs + version-less `latest` aliases install.sh/Homebrew resolve.
-  # An annotated tag whose message contains `[skip-artifacts]` skips the whole
-  # packaged pipeline; product-release tags (no marker) build + publish as before.
-  # workflow_dispatch (no tag) always builds so dry-runs still work.
+  # Annotated docs/source tags remain non-binary tags. workflow_dispatch is
+  # exclusively promotion, so it never enters this checkout/build path.
   gate:
+    if: github.event_name == 'push' && github.ref_type == 'tag'
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
     outputs:
       artifacts: ${{ steps.decide.outputs.artifacts }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
       - id: decide
+        shell: bash
         run: |
-          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
-            # actions/checkout may peel the local tag ref to the commit before this
-            # step runs; refetch the tag object so annotated tag messages remain
-            # readable for docs/source [skip-artifacts] releases.
-            git fetch --force --no-tags origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
-          fi
-          msg="$(git for-each-ref "refs/tags/${GITHUB_REF_NAME}" --format='%(contents)' 2>/dev/null || true)"
-          if printf '%s' "$msg" | grep -qF '[skip-artifacts]'; then
+          set -euo pipefail
+          git fetch --force --no-tags origin \
+            "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+          tag_type="$(git cat-file -t "refs/tags/${GITHUB_REF_NAME}")"
+          [ "$tag_type" = tag ] || {
+            echo "::error::${GITHUB_REF_NAME} is lightweight; binary tags must be annotated."
+            exit 1
+          }
+          message="$(git for-each-ref "refs/tags/${GITHUB_REF_NAME}" \
+            --format='%(contents)' 2>/dev/null || true)"
+          if printf '%s' "$message" | grep -qF '[skip-artifacts]'; then
             echo "artifacts=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Tag ${GITHUB_REF_NAME} is marked [skip-artifacts]; skipping packaged build/publish (docs/source point release)."
+            echo "::notice::${GITHUB_REF_NAME} is source-only; packaged build skipped."
           else
             echo "artifacts=true" >> "$GITHUB_OUTPUT"
           fi
 
   build:
+    name: build-${{ matrix.target }}
     needs: gate
     if: needs.gate.outputs.artifacts == 'true'
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14
+          - os: macos-15
             target: macos-arm64
           - os: ubuntu-22.04
             target: linux-x64
           - os: ubuntu-22.04-arm
             target: linux-arm64
     runs-on: ${{ matrix.os }}
+    permissions:
+      actions: read
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - name: Set up BEAM (Linux)
-        if: runner.os == 'Linux'
-        uses: erlef/setup-beam@v1
+      # Reruns reuse exactly one artifact whose named producer job succeeded.
+      # Duplicate successful artifacts fail closed; no toolchain is invoked.
+      - name: Select build or immutable reuse
+        id: preflight
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/release/stage_artifacts.sh preflight "${{ matrix.target }}"
+
+      - name: Set up exact BEAM toolchain
+        if: steps.preflight.outputs.reuse != 'true'
+        id: setup-beam
+        uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
         with:
+          version-type: strict
           otp-version: ${{ env.OTP_VERSION }}
           elixir-version: ${{ env.ELIXIR_VERSION }}
-
-      - name: Set up BEAM (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew update
-          brew install erlang elixir
-          elixir --version
+          rebar3-version: ${{ env.REBAR3_VERSION }}
+          install-hex: false
+          install-rebar: false
 
       - name: Build release
+        if: steps.preflight.outputs.reuse != 'true'
+        shell: bash
         run: |
-          mix local.hex --force
-          mix local.rebar --force
+          set -euo pipefail
+          mix local.hex "$HEX_VERSION" --force
           mix deps.get --only prod
           mix hex.audit
           mix release allbert --overwrite
 
-      - name: Package artifact
+      - name: Package archive and exact toolchain evidence
+        if: steps.preflight.outputs.reuse != 'true'
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          RESOLVED_OTP: ${{ steps.setup-beam.outputs.otp-version }}
+          RESOLVED_ELIXIR: ${{ steps.setup-beam.outputs.elixir-version }}
+          RESOLVED_REBAR3: ${{ steps.setup-beam.outputs.rebar3-version }}
+          REPORTED_SETUP_BEAM_REVISION: ${{ steps.setup-beam.outputs.setup-beam-version }}
         run: |
-          VERSION=$(grep -m1 'version:' mix.exs | sed 's/.*version: "\(.*\)".*/\1/')
-          ARTIFACT_VERSION="v${VERSION}"
-          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
-            ARTIFACT_VERSION="${GITHUB_REF_NAME}"
-          fi
+          set -euo pipefail
+          version="$(grep -m1 'version:' mix.exs | sed 's/.*version: "\(.*\)".*/\1/')"
+          case "$GITHUB_REF_NAME" in
+            "v${version}"|"v${version}-"*) ;;
+            *) echo "tag ${GITHUB_REF_NAME} does not name product version ${version}" >&2; exit 1 ;;
+          esac
+
+          runtime_otp="$(elixir -e 'release = List.to_string(:erlang.system_info(:otp_release)); path = Path.join([:code.root_dir(), "releases", release, "OTP_VERSION"]); IO.write(File.read!(path) |> String.trim() |> String.trim_leading("OTP-"))')"
+          runtime_elixir="$(elixir -e 'IO.write(System.version())')"
+          runtime_erts="$(elixir -e 'IO.write(:erlang.system_info(:version))')"
+          resolved_hex="$(mix hex.info | awk '/^Hex:/ {print $2; exit}')"
+          resolved_rebar3="$(rebar3 --version | awk '{print $2; exit}')"
+          otp_major="${OTP_VERSION%%.*}"
+
+          [ "$runtime_otp" = "$OTP_VERSION" ]
+          [ "$runtime_elixir" = "$ELIXIR_VERSION" ]
+          [ "$resolved_hex" = "$HEX_VERSION" ]
+          [ "$resolved_rebar3" = "$REBAR3_VERSION" ]
+          [ "$RESOLVED_OTP" = "OTP-${OTP_VERSION}" ]
+          [ "$RESOLVED_ELIXIR" = "v${ELIXIR_VERSION}-otp-${otp_major}" ]
+          [ "$RESOLVED_REBAR3" = "$REBAR3_VERSION" ]
+          [ "$REPORTED_SETUP_BEAM_REVISION" = "ea45c80" ]
+
           mkdir -p dist
-          tar -czf "dist/allbert-${ARTIFACT_VERSION}-${{ matrix.target }}.tar.gz" -C _build/prod/rel allbert
-          ls -la dist/
+          archive="allbert-${GITHUB_REF_NAME}-${TARGET}.tar.gz"
+          tar -czf "dist/$archive" -C _build/prod/rel allbert
+          jq -S -n \
+            --arg target "$TARGET" --arg source_sha "$GITHUB_SHA" \
+            --arg setup_beam_action_sha "$SETUP_BEAM_SHA" \
+            --arg setup_beam_reported_revision "$REPORTED_SETUP_BEAM_REVISION" \
+            --arg otp_input "$OTP_VERSION" --arg otp_resolved "$RESOLVED_OTP" \
+            --arg elixir_input "$ELIXIR_VERSION" --arg elixir_resolved "$RESOLVED_ELIXIR" \
+            --arg rebar3_input "$REBAR3_VERSION" --arg rebar3_resolved "$RESOLVED_REBAR3" \
+            --arg hex_input "$HEX_VERSION" --arg hex_resolved "$resolved_hex" \
+            --arg runtime_otp "$runtime_otp" --arg runtime_elixir "$runtime_elixir" \
+            --arg runtime_erts "$runtime_erts" \
+            '{schema_version: 1, target: $target, source_sha: $source_sha,
+              setup_beam: {action_sha: $setup_beam_action_sha,
+                reported_action_revision: $setup_beam_reported_revision,
+                version_type: "strict",
+                otp: {input: $otp_input, resolved: $otp_resolved},
+                elixir: {input: $elixir_input, resolved: $elixir_resolved},
+                rebar3: {input: $rebar3_input, resolved: $rebar3_resolved}},
+              hex: {input: $hex_input, resolved: $hex_resolved},
+              runtime: {otp: $runtime_otp, elixir: $runtime_elixir, erts: $runtime_erts}}' \
+            > "dist/toolchain-${TARGET}.json"
 
       - name: Provision browser runtime prerequisites outside the artifact
-        if: matrix.target != 'linux-arm64'
+        if: steps.preflight.outputs.reuse != 'true' && matrix.target != 'linux-arm64'
         shell: bash
         run: |
           set -euo pipefail
@@ -110,27 +204,28 @@ jobs:
             playwright@1.58.2
           actual="$(node -e 'process.stdout.write(require(process.argv[1]).version)' \
             "$runtime/node_modules/playwright/package.json")"
-          test "$actual" = 1.58.2
-
+          [ "$actual" = 1.58.2 ]
           if [ "$RUNNER_OS" = macOS ]; then
             browser="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
           else
             browser="$(command -v chromium || command -v google-chrome-stable || command -v google-chrome)"
           fi
-
           test -x "$browser"
           echo "PLAYWRIGHT_NODE_PATH=$runtime/node_modules" >> "$GITHUB_ENV"
           echo "BROWSER_BINARY_PATH=$browser" >> "$GITHUB_ENV"
 
-      - name: Smoke the artifact on the runner (boot, browser doctor, health, attach)
-        if: matrix.target != 'linux-arm64'
+      - name: Smoke archive on native runner
+        if: steps.preflight.outputs.reuse != 'true' && matrix.target != 'linux-arm64'
+        shell: bash
         run: |
-          WORK=$(mktemp -d)
-          tar -xzf dist/allbert-v*-${{ matrix.target }}.tar.gz -C "$WORK"
-          bash scripts/smoke/artifact_smoke.sh "$WORK/allbert" "${{ matrix.target }}" | tee "smoke-${{ matrix.target }}.log"
+          set -euo pipefail
+          work="$(mktemp -d)"
+          tar -xzf "dist/allbert-${GITHUB_REF_NAME}-${{ matrix.target }}.tar.gz" -C "$work"
+          bash scripts/smoke/artifact_smoke.sh "$work/allbert" "${{ matrix.target }}" \
+            | tee "smoke-${{ matrix.target }}.log"
 
-      - name: Smoke linux-arm64 with Debian OS browser prerequisites
-        if: matrix.target == 'linux-arm64'
+      - name: Smoke linux-arm64 with Debian browser prerequisites
+        if: steps.preflight.outputs.reuse != 'true' && matrix.target == 'linux-arm64'
         shell: bash
         run: |
           set -euo pipefail
@@ -146,10 +241,10 @@ jobs:
                 playwright@1.58.2
               actual="$(node -e '\''process.stdout.write(require(process.argv[1]).version)'\'' \
                 "$runtime/node_modules/playwright/package.json")"
-              test "$actual" = 1.58.2
+              [ "$actual" = 1.58.2 ]
               test -x /usr/bin/chromium
               mkdir -p /tmp/extract
-              tar -xzf /repo/dist/allbert-v*-linux-arm64.tar.gz -C /tmp/extract
+              tar -xzf /repo/dist/allbert-'"${GITHUB_REF_NAME}"'-linux-arm64.tar.gz -C /tmp/extract
               chown -R node:node /tmp/extract "$runtime"
               su -s /bin/bash node -c "set -euo pipefail
                 export PLAYWRIGHT_NODE_PATH=$runtime/node_modules
@@ -158,43 +253,49 @@ jobs:
                   /tmp/extract/allbert linux-arm64"' \
             | tee smoke-linux-arm64.log
 
-      - name: Upload smoke evidence
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: Upload attempt-qualified smoke evidence
+        if: steps.preflight.outputs.reuse != 'true' && always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: smoke-${{ matrix.target }}
+          name: source-${{ github.run_id }}-a${{ github.run_attempt }}-${{ matrix.target }}-smoke
           path: smoke-${{ matrix.target }}.log
+          if-no-files-found: error
           retention-days: 30
+          overwrite: false
 
-      - uses: actions/upload-artifact@v4
+      # Final effect of a new builder. Its existence is accepted only when this
+      # named build job concludes successfully.
+      - name: Upload immutable native archive
+        if: steps.preflight.outputs.reuse != 'true'
+        id: upload-archive
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: allbert-${{ matrix.target }}
-          path: dist/*.tar.gz
+          name: source-${{ github.run_id }}-a${{ github.run_attempt }}-${{ matrix.target }}-archive
+          path: |
+            dist/allbert-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
+            dist/toolchain-${{ matrix.target }}.json
+          if-no-files-found: error
           retention-days: 30
+          overwrite: false
 
-  # v0.62 M8.13: Linux install/serve/service/vault rehearsal on a real Ubuntu
-  # host — the automated counterpart to the manual macOS rehearsal. Installs the
-  # built linux-x64 artifact through install.sh's symlink path, smokes the CLI,
-  # and rehearses the Secret Service vault (gnome-keyring) + systemd --user
-  # service where the runner allows (both degrade gracefully, matching the
-  # documented headless fallback). Evidence uploads as an artifact.
+  # Source-run qualification only: no OIDC permission, signing, or publication.
   linux-rehearsal:
     needs: build
+    if: github.event_name == 'push'
     runs-on: ubuntu-22.04
     permissions:
       actions: read
       contents: read
-      id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: allbert-linux-x64
-          path: dist
-      - name: Extract the built artifact
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Download accepted linux-x64 archive by numeric artifact ID
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/release/stage_artifacts.sh download linux-x64 dist
+      - name: Extract accepted archive
         run: |
           mkdir -p work
-          tar -xzf dist/*.tar.gz -C work
+          tar -xzf "dist/allbert-${GITHUB_REF_NAME}-linux-x64.tar.gz" -C work
           echo "REL_ROOT=$PWD/work/allbert" >> "$GITHUB_ENV"
       - name: Provision browser runtime prerequisites outside the artifact
         shell: bash
@@ -206,111 +307,356 @@ jobs:
             playwright@1.58.2
           actual="$(node -e 'process.stdout.write(require(process.argv[1]).version)' \
             "$runtime/node_modules/playwright/package.json")"
-          test "$actual" = 1.58.2
+          [ "$actual" = 1.58.2 ]
           browser="$(command -v chromium || command -v google-chrome-stable || command -v google-chrome)"
           test -x "$browser"
           echo "PLAYWRIGHT_NODE_PATH=$runtime/node_modules" >> "$GITHUB_ENV"
           echo "BROWSER_BINARY_PATH=$browser" >> "$GITHUB_ENV"
-      - name: Install Secret Service tooling (gnome-keyring + secret-tool)
+      - name: Install Secret Service tooling
         run: sudo apt-get update && sudo apt-get install -y gnome-keyring libsecret-tools dbus-x11
-      - name: Select Linux rehearsal trust path
+      - name: Prepare checksum-bound preverified rehearsal stage
+        run: |
+          artifact="allbert-${GITHUB_REF_NAME}-linux-x64.tar.gz"
+          stage="$RUNNER_TEMP/allbert-preverified-stage"
+          mkdir -p "$stage"
+          cp "dist/$artifact" "$stage/$artifact"
+          (cd "$stage" && sha256sum "$artifact" > SHA256SUMS)
+          echo "ALLBERT_REHEARSAL_PREVERIFIED_STAGE=$stage" >> "$GITHUB_ENV"
+          echo "ALLBERT_REHEARSAL_VERSION=$GITHUB_REF_NAME" >> "$GITHUB_ENV"
+      - name: Linux rehearsal (install / smoke / vault / service / uninstall)
         shell: bash
         run: |
-          set -euo pipefail
-          if [ "$GITHUB_REF_TYPE" = tag ]; then
-            echo "ALLBERT_REHEARSAL_SIGN_CHECKSUMS=1" >> "$GITHUB_ENV"
-          else
-            version="$(grep -m1 'version:' mix.exs | sed 's/.*version: "\(.*\)".*/\1/')"
-            artifact="allbert-v${version}-linux-x64.tar.gz"
-            stage="$RUNNER_TEMP/allbert-preverified-stage"
-            mkdir -p "$stage"
-            test -f "dist/$artifact"
-            cp "dist/$artifact" "$stage/$artifact"
-            (cd "$stage" && sha256sum "$artifact" > SHA256SUMS)
-            echo "ALLBERT_REHEARSAL_PREVERIFIED_STAGE=$stage" >> "$GITHUB_ENV"
-            echo "ALLBERT_REHEARSAL_VERSION=v$version" >> "$GITHUB_ENV"
-          fi
-      - name: Install cosign for signed local installer rehearsal
-        if: github.ref_type == 'tag'
-        uses: sigstore/cosign-installer@v3
-      - name: Linux rehearsal (install / smoke / vault / service / uninstall)
-        run: |
           set -o pipefail
-          # A D-Bus session + an unlocked login keyring so the Secret Service
-          # (tier-1 Linux) path is exercisable; the rehearsal script SKIPs the
-          # vault step cleanly if the keyring is unavailable.
           dbus-run-session -- bash -c '
             echo "ci-keyring-pass" | gnome-keyring-daemon --unlock --components=secrets >/dev/null 2>&1 || true
             eval "$(echo ci-keyring-pass | gnome-keyring-daemon --start --components=secrets 2>/dev/null)" || true
             bash scripts/smoke/linux_rehearsal.sh "$REL_ROOT"
           ' | tee linux-rehearsal.log
-      - name: Upload rehearsal evidence
+      - name: Upload attempt-qualified rehearsal evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: linux-rehearsal-log
+          name: source-${{ github.run_id }}-a${{ github.run_attempt }}-linux-rehearsal
           path: linux-rehearsal.log
+          if-no-files-found: error
           retention-days: 30
+          overwrite: false
 
-  # v0.62 M2/M8: collect the per-target artifacts, publish SHA256SUMS, and
-  # attach everything to the GitHub release. Tag pushes only — the operator
-  # holds the real v0.62.0 tag, so this fires when they push it (or on a
-  # prerelease tag during validation). Checksums are what install.sh and the
-  # Homebrew formula verify against.
-  publish:
-    # v0.62 M8.17: gate publish on the Linux rehearsal too, so a broken
-    # install/smoke on Linux blocks the release instead of shipping.
+  # A collector, rather than matrix outputs, authenticates numeric IDs and
+  # composes the attempt-qualified source digest manifest.
+  stage-digest-manifest:
     needs: [build, linux-rehearsal]
-    if: startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'push'
     runs-on: ubuntu-22.04
     permissions:
+      actions: read
+      contents: read
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+      artifact-digest: ${{ steps.upload.outputs.artifact-digest }}
+      manifest-sha256: ${{ steps.compose.outputs.manifest-sha256 }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Compose digest manifest from immutable artifact IDs
+        id: compose
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/release/stage_artifacts.sh manifest staging/digest-manifest.json
+      - name: Upload immutable digest manifest
+        id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: source-${{ github.run_id }}-a${{ github.run_attempt }}-digest-manifest
+          path: staging/digest-manifest.json
+          if-no-files-found: error
+          retention-days: 30
+          overwrite: false
+      - name: Record content-free promotion inputs
+        run: |
+          {
+            echo "digest_manifest_artifact_id=${{ steps.upload.outputs.artifact-id }}"
+            echo "digest_manifest_sha256=${{ steps.upload.outputs.artifact-digest }}"
+            echo "digest_manifest_inner_sha256=${{ steps.compose.outputs.manifest-sha256 }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # M0.a3 executes only after the tag build. Each native runner reads the
+  # accepted archive, runs the packaged offline viewer, and records one
+  # content-free row. It has no toolchain setup and uploads no product bytes.
+  m0a3-license:
+    name: m0a3-license-${{ matrix.target }}
+    needs: stage-digest-manifest
+    if: github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            target: macos-arm64
+          - os: ubuntu-22.04
+            target: linux-x64
+          - os: ubuntu-22.04-arm
+            target: linux-arm64
+    runs-on: ${{ matrix.os }}
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Qualify exact packaged license evidence
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DIGEST_ARTIFACT_ID: ${{ needs.stage-digest-manifest.outputs.artifact-id }}
+          DIGEST_ARTIFACT_SHA256: ${{ needs.stage-digest-manifest.outputs.artifact-digest }}
+        run: |
+          bash scripts/release/stage_artifacts.sh qualify-license \
+            "${{ matrix.target }}" "$DIGEST_ARTIFACT_ID" "$DIGEST_ARTIFACT_SHA256" \
+            "m0a3-${{ matrix.target }}.json"
+      - name: Upload immutable M0.a3 target row
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: source-${{ github.run_id }}-a${{ github.run_attempt }}-${{ matrix.target }}-m0a3-row
+          path: m0a3-${{ matrix.target }}.json
+          if-no-files-found: error
+          retention-days: 30
+          overwrite: false
+
+  m0a3-evidence:
+    needs: [stage-digest-manifest, m0a3-license]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-22.04
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+      artifact-digest: ${{ steps.upload.outputs.artifact-digest }}
+      evidence-sha256: ${{ steps.compose.outputs.evidence-sha256 }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Compose same-row M0.a3 evidence
+        id: compose
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DIGEST_ARTIFACT_ID: ${{ needs.stage-digest-manifest.outputs.artifact-id }}
+          DIGEST_ARTIFACT_SHA256: ${{ needs.stage-digest-manifest.outputs.artifact-digest }}
+        run: |
+          bash scripts/release/stage_artifacts.sh collect-m0a3 \
+            "$DIGEST_ARTIFACT_ID" "$DIGEST_ARTIFACT_SHA256" m0a3-evidence.json
+      - name: Upload immutable M0.a3 evidence
+        id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: source-${{ github.run_id }}-a${{ github.run_attempt }}-m0a3-evidence
+          path: m0a3-evidence.json
+          if-no-files-found: error
+          retention-days: 30
+          overwrite: false
+      - name: Record content-free M0.a3 evidence reference
+        run: |
+          {
+            echo "m0a3_artifact_id=${{ steps.upload.outputs.artifact-id }}"
+            echo "m0a3_artifact_sha256=${{ steps.upload.outputs.artifact-digest }}"
+            echo "m0a3_inner_sha256=${{ steps.compose.outputs.evidence-sha256 }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # M0.c3 stays a no-build consumer. The bounded PTY/provider harness is
+  # supplied by M0.b3 before the v1.2.1 tag; its strict JSON result contract is
+  # enforced by the stateless evidence helper here.
+  m0c3-fv:
+    name: m0c3-fv-${{ matrix.target }}
+    needs: [stage-digest-manifest, m0a3-evidence]
+    if: github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            target: macos-arm64
+          - os: ubuntu-22.04-arm
+            target: linux-arm64
+    runs-on: ${{ matrix.os }}
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Qualify exact packaged protocol and TTY behavior
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALLBERT_V121_FV_HARNESS: scripts/smoke/v121_tui_qualification.sh
+          DIGEST_ARTIFACT_ID: ${{ needs.stage-digest-manifest.outputs.artifact-id }}
+          DIGEST_ARTIFACT_SHA256: ${{ needs.stage-digest-manifest.outputs.artifact-digest }}
+          M0A3_ARTIFACT_ID: ${{ needs.m0a3-evidence.outputs.artifact-id }}
+          M0A3_ARTIFACT_SHA256: ${{ needs.m0a3-evidence.outputs.artifact-digest }}
+        run: |
+          bash scripts/release/stage_artifacts.sh qualify-fv \
+            "${{ matrix.target }}" "$DIGEST_ARTIFACT_ID" "$DIGEST_ARTIFACT_SHA256" \
+            "$M0A3_ARTIFACT_ID" "$M0A3_ARTIFACT_SHA256" \
+            "m0c3-${{ matrix.target }}.json"
+      - name: Upload immutable M0.c3 target row
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: source-${{ github.run_id }}-a${{ github.run_attempt }}-${{ matrix.target }}-m0c3-row
+          path: m0c3-${{ matrix.target }}.json
+          if-no-files-found: error
+          retention-days: 30
+          overwrite: false
+
+  # Linux x64 alone receives the purpose-scoped configured-provider seam. The
+  # opaque secret and explicit model are consumed only by the bounded M0.b3
+  # harness; absence blocks this required row.
+  m0c3-provider-fv:
+    name: m0c3-fv-linux-x64
+    needs: [stage-digest-manifest, m0a3-evidence]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-22.04
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Preflight configured provider capability
+        shell: bash
+        env:
+          ALLBERT_V121_PROVIDER_CONFIG: ${{ secrets.ALLBERT_V121_PROVIDER_CONFIG }}
+          ALLBERT_V121_PROVIDER_MODEL: ${{ vars.ALLBERT_V121_PROVIDER_MODEL }}
+        run: |
+          set -euo pipefail
+          [ -n "$ALLBERT_V121_PROVIDER_CONFIG" ]
+          [ -n "$ALLBERT_V121_PROVIDER_MODEL" ]
+          [ "${#ALLBERT_V121_PROVIDER_MODEL}" -le 200 ]
+          [[ "$ALLBERT_V121_PROVIDER_MODEL" != *$'\n'* ]]
+      - name: Qualify exact packaged protocol TTY and configured provider behavior
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALLBERT_V121_FV_HARNESS: scripts/smoke/v121_tui_qualification.sh
+          ALLBERT_V121_PROVIDER_CONFIG: ${{ secrets.ALLBERT_V121_PROVIDER_CONFIG }}
+          ALLBERT_V121_PROVIDER_MODEL: ${{ vars.ALLBERT_V121_PROVIDER_MODEL }}
+          DIGEST_ARTIFACT_ID: ${{ needs.stage-digest-manifest.outputs.artifact-id }}
+          DIGEST_ARTIFACT_SHA256: ${{ needs.stage-digest-manifest.outputs.artifact-digest }}
+          M0A3_ARTIFACT_ID: ${{ needs.m0a3-evidence.outputs.artifact-id }}
+          M0A3_ARTIFACT_SHA256: ${{ needs.m0a3-evidence.outputs.artifact-digest }}
+        run: |
+          bash scripts/release/stage_artifacts.sh qualify-fv \
+            linux-x64 "$DIGEST_ARTIFACT_ID" "$DIGEST_ARTIFACT_SHA256" \
+            "$M0A3_ARTIFACT_ID" "$M0A3_ARTIFACT_SHA256" m0c3-linux-x64.json
+      - name: Upload immutable M0.c3 target row
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: source-${{ github.run_id }}-a${{ github.run_attempt }}-linux-x64-m0c3-row
+          path: m0c3-linux-x64.json
+          if-no-files-found: error
+          retention-days: 30
+          overwrite: false
+
+  qualification-evidence:
+    needs: [stage-digest-manifest, m0a3-evidence, m0c3-fv, m0c3-provider-fv]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-22.04
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+      artifact-digest: ${{ steps.upload.outputs.artifact-digest }}
+      qualification-sha256: ${{ steps.compose.outputs.qualification-sha256 }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Compose final same-row qualification evidence
+        id: compose
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DIGEST_ARTIFACT_ID: ${{ needs.stage-digest-manifest.outputs.artifact-id }}
+          DIGEST_ARTIFACT_SHA256: ${{ needs.stage-digest-manifest.outputs.artifact-digest }}
+          M0A3_ARTIFACT_ID: ${{ needs.m0a3-evidence.outputs.artifact-id }}
+          M0A3_ARTIFACT_SHA256: ${{ needs.m0a3-evidence.outputs.artifact-digest }}
+        run: |
+          bash scripts/release/stage_artifacts.sh collect-qualification \
+            "$DIGEST_ARTIFACT_ID" "$DIGEST_ARTIFACT_SHA256" \
+            "$M0A3_ARTIFACT_ID" "$M0A3_ARTIFACT_SHA256" \
+            qualification-evidence-manifest.json
+      - name: Upload immutable final qualification evidence
+        id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: source-${{ github.run_id }}-a${{ github.run_attempt }}-qualification-evidence
+          path: qualification-evidence-manifest.json
+          if-no-files-found: error
+          retention-days: 30
+          overwrite: false
+      - name: Record content-free promotion inputs
+        run: |
+          {
+            echo "qualification_manifest_artifact_id=${{ steps.upload.outputs.artifact-id }}"
+            echo "qualification_manifest_sha256=${{ steps.upload.outputs.artifact-digest }}"
+            echo "qualification_manifest_inner_sha256=${{ steps.compose.outputs.qualification-sha256 }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Environment approval precedes runner allocation. This is the only publish
+  # path and contains no checkout, setup-beam, Mix, or artifact composition.
+  promote:
+    if: github.event_name == 'workflow_dispatch'
+    environment: release-promotion
+    concurrency:
+      group: release-promotion-${{ inputs.tag }}
+      cancel-in-progress: false
+    runs-on: ubuntu-22.04
+    permissions:
+      actions: read
       contents: write
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-      - name: Collect + alias + checksum
-        run: |
-          mkdir -p dist
-          find artifacts -name '*.tar.gz' -exec cp {} dist/ \;
-          cd dist
-          # Version-less aliases so the `latest` install path resolves
-          # (install.sh fetches allbert-<target>.tar.gz from releases/latest/download).
-          # v0.62 M8.17: derive the alias from the KNOWN target suffix, not a
-          # version regex — a prerelease tag (allbert-v0.62.0-rc1-linux-x64.tar.gz)
-          # has a hyphen the old `v[0-9.]*-` regex mistook for the version
-          # terminator, mangling the alias to `allbert-rc1-...`.
-          for target in macos-arm64 linux-x64 linux-arm64; do
-            for f in allbert-v*-"$target".tar.gz; do
-              [ -e "$f" ] || continue
-              cp "$f" "allbert-$target.tar.gz"
-            done
-          done
-          # Checksums cover BOTH the versioned assets and the version-less aliases.
-          sha256sum *.tar.gz > SHA256SUMS
-          cat SHA256SUMS
-      - name: Cosign checksums (keyless)
-        uses: sigstore/cosign-installer@v3
-      - name: Sign SHA256SUMS
-        # v0.64: install-time signature verification is fail-closed, so the
-        # signing step must also be a hard gate. Publishing an unsigned
-        # SHA256SUMS would make every installer fail verification.
-        run: |
-          cd dist
-          cosign sign-blob --yes --bundle SHA256SUMS.cosign.bundle SHA256SUMS
-      - name: Publish to release
+      - name: Validate dispatch and load the exact-tag stateless promoter
+        id: promoter
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_TAG: ${{ inputs.tag }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+          DIGEST_ARTIFACT_ID: ${{ inputs.digest_manifest_artifact_id }}
+          DIGEST_ARTIFACT_SHA256: ${{ inputs.digest_manifest_sha256 }}
+          QUALIFICATION_ARTIFACT_ID: ${{ inputs.qualification_manifest_artifact_id }}
+          QUALIFICATION_ARTIFACT_SHA256: ${{ inputs.qualification_manifest_sha256 }}
         run: |
-          # A pushed tag does NOT auto-create a GitHub Release, and `gh release
-          # upload` requires the release to exist — so create it first (idempotent
-          # on workflow re-runs). A hyphen-tagged version (e.g. v0.62.0-rc1) is
-          # marked --prerelease so the `latest` install path never resolves to it.
-          if ! gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
-            prerelease=""
-            case "${GITHUB_REF_NAME}" in *-*) prerelease="--prerelease" ;; esac
-            gh release create "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" \
-              --title "${GITHUB_REF_NAME}" --generate-notes --verify-tag $prerelease
-          fi
-          gh release upload "${GITHUB_REF_NAME}" dist/* --clobber --repo "${GITHUB_REPOSITORY}"
+          set -euo pipefail
+          [ "$GITHUB_REF_TYPE" = tag ]
+          [ "$GITHUB_REF_NAME" = "$INPUT_TAG" ]
+          [ "$GITHUB_REF" = "refs/tags/${INPUT_TAG}" ]
+          [[ "$SOURCE_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$SOURCE_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          [[ "$DIGEST_ARTIFACT_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$QUALIFICATION_ARTIFACT_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$DIGEST_ARTIFACT_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$QUALIFICATION_ARTIFACT_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          helper="$RUNNER_TEMP/promote_artifacts.sh"
+          gh api "/repos/${GITHUB_REPOSITORY}/contents/scripts/release/promote_artifacts.sh?ref=${GITHUB_SHA}" \
+            --jq .content | tr -d '\n' | base64 --decode > "$helper"
+          grep -q '^#!/usr/bin/env bash$' "$helper"
+          chmod 0500 "$helper"
+          echo "path=$helper" >> "$GITHUB_OUTPUT"
+      - name: Install pinned cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Verify exact cosign version
+        shell: bash
+        run: |
+          set -euo pipefail
+          resolved_cosign="$(cosign version | awk '$1 == "GitVersion:" {print $2; exit}')"
+          [ "$resolved_cosign" = "v3.0.6" ]
+      - name: Authenticate, reconcile, sign, and publish unchanged bytes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROMOTION_TAG: ${{ inputs.tag }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+          DIGEST_ARTIFACT_ID: ${{ inputs.digest_manifest_artifact_id }}
+          DIGEST_ARTIFACT_SHA256: ${{ inputs.digest_manifest_sha256 }}
+          QUALIFICATION_ARTIFACT_ID: ${{ inputs.qualification_manifest_artifact_id }}
+          QUALIFICATION_ARTIFACT_SHA256: ${{ inputs.qualification_manifest_sha256 }}
+        run: "${{ steps.promoter.outputs.path }}"

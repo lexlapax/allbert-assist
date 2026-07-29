@@ -1335,6 +1335,7 @@
       "kind": "managed_file",
       "license_expression": "Apache-2.0",
       "name": "OpenSSL library copied into macOS ERTS",
+      "presence": "observed",
       "provenance": {
         "reason": "conditional macOS ERTS closure",
         "upstream": "https://openssl-library.org/"

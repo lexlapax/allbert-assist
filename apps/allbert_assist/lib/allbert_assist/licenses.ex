@@ -319,6 +319,7 @@ defmodule AllbertAssist.Licenses do
     validate_component_license!(id, expression, ids, text_index)
     validate_targets!(component["targets"], id)
     validate_component_kind!(kind, component, id, bundled)
+    validate_presence!(kind, component, id)
     validate_mpl_scope!(component, id, expression)
   end
 
@@ -573,6 +574,19 @@ defmodule AllbertAssist.Licenses do
       do: fail!(:duplicate_target, "#{id}.targets contains duplicate targets")
   end
 
+  defp validate_presence!("managed_file", component, id) do
+    require_one_of!(
+      Map.get(component, "presence", "required"),
+      ~w(required observed),
+      "#{id}.presence"
+    )
+  end
+
+  defp validate_presence!(_kind, component, id) do
+    if Map.has_key?(component, "presence"),
+      do: fail!(:invalid_component, "#{id}.presence is valid only for managed files")
+  end
+
   defp render_union(catalog) do
     input_rows =
       catalog["reviewed_inputs"]
@@ -626,9 +640,16 @@ defmodule AllbertAssist.Licenses do
 
   defp render_union_component(component) do
     disposition =
-      if component["bundled"],
-        do: "bundled when selected for the target",
-        else: "external / not bundled"
+      cond do
+        component["presence"] == "observed" ->
+          "bundled only when observed in the selected final target"
+
+        component["bundled"] ->
+          "bundled when selected for the target"
+
+        true ->
+          "external / not bundled"
+      end
 
     lines = [
       "### `#{escape_markdown(component["id"])}` — #{escape_markdown(component["name"])}",
@@ -646,6 +667,7 @@ defmodule AllbertAssist.Licenses do
       |> maybe_union_line(get_in(component, ["file", "application"]), "Managed application")
       |> maybe_union_line(get_in(component, ["file", "relative_path"]), "Managed relative path")
       |> maybe_union_line(component["targets"], "Targets")
+      |> maybe_union_line(component["presence"], "Presence")
       |> maybe_union_line(component["forbidden_paths"], "Forbidden bundled paths")
       |> maybe_union_line(component["provenance"], "Provenance")
       |> maybe_union_line(component["source"], "Source availability")
@@ -872,7 +894,7 @@ defmodule AllbertAssist.Licenses do
     base =
       Map.take(
         component,
-        ~w(id name kind license_expression bundled text_ids targets provenance source source_required)
+        ~w(id name kind license_expression bundled text_ids targets provenance source source_required presence)
       )
 
     materialize_component_kind!(component["kind"], component, base, app_index, root)
@@ -884,22 +906,42 @@ defmodule AllbertAssist.Licenses do
 
   defp materialize_component_kind!("managed_file", component, base, app_index, root) do
     path = resolve_managed_path!(component["file"], app_index, root)
-    contents = read_release_regular_file!(root, path, :managed_path_missing)
-    actual = sha256(contents)
-    expected = component["file"]["sha256"]
 
-    if expected && expected != actual,
-      do:
-        fail!(
-          :managed_digest_mismatch,
-          "managed payload digest mismatch for #{component["id"]}"
-        )
+    case observed_managed_file(root, path, component) do
+      :absent ->
+        Map.merge(base, %{"bundled" => false, "path" => path, "sha256" => nil})
 
-    Map.merge(base, %{"path" => path, "sha256" => actual})
+      {:present, actual} ->
+        Map.merge(base, %{"bundled" => true, "path" => path, "sha256" => actual})
+    end
   end
 
   defp materialize_component_kind!("external", component, base, _app_index, _root) do
     Map.merge(base, %{"forbidden_paths" => component["forbidden_paths"] || []})
+  end
+
+  defp observed_managed_file(root, path, component) do
+    presence = component["presence"]
+    state = if presence == "observed", do: release_leaf_state!(root, path, 1), else: :present
+
+    case {state, presence} do
+      {:absent, "observed"} ->
+        :absent
+
+      {_present_or_absent, _presence} ->
+        contents = read_release_regular_file!(root, path, :managed_path_missing)
+        actual = sha256(contents)
+        expected = component["file"]["sha256"]
+
+        if expected && expected != actual,
+          do:
+            fail!(
+              :managed_digest_mismatch,
+              "managed payload digest mismatch for #{component["id"]}"
+            )
+
+        {:present, actual}
+    end
   end
 
   defp target_components(components, target) do
@@ -1233,15 +1275,16 @@ defmodule AllbertAssist.Licenses do
   defp manifest_component_base(component) do
     Map.take(
       component,
-      ~w(id name kind license_expression bundled text_ids targets provenance source source_required)
+      ~w(id name kind license_expression text_ids targets provenance source source_required presence)
     )
   end
 
-  defp manifest_dynamic_keys("beam_app"), do: ~w(application path version)
-  defp manifest_dynamic_keys("managed_file"), do: ~w(path sha256)
-  defp manifest_dynamic_keys("external"), do: ["forbidden_paths"]
+  defp manifest_dynamic_keys("beam_app"), do: ~w(application bundled path version)
+  defp manifest_dynamic_keys("managed_file"), do: ~w(bundled path sha256)
+  defp manifest_dynamic_keys("external"), do: ~w(bundled forbidden_paths)
 
   defp validate_manifest_component_kind!("beam_app", root, record, catalog, _app_index) do
+    require_equal!(record["bundled"], true, "manifest.application.bundled", 3)
     application = require_identifier!(record["application"], "manifest.application", 3)
     require_equal!(application, catalog["application"], "manifest.application", 3)
     version = require_nonempty_string!(record["version"], "manifest.version", 3)
@@ -1254,11 +1297,25 @@ defmodule AllbertAssist.Licenses do
   defp validate_manifest_component_kind!("managed_file", root, record, catalog, app_index) do
     expected_path = resolve_managed_path!(catalog["file"], app_index, root)
     require_equal!(record["path"], expected_path, "manifest.managed_file.path", 3)
-    contents = read_release_regular_file!(root, expected_path, :managed_path_missing, 3)
-    require_equal!(record["sha256"], sha256(contents), "manifest.managed_file.sha256", 3)
+
+    case {catalog["presence"], record["bundled"]} do
+      {"observed", false} ->
+        require_equal!(record["sha256"], nil, "manifest.managed_file.sha256", 3)
+
+        unless release_leaf_state!(root, expected_path, 3) == :absent,
+          do: fail!(:manifest_invalid, "unbundled observed component is present", 3)
+
+      {_presence, true} ->
+        contents = read_release_regular_file!(root, expected_path, :managed_path_missing, 3)
+        require_equal!(record["sha256"], sha256(contents), "manifest.managed_file.sha256", 3)
+
+      {_presence, _bundled} ->
+        fail!(:manifest_invalid, "required managed component is not bundled", 3)
+    end
   end
 
   defp validate_manifest_component_kind!("external", root, record, catalog, _app_index) do
+    require_equal!(record["bundled"], false, "manifest.external.bundled", 3)
     expected_paths = catalog["forbidden_paths"] || []
     require_equal!(record["forbidden_paths"], expected_paths, "manifest.forbidden_paths", 3)
 
@@ -1700,6 +1757,36 @@ defmodule AllbertAssist.Licenses do
 
         {:error, _reason} ->
           fail!(code, "required release file missing: #{relative}", status)
+      end
+    end)
+  end
+
+  defp release_leaf_state!(root, relative, status) do
+    parts = relative |> normalize_relative!("release file", status) |> Path.split()
+    last_index = length(parts) - 1
+
+    parts
+    |> Enum.with_index()
+    |> Enum.reduce_while(root, fn {part, index}, parent ->
+      path = Path.join(parent, part)
+      final? = index == last_index
+
+      case File.lstat(path) do
+        {:error, :enoent} when final? ->
+          {:halt, :absent}
+
+        {:ok, _stat} when final? ->
+          {:halt, :present}
+
+        {:ok, %File.Stat{type: :directory}} ->
+          {:cont, path}
+
+        _missing_or_unsafe ->
+          fail!(
+            :unsafe_release_path,
+            "release evidence path has a missing or unsafe parent",
+            status
+          )
       end
     end)
   end

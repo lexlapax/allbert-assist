@@ -7,11 +7,12 @@ cross-release reference.
 
 This is the operator runbook for cutting a packaged Allbert release and
 validating the packaged `allbert` on Tier-1 OS paths before announcing it.
-Two automated layers precede the manual/operator layer: the permanent 1.x public-
-contract gate (`mix allbert.test release.v1`) plus the active plan's point-release gate
-(for example `mix allbert.test release.v101`), and the CI artifact smoke. This doc
-covers the steps that need a published release, a package manager, a TTY, Docker,
-or real host services.
+The active release plan controls gate timing. Versioned gate definitions preserve
+the permanent 1.x public-contract prefix, but a plan may prove that composition
+structurally and defer aggregate execution; the v1.3 train does so until its final
+M9.b rejoin. CI artifact smoke and exact-artifact qualification remain separate
+from source gates. This doc covers the steps that need a protected environment,
+native artifact, package manager, TTY, Docker, or real host service.
 
 v0.62 introduced the packaged release path; v0.64.3 established the trusted-install/
 first-run substrate and v0.65.0 the local-knowledge launch path that later lines build
@@ -34,7 +35,76 @@ export EVIDENCE_ROOT="${EVIDENCE_ROOT:-$(mktemp -d /tmp/allbert-release-evidence
 export ALLBERT_HOME="${ALLBERT_HOME:-$(mktemp -d /tmp/allbert-release-home.XXXXXX)}"
 ```
 
-## 1. Publish the release
+## 1. Stage, qualify, and promote the release
+
+### One-time protected-promotion setup
+
+Before any product tag, `release-promotion` must already exist with at least one
+required reviewer and a custom product-tag policy. Merely naming an absent
+environment in workflow YAML auto-creates an unprotected environment and is a
+release blocker. An administrator performs this setup once (or updates the
+reviewer deliberately):
+
+```sh
+export RELEASE_REVIEWER_LOGIN="${RELEASE_REVIEWER_LOGIN:?set the required GitHub reviewer}"
+REVIEWER_ID="$(gh api "users/$RELEASE_REVIEWER_LOGIN" --jq .id)"
+jq -n --argjson reviewer_id "$REVIEWER_ID" '{
+  wait_timer: 0,
+  prevent_self_review: false,
+  reviewers: [{type: "User", id: $reviewer_id}],
+  deployment_branch_policy: {
+    protected_branches: false,
+    custom_branch_policies: true
+  }
+}' > "$EVIDENCE_ROOT/release-promotion-request.json"
+gh api --method PUT \
+  -H 'X-GitHub-Api-Version: 2026-03-10' \
+  "repos/$REPO/environments/release-promotion" \
+  --input "$EVIDENCE_ROOT/release-promotion-request.json"
+if ! gh api -H 'X-GitHub-Api-Version: 2026-03-10' \
+  "repos/$REPO/environments/release-promotion/deployment-branch-policies" \
+  --jq '.branch_policies[] | select(.type == "tag" and .name == "v*")' \
+  | grep -q .; then
+  gh api --method POST \
+    -H 'X-GitHub-Api-Version: 2026-03-10' \
+    "repos/$REPO/environments/release-promotion/deployment-branch-policies" \
+    -f name='v*' -f type='tag'
+fi
+```
+
+Capture the read-only pretag proof every release:
+
+```sh
+gh api -H 'X-GitHub-Api-Version: 2026-03-10' \
+  "repos/$REPO/environments/release-promotion" \
+  > "$EVIDENCE_ROOT/release-promotion-environment.json"
+gh api -H 'X-GitHub-Api-Version: 2026-03-10' \
+  "repos/$REPO/environments/release-promotion/deployment-branch-policies" \
+  > "$EVIDENCE_ROOT/release-promotion-tag-policies.json"
+if command -v sha256sum >/dev/null 2>&1; then
+  sha256sum \
+    "$EVIDENCE_ROOT/release-promotion-environment.json" \
+    "$EVIDENCE_ROOT/release-promotion-tag-policies.json"
+else
+  shasum -a 256 \
+    "$EVIDENCE_ROOT/release-promotion-environment.json" \
+    "$EVIDENCE_ROOT/release-promotion-tag-policies.json"
+fi > "$EVIDENCE_ROOT/release-promotion-responses.sha256"
+test "$(wc -l < "$EVIDENCE_ROOT/release-promotion-responses.sha256" | tr -d ' ')" -eq 2
+jq -e '
+  any(.protection_rules[]; .type == "required_reviewers" and
+    (.reviewers | length) > 0) and
+  .deployment_branch_policy.custom_branch_policies == true
+' "$EVIDENCE_ROOT/release-promotion-environment.json" >/dev/null
+jq -e 'any(.branch_policies[]; .type == "tag" and .name == "v*")' \
+  "$EVIDENCE_ROOT/release-promotion-tag-policies.json" >/dev/null
+echo 'PASS: release-promotion has a required reviewer, v* tag policy, and response digests'
+```
+
+An API/authentication failure, empty reviewer set, absent tag rule, or implicit
+unprotected environment is FAIL. Do not create the tag.
+
+### Immutable source tag and staging
 
 For every 1.x product release, the tag is operator-held. Push the reviewed release
 commit, prove branch parity, then cut the annotated tag on that exact commit:
@@ -56,18 +126,54 @@ echo "PASS: HEAD, origin/main, and peeled $VERSION tag agree"
 The tag push fires `.github/workflows/release-artifacts.yml`:
 
 - **gate**: reads the annotated tag message. A **product-release** tag (no marker)
-  proceeds to build + publish. A **docs/source point-release** tag whose message
-  contains `[skip-artifacts]` short-circuits here — build/publish are skipped so no
-  packaged GitHub Release is created and GitHub "Latest" is not moved.
+  proceeds to build + stage. A **docs/source point-release** tag whose message
+  contains `[skip-artifacts]` short-circuits here — build/staging are skipped so
+  no packaged GitHub Release is created and GitHub "Latest" is not moved.
 - **build** (macos-arm64, linux-x64, linux-arm64): builds the OTP release and runs
   `scripts/smoke/artifact_smoke.sh` per target - boot, version, plugin
   registration, `/health`, a genuine attach round-trip, no-Mix-modules, and ERTS
-  crypto linkage, all through an operator-style symlink.
-- **publish** (tag only, gated on the Linux rehearsal): collects the per-target
-  tarballs, adds version-less aliases (`allbert-<target>.tar.gz` for the `latest`
-  install path), writes `SHA256SUMS`, creates the release (`--prerelease` for a
-  hyphen tag such as `v0.62.0-rc1`) plus the mandatory
-  `SHA256SUMS.cosign.bundle`, and uploads everything to the GitHub release.
+  crypto linkage, all through an operator-style symlink. Exact BEAM inputs are
+  recorded per target. A rerun reuses one prior successful immutable archive;
+  missing, expired, or duplicate successful producer evidence stops instead of
+  rebuilding that tag.
+- **linux-rehearsal**: consumes the accepted Linux x64 artifact by numeric ID and
+  exercises the checksum-bound preverified install layout without OIDC/signing.
+- **stage-digest-manifest**: collects numeric artifact IDs, upload-container and
+  inner archive digests, producer attempts, target toolchains, tag/ref, and source
+  SHA into an immutable attempt-qualified manifest. The source graph has no
+  signing or publication permission.
+- **M0.a3/M0.c3 qualification jobs**: consume
+  those same IDs and bytes without building, then upload the final immutable
+  qualification manifest. These job definitions must be committed before the
+  tag; a rerun cannot acquire jobs missing from the tagged workflow.
+
+The source run ends before publication. Record its exact ID, latest successful
+attempt, and the digest/qualification artifact IDs plus upload SHA-256 values
+from its content-free summaries. Then dispatch the **same workflow at the exact
+tag ref**, supplying all seven bindings:
+
+```sh
+export SOURCE_RUN_ID="${SOURCE_RUN_ID:?set successful tag-push run ID}"
+export SOURCE_RUN_ATTEMPT="${SOURCE_RUN_ATTEMPT:?set latest successful attempt}"
+export DIGEST_MANIFEST_ARTIFACT_ID="${DIGEST_MANIFEST_ARTIFACT_ID:?set numeric artifact ID}"
+export DIGEST_MANIFEST_SHA256="${DIGEST_MANIFEST_SHA256:?set upload-artifact SHA-256}"
+export QUALIFICATION_MANIFEST_ARTIFACT_ID="${QUALIFICATION_MANIFEST_ARTIFACT_ID:?set numeric artifact ID}"
+export QUALIFICATION_MANIFEST_SHA256="${QUALIFICATION_MANIFEST_SHA256:?set upload-artifact SHA-256}"
+gh workflow run release-artifacts.yml --ref "$VERSION" \
+  -f tag="$VERSION" \
+  -f source_run_id="$SOURCE_RUN_ID" \
+  -f source_run_attempt="$SOURCE_RUN_ATTEMPT" \
+  -f digest_manifest_artifact_id="$DIGEST_MANIFEST_ARTIFACT_ID" \
+  -f digest_manifest_sha256="$DIGEST_MANIFEST_SHA256" \
+  -f qualification_manifest_artifact_id="$QUALIFICATION_MANIFEST_ARTIFACT_ID" \
+  -f qualification_manifest_sha256="$QUALIFICATION_MANIFEST_SHA256"
+```
+
+Approve only the deployment whose ref and seven values match reviewed evidence.
+After approval, promotion authenticates the source run/tag/SHA/workflow and the
+21-day artifact window, rehashes the unchanged archives, creates or resumes a
+draft, uploads only missing assets, verifies the exact-tag cosign bundle, and
+publishes. It never checks out/builds, selects `latest`, or uses `--clobber`.
 
 ### Exceptional docs/source point tag (no packaged artifacts)
 
@@ -113,11 +219,14 @@ cosign verify-blob --bundle "/tmp/allbert-${VERSION}/SHA256SUMS.cosign.bundle" \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com'
 ```
 
-You can dry-run build+smoke without publishing:
+There is no branch `workflow_dispatch` build: dispatch is the protected publish
+path and must run at an exact tag. Before tagging, exercise only deterministic
+fixture/local-tree contracts:
 
 ```sh
-gh workflow run release-artifacts.yml --ref main
-gh run watch
+MIX_ENV=test mix test \
+  apps/allbert_assist/test/allbert_assist/release/licenses_final_artifact_test.exs \
+  apps/allbert_assist/test/allbert_assist/release/promotion_workflow_contract_test.exs
 ```
 
 ## 2. Fill The Homebrew Tap

@@ -81,7 +81,11 @@ sh install.sh
 The installer downloads the artifact for your platform, verifies the release
 `SHA256SUMS` with the published cosign bundle, then verifies the artifact SHA256
 against that signed checksum file. `cosign` is required; the installer refuses to
-install without signature verification. It installs to `~/.local` by default
+install without signature verification. A `latest` request first resolves one
+exact stable release tag, then downloads every file from that release and verifies
+the exact `release-artifacts.yml@refs/tags/<tag>` certificate identity; it does not
+use a cross-tag identity regex or mix files across a moving Latest pointer. It
+installs to `~/.local` by default
 (`ALLBERT_PREFIX` to override), writes an uninstall manifest, and never writes to
 Allbert Home.
 

@@ -9,6 +9,7 @@
           "apps/*/test/",
           "apps/*/web/",
           "config/",
+          "scripts/release/*.exs",
           "plugins/allbert.browser/lib/allbert_browser/driver/playwright.ex"
         ],
         excluded: [~r"/_build/", ~r"/deps/", ~r"/priv/static/"]

@@ -70,6 +70,114 @@ defmodule AllbertAssist.LicensesTest do
     assert {:error, %{code: :managed_path_missing}} = finalize(missing)
   end
 
+  test "observed managed components report target truth without becoming required" do
+    fixture = fixture!(["alpha"])
+    on_exit(fn -> File.rm_rf(fixture.tmp) end)
+
+    observed = %{
+      "id" => "observed-native-library",
+      "name" => "observed native library",
+      "kind" => "managed_file",
+      "license_expression" => "MIT",
+      "bundled" => true,
+      "presence" => "observed",
+      "text_ids" => ["MIT"],
+      "file" => %{"path" => "optional-native.bin"}
+    }
+
+    catalog = %{
+      fixture.catalog
+      | "components" => fixture.catalog["components"] ++ [observed]
+    }
+
+    {:ok, products} = Licenses.repo_products(catalog, repo_root: fixture.repo)
+    File.write!(Path.join(fixture.repo, "THIRD-PARTY-LICENSES.md"), products.union)
+
+    assert {:ok, %{manifest: absent_manifest} = absent_result} =
+             Licenses.finalize(catalog, [%{name: :alpha}], target(),
+               repo_root: fixture.repo,
+               release_root: fixture.release
+             )
+
+    absent = Enum.find(absent_manifest["components"], &(&1["id"] == observed["id"]))
+    assert absent["bundled"] == false
+    assert absent["sha256"] == nil
+
+    assert {:ok, _verified} =
+             Licenses.verify(
+               release_root: fixture.release,
+               manifest_sha256: absent_result.manifest_sha256
+             )
+
+    File.write!(Path.join(fixture.release, "optional-native.bin"), "native\n")
+
+    assert {:ok, %{manifest: present_manifest} = present_result} =
+             Licenses.finalize(catalog, [%{name: :alpha}], target(),
+               repo_root: fixture.repo,
+               release_root: fixture.release
+             )
+
+    present = Enum.find(present_manifest["components"], &(&1["id"] == observed["id"]))
+    assert present["bundled"] == true
+    assert present["sha256"] == digest("native\n")
+
+    assert {:ok, _verified} =
+             Licenses.verify(
+               release_root: fixture.release,
+               manifest_sha256: present_result.manifest_sha256
+             )
+  end
+
+  test "observed managed absence rejects a symlinked parent during finalize and verify" do
+    fixture = fixture!(["alpha"])
+    on_exit(fn -> File.rm_rf(fixture.tmp) end)
+
+    observed = %{
+      "id" => "observed-native-library",
+      "name" => "observed native library",
+      "kind" => "managed_file",
+      "license_expression" => "MIT",
+      "bundled" => true,
+      "presence" => "observed",
+      "text_ids" => ["MIT"],
+      "file" => %{"path" => "optional/observed.bin"}
+    }
+
+    catalog = %{
+      fixture.catalog
+      | "components" => fixture.catalog["components"] ++ [observed]
+    }
+
+    {:ok, products} = Licenses.repo_products(catalog, repo_root: fixture.repo)
+    File.write!(Path.join(fixture.repo, "THIRD-PARTY-LICENSES.md"), products.union)
+    File.mkdir_p!(Path.join(fixture.release, "optional"))
+
+    assert {:ok, finalized} =
+             Licenses.finalize(catalog, [%{name: :alpha}], target(),
+               repo_root: fixture.repo,
+               release_root: fixture.release
+             )
+
+    outside = Path.join(fixture.tmp, "outside-observed")
+    File.mkdir_p!(outside)
+    File.rm_rf!(Path.join(fixture.release, "optional"))
+    File.ln_s!(outside, Path.join(fixture.release, "optional"))
+
+    assert {:error, %{code: verification_code}} =
+             Licenses.verify(
+               release_root: fixture.release,
+               manifest_sha256: finalized.manifest_sha256
+             )
+
+    assert verification_code in [:payload_mutated, :unsafe_release_path]
+
+    assert {:error, %{code: :unsafe_release_path}} =
+             Licenses.finalize(catalog, [%{name: :alpha}], target(),
+               repo_root: fixture.repo,
+               release_root: fixture.release
+             )
+  end
+
   test "unknown and missing BEAM applications fail with stable errors" do
     fixture = fixture!(["alpha"])
     on_exit(fn -> File.rm_rf(fixture.tmp) end)

@@ -22,6 +22,41 @@ main() {
   if [ "$VERSION" != "latest" ]; then
     VERSION="v${VERSION#v}"
   fi
+
+  # Signature identity is exact-tag bound. A pinned install already names that
+  # tag. `latest` first resolves GitHub's stable release redirect and then uses
+  # the exact tag for both download selection and cosign verification. Mirrors
+  # and local rehearsals may provide ALLBERT_RELEASE_TAG explicitly; it narrows
+  # identity and never bypasses signature verification.
+  if [ "$VERSION" = "latest" ]; then
+    if [ -n "${ALLBERT_RELEASE_TAG:-}" ]; then
+      RELEASE_TAG="v${ALLBERT_RELEASE_TAG#v}"
+    else
+      latest_url="$(curl -fsSL -o /dev/null -w '%{url_effective}' \
+        "https://github.com/$REPO/releases/latest")"
+      case "$latest_url" in
+        "https://github.com/$REPO/releases/tag/"*) RELEASE_TAG="${latest_url##*/}" ;;
+        *)
+          echo "allbert: could not resolve latest to an exact stable release tag — refusing to install." >&2
+          exit 1
+          ;;
+      esac
+    fi
+  else
+    RELEASE_TAG="$VERSION"
+    if [ -n "${ALLBERT_RELEASE_TAG:-}" ]; then
+      explicit_tag="v${ALLBERT_RELEASE_TAG#v}"
+      if [ "$explicit_tag" != "$RELEASE_TAG" ]; then
+        echo "allbert: ALLBERT_RELEASE_TAG conflicts with pinned ALLBERT_VERSION — refusing to install." >&2
+        exit 1
+      fi
+    fi
+  fi
+  if ! printf '%s\n' "$RELEASE_TAG" | grep -Eq \
+    '^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'; then
+    echo "allbert: invalid release tag $RELEASE_TAG — refusing to install." >&2
+    exit 1
+  fi
   PREFIX="${ALLBERT_PREFIX:-$HOME/.local}"
   BIN_DIR="$PREFIX/bin"
   LIB_DIR="$PREFIX/lib/allbert"
@@ -44,10 +79,10 @@ main() {
   # local file:// dir for release rehearsals); otherwise use the GitHub release.
   if [ -n "${ALLBERT_BASE_URL:-}" ]; then
     base="$ALLBERT_BASE_URL"
-  elif [ "$VERSION" = "latest" ]; then
-    base="https://github.com/$REPO/releases/latest/download"
   else
-    base="https://github.com/$REPO/releases/download/$VERSION"
+    # Use the resolved exact release even for a `latest` request so a Latest
+    # change between requests can only fail, never mix two releases.
+    base="https://github.com/$REPO/releases/download/$RELEASE_TAG"
   fi
 
   # Canonical asset names match the release workflow: `allbert-v<version>-<target>.tar.gz`
@@ -80,7 +115,7 @@ EOF
 
   cosign verify-blob \
     --bundle "$tmp/SHA256SUMS.cosign.bundle" \
-    --certificate-identity-regexp "https://github.com/lexlapax/allbert-assist/.github/workflows/release-artifacts.yml@refs/tags/.*" \
+    --certificate-identity "https://github.com/lexlapax/allbert-assist/.github/workflows/release-artifacts.yml@refs/tags/$RELEASE_TAG" \
     --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
     "$tmp/SHA256SUMS" >/dev/null
 

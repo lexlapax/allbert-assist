@@ -1,5 +1,9 @@
+Code.require_file("scripts/release/final_artifact.exs", __DIR__)
+
 defmodule AllbertAssist.Umbrella.MixProject do
   use Mix.Project
+
+  alias AllbertAssist.Release.FinalArtifact
 
   def project do
     [
@@ -39,7 +43,8 @@ defmodule AllbertAssist.Umbrella.MixProject do
           :assemble,
           &stage_plugins/1,
           &patch_macos_openssl/1,
-          &install_dispatcher/1
+          &install_dispatcher/1,
+          &finalize_license_evidence/1
         ]
       ]
     ]
@@ -145,56 +150,25 @@ defmodule AllbertAssist.Umbrella.MixProject do
     end
   end
 
-  # v0.62 M1 (M0 spike finding): a Homebrew/brew-built ERTS dynamically links
-  # /opt/homebrew's libcrypto — the artifact would break on machines without
-  # Homebrew OpenSSL. On darwin builds, bundle the linked OpenSSL dylibs next
-  # to the crypto NIF and repoint via install_name_tool (+ ad-hoc re-sign,
-  # mandatory on arm64 after mutation). No-op on other hosts.
+  # v1.2.1 M0.a2: preserve a bundled macOS OpenSSL closure only when `otool`
+  # measures an OpenSSL edge in the exact assembled crypto NIFs. The helper
+  # copies only those measured libraries, rewrites them loader-relative, and
+  # verifies both the resulting closure and ad-hoc signatures. Linux remains
+  # external and does not enter this patch path.
   defp patch_macos_openssl(release) do
-    case :os.type() do
-      {:unix, :darwin} -> do_patch_macos_openssl(release)
-      _other -> release
-    end
-  end
-
-  defp do_patch_macos_openssl(release) do
-    for nif <- Path.wildcard(Path.join(release.path, "lib/crypto-*/priv/lib/*.so")) do
-      {links, 0} = System.cmd("otool", ["-L", nif])
-
-      links
-      |> String.split("\n")
-      |> Enum.map(&String.trim/1)
-      |> Enum.filter(&String.contains?(&1, "openssl"))
-      |> Enum.map(&(&1 |> String.split(" ") |> hd()))
-      |> Enum.each(fn dylib ->
-        name = Path.basename(dylib)
-        dest = Path.join(Path.dirname(nif), name)
-        unless File.exists?(dest), do: File.cp!(dylib, dest)
-        {_, 0} = System.cmd("install_name_tool", ["-change", dylib, "@loader_path/" <> name, nif])
-        {_, 0} = System.cmd("codesign", ["-f", "-s", "-", dest])
-        {_, 0} = System.cmd("codesign", ["-f", "-s", "-", nif])
-        Mix.shell().info("==> bundled " <> name <> " for " <> Path.basename(nif))
-      end)
-    end
-
-    release
+    FinalArtifact.patch_macos_openssl(release)
   end
 
   defp build_web_assets(release) do
-    Mix.shell().info("==> building web assets (npm ci + assets.deploy)")
-    web_path = Path.join(["apps", "allbert_assist_web"])
+    FinalArtifact.build_web_assets(release)
+  end
 
-    {_, 0} =
-      System.cmd("mix", ["assets.npm"], cd: web_path, into: IO.stream(:stdio, :line))
-
-    {_, 0} =
-      System.cmd("mix", ["assets.deploy"],
-        cd: web_path,
-        env: [{"MIX_ENV", to_string(Mix.env())}],
-        into: IO.stream(:stdio, :line)
-      )
-
-    release
+  # The license finalizer is deliberately the final release step. It receives
+  # Mix's resolved application closure, derives target/toolchain truth from the
+  # running builder, then verifies the sealed tree against the digest returned
+  # out-of-band by finalization. Nothing mutates the tree after this callback.
+  defp finalize_license_evidence(release) do
+    FinalArtifact.finalize_license_evidence(release)
   end
 
   def cli do
