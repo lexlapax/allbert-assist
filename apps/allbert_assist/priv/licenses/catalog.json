@@ -854,7 +854,7 @@
         "url": "https://hex.pm/packages/ranch"
       },
       "text_ids": [
-        "LicenseText-928a3c3144938459f365"
+        "LicenseText-3e6b4487cdffc48705ea"
       ]
     },
     {
@@ -1947,7 +1947,7 @@
       "id": "web-js-base64",
       "kind": "managed_file",
       "license_expression": "BSD-3-Clause",
-      "name": "js-base64 3.7.8",
+      "name": "js-base64 3.9.2",
       "provenance": {
         "license_source": "apps/allbert_assist_web/assets/node_modules/js-base64/LICENSE.md",
         "scope": "compiled into the reviewed Phoenix static asset set",
@@ -2044,7 +2044,7 @@
       "id": "web-yjs",
       "kind": "managed_file",
       "license_expression": "MIT",
-      "name": "Yjs 13.6.30",
+      "name": "Yjs 13.6.31",
       "provenance": {
         "license_source": "apps/allbert_assist_web/assets/node_modules/yjs/LICENSE",
         "scope": "compiled into the reviewed Phoenix static asset set",
@@ -2059,7 +2059,7 @@
     {
       "id": "beam-lock",
       "path": "mix.lock",
-      "sha256": "92177f842290508a6715dec92a2e4c320dc0157ba76049e32bfd107a8412a5cc"
+      "sha256": "4ef08f939db270f74155f0753c7de563d0c4403329a6c93a6d0e28c56c3a3958"
     },
     {
       "id": "browser-bridge-lock",
@@ -2069,7 +2069,7 @@
     {
       "id": "web-assets-lock",
       "path": "apps/allbert_assist_web/assets/package-lock.json",
-      "sha256": "a2478ecb898e3f8f92b08a59b64c264549dd815c76506bc697b9034156177952"
+      "sha256": "d8a9a0c92afa7c6802a50a5dc73cd95693c8ee0c902a01336ee3ffebbfebc0d7"
     }
   ],
   "schema_version": 1,
@@ -2267,9 +2267,9 @@
       "license_id": "MIT"
     },
     {
-      "id": "LicenseText-928a3c3144938459f365",
+      "id": "LicenseText-3e6b4487cdffc48705ea",
       "path": "deps/ranch/LICENSE",
-      "sha256": "928a3c3144938459f365c53759e58d366f88ba370ec8806df354bd8c832d9855",
+      "sha256": "3e6b4487cdffc48705ea667f9604229f0984301f14af12f8cdfbab11234a59c9",
       "license_id": "ISC"
     },
     {

@@ -1,7 +1,7 @@
 defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
-  @moduletag :pure_async
+  @moduletag :external_runtime_serial
 
   @repo_root Path.expand("../../../../../", __DIR__)
   @workflow_path Path.join(@repo_root, ".github/workflows/release-artifacts.yml")

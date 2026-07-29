@@ -14,9 +14,9 @@ the offline drift check can pass.
 
 | Identifier | Reviewed input | SHA-256 |
 | --- | --- | --- |
-| `beam-lock` | `mix.lock` | `92177f842290508a6715dec92a2e4c320dc0157ba76049e32bfd107a8412a5cc` |
+| `beam-lock` | `mix.lock` | `4ef08f939db270f74155f0753c7de563d0c4403329a6c93a6d0e28c56c3a3958` |
 | `browser-bridge-lock` | `plugins/allbert.browser/priv/playwright_bridge/package-lock.json` | `270043d292abadbe73b3928aee49a29058b3d7c90aab910065f7ef4c1fe9c1f4` |
-| `web-assets-lock` | `apps/allbert_assist_web/assets/package-lock.json` | `a2478ecb898e3f8f92b08a59b64c264549dd815c76506bc697b9034156177952` |
+| `web-assets-lock` | `apps/allbert_assist_web/assets/package-lock.json` | `d8a9a0c92afa7c6802a50a5dc73cd95693c8ee0c902a01336ee3ffebbfebc0d7` |
 
 ## Required Texts
 
@@ -34,6 +34,7 @@ the offline drift check can pass.
 | `LicenseText-2c3c57158df2131ff09f` | `MIT` | `deps/finch/LICENSE.md` | `2c3c57158df2131ff09f57d9c7850da0844910f0fa8ac60294dd9396e3672e81` |
 | `LicenseText-2c5a81b6b6636c9cb4d0` | `MIT` | `deps/thousand_island/LICENSE` | `2c5a81b6b6636c9cb4d022c4891091a1267a42be6e5005190f29951db6cc1bb6` |
 | `LicenseText-341baa53605ed85d6f95` | `MIT` | `apps/allbert_assist_web/assets/node_modules/yjs/LICENSE` | `341baa53605ed85d6f95782322854cca56c655ebc7fd4712649b8e7afc6020ff` |
+| `LicenseText-3e6b4487cdffc48705ea` | `ISC` | `deps/ranch/LICENSE` | `3e6b4487cdffc48705ea667f9604229f0984301f14af12f8cdfbab11234a59c9` |
 | `LicenseText-3f3399039f88edcfac16` | `MIT` | `apps/allbert_assist/priv/licenses/upstream/yaml-elixir-2.12.2-MIT.txt` | `3f3399039f88edcfac16c1c194dc76595aa5b891d2d1e2cf4d357281fd55378a` |
 | `LicenseText-3f3d46a6af1e58f4808e` | `MIT` | `deps/bandit/LICENSE` | `3f3d46a6af1e58f4808e66b0a61aeb8befd2b3a03736404bead69758551353cb` |
 | `LicenseText-41a686069f0199ff369d` | `MIT` | `deps/phoenix/LICENSE.md` | `41a686069f0199ff369d7e5277d5267385cc54d9199f1efc960bacbe2e799255` |
@@ -55,7 +56,6 @@ the offline drift check can pass.
 | `LicenseText-8709e3ac65c84637c422` | `MIT` | `apps/allbert_assist/priv/licenses/upstream/daisyUI-5.0.35-MIT.txt` | `8709e3ac65c84637c422dc8082b893d9997fce093751c77b2f1983bf29dbf9ea` |
 | `LicenseText-87cff0c8b7a957427363` | `BSD-2-Clause` | `deps/gen_smtp/LICENSE` | `87cff0c8b7a957427363e36976e31606459d136d7908d6b398ecdadaf5f93965` |
 | `LicenseText-8f57c966fcad8d3aadf0` | `MIT` | `deps/fuse/LICENSE` | `8f57c966fcad8d3aadf0e2c488984c030b7be76eb81af1a5c8d34c8b4c3be88c` |
-| `LicenseText-928a3c3144938459f365` | `ISC` | `deps/ranch/LICENSE` | `928a3c3144938459f365c53759e58d366f88ba370ec8806df354bd8c832d9855` |
 | `LicenseText-95f5c9410a95332b0833` | `MIT` | `deps/idna/LICENSE` | `95f5c9410a95332b0833c4606028ee00008cd8c497336e230df3144d1a720bda` |
 | `LicenseText-9b138284c9d79dd1afc6` | `Apache-2.0` | `deps/toml/LICENSE` | `9b138284c9d79dd1afc613fbf4b5d4fcbd3da4512aedec39f33c1fb7b4c7396c` |
 | `LicenseText-a6cba85bc92e0cff7a45` | `Apache-2.0` | `deps/decimal/LICENSE.txt` | `a6cba85bc92e0cff7a450b1d873c0eaa2e9fc96bf472df0247a26bec77bf3ff9` |
@@ -536,7 +536,7 @@ the offline drift check can pass.
 - Kind: `beam_app`
 - License expression: `ISC`
 - Disposition: bundled when selected for the target
-- Required texts: `LicenseText-928a3c3144938459f365`
+- Required texts: `LicenseText-3e6b4487cdffc48705ea`
 - Application: `ranch`
 - Provenance: `{"ecosystem":"hex","license_source":"deps/ranch/LICENSE","package":"ranch","url":"https://hex.pm/packages/ranch"}`
 
@@ -1127,7 +1127,7 @@ the offline drift check can pass.
 - Managed relative path: `priv/static/cache_manifest.json`
 - Provenance: `{"license_source":"apps/allbert_assist_web/assets/node_modules/isomorphic.js/LICENSE","scope":"compiled into the reviewed Phoenix static asset set","url":"https://www.npmjs.com/package/isomorphic.js"}`
 
-### `web-js-base64` — js-base64 3.7.8
+### `web-js-base64` — js-base64 3.9.2
 
 - Kind: `managed_file`
 - License expression: `BSD-3-Clause`
@@ -1177,7 +1177,7 @@ the offline drift check can pass.
 - Managed relative path: `priv/static/cache_manifest.json`
 - Provenance: `{"license_source":"apps/allbert_assist_web/assets/node_modules/y-indexeddb/LICENSE","scope":"compiled into the reviewed Phoenix static asset set","url":"https://github.com/yjs/y-indexeddb"}`
 
-### `web-yjs` — Yjs 13.6.30
+### `web-yjs` — Yjs 13.6.31
 
 - Kind: `managed_file`
 - License expression: `MIT`

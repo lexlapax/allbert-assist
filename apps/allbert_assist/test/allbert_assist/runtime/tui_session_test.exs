@@ -1,5 +1,5 @@
 defmodule AllbertAssist.Runtime.TUISessionTest do
-  use AllbertAssist.DataCase, async: false
+  use AllbertAssist.DataCase, async: false, lane: :global_process_serial
 
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Event
@@ -14,8 +14,6 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.KeyCustody
   alias AllbertAssist.Settings.Secrets
-
-  @moduletag :global_process_serial
 
   defmodule ControllableAdapter do
     @moduledoc false

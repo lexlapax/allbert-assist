@@ -5,7 +5,7 @@ defmodule AllbertAssist.Runtime.AttachTUIClientTest do
   alias AllbertAssist.Runtime.Attach
   alias AllbertAssist.Runtime.Attach.TUIProtocol
 
-  @moduletag :external_runtime_serial
+  @moduletag :app_env_serial
 
   @token String.duplicate("t", 43)
   @session_id :binary.copy(<<17>>, 32)

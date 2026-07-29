@@ -8991,6 +8991,20 @@ defmodule Mix.Tasks.Allbert.Test do
     # the module is async-safe; keep those inert prompt words from moving the
     # entire file into the global-process lane.
     "apps/allbert_assist/test/allbert_assist/intent/decomposer_test.exs" => :pure_async,
+    # Every license fixture owns a unique tmp tree and removes only that tree;
+    # the filesystem scan is therefore an owned resource, not a shared Home.
+    "apps/allbert_assist/test/allbert_assist/licenses_test.exs" => :pure_async,
+    # These are protocol-value fixtures only. The `/tmp` strings are inert wire
+    # values and no filesystem, application environment, or socket is touched.
+    "apps/allbert_assist/test/allbert_assist/runtime/attach_tui_protocol_test.exs" => :pure_async,
+    # DataCase owns the database, but the suite also drives the live singleton
+    # attach server and mutates its adapter application environment serially.
+    "apps/allbert_assist/test/allbert_assist/runtime/tui_session_test.exs" =>
+      :global_process_serial,
+    # This suite mutates environment and application configuration around the
+    # live KeyCustody singleton; global-process ownership is the binding class.
+    "apps/allbert_assist/test/allbert_assist/settings/system_integrity_test.exs" =>
+      :global_process_serial,
     # ADR 0082 proof suite: file writes are scoped to owned, uniquely-named
     # fixture subdirectories of the per-run test home (partition-keyed, rm_rf
     # bounded to the owned root) and its registries are start_supervised!

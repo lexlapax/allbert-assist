@@ -1,7 +1,7 @@
 defmodule Mix.Tasks.Allbert.LicensesTest do
   use ExUnit.Case, async: false
 
-  @moduletag :home_fs_serial
+  @moduletag :external_runtime_serial
 
   alias AllbertAssist.CLI.Commands
   alias AllbertAssist.Licenses

@@ -32,7 +32,7 @@ end
 defmodule AllbertAssist.Release.LicensesFinalArtifactTest do
   use ExUnit.Case, async: false
 
-  @moduletag :home_fs_serial
+  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Release.FinalArtifact
   alias AllbertAssist.Release.FinalArtifactTest.FakeLicenses
