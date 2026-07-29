@@ -609,20 +609,6 @@ run_automated() {
   if [ -n "$RELEASE_ROOT" ]; then
     PYTHON_ARGS+=(--release-root "$RELEASE_ROOT")
   fi
-  if [ "$POSITIONAL_FV" -eq 1 ] && [ "$TARGET" = "linux-x64" ]; then
-    : "${ALLBERT_V121_PROVIDER_CONFIG:?linux-x64 requires ALLBERT_V121_PROVIDER_CONFIG}"
-    : "${ALLBERT_V121_PROVIDER_MODEL:?linux-x64 requires ALLBERT_V121_PROVIDER_MODEL}"
-    [ "${V121_TUI_KEEP_TMP:-0}" != "1" ] || {
-      echo "v121-tui-qualification: provider FV forbids retained private diagnostics" >&2
-      exit 1
-    }
-    PROVIDER_RECEIPT="$WORK/provider-receipt.json"
-    PYTHON_ARGS+=(
-      --provider-required
-      --provider-receipt "$PROVIDER_RECEIPT"
-    )
-  fi
-
   set +e
   spawn_active_child python3 "$PYTHON_HELPER" "${PYTHON_ARGS[@]}"
   wait "$ACTIVE_CHILD_PID"
@@ -657,8 +643,6 @@ expected_cases = {
     "daemon-loss-restart-health",
     "release-root-immutable",
 }
-if target == "linux-x64":
-    expected_cases.add("configured-provider-turn")
 cases = payload.get("cases")
 valid = (
     set(payload) == expected_keys
@@ -684,45 +668,6 @@ PY
     PROTOCOL_SHA256="$(sha256_file "$EVIDENCE_FILE")"
     PROVIDER_STATUS="not_required"
     PROVIDER_SHA256=""
-    if [ "$TARGET" = "linux-x64" ]; then
-      [ -f "$PROVIDER_RECEIPT" ] || {
-        echo "v121-tui-qualification: provider receipt was not produced" >&2
-        exit 1
-      }
-      python3 - "$PROVIDER_RECEIPT" "$TARGET" <<'PY'
-import json
-import pathlib
-import re
-import sys
-
-path, target = sys.argv[1:]
-payload = json.loads(pathlib.Path(path).read_text())
-expected_keys = {
-    "schema", "kind", "target", "subject", "challenge_sha256",
-    "provider_profile_sha256", "model_sha256", "doctor", "turn_completion",
-    "status", "raw_transcript_retained",
-}
-digest = re.compile(r"^[0-9a-f]{64}$")
-valid = (
-    set(payload) == expected_keys
-    and payload.get("schema") == 1
-    and payload.get("kind") == "v121_tui_provider_receipt"
-    and payload.get("target") == target
-    and payload.get("subject") == f"target:{target}"
-    and payload.get("doctor") == "pass"
-    and payload.get("turn_completion") == "pass"
-    and payload.get("status") == "pass"
-    and payload.get("raw_transcript_retained") is False
-    and all(digest.fullmatch(payload.get(key, "")) for key in (
-        "challenge_sha256", "provider_profile_sha256", "model_sha256"
-    ))
-)
-if not valid:
-    raise SystemExit("v121-tui-qualification: invalid provider evidence schema")
-PY
-      PROVIDER_STATUS="passed"
-      PROVIDER_SHA256="$(sha256_file "$PROVIDER_RECEIPT")"
-    fi
     PENDING_EVIDENCE_FINAL=""
     PENDING_EVIDENCE_ID=""
     FV_PARENT="$(dirname "$FV_OUTPUT")"

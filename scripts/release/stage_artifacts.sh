@@ -664,7 +664,7 @@ qualify_fv() {
   local m0a3_id="$4"
   local m0a3_sha="$5"
   local output="$6"
-  local work manifest m0a3 archive_name release_root harness provider_expected
+  local work manifest m0a3 archive_name release_root harness
   work="$(mktemp -d)"
   register_cleanup "$work"
   open_digest_manifest "$digest_id" "$digest_sha" "$work"
@@ -684,15 +684,12 @@ qualify_fv() {
   }
   "$harness" "$release_root" "$target" "$work/fv-result.json"
   [ -f "$work/fv-result.json" ]
-  if [ "$target" = linux-x64 ]; then provider_expected=passed; else provider_expected=not_required; fi
-  jq -e --arg target "$target" --arg provider "$provider_expected" \
+  jq -e --arg target "$target" \
     '.schema_version == 1 and .target == $target and .protocol_tty == "passed" and
-     .provider == $provider and
+     .provider == "not_required" and
      (.evidence | keys == ["protocol_tty_sha256", "provider_receipt_sha256"]) and
      (.evidence.protocol_tty_sha256 | test("^[0-9a-f]{64}$")) and
-     (if $target == "linux-x64" then
-        (.evidence.provider_receipt_sha256 | test("^[0-9a-f]{64}$"))
-      else .evidence.provider_receipt_sha256 == null end)' \
+     .evidence.provider_receipt_sha256 == null' \
     "$work/fv-result.json" >/dev/null
   mkdir -p "$(dirname "$output")"
   jq -S -n --arg target "$target" \
@@ -735,11 +732,7 @@ compose_qualification() {
        .qualifications.protocol_tty == "passed" and
        (.fv_evidence | keys == ["protocol_tty_sha256", "provider_receipt_sha256"]) and
        (.fv_evidence.protocol_tty_sha256 | test("^[0-9a-f]{64}$"))' "$row" >/dev/null
-    if [ "$target" = linux-x64 ]; then
-      [ "$(jq -r .qualifications.provider "$row")" = passed ]
-    else
-      [ "$(jq -r .qualifications.provider "$row")" = not_required ]
-    fi
+    [ "$(jq -r .qualifications.provider "$row")" = not_required ]
     selected="$work/selected-$target.json"
     jq -S --arg target "$target" '.archives[] | select(.target == $target)' \
       "$manifest" > "$selected"

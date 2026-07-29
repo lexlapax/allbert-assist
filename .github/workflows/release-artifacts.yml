@@ -37,6 +37,10 @@ on:
         description: upload-artifact SHA-256 for the qualification-evidence ZIP
         required: true
         type: string
+      operator_tui_validation:
+        description: Type confirmed after the exact macOS artifact attaches and completes a real-provider turn
+        required: true
+        type: string
 
 permissions: {}
 
@@ -460,9 +464,11 @@ jobs:
             echo "m0a3_inner_sha256=${{ steps.compose.outputs.evidence-sha256 }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # M0.c3 stays a no-build consumer. The bounded PTY/provider harness is
-  # supplied by M0.b3 before the v1.2.5 tag; its strict JSON result contract is
-  # enforced by the stateless evidence helper here.
+  # M0.c3 stays a no-build consumer. The bounded PTY harness is supplied by
+  # M0.b3 before the tag; its strict JSON result contract is enforced by the
+  # stateless evidence helper here. Real-provider usability is an attended
+  # exact-artifact check acknowledged at protected promotion, not a hosted-CI
+  # credential seam.
   m0c3-fv:
     name: m0c3-fv-${{ matrix.target }}
     needs: [stage-digest-manifest, m0a3-evidence]
@@ -475,6 +481,8 @@ jobs:
             target: macos-arm64
           - os: ubuntu-22.04-arm
             target: linux-arm64
+          - os: ubuntu-22.04
+            target: linux-x64
     runs-on: ${{ matrix.os }}
     permissions:
       actions: read
@@ -504,56 +512,8 @@ jobs:
           retention-days: 30
           overwrite: false
 
-  # Linux x64 alone receives the purpose-scoped configured-provider seam. The
-  # opaque secret and explicit model are consumed only by the bounded M0.b3
-  # harness; absence blocks this required row.
-  m0c3-provider-fv:
-    name: m0c3-fv-linux-x64
-    needs: [stage-digest-manifest, m0a3-evidence]
-    if: github.event_name == 'push'
-    runs-on: ubuntu-22.04
-    permissions:
-      actions: read
-      contents: read
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - name: Preflight configured provider capability
-        shell: bash
-        env:
-          ALLBERT_V121_PROVIDER_CONFIG: ${{ secrets.ALLBERT_V121_PROVIDER_CONFIG }}
-          ALLBERT_V121_PROVIDER_MODEL: ${{ vars.ALLBERT_V121_PROVIDER_MODEL }}
-        run: |
-          set -euo pipefail
-          [ -n "$ALLBERT_V121_PROVIDER_CONFIG" ]
-          [ -n "$ALLBERT_V121_PROVIDER_MODEL" ]
-          [ "${#ALLBERT_V121_PROVIDER_MODEL}" -le 200 ]
-          [[ "$ALLBERT_V121_PROVIDER_MODEL" != *$'\n'* ]]
-      - name: Qualify exact packaged protocol TTY and configured provider behavior
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          ALLBERT_V121_FV_HARNESS: scripts/smoke/v121_tui_qualification.sh
-          ALLBERT_V121_PROVIDER_CONFIG: ${{ secrets.ALLBERT_V121_PROVIDER_CONFIG }}
-          ALLBERT_V121_PROVIDER_MODEL: ${{ vars.ALLBERT_V121_PROVIDER_MODEL }}
-          DIGEST_ARTIFACT_ID: ${{ needs.stage-digest-manifest.outputs.artifact-id }}
-          DIGEST_ARTIFACT_SHA256: ${{ needs.stage-digest-manifest.outputs.artifact-digest }}
-          M0A3_ARTIFACT_ID: ${{ needs.m0a3-evidence.outputs.artifact-id }}
-          M0A3_ARTIFACT_SHA256: ${{ needs.m0a3-evidence.outputs.artifact-digest }}
-        run: |
-          bash scripts/release/stage_artifacts.sh qualify-fv \
-            linux-x64 "$DIGEST_ARTIFACT_ID" "$DIGEST_ARTIFACT_SHA256" \
-            "$M0A3_ARTIFACT_ID" "$M0A3_ARTIFACT_SHA256" m0c3-linux-x64.json
-      - name: Upload immutable M0.c3 target row
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: source-${{ github.run_id }}-a${{ github.run_attempt }}-linux-x64-m0c3-row
-          path: m0c3-linux-x64.json
-          if-no-files-found: error
-          retention-days: 30
-          overwrite: false
-
   qualification-evidence:
-    needs: [stage-digest-manifest, m0a3-evidence, m0c3-fv, m0c3-provider-fv]
+    needs: [stage-digest-manifest, m0a3-evidence, m0c3-fv]
     if: github.event_name == 'push'
     runs-on: ubuntu-22.04
     permissions:
@@ -622,6 +582,7 @@ jobs:
           DIGEST_ARTIFACT_SHA256: ${{ inputs.digest_manifest_sha256 }}
           QUALIFICATION_ARTIFACT_ID: ${{ inputs.qualification_manifest_artifact_id }}
           QUALIFICATION_ARTIFACT_SHA256: ${{ inputs.qualification_manifest_sha256 }}
+          OPERATOR_TUI_VALIDATION: ${{ inputs.operator_tui_validation }}
         run: |
           set -euo pipefail
           [ "$GITHUB_REF_TYPE" = tag ]
@@ -633,6 +594,7 @@ jobs:
           [[ "$QUALIFICATION_ARTIFACT_ID" =~ ^[1-9][0-9]*$ ]]
           [[ "$DIGEST_ARTIFACT_SHA256" =~ ^[0-9a-f]{64}$ ]]
           [[ "$QUALIFICATION_ARTIFACT_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          [ "$OPERATOR_TUI_VALIDATION" = confirmed ]
           helper="$RUNNER_TEMP/promote_artifacts.sh"
           gh api "/repos/${GITHUB_REPOSITORY}/contents/scripts/release/promote_artifacts.sh?ref=${GITHUB_SHA}" \
             --jq .content | tr -d '\n' | base64 --decode > "$helper"

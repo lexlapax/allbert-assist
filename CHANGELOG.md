@@ -15,7 +15,7 @@ changelog entries or release notes.
 Status: **release candidate — immutable corrective build pending.** Failed tags
 `v1.2.1`, `v1.2.2`, `v1.2.3`, `v1.2.4`, and `v1.2.5` remain immutable and
 created no GitHub Release. v1.2.6 carries the same
-operator-approved foundation scope with five bounded corrections in existing
+operator-approved foundation scope with six bounded corrections in existing
 release seams: it explicitly
 removes generated manifest/digest/gzip output before rebuilding; its reviewed
 license catalog omits `unicode_util_compat`, which M0.c1 had already removed
@@ -25,7 +25,9 @@ output before selecting version fields, preventing producer `EPIPE` failures;
 and it pins setup-beam's observed Elixir distribution label
 `v1.19.5-otp-28` independently from the verified OTP 29.0.1 runtime; and its
 digest-manifest validator consumes that pinned Elixir OTP-build label instead
-of incorrectly deriving it from the runtime OTP major.
+of incorrectly deriving it from the runtime OTP major; and `allbert tui` marks
+its release invocation attach-only so runtime configuration does not create a
+database directory or persisted web key before the thin client connects.
 A clean-root local `mix release allbert --overwrite` completes asset
 composition, plugin staging, measured macOS OpenSSL closure, dispatcher
 installation, and final license generation/verification; the packaged binary
@@ -39,7 +41,10 @@ back into the repository. Until then, the repository formula remains the last
 accepted 1.2.0 package rather than advertising unavailable bytes.
 
 The release adds no license-management subsystem and no new release-automation
-framework. Stable internal `release.v121`, `v121-*`, and harness names continue
+framework. Automated exact-artifact qualification runs provider-free on all
+three native targets; one real-provider macOS artifact session is attended by
+the operator and explicitly confirmed at protected promotion, so repository
+Actions stores no provider credential. Stable internal `release.v121`, `v121-*`, and harness names continue
 to identify the foundation contract without becoming product-version claims.
 
 ## v1.2.5 - Failed Immutable Foundation Attempt

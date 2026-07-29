@@ -14,6 +14,7 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
   @dispatch_inputs ~w(
     digest_manifest_artifact_id
     digest_manifest_sha256
+    operator_tui_validation
     qualification_manifest_artifact_id
     qualification_manifest_sha256
     source_run_attempt
@@ -50,14 +51,13 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     assert jobs["qualification-evidence"]["needs"] == [
              "stage-digest-manifest",
              "m0a3-evidence",
-             "m0c3-fv",
-             "m0c3-provider-fv"
+             "m0c3-fv"
            ]
 
     refute Map.has_key?(jobs, "publish")
 
     for job_name <-
-          ~w(m0a3-license m0a3-evidence m0c3-fv m0c3-provider-fv qualification-evidence) do
+          ~w(m0a3-license m0a3-evidence m0c3-fv qualification-evidence) do
       job = jobs[job_name]
       assert job["if"] == "github.event_name == 'push'"
       assert job["permissions"] == %{"actions" => "read", "contents" => "read"}
@@ -80,13 +80,11 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
 
     assert matrix_runner_map(jobs["m0c3-fv"]) == %{
              "linux-arm64" => "ubuntu-22.04-arm",
+             "linux-x64" => "ubuntu-22.04",
              "macos-arm64" => "macos-15"
            }
 
-    assert jobs["m0c3-provider-fv"]["runs-on"] == "ubuntu-22.04"
-    provider_text = inspect(jobs["m0c3-provider-fv"], limit: :infinity)
-    assert provider_text =~ "secrets.ALLBERT_V121_PROVIDER_CONFIG"
-    assert provider_text =~ "vars.ALLBERT_V121_PROVIDER_MODEL"
+    refute Map.has_key?(jobs, "m0c3-provider-fv")
 
     promotion = jobs["promote"]
     assert promotion["if"] == "github.event_name == 'workflow_dispatch'"
@@ -108,6 +106,9 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     refute promotion_text =~ "setup-beam@"
     refute promotion_text =~ "mix release"
     assert promotion_text =~ "contents/scripts/release/promote_artifacts.sh?ref=${GITHUB_SHA}"
+
+    validation_run = Enum.find(promotion["steps"], &(&1["id"] == "promoter"))["run"]
+    assert validation_run =~ ~S|[ "$OPERATOR_TUI_VALIDATION" = confirmed ]|
   end
 
   test "all actions and BEAM inputs are immutable exact pins" do
@@ -883,7 +884,7 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
 
     qualification_rows =
       Enum.map(rows, fn row ->
-        provider = if row["target"] == "linux-x64", do: "passed", else: "not_required"
+        provider = "not_required"
 
         provider =
           if Keyword.get(opts, :tampered?, false) and row["target"] == "linux-x64",
@@ -901,8 +902,7 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
           },
           "fv_evidence" => %{
             "protocol_tty_sha256" => String.duplicate("4", 64),
-            "provider_receipt_sha256" =>
-              if(row["target"] == "linux-x64", do: String.duplicate("5", 64), else: nil)
+            "provider_receipt_sha256" => nil
           }
         })
       end)

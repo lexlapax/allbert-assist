@@ -212,11 +212,8 @@ validate_evidence() {
        .qualifications.protocol_tty == "passed" and
        (.fv_evidence | keys == ["protocol_tty_sha256", "provider_receipt_sha256"]) and
        (.fv_evidence.protocol_tty_sha256 | test("^[0-9a-f]{64}$")) and
-       (if .target == "linux-x64" then
-          (.fv_evidence.provider_receipt_sha256 | test("^[0-9a-f]{64}$"))
-        else .fv_evidence.provider_receipt_sha256 == null end))) and
-     ([.archives[] | select(.target == "linux-x64") | .qualifications.provider] == ["passed"]) and
-     ([.archives[] | select(.target != "linux-x64") | .qualifications.provider] | sort == ["not_required", "not_required"])' \
+       .fv_evidence.provider_receipt_sha256 == null and
+       .qualifications.provider == "not_required"))' \
     "$qualification_manifest" >/dev/null
 
   jq -S '[.archives[] | {artifact_id, artifact_name, artifact_digest,
