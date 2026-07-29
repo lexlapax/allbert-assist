@@ -1388,14 +1388,26 @@ model/browser smokes remain separate real-runtime evidence.
 
 ### Future Point/Minor Gate Composition — 2026-07-28
 
-`release.v121` is planned as the exact ordered `release.v12` prefix plus focused
-license-finalizer/viewer and daemon-TUI protocol contracts. `release.v13` is
-planned as the exact ordered `release.v121` prefix plus focused Corpus, Memory,
-Search, Jobs, security, compatibility, and surface contracts. Before relying on
-either prefix, the gate emits its ordered step list and the release evidence
-records structural prefix equality at the candidate SHA. Do not serially rerun
-every inherited versioned gate when that equality is proved; retain the older
-gate as fallback when it is not.
+`release.v121` is the exact ordered `release.v12` prefix plus six v1.2.1 steps:
+the 13-row security routing sweep, packaged-license/final-artifact/promotion
+owners, daemon-TUI/custody owners, offline license drift, primary-lane
+reconciliation, and the lossless per-test manifest check. The definition writes
+aggregate evidence under its owned Home at `release_evidence/v121/`, but the
+v1.2.1 timing override does not execute it. At the clean pushed tag candidate,
+emit its definitions and computed prefix proof without executing any step:
+
+```sh
+export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v121-structure.XXXXXX)"
+MIX_ENV=test mix allbert.test release.structure v121
+```
+
+The command records the candidate SHA, clean-worktree verdict, all normalized
+ordered definitions, both exact-prefix comparisons, overall status, and the
+evidence SHA-256. It fails if the tree is dirty or either comparison differs.
+`release.v13` remains planned as the exact ordered `release.v121` prefix plus
+focused Corpus, Memory, Search, Jobs, security, compatibility, and surface
+contracts. Do not serially rerun inherited versioned gates when structural
+equality is proved; retain the older gate as fallback when it is not.
 
 The active v1.3 plan names exact focused files and serial lanes per milestone.
 License catalog/finalizer fixtures and TUI packet/state-machine tests are source

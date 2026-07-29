@@ -6330,12 +6330,16 @@ defmodule Mix.Tasks.Allbert.Test do
 
     source_sha = String.trim(sha)
     clean? = String.trim(worktree) == ""
+    prefix_status = proof["status"]
+    status = if clean? and prefix_status == "passed", do: "passed", else: "failed"
 
     evidence =
       proof
       |> Map.put("gate", "mix allbert.test release.structure v121")
       |> Map.put("source_sha", source_sha)
       |> Map.put("worktree_clean", clean?)
+      |> Map.put("prefix_status", prefix_status)
+      |> Map.put("status", status)
       |> Map.put("generated_at", DateTime.utc_now() |> DateTime.to_iso8601())
 
     output_path = Keyword.get(opts, :output) || default_v121_structure_path!()
@@ -6347,7 +6351,7 @@ defmodule Mix.Tasks.Allbert.Test do
     Mix.shell().info("release.v121 structure evidence: #{output_path}")
     Mix.shell().info("release.v121 structure sha256: #{sha256(encoded)}")
 
-    unless clean? and proof["status"] == "passed" do
+    unless status == "passed" do
       Mix.raise("release.v121 structure proof requires a clean source SHA and exact prefixes")
     end
 
