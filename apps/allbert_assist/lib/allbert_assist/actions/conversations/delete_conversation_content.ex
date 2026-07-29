@@ -25,6 +25,7 @@ defmodule AllbertAssist.Actions.Conversations.DeleteConversationContent do
         doc: "Closed message | thread target; accepts the serialized confirmation form."
       ],
       target_id: [type: :string, required: true],
+      user_id: [type: :string, required: false],
       expected_digest: [type: :string, required: false],
       preview_binding: [type: :string, required: false],
       key_ref: [type: :string, required: false],
@@ -121,6 +122,7 @@ defmodule AllbertAssist.Actions.Conversations.DeleteConversationContent do
         security_decision: permission_decision,
         params_summary: Map.put(preview, :user_id, user_id),
         resume_params_ref: %{
+          user_id: user_id,
           target_kind: preview.target_kind,
           target_id: preview.target_id,
           preview_binding: preview.preview_binding,
@@ -136,19 +138,26 @@ defmodule AllbertAssist.Actions.Conversations.DeleteConversationContent do
   end
 
   defp delete_now(user_id, params, permission_decision) do
-    case Deletion.delete_approved(user_id, params) do
-      {:ok, result} ->
-        {:ok,
-         %{
-           message: result_message(result),
-           status: :completed,
-           permission_decision: permission_decision,
-           output_data: result,
-           actions: [action(:completed, permission_decision, result, nil)]
-         }}
-
+    with :ok <- approved_user(params, user_id),
+         {:ok, result} <- Deletion.delete_approved(user_id, params) do
+      {:ok,
+       %{
+         message: result_message(result),
+         status: :completed,
+         permission_decision: permission_decision,
+         output_data: result,
+         actions: [action(:completed, permission_decision, result, nil)]
+       }}
+    else
       {:error, reason} ->
         {:ok, failed(permission_decision, reason)}
+    end
+  end
+
+  defp approved_user(params, current_user_id) do
+    case value(params, :user_id) do
+      ^current_user_id -> :ok
+      _other -> {:error, :unauthorized}
     end
   end
 

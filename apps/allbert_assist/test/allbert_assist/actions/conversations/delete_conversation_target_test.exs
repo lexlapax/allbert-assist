@@ -81,11 +81,21 @@ defmodule AllbertAssist.Actions.Conversations.DeleteConversationTargetTest do
     assert pending.confirmation["resume_params_ref"]["key_ref"] ==
              "secret://system/integrity_v1"
 
+    assert pending.confirmation["resume_params_ref"]["user_id"] == "local"
     refute inspect(pending.confirmation) =~ "delete me"
     refute inspect(pending.confirmation) =~ content_digest("delete me")
 
     assert {:ok, _managed} = Managed.reconcile("local")
     dirty_before = managed_search().metadata["dirty_seq"]
+
+    wrong_user_context = Map.put(approved_context(), :user_id, "alice")
+
+    assert {:ok, unauthorized} =
+             DeleteConversationContent.run(resume_params(pending), wrong_user_context)
+
+    assert unauthorized.status == :failed
+    assert unauthorized.error == :unauthorized
+    assert Repo.get(Message, second.id)
 
     assert {:ok, approved} =
              ApproveConfirmation.run(

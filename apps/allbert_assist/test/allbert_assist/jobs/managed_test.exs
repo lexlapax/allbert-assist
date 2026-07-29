@@ -3,6 +3,7 @@ defmodule AllbertAssist.Jobs.ManagedTest do
 
   alias AllbertAssist.Conversations
   alias AllbertAssist.Jobs
+  alias AllbertAssist.Jobs.Job
   alias AllbertAssist.Jobs.Managed
   alias AllbertAssist.Jobs.Run
   alias AllbertAssist.Jobs.Runner
@@ -81,6 +82,26 @@ defmodule AllbertAssist.Jobs.ManagedTest do
     assert [same] = Enum.filter(Jobs.list_jobs("local", limit: 100), &(&1.name == "search-index"))
     assert same.id == operator_job.id
     assert same.target == %{"text" => "operator-owned"}
+  end
+
+  test "owned metadata drift fails admission closed" do
+    assert {:ok, _results} = Managed.reconcile("local")
+    search = managed_job("search-index")
+
+    assert {:ok, drifted} =
+             search
+             |> Job.changeset(%{
+               metadata:
+                 Map.put(
+                   search.metadata,
+                   "managed_spec_digest",
+                   "sha256:" <> String.duplicate("0", 64)
+                 )
+             })
+             |> Repo.update()
+
+    assert Managed.managed?(drifted)
+    assert {:error, :managed_invariant_drift} = Jobs.admit_run(drifted, %{trigger: "manual"})
   end
 
   test "exact review-cadence legacy row is adopted in place with history and pause preserved" do
@@ -168,8 +189,23 @@ defmodule AllbertAssist.Jobs.ManagedTest do
     assert kicked.dirty_seq == 1
     assert kicked.due_at == nil
 
+    assert {:ok, paused} = Jobs.pause_job(consolidation)
+    assert {:ok, resumed_disabled} = Jobs.resume_job(paused)
+    assert resumed_disabled.next_due_at == nil
+
     assert {:error, :managed_feature_disabled} =
-             Jobs.admit_run(consolidation, %{trigger: "manual"})
+             Jobs.admit_run(resumed_disabled, %{trigger: "manual"})
+
+    assert {:ok, synthetic_run} =
+             Jobs.create_run(resumed_disabled, %{
+               status: "completed",
+               metadata: %{"claimed_dirty_seq" => 1}
+             })
+
+    assert {:ok, completed_disabled} =
+             Managed.complete_run(resumed_disabled, synthetic_run)
+
+    assert completed_disabled.next_due_at == nil
 
     assert {:ok, _setting} = Settings.put("memory.consolidation.enabled", true)
 

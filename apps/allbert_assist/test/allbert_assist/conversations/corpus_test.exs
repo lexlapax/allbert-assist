@@ -98,10 +98,14 @@ defmodule AllbertAssist.Conversations.CorpusTest do
     assert {:ok, _message} = local_message(thread, "eligible")
     assert {:ok, search_snapshot} = Corpus.snapshot("alice", local_search_policy())
 
+    assert {:ok, _setting} = Settings.put("search.origin_grants", [])
+    assert {:error, :origin_grant_required} = Corpus.page(search_snapshot, nil, 10)
+
     assert {:ok, _epoch} =
              Corpus.set_origin_grant(:search, :local_operator, false, %{actor: "test"})
 
-    assert {:error, :eligibility_changed} = Corpus.page(search_snapshot, nil, 10)
+    assert Corpus.eligibility_epoch(:search) > search_snapshot.eligibility_epoch
+    assert {:error, :origin_grant_required} = Corpus.page(search_snapshot, nil, 10)
     assert {:error, :origin_grant_required} = Corpus.snapshot("alice", local_search_policy())
     assert Corpus.eligibility_epoch(:memory) == 0
   end

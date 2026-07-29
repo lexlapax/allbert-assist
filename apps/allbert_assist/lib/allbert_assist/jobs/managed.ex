@@ -153,19 +153,30 @@ defmodule AllbertAssist.Jobs.Managed do
 
   @doc "Reject ordinary admission only when a managed feature is effectively disabled."
   def admission_allowed?(%Job{} = job) do
-    if managed?(job) and metadata_value(job.metadata || %{}, "feature_enabled") != true,
-      do: {:error, :managed_feature_disabled},
-      else: :ok
+    if managed?(job) do
+      with :ok <- invariant_job(job, spec_for(job.name)) do
+        if metadata_value(job.metadata || %{}, "feature_enabled") == true,
+          do: :ok,
+          else: {:error, :managed_feature_disabled}
+      end
+    else
+      :ok
+    end
   end
 
   def admission_allowed?(_job), do: :ok
 
   @doc "Compute resume due-state while preserving a dirty managed entry."
   def resume_due(%Job{} = job, scheduled_due) do
-    if managed?(job) and dirty?(job) do
-      earliest_due(job.next_due_at, kick_due_at()) || scheduled_due
-    else
-      scheduled_due
+    cond do
+      managed?(job) and metadata_value(job.metadata || %{}, "feature_enabled") != true ->
+        nil
+
+      managed?(job) and dirty?(job) ->
+        earliest_due(job.next_due_at, kick_due_at()) || scheduled_due
+
+      true ->
+        scheduled_due
     end
   end
 
@@ -303,15 +314,19 @@ defmodule AllbertAssist.Jobs.Managed do
   defp completion_due(%Job{status: status}, _metadata, _response) when status != "active", do: nil
 
   defp completion_due(job, metadata, response) do
-    continuation = continuation_due_at(response)
-    scheduled = next_schedule_due(job)
+    if metadata_value(metadata, "feature_enabled") == true do
+      continuation = continuation_due_at(response)
+      scheduled = next_schedule_due(job)
 
-    if pending_dirty?(metadata) do
-      [job.next_due_at, continuation, kick_due_at(), scheduled]
-      |> Enum.reject(&is_nil/1)
-      |> Enum.min_by(&DateTime.to_unix(&1, :microsecond), fn -> nil end)
+      if pending_dirty?(metadata) do
+        [job.next_due_at, continuation, kick_due_at(), scheduled]
+        |> Enum.reject(&is_nil/1)
+        |> Enum.min_by(&DateTime.to_unix(&1, :microsecond), fn -> nil end)
+      else
+        earliest_due(continuation, scheduled)
+      end
     else
-      earliest_due(continuation, scheduled)
+      nil
     end
   end
 

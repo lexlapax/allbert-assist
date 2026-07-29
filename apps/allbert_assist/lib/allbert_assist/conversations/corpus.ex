@@ -112,6 +112,7 @@ defmodule AllbertAssist.Conversations.Corpus do
   def page(%Snapshot{} = snapshot, cursor, limit)
       when is_integer(limit) and limit > 0 and limit <= @max_page_limit do
     with :ok <- validate_cursor(snapshot, cursor),
+         :ok <- authorize_policy(snapshot.policy),
          :ok <- validate_snapshot_epoch(snapshot) do
       rows = page_rows(snapshot, cursor, limit)
 
@@ -123,12 +124,15 @@ defmodule AllbertAssist.Conversations.Corpus do
           {:error, _reason} -> []
         end)
 
-      {:ok,
-       %{
-         items: items,
-         cursor: next_cursor(snapshot, List.last(rows)),
-         exhausted?: length(rows) < limit
-       }}
+      with :ok <- authorize_policy(snapshot.policy),
+           :ok <- validate_snapshot_epoch(snapshot) do
+        {:ok,
+         %{
+           items: items,
+           cursor: next_cursor(snapshot, List.last(rows)),
+           exhausted?: length(rows) < limit
+         }}
+      end
     end
   end
 
@@ -198,8 +202,8 @@ defmodule AllbertAssist.Conversations.Corpus do
 
     with {:ok, current} <- Settings.get(key),
          updated <- update_grants(current, Atom.to_string(scope), granted?),
-         {:ok, epoch} <- bump_eligibility_epoch(consumer),
-         {:ok, _setting} <- Settings.put(key, updated, context) do
+         {:ok, _setting} <- Settings.put(key, updated, context),
+         {:ok, epoch} <- bump_eligibility_epoch(consumer) do
       {:ok, epoch}
     end
   end
