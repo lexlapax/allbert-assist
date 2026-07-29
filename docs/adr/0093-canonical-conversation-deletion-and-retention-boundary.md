@@ -8,6 +8,11 @@ delete action, its exact conversation-owned cascade, live-dependency blocking,
 survivor disclosure, crash-safe idempotency, and cross-consumer reconciliation
 rows are green.
 
+M2's canonical action/cascade/confirmation rows are green as of 2026-07-29 at
+`ffbe8fda`. This ADR remains Proposed until the M4/M6/M7 consumers exist and the
+M8 cross-consumer deletion/proposal/projection rows pass; implementation order
+does not weaken the decision's acceptance bar.
+
 This ADR extracts the canonical-deletion decision that the fifth readiness pass
 found specified inside ADR 0092 §3. Deleting the operator's conversation history
 is a destructive capability over canonical user data with its own consent,
@@ -57,6 +62,8 @@ target must belong to the verified canonical user/operator. It is
 confirmation-resume path; its stored resume parameters carry only the verified
 user/operator id, target kind/id, non-secret key reference/version, and the
 opaque server preview binding — never message content or plain content digests.
+Approval compares that stored server-derived user id with the current
+authenticated user before entering the Repo transaction.
 
 There is exactly one such action. Surfaces render and dispatch it; none
 implements its own deletion path.
@@ -93,6 +100,11 @@ For the current additive schema, a message row version is immutable
 `inserted_at` plus content digest; thread/channel/message-reference row versions
 are `updated_at` plus their safe identity fields. M2 does not add a generic row-
 version column merely for this action.
+
+The optional caller precondition has one closed interpretation: a message
+digest is SHA-256 of exact content, while a thread digest is SHA-256 of the
+NUL-joined canonical-order sequence of per-message `sha256:` content digests.
+It is only an early stale check; the server HMAC remains the approval authority.
 
 Approval recomputes that complete cascade and bound count/disclosure vector
 inside the immediate canonical Repo transaction. A concurrent append,
