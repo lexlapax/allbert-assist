@@ -123,6 +123,7 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
 
     assert env["OTP_VERSION"] == "29.0.1"
     assert env["ELIXIR_VERSION"] == "1.19.5"
+    assert env["ELIXIR_OTP_BUILD"] == "28"
     assert env["REBAR3_VERSION"] == "3.25.1"
     assert env["HEX_VERSION"] == "2.5.1"
     assert env["SETUP_BEAM_SHA"] == @setup_beam_sha
@@ -143,7 +144,11 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     assert body =~ ~S|String.trim_leading("OTP-")|
     assert body =~ ~S|[ "$REPORTED_SETUP_BEAM_REVISION" = "ea45c80" ]|
     assert body =~ ~S|[ "$RESOLVED_OTP" = "OTP-${OTP_VERSION}" ]|
-    assert body =~ ~S|[ "$RESOLVED_ELIXIR" = "v${ELIXIR_VERSION}-otp-${otp_major}" ]|
+
+    assert body =~
+             ~S|[ "$RESOLVED_ELIXIR" = "v${ELIXIR_VERSION}-otp-${ELIXIR_OTP_BUILD}" ]|
+
+    refute body =~ ~S|otp_major="${OTP_VERSION%%.*}"|
     assert body =~ ~S(mix hex.info | awk '/^Hex:/ {value=$2} END {print value}')
     assert body =~ ~S(rebar3 --version | awk 'NR == 1 {value=$2} END {print value}')
     refute body =~ ~S(mix hex.info | awk '/^Hex:/ {print $2; exit}')

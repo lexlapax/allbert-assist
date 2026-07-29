@@ -44,6 +44,7 @@ env:
   MIX_ENV: prod
   OTP_VERSION: "29.0.1"
   ELIXIR_VERSION: "1.19.5"
+  ELIXIR_OTP_BUILD: "28"
   REBAR3_VERSION: "3.25.1"
   HEX_VERSION: "2.5.1"
   SETUP_BEAM_SHA: "54075bcc5e249e4758d363f27d099f55d843f124"
@@ -158,14 +159,12 @@ jobs:
           runtime_erts="$(elixir -e 'IO.write(:erlang.system_info(:version))')"
           resolved_hex="$(mix hex.info | awk '/^Hex:/ {value=$2} END {print value}')"
           resolved_rebar3="$(rebar3 --version | awk 'NR == 1 {value=$2} END {print value}')"
-          otp_major="${OTP_VERSION%%.*}"
-
           [ "$runtime_otp" = "$OTP_VERSION" ]
           [ "$runtime_elixir" = "$ELIXIR_VERSION" ]
           [ "$resolved_hex" = "$HEX_VERSION" ]
           [ "$resolved_rebar3" = "$REBAR3_VERSION" ]
           [ "$RESOLVED_OTP" = "OTP-${OTP_VERSION}" ]
-          [ "$RESOLVED_ELIXIR" = "v${ELIXIR_VERSION}-otp-${otp_major}" ]
+          [ "$RESOLVED_ELIXIR" = "v${ELIXIR_VERSION}-otp-${ELIXIR_OTP_BUILD}" ]
           [ "$RESOLVED_REBAR3" = "$REBAR3_VERSION" ]
           [ "$REPORTED_SETUP_BEAM_REVISION" = "ea45c80" ]
 
