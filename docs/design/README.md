@@ -5,6 +5,12 @@ onboarding, first-model, persona, visual-language, and layout decisions the ship
 releases implement. These are design records; the accepted decisions are ratified in
 the [ADRs](../adr/README.md) and built per the [plans](../plans/README.md).
 
+## System Architecture
+
+- [Architecture diagrams](architecture-diagrams.md) - Mermaid component map,
+  surface/daemon topology, turn and confirmation flows, supervision tree,
+  Allbert Home layout, and the planned v1.2.1/v1.3 shape.
+
 ## Product Experience And Information Architecture
 
 - [Product experience spec](product-experience-spec.md)
