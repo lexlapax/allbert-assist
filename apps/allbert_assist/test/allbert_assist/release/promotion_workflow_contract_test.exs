@@ -144,6 +144,10 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     assert body =~ ~S|[ "$REPORTED_SETUP_BEAM_REVISION" = "ea45c80" ]|
     assert body =~ ~S|[ "$RESOLVED_OTP" = "OTP-${OTP_VERSION}" ]|
     assert body =~ ~S|[ "$RESOLVED_ELIXIR" = "v${ELIXIR_VERSION}-otp-${otp_major}" ]|
+    assert body =~ ~S(mix hex.info | awk '/^Hex:/ {value=$2} END {print value}')
+    assert body =~ ~S(rebar3 --version | awk 'NR == 1 {value=$2} END {print value}')
+    refute body =~ ~S(mix hex.info | awk '/^Hex:/ {print $2; exit}')
+    refute body =~ ~S(rebar3 --version | awk '{print $2; exit}')
 
     cosign =
       Enum.find(steps, &String.starts_with?(&1["uses"] || "", "sigstore/cosign-installer@"))

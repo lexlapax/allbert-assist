@@ -156,8 +156,8 @@ jobs:
           runtime_otp="$(elixir -e 'release = List.to_string(:erlang.system_info(:otp_release)); path = Path.join([:code.root_dir(), "releases", release, "OTP_VERSION"]); IO.write(File.read!(path) |> String.trim() |> String.trim_leading("OTP-"))')"
           runtime_elixir="$(elixir -e 'IO.write(System.version())')"
           runtime_erts="$(elixir -e 'IO.write(:erlang.system_info(:version))')"
-          resolved_hex="$(mix hex.info | awk '/^Hex:/ {print $2; exit}')"
-          resolved_rebar3="$(rebar3 --version | awk '{print $2; exit}')"
+          resolved_hex="$(mix hex.info | awk '/^Hex:/ {value=$2} END {print value}')"
+          resolved_rebar3="$(rebar3 --version | awk 'NR == 1 {value=$2} END {print value}')"
           otp_major="${OTP_VERSION%%.*}"
 
           [ "$runtime_otp" = "$OTP_VERSION" ]
