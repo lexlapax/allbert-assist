@@ -357,35 +357,39 @@ defmodule AllbertAssist.Conversations.Corpus do
   defp backfill_legacy_remote_origin!(message) do
     current = Repo.get!(Message, message.id)
 
-    if current.origin_thread_ref_id do
-      current
-    else
-      refs =
-        ConversationMessageRef
-        |> where([ref], ref.canonical_message_id == ^message.id)
-        |> order_by([ref], asc: ref.id)
-        |> Repo.all()
+    if current.origin_thread_ref_id, do: current, else: apply_legacy_origin!(current)
+  end
 
-      with {:ok, thread_ref} <- exact_legacy_thread_ref(message, refs),
-           [principal_digest] <-
-             current_principal_digests(message.user_id, thread_ref) |> Enum.uniq() do
-        current
-        |> Message.changeset(%{
-          origin_thread_ref_id: thread_ref.id,
-          origin_principal_digest: principal_digest,
-          principal_normalizer_version: ChannelThread.principal_normalizer_version()
-        })
-        |> Repo.update!()
-        |> tap(fn _updated ->
-          from(ref in ConversationMessageRef,
-            where: ref.canonical_message_id == ^message.id and is_nil(ref.thread_channel_ref_id)
-          )
-          |> Repo.update_all(set: [thread_channel_ref_id: thread_ref.id])
-        end)
-      else
-        _other -> Repo.rollback(:legacy_principal_unverified)
-      end
+  defp apply_legacy_origin!(message) do
+    refs =
+      ConversationMessageRef
+      |> where([ref], ref.canonical_message_id == ^message.id)
+      |> order_by([ref], asc: ref.id)
+      |> Repo.all()
+
+    with {:ok, thread_ref} <- exact_legacy_thread_ref(message, refs),
+         [principal_digest] <-
+           current_principal_digests(message.user_id, thread_ref) |> Enum.uniq() do
+      persist_legacy_origin!(message, thread_ref, principal_digest)
+    else
+      _other -> Repo.rollback(:legacy_principal_unverified)
     end
+  end
+
+  defp persist_legacy_origin!(message, thread_ref, principal_digest) do
+    message
+    |> Message.changeset(%{
+      origin_thread_ref_id: thread_ref.id,
+      origin_principal_digest: principal_digest,
+      principal_normalizer_version: ChannelThread.principal_normalizer_version()
+    })
+    |> Repo.update!()
+    |> tap(fn _updated ->
+      from(ref in ConversationMessageRef,
+        where: ref.canonical_message_id == ^message.id and is_nil(ref.thread_channel_ref_id)
+      )
+      |> Repo.update_all(set: [thread_channel_ref_id: thread_ref.id])
+    end)
   end
 
   defp exact_legacy_thread_ref(_message, []),
@@ -601,40 +605,46 @@ defmodule AllbertAssist.Conversations.Corpus do
   end
 
   defp context_rows(source) do
-    before_rows =
-      Message
-      |> where(
-        [message],
-        message.thread_id == ^source.thread_id and message.user_id == ^source.user_id and
-          (message.inserted_at < ^source.inserted_at or
-             (message.inserted_at == ^source.inserted_at and message.id < ^source.id))
-      )
-      |> order_by([message], desc: message.inserted_at, desc: message.id)
-      |> limit(@context_each_side + 1)
-      |> Repo.all()
+    before_rows = context_before(source)
 
     before =
       before_rows
       |> Enum.take(@context_each_side)
       |> Enum.reverse()
 
-    after_rows =
-      Message
-      |> where(
-        [message],
-        message.thread_id == ^source.thread_id and message.user_id == ^source.user_id and
-          (message.inserted_at > ^source.inserted_at or
-             (message.inserted_at == ^source.inserted_at and message.id > ^source.id))
-      )
-      |> order_by([message], asc: message.inserted_at, asc: message.id)
-      |> limit(@context_each_side + 1)
-      |> Repo.all()
+    after_rows = context_after(source)
 
     rows =
       before ++ [source] ++ Enum.take(after_rows, @context_each_side)
 
     {Repo.preload(rows, [:thread, :origin_thread_ref]),
      length(before_rows) > @context_each_side or length(after_rows) > @context_each_side}
+  end
+
+  defp context_before(source) do
+    Message
+    |> where(
+      [message],
+      message.thread_id == ^source.thread_id and message.user_id == ^source.user_id and
+        (message.inserted_at < ^source.inserted_at or
+           (message.inserted_at == ^source.inserted_at and message.id < ^source.id))
+    )
+    |> order_by([message], desc: message.inserted_at, desc: message.id)
+    |> limit(@context_each_side + 1)
+    |> Repo.all()
+  end
+
+  defp context_after(source) do
+    Message
+    |> where(
+      [message],
+      message.thread_id == ^source.thread_id and message.user_id == ^source.user_id and
+        (message.inserted_at > ^source.inserted_at or
+           (message.inserted_at == ^source.inserted_at and message.id > ^source.id))
+    )
+    |> order_by([message], asc: message.inserted_at, asc: message.id)
+    |> limit(@context_each_side + 1)
+    |> Repo.all()
   end
 
   defp bound_context(envelopes, source_id) do

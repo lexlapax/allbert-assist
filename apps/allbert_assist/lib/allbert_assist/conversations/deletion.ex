@@ -26,6 +26,7 @@ defmodule AllbertAssist.Conversations.Deletion do
   alias AllbertAssist.Settings.KeyCustody
   alias AllbertAssist.Workspace.Canvas.Tile
   alias AllbertAssist.Workspace.Ephemeral.Surface
+  alias Ecto.Adapters.SQL
 
   @domain "allbert.conversations.delete-preview.v1"
   @key_version 1
@@ -63,15 +64,11 @@ defmodule AllbertAssist.Conversations.Deletion do
   @doc "Re-resolve and delete the exact approved cascade in one immediate transaction."
   @spec delete_approved(String.t(), map()) :: {:ok, map()} | {:error, term()}
   def delete_approved(user_id, params) when is_map(params) do
-    with {:ok, request} <- approved_request(user_id, params) do
-      case Repo.transaction(fn -> delete_in_transaction(request) end, mode: :immediate) do
-        {:ok, result} ->
-          reconcile_after_commit(user_id, result.outcome)
-          {:ok, result}
-
-        {:error, reason} ->
-          {:error, reason}
-      end
+    with {:ok, request} <- approved_request(user_id, params),
+         {:ok, result} <-
+           Repo.transaction(fn -> delete_in_transaction(request) end, mode: :immediate) do
+      reconcile_after_commit(user_id, result.outcome)
+      {:ok, result}
     end
   end
 
@@ -336,7 +333,7 @@ defmodule AllbertAssist.Conversations.Deletion do
 
   defp table_exists?(table) do
     %{rows: rows} =
-      Ecto.Adapters.SQL.query!(
+      SQL.query!(
         Repo,
         "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
         [table]
@@ -352,7 +349,7 @@ defmodule AllbertAssist.Conversations.Deletion do
     do: raw_count("SELECT COUNT(*) FROM stocksage_analysis_queue WHERE thread_id = ?", thread_id)
 
   defp raw_count(sql, thread_id) do
-    %{rows: [[count]]} = Ecto.Adapters.SQL.query!(Repo, sql, [thread_id])
+    %{rows: [[count]]} = SQL.query!(Repo, sql, [thread_id])
     count
   end
 

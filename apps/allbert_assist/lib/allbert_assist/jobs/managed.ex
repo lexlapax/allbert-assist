@@ -96,29 +96,32 @@ defmodule AllbertAssist.Jobs.Managed do
     user_id = managed_user(user_or_context)
 
     Repo.transaction(
-      fn ->
-        case managed_job(user_id, identity) do
-          nil ->
-            Repo.rollback({:managed_job_not_found, identity})
-
-          %Job{} = job ->
-            with :ok <- invariant_job(job, spec_for(identity)),
-                 {:ok, updated} <- apply_kick(job) do
-              %{
-                outcome: :kicked,
-                job_id: updated.id,
-                managed_identity: identity,
-                dirty_seq: metadata_integer(updated.metadata, "dirty_seq"),
-                status: updated.status,
-                due_at: updated.next_due_at
-              }
-            else
-              {:error, reason} -> Repo.rollback(reason)
-            end
-        end
-      end,
+      fn -> kick_managed_job(user_id, identity) end,
       mode: :immediate
     )
+  end
+
+  defp kick_managed_job(user_id, identity) do
+    case managed_job(user_id, identity) do
+      nil -> Repo.rollback({:managed_job_not_found, identity})
+      %Job{} = job -> apply_managed_kick(job, identity)
+    end
+  end
+
+  defp apply_managed_kick(job, identity) do
+    with :ok <- invariant_job(job, spec_for(identity)),
+         {:ok, updated} <- apply_kick(job) do
+      %{
+        outcome: :kicked,
+        job_id: updated.id,
+        managed_identity: identity,
+        dirty_seq: metadata_integer(updated.metadata, "dirty_seq"),
+        status: updated.status,
+        due_at: updated.next_due_at
+      }
+    else
+      {:error, reason} -> Repo.rollback(reason)
+    end
   end
 
   @doc "Complete managed due/dirty state without overwriting a racing kick or pause."
@@ -126,24 +129,30 @@ defmodule AllbertAssist.Jobs.Managed do
   def complete_run(job, run, response \\ nil)
 
   def complete_run(%Job{} = job, %Run{} = run, response) do
-    if managed?(job) do
-      Repo.transaction(
-        fn ->
-          current = Repo.get!(Job, job.id)
-
-          case reconcile_completion(current, run, response) do
-            {:ok, updated} -> updated
-            {:error, reason} -> Repo.rollback(reason)
-          end
-        end,
-        mode: :immediate
-      )
-    else
-      {:ok, job}
-    end
+    complete_managed_run(managed?(job), job, run, response)
   end
 
   def complete_run(job, _run, _response), do: {:ok, job}
+
+  defp complete_managed_run(false, job, _run, _response), do: {:ok, job}
+
+  defp complete_managed_run(true, job, run, response) do
+    Repo.transaction(
+      fn -> reconcile_current_completion(job.id, run, response) end,
+      mode: :immediate
+    )
+  end
+
+  defp reconcile_current_completion(job_id, run, response) do
+    current = Repo.get!(Job, job_id)
+
+    with :ok <- invariant_job(current, spec_for(current.name)),
+         {:ok, updated} <- reconcile_completion(current, run, response) do
+      updated
+    else
+      {:error, reason} -> Repo.rollback(reason)
+    end
+  end
 
   @doc "Return true only for a structurally owned Jobs.Managed row."
   def managed?(%Job{metadata: metadata}) when is_map(metadata),
@@ -155,9 +164,7 @@ defmodule AllbertAssist.Jobs.Managed do
   def admission_allowed?(%Job{} = job) do
     if managed?(job) do
       with :ok <- invariant_job(job, spec_for(job.name)) do
-        if metadata_value(job.metadata || %{}, "feature_enabled") == true,
-          do: :ok,
-          else: {:error, :managed_feature_disabled}
+        feature_admission(job.metadata || %{})
       end
     else
       :ok
@@ -165,6 +172,12 @@ defmodule AllbertAssist.Jobs.Managed do
   end
 
   def admission_allowed?(_job), do: :ok
+
+  defp feature_admission(metadata) do
+    if metadata_value(metadata, "feature_enabled") == true,
+      do: :ok,
+      else: {:error, :managed_feature_disabled}
+  end
 
   @doc "Compute resume due-state while preserving a dirty managed entry."
   def resume_due(%Job{} = job, scheduled_due) do
@@ -315,18 +328,22 @@ defmodule AllbertAssist.Jobs.Managed do
 
   defp completion_due(job, metadata, response) do
     if metadata_value(metadata, "feature_enabled") == true do
-      continuation = continuation_due_at(response)
-      scheduled = next_schedule_due(job)
-
-      if pending_dirty?(metadata) do
-        [job.next_due_at, continuation, kick_due_at(), scheduled]
-        |> Enum.reject(&is_nil/1)
-        |> Enum.min_by(&DateTime.to_unix(&1, :microsecond), fn -> nil end)
-      else
-        earliest_due(continuation, scheduled)
-      end
+      enabled_completion_due(job, metadata, response)
     else
       nil
+    end
+  end
+
+  defp enabled_completion_due(job, metadata, response) do
+    continuation = continuation_due_at(response)
+    scheduled = next_schedule_due(job)
+
+    if pending_dirty?(metadata) do
+      [job.next_due_at, continuation, kick_due_at(), scheduled]
+      |> Enum.reject(&is_nil/1)
+      |> Enum.min_by(&DateTime.to_unix(&1, :microsecond), fn -> nil end)
+    else
+      earliest_due(continuation, scheduled)
     end
   end
 
@@ -376,13 +393,19 @@ defmodule AllbertAssist.Jobs.Managed do
   defp invariant_job(job, spec) do
     metadata = job.metadata || %{}
 
-    if job.name == spec.identity and job.target_type == "registered_action" and
-         string_key_map(job.target || %{}) == target(spec) and job.user_id == job.operator_id and
-         metadata_value(metadata, "managed_by") == @managed_by and
-         metadata_integer(metadata, "managed_schema") == @managed_schema and
-         metadata_value(metadata, "managed_identity") == spec.identity and
-         metadata_integer(metadata, "managed_spec_version") == @managed_spec_version and
-         metadata_value(metadata, "managed_spec_digest") == spec_digest(spec) do
+    checks = [
+      job.name == spec.identity,
+      job.target_type == "registered_action",
+      string_key_map(job.target || %{}) == target(spec),
+      job.user_id == job.operator_id,
+      metadata_value(metadata, "managed_by") == @managed_by,
+      metadata_integer(metadata, "managed_schema") == @managed_schema,
+      metadata_value(metadata, "managed_identity") == spec.identity,
+      metadata_integer(metadata, "managed_spec_version") == @managed_spec_version,
+      metadata_value(metadata, "managed_spec_digest") == spec_digest(spec)
+    ]
+
+    if Enum.all?(checks) do
       :ok
     else
       {:error, :managed_invariant_drift}
