@@ -1039,7 +1039,8 @@ defmodule AllbertAssist.CLI.TuiTest do
         ready = collect_until(task.pid, &match?({:prompt, _, _}, &1))
         {:ok, server_flow} = accept_client(server_flow, wire!(ready, :ack))
 
-        send(task.pid, {:tui_signal, signal})
+        acknowledgement_ref = make_ref()
+        send(task.pid, {:tui_signal, signal, {self(), acknowledgement_ref}})
         detaching = collect_until(task.pid, &match?({:wire, %{frame: :detach}}, &1))
         detach = wire!(detaching, :detach)
         assert detach.payload == %{reason: :operator_exit}
@@ -1058,6 +1059,8 @@ defmodule AllbertAssist.CLI.TuiTest do
 
         assert index_of(teardown, &(&1 == :uninstall_signals)) <
                  index_of(teardown, &(&1 == {:close, socket}))
+
+        assert_receive {:tui_terminal_restored, ^acknowledgement_ref}
     end)
 
     # The setup-failure test exercises the same restoration path; the operator

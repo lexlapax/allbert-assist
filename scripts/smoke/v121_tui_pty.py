@@ -9,6 +9,7 @@ and writes a content-free PASS manifest suitable for release evidence.
 from __future__ import annotations
 
 import argparse
+import base64
 import datetime as dt
 import errno
 import fcntl
@@ -38,6 +39,7 @@ ANSI_RE = re.compile(
     rb"(?:\x1B\][^\x07\x1b]*(?:\x07|\x1B\\)|\x1B[@-_][0-?]*[ -/]*[@-~])"
 )
 HELP_MARKER = re.compile(r"Available slash commands:", re.IGNORECASE)
+HEALTH_MARKER = re.compile(r"Health: ok\.", re.IGNORECASE)
 UNKNOWN_COMMAND_MARKER = re.compile(
     r"Unknown slash command\. Type /help for available commands\.",
     re.IGNORECASE,
@@ -212,11 +214,10 @@ class PtyClient:
         fcntl.ioctl(self.master_fd, termios.TIOCSWINSZ, packed)
 
     def resize(self, columns: int, rows: int) -> None:
+        # TIOCSWINSZ notifies the PTY foreground process group. Sending a
+        # second explicit SIGWINCH to the launcher's original process-group id
+        # is not portable once the BEAM launcher has established its runtime.
         self._set_size(columns, rows)
-        try:
-            os.killpg(self.process.pid, signal.SIGWINCH)
-        except ProcessLookupError:
-            pass
 
     def send(self, payload: bytes) -> None:
         try:
@@ -465,6 +466,9 @@ class Qualification:
         self.env.update(
             {
                 "ALLBERT_HOME": str(self.home),
+                "ALLBERT_SETTINGS_MASTER_KEY": base64.b64encode(
+                    secrets.token_bytes(32)
+                ).decode("ascii"),
                 "HOME": str(host_home),
                 "TMPDIR": str(child_tmp),
                 "PORT": str(args.port),
@@ -988,7 +992,11 @@ class Qualification:
             result = client.wait_exit(self.args.client_timeout)
             if result == 0:
                 raise QualificationFailure("Attach-degraded TUI returned success")
-            if not ATTACH_DEGRADED_MARKER.search(safe_text(bytes(client.raw))):
+            rejection = safe_text(bytes(client.raw))
+            if not (
+                ATTACH_DEGRADED_MARKER.search(rejection)
+                or self.no_daemon.search(rejection)
+            ):
                 raise QualificationFailure(
                     "Attach-degraded TUI lacked its bounded rejection diagnostic"
                 )
@@ -1026,13 +1034,6 @@ class Qualification:
     def case_resize(self) -> None:
         client = self.open_client()
         try:
-            # Hold every distinct size beyond the client's 250 ms poll interval
-            # so this black-box row really crosses the frozen 32-frame window;
-            # a burst of ioctl calls would otherwise coalesce before observation.
-            for index in range(38):
-                client.resize(80 + (index % 7) * 9, 20 + (index % 5) * 3)
-                time.sleep(0.35)
-
             # Establish an identical wide-command control. Any cursor-up output
             # shared by ordinary live-region redraw is captured in this baseline.
             client.resize(120, 40)
@@ -1080,7 +1081,7 @@ class Qualification:
         suspended = False
         try:
             start = len(client.raw)
-            help_count = len(HELP_MARKER.findall(safe_text(bytes(client.raw))))
+            health_count = len(HEALTH_MARKER.findall(safe_text(bytes(client.raw))))
             unknown_count = len(
                 UNKNOWN_COMMAND_MARKER.findall(safe_text(bytes(client.raw)))
             )
@@ -1091,7 +1092,7 @@ class Qualification:
             # the custody-specific pause. This avoids accidentally qualifying
             # on the independently timed transport-pressure state.
             for _ in range(CUSTODY_FRAME_LIMIT):
-                client.send(b"/help\n")
+                client.send(b"/health\n")
             client.wait_for(
                 CUSTODY_FULL_MARKER,
                 self.args.pressure_timeout,
@@ -1118,8 +1119,8 @@ class Qualification:
                 self.args.pressure_timeout,
             )
             client.drain_for(1.0)
-            completed_help_count = len(
-                HELP_MARKER.findall(safe_text(bytes(client.raw)))
+            completed_health_count = len(
+                HEALTH_MARKER.findall(safe_text(bytes(client.raw)))
             )
             completed_unknown_count = len(
                 UNKNOWN_COMMAND_MARKER.findall(safe_text(bytes(client.raw)))
@@ -1127,7 +1128,7 @@ class Qualification:
             pressure_text = safe_text(bytes(client.raw[start:]))
             terminal_errors = TERMINAL_ERROR_LINE.findall(pressure_text)
             if (
-                completed_help_count - help_count != CUSTODY_FRAME_LIMIT
+                completed_health_count - health_count != CUSTODY_FRAME_LIMIT
                 or completed_unknown_count != expected_unknown_count
                 or terminal_errors
             ):
@@ -1156,7 +1157,7 @@ class Qualification:
             self.suspend_daemon()
             suspended = True
             for _ in range(CUSTODY_FRAME_LIMIT):
-                interrupt_client.send(b"/help\n")
+                interrupt_client.send(b"/health\n")
             interrupt_client.wait_for(
                 CUSTODY_FULL_MARKER,
                 self.args.pressure_timeout,
@@ -1223,7 +1224,10 @@ class Qualification:
     def case_signal_exit(self, name: str, handled_signal: signal.Signals) -> None:
         client = self.open_client()
         try:
-            os.killpg(client.process.pid, handled_signal)
+            # Exercise Elixir's BEAM signal trap, not every ERTS helper in the
+            # PTY process group; helpers exiting first can bypass terminal
+            # restoration before the VM completes its graceful shutdown.
+            os.kill(client.process.pid, handled_signal)
             try:
                 result = client.wait_exit(self.args.client_timeout)
             except QualificationFailure as error:

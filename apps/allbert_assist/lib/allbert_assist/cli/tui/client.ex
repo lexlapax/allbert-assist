@@ -21,6 +21,8 @@ defmodule AllbertAssist.CLI.Tui.Client do
   @confirmation_limit 32
   @pressure_timeout_ms 1_000
   @detach_timeout_ms 2_000
+  @signal_restore_timeout_ms 3_000
+  @signal_restore_acks_key :allbert_tui_signal_restore_acks
   @resize_poll_ms 250
   @signal_names [:sigterm, :sighup]
   @interruptible_render_states [:thinking, :streaming, :confirming, :coding]
@@ -101,6 +103,8 @@ defmodule AllbertAssist.CLI.Tui.Client do
   end
 
   defp terminal_lifecycle(socket, snapshot, flow, profile, terminal, receipts, callbacks) do
+    Process.delete(@signal_restore_acks_key)
+
     try do
       enter_result = call0(callbacks.enter_terminal)
 
@@ -144,7 +148,11 @@ defmodule AllbertAssist.CLI.Tui.Client do
         other -> {:error, {:terminal_setup_failed, other}, receipts}
       end
     after
-      callbacks.restore_terminal.()
+      try do
+        callbacks.restore_terminal.()
+      after
+        acknowledge_signal_restores()
+      end
     end
   end
 
@@ -245,6 +253,13 @@ defmodule AllbertAssist.CLI.Tui.Client do
         |> continue_or_stop()
 
       {:tui_signal, signal} when signal in @signal_names ->
+        state
+        |> send_detach(:operator_exit)
+        |> continue_or_stop()
+
+      {:tui_signal, signal, acknowledgement} when signal in @signal_names ->
+        remember_signal_restore_ack(acknowledgement)
+
         state
         |> send_detach(:operator_exit)
         |> continue_or_stop()
@@ -1140,7 +1155,17 @@ defmodule AllbertAssist.CLI.Tui.Client do
     result =
       try do
         System.trap_signal(signal, id, fn ->
-          send(owner, {:tui_signal, signal})
+          acknowledgement = {self(), make_ref()}
+          send(owner, {:tui_signal, signal, acknowledgement})
+
+          receive do
+            {:tui_terminal_restored, reference}
+            when reference == elem(acknowledgement, 1) ->
+              :ok
+          after
+            @signal_restore_timeout_ms -> :ok
+          end
+
           :ok
         end)
       rescue
@@ -1173,6 +1198,26 @@ defmodule AllbertAssist.CLI.Tui.Client do
   end
 
   defp uninstall_signals(_invalid), do: :ok
+
+  defp remember_signal_restore_ack({pid, reference})
+       when is_pid(pid) and is_reference(reference) do
+    acknowledgements = Process.get(@signal_restore_acks_key, [])
+    Process.put(@signal_restore_acks_key, [{pid, reference} | acknowledgements])
+    :ok
+  end
+
+  defp remember_signal_restore_ack(_invalid), do: :ok
+
+  defp acknowledge_signal_restores do
+    @signal_restore_acks_key
+    |> Process.delete()
+    |> List.wrap()
+    |> Enum.each(fn {pid, reference} ->
+      send(pid, {:tui_terminal_restored, reference})
+    end)
+
+    :ok
+  end
 
   defp stop_resize_poll({:ok, timer}) do
     _ = :timer.cancel(timer)
