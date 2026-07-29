@@ -71,11 +71,16 @@ defmodule AllbertAssist.Memory.ReviewCadence do
   end
 
   defp update_cadence_job(%Job{} = job, cadence) do
+    metadata =
+      (job.metadata || %{})
+      |> Map.merge(metadata(cadence))
+      |> preserve_v13_managed_owner(job.metadata)
+
     with {:ok, updated} <-
            Jobs.update_job(job, %{
              schedule: schedule(cadence),
              status: "active",
-             metadata: Map.merge(job.metadata || %{}, metadata(cadence))
+             metadata: metadata
            }) do
       {:ok,
        %{
@@ -103,7 +108,16 @@ defmodule AllbertAssist.Memory.ReviewCadence do
     do: metadata_value(job.metadata, "template_name") == @template_name
 
   defp managed_template_job?(%Job{} = job) do
-    template_job?(job) and metadata_value(job.metadata, "managed_by") == @managed_by
+    template_job?(job) and
+      metadata_value(job.metadata, "managed_by") in [@managed_by, "jobs.managed"]
+  end
+
+  defp preserve_v13_managed_owner(metadata, existing) do
+    if metadata_value(existing, "managed_by") == "jobs.managed" do
+      Map.put(metadata, "managed_by", "jobs.managed")
+    else
+      metadata
+    end
   end
 
   defp schedule("daily"), do: %{kind: "daily", at: @run_at}

@@ -11,6 +11,7 @@ defmodule AllbertAssist.Jobs.Scheduler.Executor do
 
   alias AllbertAssist.Jobs
   alias AllbertAssist.Jobs.Job
+  alias AllbertAssist.Jobs.Managed
   alias AllbertAssist.Jobs.Run
   alias AllbertAssist.Jobs.Runner
   alias AllbertAssist.Settings
@@ -33,6 +34,8 @@ defmodule AllbertAssist.Jobs.Scheduler.Executor do
 
   @doc false
   def build_state(opts) when is_list(opts) do
+    scheduler_config = Application.get_env(:allbert_assist, AllbertAssist.Jobs.Scheduler, [])
+
     %{
       interval_ms: Keyword.get(opts, :interval_ms, @default_interval_ms),
       initial_delay_ms: Keyword.get(opts, :initial_delay_ms, @default_initial_delay_ms),
@@ -41,6 +44,12 @@ defmodule AllbertAssist.Jobs.Scheduler.Executor do
       enabled?: Keyword.get(opts, :enabled?, true),
       poll_on_start?: Keyword.get(opts, :poll_on_start?, true),
       cleanup_on_start?: Keyword.get(opts, :cleanup_on_start?, true),
+      managed_reconcile_on_start?:
+        Keyword.get(
+          opts,
+          :managed_reconcile_on_start?,
+          Keyword.get(scheduler_config, :managed_reconcile_on_start?, true)
+        ),
       last_tick_at: nil,
       last_summary: nil,
       last_error: nil,
@@ -48,6 +57,12 @@ defmodule AllbertAssist.Jobs.Scheduler.Executor do
       last_result: {:ok, :rebuilt}
     }
   end
+
+  @doc false
+  def maybe_reconcile_managed(%{managed_reconcile_on_start?: true}),
+    do: Managed.reconcile("local")
+
+  def maybe_reconcile_managed(_state), do: {:ok, []}
 
   @doc false
   def maybe_cleanup_on_start(state, now) do
@@ -106,6 +121,10 @@ defmodule AllbertAssist.Jobs.Scheduler.Executor do
         emit_job_signal(:started, job, run, %{started_at: utc_now()})
         execute_claimed_run(job, run)
 
+      {:ok, %{outcome: :coalesced} = admission} ->
+        emit_job_signal(:skipped, job, nil, %{reason: "coalesced", admission: admission})
+        %{claimed: 0, completed: 0, needs_confirmation: 0, failed: 0, skipped: 1}
+
       {:error, reason} ->
         emit_job_signal(:skipped, job, nil, %{reason: inspect(reason)})
         %{claimed: 0, completed: 0, needs_confirmation: 0, failed: 0, skipped: 1}
@@ -131,14 +150,16 @@ defmodule AllbertAssist.Jobs.Scheduler.Executor do
 
   defp maybe_advance_next_due(%Job{status: "active"} = job, %Run{status: status})
        when status in ["completed", "failed", "skipped"] do
-    case Jobs.advance_next_due(job) do
-      {:ok, _job} ->
-        :ok
+    unless Managed.managed?(job) do
+      case Jobs.advance_next_due(job) do
+        {:ok, _job} ->
+          :ok
 
-      {:error, reason} ->
-        Logger.warning(
-          "could not advance scheduled job next_due_at job_id=#{job.id}: #{inspect(reason)}"
-        )
+        {:error, reason} ->
+          Logger.warning(
+            "could not advance scheduled job next_due_at job_id=#{job.id}: #{inspect(reason)}"
+          )
+      end
     end
   end
 

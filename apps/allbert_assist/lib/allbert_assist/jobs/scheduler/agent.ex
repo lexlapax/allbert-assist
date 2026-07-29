@@ -34,8 +34,9 @@ defmodule AllbertAssist.Jobs.Scheduler.Agent do
     state = Executor.build_state(opts)
     now = Executor.utc_now()
 
-    with {:ok, _count} <- Executor.maybe_cleanup_on_start(state, now) do
-      {:ok, state}
+    with {:ok, managed_reconcile} <- Executor.maybe_reconcile_managed(state),
+         {:ok, _count} <- Executor.maybe_cleanup_on_start(state, now) do
+      {:ok, Map.put(state, :managed_reconcile, managed_reconcile)}
     end
   end
 

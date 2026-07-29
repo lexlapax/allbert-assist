@@ -12,6 +12,7 @@ defmodule AllbertAssist.Conversations do
   alias AllbertAssist.Conversations.Message
   alias AllbertAssist.Conversations.Thread
   alias AllbertAssist.Database.TransientError
+  alias AllbertAssist.Jobs.Managed
   alias AllbertAssist.Maps
   alias AllbertAssist.Repo
   alias AllbertAssist.Workspace.Ephemeral
@@ -311,8 +312,12 @@ defmodule AllbertAssist.Conversations do
     end
 
     case run_inbound_admission(admission) do
-      {:ok, admitted} -> {:ok, admitted}
-      {:error, reason} -> {:error, {:inbound_admission_failed, admission_error(reason)}}
+      {:ok, admitted} ->
+        kick_search_reconcile(thread.user_id)
+        {:ok, admitted}
+
+      {:error, reason} ->
+        {:error, {:inbound_admission_failed, admission_error(reason)}}
     end
   end
 
@@ -371,8 +376,12 @@ defmodule AllbertAssist.Conversations do
     attrs = message_attrs(thread, attrs)
 
     case Repo.transaction(fn -> insert_message_and_touch_thread(thread, attrs, now) end) do
-      {:ok, message} -> {:ok, message}
-      {:error, reason} -> {:error, reason}
+      {:ok, message} ->
+        kick_search_reconcile(thread.user_id)
+        {:ok, message}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -627,6 +636,13 @@ defmodule AllbertAssist.Conversations do
   defp admission_error(:persistence_unavailable), do: :persistence_unavailable
   defp admission_error(%Ecto.Changeset{}), do: :invalid_message
   defp admission_error(_reason), do: :persistence_failure
+
+  defp kick_search_reconcile(user_id) do
+    case Managed.kick("search-index", user_id) do
+      {:ok, _result} -> :ok
+      {:error, _reason} -> :ok
+    end
+  end
 
   defp message_attrs(%Thread{} = thread, attrs) do
     attrs

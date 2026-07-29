@@ -13,6 +13,7 @@ defmodule AllbertAssist.Jobs.Runner do
   alias AllbertAssist.Conversations
   alias AllbertAssist.Jobs
   alias AllbertAssist.Jobs.Job
+  alias AllbertAssist.Jobs.Managed
   alias AllbertAssist.Jobs.Run
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
@@ -31,8 +32,17 @@ defmodule AllbertAssist.Jobs.Runner do
 
     with {:ok, job} <- resolve_job(job_or_id),
          :ok <- reject_blocked_job(job),
-         {:ok, run} <- Jobs.create_run(job, %{trigger: "manual", due_at: Map.get(opts, :due_at)}) do
-      execute_run(job, run, opts)
+         {:ok, admission} <-
+           Jobs.admit_run(job, %{trigger: "manual", due_at: Map.get(opts, :due_at)}) do
+      case admission do
+        %Run{} = run ->
+          execute_run(job, run, opts)
+
+        %{outcome: :coalesced, open_run_id: open_run_id} = result ->
+          with {:ok, open_run} <- Jobs.get_run(open_run_id) do
+            {:ok, Map.merge(result, %{job: job, run: open_run, response: nil})}
+          end
+      end
     end
   end
 
@@ -182,7 +192,7 @@ defmodule AllbertAssist.Jobs.Runner do
              Jobs.update_run(run, attrs)
            end),
          :ok <- Runtime.acknowledge_deliveries(response, %{channel: :job}),
-         {:ok, updated_job} <- update_job_after_run(job, finished_run) do
+         {:ok, updated_job} <- update_job_after_run(job, finished_run, response) do
       {:ok, %{job: updated_job, run: finished_run, response: response}}
     end
   end
@@ -202,7 +212,7 @@ defmodule AllbertAssist.Jobs.Runner do
     )
 
     with {:ok, failed_run} <- Jobs.update_run(run, attrs),
-         {:ok, updated_job} <- update_job_after_run(job, failed_run) do
+         {:ok, updated_job} <- update_job_after_run(job, failed_run, nil) do
       {:ok, %{job: updated_job, run: failed_run, response: nil}}
     end
   end
@@ -292,14 +302,14 @@ defmodule AllbertAssist.Jobs.Runner do
   defp redacted_map(%{} = map), do: map |> Redactor.redact() |> json_safe()
   defp redacted_map(other), do: %{value: Redactor.redact(other)} |> json_safe()
 
-  defp update_job_after_run(job, run) do
+  defp update_job_after_run(job, run, response) do
     attrs =
       %{last_run_at: run.finished_at}
       |> maybe_block_job(run)
 
-    job
-    |> Job.changeset(attrs)
-    |> Repo.update()
+    with {:ok, updated} <- job |> Job.changeset(attrs) |> Repo.update() do
+      Managed.complete_run(updated, run, response)
+    end
   end
 
   defp maybe_block_job(attrs, %{status: "needs_confirmation", confirmation_id: confirmation_id})

@@ -113,7 +113,9 @@ config :logger, level: :warning
 # In test we don't send emails
 config :allbert_assist, AllbertAssist.Mailer, adapter: Swoosh.Adapters.Test
 
-config :allbert_assist, AllbertAssist.Jobs.Scheduler, enabled?: false
+config :allbert_assist, AllbertAssist.Jobs.Scheduler,
+  enabled?: false,
+  managed_reconcile_on_start?: false
 
 config :allbert_assist, AllbertAssist.Workspace.Fragment.SigningSecret, bootstrap_on_start?: false
 

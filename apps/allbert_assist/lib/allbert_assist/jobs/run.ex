@@ -10,7 +10,7 @@ defmodule AllbertAssist.Jobs.Run do
   alias AllbertAssist.Jobs.Job
 
   @statuses ~w[queued running completed needs_confirmation failed skipped]
-  @triggers ~w[manual scheduler]
+  @triggers ~w[manual scheduler kick recovery]
 
   @primary_key {:id, :string, autogenerate: false}
   @foreign_key_type :string
@@ -83,6 +83,7 @@ defmodule AllbertAssist.Jobs.Run do
     |> validate_length(:user_id, min: 1, max: 128)
     |> validate_length(:operator_id, min: 1, max: 128)
     |> foreign_key_constraint(:job_id)
+    |> unique_constraint(:admission_key, name: :scheduled_job_runs_open_admission_uidx)
   end
 
   def statuses, do: @statuses

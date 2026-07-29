@@ -11,6 +11,7 @@ defmodule AllbertAssist.Jobs do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Jobs.Job
+  alias AllbertAssist.Jobs.Managed
   alias AllbertAssist.Jobs.Run
   alias AllbertAssist.Jobs.Schedule
   alias AllbertAssist.Repo
@@ -67,7 +68,8 @@ defmodule AllbertAssist.Jobs do
     :approval_handoff,
     :action_log,
     :error,
-    :metadata
+    :metadata,
+    :admission_key
   ]
 
   @type job_result :: {:ok, Job.t()} | {:error, term()}
@@ -175,6 +177,8 @@ defmodule AllbertAssist.Jobs do
 
   defp activate_job(%Job{} = job, extra_attrs) do
     with {:ok, next_due_at} <- Schedule.next_due(job.schedule, job.timezone) do
+      next_due_at = Managed.resume_due(job, next_due_at)
+
       job
       |> Job.changeset(
         Map.merge(%{status: "active", next_due_at: next_due_at}, Map.new(extra_attrs))
@@ -212,6 +216,7 @@ defmodule AllbertAssist.Jobs do
       |> Map.put_new(:action_log, %{})
       |> Map.put_new(:error, %{})
       |> Map.put_new(:metadata, %{})
+      |> Map.put(:admission_key, job.id)
 
     %Run{}
     |> Run.changeset(attrs)
@@ -219,6 +224,25 @@ defmodule AllbertAssist.Jobs do
   end
 
   def create_run(_job, _attrs), do: {:error, :invalid_run_attrs}
+
+  @doc "Atomically admit one ordinary Jobs run or coalesce onto its open run."
+  @spec admit_run(Job.t(), map()) ::
+          {:ok, Run.t() | map()} | {:error, term()}
+  def admit_run(job, attrs \\ %{})
+
+  def admit_run(%Job{} = job, attrs) when is_map(attrs) do
+    Repo.transaction(
+      fn ->
+        case Repo.get(Job, job.id) do
+          %Job{} = current_job -> admit_current_run(current_job, attrs)
+          nil -> Repo.rollback({:job_not_found, job.id})
+        end
+      end,
+      mode: :immediate
+    )
+  end
+
+  def admit_run(_job, _attrs), do: {:error, :invalid_run_attrs}
 
   @doc "Fetch a run by opaque id."
   @spec get_run(String.t()) :: run_result()
@@ -271,15 +295,18 @@ defmodule AllbertAssist.Jobs do
   @doc "Claim one scheduler run for a due job unless it already has an open run."
   @spec claim_due_job(Job.t(), DateTime.t()) :: run_result()
   def claim_due_job(%Job{} = job, now \\ utc_now()) do
-    Repo.transaction(fn ->
-      case Repo.get(Job, job.id) do
-        %Job{} = current_job ->
-          claim_current_due_job(current_job, now)
+    Repo.transaction(
+      fn ->
+        case Repo.get(Job, job.id) do
+          %Job{} = current_job ->
+            claim_current_due_job(current_job, now)
 
-        nil ->
-          Repo.rollback({:job_not_found, job.id})
-      end
-    end)
+          nil ->
+            Repo.rollback({:job_not_found, job.id})
+        end
+      end,
+      mode: :immediate
+    )
   end
 
   @doc "Advance an active job to its next due time after a scheduler run."
@@ -326,24 +353,76 @@ defmodule AllbertAssist.Jobs do
       is_nil(job.next_due_at) or DateTime.compare(job.next_due_at, now) == :gt ->
         Repo.rollback(:not_due)
 
-      open_run_exists?(job.id) ->
-        Repo.rollback(:open_run)
-
       true ->
-        case create_run(job, %{trigger: "scheduler", due_at: job.next_due_at}) do
-          {:ok, run} -> run
-          {:error, reason} -> Repo.rollback(reason)
-        end
+        admit_current_run(job, %{trigger: "scheduler", due_at: job.next_due_at})
     end
   end
 
-  defp open_run_exists?(job_id) do
-    Run
-    |> where([run], run.job_id == ^job_id and run.status in ["running", "needs_confirmation"])
-    |> select([run], count(run.id))
-    |> Repo.one()
-    |> Kernel.>(0)
+  defp admit_current_run(job, attrs) do
+    with :ok <- Managed.admission_allowed?(job) do
+      case open_run(job.id) do
+        %Run{} = run ->
+          %{
+            outcome: :coalesced,
+            job_id: job.id,
+            open_run_id: run.id,
+            claimed_dirty_seq: run_claimed_dirty_seq(run)
+          }
+
+        nil ->
+          attrs = Map.put(attrs, :metadata, admission_metadata(job, attrs))
+
+          case create_run(job, attrs) do
+            {:ok, run} -> run
+            {:error, reason} -> Repo.rollback(reason)
+          end
+      end
+    else
+      {:error, reason} -> Repo.rollback(reason)
+    end
   end
+
+  defp open_run(job_id) do
+    Run
+    |> where(
+      [run],
+      run.job_id == ^job_id and run.status in ["queued", "running", "needs_confirmation"]
+    )
+    |> order_by([run], asc: run.inserted_at, asc: run.id)
+    |> limit(1)
+    |> Repo.one()
+  end
+
+  defp admission_metadata(job, attrs) do
+    metadata = Map.get(attrs, :metadata, Map.get(attrs, "metadata", %{}))
+    job_metadata = job.metadata || %{}
+
+    metadata
+    |> string_key_map()
+    |> Map.put("claimed_due_at", encode_datetime(Map.get(attrs, :due_at)))
+    |> Map.put("claimed_dirty_seq", metadata_integer(job_metadata, "dirty_seq"))
+    |> maybe_put_managed_admission(job_metadata)
+  end
+
+  defp maybe_put_managed_admission(metadata, %{"managed_identity" => identity} = job_metadata) do
+    metadata
+    |> Map.put("managed_identity", identity)
+    |> Map.put("managed_spec_version", metadata_integer(job_metadata, "managed_spec_version"))
+  end
+
+  defp maybe_put_managed_admission(metadata, _job_metadata), do: metadata
+
+  defp run_claimed_dirty_seq(run), do: metadata_integer(run.metadata || %{}, "claimed_dirty_seq")
+
+  defp metadata_integer(metadata, key) do
+    case Map.get(metadata, key, Map.get(metadata, String.to_atom(key), 0)) do
+      value when is_integer(value) and value >= 0 -> value
+      _other -> 0
+    end
+  end
+
+  defp encode_datetime(%DateTime{} = value), do: DateTime.to_iso8601(value)
+  defp encode_datetime(_value), do: nil
 
   defp normalize_job_attrs(attrs, mode) do
     attrs = atomize_known_keys(attrs, @known_job_keys)
