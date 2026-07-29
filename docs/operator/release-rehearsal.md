@@ -704,8 +704,8 @@ fi
 
 Inside the one client:
 
-1. Confirm the initial `Allbert TUI - daemon attached` banner and
-   `allbert:default>` prompt render normally.
+1. Confirm the initial `Allbert TUI - daemon attached` banner and the
+   intentionally profile-neutral `allbert>` prompt render normally.
 2. Enter `/status`. Expected: the report includes `channel: tui`,
    `operator_id: local`, `external_user_id: default`, and
    `Channels.Supervisor: running`. Pre/post `/health` commands, not `/status`,
