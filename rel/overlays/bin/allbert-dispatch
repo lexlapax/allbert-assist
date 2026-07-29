@@ -44,7 +44,8 @@ case "${1:-}" in
     # instead of opening the emulator break handler. Scope it to this thin
     # client process; the daemon keeps its ordinary signal posture.
     ERL_AFLAGS="${ERL_AFLAGS:+$ERL_AFLAGS }+Bc"
-    export ERL_AFLAGS
+    ALLBERT_CLI_ATTACH_ONLY=1
+    export ERL_AFLAGS ALLBERT_CLI_ATTACH_ONLY
     exec "$RELEASE_BIN" eval "AllbertAssist.CLI.Tui.launch!()" ;;
   *)
     # Pass argv to the pure dispatcher; it prints and halts on its own code.

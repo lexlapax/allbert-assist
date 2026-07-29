@@ -30,6 +30,13 @@ if config_env() == :prod do
     end
   end
 
+  # v1.2.6 M0.c3: `allbert tui` is an attach-only release invocation. Runtime
+  # configuration is evaluated before the client can connect, so it must not
+  # create database/runtime paths merely to launch the thin reader. The
+  # dispatcher scopes this flag to the TUI child; daemon and command paths keep
+  # the ordinary durable initialization below.
+  attach_only? = env_value.("ALLBERT_CLI_ATTACH_ONLY") == "1"
+
   # v0.62 M1: a packaged install must boot without hand-set env — Allbert Home
   # defaults to ~/.allbert (the same fallback AllbertAssist.Paths.home/0 uses;
   # inlined here because config providers should stay dependency-light).
@@ -42,7 +49,9 @@ if config_env() == :prod do
       path -> Path.expand(path)
     end
 
-  File.mkdir_p!(Path.dirname(database_path))
+  unless attach_only? do
+    File.mkdir_p!(Path.dirname(database_path))
+  end
 
   config :allbert_assist, AllbertAssist.Repo,
     database: database_path,
@@ -59,6 +68,9 @@ if config_env() == :prod do
     case env_value.("SECRET_KEY_BASE") do
       value when is_binary(value) ->
         value
+
+      nil when attach_only? ->
+        64 |> :crypto.strong_rand_bytes() |> Base.encode64(padding: false)
 
       nil ->
         skb_path = Path.join([allbert_home, "runtime", "secret_key_base"])

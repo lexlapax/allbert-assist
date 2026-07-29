@@ -273,7 +273,8 @@ defmodule AllbertAssist.InstallPathTest do
     # the thin client and append it after any operator flags so it wins without
     # discarding them.
     assert overlay =~ ~s(ERL_AFLAGS="${ERL_AFLAGS:+$ERL_AFLAGS }+Bc")
-    assert overlay =~ "export ERL_AFLAGS"
+    assert overlay =~ "ALLBERT_CLI_ATTACH_ONLY=1"
+    assert overlay =~ "export ERL_AFLAGS ALLBERT_CLI_ATTACH_ONLY"
 
     assert Regex.match?(
              ~r/tui\).*ERL_AFLAGS=.*\+Bc.*AllbertAssist\.CLI\.Tui\.launch!/s,
@@ -309,6 +310,7 @@ defmodule AllbertAssist.InstallPathTest do
       ~S"""
       #!/bin/sh
       printf 'erl_aflags=%s\n' "${ERL_AFLAGS-unset}"
+      printf 'attach_only=%s\n' "${ALLBERT_CLI_ATTACH_ONLY-unset}"
       printf 'argv=%s\n' "$*"
       """
     )
@@ -322,6 +324,7 @@ defmodule AllbertAssist.InstallPathTest do
              )
 
     assert tui_output =~ "erl_aflags=+sbwt none +Bc"
+    assert tui_output =~ "attach_only=1"
     assert tui_output =~ "argv=eval AllbertAssist.CLI.Tui.launch!()"
 
     assert {version_output, 0} =
@@ -331,6 +334,7 @@ defmodule AllbertAssist.InstallPathTest do
              )
 
     assert version_output =~ "erl_aflags=+sbwt none"
+    assert version_output =~ "attach_only=unset"
     refute version_output =~ "+Bc"
     assert version_output =~ "argv=version"
   end
