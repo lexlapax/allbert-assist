@@ -10,6 +10,32 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v1.2.2 - Self-Describing Binary And Daemon TUI
+
+Status: **release candidate — immutable corrective build pending.** The first
+foundation tag, `v1.2.1` at `9f47c7c7`, is retained as a failed immutable
+attempt. Its source workflow run
+[30472922029](https://github.com/lexlapax/allbert-assist/actions/runs/30472922029)
+stopped all three native builders before packaging because the umbrella release
+hook did not bind `phx.digest.clean --all` to the web child's static root. It
+uploaded no archives or other artifacts and created no GitHub Release. The
+correction binds cleanup and verification to the same absolute tree and moves
+the product version and service-worker cache directly from 1.2.0 to 1.2.2;
+the failed tag is never moved or overwritten.
+
+**Formula state: PRE-PUBLICATION ONLY.** The packaged Latest 1.2.0 remains during
+the corrective RC window. After the immutable `v1.2.2` artifacts pass the
+planned license, native TUI, signature, and installed-product qualifications,
+the tap is filled 1.2.0 → 1.2.2 from published checksums and that filled formula
+is synced back into the repository. Until then, the repository formula remains
+the last accepted 1.2.0 package rather than advertising unavailable bytes.
+
+v1.2.2 carries the planned foundation scope unchanged: deterministic packaged
+license and notice evidence with a pure offline viewer, exact tag-built native
+artifacts promoted without rebuilding, and the daemon-backed thin TUI client.
+The release adds no license-management subsystem and no new release-automation
+framework.
+
 ## v1.2.0 - Zero-Click First Run
 
 Status: **shipped 2026-07-27.** Stable annotated tag `v1.2.0` points to
