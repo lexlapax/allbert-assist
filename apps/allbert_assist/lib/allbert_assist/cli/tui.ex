@@ -1,6 +1,6 @@
 defmodule AllbertAssist.CLI.Tui do
   @moduledoc """
-  Mix-free entrypoint for the daemon-backed terminal client (v1.2.3 M0.b3).
+  Mix-free entrypoint for the daemon-backed terminal client (v1.2.4 M0.b3).
 
   The terminal process owns only TTY input, bounded rendering, and the local
   Attach socket. It never starts the Allbert application, Repo, an Adapter, or

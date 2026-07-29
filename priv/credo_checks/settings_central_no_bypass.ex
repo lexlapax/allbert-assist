@@ -41,7 +41,7 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
         "UID",
         "OLLAMA_HOST",
         "PORT",
-        # v1.2.3 terminal client capability inputs. These are process/TTY
+        # v1.2.4 terminal client capability inputs. These are process/TTY
         # metadata, not durable operator policy or Settings Central keys.
         "COLUMNS",
         "LINES",

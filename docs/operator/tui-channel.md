@@ -8,7 +8,7 @@ runtime, Settings Central, Security Central, traces, and identity boundary as
 the web workspace.
 
 > The daemon-backed thin-client lifecycle in this guide requires Allbert
-> v1.2.3 or later.
+> v1.2.4 or later.
 
 ## Start A Session
 

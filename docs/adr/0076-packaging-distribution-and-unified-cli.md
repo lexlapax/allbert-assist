@@ -316,7 +316,7 @@ All execution still resolves through `Actions.Registry` and
 authority. Release tests inject manager commands and never operate a developer's
 real service. The signed-RC real-host rows remain the final systemd proof.
 
-## Amendment (v1.2.3 → v1.3 final readiness, 2026-07-28) — thin TUI and packaged license evidence
+## Amendment (v1.2.4 → v1.3 final readiness, 2026-07-28) — thin TUI and packaged license evidence
 
 Two additive post-1.0 decisions refine this ADR without changing any existing
 command's meaning or the distribution channels. `licenses` is one additive

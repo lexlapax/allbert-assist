@@ -430,7 +430,7 @@ defmodule AllbertAssist.Release.FinalArtifact do
         unless link == @catalogued_openssl_loader do
           Mix.raise(
             "unsupported OpenSSL loader path #{link}; " <>
-              "v1.2.3 permits only #{@catalogued_openssl_loader}"
+              "v1.2.4 permits only #{@catalogued_openssl_loader}"
           )
         end
 
@@ -438,7 +438,7 @@ defmodule AllbertAssist.Release.FinalArtifact do
         {source, false}
 
       String.starts_with?(link, "@rpath/") ->
-        Mix.raise("OpenSSL @rpath dependency is unsupported in v1.2.3: #{link}")
+        Mix.raise("OpenSSL @rpath dependency is unsupported in v1.2.4: #{link}")
 
       Path.type(link) == :absolute ->
         unless match?({:ok, %File.Stat{type: :regular}}, File.stat(link)),
@@ -596,7 +596,7 @@ defmodule AllbertAssist.Release.FinalArtifact do
     unless Path.basename(install_id) == @catalogued_openssl do
       Mix.raise(
         "unsupported OpenSSL install id #{Path.basename(install_id)}; " <>
-          "v1.2.3 permits only #{@catalogued_openssl}"
+          "v1.2.4 permits only #{@catalogued_openssl}"
       )
     end
 
@@ -609,7 +609,7 @@ defmodule AllbertAssist.Release.FinalArtifact do
 
   defp require_catalogued_openssl_name!(name) do
     Mix.raise(
-      "unsupported OpenSSL dependency #{name}; v1.2.3 permits only #{@catalogued_openssl}"
+      "unsupported OpenSSL dependency #{name}; v1.2.4 permits only #{@catalogued_openssl}"
     )
   end
 

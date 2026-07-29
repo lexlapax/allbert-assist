@@ -3,7 +3,7 @@
 ## Status
 
 Accepted (v1.2 M2, 2026-07-26; v1.2 M9 launcher correction binding and proved
-2026-07-27; v1.2.3 daemon-session process-ownership amendment accepted
+2026-07-27; v1.2.4 daemon-session process-ownership amendment accepted
 2026-07-28; proposed 2026-07-24 and amended by the third implementation-
 readiness pass 2026-07-26, finalized by operator direction — §1 gains the
 availability-first/local-preferred projection and the per-key
@@ -157,13 +157,13 @@ onboarding. The persisted TUI mapping resolves the same canonical `local` user
 as the web surface's independent mapping; it grants no web access and creates
 no implicit cross-surface thread link.
 
-**v1.2.3 process-ownership amendment.** ADR 0091 makes both launchers
+**v1.2.4 process-ownership amendment.** ADR 0091 makes both launchers
 attach-only terminal clients. The daemon runs this same compare-and-write after
 an authenticated open reserves the one TUI session and before it starts the
 temporary Adapter. The client never opens Settings or performs bootstrap.
 Every raw-present/absent, custom-profile, audit, and rejection rule in §1a
 remains binding; references below to launcher bootstrap mean this daemon-owned
-session-admission operation on v1.2.3 and later.
+session-admission operation on v1.2.4 and later.
 
 **Availability-first, local-preferred projection (final readiness decision,
 operator 2026-07-26).** With no raw-explicit primary, a healthy local rung

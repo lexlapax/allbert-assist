@@ -6142,11 +6142,11 @@ defmodule Mix.Tasks.Allbert.Test do
   @v121_focused_steps [
     %{
       id: "v121_security_sweep",
-      title: "v1.2.3 packaged-license, promotion, and daemon-TUI security contracts",
+      title: "v1.2.4 packaged-license, promotion, and daemon-TUI security contracts",
       cwd: :core,
       executable: "mix",
       args: ["test", "test/security/v121_sweep_eval_test.exs"],
-      coverage: ["the thirteen named v1.2.3 release rows are behavior-bound"]
+      coverage: ["the thirteen named v1.2.4 release rows are behavior-bound"]
     },
     %{
       id: "v121_license_and_promotion_contracts",
@@ -6231,7 +6231,7 @@ defmodule Mix.Tasks.Allbert.Test do
 
     evidence = %{
       gate: "mix allbert.test release.v121",
-      version: "v1.2.3",
+      version: "v1.2.4",
       status: status,
       generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
       started_at: DateTime.to_iso8601(started_at),
@@ -6241,7 +6241,7 @@ defmodule Mix.Tasks.Allbert.Test do
       external_network:
         "disabled; exact native artifact, provider, TTY, signing, publication, and install validation are separate",
       notes:
-        "release.v12 prefix plus v1.2.3 packaged-license, promotion, daemon-TUI, and inventory contracts",
+        "release.v12 prefix plus v1.2.4 packaged-license, promotion, daemon-TUI, and inventory contracts",
       steps: results
     }
 

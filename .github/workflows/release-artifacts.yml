@@ -1,4 +1,4 @@
-# v1.2.3 M0.a2: build each native target from the immutable tag once, retain
+# v1.2.4 M0.a2: build each native target from the immutable tag once, retain
 # those exact bytes for qualification, and publish only through the protected,
 # evidence-bound promotion job in this same workflow. The stable workflow path
 # is part of the cosign certificate identity consumed by install.sh.
@@ -462,7 +462,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   # M0.c3 stays a no-build consumer. The bounded PTY/provider harness is
-  # supplied by M0.b3 before the v1.2.3 tag; its strict JSON result contract is
+  # supplied by M0.b3 before the v1.2.4 tag; its strict JSON result contract is
   # enforced by the stateless evidence helper here.
   m0c3-fv:
     name: m0c3-fv-${{ matrix.target }}

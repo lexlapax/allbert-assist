@@ -7,7 +7,7 @@ map, or pull a model before opening chat.
 > **Version note:** the zero-click behavior in this guide requires Allbert
 > 1.2.0 or later. The stable Homebrew and signed-curl paths now install 1.2.0;
 > verify the installed package with `allbert --version`. The daemon-backed TUI
-> section below begins with 1.2.3; on 1.2.0 use the web workspace until the
+> section below begins with 1.2.4; on 1.2.0 use the web workspace until the
 > point update is installed.
 
 ## 1. Install And Start
