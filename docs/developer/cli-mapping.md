@@ -1,4 +1,4 @@
-# Mix task -> `allbert` command mapping (v1.2.1 M0.a1)
+# Mix task -> `allbert` command mapping (v1.2.2 M0.a1)
 
 Generated from `AllbertAssist.CLI.Commands.task_dispositions/0` (the disposition
 table the `cli-command-inventory-spine-map-001` eval row asserts). Operator
@@ -21,14 +21,14 @@ The packaged dispatcher scopes OTP `+Bc` to `allbert tui` so raw Ctrl-C reaches
 the client's state-aware detach or active-turn interrupt/cancel path; it does
 not change daemon signal handling. The source-checkout equivalent is
 `ERL_AFLAGS="${ERL_AFLAGS:+$ERL_AFLAGS }+Bc" mix allbert.tui`. The focused
-v1.2.1 PTY runner and documented operator command apply that posture only to
+v1.2.2 PTY runner and documented operator command apply that posture only to
 their TUI child.
 
 The table maps legacy Mix task families to product command homes. v0.62 also
 adds explicit subcommands that have no one-to-one legacy Mix task row:
 `allbert admin model detect|install|pull`, `allbert admin service
 status|install|uninstall`, `allbert admin health`, `allbert admin vault`, and
-`allbert admin secrets migrate`. v1.2.1 adds the pre-runtime informational leaf
+`allbert admin secrets migrate`. v1.2.2 adds the pre-runtime informational leaf
 `allbert licenses`; its source twin generates or checks the reviewed catalog
 union, while the packaged command only reads immutable artifact files.
 

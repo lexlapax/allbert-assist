@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stateless v1.2.1 source-run artifact selection and digest-manifest composer.
+# Stateless v1.2.2 source-run artifact selection and digest-manifest composer.
 # Every lookup is scoped to GITHUB_RUN_ID and every accepted archive is tied to
 # one successful build-<target> job attempt. No artifact is selected by latest.
 set -euo pipefail
@@ -678,7 +678,7 @@ qualify_fv() {
   release_root="$work/release/allbert"
   harness="${ALLBERT_V121_FV_HARNESS:-scripts/smoke/v121_tui_qualification.sh}"
   [ -x "$harness" ] || {
-    echo "stage-artifacts: bounded v1.2.1 TUI/FV harness is unavailable: $harness" >&2
+    echo "stage-artifacts: bounded v1.2.2 TUI/FV harness is unavailable: $harness" >&2
     exit 1
   }
   "$harness" "$release_root" "$target" "$work/fv-result.json"

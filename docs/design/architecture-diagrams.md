@@ -329,14 +329,14 @@ write a backup refuses to migrate rather than proceeding unprotected.
 
 ## 7. Where the current work lands — in flight, not shipped
 
-The in-flight release train. The v1.2.1 thin-client and license seams are
+The in-flight release train. The v1.2.2 thin-client and license seams are
 implemented but unreleased; promotion remains gated. The v1.3 memory/search
 subsystems remain planned. See the [v1.3 plan](../plans/v1.3-plan.md), ADR 0091,
 ADR 0092, and ADR 0093.
 
 ```mermaid
 flowchart TB
-    subgraph V121["v1.2.1 — foundational binary"]
+    subgraph V121["v1.2.2 — foundational binary"]
         LIC["Packaged license inventory<br/>+ offline allbert licenses viewer"]
         THIN["Thin TUI client<br/>one daemon owns the runtime"]
         PROMO["Split build from publication<br/>protected promotion, no rebuild"]
