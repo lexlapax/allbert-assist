@@ -12,7 +12,7 @@ changelog entries or release notes.
 
 ## v1.2.6 - Self-Describing Binary And Daemon TUI
 
-Status: **release candidate — immutable corrective build pending.** Failed tags
+Status: **release candidate — corrected pre-publication build pending.** Failed tags
 `v1.2.1`, `v1.2.2`, `v1.2.3`, `v1.2.4`, and `v1.2.5` remain immutable and
 created no GitHub Release. v1.2.6 carries the same
 operator-approved foundation scope with six bounded corrections in existing
@@ -46,6 +46,15 @@ three native targets; one real-provider macOS artifact session is attended by
 the operator and explicitly confirmed at protected promotion, so repository
 Actions stores no provider credential. Stable internal `release.v121`, `v121-*`, and harness names continue
 to identify the foundation contract without becoming product-version claims.
+
+The first unpublished `v1.2.6` candidate generation at `d87b5d39` built and
+smoked all targets, passed license qualification, then failed M0.c3 because
+attach-only TUI startup created runtime paths and hosted CI had no real-provider
+configuration. It created no GitHub Release and no assets were promoted. The
+operator explicitly authorized discarding that complete candidate generation
+and recreating the provisional annotated tag at the corrected source before
+publication, instead of minting another content-thin patch. Once published,
+the replacement tag and its assets are immutable.
 
 ## v1.2.5 - Failed Immutable Foundation Attempt
 
