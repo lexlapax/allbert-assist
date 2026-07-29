@@ -38,6 +38,10 @@ defmodule AllbertAssist.Release.FinalArtifact do
       command_opts
     )
 
+    # `phx.digest.clean` can restore tracked logical `.gz` siblings while its
+    # nested Mix task rebuilds umbrella structure. They are generated output,
+    # so remove the complete bounded generated set before rebuilding it.
+    remove_generated_web_output!(static_root)
     assert_web_digest_tree_clean!(static_root)
     run_command!(runner, "mix", ["assets.npm"], command_opts)
     run_command!(runner, "mix", ["assets.deploy"], command_opts)
@@ -51,10 +55,7 @@ defmodule AllbertAssist.Release.FinalArtifact do
     leftovers =
       static_root
       |> static_files()
-      |> Enum.filter(fn relative ->
-        relative == @manifest_name or digested_asset?(relative) or
-          String.ends_with?(relative, ".gz")
-      end)
+      |> Enum.filter(&generated_web_output?/1)
 
     if leftovers != [] do
       Mix.raise(
@@ -63,6 +64,22 @@ defmodule AllbertAssist.Release.FinalArtifact do
     end
 
     :ok
+  end
+
+  defp remove_generated_web_output!(static_root) do
+    static_root
+    |> static_files()
+    |> Enum.filter(&generated_web_output?/1)
+    |> Enum.each(fn relative ->
+      static_root
+      |> safe_static_file!(relative)
+      |> File.rm!()
+    end)
+  end
+
+  defp generated_web_output?(relative) do
+    relative == @manifest_name or digested_asset?(relative) or
+      String.ends_with?(relative, ".gz")
   end
 
   @doc false

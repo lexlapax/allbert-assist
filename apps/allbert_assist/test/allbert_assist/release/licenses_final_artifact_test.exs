@@ -110,11 +110,11 @@ defmodule AllbertAssist.Release.LicensesFinalArtifactTest do
         send(self(), {:asset_command, :clean, opts})
         File.rm!(Path.join(static_root, "cache_manifest.json"))
         File.rm!(Path.join(static_root, "assets/old-00000000000000000000000000000000.js"))
-        File.rm!(Path.join(static_root, "assets/old.js.gz"))
         {"", 0}
 
       "mix", ["assets.npm"], opts ->
         send(self(), {:asset_command, :npm, opts})
+        refute File.exists?(Path.join(static_root, "assets/old.js.gz"))
         {"", 0}
 
       "mix", ["assets.deploy"], opts ->
