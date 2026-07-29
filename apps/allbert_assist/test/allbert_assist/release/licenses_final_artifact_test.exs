@@ -106,7 +106,7 @@ defmodule AllbertAssist.Release.LicensesFinalArtifactTest do
     File.write!(Path.join(static_root, "assets/old.js.gz"), "old")
 
     runner = fn
-      "mix", ["phx.digest.clean", "--all"], opts ->
+      "mix", ["phx.digest.clean", "--all", "--output", ^static_root], opts ->
         send(self(), {:asset_command, :clean, opts})
         File.rm!(Path.join(static_root, "cache_manifest.json"))
         File.rm!(Path.join(static_root, "assets/old-00000000000000000000000000000000.js"))
@@ -193,8 +193,13 @@ defmodule AllbertAssist.Release.LicensesFinalArtifactTest do
 
   test "streamed asset command failures retain their stable command diagnostic", %{root: root} do
     web_path = Path.join(root, "web")
-    File.mkdir_p!(Path.join(web_path, "priv/static"))
-    runner = fn "mix", ["phx.digest.clean", "--all"], _opts -> {IO.stream(), 9} end
+    static_root = Path.join(web_path, "priv/static")
+    File.mkdir_p!(static_root)
+
+    runner = fn
+      "mix", ["phx.digest.clean", "--all", "--output", ^static_root], _opts ->
+        {IO.stream(), 9}
+    end
 
     assert_raise Mix.Error, ~r/mix failed \(9\): see streamed command output/, fn ->
       FinalArtifact.build_web_assets(%Mix.Release{path: Path.join(root, "release")},

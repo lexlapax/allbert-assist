@@ -28,7 +28,16 @@ defmodule AllbertAssist.Release.FinalArtifact do
     ]
 
     Mix.shell().info("==> cleaning and rebuilding web assets")
-    run_command!(runner, "mix", ["phx.digest.clean", "--all"], command_opts)
+    # An umbrella Mix invocation resolves the task from the umbrella root even
+    # when the subprocess cwd is the web child. Bind the output explicitly so
+    # cleanup and the cleanliness assertion always inspect the same tree.
+    run_command!(
+      runner,
+      "mix",
+      ["phx.digest.clean", "--all", "--output", static_root],
+      command_opts
+    )
+
     assert_web_digest_tree_clean!(static_root)
     run_command!(runner, "mix", ["assets.npm"], command_opts)
     run_command!(runner, "mix", ["assets.deploy"], command_opts)
