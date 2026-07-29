@@ -1,4 +1,4 @@
-# Mix task -> `allbert` command mapping (v0.62 M3/M8.7)
+# Mix task -> `allbert` command mapping (v1.2.1 M0.a1)
 
 Generated from `AllbertAssist.CLI.Commands.task_dispositions/0` (the disposition
 table the `cli-command-inventory-spine-map-001` eval row asserts). Operator
@@ -18,7 +18,9 @@ The table maps legacy Mix task families to product command homes. v0.62 also
 adds explicit subcommands that have no one-to-one legacy Mix task row:
 `allbert admin model detect|install|pull`, `allbert admin service
 status|install|uninstall`, `allbert admin health`, `allbert admin vault`, and
-`allbert admin secrets migrate`.
+`allbert admin secrets migrate`. v1.2.1 adds the pre-runtime informational leaf
+`allbert licenses`; its source twin generates or checks the reviewed catalog
+union, while the packaged command only reads immutable artifact files.
 
 | Mix task | `allbert` command |
 |---|---|
@@ -42,6 +44,7 @@ status|install|uninstall`, `allbert admin health`, `allbert admin vault`, and
 | `mix allbert.home.import` | `allbert admin home import` |
 | `mix allbert.intent` | `allbert admin intent` |
 | `mix allbert.jobs` | `allbert admin jobs` |
+| `mix allbert.licenses` | `allbert licenses` |
 | `mix allbert.marketplace` | `allbert admin marketplace` |
 | `mix allbert.mcp` | `allbert admin mcp` |
 | `mix allbert.mcp_server` | `allbert serve` |

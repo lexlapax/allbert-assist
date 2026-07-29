@@ -1,0 +1,2413 @@
+{
+  "claim": "Best-effort inventory of known shipped components. This is not a universal SBOM, legal-compliance guarantee, or proof of ownership for every artifact byte.",
+  "components": [
+    {
+      "application": "abnf_parsec",
+      "bundled": true,
+      "id": "beam-abnf-parsec",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "abnf_parsec",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/abnf_parsec/LICENSE",
+        "package": "abnf_parsec",
+        "url": "https://hex.pm/packages/abnf_parsec"
+      },
+      "text_ids": [
+        "LicenseText-f415e7921fee4b575319"
+      ]
+    },
+    {
+      "application": "allbert_assist",
+      "bundled": true,
+      "id": "beam-allbert-assist",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "allbert_assist",
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "allbert_assist_web",
+      "bundled": true,
+      "id": "beam-allbert-assist-web",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "allbert_assist_web",
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "bandit",
+      "bundled": true,
+      "id": "beam-bandit",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "bandit",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/bandit/LICENSE",
+        "package": "bandit",
+        "url": "https://hex.pm/packages/bandit"
+      },
+      "text_ids": [
+        "LicenseText-3f3d46a6af1e58f4808e"
+      ]
+    },
+    {
+      "application": "castore",
+      "bundled": true,
+      "id": "beam-castore",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "castore",
+      "provenance": {
+        "ecosystem": "hex",
+        "package": "castore",
+        "url": "https://hex.pm/packages/castore"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "crontab",
+      "bundled": true,
+      "id": "beam-crontab",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "crontab",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/crontab/LICENSE",
+        "package": "crontab",
+        "url": "https://hex.pm/packages/crontab"
+      },
+      "text_ids": [
+        "LicenseText-aa30b438110fe4596156"
+      ]
+    },
+    {
+      "application": "db_connection",
+      "bundled": true,
+      "id": "beam-db-connection",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "db_connection",
+      "provenance": {
+        "ecosystem": "hex",
+        "package": "db_connection",
+        "url": "https://hex.pm/packages/db_connection"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "decimal",
+      "bundled": true,
+      "id": "beam-decimal",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "decimal",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/decimal/LICENSE.txt",
+        "package": "decimal",
+        "url": "https://hex.pm/packages/decimal"
+      },
+      "text_ids": [
+        "LicenseText-a6cba85bc92e0cff7a45"
+      ]
+    },
+    {
+      "application": "dns_cluster",
+      "bundled": true,
+      "id": "beam-dns-cluster",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "dns_cluster",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/dns_cluster/LICENSE.md",
+        "package": "dns_cluster",
+        "url": "https://hex.pm/packages/dns_cluster"
+      },
+      "text_ids": [
+        "LicenseText-592f189ada3d2ebd5056"
+      ]
+    },
+    {
+      "application": "dotenvy",
+      "bundled": true,
+      "id": "beam-dotenvy",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "dotenvy",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/dotenvy/LICENSE",
+        "package": "dotenvy",
+        "url": "https://hex.pm/packages/dotenvy"
+      },
+      "text_ids": [
+        "LicenseText-a6cba85bc92e0cff7a45"
+      ]
+    },
+    {
+      "application": "ecto",
+      "bundled": true,
+      "id": "beam-ecto",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "ecto",
+      "provenance": {
+        "ecosystem": "hex",
+        "package": "ecto",
+        "url": "https://hex.pm/packages/ecto"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "ecto_sql",
+      "bundled": true,
+      "id": "beam-ecto-sql",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "ecto_sql",
+      "provenance": {
+        "ecosystem": "hex",
+        "package": "ecto_sql",
+        "url": "https://hex.pm/packages/ecto_sql"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "ecto_sqlite3",
+      "bundled": true,
+      "id": "beam-ecto-sqlite3",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "ecto_sqlite3",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/ecto_sqlite3/LICENSE",
+        "package": "ecto_sqlite3",
+        "url": "https://hex.pm/packages/ecto_sqlite3"
+      },
+      "text_ids": [
+        "LicenseText-72a55ac957f96e79263e"
+      ]
+    },
+    {
+      "application": "erlexec",
+      "bundled": true,
+      "id": "beam-erlexec",
+      "kind": "beam_app",
+      "license_expression": "BSD-3-Clause",
+      "name": "erlexec",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/erlexec/LICENSE",
+        "package": "erlexec",
+        "url": "https://hex.pm/packages/erlexec"
+      },
+      "text_ids": [
+        "LicenseText-4fa3fe63742b9f9fe89e"
+      ]
+    },
+    {
+      "application": "expo",
+      "bundled": true,
+      "id": "beam-expo",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "expo",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/expo/LICENSE",
+        "package": "expo",
+        "url": "https://hex.pm/packages/expo"
+      },
+      "text_ids": [
+        "LicenseText-c553be3b8179832aa738"
+      ]
+    },
+    {
+      "application": "exqlite",
+      "bundled": true,
+      "id": "beam-exqlite",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "exqlite",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/exqlite/LICENSE",
+        "package": "exqlite",
+        "url": "https://hex.pm/packages/exqlite"
+      },
+      "text_ids": [
+        "LicenseText-72a55ac957f96e79263e"
+      ]
+    },
+    {
+      "application": "finch",
+      "bundled": true,
+      "id": "beam-finch",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "finch",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/finch/LICENSE.md",
+        "package": "finch",
+        "url": "https://hex.pm/packages/finch"
+      },
+      "text_ids": [
+        "LicenseText-2c3c57158df2131ff09f"
+      ]
+    },
+    {
+      "application": "fsmx",
+      "bundled": true,
+      "id": "beam-fsmx",
+      "kind": "beam_app",
+      "license_expression": "ISC",
+      "name": "fsmx",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/fsmx/LICENSE",
+        "package": "fsmx",
+        "url": "https://hex.pm/packages/fsmx"
+      },
+      "text_ids": [
+        "LicenseText-17e0c0a5f23abbea243e"
+      ]
+    },
+    {
+      "application": "fuse",
+      "bundled": true,
+      "id": "beam-fuse",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "fuse",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/fuse/LICENSE",
+        "package": "fuse",
+        "url": "https://hex.pm/packages/fuse"
+      },
+      "text_ids": [
+        "LicenseText-8f57c966fcad8d3aadf0"
+      ]
+    },
+    {
+      "application": "gen_smtp",
+      "bundled": true,
+      "id": "beam-gen-smtp",
+      "kind": "beam_app",
+      "license_expression": "BSD-2-Clause",
+      "name": "gen_smtp",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/gen_smtp/LICENSE",
+        "package": "gen_smtp",
+        "url": "https://hex.pm/packages/gen_smtp"
+      },
+      "text_ids": [
+        "LicenseText-87cff0c8b7a957427363"
+      ]
+    },
+    {
+      "application": "gettext",
+      "bundled": true,
+      "id": "beam-gettext",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "gettext",
+      "provenance": {
+        "ecosystem": "hex",
+        "package": "gettext",
+        "url": "https://hex.pm/packages/gettext"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "hermes_mcp",
+      "bundled": true,
+      "id": "beam-hermes-mcp",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "hermes_mcp",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/hermes_mcp/LICENSE",
+        "package": "hermes_mcp",
+        "url": "https://hex.pm/packages/hermes_mcp"
+      },
+      "text_ids": [
+        "LicenseText-deb19f64e750f0151e06"
+      ]
+    },
+    {
+      "application": "hpax",
+      "bundled": true,
+      "id": "beam-hpax",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "hpax",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/hpax/LICENSE.txt",
+        "package": "hpax",
+        "url": "https://hex.pm/packages/hpax"
+      },
+      "text_ids": [
+        "LicenseText-a6cba85bc92e0cff7a45"
+      ]
+    },
+    {
+      "application": "idna",
+      "bundled": true,
+      "id": "beam-idna",
+      "kind": "beam_app",
+      "license_expression": "MIT AND Apache-2.0",
+      "name": "idna",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/idna/LICENSE",
+        "package": "idna",
+        "url": "https://hex.pm/packages/idna"
+      },
+      "text_ids": [
+        "LicenseText-95f5c9410a95332b0833",
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "jason",
+      "bundled": true,
+      "id": "beam-jason",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "jason",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/jason/LICENSE",
+        "package": "jason",
+        "url": "https://hex.pm/packages/jason"
+      },
+      "text_ids": [
+        "LicenseText-6c73f07b2f5abbb4fd00"
+      ]
+    },
+    {
+      "application": "jido",
+      "bundled": true,
+      "id": "beam-jido",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "jido",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/jido/LICENSE",
+        "package": "jido",
+        "url": "https://hex.pm/packages/jido"
+      },
+      "text_ids": [
+        "LicenseText-5ef76176b7be1574f800"
+      ]
+    },
+    {
+      "application": "jido_action",
+      "bundled": true,
+      "id": "beam-jido-action",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "jido_action",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/jido_action/LICENSE",
+        "package": "jido_action",
+        "url": "https://hex.pm/packages/jido_action"
+      },
+      "text_ids": [
+        "LicenseText-5ef76176b7be1574f800"
+      ]
+    },
+    {
+      "application": "jido_ai",
+      "bundled": true,
+      "id": "beam-jido-ai",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "jido_ai",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/jido_ai/LICENSE.md",
+        "package": "jido_ai",
+        "url": "https://hex.pm/packages/jido_ai"
+      },
+      "text_ids": [
+        "LicenseText-5ef76176b7be1574f800"
+      ]
+    },
+    {
+      "application": "jido_signal",
+      "bundled": true,
+      "id": "beam-jido-signal",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "jido_signal",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/jido_signal/LICENSE",
+        "package": "jido_signal",
+        "url": "https://hex.pm/packages/jido_signal"
+      },
+      "text_ids": [
+        "LicenseText-5ef76176b7be1574f800"
+      ]
+    },
+    {
+      "application": "jsv",
+      "bundled": true,
+      "id": "beam-jsv",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "jsv",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/jsv/LICENSE",
+        "package": "jsv",
+        "url": "https://hex.pm/packages/jsv"
+      },
+      "text_ids": [
+        "LicenseText-4c9fb97c01f065d3113d"
+      ]
+    },
+    {
+      "application": "llm_db",
+      "bundled": true,
+      "id": "beam-llm-db",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "llm_db",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/llm_db/LICENSE",
+        "package": "llm_db",
+        "url": "https://hex.pm/packages/llm_db"
+      },
+      "text_ids": [
+        "LicenseText-5ef76176b7be1574f800"
+      ]
+    },
+    {
+      "application": "mime",
+      "bundled": true,
+      "id": "beam-mime",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "mime",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/mime/LICENSE",
+        "package": "mime",
+        "url": "https://hex.pm/packages/mime"
+      },
+      "text_ids": [
+        "LicenseText-79bfd5cbf8cb79a2c73d"
+      ]
+    },
+    {
+      "application": "mint",
+      "bundled": true,
+      "id": "beam-mint",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "mint",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/mint/LICENSE.txt",
+        "package": "mint",
+        "url": "https://hex.pm/packages/mint"
+      },
+      "text_ids": [
+        "LicenseText-a6cba85bc92e0cff7a45"
+      ]
+    },
+    {
+      "application": "multigraph",
+      "bundled": true,
+      "id": "beam-multigraph",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "multigraph",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/multigraph/LICENSE",
+        "package": "multigraph",
+        "url": "https://hex.pm/packages/multigraph"
+      },
+      "text_ids": [
+        "LicenseText-44558f34d16d29b67340"
+      ]
+    },
+    {
+      "application": "muontrap",
+      "bundled": true,
+      "id": "beam-muontrap",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "muontrap",
+      "provenance": {
+        "ecosystem": "hex",
+        "package": "muontrap",
+        "url": "https://hex.pm/packages/muontrap"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "nimble_options",
+      "bundled": true,
+      "id": "beam-nimble-options",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "nimble_options",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/nimble_options/LICENSE.md",
+        "package": "nimble_options",
+        "url": "https://hex.pm/packages/nimble_options"
+      },
+      "text_ids": [
+        "LicenseText-0d542e0c8804e39aa7f3"
+      ]
+    },
+    {
+      "application": "nimble_parsec",
+      "bundled": true,
+      "id": "beam-nimble-parsec",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "nimble_parsec",
+      "provenance": {
+        "ecosystem": "hex",
+        "package": "nimble_parsec",
+        "url": "https://hex.pm/packages/nimble_parsec"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "nimble_pool",
+      "bundled": true,
+      "id": "beam-nimble-pool",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "nimble_pool",
+      "provenance": {
+        "ecosystem": "hex",
+        "package": "nimble_pool",
+        "url": "https://hex.pm/packages/nimble_pool"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "owl",
+      "bundled": true,
+      "id": "beam-owl",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "owl",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/owl/LICENSE.txt",
+        "package": "owl",
+        "url": "https://hex.pm/packages/owl"
+      },
+      "text_ids": [
+        "LicenseText-c71d239df91726fc519c"
+      ]
+    },
+    {
+      "application": "peri",
+      "bundled": true,
+      "id": "beam-peri",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "peri",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/peri/LICENSE",
+        "package": "peri",
+        "url": "https://hex.pm/packages/peri"
+      },
+      "text_ids": [
+        "LicenseText-5843e5f79c0efe4e91ba"
+      ]
+    },
+    {
+      "application": "phoenix",
+      "bundled": true,
+      "id": "beam-phoenix",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "phoenix",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/phoenix/LICENSE.md",
+        "package": "phoenix",
+        "url": "https://hex.pm/packages/phoenix"
+      },
+      "text_ids": [
+        "LicenseText-41a686069f0199ff369d"
+      ]
+    },
+    {
+      "application": "phoenix_ecto",
+      "bundled": true,
+      "id": "beam-phoenix-ecto",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "phoenix_ecto",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/phoenix_ecto/LICENSE",
+        "package": "phoenix_ecto",
+        "url": "https://hex.pm/packages/phoenix_ecto"
+      },
+      "text_ids": [
+        "LicenseText-dcaf5543c243163a31bf"
+      ]
+    },
+    {
+      "application": "phoenix_html",
+      "bundled": true,
+      "id": "beam-phoenix-html",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "phoenix_html",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/phoenix_html/LICENSE",
+        "package": "phoenix_html",
+        "url": "https://hex.pm/packages/phoenix_html"
+      },
+      "text_ids": [
+        "LicenseText-f5692d451cbfe2a04e37"
+      ]
+    },
+    {
+      "application": "phoenix_live_dashboard",
+      "bundled": true,
+      "id": "beam-phoenix-live-dashboard",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "phoenix_live_dashboard",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/phoenix_live_dashboard/LICENSE.md",
+        "package": "phoenix_live_dashboard",
+        "url": "https://hex.pm/packages/phoenix_live_dashboard"
+      },
+      "text_ids": [
+        "LicenseText-634c31233e0435bea4f4"
+      ]
+    },
+    {
+      "application": "phoenix_live_view",
+      "bundled": true,
+      "id": "beam-phoenix-live-view",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "phoenix_live_view",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/phoenix_live_view/LICENSE.md",
+        "package": "phoenix_live_view",
+        "url": "https://hex.pm/packages/phoenix_live_view"
+      },
+      "text_ids": [
+        "LicenseText-5a76ffa3373ac1fbc8c8"
+      ]
+    },
+    {
+      "application": "phoenix_pubsub",
+      "bundled": true,
+      "id": "beam-phoenix-pubsub",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "phoenix_pubsub",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/phoenix_pubsub/LICENSE.md",
+        "package": "phoenix_pubsub",
+        "url": "https://hex.pm/packages/phoenix_pubsub"
+      },
+      "text_ids": [
+        "LicenseText-41a686069f0199ff369d"
+      ]
+    },
+    {
+      "application": "phoenix_template",
+      "bundled": true,
+      "id": "beam-phoenix-template",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "phoenix_template",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/phoenix_template/LICENSE.md",
+        "package": "phoenix_template",
+        "url": "https://hex.pm/packages/phoenix_template"
+      },
+      "text_ids": [
+        "LicenseText-41a686069f0199ff369d"
+      ]
+    },
+    {
+      "application": "plug",
+      "bundled": true,
+      "id": "beam-plug",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "plug",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/plug/LICENSE",
+        "package": "plug",
+        "url": "https://hex.pm/packages/plug"
+      },
+      "text_ids": [
+        "LicenseText-b25c71a74ae1e2961b15"
+      ]
+    },
+    {
+      "application": "plug_crypto",
+      "bundled": true,
+      "id": "beam-plug-crypto",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "plug_crypto",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/plug_crypto/LICENSE",
+        "package": "plug_crypto",
+        "url": "https://hex.pm/packages/plug_crypto"
+      },
+      "text_ids": [
+        "LicenseText-f797420dcf4959e5760d"
+      ]
+    },
+    {
+      "application": "poolboy",
+      "bundled": true,
+      "id": "beam-poolboy",
+      "kind": "beam_app",
+      "license_expression": "ISC",
+      "name": "poolboy",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/poolboy/LICENSE",
+        "package": "poolboy",
+        "url": "https://hex.pm/packages/poolboy"
+      },
+      "text_ids": [
+        "LicenseText-af7e0c1deb1e000cd1c0"
+      ]
+    },
+    {
+      "application": "ranch",
+      "bundled": true,
+      "id": "beam-ranch",
+      "kind": "beam_app",
+      "license_expression": "ISC",
+      "name": "ranch",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/ranch/LICENSE",
+        "package": "ranch",
+        "url": "https://hex.pm/packages/ranch"
+      },
+      "text_ids": [
+        "LicenseText-928a3c3144938459f365"
+      ]
+    },
+    {
+      "application": "req",
+      "bundled": true,
+      "id": "beam-req",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "req",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/req/LICENSE.md",
+        "package": "req",
+        "url": "https://hex.pm/packages/req"
+      },
+      "text_ids": [
+        "LicenseText-f9e693078c728b5e6285"
+      ]
+    },
+    {
+      "application": "req_llm",
+      "bundled": true,
+      "id": "beam-req-llm",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "req_llm",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/req_llm/LICENSE",
+        "package": "req_llm",
+        "url": "https://hex.pm/packages/req_llm"
+      },
+      "text_ids": [
+        "LicenseText-5ef76176b7be1574f800"
+      ]
+    },
+    {
+      "application": "server_sent_events",
+      "bundled": true,
+      "id": "beam-server-sent-events",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "server_sent_events",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/server_sent_events/LICENSE.md",
+        "package": "server_sent_events",
+        "url": "https://hex.pm/packages/server_sent_events"
+      },
+      "text_ids": [
+        "LicenseText-77fcbbf2f545f77ecbb0"
+      ]
+    },
+    {
+      "application": "splode",
+      "bundled": true,
+      "id": "beam-splode",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "splode",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "apps/allbert_assist/priv/licenses/upstream/splode-0.3.1-MIT.txt",
+        "package": "splode",
+        "url": "https://hex.pm/packages/splode"
+      },
+      "text_ids": [
+        "LicenseText-ca32dea0238d9df54d9d"
+      ]
+    },
+    {
+      "application": "swoosh",
+      "bundled": true,
+      "id": "beam-swoosh",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "swoosh",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/swoosh/LICENSE.txt",
+        "package": "swoosh",
+        "url": "https://hex.pm/packages/swoosh"
+      },
+      "text_ids": [
+        "LicenseText-210da78eba582c0dff0a"
+      ]
+    },
+    {
+      "application": "telemetry",
+      "bundled": true,
+      "id": "beam-telemetry",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "telemetry",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/telemetry/LICENSE",
+        "package": "telemetry",
+        "url": "https://hex.pm/packages/telemetry"
+      },
+      "text_ids": [
+        "LicenseText-0cec06e0e55fbc3dc5ce"
+      ]
+    },
+    {
+      "application": "telemetry_metrics",
+      "bundled": true,
+      "id": "beam-telemetry-metrics",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "telemetry_metrics",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/telemetry_metrics/LICENSE",
+        "package": "telemetry_metrics",
+        "url": "https://hex.pm/packages/telemetry_metrics"
+      },
+      "text_ids": [
+        "LicenseText-0cec06e0e55fbc3dc5ce"
+      ]
+    },
+    {
+      "application": "telemetry_poller",
+      "bundled": true,
+      "id": "beam-telemetry-poller",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "telemetry_poller",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/telemetry_poller/LICENSE",
+        "package": "telemetry_poller",
+        "url": "https://hex.pm/packages/telemetry_poller"
+      },
+      "text_ids": [
+        "LicenseText-0cec06e0e55fbc3dc5ce"
+      ]
+    },
+    {
+      "application": "texture",
+      "bundled": true,
+      "id": "beam-texture",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "texture",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/texture/LICENSE",
+        "package": "texture",
+        "url": "https://hex.pm/packages/texture"
+      },
+      "text_ids": [
+        "LicenseText-4c9fb97c01f065d3113d"
+      ]
+    },
+    {
+      "application": "thousand_island",
+      "bundled": true,
+      "id": "beam-thousand-island",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "thousand_island",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/thousand_island/LICENSE",
+        "package": "thousand_island",
+        "url": "https://hex.pm/packages/thousand_island"
+      },
+      "text_ids": [
+        "LicenseText-2c5a81b6b6636c9cb4d0"
+      ]
+    },
+    {
+      "application": "time_zone_info",
+      "bundled": true,
+      "id": "beam-time-zone-info",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "time_zone_info",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/time_zone_info/LICENSE.md",
+        "package": "time_zone_info",
+        "url": "https://hex.pm/packages/time_zone_info"
+      },
+      "text_ids": [
+        "LicenseText-bcf95e9988ff9289107d"
+      ]
+    },
+    {
+      "application": "toml",
+      "bundled": true,
+      "id": "beam-toml",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "toml",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/toml/LICENSE",
+        "package": "toml",
+        "url": "https://hex.pm/packages/toml"
+      },
+      "text_ids": [
+        "LicenseText-9b138284c9d79dd1afc6"
+      ]
+    },
+    {
+      "application": "unicode_util_compat",
+      "bundled": true,
+      "id": "beam-unicode-util-compat",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "unicode_util_compat",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/unicode_util_compat/LICENSE",
+        "package": "unicode_util_compat",
+        "url": "https://hex.pm/packages/unicode_util_compat"
+      },
+      "text_ids": [
+        "LicenseText-0d542e0c8804e39aa7f3"
+      ]
+    },
+    {
+      "application": "websock",
+      "bundled": true,
+      "id": "beam-websock",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "websock",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/websock/LICENSE",
+        "package": "websock",
+        "url": "https://hex.pm/packages/websock"
+      },
+      "text_ids": [
+        "LicenseText-26f042d624e62b760e70"
+      ]
+    },
+    {
+      "application": "websock_adapter",
+      "bundled": true,
+      "id": "beam-websock-adapter",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "websock_adapter",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/websock_adapter/LICENSE",
+        "package": "websock_adapter",
+        "url": "https://hex.pm/packages/websock_adapter"
+      },
+      "text_ids": [
+        "LicenseText-26f042d624e62b760e70"
+      ]
+    },
+    {
+      "application": "websockex",
+      "bundled": true,
+      "id": "beam-websockex",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "websockex",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/websockex/LICENSE",
+        "package": "websockex",
+        "url": "https://hex.pm/packages/websockex"
+      },
+      "text_ids": [
+        "LicenseText-d61102ef42e7fb35fc5b"
+      ]
+    },
+    {
+      "application": "yamerl",
+      "bundled": true,
+      "id": "beam-yamerl",
+      "kind": "beam_app",
+      "license_expression": "BSD-2-Clause",
+      "name": "yamerl",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/yamerl/LICENSE",
+        "package": "yamerl",
+        "url": "https://hex.pm/packages/yamerl"
+      },
+      "text_ids": [
+        "LicenseText-ddca79cf0c4ae18d20a5"
+      ]
+    },
+    {
+      "application": "yaml_elixir",
+      "bundled": true,
+      "id": "beam-yaml-elixir",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "yaml_elixir",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "apps/allbert_assist/priv/licenses/upstream/yaml-elixir-2.12.2-MIT.txt",
+        "package": "yaml_elixir",
+        "url": "https://hex.pm/packages/yaml_elixir"
+      },
+      "text_ids": [
+        "LicenseText-3f3399039f88edcfac16"
+      ]
+    },
+    {
+      "application": "ymlr",
+      "bundled": true,
+      "id": "beam-ymlr",
+      "kind": "beam_app",
+      "license_expression": "MIT",
+      "name": "ymlr",
+      "provenance": {
+        "ecosystem": "hex",
+        "license_source": "deps/ymlr/LICENSE",
+        "package": "ymlr",
+        "url": "https://hex.pm/packages/ymlr"
+      },
+      "text_ids": [
+        "LicenseText-d27edf5fdec47e5820c5"
+      ]
+    },
+    {
+      "application": "zoi",
+      "bundled": true,
+      "id": "beam-zoi",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "zoi",
+      "provenance": {
+        "ecosystem": "hex",
+        "package": "zoi",
+        "url": "https://hex.pm/packages/zoi"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "application": "castore",
+        "digest_required": true,
+        "relative_path": "priv/cacerts.pem",
+        "sha256": "004134d0628fc047ec299d205b45e0ee1552d36bad7a4c39a6d16c211e731e57"
+      },
+      "id": "castore-mozilla-ca",
+      "kind": "managed_file",
+      "license_expression": "MPL-2.0",
+      "name": "Castore Mozilla CA certificate bundle",
+      "provenance": {
+        "castore_commit": "d7c27ff79eb627ee08a978c09d0e7f45dd410bc5",
+        "castore_version": "1.0.20",
+        "scope": "Only lib/castore-*/priv/cacerts.pem; Castore code remains Apache-2.0"
+      },
+      "source": {
+        "converter": {
+          "immutable_url": "https://raw.githubusercontent.com/curl/curl/84c5dcdb05202d3260b4631c2fa842123f87b362/scripts/mk-ca-bundle.pl",
+          "name": "curl mk-ca-bundle.pl",
+          "sha256": "0d232e570f9b7fb2daba1499299af277cf8c01b7d3f36c79f6d7fa32030a60fa",
+          "version": "1.33"
+        },
+        "immutable_url": "https://raw.githubusercontent.com/mozilla-firefox/firefox/4acf6f0d6ccb0f7008080e0d91b15258c4c6686c/security/nss/lib/ckfw/builtins/certdata.txt",
+        "sha256": "e57912808daef7b2b0fa4df2ccf17e47aeaf26c839a38f85c76003ebafd866bd"
+      },
+      "source_required": true,
+      "text_ids": [
+        "MPL-2.0"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "path": "bin/allbert"
+      },
+      "id": "dispatcher",
+      "kind": "managed_file",
+      "license_expression": "Apache-2.0",
+      "name": "Allbert release dispatcher",
+      "provenance": {
+        "ecosystem": "allbert"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "bundled": false,
+      "forbidden_paths": [
+        "plugins/allbert.browser/priv/playwright_bridge/.local-browsers",
+        "plugins/allbert.browser/priv/playwright_bridge/node_modules/playwright-core/.local-browsers"
+      ],
+      "id": "external-chromium",
+      "kind": "external",
+      "license_expression": "NOASSERTION",
+      "name": "Chromium/Chrome browser",
+      "provenance": {
+        "disposition": "host-managed external runtime; inventory only if artifact policy changes"
+      },
+      "text_ids": []
+    },
+    {
+      "bundled": false,
+      "forbidden_paths": [
+        "bin/node",
+        "plugins/allbert.browser/priv/playwright_bridge/node"
+      ],
+      "id": "external-node",
+      "kind": "external",
+      "license_expression": "NOASSERTION",
+      "name": "Node.js runtime",
+      "provenance": {
+        "disposition": "host-managed external runtime; inventory only if artifact policy changes"
+      },
+      "text_ids": []
+    },
+    {
+      "bundled": false,
+      "forbidden_paths": [
+        "plugins/allbert.browser/priv/playwright_bridge/node_modules/playwright",
+        "plugins/allbert.browser/priv/playwright_bridge/node_modules/playwright-core"
+      ],
+      "id": "external-playwright",
+      "kind": "external",
+      "license_expression": "NOASSERTION",
+      "name": "Playwright runtime",
+      "provenance": {
+        "disposition": "host-managed external runtime; inventory only if artifact policy changes"
+      },
+      "text_ids": []
+    },
+    {
+      "bundled": false,
+      "forbidden_paths": [
+        "python",
+        "venv",
+        "plugins/stocksage/venv",
+        "plugins/stocksage/.venv"
+      ],
+      "id": "external-tradingagents-python",
+      "kind": "external",
+      "license_expression": "NOASSERTION",
+      "name": "TradingAgents/Python runtime",
+      "provenance": {
+        "disposition": "host-managed external runtime; inventory only if artifact policy changes"
+      },
+      "text_ids": []
+    },
+    {
+      "bundled": true,
+      "file": {
+        "application": "time_zone_info",
+        "relative_path": "priv/data.etf"
+      },
+      "id": "iana-tzdb-data",
+      "kind": "managed_file",
+      "license_expression": "LicenseRef-IANA-TZDB",
+      "name": "IANA Time Zone Database compiled data",
+      "provenance": {
+        "observed_source_component": "time_zone_info 0.7.15",
+        "review_note": "The compiled data payload contains tz database data, not the three separately BSD-licensed tzdb source-code files.",
+        "upstream": "https://data.iana.org/time-zones/tzdb/"
+      },
+      "text_ids": [
+        "LicenseRef-IANA-TZDB"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "application": "crypto",
+        "relative_path": "priv/lib/libcrypto.3.dylib"
+      },
+      "id": "openssl-macos",
+      "kind": "managed_file",
+      "license_expression": "Apache-2.0",
+      "name": "OpenSSL library copied into macOS ERTS",
+      "provenance": {
+        "reason": "conditional macOS ERTS closure",
+        "upstream": "https://openssl-library.org/"
+      },
+      "targets": [
+        "macos-arm64"
+      ],
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "asn1",
+      "bundled": true,
+      "id": "otp-asn1",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "Erlang/OTP asn1",
+      "provenance": {
+        "ecosystem": "otp",
+        "project": "Erlang/OTP"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "compiler",
+      "bundled": true,
+      "id": "otp-compiler",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "Erlang/OTP compiler",
+      "provenance": {
+        "ecosystem": "otp",
+        "project": "Erlang/OTP"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "crypto",
+      "bundled": true,
+      "id": "otp-crypto",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "Erlang/OTP crypto",
+      "provenance": {
+        "ecosystem": "otp",
+        "project": "Erlang/OTP"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "eex",
+      "bundled": true,
+      "id": "otp-eex",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "Erlang/OTP eex",
+      "provenance": {
+        "ecosystem": "otp",
+        "project": "Erlang/OTP"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "elixir",
+      "bundled": true,
+      "id": "otp-elixir",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "Erlang/OTP elixir",
+      "provenance": {
+        "ecosystem": "otp",
+        "project": "Erlang/OTP"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "iex",
+      "bundled": true,
+      "id": "otp-iex",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "Erlang/OTP iex",
+      "provenance": {
+        "ecosystem": "otp",
+        "project": "Erlang/OTP"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "kernel",
+      "bundled": true,
+      "id": "otp-kernel",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "Erlang/OTP kernel",
+      "provenance": {
+        "ecosystem": "otp",
+        "project": "Erlang/OTP"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "logger",
+      "bundled": true,
+      "id": "otp-logger",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "Erlang/OTP logger",
+      "provenance": {
+        "ecosystem": "otp",
+        "project": "Erlang/OTP"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "mnesia",
+      "bundled": true,
+      "id": "otp-mnesia",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "Erlang/OTP mnesia",
+      "provenance": {
+        "ecosystem": "otp",
+        "project": "Erlang/OTP"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "public_key",
+      "bundled": true,
+      "id": "otp-public_key",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "Erlang/OTP public_key",
+      "provenance": {
+        "ecosystem": "otp",
+        "project": "Erlang/OTP"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "runtime_tools",
+      "bundled": true,
+      "id": "otp-runtime_tools",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "Erlang/OTP runtime_tools",
+      "provenance": {
+        "ecosystem": "otp",
+        "project": "Erlang/OTP"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "sasl",
+      "bundled": true,
+      "id": "otp-sasl",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "Erlang/OTP sasl",
+      "provenance": {
+        "ecosystem": "otp",
+        "project": "Erlang/OTP"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "ssl",
+      "bundled": true,
+      "id": "otp-ssl",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "Erlang/OTP ssl",
+      "provenance": {
+        "ecosystem": "otp",
+        "project": "Erlang/OTP"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "stdlib",
+      "bundled": true,
+      "id": "otp-stdlib",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "Erlang/OTP stdlib",
+      "provenance": {
+        "ecosystem": "otp",
+        "project": "Erlang/OTP"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "application": "xmerl",
+      "bundled": true,
+      "id": "otp-xmerl",
+      "kind": "beam_app",
+      "license_expression": "Apache-2.0",
+      "name": "Erlang/OTP xmerl",
+      "provenance": {
+        "ecosystem": "otp",
+        "project": "Erlang/OTP"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "path": "plugins/allbert.browser/priv/playwright_bridge/bridge.js"
+      },
+      "id": "playwright-bridge-helper",
+      "kind": "managed_file",
+      "license_expression": "Apache-2.0",
+      "name": "Allbert Playwright bridge helper (without Playwright runtime)",
+      "provenance": {
+        "boundary": "node_modules and browser binaries are forbidden",
+        "ecosystem": "allbert"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "path": "plugins/allbert.artifacts/allbert_plugin.json"
+      },
+      "id": "plugin-allbert-artifacts",
+      "kind": "managed_file",
+      "license_expression": "Apache-2.0",
+      "name": "allbert.artifacts staged plugin",
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "path": "plugins/allbert.browser/allbert_plugin.json"
+      },
+      "id": "plugin-allbert-browser",
+      "kind": "managed_file",
+      "license_expression": "Apache-2.0",
+      "name": "allbert.browser staged plugin",
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "path": "plugins/allbert.discord/allbert_plugin.json"
+      },
+      "id": "plugin-allbert-discord",
+      "kind": "managed_file",
+      "license_expression": "Apache-2.0",
+      "name": "allbert.discord staged plugin",
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "path": "plugins/allbert.email/allbert_plugin.json"
+      },
+      "id": "plugin-allbert-email",
+      "kind": "managed_file",
+      "license_expression": "Apache-2.0",
+      "name": "allbert.email staged plugin",
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "path": "plugins/allbert.matrix/allbert_plugin.json"
+      },
+      "id": "plugin-allbert-matrix",
+      "kind": "managed_file",
+      "license_expression": "Apache-2.0",
+      "name": "allbert.matrix staged plugin",
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "path": "plugins/allbert.notes_files/allbert_plugin.json"
+      },
+      "id": "plugin-allbert-notes_files",
+      "kind": "managed_file",
+      "license_expression": "Apache-2.0",
+      "name": "allbert.notes_files staged plugin",
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "path": "plugins/allbert.research/allbert_plugin.json"
+      },
+      "id": "plugin-allbert-research",
+      "kind": "managed_file",
+      "license_expression": "Apache-2.0",
+      "name": "allbert.research staged plugin",
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "path": "plugins/allbert.signal/allbert_plugin.json"
+      },
+      "id": "plugin-allbert-signal",
+      "kind": "managed_file",
+      "license_expression": "Apache-2.0",
+      "name": "allbert.signal staged plugin",
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "path": "plugins/allbert.slack/allbert_plugin.json"
+      },
+      "id": "plugin-allbert-slack",
+      "kind": "managed_file",
+      "license_expression": "Apache-2.0",
+      "name": "allbert.slack staged plugin",
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "path": "plugins/allbert.telegram/allbert_plugin.json"
+      },
+      "id": "plugin-allbert-telegram",
+      "kind": "managed_file",
+      "license_expression": "Apache-2.0",
+      "name": "allbert.telegram staged plugin",
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "path": "plugins/allbert.tui/allbert_plugin.json"
+      },
+      "id": "plugin-allbert-tui",
+      "kind": "managed_file",
+      "license_expression": "Apache-2.0",
+      "name": "allbert.tui staged plugin",
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "path": "plugins/allbert.whatsapp/allbert_plugin.json"
+      },
+      "id": "plugin-allbert-whatsapp",
+      "kind": "managed_file",
+      "license_expression": "Apache-2.0",
+      "name": "allbert.whatsapp staged plugin",
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "path": "plugins/stocksage/allbert_plugin.json"
+      },
+      "id": "plugin-stocksage",
+      "kind": "managed_file",
+      "license_expression": "Apache-2.0",
+      "name": "stocksage staged plugin",
+      "provenance": {
+        "ecosystem": "allbert",
+        "repository": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "path": "bin/allbert-release"
+      },
+      "id": "release-launcher",
+      "kind": "managed_file",
+      "license_expression": "Apache-2.0",
+      "name": "Mix release launcher",
+      "provenance": {
+        "project": "Elixir Mix.Release"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "path": "erts-17.0.1/bin/beam.smp"
+      },
+      "id": "runtime-erts",
+      "kind": "managed_file",
+      "license_expression": "Apache-2.0",
+      "name": "Erlang Runtime System (ERTS)",
+      "provenance": {
+        "project": "Erlang/OTP",
+        "url": "https://github.com/erlang/otp"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "application": "exqlite",
+        "relative_path": "priv/sqlite3_nif.so"
+      },
+      "id": "sqlite-exqlite-nif",
+      "kind": "managed_file",
+      "license_expression": "MIT AND LicenseRef-SQLite-Public-Domain",
+      "name": "Exqlite native library with SQLite amalgamation",
+      "provenance": {
+        "sqlite": "https://www.sqlite.org/",
+        "upstream": "https://github.com/elixir-sqlite/exqlite"
+      },
+      "text_ids": [
+        "LicenseText-72a55ac957f96e79263e",
+        "LicenseRef-SQLite-Public-Domain"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "application": "allbert_assist_web",
+        "relative_path": "priv/static/cache_manifest.json"
+      },
+      "id": "web-daisyui",
+      "kind": "managed_file",
+      "license_expression": "MIT",
+      "name": "daisyUI",
+      "provenance": {
+        "license_source": "apps/allbert_assist/priv/licenses/upstream/daisyUI-5.0.35-MIT.txt",
+        "scope": "compiled into the reviewed Phoenix static asset set",
+        "url": "https://github.com/saadeghi/daisyui"
+      },
+      "text_ids": [
+        "LicenseText-8709e3ac65c84637c422"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "application": "allbert_assist_web",
+        "relative_path": "priv/static/cache_manifest.json"
+      },
+      "id": "web-first-party",
+      "kind": "managed_file",
+      "license_expression": "Apache-2.0",
+      "name": "Allbert compiled web assets",
+      "provenance": {
+        "scope": "compiled into the reviewed Phoenix static asset set",
+        "url": "https://github.com/lexlapax/allbert-assist"
+      },
+      "text_ids": [
+        "Apache-2.0"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "application": "allbert_assist_web",
+        "relative_path": "priv/static/cache_manifest.json"
+      },
+      "id": "web-heroicons",
+      "kind": "managed_file",
+      "license_expression": "MIT",
+      "name": "Heroicons 2.2.0",
+      "provenance": {
+        "license_source": "apps/allbert_assist/priv/licenses/upstream/tailwind-labs-MIT.txt",
+        "license_source_url": "https://raw.githubusercontent.com/tailwindlabs/heroicons/0435d4ca364a608cc75e2f8683d374e55abbae26/LICENSE",
+        "scope": "compiled into the reviewed Phoenix static asset set",
+        "url": "https://github.com/tailwindlabs/heroicons"
+      },
+      "text_ids": [
+        "LicenseText-60e0b68c0f35c078eef3"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "application": "allbert_assist_web",
+        "relative_path": "priv/static/cache_manifest.json"
+      },
+      "id": "web-isomorphic-js",
+      "kind": "managed_file",
+      "license_expression": "MIT",
+      "name": "isomorphic.js 0.2.5",
+      "provenance": {
+        "license_source": "apps/allbert_assist_web/assets/node_modules/isomorphic.js/LICENSE",
+        "scope": "compiled into the reviewed Phoenix static asset set",
+        "url": "https://www.npmjs.com/package/isomorphic.js"
+      },
+      "text_ids": [
+        "LicenseText-dd6488c9c1a4ce2dc978"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "application": "allbert_assist_web",
+        "relative_path": "priv/static/cache_manifest.json"
+      },
+      "id": "web-js-base64",
+      "kind": "managed_file",
+      "license_expression": "BSD-3-Clause",
+      "name": "js-base64 3.7.8",
+      "provenance": {
+        "license_source": "apps/allbert_assist_web/assets/node_modules/js-base64/LICENSE.md",
+        "scope": "compiled into the reviewed Phoenix static asset set",
+        "url": "https://github.com/dankogai/js-base64"
+      },
+      "text_ids": [
+        "LicenseText-fcf06aacb36ee2923711"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "application": "allbert_assist_web",
+        "relative_path": "priv/static/cache_manifest.json"
+      },
+      "id": "web-lib0",
+      "kind": "managed_file",
+      "license_expression": "MIT",
+      "name": "lib0 0.2.117",
+      "provenance": {
+        "license_source": "apps/allbert_assist_web/assets/node_modules/lib0/LICENSE",
+        "scope": "compiled into the reviewed Phoenix static asset set",
+        "url": "https://github.com/dmonad/lib0"
+      },
+      "text_ids": [
+        "LicenseText-5446db1e43fe52faf3fa"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "application": "allbert_assist_web",
+        "relative_path": "priv/static/cache_manifest.json"
+      },
+      "id": "web-tailwindcss",
+      "kind": "managed_file",
+      "license_expression": "MIT",
+      "name": "Tailwind CSS 4.1.12",
+      "provenance": {
+        "license_source": "apps/allbert_assist/priv/licenses/upstream/tailwind-labs-MIT.txt",
+        "license_source_url": "https://raw.githubusercontent.com/tailwindlabs/tailwindcss/6791e8133c3cf496727d1e7c55e3a35bfffc0e69/LICENSE",
+        "scope": "compiled into the reviewed Phoenix static asset set",
+        "tag_commit": "6791e8133c3cf496727d1e7c55e3a35bfffc0e69",
+        "url": "https://github.com/tailwindlabs/tailwindcss"
+      },
+      "text_ids": [
+        "LicenseText-60e0b68c0f35c078eef3"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "application": "allbert_assist_web",
+        "relative_path": "priv/static/cache_manifest.json"
+      },
+      "id": "web-topbar",
+      "kind": "managed_file",
+      "license_expression": "MIT",
+      "name": "topbar 3.0.0",
+      "provenance": {
+        "license_source": "apps/allbert_assist/priv/licenses/upstream/topbar-3.0.0-MIT.txt",
+        "scope": "compiled into the reviewed Phoenix static asset set",
+        "url": "https://github.com/buunguyen/topbar"
+      },
+      "text_ids": [
+        "LicenseText-688f69bf70e9e9a49b9d"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "application": "allbert_assist_web",
+        "relative_path": "priv/static/cache_manifest.json"
+      },
+      "id": "web-y-indexeddb",
+      "kind": "managed_file",
+      "license_expression": "MIT",
+      "name": "y-indexeddb 9.0.12",
+      "provenance": {
+        "license_source": "apps/allbert_assist_web/assets/node_modules/y-indexeddb/LICENSE",
+        "scope": "compiled into the reviewed Phoenix static asset set",
+        "url": "https://github.com/yjs/y-indexeddb"
+      },
+      "text_ids": [
+        "LicenseText-03e8f968360fd51fc91e"
+      ]
+    },
+    {
+      "bundled": true,
+      "file": {
+        "application": "allbert_assist_web",
+        "relative_path": "priv/static/cache_manifest.json"
+      },
+      "id": "web-yjs",
+      "kind": "managed_file",
+      "license_expression": "MIT",
+      "name": "Yjs 13.6.30",
+      "provenance": {
+        "license_source": "apps/allbert_assist_web/assets/node_modules/yjs/LICENSE",
+        "scope": "compiled into the reviewed Phoenix static asset set",
+        "url": "https://github.com/yjs/yjs"
+      },
+      "text_ids": [
+        "LicenseText-341baa53605ed85d6f95"
+      ]
+    }
+  ],
+  "reviewed_inputs": [
+    {
+      "id": "beam-lock",
+      "path": "mix.lock",
+      "sha256": "92177f842290508a6715dec92a2e4c320dc0157ba76049e32bfd107a8412a5cc"
+    },
+    {
+      "id": "browser-bridge-lock",
+      "path": "plugins/allbert.browser/priv/playwright_bridge/package-lock.json",
+      "sha256": "270043d292abadbe73b3928aee49a29058b3d7c90aab910065f7ef4c1fe9c1f4"
+    },
+    {
+      "id": "web-assets-lock",
+      "path": "apps/allbert_assist_web/assets/package-lock.json",
+      "sha256": "a2478ecb898e3f8f92b08a59b64c264549dd815c76506bc697b9034156177952"
+    }
+  ],
+  "schema_version": 1,
+  "texts": [
+    {
+      "id": "Apache-2.0",
+      "path": "apps/allbert_assist/priv/licenses/texts/Apache-2.0.txt",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "license_id": "Apache-2.0"
+    },
+    {
+      "id": "LicenseRef-IANA-TZDB",
+      "path": "apps/allbert_assist/priv/licenses/texts/LicenseRef-IANA-TZDB.txt",
+      "sha256": "9fabb75b7f899b6dc8c49cd6189cc23829ae0bcd872783485cf602bbaeb03986",
+      "license_id": "LicenseRef-IANA-TZDB"
+    },
+    {
+      "id": "LicenseRef-SQLite-Public-Domain",
+      "path": "apps/allbert_assist/priv/licenses/texts/LicenseRef-SQLite-Public-Domain.txt",
+      "sha256": "9de1b8e57a12e7120dce7ddd9263dd291ecd1c8a1eac1e03c33b18a660466280",
+      "license_id": "LicenseRef-SQLite-Public-Domain"
+    },
+    {
+      "id": "LicenseText-03e8f968360fd51fc91e",
+      "path": "apps/allbert_assist_web/assets/node_modules/y-indexeddb/LICENSE",
+      "sha256": "03e8f968360fd51fc91e383f472bdd10c47321ba868cb72749d1f7a5fd89ec05",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-0cec06e0e55fbc3dc5ce",
+      "path": "deps/telemetry/LICENSE",
+      "sha256": "0cec06e0e55fbc3dc5cee4fca9b607f66cb8f4e4dbcf3b3c013594dd156732e9",
+      "license_id": "Apache-2.0"
+    },
+    {
+      "id": "LicenseText-0d542e0c8804e39aa7f3",
+      "path": "deps/nimble_options/LICENSE.md",
+      "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+      "license_id": "Apache-2.0"
+    },
+    {
+      "id": "LicenseText-17e0c0a5f23abbea243e",
+      "path": "deps/fsmx/LICENSE",
+      "sha256": "17e0c0a5f23abbea243eefd0803ab49df18894bec1f78547c0000408c0511e77",
+      "license_id": "ISC"
+    },
+    {
+      "id": "LicenseText-210da78eba582c0dff0a",
+      "path": "deps/swoosh/LICENSE.txt",
+      "sha256": "210da78eba582c0dff0a31f3b61d375578671f5193f5d50be16e58989127c214",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-26f042d624e62b760e70",
+      "path": "deps/websock/LICENSE",
+      "sha256": "26f042d624e62b760e707842347e9e08cb981491d3cecfdd63bc48fc32e870e3",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-2c3c57158df2131ff09f",
+      "path": "deps/finch/LICENSE.md",
+      "sha256": "2c3c57158df2131ff09f57d9c7850da0844910f0fa8ac60294dd9396e3672e81",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-2c5a81b6b6636c9cb4d0",
+      "path": "deps/thousand_island/LICENSE",
+      "sha256": "2c5a81b6b6636c9cb4d022c4891091a1267a42be6e5005190f29951db6cc1bb6",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-341baa53605ed85d6f95",
+      "path": "apps/allbert_assist_web/assets/node_modules/yjs/LICENSE",
+      "sha256": "341baa53605ed85d6f95782322854cca56c655ebc7fd4712649b8e7afc6020ff",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-3f3d46a6af1e58f4808e",
+      "path": "deps/bandit/LICENSE",
+      "sha256": "3f3d46a6af1e58f4808e66b0a61aeb8befd2b3a03736404bead69758551353cb",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-41a686069f0199ff369d",
+      "path": "deps/phoenix/LICENSE.md",
+      "sha256": "41a686069f0199ff369d7e5277d5267385cc54d9199f1efc960bacbe2e799255",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-44558f34d16d29b67340",
+      "path": "deps/multigraph/LICENSE",
+      "sha256": "44558f34d16d29b67340bbd8e0d14c46415a6203b36e83c566be60ef8ff77b98",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-4c9fb97c01f065d3113d",
+      "path": "deps/jsv/LICENSE",
+      "sha256": "4c9fb97c01f065d3113df961e895744276238f69361905181e383503cad57283",
+      "license_id": "Apache-2.0"
+    },
+    {
+      "id": "LicenseText-4fa3fe63742b9f9fe89e",
+      "path": "deps/erlexec/LICENSE",
+      "sha256": "4fa3fe63742b9f9fe89e4fe7e4ec52f3775c8cb78480ca455e57b9d64b04976f",
+      "license_id": "BSD-3-Clause"
+    },
+    {
+      "id": "LicenseText-5446db1e43fe52faf3fa",
+      "path": "apps/allbert_assist_web/assets/node_modules/lib0/LICENSE",
+      "sha256": "5446db1e43fe52faf3faab7e9959fe3762ac11bdc61c0945934c498affd52d73",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-5843e5f79c0efe4e91ba",
+      "path": "deps/peri/LICENSE",
+      "sha256": "5843e5f79c0efe4e91ba580781f61aa66aab1ab18a8e4be48726d0940917d71e",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-592f189ada3d2ebd5056",
+      "path": "deps/dns_cluster/LICENSE.md",
+      "sha256": "592f189ada3d2ebd5056776aac97a04e9a928c2e6ddf373b5eafa1724b630d88",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-5a76ffa3373ac1fbc8c8",
+      "path": "deps/phoenix_live_view/LICENSE.md",
+      "sha256": "5a76ffa3373ac1fbc8c8645967b980896154c26113c827d3c01c4b0158c057c6",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-5ef76176b7be1574f800",
+      "path": "deps/jido/LICENSE",
+      "sha256": "5ef76176b7be1574f8006b1060a94f01518fc133ea1fb3136819d0fa7b473c8f",
+      "license_id": "Apache-2.0"
+    },
+    {
+      "id": "LicenseText-60e0b68c0f35c078eef3",
+      "path": "apps/allbert_assist/priv/licenses/upstream/tailwind-labs-MIT.txt",
+      "sha256": "60e0b68c0f35c078eef3a5d29419d0b03ff84ec1df9c3f9d6e39a519a5ae7985",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-634c31233e0435bea4f4",
+      "path": "deps/phoenix_live_dashboard/LICENSE.md",
+      "sha256": "634c31233e0435bea4f449a20a72617d95c11ec74ab97860d6a1bb1467937f31",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-688f69bf70e9e9a49b9d",
+      "path": "apps/allbert_assist/priv/licenses/upstream/topbar-3.0.0-MIT.txt",
+      "sha256": "688f69bf70e9e9a49b9db688ee6f2727ff1bf57e9f1e7136835063886afed2e0",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-6c73f07b2f5abbb4fd00",
+      "path": "deps/jason/LICENSE",
+      "sha256": "6c73f07b2f5abbb4fd00f30cba97e4f358b86977b46ad82d87357964a2d350e0",
+      "license_id": "Apache-2.0"
+    },
+    {
+      "id": "LicenseText-72a55ac957f96e79263e",
+      "path": "deps/ecto_sqlite3/LICENSE",
+      "sha256": "72a55ac957f96e79263e435f4a646822cf4406e63bb53a235b21abbc2e79303a",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-77fcbbf2f545f77ecbb0",
+      "path": "deps/server_sent_events/LICENSE.md",
+      "sha256": "77fcbbf2f545f77ecbb043641c7f8d9c0c39de3936d2d7d6da14f46a7ccddd67",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-79bfd5cbf8cb79a2c73d",
+      "path": "deps/mime/LICENSE",
+      "sha256": "79bfd5cbf8cb79a2c73d1d94447461f93407c7f14dc789942c2ee41e167ba48f",
+      "license_id": "Apache-2.0"
+    },
+    {
+      "id": "LicenseText-8709e3ac65c84637c422",
+      "path": "apps/allbert_assist/priv/licenses/upstream/daisyUI-5.0.35-MIT.txt",
+      "sha256": "8709e3ac65c84637c422dc8082b893d9997fce093751c77b2f1983bf29dbf9ea",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-87cff0c8b7a957427363",
+      "path": "deps/gen_smtp/LICENSE",
+      "sha256": "87cff0c8b7a957427363e36976e31606459d136d7908d6b398ecdadaf5f93965",
+      "license_id": "BSD-2-Clause"
+    },
+    {
+      "id": "LicenseText-8f57c966fcad8d3aadf0",
+      "path": "deps/fuse/LICENSE",
+      "sha256": "8f57c966fcad8d3aadf0e2c488984c030b7be76eb81af1a5c8d34c8b4c3be88c",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-928a3c3144938459f365",
+      "path": "deps/ranch/LICENSE",
+      "sha256": "928a3c3144938459f365c53759e58d366f88ba370ec8806df354bd8c832d9855",
+      "license_id": "ISC"
+    },
+    {
+      "id": "LicenseText-95f5c9410a95332b0833",
+      "path": "deps/idna/LICENSE",
+      "sha256": "95f5c9410a95332b0833c4606028ee00008cd8c497336e230df3144d1a720bda",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-9b138284c9d79dd1afc6",
+      "path": "deps/toml/LICENSE",
+      "sha256": "9b138284c9d79dd1afc613fbf4b5d4fcbd3da4512aedec39f33c1fb7b4c7396c",
+      "license_id": "Apache-2.0"
+    },
+    {
+      "id": "LicenseText-a6cba85bc92e0cff7a45",
+      "path": "deps/decimal/LICENSE.txt",
+      "sha256": "a6cba85bc92e0cff7a450b1d873c0eaa2e9fc96bf472df0247a26bec77bf3ff9",
+      "license_id": "Apache-2.0"
+    },
+    {
+      "id": "LicenseText-aa30b438110fe4596156",
+      "path": "deps/crontab/LICENSE",
+      "sha256": "aa30b438110fe45961567d99ff9d9ea93759eeb49791e3cfdc63c6d24a6b0b46",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-af7e0c1deb1e000cd1c0",
+      "path": "deps/poolboy/LICENSE",
+      "sha256": "af7e0c1deb1e000cd1c0aa389d3b404ba5a05fe30df83e9e041c41ca408c33d2",
+      "license_id": "ISC"
+    },
+    {
+      "id": "LicenseText-b25c71a74ae1e2961b15",
+      "path": "deps/plug/LICENSE",
+      "sha256": "b25c71a74ae1e2961b15c611ee26d9b3bd171d0833e407867a3debd9d1de3759",
+      "license_id": "Apache-2.0"
+    },
+    {
+      "id": "LicenseText-3f3399039f88edcfac16",
+      "path": "apps/allbert_assist/priv/licenses/upstream/yaml-elixir-2.12.2-MIT.txt",
+      "sha256": "3f3399039f88edcfac16c1c194dc76595aa5b891d2d1e2cf4d357281fd55378a",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-bcf95e9988ff9289107d",
+      "path": "deps/time_zone_info/LICENSE.md",
+      "sha256": "bcf95e9988ff9289107d00a279c7cd3fbeee6f18d26d814e9e2d4a045ad1a5c0",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-c553be3b8179832aa738",
+      "path": "deps/expo/LICENSE",
+      "sha256": "c553be3b8179832aa738b0fa04c2e1a53f520da13fcf7b6c2f6e9cf4468c41ad",
+      "license_id": "Apache-2.0"
+    },
+    {
+      "id": "LicenseText-c71d239df91726fc519c",
+      "path": "deps/owl/LICENSE.txt",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "license_id": "Apache-2.0"
+    },
+    {
+      "id": "LicenseText-ca32dea0238d9df54d9d",
+      "path": "apps/allbert_assist/priv/licenses/upstream/splode-0.3.1-MIT.txt",
+      "sha256": "ca32dea0238d9df54d9d8f66d96c2461ba3c2edb1e560244d6da5700232b00a2",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-d27edf5fdec47e5820c5",
+      "path": "deps/ymlr/LICENSE",
+      "sha256": "d27edf5fdec47e5820c55b908886fa6417376e2bceaa17e01dba93dbbdea17bd",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-d61102ef42e7fb35fc5b",
+      "path": "deps/websockex/LICENSE",
+      "sha256": "d61102ef42e7fb35fc5b18b609f9d92ceff4eb9b4e58cb682a1ebf81164389bc",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-dcaf5543c243163a31bf",
+      "path": "deps/phoenix_ecto/LICENSE",
+      "sha256": "dcaf5543c243163a31bfcdb83d6a6fe0b1393f4229eb0855c0105aace586bffe",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-dd6488c9c1a4ce2dc978",
+      "path": "apps/allbert_assist_web/assets/node_modules/isomorphic.js/LICENSE",
+      "sha256": "dd6488c9c1a4ce2dc978ecee067e5b6a725b52e6057a450b24f1a23bc373b057",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-ddca79cf0c4ae18d20a5",
+      "path": "deps/yamerl/LICENSE",
+      "sha256": "ddca79cf0c4ae18d20a568ee48dfb0789390d48e9268d82e8500fdd1167e2afe",
+      "license_id": "BSD-2-Clause"
+    },
+    {
+      "id": "LicenseText-deb19f64e750f0151e06",
+      "path": "deps/hermes_mcp/LICENSE",
+      "sha256": "deb19f64e750f0151e065f384cc587b73909c70ea91a863a762e2f5b92691e50",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-f415e7921fee4b575319",
+      "path": "deps/abnf_parsec/LICENSE",
+      "sha256": "f415e7921fee4b5753193f80482cb0ebb36faac94955993368818ef67067e404",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-f5692d451cbfe2a04e37",
+      "path": "deps/phoenix_html/LICENSE",
+      "sha256": "f5692d451cbfe2a04e3721e99ffbe88d1e9a09f1ff2fc1115de700d7e7abdbe4",
+      "license_id": "MIT"
+    },
+    {
+      "id": "LicenseText-f797420dcf4959e5760d",
+      "path": "deps/plug_crypto/LICENSE",
+      "sha256": "f797420dcf4959e5760d7ae4c20d66345fa3cd9d04cf03309d6911020e8049b7",
+      "license_id": "Apache-2.0"
+    },
+    {
+      "id": "LicenseText-f9e693078c728b5e6285",
+      "path": "deps/req/LICENSE.md",
+      "sha256": "f9e693078c728b5e62856ba365d6d4e915c87dc47228bfc607132e7f7505101f",
+      "license_id": "Apache-2.0"
+    },
+    {
+      "id": "LicenseText-fcf06aacb36ee2923711",
+      "path": "apps/allbert_assist_web/assets/node_modules/js-base64/LICENSE.md",
+      "sha256": "fcf06aacb36ee29237110d6b3a9fbd6296e85ad4324263abf5f8a5cfb5706c81",
+      "license_id": "BSD-3-Clause"
+    },
+    {
+      "id": "MPL-2.0",
+      "path": "apps/allbert_assist/priv/licenses/texts/MPL-2.0.txt",
+      "sha256": "f35b870c59c69f29f127265bb7adb7417c6fe0d19a75c2dd8a50fd8447e66536",
+      "license_id": "MPL-2.0"
+    }
+  ]
+}

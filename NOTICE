@@ -7,15 +7,63 @@ in the LICENSE file beside this notice, and is also available at:
 
     http://www.apache.org/licenses/LICENSE-2.0
 
-This product bundles third-party software, each under its own license. Those
-licenses are all permissive (Apache-2.0, MIT, BSD-2-Clause, BSD-3-Clause, ISC,
-and the Unlicense); SQLite is in the public domain. Bundled components include:
+This product bundles third-party software, each under its own terms. The
+best-effort known-component inventory, provenance, and corresponding texts ship
+in THIRD-PARTY-LICENSES.md and the target-specific
+THIRD-PARTY-MANIFEST.json. Known bundled components include:
 
   - Erlang/OTP, including the ERTS bundled into packaged releases (Apache-2.0)
   - Elixir (Apache-2.0)
   - SQLite, as the amalgamation vendored by exqlite (public domain)
   - Phoenix and Phoenix LiveView (MIT)
   - Jido (Apache-2.0)
+  - Castore code (Apache-2.0) and its Mozilla-derived CA bundle (MPL-2.0,
+    scoped only to the generated cacerts.pem file)
 
-This product includes software developed by the following projects, which ship
-their own NOTICE files: telemetry, telemetry_poller, hackney, idna, muontrap.
+The following upstream notices are reproduced because their components ship in
+the binary:
+
+erlang-idna upstream NOTICE
+---------------------------
+
+This file is part of erlang-idna released under the MIT license.
+See the LICENSE for more information
+
+Copyright 2014-2020 Benoît Chesneau <bchesneau@gmail.com>
+Copyright 2009-2014 Tim Fletcher
+
+Others:
+
+* idna_ucs.erl:
+Under the Apache 2 license
+Copyright Ericsson AB 2005-2016. All Rights Reserved
+
+Muontrap upstream NOTICE
+------------------------
+
+Muontrap is open-source software licensed under the Apache License, Version
+2.0.
+
+Copyright holders include Frank Hunleth, Matt Ludwigs, Jason Axelson, Timmo
+Verlaan, Aldebaran Alonso, Gustavo Brunoro, Ben Youngblood, Eric Rauer, Jon
+Carstens, Milan Vit, Fernando Mumbach and Médi-Rémi Hashim.
+
+Authoritative REUSE-compliant copyright and license metadata available at
+https://hex.pm/packages/muontrap.
+
+telemetry and telemetry_poller upstream NOTICE (identical in both projects)
+-------------------------------------------------------------------------
+
+Copyright (c) 2018, Chris McCord and Erlang Solutions
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.

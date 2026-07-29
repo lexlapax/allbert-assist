@@ -187,18 +187,23 @@ Erlang/OTP are both Apache-2.0 — and it gives you an explicit patent grant
 alongside the explicit "AS IS", no-warranty terms that match the no-promises
 posture above.
 
-Every upstream dependency is permissive: Apache-2.0, MIT, BSD-2-Clause,
-BSD-3-Clause, ISC, or the Unlicense, plus public-domain SQLite. There is no
-copyleft anywhere in the tree, so a packaged Allbert carries no reciprocal
-source-disclosure obligation. The one practical limit to know about is
-downstream: a GPLv2-**only** project cannot incorporate Apache-2.0 code. GPLv3
-and AGPLv3 can.
+Most known shipped components use permissive terms (including Apache-2.0, MIT,
+BSD, and ISC) or public-domain material such as SQLite. One deliberately narrow
+exception is Castore's Mozilla-derived CA bundle: Castore code is Apache-2.0,
+while that generated PEM remains MPL-2.0 with file-scoped source-availability
+and notice obligations. It does not relicense the larger Allbert work under
+MPL. A GPLv2-**only** project cannot incorporate Apache-2.0 code; GPLv3 and
+AGPLv3 can.
 
 If you contribute, your contribution is licensed under the same terms — that is
 Apache-2.0 §5, and there is no separate CLA.
 
-A generated per-dependency notices file is **not** in the packaged release yet;
-it is planned for v1.3. Until then, the authoritative license list is the
-dependency tree itself: `deps/*/LICENSE*`, the `licenses` field of each
-`deps/*/hex_metadata.config`, and the JavaScript packages under
-`apps/allbert_assist_web/assets`.
+The v1.2.1 binary will carry `LICENSE`, `NOTICE`, a deterministic reviewed
+cross-target union, required license texts, exact source-availability metadata,
+and a target-specific manifest. `allbert licenses` reads those packaged files
+without starting the runtime or using the network. The inventory is explicitly
+a best-effort account of known shipped components, not a universal SBOM or
+legal-compliance guarantee; managed application/path/text seams, reviewed
+inputs, and explicitly pinned provenance fail closed during the release build.
+Source checkouts can verify catalog/report drift with
+`mix allbert.licenses --check`.

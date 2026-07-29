@@ -1,0 +1,10 @@
+SQLite Public Domain Dedication
+
+The SQLite source code is in the public domain. The project offers this
+blessing in place of a license:
+
+May you do good and not evil.
+May you find forgiveness for yourself and forgive others.
+May you share freely, never taking more than you give.
+
+Source: https://www.sqlite.org/copyright.html

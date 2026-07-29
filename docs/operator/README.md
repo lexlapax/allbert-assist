@@ -28,6 +28,7 @@ install variants, upgrades, uninstall, and artifact trust, use
 | Configure voice or provider preferences | [Voice and provider preferences](voice-and-provider-preferences.md) |
 | Create and steer multi-step work | [Plan, build, and workflows](plan-build-and-workflows.md) |
 | Check security posture and confirmations | [Security hardening](security-hardening.md) |
+| Inspect packaged license evidence | [Installing Allbert](install.md#license) (`allbert licenses`) |
 | Check or migrate a Home's settings contract | [Settings version](settings-version.md) |
 
 Packaged operators use `allbert …` and `allbert admin …`. Commands beginning

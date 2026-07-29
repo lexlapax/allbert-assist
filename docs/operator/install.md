@@ -226,8 +226,9 @@ This does not relicense the larger Allbert work under MPL.
 
 Stable v1.2.0 does not yet ship a generated target inventory. The planned
 v1.2.1 binary adds a best-effort inventory of known shipped components, required
-license/source texts, a per-target manifest, and an offline `allbert licenses`
-viewer. It is not a complete SBOM or legal-compliance guarantee. Until v1.2.1
+license texts, exact source-availability metadata, a per-target manifest, and an
+offline `allbert licenses` viewer. It is not a complete SBOM or legal-compliance
+guarantee. Until v1.2.1
 ships, dependency metadata and source license files are useful inputs, but a
 redistributor must also inspect the actual target artifact and any staged
 native/data payloads.

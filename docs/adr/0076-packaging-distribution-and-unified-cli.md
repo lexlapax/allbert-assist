@@ -371,14 +371,15 @@ build; the system does not attempt a recursive universal license detector.
 Castore's code remains Apache-2.0, while its Mozilla-derived
 `priv/cacerts.pem` is one narrow file-scoped MPL-2.0 exception. The catalog
 binds that payload to exact source/conversion provenance and digest, packages
-the MPL text, and supplies either the exact source companion or an immutable
-exact-source retrieval reference with digest and conversion provenance. The
-build fails if neither source-availability path is present or the payload
-drifts. Publication qualification then proves one path: a packaged companion
-must match its recorded digest, or an unauthenticated fetch of the immutable
-reference must succeed and match the recorded source digest. The finalizer and
+the MPL text, and supplies an immutable exact-source retrieval reference with
+digest and conversion provenance. The build fails if that source-availability
+path is absent or the payload drifts. Publication qualification performs an
+unauthenticated fetch of the immutable reference and must match the recorded
+source digest. The finalizer and
 packaged viewer remain network-free; a failed external availability check
-blocks publication. This does not create a blanket MPL allowlist.
+blocks publication. Schema v1 selects the immutable-reference route and rejects
+companion mode; companion packaging may be introduced later only as an additive
+schema revision. This does not create a blanket MPL allowlist.
 
 The claim is therefore **best-effort inventory of known shipped components**,
 not a complete SBOM, a legal-compliance guarantee, or proof about every byte.

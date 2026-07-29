@@ -30,6 +30,7 @@ allbert
   chat
   tui
   serve [--open] [--daemon | --foreground]
+  licenses [summary | list | show <component> | notices | --json]
   onboard [--quickstart | --advanced | --reset | --non-interactive --authorize]
   admin <area> <command>
   gen <kind> ...
@@ -44,6 +45,7 @@ Top-level commands:
 | `allbert chat` | Product chat session in the web workspace. | Split across web `/workspace`, ask, and TUI. | Primary target is the web workspace chat; v0.62 may temporarily fall back to a lightweight terminal/TUI session only while the web/onboarding surfaces are still incomplete or unavailable. |
 | `allbert tui` | Persistent terminal operator channel. | `mix allbert.tui`, ADR 0067/0070. | Mix-free daily-use terminal path. |
 | `allbert serve` | Run the local product and web workspace. | `mix phx.server` plus app boot. | Supports foreground and daemon/service management in v0.62. |
+| `allbert licenses` | Inspect the immutable license evidence packaged in this target artifact. | `mix allbert.licenses --check` validates the source catalog/union. | Additive v1.2.1 informational leaf; dispatched before Req, daemon attachment, or application startup. |
 | `allbert onboard` | Guided setup/resume wizard. | `mix allbert.onboard` and v0.62 `admin onboarding` summary are scaffolding only. | New top-level v0.63 verb. `admin onboarding` remains a summary/read path derived from the same state. |
 | `allbert admin` | Grouped operator inspection/configuration. | `mix allbert.settings`, `channels`, `jobs`, `objectives`, `confirmations`, `security`, `mcp`, `public_protocol`, etc. | Thin views over existing registered actions/settings boundaries. |
 | `allbert gen` | Extension/developer generation helpers. | `mix allbert.gen.*`. | Kept separate from normal operator flow; never auto-runs from onboarding. |
@@ -73,6 +75,9 @@ Set up
   allbert onboard --advanced
   allbert admin onboarding   Review setup state summary
   allbert admin models       Check model/provider readiness
+
+Inspect
+  allbert licenses           Show packaged component and license evidence
 
 Operate
   allbert admin status

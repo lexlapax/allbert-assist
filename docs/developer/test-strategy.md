@@ -1402,9 +1402,12 @@ artifact rows. Corpus/Memory/Search/Jobs SQLite and application-state suites
 remain in their named DB/app-env/home/process lanes; security evaluations stay
 single-VM serial. Real local-model quality, configured messaging identities,
 E2EE disclosure, and packaged native SQLite behavior are explicit external/FV
-rows and never enter `fast-local`. One version-specific gate and one
-authoritative aggregate at the same clean pushed SHA remain the release rejoin;
-focused remediation does not repeatedly rebuild or rerun the aggregate.
+rows and never enter `fast-local`. For the v1.3 train, the active plan's
+operator-approved timing override applies: v1.2.1 and intermediate v1.3
+milestones run only their named focused/static/security/artifact rows, while
+`release.v13` and one authoritative aggregate run only at final M9.b on the
+same clean pushed SHA. Focused remediation does not repeatedly rebuild or rerun
+the aggregate.
 
 ## Migration Order
 

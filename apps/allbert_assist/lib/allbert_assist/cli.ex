@@ -6,7 +6,7 @@ defmodule AllbertAssist.CLI do
   and the launcher halts on the returned code (the Next LS pattern). Every
   operator command resolves through `AllbertAssist.CLI.Commands` — a registered
   action via `Actions.Runner.run/3`, a bounded read, or a dispatcher built-in
-  (serve/first-run/help/version). Developer/CI commands are absent from the
+  (serve/first-run/help/version/licenses). Developer/CI commands are absent from the
   binary surface (they stay Mix tasks). No dispatcher command reaches a store
   directly (the `cli-command-inventory-spine-map-001` eval-row invariant).
 
@@ -18,6 +18,7 @@ defmodule AllbertAssist.CLI do
   alias AllbertAssist.CLI.Ask
   alias AllbertAssist.CLI.Commands
   alias AllbertAssist.CLI.FirstRun
+  alias AllbertAssist.Licenses
   alias AllbertAssist.Onboarding
   alias AllbertAssist.Portability.Export
   alias AllbertAssist.Portability.Import
@@ -32,7 +33,7 @@ defmodule AllbertAssist.CLI do
   local daemon attach transport. If no daemon is reachable, it starts the
   embedded fallback under the single-writer lock (Locked Decision 5); if the
   lock is held and attach is unavailable, it fails fast with repair guidance.
-  Pure commands (help, version, first-run detection) skip runtime entirely.
+  Pure commands (help, version, licenses, first-run detection) skip runtime entirely.
   """
   @spec main([String.t()]) :: no_return()
   def main(argv) do
@@ -70,6 +71,13 @@ defmodule AllbertAssist.CLI do
 
   @doc false
   @spec run_entry([String.t()]) :: {:stdout | :stderr, String.t(), non_neg_integer()}
+  def run_entry(["licenses" | args]) do
+    case Licenses.view(args) do
+      {:ok, %{output: output}} -> {:stdout, output, 0}
+      {:error, %{message: message, exit_status: status}} -> {:stderr, message, status}
+    end
+  end
+
   def run_entry(argv) do
     # v0.63 M8.1: under `mix release` `eval`, OTP apps are LOADED but not STARTED. Pure /
     # first-run commands skip the DB runtime, but still make HTTP calls (the Ollama
@@ -331,6 +339,13 @@ defmodule AllbertAssist.CLI do
 
   defp run_builtin(["ask"], rest), do: Ask.run(rest)
 
+  defp run_builtin(["licenses"], rest) do
+    case Licenses.view(rest) do
+      {:ok, %{output: output}} -> {output, 0}
+      {:error, %{message: message, exit_status: status}} -> {message, status}
+    end
+  end
+
   # `tui` is interactive (raw mode, blocks): the launcher overlay runs it in a
   # real TTY via `AllbertAssist.CLI.Tui.launch/0`. Reaching this pure clause
   # means it was invoked outside the launcher (e.g. `eval`), where a blocking
@@ -515,6 +530,9 @@ defmodule AllbertAssist.CLI do
       allbert admin onboarding Review setup state
       allbert admin models     Check model/provider readiness
       allbert admin vault      Show the secret-vault tier
+
+    Inspect
+      allbert licenses         Show packaged component and license evidence
 
     Operate (each `admin <area>` has its own subcommands; run one for usage)
       allbert admin status | health | trace | registry | events

@@ -4,7 +4,8 @@ defmodule AllbertAssist.CLI.Commands do
   every Mix task, mapped to exactly one disposition. This is the data the
   `cli-command-inventory-spine-map-001` eval row asserts against — no
   dispatcher command may reach a store directly; each is a registered action,
-  a read module, a built-in (serve/first-run/help), or explicitly `:mix_only`.
+  a read module, a built-in (serve/first-run/help/version/licenses), or explicitly
+  `:mix_only`.
 
   Dispositions:
 
@@ -12,7 +13,7 @@ defmodule AllbertAssist.CLI.Commands do
     * `{:read, mod, fun}`  — a bounded read function (no store writes).
     * `{:area, module}`    — an area dispatcher owning its subcommands, shared
       release-safe with `mix allbert.<area>` (`CLI.Areas.<Area>.dispatch/2`).
-    * `:builtin`           — dispatcher-native (serve, first-run, help, version).
+    * `:builtin`           — dispatcher-native (serve, first-run, help, version, licenses).
     * `:mix_only`          — developer/CI; stays a Mix task, absent from the binary.
     * `:retired`           — superseded; no command.
 
@@ -39,6 +40,7 @@ defmodule AllbertAssist.CLI.Commands do
     ["chat"] => :builtin,
     ["tui"] => :builtin,
     ["serve"] => :builtin,
+    ["licenses"] => :builtin,
     ["gen"] => :mix_only,
     # v0.63 M1: `allbert onboard` is a new top-level verb (Locked Decision 7) — a
     # flag-bearing area dispatcher for the guided wizard. `admin onboarding` stays
@@ -111,6 +113,7 @@ defmodule AllbertAssist.CLI.Commands do
   @task_dispositions %{
     "ask" => {:command, ["ask"]},
     "tui" => {:command, ["tui"]},
+    "licenses" => {:command, ["licenses"]},
     "channels" => {:command, ["admin", "channels"]},
     "confirmations" => {:command, ["admin", "confirmations"]},
     "jobs" => {:command, ["admin", "jobs"]},
@@ -184,7 +187,7 @@ defmodule AllbertAssist.CLI.Commands do
   # `gen` is developer/CI only (:mix_only) and absent from the binary surface, so
   # it is not a product command group (v0.62 M8.11). v0.63 M7.1: `onboard` is the
   # top-level guided-wizard verb and must be discoverable in the operator surface.
-  def groups, do: ["ask", "chat", "tui", "serve", "onboard", "admin"]
+  def groups, do: ["ask", "chat", "tui", "serve", "licenses", "onboard", "admin"]
 
   @doc "True when a Mix task is developer/CI only (must be absent from the binary)."
   @spec mix_only?(String.t()) :: boolean()

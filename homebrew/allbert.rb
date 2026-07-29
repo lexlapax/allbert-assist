@@ -11,7 +11,7 @@ class Allbert < Formula
   desc "Local-first personal AI assistant runtime, CLI, and web workspace"
   homepage "https://github.com/lexlapax/allbert-assist"
   version "1.2.0"
-  license "MIT"
+  license "Apache-2.0"
 
   depends_on "node"
 

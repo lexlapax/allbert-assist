@@ -214,7 +214,10 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    and the daemon-backed TUI, where one daemon owns Runtime/Repo/identity and
    `allbert tui` is a thin authenticated terminal client. License and TUI work
    may proceed in parallel but rejoin at one frozen three-target artifact shape,
-   `release.v121`, exact-SHA packaged smokes, and binary publication. The
+   a structurally verified (but not yet executed) `release.v121` definition,
+   exact-SHA focused/static/security and packaged smokes, and binary publication.
+   Per the train-wide operator constraint, aggregate execution is deferred to
+   the final v1.3 M9.b `release.v13`/authoritative rejoin. The
    license promise is a best-effort inventory of known shipped components, not
    a universal scanner or SBOM guarantee; it fails closed only at managed seams,
    commits one cross-platform union plus per-target manifests, and carries one
