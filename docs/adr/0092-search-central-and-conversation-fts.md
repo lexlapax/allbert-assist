@@ -6,6 +6,9 @@ Proposed (v1.3, operator-signed final readiness decision 2026-07-28). Binding
 on the Search Central milestone in the v1.3 plan; flips Accepted when the
 central API, canonical re-authorization, generation lifecycle, recurring
 maintenance, surface scope rows, and packaged native-runtime proof are green.
+M1 froze the numeric query, paging, drain, scale, latency, and capability
+contracts on 2026-07-29; this ADR remains Proposed until the implementation
+evidence above is green.
 
 This ADR supersedes ADR 0089 §6's conditional external-content FTS design.
 Search ships as a central read product and point milestone without becoming a
@@ -70,6 +73,29 @@ speculative corpora; another source type requires a separately accepted corpus
 adapter and can extend the optional field additively. Notes and files are not
 committed by this reservation.
 
+M1 freezes schema version `1`. The request is `%{query: String.t(), order:
+:relevance | :newest | :oldest, limit: 1..100, cursor: nil | String.t(),
+filters: map(), query_chain_id: nil | String.t()}`. Closed filters are
+`authors` (operator/assistant), at most eight `surfaces`, at most eight
+`thread_ids`, nullable UTC-microsecond `after`/`before`, base `origin_scope`,
+and nullable `e2ee`; unknown keys fail. The parser accepts Unicode words,
+double-quoted phrases, and trailing `*` only on a prefix of at least two Unicode
+codepoints. Operators, parentheses, column selectors, embedded wildcards, and
+raw FTS punctuation fail validation. Filters are ANDed and list values are
+ORed.
+
+The page result is `%{results, next_cursor, generation_id,
+projection_revision, indexed_through, freshness_ms, scanned_count,
+filtered_count, incomplete, incomplete_reason}`. Each item contains source and
+thread ids, author/trust/surface/timestamp, authorized snippet, lexical score,
+generation/revision, and optional constant `source_type`. Closed errors are
+`:invalid_query | :invalid_filter | :invalid_limit | :search_disabled |
+:search_not_ready | :search_changed | :scope_denied |
+:query_confirmation_required | :query_resubmit_required |
+:query_chain_expired`. Cursors are
+`allbert.search.cursor.v1:<base64url-payload>.<base64url-tag>` and contain no
+plain query/filter material.
+
 `AllbertAssist.Conversations.Corpus` is the canonical conversation authority.
 It classifies source visibility and principal/surface/thread eligibility,
 streams indexable documents, and re-authorizes candidates. Search Central is an
@@ -79,9 +105,13 @@ back to an unbounded scan of canonical conversation tables.
 
 ### 2. A separate disposable plaintext database
 
-Search uses a dedicated plaintext `search.sqlite3` under Allbert Home, separate
-from the canonical Repo database and excluded from authoritative backups. It is
-safe to delete and rebuild. Each generation contains:
+Search uses dedicated plaintext generation files under
+`<ALLBERT_HOME>/projections/search/`, separate from the canonical Repo database
+and excluded from authoritative backups. The fixed names are `control.json`,
+`current.sqlite3`, `previous.sqlite3`, and at most one live
+`build-<UUIDv7>.sqlite3` plus SQLite sidecars. No symlink/pointer service selects
+a generation. The files are safe to delete and rebuild. Each generation
+contains:
 
 - one ordinary **content-storing** FTS5 table whose rowid identifies the
   searchable redacted text;
@@ -92,9 +122,23 @@ safe to delete and rebuild. Each generation contains:
 - the minimum generation/schema/tokenizer/redactor/source-watermark metadata
   needed to verify and promote a generation.
 
+The schema-1 names/columns are closed. `documents` has `fts_rowid INTEGER
+PRIMARY KEY`; required `source_type`, `source_id`, `thread_id`, `author`,
+`trust`, `surface`, `thread_kind`, `origin_scope`, `e2ee`, `timestamp_us`,
+`source_version`, `content_digest`, `redactor_version`, `tokenizer_version`,
+`schema_version`, and immutable `first_projected_revision`; plus nullable remote
+`owner_scope`, `channel`, `receiver_account_ref`, and `provider_thread_key`.
+`source_type` is `conversation`, `author` is `operator | assistant`, `e2ee` is
+`0 | 1`, `timestamp_us` is Unix microseconds, and versions/revisions are non-
+negative integers. `search_fts` is content-storing
+`fts5(searchable_text, tokenize='unicode61 remove_diacritics 2')` sharing the
+same rowid. One-row `generation_meta` mirrors LD 84's immutable generation id,
+compatibility versions, source high-water, eligibility epoch, and projection
+revision. No other content column or source-adapter table ships in v1.3.
+
 The locator, not an FTS `UNINDEXED` column, owns uniqueness, exact source lookup,
 typed-filter metadata, and deterministic chronological tie-break fields. SQLite
-virtual tables cannot receive normal secondary indexes, so M1 freezes the small
+virtual tables cannot receive normal secondary indexes, so M1 froze the small
 set of locator B-tree indexes required by the shipped filters/orders. Projection
 upsert/delete mutates the locator, FTS row, and generation revision/watermark in
 one Search-database transaction. It preserves the integer rowid for an existing
@@ -171,9 +215,11 @@ queries. SQL is parameterized and surfaces never pass arbitrary raw FTS syntax.
 Fuzzy matching, trigram/substring search, semantic/vector retrieval, stemming
 expansion, and learned ranking are out.
 
-The total ordering tuples are fixed: `relevance` is `(bm25 ASC, timestamp DESC,
-source_id ASC)`, `newest` is `(timestamp DESC, source_id ASC)`, and `oldest` is
-`(timestamp ASC, source_id ASC)`. FTS5's numerically lower BM25 score is the
+The total ordering tuples are fixed: `relevance` is `(bm25 ASC, timestamp_us
+DESC, source_id ASC)`, `newest` is `(timestamp_us DESC, source_id ASC)`, and
+`oldest` is `(timestamp_us ASC, source_id ASC)`. `timestamp_us` is Unix
+microseconds and the result DTO converts it to a UTC-microsecond timestamp.
+FTS5's numerically lower BM25 score is the
 better match. Scores are meaningful only within one index revision; ingestion
 can change collection statistics and therefore rank.
 
@@ -195,14 +241,40 @@ and canonical length-prefixed encoding. Search never handles the raw Home key
 outside that helper.
 
 Authorization filtering cannot underfill a page merely because stale or
-ineligible hits lead the ranking. Search overfetches candidates in bounded
+ineligible hits lead the ranking. Search overfetches candidates in 100-row
 batches, re-authorizes each through Corpus, and continues until the requested
-page is full, the generation is exhausted, or a calibrated scan budget is
+page is full, the generation is exhausted, or 500 candidates/5 batches are
 reached. The cursor records the last **scanned** ordering tuple, not the last
 returned tuple, so filtered rows cannot loop or skip later eligible rows. The
 typed result includes scanned/filtered counts and an `incomplete` reason when
 the scan budget—not end of results—stops refill. Every surface receives this
 same behavior.
+
+M1 froze the implementation bounds: candidate batches contain `100` rows and
+one page scans at most `500` candidates/`5` batches. Query text is at most
+`1_024` UTF-8 bytes, `16` lexical clauses, one phrase of at most `12` tokens,
+and `8` typed filters. Default result limit is `20`, maximum `100`; each result
+has one snippet whose Settings Central byte bound defaults to `320` and accepts
+`64..1024`. Over-limit queries fail validation rather than being truncated.
+Mapped-DM cross-surface approval expires after exactly `300` seconds and page
+cursors cannot extend it. Promotion drains admitted readers for at most `2_000`
+milliseconds.
+
+The ordinary locator owns exactly these B-tree indexes: unique `(source_type,
+source_id)`; both `(timestamp_us DESC, source_id ASC)` and `(timestamp_us ASC,
+source_id ASC)`; timestamp/source-id indexes prefixed individually by
+`thread_id`, `author`, and `surface`; and `(origin_scope, e2ee, timestamp DESC,
+source_id ASC)`. Compound filters use bounded locator intersection rather than
+an index-per-combination design. The E2EE boolean is separate because
+`e2ee_operator` is an overlay on, not a replacement for, the local or mapped-DM
+base origin.
+
+The release scale is `25_000` messages across at least `250` threads with at
+least `256` average UTF-8 bytes. After one unmeasured warm pass, query plus
+Corpus reauthorization across `300` mixed queries is p95 `<= 200 ms` and p99
+`<= 750 ms`, recorded separately on the packaged macOS arm64 operator host and
+packaged Linux x86_64 Serenity host. Normal dirty ingestion is visible within
+`90` seconds; hourly reconciliation is the missed-wakeup bound.
 
 ### 5. Surface policy is centralized and transport-aware
 
@@ -216,7 +288,7 @@ same behavior.
   current per-message origin tuple from §3. Canonical-thread membership,
   channel name, or receiver account alone is insufficient. Cross-thread or
   cross-surface history requires a second Security Central confirmation for
-  exactly one normalized query/cursor chain with bounded expiry.
+  exactly one normalized query/cursor chain with 300-second expiry.
 
   The registered `authorize_search_query_scope` action is `resumable?: true`
   and is explicitly allowlisted through the existing generic confirmation-
@@ -569,9 +641,12 @@ projection, but does not pretend the canonical/provider turn vanished.
 Acceptance combines focused contract/race tests with proof against the native
 SQLite library loaded by each packaged target:
 
-- `SELECT sqlite_version()`, `PRAGMA compile_options`, FTS5 create/insert/phrase/
-  prefix/query, `unicode61` behavior, rank ties, WAL, secure-delete, checkpoint,
-  and partial-index behavior on the shipped runtime;
+- the Exqlite-loaded library—not a host `sqlite3`—reports
+  `sqlite_version() >= 3.42.0` and functionally proves FTS5 create/insert/term/
+  phrase/prefix/BM25/snippet with `unicode61 remove_diacritics 2`, rank ties,
+  WAL, `PRAGMA integrity_check`, FTS integrity, `secure_delete`, FTS
+  `secure-delete=1`, checkpoint-TRUNCATE `busy = 0`, partial unique indexes,
+  and locator/FTS shared-rowid bijection;
 - duplicate source ingestion updates exactly one locator/FTS pair; lookup,
   typed filters, timestamp ordering, and delete use the ordinary locator and its
   frozen B-tree indexes rather than scanning FTS; integrity rejects duplicate,

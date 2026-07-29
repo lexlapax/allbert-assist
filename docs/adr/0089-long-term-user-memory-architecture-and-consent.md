@@ -4,8 +4,8 @@
 
 Proposed (v1.3 implementation-ready, operator-signed final pass
 2026-07-28). The architecture choices formerly named LD-R1–R5 are resolved by
-§8, ADR 0092, and the active v1.3 plan. M1 now calibrates fixtures, quality
-floors, budgets, and runtime evidence only; it does not reopen source,
+§8, ADR 0092, and the active v1.3 plan. M1 froze fixtures, quality floors,
+budgets, and runtime evidence on 2026-07-29 without reopening source,
 proposal, extraction-authority, retrieval, model-egress, temporal, or Search
 ownership decisions. This ADR flips Accepted at the milestone that proves the
 full chain — consolidation → system-proposed review → operator keep →
@@ -379,12 +379,25 @@ missing, disabled, or conflicting evidence is marked
 external-history Search until an explicit identity repair; implementation never
 guesses or broadens access to preserve recall.
 
+The shared Corpus contract is schema version `1` and pages canonical messages
+in ascending `(inserted_at, id)` order beneath an inclusive high-water bound.
+Snapshot state binds operator, source policy, and `eligibility_epoch`; page
+size defaults to `200` and rejects values above `500`. Batch reauthorization
+accepts at most `100` unique refs and preserves input order with typed
+unavailable reasons. Memory disambiguation receives the source plus at most
+four preceding and four following same-thread messages, never more than nine
+messages or `32_768` UTF-8 bytes; it drops farthest context first and marks
+truncation. It never silently truncates the authoritative source envelope.
+
 **Span provenance makes that enforceable for consolidation-produced
 conversation proposals.** Every semantic field records the canonical source
 id and digest, UTF-8 byte start/end, raw-span digest, normalized field value,
-and a versioned deterministic transform kind. The
-allowlist is intentionally small (for example trim, case normalization, and a
-calibrated date transform); arbitrary model rewriting cannot create grounding.
+and a versioned deterministic transform kind. The complete v1 allowlist is
+`identity_v1`, `trim_ascii_whitespace_v1`, `ascii_lower_v1`,
+`operator_pronoun_v1` (`I | me | my` to the authenticated operator subject),
+and `explicit_iso8601_date_v1` (an already explicit `YYYY-MM-DD` span). No
+parser infers a synonym, date, number, or replacement text; arbitrary model
+rewriting cannot create grounding.
 At review, the canonical span is read again and its source/span digest must
 still match. Bounded assistant context may resolve deixis only to another
 operator-authored span. If a field value exists only in assistant text, the
@@ -482,8 +495,21 @@ schedule metadata grant nothing.
 
 Retrieval stays deterministic and lexical over the complete rebuildable Memory
 projection and enters only the existing direct-answer/vision prompt seam. M1
-sets the measured numeric prompt budget/unit, extraction precision/recall
-floors, and pinned local reference profile; those are calibration outputs, not
+freezes that budget at `8_000` UTF-8 bytes, `top_k: 5`, and `2_048` bytes per
+chunk. The hand-authored fixture pins the optional advisory reference profile to
+local-only `local_ollama/llama3.2:3b`; deterministic-only extraction may pass
+the same gate. Micro-averaged eligible precision is `>= 0.90`, eligible recall
+`>= 0.80`, and required abstention over assistant-only, trace-only, ambiguous,
+question, ephemeral, and hard-drop rows is `>= 0.95` over `20` frozen rows (at
+most one miss). All four temporal-update
+cases, both protected secret/financial drops, and both protected individual-
+review routes must be correct. The eligible denominator is `14`; a true
+positive requires the expected decision and exact allowlist-grounded normalized
+fields, precision is `TP / (TP + FP)`, and recall is `TP / 14`. Protected
+review stubs are outside both. At a warmed single-caller
+projection of `10_000` current claims, canonical revalidation plus prompt
+selection is p95 `<= 75 ms` and p99 `<= 250 ms` over `200` fixture-derived
+queries on each packaged validation host. These are calibration outputs, not
 open ownership or authority choices. This resolves LD-R4 without adding a new
 prompt or retrieval architecture.
 
@@ -548,6 +574,13 @@ namespace, and Forget suppression. A mismatch is omitted immediately and
 queues ordinary projection repair. Thus a crash after archive, correction, or
 Forget cannot make a stale projection authoritative or place the stale fact in
 a prompt.
+
+The fixed projection root is `<ALLBERT_HOME>/projections/memory/`, containing
+`control.json`, `current.sqlite3`, `previous.sqlite3`, and at most one live
+`build-<UUIDv7>.sqlite3` plus SQLite sidecars. The shared `projections/` root is
+excluded from authoritative backup/export. Schema-1 control and generation
+metadata follow plan LD 84; fixed-file promotion uses no symlink, pointer
+service, Ecto Repo, or generic projection registry.
 
 Startup ownership is ordered without adding a coordinator. The supervised
 `Memory.Projection` process first discovers and verifies every tombstone and

@@ -1,0 +1,266 @@
+{
+  "schema": "allbert.memory.calibration.v1",
+  "reference_profile": {
+    "provider": "local_ollama",
+    "model": "llama3.2:3b",
+    "endpoint_kind": "local_endpoint",
+    "host": "localhost"
+  },
+  "allowed_transforms": [
+    "identity_v1",
+    "trim_ascii_whitespace_v1",
+    "ascii_lower_v1",
+    "operator_pronoun_v1",
+    "explicit_iso8601_date_v1"
+  ],
+  "scoring": {
+    "eligible_case_count": 14,
+    "required_abstention_case_count": 20,
+    "protected_drop_case_count": 2,
+    "protected_review_routing_case_count": 2,
+    "eligible_precision_floor": 0.90,
+    "eligible_recall_floor": 0.80,
+    "required_abstention_floor": 0.95,
+    "protected_drop_accuracy_floor": 1.00,
+    "protected_review_routing_accuracy_floor": 1.00,
+    "temporal_update_accuracy_floor": 1.00
+  },
+  "cases": [
+    {
+      "id": "mem-fact-001",
+      "kind": "eligible_fact",
+      "turns": [{"author": "operator", "text": "I prefer concise release notes with links to the evidence."}],
+      "expected": {"decision": "propose", "subject": "operator", "predicate": "prefer", "object": "concise release notes with links to the evidence"}
+    },
+    {
+      "id": "mem-fact-002",
+      "kind": "eligible_fact",
+      "turns": [{"author": "operator", "text": "My usual working timezone is America/Los_Angeles."}],
+      "expected": {"decision": "propose", "subject": "operator", "predicate": "timezone", "object": "America/Los_Angeles"}
+    },
+    {
+      "id": "mem-fact-003",
+      "kind": "eligible_fact",
+      "turns": [{"author": "operator", "text": "For this project, use Req for outbound HTTP."}],
+      "expected": {"decision": "propose", "subject": "project", "predicate": "use", "object": "Req"}
+    },
+    {
+      "id": "mem-fact-004",
+      "kind": "eligible_fact",
+      "turns": [{"author": "operator", "text": "I run release validation on macOS arm64 and Linux x86_64."}],
+      "expected": {"decision": "propose", "subject": "operator", "predicate": "run", "object": "macOS arm64 and Linux x86_64"}
+    },
+    {
+      "id": "mem-fact-005",
+      "kind": "eligible_fact",
+      "turns": [{"author": "operator", "text": "Please keep operator runbooks paste-executable."}],
+      "expected": {"decision": "propose", "subject": "operator", "predicate": "keep", "object": "paste-executable"}
+    },
+    {
+      "id": "mem-fact-006",
+      "kind": "eligible_fact",
+      "turns": [{"author": "operator", "text": "The Serenity host is reserved for Linux validation."}],
+      "expected": {"decision": "propose", "subject": "Serenity host", "predicate": "reserved", "object": "Linux validation"}
+    },
+    {
+      "id": "mem-fact-007",
+      "kind": "eligible_fact",
+      "turns": [{"author": "operator", "text": "I want warning-free compiler output before handoff."}],
+      "expected": {"decision": "propose", "subject": "operator", "predicate": "want", "object": "warning-free compiler output"}
+    },
+    {
+      "id": "mem-fact-008",
+      "kind": "eligible_fact",
+      "turns": [{"author": "operator", "text": "Use weekly maintenance for non-urgent projection cleanup."}],
+      "expected": {"decision": "propose", "subject": "projection cleanup", "predicate": "use", "object": "weekly"}
+    },
+    {
+      "id": "mem-fact-009",
+      "kind": "eligible_fact",
+      "turns": [{"author": "operator", "text": "Search should stay lexical for the 1.3 release."}],
+      "expected": {"decision": "propose", "subject": "Search", "predicate": "stay", "object": "lexical"}
+    },
+    {
+      "id": "mem-fact-010",
+      "kind": "eligible_fact",
+      "turns": [{"author": "operator", "text": "Keep long-term memory collection disabled until I grant it."}],
+      "expected": {"decision": "propose", "subject": "memory collection", "predicate": "disabled", "object": "until I grant it"}
+    },
+    {
+      "id": "mem-update-001",
+      "kind": "temporal_update",
+      "turns": [
+        {"author": "operator", "text": "I normally use the cloud profile for acceptance."},
+        {"author": "operator", "text": "Starting 2026-08-01, use the local profile for acceptance instead."}
+      ],
+      "expected": {"decision": "propose_update", "supersedes": "cloud profile", "object": "local profile", "valid_from": "2026-08-01"}
+    },
+    {
+      "id": "mem-update-002",
+      "kind": "temporal_update",
+      "turns": [
+        {"author": "operator", "text": "Release checks run on Fridays."},
+        {"author": "operator", "text": "We moved release checks to Thursdays."}
+      ],
+      "expected": {"decision": "propose_update", "supersedes": "Fridays", "object": "Thursdays"}
+    },
+    {
+      "id": "mem-update-003",
+      "kind": "temporal_update",
+      "turns": [
+        {"author": "operator", "text": "Keep three previous build artifacts."},
+        {"author": "operator", "text": "Correction: keep two previous build artifacts."}
+      ],
+      "expected": {"decision": "propose_update", "supersedes": "three", "object": "two"}
+    },
+    {
+      "id": "mem-update-004",
+      "kind": "temporal_update",
+      "turns": [
+        {"author": "operator", "text": "The project mirror is on Atlas."},
+        {"author": "operator", "text": "Atlas was retired; the mirror is now on Serenity."}
+      ],
+      "expected": {"decision": "propose_update", "supersedes": "Atlas", "object": "Serenity"}
+    },
+    {
+      "id": "mem-abstain-001",
+      "kind": "assistant_only",
+      "turns": [{"author": "assistant", "text": "You probably prefer dark mode."}],
+      "expected": {"decision": "abstain", "reason": "assistant_cannot_originate"}
+    },
+    {
+      "id": "mem-abstain-002",
+      "kind": "assistant_guess",
+      "turns": [
+        {"author": "assistant", "text": "I infer that you dislike dashboards."},
+        {"author": "operator", "text": "Continue with the current task."}
+      ],
+      "expected": {"decision": "abstain", "reason": "no_operator_assertion"}
+    },
+    {
+      "id": "mem-abstain-003",
+      "kind": "ephemeral_request",
+      "turns": [{"author": "operator", "text": "Show me the last five log lines."}],
+      "expected": {"decision": "abstain", "reason": "not_durable"}
+    },
+    {
+      "id": "mem-abstain-004",
+      "kind": "question",
+      "turns": [{"author": "operator", "text": "Could the release run on Linux arm64?"}],
+      "expected": {"decision": "abstain", "reason": "question_not_assertion"}
+    },
+    {
+      "id": "mem-abstain-005",
+      "kind": "ambiguous",
+      "turns": [{"author": "operator", "text": "Sometimes either profile is fine."}],
+      "expected": {"decision": "abstain", "reason": "ambiguous_fact"}
+    },
+    {
+      "id": "mem-abstain-006",
+      "kind": "trace_only",
+      "turns": [{"author": "trace", "text": "environment profile=staging"}],
+      "expected": {"decision": "abstain", "reason": "trace_cannot_originate"}
+    },
+    {
+      "id": "mem-abstain-007",
+      "kind": "acknowledgement",
+      "turns": [{"author": "operator", "text": "Thanks, that worked."}],
+      "expected": {"decision": "abstain", "reason": "not_durable"}
+    },
+    {
+      "id": "mem-abstain-008",
+      "kind": "bare_confirmation",
+      "turns": [{"author": "operator", "text": "Yes."}],
+      "expected": {"decision": "abstain", "reason": "insufficient_context"}
+    },
+    {
+      "id": "mem-abstain-009",
+      "kind": "one_off_command",
+      "turns": [{"author": "operator", "text": "Commit the current documentation changes."}],
+      "expected": {"decision": "abstain", "reason": "not_durable"}
+    },
+    {
+      "id": "mem-abstain-010",
+      "kind": "hypothetical",
+      "turns": [{"author": "operator", "text": "If we used a hosted index, latency might improve."}],
+      "expected": {"decision": "abstain", "reason": "hypothetical"}
+    },
+    {
+      "id": "mem-abstain-011",
+      "kind": "third_party_quote",
+      "turns": [{"author": "operator", "text": "A teammate said they prefer nightly releases."}],
+      "expected": {"decision": "abstain", "reason": "third_party_not_operator_fact"}
+    },
+    {
+      "id": "mem-abstain-012",
+      "kind": "group_origin",
+      "source": {"origin": "group"},
+      "turns": [{"author": "operator", "text": "Use the blue deployment lane."}],
+      "expected": {"decision": "abstain", "reason": "origin_ineligible"}
+    },
+    {
+      "id": "mem-abstain-013",
+      "kind": "programmatic_origin",
+      "source": {"origin": "programmatic"},
+      "turns": [{"author": "operator", "text": "The batch size is sixty."}],
+      "expected": {"decision": "abstain", "reason": "origin_ineligible"}
+    },
+    {
+      "id": "mem-abstain-014",
+      "kind": "unknown_principal",
+      "source": {"principal": "unknown"},
+      "turns": [{"author": "operator", "text": "I always deploy after lunch."}],
+      "expected": {"decision": "abstain", "reason": "principal_unverified"}
+    },
+    {
+      "id": "mem-abstain-015",
+      "kind": "e2ee_without_grant",
+      "source": {"origin": "mapped_operator_dm", "e2ee": true, "grant": false},
+      "turns": [{"author": "operator", "text": "My preferred editor is Helix."}],
+      "expected": {"decision": "abstain", "reason": "origin_ineligible"}
+    },
+    {
+      "id": "mem-abstain-016",
+      "kind": "unverified_remap",
+      "source": {"principal_mapping": "unverified_remap"},
+      "turns": [{"author": "operator", "text": "Keep two stable branches."}],
+      "expected": {"decision": "abstain", "reason": "principal_unverified"}
+    },
+    {
+      "id": "mem-abstain-017",
+      "kind": "rejected_assistant_claim",
+      "turns": [{"author": "operator", "text": "You guessed that I prefer dark mode; I never stated that preference."}],
+      "expected": {"decision": "abstain", "reason": "explicit_non_assertion"}
+    },
+    {
+      "id": "mem-abstain-018",
+      "kind": "unresolved_choice",
+      "turns": [{"author": "operator", "text": "Either morning or afternoon could work; I have not decided."}],
+      "expected": {"decision": "abstain", "reason": "ambiguous_fact"}
+    },
+    {
+      "id": "mem-protected-001",
+      "kind": "protected_secret",
+      "turns": [{"author": "operator", "text_class": "credential", "text": null}],
+      "expected": {"decision": "drop", "reason": "protected_content"}
+    },
+    {
+      "id": "mem-protected-002",
+      "kind": "protected_health",
+      "turns": [{"author": "operator", "text_class": "sensitive_health", "text": null}],
+      "expected": {"decision": "protected_review", "reason": "individual_confirmation"}
+    },
+    {
+      "id": "mem-protected-003",
+      "kind": "protected_financial",
+      "turns": [{"author": "operator", "text_class": "financial_identifier", "text": null}],
+      "expected": {"decision": "drop", "reason": "protected_content"}
+    },
+    {
+      "id": "mem-protected-004",
+      "kind": "protected_third_party",
+      "turns": [{"author": "operator", "text_class": "third_party_private_fact", "text": null}],
+      "expected": {"decision": "protected_review", "reason": "individual_confirmation"}
+    }
+  ]
+}

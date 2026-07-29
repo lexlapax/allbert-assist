@@ -1,0 +1,52 @@
+{
+  "schema": "allbert.search.corpus.v1",
+  "tokenizer": "unicode61 remove_diacritics 2",
+  "documents": [
+    {"id": "msg-s-001", "thread": "release", "author": "operator", "surface": "tui", "timestamp": "2026-07-01T09:00:00.000000Z", "text": "The release checklist requires a clean worktree and exact artifact digest."},
+    {"id": "msg-s-002", "thread": "release", "author": "assistant", "surface": "tui", "timestamp": "2026-07-01T09:01:00.000000Z", "text": "I recorded the exact artifact digest beside the qualification result."},
+    {"id": "msg-s-003", "thread": "memory", "author": "operator", "surface": "web", "timestamp": "2026-07-02T10:00:00.000000Z", "text": "Long-term memory proposals must stay inert until reviewed."},
+    {"id": "msg-s-004", "thread": "memory", "author": "assistant", "surface": "web", "timestamp": "2026-07-02T10:02:00.000000Z", "text": "The proposal queue is bounded and review remains explicit."},
+    {"id": "msg-s-005", "thread": "search", "author": "operator", "surface": "tui", "timestamp": "2026-07-03T11:00:00.000000Z", "text": "Search ranking is lexical with deterministic chronological tie breaks."},
+    {"id": "msg-s-006", "thread": "search", "author": "assistant", "surface": "tui", "timestamp": "2026-07-03T11:03:00.000000Z", "text": "Phrase and explicit prefix queries use the central search API."},
+    {"id": "msg-s-007", "thread": "unicode", "author": "operator", "surface": "web", "timestamp": "2026-07-04T12:00:00.000000Z", "text": "Café notes mention naïve tokenization and résumé matching."},
+    {"id": "msg-s-008", "thread": "jobs", "author": "operator", "surface": "tui", "timestamp": "2026-07-05T13:00:00.000000Z", "text": "Recurring jobs preserve pause and cadence when reconciled."},
+    {"id": "msg-s-009", "thread": "jobs", "author": "assistant", "surface": "tui", "timestamp": "2026-07-05T13:02:00.000000Z", "text": "A newer dirty kick survives completion of an older claimed run."},
+    {"id": "msg-s-010", "thread": "privacy", "author": "operator", "surface": "web", "timestamp": "2026-07-06T14:00:00.000000Z", "text": "Mapped direct messages search only their current channel and thread by default."},
+    {"id": "msg-s-011", "thread": "privacy", "author": "assistant", "surface": "web", "timestamp": "2026-07-06T14:02:00.000000Z", "text": "Cross-surface history needs one expiring query-chain confirmation."},
+    {"id": "msg-s-012", "thread": "deletion", "author": "operator", "surface": "tui", "timestamp": "2026-07-07T15:00:00.000000Z", "text": "Conversation deletion discloses surviving backups and provider copies."},
+    {"id": "msg-s-013", "thread": "deletion", "author": "assistant", "surface": "tui", "timestamp": "2026-07-07T15:04:00.000000Z", "text": "Deleting a message does not implicitly forget a separately kept claim."},
+    {"id": "msg-s-014", "thread": "projection", "author": "operator", "surface": "web", "timestamp": "2026-07-08T16:00:00.000000Z", "text": "Projection promotion closes live handles before an atomic same-filesystem rename."},
+    {"id": "msg-s-015", "thread": "projection", "author": "assistant", "surface": "web", "timestamp": "2026-07-08T16:03:00.000000Z", "text": "A failed generation keeps the previous verified index serving."},
+    {"id": "msg-s-016", "thread": "provider", "author": "operator", "surface": "dm", "timestamp": "2026-07-09T17:00:00.000000Z", "text": "The local model endpoint must pass doctor before external validation."},
+    {"id": "msg-s-017", "thread": "provider", "author": "assistant", "surface": "dm", "timestamp": "2026-07-09T17:01:00.000000Z", "text": "The configured local model is available on localhost."},
+    {"id": "msg-s-018", "thread": "release", "author": "operator", "surface": "web", "timestamp": "2026-07-10T09:00:00.000000Z", "text": "Artifact qualification happens before protected release promotion."},
+    {"id": "msg-s-019", "thread": "search", "author": "operator", "surface": "web", "timestamp": "2026-07-10T10:00:00.000000Z", "text": "Filtered stale hits are omitted before a snippet is returned."},
+    {"id": "msg-s-020", "thread": "memory", "author": "operator", "surface": "tui", "timestamp": "2026-07-10T11:00:00.000000Z", "text": "A corrected fact supersedes the prior validity interval."},
+    {"id": "msg-s-021", "thread": "search", "author": "assistant", "surface": "web", "timestamp": "2026-07-10T12:00:00.000000Z", "text": "The next cursor advances after the last scanned candidate."},
+    {"id": "msg-s-022", "thread": "licenses", "author": "operator", "surface": "tui", "timestamp": "2026-07-10T13:00:00.000000Z", "text": "Packaged license generation runs after every release payload mutation."},
+    {"id": "msg-s-023", "thread": "licenses", "author": "assistant", "surface": "tui", "timestamp": "2026-07-10T13:01:00.000000Z", "text": "The offline license viewer reads the final artifact manifest."},
+    {"id": "msg-s-024", "thread": "unicode", "author": "operator", "surface": "web", "timestamp": "2026-07-10T14:00:00.000000Z", "text": "Resume and résumé should match under diacritic removal."}
+  ],
+  "excluded_rows": [
+    {"id": "msg-x-001", "reason": "deleted"},
+    {"id": "msg-x-002", "reason": "grant_revoked"},
+    {"id": "msg-x-003", "reason": "digest_mismatch"},
+    {"id": "msg-x-004", "reason": "hidden_system"},
+    {"id": "msg-x-005", "reason": "protected_secret"},
+    {"id": "msg-x-006", "reason": "search_result_marker"},
+    {"id": "msg-x-007", "reason": "legacy_origin_unverified"},
+    {"id": "msg-x-008", "reason": "e2ee_not_granted"}
+  ],
+  "queries": [
+    {"id": "q-term", "query": "artifact", "order": "newest", "expected": ["msg-s-018", "msg-s-002", "msg-s-001"]},
+    {"id": "q-phrase", "query": "\"query-chain confirmation\"", "order": "relevance", "expected": ["msg-s-011"]},
+    {"id": "q-prefix", "query": "reconcil*", "order": "relevance", "expected": ["msg-s-008"]},
+    {"id": "q-diacritic", "query": "resume", "order": "newest", "expected": ["msg-s-024", "msg-s-007"]},
+    {"id": "q-author", "query": "projection", "filters": {"author": "operator"}, "expected": ["msg-s-014"]},
+    {"id": "q-surface", "query": "local model", "order": "newest", "filters": {"surface": "dm"}, "expected": ["msg-s-017", "msg-s-016"]},
+    {"id": "q-thread", "query": "license", "order": "newest", "filters": {"thread": "licenses"}, "expected": ["msg-s-023", "msg-s-022"]},
+    {"id": "q-oldest", "query": "release", "order": "oldest", "expected_first": ["msg-s-001"]},
+    {"id": "q-newest", "query": "search", "order": "newest", "expected_first": ["msg-s-021"]},
+    {"id": "q-no-raw-match", "query": "artifact OR * : NEAR()", "expected_error": "invalid_query"}
+  ]
+}

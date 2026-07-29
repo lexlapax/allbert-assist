@@ -49,7 +49,9 @@ would be lying. The design therefore deletes a narrow, exactly-previewed set and
 
 ### 1. One registered, destructively confirmed action
 
-`delete_conversation_content` accepts `target_kind: message | thread`. The
+`delete_conversation_content` accepts schema-1 `%{target_kind: :message |
+:thread, target_id: String.t(), expected_digest: nil | "sha256:" <>
+lower_hex_64}`. The
 target must belong to the verified canonical user/operator. It is
 `resumable?: true` and explicitly allowlisted through the existing generic
 confirmation-resume path; its stored resume parameters carry only the verified
@@ -61,6 +63,24 @@ implements its own deletion path.
 
 ### 2. The preview is bound, and approval re-resolves it
 
+The preview DTO is `%{schema_version: 1, target_kind, target_id, message_count,
+reference_count, blocker_counts, survivor_counts, retained_thread_title?:
+boolean, disclosure_version: 1, preview_binding}`, where `preview_binding` is
+`"hmac-sha256:" <> lower_hex_64`. Closed non-negative-
+integer `blocker_counts` keys are `active_jobs`, `active_objectives`,
+`nonterminal_fanout_deliveries`, and `open_workspace_states`; closed
+`survivor_counts` keys are `historical_jobs`, `historical_runs`,
+`historical_objectives`, `stocksage_rows`, `channel_events`,
+`channel_deliveries`, `artifact_links`, `traces`, and
+`closed_workspace_states`. Unknown plugin copies are disclosed as uncounted,
+never represented by a false zero. The content-free result DTO
+is `%{schema_version: 1, target_kind, target_id, outcome: :deleted |
+:already_deleted, deleted_message_count, deleted_reference_count,
+retained_thread_title?: boolean, downstream_reconcile_required: boolean,
+disclosure_version: 1}`. Typed pre-commit errors are `:not_found | :stale |
+:live_dependency | :unauthorized`; safe blocker detail appears only for
+`:live_dependency`.
+
 The server preview binds `allbert.conversations.delete-preview.v1` over the
 user/operator id plus either the message id/version/content digest, or the
 thread id/version plus the stable ordered exact conversation-owned cascade of
@@ -68,6 +88,11 @@ message and channel/message-reference row identities, versions, and content
 digests — followed by a versioned ordered known-core survivor/blocker count
 vector and the disclosure version. A caller may supply an optional expected
 digest, but resolved confirmation state retains no plain content-derived hash.
+
+For the current additive schema, a message row version is immutable
+`inserted_at` plus content digest; thread/channel/message-reference row versions
+are `updated_at` plus their safe identity fields. M2 does not add a generic row-
+version column merely for this action.
 
 Approval recomputes that complete cascade and bound count/disclosure vector
 inside the immediate canonical Repo transaction. A concurrent append,
