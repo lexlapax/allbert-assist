@@ -6,6 +6,8 @@ defmodule AllbertAssist.LicensesTest do
   alias AllbertAssist.Licenses
   alias AllbertAssist.SecurityFixtures.AssertBinding
 
+  @repo_root Path.expand("../../../../", __DIR__)
+
   test "catalog validation and union rendering are deterministic" do
     fixture = fixture!(["alpha", "beta"])
     on_exit(fn -> File.rm_rf(fixture.tmp) end)
@@ -334,7 +336,7 @@ defmodule AllbertAssist.LicensesTest do
   end
 
   test "the reviewed Castore CA exception binds one file, text, and immutable source" do
-    assert {:ok, catalog} = Licenses.load_catalog()
+    assert {:ok, catalog} = Licenses.load_catalog(repo_root: @repo_root)
     component = Enum.find(catalog["components"], &(&1["id"] == "castore-mozilla-ca"))
     text = Enum.find(catalog["texts"], &(&1["id"] == "MPL-2.0"))
 
@@ -343,10 +345,11 @@ defmodule AllbertAssist.LicensesTest do
     assert component["text_ids"] == ["MPL-2.0"]
     assert component["file"]["application"] == "castore"
     assert component["file"]["relative_path"] == "priv/cacerts.pem"
+    assert component["file"]["sha256"] =~ ~r/^[0-9a-f]{64}$/
     assert component["provenance"]["scope"] =~ "Only lib/castore-*/priv/cacerts.pem"
     assert component["source"]["immutable_url"] =~ ~r|/mozilla-firefox/firefox/[0-9a-f]{40}/|
     assert component["source"]["sha256"] =~ ~r/^[0-9a-f]{64}$/
-    assert component["source"]["converter_sha256"] =~ ~r/^[0-9a-f]{64}$/
+    assert component["source"]["converter"]["sha256"] =~ ~r/^[0-9a-f]{64}$/
     assert text["sha256"] =~ ~r/^[0-9a-f]{64}$/
 
     AssertBinding.check!("v121-license-castore-001", [
