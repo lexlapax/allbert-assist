@@ -648,15 +648,6 @@ the offline drift check can pass.
 - Application: `toml`
 - Provenance: `{"ecosystem":"hex","license_source":"deps/toml/LICENSE","package":"toml","url":"https://hex.pm/packages/toml"}`
 
-### `beam-unicode-util-compat` — unicode_util_compat
-
-- Kind: `beam_app`
-- License expression: `Apache-2.0`
-- Disposition: bundled when selected for the target
-- Required texts: `LicenseText-0d542e0c8804e39aa7f3`
-- Application: `unicode_util_compat`
-- Provenance: `{"ecosystem":"hex","license_source":"deps/unicode_util_compat/LICENSE","package":"unicode_util_compat","url":"https://hex.pm/packages/unicode_util_compat"}`
-
 ### `beam-websock` — websock
 
 - Kind: `beam_app`
