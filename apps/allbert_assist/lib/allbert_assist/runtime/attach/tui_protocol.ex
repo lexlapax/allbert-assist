@@ -125,6 +125,10 @@ defmodule AllbertAssist.Runtime.Attach.TUIProtocol do
     }
   end
 
+  @doc "The frozen daemon presentation eviction order under outbound pressure."
+  @spec pressure_drop_order() :: [atom()]
+  def pressure_drop_order, do: [:status, :delta]
+
   @doc "Generate a cryptographically random v1 session identifier."
   @spec new_session_id() :: <<_::256>>
   def new_session_id, do: :crypto.strong_rand_bytes(32)
@@ -329,6 +333,29 @@ defmodule AllbertAssist.Runtime.Attach.TUIProtocol do
 
   def send_frame(_flow, _direction, _frame, _payload, _opts),
     do: {:error, :protocol_error}
+
+  @doc """
+  Deterministically reduces two adjacent same-revision presentation deltas.
+
+  Both inputs and the combined result must satisfy the frozen daemon delta
+  schema and bounds. `:no_reduction` tells the queue owner to retain the two
+  frames separately; it is not a protocol failure.
+  """
+  @spec reduce_adjacent_deltas(map(), map()) :: {:ok, map()} | :no_reduction
+  def reduce_adjacent_deltas(previous, current)
+      when is_map(previous) and is_map(current) do
+    with :ok <- validate_payload(:daemon_to_client, :delta, previous, []),
+         :ok <- validate_payload(:daemon_to_client, :delta, current, []),
+         true <- previous.render_revision == current.render_revision,
+         reduced <- reduce_delta_payload(previous, current),
+         :ok <- validate_payload(:daemon_to_client, :delta, reduced, []) do
+      {:ok, reduced}
+    else
+      _invalid -> :no_reduction
+    end
+  end
+
+  def reduce_adjacent_deltas(_previous, _current), do: :no_reduction
 
   @doc "Validate one inbound frame and atomically advance sequence/cumulative-ack state."
   @spec accept_frame(map(), :client_to_daemon | :daemon_to_client, map(), keyword()) ::
@@ -664,6 +691,20 @@ defmodule AllbertAssist.Runtime.Attach.TUIProtocol do
       do: {:ok, retained, retained_bytes},
       else: {:error, :overflow}
   end
+
+  defp reduce_delta_payload(previous, %{mode: :append, lines: lines}) do
+    case previous.mode do
+      :append -> %{previous | lines: previous.lines ++ lines}
+      :replace_live -> %{previous | lines: previous.lines ++ lines}
+      :clear_live -> %{previous | mode: :replace_live, lines: lines}
+    end
+  end
+
+  defp reduce_delta_payload(previous, %{mode: :replace_live, lines: lines}),
+    do: %{previous | mode: :replace_live, lines: lines}
+
+  defp reduce_delta_payload(previous, %{mode: :clear_live}),
+    do: %{previous | mode: :clear_live, lines: []}
 
   defp validate_transition_schema(flow, direction, frame, opts) do
     with true <- is_integer(Map.get(frame, :seq)) and is_integer(Map.get(frame, :ack)),

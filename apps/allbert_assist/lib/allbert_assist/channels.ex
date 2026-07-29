@@ -14,6 +14,7 @@ defmodule AllbertAssist.Channels do
   alias AllbertAssist.Settings.Store
   alias AllbertAssist.Signals
 
+  @system_integrity_ref "secret://system/integrity_v1"
   @known_event_keys [
     :channel,
     :provider,
@@ -30,7 +31,15 @@ defmodule AllbertAssist.Channels do
     :status,
     :reason,
     :payload_summary,
-    :error
+    :error,
+    :receipt_normalizer_version,
+    :receipt_hmac_key_ref,
+    :receipt_hmac_key_version,
+    :receipt_payload_hmac,
+    :receipt_state,
+    :receipt_message_id,
+    :receipt_result_ref,
+    :receipt_outcome
   ]
 
   @spec create_event(map()) :: {:ok, Event.t()} | {:error, Ecto.Changeset.t()}
@@ -61,7 +70,7 @@ defmodule AllbertAssist.Channels do
     event
     |> Event.changeset(attrs)
     |> Repo.update()
-    |> tap_event(&emit_updated_signals/1)
+    |> tap_event(&emit_updated_signals(event, &1))
   end
 
   @spec get_event_by_external_id(String.t(), String.t()) :: Event.t() | nil
@@ -321,7 +330,11 @@ defmodule AllbertAssist.Channels do
     emit_status_signal(event)
   end
 
-  defp emit_updated_signals(%Event{} = event), do: emit_status_signal(event)
+  defp emit_updated_signals(%Event{} = original, %Event{} = updated) do
+    if original.status != updated.status or original.direction != updated.direction do
+      emit_status_signal(updated)
+    end
+  end
 
   defp emit_status_signal(%Event{status: "processed", direction: "inbound"} = event) do
     emit_channel_signal(:runtime_submitted, event)
@@ -395,7 +408,16 @@ defmodule AllbertAssist.Channels do
 
   defp put_outbound_event_id(attrs), do: attrs
 
-  defp redact_event_attrs(attrs), do: Redactor.redact(attrs, :audits)
+  defp redact_event_attrs(attrs) do
+    receipt_key_ref = Map.get(attrs, :receipt_hmac_key_ref)
+    redacted = Redactor.redact(attrs, :audits)
+
+    if receipt_key_ref == @system_integrity_ref do
+      Map.put(redacted, :receipt_hmac_key_ref, @system_integrity_ref)
+    else
+      redacted
+    end
+  end
 
   defp bound_summary_fields(attrs) do
     attrs

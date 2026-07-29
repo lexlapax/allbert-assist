@@ -147,6 +147,88 @@ defmodule AllbertAssist.Channels.TUITest do
     refute assistant_content =~ "[surface]"
   end
 
+  test "daemon callback publishes the durable bounded confirmation handoff only when required" do
+    configure_tui!()
+    parent = self()
+    confirmation_id = "conf_tui_daemon_handoff"
+    assert {:ok, confirmation} = create_confirmation!(confirmation_id, "tui")
+
+    assert {:ok, expires_at, _offset} =
+             confirmation["expires_at"]
+             |> DateTime.from_iso8601()
+
+    oversized_target = String.duplicate("é", 8_000)
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        send(parent, {:runtime_request, request})
+
+        case request.text do
+          "needs confirmation" ->
+            {:ok,
+             %{
+               model_payload: "Confirmation is required.",
+               surface_payload: "Confirmation is required.",
+               status: :needs_confirmation,
+               approval_handoff: %{
+                 confirmation_id: confirmation_id,
+                 status: :pending,
+                 target_action: %{action: %{name: oversized_target}},
+                 allowed_actions: [:approve, :deny]
+               }
+             }}
+
+          text ->
+            {:ok,
+             %{
+               model_payload: "ordinary response: #{text}",
+               surface_payload: "ordinary response: #{text}",
+               status: :completed
+             }}
+        end
+      end
+    )
+
+    assert {:ok, server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: false,
+               enabled?: true,
+               live_screen?: false,
+               output_fun: fn _line -> :ok end,
+               confirmation_fun: fn handoff ->
+                 send(parent, {:daemon_confirmation_handoff, handoff})
+                 :ok
+               end
+             )
+
+    assert {:ok, {:processed, _event, [_rendered]}} =
+             Adapter.submit(server, "needs confirmation",
+               external_event_id: "evt-tui-daemon-handoff"
+             )
+
+    assert_receive {:daemon_confirmation_handoff,
+                    %{
+                      confirmation_id: ^confirmation_id,
+                      prompt: prompt,
+                      expires_at_unix_ms: expires_at_unix_ms
+                    }}
+
+    assert prompt != ""
+    assert String.valid?(prompt)
+    assert byte_size(prompt) <= 12 * 1_024
+    assert prompt =~ "Approval: #{confirmation_id}"
+    assert expires_at_unix_ms == DateTime.to_unix(expires_at, :millisecond)
+
+    assert {:ok, durable_confirmation} = Confirmations.read(confirmation_id)
+    assert durable_confirmation["expires_at"] == confirmation["expires_at"]
+
+    assert {:ok, {:processed, _event, ["ordinary response: ordinary turn"]}} =
+             Adapter.submit(server, "ordinary turn", external_event_id: "evt-tui-daemon-ordinary")
+
+    refute_receive {:daemon_confirmation_handoff, _handoff}, 100
+  end
+
   test "trusted local launcher bootstrap admits normal and slash turns as canonical local" do
     assert {:ok, %{disposition: :bootstrapped}} = IdentityBootstrap.prepare_local_launch()
     parent = self()
@@ -285,6 +367,61 @@ defmodule AllbertAssist.Channels.TUITest do
     )
 
     refute_receive {:tui_output, _duplicate}, 100
+  end
+
+  test "daemon delivery custody waits for cumulative acknowledgement without blocking ordinary output" do
+    configure_tui!()
+    test_pid = self()
+
+    delivery_output_fun = fn line ->
+      send(test_pid, {:daemon_delivery_waiting, line, self()})
+
+      receive do
+        {:cumulative_ack, ^line} -> :ok
+      end
+    end
+
+    assert {:ok, server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: false,
+               enabled?: true,
+               live_screen?: false,
+               output_fun: fn line -> send(test_pid, {:daemon_queue_admitted, line}) end,
+               delivery_output_fun: delivery_output_fun
+             )
+
+    assert {:ok, {:processed, _event, [ordinary]}} =
+             Adapter.submit(server, "ordinary output",
+               external_event_id: "evt-tui-daemon-ordinary-output"
+             )
+
+    assert_receive {:daemon_queue_admitted, ^ordinary}
+    refute_receive {:daemon_delivery_waiting, ^ordinary, _worker}, 50
+
+    assert {:ok, %{parent: parent, children: children}} =
+             attached_fanout!("Daemon delivery custody")
+
+    set_active_fanout(server, parent.id)
+    complete_children!(children)
+
+    assert_receive {:daemon_delivery_waiting, joined, delivery_worker}, 1_000
+    assert joined == "[fan-out] fanout joined: Daemon delivery custody"
+    assert Fanout.parent_projection(parent).parent.report_delivery_state == "pending"
+    refute_receive {:daemon_queue_admitted, ^joined}, 50
+
+    send(delivery_worker, {:cumulative_ack, joined})
+
+    assert_receive {:daemon_delivery_waiting, report, ^delivery_worker}, 1_000
+    assert report =~ "Daemon delivery custody — success"
+    assert Fanout.parent_projection(parent).parent.report_delivery_state == "pending"
+    refute_receive {:daemon_queue_admitted, ^report}, 50
+
+    send(delivery_worker, {:cumulative_ack, report})
+
+    eventually(fn ->
+      Fanout.parent_projection(parent).parent.report_delivery_state == "delivered"
+    end)
   end
 
   test "transient report acknowledgement cannot restart the raw TUI or interrupt its attended FIFO" do
@@ -672,6 +809,208 @@ defmodule AllbertAssist.Channels.TUITest do
              Adapter.submit(server, "hello again", external_event_id: "evt-tui-dupe")
 
     refute_received {:runtime_request, _request}
+  end
+
+  test "daemon-admitted input reuses its receipt event and reports actual completion" do
+    configure_tui!()
+    parent = self()
+    receipt_id = "q83JzWf5JkzQ2WcB6mP8Ng"
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        send(parent, {:daemon_runtime_started, request, self()})
+
+        receive do
+          :release_daemon_runtime -> :ok
+        end
+
+        {:ok,
+         %{
+           model_payload: "daemon response: #{request.text}",
+           surface_payload: "daemon response: #{request.text}",
+           status: :completed
+         }}
+      end
+    )
+
+    assert {:ok, event} =
+             Channels.create_event(%{
+               channel: "tui",
+               provider: "terminal",
+               direction: "inbound",
+               external_event_id: "tui:r1:daemon-admitted",
+               external_user_id: "default",
+               external_chat_id: "tui:default",
+               external_message_id: receipt_id,
+               status: "received",
+               payload_summary: "tui receipt #{receipt_id}"
+             })
+
+    assert {:ok, server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: false,
+               enabled?: true,
+               live_screen?: false,
+               output_fun: fn line -> send(parent, {:daemon_tui_output, line}) end,
+               input_lifecycle_fun: fn input_receipt_id, admitted_event, phase ->
+                 send(
+                   parent,
+                   {:daemon_input_lifecycle, input_receipt_id, admitted_event.id, phase}
+                 )
+               end
+             )
+
+    assert {:ok, {:accepted, ^receipt_id}} =
+             Adapter.submit_admitted(server, " daemon request ", event, receipt_id)
+
+    assert_receive {:daemon_input_lifecycle, ^receipt_id, event_id, :in_progress}, 1_000
+    assert event_id == event.id
+
+    assert_receive {:daemon_runtime_started, %{text: "daemon request"}, worker}, 1_000
+    refute_receive {:daemon_input_lifecycle, ^receipt_id, ^event_id, {:terminal, _reply}}, 50
+
+    assert Repo.aggregate(
+             from(channel_event in Event,
+               where:
+                 channel_event.channel == "tui" and
+                   channel_event.external_event_id == "tui:r1:daemon-admitted"
+             ),
+             :count
+           ) == 1
+
+    send(worker, :release_daemon_runtime)
+
+    assert_receive {:daemon_input_lifecycle, ^receipt_id, ^event_id,
+                    {:terminal, {:ok, {:processed, processed_event, [rendered]}}}},
+                   1_000
+
+    assert processed_event.id == event.id
+    assert rendered == "daemon response: daemon request"
+    assert_receive {:daemon_tui_output, ^rendered}
+  end
+
+  test "daemon-admitted slash, Pi turn, and correction keep receipt lifecycles on the attended queue" do
+    repo =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-tui-daemon-pi-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
+
+    File.mkdir_p!(repo)
+    on_exit(fn -> File.rm_rf(repo) end)
+    configure_pi_tui!(repo)
+    parent = self()
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        send(parent, {:daemon_pi_runtime_started, request.text, self()})
+
+        receive do
+          :release_daemon_pi_runtime -> :ok
+        end
+
+        {:ok,
+         %{
+           model_payload: "daemon Pi model: #{request.text}",
+           surface_payload: "daemon Pi output: #{request.text}",
+           status: :completed
+         }}
+      end
+    )
+
+    assert {:ok, server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: false,
+               enabled?: true,
+               live_screen?: false,
+               output_fun: fn line -> send(parent, {:daemon_pi_output, line}) end,
+               input_lifecycle_fun: fn input_receipt_id, _event, phase ->
+                 send(parent, {:daemon_pi_lifecycle, input_receipt_id, phase})
+               end
+             )
+
+    slash_receipt = "AAAAAAAAAAAAAAAAAAAAAA"
+    slash_event = create_admitted_tui_event!(slash_receipt, "daemon-pi-slash")
+
+    assert {:ok, {:accepted, ^slash_receipt}} =
+             Adapter.submit_admitted(server, "/pi #{repo}", slash_event, slash_receipt)
+
+    assert_receive {:daemon_pi_lifecycle, ^slash_receipt, :in_progress}, 1_000
+
+    assert_receive {:daemon_pi_lifecycle, ^slash_receipt,
+                    {:terminal, {:ok, {:slash, [_entered]}}}},
+                   1_000
+
+    first_receipt = "BBBBBBBBBBBBBBBBBBBBBB"
+    first_event = create_admitted_tui_event!(first_receipt, "daemon-pi-first")
+
+    assert {:ok, {:accepted, ^first_receipt}} =
+             Adapter.submit_admitted(server, "first daemon Pi turn", first_event, first_receipt)
+
+    assert_receive {:daemon_pi_lifecycle, ^first_receipt, :in_progress}, 1_000
+    assert_receive {:daemon_pi_runtime_started, "first daemon Pi turn", first_worker}, 1_000
+
+    refute_receive {:daemon_pi_lifecycle, ^first_receipt, {:terminal, _reply}}, 50
+
+    correction_receipt = "CCCCCCCCCCCCCCCCCCCCCC"
+    correction_event = create_admitted_tui_event!(correction_receipt, "daemon-pi-correction")
+
+    assert {:ok, {:accepted, ^correction_receipt}} =
+             Adapter.submit_admitted(
+               server,
+               "correct the daemon Pi turn",
+               correction_event,
+               correction_receipt
+             )
+
+    refute_receive {:daemon_pi_runtime_started, "correct the daemon Pi turn", _worker}, 50
+    refute_receive {:daemon_pi_lifecycle, ^correction_receipt, {:terminal, _reply}}, 50
+
+    queued_receipt = "DDDDDDDDDDDDDDDDDDDDDD"
+    queued_event = create_admitted_tui_event!(queued_receipt, "daemon-pi-queued")
+
+    assert {:ok, {:accepted, ^queued_receipt}} =
+             Adapter.submit_admitted(
+               server,
+               "queued after the correction",
+               queued_event,
+               queued_receipt
+             )
+
+    refute_receive {:daemon_pi_lifecycle, ^queued_receipt, :in_progress}, 50
+    refute_receive {:daemon_pi_runtime_started, "queued after the correction", _worker}, 50
+
+    send(first_worker, :release_daemon_pi_runtime)
+
+    assert_receive {:daemon_pi_lifecycle, ^first_receipt,
+                    {:terminal, {:ok, {:processed, _event, [_rendered]}}}},
+                   1_000
+
+    assert_receive {:daemon_pi_lifecycle, ^correction_receipt, :in_progress}, 1_000
+
+    assert_receive {:daemon_pi_runtime_started, "correct the daemon Pi turn", correction_worker},
+                   1_000
+
+    refute_receive {:daemon_pi_lifecycle, ^correction_receipt, {:terminal, _reply}}, 50
+    send(correction_worker, :release_daemon_pi_runtime)
+
+    assert_receive {:daemon_pi_lifecycle, ^correction_receipt,
+                    {:terminal, {:ok, {:processed, _event, [_rendered]}}}},
+                   1_000
+
+    assert_receive {:daemon_pi_lifecycle, ^queued_receipt, :in_progress}, 1_000
+
+    assert_receive {:daemon_pi_runtime_started, "queued after the correction", queued_worker},
+                   1_000
+
+    refute_receive {:daemon_pi_lifecycle, ^queued_receipt, {:terminal, _reply}}, 50
+    send(queued_worker, :release_daemon_pi_runtime)
+
+    assert_receive {:daemon_pi_lifecycle, ^queued_receipt,
+                    {:terminal, {:ok, {:processed, _event, [_rendered]}}}},
+                   1_000
   end
 
   test "slash help renders canonical commands without runtime submission or channel event" do
@@ -1907,9 +2246,10 @@ defmodule AllbertAssist.Channels.TUITest do
     assert_receive {:helper_stopped, %{port: ^helper_ref, os_pid: nil}}
   end
 
-  test "typed confirmation commands resolve without runtime submission" do
+  test "typed and daemon confirmation commands resolve without runtime submission" do
     configure_tui!()
     assert {:ok, confirmation} = create_confirmation!("conf_tui_typed", "tui")
+    assert {:ok, daemon_confirmation} = create_confirmation!("conf_tui_daemon", "tui")
     parent = self()
 
     assert {:ok, server} =
@@ -1944,9 +2284,30 @@ defmodule AllbertAssist.Channels.TUITest do
     assert resolved["operator_resolution"]["resolver_actor"] == "alice"
     assert resolved["operator_resolution"]["resolver_channel"] == "tui"
     assert resolved["operator_resolution"]["resolver_metadata"]["command"] =~ "DENY"
+
+    assert {:ok, {:confirmation, response, [daemon_rendered]}} =
+             Adapter.confirm(server, daemon_confirmation["id"], :deny,
+               external_event_id: "evt-tui-daemon-confirmation"
+             )
+
+    assert response.status == :completed
+    assert daemon_rendered =~ "denied"
+    assert_receive {:tui_output, ^daemon_rendered}
+    refute_received {:runtime_request, _request}
+
+    refute Repo.get_by(Event,
+             channel: "tui",
+             external_event_id: "evt-tui-daemon-confirmation"
+           )
+
+    assert {:ok, daemon_resolved} = Confirmations.read(daemon_confirmation["id"])
+    assert daemon_resolved["status"] == "denied"
+    assert daemon_resolved["operator_resolution"]["resolver_actor"] == "alice"
+    assert daemon_resolved["operator_resolution"]["resolver_channel"] == "tui"
+    assert daemon_resolved["operator_resolution"]["resolver_metadata"]["command"] =~ "DENY"
   end
 
-  test "typed confirmation commands cannot resolve other-channel confirmations" do
+  test "typed and daemon confirmation commands cannot resolve other-channel confirmations" do
     configure_tui!()
     assert {:ok, confirmation} = create_confirmation!("conf_tui_wrong_channel", "slack")
 
@@ -1958,6 +2319,19 @@ defmodule AllbertAssist.Channels.TUITest do
                live_screen?: false,
                output_fun: fn _line -> :ok end
              )
+
+    assert {:error, :wrong_channel} =
+             Adapter.confirm(server, confirmation["id"], :deny,
+               external_event_id: "evt-tui-daemon-wrong-channel"
+             )
+
+    refute Repo.get_by(Event,
+             channel: "tui",
+             external_event_id: "evt-tui-daemon-wrong-channel"
+           )
+
+    assert {:ok, daemon_pending} = Confirmations.read(confirmation["id"])
+    assert daemon_pending["status"] == "pending"
 
     assert {:ok, :rejected} =
              Adapter.submit(server, "ALLBERT:DENY:#{confirmation["id"]}",
@@ -2194,6 +2568,23 @@ defmodule AllbertAssist.Channels.TUITest do
 
     assert {:ok, _setting} =
              Settings.put("coding.model_profile", "pi_coding_local", %{audit?: false})
+  end
+
+  defp create_admitted_tui_event!(receipt_id, suffix) do
+    assert {:ok, event} =
+             Channels.create_event(%{
+               channel: "tui",
+               provider: "terminal",
+               direction: "inbound",
+               external_event_id: "tui:r1:#{suffix}",
+               external_user_id: "default",
+               external_chat_id: "tui:default",
+               external_message_id: receipt_id,
+               status: "received",
+               payload_summary: "tui receipt #{receipt_id}"
+             })
+
+    event
   end
 
   defp input_driver_callbacks(parent) do

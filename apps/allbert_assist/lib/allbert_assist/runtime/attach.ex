@@ -280,7 +280,11 @@ end
 
 defmodule AllbertAssist.Runtime.Attach.Server do
   @moduledoc """
-  Daemon-side attach listener for `allbert` CLI commands.
+  Daemon-side attach listener for unary commands and authenticated TUI sessions.
+
+  The listener owns only socket admission, bounded pre-authentication workers,
+  and the single provisional/active TUI reservation. Long-lived terminal state
+  belongs to `AllbertAssist.Runtime.Attach.TUISession`.
   """
 
   use GenServer
@@ -289,12 +293,14 @@ defmodule AllbertAssist.Runtime.Attach.Server do
 
   alias AllbertAssist.Runtime.Attach
   alias AllbertAssist.Runtime.Attach.TUIProtocol
+  alias AllbertAssist.Runtime.Attach.TUISession
 
   @accept_timeout 1_000
   @recv_timeout 5_000
   # v0.62 M8.16: cap concurrent attached commands so a burst of clients can't
   # spawn unbounded tasks; extra clients get a fast `:busy` instead of blocking.
   @max_children 16
+  @max_pending_handshakes 16
   # Attach requests are a small argv + identity map. Cap the pre-auth `packet: 4`
   # frame so an unauthenticated peer can't force a multi-gigabyte allocation.
   @max_frame_bytes 1_048_576
@@ -304,10 +310,34 @@ defmodule AllbertAssist.Runtime.Attach.Server do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
+  @doc "Return bounded attach-listener health without exposing socket or token material."
+  @spec status(GenServer.server()) :: %{
+          optional(:pending_handshakes) => non_neg_integer(),
+          optional(:reason) => atom(),
+          optional(:tui_session) => :none | :starting | :active,
+          required(:status) => :up | :degraded
+        }
+  def status(server \\ __MODULE__), do: GenServer.call(server, :status, 1_000)
+
   @impl true
-  def init(_opts) do
+  def init(opts) do
     Attach.remove_stale_socket()
     token = Attach.ensure_token!()
+    {:ok, task_sup} = Task.Supervisor.start_link(max_children: @max_children)
+
+    state = %{
+      listen_socket: nil,
+      acceptor: nil,
+      token: token,
+      task_sup: task_sup,
+      pending: %{},
+      pending_limit: Keyword.get(opts, :pending_handshake_limit, @max_pending_handshakes),
+      session: nil,
+      session_module: Keyword.get(opts, :session_module, TUISession),
+      session_opts: Keyword.get(opts, :session_opts, []),
+      status: :up,
+      status_reason: nil
+    }
 
     case :gen_tcp.listen(0, [
            :binary,
@@ -319,106 +349,206 @@ defmodule AllbertAssist.Runtime.Attach.Server do
       {:ok, listen_socket} ->
         owner = self()
         acceptor = spawn_link(fn -> accept_loop(owner, listen_socket) end)
-        # v0.62 M8.9: run attached commands in a supervised task (temporary
-        # children) so a crashing or slow command cannot crash or block the
-        # listener GenServer. M8.16: bound the child count.
-        {:ok, task_sup} = Task.Supervisor.start_link(max_children: @max_children)
         Logger.info("attach listener started at #{Attach.socket_path()}")
 
-        {:ok,
-         %{listen_socket: listen_socket, acceptor: acceptor, token: token, task_sup: task_sup}}
+        {:ok, %{state | listen_socket: listen_socket, acceptor: acceptor}}
 
       {:error, reason} ->
-        # Operator-validation F3: the attach socket is an optimization (it lets CLI
-        # commands attach to the running daemon). If it cannot bind, degrade — CLI
-        # commands fall back to the embedded runtime — rather than crashing the whole
-        # daemon. `:ignore` leaves the supervisor healthy and `serve` running.
         Logger.warning(
           "attach listener could not bind #{Attach.socket_path()} (#{inspect(reason)}); " <>
-            "CLI attach disabled, commands will run embedded — serve continues"
+            "daemon attachment is unavailable — serve and Web continue degraded"
         )
 
-        :ignore
+        {:ok, %{state | status: :degraded, status_reason: health_reason(reason)}}
     end
   end
 
   @impl true
-  def handle_info({:attach_request, request, socket, wire}, %{token: token} = state) do
-    case request do
-      %{} -> route_request(request, socket, token, state.task_sup, wire)
-      _other -> reply(socket, {:error, :invalid_request})
+  def handle_call(:status, _from, state) do
+    status = %{
+      status: state.status,
+      pending_handshakes: map_size(state.pending),
+      tui_session: session_status(state.session)
+    }
+
+    status =
+      if state.status_reason, do: Map.put(status, :reason, state.status_reason), else: status
+
+    {:reply, status, state}
+  end
+
+  def handle_call(:reserve_handshake, _from, state) do
+    if map_size(state.pending) < state.pending_limit do
+      owner = self()
+      {worker, monitor_ref} = spawn_monitor(fn -> handshake_worker(owner) end)
+      pending = Map.put(state.pending, worker, %{monitor_ref: monitor_ref, session_pid: nil})
+      {:reply, {:ok, worker}, %{state | pending: pending}}
+    else
+      {:reply, {:error, :capacity}, state}
+    end
+  end
+
+  @impl true
+  def handle_info({:attach_request, worker, request, wire}, state) do
+    if Map.has_key?(state.pending, worker) do
+      {instruction, state} = route_request(request, worker, wire, state)
+      maybe_instruct(worker, instruction)
+      {:noreply, state}
+    else
+      {:noreply, state}
+    end
+  end
+
+  def handle_info({:attach_invalid, worker, reason}, state) do
+    if Map.has_key?(state.pending, worker) do
+      send(worker, {:reply_and_close, {:error, reason}})
     end
 
     {:noreply, state}
   end
 
-  def handle_info({:attach_invalid, reason, socket}, state) do
-    reply(socket, {:error, reason})
+  def handle_info({:attach_handoff, worker, result}, state) do
+    state = finish_handoff(worker, result, state)
     {:noreply, state}
+  end
+
+  def handle_info({:tui_session_ready, session_pid}, state) do
+    case state.session do
+      %{pid: ^session_pid, worker: worker} = session ->
+        send(worker, {:handoff, session_pid})
+        {:noreply, %{state | session: %{session | ready?: true}}}
+
+      _other ->
+        {:noreply, state}
+    end
+  end
+
+  def handle_info({:tui_session_rejected, session_pid, code, message}, state) do
+    case state.session do
+      %{pid: ^session_pid, worker: worker, monitor_ref: monitor_ref} ->
+        send(worker, {:reply_and_close, TUIProtocol.open_close(code, message)})
+        Process.demonitor(monitor_ref, [:flush])
+        {:noreply, %{state | session: nil}}
+
+      _other ->
+        {:noreply, state}
+    end
   end
 
   def handle_info({:attach_accept_error, reason}, state) do
     {:stop, {:attach_accept_failed, reason}, state}
   end
 
-  defp route_request(request, socket, token, task_sup, wire) do
-    case TUIProtocol.classify_kind(request) do
-      {:ok, :command} ->
-        route_command(request, socket, token, task_sup)
-
-      {:ok, :tui_session} ->
-        route_tui_open(request, socket, token, wire)
-
-      {:error, :unsupported_kind} ->
-        reply(socket, TUIProtocol.open_close(:unsupported_kind, "Unsupported request kind."))
-    end
-  end
-
-  defp route_command(request, socket, token, task_sup) do
-    case Attach.validate_request(request, token) do
-      :ok -> dispatch_command(task_sup, request.argv, socket)
-      {:error, reason} -> reply(socket, {:error, reason})
-    end
-  end
-
-  defp route_tui_open(request, socket, token, wire) do
+  def handle_info({:DOWN, monitor_ref, :process, pid, reason}, state) do
     cond do
-      wire.compressed? ->
-        reply(socket, TUIProtocol.open_close(:invalid_open, "Invalid TUI session open."))
+      match?(%{pid: ^pid, monitor_ref: ^monitor_ref}, state.session) ->
+        {:noreply, session_down(reason, state)}
 
-      wire.body_bytes > TUIProtocol.limits().open_body_bytes ->
-        reply(socket, TUIProtocol.open_close(:invalid_open, "Invalid TUI session open."))
+      pending_monitor?(state, pid, monitor_ref) ->
+        {:noreply, pending_down(pid, state)}
 
       true ->
-        expected = Map.put(Attach.identity(), :token, token)
+        {:noreply, state}
+    end
+  end
+
+  defp route_request(%{} = request, worker, wire, state) do
+    case TUIProtocol.classify_kind(request) do
+      {:ok, :command} ->
+        route_command(request, state)
+
+      {:ok, :tui_session} ->
+        route_tui_open(request, worker, wire, state)
+
+      {:error, :unsupported_kind} ->
+        {{:reply_and_close,
+          TUIProtocol.open_close(:unsupported_kind, "Unsupported request kind.")}, state}
+    end
+  end
+
+  defp route_request(_request, _worker, _wire, state),
+    do: {{:reply_and_close, {:error, :invalid_request}}, state}
+
+  defp route_command(request, state) do
+    case Attach.validate_request(request, state.token) do
+      :ok ->
+        case start_command_task(state.task_sup, request.argv) do
+          {:ok, task_pid} -> {{:handoff, task_pid}, state}
+          {:error, _reason} -> {{:reply_and_close, {:error, :busy}}, state}
+        end
+
+      {:error, reason} ->
+        {{:reply_and_close, {:error, reason}}, state}
+    end
+  end
+
+  defp route_tui_open(request, worker, wire, state) do
+    cond do
+      wire.compressed? ->
+        reject_open(:invalid_open, "Invalid TUI session open.", state)
+
+      wire.body_bytes > TUIProtocol.limits().open_body_bytes ->
+        reject_open(:invalid_open, "Invalid TUI session open.", state)
+
+      not is_nil(state.session) ->
+        reject_open(:already_attached, "A TUI session is already attached.", state)
+
+      true ->
+        expected = Map.put(Attach.identity(), :token, state.token)
 
         case TUIProtocol.validate_open(request, expected) do
-          {:ok, _open} ->
-            reply(
-              socket,
-              TUIProtocol.open_close(
-                :runtime_unavailable,
-                "TUI sessions are not available yet."
-              )
-            )
+          {:ok, open} ->
+            start_tui_session(open, worker, state)
 
           {:error, reason} ->
-            reply(socket, TUIProtocol.open_close(reason, "TUI session open rejected."))
+            reject_open(reason, "TUI session open rejected.", state)
         end
     end
   end
 
-  # Off the listener process: a crash or long-running command must not take down
-  # or serialize the attach listener. v0.62 M8.16: at the concurrency cap (or any
-  # spawn failure) reply `:busy` so the client fails fast instead of blocking to
-  # the recv timeout.
-  defp dispatch_command(task_sup, argv, socket) do
-    case Task.Supervisor.start_child(task_sup, fn ->
-           reply(socket, run_attached_isolated(argv))
-         end) do
-      {:ok, _pid} -> :ok
-      {:error, _reason} -> reply(socket, {:error, :busy})
+  defp reject_open(code, message, state) do
+    {{:reply_and_close, TUIProtocol.open_close(code, message)}, state}
+  end
+
+  defp start_tui_session(open, worker, state) do
+    opts =
+      [attach_server: self(), open: open]
+      |> Keyword.merge(state.session_opts)
+
+    case state.session_module.start(opts) do
+      {:ok, session_pid} ->
+        monitor_ref = Process.monitor(session_pid)
+
+        pending =
+          Map.update!(state.pending, worker, fn handshake ->
+            %{handshake | session_pid: session_pid}
+          end)
+
+        session = %{
+          pid: session_pid,
+          monitor_ref: monitor_ref,
+          worker: worker,
+          ready?: false,
+          active?: false
+        }
+
+        {nil, %{state | pending: pending, session: session}}
+
+      {:error, reason} ->
+        Logger.warning("TUI session owner could not start: #{inspect(reason)}")
+        reject_open(:runtime_unavailable, "TUI session could not start.", state)
     end
+  end
+
+  defp start_command_task(task_sup, argv) do
+    Task.Supervisor.start_child(task_sup, fn ->
+      receive do
+        {:attach_socket, socket} ->
+          send_response_and_close(socket, run_attached_isolated(argv))
+      after
+        @recv_timeout -> :ok
+      end
+    end)
   end
 
   # Run the attached command with a crash barrier so a failing command returns a
@@ -431,24 +561,104 @@ defmodule AllbertAssist.Runtime.Attach.Server do
     kind, value -> {:error, {:command_crashed, inspect({kind, value})}}
   end
 
-  defp reply(socket, response) do
+  defp send_response_and_close(socket, response) do
     _ = :gen_tcp.send(socket, :erlang.term_to_binary(response))
     :gen_tcp.close(socket)
   end
 
+  defp maybe_instruct(_worker, nil), do: :ok
+  defp maybe_instruct(worker, instruction), do: send(worker, instruction)
+
+  defp finish_handoff(worker, :ok, state) do
+    state = drop_pending(worker, state)
+
+    case state.session do
+      %{worker: ^worker} = session -> %{state | session: %{session | active?: true, worker: nil}}
+      _other -> state
+    end
+  end
+
+  defp finish_handoff(worker, {:error, reason}, state) do
+    state = maybe_stop_worker_session(worker, {:socket_handoff_failed, reason}, state)
+    drop_pending(worker, state)
+  end
+
+  defp pending_down(worker, state) do
+    state = maybe_stop_worker_session(worker, :handshake_closed, state)
+    drop_pending(worker, state, demonitor?: false)
+  end
+
+  defp pending_monitor?(state, pid, monitor_ref) do
+    match?(%{monitor_ref: ^monitor_ref}, Map.get(state.pending, pid))
+  end
+
+  defp maybe_stop_worker_session(worker, reason, state) do
+    case state.session do
+      %{worker: ^worker, pid: session_pid, monitor_ref: monitor_ref} ->
+        Process.demonitor(monitor_ref, [:flush])
+        if Process.alive?(session_pid), do: GenServer.stop(session_pid, reason)
+        %{state | session: nil}
+
+      _other ->
+        state
+    end
+  catch
+    :exit, _reason -> %{state | session: nil}
+  end
+
+  defp session_down(reason, state) do
+    case state.session do
+      %{worker: worker} when is_pid(worker) ->
+        send(
+          worker,
+          {:reply_and_close,
+           TUIProtocol.open_close(
+             :runtime_unavailable,
+             "TUI session initialization failed."
+           )}
+        )
+
+      _active_or_nil ->
+        if reason not in [:normal, :shutdown],
+          do: Logger.warning("TUI session owner stopped: #{inspect(reason)}")
+    end
+
+    %{state | session: nil}
+  end
+
+  defp drop_pending(worker, state, opts \\ []) do
+    case Map.pop(state.pending, worker) do
+      {nil, _pending} ->
+        state
+
+      {%{monitor_ref: monitor_ref}, pending} ->
+        if Keyword.get(opts, :demonitor?, true), do: Process.demonitor(monitor_ref, [:flush])
+        %{state | pending: pending}
+    end
+  end
+
   @impl true
-  def terminate(_reason, %{listen_socket: listen_socket}) do
-    :gen_tcp.close(listen_socket)
+  def terminate(_reason, state) do
+    if state.listen_socket, do: :gen_tcp.close(state.listen_socket)
+    terminate_pending_workers(state.pending)
+
+    if state.session && Process.alive?(state.session.pid),
+      do: GenServer.stop(state.session.pid, :daemon_shutdown)
+
     Attach.remove_stale_socket()
     :ok
   end
 
-  def terminate(_reason, _state), do: :ok
+  defp terminate_pending_workers(pending) do
+    Enum.each(pending, fn {worker, _handshake} ->
+      if Process.alive?(worker), do: Process.exit(worker, :shutdown)
+    end)
+  end
 
   defp accept_loop(owner, listen_socket) do
     case :gen_tcp.accept(listen_socket, @accept_timeout) do
       {:ok, socket} ->
-        handle_socket(owner, socket)
+        admit_socket(owner, socket)
         accept_loop(owner, listen_socket)
 
       {:error, :timeout} ->
@@ -462,24 +672,106 @@ defmodule AllbertAssist.Runtime.Attach.Server do
     end
   end
 
-  defp handle_socket(owner, socket) do
-    case :gen_tcp.recv(socket, 0, @recv_timeout) do
-      {:ok, payload} ->
-        case safe_binary_to_term(payload) do
-          {:ok, request} ->
-            wire = %{
-              body_bytes: byte_size(payload),
-              compressed?: TUIProtocol.compressed_term?(payload)
-            }
-
-            send(owner, {:attach_request, request, socket, wire})
+  defp admit_socket(owner, socket) do
+    case GenServer.call(owner, :reserve_handshake, @recv_timeout) do
+      {:ok, worker} ->
+        case :gen_tcp.controlling_process(socket, worker) do
+          :ok ->
+            send(worker, {:accepted_socket, socket})
 
           {:error, reason} ->
-            send(owner, {:attach_invalid, reason, socket})
+            :gen_tcp.close(socket)
+            send(owner, {:attach_handoff, worker, {:error, reason}})
         end
 
+      {:error, :capacity} ->
+        send_response_and_close(
+          socket,
+          TUIProtocol.open_close(:capacity, "Attach handshake capacity reached.")
+        )
+    end
+  catch
+    :exit, _reason -> :gen_tcp.close(socket)
+  end
+
+  defp handshake_worker(owner) do
+    owner_monitor = Process.monitor(owner)
+
+    receive do
+      {:accepted_socket, socket} -> receive_open(owner, owner_monitor, socket)
+      {:DOWN, ^owner_monitor, :process, ^owner, _reason} -> :ok
+    after
+      @recv_timeout -> :ok
+    end
+  end
+
+  defp receive_open(owner, owner_monitor, socket) do
+    case :inet.setopts(socket, active: :once) do
+      :ok -> receive_open_frame(owner, owner_monitor, socket)
+      {:error, reason} -> notify_invalid_and_await(owner, owner_monitor, socket, reason)
+    end
+  end
+
+  defp receive_open_frame(owner, owner_monitor, socket) do
+    receive do
+      {:tcp, ^socket, payload} ->
+        handle_open_payload(owner, owner_monitor, socket, payload)
+
+      {:tcp_closed, ^socket} ->
+        notify_invalid_and_await(owner, owner_monitor, socket, :closed)
+
+      {:tcp_error, ^socket, reason} ->
+        notify_invalid_and_await(owner, owner_monitor, socket, reason)
+
+      {:DOWN, ^owner_monitor, :process, ^owner, _reason} ->
+        :gen_tcp.close(socket)
+    after
+      @recv_timeout -> notify_invalid_and_await(owner, owner_monitor, socket, :timeout)
+    end
+  end
+
+  defp handle_open_payload(owner, owner_monitor, socket, payload) do
+    case safe_binary_to_term(payload) do
+      {:ok, request} ->
+        wire = %{
+          body_bytes: byte_size(payload),
+          compressed?: TUIProtocol.compressed_term?(payload)
+        }
+
+        send(owner, {:attach_request, self(), request, wire})
+        await_route(owner, owner_monitor, socket)
+
       {:error, reason} ->
-        send(owner, {:attach_invalid, reason, socket})
+        notify_invalid_and_await(owner, owner_monitor, socket, reason)
+    end
+  end
+
+  defp notify_invalid_and_await(owner, owner_monitor, socket, reason) do
+    send(owner, {:attach_invalid, self(), reason})
+    await_route(owner, owner_monitor, socket)
+  end
+
+  defp await_route(owner, owner_monitor, socket) do
+    receive do
+      {:reply_and_close, response} ->
+        send_response_and_close(socket, response)
+
+      {:handoff, new_owner} when is_pid(new_owner) ->
+        case :gen_tcp.controlling_process(socket, new_owner) do
+          :ok ->
+            send(new_owner, {:attach_socket, socket})
+            send(owner, {:attach_handoff, self(), :ok})
+
+          {:error, reason} ->
+            :gen_tcp.close(socket)
+            send(owner, {:attach_handoff, self(), {:error, reason}})
+        end
+
+      {:DOWN, ^owner_monitor, :process, ^owner, _reason} ->
+        :gen_tcp.close(socket)
+    after
+      @recv_timeout ->
+        :gen_tcp.close(socket)
     end
   end
 
@@ -488,4 +780,11 @@ defmodule AllbertAssist.Runtime.Attach.Server do
   rescue
     _error -> {:error, :invalid_term}
   end
+
+  defp health_reason(reason) when is_atom(reason), do: reason
+  defp health_reason(_reason), do: :unavailable
+
+  defp session_status(nil), do: :none
+  defp session_status(%{active?: true}), do: :active
+  defp session_status(%{}), do: :starting
 end

@@ -12,6 +12,10 @@ defmodule AllbertAssist.Channels.Event do
 
   @directions ~w[inbound outbound callback]
   @statuses ~w[received processed rejected failed]
+  @receipt_states ~w[received admitted in_progress completed rejected failed outcome_unknown]
+  @receipt_outcomes ~w[completed rejected failed outcome_unknown]
+  @receipt_normalizer_versions ["tui-input-v1"]
+  @receipt_hmac_key_refs ["secret://system/integrity_v1"]
 
   schema "channel_events" do
     field :channel, :string
@@ -30,6 +34,14 @@ defmodule AllbertAssist.Channels.Event do
     field :reason, :string
     field :payload_summary, :string
     field :error, :string
+    field :receipt_normalizer_version, :string
+    field :receipt_hmac_key_ref, :string
+    field :receipt_hmac_key_version, :integer
+    field :receipt_payload_hmac, :string
+    field :receipt_state, :string
+    field :receipt_message_id, :string
+    field :receipt_result_ref, :string
+    field :receipt_outcome, :string
 
     timestamps(type: :utc_datetime_usec)
   end
@@ -55,7 +67,15 @@ defmodule AllbertAssist.Channels.Event do
       :status,
       :reason,
       :payload_summary,
-      :error
+      :error,
+      :receipt_normalizer_version,
+      :receipt_hmac_key_ref,
+      :receipt_hmac_key_version,
+      :receipt_payload_hmac,
+      :receipt_state,
+      :receipt_message_id,
+      :receipt_result_ref,
+      :receipt_outcome
     ])
     |> validate_required([:channel, :provider, :direction, :external_event_id, :status])
     |> validate_inclusion(:direction, @directions)
@@ -75,6 +95,14 @@ defmodule AllbertAssist.Channels.Event do
     |> validate_length(:reason, max: 500)
     |> validate_length(:payload_summary, max: 500)
     |> validate_length(:error, max: 500)
+    |> validate_inclusion(:receipt_normalizer_version, @receipt_normalizer_versions)
+    |> validate_inclusion(:receipt_hmac_key_ref, @receipt_hmac_key_refs)
+    |> validate_inclusion(:receipt_hmac_key_version, [1])
+    |> validate_format(:receipt_payload_hmac, ~r/\A[A-Za-z0-9_-]{43}\z/)
+    |> validate_inclusion(:receipt_state, @receipt_states)
+    |> validate_length(:receipt_message_id, max: 128)
+    |> validate_length(:receipt_result_ref, max: 256)
+    |> validate_inclusion(:receipt_outcome, @receipt_outcomes)
     |> unique_constraint(:external_event_id,
       name: :channel_events_inbound_callback_dedup
     )

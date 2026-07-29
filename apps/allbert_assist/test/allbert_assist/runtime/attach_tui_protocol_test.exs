@@ -309,6 +309,42 @@ defmodule AllbertAssist.Runtime.Attach.TUIProtocolTest do
     end
   end
 
+  describe "adjacent presentation delta reduction" do
+    test "applies every frozen same-revision reduction rule" do
+      append = delta(:append, ["one"])
+      replace = delta(:replace_live, ["replacement"])
+      clear = delta(:clear_live, [])
+
+      assert {:ok, %{mode: :append, lines: ["one", "two"]}} =
+               TUIProtocol.reduce_adjacent_deltas(append, delta(:append, ["two"]))
+
+      assert {:ok, ^replace} = TUIProtocol.reduce_adjacent_deltas(append, replace)
+      assert {:ok, ^clear} = TUIProtocol.reduce_adjacent_deltas(append, clear)
+
+      assert {:ok, %{mode: :replace_live, lines: ["replacement", "tail"]}} =
+               TUIProtocol.reduce_adjacent_deltas(replace, delta(:append, ["tail"]))
+
+      assert {:ok, %{mode: :replace_live, lines: ["after clear"]}} =
+               TUIProtocol.reduce_adjacent_deltas(clear, delta(:append, ["after clear"]))
+    end
+
+    test "retains separate frames when revisions differ or reduction exceeds bounds" do
+      assert :no_reduction =
+               TUIProtocol.reduce_adjacent_deltas(
+                 delta(:append, ["one"], 1),
+                 delta(:append, ["two"], 2)
+               )
+
+      full = List.duplicate("x", 256)
+
+      assert :no_reduction =
+               TUIProtocol.reduce_adjacent_deltas(
+                 delta(:append, full),
+                 delta(:append, ["overflow"])
+               )
+    end
+  end
+
   describe "frozen limits and bounded terminal payloads" do
     test "publishes pressure limits and constructs only allowlisted close/error payloads" do
       assert %{
@@ -323,6 +359,8 @@ defmodule AllbertAssist.Runtime.Attach.TUIProtocolTest do
                client_outbound_unsent: %{frames: 32, bytes: 262_144},
                client_unacknowledged: %{frames: 32, bytes: 262_144}
              } = TUIProtocol.limits()
+
+      assert TUIProtocol.pressure_drop_order() == [:status, :delta]
 
       close = TUIProtocol.close_payload(:daemon_shutdown, String.duplicate("é", 600))
       assert close.code == :daemon_shutdown
@@ -592,6 +630,10 @@ defmodule AllbertAssist.Runtime.Attach.TUIProtocolTest do
       version: "1.2.1",
       token: @token
     }
+  end
+
+  defp delta(mode, lines, revision \\ 1) do
+    %{render_revision: revision, mode: mode, lines: lines}
   end
 
   defp frame(frame, payload, seq \\ 1, ack \\ 0) do

@@ -7,6 +7,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
 
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.ConfirmationCallback
+  alias AllbertAssist.Channels.Event
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.InboundTrust
   alias AllbertAssist.Channels.TUI.EscapeMonitor
@@ -18,6 +19,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   alias AllbertAssist.Coding.Config, as: CodingConfig
   alias AllbertAssist.Coding.Session, as: CodingSession
   alias AllbertAssist.Coding.TurnSupervisor, as: CodingTurnSupervisor
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Runs.Scheduler
@@ -36,7 +38,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   # The attended worker receives a snapshot while the Adapter remains the live
   # owner of input, fan-out attachments, subscriptions, and presentation state.
   # Only worker-owned conversational fields may cross back at handoff.
-  @attended_turn_state_fields [:coding_mode?, :pi_session, :queued_correction]
+  @attended_turn_state_fields [:coding_mode?, :pi_session, :current_turn, :queued_correction]
 
   def child_spec(opts) do
     %{
@@ -59,6 +61,29 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   def submit(server \\ __MODULE__, text, opts \\ []) when is_binary(text) do
     GenServer.call(server, {:submit, text, opts}, Keyword.get(opts, :timeout_ms, 120_000))
   end
+
+  def submit_admitted(server, text, %Event{} = event, input_receipt_id)
+      when is_binary(text) and is_binary(input_receipt_id) do
+    GenServer.call(
+      server,
+      {:submit_admitted, text, event, input_receipt_id},
+      5_000
+    )
+  end
+
+  def confirm(server, confirmation_id, decision, opts \\ [])
+
+  def confirm(server, confirmation_id, decision, opts)
+      when is_binary(confirmation_id) and decision in [:approve, :deny] and is_list(opts) do
+    GenServer.call(
+      server,
+      {:confirm, confirmation_id, decision, opts},
+      Keyword.get(opts, :timeout_ms, 120_000)
+    )
+  end
+
+  def confirm(_server, _confirmation_id, _decision, _opts),
+    do: {:error, :invalid_confirmation}
 
   def cancel_current_turn(server \\ __MODULE__, reason \\ :operator_escape) do
     GenServer.call(server, {:cancel_current_turn, reason}, 120_000)
@@ -109,6 +134,21 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   @impl true
   def handle_call({:submit, text, opts}, _from, state) do
     {reply, state} = handle_text_submission(text, opts, state)
+    {:reply, reply, state}
+  end
+
+  def handle_call({:submit_admitted, text, event, input_receipt_id}, _from, state) do
+    with :ok <- validate_admitted_event(event, input_receipt_id) do
+      opts = admitted_input_opts(event, input_receipt_id, state)
+      {reply, state} = accept_attended_turn_with_reply(state, text, opts)
+      {:reply, reply, state}
+    else
+      {:error, _reason} = error -> {:reply, error, state}
+    end
+  end
+
+  def handle_call({:confirm, confirmation_id, decision, opts}, _from, state) do
+    {reply, state} = dispatch_confirmation(confirmation_id, decision, opts, state)
     {:reply, reply, state}
   end
 
@@ -198,13 +238,15 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     {:stop, :normal, state}
   end
 
-  def handle_info({:tui_attended_turn_finished, turn_id, _reply, state_delta}, state) do
+  def handle_info({:tui_attended_turn_finished, turn_id, reply, state_delta}, state) do
     case state.attended_turn do
-      %{turn_id: ^turn_id, monitor_ref: monitor_ref} ->
+      %{turn_id: ^turn_id, monitor_ref: monitor_ref, opts: opts} ->
         Process.demonitor(monitor_ref, [:flush])
 
         state
         |> apply_attended_turn_state_delta(state_delta)
+        |> maybe_start_deferred_coding_turn()
+        |> notify_attended_terminal(opts, reply)
         |> Map.put(:attended_turn, nil)
         |> advance_attended_turn_queue()
 
@@ -255,13 +297,14 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   def handle_info({:coding_tui_turn_finished, turn_id, reply, pi_session}, state) do
     state =
       case state.current_turn do
-        %{turn_id: ^turn_id} ->
+        %{turn_id: ^turn_id} = turn ->
           state
           |> stop_current_escape_monitor()
           |> clear_current_live_region()
           |> clear_live_status()
           |> emit_async_turn_reply(reply)
           |> maybe_put_pi_session(pi_session)
+          |> notify_input_lifecycle(Map.get(turn, :input_opts, []), {:terminal, reply})
           |> Map.put(:current_turn, nil)
           |> start_queued_correction()
 
@@ -269,12 +312,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
           state
       end
 
-    if state.auto_input? and is_nil(state.current_turn) do
-      state = maybe_schedule_next_prompt(state)
-      {:noreply, state}
-    else
-      {:noreply, state}
-    end
+    continue_after_coding_turn(state)
   end
 
   def handle_info({:coding_tui_escape, event_ref}, state) do
@@ -364,6 +402,14 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   end
 
   defp do_deliver_attached_fanout(delivery, state) do
+    if delivery.report && is_function(state.delivery_output_fun, 1) do
+      start_report_acknowledgement(delivery, state)
+    else
+      deliver_attached_fanout_immediately(delivery, state)
+    end
+  end
+
+  defp deliver_attached_fanout_immediately(delivery, state) do
     delivered? =
       Enum.reduce_while(delivery.lines, true, fn line, _delivered? ->
         case safe_emit_output(line, state) do
@@ -399,6 +445,8 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     owner = self()
     parent_id = delivery.parent_id
     acknowledge_fun = state.report_acknowledge_fun
+    delivery_output_fun = state.delivery_output_fun
+    lines = delivery.lines
     receipt = delivery.report.receipt
     delivery_context = delivery.report.delivery_context
 
@@ -415,6 +463,8 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
         owner,
         parent_id,
         acknowledge_fun,
+        delivery_output_fun,
+        lines,
         receipt,
         delivery_context
       )
@@ -427,11 +477,16 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
          owner,
          parent_id,
          acknowledge_fun,
+         delivery_output_fun,
+         lines,
          receipt,
          delivery_context
        ) do
     case start_turn_task(fn ->
-           result = acknowledge_fun.(receipt, delivery_context)
+           result =
+             with :ok <- deliver_report_lines(lines, delivery_output_fun) do
+               acknowledge_fun.(receipt, delivery_context)
+             end
 
            send(owner, {:tui_report_acknowledged, ack_id, parent_id, result})
          end) do
@@ -449,6 +504,28 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
         |> report_acknowledgement_warning(parent_id, {:task_start_failed, reason})
         |> maybe_clear_active_fanout(parent_id)
     end
+  end
+
+  defp deliver_report_lines(_lines, nil), do: :ok
+
+  defp deliver_report_lines(lines, delivery_output_fun)
+       when is_function(delivery_output_fun, 1) do
+    Enum.reduce_while(lines, :ok, fn line, :ok ->
+      case safe_delivery_output(delivery_output_fun, line) do
+        :ok -> {:cont, :ok}
+        {:error, _reason} = error -> {:halt, error}
+        other -> {:halt, {:error, {:invalid_delivery_output_result, other}}}
+      end
+    end)
+  end
+
+  defp safe_delivery_output(delivery_output_fun, line) do
+    delivery_output_fun.(line)
+  rescue
+    error -> {:error, {:output_exception, Exception.message(error)}}
+  catch
+    :exit, reason -> {:error, {:output_exit, reason}}
+    kind, reason -> {:error, {kind, reason}}
   end
 
   defp finish_report_acknowledgement(state, parent_id, :ok) do
@@ -623,8 +700,11 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
         Keyword.get(opts, :escape_monitor?, Keyword.get(opts, :auto_input?, false)),
       escape_monitor_fun: Keyword.get(opts, :escape_monitor_fun, &EscapeMonitor.start/2),
       output_fun: Keyword.get(opts, :output_fun),
+      delivery_output_fun: Keyword.get(opts, :delivery_output_fun),
+      confirmation_fun: Keyword.get(opts, :confirmation_fun),
       report_acknowledge_fun:
         Keyword.get(opts, :report_acknowledge_fun, &Runtime.acknowledge_report_delivery/2),
+      input_lifecycle_fun: Keyword.get(opts, :input_lifecycle_fun),
       max_text_bytes: Map.get(settings, "max_text_bytes", 12_000),
       coding_mode?: Keyword.get(opts, :coding_mode?, false),
       pi_session: Keyword.get(opts, :pi_session),
@@ -640,6 +720,91 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       queued_correction: nil,
       fanout_subscription_id: nil
     }
+  end
+
+  defp validate_admitted_event(
+         %Event{
+           channel: @channel,
+           provider: @provider,
+           direction: "inbound",
+           external_event_id: external_event_id,
+           external_message_id: input_receipt_id
+         },
+         input_receipt_id
+       )
+       when is_binary(external_event_id) and external_event_id != "",
+       do: :ok
+
+  defp validate_admitted_event(%Event{}, _input_receipt_id),
+    do: {:error, :invalid_pre_admitted_event}
+
+  defp admitted_input_opts(event, input_receipt_id, state) do
+    [
+      pre_admitted_event: event,
+      input_receipt_id: input_receipt_id,
+      external_event_id: event.external_event_id,
+      external_user_id: event.external_user_id,
+      external_chat_id: event.external_chat_id,
+      external_message_id: event.external_message_id,
+      async?: state.coding_mode?
+    ]
+  end
+
+  defp maybe_notify_attended_in_progress(state, text, opts) do
+    if deferred_coding_lifecycle?(text, opts, state) do
+      state
+    else
+      notify_input_lifecycle(state, opts, :in_progress)
+    end
+  end
+
+  defp deferred_coding_lifecycle?(text, opts, state) do
+    state.coding_mode? and Keyword.get(opts, :async?, false) and
+      not SlashCommands.slash?(text)
+  end
+
+  defp maybe_start_deferred_coding_turn(
+         %{current_turn: %{deferred_start?: true, pid: pid, turn_id: turn_id} = turn} = state
+       )
+       when is_pid(pid) do
+    send(pid, {:start_coding_tui_turn, turn_id})
+
+    state
+    |> put_in([:current_turn, :deferred_start?], false)
+    |> notify_input_lifecycle(Map.get(turn, :input_opts, []), :in_progress)
+  end
+
+  defp maybe_start_deferred_coding_turn(state), do: state
+
+  defp notify_attended_terminal(state, _opts, {:ok, {:accepted, _turn_id}}), do: state
+  defp notify_attended_terminal(state, _opts, {:ok, {:queued, _turn_id}}), do: state
+
+  defp notify_attended_terminal(state, opts, reply),
+    do: notify_input_lifecycle(state, opts, {:terminal, reply})
+
+  defp notify_input_lifecycle(state, opts, phase) do
+    with input_receipt_id when is_binary(input_receipt_id) <-
+           Keyword.get(opts, :input_receipt_id),
+         %Event{} = event <- Keyword.get(opts, :pre_admitted_event),
+         lifecycle_fun when is_function(lifecycle_fun, 3) <- state.input_lifecycle_fun do
+      lifecycle_fun.(input_receipt_id, event, phase)
+    end
+
+    state
+  rescue
+    error ->
+      Logger.warning(
+        "tui input lifecycle callback failed: #{inspect(Redactor.redact(Exception.message(error)))}"
+      )
+
+      state
+  catch
+    kind, reason ->
+      Logger.warning(
+        "tui input lifecycle callback failed: #{inspect(Redactor.redact({kind, reason}))}"
+      )
+
+      state
   end
 
   defp normalize_profile(value) do
@@ -823,7 +988,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
 
   defp start_async_coding_turn(text, opts, state) do
     turn_id = coding_turn_id(opts)
-    parent = self()
+    {parent, deferred_start?} = async_turn_owner(state)
     {live_region, state} = start_coding_live_region(turn_id, state)
 
     turn_opts =
@@ -839,6 +1004,12 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     task_state = quiet_async_task_state(state)
 
     case start_turn_task(fn ->
+           if deferred_start? do
+             receive do
+               {:start_coding_tui_turn, ^turn_id} -> :ok
+             end
+           end
+
            {reply, pi_session} =
              try do
                {reply, next_state} = process_inbound_text(text, turn_opts, task_state)
@@ -858,22 +1029,36 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
         escape_monitor = start_escape_monitor(state)
         state = notify_active_input_turn(state, turn_id)
 
-        {{:ok, {:accepted, turn_id}},
-         %{
-           state
-           | current_turn: %{
-               turn_id: turn_id,
-               pid: pid,
-               live_region: live_region,
-               escape_monitor: escape_monitor,
-               started_at: timestamp()
-             }
-         }}
+        state =
+          %{
+            state
+            | current_turn: %{
+                turn_id: turn_id,
+                pid: pid,
+                live_region: live_region,
+                escape_monitor: escape_monitor,
+                input_opts: opts,
+                deferred_start?: deferred_start?,
+                started_at: timestamp()
+              }
+          }
+
+        state =
+          if deferred_start?,
+            do: state,
+            else: notify_input_lifecycle(state, opts, :in_progress)
+
+        {{:ok, {:accepted, turn_id}}, state}
 
       {:error, reason} ->
         {{:error, reason}, state}
     end
   end
+
+  defp async_turn_owner(%{attended_turn_owner: {owner, _turn_id}}) when is_pid(owner),
+    do: {owner, true}
+
+  defp async_turn_owner(_state), do: {self(), false}
 
   defp start_coding_live_region(turn_id, %{live_screen?: false} = state) do
     case LiveRegion.start_output(output_fun(state), turn_id, max_text_bytes: state.max_text_bytes) do
@@ -968,13 +1153,16 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   defp start_queued_correction(%{queued_correction: nil} = state), do: state
 
   defp start_queued_correction(%{queued_correction: {text, opts}} = state) do
-    {_reply, state} =
+    {reply, state} =
       start_async_coding_turn(text, Keyword.put(opts, :async?, true), %{
         state
         | queued_correction: nil
       })
 
-    state
+    case reply do
+      {:error, _reason} -> notify_input_lifecycle(state, opts, {:terminal, reply})
+      _accepted -> state
+    end
   end
 
   defp cancel_current_turn_state(
@@ -1196,25 +1384,40 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   end
 
   defp accept_attended_turn(state, text, opts) do
-    case state.attended_turn do
-      nil ->
-        start_attended_turn(state, text, opts)
+    {_reply, state} = accept_attended_turn_with_reply(state, text, opts)
+    state
+  end
 
-      _active ->
-        enqueue_attended_turn(state, text, opts)
+  defp accept_attended_turn_with_reply(state, text, opts) do
+    if enqueue_attended_input?(state, text) do
+      enqueue_attended_turn_with_reply(state, text, opts)
+    else
+      start_attended_turn_with_reply(state, text, opts)
     end
   end
 
-  defp enqueue_attended_turn(state, text, opts) do
+  defp enqueue_attended_input?(%{attended_turn: attended_turn}, _text)
+       when not is_nil(attended_turn),
+       do: true
+
+  defp enqueue_attended_input?(%{current_turn: current_turn} = state, text)
+       when not is_nil(current_turn) do
+    not is_nil(state.queued_correction) or SlashCommands.slash?(text)
+  end
+
+  defp enqueue_attended_input?(_state, _text), do: false
+
+  defp enqueue_attended_turn_with_reply(state, text, opts) do
     if :queue.len(state.attended_turn_queue) < @max_attended_turn_queue do
-      %{state | attended_turn_queue: :queue.in({text, opts}, state.attended_turn_queue)}
+      state = %{state | attended_turn_queue: :queue.in({text, opts}, state.attended_turn_queue)}
+      {{:ok, {:accepted, Keyword.get(opts, :input_receipt_id)}}, state}
     else
       emit_output(
         "TUI input queue is full; wait for an earlier request to finish and retry.",
         state
       )
 
-      state
+      {{:error, :input_queue_full}, state}
     end
   end
 
@@ -1223,6 +1426,11 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   end
 
   defp start_attended_turn(state, text, opts) do
+    {_reply, state} = start_attended_turn_with_reply(state, text, opts)
+    state
+  end
+
+  defp start_attended_turn_with_reply(state, text, opts) do
     turn_id = "tui-attended-#{Ecto.UUID.generate()}"
     owner = self()
     worker_state = %{state | attended_turn_owner: {owner, turn_id}, auto_input?: false}
@@ -1243,15 +1451,20 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
         monitor_ref = Process.monitor(pid)
         send(pid, {:start_attended_turn, turn_id})
 
-        %{
-          state
-          | attended_turn: %{
-              turn_id: turn_id,
-              pid: pid,
-              monitor_ref: monitor_ref,
-              text: text
-            }
-        }
+        state =
+          %{
+            state
+            | attended_turn: %{
+                turn_id: turn_id,
+                pid: pid,
+                monitor_ref: monitor_ref,
+                text: text,
+                opts: opts
+              }
+          }
+          |> maybe_notify_attended_in_progress(text, opts)
+
+        {{:ok, {:accepted, Keyword.get(opts, :input_receipt_id)}}, state}
 
       {:error, reason} ->
         emit_output(
@@ -1260,31 +1473,77 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
         )
 
         send(self(), :advance_attended_turn_queue)
-        state
+        {{:error, {:attended_turn_start_failed, Redactor.redact(reason)}}, state}
     end
   end
 
   defp advance_attended_turn_queue(state) do
-    case :queue.out(state.attended_turn_queue) do
-      {:empty, _queue} ->
-        {:noreply, state}
+    if hold_attended_turn_queue?(state) do
+      {:noreply, state}
+    else
+      case :queue.out(state.attended_turn_queue) do
+        {:empty, _queue} ->
+          {:noreply, state}
 
-      {{:value, :quit}, queue} ->
-        {:stop, :normal, %{state | attended_turn_queue: queue}}
+        {{:value, :quit}, queue} ->
+          {:stop, :normal, %{state | attended_turn_queue: queue}}
 
-      {{:value, {text, opts}}, queue} ->
-        state = %{state | attended_turn_queue: queue}
-        dispatch_queued_attended_input(text, opts, state)
+        {{:value, {text, opts}}, queue} ->
+          state = %{state | attended_turn_queue: queue}
+          dispatch_queued_attended_input(text, opts, state)
+      end
     end
   end
 
-  defp dispatch_queued_attended_input(text, opts, %{coding_mode?: true} = state) do
+  defp hold_attended_turn_queue?(%{current_turn: nil}), do: false
+
+  defp hold_attended_turn_queue?(%{queued_correction: queued_correction})
+       when not is_nil(queued_correction),
+       do: true
+
+  defp hold_attended_turn_queue?(state) do
+    case :queue.peek(state.attended_turn_queue) do
+      {:value, {text, _opts}} -> SlashCommands.slash?(text)
+      {:value, :quit} -> true
+      :empty -> false
+    end
+  end
+
+  defp dispatch_queued_attended_input(text, opts, state) do
+    if Keyword.has_key?(opts, :pre_admitted_event) do
+      {_reply, state} =
+        start_attended_turn_with_reply(
+          state,
+          text,
+          Keyword.put(opts, :async?, state.coding_mode?)
+        )
+
+      {:noreply, state}
+    else
+      dispatch_legacy_queued_attended_input(text, opts, state)
+    end
+  end
+
+  defp dispatch_legacy_queued_attended_input(text, opts, %{coding_mode?: true} = state) do
     {_reply, state} = handle_text_submission(text, Keyword.put(opts, :async?, true), state)
     {:noreply, state}
   end
 
-  defp dispatch_queued_attended_input(text, opts, state) do
+  defp dispatch_legacy_queued_attended_input(text, opts, state) do
     {:noreply, start_attended_turn(state, text, opts)}
+  end
+
+  defp continue_after_coding_turn(state) do
+    cond do
+      not :queue.is_empty(state.attended_turn_queue) ->
+        advance_attended_turn_queue(state)
+
+      state.auto_input? and is_nil(state.current_turn) ->
+        {:noreply, maybe_schedule_next_prompt(state)}
+
+      true ->
+        {:noreply, state}
+    end
   end
 
   defp attended_turn_state_delta(state) do
@@ -1312,7 +1571,13 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       state
     )
 
+    opts = get_in(state, [:attended_turn, :opts]) || []
+
     state
+    |> notify_input_lifecycle(
+      opts,
+      {:terminal, {:error, {:attended_turn_down, Redactor.redact(reason)}}}
+    )
     |> Map.put(:attended_turn, nil)
     |> advance_attended_turn_queue()
   end
@@ -1349,6 +1614,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       state
       | current_turn: nil,
         queued_correction: nil,
+        attended_turn_owner: nil,
         output_fun: &noop_output/1,
         live_screen?: false,
         live_status_active?: false
@@ -1360,7 +1626,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     command = ConfirmationCallback.parse_typed_command(fields.text)
     direction = if command == :ignore, do: "inbound", else: "callback"
 
-    case insert_received_event(fields, direction) do
+    case received_event(fields, direction, opts) do
       {:ok, %AllbertAssist.Channels.Event{} = event} ->
         handle_received_event(event, fields, command, state)
 
@@ -1378,6 +1644,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
          {:ok, rendered} <-
            Renderer.render_response(response, max_text_bytes: state.max_text_bytes),
          state <- clear_live_status(state),
+         :ok <- emit_confirmation_handoff(response, rendered, state),
          :ok <- emit_rendered(rendered, state) do
       {{:ok, {:slash, rendered}}, state}
     else
@@ -1386,6 +1653,30 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
 
       {:error, :not_mapped} ->
         render_unavailable_slash(:not_mapped, state)
+    end
+  end
+
+  defp dispatch_confirmation(confirmation_id, decision, opts, state) do
+    command = {:ok, decision, confirmation_id}
+    text = "ALLBERT:#{String.upcase(to_string(decision))}:#{confirmation_id}"
+    fields = fields(text, opts, state)
+
+    with {:ok, user_id} <- resolve_identity(fields, state),
+         {:ok, _inbound_trust} <- authorize_inbound(fields, user_id, command),
+         session_id <-
+           Channels.derive_session_id(@channel, fields.external_user_id, fields.external_chat_id),
+         {:ok, response} <-
+           process_text_or_callback(command, fields, state, user_id, session_id, nil),
+         {:ok, rendered} <-
+           Renderer.render_response(response, max_text_bytes: state.max_text_bytes),
+         state <- clear_live_status(state),
+         :ok <- emit_rendered(rendered, state) do
+      {{:ok, {:confirmation, response, rendered}}, state}
+    else
+      {:error, reason} ->
+        state = clear_live_status(state)
+        :ok = emit_callback_rejection(command, reason, state)
+        {{:error, reason}, state}
     end
   end
 
@@ -1807,6 +2098,25 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     |> event_result()
   end
 
+  defp received_event(fields, direction, opts) do
+    case Keyword.get(opts, :pre_admitted_event) do
+      nil ->
+        insert_received_event(fields, direction)
+
+      %Event{
+        channel: @channel,
+        provider: @provider,
+        direction: "inbound",
+        external_event_id: external_event_id
+      } = event
+      when external_event_id == fields.external_event_id ->
+        {:ok, event}
+
+      %Event{} ->
+        {:error, :invalid_pre_admitted_event}
+    end
+  end
+
   defp handle_received_event(event, fields, command, state) do
     with :ok <- validate_text(fields.text),
          {:ok, user_id} <- resolve_identity(fields, state),
@@ -1820,6 +2130,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
          {:ok, rendered} <-
            Renderer.render_response(response, max_text_bytes: state.max_text_bytes),
          state <- clear_live_status(state),
+         :ok <- emit_confirmation_handoff(response, rendered, state),
          :ok <-
            Runtime.track_delivery(response, %{channel: @channel}, fn ->
              emit_delivery(rendered, state)
@@ -2034,6 +2345,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       with {:ok, rendered} <-
              Renderer.render_response(response, max_text_bytes: state.max_text_bytes),
            state <- clear_live_status(state),
+           :ok <- emit_confirmation_handoff(response, rendered, state),
            :ok <- emit_rendered(rendered, state) do
         {{:ok, {:at_file, rendered}}, state}
       end
@@ -2063,6 +2375,61 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   defp emit_rendered(rendered, state) do
     Enum.each(rendered, &emit_output(&1, state))
     :ok
+  end
+
+  defp emit_confirmation_handoff(response, _rendered, %{confirmation_fun: nil})
+       when is_map(response),
+       do: :ok
+
+  defp emit_confirmation_handoff(response, rendered, %{confirmation_fun: fun})
+       when is_map(response) and is_function(fun, 1) do
+    with handoff when is_map(handoff) <- Map.get(response, :approval_handoff),
+         confirmation_id when is_binary(confirmation_id) and confirmation_id != "" <-
+           Map.get(handoff, :confirmation_id) || Map.get(handoff, "confirmation_id"),
+         {:ok, %{"expires_at" => expires_at}} <- Confirmations.read(confirmation_id),
+         {:ok, expires_at, _offset} <- DateTime.from_iso8601(expires_at),
+         prompt <- confirmation_prompt(handoff, rendered),
+         :ok <-
+           fun.(%{
+             confirmation_id: confirmation_id,
+             prompt: prompt,
+             expires_at_unix_ms: DateTime.to_unix(expires_at, :millisecond)
+           }) do
+      :ok
+    else
+      nil -> :ok
+      {:error, _reason} = error -> error
+      _invalid -> {:error, :invalid_confirmation_handoff}
+    end
+  end
+
+  defp emit_confirmation_handoff(_response, _rendered, _state), do: :ok
+
+  defp confirmation_prompt(handoff, rendered) do
+    prompt =
+      case ApprovalHandoff.lines(handoff) do
+        [] -> Enum.join(rendered, "\n")
+        lines -> Enum.join(lines, "\n")
+      end
+
+    truncate_utf8(prompt, 12 * 1_024)
+  end
+
+  defp truncate_utf8(text, max_bytes) when byte_size(text) <= max_bytes, do: text
+
+  defp truncate_utf8(text, max_bytes) do
+    text
+    |> String.codepoints()
+    |> Enum.reduce_while({[], 0}, fn codepoint, {kept, bytes} ->
+      size = byte_size(codepoint)
+
+      if bytes + size <= max_bytes,
+        do: {:cont, {[codepoint | kept], bytes + size}},
+        else: {:halt, {kept, bytes}}
+    end)
+    |> elem(0)
+    |> Enum.reverse()
+    |> IO.iodata_to_binary()
   end
 
   defp emit_delivery(rendered, state) do

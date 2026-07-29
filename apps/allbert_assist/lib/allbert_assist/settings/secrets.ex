@@ -9,6 +9,7 @@ defmodule AllbertAssist.Settings.Secrets do
   alias AllbertAssist.Settings.KeyCustody
   alias AllbertAssist.Settings.Schema
   alias AllbertAssist.Settings.Store
+  alias AllbertAssist.Settings.StoreLock
   alias AllbertAssist.Settings.YamlCodec
 
   @aad "settings:v1"
@@ -16,6 +17,8 @@ defmodule AllbertAssist.Settings.Secrets do
   @key_bytes 32
   @nonce_bytes 12
   @tag_bytes 16
+  @system_integrity_ref "secret://system/integrity_v1"
+  @system_integrity_version 1
 
   def secrets_path, do: Path.join(Store.root(), "secrets.yml.enc")
   def key_path, do: Path.join(Store.root(), ".settings_key")
@@ -25,10 +28,7 @@ defmodule AllbertAssist.Settings.Secrets do
   def put_secret(secret_ref, value, context) when is_binary(value) do
     with :ok <- validate_secret_ref(secret_ref),
          old_status <- status(secret_ref),
-         {:ok, key} <- master_key(),
-         {:ok, plaintext} <- read_plaintext(key),
-         updated_plaintext <- put_plaintext_secret(plaintext, secret_ref, value, context),
-         :ok <- write_plaintext(key, updated_plaintext),
+         :ok <- put_secret_value(secret_ref, value, context),
          :ok <- maybe_write_setting_ref(secret_ref, context) do
       KeyCustody.invalidate(secret_ref)
       diagnostics = audit_secret(secret_ref, old_status, :configured, context)
@@ -74,13 +74,31 @@ defmodule AllbertAssist.Settings.Secrets do
 
   def delete_secret(secret_ref, _context \\ %{}) do
     with :ok <- validate_secret_ref(secret_ref),
-         {:ok, key} <- master_key(),
-         {:ok, plaintext} <- read_plaintext(key),
-         updated <- delete_plaintext_secret(plaintext, secret_ref),
-         :ok <- write_plaintext(key, updated) do
+         :ok <- delete_secret_value(secret_ref) do
       KeyCustody.invalidate(secret_ref)
       {:ok, %{secret_ref: secret_ref, status: :missing}}
     end
+  end
+
+  defp put_secret_value(secret_ref, value, context) do
+    StoreLock.with_lock(Store.root(), fn ->
+      with {:ok, key} <- master_key(),
+           {:ok, plaintext} <- read_plaintext(key),
+           {:ok, updated_plaintext} <-
+             put_plaintext_secret(plaintext, secret_ref, value, context) do
+        write_plaintext(key, updated_plaintext)
+      end
+    end)
+  end
+
+  defp delete_secret_value(secret_ref) do
+    StoreLock.with_lock(Store.root(), fn ->
+      with {:ok, key} <- master_key(),
+           {:ok, plaintext} <- read_plaintext(key),
+           {:ok, updated} <- delete_plaintext_secret(plaintext, secret_ref) do
+        write_plaintext(key, updated)
+      end
+    end)
   end
 
   defp audit_secret(secret_ref, old_status, new_status, context) do
@@ -118,6 +136,57 @@ defmodule AllbertAssist.Settings.Secrets do
         {:error, _reason} -> []
       end
     end)
+  end
+
+  @doc false
+  @spec system_plaintext_entries_for_custody(map()) ::
+          {:ok, %{optional({String.t(), pos_integer()}) => binary()}} | {:error, term()}
+  def system_plaintext_entries_for_custody(plaintext) do
+    case system_integrity_value(plaintext) do
+      {:ok, value} ->
+        {:ok, %{{@system_integrity_ref, @system_integrity_version} => value}}
+
+      :missing ->
+        {:ok, %{}}
+
+      {:error, _reason} = error ->
+        error
+    end
+  end
+
+  @doc false
+  @spec fetch_or_create_system_for_custody(String.t(), pos_integer()) ::
+          {:ok, binary()} | {:error, term()}
+  def fetch_or_create_system_for_custody(@system_integrity_ref, 32) do
+    StoreLock.with_lock(Store.root(), &fetch_or_create_system_locked/0)
+  end
+
+  def fetch_or_create_system_for_custody(secret_ref, byte_count) do
+    {:error, {:unsupported_system_secret, secret_ref, byte_count}}
+  end
+
+  defp fetch_or_create_system_locked do
+    with {:ok, key} <- master_key(),
+         {:ok, plaintext} <- read_plaintext(key) do
+      fetch_or_create_system_value(key, plaintext)
+    end
+  end
+
+  defp fetch_or_create_system_value(key, plaintext) do
+    case system_integrity_value(plaintext) do
+      {:ok, value} -> {:ok, value}
+      :missing -> create_system_integrity_value(key, plaintext)
+      {:error, _reason} = error -> error
+    end
+  end
+
+  defp create_system_integrity_value(key, plaintext) do
+    value = :crypto.strong_rand_bytes(32)
+
+    case write_system_integrity_value(key, plaintext, value) do
+      :ok -> {:ok, value}
+      {:error, _reason} = error -> error
+    end
   end
 
   def validate_secret_ref(secret_ref) when is_binary(secret_ref) do
@@ -227,6 +296,70 @@ defmodule AllbertAssist.Settings.Secrets do
       {:error, {:secret_write_failed, {exception.__struct__, Exception.message(exception)}}}
   end
 
+  defp write_system_integrity_value(key, plaintext, value) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+
+    entry = %{
+      "value" => Base.encode64(value),
+      "key_version" => @system_integrity_version,
+      "created_at" => now,
+      "actor" => "system"
+    }
+
+    with {:ok, plaintext} <- validate_plaintext_shape(plaintext) do
+      plaintext
+      |> put_nested(
+        ["secrets", "system", "integrity_v1", "versions", "1"],
+        entry
+      )
+      |> then(&write_plaintext(key, &1))
+    end
+  end
+
+  defp system_integrity_value(plaintext) do
+    case system_integrity_entry(plaintext) do
+      :missing ->
+        :missing
+
+      {:ok, %{"key_version" => @system_integrity_version, "value" => encoded}}
+      when is_binary(encoded) ->
+        case Base.decode64(encoded) do
+          {:ok, value} when byte_size(value) == 32 -> {:ok, value}
+          _other -> {:error, {:invalid_system_integrity_key, @system_integrity_version}}
+        end
+
+      {:ok, _entry} ->
+        {:error, {:invalid_system_integrity_key, @system_integrity_version}}
+
+      {:error, _reason} = error ->
+        error
+    end
+  end
+
+  defp system_integrity_entry(plaintext) do
+    with {:ok, %{"secrets" => secrets}} <- validate_plaintext_shape(plaintext),
+         {:ok, system} <- optional_map(secrets, "system"),
+         {:ok, integrity} <- optional_map(system, "integrity_v1"),
+         {:ok, versions} <- optional_map(integrity, "versions") do
+      case Map.fetch(versions, Integer.to_string(@system_integrity_version)) do
+        {:ok, entry} when is_map(entry) -> {:ok, entry}
+        {:ok, _entry} -> {:error, {:invalid_system_integrity_key, @system_integrity_version}}
+        :error -> :missing
+      end
+    else
+      :missing -> :missing
+      {:error, _reason} = error -> error
+    end
+  end
+
+  defp optional_map(map, key) do
+    case Map.fetch(map, key) do
+      {:ok, value} when is_map(value) -> {:ok, value}
+      {:ok, _value} -> {:error, {:invalid_system_integrity_store, key}}
+      :error -> :missing
+    end
+  end
+
   defp decrypt_file(key) do
     with {:ok, envelope} <- YamlCodec.read_file(secrets_path()),
          {:ok, nonce} <- decode_envelope_field(envelope, "nonce"),
@@ -276,9 +409,9 @@ defmodule AllbertAssist.Settings.Secrets do
       "channel" => context_value(context, :channel, "unknown")
     }
 
-    plaintext
-    |> ensure_plaintext_shape()
-    |> put_in_secret_path(path, entry)
+    with {:ok, plaintext} <- validate_plaintext_shape(plaintext) do
+      {:ok, put_in_secret_path(plaintext, path, entry)}
+    end
   end
 
   defp get_plaintext_secret(plaintext, secret_ref) do
@@ -292,7 +425,10 @@ defmodule AllbertAssist.Settings.Secrets do
 
   defp delete_plaintext_secret(plaintext, secret_ref) do
     {:ok, path} = plaintext_secret_path(secret_ref)
-    put_in_secret_path(ensure_plaintext_shape(plaintext), path, nil)
+
+    with {:ok, plaintext} <- validate_plaintext_shape(plaintext) do
+      {:ok, put_in_secret_path(plaintext, path, nil)}
+    end
   end
 
   defp statuses_from_plaintext(plaintext, nil) do
@@ -364,6 +500,13 @@ defmodule AllbertAssist.Settings.Secrets do
   end
 
   defp ensure_plaintext_shape(_plaintext), do: %{"version" => 1, "secrets" => %{}}
+
+  defp validate_plaintext_shape(%{"version" => 1, "secrets" => secrets} = plaintext)
+       when is_map(secrets) and map_size(plaintext) == 2,
+       do: {:ok, plaintext}
+
+  defp validate_plaintext_shape(_plaintext),
+    do: {:error, {:invalid_system_integrity_store, :plaintext_shape}}
 
   defp put_in_secret_path(plaintext, path, nil) do
     update_in(plaintext, ["secrets" | path], fn _value -> nil end)

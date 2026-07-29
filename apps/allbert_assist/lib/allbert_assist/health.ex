@@ -6,22 +6,27 @@ defmodule AllbertAssist.Health do
   authority. Returns `:ok | :degraded` overall plus per-component detail.
   """
 
-  @doc "A bounded health snapshot: %{status:, runtime:, database:, channels:}."
+  alias AllbertAssist.Runtime.Attach.Server, as: AttachServer
+
+  @doc "A bounded health snapshot for runtime, database, channels, and daemon attach."
   def snapshot do
     runtime = runtime_status()
     database = database_status()
     channels = channels_status()
+    attach = attach_status()
 
     overall =
-      if runtime == :up and database == :ok and channels.status in [:up, :none],
-        do: :ok,
-        else: :degraded
+      if runtime == :up and database == :ok and channels.status in [:up, :none] and
+           attach.status in [:up, :not_started],
+         do: :ok,
+         else: :degraded
 
     %{
       status: overall,
       runtime: runtime,
       database: database,
-      channels: channels
+      channels: channels,
+      attach: attach
     }
   end
 
@@ -56,5 +61,16 @@ defmodule AllbertAssist.Health do
     end
   rescue
     _error -> %{status: :down, supervised: 0}
+  end
+
+  defp attach_status do
+    case Process.whereis(AttachServer) do
+      pid when is_pid(pid) -> AttachServer.status(pid)
+      _nil -> %{status: :not_started}
+    end
+  rescue
+    _error -> %{status: :down}
+  catch
+    :exit, _reason -> %{status: :down}
   end
 end

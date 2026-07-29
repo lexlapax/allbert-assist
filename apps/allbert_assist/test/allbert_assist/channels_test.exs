@@ -179,6 +179,41 @@ defmodule AllbertAssist.ChannelsTest do
       assert log =~ "allbert.channel.delivery_failed"
     end
 
+    test "receipt enrichment does not replay lifecycle signals without a status transition" do
+      assert {:ok, event} =
+               Channels.create_event(%{
+                 channel: "tui",
+                 provider: "terminal",
+                 direction: "inbound",
+                 external_event_id: "signal-receipt-enrichment",
+                 status: "processed"
+               })
+
+      original_logger_level = Logger.level()
+      Logger.configure(level: :info)
+
+      log =
+        try do
+          capture_log([level: :info], fn ->
+            assert {:ok, enriched} =
+                     Channels.update_event(event, %{
+                       receipt_state: "completed",
+                       receipt_result_ref: "thread:receipt-enrichment",
+                       receipt_outcome: "completed"
+                     })
+
+            assert enriched.status == "processed"
+            assert enriched.direction == "inbound"
+            assert enriched.receipt_state == "completed"
+          end)
+        after
+          Logger.configure(level: original_logger_level)
+        end
+
+      refute log =~ "allbert.channel.runtime_submitted"
+      refute log =~ "allbert.channel.response_sent"
+    end
+
     test "returns max inbound integer event id for Telegram offset derivation" do
       for id <- ["10", "12", "not-an-int"] do
         assert {:ok, _event} =

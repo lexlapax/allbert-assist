@@ -232,12 +232,20 @@ defmodule AllbertAssist.CLI.DispatcherTest do
     end)
   end
 
-  test "valid TUI open fails closed until the daemon session service lands" do
+  test "valid TUI open transfers to the daemon session service" do
     with_attach_home(fn ->
       pid = start_supervised!(Attach.Server)
       assert {:ok, token} = Attach.read_token()
 
-      assert %{code: :runtime_unavailable} = raw_attach_request(valid_tui_open(token))
+      assert %{
+               kind: :tui_session,
+               session_protocol: 1,
+               frame: :snapshot,
+               seq: 1,
+               ack: 0,
+               payload: %{state: :idle, lines: [], gap?: false}
+             } = raw_attach_request(valid_tui_open(token))
+
       assert Process.alive?(pid)
     end)
   end
@@ -364,6 +372,42 @@ defmodule AllbertAssist.CLI.DispatcherTest do
     end)
   end
 
+  test "pending handshake closes promptly when the listener is killed" do
+    with_attach_home(fn ->
+      child_spec = Supervisor.child_spec(Attach.Server, restart: :temporary)
+      server = start_supervised!(child_spec)
+      socket = connect_attach_socket()
+      [worker] = await_pending_workers(server, 1)
+      worker_monitor = Process.monitor(worker)
+
+      ExUnit.CaptureLog.capture_log(fn ->
+        Process.exit(server, :kill)
+
+        assert_receive {:DOWN, ^worker_monitor, :process, ^worker, _reason}, 1_000
+        assert {:error, :closed} = :gen_tcp.recv(socket, 0, 1_000)
+      end)
+    end)
+  end
+
+  test "normal listener teardown terminates every pending handshake" do
+    with_attach_home(fn ->
+      server = start_supervised!(Attach.Server)
+      sockets = Enum.map(1..2, fn _index -> connect_attach_socket() end)
+      workers = await_pending_workers(server, 2)
+      monitors = Enum.map(workers, &{&1, Process.monitor(&1)})
+
+      assert :ok = stop_supervised(Attach.Server)
+
+      Enum.each(monitors, fn {worker, monitor} ->
+        assert_receive {:DOWN, ^monitor, :process, ^worker, _reason}, 1_000
+      end)
+
+      Enum.each(sockets, fn socket ->
+        assert {:error, :closed} = :gen_tcp.recv(socket, 0, 1_000)
+      end)
+    end)
+  end
+
   test "attach rejects a missing/non-binary token in constant time (M8.16)" do
     with_attach_home(fn ->
       start_supervised!(Attach.Server)
@@ -469,6 +513,16 @@ defmodule AllbertAssist.CLI.DispatcherTest do
   end
 
   defp raw_attach_request(request, encode_opts \\ []) do
+    socket = connect_attach_socket()
+
+    :ok = :gen_tcp.send(socket, :erlang.term_to_binary(request, encode_opts))
+    {:ok, payload} = :gen_tcp.recv(socket, 0, 5_000)
+    response = :erlang.binary_to_term(payload, [:safe])
+    :ok = :gen_tcp.close(socket)
+    response
+  end
+
+  defp connect_attach_socket do
     {:ok, socket} =
       :gen_tcp.connect(
         {:local, Attach.socket_path()},
@@ -477,11 +531,24 @@ defmodule AllbertAssist.CLI.DispatcherTest do
         5_000
       )
 
-    :ok = :gen_tcp.send(socket, :erlang.term_to_binary(request, encode_opts))
-    {:ok, payload} = :gen_tcp.recv(socket, 0, 5_000)
-    response = :erlang.binary_to_term(payload, [:safe])
-    :ok = :gen_tcp.close(socket)
-    response
+    socket
+  end
+
+  defp await_pending_workers(server, expected_count, attempts \\ 100)
+
+  defp await_pending_workers(server, expected_count, attempts) when attempts > 0 do
+    workers = server |> :sys.get_state() |> Map.fetch!(:pending) |> Map.keys()
+
+    if length(workers) == expected_count do
+      workers
+    else
+      Process.sleep(10)
+      await_pending_workers(server, expected_count, attempts - 1)
+    end
+  end
+
+  defp await_pending_workers(_server, expected_count, 0) do
+    flunk("attach listener did not reach #{expected_count} pending handshakes")
   end
 
   defp valid_tui_open(token) do
