@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 # Fill a Homebrew formula from a release SHA256SUMS file. This updates the
-# formula version, per-target release URLs, and per-target SHA256 values so the
+# formula per-target release URLs and SHA256 values so the
 # tap cannot accidentally keep resolving to an older Allbert release.
 #
 #   homebrew/fill-sha256.sh SHA256SUMS [path/to/allbert.rb]
@@ -44,17 +44,12 @@ TMP_FORMULA="${FORMULA}.tmp.$$"
 trap 'rm -f "$TMP_FORMULA"' EXIT
 
 awk \
-  -v version="$VERSION" \
   -v macos_arm64_url="$BASE_URL/allbert-${TAG}-macos-arm64.tar.gz" \
   -v linux_x64_url="$BASE_URL/allbert-${TAG}-linux-x64.tar.gz" \
   -v linux_arm64_url="$BASE_URL/allbert-${TAG}-linux-arm64.tar.gz" \
   -v macos_arm64_sha="$MACOS_ARM64_SHA" \
   -v linux_x64_sha="$LINUX_X64_SHA" \
   -v linux_arm64_sha="$LINUX_ARM64_SHA" '
-    /^  version / {
-      print "  version \"" version "\""
-      next
-    }
     /allbert-v.*-macos-arm64\.tar\.gz/ {
       print "      url \"" macos_arm64_url "\""
       target = "macos-arm64"
@@ -92,4 +87,4 @@ mv "$TMP_FORMULA" "$FORMULA"
 trap - EXIT
 
 echo "fill-sha256: filled $FORMULA for v$VERSION"
-grep -nE "version |url |sha256" "$FORMULA"
+grep -nE "url |sha256" "$FORMULA"

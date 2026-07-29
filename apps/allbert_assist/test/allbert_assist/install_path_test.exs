@@ -104,8 +104,22 @@ defmodule AllbertAssist.InstallPathTest do
     assert body =~ "playwright@1.58.2"
     assert body =~ "browser.driver.node_module_path"
     assert body =~ "browser.driver.binary_path"
+    assert body =~ ~s(prefix.install_symlink libexec/"LICENSE", libexec/"NOTICE")
+    assert body =~ ~S(#{bin}/allbert licenses --json)
+    assert body =~ ~S|Dir["lib/exqlite-*/priv/sqlite3_nif.so"].fetch(0)|
+    assert body =~ ~s(def post_install)
 
-    assert [_, formula_version] = Regex.run(~r/^\s*version "([^"]+)"$/m, body)
+    # Homebrew derives this formula's version from the release URLs. An explicit
+    # version is redundant and rejected by current strict audit.
+    refute body =~ ~r/^\s*version /m
+
+    formula_versions =
+      ~r{releases/download/v([^/]+)/allbert-v[^/]+-(?:macos-arm64|linux-x64|linux-arm64)\.tar\.gz}
+      |> Regex.scan(body, capture: :all_but_first)
+      |> List.flatten()
+      |> Enum.uniq()
+
+    assert [formula_version] = formula_versions
 
     # Release-model invariant: the repository formula (synced to the tap after
     # publication) may lag
@@ -196,7 +210,7 @@ defmodule AllbertAssist.InstallPathTest do
     refute body =~ "v0.63.0"
   end
 
-  test "fill-sha256 updates formula version, urls, and checksums from release sums" do
+  test "fill-sha256 updates formula urls and checksums from release sums" do
     assert {_, 0} = System.cmd("sh", ["-n", @fill_sha256], stderr_to_stdout: true)
 
     tmp =
@@ -214,7 +228,6 @@ defmodule AllbertAssist.InstallPathTest do
     stale_formula =
       @formula
       |> File.read!()
-      |> String.replace(~s(version "#{project_version()}"), ~s(version "0.63.0"))
       |> String.replace("v#{project_version()}", "v0.63.0")
 
     File.write!(formula, stale_formula)
@@ -235,7 +248,7 @@ defmodule AllbertAssist.InstallPathTest do
     assert output =~ "filled #{formula} for v#{version}"
 
     body = File.read!(formula)
-    assert body =~ ~s(version "#{version}")
+    refute body =~ ~r/^\s*version /m
     refute body =~ "v0.63.0"
     refute body =~ "REPLACE_"
 
@@ -448,7 +461,9 @@ defmodule AllbertAssist.InstallPathTest do
     # never mutably replaces an existing release asset.
     assert promoter =~ "release_cli create" and promoter =~ "--verify-tag"
     assert promoter =~ "--prerelease"
-    assert promoter =~ "release_cli upload"
+    assert promoter =~ ~S|${release_upload_url}?name=${name}|
+    assert promoter =~ "Content-Type: application/octet-stream"
+    refute promoter =~ "release_cli upload"
     assert promoter =~ "existing asset $name differs; refusing replacement"
     refute promoter =~ "--clobber"
     # Native per-target matrix (no cross-compilation).

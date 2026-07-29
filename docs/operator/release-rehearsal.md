@@ -255,7 +255,8 @@ MIX_ENV=test mix test \
 
 The tap lives at [`lexlapax/homebrew-allbert`](https://github.com/lexlapax/homebrew-allbert)
 (`Formula/allbert.rb`). Fill the formula from the published release, not by hand. The
-helper updates version, per-target URLs, and SHA256 rows together:
+helper updates per-target URLs and SHA256 rows together; Homebrew derives the
+version from those URLs:
 
 ```sh
 ALLBERT_ASSIST_CHECKOUT="${ALLBERT_ASSIST_CHECKOUT:-$(pwd)}"  # run from allbert-assist checkout
@@ -265,7 +266,7 @@ gh release download "$VERSION" --repo "$REPO" \
   --pattern SHA256SUMS --dir "/tmp/allbert-${VERSION}"
 git clone https://github.com/lexlapax/homebrew-allbert "$TAP_CHECKOUT"
 # The repository formula is the source of truth for dependencies and service
-# declarations; the fill helper owns only version, URLs, and checksums.
+# declarations; the fill helper owns only release URLs and checksums.
 cp "$ALLBERT_ASSIST_CHECKOUT/homebrew/allbert.rb" \
   "$TAP_CHECKOUT/Formula/allbert.rb"
 sh "$ALLBERT_ASSIST_CHECKOUT/homebrew/fill-sha256.sh" \
@@ -279,14 +280,14 @@ Audit and publish from the tap checkout:
 cd "$TAP_CHECKOUT"
 git diff -- Formula/allbert.rb
 rg -n 'PLACEHOLDER|TODO|sha256' Formula/allbert.rb
+git add Formula/allbert.rb
+git commit -m "${EXPECTED_VERSION} M0.c3 fill release formula"
 if brew tap | rg -qx 'lexlapax/allbert'; then
   brew untap --force lexlapax/allbert
 fi
 brew tap lexlapax/allbert "$TAP_CHECKOUT" --custom-remote
 brew trust --formula lexlapax/allbert/allbert
 brew audit --strict --online --formula allbert
-git add Formula/allbert.rb
-git commit -m "allbert ${VERSION#v}"
 git push origin main
 ```
 
@@ -305,17 +306,28 @@ into the release repository before archival:
 ```sh
 cp "$TAP_CHECKOUT/Formula/allbert.rb" "$ALLBERT_ASSIST_CHECKOUT/homebrew/allbert.rb"
 cd "$ALLBERT_ASSIST_CHECKOUT"
-test "$(sed -n 's/^  version "\([^"]*\)"/\1/p' homebrew/allbert.rb)" = "$EXPECTED_VERSION"
+test -z "$(sed -n 's/^  version "\([^"]*\)"/\1/p' homebrew/allbert.rb)"
 rg -n 'PLACEHOLDER|REPLACE_' homebrew/allbert.rb && exit 1 || true
 test "$(rg -c "releases/download/$VERSION" homebrew/allbert.rb)" -eq 3
 ```
 
-PASS: repository and tap formulae are byte-identical, name `$EXPECTED_VERSION`, contain the
-three published checksums, and have no placeholder or old-release URL. Commit this
+PASS: repository and tap formulae are byte-identical, derive `$EXPECTED_VERSION`
+from all three release URLs, contain the three published checksums, have no
+redundant explicit version, and have no placeholder or old-release URL. Commit this
 with the post-tag documentation/roadmap archival; never move the product tag.
 
 Homebrew 6 note: path-based `brew audit [path ...]` is disabled, and untrusted
 third-party taps are refused. Audit by tapped formula name after trusting the tap.
+
+For v1.2.6, the formula also preserves regular `LICENSE`/`NOTICE` evidence in
+`libexec` while exposing conventional prefix links. Homebrew's source-formula
+relocation rewrites and ad-hoc signs the Exqlite NIF because that artifact still
+contains an absolute build-time Mach-O install name; the bounded formula
+post-install step restores the accepted NIF bytes before `brew test`. PASS
+therefore includes `allbert licenses --json`, not only `eval`. v1.3 M9.a2 must
+emit a package-manager-stable install name, prove the managed hash remains
+unchanged through Homebrew, and remove this compatibility step rather than
+weakening manifest validation.
 
 ## 3. Per-OS Install Rehearsal
 
@@ -983,7 +995,7 @@ and representative data remain without `--purge`.
 | --- | --- | --- | --- |
 | Source gate | frozen 1.0 contracts and release-specific checks pass on the release commit | `mix allbert.test release.v1` + active point gate (for example `release.v101`) | current line |
 | Artifact matrix | published artifacts boot and pass binary smoke | `.github/workflows/release-artifacts.yml` | current line |
-| Tap fill | formula version, URLs, and checksums match release checksums | `homebrew/fill-sha256.sh`; `brew audit --strict --online --formula` | current packaged line |
+| Tap fill | URL-derived formula version and checksums match the release | `homebrew/fill-sha256.sh`; `brew audit --strict --online --formula` | current packaged line |
 | Package-manager install | package installs and invokes packaged binary | `brew install`; `brew test`; uninstall | current line |
 | Packaged TUI | exact thin client attaches to the one daemon, passes bounded protocol/TTY rows, answers from a ready real provider, restores the terminal, and preserves concurrent Web continuity | automated `scripts/smoke/v121_tui_qualification.sh`; §4 operator command sequence | current line |
 | Docker Linux package smoke | both Linux artifacts install/start/attach/uninstall in containers | `docker run --platform linux/arm64`; `docker run --platform linux/amd64` | current line |

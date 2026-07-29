@@ -10,32 +10,45 @@
 class Allbert < Formula
   desc "Local-first personal AI assistant runtime, CLI, and web workspace"
   homepage "https://github.com/lexlapax/allbert-assist"
-  version "1.2.0"
   license "Apache-2.0"
 
   depends_on "node"
 
   on_macos do
     on_arm do
-      url "https://github.com/lexlapax/allbert-assist/releases/download/v1.2.0/allbert-v1.2.0-macos-arm64.tar.gz"
-      sha256 "0248af42a8bc8125db956de8705c73ea5a1ab2fb2d3701671a0d5ddbc56155fa"
+      url "https://github.com/lexlapax/allbert-assist/releases/download/v1.2.6/allbert-v1.2.6-macos-arm64.tar.gz"
+      sha256 "ff5a17b116e3e21cf7b8321e6f4166216e64c76778d5d9b709e5b6d054e8886f"
     end
   end
 
   on_linux do
     on_intel do
-      url "https://github.com/lexlapax/allbert-assist/releases/download/v1.2.0/allbert-v1.2.0-linux-x64.tar.gz"
-      sha256 "1429cf7e886e6fbc3ea3360a9766319ea959533207a193b96ab2bb6e93cd06c0"
+      url "https://github.com/lexlapax/allbert-assist/releases/download/v1.2.6/allbert-v1.2.6-linux-x64.tar.gz"
+      sha256 "efa501276108335551d497ef3477cc12844cd888b4e60ecdc1b774119063726e"
     end
     on_arm do
-      url "https://github.com/lexlapax/allbert-assist/releases/download/v1.2.0/allbert-v1.2.0-linux-arm64.tar.gz"
-      sha256 "ce6cc474aee042ef19fe4305297132a05dd8889b388bf716cf353989142299eb"
+      url "https://github.com/lexlapax/allbert-assist/releases/download/v1.2.6/allbert-v1.2.6-linux-arm64.tar.gz"
+      sha256 "a4fdc202d8d48299caeb1a0de0d0e18133afe03985ea5f879e692cdb11197020"
     end
   end
 
   def install
+    # Homebrew rewrites and re-signs this bundle's absolute build-time Mach-O
+    # install name after install(), which would invalidate the packaged manifest.
+    # Preserve the accepted bytes until post_install runs after that relocation.
+    managed_nif = Dir["lib/exqlite-*/priv/sqlite3_nif.so"].fetch(0)
+    system "tar", "-czf", "allbert-managed-nif.tar.gz", managed_nif
+    pkgshare.install "allbert-managed-nif.tar.gz"
     libexec.install Dir["*"]
+    # Homebrew otherwise relocates release metafiles out of libexec after this
+    # method returns. Keep the runtime evidence regular and complete there while
+    # exposing the conventional top-level paths as relative links.
+    prefix.install_symlink libexec/"LICENSE", libexec/"NOTICE"
     (bin/"allbert").write_env_script libexec/"bin/allbert", SHELL: "/bin/sh"
+  end
+
+  def post_install
+    system "tar", "-xzf", pkgshare/"allbert-managed-nif.tar.gz", "-C", libexec
   end
 
   def caveats
@@ -66,5 +79,6 @@ class Allbert < Formula
 
   test do
     assert_match "allbert", shell_output("#{bin}/allbert eval 'IO.puts(:allbert)'")
+    assert_match "\"schema_version\"", shell_output("#{bin}/allbert licenses --json")
   end
 end

@@ -12,10 +12,14 @@ changelog entries or release notes.
 
 ## v1.2.6 - Self-Describing Binary And Daemon TUI
 
-Status: **release candidate — corrected pre-publication build pending.** Failed tags
-`v1.2.1`, `v1.2.2`, `v1.2.3`, `v1.2.4`, and `v1.2.5` remain immutable and
-created no GitHub Release. v1.2.6 carries the same
-operator-approved foundation scope with six bounded corrections in existing
+Status: **shipped 2026-07-29.** Annotated tag `v1.2.6` points to
+`f457b1fe`; source run `30491295028` built and qualified the three native
+artifacts once, and protected promotion run `30492163551` signed and published
+those unchanged bytes at the immutable
+[GitHub Release](https://github.com/lexlapax/allbert-assist/releases/tag/v1.2.6).
+Failed tags `v1.2.1`, `v1.2.2`, `v1.2.3`, `v1.2.4`, and `v1.2.5` remain
+immutable and created no GitHub Release. v1.2.6 carries the same
+operator-approved foundation scope with bounded corrections in existing
 release seams: it explicitly
 removes generated manifest/digest/gzip output before rebuilding; its reviewed
 license catalog omits `unicode_util_compat`, which M0.c1 had already removed
@@ -33,12 +37,15 @@ composition, plugin staging, measured macOS OpenSSL closure, dispatcher
 installation, and final license generation/verification; the packaged binary
 reports 1.2.6 and the offline viewer reports the bounded best-effort claim.
 
-**Formula state: PRE-PUBLICATION ONLY.** The packaged Latest 1.2.0 remains during
-the corrective RC window. After immutable `v1.2.6` artifacts pass the planned
-license, native TUI, signature, and installed-product qualifications, the tap is
-filled 1.2.0 → 1.2.6 from published checksums and that filled formula is synced
-back into the repository. Until then, the repository formula remains the last
-accepted 1.2.0 package rather than advertising unavailable bytes.
+**Formula state: reconciled.** Tap commit `7ce955c` fills 1.2.0 → 1.2.6 from
+the published checksums, uses Apache-2.0 metadata, and is synced back into this
+repository without moving the product tag. Homebrew derives the version from
+the three release URLs rather than a redundant explicit declaration. Current
+Homebrew strict online audit and style pass; install and formula test pass; and
+the installed viewer validates the packaged best-effort inventory of 120 known
+components. The formula preserves regular release metadata inside `libexec`
+while exposing conventional prefix links, and restores the one accepted
+Exqlite NIF after Homebrew rewrites its absolute build-time Mach-O install name.
 
 The release adds no license-management subsystem and no new release-automation
 framework. Automated exact-artifact qualification runs provider-free on all
@@ -79,6 +86,27 @@ Corrected promotion run `30490681308` then proved that `gh api --hostname
 uploads.github.com` incorrectly resolves `api.uploads.github.com`; it uploaded
 no assets. Asset upload now consumes and exactly validates GitHub's returned
 `upload_url` hypermedia link instead of synthesizing a hostname.
+
+Final source run `30491295028` at `f457b1fe` passed all native builds and
+smokes, Linux rehearsal, digest composition, three license qualifications,
+M0.a3 evidence, all three provider-free TUI qualifications, and final evidence
+composition. The accepted archive SHA-256 values are
+`ff5a17b116e3e21cf7b8321e6f4166216e64c76778d5d9b709e5b6d054e8886f`
+(macOS arm64),
+`efa501276108335551d497ef3477cc12844cd888b4e60ecdc1b774119063726e`
+(Linux x64), and
+`a4fdc202d8d48299caeb1a0de0d0e18133afe03985ea5f879e692cdb11197020`
+(Linux arm64). The exact macOS artifact repeated operator-attended local-model
+doctor, attach, status, real answer, health, and clean detach acceptance.
+
+Protected promotion run `30492163551` authenticated the source run and bound
+digest/qualification artifacts by exact ID and upload digest, uploaded the
+eight expected release assets, verified the complete set and cosign identity,
+and published draft Release `362039404`. The supported curl installer and
+Homebrew formula each installed the public macOS artifact into a disposable
+Allbert Home; version, daemon/TUI attach, health, detach, and offline license
+viewer checks passed. No aggregate gate ran; the train-wide aggregate remains
+deferred to v1.3 M9.b as approved.
 
 ## v1.2.5 - Failed Immutable Foundation Attempt
 

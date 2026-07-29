@@ -63,7 +63,7 @@ becoming opaque or unbounded.
 ## Current Shape
 
 This README is the stable project orientation. The current packaged release is
-**v1.2.0**. For its features and the full release-by-release history, see the
+**v1.2.6**. For its features and the full release-by-release history, see the
 [CHANGELOG](CHANGELOG.md); forward planning lives in the
 [roadmap](docs/plans/roadmap.md).
 
