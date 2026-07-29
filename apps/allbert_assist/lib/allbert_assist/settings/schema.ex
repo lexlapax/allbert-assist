@@ -452,6 +452,8 @@ defmodule AllbertAssist.Settings.Schema do
     "channels.whatsapp.webhook_rate_limit.period_ms",
     "channels.whatsapp.webhook_rate_limit.burst",
     "memory.review_cadence",
+    "memory.consolidation.enabled",
+    "memory.collection.origin_grants",
     "memory.auto_promote_sensitive_entries",
     "memory.retention_policy",
     "memory.delete_requires_confirmation",
@@ -460,6 +462,8 @@ defmodule AllbertAssist.Settings.Schema do
     "memory.max_entries_per_category",
     "memory.index_enabled",
     "memory.max_index_entries",
+    "search.enabled",
+    "search.origin_grants",
     "workspace.theme.mode",
     "workspace.theme.active",
     "workspace.theme.snippets_enabled",
@@ -3424,6 +3428,18 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["manual", "daily", "weekly"]
     },
+    "memory.consolidation.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "memory.collection.origin_grants" => %{
+      type: :v13_origin_scopes,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
     "memory.auto_promote_sensitive_entries" => %{
       type: :boolean,
       default: false,
@@ -3480,6 +3496,18 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       min: 1,
       max: 100_000
+    },
+    "search.enabled" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "search.origin_grants" => %{
+      type: :v13_origin_scopes,
+      default: ["local_operator"],
+      writable?: true,
+      sensitive?: false
     },
     "mcp.stdio.allowed_launchers" => %{
       type: :string_list,
@@ -4531,6 +4559,12 @@ defmodule AllbertAssist.Settings.Schema do
     },
     "memory" => %{
       "review_cadence" => "manual",
+      "consolidation" => %{
+        "enabled" => false
+      },
+      "collection" => %{
+        "origin_grants" => []
+      },
       "auto_promote_sensitive_entries" => false,
       "retention_policy" => "preserve_markdown",
       "delete_requires_confirmation" => true,
@@ -4539,6 +4573,10 @@ defmodule AllbertAssist.Settings.Schema do
       "max_entries_per_category" => 500,
       "index_enabled" => true,
       "max_index_entries" => 1000
+    },
+    "search" => %{
+      "enabled" => true,
+      "origin_grants" => ["local_operator"]
     },
     "workspace" => %{
       "theme" => %{
@@ -5335,6 +5373,20 @@ defmodule AllbertAssist.Settings.Schema do
 
   defp validate_value(%{type: :resource_grants}, value, _key, _settings),
     do: {:error, {:expected_resource_grants, value}}
+
+  defp validate_value(%{type: :v13_origin_scopes}, value, _key, _settings)
+       when is_list(value) do
+    allowed = ~w[local_operator mapped_operator_dm e2ee_operator]
+
+    if value == Enum.uniq(value) and Enum.all?(value, &(&1 in allowed)) do
+      :ok
+    else
+      {:error, {:expected_v13_origin_scopes, value}}
+    end
+  end
+
+  defp validate_value(%{type: :v13_origin_scopes}, value, _key, _settings),
+    do: {:error, {:expected_v13_origin_scopes, value}}
 
   defp validate_value(%{type: :url_or_nil}, nil, _key, _settings), do: :ok
 

@@ -324,6 +324,7 @@ defmodule AllbertAssist.Conversations.ChannelThreadTest do
                text: "first slack turn",
                channel: "slack",
                user_id: "alice",
+               external_user_id: "U_ALICE",
                channel_thread_ref: ref,
                provider_message_id: "user-1718040000.000401"
              })
@@ -374,6 +375,7 @@ defmodule AllbertAssist.Conversations.ChannelThreadTest do
                text: "second slack turn",
                channel: "slack",
                user_id: "alice",
+               external_user_id: "U_ALICE",
                channel_thread_ref: ref,
                provider_message_id: "user-1718040000.000403"
              })
@@ -393,6 +395,7 @@ defmodule AllbertAssist.Conversations.ChannelThreadTest do
                text: "must not partially persist",
                channel: "slack",
                user_id: "alice",
+               external_user_id: "U_ALICE",
                thread_id: thread.id,
                channel_thread_ref: ref,
                provider_message_id: String.duplicate("x", 161)
@@ -422,6 +425,7 @@ defmodule AllbertAssist.Conversations.ChannelThreadTest do
                text: "busy must be bounded",
                channel: "slack",
                user_id: "alice",
+               external_user_id: "U_ALICE",
                thread_id: thread.id,
                channel_thread_ref: ref,
                provider_message_id: "user-1718040000.000461"
@@ -457,6 +461,7 @@ defmodule AllbertAssist.Conversations.ChannelThreadTest do
                text: "commit exactly once",
                channel: "slack",
                user_id: "alice",
+               external_user_id: "U_ALICE",
                thread_id: thread.id,
                channel_thread_ref: ref,
                provider_message_id: "user-1718040000.000471"

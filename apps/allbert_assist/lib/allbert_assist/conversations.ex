@@ -273,22 +273,40 @@ defmodule AllbertAssist.Conversations do
     attrs = to_attrs(attrs)
     timestamp = utc_now()
 
-    message_attrs =
-      message_attrs(
-        thread,
-        attrs
-        |> Map.drop([:channel_thread_ref, :provider_message_id, :provider_message_part_id])
-        |> Map.merge(%{role: "user", content: content})
-      )
-
     admission = fn ->
-      message = insert_message_and_touch_thread(thread, message_attrs, timestamp)
+      case prepare_admission_origin(thread, attrs) do
+        {:ok, origin} ->
+          message_attrs =
+            message_attrs(
+              thread,
+              attrs
+              |> Map.drop([
+                :channel_thread_ref,
+                :provider_message_id,
+                :provider_message_part_id,
+                :external_user_id
+              ])
+              |> Map.merge(%{role: "user", content: content})
+              |> Map.merge(origin.message_attrs)
+            )
 
-      with {:ok, channel_thread_ref} <-
-             admit_channel_thread_ref(thread, message, attrs) do
-        %{message: message, channel_thread_ref: channel_thread_ref}
-      else
-        {:error, reason} -> Repo.rollback(reason)
+          message = insert_message_and_touch_thread(thread, message_attrs, timestamp)
+
+          case admit_message_ref(thread, message, origin, attrs) do
+            :ok ->
+              channel_thread_ref =
+                if origin.thread_ref,
+                  do: ChannelThread.canonical_ref(origin.thread_ref),
+                  else: nil
+
+              %{message: message, channel_thread_ref: channel_thread_ref}
+
+            {:error, reason} ->
+              Repo.rollback(reason)
+          end
+
+        {:error, reason} ->
+          Repo.rollback(reason)
       end
     end
 
@@ -469,39 +487,54 @@ defmodule AllbertAssist.Conversations do
       message.content == attrs.content and
       message.action_log == attrs.action_log and
       message.metadata == attrs.metadata and
+      message.origin_thread_ref_id == Map.get(attrs, :origin_thread_ref_id) and
+      message.origin_principal_digest == Map.get(attrs, :origin_principal_digest) and
+      message.principal_normalizer_version == Map.get(attrs, :principal_normalizer_version) and
       message.trace_id == Map.get(attrs, :trace_id) and
       message.input_signal_id == Map.get(attrs, :input_signal_id) and
       message.response_signal_id == Map.get(attrs, :response_signal_id)
   end
 
-  defp admit_channel_thread_ref(thread, message, attrs) do
+  defp prepare_admission_origin(thread, attrs) do
     case Map.get(attrs, :channel_thread_ref) do
       nil ->
-        {:ok, nil}
+        {:ok, %{thread_ref: nil, ref_attrs: nil, message_attrs: %{}}}
 
       ref ->
         ref = Map.put(ref, :canonical_thread_id, thread.id)
 
         with {:ok, thread_ref} <- ChannelThread.link_thread(ref),
-             :ok <- maybe_admit_message_ref(thread, message, ref, attrs) do
-          {:ok, ChannelThread.canonical_ref(thread_ref)}
+             {:ok, principal_digest} <- admission_principal_digest(thread, ref, attrs) do
+          {:ok,
+           %{
+             thread_ref: thread_ref,
+             ref_attrs: ref,
+             message_attrs: %{
+               origin_thread_ref_id: thread_ref.id,
+               origin_principal_digest: principal_digest,
+               principal_normalizer_version: ChannelThread.principal_normalizer_version()
+             }
+           }}
         end
     end
   end
 
-  defp maybe_admit_message_ref(thread, message, ref, attrs) do
+  defp admit_message_ref(_thread, _message, %{ref_attrs: nil}, _attrs), do: :ok
+
+  defp admit_message_ref(thread, message, origin, attrs) do
     case Map.get(attrs, :provider_message_id) do
       nil ->
         :ok
 
       provider_message_id ->
-        ref
+        origin.ref_attrs
         |> Map.merge(%{
           canonical_message_id: message.id,
           canonical_thread_id: thread.id,
           provider_message_id: provider_message_id,
           part_id: Map.get(attrs, :provider_message_part_id),
-          direction: :in
+          direction: :in,
+          thread_channel_ref_id: origin.thread_ref.id
         })
         |> ChannelThread.record_message_ref()
         |> case do
@@ -510,6 +543,36 @@ defmodule AllbertAssist.Conversations do
         end
     end
   end
+
+  defp admission_principal_digest(thread, ref, attrs) do
+    case to_string(Map.get(ref, :trust_class, Map.get(ref, "trust_class", "server_readable"))) do
+      "local" ->
+        {:ok, ChannelThread.principal_digest(thread.user_id)}
+
+      _remote ->
+        external_user_id = Map.get(attrs, :external_user_id)
+
+        provider_ref =
+          Map.get(ref, :provider_thread_ref, Map.get(ref, "provider_thread_ref", %{}))
+
+        cond do
+          is_binary(external_user_id) and String.trim(external_user_id) != "" ->
+            {:ok, ChannelThread.principal_digest(external_user_id)}
+
+          is_map(provider_ref) and is_binary(Map.get(provider_ref, :origin_identity_digest)) ->
+            {:ok, normalize_principal_digest(Map.get(provider_ref, :origin_identity_digest))}
+
+          is_map(provider_ref) and is_binary(Map.get(provider_ref, "origin_identity_digest")) ->
+            {:ok, normalize_principal_digest(Map.get(provider_ref, "origin_identity_digest"))}
+
+          true ->
+            {:error, :missing_origin_principal}
+        end
+    end
+  end
+
+  defp normalize_principal_digest("sha256:" <> digest), do: "sha256:" <> String.downcase(digest)
+  defp normalize_principal_digest(digest), do: "sha256:" <> String.downcase(digest)
 
   defp run_inbound_admission(admission) do
     config = Application.get_env(:allbert_assist, __MODULE__, [])
@@ -559,6 +622,7 @@ defmodule AllbertAssist.Conversations do
 
   defp admission_error({:message_reference, _reason}), do: :invalid_message_reference
   defp admission_error({:thread_ref_conflict, _thread_id}), do: :thread_reference_conflict
+  defp admission_error(:missing_origin_principal), do: :origin_principal_unverified
   defp admission_error(:thread_completed), do: :thread_completed
   defp admission_error(:persistence_unavailable), do: :persistence_unavailable
   defp admission_error(%Ecto.Changeset{}), do: :invalid_message

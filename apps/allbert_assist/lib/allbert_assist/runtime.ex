@@ -424,6 +424,7 @@ defmodule AllbertAssist.Runtime do
          channel_thread_ref: channel_thread_ref,
          provider_message_id: provider_message_id(attrs),
          provider_message_part_id: provider_message_part_id(attrs),
+         external_user_id: fetch_value(attrs, :external_user_id),
          metadata: fetch_value(attrs, :metadata) || %{},
          trace: fetch_value(attrs, :trace),
          coding_turn?: coding_turn?(attrs),
@@ -1121,13 +1122,19 @@ defmodule AllbertAssist.Runtime do
       metadata: metadata,
       channel_thread_ref: request.channel_thread_ref,
       provider_message_id: request.provider_message_id,
-      provider_message_part_id: request.provider_message_part_id
+      provider_message_part_id: request.provider_message_part_id,
+      external_user_id: request.external_user_id
     })
   end
 
   defp put_inbound_admission(request, admission) do
     request
     |> Map.put(:user_message_id, admission.message.id)
+    |> Map.put(:user_message_origin, %{
+      origin_thread_ref_id: admission.message.origin_thread_ref_id,
+      origin_principal_digest: admission.message.origin_principal_digest,
+      principal_normalizer_version: admission.message.principal_normalizer_version
+    })
     |> Map.put(:channel_thread_ref, admission.channel_thread_ref)
   end
 
@@ -1171,12 +1178,14 @@ defmodule AllbertAssist.Runtime do
             MediaOutputs.persistable(Map.get(response, :media_outputs, []))
           )
 
-        attrs = %{
-          action_log: assistant_action_log(response),
-          trace_id: response.trace_id,
-          response_signal_id: response_signal.id,
-          metadata: metadata
-        }
+        attrs =
+          %{
+            action_log: assistant_action_log(response),
+            trace_id: response.trace_id,
+            response_signal_id: response_signal.id,
+            metadata: metadata
+          }
+          |> Map.merge(Map.get(request, :user_message_origin, %{}))
 
         case Conversations.append_assistant_message(thread, response.model_payload, attrs) do
           {:ok, message} ->

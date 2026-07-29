@@ -10,6 +10,7 @@ defmodule AllbertAssist.Conversations.Message do
   import Ecto.Changeset
 
   alias AllbertAssist.Conversations.Thread
+  alias AllbertAssist.Conversations.ThreadChannelRef
 
   @roles ~w[user assistant]
 
@@ -18,6 +19,7 @@ defmodule AllbertAssist.Conversations.Message do
 
   schema "conversation_messages" do
     belongs_to :thread, Thread, type: :string
+    belongs_to :origin_thread_ref, ThreadChannelRef, type: :id
 
     field :user_id, :string
     field :role, :string
@@ -27,6 +29,8 @@ defmodule AllbertAssist.Conversations.Message do
     field :input_signal_id, :string
     field :response_signal_id, :string
     field :metadata, :map, default: %{}
+    field :origin_principal_digest, :string
+    field :principal_normalizer_version, :string
 
     timestamps(type: :utc_datetime_usec, updated_at: false)
   end
@@ -46,7 +50,10 @@ defmodule AllbertAssist.Conversations.Message do
       :trace_id,
       :input_signal_id,
       :response_signal_id,
-      :metadata
+      :metadata,
+      :origin_thread_ref_id,
+      :origin_principal_digest,
+      :principal_normalizer_version
     ])
     |> validate_required([:id, :thread_id, :user_id, :role, :content])
     |> validate_inclusion(:role, @roles)
@@ -54,5 +61,6 @@ defmodule AllbertAssist.Conversations.Message do
     |> validate_length(:user_id, min: 1, max: 128)
     |> validate_length(:content, min: 1)
     |> foreign_key_constraint(:thread_id)
+    |> foreign_key_constraint(:origin_thread_ref_id)
   end
 end

@@ -10,6 +10,7 @@ defmodule AllbertAssist.Conversations.ChannelThread do
   import Ecto.Query
 
   alias AllbertAssist.Conversations.ConversationMessageRef
+  alias AllbertAssist.Conversations.Corpus
   alias AllbertAssist.Conversations.CrossChannelIdentityLink
   alias AllbertAssist.Conversations.Message
   alias AllbertAssist.Conversations.ThreadChannelRef
@@ -21,6 +22,7 @@ defmodule AllbertAssist.Conversations.ChannelThread do
   @default_part_id "0"
   @hash_prefix "ptk_"
   @default_trust_class "server_readable"
+  @principal_normalizer_version "principal-v1"
   @trust_classes ~w[e2ee_origin server_readable local]
   @reply_key_types [:opaque_id, :timestamp]
   @timestamp_keys ~w[
@@ -101,6 +103,13 @@ defmodule AllbertAssist.Conversations.ChannelThread do
     |> then(&:crypto.hash(:sha256, &1))
     |> Base.encode16(case: :lower)
   end
+
+  @doc "Return the versioned digest used by v1.3 Corpus principal snapshots."
+  @spec principal_digest(term()) :: String.t()
+  def principal_digest(value), do: "sha256:" <> identity_digest(value)
+
+  @doc "Return the frozen v1.3 principal normalizer version."
+  def principal_normalizer_version, do: @principal_normalizer_version
 
   @doc "Return the stable durable fields used to bind delivery to one provider thread row."
   @type canonical_thread_ref :: %{
@@ -323,19 +332,22 @@ defmodule AllbertAssist.Conversations.ChannelThread do
     attrs = normalize_identity_link_attrs(attrs)
 
     with :ok <- validate_identity_link(attrs) do
-      case Repo.get_by(CrossChannelIdentityLink, identity_link_keys(attrs)) do
-        nil ->
-          %CrossChannelIdentityLink{}
-          |> CrossChannelIdentityLink.changeset(attrs)
-          |> Repo.insert()
+      Repo.transaction(fn ->
+        case Repo.get_by(CrossChannelIdentityLink, identity_link_keys(attrs)) do
+          nil ->
+            %CrossChannelIdentityLink{}
+            |> CrossChannelIdentityLink.changeset(attrs)
+            |> Repo.insert()
+            |> identity_mutation_result!()
 
-        %CrossChannelIdentityLink{user_id: existing_user_id} = existing
-        when existing_user_id == attrs.user_id ->
-          {:ok, existing}
+          %CrossChannelIdentityLink{user_id: existing_user_id} = existing
+          when existing_user_id == attrs.user_id ->
+            existing
 
-        %CrossChannelIdentityLink{} = existing ->
-          {:error, {:identity_link_conflict, existing.user_id}}
-      end
+          %CrossChannelIdentityLink{} = existing ->
+            Repo.rollback({:identity_link_conflict, existing.user_id})
+        end
+      end)
     end
   end
 
@@ -366,13 +378,27 @@ defmodule AllbertAssist.Conversations.ChannelThread do
   def unlink_identity(attrs) when is_map(attrs) do
     attrs = normalize_identity_link_attrs(attrs)
 
-    case Repo.get_by(CrossChannelIdentityLink, identity_link_keys(attrs)) do
-      nil -> {:error, :not_found}
-      %CrossChannelIdentityLink{} = existing -> Repo.delete(existing)
-    end
+    Repo.transaction(fn ->
+      case Repo.get_by(CrossChannelIdentityLink, identity_link_keys(attrs)) do
+        nil ->
+          Repo.rollback(:not_found)
+
+        %CrossChannelIdentityLink{} = existing ->
+          existing |> Repo.delete() |> identity_mutation_result!()
+      end
+    end)
   end
 
   def unlink_identity(_attrs), do: {:error, :invalid_identity_link}
+
+  defp identity_mutation_result!({:ok, identity}) do
+    case Corpus.bump_eligibility_epoch(:all) do
+      {:ok, _epochs} -> identity
+      {:error, reason} -> Repo.rollback({:identity_invalidation_failed, reason})
+    end
+  end
+
+  defp identity_mutation_result!({:error, reason}), do: Repo.rollback(reason)
 
   defp normalize_message_ref(attrs) do
     attrs = atomize_message_ref_keys(attrs)
@@ -397,7 +423,8 @@ defmodule AllbertAssist.Conversations.ChannelThread do
          direction: direction,
          canonical_message_id: canonical_message_id,
          canonical_thread_id: canonical_thread_id,
-         trust_class: trust_class
+         trust_class: trust_class,
+         thread_channel_ref_id: field(attrs, :thread_channel_ref_id)
        }}
     end
   end

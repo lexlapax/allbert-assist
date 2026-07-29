@@ -12,6 +12,7 @@ defmodule AllbertAssist.Conversations.ConversationMessageRef do
 
   alias AllbertAssist.Conversations.Message
   alias AllbertAssist.Conversations.Thread
+  alias AllbertAssist.Conversations.ThreadChannelRef
 
   @directions ~w[in out]
   @foreign_key_type :string
@@ -27,6 +28,8 @@ defmodule AllbertAssist.Conversations.ConversationMessageRef do
       foreign_key: :canonical_thread_id,
       references: :id,
       type: :string
+
+    belongs_to :thread_channel_ref, ThreadChannelRef, type: :id
 
     field :owner_scope, :string, default: "local"
     field :channel, :string
@@ -53,7 +56,8 @@ defmodule AllbertAssist.Conversations.ConversationMessageRef do
       :provider_message_id,
       :part_id,
       :direction,
-      :trust_class
+      :trust_class,
+      :thread_channel_ref_id
     ])
     |> validate_required([
       :canonical_message_id,
@@ -77,6 +81,7 @@ defmodule AllbertAssist.Conversations.ConversationMessageRef do
     |> validate_length(:part_id, min: 1, max: 64)
     |> foreign_key_constraint(:canonical_message_id)
     |> foreign_key_constraint(:canonical_thread_id)
+    |> foreign_key_constraint(:thread_channel_ref_id)
     |> unique_constraint(
       [:owner_scope, :channel, :receiver_account_ref, :provider_message_id, :part_id],
       name: :conversation_message_refs_provider_message_uidx

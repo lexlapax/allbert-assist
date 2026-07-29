@@ -4,6 +4,7 @@ defmodule AllbertAssist.Settings do
   """
 
   alias AllbertAssist.Memory.ReviewCadence
+  alias AllbertAssist.Conversations.Corpus
   alias AllbertAssist.Settings.Schema
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Settings.Store
@@ -301,6 +302,26 @@ defmodule AllbertAssist.Settings do
       [
         %{
           source: :memory_review_cadence,
+          error: Exception.message(exception),
+          kind: exception.__struct__
+        }
+      ]
+  end
+
+  defp post_write_diagnostics("channels." <> key, _value, _context) do
+    if String.ends_with?(key, ".identity_map") do
+      case Corpus.bump_eligibility_epoch(:all) do
+        {:ok, epochs} -> [%{source: :corpus_identity_policy, eligibility_epochs: epochs}]
+        {:error, reason} -> [%{source: :corpus_identity_policy, error: inspect(reason)}]
+      end
+    else
+      []
+    end
+  rescue
+    exception ->
+      [
+        %{
+          source: :corpus_identity_policy,
           error: Exception.message(exception),
           kind: exception.__struct__
         }

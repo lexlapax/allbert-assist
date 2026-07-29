@@ -39,6 +39,7 @@ defmodule AllbertAssist.Jobs.Run do
     field :action_log, :map, default: %{}
     field :error, :map, default: %{}
     field :metadata, :map, default: %{}
+    field :admission_key, :string
 
     timestamps(type: :utc_datetime_usec)
   end
@@ -71,7 +72,8 @@ defmodule AllbertAssist.Jobs.Run do
       :approval_handoff,
       :action_log,
       :error,
-      :metadata
+      :metadata,
+      :admission_key
     ])
     |> validate_required([:id, :job_id, :status, :trigger, :user_id, :operator_id])
     |> validate_inclusion(:status, @statuses)
