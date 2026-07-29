@@ -135,13 +135,13 @@ defmodule AllbertAssist.Runtime.Attach do
       not tokens_match?(Map.get(request, :token), token) ->
         {:error, :token_mismatch}
 
-      Path.expand(to_string(Map.get(request, :home, ""))) != identity.home ->
+      not home_matches?(Map.get(request, :home), identity.home) ->
         {:error, :home_mismatch}
 
-      to_string(Map.get(request, :uid, "")) != identity.uid ->
+      not string_matches?(Map.get(request, :uid, ""), identity.uid) ->
         {:error, :uid_mismatch}
 
-      to_string(Map.get(request, :version, "")) != identity.version ->
+      not string_matches?(Map.get(request, :version, ""), identity.version) ->
         {:error, :version_mismatch}
 
       not argv?(Map.get(request, :argv)) ->
@@ -159,6 +159,29 @@ defmodule AllbertAssist.Runtime.Attach do
   end
 
   defp tokens_match?(_candidate, _token), do: false
+
+  defp home_matches?(candidate, expected) do
+    with {:ok, home} <- safe_to_string(candidate) do
+      Path.expand(home) == expected
+    else
+      :error -> false
+    end
+  rescue
+    _error -> false
+  end
+
+  defp string_matches?(candidate, expected) do
+    case safe_to_string(candidate) do
+      {:ok, value} -> value == expected
+      :error -> false
+    end
+  end
+
+  defp safe_to_string(value) do
+    {:ok, to_string(value)}
+  rescue
+    _error -> :error
+  end
 
   @doc "Client-side attach request."
   @spec run([String.t()]) :: response()
@@ -265,6 +288,7 @@ defmodule AllbertAssist.Runtime.Attach.Server do
   require Logger
 
   alias AllbertAssist.Runtime.Attach
+  alias AllbertAssist.Runtime.Attach.TUIProtocol
 
   @accept_timeout 1_000
   @recv_timeout 5_000
@@ -319,10 +343,10 @@ defmodule AllbertAssist.Runtime.Attach.Server do
   end
 
   @impl true
-  def handle_info({:attach_request, request, socket}, %{token: token} = state) do
-    case Attach.validate_request(request, token) do
-      :ok -> dispatch_command(state.task_sup, request.argv, socket)
-      {:error, reason} -> reply(socket, {:error, reason})
+  def handle_info({:attach_request, request, socket, wire}, %{token: token} = state) do
+    case request do
+      %{} -> route_request(request, socket, token, state.task_sup, wire)
+      _other -> reply(socket, {:error, :invalid_request})
     end
 
     {:noreply, state}
@@ -335,6 +359,53 @@ defmodule AllbertAssist.Runtime.Attach.Server do
 
   def handle_info({:attach_accept_error, reason}, state) do
     {:stop, {:attach_accept_failed, reason}, state}
+  end
+
+  defp route_request(request, socket, token, task_sup, wire) do
+    case TUIProtocol.classify_kind(request) do
+      {:ok, :command} ->
+        route_command(request, socket, token, task_sup)
+
+      {:ok, :tui_session} ->
+        route_tui_open(request, socket, token, wire)
+
+      {:error, :unsupported_kind} ->
+        reply(socket, TUIProtocol.open_close(:unsupported_kind, "Unsupported request kind."))
+    end
+  end
+
+  defp route_command(request, socket, token, task_sup) do
+    case Attach.validate_request(request, token) do
+      :ok -> dispatch_command(task_sup, request.argv, socket)
+      {:error, reason} -> reply(socket, {:error, reason})
+    end
+  end
+
+  defp route_tui_open(request, socket, token, wire) do
+    cond do
+      wire.compressed? ->
+        reply(socket, TUIProtocol.open_close(:invalid_open, "Invalid TUI session open."))
+
+      wire.body_bytes > TUIProtocol.limits().open_body_bytes ->
+        reply(socket, TUIProtocol.open_close(:invalid_open, "Invalid TUI session open."))
+
+      true ->
+        expected = Map.put(Attach.identity(), :token, token)
+
+        case TUIProtocol.validate_open(request, expected) do
+          {:ok, _open} ->
+            reply(
+              socket,
+              TUIProtocol.open_close(
+                :runtime_unavailable,
+                "TUI sessions are not available yet."
+              )
+            )
+
+          {:error, reason} ->
+            reply(socket, TUIProtocol.open_close(reason, "TUI session open rejected."))
+        end
+    end
   end
 
   # Off the listener process: a crash or long-running command must not take down
@@ -395,8 +466,16 @@ defmodule AllbertAssist.Runtime.Attach.Server do
     case :gen_tcp.recv(socket, 0, @recv_timeout) do
       {:ok, payload} ->
         case safe_binary_to_term(payload) do
-          {:ok, request} -> send(owner, {:attach_request, request, socket})
-          {:error, reason} -> send(owner, {:attach_invalid, reason, socket})
+          {:ok, request} ->
+            wire = %{
+              body_bytes: byte_size(payload),
+              compressed?: TUIProtocol.compressed_term?(payload)
+            }
+
+            send(owner, {:attach_request, request, socket, wire})
+
+          {:error, reason} ->
+            send(owner, {:attach_invalid, reason, socket})
         end
 
       {:error, reason} ->

@@ -2,11 +2,12 @@
 
 ## Status
 
-Proposed (v1.2.1 point enabler, operator-signed final readiness decision
-2026-07-28). Binding on the daemon-backed-TUI milestones in the active
-release-line plan; flips Accepted when the packaged macOS and Linux rows prove
-one daemon per Home, Web/TUI continuity, failure restoration, and no embedded
-TUI runtime.
+Accepted (v1.2.1 M0.b1, 2026-07-28; operator-signed final-readiness decision).
+Binding on the daemon-backed-TUI milestones in the active release-line plan.
+The packaged macOS and Linux rows at M0.c3 must still prove one daemon per Home,
+Web/TUI continuity, failure restoration, and no embedded TUI runtime before the
+point release may ship; those rows validate this decision rather than delaying
+its acceptance.
 
 The final readiness pass freezes the exact atom-tagged v1 packet schema,
 bounds, sequencing, acknowledgements, queues, drop order, and close reasons.
@@ -85,10 +86,16 @@ The session protocol constant is `1`. The legacy packet retains its existing
 1 MiB body cap and decoding behavior. A session `:open` body is at most 16 KiB;
 every later body is at most 64 KiB. These bounds exclude the fixed length
 prefix. Session ETF may nest at most eight containers; any map has at most 32
-keys and any list is proper with at most 256 elements. The decoder rejects the
-ETF `COMPRESSED` tag before `binary_to_term/2`, then decodes with `[:safe]`,
-validates the structural bounds, and exact-matches only pre-existing allowlisted
-atoms.
+keys and any list is proper with at most 256 elements. The session decoder
+rejects the ETF `COMPRESSED` tag before session semantic decoding, then decodes
+with `[:safe]`, validates the structural bounds, and exact-matches only
+pre-existing allowlisted atoms. The first packet shares the legacy attach-v1
+envelope, so the transport performs its existing safe-term decode once to
+discover the in-term `kind`; when the raw packet carried `COMPRESSED` and the
+decoded kind is `:tui_session`, it rejects that packet before session schema,
+identity, or runtime dispatch. Rejecting every compressed first packet before
+reading `kind` would change kind-absent attach-v1 behavior, while adding an
+out-of-band discriminator would change its wire framing; v1 does neither.
 It never creates an atom from peer input. Unknown keys, atoms, frames, or value
 types are v1 protocol errors, rather than fields to ignore.
 
@@ -117,16 +124,19 @@ The exact open shape is:
 `home` is valid UTF-8 and at most 4,096 bytes; `uid` preserves the existing
 Attach identity's canonical UTF-8 string and is 1–32 bytes; `version` is valid
 UTF-8 and at most 64 bytes; and `profile` is normalized valid UTF-8 from 1
-through 128 bytes. The token must have the existing attach-token length.
+through 128 bytes. The token is exactly 43 bytes: the existing unpadded
+base64url encoding of 32 random attach-token bytes.
 Columns are 1–500 and rows are 1–200. The daemon compares token
 material in constant time and rejects every Home, uid, application, attach-
 protocol, or session-protocol mismatch before creating channel state. The
 Unix-domain socket and token remain local-only with existing owner-only
 filesystem permissions; Erlang distribution and a loopback listener remain
-out. The listener's existing pending-client cap and open-read deadline apply
-until this handshake succeeds. An accepted session is no longer subject to the
-unary command-response deadline and has no application idle timeout; socket
-loss, daemon shutdown, explicit detach, or bounded-pressure failure ends it.
+out. The existing five-second open-read deadline applies until this handshake
+succeeds. M0.b2 adds a 16-client pending-handshake cap distinct from the
+existing 16-child unary-command task cap; the current serial accept loop is not
+claimed as that bound. An accepted session is no longer subject to the unary
+command-response deadline and has no application idle timeout; socket loss,
+daemon shutdown, explicit detach, or bounded-pressure failure ends it.
 
 An accepted open receives the first daemon `:snapshot` as server sequence 1,
 acknowledgement 0, with a cryptographically random 32-byte binary `session_id`.
@@ -153,12 +163,19 @@ Every accepted post-open body has exactly these envelope keys:
 ```
 
 Sequence numbers start at 1 independently in each direction, increase by one,
-and may not exceed `9_223_372_036_854_775_807`; a session closes before counter
-exhaustion. `ack` is the highest contiguous peer sequence synchronously handled
-or accepted into its bounded queue, starts at 0, never decreases, and never
-exceeds the highest sequence sent by that peer. It acknowledges frame custody,
-not action completion. A gap, duplicate/regressed sequence,
-regressed/impossible acknowledgement, or wrong session id closes the session.
+and may not exceed `9_223_372_036_854_775_807`. That maximum is reserved for a
+daemon-to-client terminal `:close` with `:sequence_error`; the client closes its
+transport before using the maximum, and no other frame is admitted at it. Each
+endpoint puts the highest
+contiguous peer sequence synchronously handled or accepted into its bounded
+queue into outgoing `ack`, starting at 0. An incoming frame's `ack` acknowledges
+this endpoint's outgoing stream and must satisfy
+`last_peer_ack <= ack <= local_highest_sent`. It acknowledges frame custody,
+not action completion. A sequence gap, duplicate/regression, or exhaustion
+closes with `:sequence_error`; an acknowledgement regression or impossible
+value closes with `:ack_error`; a wrong session id, unknown key/type/frame,
+compressed/invalid ETF, or other schema failure closes with `:protocol_error`;
+and a body over 64 KiB closes with `:frame_too_large`.
 Frames are not retransmitted: sequence and acknowledgement release bounded
 in-flight storage and detect loss/corruption. An `:ack` frame has `%{}` payload,
 participates in sequence ordering, is not retained in the unacknowledged
@@ -168,12 +185,13 @@ frame piggybacks the current ack.
 Payload maps contain exactly the keys below. A receipt id is the 22-byte
 unpadded base64url encoding of 16 client-generated cryptographically random
 bytes and is not a session id. All text is valid UTF-8. `lines` has at most 256
-entries, each entry is at most 8 KiB, and its aggregate encoded text is at most
-48 KiB.
+entries, each entry is at most 8 KiB, and the sum of the entries' UTF-8 byte
+sizes (without separators or ETF overhead) is at most 48 KiB. A `:clear_live`
+delta requires `lines: []`.
 
 | Direction | Frame | Exact payload |
 | --- | --- | --- |
-| client → daemon | `:input` | `%{input_receipt_id: receipt_id, text: text}`; text is at most `min(Settings Central TUI input limit, 32_000)` bytes |
+| client → daemon | `:input` | `%{input_receipt_id: receipt_id, text: text}`; text is at most the existing Settings Central `channels.tui.max_text_bytes` value (default 12,000; bounded 1–32,000), reused as the TUI surface's inbound and rendered-text ceiling rather than adding a second setting |
 | client → daemon | `:resize` | `%{columns: 1..500, rows: 1..200}` |
 | client → daemon | `:cancel` | `%{reason: :operator_escape \| :operator_interrupt}` |
 | client → daemon | `:confirmation` | `%{confirmation_id: id, decision: :approve \| :deny}`; id is 1–128 bytes |
@@ -217,11 +235,19 @@ confirmation. Cancel and detach are attempted immediately; if a non-droppable
 control cannot enter the bounded writer, the client closes the socket so the
 daemon's attended-turn loss policy cancels safely.
 
-Before applying those limits, the daemon replaces an unsent resize, replaces
-an older unsent snapshot with the newest full snapshot, and coalesces adjacent
-presentation-only delta/status updates for the same render revision. If space
-is still required, it drops the oldest unsent presentation-only `:status`, then
-the oldest unsent presentation-only `:delta`, and schedules the next
+Before applying those limits, the client replaces its unsent resize and the
+daemon's inbound queue likewise retains only its newest pending resize. The
+daemon replaces an older unsent snapshot with the newest full snapshot.
+Adjacent presentation-only statuses for the same render revision are
+newest-wins. Adjacent same-revision deltas reduce deterministically: append +
+append concatenates; a later replace or clear supersedes what precedes it;
+replace + append remains replace with concatenated lines; and clear + append
+becomes replace. A reduction that would exceed any frame/line bound is not
+performed. Render revision is bounded presentation correlation, not an
+authority token; v1 does not add a monotonic-revision close rule. If space is
+still required, the daemon drops the oldest unsent
+presentation-only `:status`, then the oldest unsent presentation-only `:delta`,
+and schedules the next
 presentation as a full `:snapshot` with `gap?: true`. It never drops an input
 admission outcome, confirmation, completion, error, or close. If a
 non-droppable frame cannot fit, the daemon makes one best-effort `:close` with
@@ -273,8 +299,9 @@ adapter. The terminal client starts no adapter at all.
 
 The receipt seam extends the existing `channel_events` inbound dedupe row and
 its existing `(channel, external_event_id)` uniqueness. Receipt rows use
-`channel: "tui"`, `provider: "local"`, and `direction: "inbound"`. It does not
-add a table, receipt server, or private durable goal loop. Additive nullable
+`channel: "tui"`, `provider: "terminal"`, and `direction: "inbound"`. The
+provider class/trust class remains local; it is not the event provider. This does
+not add a table, receipt server, or private durable goal loop. Additive nullable
 fields record
 `receipt_normalizer_version`, `receipt_hmac_key_ref`,
 `receipt_hmac_key_version`, `receipt_payload_hmac`, `receipt_state`,

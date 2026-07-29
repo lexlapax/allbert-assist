@@ -137,6 +137,154 @@ defmodule AllbertAssist.CLI.DispatcherTest do
     end)
   end
 
+  test "legacy attach request keeps its exact kind-absent packet shape" do
+    with_attach_home(fn ->
+      identity = Attach.identity()
+
+      assert %{
+               protocol: identity.protocol,
+               home: identity.home,
+               uid: identity.uid,
+               version: identity.version,
+               token: "legacy-token",
+               argv: ["--version"]
+             } == Attach.request(["--version"], "legacy-token")
+
+      refute Map.has_key?(Attach.request(["--version"], "legacy-token"), :kind)
+    end)
+  end
+
+  test "explicit command kind is an alias for legacy unary routing" do
+    with_attach_home(fn ->
+      start_supervised!(Attach.Server)
+      assert {:ok, token} = Attach.read_token()
+
+      legacy_request = Attach.request(["--version"], token)
+      explicit_request = Map.put(legacy_request, :kind, :command)
+
+      assert {:ok, {legacy_out, 0}} = Attach.run_request(legacy_request)
+      assert {:ok, {explicit_out, 0}} = Attach.run_request(explicit_request)
+      assert explicit_out == legacy_out
+    end)
+  end
+
+  test "nil and unknown attach request kinds are rejected without command dispatch" do
+    with_attach_home(fn ->
+      pid = start_supervised!(Attach.Server)
+      assert {:ok, token} = Attach.read_token()
+
+      for kind <- [nil, :unknown_kind] do
+        request =
+          ["--version"]
+          |> Attach.request(token)
+          |> Map.put(:kind, kind)
+
+        assert %{
+                 kind: :tui_session,
+                 frame: :close,
+                 session_protocol: 1,
+                 code: :unsupported_kind,
+                 message: message
+               } = raw_attach_request(request)
+
+        assert is_binary(message)
+        assert byte_size(message) <= 1_024
+      end
+
+      assert Process.alive?(pid)
+    end)
+  end
+
+  test "malformed TUI session open fails before runtime dispatch" do
+    with_attach_home(fn ->
+      pid = start_supervised!(Attach.Server)
+      assert {:ok, token} = Attach.read_token()
+
+      malformed_open = Map.delete(valid_tui_open(token), :terminal)
+
+      assert %{code: :invalid_open} = raw_attach_request(malformed_open)
+      assert Process.alive?(pid)
+    end)
+  end
+
+  test "TUI session authentication mismatch fails before runtime dispatch" do
+    with_attach_home(fn ->
+      pid = start_supervised!(Attach.Server)
+      assert {:ok, token} = Attach.read_token()
+
+      mismatched_open = Map.put(valid_tui_open(token), :token, "wrong-token")
+
+      assert %{code: :token_mismatch} = raw_attach_request(mismatched_open)
+      assert Process.alive?(pid)
+    end)
+  end
+
+  test "TUI session packets never reach argv command dispatch" do
+    with_attach_home(fn ->
+      pid = start_supervised!(Attach.Server)
+      assert {:ok, token} = Attach.read_token()
+
+      session_with_argv = Map.put(valid_tui_open(token), :argv, ["--version"])
+
+      assert %{code: :invalid_open} = raw_attach_request(session_with_argv)
+      assert Process.alive?(pid)
+      assert {:ok, {_out, 0}} = Attach.run(["--version"])
+    end)
+  end
+
+  test "valid TUI open fails closed until the daemon session service lands" do
+    with_attach_home(fn ->
+      pid = start_supervised!(Attach.Server)
+      assert {:ok, token} = Attach.read_token()
+
+      assert %{code: :runtime_unavailable} = raw_attach_request(valid_tui_open(token))
+      assert Process.alive?(pid)
+    end)
+  end
+
+  test "TUI open rejects a body larger than 16 KiB before schema dispatch" do
+    with_attach_home(fn ->
+      pid = start_supervised!(Attach.Server)
+      assert {:ok, token} = Attach.read_token()
+
+      oversized_open =
+        token
+        |> valid_tui_open()
+        |> Map.put(:padding, String.duplicate("x", 17_000))
+
+      assert byte_size(:erlang.term_to_binary(oversized_open)) > 16_384
+      assert %{code: :invalid_open} = raw_attach_request(oversized_open)
+      assert Process.alive?(pid)
+    end)
+  end
+
+  test "compressed TUI open is rejected before session validation" do
+    with_attach_home(fn ->
+      pid = start_supervised!(Attach.Server)
+      assert {:ok, token} = Attach.read_token()
+      open = valid_tui_open(token)
+      encoded = :erlang.term_to_binary(open, compressed: 9)
+
+      assert <<131, 80, _rest::binary>> = encoded
+      assert %{code: :invalid_open} = raw_attach_request(open, compressed: 9)
+      assert Process.alive?(pid)
+    end)
+  end
+
+  test "compressed kind-absent request keeps legacy command behavior" do
+    with_attach_home(fn ->
+      pid = start_supervised!(Attach.Server)
+      assert {:ok, token} = Attach.read_token()
+      request = Attach.request(["--version"], token)
+      encoded = :erlang.term_to_binary(request, compressed: 9)
+
+      assert <<131, 80, _rest::binary>> = encoded
+      assert {:ok, {out, 0}} = raw_attach_request(request, compressed: 9)
+      assert out =~ "allbert"
+      assert Process.alive?(pid)
+    end)
+  end
+
   test "attach rejects authentication and identity mismatches" do
     with_attach_home(fn ->
       start_supervised!(Attach.Server)
@@ -169,6 +317,38 @@ defmodule AllbertAssist.CLI.DispatcherTest do
 
       assert {:error, :version_mismatch} =
                Attach.run_request(Map.put(base, :version, "0.0.0-not-this"))
+    end)
+  end
+
+  test "malformed legacy identity values are rejected without crashing the listener" do
+    with_attach_home(fn ->
+      pid = start_supervised!(Attach.Server)
+      assert {:ok, token} = Attach.read_token()
+
+      malformed_home =
+        ["--version"]
+        |> Attach.request(token)
+        |> Map.put(:home, %{untrusted: "value"})
+
+      assert {:error, :home_mismatch} = Attach.run_request(malformed_home)
+      assert Process.alive?(pid)
+
+      malformed_uid =
+        ["--version"]
+        |> Attach.request(token)
+        |> Map.put(:uid, %{untrusted: "value"})
+
+      assert {:error, :uid_mismatch} = Attach.run_request(malformed_uid)
+      assert Process.alive?(pid)
+
+      malformed_version =
+        ["--version"]
+        |> Attach.request(token)
+        |> Map.put(:version, %{untrusted: "value"})
+
+      assert {:error, :version_mismatch} = Attach.run_request(malformed_version)
+      assert Process.alive?(pid)
+      assert {:ok, {_out, 0}} = Attach.run(["--version"])
     end)
   end
 
@@ -286,6 +466,34 @@ defmodule AllbertAssist.CLI.DispatcherTest do
     end)
 
     fun.()
+  end
+
+  defp raw_attach_request(request, encode_opts \\ []) do
+    {:ok, socket} =
+      :gen_tcp.connect(
+        {:local, Attach.socket_path()},
+        0,
+        [:binary, packet: 4, active: false],
+        5_000
+      )
+
+    :ok = :gen_tcp.send(socket, :erlang.term_to_binary(request, encode_opts))
+    {:ok, payload} = :gen_tcp.recv(socket, 0, 5_000)
+    response = :erlang.binary_to_term(payload, [:safe])
+    :ok = :gen_tcp.close(socket)
+    response
+  end
+
+  defp valid_tui_open(token) do
+    Attach.identity()
+    |> Map.merge(%{
+      kind: :tui_session,
+      frame: :open,
+      session_protocol: 1,
+      token: token,
+      profile: "default",
+      terminal: %{columns: 120, rows: 40, color: :truecolor, unicode?: true}
+    })
   end
 
   defp with_first_run_home(fun) do

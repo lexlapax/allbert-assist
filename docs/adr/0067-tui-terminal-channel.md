@@ -1,6 +1,7 @@
 # ADR 0067: TUI/Terminal Channel
 
-Status: Accepted (v0.55; v1.2 M9 launcher amendment accepted 2026-07-27).
+Status: Accepted (v0.55; v1.2 M9 launcher amendment accepted 2026-07-27;
+v1.2.1 thin-client presentation amendment accepted 2026-07-28).
 Date: 2026-06-21
 Related: ADR 0016 (channel adapter boundary + identity mapping — this channel
 is registered under that contract; the v0.55 amendment already reserves
@@ -16,6 +17,15 @@ this channel and on the split-result pattern established here. Pi-mode builds on
 this ADR's split-payload seam, scrollback rendering, and transient Owl
 status/live block; the progressive coding-diff live-region renderer is v0.57
 work.
+
+ADR 0091 is the additive v1.2.1 successor for process and terminal ownership.
+It preserves this channel's identity, split-payload, renderer, confirmation,
+and authority contracts, but supersedes the embedded launch path and the
+historical “NO alternate-screen” client constraint: after an authenticated
+daemon snapshot, the thin client uses raw/alternate-screen mode for the attached
+session and restores the terminal on handled exit. The daemon still emits the
+same bounded line-oriented presentation model; this does not introduce a
+full-viewport application architecture or move channel logic into the client.
 
 ADR 0016's v0.55 amendment owns the channel reservation and the
 capability/parity-matrix artifact; this ADR (0067) owns the descriptor detail,
@@ -149,8 +159,10 @@ input so operator-typed text remains visible. A SINGLE transient
 is waiting — a differential update of only the bottom region, using
 synchronized-output escape sequences where supported to avoid flicker.
 
-Explicitly: NO alternate-screen buffer, NO full-viewport ownership, NO
-full-screen redraw.
+For the v0.55 embedded renderer, explicitly: NO alternate-screen buffer, NO
+full-viewport ownership, NO full-screen redraw. ADR 0091 supersedes only the
+alternate-screen constraint for the v1.2.1 thin terminal client after its
+authenticated handshake; the other rendering and authority constraints remain.
 
 Rationale: `owl` is a top-to-bottom CLI toolkit explicitly distinct from
 full-screen TUI libraries; `ratatouille` / `ex_termbox` / `ExNcurses` are
