@@ -496,6 +496,81 @@ silently rebuilt under an accepted digest set. The small license finalizer/
 viewer remains best-effort inventory functionality inside the release build,
 not a release-state service or legal-compliance subsystem.
 
+## Amendment (v1.3 M9.a2, 2026-07-29) — qualify drafts before immutability
+
+The tag-first hosted-build model above solved byte substitution but made the
+first product-tag push irreversible before its own workflow and artifact
+contracts had executed. Repeated pre-publication failures therefore consumed
+`v1.2.1` through `v1.2.5` despite creating no GitHub Release. v1.3 changes the
+boundary without weakening an accepted published release: **release
+immutability begins when the draft is published, not when a provisional draft
+tag is first created.**
+
+GitHub immutable releases must be enabled and verified before this path cuts
+over. While the release is a draft, its intended product tag, target SHA, and
+assets are candidate state. An operator may discard the complete failed draft
+generation and its provisional tag, then stage a complete replacement under
+the same intended version. Partial in-place repair, `--clobber`, mixed
+generations, and silent tag movement remain forbidden. Once protected
+promotion publishes the draft, GitHub locks the release tag and assets; that
+tag is never moved, deleted, or reused, and a later source/byte correction
+requires a patch version.
+
+Release construction moves to operator-controlled target environments:
+
+- macOS arm64 builds natively on the operator Mac;
+- Linux x64 builds natively on the `serenity` Linux host; and
+- Linux arm64 builds and smokes in a pinned-digest `linux/arm64` container on
+  Apple Silicon Docker Desktop.
+
+Docker Desktop runs the engine inside a Linux VM. On Apple Silicon an explicit
+`--platform linux/arm64` container therefore executes Linux/aarch64 userspace
+on the matching host architecture; it produces a Linux arm64 artifact, not a
+macOS artifact. The builder must record `uname -s == Linux`,
+`uname -m == aarch64`, the image name and digest, and the exact toolchain. It
+must not substitute `linux/amd64` emulation: Docker documents Intel containers
+on Apple Silicon as slower, more memory-intensive best effort. Builds use the
+container filesystem and copy only final staged output across the bind mount,
+avoiding host-filesystem modes or symlinks becoming build inputs.
+
+One exact clean pushed SHA and candidate generation bind all three archives.
+The existing final-artifact/license finalizer remains the last byte mutation;
+the existing target smoke runs before upload. Draft release assets and a
+content-free candidate manifest bind intended version, SHA, generation,
+target, archive digest, release-asset ID/digest, exact toolchain, and builder
+host class or container-image digest. No-build GitHub qualification downloads
+only those explicitly bound assets, runs packaged license/protocol/provider
+rows, and emits the final qualification manifest. The operator validates the
+exact macOS artifact's TUI before approving promotion.
+
+Protected GitHub promotion remains the only signing/publication authority. It
+rehashes the draft assets, verifies the candidate and qualification bindings,
+creates deterministic checksums, signs through OIDC, uploads signatures, and
+publishes the same draft without rebuilding. The cosign identity consequently
+attests protected GitHub qualification/promotion of the recorded
+operator-built bytes; it does not claim that GitHub-hosted runners compiled
+them.
+
+Implementation is subtractive. Reuse the finalizer, smoke harnesses, and
+promotion verification; add at most one thin target-build helper and keep
+SSH/Docker/draft lifecycle commands in the request flow. After one shadow
+rehearsal, remove the hosted native-build matrix, successful-builder reuse
+branches, and tag-first patch-recovery logic. Do not add self-hosted runners, a
+release daemon, database, durable candidate service, or a second permanent
+construction path.
+
+Primary-source constraints for this amendment:
+
+- Docker Desktop runs containers inside a Linux VM, and Docker recommends
+  native arm64 images on Apple Silicon rather than best-effort Intel emulation
+  ([Docker Desktop networking](https://docs.docker.com/desktop/features/networking/),
+  [multi-platform builds](https://docs.docker.com/build/building/multi-platform/)).
+- GitHub recommends creating a draft, attaching all assets, then publishing;
+  when immutable releases are enabled, tag and asset immutability begins at
+  publication while draft state remains editable
+  ([immutable releases](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases),
+  [release assets API](https://docs.github.com/en/rest/releases/assets)).
+
 ### Per-target toolchain evidence
 
 Release builds pin exact OTP and Elixir versions and immutable full-SHA
