@@ -213,6 +213,110 @@ defmodule AllbertAssist.Memory.ClaimStreamTest do
     assert Bitwise.band(stat.mode, 0o777) == 0o640
   end
 
+  test "raw manual revisions stay inert until an exact next confirmation" do
+    claim_id = Ecto.UUID.generate()
+    assert {:ok, first} = Claims.append(claim_id, nil, transition())
+    assert {:ok, stream} = Claims.read(claim_id)
+
+    manual = manual_revision(stream, value: "A manually edited exact value.")
+    File.write!(first.path, Format.render(nil, stream.records ++ [manual]))
+
+    assert {:ok, pending} = Claims.read(claim_id)
+    assert pending.status == :pending_manual
+    assert {:error, :pending_manual} = Claims.current(claim_id)
+
+    mismatched =
+      confirmation_transition(
+        "manual_import_confirmed",
+        pending_revision_digest: digest("wrong"),
+        prior_chain_digest: manual["previous_revision_digest"]
+      )
+
+    assert {:error, :manual_confirmation_mismatch} =
+             Claims.append(claim_id, manual["revision_digest"], mismatched)
+
+    confirmation =
+      confirmation_transition(
+        "manual_import_confirmed",
+        pending_revision_digest: manual["revision_digest"],
+        prior_chain_digest: manual["previous_revision_digest"]
+      )
+
+    assert {:ok, confirmed} =
+             Claims.append(claim_id, manual["revision_digest"], confirmation)
+
+    assert confirmed.sequence == 3
+    assert {:ok, accepted} = Claims.read(claim_id)
+    assert accepted.status == :valid
+    assert length(accepted.records) == 3
+    assert length(accepted.effective_records) == 2
+    assert {:ok, current} = Claims.current(claim_id)
+    assert current["payload"]["value"] == "A manually edited exact value."
+    assert List.last(accepted.records)["payload"] |> Map.has_key?("value") == false
+  end
+
+  test "a foreign Home chain stays inert until exact destination confirmation", %{
+    home: source_home
+  } do
+    claim_id = Ecto.UUID.generate()
+    assert {:ok, source} = Claims.append(claim_id, nil, transition(value: "portable value"))
+    assert {:ok, source_stream} = Claims.read(claim_id)
+    manual = manual_revision(source_stream, value: "portable reviewed manual value")
+    File.write!(source.path, Format.render(nil, source_stream.records ++ [manual]))
+
+    source_confirmation =
+      confirmation_transition(
+        "manual_import_confirmed",
+        pending_revision_digest: manual["revision_digest"],
+        prior_chain_digest: manual["previous_revision_digest"]
+      )
+
+    assert {:ok, %{sequence: 3}} =
+             Claims.append(claim_id, manual["revision_digest"], source_confirmation)
+
+    source_bytes = File.read!(source.path)
+
+    destination_home = temp_path("destination-home")
+    on_exit(fn -> File.rm_rf!(destination_home) end)
+    System.put_env("ALLBERT_HOME", destination_home)
+    KeyCustody.invalidate(:all)
+
+    destination_path = Path.join(Paths.memory_claims_root(), claim_id <> ".md")
+    File.mkdir_p!(Path.dirname(destination_path))
+    File.write!(destination_path, source_bytes)
+
+    assert {:error, {:quarantined, :memory_integrity_key_unavailable, ^destination_path}} =
+             Claims.read(claim_id)
+
+    assert {:ok, foreign} = Claims.inspect_destination(claim_id)
+    assert foreign.status == :destination_confirmation_required
+    assert foreign.effective_records == []
+
+    assert {:error, {:quarantined, :memory_integrity_key_unavailable, ^destination_path}} =
+             Claims.current(claim_id)
+
+    confirmation =
+      confirmation_transition(
+        "destination_chain_confirmed",
+        source_chain_digest: foreign.tail_digest
+      )
+
+    assert {:ok, destination_grant} =
+             Claims.append(claim_id, foreign.tail_digest, confirmation)
+
+    assert destination_grant.sequence == 4
+    assert {:ok, imported} = Claims.read(claim_id)
+    assert imported.status == :valid
+    assert {:ok, current} = Claims.current(claim_id)
+    assert current["payload"]["value"] == "portable reviewed manual value"
+
+    local = transition(value: "destination-local update")
+    assert {:ok, %{sequence: 5}} = Claims.append(claim_id, imported.tail_digest, local)
+
+    System.put_env("ALLBERT_HOME", source_home)
+    KeyCustody.invalidate(:all)
+  end
+
   defp transition(overrides \\ []) do
     defaults = %{
       revision_id: Ecto.UUID.generate(),
@@ -227,6 +331,51 @@ defmodule AllbertAssist.Memory.ClaimStreamTest do
     }
 
     Enum.into(overrides, defaults)
+  end
+
+  defp confirmation_transition(action, bindings) do
+    %{
+      revision_id: Ecto.UUID.generate(),
+      transition_id: Ecto.UUID.generate(),
+      state: "kept",
+      recorded_at: "2026-07-30T12:00:00Z",
+      valid_from: nil,
+      valid_to: nil,
+      actor: "operator:local",
+      action: action,
+      normalizer_version: 1
+    }
+    |> Map.merge(Map.new(bindings))
+  end
+
+  defp manual_revision(stream, overrides) do
+    payload =
+      transition(overrides)
+      |> Map.new(fn {key, value} -> {Atom.to_string(key), value} end)
+
+    base = %{
+      "schema_version" => 1,
+      "claim_id" => stream.claim_id,
+      "revision_id" => payload["revision_id"],
+      "sequence" => length(stream.records) + 1,
+      "previous_revision_digest" => stream.tail_digest,
+      "payload" => payload,
+      "payload_digest" => digest(Format.canonical_json(payload)),
+      "transition_id" => payload["transition_id"],
+      "state" => payload["state"],
+      "recorded_at" => payload["recorded_at"],
+      "valid_from" => payload["valid_from"],
+      "valid_to" => payload["valid_to"],
+      "actor" => payload["actor"],
+      "action" => payload["action"],
+      "normalizer_version" => 1,
+      "authority_kind" => "manual_revision",
+      "key_ref" => nil,
+      "key_version" => nil,
+      "integrity_tag" => nil
+    }
+
+    Map.put(base, "revision_digest", revision_digest(base))
   end
 
   defp revision_digest(record) do

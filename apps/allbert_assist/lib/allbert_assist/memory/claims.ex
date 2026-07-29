@@ -14,6 +14,8 @@ defmodule AllbertAssist.Memory.Claims do
   alias AllbertAssist.Settings.KeyCustody
 
   @domain "allbert.memory.claim-transition.v1"
+  @manual_domain "allbert.memory.manual-confirmation.v1"
+  @destination_domain "allbert.memory.destination-chain-confirmation.v1"
   @key_version 1
   @schema_version 1
   @normalizer_version 1
@@ -27,8 +29,9 @@ defmodule AllbertAssist.Memory.Claims do
           legacy?: boolean(),
           legacy_digest: String.t() | nil,
           records: [map()],
+          effective_records: [map()],
           tail_digest: String.t() | nil,
-          status: :valid | :grandfathered
+          status: :valid | :grandfathered | :pending_manual | :destination_confirmation_required
         }
 
   @doc "Append one native transition after the exact expected tail."
@@ -52,16 +55,26 @@ defmodule AllbertAssist.Memory.Claims do
     end
   end
 
+  @doc "Inspect one structurally valid foreign chain for explicit destination confirmation."
+  @spec inspect_destination(String.t()) :: {:ok, stream()} | {:error, term()}
+  def inspect_destination(claim_id) do
+    with :ok <- valid_claim_id(claim_id),
+         {:ok, path} <- locate_claim(claim_id) do
+      read_path(path, expected_claim_id: claim_id, allow_foreign: true)
+    end
+  end
+
   @doc "Read and verify one claim stream or grandfathered legacy file by path."
   @spec read_path(String.t(), keyword()) :: {:ok, stream()} | {:error, term()}
   def read_path(path, opts \\ [])
 
   def read_path(path, opts) when is_binary(path) do
     expected_claim_id = Keyword.get(opts, :expected_claim_id)
+    allow_foreign? = Keyword.get(opts, :allow_foreign, false)
 
     with {:ok, content} <- File.read(path) do
       case Format.parse(content) do
-        {:ok, parsed} -> validate_parsed(path, parsed, expected_claim_id)
+        {:ok, parsed} -> validate_parsed(path, parsed, expected_claim_id, allow_foreign?)
         {:error, :not_claim_stream} -> load_legacy(path, content, expected_claim_id)
         {:error, reason} -> quarantine(path, reason)
       end
@@ -76,11 +89,12 @@ defmodule AllbertAssist.Memory.Claims do
   @doc "Return the current authoritative record, including archived/retired state."
   @spec current(String.t()) :: {:ok, map()} | {:error, term()}
   def current(claim_id) do
-    with {:ok, stream} <- read(claim_id),
-         record when is_map(record) <- List.last(stream.records) do
+    with {:ok, %{status: :valid} = stream} <- read(claim_id),
+         record when is_map(record) <- List.last(stream.effective_records) do
       {:ok, record}
     else
       nil -> {:error, :grandfathered_claim_requires_adoption}
+      {:ok, %{status: status}} -> {:error, status}
       {:error, reason} -> {:error, reason}
     end
   end
@@ -88,8 +102,8 @@ defmodule AllbertAssist.Memory.Claims do
   @doc "Return the newest kept record valid at both explicit temporal axes."
   @spec as_of(String.t(), DateTime.t(), DateTime.t()) :: {:ok, map()} | {:error, term()}
   def as_of(claim_id, %DateTime{} = valid_at, %DateTime{} = known_at) do
-    with {:ok, stream} <- read(claim_id) do
-      stream.records
+    with {:ok, %{status: :valid} = stream} <- read(claim_id) do
+      stream.effective_records
       |> Enum.filter(&known_by?(&1, known_at))
       |> Enum.filter(&valid_at?(&1, valid_at))
       |> List.last()
@@ -98,6 +112,9 @@ defmodule AllbertAssist.Memory.Claims do
         %{"state" => "kept"} = record -> {:ok, record}
         _record -> {:error, :not_effective}
       end
+    else
+      {:ok, %{status: status}} -> {:error, status}
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -131,11 +148,14 @@ defmodule AllbertAssist.Memory.Claims do
   end
 
   defp append_locked(target, expected_tail_digest, transition) do
+    allow_foreign? = field(transition, :action) == "destination_chain_confirmed"
+
     with :ok <- tombstone_absent(target.claim_id),
-         {:ok, stream} <- load_target(target),
+         {:ok, stream} <- load_target(target, allow_foreign: allow_foreign?),
          {:ok, normalized} <- normalize_transition(transition, stream),
          {:new, normalized} <- transition_disposition(stream, normalized),
          :ok <- check_expected_tail(stream.tail_digest, expected_tail_digest),
+         :ok <- authorize_transition(stream, normalized),
          {:ok, record} <- signed_record(stream, normalized),
          :ok <- tombstone_absent(target.claim_id),
          :ok <-
@@ -216,25 +236,28 @@ defmodule AllbertAssist.Memory.Claims do
      }}
   end
 
-  defp load_target(%{legacy?: false, path: path, claim_id: claim_id}) do
+  defp load_target(%{legacy?: false, path: path, claim_id: claim_id}, opts) do
     if File.exists?(path) do
-      read_path(path, expected_claim_id: claim_id) |> stream_for_append()
+      read_path(path, Keyword.put(opts, :expected_claim_id, claim_id)) |> stream_for_append()
     else
       {:ok, empty_stream(path, claim_id)}
     end
   end
 
-  defp load_target(%{legacy?: true, path: path, claim_id: claim_id, legacy_digest: digest}) do
+  defp load_target(
+         %{legacy?: true, path: path, claim_id: claim_id, legacy_digest: digest},
+         opts
+       ) do
     with {:ok, content} <- File.read(path),
-         {:ok, stream} <- read_path(path, expected_claim_id: claim_id),
+         {:ok, stream} <- read_path(path, Keyword.put(opts, :expected_claim_id, claim_id)),
          true <- stream.legacy? || {:error, :legacy_already_rehomed},
          true <- stream.legacy_digest == digest || {:error, :legacy_digest_mismatch} do
       {:ok, Map.put(stream, :legacy_content, legacy_content(content))}
     end
   end
 
-  defp load_target(%{legacy?: :existing, path: path, claim_id: claim_id}) do
-    read_path(path, expected_claim_id: claim_id)
+  defp load_target(%{legacy?: :existing, path: path, claim_id: claim_id}, opts) do
+    read_path(path, Keyword.put(opts, :expected_claim_id, claim_id))
   end
 
   defp stream_for_append({:ok, stream}), do: {:ok, Map.put(stream, :legacy_content, nil)}
@@ -248,16 +271,18 @@ defmodule AllbertAssist.Memory.Claims do
       legacy_content: nil,
       legacy_digest: nil,
       records: [],
+      effective_records: [],
       tail_digest: nil,
       status: :valid
     }
   end
 
-  defp validate_parsed(path, parsed, expected_claim_id) do
+  defp validate_parsed(path, parsed, expected_claim_id, allow_foreign?) do
     with {:ok, claim_id} <- stream_claim_id(parsed.records, expected_claim_id),
          {:ok, base} <- parsed_base(path, parsed, claim_id),
          {:ok, records} <- validate_records(parsed.records, base),
-         :ok <- unique_transition_ids(records) do
+         :ok <- unique_transition_ids(records),
+         {:ok, authority} <- authorize_records(records, allow_foreign?) do
       {:ok,
        %{
          claim_id: claim_id,
@@ -266,8 +291,9 @@ defmodule AllbertAssist.Memory.Claims do
          legacy_content: parsed.legacy_content,
          legacy_digest: base.legacy_digest,
          records: records,
+         effective_records: authority.effective_records,
          tail_digest: tail_digest(records, base.legacy_digest),
-         status: if(records == [], do: :grandfathered, else: :valid)
+         status: authority.status
        }}
     else
       {:error, reason} -> quarantine(path, reason)
@@ -336,29 +362,212 @@ defmodule AllbertAssist.Memory.Claims do
              {:error, :payload_digest_mismatch},
          true <-
            record["revision_digest"] == revision_digest(record) ||
-             {:error, :revision_digest_mismatch},
-         :ok <- verify_integrity(record) do
+             {:error, :revision_digest_mismatch} do
       :ok
     end
   end
 
   defp required_record_shape(record) do
     required =
-      ~w[schema_version claim_id revision_id sequence previous_revision_digest payload payload_digest transition_id state recorded_at actor action normalizer_version key_ref key_version revision_digest integrity_tag]
+      ~w[schema_version claim_id revision_id sequence previous_revision_digest payload payload_digest transition_id state recorded_at actor action normalizer_version authority_kind key_ref key_version revision_digest integrity_tag]
 
     cond do
-      Enum.any?(required, &(not Map.has_key?(record, &1))) -> {:error, :missing_revision_field}
-      record["schema_version"] != @schema_version -> {:error, :unsupported_claim_schema}
-      record["state"] not in @states -> {:error, :invalid_claim_state}
-      true -> :ok
+      Enum.any?(required, &(not Map.has_key?(record, &1))) ->
+        {:error, :missing_revision_field}
+
+      record["schema_version"] != @schema_version ->
+        {:error, :unsupported_claim_schema}
+
+      record["state"] not in @states ->
+        {:error, :invalid_claim_state}
+
+      record["authority_kind"] not in ~w[native manual_revision manual_confirmation destination_confirmation] ->
+        {:error, :invalid_authority_kind}
+
+      true ->
+        :ok
     end
   end
 
-  defp verify_integrity(record) do
+  defp authorize_records(records, allow_foreign?) do
+    granted_through = destination_grant_sequence(records)
+
+    initial = %{
+      effective_records: [],
+      pending: nil,
+      destination_required?: allow_foreign? and is_nil(granted_through),
+      allow_foreign?: allow_foreign?,
+      granted_through: granted_through,
+      seen: []
+    }
+
+    records
+    |> Enum.reduce_while({:ok, initial}, fn record, {:ok, state} ->
+      case authorize_record(record, state) do
+        {:ok, state} -> {:cont, {:ok, %{state | seen: state.seen ++ [record]}}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+    |> case do
+      {:ok, %{destination_required?: true}} ->
+        {:ok, %{status: :destination_confirmation_required, effective_records: []}}
+
+      {:ok, %{pending: %{}, effective_records: records}} ->
+        {:ok, %{status: :pending_manual, effective_records: records}}
+
+      {:ok, %{effective_records: records}} ->
+        {:ok, %{status: :valid, effective_records: records}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp authorize_record(%{"authority_kind" => "native"} = record, state) do
+    with true <- is_nil(state.pending) || {:error, :manual_confirmation_required},
+         true <-
+           record["action"] not in ~w[manual_import_confirmed destination_chain_confirmed] ||
+             {:error, :authority_action_mismatch} do
+      case verify_integrity(record, @domain) do
+        :ok ->
+          {:ok, %{state | effective_records: state.effective_records ++ [record]}}
+
+        {:error, reason}
+        when reason in [:invalid_integrity_tag, :memory_integrity_key_unavailable] ->
+          accept_foreign(record, state, reason, %{})
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  defp authorize_record(%{"authority_kind" => "manual_revision"} = record, state) do
+    with true <- is_nil(state.pending) || {:error, :multiple_pending_manual_revisions},
+         true <-
+           record["action"] not in ~w[manual_import_confirmed destination_chain_confirmed] ||
+             {:error, :authority_action_mismatch},
+         true <-
+           (is_nil(record["key_ref"]) and is_nil(record["key_version"]) and
+              is_nil(record["integrity_tag"])) || {:error, :manual_revision_has_authority_tag} do
+      {:ok, %{state | pending: record}}
+    end
+  end
+
+  defp authorize_record(%{"authority_kind" => "manual_confirmation"} = record, state) do
+    with true <-
+           record["action"] == "manual_import_confirmed" ||
+             {:error, :authority_action_mismatch},
+         true <-
+           content_free_confirmation?(record["payload"], "pending_revision_digest") ||
+             {:error, :confirmation_contains_claim_content},
+         %{} = pending <- state.pending || {:error, :manual_revision_missing},
+         true <-
+           manual_confirmation_matches?(record, pending) ||
+             {:error, :manual_confirmation_mismatch} do
+      case verify_integrity(record, @manual_domain) do
+        :ok ->
+          {:ok,
+           %{
+             state
+             | effective_records: state.effective_records ++ [pending],
+               pending: nil
+           }}
+
+        {:error, reason}
+        when reason in [:invalid_integrity_tag, :memory_integrity_key_unavailable] ->
+          accept_foreign(record, state, reason, %{pending: nil})
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  defp authorize_record(%{"authority_kind" => "destination_confirmation"} = record, state) do
+    with true <-
+           record["action"] == "destination_chain_confirmed" ||
+             {:error, :authority_action_mismatch},
+         true <-
+           content_free_confirmation?(record["payload"], "source_chain_digest") ||
+             {:error, :confirmation_contains_claim_content},
+         true <-
+           record["payload"]["source_chain_digest"] == record["previous_revision_digest"] ||
+             {:error, :destination_confirmation_mismatch} do
+      case verify_integrity(record, @destination_domain) do
+        :ok ->
+          effective_records =
+            state.seen
+            |> Enum.filter(&(&1["authority_kind"] in ~w[native manual_revision]))
+
+          {:ok,
+           %{
+             state
+             | effective_records: effective_records,
+               pending: nil,
+               destination_required?: false
+           }}
+
+        {:error, reason}
+        when reason in [:invalid_integrity_tag, :memory_integrity_key_unavailable] ->
+          accept_foreign(record, state, reason, %{})
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  defp destination_grant_sequence(records) do
+    records
+    |> Enum.filter(&(&1["authority_kind"] == "destination_confirmation"))
+    |> Enum.filter(&destination_confirmation_valid?/1)
+    |> List.last()
+    |> case do
+      nil -> nil
+      record -> record["sequence"] - 1
+    end
+  end
+
+  defp destination_confirmation_valid?(record) do
+    record["action"] == "destination_chain_confirmed" and
+      content_free_confirmation?(record["payload"], "source_chain_digest") and
+      record["payload"]["source_chain_digest"] == record["previous_revision_digest"] and
+      verify_integrity(record, @destination_domain) == :ok
+  end
+
+  defp foreign_record_allowed?(record, state) do
+    state.allow_foreign? or
+      (is_integer(state.granted_through) and record["sequence"] <= state.granted_through)
+  end
+
+  defp accept_foreign(record, state, reason, updates) do
+    if foreign_record_allowed?(record, state),
+      do: {:ok, Map.merge(state, updates)},
+      else: {:error, reason}
+  end
+
+  defp manual_confirmation_matches?(record, pending) do
+    payload = record["payload"]
+
+    payload["pending_revision_digest"] == pending["revision_digest"] and
+      payload["prior_chain_digest"] == pending["previous_revision_digest"] and
+      payload["normalizer_version"] == pending["normalizer_version"]
+  end
+
+  defp content_free_confirmation?(payload, binding_field) do
+    allowed =
+      ~w[revision_id transition_id state recorded_at valid_from valid_to actor action normalizer_version prior_chain_digest] ++
+        [binding_field]
+
+    Map.keys(payload) -- allowed == []
+  end
+
+  defp verify_integrity(record, domain) do
     with {:ok, tag} <- decode_tag(record["integrity_tag"]),
          {:ok, verified?} <-
            KeyCustody.verify_system_hmac(
-             @domain,
+             domain,
              integrity_fields(record),
              tag,
              record["key_ref"],
@@ -367,7 +576,7 @@ defmodule AllbertAssist.Memory.Claims do
          true <- verified? || {:error, :invalid_integrity_tag} do
       :ok
     else
-      {:error, {:system_integrity_key_unavailable, _ref, _version}} ->
+      {:error, {:system_integrity_key_unavailable, _version}} ->
         {:error, :memory_integrity_key_unavailable}
 
       {:error, _reason} = error ->
@@ -388,6 +597,7 @@ defmodule AllbertAssist.Memory.Claims do
          legacy_content: content,
          legacy_digest: identity.digest,
          records: [],
+         effective_records: [],
          tail_digest: identity.digest,
          status: :grandfathered
        }}
@@ -437,13 +647,20 @@ defmodule AllbertAssist.Memory.Claims do
     end
   end
 
-  defp maybe_legacy_adoption(payload, %{legacy?: true, legacy_digest: digest, claim_id: claim_id}) do
+  defp maybe_legacy_adoption(payload, %{
+         legacy?: true,
+         legacy_digest: digest,
+         claim_id: claim_id,
+         records: []
+       }) do
     Map.put(payload, "legacy_adopted", %{"claim_id" => claim_id, "legacy_digest" => digest})
   end
 
   defp maybe_legacy_adoption(payload, _stream), do: payload
 
   defp signed_record(stream, payload) do
+    {authority_kind, domain} = transition_authority(payload["action"])
+
     base = %{
       "schema_version" => @schema_version,
       "claim_id" => stream.claim_id,
@@ -460,11 +677,12 @@ defmodule AllbertAssist.Memory.Claims do
       "actor" => payload["actor"],
       "action" => payload["action"],
       "normalizer_version" => payload["normalizer_version"],
+      "authority_kind" => authority_kind,
       "key_ref" => "secret://system/integrity_v1",
       "key_version" => @key_version
     }
 
-    with {:ok, hmac} <- KeyCustody.system_hmac(@domain, integrity_fields(base), @key_version) do
+    with {:ok, hmac} <- KeyCustody.system_hmac(domain, integrity_fields(base), @key_version) do
       record =
         base
         |> Map.put("key_ref", hmac.key_ref)
@@ -477,6 +695,14 @@ defmodule AllbertAssist.Memory.Claims do
       {:error, _reason} -> {:error, :memory_integrity_key_unavailable}
     end
   end
+
+  defp transition_authority("manual_import_confirmed"),
+    do: {"manual_confirmation", @manual_domain}
+
+  defp transition_authority("destination_chain_confirmed"),
+    do: {"destination_confirmation", @destination_domain}
+
+  defp transition_authority(_action), do: {"native", @domain}
 
   defp integrity_fields(record) do
     [
@@ -511,6 +737,49 @@ defmodule AllbertAssist.Memory.Claims do
           else: {:error, :transition_id_conflict}
     end
   end
+
+  defp authorize_transition(stream, %{"action" => "manual_import_confirmed"} = payload) do
+    pending = List.last(stream.records)
+
+    with true <- stream.status == :pending_manual || {:error, :manual_revision_missing},
+         true <-
+           content_free_confirmation?(payload, "pending_revision_digest") ||
+             {:error, :confirmation_contains_claim_content},
+         %{"authority_kind" => "manual_revision"} <- pending || %{},
+         true <-
+           payload["pending_revision_digest"] == pending["revision_digest"] ||
+             {:error, :manual_confirmation_mismatch},
+         true <-
+           payload["prior_chain_digest"] == pending["previous_revision_digest"] ||
+             {:error, :manual_confirmation_mismatch},
+         true <-
+           payload["normalizer_version"] == pending["normalizer_version"] ||
+             {:error, :manual_confirmation_mismatch} do
+      :ok
+    else
+      %{} -> {:error, :manual_revision_missing}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp authorize_transition(stream, %{"action" => "destination_chain_confirmed"} = payload) do
+    with true <-
+           stream.status == :destination_confirmation_required ||
+             {:error, :destination_confirmation_not_required},
+         true <-
+           content_free_confirmation?(payload, "source_chain_digest") ||
+             {:error, :confirmation_contains_claim_content},
+         true <-
+           payload["source_chain_digest"] == stream.tail_digest ||
+             {:error, :destination_confirmation_mismatch} do
+      :ok
+    end
+  end
+
+  defp authorize_transition(%{status: status}, _payload) when status in [:valid, :grandfathered],
+    do: :ok
+
+  defp authorize_transition(%{status: status}, _payload), do: {:error, status}
 
   defp check_expected_tail(actual, actual), do: :ok
   defp check_expected_tail(_actual, _expected), do: {:error, :stale_tail}
