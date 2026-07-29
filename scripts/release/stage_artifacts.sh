@@ -126,7 +126,8 @@ validate_toolchain() {
   jq -e \
     --arg target "$target" --arg source_sha "$GITHUB_SHA" \
     --arg setup_sha "$SETUP_BEAM_SHA" --arg otp "$OTP_VERSION" \
-    --arg elixir "$ELIXIR_VERSION" --arg rebar3 "$REBAR3_VERSION" \
+    --arg elixir "$ELIXIR_VERSION" --arg elixir_otp_build "$ELIXIR_OTP_BUILD" \
+    --arg rebar3 "$REBAR3_VERSION" \
     --arg hex "$HEX_VERSION" \
     '.schema_version == 1 and .target == $target and .source_sha == $source_sha and
      .setup_beam.action_sha == $setup_sha and .setup_beam.version_type == "strict" and
@@ -134,7 +135,7 @@ validate_toolchain() {
      .setup_beam.otp.input == $otp and .setup_beam.elixir.input == $elixir and
      .setup_beam.rebar3.input == $rebar3 and .hex.input == $hex and
      .setup_beam.otp.resolved == ("OTP-" + $otp) and
-     .setup_beam.elixir.resolved == ("v" + $elixir + "-otp-" + ($otp | split(".")[0])) and
+     .setup_beam.elixir.resolved == ("v" + $elixir + "-otp-" + $elixir_otp_build) and
      .setup_beam.rebar3.resolved == $rebar3 and .hex.resolved == $hex and
      .runtime.otp == $otp and .runtime.elixir == $elixir and
      (.runtime.erts | type == "string" and length > 0)' \
@@ -900,19 +901,20 @@ case "${1:-}" in
   manifest)
     require_env GITHUB_REPOSITORY GITHUB_RUN_ID GITHUB_RUN_ATTEMPT RELEASE_WORKFLOW_PATH \
       GITHUB_SHA GITHUB_REF GITHUB_REF_NAME GITHUB_OUTPUT \
-      SETUP_BEAM_SHA OTP_VERSION ELIXIR_VERSION REBAR3_VERSION HEX_VERSION
+      SETUP_BEAM_SHA OTP_VERSION ELIXIR_VERSION ELIXIR_OTP_BUILD REBAR3_VERSION HEX_VERSION
     [ "$#" -eq 2 ]
     compose_manifest "$2"
     ;;
   validate-toolchain)
-    require_env GITHUB_SHA SETUP_BEAM_SHA OTP_VERSION ELIXIR_VERSION REBAR3_VERSION HEX_VERSION
+    require_env GITHUB_SHA SETUP_BEAM_SHA OTP_VERSION ELIXIR_VERSION ELIXIR_OTP_BUILD \
+      REBAR3_VERSION HEX_VERSION
     [ "$#" -eq 3 ]
     validate_toolchain "$2" "$3"
     ;;
   qualify-license)
     require_env GITHUB_REPOSITORY GITHUB_RUN_ID GITHUB_RUN_ATTEMPT RELEASE_WORKFLOW_PATH \
       GITHUB_SHA GITHUB_REF GITHUB_REF_NAME SETUP_BEAM_SHA OTP_VERSION ELIXIR_VERSION \
-      REBAR3_VERSION HEX_VERSION
+      ELIXIR_OTP_BUILD REBAR3_VERSION HEX_VERSION
     [ "$#" -eq 5 ]
     qualify_license "$2" "$3" "$4" "$5"
     ;;
@@ -925,7 +927,7 @@ case "${1:-}" in
   qualify-fv)
     require_env GITHUB_REPOSITORY GITHUB_RUN_ID GITHUB_RUN_ATTEMPT RELEASE_WORKFLOW_PATH \
       GITHUB_SHA GITHUB_REF GITHUB_REF_NAME SETUP_BEAM_SHA OTP_VERSION ELIXIR_VERSION \
-      REBAR3_VERSION HEX_VERSION
+      ELIXIR_OTP_BUILD REBAR3_VERSION HEX_VERSION
     [ "$#" -eq 7 ]
     qualify_fv "$2" "$3" "$4" "$5" "$6" "$7"
     ;;

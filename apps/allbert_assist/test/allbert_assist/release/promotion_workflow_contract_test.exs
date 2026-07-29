@@ -340,7 +340,7 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     assert error =~ "m0a3 linux-x64 requires one row artifact; found 2"
   end
 
-  test "toolchain fixture distinguishes the immutable action pin from its reported revision",
+  test "toolchain fixture binds the independent Elixir OTP build and action revision",
        context do
     root = fixture_root(context.test)
     fixture = Path.join(root, "toolchain.json")
@@ -355,7 +355,7 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
         "reported_action_revision" => "ea45c80",
         "version_type" => "strict",
         "otp" => %{"input" => "29.0.1", "resolved" => "OTP-29.0.1"},
-        "elixir" => %{"input" => "1.19.5", "resolved" => "v1.19.5-otp-29"},
+        "elixir" => %{"input" => "1.19.5", "resolved" => "v1.19.5-otp-28"},
         "rebar3" => %{"input" => "3.25.1", "resolved" => "3.25.1"}
       },
       "hex" => %{"input" => "2.5.1", "resolved" => "2.5.1"},
@@ -364,6 +364,14 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
 
     write_json!(fixture, toolchain)
     assert {_, 0} = run_toolchain_validation(fixture, sha)
+
+    write_json!(
+      fixture,
+      put_in(toolchain, ["setup_beam", "elixir", "resolved"], "v1.19.5-otp-29")
+    )
+
+    assert {_, status} = run_toolchain_validation(fixture, sha)
+    assert status != 0
 
     write_json!(
       fixture,
@@ -699,6 +707,7 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
       {"SETUP_BEAM_SHA", @setup_beam_sha},
       {"OTP_VERSION", "29.0.1"},
       {"ELIXIR_VERSION", "1.19.5"},
+      {"ELIXIR_OTP_BUILD", "28"},
       {"REBAR3_VERSION", "3.25.1"},
       {"HEX_VERSION", "2.5.1"}
     ]
