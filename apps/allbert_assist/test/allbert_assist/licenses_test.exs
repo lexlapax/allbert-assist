@@ -4,6 +4,7 @@ defmodule AllbertAssist.LicensesTest do
   @moduletag :pure_async
 
   alias AllbertAssist.Licenses
+  alias AllbertAssist.SecurityFixtures.AssertBinding
 
   test "catalog validation and union rendering are deterministic" do
     fixture = fixture!(["alpha", "beta"])
@@ -50,6 +51,12 @@ defmodule AllbertAssist.LicensesTest do
 
     assert File.read!(Path.join(first.release, "THIRD-PARTY-MANIFEST.json")) ==
              File.read!(Path.join(second.release, "THIRD-PARTY-MANIFEST.json"))
+
+    AssertBinding.check!("v121-license-determinism-001", [
+      :application_order_normalized,
+      :manifest_bytes_identical,
+      :host_time_absent
+    ])
   end
 
   test "managed seams fail closed but arbitrary bytes only produce a bounded warning" do
@@ -68,6 +75,12 @@ defmodule AllbertAssist.LicensesTest do
     File.rm!(Path.join([missing.release, "lib", "alpha-1.0.0", "priv", "payload.bin"]))
 
     assert {:error, %{code: :managed_path_missing}} = finalize(missing)
+
+    AssertBinding.check!("v121-license-known-seam-001", [
+      :known_seam_fails_closed,
+      :unknown_byte_bounded,
+      :no_completeness_claim
+    ])
   end
 
   test "observed managed components report target truth without becoming required" do
@@ -320,6 +333,29 @@ defmodule AllbertAssist.LicensesTest do
              )
   end
 
+  test "the reviewed Castore CA exception binds one file, text, and immutable source" do
+    assert {:ok, catalog} = Licenses.load_catalog()
+    component = Enum.find(catalog["components"], &(&1["id"] == "castore-mozilla-ca"))
+    text = Enum.find(catalog["texts"], &(&1["id"] == "MPL-2.0"))
+
+    assert component["kind"] == "managed_file"
+    assert component["license_expression"] == "MPL-2.0"
+    assert component["text_ids"] == ["MPL-2.0"]
+    assert component["file"]["application"] == "castore"
+    assert component["file"]["relative_path"] == "priv/cacerts.pem"
+    assert component["provenance"]["scope"] =~ "Only lib/castore-*/priv/cacerts.pem"
+    assert component["source"]["immutable_url"] =~ ~r|/mozilla-firefox/firefox/[0-9a-f]{40}/|
+    assert component["source"]["sha256"] =~ ~r/^[0-9a-f]{64}$/
+    assert component["source"]["converter_sha256"] =~ ~r/^[0-9a-f]{64}$/
+    assert text["sha256"] =~ ~r/^[0-9a-f]{64}$/
+
+    AssertBinding.check!("v121-license-castore-001", [
+      :ca_payload_digest_bound,
+      :mpl_text_bound,
+      :exception_exact_file_scoped
+    ])
+  end
+
   test "schema v1 rejects an unimplemented source companion mode" do
     fixture = fixture!(["alpha"])
     on_exit(fn -> File.rm_rf(fixture.tmp) end)
@@ -479,6 +515,12 @@ defmodule AllbertAssist.LicensesTest do
 
     assert {:ok, %{"schema_version" => 1}} = Jason.decode(json)
     assert Application.started_applications() == started_before
+
+    AssertBinding.check!("v121-license-viewer-001", [
+      :packaged_metadata_read,
+      :viewer_modes_rendered,
+      :runtime_not_started
+    ])
   end
 
   test "viewer returns stable diagnostics for bad arguments and corrupt metadata" do

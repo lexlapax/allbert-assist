@@ -11,6 +11,7 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
   alias AllbertAssist.Runtime.Attach.Server, as: AttachServer
   alias AllbertAssist.Runtime.Attach.TUIProtocol
   alias AllbertAssist.Runtime.Attach.TUISession
+  alias AllbertAssist.SecurityFixtures.AssertBinding
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.KeyCustody
   alias AllbertAssist.Settings.Secrets
@@ -213,6 +214,12 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
                  %{attrs | text: "different payload"},
                  duplicate_owner: :live
                )
+
+      AssertBinding.check!("v121-tui-input-receipt-001", [
+        :receipt_persisted_before_dispatch,
+        :same_payload_idempotent,
+        :changed_payload_rejected
+      ])
     end
 
     test "receipt namespace is isolated by verified operator and normalized profile" do

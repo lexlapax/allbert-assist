@@ -3,6 +3,8 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
 
   @moduletag :external_runtime_serial
 
+  alias AllbertAssist.SecurityFixtures.AssertBinding
+
   @repo_root Path.expand("../../../../../", __DIR__)
   @workflow_path Path.join(@repo_root, ".github/workflows/release-artifacts.yml")
   @stage_script Path.join(@repo_root, "scripts/release/stage_artifacts.sh")
@@ -491,6 +493,63 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     assert status != 0
   end
 
+  test "real promotion helper accepts the exact 21-day boundary and resumes asset publication",
+       context do
+    fixture = promotion_fixture!(fixture_root(context.test))
+    boundary = fixture.created_epoch + 21 * 86_400
+
+    assert {output, 0} = run_promotion(fixture, boundary)
+    assert output == ""
+    assert published_asset_names(fixture.root) == fixture.expected_asset_names
+    first_uploads = promotion_upload_count(fixture.root)
+    assert first_uploads == length(fixture.expected_asset_names)
+
+    assert {_, 0} = run_promotion(fixture, boundary)
+    assert promotion_upload_count(fixture.root) == first_uploads
+
+    missing = "allbert-v1.2.1-linux-x64.tar.gz"
+    remove_published_asset!(fixture.root, missing)
+    assert {_, 0} = run_promotion(fixture, boundary)
+    assert promotion_upload_count(fixture.root) == first_uploads + 1
+    assert published_asset_names(fixture.root) == fixture.expected_asset_names
+
+    differing = "allbert-v1.2.1-macos-arm64.tar.gz"
+    overwrite_published_asset!(fixture.root, differing, "different release bytes")
+    assert {error, status} = run_promotion(fixture, boundary)
+    assert status != 0
+    assert error =~ "existing asset #{differing} differs; refusing replacement"
+
+    AssertBinding.check!("v121-promotion-evidence-001", [
+      :age_boundary_exact,
+      :semantic_tamper_rejected,
+      :restartable_assets_fail_closed
+    ])
+  end
+
+  test "real promotion helper rejects one second beyond the age window and semantic tamper",
+       context do
+    stale = promotion_fixture!(fixture_root("#{context.test}-stale"))
+    assert {error, status} = run_promotion(stale, stale.created_epoch + 21 * 86_400 + 1)
+    assert status != 0
+    assert error =~ "exceeds the 21-day window"
+
+    tampered = promotion_fixture!(fixture_root("#{context.test}-tampered"), tampered?: true)
+    assert {_error, status} = run_promotion(tampered, tampered.created_epoch + 21 * 86_400)
+    assert status != 0
+    assert published_asset_names(tampered.root) == []
+  end
+
+  test "real promotion helper rejects unexpected existing assets", context do
+    fixture = promotion_fixture!(fixture_root(context.test))
+    boundary = fixture.created_epoch + 21 * 86_400
+    assert {_, 0} = run_promotion(fixture, boundary)
+
+    add_published_asset!(fixture.root, "unexpected-debug.zip", "debug bytes")
+    assert {error, status} = run_promotion(fixture, boundary)
+    assert status != 0
+    assert error =~ "unexpected existing asset unexpected-debug.zip"
+  end
+
   test "intermediate artifact workflow contains no aggregate source gates" do
     body = File.read!(@workflow_path)
 
@@ -544,13 +603,60 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
       #!/usr/bin/env bash
       set -euo pipefail
       args="$*"
+      printf '%s\n' "$args" >> "$FIXTURE_ROOT/gh-calls.log"
       case "$args" in
+        "release create "*)
+          printf '%s' '{"id":700,"tag_name":"v1.2.1","prerelease":false,"draft":true}' \
+            > "$FIXTURE_ROOT/release.json"
+          ;;
+        "release upload "*)
+          source_path="$4"
+          name="$(basename "$source_path")"
+          id="$(cat "$FIXTURE_ROOT/next-asset-id")"
+          printf '%s' "$((id + 1))" > "$FIXTURE_ROOT/next-asset-id"
+          cp "$source_path" "$FIXTURE_ROOT/release-asset-${id}.bin"
+          jq --arg name "$name" --argjson id "$id" \
+            '. + [{id: $id, name: $name}]' "$FIXTURE_ROOT/assets.json" \
+            > "$FIXTURE_ROOT/assets.next.json"
+          mv "$FIXTURE_ROOT/assets.next.json" "$FIXTURE_ROOT/assets.json"
+          printf 'upload:%s\n' "$name" >> "$FIXTURE_ROOT/release-events.log"
+          ;;
+        "release edit "*)
+          jq '.draft = false' "$FIXTURE_ROOT/release.json" \
+            > "$FIXTURE_ROOT/release.next.json"
+          mv "$FIXTURE_ROOT/release.next.json" "$FIXTURE_ROOT/release.json"
+          ;;
         *"/actions/runs/77/artifacts?per_page=100"*) cat "$FIXTURE_ROOT/artifacts.json" ;;
         *"/attempts/1/jobs?per_page=100"*) cat "$FIXTURE_ROOT/jobs-1.json" ;;
         *"/attempts/2/jobs?per_page=100"*) cat "$FIXTURE_ROOT/jobs-2.json" ;;
         *"/attempts/3/jobs?per_page=100"*) cat "$FIXTURE_ROOT/jobs-3.json" ;;
         *"/actions/runs/77") cat "$FIXTURE_ROOT/run.json" ;;
         *"/actions/workflows/42") cat "$FIXTURE_ROOT/workflow.json" ;;
+        *"/git/ref/tags/v1.2.1") cat "$FIXTURE_ROOT/tag-ref.json" ;;
+        *"/git/tags/"*) cat "$FIXTURE_ROOT/tag-object.json" ;;
+        *"/actions/artifacts/"*"/zip")
+          endpoint="${!#}"
+          id="${endpoint%/zip}"
+          id="${id##*/}"
+          cat "$FIXTURE_ROOT/artifact-${id}.zip"
+          ;;
+        *"/actions/artifacts/"*)
+          endpoint="${!#}"
+          id="${endpoint##*/}"
+          cat "$FIXTURE_ROOT/artifact-${id}.json"
+          ;;
+        *"/releases/tags/v1.2.1")
+          test -f "$FIXTURE_ROOT/release.json"
+          cat "$FIXTURE_ROOT/release.json"
+          ;;
+        *"/releases/700/assets?per_page=100")
+          jq -c '[.]' "$FIXTURE_ROOT/assets.json"
+          ;;
+        *"/releases/assets/"*)
+          endpoint="${!#}"
+          id="${endpoint##*/}"
+          cat "$FIXTURE_ROOT/release-asset-${id}.bin"
+          ;;
         *"api /repos/lexlapax/allbert-assist") cat "$FIXTURE_ROOT/repository.json" ;;
         *) echo "unexpected fake gh call: $args" >&2; exit 91 ;;
       esac
@@ -608,6 +714,384 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
       stderr_to_stdout: true
     )
   end
+
+  defp promotion_fixture!(root, opts \\ []) do
+    sha = String.duplicate("a", 40)
+    tag_object_sha = String.duplicate("b", 40)
+    created_at = "2026-07-01T00:00:00Z"
+    {:ok, created, 0} = DateTime.from_iso8601(created_at)
+    created_epoch = DateTime.to_unix(created)
+    fake_gh = fake_gh!(root)
+    fake_cosign = fake_cosign!(root)
+    install_fake_date!(root, created_at, created_epoch)
+
+    write_json!(Path.join(root, "run.json"), %{
+      "workflow_id" => 42,
+      "event" => "push",
+      "status" => "completed",
+      "conclusion" => "success",
+      "run_attempt" => 2,
+      "head_sha" => sha,
+      "repository" => %{"id" => 9, "full_name" => "lexlapax/allbert-assist"}
+    })
+
+    write_json!(Path.join(root, "repository.json"), %{
+      "id" => 9,
+      "full_name" => "lexlapax/allbert-assist"
+    })
+
+    write_json!(Path.join(root, "workflow.json"), %{
+      "id" => 42,
+      "path" => ".github/workflows/release-artifacts.yml"
+    })
+
+    write_json!(Path.join(root, "tag-ref.json"), %{
+      "object" => %{"type" => "tag", "sha" => tag_object_sha}
+    })
+
+    write_json!(Path.join(root, "tag-object.json"), %{
+      "object" => %{"type" => "commit", "sha" => sha}
+    })
+
+    rows =
+      [
+        {"linux-arm64", 401},
+        {"linux-x64", 402},
+        {"macos-arm64", 403}
+      ]
+      |> Enum.map(fn {target, id} ->
+        archive_name = "allbert-v1.2.1-#{target}.tar.gz"
+        toolchain_name = "toolchain-#{target}.json"
+        archive = Path.join(root, archive_name)
+        toolchain = Path.join(root, toolchain_name)
+        File.write!(archive, "immutable #{target} archive\n")
+        File.write!(toolchain, Jason.encode!(%{"target" => target, "source_sha" => sha}))
+        zip = Path.join(root, "artifact-#{id}.zip")
+        zip_files!(zip, [archive, toolchain])
+        zip_digest = sha256_file(zip)
+
+        write_artifact_metadata!(root, id, "source-77-a1-#{target}-archive", zip_digest)
+
+        %{
+          "artifact_id" => id,
+          "artifact_name" => "source-77-a1-#{target}-archive",
+          "artifact_digest" => zip_digest,
+          "producer_run_attempt" => 1,
+          "target" => target,
+          "archive_name" => archive_name,
+          "sha256" => sha256_file(archive),
+          "artifact_created_at" => created_at,
+          "toolchain_name" => toolchain_name,
+          "toolchain_sha256" => sha256_file(toolchain)
+        }
+      end)
+
+    jobs =
+      Enum.map(rows, fn row ->
+        %{
+          "name" => "build-#{row["target"]}",
+          "conclusion" => "success",
+          "steps" => [
+            %{"name" => "Upload immutable native archive", "conclusion" => "success"}
+          ]
+        }
+      end)
+
+    write_json!(Path.join(root, "jobs-1.json"), [%{"jobs" => jobs}])
+    write_json!(Path.join(root, "jobs-2.json"), [%{"jobs" => []}])
+    write_json!(Path.join(root, "jobs-3.json"), [%{"jobs" => []}])
+
+    digest_manifest = %{
+      "schema_version" => 1,
+      "kind" => "allbert-release-digest-manifest",
+      "repository" => %{"id" => 9, "full_name" => "lexlapax/allbert-assist"},
+      "workflow" => %{"id" => 42, "path" => ".github/workflows/release-artifacts.yml"},
+      "event" => "push",
+      "tag" => "v1.2.1",
+      "ref" => "refs/tags/v1.2.1",
+      "ref_type" => "tag",
+      "ref_name" => "v1.2.1",
+      "source_sha" => sha,
+      "source_run" => %{"id" => 77, "attempt" => 1},
+      "archives" => rows
+    }
+
+    digest_inner = Path.join(root, "digest-manifest.json")
+    write_json!(digest_inner, digest_manifest)
+
+    digest_zip_digest =
+      write_single_artifact!(root, 301, "source-77-a1-digest-manifest", digest_inner)
+
+    m0a3_rows =
+      Enum.map(rows, fn row ->
+        Map.merge(row, %{
+          "qualification_run_attempt" => 2,
+          "qualifications" => %{"license" => "passed", "source_availability" => "passed"},
+          "license_evidence" => %{
+            "packaged_manifest_sha256" => String.duplicate("1", 64),
+            "source" => %{"sha256" => String.duplicate("2", 64)},
+            "converter" => %{"sha256" => String.duplicate("3", 64)}
+          }
+        })
+      end)
+
+    digest_binding = %{
+      "artifact_id" => 301,
+      "artifact_name" => "source-77-a1-digest-manifest",
+      "artifact_digest" => digest_zip_digest,
+      "producer_run_attempt" => 1,
+      "manifest_sha256" => sha256_file(digest_inner)
+    }
+
+    m0a3 = %{
+      "schema_version" => 1,
+      "kind" => "allbert-release-m0a3-evidence",
+      "repository" => %{"id" => 9, "full_name" => "lexlapax/allbert-assist"},
+      "workflow" => %{"id" => 42, "path" => ".github/workflows/release-artifacts.yml"},
+      "event" => "push",
+      "tag" => "v1.2.1",
+      "ref" => "refs/tags/v1.2.1",
+      "ref_type" => "tag",
+      "ref_name" => "v1.2.1",
+      "source_sha" => sha,
+      "source_run" => %{"id" => 77, "attempt" => 2},
+      "digest_manifest" => digest_binding,
+      "archives" => m0a3_rows
+    }
+
+    m0a3_inner = Path.join(root, "m0a3-evidence.json")
+    write_json!(m0a3_inner, m0a3)
+    m0a3_zip_digest = write_single_artifact!(root, 303, "source-77-a2-m0a3-evidence", m0a3_inner)
+
+    qualification_rows =
+      Enum.map(rows, fn row ->
+        provider = if row["target"] == "linux-x64", do: "passed", else: "not_required"
+
+        provider =
+          if Keyword.get(opts, :tampered?, false) and row["target"] == "linux-x64",
+            do: "failed",
+            else: provider
+
+        Map.merge(row, %{
+          "m0a3_qualification_run_attempt" => 2,
+          "fv_run_attempt" => 2,
+          "qualifications" => %{
+            "license" => "passed",
+            "source_availability" => "passed",
+            "protocol_tty" => "passed",
+            "provider" => provider
+          },
+          "fv_evidence" => %{
+            "protocol_tty_sha256" => String.duplicate("4", 64),
+            "provider_receipt_sha256" =>
+              if(row["target"] == "linux-x64", do: String.duplicate("5", 64), else: nil)
+          }
+        })
+      end)
+
+    qualification = %{
+      "schema_version" => 1,
+      "kind" => "allbert-release-qualification-manifest",
+      "repository" => %{"id" => 9, "full_name" => "lexlapax/allbert-assist"},
+      "workflow" => %{"id" => 42, "path" => ".github/workflows/release-artifacts.yml"},
+      "event" => "push",
+      "tag" => "v1.2.1",
+      "ref" => "refs/tags/v1.2.1",
+      "ref_type" => "tag",
+      "ref_name" => "v1.2.1",
+      "source_sha" => sha,
+      "source_run" => %{"id" => 77, "attempt" => 2},
+      "digest_manifest" => digest_binding,
+      "m0a3_evidence" => %{
+        "artifact_id" => 303,
+        "artifact_name" => "source-77-a2-m0a3-evidence",
+        "artifact_digest" => m0a3_zip_digest,
+        "producer_run_attempt" => 2,
+        "evidence_sha256" => sha256_file(m0a3_inner)
+      },
+      "archives" => qualification_rows
+    }
+
+    qualification_inner = Path.join(root, "qualification-evidence-manifest.json")
+    write_json!(qualification_inner, qualification)
+
+    qualification_zip_digest =
+      write_single_artifact!(
+        root,
+        302,
+        "source-77-a2-qualification-evidence",
+        qualification_inner
+      )
+
+    write_json!(Path.join(root, "artifacts.json"), %{"total_count" => 0, "artifacts" => []})
+    write_json!(Path.join(root, "assets.json"), [])
+    File.write!(Path.join(root, "next-asset-id"), "800")
+    File.write!(Path.join(root, "release-events.log"), "")
+
+    expected_asset_names =
+      (["SHA256SUMS", "SHA256SUMS.cosign.bundle"] ++
+         Enum.flat_map(~w(linux-arm64 linux-x64 macos-arm64), fn target ->
+           ["allbert-v1.2.1-#{target}.tar.gz", "allbert-#{target}.tar.gz"]
+         end))
+      |> Enum.sort()
+
+    %{
+      root: root,
+      fake_gh: fake_gh,
+      fake_cosign: fake_cosign,
+      source_sha: sha,
+      created_epoch: created_epoch,
+      digest_zip_digest: digest_zip_digest,
+      qualification_zip_digest: qualification_zip_digest,
+      expected_asset_names: expected_asset_names
+    }
+  end
+
+  defp run_promotion(fixture, now_epoch) do
+    env = [
+      {"ALLBERT_RELEASE_GH_BIN", fixture.fake_gh},
+      {"ALLBERT_RELEASE_COSIGN_BIN", fixture.fake_cosign},
+      {"ALLBERT_RELEASE_NOW_EPOCH", Integer.to_string(now_epoch)},
+      {"FIXTURE_ROOT", fixture.root},
+      {"RUNNER_TEMP", fixture.root},
+      {"PATH", Path.join(fixture.root, "bin") <> ":" <> System.fetch_env!("PATH")},
+      {"GITHUB_REPOSITORY", "lexlapax/allbert-assist"},
+      {"GITHUB_REF", "refs/tags/v1.2.1"},
+      {"GITHUB_REF_TYPE", "tag"},
+      {"GITHUB_REF_NAME", "v1.2.1"},
+      {"GITHUB_SHA", fixture.source_sha},
+      {"RELEASE_WORKFLOW_PATH", ".github/workflows/release-artifacts.yml"},
+      {"MAX_NATIVE_ARTIFACT_AGE_DAYS", "21"},
+      {"PROMOTION_TAG", "v1.2.1"},
+      {"SOURCE_RUN_ID", "77"},
+      {"SOURCE_RUN_ATTEMPT", "2"},
+      {"DIGEST_ARTIFACT_ID", "301"},
+      {"DIGEST_ARTIFACT_SHA256", fixture.digest_zip_digest},
+      {"QUALIFICATION_ARTIFACT_ID", "302"},
+      {"QUALIFICATION_ARTIFACT_SHA256", fixture.qualification_zip_digest}
+    ]
+
+    System.cmd("bash", [@promote_script], env: env, stderr_to_stdout: true)
+  end
+
+  defp fake_cosign!(root) do
+    path = Path.join(root, "cosign")
+
+    File.write!(
+      path,
+      ~S"""
+      #!/usr/bin/env bash
+      set -euo pipefail
+      case "${1:-}" in
+        sign-blob)
+          while [ "$#" -gt 0 ]; do
+            if [ "$1" = --bundle ]; then
+              shift
+              printf 'deterministic fake cosign bundle\n' > "$1"
+              exit 0
+            fi
+            shift
+          done
+          exit 2
+          ;;
+        verify-blob) exit 0 ;;
+        *) exit 2 ;;
+      esac
+      """
+    )
+
+    File.chmod!(path, 0o755)
+    path
+  end
+
+  defp install_fake_date!(root, created_at, created_epoch) do
+    bin = Path.join(root, "bin")
+    File.mkdir_p!(bin)
+    path = Path.join(bin, "date")
+
+    File.write!(
+      path,
+      "#!/usr/bin/env bash\n" <>
+        "if [ \"$*\" = '-u -d #{created_at} +%s' ]; then printf '%s\\n' '#{created_epoch}'; else exec /bin/date \"$@\"; fi\n"
+    )
+
+    File.chmod!(path, 0o755)
+  end
+
+  defp write_single_artifact!(root, id, name, inner_path) do
+    zip = Path.join(root, "artifact-#{id}.zip")
+    zip_files!(zip, [inner_path])
+    digest = sha256_file(zip)
+    write_artifact_metadata!(root, id, name, digest)
+    digest
+  end
+
+  defp write_artifact_metadata!(root, id, name, digest) do
+    write_json!(Path.join(root, "artifact-#{id}.json"), %{
+      "id" => id,
+      "name" => name,
+      "digest" => "sha256:#{digest}",
+      "created_at" => "2026-07-01T00:00:00Z",
+      "expired" => false,
+      "workflow_run" => %{"id" => 77}
+    })
+  end
+
+  defp zip_files!(zip, files) do
+    File.rm(zip)
+    assert {_, 0} = System.cmd("zip", ["-q", "-j", zip | files], stderr_to_stdout: true)
+  end
+
+  defp sha256_file(path),
+    do: path |> File.read!() |> then(&:crypto.hash(:sha256, &1)) |> Base.encode16(case: :lower)
+
+  defp published_asset_names(root) do
+    root
+    |> Path.join("assets.json")
+    |> File.read!()
+    |> Jason.decode!()
+    |> Enum.map(& &1["name"])
+    |> Enum.sort()
+  end
+
+  defp promotion_upload_count(root) do
+    root
+    |> Path.join("release-events.log")
+    |> File.read!()
+    |> String.split("\n", trim: true)
+    |> Enum.count(&String.starts_with?(&1, "upload:"))
+  end
+
+  defp remove_published_asset!(root, name) do
+    {asset, rest} = pop_asset!(root, name)
+    write_json!(Path.join(root, "assets.json"), rest)
+    File.rm!(Path.join(root, "release-asset-#{asset["id"]}.bin"))
+  end
+
+  defp overwrite_published_asset!(root, name, bytes) do
+    asset = find_asset!(root, name)
+    File.write!(Path.join(root, "release-asset-#{asset["id"]}.bin"), bytes)
+  end
+
+  defp add_published_asset!(root, name, bytes) do
+    id = root |> Path.join("next-asset-id") |> File.read!() |> String.to_integer()
+    assets = read_assets!(root) ++ [%{"id" => id, "name" => name}]
+    write_json!(Path.join(root, "assets.json"), assets)
+    File.write!(Path.join(root, "release-asset-#{id}.bin"), bytes)
+    File.write!(Path.join(root, "next-asset-id"), Integer.to_string(id + 1))
+  end
+
+  defp pop_asset!(root, name) do
+    assets = read_assets!(root)
+    asset = Enum.find(assets, &(&1["name"] == name)) || flunk("missing asset #{name}")
+    {asset, Enum.reject(assets, &(&1["id"] == asset["id"]))}
+  end
+
+  defp find_asset!(root, name) do
+    Enum.find(read_assets!(root), &(&1["name"] == name)) || flunk("missing asset #{name}")
+  end
+
+  defp read_assets!(root), do: root |> Path.join("assets.json") |> File.read!() |> Jason.decode!()
 
   defp artifact(id, attempt, opts \\ []) do
     %{

@@ -841,8 +841,7 @@ defmodule AllbertAssist.Licenses do
         Enum.find(paths, fn path -> File.exists?(Path.join(root, path)) end)
 
       if found do
-        detail = found || component["id"]
-        fail!(:external_runtime_bundled, "external runtime unexpectedly bundled: #{detail}")
+        fail!(:external_runtime_bundled, "external runtime unexpectedly bundled: #{found}")
       end
     end)
   end

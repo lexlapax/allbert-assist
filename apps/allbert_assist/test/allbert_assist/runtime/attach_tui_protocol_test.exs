@@ -2,6 +2,7 @@ defmodule AllbertAssist.Runtime.Attach.TUIProtocolTest do
   use ExUnit.Case, async: true
 
   alias AllbertAssist.Runtime.Attach.TUIProtocol
+  alias AllbertAssist.SecurityFixtures.AssertBinding
 
   @moduletag :pure_async
 
@@ -16,6 +17,12 @@ defmodule AllbertAssist.Runtime.Attach.TUIProtocolTest do
       assert {:ok, :tui_session} = TUIProtocol.classify_kind(%{kind: :tui_session})
       assert {:error, :unsupported_kind} = TUIProtocol.classify_kind(%{kind: nil})
       assert {:error, :unsupported_kind} = TUIProtocol.classify_kind(%{kind: :other})
+
+      AssertBinding.check!("v121-tui-legacy-attach-001", [
+        :absent_kind_is_command,
+        :explicit_command_is_command,
+        :session_is_additive
+      ])
     end
   end
 

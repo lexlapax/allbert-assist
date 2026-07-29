@@ -4,6 +4,7 @@ defmodule AllbertAssist.Runtime.AttachTUIClientTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Runtime.Attach
   alias AllbertAssist.Runtime.Attach.TUIProtocol
+  alias AllbertAssist.SecurityFixtures.AssertBinding
 
   @moduletag :app_env_serial
 
@@ -64,6 +65,12 @@ defmodule AllbertAssist.Runtime.AttachTUIClientTest do
                profile: "work",
                terminal: @terminal
              })
+
+    AssertBinding.check!("v121-tui-daemon-owner-001", [
+      :authenticated_open_exact,
+      :client_passive,
+      :daemon_snapshot_precedes_input
+    ])
   end
 
   test "returns the exact open rejection and closes the rejected socket" do

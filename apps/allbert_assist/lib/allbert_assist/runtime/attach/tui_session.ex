@@ -1504,8 +1504,6 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
 
   defp clear_outbound(state), do: put_outbound_entries(state, [])
 
-  defp continue_read(%{closing?: true} = state), do: state
-
   defp continue_read(%{socket: socket} = state) when is_port(socket) do
     case :inet.setopts(socket, active: :once) do
       :ok ->

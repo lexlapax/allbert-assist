@@ -57,6 +57,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :v1
           | :v11
           | :v12
+          | :v121
 
   @type required_surface ::
           :resource_execution
@@ -7112,6 +7113,153 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       expected: :allowed,
       assert: [:healthy_local_selected, :hosted_candidate_ignored, :hosted_transport_count_zero],
       test_module: "AllbertAssist.Security.V12SweepEvalTest"
+    },
+    # ── v1.2.1 packaged-license, promotion, and daemon-TUI contracts ─────
+    %{
+      id: "v121-license-final-artifact-001",
+      milestone: :v121,
+      surface: :product_rc,
+      scenario: "License finalization runs before a later release-tree payload mutation",
+      boundary: :release_final_artifact,
+      expected: :allowed,
+      assert: [:payload_mutations_ordered, :license_finalizer_last, :final_tree_verified],
+      test_module: "AllbertAssist.Release.LicensesFinalArtifactTest"
+    },
+    %{
+      id: "v121-license-known-seam-001",
+      milestone: :v121,
+      surface: :product_rc,
+      scenario:
+        "A known packaged component disappears while an arbitrary byte remains unattributed",
+      boundary: :license_known_seam,
+      expected: :denied,
+      assert: [:known_seam_fails_closed, :unknown_byte_bounded, :no_completeness_claim],
+      test_module: "AllbertAssist.LicensesTest"
+    },
+    %{
+      id: "v121-license-determinism-001",
+      milestone: :v121,
+      surface: :portability,
+      scenario:
+        "Equivalent staged trees with shuffled application order generate different evidence",
+      boundary: :license_finalizer_determinism,
+      expected: :dropped,
+      assert: [:application_order_normalized, :manifest_bytes_identical, :host_time_absent],
+      test_module: "AllbertAssist.LicensesTest"
+    },
+    %{
+      id: "v121-license-castore-001",
+      milestone: :v121,
+      surface: :product_rc,
+      scenario: "The Castore CA payload is broadened into a package-wide MPL exception",
+      boundary: :license_exception_scope,
+      expected: :denied,
+      assert: [:ca_payload_digest_bound, :mpl_text_bound, :exception_exact_file_scoped],
+      test_module: "AllbertAssist.LicensesTest"
+    },
+    %{
+      id: "v121-license-viewer-001",
+      milestone: :v121,
+      surface: :entry_point_cli,
+      scenario:
+        "The packaged license viewer depends on source checkout, Repo, daemon, or network",
+      boundary: :packaged_license_viewer,
+      expected: :denied,
+      assert: [:packaged_metadata_read, :viewer_modes_rendered, :runtime_not_started],
+      test_module: "AllbertAssist.LicensesTest"
+    },
+    %{
+      id: "v121-tui-legacy-attach-001",
+      milestone: :v121,
+      surface: :public_protocol,
+      scenario: "Adding TUI sessions changes kind-absent Attach v1 requests from unary commands",
+      boundary: :attach_request_classification,
+      expected: :dropped,
+      assert: [:absent_kind_is_command, :explicit_command_is_command, :session_is_additive],
+      test_module: "AllbertAssist.Runtime.Attach.TUIProtocolTest"
+    },
+    %{
+      id: "v121-system-integrity-key-001",
+      milestone: :v121,
+      surface: :secret_metadata,
+      scenario:
+        "Concurrent integrity-key use forks keys, leaks material, or recreates a missing reference",
+      boundary: :system_integrity_key_custody,
+      expected: :denied,
+      assert: [:concurrent_first_use_converges, :domain_tags_separate, :missing_ref_fails_closed],
+      test_module: "AllbertAssist.Settings.SystemIntegrityTest"
+    },
+    %{
+      id: "v121-tui-no-daemon-001",
+      milestone: :v121,
+      surface: :entry_point_cli,
+      scenario: "The thin TUI silently starts an embedded runtime when Attach is unavailable",
+      boundary: :tui_attach_only_launch,
+      expected: :denied,
+      assert: [:attach_failure_actionable, :terminal_unchanged, :embedded_runtime_not_started],
+      test_module: "AllbertAssist.CLI.TuiTest"
+    },
+    %{
+      id: "v121-tui-daemon-owner-001",
+      milestone: :v121,
+      surface: :identity_context,
+      scenario:
+        "A TUI client assumes daemon identity, Runtime, confirmation, or event-order authority",
+      boundary: :tui_daemon_ownership,
+      expected: :denied,
+      assert: [:authenticated_open_exact, :client_passive, :daemon_snapshot_precedes_input],
+      test_module: "AllbertAssist.Runtime.AttachTUIClientTest"
+    },
+    %{
+      id: "v121-tui-pressure-cancel-001",
+      milestone: :v121,
+      surface: :entry_point_cli,
+      scenario:
+        "Pressure admits excess input or an attended interrupt detaches before cancellation",
+      boundary: :tui_pressure_and_cancel,
+      expected: :denied,
+      assert: [:count_bound_pauses, :next_line_admitted_once, :cancel_precedes_detach],
+      test_module: "AllbertAssist.CLI.TuiTest"
+    },
+    %{
+      id: "v121-tui-input-receipt-001",
+      milestone: :v121,
+      surface: :identity_context,
+      scenario:
+        "A repeated TUI receipt changes payload or bypasses the durable channel-event seam",
+      boundary: :tui_input_receipt,
+      expected: :denied,
+      assert: [
+        :receipt_persisted_before_dispatch,
+        :same_payload_idempotent,
+        :changed_payload_rejected
+      ],
+      test_module: "AllbertAssist.Runtime.TUISessionTest"
+    },
+    %{
+      id: "v121-tui-terminal-restore-001",
+      milestone: :v121,
+      surface: :entry_point_cli,
+      scenario: "A handled signal or setup failure exits without restoring the client terminal",
+      boundary: :tui_terminal_lifecycle,
+      expected: :denied,
+      assert: [
+        :setup_failure_restores,
+        :signals_restore_before_close,
+        :manual_recovery_documented
+      ],
+      test_module: "AllbertAssist.CLI.TuiTest"
+    },
+    %{
+      id: "v121-promotion-evidence-001",
+      milestone: :v121,
+      surface: :product_rc,
+      scenario:
+        "Promotion accepts stale or tampered evidence, rebuilds, or replaces differing assets",
+      boundary: :immutable_release_promotion,
+      expected: :denied,
+      assert: [:age_boundary_exact, :semantic_tamper_rejected, :restartable_assets_fail_closed],
+      test_module: "AllbertAssist.Release.PromotionWorkflowContractTest"
     }
   ]
 

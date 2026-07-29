@@ -100,7 +100,7 @@ Allbert is a personal AI environment where the assistant can:
 - connect to external tools only through explicit, policy-bounded actions.
 
 This experiment supersedes my previous efforts on the same idea:
-[go-llmspell](https://github.com/lexlapax/go-llmspell) in Go and
+[go-llms](https://github.com/lexlapax/go-llms) and [go-llmspell](https://github.com/lexlapax/go-llmspell) in Go and
 [rs-llmspell](https://github.com/lexlapax/rs-llmspell) in Rust.
 
 Most of my attention goes to the boundary between useful autonomy and operator

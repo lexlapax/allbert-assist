@@ -744,8 +744,6 @@ defmodule AllbertAssist.CLI.Tui.Client do
 
   defp enter_pressure(state), do: state
 
-  defp clear_pressure(%{pressure: nil} = state), do: maybe_resume_input(state)
-
   defp clear_pressure(%{pressure: {_marker, timer}} = state) do
     _ = Process.cancel_timer(timer)
     state.callbacks.resume_input.(state.driver)

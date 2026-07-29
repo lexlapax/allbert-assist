@@ -49,6 +49,8 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v1
       mix allbert.test release.v11
       mix allbert.test release.v12
+      mix allbert.test release.v121
+      mix allbert.test release.structure v121 [--output PATH]
       mix allbert.test release.v101
       mix allbert.test release.v102
       mix allbert.test release.v103
@@ -184,6 +186,8 @@ defmodule Mix.Tasks.Allbert.Test do
   defp do_run(["release.v1"]), do: release_v1()
   defp do_run(["release.v11"]), do: release_v11()
   defp do_run(["release.v12"]), do: release_v12()
+  defp do_run(["release.v121"]), do: release_v121()
+  defp do_run(["release.structure", "v121" | rest]), do: release_structure_v121(rest)
   defp do_run(["release.v101"]), do: release_v101()
   defp do_run(["release.v102"]), do: release_v102()
   defp do_run(["release.v103"]), do: release_v103()
@@ -6135,6 +6139,257 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   end
 
+  @v121_focused_steps [
+    %{
+      id: "v121_security_sweep",
+      title: "v1.2.1 packaged-license, promotion, and daemon-TUI security contracts",
+      cwd: :core,
+      executable: "mix",
+      args: ["test", "test/security/v121_sweep_eval_test.exs"],
+      coverage: ["the thirteen named v1.2.1 release rows are behavior-bound"]
+    },
+    %{
+      id: "v121_license_and_promotion_contracts",
+      title: "packaged-license finalization, viewer, artifact, and promotion contracts",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist/test/allbert_assist/licenses_test.exs",
+        "apps/allbert_assist/test/allbert_assist/release/licenses_final_artifact_test.exs",
+        "apps/allbert_assist/test/allbert_assist/release/promotion_workflow_contract_test.exs",
+        "apps/allbert_assist/test/allbert_assist/install_path_test.exs",
+        "apps/allbert_assist/test/mix/tasks/allbert_licenses_test.exs"
+      ],
+      coverage: [
+        "offline deterministic inventory, final-tree ordering, immutable promotion, and packaged viewer"
+      ]
+    },
+    %{
+      id: "v121_daemon_tui_contracts",
+      title: "daemon-owned TUI protocol, custody, terminal, and launcher contracts",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist/test/allbert_assist/actions/external_network_request_test.exs",
+        "apps/allbert_assist/test/allbert_assist/channels/tui_subscriptions_test.exs",
+        "apps/allbert_assist/test/allbert_assist/channels/tui_test.exs",
+        "apps/allbert_assist/test/allbert_assist/cli/dispatcher_test.exs",
+        "apps/allbert_assist/test/allbert_assist/cli/req_boot_test.exs",
+        "apps/allbert_assist/test/allbert_assist/cli/tui_test.exs",
+        "apps/allbert_assist/test/allbert_assist/database/sqlite_topology_test.exs",
+        "apps/allbert_assist/test/allbert_assist/runtime/attach_tui_client_test.exs",
+        "apps/allbert_assist/test/allbert_assist/runtime/attach_tui_protocol_test.exs",
+        "apps/allbert_assist/test/allbert_assist/runtime/tui_session_test.exs",
+        "apps/allbert_assist/test/allbert_assist/settings/settings_central_no_bypass_check_test.exs",
+        "apps/allbert_assist/test/allbert_assist/settings/system_integrity_test.exs",
+        "apps/allbert_assist/test/mix/tasks/allbert_tui_test.exs"
+      ],
+      coverage: [
+        "legacy unary compatibility, attach-only client, durable receipts, pressure, cancellation, restoration, and no embedded fallback"
+      ]
+    },
+    %{
+      id: "v121_license_drift",
+      title: "reviewed offline license inputs and union remain synchronized",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.licenses", "--check"],
+      coverage: ["catalog, lock inputs, text digests, and canonical union are drift-free"]
+    },
+    %{
+      id: "v121_lane_inventory",
+      title: "test files retain one reconciled primary lane",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "inventory", "--check-tags"],
+      coverage: ["zero unclassified or double-counted test files"]
+    },
+    %{
+      id: "v121_manifest_inventory",
+      title: "the committed per-test manifest matches the live tree",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "inventory", "--check-manifest"],
+      coverage: ["test identities, primary lanes, tags, and multiplicities are lossless"]
+    }
+  ]
+
+  @release_v121_steps @release_v12_steps ++ @v121_focused_steps
+
+  defp release_v121 do
+    env = owned_env("release-v121", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v121")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v121_steps, &run_release_v121_step(&1, env))
+    status = if Enum.all?(results, &(&1.status == "passed")), do: "passed", else: "failed"
+
+    evidence = %{
+      gate: "mix allbert.test release.v121",
+      version: "v1.2.1",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; exact native artifact, provider, TTY, signing, publication, and install validation are separate",
+      notes:
+        "release.v12 prefix plus v1.2.1 packaged-license, promotion, daemon-TUI, and inventory contracts",
+      steps: results
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v121-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v121 evidence: #{evidence_path}")
+
+    if status != "passed", do: Mix.raise("release.v121 failed; evidence: #{evidence_path}")
+  end
+
+  defp run_release_v121_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v121 #{step.id}", output)
+    status = release_step_status("release.v121", step.id, exit_status, output)
+
+    TestMetrics.record(%{
+      gate: "release.v121",
+      command: gate_command(),
+      cwd: Path.relative_to(cwd, root()),
+      phase_or_step: step.id,
+      status: status,
+      wall_ms: duration_ms,
+      output: output
+    })
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: status,
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
+  @doc false
+  def release_step_definitions("release.v1"), do: normalize_step_definitions(@release_v1_steps)
+
+  def release_step_definitions("release.v12"),
+    do: normalize_step_definitions(@release_v12_steps)
+
+  def release_step_definitions("release.v121"),
+    do: normalize_step_definitions(@release_v121_steps)
+
+  @doc false
+  def release_prefix_proof do
+    definitions = %{
+      "release.v1" => release_step_definitions("release.v1"),
+      "release.v12" => release_step_definitions("release.v12"),
+      "release.v121" => release_step_definitions("release.v121")
+    }
+
+    checks = [
+      prefix_check("release.v1", "release.v12", definitions),
+      prefix_check("release.v12", "release.v121", definitions)
+    ]
+
+    %{
+      "schema_version" => 1,
+      "definitions" => definitions,
+      "checks" => checks,
+      "status" => if(Enum.all?(checks, & &1["exact_prefix"]), do: "passed", else: "failed")
+    }
+  end
+
+  defp release_structure_v121(args) do
+    {opts, rest, invalid} = OptionParser.parse(args, strict: [output: :string])
+    reject_invalid!(invalid)
+    reject_rest!(rest)
+
+    proof = release_prefix_proof()
+    {sha, 0} = System.cmd("git", ["rev-parse", "HEAD"], cd: root(), stderr_to_stdout: true)
+
+    {worktree, 0} =
+      System.cmd("git", ["status", "--porcelain"], cd: root(), stderr_to_stdout: true)
+
+    source_sha = String.trim(sha)
+    clean? = String.trim(worktree) == ""
+
+    evidence =
+      proof
+      |> Map.put("gate", "mix allbert.test release.structure v121")
+      |> Map.put("source_sha", source_sha)
+      |> Map.put("worktree_clean", clean?)
+      |> Map.put("generated_at", DateTime.utc_now() |> DateTime.to_iso8601())
+
+    output_path = Keyword.get(opts, :output) || default_v121_structure_path!()
+    output_path = Path.expand(output_path, root())
+    File.mkdir_p!(Path.dirname(output_path))
+    encoded = Jason.encode!(evidence, pretty: true) <> "\n"
+    File.write!(output_path, encoded)
+
+    Mix.shell().info("release.v121 structure evidence: #{output_path}")
+    Mix.shell().info("release.v121 structure sha256: #{sha256(encoded)}")
+
+    unless clean? and proof["status"] == "passed" do
+      Mix.raise("release.v121 structure proof requires a clean source SHA and exact prefixes")
+    end
+
+    :ok
+  end
+
+  defp default_v121_structure_path! do
+    case System.get_env("ALLBERT_HOME") do
+      home when is_binary(home) and home != "" ->
+        Path.join(home, "release_evidence/v121/release-structure-v121.json")
+
+      _other ->
+        Mix.raise("release.structure v121 requires --output PATH or a disposable ALLBERT_HOME")
+    end
+  end
+
+  defp normalize_step_definitions(steps) do
+    Enum.map(steps, fn step ->
+      %{
+        "id" => step.id,
+        "title" => step.title,
+        "cwd" => Atom.to_string(step.cwd),
+        "executable" => step.executable,
+        "args" => step.args,
+        "coverage" => step.coverage
+      }
+    end)
+  end
+
+  defp prefix_check(older, newer, definitions) do
+    older_steps = Map.fetch!(definitions, older)
+    newer_steps = Map.fetch!(definitions, newer)
+
+    %{
+      "older" => older,
+      "newer" => newer,
+      "older_step_count" => length(older_steps),
+      "newer_step_count" => length(newer_steps),
+      "exact_prefix" => Enum.take(newer_steps, length(older_steps)) == older_steps
+    }
+  end
+
   # M8.11b false-green repair: a release step that exits 0 while its ExUnit
   # output shows ZERO executed tests is a FALSE GREEN, not a pass — the
   # recorded failure mode is a stale `file:LINE` pin excluding every test
@@ -9260,6 +9515,10 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v065
       mix allbert.test release.v066
       mix allbert.test release.v1
+      mix allbert.test release.v11
+      mix allbert.test release.v12
+      mix allbert.test release.v121
+      mix allbert.test release.structure v121 [--output PATH]
       mix allbert.test release.v101
       mix allbert.test release.v102
       mix allbert.test release.v103

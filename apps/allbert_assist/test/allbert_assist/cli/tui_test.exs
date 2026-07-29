@@ -5,6 +5,7 @@ defmodule AllbertAssist.CLI.TuiTest do
   alias AllbertAssist.Channels.TUI.InputDriver
   alias AllbertAssist.CLI.Tui
   alias AllbertAssist.Runtime.Attach.TUIProtocol
+  alias AllbertAssist.SecurityFixtures.AssertBinding
 
   @terminal %{columns: 100, rows: 30, color: :ansi256, unicode?: true}
 
@@ -25,6 +26,12 @@ defmodule AllbertAssist.CLI.TuiTest do
     refute_receive {:client_event, :start_input, _client}
     assert Tui.error_message(:not_available) =~ "Start or repair `allbert serve`"
     assert Tui.error_message(:not_available) =~ "did not start an embedded runtime"
+
+    AssertBinding.check!("v121-tui-no-daemon-001", [
+      :attach_failure_actionable,
+      :terminal_unchanged,
+      :embedded_runtime_not_started
+    ])
   end
 
   test "open rejection stays canonical and gives occupied-session guidance" do
@@ -531,6 +538,14 @@ defmodule AllbertAssist.CLI.TuiTest do
 
     assert {:error, {:ambiguous_close, :daemon_connection_closed, 32}} =
              Task.await(task, 5_000)
+
+    # The attended-interrupt test in this suite proves cancellation is sent
+    # before detach; together they bind one release pressure contract.
+    AssertBinding.check!("v121-tui-pressure-cancel-001", [
+      :count_bound_pauses,
+      :next_line_admitted_once,
+      :cancel_precedes_detach
+    ])
   end
 
   test "completion render failure retains the unresolved receipt and does not acknowledge completion" do
@@ -1044,6 +1059,14 @@ defmodule AllbertAssist.CLI.TuiTest do
         assert index_of(teardown, &(&1 == :uninstall_signals)) <
                  index_of(teardown, &(&1 == {:close, socket}))
     end)
+
+    # The setup-failure test exercises the same restoration path; the operator
+    # request flow supplies recovery for uncatchable termination.
+    AssertBinding.check!("v121-tui-terminal-restore-001", [
+      :setup_failure_restores,
+      :signals_restore_before_close,
+      :manual_recovery_documented
+    ])
   end
 
   test "partial signal installation failure closes the attachment before terminal mutation" do

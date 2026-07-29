@@ -175,6 +175,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert task_source =~ ~s(gate: "release.v103",)
     assert task_source =~ ~s(gate: "release.v104",)
     assert task_source =~ ~s(gate: "release.v105",)
+    assert task_source =~ ~s(gate: "release.v121",)
 
     # metrics subcommand + usage surface (M8.10: run/1 captures the
     # invocation for provenance and dispatches through do_run/1).
@@ -272,6 +273,8 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert error.message =~ "mix allbert.test release.v064"
     assert error.message =~ "mix allbert.test release.v065"
     assert error.message =~ "mix allbert.test release.v066"
+    assert error.message =~ "mix allbert.test release.v121"
+    assert error.message =~ "mix allbert.test release.structure v121 [--output PATH]"
     assert error.message =~ "mix allbert.test external-smoke -- telegram"
     assert error.message =~ "mix allbert.test external-smoke -- email"
     assert error.message =~ "mix allbert.test external-smoke -- inbound_telegram"
@@ -416,7 +419,8 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
             "release.v102",
             "release.v103",
             "release.v104",
-            "release.v105"
+            "release.v105",
+            "release.v121"
           ] do
         assert task_source =~ ~s{release_step_status("#{gate}", step.id, exit_status, output)}
       end
@@ -513,6 +517,35 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
       assert task_source =~ ~s(test/allbert_assist/browser/playwright_driver_test.exs)
       assert task_source =~ ~s(test/allbert_assist/settings/store_cross_process_race_test.exs)
       assert task_source =~ ~s(@release_v105_steps @release_v104_steps ++ @v105_focused_steps)
+    end
+
+    test "release.v121 is an exact release.v12 prefix with existing focused targets" do
+      proof = AllbertTestTask.release_prefix_proof()
+      definitions = proof["definitions"]
+
+      assert proof["status"] == "passed"
+      assert Enum.map(proof["checks"], & &1["exact_prefix"]) == [true, true]
+
+      v1 = definitions["release.v1"]
+      v12 = definitions["release.v12"]
+      v121 = definitions["release.v121"]
+
+      assert Enum.take(v12, length(v1)) == v1
+      assert Enum.take(v121, length(v12)) == v12
+      assert length(v121) > length(v12)
+
+      for step <- Enum.drop(v121, length(v12)),
+          step["executable"] == "mix",
+          ["test" | targets] <- [step["args"]],
+          target <- targets do
+        root =
+          if step["cwd"] == "core",
+            do: Path.expand("../../..", __DIR__),
+            else: Path.expand("../../../../..", __DIR__)
+
+        assert File.exists?(Path.join(root, target)),
+               "release.v121 focused step target missing: #{target}"
+      end
     end
   end
 

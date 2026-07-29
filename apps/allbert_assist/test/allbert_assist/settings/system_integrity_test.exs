@@ -3,6 +3,7 @@ defmodule AllbertAssist.Settings.SystemIntegrityTest do
   @moduletag :global_process_serial
 
   alias AllbertAssist.Paths
+  alias AllbertAssist.SecurityFixtures.AssertBinding
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.KeyCustody
   alias AllbertAssist.Settings.Secrets
@@ -218,6 +219,14 @@ defmodule AllbertAssist.Settings.SystemIntegrityTest do
              )
 
     assert {:ok, "keep-user-secret"} = Secrets.get_secret(user_ref, %{audit?: false})
+
+    # Companion tests in this suite exercise domain separation and fetch-only
+    # verification when the referenced key is absent.
+    AssertBinding.check!("v121-system-integrity-key-001", [
+      :concurrent_first_use_converges,
+      :domain_tags_separate,
+      :missing_ref_fails_closed
+    ])
   end
 
   test "the frozen v1.3 domains are separated and arbitrary domains are rejected" do

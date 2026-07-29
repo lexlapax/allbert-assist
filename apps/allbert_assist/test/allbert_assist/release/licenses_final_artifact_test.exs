@@ -36,6 +36,7 @@ defmodule AllbertAssist.Release.LicensesFinalArtifactTest do
 
   alias AllbertAssist.Release.FinalArtifact
   alias AllbertAssist.Release.FinalArtifactTest.FakeLicenses
+  alias AllbertAssist.SecurityFixtures.AssertBinding
   alias AllbertAssist.Umbrella.MixProject
 
   @manifest_sha256 String.duplicate("a", 64)
@@ -88,6 +89,12 @@ defmodule AllbertAssist.Release.LicensesFinalArtifactTest do
              :install_dispatcher,
              :finalize_license_evidence
            ]
+
+    AssertBinding.check!("v121-license-final-artifact-001", [
+      :payload_mutations_ordered,
+      :license_finalizer_last,
+      :final_tree_verified
+    ])
   end
 
   test "asset build cleans first and accepts only the newly reachable digest set", %{root: root} do
