@@ -4,6 +4,8 @@
 
 Accepted (v1.2.1 M0.b1, 2026-07-28; operator-signed final-readiness decision).
 Binding on the daemon-backed-TUI milestones in the active release-line plan.
+The daemon session, integrity, and durable-receipt portion landed at M0.b2 on
+2026-07-28; the terminal client and attended validation remain M0.b3/M0.c3.
 The packaged macOS and Linux rows at M0.c3 must still prove one daemon per Home,
 Web/TUI continuity, failure restoration, and no embedded TUI runtime before the
 point release may ship; those rows validate this decision rather than delaying
@@ -254,6 +256,16 @@ non-droppable frame cannot fit, the daemon makes one best-effort `:close` with
 `:overflow` and closes the socket. Durable results remain inspectable after a
 fresh open; transient presentation is not replayed.
 
+Droppability follows queue priority and custody, not the frame tag alone. In
+particular, a fan-out authority delivery may use a `:delta`, but its cumulative-
+ack waiter makes it non-droppable and ineligible for gap absorption or adjacent
+presentation reduction. A terminal close is likewise a queue barrier: after
+applying the peer's cumulative ack, the session drains already-admitted
+non-droppable frames in order, then emits close as the final frame. If the
+remaining authority queue cannot drain within the bounded window, those
+waiters fail rather than being reported delivered and the best-effort close is
+`:overflow`.
+
 Adding a key, frame, enum value, or relaxed interpretation requires a new
 additive session-protocol version and an explicit compatibility row. It does
 not alter kind-absent attach-v1.
@@ -370,10 +382,13 @@ Receipt states are exactly `received`, `admitted`, `in_progress`, `completed`,
 1. Insert or load the inbound `channel_events` row in a transaction and compare
    the payload HMAC in constant time. A mismatch returns `:receipt_conflict`
    and performs no classification or dispatch.
-2. For a new row, commit `received`, classify through the existing TUI adapter,
-   then commit `admitted` and the available signal/thread/trace identifiers
-   before dispatching slash, ordinary-turn, or correction work through the
-   existing action/runtime spine. Move to `in_progress` when execution starts.
+2. For a new row, commit `received`, then commit `admitted` and the available
+   signal/thread/trace identifiers before handing normalized input to the
+   existing TUI adapter. The adapter classifies and dispatches slash, ordinary-
+   turn, or correction work through the existing action/runtime spine; a
+   rejected handoff is terminalized as failed. Move to `in_progress` when
+   execution starts. This more-conservative landed ordering never exposes an
+   unrecorded classification/dispatch window.
 3. Persist a safe terminal outcome plus message/result references as
    `completed`, `rejected`, or `failed`. A duplicate terminal receipt returns
    those safe references with `duplicate?: true`; it does not dispatch again.
@@ -525,3 +540,9 @@ fan-out and Escape cancellation, kills each side of the socket, and verifies
 the terminal and service health after every handled failure. A separate
 uncatchable-client-termination row proves the documented `stty sane`/`reset`
 recovery without claiming in-process cleanup.
+
+M0.b2 focused evidence covers the daemon protocol/session queue, integrity,
+receipt, Adapter, confirmation, fan-out, and teardown rows. The operator-
+attended warm thin-client run and exact packaged-artifact TTY rows are
+mandatory M0.b3/M0.c3 evidence; automated PTY coverage supports but does not
+replace those release barriers.
