@@ -56,6 +56,17 @@ and recreating the provisional annotated tag at the corrected source before
 publication, instead of minting another content-thin patch. Once published,
 the replacement tag and its assets are immutable.
 
+The second unpublished generation at `a02c7edf` passed every build, smoke,
+digest, license, M0.a3, and Linux rehearsal row before M0.c3 exposed bounded
+qualification defects: the harness omitted disposable receipt-integrity
+material, accepted too narrow a degraded-attach diagnostic, and signaled the
+whole PTY process group before BEAM could restore the terminal. It likewise
+created no GitHub Release and promoted no assets. The final correction gives
+each run an ephemeral settings key, exercises short `/health` pressure frames,
+and acknowledges handled SIGTERM/SIGHUP only after terminal restoration. The
+corrected exact release passed the complete PTY lifecycle on local macOS arm64
+and native Linux x64 before the provisional tag was regenerated.
+
 ## v1.2.5 - Failed Immutable Foundation Attempt
 
 Status: **failed immutable attempt — qualified archives exist, no GitHub
