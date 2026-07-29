@@ -1388,12 +1388,12 @@ model/browser smokes remain separate real-runtime evidence.
 
 ### Future Point/Minor Gate Composition — 2026-07-28
 
-`release.v121` is the exact ordered `release.v12` prefix plus six v1.2.2 steps:
+`release.v121` is the exact ordered `release.v12` prefix plus six v1.2.3 steps:
 the 13-row security routing sweep, packaged-license/final-artifact/promotion
 owners, daemon-TUI/custody owners, offline license drift, primary-lane
 reconciliation, and the lossless per-test manifest check. The definition writes
 aggregate evidence under its owned Home at `release_evidence/v121/`, but the
-v1.2.2 timing override does not execute it. At the clean pushed tag candidate,
+v1.2.3 timing override does not execute it. At the clean pushed tag candidate,
 emit its definitions and computed prefix proof without executing any step:
 
 ```sh
@@ -1418,7 +1418,7 @@ remain in their named DB/app-env/home/process lanes; security evaluations stay
 single-VM serial. Real local-model quality, configured messaging identities,
 E2EE disclosure, and packaged native SQLite behavior are explicit external/FV
 rows and never enter `fast-local`. For the v1.3 train, the active plan's
-operator-approved timing override applies: v1.2.2 and intermediate v1.3
+operator-approved timing override applies: v1.2.3 and intermediate v1.3
 milestones run only their named focused/static/security/artifact rows, while
 `release.v13` and one authoritative aggregate run only at final M9.b on the
 same clean pushed SHA. Focused remediation does not repeatedly rebuild or rerun

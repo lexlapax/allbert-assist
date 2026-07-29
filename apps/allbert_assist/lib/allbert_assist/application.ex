@@ -137,7 +137,7 @@ defmodule AllbertAssist.Application do
     children ++ [{AllbertAssist.Channels.Supervisor, opts}]
   end
 
-  # v1.2.2 M0.b3: every interactive terminal is an authenticated Attach
+  # v1.2.3 M0.b3: every interactive terminal is an authenticated Attach
   # session. Application startup never owns a static TUI adapter, regardless
   # of whether this particular boot holds the daemon writer lock. The daemon
   # session owner starts and removes the one temporary headless adapter.

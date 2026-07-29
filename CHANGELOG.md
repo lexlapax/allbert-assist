@@ -10,31 +10,41 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
-## v1.2.2 - Self-Describing Binary And Daemon TUI
+## v1.2.3 - Self-Describing Binary And Daemon TUI
 
-Status: **release candidate — immutable corrective build pending.** The first
-foundation tag, `v1.2.1` at `9f47c7c7`, is retained as a failed immutable
-attempt. Its source workflow run
-[30472922029](https://github.com/lexlapax/allbert-assist/actions/runs/30472922029)
-stopped all three native builders before packaging because the umbrella release
-hook did not bind `phx.digest.clean --all` to the web child's static root. It
-uploaded no archives or other artifacts and created no GitHub Release. The
-correction binds cleanup and verification to the same absolute tree and moves
-the product version and service-worker cache directly from 1.2.0 to 1.2.2;
-the failed tag is never moved or overwritten.
+Status: **release candidate — immutable corrective build pending.** Failed tags
+`v1.2.1` and `v1.2.2` remain immutable, published no artifacts, and created no
+GitHub Release. v1.2.3 carries the same operator-approved foundation scope with
+two bounded corrections in the existing final-artifact seam: it explicitly
+removes generated manifest/digest/gzip output before rebuilding, and its
+reviewed license catalog omits `unicode_util_compat`, which M0.c1 had already
+removed from the locked dependency graph and which is absent from the assembled
+OTP application closure. A clean-root local `mix release allbert --overwrite`
+now completes asset composition, plugin staging, measured macOS OpenSSL closure,
+dispatcher installation, and final license generation/verification; the
+packaged binary reports 1.2.3 and the offline viewer reports the bounded
+best-effort claim.
 
 **Formula state: PRE-PUBLICATION ONLY.** The packaged Latest 1.2.0 remains during
-the corrective RC window. After the immutable `v1.2.2` artifacts pass the
-planned license, native TUI, signature, and installed-product qualifications,
-the tap is filled 1.2.0 → 1.2.2 from published checksums and that filled formula
-is synced back into the repository. Until then, the repository formula remains
-the last accepted 1.2.0 package rather than advertising unavailable bytes.
+the corrective RC window. After immutable `v1.2.3` artifacts pass the planned
+license, native TUI, signature, and installed-product qualifications, the tap is
+filled 1.2.0 → 1.2.3 from published checksums and that filled formula is synced
+back into the repository. Until then, the repository formula remains the last
+accepted 1.2.0 package rather than advertising unavailable bytes.
 
-v1.2.2 carries the planned foundation scope unchanged: deterministic packaged
-license and notice evidence with a pure offline viewer, exact tag-built native
-artifacts promoted without rebuilding, and the daemon-backed thin TUI client.
 The release adds no license-management subsystem and no new release-automation
-framework.
+framework. Stable internal `release.v121`, `v121-*`, and harness names continue
+to identify the foundation contract without becoming product-version claims.
+
+## v1.2.2 - Failed Immutable Foundation Attempt
+
+Status: **failed immutable attempt — no artifacts and no GitHub Release.** Tag
+`v1.2.2` points to `15c15484`; source workflow run
+[30474512758](https://github.com/lexlapax/allbert-assist/actions/runs/30474512758)
+stopped all three native builders before packaging. The absolute Phoenix output
+path was correct, but nested umbrella Mix structure rebuilt five tracked logical
+`.gz` files before the cleanliness assertion. The run therefore published
+nothing, and the tag is never moved or overwritten.
 
 ## v1.2.0 - Zero-Click First Run
 

@@ -74,7 +74,7 @@ stale guidance.
 - Packaged releases include ERTS and selected runtime/native/data payloads, so
   binary redistribution must carry the notices and source offers required by
   the bytes in each target artifact. Stable v1.2.0 does not yet package a
-  generated inventory. v1.2.2 adds one deterministic final-artifact generator,
+  generated inventory. v1.2.3 adds one deterministic final-artifact generator,
   one reviewed catalog/exceptions file, target manifests, required texts, and a
   pure offline viewer. Its honest claim is a best-effort inventory of known
   shipped components; it is not a complete SBOM, universal ownership scanner,
@@ -193,7 +193,7 @@ ADR 0050 before changing dependencies.
 Fast local gates are not release evidence. Do not hand off a release milestone
 until the release gate is clean, unless an exact environment blocker is recorded
 and the user accepts the deferral. The active v1.3 plan carries an explicit
-operator timing override: v1.2.2 and intermediate v1.3 milestones use only
+operator timing override: v1.2.3 and intermediate v1.3 milestones use only
 their named focused/static/security/artifact evidence, and aggregate release
 gates execute once at final v1.3 M9.b.
 After v0.45.1, `mix precommit` is not release evidence; use

@@ -6,7 +6,7 @@ here for alternate install paths, upgrades, uninstall, and artifact trust.
 The current packaged release is **v1.2.0**. Homebrew and the default curl
 installer resolve to that stable GitHub Latest release.
 
-The thin TUI lifecycle documented on `main` begins with v1.2.2. Until that
+The thin TUI lifecycle documented on `main` begins with v1.2.3. Until that
 point release is installed, use the v1.2.0 web workspace or the documentation
 at the installed tag; do not apply the new attach-only TUI instructions to an
 older binary.
@@ -235,10 +235,10 @@ remains MPL-2.0 and must retain its license and source/conversion provenance.
 This does not relicense the larger Allbert work under MPL.
 
 Stable v1.2.0 does not yet ship a generated target inventory. The planned
-v1.2.2 binary adds a best-effort inventory of known shipped components, required
+v1.2.3 binary adds a best-effort inventory of known shipped components, required
 license texts, exact source-availability metadata, a per-target manifest, and an
 offline `allbert licenses` viewer. It is not a complete SBOM or legal-compliance
-guarantee. Until v1.2.2
+guarantee. Until v1.2.3
 ships, dependency metadata and source license files are useful inputs, but a
 redistributor must also inspect the actual target artifact and any staged
 native/data payloads.
