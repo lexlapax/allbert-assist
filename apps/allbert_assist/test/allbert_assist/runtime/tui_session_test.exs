@@ -94,8 +94,10 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
     def handle_call(:delivery_output_fun, _from, state),
       do: {:reply, state.delivery_output_fun, state}
 
-    def handle_call({:cancel_current_turn, _reason}, _from, state),
-      do: {:reply, :ok, state}
+    def handle_call({:cancel_current_turn, reason}, _from, state) do
+      send(state.config.controller, {:test_teardown_cancel, self(), reason})
+      {:reply, :ok, state}
+    end
   end
 
   setup do
@@ -745,6 +747,118 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
       end)
     end
 
+    test "default client selector resolves the daemon-owned Settings profile" do
+      assert {:ok, _setting} =
+               Settings.put("channels.tui.profile", "work", %{audit?: false})
+
+      assert {:ok, _setting} =
+               Settings.put(
+                 "channels.tui.identity_map",
+                 [
+                   %{
+                     "external_user_id" => "work",
+                     "user_id" => "local",
+                     "enabled" => true
+                   }
+                 ],
+                 %{audit?: false}
+               )
+
+      server = start_supervised!(AttachServer)
+      {socket, _snapshot, client_flow} = open_session()
+      {"tui", adapter_pid, :worker, _modules} = tui_child()
+
+      assert %{profile: "work"} = :sys.get_state(adapter_pid)
+      assert %{status: :up, tui_session: :active} = AttachServer.status(server)
+
+      detach(socket, client_flow)
+    end
+
+    test "default client selector fails closed when daemon channel settings are unavailable" do
+      server =
+        start_supervised!(
+          {AttachServer,
+           session_opts: [
+             channel_settings_fun: fn "tui" -> {:error, :settings_unavailable} end
+           ]}
+        )
+
+      socket = connect_socket()
+      :ok = send_term(socket, valid_open())
+
+      assert %{frame: :close, code: :runtime_unavailable} = recv_term(socket)
+      assert {:error, :closed} = :gen_tcp.recv(socket, 0, 1_000)
+
+      eventually(fn -> AttachServer.status(server).tui_session == :none end)
+      refute tui_child()
+      refute Process.whereis(Adapter)
+    end
+
+    test "quiet resize traffic preserves status while acknowledging beyond the retained window" do
+      _server = start_controllable_server()
+      {socket, _snapshot, client_flow} = open_session()
+
+      {:ok, input, client_flow} =
+        TUIProtocol.send_frame(client_flow, :client_to_daemon, :input, %{
+          input_receipt_id: TUIProtocol.new_receipt_id(),
+          text: ""
+        })
+
+      :ok = send_term(socket, input)
+      {error, client_flow} = receive_until(socket, client_flow, :error)
+
+      assert %{
+               code: :invalid_input,
+               message: status_text
+             } = error.payload
+
+      client_flow =
+        Enum.reduce(1..40, client_flow, fn index, flow ->
+          {:ok, resize, flow} =
+            TUIProtocol.send_frame(flow, :client_to_daemon, :resize, %{
+              columns: 80 + rem(index, 40),
+              rows: 24 + rem(index, 20)
+            })
+
+          :ok = send_term(socket, resize)
+          assert_status_carrier(socket, flow, resize, status_text)
+        end)
+
+      {:ok, confirmation, client_flow} =
+        TUIProtocol.send_frame(client_flow, :client_to_daemon, :confirmation, %{
+          confirmation_id: "quiet-confirmation",
+          decision: :deny
+        })
+
+      :ok = send_term(socket, confirmation)
+      client_flow = assert_status_carrier(socket, client_flow, confirmation, status_text)
+
+      {:ok, cancel, client_flow} =
+        TUIProtocol.send_frame(client_flow, :client_to_daemon, :cancel, %{
+          reason: :operator_escape
+        })
+
+      :ok = send_term(socket, cancel)
+      client_flow = assert_status_carrier(socket, client_flow, cancel, status_text)
+
+      receipt_id = TUIProtocol.new_receipt_id()
+
+      {:ok, input, client_flow} =
+        TUIProtocol.send_frame(client_flow, :client_to_daemon, :input, %{
+          input_receipt_id: receipt_id,
+          text: "input after quiet pressure"
+        })
+
+      :ok = send_term(socket, input)
+      client_flow = assert_status_carrier(socket, client_flow, input, status_text)
+      assert_receive {:test_submit_started, _task, ^receipt_id}, 5_000
+
+      {status, client_flow} = receive_until(socket, client_flow, :status)
+      assert %{payload: %{text: "Input admitted.", input_receipt_id: ^receipt_id}} = status
+
+      detach(socket, client_flow)
+    end
+
     test "a slow pre-authentication peer does not serialize a valid open" do
       server = start_supervised!(AttachServer)
       stalled = connect_socket()
@@ -912,6 +1026,34 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
       detach(fresh_socket, fresh_flow)
     end
 
+    test "daemon output canonicalizes CRLF and LF into bounded logical lines" do
+      server = start_controllable_server()
+      {socket, _snapshot, client_flow} = open_session()
+      {"tui", adapter_pid, :worker, _modules} = tui_child()
+
+      assert :ok =
+               ControllableAdapter.output(
+                 adapter_pid,
+                 "first\r\nsecond\n\nfourth\rbare"
+               )
+
+      delta = recv_term(socket)
+
+      assert %{frame: :delta, payload: %{lines: ["first", "second", "", "fourth\rbare"]}} =
+               delta
+
+      {:ok, client_flow} = TUIProtocol.accept_frame(client_flow, :daemon_to_client, delta)
+
+      too_many_lines = Enum.join(List.duplicate("x", 257), "\n")
+
+      assert {:error, :output_too_large} =
+               ControllableAdapter.output(adapter_pid, too_many_lines)
+
+      assert {:error, :timeout} = :gen_tcp.recv(socket, 0, 100)
+      assert %{status: :up, tui_session: :active} = AttachServer.status(server)
+      detach(socket, client_flow)
+    end
+
     test "Settings max text bytes bounds rendered daemon output" do
       assert {:ok, _settings} =
                Settings.put("channels.tui.max_text_bytes", 7, %{audit?: false})
@@ -929,6 +1071,33 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
                ControllableAdapter.output(adapter_pid, "12345678")
 
       assert {:error, :timeout} = :gen_tcp.recv(socket, 0, 100)
+      assert %{status: :up, tui_session: :active} = AttachServer.status(server)
+      detach(socket, client_flow)
+    end
+
+    test "Settings input limit rejects semantically without closing the wire session" do
+      assert {:ok, _settings} =
+               Settings.put("channels.tui.max_text_bytes", 7, %{audit?: false})
+
+      server = start_controllable_server()
+      {socket, _snapshot, client_flow} = open_session()
+      receipt_id = TUIProtocol.new_receipt_id()
+
+      {:ok, input, client_flow} =
+        TUIProtocol.send_frame(client_flow, :client_to_daemon, :input, %{
+          input_receipt_id: receipt_id,
+          text: "12345678"
+        })
+
+      :ok = send_term(socket, input)
+      {error, client_flow} = receive_until(socket, client_flow, :error)
+
+      assert %{
+               code: :invalid_input,
+               input_receipt_id: ^receipt_id,
+               message: "Input is invalid."
+             } = error.payload
+
       assert %{status: :up, tui_session: :active} = AttachServer.status(server)
       detach(socket, client_flow)
     end
@@ -959,9 +1128,8 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
           ControllableAdapter.delivery_output(adapter_pid, "acknowledge this report")
         end)
 
-      delta = recv_term(socket)
+      {delta, client_flow} = receive_until(socket, client_flow, :delta)
       assert %{frame: :delta, payload: %{lines: ["acknowledge this report"]}} = delta
-      {:ok, client_flow} = TUIProtocol.accept_frame(client_flow, :daemon_to_client, delta)
       assert Task.yield(delivery, 50) == nil
 
       {:ok, ack, client_flow} =
@@ -982,6 +1150,13 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
       assert_receive {:test_cancel_started, control_task, :operator_interrupt}, 1_000
       control_monitor = Process.monitor(control_task)
 
+      client_flow =
+        assert_status_carrier(socket, client_flow, cancel, %{
+          render_revision: 1,
+          state: :streaming,
+          text: ""
+        })
+
       {:ok, detach, _client_flow} =
         TUIProtocol.send_frame(
           client_flow,
@@ -998,6 +1173,21 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
 
       assert_receive {:DOWN, ^inbound_monitor, :process, ^inbound_task, _reason}, 1_000
       assert_receive {:DOWN, ^control_monitor, :process, ^control_task, _reason}, 1_000
+      assert_receive {:test_teardown_cancel, ^adapter_pid, :operator_interrupt}, 1_000
+
+      eventually(fn ->
+        AttachServer.status(server).tui_session == :none and is_nil(tui_child())
+      end)
+    end
+
+    test "detach without an accepted interrupt keeps escape teardown cancellation" do
+      server = start_controllable_server()
+      {socket, _snapshot, client_flow} = open_session()
+      {"tui", adapter_pid, :worker, _modules} = tui_child()
+
+      detach(socket, client_flow)
+
+      assert_receive {:test_teardown_cancel, ^adapter_pid, :operator_escape}, 1_000
 
       eventually(fn ->
         AttachServer.status(server).tui_session == :none and is_nil(tui_child())
@@ -1454,6 +1644,41 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
   defp recv_term(socket, timeout \\ 5_000) do
     {:ok, payload} = :gen_tcp.recv(socket, 0, timeout)
     :erlang.binary_to_term(payload, [:safe])
+  end
+
+  defp assert_status_carrier(socket, client_flow, client_frame, status_text)
+       when is_binary(status_text) do
+    assert_status_carrier(socket, client_flow, client_frame, %{
+      render_revision: 0,
+      state: :error,
+      text: status_text
+    })
+  end
+
+  defp assert_status_carrier(socket, client_flow, client_frame, expected_status)
+       when is_map(expected_status) do
+    carrier = recv_term(socket, 1_000)
+
+    assert %{
+             frame: :status,
+             ack: acknowledged_seq,
+             payload: %{
+               render_revision: render_revision,
+               state: render_state,
+               text: status_text,
+               input_receipt_id: nil
+             }
+           } = carrier
+
+    assert render_revision == expected_status.render_revision
+    assert render_state == expected_status.state
+    assert status_text == expected_status.text
+    assert acknowledged_seq == client_frame.seq
+
+    assert {:ok, client_flow} =
+             TUIProtocol.accept_frame(client_flow, :daemon_to_client, carrier)
+
+    client_flow
   end
 
   defp receive_until(socket, client_flow, wanted_frame, attempts \\ 30)

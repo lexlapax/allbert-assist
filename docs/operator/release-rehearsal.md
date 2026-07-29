@@ -152,6 +152,35 @@ attempt, and the digest/qualification artifact IDs plus upload SHA-256 values
 from its content-free summaries. Then dispatch the **same workflow at the exact
 tag ref**, supplying all seven bindings:
 
+> **HARD STOP — operator TUI sign-off.** Before dispatching promotion or
+> approving its protected environment, the operator must personally complete
+> the attended exact-artifact procedure in [§4](#4-packaged-tui-rehearsal) and
+> return to this point. Automated PTY/CI evidence does not replace that session.
+> Do not continue unless its review block printed PASS and these bindings still
+> match the selected artifact:
+
+```sh
+: "${V121_TUI_ATTENDED_EVIDENCE:?complete section 4 operator TUI validation first}"
+test -f "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx "candidate_sha=$V121_EXPECTED_SOURCE_SHA" "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx "artifact_sha256=$V121_EXPECTED_SHA256" "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx "target=$V121_TARGET" "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx 'surface=tui' "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx 'checklist_schema=v121_tui_attended_v1' "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx 'expected_pass_clause=v121_tui_operator_attended_v1' "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx 'redacted_observation=operator_observed_all_named_rows_pass' \
+  "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx 'operator_attended=true' "$V121_TUI_ATTENDED_EVIDENCE"
+for evidence_key in \
+  real_provider_preflight ordinary_prompt confirmation_deny_no_effect \
+  fanout_named_steering_join independent_follow_up normal_quit \
+  terminal_exact_restore post_tui_daemon_health; do
+  grep -Fx "$evidence_key=pass" "$V121_TUI_ATTENDED_EVIDENCE"
+done
+grep -Fx 'raw_transcript_retained=false' "$V121_TUI_ATTENDED_EVIDENCE"
+echo 'PASS: operator-attended exact-artifact TUI evidence is bound and reviewed'
+```
+
 ```sh
 export SOURCE_RUN_ID="${SOURCE_RUN_ID:?set successful tag-push run ID}"
 export SOURCE_RUN_ATTEMPT="${SOURCE_RUN_ATTEMPT:?set latest successful attempt}"
@@ -339,8 +368,9 @@ allbert admin settings set browser.enabled true
 allbert eval 'Application.ensure_all_started(:allbert_assist); case AllbertAssist.Actions.Runner.run("browser_doctor", %{}, %{actor: "release", channel: :cli}) do {:ok, %{doctor: doctor}} -> IO.inspect(doctor, limit: :infinity, pretty: true); other -> IO.inspect(other, limit: :infinity, pretty: true) end'
 ```
 
-Then attest first chat against a real configured local model, one warm TUI
-session with no daemon running, and service install/status/uninstall basics.
+Then attest first chat against a real configured local model, one warm thin-TUI
+session attached to the running daemon, and service install/status/uninstall
+basics.
 PASS requires the published Linux artifact, a live browser doctor reporting
 `ok`, and not a source checkout. A SKIP requires an owner, policy reason, and
 follow-up location; absence of a WSL2 host is not silently treated as PASS.
@@ -509,92 +539,125 @@ test -d "$ALLBERT_HOME"                           # expected unless --purge was 
 
 ## 4. Packaged TUI Rehearsal
 
-The TUI proof must run from the packaged binary (`allbert tui`), not from
-`mix allbert.tui`. Stop and wait for any foreground daemon first: the daemon
-and the standalone TUI cannot both own the same SQLite Home.
+The product proof runs the packaged thin client (`allbert tui`), not the Mix
+twin. The daemon must own the disposable Home before the client attaches; the
+client must never start Repo, migrations, providers, or an embedded writer.
+The exact-artifact CI row uses the bounded standard-library PTY harness:
 
 ```sh
-export ALLBERT_HOME="$(mktemp -d /tmp/allbert-release-tui.XXXXXX)"
-if pgrep -f 'allbert.*serve' >/dev/null; then
-  echo 'STOP: an Allbert daemon is still running; stop it and wait before TUI'
-  exit 1
-fi
-
-# macOS (BSD script)
-script "$EVIDENCE_ROOT/${VERSION}-tui-macos.txt" allbert tui
-
-# Linux (util-linux script; use instead of the macOS line)
-script -q -c 'allbert tui' "$EVIDENCE_ROOT/${VERSION}-tui-linux.txt"
+scripts/smoke/v121_tui_qualification.sh \
+  /absolute/path/to/extracted/allbert TARGET "$EVIDENCE_ROOT/fv-result.json"
 ```
 
-Precondition this v1.2 flagship row with a running real Ollama and the curated
-local model pulled. Do not pre-seed `channels.tui.identity_map` in this
-fresh-Home rehearsal: the packaged 1.2 launcher must prove one atomic write of
-`channels.tui.enabled=true` plus the ordinary `default → local` map. Inside
-the session, inspect all three v1.2 settings. Custom-profile and raw-present-map
-rehearsals remain explicit operator-configuration tests and are separate from
-this fresh-default proof.
+`TARGET` is `macos-arm64`, `linux-x64`, or `linux-arm64`. The release workflow
+passes the already extracted immutable archive and requires the helper's strict
+content-free JSON row. The harness proves actionable no-daemon behavior with no
+Home mutation, one-session occupancy, resize and pressure bounds, Ctrl-C/EOF,
+daemon loss/restart, terminal restoration, and continued Web health. It retains
+no raw TUI/provider transcript. Linux x64 additionally consumes the protected,
+harness-only configured-provider inputs defined by the active request-flow;
+other targets report provider `not_required`.
 
-Inside the session:
-
-```text
-What is the capital of France?
-/help
-/status
-/channels
-/settings get intent.direct_answer_model_enabled
-/settings get channels.tui.enabled
-/settings get channels.tui.identity_map
-/quit
-```
-
-PASS: the first input produces a real model-backed answer, not the deterministic
-fallback or a silent drop, and the local disclosure appears once. Every slash
-read renders in-session, both boolean settings are `true`, and the identity map
-has one enabled `default → local` entry. Record the redacted transcript
-without using cold Mix inspection tasks. A deliberately model-not-ready cell
-has separate honest-fallback validation and does not satisfy this flagship row.
-
-Relaunch once with the same Home using the matching host command above. Inspect
-the same three Settings keys, then `/quit`. The values must be unchanged and the
-disclosure must not repeat. After both sessions have exited, run the exact
-audit-count proof:
+Automation supports but cannot replace the attended exact-artifact barrier.
+Prepare a disposable Home physically below `TMPDIR` or `/tmp` with a real
+provider/model through the packaged interactive vault path, record the exact
+archive digest, then run:
 
 ```sh
-export V12_TUI_AUDIT_DIR="$ALLBERT_HOME/settings/audit"
-test "$(rg -A2 '^## .* channels\.tui\.enabled$' "$V12_TUI_AUDIT_DIR"/*.md | rg -c 'actor: first-run-local-tui-bootstrap')" -eq 1
-test "$(rg -A2 '^## .* channels\.tui\.identity_map$' "$V12_TUI_AUDIT_DIR"/*.md | rg -c 'actor: first-run-local-tui-bootstrap')" -eq 1
-test "$(rg -A2 '^## .* settings\.transaction$' "$V12_TUI_AUDIT_DIR"/*.md | rg -c 'actor: first-run-local-tui-bootstrap')" -eq 1
-echo 'PASS: one atomic local-TUI launcher bootstrap; restart added no duplicate'
+export V121_TARGET="${V121_TARGET:?macos-arm64, linux-x64, or linux-arm64}"
+export V121_ARTIFACT="/absolute/path/allbert-${VERSION}-${V121_TARGET}.tar.gz"
+export V121_DIGEST_MANIFEST="${V121_DIGEST_MANIFEST:?path to the authenticated immutable digest manifest}"
+export V121_EXPECTED_SHA256="$(jq -er --arg target "$V121_TARGET" \
+  '.archives[] | select(.target == $target) | .sha256' "$V121_DIGEST_MANIFEST")"
+[[ "$V121_EXPECTED_SHA256" =~ ^[0-9a-f]{64}$ ]]
+export V121_EXPECTED_SOURCE_SHA="$(jq -er '.source_sha' "$V121_DIGEST_MANIFEST")"
+[[ "$V121_EXPECTED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+export V121_TUI_HOME="${V121_TUI_HOME:?prepared disposable Home with the real provider/profile}"
+test -d "$V121_TUI_HOME"
+export V121_TUI_HOME="$(cd -P -- "$V121_TUI_HOME" && pwd -P)"
+export V121_TUI_EVIDENCE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/allbert-v121-artifact-attended.XXXXXX")"
+export V121_TUI_PROVIDER_PROFILE="${V121_TUI_PROVIDER_PROFILE:?set the prepared real profile}"
+export V121_TUI_ATTENDED_EVIDENCE="$V121_TUI_EVIDENCE_DIR/v121-tui-attended-${V121_TARGET}-${V121_EXPECTED_SHA256}.txt"
+scripts/smoke/v121_tui_qualification.sh --artifact "$V121_ARTIFACT" --attended
 ```
 
-Prove the explicit-disable boundary only after the counts above:
+The script starts the exact artifact's daemon, checks health, performs a
+redacted real-provider doctor, and then gives the operator one warm client. It
+prints the exact pasteable sequence and expected observations: `/status`; the
+harmless `Fetch https://example.com/ from the internet` confirmation followed
+by its exact printed DENY command; the archived v1.1 three-task OTP/GenServer/
+restaurant fan-out; the task-1 hospital-analogy steer; `status?`; one joined
+report; `what is 2+2?`; and `/quit`. The operator must personally verify each
+named PASS clause, exact `stty` restoration, and post-client daemon health.
+
+Review the content-free evidence before returning to the promotion hard stop:
 
 ```sh
-allbert admin settings set channels.tui.enabled false
-if allbert tui >"$EVIDENCE_ROOT/${VERSION}-tui-disabled.txt" 2>&1; then
-  echo 'FAIL: explicitly disabled TUI launched'
-  exit 1
-fi
-rg -F 'allbert admin settings set channels.tui.enabled true' \
-  "$EVIDENCE_ROOT/${VERSION}-tui-disabled.txt"
-allbert admin settings get channels.tui.enabled
-echo 'PASS: raw false was preserved and the launcher printed its re-enable command'
-allbert admin settings set channels.tui.enabled true
+test -f "$V121_TUI_ATTENDED_EVIDENCE"
+V121_TUI_HOME_CANONICAL="$(cd -P -- "$V121_TUI_HOME" && pwd -P)"
+V121_HOME_PATH_SHA256="$(python3 -c \
+  'import hashlib,sys; print(hashlib.sha256(sys.argv[1].encode()).hexdigest())' \
+  "$V121_TUI_HOME_CANONICAL")"
+V121_EVIDENCE_PATH_SHA256="$(python3 -c \
+  'import hashlib,sys; print(hashlib.sha256(sys.argv[1].encode()).hexdigest())' \
+  "$V121_TUI_ATTENDED_EVIDENCE")"
+V121_PROVIDER_PROFILE_SHA256="$(python3 -c \
+  'import hashlib,sys; print(hashlib.sha256(sys.argv[1].encode()).hexdigest())' \
+  "$V121_TUI_PROVIDER_PROFILE")"
+grep -Fx 'schema=1' "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx 'kind=v121_tui_attended_qualification' "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx 'checklist_schema=v121_tui_attended_v1' "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx "candidate_sha=$V121_EXPECTED_SOURCE_SHA" "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx "target=$V121_TARGET" "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx "host_os=$(uname -s)" "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx "host_arch=$(uname -m)" "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx 'surface=tui' "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx "home_path_sha256=$V121_HOME_PATH_SHA256" "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx "provider_profile_sha256=$V121_PROVIDER_PROFILE_SHA256" \
+  "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx "artifact_sha256=$V121_EXPECTED_SHA256" "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx "evidence_path_sha256=$V121_EVIDENCE_PATH_SHA256" \
+  "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx 'expected_pass_clause=v121_tui_operator_attended_v1' \
+  "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx 'redacted_observation=operator_observed_all_named_rows_pass' \
+  "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx 'operator_attended=true' "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx 'real_provider_preflight=pass' "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx 'ordinary_prompt=pass' "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx 'confirmation_deny_no_effect=pass' "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx 'fanout_named_steering_join=pass' "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx 'independent_follow_up=pass' "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx 'normal_quit=pass' "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx 'terminal_exact_restore=pass' "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx 'post_tui_daemon_health=pass' "$V121_TUI_ATTENDED_EVIDENCE"
+grep -Fx 'raw_transcript_retained=false' "$V121_TUI_ATTENDED_EVIDENCE"
+echo 'PASS: attended TUI evidence reviewed; return to section 1 hard stop'
 ```
 
-The failed launch must not alter the custom/raw-present identity map. A generic
-adapter or a disabled/unmapped identity entry is also never repaired; ordinary
-input prints a visible `Message not sent` rejection before Runtime admission.
+The evidence binds candidate SHA, host/target, surface, hashed Home/profile and
+evidence-path names, artifact digest, checklist schema, a fixed redacted
+observation, and PASS booleans. It does not capture the conversation,
+confirmation id, provider output, secret, raw path, or terminal bytes.
 
-Finally, prove cross-surface continuity with the same preserved Home. Ensure the
-TUI has exited, run `allbert serve`, and open `/workspace`; stop the server before
-another standalone TUI run. TUI `default` and web `web-local` independently map
-to canonical user `local`, so eligible durable data and the completed TUI
-conversation are available to select. PASS: web does not automatically open the
-exact TUI thread, and the TUI map neither grants nor changes web authorization.
-Never let the standalone TUI and web/daemon process concurrently own the same
-SQLite Home.
+On a raw-absent Home, the authenticated daemon session still performs the one
+atomic `channels.tui.enabled=true` plus `default → local` bootstrap. The TUI
+mapping grants no Web authorization. Web may remain open during the session and
+must stay healthy because both surfaces use the same daemon. A second TUI is
+refused without disrupting the first.
+
+Normal exit, handled Ctrl-C/EOF, decoder failure, daemon shutdown, and socket
+loss must restore cooked input and leave the alternate screen. SIGKILL, power
+loss, or terminal-emulator failure cannot run cleanup. Recover after only those
+uncatchable failures with:
+
+```sh
+stty sane
+reset  # only if the display/alternate screen is still damaged
+```
+
+A handled exit that needs either recovery command fails the release row. Do not
+claim that cleanup ran after SIGKILL.
 
 ### Packaged browser doctor and workspace
 
@@ -643,7 +706,7 @@ trap - EXIT INT TERM
 PASS: the doctor resolves the pinned host Playwright package, launches the
 explicit OS-managed Chromium/Chrome executable, and reports `ok`; the workspace is
 served at `localhost`; research navigates/extracts through the real configured
-provider; cleanup stops the daemon before any subsequent TUI run.
+provider; the same daemon remains healthy for any subsequent thin-TUI run.
 
 ## 5. Docker Linux Package Rehearsals
 
@@ -787,7 +850,7 @@ and representative data remain without `--purge`.
 | Artifact matrix | published artifacts boot and pass binary smoke | `.github/workflows/release-artifacts.yml` | current line |
 | Tap fill | formula version, URLs, and checksums match release checksums | `homebrew/fill-sha256.sh`; `brew audit --strict --online --formula` | current packaged line |
 | Package-manager install | package installs and invokes packaged binary | `brew install`; `brew test`; uninstall | current line |
-| Packaged TUI | installed binary answers from the ready local model, atomically seeds fresh activation/identity once, restarts without duplicate audit, and preserves cross-surface Home continuity | macOS/Linux `script ... allbert tui`; exact audit counts; TUI exit then `allbert serve` | current line |
+| Packaged TUI | exact thin client attaches to the one daemon, passes bounded protocol/TTY rows, answers from a ready real provider, restores the terminal, and preserves concurrent Web continuity | `scripts/smoke/v121_tui_qualification.sh`; attended exact-artifact barrier | current line |
 | Docker Linux package smoke | both Linux artifacts install/start/attach/uninstall in containers | `docker run --platform linux/arm64`; `docker run --platform linux/amd64` | current line |
 | Real-host service/vault | launchd/systemd and OS keychain integration on actual hosts | host service/vault commands | operator closeout |
 

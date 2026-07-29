@@ -1,33 +1,40 @@
 defmodule AllbertAssist.CLI.Tui do
   @moduledoc """
-  Release-safe launcher for the mix-free terminal operator console
-  (v0.62 M8.7 / ADR 0070). `launch/0` enables the supervised TUI channel child,
-  starts the runtime, and blocks on the interactive session until it exits — the
-  same behaviour as `mix allbert.tui`, but with no `Mix.*` calls so the packaged
-  `allbert tui` can run it (the launcher overlay invokes it in a real TTY).
+  Mix-free entrypoint for the daemon-backed terminal client (v1.2.1 M0.b3).
+
+  The terminal process owns only TTY input, bounded rendering, and the local
+  Attach socket. It never starts the Allbert application, Repo, an Adapter, or
+  any embedded writer. Runtime work remains in the already-running daemon.
   """
 
-  alias AllbertAssist.App.Bootstrap, as: AppBootstrap
-  alias AllbertAssist.Channels
-  alias AllbertAssist.Channels.TUI.Adapter
-  alias AllbertAssist.Channels.TUI.IdentityBootstrap
   alias AllbertAssist.CLI.FirstRun
+  alias AllbertAssist.CLI.Tui.Client
   alias AllbertAssist.Onboarding
   alias AllbertAssist.Security.Redactor
-  alias AllbertAssist.Settings.Fragments, as: SettingsFragments
 
-  @supervisor AllbertAssist.Channels.Supervisor
+  @log_level_help "debug, info, warning, error, or none"
+  @silent_log_level :emergency
 
-  @doc "Launch the interactive TUI console; blocks until the session exits."
+  @doc "Attach the interactive terminal client to the running daemon."
   @spec launch() :: :ok | {:error, term()}
   def launch do
-    with :ok <- prepare() do
-      case Adapter.run_supervised_forever(@supervisor) do
-        :normal -> :ok
-        :shutdown -> :ok
-        {:shutdown, _reason} -> :ok
-        other -> {:error, other}
-      end
+    with :ok <- configure_operator_logging() do
+      Client.run()
+    end
+  end
+
+  @doc false
+  @spec launch(keyword()) :: :ok | {:error, term()}
+  def launch(opts) when is_list(opts), do: Client.run(opts)
+
+  @doc false
+  @spec configure_operator_logging() :: :ok | {:error, {:invalid_tui_log_level, String.t()}}
+  def configure_operator_logging do
+    with {:ok, level} <- operator_log_level() do
+      Application.put_env(:logger, :level, level)
+      Logger.configure(level: level)
+      _result = :logger.set_primary_config(:level, level)
+      :ok
     end
   end
 
@@ -39,84 +46,84 @@ defmodule AllbertAssist.CLI.Tui do
         :ok
 
       {:error, reason} ->
-        raise "TUI runtime could not start: #{inspect(Redactor.redact(reason))}"
+        raise error_message(reason)
 
       other ->
-        raise "TUI runtime could not start: #{inspect(Redactor.redact(other))}"
+        raise error_message({:unexpected_client_result, other})
     end
   end
 
   @doc false
-  def prepare do
-    # The release launcher uses `eval`, so the application is loaded but not
-    # started. Readiness resolves plugin-owned Settings fragments and therefore
-    # must run after the complete registry/bootstrap spine is alive. Starting
-    # only :req made host-local Ollama work but discarded a persisted configured
-    # endpoint in a fresh process (v1.0.5 RC.2 WSL2 failure).
-    ensure_http_started()
-    original_supervisor_config = Application.fetch_env(:allbert_assist, @supervisor)
-    exclude_tui_during_boot!()
-
-    try do
-      case Application.ensure_all_started(:allbert_assist) do
-        {:ok, _started} ->
-          prepare_started_runtime()
-
-        {:error, reason} ->
-          {:error, {:runtime_start_failed, reason}}
-      end
-    after
-      restore_supervisor_config(original_supervisor_config)
-    end
+  @spec error_message(term()) :: String.t()
+  def error_message(:not_available) do
+    "No Allbert daemon is available for this Home. Start or repair `allbert serve`; " <>
+      "the TUI did not start an embedded runtime."
   end
 
-  defp prepare_started_runtime do
-    with :ok <- AppBootstrap.await_ready() do
-      SettingsFragments.clear_cache()
-
-      with {:ok, bootstrap} <- bootstrap_local_launch(effective_profile()),
-           :ok <- require_enabled_launch(bootstrap),
-           :ok <- readiness_guard(),
-           do: start_supervised_tui_child!()
-    end
+  def error_message({:open_rejected, :already_attached, _message}) do
+    "A TUI session is already attached to this Allbert Home. Close it before attaching another."
   end
 
-  @doc false
-  @spec bootstrap_local_launch(String.t()) :: {:ok, map()} | {:error, term()}
-  def bootstrap_local_launch(profile \\ effective_profile()),
-    do: IdentityBootstrap.prepare_local_launch(profile)
-
-  @doc false
-  @spec effective_profile() :: String.t()
-  def effective_profile do
-    opts = supervisor_config()
-
-    child_profile =
-      opts
-      |> Keyword.get(:channel_child_opts, %{})
-      |> child_opts_for_tui()
-      |> Keyword.get(:profile)
-
-    settings_profile =
-      case Channels.channel_settings("tui") do
-        {:ok, settings} -> Map.get(settings, "profile", "default")
-        {:error, _reason} -> "default"
-      end
-
-    normalize_profile(child_profile || settings_profile)
+  def error_message({:open_rejected, :identity_denied, message}) do
+    "The daemon denied this TUI identity. #{bounded(Redactor.redact(message))} " <>
+      "Review `channels.tui.enabled`, `channels.tui.profile`, and `channels.tui.identity_map`."
   end
 
-  @doc false
-  @spec ensure_http_started() :: :ok
-  def ensure_http_started do
-    _ = Application.ensure_all_started(:req)
-    :ok
+  def error_message({:open_rejected, code, message})
+      when code in [:invalid_open, :unsupported_kind, :version_mismatch, :protocol_mismatch] do
+    "The TUI client and daemon do not share a usable session protocol (#{code}): " <>
+      "#{bounded(Redactor.redact(message))} Use the client from the same Allbert install, " <>
+      "then restart or upgrade the daemon."
   end
 
+  def error_message({:open_rejected, code, message})
+      when code in [:token_mismatch, :home_mismatch, :uid_mismatch] do
+    "The daemon rejected the local attachment identity (#{code}): " <>
+      "#{bounded(Redactor.redact(message))} Confirm the client and daemon use the same " <>
+      "Allbert Home and operator account, then restart the service."
+  end
+
+  def error_message({:open_rejected, :capacity, message}) do
+    "The daemon's bounded attachment handshake capacity is busy: " <>
+      "#{bounded(Redactor.redact(message))} Retry after current attachment attempts finish."
+  end
+
+  def error_message({:open_rejected, :runtime_unavailable, message}) do
+    "The daemon could not open the TUI runtime session: " <>
+      "#{bounded(Redactor.redact(message))} Check `allbert admin service status` and daemon logs."
+  end
+
+  def error_message({:open_rejected, code, message}) do
+    "The daemon rejected the TUI session (#{code}): #{bounded(Redactor.redact(message))}"
+  end
+
+  def error_message(:no_tty), do: "The TUI requires an interactive terminal."
+
+  def error_message({:ambiguous_close, reason, pending}) do
+    "The daemon connection closed with #{pending} input receipt(s) still unresolved " <>
+      "(#{bounded(inspect(Redactor.redact(reason)))}). No input was automatically re-executed."
+  end
+
+  def error_message({:daemon_closed, code, message}) do
+    "The daemon closed the TUI session (#{code}): #{bounded(Redactor.redact(message))}"
+  end
+
+  def error_message({:invalid_tui_log_level, value}) do
+    "ALLBERT_TUI_LOG_LEVEL=#{inspect(bounded(value))} is invalid; use #{@log_level_help}"
+  end
+
+  def error_message(reason) do
+    "TUI client could not continue: #{bounded(inspect(Redactor.redact(reason)))}"
+  end
+
+  # Retained as a compatibility seam for callers that used the old readiness
+  # guard. Readiness now belongs to the daemon and never gates client attach.
   @doc false
-  @spec readiness_guard(keyword()) :: :ok
   def readiness_guard(_opts \\ []), do: :ok
 
+  # The daemon-owned Adapter retains this bounded first-run banner helper. It
+  # is never called by the terminal client and grants no client-side Settings
+  # or runtime access.
   @doc false
   @spec startup_guidance(keyword()) :: String.t() | nil
   def startup_guidance(opts \\ []) do
@@ -134,7 +141,8 @@ defmodule AllbertAssist.CLI.Tui do
   end
 
   defp guard_message(%{state: :home_missing}) do
-    "Allbert Home is not initialized. Start the packaged service or run `allbert serve --open`; the TUI is not gated by onboarding."
+    "Allbert Home is not initialized. Start the packaged service or run `allbert serve --open`; " <>
+      "the TUI is not gated by onboarding."
   end
 
   defp guard_message(%{state: :schema_incompatible}) do
@@ -149,97 +157,40 @@ defmodule AllbertAssist.CLI.Tui do
     "Onboarding is optional. Run `allbert onboard` to customize Allbert; chat remains available."
   end
 
-  defp require_enabled_launch(%{disposition: :explicitly_disabled}) do
-    {:error,
-     {:tui_explicitly_disabled,
-      "Re-enable with `allbert admin settings set channels.tui.enabled true` " <>
-        "or `mix allbert.settings set channels.tui.enabled true`."}}
-  end
-
-  defp require_enabled_launch(_bootstrap), do: :ok
-
-  # The adapter resolves Settings in init. Keep it out of the supervision tree
-  # until app/plugin registration and the readiness decision are complete, then
-  # add the same transient child used by `mix allbert.tui`.
-  defp exclude_tui_during_boot! do
-    opts = supervisor_config()
-    excluded = opts |> Keyword.get(:exclude_channels, []) |> List.wrap()
-
-    Application.put_env(
-      :allbert_assist,
-      @supervisor,
-      Keyword.put(opts, :exclude_channels, Enum.uniq(["tui" | excluded]))
-    )
-  end
-
-  defp restore_supervisor_config({:ok, opts}),
-    do: Application.put_env(:allbert_assist, @supervisor, opts)
-
-  defp restore_supervisor_config(:error),
-    do: Application.delete_env(:allbert_assist, @supervisor)
-
-  defp start_supervised_tui_child! do
-    opts = supervisor_config()
-
-    channel_child_opts =
-      case Keyword.get(opts, :channel_child_opts, %{}) do
-        map when is_map(map) -> map
-        _other -> %{}
-      end
-
-    existing = Map.get(channel_child_opts, "tui", []) || []
-
-    tui_child_opts =
-      Keyword.merge(existing,
-        enabled?: true,
-        auto_input?: true,
-        input_driver?: true,
-        escape_monitor?: false,
-        emit_banner?: true,
-        live_screen?: false,
-        restart: :transient
-      )
-
-    child_opts =
-      opts
-      |> Keyword.delete(:exclude_channels)
-      |> Keyword.put(:channel_child_opts, Map.put(channel_child_opts, "tui", tui_child_opts))
-
-    case Enum.find(Channels.channel_child_specs(child_opts), &(&1.id == "tui")) do
-      nil -> {:error, :tui_channel_unavailable}
-      child_spec -> normalize_start_child(Supervisor.start_child(@supervisor, child_spec))
+  defp operator_log_level do
+    case System.get_env("ALLBERT_TUI_LOG_LEVEL", "warning")
+         |> String.trim()
+         |> String.downcase() do
+      "debug" -> {:ok, :debug}
+      "info" -> {:ok, :info}
+      "warning" -> {:ok, :warning}
+      "warn" -> {:ok, :warning}
+      "error" -> {:ok, :error}
+      "none" -> {:ok, @silent_log_level}
+      "" -> {:ok, :warning}
+      other -> {:error, {:invalid_tui_log_level, other}}
     end
   end
 
-  defp normalize_start_child({:ok, _pid}), do: :ok
-  defp normalize_start_child({:ok, _pid, _info}), do: :ok
-  defp normalize_start_child({:error, {:already_started, _pid}}), do: :ok
-  defp normalize_start_child({:error, :already_present}), do: :ok
-  defp normalize_start_child({:error, reason}), do: {:error, {:tui_start_failed, reason}}
-
-  defp supervisor_config do
-    case Application.get_env(:allbert_assist, @supervisor, []) do
-      opts when is_list(opts) -> opts
-      _other -> []
-    end
+  defp bounded(value) when is_binary(value) do
+    value
+    |> String.replace(~r/[\r\n]+/u, " ")
+    |> terminal_text()
+    |> String.slice(0, 1_024)
+  rescue
+    _error -> inspect(value, printable_limit: 1_024)
   end
 
-  defp child_opts_for_tui(child_opts) when is_map(child_opts) do
-    case Map.get(child_opts, "tui", []) do
-      opts when is_list(opts) -> opts
-      _other -> []
-    end
-  end
+  defp bounded(value), do: value |> inspect() |> bounded()
 
-  defp child_opts_for_tui(_other), do: []
-
-  defp normalize_profile(profile) do
-    profile
-    |> to_string()
-    |> String.trim()
-    |> case do
-      "" -> "default"
-      normalized -> normalized
-    end
+  defp terminal_text(value) do
+    value
+    |> String.to_charlist()
+    |> Enum.map(fn codepoint ->
+      if codepoint in 0..31 or codepoint in 127..159, do: 0xFFFD, else: codepoint
+    end)
+    |> List.to_string()
+  rescue
+    _error -> inspect(value, printable_limit: 1_024)
   end
 end

@@ -5,6 +5,8 @@ defmodule AllbertAssist.Channels.TUI.InputDriver do
 
   require Logger
 
+  @maximum_buffer_bytes 32_000
+
   @type owner_event ::
           {:tui_input_line, pid(), String.t()}
           | {:tui_input_escape, pid()}
@@ -35,10 +37,24 @@ defmodule AllbertAssist.Channels.TUI.InputDriver do
     GenServer.call(driver, {:write, line}, 5_000)
   end
 
+  @doc "Replace the one bounded transient live region without redrawing the viewport."
+  def update_live(driver, columns, lines)
+      when is_pid(driver) and is_integer(columns) and is_list(lines) do
+    GenServer.call(driver, {:update_live, columns, lines}, 5_000)
+  end
+
   @doc "Put the driver in active-turn mode so Esc can cancel without a prompt."
   def active_turn(driver, turn_id) when is_pid(driver) do
     GenServer.cast(driver, {:active_turn, turn_id})
   end
+
+  @doc "Pause normal terminal demand while retaining at most one control/input character."
+  @spec pause(pid()) :: :ok
+  def pause(driver) when is_pid(driver), do: GenServer.call(driver, :pause)
+
+  @doc "Resume terminal demand after transport pressure clears."
+  @spec resume(pid()) :: :ok
+  def resume(driver) when is_pid(driver), do: GenServer.call(driver, :resume)
 
   @doc "Run the interactive proof harness used by v0.57 M9.27."
   def run_proof(opts \\ []) do
@@ -92,7 +108,16 @@ defmodule AllbertAssist.Channels.TUI.InputDriver do
                mode: :idle,
                prompt: "",
                buffer: "",
-               turn_id: nil
+               turn_id: nil,
+               max_buffer_bytes: max_buffer_bytes(opts),
+               live_region?: Keyword.get(opts, :live_region?, false) == true,
+               terminal_columns: terminal_columns(opts),
+               live_lines: [],
+               rendered_region_rows: 0,
+               paused?: false,
+               read_pending?: false,
+               deferred_char: nil,
+               single_submission?: Keyword.get(opts, :single_submission?, false) == true
              }}
 
           {:error, reason} ->
@@ -115,28 +140,109 @@ defmodule AllbertAssist.Channels.TUI.InputDriver do
   @impl true
   def handle_cast({:prompt, prompt}, state) do
     prompt = IO.iodata_to_binary(prompt)
-    state.callbacks.output_fun.(prompt)
 
-    if state.buffer != "" do
-      state.callbacks.output_fun.(state.buffer)
-    end
+    state =
+      if state.live_region? do
+        state
+        |> clear_live_region()
+        |> Map.merge(%{mode: :prompt, prompt: prompt, turn_id: nil})
+        |> render_live_region()
+      else
+        state.callbacks.output_fun.(prompt)
 
-    {:noreply, %{state | mode: :prompt, prompt: prompt, turn_id: nil}}
+        if state.buffer != "" do
+          state.callbacks.output_fun.(state.buffer)
+        end
+
+        %{state | mode: :prompt, prompt: prompt, turn_id: nil}
+      end
+
+    {:noreply, demand_reader(state)}
   end
 
   def handle_cast({:active_turn, turn_id}, state) do
-    {:noreply, %{state | mode: :active_turn, buffer: "", turn_id: turn_id}}
+    state =
+      if state.live_region? do
+        state
+        |> clear_live_region()
+        |> Map.merge(%{mode: :active_turn, buffer: "", turn_id: turn_id})
+        |> render_live_region()
+      else
+        %{state | mode: :active_turn, buffer: "", turn_id: turn_id}
+      end
+
+    {:noreply, demand_reader(state)}
   end
 
   @impl true
+  def handle_call(:pause, _from, state) do
+    state = state |> Map.put(:paused?, true) |> demand_one_paused_char()
+    {:reply, :ok, state}
+  end
+
+  def handle_call(:resume, _from, %{paused?: true} = state) do
+    state = %{state | paused?: false}
+
+    state =
+      case state.deferred_char do
+        nil ->
+          state
+
+        char ->
+          handle_char(char, %{state | deferred_char: nil})
+      end
+
+    {:reply, :ok, demand_reader(state)}
+  end
+
+  def handle_call(:resume, _from, state), do: {:reply, :ok, demand_reader(state)}
+
+  @impl true
   def handle_call({:write, line}, _from, state) do
-    output = attended_output(line, state)
-    {:reply, safe_output(state.callbacks.output_fun, output), state}
+    if state.live_region? do
+      case write_live_static(state, line) do
+        {:ok, state} -> {:reply, :ok, state}
+        {:error, reason, state} -> {:reply, {:error, reason}, state}
+      end
+    else
+      output = attended_output(line, state)
+      {:reply, safe_output(state.callbacks.output_fun, output), state}
+    end
+  end
+
+  def handle_call({:update_live, columns, lines}, _from, state) do
+    if state.live_region? do
+      case replace_live_region(state, columns, lines) do
+        {:ok, state} -> {:reply, :ok, state}
+        {:error, reason, state} -> {:reply, {:error, reason}, state}
+      end
+    else
+      {:reply, {:error, :live_region_disabled}, state}
+    end
   end
 
   @impl true
   def handle_info({:tui_input_driver_char, reader_pid, char}, %{reader_pid: reader_pid} = state) do
-    {:noreply, handle_char(to_binary(char), state)}
+    state = %{state | read_pending?: false}
+    char = to_binary(char)
+
+    state =
+      if state.paused? do
+        defer_char(state, char)
+      else
+        handle_char(char, state)
+      end
+
+    {:noreply, demand_reader(state)}
+  end
+
+  def handle_info({:tui_input_driver_reader_error, reader_pid, :eof}, state)
+      when reader_pid == state.reader_pid do
+    if is_reference(state.reader_ref), do: Process.demonitor(state.reader_ref, [:flush])
+
+    state = finish_input_quit(state, :ctrl_d)
+
+    {:noreply, %{state | reader_pid: nil, reader_ref: nil, read_pending?: false, paused?: true}}
   end
 
   def handle_info({:tui_input_driver_reader_error, reader_pid, reason}, state)
@@ -168,33 +274,22 @@ defmodule AllbertAssist.Channels.TUI.InputDriver do
     cond do
       escape?(char) ->
         send(state.owner, {:tui_input_escape, self()})
-        %{state | buffer: ""}
+        clear_input_buffer(state)
 
       enter?(char) ->
-        state.callbacks.output_fun.("\r\n")
-        line = state.buffer
-        send(state.owner, {:tui_input_line, self(), line})
-        %{state | mode: next_mode_after_line(state), buffer: ""}
+        finish_input_line(state)
 
       backspace?(char) ->
         erase_last_char(state)
 
       ctrl_c?(char) ->
-        state.callbacks.output_fun.("\r\n")
-        send(state.owner, {:tui_input_quit, self(), :ctrl_c})
-        %{state | mode: :idle, buffer: ""}
+        finish_input_quit(state, :ctrl_c)
 
       ctrl_d?(char) and state.buffer == "" ->
-        state.callbacks.output_fun.("\r\n")
-        send(state.owner, {:tui_input_quit, self(), :ctrl_d})
-        %{state | mode: :idle, buffer: ""}
+        finish_input_quit(state, :ctrl_d)
 
       printable?(char) ->
-        if state.mode != :awaiting_prompt do
-          state.callbacks.output_fun.(char)
-        end
-
-        %{state | buffer: state.buffer <> char}
+        append_printable(state, char)
 
       true ->
         state
@@ -202,17 +297,74 @@ defmodule AllbertAssist.Channels.TUI.InputDriver do
   end
 
   defp handle_char(char, state) do
-    if escape?(char) do
-      send(state.owner, {:tui_input_escape, self()})
+    cond do
+      escape?(char) ->
+        send(state.owner, {:tui_input_escape, self()})
+        state
+
+      ctrl_c?(char) ->
+        finish_input_quit(state, :ctrl_c)
+
+      ctrl_d?(char) ->
+        finish_input_quit(state, :ctrl_d)
+
+      true ->
+        state
     end
+  end
+
+  defp clear_input_buffer(%{live_region?: true} = state) do
+    state
+    |> clear_live_region()
+    |> Map.put(:buffer, "")
+    |> render_live_region()
+  end
+
+  defp clear_input_buffer(state), do: %{state | buffer: ""}
+
+  defp finish_input_line(%{live_region?: true} = state) do
+    line = state.buffer
+
+    state = clear_live_region(state)
+    state.callbacks.output_fun.([state.prompt, line, "\r\n"])
+    send(state.owner, {:tui_input_line, self(), line})
 
     state
+    |> Map.merge(%{mode: next_mode_after_line(state), buffer: ""})
+    |> render_live_region()
+  end
+
+  defp finish_input_line(state) do
+    state.callbacks.output_fun.("\r\n")
+    line = state.buffer
+    send(state.owner, {:tui_input_line, self(), line})
+    %{state | mode: next_mode_after_line(state), buffer: ""}
+  end
+
+  defp finish_input_quit(%{live_region?: true} = state, reason) do
+    state = clear_live_region(state)
+    state.callbacks.output_fun.("\r\n")
+    send(state.owner, {:tui_input_quit, self(), reason})
+    %{state | mode: :idle, buffer: "", live_lines: [], rendered_region_rows: 0}
+  end
+
+  defp finish_input_quit(state, reason) do
+    state.callbacks.output_fun.("\r\n")
+    send(state.owner, {:tui_input_quit, self(), reason})
+    %{state | mode: :idle, buffer: ""}
   end
 
   defp next_mode_after_line(%{mode: :active_turn}), do: :active_turn
   defp next_mode_after_line(_state), do: :awaiting_prompt
 
   defp erase_last_char(%{buffer: ""} = state), do: state
+
+  defp erase_last_char(%{live_region?: true} = state) do
+    state
+    |> clear_live_region()
+    |> Map.update!(:buffer, &drop_last_grapheme/1)
+    |> render_live_region()
+  end
 
   defp erase_last_char(state) do
     if state.mode != :awaiting_prompt do
@@ -246,13 +398,36 @@ defmodule AllbertAssist.Channels.TUI.InputDriver do
   defp ctrl_d?(<<4>>), do: true
   defp ctrl_d?(_char), do: false
 
-  defp printable?(<<codepoint::utf8>>) when codepoint >= 32 and codepoint != 127, do: true
+  defp printable?(<<codepoint::utf8>>)
+       when codepoint >= 32 and codepoint not in 127..159,
+       do: true
+
   defp printable?(_char), do: false
+
+  defp append_printable(state, char) do
+    if byte_size(state.buffer) + byte_size(char) <= state.max_buffer_bytes do
+      if state.mode != :awaiting_prompt do
+        state.callbacks.output_fun.(char)
+      end
+
+      state = %{state | buffer: state.buffer <> char}
+
+      if state.live_region? and state.mode != :awaiting_prompt do
+        %{state | rendered_region_rows: live_region_rows(state)}
+      else
+        state
+      end
+    else
+      state.callbacks.output_fun.("\a")
+      state
+    end
+  end
 
   defp stop_reader(%{reader_pid: pid, reader_ref: ref}) do
     if is_reference(ref), do: Process.demonitor(ref, [:flush])
 
     if is_pid(pid) and Process.alive?(pid) do
+      send(pid, {:tui_input_driver_stop, self()})
       Process.exit(pid, :shutdown)
     end
 
@@ -269,6 +444,125 @@ defmodule AllbertAssist.Channels.TUI.InputDriver do
     }
   end
 
+  defp clear_live_region(%{live_region?: true, rendered_region_rows: rows} = state)
+       when rows > 0 do
+    case clear_live_region_checked(state) do
+      {:ok, state} -> state
+      {:error, _reason, state} -> state
+    end
+  end
+
+  defp clear_live_region(state), do: state
+
+  defp clear_live_region_checked(%{live_region?: true, rendered_region_rows: rows} = state)
+       when rows > 0 do
+    clear_previous_rows =
+      List.duplicate([IO.ANSI.cursor_up(1), "\r", IO.ANSI.clear_line()], rows - 1)
+
+    case safe_output(state.callbacks.output_fun, [
+           "\r",
+           IO.ANSI.clear_line(),
+           clear_previous_rows
+         ]) do
+      :ok -> {:ok, %{state | rendered_region_rows: 0}}
+      {:error, reason} -> {:error, reason, state}
+    end
+  end
+
+  defp clear_live_region_checked(state), do: {:ok, state}
+
+  defp render_live_region(%{live_region?: true} = state) do
+    case render_live_region_checked(state) do
+      {:ok, state} -> state
+      {:error, _reason, state} -> state
+    end
+  end
+
+  defp render_live_region(state), do: state
+
+  defp render_live_region_checked(%{live_region?: true} = state) do
+    input_line = live_input_line(state)
+
+    lines =
+      if is_nil(input_line),
+        do: state.live_lines,
+        else: state.live_lines ++ [input_line]
+
+    result =
+      if lines == [],
+        do: :ok,
+        else: safe_output(state.callbacks.output_fun, Enum.intersperse(lines, "\r\n"))
+
+    case result do
+      :ok -> {:ok, %{state | rendered_region_rows: live_region_rows(state)}}
+      {:error, reason} -> {:error, reason, state}
+    end
+  end
+
+  defp render_live_region_checked(state), do: {:ok, state}
+
+  defp write_live_static(state, line) do
+    with {:ok, state} <- clear_live_region_checked(state),
+         {:ok, state} <- output_checked(state, normalize_line(line)),
+         {:ok, state} <- render_live_region_checked(state) do
+      {:ok, state}
+    end
+  end
+
+  defp replace_live_region(state, columns, lines) do
+    with {:ok, state} <- clear_live_region_checked(state) do
+      state = %{
+        state
+        | terminal_columns: clamp_columns(columns),
+          live_lines: Enum.map(lines, &IO.iodata_to_binary/1)
+      }
+
+      render_live_region_checked(state)
+    end
+  end
+
+  defp output_checked(state, output) do
+    case safe_output(state.callbacks.output_fun, output) do
+      :ok -> {:ok, state}
+      {:error, reason} -> {:error, reason, state}
+    end
+  end
+
+  defp live_input_line(%{mode: :prompt} = state), do: state.prompt <> state.buffer
+  defp live_input_line(%{mode: :active_turn} = state), do: state.buffer
+  defp live_input_line(_state), do: nil
+
+  defp live_region_rows(state) do
+    input_line = live_input_line(state)
+
+    lines =
+      if is_nil(input_line),
+        do: state.live_lines,
+        else: state.live_lines ++ [input_line]
+
+    Enum.reduce(lines, 0, fn line, rows ->
+      rows + display_rows(line, state.terminal_columns)
+    end)
+  end
+
+  defp display_rows(line, columns) do
+    length = Owl.Data.length(line)
+    max(1, div(max(length - 1, 0), columns) + 1)
+  end
+
+  defp terminal_columns(opts),
+    do: opts |> Keyword.get(:terminal_columns, 80) |> clamp_columns()
+
+  defp clamp_columns(columns) when is_integer(columns), do: min(max(columns, 1), 500)
+  defp clamp_columns(_invalid), do: 80
+
+  defp max_buffer_bytes(opts) do
+    case Keyword.get(opts, :max_buffer_bytes, @maximum_buffer_bytes) do
+      bytes when is_integer(bytes) and bytes in 1..@maximum_buffer_bytes -> bytes
+      _invalid -> @maximum_buffer_bytes
+    end
+  end
+
   defp start_reader(driver, read_fun) do
     pid =
       spawn_link(fn ->
@@ -279,17 +573,61 @@ defmodule AllbertAssist.Channels.TUI.InputDriver do
   end
 
   defp reader_loop(driver, read_fun) do
-    case read_fun.() do
-      {:ok, char} ->
-        send(driver, {:tui_input_driver_char, self(), char})
-        reader_loop(driver, read_fun)
+    receive do
+      {:tui_input_driver_read, ^driver} ->
+        case read_fun.() do
+          {:ok, char} ->
+            send(driver, {:tui_input_driver_char, self(), char})
+            reader_loop(driver, read_fun)
 
-      :eof ->
-        send(driver, {:tui_input_driver_reader_error, self(), :eof})
+          :eof ->
+            send(driver, {:tui_input_driver_reader_error, self(), :eof})
 
-      {:error, reason} ->
-        send(driver, {:tui_input_driver_reader_error, self(), reason})
+          {:error, reason} ->
+            send(driver, {:tui_input_driver_reader_error, self(), reason})
+        end
+
+      {:tui_input_driver_stop, ^driver} ->
+        :ok
     end
+  end
+
+  defp demand_reader(%{paused?: true} = state), do: state
+  defp demand_reader(%{read_pending?: true} = state), do: state
+  defp demand_reader(%{mode: :idle} = state), do: state
+
+  defp demand_reader(%{single_submission?: true, mode: :awaiting_prompt} = state),
+    do: state
+
+  defp demand_reader(%{reader_pid: reader_pid} = state) when is_pid(reader_pid) do
+    send(reader_pid, {:tui_input_driver_read, self()})
+    %{state | read_pending?: true}
+  end
+
+  defp demand_reader(state), do: state
+
+  defp demand_one_paused_char(
+         %{
+           deferred_char: nil,
+           read_pending?: false,
+           reader_pid: reader_pid
+         } = state
+       )
+       when is_pid(reader_pid) do
+    send(reader_pid, {:tui_input_driver_read, self()})
+    %{state | read_pending?: true}
+  end
+
+  defp demand_one_paused_char(state), do: state
+
+  # The production reader is demand-driven, so at most the character already
+  # inside `:io.get_chars/3` can arrive after pause. Keep it for resume rather
+  # than treating pressure as permission to lose operator input.
+  defp defer_char(%{deferred_char: nil} = state, char), do: %{state | deferred_char: char}
+
+  defp defer_char(state, _char) do
+    state.callbacks.output_fun.("\a")
+    state
   end
 
   defp enable_raw_terminal do

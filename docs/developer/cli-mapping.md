@@ -10,9 +10,18 @@ binary** and owns its full subcommand set through a release-safe
 `AllbertAssist.CLI.Areas.<Area>` module that is the single source of truth shared
 with `mix allbert.<area>` (identical dispatch + output on both surfaces). Run
 `allbert admin <area>` with no subcommand for its usage. `ask`/`chat`/`tui` are
-real: `ask` runs a one-shot turn, `tui` launches the terminal console, `chat`
-points at the web workspace. A `commands_test` invariant asserts every mapped
-home resolves in the operator table (no advertised-but-missing command).
+real: `ask` runs a one-shot turn, `tui` is an attach-only terminal client of the
+already-running daemon, and `chat` points at the web workspace. `allbert tui`
+and `mix allbert.tui` own TTY/input/render only; neither may boot Repo, Runtime,
+migrations, providers, or an embedded writer. A `commands_test` invariant
+asserts every mapped home resolves in the operator table (no
+advertised-but-missing command).
+
+The packaged dispatcher scopes OTP `+Bc` to `allbert tui` so raw Ctrl-C reaches
+the client's state-aware detach or active-turn interrupt/cancel path; it does
+not change daemon signal handling. The source-checkout equivalent is
+`ERL_AFLAGS="${ERL_AFLAGS:+$ERL_AFLAGS }+Bc" mix allbert.tui`. The focused and
+attended v1.2.1 runners apply that posture only to their TUI child.
 
 The table maps legacy Mix task families to product command homes. v0.62 also
 adds explicit subcommands that have no one-to-one legacy Mix task row:

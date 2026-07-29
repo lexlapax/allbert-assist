@@ -132,27 +132,21 @@ defmodule AllbertAssist.Application do
     opts =
       :allbert_assist
       |> Application.get_env(AllbertAssist.Channels.Supervisor, [])
-      |> maybe_exclude_daemon_owned_tui()
+      |> exclude_session_owned_tui()
 
     children ++ [{AllbertAssist.Channels.Supervisor, opts}]
   end
 
-  # v1.2.1 M0.b2: daemon terminal adapters are session-scoped; the legacy
-  # embedded launcher keeps ordinary channel startup until M0.b3 replaces it.
-  # Keeping a static daemon child would make the one-session reservation racy
-  # and leave stale settings/subscriptions between opens.
-  defp maybe_exclude_daemon_owned_tui(opts) when is_list(opts) do
-    if WriterLockHolder.enabled?(), do: exclude_tui(opts), else: opts
-  end
-
-  defp maybe_exclude_daemon_owned_tui(_opts) do
-    if WriterLockHolder.enabled?(), do: [exclude_channels: ["tui"]], else: []
-  end
-
-  defp exclude_tui(opts) do
+  # v1.2.1 M0.b3: every interactive terminal is an authenticated Attach
+  # session. Application startup never owns a static TUI adapter, regardless
+  # of whether this particular boot holds the daemon writer lock. The daemon
+  # session owner starts and removes the one temporary headless adapter.
+  defp exclude_session_owned_tui(opts) when is_list(opts) do
     excluded = opts |> Keyword.get(:exclude_channels, []) |> List.wrap()
     Keyword.put(opts, :exclude_channels, Enum.uniq(["tui" | excluded]))
   end
+
+  defp exclude_session_owned_tui(_opts), do: [exclude_channels: ["tui"]]
 
   defp maybe_bootstrap_workspace_signing_secret! do
     opts =

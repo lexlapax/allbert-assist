@@ -1,12 +1,14 @@
 # Quickstart: Install, Open, Chat
 
-This is the shortest supported path to a working Allbert 1.2.0 assistant. You
+This is the shortest supported path to a working Allbert 1.2 assistant. You
 do not need to complete onboarding, choose a persona, configure an identity
 map, or pull a model before opening chat.
 
 > **Version note:** the zero-click behavior in this guide requires Allbert
 > 1.2.0 or later. The stable Homebrew and signed-curl paths now install 1.2.0;
-> verify the installed package with `allbert --version`.
+> verify the installed package with `allbert --version`. The daemon-backed TUI
+> section below begins with 1.2.1; on 1.2.0 use the web workspace until the
+> point update is installed.
 
 ## 1. Install And Start
 
@@ -49,10 +51,12 @@ confirmation flow. If you previously set
 
 ## 3. Use The Terminal Instead (Optional)
 
-For a terminal-first session, stop the background service and launch the TUI:
+For a terminal-first session, keep the background service running and attach
+the thin TUI client:
 
 ```sh
-brew services stop allbert
+brew services start allbert
+curl -fsS http://localhost:4000/health
 allbert tui
 ```
 
@@ -61,18 +65,13 @@ mapped to the canonical local user before the first prompt. Ask a question
 immediately. Use `/help` for commands, `/models` for current model health,
 `/catalog` for the model catalog, and `/quit` to exit.
 
-When you want the web workspace again, exit the TUI before restarting the
-service:
-
-```sh
-brew services start allbert
-```
-
-Run only one live Allbert runtime against an Allbert Home. The service, a
-standalone TUI, `allbert serve`, and a source-checkout runtime all own the same
-SQLite database when they share `ALLBERT_HOME`. Use a different Home only when
-you intentionally need concurrent runtimes. See the [TUI guide](tui-channel.md)
-for custom profiles and web/TUI continuity.
+The TUI owns only terminal input and rendering; the service remains the one
+Runtime/database owner. Web and TUI may be used concurrently through that same
+daemon, but only one TUI session may attach to a Home. If no daemon is
+available, `allbert tui` exits with service/`allbert serve` repair guidance and
+does not start an embedded writer. See the [TUI guide](tui-channel.md) for
+custom profiles, source-checkout setup, terminal recovery, and web/TUI
+continuity.
 
 ## Customize Later
 

@@ -6,6 +6,11 @@ here for alternate install paths, upgrades, uninstall, and artifact trust.
 The current packaged release is **v1.2.0**. Homebrew and the default curl
 installer resolve to that stable GitHub Latest release.
 
+The thin TUI lifecycle documented on `main` begins with v1.2.1. Until that
+point release is installed, use the v1.2.0 web workspace or the documentation
+at the installed tag; do not apply the new attach-only TUI instructions to an
+older binary.
+
 Allbert ships its direct runtime dependencies and Erlang/OTP runtime — no
 Elixir/OTP toolchain is required on your machine. Optional browser research
 uses host-managed Node, Playwright, and Chromium/Chrome; those runtimes are not
@@ -30,8 +35,9 @@ curl -fsS http://localhost:4000/health
 allbert admin service status
 ```
 
-Continue at [Open the workspace](quickstart.md#2-open-the-workspace). Do not
-start a standalone TUI while this service owns the same Allbert Home.
+Continue at [Open the workspace](quickstart.md#2-open-the-workspace). The
+service must remain running when `allbert tui` attaches to the same Allbert
+Home.
 
 The formula ships prebuilt per-platform binaries and registers an `allbert
 serve` service, so `brew services start allbert` runs Allbert in the
@@ -173,19 +179,19 @@ allbert admin confirmations approve <ID>
 
 ## One live runtime per Allbert Home
 
-Run only one live Allbert runtime against an Allbert Home. This includes two
-standalone TUI processes, a standalone command beside a TUI, or a packaged
-install beside a `mix`-based development checkout. A served/daemon runtime is
-the owner of its Home; use its attach-capable command path rather than booting a
-second runtime against the same SQLite database. For truly concurrent work,
-assign each standalone runtime a different `ALLBERT_HOME`.
+Run one served/daemon Runtime and database writer per Allbert Home. Web, one
+thin `allbert tui` client, and attach-capable operator commands may use that
+daemon concurrently; none of those clients may boot a fallback writer. A
+second TUI receives `already attached`. A packaged daemon and a `mix`-based
+development daemon must never share a Home. For truly independent runtimes,
+assign each daemon a different `ALLBERT_HOME` and port.
 
 A packaged install and a development checkout both default to `~/.allbert` and
 port 4000. Point the checkout at a separate Home and port when running it beside
 the packaged runtime:
 
 ```sh
-ALLBERT_HOME=~/.allbert-dev PORT=4100 mix phx.server
+ALLBERT_HOME=~/.allbert-dev PORT=4100 ALLBERT_HOLD_WRITER_LOCK=1 mix phx.server
 ```
 
 ## Distribution trust

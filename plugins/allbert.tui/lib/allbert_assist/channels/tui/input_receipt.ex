@@ -117,14 +117,14 @@ defmodule AllbertAssist.Channels.TUI.InputReceipt do
     do: {:error, :invalid_receipt_transition}
 
   defp gate_transaction(context) do
-    case Repo.transaction(fn -> insert_or_load(context) end) do
+    case Repo.transaction(fn -> insert_or_load(context) end, mode: :immediate) do
       {:ok, result} -> result
       {:error, _reason} -> {:error, :receipt_key_unavailable}
     end
   end
 
   defp transition(%Event{} = event, fun) when is_function(fun, 1) do
-    case Repo.transaction(fn -> apply_transition(event, fun) end) do
+    case Repo.transaction(fn -> apply_transition(event, fun) end, mode: :immediate) do
       {:ok, result} -> result
       {:error, _reason} -> {:error, :invalid_receipt_transition}
     end

@@ -39,7 +39,12 @@ case "${1:-}" in
   tui)
     # M8.7: the interactive terminal console needs a real TTY and blocks until
     # exit — run it via `eval` (the M0 proof-6 raw-mode-through-launcher path)
-    # rather than the pure dispatcher.
+    # rather than the pure dispatcher. OTP's documented +Bc posture makes
+    # Ctrl-C interrupt the current raw shell, delivering byte 3 to the client
+    # instead of opening the emulator break handler. Scope it to this thin
+    # client process; the daemon keeps its ordinary signal posture.
+    ERL_AFLAGS="${ERL_AFLAGS:+$ERL_AFLAGS }+Bc"
+    export ERL_AFLAGS
     exec "$RELEASE_BIN" eval "AllbertAssist.CLI.Tui.launch!()" ;;
   *)
     # Pass argv to the pure dispatcher; it prints and halts on its own code.

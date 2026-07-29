@@ -26,6 +26,8 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
   @socket_send_timeout 5_000
   @output_call_timeout 5_000
   @confirmation_call_timeout 5_000
+  @render_line_limit 256
+  @render_line_bytes 8 * 1_024
 
   @type state :: map()
 
@@ -77,11 +79,14 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
           Keyword.get(opts, :channels_supervisor, AllbertAssist.Channels.Supervisor),
         bootstrap_fun:
           Keyword.get(opts, :bootstrap_fun, &IdentityBootstrap.prepare_local_launch/1),
+        channel_settings_fun:
+          Keyword.get(opts, :channel_settings_fun, &Channels.channel_settings/1),
         adapter_module: Keyword.get(opts, :adapter_module, Adapter),
         verified_operator_id: nil,
         max_text_bytes: TUIProtocol.limits().default_max_text_bytes,
         render_revision: 0,
         render_state: :idle,
+        render_status_text: "",
         render_lines: [],
         inbound_queue: :queue.new(),
         inbound_frames: 0,
@@ -94,6 +99,7 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
         gap_pending?: false,
         live_receipts: MapSet.new(),
         control_tasks: %{},
+        last_cancel_reason: nil,
         closing?: false
       }
 
@@ -321,11 +327,13 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
 
   @impl true
   def terminate(reason, state) do
+    cancel_reason = state.last_cancel_reason || reason
+
     state
     |> close_socket()
     |> stop_inbound_task()
     |> stop_control_tasks()
-    |> cancel_attended_work(reason)
+    |> cancel_attended_work(cancel_reason)
     |> stop_adapter()
     |> release_output_waiters()
 
@@ -333,9 +341,11 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
   end
 
   defp prepare_adapter(state) do
-    with {:ok, bootstrap} <- safe_bootstrap(state.bootstrap_fun, state.profile),
+    with {:ok, profile} <- effective_profile(state.profile, state.channel_settings_fun),
+         state = %{state | profile: profile},
+         {:ok, bootstrap} <- safe_bootstrap(state.bootstrap_fun, state.profile),
          :ok <- bootstrap_allowed(bootstrap),
-         {:ok, settings} <- Channels.channel_settings(@channel),
+         {:ok, settings} <- safe_channel_settings(state.channel_settings_fun),
          :ok <- channel_enabled(settings),
          {:ok, operator_id} <-
            Identity.resolve(@channel, state.profile, Map.get(settings, "identity_map", [])),
@@ -365,6 +375,35 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
         Logger.warning("TUI session preparation failed: #{inspect(Redactor.redact(reason))}")
         {:error, :runtime_unavailable, "TUI runtime preparation failed.", state}
     end
+  end
+
+  # The terminal process cannot read Settings Central without becoming a
+  # second application/runtime owner. Keep the existing operator-tunable
+  # `channels.tui.profile` setting authoritative inside the daemon. A future
+  # explicit client selector may still send a non-default profile additively.
+  # Bootstrap may create channel settings, so the post-bootstrap policy read in
+  # `prepare_adapter/1` remains separate from this fail-closed selector read.
+  defp effective_profile("default", channel_settings_fun) do
+    with {:ok, settings} <- safe_channel_settings(channel_settings_fun) do
+      settings
+      |> Map.get("profile", "default")
+      |> TUIProtocol.normalize_profile()
+    end
+  end
+
+  defp effective_profile(requested, _channel_settings_fun),
+    do: TUIProtocol.normalize_profile(requested)
+
+  defp safe_channel_settings(channel_settings_fun) do
+    case channel_settings_fun.(@channel) do
+      {:ok, %{} = settings} -> {:ok, settings}
+      {:error, reason} -> {:error, reason}
+      other -> {:error, {:invalid_channel_settings, other}}
+    end
+  rescue
+    error -> {:error, {:channel_settings_exception, Exception.message(error)}}
+  catch
+    kind, reason -> {:error, {:channel_settings_failure, kind, reason}}
   end
 
   defp safe_bootstrap(bootstrap_fun, profile) do
@@ -479,7 +518,11 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
   end
 
   defp receive_frame(payload, state) do
-    opts = [max_text_bytes: state.max_text_bytes]
+    # Wire decoding uses the frozen protocol ceiling. The daemon-owned receipt
+    # gate applies the smaller Settings Central semantic limit and returns a
+    # bounded `:invalid_input` frame instead of treating ordinary oversized
+    # operator text as a transport/protocol attack.
+    opts = [max_text_bytes: TUIProtocol.limits().maximum_max_text_bytes]
 
     case TUIProtocol.decode_frame(payload, :client_to_daemon, opts) do
       {:ok, frame} ->
@@ -526,7 +569,7 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
 
       case drain_outbound(state) do
         {:ok, state} ->
-          {:ok, state}
+          send_cumulative_ack_carrier_if_due(state)
 
         {:error, reason, state} ->
           Logger.warning("TUI session outbound drain failed: #{inspect(reason)}")
@@ -543,8 +586,13 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
        do: enqueue_inbound(state, envelope, encoded_bytes)
 
   defp dispatch_frame(state, %{frame: :cancel, payload: %{reason: reason}}, _encoded_bytes) do
-    start_control_task(state, {:cancel, reason}, fn ->
-      state.adapter_module.cancel_current_turn(state.adapter_pid, reason)
+    adapter_module = state.adapter_module
+    adapter_pid = state.adapter_pid
+
+    state
+    |> Map.put(:last_cancel_reason, reason)
+    |> start_control_task({:cancel, reason}, fn ->
+      adapter_module.cancel_current_turn(adapter_pid, reason)
     end)
   end
 
@@ -1000,14 +1048,16 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
     end
   end
 
-  defp remember_render_state(state, :status, %{state: render_state}),
-    do: %{state | render_state: render_state}
+  defp remember_render_state(state, :status, %{state: render_state, text: text}),
+    do: %{state | render_state: render_state, render_status_text: text}
 
-  defp remember_render_state(state, :confirmation, _payload),
-    do: %{state | render_state: :confirming}
+  defp remember_render_state(state, :completion, %{outcome: outcome}) do
+    %{state | render_state: :idle, render_status_text: "Input #{outcome}."}
+  end
 
-  defp remember_render_state(state, :completion, _payload), do: %{state | render_state: :idle}
-  defp remember_render_state(state, :error, _payload), do: %{state | render_state: :error}
+  defp remember_render_state(state, :error, %{message: message}),
+    do: %{state | render_state: :error, render_status_text: message}
+
   defp remember_render_state(state, _frame, _payload), do: state
 
   defp admit_protocol(state, frame, payload, priority, waiter) do
@@ -1195,6 +1245,28 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
       {:error, reason} -> {:error, reason, state}
     end
   end
+
+  # Protocol v1 intentionally has no daemon-to-client `:ack` frame. When a
+  # quiet client frame leaves the cumulative ack due after the normal outbound
+  # drain, mirror the current bounded status as a semantic no-op carrier. This
+  # releases the client's retained window without clearing meaningful status.
+  defp send_cumulative_ack_carrier_if_due(%{closing?: true} = state), do: {:ok, state}
+
+  defp send_cumulative_ack_carrier_if_due(%{session_flow: %{ack_due?: true}} = state) do
+    payload = %{
+      render_revision: state.render_revision,
+      state: state.render_state,
+      text: state.render_status_text,
+      input_receipt_id: nil
+    }
+
+    case send_protocol_frame(state, :status, payload, nil) do
+      {:ok, state, _custody} -> {:ok, state}
+      {:error, reason, state} -> {:error, reason, state}
+    end
+  end
+
+  defp send_cumulative_ack_carrier_if_due(state), do: {:ok, state}
 
   defp release_delivery_waiters(state, acknowledged_seq) do
     {released, retained} =
@@ -1505,10 +1577,27 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
     cond do
       not String.valid?(rendered) -> {:error, :invalid_output}
       byte_size(rendered) > output_limit -> {:error, :output_too_large}
-      true -> {:ok, chunk_utf8(rendered, 8 * 1_024)}
+      true -> logical_render_lines(rendered)
     end
   rescue
     _error -> {:error, :invalid_output}
+  end
+
+  defp logical_render_lines(""), do: {:ok, []}
+
+  defp logical_render_lines(rendered) do
+    lines =
+      rendered
+      |> String.replace("\r\n", "\n")
+      |> String.split("\n", trim: false)
+      |> Enum.flat_map(fn
+        "" -> [""]
+        line -> chunk_utf8(line, @render_line_bytes)
+      end)
+
+    if length(lines) <= @render_line_limit,
+      do: {:ok, lines},
+      else: {:error, :output_too_large}
   end
 
   defp chunk_utf8(text, max_bytes), do: chunk_utf8(text, max_bytes, [], [], 0)

@@ -154,11 +154,12 @@ allbert onboard apply-persona developer --authorize --yes # apply
 
 ## Terminal And Web Continuity
 
-`allbert tui` is a daily-use surface, not a repair wizard. On a fresh Home, an
-explicit built-in TUI launch atomically enables the channel and persists the
-ordinary `default → local` identity mapping before the first prompt. This does
-not mark onboarding complete or skipped. Explicitly disabled TUI state and an
-explicit empty/custom identity map remain sticky.
+`allbert tui` is a daily-use thin client, not a repair wizard or embedded
+Runtime. On a fresh Home, its authenticated daemon session atomically enables
+the channel and persists the ordinary `default → local` identity mapping before
+the first prompt. This does not mark onboarding complete or skipped.
+Explicitly disabled TUI state and an explicit empty/custom identity map remain
+sticky.
 
 Re-enable a deliberately disabled channel with:
 
@@ -166,12 +167,12 @@ Re-enable a deliberately disabled channel with:
 allbert admin settings set channels.tui.enabled true
 ```
 
-After `/quit`, the same Home may be opened in the web workspace once no
-standalone TUI owns its SQLite database. TUI `default` and web `web-local`
-independently resolve to canonical user `local`, so eligible durable data is
-shared; the TUI mapping grants no web authorization and the exact TUI thread is
-not automatically selected. Never run the service/web runtime and standalone
-TUI concurrently against the same Home. See [TUI channel](tui-channel.md).
+Keep the daemon running before, during, and after `/quit`; the same Home may be
+open in the web workspace while the TUI is attached. TUI `default` and web
+`web-local` independently resolve to canonical user `local`, so eligible
+durable data is shared through that daemon. The TUI mapping grants no web
+authorization and the exact TUI thread is not automatically selected. See
+[TUI channel](tui-channel.md).
 
 ## Automation And Legacy Homes
 

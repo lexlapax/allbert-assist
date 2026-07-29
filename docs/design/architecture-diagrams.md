@@ -1,9 +1,8 @@
 # Allbert Architecture Diagrams
 
-Visual orientation for the shipped system. These diagrams describe **v1.2.0 as
-built**, verified against the code rather than the plans; the final section
-shows where the in-flight v1.2.1 and v1.3 work changes the picture and is
-labelled as planned throughout.
+Visual orientation for the current implementation line, verified against the
+code rather than inferred from plans. The final section is the in-flight
+release-train map; use the active plan for milestone landing and release status.
 
 Diagrams are Mermaid and render natively on GitHub. When a diagram and the code
 disagree, the code wins — these are orientation aids, not contracts. The binding
@@ -134,20 +133,17 @@ flowchart LR
 
         BROWSER["Browser"] -->|HTTP / WebSocket| PHX
         ONESHOT["one-shot CLI<br/>allbert status, jobs, memory"] -->|attach request| ATTACH
-        TERM["allbert tui"] -.->|"v1.2.0: starts its own tree"| SECOND
-        SECOND["second embedded runtime<br/>needs the service stopped first"]
+        TERM["allbert tui<br/>thin terminal client"] -->|"authenticated session frames"| ATTACH
         PHX --> RUNTIME
         ATTACH --> RUNTIME
         LOCK -.guards.-> RUNTIME
-        LOCK -.refuses.-> SECOND
     end
-
-    style SECOND stroke-dasharray: 5 5
 ```
 
-The dashed path is the known wart v1.2.1 removes: today `allbert tui` starts a
-second application tree, so Web and TUI cannot both be open against one Home.
-ADR 0091 makes the TUI a thin authenticated client of the same daemon.
+ADR 0091 makes `allbert tui` a thin authenticated client of the same daemon.
+The daemon owns Runtime and durable session state; the client owns terminal
+input, rendering, resize, and restoration. Web and one TUI can therefore remain
+open concurrently against one Home without a second Repo or writer.
 
 ---
 
@@ -331,10 +327,12 @@ write a backup refuses to migrate rather than proceeding unprotected.
 
 ---
 
-## 7. Where the current work lands — planned, not shipped
+## 7. Where the current work lands — in flight, not shipped
 
-The in-flight release train. Everything in this diagram is **planned**; see the
-[v1.3 plan](../plans/v1.3-plan.md), ADR 0091, ADR 0092, and ADR 0093.
+The in-flight release train. The v1.2.1 thin-client and license seams are
+implemented but unreleased; promotion remains gated. The v1.3 memory/search
+subsystems remain planned. See the [v1.3 plan](../plans/v1.3-plan.md), ADR 0091,
+ADR 0092, and ADR 0093.
 
 ```mermaid
 flowchart TB

@@ -26,6 +26,11 @@ daemon snapshot, the thin client uses raw/alternate-screen mode for the attached
 session and restores the terminal on handled exit. The daemon still emits the
 same bounded line-oriented presentation model; this does not introduce a
 full-viewport application architecture or move channel logic into the client.
+The v1.2.1 successor also relocates the v1.2 M9 compare-and-write described
+below: it now runs in the daemon-owned session after authenticated reservation
+and before temporary adapter startup. The thin launcher never reads or writes
+Settings Central. The raw-present, atomicity, and identity-map rules are
+unchanged.
 
 ADR 0016's v0.55 amendment owns the channel reservation and the
 capability/parity-matrix artifact; this ADR (0067) owns the descriptor detail,
@@ -217,13 +222,14 @@ console, not a new channel.
   pollutes model context.
 - A fresh built-in-profile local launch durably enables the TUI and maps it to
   the canonical `local` workspace without a prerequisite settings command. The
-  state persists across TUI restarts. A raw explicit channel disable instead
-  stops before adapter startup with re-enable guidance; raw-present mappings
-  and custom profiles remain sticky. The web surface independently resolves
-  the same canonical local identity: TUI setup neither authenticates web access
-  nor automatically resumes a thread across surfaces. An unmapped/disabled
-  ordinary turn renders a bounded rejection while still producing no runtime
-  submission.
+  state persists across TUI restarts. In v1.2.1 this setup is admitted and
+  performed by the authenticated daemon session, not by the thin launcher. A
+  raw explicit channel disable instead stops before adapter startup with
+  re-enable guidance; raw-present mappings and custom profiles remain sticky.
+  The web surface independently resolves the same canonical local identity:
+  TUI setup neither authenticates web access nor automatically resumes a thread
+  across surfaces. An unmapped/disabled ordinary turn renders a bounded
+  rejection while still producing no runtime submission.
 - This channel and the split-result pattern are the **substrate the v0.57
   Pi-mode coding surface (ADR 0068) builds on** — its streamed split-payload
   diffs and terminal coding loop depend on both decisions here.

@@ -3,7 +3,8 @@
 ## Status
 
 Accepted (v1.2 M2, 2026-07-26; v1.2 M9 launcher correction binding and proved
-2026-07-27; proposed 2026-07-24 and amended by the third implementation-
+2026-07-27; v1.2.1 daemon-session process-ownership amendment accepted
+2026-07-28; proposed 2026-07-24 and amended by the third implementation-
 readiness pass 2026-07-26, finalized by operator direction — §1 gains the
 availability-first/local-preferred projection and the per-key
 multi-key write rule, and the 2026-07-27 FV-01/M9 correction adds the bounded
@@ -29,8 +30,9 @@ degradation machinery the detect states consume), ADR 0072 (recommended
 model profiles per purpose), ADR 0075 (persona profiles — persona seeds still
 flip the same keys), ADR 0006 (Security Central — unchanged), ADR 0031
 (Settings Central — all writes remain safe-write-key writes), ADR 0016 and ADR
-0067 (their 2026-07-27 v1.2 M9 amendments bind the launcher-owned channel and
-identity boundary used by §1a).
+0067 (their 2026-07-27 v1.2 M9 amendments bind the local TUI channel and
+identity boundary used by §1a), ADR 0091 (moves §1a execution into authenticated
+daemon-session admission without changing its consent or identity semantics).
 
 ## Context
 
@@ -155,6 +157,14 @@ onboarding. The persisted TUI mapping resolves the same canonical `local` user
 as the web surface's independent mapping; it grants no web access and creates
 no implicit cross-surface thread link.
 
+**v1.2.1 process-ownership amendment.** ADR 0091 makes both launchers
+attach-only terminal clients. The daemon runs this same compare-and-write after
+an authenticated open reserves the one TUI session and before it starts the
+temporary Adapter. The client never opens Settings or performs bootstrap.
+Every raw-present/absent, custom-profile, audit, and rejection rule in §1a
+remains binding; references below to launcher bootstrap mean this daemon-owned
+session-admission operation on v1.2.1 and later.
+
 **Availability-first, local-preferred projection (final readiness decision,
 operator 2026-07-26).** With no raw-explicit primary, a healthy local rung
 always wins. When a local runtime is detected but currently unusable
@@ -266,11 +276,12 @@ carries a regression.
   channel disable, the TUI starts in every detect state, and
   non-ready detect states render as in-TUI guidance instead of a standard-error
   refusal. `mix allbert.tui` (dev) and `allbert tui` (packaged) adopt the
-  same posture — the current divergence is closed. On a fresh Home their
-  shared pre-adapter bootstrap from §1a enables the channel and makes the first
-  submitted turn admissible; guard inversion without channel and identity
-  admission is not sufficient. A raw explicit `channels.tui.enabled = false`
-  remains a deliberate launcher stop with bounded re-enable guidance.
+  same posture — the current divergence is closed. On a fresh Home the shared
+  daemon-side session bootstrap from §1a enables the channel and makes the
+  first submitted turn admissible; guard inversion without channel and
+  identity admission is not sufficient. A raw explicit
+  `channels.tui.enabled = false` remains a deliberate session-admission stop
+  with bounded re-enable guidance.
 - The QuickStart and persona flip sites remain and stay idempotent; personas
   still seed the same keys through the same confirmation-gated action.
 
@@ -283,16 +294,16 @@ question" is retired. The v1.2 criteria:
   answered by the model with zero prior clicks**, and the disclosure is
   visible. "Reachable provisioned" means a §4 `detected_ready` cell; an
   unusable local runtime does not mask a configured hosted provider. On TUI,
-  this includes atomic launcher bootstrap of raw-absent channel enablement and
-  the built-in terminal identity before adapter initialization; no settings
-  command is a prerequisite;
+  this includes atomic daemon-session bootstrap of raw-absent channel
+  enablement and the built-in terminal identity before adapter initialization;
+  no settings command is a prerequisite;
 - fresh Home + nothing provisioned → the chat surface still opens, the
   deterministic fallback answers, and exactly one repair CTA per §4 is
   presented — zero clicks to a working (fallback) chat, no wizard wall;
 - an operator-stored `false` is never overridden by detection;
-- a raw operator-stored `channels.tui.enabled = false` blocks both packaged and
-  development TUI launchers before Adapter startup, preserves the identity map,
-  and gives bounded re-enable guidance.
+- a raw operator-stored `channels.tui.enabled = false` blocks session admission
+  for both packaged and development TUI clients before Adapter startup,
+  preserves the identity map, and gives bounded re-enable guidance.
 
 ## Consequences
 

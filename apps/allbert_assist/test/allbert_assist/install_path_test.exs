@@ -268,6 +268,18 @@ defmodule AllbertAssist.InstallPathTest do
     refute overlay =~ ~s(RELEASE_BIN="$SELF_DIR/allbert\n")
     assert overlay =~ "AllbertAssist.CLI.Tui.launch!()"
 
+    # v1.2.1 M0.b3: OTP raw input leaves Ctrl-C under the emulator break
+    # posture unless the TUI launcher selects +Bc. Keep the override scoped to
+    # the thin client and append it after any operator flags so it wins without
+    # discarding them.
+    assert overlay =~ ~s(ERL_AFLAGS="${ERL_AFLAGS:+$ERL_AFLAGS }+Bc")
+    assert overlay =~ "export ERL_AFLAGS"
+
+    assert Regex.match?(
+             ~r/tui\).*ERL_AFLAGS=.*\+Bc.*AllbertAssist\.CLI\.Tui\.launch!/s,
+             overlay
+           )
+
     # v0.62 M8.12: the installer/Homebrew symlink `<prefix>/bin/allbert` at the
     # dispatcher; SELF_DIR MUST resolve through symlinks or it looks for
     # `allbert-release` beside the symlink (where it does not exist). Regression
@@ -282,6 +294,45 @@ defmodule AllbertAssist.InstallPathTest do
     assert File.read!(@install) =~ ~s(ln -sf "$LIB_DIR/bin/allbert" "$BIN_DIR/allbert")
     assert File.read!(@formula) =~ ~s{run [opt_bin/"allbert", "serve"]}
     assert File.read!(@service) =~ ~S(ExecStart=#{binary} serve)
+  end
+
+  test "the release dispatcher scopes Ctrl-C posture to the TUI child" do
+    release_bin = temp_release_root("tui-break-posture")
+    dispatcher = Path.join(release_bin, "allbert")
+    generated_launcher = Path.join(release_bin, "allbert-release")
+
+    File.cp!(@overlay, dispatcher)
+    File.chmod!(dispatcher, 0o700)
+
+    File.write!(
+      generated_launcher,
+      ~S"""
+      #!/bin/sh
+      printf 'erl_aflags=%s\n' "${ERL_AFLAGS-unset}"
+      printf 'argv=%s\n' "$*"
+      """
+    )
+
+    File.chmod!(generated_launcher, 0o700)
+
+    assert {tui_output, 0} =
+             System.cmd(dispatcher, ["tui"],
+               env: [{"ERL_AFLAGS", "+sbwt none"}],
+               stderr_to_stdout: true
+             )
+
+    assert tui_output =~ "erl_aflags=+sbwt none +Bc"
+    assert tui_output =~ "argv=eval AllbertAssist.CLI.Tui.launch!()"
+
+    assert {version_output, 0} =
+             System.cmd(dispatcher, ["version"],
+               env: [{"ERL_AFLAGS", "+sbwt none"}],
+               stderr_to_stdout: true
+             )
+
+    assert version_output =~ "erl_aflags=+sbwt none"
+    refute version_output =~ "+Bc"
+    assert version_output =~ "argv=version"
   end
 
   test "the smoke harness executes the shipped allbert and boots apps for the plugin probe" do

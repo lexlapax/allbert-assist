@@ -184,12 +184,29 @@ participates in sequence ordering, is not retained in the unacknowledged
 window, and never by itself causes another ack-only frame; every other outgoing
 frame piggybacks the current ack.
 
+The v1 daemon-to-client schema deliberately has no standalone `:ack` frame. If
+quiet client traffic advances daemon custody without a new semantic
+presentation, the daemon mirrors its current bounded `:status` payload with the
+same render revision, state, text, and receipt reference. That semantic no-op
+carrier advances the cumulative acknowledgement without inventing a protocol
+frame or visibly changing status.
+
 Payload maps contain exactly the keys below. A receipt id is the 22-byte
 unpadded base64url encoding of 16 client-generated cryptographically random
 bytes and is not a session id. All text is valid UTF-8. `lines` has at most 256
 entries, each entry is at most 8 KiB, and the sum of the entries' UTF-8 byte
 sizes (without separators or ETF overhead) is at most 48 KiB. A `:clear_live`
 delta requires `lines: []`.
+
+Daemon render output converts CRLF and LF into logical `lines` entries before
+8-KiB chunking, preserves intentional blank lines, and rejects an expansion
+above the 256-entry bound. The thin client applies the same CRLF/LF expansion
+defensively to every received presentation, status, error, close, and
+confirmation-prompt string. Bare CR, ESC, BEL, and every other C0/C1 terminal
+control remain non-structural and render as U+FFFD; daemon text is never passed
+through as ANSI. Presentation may be bounded by the existing display budget,
+while an authority-bearing confirmation that cannot fit fails closed before
+acknowledgement.
 
 | Direction | Frame | Exact payload |
 | --- | --- | --- |
@@ -236,6 +253,16 @@ shows a local bounded backpressure status rather than dropping an input or
 confirmation. Cancel and detach are attempted immediately; if a non-droppable
 control cannot enter the bounded writer, the client closes the socket so the
 daemon's attended-turn loss policy cancels safely.
+
+Queue byte limits are encoded-envelope limits, not payload-only limits. Before
+accepting local input custody or an unsent frame, the client charges a
+conservative full-envelope bound using the frozen maximum counter widths; the
+protocol still validates the exact encoded frame at send time. Reconnect replay
+drains each admitted receipt incrementally, so a payload-only estimate or a
+second aggregate replay queue cannot strand custody that the client already
+accepted. At the frame/byte boundary the thin client stops requesting another
+complete line until a receipt finishes; it does not consume and discard a 33rd
+submission.
 
 Before applying those limits, the client replaces its unsent resize and the
 daemon's inbound queue likewise retains only its newest pending resize. The
@@ -379,6 +406,12 @@ metadata.
 Receipt states are exactly `received`, `admitted`, `in_progress`, `completed`,
 `rejected`, `failed`, and `outcome_unknown`. Handling is:
 
+Every receipt insert/load and state transition claims SQLite's writer slot with
+a per-transaction `:immediate` mode before its read-to-write decision. Receipt
+correctness therefore does not depend on the operator/test Repo pool topology,
+and a deferred-transaction upgrade cannot turn an admitted burst into
+`SQLITE_BUSY`; this does not change the global Repo configuration.
+
 1. Insert or load the inbound `channel_events` row in a transaction and compare
    the payload HMAC in constant time. A mismatch returns `:receipt_conflict`
    and performs no classification or dispatch.
@@ -461,7 +494,18 @@ watchdog solely for uncatchable termination.
 The client installs that cleanup path before its first TTY mutation, remains in
 canonical mode throughout handshake, and enters raw/alternate-screen mode only
 after validating the accepted session's initial snapshot. A partial setup
-failure runs the same restoration path.
+failure runs the same restoration path. The packaged `allbert tui` dispatcher
+scopes OTP's documented `+Bc` emulator posture to the thin-client VM so Ctrl-C
+is delivered to the raw input reader. In `:thinking`, `:streaming`,
+`:confirming`, or `:coding` state, or while the client still holds an unresolved
+input receipt, it follows the `:operator_interrupt` cancel-then-detach path. An
+idle, error, or durable-background client with no unresolved input detaches
+without manufacturing a cancellation. It appends the flag without discarding
+existing emulator flags and does not change the daemon's signal posture.
+Source-checkout PTY and attended runners apply the same TUI-child-only posture.
+This uses the supported launcher boundary rather than private `:prim_tty`
+terminal-mode mutation, a platform-specific `stty` subprocess, or a second
+signal implementation.
 
 ### 7. Presentation and authority remain on existing spines
 

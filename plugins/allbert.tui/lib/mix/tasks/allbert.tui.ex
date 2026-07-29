@@ -4,33 +4,28 @@ defmodule Mix.Tasks.Allbert.Tui do
 
   ## Usage
 
-      mix allbert.tui
+      ERL_AFLAGS="${ERL_AFLAGS:+$ERL_AFLAGS }+Bc" mix allbert.tui
       mix allbert.tui --input-driver-proof
+
+  The packaged `allbert tui` launcher applies the scoped OTP `+Bc` posture
+  automatically. Source TUI sessions include it so Ctrl-C reaches the raw input
+  driver instead of the emulator break handler. The non-interactive input proof
+  does not require it.
   """
 
   use Mix.Task
 
-  alias AllbertAssist.Channels.TUI.Adapter
   alias AllbertAssist.Channels.TUI.InputDriver
   alias AllbertAssist.CLI.Tui, as: ReleaseTui
-  alias AllbertAssist.PublicProtocol.StdioGuard
 
   @shortdoc "Run the local Allbert terminal TUI"
-  @supervisor AllbertAssist.Channels.Supervisor
-  @log_level_help "debug, info, warning, error, or none"
-  @silent_log_level :emergency
 
   @impl true
   def run(args) do
     case args do
       [] ->
         Mix.Task.run("app.config")
-        silence_startup_logging!()
-        quiet_repo_query_logs!()
-        prepare_runtime!()
-        configure_operator_logging!()
-        wait_for_tui_exit!()
-        :ok
+        launch_client!()
 
       ["--input-driver-proof"] ->
         Mix.Task.run("app.config")
@@ -46,97 +41,24 @@ defmodule Mix.Tasks.Allbert.Tui do
   def readiness_guard(opts \\ []), do: ReleaseTui.readiness_guard(opts)
 
   @doc false
-  def prepare_runtime!(prepare_fun \\ &ReleaseTui.prepare/0) when is_function(prepare_fun, 0) do
-    case prepare_fun.() do
+  def launch_client!(launch_fun \\ &ReleaseTui.launch/0) when is_function(launch_fun, 0) do
+    case launch_fun.() do
       :ok ->
         :ok
 
-      {:error, {:tui_explicitly_disabled, guidance}} ->
-        Mix.raise("TUI is disabled. #{guidance}")
-
       {:error, reason} ->
-        Mix.raise("TUI runtime could not start: #{inspect(reason)}")
+        Mix.raise(ReleaseTui.error_message(reason))
 
       other ->
-        Mix.raise("TUI runtime could not start: #{inspect(other)}")
+        Mix.raise("TUI client exited unexpectedly: #{inspect(other)}")
     end
   end
 
   @doc false
   def configure_operator_logging! do
-    level = operator_log_level!()
-
-    Application.put_env(:logger, :level, level)
-    Logger.configure(level: level)
-    _result = :logger.set_primary_config(:level, level)
-
-    quiet_repo_query_logs!()
-    :ok
-  end
-
-  defp silence_startup_logging! do
-    StdioGuard.silence_stdout!()
-    Application.put_env(:logger, :level, @silent_log_level)
-    Logger.configure(level: @silent_log_level)
-    _result = :logger.set_primary_config(:level, @silent_log_level)
-    :ok
-  end
-
-  defp quiet_repo_query_logs! do
-    repo_config =
-      :allbert_assist
-      |> Application.get_env(AllbertAssist.Repo, [])
-      |> normalize_keyword()
-
-    Application.put_env(
-      :allbert_assist,
-      AllbertAssist.Repo,
-      Keyword.put(repo_config, :log, false)
-    )
-
-    :ok
-  end
-
-  defp operator_log_level! do
-    case System.get_env("ALLBERT_TUI_LOG_LEVEL", "warning")
-         |> String.trim()
-         |> String.downcase() do
-      "debug" ->
-        :debug
-
-      "info" ->
-        :info
-
-      "warning" ->
-        :warning
-
-      "warn" ->
-        :warning
-
-      "error" ->
-        :error
-
-      "none" ->
-        @silent_log_level
-
-      "" ->
-        :warning
-
-      other ->
-        Mix.raise("ALLBERT_TUI_LOG_LEVEL=#{inspect(other)} is invalid; use #{@log_level_help}")
-    end
-  end
-
-  defp normalize_keyword(opts) when is_list(opts), do: opts
-  defp normalize_keyword(_opts), do: []
-
-  defp wait_for_tui_exit! do
-    case Adapter.run_supervised_forever(@supervisor) do
-      :normal -> :ok
-      :shutdown -> :ok
-      {:shutdown, _reason} -> :ok
-      {:error, reason} -> Mix.raise("TUI channel is not running: #{inspect(reason)}")
-      reason -> Mix.raise("TUI channel exited unexpectedly: #{inspect(reason)}")
+    case ReleaseTui.configure_operator_logging() do
+      :ok -> :ok
+      {:error, reason} -> Mix.raise(ReleaseTui.error_message(reason))
     end
   end
 

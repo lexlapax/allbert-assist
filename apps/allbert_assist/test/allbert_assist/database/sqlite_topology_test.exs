@@ -31,7 +31,8 @@ defmodule AllbertAssist.Database.SQLiteTopologyTest do
     "apps/allbert_assist/lib/allbert_assist/objectives/fanout/terminal_transitions.ex" => 3,
     "apps/allbert_assist/lib/allbert_assist/objectives/lifecycle.ex" => 1,
     "apps/allbert_assist/lib/allbert_assist/objectives/steering.ex" => 1,
-    "apps/allbert_assist/lib/allbert_assist/workspace/offline.ex" => 1
+    "apps/allbert_assist/lib/allbert_assist/workspace/offline.ex" => 1,
+    "plugins/allbert.tui/lib/allbert_assist/channels/tui/input_receipt.ex" => 2
   }
 
   test "development and packaged production use the same single-writer SQLite topology" do

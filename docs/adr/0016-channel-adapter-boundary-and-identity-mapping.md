@@ -34,8 +34,8 @@ map unchanged. Raw-present identity maps (including empty, custom, or disabled
 entries) and custom terminal profiles remain authoritative; they are never
 merged or replaced.
 
-This is launcher-owned durable setup, not an adapter fallback or a second
-identity authority. Generic supervised/direct adapter startup remains
+In v1.2 this is launcher-owned durable setup, not an adapter fallback or a
+second identity authority. Generic supervised/direct adapter startup remains
 explicit-map-only. Every submitted turn and identity-requiring slash command
 still passes through `Identity.resolve/3`; remote channels receive no analogous
 bootstrap. The web surface resolves the canonical `"local"` user independently:
@@ -43,6 +43,16 @@ the TUI mapping grants no web authentication and does not automatically select
 the TUI thread, while existing same-user eligible data remains available under
 the cross-surface contract. See ADR 0067's v1.2 identity amendment and ADR 0087
 §1a.
+
+Accepted process-ownership amendment (v1.2.1, 2026-07-28): ADR 0091 preserves
+that exact compare-and-write and identity policy but moves its execution into
+the daemon's authenticated TUI session admission, after the sole provisional
+session reservation and before the temporary Adapter starts. The packaged and
+development launchers are now thin Attach clients: they send only the bounded
+profile selector and terminal metadata and never read or write Settings
+Central. Raw-absent/default, explicit-disable, custom-map, audit, and
+`Identity.resolve/3` semantics above are unchanged; only the process that owns
+the already-authoritative operation changes.
 
 Accepted amendment (v0.58): the normalize → `Identity.resolve` →
 session-derive → spine → render → record-event methodology defined here is
@@ -145,11 +155,11 @@ Channels do not own:
 The canonical local identity remains string `user_id` from ADR 0014. External
 provider identities map to local `user_id` values only through explicit
 Settings Central configuration. No external identity may implicitly claim
-`"local"` or any other existing local user. The v1.2 local-TUI-launcher
-amendment above is the sole bounded exception: it durably enables the explicit
-local launcher and creates an ordinary Settings mapping for the built-in local
-terminal profile before the adapter starts; it does not let the adapter infer
-identity.
+`"local"` or any other existing local user. The v1.2 local-TUI bootstrap
+amendment above, relocated daemon-side by the v1.2.1 amendment, is the sole
+bounded exception: it durably enables the explicit local session and creates
+an ordinary Settings mapping for the built-in local terminal profile before
+the adapter starts; it does not let the adapter infer identity.
 
 For v0.16, Telegram and email are the first two proving adapters.
 

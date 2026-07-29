@@ -1414,6 +1414,276 @@ defmodule AllbertAssist.Channels.TUITest do
     assert_receive {:input_driver_raw, :disabled}
   end
 
+  test "live input driver redraws only its owned wrapped rows across resize" do
+    parent = self()
+    {driver, _reader} = start_input_driver!(parent, live_region?: true, terminal_columns: 4)
+
+    assert :ok = InputDriver.update_live(driver, 4, ["12345", "6789"])
+    assert_receive {:input_driver_output, first_render}
+    assert first_render == "12345\r\n6789"
+
+    assert :ok = InputDriver.update_live(driver, 10, ["ok"])
+
+    assert_receive {:input_driver_output, first_clear}
+    assert first_clear == "\r\e[2K\e[1A\r\e[2K\e[1A\r\e[2K"
+
+    assert_receive {:input_driver_output, second_render}
+    assert second_render == "ok"
+
+    assert :ok = InputDriver.update_live(driver, 2, ["abcdef"])
+    assert_receive {:input_driver_output, second_clear}
+    assert second_clear == "\r\e[2K"
+    assert_receive {:input_driver_output, third_render}
+    assert third_render == "abcdef"
+
+    assert :ok = InputDriver.update_live(driver, 2, [])
+
+    assert_receive {:input_driver_output, third_clear}
+    assert third_clear == "\r\e[2K\e[1A\r\e[2K\e[1A\r\e[2K"
+
+    outputs =
+      [first_render, first_clear, second_render, second_clear, third_render, third_clear]
+      |> Enum.join()
+
+    refute outputs =~ "\e[2J"
+    refute outputs =~ "\e[H"
+
+    GenServer.stop(driver)
+    assert_receive {:input_driver_raw, :disabled}
+  end
+
+  test "live input driver preserves the prompt buffer through live and static output" do
+    parent = self()
+    {driver, reader} = start_input_driver!(parent, live_region?: true, terminal_columns: 80)
+
+    InputDriver.prompt(driver, "allbert:default> ")
+    assert_receive {:input_driver_output, "allbert:default> "}
+
+    Enum.each(String.graphemes("change task"), fn char ->
+      send(driver, {:tui_input_driver_char, reader, char})
+      assert_receive {:input_driver_output, ^char}
+    end)
+
+    assert :ok = InputDriver.update_live(driver, 80, ["working"])
+    assert_receive {:input_driver_output, "\r\e[2K"}
+    assert_receive {:input_driver_output, "working\r\nallbert:default> change task"}
+
+    assert :ok = InputDriver.write(driver, "completed")
+    assert_receive {:input_driver_output, "\r\e[2K\e[1A\r\e[2K"}
+    assert_receive {:input_driver_output, "completed\r\n"}
+    assert_receive {:input_driver_output, "working\r\nallbert:default> change task"}
+
+    send(driver, {:tui_input_driver_char, reader, "\n"})
+    assert_receive {:input_driver_output, "\r\e[2K\e[1A\r\e[2K"}
+    assert_receive {:input_driver_output, "allbert:default> change task\r\n"}
+    assert_receive {:tui_input_line, ^driver, "change task"}
+    assert_receive {:input_driver_output, "working"}
+
+    GenServer.stop(driver)
+    assert_receive {:input_driver_raw, :disabled}
+  end
+
+  test "live input driver reports clear and redraw failures to synchronous callers" do
+    parent = self()
+    failure = start_supervised!({Agent, fn -> nil end})
+
+    output_fun = fn chardata ->
+      text = IO.iodata_to_binary(chardata)
+      send(parent, {:input_driver_output, text})
+
+      case Agent.get(failure, & &1) do
+        {:return, ^text} -> {:error, :device_unavailable}
+        {:raise, ^text} -> raise "injected terminal failure"
+        {:exit, ^text} -> exit(:injected_terminal_failure)
+        _other -> :ok
+      end
+    end
+
+    {driver, _reader} =
+      start_input_driver!(parent,
+        live_region?: true,
+        terminal_columns: 80,
+        output_fun: output_fun
+      )
+
+    Agent.update(failure, fn _current -> {:return, "cannot redraw"} end)
+
+    assert {:error, :device_unavailable} =
+             InputDriver.update_live(driver, 80, ["cannot redraw"])
+
+    assert Process.alive?(driver)
+
+    Agent.update(failure, fn _current -> nil end)
+    assert :ok = InputDriver.update_live(driver, 80, ["stable"])
+
+    Agent.update(failure, fn _current -> {:return, "stable"} end)
+    assert {:error, :device_unavailable} = InputDriver.write(driver, "completed")
+    assert Process.alive?(driver)
+
+    Agent.update(failure, fn _current -> {:raise, "raised redraw"} end)
+
+    assert {:error, {:output_exception, "injected terminal failure"}} =
+             InputDriver.update_live(driver, 80, ["raised redraw"])
+
+    Agent.update(failure, fn _current -> {:exit, "exited redraw"} end)
+
+    assert {:error, {:output_exit, :injected_terminal_failure}} =
+             InputDriver.update_live(driver, 80, ["exited redraw"])
+
+    assert Process.alive?(driver)
+    GenServer.stop(driver)
+    assert_receive {:input_driver_raw, :disabled}
+  end
+
+  test "single-submission input demand waits for the next client prompt" do
+    parent = self()
+    callbacks = input_driver_callbacks(parent)
+
+    start_reader = fn driver, _read_char ->
+      reader = spawn_link(fn -> single_submission_reader_loop(parent, driver) end)
+      send(parent, {:input_driver_reader, reader})
+      {:ok, reader}
+    end
+
+    assert {:ok, driver} =
+             InputDriver.start_link(parent,
+               enable_raw: callbacks.enable_raw,
+               disable_raw: callbacks.disable_raw,
+               start_reader: start_reader,
+               output_fun: callbacks.output_fun,
+               live_region?: true,
+               single_submission?: true
+             )
+
+    assert_receive {:input_driver_raw, :enabled}
+    assert_receive {:input_driver_reader, reader}
+
+    InputDriver.prompt(driver, "allbert> ")
+    assert_receive {:input_driver_output, "allbert> "}
+
+    Enum.each(String.graphemes("first\n"), fn char ->
+      assert_receive {:single_submission_demand, ^reader, ^driver}
+      send(reader, {:single_submission_char, char})
+    end)
+
+    assert_receive {:tui_input_line, ^driver, "first"}
+    refute_receive {:single_submission_demand, ^reader, ^driver}, 50
+
+    InputDriver.prompt(driver, "allbert> ")
+    assert_receive {:input_driver_output, "allbert> "}
+    assert_receive {:single_submission_demand, ^reader, ^driver}
+
+    GenServer.stop(driver)
+    assert_receive {:input_driver_raw, :disabled}
+  end
+
+  test "input driver enforces its byte cap without accepting a partial character" do
+    parent = self()
+    {driver, reader} = start_input_driver!(parent, max_buffer_bytes: 4)
+
+    InputDriver.prompt(driver, "allbert:cap> ")
+    assert_receive {:input_driver_output, "allbert:cap> "}
+
+    for char <- ["a", "é"] do
+      send(driver, {:tui_input_driver_char, reader, char})
+      assert_receive {:input_driver_output, ^char}
+    end
+
+    send(driver, {:tui_input_driver_char, reader, "é"})
+    assert_receive {:input_driver_output, "\a"}
+
+    send(driver, {:tui_input_driver_char, reader, "\n"})
+    assert_receive {:input_driver_output, "\r\n"}
+    assert_receive {:tui_input_line, ^driver, "aé"}
+
+    GenServer.stop(driver)
+    assert_receive {:input_driver_raw, :disabled}
+  end
+
+  test "input driver rejects C1 controls instead of echoing or submitting them" do
+    parent = self()
+    c1_next_line = <<0xC2, 0x85>>
+    {driver, reader} = start_input_driver!(parent)
+
+    InputDriver.prompt(driver, "allbert:control> ")
+    assert_receive {:input_driver_output, "allbert:control> "}
+
+    send(driver, {:tui_input_driver_char, reader, c1_next_line})
+    send(driver, {:tui_input_driver_char, reader, "x"})
+    send(driver, {:tui_input_driver_char, reader, "\n"})
+
+    assert_receive {:input_driver_output, "x"}
+    assert_receive {:input_driver_output, "\r\n"}
+    assert_receive {:tui_input_line, ^driver, "x"}
+    refute_received {:input_driver_output, ^c1_next_line}
+
+    GenServer.stop(driver)
+    assert_receive {:input_driver_raw, :disabled}
+  end
+
+  test "input driver preserves one in-flight character across pause and resume" do
+    parent = self()
+    {driver, reader} = start_input_driver!(parent)
+
+    InputDriver.prompt(driver, "allbert:pressure> ")
+    assert_receive {:input_driver_output, "allbert:pressure> "}
+
+    assert :ok = InputDriver.pause(driver)
+    send(driver, {:tui_input_driver_char, reader, "q"})
+    assert :ok = InputDriver.pause(driver)
+    refute_received {:input_driver_output, "q"}
+
+    assert :ok = InputDriver.resume(driver)
+    assert_receive {:input_driver_output, "q"}
+
+    send(driver, {:tui_input_driver_char, reader, "\n"})
+    assert_receive {:input_driver_output, "\r\n"}
+    assert_receive {:tui_input_line, ^driver, "q"}
+
+    GenServer.stop(driver)
+    assert_receive {:input_driver_raw, :disabled}
+  end
+
+  test "input driver clears its live region and emits quit on Ctrl-C" do
+    parent = self()
+    {driver, reader} = start_input_driver!(parent, live_region?: true)
+
+    InputDriver.prompt(driver, "allbert:interrupt> ")
+    assert_receive {:input_driver_output, "allbert:interrupt> "}
+
+    assert :ok = InputDriver.update_live(driver, 80, ["working"])
+    assert_receive {:input_driver_output, "\r\e[2K"}
+    assert_receive {:input_driver_output, "working\r\nallbert:interrupt> "}
+
+    send(driver, {:tui_input_driver_char, reader, <<3>>})
+    assert_receive {:input_driver_output, "\r\e[2K\e[1A\r\e[2K"}
+    assert_receive {:input_driver_output, "\r\n"}
+    assert_receive {:tui_input_quit, ^driver, :ctrl_c}
+
+    GenServer.stop(driver)
+    assert_receive {:input_driver_raw, :disabled}
+  end
+
+  test "input driver maps reader EOF to the same clear-and-quit restoration path" do
+    parent = self()
+    {driver, reader} = start_input_driver!(parent, live_region?: true)
+
+    InputDriver.prompt(driver, "allbert:eof> ")
+    assert_receive {:input_driver_output, "allbert:eof> "}
+
+    assert :ok = InputDriver.update_live(driver, 80, ["waiting"])
+    assert_receive {:input_driver_output, "\r\e[2K"}
+    assert_receive {:input_driver_output, "waiting\r\nallbert:eof> "}
+
+    send(reader, :send_eof)
+    assert_receive {:input_driver_output, "\r\e[2K\e[1A\r\e[2K"}
+    assert_receive {:input_driver_output, "\r\n"}
+    assert_receive {:tui_input_quit, ^driver, :ctrl_d}
+
+    GenServer.stop(driver)
+    assert_receive {:input_driver_raw, :disabled}
+  end
+
   test "auto input driver keeps adapter output in raw-terminal line discipline" do
     parent = self()
     {server, reader} = start_raw_tui!(parent)
@@ -2612,6 +2882,24 @@ defmodule AllbertAssist.Channels.TUITest do
     }
   end
 
+  defp start_input_driver!(parent, opts \\ []) do
+    callbacks = input_driver_callbacks(parent)
+
+    driver_opts =
+      [
+        enable_raw: callbacks.enable_raw,
+        disable_raw: callbacks.disable_raw,
+        start_reader: callbacks.start_reader,
+        output_fun: callbacks.output_fun
+      ]
+      |> Keyword.merge(opts)
+
+    assert {:ok, driver} = InputDriver.start_link(parent, driver_opts)
+    assert_receive {:input_driver_raw, :enabled}
+    assert_receive {:input_driver_reader, reader}
+    {driver, reader}
+  end
+
   defp start_raw_tui!(parent, opts \\ []) do
     callbacks = input_driver_callbacks(parent)
 
@@ -2648,7 +2936,29 @@ defmodule AllbertAssist.Channels.TUITest do
         send(driver, {:tui_input_driver_char, self(), char})
         input_driver_reader_loop(driver)
 
+      :send_eof ->
+        send(driver, {:tui_input_driver_reader_error, self(), :eof})
+
       :stop ->
+        :ok
+    end
+  end
+
+  defp single_submission_reader_loop(parent, driver) do
+    receive do
+      {:tui_input_driver_read, ^driver} ->
+        send(parent, {:single_submission_demand, self(), driver})
+
+        receive do
+          {:single_submission_char, char} ->
+            send(driver, {:tui_input_driver_char, self(), char})
+            single_submission_reader_loop(parent, driver)
+
+          {:tui_input_driver_stop, ^driver} ->
+            :ok
+        end
+
+      {:tui_input_driver_stop, ^driver} ->
         :ok
     end
   end

@@ -207,7 +207,10 @@ The S4-ratified v0.62 dispatcher is implemented in
 The as-built deltas from the design-level taxonomy are:
 
 - Runtime-backed commands attach first to a running `allbert serve` daemon over
-  the local Unix-domain socket; embedded startup is only the no-daemon fallback.
+  the local Unix-domain socket; embedded startup remains the ordinary
+  no-daemon fallback only where the command contract permits it. ADR 0091 makes
+  `allbert tui` the explicit attach-only exception: it exits with repair
+  guidance and never starts an embedded writer.
 - First-run state uses an Allbert Home marker (`onboarding.json`), not a new
   Settings Central key; v0.63 still owns wizard semantics.
 - `admin models` remains the model doctor/readiness surface; the First-Model

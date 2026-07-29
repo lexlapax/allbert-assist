@@ -1647,7 +1647,6 @@ defmodule AllbertAssist.Licenses do
   defp inferred_release_root do
     case :code.priv_dir(:allbert_assist) do
       path when is_list(path) -> Path.expand("../../..", List.to_string(path))
-      path when is_binary(path) -> Path.expand("../../..", path)
       _error -> nil
     end
   rescue
@@ -1866,6 +1865,9 @@ defmodule AllbertAssist.Licenses do
     {:license_error, error} -> {:error, error}
   end
 
+  @spec fail!(atom(), String.t()) :: no_return()
+  @spec fail!(atom(), String.t(), pos_integer()) :: no_return()
+  @spec fail!(atom(), String.t(), pos_integer(), map()) :: no_return()
   defp fail!(code, message, status \\ 1, details \\ %{}) do
     throw({:license_error, error(code, message, status, details)})
   end

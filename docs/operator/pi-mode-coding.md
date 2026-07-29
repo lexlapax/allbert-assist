@@ -28,20 +28,22 @@ allbert admin settings set execution.local.require_confirmation true
 allbert admin models doctor pi_coding_local
 ```
 
-Stop the web/service runtime that owns this Home, then run `allbert tui` and
-enter `/pi`. Do not run Pi-mode beside the service against the same Home. Keep
-`execution.local.require_confirmation=true`; Pi approval mode does not replace
-Security Central or the registered-action boundary.
+Keep the service running, run `allbert tui`, and enter `/pi`. The thin client
+owns only terminal I/O; the daemon retains Pi session state, Runtime, action,
+and database authority. Keep `execution.local.require_confirmation=true`; Pi
+approval mode does not replace Security Central or the registered-action
+boundary.
 
 ## Requirements
 
 - v0.55 `tui` channel and v0.55.1 warm operator console are present.
 - A disposable `ALLBERT_HOME` when replaying validation or release smokes.
-- A mapped TUI identity for the terminal profile. On a fresh Home, v1.2 local
-  launchers atomically persist `channels.tui.enabled=true` and the built-in
-  `default → local` mapping when those keys are raw-absent. This guide keeps
-  both settings explicit because Pi-mode also binds a trusted coding operator
-  and workspace policy. Custom/raw-present mappings are never rewritten.
+- A mapped TUI identity for the terminal profile. On a fresh Home, the daemon's
+  first authenticated built-in TUI session atomically persists
+  `channels.tui.enabled=true` and the `default → local` mapping when those keys
+  are raw-absent. This guide keeps both settings explicit because Pi-mode also
+  binds a trusted coding operator and workspace policy. Custom/raw-present
+  mappings are never rewritten.
 - `coding.pi_mode.enabled=true`.
 - `coding.trusted_operator_id` set to the mapped local operator only for the
   validation home or the operator's intended Pi-mode home.
@@ -95,7 +97,7 @@ being validated. `execution.local.enabled` must be `true`,
 `:local_execution_disabled`, the Pi-mode approval mode has not been reached; fix
 the Level 1 execution settings in the same `ALLBERT_HOME` before continuing.
 
-An explicitly stored `channels.tui.enabled=false` blocks the launcher and is not
+An explicitly stored `channels.tui.enabled=false` blocks session admission and is not
 auto-repaired. For this source workflow, re-enable it with
 `mix allbert.settings set channels.tui.enabled true`; the packaged equivalent is
 `allbert admin settings set channels.tui.enabled true`. A raw-present custom,
@@ -137,7 +139,7 @@ request-flow is the release-authoritative cancellation validation.
 
 When the raw input driver is active, TUI-owned output must use terminal CRLF line
 discipline. Slash replies, stream-progress lines, final answers, and the next
-`allbert:default>` prompt should each start at the left edge of a new terminal
+`allbert>` prompt should each start at the left edge of a new terminal
 line. If setup commands such as `/pi`, `/model`, `/mode`, `/clear`, or `/compact`
 make the prompt walk rightward across the screen, stop validation and restart on
 current v0.57 code before pressing Esc.
@@ -146,15 +148,15 @@ current v0.57 code before pressing Esc.
 session and must never be routed to the model, even if prior Esc/control bytes were
 echoed into the terminal line buffer.
 
-During an async Pi-mode coding turn, progress is written as ordinary transcript
-scrollback, not an erased terminal-live block. It may show assistant byte counts,
-tool names, tool-result counts, cancellation status, and `Turn complete`. It must
-not show raw JSON, full tool arguments, large tool-result bodies, or shell/file
-output while the turn is still running, and it must be coalesced rather than
-printed once per provider token. The final rendered response is the canonical
-transcript output and should appear before the next `allbert:default>` prompt. A
-final answer that paints over a prompt, a prompt that opens while the previous
-coding turn is still streaming, raw transient JSON, blank repaint gaps, prompt
+During an async Pi-mode coding turn, progress is a bounded daemon-ordered region
+in the client's alternate-screen render. It may show assistant byte counts,
+tool names, tool-result counts, cancellation status, and `Turn complete`. It
+must not show raw JSON, full tool arguments, large tool-result bodies, or
+shell/file output while the turn is still running, and it must be coalesced
+rather than rendered once per provider token. The final rendered response is
+canonical and should appear before the next `allbert>` prompt. A final
+answer that paints over a prompt, a prompt that opens while the previous coding
+turn is still streaming, raw transient JSON, blank repaint gaps, prompt
 rightward drift, or per-token progress spam are TUI rendering failures and not
 acceptable release evidence.
 
@@ -195,16 +197,18 @@ optional expiry. It is listable, revocable, auditable, and never a permission
 grant.
 
 In TUI validation, typed confirmation commands approve, deny, or show a pending
-confirmation. Remembering a command grant uses the confirmation CLI in a second
-terminal with the same `ALLBERT_HOME`: `mix allbert.confirmations approve
-<confirmation-id> --remember exact`. Inspect and revoke the stored grant with
-`mix allbert.resources grants list|show|revoke`. A successful remembered `bash`
-approval prints `status=approved`, `Target: bash status=completed`, and
-`Remembered grant: ... run_shell_command execute canonical_command:...`. If the
-target command completed but the CLI ends with `:resource_ref_not_found`, the
-running code is older than M9.22 or the command-grant handoff regressed; create a
-fresh pending command confirmation after updating before retrying the remember
-step.
+confirmation. On a packaged install, remembering a command grant may use the
+attach-capable confirmation CLI in a second terminal with the same Home:
+`allbert admin confirmations approve <confirmation-id> --remember exact`.
+Inspect and revoke the stored grant with `allbert admin resources grants
+list|show|revoke`. Do not start a cold Mix task beside the source daemon; use the
+typed in-session flow unless the source request-flow names an attach-capable
+twin. A successful remembered `bash` approval prints `status=approved`, `Target:
+bash status=completed`, and `Remembered grant: ... run_shell_command execute
+canonical_command:...`. If the target command completed but the CLI ends with
+`:resource_ref_not_found`, the running code is older than M9.22 or the
+command-grant handoff regressed; create a fresh pending command confirmation
+after updating before retrying the remember step.
 
 ## Tool Boundaries
 
@@ -220,8 +224,9 @@ shell work starts.
 Inside an active Pi-mode coding turn, the six actions are bound as session-local
 tool definitions. Model-proposed tool calls are advisory; Allbert executes them
 only through `Actions.Runner.run/3`, appends bounded tool results back into the
-session context, and continues streaming until the model stops calling tools. The
-TUI-held session context is updated after the turn; `/clear` resets it.
+session context, and continues streaming until the model stops calling tools.
+The daemon-held adapter session context is updated after the turn; `/clear`
+resets it.
 
 `write` and `edit` use the coding file-write permission. `edit` is exact-match and
 must fail clearly when the match is missing.
@@ -265,26 +270,32 @@ They never ingest raw paths outside the cwd jail.
 
 ## Run
 
-Run the deterministic release gate first:
+For current release-line validation, run only the focused Pi/TUI rows named by
+the active request-flow. Do not use the historical `release.v057` aggregate as
+a prerequisite; the active plan controls when cumulative release gates run.
+
+Then start one source daemon and launch one persistent TUI client against the
+same Home. Keep daemon diagnostics separate from the operator transcript:
 
 ```sh
-ALLBERT_TEST_KEEP_TMP=1 MIX_ENV=test mix allbert.test release.v057
-```
-
-Then launch one persistent transcript-captured TUI session:
-
-```sh
-script "$V057_MANUAL_HOME/v057-pi-mode-transcript.txt" mix allbert.tui
+ALLBERT_HOME="$V057_MANUAL_HOME" MIX_ENV=dev PORT=4000 \
+  ALLBERT_HOLD_WRITER_LOCK=1 mix phx.server \
+  >"$V057_MANUAL_HOME/v057-daemon.log" 2>&1 &
+V057_DAEMON_PID=$!
+curl -fsS http://localhost:4000/health
+script "$V057_MANUAL_HOME/v057-pi-mode-transcript.txt" \
+  env ERL_AFLAGS="${ERL_AFLAGS:+$ERL_AFLAGS }+Bc" mix allbert.tui
 ```
 
 Keep this session open for the entire manual punchlist. Do not fall back to cold
 `mix allbert.ask` turns during validation.
 
-If validation continues in the web workspace, first `/quit` and wait for the
-standalone TUI to release the same `ALLBERT_HOME`; do not run both SQLite owners
-concurrently. Web and TUI independently resolve to canonical user `local`, so
-eligible durable data can be selected on web, but the TUI mapping grants no web
-authorization and web does not automatically open the exact TUI/Pi-mode thread.
+Validation may continue in the web workspace while the TUI remains attached;
+both are clients of the same daemon. Web and TUI independently resolve to
+canonical user `local`, so eligible durable data can be selected on web, but the
+TUI mapping grants no web authorization and web does not automatically open the
+exact TUI/Pi-mode thread. Stop `V057_DAEMON_PID` only after the client has
+detached and post-session health/evidence checks finish.
 
 ## Cancellation
 

@@ -9,6 +9,7 @@ defmodule AllbertAssist.Runtime.Attach do
   """
 
   alias AllbertAssist.Paths
+  alias AllbertAssist.Runtime.Attach.TUIProtocol
 
   @protocol_version 1
   @runtime_dir "runtime"
@@ -16,6 +17,7 @@ defmodule AllbertAssist.Runtime.Attach do
   @token_file "attach.token"
   @connect_timeout 1_000
   @recv_timeout 30_000
+  @tui_open_timeout 5_000
 
   @type response :: {:ok, {String.t(), non_neg_integer()}} | {:error, term()}
 
@@ -212,6 +214,20 @@ defmodule AllbertAssist.Runtime.Attach do
     end
   end
 
+  @doc "Open one authenticated, passive daemon-backed TUI session."
+  @spec open_tui_session(term(), term()) ::
+          {:ok, :gen_tcp.socket(), map(), map()} | {:error, term()}
+  def open_tui_session(profile, terminal) do
+    with {:ok, token} <- read_token(),
+         identity = Map.put(identity(), :token, token),
+         {:ok, open} <- TUIProtocol.session_open(identity, profile, terminal),
+         {:ok, socket} <- connect_tui_session() do
+      finish_tui_open(socket, open)
+    else
+      {:error, reason} -> {:error, normalize_tui_open_error(reason)}
+    end
+  end
+
   defp connect do
     :gen_tcp.connect(
       {:local, socket_path()},
@@ -220,6 +236,63 @@ defmodule AllbertAssist.Runtime.Attach do
       @connect_timeout
     )
   end
+
+  defp connect_tui_session do
+    :gen_tcp.connect(
+      {:local, socket_path()},
+      0,
+      [
+        :binary,
+        packet: 4,
+        packet_size: TUIProtocol.limits().frame_body_bytes,
+        active: false
+      ],
+      @connect_timeout
+    )
+  end
+
+  defp finish_tui_open(socket, open) do
+    result =
+      with {:ok, payload} <- encode_tui_open(open),
+           :ok <- :gen_tcp.send(socket, payload),
+           {:ok, response} <- :gen_tcp.recv(socket, 0, @tui_open_timeout),
+           {:ok, initial_frame, accepted_flow} <-
+             TUIProtocol.decode_initial_response(response) do
+        {:ok, socket, initial_frame, accepted_flow}
+      end
+
+    case result do
+      {:ok, ^socket, _initial_frame, _accepted_flow} = accepted ->
+        accepted
+
+      {:error, reason} ->
+        :gen_tcp.close(socket)
+        {:error, normalize_tui_open_error(reason)}
+    end
+  rescue
+    _error ->
+      :gen_tcp.close(socket)
+      {:error, :protocol_error}
+  end
+
+  defp encode_tui_open(open) do
+    payload = :erlang.term_to_binary(open)
+
+    if byte_size(payload) <= TUIProtocol.limits().open_body_bytes and
+         not TUIProtocol.compressed_term?(payload) do
+      {:ok, payload}
+    else
+      {:error, :invalid_open}
+    end
+  rescue
+    _error -> {:error, :invalid_open}
+  end
+
+  defp normalize_tui_open_error(reason) when reason in [:enoent, :econnrefused],
+    do: :not_available
+
+  defp normalize_tui_open_error(:emsgsize), do: :frame_too_large
+  defp normalize_tui_open_error(reason), do: reason
 
   defp send_request(socket, request) do
     :gen_tcp.send(socket, :erlang.term_to_binary(request))
@@ -359,7 +432,7 @@ defmodule AllbertAssist.Runtime.Attach.Server do
             "daemon attachment is unavailable — serve and Web continue degraded"
         )
 
-        {:ok, %{state | status: :degraded, status_reason: health_reason(reason)}}
+        {:ok, %{state | status: :degraded, status_reason: reason}}
     end
   end
 
@@ -780,9 +853,6 @@ defmodule AllbertAssist.Runtime.Attach.Server do
   rescue
     _error -> {:error, :invalid_term}
   end
-
-  defp health_reason(reason) when is_atom(reason), do: reason
-  defp health_reason(_reason), do: :unavailable
 
   defp session_status(nil), do: :none
   defp session_status(%{active?: true}), do: :active

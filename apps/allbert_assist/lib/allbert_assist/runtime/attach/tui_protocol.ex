@@ -31,44 +31,51 @@ defmodule AllbertAssist.Runtime.Attach.TUIProtocol do
     :runtime_unavailable
   ]
   @open_message_bytes 1_024
-  @open_keys MapSet.new([
-               :kind,
-               :frame,
-               :session_protocol,
-               :protocol,
-               :home,
-               :uid,
-               :version,
-               :token,
-               :profile,
-               :terminal
-             ])
-  @terminal_keys MapSet.new([:columns, :rows, :color, :unicode?])
+  @open_keys [
+    :kind,
+    :frame,
+    :session_protocol,
+    :protocol,
+    :home,
+    :uid,
+    :version,
+    :token,
+    :profile,
+    :terminal
+  ]
+  @terminal_keys [:columns, :rows, :color, :unicode?]
   @terminal_colors [:none, :ansi16, :ansi256, :truecolor]
-  @envelope_keys MapSet.new([
-                   :kind,
-                   :session_protocol,
-                   :frame,
-                   :session_id,
-                   :seq,
-                   :ack,
-                   :payload
-                 ])
-  @flow_keys MapSet.new([
-               :session_id,
-               :outbound_direction,
-               :bootstrapped?,
-               :next_send_seq,
-               :highest_sent_seq,
-               :last_received_seq,
-               :ack_to_send,
-               :last_peer_ack,
-               :retained_unacknowledged,
-               :retained_unacknowledged_bytes,
-               :ack_due?,
-               :send_exhausted?,
-               :receive_exhausted?
-             ])
+  @open_close_keys [
+    :kind,
+    :frame,
+    :session_protocol,
+    :code,
+    :message
+  ]
+  @envelope_keys [
+    :kind,
+    :session_protocol,
+    :frame,
+    :session_id,
+    :seq,
+    :ack,
+    :payload
+  ]
+  @flow_keys [
+    :session_id,
+    :outbound_direction,
+    :bootstrapped?,
+    :next_send_seq,
+    :highest_sent_seq,
+    :last_received_seq,
+    :ack_to_send,
+    :last_peer_ack,
+    :retained_unacknowledged,
+    :retained_unacknowledged_bytes,
+    :ack_due?,
+    :send_exhausted?,
+    :receive_exhausted?
+  ]
   @default_max_text_bytes 12_000
   @maximum_max_text_bytes 32_000
   @line_items 256
@@ -101,12 +108,28 @@ defmodule AllbertAssist.Runtime.Attach.TUIProtocol do
     :runtime_unavailable
   ]
 
+  @type limits :: %{
+          open_body_bytes: 16_384,
+          frame_body_bytes: 65_536,
+          container_depth: 8,
+          map_keys: 32,
+          list_items: 256,
+          max_sequence: 9_223_372_036_854_775_807,
+          default_max_text_bytes: 12_000,
+          maximum_max_text_bytes: 32_000,
+          daemon_inbound: %{frames: 32, bytes: 262_144},
+          daemon_outbound_unsent: %{frames: 64, bytes: 262_144},
+          daemon_unacknowledged: %{frames: 32, bytes: 262_144},
+          client_outbound_unsent: %{frames: 32, bytes: 262_144},
+          client_unacknowledged: %{frames: 32, bytes: 262_144}
+        }
+
   @doc "The additive TUI session protocol version."
   @spec session_protocol() :: 1
   def session_protocol, do: @session_protocol
 
   @doc "Frozen v1 decode, structure, sequence, and pressure limits."
-  @spec limits() :: map()
+  @spec limits() :: limits()
   def limits do
     %{
       open_body_bytes: @open_body_bytes,
@@ -125,8 +148,39 @@ defmodule AllbertAssist.Runtime.Attach.TUIProtocol do
     }
   end
 
+  @doc "Return a conservative encoded-byte bound for one valid frozen-v1 frame."
+  @spec encoded_frame_upper_bound(
+          :client_to_daemon | :daemon_to_client,
+          atom(),
+          map(),
+          keyword()
+        ) :: {:ok, pos_integer()} | {:error, atom()}
+  def encoded_frame_upper_bound(direction, frame, payload, opts \\ [])
+
+  def encoded_frame_upper_bound(direction, frame, %{} = payload, opts)
+      when direction in [:client_to_daemon, :daemon_to_client] and is_atom(frame) and
+             is_list(opts) do
+    envelope = %{
+      kind: :tui_session,
+      session_protocol: @session_protocol,
+      frame: frame,
+      session_id: :binary.copy(<<255>>, 32),
+      seq: @max_integer,
+      ack: @max_integer,
+      payload: payload
+    }
+
+    with :ok <- validate_frame(direction, envelope, opts),
+         {:ok, encoded_bytes} <- encoded_frame_bytes(envelope) do
+      {:ok, encoded_bytes}
+    end
+  end
+
+  def encoded_frame_upper_bound(_direction, _frame, _payload, _opts),
+    do: {:error, :protocol_error}
+
   @doc "The frozen daemon presentation eviction order under outbound pressure."
-  @spec pressure_drop_order() :: [atom()]
+  @spec pressure_drop_order() :: nonempty_list(:status | :delta)
   def pressure_drop_order, do: [:status, :delta]
 
   @doc "Generate a cryptographically random v1 session identifier."
@@ -193,6 +247,31 @@ defmodule AllbertAssist.Runtime.Attach.TUIProtocol do
   end
 
   def normalize_input(_input, _max_text_bytes), do: {:error, :invalid_input}
+
+  @doc "Build and validate the exact v1 client session-open packet."
+  @spec session_open(map(), term(), term()) :: {:ok, map()} | {:error, atom()}
+  def session_open(%{} = identity, profile, terminal) do
+    with {:ok, normalized_profile} <- normalize_profile(profile) do
+      open = %{
+        kind: :tui_session,
+        frame: :open,
+        session_protocol: @session_protocol,
+        protocol: Map.get(identity, :protocol),
+        home: Map.get(identity, :home),
+        uid: Map.get(identity, :uid),
+        version: Map.get(identity, :version),
+        token: Map.get(identity, :token),
+        profile: normalized_profile,
+        terminal: terminal
+      }
+
+      validate_open(open, identity)
+    else
+      {:error, :invalid_profile} -> {:error, :invalid_open}
+    end
+  end
+
+  def session_open(_identity, _profile, _terminal), do: {:error, :invalid_open}
 
   @doc "Whether a packet uses the ETF COMPRESSED tag."
   @spec compressed_term?(term()) :: boolean()
@@ -274,6 +353,29 @@ defmodule AllbertAssist.Runtime.Attach.TUIProtocol do
   end
 
   def decode_frame(_payload, _direction, _opts), do: {:error, :protocol_error}
+
+  @doc "Decode the one bounded response that either rejects or accepts a session open."
+  @spec decode_initial_response(binary()) ::
+          {:ok, map(), map()}
+          | {:error, {:open_rejected, atom(), String.t()} | atom()}
+  def decode_initial_response(payload) when is_binary(payload) do
+    with :ok <-
+           encoded_body_allowed(
+             payload,
+             @frame_body_bytes,
+             :frame_too_large,
+             :protocol_error
+           ),
+         {:ok, response} <- safe_session_term(payload, :protocol_error),
+         true <- valid_structure?(response) do
+      classify_initial_response(payload, response)
+    else
+      false -> {:error, :protocol_error}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def decode_initial_response(_payload), do: {:error, :protocol_error}
 
   @doc "Create pure directional sequence state for one accepted session id."
   @spec new_flow(binary()) :: {:ok, map()} | {:error, :protocol_error}
@@ -436,6 +538,37 @@ defmodule AllbertAssist.Runtime.Attach.TUIProtocol do
   def error_payload(_code, _message, _input_receipt_id),
     do: %{code: :runtime_error, message: "Runtime error.", input_receipt_id: nil}
 
+  defp classify_initial_response(_payload, %{frame: :close} = response) do
+    with :ok <- validate_open_close(response) do
+      {:error, {:open_rejected, response.code, response.message}}
+    end
+  end
+
+  defp classify_initial_response(payload, %{frame: :snapshot}) do
+    opts = [max_text_bytes: @maximum_max_text_bytes]
+
+    with {:ok, frame} <- decode_frame(payload, :daemon_to_client, opts),
+         {:ok, flow} <- new_flow(frame.session_id),
+         {:ok, accepted_flow} <- accept_frame(flow, :daemon_to_client, frame, opts) do
+      {:ok, frame, accepted_flow}
+    end
+  end
+
+  defp classify_initial_response(_payload, _response), do: {:error, :protocol_error}
+
+  defp validate_open_close(response) do
+    with :ok <- exact_keys(response, @open_close_keys, :protocol_error),
+         true <- response.kind == :tui_session,
+         true <- response.frame == :close,
+         true <- response.session_protocol == @session_protocol,
+         true <- response.code in @open_close_codes,
+         true <- bounded_utf8?(response.message, 0, @open_message_bytes) do
+      :ok
+    else
+      _invalid -> {:error, :protocol_error}
+    end
+  end
+
   defp validate_open_shape(open) do
     with :ok <- validate_open_tags(open),
          :ok <- validate_open_identity_shape(open),
@@ -512,7 +645,9 @@ defmodule AllbertAssist.Runtime.Attach.TUIProtocol do
   defp valid_terminal?(_terminal), do: false
 
   defp exact_keys(map, expected, error_code \\ :invalid_open) do
-    if MapSet.new(Map.keys(map)) == expected, do: :ok, else: {:error, error_code}
+    if map_size(map) == length(expected) and Enum.all?(expected, &Map.has_key?(map, &1)),
+      do: :ok,
+      else: {:error, error_code}
   end
 
   defp integer_in?(value, minimum, maximum),
@@ -917,7 +1052,7 @@ defmodule AllbertAssist.Runtime.Attach.TUIProtocol do
     do: {:error, :protocol_error}
 
   defp exact_payload_keys(payload, keys) do
-    exact_keys(payload, MapSet.new(keys), :protocol_error)
+    exact_keys(payload, keys, :protocol_error)
   end
 
   defp input_bytes(opts) do

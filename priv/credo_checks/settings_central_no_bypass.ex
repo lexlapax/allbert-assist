@@ -41,6 +41,15 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
         "UID",
         "OLLAMA_HOST",
         "PORT",
+        # v1.2.1 terminal client capability inputs. These are process/TTY
+        # metadata, not durable operator policy or Settings Central keys.
+        "COLUMNS",
+        "LINES",
+        "TERM",
+        "COLORTERM",
+        "LC_ALL",
+        "LC_CTYPE",
+        "LANG",
         # v0.63 M8.2: the standard OTP/OpenSSL CA-bundle override for outbound HTTPS
         # (External.TLS) — infrastructure trust config, not an operator-tunable setting.
         "SSL_CERT_FILE",

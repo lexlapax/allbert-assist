@@ -39,6 +39,36 @@ defmodule AllbertAssist.Runtime.Attach.TUIProtocolTest do
   end
 
   describe "session open validation" do
+    test "constructs the exact normalized client open without accepting extra identity fields" do
+      identity = Map.put(expected_open_identity(), :ignored, :client_only)
+
+      assert {:ok, open} =
+               TUIProtocol.session_open(
+                 identity,
+                 "  work  ",
+                 %{columns: 80, rows: 24, color: :ansi256, unicode?: true}
+               )
+
+      assert open == %{
+               kind: :tui_session,
+               frame: :open,
+               session_protocol: 1,
+               protocol: 1,
+               home: "/tmp/allbert-home",
+               uid: "501",
+               version: "1.2.1",
+               token: @token,
+               profile: "work",
+               terminal: %{columns: 80, rows: 24, color: :ansi256, unicode?: true}
+             }
+
+      assert {:error, :invalid_open} =
+               TUIProtocol.session_open(identity, <<255>>, open.terminal)
+
+      assert {:error, :invalid_open} =
+               TUIProtocol.session_open(identity, "default", %{open.terminal | columns: 0})
+    end
+
     test "accepts only the exact v1 open shape and normalizes the profile selector" do
       open = valid_open() |> Map.put(:profile, "  work  ")
 
@@ -134,6 +164,85 @@ defmodule AllbertAssist.Runtime.Attach.TUIProtocolTest do
 
       assert {:error, :invalid_open} =
                TUIProtocol.decode_open(:binary.copy(<<0>>, 16_385), expected_open_identity())
+    end
+  end
+
+  describe "client initial response decoding" do
+    test "accepts only the first daemon snapshot and returns its initialized client flow" do
+      snapshot =
+        frame(:snapshot, %{
+          render_revision: 0,
+          state: :idle,
+          lines: ["ready"],
+          gap?: false
+        })
+
+      assert {:ok, ^snapshot, flow} =
+               snapshot
+               |> :erlang.term_to_binary()
+               |> TUIProtocol.decode_initial_response()
+
+      assert flow.session_id == @session_id
+      assert flow.outbound_direction == :client_to_daemon
+      assert flow.bootstrapped?
+      assert flow.last_received_seq == 1
+      assert flow.ack_to_send == 1
+      assert flow.last_peer_ack == 0
+      assert flow.next_send_seq == 1
+      assert flow.ack_due?
+    end
+
+    test "returns a stable rejection only for the exact pre-open close shape" do
+      rejection = TUIProtocol.open_close(:already_attached, "A session is already attached.")
+
+      assert {:error, {:open_rejected, :already_attached, "A session is already attached."}} =
+               rejection
+               |> :erlang.term_to_binary()
+               |> TUIProtocol.decode_initial_response()
+
+      for malformed <- [
+            Map.put(rejection, :extra, true),
+            Map.put(rejection, :code, :normal),
+            Map.put(rejection, :session_protocol, 2),
+            Map.put(rejection, :message, <<255>>),
+            frame(:close, %{code: :normal, message: "closed"})
+          ] do
+        assert {:error, :protocol_error} =
+                 malformed
+                 |> :erlang.term_to_binary()
+                 |> TUIProtocol.decode_initial_response()
+      end
+    end
+
+    test "rejects compressed, oversized, malformed, and non-bootstrap initial frames" do
+      snapshot =
+        frame(:snapshot, %{
+          render_revision: 0,
+          state: :idle,
+          lines: List.duplicate(String.duplicate("x", 128), 100),
+          gap?: false
+        })
+
+      compressed = :erlang.term_to_binary(snapshot, compressed: 9)
+      assert <<131, 80, _rest::binary>> = compressed
+      assert {:error, :protocol_error} = TUIProtocol.decode_initial_response(compressed)
+
+      assert {:error, :frame_too_large} =
+               TUIProtocol.decode_initial_response(:binary.copy(<<0>>, 64 * 1_024 + 1))
+
+      assert {:error, :protocol_error} = TUIProtocol.decode_initial_response(<<131, 255>>)
+
+      for invalid <- [
+            %{snapshot | seq: 2},
+            %{snapshot | ack: 1},
+            frame(:delta, %{render_revision: 1, mode: :append, lines: []}),
+            Map.put(snapshot, :unexpected, true)
+          ] do
+        assert {:error, _reason} =
+                 invalid
+                 |> :erlang.term_to_binary()
+                 |> TUIProtocol.decode_initial_response()
+      end
     end
   end
 
@@ -361,6 +470,39 @@ defmodule AllbertAssist.Runtime.Attach.TUIProtocolTest do
              } = TUIProtocol.limits()
 
       assert TUIProtocol.pressure_drop_order() == [:status, :delta]
+
+      input_payload = %{
+        input_receipt_id: @receipt_id,
+        text: String.duplicate("x", 32_000)
+      }
+
+      assert {:ok, upper_bound} =
+               TUIProtocol.encoded_frame_upper_bound(
+                 :client_to_daemon,
+                 :input,
+                 input_payload,
+                 max_text_bytes: 32_000
+               )
+
+      actual = %{
+        kind: :tui_session,
+        session_protocol: TUIProtocol.session_protocol(),
+        frame: :input,
+        session_id: :binary.copy(<<1>>, 32),
+        seq: 1,
+        ack: 1,
+        payload: input_payload
+      }
+
+      assert byte_size(:erlang.term_to_binary(actual)) <= upper_bound
+
+      assert {:error, :protocol_error} =
+               TUIProtocol.encoded_frame_upper_bound(
+                 :client_to_daemon,
+                 :input,
+                 %{input_receipt_id: "invalid", text: "input"},
+                 max_text_bytes: 32_000
+               )
 
       close = TUIProtocol.close_payload(:daemon_shutdown, String.duplicate("é", 600))
       assert close.code == :daemon_shutdown

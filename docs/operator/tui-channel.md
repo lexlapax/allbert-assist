@@ -7,33 +7,63 @@ inspection, typed approvals, fan-out status, and Pi-mode coding share the same
 runtime, Settings Central, Security Central, traces, and identity boundary as
 the web workspace.
 
+> The daemon-backed thin-client lifecycle in this guide requires Allbert
+> v1.2.1 or later.
+
 ## Start A Session
 
-Stop any web/service runtime that owns this Allbert Home, then run:
+The TUI is a thin client of the daemon. Start the packaged service first and
+leave it running:
 
 ```sh
+brew services start allbert
+curl -fsS http://localhost:4000/health
 allbert tui
 ```
 
-For a source checkout, the twin is `mix allbert.tui`. Do not run either
-standalone TUI beside `allbert serve`, a packaged service, or another Mix
-runtime against the same Home.
+Foreground `allbert serve` is the packaged diagnostic fallback when a user
+service is unavailable. For a source checkout, start
+`ALLBERT_HOLD_WRITER_LOCK=1 mix phx.server` in one terminal and attach from
+another with
+`ERL_AFLAGS="${ERL_AFLAGS:+$ERL_AFLAGS }+Bc" mix allbert.tui`; both processes
+must use the same explicit `ALLBERT_HOME` and `MIX_ENV`. The TUI-only OTP flag
+makes Ctrl-C reach the raw input driver rather than the emulator break handler;
+the packaged dispatcher applies it automatically. The hold flag keeps the
+source daemon's writer lock after startup so its Attach listener is available.
+Do not mix a source client with a packaged daemon or point a development daemon
+at the packaged Home.
+
+`allbert tui` and its Mix twin never boot Runtime, Repo, migrations, providers,
+or a second database writer. If the daemon or its authenticated Attach listener
+is unavailable, the client exits non-zero with `allbert serve`/service repair
+guidance. If another TUI is attached to this Home, the second client exits with
+an already-attached diagnostic. Web and attach-capable operator commands remain
+available while the one TUI session is open.
 
 The prompt is line-oriented:
 
 ```text
-allbert:default>
+allbert>
 ```
 
+The prompt is intentionally profile-neutral. The client sends the untrusted
+selector `default`; the daemon may resolve it to another Settings-owned terminal
+profile before identity mapping. Use `/status` when validation needs the
+daemon-verified effective profile and mapped identity rather than inferring
+either from prompt text.
+
 Enter a complete turn on one line. Type `/help` to list current commands and
-`/quit` or `/exit` to stop the launcher. Responses and coalesced progress remain
-in normal terminal scrollback; the TUI does not require a full-screen or
-alternate-screen terminal.
+`/quit` or `/exit` to detach. After the daemon accepts the session and sends its
+initial snapshot, the client enters raw mode and the terminal's alternate
+screen. Rendering is bounded; snapshot, progress, confirmations, completion,
+and status remain ordered by the daemon. Normal exit, handled Ctrl-C/EOF,
+daemon error, decoder error, or socket loss leaves the alternate screen and
+restores the terminal.
 
 ## Fresh-Home Identity Bootstrap
 
-On a fresh Home, the built-in local launcher atomically writes these keys before
-the adapter starts:
+On a fresh Home, the daemon atomically writes these keys while accepting the
+first authenticated built-in TUI session, before its temporary adapter starts:
 
 - `channels.tui.enabled=true`
 - an enabled `default → local` entry in `channels.tui.identity_map`
@@ -42,7 +72,7 @@ The first normal question therefore needs no setup command. The transaction is
 idempotent across restarts and does not complete, skip, or otherwise mutate
 onboarding.
 
-Raw-present operator state is binding. The launcher does not replace an
+Raw-present operator state is binding. The daemon session bootstrap does not replace an
 explicit `channels.tui.enabled=false`, an empty map, a disabled entry, or a
 custom map. Unmapped or disabled input produces a bounded `Message not sent`
 explanation and never reaches Runtime.
@@ -71,8 +101,10 @@ provider, confirmation, or web authorization.
 
 ## Slash Commands
 
-Slash commands are local operator controls. They do not become model turns or
-create ordinary channel-event rows.
+Slash commands are operator controls, not model turns. `/help`, `/quit`, and
+`/exit` may be handled by the client; data-bearing reads and session controls
+are dispatched to the daemon-owned adapter. They do not create ordinary model
+turns.
 
 | Command | Purpose |
 |---|---|
@@ -149,17 +181,18 @@ posture before entering `/pi`. See [Pi-mode coding](pi-mode-coding.md).
 
 ## Web Continuity
 
-After `/quit`, start the service/web runtime with the same Home and open
-`/workspace`. TUI `default` and web `web-local` independently resolve to
-canonical user `local`, so eligible durable user and conversation data is
-shared. The TUI mapping does not authorize web access, and opening the workspace
-does not automatically select the exact TUI thread; choose it explicitly when
-continuity is wanted.
+Keep the service running and open `/workspace` before, during, or after the TUI
+session. TUI `default` and web `web-local` independently resolve to canonical
+user `local`, so eligible durable user and conversation data is shared through
+the one daemon. The TUI mapping does not authorize web access, and opening the
+workspace does not automatically select the exact TUI thread; choose it
+explicitly when continuity is wanted.
 
 ## Diagnostics
 
-Post-start application logs are quiet by default. Enable or suppress them for
-one session without hiding operator-facing lifecycle output:
+Client-side logs are quiet by default. Enable or suppress them for one session
+without hiding operator-facing lifecycle output; daemon logs remain with the
+service:
 
 ```sh
 ALLBERT_TUI_LOG_LEVEL=debug allbert tui
@@ -175,12 +208,41 @@ If a normal turn is rejected, inspect:
 /health
 ```
 
-If the launcher says another runtime owns the database, stop that runtime; do
-not bypass the writer lock or point two processes at the same Home.
+If the client reports no daemon, start or repair the service and verify health:
+
+```sh
+brew services start allbert
+curl -fsS http://localhost:4000/health
+allbert admin service status
+```
+
+If it reports `already attached`, detach the existing TUI; do not bypass the
+one-session-per-Home limit. If Web is healthy but every attach command fails,
+inspect daemon health/logs and the permissions on `<Allbert Home>/runtime`.
+Attach degradation does not authorize an embedded fallback.
+
+## Terminal Recovery After Uncatchable Failure
+
+SIGKILL, power loss, a terminal emulator crash, or host failure cannot run
+client cleanup. If input echo or line discipline is damaged after such an
+uncatchable exit, run:
+
+```sh
+stty sane
+```
+
+If the display or alternate screen is still damaged, then run:
+
+```sh
+reset
+```
+
+These are recovery commands, not evidence that in-process cleanup ran. A normal
+or handled exit that needs them is a bug and fails release validation.
 
 ## Release Validation Is Separate
 
-Release-specific transcript capture, fresh-Home audit counts, cross-platform
-commands, and PASS criteria live in the active
+Release-specific attended validation, safe evidence, fresh-Home audit counts,
+cross-platform commands, and PASS criteria live in the active
 [request-flow document](../plans/README.md). Historical TUI release replay lives
 with archived request flows, not in this everyday guide.

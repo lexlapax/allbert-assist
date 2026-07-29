@@ -30,20 +30,25 @@ defmodule AllbertAssist.CLI.ReqBootTest do
     assert Process.whereis(Req.Finch) != nil, "run_entry must start :req / Req.Finch"
   end
 
-  # v1.0.1 M4.1(A): the `tui` dispatcher verb bypasses `run_entry/1` (it evals
-  # `CLI.Tui.launch/0` directly), so it needs its own :req boot — the packaged
-  # `allbert tui` crashed in the readiness guard's Ollama probe with
-  # `GenServer.call(Req.FinchSupervisor, ...)` :noproc (DIT-4(d) blocker).
-  test "CLI.Tui launch prelude starts :req before the readiness guard probes Ollama" do
+  # v1.2.1 M0.b3: the TUI is now an attach-only terminal client. It performs no
+  # readiness/provider HTTP probe and must not boot Req (or another runtime)
+  # before an unavailable-daemon result.
+  test "CLI.Tui attach-only launch does not start Req" do
     :ok = Application.stop(:req)
     assert Process.whereis(Req.FinchSupervisor) == nil, "precondition: :req stopped"
 
-    assert :ok = CLI.Tui.ensure_http_started()
+    assert {:error, :not_available} =
+             CLI.Tui.launch(
+               callbacks: %{
+                 terminal_info: fn ->
+                   {:ok, %{columns: 80, rows: 24, color: :none, unicode?: true}}
+                 end,
+                 open: fn _profile, _terminal -> {:error, :not_available} end
+               }
+             )
 
-    assert Process.whereis(Req.Finch) != nil
-
-    assert Process.whereis(Req.FinchSupervisor) != nil,
-           "custom connect_options pools spawn under Req.FinchSupervisor — the crash seam"
+    assert Process.whereis(Req.Finch) == nil
+    assert Process.whereis(Req.FinchSupervisor) == nil
   end
 
   test "the Ollama first-model probe degrades to :error instead of exiting when :req is down" do

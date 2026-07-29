@@ -104,6 +104,23 @@ defmodule AllbertAssist.SettingsCentralNoBypassCheckTest do
              |> SettingsCentralNoBypass.run([])
   end
 
+  test "allows classified terminal capability environment reads" do
+    source = """
+    defmodule Example.TerminalCapabilities do
+      def term, do: System.get_env("TERM")
+      def color, do: System.get_env("COLORTERM")
+      def columns, do: System.get_env("COLUMNS")
+      def lines, do: System.get_env("LINES")
+      def locale, do: System.get_env("LC_ALL") || System.get_env("LC_CTYPE") || System.get_env("LANG")
+    end
+    """
+
+    assert [] =
+             source
+             |> SourceFile.parse("apps/allbert_assist/lib/example_terminal_capabilities.ex")
+             |> SettingsCentralNoBypass.run([])
+  end
+
   test "flags unknown non-ALLBERT operator env reads in production source" do
     source = """
     defmodule Example.NovelEnvBypass do
