@@ -85,6 +85,18 @@ defmodule AllbertAssist.ConfirmationsTest do
     assert audit =~ id
   end
 
+  test "confirmation resume keeps only the non-secret system-integrity key reference" do
+    attrs =
+      Map.put(base_attrs(), :resume_params_ref, %{
+        key_ref: "secret://system/integrity_v1",
+        nested: %{key_ref: "secret://providers/openai/api_key"}
+      })
+
+    assert {:ok, record} = Confirmations.create(attrs, now: now())
+    assert record["resume_params_ref"]["key_ref"] == "secret://system/integrity_v1"
+    assert record["resume_params_ref"]["nested"]["key_ref"] == "[SECRET_REF]"
+  end
+
   test "context-bound create persists trusted objective, step, and action provenance" do
     context = %{
       "user_id" => "alice",

@@ -5,6 +5,7 @@ defmodule AllbertAssist.Confirmations.Record do
 
   @pending_status "pending"
   @statuses ~w(pending approved denied expired cancelled adapter_unavailable)
+  @system_integrity_ref "secret://system/integrity_v1"
   @objective_binding_version 2
   @objective_binding_kinds ~w(ordinary objective fanout_child)
 
@@ -270,12 +271,23 @@ defmodule AllbertAssist.Confirmations.Record do
   end
 
   defp redacted_map(value) when is_map(value) do
-    value
-    |> stringify_keys()
+    stringified = stringify_keys(value)
+
+    stringified
     |> Redactor.redact()
+    |> preserve_system_integrity_ref(stringified)
   end
 
   defp redacted_map(_value), do: %{}
+
+  # The system-integrity reference names native HMAC custody; it is not key
+  # material. Preserve only this closed value so resumable confirmations can
+  # verify their bindings while provider and user secret refs remain redacted.
+  defp preserve_system_integrity_ref(redacted, %{"key_ref" => @system_integrity_ref}) do
+    Map.put(redacted, "key_ref", @system_integrity_ref)
+  end
+
+  defp preserve_system_integrity_ref(redacted, _original), do: redacted
 
   defp stringify_keys(map) do
     Map.new(map, fn

@@ -42,6 +42,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Confirmations.ListConfirmations
   alias AllbertAssist.Actions.Confirmations.ShowConfirmation
   alias AllbertAssist.Actions.Conversations.CompleteThread
+  alias AllbertAssist.Actions.Conversations.DeleteConversationContent
   alias AllbertAssist.Actions.Conversations.PersistApprovalMediaResponse
   alias AllbertAssist.Actions.Conversations.PersistAttachedFanoutReport
   alias AllbertAssist.Actions.Conversations.RenameThread
@@ -274,6 +275,7 @@ defmodule AllbertAssist.Actions.Registry do
     ShowChannel,
     SetupCheck,
     ResumeThreadOnChannel,
+    DeleteConversationContent,
     ListApps,
     ShowApp,
     ListPlugins,
