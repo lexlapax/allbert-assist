@@ -28,6 +28,29 @@ release_cli() {
   "$GH_BIN" release "$@"
 }
 
+find_release() {
+  local release releases count
+  if release="$(api "/repos/${GITHUB_REPOSITORY}/releases/tags/${PROMOTION_TAG}" 2>/dev/null)"; then
+    printf '%s' "$release"
+    return 0
+  fi
+
+  # GitHub's tag lookup intentionally omits draft releases. Enumerate the
+  # authenticated release collection so a failed or retried draft promotion
+  # resumes the one matching tag instead of attempting a second draft.
+  releases="$(api --paginate --slurp \
+    "/repos/${GITHUB_REPOSITORY}/releases?per_page=100")"
+  count="$(printf '%s' "$releases" | jq --arg tag "$PROMOTION_TAG" \
+    '[.[][] | select(.tag_name == $tag)] | length')"
+  [ "$count" -le 1 ] || {
+    echo "promote-artifacts: duplicate releases for $PROMOTION_TAG" >&2
+    exit 1
+  }
+  [ "$count" -eq 1 ] || return 1
+  printf '%s' "$releases" | jq -c --arg tag "$PROMOTION_TAG" \
+    '.[][] | select(.tag_name == $tag)'
+}
+
 sha256() {
   sha256sum "$1" | awk '{print $1}'
 }
@@ -367,7 +390,13 @@ compare_or_upload() {
   assets="$(list_assets)"
   count="$(printf '%s' "$assets" | jq --arg name "$name" '[.[] | select(.name == $name)] | length')"
   case "$count" in
-    0) release_cli upload "$PROMOTION_TAG" "$path" --repo "$GITHUB_REPOSITORY" ;;
+    0)
+      [[ "$name" =~ ^[A-Za-z0-9._-]+$ ]]
+      api --hostname uploads.github.com --method POST \
+        -H "Content-Type: application/octet-stream" --input "$path" \
+        "/repos/${GITHUB_REPOSITORY}/releases/${release_id}/assets?name=${name}" \
+        >/dev/null
+      ;;
     1)
       asset_id="$(printf '%s' "$assets" | jq -r --arg name "$name" '.[] | select(.name == $name) | .id')"
       existing="$WORK/existing-${name}"
@@ -390,7 +419,7 @@ publish() {
   prerelease=false
   case "$PROMOTION_TAG" in *-*) prerelease=true ;; esac
 
-  if release="$(api "/repos/${GITHUB_REPOSITORY}/releases/tags/${PROMOTION_TAG}" 2>/dev/null)"; then
+  if release="$(find_release)"; then
     [ "$(printf '%s' "$release" | jq -r .tag_name)" = "$PROMOTION_TAG" ]
     [ "$(printf '%s' "$release" | jq -r .prerelease)" = "$prerelease" ]
     case "$(printf '%s' "$release" | jq -r .draft)" in
@@ -402,7 +431,7 @@ publish() {
       --generate-notes --verify-tag --draft)
     [ "$prerelease" = false ] || args+=(--prerelease)
     release_cli create "${args[@]}"
-    release="$(api "/repos/${GITHUB_REPOSITORY}/releases/tags/${PROMOTION_TAG}")"
+    release="$(find_release)"
   fi
   release_id="$(printf '%s' "$release" | jq -r .id)"
   [[ "$release_id" =~ ^[1-9][0-9]*$ ]]
@@ -458,7 +487,8 @@ publish() {
       '[.[] | select(.name == $name)] | length')" -eq 1 ]
   done < "$expected_names"
   if [ "$(printf '%s' "$release" | jq -r .draft)" = true ]; then
-    release_cli edit "$PROMOTION_TAG" --repo "$GITHUB_REPOSITORY" --draft=false
+    api --method PATCH "/repos/${GITHUB_REPOSITORY}/releases/${release_id}" \
+      -F draft=false >/dev/null
   fi
 }
 

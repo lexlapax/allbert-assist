@@ -67,6 +67,15 @@ and acknowledges handled SIGTERM/SIGHUP only after terminal restoration. The
 corrected exact release passed the complete PTY lifecycle on local macOS arm64
 and native Linux x64 before the provisional tag was regenerated.
 
+The resulting source run `30488005889` passed every native build, rehearsal,
+license, and TUI qualification row. Protected promotion run `30488993558`
+authenticated that evidence and created draft Release `362039404`, then stopped
+before uploading any asset because GitHub's tag lookup does not return drafts.
+The retry-safe promoter now resolves at most one matching draft through the
+authenticated release collection, uploads through its immutable release ID,
+and publishes that same ID only after the complete asset/signature set verifies.
+The draft remains unpublished while the corrected provisional generation runs.
+
 ## v1.2.5 - Failed Immutable Foundation Attempt
 
 Status: **failed immutable attempt — qualified archives exist, no GitHub

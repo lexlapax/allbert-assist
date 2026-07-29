@@ -245,7 +245,13 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     assert promote =~ "sign-blob"
     assert promote =~ "verify-blob"
     assert promote =~ "--certificate-identity"
-    assert promote =~ "release_cli upload"
+    assert promote =~ "find_release"
+    assert promote =~ "--hostname uploads.github.com"
+    assert promote =~ ~S|/releases/${release_id}/assets?name=${name}|
+    assert promote =~ ~S|/releases/${release_id}|
+    assert promote =~ "-F draft=false"
+    refute promote =~ "release_cli upload"
+    refute promote =~ "release_cli edit"
     assert promote =~ "--verify-tag"
     refute promote =~ "target_commitish"
     refute promote =~ ~S|--target "$source_sha"|
@@ -627,9 +633,19 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
           printf '%s' '{"id":700,"tag_name":"v1.2.1","prerelease":false,"draft":true}' \
             > "$FIXTURE_ROOT/release.json"
           ;;
-        "release upload "*)
-          source_path="$4"
-          name="$(basename "$source_path")"
+        *"/releases/700/assets?name="*)
+          source_path=""
+          previous=""
+          for argument in "$@"; do
+            if [ "$previous" = --input ]; then
+              source_path="$argument"
+              break
+            fi
+            previous="$argument"
+          done
+          endpoint="${!#}"
+          name="${endpoint##*name=}"
+          test -f "$source_path"
           id="$(cat "$FIXTURE_ROOT/next-asset-id")"
           printf '%s' "$((id + 1))" > "$FIXTURE_ROOT/next-asset-id"
           cp "$source_path" "$FIXTURE_ROOT/release-asset-${id}.bin"
@@ -639,7 +655,7 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
           mv "$FIXTURE_ROOT/assets.next.json" "$FIXTURE_ROOT/assets.json"
           printf 'upload:%s\n' "$name" >> "$FIXTURE_ROOT/release-events.log"
           ;;
-        "release edit "*)
+        *"--method PATCH /repos/lexlapax/allbert-assist/releases/700"*)
           jq '.draft = false' "$FIXTURE_ROOT/release.json" \
             > "$FIXTURE_ROOT/release.next.json"
           mv "$FIXTURE_ROOT/release.next.json" "$FIXTURE_ROOT/release.json"
@@ -665,7 +681,15 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
           ;;
         *"/releases/tags/v1.2.1")
           test -f "$FIXTURE_ROOT/release.json"
+          test "$(jq -r .draft "$FIXTURE_ROOT/release.json")" = false
           cat "$FIXTURE_ROOT/release.json"
+          ;;
+        *"/releases?per_page=100")
+          if test -f "$FIXTURE_ROOT/release.json"; then
+            jq -c -s '[.]' "$FIXTURE_ROOT/release.json"
+          else
+            printf '%s' '[[]]'
+          fi
           ;;
         *"/releases/700/assets?per_page=100")
           jq -c '[.]' "$FIXTURE_ROOT/assets.json"
