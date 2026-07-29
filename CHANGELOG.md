@@ -10,12 +10,12 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
-## v1.2.5 - Self-Describing Binary And Daemon TUI
+## v1.2.6 - Self-Describing Binary And Daemon TUI
 
 Status: **release candidate — immutable corrective build pending.** Failed tags
-`v1.2.1`, `v1.2.2`, `v1.2.3`, and `v1.2.4` remain immutable, published no
-artifacts, and created no GitHub Release. v1.2.5 carries the same
-operator-approved foundation scope with four bounded corrections in existing
+`v1.2.1`, `v1.2.2`, `v1.2.3`, `v1.2.4`, and `v1.2.5` remain immutable and
+created no GitHub Release. v1.2.6 carries the same
+operator-approved foundation scope with five bounded corrections in existing
 release seams: it explicitly
 removes generated manifest/digest/gzip output before rebuilding; its reviewed
 license catalog omits `unicode_util_compat`, which M0.c1 had already removed
@@ -23,22 +23,36 @@ from the locked dependency graph and which is absent from the assembled OTP
 application closure; and exact toolchain parsing consumes complete Hex/Rebar
 output before selecting version fields, preventing producer `EPIPE` failures;
 and it pins setup-beam's observed Elixir distribution label
-`v1.19.5-otp-28` independently from the verified OTP 29.0.1 runtime.
+`v1.19.5-otp-28` independently from the verified OTP 29.0.1 runtime; and its
+digest-manifest validator consumes that pinned Elixir OTP-build label instead
+of incorrectly deriving it from the runtime OTP major.
 A clean-root local `mix release allbert --overwrite` completes asset
 composition, plugin staging, measured macOS OpenSSL closure, dispatcher
 installation, and final license generation/verification; the packaged binary
-reports 1.2.5 and the offline viewer reports the bounded best-effort claim.
+reports 1.2.6 and the offline viewer reports the bounded best-effort claim.
 
 **Formula state: PRE-PUBLICATION ONLY.** The packaged Latest 1.2.0 remains during
-the corrective RC window. After immutable `v1.2.5` artifacts pass the planned
+the corrective RC window. After immutable `v1.2.6` artifacts pass the planned
 license, native TUI, signature, and installed-product qualifications, the tap is
-filled 1.2.0 → 1.2.5 from published checksums and that filled formula is synced
+filled 1.2.0 → 1.2.6 from published checksums and that filled formula is synced
 back into the repository. Until then, the repository formula remains the last
 accepted 1.2.0 package rather than advertising unavailable bytes.
 
 The release adds no license-management subsystem and no new release-automation
 framework. Stable internal `release.v121`, `v121-*`, and harness names continue
 to identify the foundation contract without becoming product-version claims.
+
+## v1.2.5 - Failed Immutable Foundation Attempt
+
+Status: **failed immutable attempt — qualified archives exist, no GitHub
+Release.** Tag `v1.2.5` points to `f4a04858`; source workflow run
+[30479193128](https://github.com/lexlapax/allbert-assist/actions/runs/30479193128)
+built and smoked all three native archives and passed the Linux install,
+service, vault, and uninstall rehearsal. Digest-manifest composition then
+rejected setup-beam's recorded `v1.19.5-otp-28` distribution because the
+validator still synthesized `otp-29` from the independently verified OTP
+29.0.1 runtime. Downstream license/TUI qualification and promotion were skipped
+and no GitHub Release was created. The tag is never moved or overwritten.
 
 ## v1.2.4 - Failed Immutable Foundation Attempt
 
