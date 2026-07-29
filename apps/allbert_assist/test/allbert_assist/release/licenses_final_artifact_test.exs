@@ -296,7 +296,7 @@ defmodule AllbertAssist.Release.LicensesFinalArtifactTest do
       end
 
       assert_raise Mix.Error,
-                   ~r/unsupported OpenSSL dependency .*v1\.2\.4 permits only libcrypto\.3\.dylib/,
+                   ~r/unsupported OpenSSL dependency .*v1\.2\.5 permits only libcrypto\.3\.dylib/,
                    fn ->
                      FinalArtifact.patch_macos_openssl_tree!(release_root,
                        command_runner: runner
@@ -317,7 +317,7 @@ defmodule AllbertAssist.Release.LicensesFinalArtifactTest do
       {otool_output(nif, ["@rpath/libcrypto.3.dylib"]), 0}
     end
 
-    assert_raise Mix.Error, ~r/@rpath dependency is unsupported in v1\.2\.4/, fn ->
+    assert_raise Mix.Error, ~r/@rpath dependency is unsupported in v1\.2\.5/, fn ->
       FinalArtifact.patch_macos_openssl_tree!(release_root, command_runner: runner)
     end
   end

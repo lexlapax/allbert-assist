@@ -44,7 +44,7 @@ the TUI thread, while existing same-user eligible data remains available under
 the cross-surface contract. See ADR 0067's v1.2 identity amendment and ADR 0087
 §1a.
 
-Accepted process-ownership amendment (v1.2.4, 2026-07-28): ADR 0091 preserves
+Accepted process-ownership amendment (v1.2.5, 2026-07-28): ADR 0091 preserves
 that exact compare-and-write and identity policy but moves its execution into
 the daemon's authenticated TUI session admission, after the sole provisional
 session reservation and before the temporary Adapter starts. The packaged and
@@ -156,7 +156,7 @@ The canonical local identity remains string `user_id` from ADR 0014. External
 provider identities map to local `user_id` values only through explicit
 Settings Central configuration. No external identity may implicitly claim
 `"local"` or any other existing local user. The v1.2 local-TUI bootstrap
-amendment above, relocated daemon-side by the v1.2.4 amendment, is the sole
+amendment above, relocated daemon-side by the v1.2.5 amendment, is the sole
 bounded exception: it durably enables the explicit local session and creates
 an ordinary Settings mapping for the built-in local terminal profile before
 the adapter starts; it does not let the adapter infer identity.

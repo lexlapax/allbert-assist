@@ -202,7 +202,7 @@ AGPLv3 can.
 If you contribute, your contribution is licensed under the same terms — that is
 Apache-2.0 §5, and there is no separate CLA.
 
-The v1.2.4 binary will carry `LICENSE`, `NOTICE`, a deterministic reviewed
+The v1.2.5 binary will carry `LICENSE`, `NOTICE`, a deterministic reviewed
 cross-target union, required license texts, exact source-availability metadata,
 and a target-specific manifest. `allbert licenses` reads those packaged files
 without starting the runtime or using the network. The inventory is explicitly

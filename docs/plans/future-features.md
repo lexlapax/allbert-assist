@@ -33,7 +33,7 @@ sequenced one per minor, foundational-first:
   fallback enablers all reached accepted stable binary lines. Shipped history
   and exact evidence live in the roadmap, CHANGELOG, and archived release
   plans; this inventory keeps only unplanned remainder.
-- **1.2.4 — Foundational Binary Enablers** (planned in the active v1.3
+- **1.2.5 — Foundational Binary Enablers** (planned in the active v1.3
   release-line plan): packaged best-effort known-component licensing/viewer and
   the daemon-backed TUI / thin terminal client, each with its own milestones.
 - **1.3 — Long-Term User Memory + Search Central.** Memory remains the
@@ -79,9 +79,9 @@ Provenance shorthand used in `Deferred at:` lines: `vX.YY-plan:N` and
 
 ### Daemon-Backed TUI / Thin Terminal Client
 
-Class: Must (foundational) (operator-confirmed 2026-07-27) · Effort: M · Slice: v1.2.4 point enabler before v1.3 schema work
+Class: Must (foundational) (operator-confirmed 2026-07-27) · Effort: M · Slice: v1.2.5 point enabler before v1.3 schema work
 
-Status: planned — `docs/plans/v1.3-plan.md`, v1.2.4 milestones; operator
+Status: planned — `docs/plans/v1.3-plan.md`, v1.2.5 milestones; operator
 promotion and second-pass architecture approved 2026-07-28. ADR 0091 owns the
 attach/session contract.
 
@@ -93,7 +93,7 @@ embedded application tree to own the terminal. Operators must therefore stop
 the service before TUI use against the same Home. The target experience is one
 durable daemon per Home with `allbert tui` acting as its local terminal client.
 
-The approved v1.2.4 milestones bind these minimum outcomes:
+The approved v1.2.5 milestones bind these minimum outcomes:
 
 - When a matching daemon is reachable, `allbert tui` opens no Repo, runs no
   migration, and starts no competing runtime. Terminal input/output is a
@@ -107,7 +107,7 @@ The approved v1.2.4 milestones bind these minimum outcomes:
   delivery, Pi-mode raw input and Escape cancellation, backpressure, clean
   detach, daemon shutdown, and terminal restoration. Requests without the new
   session kind retain legacy unary behavior.
-- v1.2.4 permits one terminal session per Home and no live resume. The daemon
+- v1.2.5 permits one terminal session per Home and no live resume. The daemon
   selects the verified mapped operator identity. When no daemon exists or
   attach fails, the client returns start/repair guidance and never boots an
   embedded runtime. A session-socket loss closes the attachment; durable
@@ -725,7 +725,7 @@ Deferred at: `v0.26-plan:2079`.
 
 ### Long-Term User Memory (Periodic Consolidation, Prompt-Time Context)
 
-Class: Must (confirmed 2026-07-14) · Effort: L · Slice: v1.3 flagship after the v1.2.4 point enabler
+Class: Must (confirmed 2026-07-14) · Effort: L · Slice: v1.3 flagship after the v1.2.5 point enabler
 
 Status: planned — `docs/plans/v1.3-plan.md` + amended ADR 0089; operator
 second-pass decisions approved 2026-07-28. M1 calibrates fixtures, quality

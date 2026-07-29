@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (v1.2.4 M0.b1, 2026-07-28; operator-signed final-readiness decision).
+Accepted (v1.2.5 M0.b1, 2026-07-28; operator-signed final-readiness decision).
 Binding on the daemon-backed-TUI milestones in the active release-line plan.
 The daemon session, integrity, and durable-receipt portion landed at M0.b2 on
 2026-07-28; the terminal client and attended validation remain M0.b3/M0.c3.
@@ -549,7 +549,7 @@ ban and post-decode exact structural validation
   desktop client.
 - No second Repo, migration runner, Runtime, TUI adapter, identity resolver, or
   confirmation store in the terminal client.
-- No live stream replay/resume or simultaneous terminal multiplexer in v1.2.4.
+- No live stream replay/resume or simultaneous terminal multiplexer in v1.2.5.
 - No authority inferred from socket possession, local uid alone, profile name,
   render capabilities, or frame content.
 - No fallback to an embedded TUI after any no-daemon or attach failure.

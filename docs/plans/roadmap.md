@@ -204,7 +204,7 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    opt-in bounded fallback shipped. `llama3.2:3b` remains the 8 GB default;
    Qwen stays operator-selectable because the only completed primary bakeoff
    row did not meet the frozen cross-platform promotion threshold.
-7. **1.2.4 — Foundational Binary Enablers.** (**Corrective RC — operator-approved
+7. **1.2.5 — Foundational Binary Enablers.** (**Corrective RC — operator-approved
    final implementation readiness 2026-07-28, five readiness passes:**
    dedicated milestones M0.a1–M0.c3 in
    `docs/plans/v1.3-plan.md` + request-flow, ADR 0076 amendment, and ADR 0091.)
@@ -240,7 +240,7 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    final implementation readiness approved 2026-07-28 after five passes:**
    `docs/plans/v1.3-plan.md` + request-flow + amended ADR 0002 and ADR 0089 +
    new ADR 0092 and ADR 0093, milestones M1–M9.b.
-   **Build starts only after v1.2.4 binary closeout.**) Long-Term User Memory
+   **Build starts only after v1.2.5 binary closeout.**) Long-Term User Memory
    remains the flagship: verified operator-authored conversation turns can
    produce reviewable proposals; only operator-kept append-only bi-temporal
    claims enter prompt context. Claims are authenticated immutable Markdown
