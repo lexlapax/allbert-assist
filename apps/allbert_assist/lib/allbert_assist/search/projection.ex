@@ -23,6 +23,7 @@ defmodule AllbertAssist.Search.Projection do
 
   @control_file "control.json"
   @page_size 200
+  @ingest_page_size 200
   @candidate_batch 100
 
   defstruct root: nil,
@@ -43,6 +44,13 @@ defmodule AllbertAssist.Search.Projection do
   @doc "Build, verify, and promote one complete generation from canonical Corpus pages."
   def rebuild(operator_id \\ "local", server \\ __MODULE__),
     do: GenServer.call(server, {:rebuild, operator_id}, :infinity)
+
+  @doc "Apply one bounded incremental Corpus page per currently granted Search policy."
+  def ingest(operator_id \\ "local", server \\ __MODULE__),
+    do: GenServer.call(server, {:ingest, operator_id}, :infinity)
+
+  @doc "Run one bounded integrity, FTS-merge, and obsolete-generation maintenance pass."
+  def maintain(server \\ __MODULE__), do: GenServer.call(server, :maintain, :infinity)
 
   @doc "Upsert one already-authorized typed Corpus envelope into the current generation."
   def upsert(%SourceEnvelope{} = envelope, server \\ __MODULE__),
@@ -89,6 +97,26 @@ defmodule AllbertAssist.Search.Projection do
       {:error, reason, next} -> {:reply, {:error, reason}, next}
     end
   end
+
+  def handle_call({:ingest, operator_id}, _from, %{ready?: true} = state) do
+    case ingest_generation(state, operator_id) do
+      {:ok, result, next} -> {:reply, {:ok, result}, next}
+      {:error, reason, next} -> {:reply, {:error, reason}, next}
+    end
+  end
+
+  def handle_call({:ingest, _operator_id}, _from, state),
+    do: {:reply, {:error, :search_not_ready}, state}
+
+  def handle_call(:maintain, _from, %{ready?: true} = state) do
+    case maintain_generation(state) do
+      {:ok, result, next} -> {:reply, {:ok, result}, next}
+      {:error, reason, next} -> {:reply, {:error, reason}, next}
+    end
+  end
+
+  def handle_call(:maintain, _from, state),
+    do: {:reply, {:error, :search_not_ready}, state}
 
   def handle_call({:upsert, envelope}, _from, %{ready?: true} = state) do
     case mutate_current(state, fn conn, revision -> upsert_envelope(conn, envelope, revision) end) do
@@ -142,6 +170,153 @@ defmodule AllbertAssist.Search.Projection do
 
   defp rebuild_generation(state, _operator_id), do: fail_rebuild(state, :invalid_operator, nil)
 
+  defp ingest_generation(state, operator_id) when is_binary(operator_id) do
+    with {:ok, _meta} <- generation_meta(state.serving_conn),
+         :ok <- current_eligibility_epoch(state.serving_conn),
+         {:ok, snapshots} <- snapshots(operator_id),
+         {:ok, result, control} <- ingest_snapshots(state, snapshots) do
+      :ok = write_control(state.root, control)
+      {:ok, result, %{state | control: control, diagnostics: []}}
+    else
+      {:error, reason} -> {:error, reason, mark_dirty(state, reason)}
+    end
+  end
+
+  defp ingest_generation(state, _operator_id),
+    do: {:error, :invalid_operator, mark_dirty(state, :invalid_operator)}
+
+  defp current_eligibility_epoch(conn) do
+    case SQLite.query_one(
+           conn,
+           "SELECT eligibility_epoch FROM generation_meta WHERE id = 1"
+         ) do
+      {:ok, [epoch]} ->
+        if epoch == Corpus.eligibility_epoch(:search), do: :ok, else: {:error, :rebuild_required}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp ingest_snapshots(state, snapshots) do
+    initial = %{
+      control: state.control,
+      indexed_count: 0,
+      pages: 0,
+      exhausted?: true
+    }
+
+    with {:ok, ingested} <- ingest_each_snapshot(state.serving_conn, snapshots, initial),
+         {:ok, source_advanced?} <- source_advanced?(snapshots),
+         {:ok, meta} <- generation_meta(state.serving_conn) do
+      incomplete? = not ingested.exhausted? or source_advanced?
+
+      control =
+        ingested.control
+        |> Map.put("dirty", incomplete?)
+        |> Map.put("state", "ready")
+        |> Map.put("projection_revision", meta.projection_revision)
+        |> Map.put("last_error_code", nil)
+
+      {:ok,
+       %{
+         status: if(incomplete?, do: :incomplete, else: :complete),
+         indexed_count: ingested.indexed_count,
+         page_count: ingested.pages,
+         generation_id: meta.generation_id,
+         projection_revision: meta.projection_revision,
+         indexed_through: meta.indexed_through,
+         source_advanced?: source_advanced?
+       }, control}
+    end
+  end
+
+  defp ingest_each_snapshot(conn, snapshots, initial) do
+    Enum.reduce_while(snapshots, {:ok, initial}, fn snapshot, {:ok, acc} ->
+      case ingest_snapshot(conn, snapshot, acc) do
+        {:ok, next} -> {:cont, {:ok, next}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp ingest_snapshot(conn, snapshot, acc) do
+    key = policy_key(snapshot.policy)
+    cursors = Map.get(acc.control, "source_cursors", %{})
+    watermark = decode_source_watermark(Map.get(cursors, key))
+
+    with {:ok, page} <- Corpus.page_after(snapshot, watermark, @ingest_page_size),
+         {:ok, written} <-
+           write_page(conn, page.items, page.cursor, %{
+             count: 0,
+             revision: current_revision(conn),
+             indexed_through: nil
+           }) do
+      cursor = if page.exhausted?, do: snapshot.high_water, else: cursor_watermark(page.cursor)
+      cursors = Map.put(cursors, key, encode_source_watermark(cursor))
+
+      {:ok,
+       %{
+         acc
+         | control: Map.put(acc.control, "source_cursors", cursors),
+           indexed_count: acc.indexed_count + written.count,
+           pages: acc.pages + 1,
+           exhausted?: acc.exhausted? and page.exhausted?
+       }}
+    end
+  end
+
+  defp current_revision(conn) do
+    case generation_meta(conn) do
+      {:ok, meta} -> meta.projection_revision
+      {:error, _reason} -> 0
+    end
+  end
+
+  defp maintain_generation(state) do
+    with {:ok, _capability} <- Schema.verify(state.serving_conn),
+         :ok <- bounded_fts_merge(state.serving_conn),
+         {:ok, _capability} <- Schema.verify(state.serving_conn) do
+      pruned_count = prune_obsolete_files(state.root, 10)
+
+      control =
+        state.control
+        |> Map.put("last_maintained_at_us", System.system_time(:microsecond))
+        |> Map.put("last_error_code", nil)
+
+      :ok = write_control(state.root, control)
+
+      {:ok,
+       %{
+         status: :complete,
+         integrity: :verified,
+         merge_pages: 4,
+         pruned_file_count: pruned_count,
+         generation_id: control["current_generation_id"],
+         projection_revision: control["projection_revision"]
+       }, %{state | control: control, diagnostics: []}}
+    else
+      {:error, reason} -> {:error, reason, mark_dirty(state, reason)}
+    end
+  end
+
+  defp bounded_fts_merge(conn) do
+    SQLite.write(conn, "INSERT INTO search_fts(search_fts, rank) VALUES('merge', 4)")
+  end
+
+  defp prune_obsolete_files(root, limit) do
+    root
+    |> obsolete_file_paths()
+    |> Enum.take(limit)
+    |> Enum.count(fn path -> File.rm(path) == :ok end)
+  end
+
+  defp obsolete_file_paths(root) do
+    ["failed-*.sqlite3*", "retired-*.sqlite3*", "pending-prune-*.sqlite3*"]
+    |> Enum.flat_map(&(root |> Path.join(&1) |> Path.wildcard()))
+    |> Enum.sort()
+  end
+
   defp build_generation(state, snapshots, primary) do
     generation_id = uuid7()
     builder_path = Path.join(state.root, "build-#{generation_id}.sqlite3")
@@ -153,6 +328,7 @@ defmodule AllbertAssist.Search.Projection do
       "previous_generation_id" => state.control["previous_generation_id"],
       "builder_generation_id" => generation_id,
       "projection_revision" => state.control["projection_revision"] || 0,
+      "source_cursors" => state.control["source_cursors"] || %{},
       "dirty" => true,
       "last_error_code" => nil
     }
@@ -175,9 +351,13 @@ defmodule AllbertAssist.Search.Projection do
     with {:ok, build} <- populate_snapshots(builder_conn, snapshots),
          :ok <- current_epochs(snapshots),
          {:ok, source_advanced?} <- source_advanced?(snapshots),
-         build = Map.put(build, :source_advanced?, source_advanced?),
          {:ok, _capability} <- Schema.verify(builder_conn, generation_id),
          {:ok, promoted} <- promote(state, generation_id, builder_conn) do
+      build =
+        build
+        |> Map.put(:source_advanced?, source_advanced?)
+        |> Map.put(:source_cursors, snapshot_high_waters(snapshots))
+
       finish_rebuild(state, generation_id, rebuilding, build, promoted)
     else
       {:error, reason, promoted} ->
@@ -247,6 +427,7 @@ defmodule AllbertAssist.Search.Projection do
         "previous_generation_id" => state.control["current_generation_id"],
         "builder_generation_id" => nil,
         "projection_revision" => build.revision,
+        "source_cursors" => build.source_cursors,
         "dirty" => build.source_advanced?,
         "last_error_code" => nil
     }
@@ -714,6 +895,7 @@ defmodule AllbertAssist.Search.Projection do
       "previous_generation_id" => nil,
       "builder_generation_id" => nil,
       "projection_revision" => 0,
+      "source_cursors" => %{},
       "dirty" => true,
       "last_error_code" => nil
     }
@@ -871,6 +1053,35 @@ defmodule AllbertAssist.Search.Projection do
   defp encode_corpus_cursor(%Corpus.Cursor{} = cursor) do
     %{timestamp: cursor.inserted_at, source_id: cursor.source_id}
   end
+
+  defp snapshot_high_waters(snapshots) do
+    Map.new(snapshots, fn snapshot ->
+      {policy_key(snapshot.policy), encode_source_watermark(snapshot.high_water)}
+    end)
+  end
+
+  defp policy_key(policy),
+    do: "#{policy.origin_scope}:#{if(policy.e2ee?, do: "e2ee", else: "plain")}"
+
+  defp cursor_watermark(nil), do: nil
+  defp cursor_watermark(%Corpus.Cursor{} = cursor), do: {cursor.inserted_at, cursor.source_id}
+
+  defp encode_source_watermark(nil), do: nil
+
+  defp encode_source_watermark({%DateTime{} = inserted_at, source_id}) do
+    %{"inserted_at" => DateTime.to_iso8601(inserted_at), "source_id" => source_id}
+  end
+
+  defp decode_source_watermark(nil), do: nil
+
+  defp decode_source_watermark(%{"inserted_at" => inserted_at, "source_id" => source_id}) do
+    case DateTime.from_iso8601(inserted_at) do
+      {:ok, datetime, _offset} -> %{inserted_at: datetime, source_id: source_id}
+      _error -> nil
+    end
+  end
+
+  defp decode_source_watermark(_value), do: nil
 
   defp encode_watermark(nil, nil), do: nil
 

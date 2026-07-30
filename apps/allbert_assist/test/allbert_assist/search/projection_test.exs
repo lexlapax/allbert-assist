@@ -119,6 +119,35 @@ defmodule AllbertAssist.Search.ProjectionTest do
     assert {:ok, %{candidates: [_candidate]}} = Projection.candidates(query)
   end
 
+  test "bounded ingestion resumes from per-policy high water and maintenance stays bounded" do
+    assert {:ok, thread} = Conversations.create_general_thread("alice", "Incremental")
+    assert {:ok, _initial} = local_message(thread, "initial projection source")
+    assert {:ok, _build} = Projection.rebuild("alice")
+
+    for index <- 1..205 do
+      assert {:ok, _message} = local_message(thread, "incremental#{index} searchable")
+    end
+
+    assert {:ok, first} = Projection.ingest("alice")
+    assert first.status == :incomplete
+    assert first.indexed_count == 200
+    assert first.page_count == 1
+
+    assert {:ok, second} = Projection.ingest("alice")
+    assert second.status == :complete
+    assert second.indexed_count == 5
+    refute Projection.status().dirty?
+
+    assert {:ok, query} = Query.parse(%{query: "incremental205"})
+    assert {:ok, %{candidates: [%{source_id: source_id}]}} = Projection.candidates(query)
+    assert {:ok, %{id: ^source_id}} = Conversations.get_message("alice", source_id)
+
+    assert {:ok, maintenance} = Projection.maintain()
+    assert maintenance.status == :complete
+    assert maintenance.integrity == :verified
+    assert maintenance.merge_pages == 4
+  end
+
   defp local_message(thread, content) do
     Conversations.append_user_message(thread, content, metadata: %{"channel" => "tui"})
   end

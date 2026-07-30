@@ -11,6 +11,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :conversation_write,
              :memory_propose,
              :memory_write,
+             :search_manage,
              :command_plan,
              :command_execute,
              :coding_file_read,

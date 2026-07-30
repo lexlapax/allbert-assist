@@ -70,6 +70,35 @@ defmodule AllbertAssist.Actions.SearchActionsTest do
     assert build.document_count == 1
   end
 
+  test "registered managed actions use search_manage and the central projection owner" do
+    assert {:ok, AllbertAssist.Actions.Search.IngestSearchIndex} =
+             Registry.resolve("ingest_search_index")
+
+    assert {:ok, AllbertAssist.Actions.Search.MaintainSearchIndex} =
+             Registry.resolve("maintain_search_index")
+
+    assert {:ok, AllbertAssist.Actions.Search.RebuildSearchIndex} =
+             Registry.resolve("rebuild_search_index")
+
+    assert {:ok, thread} = Conversations.create_general_thread("alice", "Managed Search")
+    assert {:ok, _message} = local_message(thread, "managed action source")
+    context = %{operator_id: "alice", user_id: "alice", channel: :job}
+
+    assert {:ok, rebuild} = Runner.run("rebuild_search_index", %{}, context)
+    assert rebuild.status == :completed
+    assert rebuild.result.status == :complete
+    assert rebuild.permission_decision.permission == :search_manage
+
+    assert {:ok, _later} = local_message(thread, "incremental managed source")
+    assert {:ok, ingest} = Runner.run("ingest_search_index", %{}, context)
+    assert ingest.status == :completed
+    assert ingest.result.status == :complete
+
+    assert {:ok, maintenance} = Runner.run("maintain_search_index", %{}, context)
+    assert maintenance.status == :completed
+    assert maintenance.result.integrity == :verified
+  end
+
   defp local_message(thread, content) do
     Conversations.append_user_message(thread, content, metadata: %{"channel" => "tui"})
   end

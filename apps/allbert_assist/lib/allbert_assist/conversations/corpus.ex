@@ -139,6 +139,33 @@ defmodule AllbertAssist.Conversations.Corpus do
   def page(%Snapshot{}, _cursor, _limit), do: {:error, :invalid_page_limit}
   def page(_snapshot, _cursor, _limit), do: {:error, :invalid_snapshot}
 
+  @doc "Read one snapshot page after a content-free prior high-water position."
+  @spec page_after(Snapshot.t(), map() | nil, pos_integer()) ::
+          {:ok, %{items: [SourceEnvelope.t()], cursor: Cursor.t() | nil, exhausted?: boolean()}}
+          | {:error, term()}
+  def page_after(%Snapshot{} = snapshot, watermark, limit) do
+    with {:ok, cursor} <- incremental_cursor(snapshot, watermark) do
+      page(snapshot, cursor, limit)
+    end
+  end
+
+  defp incremental_cursor(_snapshot, nil), do: {:ok, nil}
+
+  defp incremental_cursor(snapshot, %{
+         inserted_at: %DateTime{} = inserted_at,
+         source_id: source_id
+       })
+       when is_binary(source_id) and source_id != "" do
+    {:ok,
+     %Cursor{
+       snapshot_binding: snapshot.binding,
+       inserted_at: inserted_at,
+       source_id: source_id
+     }}
+  end
+
+  defp incremental_cursor(_snapshot, _watermark), do: {:error, :invalid_cursor}
+
   @doc "Re-read refs in request order and enforce current policy/scope/digest."
   @spec rehydrate_authorized(String.t(), [map() | String.t()], policy() | map()) ::
           {:ok, [{:ok, SourceEnvelope.t()} | {:error, unavailable_reason()}]}

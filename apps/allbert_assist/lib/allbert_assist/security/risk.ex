@@ -22,6 +22,7 @@ defmodule AllbertAssist.Security.Risk do
   def tier(:conversation_write), do: :low
   def tier(:memory_propose), do: :minimal
   def tier(:memory_write), do: :low
+  def tier(:search_manage), do: :low
   def tier(:command_plan), do: :low
   def tier(:coding_file_read), do: :medium
   def tier(:coding_file_write), do: :high
@@ -88,6 +89,9 @@ defmodule AllbertAssist.Security.Risk do
     do: ["bounded inert local Memory proposal write"]
 
   defp reasons(:memory_write, _tier, _context), do: ["durable markdown memory write"]
+
+  defp reasons(:search_manage, _tier, _context),
+    do: ["local disposable Search projection maintenance"]
   defp reasons(:command_plan, _tier, _context), do: ["non-executing command planning"]
   defp reasons(:coding_file_read, _tier, _context), do: ["bounded local coding file read/search"]
   defp reasons(:coding_file_write, _tier, _context), do: ["local coding file write/edit"]

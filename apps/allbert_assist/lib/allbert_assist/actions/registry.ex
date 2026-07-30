@@ -182,6 +182,9 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Sandbox.RunCommand, as: RunSandboxCommand
   alias AllbertAssist.Actions.Sandbox.RunGate, as: RunSandboxGate
   alias AllbertAssist.Actions.Search.AuthorizeSearchQueryScope
+  alias AllbertAssist.Actions.Search.IngestSearchIndex
+  alias AllbertAssist.Actions.Search.MaintainSearchIndex
+  alias AllbertAssist.Actions.Search.RebuildSearchIndex
   alias AllbertAssist.Actions.Search.SearchConversations
   alias AllbertAssist.Actions.Security.Review, as: SecurityReview
   alias AllbertAssist.Actions.Security.Status, as: SecurityStatus
@@ -327,6 +330,9 @@ defmodule AllbertAssist.Actions.Registry do
     CodingBash,
     SearchConversations,
     AuthorizeSearchQueryScope,
+    IngestSearchIndex,
+    MaintainSearchIndex,
+    RebuildSearchIndex,
     StartFanout,
     # Channel doctors declare exposure: :internal; keep them out of the agent set
     # so agent_modules/0 agrees with capability exposure (v0.54 M9.1 reconcile).

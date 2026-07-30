@@ -10,6 +10,7 @@ defmodule AllbertAssist.Security.Policy do
   @permission_settings %{
     memory_propose: "permissions.memory_propose",
     memory_write: "permissions.memory_write",
+    search_manage: "permissions.search_manage",
     command_plan: "permissions.command_plan",
     command_execute: "permissions.command_execute",
     coding_file_read: "permissions.coding_file_read",
@@ -70,6 +71,7 @@ defmodule AllbertAssist.Security.Policy do
     conversation_write: :allowed,
     memory_propose: :allowed,
     memory_write: :allowed,
+    search_manage: :allowed,
     command_plan: :allowed,
     command_execute: :denied,
     coding_file_read: :allowed,
@@ -150,6 +152,7 @@ defmodule AllbertAssist.Security.Policy do
           | :conversation_write
           | :memory_propose
           | :memory_write
+          | :search_manage
           | :command_plan
           | :command_execute
           | :coding_file_read
@@ -214,6 +217,7 @@ defmodule AllbertAssist.Security.Policy do
       :conversation_write,
       :memory_propose,
       :memory_write,
+      :search_manage,
       :command_plan,
       :command_execute,
       :coding_file_read,
@@ -697,6 +701,15 @@ defmodule AllbertAssist.Security.Policy do
 
   defp reason(:memory_write, :allowed, _configured, _floor, _context),
     do: "Memory-write intent is allowed for markdown memory."
+
+  defp reason(:search_manage, :allowed, _configured, _floor, _context),
+    do: "Local derived Search projection maintenance is allowed."
+
+  defp reason(:search_manage, :needs_confirmation, _configured, _floor, _context),
+    do: "Search projection maintenance requires confirmation by current policy."
+
+  defp reason(:search_manage, :denied, _configured, _floor, _context),
+    do: "Search projection maintenance is denied by current policy."
 
   defp reason(:memory_write, :needs_confirmation, _configured, _floor, %{
          advisory: %{present?: true}
