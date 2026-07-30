@@ -75,7 +75,7 @@ defmodule AllbertAssist.Settings.SchemaDiff do
     added_keys =
       current |> Map.keys() |> MapSet.new() |> MapSet.difference(MapSet.new(Map.keys(previous)))
 
-    added_keys == @deprecation_annotation_keys and
+    MapSet.equal?(added_keys, @deprecation_annotation_keys) and
       Map.drop(current, MapSet.to_list(added_keys)) == previous and
       current["deprecated?"] in [true, "true"] and
       is_binary(current["deprecation_reason"]) and
