@@ -2,6 +2,7 @@ defmodule AllbertAssist.Jobs.ManagedTest do
   use AllbertAssist.DataCase, async: false
 
   alias AllbertAssist.Conversations
+  alias AllbertAssist.Conversations.Corpus
   alias AllbertAssist.Jobs
   alias AllbertAssist.Jobs.Job
   alias AllbertAssist.Jobs.Managed
@@ -210,7 +211,7 @@ defmodule AllbertAssist.Jobs.ManagedTest do
     assert {:ok, _setting} = Settings.put("memory.consolidation.enabled", true)
 
     assert {:ok, _epoch} =
-             AllbertAssist.Conversations.Corpus.set_origin_grant(
+             Corpus.set_origin_grant(
                :memory,
                :local_operator,
                true
@@ -230,7 +231,7 @@ defmodule AllbertAssist.Jobs.ManagedTest do
     assert {:ok, _setting} = Settings.put("memory.consolidation.enabled", true)
 
     assert {:ok, _epoch} =
-             AllbertAssist.Conversations.Corpus.set_origin_grant(
+             Corpus.set_origin_grant(
                :memory,
                :local_operator,
                true

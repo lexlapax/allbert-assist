@@ -332,26 +332,28 @@ defmodule AllbertAssist.Conversations.ChannelThread do
     attrs = normalize_identity_link_attrs(attrs)
 
     with :ok <- validate_identity_link(attrs) do
-      Repo.transaction(fn ->
-        case Repo.get_by(CrossChannelIdentityLink, identity_link_keys(attrs)) do
-          nil ->
-            %CrossChannelIdentityLink{}
-            |> CrossChannelIdentityLink.changeset(attrs)
-            |> Repo.insert()
-            |> identity_mutation_result!()
-
-          %CrossChannelIdentityLink{user_id: existing_user_id} = existing
-          when existing_user_id == attrs.user_id ->
-            existing
-
-          %CrossChannelIdentityLink{} = existing ->
-            Repo.rollback({:identity_link_conflict, existing.user_id})
-        end
-      end)
+      Repo.transaction(fn -> upsert_identity_link(attrs) end)
     end
   end
 
   def link_identity(_attrs), do: {:error, :invalid_identity_link}
+
+  defp upsert_identity_link(attrs) do
+    case Repo.get_by(CrossChannelIdentityLink, identity_link_keys(attrs)) do
+      nil ->
+        %CrossChannelIdentityLink{}
+        |> CrossChannelIdentityLink.changeset(attrs)
+        |> Repo.insert()
+        |> identity_mutation_result!()
+
+      %CrossChannelIdentityLink{user_id: existing_user_id} = existing
+      when existing_user_id == attrs.user_id ->
+        existing
+
+      %CrossChannelIdentityLink{} = existing ->
+        Repo.rollback({:identity_link_conflict, existing.user_id})
+    end
+  end
 
   @doc "List explicit cross-channel identity links."
   @spec list_identity_links(map()) :: [CrossChannelIdentityLink.t()]

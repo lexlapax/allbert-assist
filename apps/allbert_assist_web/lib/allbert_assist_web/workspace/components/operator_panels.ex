@@ -1743,14 +1743,6 @@ defmodule AllbertAssistWeb.Workspace.Components.MemoryPanel do
           memory_candidates: [],
           memory_diagnostics: memory_action_error(response)
         )
-
-      {:error, reason} ->
-        assign(socket,
-          memory_loaded?: true,
-          memory_proposals: [],
-          memory_candidates: [],
-          memory_diagnostics: "Unable to load memory review: #{inspect(reason)}"
-        )
     end
   rescue
     error ->

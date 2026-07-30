@@ -107,28 +107,27 @@ defmodule AllbertAssist.Memory.ExtractorTest do
 
   defp expected_match?(result, expected) do
     claim = result.proposed_claim
-    expected_decision = expected["decision"]
 
-    decision_matches? =
-      case {expected_decision, result.decision} do
-        {"propose", :propose} -> true
-        {"propose_update", :propose_update} -> true
-        _other -> false
-      end
+    decision_matches?(result.decision, expected["decision"]) and
+      expected_claim_matches?(claim, expected)
+  end
 
-    subject =
-      case claim["subject"] do
-        "operator:" <> _operator_id -> "operator"
-        value -> value
-      end
+  defp decision_matches?(:propose, "propose"), do: true
+  defp decision_matches?(:propose_update, "propose_update"), do: true
+  defp decision_matches?(_decision, _expected), do: false
 
-    decision_matches? and
-      subject == Map.get(expected, "subject", subject) and
+  defp expected_claim_matches?(claim, expected) do
+    subject = normalized_subject(claim["subject"])
+
+    subject == Map.get(expected, "subject", subject) and
       claim["predicate"] == Map.get(expected, "predicate", claim["predicate"]) and
       claim["value"] == expected["object"] and
       claim["valid_from"] == Map.get(expected, "valid_from") and
       get_in(claim, ["relationship", "supersedes_value"]) == Map.get(expected, "supersedes")
   end
+
+  defp normalized_subject("operator:" <> _operator_id), do: "operator"
+  defp normalized_subject(value), do: value
 
   defp sources(test_case) do
     metadata = Map.get(test_case, "source", %{})
@@ -144,24 +143,8 @@ defmodule AllbertAssist.Memory.ExtractorTest do
   end
 
   defp source(content, author, metadata \\ %{}, index \\ 0) do
-    {author_atom, role} =
-      case author do
-        "operator" -> {:operator, "user"}
-        "assistant" -> {:assistant, "assistant"}
-        _other -> {:trace, "trace"}
-      end
-
-    origin_scope =
-      case metadata["origin"] do
-        "mapped_operator_dm" -> :mapped_operator_dm
-        nil -> :local_operator
-        other -> String.to_atom(other)
-      end
-
-    invalid_principal? =
-      metadata["principal"] == "unknown" or
-        metadata["principal_mapping"] == "unverified_remap" or
-        metadata["grant"] == false
+    {author_atom, role} = source_author(author)
+    origin_scope = source_origin(metadata["origin"])
 
     %SourceEnvelope{
       source_type: :conversation,
@@ -169,7 +152,7 @@ defmodule AllbertAssist.Memory.ExtractorTest do
       thread_id: Ecto.UUID.generate(),
       operator_id: "alice",
       user_id: "alice",
-      principal_digest: if(invalid_principal?, do: nil, else: digest("alice")),
+      principal_digest: source_principal(metadata),
       role: role,
       author: author_atom,
       trust: :private_operator,
@@ -184,6 +167,23 @@ defmodule AllbertAssist.Memory.ExtractorTest do
       origin: nil,
       trace_refs: []
     }
+  end
+
+  defp source_author("operator"), do: {:operator, "user"}
+  defp source_author("assistant"), do: {:assistant, "assistant"}
+  defp source_author(_author), do: {:trace, "trace"}
+
+  defp source_origin("mapped_operator_dm"), do: :mapped_operator_dm
+  defp source_origin(nil), do: :local_operator
+  defp source_origin(origin), do: String.to_atom(origin)
+
+  defp source_principal(metadata) do
+    invalid? =
+      metadata["principal"] == "unknown" or
+        metadata["principal_mapping"] == "unverified_remap" or
+        metadata["grant"] == false
+
+    if invalid?, do: nil, else: digest("alice")
   end
 
   defp digest(value) do

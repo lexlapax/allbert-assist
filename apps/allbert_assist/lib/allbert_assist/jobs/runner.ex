@@ -34,15 +34,15 @@ defmodule AllbertAssist.Jobs.Runner do
          :ok <- reject_blocked_job(job),
          {:ok, admission} <-
            Jobs.admit_run(job, %{trigger: "manual", due_at: Map.get(opts, :due_at)}) do
-      case admission do
-        %Run{} = run ->
-          execute_run(job, run, opts)
+      run_admission(job, admission, opts)
+    end
+  end
 
-        %{outcome: :coalesced, open_run_id: open_run_id} = result ->
-          with {:ok, open_run} <- Jobs.get_run(open_run_id) do
-            {:ok, Map.merge(result, %{job: job, run: open_run, response: nil})}
-          end
-      end
+  defp run_admission(job, %Run{} = run, opts), do: execute_run(job, run, opts)
+
+  defp run_admission(job, %{outcome: :coalesced, open_run_id: open_run_id} = result, _opts) do
+    with {:ok, open_run} <- Jobs.get_run(open_run_id) do
+      {:ok, Map.merge(result, %{job: job, run: open_run, response: nil})}
     end
   end
 

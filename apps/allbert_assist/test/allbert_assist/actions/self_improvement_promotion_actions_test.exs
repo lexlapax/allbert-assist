@@ -3,8 +3,8 @@ defmodule AllbertAssist.Actions.SelfImprovementPromotionActionsTest do
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner
-  alias AllbertAssist.Drafts.Store
   alias AllbertAssist.Drafts.Promotion
+  alias AllbertAssist.Drafts.Store
   alias AllbertAssist.DynamicPlugins
   alias AllbertAssist.DynamicPlugins.Codegen.LLM
   alias AllbertAssist.Memory

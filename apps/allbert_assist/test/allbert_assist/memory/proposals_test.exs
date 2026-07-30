@@ -1,7 +1,6 @@
 defmodule AllbertAssist.Memory.ProposalsTest do
   use AllbertAssist.DataCase, async: false
 
-  alias Ecto.Adapters.SQL
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.Corpus
   alias AllbertAssist.Memory.Proposals
@@ -10,6 +9,7 @@ defmodule AllbertAssist.Memory.ProposalsTest do
   alias AllbertAssist.Memory.SpanProvenance
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
+  alias Ecto.Adapters.SQL
 
   setup do
     original_settings = Application.get_env(:allbert_assist, Settings)

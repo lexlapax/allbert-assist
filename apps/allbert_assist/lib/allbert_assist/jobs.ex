@@ -73,7 +73,13 @@ defmodule AllbertAssist.Jobs do
   ]
 
   @type job_result :: {:ok, Job.t()} | {:error, term()}
-  @type run_result :: {:ok, Run.t()} | {:error, term()}
+  @type run_admission :: %{
+          outcome: :coalesced,
+          job_id: String.t(),
+          open_run_id: String.t(),
+          claimed_dirty_seq: non_neg_integer()
+        }
+  @type run_result :: {:ok, Run.t() | run_admission()} | {:error, term()}
 
   @doc "Create a durable scheduled job."
   @spec create_job(map()) :: job_result()
@@ -360,24 +366,26 @@ defmodule AllbertAssist.Jobs do
 
   defp admit_current_run(job, attrs) do
     with :ok <- Managed.admission_allowed?(job) do
-      case open_run(job.id) do
-        %Run{} = run ->
-          %{
-            outcome: :coalesced,
-            job_id: job.id,
-            open_run_id: run.id,
-            claimed_dirty_seq: run_claimed_dirty_seq(run)
-          }
-
-        nil ->
-          attrs = Map.put(attrs, :metadata, admission_metadata(job, attrs))
-
-          case create_run(job, attrs) do
-            {:ok, run} -> run
-            {:error, reason} -> Repo.rollback(reason)
-          end
-      end
+      admit_open_or_create(job, attrs, open_run(job.id))
     else
+      {:error, reason} -> Repo.rollback(reason)
+    end
+  end
+
+  defp admit_open_or_create(job, _attrs, %Run{} = run) do
+    %{
+      outcome: :coalesced,
+      job_id: job.id,
+      open_run_id: run.id,
+      claimed_dirty_seq: run_claimed_dirty_seq(run)
+    }
+  end
+
+  defp admit_open_or_create(job, attrs, nil) do
+    attrs = Map.put(attrs, :metadata, admission_metadata(job, attrs))
+
+    case create_run(job, attrs) do
+      {:ok, run} -> run
       {:error, reason} -> Repo.rollback(reason)
     end
   end

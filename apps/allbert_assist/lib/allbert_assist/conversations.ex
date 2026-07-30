@@ -275,39 +275,16 @@ defmodule AllbertAssist.Conversations do
     timestamp = utc_now()
 
     admission = fn ->
-      case prepare_admission_origin(thread, attrs) do
-        {:ok, origin} ->
-          message_attrs =
-            message_attrs(
-              thread,
-              attrs
-              |> Map.drop([
-                :channel_thread_ref,
-                :provider_message_id,
-                :provider_message_part_id,
-                :external_user_id
-              ])
-              |> Map.merge(%{role: "user", content: content})
-              |> Map.merge(origin.message_attrs)
-            )
-
-          message = insert_message_and_touch_thread(thread, message_attrs, timestamp)
-
-          case admit_message_ref(thread, message, origin, attrs) do
-            :ok ->
-              channel_thread_ref =
-                if origin.thread_ref,
-                  do: ChannelThread.canonical_ref(origin.thread_ref),
-                  else: nil
-
-              %{message: message, channel_thread_ref: channel_thread_ref}
-
-            {:error, reason} ->
-              Repo.rollback(reason)
-          end
-
-        {:error, reason} ->
-          Repo.rollback(reason)
+      with {:ok, origin} <- prepare_admission_origin(thread, attrs),
+           message_attrs <- inbound_message_attrs(thread, attrs, content, origin),
+           message <- insert_message_and_touch_thread(thread, message_attrs, timestamp),
+           :ok <- admit_message_ref(thread, message, origin, attrs) do
+        %{
+          message: message,
+          channel_thread_ref: canonical_origin_ref(origin.thread_ref)
+        }
+      else
+        {:error, reason} -> Repo.rollback(reason)
       end
     end
 
@@ -490,19 +467,39 @@ defmodule AllbertAssist.Conversations do
   end
 
   defp idempotent_message_match?(message, attrs) do
-    message.thread_id == attrs.thread_id and
-      message.user_id == attrs.user_id and
-      message.role == attrs.role and
-      message.content == attrs.content and
-      message.action_log == attrs.action_log and
-      message.metadata == attrs.metadata and
-      message.origin_thread_ref_id == Map.get(attrs, :origin_thread_ref_id) and
-      message.origin_principal_digest == Map.get(attrs, :origin_principal_digest) and
-      message.principal_normalizer_version == Map.get(attrs, :principal_normalizer_version) and
-      message.trace_id == Map.get(attrs, :trace_id) and
-      message.input_signal_id == Map.get(attrs, :input_signal_id) and
-      message.response_signal_id == Map.get(attrs, :response_signal_id)
+    fields = [
+      :thread_id,
+      :user_id,
+      :role,
+      :content,
+      :action_log,
+      :metadata,
+      :origin_thread_ref_id,
+      :origin_principal_digest,
+      :principal_normalizer_version,
+      :trace_id,
+      :input_signal_id,
+      :response_signal_id
+    ]
+
+    Map.take(Map.from_struct(message), fields) == Map.take(attrs, fields)
   end
+
+  defp inbound_message_attrs(thread, attrs, content, origin) do
+    attrs
+    |> Map.drop([
+      :channel_thread_ref,
+      :provider_message_id,
+      :provider_message_part_id,
+      :external_user_id
+    ])
+    |> Map.merge(%{role: "user", content: content})
+    |> Map.merge(origin.message_attrs)
+    |> then(&message_attrs(thread, &1))
+  end
+
+  defp canonical_origin_ref(nil), do: nil
+  defp canonical_origin_ref(thread_ref), do: ChannelThread.canonical_ref(thread_ref)
 
   defp prepare_admission_origin(thread, attrs) do
     case Map.get(attrs, :channel_thread_ref) do
@@ -559,26 +556,30 @@ defmodule AllbertAssist.Conversations do
         {:ok, ChannelThread.principal_digest(thread.user_id)}
 
       _remote ->
-        external_user_id = Map.get(attrs, :external_user_id)
-
-        provider_ref =
-          Map.get(ref, :provider_thread_ref, Map.get(ref, "provider_thread_ref", %{}))
-
-        cond do
-          is_binary(external_user_id) and String.trim(external_user_id) != "" ->
-            {:ok, ChannelThread.principal_digest(external_user_id)}
-
-          is_map(provider_ref) and is_binary(Map.get(provider_ref, :origin_identity_digest)) ->
-            {:ok, normalize_principal_digest(Map.get(provider_ref, :origin_identity_digest))}
-
-          is_map(provider_ref) and is_binary(Map.get(provider_ref, "origin_identity_digest")) ->
-            {:ok, normalize_principal_digest(Map.get(provider_ref, "origin_identity_digest"))}
-
-          true ->
-            {:error, :missing_origin_principal}
-        end
+        remote_principal_digest(ref, attrs)
     end
   end
+
+  defp remote_principal_digest(ref, attrs) do
+    external_user_id = Map.get(attrs, :external_user_id)
+    provider_ref = Map.get(ref, :provider_thread_ref, Map.get(ref, "provider_thread_ref", %{}))
+
+    if is_binary(external_user_id) and String.trim(external_user_id) != "" do
+      {:ok, ChannelThread.principal_digest(external_user_id)}
+    else
+      provider_principal_digest(provider_ref)
+    end
+  end
+
+  defp provider_principal_digest(provider_ref) when is_map(provider_ref) do
+    case Map.get(provider_ref, :origin_identity_digest) ||
+           Map.get(provider_ref, "origin_identity_digest") do
+      digest when is_binary(digest) -> {:ok, normalize_principal_digest(digest)}
+      _other -> {:error, :missing_origin_principal}
+    end
+  end
+
+  defp provider_principal_digest(_provider_ref), do: {:error, :missing_origin_principal}
 
   defp normalize_principal_digest("sha256:" <> digest), do: "sha256:" <> String.downcase(digest)
   defp normalize_principal_digest(digest), do: "sha256:" <> String.downcase(digest)

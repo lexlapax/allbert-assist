@@ -27,6 +27,7 @@ defmodule AllbertAssist.Memory.Claims do
           claim_id: String.t(),
           path: String.t(),
           legacy?: boolean(),
+          legacy_content: String.t() | nil,
           legacy_digest: String.t() | nil,
           records: [map()],
           effective_records: [map()],
@@ -263,8 +264,8 @@ defmodule AllbertAssist.Memory.Claims do
        ) do
     with {:ok, content} <- File.read(path),
          {:ok, stream} <- read_path(path, Keyword.put(opts, :expected_claim_id, claim_id)),
-         true <- stream.legacy? || {:error, :legacy_already_rehomed},
-         true <- stream.legacy_digest == digest || {:error, :legacy_digest_mismatch} do
+         :ok <- ensure(stream.legacy?, :legacy_already_rehomed),
+         :ok <- ensure(stream.legacy_digest == digest, :legacy_digest_mismatch) do
       {:ok, Map.put(stream, :legacy_content, legacy_content(content))}
     end
   end
@@ -319,9 +320,8 @@ defmodule AllbertAssist.Memory.Claims do
     claim_id = first["claim_id"]
 
     with :ok <- valid_claim_id(claim_id),
-         true <-
-           (is_nil(expected_claim_id) or claim_id == expected_claim_id) ||
-             {:error, :claim_id_mismatch} do
+         :ok <-
+           ensure(is_nil(expected_claim_id) or claim_id == expected_claim_id, :claim_id_mismatch) do
       {:ok, claim_id}
     end
   end
@@ -363,19 +363,24 @@ defmodule AllbertAssist.Memory.Claims do
 
   defp validate_record(record, expected_claim_id, sequence, previous) do
     with :ok <- required_record_shape(record),
-         true <-
-           (is_nil(expected_claim_id) or record["claim_id"] == expected_claim_id) ||
-             {:error, :claim_id_mismatch},
-         true <- record["sequence"] == sequence || {:error, :revision_sequence_mismatch},
-         true <-
-           record["previous_revision_digest"] == previous ||
-             {:error, :revision_link_mismatch},
-         true <-
-           record["payload_digest"] == digest(Format.canonical_json(record["payload"])) ||
-             {:error, :payload_digest_mismatch},
-         true <-
-           record["revision_digest"] == revision_digest(record) ||
-             {:error, :revision_digest_mismatch} do
+         :ok <-
+           ensure(
+             is_nil(expected_claim_id) or record["claim_id"] == expected_claim_id,
+             :claim_id_mismatch
+           ),
+         :ok <- ensure(record["sequence"] == sequence, :revision_sequence_mismatch),
+         :ok <-
+           ensure(record["previous_revision_digest"] == previous, :revision_link_mismatch),
+         :ok <-
+           ensure(
+             record["payload_digest"] == digest(Format.canonical_json(record["payload"])),
+             :payload_digest_mismatch
+           ),
+         :ok <-
+           ensure(
+             record["revision_digest"] == revision_digest(record),
+             :revision_digest_mismatch
+           ) do
       :ok
     end
   end
@@ -437,10 +442,12 @@ defmodule AllbertAssist.Memory.Claims do
   end
 
   defp authorize_record(%{"authority_kind" => "native"} = record, state) do
-    with true <- is_nil(state.pending) || {:error, :manual_confirmation_required},
-         true <-
-           record["action"] not in ~w[manual_import_confirmed destination_chain_confirmed] ||
-             {:error, :authority_action_mismatch} do
+    with :ok <- ensure(is_nil(state.pending), :manual_confirmation_required),
+         :ok <-
+           ensure(
+             record["action"] not in ~w[manual_import_confirmed destination_chain_confirmed],
+             :authority_action_mismatch
+           ) do
       case verify_integrity(record, @domain) do
         :ok ->
           {:ok, %{state | effective_records: state.effective_records ++ [record]}}
@@ -456,28 +463,35 @@ defmodule AllbertAssist.Memory.Claims do
   end
 
   defp authorize_record(%{"authority_kind" => "manual_revision"} = record, state) do
-    with true <- is_nil(state.pending) || {:error, :multiple_pending_manual_revisions},
-         true <-
-           record["action"] not in ~w[manual_import_confirmed destination_chain_confirmed] ||
-             {:error, :authority_action_mismatch},
-         true <-
-           (is_nil(record["key_ref"]) and is_nil(record["key_version"]) and
-              is_nil(record["integrity_tag"])) || {:error, :manual_revision_has_authority_tag} do
+    with :ok <- ensure(is_nil(state.pending), :multiple_pending_manual_revisions),
+         :ok <-
+           ensure(
+             record["action"] not in ~w[manual_import_confirmed destination_chain_confirmed],
+             :authority_action_mismatch
+           ),
+         :ok <-
+           ensure(
+             is_nil(record["key_ref"]) and is_nil(record["key_version"]) and
+               is_nil(record["integrity_tag"]),
+             :manual_revision_has_authority_tag
+           ) do
       {:ok, %{state | pending: record}}
     end
   end
 
   defp authorize_record(%{"authority_kind" => "manual_confirmation"} = record, state) do
-    with true <-
-           record["action"] == "manual_import_confirmed" ||
-             {:error, :authority_action_mismatch},
-         true <-
-           content_free_confirmation?(record["payload"], "pending_revision_digest") ||
-             {:error, :confirmation_contains_claim_content},
+    with :ok <- ensure(record["action"] == "manual_import_confirmed", :authority_action_mismatch),
+         :ok <-
+           ensure(
+             content_free_confirmation?(record["payload"], "pending_revision_digest"),
+             :confirmation_contains_claim_content
+           ),
          %{} = pending <- state.pending || {:error, :manual_revision_missing},
-         true <-
-           manual_confirmation_matches?(record, pending) ||
-             {:error, :manual_confirmation_mismatch} do
+         :ok <-
+           ensure(
+             manual_confirmation_matches?(record, pending),
+             :manual_confirmation_mismatch
+           ) do
       case verify_integrity(record, @manual_domain) do
         :ok ->
           {:ok,
@@ -498,15 +512,18 @@ defmodule AllbertAssist.Memory.Claims do
   end
 
   defp authorize_record(%{"authority_kind" => "destination_confirmation"} = record, state) do
-    with true <-
-           record["action"] == "destination_chain_confirmed" ||
-             {:error, :authority_action_mismatch},
-         true <-
-           content_free_confirmation?(record["payload"], "source_chain_digest") ||
-             {:error, :confirmation_contains_claim_content},
-         true <-
-           record["payload"]["source_chain_digest"] == record["previous_revision_digest"] ||
-             {:error, :destination_confirmation_mismatch} do
+    with :ok <-
+           ensure(record["action"] == "destination_chain_confirmed", :authority_action_mismatch),
+         :ok <-
+           ensure(
+             content_free_confirmation?(record["payload"], "source_chain_digest"),
+             :confirmation_contains_claim_content
+           ),
+         :ok <-
+           ensure(
+             record["payload"]["source_chain_digest"] == record["previous_revision_digest"],
+             :destination_confirmation_mismatch
+           ) do
       case verify_integrity(record, @destination_domain) do
         :ok ->
           effective_records =
@@ -586,7 +603,7 @@ defmodule AllbertAssist.Memory.Claims do
              record["key_ref"],
              record["key_version"]
            ),
-         true <- verified? || {:error, :invalid_integrity_tag} do
+         :ok <- ensure(verified?, :invalid_integrity_tag) do
       :ok
     else
       {:error, {:system_integrity_key_unavailable, _version}} ->
@@ -599,9 +616,11 @@ defmodule AllbertAssist.Memory.Claims do
 
   defp load_legacy(path, content, expected_claim_id) do
     with {:ok, identity} <- legacy_identity_from_content(path, content),
-         true <-
-           (is_nil(expected_claim_id) or identity.claim_id == expected_claim_id) ||
-             {:error, :claim_id_mismatch} do
+         :ok <-
+           ensure(
+             is_nil(expected_claim_id) or identity.claim_id == expected_claim_id,
+             :claim_id_mismatch
+           ) do
       {:ok,
        %{
          claim_id: identity.claim_id,
@@ -769,20 +788,28 @@ defmodule AllbertAssist.Memory.Claims do
   defp authorize_transition(stream, %{"action" => "manual_import_confirmed"} = payload) do
     pending = List.last(stream.records)
 
-    with true <- stream.status == :pending_manual || {:error, :manual_revision_missing},
-         true <-
-           content_free_confirmation?(payload, "pending_revision_digest") ||
-             {:error, :confirmation_contains_claim_content},
+    with :ok <- ensure(stream.status == :pending_manual, :manual_revision_missing),
+         :ok <-
+           ensure(
+             content_free_confirmation?(payload, "pending_revision_digest"),
+             :confirmation_contains_claim_content
+           ),
          %{"authority_kind" => "manual_revision"} <- pending || %{},
-         true <-
-           payload["pending_revision_digest"] == pending["revision_digest"] ||
-             {:error, :manual_confirmation_mismatch},
-         true <-
-           payload["prior_chain_digest"] == pending["previous_revision_digest"] ||
-             {:error, :manual_confirmation_mismatch},
-         true <-
-           payload["normalizer_version"] == pending["normalizer_version"] ||
-             {:error, :manual_confirmation_mismatch} do
+         :ok <-
+           ensure(
+             payload["pending_revision_digest"] == pending["revision_digest"],
+             :manual_confirmation_mismatch
+           ),
+         :ok <-
+           ensure(
+             payload["prior_chain_digest"] == pending["previous_revision_digest"],
+             :manual_confirmation_mismatch
+           ),
+         :ok <-
+           ensure(
+             payload["normalizer_version"] == pending["normalizer_version"],
+             :manual_confirmation_mismatch
+           ) do
       :ok
     else
       %{} -> {:error, :manual_revision_missing}
@@ -791,15 +818,21 @@ defmodule AllbertAssist.Memory.Claims do
   end
 
   defp authorize_transition(stream, %{"action" => "destination_chain_confirmed"} = payload) do
-    with true <-
-           stream.status == :destination_confirmation_required ||
-             {:error, :destination_confirmation_not_required},
-         true <-
-           content_free_confirmation?(payload, "source_chain_digest") ||
-             {:error, :confirmation_contains_claim_content},
-         true <-
-           payload["source_chain_digest"] == stream.tail_digest ||
-             {:error, :destination_confirmation_mismatch} do
+    with :ok <-
+           ensure(
+             stream.status == :destination_confirmation_required,
+             :destination_confirmation_not_required
+           ),
+         :ok <-
+           ensure(
+             content_free_confirmation?(payload, "source_chain_digest"),
+             :confirmation_contains_claim_content
+           ),
+         :ok <-
+           ensure(
+             payload["source_chain_digest"] == stream.tail_digest,
+             :destination_confirmation_mismatch
+           ) do
       :ok
     end
   end
@@ -932,6 +965,9 @@ defmodule AllbertAssist.Memory.Claims do
   end
 
   defp valid_expected_tail(_value), do: {:error, :invalid_expected_tail}
+
+  defp ensure(true, _reason), do: :ok
+  defp ensure(false, reason), do: {:error, reason}
 
   defp required_id(payload, key) do
     with {:ok, value} <- required_string(payload, key),

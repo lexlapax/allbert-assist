@@ -17,13 +17,20 @@ defmodule AllbertAssist.Memory.Claims.LegacyIdentity do
   def derive(category, path, memory_root) when is_binary(path) and is_binary(memory_root) do
     with {:ok, category} <- category(category),
          {:ok, relative} <- relative_path(path, memory_root),
-         {:ok, namespace} <- Ecto.UUID.dump(@namespace) do
+         {:ok, namespace} <- dump_namespace() do
       name = @name_prefix <> category <> <<0>> <> relative
       {:ok, uuid_v5(namespace, name)}
     end
   end
 
   def derive(_category, _path, _memory_root), do: {:error, :invalid_legacy_path}
+
+  defp dump_namespace do
+    case Ecto.UUID.dump(@namespace) do
+      {:ok, namespace} -> {:ok, namespace}
+      :error -> {:error, :invalid_legacy_namespace}
+    end
+  end
 
   @doc "Normalize one path lexically beneath the resolved Memory root."
   @spec relative_path(String.t(), String.t()) :: {:ok, String.t()} | {:error, term()}

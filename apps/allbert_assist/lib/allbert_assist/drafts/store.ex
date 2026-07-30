@@ -39,6 +39,7 @@ defmodule AllbertAssist.Drafts.Store do
           required(:live_authority) => term(),
           required(:payload) => map(),
           required(:promotion) => term(),
+          required(:promotion_pending) => term(),
           required(:provenance) => term(),
           required(:root) => String.t(),
           required(:slug) => term(),

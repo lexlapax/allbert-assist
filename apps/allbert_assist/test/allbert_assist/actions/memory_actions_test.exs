@@ -8,8 +8,8 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
   alias AllbertAssist.Actions.Memory.ListMemoryEntries
   alias AllbertAssist.Actions.Memory.PruneMemoryEntries
   alias AllbertAssist.Actions.Memory.ReadMemoryEntry
-  alias AllbertAssist.Actions.Memory.ReviewMemoryEntry
   alias AllbertAssist.Actions.Memory.RestoreMemoryClaim
+  alias AllbertAssist.Actions.Memory.ReviewMemoryEntry
   alias AllbertAssist.Actions.Memory.SearchMemory
   alias AllbertAssist.Actions.Memory.SummarizeMemoryCategory
   alias AllbertAssist.Actions.Memory.SyncAppLesson

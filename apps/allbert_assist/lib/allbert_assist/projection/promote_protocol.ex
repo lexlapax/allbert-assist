@@ -27,7 +27,6 @@ defmodule AllbertAssist.Projection.PromoteProtocol do
          :ok <- checkpoint_truncate(inputs.builder_conn) do
       promote_checkpointed(inputs)
     else
-      {:error, reason, %{} = inputs} -> {:error, reason, public_state(inputs)}
       {:error, reason} -> invalid_or_checkpoint_error(opts, reason)
     end
   end
@@ -223,11 +222,11 @@ defmodule AllbertAssist.Projection.PromoteProtocol do
     verify = Keyword.get(opts, :verify)
     quiesce = Keyword.get(opts, :quiesce)
 
-    with true <- is_binary(root) || {:error, :invalid_projection_root},
-         true <- valid_generation_id?(generation_id) || {:error, :invalid_generation_id},
-         true <- not is_nil(builder_conn) || {:error, :missing_builder_connection},
-         true <- is_function(verify, 2) || {:error, :invalid_projection_verifier},
-         true <- is_function(quiesce, 0) || {:error, :invalid_quiesce_callback} do
+    with :ok <- validate(is_binary(root), :invalid_projection_root),
+         :ok <- validate(valid_generation_id?(generation_id), :invalid_generation_id),
+         :ok <- validate(not is_nil(builder_conn), :missing_builder_connection),
+         :ok <- validate(is_function(verify, 2), :invalid_projection_verifier),
+         :ok <- validate(is_function(quiesce, 0), :invalid_quiesce_callback) do
       {:ok,
        %{
          root: root,
@@ -310,4 +309,7 @@ defmodule AllbertAssist.Projection.PromoteProtocol do
     do: Regex.match?(@generation_pattern, value)
 
   defp valid_generation_id?(_value), do: false
+
+  defp validate(true, _reason), do: :ok
+  defp validate(false, reason), do: {:error, reason}
 end
