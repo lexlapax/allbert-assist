@@ -16,6 +16,7 @@ defmodule AllbertAssist.Memory.ProposalReview do
   alias AllbertAssist.Memory.Claims.Format
   alias AllbertAssist.Memory.CollectionPolicy
   alias AllbertAssist.Memory.Projection
+  alias AllbertAssist.Memory.Proposals.Batch
   alias AllbertAssist.Memory.Proposals.Proposal
   alias AllbertAssist.Memory.Proposals.Suppression
   alias AllbertAssist.Memory.SpanProvenance
@@ -59,6 +60,9 @@ defmodule AllbertAssist.Memory.ProposalReview do
         "applying" -> resume(proposal_id)
         _terminal -> {:ok, content_free_result(prepared)}
       end
+    else
+      {:error, reason} ->
+        if stale_reason?(reason), do: mark_stale(proposal_id, reason), else: {:error, reason}
     end
   end
 
@@ -128,6 +132,22 @@ defmodule AllbertAssist.Memory.ProposalReview do
     |> then(&{:ok, &1})
   end
 
+  @doc "Apply or resume one frozen ordinary Keep All batch with per-item outcomes."
+  def resume_batch(batch_id, actor) when is_binary(batch_id) and is_binary(actor) do
+    with %Batch{} = batch <- Repo.get(Batch, batch_id),
+         :ok <- batch_actor(batch, actor),
+         {:ok, applying} <- mark_batch_applying(batch),
+         {:ok, results} <- apply_batch_items(applying, actor),
+         {:ok, complete} <- complete_batch(applying.id, results) do
+      {:ok, batch_result(complete)}
+    else
+      nil -> {:error, :not_found}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def resume_batch(_batch_id, _actor), do: {:error, :invalid_batch_review}
+
   defp prepare_locked(proposal_id, binding, decision, actor) do
     case Repo.get(Proposal, proposal_id) do
       %Proposal{status: "pending"} = proposal ->
@@ -160,6 +180,101 @@ defmodule AllbertAssist.Memory.ProposalReview do
       nil ->
         Repo.rollback(:not_found)
     end
+  end
+
+  defp mark_batch_applying(%Batch{status: "pending"} = batch) do
+    batch
+    |> Ecto.Changeset.change(status: "applying")
+    |> Repo.update()
+  end
+
+  defp mark_batch_applying(%Batch{status: "applying"} = batch), do: {:ok, batch}
+  defp mark_batch_applying(%Batch{status: "complete"} = batch), do: {:ok, batch}
+  defp mark_batch_applying(%Batch{}), do: {:error, :batch_not_reviewable}
+
+  defp apply_batch_items(%Batch{status: "complete", results: %{"items" => items}}, _actor),
+    do: {:ok, items}
+
+  defp apply_batch_items(batch, actor) do
+    existing = Map.new(batch.results["items"] || [], &{&1["proposal_id"], &1})
+
+    batch.bindings["items"]
+    |> Enum.reduce_while({:ok, []}, fn binding, {:ok, acc} ->
+      item = existing[binding["proposal_id"]] || apply_batch_item(binding, actor)
+
+      case persist_batch_item(batch.id, item) do
+        {:ok, _batch} -> {:cont, {:ok, [item | acc]}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+    |> case do
+      {:ok, items} -> {:ok, Enum.reverse(items)}
+      error -> error
+    end
+  end
+
+  defp apply_batch_item(binding, actor) do
+    review_binding = %{
+      revision: binding["revision"],
+      proposal_digest: binding["proposal_digest"]
+    }
+
+    case review(binding["proposal_id"], review_binding, %{operation: :keep}, actor) do
+      {:ok, result} ->
+        %{"proposal_id" => binding["proposal_id"], "outcome" => result.status}
+
+      {:error, reason} ->
+        %{
+          "proposal_id" => binding["proposal_id"],
+          "outcome" => "error",
+          "reason" => inspect(reason)
+        }
+    end
+  end
+
+  defp persist_batch_item(batch_id, item) do
+    Repo.transaction(
+      fn ->
+        batch = Repo.get!(Batch, batch_id)
+        items = batch.results["items"] || []
+
+        items =
+          items
+          |> Enum.reject(&(&1["proposal_id"] == item["proposal_id"]))
+          |> Kernel.++([item])
+
+        batch
+        |> Ecto.Changeset.change(results: %{"items" => items})
+        |> Repo.update!()
+      end,
+      mode: :immediate
+    )
+  end
+
+  defp complete_batch(batch_id, results) do
+    Repo.get!(Batch, batch_id)
+    |> Ecto.Changeset.change(
+      status: "complete",
+      results: %{"items" => results},
+      completed_at: now()
+    )
+    |> Repo.update()
+  end
+
+  defp batch_actor(batch, actor) do
+    if batch.requested_by == actor,
+      do: :ok,
+      else: {:error, :batch_actor_mismatch}
+  end
+
+  defp batch_result(batch) do
+    %{
+      batch_id: batch.id,
+      status: batch.status,
+      operator_id: batch.operator_id,
+      namespace: batch.namespace,
+      results: batch.results["items"] || []
+    }
   end
 
   defp prepare_operation(proposal, _sources, :reject, _decision, actor) do
@@ -527,4 +642,20 @@ defmodule AllbertAssist.Memory.ProposalReview do
     do: Atom.to_string(atom)
 
   defp stringify(value), do: value
+
+  defp stale_reason?(reason) do
+    reason in [
+      :missing,
+      :deleted,
+      :ineligible,
+      :scope_denied,
+      :digest_mismatch,
+      :legacy_principal_unverified,
+      :legacy_origin_unverified,
+      :origin_grant_required,
+      :e2ee_grant_required,
+      :consumer_disabled,
+      :source_identity_changed
+    ]
+  end
 end

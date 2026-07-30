@@ -3,6 +3,7 @@ defmodule AllbertAssist.Memory.ProposalReviewTest do
 
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.Corpus
+  alias AllbertAssist.Conversations.Message
   alias AllbertAssist.Memory.Claims
   alias AllbertAssist.Memory.ProposalReview
   alias AllbertAssist.Memory.Proposals
@@ -156,6 +157,51 @@ defmodule AllbertAssist.Memory.ProposalReviewTest do
     assert Repo.get!(Proposal, proposal.id).status == "pending"
   end
 
+  test "frozen Keep All excludes protected rows and records partial idempotent outcomes" do
+    first = proposal("tea")
+    second = proposal("coffee")
+    bindings = [batch_binding(first), batch_binding(second)]
+
+    assert {:ok, batch} =
+             Proposals.freeze_batch("alice", "default", bindings, "operator:alice")
+
+    second_source_id = second.source_evidence["source_id"]
+    assert {:ok, _message} = Message |> Repo.get!(second_source_id) |> Repo.delete()
+
+    assert {:ok, result} = ProposalReview.resume_batch(batch.id, "operator:alice")
+    assert result.status == "complete"
+
+    outcomes = Map.new(result.results, &{&1["proposal_id"], &1["outcome"]})
+    assert outcomes[first.id] == "kept"
+    assert outcomes[second.id] == "stale"
+    assert {:ok, _claim} = Claims.current(first.id)
+    assert {:error, :not_found} = Claims.read(second.id)
+
+    assert {:ok, same} = ProposalReview.resume_batch(batch.id, "operator:alice")
+    assert same == result
+
+    protected_source = source("My dependent has a private appointment.")
+
+    assert {:ok, %{proposal: protected}} =
+             Proposals.propose_protected(protected_source, %{
+               classification: "protected_dependent",
+               classifier_digest: digest("protected-dependent-v1"),
+               category: "notes",
+               namespace: "default",
+               run_id: "run-protected",
+               extractor_profile: "deterministic_v1",
+               extractor_version: 1
+             })
+
+    assert {:error, :protected_proposal_not_bulk_eligible} =
+             Proposals.freeze_batch(
+               "alice",
+               "default",
+               [batch_binding(protected)],
+               "operator:alice"
+             )
+  end
+
   defp proposal(value) do
     source = source("I prefer #{value}.")
     attrs = attrs(source, value)
@@ -208,6 +254,13 @@ defmodule AllbertAssist.Memory.ProposalReviewTest do
 
   defp proposal_binding(proposal),
     do: %{revision: proposal.revision, proposal_digest: proposal.proposal_digest}
+
+  defp batch_binding(proposal),
+    do: Map.put(proposal_binding(proposal), :proposal_id, proposal.id)
+
+  defp digest(value) do
+    "sha256:" <> (:crypto.hash(:sha256, value) |> Base.encode16(case: :lower))
+  end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)

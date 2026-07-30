@@ -14,6 +14,7 @@ defmodule AllbertAssist.Memory.Proposals do
   alias AllbertAssist.Memory.Claims.Format
   alias AllbertAssist.Memory.CollectionPolicy
   alias AllbertAssist.Memory.Forget
+  alias AllbertAssist.Memory.Proposals.Batch
   alias AllbertAssist.Memory.Proposals.Proposal
   alias AllbertAssist.Memory.Proposals.Suppression
   alias AllbertAssist.Memory.SecretFilter
@@ -75,6 +76,34 @@ defmodule AllbertAssist.Memory.Proposals do
     |> order_by([proposal], asc: proposal.inserted_at, asc: proposal.id)
     |> Repo.all()
   end
+
+  @doc "Freeze an exact visible ordinary proposal set for Keep All."
+  def freeze_batch(operator_id, namespace, bindings, requested_by)
+      when is_binary(operator_id) and is_binary(namespace) and is_list(bindings) and
+             is_binary(requested_by) and bindings != [] and length(bindings) <= @pending_cap do
+    normalized = Enum.map(bindings, &normalize_binding/1)
+
+    with :ok <- unique_batch_bindings(normalized),
+         {:ok, proposals} <- bound_proposals(operator_id, namespace, normalized),
+         :ok <- ordinary_batch(proposals) do
+      attrs = %{
+        id: Ecto.UUID.generate(),
+        operator_id: operator_id,
+        namespace: namespace,
+        status: "pending",
+        bindings: %{"items" => normalized},
+        results: %{"items" => []},
+        requested_by: String.trim(requested_by)
+      }
+
+      %Batch{}
+      |> Batch.changeset(attrs)
+      |> Repo.insert()
+    end
+  end
+
+  def freeze_batch(_operator_id, _namespace, _bindings, _requested_by),
+    do: {:error, :invalid_batch}
 
   @doc false
   def proposal_digest(namespace, claim) do
@@ -144,6 +173,56 @@ defmodule AllbertAssist.Memory.Proposals do
             suppression.normalizer_version == ^@normalizer_version
       )
     )
+  end
+
+  defp normalize_binding(binding) when is_map(binding) do
+    %{
+      "proposal_id" => Map.get(binding, :proposal_id, Map.get(binding, "proposal_id")),
+      "revision" => Map.get(binding, :revision, Map.get(binding, "revision")),
+      "proposal_digest" => Map.get(binding, :proposal_digest, Map.get(binding, "proposal_digest"))
+    }
+  end
+
+  defp normalize_binding(_binding), do: %{}
+
+  defp unique_batch_bindings(bindings) do
+    ids = Enum.map(bindings, & &1["proposal_id"])
+
+    if Enum.all?(ids, &(is_binary(&1) and &1 != "")) and Enum.uniq(ids) == ids,
+      do: :ok,
+      else: {:error, :duplicate_or_invalid_batch_binding}
+  end
+
+  defp bound_proposals(operator_id, namespace, bindings) do
+    ids = Enum.map(bindings, & &1["proposal_id"])
+
+    proposals =
+      Proposal
+      |> where(
+        [proposal],
+        proposal.operator_id == ^operator_id and proposal.namespace == ^namespace and
+          proposal.id in ^ids
+      )
+      |> Repo.all()
+
+    by_id = Map.new(proposals, &{&1.id, &1})
+
+    if Enum.all?(bindings, &binding_matches?(by_id[&1["proposal_id"]], &1)),
+      do: {:ok, Enum.map(ids, &by_id[&1])},
+      else: {:error, :stale_proposal_binding}
+  end
+
+  defp binding_matches?(%Proposal{} = proposal, binding) do
+    proposal.status == "pending" and proposal.revision == binding["revision"] and
+      proposal.proposal_digest == binding["proposal_digest"]
+  end
+
+  defp binding_matches?(_proposal, _binding), do: false
+
+  defp ordinary_batch(proposals) do
+    if Enum.all?(proposals, &(&1.kind == "ordinary" and &1.classification == "ordinary")),
+      do: :ok,
+      else: {:error, :protected_proposal_not_bulk_eligible}
   end
 
   defp normalize_ordinary(source, attrs) do
