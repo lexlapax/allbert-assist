@@ -600,7 +600,8 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert source =~ ~s(defp docs_check_adr_index_statuses)
     assert source =~ ~s(defp docs_check_command_group_docs)
     assert source =~ ~s(defp docs_check_local_markdown_links)
-    assert source =~ ~s|AllbertAssist.CLI.Commands.groups()|
+    assert source =~ ~s(alias AllbertAssist.CLI.Commands, as: CLICommands)
+    assert source =~ ~s|CLICommands.groups()|
     assert source =~ ~s(local Markdown links agree)
   end
 

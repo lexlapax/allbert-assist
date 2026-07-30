@@ -84,6 +84,7 @@ defmodule Mix.Tasks.Allbert.Test do
 
   use Mix.Task
 
+  alias AllbertAssist.CLI.Commands, as: CLICommands
   alias AllbertAssist.DevGates.PartitionPacker
   alias AllbertAssist.DevGates.PhaseRunner
   alias AllbertAssist.DevGates.TestManifest
@@ -360,7 +361,7 @@ defmodule Mix.Tasks.Allbert.Test do
     mapping = File.read!(mapping_path)
 
     missing =
-      AllbertAssist.CLI.Commands.groups()
+      CLICommands.groups()
       |> Enum.reject(&String.contains?(mapping, "`allbert #{&1}`"))
       |> Enum.map(&"docs/developer/cli-mapping.md: missing packaged command group allbert #{&1}")
 
@@ -381,39 +382,38 @@ defmodule Mix.Tasks.Allbert.Test do
 
         ~r/\[[^\]]*\]\((<?[^)\n]+?\.md(?:#[^)\s>]*)?>?)(?:\s+["'][^)]*["'])?\)/
         |> Regex.scan(body, capture: :all_but_first)
-        |> Enum.flat_map(fn [destination] ->
-          target =
-            destination
-            |> String.trim()
-            |> String.trim_leading("<")
-            |> String.trim_trailing(">")
-            |> String.split("#", parts: 2)
-            |> hd()
-            |> URI.decode()
-
-          resolved =
-            cond do
-              URI.parse(target).scheme != nil ->
-                :external
-
-              String.starts_with?(target, "/") ->
-                Path.join(root, String.trim_leading(target, "/"))
-
-              true ->
-                Path.expand(target, Path.dirname(Path.join(root, rel)))
-            end
-
-          if resolved == :external or
-               (File.regular?(resolved) and
-                  (resolved == root or String.starts_with?(resolved, root <> "/"))) do
-            []
-          else
-            ["#{rel}: local Markdown link does not resolve: #{destination}"]
-          end
-        end)
+        |> Enum.flat_map(&docs_local_markdown_link_errors(&1, rel, root))
       end)
 
     errors ++ link_errors
+  end
+
+  defp docs_local_markdown_link_errors([destination], rel, root) do
+    target =
+      destination
+      |> String.trim()
+      |> String.trim_leading("<")
+      |> String.trim_trailing(">")
+      |> String.split("#", parts: 2)
+      |> hd()
+      |> URI.decode()
+
+    resolved = docs_resolve_markdown_link(target, rel, root)
+
+    if resolved == :external or
+         (File.regular?(resolved) and String.starts_with?(resolved, root <> "/")) do
+      []
+    else
+      ["#{rel}: local Markdown link does not resolve: #{destination}"]
+    end
+  end
+
+  defp docs_resolve_markdown_link(target, rel, root) do
+    cond do
+      URI.parse(target).scheme != nil -> :external
+      String.starts_with?(target, "/") -> Path.join(root, String.trim_leading(target, "/"))
+      true -> Path.expand(target, Path.dirname(Path.join(root, rel)))
+    end
   end
 
   defp docs_check_directory_indexes(errors, root) do
@@ -859,42 +859,13 @@ defmodule Mix.Tasks.Allbert.Test do
   end
 
   defp bench_v13_latency(args) do
-    {opts, rest, invalid} =
-      OptionParser.parse(args,
-        strict: [
-          consumer: :string,
-          output: :string,
-          executable: :string,
-          artifact_sha256: :string
-        ]
-      )
-
-    reject_invalid!(invalid)
-    reject_rest!(rest)
-
-    consumer = Keyword.get(opts, :consumer, "both")
-
-    unless consumer in ~w[memory search both] do
-      Mix.raise("--consumer must be memory, search, or both")
-    end
-
-    output = Keyword.get(opts, :output)
-    output = if output, do: Path.expand(output, root())
-    executable = Keyword.get(opts, :executable)
-    executable = if executable, do: Path.expand(executable, root())
-    artifact_sha256 = Keyword.get(opts, :artifact_sha256)
-
-    if output && File.exists?(output) do
-      Mix.raise("benchmark output already exists: #{output}")
-    end
-
-    if executable && !File.regular?(executable) do
-      Mix.raise("packaged executable does not exist: #{executable}")
-    end
-
-    if executable && !(is_binary(artifact_sha256) && artifact_sha256 =~ ~r/^[0-9a-f]{64}$/) do
-      Mix.raise("--executable requires a lowercase 64-hex --artifact-sha256")
-    end
+    %{
+      consumer: consumer,
+      output: output,
+      executable: executable,
+      artifact_sha256: artifact_sha256
+    } =
+      v13_latency_options!(args)
 
     {full_sha, dirty?} = v13_benchmark_provenance!()
 
@@ -936,6 +907,67 @@ defmodule Mix.Tasks.Allbert.Test do
       end
     after
       cleanup_owned_env(env)
+    end
+  end
+
+  defp v13_latency_options!(args) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args,
+        strict: [
+          consumer: :string,
+          output: :string,
+          executable: :string,
+          artifact_sha256: :string
+        ]
+      )
+
+    reject_invalid!(invalid)
+    reject_rest!(rest)
+
+    consumer = opts |> Keyword.get(:consumer, "both") |> validate_v13_consumer!()
+    output = opts |> Keyword.get(:output) |> expand_optional_path()
+    executable = opts |> Keyword.get(:executable) |> expand_optional_path()
+    artifact_sha256 = Keyword.get(opts, :artifact_sha256)
+
+    validate_new_output!(output)
+    validate_packaged_executable!(executable)
+    validate_artifact_digest!(executable, artifact_sha256)
+
+    %{
+      consumer: consumer,
+      output: output,
+      executable: executable,
+      artifact_sha256: artifact_sha256
+    }
+  end
+
+  defp validate_v13_consumer!(consumer) when consumer in ~w[memory search both], do: consumer
+
+  defp validate_v13_consumer!(_consumer),
+    do: Mix.raise("--consumer must be memory, search, or both")
+
+  defp expand_optional_path(nil), do: nil
+  defp expand_optional_path(path), do: Path.expand(path, root())
+
+  defp validate_new_output!(nil), do: :ok
+
+  defp validate_new_output!(output) do
+    if File.exists?(output), do: Mix.raise("benchmark output already exists: #{output}")
+  end
+
+  defp validate_packaged_executable!(nil), do: :ok
+
+  defp validate_packaged_executable!(executable) do
+    unless File.regular?(executable) do
+      Mix.raise("packaged executable does not exist: #{executable}")
+    end
+  end
+
+  defp validate_artifact_digest!(nil, _artifact_sha256), do: :ok
+
+  defp validate_artifact_digest!(_executable, artifact_sha256) do
+    unless is_binary(artifact_sha256) and artifact_sha256 =~ ~r/^[0-9a-f]{64}$/ do
+      Mix.raise("--executable requires a lowercase 64-hex --artifact-sha256")
     end
   end
 

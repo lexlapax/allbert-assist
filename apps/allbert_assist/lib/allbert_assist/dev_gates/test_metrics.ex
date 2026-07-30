@@ -554,7 +554,7 @@ defmodule AllbertAssist.DevGates.TestMetrics do
       case {phase, corpus_id} do
         {"memory", "v13-memory-10k-200-v1"} -> {200, 75.0, 250.0}
         {"search", "v13-search-25k-300-v1"} -> {300, 200.0, 750.0}
-        _other -> invalid_v13_latency!("consumer/corpus identity")
+        _other -> raise invalid_v13_latency("consumer/corpus identity")
       end
 
     {samples, p95_limit, p99_limit} = expected
@@ -582,12 +582,12 @@ defmodule AllbertAssist.DevGates.TestMetrics do
 
     case Enum.find(checks, fn {ok?, _label} -> !ok? end) do
       nil -> record
-      {_false, label} -> invalid_v13_latency!(label)
+      {_false, label} -> raise invalid_v13_latency(label)
     end
   end
 
-  defp invalid_v13_latency!(field),
-    do: raise(ArgumentError, "invalid v1.3 latency evidence: #{field}")
+  defp invalid_v13_latency(field),
+    do: ArgumentError.exception("invalid v1.3 latency evidence: #{field}")
 
   defp regex?(value, regex), do: is_binary(value) and Regex.match?(regex, value)
 

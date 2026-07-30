@@ -55,7 +55,17 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
         "SSL_CERT_FILE",
         # v0.63 (operator-validation F1): CLI log-verbosity override read by the eval
         # entry before the runtime boots — infrastructure, not a Settings Central key.
-        "ALLBERT_LOG_LEVEL"
+        "ALLBERT_LOG_LEVEL",
+        # v1.3 development-gate process inputs. The Mix task owns and validates
+        # these per-run evidence bindings; they are not durable operator policy.
+        "V13_LATENCY_CONSUMER",
+        "V13_LATENCY_STORE",
+        "V13_ARTIFACT_SHA256",
+        "V13_ZERO_SHOT_FIXTURE",
+        "V13_ZERO_SHOT_STORE",
+        "V13_MODEL_PROFILE",
+        "V13_FULL_SHA",
+        "V13_DIRTY"
       ],
       operator_setting_keys: [
         "runtime.trace_default",
