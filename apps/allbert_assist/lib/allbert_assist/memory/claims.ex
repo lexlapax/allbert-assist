@@ -133,15 +133,10 @@ defmodule AllbertAssist.Memory.Claims do
 
   @doc "Return every discovered claim path; hidden/temp/deleted/tombstone files are excluded."
   def claim_paths do
-    canonical = Path.wildcard(Path.join(Paths.memory_claims_root(), "*.md"))
-
-    legacy =
-      Memory.categories()
-      |> Enum.flat_map(fn category ->
-        Path.wildcard(Path.join([Memory.root(), Atom.to_string(category), "*.md"]))
-      end)
-
-    (canonical ++ legacy)
+    Memory.categories()
+    |> Enum.flat_map(fn category ->
+      Path.wildcard(Path.join([Memory.root(), Atom.to_string(category), "*.md"]))
+    end)
     |> Enum.reject(&(Path.basename(&1) |> String.starts_with?(".")))
     |> Enum.uniq()
     |> Enum.sort()
@@ -199,7 +194,7 @@ defmodule AllbertAssist.Memory.Claims do
     else
       case locate_claim(claim_id) do
         {:ok, path} -> existing_target(claim_id, path)
-        {:error, :not_found} -> new_target(claim_id)
+        {:error, :not_found} -> new_target(claim_id, transition)
         {:error, reason} -> {:error, reason}
       end
     end
@@ -226,14 +221,16 @@ defmodule AllbertAssist.Memory.Claims do
     {:ok, %{claim_id: claim_id, path: path, legacy?: :existing, legacy_digest: nil}}
   end
 
-  defp new_target(claim_id) do
-    {:ok,
-     %{
-       claim_id: claim_id,
-       path: Path.join(Paths.memory_claims_root(), claim_id <> ".md"),
-       legacy?: false,
-       legacy_digest: nil
-     }}
+  defp new_target(claim_id, transition) do
+    with {:ok, category} <- claim_category(field(transition, :category)) do
+      {:ok,
+       %{
+         claim_id: claim_id,
+         path: Path.join([Memory.root(), category, claim_id <> ".md"]),
+         legacy?: false,
+         legacy_digest: nil
+       }}
+    end
   end
 
   defp load_target(%{legacy?: false, path: path, claim_id: claim_id}, opts) do
@@ -618,6 +615,21 @@ defmodule AllbertAssist.Memory.Claims do
       do: :ok,
       else: {:error, :invalid_legacy_category}
   end
+
+  defp claim_category(nil), do: {:ok, "notes"}
+
+  defp claim_category(category) when is_atom(category),
+    do: claim_category(Atom.to_string(category))
+
+  defp claim_category(category) when is_binary(category) do
+    category = String.trim(category)
+
+    if category in Enum.map(Memory.categories(), &Atom.to_string/1),
+      do: {:ok, category},
+      else: {:error, :invalid_claim_category}
+  end
+
+  defp claim_category(_category), do: {:error, :invalid_claim_category}
 
   defp normalize_transition(transition, stream) do
     payload =

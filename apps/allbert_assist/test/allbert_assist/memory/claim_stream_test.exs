@@ -183,12 +183,12 @@ defmodule AllbertAssist.Memory.ClaimStreamTest do
     claim_id = Ecto.UUID.generate()
     assert {:ok, appended} = Claims.append(claim_id, nil, transition())
 
-    duplicate_dir = Path.join(Memory.root(), "notes")
+    duplicate_dir = Path.join(Memory.root(), "preferences")
     File.mkdir_p!(duplicate_dir)
     File.cp!(appended.path, Path.join(duplicate_dir, "duplicate.md"))
     assert {:error, :duplicate_claim_id} = Claims.read(claim_id)
 
-    File.write!(Path.join(Paths.memory_claims_root(), ".ignored.md.tmp"), "not a stream")
+    File.write!(Path.join(Path.dirname(appended.path), ".ignored.md.tmp"), "not a stream")
     refute Enum.any?(Claims.claim_paths(), &(Path.basename(&1) == ".ignored.md.tmp"))
   end
 
@@ -281,7 +281,7 @@ defmodule AllbertAssist.Memory.ClaimStreamTest do
     System.put_env("ALLBERT_HOME", destination_home)
     KeyCustody.invalidate(:all)
 
-    destination_path = Path.join(Paths.memory_claims_root(), claim_id <> ".md")
+    destination_path = Path.join([Memory.root(), "notes", claim_id <> ".md"])
     File.mkdir_p!(Path.dirname(destination_path))
     File.write!(destination_path, source_bytes)
 

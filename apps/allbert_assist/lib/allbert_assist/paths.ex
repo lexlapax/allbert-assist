@@ -151,10 +151,6 @@ defmodule AllbertAssist.Paths do
     Path.join(memory_root(), "deleted")
   end
 
-  @doc "Return the canonical v1.3 claim-stream root."
-  @spec memory_claims_root() :: String.t()
-  def memory_claims_root, do: Path.join(memory_root(), "claims")
-
   @doc "Return the content-free v1.3 Memory tombstone root."
   @spec memory_tombstones_root() :: String.t()
   def memory_tombstones_root, do: Path.join(memory_root(), "tombstones")
