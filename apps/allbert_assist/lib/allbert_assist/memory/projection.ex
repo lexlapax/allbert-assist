@@ -12,6 +12,7 @@ defmodule AllbertAssist.Memory.Projection do
 
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Claims
+  alias AllbertAssist.Memory.Forget
   alias AllbertAssist.Paths
   alias AllbertAssist.Projection.PromoteProtocol
   alias Exqlite.Sqlite3
@@ -25,6 +26,7 @@ defmodule AllbertAssist.Memory.Projection do
             control: nil,
             serving_conn: nil,
             diagnostics: [],
+            tombstones: [],
             ready?: false
 
   @type state :: %__MODULE__{}
@@ -44,6 +46,10 @@ defmodule AllbertAssist.Memory.Projection do
   def refresh_claim(claim_id, server \\ __MODULE__),
     do: GenServer.call(server, {:refresh_claim, claim_id}, :infinity)
 
+  @doc false
+  def replace_after_forget(claim_id, server \\ __MODULE__),
+    do: GenServer.call(server, {:replace_after_forget, claim_id}, :infinity)
+
   @doc "Return content-free projection lifecycle and diagnostics."
   def status(server \\ __MODULE__), do: GenServer.call(server, :status)
 
@@ -56,7 +62,7 @@ defmodule AllbertAssist.Memory.Projection do
     root = opts |> Keyword.get(:root, Paths.memory_projection_root()) |> Path.expand()
     File.mkdir_p!(root)
     cleanup_stale_builders(root)
-    {control, serving_conn, diagnostics} = load_generation(root)
+    {control, serving_conn, diagnostics, tombstones} = load_after_tombstones(root)
     _ = write_control(root, control)
 
     {:ok,
@@ -65,6 +71,7 @@ defmodule AllbertAssist.Memory.Projection do
        control: control,
        serving_conn: serving_conn,
        diagnostics: diagnostics,
+       tombstones: tombstones,
        ready?: not is_nil(serving_conn)
      }}
   end
@@ -90,6 +97,23 @@ defmodule AllbertAssist.Memory.Projection do
 
   def handle_call({:refresh_claim, _claim_id}, _from, state) do
     {:reply, {:error, :memory_projection_not_ready}, state}
+  end
+
+  def handle_call({:replace_after_forget, claim_id}, _from, state) do
+    case rebuild_generation(state) do
+      {:ok, _result, rebuilt} ->
+        with :ok <- retire_noncurrent_generations(rebuilt.root),
+             control = Map.put(rebuilt.control, "previous_generation_id", nil),
+             :ok <- write_control(rebuilt.root, control),
+             {:ok, tombstones} <- Forget.load_tombstones() do
+          {:reply, :ok, %{rebuilt | control: control, tombstones: tombstones}}
+        else
+          {:error, reason} -> {:reply, {:error, reason}, mark_dirty(rebuilt, reason)}
+        end
+
+      {:error, reason, failed} ->
+        {:reply, {:error, {:forget_projection_rebuild_failed, claim_id, reason}}, failed}
+    end
   end
 
   def handle_call({:history, claim_id}, _from, %{ready?: true} = state) do
@@ -221,13 +245,13 @@ defmodule AllbertAssist.Memory.Projection do
     paths = Claims.claim_paths()
     source_watermark = source_watermark(paths)
 
-    candidates =
-      Enum.map(paths, fn path ->
-        case Claims.read_path(path) do
-          {:ok, stream} -> {:ok, stream}
-          {:error, reason} -> {:error, diagnostic(path, reason)}
-        end
-      end)
+    with {:ok, tombstones} <- Forget.load_tombstones() do
+      populate_paths(conn, paths, source_watermark, tombstones)
+    end
+  end
+
+  defp populate_paths(conn, paths, source_watermark, tombstones) do
+    candidates = Enum.map(paths, &claim_candidate/1)
 
     duplicate_ids =
       candidates
@@ -240,7 +264,7 @@ defmodule AllbertAssist.Memory.Projection do
       |> Map.new()
 
     Enum.reduce_while(candidates, {:ok, build_acc()}, fn candidate, result ->
-      populate_candidate(candidate, result, conn, duplicate_ids)
+      populate_candidate(candidate, result, conn, duplicate_ids, tombstones)
     end)
     |> case do
       {:ok, acc} ->
@@ -256,6 +280,13 @@ defmodule AllbertAssist.Memory.Projection do
     end
   end
 
+  defp claim_candidate(path) do
+    case Claims.read_path(path) do
+      {:ok, stream} -> {:ok, stream}
+      {:error, reason} -> {:error, diagnostic(path, reason)}
+    end
+  end
+
   defp build_acc do
     %{claim_count: 0, revision_count: 0, diagnostics: [], watermark: nil}
   end
@@ -263,11 +294,17 @@ defmodule AllbertAssist.Memory.Projection do
   defp add_diagnostic(acc, diagnostic),
     do: %{acc | diagnostics: [diagnostic | acc.diagnostics]}
 
-  defp populate_candidate({:error, diagnostic}, {:ok, acc}, _conn, _duplicate_ids) do
+  defp populate_candidate(
+         {:error, diagnostic},
+         {:ok, acc},
+         _conn,
+         _duplicate_ids,
+         _tombstones
+       ) do
     {:cont, {:ok, add_diagnostic(acc, diagnostic)}}
   end
 
-  defp populate_candidate({:ok, stream}, {:ok, acc}, conn, duplicate_ids) do
+  defp populate_candidate({:ok, stream}, {:ok, acc}, conn, duplicate_ids, tombstones) do
     cond do
       Map.has_key?(duplicate_ids, stream.claim_id) ->
         skip_candidate(acc, stream.path, :duplicate_claim_id)
@@ -276,7 +313,26 @@ defmodule AllbertAssist.Memory.Projection do
         skip_candidate(acc, stream.path, stream.status)
 
       true ->
-        insert_candidate(conn, stream, acc)
+        insert_unsuppressed_candidate(conn, stream, acc, tombstones)
+    end
+  end
+
+  defp insert_unsuppressed_candidate(conn, stream, acc, tombstones) do
+    case stream_suppressed?(stream, tombstones) do
+      {:ok, true} -> skip_candidate(acc, stream.path, :forgotten_value_suppressed)
+      {:ok, false} -> insert_candidate(conn, stream, acc)
+    end
+  end
+
+  defp stream_suppressed?(%{status: :grandfathered, legacy_content: value}, tombstones),
+    do: Forget.suppressed_value?(value, tombstones)
+
+  defp stream_suppressed?(%{status: :valid, effective_records: records}, tombstones) do
+    records
+    |> List.last()
+    |> case do
+      %{"payload" => payload} -> Forget.suppressed_value?(claim_value(payload), tombstones)
+      nil -> {:ok, false}
     end
   end
 
@@ -497,6 +553,22 @@ defmodule AllbertAssist.Memory.Projection do
     end
   end
 
+  defp load_after_tombstones(root) do
+    case Forget.load_tombstones() do
+      {:ok, tombstones} ->
+        {control, conn, diagnostics} = load_generation(root)
+        {control, conn, diagnostics, tombstones}
+
+      {:error, reason} ->
+        control =
+          default_control()
+          |> Map.put("state", "degraded")
+          |> Map.put("last_error_code", error_code(reason))
+
+        {control, nil, [%{path: "tombstones", code: error_code(reason)}], []}
+    end
+  end
+
   defp open_controlled_generation(root, control, generation_id) do
     path = Path.join(root, "current.sqlite3")
 
@@ -714,7 +786,8 @@ defmodule AllbertAssist.Memory.Projection do
       ready?: state.ready?,
       root: state.root,
       control: state.control,
-      diagnostics: state.diagnostics
+      diagnostics: state.diagnostics,
+      tombstone_count: length(state.tombstones)
     }
   end
 
@@ -792,5 +865,25 @@ defmodule AllbertAssist.Memory.Projection do
     |> Path.join("build-*.sqlite3*")
     |> Path.wildcard()
     |> Enum.each(&File.rm/1)
+  end
+
+  defp retire_noncurrent_generations(root) do
+    paths =
+      [
+        Path.join(root, "previous.sqlite3"),
+        Path.join(root, "previous.sqlite3-wal"),
+        Path.join(root, "previous.sqlite3-shm")
+      ] ++ Path.wildcard(Path.join(root, "build-*.sqlite3*"))
+
+    result =
+      Enum.reduce_while(paths, :ok, fn path, :ok ->
+        case File.rm(path) do
+          :ok -> {:cont, :ok}
+          {:error, :enoent} -> {:cont, :ok}
+          {:error, reason} -> {:halt, {:error, {:projection_retire_failed, reason}}}
+        end
+      end)
+
+    with :ok <- result, do: sync_directory(root)
   end
 end

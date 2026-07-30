@@ -64,6 +64,22 @@ defmodule AllbertAssist.Memory.Claims do
     end
   end
 
+  @doc false
+  @spec with_claim_lock(String.t(), String.t(), (stream() -> term())) :: term()
+  def with_claim_lock(claim_id, expected_tail_digest, fun) when is_function(fun, 1) do
+    with :ok <- valid_claim_id(claim_id),
+         :ok <- valid_expected_tail(expected_tail_digest) do
+      lock(claim_id, fn -> locked_stream(claim_id, expected_tail_digest, fun) end)
+    end
+  end
+
+  defp locked_stream(claim_id, expected_tail_digest, fun) do
+    with {:ok, stream} <- read(claim_id),
+         :ok <- check_expected_tail(stream.tail_digest, expected_tail_digest) do
+      fun.(stream)
+    end
+  end
+
   @doc "Read and verify one claim stream or grandfathered legacy file by path."
   @spec read_path(String.t(), keyword()) :: {:ok, stream()} | {:error, term()}
   def read_path(path, opts \\ [])
