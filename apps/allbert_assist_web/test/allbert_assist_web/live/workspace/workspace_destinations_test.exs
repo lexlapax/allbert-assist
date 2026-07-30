@@ -7,9 +7,13 @@ defmodule AllbertAssistWeb.WorkspaceDestinationsTest do
   alias AllbertAssist.{Confirmations, Marketplace, Session, Settings, Workspace}
 
   alias AllbertAssist.Actions.Settings.SetNotesRoot
+  alias AllbertAssist.Conversations.Corpus
   alias AllbertAssist.Intent.Handoff
   alias AllbertAssist.Intent.Router.DescriptorStore
   alias AllbertAssist.McpRegistryFixtures
+  alias AllbertAssist.Memory.Claims
+  alias AllbertAssist.Memory.Proposals
+  alias AllbertAssist.Memory.SpanProvenance
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Surfaces.ContextBuilder
   alias AllbertAssist.Tools.Discovery
@@ -160,15 +164,46 @@ defmodule AllbertAssistWeb.WorkspaceDestinationsTest do
 
     assert Enum.map(flagged, & &1.path) == [reject_entry.path]
 
-    # Delete runs the confirmation-gated archive (create+approve); the entry leaves
-    # active memory rather than being hard-deleted.
+    # Delete runs the confirmation-gated append-only archive (create+approve).
+    # The source file is preserved while its effective claim state leaves review.
     assert File.exists?(delete_entry.path)
 
     view
     |> element("#workspace-memory-delete-#{memory_safe_id(delete_entry.path)}")
     |> render_click()
 
-    refute File.exists?(delete_entry.path)
+    assert File.exists?(delete_entry.path)
+    assert {:ok, %{effective_records: records}} = Claims.read_path(delete_entry.path)
+    assert List.last(records)["state"] == "archived"
+    render_until_missing(view, "#workspace-memory-delete-#{memory_safe_id(delete_entry.path)}")
+  end
+
+  test "v1.3 M4: exact proposal bindings drive web Keep without bypassing claims", %{conn: conn} do
+    assert {:ok, _setting} = Settings.put("memory.consolidation.enabled", true)
+
+    assert {:ok, _setting} =
+             Settings.put("memory.collection.origin_grants", ["local_operator"])
+
+    proposal = seed_memory_proposal("tea")
+    thread = create_workspace_thread("Proposal review")
+
+    {:ok, view, _html} =
+      live(conn, ~p"/workspace?thread_id=#{thread.id}&destination=workspace:memory")
+
+    assert render_until(view, proposal.id) =~ "prefer: tea"
+
+    assert has_element?(
+             view,
+             "#workspace-memory-proposal-keep-#{proposal.id}[phx-value-revision='1'][phx-value-proposal-digest='#{proposal.proposal_digest}']"
+           )
+
+    view
+    |> element("#workspace-memory-proposal-keep-#{proposal.id}")
+    |> render_click()
+
+    assert {:ok, current} = Claims.current(proposal.id)
+    assert current["payload"]["value"] == "tea"
+    render_until_missing(view, "#workspace-memory-proposal-#{proposal.id}")
   end
 
   test "the channels destination renders the populated read-only channels panel", %{conn: conn} do
@@ -765,6 +800,49 @@ defmodule AllbertAssistWeb.WorkspaceDestinationsTest do
              })
 
     entry
+  end
+
+  defp seed_memory_proposal(value) do
+    thread = create_workspace_thread("Proposal source")
+
+    assert {:ok, message} =
+             AllbertAssist.Conversations.append_user_message(thread, "I prefer #{value}.",
+               metadata: %{"channel" => "web"}
+             )
+
+    policy = %{consumer: :memory, origin_scope: :local_operator, e2ee?: false}
+    assert {:ok, snapshot} = Corpus.snapshot("local", policy)
+    assert {:ok, page} = Corpus.page(snapshot, nil, 100)
+    source = Enum.find(page.items, &(&1.source_id == message.id))
+
+    assert {:ok, subject} = proposal_span("subject", source, "I", "operator_pronoun_v1")
+    assert {:ok, predicate} = proposal_span("predicate", source, "prefer", "identity_v1")
+    assert {:ok, object} = proposal_span("value", source, value, "identity_v1")
+
+    assert {:ok, %{proposal: proposal}} =
+             Proposals.propose(source, %{
+               proposed_claim: %{
+                 subject: "operator:local",
+                 predicate: "prefer",
+                 value: value,
+                 valid_from: nil,
+                 valid_to: nil,
+                 relationship: nil
+               },
+               span_provenance: %{fields: [subject, predicate, object]},
+               category: "preferences",
+               namespace: "default",
+               run_id: "run-web-review",
+               extractor_profile: "deterministic_v1",
+               extractor_version: 1
+             })
+
+    proposal
+  end
+
+  defp proposal_span(field, source, raw, transform) do
+    {start, length} = :binary.match(source.content, raw)
+    SpanProvenance.build(field, source, start, start + length, transform)
   end
 
   defp memory_safe_id(path) do

@@ -1461,19 +1461,17 @@ defmodule AllbertAssistWeb.Workspace.Components.MemoryPanel do
   @moduledoc """
   Interactive memory-review panel for the `workspace:memory` destination (v0.65 M4).
 
-  Surfaces the already-permissioned memory review loop: it lists unreviewed
-  memory candidates and dispatches the existing registered actions through the
-  Runner — Keep (`review_memory_entry` status `kept`), Reject
-  (`review_memory_entry` status `flagged`), and Delete (`delete_memory_entry`,
-  confirmation-gated archive via the create+approve pattern). It adds NO new
-  authority; every write routes through `PermissionGate`/Security Central and,
-  for Delete, the confirmation workflow. Listing candidates is a read-only
-  `Memory.list_entries/1` call.
+  Surfaces both inert v1.3 proposals and the additive legacy entry-review loop.
+  Proposal decisions bind the exact visible id, revision, and digest and route
+  through the shared registered proposal actions. Protected stubs never expose
+  content and cannot use one-click or bulk Keep. Legacy entry controls remain
+  available during migration. The panel adds no authority of its own.
   """
   use AllbertAssistWeb, :live_component
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Memory
+  alias AllbertAssist.Memory.Claims
   alias AllbertAssistWeb.Workspace.Components.OperatorPanels, as: Support
 
   @destination "workspace:memory"
@@ -1491,6 +1489,7 @@ defmodule AllbertAssistWeb.Workspace.Components.MemoryPanel do
       |> assign_new(:memory_loaded?, fn -> false end)
       |> assign_new(:memory_notice, fn -> "" end)
       |> assign_new(:memory_diagnostics, fn -> "" end)
+      |> assign_new(:memory_proposals, fn -> [] end)
       |> assign_new(:memory_candidates, fn -> [] end)
 
     open? = Support.open?(socket.assigns, @destination)
@@ -1527,6 +1526,27 @@ defmodule AllbertAssistWeb.Workspace.Components.MemoryPanel do
      |> refresh()}
   end
 
+  def handle_event("memory_proposal_keep", params, socket) do
+    {:noreply,
+     socket
+     |> review_proposal(params, "keep", "Kept Memory proposal.")
+     |> refresh()}
+  end
+
+  def handle_event("memory_proposal_reject", params, socket) do
+    {:noreply,
+     socket
+     |> review_proposal(params, "reject", "Rejected Memory proposal.")
+     |> refresh()}
+  end
+
+  def handle_event("memory_proposal_keep_all", _params, socket) do
+    {:noreply,
+     socket
+     |> keep_all_proposals()
+     |> refresh()}
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -1545,8 +1565,8 @@ defmodule AllbertAssistWeb.Workspace.Components.MemoryPanel do
         <div class="min-w-0 flex-1">
           <h2 id="workspace-memory-panel-title" class="workspace-card-title">Memory</h2>
           <p class="workspace-card-summary">
-            Review what Allbert may remember. Keep, reject, or delete candidates —
-            only kept entries are ever recalled, and nothing is promoted automatically.
+            Review inert proposals before they become claims. Existing entry controls remain
+            available during migration; nothing is promoted automatically.
           </p>
         </div>
         <button
@@ -1577,11 +1597,72 @@ defmodule AllbertAssistWeb.Workspace.Components.MemoryPanel do
           {@memory_diagnostics}
         </p>
 
+        <section id="workspace-memory-proposals" class="workspace-operator-panel-section">
+          <div class="flex items-center justify-between gap-3">
+            <h3 class="workspace-rail-title">New Proposals</h3>
+            <button
+              :if={ordinary_proposals(@memory_proposals) != []}
+              type="button"
+              id="workspace-memory-proposal-keep-all"
+              class={Support.button_class!("secondary")}
+              phx-click="memory_proposal_keep_all"
+              phx-target={@myself}
+            >
+              Keep All Ordinary
+            </button>
+          </div>
+          <p :if={@memory_proposals == []} id="workspace-memory-proposals-empty" class="text-sm">
+            No Memory proposals are waiting for review.
+          </p>
+
+          <div
+            :for={proposal <- @memory_proposals}
+            id={"workspace-memory-proposal-#{proposal.id}"}
+            class="workspace-operator-row"
+          >
+            <div class="min-w-0">
+              <div class="font-medium">{proposal_label(proposal)}</div>
+              <div class="text-xs">
+                kind={Support.status_label(proposal.kind)} category={proposal.category} revision={proposal.revision}
+              </div>
+              <div :if={proposal.kind == "protected_stub"} class="text-xs">
+                Protected content requires individual review with freshly supplied evidence.
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button
+                :if={proposal.kind == "ordinary"}
+                type="button"
+                id={"workspace-memory-proposal-keep-#{proposal.id}"}
+                class={Support.button_class!("primary")}
+                phx-click="memory_proposal_keep"
+                phx-target={@myself}
+                phx-value-proposal-id={proposal.id}
+                phx-value-revision={proposal.revision}
+                phx-value-proposal-digest={proposal.proposal_digest}
+              >
+                Keep
+              </button>
+              <button
+                type="button"
+                id={"workspace-memory-proposal-reject-#{proposal.id}"}
+                class={Support.button_class!("secondary")}
+                phx-click="memory_proposal_reject"
+                phx-target={@myself}
+                phx-value-proposal-id={proposal.id}
+                phx-value-revision={proposal.revision}
+                phx-value-proposal-digest={proposal.proposal_digest}
+              >
+                Reject
+              </button>
+            </div>
+          </div>
+        </section>
+
         <section id="workspace-memory-candidates" class="workspace-operator-panel-section">
-          <h3 class="workspace-rail-title">Review Candidates</h3>
+          <h3 class="workspace-rail-title">Existing Entry Review</h3>
           <p :if={@memory_candidates == []} id="workspace-memory-empty" class="text-sm">
-            No memory candidates are waiting for review. New things Allbert learns appear here
-            for you to keep, reject, or delete before they can ever be recalled.
+            No legacy memory entries are waiting for review.
           </p>
 
           <div
@@ -1636,27 +1717,95 @@ defmodule AllbertAssistWeb.Workspace.Components.MemoryPanel do
 
   defp refresh(socket) do
     context = Support.action_context(socket.assigns)
+    user_id = Support.field(context, :user_id)
 
     opts =
       %{review_status: :unreviewed, limit: @candidate_limit}
-      |> maybe_put(:user_id, Support.field(context, :user_id))
+      |> maybe_put(:user_id, user_id)
       |> Map.to_list()
 
-    case Memory.list_entries(opts) do
-      {:ok, candidates} ->
+    with {:ok, %{status: :completed} = proposal_response} <-
+           Runner.run("list_memory_proposals", memory_params(%{}, context), context),
+         {:ok, candidates} <- Memory.list_entries(opts) do
+      candidates = Enum.filter(candidates, &active_legacy_candidate?/1)
+
+      assign(socket,
+        memory_loaded?: true,
+        memory_diagnostics: "",
+        memory_proposals: Map.get(proposal_response, :proposals, []),
+        memory_candidates: candidates
+      )
+    else
+      {:ok, response} ->
         assign(socket,
           memory_loaded?: true,
-          memory_diagnostics: "",
-          memory_candidates: candidates
+          memory_proposals: [],
+          memory_candidates: [],
+          memory_diagnostics: memory_action_error(response)
+        )
+
+      {:error, reason} ->
+        assign(socket,
+          memory_loaded?: true,
+          memory_proposals: [],
+          memory_candidates: [],
+          memory_diagnostics: "Unable to load memory review: #{inspect(reason)}"
         )
     end
   rescue
     error ->
       assign(socket,
         memory_loaded?: true,
+        memory_proposals: [],
         memory_candidates: [],
         memory_diagnostics: "Unable to load memory candidates: #{inspect(error)}"
       )
+  end
+
+  defp review_proposal(socket, params, operation, success_notice) do
+    context = Support.action_context(socket.assigns)
+
+    action_params =
+      %{
+        proposal_id: params["proposal-id"],
+        revision: parse_integer(params["revision"]),
+        proposal_digest: params["proposal-digest"],
+        operation: operation
+      }
+      |> memory_params(context)
+
+    case Runner.run("review_memory_proposal", action_params, context) do
+      {:ok, %{status: :completed} = response} ->
+        assign_memory_success(socket, success_notice, response)
+
+      {:ok, response} ->
+        assign(socket, :memory_diagnostics, memory_action_error(response))
+    end
+  end
+
+  defp keep_all_proposals(socket) do
+    context = Support.action_context(socket.assigns)
+
+    bindings =
+      Enum.map(ordinary_proposals(socket.assigns.memory_proposals), fn proposal ->
+        %{
+          proposal_id: proposal.id,
+          revision: proposal.revision,
+          proposal_digest: proposal.proposal_digest
+        }
+      end)
+
+    case Runner.run(
+           "review_memory_proposal_batch",
+           memory_params(%{bindings: bindings}, context),
+           context
+         ) do
+      {:ok, %{status: :completed} = response} ->
+        assign_memory_success(socket, "Kept all visible ordinary Memory proposals.", response)
+
+      {:ok, response} ->
+        assign(socket, :memory_diagnostics, memory_action_error(response))
+    end
   end
 
   defp review_memory(socket, path, status, success_notice) do
@@ -1712,6 +1861,45 @@ defmodule AllbertAssistWeb.Workspace.Components.MemoryPanel do
 
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
+  defp ordinary_proposals(proposals),
+    do: Enum.filter(proposals, &(&1.kind == "ordinary" and &1.classification == "ordinary"))
+
+  defp proposal_label(%{kind: "protected_stub", classification: classification}),
+    do: "Protected proposal (#{Support.status_label(classification)})"
+
+  defp proposal_label(proposal) do
+    claim = proposal.proposed_claim || %{}
+    value = Support.field(claim, :value, "Proposed claim")
+    "#{Support.field(claim, :predicate, "remember")}: #{value}"
+  end
+
+  defp parse_integer(value) when is_integer(value), do: value
+
+  defp parse_integer(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {integer, ""} -> integer
+      _other -> nil
+    end
+  end
+
+  defp parse_integer(_value), do: nil
+
+  defp active_legacy_candidate?(candidate) do
+    case Claims.read_path(candidate.path) do
+      {:ok, %{status: :grandfathered}} ->
+        true
+
+      {:ok, %{status: :valid, effective_records: records}} ->
+        case List.last(records) do
+          %{"state" => state} -> state not in ["archived", "retired", "forgotten"]
+          _other -> false
+        end
+
+      _other ->
+        false
+    end
+  end
 
   defp memory_action_error(response), do: Map.get(response, :message, inspect(response))
 end

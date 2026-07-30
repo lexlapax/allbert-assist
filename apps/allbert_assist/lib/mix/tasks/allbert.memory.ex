@@ -16,6 +16,10 @@ defmodule Mix.Tasks.Allbert.Memory do
       mix allbert.memory compile-index
       mix allbert.memory summarize --category notes
       mix allbert.memory promote-turn --thread-id THREAD --message-id MESSAGE [--category notes]
+      mix allbert.memory proposals
+      mix allbert.memory proposal PROPOSAL_ID
+      mix allbert.memory proposal-review PROPOSAL_ID --revision N --digest SHA256 --operation keep|edit|reject
+      mix allbert.memory proposal-keep-all --bindings-json JSON
 
   The dispatch logic is shared with the packaged `allbert admin memory` command
   (`AllbertAssist.CLI.Areas.Memory`); this task is a thin Mix-shell wrapper.

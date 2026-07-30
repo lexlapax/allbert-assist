@@ -5,6 +5,7 @@ defmodule AllbertAssist.Actions.MemoryProposalActionsTest do
   alias AllbertAssist.Actions.Memory.ReviewMemoryProposal
   alias AllbertAssist.Actions.Memory.ReviewMemoryProposalBatch
   alias AllbertAssist.Actions.Memory.ShowMemoryProposal
+  alias AllbertAssist.CLI.Areas.Memory, as: MemoryCLI
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.Corpus
   alias AllbertAssist.Memory.Claims
@@ -111,6 +112,42 @@ defmodule AllbertAssist.Actions.MemoryProposalActionsTest do
 
     assert response.status == :denied
     assert {:error, :not_found} = Claims.read(denied.id)
+  end
+
+  test "packaged CLI lists, shows, and reviews through the shared actions", %{context: context} do
+    proposal = proposal("tea")
+
+    assert {list_output, 0} = MemoryCLI.dispatch(["proposals", "--user", "alice"], context)
+    assert list_output =~ proposal.id
+    assert list_output =~ "value=\"tea\""
+
+    assert {show_output, 0} =
+             MemoryCLI.dispatch(["proposal", proposal.id, "--user", "alice"], context)
+
+    assert show_output =~ "context_messages="
+    assert show_output =~ "\"value\" => \"tea\""
+
+    assert {review_output, 0} =
+             MemoryCLI.dispatch(
+               [
+                 "proposal-review",
+                 proposal.id,
+                 "--revision",
+                 Integer.to_string(proposal.revision),
+                 "--digest",
+                 proposal.proposal_digest,
+                 "--operation",
+                 "keep",
+                 "--user",
+                 "alice"
+               ],
+               context
+             )
+
+    assert review_output =~ "proposal_id=#{proposal.id}"
+    assert review_output =~ "status=kept"
+    assert {:ok, current} = Claims.current(proposal.id)
+    assert current["payload"]["value"] == "tea"
   end
 
   defp proposal(value) do

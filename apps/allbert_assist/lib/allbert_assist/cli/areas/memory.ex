@@ -30,6 +30,10 @@ defmodule AllbertAssist.CLI.Areas.Memory do
     mix allbert.memory compile-index [--user USER]
     mix allbert.memory summarize --category notes|preferences|traces|skills|identity [--user USER]
     mix allbert.memory promote-turn --thread-id THREAD_ID --message-id MESSAGE_ID [--category notes] [--summary "..."] [--user USER]
+    mix allbert.memory proposals [--user USER]
+    mix allbert.memory proposal PROPOSAL_ID [--user USER]
+    mix allbert.memory proposal-review PROPOSAL_ID --revision N --digest SHA256 --operation keep|edit|reject [--claim-json JSON] [--spans-json JSON] [--claim-id ID] [--tail-digest SHA256] [--user USER]
+    mix allbert.memory proposal-keep-all --bindings-json JSON [--user USER]
   """
 
   @spec dispatch([String.t()], map() | nil) :: {String.t(), non_neg_integer()}
@@ -310,6 +314,112 @@ defmodule AllbertAssist.CLI.Areas.Memory do
     end
   end
 
+  defp route(["proposals" | args], ctx) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args,
+        strict: [namespace: :string, user: :string, operator: :string]
+      )
+
+    with :ok <- reject_invalid(invalid),
+         :ok <- reject_rest(rest, "proposals"),
+         {:ok, user_id} <- resolve_user_id(opts),
+         params = compact(%{user_id: user_id, namespace: opts[:namespace]}),
+         {:ok, response} <- completed_action("list_memory_proposals", params, ctx, user_id) do
+      {:ok, {:proposals, response.proposals}}
+    end
+  end
+
+  defp route(["proposal", proposal_id | args], ctx) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args, strict: [user: :string, operator: :string])
+
+    with :ok <- reject_invalid(invalid),
+         :ok <- reject_rest(rest, "proposal"),
+         {:ok, user_id} <- resolve_user_id(opts),
+         {:ok, response} <-
+           completed_action(
+             "show_memory_proposal",
+             %{proposal_id: proposal_id, user_id: user_id},
+             ctx,
+             user_id
+           ) do
+      {:ok, {:proposal, response.proposal, response.context}}
+    end
+  end
+
+  defp route(["proposal-review", proposal_id | args], ctx) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args,
+        strict: [
+          revision: :integer,
+          digest: :string,
+          operation: :string,
+          claim_json: :string,
+          spans_json: :string,
+          claim_id: :string,
+          tail_digest: :string,
+          user: :string,
+          operator: :string
+        ]
+      )
+
+    with :ok <- reject_invalid(invalid),
+         :ok <- reject_rest(rest, "proposal-review"),
+         {:ok, user_id} <- resolve_user_id(opts),
+         {:ok, revision} <- require_value(opts[:revision], "proposal-review requires --revision"),
+         {:ok, digest} <- require_value(opts[:digest], "proposal-review requires --digest"),
+         {:ok, operation} <-
+           require_value(opts[:operation], "proposal-review requires --operation"),
+         {:ok, claim} <- decode_json_map(opts[:claim_json], "--claim-json"),
+         {:ok, spans} <- decode_json_map(opts[:spans_json], "--spans-json"),
+         params =
+           compact(%{
+             proposal_id: proposal_id,
+             revision: revision,
+             proposal_digest: digest,
+             operation: operation,
+             proposed_claim: claim,
+             span_provenance: spans,
+             claim_id: opts[:claim_id],
+             expected_tail_digest: opts[:tail_digest],
+             user_id: user_id
+           }),
+         {:ok, response} <-
+           completed_action("review_memory_proposal", params, ctx, user_id) do
+      {:ok, {:proposal_review, response.result}}
+    end
+  end
+
+  defp route(["proposal-keep-all" | args], ctx) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args,
+        strict: [
+          bindings_json: :string,
+          batch_id: :string,
+          namespace: :string,
+          user: :string,
+          operator: :string
+        ]
+      )
+
+    with :ok <- reject_invalid(invalid),
+         :ok <- reject_rest(rest, "proposal-keep-all"),
+         {:ok, user_id} <- resolve_user_id(opts),
+         {:ok, bindings} <- decode_json_list(opts[:bindings_json], "--bindings-json"),
+         :ok <- require_batch_reference(opts[:batch_id], bindings),
+         params =
+           compact(%{
+             bindings: bindings,
+             batch_id: opts[:batch_id],
+             namespace: opts[:namespace],
+             user_id: user_id
+           }),
+         {:ok, response} <-
+           completed_action("review_memory_proposal_batch", params, ctx, user_id) do
+      {:ok, {:proposal_batch, response.result}}
+    end
+  end
+
   defp route(_args, _ctx), do: {:usage, @usage}
 
   # -- rendering -------------------------------------------------------------
@@ -456,6 +566,38 @@ defmodule AllbertAssist.CLI.Areas.Memory do
     ])
   end
 
+  defp render({:ok, {:proposals, []}}), do: Render.ok("No Memory proposals.")
+
+  defp render({:ok, {:proposals, proposals}}) do
+    Render.ok(Enum.map(proposals, &proposal_summary/1))
+  end
+
+  defp render({:ok, {:proposal, proposal, context}}) do
+    context_messages = Map.get(context, :messages, Map.get(context, "messages", []))
+
+    Render.ok([
+      proposal_summary(proposal),
+      "claim=#{inspect(Map.get(proposal, :proposed_claim), pretty: true)}",
+      "context_messages=#{length(context_messages)}"
+    ])
+  end
+
+  defp render({:ok, {:proposal_review, result}}) do
+    Render.ok([
+      "proposal_id=#{Map.get(result, :proposal_id)}",
+      "status=#{Map.get(result, :status)}",
+      "outcome=#{Map.get(result, :outcome)}"
+    ])
+  end
+
+  defp render({:ok, {:proposal_batch, result}}) do
+    Render.ok([
+      "batch_id=#{Map.get(result, :batch_id)}",
+      "status=#{Map.get(result, :status)}",
+      "results=#{length(Map.get(result, :results, []))}"
+    ])
+  end
+
   defp render({:usage, usage}), do: Render.usage(usage)
   defp render({:error, {:arg, message}}), do: Render.error(message)
   defp render({:error, reason}), do: Render.error("Memory command failed: #{inspect(reason)}")
@@ -529,6 +671,30 @@ defmodule AllbertAssist.CLI.Areas.Memory do
   defp require_value(nil, message), do: {:error, {:arg, message}}
   defp require_value(value, _message), do: {:ok, value}
 
+  defp decode_json_map(nil, _option), do: {:ok, nil}
+
+  defp decode_json_map(value, option) do
+    case Jason.decode(value) do
+      {:ok, decoded} when is_map(decoded) -> {:ok, decoded}
+      _other -> {:error, {:arg, "#{option} must be a JSON object."}}
+    end
+  end
+
+  defp decode_json_list(nil, _option), do: {:ok, nil}
+
+  defp decode_json_list(value, option) do
+    case Jason.decode(value) do
+      {:ok, decoded} when is_list(decoded) -> {:ok, decoded}
+      _other -> {:error, {:arg, "#{option} must be a JSON array."}}
+    end
+  end
+
+  defp require_batch_reference(batch_id, bindings) do
+    if present?(batch_id) or (is_list(bindings) and bindings != []),
+      do: :ok,
+      else: {:error, {:arg, "proposal-keep-all requires --bindings-json or --batch-id."}}
+  end
+
   defp reject_invalid([]), do: :ok
   defp reject_invalid(invalid), do: {:error, {:arg, "Unknown options: #{inspect(invalid)}"}}
 
@@ -552,4 +718,11 @@ defmodule AllbertAssist.CLI.Areas.Memory do
   end
 
   defp present?(value), do: is_binary(value) and String.trim(value) != ""
+
+  defp proposal_summary(proposal) do
+    claim = Map.get(proposal, :proposed_claim)
+    value = if is_map(claim), do: Map.get(claim, "value", Map.get(claim, :value)), else: nil
+
+    "#{proposal.id} #{proposal.kind} #{proposal.status} revision=#{proposal.revision} digest=#{proposal.proposal_digest} value=#{inspect(value)}"
+  end
 end
