@@ -14,6 +14,7 @@ defmodule AllbertAssist.Search do
   alias AllbertAssist.Search.Page
   alias AllbertAssist.Search.Projection
   alias AllbertAssist.Search.Query
+  alias AllbertAssist.Search.QueryScope
   alias AllbertAssist.Search.Result
   alias AllbertAssist.Settings
 
@@ -196,6 +197,14 @@ defmodule AllbertAssist.Search do
     }
   end
 
+  defp authorization_scope(candidate, %{class: :mapped_operator_dm_cross_surface}) do
+    %{
+      consumer: :search,
+      origin_scope: candidate.origin_scope,
+      e2ee?: candidate.e2ee?
+    }
+  end
+
   defp projection_candidates(module, query, position) when is_atom(module),
     do: module.candidates(query, position)
 
@@ -299,22 +308,49 @@ defmodule AllbertAssist.Search do
     end
   end
 
-  defp mapped_scope(_query, context, operator_id, surface) do
+  defp mapped_scope(query, context, operator_id, surface) do
     thread_id = value(context, :thread_id)
     origin = value(context, :origin)
 
     if is_binary(thread_id) and thread_id != "" and valid_origin?(origin) do
-      {:ok,
-       %{
-         class: :mapped_operator_dm,
-         operator_id: operator_id,
-         surface: surface,
-         thread_id: thread_id,
-         origin: origin,
-         expires_at: value(context, :search_query_expires_at)
-       }}
+      base = %{
+        class: :mapped_operator_dm,
+        operator_id: operator_id,
+        surface: surface,
+        thread_id: thread_id,
+        origin: origin,
+        source_message_id: value(context, :source_message_id),
+        expires_at: value(context, :search_query_expires_at)
+      }
+
+      maybe_elevate_scope(query, context, base)
     else
       {:error, :scope_denied}
+    end
+  end
+
+  defp maybe_elevate_scope(query, context, base) do
+    if value(context, :search_scope) in [:cross_surface, "cross_surface"] do
+      case query.query_chain_id do
+        nil ->
+          {:error, :query_confirmation_required}
+
+        chain_id ->
+          case QueryScope.verify(chain_id, query, context) do
+            {:ok, grant} ->
+              {:ok,
+               %{
+                 base
+                 | class: :mapped_operator_dm_cross_surface,
+                   expires_at: grant.expires_at
+               }}
+
+            {:error, reason} ->
+              {:error, reason}
+          end
+      end
+    else
+      {:ok, base}
     end
   end
 
@@ -327,7 +363,15 @@ defmodule AllbertAssist.Search do
   defp valid_origin?(_origin), do: false
 
   defp cursor_scope(scope) do
-    Map.take(scope, [:class, :operator_id, :surface, :thread_id, :origin, :expires_at])
+    Map.take(scope, [
+      :class,
+      :operator_id,
+      :surface,
+      :thread_id,
+      :origin,
+      :source_message_id,
+      :expires_at
+    ])
   end
 
   defp result(%SourceEnvelope{} = envelope, candidate, acc, max_bytes) do

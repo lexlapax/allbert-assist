@@ -110,6 +110,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     apply_persona_profile
     start_fanout
     delete_conversation_content
+    authorize_search_query_scope
   ]
 
   # v1.0.1 M4.2.3: standalone browser confirmations (direct action use outside
