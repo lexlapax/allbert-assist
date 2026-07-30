@@ -16,6 +16,8 @@ defmodule AllbertAssist.Search.Projection do
   alias AllbertAssist.Paths
   alias AllbertAssist.Projection.PromoteProtocol
   alias AllbertAssist.Runtime.Redactor
+  alias AllbertAssist.Search.Control
+  alias AllbertAssist.Search.Purge
   alias AllbertAssist.Search.Query
   alias AllbertAssist.Search.Schema
   alias AllbertAssist.Search.SQLite
@@ -33,7 +35,9 @@ defmodule AllbertAssist.Search.Projection do
             serving_conn: nil,
             control: nil,
             ready?: false,
-            diagnostics: []
+            diagnostics: [],
+            purge_control: nil,
+            bootstrap_jobs?: false
 
   @type state :: %__MODULE__{}
 
@@ -60,6 +64,14 @@ defmodule AllbertAssist.Search.Projection do
   def maintain(operator_id \\ "local", server \\ __MODULE__),
     do: GenServer.call(server, {:maintain, operator_id}, :infinity)
 
+  @doc "Return the content-free managed file/generation scope for a purge preview."
+  def purge_scope(target, server \\ __MODULE__),
+    do: GenServer.call(server, {:purge_scope, target}, :infinity)
+
+  @doc "Begin or continue one exact approved projection purge."
+  def purge(params, operator_id, confirmation_id, server \\ __MODULE__),
+    do: GenServer.call(server, {:purge, params, operator_id, confirmation_id}, :infinity)
+
   @doc "Upsert one already-authorized typed Corpus envelope into the current generation."
   def upsert(%SourceEnvelope{} = envelope, server \\ __MODULE__),
     do: GenServer.call(server, {:upsert, envelope}, :infinity)
@@ -83,19 +95,23 @@ defmodule AllbertAssist.Search.Projection do
   def init(opts) do
     root = opts |> Keyword.get(:root, Paths.search_projection_root()) |> Path.expand()
     File.mkdir_p!(root)
-    {conn, control, diagnostics} = load_generation(root)
+    bootstrap_jobs? = Keyword.get(opts, :bootstrap_jobs?, false)
 
-    state = %__MODULE__{
-      root: root,
-      serving_conn: conn,
-      control: control,
-      ready?: not is_nil(conn),
-      diagnostics: diagnostics
-    }
+    case Control.load(root) do
+      {:ok, purge_control} ->
+        init_with_purge_control(root, purge_control, bootstrap_jobs?)
 
-    if Keyword.get(opts, :bootstrap_jobs?, false),
-      do: {:ok, state, {:continue, :bootstrap_jobs}},
-      else: {:ok, state}
+      {:error, reason} ->
+        state = %__MODULE__{
+          root: root,
+          control: read_control(root),
+          diagnostics: [%{code: error_code(reason)}],
+          purge_control: :invalid,
+          bootstrap_jobs?: bootstrap_jobs?
+        }
+
+        {:ok, state}
+    end
   end
 
   @impl true
@@ -104,8 +120,32 @@ defmodule AllbertAssist.Search.Projection do
     {:noreply, %{state | diagnostics: diagnostics}}
   end
 
+  def handle_continue(:resume_purge, state) do
+    case continue_purge(state, "local") do
+      {:ok, _result, next} -> maybe_continue_bootstrap(next)
+      {:error, reason, next} -> {:noreply, purge_failed(next, reason)}
+    end
+  end
+
   @impl true
   def handle_call(:status, _from, state), do: {:reply, status_map(state), state}
+
+  def handle_call({:purge, params, operator_id, confirmation_id}, _from, state) do
+    case begin_or_continue_purge(state, params, operator_id, confirmation_id) do
+      {:ok, result, next} -> {:reply, {:ok, result}, next}
+      {:error, reason, next} -> {:reply, {:error, reason}, purge_failed(next, reason)}
+    end
+  end
+
+  def handle_call(_request, _from, %{purge_control: :invalid} = state),
+    do: {:reply, {:error, :search_purge_in_progress}, state}
+
+  def handle_call(_request, _from, %{purge_control: %{"phase" => phase}} = state)
+      when phase != "complete",
+      do: {:reply, {:error, :search_purge_in_progress}, state}
+
+  def handle_call({:purge_scope, _target}, _from, state),
+    do: {:reply, {:ok, purge_scope_map(state)}, state}
 
   def handle_call({:rebuild, operator_id}, _from, state) do
     case rebuild_generation(state, operator_id) do
@@ -169,6 +209,17 @@ defmodule AllbertAssist.Search.Projection do
     do: {:reply, {:error, :search_not_ready}, state}
 
   @impl true
+  def handle_cast({:queue_repair, _reasons}, %{purge_control: :invalid} = state) do
+    _ = Managed.kick("search-index", "local")
+    {:noreply, state}
+  end
+
+  def handle_cast({:queue_repair, _reasons}, %{purge_control: %{"phase" => phase}} = state)
+      when phase != "complete" do
+    _ = Managed.kick("search-index", "local")
+    {:noreply, state}
+  end
+
   def handle_cast({:queue_repair, reasons}, state) do
     safe = reasons |> Enum.map(&error_code/1) |> Enum.uniq() |> Enum.sort()
     control = state.control |> Map.put("dirty", true) |> Map.put("repair_reasons", safe)
@@ -180,6 +231,338 @@ defmodule AllbertAssist.Search.Projection do
   def terminate(_reason, state) do
     _ = Sqlite3.close(state.serving_conn)
     :ok
+  end
+
+  defp init_with_purge_control(root, %{"phase" => "complete"} = purge_control, bootstrap?) do
+    {conn, control, diagnostics} = load_generation(root)
+
+    state = %__MODULE__{
+      root: root,
+      serving_conn: conn,
+      control: control,
+      ready?: not is_nil(conn),
+      diagnostics: diagnostics,
+      purge_control: purge_control,
+      bootstrap_jobs?: bootstrap?
+    }
+
+    if bootstrap?, do: {:ok, state, {:continue, :bootstrap_jobs}}, else: {:ok, state}
+  end
+
+  defp init_with_purge_control(root, purge_control, bootstrap?) do
+    state = %__MODULE__{
+      root: root,
+      control: read_control(root),
+      diagnostics: [%{code: "search_purge_in_progress"}],
+      purge_control: purge_control,
+      bootstrap_jobs?: bootstrap?
+    }
+
+    {:ok, state, {:continue, :resume_purge}}
+  end
+
+  defp maybe_continue_bootstrap(%{bootstrap_jobs?: true} = state),
+    do: {:noreply, state, {:continue, :bootstrap_jobs}}
+
+  defp maybe_continue_bootstrap(state), do: {:noreply, state}
+
+  defp begin_or_continue_purge(state, params, operator_id, confirmation_id) do
+    with {:ok, target} <- Control.normalize_target(params),
+         :ok <- Purge.precondition(target, operator_id),
+         {:ok, manifest} <-
+           Control.begin(state.root, params, purge_scope_map(state), confirmation_id) do
+      continue_purge(%{state | purge_control: manifest}, operator_id)
+    else
+      {:error, reason} -> {:error, reason, state}
+    end
+  end
+
+  defp continue_purge(%{purge_control: manifest} = state, operator_id) do
+    with :ok <- Purge.precondition(purge_target(manifest), operator_id) do
+      continue_purge_phase(state, operator_id)
+    else
+      {:error, reason} -> {:error, reason, state}
+    end
+  end
+
+  defp continue_purge_phase(%{purge_control: %{"phase" => "pending"}} = state, operator_id) do
+    with {:ok, closed} <- close_for_purge(state),
+         {:ok, manifest} <-
+           Control.transition(
+             closed.root,
+             closed.purge_control,
+             "pending",
+             "connections_closed"
+           ) do
+      continue_purge_phase(%{closed | purge_control: manifest}, operator_id)
+    else
+      {:error, reason} -> {:error, reason, state}
+    end
+  end
+
+  defp continue_purge_phase(
+         %{purge_control: %{"phase" => "connections_closed"}} = state,
+         operator_id
+       ) do
+    with :ok <- Purge.precondition(purge_target(state.purge_control), operator_id),
+         {:ok, replaced} <- replace_purge_files(state, operator_id),
+         {:ok, manifest} <-
+           Control.transition(
+             replaced.root,
+             replaced.purge_control,
+             "connections_closed",
+             "files_replaced"
+           ) do
+      continue_purge_phase(%{replaced | purge_control: manifest}, operator_id)
+    else
+      {:error, reason} -> {:error, reason, state}
+    end
+  end
+
+  defp continue_purge_phase(
+         %{purge_control: %{"phase" => "files_replaced"}} = state,
+         operator_id
+       ) do
+    with :ok <- Purge.precondition(purge_target(state.purge_control), operator_id),
+         :ok <- verify_purge_files(state),
+         {:ok, manifest} <-
+           Control.transition(state.root, state.purge_control, "files_replaced", "verified") do
+      continue_purge_phase(%{state | purge_control: manifest}, operator_id)
+    else
+      {:error, reason} -> {:error, reason, state}
+    end
+  end
+
+  defp continue_purge_phase(%{purge_control: %{"phase" => "verified"}} = state, _operator_id) do
+    with {:ok, manifest} <-
+           Control.transition(state.root, state.purge_control, "verified", "complete") do
+      {conn, control, diagnostics} = load_generation(state.root)
+      _ = maybe_kick_after_purge()
+
+      next = %{
+        state
+        | serving_conn: conn,
+          control: control,
+          ready?: not is_nil(conn),
+          diagnostics: diagnostics,
+          purge_control: manifest
+      }
+
+      {:ok, purge_result(manifest, next), next}
+    else
+      {:error, reason} -> {:error, reason, state}
+    end
+  end
+
+  defp continue_purge_phase(%{purge_control: %{"phase" => "complete"}} = state, _operator_id),
+    do: {:ok, purge_result(state.purge_control, state), state}
+
+  defp close_for_purge(state) do
+    with :ok <- close_connection(state.serving_conn),
+         control <-
+           state.control
+           |> Map.put("state", "not_ready")
+           |> Map.put("builder_generation_id", nil)
+           |> Map.put("builder", nil)
+           |> Map.put("dirty", true),
+         :ok <- write_control(state.root, control) do
+      {:ok, %{state | serving_conn: nil, control: control, ready?: false}}
+    else
+      {:error, reason} -> {:error, {:purge_close_failed, reason}}
+    end
+  end
+
+  defp replace_purge_files(state, operator_id) do
+    with :ok <- remove_all_generation_files(state.root),
+         :ok <- write_control(state.root, default_control()),
+         {:ok, next} <-
+           maybe_build_clean_generation(%{state | control: default_control()}, operator_id),
+         :ok <- close_connection(next.serving_conn) do
+      {:ok, %{next | serving_conn: nil, ready?: false}}
+    end
+  end
+
+  defp maybe_build_clean_generation(state, operator_id) do
+    case setting("search.enabled", true) do
+      true ->
+        case rebuild_generation(state, operator_id) do
+          {:ok, _result, next} ->
+            {:ok, next}
+
+          {:error, reason, next} ->
+            _ = close_connection(next.serving_conn)
+            {:error, {:purge_rebuild_failed, reason}}
+        end
+
+      false ->
+        {:ok, state}
+    end
+  end
+
+  defp verify_purge_files(state) do
+    databases = database_paths(state.root)
+    target = purge_target(state.purge_control)
+
+    with :ok <- expected_database_shape(databases),
+         :ok <- each_ok(databases, &verify_purge_database(&1, target)) do
+      :ok
+    end
+  end
+
+  defp expected_database_shape([]), do: :ok
+
+  defp expected_database_shape([path]) do
+    if Path.basename(path) == "current.sqlite3",
+      do: :ok,
+      else: {:error, :unexpected_purge_generation}
+  end
+
+  defp expected_database_shape(_paths), do: {:error, :unexpected_purge_generation}
+
+  defp verify_purge_database(path, target) do
+    with {:ok, conn} <- Sqlite3.open(path, mode: :readwrite) do
+      result =
+        with {:ok, _capability} <- Schema.verify(conn),
+             :ok <- verify_target_absent(conn, target) do
+          :ok
+        end
+
+      case close_connection(conn) do
+        :ok -> result
+        {:error, reason} -> {:error, {:purge_verify_close_failed, reason}}
+      end
+    end
+  end
+
+  defp verify_target_absent(conn, %{"target_kind" => "source_ids", "target_ids" => ids}) do
+    placeholders = Enum.map_join(ids, ",", fn _id -> "?" end)
+
+    case SQLite.query_one(
+           conn,
+           "SELECT COUNT(*) FROM documents WHERE source_id IN (#{placeholders})",
+           ids
+         ) do
+      {:ok, [0]} -> :ok
+      {:ok, [_count]} -> {:error, :purge_target_retained}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp verify_target_absent(conn, _target) do
+    case SQLite.query_one(conn, "SELECT COUNT(*) FROM documents") do
+      {:ok, [0]} -> :ok
+      {:ok, [_count]} -> {:error, :purge_target_retained}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp remove_all_generation_files(root) do
+    root
+    |> managed_database_paths()
+    |> each_ok(&remove_file/1)
+    |> case do
+      :ok -> sync_directory(root)
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp remove_file(path) do
+    case File.rm(path) do
+      :ok -> :ok
+      {:error, :enoent} -> :ok
+      {:error, reason} -> {:error, {:purge_file_remove_failed, Path.basename(path), reason}}
+    end
+  end
+
+  defp managed_database_paths(root) do
+    root
+    |> Path.join("*.sqlite3*")
+    |> Path.wildcard()
+    |> Enum.filter(&File.regular?/1)
+    |> Enum.sort()
+  end
+
+  defp database_paths(root) do
+    root
+    |> Path.join("*.sqlite3")
+    |> Path.wildcard()
+    |> Enum.filter(&File.regular?/1)
+    |> Enum.sort()
+  end
+
+  defp purge_scope_map(state) do
+    manifest =
+      if is_map(state.purge_control), do: state.purge_control, else: %{"policy_epoch" => 0}
+
+    %{
+      eligibility_epoch: Corpus.eligibility_epoch(:search),
+      policy_epoch: manifest["policy_epoch"] || 0,
+      managed_files:
+        state.root
+        |> managed_database_paths()
+        |> Enum.map(&Path.basename/1),
+      generation_ids: generation_ids(state)
+    }
+  end
+
+  defp generation_ids(state) do
+    control_ids =
+      ~w[current_generation_id previous_generation_id builder_generation_id]
+      |> Enum.map(&state.control[&1])
+      |> Enum.filter(&is_binary/1)
+
+    file_ids =
+      state.root
+      |> database_paths()
+      |> Enum.flat_map(fn path ->
+        case Regex.run(~r/(?:build|failed|retired|pending-prune)-([0-9a-f-]+)\.sqlite3$/, path) do
+          [_, id] -> [id]
+          _other -> []
+        end
+      end)
+
+    (control_ids ++ file_ids) |> Enum.uniq() |> Enum.sort()
+  end
+
+  defp purge_target(manifest) do
+    Map.take(manifest, ["target_kind", "target_ids", "source_classes"])
+  end
+
+  defp purge_result(manifest, state) do
+    %{
+      phase: :complete,
+      target_kind: String.to_existing_atom(manifest["target_kind"]),
+      attempt_id: manifest["attempt_id"],
+      policy_epoch: manifest["policy_epoch"],
+      ready?: state.ready?
+    }
+  end
+
+  defp purge_failed(state, reason) do
+    manifest =
+      case state.purge_control do
+        %{"phase" => phase} = current when phase != "complete" ->
+          case Control.record_error(state.root, current, reason) do
+            {:ok, updated} -> updated
+            {:error, _record_error} -> current
+          end
+
+        other ->
+          other
+      end
+
+    %{
+      state
+      | purge_control: manifest,
+        diagnostics: [%{code: error_code(reason)} | state.diagnostics]
+    }
+  end
+
+  defp close_connection(nil), do: :ok
+  defp close_connection(conn), do: Sqlite3.close(conn)
+
+  defp maybe_kick_after_purge do
+    if setting("search.enabled", true), do: Managed.kick("search-index", "local"), else: :ok
   end
 
   defp rebuild_generation(state, operator_id) when is_binary(operator_id) do
@@ -198,7 +581,6 @@ defmodule AllbertAssist.Search.Projection do
       run_resumable_builder_step(prepared)
     else
       {:error, reason, next} -> {:error, reason, next}
-      {:error, reason} -> {:error, reason, mark_dirty(state, reason)}
     end
   end
 
@@ -1135,6 +1517,12 @@ defmodule AllbertAssist.Search.Projection do
       ready?: state.ready?,
       state: state.control["state"],
       dirty?: state.control["dirty"],
+      purge_phase:
+        case state.purge_control do
+          %{"phase" => phase} -> phase
+          :invalid -> "invalid"
+          _other -> nil
+        end,
       generation:
         case meta do
           {:ok, value} -> value

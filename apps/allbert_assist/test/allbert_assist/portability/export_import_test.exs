@@ -69,6 +69,24 @@ defmodule AllbertAssist.Portability.ExportImportTest do
                file["reason"] == "derived_projection_excluded"
            end)
 
+    for path <- [
+          "projections/search/current.sqlite3",
+          "projections/search/current.sqlite3-wal",
+          "projections/search/current.sqlite3-shm",
+          "projections/search/previous.sqlite3",
+          "projections/search/build-fixture.sqlite3",
+          "projections/search/failed-fixture.sqlite3",
+          "projections/search/retired-fixture.sqlite3",
+          "projections/search/pending-prune-fixture.sqlite3",
+          "projections/search/control.json",
+          "projections/search/search-control.json"
+        ] do
+      assert Enum.any?(files, fn file ->
+               file["path"] == path and file["included"] == false and
+                 file["reason"] == "derived_projection_excluded"
+             end)
+    end
+
     envelope_text = Jason.encode!(envelope)
     refute envelope_text =~ "sk-test"
     refute envelope_text =~ "raw-secret"
@@ -118,6 +136,7 @@ defmodule AllbertAssist.Portability.ExportImportTest do
     assert get_in(diagnostic, ["inert_import_plan", "voice_capture"]) == "not_armed"
     assert get_in(diagnostic, ["secret_references", "required"]) == 1
     assert get_in(diagnostic, ["secret_references", "missing"]) == 1
+    refute File.exists?(Path.join(home_b, "projections/search"))
 
     assert [
              %{
@@ -163,6 +182,22 @@ defmodule AllbertAssist.Portability.ExportImportTest do
     File.write!(Path.join(home, "settings/.settings_key"), "raw-secret\n")
     File.mkdir_p!(Path.join(home, "projections/memory"))
     File.write!(Path.join(home, "projections/memory/current.sqlite3"), "derived claim bytes")
+    File.mkdir_p!(Path.join(home, "projections/search"))
+
+    for name <- [
+          "current.sqlite3",
+          "current.sqlite3-wal",
+          "current.sqlite3-shm",
+          "previous.sqlite3",
+          "build-fixture.sqlite3",
+          "failed-fixture.sqlite3",
+          "retired-fixture.sqlite3",
+          "pending-prune-fixture.sqlite3",
+          "control.json",
+          "search-control.json"
+        ] do
+      File.write!(Path.join([home, "projections/search", name]), "derived search bytes")
+    end
 
     assert {:ok, _settings} =
              Settings.write_user_settings(%{

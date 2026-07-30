@@ -184,6 +184,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Search.AuthorizeSearchQueryScope
   alias AllbertAssist.Actions.Search.IngestSearchIndex
   alias AllbertAssist.Actions.Search.MaintainSearchIndex
+  alias AllbertAssist.Actions.Search.PurgeSearchProjection
   alias AllbertAssist.Actions.Search.RebuildSearchIndex
   alias AllbertAssist.Actions.Search.SearchConversations
   alias AllbertAssist.Actions.Security.Review, as: SecurityReview
@@ -332,6 +333,7 @@ defmodule AllbertAssist.Actions.Registry do
     AuthorizeSearchQueryScope,
     IngestSearchIndex,
     MaintainSearchIndex,
+    PurgeSearchProjection,
     RebuildSearchIndex,
     StartFanout,
     # Channel doctors declare exposure: :internal; keep them out of the agent set

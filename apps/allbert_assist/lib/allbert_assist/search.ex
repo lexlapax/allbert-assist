@@ -29,6 +29,7 @@ defmodule AllbertAssist.Search do
           | :invalid_limit
           | :search_disabled
           | :search_not_ready
+          | :search_purge_in_progress
           | :search_changed
           | :scope_denied
           | :query_confirmation_required
@@ -225,6 +226,7 @@ defmodule AllbertAssist.Search do
 
   defp normalize_projection_result({:ok, _batch} = result), do: result
   defp normalize_projection_result({:error, :search_not_ready} = result), do: result
+  defp normalize_projection_result({:error, :search_purge_in_progress} = result), do: result
   defp normalize_projection_result({:error, _reason}), do: {:error, :search_not_ready}
 
   defp queue_repairs(projection, authorized) do
