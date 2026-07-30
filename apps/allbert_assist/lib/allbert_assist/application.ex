@@ -57,6 +57,7 @@ defmodule AllbertAssist.Application do
       |> maybe_add_dynamic_plugins_supervisor()
       |> maybe_add_workspace_fragment_guard()
       |> maybe_add_jido_backed_supervisor()
+      |> maybe_add_projection_owners()
       |> maybe_add_session_scratchpad()
       |> maybe_add_channels_supervisor()
       |> maybe_add_attach_server()
@@ -84,6 +85,14 @@ defmodule AllbertAssist.Application do
   defp maybe_add_attach_server(children) do
     if WriterLockHolder.enabled?() do
       children ++ [Attach.Server]
+    else
+      children
+    end
+  end
+
+  defp maybe_add_projection_owners(children) do
+    if WriterLockHolder.enabled?() do
+      children ++ [AllbertAssist.Memory.Projection]
     else
       children
     end

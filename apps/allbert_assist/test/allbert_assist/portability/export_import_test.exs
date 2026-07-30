@@ -63,6 +63,12 @@ defmodule AllbertAssist.Portability.ExportImportTest do
     assert Enum.any?(files, &(&1["path"] == "settings/secrets.yml.enc" and not &1["included"]))
     assert Enum.any?(files, &(&1["path"] == "settings/.settings_key" and not &1["included"]))
 
+    assert Enum.any?(files, fn file ->
+             file["path"] == "projections/memory/current.sqlite3" and
+               file["included"] == false and
+               file["reason"] == "derived_projection_excluded"
+           end)
+
     envelope_text = Jason.encode!(envelope)
     refute envelope_text =~ "sk-test"
     refute envelope_text =~ "raw-secret"
@@ -155,6 +161,8 @@ defmodule AllbertAssist.Portability.ExportImportTest do
     File.write!(Path.join(home, "memory/notes/note.md"), "portable note\n")
     File.write!(Path.join(home, "settings/secrets.yml.enc"), "sk-test raw-secret\n")
     File.write!(Path.join(home, "settings/.settings_key"), "raw-secret\n")
+    File.mkdir_p!(Path.join(home, "projections/memory"))
+    File.write!(Path.join(home, "projections/memory/current.sqlite3"), "derived claim bytes")
 
     assert {:ok, _settings} =
              Settings.write_user_settings(%{

@@ -1,0 +1,796 @@
+defmodule AllbertAssist.Memory.Projection do
+  @moduledoc """
+  Single-writer owner of the complete disposable Memory SQLite projection.
+
+  This is a plain GenServer because it owns storage lifecycle and serialized
+  file handles; Jido state-machine hooks or Skill composition add no value.
+  Markdown claim streams remain authority, and every row can be rebuilt from
+  `Memory.Claims` plus Key Custody verification.
+  """
+
+  use GenServer
+
+  alias AllbertAssist.Memory
+  alias AllbertAssist.Memory.Claims
+  alias AllbertAssist.Paths
+  alias AllbertAssist.Projection.PromoteProtocol
+  alias Exqlite.Sqlite3
+
+  @schema_version 1
+  @claim_normalizer_version 1
+  @tombstone_normalizer_version 1
+  @control_file "control.json"
+
+  defstruct root: nil,
+            control: nil,
+            serving_conn: nil,
+            diagnostics: [],
+            ready?: false
+
+  @type state :: %__MODULE__{}
+
+  @doc "Start the Memory projection owner."
+  def start_link(opts \\ []) do
+    case Keyword.get(opts, :name, __MODULE__) do
+      nil -> GenServer.start_link(__MODULE__, opts)
+      name -> GenServer.start_link(__MODULE__, opts, name: name)
+    end
+  end
+
+  @doc "Build, verify, and promote one complete canonical generation."
+  def rebuild(server \\ __MODULE__), do: GenServer.call(server, :rebuild, :infinity)
+
+  @doc "Refresh one canonical claim in the active generation and advance revision once."
+  def refresh_claim(claim_id, server \\ __MODULE__),
+    do: GenServer.call(server, {:refresh_claim, claim_id}, :infinity)
+
+  @doc "Return content-free projection lifecycle and diagnostics."
+  def status(server \\ __MODULE__), do: GenServer.call(server, :status)
+
+  @doc "Return projected history for one claim; surfaces should use Memory retrieval APIs."
+  def history(claim_id, server \\ __MODULE__),
+    do: GenServer.call(server, {:history, claim_id})
+
+  @impl true
+  def init(opts) do
+    root = opts |> Keyword.get(:root, Paths.memory_projection_root()) |> Path.expand()
+    File.mkdir_p!(root)
+    cleanup_stale_builders(root)
+    {control, serving_conn, diagnostics} = load_generation(root)
+    _ = write_control(root, control)
+
+    {:ok,
+     %__MODULE__{
+       root: root,
+       control: control,
+       serving_conn: serving_conn,
+       diagnostics: diagnostics,
+       ready?: not is_nil(serving_conn)
+     }}
+  end
+
+  @impl true
+  def handle_call(:status, _from, state) do
+    {:reply, status_map(state), state}
+  end
+
+  def handle_call(:rebuild, _from, state) do
+    case rebuild_generation(state) do
+      {:ok, result, state} -> {:reply, {:ok, result}, state}
+      {:error, reason, state} -> {:reply, {:error, reason}, state}
+    end
+  end
+
+  def handle_call({:refresh_claim, claim_id}, _from, %{ready?: true} = state) do
+    case refresh_canonical_claim(state, claim_id) do
+      {:ok, result, state} -> {:reply, {:ok, result}, state}
+      {:error, reason, state} -> {:reply, {:error, reason}, state}
+    end
+  end
+
+  def handle_call({:refresh_claim, _claim_id}, _from, state) do
+    {:reply, {:error, :memory_projection_not_ready}, state}
+  end
+
+  def handle_call({:history, claim_id}, _from, %{ready?: true} = state) do
+    {:reply, query_history(state.serving_conn, claim_id), state}
+  end
+
+  def handle_call({:history, _claim_id}, _from, state) do
+    {:reply, {:error, :memory_projection_not_ready}, state}
+  end
+
+  @impl true
+  def terminate(_reason, state) do
+    _ = Sqlite3.close(state.serving_conn)
+    :ok
+  end
+
+  defp rebuild_generation(state) do
+    generation_id = uuid7()
+    builder_path = Path.join(state.root, "build-#{generation_id}.sqlite3")
+
+    rebuilding =
+      state.control
+      |> Map.put("builder_generation_id", generation_id)
+      |> Map.put("state", "rebuilding")
+      |> Map.put("rebuild_phase", "paging")
+      |> Map.put("last_error_code", nil)
+
+    with :ok <- write_control(state.root, rebuilding),
+         {:ok, builder_conn} <- Sqlite3.open(builder_path) do
+      build_opened(state, generation_id, builder_conn, rebuilding)
+    else
+      {:error, reason} -> fail_rebuild(state, reason, nil)
+    end
+  end
+
+  defp build_opened(state, generation_id, builder_conn, rebuilding) do
+    with :ok <- create_schema(builder_conn, generation_id),
+         {:ok, build} <- populate(builder_conn),
+         :ok <- update_generation_watermark(builder_conn, build.watermark),
+         verifying = Map.put(rebuilding, "rebuild_phase", "verifying"),
+         :ok <- write_control(state.root, verifying) do
+      promote_built(state, generation_id, builder_conn, verifying, build)
+    else
+      {:error, reason} ->
+        _ = Sqlite3.close(builder_conn)
+        fail_rebuild(state, reason, nil)
+    end
+  end
+
+  defp promote_built(state, generation_id, builder_conn, verifying, build) do
+    case promote(state, generation_id, builder_conn) do
+      {:ok, promoted} -> finish_rebuild(state, generation_id, verifying, build, promoted)
+      {:error, reason, promoted} -> fail_rebuild(state, reason, promoted)
+    end
+  end
+
+  defp finish_rebuild(state, generation_id, verifying, build, promoted) do
+    control = %{
+      verifying
+      | "current_generation_id" => generation_id,
+        "previous_generation_id" => state.control["current_generation_id"],
+        "builder_generation_id" => nil,
+        "projection_revision" => 0,
+        "state" => "ready",
+        "dirty" => false,
+        "rebuild_phase" => nil,
+        "last_error_code" => nil,
+        "claim_stream_watermark" => build.watermark
+    }
+
+    with :ok <- write_control(state.root, control) do
+      state = %{
+        state
+        | control: control,
+          serving_conn: promoted.serving_conn,
+          diagnostics: build.diagnostics,
+          ready?: true
+      }
+
+      {:ok,
+       %{
+         generation_id: generation_id,
+         projection_revision: 0,
+         claim_count: build.claim_count,
+         revision_count: build.revision_count,
+         excluded_count: length(build.diagnostics),
+         watermark: build.watermark
+       }, state}
+    else
+      {:error, reason} ->
+        _ = Sqlite3.close(promoted.serving_conn)
+        fail_rebuild(state, {:control_write_failed, reason}, %{promoted | serving_conn: nil})
+    end
+  end
+
+  defp promote(state, generation_id, builder_conn) do
+    case PromoteProtocol.promote(
+           root: state.root,
+           generation_id: generation_id,
+           builder_conn: builder_conn,
+           serving_conn: state.serving_conn,
+           verify: &verify_generation/2,
+           quiesce: fn -> :ok end
+         ) do
+      {:ok, promoted} -> {:ok, promoted}
+      {:error, reason, promoted} -> {:error, reason, promoted}
+    end
+  end
+
+  defp fail_rebuild(state, reason, promoted) do
+    serving_conn = if is_map(promoted), do: promoted.serving_conn, else: state.serving_conn
+    error_code = error_code(reason)
+
+    control =
+      state.control
+      |> Map.put("state", if(is_nil(serving_conn), do: "not_ready", else: "degraded"))
+      |> Map.put("dirty", true)
+      |> Map.update("dirty_seq", 1, &(&1 + 1))
+      |> Map.put("rebuild_phase", nil)
+      |> Map.put("last_error_code", error_code)
+
+    _ = write_control(state.root, control)
+
+    {:error, reason,
+     %{state | control: control, serving_conn: serving_conn, ready?: not is_nil(serving_conn)}}
+  end
+
+  defp populate(conn) do
+    paths = Claims.claim_paths()
+    source_watermark = source_watermark(paths)
+
+    candidates =
+      Enum.map(paths, fn path ->
+        case Claims.read_path(path) do
+          {:ok, stream} -> {:ok, stream}
+          {:error, reason} -> {:error, diagnostic(path, reason)}
+        end
+      end)
+
+    duplicate_ids =
+      candidates
+      |> Enum.flat_map(fn
+        {:ok, stream} -> [{stream.claim_id, stream.path}]
+        {:error, _diagnostic} -> []
+      end)
+      |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
+      |> Enum.filter(fn {_claim_id, claim_paths} -> length(claim_paths) > 1 end)
+      |> Map.new()
+
+    Enum.reduce_while(candidates, {:ok, build_acc()}, fn candidate, result ->
+      populate_candidate(candidate, result, conn, duplicate_ids)
+    end)
+    |> case do
+      {:ok, acc} ->
+        {:ok,
+         %{
+           acc
+           | diagnostics: Enum.reverse(acc.diagnostics),
+             watermark: source_watermark
+         }}
+
+      error ->
+        error
+    end
+  end
+
+  defp build_acc do
+    %{claim_count: 0, revision_count: 0, diagnostics: [], watermark: nil}
+  end
+
+  defp add_diagnostic(acc, diagnostic),
+    do: %{acc | diagnostics: [diagnostic | acc.diagnostics]}
+
+  defp populate_candidate({:error, diagnostic}, {:ok, acc}, _conn, _duplicate_ids) do
+    {:cont, {:ok, add_diagnostic(acc, diagnostic)}}
+  end
+
+  defp populate_candidate({:ok, stream}, {:ok, acc}, conn, duplicate_ids) do
+    cond do
+      Map.has_key?(duplicate_ids, stream.claim_id) ->
+        skip_candidate(acc, stream.path, :duplicate_claim_id)
+
+      stream.status not in [:valid, :grandfathered] ->
+        skip_candidate(acc, stream.path, stream.status)
+
+      true ->
+        insert_candidate(conn, stream, acc)
+    end
+  end
+
+  defp skip_candidate(acc, path, reason) do
+    {:cont, {:ok, add_diagnostic(acc, diagnostic(path, reason))}}
+  end
+
+  defp insert_candidate(conn, stream, acc) do
+    case insert_stream(conn, stream) do
+      {:ok, revision_count} ->
+        {:cont,
+         {:ok,
+          %{
+            acc
+            | claim_count: acc.claim_count + 1,
+              revision_count: acc.revision_count + revision_count
+          }}}
+
+      {:error, reason} ->
+        {:halt, {:error, {:projection_insert_failed, stream.claim_id, reason}}}
+    end
+  end
+
+  defp insert_stream(conn, %{status: :grandfathered} = stream) do
+    row = %{
+      claim_id: stream.claim_id,
+      sequence: 0,
+      revision_digest: stream.legacy_digest,
+      state: "kept",
+      recorded_at: legacy_recorded_at(stream.path),
+      valid_from: nil,
+      valid_to: nil,
+      actor: "legacy",
+      action: "legacy_revision_zero",
+      value: stream.legacy_content,
+      source_path: stream.path
+    }
+
+    with :ok <- insert_row(conn, row), do: {:ok, 1}
+  end
+
+  defp insert_stream(conn, %{status: :valid} = stream) do
+    Enum.reduce_while(stream.effective_records, {:ok, 0}, fn record, {:ok, count} ->
+      case insert_row(conn, record_row(stream.path, record)) do
+        :ok -> {:cont, {:ok, count + 1}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp insert_stream(_conn, stream), do: {:error, {:claim_not_authoritative, stream.status}}
+
+  defp record_row(path, record) do
+    %{
+      claim_id: record["claim_id"],
+      sequence: record["sequence"],
+      revision_digest: record["revision_digest"],
+      state: record["state"],
+      recorded_at: record["recorded_at"],
+      valid_from: record["valid_from"],
+      valid_to: record["valid_to"],
+      actor: record["actor"],
+      action: record["action"],
+      value: claim_value(record["payload"]),
+      source_path: path
+    }
+  end
+
+  defp insert_row(conn, row) do
+    execute_bound(
+      conn,
+      "INSERT INTO claim_revisions " <>
+        "(claim_id, sequence, revision_digest, state, recorded_at, valid_from, valid_to, " <>
+        "actor, action, value, source_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [
+        row.claim_id,
+        row.sequence,
+        row.revision_digest,
+        row.state,
+        row.recorded_at,
+        row.valid_from,
+        row.valid_to,
+        row.actor,
+        row.action,
+        row.value,
+        row.source_path
+      ]
+    )
+  end
+
+  defp refresh_canonical_claim(state, claim_id) do
+    with {:ok, stream} <- Claims.read(claim_id),
+         true <- stream.status in [:valid, :grandfathered] || {:error, stream.status},
+         :ok <- Sqlite3.execute(state.serving_conn, "BEGIN IMMEDIATE"),
+         :ok <- delete_claim_rows(state.serving_conn, claim_id),
+         {:ok, revision_count} <- insert_stream(state.serving_conn, stream),
+         {:ok, revision} <- increment_revision(state.serving_conn),
+         :ok <- Sqlite3.execute(state.serving_conn, "COMMIT") do
+      control =
+        state.control
+        |> Map.put("projection_revision", revision)
+        |> Map.put("dirty", false)
+        |> Map.put("last_error_code", nil)
+
+      with :ok <- write_control(state.root, control) do
+        {:ok,
+         %{claim_id: claim_id, revision_count: revision_count, projection_revision: revision},
+         %{state | control: control}}
+      else
+        {:error, reason} -> {:error, {:control_write_failed, reason}, mark_dirty(state, reason)}
+      end
+    else
+      {:error, reason} ->
+        _ = Sqlite3.execute(state.serving_conn, "ROLLBACK")
+        {:error, reason, mark_dirty(state, reason)}
+    end
+  end
+
+  defp delete_claim_rows(conn, claim_id) do
+    execute_bound(conn, "DELETE FROM claim_revisions WHERE claim_id = ?", [claim_id])
+  end
+
+  defp increment_revision(conn) do
+    with :ok <-
+           Sqlite3.execute(
+             conn,
+             "UPDATE generation_meta SET projection_revision = projection_revision + 1 WHERE singleton = 1"
+           ),
+         {:ok, [revision]} <-
+           query_one(conn, "SELECT projection_revision FROM generation_meta WHERE singleton = 1") do
+      {:ok, revision}
+    end
+  end
+
+  defp mark_dirty(state, reason) do
+    control =
+      state.control
+      |> Map.put("state", "degraded")
+      |> Map.put("dirty", true)
+      |> Map.update("dirty_seq", 1, &(&1 + 1))
+      |> Map.put("last_error_code", error_code(reason))
+
+    _ = write_control(state.root, control)
+    %{state | control: control}
+  end
+
+  defp create_schema(conn, generation_id) do
+    Sqlite3.execute(
+      conn,
+      "PRAGMA journal_mode=WAL;" <>
+        "PRAGMA synchronous=FULL;" <>
+        "PRAGMA secure_delete=ON;" <>
+        "CREATE TABLE generation_meta (" <>
+        "singleton INTEGER PRIMARY KEY CHECK (singleton = 1)," <>
+        "domain TEXT NOT NULL, generation_id TEXT NOT NULL, schema_version INTEGER NOT NULL," <>
+        "projection_revision INTEGER NOT NULL, claim_stream_watermark TEXT," <>
+        "claim_normalizer_version INTEGER NOT NULL, tombstone_normalizer_version INTEGER NOT NULL);" <>
+        "CREATE TABLE claim_revisions (" <>
+        "claim_id TEXT NOT NULL, sequence INTEGER NOT NULL, revision_digest TEXT NOT NULL," <>
+        "state TEXT NOT NULL, recorded_at TEXT NOT NULL, valid_from TEXT, valid_to TEXT," <>
+        "actor TEXT NOT NULL, action TEXT NOT NULL, value TEXT NOT NULL, source_path TEXT NOT NULL," <>
+        "PRIMARY KEY (claim_id, sequence));" <>
+        "CREATE INDEX claim_revisions_current_idx ON claim_revisions " <>
+        "(claim_id, recorded_at DESC, sequence DESC);" <>
+        "CREATE INDEX claim_revisions_temporal_idx ON claim_revisions " <>
+        "(state, valid_from, valid_to, recorded_at);" <>
+        "INSERT INTO generation_meta " <>
+        "(singleton, domain, generation_id, schema_version, projection_revision, " <>
+        "claim_stream_watermark, claim_normalizer_version, tombstone_normalizer_version) " <>
+        "VALUES (1, 'memory', '#{generation_id}', #{@schema_version}, 0, NULL, " <>
+        "#{@claim_normalizer_version}, #{@tombstone_normalizer_version})"
+    )
+  end
+
+  defp update_generation_watermark(conn, watermark) do
+    execute_bound(
+      conn,
+      "UPDATE generation_meta SET claim_stream_watermark = ? WHERE singleton = 1",
+      [watermark]
+    )
+  end
+
+  defp verify_generation(conn, _path) do
+    with {:ok,
+          ["memory", generation_id, @schema_version, revision, claim_version, tombstone_version]} <-
+           query_one(
+             conn,
+             "SELECT domain, generation_id, schema_version, projection_revision, " <>
+               "claim_normalizer_version, tombstone_normalizer_version " <>
+               "FROM generation_meta WHERE singleton = 1"
+           ),
+         true <- uuid7?(generation_id) || {:error, :invalid_generation_id},
+         true <-
+           (is_integer(revision) and revision >= 0) || {:error, :invalid_projection_revision},
+         true <-
+           claim_version == @claim_normalizer_version ||
+             {:error, :claim_normalizer_mismatch},
+         true <-
+           tombstone_version == @tombstone_normalizer_version ||
+             {:error, :tombstone_normalizer_mismatch},
+         {:ok, [invalid_count]} <-
+           query_one(
+             conn,
+             "SELECT COUNT(*) FROM claim_revisions WHERE state NOT IN ('kept','archived','retired')"
+           ),
+         true <- invalid_count == 0 || {:error, :invalid_projected_state} do
+      :ok
+    end
+  end
+
+  defp load_generation(root) do
+    with {:ok, control} <- read_control(root),
+         :ok <- validate_control(control),
+         generation_id when is_binary(generation_id) <- control["current_generation_id"] do
+      open_controlled_generation(root, control, generation_id)
+    else
+      _reason -> {default_control(), nil, []}
+    end
+  end
+
+  defp open_controlled_generation(root, control, generation_id) do
+    path = Path.join(root, "current.sqlite3")
+
+    case Sqlite3.open(path, mode: :readwrite) do
+      {:ok, conn} -> verify_controlled_generation(conn, path, control, generation_id)
+      {:error, _reason} -> {default_control(), nil, []}
+    end
+  end
+
+  defp verify_controlled_generation(conn, path, control, generation_id) do
+    result =
+      with :ok <- verify_generation(conn, path),
+           {:ok, [^generation_id]} <-
+             query_one(conn, "SELECT generation_id FROM generation_meta WHERE singleton = 1") do
+        :ok
+      end
+
+    case result do
+      :ok -> {recover_control(control), conn, []}
+      _error -> close_invalid_generation(conn)
+    end
+  end
+
+  defp recover_control(%{"state" => state} = control)
+       when state in ["rebuilding", "purging"] do
+    control
+    |> Map.put("builder_generation_id", nil)
+    |> Map.put("state", "degraded")
+    |> Map.put("dirty", true)
+    |> Map.update("dirty_seq", 1, &(&1 + 1))
+    |> Map.put("rebuild_phase", nil)
+    |> Map.put("last_error_code", "interrupted_rebuild")
+  end
+
+  defp recover_control(control), do: control
+
+  defp close_invalid_generation(conn) do
+    _ = Sqlite3.close(conn)
+    {default_control(), nil, []}
+  end
+
+  defp validate_control(control) do
+    cond do
+      control["domain"] != "memory" ->
+        {:error, :invalid_control_domain}
+
+      control["schema_version"] != @schema_version ->
+        {:error, :invalid_control_schema}
+
+      control["state"] not in ~w[not_ready ready degraded rebuilding purging] ->
+        {:error, :invalid_control_state}
+
+      not is_integer(control["projection_revision"]) or control["projection_revision"] < 0 ->
+        {:error, :invalid_control_revision}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp query_history(conn, claim_id) do
+    with {:ok, rows} <-
+           query_all(
+             conn,
+             "SELECT claim_id, sequence, revision_digest, state, recorded_at, valid_from, " <>
+               "valid_to, actor, action, value, source_path FROM claim_revisions " <>
+               "WHERE claim_id = ? ORDER BY sequence ASC",
+             [claim_id]
+           ) do
+      {:ok,
+       Enum.map(rows, fn row ->
+         [
+           claim_id,
+           sequence,
+           revision_digest,
+           state,
+           recorded_at,
+           valid_from,
+           valid_to,
+           actor,
+           action,
+           value,
+           source_path
+         ] = row
+
+         %{
+           claim_id: claim_id,
+           sequence: sequence,
+           revision_digest: revision_digest,
+           state: state,
+           recorded_at: recorded_at,
+           valid_from: valid_from,
+           valid_to: valid_to,
+           actor: actor,
+           action: action,
+           value: value,
+           source_path: source_path
+         }
+       end)}
+    end
+  end
+
+  defp execute_bound(conn, sql, values) do
+    with {:ok, statement} <- Sqlite3.prepare(conn, sql) do
+      try do
+        with :ok <- Sqlite3.bind(statement, values),
+             :done <- Sqlite3.step(conn, statement) do
+          :ok
+        else
+          {:error, reason} -> {:error, reason}
+          other -> {:error, {:unexpected_sql_result, other}}
+        end
+      after
+        _ = Sqlite3.release(conn, statement)
+      end
+    end
+  end
+
+  defp query_one(conn, sql), do: query_one(conn, sql, [])
+
+  defp query_one(conn, sql, values) do
+    with {:ok, rows} <- query_all(conn, sql, values) do
+      case rows do
+        [row] -> {:ok, row}
+        [] -> {:error, :not_found}
+        _many -> {:error, :multiple_rows}
+      end
+    end
+  end
+
+  defp query_all(conn, sql, values) do
+    with {:ok, statement} <- Sqlite3.prepare(conn, sql) do
+      try do
+        with :ok <- Sqlite3.bind(statement, values) do
+          collect_rows(conn, statement, [])
+        end
+      after
+        _ = Sqlite3.release(conn, statement)
+      end
+    end
+  end
+
+  defp collect_rows(conn, statement, rows) do
+    case Sqlite3.step(conn, statement) do
+      {:row, row} -> collect_rows(conn, statement, [row | rows])
+      :done -> {:ok, Enum.reverse(rows)}
+      :busy -> {:error, :busy}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp read_control(root) do
+    root |> Path.join(@control_file) |> File.read() |> decode_control()
+  end
+
+  defp decode_control({:ok, bytes}), do: Jason.decode(bytes)
+  defp decode_control({:error, reason}), do: {:error, reason}
+
+  defp write_control(root, control) do
+    path = Path.join(root, @control_file)
+    tmp = path <> ".tmp-" <> uuid7()
+    bytes = Jason.encode_to_iodata!(control, pretty: true)
+
+    with :ok <- File.mkdir_p(root),
+         :ok <- File.write(tmp, bytes, [:binary, :exclusive]),
+         {:ok, io} <- File.open(tmp, [:read, :binary]),
+         :ok <- sync_and_close(io),
+         :ok <- File.rename(tmp, path),
+         :ok <- sync_directory(root) do
+      :ok
+    else
+      {:error, reason} ->
+        _ = File.rm(tmp)
+        {:error, reason}
+    end
+  end
+
+  defp sync_and_close(io) do
+    try do
+      :file.sync(io)
+    after
+      File.close(io)
+    end
+  end
+
+  defp sync_directory(directory) do
+    case :file.open(String.to_charlist(directory), [:read, :directory]) do
+      {:ok, io} -> sync_and_close(io)
+      {:error, :eisdir} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp default_control do
+    %{
+      "domain" => "memory",
+      "current_generation_id" => nil,
+      "previous_generation_id" => nil,
+      "builder_generation_id" => nil,
+      "projection_revision" => 0,
+      "schema_version" => @schema_version,
+      "state" => "not_ready",
+      "dirty" => true,
+      "dirty_seq" => 0,
+      "rebuild_phase" => nil,
+      "last_error_code" => nil,
+      "claim_stream_watermark" => nil,
+      "claim_normalizer_version" => @claim_normalizer_version,
+      "tombstone_normalizer_version" => @tombstone_normalizer_version
+    }
+  end
+
+  defp status_map(state) do
+    %{
+      ready?: state.ready?,
+      root: state.root,
+      control: state.control,
+      diagnostics: state.diagnostics
+    }
+  end
+
+  defp claim_value(payload) do
+    value = payload["value"] || payload["object"] || payload["body"] || payload["claim"]
+    if is_binary(value), do: value, else: Jason.encode!(value || payload)
+  end
+
+  defp legacy_recorded_at(path) do
+    case File.stat(path, time: :posix) do
+      {:ok, stat} -> DateTime.from_unix!(stat.mtime) |> DateTime.to_iso8601()
+      {:error, _reason} -> "1970-01-01T00:00:00Z"
+    end
+  end
+
+  defp source_watermark(paths) do
+    paths
+    |> Enum.map(fn path ->
+      relative = Path.relative_to(path, Memory.root())
+
+      file_digest =
+        case File.read(path) do
+          {:ok, bytes} -> digest(bytes)
+          {:error, reason} -> "unreadable:" <> error_code(reason)
+        end
+
+      {relative, file_digest}
+    end)
+    |> Enum.sort()
+    |> Enum.map_join("\n", fn {path, file_digest} -> path <> ":" <> file_digest end)
+    |> digest()
+  end
+
+  defp diagnostic(path, reason),
+    do: %{path: Path.relative_to(path, Memory.root()), code: error_code(reason)}
+
+  defp error_code(reason) do
+    case reason do
+      atom when is_atom(atom) -> Atom.to_string(atom)
+      {atom, _detail} when is_atom(atom) -> Atom.to_string(atom)
+      {atom, _detail, _more} when is_atom(atom) -> Atom.to_string(atom)
+      _other -> "projection_failed"
+    end
+  end
+
+  defp digest(value),
+    do: "sha256:" <> (:crypto.hash(:sha256, value) |> Base.encode16(case: :lower))
+
+  defp uuid7 do
+    timestamp_ms = System.system_time(:millisecond)
+    <<rand_a::12, rand_b::62, _unused::6>> = :crypto.strong_rand_bytes(10)
+
+    <<timestamp_ms::48, 7::4, rand_a::12, 2::2, rand_b::62>>
+    |> Base.encode16(case: :lower)
+    |> format_uuid()
+  end
+
+  defp format_uuid(
+         <<a::binary-size(8), b::binary-size(4), c::binary-size(4), d::binary-size(4),
+           e::binary-size(12)>>
+       ),
+       do: a <> "-" <> b <> "-" <> c <> "-" <> d <> "-" <> e
+
+  defp uuid7?(value) when is_binary(value),
+    do:
+      Regex.match?(
+        ~r/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+        value
+      )
+
+  defp uuid7?(_value), do: false
+
+  defp cleanup_stale_builders(root) do
+    root
+    |> Path.join("build-*.sqlite3*")
+    |> Path.wildcard()
+    |> Enum.each(&File.rm/1)
+  end
+end

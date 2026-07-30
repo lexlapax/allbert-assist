@@ -15,7 +15,7 @@ defmodule AllbertAssist.Portability.Export do
                   "settings/.settings_key"
                 ])
 
-  @excluded_prefixes ~w(cache/ tmp/)
+  @excluded_prefixes ~w(cache/ tmp/ projections/)
   @secret_ref_pattern ~r/^secret:\/\/[A-Za-z0-9_\/.-]+$/
   @export_secret_value_patterns [
     ~r/\bAIza[0-9A-Za-z_-]{20,}\b/,
@@ -164,6 +164,7 @@ defmodule AllbertAssist.Portability.Export do
       MapSet.member?(@secret_paths, relative) -> "secret_store_excluded"
       String.starts_with?(relative, "cache/") -> "cache_excluded"
       String.starts_with?(relative, "tmp/") -> "tmp_excluded"
+      String.starts_with?(relative, "projections/") -> "derived_projection_excluded"
       true -> "excluded"
     end
   end
