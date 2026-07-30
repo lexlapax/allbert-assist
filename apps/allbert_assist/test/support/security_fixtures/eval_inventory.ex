@@ -58,6 +58,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :v11
           | :v12
           | :v121
+          | :v13
 
   @type required_surface ::
           :resource_execution
@@ -139,6 +140,67 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           assert: [assertion(), ...],
           test_module: String.t()
         }
+
+  # v1.3 keeps the detailed behavioral wording in the request-flow table and
+  # routes every row to a concrete owner here. The M8 no-loss test compares the
+  # two ID sets, so either side drifting fails the named security suite.
+  @v13_contracts [
+    {"v13-corpus-principal-001", :identity_context, "AllbertAssist.Conversations.CorpusIdentityPolicyTest"},
+    {"v13-consent-class-001", :settings_enforcement, "AllbertAssist.Security.V13CrossConsumerEvalTest"},
+    {"v13-consent-nontransitive-001", :settings_enforcement, "AllbertAssist.Security.V13CrossConsumerEvalTest"},
+    {"v13-memory-e2ee-revoke-001", :active_memory, "AllbertAssist.Security.V13CrossConsumerEvalTest"},
+    {"v13-revocation-rejoin-001", :active_memory, "AllbertAssist.Security.V13CrossConsumerEvalTest"},
+    {"v13-proposed-never-in-prompt-001", :active_memory, "AllbertAssist.Security.V13MemoryEvalTest"},
+    {"v13-assistant-not-authority-001", :active_memory, "AllbertAssist.Memory.ExtractorTest"},
+    {"v13-span-provenance-001", :active_memory, "AllbertAssist.Memory.SpanProvenanceTest"},
+    {"v13-legacy-alias-001", :active_memory, "AllbertAssist.Memory.RetrievalCompatibilityTest"},
+    {"v13-legacy-draft-confirm-001", :operator_review, "AllbertAssist.Actions.Memory.ConfirmLegacyDraftTest"},
+    {"v13-single-index-authority-001", :active_memory, "AllbertAssist.Memory.RetrievalCompatibilityTest"},
+    {"v13-auto-promote-inert-001", :settings_enforcement, "AllbertAssist.Memory.ProposalReviewTest"},
+    {"v13-forget-conversation-disclosure-001", :operator_review, "AllbertAssist.Actions.Memory.ForgetMemoryClaimTest"},
+    {"v13-canonical-delete-001", :resource_execution, "AllbertAssist.Actions.Conversations.DeleteConversationTargetTest"},
+    {"v13-writer-ownership-001", :product_rc, "AllbertAssist.Projection.WriterOwnershipTest"},
+    {"v13-secret-filter-001", :active_memory, "AllbertAssist.Memory.ProposalsTest"},
+    {"v13-frozen-partial-review-001", :operator_review, "AllbertAssist.Memory.ProposalReviewTest"},
+    {"v13-review-crash-recovery-001", :operator_review, "AllbertAssist.Memory.ProposalReviewTest"},
+    {"v13-claim-immutability-001", :active_memory, "AllbertAssist.Memory.ClaimsTest"},
+    {"v13-claim-authority-cas-001", :active_memory, "AllbertAssist.Memory.ClaimsTest"},
+    {"v13-legacy-claim-adoption-001", :portability, "AllbertAssist.Memory.ClaimsTest"},
+    {"v13-manual-append-authority-001", :active_memory, "AllbertAssist.Memory.ClaimsTest"},
+    {"v13-temporal-conflict-001", :active_memory, "AllbertAssist.Memory.ActiveMemoryTest"},
+    {"v13-archive-forget-001", :active_memory, "AllbertAssist.Actions.Memory.ForgetMemoryClaimTest"},
+    {"v13-forget-crash-recovery-001", :active_memory, "AllbertAssist.Actions.Memory.ForgetMemoryClaimTest"},
+    {"v13-forget-resurrection-001", :active_memory, "AllbertAssist.Memory.ProposalsTest"},
+    {"v13-forget-portability-001", :portability, "AllbertAssist.Actions.Memory.ForgetMemoryClaimTest"},
+    {"v13-retrieval-abstention-001", :active_memory, "AllbertAssist.Security.V13MemoryEvalTest"},
+    {"v13-generation-promote-shared-001", :product_rc, "AllbertAssist.Projection.PromoteProtocolTest"},
+    {"v13-search-central-only-001", :surface_consistency, "AllbertAssist.Security.V13SearchEvalTest"},
+    {"v13-search-reauthorize-001", :surface_consistency, "AllbertAssist.Search.QueryTest"},
+    {"v13-search-generation-001", :product_rc, "AllbertAssist.Search.GenerationTest"},
+    {"v13-search-dm-scope-001", :identity_context, "AllbertAssist.Security.V13SearchEvalTest"},
+    {"v13-search-query-audit-001", :settings_enforcement, "AllbertAssist.Actions.RunnerSearchSummaryTest"},
+    {"v13-search-projection-redaction-001", :product_rc, "AllbertAssist.Search.ProjectionTest"},
+    {"v13-search-export-exclusion-001", :portability, "AllbertAssist.Home.ExportTest"},
+    {"v13-memory-projection-exclusion-001", :portability, "AllbertAssist.Home.ExportTest"},
+    {"v13-search-e2ee-001", :settings_enforcement, "AllbertAssist.Security.V13CrossConsumerEvalTest"},
+    {"v13-search-purge-recovery-001", :product_rc, "AllbertAssist.Search.DeletePurgeReconcileTest"},
+    {"v13-managed-job-001", :product_rc, "AllbertAssist.Jobs.ManagedTest"},
+    {"v13-memory-propose-authority-001", :active_memory, "AllbertAssist.Actions.MemoryProposalActionsTest"},
+    {"v13-zero-hosted-egress-001", :resource_execution, "AllbertAssist.Security.V13CrossConsumerEvalTest"}
+  ]
+
+  @v13_rows Enum.map(@v13_contracts, fn {id, surface, test_module} ->
+              %{
+                id: id,
+                milestone: :v13,
+                surface: surface,
+                scenario: "#{id} request-flow behavioral contract is violated",
+                boundary: :v13_behavioral_contract,
+                expected: :denied,
+                assert: [:request_flow_contract, :behavioral_test_owned],
+                test_module: test_module
+              }
+            end)
 
   @rows [
     %{
@@ -7261,7 +7323,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       assert: [:age_boundary_exact, :semantic_tamper_rejected, :restartable_assets_fail_closed],
       test_module: "AllbertAssist.Release.PromotionWorkflowContractTest"
     }
-  ]
+  ] ++ @v13_rows
 
   @required_surfaces [
     :resource_execution,

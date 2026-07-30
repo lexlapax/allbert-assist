@@ -144,11 +144,28 @@ defmodule AllbertAssist.Search.SurfaceParityTest do
                thread_id: response.thread_id,
                source_message_id: seeded_dm.user_message_id,
                origin: exact_origin(),
-               trust_class: :e2ee_origin
+               trust_class: :e2ee_origin,
+               conversation_scope: :direct
              })
 
     assert e2ee.search_disclosure =~ "E2EE-origin text is excluded"
     assert e2ee.surface_payload =~ "local plaintext derivatives"
+
+    assert {:ok, shared} =
+             Surface.dispatch_text("/search bounded privacy", %{
+               operator_id: "alice",
+               user_id: "alice",
+               channel: "slack",
+               thread_id: response.thread_id,
+               source_message_id: seeded_dm.user_message_id,
+               origin: exact_origin(),
+               trust_class: :server_readable,
+               conversation_scope: :shared
+             })
+
+    assert shared.status == :denied
+    assert shared.error == :search_scope_excluded
+    assert shared.surface_payload =~ "one-to-one operator DMs only"
   end
 
   defp local_context(channel) do
@@ -176,7 +193,8 @@ defmodule AllbertAssist.Search.SurfaceParityTest do
         channel_id: "C0123",
         thread_ts: "1718040000.000900"
       },
-      trust_class: trust_class
+      trust_class: trust_class,
+      conversation_scope: :direct
     }
   end
 

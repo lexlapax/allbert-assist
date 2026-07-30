@@ -101,6 +101,7 @@ defmodule AllbertAssist.Search.QueryScopeTest do
              )
 
     assert approval.status == :completed
+    refute approval.confirmation["status"] == "adapter_unavailable"
     assert {:ok, %{"status" => "approved"} = approved} = Confirmations.read(confirmation_id)
 
     assert get_in(approved, ["operator_resolution", "target_result", "output_data", "outcome"]) in [
@@ -114,6 +115,8 @@ defmodule AllbertAssist.Search.QueryScopeTest do
 
     assert {:error, :scope_denied} =
              Search.query(%{resubmitted | query: "changed request"}, base_context)
+
+    refute inspect(approved) =~ "remote private"
   end
 
   defp runtime_response(_signal, request) do
@@ -141,7 +144,8 @@ defmodule AllbertAssist.Search.QueryScopeTest do
         channel_id: "C0123",
         thread_ts: thread_ts
       },
-      trust_class: :server_readable
+      trust_class: :server_readable,
+      conversation_scope: :direct
     }
   end
 

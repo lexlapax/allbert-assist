@@ -393,6 +393,7 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
       operator_id: user_id,
       session_id: session_id,
       channel_thread_ref: fields.channel_thread_ref,
+      conversation_scope: if(fields.dm?, do: :direct, else: :shared),
       provider_message_id: fields.external_message_id,
       metadata: %{
         channel: "discord",

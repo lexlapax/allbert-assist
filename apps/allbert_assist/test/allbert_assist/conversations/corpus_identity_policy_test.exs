@@ -89,6 +89,30 @@ defmodule AllbertAssist.Conversations.CorpusIdentityPolicyTest do
              Corpus.rehydrate_and_authorize("alice", [spoofed.id], mapped_search_policy())
   end
 
+  test "verified mapped identity does not turn a shared provider conversation into a DM" do
+    link_identity("U_ALICE")
+    assert {:ok, _epoch} = Corpus.set_origin_grant(:search, :mapped_operator_dm, true)
+
+    shared_ref = Map.put(slack_ref("1718040000.000150"), :conversation_scope, :shared)
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "shared room content",
+               channel: "slack",
+               user_id: "alice",
+               external_user_id: "U_ALICE",
+               channel_thread_ref: shared_ref,
+               provider_message_id: "shared-message-1"
+             })
+
+    assert {:ok, [{:error, :scope_denied}]} =
+             Corpus.rehydrate_and_authorize(
+               "alice",
+               [response.user_message_id],
+               mapped_search_policy()
+             )
+  end
+
   test "one exact legacy ref and current principal can be backfilled, ambiguity cannot" do
     link_identity("U_ALICE")
     assert {:ok, _epoch} = Corpus.set_origin_grant(:search, :mapped_operator_dm, true)
@@ -201,7 +225,8 @@ defmodule AllbertAssist.Conversations.CorpusIdentityPolicyTest do
         channel_id: "C0123",
         thread_ts: thread_ts
       },
-      trust_class: :server_readable
+      trust_class: :server_readable,
+      conversation_scope: :direct
     }
   end
 

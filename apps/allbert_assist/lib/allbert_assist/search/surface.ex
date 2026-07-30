@@ -149,18 +149,27 @@ defmodule AllbertAssist.Search.Surface do
       {:error, {:grant_required, disclosure}} ->
         {:ok, Response.advisory(disclosure, error: :search_origin_grant_required)}
 
+      {:error, {:scope_excluded, disclosure}} ->
+        {:ok, Response.denied(disclosure, error: :search_scope_excluded)}
+
       {:error, reason} ->
         {:ok, Response.error("Search command failed.", reason)}
     end
   end
 
-  defp run(request, context, %{all_history?: true}) when is_nil(request.query_chain_id) do
-    params =
-      request
-      |> Map.take([:query, :order, :limit, :filters])
-      |> Map.merge(Map.take(context, [:source_message_id, :operator_id, :thread_id, :origin]))
+  defp run(request, context, %{all_history?: true}) do
+    case Map.get(request, :query_chain_id) do
+      nil ->
+        params =
+          request
+          |> Map.take([:query, :order, :limit, :filters])
+          |> Map.merge(Map.take(context, [:source_message_id, :operator_id, :thread_id, :origin]))
 
-    Runner.run("authorize_search_query_scope", params, context)
+        Runner.run("authorize_search_query_scope", params, context)
+
+      _query_chain_id ->
+        Runner.run("search_conversations", request, context)
+    end
   end
 
   defp run(request, context, _opts), do: Runner.run("search_conversations", request, context)
@@ -183,6 +192,11 @@ defmodule AllbertAssist.Search.Surface do
     grants = setting("search.origin_grants", ["local_operator"])
 
     cond do
+      Map.get(context, :conversation_scope) not in [:direct, "direct"] ->
+        {:error,
+         {:scope_excluded,
+          "Search is available in verified mapped one-to-one operator DMs only; shared or unverified channel conversations are excluded."}}
+
       "mapped_operator_dm" not in grants ->
         {:error,
          {:grant_required,

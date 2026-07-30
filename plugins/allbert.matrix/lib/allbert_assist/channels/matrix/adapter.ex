@@ -493,6 +493,7 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
       session_id: session_id,
       new_thread: new_thread?,
       channel_thread_ref: fields.channel_thread_ref,
+      conversation_scope: Map.get(fields, :conversation_scope, :unknown),
       provider_message_id: fields.external_message_id,
       metadata: %{
         channel: "matrix",

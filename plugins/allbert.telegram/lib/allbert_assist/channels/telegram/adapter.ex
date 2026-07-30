@@ -468,6 +468,7 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
       session_id: session_id,
       new_thread: new_thread?,
       channel_thread_ref: fields.channel_thread_ref,
+      conversation_scope: if(fields.chat_type == "private", do: :direct, else: :shared),
       provider_message_id: fields.external_message_id,
       metadata:
         %{

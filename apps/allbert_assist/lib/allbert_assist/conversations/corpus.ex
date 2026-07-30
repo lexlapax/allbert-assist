@@ -508,6 +508,9 @@ defmodule AllbertAssist.Conversations.Corpus do
     e2ee? = ref.trust_class == "e2ee_origin"
 
     cond do
+      ref.conversation_scope != "direct" ->
+        {:error, :scope_denied}
+
       policy.origin_scope != :mapped_operator_dm ->
         {:error, :scope_denied}
 
