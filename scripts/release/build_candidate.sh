@@ -26,6 +26,8 @@ fail() {
   exit 1
 }
 
+[ "$(id -u)" -ne 0 ] || fail "candidate build and smoke must run as a non-root user"
+
 sha256_file() {
   if command -v sha256sum >/dev/null 2>&1; then
     sha256sum "$1" | awk '{print $1}'

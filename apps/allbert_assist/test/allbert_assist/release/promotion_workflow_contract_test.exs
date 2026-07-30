@@ -114,6 +114,7 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     assert body =~ "native-linux"
     assert body =~ "docker-linux-arm64"
     assert body =~ "Linux/aarch64"
+    assert body =~ "candidate build and smoke must run as a non-root user"
     assert body =~ "mix release allbert --overwrite"
     assert body =~ "artifact_smoke.sh"
     assert body =~ ~S|cat "$WORK/smoke.log" >&2|
