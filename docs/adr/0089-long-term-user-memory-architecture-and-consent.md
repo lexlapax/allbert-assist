@@ -530,8 +530,9 @@ Accepted keep/edit, explicit remember/update, correction, archive/restore,
 retirement, legacy adoption, and review transitions all use the native-
 transition domain. A raw well-formed append has no such tag and is a pending
 manual revision, not authority: it remains quarantined until the operator
-confirms that exact revision through the registered one-claim repair/import
-action. That action appends a content-free `manual_import_confirmed` transition
+confirms that exact revision through registered action
+`confirm_manual_memory_revision`. That action appends a content-free
+`manual_import_confirmed` transition
 which binds the unchanged pending revision and whole prior-chain digest under a
 separate manual-confirmation domain. Rebuild accepts it only when the local tag
 verifies and no content revision intervenes. A broken hash link, duplicate or
@@ -556,8 +557,9 @@ one helper on the existing key seam, not a Memory key service.
 
 A same-Home restore with the original secret verifies normally. Moving claim
 files to another Home does not export that secret, so structurally valid streams
-remain readable but quarantined there. After an exact preview, one registered
-action may append `destination_chain_confirmed`, authenticating the unchanged
+remain readable but quarantined there. After an exact preview, registered
+action `confirm_destination_memory_chain` may append
+`destination_chain_confirmed`, authenticating the unchanged
 whole-chain digest under the destination key and destination-chain-confirmation
 domain. That is a new destination-operator grant, not a claim that the source
 tags verified locally; it rewrites
@@ -643,8 +645,9 @@ Archive, and Forget-adjacent writes—no surface implements its own writer.
 
 #### Confirmed Forget is the narrow immutability exception
 
-Forget is a separately confirmed, audited operator action with a tombstone-
-first, fail-closed recovery protocol. Its durable confirmation binds claim id,
+Registered action `forget_memory_claim` is a separately confirmed, audited
+operator action with a tombstone-first, fail-closed recovery protocol. Its
+durable confirmation binds claim id,
 expected tail digest, suppression-normalizer version, and the closed reason code;
 the exact claim preview is fetched transiently and is not copied into the
 confirmation record or audit. Before removing claim content it writes a single
@@ -653,8 +656,8 @@ content-free Markdown tombstone at
 `AllbertAssist.Paths`, carrying the non-content-derived claim id, deletion time,
 actor, closed `reason_code`, `pending | complete` phase, non-secret key
 reference/version, normalizer version, and a keyed per-Home suppression token.
-The durable reason is one of `operator_requested`, `privacy`, `incorrect`,
-`superseded`, or `other`; `other` carries no free-form suffix. Any human
+The durable reason is one of `operator_requested`, `privacy`, `incorrect`, or
+`expired`. Any human
 explanation is transient and redacted, never copied to the tombstone,
 confirmation result, trace, or audit. This file, not a Repo ledger or projection
 row, is the durable suppression/recovery authority. The token is an HMAC of the
@@ -799,7 +802,9 @@ candidate behavior, while direct-answer Active Memory remains independently
 projection-backed. `compile_memory_index` preserves its public shape while
 targeting the retained `memory-index-rebuild` managed entry; the review cadence
 and configured caps feed that one projection. `prune_nominated` and the
-existing prune action route to reversible archive transitions. The auto-promote
+existing prune action route to reversible archive transitions through the
+`delete_memory_entry` compatibility semantics; `restore_memory_claim` reverses
+them. The auto-promote
 setting remains readable/writable but deprecated and inert; implementation does
 not rewrite operator state merely to make it false.
 

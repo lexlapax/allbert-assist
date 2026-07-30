@@ -63,8 +63,8 @@ its own encoding.
 
 The only supported raw manual change shape is a new append-only revision. A raw
 filesystem append has no native-transition tag and is quarantined until the
-operator reviews and confirms that exact revision through the registered one-
-claim repair/import action. Confirmation appends a content-free
+operator reviews and confirms that exact revision through registered action
+`confirm_manual_memory_revision`. Confirmation appends a content-free
 `manual_import_confirmed` transition that binds the unchanged pending revision,
 whole prior-chain digest, and normalizer version using the manual-confirmation
 domain. Projection rebuild admits the manual revision only
