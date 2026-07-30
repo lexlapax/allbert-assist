@@ -129,6 +129,28 @@ defmodule AllbertAssist.DevGates.TestMetrics do
     |> length()
   end
 
+  @doc "Ingest clean packaged-host v1.3 latency JSONL rows into the metrics store."
+  def ingest_v13_latency!(path, opts \\ []) do
+    store = Keyword.get(opts, :store) || default_store_path()
+    existing = store |> read_records() |> MapSet.new(&v13_latency_identity/1)
+
+    records =
+      path
+      |> File.stream!()
+      |> Stream.map(&String.trim/1)
+      |> Stream.reject(&(&1 == ""))
+      |> Enum.map(&decode_v13_latency!/1)
+      |> Enum.map(&validate_v13_latency!/1)
+      |> Enum.reject(&(v13_latency_identity(&1) in existing))
+
+    if records != [] do
+      File.mkdir_p!(Path.dirname(store))
+      File.write!(store, Enum.map_join(records, "", &(Jason.encode!(&1) <> "\n")), [:append])
+    end
+
+    length(records)
+  end
+
   @doc """
   Renders the metrics summary markdown from the store into
   `#{@summary_relative}` (overwriting). Options: `:store`, `:output`.
@@ -465,6 +487,11 @@ defmodule AllbertAssist.DevGates.TestMetrics do
     Latest #{@gate_table_limit} records per gate, newest first.
 
     #{per_gate_sections(newest_first)}
+    ## Benchmarks
+
+    Clean packaged-host v1.3 latency evidence, newest first.
+
+    #{benchmark_table(newest_first)}
     ## Per-Lane Wall Clock
 
     Latest record per gate/lane/partition.
@@ -476,6 +503,117 @@ defmodule AllbertAssist.DevGates.TestMetrics do
 
     #{slowest_files_table(newest_first)}
     """
+  end
+
+  defp benchmark_table(newest_first) do
+    rows =
+      newest_first
+      |> Enum.filter(&release_benchmark?/1)
+      |> Enum.map_join("\n", fn record ->
+        stats = Map.get(record, "stats") || %{}
+
+        row([
+          Map.get(record, "recorded_at"),
+          Map.get(record, "git_sha"),
+          Map.get(record, "host_class"),
+          Map.get(record, "corpus_id"),
+          short_digest(Map.get(stats, "artifact_sha256")),
+          Map.get(stats, "p95_ms"),
+          Map.get(stats, "p99_ms"),
+          Map.get(stats, "samples"),
+          Map.get(record, "status")
+        ])
+      end)
+
+    case rows do
+      "" ->
+        "No benchmark data recorded yet.\n"
+
+      rows ->
+        """
+        | recorded_at | git sha | host | corpus | artifact sha256 | p95 ms | p99 ms | samples | status |
+        |---|---|---|---|---|---|---|---|---|
+        #{rows}
+        """
+    end
+  end
+
+  defp decode_v13_latency!(line) do
+    case Jason.decode(line) do
+      {:ok, record} when is_map(record) -> record
+      _other -> raise ArgumentError, "invalid v1.3 latency JSONL row"
+    end
+  end
+
+  defp validate_v13_latency!(record) do
+    phase = Map.get(record, "phase_or_step")
+    corpus_id = Map.get(record, "corpus_id")
+    stats = Map.get(record, "stats") || %{}
+
+    expected =
+      case {phase, corpus_id} do
+        {"memory", "v13-memory-10k-200-v1"} -> {200, 75.0, 250.0}
+        {"search", "v13-search-25k-300-v1"} -> {300, 200.0, 750.0}
+        _other -> invalid_v13_latency!("consumer/corpus identity")
+      end
+
+    {samples, p95_limit, p99_limit} = expected
+    p95 = Map.get(stats, "p95_ms")
+    p99 = Map.get(stats, "p99_ms")
+    artifact = Map.get(stats, "artifact_sha256")
+    status = Map.get(record, "status")
+
+    checks = [
+      {Map.get(record, "gate") == "bench-v13-latency", "gate"},
+      {Map.get(record, "dirty") == false, "clean provenance"},
+      {match?(value when is_binary(value), Map.get(record, "recorded_at")), "recorded_at"},
+      {regex?(Map.get(record, "full_sha"), ~r/^[0-9a-f]{40}$/), "full_sha"},
+      {regex?(Map.get(record, "host_class"), ~r/^[a-z]+-[A-Za-z0-9_]+-\d+$/), "host_class"},
+      {regex?(artifact, ~r/^[0-9a-f]{64}$/), "artifact_sha256"},
+      {Map.get(stats, "samples") == samples, "sample count"},
+      {Map.get(stats, "warmup_queries") == samples, "complete warm pass"},
+      {Map.get(stats, "p95_limit_ms") == p95_limit, "p95 limit"},
+      {Map.get(stats, "p99_limit_ms") == p99_limit, "p99 limit"},
+      {is_number(p95) and is_number(p99), "percentiles"},
+      {status in ["passed", "failed"], "status"},
+      {status == expected_latency_status(p95, p99, p95_limit, p99_limit),
+       "status/threshold agreement"}
+    ]
+
+    case Enum.find(checks, fn {ok?, _label} -> !ok? end) do
+      nil -> record
+      {_false, label} -> invalid_v13_latency!(label)
+    end
+  end
+
+  defp invalid_v13_latency!(field),
+    do: raise(ArgumentError, "invalid v1.3 latency evidence: #{field}")
+
+  defp regex?(value, regex), do: is_binary(value) and Regex.match?(regex, value)
+
+  defp expected_latency_status(p95, p99, p95_limit, p99_limit)
+       when is_number(p95) and is_number(p99) do
+    if p95 <= p95_limit and p99 <= p99_limit, do: "passed", else: "failed"
+  end
+
+  defp expected_latency_status(_p95, _p99, _p95_limit, _p99_limit), do: :invalid
+
+  defp v13_latency_identity(record) do
+    stats = Map.get(record, "stats") || %{}
+
+    {Map.get(record, "full_sha"), Map.get(record, "host_class"), Map.get(record, "corpus_id"),
+     Map.get(stats, "artifact_sha256")}
+  end
+
+  defp short_digest(value) when is_binary(value), do: String.slice(value, 0, 12)
+  defp short_digest(_value), do: nil
+
+  defp release_benchmark?(record) do
+    stats = Map.get(record, "stats") || %{}
+
+    Map.get(record, "gate") == "bench-v13-latency" and
+      Map.get(record, "dirty") == false and
+      regex?(Map.get(stats, "artifact_sha256"), ~r/^[0-9a-f]{64}$/)
   end
 
   defp per_gate_sections([]), do: "No records yet.\n"

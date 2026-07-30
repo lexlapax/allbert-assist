@@ -110,6 +110,35 @@ defmodule AllbertAssist.Conversations.CorpusTest do
              Corpus.conversation_context("alice", oversized.id, policy)
   end
 
+  test "batch rehydration preloads one bounded candidate set instead of querying per ref" do
+    assert {:ok, thread} = Conversations.create_general_thread("alice", "Batch rehydrate")
+
+    refs =
+      for index <- 1..100 do
+        assert {:ok, message} = local_message(thread, "batch message #{index}")
+        message.id
+      end
+
+    handler_id = {__MODULE__, self(), System.unique_integer([:positive])}
+
+    :ok =
+      :telemetry.attach(
+        handler_id,
+        [:allbert_assist, :repo, :query],
+        fn _event, _measurements, _metadata, owner -> send(owner, :corpus_batch_query) end,
+        self()
+      )
+
+    on_exit(fn -> :telemetry.detach(handler_id) end)
+
+    assert {:ok, results} =
+             Corpus.rehydrate_and_authorize("alice", refs, local_search_policy())
+
+    assert length(results) == 100
+    assert Enum.all?(results, &match?({:ok, _envelope}, &1))
+    assert query_count() in 1..3
+  end
+
   test "consumer grant transitions invalidate only that consumer snapshot" do
     assert {:ok, thread} = Conversations.create_general_thread("alice", "Grant epoch")
     assert {:ok, _message} = local_message(thread, "eligible")
@@ -161,4 +190,12 @@ defmodule AllbertAssist.Conversations.CorpusTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)
+
+  defp query_count(count \\ 0) do
+    receive do
+      :corpus_batch_query -> query_count(count + 1)
+    after
+      0 -> count
+    end
+  end
 end

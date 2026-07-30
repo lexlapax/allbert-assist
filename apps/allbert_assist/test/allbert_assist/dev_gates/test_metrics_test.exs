@@ -246,6 +246,35 @@ defmodule AllbertAssist.DevGates.TestMetricsTest do
     end
   end
 
+  describe "ingest_v13_latency!/2" do
+    test "validates, deduplicates, and preserves clean packaged-host rows" do
+      dir = temp_dir()
+      input = Path.join(dir, "serenity.jsonl")
+      store = Path.join(dir, "runs.jsonl")
+      record = v13_latency_record()
+      File.write!(input, Jason.encode!(record) <> "\n")
+      on_exit(fn -> File.rm_rf!(dir) end)
+
+      assert TestMetrics.ingest_v13_latency!(input, store: store) == 1
+      assert TestMetrics.ingest_v13_latency!(input, store: store) == 0
+      assert [stored] = read_store(store)
+      assert stored == record
+    end
+
+    test "rejects dirty or internally inconsistent evidence" do
+      dir = temp_dir()
+      input = Path.join(dir, "invalid.jsonl")
+      on_exit(fn -> File.rm_rf!(dir) end)
+
+      invalid = v13_latency_record() |> Map.put("dirty", true)
+      File.write!(input, Jason.encode!(invalid) <> "\n")
+
+      assert_raise ArgumentError, ~r/clean provenance/, fn ->
+        TestMetrics.ingest_v13_latency!(input, store: Path.join(dir, "runs.jsonl"))
+      end
+    end
+  end
+
   describe "render_summary!/1" do
     test "renders per-gate, per-lane, and slowest-files tables from the store" do
       store = temp_store()
@@ -284,6 +313,8 @@ defmodule AllbertAssist.DevGates.TestMetricsTest do
       assert summary =~ "### gate `fast-local`"
       assert summary =~ "### gate `release.v102`"
       assert summary =~ "## Per-Lane Wall Clock"
+      assert summary =~ "## Benchmarks"
+      assert summary =~ "No benchmark data recorded yet."
       assert summary =~ "| fast-local | db_serial | 1/4 |"
       assert summary =~ "## Slowest Files"
       assert summary =~ "test/allbert_assist/other_test.exs"
@@ -300,6 +331,7 @@ defmodule AllbertAssist.DevGates.TestMetricsTest do
       summary = File.read!(output)
       assert summary =~ "No records yet."
       assert summary =~ "No lane records yet."
+      assert summary =~ "No benchmark data recorded yet."
       assert summary =~ "No slowest data recorded yet."
     end
   end
@@ -339,5 +371,41 @@ defmodule AllbertAssist.DevGates.TestMetricsTest do
     |> File.read!()
     |> String.split("\n", trim: true)
     |> Enum.map(&Jason.decode!/1)
+  end
+
+  defp v13_latency_record do
+    %{
+      "recorded_at" => "2026-07-30T12:00:00Z",
+      "git_sha" => "bbbbbbbb",
+      "full_sha" => String.duplicate("b", 40),
+      "dirty" => false,
+      "command" => "bench-v13-latency --consumer search",
+      "cwd" => "apps/allbert_assist",
+      "host_class" => "linux-x86_64-8",
+      "corpus_id" => "v13-search-25k-300-v1",
+      "gate" => "bench-v13-latency",
+      "phase_or_step" => "search",
+      "status" => "passed",
+      "wall_ms" => 12_000,
+      "stats" => %{
+        "artifact_sha256" => String.duplicate("a", 64),
+        "samples" => 300,
+        "warmup_queries" => 300,
+        "p95_ms" => 120.0,
+        "p99_ms" => 220.0,
+        "p95_limit_ms" => 200.0,
+        "p99_limit_ms" => 750.0
+      },
+      "owner" => nil,
+      "lane" => nil,
+      "partition" => nil,
+      "partitions" => nil,
+      "seed" => nil,
+      "tests" => 0,
+      "failures" => 0,
+      "excluded" => 0,
+      "skipped" => 0,
+      "slowest" => []
+    }
   end
 end

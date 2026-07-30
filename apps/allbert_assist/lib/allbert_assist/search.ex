@@ -41,13 +41,15 @@ defmodule AllbertAssist.Search do
   def query(request, context \\ %{})
 
   def query(request, context) when is_map(request) and is_map(context) do
-    with :ok <- enabled(),
-         {:ok, parsed} <- Query.parse(request),
-         {:ok, scope} <- request_scope(parsed, context),
-         {:ok, cursor} <- decode_cursor(parsed, scope),
-         {:ok, page} <- execute(parsed, scope, cursor, context) do
-      {:ok, page}
-    end
+    Settings.with_resolved_settings(fn ->
+      with :ok <- enabled(),
+           {:ok, parsed} <- Query.parse(request),
+           {:ok, scope} <- request_scope(parsed, context),
+           {:ok, cursor} <- decode_cursor(parsed, scope),
+           {:ok, page} <- execute(parsed, scope, cursor, context) do
+        {:ok, page}
+      end
+    end)
   end
 
   def query(_request, _context), do: {:error, :invalid_query}

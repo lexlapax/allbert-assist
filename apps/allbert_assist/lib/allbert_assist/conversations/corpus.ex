@@ -176,7 +176,8 @@ defmodule AllbertAssist.Conversations.Corpus do
     with :ok <- unique_refs(refs),
          {:ok, policy} <- normalize_policy(scope),
          :ok <- authorize_policy(policy) do
-      results = Enum.map(refs, &rehydrate_one(operator_id, &1, policy, scope))
+      messages = load_messages(refs)
+      results = Enum.map(refs, &rehydrate_one(messages, operator_id, &1, policy, scope))
       {:ok, results}
     end
   end
@@ -601,10 +602,20 @@ defmodule AllbertAssist.Conversations.Corpus do
   defp consumer_author(_message, %{consumer: :memory}, :context), do: :ok
   defp consumer_author(message, policy, _mode), do: consumer_author(message, policy)
 
-  defp rehydrate_one(operator_id, ref, policy, scope) do
+  defp load_messages(refs) do
+    ids = Enum.map(refs, &elem(ref_identity(&1), 0))
+
+    Message
+    |> where([message], message.id in ^ids)
+    |> preload([:thread, :origin_thread_ref])
+    |> Repo.all()
+    |> Map.new(&{&1.id, &1})
+  end
+
+  defp rehydrate_one(messages, operator_id, ref, policy, scope) do
     {source_id, expected_digest} = ref_identity(ref)
 
-    case Repo.get(Message, source_id) do
+    case Map.get(messages, source_id) do
       nil ->
         {:error, :missing}
 

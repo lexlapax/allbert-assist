@@ -13,8 +13,9 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test partition-smoke [--partitions N]
       mix allbert.test serial-core --lane LANE [--partitions N]
       mix allbert.test param-contract-sweep
-      mix allbert.test metrics [--ingest-campaign DIR]
+      mix allbert.test metrics [--ingest-campaign DIR] [--ingest-v13-latency FILE]
       mix allbert.test bench-decide
+      mix allbert.test bench-v13-latency [--consumer memory|search|both] [--output PATH] [--executable PATH --artifact-sha256 HEX]
       mix allbert.test release
       mix allbert.test release.v042
       mix allbert.test release.v043
@@ -154,6 +155,7 @@ defmodule Mix.Tasks.Allbert.Test do
   defp do_run(["param-contract-sweep"]), do: param_contract_sweep()
   defp do_run(["metrics" | rest]), do: metrics(rest)
   defp do_run(["bench-decide"]), do: bench_decide()
+  defp do_run(["bench-v13-latency" | rest]), do: bench_v13_latency(rest)
   defp do_run(["release"]), do: release()
   defp do_run(["release.v042"]), do: release_v042()
   defp do_run(["release.v043"]), do: release_v043()
@@ -685,9 +687,13 @@ defmodule Mix.Tasks.Allbert.Test do
   end
 
   # v1.0.2 M8.1: render the committed metrics summary from the JSONL store;
-  # --ingest-campaign folds pre-recorded seed-campaign logs into the store first.
+  # --ingest-campaign folds pre-recorded seed-campaign logs into the store first;
+  # --ingest-v13-latency preserves clean packaged-host benchmark rows.
   defp metrics(args) do
-    {opts, rest, invalid} = OptionParser.parse(args, strict: [ingest_campaign: :string])
+    {opts, rest, invalid} =
+      OptionParser.parse(args,
+        strict: [ingest_campaign: :string, ingest_v13_latency: :string]
+      )
 
     reject_invalid!(invalid)
     reject_rest!(rest)
@@ -700,6 +706,16 @@ defmodule Mix.Tasks.Allbert.Test do
         dir = Path.expand(dir, root())
         count = TestMetrics.ingest_campaign!(dir)
         Mix.shell().info("ingested #{count} seed-campaign record(s) from #{dir}")
+    end
+
+    case Keyword.get(opts, :ingest_v13_latency) do
+      nil ->
+        :ok
+
+      path ->
+        path = Path.expand(path, root())
+        count = TestMetrics.ingest_v13_latency!(path)
+        Mix.shell().info("ingested #{count} v1.3 latency record(s) from #{path}")
     end
 
     summary_path = TestMetrics.render_summary!()
@@ -742,6 +758,115 @@ defmodule Mix.Tasks.Allbert.Test do
     after
       cleanup_owned_env(env)
     end
+  end
+
+  defp bench_v13_latency(args) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args,
+        strict: [
+          consumer: :string,
+          output: :string,
+          executable: :string,
+          artifact_sha256: :string
+        ]
+      )
+
+    reject_invalid!(invalid)
+    reject_rest!(rest)
+
+    consumer = Keyword.get(opts, :consumer, "both")
+
+    unless consumer in ~w[memory search both] do
+      Mix.raise("--consumer must be memory, search, or both")
+    end
+
+    output = Keyword.get(opts, :output)
+    output = if output, do: Path.expand(output, root())
+    executable = Keyword.get(opts, :executable)
+    executable = if executable, do: Path.expand(executable, root())
+    artifact_sha256 = Keyword.get(opts, :artifact_sha256)
+
+    if output && File.exists?(output) do
+      Mix.raise("benchmark output already exists: #{output}")
+    end
+
+    if executable && !File.regular?(executable) do
+      Mix.raise("packaged executable does not exist: #{executable}")
+    end
+
+    if executable && !(is_binary(artifact_sha256) && artifact_sha256 =~ ~r/^[0-9a-f]{64}$/) do
+      Mix.raise("--executable requires a lowercase 64-hex --artifact-sha256")
+    end
+
+    {full_sha, dirty?} = v13_benchmark_provenance!()
+
+    env =
+      owned_env("bench-v13-latency", 0)
+      |> List.keyreplace("MIX_ENV", 0, {"MIX_ENV", "dev"})
+      |> Kernel.++([
+        {"V13_LATENCY_CONSUMER", consumer},
+        {"V13_LATENCY_STORE", output},
+        {"V13_ARTIFACT_SHA256", artifact_sha256},
+        {"V13_FULL_SHA", full_sha},
+        {"V13_DIRTY", to_string(dirty?)}
+      ])
+
+    try do
+      unless executable, do: migrate_v13_latency_home!(env)
+
+      expression =
+        "Logger.configure(level: :warning); " <>
+          "{:ok, _} = Application.ensure_all_started(:allbert_assist); " <>
+          "AllbertAssist.DevGates.V13LatencyBench.record_run!()"
+
+      {program, program_args} =
+        if executable,
+          do: {executable, ["eval", expression]},
+          else: {"mix", ["run", "--no-start", "-e", expression]}
+
+      {bench_output, status} =
+        System.cmd(program, program_args,
+          cd: app_cwd(:core),
+          env: env,
+          stderr_to_stdout: true
+        )
+
+      print_output("bench-v13-latency", bench_output)
+
+      if status != 0 do
+        Mix.raise("bench-v13-latency failed with status #{status}")
+      end
+    after
+      cleanup_owned_env(env)
+    end
+  end
+
+  defp migrate_v13_latency_home!(env) do
+    {output, status} =
+      System.cmd("mix", ["ecto.migrate.allbert", "--quiet"],
+        cd: app_cwd(:core),
+        env: env,
+        stderr_to_stdout: true
+      )
+
+    if status != 0 do
+      print_output("bench-v13-latency migrate", output)
+      Mix.raise("bench-v13-latency migrate failed with status #{status}")
+    end
+  end
+
+  defp v13_benchmark_provenance! do
+    {sha, sha_status} =
+      System.cmd("git", ["rev-parse", "HEAD"], cd: root(), stderr_to_stdout: true)
+
+    {worktree, worktree_status} =
+      System.cmd("git", ["status", "--porcelain"], cd: root(), stderr_to_stdout: true)
+
+    if sha_status != 0 or worktree_status != 0 do
+      Mix.raise("unable to capture v1.3 benchmark git provenance")
+    end
+
+    {String.trim(sha), String.trim(worktree) != ""}
   end
 
   defp commit_phases do
@@ -9720,8 +9845,9 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test partition-smoke [--partitions N]
       mix allbert.test serial-core --lane LANE [--partitions N]
       mix allbert.test param-contract-sweep
-      mix allbert.test metrics [--ingest-campaign DIR]
+      mix allbert.test metrics [--ingest-campaign DIR] [--ingest-v13-latency FILE]
       mix allbert.test bench-decide
+      mix allbert.test bench-v13-latency [--consumer memory|search|both] [--output PATH] [--executable PATH --artifact-sha256 HEX]
       mix allbert.test release
       mix allbert.test release.v042
       mix allbert.test release.v043
