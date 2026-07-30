@@ -3,6 +3,7 @@ defmodule AllbertAssist.SearchTest do
   @moduletag :home_fs_serial
 
   alias AllbertAssist.Conversations
+  alias AllbertAssist.Conversations.Corpus
   alias AllbertAssist.Conversations.Message
   alias AllbertAssist.Repo
   alias AllbertAssist.Search
@@ -99,7 +100,7 @@ defmodule AllbertAssist.SearchTest do
              )
 
     assert {:ok, [{:ok, envelope}]} =
-             AllbertAssist.Conversations.Corpus.rehydrate_and_authorize(
+             Corpus.rehydrate_and_authorize(
                "alice",
                [second.id],
                %{consumer: :search, origin_scope: :local_operator, e2ee?: false}

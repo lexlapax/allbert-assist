@@ -1,8 +1,8 @@
 defmodule AllbertAssist.Search.SchemaTest do
   use ExUnit.Case, async: true
 
-  alias AllbertAssist.Search.SQLite
   alias AllbertAssist.Search.Schema
+  alias AllbertAssist.Search.SQLite
   alias Exqlite.Sqlite3
 
   test "loaded Exqlite SQLite proves the schema-1 FTS capability contract" do

@@ -143,40 +143,52 @@ defmodule AllbertAssist.Search do
           position: cursor_position(candidate, query.order)
       }
 
-      case Map.fetch!(authorized, candidate.source_id) do
-        {:ok, envelope} ->
-          result = result(envelope, candidate, current, snippet_max_bytes())
-          next = %{current | results: current.results ++ [result]}
-
-          if length(next.results) >= query.limit,
-            do: {:halt, {next, consumed + 1}},
-            else: {:cont, {next, consumed + 1}}
-
-        {:error, _reason} ->
-          {:cont, {%{current | filtered: current.filtered + 1}, consumed + 1}}
-      end
+      consume_candidate(
+        Map.fetch!(authorized, candidate.source_id),
+        candidate,
+        query,
+        current,
+        consumed
+      )
     end)
+  end
+
+  defp consume_candidate({:ok, envelope}, candidate, query, current, consumed) do
+    result = result(envelope, candidate, current, snippet_max_bytes())
+    next = %{current | results: current.results ++ [result]}
+
+    if length(next.results) >= query.limit,
+      do: {:halt, {next, consumed + 1}},
+      else: {:cont, {next, consumed + 1}}
+  end
+
+  defp consume_candidate({:error, _reason}, _candidate, _query, current, consumed) do
+    {:cont, {%{current | filtered: current.filtered + 1}, consumed + 1}}
   end
 
   defp authorize_batch(candidates, scope) do
     candidates
     |> Enum.group_by(&authorization_scope(&1, scope))
     |> Enum.reduce_while({:ok, %{}}, fn {candidate_scope, grouped}, {:ok, acc} ->
-      refs = Enum.map(grouped, &Map.take(&1, [:source_id, :content_digest]))
-
-      case Corpus.rehydrate_and_authorize(scope.operator_id, refs, candidate_scope) do
-        {:ok, results} ->
-          mapped =
-            grouped
-            |> Enum.zip(results)
-            |> Map.new(fn {candidate, result} -> {candidate.source_id, result} end)
-
-          {:cont, {:ok, Map.merge(acc, mapped)}}
-
-        {:error, reason} ->
-          {:halt, {:error, normalize_corpus_error(reason)}}
-      end
+      authorize_group(grouped, candidate_scope, scope.operator_id, acc)
     end)
+  end
+
+  defp authorize_group(grouped, candidate_scope, operator_id, acc) do
+    refs = Enum.map(grouped, &Map.take(&1, [:source_id, :content_digest]))
+
+    case Corpus.rehydrate_and_authorize(operator_id, refs, candidate_scope) do
+      {:ok, results} ->
+        mapped =
+          grouped
+          |> Enum.zip(results)
+          |> Map.new(fn {candidate, result} -> {candidate.source_id, result} end)
+
+        {:cont, {:ok, Map.merge(acc, mapped)}}
+
+      {:error, reason} ->
+        {:halt, {:error, normalize_corpus_error(reason)}}
+    end
   end
 
   defp authorization_scope(candidate, %{class: :local_operator}) do
@@ -297,20 +309,23 @@ defmodule AllbertAssist.Search do
     surface = value(context, :channel) || value(context, :surface)
     explicit = value(context, :origin_scope)
 
-    cond do
-      not is_binary(operator_id) or operator_id == "" ->
-        {:error, :scope_denied}
-
-      explicit in [:local_operator, "local_operator"] or surface in @local_surfaces ->
-        {:ok, %{class: :local_operator, operator_id: operator_id, surface: surface || "local"}}
-
-      explicit in [:mapped_operator_dm, "mapped_operator_dm"] ->
-        mapped_scope(query, context, operator_id, surface)
-
-      true ->
-        {:error, :scope_denied}
-    end
+    request_scope(query, context, operator_id, surface, explicit)
   end
+
+  defp request_scope(_query, _context, operator_id, _surface, _explicit)
+       when not is_binary(operator_id) or operator_id == "",
+       do: {:error, :scope_denied}
+
+  defp request_scope(_query, _context, operator_id, surface, explicit)
+       when explicit in [:local_operator, "local_operator"] or surface in @local_surfaces,
+       do: {:ok, %{class: :local_operator, operator_id: operator_id, surface: surface || "local"}}
+
+  defp request_scope(query, context, operator_id, surface, explicit)
+       when explicit in [:mapped_operator_dm, "mapped_operator_dm"],
+       do: mapped_scope(query, context, operator_id, surface)
+
+  defp request_scope(_query, _context, _operator_id, _surface, _explicit),
+    do: {:error, :scope_denied}
 
   defp mapped_scope(query, context, operator_id, surface) do
     thread_id = value(context, :thread_id)
@@ -334,27 +349,28 @@ defmodule AllbertAssist.Search do
   end
 
   defp maybe_elevate_scope(query, context, base) do
-    if value(context, :search_scope) in [:cross_surface, "cross_surface"] do
-      case query.query_chain_id do
-        nil ->
-          {:error, :query_confirmation_required}
+    maybe_elevate_scope(value(context, :search_scope), query.query_chain_id, query, context, base)
+  end
 
-        chain_id ->
-          case QueryScope.verify(chain_id, query, context) do
-            {:ok, grant} ->
-              {:ok,
-               %{
-                 base
-                 | class: :mapped_operator_dm_cross_surface,
-                   expires_at: grant.expires_at
-               }}
+  defp maybe_elevate_scope(scope, _chain_id, _query, _context, base)
+       when scope not in [:cross_surface, "cross_surface"],
+       do: {:ok, base}
 
-            {:error, reason} ->
-              {:error, reason}
-          end
-      end
-    else
-      {:ok, base}
+  defp maybe_elevate_scope(_scope, nil, _query, _context, _base),
+    do: {:error, :query_confirmation_required}
+
+  defp maybe_elevate_scope(_scope, chain_id, query, context, base) do
+    case QueryScope.verify(chain_id, query, context) do
+      {:ok, grant} ->
+        {:ok,
+         %{
+           base
+           | class: :mapped_operator_dm_cross_surface,
+             expires_at: grant.expires_at
+         }}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 

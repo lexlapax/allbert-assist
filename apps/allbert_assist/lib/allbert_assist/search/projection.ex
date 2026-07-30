@@ -217,10 +217,7 @@ defmodule AllbertAssist.Search.Projection do
     revision = acc.revision + 1
 
     case SQLite.transaction(conn, fn ->
-           with :ok <- each_ok(envelopes, &upsert_envelope(conn, &1, revision)),
-                :ok <- update_generation_progress(conn, revision, cursor) do
-             {:ok, :written}
-           end
+           write_page_transaction(conn, envelopes, cursor, revision)
          end) do
       {:ok, :written} ->
         {:ok,
@@ -232,6 +229,13 @@ defmodule AllbertAssist.Search.Projection do
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  defp write_page_transaction(conn, envelopes, cursor, revision) do
+    with :ok <- each_ok(envelopes, &upsert_envelope(conn, &1, revision)),
+         :ok <- update_generation_progress(conn, revision, cursor) do
+      {:ok, :written}
     end
   end
 
@@ -370,10 +374,7 @@ defmodule AllbertAssist.Search.Projection do
          revision = meta.projection_revision + 1,
          {:ok, result} <-
            SQLite.transaction(state.serving_conn, fn ->
-             with :ok <- mutation.(state.serving_conn, revision),
-                  :ok <- set_revision(state.serving_conn, revision) do
-               {:ok, %{projection_revision: revision}}
-             end
+             mutate_current_transaction(state.serving_conn, mutation, revision)
            end) do
       control =
         state.control |> Map.put("projection_revision", revision) |> Map.put("dirty", false)
@@ -382,6 +383,13 @@ defmodule AllbertAssist.Search.Projection do
       {:ok, result, %{state | control: control}}
     else
       {:error, reason} -> {:error, reason, mark_dirty(state, reason)}
+    end
+  end
+
+  defp mutate_current_transaction(conn, mutation, revision) do
+    with :ok <- mutation.(conn, revision),
+         :ok <- set_revision(conn, revision) do
+      {:ok, %{projection_revision: revision}}
     end
   end
 
@@ -656,19 +664,19 @@ defmodule AllbertAssist.Search.Projection do
   defp open_verified(path) do
     case Sqlite3.open(path, mode: :readwrite) do
       {:ok, conn} ->
-        case Schema.verify(conn) do
-          {:ok, _capability} ->
-            case generation_meta(conn) do
-              {:ok, meta} -> {:ok, conn, meta.generation_id, meta.projection_revision}
-              {:error, reason} -> close_error(conn, reason)
-            end
-
-          {:error, reason} ->
-            close_error(conn, reason)
-        end
+        verify_open_connection(conn)
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  defp verify_open_connection(conn) do
+    with {:ok, _capability} <- Schema.verify(conn),
+         {:ok, meta} <- generation_meta(conn) do
+      {:ok, conn, meta.generation_id, meta.projection_revision}
+    else
+      {:error, reason} -> close_error(conn, reason)
     end
   end
 

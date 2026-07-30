@@ -129,25 +129,24 @@ defmodule AllbertAssist.Search.Query do
   defp scan_word(rest, clauses, phrase_count) do
     case Regex.run(~r/\A([\p{L}\p{N}\p{M}]+)(\*)?/u, rest) do
       [matched, word, prefix] ->
-        tail = binary_part(rest, byte_size(matched), byte_size(rest) - byte_size(matched))
-
-        with :ok <- reject_reserved_operator(word),
-             :ok <- separator_or_end(tail),
-             :ok <- valid_prefix(word, prefix) do
-          kind = if prefix == "*", do: :prefix, else: :term
-          scan_clauses(tail, [{kind, word} | clauses], phrase_count)
-        end
+        continue_word(rest, matched, word, prefix, clauses, phrase_count)
 
       [matched, word] ->
-        tail = binary_part(rest, byte_size(matched), byte_size(rest) - byte_size(matched))
-
-        with :ok <- reject_reserved_operator(word),
-             :ok <- separator_or_end(tail) do
-          scan_clauses(tail, [{:term, word} | clauses], phrase_count)
-        end
+        continue_word(rest, matched, word, nil, clauses, phrase_count)
 
       _other ->
         {:error, :invalid_query}
+    end
+  end
+
+  defp continue_word(rest, matched, word, prefix, clauses, phrase_count) do
+    tail = binary_part(rest, byte_size(matched), byte_size(rest) - byte_size(matched))
+
+    with :ok <- reject_reserved_operator(word),
+         :ok <- separator_or_end(tail),
+         :ok <- valid_prefix(word, prefix) do
+      kind = if prefix == "*", do: :prefix, else: :term
+      scan_clauses(tail, [{kind, word} | clauses], phrase_count)
     end
   end
 
