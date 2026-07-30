@@ -116,6 +116,8 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     assert body =~ "Linux/aarch64"
     assert body =~ "mix release allbert --overwrite"
     assert body =~ "artifact_smoke.sh"
+    assert body =~ ~S|cat "$WORK/smoke.log" >&2|
+    assert body =~ ~S|fail "target smoke exited non-zero"|
     assert body =~ "29.0.1"
     assert body =~ "1.19.5"
     assert body =~ "2.5.1"

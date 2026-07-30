@@ -107,7 +107,10 @@ mix hex.audit
 mix release allbert --overwrite --path "$RELEASE_ROOT"
 
 tar -czf "$WORK/$ARCHIVE" -C "$WORK" allbert
-bash scripts/smoke/artifact_smoke.sh "$RELEASE_ROOT" "$TARGET" > "$WORK/smoke.log"
+if ! bash scripts/smoke/artifact_smoke.sh "$RELEASE_ROOT" "$TARGET" > "$WORK/smoke.log"; then
+  cat "$WORK/smoke.log" >&2 || true
+  fail "target smoke exited non-zero"
+fi
 grep -q "^smoke:all PASS target=${TARGET} version=${VERSION}$" "$WORK/smoke.log" ||
   fail "target smoke did not emit its terminal PASS"
 if grep -q ' FAIL ' "$WORK/smoke.log"; then
