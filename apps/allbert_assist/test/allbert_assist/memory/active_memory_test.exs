@@ -26,11 +26,13 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
     Application.put_env(:allbert_assist, Paths, home: home)
     Application.put_env(:allbert_assist, Memory, root: Path.join(home, "memory"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
-    {:ok, projection} = Projection.start_link(root: Paths.memory_projection_root(), name: nil)
+
+    projection =
+      start_supervised!({Projection, root: Paths.memory_projection_root(), name: nil})
+
     Process.put(:active_memory_test_projection, projection)
 
     on_exit(fn ->
-      if Process.alive?(projection), do: GenServer.stop(projection)
       restore_env(Paths, original_paths)
       restore_env(Memory, original_memory)
       restore_env(Settings, original_settings)

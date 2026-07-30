@@ -31,10 +31,11 @@ defmodule AllbertAssist.Memory.RetrievalCompatibilityTest do
     home = temp_path()
     System.put_env("ALLBERT_HOME", home)
     KeyCustody.invalidate(:all)
-    {:ok, projection} = Projection.start_link(root: Paths.memory_projection_root(), name: nil)
+
+    projection =
+      start_supervised!({Projection, root: Paths.memory_projection_root(), name: nil})
 
     on_exit(fn ->
-      if Process.alive?(projection), do: GenServer.stop(projection)
       KeyCustody.invalidate(:all)
       File.rm_rf!(home)
       restore_env(original_env)
