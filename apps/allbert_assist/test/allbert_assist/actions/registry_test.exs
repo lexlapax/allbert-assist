@@ -245,6 +245,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "intent_eval_baseline",
              "intent_eval_capture",
              "intent_eval_add",
+             "confirm_destination_memory_chain",
+             "confirm_manual_memory_revision",
              "list_memory_entries",
              "read_memory_entry",
              "review_memory_entry",
@@ -491,6 +493,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "intent_eval_baseline",
              "intent_eval_capture",
              "intent_eval_add",
+             "confirm_destination_memory_chain",
+             "confirm_manual_memory_revision",
              "list_memory_entries",
              "read_memory_entry",
              "review_memory_entry",
@@ -800,6 +804,17 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert restore_memory_claim.confirmation == :not_required
     refute restore_memory_claim.resumable?
 
+    for action_name <- [
+          "confirm_destination_memory_chain",
+          "confirm_manual_memory_revision"
+        ] do
+      assert {:ok, confirmation_action} = Registry.capability(action_name)
+      assert confirmation_action.permission == :memory_write
+      assert confirmation_action.execution_mode == :memory_write
+      assert confirmation_action.confirmation == :required
+      assert confirmation_action.resumable?
+    end
+
     assert {:ok, sync_app_lesson} = Registry.capability("sync_app_lesson")
     assert sync_app_lesson.permission == :memory_write
     assert sync_app_lesson.execution_mode == :app_memory_sync
@@ -1073,6 +1088,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert Registry.resumable?("run_skill_script")
     assert Registry.resumable?("delete_memory_entry")
     assert Registry.resumable?("prune_memory_entries")
+    assert Registry.resumable?("confirm_manual_memory_revision")
+    assert Registry.resumable?("confirm_destination_memory_chain")
     assert Registry.resumable?("promote_conversation_turn")
     assert Registry.resumable?("integrate_dynamic_draft")
     assert Registry.resumable?("rollback_dynamic_integration")

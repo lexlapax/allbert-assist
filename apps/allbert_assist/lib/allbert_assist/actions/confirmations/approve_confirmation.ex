@@ -55,6 +55,8 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   ]
 
   @memory_action_names ~w[
+    confirm_destination_memory_chain
+    confirm_manual_memory_revision
     delete_memory_entry
     prune_memory_entries
     promote_conversation_turn

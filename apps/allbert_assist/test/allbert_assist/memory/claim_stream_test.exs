@@ -4,6 +4,10 @@ defmodule AllbertAssist.Memory.ClaimStreamTest do
   @moduletag :home_fs_serial
   @moduletag :global_process_serial
 
+  alias AllbertAssist.Actions.Confirmations.ApproveConfirmation
+  alias AllbertAssist.Actions.Memory.ConfirmDestinationMemoryChain
+  alias AllbertAssist.Actions.Memory.ConfirmManualMemoryRevision
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Claims
   alias AllbertAssist.Memory.Claims.Format
@@ -255,6 +259,48 @@ defmodule AllbertAssist.Memory.ClaimStreamTest do
     assert List.last(accepted.records)["payload"] |> Map.has_key?("value") == false
   end
 
+  test "registered manual repair confirms exact content without persisting it in the receipt" do
+    claim_id = Ecto.UUID.generate()
+    assert {:ok, first} = Claims.append(claim_id, nil, transition())
+    assert {:ok, stream} = Claims.read(claim_id)
+
+    exact_value = "Exact manual value must remain transient."
+    manual = manual_revision(stream, value: exact_value)
+    File.write!(first.path, Format.render(nil, stream.records ++ [manual]))
+
+    context = %{
+      user_id: "operator:local",
+      actor: "operator:local",
+      channel: :test,
+      surface: "test"
+    }
+
+    assert {:ok, pending} =
+             ConfirmManualMemoryRevision.run(
+               %{claim_id: claim_id, user_id: "operator:local"},
+               context
+             )
+
+    assert pending.status == :needs_confirmation
+    assert pending.preview["value"] == exact_value
+    assert {:ok, durable} = Confirmations.read(pending.confirmation_id)
+    refute inspect(durable) =~ exact_value
+
+    assert {:ok, approved} =
+             ApproveConfirmation.run(
+               %{id: pending.confirmation_id, reason: "exact revision reviewed"},
+               context
+             )
+
+    assert approved.status == :completed
+    assert approved.confirmation["status"] == "approved"
+    assert {:ok, current} = Claims.current(claim_id)
+    assert current["payload"]["value"] == exact_value
+
+    assert List.last(Claims.read(claim_id) |> elem(1) |> Map.fetch!(:records))["payload"]
+           |> Map.has_key?("value") == false
+  end
+
   test "a foreign Home chain stays inert until exact destination confirmation", %{
     home: source_home
   } do
@@ -295,17 +341,34 @@ defmodule AllbertAssist.Memory.ClaimStreamTest do
     assert {:error, {:quarantined, :memory_integrity_key_unavailable, ^destination_path}} =
              Claims.current(claim_id)
 
-    confirmation =
-      confirmation_transition(
-        "destination_chain_confirmed",
-        source_chain_digest: foreign.tail_digest
-      )
+    context = %{
+      user_id: "operator:local",
+      actor: "operator:local",
+      channel: :test,
+      surface: "test"
+    }
 
-    assert {:ok, destination_grant} =
-             Claims.append(claim_id, foreign.tail_digest, confirmation)
+    assert {:ok, pending} =
+             ConfirmDestinationMemoryChain.run(
+               %{claim_id: claim_id, user_id: "operator:local"},
+               context
+             )
 
-    assert destination_grant.sequence == 4
+    assert pending.status == :needs_confirmation
+    assert pending.preview.source_chain_digest == foreign.tail_digest
+    assert {:ok, durable} = Confirmations.read(pending.confirmation_id)
+    refute inspect(durable) =~ "portable reviewed manual value"
+
+    assert {:ok, approved} =
+             ApproveConfirmation.run(
+               %{id: pending.confirmation_id, reason: "whole chain reviewed"},
+               context
+             )
+
+    assert approved.status == :completed
+    assert approved.confirmation["status"] == "approved"
     assert {:ok, imported} = Claims.read(claim_id)
+    assert length(imported.records) == 4
     assert imported.status == :valid
     assert {:ok, current} = Claims.current(claim_id)
     assert current["payload"]["value"] == "portable reviewed manual value"

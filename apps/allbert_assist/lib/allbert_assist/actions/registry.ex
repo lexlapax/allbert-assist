@@ -121,6 +121,8 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Mcp.ScanResume, as: McpScanResume
   alias AllbertAssist.Actions.Mcp.ScanRunOnce, as: McpScanRunOnce
   alias AllbertAssist.Actions.Memory.CompileMemoryIndex
+  alias AllbertAssist.Actions.Memory.ConfirmDestinationMemoryChain
+  alias AllbertAssist.Actions.Memory.ConfirmManualMemoryRevision
   alias AllbertAssist.Actions.Memory.DeleteMemoryEntry
   alias AllbertAssist.Actions.Memory.ListMemoryCategorySummary
   alias AllbertAssist.Actions.Memory.ListMemoryEntries
@@ -411,6 +413,8 @@ defmodule AllbertAssist.Actions.Registry do
     IntentEvalBaseline,
     IntentEvalCapture,
     IntentEvalAdd,
+    ConfirmDestinationMemoryChain,
+    ConfirmManualMemoryRevision,
     ListMemoryEntries,
     ReadMemoryEntry,
     ReviewMemoryEntry,
