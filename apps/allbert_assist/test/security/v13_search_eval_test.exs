@@ -12,9 +12,9 @@ defmodule AllbertAssist.Security.V13SearchEvalTest do
   alias AllbertAssist.Runtime
   alias AllbertAssist.Search.Projection
   alias AllbertAssist.Search.Surface
+  alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.KeyCustody
-  alias AllbertAssist.SecurityFixtures.EvalInventory
 
   setup do
     original_paths = Application.get_env(:allbert_assist, Paths)

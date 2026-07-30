@@ -13,6 +13,20 @@ defmodule AllbertAssist.Search.Surface do
   alias AllbertAssist.Search.Presentation
   alias AllbertAssist.Settings
 
+  @type surface_response :: %{
+          required(:actions) => list(),
+          required(:approval_handoff) => map() | nil,
+          required(:decision) => map() | nil,
+          required(:diagnostics) => list(),
+          required(:message) => String.t(),
+          required(:model_payload) => String.t(),
+          required(:permission_decision) => map(),
+          required(:resource_access) => list(),
+          required(:status) => atom(),
+          required(:surface_payload) => String.t(),
+          optional(atom()) => term()
+        }
+
   @local_surfaces ~w[cli live_view web tui]
   @switches [
     all_history: :boolean,
@@ -38,7 +52,7 @@ defmodule AllbertAssist.Search.Surface do
   def command?(_text), do: false
 
   @doc "Dispatch a slash-form Search command through the registered action spine."
-  @spec dispatch_text(String.t(), map()) :: {:ok, map()}
+  @spec dispatch_text(String.t(), map()) :: {:ok, surface_response()}
   def dispatch_text(text, context) when is_binary(text) and is_map(context) do
     text
     |> String.replace(~r/^\s*\/search\b/u, "", global: false)
@@ -47,7 +61,7 @@ defmodule AllbertAssist.Search.Surface do
   end
 
   @doc "Dispatch CLI argv following `allbert search`."
-  @spec dispatch_argv([String.t()], map()) :: {:ok, map()}
+  @spec dispatch_argv([String.t()], map()) :: {:ok, surface_response()}
   def dispatch_argv(argv, context) when is_list(argv) and is_map(context) do
     argv
     |> parse_argv()
@@ -55,7 +69,7 @@ defmodule AllbertAssist.Search.Surface do
   end
 
   @doc "Render a Search action response with the common result presentation."
-  @spec present(map()) :: map()
+  @spec present(map()) :: surface_response()
   def present(response) when is_map(response) do
     response = Response.normalize(response)
 
@@ -151,9 +165,6 @@ defmodule AllbertAssist.Search.Surface do
 
       {:error, {:scope_excluded, disclosure}} ->
         {:ok, Response.denied(disclosure, error: :search_scope_excluded)}
-
-      {:error, reason} ->
-        {:ok, Response.error("Search command failed.", reason)}
     end
   end
 
@@ -268,7 +279,6 @@ defmodule AllbertAssist.Search.Surface do
 
   defp command_error(:invalid_order), do: "Search order must be relevance, newest, or oldest."
   defp command_error(:invalid_options), do: "Invalid Search options. #{@usage}"
-  defp command_error(_reason), do: "Invalid Search command. #{@usage}"
 
   defp append_disclosure(text, nil), do: text
   defp append_disclosure(text, disclosure), do: text <> "\n\nPrivacy: " <> disclosure

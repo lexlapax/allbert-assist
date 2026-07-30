@@ -13,8 +13,11 @@ probe, and verified current/previous generation lifecycle focused-gate green.
 M7 subsequently made the three Jobs-owned management entries, dirty repair,
 bounded maintenance/rebuild, stale reconciliation, authoritative-export
 exclusion, and confirmed crash-resumable all-generation purge focused-gate
-green. This ADR remains Proposed until M8 surface scope rows and M9 packaged
-native-runtime proof complete the acceptance bar.
+green. M8 made the shared Web/TUI/CLI/DM consumer, deterministic source-linked
+presentation, durable direct/shared/unknown transport-scope proof, exact
+confirmation/resubmit behavior, and cross-consumer security rows focused-gate
+green. This ADR remains Proposed only until M9 packaged native-runtime proof
+completes the acceptance bar.
 
 This ADR supersedes ADR 0089 §6's conditional external-content FTS design.
 Search ships as a central read product and point milestone without becoming a
@@ -64,6 +67,11 @@ context. It exposes a typed query/page/error contract and one registered read
 action through `Actions.Registry` and `Actions.Runner.run/3`. Web, TUI, CLI,
 mapped DMs, and later surfaces adapt input and render the same result DTO; none
 opens the FTS database, constructs SQL, ranks rows, or applies scope locally.
+M8 materializes that adapter seam as one `AllbertAssist.Search.Surface` closed
+command parser/dispatcher plus one transport-neutral
+`AllbertAssist.Search.Presentation` renderer. Surfaces may supply authenticated
+identity/origin context and display the returned DTO; they do not gain an
+alternative query or policy path.
 
 The qualifier is load-bearing. The existing `search_memory` registered action
 (`actions/memory/search_memory.ex`, reached from `cli/areas/memory.ex`) searches
@@ -292,7 +300,10 @@ packaged Linux x86_64 Serenity host. Normal dirty ingestion is visible within
   future verified mapped 1:1 DMs, not one prompt per channel. Query scope still
   defaults to the intersection of the current canonical thread and the exact
   current per-message origin tuple from §3. Canonical-thread membership,
-  channel name, or receiver account alone is insufficient. Cross-thread or
+  channel name, or receiver account alone is insufficient. The canonical
+  thread ref must also carry adapter-derived `conversation_scope: direct`;
+  `shared` and `unknown` fail closed. This is separate from, and does not add a
+  field to, the exact per-message origin tuple. Cross-thread or
   cross-surface history requires a second Security Central confirmation for
   exactly one normalized query/cursor chain with 300-second expiry.
 
