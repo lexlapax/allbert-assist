@@ -14,7 +14,12 @@ defmodule AllbertAssist.Actions.SelfImprovement.PromotionAction do
     with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
          {:ok, id} <- required_id(params) do
       if approval_resume?(context) do
-        complete(action_name, permission, permission_decision, promote.(id, context))
+        complete(
+          action_name,
+          permission,
+          permission_decision,
+          promote_result(promote, id, params, context)
+        )
       else
         create_confirmation(id, kind, action_name, opts, context, permission_decision)
       end
@@ -39,41 +44,53 @@ defmodule AllbertAssist.Actions.SelfImprovement.PromotionAction do
     execution_mode = Map.fetch!(opts, :execution_mode)
     module = Map.fetch!(opts, :module)
 
-    case Confirmations.create(
-           %{
-             origin: origin(context),
-             target_action: %{name: action_name, module: inspect(module)},
-             target_permission: permission,
-             target_execution_mode: execution_mode,
-             security_decision: permission_decision,
-             params_summary: %{draft_id: id, kind: kind},
-             resume_params_ref: %{id: id}
-           },
-           context
-         ) do
-      {:ok, confirmation} ->
-        {:ok,
-         %{
-           message:
-             "Self-improvement #{kind} draft promotion is ready for approval. Confirmation request: #{confirmation["id"]}. No live artifact was written.",
-           status: :needs_confirmation,
-           permission_decision: permission_decision,
-           confirmation: confirmation,
-           confirmation_id: confirmation["id"],
-           actions: [
-             action(action_name, :needs_confirmation, permission, permission_decision, %{
-               draft_id: id,
-               kind: kind,
-               confirmation_id: confirmation["id"],
-               execution: :pending_confirmation
-             })
-           ]
-         }}
-
+    with {:ok, resume_params} <- resume_params(id, opts),
+         {:ok, confirmation} <-
+           Confirmations.create(
+             %{
+               origin: origin(context),
+               target_action: %{name: action_name, module: inspect(module)},
+               target_permission: permission,
+               target_execution_mode: execution_mode,
+               security_decision: permission_decision,
+               params_summary:
+                 Map.merge(%{draft_id: id, kind: kind}, Map.drop(resume_params, [:id])),
+               resume_params_ref: resume_params
+             },
+             context
+           ) do
+      {:ok,
+       %{
+         message:
+           "Self-improvement #{kind} draft promotion is ready for approval. Confirmation request: #{confirmation["id"]}. No live artifact was written.",
+         status: :needs_confirmation,
+         permission_decision: permission_decision,
+         confirmation: confirmation,
+         confirmation_id: confirmation["id"],
+         actions: [
+           action(action_name, :needs_confirmation, permission, permission_decision, %{
+             draft_id: id,
+             kind: kind,
+             confirmation_id: confirmation["id"],
+             execution: :pending_confirmation
+           })
+         ]
+       }}
+    else
       {:error, reason} ->
         denied(action_name, permission, permission_decision, reason)
     end
   end
+
+  defp resume_params(id, %{bind_resume_params: binder}) when is_function(binder, 1),
+    do: binder.(id)
+
+  defp resume_params(id, _opts), do: {:ok, %{id: id}}
+
+  defp promote_result(promote, id, params, context) when is_function(promote, 3),
+    do: promote.(id, params, context)
+
+  defp promote_result(promote, id, _params, context), do: promote.(id, context)
 
   defp complete(action_name, permission, permission_decision, {:ok, result}) do
     {:ok,

@@ -12,7 +12,10 @@ defmodule AllbertAssist.Actions.SelfImprovement.PromoteMemoryDraft do
     description: "Promote an inert self-improvement memory draft after confirmation.",
     category: "self_improvement",
     tags: ["self_improvement", "drafts", "promotion", "memory_write"],
-    schema: [id: [type: :string, required: true]],
+    schema: [
+      id: [type: :string, required: true],
+      draft_digest: [type: :string, required: false]
+    ],
     output_schema: [
       message: [type: :string, required: true],
       status: [type: :atom, required: true],
@@ -34,7 +37,11 @@ defmodule AllbertAssist.Actions.SelfImprovement.PromoteMemoryDraft do
       kind: "memory",
       permission: :memory_write,
       execution_mode: :memory_promotion,
-      promote: &Promotion.promote_memory/2
+      bind_resume_params: &Promotion.memory_draft_binding/1,
+      promote: fn id, resume_params, promotion_context ->
+        digest = Map.get(resume_params, :draft_digest, Map.get(resume_params, "draft_digest"))
+        Promotion.promote_memory(id, digest, promotion_context)
+      end
     })
   end
 end

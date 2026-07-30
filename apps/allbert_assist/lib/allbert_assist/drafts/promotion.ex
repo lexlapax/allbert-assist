@@ -7,8 +7,8 @@ defmodule AllbertAssist.Drafts.Promotion do
   """
 
   alias AllbertAssist.Drafts.Store
-  alias AllbertAssist.Memory
-  alias AllbertAssist.Memory.Entry
+  alias AllbertAssist.Memory.Claims
+  alias AllbertAssist.Memory.Claims.Format
   alias AllbertAssist.Objectives
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings.YamlCodec
@@ -73,7 +73,16 @@ defmodule AllbertAssist.Drafts.Promotion do
     end
   end
 
-  @doc "Promote a memory draft by appending or updating through the Memory facade."
+  @doc "Return the exact content binding placed into a legacy Memory confirmation."
+  def memory_draft_binding(id) when is_binary(id) do
+    with {:ok, draft} <- show_memory_draft(id),
+         :ok <- require_promotable(draft),
+         {:ok, digest} <- memory_draft_digest(draft) do
+      {:ok, %{id: id, draft_digest: digest}}
+    end
+  end
+
+  @doc "Promote a legacy Memory draft through the canonical claim writer."
   @spec promote_memory(String.t(), map()) ::
           {:ok,
            %{
@@ -83,21 +92,54 @@ defmodule AllbertAssist.Drafts.Promotion do
            }}
           | {:error, term()}
   def promote_memory(id, context \\ %{}) when is_binary(id) and is_map(context) do
+    with {:ok, binding} <- memory_draft_binding(id) do
+      promote_memory(id, binding.draft_digest, context)
+    end
+  end
+
+  @doc "Promote only the exact draft digest bound into the operator confirmation."
+  def promote_memory(id, expected_digest, context)
+      when is_binary(id) and is_binary(expected_digest) and is_map(context) do
     with {:ok, draft} <- show_memory_draft(id),
          :ok <- require_promotable(draft),
+         {:ok, actual_digest} <- memory_draft_digest(draft),
+         :ok <- exact_draft_digest(expected_digest, actual_digest),
          %{"memory" => memory} <- Map.fetch!(draft, :payload),
-         {:ok, entry} <- write_memory(draft.kind, memory, context),
-         entry_map <- Entry.to_map(Entry.from_map(entry)),
-         {:ok, promoted} <-
-           Store.promote_draft(id,
-             kind: draft.kind,
-             promotion: %{target: "memory", path: entry_map.path, promoted_by: actor(context)}
-           ) do
-      {:ok, %{draft: promoted, memory: entry_map, result: entry_map}}
+         {:ok, target} <- memory_target(draft, memory),
+         {:ok, binding} <- memory_transition_binding(draft, target, actual_digest, context),
+         {:ok, _bound} <- Store.bind_memory_promotion(id, draft.kind, binding),
+         {:ok, append} <-
+           Claims.append(
+             target.claim_id,
+             target.expected_tail_digest,
+             transition(draft, memory, binding)
+           ),
+         outcome <- memory_outcome(append),
+         {:ok, promoted} <- Store.complete_memory_promotion(id, draft.kind, outcome) do
+      result = Map.put(outcome, :path, append.path)
+      {:ok, %{draft: promoted, memory: result, result: result}}
     else
       :error -> {:error, :memory_payload_missing}
       {:error, reason} -> {:error, reason}
     end
+  end
+
+  @doc "Finish content scrubbing only for legacy drafts whose bound claim transition committed."
+  def reconcile_memory_drafts do
+    items =
+      Store.list_drafts()
+      |> Enum.filter(&(&1.kind in ["memory_promotion", "memory_update"]))
+      |> Enum.filter(&is_map(&1.promotion_pending))
+      |> Enum.map(&reconcile_memory_draft/1)
+
+    {:ok,
+     %{
+       attempted_count: length(items),
+       completed_count: Enum.count(items, &(&1.outcome == "content_scrubbed")),
+       pending_count: Enum.count(items, &(&1.outcome == "awaiting_operator_retry")),
+       retryable_error_count: Enum.count(items, &(&1.outcome == "retryable_error")),
+       items: items
+     }}
   end
 
   @doc "Promote an objective draft by framing it through the v0.24 objective facade."
@@ -166,26 +208,210 @@ defmodule AllbertAssist.Drafts.Promotion do
 
   defp write_workflow(_workflow), do: {:error, :workflow_id_required}
 
-  defp write_memory("memory_update", %{"path" => path} = memory, context)
-       when is_binary(path) and path != "" do
-    Memory.update_entry(path, %{
-      summary: Map.get(memory, "summary"),
-      body: Map.get(memory, "body"),
-      user_id: actor(context)
-    })
+  defp memory_draft_digest(draft) do
+    with {:ok, artifact} <- File.read(draft.artifact_path) do
+      {:ok,
+       digest(
+         Format.canonical_json(%{
+           "schema_version" => 1,
+           "id" => draft.id,
+           "kind" => draft.kind,
+           "payload" => draft.payload,
+           "artifact_digest" => digest(artifact)
+         })
+       )}
+    else
+      {:error, reason} -> {:error, {:memory_draft_artifact_unavailable, reason}}
+    end
   end
 
-  defp write_memory(_kind, memory, context) do
-    Memory.append(%{
-      category: memory_category(Map.get(memory, "category")),
-      summary: Map.get(memory, "summary", Map.get(memory, "body", "Self-improvement memory")),
-      body: Map.get(memory, "body", Map.get(memory, "summary", "Self-improvement memory")),
-      source_signal_id: "self_improvement_draft",
-      actor: actor(context),
-      agent: inspect(__MODULE__),
-      channel:
-        context |> Map.get(:channel, Map.get(context, "channel", :confirmation)) |> to_string()
-    })
+  defp exact_draft_digest(digest, digest), do: :ok
+  defp exact_draft_digest(_expected, _actual), do: {:error, :memory_draft_digest_changed}
+
+  defp memory_target(%{promotion_pending: %{} = pending}, _memory) do
+    {:ok,
+     %{
+       claim_id: pending["claim_id"],
+       expected_tail_digest: pending["expected_tail_digest"],
+       legacy_path: pending["legacy_path"],
+       legacy_digest: pending["legacy_digest"]
+     }}
+  end
+
+  defp memory_target(%{kind: "memory_update"}, %{"path" => path})
+       when is_binary(path) and path != "" do
+    with {:ok, identity} <- Claims.legacy_identity(path),
+         {:ok, stream} <- Claims.read(identity.claim_id) do
+      {:ok,
+       %{
+         claim_id: identity.claim_id,
+         expected_tail_digest: stream.tail_digest,
+         legacy_path: identity.path,
+         legacy_digest: identity.digest
+       }}
+    end
+  end
+
+  defp memory_target(%{kind: "memory_update"}, _memory),
+    do: {:error, :memory_update_path_required}
+
+  defp memory_target(draft, _memory) do
+    {:ok,
+     %{
+       claim_id: deterministic_uuid("claim", "#{draft.kind}\0#{draft.id}"),
+       expected_tail_digest: nil,
+       legacy_path: nil,
+       legacy_digest: nil
+     }}
+  end
+
+  defp memory_transition_binding(%{promotion_pending: %{} = pending}, _target, _digest, context) do
+    if pending["actor"] == actor(context) do
+      {:ok,
+       %{
+         schema_version: pending["schema_version"],
+         draft_digest: pending["draft_digest"],
+         claim_id: pending["claim_id"],
+         expected_tail_digest: pending["expected_tail_digest"],
+         legacy_path: pending["legacy_path"],
+         legacy_digest: pending["legacy_digest"],
+         actor: pending["actor"],
+         recorded_at: pending["recorded_at"],
+         transition_id: pending["transition_id"],
+         revision_id: pending["revision_id"]
+       }}
+    else
+      {:error, :memory_promotion_actor_changed}
+    end
+  end
+
+  defp memory_transition_binding(draft, target, draft_digest, context) do
+    actor = actor(context)
+
+    transition_seed =
+      Format.canonical_json(%{
+        draft_digest: draft_digest,
+        actor: actor,
+        claim_id: target.claim_id
+      })
+
+    transition_id = deterministic_uuid("transition", transition_seed)
+
+    {:ok,
+     %{
+       schema_version: 1,
+       draft_digest: draft_digest,
+       claim_id: target.claim_id,
+       expected_tail_digest: target.expected_tail_digest,
+       legacy_path: target.legacy_path,
+       legacy_digest: target.legacy_digest,
+       actor: actor,
+       recorded_at: draft.updated_at,
+       transition_id: transition_id,
+       revision_id: deterministic_uuid("revision", transition_id)
+     }}
+  end
+
+  defp transition(draft, memory, binding) do
+    %{
+      revision_id: binding.revision_id,
+      transition_id: binding.transition_id,
+      state: "kept",
+      recorded_at: binding.recorded_at,
+      valid_from: nil,
+      valid_to: nil,
+      actor: binding.actor,
+      action: "legacy_confirmed_draft",
+      category: Map.get(memory, "category", "notes"),
+      operator_id: binding.actor,
+      namespace: "default",
+      value: Map.get(memory, "body", Map.get(memory, "summary")),
+      summary: Map.get(memory, "summary"),
+      authority_kind: "legacy_confirmed_draft",
+      draft_id: draft.id,
+      draft_kind: draft.kind,
+      draft_digest: binding.draft_digest,
+      legacy_path: binding.legacy_path,
+      legacy_digest: binding.legacy_digest
+    }
+  end
+
+  defp memory_outcome(append) do
+    %{
+      target: "memory_claim",
+      claim_id: append.claim_id,
+      revision_id: append.revision_id,
+      transition_id: append.transition_id,
+      append_outcome: Atom.to_string(append.outcome),
+      content_scrubbed: true
+    }
+  end
+
+  defp deterministic_uuid(domain, value) do
+    <<a::32, b::16, c::16, d::16, e::48, _rest::binary>> =
+      :crypto.hash(:sha256, "allbert.memory.legacy-draft.#{domain}.v1\0" <> value)
+
+    c = Bitwise.bor(Bitwise.band(c, 0x0FFF), 0x5000)
+    d = Bitwise.bor(Bitwise.band(d, 0x3FFF), 0x8000)
+
+    [hex(a, 8), hex(b, 4), hex(c, 4), hex(d, 4), hex(e, 12)]
+    |> Enum.join("-")
+  end
+
+  defp hex(integer, width),
+    do:
+      integer
+      |> Integer.to_string(16)
+      |> String.downcase(:ascii)
+      |> String.pad_leading(width, "0")
+
+  defp digest(value),
+    do: "sha256:" <> (:crypto.hash(:sha256, value) |> Base.encode16(case: :lower))
+
+  defp reconcile_memory_draft(draft) do
+    pending = draft.promotion_pending
+
+    case Claims.read(pending["claim_id"]) do
+      {:ok, stream} -> reconcile_committed_memory_draft(draft, pending, stream.records)
+      {:error, :not_found} -> recovery_item(draft, "awaiting_operator_retry")
+      {:error, reason} -> recovery_item(draft, "retryable_error", reason)
+    end
+  end
+
+  defp reconcile_committed_memory_draft(draft, pending, records) do
+    case Enum.find(records, &(&1["transition_id"] == pending["transition_id"])) do
+      %{} = record -> complete_recovered_memory_draft(draft, pending, record)
+      nil -> recovery_item(draft, "awaiting_operator_retry")
+    end
+  end
+
+  defp complete_recovered_memory_draft(draft, pending, record) do
+    valid? =
+      record["action"] == "legacy_confirmed_draft" and
+        get_in(record, ["payload", "draft_digest"]) == pending["draft_digest"]
+
+    if valid? do
+      outcome = %{
+        target: "memory_claim",
+        claim_id: pending["claim_id"],
+        revision_id: record["revision_id"],
+        transition_id: record["transition_id"],
+        append_outcome: "recovered",
+        content_scrubbed: true
+      }
+
+      case Store.complete_memory_promotion(draft.id, draft.kind, outcome) do
+        {:ok, _terminal} -> recovery_item(draft, "content_scrubbed")
+        {:error, reason} -> recovery_item(draft, "retryable_error", reason)
+      end
+    else
+      recovery_item(draft, "retryable_error", :legacy_draft_transition_mismatch)
+    end
+  end
+
+  defp recovery_item(draft, outcome, reason \\ nil) do
+    %{draft_id: draft.id, kind: draft.kind, outcome: outcome}
+    |> put_if_present(:reason, if(reason, do: inspect(reason)))
   end
 
   defp frame_input(objective_input, context) when is_map(objective_input) do
@@ -216,11 +442,6 @@ defmodule AllbertAssist.Drafts.Promotion do
       promoted_by: actor(context)
     }
   end
-
-  defp memory_category("preferences"), do: :preferences
-  defp memory_category("skills"), do: :skills
-  defp memory_category("identity"), do: :identity
-  defp memory_category(_category), do: :notes
 
   defp skill_markdown(payload, name, context) do
     description = Map.get(payload, "description", "Self-improvement skill #{name}.")

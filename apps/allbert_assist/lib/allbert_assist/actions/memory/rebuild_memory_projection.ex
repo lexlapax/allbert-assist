@@ -24,6 +24,7 @@ defmodule AllbertAssist.Actions.Memory.RebuildMemoryProjection do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Drafts.Promotion, as: DraftPromotion
   alias AllbertAssist.Memory.Forget
   alias AllbertAssist.Memory.Projection
   alias AllbertAssist.Memory.ProposalReview
@@ -51,11 +52,14 @@ defmodule AllbertAssist.Actions.Memory.RebuildMemoryProjection do
          :ok <- recovery_complete(proposal_recovery),
          {:ok, batch_recovery} <- ProposalReview.reconcile_batches(),
          :ok <- recovery_complete(batch_recovery),
+         {:ok, legacy_draft_recovery} <- DraftPromotion.reconcile_memory_drafts(),
+         :ok <- recovery_complete(legacy_draft_recovery),
          {:ok, projection} <- rebuild_after_recovery(recovery) do
       result = %{
         recovery: recovery,
         proposal_recovery: proposal_recovery,
         batch_recovery: batch_recovery,
+        legacy_draft_recovery: legacy_draft_recovery,
         projection: projection
       }
 
@@ -64,7 +68,8 @@ defmodule AllbertAssist.Actions.Memory.RebuildMemoryProjection do
          message:
            "Memory projection is ready; recovered #{recovery.completed_count} pending Forget operation(s), " <>
              "#{proposal_recovery.completed_count} applying proposal(s), and " <>
-             "#{batch_recovery.completed_count} applying batch(es).",
+             "#{batch_recovery.completed_count} applying batch(es); scrubbed " <>
+             "#{legacy_draft_recovery.completed_count} committed legacy draft(s).",
          status: :completed,
          permission_decision: decision,
          result: result,

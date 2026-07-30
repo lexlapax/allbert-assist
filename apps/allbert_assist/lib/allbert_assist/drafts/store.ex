@@ -221,6 +221,40 @@ defmodule AllbertAssist.Drafts.Store do
     end
   end
 
+  @doc "Persist a content-free approved legacy Memory transition before claim append."
+  def bind_memory_promotion(id, kind, binding)
+      when is_binary(id) and kind in ["memory_promotion", "memory_update"] and is_map(binding) do
+    with {:ok, metadata} <- read_existing_metadata(kind, id),
+         :ok <- ensure_non_terminal(metadata),
+         :ok <- compatible_memory_binding(metadata["promotion_pending"], binding),
+         updated <-
+           metadata
+           |> Map.put("promotion_pending", stringify_keys(binding))
+           |> put_in(
+             ["timestamps", "updated_at"],
+             DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+           ),
+         :ok <- write_yaml_atomic(metadata_path(kind, id), updated) do
+      {:ok, summary(updated)}
+    end
+  end
+
+  def bind_memory_promotion(_id, _kind, _binding), do: {:error, :invalid_memory_promotion_binding}
+
+  @doc "Replace both retained legacy Memory draft files with a content-free terminal outcome."
+  def complete_memory_promotion(id, kind, outcome)
+      when is_binary(id) and kind in ["memory_promotion", "memory_update"] and is_map(outcome) do
+    with {:ok, metadata} <- read_existing_metadata(kind, id),
+         {:ok, result} <- complete_memory_metadata(metadata, outcome),
+         :ok <- write_yaml_atomic(artifact_path(kind, id), memory_terminal_artifact(result)),
+         :ok <- write_yaml_atomic(metadata_path(kind, id), result) do
+      {:ok, summary(result)}
+    end
+  end
+
+  def complete_memory_promotion(_id, _kind, _outcome),
+    do: {:error, :invalid_memory_promotion_outcome}
+
   @doc "Return true when a non-code draft id is valid for filesystem storage."
   @spec valid_id?(String.t()) :: boolean()
   def valid_id?(id) when is_binary(id), do: Regex.match?(@slug_pattern, id)
@@ -402,6 +436,7 @@ defmodule AllbertAssist.Drafts.Store do
       |> metadata_files()
       |> Enum.flat_map(&metadata_summary/1)
     end)
+    |> Enum.uniq_by(&{&1.kind, &1.id})
   end
 
   defp metadata_summary(path) do
@@ -425,6 +460,7 @@ defmodule AllbertAssist.Drafts.Store do
       artifact_path: Map.get(metadata, "artifact_path"),
       live_authority: Map.get(metadata, "live_authority", false),
       promotion: Map.get(metadata, "promotion", %{}),
+      promotion_pending: Map.get(metadata, "promotion_pending"),
       source_suggestion_id: Map.get(payload, "source_suggestion_id"),
       created_at: get_in(metadata, ["timestamps", "created_at"]),
       updated_at: get_in(metadata, ["timestamps", "updated_at"]),
@@ -787,6 +823,63 @@ defmodule AllbertAssist.Drafts.Store do
     with :ok <- File.mkdir_p(Path.dirname(path)) do
       File.write(path, YamlCodec.encode!(map))
     end
+  end
+
+  defp write_yaml_atomic(path, map) do
+    tmp = path <> ".tmp-" <> Ecto.UUID.generate()
+
+    with :ok <- File.mkdir_p(Path.dirname(path)),
+         :ok <- File.write(tmp, YamlCodec.encode!(map), [:binary, :exclusive]),
+         :ok <- File.rename(tmp, path) do
+      :ok
+    else
+      {:error, reason} ->
+        _ = File.rm(tmp)
+        {:error, reason}
+    end
+  end
+
+  defp compatible_memory_binding(nil, _binding), do: :ok
+
+  defp compatible_memory_binding(existing, binding) do
+    if stringify_keys(existing) == stringify_keys(binding),
+      do: :ok,
+      else: {:error, :memory_promotion_binding_changed}
+  end
+
+  defp complete_memory_metadata(%{"tier" => "promoted"} = metadata, _outcome),
+    do: {:ok, metadata}
+
+  defp complete_memory_metadata(metadata, outcome) do
+    outcome = stringify_keys(outcome)
+    pending = Map.get(metadata, "promotion_pending")
+
+    if is_map(pending) and pending["transition_id"] == outcome["transition_id"] do
+      now = DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+
+      {:ok,
+       metadata
+       |> Map.put("tier", "promoted")
+       |> Map.put("payload", %{"content_scrubbed" => true})
+       |> Map.put("provenance", %{"content_scrubbed" => true})
+       |> Map.put("diagnostics", [])
+       |> Map.put("promotion", outcome)
+       |> Map.delete("promotion_pending")
+       |> put_in(["timestamps", "updated_at"], now)}
+    else
+      {:error, :memory_promotion_transition_mismatch}
+    end
+  end
+
+  defp memory_terminal_artifact(metadata) do
+    %{
+      "schema_version" => 1,
+      "id" => metadata["id"],
+      "kind" => metadata["kind"],
+      "tier" => "promoted",
+      "content_scrubbed" => true,
+      "promotion" => metadata["promotion"]
+    }
   end
 
   defp read_yaml(path) do

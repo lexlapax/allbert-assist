@@ -4,9 +4,11 @@ defmodule AllbertAssist.Actions.SelfImprovementPromotionActionsTest do
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Drafts.Store
+  alias AllbertAssist.Drafts.Promotion
   alias AllbertAssist.DynamicPlugins
   alias AllbertAssist.DynamicPlugins.Codegen.LLM
   alias AllbertAssist.Memory
+  alias AllbertAssist.Memory.Claims
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.DynamicCodegenFakeProvider
@@ -105,7 +107,9 @@ defmodule AllbertAssist.Actions.SelfImprovementPromotionActionsTest do
     assert [] == Path.wildcard(Path.join([root, "workflows", "*.yaml"]))
   end
 
-  test "confirmed memory draft promotion creates a live memory entry", %{root: root} do
+  test "confirmed memory draft promotion appends one claim and scrubs retained draft content", %{
+    root: root
+  } do
     assert {:ok, draft} =
              Store.create_memory_draft(%{
                id: "memory_confirmed_release",
@@ -117,6 +121,10 @@ defmodule AllbertAssist.Actions.SelfImprovementPromotionActionsTest do
 
     assert {:ok, pending} = Runner.run("promote_memory_draft", %{id: draft.id}, context())
     assert pending.status == :needs_confirmation
+
+    assert get_in(pending.confirmation, ["resume_params_ref", "draft_digest"]) =~
+             ~r/^sha256:[0-9a-f]{64}$/
+
     assert [] == Path.wildcard(Path.join([root, "memory", "notes", "*.md"]))
 
     assert {:ok, approved} =
@@ -130,15 +138,133 @@ defmodule AllbertAssist.Actions.SelfImprovementPromotionActionsTest do
     assert approved.confirmation["status"] == "approved"
     assert approved.confirmation["operator_resolution"]["target_resumed?"]
 
-    memory_path = get_in(approved.confirmation, ["operator_resolution", "target_result", "path"])
+    target_result = get_in(approved.confirmation, ["operator_resolution", "target_result"])
+    memory_path = target_result["path"]
     assert is_binary(memory_path)
     assert File.regular?(memory_path)
 
     assert {:ok, promoted} = Store.show_draft(draft.id, kind: "memory_promotion")
     assert promoted.tier == "promoted"
+    assert promoted.payload == %{"content_scrubbed" => true}
+    refute File.read!(promoted.artifact_path) =~ "Confirmed memory promotions"
 
-    assert {:ok, memory_entry} = Memory.read_entry(memory_path)
-    assert memory_entry.body == "Confirmed memory promotions write through Memory.append."
+    assert {:ok, claim} = Claims.current(target_result["claim_id"])
+    assert claim["payload"]["value"] == "Confirmed memory promotions write through Memory.append."
+    assert claim["action"] == "legacy_confirmed_draft"
+
+    assert claim["payload"]["draft_digest"] ==
+             pending.confirmation["resume_params_ref"]["draft_digest"]
+  end
+
+  test "memory draft confirmation is bound to the unchanged artifact digest" do
+    assert {:ok, draft} =
+             Store.create_memory_draft(%{
+               id: "memory_digest_bound",
+               kind: "memory_promotion",
+               summary: "Remember exact draft binding.",
+               body: "Only the confirmed draft bytes may be promoted.",
+               category: "notes"
+             })
+
+    assert {:ok, pending} = Runner.run("promote_memory_draft", %{id: draft.id}, context())
+    File.write!(draft.artifact_path, "changed after confirmation\n")
+
+    assert {:ok, approved} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: pending.confirmation_id, reason: "fixture approval"},
+               context()
+             )
+
+    target = approved.confirmation["operator_resolution"]
+    refute target["target_resumed?"]
+    assert inspect(target) =~ "memory_draft_digest_changed"
+    assert {:ok, still_draft} = Store.show_draft(draft.id, kind: "memory_promotion")
+    assert still_draft.tier == "draft"
+  end
+
+  test "managed recovery scrubs a committed legacy draft by transition id" do
+    attrs = %{
+      id: "memory_recovery_scrub",
+      kind: "memory_promotion",
+      summary: "Recover legacy draft scrub.",
+      body: "Committed legacy content must not remain in draft YAML.",
+      category: "notes"
+    }
+
+    assert {:ok, draft} = Store.create_memory_draft(attrs)
+    assert {:ok, exact} = Promotion.memory_draft_binding(draft.id)
+    assert {:ok, promoted} = Promotion.promote_memory(draft.id, exact.draft_digest, context())
+    assert {:ok, record} = Claims.current(promoted.result.claim_id)
+
+    assert {:ok, recreated} = Store.create_memory_draft(attrs)
+
+    assert {:ok, _bound} =
+             Store.bind_memory_promotion(recreated.id, recreated.kind, %{
+               schema_version: 1,
+               draft_digest: exact.draft_digest,
+               claim_id: promoted.result.claim_id,
+               expected_tail_digest: nil,
+               legacy_path: nil,
+               legacy_digest: nil,
+               actor: "operator",
+               recorded_at: record["recorded_at"],
+               transition_id: record["transition_id"],
+               revision_id: record["revision_id"]
+             })
+
+    assert File.read!(recreated.artifact_path) =~ "Committed legacy content"
+    assert {:ok, recovery} = Promotion.reconcile_memory_drafts()
+    assert recovery.completed_count == 1
+    assert recovery.retryable_error_count == 0
+
+    assert {:ok, terminal} = Store.show_draft(recreated.id, kind: recreated.kind)
+    assert terminal.payload == %{"content_scrubbed" => true}
+    refute File.read!(terminal.artifact_path) =~ "Committed legacy content"
+  end
+
+  test "confirmed legacy update adopts the existing path into one claim stream" do
+    assert {:ok, entry} =
+             Memory.append(%{
+               category: :notes,
+               summary: "Legacy draft target",
+               body: "Old legacy value.",
+               source_signal_id: "fixture",
+               actor: "operator",
+               agent: "fixture",
+               channel: "test"
+             })
+
+    assert {:ok, draft} =
+             Store.create_memory_draft(%{
+               id: "memory_update_existing",
+               kind: "memory_update",
+               summary: "Update legacy target",
+               body: "Updated through the canonical claim writer.",
+               category: "notes",
+               path: entry.path
+             })
+
+    assert {:ok, pending} = Runner.run("promote_memory_draft", %{id: draft.id}, context())
+
+    assert {:ok, approved} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: pending.confirmation_id, reason: "fixture approval"},
+               context()
+             )
+
+    resolution = approved.confirmation["operator_resolution"]
+    assert resolution["target_resumed?"], inspect(resolution)
+    target = resolution["target_result"]
+    assert target["path"] == entry.path
+    assert {:ok, claim} = Claims.current(target["claim_id"])
+    assert claim["payload"]["value"] == "Updated through the canonical claim writer."
+    assert claim["action"] == "legacy_confirmed_draft"
+    assert File.read!(entry.path) =~ "<!-- allbert-claim-stream:v1 -->"
+
+    assert {:ok, terminal} = Store.show_draft(draft.id, kind: "memory_update")
+    assert terminal.payload == %{"content_scrubbed" => true}
   end
 
   test "denied workflow draft promotion writes no live workflow", %{root: root} do
