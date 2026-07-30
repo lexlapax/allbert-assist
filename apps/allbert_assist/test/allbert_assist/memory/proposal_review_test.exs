@@ -5,16 +5,21 @@ defmodule AllbertAssist.Memory.ProposalReviewTest do
   alias AllbertAssist.Conversations.Corpus
   alias AllbertAssist.Conversations.Message
   alias AllbertAssist.Memory.Claims
+  alias AllbertAssist.Memory.Forget
   alias AllbertAssist.Memory.ProposalReview
   alias AllbertAssist.Memory.Proposals
+  alias AllbertAssist.Memory.Proposals.Batch
   alias AllbertAssist.Memory.Proposals.Proposal
   alias AllbertAssist.Memory.SpanProvenance
+  alias AllbertAssist.Paths
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.KeyCustody
 
   setup do
     original_settings = Application.get_env(:allbert_assist, Settings)
+    original_paths = Application.get_env(:allbert_assist, Paths)
+    original_memory = Application.get_env(:allbert_assist, AllbertAssist.Memory)
     original_home = System.get_env("ALLBERT_HOME")
 
     root =
@@ -23,6 +28,8 @@ defmodule AllbertAssist.Memory.ProposalReviewTest do
         "allbert-proposal-review-#{System.unique_integer([:positive])}"
       )
 
+    Application.delete_env(:allbert_assist, Paths)
+    Application.delete_env(:allbert_assist, AllbertAssist.Memory)
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     System.put_env("ALLBERT_HOME", root)
     KeyCustody.invalidate(:all)
@@ -34,6 +41,8 @@ defmodule AllbertAssist.Memory.ProposalReviewTest do
 
     on_exit(fn ->
       restore_env(Settings, original_settings)
+      restore_env(Paths, original_paths)
+      restore_env(AllbertAssist.Memory, original_memory)
       restore_system_env("ALLBERT_HOME", original_home)
       KeyCustody.invalidate(:all)
       File.rm_rf!(root)
@@ -182,6 +191,56 @@ defmodule AllbertAssist.Memory.ProposalReviewTest do
     assert same == result
   end
 
+  test "Forget immediately scrubs matching applying content and frozen batch references" do
+    matching = proposal("forgotten value")
+    survivor = proposal("surviving value")
+
+    assert {:ok, batch} =
+             Proposals.freeze_batch(
+               "alice",
+               "default",
+               [batch_binding(matching), batch_binding(survivor)],
+               "operator:alice"
+             )
+
+    assert {:ok, _applying} =
+             ProposalReview.begin_review(
+               matching.id,
+               proposal_binding(matching),
+               %{operation: :keep},
+               "operator:alice"
+             )
+
+    claim_id = Ecto.UUID.generate()
+    assert {:ok, claim} = Claims.append(claim_id, nil, claim_transition("forgotten value"))
+
+    assert {:error, :memory_projection_unavailable} =
+             Forget.forget(
+               claim_id,
+               claim.tail_digest,
+               "operator:alice",
+               "operator_requested"
+             )
+
+    forgotten = Repo.get!(Proposal, matching.id)
+    assert forgotten.status == "forgotten"
+    assert is_nil(forgotten.applying_payload)
+    refute inspect(forgotten) =~ "forgotten value"
+
+    retained_batch = Repo.get!(Batch, batch.id)
+    assert Enum.map(retained_batch.bindings["items"], & &1["proposal_id"]) == [survivor.id]
+
+    assert Enum.any?(
+             retained_batch.results["items"],
+             &(&1["proposal_id"] == matching.id and &1["outcome"] == "forgotten")
+           )
+
+    assert {:ok, completed} = ProposalReview.resume_batch(batch.id, "operator:alice")
+    assert completed.status == "complete"
+    assert {:ok, _claim} = Claims.current(survivor.id)
+    assert {:error, :not_found} = Claims.read(matching.id)
+  end
+
   test "preview returns bounded transient context and stale bindings fail before mutation" do
     proposal = proposal("tea")
 
@@ -303,6 +362,20 @@ defmodule AllbertAssist.Memory.ProposalReviewTest do
 
   defp digest(value) do
     "sha256:" <> (:crypto.hash(:sha256, value) |> Base.encode16(case: :lower))
+  end
+
+  defp claim_transition(value) do
+    %{
+      revision_id: Ecto.UUID.generate(),
+      transition_id: Ecto.UUID.generate(),
+      state: "kept",
+      recorded_at: "2026-07-29T12:00:00Z",
+      valid_from: nil,
+      valid_to: nil,
+      actor: "operator:alice",
+      action: "remember",
+      value: value
+    }
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

@@ -10,6 +10,7 @@ defmodule AllbertAssist.Memory.Forget do
   alias AllbertAssist.Memory.Claims
   alias AllbertAssist.Memory.Claims.Format
   alias AllbertAssist.Memory.Projection
+  alias AllbertAssist.Memory.Proposals
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings.KeyCustody
 
@@ -92,6 +93,7 @@ defmodule AllbertAssist.Memory.Forget do
 
   defp resume_tombstone(tombstone) do
     with claim_id <- tombstone["claim_id"],
+         {:ok, _scrubbed} <- Proposals.scrub_forgotten(claim_id),
          :ok <- delete_claim_if_present(claim_id),
          :ok <- replace_projection(claim_id),
          {:ok, completed} <- complete_tombstone(tombstone) do
@@ -119,8 +121,10 @@ defmodule AllbertAssist.Memory.Forget do
 
   defp delete_pending_claims(claim_ids) do
     Enum.reduce_while(claim_ids, :ok, fn claim_id, :ok ->
-      case delete_claim_if_present(claim_id) do
-        :ok -> {:cont, :ok}
+      with {:ok, _scrubbed} <- Proposals.scrub_forgotten(claim_id),
+           :ok <- delete_claim_if_present(claim_id) do
+        {:cont, :ok}
+      else
         {:error, reason} -> {:halt, {:error, reason}}
       end
     end)
@@ -195,6 +199,7 @@ defmodule AllbertAssist.Memory.Forget do
          value <- claim_value(record["payload"]),
          {:ok, tombstone} <- pending_tombstone(claim_id, actor, reason_code, value),
          :ok <- write_tombstone(tombstone),
+         {:ok, _scrubbed} <- Proposals.scrub_forgotten(claim_id),
          :ok <- delete_claim_file(stream.path) do
       continue_after_delete(claim_id, tombstone)
     else

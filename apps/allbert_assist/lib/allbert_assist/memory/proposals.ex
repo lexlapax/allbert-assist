@@ -106,6 +106,16 @@ defmodule AllbertAssist.Memory.Proposals do
     |> Repo.all()
   end
 
+  @doc "Scrub every active proposal suppressed by one verified Forget tombstone."
+  def scrub_forgotten(claim_id) when is_binary(claim_id) do
+    with {:ok, tombstones} <- Forget.load_tombstones(),
+         {:ok, matches} <- forgotten_matches(claim_id, tombstones) do
+      Repo.transaction(fn -> scrub_forgotten_locked(claim_id, matches) end, mode: :immediate)
+    end
+  end
+
+  def scrub_forgotten(_claim_id), do: {:error, :invalid_claim_id}
+
   @doc "Return the shared surface DTO without internal applying payloads."
   def to_review_map(%Proposal{} = proposal) do
     %{
@@ -455,6 +465,118 @@ defmodule AllbertAssist.Memory.Proposals do
     case CollectionPolicy.reauthorize(candidate) do
       {:ok, current} -> {:cont, {:ok, [current | acc]}}
       {:error, reason} -> {:halt, {:error, reason}}
+    end
+  end
+
+  defp forgotten_matches(claim_id, tombstones) do
+    matches =
+      Proposal
+      |> where([proposal], proposal.status in ["pending", "applying"] or proposal.id == ^claim_id)
+      |> Repo.all()
+      |> Enum.filter(fn proposal ->
+        {:ok, forgotten?} = forgotten_match?(proposal, claim_id, tombstones)
+        forgotten?
+      end)
+
+    {:ok, matches}
+  end
+
+  defp forgotten_match?(%Proposal{id: claim_id}, claim_id, _tombstones), do: {:ok, true}
+
+  defp forgotten_match?(%Proposal{proposed_claim: claim}, _claim_id, tombstones)
+       when is_map(claim) do
+    case Map.get(claim, "value", Map.get(claim, :value)) do
+      value when is_binary(value) -> Forget.suppressed_value?(value, tombstones)
+      _other -> {:ok, false}
+    end
+  end
+
+  defp forgotten_match?(_proposal, _claim_id, _tombstones), do: {:ok, false}
+
+  defp scrub_forgotten_locked(claim_id, proposals) do
+    reviewed_at = DateTime.utc_now() |> DateTime.truncate(:microsecond)
+    proposal_ids = Enum.map(proposals, & &1.id)
+
+    Enum.each(proposals, &scrub_forgotten_proposal(&1, claim_id, reviewed_at))
+    batch_count = scrub_forgotten_batches(proposal_ids, claim_id, reviewed_at)
+
+    %{
+      claim_id: claim_id,
+      proposal_count: length(proposal_ids),
+      batch_count: batch_count
+    }
+  end
+
+  defp scrub_forgotten_proposal(proposal, claim_id, reviewed_at) do
+    {proposed_claim, span_provenance} =
+      if proposal.kind == "protected_stub",
+        do: {nil, nil},
+        else: {%{"content_scrubbed" => true}, %{"content_scrubbed" => true}}
+
+    proposal
+    |> Ecto.Changeset.change(%{
+      status: "forgotten",
+      proposed_claim: proposed_claim,
+      span_provenance: span_provenance,
+      applying_transition_id: nil,
+      applying_decision_digest: nil,
+      applying_payload: nil,
+      result: %{"outcome" => "forgotten", "claim_id" => claim_id},
+      reviewed_by: "system:forget",
+      reviewed_at: reviewed_at
+    })
+    |> Repo.update!()
+  end
+
+  defp scrub_forgotten_batches([], _claim_id, _reviewed_at), do: 0
+
+  defp scrub_forgotten_batches(proposal_ids, claim_id, reviewed_at) do
+    proposal_ids = MapSet.new(proposal_ids)
+
+    Batch
+    |> where([batch], batch.status in ["pending", "applying"])
+    |> Repo.all()
+    |> Enum.count(fn batch ->
+      scrub_forgotten_batch(batch, proposal_ids, claim_id, reviewed_at)
+    end)
+  end
+
+  defp scrub_forgotten_batch(batch, proposal_ids, claim_id, reviewed_at) do
+    bindings = batch.bindings["items"] || []
+
+    {forgotten, remaining} =
+      Enum.split_with(bindings, &MapSet.member?(proposal_ids, &1["proposal_id"]))
+
+    if forgotten == [] do
+      false
+    else
+      forgotten_ids = MapSet.new(forgotten, & &1["proposal_id"])
+
+      results =
+        (batch.results["items"] || [])
+        |> Enum.reject(&MapSet.member?(forgotten_ids, &1["proposal_id"]))
+        |> Kernel.++(
+          Enum.map(forgotten, fn binding ->
+            %{
+              "proposal_id" => binding["proposal_id"],
+              "outcome" => "forgotten",
+              "claim_id" => claim_id
+            }
+          end)
+        )
+
+      terminal? = remaining == []
+
+      batch
+      |> Ecto.Changeset.change(%{
+        status: if(terminal?, do: "forgotten", else: batch.status),
+        bindings: %{"items" => remaining},
+        results: %{"items" => results},
+        completed_at: if(terminal?, do: reviewed_at, else: batch.completed_at)
+      })
+      |> Repo.update!()
+
+      true
     end
   end
 

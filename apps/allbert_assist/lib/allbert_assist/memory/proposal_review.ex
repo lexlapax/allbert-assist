@@ -145,11 +145,8 @@ defmodule AllbertAssist.Memory.ProposalReview do
   @doc "Apply or resume one frozen ordinary Keep All batch with per-item outcomes."
   def resume_batch(batch_id, actor) when is_binary(batch_id) and is_binary(actor) do
     with %Batch{} = batch <- Repo.get(Batch, batch_id),
-         :ok <- batch_actor(batch, actor),
-         {:ok, applying} <- mark_batch_applying(batch),
-         {:ok, results} <- apply_batch_items(applying, actor),
-         {:ok, complete} <- complete_batch(applying.id, results) do
-      {:ok, batch_result(complete)}
+         :ok <- batch_actor(batch, actor) do
+      resume_batch_record(batch, actor)
     else
       nil -> {:error, :not_found}
       {:error, reason} -> {:error, reason}
@@ -157,6 +154,17 @@ defmodule AllbertAssist.Memory.ProposalReview do
   end
 
   def resume_batch(_batch_id, _actor), do: {:error, :invalid_batch_review}
+
+  defp resume_batch_record(%Batch{status: "forgotten"} = batch, _actor),
+    do: {:ok, batch_result(batch)}
+
+  defp resume_batch_record(batch, actor) do
+    with {:ok, applying} <- mark_batch_applying(batch),
+         {:ok, results} <- apply_batch_items(applying, actor),
+         {:ok, complete} <- complete_batch(applying.id, results) do
+      {:ok, batch_result(complete)}
+    end
+  end
 
   defp prepare_locked(proposal_id, binding, decision, actor) do
     case Repo.get(Proposal, proposal_id) do
