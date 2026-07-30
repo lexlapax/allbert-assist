@@ -50,7 +50,9 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v11
       mix allbert.test release.v12
       mix allbert.test release.v121
+      mix allbert.test release.v13
       mix allbert.test release.structure v121 [--output PATH]
+      mix allbert.test release.structure v13 [--output PATH]
       mix allbert.test release.v101
       mix allbert.test release.v102
       mix allbert.test release.v103
@@ -187,7 +189,9 @@ defmodule Mix.Tasks.Allbert.Test do
   defp do_run(["release.v11"]), do: release_v11()
   defp do_run(["release.v12"]), do: release_v12()
   defp do_run(["release.v121"]), do: release_v121()
+  defp do_run(["release.v13"]), do: release_v13()
   defp do_run(["release.structure", "v121" | rest]), do: release_structure_v121(rest)
+  defp do_run(["release.structure", "v13" | rest]), do: release_structure_v13(rest)
   defp do_run(["release.v101"]), do: release_v101()
   defp do_run(["release.v102"]), do: release_v102()
   defp do_run(["release.v103"]), do: release_v103()
@@ -6287,6 +6291,198 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   end
 
+  @v13_focused_steps [
+    %{
+      id: "v13_security_sweeps",
+      title: "v1.3 Memory, Search, and cross-consumer security contracts",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist/test/security/v13_memory_eval_test.exs",
+        "apps/allbert_assist/test/security/v13_search_eval_test.exs",
+        "apps/allbert_assist/test/security/v13_cross_consumer_eval_test.exs"
+      ],
+      coverage: [
+        "the frozen v1.3 behavioral inventory, non-transitive consent, abstention, reauthorization, and surface boundaries"
+      ]
+    },
+    %{
+      id: "v13_corpus_jobs_and_delete",
+      title: "canonical Corpus, principal policy, managed jobs, and deletion contracts",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist/test/allbert_assist/conversations/corpus_test.exs",
+        "apps/allbert_assist/test/allbert_assist/conversations/corpus_identity_policy_test.exs",
+        "apps/allbert_assist/test/allbert_assist/actions/conversations/delete_conversation_target_test.exs",
+        "apps/allbert_assist/test/allbert_assist/jobs/managed_test.exs"
+      ],
+      coverage: [
+        "typed canonical reads, verified authorship, source authorization, recurring ownership, repair, and conversation-owned destructive effects"
+      ]
+    },
+    %{
+      id: "v13_memory_authority",
+      title: "append-only claim, projection, Forget, and shared-promotion authority",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist/test/allbert_assist/memory/claim_stream_test.exs",
+        "apps/allbert_assist/test/allbert_assist/memory/projection_test.exs",
+        "apps/allbert_assist/test/allbert_assist/memory/forget_test.exs",
+        "apps/allbert_assist/test/allbert_assist/projection/promote_protocol_test.exs"
+      ],
+      coverage: [
+        "immutable bi-temporal Markdown authority, disposable generations, archive/tombstone-first Forget, and shared self-contained promotion"
+      ]
+    },
+    %{
+      id: "v13_memory_proposal_review",
+      title: "span-grounded extraction, inert proposals, review, and consolidation",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist/test/allbert_assist/memory/span_provenance_test.exs",
+        "apps/allbert_assist/test/allbert_assist/memory/extractor_test.exs",
+        "apps/allbert_assist/test/allbert_assist/memory/proposals_test.exs",
+        "apps/allbert_assist/test/allbert_assist/memory/consolidator_test.exs",
+        "apps/allbert_assist/test/allbert_assist/memory/proposal_review_test.exs",
+        "apps/allbert_assist/test/allbert_assist/actions/memory_proposal_actions_test.exs"
+      ],
+      coverage: [
+        "eligible-source extraction, exact spans, protected review, crash recovery, explicit keep authority, and managed consolidation"
+      ]
+    },
+    %{
+      id: "v13_memory_retrieval_compatibility",
+      title: "bounded temporal retrieval and superseded-memory compatibility",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist/test/allbert_assist/memory/active_memory_test.exs",
+        "apps/allbert_assist/test/allbert_assist/memory/retrieval_compatibility_test.exs"
+      ],
+      coverage: [
+        "temporal selection, prompt budgets, canonical reauthorization, legacy-read compatibility, and one active projection authority"
+      ]
+    },
+    %{
+      id: "v13_search_engine_and_lifecycle",
+      title: "Search Central grammar, projection, generation, action, and purge contracts",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist/test/allbert_assist/search/schema_test.exs",
+        "apps/allbert_assist/test/allbert_assist/search/search_test.exs",
+        "apps/allbert_assist/test/allbert_assist/search/query_scope_test.exs",
+        "apps/allbert_assist/test/allbert_assist/search/query_test.exs",
+        "apps/allbert_assist/test/allbert_assist/search/projection_test.exs",
+        "apps/allbert_assist/test/allbert_assist/search/generation_test.exs",
+        "apps/allbert_assist/test/allbert_assist/search/delete_purge_reconcile_test.exs",
+        "apps/allbert_assist/test/allbert_assist/actions/search_actions_test.exs",
+        "apps/allbert_assist/test/allbert_assist/actions/runner_search_summary_test.exs"
+      ],
+      coverage: [
+        "safe query grammar, dedicated SQLite truth, generation promotion, canonical result reauthorization, redaction, audit summaries, and all-generation purge recovery"
+      ]
+    },
+    %{
+      id: "v13_surfaces_and_legacy_retirement",
+      title: "central Search surfaces and superseded suggestion-path retirement",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist/test/allbert_assist/search/surface_parity_test.exs",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/search_live_test.exs",
+        "apps/allbert_assist_web/test/allbert_assist_web/live/workspace/workspace_destinations_test.exs",
+        "apps/allbert_assist/test/allbert_assist/actions/self_improvement_actions_test.exs",
+        "apps/allbert_assist/test/allbert_assist/actions/self_improvement_promotion_actions_test.exs",
+        "apps/allbert_assist/test/allbert_assist/drafts/store_test.exs"
+      ],
+      coverage: [
+        "Web/TUI/CLI/channel consumers share the registered Search boundary while prior memory-draft suggestion routes remain inert or explicitly confirmed"
+      ]
+    }
+  ]
+
+  @release_v13_steps @release_v121_steps ++ @v13_focused_steps
+
+  defp release_v13 do
+    env = owned_env("release-v13", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v13")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v13_steps, &run_release_v13_step(&1, env))
+    status = if Enum.all?(results, &(&1.status == "passed")), do: "passed", else: "failed"
+
+    evidence = %{
+      gate: "mix allbert.test release.v13",
+      version: "v1.3.0",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; exact local artifacts, configured providers/channels, TTY, signing, publication, and package installs are separate",
+      notes:
+        "release.v121 exact prefix plus v1.3 Corpus, Memory, Search, Jobs, security, compatibility, and surface contracts",
+      steps: results
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v13-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v13 evidence: #{evidence_path}")
+
+    if status != "passed", do: Mix.raise("release.v13 failed; evidence: #{evidence_path}")
+  end
+
+  defp run_release_v13_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v13 #{step.id}", output)
+    status = release_step_status("release.v13", step.id, exit_status, output)
+
+    TestMetrics.record(%{
+      gate: "release.v13",
+      command: gate_command(),
+      cwd: Path.relative_to(cwd, root()),
+      phase_or_step: step.id,
+      status: status,
+      wall_ms: duration_ms,
+      output: output
+    })
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: status,
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
   @doc false
   def release_step_definitions("release.v1"), do: normalize_step_definitions(@release_v1_steps)
 
@@ -6296,8 +6492,13 @@ defmodule Mix.Tasks.Allbert.Test do
   def release_step_definitions("release.v121"),
     do: normalize_step_definitions(@release_v121_steps)
 
+  def release_step_definitions("release.v13"),
+    do: normalize_step_definitions(@release_v13_steps)
+
   @doc false
-  def release_prefix_proof do
+  def release_prefix_proof(version \\ "v13")
+
+  def release_prefix_proof("v121") do
     definitions = %{
       "release.v1" => release_step_definitions("release.v1"),
       "release.v12" => release_step_definitions("release.v12"),
@@ -6317,12 +6518,42 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   end
 
+  def release_prefix_proof("v13") do
+    definitions = %{
+      "release.v1" => release_step_definitions("release.v1"),
+      "release.v12" => release_step_definitions("release.v12"),
+      "release.v121" => release_step_definitions("release.v121"),
+      "release.v13" => release_step_definitions("release.v13")
+    }
+
+    checks = [
+      prefix_check("release.v1", "release.v12", definitions),
+      prefix_check("release.v12", "release.v121", definitions),
+      prefix_check("release.v121", "release.v13", definitions)
+    ]
+
+    %{
+      "schema_version" => 1,
+      "definitions" => definitions,
+      "checks" => checks,
+      "status" => if(Enum.all?(checks, & &1["exact_prefix"]), do: "passed", else: "failed")
+    }
+  end
+
   defp release_structure_v121(args) do
+    release_structure("v121", args)
+  end
+
+  defp release_structure_v13(args) do
+    release_structure("v13", args)
+  end
+
+  defp release_structure(version, args) do
     {opts, rest, invalid} = OptionParser.parse(args, strict: [output: :string])
     reject_invalid!(invalid)
     reject_rest!(rest)
 
-    proof = release_prefix_proof()
+    proof = release_prefix_proof(version)
     {sha, 0} = System.cmd("git", ["rev-parse", "HEAD"], cd: root(), stderr_to_stdout: true)
 
     {worktree, 0} =
@@ -6335,36 +6566,40 @@ defmodule Mix.Tasks.Allbert.Test do
 
     evidence =
       proof
-      |> Map.put("gate", "mix allbert.test release.structure v121")
+      |> Map.put("gate", "mix allbert.test release.structure #{version}")
       |> Map.put("source_sha", source_sha)
       |> Map.put("worktree_clean", clean?)
       |> Map.put("prefix_status", prefix_status)
       |> Map.put("status", status)
       |> Map.put("generated_at", DateTime.utc_now() |> DateTime.to_iso8601())
 
-    output_path = Keyword.get(opts, :output) || default_v121_structure_path!()
+    output_path = Keyword.get(opts, :output) || default_release_structure_path!(version)
     output_path = Path.expand(output_path, root())
     File.mkdir_p!(Path.dirname(output_path))
     encoded = Jason.encode!(evidence, pretty: true) <> "\n"
     File.write!(output_path, encoded)
 
-    Mix.shell().info("release.v121 structure evidence: #{output_path}")
-    Mix.shell().info("release.v121 structure sha256: #{sha256(encoded)}")
+    Mix.shell().info("release.#{version} structure evidence: #{output_path}")
+    Mix.shell().info("release.#{version} structure sha256: #{sha256(encoded)}")
 
     unless status == "passed" do
-      Mix.raise("release.v121 structure proof requires a clean source SHA and exact prefixes")
+      Mix.raise(
+        "release.#{version} structure proof requires a clean source SHA and exact prefixes"
+      )
     end
 
     :ok
   end
 
-  defp default_v121_structure_path! do
+  defp default_release_structure_path!(version) do
     case System.get_env("ALLBERT_HOME") do
       home when is_binary(home) and home != "" ->
-        Path.join(home, "release_evidence/v121/release-structure-v121.json")
+        Path.join(home, "release_evidence/#{version}/release-structure-#{version}.json")
 
       _other ->
-        Mix.raise("release.structure v121 requires --output PATH or a disposable ALLBERT_HOME")
+        Mix.raise(
+          "release.structure #{version} requires --output PATH or a disposable ALLBERT_HOME"
+        )
     end
   end
 
@@ -9522,7 +9757,9 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v11
       mix allbert.test release.v12
       mix allbert.test release.v121
+      mix allbert.test release.v13
       mix allbert.test release.structure v121 [--output PATH]
+      mix allbert.test release.structure v13 [--output PATH]
       mix allbert.test release.v101
       mix allbert.test release.v102
       mix allbert.test release.v103

@@ -176,6 +176,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert task_source =~ ~s(gate: "release.v104",)
     assert task_source =~ ~s(gate: "release.v105",)
     assert task_source =~ ~s(gate: "release.v121",)
+    assert task_source =~ ~s(gate: "release.v13",)
 
     # metrics subcommand + usage surface (M8.10: run/1 captures the
     # invocation for provenance and dispatches through do_run/1).
@@ -274,7 +275,9 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert error.message =~ "mix allbert.test release.v065"
     assert error.message =~ "mix allbert.test release.v066"
     assert error.message =~ "mix allbert.test release.v121"
+    assert error.message =~ "mix allbert.test release.v13"
     assert error.message =~ "mix allbert.test release.structure v121 [--output PATH]"
+    assert error.message =~ "mix allbert.test release.structure v13 [--output PATH]"
     assert error.message =~ "mix allbert.test external-smoke -- telegram"
     assert error.message =~ "mix allbert.test external-smoke -- email"
     assert error.message =~ "mix allbert.test external-smoke -- inbound_telegram"
@@ -420,7 +423,8 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
             "release.v103",
             "release.v104",
             "release.v105",
-            "release.v121"
+            "release.v121",
+            "release.v13"
           ] do
         assert task_source =~ ~s{release_step_status("#{gate}", step.id, exit_status, output)}
       end
@@ -520,7 +524,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     end
 
     test "release.v121 is an exact release.v12 prefix with existing focused targets" do
-      proof = AllbertTestTask.release_prefix_proof()
+      proof = AllbertTestTask.release_prefix_proof("v121")
       definitions = proof["definitions"]
 
       assert proof["status"] == "passed"
@@ -545,6 +549,33 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
 
         assert File.exists?(Path.join(root, target)),
                "release.v121 focused step target missing: #{target}"
+      end
+    end
+
+    test "release.v13 is an exact release.v121 prefix with existing focused targets" do
+      proof = AllbertTestTask.release_prefix_proof("v13")
+      definitions = proof["definitions"]
+
+      assert proof["status"] == "passed"
+      assert Enum.map(proof["checks"], & &1["exact_prefix"]) == [true, true, true]
+
+      v121 = definitions["release.v121"]
+      v13 = definitions["release.v13"]
+
+      assert Enum.take(v13, length(v121)) == v121
+      assert length(v13) > length(v121)
+
+      for step <- Enum.drop(v13, length(v121)),
+          step["executable"] == "mix",
+          ["test" | targets] <- [step["args"]],
+          target <- targets do
+        root =
+          if step["cwd"] == "core",
+            do: Path.expand("../../..", __DIR__),
+            else: Path.expand("../../../../..", __DIR__)
+
+        assert File.exists?(Path.join(root, target)),
+               "release.v13 focused step target missing: #{target}"
       end
     end
   end
