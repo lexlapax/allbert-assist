@@ -203,7 +203,10 @@ validate_local_generation() {
        (.builder.class | IN("operator-macos", "native-linux", "docker-linux-arm64")) and
        .runtime.otp == "29.0.1" and .runtime.elixir == "1.19.5" and
        .build_tools.hex == "2.5.1" and .build_tools.rebar3 == "3.25.1" and
-       .external_runtime.playwright == "1.58.2"' "$directory/$toolchain" >/dev/null ||
+       (.external_runtime.node | test("^[0-9]+\\.[0-9]+\\.[0-9]+")) and
+       .external_runtime.playwright == "1.58.2" and
+       (.external_runtime.browser | type == "string" and length > 0 and length <= 200)' \
+      "$directory/$toolchain" >/dev/null ||
       fail "invalid exact-toolchain row for $target"
     jq -e --arg target "$target" --arg source_sha "$source_sha" --arg generation "$generation" \
       --arg archive "$archive" --arg archive_sha "$archive_sha" \

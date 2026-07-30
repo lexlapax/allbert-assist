@@ -123,6 +123,9 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     assert body =~ "1.19.5"
     assert body =~ "2.5.1"
     assert body =~ "3.25.1"
+    assert body =~ "NODE_VERSION"
+    assert body =~ "BROWSER_VERSION"
+    assert body =~ "external_runtime: {node: $node, playwright: $playwright, browser: $browser}"
     assert body =~ "@loader_path/sqlite3_nif.so"
     assert body =~ ~S|mv "$WORK/$ARCHIVE" "$OUTPUT_DIR/$ARCHIVE"|
     assert body =~ ~S|mv "$WORK/$TOOLCHAIN" "$OUTPUT_DIR/$TOOLCHAIN"|

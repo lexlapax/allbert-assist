@@ -123,6 +123,11 @@ ARCHIVE_SHA256="$(sha256_file "$WORK/$ARCHIVE")"
 SMOKE_LOG_SHA256="$(sha256_file "$WORK/smoke.log")"
 PLAYWRIGHT_VERSION="$(node -e 'process.stdout.write(require(process.argv[1]).version)' "$PLAYWRIGHT_NODE_PATH/playwright/package.json")"
 [ "$PLAYWRIGHT_VERSION" = 1.58.2 ] || fail "Playwright $PLAYWRIGHT_VERSION does not match 1.58.2"
+NODE_VERSION="$(node -p 'process.versions.node')"
+[[ "$NODE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]] || fail "could not resolve the host Node version"
+BROWSER_VERSION="$("$BROWSER_BINARY_PATH" --version | tr -d '\r\n')"
+[ -n "$BROWSER_VERSION" ] && [ "${#BROWSER_VERSION}" -le 200 ] ||
+  fail "could not resolve the host browser version"
 
 CONTAINER_IMAGE="${ALLBERT_CONTAINER_IMAGE:-}"
 CONTAINER_DIGEST="${ALLBERT_CONTAINER_IMAGE_DIGEST:-}"
@@ -132,7 +137,8 @@ jq -S -n \
   --arg container_image "$CONTAINER_IMAGE" --arg container_digest "$CONTAINER_DIGEST" \
   --arg otp "$RUNTIME_OTP" --arg elixir "$RUNTIME_ELIXIR" --arg erts "$RUNTIME_ERTS" \
   --arg hex "$RESOLVED_HEX" --arg rebar3 "$RESOLVED_REBAR3" \
-  --arg playwright "$PLAYWRIGHT_VERSION" \
+  --arg node "$NODE_VERSION" --arg playwright "$PLAYWRIGHT_VERSION" \
+  --arg browser "$BROWSER_VERSION" \
   '{schema_version: 2, kind: "allbert-candidate-toolchain", target: $target,
     source_sha: $source_sha, generation: $generation, builder: {
       class: $builder_class, os: $host_os, arch: $host_arch,
@@ -140,7 +146,7 @@ jq -S -n \
       container_digest: (if $container_digest == "" then null else $container_digest end)},
     runtime: {otp: $otp, elixir: $elixir, erts: $erts},
     build_tools: {hex: $hex, rebar3: $rebar3},
-    external_runtime: {playwright: $playwright}}' > "$WORK/$TOOLCHAIN"
+    external_runtime: {node: $node, playwright: $playwright, browser: $browser}}' > "$WORK/$TOOLCHAIN"
 
 MACOS_NIF_SHA256=""
 MACOS_NIF_INSTALL_NAME=""
