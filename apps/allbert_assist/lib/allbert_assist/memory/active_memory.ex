@@ -7,8 +7,9 @@ defmodule AllbertAssist.Memory.ActiveMemory do
   registered `retrieve_active_memory` action.
   """
 
-  alias AllbertAssist.Memory
+  alias AllbertAssist.Memory.Claims
   alias AllbertAssist.Memory.Entry
+  alias AllbertAssist.Memory.Projection
   alias AllbertAssist.Settings
 
   @seconds_per_day 86_400
@@ -39,7 +40,11 @@ defmodule AllbertAssist.Memory.ActiveMemory do
           candidate_count_after_filter: non_neg_integer(),
           chunks: [map()],
           retrieved_chunks: [map()],
-          excluded_chunks_sample: [map()]
+          excluded_chunks_sample: [map()],
+          generation_id: String.t() | nil,
+          projection_revision: non_neg_integer() | nil,
+          projection_dirty?: boolean(),
+          canonical_revalidation_failure_count: non_neg_integer()
         }
 
   @doc "Retrieve deterministic top-K Active Memory chunks for a query."
@@ -74,7 +79,11 @@ defmodule AllbertAssist.Memory.ActiveMemory do
       :candidate_chunk_count_before_filter,
       :candidate_count_after_filter,
       :retrieved_chunks,
-      :excluded_chunks_sample
+      :excluded_chunks_sample,
+      :generation_id,
+      :projection_revision,
+      :projection_dirty?,
+      :canonical_revalidation_failure_count
     ])
   end
 
@@ -92,11 +101,28 @@ defmodule AllbertAssist.Memory.ActiveMemory do
   def normalize_terms(_text), do: []
 
   defp retrieve_enabled(settings, scope, terms, now, opts) do
-    with {:ok, entries} <- list_candidates(opts, settings) do
-      chunks = Enum.flat_map(entries, &chunks_for_entry(&1, settings.chunk_max_bytes))
+    projection = Keyword.get(opts, :projection, Projection)
+
+    with {:ok, projection_result} <- list_candidates(terms, opts, settings, projection) do
+      entries = projection_result.candidates
+      chunks = Enum.flat_map(entries, &chunks_for_candidate(&1, settings.chunk_max_bytes))
       scored = score_chunks(chunks, terms, scope, now, settings)
-      selected = Enum.take(scored, settings.top_k)
-      excluded = scored |> Enum.drop(settings.top_k) |> Enum.take(settings.excluded_sample_limit)
+
+      {selected, invalid} =
+        select_revalidated(scored, settings.top_k, now, opts, projection)
+
+      accounted_ids =
+        MapSet.new(
+          Enum.map(selected, & &1.chunk_id) ++
+            Enum.map(invalid, fn {chunk, _reason} -> chunk.chunk_id end)
+        )
+
+      excluded =
+        (Enum.map(invalid, fn {chunk, reason} -> chunk_metadata(chunk, reason) end) ++
+           (scored
+            |> Enum.reject(&MapSet.member?(accounted_ids, &1.chunk_id))
+            |> Enum.map(&chunk_metadata(&1, :below_top_k))))
+        |> Enum.take(settings.excluded_sample_limit)
 
       {:ok,
        %{
@@ -109,25 +135,60 @@ defmodule AllbertAssist.Memory.ActiveMemory do
          candidate_count_after_filter: length(scored),
          chunks: Enum.map(selected, &Map.drop(&1, [:score_raw])),
          retrieved_chunks: Enum.map(selected, &chunk_metadata/1),
-         excluded_chunks_sample: Enum.map(excluded, &chunk_metadata(&1, :below_top_k))
+         excluded_chunks_sample: excluded,
+         generation_id: projection_result.generation_id,
+         projection_revision: projection_result.projection_revision,
+         projection_dirty?: projection_result.dirty?,
+         canonical_revalidation_failure_count: length(invalid)
        }}
     end
   end
 
-  defp list_candidates(opts, settings) do
-    opts
-    |> Keyword.get(:user_id)
-    |> case do
-      nil ->
-        Memory.list_entries(review_status: :kept, limit: settings.internal_candidate_limit)
+  defp list_candidates(terms, opts, settings, projection) do
+    Projection.candidates(
+      terms,
+      [
+        user_id: Keyword.get(opts, :user_id),
+        valid_at: temporal_opt(opts, :valid_at, now(opts)),
+        known_at: temporal_opt(opts, :known_at, now(opts)),
+        limit: settings.internal_candidate_limit
+      ],
+      projection
+    )
+  end
 
-      user_id ->
-        Memory.list_entries(
-          user_id: user_id,
-          review_status: :kept,
-          limit: settings.internal_candidate_limit
-        )
+  defp select_revalidated(scored, top_k, now, opts, projection) do
+    valid_at = temporal_opt(opts, :valid_at, now)
+    known_at = temporal_opt(opts, :known_at, now)
+    budget = min(length(scored), max(top_k, top_k * 5))
+
+    scored
+    |> Enum.take(budget)
+    |> Enum.reduce_while(
+      {[], []},
+      &revalidate_chunk(&1, &2, valid_at, known_at, top_k)
+    )
+    |> then(fn {selected, invalid} ->
+      selected = Enum.reverse(selected)
+      invalid = Enum.reverse(invalid)
+      if invalid != [], do: Projection.queue_repair(Enum.map(invalid, &elem(&1, 1)), projection)
+      {selected, invalid}
+    end)
+  end
+
+  defp revalidate_chunk(chunk, {selected, invalid}, valid_at, known_at, top_k) do
+    candidate = Map.take(chunk, [:claim_id, :sequence, :revision_digest])
+
+    case Claims.revalidate_projection_candidate(candidate, valid_at, known_at) do
+      :ok -> continue_or_halt([chunk | selected], invalid, top_k)
+      {:error, reason} -> {:cont, {selected, [{chunk, reason} | invalid]}}
     end
+  end
+
+  defp continue_or_halt(selected, invalid, top_k) do
+    if length(selected) == top_k,
+      do: {:halt, {selected, invalid}},
+      else: {:cont, {selected, invalid}}
   end
 
   defp score_chunks(chunks, terms, scope, now, settings) do
@@ -179,7 +240,7 @@ defmodule AllbertAssist.Memory.ActiveMemory do
     end
   end
 
-  defp chunks_for_entry(%Entry{} = entry, chunk_max_bytes) do
+  defp chunks_for_candidate(%{entry: %Entry{} = entry} = candidate, chunk_max_bytes) do
     entry.body
     |> to_string()
     |> chunk_text(chunk_max_bytes)
@@ -187,6 +248,9 @@ defmodule AllbertAssist.Memory.ActiveMemory do
     |> Enum.map(fn {body, index} ->
       %{
         entry: entry,
+        claim_id: candidate.claim_id,
+        sequence: candidate.sequence,
+        revision_digest: candidate.revision_digest,
         chunk_id: chunk_id(entry, index),
         entry_path: entry.path,
         category: entry.category,
@@ -250,7 +314,8 @@ defmodule AllbertAssist.Memory.ActiveMemory do
   end
 
   defp general_chunk?(entry) do
-    (blank?(entry.app_id) and blank?(entry.namespace) and entry.category != :identity) or
+    (blank?(entry.app_id) and entry.namespace in [nil, "", "default", "general"] and
+       entry.category != :identity) or
       (entry.app_id == "allbert" and entry.namespace in [nil, "", "general"])
   end
 
@@ -271,6 +336,7 @@ defmodule AllbertAssist.Memory.ActiveMemory do
 
   defp parse_datetime(nil), do: nil
   defp parse_datetime(""), do: nil
+  defp parse_datetime(%DateTime{} = datetime), do: datetime
 
   defp parse_datetime(value) when is_binary(value) do
     case DateTime.from_iso8601(value) do
@@ -288,11 +354,7 @@ defmodule AllbertAssist.Memory.ActiveMemory do
       |> max(0)
       |> Kernel./(@seconds_per_day)
 
-    if age_days > settings.recency_half_life_days * 10 do
-      {:error, :stale_by_recency_floor}
-    else
-      {:ok, :math.pow(2.0, -(age_days / settings.recency_half_life_days))}
-    end
+    {:ok, :math.pow(2.0, -(age_days / settings.recency_half_life_days))}
   end
 
   defp lexical_match(terms, body) do
@@ -409,6 +471,16 @@ defmodule AllbertAssist.Memory.ActiveMemory do
     end
   end
 
+  defp temporal_opt(opts, key, default) do
+    opts
+    |> Keyword.get(key, default)
+    |> parse_datetime()
+    |> case do
+      nil -> default
+      datetime -> datetime
+    end
+  end
+
   defp empty_result(status, enabled?, terms, scope) do
     %{
       status: status,
@@ -420,7 +492,11 @@ defmodule AllbertAssist.Memory.ActiveMemory do
       candidate_count_after_filter: 0,
       chunks: [],
       retrieved_chunks: [],
-      excluded_chunks_sample: []
+      excluded_chunks_sample: [],
+      generation_id: nil,
+      projection_revision: nil,
+      projection_dirty?: false,
+      canonical_revalidation_failure_count: 0
     }
   end
 

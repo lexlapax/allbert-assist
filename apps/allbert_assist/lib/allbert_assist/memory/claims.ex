@@ -119,23 +119,73 @@ defmodule AllbertAssist.Memory.Claims do
   @doc "Return the newest kept record valid at both explicit temporal axes."
   @spec as_of(String.t(), DateTime.t(), DateTime.t()) :: {:ok, map()} | {:error, term()}
   def as_of(claim_id, %DateTime{} = valid_at, %DateTime{} = known_at) do
-    with {:ok, %{status: :valid} = stream} <- read(claim_id) do
-      stream.effective_records
-      |> Enum.filter(&known_by?(&1, known_at))
-      |> Enum.filter(&valid_at?(&1, valid_at))
-      |> List.last()
-      |> case do
-        nil -> {:error, :not_effective}
-        %{"state" => "kept"} = record -> {:ok, record}
-        _record -> {:error, :not_effective}
-      end
+    with {:ok, %{status: :valid} = stream} <- read(claim_id),
+         {:ok, %{"state" => "kept"} = record} <- effective_record(stream, valid_at, known_at) do
+      {:ok, record}
     else
       {:ok, %{status: status}} -> {:error, status}
+      {:ok, _record} -> {:error, :not_effective}
       {:error, reason} -> {:error, reason}
     end
   end
 
   def as_of(_claim_id, _valid_at, _known_at), do: {:error, :invalid_temporal_view}
+
+  @doc "Revalidate one projected candidate against canonical authority before prompt use."
+  @spec revalidate_projection_candidate(map(), DateTime.t(), DateTime.t()) ::
+          :ok | {:error, term()}
+  def revalidate_projection_candidate(candidate, %DateTime{} = valid_at, %DateTime{} = known_at)
+      when is_map(candidate) do
+    claim_id = Map.get(candidate, :claim_id)
+
+    with :ok <- valid_claim_id(claim_id),
+         false <- File.exists?(Path.join(Paths.memory_tombstones_root(), claim_id <> ".md")),
+         {:ok, stream} <- read(claim_id),
+         :ok <- candidate_matches_stream(candidate, stream, valid_at, known_at) do
+      :ok
+    else
+      true -> {:error, :forgotten}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def revalidate_projection_candidate(_candidate, _valid_at, _known_at),
+    do: {:error, :invalid_projection_candidate}
+
+  defp candidate_matches_stream(candidate, %{status: :valid} = stream, valid_at, known_at) do
+    with {:ok, record} <- effective_record(stream, valid_at, known_at),
+         :ok <- ensure(record["state"] == "kept", :not_effective),
+         :ok <- ensure(record["revision_digest"] == candidate[:revision_digest], :stale_revision),
+         :ok <- ensure(record["sequence"] == candidate[:sequence], :stale_revision) do
+      :ok
+    end
+  end
+
+  defp candidate_matches_stream(
+         candidate,
+         %{status: :grandfathered, legacy_digest: digest},
+         _valid_at,
+         _known_at
+       ) do
+    with :ok <- ensure(candidate[:sequence] == 0, :stale_revision),
+         :ok <- ensure(candidate[:revision_digest] == digest, :stale_revision) do
+      :ok
+    end
+  end
+
+  defp candidate_matches_stream(_candidate, %{status: status}, _valid_at, _known_at),
+    do: {:error, status}
+
+  defp effective_record(stream, valid_at, known_at) do
+    stream.effective_records
+    |> Enum.filter(&known_by?(&1, known_at))
+    |> Enum.filter(&valid_at?(&1, valid_at))
+    |> List.last()
+    |> case do
+      nil -> {:error, :not_effective}
+      record -> {:ok, record}
+    end
+  end
 
   @doc "Return the frozen deterministic id and complete digest for a legacy file."
   @spec legacy_identity(String.t()) :: {:ok, map()} | {:error, term()}

@@ -48,10 +48,26 @@ defmodule AllbertAssist.Memory.ProjectionTest do
     claim_id = Ecto.UUID.generate()
     assert {:ok, first} = Claims.append(claim_id, nil, transition(value: "native value"))
 
-    legacy_path = Path.join([Memory.root(), "notes", "legacy.md"])
-    File.mkdir_p!(Path.dirname(legacy_path))
-    File.write!(legacy_path, "# Legacy value\n\nkept before v1.3\n")
+    assert {:ok, legacy_entry} =
+             Memory.append(%{
+               category: :notes,
+               body: "kept before v1.3",
+               summary: "Legacy value",
+               actor: "local",
+               agent: "test",
+               channel: :test,
+               source_signal_id: "legacy-signal"
+             })
+
+    legacy_path = legacy_entry.path
     assert {:ok, legacy_identity} = Claims.legacy_identity(legacy_path)
+
+    assert {:ok, _reviewed} =
+             Memory.review_entry(
+               legacy_path,
+               %{status: :kept, reviewed_by: "local", reviewed_at: "2026-07-29T12:00:00Z"},
+               user_id: "local"
+             )
 
     {:ok, projection} = Projection.start_link(root: Paths.memory_projection_root(), name: nil)
     assert %{ready?: false, control: %{"state" => "not_ready"}} = Projection.status(projection)
@@ -68,7 +84,7 @@ defmodule AllbertAssist.Memory.ProjectionTest do
     assert native.revision_digest == first.tail_digest
     assert {:ok, [legacy]} = Projection.history(legacy_identity.claim_id, projection)
     assert legacy.sequence == 0
-    assert legacy.value == "# Legacy value\n\nkept before v1.3\n"
+    assert legacy.value == "kept before v1.3"
 
     status = Projection.status(projection)
     assert status.ready?

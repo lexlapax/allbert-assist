@@ -5,6 +5,7 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.ActiveMemory
+  alias AllbertAssist.Memory.Projection
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
 
@@ -25,8 +26,11 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
     Application.put_env(:allbert_assist, Paths, home: home)
     Application.put_env(:allbert_assist, Memory, root: Path.join(home, "memory"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
+    {:ok, projection} = Projection.start_link(root: Paths.memory_projection_root(), name: nil)
+    Process.put(:active_memory_test_projection, projection)
 
     on_exit(fn ->
+      if Process.alive?(projection), do: GenServer.stop(projection)
       restore_env(Paths, original_paths)
       restore_env(Memory, original_memory)
       restore_env(Settings, original_settings)
@@ -54,7 +58,7 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
     {:ok, stocksage} = keep(stocksage)
 
     assert {:ok, neutral} =
-             ActiveMemory.retrieve("concise reports status",
+             retrieve("concise reports status",
                user_id: "alice",
                active_app: nil,
                now: @now
@@ -68,7 +72,7 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
     assert neutral.retrieved_chunks == Enum.map(neutral.chunks, &Map.drop(&1, [:body]))
 
     assert {:ok, app_scoped} =
-             ActiveMemory.retrieve("stocksage concise report",
+             retrieve("stocksage concise report",
                user_id: "alice",
                active_app: :stocksage,
                now: @now
@@ -95,7 +99,7 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
     assert reviewed.app_id == nil
 
     assert {:ok, result} =
-             ActiveMemory.retrieve("identity reports",
+             retrieve("identity reports",
                user_id: "alice",
                active_app: nil,
                now: @now
@@ -134,7 +138,7 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
     assert reviewed.review_status == :kept
 
     assert {:ok, result} =
-             ActiveMemory.retrieve("concise release reports",
+             retrieve("concise release reports",
                user_id: "local",
                active_app: nil,
                now: @now
@@ -165,7 +169,7 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
     assert reviewed.app_id == "stocksage"
 
     assert {:ok, result} =
-             ActiveMemory.retrieve("stocksage identity reports",
+             retrieve("stocksage identity reports",
                user_id: "alice",
                active_app: :stocksage,
                now: @now
@@ -183,7 +187,7 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
     assert {:ok, _setting} = Settings.put("active_memory.chunk_max_bytes", 128, %{audit?: false})
 
     assert {:ok, result} =
-             ActiveMemory.retrieve("concise",
+             retrieve("concise",
                user_id: "alice",
                active_app: nil,
                now: @now
@@ -195,7 +199,7 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
     assert {:ok, _setting} = Settings.put("active_memory.enabled", false, %{audit?: false})
 
     assert {:ok, disabled} =
-             ActiveMemory.retrieve("concise",
+             retrieve("concise",
                user_id: "alice",
                active_app: nil,
                now: @now
@@ -220,7 +224,7 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
              Settings.put("active_memory.excluded_sample_limit", 1, %{audit?: false})
 
     assert {:ok, result} =
-             ActiveMemory.retrieve("candidate concise reports",
+             retrieve("candidate concise reports",
                user_id: "alice",
                active_app: nil,
                now: @now
@@ -248,14 +252,14 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
     assert {:ok, _setting} = Settings.put("active_memory.chunk_max_bytes", 128, %{audit?: false})
 
     assert {:ok, first} =
-             ActiveMemory.retrieve("anchor release reports",
+             retrieve("anchor release reports",
                user_id: "alice",
                active_app: nil,
                now: @now
              )
 
     assert {:ok, second} =
-             ActiveMemory.retrieve("anchor release reports",
+             retrieve("anchor release reports",
                user_id: "alice",
                active_app: nil,
                now: @now
@@ -289,6 +293,9 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
     }
 
     params = %{query: "concise reports"}
+    projection = Process.get(:active_memory_test_projection) || raise "missing test projection"
+    assert {:ok, _built} = Projection.rebuild(projection)
+    context = Map.put(context, :memory_projection, projection)
 
     assert {:ok, first} = Runner.run("retrieve_active_memory", params, context)
     assert {:ok, second} = Runner.run("retrieve_active_memory", params, context)
@@ -315,8 +322,8 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
 
     opts = [user_id: "alice", active_app: nil, now: @now]
 
-    assert {:ok, first} = ActiveMemory.retrieve("concise release reports", opts)
-    assert {:ok, second} = ActiveMemory.retrieve("concise release reports", opts)
+    assert {:ok, first} = retrieve("concise release reports", opts)
+    assert {:ok, second} = retrieve("concise release reports", opts)
 
     assert first.chunks != []
     assert :erlang.term_to_binary(first.chunks) == :erlang.term_to_binary(second.chunks)
@@ -359,6 +366,12 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
       %{status: :kept, reviewed_at: @now, reviewed_by: entry.actor},
       user_id: entry.actor
     )
+  end
+
+  defp retrieve(query, opts) do
+    projection = Process.get(:active_memory_test_projection) || raise "missing test projection"
+    assert {:ok, _built} = Projection.rebuild(projection)
+    ActiveMemory.retrieve(query, Keyword.put(opts, :projection, projection))
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

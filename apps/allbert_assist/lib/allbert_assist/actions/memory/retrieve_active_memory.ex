@@ -17,6 +17,8 @@ defmodule AllbertAssist.Actions.Memory.RetrieveActiveMemory do
       thread_id: [type: :string, required: false],
       active_app: [type: :string, required: false],
       identity_namespace: [type: :string, required: false],
+      valid_at: [type: :string, required: false],
+      known_at: [type: :string, required: false],
       now: [type: :string, required: false]
     ],
     output_schema: [
@@ -69,9 +71,18 @@ defmodule AllbertAssist.Actions.Memory.RetrieveActiveMemory do
       thread_id: value(params, context, :thread_id),
       active_app: value(params, context, :active_app),
       identity_namespace: value(params, context, :identity_namespace),
+      valid_at: temporal_value(params, context, :valid_at),
+      known_at: temporal_value(params, context, :known_at),
+      projection: Map.get(context, :memory_projection),
       now: now_value(params, context)
     ]
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+  end
+
+  defp temporal_value(params, context, key) do
+    params
+    |> value(context, key)
+    |> normalize_timestamp()
   end
 
   defp now_value(params, context) do

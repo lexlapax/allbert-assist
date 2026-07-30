@@ -13,6 +13,7 @@ defmodule AllbertAssist.Memory.Projection do
   alias AllbertAssist.Jobs.Managed
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Claims
+  alias AllbertAssist.Memory.Entry
   alias AllbertAssist.Memory.Forget
   alias AllbertAssist.Paths
   alias AllbertAssist.Projection.PromoteProtocol
@@ -62,6 +63,15 @@ defmodule AllbertAssist.Memory.Projection do
   @doc "Return projected history for one claim; surfaces should use Memory retrieval APIs."
   def history(claim_id, server \\ __MODULE__),
     do: GenServer.call(server, {:history, claim_id})
+
+  @doc "List bounded lexical candidates from the verified current generation."
+  def candidates(terms, opts \\ [], server \\ __MODULE__)
+      when is_list(terms) and is_list(opts),
+      do: GenServer.call(server, {:candidates, terms, opts}, :infinity)
+
+  @doc false
+  def queue_repair(reasons, server \\ __MODULE__) when is_list(reasons),
+    do: GenServer.cast(server, {:queue_repair, reasons})
 
   @impl true
   def init(opts) do
@@ -132,6 +142,23 @@ defmodule AllbertAssist.Memory.Projection do
     {:reply, {:error, :memory_projection_not_ready}, state}
   end
 
+  def handle_call({:candidates, terms, opts}, _from, %{ready?: true} = state) do
+    {:reply, query_candidates(state, terms, opts), state}
+  end
+
+  def handle_call({:candidates, _terms, _opts}, _from, state) do
+    {:reply, {:error, :memory_projection_not_ready}, state}
+  end
+
+  @impl true
+  def handle_cast({:queue_repair, reasons}, state) do
+    safe_reasons = reasons |> Enum.map(&error_code/1) |> Enum.uniq() |> Enum.sort()
+    state = mark_dirty(state, {:canonical_revalidation_failed, safe_reasons})
+
+    if WriterLockHolder.enabled?(), do: send(self(), :kick_projection_repair)
+    {:noreply, state}
+  end
+
   @impl true
   def handle_info(:kick_forget_recovery, state) do
     case kick_forget_recovery() do
@@ -140,6 +167,17 @@ defmodule AllbertAssist.Memory.Projection do
 
       {:error, reason} ->
         diagnostic = %{code: "forget_recovery_kick_failed", reason: inspect(reason)}
+        {:noreply, %{state | diagnostics: [diagnostic | state.diagnostics]}}
+    end
+  end
+
+  def handle_info(:kick_projection_repair, state) do
+    case kick_forget_recovery() do
+      {:ok, _result} ->
+        {:noreply, state}
+
+      {:error, reason} ->
+        diagnostic = %{code: "projection_repair_kick_failed", reason: error_code(reason)}
         {:noreply, %{state | diagnostics: [diagnostic | state.diagnostics]}}
     end
   end
@@ -392,27 +430,26 @@ defmodule AllbertAssist.Memory.Projection do
               revision_count: acc.revision_count + revision_count
           }}}
 
+      {:skip, reason} ->
+        {:cont, {:ok, add_diagnostic(acc, diagnostic(stream.path, reason))}}
+
       {:error, reason} ->
         {:halt, {:error, {:projection_insert_failed, stream.claim_id, reason}}}
     end
   end
 
   defp insert_stream(conn, %{status: :grandfathered} = stream) do
-    row = %{
-      claim_id: stream.claim_id,
-      sequence: 0,
-      revision_digest: stream.legacy_digest,
-      state: "kept",
-      recorded_at: legacy_recorded_at(stream.path),
-      valid_from: nil,
-      valid_to: nil,
-      actor: "legacy",
-      action: "legacy_revision_zero",
-      value: stream.legacy_content,
-      source_path: stream.path
-    }
+    case Memory.read_entry(stream.path) do
+      {:ok, %Entry{review_status: :kept} = entry} ->
+        row = legacy_row(stream, entry)
+        with :ok <- insert_row(conn, row), do: {:ok, 1}
 
-    with :ok <- insert_row(conn, row), do: {:ok, 1}
+      {:ok, %Entry{}} ->
+        {:skip, :legacy_not_kept}
+
+      {:error, reason} ->
+        {:skip, {:legacy_entry_unreadable, reason}}
+    end
   end
 
   defp insert_stream(conn, %{status: :valid} = stream) do
@@ -427,6 +464,8 @@ defmodule AllbertAssist.Memory.Projection do
   defp insert_stream(_conn, stream), do: {:error, {:claim_not_authoritative, stream.status}}
 
   defp record_row(path, record) do
+    payload = record["payload"]
+
     %{
       claim_id: record["claim_id"],
       sequence: record["sequence"],
@@ -437,8 +476,16 @@ defmodule AllbertAssist.Memory.Projection do
       valid_to: record["valid_to"],
       actor: record["actor"],
       action: record["action"],
-      value: claim_value(record["payload"]),
-      source_path: path
+      value: claim_value(payload),
+      source_path: path,
+      operator_id: payload["operator_id"] || actor_id(record["actor"]),
+      namespace:
+        projected_namespace(payload["namespace"], payload["category"] || path_category(path)),
+      category: payload["category"] || path_category(path),
+      app_id: payload["app_id"],
+      origin: payload["origin"],
+      source_ref: source_ref(payload),
+      summary: claim_summary(payload)
     }
   end
 
@@ -447,7 +494,8 @@ defmodule AllbertAssist.Memory.Projection do
       conn,
       "INSERT INTO claim_revisions " <>
         "(claim_id, sequence, revision_digest, state, recorded_at, valid_from, valid_to, " <>
-        "actor, action, value, source_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "actor, action, value, source_path, operator_id, namespace, category, app_id, origin, " <>
+        "source_ref, summary, search_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [
         row.claim_id,
         row.sequence,
@@ -459,7 +507,15 @@ defmodule AllbertAssist.Memory.Projection do
         row.actor,
         row.action,
         row.value,
-        row.source_path
+        row.source_path,
+        row.operator_id,
+        row.namespace,
+        row.category,
+        row.app_id,
+        row.origin,
+        row.source_ref,
+        row.summary,
+        String.downcase(Enum.join([row.summary, row.value, row.category], " "))
       ]
     )
   end
@@ -535,11 +591,15 @@ defmodule AllbertAssist.Memory.Projection do
         "claim_id TEXT NOT NULL, sequence INTEGER NOT NULL, revision_digest TEXT NOT NULL," <>
         "state TEXT NOT NULL, recorded_at TEXT NOT NULL, valid_from TEXT, valid_to TEXT," <>
         "actor TEXT NOT NULL, action TEXT NOT NULL, value TEXT NOT NULL, source_path TEXT NOT NULL," <>
+        "operator_id TEXT, namespace TEXT, category TEXT NOT NULL, app_id TEXT, origin TEXT, " <>
+        "source_ref TEXT, summary TEXT NOT NULL, search_text TEXT NOT NULL," <>
         "PRIMARY KEY (claim_id, sequence));" <>
         "CREATE INDEX claim_revisions_current_idx ON claim_revisions " <>
         "(claim_id, recorded_at DESC, sequence DESC);" <>
         "CREATE INDEX claim_revisions_temporal_idx ON claim_revisions " <>
         "(state, valid_from, valid_to, recorded_at);" <>
+        "CREATE INDEX claim_revisions_operator_idx ON claim_revisions " <>
+        "(operator_id, state, recorded_at, claim_id);" <>
         "INSERT INTO generation_meta " <>
         "(singleton, domain, generation_id, schema_version, projection_revision, " <>
         "claim_stream_watermark, claim_normalizer_version, tombstone_normalizer_version) " <>
@@ -574,6 +634,7 @@ defmodule AllbertAssist.Memory.Projection do
          true <-
            tombstone_version == @tombstone_normalizer_version ||
              {:error, :tombstone_normalizer_mismatch},
+         :ok <- verify_schema_columns(conn),
          {:ok, [invalid_count]} <-
            query_one(
              conn,
@@ -581,6 +642,22 @@ defmodule AllbertAssist.Memory.Projection do
            ),
          true <- invalid_count == 0 || {:error, :invalid_projected_state} do
       :ok
+    end
+  end
+
+  defp verify_schema_columns(conn) do
+    required =
+      MapSet.new(~w[
+        claim_id sequence revision_digest state recorded_at valid_from valid_to actor action value
+        source_path operator_id namespace category app_id origin source_ref summary search_text
+      ])
+
+    with {:ok, rows} <- query_all(conn, "PRAGMA table_info(claim_revisions)", []) do
+      actual = rows |> Enum.map(&Enum.at(&1, 1)) |> MapSet.new()
+
+      if MapSet.subset?(required, actual),
+        do: :ok,
+        else: {:error, :memory_projection_schema_incomplete}
     end
   end
 
@@ -712,6 +789,134 @@ defmodule AllbertAssist.Memory.Projection do
     end
   end
 
+  defp query_candidates(state, terms, opts) do
+    terms =
+      terms
+      |> Enum.filter(&is_binary/1)
+      |> Enum.map(&String.downcase/1)
+      |> Enum.reject(&(&1 == ""))
+      |> Enum.uniq()
+      |> Enum.take(32)
+
+    if terms == [] do
+      {:ok, candidate_result(state, [])}
+    else
+      limit = opts |> Keyword.get(:limit, 1_000) |> min(10_000) |> max(1)
+      user_id = normalize_optional(Keyword.get(opts, :user_id))
+      {lexical_sql, lexical_values} = lexical_clause(terms)
+      {owner_sql, owner_values} = owner_clause(user_id)
+
+      sql =
+        "WITH temporal AS (" <>
+          "SELECT claim_id, sequence, revision_digest, state, recorded_at, valid_from, valid_to, " <>
+          "actor, action, value, source_path, operator_id, namespace, category, app_id, origin, " <>
+          "source_ref, summary, search_text, " <>
+          "ROW_NUMBER() OVER (PARTITION BY claim_id ORDER BY sequence DESC) AS claim_rank " <>
+          "FROM claim_revisions WHERE recorded_at <= ? " <>
+          "AND (valid_from IS NULL OR valid_from <= ?) " <>
+          "AND (valid_to IS NULL OR valid_to > ?)) " <>
+          "SELECT claim_id, sequence, revision_digest, recorded_at, actor, action, value, " <>
+          "source_path, operator_id, namespace, category, app_id, origin, source_ref, summary " <>
+          "FROM temporal WHERE claim_rank = 1 AND state = 'kept'" <>
+          owner_sql <> lexical_sql <> " ORDER BY claim_id ASC LIMIT ?"
+
+      with {:ok, valid_at} <- temporal_value(opts, :valid_at),
+           {:ok, known_at} <- temporal_value(opts, :known_at),
+           values = [known_at, valid_at, valid_at] ++ owner_values ++ lexical_values ++ [limit],
+           {:ok, rows} <- query_all(state.serving_conn, sql, values) do
+        {:ok, candidate_result(state, Enum.map(rows, &candidate_from_row/1))}
+      end
+    end
+  end
+
+  defp candidate_result(state, candidates) do
+    %{
+      candidates: candidates,
+      generation_id: state.control["current_generation_id"],
+      projection_revision: state.control["projection_revision"],
+      dirty?: state.control["dirty"]
+    }
+  end
+
+  defp candidate_from_row(row) do
+    [
+      claim_id,
+      sequence,
+      revision_digest,
+      recorded_at,
+      actor,
+      action,
+      value,
+      source_path,
+      operator_id,
+      namespace,
+      category,
+      app_id,
+      origin,
+      source_ref,
+      summary
+    ] = row
+
+    %{
+      claim_id: claim_id,
+      sequence: sequence,
+      revision_digest: revision_digest,
+      state: "kept",
+      entry:
+        Entry.from_map(%{
+          path: source_path,
+          category: category,
+          timestamp: recorded_at,
+          actor: operator_id || actor_id(actor),
+          origin: origin,
+          app_id: app_id,
+          namespace: namespace,
+          source_ref: source_ref,
+          summary: summary,
+          body: value,
+          review_status: :kept,
+          reviewed_at: recorded_at,
+          reviewed_by: operator_id || actor_id(actor),
+          kind: action
+        })
+    }
+  end
+
+  defp lexical_clause(terms) do
+    matches = Enum.map_join(terms, " OR ", fn _term -> "instr(search_text, ?) > 0" end)
+    {" AND (" <> matches <> ")", terms}
+  end
+
+  defp owner_clause(nil), do: {"", []}
+  defp owner_clause(user_id), do: {" AND operator_id = ?", [user_id]}
+
+  defp temporal_value(opts, key) do
+    opts
+    |> Keyword.get(key, DateTime.utc_now())
+    |> case do
+      %DateTime{} = datetime -> {:ok, datetime}
+      value when is_binary(value) -> parse_datetime(value)
+      _other -> {:error, {:invalid_temporal_value, key}}
+    end
+    |> case do
+      {:ok, datetime} -> {:ok, datetime |> DateTime.truncate(:second) |> DateTime.to_iso8601()}
+      {:error, _reason} = error -> error
+    end
+  end
+
+  defp parse_datetime(value) do
+    case DateTime.from_iso8601(value) do
+      {:ok, datetime, _offset} -> {:ok, datetime}
+      _other -> {:error, :invalid_datetime}
+    end
+  end
+
+  defp normalize_optional(nil), do: nil
+  defp normalize_optional(value), do: value |> to_string() |> String.trim() |> blank_to_nil()
+
+  defp blank_to_nil(""), do: nil
+  defp blank_to_nil(value), do: value
+
   defp execute_bound(conn, sql, values) do
     with {:ok, statement} <- Sqlite3.prepare(conn, sql) do
       try do
@@ -835,6 +1040,66 @@ defmodule AllbertAssist.Memory.Projection do
   defp claim_value(payload) do
     value = payload["value"] || payload["object"] || payload["body"] || payload["claim"]
     if is_binary(value), do: value, else: Jason.encode!(value || payload)
+  end
+
+  defp legacy_row(stream, entry) do
+    %{
+      claim_id: stream.claim_id,
+      sequence: 0,
+      revision_digest: stream.legacy_digest,
+      state: "kept",
+      recorded_at: entry.reviewed_at || entry.timestamp || legacy_recorded_at(stream.path),
+      valid_from: nil,
+      valid_to: nil,
+      actor: entry.actor || "legacy",
+      action: "legacy_revision_zero",
+      value: entry.body,
+      source_path: stream.path,
+      operator_id: entry.actor,
+      namespace: entry.namespace,
+      category: Atom.to_string(entry.category),
+      app_id: entry.app_id,
+      origin: entry.origin,
+      source_ref: entry.source_ref,
+      summary: entry.summary
+    }
+  end
+
+  defp actor_id("operator:" <> actor), do: actor
+  defp actor_id(actor) when is_binary(actor), do: actor
+  defp actor_id(_actor), do: nil
+
+  defp path_category(path), do: path |> Path.dirname() |> Path.basename()
+
+  defp projected_namespace(namespace, "identity") when namespace in [nil, "", "default"],
+    do: "identity"
+
+  defp projected_namespace(namespace, _category), do: namespace
+
+  defp source_ref(payload) do
+    case payload["source_evidence"] do
+      [%{} = source | _rest] -> source["source_id"] || source["message_id"]
+      _other -> payload["source_ref"]
+    end
+  end
+
+  defp claim_summary(payload) do
+    [payload["subject"], payload["predicate"]]
+    |> Enum.filter(&is_binary/1)
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.join(" ")
+    |> case do
+      "" -> claim_value(payload) |> first_line()
+      summary -> summary
+    end
+  end
+
+  defp first_line(value) do
+    value
+    |> String.split("\n", parts: 2)
+    |> List.first()
+    |> String.slice(0, 200)
   end
 
   defp legacy_recorded_at(path) do
