@@ -4,8 +4,10 @@ defmodule AllbertAssist.Memory.ProposalReviewTest do
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.Corpus
   alias AllbertAssist.Conversations.Message
+  alias AllbertAssist.Memory.ActiveMemory
   alias AllbertAssist.Memory.Claims
   alias AllbertAssist.Memory.Forget
+  alias AllbertAssist.Memory.Projection
   alias AllbertAssist.Memory.ProposalReview
   alias AllbertAssist.Memory.Proposals
   alias AllbertAssist.Memory.Proposals.Batch
@@ -97,6 +99,55 @@ defmodule AllbertAssist.Memory.ProposalReviewTest do
     assert same_result == result
     assert {:ok, stream} = Claims.read(proposal.id)
     assert length(stream.records) == 1
+  end
+
+  test "proposal review reaches prompt retrieval and reviewed supersession replaces current context" do
+    {:ok, projection} = Projection.start_link(root: Paths.memory_projection_root(), name: nil)
+    on_exit(fn -> if Process.alive?(projection), do: GenServer.stop(projection) end)
+
+    original = proposal("tea")
+    assert {:ok, _build} = Projection.rebuild(projection)
+    assert {:ok, proposed_only} = retrieve("tea", projection)
+    assert proposed_only.chunks == []
+
+    assert {:ok, kept} =
+             ProposalReview.review(
+               original.id,
+               proposal_binding(original),
+               %{operation: :keep},
+               "operator:alice"
+             )
+
+    assert kept.status == "kept"
+    assert {:ok, _build} = Projection.rebuild(projection)
+    assert {:ok, recalled} = retrieve("tea", projection)
+    assert [%{claim_id: claim_id, body: "tea"}] = recalled.chunks
+    assert claim_id == original.id
+
+    update = update_proposal("coffee", "tea")
+    assert {:ok, original_stream} = Claims.read(original.id)
+
+    assert {:ok, superseded} =
+             ProposalReview.review(
+               update.id,
+               proposal_binding(update),
+               %{
+                 operation: :keep,
+                 claim_id: original.id,
+                 expected_tail_digest: original_stream.tail_digest
+               },
+               "operator:alice"
+             )
+
+    assert superseded.status == "kept"
+    assert {:ok, _build} = Projection.rebuild(projection)
+    assert {:ok, retired_context} = retrieve("tea", projection)
+    assert retired_context.chunks == []
+    assert {:ok, current_context} = retrieve("coffee", projection)
+    assert [%{claim_id: ^claim_id, body: "coffee"}] = current_context.chunks
+
+    assert {:ok, history} = Claims.read(original.id)
+    assert Enum.map(history.records, &get_in(&1, ["payload", "value"])) == ["tea", "coffee"]
   end
 
   test "lost collection authority after applying marks stale and writes no claim" do
@@ -377,6 +428,30 @@ defmodule AllbertAssist.Memory.ProposalReviewTest do
 
     assert {:ok, %{outcome: :created, proposal: proposal}} = Proposals.propose(source, attrs)
     proposal
+  end
+
+  defp update_proposal(value, superseded) do
+    source = source("I prefer #{value}, replacing #{superseded}.")
+
+    {:ok, supersession} =
+      span("relationship.supersedes_value", source, superseded, "identity_v1")
+
+    attrs =
+      source
+      |> attrs(value)
+      |> put_in([:proposed_claim, :relationship], %{supersedes_value: superseded})
+      |> update_in([:span_provenance, :fields], &(&1 ++ [supersession]))
+
+    assert {:ok, %{outcome: :created, proposal: proposal}} = Proposals.propose(source, attrs)
+    proposal
+  end
+
+  defp retrieve(query, projection) do
+    ActiveMemory.retrieve(query,
+      user_id: "alice",
+      now: "2030-01-01T00:00:00Z",
+      projection: projection
+    )
   end
 
   defp source(content) do
