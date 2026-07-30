@@ -140,7 +140,7 @@ defmodule AllbertAssist.Security.V064SweepEvalTest do
     refute quickstart_doc =~ "mix setup"
     refute quickstart_doc =~ "mix phx.server"
 
-    assert readme =~ "For contributors working from source"
+    assert readme =~ "## Local Development"
     assert readme =~ "mix setup"
     assert readme =~ "mix phx.server"
 

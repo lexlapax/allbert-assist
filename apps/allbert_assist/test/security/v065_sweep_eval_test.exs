@@ -22,6 +22,7 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.ActiveMemory
+  alias AllbertAssist.Memory.Projection
   alias AllbertAssist.Onboarding
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -77,6 +78,7 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
     Application.put_env(:allbert_assist, Memory, root: Path.join(home, "memory"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(home, "confirmations"))
+    {:ok, projection} = Projection.start_link(root: Paths.memory_projection_root())
 
     PluginRegistry.clear()
     assert {:ok, "allbert.notes_files"} = PluginRegistry.register_module(AllbertNotesFiles.Plugin)
@@ -89,6 +91,7 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
     File.mkdir_p!(notes_root)
 
     on_exit(fn ->
+      if Process.alive?(projection), do: GenServer.stop(projection)
       restore_env(Paths, original_paths)
       restore_env(Memory, original_memory)
       restore_env(Settings, original_settings)
@@ -97,7 +100,7 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
       File.rm_rf!(home)
     end)
 
-    {:ok, home: home, notes_root: notes_root}
+    {:ok, home: home, notes_root: notes_root, projection: projection}
   end
 
   test "v0.65 eval inventory rows are complete and routed to their owning test" do
@@ -418,12 +421,15 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
     ])
   end
 
-  test "local-knowledge-recall-reviewed-memory-001: recall retrieves only :kept memory" do
+  test "local-knowledge-recall-reviewed-memory-001: recall retrieves only :kept memory", %{
+    projection: projection
+  } do
     {:ok, kept} = append("alice", "Kept-only reviewed reports may be recalled.")
     {:ok, kept} = review(kept, :kept)
     {:ok, unreviewed} = append("alice", "Unreviewed reports must be excluded from recall.")
     {:ok, flagged} = append("alice", "Flagged reports must be excluded from recall.")
     {:ok, flagged} = review(flagged, :flagged)
+    assert {:ok, _build} = Projection.rebuild(projection)
 
     assert {:ok, result} =
              ActiveMemory.retrieve("reports",

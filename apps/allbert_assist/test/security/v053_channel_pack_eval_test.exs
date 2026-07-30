@@ -363,6 +363,7 @@ defmodule AllbertAssist.Security.V053ChannelPackEvalTest do
                text: "signal trust stamp",
                channel: "signal",
                user_id: "alice",
+               external_user_id: @signal_aci,
                receiver_account_ref: "signal:+15551234567",
                provider_thread_ref: %{
                  "message_timestamp_ms" => 1_781_477_600_000,
