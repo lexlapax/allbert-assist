@@ -11,8 +11,7 @@ defmodule AllbertAssist.Search.Page do
     :filtered_count,
     :incomplete
   ]
-  defstruct schema_version: 1,
-            results: [],
+  defstruct results: [],
             next_cursor: nil,
             generation_id: nil,
             projection_revision: 0,

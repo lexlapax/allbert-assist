@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Search.QueryTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
+  @moduletag :home_fs_serial
 
   alias AllbertAssist.Search.Query
 

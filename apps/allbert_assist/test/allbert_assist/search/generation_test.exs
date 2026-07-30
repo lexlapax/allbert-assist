@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Search.GenerationTest do
   use AllbertAssist.DataCase, async: false
+  @moduletag :home_fs_serial
 
   alias AllbertAssist.Conversations
   alias AllbertAssist.Search.Projection

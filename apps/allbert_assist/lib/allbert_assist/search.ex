@@ -206,10 +206,14 @@ defmodule AllbertAssist.Search do
   end
 
   defp projection_candidates(module, query, position) when is_atom(module),
-    do: module.candidates(query, position)
+    do: normalize_projection_result(module.candidates(query, position))
 
   defp projection_candidates(server, query, position),
-    do: Projection.candidates(query, position, server)
+    do: normalize_projection_result(Projection.candidates(query, position, server))
+
+  defp normalize_projection_result({:ok, _batch} = result), do: result
+  defp normalize_projection_result({:error, :search_not_ready} = result), do: result
+  defp normalize_projection_result({:error, _reason}), do: {:error, :search_not_ready}
 
   defp queue_repairs(projection, authorized) do
     reasons =
@@ -381,7 +385,6 @@ defmodule AllbertAssist.Search do
       author: envelope.author,
       trust: envelope.trust,
       surface: envelope.surface,
-      thread_kind: envelope.thread_kind,
       timestamp: DateTime.truncate(envelope.inserted_at, :microsecond),
       snippet: bounded_snippet(Redactor.redact(envelope.content), max_bytes),
       score: candidate.score,

@@ -91,6 +91,7 @@ defmodule AllbertAssist.Search.QueryScopeTest do
     refute serialized =~ ~s("query")
     assert pending["resume_params_ref"]["requested_scope"] == "cross_surface"
     assert pending["resume_params_ref"]["filter_count"] == 0
+    assert (pending["resume_params_ref"]["expires_at"] - System.system_time(:second)) in 299..300
 
     assert {:ok, approval} =
              Runner.run(

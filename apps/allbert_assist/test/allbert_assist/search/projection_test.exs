@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Search.ProjectionTest do
   use AllbertAssist.DataCase, async: false
+  @moduletag :home_fs_serial
 
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.Corpus
