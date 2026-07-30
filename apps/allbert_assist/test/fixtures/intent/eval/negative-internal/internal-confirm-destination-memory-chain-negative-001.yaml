@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-internal
+expected:
+  action: confirm_destination_memory_chain
+  kind: execute
+id: internal-confirm-destination-memory-chain-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action confirm_destination_memory_chain

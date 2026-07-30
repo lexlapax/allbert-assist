@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-internal
+expected:
+  action: show_memory_proposal
+  kind: execute
+id: internal-show-memory-proposal-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action show_memory_proposal

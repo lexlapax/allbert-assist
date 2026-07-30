@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-internal
+expected:
+  action: confirm_manual_memory_revision
+  kind: execute
+id: internal-confirm-manual-memory-revision-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action confirm_manual_memory_revision

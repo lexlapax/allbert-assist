@@ -1,8 +1,8 @@
 ---
 clarify_vs_execute:
   accuracy: 1.0
-  passed: 271
-  total: 271
+  passed: 302
+  total: 302
 confusion:
   - actual: answer
     count: 1
@@ -21,6 +21,9 @@ confusion:
     expected: execute:append_memory
   - actual: none
     count: 1
+    expected: execute:apply_persona_profile
+  - actual: none
+    count: 1
     expected: execute:approve_confirmation
   - actual: none
     count: 1
@@ -31,6 +34,9 @@ confusion:
   - actual: none
     count: 1
     expected: execute:audit_online_skill
+  - actual: none
+    count: 1
+    expected: execute:authorize_search_query_scope
   - actual: none
     count: 1
     expected: execute:bash
@@ -90,7 +96,28 @@ confusion:
     expected: execute:clear_active_app
   - actual: none
     count: 1
+    expected: execute:clear_session
+  - actual: none
+    count: 1
     expected: execute:compile_memory_index
+  - actual: none
+    count: 1
+    expected: execute:complete_thread
+  - actual: none
+    count: 1
+    expected: execute:configure_channel_secret
+  - actual: none
+    count: 1
+    expected: execute:configure_channel_setting
+  - actual: none
+    count: 1
+    expected: execute:confirm_destination_memory_chain
+  - actual: none
+    count: 1
+    expected: execute:confirm_manual_memory_revision
+  - actual: none
+    count: 1
+    expected: execute:consolidate_memory
   - actual: execute:continue_objective
     count: 1
     expected: execute:continue_objective
@@ -100,6 +127,12 @@ confusion:
   - actual: none
     count: 1
     expected: execute:create_from_template
+  - actual: none
+    count: 1
+    expected: execute:create_job
+  - actual: none
+    count: 1
+    expected: execute:create_protocol_token
   - actual: none
     count: 1
     expected: execute:create_self_improvement_draft
@@ -112,6 +145,9 @@ confusion:
   - actual: none
     count: 1
     expected: execute:delete_artifact
+  - actual: none
+    count: 1
+    expected: execute:delete_conversation_content
   - actual: none
     count: 1
     expected: execute:delete_memory_entry
@@ -165,6 +201,9 @@ confusion:
     expected: execute:enable_intent_descriptor
   - actual: none
     count: 1
+    expected: execute:ensure_voice_token
+  - actual: none
+    count: 1
     expected: execute:expand_workflow
   - actual: none
     count: 1
@@ -190,6 +229,9 @@ confusion:
   - actual: none
     count: 1
     expected: execute:first_model_detect
+  - actual: none
+    count: 1
+    expected: execute:forget_memory_claim
   - actual: execute:generate_image
     count: 2
     expected: execute:generate_image
@@ -223,6 +265,9 @@ confusion:
   - actual: none
     count: 1
     expected: execute:import_stocksage_sqlite
+  - actual: none
+    count: 1
+    expected: execute:ingest_search_index
   - actual: none
     count: 1
     expected: execute:inspect_marketplace_entry
@@ -265,6 +310,9 @@ confusion:
   - actual: none
     count: 1
     expected: execute:intent_show_descriptor
+  - actual: none
+    count: 1
+    expected: execute:link_channel_identity
   - actual: execute:list_analyses
     count: 1
     expected: execute:list_analyses
@@ -301,6 +349,12 @@ confusion:
   - actual: none
     count: 1
     expected: execute:list_memory_entries
+  - actual: none
+    count: 1
+    expected: execute:list_memory_proposals
+  - actual: execute:list_model_catalog
+    count: 1
+    expected: execute:list_model_catalog
   - actual: execute:list_model_profiles
     count: 1
     expected: execute:list_model_profiles
@@ -336,6 +390,9 @@ confusion:
     expected: execute:list_workflows
   - actual: none
     count: 1
+    expected: execute:maintain_search_index
+  - actual: none
+    count: 1
     expected: execute:manage_workspace_tile
   - actual: none
     count: 1
@@ -366,9 +423,6 @@ confusion:
     expected: execute:mcp_read_resource
   - actual: none
     count: 1
-    expected: execute:mcp_server_connect
-  - actual: none
-    count: 1
     expected: execute:mcp_scan_enable
   - actual: none
     count: 1
@@ -379,6 +433,9 @@ confusion:
   - actual: none
     count: 1
     expected: execute:mcp_scan_run_once
+  - actual: none
+    count: 1
+    expected: execute:mcp_server_connect
   - actual: none
     count: 1
     expected: execute:migrate_secrets
@@ -465,6 +522,9 @@ confusion:
     expected: execute:pull_model
   - actual: none
     count: 1
+    expected: execute:purge_search_projection
+  - actual: none
+    count: 1
     expected: execute:put_artifact
   - actual: execute:queue_analysis
     count: 1
@@ -487,6 +547,12 @@ confusion:
   - actual: execute:read_skill
     count: 1
     expected: execute:read_skill
+  - actual: none
+    count: 1
+    expected: execute:rebuild_memory_projection
+  - actual: none
+    count: 1
+    expected: execute:rebuild_search_index
   - actual: none
     count: 1
     expected: execute:record_trace
@@ -522,6 +588,9 @@ confusion:
     expected: execute:resolved_settings_snapshot
   - actual: none
     count: 1
+    expected: execute:restore_memory_claim
+  - actual: none
+    count: 1
     expected: execute:resume_job
   - actual: execute:resume_thread_on_channel
     count: 1
@@ -537,16 +606,28 @@ confusion:
     expected: execute:review_memory_entry
   - actual: none
     count: 1
-    expected: execute:revoke_resource_grant
+    expected: execute:review_memory_proposal
   - actual: none
     count: 1
-    expected: execute:rotate_workspace_signing_secret
+    expected: execute:review_memory_proposal_batch
+  - actual: none
+    count: 1
+    expected: execute:revoke_protocol_token
+  - actual: none
+    count: 1
+    expected: execute:revoke_resource_grant
   - actual: none
     count: 1
     expected: execute:rollback_dynamic_integration
   - actual: none
     count: 1
     expected: execute:rollback_marketplace_install
+  - actual: none
+    count: 1
+    expected: execute:rotate_protocol_token
+  - actual: none
+    count: 1
+    expected: execute:rotate_workspace_signing_secret
   - actual: execute:run_analysis
     count: 1
     expected: execute:run_analysis
@@ -582,6 +663,9 @@ confusion:
     expected: execute:scaffold_template
   - actual: none
     count: 1
+    expected: execute:search_conversations
+  - actual: none
+    count: 1
     expected: execute:search_memory
   - actual: execute:search_notes
     count: 1
@@ -595,6 +679,9 @@ confusion:
   - actual: none
     count: 1
     expected: execute:security_status
+  - actual: execute:list_model_catalog
+    count: 1
+    expected: execute:send_channel_message
   - actual: execute:send_channel_message
     count: 2
     expected: execute:send_channel_message
@@ -640,6 +727,9 @@ confusion:
   - actual: none
     count: 1
     expected: execute:show_dynamic_integration
+  - actual: none
+    count: 1
+    expected: execute:show_memory_proposal
   - actual: none
     count: 1
     expected: execute:show_objective
@@ -696,6 +786,9 @@ confusion:
     expected: execute:surface_policy_update
   - actual: none
     count: 1
+    expected: execute:sweep_expired_sessions
+  - actual: none
+    count: 1
     expected: execute:sync_app_lesson
   - actual: execute:synthesize_voice
     count: 1
@@ -709,6 +802,9 @@ confusion:
   - actual: none
     count: 1
     expected: execute:transcribe_voice
+  - actual: none
+    count: 1
+    expected: execute:unlink_channel_identity
   - actual: execute:unsupported_resource_workflow
     count: 1
     expected: execute:unsupported_resource_workflow
@@ -748,15 +844,15 @@ confusion:
   - actual: none
     count: 11
     expected: none
-corpus_case_count: 297
+corpus_case_count: 314
 gate:
   failures: []
   status: pass
-generated_at: 2026-07-06T08:05:37Z
+generated_at: 2026-07-30T12:18:52Z
 id: v056-release-baseline
 negative_violations: []
 overall_accuracy: 1.0
-passed: 295
+passed: 314
 per_domain:
   adversarial:
     accuracy: 1.0
@@ -780,8 +876,8 @@ per_domain:
     total: 3
   channels:
     accuracy: 1.0
-    passed: 7
-    total: 7
+    passed: 8
+    total: 8
   confirmations:
     accuracy: 1.0
     passed: 6
@@ -820,16 +916,16 @@ per_domain:
     total: 3
   model:
     accuracy: 1.0
-    passed: 6
-    total: 6
+    passed: 7
+    total: 7
   negative-doctor:
     accuracy: 1.0
     passed: 13
     total: 13
   negative-internal:
     accuracy: 1.0
-    passed: 161
-    total: 161
+    passed: 178
+    total: 178
   negative-operator:
     accuracy: 1.0
     passed: 20
@@ -897,8 +993,8 @@ per_domain:
 per_surface:
   any:
     accuracy: 1.0
-    passed: 269
-    total: 269
+    passed: 305
+    total: 305
   discord:
     accuracy: 1.0
     passed: 1
@@ -940,4 +1036,4 @@ slot_accuracy:
   accuracy: 1.0
   passed: 8
   total: 8
-total: 278
+total: 314

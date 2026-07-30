@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-internal
+expected:
+  action: consolidate_memory
+  kind: execute
+id: internal-consolidate-memory-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action consolidate_memory

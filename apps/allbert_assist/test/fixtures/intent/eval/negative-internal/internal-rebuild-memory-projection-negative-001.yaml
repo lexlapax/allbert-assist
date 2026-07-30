@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-internal
+expected:
+  action: rebuild_memory_projection
+  kind: execute
+id: internal-rebuild-memory-projection-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action rebuild_memory_projection
