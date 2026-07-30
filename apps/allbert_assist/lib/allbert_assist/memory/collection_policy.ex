@@ -33,6 +33,25 @@ defmodule AllbertAssist.Memory.CollectionPolicy do
 
   def reauthorize(_source), do: {:error, :invalid_source_envelope}
 
+  @doc "Rehydrate every content-free proposal evidence ref under its current grant."
+  def reauthorize_evidence(operator_id, evidence)
+      when is_binary(operator_id) and is_map(evidence) do
+    evidence
+    |> evidence_refs()
+    |> Enum.reduce_while({:ok, []}, fn ref, {:ok, acc} ->
+      case reauthorize_ref(operator_id, ref) do
+        {:ok, source} -> {:cont, {:ok, [source | acc]}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+    |> case do
+      {:ok, sources} -> {:ok, Enum.reverse(sources)}
+      error -> error
+    end
+  end
+
+  def reauthorize_evidence(_operator_id, _evidence), do: {:error, :invalid_source_evidence}
+
   @doc "Return the exact Corpus policy represented by a verified source."
   def policy(%SourceEnvelope{} = source) do
     %{
@@ -64,4 +83,56 @@ defmodule AllbertAssist.Memory.CollectionPolicy do
        do: :ok,
        else: {:error, :source_identity_changed}
   end
+
+  defp reauthorize_ref(operator_id, ref) when is_map(ref) do
+    ref = stringify(ref)
+
+    with {:ok, origin_scope} <- origin_scope(ref["origin_scope"]),
+         policy <- %{
+           consumer: :memory,
+           origin_scope: origin_scope,
+           e2ee?: "e2ee_operator" in List.wrap(ref["origin_overlays"])
+         },
+         {:ok, [{:ok, current}]} <-
+           Corpus.rehydrate_authorized(
+             operator_id,
+             [%{source_id: ref["source_id"], content_digest: ref["content_digest"]}],
+             policy
+           ),
+         true <-
+           current.principal_digest == ref["principal_digest"] ||
+             {:error, :source_identity_changed},
+         :ok <- eligible_source(current) do
+      {:ok, current}
+    else
+      {:ok, [{:error, reason}]} -> {:error, reason}
+      {:error, reason} -> {:error, reason}
+      _other -> {:error, :source_reauthorization_failed}
+    end
+  end
+
+  defp reauthorize_ref(_operator_id, _ref), do: {:error, :invalid_source_evidence}
+
+  defp evidence_refs(evidence) do
+    evidence = stringify(evidence)
+
+    case evidence["refs"] do
+      refs when is_list(refs) and refs != [] -> refs
+      _other -> [Map.drop(evidence, ["refs"])]
+    end
+  end
+
+  defp origin_scope("local_operator"), do: {:ok, :local_operator}
+  defp origin_scope("mapped_operator_dm"), do: {:ok, :mapped_operator_dm}
+  defp origin_scope(_scope), do: {:error, :invalid_origin_scope}
+
+  defp stringify(map) when is_map(map),
+    do: Map.new(map, fn {key, value} -> {to_string(key), stringify(value)} end)
+
+  defp stringify(list) when is_list(list), do: Enum.map(list, &stringify/1)
+
+  defp stringify(atom) when is_atom(atom) and atom not in [true, false, nil],
+    do: Atom.to_string(atom)
+
+  defp stringify(value), do: value
 end
