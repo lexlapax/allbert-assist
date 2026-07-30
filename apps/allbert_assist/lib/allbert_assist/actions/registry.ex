@@ -291,7 +291,6 @@ defmodule AllbertAssist.Actions.Registry do
     ShowChannel,
     SetupCheck,
     ResumeThreadOnChannel,
-    DeleteConversationContent,
     ListApps,
     ShowApp,
     ListPlugins,
@@ -335,6 +334,7 @@ defmodule AllbertAssist.Actions.Registry do
     MaintainSearchIndex,
     PurgeSearchProjection,
     RebuildSearchIndex,
+    DeleteConversationContent,
     StartFanout,
     # Channel doctors declare exposure: :internal; keep them out of the agent set
     # so agent_modules/0 agrees with capability exposure (v0.54 M9.1 reconcile).

@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
 
   alias AllbertAssist.Action
   alias AllbertAssist.Actions.Capability
+  alias AllbertAssist.Actions.Conversations.DeleteConversationContent
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Actions.Multiply
   alias AllbertAssist.Actions.Registry
@@ -122,7 +123,6 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "show_channel",
              "channel_setup_check",
              "resume_thread_on_channel",
-             "delete_conversation_content",
              "list_apps",
              "show_app",
              "list_plugins",
@@ -150,6 +150,13 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "write",
              "edit",
              "bash",
+             "search_conversations",
+             "authorize_search_query_scope",
+             "ingest_search_index",
+             "maintain_search_index",
+             "purge_search_projection",
+             "rebuild_search_index",
+             "delete_conversation_content",
              "start_fanout",
              "whatsapp_doctor",
              "signal_doctor",
@@ -405,6 +412,13 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "write",
              "edit",
              "bash",
+             "search_conversations",
+             "authorize_search_query_scope",
+             "ingest_search_index",
+             "maintain_search_index",
+             "purge_search_projection",
+             "rebuild_search_index",
+             "delete_conversation_content",
              "start_fanout",
              "whatsapp_doctor",
              "signal_doctor",
@@ -1166,6 +1180,16 @@ defmodule AllbertAssist.Actions.RegistryTest do
     end
 
     refute Action.allbert_action?(Multiply)
+  end
+
+  test "canonical conversation deletion stays registered but is not model-exposed" do
+    assert DeleteConversationContent in Registry.modules()
+    assert DeleteConversationContent not in Registry.agent_modules()
+
+    assert {:ok, capability} = Registry.capability(DeleteConversationContent)
+    assert capability.exposure == :internal
+    assert capability.confirmation == :required
+    assert capability.resumable?
   end
 
   test "resolves registered actions by name and module only" do
