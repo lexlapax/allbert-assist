@@ -177,7 +177,22 @@ else
   echo "smoke:no_mix PASS no Mix modules in image"
 fi
 
-# 7) ERTS crypto linkage portability: the crypto NIF must not dangle against a
+# 7) Search capability must be proved by the Exqlite library loaded from this
+# artifact. Use the production schema contract against a disposable on-disk DB
+# so WAL, FTS5, tokenizer/query behavior, integrity, secure deletion, and the
+# packaged SQLite version/compile option are exercised together.
+SQLITE_PROBE='alias Exqlite.Sqlite3; alias AllbertAssist.Search.Schema; path = Path.join(System.fetch_env!("ALLBERT_HOME"), "artifact-search-capability.db"); with {:ok, conn} <- Sqlite3.open(path), :ok <- Schema.create(conn, %{generation_id: "artifact-smoke", eligibility_epoch: 0, high_water: nil}), {:ok, capability} <- Schema.verify(conn, "artifact-smoke"), :ok <- Sqlite3.close(conn) do IO.puts("packaged-sqlite-ok version=#{capability.sqlite_version} compile_options=#{Enum.join(capability.compile_options, ",")} journal_mode=#{capability.journal_mode}") else other -> IO.inspect(other); System.halt(1) end'
+if SQLITE_OUTPUT="$(run_cli eval "$SQLITE_PROBE" 2>&1)"; then
+  echo "$SQLITE_OUTPUT" >"$WORK/sqlite-capability.out"
+  grep -Eq 'packaged-sqlite-ok version=[0-9]+\.[0-9]+\.[0-9]+ compile_options=ENABLE_FTS5 journal_mode=wal' \
+    "$WORK/sqlite-capability.out" || fail sqlite_runtime "capability marker missing"
+  echo "smoke:sqlite_runtime PASS $(tail -n1 "$WORK/sqlite-capability.out")"
+else
+  echo "$SQLITE_OUTPUT"
+  fail sqlite_runtime "packaged Search SQLite capability contract failed"
+fi
+
+# 8) ERTS crypto linkage portability: the crypto NIF must not dangle against a
 # host-specific OpenSSL. On macOS the bundled dylib is repointed to
 # @loader_path; on Linux it links the system libcrypto by design.
 CRYPTO_SO="$(find "$REL_ROOT" -name 'crypto.so' | head -n1 || true)"

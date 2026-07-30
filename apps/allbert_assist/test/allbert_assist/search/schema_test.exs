@@ -6,8 +6,9 @@ defmodule AllbertAssist.Search.SchemaTest do
   alias AllbertAssist.Search.SQLite
   alias Exqlite.Sqlite3
 
-  test "loaded Exqlite SQLite proves the schema-1 FTS capability contract" do
-    assert {:ok, conn} = Sqlite3.open(":memory:")
+  @tag :tmp_dir
+  test "loaded Exqlite SQLite proves the schema-1 FTS capability contract", %{tmp_dir: tmp_dir} do
+    assert {:ok, conn} = Sqlite3.open(Path.join(tmp_dir, "search.db"))
 
     on_exit(fn -> Sqlite3.close(conn) end)
 
@@ -23,6 +24,8 @@ defmodule AllbertAssist.Search.SchemaTest do
     assert {:ok, capability} = Schema.verify(conn, generation_id)
     assert capability.fts5
     assert capability.schema_version == 1
+    assert capability.compile_options == ["ENABLE_FTS5"]
+    assert capability.journal_mode == "wal"
 
     assert :ok =
              SQLite.write(
@@ -42,8 +45,9 @@ defmodule AllbertAssist.Search.SchemaTest do
     assert {:ok, _capability} = Schema.verify(conn, generation_id)
   end
 
-  test "bijection verification rejects a missing FTS row" do
-    assert {:ok, conn} = Sqlite3.open(":memory:")
+  @tag :tmp_dir
+  test "bijection verification rejects a missing FTS row", %{tmp_dir: tmp_dir} do
+    assert {:ok, conn} = Sqlite3.open(Path.join(tmp_dir, "search.db"))
     on_exit(fn -> Sqlite3.close(conn) end)
 
     assert :ok =

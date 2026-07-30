@@ -371,6 +371,8 @@ defmodule AllbertAssist.InstallPathTest do
     assert smoke =~ "smoke:browser_external_runtime PASS"
     assert smoke =~ "smoke:browser_doctor PASS"
     assert smoke =~ "smoke:browser_no_download PASS"
+    assert smoke =~ "Schema.verify(conn, \"artifact-smoke\")"
+    assert smoke =~ "smoke:sqlite_runtime PASS"
     assert smoke =~ "PLAYWRIGHT_NODE_PATH"
     assert smoke =~ "BROWSER_BINARY_PATH"
     assert smoke =~ "ALLBERT_PACKAGE_MANAGER_AUDIT"

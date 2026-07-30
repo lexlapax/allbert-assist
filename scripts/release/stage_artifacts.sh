@@ -213,7 +213,9 @@ validate_local_generation() {
       '.schema_version == 2 and .kind == "allbert-candidate-target-smoke" and
        .target == $target and .source_sha == $source_sha and .generation == $generation and
        .archive == $archive and .archive_sha256 == $archive_sha and .outcome == "passed" and
-       (.checks | length == 10)' "$directory/$smoke" >/dev/null ||
+       (.checks == ["boot", "version", "plugins", "browser_external_runtime", "browser_doctor",
+         "browser_no_download", "health", "attach", "no_mix", "sqlite_runtime", "crypto_linkage"])' \
+      "$directory/$smoke" >/dev/null ||
       fail "invalid target-smoke row for $target"
     if [ "$target" = macos-arm64 ]; then
       jq -e '.macos_exqlite.install_name == "@loader_path/sqlite3_nif.so" and

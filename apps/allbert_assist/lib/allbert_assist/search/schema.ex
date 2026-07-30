@@ -54,8 +54,18 @@ defmodule AllbertAssist.Search.Schema do
   def capability_probe(conn) do
     with {:ok, [version]} <- SQLite.query_one(conn, "SELECT sqlite_version()"),
          :ok <- minimum_version(version),
+         {:ok, [1]} <-
+           SQLite.query_one(conn, "SELECT sqlite_compileoption_used('ENABLE_FTS5')"),
+         {:ok, ["wal"]} <- SQLite.query_one(conn, "PRAGMA journal_mode"),
          :ok <- functional_probe(conn) do
-      {:ok, %{sqlite_version: version, fts5: true, schema_version: @schema_version}}
+      {:ok,
+       %{
+         sqlite_version: version,
+         compile_options: ["ENABLE_FTS5"],
+         journal_mode: "wal",
+         fts5: true,
+         schema_version: @schema_version
+       }}
     end
   end
 
@@ -85,9 +95,10 @@ defmodule AllbertAssist.Search.Schema do
            true <- is_number(score),
            true <- is_binary(snippet),
            :ok <- SQLite.execute(conn, "INSERT INTO #{table}(#{table}) VALUES('integrity-check')"),
+           {:ok, ["ok"]} <- SQLite.query_one(conn, "PRAGMA integrity_check"),
            {:ok, [1]} <- SQLite.query_one(conn, "PRAGMA secure_delete"),
            {:ok, [0, _log, _checkpointed]} <-
-             SQLite.query_one(conn, "PRAGMA wal_checkpoint(PASSIVE)") do
+             SQLite.query_one(conn, "PRAGMA wal_checkpoint(TRUNCATE)") do
         :ok
       else
         false -> {:error, :search_capability_invalid_result}

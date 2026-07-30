@@ -170,7 +170,7 @@ jq -S -n \
     source_sha: $source_sha, generation: $generation, archive: $archive,
     archive_sha256: $archive_sha256, outcome: "passed",
     checks: ["boot", "version", "plugins", "browser_external_runtime", "browser_doctor",
-      "browser_no_download", "health", "attach", "no_mix", "crypto_linkage"],
+      "browser_no_download", "health", "attach", "no_mix", "sqlite_runtime", "crypto_linkage"],
     smoke_log_sha256: $smoke_log_sha256,
     macos_exqlite: (if $nif_sha256 == "" then null else
       {sha256: $nif_sha256, install_name: $nif_install_name} end)}' > "$WORK/$SMOKE"
