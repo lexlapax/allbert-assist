@@ -26,6 +26,7 @@ defmodule AllbertAssist.Actions.Memory.RebuildMemoryProjection do
 
   alias AllbertAssist.Memory.Forget
   alias AllbertAssist.Memory.Projection
+  alias AllbertAssist.Memory.ProposalReview
   alias AllbertAssist.Security.PermissionGate
 
   @impl true
@@ -46,13 +47,24 @@ defmodule AllbertAssist.Actions.Memory.RebuildMemoryProjection do
 
   defp rebuild(decision) do
     with {:ok, recovery} <- Forget.reconcile_pending(),
+         {:ok, proposal_recovery} <- ProposalReview.reconcile_applying(),
+         :ok <- recovery_complete(proposal_recovery),
+         {:ok, batch_recovery} <- ProposalReview.reconcile_batches(),
+         :ok <- recovery_complete(batch_recovery),
          {:ok, projection} <- rebuild_after_recovery(recovery) do
-      result = %{recovery: recovery, projection: projection}
+      result = %{
+        recovery: recovery,
+        proposal_recovery: proposal_recovery,
+        batch_recovery: batch_recovery,
+        projection: projection
+      }
 
       {:ok,
        %{
          message:
-           "Memory projection is ready; recovered #{recovery.completed_count} pending Forget operation(s).",
+           "Memory projection is ready; recovered #{recovery.completed_count} pending Forget operation(s), " <>
+             "#{proposal_recovery.completed_count} applying proposal(s), and " <>
+             "#{batch_recovery.completed_count} applying batch(es).",
          status: :completed,
          permission_decision: decision,
          result: result,
@@ -75,6 +87,9 @@ defmodule AllbertAssist.Actions.Memory.RebuildMemoryProjection do
   end
 
   defp rebuild_after_recovery(%{projection_replaced?: false}), do: Projection.rebuild()
+
+  defp recovery_complete(%{retryable_error_count: 0}), do: :ok
+  defp recovery_complete(summary), do: {:error, {:memory_recovery_incomplete, summary}}
 
   defp denied(decision) do
     {:ok,

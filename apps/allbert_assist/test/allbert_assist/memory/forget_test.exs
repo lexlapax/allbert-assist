@@ -1,5 +1,5 @@
 defmodule AllbertAssist.Memory.ForgetTest do
-  use ExUnit.Case, async: false
+  use AllbertAssist.DataCase, async: false
 
   @moduletag :home_fs_serial
   @moduletag :global_process_serial
@@ -218,6 +218,8 @@ defmodule AllbertAssist.Memory.ForgetTest do
     assert rebuilt.result.recovery.pending_count == 2
     assert rebuilt.result.recovery.completed_count == 2
     assert rebuilt.result.recovery.projection_replaced?
+    assert rebuilt.result.proposal_recovery.attempted_count == 0
+    assert rebuilt.result.batch_recovery.attempted_count == 0
     assert rebuilt.result.projection.recovered_generation?
     assert Projection.status().ready?
     refute File.exists?(Path.join(Paths.memory_projection_root(), "previous.sqlite3"))

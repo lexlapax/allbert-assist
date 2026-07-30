@@ -113,6 +113,49 @@ defmodule AllbertAssist.Memory.ProposalReviewTest do
     refute inspect(stale) =~ "metric"
   end
 
+  test "managed reconciliation resumes applying proposals and batches from durable state" do
+    applying_proposal = proposal("resumable")
+
+    assert {:ok, _applying} =
+             ProposalReview.begin_review(
+               applying_proposal.id,
+               proposal_binding(applying_proposal),
+               %{operation: :keep},
+               "operator:alice"
+             )
+
+    batched_proposal = proposal("batched")
+
+    assert {:ok, batch} =
+             Proposals.freeze_batch(
+               "alice",
+               "default",
+               [batch_binding(batched_proposal)],
+               "operator:alice"
+             )
+
+    assert {:ok, _batch} = batch |> Ecto.Changeset.change(status: "applying") |> Repo.update()
+
+    assert {:ok, proposal_recovery} = ProposalReview.reconcile_applying()
+    assert proposal_recovery.attempted_count == 1
+    assert proposal_recovery.completed_count == 1
+    assert proposal_recovery.retryable_error_count == 0
+    assert [%{proposal_id: proposal_id, outcome: "kept"}] = proposal_recovery.items
+    assert proposal_id == applying_proposal.id
+
+    assert {:ok, batch_recovery} = ProposalReview.reconcile_batches()
+    assert batch_recovery.attempted_count == 1
+    assert batch_recovery.completed_count == 1
+    assert batch_recovery.retryable_error_count == 0
+    assert [%{batch_id: batch_id, outcome: "complete"}] = batch_recovery.items
+    assert batch_id == batch.id
+
+    assert {:ok, empty} = ProposalReview.reconcile_applying()
+    assert empty.attempted_count == 0
+    assert {:ok, stream} = Claims.read(applying_proposal.id)
+    assert length(stream.records) == 1
+  end
+
   test "reject writes exact suppression, stays content-free, and is idempotent" do
     proposal = proposal("coffee")
 

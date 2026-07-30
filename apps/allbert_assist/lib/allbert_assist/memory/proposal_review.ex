@@ -129,7 +129,17 @@ defmodule AllbertAssist.Memory.ProposalReview do
     |> order_by([proposal], asc: proposal.inserted_at, asc: proposal.id)
     |> Repo.all()
     |> Enum.map(&{&1.id, resume(&1.id)})
-    |> then(&{:ok, &1})
+    |> summarize_recovery(:proposal_id)
+  end
+
+  @doc "Resume every applying batch through its frozen actor and per-item ledger."
+  def reconcile_batches do
+    Batch
+    |> where([batch], batch.status == "applying")
+    |> order_by([batch], asc: batch.inserted_at, asc: batch.id)
+    |> Repo.all()
+    |> Enum.map(&{&1.id, resume_batch(&1.id, &1.requested_by)})
+    |> summarize_recovery(:batch_id)
   end
 
   @doc "Apply or resume one frozen ordinary Keep All batch with per-item outcomes."
@@ -606,6 +616,26 @@ defmodule AllbertAssist.Memory.ProposalReview do
       proposal_digest: proposal.proposal_digest,
       result: proposal.result
     }
+  end
+
+  defp summarize_recovery(results, id_key) do
+    items = Enum.map(results, &recovery_item(&1, id_key))
+
+    {:ok,
+     %{
+       attempted_count: length(items),
+       completed_count: Enum.count(items, &(&1.outcome != "retryable_error")),
+       retryable_error_count: Enum.count(items, &(&1.outcome == "retryable_error")),
+       items: items
+     }}
+  end
+
+  defp recovery_item({id, {:ok, result}}, id_key) do
+    %{id_key => id, outcome: to_string(result.status)}
+  end
+
+  defp recovery_item({id, {:error, reason}}, id_key) do
+    %{id_key => id, outcome: "retryable_error", reason: inspect(reason)}
   end
 
   defp valid_actor(actor) do
