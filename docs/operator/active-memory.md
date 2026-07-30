@@ -2,7 +2,8 @@
 
 New to Allbert? Start with [Quickstart: Install, Open, Chat](quickstart.md).
 
-Introduced in v0.39b. The `workspace:memory` and `allbert admin memory status`
+Introduced in v0.39b and moved to the single v1.3 Memory projection in M5. The
+`workspace:memory` and `allbert admin memory status`
 surfaces are first-class over the same substrate (see the
 [roadmap](../plans/roadmap.md) and [CHANGELOG](../../CHANGELOG.md) for the current
 release line).
@@ -71,6 +72,14 @@ classifier run before Active Memory and do not receive raw retrieved chunks.
 When the direct-answer model is disabled, Active Memory is skipped for that
 turn.
 
+In v1.3, prompt retrieval reads the rebuildable Memory projection and then
+checks each selected result against its exact canonical Markdown claim before
+use. A stale archive, update, Forget, corrupt file, or symlink replacement is
+omitted and schedules repair; it is never trusted because it was present in the
+projection. The old `.index.json` file is no longer a retrieval authority.
+`memory.index_enabled=false` still disables legacy Intent memory candidates,
+but does not disable Active Memory; use `active_memory.enabled=false` for that.
+
 - **Algorithm**: deterministic recency-weighted lexical scoring. No
   embeddings; no learned ranking; no LLM-driven scoring. Same query +
   same memory state + same settings → same chunks, byte-for-byte.
@@ -79,6 +88,8 @@ turn.
 - **Top-K bound**: `active_memory.top_k` (default `5`).
 - **Per-chunk size cap**: `active_memory.chunk_max_bytes` (default
   `2048` bytes).
+- **Whole prompt cap**: DirectAnswer admits at most `8000` UTF-8 bytes across
+  all selected Active Memory bodies for both text and vision turns.
 - **Long files**: eligible memory entries are split into byte-bounded windows
   before scoring. Returned chunks are complete windows, not trimmed excerpts,
   so the body text does not include ellipses added by retrieval.
@@ -121,6 +132,7 @@ the turn's markdown trace, placed after `## Intent Candidates` and before
 - candidate counts before and after filtering;
 - top-K retrieved chunks with per-factor score breakdowns;
 - a bounded sample of high-scoring excluded chunks for debugging.
+- the 8,000-byte prompt budget, admitted bytes, and whether truncation occurred.
 
 `allbert admin memory retrieve --query "..."` prints the same deterministic
 top-K for ad-hoc inspection.
@@ -161,6 +173,8 @@ them as retrieval weights, not as unrelated model-temperature values.
 | `active_memory.score_weights.thread_affinity.same_app` | `0.6` | Active-app weight. |
 | `active_memory.score_weights.thread_affinity.general` | `0.3` | General-memory weight. |
 | `active_memory.score_weights.identity_inclusion` | `1.5` | Boost for identity-namespace chunks. |
+| `active_memory.internal_candidate_limit` | `1000` | Internal bounded projection candidate set before chunk scoring. |
+| `active_memory.excluded_sample_limit` | `5` | Maximum body-free excluded examples retained for diagnostics. |
 
 ## Safety Defaults
 
@@ -170,8 +184,9 @@ them as retrieval weights, not as unrelated model-temperature values.
   confirmations.
 - Active Memory retrieval is **read-only**. It cannot promote, mutate, or
   infer durable memory.
-- The retrieval pass is **bounded** by `top_k` and `chunk_max_bytes` so
-  the model context does not grow unboundedly.
+- The retrieval pass is **bounded** by the internal candidate limit, `top_k`,
+  `chunk_max_bytes`, and the final 8,000-byte prompt cap so model context does
+  not grow unboundedly.
 - No embeddings or vector indexes are used. Embedding-backed retrieval is
   a future advisory provider per ADR 0021, not part of v0.39b.
 
