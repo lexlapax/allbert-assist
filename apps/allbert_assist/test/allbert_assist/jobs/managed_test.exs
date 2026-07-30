@@ -9,6 +9,7 @@ defmodule AllbertAssist.Jobs.ManagedTest do
   alias AllbertAssist.Jobs.Run
   alias AllbertAssist.Jobs.Runner
   alias AllbertAssist.Repo
+  alias AllbertAssist.Search.Projection
   alias AllbertAssist.Settings
 
   setup do
@@ -310,6 +311,48 @@ defmodule AllbertAssist.Jobs.ManagedTest do
     assert after_write.metadata["dirty_seq"] == 1
     assert %DateTime{} = after_write.next_due_at
     assert Jobs.list_runs(after_write) == []
+  end
+
+  test "stable assistant writes and Search policy changes use the same durable kicks" do
+    assert {:ok, _results} = Managed.reconcile("local")
+    assert {:ok, thread} = Conversations.create_general_thread("local", "Managed assistant")
+
+    assert {:ok, _message} =
+             Conversations.ensure_assistant_message(
+               thread,
+               "msg_managed_assistant",
+               "assistant content",
+               metadata: %{"channel" => "tui"}
+             )
+
+    assert managed_job("search-index").metadata["dirty_seq"] == 1
+
+    assert {:ok, _epoch} =
+             Corpus.set_origin_grant(:search, :mapped_operator_dm, true, %{actor: "test"})
+
+    assert managed_job("search-index").metadata["dirty_seq"] == 2
+    assert managed_job("search-rebuild").metadata["dirty_seq"] == 1
+  end
+
+  test "daemon projection bootstrap schedules exactly one managed rebuild when not ready" do
+    root =
+      :allbert_assist
+      |> Application.get_env(Settings, [])
+      |> Keyword.fetch!(:root)
+      |> Path.dirname()
+      |> Path.join("bootstrap-search")
+
+    start_supervised!({Projection, root: root, name: Projection, bootstrap_jobs?: true})
+    refute Projection.status().ready?
+
+    rebuild = managed_job("search-rebuild")
+    assert rebuild.metadata["dirty_seq"] == 1
+    assert %DateTime{} = rebuild.next_due_at
+    assert Jobs.list_runs(rebuild) == []
+
+    assert {:ok, results} = Managed.reconcile("local")
+    assert Enum.all?(results, &(&1.outcome == :current))
+    assert managed_job("search-rebuild").metadata["dirty_seq"] == 1
   end
 
   defp managed_job(name) do

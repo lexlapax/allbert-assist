@@ -12,6 +12,7 @@ defmodule AllbertAssist.Search.Projection do
 
   alias AllbertAssist.Conversations.Corpus
   alias AllbertAssist.Conversations.SourceEnvelope
+  alias AllbertAssist.Jobs.Managed
   alias AllbertAssist.Paths
   alias AllbertAssist.Projection.PromoteProtocol
   alias AllbertAssist.Runtime.Redactor
@@ -78,14 +79,23 @@ defmodule AllbertAssist.Search.Projection do
     cleanup_stale_builders(root)
     {conn, control, diagnostics} = load_generation(root)
 
-    {:ok,
-     %__MODULE__{
-       root: root,
-       serving_conn: conn,
-       control: control,
-       ready?: not is_nil(conn),
-       diagnostics: diagnostics
-     }}
+    state = %__MODULE__{
+      root: root,
+      serving_conn: conn,
+      control: control,
+      ready?: not is_nil(conn),
+      diagnostics: diagnostics
+    }
+
+    if Keyword.get(opts, :bootstrap_jobs?, false),
+      do: {:ok, state, {:continue, :bootstrap_jobs}},
+      else: {:ok, state}
+  end
+
+  @impl true
+  def handle_continue(:bootstrap_jobs, state) do
+    diagnostics = bootstrap_managed_jobs(state) ++ state.diagnostics
+    {:noreply, %{state | diagnostics: diagnostics}}
   end
 
   @impl true
@@ -270,6 +280,18 @@ defmodule AllbertAssist.Search.Projection do
     case generation_meta(conn) do
       {:ok, meta} -> meta.projection_revision
       {:error, _reason} -> 0
+    end
+  end
+
+  defp bootstrap_managed_jobs(state) do
+    with {:ok, results} <- Managed.reconcile("local"),
+         false <- Enum.any?(results, & &1.degraded?),
+         identity <- if(state.ready?, do: "search-index", else: "search-rebuild"),
+         {:ok, _kick} <- Managed.kick(identity, "local") do
+      []
+    else
+      true -> [%{code: "managed_name_conflict"}]
+      {:error, reason} -> [%{code: error_code(reason)}]
     end
   end
 

@@ -4,6 +4,7 @@ defmodule AllbertAssist.Settings do
   """
 
   alias AllbertAssist.Conversations.Corpus
+  alias AllbertAssist.Jobs.Managed
   alias AllbertAssist.Memory.ReviewCadence
   alias AllbertAssist.Settings.Schema
   alias AllbertAssist.Settings.Secrets
@@ -311,11 +312,41 @@ defmodule AllbertAssist.Settings do
       ]
   end
 
+  defp post_write_diagnostics(key, _value, context)
+       when key in ["search.enabled", "search.origin_grants"] do
+    if context_value(context, :skip_search_policy_reconcile?) do
+      []
+    else
+      with {:ok, epoch} <- Corpus.bump_eligibility_epoch(:search),
+           {:ok, reconciliation} <- Managed.reconcile("local") do
+        [
+          %{
+            source: :search_policy,
+            eligibility_epoch: epoch,
+            reconciliation: reconciliation,
+            kicks: kick_search_jobs()
+          }
+        ]
+      else
+        {:error, reason} -> [%{source: :search_policy, error: inspect(reason)}]
+      end
+    end
+  end
+
   defp post_write_diagnostics("channels." <> key, _value, _context) do
     if String.ends_with?(key, ".identity_map") do
       case Corpus.bump_eligibility_epoch(:all) do
-        {:ok, epochs} -> [%{source: :corpus_identity_policy, eligibility_epochs: epochs}]
-        {:error, reason} -> [%{source: :corpus_identity_policy, error: inspect(reason)}]
+        {:ok, epochs} ->
+          [
+            %{
+              source: :corpus_identity_policy,
+              eligibility_epochs: epochs,
+              kicks: kick_search_jobs()
+            }
+          ]
+
+        {:error, reason} ->
+          [%{source: :corpus_identity_policy, error: inspect(reason)}]
       end
     else
       []
@@ -332,4 +363,15 @@ defmodule AllbertAssist.Settings do
   end
 
   defp post_write_diagnostics(_key, _value, _context), do: []
+
+  defp kick_search_jobs do
+    Enum.map(["search-rebuild", "search-index"], fn identity ->
+      {identity, Managed.kick(identity, "local")}
+    end)
+  end
+
+  defp context_value(context, key) when is_map(context),
+    do: Map.get(context, key, Map.get(context, Atom.to_string(key)))
+
+  defp context_value(_context, _key), do: nil
 end

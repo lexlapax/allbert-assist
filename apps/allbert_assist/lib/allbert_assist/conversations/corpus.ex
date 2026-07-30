@@ -16,6 +16,7 @@ defmodule AllbertAssist.Conversations.Corpus do
   alias AllbertAssist.Conversations.Message
   alias AllbertAssist.Conversations.SourceEnvelope
   alias AllbertAssist.Conversations.ThreadChannelRef
+  alias AllbertAssist.Jobs.Managed
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
 
@@ -229,8 +230,10 @@ defmodule AllbertAssist.Conversations.Corpus do
 
     with {:ok, current} <- Settings.get(key),
          updated <- update_grants(current, Atom.to_string(scope), granted?),
-         {:ok, _setting} <- Settings.put(key, updated, context),
-         {:ok, epoch} <- bump_eligibility_epoch(consumer) do
+         {:ok, _setting} <-
+           Settings.put(key, updated, Map.put(context, :skip_search_policy_reconcile?, true)),
+         {:ok, epoch} <- bump_eligibility_epoch(consumer),
+         :ok <- kick_consumer_reconcile(consumer) do
       {:ok, epoch}
     end
   end
@@ -765,6 +768,16 @@ defmodule AllbertAssist.Conversations.Corpus do
   defp default_grants(:search), do: ["local_operator"]
   defp grant_key(:memory), do: "memory.collection.origin_grants"
   defp grant_key(:search), do: "search.origin_grants"
+
+  defp kick_consumer_reconcile(:memory), do: :ok
+
+  defp kick_consumer_reconcile(:search) do
+    Enum.each(["search-rebuild", "search-index"], fn identity ->
+      _ = Managed.kick(identity, "local")
+    end)
+
+    :ok
+  end
 
   defp setting(key, default) do
     case Settings.get(key) do

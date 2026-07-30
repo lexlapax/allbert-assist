@@ -14,6 +14,7 @@ defmodule AllbertAssist.Conversations.ChannelThread do
   alias AllbertAssist.Conversations.CrossChannelIdentityLink
   alias AllbertAssist.Conversations.Message
   alias AllbertAssist.Conversations.ThreadChannelRef
+  alias AllbertAssist.Jobs.Managed
   alias AllbertAssist.Maps
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime.Redactor
@@ -331,8 +332,10 @@ defmodule AllbertAssist.Conversations.ChannelThread do
   def link_identity(attrs) when is_map(attrs) do
     attrs = normalize_identity_link_attrs(attrs)
 
-    with :ok <- validate_identity_link(attrs) do
-      Repo.transaction(fn -> upsert_identity_link(attrs) end)
+    with :ok <- validate_identity_link(attrs),
+         {:ok, identity} <- Repo.transaction(fn -> upsert_identity_link(attrs) end) do
+      kick_search_policy_reconcile(identity.user_id)
+      {:ok, identity}
     end
   end
 
@@ -380,18 +383,23 @@ defmodule AllbertAssist.Conversations.ChannelThread do
   def unlink_identity(attrs) when is_map(attrs) do
     attrs = normalize_identity_link_attrs(attrs)
 
-    Repo.transaction(fn ->
-      case Repo.get_by(CrossChannelIdentityLink, identity_link_keys(attrs)) do
-        nil ->
-          Repo.rollback(:not_found)
-
-        %CrossChannelIdentityLink{} = existing ->
-          existing |> Repo.delete() |> identity_mutation_result!()
-      end
-    end)
+    with {:ok, identity} <- Repo.transaction(fn -> delete_identity_link(attrs) end) do
+      kick_search_policy_reconcile(identity.user_id)
+      {:ok, identity}
+    end
   end
 
   def unlink_identity(_attrs), do: {:error, :invalid_identity_link}
+
+  defp delete_identity_link(attrs) do
+    case Repo.get_by(CrossChannelIdentityLink, identity_link_keys(attrs)) do
+      nil ->
+        Repo.rollback(:not_found)
+
+      %CrossChannelIdentityLink{} = existing ->
+        existing |> Repo.delete() |> identity_mutation_result!()
+    end
+  end
 
   defp identity_mutation_result!({:ok, identity}) do
     case Corpus.bump_eligibility_epoch(:all) do
@@ -401,6 +409,14 @@ defmodule AllbertAssist.Conversations.ChannelThread do
   end
 
   defp identity_mutation_result!({:error, reason}), do: Repo.rollback(reason)
+
+  defp kick_search_policy_reconcile(user_id) do
+    Enum.each(["search-rebuild", "search-index"], fn identity ->
+      _ = Managed.kick(identity, user_id)
+    end)
+
+    :ok
+  end
 
   defp normalize_message_ref(attrs) do
     attrs = atomize_message_ref_keys(attrs)

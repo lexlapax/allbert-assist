@@ -335,8 +335,12 @@ defmodule AllbertAssist.Conversations do
            fn -> ensure_message_and_touch_thread(thread, message_attrs, now) end,
            mode: :immediate
          ) do
-      {:ok, message} -> {:ok, message}
-      {:error, reason} -> {:error, reason}
+      {:ok, message} ->
+        kick_search_reconcile(thread.user_id)
+        {:ok, message}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -482,7 +486,8 @@ defmodule AllbertAssist.Conversations do
       :response_signal_id
     ]
 
-    Map.take(Map.from_struct(message), fields) == Map.take(attrs, fields)
+    persisted = Map.from_struct(message)
+    Enum.all?(fields, &(Map.get(persisted, &1) == Map.get(attrs, &1)))
   end
 
   defp inbound_message_attrs(thread, attrs, content, origin) do

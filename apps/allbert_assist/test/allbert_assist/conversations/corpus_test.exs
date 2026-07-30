@@ -53,6 +53,23 @@ defmodule AllbertAssist.Conversations.CorpusTest do
     assert terminal.exhausted?
   end
 
+  test "incremental page accepts only a typed prior high-water position" do
+    assert {:ok, thread} = Conversations.create_general_thread("alice", "Incremental page")
+    assert {:ok, first} = local_message(thread, "first")
+    assert {:ok, snapshot} = Corpus.snapshot("alice", local_search_policy())
+
+    assert {:ok, page} =
+             Corpus.page_after(
+               snapshot,
+               %{inserted_at: first.inserted_at, source_id: first.id},
+               20
+             )
+
+    assert page.items == []
+    assert page.exhausted?
+    assert {:error, :invalid_cursor} = Corpus.page_after(snapshot, %{source_id: first.id}, 20)
+  end
+
   test "rehydration preserves order, checks digests, and bounds context without truncating source" do
     assert {:ok, thread} = Conversations.create_general_thread("alice", "Context")
 
