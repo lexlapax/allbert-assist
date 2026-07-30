@@ -38,6 +38,7 @@ defmodule AllbertAssist.SelfImprovement.Discovery do
       |> TraceIndex.index()
 
     patterns = filter_patterns_for_bias(trace_index.patterns, query)
+    patterns = Enum.reject(patterns, &(&1.pattern_type in [:correction, :failed_intent]))
 
     {suggestions, suggestion_diagnostics} =
       patterns
@@ -117,8 +118,6 @@ defmodule AllbertAssist.SelfImprovement.Discovery do
 
   defp suggestion_type(%{pattern_type: :action_chain}), do: {"trace_to_workflow", "workflow"}
   defp suggestion_type(%{pattern_type: :repeated_prompt}), do: {"trace_to_skill", "skill"}
-  defp suggestion_type(%{pattern_type: :correction}), do: {"memory_update", "memory_update"}
-  defp suggestion_type(%{pattern_type: :failed_intent}), do: {"memory_update", "memory_update"}
   defp suggestion_type(_pattern), do: {"trace_to_skill", "skill"}
 
   defp summary(pattern, draft_kind) do

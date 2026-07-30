@@ -177,7 +177,12 @@ defmodule AllbertAssist.Actions.SelfImprovementActionsTest do
 
     assert MapSet.subset?(
              suggestion_types,
-             MapSet.new(["trace_to_skill", "trace_to_workflow", "memory_update"])
+             MapSet.new(["trace_to_skill", "trace_to_workflow"])
+           )
+
+    assert MapSet.disjoint?(
+             suggestion_types,
+             MapSet.new(["memory_promotion", "memory_update"])
            )
 
     assert MapSet.disjoint?(
