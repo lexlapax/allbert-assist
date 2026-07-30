@@ -17,6 +17,7 @@ defmodule AllbertAssist.Memory.Proposals do
   alias AllbertAssist.Memory.Proposals.Proposal
   alias AllbertAssist.Memory.Proposals.Suppression
   alias AllbertAssist.Memory.SecretFilter
+  alias AllbertAssist.Memory.SpanProvenance
   alias AllbertAssist.Repo
 
   @normalizer_version 1
@@ -151,6 +152,7 @@ defmodule AllbertAssist.Memory.Proposals do
          {:ok, claim} <- required_map(attrs, :proposed_claim),
          {:ok, value} <- required_binary(claim, :value),
          {:ok, spans} <- required_map(attrs, :span_provenance),
+         {:ok, spans} <- SpanProvenance.verify(claim, spans, [source]),
          {:ok, run_id} <- required(attrs, :run_id),
          {:ok, extractor_profile} <- required(attrs, :extractor_profile),
          {:ok, extractor_version} <- positive_integer(attrs, :extractor_version),

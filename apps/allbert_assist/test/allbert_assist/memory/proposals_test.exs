@@ -7,6 +7,7 @@ defmodule AllbertAssist.Memory.ProposalsTest do
   alias AllbertAssist.Memory.Proposals
   alias AllbertAssist.Memory.Proposals.Proposal
   alias AllbertAssist.Memory.Proposals.Suppression
+  alias AllbertAssist.Memory.SpanProvenance
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
 
@@ -38,7 +39,7 @@ defmodule AllbertAssist.Memory.ProposalsTest do
     {source, content} = source("I prefer tea with breakfast.")
 
     assert {:ok, %{outcome: :created, proposal: proposal}} =
-             Proposals.propose(source, ordinary_attrs(content, "tea"))
+             Proposals.propose(source, ordinary_attrs(source, "tea"))
 
     assert proposal.kind == "ordinary"
     assert proposal.status == "pending"
@@ -50,7 +51,7 @@ defmodule AllbertAssist.Memory.ProposalsTest do
     assert Proposals.pending_count("alice") == 1
 
     assert {:ok, %{outcome: :existing, proposal: same}} =
-             Proposals.propose(source, ordinary_attrs(content, "tea"))
+             Proposals.propose(source, ordinary_attrs(source, "tea"))
 
     assert same.id == proposal.id
     assert Repo.aggregate(Proposal, :count) == 1
@@ -97,42 +98,42 @@ defmodule AllbertAssist.Memory.ProposalsTest do
   end
 
   test "current Corpus source and grant authority is required at admission" do
-    {source, content} = source("I prefer metric units.")
+    {source, _content} = source("I prefer metric units.")
 
     stale = %{source | content_digest: digest("changed")}
 
     assert {:error, :digest_mismatch} =
-             Proposals.propose(stale, ordinary_attrs(content, "metric"))
+             Proposals.propose(stale, ordinary_attrs(source, "metric"))
 
     assert {:ok, _setting} = Settings.put("memory.collection.origin_grants", [])
 
     assert {:error, :origin_grant_required} =
-             Proposals.propose(source, ordinary_attrs(content, "metric"))
+             Proposals.propose(source, ordinary_attrs(source, "metric"))
 
     assert Repo.aggregate(Proposal, :count) == 0
   end
 
   test "assistant sources and credential-shaped values produce no proposal" do
-    {operator_source, content} = source("The operator prefers tea.")
+    {operator_source, _content} = source("I prefer tea.")
     source = %{operator_source | author: :assistant, role: "assistant"}
 
     assert {:error, :ineligible_memory_source} =
-             Proposals.propose(source, ordinary_attrs(content, "tea"))
+             Proposals.propose(source, ordinary_attrs(operator_source, "tea"))
 
-    {operator_source, operator_content} = source("Remember token=abcdefghijklmnopqrstuvwxyz")
+    {operator_source, _operator_content} = source("I prefer token=abcdefghijklmnopqrstuvwxyz.")
 
     assert {:error, :secret_filtered} =
              Proposals.propose(
                operator_source,
-               ordinary_attrs(operator_content, "token=abcdefghijklmnopqrstuvwxyz")
+               ordinary_attrs(operator_source, "token=abcdefghijklmnopqrstuvwxyz")
              )
 
     assert Repo.aggregate(Proposal, :count) == 0
   end
 
   test "exact rejected evidence and pending backpressure suppress inert writes" do
-    {source, content} = source("I prefer item zero.")
-    attrs = ordinary_attrs(content, "item zero")
+    {source, _content} = source("I prefer item zero.")
+    attrs = ordinary_attrs(source, "item zero")
     proposal_digest = Proposals.proposal_digest("default", stringify(attrs.proposed_claim))
 
     assert {:ok, _suppression} =
@@ -150,17 +151,26 @@ defmodule AllbertAssist.Memory.ProposalsTest do
 
     assert {:error, :unchanged_reject_suppressed} = Proposals.propose(source, attrs)
 
+    {bounded_source, _content} = source("I prefer bounded item.")
+
     for index <- 1..50 do
-      value = "bounded item #{index}"
+      bounded_attrs =
+        bounded_source
+        |> ordinary_attrs("bounded item")
+        |> Map.put(:extractor_version, index)
 
       assert {:ok, %{outcome: :created}} =
-               Proposals.propose(source, ordinary_attrs(content, value))
+               Proposals.propose(bounded_source, bounded_attrs)
     end
 
     assert Proposals.pending_count("alice") == 50
 
     assert {:error, :pending_cap_reached} =
-             Proposals.propose(source, ordinary_attrs(content, "one item too many"))
+             Proposals.propose(
+               bounded_source,
+               ordinary_attrs(bounded_source, "bounded item")
+               |> Map.put(:extractor_version, 51)
+             )
   end
 
   defp source(content), do: envelope(content, &Conversations.append_user_message/3)
@@ -177,29 +187,22 @@ defmodule AllbertAssist.Memory.ProposalsTest do
     {source, content}
   end
 
-  defp ordinary_attrs(content, value) do
-    start = byte_offset(content, value)
+  defp ordinary_attrs(source, value) do
+    {:ok, subject} = build_span("subject", source, "I", "operator_pronoun_v1")
+    {:ok, predicate} = build_span("predicate", source, "prefer", "identity_v1")
+    {:ok, object} = build_span("value", source, value, "identity_v1")
 
     %{
       proposed_claim: %{
         subject: "operator:alice",
-        predicate: "preference",
+        predicate: "prefer",
         value: value,
         valid_from: nil,
         valid_to: nil,
         relationship: nil
       },
       span_provenance: %{
-        fields: [
-          %{
-            field: "value",
-            byte_start: start,
-            byte_end: start + byte_size(value),
-            raw_span_digest: digest(value),
-            normalized_value: value,
-            transform: "identity_v1"
-          }
-        ]
+        fields: [subject, predicate, object]
       },
       category: "preferences",
       namespace: "default",
@@ -209,11 +212,9 @@ defmodule AllbertAssist.Memory.ProposalsTest do
     }
   end
 
-  defp byte_offset(content, value) do
-    case :binary.match(content, value) do
-      {offset, _length} -> offset
-      :nomatch -> 0
-    end
+  defp build_span(field, source, raw, transform) do
+    {start, length} = :binary.match(source.content, raw)
+    SpanProvenance.build(field, source, start, start + length, transform)
   end
 
   defp stringify(map), do: Map.new(map, fn {key, value} -> {to_string(key), value} end)
