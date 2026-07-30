@@ -108,6 +108,7 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     assert body =~ "ALLBERT_CANDIDATE_GENERATION"
     assert body =~ "ALLBERT_BUILDER_CLASS"
     assert body =~ "export MIX_ENV=prod"
+    assert body =~ "export LC_ALL=C.UTF-8"
     assert body =~ ~S|mix release allbert --overwrite --path "$RELEASE_ROOT"|
     assert body =~ "operator-macos"
     assert body =~ "native-linux"

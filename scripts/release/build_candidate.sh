@@ -3,7 +3,7 @@
 # GitHub draft creation, SSH/Docker transport, upload, and promotion stay in the
 # operator request flow; this helper emits only the four files named below.
 set -Eeuo pipefail
-export LC_ALL=C
+export LC_ALL=C.UTF-8
 export MIX_ENV=prod
 umask 077
 
