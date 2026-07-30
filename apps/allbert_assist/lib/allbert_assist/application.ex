@@ -92,7 +92,7 @@ defmodule AllbertAssist.Application do
 
   defp maybe_add_projection_owners(children) do
     if WriterLockHolder.enabled?() do
-      children ++ [AllbertAssist.Memory.Projection]
+      children ++ [AllbertAssist.Memory.Projection, AllbertAssist.Search.Projection]
     else
       children
     end

@@ -174,6 +174,8 @@ defmodule AllbertAssist.Search.Projection do
   defp populate_and_promote(state, snapshots, generation_id, builder_conn, rebuilding) do
     with {:ok, build} <- populate_snapshots(builder_conn, snapshots),
          :ok <- current_epochs(snapshots),
+         {:ok, source_advanced?} <- source_advanced?(snapshots),
+         build = Map.put(build, :source_advanced?, source_advanced?),
          {:ok, _capability} <- Schema.verify(builder_conn, generation_id),
          {:ok, promoted} <- promote(state, generation_id, builder_conn) do
       finish_rebuild(state, generation_id, rebuilding, build, promoted)
@@ -241,7 +243,7 @@ defmodule AllbertAssist.Search.Projection do
         "previous_generation_id" => state.control["current_generation_id"],
         "builder_generation_id" => nil,
         "projection_revision" => build.revision,
-        "dirty" => false,
+        "dirty" => build.source_advanced?,
         "last_error_code" => nil
     }
 
@@ -349,6 +351,18 @@ defmodule AllbertAssist.Search.Projection do
     if Enum.all?(snapshots, &(Corpus.eligibility_epoch(:search) == &1.eligibility_epoch)),
       do: :ok,
       else: {:error, :eligibility_changed}
+  end
+
+  defp source_advanced?(snapshots) do
+    Enum.reduce_while(snapshots, {:ok, false}, fn snapshot, {:ok, advanced?} ->
+      case Corpus.snapshot(snapshot.operator_id, snapshot.policy) do
+        {:ok, current} ->
+          {:cont, {:ok, advanced? or current.high_water != snapshot.high_water}}
+
+        {:error, reason} ->
+          {:halt, {:error, reason}}
+      end
+    end)
   end
 
   defp mutate_current(state, mutation) do

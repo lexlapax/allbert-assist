@@ -64,6 +64,14 @@ defmodule AllbertAssist.SearchTest do
     refute page.incomplete
   end
 
+  test "missing verified generation returns typed not-ready without canonical scan fallback" do
+    assert {:ok, thread} = Conversations.create_general_thread("alice", "Not ready")
+    assert {:ok, _message} = local_message(thread, "canonical only search source")
+
+    assert {:error, :search_not_ready} =
+             Search.query(%{query: "canonical only"}, %{operator_id: "alice", channel: "web"})
+  end
+
   test "cursor binds exact request and stale generation revision fails explicitly" do
     assert {:ok, thread} = Conversations.create_general_thread("alice", "Cursor")
     assert {:ok, first} = local_message(thread, "cursor source first")

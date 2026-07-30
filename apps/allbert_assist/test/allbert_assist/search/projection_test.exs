@@ -100,6 +100,24 @@ defmodule AllbertAssist.Search.ProjectionTest do
     assert source_id == message.id
   end
 
+  test "redaction happens before FTS storage across current and previous generations" do
+    assert {:ok, thread} = Conversations.create_general_thread("alice", "Redaction")
+    secret = "sk-ABCDEF1234567890"
+    assert {:ok, _message} = local_message(thread, "credential #{secret} must not project")
+    assert {:ok, _first} = Projection.rebuild("alice")
+    assert {:ok, _second} = Projection.rebuild("alice")
+
+    projection_root = root_for_projection()
+
+    for filename <- ["current.sqlite3", "previous.sqlite3"] do
+      bytes = File.read!(Path.join(projection_root, filename))
+      refute bytes =~ secret
+    end
+
+    assert {:ok, query} = Query.parse(%{query: "redacted"})
+    assert {:ok, %{candidates: [_candidate]}} = Projection.candidates(query)
+  end
+
   defp local_message(thread, content) do
     Conversations.append_user_message(thread, content, metadata: %{"channel" => "tui"})
   end
