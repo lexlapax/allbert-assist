@@ -181,6 +181,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Sandbox.Doctor, as: SandboxDoctor
   alias AllbertAssist.Actions.Sandbox.RunCommand, as: RunSandboxCommand
   alias AllbertAssist.Actions.Sandbox.RunGate, as: RunSandboxGate
+  alias AllbertAssist.Actions.Search.SearchConversations
   alias AllbertAssist.Actions.Security.Review, as: SecurityReview
   alias AllbertAssist.Actions.Security.Status, as: SecurityStatus
   alias AllbertAssist.Actions.SelfImprovement.CreateDraft, as: CreateSelfImprovementDraft
@@ -323,6 +324,7 @@ defmodule AllbertAssist.Actions.Registry do
     CodingWrite,
     CodingEdit,
     CodingBash,
+    SearchConversations,
     StartFanout,
     # Channel doctors declare exposure: :internal; keep them out of the agent set
     # so agent_modules/0 agrees with capability exposure (v0.54 M9.1 reconcile).

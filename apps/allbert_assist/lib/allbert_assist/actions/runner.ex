@@ -42,10 +42,11 @@ defmodule AllbertAssist.Actions.Runner do
   defp run_registered(action_module, params, context) do
     action_name = action_module.name()
     started_at = System.monotonic_time(:millisecond)
+    requested_summary = trace_safe_summary(action_module, :params, params)
 
     requested_signal =
       action_name
-      |> Signals.action_requested(action_module, params, context)
+      |> Signals.action_requested(action_module, requested_summary, context)
       |> log_signal()
 
     runner_context = runner_context(context, action_module, requested_signal)
@@ -62,7 +63,13 @@ defmodule AllbertAssist.Actions.Runner do
 
     completed_signal =
       action_name
-      |> Signals.action_completed(action_module, status, response, context, duration_ms)
+      |> Signals.action_completed(
+        action_module,
+        status,
+        trace_safe_summary(action_module, :result, response),
+        context,
+        duration_ms
+      )
       |> log_signal()
 
     metadata = %{
@@ -100,6 +107,26 @@ defmodule AllbertAssist.Actions.Runner do
         {:error, {kind, reason}}
     end
   end
+
+  defp trace_safe_summary(action_module, stage, value) do
+    if function_exported?(action_module, :trace_safe_summary, 2) do
+      try do
+        case action_module.trace_safe_summary(stage, value) do
+          summary when is_map(summary) -> wrap_trace_summary(stage, summary)
+          _other -> wrap_trace_summary(stage, %{summary_unavailable: true})
+        end
+      rescue
+        _exception -> wrap_trace_summary(stage, %{summary_unavailable: true})
+      catch
+        _kind, _reason -> wrap_trace_summary(stage, %{summary_unavailable: true})
+      end
+    else
+      value
+    end
+  end
+
+  defp wrap_trace_summary(:result, summary), do: %{__trace_safe_summary__: summary}
+  defp wrap_trace_summary(_stage, summary), do: summary
 
   defp invalid_params_response(action_module, reason) do
     action_name = action_module.name()

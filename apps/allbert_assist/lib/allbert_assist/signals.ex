@@ -412,6 +412,8 @@ defmodule AllbertAssist.Signals do
     end
   end
 
+  defp response_summary(%{__trace_safe_summary__: summary}), do: Redactor.redact(summary)
+
   defp response_summary(%{} = response) do
     response
     |> Map.take([:message, :status, :permission_decision, :actions])

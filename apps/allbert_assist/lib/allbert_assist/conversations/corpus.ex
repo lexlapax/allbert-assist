@@ -558,6 +558,12 @@ defmodule AllbertAssist.Conversations.Corpus do
   defp consumer_author(%Message{role: "assistant"}, %{consumer: :memory}),
     do: {:error, :ineligible}
 
+  defp consumer_author(%Message{} = message, %{consumer: :search}) do
+    if map_field(message.metadata, "content_kind") == "search_result_render",
+      do: {:error, :ineligible},
+      else: :ok
+  end
+
   defp consumer_author(_message, _policy), do: :ok
 
   defp consumer_author(_message, %{consumer: :memory}, :context), do: :ok
