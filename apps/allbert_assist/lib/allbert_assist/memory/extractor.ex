@@ -9,10 +9,12 @@ defmodule AllbertAssist.Memory.Extractor do
   """
 
   alias AllbertAssist.Conversations.SourceEnvelope
+  alias AllbertAssist.Memory.SecretFilter
   alias AllbertAssist.Memory.SpanProvenance
 
   @extractor_profile "deterministic_high_confidence_v1"
   @extractor_version 1
+  @protected_classifier "deterministic_protected_classifier_v1"
 
   @doc "Extract at most one grounded proposal from the newest operator source."
   def extract(sources) when is_list(sources) and sources != [] do
@@ -42,6 +44,32 @@ defmodule AllbertAssist.Memory.Extractor do
 
   def extract(_sources), do: {:abstain, :no_operator_source}
 
+  @doc "Apply the content-minimizing protected gate before context or extraction."
+  def classify_source(%SourceEnvelope{} = source) do
+    with :ok <- eligible_source(source) do
+      cond do
+        SecretFilter.secret_bearing?(source.content) ->
+          {:drop, :credential}
+
+        financial_identifier?(source.content) ->
+          {:drop, :financial_identifier}
+
+        dependent_private_fact?(source.content) ->
+          protected_review("protected_dependent")
+
+        third_party_private_fact?(source.content) ->
+          protected_review("protected_third_party")
+
+        true ->
+          :ordinary
+      end
+    else
+      {:error, reason} -> {:abstain, reason}
+    end
+  end
+
+  def classify_source(_source), do: {:abstain, :ineligible_operator_source}
+
   @doc "Route an already-determined sensitive class without receiving its content."
   def classify_protected(:credential), do: {:drop, :protected_content}
   def classify_protected(:financial_identifier), do: {:drop, :protected_content}
@@ -51,6 +79,37 @@ defmodule AllbertAssist.Memory.Extractor do
     do: {:protected_review, "protected_third_party"}
 
   def classify_protected(_classification), do: {:abstain, :unclassified}
+
+  defp protected_review(classification) do
+    digest =
+      "sha256:" <>
+        (:crypto.hash(:sha256, @protected_classifier <> "\0" <> classification)
+         |> Base.encode16(case: :lower))
+
+    {:protected_review, classification, digest}
+  end
+
+  defp financial_identifier?(text) do
+    Regex.match?(~r/\b\d{3}-\d{2}-\d{4}\b/u, text) or
+      Regex.match?(
+        ~r/\b(?:account|routing|iban)\s*(?:number|#|is|:|=)\s*[A-Z0-9][A-Z0-9 -]{7,33}\b/iu,
+        text
+      )
+  end
+
+  defp dependent_private_fact?(text) do
+    Regex.match?(
+      ~r/\bmy\s+(?:dependent|minor|child|son|daughter)\b.*\b(?:private\s+appointment|medical|health|diagnos\w*|medicat\w*|pregnan\w*)\b/iu,
+      text
+    )
+  end
+
+  defp third_party_private_fact?(text) do
+    Regex.match?(
+      ~r/\b(?:[Mm]y\s+(?:partner|spouse|friend|colleague|coworker|manager|employee)|[A-Z][a-z]+(?:['’]s))\b.*\b(?:address|salary|private\s+appointment|medical|health|diagnos\w*|medicat\w*|pregnan\w*)\b/u,
+      text
+    )
+  end
 
   defp extract_current(source, prior) do
     text = source.content

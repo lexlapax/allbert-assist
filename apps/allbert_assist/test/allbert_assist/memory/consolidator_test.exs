@@ -92,7 +92,9 @@ defmodule AllbertAssist.Memory.ConsolidatorTest do
     assert {:ok, assistant} =
              Conversations.append_assistant_message(
                thread,
-               "The operator prefers assistant text.", metadata: %{"channel" => "tui"})
+               "The operator prefers assistant text.",
+               metadata: %{"channel" => "tui"}
+             )
 
     assert {:ok, operator} =
              Conversations.append_user_message(thread, "I prefer operator evidence.",
@@ -105,6 +107,35 @@ defmodule AllbertAssist.Memory.ConsolidatorTest do
     assert Enum.map(proposal.source_evidence["refs"], & &1["source_id"]) == [operator.id]
     refute inspect(proposal) =~ assistant.id
     refute inspect(proposal) =~ "assistant text"
+  end
+
+  test "managed ingestion drops identifiers and stores only protected stubs" do
+    enable!()
+    append!("password=abcdefghijklmnopqrstuvwxyz")
+    append!("My routing number is 123456789.")
+    append!("My dependent has a private appointment.")
+    append!("My colleague has a private medical diagnosis.")
+
+    assert {:ok, result} = Consolidator.run("alice")
+    assert result.secret_dropped == 1
+    assert result.protected_dropped == 1
+    assert result.protected_routed == 2
+    assert result.created == 2
+
+    proposals = Proposals.list("alice")
+
+    assert Enum.map(proposals, & &1.classification) |> Enum.sort() ==
+             ["protected_dependent", "protected_third_party"]
+
+    assert Enum.all?(proposals, &(&1.kind == "protected_stub"))
+    assert Enum.all?(proposals, &is_nil(&1.proposed_claim))
+    assert Enum.all?(proposals, &is_nil(&1.span_provenance))
+
+    stored = inspect(proposals)
+    refute stored =~ "abcdefghijklmnopqrstuvwxyz"
+    refute stored =~ "123456789"
+    refute stored =~ "private appointment"
+    refute stored =~ "medical diagnosis"
   end
 
   defp enable! do

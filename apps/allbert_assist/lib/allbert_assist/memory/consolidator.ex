@@ -106,6 +106,25 @@ defmodule AllbertAssist.Memory.Consolidator do
   end
 
   defp collect_source(source, run_id, acc) do
+    case Extractor.classify_source(source) do
+      :ordinary ->
+        collect_ordinary(source, run_id, acc)
+
+      {:drop, :credential} ->
+        Map.update!(acc, :secret_dropped, &(&1 + 1))
+
+      {:drop, :financial_identifier} ->
+        Map.update!(acc, :protected_dropped, &(&1 + 1))
+
+      {:protected_review, classification, classifier_digest} ->
+        collect_protected(source, run_id, acc, classification, classifier_digest)
+
+      {:abstain, _reason} ->
+        Map.update!(acc, :abstained, &(&1 + 1))
+    end
+  end
+
+  defp collect_ordinary(source, run_id, acc) do
     with {:ok, context} <-
            Corpus.conversation_context(
              source.operator_id,
@@ -126,6 +145,32 @@ defmodule AllbertAssist.Memory.Consolidator do
       {:error, :unchanged_reject_suppressed} -> Map.update!(acc, :suppressed, &(&1 + 1))
       {:error, :pending_cap_reached} -> Map.put(acc, :stopped_reason, "pending_cap")
       {:error, _reason} -> Map.update!(acc, :failed, &(&1 + 1))
+    end
+  end
+
+  defp collect_protected(source, run_id, acc, classification, classifier_digest) do
+    case Proposals.propose_protected(source, %{
+           classification: classification,
+           classifier_digest: classifier_digest,
+           category: "notes",
+           namespace: "default",
+           run_id: run_id,
+           extractor_profile: "deterministic_protected_classifier_v1",
+           extractor_version: 1
+         }) do
+      {:ok, %{outcome: :created}} ->
+        acc
+        |> Map.update!(:created, &(&1 + 1))
+        |> Map.update!(:protected_routed, &(&1 + 1))
+
+      {:ok, %{outcome: :existing}} ->
+        Map.update!(acc, :deduplicated, &(&1 + 1))
+
+      {:error, :pending_cap_reached} ->
+        Map.put(acc, :stopped_reason, "pending_cap")
+
+      {:error, _reason} ->
+        Map.update!(acc, :failed, &(&1 + 1))
     end
   end
 
@@ -229,6 +274,8 @@ defmodule AllbertAssist.Memory.Consolidator do
       deduplicated: 0,
       abstained: 0,
       secret_dropped: 0,
+      protected_dropped: 0,
+      protected_routed: 0,
       suppressed: 0,
       failed: 0,
       pending_after: 0,
@@ -243,13 +290,23 @@ defmodule AllbertAssist.Memory.Consolidator do
   defp empty_policy_summary do
     summary(nil)
     |> Map.take(
-      ~w[created deduplicated abstained secret_dropped suppressed failed stopped_reason]a
+      ~w[created deduplicated abstained secret_dropped protected_dropped protected_routed suppressed failed stopped_reason]a
     )
     |> Map.put(:last_cursor, nil)
   end
 
   defp merge_summary(acc, policy) do
-    [:scanned, :created, :deduplicated, :abstained, :secret_dropped, :suppressed, :failed]
+    [
+      :scanned,
+      :created,
+      :deduplicated,
+      :abstained,
+      :secret_dropped,
+      :protected_dropped,
+      :protected_routed,
+      :suppressed,
+      :failed
+    ]
     |> Enum.reduce(acc, fn key, merged ->
       Map.update!(merged, key, &(&1 + Map.get(policy, key, 0)))
     end)

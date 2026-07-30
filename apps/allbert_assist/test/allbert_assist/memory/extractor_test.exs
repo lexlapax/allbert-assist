@@ -50,6 +50,29 @@ defmodule AllbertAssist.Memory.ExtractorTest do
              Extractor.classify_protected(:third_party_private_fact)
   end
 
+  test "source classifier is narrow, deterministic, and content minimizing" do
+    assert {:drop, :credential} =
+             Extractor.classify_source(source("password=abcdefghijklmnopqrstuvwxyz", "operator"))
+
+    assert {:drop, :financial_identifier} =
+             Extractor.classify_source(source("My routing number is 123456789.", "operator"))
+
+    assert {:protected_review, "protected_dependent", dependent_digest} =
+             Extractor.classify_source(
+               source("My dependent has a private appointment.", "operator")
+             )
+
+    assert {:protected_review, "protected_third_party", third_party_digest} =
+             Extractor.classify_source(
+               source("My colleague has a private medical diagnosis.", "operator")
+             )
+
+    assert dependent_digest =~ ~r/^sha256:[0-9a-f]{64}$/
+    assert third_party_digest =~ ~r/^sha256:[0-9a-f]{64}$/
+    refute dependent_digest == third_party_digest
+    assert :ordinary = Extractor.classify_source(source("I prefer tea.", "operator"))
+  end
+
   test "every emitted semantic field re-verifies against operator sources" do
     sources = [source("I prefer concise evidence.", "operator")]
     assert {:ok, result} = Extractor.extract(sources)
