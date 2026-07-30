@@ -1198,6 +1198,26 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, true} = Settings.get("memory.index_enabled")
     assert {:ok, 1000} = Settings.get("memory.max_index_entries")
 
+    assert Settings.schema()["memory.auto_promote_sensitive_entries"].deprecated?
+
+    assert Settings.schema()["memory.auto_promote_sensitive_entries"].deprecation_reason =~
+             "grants no authority"
+
+    assert {:ok, auto_promote_true} =
+             Settings.put("memory.auto_promote_sensitive_entries", true, %{audit?: false})
+
+    assert auto_promote_true.value
+    assert {:ok, true} = Settings.get("memory.auto_promote_sensitive_entries")
+    assert {:ok, explained} = Settings.explain("memory.auto_promote_sensitive_entries")
+    assert explained.deprecated?
+    assert explained.deprecation_reason =~ "proposal/review consent boundary"
+
+    assert {:ok, auto_promote_false} =
+             Settings.put("memory.auto_promote_sensitive_entries", false, %{audit?: false})
+
+    refute auto_promote_false.value
+    assert {:ok, false} = Settings.get("memory.auto_promote_sensitive_entries")
+
     assert {:ok, cadence} =
              Settings.put("memory.review_cadence", "weekly", %{audit?: false})
 

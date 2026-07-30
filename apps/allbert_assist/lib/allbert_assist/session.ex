@@ -5,6 +5,13 @@ defmodule AllbertAssist.Session do
   The scratchpad is keyed by `{user_id, session_id}` and is intentionally
   weaker than durable memory or conversation history. Callers use this module
   rather than touching ETS or the scratchpad GenServer directly.
+
+  Working memory is volatile, TTL-bounded, and never a Memory-consolidation
+  source. It must not contain credentials, secrets, authentication material,
+  raw protected-person data, or data that requires durable retention. The
+  deterministic guard rejects secret-like keys at every nesting depth; callers
+  remain responsible for values whose sensitivity cannot be inferred from a
+  key name.
   """
 
   alias AllbertAssist.Session.AppId
@@ -77,7 +84,7 @@ defmodule AllbertAssist.Session do
     end
   end
 
-  @doc "Shallow-merge transient working memory into the session entry."
+  @doc "Deep-merge a transient patch; nested maps preserve siblings and other values replace."
   @spec merge_working_memory(term(), term(), map(), keyword()) ::
           {:ok, entry()} | {:error, term()}
   def merge_working_memory(user_id, session_id, working_memory, opts \\ []) do
@@ -237,7 +244,7 @@ defmodule AllbertAssist.Session do
       Enum.any?(Map.keys(value), &reserved_working_memory_key?/1) ->
         {:error, :reserved_key}
 
-      Enum.any?(Map.keys(value), &sensitive_key?/1) ->
+      sensitive_path?(value) ->
         {:error, :sensitive_working_memory_key}
 
       :erlang.external_size(value) > @max_working_memory_bytes ->
@@ -250,7 +257,7 @@ defmodule AllbertAssist.Session do
 
   defp normalize_bounded_map(value, :metadata) when is_map(value) do
     cond do
-      Enum.any?(Map.keys(value), &sensitive_key?/1) ->
+      sensitive_path?(value) ->
         {:error, :sensitive_metadata_key}
 
       :erlang.external_size(value) > @max_metadata_bytes ->
@@ -273,6 +280,13 @@ defmodule AllbertAssist.Session do
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp reserved_working_memory_key?(key), do: to_string(key) == "canvas_tiles"
+
+  defp sensitive_path?(map) when is_map(map) do
+    Enum.any?(map, fn {key, value} -> sensitive_key?(key) or sensitive_path?(value) end)
+  end
+
+  defp sensitive_path?(list) when is_list(list), do: Enum.any?(list, &sensitive_path?/1)
+  defp sensitive_path?(_value), do: false
 
   defp sensitive_key?(key) do
     key

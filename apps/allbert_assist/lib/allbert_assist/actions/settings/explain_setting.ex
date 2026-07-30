@@ -51,16 +51,24 @@ defmodule AllbertAssist.Actions.Settings.ExplainSetting do
       |> Enum.map(&"- #{&1.source}: #{inspect(&1.value)}")
       |> Enum.join("\n")
 
+    deprecation = deprecation_message(setting)
+
     """
     #{setting.key}: #{inspect(setting.value)}
     Source: #{setting.source}
     Writable: #{setting.writable?}
+    #{deprecation}
 
     Layers:
     #{layers}
     """
     |> String.trim()
   end
+
+  defp deprecation_message(%{deprecated?: true, deprecation_reason: reason}),
+    do: "Deprecated: #{reason}"
+
+  defp deprecation_message(_setting), do: ""
 
   defp action(setting, permission_decision, error \\ nil) do
     %{

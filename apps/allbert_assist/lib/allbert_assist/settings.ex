@@ -3,8 +3,8 @@ defmodule AllbertAssist.Settings do
   Settings Central for Allbert-owned operator configuration.
   """
 
-  alias AllbertAssist.Memory.ReviewCadence
   alias AllbertAssist.Conversations.Corpus
+  alias AllbertAssist.Memory.ReviewCadence
   alias AllbertAssist.Settings.Schema
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Settings.Store
@@ -195,6 +195,7 @@ defmodule AllbertAssist.Settings do
   defp resolved_setting(key, value, settings, user_settings) do
     {value, default_value, operator_value} = resolved_values(key, value, settings, user_settings)
     source = if is_nil(operator_value), do: :default, else: :operator
+    metadata = Schema.setting_metadata(key)
 
     %{
       key: key,
@@ -202,6 +203,8 @@ defmodule AllbertAssist.Settings do
       source: source,
       writable?: Schema.safe_write_key?(key),
       sensitive?: Schema.sensitive_key?(key),
+      deprecated?: Map.get(metadata, :deprecated?, false),
+      deprecation_reason: Map.get(metadata, :deprecation_reason),
       layers: layers(default_value, operator_value),
       diagnostics: [],
       namespace: key |> String.split(".", parts: 2) |> List.first()

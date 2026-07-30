@@ -123,6 +123,14 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert explain_response.message =~ "Layers:"
     assert explain_response.setting.layers != []
 
+    assert {:ok, deprecated_response} =
+             ExplainSetting.run(%{key: "memory.auto_promote_sensitive_entries"}, %{})
+
+    assert deprecated_response.status == :completed
+    assert deprecated_response.setting.deprecated?
+    assert deprecated_response.message =~ "Deprecated:"
+    assert deprecated_response.message =~ "grants no authority"
+
     assert {:ok, snapshot_response} = ResolvedSettingsSnapshot.run(%{}, %{})
     assert snapshot_response.status == :completed
     assert snapshot_response.settings["operator"]["timezone"] == "America/Los_Angeles"

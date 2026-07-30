@@ -137,16 +137,32 @@ defmodule AllbertAssist.Session.ScratchpadTest do
              Session.put("alice", "sess-large", %{metadata: large_payload}, opts)
   end
 
-  test "merge_working_memory is shallow and rejects reserved or oversized payloads", %{opts: opts} do
+  test "merge_working_memory deep-patches nested maps and rejects unsafe payloads", %{opts: opts} do
     assert {:ok, entry} =
-             Session.merge_working_memory("alice", "sess-1", %{pane: "left"}, opts)
+             Session.merge_working_memory(
+               "alice",
+               "sess-1",
+               %{layout: %{pane: "left", filters: %{status: "open"}}, items: [1]},
+               opts
+             )
 
-    assert entry.working_memory == %{pane: "left"}
+    assert entry.working_memory == %{
+             layout: %{pane: "left", filters: %{status: "open"}},
+             items: [1]
+           }
 
     assert {:ok, entry} =
-             Session.merge_working_memory("alice", "sess-1", %{pane: "right"}, opts)
+             Session.merge_working_memory(
+               "alice",
+               "sess-1",
+               %{layout: %{pane: "right"}, items: [2]},
+               opts
+             )
 
-    assert entry.working_memory == %{pane: "right"}
+    assert entry.working_memory == %{
+             layout: %{pane: "right", filters: %{status: "open"}},
+             items: [2]
+           }
 
     assert {:error, :reserved_key} =
              Session.merge_working_memory("alice", "sess-1", %{canvas_tiles: []}, opts)
@@ -158,6 +174,22 @@ defmodule AllbertAssist.Session.ScratchpadTest do
       assert {:error, :sensitive_working_memory_key} =
                Session.merge_working_memory("alice", "sess-#{key}", %{key => "nope"}, opts)
     end
+
+    assert {:error, :sensitive_working_memory_key} =
+             Session.merge_working_memory(
+               "alice",
+               "sess-nested-secret",
+               %{layout: %{provider: %{api_key: "nope"}}},
+               opts
+             )
+
+    assert {:error, :sensitive_working_memory_key} =
+             Session.merge_working_memory(
+               "alice",
+               "sess-list-secret",
+               %{panes: [%{"access_token" => "nope"}]},
+               opts
+             )
 
     large_payload = %{large: String.duplicate("x", 70_000)}
 

@@ -1,6 +1,10 @@
 defmodule AllbertAssist.Session.Scratchpad do
   @moduledoc """
   Supervised volatile ETS scratchpad for local session context.
+
+  State is deliberately non-durable and disappears on process/application
+  restart. Working-memory patches deep-merge nested maps; lists and scalar
+  values replace the prior value. This process is not a Memory source.
   """
 
   use GenServer
@@ -132,7 +136,7 @@ defmodule AllbertAssist.Session.Scratchpad do
   def handle_call({:merge_working_memory, key, working_memory}, _from, state) do
     now = monotonic_ms()
     entry = current_or_new_entry(key, state, now)
-    merged = Map.merge(entry.working_memory, working_memory)
+    merged = deep_merge(entry.working_memory, working_memory)
 
     if :erlang.external_size(merged) > 65_536 do
       {:reply, {:error, :working_memory_too_large}, state}
@@ -264,6 +268,14 @@ defmodule AllbertAssist.Session.Scratchpad do
   defp maybe_replace(entry, key, attrs) do
     if Map.has_key?(attrs, key), do: Map.put(entry, key, Map.fetch!(attrs, key)), else: entry
   end
+
+  defp deep_merge(left, right) when is_map(left) and is_map(right) do
+    Map.merge(left, right, fn _key, left_value, right_value ->
+      deep_merge(left_value, right_value)
+    end)
+  end
+
+  defp deep_merge(_left, right), do: right
 
   defp touch_entry(entry, now, ttl_ms) do
     %{entry | updated_at_ms: now, expires_at_ms: now + ttl_ms}

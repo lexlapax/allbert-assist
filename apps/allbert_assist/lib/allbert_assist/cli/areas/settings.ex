@@ -149,8 +149,14 @@ defmodule AllbertAssist.CLI.Areas.Settings do
   defp render({:error, reason}), do: Render.error("Settings command failed: #{inspect(reason)}")
 
   defp setting_lines(setting) do
-    ["#{setting.key}=#{inspect(setting.value)}", "Source: #{setting.source}"]
+    ["#{setting.key}=#{inspect(setting.value)}", "Source: #{setting.source}"] ++
+      deprecation_lines(setting)
   end
+
+  defp deprecation_lines(%{deprecated?: true, deprecation_reason: reason}),
+    do: ["Deprecated: #{reason}"]
+
+  defp deprecation_lines(_setting), do: []
 
   defp read_provider_key(provider) do
     case IO.gets("") do

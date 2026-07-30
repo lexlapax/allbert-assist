@@ -3444,7 +3444,10 @@ defmodule AllbertAssist.Settings.Schema do
       type: :boolean,
       default: false,
       writable?: true,
-      sensitive?: false
+      sensitive?: false,
+      deprecated?: true,
+      deprecation_reason:
+        "Sensitive Memory promotion always requires the v1.3 proposal/review consent boundary; this stored compatibility value grants no authority."
     },
     "memory.retention_policy" => %{
       type: :enum,
@@ -4711,6 +4714,10 @@ defmodule AllbertAssist.Settings.Schema do
       )
     end
   end
+
+  @doc "Return additive schema metadata for one concrete setting key."
+  def setting_metadata(key) when is_binary(key), do: Map.get(schema(), key, %{})
+  def setting_metadata(_key), do: %{}
 
   defp public_protocol_settings_key?(key) when is_binary(key) do
     String.starts_with?(key, "openai_api.") or
