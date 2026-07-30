@@ -3,6 +3,8 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
 
   @moduletag :external_runtime_serial
 
+  alias AllbertAssist.SecurityFixtures.AssertBinding
+
   @repo_root Path.expand("../../../../../", __DIR__)
   @workflow_path Path.join(@repo_root, ".github/workflows/release-artifacts.yml")
   @build_script Path.join(@repo_root, "scripts/release/build_candidate.sh")
@@ -178,6 +180,12 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     refute promoter =~ "--clobber"
     refute promoter =~ "mix release"
     refute promoter =~ "setup-beam"
+
+    AssertBinding.check!("v121-promotion-evidence-001", [
+      :age_boundary_exact,
+      :semantic_tamper_rejected,
+      :restartable_assets_fail_closed
+    ])
   end
 
   test "release tar preflight rejects traversal and unsafe links before extraction" do

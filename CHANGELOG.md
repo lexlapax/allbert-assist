@@ -18,6 +18,12 @@ operator TUI/provider validation, protected publication, and tap closeout remain
 release barriers. This entry must not be read as a shipped-version claim until
 those barriers pass and the final tag, digests, and release identity are filled.
 
+**Formula state: PRE-PUBLICATION ONLY.** The packaged Latest 1.2.6 remains in
+the repository formula during candidate qualification. At publish, the tap is
+filled 1.2.6 → 1.3.0 with the accepted native checksums; that filled formula is
+synced back into the repository before closeout. This temporary lag is not a
+shipped 1.3.0 formula claim.
+
 - One typed `Conversations.Corpus` boundary now supplies independently
   authorized conversation truth to Memory and Search without creating another
   event platform or letting either projection become authority.
