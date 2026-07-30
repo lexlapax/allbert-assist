@@ -1,7 +1,5 @@
 defmodule AllbertAssist.Search.DeletePurgeReconcileTest do
   use AllbertAssist.DataCase, async: false
-  @moduletag :home_fs_serial
-
   alias AllbertAssist.Actions.Confirmations.ApproveConfirmation
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Conversations

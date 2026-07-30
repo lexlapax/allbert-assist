@@ -1,9 +1,6 @@
 defmodule AllbertAssist.Memory.ForgetTest do
   use AllbertAssist.DataCase, async: false
 
-  @moduletag :home_fs_serial
-  @moduletag :global_process_serial
-
   alias AllbertAssist.Actions.Confirmations.ApproveConfirmation
   alias AllbertAssist.Actions.Memory.ForgetMemoryClaim
   alias AllbertAssist.Actions.Memory.RebuildMemoryProjection

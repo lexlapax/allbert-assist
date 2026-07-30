@@ -3,8 +3,7 @@ defmodule AllbertAssist.Security.V13MemoryEvalTest do
 
   use ExUnit.Case, async: false
 
-  @moduletag :home_fs_serial
-  @moduletag :global_process_serial
+  @moduletag :security_eval_serial
 
   alias AllbertAssist.Actions.Memory.SearchMemory
   alias AllbertAssist.Intent.Engine

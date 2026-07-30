@@ -1,9 +1,7 @@
 defmodule AllbertAssist.Security.V13SearchEvalTest do
   @moduledoc "M8 behavioral proofs for Search surface and mapped-DM authority."
 
-  use AllbertAssist.DataCase, async: false
-
-  @moduletag :security_eval_serial
+  use AllbertAssist.DataCase, async: false, lane: :security_eval_serial
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations

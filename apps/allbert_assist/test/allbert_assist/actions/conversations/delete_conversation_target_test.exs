@@ -1,8 +1,6 @@
 defmodule AllbertAssist.Actions.Conversations.DeleteConversationTargetTest do
   use AllbertAssist.DataCase, async: false
 
-  @moduletag :global_process_serial
-
   alias AllbertAssist.Actions.Confirmations.ApproveConfirmation
   alias AllbertAssist.Actions.Conversations.DeleteConversationContent
   alias AllbertAssist.Actions.Registry

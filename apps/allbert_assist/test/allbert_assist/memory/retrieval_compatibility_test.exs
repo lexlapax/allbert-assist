@@ -1,7 +1,7 @@
 defmodule AllbertAssist.Memory.RetrievalCompatibilityTest do
   use ExUnit.Case, async: false
 
-  @moduletag :home_fs_serial
+  @moduletag :db_serial
 
   alias AllbertAssist.Actions.Memory.SearchMemory
   alias AllbertAssist.Memory

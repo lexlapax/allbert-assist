@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Memory.ExtractorTest do
   use ExUnit.Case, async: true
+  @moduletag :db_serial
 
   alias AllbertAssist.Conversations.SourceEnvelope
   alias AllbertAssist.Memory.Extractor

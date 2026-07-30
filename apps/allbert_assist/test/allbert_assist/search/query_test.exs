@@ -1,6 +1,6 @@
 defmodule AllbertAssist.Search.QueryTest do
   use ExUnit.Case, async: false
-  @moduletag :home_fs_serial
+  @moduletag :global_process_serial
 
   alias AllbertAssist.Search.Query
 

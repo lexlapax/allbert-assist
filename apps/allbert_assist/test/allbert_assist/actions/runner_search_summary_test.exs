@@ -1,7 +1,5 @@
 defmodule AllbertAssist.Actions.RunnerSearchSummaryTest do
   use AllbertAssist.DataCase, async: false
-  @moduletag :app_env_serial
-
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Conversations
   alias AllbertAssist.Search.Projection

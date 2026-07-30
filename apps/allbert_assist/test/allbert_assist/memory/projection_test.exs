@@ -1,8 +1,7 @@
 defmodule AllbertAssist.Memory.ProjectionTest do
   use ExUnit.Case, async: false
 
-  @moduletag :home_fs_serial
-  @moduletag :global_process_serial
+  @moduletag :db_serial
 
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Claims

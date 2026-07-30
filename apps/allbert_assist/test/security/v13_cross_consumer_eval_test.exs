@@ -1,9 +1,7 @@
 defmodule AllbertAssist.Security.V13CrossConsumerEvalTest do
   @moduledoc "M8 revocation, deletion, and consumer-grant rejoin proofs."
 
-  use AllbertAssist.DataCase, async: false
-
-  @moduletag :security_eval_serial
+  use AllbertAssist.DataCase, async: false, lane: :security_eval_serial
 
   alias AllbertAssist.Actions.Conversations.DeleteConversationContent
   alias AllbertAssist.Conversations
