@@ -254,6 +254,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "update_memory_entry",
              "delete_memory_entry",
              "prune_memory_entries",
+             "rebuild_memory_projection",
              "search_memory",
              "compile_memory_index",
              "summarize_memory_category",
@@ -503,6 +504,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "update_memory_entry",
              "delete_memory_entry",
              "prune_memory_entries",
+             "rebuild_memory_projection",
              "search_memory",
              "compile_memory_index",
              "summarize_memory_category",
@@ -822,6 +824,12 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert forget_memory_claim.execution_mode == :memory_forget
     assert forget_memory_claim.confirmation == :required
     assert forget_memory_claim.resumable?
+
+    assert {:ok, rebuild_memory_projection} = Registry.capability("rebuild_memory_projection")
+    assert rebuild_memory_projection.permission == :memory_write
+    assert rebuild_memory_projection.execution_mode == :memory_index_compile
+    assert rebuild_memory_projection.confirmation == :not_required
+    refute rebuild_memory_projection.resumable?
 
     assert {:ok, sync_app_lesson} = Registry.capability("sync_app_lesson")
     assert sync_app_lesson.permission == :memory_write

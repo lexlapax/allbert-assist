@@ -6,6 +6,7 @@ defmodule AllbertAssist.Memory.ForgetTest do
 
   alias AllbertAssist.Actions.Confirmations.ApproveConfirmation
   alias AllbertAssist.Actions.Memory.ForgetMemoryClaim
+  alias AllbertAssist.Actions.Memory.RebuildMemoryProjection
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Claims
@@ -183,6 +184,62 @@ defmodule AllbertAssist.Memory.ForgetTest do
     assert Projection.status().ready?
     assert File.read!(tombstone_path) =~ ~s("phase":"complete")
     assert {:ok, %{status: :already_complete}} = Forget.resume(claim_id)
+  end
+
+  test "managed rebuild action batches pending Forget recovery into one replacement" do
+    claims =
+      for value <- ["batch pending one", "batch pending two"] do
+        claim_id = Ecto.UUID.generate()
+        assert {:ok, claim} = Claims.append(claim_id, nil, transition(value: value))
+
+        assert {:error, :memory_projection_unavailable} =
+                 Forget.forget(
+                   claim_id,
+                   claim.tail_digest,
+                   "operator:local",
+                   "operator_requested"
+                 )
+
+        claim_id
+      end
+
+    {:ok, _projection} = Projection.start_link()
+    refute Projection.status().ready?
+
+    assert {:ok, rebuilt} =
+             RebuildMemoryProjection.run(%{}, %{
+               user_id: "operator:local",
+               actor: "operator:local",
+               channel: :test
+             })
+
+    assert rebuilt.status == :completed
+    assert rebuilt.result.recovery.pending_count == 2
+    assert rebuilt.result.recovery.completed_count == 2
+    assert rebuilt.result.recovery.projection_replaced?
+    assert rebuilt.result.projection.recovered_generation?
+    assert Projection.status().ready?
+    refute File.exists?(Path.join(Paths.memory_projection_root(), "previous.sqlite3"))
+
+    for claim_id <- claims do
+      assert {:ok, %{phase: :complete}} = Forget.recovery_status(claim_id)
+    end
+  end
+
+  test "managed rebuild action fails closed without opening a one-shot projection owner" do
+    stop_projection()
+
+    assert {:ok, response} =
+             RebuildMemoryProjection.run(%{}, %{
+               user_id: "operator:local",
+               actor: "operator:local",
+               channel: :test
+             })
+
+    assert response.status == :error
+    assert response.error == :memory_projection_owner_unavailable
+    assert response.message =~ "Attach to the running Allbert daemon"
+    refute File.exists?(Paths.memory_projection_root())
   end
 
   test "copied unadopted legacy value remains suppressed under a new path identity" do

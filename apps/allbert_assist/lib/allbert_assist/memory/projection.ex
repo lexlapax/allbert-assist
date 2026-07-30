@@ -10,11 +10,13 @@ defmodule AllbertAssist.Memory.Projection do
 
   use GenServer
 
+  alias AllbertAssist.Jobs.Managed
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Claims
   alias AllbertAssist.Memory.Forget
   alias AllbertAssist.Paths
   alias AllbertAssist.Projection.PromoteProtocol
+  alias AllbertAssist.Runtime.WriterLock.Holder, as: WriterLockHolder
   alias Exqlite.Sqlite3
 
   @schema_version 1
@@ -48,7 +50,11 @@ defmodule AllbertAssist.Memory.Projection do
 
   @doc false
   def replace_after_forget(claim_id, server \\ __MODULE__),
-    do: GenServer.call(server, {:replace_after_forget, claim_id}, :infinity)
+    do: replace_after_forgets([claim_id], server)
+
+  @doc false
+  def replace_after_forgets(claim_ids, server \\ __MODULE__) when is_list(claim_ids),
+    do: GenServer.call(server, {:replace_after_forgets, claim_ids}, :infinity)
 
   @doc "Return content-free projection lifecycle and diagnostics."
   def status(server \\ __MODULE__), do: GenServer.call(server, :status)
@@ -65,15 +71,17 @@ defmodule AllbertAssist.Memory.Projection do
     {control, serving_conn, diagnostics, tombstones} = load_after_tombstones(root)
     _ = write_control(root, control)
 
-    {:ok,
-     %__MODULE__{
-       root: root,
-       control: control,
-       serving_conn: serving_conn,
-       diagnostics: diagnostics,
-       tombstones: tombstones,
-       ready?: not is_nil(serving_conn)
-     }}
+    state = %__MODULE__{
+      root: root,
+      control: control,
+      serving_conn: serving_conn,
+      diagnostics: diagnostics,
+      tombstones: tombstones,
+      ready?: not is_nil(serving_conn)
+    }
+
+    maybe_kick_forget_recovery(tombstones)
+    {:ok, state}
   end
 
   @impl true
@@ -99,7 +107,7 @@ defmodule AllbertAssist.Memory.Projection do
     {:reply, {:error, :memory_projection_not_ready}, state}
   end
 
-  def handle_call({:replace_after_forget, claim_id}, _from, state) do
+  def handle_call({:replace_after_forgets, claim_ids}, _from, state) do
     case rebuild_generation(state) do
       {:ok, _result, rebuilt} ->
         with :ok <- retire_noncurrent_generations(rebuilt.root),
@@ -112,7 +120,7 @@ defmodule AllbertAssist.Memory.Projection do
         end
 
       {:error, reason, failed} ->
-        {:reply, {:error, {:forget_projection_rebuild_failed, claim_id, reason}}, failed}
+        {:reply, {:error, {:forget_projection_rebuild_failed, claim_ids, reason}}, failed}
     end
   end
 
@@ -125,9 +133,42 @@ defmodule AllbertAssist.Memory.Projection do
   end
 
   @impl true
+  def handle_info(:kick_forget_recovery, state) do
+    case kick_forget_recovery() do
+      {:ok, _result} ->
+        {:noreply, state}
+
+      {:error, reason} ->
+        diagnostic = %{code: "forget_recovery_kick_failed", reason: inspect(reason)}
+        {:noreply, %{state | diagnostics: [diagnostic | state.diagnostics]}}
+    end
+  end
+
+  @impl true
   def terminate(_reason, state) do
     _ = Sqlite3.close(state.serving_conn)
     :ok
+  end
+
+  defp maybe_kick_forget_recovery(tombstones) do
+    if WriterLockHolder.enabled?() and Enum.any?(tombstones, &(&1["phase"] == "pending")) do
+      send(self(), :kick_forget_recovery)
+    end
+  end
+
+  defp kick_forget_recovery do
+    case Managed.kick("memory-index-rebuild", "local") do
+      {:ok, result} ->
+        {:ok, result}
+
+      {:error, {:managed_job_not_found, "memory-index-rebuild"}} ->
+        with {:ok, _results} <- Managed.reconcile("local") do
+          Managed.kick("memory-index-rebuild", "local")
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
   defp rebuild_generation(state) do

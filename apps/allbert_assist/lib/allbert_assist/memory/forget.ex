@@ -78,6 +78,14 @@ defmodule AllbertAssist.Memory.Forget do
     end
   end
 
+  @doc "Complete every verified pending tombstone with one projection replacement."
+  def reconcile_pending do
+    with {:ok, tombstones} <- load_tombstones() do
+      pending = Enum.filter(tombstones, &(&1["phase"] == "pending"))
+      reconcile_pending_tombstones(pending)
+    end
+  end
+
   defp resume_tombstone(%{"phase" => "complete"} = tombstone) do
     {:ok, %{status: :already_complete, tombstone: tombstone}}
   end
@@ -89,6 +97,42 @@ defmodule AllbertAssist.Memory.Forget do
          {:ok, completed} <- complete_tombstone(tombstone) do
       {:ok, %{status: :complete, tombstone: completed}}
     end
+  end
+
+  defp reconcile_pending_tombstones([]),
+    do: {:ok, %{pending_count: 0, completed_count: 0, projection_replaced?: false}}
+
+  defp reconcile_pending_tombstones(pending) do
+    claim_ids = Enum.map(pending, & &1["claim_id"])
+
+    with :ok <- delete_pending_claims(claim_ids),
+         :ok <- Projection.replace_after_forgets(claim_ids),
+         {:ok, completed} <- complete_pending_tombstones(pending) do
+      {:ok,
+       %{
+         pending_count: length(pending),
+         completed_count: length(completed),
+         projection_replaced?: true
+       }}
+    end
+  end
+
+  defp delete_pending_claims(claim_ids) do
+    Enum.reduce_while(claim_ids, :ok, fn claim_id, :ok ->
+      case delete_claim_if_present(claim_id) do
+        :ok -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp complete_pending_tombstones(tombstones) do
+    Enum.reduce_while(tombstones, {:ok, []}, fn tombstone, {:ok, acc} ->
+      case complete_tombstone(tombstone) do
+        {:ok, completed} -> {:cont, {:ok, [completed | acc]}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
   end
 
   @doc "Read and verify every tombstone before Memory retrieval becomes ready."
