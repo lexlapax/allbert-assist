@@ -465,6 +465,7 @@ defmodule AllbertAssist.Settings.Schema do
     "memory.max_index_entries",
     "search.enabled",
     "search.origin_grants",
+    "search.snippet.max_bytes",
     "workspace.theme.mode",
     "workspace.theme.active",
     "workspace.theme.snippets_enabled",
@@ -3520,6 +3521,14 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false
     },
+    "search.snippet.max_bytes" => %{
+      type: :bounded_integer,
+      default: 320,
+      writable?: true,
+      sensitive?: false,
+      min: 64,
+      max: 1_024
+    },
     "mcp.stdio.allowed_launchers" => %{
       type: :string_list,
       default: [],
@@ -4588,7 +4597,10 @@ defmodule AllbertAssist.Settings.Schema do
     },
     "search" => %{
       "enabled" => true,
-      "origin_grants" => ["local_operator"]
+      "origin_grants" => ["local_operator"],
+      "snippet" => %{
+        "max_bytes" => 320
+      }
     },
     "workspace" => %{
       "theme" => %{

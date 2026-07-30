@@ -59,6 +59,10 @@ defmodule AllbertAssist.Search.Projection do
   @doc "Return content-free projection lifecycle status."
   def status(server \\ __MODULE__), do: GenServer.call(server, :status)
 
+  @doc "Durably mark stale candidate evidence for the Jobs-owned repair path."
+  def queue_repair(reasons, server \\ __MODULE__) when is_list(reasons),
+    do: GenServer.cast(server, {:queue_repair, reasons})
+
   @impl true
   def init(opts) do
     root = opts |> Keyword.get(:root, Paths.search_projection_root()) |> Path.expand()
@@ -112,6 +116,14 @@ defmodule AllbertAssist.Search.Projection do
 
   def handle_call({:candidates, _query, _position}, _from, state),
     do: {:reply, {:error, :search_not_ready}, state}
+
+  @impl true
+  def handle_cast({:queue_repair, reasons}, state) do
+    safe = reasons |> Enum.map(&error_code/1) |> Enum.uniq() |> Enum.sort()
+    control = state.control |> Map.put("dirty", true) |> Map.put("repair_reasons", safe)
+    _ = write_control(state.root, control)
+    {:noreply, %{state | control: control}}
+  end
 
   @impl true
   def terminate(_reason, state) do
@@ -443,9 +455,12 @@ defmodule AllbertAssist.Search.Projection do
 
     sql =
       "WITH ranked AS (SELECT d.source_id, d.content_digest, d.timestamp_us, " <>
-        "bm25(search_fts) AS score FROM search_fts JOIN documents d " <>
+        "d.thread_id, d.origin_scope, d.e2ee, d.owner_scope, d.channel, " <>
+        "d.receiver_account_ref, d.provider_thread_key, bm25(search_fts) AS score " <>
+        "FROM search_fts JOIN documents d " <>
         "ON d.fts_rowid = search_fts.rowid WHERE search_fts MATCH ?#{filter_sql}) " <>
-        "SELECT source_id, content_digest, timestamp_us, score FROM ranked " <>
+        "SELECT source_id, content_digest, timestamp_us, thread_id, origin_scope, e2ee, " <>
+        "owner_scope, channel, receiver_account_ref, provider_thread_key, score FROM ranked " <>
         "WHERE 1 = 1#{cursor_sql} ORDER BY #{order_sql} LIMIT ?"
 
     {sql, [query.match] ++ filter_values ++ cursor_values ++ [@candidate_batch]}
@@ -502,11 +517,32 @@ defmodule AllbertAssist.Search.Projection do
   defp order_sql(:newest), do: "timestamp_us DESC, source_id ASC"
   defp order_sql(:oldest), do: "timestamp_us ASC, source_id ASC"
 
-  defp candidate_from_row([source_id, digest, timestamp_us, score]) do
+  defp candidate_from_row([
+         source_id,
+         digest,
+         timestamp_us,
+         thread_id,
+         origin_scope,
+         e2ee,
+         owner_scope,
+         channel,
+         receiver_account_ref,
+         provider_thread_key,
+         score
+       ]) do
     %{
       source_id: source_id,
       content_digest: digest,
       timestamp_us: timestamp_us,
+      thread_id: thread_id,
+      origin_scope: String.to_existing_atom(origin_scope),
+      e2ee?: e2ee == 1,
+      origin: %{
+        owner_scope: owner_scope,
+        channel: channel,
+        receiver_account_ref: receiver_account_ref,
+        provider_thread_key: provider_thread_key
+      },
       score: score,
       position: %{score: score, timestamp_us: timestamp_us, source_id: source_id}
     }
