@@ -7,8 +7,11 @@ on the Search Central milestone in the v1.3 plan; flips Accepted when the
 central API, canonical re-authorization, generation lifecycle, recurring
 maintenance, surface scope rows, and packaged native-runtime proof are green.
 M1 froze the numeric query, paging, drain, scale, latency, and capability
-contracts on 2026-07-29; this ADR remains Proposed until the implementation
-evidence above is green.
+contracts on 2026-07-29. M6 subsequently made the central API, canonical
+candidate reauthorization, trace-safe request path, loaded-Exqlite capability
+probe, and verified current/previous generation lifecycle focused-gate green.
+This ADR remains Proposed until M7 recurring maintenance/purge, M8 surface
+scope rows, and M9 packaged native-runtime proof complete the acceptance bar.
 
 This ADR supersedes ADR 0089 §6's conditional external-content FTS design.
 Search ships as a central read product and point milestone without becoming a
