@@ -159,6 +159,36 @@ defmodule AllbertAssist.Settings.VersionContractTest do
     assert {:ok, %{status: :additive, added: ["sample.max_items"]}} =
              SchemaDiff.compare(before_schema, additive_schema)
 
+    deprecated_schema =
+      update_in(before_schema, ["sample.enabled"], fn entry ->
+        Map.merge(entry, %{
+          deprecated?: true,
+          deprecation_reason: "Preserved compatibility key; grants no authority."
+        })
+      end)
+
+    assert {:ok, %{status: :additive, changed: []}} =
+             SchemaDiff.compare(before_schema, deprecated_schema)
+
+    incomplete_deprecation =
+      update_in(before_schema, ["sample.enabled"], &Map.put(&1, :deprecated?, true))
+
+    assert {:error, %{status: :non_additive, changed: [%{key: "sample.enabled"}]}} =
+             SchemaDiff.compare(before_schema, incomplete_deprecation)
+
+    changed_deprecation =
+      put_in(
+        deprecated_schema,
+        ["sample.enabled", :deprecation_reason],
+        "A different retirement contract."
+      )
+
+    assert {:error, %{status: :non_additive, changed: [%{key: "sample.enabled"}]}} =
+             SchemaDiff.compare(deprecated_schema, changed_deprecation)
+
+    assert {:error, %{status: :non_additive, changed: [%{key: "sample.enabled"}]}} =
+             SchemaDiff.compare(deprecated_schema, before_schema)
+
     changed_schema =
       put_in(before_schema, ["sample.enabled", :default], true)
 

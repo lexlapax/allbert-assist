@@ -1,7 +1,14 @@
 defmodule AllbertAssist.Settings.SchemaDiff do
   @moduledoc """
   Additive-only diff checks for Settings Central schema changes.
+
+  A complete deprecation annotation (`deprecated?: true` plus a non-empty
+  `deprecation_reason`) is additive when it is the only change to an existing
+  row. It communicates that a preserved compatibility key grants no authority;
+  it cannot change the key's stored shape, default, validation, or safety floor.
   """
+
+  @deprecation_annotation_keys MapSet.new(["deprecated?", "deprecation_reason"])
 
   @type report :: %{
           required(:status) => :additive | :non_additive,
@@ -47,7 +54,7 @@ defmodule AllbertAssist.Settings.SchemaDiff do
     previous = Map.fetch!(previous_schema, key)
     current = Map.fetch!(current_schema, key)
 
-    if previous == current do
+    if previous == current or additive_deprecation_annotation?(previous, current) do
       []
     else
       [
@@ -59,4 +66,23 @@ defmodule AllbertAssist.Settings.SchemaDiff do
       ]
     end
   end
+
+  defp additive_deprecation_annotation?(previous, current)
+       when is_map(previous) and is_map(current) do
+    previous = stringify_keys(previous)
+    current = stringify_keys(current)
+
+    added_keys =
+      current |> Map.keys() |> MapSet.new() |> MapSet.difference(MapSet.new(Map.keys(previous)))
+
+    added_keys == @deprecation_annotation_keys and
+      Map.drop(current, MapSet.to_list(added_keys)) == previous and
+      current["deprecated?"] in [true, "true"] and
+      is_binary(current["deprecation_reason"]) and
+      String.trim(current["deprecation_reason"]) != ""
+  end
+
+  defp additive_deprecation_annotation?(_previous, _current), do: false
+
+  defp stringify_keys(map), do: Map.new(map, fn {key, value} -> {to_string(key), value} end)
 end

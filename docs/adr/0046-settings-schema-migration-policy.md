@@ -98,6 +98,16 @@ and the migration step (when the runner exists) rewrites stored values from the
 deprecated key into the replacement. Until the runner ships (deferred), the
 rewrite is a documented manual step.
 
+**v1.3 annotation-only clarification (2026-07-30).** A preserved compatibility
+key may acquire `deprecated?: true` plus a non-empty `deprecation_reason`
+without a fragment-version bump only when those two annotations are the entire
+schema diff, the stored key remains readable/writable with the identical type,
+default, validation, and safety floor, its behavior is already inert, and no
+removal or replacement is scheduled by that change. This makes an existing
+no-authority contract visible without fabricating a data migration. Changing or
+removing either annotation later is non-additive; any future key removal still
+requires the ordinary versioned deprecation/migration path above.
+
 ### 4. Fail-closed boot check (ships in v0.59)
 
 On boot, Settings Central compares each fragment's stored `schema_version` against

@@ -5,6 +5,7 @@ defmodule Mix.Tasks.Allbert.MemoryTest do
   import ExUnit.CaptureIO
 
   alias AllbertAssist.Memory
+  alias AllbertAssist.Memory.Projection
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias Mix.Tasks.Allbert.Memory, as: MemoryTask
@@ -25,6 +26,8 @@ defmodule Mix.Tasks.Allbert.MemoryTest do
     Application.put_env(:allbert_assist, Paths, home: home)
     Application.put_env(:allbert_assist, Memory, root: Path.join(home, "memory"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
+
+    start_supervised!({Projection, root: Paths.memory_projection_root(), name: Projection})
 
     on_exit(fn ->
       Mix.Task.reenable("allbert.memory")
@@ -245,7 +248,7 @@ defmodule Mix.Tasks.Allbert.MemoryTest do
   end
 
   test "compile-index, search, and summarize render operator output" do
-    assert {:ok, _entry} =
+    assert {:ok, entry} =
              Memory.append(%{
                category: :preferences,
                body: "Alice prefers concise release summaries.",
@@ -254,6 +257,13 @@ defmodule Mix.Tasks.Allbert.MemoryTest do
                channel: :test,
                source_signal_id: "sig"
              })
+
+    assert {:ok, _reviewed} =
+             Memory.review_entry(
+               entry.path,
+               %{status: :kept, reviewed_by: "alice"},
+               user_id: "alice"
+             )
 
     compile_output =
       capture_io(fn ->
@@ -312,6 +322,8 @@ defmodule Mix.Tasks.Allbert.MemoryTest do
 
     assert namespace_output =~ "identity"
     assert namespace_output =~ entry.path
+
+    assert {:ok, _rebuilt} = Projection.rebuild()
 
     Mix.Task.reenable("allbert.memory")
 
@@ -374,6 +386,8 @@ defmodule Mix.Tasks.Allbert.MemoryTest do
     assert review_output =~ "reviewed:"
     assert review_output =~ "Review status: kept"
 
+    assert {:ok, _rebuilt} = Projection.rebuild()
+
     Mix.Task.reenable("allbert.memory")
 
     retrieve_output =
@@ -384,9 +398,7 @@ defmodule Mix.Tasks.Allbert.MemoryTest do
                    "--user",
                    "local",
                    "--query",
-                   "concise release reports",
-                   "--now",
-                   "2026-05-28T12:00:00Z"
+                   "concise release reports"
                  ])
       end)
 
