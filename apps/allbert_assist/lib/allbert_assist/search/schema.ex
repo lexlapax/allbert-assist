@@ -35,7 +35,8 @@ defmodule AllbertAssist.Search.Schema do
 
   @doc "Verify schema identity, SQLite/FTS integrity, and locator/FTS bijection."
   def verify(conn, expected_generation_id \\ nil) do
-    with {:ok, capability} <- capability_probe(conn),
+    with :ok <- SQLite.execute(conn, "PRAGMA secure_delete=ON"),
+         {:ok, capability} <- capability_probe(conn),
          :ok <- verify_metadata(conn, expected_generation_id),
          {:ok, ["ok"]} <- SQLite.query_one(conn, "PRAGMA integrity_check"),
          :ok <-
