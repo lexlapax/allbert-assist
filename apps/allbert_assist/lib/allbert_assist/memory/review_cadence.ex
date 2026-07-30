@@ -1,146 +1,81 @@
 defmodule AllbertAssist.Memory.ReviewCadence do
   @moduledoc """
-  Synchronizes `memory.review_cadence` with a managed scheduled job.
+  Applies `memory.review_cadence` to the single Jobs.Managed projection rebuild.
 
-  The job is ordinary durable scheduler data. This module only creates or
-  updates the template-backed job when the setting is written.
+  This module owns no timer or parallel job identity. A settings write asks
+  `Jobs.Managed` to reconcile the reserved entry, then changes only its ordinary
+  schedule and pause state.
   """
 
   alias AllbertAssist.Jobs
   alias AllbertAssist.Jobs.Job
-  alias AllbertAssist.Jobs.Templates
+  alias AllbertAssist.Jobs.Managed
 
-  @template_name "memory-index-rebuild"
-  @managed_by "memory.review_cadence"
+  @identity "memory-index-rebuild"
   @run_at "03:00"
 
   @spec sync(term(), map()) :: {:ok, map()} | {:error, term()}
   def sync(cadence, context \\ %{})
 
-  def sync(cadence, context) when cadence in ["daily", "weekly"] do
+  def sync(cadence, context) when cadence in ["manual", "daily", "weekly"] do
     user_id = user_id(context)
 
-    case cadence_job(user_id) do
-      %Job{} = job -> update_cadence_job(job, cadence)
-      nil -> create_cadence_job(user_id, cadence)
-    end
-  end
-
-  def sync("manual", context) do
-    user_id = user_id(context)
-
-    case managed_cadence_job(user_id) do
-      %Job{} = job ->
-        with {:ok, paused} <- Jobs.pause_job(job) do
-          {:ok,
-           %{
-             source: :memory_review_cadence,
-             action: :paused,
-             cadence: "manual",
-             job_id: paused.id
-           }}
-        end
-
-      nil ->
-        {:ok, %{source: :memory_review_cadence, action: :none, cadence: "manual"}}
+    with {:ok, reconciliation} <- Managed.reconcile_identity(@identity, user_id),
+         :ok <- reconciliation_ready(reconciliation),
+         %Job{} = job <- managed_job(user_id),
+         {:ok, updated} <- apply_cadence(job, cadence) do
+      {:ok,
+       %{
+         source: :memory_review_cadence,
+         action: diagnostic_action(reconciliation.outcome, cadence),
+         cadence: cadence,
+         job_id: updated.id
+       }}
+    else
+      nil -> {:error, :memory_index_rebuild_job_missing}
+      {:error, reason} -> {:error, reason}
     end
   end
 
   def sync(cadence, _context), do: {:error, {:unsupported_memory_review_cadence, cadence}}
 
-  defp create_cadence_job(user_id, cadence) do
-    with {:ok, attrs} <- Templates.expand(@template_name, %{}),
-         {:ok, job} <-
-           attrs
-           |> Map.merge(%{
-             user_id: user_id,
-             operator_id: user_id,
-             schedule: schedule(cadence),
-             status: "active",
-             metadata: metadata(cadence)
-           })
-           |> Jobs.create_job() do
-      {:ok,
-       %{
-         source: :memory_review_cadence,
-         action: :created,
-         cadence: cadence,
-         job_id: job.id
-       }}
+  defp apply_cadence(%Job{} = job, "manual") do
+    with {:ok, scheduled} <- Jobs.update_job(job, cadence_attrs(job, "manual")) do
+      if scheduled.status == "paused", do: {:ok, scheduled}, else: Jobs.pause_job(scheduled)
     end
   end
 
-  defp update_cadence_job(%Job{} = job, cadence) do
-    metadata =
-      (job.metadata || %{})
-      |> Map.merge(metadata(cadence))
-      |> preserve_v13_managed_owner(job.metadata)
-
-    with {:ok, updated} <-
-           Jobs.update_job(job, %{
-             schedule: schedule(cadence),
-             status: "active",
-             metadata: metadata
-           }) do
-      {:ok,
-       %{
-         source: :memory_review_cadence,
-         action: :updated,
-         cadence: cadence,
-         job_id: updated.id
-       }}
+  defp apply_cadence(%Job{} = job, cadence) do
+    with {:ok, scheduled} <- Jobs.update_job(job, cadence_attrs(job, cadence)) do
+      if scheduled.status == "active", do: {:ok, scheduled}, else: Jobs.resume_job(scheduled)
     end
   end
 
-  defp cadence_job(user_id) do
-    user_id
-    |> Jobs.list_jobs(limit: 100)
-    |> Enum.find(&template_job?/1)
-  end
-
-  defp managed_cadence_job(user_id) do
-    user_id
-    |> Jobs.list_jobs(limit: 100)
-    |> Enum.find(&managed_template_job?/1)
-  end
-
-  defp template_job?(%Job{} = job),
-    do: metadata_value(job.metadata, "template_name") == @template_name
-
-  defp managed_template_job?(%Job{} = job) do
-    template_job?(job) and
-      metadata_value(job.metadata, "managed_by") in [@managed_by, "jobs.managed"]
-  end
-
-  defp preserve_v13_managed_owner(metadata, existing) do
-    if metadata_value(existing, "managed_by") == "jobs.managed" do
-      Map.put(metadata, "managed_by", "jobs.managed")
-    else
-      metadata
-    end
-  end
-
-  defp schedule("daily"), do: %{kind: "daily", at: @run_at}
-  defp schedule("weekly"), do: %{kind: "weekly", weekday: "sunday", at: @run_at}
-
-  defp metadata(cadence) do
+  defp cadence_attrs(job, cadence) do
     %{
-      "template_name" => @template_name,
-      "managed_by" => @managed_by,
-      "cadence" => cadence
+      schedule: schedule(cadence),
+      metadata: Map.put(job.metadata || %{}, "cadence", cadence)
     }
   end
 
-  defp metadata_value(metadata, key) when is_map(metadata) do
-    Map.get(metadata, key) || Map.get(metadata, metadata_atom_key(key))
+  defp reconciliation_ready(%{outcome: :managed_name_conflict, reason: reason}),
+    do: {:error, {:managed_memory_job_conflict, reason}}
+
+  defp reconciliation_ready(_result), do: :ok
+
+  defp diagnostic_action(_outcome, "manual"), do: :paused
+  defp diagnostic_action(:created, _cadence), do: :created
+  defp diagnostic_action(_outcome, _cadence), do: :updated
+
+  defp managed_job(user_id) do
+    user_id
+    |> Jobs.list_jobs(limit: 100)
+    |> Enum.find(fn job -> job.name == @identity and Managed.managed?(job) end)
   end
 
-  defp metadata_value(_metadata, _key), do: nil
-
-  defp metadata_atom_key("template_name"), do: :template_name
-  defp metadata_atom_key("managed_by"), do: :managed_by
-  defp metadata_atom_key("cadence"), do: :cadence
-  defp metadata_atom_key(_key), do: nil
+  defp schedule("manual"), do: %{kind: "manual"}
+  defp schedule("daily"), do: %{kind: "daily", at: @run_at}
+  defp schedule("weekly"), do: %{kind: "weekly", weekday: "sunday", at: @run_at}
 
   defp user_id(context) when is_map(context) do
     request = Map.get(context, :request, context)

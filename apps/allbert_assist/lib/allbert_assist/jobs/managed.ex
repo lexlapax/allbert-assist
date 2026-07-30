@@ -90,6 +90,22 @@ defmodule AllbertAssist.Jobs.Managed do
     end
   end
 
+  @doc "Reconcile one named managed specification without creating unrelated entries."
+  @spec reconcile_identity(String.t(), String.t()) ::
+          {:ok, reconcile_result()} | {:error, term()}
+  def reconcile_identity(identity, user_id \\ "local")
+      when is_binary(identity) and is_binary(user_id) do
+    user_id = String.trim(user_id)
+
+    with false <- user_id == "",
+         %{} = spec <- spec_for(identity) do
+      {:ok, reconcile_spec(user_id, spec)}
+    else
+      true -> {:error, :invalid_managed_user}
+      nil -> {:error, {:unknown_managed_identity, identity}}
+    end
+  end
+
   @doc "Coalesce dirty work onto one existing managed entry without creating a run."
   @spec kick(String.t(), String.t() | map()) :: {:ok, map()} | {:error, term()}
   def kick(identity, user_or_context \\ "local") when is_binary(identity) do
@@ -375,15 +391,14 @@ defmodule AllbertAssist.Jobs.Managed do
 
   defp legacy_adoptable?(job, %{identity: "memory-index-rebuild"}) do
     metadata = job.metadata || %{}
+    target = string_key_map(job.target || %{})
 
     job.user_id == "local" and job.operator_id == "local" and
       metadata_value(metadata, "template_name") == "memory-index-rebuild" and
-      metadata_value(metadata, "managed_by") == "memory.review_cadence" and
+      metadata_value(metadata, "managed_by") in [nil, "memory.review_cadence"] and
       job.target_type == "registered_action" and
-      string_key_map(job.target || %{}) == %{
-        "action_name" => "compile_memory_index",
-        "params" => %{}
-      }
+      target["params"] == %{} and
+      target["action_name"] in ["compile_memory_index", "rebuild_memory_projection"]
   end
 
   defp legacy_adoptable?(_job, _spec), do: false

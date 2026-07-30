@@ -30,7 +30,7 @@ defmodule AllbertAssist.Jobs.Templates do
     %{
       name: "memory-index-rebuild",
       target_type: "registered_action",
-      description: "Read-only rebuild of the derived markdown memory index."
+      description: "Compatibility alias for the managed Memory projection rebuild."
     }
   ]
 
@@ -75,9 +75,9 @@ defmodule AllbertAssist.Jobs.Templates do
     {:ok,
      %{
        name: Map.get(opts, :name) || "memory-index-rebuild",
-       description: Map.get(opts, :description) || "Memory index rebuild",
+       description: Map.get(opts, :description) || "Memory projection rebuild",
        target_type: "registered_action",
-       target: %{action_name: "compile_memory_index", params: %{}},
+       target: %{action_name: "rebuild_memory_projection", params: %{}},
        metadata: %{template_name: "memory-index-rebuild"}
      }}
   end

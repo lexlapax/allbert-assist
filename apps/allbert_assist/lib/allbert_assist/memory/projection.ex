@@ -45,6 +45,10 @@ defmodule AllbertAssist.Memory.Projection do
   @doc "Build, verify, and promote one complete canonical generation."
   def rebuild(server \\ __MODULE__), do: GenServer.call(server, :rebuild, :infinity)
 
+  @doc "Build one complete generation subject to an explicit bounded-entry cap."
+  def rebuild_with_options(opts, server \\ __MODULE__) when is_list(opts),
+    do: GenServer.call(server, {:rebuild, opts}, :infinity)
+
   @doc "Refresh one canonical claim in the active generation and advance revision once."
   def refresh_claim(claim_id, server \\ __MODULE__),
     do: GenServer.call(server, {:refresh_claim, claim_id}, :infinity)
@@ -100,7 +104,14 @@ defmodule AllbertAssist.Memory.Projection do
   end
 
   def handle_call(:rebuild, _from, state) do
-    case rebuild_generation(state) do
+    case rebuild_generation(state, []) do
+      {:ok, result, state} -> {:reply, {:ok, result}, state}
+      {:error, reason, state} -> {:reply, {:error, reason}, state}
+    end
+  end
+
+  def handle_call({:rebuild, opts}, _from, state) do
+    case rebuild_generation(state, opts) do
       {:ok, result, state} -> {:reply, {:ok, result}, state}
       {:error, reason, state} -> {:reply, {:error, reason}, state}
     end
@@ -209,7 +220,16 @@ defmodule AllbertAssist.Memory.Projection do
     end
   end
 
-  defp rebuild_generation(state) do
+  defp rebuild_generation(state, opts \\ []) do
+    with {:ok, max_entries} <- rebuild_limit(opts),
+         {:ok, paths} <- bounded_rebuild_paths(max_entries) do
+      rebuild_generation_from_paths(state, paths)
+    else
+      {:error, reason} -> fail_rebuild(state, reason, nil)
+    end
+  end
+
+  defp rebuild_generation_from_paths(state, paths) do
     generation_id = uuid7()
     builder_path = Path.join(state.root, "build-#{generation_id}.sqlite3")
 
@@ -222,15 +242,17 @@ defmodule AllbertAssist.Memory.Projection do
 
     with :ok <- write_control(state.root, rebuilding),
          {:ok, builder_conn} <- Sqlite3.open(builder_path) do
-      build_opened(state, generation_id, builder_conn, rebuilding)
+      build_opened(state, generation_id, builder_conn, rebuilding, paths)
     else
       {:error, reason} -> fail_rebuild(state, reason, nil)
     end
   end
 
-  defp build_opened(state, generation_id, builder_conn, rebuilding) do
+  defp build_opened(state, generation_id, builder_conn, rebuilding, paths) do
     with :ok <- create_schema(builder_conn, generation_id),
-         {:ok, build} <- populate(builder_conn),
+         {:ok, build} <- populate(builder_conn, paths),
+         {:ok, categories} <- projection_categories(builder_conn),
+         build = Map.put(build, :categories, categories),
          :ok <- update_generation_watermark(builder_conn, build.watermark),
          verifying = Map.put(rebuilding, "rebuild_phase", "verifying"),
          :ok <- write_control(state.root, verifying) do
@@ -279,6 +301,9 @@ defmodule AllbertAssist.Memory.Projection do
          claim_count: build.claim_count,
          revision_count: build.revision_count,
          excluded_count: length(build.diagnostics),
+         categories: build.categories,
+         derived_at: DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601(),
+         path: Path.join(state.root, "current.sqlite3"),
          watermark: build.watermark
        }, state}
     else
@@ -320,12 +345,51 @@ defmodule AllbertAssist.Memory.Projection do
      %{state | control: control, serving_conn: serving_conn, ready?: not is_nil(serving_conn)}}
   end
 
-  defp populate(conn) do
-    paths = Claims.claim_paths()
+  defp populate(conn, paths) do
     source_watermark = source_watermark(paths)
 
     with {:ok, tombstones} <- Forget.load_tombstones() do
       populate_paths(conn, paths, source_watermark, tombstones)
+    end
+  end
+
+  defp rebuild_limit(opts) do
+    case Keyword.get(opts, :max_entries, :unbounded) do
+      :unbounded -> {:ok, :unbounded}
+      value when is_integer(value) and value > 0 -> {:ok, value}
+      value -> {:error, {:invalid_memory_projection_max_entries, value}}
+    end
+  end
+
+  defp bounded_rebuild_paths(:unbounded), do: {:ok, Claims.claim_paths()}
+
+  defp bounded_rebuild_paths(max_entries) do
+    paths = Claims.claim_paths()
+    discovered_entries = length(paths)
+
+    if discovered_entries <= max_entries do
+      {:ok, paths}
+    else
+      {:error,
+       {:memory_projection_rebuild_limit_exceeded,
+        %{
+          max_entries: max_entries,
+          discovered_entries: discovered_entries,
+          processed_entries: 0,
+          partial?: true,
+          degraded?: true
+        }}}
+    end
+  end
+
+  defp projection_categories(conn) do
+    with {:ok, rows} <-
+           query_all(
+             conn,
+             "SELECT DISTINCT category FROM claim_revisions ORDER BY category ASC",
+             []
+           ) do
+      {:ok, Enum.map(rows, &List.first/1)}
     end
   end
 
@@ -805,6 +869,7 @@ defmodule AllbertAssist.Memory.Projection do
       user_id = normalize_optional(Keyword.get(opts, :user_id))
       {lexical_sql, lexical_values} = lexical_clause(terms)
       {owner_sql, owner_values} = owner_clause(user_id)
+      {category_sql, category_values} = category_clause(Keyword.get(opts, :categories))
 
       sql =
         "WITH temporal AS (" <>
@@ -818,11 +883,13 @@ defmodule AllbertAssist.Memory.Projection do
           "SELECT claim_id, sequence, revision_digest, recorded_at, actor, action, value, " <>
           "source_path, operator_id, namespace, category, app_id, origin, source_ref, summary " <>
           "FROM temporal WHERE claim_rank = 1 AND state = 'kept'" <>
-          owner_sql <> lexical_sql <> " ORDER BY claim_id ASC LIMIT ?"
+          owner_sql <> category_sql <> lexical_sql <> " ORDER BY claim_id ASC LIMIT ?"
 
       with {:ok, valid_at} <- temporal_value(opts, :valid_at),
            {:ok, known_at} <- temporal_value(opts, :known_at),
-           values = [known_at, valid_at, valid_at] ++ owner_values ++ lexical_values ++ [limit],
+           values =
+             [known_at, valid_at, valid_at] ++
+               owner_values ++ category_values ++ lexical_values ++ [limit],
            {:ok, rows} <- query_all(state.serving_conn, sql, values) do
         {:ok, candidate_result(state, Enum.map(rows, &candidate_from_row/1))}
       end
@@ -889,6 +956,25 @@ defmodule AllbertAssist.Memory.Projection do
 
   defp owner_clause(nil), do: {"", []}
   defp owner_clause(user_id), do: {" AND operator_id = ?", [user_id]}
+
+  defp category_clause(nil), do: {"", []}
+
+  defp category_clause(categories) do
+    categories =
+      categories
+      |> List.wrap()
+      |> Enum.map(&normalize_optional/1)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+      |> Enum.take(16)
+
+    case categories do
+      [] -> {"", []}
+      categories -> {" AND category IN (#{placeholders(categories)})", categories}
+    end
+  end
+
+  defp placeholders(values), do: Enum.map_join(values, ", ", fn _value -> "?" end)
 
   defp temporal_value(opts, key) do
     opts

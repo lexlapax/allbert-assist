@@ -138,6 +138,35 @@ defmodule AllbertAssist.Memory.ProjectionTest do
     GenServer.stop(restarted)
   end
 
+  test "bounded rebuild reports partial work and preserves the verified generation" do
+    first_id = Ecto.UUID.generate()
+    second_id = Ecto.UUID.generate()
+    assert {:ok, _first} = Claims.append(first_id, nil, transition(value: "first bounded"))
+
+    {:ok, projection} = Projection.start_link(root: Paths.memory_projection_root(), name: nil)
+    assert {:ok, first_build} = Projection.rebuild(projection)
+    assert {:ok, _second} = Claims.append(second_id, nil, transition(value: "second bounded"))
+
+    assert {:error,
+            {:memory_projection_rebuild_limit_exceeded,
+             %{
+               max_entries: 1,
+               discovered_entries: 2,
+               processed_entries: 0,
+               partial?: true,
+               degraded?: true
+             }}} = Projection.rebuild_with_options([max_entries: 1], projection)
+
+    status = Projection.status(projection)
+    assert status.ready?
+    assert status.control["current_generation_id"] == first_build.generation_id
+    assert status.control["state"] == "degraded"
+    assert status.control["dirty"]
+    assert {:ok, [_row]} = Projection.history(first_id, projection)
+    assert {:ok, []} = Projection.history(second_id, projection)
+    GenServer.stop(projection)
+  end
+
   test "corrupt, pending-manual, and duplicate claims are reported and excluded" do
     corrupt_id = Ecto.UUID.generate()
     assert {:ok, corrupt} = Claims.append(corrupt_id, nil, transition(value: "corrupt me"))

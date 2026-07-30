@@ -137,6 +137,28 @@ defmodule AllbertAssist.Jobs.ManagedTest do
     assert run_id == historical_run.id
   end
 
+  test "the retained projection template is adopted instead of conflicting" do
+    assert {:ok, template_job} =
+             Jobs.create_job(%{
+               name: "memory-index-rebuild",
+               target_type: "registered_action",
+               target: %{action_name: "rebuild_memory_projection", params: %{}},
+               schedule: %{kind: "manual"},
+               status: "active",
+               user_id: "local",
+               metadata: %{"template_name" => "memory-index-rebuild"}
+             })
+
+    assert {:ok, result} = Managed.reconcile_identity("memory-index-rebuild", "local")
+    assert result.outcome == :adopted
+    assert result.job_id == template_job.id
+
+    assert {:ok, adopted} = Jobs.get_job(template_job.id)
+    assert adopted.target["action_name"] == "rebuild_memory_projection"
+    assert adopted.metadata["managed_by"] == "jobs.managed"
+    assert adopted.metadata["managed_identity"] == "memory-index-rebuild"
+  end
+
   test "dirty kick coalesces admission and completion preserves a racing kick" do
     assert {:ok, _results} = Managed.reconcile("local")
     search = managed_job("search-index")

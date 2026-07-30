@@ -1,5 +1,5 @@
 defmodule AllbertAssist.Actions.Memory.SearchMemory do
-  @moduledoc "Searches markdown memory using the derived index when possible."
+  @moduledoc "Searches canonical Memory through its projection or bounded Markdown fallback."
 
   use AllbertAssist.Action,
     permission: :read_only,
@@ -26,9 +26,8 @@ defmodule AllbertAssist.Actions.Memory.SearchMemory do
     ]
 
   alias AllbertAssist.Actions.Memory.Context
-  alias AllbertAssist.Memory
-  alias AllbertAssist.Memory.Entry
-  alias AllbertAssist.Memory.Index
+  alias AllbertAssist.Memory.Projection
+  alias AllbertAssist.Memory.Retrieval
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
   alias AllbertAssist.Validation
@@ -45,7 +44,7 @@ defmodule AllbertAssist.Actions.Memory.SearchMemory do
 
     with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
          {:ok, user_id} <- Context.user_id(params, context),
-         {:ok, entries, source} <- search(query, params, user_id) do
+         {:ok, entries, source} <- search(query, params, user_id, context) do
       {:ok,
        %{
          message: "Found #{length(entries)} memory search result(s).",
@@ -70,85 +69,33 @@ defmodule AllbertAssist.Actions.Memory.SearchMemory do
     end
   end
 
-  defp search(query, params, user_id) do
-    root = Memory.root()
+  defp search(query, params, user_id, context) do
+    opts = [user_id: user_id, categories: category(params), limit: limit(params)]
 
-    if index_enabled?() and not Index.stale?(root) and index_searchable?(root) do
-      search_index(root, query, params, user_id)
-    else
-      direct_search(query, params, user_id)
+    case projection_for_search(context) do
+      {:ok, projection} -> search_projection(query, Keyword.put(opts, :projection, projection))
+      :fallback -> search_markdown(query, opts)
     end
   end
 
-  defp index_searchable?(root) do
-    case Index.load(root) do
-      {:ok, _index} -> true
-      {:error, _reason} -> false
+  defp projection_for_search(context) do
+    projection = Map.get(context, :memory_projection) || Process.whereis(Projection)
+
+    if index_enabled?() and not is_nil(projection), do: {:ok, projection}, else: :fallback
+  end
+
+  defp search_projection(query, opts) do
+    case Retrieval.projection_search(query, opts) do
+      {:ok, result} -> {:ok, result.entries, :projection}
+      {:error, :memory_projection_not_ready} -> search_markdown(query, opts)
+      {:error, reason} -> {:error, reason}
     end
   end
 
-  defp search_index(root, query, params, user_id) do
-    with {:ok, index} <- Index.load(root),
-         {:ok, entries} <-
-           Index.query(
-             index,
-             query,
-             user_id: user_id,
-             categories: category(params),
-             limit: limit(params)
-           ) do
-      {:ok, entries, :index}
+  defp search_markdown(query, opts) do
+    with {:ok, result} <- Retrieval.markdown_search(query, opts) do
+      {:ok, result.entries, :markdown}
     end
-  end
-
-  defp direct_search(query, params, user_id) do
-    tokens = Index.tokens(query)
-
-    with {:ok, entries} <-
-           Memory.list_entries(
-             user_id: user_id,
-             category: category(params),
-             limit: 500
-           ) do
-      results =
-        entries
-        |> Enum.reject(&(&1.review_status in [:flagged, :prune_nominated]))
-        |> Enum.map(&score_entry(&1, tokens))
-        |> Enum.filter(fn {score, _entry} -> score > 0 end)
-        |> Enum.sort_by(fn {score, entry} -> {score, entry.timestamp, entry.path} end, :desc)
-        |> Enum.take(limit(params))
-        |> Enum.map(fn {score, entry} ->
-          entry
-          |> Entry.to_map(include_body: false)
-          |> Map.put(:score, Float.round(score, 3))
-          |> Map.put(:match_reasons, match_reasons(entry, tokens))
-        end)
-
-      {:ok, results, :markdown}
-    end
-  end
-
-  defp score_entry(_entry, []), do: {0.0, nil}
-
-  defp score_entry(entry, tokens) do
-    haystack =
-      [entry.summary, entry.body, Atom.to_string(entry.category)]
-      |> Enum.join(" ")
-      |> String.downcase()
-
-    matches = Enum.count(tokens, &String.contains?(haystack, &1))
-    {min(1.0, matches * 0.35), entry}
-  end
-
-  defp match_reasons(entry, tokens) do
-    haystack =
-      [entry.summary, entry.body, Atom.to_string(entry.category)]
-      |> Enum.join(" ")
-      |> String.downcase()
-
-    tokens
-    |> Enum.filter(&String.contains?(haystack, &1))
-    |> Enum.map(&"keyword:#{&1}")
   end
 
   defp index_enabled? do

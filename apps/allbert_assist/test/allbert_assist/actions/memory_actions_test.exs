@@ -19,6 +19,7 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Claims
+  alias AllbertAssist.Memory.Projection
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
@@ -351,23 +352,38 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
     assert String.length(entry.body) < 4_600
   end
 
-  test "compile_memory_index, search_memory, and summarize_memory_category use derived artifacts" do
+  test "compile_memory_index and search_memory route through the Memory projection" do
     assert {:ok, entry} = append("alice", "Alice prefers compact release notes.")
 
+    assert {:ok, _kept} =
+             Memory.review_entry(
+               entry.path,
+               %{status: :kept, reviewed_by: "alice", reviewed_at: "2026-07-29T12:00:00Z"},
+               user_id: "alice"
+             )
+
+    assert {:ok, projection} =
+             Projection.start_link(root: Paths.memory_projection_root(), name: nil)
+
+    context = %{user_id: "alice", memory_projection: projection}
+
     assert {:ok, compiled} =
-             CompileMemoryIndex.run(%{user_id: "alice"}, %{user_id: "alice"})
+             CompileMemoryIndex.run(%{user_id: "alice"}, context)
 
     assert compiled.status == :completed
     assert compiled.result.entry_count == 1
+    assert compiled.result.categories == ["notes"]
+    refute compiled.result.partial?
     assert File.exists?(compiled.result.path)
 
     assert {:ok, search} =
-             SearchMemory.run(%{query: "compact release", user_id: "alice"}, %{user_id: "alice"})
+             SearchMemory.run(%{query: "compact release", user_id: "alice"}, context)
 
     assert search.status == :completed
     assert [%{path: path, match_reasons: reasons}] = search.entries
     assert path == entry.path
     assert "keyword:compact" in reasons
+    assert [%{source: :projection}] = search.actions
 
     assert {:ok, summary} =
              SummarizeMemoryCategory.run(%{category: "notes", user_id: "alice"}, %{
@@ -376,6 +392,37 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
 
     assert summary.status == :completed
     assert File.read!(summary.result.path) =~ "# DERIVED - DO NOT EDIT"
+    GenServer.stop(projection)
+  end
+
+  test "compile_memory_index reports a capped rebuild without promoting partial data" do
+    for body <- ["first capped claim", "second capped claim"] do
+      assert {:ok, entry} = append("alice", body)
+
+      assert {:ok, _kept} =
+               Memory.review_entry(
+                 entry.path,
+                 %{status: :kept, reviewed_by: "alice", reviewed_at: "2026-07-29T12:00:00Z"},
+                 user_id: "alice"
+               )
+    end
+
+    assert {:ok, projection} =
+             Projection.start_link(root: Paths.memory_projection_root(), name: nil)
+
+    assert {:ok, response} =
+             CompileMemoryIndex.run(
+               %{user_id: "alice", max_entries: 1},
+               %{user_id: "alice", memory_projection: projection}
+             )
+
+    assert response.status == :degraded
+    assert response.result.entry_count == 0
+    assert response.result.max_entries == 1
+    assert response.result.discovered_entries == 2
+    assert response.result.partial?
+    refute File.exists?(response.result.path)
+    GenServer.stop(projection)
   end
 
   defp append(actor, body) do

@@ -3,6 +3,7 @@ defmodule AllbertAssist.Memory.RetrievalCompatibilityTest do
 
   @moduletag :home_fs_serial
 
+  alias AllbertAssist.Actions.Memory.SearchMemory
   alias AllbertAssist.Memory.ActiveMemory
   alias AllbertAssist.Memory.Claims
   alias AllbertAssist.Memory.Projection
@@ -143,6 +144,46 @@ defmodule AllbertAssist.Memory.RetrievalCompatibilityTest do
              )
 
     assert current.chunks == []
+  end
+
+  test "Active Memory remains projection-backed when the legacy index flag is false", %{
+    projection: projection
+  } do
+    claim_id = Ecto.UUID.generate()
+    assert {:ok, _kept} = Claims.append(claim_id, nil, transition(value: "Flag independent fact"))
+    assert {:ok, _build} = Projection.rebuild(projection)
+    assert {:ok, _setting} = Settings.put("memory.index_enabled", false, %{audit?: false})
+
+    assert {:ok, result} =
+             ActiveMemory.retrieve("flag independent fact",
+               user_id: "local",
+               now: "2026-07-29T12:00:00Z",
+               projection: projection
+             )
+
+    assert [%{claim_id: ^claim_id}] = result.chunks
+  end
+
+  test "search_memory uses bounded canonical Markdown when the legacy flag is false" do
+    claim_id = Ecto.UUID.generate()
+
+    assert {:ok, _kept} =
+             Claims.append(claim_id, nil, transition(value: "Fallback canonical fact"))
+
+    assert {:ok, _setting} = Settings.put("memory.index_enabled", false, %{audit?: false})
+
+    assert {:ok, response} =
+             SearchMemory.run(
+               %{query: "fallback canonical", user_id: "local"},
+               %{user_id: "local"}
+             )
+
+    assert response.status == :completed
+    assert [%{path: path, match_reasons: reasons}] = response.entries
+    assert {:ok, stream} = Claims.read(claim_id)
+    assert path == stream.path
+    assert "keyword:fallback" in reasons
+    assert [%{source: :markdown}] = response.actions
   end
 
   defp transition(overrides) do

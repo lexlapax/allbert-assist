@@ -155,6 +155,8 @@ defmodule AllbertAssist.Memory.ActiveMemory do
       ],
       projection
     )
+  catch
+    :exit, _reason -> {:error, :memory_projection_not_ready}
   end
 
   defp select_revalidated(scored, top_k, now, opts, projection) do

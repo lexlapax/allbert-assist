@@ -14,7 +14,7 @@ defmodule AllbertAssist.Intent.EngineTest do
   alias AllbertAssist.Intent.Engine
   alias AllbertAssist.Intent.EvalFixtures
   alias AllbertAssist.Memory
-  alias AllbertAssist.Memory.Compiler
+  alias AllbertAssist.Memory.Projection
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Objective
@@ -473,11 +473,11 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert ordinary.id in objective_ids
   end
 
-  test "collects index-backed markdown memory candidates without bodies or secrets", %{
+  test "collects projection-backed memory candidates without bodies or secrets", %{
     registry: registry
   } do
-    with_memory_home(fn ->
-      assert {:ok, _entry} =
+    with_memory_home(fn projection ->
+      assert {:ok, entry} =
                Memory.append(%{
                  category: :preferences,
                  body: "Alice prefers concise release notes and no token=abc123 in output.",
@@ -487,11 +487,17 @@ defmodule AllbertAssist.Intent.EngineTest do
                  source_signal_id: "sig"
                })
 
-      assert {:ok, _result} = Compiler.compile_index(Memory.root())
+      assert {:ok, _kept} =
+               Memory.review_entry(entry.path, %{status: :kept, reviewed_by: "alice"},
+                 user_id: "alice"
+               )
+
+      assert {:ok, _result} = Projection.rebuild(projection)
 
       candidates =
         Engine.collect_candidates(
-          EvalFixtures.request(text: "recall concise release notes", user_id: "alice"),
+          EvalFixtures.request(text: "recall concise release notes", user_id: "alice")
+          |> Map.put(:memory_projection, projection),
           registry
         )
 
@@ -502,7 +508,7 @@ defmodule AllbertAssist.Intent.EngineTest do
                end)
 
       assert trace_metadata.category == :preferences
-      assert trace_metadata.review_status == :unreviewed
+      assert trace_metadata.review_status == :kept
       assert is_binary(trace_metadata.timestamp)
       assert is_binary(trace_metadata.path)
       assert "keyword:concise" in trace_metadata.match_reasons
@@ -511,10 +517,10 @@ defmodule AllbertAssist.Intent.EngineTest do
     end)
   end
 
-  test "does not collect flagged prune-nominated disabled or stale memory index entries", %{
+  test "does not collect ineligible disabled or stale Memory projection entries", %{
     registry: registry
   } do
-    with_memory_home(fn ->
+    with_memory_home(fn projection ->
       assert {:ok, flagged} =
                Memory.append(%{
                  category: :notes,
@@ -551,9 +557,12 @@ defmodule AllbertAssist.Intent.EngineTest do
                  user_id: "alice"
                )
 
-      assert {:ok, _result} = Compiler.compile_index(Memory.root())
+      assert {:ok, _result} = Projection.rebuild(projection)
 
-      request = EvalFixtures.request(text: "recall launch notes", user_id: "alice")
+      request =
+        EvalFixtures.request(text: "recall launch notes", user_id: "alice")
+        |> Map.put(:memory_projection, projection)
+
       refute indexed_memory_candidate?(Engine.collect_candidates(request, registry))
 
       assert {:ok, active} =
@@ -573,7 +582,7 @@ defmodule AllbertAssist.Intent.EngineTest do
 
       refute indexed_memory_candidate?(Engine.collect_candidates(request, registry))
 
-      assert {:ok, _result} = Compiler.compile_index(Memory.root())
+      assert {:ok, _result} = Projection.rebuild(projection)
       assert indexed_memory_candidate?(Engine.collect_candidates(request, registry))
 
       assert {:ok, _setting} = Settings.put("memory.index_enabled", false, %{audit?: false})
@@ -698,9 +707,13 @@ defmodule AllbertAssist.Intent.EngineTest do
     Application.put_env(:allbert_assist, Memory, root: Path.join(home, "memory"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
 
+    {:ok, projection} =
+      Projection.start_link(root: AllbertAssist.Paths.memory_projection_root(), name: nil)
+
     try do
-      fun.()
+      fun.(projection)
     after
+      if Process.alive?(projection), do: GenServer.stop(projection)
       restore_env(AllbertAssist.Paths, original_paths)
       restore_env(Memory, original_memory)
       restore_env(Settings, original_settings)

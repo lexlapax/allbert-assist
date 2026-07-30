@@ -39,8 +39,9 @@ defmodule AllbertAssist.Memory.ReviewCadenceTest do
     assert job.name == "memory-index-rebuild"
     assert job.status == "active"
     assert job.schedule == %{"kind" => "daily", "at" => "03:00"}
-    assert job.target == %{"action_name" => "compile_memory_index", "params" => %{}}
-    assert job.metadata["managed_by"] == "memory.review_cadence"
+    assert job.target == %{"action_name" => "rebuild_memory_projection", "params" => %{}}
+    assert job.metadata["managed_by"] == "jobs.managed"
+    assert job.metadata["managed_identity"] == "memory-index-rebuild"
   end
 
   test "weekly cadence updates the managed job instead of duplicating it" do

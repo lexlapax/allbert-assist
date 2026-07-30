@@ -21,8 +21,8 @@ defmodule AllbertAssist.Intent.Engine do
   alias AllbertAssist.Intent.Router.DescriptorResolver
   alias AllbertAssist.Jobs
   alias AllbertAssist.Maps
-  alias AllbertAssist.Memory
-  alias AllbertAssist.Memory.Index, as: MemoryIndex
+  alias AllbertAssist.Memory.Projection, as: MemoryProjection
+  alias AllbertAssist.Memory.Retrieval, as: MemoryRetrieval
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Objective
@@ -1134,14 +1134,19 @@ defmodule AllbertAssist.Intent.Engine do
 
   defp indexed_memory_candidates(request, text) when is_binary(text) do
     user_id = field(request, :user_id) || field(request, :operator_id) || "local"
-    root = Memory.root()
+    projection = field(request, :memory_projection) || Process.whereis(MemoryProjection)
 
     with true <- memory_index_enabled?(),
          false <- String.trim(text) == "",
-         false <- MemoryIndex.stale?(root),
-         {:ok, index} <- MemoryIndex.load(root),
-         {:ok, entries} <- MemoryIndex.query(index, text, user_id: user_id, limit: 10) do
-      entries
+         false <- is_nil(projection),
+         {:ok, result} <-
+           MemoryRetrieval.projection_search(text,
+             user_id: user_id,
+             projection: projection,
+             candidate_limit: 100,
+             limit: 10
+           ) do
+      result.entries
       |> Enum.map(&candidate_from_indexed_memory/1)
       |> Enum.reject(&is_nil/1)
     else
