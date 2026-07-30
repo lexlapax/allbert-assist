@@ -100,13 +100,15 @@ export MIX_REBAR3="$REBAR3_BIN"
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/allbert-candidate-build.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
+export MIX_BUILD_PATH="$WORK/build"
+RELEASE_ROOT="$MIX_BUILD_PATH/prod/rel/allbert"
 
 mix deps.get --only prod
 mix hex.audit
 mix release allbert --overwrite
 
-tar -czf "$WORK/$ARCHIVE" -C _build/prod/rel allbert
-bash scripts/smoke/artifact_smoke.sh _build/prod/rel/allbert "$TARGET" > "$WORK/smoke.log"
+tar -czf "$WORK/$ARCHIVE" -C "$MIX_BUILD_PATH/prod/rel" allbert
+bash scripts/smoke/artifact_smoke.sh "$RELEASE_ROOT" "$TARGET" > "$WORK/smoke.log"
 grep -q "^smoke:all PASS target=${TARGET} version=${VERSION}$" "$WORK/smoke.log" ||
   fail "target smoke did not emit its terminal PASS"
 if grep -q ' FAIL ' "$WORK/smoke.log"; then
@@ -139,7 +141,7 @@ jq -S -n \
 MACOS_NIF_SHA256=""
 MACOS_NIF_INSTALL_NAME=""
 if [ "$TARGET" = macos-arm64 ]; then
-  NIF="$(find _build/prod/rel/allbert/lib -path '*/exqlite-*/priv/sqlite3_nif.so' -type f -print)"
+  NIF="$(find "$RELEASE_ROOT/lib" -path '*/exqlite-*/priv/sqlite3_nif.so' -type f -print)"
   [ "$(printf '%s\n' "$NIF" | awk 'NF {count++} END {print count+0}')" -eq 1 ] ||
     fail "expected exactly one packaged Exqlite NIF"
   MACOS_NIF_INSTALL_NAME="$(otool -D "$NIF" | tail -n +2 | awk 'NF {print; count++} END {if (count != 1) exit 1}')"
