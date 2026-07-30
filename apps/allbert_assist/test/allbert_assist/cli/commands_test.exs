@@ -18,6 +18,11 @@ defmodule AllbertAssist.CLI.CommandsTest do
     assert Map.has_key?(Commands.operator_table(), ["onboard"])
   end
 
+  test "v1.3 Search is a discoverable packaged area over the central boundary" do
+    assert "search" in Commands.groups()
+    assert {:ok, {:area, AllbertAssist.CLI.Areas.Search}} = Commands.lookup(["search"])
+  end
+
   test "every :action disposition names a REGISTERED action (spine-routed)" do
     registered = MapSet.new(Registry.names())
 

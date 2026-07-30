@@ -13,6 +13,7 @@ defmodule AllbertAssist.Surface.Renderer do
   alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.MediaOutputs
   alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Search.Presentation, as: SearchPresentation
 
   @default_max_text_bytes 4_000
   @default_descriptor %{
@@ -93,9 +94,13 @@ defmodule AllbertAssist.Surface.Renderer do
   def response_text(response, descriptor \\ %{}) when is_map(response) do
     descriptor = descriptor(descriptor)
 
-    response
-    |> payload_text(Map.get(descriptor, :payload, :message))
-    |> with_media_outputs(response, descriptor)
+    text =
+      case field(response, :search_page) do
+        page when is_map(page) -> SearchPresentation.render(page)
+        _other -> payload_text(response, Map.get(descriptor, :payload, :message))
+      end
+
+    with_media_outputs(text, response, descriptor)
   end
 
   @spec chunks(String.t(), pos_integer()) :: [String.t()]

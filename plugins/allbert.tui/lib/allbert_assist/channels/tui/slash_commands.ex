@@ -2,6 +2,7 @@ defmodule AllbertAssist.Channels.TUI.SlashCommands do
   @moduledoc false
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Search.Surface, as: SearchSurface
 
   @canonical_commands [
     "/status",
@@ -16,6 +17,7 @@ defmodule AllbertAssist.Channels.TUI.SlashCommands do
     "/trace",
     "/registry",
     "/memory",
+    "/search",
     "/health",
     "/model-detect",
     "/settings get",
@@ -50,6 +52,9 @@ defmodule AllbertAssist.Channels.TUI.SlashCommands do
     normalized = normalize(text)
 
     cond do
+      SearchSurface.command?(normalized) ->
+        true
+
       coding_session_command?(normalized) ->
         true
 
@@ -75,12 +80,18 @@ defmodule AllbertAssist.Channels.TUI.SlashCommands do
 
   @spec dispatch(String.t(), map()) :: {:ok, map()}
   def dispatch(text, context \\ %{}) when is_binary(text) do
-    case text |> normalize() |> route() do
-      {:local, response} ->
-        {:ok, response}
+    text = normalize(text)
 
-      {:action, action_name, params} ->
-        Runner.run(action_name, params, context)
+    if SearchSurface.command?(text) do
+      SearchSurface.dispatch_text(text, context)
+    else
+      case route(text) do
+        {:local, response} ->
+          {:ok, response}
+
+        {:action, action_name, params} ->
+          Runner.run(action_name, params, context)
+      end
     end
   end
 

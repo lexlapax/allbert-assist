@@ -39,6 +39,7 @@ defmodule AllbertAssist.Runtime do
   alias AllbertAssist.Runtime.MediaOutputs
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Search.Surface, as: SearchSurface
   alias AllbertAssist.Session
   alias AllbertAssist.Settings
   alias AllbertAssist.Signals
@@ -785,11 +786,38 @@ defmodule AllbertAssist.Runtime do
   end
 
   defp run_non_steering_stage_zero(input_signal, request) do
-    if NotifyConsentCallback.typed_command?(request.text) do
-      {:ok, request |> NotifyConsentCallback.run() |> NotifyConsentCallback.response()}
-    else
-      run_fanout_or_agent(input_signal, request)
+    cond do
+      SearchSurface.command?(request.text) ->
+        SearchSurface.dispatch_text(request.text, search_surface_context(request))
+
+      NotifyConsentCallback.typed_command?(request.text) ->
+        {:ok, request |> NotifyConsentCallback.run() |> NotifyConsentCallback.response()}
+
+      true ->
+        run_fanout_or_agent(input_signal, request)
     end
+  end
+
+  defp search_surface_context(request) do
+    ref = request.channel_thread_ref || %{}
+
+    %{
+      user_id: request.user_id,
+      operator_id: request.operator_id,
+      channel: request.channel,
+      surface: request.channel,
+      thread_id: request.thread_id,
+      source_message_id: request.user_message_id,
+      channel_thread_ref: ref,
+      trust_class: Map.get(ref, :trust_class),
+      origin:
+        Map.take(ref, [
+          :owner_scope,
+          :channel,
+          :receiver_account_ref,
+          :provider_thread_key
+        ])
+    }
   end
 
   defp run_fanout_or_agent(input_signal, request) do
@@ -1071,6 +1099,9 @@ defmodule AllbertAssist.Runtime do
     |> maybe_put(:coding_session_context, Map.get(agent_response, :coding_session_context))
     |> maybe_put(:fanout, Map.get(agent_response, :fanout))
     |> maybe_put(:fanout_start_receipt, Map.get(agent_response, :fanout_start_receipt))
+    |> maybe_put(:search_page, Map.get(agent_response, :search_page))
+    |> maybe_put(:search_disclosure, Map.get(agent_response, :search_disclosure))
+    |> maybe_put(:confirmation_id, Map.get(agent_response, :confirmation_id))
     |> Map.put(:pending_reports, pending_reports)
     |> attach_pending_report_text(pending_report_texts)
     |> maybe_put_media_outputs(media_outputs)
@@ -1173,6 +1204,7 @@ defmodule AllbertAssist.Runtime do
             channel: request.channel,
             session_id: request.session_id
           }
+          |> maybe_mark_search_result(response)
           |> maybe_put(:active_app, request.active_app)
           |> maybe_put_media_outputs(
             MediaOutputs.persistable(Map.get(response, :media_outputs, []))
@@ -1199,6 +1231,11 @@ defmodule AllbertAssist.Runtime do
         add_diagnostic(response, %{source: :conversation_history, error: inspect(reason)})
     end
   end
+
+  defp maybe_mark_search_result(metadata, %{search_page: page}) when is_map(page),
+    do: Map.put(metadata, :content_kind, "search_result_render")
+
+  defp maybe_mark_search_result(metadata, _response), do: metadata
 
   defp assistant_action_log(response) do
     %{

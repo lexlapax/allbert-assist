@@ -523,6 +523,7 @@ defmodule AllbertAssist.CLI do
       allbert chat             Open or start web workspace chat
       allbert ask "..."        Ask one question
       allbert tui              Open the terminal operator console
+      allbert search QUERY     Search currently authorized conversation history
 
     Set up
       allbert                  Resume setup or open the product

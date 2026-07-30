@@ -41,6 +41,7 @@ defmodule AllbertAssist.CLI.Commands do
     ["tui"] => :builtin,
     ["serve"] => :builtin,
     ["licenses"] => :builtin,
+    ["search"] => {:area, Areas.Search},
     ["gen"] => :mix_only,
     # v0.63 M1: `allbert onboard` is a new top-level verb (Locked Decision 7) — a
     # flag-bearing area dispatcher for the guided wizard. `admin onboarding` stays
@@ -187,7 +188,7 @@ defmodule AllbertAssist.CLI.Commands do
   # `gen` is developer/CI only (:mix_only) and absent from the binary surface, so
   # it is not a product command group (v0.62 M8.11). v0.63 M7.1: `onboard` is the
   # top-level guided-wizard verb and must be discoverable in the operator surface.
-  def groups, do: ["ask", "chat", "tui", "serve", "licenses", "onboard", "admin"]
+  def groups, do: ["ask", "chat", "tui", "serve", "search", "licenses", "onboard", "admin"]
 
   @doc "True when a Mix task is developer/CI only (must be absent from the binary)."
   @spec mix_only?(String.t()) :: boolean()
