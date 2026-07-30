@@ -122,6 +122,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "show_channel",
              "channel_setup_check",
              "resume_thread_on_channel",
+             "delete_conversation_content",
              "list_apps",
              "show_app",
              "list_plugins",
@@ -255,6 +256,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "summarize_memory_category",
              "list_memory_category_summary",
              "retrieve_active_memory",
+             "restore_memory_claim",
              "promote_conversation_turn",
              "sync_app_lesson",
              "show_objective",
@@ -500,6 +502,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "summarize_memory_category",
              "list_memory_category_summary",
              "retrieve_active_memory",
+             "restore_memory_claim",
              "promote_conversation_turn",
              "sync_app_lesson",
              "show_objective",
@@ -790,6 +793,12 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert delete_memory_entry.execution_mode == :memory_archive
     assert delete_memory_entry.confirmation == :required
     assert delete_memory_entry.resumable?
+
+    assert {:ok, restore_memory_claim} = Registry.capability("restore_memory_claim")
+    assert restore_memory_claim.permission == :memory_write
+    assert restore_memory_claim.execution_mode == :memory_write
+    assert restore_memory_claim.confirmation == :not_required
+    refute restore_memory_claim.resumable?
 
     assert {:ok, sync_app_lesson} = Registry.capability("sync_app_lesson")
     assert sync_app_lesson.permission == :memory_write

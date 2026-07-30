@@ -9,6 +9,7 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
   alias AllbertAssist.Actions.Memory.PruneMemoryEntries
   alias AllbertAssist.Actions.Memory.ReadMemoryEntry
   alias AllbertAssist.Actions.Memory.ReviewMemoryEntry
+  alias AllbertAssist.Actions.Memory.RestoreMemoryClaim
   alias AllbertAssist.Actions.Memory.SearchMemory
   alias AllbertAssist.Actions.Memory.SummarizeMemoryCategory
   alias AllbertAssist.Actions.Memory.SyncAppLesson
@@ -17,6 +18,7 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory
+  alias AllbertAssist.Memory.Claims
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
@@ -117,7 +119,7 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
     assert updated.entry.review_status == :flagged
   end
 
-  test "delete_memory_entry creates confirmation and approval archives the file" do
+  test "delete_memory_entry creates confirmation and approval archives reversibly" do
     assert {:ok, entry} = append("alice", "Delete me after confirmation.")
 
     assert {:ok, response} =
@@ -139,8 +141,57 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
 
     assert approved.status == :completed
     assert approved.confirmation["status"] == "approved"
-    refute File.exists?(entry.path)
+    assert File.exists?(entry.path)
+    assert {:ok, archived} = Claims.read_path(entry.path)
+    assert List.last(archived.effective_records)["state"] == "archived"
     assert [%{confirmation_metadata: %{target_resumed?: true}}] = approved.actions
+
+    assert {:ok, restored} =
+             RestoreMemoryClaim.run(%{claim_id: archived.claim_id, user_id: "alice"}, %{
+               user_id: "alice"
+             })
+
+    assert restored.status == :completed
+    assert {:ok, restored_stream} = Claims.read(archived.claim_id)
+    assert List.last(restored_stream.effective_records)["state"] == "kept"
+  end
+
+  test "delete_memory_entry approval rejects a claim changed after preview" do
+    assert {:ok, entry} = append("alice", "Archive only this exact revision.")
+
+    assert {:ok, pending} =
+             DeleteMemoryEntry.run(%{path: entry.path, user_id: "alice"}, %{
+               user_id: "alice",
+               actor: "alice",
+               channel: :test
+             })
+
+    assert pending.status == :needs_confirmation
+
+    assert {:ok, updated} =
+             UpdateMemoryEntry.run(
+               %{
+                 path: entry.path,
+                 summary: "Changed after preview",
+                 body: "This is no longer the exact approved revision.",
+                 user_id: "alice"
+               },
+               %{user_id: "alice"}
+             )
+
+    assert updated.status == :completed
+
+    assert {:ok, denied} =
+             ApproveConfirmation.run(%{id: pending.confirmation_id, reason: "stale preview"}, %{
+               user_id: "alice",
+               actor: "alice",
+               channel: :test
+             })
+
+    assert denied.status == :completed
+    assert denied.confirmation["status"] == "denied"
+    assert {:ok, stream} = Claims.read_path(entry.path)
+    assert stream.status == :grandfathered
   end
 
   test "prune_memory_entries dry-run and approval archive prune-nominated entries" do
@@ -175,7 +226,10 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
              })
 
     assert approved.status == :completed
-    refute File.exists?(entry.path)
+    assert File.exists?(entry.path)
+    assert {:ok, archived} = Claims.read_path(entry.path)
+    assert List.last(archived.effective_records)["action"] == "archive_nominated"
+    assert List.last(archived.effective_records)["state"] == "archived"
   end
 
   test "prune_memory_entries can require confirmation independently from delete" do
@@ -195,7 +249,9 @@ defmodule AllbertAssist.Actions.MemoryActionsTest do
 
     assert response.status == :completed
     assert response.archived != []
-    refute File.exists?(entry.path)
+    assert File.exists?(entry.path)
+    assert {:ok, archived} = Claims.read_path(entry.path)
+    assert List.last(archived.effective_records)["state"] == "archived"
 
     assert {:ok, delete_setting} = Settings.get("memory.delete_requires_confirmation")
     assert delete_setting == true

@@ -15,7 +15,8 @@ defmodule AllbertAssist.Actions.Memory.PruneMemoryEntries do
     schema: [
       user_id: [type: :string, required: false],
       category: [type: :string, required: false],
-      write: [type: :boolean, required: false]
+      write: [type: :boolean, required: false],
+      targets: [type: {:list, :map}, required: false]
     ],
     output_schema: [
       message: [type: :string, required: true],
@@ -29,6 +30,7 @@ defmodule AllbertAssist.Actions.Memory.PruneMemoryEntries do
   alias AllbertAssist.Actions.Memory.Context
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory
+  alias AllbertAssist.Memory.ClaimLifecycle
   alias AllbertAssist.Memory.Review
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
@@ -38,20 +40,34 @@ defmodule AllbertAssist.Actions.Memory.PruneMemoryEntries do
     permission_decision = PermissionGate.authorize(:memory_write, context)
 
     with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
-         {:ok, user_id} <- Context.user_id(params, context),
-         {:ok, candidates} <- candidates(params, user_id) do
-      cond do
-        approval_resume?(context) ->
-          archive_candidates(candidates, user_id, permission_decision)
-
-        truthy?(value(params, :write)) ->
-          maybe_confirm(candidates, user_id, context, permission_decision)
-
-        true ->
-          dry_run(candidates, user_id, permission_decision)
-      end
+         {:ok, user_id} <- Context.user_id(params, context) do
+      dispatch(params, user_id, context, permission_decision)
     else
       {:allowed, false} -> denied(permission_decision)
+      {:error, reason} -> error(permission_decision, reason)
+    end
+  end
+
+  defp dispatch(params, user_id, context, permission_decision) do
+    cond do
+      approval_resume?(context) ->
+        archive_approved_targets(params, user_id, permission_decision)
+
+      truthy?(value(params, :write)) ->
+        with_candidates(params, user_id, permission_decision, fn candidates ->
+          maybe_confirm(candidates, user_id, context, permission_decision)
+        end)
+
+      true ->
+        with_candidates(params, user_id, permission_decision, fn candidates ->
+          dry_run(candidates, user_id, permission_decision)
+        end)
+    end
+  end
+
+  defp with_candidates(params, user_id, permission_decision, fun) do
+    case candidates(params, user_id) do
+      {:ok, candidates} -> fun.(candidates)
       {:error, reason} -> error(permission_decision, reason)
     end
   end
@@ -96,18 +112,33 @@ defmodule AllbertAssist.Actions.Memory.PruneMemoryEntries do
   end
 
   defp maybe_confirm(candidates, user_id, context, permission_decision) do
-    if confirmation_required?() do
-      create_confirmation(candidates, user_id, context, permission_decision)
+    with {:ok, targets} <- lifecycle_targets(candidates, user_id) do
+      if confirmation_required?() do
+        create_confirmation(candidates, targets, user_id, context, permission_decision)
+      else
+        archive_targets(candidates, targets, user_id, permission_decision)
+      end
     else
-      archive_candidates(candidates, user_id, permission_decision)
+      {:error, reason} -> error(permission_decision, reason)
     end
   end
 
-  defp archive_candidates(candidates, user_id, permission_decision) do
-    paths = Enum.map(candidates, & &1.path)
+  defp archive_approved_targets(params, user_id, permission_decision) do
+    targets = value(params, :targets)
 
-    case Memory.archive_entries(paths, user_id: user_id) do
-      {:ok, archived} ->
+    if is_list(targets) and targets != [] do
+      candidates = Enum.map(targets, &target_candidate/1)
+      archive_targets(candidates, targets, user_id, permission_decision)
+    else
+      error(permission_decision, :missing_prune_targets)
+    end
+  end
+
+  defp archive_targets(candidates, targets, user_id, permission_decision) do
+    case Enum.reduce_while(targets, {:ok, []}, &archive_target(&1, user_id, &2)) do
+      {:ok, reversed} ->
+        archived = Enum.reverse(reversed)
+
         {:ok,
          %{
            message: "Archived #{length(archived)} memory prune candidate(s).",
@@ -128,12 +159,12 @@ defmodule AllbertAssist.Actions.Memory.PruneMemoryEntries do
            ]
          }}
 
-      {:error, reason} ->
+      {:error, reason, _partial} ->
         error(permission_decision, reason)
     end
   end
 
-  defp create_confirmation(candidates, user_id, context, permission_decision) do
+  defp create_confirmation(candidates, targets, user_id, context, permission_decision) do
     case Confirmations.create(
            %{
              origin: origin(context, user_id),
@@ -146,7 +177,7 @@ defmodule AllbertAssist.Actions.Memory.PruneMemoryEntries do
                candidate_count: length(candidates),
                paths: Enum.map(candidates, & &1.path)
              },
-             resume_params_ref: %{user_id: user_id, write: true}
+             resume_params_ref: %{user_id: user_id, write: true, targets: targets}
            },
            context
          ) do
@@ -220,6 +251,72 @@ defmodule AllbertAssist.Actions.Memory.PruneMemoryEntries do
       {:error, _reason} -> false
     end
   end
+
+  defp lifecycle_targets(candidates, user_id) do
+    Enum.reduce_while(candidates, {:ok, []}, fn candidate, {:ok, acc} ->
+      case ClaimLifecycle.preview_path(candidate.path, user_id) do
+        {:ok, preview} ->
+          ids = ClaimLifecycle.new_ids()
+
+          target = %{
+            path: preview.path,
+            claim_id: preview.claim_id,
+            expected_tail_digest: preview.expected_tail_digest,
+            reason: to_string(candidate.reason),
+            revision_id: ids.revision_id,
+            transition_id: ids.transition_id
+          }
+
+          {:cont, {:ok, [target | acc]}}
+
+        {:error, reason} ->
+          {:halt, {:error, {candidate.path, reason}}}
+      end
+    end)
+    |> case do
+      {:ok, targets} -> {:ok, Enum.reverse(targets)}
+      error -> error
+    end
+  end
+
+  defp archive_target(target, user_id, {:ok, acc}) do
+    path = map_value(target, :path)
+
+    with {:ok, preview} <- ClaimLifecycle.preview_path(path, user_id),
+         :ok <- target_binding(preview, target),
+         {:ok, archived} <-
+           ClaimLifecycle.transition(
+             preview,
+             target_operation(map_value(target, :reason)),
+             user_id,
+             target
+           ) do
+      {:cont, {:ok, [archived | acc]}}
+    else
+      {:error, reason} -> {:halt, {:error, {path, reason}, Enum.reverse(acc)}}
+    end
+  end
+
+  defp target_binding(preview, target) do
+    if preview.claim_id == map_value(target, :claim_id) and
+         preview.expected_tail_digest == map_value(target, :expected_tail_digest),
+       do: :ok,
+       else: {:error, :stale_prune_candidate}
+  end
+
+  defp target_operation("prune_nominated"), do: :archive_nominated
+  defp target_operation(_reason), do: :archive
+
+  defp target_candidate(target) do
+    %{
+      path: map_value(target, :path),
+      reason: target |> map_value(:reason) |> String.to_existing_atom()
+    }
+  rescue
+    ArgumentError -> %{path: map_value(target, :path), reason: :retention_policy}
+  end
+
+  defp map_value(map, key), do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
 
   defp settings_value(key, default) do
     case Settings.get(key) do
