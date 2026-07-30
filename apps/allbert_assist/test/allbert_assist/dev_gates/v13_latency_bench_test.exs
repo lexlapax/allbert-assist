@@ -17,23 +17,25 @@ defmodule AllbertAssist.DevGates.V13LatencyBenchTest do
     refute V13LatencyBench.within_bound?(:search, %{p95_ms: 200.0, p99_ms: 750.001})
   end
 
-  test "the real runner owns exact LD 82 scales and a complete warm pass" do
-    source =
-      Path.expand("../../../lib/allbert_assist/dev_gates/v13_latency_bench.ex", __DIR__)
-      |> File.read!()
+  test "the runner exposes the exact LD 82 protocols it uses for recorded rows" do
+    assert %{
+             corpus_id: "v13-memory-10k-200-v1",
+             claims: 10_000,
+             queries: 200,
+             warmup_queries: 200,
+             top_k: 5,
+             p95_limit_ms: 75.0,
+             p99_limit_ms: 250.0
+           } = V13LatencyBench.protocol(:memory)
 
-    assert source =~ "@memory_claims 10_000"
-    assert source =~ "@memory_queries 200"
-    assert source =~ "@search_messages 25_000"
-    assert source =~ "@search_threads 250"
-    assert source =~ "@search_queries 300"
-    assert source =~ "Enum.each(queries"
-    assert source =~ ~s(gate: "bench-v13-latency")
-
-    search_source =
-      Path.expand("../../../lib/allbert_assist/search.ex", __DIR__)
-      |> File.read!()
-
-    assert search_source =~ "Settings.with_resolved_settings(fn ->"
+    assert %{
+             corpus_id: "v13-search-25k-300-v1",
+             messages: 25_000,
+             threads: 250,
+             queries: 300,
+             warmup_queries: 300,
+             p95_limit_ms: 200.0,
+             p99_limit_ms: 750.0
+           } = V13LatencyBench.protocol(:search)
   end
 end

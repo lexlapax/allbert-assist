@@ -19,11 +19,28 @@ defmodule AllbertAssist.DevGates.V13LatencyBench do
   alias AllbertAssist.Search.Projection, as: SearchProjection
   alias AllbertAssist.Settings
 
-  @memory_claims 10_000
-  @memory_queries 200
-  @search_messages 25_000
-  @search_threads 250
-  @search_queries 300
+  @protocols %{
+    memory: %{
+      corpus_id: "v13-memory-10k-200-v1",
+      claims: 10_000,
+      queries: 200,
+      warmup_queries: 200,
+      top_k: 5,
+      p95_limit_ms: 75.0,
+      p99_limit_ms: 250.0
+    },
+    search: %{
+      corpus_id: "v13-search-25k-300-v1",
+      messages: 25_000,
+      threads: 250,
+      queries: 300,
+      warmup_queries: 300,
+      p95_limit_ms: 200.0,
+      p99_limit_ms: 750.0
+    }
+  }
+
+  def protocol(consumer) when consumer in [:memory, :search], do: Map.fetch!(@protocols, consumer)
 
   def record_run! do
     consumer = System.get_env("V13_LATENCY_CONSUMER", "both")
@@ -74,12 +91,15 @@ defmodule AllbertAssist.DevGates.V13LatencyBench do
     }
   end
 
-  def within_bound?(:memory, stats), do: stats.p95_ms <= 75.0 and stats.p99_ms <= 250.0
-  def within_bound?(:search, stats), do: stats.p95_ms <= 200.0 and stats.p99_ms <= 750.0
+  def within_bound?(consumer, stats) when consumer in [:memory, :search] do
+    bounds = protocol(consumer)
+    stats.p95_ms <= bounds.p95_limit_ms and stats.p99_ms <= bounds.p99_limit_ms
+  end
 
   defp memory_run do
     started = System.monotonic_time(:millisecond)
-    write_memory_corpus()
+    protocol = protocol(:memory)
+    write_memory_corpus(protocol)
 
     {:ok, projection} =
       MemoryProjection.start_link(root: Paths.memory_projection_root(), name: nil)
@@ -87,11 +107,11 @@ defmodule AllbertAssist.DevGates.V13LatencyBench do
     try do
       {:ok, build} = MemoryProjection.rebuild(projection)
 
-      if build.claim_count != @memory_claims do
+      if build.claim_count != protocol.claims do
         raise "memory benchmark corpus mismatch: #{build.claim_count}"
       end
 
-      queries = memory_queries()
+      queries = memory_queries(protocol)
       Enum.each(queries, &memory_query!(&1, projection))
 
       latencies =
@@ -104,12 +124,12 @@ defmodule AllbertAssist.DevGates.V13LatencyBench do
       summarize(latencies)
       |> Map.merge(%{
         consumer: "memory",
-        claims: @memory_claims,
-        queries: @memory_queries,
-        warmup_queries: @memory_queries,
-        top_k: 5,
-        p95_limit_ms: 75.0,
-        p99_limit_ms: 250.0,
+        claims: protocol.claims,
+        queries: protocol.queries,
+        warmup_queries: protocol.warmup_queries,
+        top_k: protocol.top_k,
+        p95_limit_ms: protocol.p95_limit_ms,
+        p99_limit_ms: protocol.p99_limit_ms,
         wall_ms: System.monotonic_time(:millisecond) - started
       })
     after
@@ -119,8 +139,9 @@ defmodule AllbertAssist.DevGates.V13LatencyBench do
 
   defp search_run do
     started = System.monotonic_time(:millisecond)
-    threads = create_search_threads!()
-    average_bytes = write_search_corpus!(threads)
+    protocol = protocol(:search)
+    threads = create_search_threads!(protocol)
+    average_bytes = write_search_corpus!(threads, protocol)
 
     {:ok, projection} =
       SearchProjection.start_link(
@@ -132,11 +153,11 @@ defmodule AllbertAssist.DevGates.V13LatencyBench do
     try do
       {:ok, build} = SearchProjection.rebuild("local", projection)
 
-      if build.document_count != @search_messages do
+      if build.document_count != protocol.messages do
         raise "search benchmark corpus mismatch: #{inspect(build)}"
       end
 
-      queries = search_queries(threads)
+      queries = search_queries(threads, protocol)
       Enum.each(queries, fn {_family, request} -> search_query!(request, projection) end)
 
       samples =
@@ -150,14 +171,14 @@ defmodule AllbertAssist.DevGates.V13LatencyBench do
       summarize(latencies)
       |> Map.merge(%{
         consumer: "search",
-        messages: @search_messages,
-        threads: @search_threads,
+        messages: protocol.messages,
+        threads: protocol.threads,
         average_document_bytes: average_bytes,
-        queries: @search_queries,
-        warmup_queries: @search_queries,
+        queries: protocol.queries,
+        warmup_queries: protocol.warmup_queries,
         query_families: family_stats,
-        p95_limit_ms: 200.0,
-        p99_limit_ms: 750.0,
+        p95_limit_ms: protocol.p95_limit_ms,
+        p99_limit_ms: protocol.p99_limit_ms,
         wall_ms: System.monotonic_time(:millisecond) - started
       })
     after
@@ -165,12 +186,12 @@ defmodule AllbertAssist.DevGates.V13LatencyBench do
     end
   end
 
-  defp write_memory_corpus do
+  defp write_memory_corpus(protocol) do
     directory = Path.join(Memory.root(), "notes")
     File.mkdir_p!(directory)
 
-    Enum.each(0..(@memory_claims - 1), fn index ->
-      topic = "scale#{rem(index, @memory_queries)}"
+    Enum.each(0..(protocol.claims - 1), fn index ->
+      topic = "scale#{rem(index, protocol.queries)}"
       path = Path.join(directory, "scale-#{String.pad_leading(to_string(index), 5, "0")}.md")
       File.write!(path, memory_entry(topic, index))
     end)
@@ -200,7 +221,7 @@ defmodule AllbertAssist.DevGates.V13LatencyBench do
     """
   end
 
-  defp memory_queries, do: Enum.map(0..(@memory_queries - 1), &"scale#{&1} durable")
+  defp memory_queries(protocol), do: Enum.map(0..(protocol.queries - 1), &"scale#{&1} durable")
 
   defp memory_query!(query, projection) do
     Settings.with_resolved_settings(fn -> memory_query_pinned!(query, projection) end)
@@ -222,19 +243,19 @@ defmodule AllbertAssist.DevGates.V13LatencyBench do
     end
   end
 
-  defp create_search_threads! do
-    Enum.map(0..(@search_threads - 1), fn index ->
+  defp create_search_threads!(protocol) do
+    Enum.map(0..(protocol.threads - 1), fn index ->
       {:ok, thread} = Conversations.create_general_thread("local", "Benchmark #{index}")
       thread
     end)
   end
 
-  defp write_search_corpus!(threads) do
+  defp write_search_corpus!(threads, protocol) do
     base = ~U[2026-07-29 12:00:00.000000Z]
 
     rows =
-      Enum.map(0..(@search_messages - 1), fn index ->
-        thread = Enum.at(threads, rem(index, @search_threads))
+      Enum.map(0..(protocol.messages - 1), fn index ->
+        thread = Enum.at(threads, rem(index, protocol.threads))
         topic = rem(index, 75)
         content = search_content(topic, index)
 
@@ -258,7 +279,7 @@ defmodule AllbertAssist.DevGates.V13LatencyBench do
         total + inserted
       end)
 
-    if count != @search_messages do
+    if count != protocol.messages do
       raise "search benchmark inserted #{count} messages"
     end
 
@@ -270,13 +291,18 @@ defmodule AllbertAssist.DevGates.V13LatencyBench do
       "message #{index} " <> String.duplicate("bounded lexical corpus payload ", 11)
   end
 
-  defp search_queries(threads) do
-    terms = Enum.map(0..74, &{:term, %{query: "topic#{&1}", limit: 5}})
-    phrases = Enum.map(0..74, &{:phrase, %{query: ~s("topic#{&1} durable"), limit: 5}})
-    prefixes = Enum.map(0..74, &{:prefix, %{query: "prefixword#{&1}*", limit: 5}})
+  defp search_queries(threads, protocol) do
+    per_family = div(protocol.queries, 4)
+    terms = Enum.map(0..(per_family - 1), &{:term, %{query: "topic#{&1}", limit: 5}})
+
+    phrases =
+      Enum.map(0..(per_family - 1), &{:phrase, %{query: ~s("topic#{&1} durable"), limit: 5}})
+
+    prefixes =
+      Enum.map(0..(per_family - 1), &{:prefix, %{query: "prefixword#{&1}*", limit: 5}})
 
     filters =
-      Enum.map(0..74, fn index ->
+      Enum.map(0..(per_family - 1), fn index ->
         {:filter,
          %{
            query: "topic#{index}",
@@ -314,8 +340,7 @@ defmodule AllbertAssist.DevGates.V13LatencyBench do
     Float.round(Enum.at(sorted, index) * 1.0, 3)
   end
 
-  defp corpus_id(:memory), do: "v13-memory-10k-200-v1"
-  defp corpus_id(:search), do: "v13-search-25k-300-v1"
+  defp corpus_id(consumer), do: protocol(consumer).corpus_id
 
   defp parse_consumer!("memory"), do: :memory
   defp parse_consumer!("search"), do: :search
