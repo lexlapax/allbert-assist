@@ -318,13 +318,50 @@ defmodule AllbertAssist.Memory.ProposalReview do
   end
 
   defp prepare_operation(
-         %Proposal{kind: "protected_stub"},
-         _sources,
-         _operation,
-         _decision,
-         _actor
-       ),
-       do: Repo.rollback(:protected_individual_payload_required)
+         %Proposal{kind: "protected_stub"} = proposal,
+         sources,
+         operation,
+         decision,
+         actor
+       )
+       when operation in [:keep, :edit] do
+    claim = decision_value(decision, "proposed_claim")
+    provenance = decision_value(decision, "span_provenance")
+
+    with true <- is_map(claim) || {:error, :protected_individual_payload_required},
+         true <- is_map(provenance) || {:error, :protected_individual_payload_required},
+         {:ok, verified} <- SpanProvenance.verify(claim, provenance, sources),
+         {:ok, actor} <- valid_actor(actor),
+         payload <-
+           proposal
+           |> frozen_payload(claim, verified, operation, decision, actor)
+           |> Map.put("recorded_at", DateTime.to_iso8601(proposal.inserted_at)),
+         decision_digest <- digest(Format.canonical_json(payload)),
+         transition_id <- transition_id(proposal, decision_digest),
+         payload <-
+           payload
+           |> Map.put("transition_id", transition_id)
+           |> Map.put("revision_id", deterministic_uuid("revision", transition_id)),
+         {:ok, append} <-
+           Claims.append(
+             payload["claim_id"],
+             payload["expected_tail_digest"],
+             transition(proposal, payload, "protected_individual_review")
+           ),
+         projection <- refresh_projection(payload["claim_id"]) do
+      terminal_update!(proposal, "kept", actor, now(), %{
+        outcome: "kept",
+        claim_id: append.claim_id,
+        revision_id: append.revision_id,
+        transition_id: append.transition_id,
+        append_outcome: Atom.to_string(append.outcome),
+        projection: projection
+      })
+    else
+      {:error, reason} -> Repo.rollback(reason)
+      false -> Repo.rollback(:protected_individual_payload_required)
+    end
+  end
 
   defp prepare_operation(proposal, sources, operation, decision, actor)
        when operation in [:keep, :edit] do
@@ -376,6 +413,10 @@ defmodule AllbertAssist.Memory.ProposalReview do
 
   defp transition(proposal) do
     payload = proposal.applying_payload
+    transition(proposal, payload, "proposal_" <> payload["operation"])
+  end
+
+  defp transition(proposal, payload, action) do
     claim = payload["claim"]
 
     claim
@@ -387,7 +428,7 @@ defmodule AllbertAssist.Memory.ProposalReview do
       "valid_from" => claim["valid_from"],
       "valid_to" => claim["valid_to"],
       "actor" => payload["actor"],
-      "action" => "proposal_" <> payload["operation"],
+      "action" => action,
       "category" => payload["category"],
       "operator_id" => payload["operator_id"],
       "namespace" => payload["namespace"],

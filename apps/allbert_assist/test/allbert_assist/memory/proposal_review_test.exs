@@ -302,6 +302,73 @@ defmodule AllbertAssist.Memory.ProposalReviewTest do
                [batch_binding(protected)],
                "operator:alice"
              )
+
+    assert {:error, :protected_individual_payload_required} =
+             ProposalReview.review(
+               protected.id,
+               proposal_binding(protected),
+               %{operation: :keep},
+               "operator:alice"
+             )
+
+    {:ok, protected_subject} = span("subject", protected_source, "My dependent", "identity_v1")
+    {:ok, protected_predicate} = span("predicate", protected_source, "has", "identity_v1")
+
+    {:ok, protected_value} =
+      span("value", protected_source, "a private appointment", "identity_v1")
+
+    protected_decision = %{
+      operation: :keep,
+      proposed_claim: %{
+        subject: "My dependent",
+        predicate: "has",
+        value: "a private appointment"
+      },
+      span_provenance: %{
+        fields: [protected_subject, protected_predicate, protected_value]
+      }
+    }
+
+    assert {:ok, protected_result} =
+             ProposalReview.review(
+               protected.id,
+               proposal_binding(protected),
+               protected_decision,
+               "operator:alice"
+             )
+
+    assert protected_result.status == "kept"
+    protected_terminal = Repo.get!(Proposal, protected.id)
+    assert is_nil(protected_terminal.proposed_claim)
+    assert is_nil(protected_terminal.span_provenance)
+    assert is_nil(protected_terminal.applying_payload)
+    refute inspect(protected_terminal) =~ "private appointment"
+
+    assert {:ok, protected_claim} = Claims.current(protected.id)
+    assert protected_claim["payload"]["value"] == "a private appointment"
+    assert protected_claim["action"] == "protected_individual_review"
+
+    assert {:ok, _simulated_lost_terminal_write} =
+             protected_terminal
+             |> Ecto.Changeset.change(%{
+               status: "pending",
+               result: %{},
+               reviewed_by: nil,
+               reviewed_at: nil
+             })
+             |> Repo.update()
+
+    assert {:ok, same_protected_result} =
+             ProposalReview.review(
+               protected.id,
+               proposal_binding(protected),
+               protected_decision,
+               "operator:alice"
+             )
+
+    assert same_protected_result.result["append_outcome"] == "already_committed"
+    assert {:ok, protected_stream} = Claims.read(protected.id)
+    assert length(protected_stream.records) == 1
   end
 
   defp proposal(value) do
