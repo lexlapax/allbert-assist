@@ -10,8 +10,11 @@ M1 froze the numeric query, paging, drain, scale, latency, and capability
 contracts on 2026-07-29. M6 subsequently made the central API, canonical
 candidate reauthorization, trace-safe request path, loaded-Exqlite capability
 probe, and verified current/previous generation lifecycle focused-gate green.
-This ADR remains Proposed until M7 recurring maintenance/purge, M8 surface
-scope rows, and M9 packaged native-runtime proof complete the acceptance bar.
+M7 subsequently made the three Jobs-owned management entries, dirty repair,
+bounded maintenance/rebuild, stale reconciliation, authoritative-export
+exclusion, and confirmed crash-resumable all-generation purge focused-gate
+green. This ADR remains Proposed until M8 surface scope rows and M9 packaged
+native-runtime proof complete the acceptance bar.
 
 This ADR supersedes ADR 0089 §6's conditional external-content FTS design.
 Search ships as a central read product and point milestone without becoming a
