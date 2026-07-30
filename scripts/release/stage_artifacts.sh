@@ -394,11 +394,15 @@ case "${1:-}" in
     require_env GITHUB_REPOSITORY GITHUB_RUN_ID GITHUB_RUN_ATTEMPT; [ "$#" -eq 5 ] || fail "usage: collect-qualification RELEASE_ID MANIFEST_ID MANIFEST_DIGEST OUTPUT"
     collect_qualification "$2" "$3" "$4" "$5"
     ;;
+  extract-release)
+    [ "$#" -eq 3 ] || fail "usage: extract-release ARCHIVE DESTINATION"
+    extract_release "$2" "$3"
+    ;;
   validate-release-path)
     [ "$#" -eq 2 ]; validate_release_path "$2"
     ;;
   validate-release-link)
     [ "$#" -eq 4 ]; validate_release_link "$2" "$3" "$4"
     ;;
-  *) fail "unknown mode; use stage-generation, qualify-target, collect-qualification, validate-release-path, or validate-release-link" ;;
+  *) fail "unknown mode; use stage-generation, qualify-target, collect-qualification, extract-release, validate-release-path, or validate-release-link" ;;
 esac

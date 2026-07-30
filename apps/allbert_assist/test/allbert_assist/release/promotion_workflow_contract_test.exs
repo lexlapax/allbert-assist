@@ -210,6 +210,24 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     end
   end
 
+  test "operator extraction mode preflights and extracts one release root" do
+    root =
+      Path.join(System.tmp_dir!(), "allbert-stage-extract-#{System.unique_integer([:positive])}")
+
+    source = Path.join(root, "source")
+    destination = Path.join(root, "destination")
+    archive = Path.join(root, "allbert.tar.gz")
+    executable = Path.join([source, "allbert", "bin", "allbert"])
+    File.mkdir_p!(Path.dirname(executable))
+    File.write!(executable, "#!/bin/sh\nexit 0\n")
+    File.chmod!(executable, 0o755)
+    on_exit(fn -> File.rm_rf!(root) end)
+
+    assert {_, 0} = System.cmd("tar", ["-czf", archive, "-C", source, "allbert"])
+    assert {_, 0} = run_stage(["extract-release", archive, destination])
+    assert File.stat!(Path.join([destination, "allbert", "bin", "allbert"])).type == :regular
+  end
+
   test "release helpers are executable, warning-free shell, and contain no aggregate gates" do
     for script <- [@build_script, @stage_script, @promote_script] do
       assert Bitwise.band(File.stat!(script).mode, 0o111) != 0
