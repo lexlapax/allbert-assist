@@ -24,7 +24,9 @@ defmodule AllbertAssist.Actions.Search.ManageProjection do
 
   defp execute(:ingest, action_name, user_id, decision) do
     case Projection.ingest(user_id) do
-      {:ok, result} -> completed(action_name, decision, result)
+      {:ok, result} ->
+        completed(action_name, decision, result)
+
       {:error, reason} when reason in [:search_not_ready, :rebuild_required] ->
         schedule_rebuild(action_name, user_id, decision, reason)
 
@@ -35,7 +37,9 @@ defmodule AllbertAssist.Actions.Search.ManageProjection do
 
   defp execute(:maintain, action_name, user_id, decision) do
     case Projection.maintain() do
-      {:ok, result} -> completed(action_name, decision, result)
+      {:ok, result} ->
+        completed(action_name, decision, result)
+
       {:error, :search_not_ready} ->
         schedule_rebuild(action_name, user_id, decision, :search_not_ready)
 
@@ -45,8 +49,8 @@ defmodule AllbertAssist.Actions.Search.ManageProjection do
   end
 
   defp execute(:rebuild, action_name, user_id, decision) do
-    case Projection.rebuild(user_id) do
-      {:ok, result} -> completed(action_name, decision, Map.put(result, :status, :complete))
+    case Projection.rebuild_step(user_id) do
+      {:ok, result} -> completed(action_name, decision, result)
       {:error, reason} -> failed(action_name, decision, reason)
     end
   end

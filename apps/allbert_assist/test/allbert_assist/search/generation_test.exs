@@ -59,6 +59,37 @@ defmodule AllbertAssist.Search.GenerationTest do
     assert Enum.map(page.candidates, & &1.source_id) == [first.id]
   end
 
+  @tag timeout: 60_000
+  test "managed rebuild persists a bounded builder and resumes it after owner restart", %{
+    projection_root: root
+  } do
+    assert {:ok, thread} = Conversations.create_general_thread("alice", "Resumable")
+
+    for index <- 1..1_001 do
+      assert {:ok, _message} =
+               Conversations.append_user_message(thread, "resumable#{index} source",
+                 metadata: %{"channel" => "tui"}
+               )
+    end
+
+    assert {:ok, first} = Projection.rebuild_step("alice")
+    assert first.status == :incomplete
+    assert first.document_count == 1_000
+    assert File.exists?(Path.join(root, "build-#{first.generation_id}.sqlite3"))
+
+    stop_supervised(Projection)
+    start_supervised!({Projection, root: root, name: Projection})
+
+    assert {:ok, second} = Projection.rebuild_step("alice")
+    assert second.status == :complete
+    assert second.generation_id == first.generation_id
+    assert second.document_count == 1_001
+    refute File.exists?(Path.join(root, "build-#{first.generation_id}.sqlite3"))
+
+    assert {:ok, query} = Query.parse(%{query: "resumable1001"})
+    assert {:ok, %{candidates: [_candidate]}} = Projection.candidates(query)
+  end
+
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)
 end

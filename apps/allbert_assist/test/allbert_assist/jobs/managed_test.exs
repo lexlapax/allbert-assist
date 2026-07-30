@@ -355,6 +355,44 @@ defmodule AllbertAssist.Jobs.ManagedTest do
     assert managed_job("search-rebuild").metadata["dirty_seq"] == 1
   end
 
+  @tag timeout: 60_000
+  test "bounded managed rebuild schedules continuation through ordinary Jobs completion" do
+    assert {:ok, thread} = Conversations.create_general_thread("local", "Managed continuation")
+
+    for index <- 1..1_001 do
+      assert {:ok, _message} =
+               Conversations.append_user_message(thread, "managed-resume#{index}",
+                 metadata: %{"channel" => "tui"}
+               )
+    end
+
+    root =
+      :allbert_assist
+      |> Application.get_env(Settings, [])
+      |> Keyword.fetch!(:root)
+      |> Path.dirname()
+      |> Path.join("managed-resumable-search")
+
+    start_supervised!({Projection, root: root, name: Projection})
+    assert {:ok, _results} = Managed.reconcile("local")
+    rebuild = managed_job("search-rebuild")
+
+    assert {:ok, %{run: first_run, job: continued, response: first_response}} =
+             Runner.run_now(rebuild)
+
+    assert first_run.status == "completed"
+    assert first_response.result.status == :incomplete
+    assert %DateTime{} = first_response.continuation_due_at
+    assert continued.next_due_at == first_response.continuation_due_at
+
+    assert {:ok, %{run: second_run, job: completed, response: second_response}} =
+             Runner.run_now(continued)
+
+    assert second_run.status == "completed"
+    assert second_response.result.status == :complete
+    assert completed.next_due_at == nil
+  end
+
   defp managed_job(name) do
     Jobs.list_jobs("local", limit: 100)
     |> Enum.find(&(&1.name == name))

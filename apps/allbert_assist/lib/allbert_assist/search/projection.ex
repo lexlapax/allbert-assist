@@ -25,6 +25,7 @@ defmodule AllbertAssist.Search.Projection do
   @control_file "control.json"
   @page_size 200
   @ingest_page_size 200
+  @rebuild_pages_per_step 5
   @candidate_batch 100
 
   defstruct root: nil,
@@ -45,6 +46,10 @@ defmodule AllbertAssist.Search.Projection do
   @doc "Build, verify, and promote one complete generation from canonical Corpus pages."
   def rebuild(operator_id \\ "local", server \\ __MODULE__),
     do: GenServer.call(server, {:rebuild, operator_id}, :infinity)
+
+  @doc "Resume one bounded managed generation-build step."
+  def rebuild_step(operator_id \\ "local", server \\ __MODULE__),
+    do: GenServer.call(server, {:rebuild_step, operator_id}, :infinity)
 
   @doc "Apply one bounded incremental Corpus page per currently granted Search policy."
   def ingest(operator_id \\ "local", server \\ __MODULE__),
@@ -76,7 +81,6 @@ defmodule AllbertAssist.Search.Projection do
   def init(opts) do
     root = opts |> Keyword.get(:root, Paths.search_projection_root()) |> Path.expand()
     File.mkdir_p!(root)
-    cleanup_stale_builders(root)
     {conn, control, diagnostics} = load_generation(root)
 
     state = %__MODULE__{
@@ -103,6 +107,13 @@ defmodule AllbertAssist.Search.Projection do
 
   def handle_call({:rebuild, operator_id}, _from, state) do
     case rebuild_generation(state, operator_id) do
+      {:ok, result, next} -> {:reply, {:ok, result}, next}
+      {:error, reason, next} -> {:reply, {:error, reason}, next}
+    end
+  end
+
+  def handle_call({:rebuild_step, operator_id}, _from, state) do
+    case rebuild_generation_step(state, operator_id) do
       {:ok, result, next} -> {:reply, {:ok, result}, next}
       {:error, reason, next} -> {:reply, {:error, reason}, next}
     end
@@ -179,6 +190,222 @@ defmodule AllbertAssist.Search.Projection do
   end
 
   defp rebuild_generation(state, _operator_id), do: fail_rebuild(state, :invalid_operator, nil)
+
+  defp rebuild_generation_step(state, operator_id) when is_binary(operator_id) do
+    with {:ok, prepared} <- ensure_resumable_builder(state, operator_id) do
+      run_resumable_builder_step(prepared)
+    else
+      {:error, reason, next} -> {:error, reason, next}
+      {:error, reason} -> {:error, reason, mark_dirty(state, reason)}
+    end
+  end
+
+  defp rebuild_generation_step(state, _operator_id),
+    do: {:error, :invalid_operator, mark_dirty(state, :invalid_operator)}
+
+  defp ensure_resumable_builder(state, operator_id) do
+    builder = state.control["builder"]
+
+    if compatible_builder?(builder, operator_id, state.root) do
+      {:ok, state}
+    else
+      state
+      |> discard_resumable_builder()
+      |> start_resumable_builder(operator_id)
+    end
+  end
+
+  defp start_resumable_builder(state, operator_id) do
+    with {:ok, snapshots} <- snapshots(operator_id),
+         {:ok, primary} <- primary_snapshot(snapshots) do
+      generation_id = uuid7()
+      path = builder_path(state.root, generation_id)
+
+      builder = %{
+        "generation_id" => generation_id,
+        "operator_id" => operator_id,
+        "eligibility_epoch" => primary.eligibility_epoch,
+        "schema_version" => Schema.schema_version(),
+        "tokenizer_version" => Schema.tokenizer_version(),
+        "redactor_version" => Schema.redactor_version(),
+        "snapshots" => Enum.map(snapshots, &encode_builder_snapshot/1),
+        "policy_index" => 0,
+        "cursor" => nil,
+        "document_count" => 0,
+        "projection_revision" => 0
+      }
+
+      control =
+        state.control
+        |> Map.put("builder_generation_id", generation_id)
+        |> Map.put("builder", builder)
+        |> Map.put("dirty", true)
+        |> Map.put("last_error_code", nil)
+        |> Map.put("state", if(state.ready?, do: "ready", else: "rebuilding"))
+
+      with :ok <- write_control(state.root, control),
+           {:ok, conn} <- Sqlite3.open(path),
+           :ok <-
+             Schema.create(conn, %{
+               generation_id: generation_id,
+               eligibility_epoch: primary.eligibility_epoch,
+               high_water: primary.high_water
+             }),
+           :ok <- Sqlite3.close(conn) do
+        {:ok, %{state | control: control}}
+      else
+        {:error, reason} -> {:error, reason, mark_dirty(%{state | control: control}, reason)}
+      end
+    else
+      {:error, reason} -> {:error, reason, mark_dirty(state, reason)}
+    end
+  end
+
+  defp run_resumable_builder_step(state) do
+    builder = state.control["builder"]
+    path = builder_path(state.root, builder["generation_id"])
+
+    with {:ok, snapshots} <- decode_builder_snapshots(builder),
+         :ok <- current_epochs(snapshots),
+         {:ok, conn} <- Sqlite3.open(path, mode: :readwrite) do
+      process_resumable_pages(state, conn, snapshots, @rebuild_pages_per_step)
+    else
+      {:error, reason} -> {:error, reason, mark_dirty(state, reason)}
+    end
+  end
+
+  defp process_resumable_pages(state, conn, snapshots, pages_left) do
+    builder = state.control["builder"]
+
+    cond do
+      builder["policy_index"] >= length(snapshots) ->
+        finalize_resumable_builder(state, conn, snapshots)
+
+      pages_left == 0 ->
+        _ = Sqlite3.close(conn)
+        {:ok, resumable_result(state, :incomplete), state}
+
+      true ->
+        process_resumable_page(state, conn, snapshots, pages_left)
+    end
+  end
+
+  defp process_resumable_page(state, conn, snapshots, pages_left) do
+    builder = state.control["builder"]
+    snapshot = Enum.at(snapshots, builder["policy_index"])
+    watermark = decode_source_watermark(builder["cursor"])
+
+    with {:ok, page} <- Corpus.page_after(snapshot, watermark, @page_size),
+         {:ok, written} <-
+           write_page(conn, page.items, page.cursor, %{
+             count: builder["document_count"],
+             revision: builder["projection_revision"],
+             indexed_through: nil
+           }) do
+      builder = advance_builder(builder, snapshot, page, written)
+      control = Map.put(state.control, "builder", builder)
+
+      with :ok <- write_control(state.root, control) do
+        process_resumable_pages(%{state | control: control}, conn, snapshots, pages_left - 1)
+      else
+        {:error, reason} ->
+          _ = Sqlite3.close(conn)
+          {:error, reason, mark_dirty(state, reason)}
+      end
+    else
+      {:error, reason} ->
+        _ = Sqlite3.close(conn)
+        {:error, reason, mark_dirty(state, reason)}
+    end
+  end
+
+  defp advance_builder(builder, snapshot, page, written) do
+    {policy_index, cursor} =
+      if page.exhausted? do
+        {builder["policy_index"] + 1, nil}
+      else
+        {builder["policy_index"], encode_source_watermark(cursor_watermark(page.cursor))}
+      end
+
+    builder
+    |> Map.put("policy_index", policy_index)
+    |> Map.put("cursor", cursor)
+    |> Map.put("document_count", written.count)
+    |> Map.put("projection_revision", written.revision)
+    |> Map.put("last_policy_high_water", encode_source_watermark(snapshot.high_water))
+  end
+
+  defp finalize_resumable_builder(state, conn, snapshots) do
+    builder = state.control["builder"]
+
+    with {:ok, source_advanced?} <- source_advanced?(snapshots),
+         {:ok, _capability} <- Schema.verify(conn, builder["generation_id"]),
+         {:ok, promoted} <- promote(state, builder["generation_id"], conn) do
+      build = %{
+        count: builder["document_count"],
+        revision: builder["projection_revision"],
+        indexed_through: nil,
+        source_advanced?: source_advanced?,
+        source_cursors: snapshot_high_waters(snapshots)
+      }
+
+      case finish_rebuild(state, builder["generation_id"], state.control, build, promoted) do
+        {:ok, result, next} -> {:ok, Map.put(result, :status, :complete), next}
+        error -> error
+      end
+    else
+      {:error, reason, promoted} ->
+        fail_rebuild(state, reason, promoted)
+
+      {:error, reason} ->
+        _ = Sqlite3.close(conn)
+        {:error, reason, mark_dirty(state, reason)}
+    end
+  end
+
+  defp resumable_result(state, status) do
+    builder = state.control["builder"]
+
+    %{
+      status: status,
+      generation_id: builder["generation_id"],
+      document_count: builder["document_count"],
+      projection_revision: builder["projection_revision"],
+      policy_index: builder["policy_index"]
+    }
+  end
+
+  defp compatible_builder?(builder, operator_id, root) when is_map(builder) do
+    builder["operator_id"] == operator_id and
+      builder["eligibility_epoch"] == Corpus.eligibility_epoch(:search) and
+      builder["schema_version"] == Schema.schema_version() and
+      builder["tokenizer_version"] == Schema.tokenizer_version() and
+      builder["redactor_version"] == Schema.redactor_version() and
+      File.regular?(builder_path(root, builder["generation_id"]))
+  end
+
+  defp compatible_builder?(_builder, _operator_id, _root), do: false
+
+  defp discard_resumable_builder(state) do
+    case state.control["builder_generation_id"] do
+      generation_id when is_binary(generation_id) ->
+        remove_database(builder_path(state.root, generation_id))
+
+      _other ->
+        :ok
+    end
+
+    control =
+      state.control
+      |> Map.put("builder_generation_id", nil)
+      |> Map.put("builder", nil)
+
+    _ = write_control(state.root, control)
+    %{state | control: control}
+  end
+
+  defp builder_path(root, generation_id),
+    do: Path.join(root, "build-#{generation_id}.sqlite3")
 
   defp ingest_generation(state, operator_id) when is_binary(operator_id) do
     with {:ok, _meta} <- generation_meta(state.serving_conn),
@@ -349,6 +576,7 @@ defmodule AllbertAssist.Search.Projection do
       "current_generation_id" => state.control["current_generation_id"],
       "previous_generation_id" => state.control["previous_generation_id"],
       "builder_generation_id" => generation_id,
+      "builder" => nil,
       "projection_revision" => state.control["projection_revision"] || 0,
       "source_cursors" => state.control["source_cursors"] || %{},
       "dirty" => true,
@@ -448,6 +676,7 @@ defmodule AllbertAssist.Search.Projection do
         "current_generation_id" => generation_id,
         "previous_generation_id" => state.control["current_generation_id"],
         "builder_generation_id" => nil,
+        "builder" => nil,
         "projection_revision" => build.revision,
         "source_cursors" => build.source_cursors,
         "dirty" => build.source_advanced?,
@@ -455,6 +684,8 @@ defmodule AllbertAssist.Search.Projection do
     }
 
     with :ok <- write_control(state.root, control) do
+      _ = Managed.kick("search-index", "local")
+
       next = %{
         state
         | serving_conn: promoted.serving_conn,
@@ -502,6 +733,7 @@ defmodule AllbertAssist.Search.Projection do
       state.control
       |> Map.put("state", if(serving_conn, do: "degraded", else: "not_ready"))
       |> Map.put("builder_generation_id", nil)
+      |> Map.put("builder", nil)
       |> Map.put("dirty", true)
       |> Map.put("last_error_code", error_code(reason))
 
@@ -916,6 +1148,7 @@ defmodule AllbertAssist.Search.Projection do
       "current_generation_id" => nil,
       "previous_generation_id" => nil,
       "builder_generation_id" => nil,
+      "builder" => nil,
       "projection_revision" => 0,
       "source_cursors" => %{},
       "dirty" => true,
@@ -969,13 +1202,6 @@ defmodule AllbertAssist.Search.Projection do
       {:error, :eisdir} -> :ok
       {:error, reason} -> {:error, reason}
     end
-  end
-
-  defp cleanup_stale_builders(root) do
-    root
-    |> Path.join("build-*.sqlite3*")
-    |> Path.wildcard()
-    |> Enum.each(&File.rm/1)
   end
 
   defp remove_database(path) do
@@ -1080,6 +1306,73 @@ defmodule AllbertAssist.Search.Projection do
     Map.new(snapshots, fn snapshot ->
       {policy_key(snapshot.policy), encode_source_watermark(snapshot.high_water)}
     end)
+  end
+
+  defp encode_builder_snapshot(snapshot) do
+    %{
+      "operator_id" => snapshot.operator_id,
+      "policy" => %{
+        "consumer" => Atom.to_string(snapshot.policy.consumer),
+        "origin_scope" => Atom.to_string(snapshot.policy.origin_scope),
+        "e2ee" => snapshot.policy.e2ee?
+      },
+      "high_water" => encode_source_watermark(snapshot.high_water),
+      "eligibility_epoch" => snapshot.eligibility_epoch,
+      "binding" => snapshot.binding
+    }
+  end
+
+  defp decode_builder_snapshots(%{"snapshots" => snapshots}) when is_list(snapshots) do
+    Enum.reduce_while(snapshots, {:ok, []}, fn encoded, {:ok, acc} ->
+      case decode_builder_snapshot(encoded) do
+        {:ok, snapshot} -> {:cont, {:ok, [snapshot | acc]}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+    |> case do
+      {:ok, decoded} -> {:ok, Enum.reverse(decoded)}
+      error -> error
+    end
+  end
+
+  defp decode_builder_snapshots(_builder), do: {:error, :invalid_builder_state}
+
+  defp decode_builder_snapshot(encoded) when is_map(encoded) do
+    policy = encoded["policy"] || %{}
+
+    with {:ok, origin_scope} <- decode_origin_scope(policy["origin_scope"]),
+         {:ok, high_water} <- decode_high_water(encoded["high_water"]),
+         true <- is_binary(encoded["operator_id"]),
+         true <- is_integer(encoded["eligibility_epoch"]),
+         true <- is_binary(encoded["binding"]),
+         true <- policy["consumer"] == "search",
+         true <- is_boolean(policy["e2ee"]) do
+      {:ok,
+       %Corpus.Snapshot{
+         operator_id: encoded["operator_id"],
+         policy: %{consumer: :search, origin_scope: origin_scope, e2ee?: policy["e2ee"]},
+         high_water: high_water,
+         eligibility_epoch: encoded["eligibility_epoch"],
+         binding: encoded["binding"]
+       }}
+    else
+      _invalid -> {:error, :invalid_builder_state}
+    end
+  end
+
+  defp decode_builder_snapshot(_encoded), do: {:error, :invalid_builder_state}
+
+  defp decode_origin_scope("local_operator"), do: {:ok, :local_operator}
+  defp decode_origin_scope("mapped_operator_dm"), do: {:ok, :mapped_operator_dm}
+  defp decode_origin_scope(_scope), do: {:error, :invalid_builder_state}
+
+  defp decode_high_water(nil), do: {:ok, nil}
+
+  defp decode_high_water(value) do
+    case decode_source_watermark(value) do
+      %{inserted_at: inserted_at, source_id: source_id} -> {:ok, {inserted_at, source_id}}
+      _invalid -> {:error, :invalid_builder_state}
+    end
   end
 
   defp policy_key(policy),
