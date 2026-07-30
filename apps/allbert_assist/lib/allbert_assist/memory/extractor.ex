@@ -22,6 +22,8 @@ defmodule AllbertAssist.Memory.Extractor do
          {:ok, proposal} <- extract_current(current, Enum.drop(sources, -1)),
          {:ok, provenance} <-
            SpanProvenance.verify(proposal.claim, %{fields: proposal.fields}, sources) do
+      grounded_sources = grounded_sources(sources, provenance)
+
       {:ok,
        %{
          decision: proposal.decision,
@@ -31,7 +33,7 @@ defmodule AllbertAssist.Memory.Extractor do
          classification: "ordinary",
          extractor_profile: @extractor_profile,
          extractor_version: @extractor_version,
-         source_envelopes: Enum.uniq_by(sources, & &1.source_id)
+         source_envelopes: grounded_sources
        }}
     else
       {:error, reason} -> {:abstain, reason}
@@ -268,6 +270,14 @@ defmodule AllbertAssist.Memory.Extractor do
   end
 
   defp eligible_source(_source), do: {:error, :ineligible_operator_source}
+
+  defp grounded_sources(sources, provenance) do
+    ids = provenance["fields"] |> Enum.map(& &1["source_id"]) |> MapSet.new()
+
+    sources
+    |> Enum.filter(&MapSet.member?(ids, &1.source_id))
+    |> Enum.uniq_by(& &1.source_id)
+  end
 
   defp ascii_lower(value) do
     for <<byte <- value>>, into: <<>> do

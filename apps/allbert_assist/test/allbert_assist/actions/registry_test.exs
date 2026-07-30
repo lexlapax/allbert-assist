@@ -247,6 +247,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "intent_eval_add",
              "confirm_destination_memory_chain",
              "confirm_manual_memory_revision",
+             "consolidate_memory",
              "forget_memory_claim",
              "list_memory_proposals",
              "show_memory_proposal",
@@ -501,6 +502,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "intent_eval_add",
              "confirm_destination_memory_chain",
              "confirm_manual_memory_revision",
+             "consolidate_memory",
              "forget_memory_claim",
              "list_memory_proposals",
              "show_memory_proposal",
@@ -838,6 +840,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert rebuild_memory_projection.execution_mode == :memory_index_compile
 
     for name <- [
+          "consolidate_memory",
           "list_memory_proposals",
           "show_memory_proposal",
           "review_memory_proposal",
@@ -846,6 +849,10 @@ defmodule AllbertAssist.Actions.RegistryTest do
       assert {:ok, capability} = Registry.capability(name)
       assert capability.exposure == :internal
     end
+
+    assert {:ok, consolidate_memory} = Registry.capability("consolidate_memory")
+    assert consolidate_memory.permission == :memory_propose
+    assert consolidate_memory.execution_mode == :memory_propose
 
     assert rebuild_memory_projection.confirmation == :not_required
     refute rebuild_memory_projection.resumable?

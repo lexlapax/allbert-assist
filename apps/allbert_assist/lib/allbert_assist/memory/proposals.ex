@@ -29,8 +29,9 @@ defmodule AllbertAssist.Memory.Proposals do
 
   @doc "Create or find one ordinary proposal after current source authorization."
   def propose(%SourceEnvelope{} = source, attrs) when is_map(attrs) do
-    with {:ok, current} <- CollectionPolicy.reauthorize(source),
-         {:ok, normalized} <- normalize_ordinary(current, attrs),
+    with {:ok, sources} <- reauthorize_sources(source, attrs),
+         current <- List.last(sources),
+         {:ok, normalized} <- normalize_ordinary(current, sources, attrs),
          :ok <- secret_free(normalized.content),
          {:ok, false} <- Forget.suppressed_value?(normalized.value) do
       insert_bounded(normalized.attrs)
@@ -41,6 +42,34 @@ defmodule AllbertAssist.Memory.Proposals do
   end
 
   def propose(_source, _attrs), do: {:error, :invalid_proposal}
+
+  @doc "Persist one extractor result without adding a second extraction path."
+  def propose_extracted(extracted, run_id) when is_map(extracted) and is_binary(run_id) do
+    sources = Map.get(extracted, :source_envelopes, Map.get(extracted, "source_envelopes", []))
+
+    case List.last(sources) do
+      %SourceEnvelope{} = primary ->
+        propose(primary, %{
+          proposed_claim:
+            Map.get(extracted, :proposed_claim, Map.get(extracted, "proposed_claim")),
+          span_provenance:
+            Map.get(extracted, :span_provenance, Map.get(extracted, "span_provenance")),
+          category: Map.get(extracted, :category, Map.get(extracted, "category", "notes")),
+          namespace: "default",
+          run_id: run_id,
+          extractor_profile:
+            Map.get(extracted, :extractor_profile, Map.get(extracted, "extractor_profile")),
+          extractor_version:
+            Map.get(extracted, :extractor_version, Map.get(extracted, "extractor_version")),
+          source_envelopes: sources
+        })
+
+      _other ->
+        {:error, :missing_extractor_sources}
+    end
+  end
+
+  def propose_extracted(_extracted, _run_id), do: {:error, :invalid_extractor_result}
 
   @doc "Create or find a content-free protected stub after current source authorization."
   def propose_protected(%SourceEnvelope{} = source, attrs) when is_map(attrs) do
@@ -262,13 +291,13 @@ defmodule AllbertAssist.Memory.Proposals do
     |> Enum.reject(&is_nil/1)
   end
 
-  defp normalize_ordinary(source, attrs) do
+  defp normalize_ordinary(source, sources, attrs) do
     with {:ok, namespace} <- required(attrs, :namespace, "default"),
          {:ok, category} <- required(attrs, :category, "notes"),
          {:ok, claim} <- required_map(attrs, :proposed_claim),
          {:ok, value} <- required_binary(claim, :value),
          {:ok, spans} <- required_map(attrs, :span_provenance),
-         {:ok, spans} <- SpanProvenance.verify(claim, spans, [source]),
+         {:ok, spans} <- SpanProvenance.verify(claim, spans, sources),
          {:ok, run_id} <- required(attrs, :run_id),
          {:ok, extractor_profile} <- required(attrs, :extractor_profile),
          {:ok, extractor_version} <- positive_integer(attrs, :extractor_version),
@@ -276,7 +305,15 @@ defmodule AllbertAssist.Memory.Proposals do
       proposal_digest = proposal_digest(namespace, claim)
 
       result =
-        base_attrs(source, namespace, category, run_id, extractor_profile, extractor_version)
+        base_attrs(
+          source,
+          sources,
+          namespace,
+          category,
+          run_id,
+          extractor_profile,
+          extractor_version
+        )
         |> Map.merge(%{
           kind: "ordinary",
           classification: @ordinary_classification,
@@ -314,7 +351,15 @@ defmodule AllbertAssist.Memory.Proposals do
         )
 
       {:ok,
-       base_attrs(source, namespace, category, run_id, extractor_profile, extractor_version)
+       base_attrs(
+         source,
+         [source],
+         namespace,
+         category,
+         run_id,
+         extractor_profile,
+         extractor_version
+       )
        |> Map.merge(%{
          kind: "protected_stub",
          classification: classification,
@@ -322,19 +367,27 @@ defmodule AllbertAssist.Memory.Proposals do
          span_provenance: nil,
          proposal_digest: stub_digest,
          idempotency_key: idempotency_key(source, stub_digest, extractor_version),
-         source_evidence: source_evidence(source, %{"classifier_digest" => classifier_digest})
+         source_evidence: source_evidence([source], %{"classifier_digest" => classifier_digest})
        })}
     end
   end
 
-  defp base_attrs(source, namespace, category, run_id, extractor_profile, extractor_version) do
+  defp base_attrs(
+         source,
+         sources,
+         namespace,
+         category,
+         run_id,
+         extractor_profile,
+         extractor_version
+       ) do
     %{
       id: Ecto.UUID.generate(),
       operator_id: source.operator_id,
       namespace: namespace,
       category: category,
       status: "pending",
-      source_evidence: source_evidence(source),
+      source_evidence: source_evidence(sources),
       source_digest: source.content_digest,
       principal_digest: source.principal_digest,
       origin_scope: Atom.to_string(source.origin_scope),
@@ -346,21 +399,27 @@ defmodule AllbertAssist.Memory.Proposals do
     }
   end
 
-  defp source_evidence(source, extra \\ %{}) do
-    Map.merge(
-      %{
-        "schema_version" => 1,
-        "source_type" => Atom.to_string(source.source_type),
-        "source_id" => source.source_id,
-        "thread_id" => source.thread_id,
-        "content_digest" => source.content_digest,
-        "principal_digest" => source.principal_digest,
-        "origin_scope" => Atom.to_string(source.origin_scope),
-        "origin_overlays" => Enum.map(source.origin_overlays, &Atom.to_string/1),
-        "source_version" => source.source_version
-      },
-      extra
-    )
+  defp source_evidence(sources, extra \\ %{}) when is_list(sources) do
+    refs = Enum.map(sources, &source_ref/1)
+    primary = List.last(refs)
+
+    primary
+    |> Map.put("schema_version", 1)
+    |> Map.put("refs", refs)
+    |> Map.merge(extra)
+  end
+
+  defp source_ref(source) do
+    %{
+      "source_type" => Atom.to_string(source.source_type),
+      "source_id" => source.source_id,
+      "thread_id" => source.thread_id,
+      "content_digest" => source.content_digest,
+      "principal_digest" => source.principal_digest,
+      "origin_scope" => Atom.to_string(source.origin_scope),
+      "origin_overlays" => Enum.map(source.origin_overlays, &Atom.to_string/1),
+      "source_version" => source.source_version
+    }
   end
 
   defp idempotency_key(source, proposal_digest, extractor_version) do
@@ -372,6 +431,31 @@ defmodule AllbertAssist.Memory.Proposals do
         "extractor_version" => extractor_version
       })
     )
+  end
+
+  defp reauthorize_sources(source, attrs) do
+    sources =
+      Map.get(attrs, :source_envelopes, Map.get(attrs, "source_envelopes", [source]))
+
+    with true <- (is_list(sources) and sources != []) || {:error, :invalid_source_envelopes},
+         %SourceEnvelope{source_id: primary_id} <- List.last(sources),
+         true <- primary_id == source.source_id || {:error, :primary_source_mismatch} do
+      Enum.reduce_while(sources, {:ok, []}, &reauthorize_source/2)
+      |> case do
+        {:ok, current} -> {:ok, Enum.reverse(current)}
+        error -> error
+      end
+    else
+      {:error, reason} -> {:error, reason}
+      _other -> {:error, :invalid_source_envelopes}
+    end
+  end
+
+  defp reauthorize_source(candidate, {:ok, acc}) do
+    case CollectionPolicy.reauthorize(candidate) do
+      {:ok, current} -> {:cont, {:ok, [current | acc]}}
+      {:error, reason} -> {:halt, {:error, reason}}
+    end
   end
 
   defp protected_content_absent(attrs) do
