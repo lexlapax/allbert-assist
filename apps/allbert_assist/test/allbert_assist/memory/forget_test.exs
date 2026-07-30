@@ -4,6 +4,9 @@ defmodule AllbertAssist.Memory.ForgetTest do
   @moduletag :home_fs_serial
   @moduletag :global_process_serial
 
+  alias AllbertAssist.Actions.Confirmations.ApproveConfirmation
+  alias AllbertAssist.Actions.Memory.ForgetMemoryClaim
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Claims
   alias AllbertAssist.Memory.Forget
@@ -85,6 +88,73 @@ defmodule AllbertAssist.Memory.ForgetTest do
     assert {:error, :forgotten} = Claims.append(claim_id, nil, transition(value: secret_value))
 
     assert {:ok, %{status: :already_complete}} = Forget.resume(claim_id)
+  end
+
+  test "registered Forget discloses the boundary and persists no claim content in confirmation" do
+    claim_id = Ecto.UUID.generate()
+    exact_value = "forget action exact value 81273"
+    assert {:ok, _claim} = Claims.append(claim_id, nil, transition(value: exact_value))
+    {:ok, _projection} = Projection.start_link()
+    assert {:ok, _built} = Projection.rebuild()
+
+    context = %{
+      user_id: "operator:local",
+      actor: "operator:local",
+      channel: :test,
+      surface: "test"
+    }
+
+    assert {:ok, pending} =
+             ForgetMemoryClaim.run(
+               %{claim_id: claim_id, user_id: "operator:local", reason_code: "privacy"},
+               context
+             )
+
+    assert pending.status == :needs_confirmation
+    assert pending.preview["payload"]["value"] == exact_value
+    assert pending.disclosure =~ "originating conversation is retained"
+    assert pending.disclosure =~ "remains searchable"
+    assert pending.disclosure =~ "canonical conversation delete"
+    assert pending.disclosure =~ "Backups"
+
+    assert {:ok, durable} = Confirmations.read(pending.confirmation_id)
+    refute inspect(durable) =~ exact_value
+    assert get_in(durable, ["params_summary", "disclosure"]) =~ "remains searchable"
+
+    assert {:ok, approved} =
+             ApproveConfirmation.run(
+               %{id: pending.confirmation_id, reason: "destructive boundary reviewed"},
+               context
+             )
+
+    assert approved.status == :completed
+    assert approved.confirmation["status"] == "approved"
+    assert {:error, :not_found} = Claims.read(claim_id)
+    refute inspect(approved) =~ "hmac-sha256:"
+    assert {:ok, %{phase: :complete}} = Forget.recovery_status(claim_id)
+  end
+
+  test "registered Forget records approval when cleanup is pending" do
+    claim_id = Ecto.UUID.generate()
+    assert {:ok, _claim} = Claims.append(claim_id, nil, transition(value: "pending cleanup"))
+
+    context = %{
+      user_id: "operator:local",
+      actor: "operator:local",
+      channel: :test,
+      surface: "test"
+    }
+
+    assert {:ok, pending} =
+             ForgetMemoryClaim.run(%{claim_id: claim_id, user_id: "operator:local"}, context)
+
+    assert {:ok, approved} =
+             ApproveConfirmation.run(%{id: pending.confirmation_id}, context)
+
+    assert approved.confirmation["status"] == "approved"
+    assert get_in(approved, [:actions, Access.at(0), :confirmation_metadata, :target_resumed?])
+    assert {:ok, %{phase: :pending}} = Forget.recovery_status(claim_id)
+    assert {:error, :not_found} = Claims.read(claim_id)
   end
 
   test "pending Forget survives projection outage and retry completes idempotently" do

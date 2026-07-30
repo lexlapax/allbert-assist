@@ -58,6 +58,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     confirm_destination_memory_chain
     confirm_manual_memory_revision
     delete_memory_entry
+    forget_memory_claim
     prune_memory_entries
     promote_conversation_turn
     sync_app_lesson

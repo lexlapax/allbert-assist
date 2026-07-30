@@ -247,6 +247,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "intent_eval_add",
              "confirm_destination_memory_chain",
              "confirm_manual_memory_revision",
+             "forget_memory_claim",
              "list_memory_entries",
              "read_memory_entry",
              "review_memory_entry",
@@ -495,6 +496,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "intent_eval_add",
              "confirm_destination_memory_chain",
              "confirm_manual_memory_revision",
+             "forget_memory_claim",
              "list_memory_entries",
              "read_memory_entry",
              "review_memory_entry",
@@ -815,6 +817,12 @@ defmodule AllbertAssist.Actions.RegistryTest do
       assert confirmation_action.resumable?
     end
 
+    assert {:ok, forget_memory_claim} = Registry.capability("forget_memory_claim")
+    assert forget_memory_claim.permission == :memory_write
+    assert forget_memory_claim.execution_mode == :memory_forget
+    assert forget_memory_claim.confirmation == :required
+    assert forget_memory_claim.resumable?
+
     assert {:ok, sync_app_lesson} = Registry.capability("sync_app_lesson")
     assert sync_app_lesson.permission == :memory_write
     assert sync_app_lesson.execution_mode == :app_memory_sync
@@ -1090,6 +1098,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert Registry.resumable?("prune_memory_entries")
     assert Registry.resumable?("confirm_manual_memory_revision")
     assert Registry.resumable?("confirm_destination_memory_chain")
+    assert Registry.resumable?("forget_memory_claim")
     assert Registry.resumable?("promote_conversation_turn")
     assert Registry.resumable?("integrate_dynamic_draft")
     assert Registry.resumable?("rollback_dynamic_integration")

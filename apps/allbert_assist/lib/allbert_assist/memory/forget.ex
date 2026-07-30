@@ -64,6 +64,20 @@ defmodule AllbertAssist.Memory.Forget do
     end
   end
 
+  @doc "Return content-free recovery state for one verified Forget tombstone."
+  def recovery_status(claim_id) do
+    with :ok <- valid_claim_id(claim_id),
+         {:ok, tombstone} <- read_tombstone(claim_id) do
+      {:ok,
+       %{
+         claim_id: tombstone["claim_id"],
+         deleted_at: tombstone["deleted_at"],
+         reason_code: tombstone["reason_code"],
+         phase: String.to_existing_atom(tombstone["phase"])
+       }}
+    end
+  end
+
   defp resume_tombstone(%{"phase" => "complete"} = tombstone) do
     {:ok, %{status: :already_complete, tombstone: tombstone}}
   end
