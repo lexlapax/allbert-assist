@@ -92,6 +92,7 @@ defmodule AllbertAssist.Actions.Memory.ForgetMemoryClaim do
           claim_id: preview.claim_id,
           expected_tail_digest: preview.expected_tail_digest,
           reason_code: reason_code,
+          normalizer_version: 1,
           disclosure: preview.disclosure,
           user_id: user_id
         },

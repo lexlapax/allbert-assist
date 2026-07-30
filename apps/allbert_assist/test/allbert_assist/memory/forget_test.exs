@@ -121,6 +121,7 @@ defmodule AllbertAssist.Memory.ForgetTest do
     assert {:ok, durable} = Confirmations.read(pending.confirmation_id)
     refute inspect(durable) =~ exact_value
     assert get_in(durable, ["params_summary", "disclosure"]) =~ "remains searchable"
+    assert get_in(durable, ["params_summary", "normalizer_version"]) == 1
 
     assert {:ok, approved} =
              ApproveConfirmation.run(
