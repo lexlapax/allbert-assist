@@ -21,7 +21,7 @@ defmodule AllbertAssist.Memory.Projection do
   alias AllbertAssist.Runtime.WriterLock.Holder, as: WriterLockHolder
   alias Exqlite.Sqlite3
 
-  @schema_version 2
+  @schema_version 1
   @claim_normalizer_version 2
   @tombstone_normalizer_version 1
   @control_file "control.json"

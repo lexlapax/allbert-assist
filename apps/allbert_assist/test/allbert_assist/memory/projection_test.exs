@@ -89,7 +89,7 @@ defmodule AllbertAssist.Memory.ProjectionTest do
     status = Projection.status(projection)
     assert status.ready?
     assert status.control["domain"] == "memory"
-    assert status.control["schema_version"] == 2
+    assert status.control["schema_version"] == 1
     assert status.control["projection_revision"] == 0
     assert status.control["current_generation_id"] == built.generation_id
     assert status.control["builder_generation_id"] == nil
