@@ -597,7 +597,30 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert source =~ ~s("docs/plans/future-features.md")
     refute source =~ ~s("docs/plans/v0.66-plan.md")
     assert source =~ ~s(defp docs_check_plan_index)
+    assert source =~ ~s(defp docs_check_adr_index_statuses)
+    assert source =~ ~s(defp docs_check_command_group_docs)
+    assert source =~ ~s|AllbertAssist.CLI.Commands.groups()|
     assert source =~ ~s(operator/developer/design/plans indexes complete)
+  end
+
+  test "ADR index status labels match the linked ADR Status sections" do
+    root = Path.expand("../../../../..", __DIR__)
+    index = File.read!(Path.join(root, "docs/adr/README.md"))
+
+    for [basename, indexed_status] <-
+          Regex.scan(
+            ~r/\]\((\d{4}-[^)]+\.md)\) \((Accepted|Proposed|Rejected|Deprecated|Superseded)\b/,
+            index,
+            capture: :all_but_first
+          ) do
+      body = File.read!(Path.join([root, "docs/adr", basename]))
+
+      assert [_, ^indexed_status] =
+               Regex.run(
+                 ~r/^## Status\s*$\n+(?:\s*\n)*\s*(Accepted|Proposed|Rejected|Deprecated|Superseded)\b/m,
+                 body
+               )
+    end
   end
 
   test "docs gate flags version-pinned currency phrasings beyond 'current as of v'" do

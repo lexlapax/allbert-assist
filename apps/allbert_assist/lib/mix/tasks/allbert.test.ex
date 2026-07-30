@@ -318,6 +318,52 @@ defmodule Mix.Tasks.Allbert.Test do
     errors
     |> docs_check_directory_indexes(root)
     |> docs_check_plan_index(root)
+    |> docs_check_adr_index_statuses(root)
+    |> docs_check_command_group_docs(root)
+  end
+
+  defp docs_check_adr_index_statuses(errors, root) do
+    index_path = Path.join(root, "docs/adr/README.md")
+    index = File.read!(index_path)
+
+    status_errors =
+      ~r/\]\((\d{4}-[^)]+\.md)\) \((Accepted|Proposed|Rejected|Deprecated|Superseded)\b/
+      |> Regex.scan(index, capture: :all_but_first)
+      |> Enum.flat_map(fn [basename, indexed_status] ->
+        path = Path.join([root, "docs/adr", basename])
+
+        with {:ok, body} <- File.read(path),
+             [_, actual_status] <-
+               Regex.run(
+                 ~r/^## Status\s*$\n+(?:\s*\n)*\s*(Accepted|Proposed|Rejected|Deprecated|Superseded)\b/m,
+                 body
+               ),
+             true <- actual_status == indexed_status do
+          []
+        else
+          false ->
+            [
+              "docs/adr/README.md: #{basename} is indexed as #{indexed_status} but its Status differs"
+            ]
+
+          _other ->
+            ["docs/adr/README.md: cannot verify indexed status for #{basename}"]
+        end
+      end)
+
+    errors ++ status_errors
+  end
+
+  defp docs_check_command_group_docs(errors, root) do
+    mapping_path = Path.join(root, "docs/developer/cli-mapping.md")
+    mapping = File.read!(mapping_path)
+
+    missing =
+      AllbertAssist.CLI.Commands.groups()
+      |> Enum.reject(&String.contains?(mapping, "`allbert #{&1}`"))
+      |> Enum.map(&"docs/developer/cli-mapping.md: missing packaged command group allbert #{&1}")
+
+    errors ++ missing
   end
 
   defp docs_check_directory_indexes(errors, root) do

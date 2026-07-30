@@ -21,7 +21,7 @@ ADRs record binding design decisions. They are not release plans; use
 - [ADR 0086: Test global-state ownership conversion contracts](0086-test-global-state-ownership-conversion.md)
 - [ADR 0087: Zero-click first run and detection-based enablement](0087-zero-click-first-run-and-detection-based-enablement.md) (Accepted — v1.2)
 - [ADR 0088: Model catalog, chooser, and fallback/degradation policy](0088-model-catalog-chooser-and-fallback-policy.md) (Accepted — v1.2)
-- [ADR 0089: Long-term user memory architecture and consent boundary](0089-long-term-user-memory-architecture-and-consent.md) (Proposed — v1.3, final implementation-ready)
+- [ADR 0089: Long-term user memory architecture and consent boundary](0089-long-term-user-memory-architecture-and-consent.md) (Accepted — v1.3 M9.b.1, 2026-07-30)
 - [ADR 0090: Adaptive usage profiling and confirmed customization](0090-adaptive-usage-profiling-and-confirmed-customization.md) (Proposed — v1.4)
 - [ADR 0091: Daemon-backed TUI session protocol and thin terminal client](0091-daemon-backed-tui-session-protocol.md) (Accepted — v1.2.5 M0.b1)
 - [ADR 0092: Search Central and conversation FTS](0092-search-central-and-conversation-fts.md) (Proposed — v1.3, final implementation-ready)
