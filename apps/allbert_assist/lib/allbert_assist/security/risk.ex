@@ -92,6 +92,7 @@ defmodule AllbertAssist.Security.Risk do
 
   defp reasons(:search_manage, _tier, _context),
     do: ["local disposable Search projection maintenance"]
+
   defp reasons(:command_plan, _tier, _context), do: ["non-executing command planning"]
   defp reasons(:coding_file_read, _tier, _context), do: ["bounded local coding file read/search"]
   defp reasons(:coding_file_write, _tier, _context), do: ["local coding file write/edit"]

@@ -25,5 +25,6 @@ defmodule AllbertAssist.Actions.Search.IngestSearchIndex do
   alias AllbertAssist.Actions.Search.ManageProjection
 
   @impl true
-  def run(params, context), do: ManageProjection.run(:ingest, "ingest_search_index", params, context)
+  def run(params, context),
+    do: ManageProjection.run(:ingest, "ingest_search_index", params, context)
 end
