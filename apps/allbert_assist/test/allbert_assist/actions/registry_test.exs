@@ -248,6 +248,10 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "confirm_destination_memory_chain",
              "confirm_manual_memory_revision",
              "forget_memory_claim",
+             "list_memory_proposals",
+             "show_memory_proposal",
+             "review_memory_proposal",
+             "review_memory_proposal_batch",
              "list_memory_entries",
              "read_memory_entry",
              "review_memory_entry",
@@ -498,6 +502,10 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "confirm_destination_memory_chain",
              "confirm_manual_memory_revision",
              "forget_memory_claim",
+             "list_memory_proposals",
+             "show_memory_proposal",
+             "review_memory_proposal",
+             "review_memory_proposal_batch",
              "list_memory_entries",
              "read_memory_entry",
              "review_memory_entry",
@@ -828,6 +836,17 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert {:ok, rebuild_memory_projection} = Registry.capability("rebuild_memory_projection")
     assert rebuild_memory_projection.permission == :memory_write
     assert rebuild_memory_projection.execution_mode == :memory_index_compile
+
+    for name <- [
+          "list_memory_proposals",
+          "show_memory_proposal",
+          "review_memory_proposal",
+          "review_memory_proposal_batch"
+        ] do
+      assert {:ok, capability} = Registry.capability(name)
+      assert capability.exposure == :internal
+    end
+
     assert rebuild_memory_projection.confirmation == :not_required
     refute rebuild_memory_projection.resumable?
 

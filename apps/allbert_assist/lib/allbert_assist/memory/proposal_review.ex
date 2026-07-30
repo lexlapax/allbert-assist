@@ -617,7 +617,7 @@ defmodule AllbertAssist.Memory.ProposalReview do
   end
 
   defp decision_value(map, key, default \\ nil),
-    do: Map.get(map, key, Map.get(map, decision_atom(key), default))
+    do: Map.get(map, key) || Map.get(map, decision_atom(key)) || default
 
   defp decision_atom("operation"), do: :operation
   defp decision_atom("revision"), do: :revision

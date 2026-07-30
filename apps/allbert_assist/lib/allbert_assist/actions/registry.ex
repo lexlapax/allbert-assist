@@ -127,6 +127,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Memory.ForgetMemoryClaim
   alias AllbertAssist.Actions.Memory.ListMemoryCategorySummary
   alias AllbertAssist.Actions.Memory.ListMemoryEntries
+  alias AllbertAssist.Actions.Memory.ListMemoryProposals
   alias AllbertAssist.Actions.Memory.PromoteConversationTurn
   alias AllbertAssist.Actions.Memory.PruneMemoryEntries
   alias AllbertAssist.Actions.Memory.ReadMemoryEntry
@@ -134,7 +135,10 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Memory.RestoreMemoryClaim
   alias AllbertAssist.Actions.Memory.RetrieveActiveMemory
   alias AllbertAssist.Actions.Memory.ReviewMemoryEntry
+  alias AllbertAssist.Actions.Memory.ReviewMemoryProposal
+  alias AllbertAssist.Actions.Memory.ReviewMemoryProposalBatch
   alias AllbertAssist.Actions.Memory.SearchMemory
+  alias AllbertAssist.Actions.Memory.ShowMemoryProposal
   alias AllbertAssist.Actions.Memory.SummarizeMemoryCategory
   alias AllbertAssist.Actions.Memory.SyncAppLesson
   alias AllbertAssist.Actions.Memory.UpdateMemoryEntry
@@ -418,6 +422,10 @@ defmodule AllbertAssist.Actions.Registry do
     ConfirmDestinationMemoryChain,
     ConfirmManualMemoryRevision,
     ForgetMemoryClaim,
+    ListMemoryProposals,
+    ShowMemoryProposal,
+    ReviewMemoryProposal,
+    ReviewMemoryProposalBatch,
     ListMemoryEntries,
     ReadMemoryEntry,
     ReviewMemoryEntry,

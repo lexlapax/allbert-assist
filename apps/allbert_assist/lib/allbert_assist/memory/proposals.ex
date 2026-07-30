@@ -77,6 +77,26 @@ defmodule AllbertAssist.Memory.Proposals do
     |> Repo.all()
   end
 
+  @doc "Return the shared surface DTO without internal applying payloads."
+  def to_review_map(%Proposal{} = proposal) do
+    %{
+      id: proposal.id,
+      operator_id: proposal.operator_id,
+      namespace: proposal.namespace,
+      category: proposal.category,
+      kind: proposal.kind,
+      status: proposal.status,
+      classification: proposal.classification,
+      proposed_claim: review_claim(proposal),
+      revision: proposal.revision,
+      proposal_digest: proposal.proposal_digest,
+      source_ids: evidence_source_ids(proposal.source_evidence),
+      inserted_at: proposal.inserted_at,
+      reviewed_at: proposal.reviewed_at,
+      result: proposal.result
+    }
+  end
+
   @doc "Freeze an exact visible ordinary proposal set for Keep All."
   def freeze_batch(operator_id, namespace, bindings, requested_by)
       when is_binary(operator_id) and is_binary(namespace) and is_list(bindings) and
@@ -223,6 +243,23 @@ defmodule AllbertAssist.Memory.Proposals do
     if Enum.all?(proposals, &(&1.kind == "ordinary" and &1.classification == "ordinary")),
       do: :ok,
       else: {:error, :protected_proposal_not_bulk_eligible}
+  end
+
+  defp review_claim(%Proposal{kind: "protected_stub"}), do: nil
+
+  defp review_claim(%Proposal{status: status}) when status in ~w[kept rejected stale forgotten],
+    do: nil
+
+  defp review_claim(proposal), do: proposal.proposed_claim
+
+  defp evidence_source_ids(evidence) do
+    evidence = stringify(evidence)
+
+    case evidence["refs"] do
+      refs when is_list(refs) -> Enum.map(refs, & &1["source_id"])
+      _other -> [evidence["source_id"]]
+    end
+    |> Enum.reject(&is_nil/1)
   end
 
   defp normalize_ordinary(source, attrs) do
