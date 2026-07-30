@@ -251,7 +251,7 @@ defmodule Mix.Tasks.Allbert.Test do
     end
 
     Mix.shell().info(
-      "docs staleness/index check: clean (no older-version currency stamps; operator/developer/design/plans indexes complete)"
+      "docs staleness/index check: clean (currency, indexes, ADR statuses, CLI groups, and local Markdown links agree)"
     )
   end
 
@@ -320,6 +320,7 @@ defmodule Mix.Tasks.Allbert.Test do
     |> docs_check_plan_index(root)
     |> docs_check_adr_index_statuses(root)
     |> docs_check_command_group_docs(root)
+    |> docs_check_local_markdown_links(root)
   end
 
   defp docs_check_adr_index_statuses(errors, root) do
@@ -364,6 +365,55 @@ defmodule Mix.Tasks.Allbert.Test do
       |> Enum.map(&"docs/developer/cli-mapping.md: missing packaged command group allbert #{&1}")
 
     errors ++ missing
+  end
+
+  defp docs_check_local_markdown_links(errors, root) do
+    active_files =
+      (["README.md", "docs/README.md", "docs/adr/README.md"] ++
+         Enum.flat_map(@docs_active_index_dirs, &docs_active_md(root, &1)) ++
+         @docs_active_plan_files)
+      |> Enum.uniq()
+      |> Enum.filter(&File.regular?(Path.join(root, &1)))
+
+    link_errors =
+      Enum.flat_map(active_files, fn rel ->
+        body = File.read!(Path.join(root, rel))
+
+        ~r/\[[^\]]*\]\((<?[^)\n]+?\.md(?:#[^)\s>]*)?>?)(?:\s+["'][^)]*["'])?\)/
+        |> Regex.scan(body, capture: :all_but_first)
+        |> Enum.flat_map(fn [destination] ->
+          target =
+            destination
+            |> String.trim()
+            |> String.trim_leading("<")
+            |> String.trim_trailing(">")
+            |> String.split("#", parts: 2)
+            |> hd()
+            |> URI.decode()
+
+          resolved =
+            cond do
+              URI.parse(target).scheme != nil ->
+                :external
+
+              String.starts_with?(target, "/") ->
+                Path.join(root, String.trim_leading(target, "/"))
+
+              true ->
+                Path.expand(target, Path.dirname(Path.join(root, rel)))
+            end
+
+          if resolved == :external or
+               (File.regular?(resolved) and
+                  (resolved == root or String.starts_with?(resolved, root <> "/"))) do
+            []
+          else
+            ["#{rel}: local Markdown link does not resolve: #{destination}"]
+          end
+        end)
+      end)
+
+    errors ++ link_errors
   end
 
   defp docs_check_directory_indexes(errors, root) do

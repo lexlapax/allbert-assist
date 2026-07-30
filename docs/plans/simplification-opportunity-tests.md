@@ -2,6 +2,11 @@
 
 Survey date: 2026-07-29. Baseline commit: `c7ee5a29`.
 
+> **Historical snapshot only.** This baseline predates the v1.3 Search and
+> Memory test additions and is not an actionable current inventory. Re-run the
+> documented method against the current clean SHA before deleting or rewriting
+> tests; all counts and classifications below describe only the frozen baseline.
+
 This is a findings document, not a milestone plan. It records which tests carry no
 regression value and what removing or strengthening them would target. Nothing
 here is scheduled; scope decisions belong in the roadmap and the active version

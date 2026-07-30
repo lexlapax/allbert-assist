@@ -2,6 +2,14 @@
 
 Survey date: 2026-07-29. Baseline commit: `c7ee5a29`.
 
+> **Historical snapshot only.** This baseline predates the v1.3 Search
+> subsystem and is not an actionable current inventory. Re-run the documented
+> method against the current clean SHA before changing code. A 2026-07-30
+> reconciliation found at least one false positive:
+> `Paths.search_projection_root/0` is called by `Search.Projection`. It is
+> removed from the candidate table below; the baseline counts remain historical
+> and must not be used as current totals.
+
 This is a findings document, not a milestone plan. It records code that is
 unreachable or unreferenced and could be removed. Nothing here has been deleted;
 nothing here is scheduled. Scope decisions belong in the roadmap and the active
@@ -40,8 +48,9 @@ re-running this analysis will hit the same traps.
 | Whole-line skip on `def` lines hid callers inside one-line `def f, do: g()` bodies | 10 |
 | `defdelegate ... as: :target` call sites not treated as references | 2 |
 
-Every surviving candidate in section 3 was then verified individually by grep
-showing only its own `def` and `@spec` lines. Spot-check before deleting anyway.
+The baseline survey reported every surviving candidate as individually verified.
+The later false positive shows that claim is not sufficient for current action;
+re-run and inspect every call site before deleting anything.
 
 ## Summary
 
@@ -50,7 +59,7 @@ showing only its own `def` and `@spec` lines. Spot-check before deleting anyway.
 | Modules defined in `lib` | 1,173 |
 | Dead modules | **1** |
 | Public functions considered | 3,384 |
-| Dead public functions | **22** |
+| Historical dead-public-function candidates | **22 reported; 21 after known correction** |
 | Compiler-flagged unreachable clauses | **1** (needs reconciliation, see §2) |
 | Production functions referenced only by tests | 74 |
 
@@ -137,9 +146,10 @@ the clause would then paper over a real error path rather than remove dead code.
 
 ---
 
-## 3. Dead public functions — 22
+## 3. Historical dead-public-function candidates — 21 after one correction
 
-Each verified by grep showing only its own `def` and `@spec` lines.
+These are historical candidates after removing the known false positive, not a
+current verified deletion list.
 
 ### Core app — 14
 
@@ -152,7 +162,6 @@ Each verified by grep showing only its own `def` and `@spec` lines.
 | `Health.healthy?/0` | `health.ex:35` |
 | `Intent.Engine.annotate_response/1` | `intent/engine.ex:144` |
 | `Objectives.Proposer.proposer_for/1` | `objectives/proposer.ex:66` |
-| `Paths.search_projection_root/0` | `paths.ex:168` |
 | `PublicProtocol.OpenAI.Mapping.sse_payload/1` | `public_protocol/openai/mapping.ex:146` |
 | `PublicProtocol.TokenAuth.allowed_surface?/1` | `public_protocol/token_auth.ex:111` |
 | `Settings.ModelRuntime.provider_string/1` | `settings/model_runtime.ex:73` |
@@ -160,10 +169,9 @@ Each verified by grep showing only its own `def` and `@spec` lines.
 | `Surface.Catalog.renderer_components/0` | `surface/catalog.ex:285` |
 | `Tools.Finder.find_local/2` | `tools/finder.ex:17` |
 
-**Care point on `Paths.search_projection_root/0`.** Its siblings are not dead:
-`memory_projection_root/0` has 16 call sites and `projections_root/0` is called
-by both. Only the search half is unused. Removing the projections family
-wholesale would break the Memory projection.
+**Correction on `Paths.search_projection_root/0`.** This was a false positive
+at the frozen baseline: the v1.3 Search projection calls it. It is not a removal
+candidate. Its siblings are also live; do not remove the projections family.
 
 ### Web — 1
 
@@ -262,7 +270,7 @@ If this work is scheduled, the safe order is:
    the residual-risk section above.
 5. **Leave the 74 test-only functions alone** pending their own pass (§4).
 
-Total removable on current evidence: roughly 22 lines of module plus 22 function
+Total removable in the original survey estimate: roughly 22 lines of module plus 22 function
 definitions. This is a small cleanup. It is documented not because the payoff is
 large but because the absence of dead code is itself a useful finding — future
 sweeps can start from this baseline rather than re-deriving it, and the analyzer

@@ -599,8 +599,9 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert source =~ ~s(defp docs_check_plan_index)
     assert source =~ ~s(defp docs_check_adr_index_statuses)
     assert source =~ ~s(defp docs_check_command_group_docs)
+    assert source =~ ~s(defp docs_check_local_markdown_links)
     assert source =~ ~s|AllbertAssist.CLI.Commands.groups()|
-    assert source =~ ~s(operator/developer/design/plans indexes complete)
+    assert source =~ ~s(local Markdown links agree)
   end
 
   test "ADR index status labels match the linked ADR Status sections" do

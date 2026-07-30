@@ -2,6 +2,11 @@
 
 Survey date: 2026-07-29. Baseline commit: `c7ee5a29`.
 
+> **Historical snapshot only.** This baseline predates the v1.3 Search and
+> Memory implementation and is not an actionable current inventory. Re-run the
+> documented method against the current clean SHA before consolidating code;
+> all counts and rankings below describe only the frozen baseline.
+
 This is a findings document, not a milestone plan. It records where duplicated and
 near-duplicated abstractions live in the codebase and what a consolidation would
 target. Nothing here is scheduled; scope decisions belong in the roadmap and the
