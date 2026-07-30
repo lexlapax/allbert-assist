@@ -2042,7 +2042,7 @@
     {
       "id": "beam-lock",
       "path": "mix.lock",
-      "sha256": "4ef08f939db270f74155f0753c7de563d0c4403329a6c93a6d0e28c56c3a3958"
+      "sha256": "a039a7a8eccb65880a7d0247012572c911736161afcae5711fe48188061e1f24"
     },
     {
       "id": "browser-bridge-lock",
