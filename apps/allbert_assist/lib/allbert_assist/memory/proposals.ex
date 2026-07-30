@@ -1,0 +1,321 @@
+defmodule AllbertAssist.Memory.Proposals do
+  @moduledoc """
+  Inert review-state storage for Memory proposals.
+
+  This context is deliberately not a GenServer. The existing application Repo
+  owns proposal transactions, while `Memory.Claims` remains the sole authority
+  for kept claims. Every conversation admission reauthorizes through Corpus;
+  no proposal, batch, or suppression grants claim mutation authority.
+  """
+
+  import Ecto.Query
+
+  alias AllbertAssist.Conversations.SourceEnvelope
+  alias AllbertAssist.Memory.Claims.Format
+  alias AllbertAssist.Memory.CollectionPolicy
+  alias AllbertAssist.Memory.Forget
+  alias AllbertAssist.Memory.Proposals.Proposal
+  alias AllbertAssist.Memory.Proposals.Suppression
+  alias AllbertAssist.Memory.SecretFilter
+  alias AllbertAssist.Repo
+
+  @normalizer_version 1
+  @pending_cap 50
+  @digest_pattern ~r/^sha256:[0-9a-f]{64}$/
+  @ordinary_classification "ordinary"
+  @protected_classifications ~w[protected_third_party protected_minor protected_dependent]
+
+  @doc "Create or find one ordinary proposal after current source authorization."
+  def propose(%SourceEnvelope{} = source, attrs) when is_map(attrs) do
+    with {:ok, current} <- CollectionPolicy.reauthorize(source),
+         {:ok, normalized} <- normalize_ordinary(current, attrs),
+         :ok <- secret_free(normalized.content),
+         {:ok, false} <- Forget.suppressed_value?(normalized.value) do
+      insert_bounded(normalized.attrs)
+    else
+      {:ok, true} -> {:error, :forgotten_value_suppressed}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def propose(_source, _attrs), do: {:error, :invalid_proposal}
+
+  @doc "Create or find a content-free protected stub after current source authorization."
+  def propose_protected(%SourceEnvelope{} = source, attrs) when is_map(attrs) do
+    with {:ok, current} <- CollectionPolicy.reauthorize(source),
+         {:ok, normalized} <- normalize_protected(current, attrs) do
+      insert_bounded(normalized)
+    end
+  end
+
+  def propose_protected(_source, _attrs), do: {:error, :invalid_protected_proposal}
+
+  @doc "Count only active review/apply rows for one operator namespace."
+  def pending_count(operator_id, namespace \\ "default") do
+    Proposal
+    |> where(
+      [proposal],
+      proposal.operator_id == ^operator_id and proposal.namespace == ^namespace and
+        proposal.status in ["pending", "applying"]
+    )
+    |> Repo.aggregate(:count)
+  end
+
+  @doc "List proposal rows without fetching or caching conversation excerpts."
+  def list(operator_id, namespace \\ "default", opts \\ []) do
+    statuses = Keyword.get(opts, :statuses, ["pending", "applying"])
+
+    Proposal
+    |> where(
+      [proposal],
+      proposal.operator_id == ^operator_id and proposal.namespace == ^namespace and
+        proposal.status in ^statuses
+    )
+    |> order_by([proposal], asc: proposal.inserted_at, asc: proposal.id)
+    |> Repo.all()
+  end
+
+  @doc false
+  def proposal_digest(namespace, claim) do
+    digest(
+      Format.canonical_json(%{
+        "normalizer_version" => @normalizer_version,
+        "namespace" => namespace,
+        "claim" => claim
+      })
+    )
+  end
+
+  defp insert_bounded(attrs) do
+    Repo.transaction(
+      fn ->
+        case existing(attrs) do
+          %Proposal{} = proposal ->
+            %{outcome: :existing, proposal: proposal}
+
+          nil ->
+            insert_new(attrs)
+        end
+      end,
+      mode: :immediate
+    )
+  end
+
+  defp insert_new(attrs) do
+    cond do
+      suppressed?(attrs) ->
+        Repo.rollback(:unchanged_reject_suppressed)
+
+      pending_count(attrs.operator_id, attrs.namespace) >= @pending_cap ->
+        Repo.rollback(:pending_cap_reached)
+
+      true ->
+        %Proposal{}
+        |> Proposal.changeset(attrs)
+        |> Repo.insert()
+        |> case do
+          {:ok, proposal} -> %{outcome: :created, proposal: proposal}
+          {:error, changeset} -> Repo.rollback(changeset)
+        end
+    end
+  end
+
+  defp existing(attrs) do
+    Repo.one(
+      from(proposal in Proposal,
+        where:
+          proposal.operator_id == ^attrs.operator_id and
+            proposal.namespace == ^attrs.namespace and
+            proposal.idempotency_key == ^attrs.idempotency_key,
+        limit: 1
+      )
+    )
+  end
+
+  defp suppressed?(attrs) do
+    Repo.exists?(
+      from(suppression in Suppression,
+        where:
+          suppression.operator_id == ^attrs.operator_id and
+            suppression.namespace == ^attrs.namespace and
+            suppression.proposal_digest == ^attrs.proposal_digest and
+            suppression.source_digest == ^attrs.source_digest and
+            suppression.normalizer_version == ^@normalizer_version
+      )
+    )
+  end
+
+  defp normalize_ordinary(source, attrs) do
+    with {:ok, namespace} <- required(attrs, :namespace, "default"),
+         {:ok, category} <- required(attrs, :category, "notes"),
+         {:ok, claim} <- required_map(attrs, :proposed_claim),
+         {:ok, value} <- required_binary(claim, :value),
+         {:ok, spans} <- required_map(attrs, :span_provenance),
+         {:ok, run_id} <- required(attrs, :run_id),
+         {:ok, extractor_profile} <- required(attrs, :extractor_profile),
+         {:ok, extractor_version} <- positive_integer(attrs, :extractor_version),
+         :ok <- validate_digest(source.content_digest) do
+      proposal_digest = proposal_digest(namespace, claim)
+
+      result =
+        base_attrs(source, namespace, category, run_id, extractor_profile, extractor_version)
+        |> Map.merge(%{
+          kind: "ordinary",
+          classification: @ordinary_classification,
+          proposed_claim: claim,
+          span_provenance: spans,
+          proposal_digest: proposal_digest,
+          idempotency_key: idempotency_key(source, proposal_digest, extractor_version)
+        })
+
+      {:ok, %{attrs: result, value: value, content: [claim, spans]}}
+    end
+  end
+
+  defp normalize_protected(source, attrs) do
+    with {:ok, namespace} <- required(attrs, :namespace, "default"),
+         {:ok, category} <- required(attrs, :category, "notes"),
+         {:ok, classification} <- required(attrs, :classification),
+         true <- classification in @protected_classifications || {:error, :invalid_classification},
+         {:ok, classifier_digest} <- required(attrs, :classifier_digest),
+         :ok <- validate_digest(classifier_digest),
+         {:ok, run_id} <- required(attrs, :run_id),
+         {:ok, extractor_profile} <- required(attrs, :extractor_profile),
+         {:ok, extractor_version} <- positive_integer(attrs, :extractor_version),
+         :ok <- protected_content_absent(attrs),
+         :ok <- validate_digest(source.content_digest) do
+      stub_digest =
+        digest(
+          Format.canonical_json(%{
+            "normalizer_version" => @normalizer_version,
+            "namespace" => namespace,
+            "classification" => classification,
+            "classifier_digest" => classifier_digest,
+            "source_digest" => source.content_digest
+          })
+        )
+
+      {:ok,
+       base_attrs(source, namespace, category, run_id, extractor_profile, extractor_version)
+       |> Map.merge(%{
+         kind: "protected_stub",
+         classification: classification,
+         proposed_claim: nil,
+         span_provenance: nil,
+         proposal_digest: stub_digest,
+         idempotency_key: idempotency_key(source, stub_digest, extractor_version),
+         source_evidence: source_evidence(source, %{"classifier_digest" => classifier_digest})
+       })}
+    end
+  end
+
+  defp base_attrs(source, namespace, category, run_id, extractor_profile, extractor_version) do
+    %{
+      id: Ecto.UUID.generate(),
+      operator_id: source.operator_id,
+      namespace: namespace,
+      category: category,
+      status: "pending",
+      source_evidence: source_evidence(source),
+      source_digest: source.content_digest,
+      principal_digest: source.principal_digest,
+      origin_scope: Atom.to_string(source.origin_scope),
+      extractor_profile: extractor_profile,
+      extractor_version: extractor_version,
+      run_id: run_id,
+      revision: 1,
+      result: %{}
+    }
+  end
+
+  defp source_evidence(source, extra \\ %{}) do
+    Map.merge(
+      %{
+        "schema_version" => 1,
+        "source_type" => Atom.to_string(source.source_type),
+        "source_id" => source.source_id,
+        "thread_id" => source.thread_id,
+        "content_digest" => source.content_digest,
+        "principal_digest" => source.principal_digest,
+        "origin_scope" => Atom.to_string(source.origin_scope),
+        "origin_overlays" => Enum.map(source.origin_overlays, &Atom.to_string/1),
+        "source_version" => source.source_version
+      },
+      extra
+    )
+  end
+
+  defp idempotency_key(source, proposal_digest, extractor_version) do
+    digest(
+      Format.canonical_json(%{
+        "source_id" => source.source_id,
+        "source_digest" => source.content_digest,
+        "proposal_digest" => proposal_digest,
+        "extractor_version" => extractor_version
+      })
+    )
+  end
+
+  defp protected_content_absent(attrs) do
+    content_keys = [:proposed_claim, "proposed_claim", :span_provenance, "span_provenance"]
+
+    if Enum.all?(content_keys, &is_nil(Map.get(attrs, &1))),
+      do: :ok,
+      else: {:error, :protected_stub_content_forbidden}
+  end
+
+  defp required(attrs, key, fallback \\ nil) do
+    value = Map.get(attrs, key, Map.get(attrs, Atom.to_string(key), fallback))
+
+    if is_binary(value) and String.trim(value) != "",
+      do: {:ok, String.trim(value)},
+      else: {:error, {:missing_or_invalid, key}}
+  end
+
+  defp required_map(attrs, key) do
+    value = Map.get(attrs, key, Map.get(attrs, Atom.to_string(key)))
+
+    if is_map(value) and map_size(value) > 0,
+      do: {:ok, stringify(value)},
+      else: {:error, {:missing_or_invalid, key}}
+  end
+
+  defp required_binary(attrs, key) do
+    value = Map.get(attrs, key, Map.get(attrs, Atom.to_string(key)))
+
+    if is_binary(value) and String.trim(value) != "",
+      do: {:ok, String.trim(value)},
+      else: {:error, {:missing_or_invalid, key}}
+  end
+
+  defp positive_integer(attrs, key) do
+    value = Map.get(attrs, key, Map.get(attrs, Atom.to_string(key)))
+
+    if is_integer(value) and value > 0,
+      do: {:ok, value},
+      else: {:error, {:missing_or_invalid, key}}
+  end
+
+  defp validate_digest(value) do
+    if is_binary(value) and Regex.match?(@digest_pattern, value),
+      do: :ok,
+      else: {:error, :invalid_digest}
+  end
+
+  defp secret_free(value) do
+    if SecretFilter.secret_bearing?(value), do: {:error, :secret_filtered}, else: :ok
+  end
+
+  defp stringify(map) when is_map(map),
+    do: Map.new(map, fn {key, value} -> {to_string(key), stringify(value)} end)
+
+  defp stringify(list) when is_list(list), do: Enum.map(list, &stringify/1)
+
+  defp stringify(atom) when is_atom(atom) and atom not in [true, false, nil],
+    do: Atom.to_string(atom)
+
+  defp stringify(value), do: value
+
+  defp digest(value),
+    do: "sha256:" <> (:crypto.hash(:sha256, value) |> Base.encode16(case: :lower))
+end
