@@ -5,10 +5,10 @@ defmodule AllbertAssist.Memory.Index do
 
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Entry
+  alias AllbertAssist.Memory.Lexical
 
   @header "# DERIVED - DO NOT EDIT"
   @index_file ".index.json"
-  @stop_words ~w[a an and are about do for from in is me my of on the to what you]
 
   @doc "Return the memory index path for a root."
   @spec path(String.t()) :: String.t()
@@ -126,15 +126,7 @@ defmodule AllbertAssist.Memory.Index do
 
   @doc "Tokenize search text for index matching."
   @spec tokens(String.t()) :: [String.t()]
-  def tokens(text) when is_binary(text) do
-    text
-    |> String.downcase()
-    |> String.split(~r/[^a-z0-9]+/, trim: true)
-    |> Enum.reject(&(&1 in @stop_words))
-    |> Enum.uniq()
-  end
-
-  def tokens(_text), do: []
+  defdelegate tokens(text), to: Lexical, as: :terms
 
   defp index_entry(%Entry{} = entry) do
     haystack = Enum.join([entry.summary, entry.body, Atom.to_string(entry.category)], " ")

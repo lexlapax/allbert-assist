@@ -44,6 +44,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   @default_answerer __MODULE__.ReqLLMAnswerer
   @fallback_source :bounded_fallback
   @max_reason_bytes 240
+  @max_active_memory_prompt_bytes 8_000
 
   @impl true
   def run(%{text: text}, context) do
@@ -335,10 +336,12 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
 
     case Runner.run("retrieve_active_memory", params, context) do
       {:ok, %{status: :completed, active_memory: active_memory}} ->
-        active_memory
+        enforce_memory_prompt_budget(active_memory)
 
       {:ok, %{active_memory: active_memory}} when is_map(active_memory) ->
-        Map.merge(empty_active_memory(), active_memory)
+        empty_active_memory()
+        |> Map.merge(active_memory)
+        |> enforce_memory_prompt_budget()
 
       _other ->
         empty_active_memory()
@@ -356,9 +359,63 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
       candidate_count_after_filter: 0,
       chunks: [],
       retrieved_chunks: [],
-      excluded_chunks_sample: []
+      excluded_chunks_sample: [],
+      prompt_budget_bytes: @max_active_memory_prompt_bytes,
+      prompt_bytes: 0,
+      prompt_truncated?: false
     }
   end
+
+  defp enforce_memory_prompt_budget(active_memory) do
+    original_chunks = Map.get(active_memory, :chunks, [])
+
+    {chunks, prompt_bytes} =
+      Enum.reduce_while(original_chunks, {[], 0}, fn chunk, {bounded, used} ->
+        reduce_prompt_chunk(chunk, bounded, used)
+      end)
+
+    active_memory
+    |> Map.put(:chunks, chunks)
+    |> Map.put(:prompt_budget_bytes, @max_active_memory_prompt_bytes)
+    |> Map.put(:prompt_bytes, prompt_bytes)
+    |> Map.put(:prompt_truncated?, chunks != original_chunks)
+  end
+
+  defp reduce_prompt_chunk(chunk, bounded, used) do
+    body = Map.get(chunk, :body, "")
+
+    case bounded_body(body, @max_active_memory_prompt_bytes - used) do
+      "" ->
+        {:halt, {bounded, used}}
+
+      bounded_body ->
+        bytes = byte_size(bounded_body)
+        next = {bounded ++ [Map.put(chunk, :body, bounded_body)], used + bytes}
+        if bytes < byte_size(body), do: {:halt, next}, else: {:cont, next}
+    end
+  end
+
+  defp bounded_body(_body, remaining) when remaining <= 0, do: ""
+
+  defp bounded_body(body, remaining) when is_binary(body) and byte_size(body) <= remaining,
+    do: body
+
+  defp bounded_body(body, remaining) when is_binary(body) do
+    body
+    |> String.graphemes()
+    |> Enum.reduce_while({[], 0}, fn grapheme, {graphemes, used} ->
+      size = byte_size(grapheme)
+
+      if used + size <= remaining,
+        do: {:cont, {[grapheme | graphemes], used + size}},
+        else: {:halt, {graphemes, used}}
+    end)
+    |> elem(0)
+    |> Enum.reverse()
+    |> IO.iodata_to_binary()
+  end
+
+  defp bounded_body(_body, _remaining), do: ""
 
   defp resolution_metadata(resolution) do
     %{

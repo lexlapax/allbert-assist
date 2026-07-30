@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
 
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Memory
+  alias AllbertAssist.Memory.Projection
   alias AllbertAssist.Models.FallbackAudit
   alias AllbertAssist.Paths
   alias AllbertAssist.Resources.ImageMetadata
@@ -48,6 +49,13 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     end
   end
 
+  defmodule BudgetAnswerer do
+    def answer(_text, %{active_memory: chunks}) do
+      send(self(), {:active_memory_prompt, chunks})
+      {:ok, %{message: "Bounded memory prompt", diagnostic: %{status: :used}}}
+    end
+  end
+
   setup do
     original_home = System.get_env("ALLBERT_HOME")
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -66,7 +74,11 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     Application.delete_env(:allbert_assist, Memory)
     Application.delete_env(:allbert_assist, Settings)
 
+    {:ok, projection} =
+      Projection.start_link(root: Paths.memory_projection_root(), name: nil)
+
     on_exit(fn ->
+      if Process.alive?(projection), do: GenServer.stop(projection)
       restore_home(original_home)
       restore_env(Paths, original_paths_config)
       restore_env(Memory, original_memory_config)
@@ -75,7 +87,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
       File.rm_rf!(home)
     end)
 
-    :ok
+    {:ok, projection: projection}
   end
 
   test "disabled model path returns bounded side-effect-free fallback without echoing" do
@@ -146,7 +158,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     assert response.direct_answer.model_resolution.diagnostics == []
   end
 
-  test "enabled model path receives bounded active memory context" do
+  test "enabled model path receives bounded active memory context", %{projection: projection} do
     Application.put_env(:allbert_assist, DirectAnswer, answerer: MemoryAwareAnswerer)
 
     assert {:ok, _setting} =
@@ -172,12 +184,15 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
                user_id: "alice"
              )
 
+    assert {:ok, _build} = Projection.rebuild(projection)
+
     assert {:ok, response} =
              DirectAnswer.run(%{text: "How should reports be written?"}, %{
                actor: "alice",
                user_id: "alice",
                thread_id: "thr_direct_answer",
-               request_started_at: "2026-05-28T12:00:00Z"
+               request_started_at: "2026-05-28T12:00:00Z",
+               memory_projection: projection
              })
 
     assert response.status == :completed
@@ -190,6 +205,38 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
 
     assert chunk.recency_decay == 0.5
     refute Map.has_key?(chunk, :body)
+  end
+
+  test "text insertion enforces the shared 8000-byte Active Memory ceiling", %{
+    projection: projection
+  } do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: BudgetAnswerer)
+
+    assert {:ok, _setting} =
+             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+
+    for index <- 1..5 do
+      body = "budget #{index} " <> String.duplicate("x", 1_991)
+      assert byte_size(body) == 2_000
+      assert {:ok, entry} = append_kept("alice", body)
+      assert entry.review_status == :kept
+    end
+
+    assert {:ok, _build} = Projection.rebuild(projection)
+
+    assert {:ok, response} =
+             DirectAnswer.run(%{text: "Use the budget memory"}, %{
+               actor: "alice",
+               user_id: "alice",
+               request_started_at: "2026-07-29T12:00:00Z",
+               memory_projection: projection
+             })
+
+    assert_receive {:active_memory_prompt, chunks}
+    assert Enum.sum(Enum.map(chunks, &byte_size(&1.body))) == 8_000
+    assert response.direct_answer.active_memory.prompt_budget_bytes == 8_000
+    assert response.direct_answer.active_memory.prompt_bytes == 8_000
+    assert response.direct_answer.active_memory.prompt_truncated?
   end
 
   test "enabled vision path resolves vision_input and redacts image metadata" do
@@ -357,6 +404,24 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     assert_receive {:provider_called, "local"}
     assert_receive {:provider_called, "fast"}
     refute_receive {:provider_called, "anthropic_fast"}
+  end
+
+  defp append_kept(actor, body) do
+    with {:ok, entry} <-
+           Memory.append(%{
+             category: :notes,
+             body: body,
+             actor: actor,
+             agent: "direct-answer-test",
+             channel: :test,
+             source_signal_id: "budget"
+           }) do
+      Memory.review_entry(
+        entry.path,
+        %{status: :kept, reviewed_by: actor, reviewed_at: "2026-07-29T10:00:00Z"},
+        user_id: actor
+      )
+    end
   end
 
   defp enable_text_chain!(profiles \\ ["local", "fast"]) do

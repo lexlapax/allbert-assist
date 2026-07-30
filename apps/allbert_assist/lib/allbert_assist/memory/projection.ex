@@ -15,13 +15,14 @@ defmodule AllbertAssist.Memory.Projection do
   alias AllbertAssist.Memory.Claims
   alias AllbertAssist.Memory.Entry
   alias AllbertAssist.Memory.Forget
+  alias AllbertAssist.Memory.Lexical
   alias AllbertAssist.Paths
   alias AllbertAssist.Projection.PromoteProtocol
   alias AllbertAssist.Runtime.WriterLock.Holder, as: WriterLockHolder
   alias Exqlite.Sqlite3
 
-  @schema_version 1
-  @claim_normalizer_version 1
+  @schema_version 2
+  @claim_normalizer_version 2
   @tombstone_normalizer_version 1
   @control_file "control.json"
 
@@ -554,34 +555,52 @@ defmodule AllbertAssist.Memory.Projection do
   end
 
   defp insert_row(conn, row) do
-    execute_bound(
-      conn,
-      "INSERT INTO claim_revisions " <>
-        "(claim_id, sequence, revision_digest, state, recorded_at, valid_from, valid_to, " <>
-        "actor, action, value, source_path, operator_id, namespace, category, app_id, origin, " <>
-        "source_ref, summary, search_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      [
-        row.claim_id,
-        row.sequence,
-        row.revision_digest,
-        row.state,
-        row.recorded_at,
-        row.valid_from,
-        row.valid_to,
-        row.actor,
-        row.action,
-        row.value,
-        row.source_path,
-        row.operator_id,
-        row.namespace,
-        row.category,
-        row.app_id,
-        row.origin,
-        row.source_ref,
-        row.summary,
-        String.downcase(Enum.join([row.summary, row.value, row.category], " "))
-      ]
-    )
+    search_text = String.downcase(Enum.join([row.summary, row.value, row.category], " "))
+
+    with :ok <-
+           execute_bound(
+             conn,
+             "INSERT INTO claim_revisions " <>
+               "(claim_id, sequence, revision_digest, state, recorded_at, valid_from, valid_to, " <>
+               "actor, action, value, source_path, operator_id, namespace, category, app_id, origin, " <>
+               "source_ref, summary, search_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+             [
+               row.claim_id,
+               row.sequence,
+               row.revision_digest,
+               row.state,
+               row.recorded_at,
+               row.valid_from,
+               row.valid_to,
+               row.actor,
+               row.action,
+               row.value,
+               row.source_path,
+               row.operator_id,
+               row.namespace,
+               row.category,
+               row.app_id,
+               row.origin,
+               row.source_ref,
+               row.summary,
+               search_text
+             ]
+           ) do
+      insert_terms(conn, row.claim_id, row.sequence, Lexical.terms(search_text))
+    end
+  end
+
+  defp insert_terms(conn, claim_id, sequence, terms) do
+    Enum.reduce_while(terms, :ok, fn term, :ok ->
+      case execute_bound(
+             conn,
+             "INSERT INTO claim_terms (term, claim_id, sequence) VALUES (?, ?, ?)",
+             [term, claim_id, sequence]
+           ) do
+        :ok -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
   end
 
   defp refresh_canonical_claim(state, claim_id) do
@@ -613,7 +632,9 @@ defmodule AllbertAssist.Memory.Projection do
   end
 
   defp delete_claim_rows(conn, claim_id) do
-    execute_bound(conn, "DELETE FROM claim_revisions WHERE claim_id = ?", [claim_id])
+    with :ok <- execute_bound(conn, "DELETE FROM claim_terms WHERE claim_id = ?", [claim_id]) do
+      execute_bound(conn, "DELETE FROM claim_revisions WHERE claim_id = ?", [claim_id])
+    end
   end
 
   defp increment_revision(conn) do
@@ -658,6 +679,10 @@ defmodule AllbertAssist.Memory.Projection do
         "operator_id TEXT, namespace TEXT, category TEXT NOT NULL, app_id TEXT, origin TEXT, " <>
         "source_ref TEXT, summary TEXT NOT NULL, search_text TEXT NOT NULL," <>
         "PRIMARY KEY (claim_id, sequence));" <>
+        "CREATE TABLE claim_terms (" <>
+        "term TEXT NOT NULL, claim_id TEXT NOT NULL, sequence INTEGER NOT NULL," <>
+        "PRIMARY KEY (term, claim_id, sequence));" <>
+        "CREATE INDEX claim_terms_revision_idx ON claim_terms (claim_id, sequence);" <>
         "CREATE INDEX claim_revisions_current_idx ON claim_revisions " <>
         "(claim_id, recorded_at DESC, sequence DESC);" <>
         "CREATE INDEX claim_revisions_temporal_idx ON claim_revisions " <>
@@ -716,12 +741,15 @@ defmodule AllbertAssist.Memory.Projection do
         source_path operator_id namespace category app_id origin source_ref summary search_text
       ])
 
-    with {:ok, rows} <- query_all(conn, "PRAGMA table_info(claim_revisions)", []) do
+    with {:ok, rows} <- query_all(conn, "PRAGMA table_info(claim_revisions)", []),
+         {:ok, term_rows} <- query_all(conn, "PRAGMA table_info(claim_terms)", []) do
       actual = rows |> Enum.map(&Enum.at(&1, 1)) |> MapSet.new()
+      actual_terms = term_rows |> Enum.map(&Enum.at(&1, 1)) |> MapSet.new()
 
-      if MapSet.subset?(required, actual),
-        do: :ok,
-        else: {:error, :memory_projection_schema_incomplete}
+      if MapSet.subset?(required, actual) and
+           MapSet.subset?(MapSet.new(~w[term claim_id sequence]), actual_terms),
+         do: :ok,
+         else: {:error, :memory_projection_schema_incomplete}
     end
   end
 
@@ -857,8 +885,7 @@ defmodule AllbertAssist.Memory.Projection do
     terms =
       terms
       |> Enum.filter(&is_binary/1)
-      |> Enum.map(&String.downcase/1)
-      |> Enum.reject(&(&1 == ""))
+      |> Enum.flat_map(&Lexical.terms/1)
       |> Enum.uniq()
       |> Enum.take(32)
 
@@ -867,31 +894,59 @@ defmodule AllbertAssist.Memory.Projection do
     else
       limit = opts |> Keyword.get(:limit, 1_000) |> min(10_000) |> max(1)
       user_id = normalize_optional(Keyword.get(opts, :user_id))
-      {lexical_sql, lexical_values} = lexical_clause(terms)
-      {owner_sql, owner_values} = owner_clause(user_id)
-      {category_sql, category_values} = category_clause(Keyword.get(opts, :categories))
+      {owner_sql, owner_values} = owner_clause(user_id, "candidate.operator_id")
+
+      {category_sql, category_values} =
+        category_clause(Keyword.get(opts, :categories), "candidate.category")
+
+      posting_names =
+        terms |> Enum.with_index() |> Enum.map(fn {_term, index} -> "posting_#{index}" end)
+
+      postings_sql =
+        Enum.map_join(posting_names, ", ", fn name ->
+          "#{name} AS MATERIALIZED (SELECT term, claim_id, sequence FROM claim_terms " <>
+            "WHERE term = ? LIMIT ?)"
+        end)
+
+      matched_sql = Enum.map_join(posting_names, " UNION ALL ", &"SELECT * FROM #{&1}")
 
       sql =
-        "WITH temporal AS (" <>
-          "SELECT claim_id, sequence, revision_digest, state, recorded_at, valid_from, valid_to, " <>
-          "actor, action, value, source_path, operator_id, namespace, category, app_id, origin, " <>
-          "source_ref, summary, search_text, " <>
-          "ROW_NUMBER() OVER (PARTITION BY claim_id ORDER BY sequence DESC) AS claim_rank " <>
-          "FROM claim_revisions WHERE recorded_at <= ? " <>
-          "AND (valid_from IS NULL OR valid_from <= ?) " <>
-          "AND (valid_to IS NULL OR valid_to > ?)) " <>
-          "SELECT claim_id, sequence, revision_digest, recorded_at, actor, action, value, " <>
-          "source_path, operator_id, namespace, category, app_id, origin, source_ref, summary " <>
-          "FROM temporal WHERE claim_rank = 1 AND state = 'kept'" <>
-          owner_sql <> category_sql <> lexical_sql <> " ORDER BY claim_id ASC LIMIT ?"
+        "WITH " <>
+          postings_sql <>
+          ", matched AS (" <>
+          matched_sql <>
+          ") SELECT candidate.claim_id, candidate.sequence, candidate.revision_digest, " <>
+          "candidate.recorded_at, candidate.actor, candidate.action, candidate.value, " <>
+          "candidate.source_path, candidate.operator_id, candidate.namespace, " <>
+          "candidate.category, candidate.app_id, candidate.origin, candidate.source_ref, " <>
+          "candidate.summary " <>
+          "FROM matched " <>
+          "INNER JOIN claim_revisions AS candidate " <>
+          "ON candidate.claim_id = matched.claim_id AND candidate.sequence = matched.sequence " <>
+          "WHERE candidate.state = 'kept' " <>
+          "AND candidate.recorded_at <= ? " <>
+          "AND (candidate.valid_from IS NULL OR candidate.valid_from <= ?) " <>
+          "AND (candidate.valid_to IS NULL OR candidate.valid_to > ?)" <>
+          owner_sql <>
+          category_sql <>
+          " AND NOT EXISTS (SELECT 1 FROM claim_revisions AS newer " <>
+          "WHERE newer.claim_id = candidate.claim_id " <>
+          "AND newer.sequence > candidate.sequence " <>
+          "AND newer.recorded_at <= ? " <>
+          "AND (newer.valid_from IS NULL OR newer.valid_from <= ?) " <>
+          "AND (newer.valid_to IS NULL OR newer.valid_to > ?)) " <>
+          "GROUP BY candidate.claim_id, candidate.sequence"
 
       with {:ok, valid_at} <- temporal_value(opts, :valid_at),
            {:ok, known_at} <- temporal_value(opts, :known_at),
            values =
-             [known_at, valid_at, valid_at] ++
-               owner_values ++ category_values ++ lexical_values ++ [limit],
+             Enum.flat_map(terms, &[&1, limit]) ++
+               [known_at, valid_at, valid_at] ++
+               owner_values ++
+               category_values ++ [known_at, valid_at, valid_at],
            {:ok, rows} <- query_all(state.serving_conn, sql, values) do
-        {:ok, candidate_result(state, Enum.map(rows, &candidate_from_row/1))}
+        candidates = rows |> Enum.map(&candidate_from_row/1) |> rank_candidates(terms, limit)
+        {:ok, candidate_result(state, candidates)}
       end
     end
   end
@@ -928,6 +983,7 @@ defmodule AllbertAssist.Memory.Projection do
       claim_id: claim_id,
       sequence: sequence,
       revision_digest: revision_digest,
+      source_path: source_path,
       state: "kept",
       entry:
         Entry.from_map(%{
@@ -949,17 +1005,44 @@ defmodule AllbertAssist.Memory.Projection do
     }
   end
 
-  defp lexical_clause(terms) do
-    matches = Enum.map_join(terms, " OR ", fn _term -> "instr(search_text, ?) > 0" end)
-    {" AND (" <> matches <> ")", terms}
+  defp rank_candidates(candidates, terms, limit) do
+    candidates
+    |> Enum.map(fn candidate -> {candidate_lexical_hits(candidate, terms), candidate} end)
+    |> Enum.filter(fn {hits, _candidate} -> hits > 0 end)
+    |> Enum.sort(&candidate_before?/2)
+    |> Enum.take(limit)
+    |> Enum.map(fn {hits, candidate} -> Map.put(candidate, :lexical_hits, hits) end)
   end
 
-  defp owner_clause(nil), do: {"", []}
-  defp owner_clause(user_id), do: {" AND operator_id = ?", [user_id]}
+  defp candidate_lexical_hits(candidate, terms) do
+    candidate_terms =
+      [candidate.entry.summary, candidate.entry.body, Atom.to_string(candidate.entry.category)]
+      |> Enum.join(" ")
+      |> Lexical.terms()
+      |> MapSet.new()
 
-  defp category_clause(nil), do: {"", []}
+    Enum.count(terms, &MapSet.member?(candidate_terms, &1))
+  end
 
-  defp category_clause(categories) do
+  defp candidate_before?({left_hits, left}, {right_hits, right}) do
+    cond do
+      left_hits != right_hits ->
+        left_hits > right_hits
+
+      left.entry.timestamp != right.entry.timestamp ->
+        left.entry.timestamp > right.entry.timestamp
+
+      true ->
+        left.claim_id < right.claim_id
+    end
+  end
+
+  defp owner_clause(nil, _column), do: {"", []}
+  defp owner_clause(user_id, column), do: {" AND #{column} = ?", [user_id]}
+
+  defp category_clause(nil, _column), do: {"", []}
+
+  defp category_clause(categories, column) do
     categories =
       categories
       |> List.wrap()
@@ -970,7 +1053,7 @@ defmodule AllbertAssist.Memory.Projection do
 
     case categories do
       [] -> {"", []}
-      categories -> {" AND category IN (#{placeholders(categories)})", categories}
+      categories -> {" AND #{column} IN (#{placeholders(categories)})", categories}
     end
   end
 

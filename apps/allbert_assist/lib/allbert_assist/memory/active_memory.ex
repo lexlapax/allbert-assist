@@ -27,7 +27,8 @@ defmodule AllbertAssist.Memory.ActiveMemory do
           },
           identity_inclusion: float(),
           internal_candidate_limit: pos_integer(),
-          excluded_sample_limit: pos_integer()
+          excluded_sample_limit: pos_integer(),
+          stop_words: MapSet.t(String.t())
         }
 
   @type result :: %{
@@ -52,9 +53,15 @@ defmodule AllbertAssist.Memory.ActiveMemory do
   def retrieve(query, opts \\ [])
 
   def retrieve(query, opts) when is_binary(query) and is_list(opts) do
-    settings = settings()
+    Settings.with_resolved_settings(fn -> retrieve_with_settings(query, opts) end)
+  end
+
+  def retrieve(_query, _opts), do: {:error, :invalid_active_memory_query}
+
+  defp retrieve_with_settings(query, opts) do
+    settings = Map.put(settings(), :stop_words, MapSet.new(stop_words()))
     scope = scope(opts)
-    terms = normalize_terms(query)
+    terms = normalize_terms(query, settings.stop_words)
     now = now(opts)
 
     if settings.enabled? do
@@ -63,8 +70,6 @@ defmodule AllbertAssist.Memory.ActiveMemory do
       {:ok, empty_result(:disabled, false, terms, scope)}
     end
   end
-
-  def retrieve(_query, _opts), do: {:error, :invalid_active_memory_query}
 
   @doc "Return the body-free metadata shape used by traces and action metadata."
   @spec trace_metadata(result()) :: map()
@@ -83,22 +88,31 @@ defmodule AllbertAssist.Memory.ActiveMemory do
       :generation_id,
       :projection_revision,
       :projection_dirty?,
-      :canonical_revalidation_failure_count
+      :canonical_revalidation_failure_count,
+      :prompt_budget_bytes,
+      :prompt_bytes,
+      :prompt_truncated?
     ])
   end
 
   @doc "Normalize query or chunk text with the shipped Active Memory stop words."
   @spec normalize_terms(String.t()) :: [String.t()]
   def normalize_terms(text) when is_binary(text) do
+    normalize_terms(text, MapSet.new(stop_words()))
+  end
+
+  def normalize_terms(_text), do: []
+
+  defp normalize_terms(text, stop_words) when is_binary(text) do
     text
     |> String.downcase()
     |> String.split(~r/[^a-z0-9]+/, trim: true)
     |> Enum.reject(&(byte_size(&1) < 2))
-    |> Enum.reject(&(&1 in stop_words()))
+    |> Enum.reject(&MapSet.member?(stop_words, &1))
     |> Enum.uniq()
   end
 
-  def normalize_terms(_text), do: []
+  defp normalize_terms(_text, _stop_words), do: []
 
   defp retrieve_enabled(settings, scope, terms, now, opts) do
     projection = Keyword.get(opts, :projection, Projection)
@@ -179,7 +193,7 @@ defmodule AllbertAssist.Memory.ActiveMemory do
   end
 
   defp revalidate_chunk(chunk, {selected, invalid}, valid_at, known_at, top_k) do
-    candidate = Map.take(chunk, [:claim_id, :sequence, :revision_digest])
+    candidate = Map.take(chunk, [:claim_id, :sequence, :revision_digest, :source_path])
 
     case Claims.revalidate_projection_candidate(candidate, valid_at, known_at) do
       :ok -> continue_or_halt([chunk | selected], invalid, top_k)
@@ -220,7 +234,8 @@ defmodule AllbertAssist.Memory.ActiveMemory do
   defp score_scoped_chunk(chunk, terms, scope, now, settings) do
     with {:ok, updated_at} <- updated_at(chunk.entry),
          {:ok, recency_decay} <- recency_decay(updated_at, now, settings),
-         lexical_match when lexical_match > 0.0 <- lexical_match(terms, chunk.body) do
+         lexical_match when lexical_match > 0.0 <-
+           lexical_match(terms, chunk.body, settings.stop_words) do
       thread_affinity = thread_affinity(chunk.entry, scope, settings)
       identity_inclusion = identity_inclusion(chunk.entry, scope, settings)
       score = recency_decay * thread_affinity * identity_inclusion * lexical_match
@@ -253,6 +268,7 @@ defmodule AllbertAssist.Memory.ActiveMemory do
         claim_id: candidate.claim_id,
         sequence: candidate.sequence,
         revision_digest: candidate.revision_digest,
+        source_path: candidate.source_path,
         chunk_id: chunk_id(entry, index),
         entry_path: entry.path,
         category: entry.category,
@@ -359,8 +375,8 @@ defmodule AllbertAssist.Memory.ActiveMemory do
     {:ok, :math.pow(2.0, -(age_days / settings.recency_half_life_days))}
   end
 
-  defp lexical_match(terms, body) do
-    chunk_terms = MapSet.new(normalize_terms(body))
+  defp lexical_match(terms, body, stop_words) do
+    chunk_terms = MapSet.new(normalize_terms(body, stop_words))
     matches = Enum.count(terms, &MapSet.member?(chunk_terms, &1))
     matches / max(1, length(terms))
   end

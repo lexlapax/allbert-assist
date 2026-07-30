@@ -10,9 +10,9 @@ defmodule AllbertAssist.Memory.Retrieval do
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Claims
   alias AllbertAssist.Memory.Entry
+  alias AllbertAssist.Memory.Lexical
   alias AllbertAssist.Memory.Projection
 
-  @stop_words ~w[a an and are about do for from in is me my of on the to what you]
   @default_candidate_limit 500
   @maximum_candidate_limit 10_000
 
@@ -90,20 +90,12 @@ defmodule AllbertAssist.Memory.Retrieval do
 
   @doc "Normalize deterministic lexical terms shared by compatibility callers."
   @spec terms(String.t()) :: [String.t()]
-  def terms(text) when is_binary(text) do
-    text
-    |> String.downcase()
-    |> String.split(~r/[^a-z0-9]+/, trim: true)
-    |> Enum.reject(&(&1 in @stop_words))
-    |> Enum.uniq()
-  end
-
-  def terms(_text), do: []
+  defdelegate terms(text), to: Lexical
 
   defp revalidate(candidates, valid_at, known_at, projection) do
     candidates
     |> Enum.reduce({[], []}, fn candidate, {valid, invalid} ->
-      binding = Map.take(candidate, [:claim_id, :sequence, :revision_digest])
+      binding = Map.take(candidate, [:claim_id, :sequence, :revision_digest, :source_path])
 
       case Claims.revalidate_projection_candidate(binding, valid_at, known_at) do
         :ok -> {[candidate | valid], invalid}
@@ -121,7 +113,7 @@ defmodule AllbertAssist.Memory.Retrieval do
          {:ok, candidate} <- candidate_at(stream, valid_at, known_at),
          :ok <-
            Claims.revalidate_projection_candidate(
-             Map.take(candidate, [:claim_id, :sequence, :revision_digest]),
+             Map.take(candidate, [:claim_id, :sequence, :revision_digest, :source_path]),
              valid_at,
              known_at
            ) do
@@ -138,6 +130,7 @@ defmodule AllbertAssist.Memory.Retrieval do
          claim_id: stream.claim_id,
          sequence: record["sequence"],
          revision_digest: record["revision_digest"],
+         source_path: stream.path,
          entry: entry_from_record(stream.path, record)
        }}
     end
@@ -150,6 +143,7 @@ defmodule AllbertAssist.Memory.Retrieval do
          claim_id: stream.claim_id,
          sequence: 0,
          revision_digest: stream.legacy_digest,
+         source_path: stream.path,
          entry: entry
        }}
     end

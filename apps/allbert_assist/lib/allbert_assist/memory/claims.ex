@@ -137,10 +137,12 @@ defmodule AllbertAssist.Memory.Claims do
   def revalidate_projection_candidate(candidate, %DateTime{} = valid_at, %DateTime{} = known_at)
       when is_map(candidate) do
     claim_id = Map.get(candidate, :claim_id)
+    source_path = Map.get(candidate, :source_path) || Map.get(candidate, :entry_path)
 
     with :ok <- valid_claim_id(claim_id),
+         {:ok, source_path} <- canonical_candidate_path(source_path),
          false <- File.exists?(Path.join(Paths.memory_tombstones_root(), claim_id <> ".md")),
-         {:ok, stream} <- read(claim_id),
+         {:ok, stream} <- read_path(source_path, expected_claim_id: claim_id),
          :ok <- candidate_matches_stream(candidate, stream, valid_at, known_at) do
       :ok
     else
@@ -151,6 +153,30 @@ defmodule AllbertAssist.Memory.Claims do
 
   def revalidate_projection_candidate(_candidate, _valid_at, _known_at),
     do: {:error, :invalid_projection_candidate}
+
+  defp canonical_candidate_path(path) when is_binary(path) do
+    root = Memory.root() |> Path.expand()
+    expanded = Path.expand(path)
+    relative = Path.relative_to(expanded, root)
+
+    case Path.split(relative) do
+      [category, filename]
+      when category in ~w[notes preferences traces skills identity] ->
+        with true <-
+               Path.extname(filename) == ".md" and not String.starts_with?(filename, "."),
+             {:ok, %File.Stat{type: :directory}} <- File.lstat(Path.dirname(expanded)),
+             {:ok, %File.Stat{type: :regular}} <- File.lstat(expanded) do
+          {:ok, expanded}
+        else
+          _other -> {:error, :invalid_projection_source_path}
+        end
+
+      _parts ->
+        {:error, :invalid_projection_source_path}
+    end
+  end
+
+  defp canonical_candidate_path(_path), do: {:error, :invalid_projection_source_path}
 
   defp candidate_matches_stream(candidate, %{status: :valid} = stream, valid_at, known_at) do
     with {:ok, record} <- effective_record(stream, valid_at, known_at),
