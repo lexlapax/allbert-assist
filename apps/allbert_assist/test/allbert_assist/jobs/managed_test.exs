@@ -226,6 +226,36 @@ defmodule AllbertAssist.Jobs.ManagedTest do
     assert %DateTime{} = enabled.next_due_at
   end
 
+  test "enabled consolidation executes through ordinary Jobs admission and the action runner" do
+    assert {:ok, _setting} = Settings.put("memory.consolidation.enabled", true)
+
+    assert {:ok, _epoch} =
+             AllbertAssist.Conversations.Corpus.set_origin_grant(
+               :memory,
+               :local_operator,
+               true
+             )
+
+    assert {:ok, thread} = Conversations.create_general_thread("local", "Managed Memory")
+
+    assert {:ok, _message} =
+             Conversations.append_user_message(thread, "I prefer managed proposal review.",
+               metadata: %{"channel" => "tui"}
+             )
+
+    assert {:ok, _results} = Managed.reconcile("local")
+    consolidation = managed_job("memory-consolidation")
+
+    assert consolidation.metadata["feature_enabled"]
+
+    assert {:ok, %{run: run, response: response}} = Runner.run_now(consolidation)
+    assert run.status == "completed"
+    assert response.status == :completed
+    assert response.result.created == 1
+    assert response.result.hosted_transport_count == 0
+    assert run.metadata["managed_identity"] == "memory-consolidation"
+  end
+
   test "legacy open run without admission key is still coalesced" do
     assert {:ok, _results} = Managed.reconcile("local")
     search = managed_job("search-index")
