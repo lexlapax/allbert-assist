@@ -74,6 +74,7 @@ defmodule AllbertAssist.SecurityCentralTest do
 
   test "classifies risk by permission" do
     assert Risk.classify(:read_only).tier == :minimal
+    assert Risk.classify(:memory_propose).tier == :minimal
     assert Risk.classify(:memory_write).tier == :low
     assert Risk.classify(:settings_write).tier == :medium
     assert Risk.classify(:skill_write).tier == :medium
@@ -98,6 +99,7 @@ defmodule AllbertAssist.SecurityCentralTest do
 
   test "resolves policy with built-in safety floors" do
     assert Policy.resolve(:read_only).effective == :allowed
+    assert Policy.resolve(:memory_propose).effective == :allowed
     assert Policy.resolve(:memory_write).effective == :allowed
     assert Policy.resolve(:command_plan).effective == :allowed
     assert Policy.resolve(:command_execute).effective == :denied
@@ -125,6 +127,7 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert {:ok, _settings} =
              Settings.write_user_settings(%{
                "permissions" => %{
+                 "memory_propose" => "denied",
                  "memory_write" => "denied",
                  "command_execute" => "allowed",
                  "skill_script_execute" => "allowed",
@@ -135,6 +138,10 @@ defmodule AllbertAssist.SecurityCentralTest do
                  "mcp_server_connect" => "needs_confirmation"
                }
              })
+
+    proposal_policy = Policy.resolve(:memory_propose)
+    assert proposal_policy.configured == "denied"
+    assert proposal_policy.effective == :denied
 
     memory_policy = Policy.resolve(:memory_write)
     assert memory_policy.configured == "denied"

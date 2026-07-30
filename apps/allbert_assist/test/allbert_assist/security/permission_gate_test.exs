@@ -9,6 +9,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
     assert PermissionGate.permission_classes() == [
              :read_only,
              :conversation_write,
+             :memory_propose,
              :memory_write,
              :command_plan,
              :command_execute,

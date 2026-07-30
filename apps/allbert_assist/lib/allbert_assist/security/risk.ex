@@ -20,6 +20,7 @@ defmodule AllbertAssist.Security.Risk do
   @spec tier(atom()) :: tier()
   def tier(:read_only), do: :minimal
   def tier(:conversation_write), do: :low
+  def tier(:memory_propose), do: :minimal
   def tier(:memory_write), do: :low
   def tier(:command_plan), do: :low
   def tier(:coding_file_read), do: :medium
@@ -82,6 +83,9 @@ defmodule AllbertAssist.Security.Risk do
 
   defp reasons(:conversation_write, _tier, _context),
     do: ["local canonical conversation mapping write"]
+
+  defp reasons(:memory_propose, _tier, _context),
+    do: ["bounded inert local Memory proposal write"]
 
   defp reasons(:memory_write, _tier, _context), do: ["durable markdown memory write"]
   defp reasons(:command_plan, _tier, _context), do: ["non-executing command planning"]

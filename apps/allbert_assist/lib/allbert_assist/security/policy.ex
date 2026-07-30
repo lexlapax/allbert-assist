@@ -8,6 +8,7 @@ defmodule AllbertAssist.Security.Policy do
   alias AllbertAssist.Settings.Schema
 
   @permission_settings %{
+    memory_propose: "permissions.memory_propose",
     memory_write: "permissions.memory_write",
     command_plan: "permissions.command_plan",
     command_execute: "permissions.command_execute",
@@ -67,6 +68,7 @@ defmodule AllbertAssist.Security.Policy do
   @default_decisions %{
     read_only: :allowed,
     conversation_write: :allowed,
+    memory_propose: :allowed,
     memory_write: :allowed,
     command_plan: :allowed,
     command_execute: :denied,
@@ -146,6 +148,7 @@ defmodule AllbertAssist.Security.Policy do
   @type permission ::
           :read_only
           | :conversation_write
+          | :memory_propose
           | :memory_write
           | :command_plan
           | :command_execute
@@ -209,6 +212,7 @@ defmodule AllbertAssist.Security.Policy do
     [
       :read_only,
       :conversation_write,
+      :memory_propose,
       :memory_write,
       :command_plan,
       :command_execute,
@@ -681,6 +685,15 @@ defmodule AllbertAssist.Security.Policy do
 
   defp reason(:read_only, :allowed, _configured, _floor, _context),
     do: "Read-only inspection is allowed locally."
+
+  defp reason(:memory_propose, :allowed, _configured, _floor, _context),
+    do: "Bounded inert Memory proposal writes are allowed under the current collection grant."
+
+  defp reason(:memory_propose, :needs_confirmation, _configured, _floor, _context),
+    do: "Memory proposal creation requires confirmation by current policy."
+
+  defp reason(:memory_propose, :denied, _configured, _floor, _context),
+    do: "Memory proposal creation is denied by current policy."
 
   defp reason(:memory_write, :allowed, _configured, _floor, _context),
     do: "Memory-write intent is allowed for markdown memory."

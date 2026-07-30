@@ -60,6 +60,7 @@ defmodule AllbertAssist.Actions.Capability do
   ]
   @type execution_mode ::
           :read_only
+          | :memory_propose
           | :memory_write
           | :memory_promotion
           | :command_plan_only

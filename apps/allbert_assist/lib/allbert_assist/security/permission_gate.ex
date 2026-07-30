@@ -17,6 +17,7 @@ defmodule AllbertAssist.Security.PermissionGate do
   @type permission ::
           :read_only
           | :conversation_write
+          | :memory_propose
           | :memory_write
           | :command_plan
           | :command_execute

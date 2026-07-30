@@ -161,6 +161,7 @@ defmodule AllbertAssist.Settings.Schema do
     "skills.enabled",
     "skills.disabled",
     "skills.imported_cache_policy",
+    "permissions.memory_propose",
     "permissions.memory_write",
     "permissions.command_plan",
     "permissions.command_execute",
@@ -2382,6 +2383,13 @@ defmodule AllbertAssist.Settings.Schema do
       min: 1,
       max: 500
     },
+    "permissions.memory_propose" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
     "permissions.memory_write" => %{
       type: :enum,
       default: "allowed",
@@ -3948,6 +3956,7 @@ defmodule AllbertAssist.Settings.Schema do
       }
     },
     "permissions" => %{
+      "memory_propose" => "allowed",
       "memory_write" => "allowed",
       "command_plan" => "allowed",
       "command_execute" => "denied",
