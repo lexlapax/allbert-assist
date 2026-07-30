@@ -134,18 +134,55 @@ defmodule AllbertAssist.Search.ProjectionTest do
     assert first.page_count == 1
 
     assert {:ok, second} = Projection.ingest("alice")
-    assert second.status == :complete
+    assert second.status == :incomplete
     assert second.indexed_count == 5
+
+    assert {:ok, third} = Projection.ingest("alice")
+    assert third.status == :complete
+    assert third.indexed_count == 0
     refute Projection.status().dirty?
 
     assert {:ok, query} = Query.parse(%{query: "incremental205"})
     assert {:ok, %{candidates: [%{source_id: source_id}]}} = Projection.candidates(query)
     assert {:ok, %{id: ^source_id}} = Conversations.get_message("alice", source_id)
 
-    assert {:ok, maintenance} = Projection.maintain()
+    assert {:ok, first_maintenance} = Projection.maintain("alice")
+    assert first_maintenance.status == :incomplete
+    assert first_maintenance.stale_scanned_count == 100
+
+    assert {:ok, second_maintenance} = Projection.maintain("alice")
+    assert second_maintenance.status == :incomplete
+
+    assert {:ok, maintenance} = Projection.maintain("alice")
     assert maintenance.status == :complete
     assert maintenance.integrity == :verified
     assert maintenance.merge_pages == 4
+  end
+
+  test "hourly ingestion physically reconciles deleted canonical rows in bounded pages" do
+    assert {:ok, thread} = Conversations.create_general_thread("alice", "Stale repair")
+
+    messages =
+      for index <- 1..101 do
+        assert {:ok, message} = local_message(thread, "stale#{index} searchable")
+        message
+      end
+
+    assert {:ok, _build} = Projection.rebuild("alice")
+    Enum.each(messages, &Repo.delete!/1)
+
+    assert {:ok, first} = Projection.ingest("alice")
+    assert first.status == :incomplete
+    assert first.stale_scanned_count == 100
+    assert first.stale_deleted_count == 100
+
+    assert {:ok, second} = Projection.ingest("alice")
+    assert second.status == :complete
+    assert second.stale_scanned_count == 1
+    assert second.stale_deleted_count == 1
+
+    assert {:ok, query} = Query.parse(%{query: "searchable"})
+    assert {:ok, %{candidates: []}} = Projection.candidates(query)
   end
 
   defp local_message(thread, content) do

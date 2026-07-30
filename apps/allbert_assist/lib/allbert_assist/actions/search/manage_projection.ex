@@ -36,12 +36,12 @@ defmodule AllbertAssist.Actions.Search.ManageProjection do
   end
 
   defp execute(:maintain, action_name, user_id, decision) do
-    case Projection.maintain() do
+    case Projection.maintain(user_id) do
       {:ok, result} ->
         completed(action_name, decision, result)
 
-      {:error, :search_not_ready} ->
-        schedule_rebuild(action_name, user_id, decision, :search_not_ready)
+      {:error, reason} when reason in [:search_not_ready, :rebuild_required] ->
+        schedule_rebuild(action_name, user_id, decision, reason)
 
       {:error, reason} ->
         failed(action_name, decision, reason)

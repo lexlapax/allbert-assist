@@ -25,6 +25,7 @@ defmodule AllbertAssist.Search.Projection do
   @control_file "control.json"
   @page_size 200
   @ingest_page_size 200
+  @reconcile_page_size 100
   @rebuild_pages_per_step 5
   @candidate_batch 100
 
@@ -56,7 +57,8 @@ defmodule AllbertAssist.Search.Projection do
     do: GenServer.call(server, {:ingest, operator_id}, :infinity)
 
   @doc "Run one bounded integrity, FTS-merge, and obsolete-generation maintenance pass."
-  def maintain(server \\ __MODULE__), do: GenServer.call(server, :maintain, :infinity)
+  def maintain(operator_id \\ "local", server \\ __MODULE__),
+    do: GenServer.call(server, {:maintain, operator_id}, :infinity)
 
   @doc "Upsert one already-authorized typed Corpus envelope into the current generation."
   def upsert(%SourceEnvelope{} = envelope, server \\ __MODULE__),
@@ -129,14 +131,14 @@ defmodule AllbertAssist.Search.Projection do
   def handle_call({:ingest, _operator_id}, _from, state),
     do: {:reply, {:error, :search_not_ready}, state}
 
-  def handle_call(:maintain, _from, %{ready?: true} = state) do
-    case maintain_generation(state) do
+  def handle_call({:maintain, operator_id}, _from, %{ready?: true} = state) do
+    case maintain_generation(state, operator_id) do
       {:ok, result, next} -> {:reply, {:ok, result}, next}
       {:error, reason, next} -> {:reply, {:error, reason}, next}
     end
   end
 
-  def handle_call(:maintain, _from, state),
+  def handle_call({:maintain, _operator_id}, _from, state),
     do: {:reply, {:error, :search_not_ready}, state}
 
   def handle_call({:upsert, envelope}, _from, %{ready?: true} = state) do
@@ -413,7 +415,8 @@ defmodule AllbertAssist.Search.Projection do
          {:ok, snapshots} <- snapshots(operator_id),
          {:ok, result, control} <- ingest_snapshots(state, snapshots) do
       :ok = write_control(state.root, control)
-      {:ok, result, %{state | control: control, diagnostics: []}}
+      interim = %{state | control: control, diagnostics: []}
+      finish_ingest(interim, operator_id, result)
     else
       {:error, reason} -> {:error, reason, mark_dirty(state, reason)}
     end
@@ -421,6 +424,20 @@ defmodule AllbertAssist.Search.Projection do
 
   defp ingest_generation(state, _operator_id),
     do: {:error, :invalid_operator, mark_dirty(state, :invalid_operator)}
+
+  defp finish_ingest(state, operator_id, result) do
+    with {:ok, sweep, next} <- reconcile_stale_rows(state, operator_id) do
+      incomplete? = result.status == :incomplete or sweep.status == :incomplete
+      control = Map.put(next.control, "dirty", incomplete?)
+      :ok = write_control(next.root, control)
+
+      {:ok,
+       result
+       |> Map.put(:status, if(incomplete?, do: :incomplete, else: :complete))
+       |> Map.put(:stale_scanned_count, sweep.scanned_count)
+       |> Map.put(:stale_deleted_count, sweep.deleted_count), %{next | control: control}}
+    end
+  end
 
   defp current_eligibility_epoch(conn) do
     case SQLite.query_one(
@@ -522,30 +539,116 @@ defmodule AllbertAssist.Search.Projection do
     end
   end
 
-  defp maintain_generation(state) do
-    with {:ok, _capability} <- Schema.verify(state.serving_conn),
-         :ok <- bounded_fts_merge(state.serving_conn),
-         {:ok, _capability} <- Schema.verify(state.serving_conn) do
-      pruned_count = prune_obsolete_files(state.root, 10)
+  defp maintain_generation(state, operator_id) do
+    with :ok <- current_eligibility_epoch(state.serving_conn),
+         {:ok, sweep, reconciled} <- reconcile_stale_rows(state, operator_id),
+         {:ok, _capability} <- Schema.verify(reconciled.serving_conn),
+         :ok <- bounded_fts_merge(reconciled.serving_conn),
+         {:ok, _capability} <- Schema.verify(reconciled.serving_conn) do
+      pruned_count = prune_obsolete_files(reconciled.root, 10)
 
       control =
-        state.control
+        reconciled.control
         |> Map.put("last_maintained_at_us", System.system_time(:microsecond))
         |> Map.put("last_error_code", nil)
 
-      :ok = write_control(state.root, control)
+      :ok = write_control(reconciled.root, control)
 
       {:ok,
        %{
-         status: :complete,
+         status: sweep.status,
          integrity: :verified,
          merge_pages: 4,
          pruned_file_count: pruned_count,
+         stale_scanned_count: sweep.scanned_count,
+         stale_deleted_count: sweep.deleted_count,
          generation_id: control["current_generation_id"],
          projection_revision: control["projection_revision"]
-       }, %{state | control: control, diagnostics: []}}
+       }, %{reconciled | control: control, diagnostics: []}}
     else
       {:error, reason} -> {:error, reason, mark_dirty(state, reason)}
+    end
+  end
+
+  defp reconcile_stale_rows(state, operator_id) do
+    cursor = state.control["reconcile_cursor_source_id"]
+
+    with {:ok, rows} <- stale_candidate_rows(state.serving_conn, cursor),
+         {:ok, invalid_ids} <- invalid_stale_ids(rows, operator_id),
+         {:ok, next} <- delete_stale_ids(state, invalid_ids) do
+      incomplete? = length(rows) == @reconcile_page_size
+      next_cursor = if incomplete?, do: rows |> List.last() |> hd(), else: nil
+
+      control = Map.put(next.control, "reconcile_cursor_source_id", next_cursor)
+      :ok = write_control(next.root, control)
+
+      {:ok,
+       %{
+         status: if(incomplete?, do: :incomplete, else: :complete),
+         scanned_count: length(rows),
+         deleted_count: length(invalid_ids)
+       }, %{next | control: control}}
+    end
+  end
+
+  defp stale_candidate_rows(conn, nil) do
+    SQLite.query(
+      conn,
+      "SELECT source_id, content_digest, origin_scope, e2ee FROM documents " <>
+        "ORDER BY source_id ASC LIMIT ?",
+      [@reconcile_page_size]
+    )
+  end
+
+  defp stale_candidate_rows(conn, cursor) do
+    SQLite.query(
+      conn,
+      "SELECT source_id, content_digest, origin_scope, e2ee FROM documents " <>
+        "WHERE source_id > ? ORDER BY source_id ASC LIMIT ?",
+      [cursor, @reconcile_page_size]
+    )
+  end
+
+  defp invalid_stale_ids(rows, operator_id) do
+    rows
+    |> Enum.group_by(fn [_source_id, _digest, origin_scope, e2ee] -> {origin_scope, e2ee} end)
+    |> Enum.reduce_while({:ok, []}, fn {{origin_scope, e2ee}, grouped}, {:ok, invalid} ->
+      case authorize_stale_group(grouped, operator_id, origin_scope, e2ee) do
+        {:ok, ids} -> {:cont, {:ok, ids ++ invalid}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp authorize_stale_group(grouped, operator_id, origin_scope, e2ee) do
+    with {:ok, origin_scope} <- decode_origin_scope(origin_scope) do
+      policy = %{consumer: :search, origin_scope: origin_scope, e2ee?: e2ee == 1}
+
+      refs =
+        Enum.map(grouped, fn [source_id, digest, _scope, _e2ee] ->
+          %{source_id: source_id, content_digest: digest}
+        end)
+
+      with {:ok, results} <- Corpus.rehydrate_and_authorize(operator_id, refs, policy) do
+        {:ok,
+         grouped
+         |> Enum.zip(results)
+         |> Enum.flat_map(fn
+           {[_source_id | _rest], {:ok, _envelope}} -> []
+           {[source_id | _rest], {:error, _reason}} -> [source_id]
+         end)}
+      end
+    end
+  end
+
+  defp delete_stale_ids(state, []), do: {:ok, state}
+
+  defp delete_stale_ids(state, source_ids) do
+    case mutate_current(state, fn conn, revision ->
+           each_ok(source_ids, &delete_source(conn, &1, revision))
+         end) do
+      {:ok, _result, next} -> {:ok, next}
+      {:error, reason, _next} -> {:error, reason}
     end
   end
 
