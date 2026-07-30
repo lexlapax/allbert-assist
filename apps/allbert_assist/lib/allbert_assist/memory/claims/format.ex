@@ -50,12 +50,12 @@ defmodule AllbertAssist.Memory.Claims.Format do
   defp decode_records(stream, records) do
     with [header, length_text] <- Regex.run(@record_header, stream),
          {length, ""} <- Integer.parse(length_text),
+         header_size = byte_size(header),
          true <- length <= @max_record_bytes || {:error, :revision_record_too_large},
          true <-
-           byte_size(stream) >= byte_size(header) + length + 1 ||
+           byte_size(stream) >= header_size + length + 1 ||
              {:error, :truncated_revision_record},
-         <<_header::binary-size(byte_size(header)), json::binary-size(length), "\n",
-           rest::binary>> <-
+         <<_header::binary-size(^header_size), json::binary-size(^length), "\n", rest::binary>> <-
            stream,
          {:ok, %{} = record} <- decode_record(json),
          true <- canonical_json(record) == json || {:error, :noncanonical_revision_json} do

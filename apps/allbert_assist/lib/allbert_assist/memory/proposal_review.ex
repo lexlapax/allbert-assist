@@ -392,7 +392,6 @@ defmodule AllbertAssist.Memory.ProposalReview do
       |> Repo.update!()
     else
       {:error, reason} -> Repo.rollback(reason)
-      false -> Repo.rollback(:invalid_review_claim)
     end
   end
 
@@ -454,7 +453,6 @@ defmodule AllbertAssist.Memory.ProposalReview do
       :ok
     else
       {:error, reason} -> {:error, reason}
-      _other -> {:error, :invalid_applying_payload}
     end
   end
 
@@ -572,7 +570,6 @@ defmodule AllbertAssist.Memory.ProposalReview do
       :ok
     else
       {:error, reason} -> {:error, reason}
-      _other -> {:error, :applying_decision_changed}
     end
   end
 

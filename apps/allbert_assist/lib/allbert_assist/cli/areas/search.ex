@@ -19,14 +19,11 @@ defmodule AllbertAssist.CLI.Areas.Search do
   @spec dispatch([String.t()], map() | nil) :: {String.t(), non_neg_integer()}
   def dispatch(argv, context \\ nil) do
     context = context || ContextBuilder.cli_context(%{surface: "cli", channel: :cli})
+    {:ok, response} = Surface.dispatch_argv(argv, context)
+    {:ok, rendered} = Renderer.render_response(response, @descriptor)
 
-    with {:ok, response} <- Surface.dispatch_argv(argv, context),
-         {:ok, rendered} <- Renderer.render_response(response, @descriptor) do
-      text = maybe_append_confirmation_guidance(rendered.text, response)
-      {text, exit_code(response)}
-    else
-      {:error, reason} -> {"Search command failed: #{inspect(reason)}", 1}
-    end
+    text = maybe_append_confirmation_guidance(rendered.text, response)
+    {text, exit_code(response)}
   end
 
   defp maybe_append_confirmation_guidance(text, %{status: :needs_confirmation}) do

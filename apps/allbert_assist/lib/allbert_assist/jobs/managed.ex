@@ -180,7 +180,7 @@ defmodule AllbertAssist.Jobs.Managed do
   def admission_allowed?(%Job{} = job) do
     if managed?(job) do
       with :ok <- invariant_job(job, spec_for(job.name)) do
-        feature_admission(job.metadata || %{})
+        feature_admission(job.metadata)
       end
     else
       :ok
@@ -198,7 +198,7 @@ defmodule AllbertAssist.Jobs.Managed do
   @doc "Compute resume due-state while preserving a dirty managed entry."
   def resume_due(%Job{} = job, scheduled_due) do
     cond do
-      managed?(job) and metadata_value(job.metadata || %{}, "feature_enabled") != true ->
+      managed?(job) and metadata_value(job.metadata, "feature_enabled") != true ->
         nil
 
       managed?(job) and dirty?(job) ->

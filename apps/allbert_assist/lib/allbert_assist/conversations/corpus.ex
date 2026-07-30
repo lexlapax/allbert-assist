@@ -369,7 +369,6 @@ defmodule AllbertAssist.Conversations.Corpus do
          trace_refs: trace_refs(message)
        }}
     else
-      false -> {:error, :scope_denied}
       {:error, reason} -> {:error, reason}
     end
   end
