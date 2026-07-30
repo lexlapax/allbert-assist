@@ -567,14 +567,24 @@ the native platform manifest
 `erlang@sha256:c029064619207e6f87c672ccced24d4019cde7184015fbf4f4c1f2a9af3e1245`;
 the candidate row records that digest plus resolved Node, Playwright, and
 browser versions. Absolute host paths are not evidence and are not recorded.
-On macOS the finalizer changes the Exqlite NIF install ID to
-`@loader_path/sqlite3_nif.so`, ad-hoc signs and re-verifies it, and only then
-generates the package license manifest. That package-stable identity removes
-the formula-level compressed-NIF restore workaround without weakening the
-sealed manifest.
+On macOS the finalizer gives the Exqlite NIF and bundled
+`libcrypto.3.dylib` loader-relative install IDs, ad-hoc signs and re-verifies
+them, and only then generates the package license manifest. The M9.a2 shadow
+rehearsal against Homebrew 6 showed that a non-bottle formula still undergoes
+Homebrew's unconditional `fix_dynamic_linkage` pass before `post_install`, even
+when those IDs are already loader-relative. The formula therefore preserves
+and restores exactly those two known manifest-managed Mach-O payloads after
+relocation. Installed `allbert licenses --json` and byte comparison must pass.
+This is a bounded packaging compatibility seam, not a runtime license manager,
+generic manifest interpreter, or permission to restore arbitrary files.
 
 Primary-source constraints for this amendment:
 
+- Homebrew's formula installer runs `fix_dynamic_linkage` whenever the install
+  is not a poured bottle, before the formula `post_install` hook; the current
+  tap workflow uses `brew tap-new` rather than arbitrary local formula paths
+  ([Homebrew installer source](https://github.com/Homebrew/brew/blob/e8cf16d0901fcdaafb531b22664fdef4d7ceca98/Library/Homebrew/formula_installer.rb#L995-L1007),
+  [tap creation](https://docs.brew.sh/How-to-Create-and-Maintain-a-Tap)).
 - Docker Desktop runs containers inside a Linux VM, and Docker recommends
   native arm64 images on Apple Silicon rather than best-effort Intel emulation
   ([Docker Desktop networking](https://docs.docker.com/desktop/features/networking/),

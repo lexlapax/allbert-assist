@@ -238,6 +238,7 @@ defmodule AllbertAssist.Release.LicensesFinalArtifactTest do
 
     assert File.read!(destination) == "measured openssl"
     assert_receive {:openssl_command, :rewrite, ^nif, ^source}
+    assert_receive {:openssl_command, :stable_id, ^destination}
     assert_receive {:openssl_command, :sign, ^destination}
     assert_receive {:openssl_command, :sign, ^nif}
     assert_receive {:openssl_command, :verify, ^destination}
@@ -456,12 +457,14 @@ defmodule AllbertAssist.Release.LicensesFinalArtifactTest do
       "otool", ["-L", ^library], opts ->
         System.cmd(
           "printf",
-          [otool_output(library, [library, "/usr/lib/libSystem.B.dylib"])],
+          [
+            otool_output(library, ["@loader_path/libcrypto.3.dylib", "/usr/lib/libSystem.B.dylib"])
+          ],
           opts
         )
 
       "otool", ["-D", ^library], opts ->
-        System.cmd("printf", [library <> ":\n" <> library <> "\n"], opts)
+        System.cmd("printf", [library <> ":\n@loader_path/libcrypto.3.dylib\n"], opts)
 
       "codesign", _args, opts ->
         System.cmd("true", [], opts)
@@ -540,6 +543,8 @@ defmodule AllbertAssist.Release.LicensesFinalArtifactTest do
   end
 
   defp openssl_runner(nif, source, destination) do
+    Process.put({:stable_id, destination}, false)
+
     fn
       "otool", ["-L", ^nif], _opts ->
         dependency =
@@ -553,11 +558,21 @@ defmodule AllbertAssist.Release.LicensesFinalArtifactTest do
         {otool_output(destination, ["/usr/lib/libSystem.B.dylib"]), 0}
 
       "otool", ["-D", ^destination], _opts ->
-        {destination <> ":\n" <> source <> "\n", 0}
+        install_id =
+          if Process.get({:stable_id, destination}),
+            do: "@loader_path/libcrypto.3.dylib",
+            else: source
+
+        {destination <> ":\n" <> install_id <> "\n", 0}
 
       "install_name_tool", ["-change", ^source, "@loader_path/libcrypto.3.dylib", ^nif], _opts ->
         Process.put({:rewritten, nif}, true)
         send(self(), {:openssl_command, :rewrite, nif, source})
+        {"", 0}
+
+      "install_name_tool", ["-id", "@loader_path/libcrypto.3.dylib", ^destination], _opts ->
+        Process.put({:stable_id, destination}, true)
+        send(self(), {:openssl_command, :stable_id, destination})
         {"", 0}
 
       "codesign", ["-f", "-s", "-", path], _opts ->

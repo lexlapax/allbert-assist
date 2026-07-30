@@ -226,6 +226,10 @@ defmodule AllbertAssist.Release.FinalArtifact do
     state = trace_openssl_closure!(release_root, roots, runner)
     remove_unreferenced_openssl!(release_root, roots, state.referenced)
 
+    Enum.each(state.referenced, fn library ->
+      stabilize_openssl_install_id!(release_root, library, runner)
+    end)
+
     signing_order =
       state.referenced
       |> MapSet.to_list()
@@ -627,6 +631,30 @@ defmodule AllbertAssist.Release.FinalArtifact do
 
     dependency = resolve_loader_path!(release_root, binary, link)
     {MapSet.put(libraries, dependency), [dependency | queue]}
+  end
+
+  defp stabilize_openssl_install_id!(release_root, library, runner) do
+    current = mach_o_install_id!(release_root, library, runner)
+
+    cond do
+      current == @catalogued_openssl_loader ->
+        :ok
+
+      Path.type(current) == :absolute and Path.basename(current) == @catalogued_openssl ->
+        run_command!(
+          runner,
+          "install_name_tool",
+          ["-id", @catalogued_openssl_loader, library],
+          stderr_to_stdout: true
+        )
+
+      true ->
+        Mix.raise("unsupported OpenSSL install id #{current}")
+    end
+
+    unless mach_o_install_id!(release_root, library, runner) == @catalogued_openssl_loader do
+      Mix.raise("OpenSSL install id is not loader-relative after patch")
+    end
   end
 
   defp openssl_links!(release_root, binary, runner) do

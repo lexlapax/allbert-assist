@@ -33,12 +33,24 @@ class Allbert < Formula
   end
 
   def install
+    managed_machos = [
+      Dir["lib/crypto-*/priv/lib/libcrypto.3.dylib"],
+      Dir["lib/exqlite-*/priv/sqlite3_nif.so"],
+    ]
+    odie "expected exactly two managed Mach-O payloads" unless managed_machos.all?(&:one?)
+
+    system "tar", "-czf", "allbert-managed-machos.tar.gz", *managed_machos.flatten
+    pkgshare.install "allbert-managed-machos.tar.gz"
     libexec.install Dir["*"]
     # Homebrew otherwise relocates release metafiles out of libexec after this
     # method returns. Keep the runtime evidence regular and complete there while
     # exposing the conventional top-level paths as relative links.
     prefix.install_symlink libexec/"LICENSE", libexec/"NOTICE"
     (bin/"allbert").write_env_script libexec/"bin/allbert", SHELL: "/bin/sh"
+  end
+
+  def post_install
+    system "tar", "-xzf", pkgshare/"allbert-managed-machos.tar.gz", "-C", libexec
   end
 
   def caveats
