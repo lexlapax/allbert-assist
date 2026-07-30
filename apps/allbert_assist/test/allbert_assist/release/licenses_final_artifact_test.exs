@@ -1,3 +1,10 @@
+# Serial lane workers run from the child app, where the umbrella release project
+# and its helper are not loaded implicitly. Keep the test valid in both contexts.
+unless Code.ensure_loaded?(AllbertAssist.Umbrella.MixProject) and
+         function_exported?(AllbertAssist.Umbrella.MixProject, :project, 0) do
+  Code.require_file(Path.expand("../../../../../mix.exs", __DIR__))
+end
+
 defmodule AllbertAssist.Release.FinalArtifactTest.FakeLicenses do
   @manifest_sha256 String.duplicate("a", 64)
 
