@@ -40,7 +40,7 @@ defmodule AllbertAssist.DevGates.V13LatencyBench do
 
       TestMetrics.record(%{
         store: store,
-        git_sha: if(full_sha, do: String.slice(full_sha, 0, 8)),
+        git_sha: String.slice(full_sha, 0, 8),
         full_sha: full_sha,
         dirty: dirty,
         cwd: "apps/allbert_assist",
