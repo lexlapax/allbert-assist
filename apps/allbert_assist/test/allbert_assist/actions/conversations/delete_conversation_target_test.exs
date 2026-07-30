@@ -13,8 +13,12 @@ defmodule AllbertAssist.Actions.Conversations.DeleteConversationTargetTest do
   alias AllbertAssist.Conversations.Message
   alias AllbertAssist.Conversations.Thread
   alias AllbertAssist.Conversations.ThreadChannelRef
+  alias AllbertAssist.Drafts.Store
   alias AllbertAssist.Jobs
   alias AllbertAssist.Jobs.Managed
+  alias AllbertAssist.Memory.Proposals
+  alias AllbertAssist.Memory.Proposals.Proposal
+  alias AllbertAssist.Memory.SpanProvenance
   alias AllbertAssist.Paths
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
@@ -232,6 +236,57 @@ defmodule AllbertAssist.Actions.Conversations.DeleteConversationTargetTest do
     assert absent.error == :not_found
   end
 
+  test "canonical deletion scrubs matching proposal and legacy draft payloads idempotently" do
+    assert {:ok, _setting} = Settings.put("memory.consolidation.enabled", true)
+
+    assert {:ok, _setting} =
+             Settings.put("memory.collection.origin_grants", ["local_operator"])
+
+    assert {:ok, thread} = Conversations.create_general_thread("local", "Derived content")
+    assert {:ok, message} = local_message(thread, "I prefer deletion-safe evidence.")
+    proposal = proposal_for(message.id, "deletion-safe evidence")
+
+    assert {:ok, draft} =
+             Store.create_memory_draft(%{
+               id: "deleted_source_draft",
+               kind: "memory_promotion",
+               summary: "Derived private draft",
+               body: "Derived private draft body",
+               provenance: %{
+                 operator_id: "local",
+                 source_thread_id: thread.id
+               }
+             })
+
+    assert {:ok, pending} =
+             DeleteConversationContent.run(
+               %{target_kind: :thread, target_id: thread.id},
+               operator_context()
+             )
+
+    resume = resume_params(pending)
+    assert {:ok, deleted} = DeleteConversationContent.run(resume, approved_context())
+    assert deleted.output_data.outcome == :deleted
+
+    stale = Repo.get!(Proposal, proposal.id)
+    assert stale.status == "stale"
+    assert stale.proposed_claim == %{"content_scrubbed" => true}
+    assert stale.span_provenance == %{"content_scrubbed" => true}
+    refute inspect(stale) =~ "deletion-safe evidence"
+
+    assert {:ok, scrubbed} = Store.show_draft(draft.id, kind: draft.kind)
+    assert scrubbed.tier == "discarded"
+    assert scrubbed.payload == %{"content_scrubbed" => true}
+    assert scrubbed.provenance == %{"content_scrubbed" => true}
+    refute inspect(scrubbed) =~ "Derived private draft"
+
+    assert {:ok, replay} = DeleteConversationContent.run(resume, approved_context())
+    assert replay.output_data.outcome == :already_deleted
+    assert Repo.get!(Proposal, proposal.id).status == "stale"
+    assert {:ok, replayed_draft} = Store.show_draft(draft.id, kind: draft.kind)
+    assert replayed_draft.payload == %{"content_scrubbed" => true}
+  end
+
   test "ownership and optional expected digest fail closed before confirmation" do
     assert {:ok, thread} = Conversations.create_general_thread("alice", "Private")
     assert {:ok, message} = local_message(thread, "private statement")
@@ -261,6 +316,39 @@ defmodule AllbertAssist.Actions.Conversations.DeleteConversationTargetTest do
 
   defp local_message(thread, content) do
     Conversations.append_user_message(thread, content, metadata: %{"channel" => "tui"})
+  end
+
+  defp proposal_for(message_id, value) do
+    policy = %{consumer: :memory, origin_scope: :local_operator, e2ee?: false}
+    assert {:ok, snapshot} = Corpus.snapshot("local", policy)
+    assert {:ok, page} = Corpus.page(snapshot, nil, 100)
+    source = Enum.find(page.items, &(&1.source_id == message_id))
+
+    assert {:ok, subject} = proposal_span("subject", source, "I", "operator_pronoun_v1")
+    assert {:ok, predicate} = proposal_span("predicate", source, "prefer", "identity_v1")
+    assert {:ok, object} = proposal_span("value", source, value, "identity_v1")
+
+    assert {:ok, %{proposal: proposal}} =
+             Proposals.propose(source, %{
+               proposed_claim: %{
+                 subject: "operator:local",
+                 predicate: "prefer",
+                 value: value
+               },
+               span_provenance: %{fields: [subject, predicate, object]},
+               category: "preferences",
+               namespace: "default",
+               run_id: "canonical-delete",
+               extractor_profile: "deterministic_v1",
+               extractor_version: 1
+             })
+
+    proposal
+  end
+
+  defp proposal_span(field, source, raw, transform) do
+    {start, length} = :binary.match(source.content, raw)
+    SpanProvenance.build(field, source, start, start + length, transform)
   end
 
   defp add_provider_refs(thread, message) do

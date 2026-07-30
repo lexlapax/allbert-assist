@@ -255,6 +255,24 @@ defmodule AllbertAssist.Drafts.Store do
   def complete_memory_promotion(_id, _kind, _outcome),
     do: {:error, :invalid_memory_promotion_outcome}
 
+  @doc "Scrub legacy Memory drafts whose only canonical source was deleted."
+  def invalidate_deleted_source(operator_id, target_kind, target_id)
+      when is_binary(operator_id) and target_kind in [:message, :thread] and
+             is_binary(target_id) do
+    list_drafts()
+    |> Enum.filter(&(&1.kind in ["memory_promotion", "memory_update"]))
+    |> Enum.filter(&draft_matches_deleted_source?(&1, operator_id, target_kind, target_id))
+    |> Enum.reduce_while({:ok, 0}, fn draft, {:ok, count} ->
+      case scrub_deleted_draft(draft, target_kind) do
+        :ok -> {:cont, {:ok, count + 1}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  def invalidate_deleted_source(_operator_id, _target_kind, _target_id),
+    do: {:error, :invalid_deleted_source}
+
   @doc "Return true when a non-code draft id is valid for filesystem storage."
   @spec valid_id?(String.t()) :: boolean()
   def valid_id?(id) when is_binary(id), do: Regex.match?(@slug_pattern, id)
@@ -880,6 +898,72 @@ defmodule AllbertAssist.Drafts.Store do
       "content_scrubbed" => true,
       "promotion" => metadata["promotion"]
     }
+  end
+
+  defp draft_matches_deleted_source?(draft, operator_id, target_kind, target_id) do
+    owner = Map.get(draft.provenance, "operator_id")
+    refs = deleted_source_refs(draft, target_kind)
+
+    owner_matches? = is_nil(owner) or owner == operator_id
+    owner_matches? and refs != [] and Enum.all?(refs, &(&1 == target_id))
+  end
+
+  defp deleted_source_refs(draft, target_kind) do
+    keys =
+      case target_kind do
+        :message -> ~w[message_id source_message_id canonical_message_id]
+        :thread -> ~w[thread_id source_thread_id canonical_thread_id]
+      end
+
+    collect_keyed_values([draft.payload, draft.provenance], MapSet.new(keys))
+  end
+
+  defp collect_keyed_values(value, keys) when is_map(value) do
+    Enum.flat_map(value, fn {key, nested} ->
+      own = if MapSet.member?(keys, to_string(key)) and is_binary(nested), do: [nested], else: []
+      own ++ collect_keyed_values(nested, keys)
+    end)
+  end
+
+  defp collect_keyed_values(values, keys) when is_list(values),
+    do: Enum.flat_map(values, &collect_keyed_values(&1, keys))
+
+  defp collect_keyed_values(_value, _keys), do: []
+
+  defp scrub_deleted_draft(draft, target_kind) do
+    with {:ok, metadata} <- read_existing_metadata(draft.kind, draft.id) do
+      now = DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+
+      outcome = %{
+        "outcome" => "stale",
+        "reason" => "canonical_#{target_kind}_deleted",
+        "content_scrubbed" => true
+      }
+
+      terminal =
+        metadata
+        |> Map.put("tier", "discarded")
+        |> Map.put("payload", %{"content_scrubbed" => true})
+        |> Map.put("provenance", %{"content_scrubbed" => true})
+        |> Map.put("diagnostics", [])
+        |> Map.put("promotion", outcome)
+        |> Map.delete("promotion_pending")
+        |> put_in(["timestamps", "updated_at"], now)
+
+      artifact = %{
+        "schema_version" => 1,
+        "id" => metadata["id"],
+        "kind" => metadata["kind"],
+        "tier" => "discarded",
+        "content_scrubbed" => true,
+        "promotion" => outcome
+      }
+
+      with :ok <- write_yaml_atomic(artifact_path(draft.kind, draft.id), artifact),
+           :ok <- write_yaml_atomic(metadata_path(draft.kind, draft.id), terminal) do
+        :ok
+      end
+    end
   end
 
   defp read_yaml(path) do

@@ -18,9 +18,11 @@ defmodule AllbertAssist.Conversations.Deletion do
   alias AllbertAssist.Conversations.Message
   alias AllbertAssist.Conversations.Thread
   alias AllbertAssist.Conversations.ThreadChannelRef
+  alias AllbertAssist.Drafts.Store, as: DraftStore
   alias AllbertAssist.Jobs.Job
   alias AllbertAssist.Jobs.Managed
   alias AllbertAssist.Jobs.Run
+  alias AllbertAssist.Memory.Proposals
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings.KeyCustody
@@ -67,7 +69,7 @@ defmodule AllbertAssist.Conversations.Deletion do
     with {:ok, request} <- approved_request(user_id, params),
          {:ok, result} <-
            Repo.transaction(fn -> delete_in_transaction(request) end, mode: :immediate) do
-      reconcile_after_commit(user_id, result.outcome)
+      reconcile_after_commit(user_id, result)
       {:ok, result}
     end
   end
@@ -530,13 +532,20 @@ defmodule AllbertAssist.Conversations.Deletion do
     }
   end
 
-  defp reconcile_after_commit(user_id, :already_deleted) do
+  defp reconcile_after_commit(user_id, %{outcome: :already_deleted} = result) do
     _epoch = Corpus.bump_eligibility_epoch(:all)
-    _kick = Managed.kick("search-index", user_id)
-    :ok
+    reconcile_consumers(user_id, result)
   end
 
-  defp reconcile_after_commit(user_id, :deleted) do
+  defp reconcile_after_commit(user_id, %{outcome: :deleted} = result) do
+    reconcile_consumers(user_id, result)
+  end
+
+  defp reconcile_consumers(user_id, result) do
+    _proposals =
+      Proposals.invalidate_deleted_source(user_id, result.target_kind, result.target_id)
+
+    _drafts = DraftStore.invalidate_deleted_source(user_id, result.target_kind, result.target_id)
     _kick = Managed.kick("search-index", user_id)
     :ok
   end

@@ -116,6 +116,41 @@ defmodule AllbertAssist.Memory.Proposals do
 
   def scrub_forgotten(_claim_id), do: {:error, :invalid_claim_id}
 
+  @doc "Reduce active proposals matching one canonical deletion to content-free stale outcomes."
+  def invalidate_deleted_source(operator_id, target_kind, target_id)
+      when is_binary(operator_id) and target_kind in [:message, :thread] and
+             is_binary(target_id) do
+    Repo.transaction(
+      fn -> invalidate_deleted_source_locked(operator_id, target_kind, target_id) end,
+      mode: :immediate
+    )
+  end
+
+  def invalidate_deleted_source(_operator_id, _target_kind, _target_id),
+    do: {:error, :invalid_deleted_source}
+
+  @doc "Retry stale reduction for every currently unavailable proposal source."
+  def reconcile_unavailable(operator_id) when is_binary(operator_id) do
+    proposals =
+      Proposal
+      |> where(
+        [proposal],
+        proposal.operator_id == ^operator_id and proposal.status in ["pending", "applying"]
+      )
+      |> Repo.all()
+
+    stale =
+      Enum.filter(proposals, fn proposal ->
+        match?({:error, _reason}, reauthorize_evidence(proposal))
+      end)
+
+    Repo.transaction(fn -> invalidate_proposals_locked(stale, "source_unavailable") end,
+      mode: :immediate
+    )
+  end
+
+  def reconcile_unavailable(_operator_id), do: {:error, :invalid_operator_id}
+
   @doc "Return the shared surface DTO without internal applying payloads."
   def to_review_map(%Proposal{} = proposal) do
     %{
@@ -505,6 +540,116 @@ defmodule AllbertAssist.Memory.Proposals do
       proposal_count: length(proposal_ids),
       batch_count: batch_count
     }
+  end
+
+  defp invalidate_deleted_source_locked(operator_id, target_kind, target_id) do
+    proposals =
+      Proposal
+      |> where(
+        [proposal],
+        proposal.operator_id == ^operator_id and proposal.status in ["pending", "applying"]
+      )
+      |> Repo.all()
+      |> Enum.filter(&evidence_matches?(&1.source_evidence, target_kind, target_id))
+
+    invalidate_proposals_locked(proposals, "canonical_source_deleted")
+  end
+
+  defp invalidate_proposals_locked(proposals, reason) do
+    reviewed_at = DateTime.utc_now() |> DateTime.truncate(:microsecond)
+    proposal_ids = Enum.map(proposals, & &1.id)
+
+    Enum.each(proposals, &stale_proposal(&1, reason, reviewed_at))
+    batch_count = stale_batches(proposal_ids, reason, reviewed_at)
+
+    %{proposal_count: length(proposal_ids), batch_count: batch_count}
+  end
+
+  defp stale_proposal(proposal, reason, reviewed_at) do
+    {proposed_claim, span_provenance} =
+      if proposal.kind == "protected_stub",
+        do: {nil, nil},
+        else: {%{"content_scrubbed" => true}, %{"content_scrubbed" => true}}
+
+    proposal
+    |> Ecto.Changeset.change(%{
+      status: "stale",
+      proposed_claim: proposed_claim,
+      span_provenance: span_provenance,
+      applying_transition_id: nil,
+      applying_decision_digest: nil,
+      applying_payload: nil,
+      result: %{"outcome" => "stale", "reason" => reason},
+      reviewed_by: "system:canonical_delete",
+      reviewed_at: reviewed_at
+    })
+    |> Repo.update!()
+  end
+
+  defp stale_batches([], _reason, _reviewed_at), do: 0
+
+  defp stale_batches(proposal_ids, reason, reviewed_at) do
+    proposal_ids = MapSet.new(proposal_ids)
+
+    Batch
+    |> where([batch], batch.status in ["pending", "applying"])
+    |> Repo.all()
+    |> Enum.count(&stale_batch(&1, proposal_ids, reason, reviewed_at))
+  end
+
+  defp stale_batch(batch, proposal_ids, reason, reviewed_at) do
+    bindings = batch.bindings["items"] || []
+
+    {stale, remaining} =
+      Enum.split_with(bindings, &MapSet.member?(proposal_ids, &1["proposal_id"]))
+
+    if stale == [] do
+      false
+    else
+      stale_ids = MapSet.new(stale, & &1["proposal_id"])
+
+      results =
+        (batch.results["items"] || [])
+        |> Enum.reject(&MapSet.member?(stale_ids, &1["proposal_id"]))
+        |> Kernel.++(
+          Enum.map(stale, fn binding ->
+            %{
+              "proposal_id" => binding["proposal_id"],
+              "outcome" => "stale",
+              "reason" => reason
+            }
+          end)
+        )
+
+      terminal? = remaining == []
+
+      batch
+      |> Ecto.Changeset.change(%{
+        status: if(terminal?, do: "complete", else: batch.status),
+        bindings: %{"items" => remaining},
+        results: %{"items" => results},
+        completed_at: if(terminal?, do: reviewed_at, else: batch.completed_at)
+      })
+      |> Repo.update!()
+
+      true
+    end
+  end
+
+  defp evidence_matches?(evidence, target_kind, target_id) do
+    evidence
+    |> stringify()
+    |> Map.get("refs", [])
+    |> Enum.any?(fn ref ->
+      case target_kind do
+        :message -> ref["source_id"] == target_id
+        :thread -> ref["thread_id"] == target_id
+      end
+    end)
+  end
+
+  defp reauthorize_evidence(proposal) do
+    CollectionPolicy.reauthorize_evidence(proposal.operator_id, proposal.source_evidence)
   end
 
   defp scrub_forgotten_proposal(proposal, claim_id, reviewed_at) do
