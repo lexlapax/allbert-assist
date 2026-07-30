@@ -54,6 +54,13 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
              "id-token" => "write"
            }
 
+    assert jobs["qualify"]["permissions"] == %{"contents" => "write"}
+
+    assert jobs["qualification-evidence"]["permissions"] == %{
+             "actions" => "read",
+             "contents" => "write"
+           }
+
     expected_runners = %{
       "linux-arm64" => "ubuntu-22.04-arm",
       "linux-x64" => "ubuntu-22.04",
@@ -70,6 +77,7 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     assert workflow_text =~ "qualify-target"
     assert workflow_text =~ "collect-qualification"
     assert workflow_text =~ "release-promotion"
+    assert workflow_text =~ "Draft releases are visible only to identities with push access"
   end
 
   test "workflow actions are exact pins and qualification uploads are attempt-qualified" do

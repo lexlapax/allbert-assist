@@ -543,6 +543,15 @@ only those explicitly bound assets, runs packaged license/protocol/provider
 rows, and emits the final qualification manifest. The operator validates the
 exact macOS artifact's TUI before approving promotion.
 
+GitHub documents release-asset GETs as requiring only `contents: read`, but it
+also limits draft-release visibility to identities with push access. The
+workflow's target-qualification and evidence-composition jobs therefore need
+job-local `contents: write` so their `GITHUB_TOKEN` can read the unpublished
+draft. This is visibility authority, not mutation intent: the stateless
+qualification helper uses only GET endpoints, checkout does not persist the
+token, top-level permissions remain empty, and only protected promotion calls
+release mutation endpoints.
+
 Protected GitHub promotion remains the only signing/publication authority. It
 rehashes the draft assets, verifies the candidate and qualification bindings,
 creates deterministic checksums, signs through OIDC, uploads signatures, and
@@ -591,8 +600,11 @@ Primary-source constraints for this amendment:
   [multi-platform builds](https://docs.docker.com/build/building/multi-platform/)).
 - GitHub recommends creating a draft, attaching all assets, then publishing;
   when immutable releases are enabled, tag and asset immutability begins at
-  publication while draft state remains editable
+  publication while draft state remains editable. Only identities with push
+  access receive draft releases from the releases API, while release-asset GET
+  endpoints otherwise require `contents: read`
   ([immutable releases](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases),
+  [releases API](https://docs.github.com/en/rest/releases/releases),
   [release assets API](https://docs.github.com/en/rest/releases/assets)).
 
 ### Per-target toolchain evidence

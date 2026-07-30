@@ -76,8 +76,11 @@ jobs:
           - os: ubuntu-22.04-arm
             target: linux-arm64
     runs-on: ${{ matrix.os }}
+    # Draft releases are visible only to identities with push access. Although
+    # qualification performs only release-asset GETs, contents:read does not
+    # give the GITHUB_TOKEN draft visibility.
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -117,7 +120,8 @@ jobs:
     runs-on: ubuntu-22.04
     permissions:
       actions: read
-      contents: read
+      # Same draft-visibility requirement as the target qualification jobs.
+      contents: write
     outputs:
       artifact-id: ${{ steps.upload.outputs.artifact-id }}
       artifact-digest: ${{ steps.upload.outputs.artifact-digest }}
