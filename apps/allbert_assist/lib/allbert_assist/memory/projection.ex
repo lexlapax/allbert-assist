@@ -736,18 +736,20 @@ defmodule AllbertAssist.Memory.Projection do
 
   defp verify_schema_columns(conn) do
     required =
-      MapSet.new(~w[
+      ~w[
         claim_id sequence revision_digest state recorded_at valid_from valid_to actor action value
         source_path operator_id namespace category app_id origin source_ref summary search_text
-      ])
+      ]
+
+    required_terms = ~w[term claim_id sequence]
 
     with {:ok, rows} <- query_all(conn, "PRAGMA table_info(claim_revisions)", []),
          {:ok, term_rows} <- query_all(conn, "PRAGMA table_info(claim_terms)", []) do
       actual = rows |> Enum.map(&Enum.at(&1, 1)) |> MapSet.new()
       actual_terms = term_rows |> Enum.map(&Enum.at(&1, 1)) |> MapSet.new()
 
-      if MapSet.subset?(required, actual) and
-           MapSet.subset?(MapSet.new(~w[term claim_id sequence]), actual_terms),
+      if Enum.all?(required, &MapSet.member?(actual, &1)) and
+           Enum.all?(required_terms, &MapSet.member?(actual_terms, &1)),
          do: :ok,
          else: {:error, :memory_projection_schema_incomplete}
     end

@@ -72,7 +72,7 @@ defmodule AllbertAssist.Memory.ActiveMemory do
   end
 
   @doc "Return the body-free metadata shape used by traces and action metadata."
-  @spec trace_metadata(result()) :: map()
+  @spec trace_metadata(map()) :: map()
   def trace_metadata(result) when is_map(result) do
     result
     |> Map.take([
