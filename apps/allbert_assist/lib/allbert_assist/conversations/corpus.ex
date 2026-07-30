@@ -176,7 +176,7 @@ defmodule AllbertAssist.Conversations.Corpus do
 
       envelopes =
         rows
-        |> Enum.map(&envelope_for(&1, operator_id, normalized))
+        |> Enum.map(&context_envelope_for(&1, operator_id, normalized))
         |> Enum.flat_map(fn
           {:ok, envelope} -> [envelope]
           {:error, _reason} -> []
@@ -303,11 +303,19 @@ defmodule AllbertAssist.Conversations.Corpus do
   end
 
   defp envelope_for(%Message{} = message, operator_id, policy) do
+    envelope_for(message, operator_id, policy, :source)
+  end
+
+  defp context_envelope_for(%Message{} = message, operator_id, policy) do
+    envelope_for(message, operator_id, policy, :context)
+  end
+
+  defp envelope_for(%Message{} = message, operator_id, policy, mode) do
     with {:ok, message} <- ensure_origin_evidence(message, policy),
          message <- Repo.preload(message, [:thread, :origin_thread_ref]),
          true <- message.user_id == operator_id || {:error, :scope_denied},
          {:ok, origin} <- verified_origin(message, policy),
-         :ok <- consumer_author(message, policy) do
+         :ok <- consumer_author(message, policy, mode) do
       {:ok,
        %SourceEnvelope{
          source_type: :conversation,
@@ -551,6 +559,9 @@ defmodule AllbertAssist.Conversations.Corpus do
     do: {:error, :ineligible}
 
   defp consumer_author(_message, _policy), do: :ok
+
+  defp consumer_author(_message, %{consumer: :memory}, :context), do: :ok
+  defp consumer_author(message, policy, _mode), do: consumer_author(message, policy)
 
   defp rehydrate_one(operator_id, ref, policy, scope) do
     {source_id, expected_digest} = ref_identity(ref)

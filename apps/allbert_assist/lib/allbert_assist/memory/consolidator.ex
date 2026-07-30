@@ -131,7 +131,7 @@ defmodule AllbertAssist.Memory.Consolidator do
 
   defp extraction_sources(messages, source) do
     messages
-    |> Enum.filter(&(&1.author == :operator and &1.source_id != source.source_id))
+    |> Enum.reject(&(&1.source_id == source.source_id))
     |> Enum.filter(&not_after?(&1, source))
     |> Kernel.++([source])
   end

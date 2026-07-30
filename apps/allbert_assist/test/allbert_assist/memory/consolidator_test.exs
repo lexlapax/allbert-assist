@@ -85,6 +85,28 @@ defmodule AllbertAssist.Memory.ConsolidatorTest do
     assert denied.status == :denied
   end
 
+  test "assistant context is transient and cannot become proposal evidence" do
+    enable!()
+    assert {:ok, thread} = Conversations.create_general_thread("alice", "Transient context")
+
+    assert {:ok, assistant} =
+             Conversations.append_assistant_message(
+               thread,
+               "The operator prefers assistant text.", metadata: %{"channel" => "tui"})
+
+    assert {:ok, operator} =
+             Conversations.append_user_message(thread, "I prefer operator evidence.",
+               metadata: %{"channel" => "tui"}
+             )
+
+    assert {:ok, result} = Consolidator.run("alice")
+    assert result.created == 1
+    assert [proposal] = Proposals.list("alice")
+    assert Enum.map(proposal.source_evidence["refs"], & &1["source_id"]) == [operator.id]
+    refute inspect(proposal) =~ assistant.id
+    refute inspect(proposal) =~ "assistant text"
+  end
+
   defp enable! do
     assert {:ok, _setting} = Settings.put("memory.consolidation.enabled", true)
 

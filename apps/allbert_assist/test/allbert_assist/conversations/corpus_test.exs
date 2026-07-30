@@ -110,6 +110,30 @@ defmodule AllbertAssist.Conversations.CorpusTest do
     assert Corpus.eligibility_epoch(:memory) == 0
   end
 
+  test "Memory context may include assistant turns while source pages remain operator-only" do
+    assert {:ok, _setting} = Settings.put("memory.consolidation.enabled", true)
+    assert {:ok, _epoch} = Corpus.set_origin_grant(:memory, :local_operator, true)
+    assert {:ok, thread} = Conversations.create_general_thread("alice", "Memory context")
+    assert {:ok, first} = local_message(thread, "I prefer verified context.")
+
+    assert {:ok, assistant} =
+             Conversations.append_assistant_message(thread, "Assistant-only context.",
+               metadata: %{"channel" => "tui"}
+             )
+
+    assert {:ok, source} = local_message(thread, "I prefer grounded evidence.")
+    policy = %{consumer: :memory, origin_scope: :local_operator, e2ee?: false}
+
+    assert {:ok, snapshot} = Corpus.snapshot("alice", policy)
+    assert {:ok, page} = Corpus.page(snapshot, nil, 20)
+    assert Enum.map(page.items, & &1.source_id) == [first.id, source.id]
+
+    assert {:ok, %{messages: context}} =
+             Corpus.conversation_context("alice", source.id, policy)
+
+    assert Enum.any?(context, &(&1.source_id == assistant.id and &1.author == :assistant))
+  end
+
   defp local_message(thread, content) do
     Conversations.append_user_message(thread, content, metadata: %{"channel" => "tui"})
   end
