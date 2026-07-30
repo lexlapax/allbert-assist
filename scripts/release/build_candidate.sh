@@ -100,14 +100,13 @@ export MIX_REBAR3="$REBAR3_BIN"
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/allbert-candidate-build.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
-export MIX_BUILD_PATH="$WORK/build"
-RELEASE_ROOT="$MIX_BUILD_PATH/prod/rel/allbert"
+RELEASE_ROOT="$WORK/allbert"
 
 mix deps.get --only prod
 mix hex.audit
-mix release allbert --overwrite
+mix release allbert --overwrite --path "$RELEASE_ROOT"
 
-tar -czf "$WORK/$ARCHIVE" -C "$MIX_BUILD_PATH/prod/rel" allbert
+tar -czf "$WORK/$ARCHIVE" -C "$WORK" allbert
 bash scripts/smoke/artifact_smoke.sh "$RELEASE_ROOT" "$TARGET" > "$WORK/smoke.log"
 grep -q "^smoke:all PASS target=${TARGET} version=${VERSION}$" "$WORK/smoke.log" ||
   fail "target smoke did not emit its terminal PASS"
