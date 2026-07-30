@@ -133,6 +133,39 @@ defmodule Mix.Tasks.Allbert.ThreadsTest do
     assert dismissed.dismissed_by == "thread_closed"
   end
 
+  test "canonical message and thread delete routes create bound confirmations only" do
+    assert {:ok, message_thread} =
+             Conversations.create_general_thread("local", "Message deletion")
+
+    assert {:ok, message} = Conversations.append_user_message(message_thread, "delete exactly me")
+
+    message_output =
+      capture_io(fn ->
+        assert :ok = Threads.run(["delete-message", message.id, "--user", "local"])
+      end)
+
+    assert message_output =~ "Confirmation:"
+    assert message_output =~ "Target: message #{message.id}"
+    assert message_output =~ "Canonical messages: 1"
+    assert message_output =~ "No canonical content was deleted."
+    assert Repo.get(AllbertAssist.Conversations.Message, message.id)
+
+    Mix.Task.reenable("allbert.threads")
+
+    assert {:ok, thread} = Conversations.create_general_thread("local", "Thread deletion")
+    assert {:ok, _message} = Conversations.append_user_message(thread, "thread body")
+
+    thread_output =
+      capture_io(fn ->
+        assert :ok = Threads.run(["delete-thread", thread.id, "--user", "local"])
+      end)
+
+    assert thread_output =~ "Confirmation:"
+    assert thread_output =~ "Target: thread #{thread.id}"
+    assert thread_output =~ "Canonical messages: 1"
+    assert Repo.get(AllbertAssist.Conversations.Thread, thread.id)
+  end
+
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 end

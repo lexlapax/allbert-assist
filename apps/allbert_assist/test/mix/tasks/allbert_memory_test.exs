@@ -247,6 +247,73 @@ defmodule Mix.Tasks.Allbert.MemoryTest do
     assert File.exists?(entry.path)
   end
 
+  test "archive alias, restore, Forget preview, and consolidation use registered actions" do
+    assert {:ok, entry} =
+             Memory.append(%{
+               category: :preferences,
+               body: "The operator's validation marker is amber-route-913.",
+               actor: "local",
+               agent: "test",
+               channel: :test,
+               source_signal_id: "lifecycle"
+             })
+
+    assert {:ok, _reviewed} =
+             Memory.review_entry(entry.path, %{status: :kept, reviewed_by: "local"},
+               user_id: "local"
+             )
+
+    assert {:ok, _setting} = Settings.put("memory.delete_requires_confirmation", false)
+
+    archive_output =
+      capture_io(fn ->
+        assert :ok = MemoryTask.run(["archive", entry.path, "--user", "local"])
+      end)
+
+    assert archive_output =~ "Archived:"
+    assert archive_output =~ "Claim ID:"
+    [claim_id] = Regex.run(~r/Claim ID: ([0-9a-f-]{36})/, archive_output, capture: :all_but_first)
+
+    Mix.Task.reenable("allbert.memory")
+
+    restore_output =
+      capture_io(fn ->
+        assert :ok = MemoryTask.run(["restore", claim_id, "--user", "local"])
+      end)
+
+    assert restore_output =~ "Restored claim: #{claim_id}"
+    assert restore_output =~ "State: kept"
+
+    Mix.Task.reenable("allbert.memory")
+
+    forget_output =
+      capture_io(fn ->
+        assert :ok =
+                 MemoryTask.run([
+                   "forget",
+                   claim_id,
+                   "--reason",
+                   "operator_requested",
+                   "--user",
+                   "local"
+                 ])
+      end)
+
+    assert forget_output =~ "Confirmation:"
+    assert forget_output =~ "Claim ID: #{claim_id}"
+    assert forget_output =~ "originating conversation is retained"
+
+    Mix.Task.reenable("allbert.memory")
+
+    consolidate_output =
+      capture_io(fn ->
+        assert :ok = MemoryTask.run(["consolidate", "--user", "local"])
+      end)
+
+    assert consolidate_output =~ "Consolidation status: no_op"
+    assert consolidate_output =~ "Stopped reason: disabled"
+  end
+
   test "compile-index, search, and summarize render operator output" do
     assert {:ok, entry} =
              Memory.append(%{
@@ -345,6 +412,10 @@ defmodule Mix.Tasks.Allbert.MemoryTest do
                    "concise release reports",
                    "--user",
                    "alice",
+                   "--valid-at",
+                   "2026-05-28T12:00:00Z",
+                   "--known-at",
+                   "2026-05-28T12:00:00Z",
                    "--now",
                    "2026-05-28T12:00:00Z"
                  ])
@@ -355,6 +426,14 @@ defmodule Mix.Tasks.Allbert.MemoryTest do
     assert retrieve_output =~ "recency="
     assert retrieve_output =~ "identity=1.5"
     assert retrieve_output =~ entry.path
+    assert retrieve_output =~ "Valid at: 2026-05-28T12:00:00Z"
+    assert retrieve_output =~ "Known at: 2026-05-28T12:00:00Z"
+  end
+
+  test "retrieve rejects malformed explicit temporal axes" do
+    assert_raise Mix.Error, ~r/--valid-at must be an ISO8601 timestamp/, fn ->
+      MemoryTask.run(["retrieve", "--query", "anything", "--valid-at", "yesterday"])
+    end
   end
 
   test "quick smoke retrieves a plain identity markdown file", %{home: home} do

@@ -82,6 +82,19 @@ defmodule AllbertAssist.CLI.Areas.Threads do
 
   defp route(["complete"], _ctx), do: {:error, {:arg, "complete requires THREAD_ID"}}
 
+  # Canonical deletion is separately confirmed and resumed through the generic
+  # confirmation spine. These routes add no deletion or cascade semantics.
+  defp route(["delete-message", message_id | args], ctx),
+    do: delete_conversation(:message, message_id, args, ctx)
+
+  defp route(["delete-thread", thread_id | args], ctx),
+    do: delete_conversation(:thread, thread_id, args, ctx)
+
+  defp route(["delete-message"], _ctx),
+    do: {:error, {:arg, "delete-message requires MESSAGE_ID"}}
+
+  defp route(["delete-thread"], _ctx), do: {:error, {:arg, "delete-thread requires THREAD_ID"}}
+
   # allbert.conversations: canonical unified history.
   defp route(["show", thread_id | rest], _ctx) do
     {opts, args, invalid} =
@@ -216,6 +229,20 @@ defmodule AllbertAssist.CLI.Areas.Threads do
     ])
   end
 
+  defp render({:ok, {:delete, %{status: :needs_confirmation} = response}}) do
+    Render.ok([
+      "Confirmation: #{response.confirmation_id}",
+      "Target: #{response.preview.target_kind} #{response.preview.target_id}",
+      "Canonical messages: #{response.preview.message_count}",
+      "Conversation references: #{response.preview.reference_count}",
+      "No canonical content was deleted."
+    ])
+  end
+
+  defp render({:ok, {:delete, %{status: :completed} = response}}) do
+    Render.ok(response.message)
+  end
+
   defp render({:error, {:arg, message}}), do: Render.error(message)
 
   defp thread_message_line(message) do
@@ -283,6 +310,37 @@ defmodule AllbertAssist.CLI.Areas.Threads do
     case Runner.run("resume_thread_on_channel", params, resume_context(ctx, user_id)) do
       {:ok, %{status: :completed, resume: resume} = response} ->
         {:ok, {response, resume}}
+
+      {:ok, response} ->
+        {:error, {:arg, Map.get(response, :message, inspect(response))}}
+    end
+  end
+
+  defp delete_conversation(target_kind, target_id, args, ctx) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args,
+        switches: [user: :string, operator: :string],
+        aliases: @thread_aliases
+      )
+
+    with :ok <- reject_invalid(invalid),
+         :ok <- reject_extra(rest),
+         {:ok, user_id} <- resolve_user_id(opts),
+         {:ok, response} <-
+           accepted_action(
+             "delete_conversation_content",
+             %{target_kind: target_kind, target_id: target_id, user_id: user_id},
+             ctx,
+             user_id
+           ) do
+      {:ok, {:delete, response}}
+    end
+  end
+
+  defp accepted_action(action_name, params, ctx, user_id) do
+    case Runner.run(action_name, params, resume_context(ctx, user_id)) do
+      {:ok, %{status: status} = response} when status in [:completed, :needs_confirmation] ->
+        {:ok, response}
 
       {:ok, response} ->
         {:error, {:arg, Map.get(response, :message, inspect(response))}}

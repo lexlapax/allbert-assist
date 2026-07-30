@@ -24,9 +24,13 @@ defmodule AllbertAssist.CLI.Areas.Memory do
     mix allbert.memory review PATH --status kept|flagged|prune_nominated [--note "..."] [--user USER]
     mix allbert.memory update PATH [--summary "..."] [--body "..."] [--note "..."] [--user USER]
     mix allbert.memory delete PATH [--user USER]
+    mix allbert.memory archive PATH [--user USER]
+    mix allbert.memory restore CLAIM_ID [--tail-digest SHA256] [--user USER]
+    mix allbert.memory forget CLAIM_ID [--reason operator_requested|privacy|incorrect|expired] [--user USER]
     mix allbert.memory prune [--category notes|preferences|traces|skills|identity] [--dry-run] [--write] [--user USER]
     mix allbert.memory search QUERY [--category notes|preferences|traces|skills|identity] [--limit N] [--user USER]
-    mix allbert.memory retrieve --query "..." [--thread-id THREAD_ID] [--active-app APP_ID] [--identity-namespace identity] [--now ISO8601] [--user USER]
+    mix allbert.memory retrieve --query "..." [--thread-id THREAD_ID] [--active-app APP_ID] [--identity-namespace identity] [--valid-at ISO8601] [--known-at ISO8601] [--now ISO8601] [--user USER]
+    mix allbert.memory consolidate [--user USER]
     mix allbert.memory compile-index [--user USER]
     mix allbert.memory summarize --category notes|preferences|traces|skills|identity [--user USER]
     mix allbert.memory promote-turn --thread-id THREAD_ID --message-id MESSAGE_ID [--category notes] [--summary "..."] [--user USER]
@@ -160,15 +164,58 @@ defmodule AllbertAssist.CLI.Areas.Memory do
   end
 
   defp route(["delete", path | args], ctx) do
+    archive(path, args, ctx, "delete")
+  end
+
+  defp route(["archive", path | args], ctx) do
+    archive(path, args, ctx, "archive")
+  end
+
+  defp route(["restore", claim_id | args], ctx) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args,
+        strict: [tail_digest: :string, user: :string, operator: :string]
+      )
+
+    with :ok <- reject_invalid(invalid),
+         :ok <- reject_rest(rest, "restore"),
+         {:ok, user_id} <- resolve_user_id(opts),
+         params =
+           compact(%{
+             claim_id: claim_id,
+             expected_tail_digest: opts[:tail_digest],
+             user_id: user_id
+           }),
+         {:ok, response} <- completed_action("restore_memory_claim", params, ctx, user_id) do
+      {:ok, {:restore, response.restored}}
+    end
+  end
+
+  defp route(["forget", claim_id | args], ctx) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args,
+        strict: [reason: :string, user: :string, operator: :string]
+      )
+
+    with :ok <- reject_invalid(invalid),
+         :ok <- reject_rest(rest, "forget"),
+         {:ok, user_id} <- resolve_user_id(opts),
+         params = compact(%{claim_id: claim_id, reason_code: opts[:reason], user_id: user_id}),
+         {:ok, response} <- accepted_action("forget_memory_claim", params, ctx, user_id) do
+      {:ok, {:forget, response}}
+    end
+  end
+
+  defp route(["consolidate" | args], ctx) do
     {opts, rest, invalid} =
       OptionParser.parse(args, strict: [user: :string, operator: :string])
 
     with :ok <- reject_invalid(invalid),
-         :ok <- reject_rest(rest, "delete"),
+         :ok <- reject_rest(rest, "consolidate"),
          {:ok, user_id} <- resolve_user_id(opts),
          {:ok, response} <-
-           accepted_action("delete_memory_entry", %{path: path, user_id: user_id}, ctx, user_id) do
-      {:ok, {:delete, response}}
+           completed_action("consolidate_memory", %{user_id: user_id}, ctx, user_id) do
+      {:ok, {:consolidate, response.result}}
     end
   end
 
@@ -226,6 +273,8 @@ defmodule AllbertAssist.CLI.Areas.Memory do
           thread_id: :string,
           active_app: :string,
           identity_namespace: :string,
+          valid_at: :string,
+          known_at: :string,
           now: :string
         ]
       )
@@ -234,6 +283,8 @@ defmodule AllbertAssist.CLI.Areas.Memory do
          :ok <- reject_rest(rest, "retrieve"),
          {:ok, user_id} <- resolve_user_id(opts),
          {:ok, query} <- require_value(opts[:query], "retrieve requires --query"),
+         {:ok, valid_at} <- iso8601_option(opts[:valid_at], "--valid-at"),
+         {:ok, known_at} <- iso8601_option(opts[:known_at], "--known-at"),
          params =
            %{
              query: query,
@@ -241,11 +292,13 @@ defmodule AllbertAssist.CLI.Areas.Memory do
              thread_id: opts[:thread_id],
              active_app: opts[:active_app],
              identity_namespace: opts[:identity_namespace],
+             valid_at: valid_at,
+             known_at: known_at,
              now: opts[:now]
            }
            |> compact(),
          {:ok, response} <- completed_action("retrieve_active_memory", params, ctx, user_id) do
-      {:ok, {:retrieve, response.active_memory}}
+      {:ok, {:retrieve, response.active_memory, %{valid_at: valid_at, known_at: known_at}}}
     end
   end
 
@@ -422,6 +475,19 @@ defmodule AllbertAssist.CLI.Areas.Memory do
 
   defp route(_args, _ctx), do: {:usage, @usage}
 
+  defp archive(path, args, ctx, command) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args, strict: [user: :string, operator: :string])
+
+    with :ok <- reject_invalid(invalid),
+         :ok <- reject_rest(rest, command),
+         {:ok, user_id} <- resolve_user_id(opts),
+         {:ok, response} <-
+           accepted_action("delete_memory_entry", %{path: path, user_id: user_id}, ctx, user_id) do
+      {:ok, {:delete, response}}
+    end
+  end
+
   # -- rendering -------------------------------------------------------------
 
   defp render({:ok, {:status, counts, root, scope}}) do
@@ -477,6 +543,7 @@ defmodule AllbertAssist.CLI.Areas.Memory do
   defp render({:ok, {:delete, %{status: :needs_confirmation} = response}}) do
     Render.ok([
       "Confirmation: #{response.confirmation_id}",
+      "Claim ID: #{get_in(response, [:actions, Access.at(0), :claim_id])}",
       "No file was moved."
     ])
   end
@@ -484,7 +551,41 @@ defmodule AllbertAssist.CLI.Areas.Memory do
   defp render({:ok, {:delete, %{status: :completed} = response}}) do
     Render.ok([
       "Archived: #{response.archived.path}",
-      "Archived path: #{response.archived.archived_path}"
+      "Archived path: #{response.archived.archived_path}",
+      "Claim ID: #{response.archived.claim_id}"
+    ])
+  end
+
+  defp render({:ok, {:restore, restored}}) do
+    Render.ok([
+      "Restored claim: #{restored.claim_id}",
+      "Path: #{restored.path}",
+      "State: kept"
+    ])
+  end
+
+  defp render({:ok, {:forget, %{status: :needs_confirmation} = response}}) do
+    Render.ok([
+      "Confirmation: #{response.confirmation_id}",
+      "Claim ID: #{get_in(response, [:actions, Access.at(0), :claim_id])}",
+      response.disclosure
+    ])
+  end
+
+  defp render({:ok, {:forget, %{status: :completed} = response}}) do
+    Render.ok([
+      response.message,
+      "Claim ID: #{response.result.claim_id}",
+      "Status: #{response.result.status}"
+    ])
+  end
+
+  defp render({:ok, {:consolidate, result}}) do
+    Render.ok([
+      "Consolidation status: #{result.status}",
+      "Scanned: #{Map.get(result, :scanned, 0)}",
+      "Created: #{Map.get(result, :created, 0)}",
+      "Stopped reason: #{Map.get(result, :stopped_reason, "none")}"
     ])
   end
 
@@ -514,7 +615,7 @@ defmodule AllbertAssist.CLI.Areas.Memory do
     )
   end
 
-  defp render({:ok, {:retrieve, active_memory}}) do
+  defp render({:ok, {:retrieve, active_memory, temporal}}) do
     base = [
       "Active Memory chunks: #{length(Map.get(active_memory, :retrieved_chunks, []))}",
       "Status: #{Map.get(active_memory, :status, :unknown)}",
@@ -522,7 +623,9 @@ defmodule AllbertAssist.CLI.Areas.Memory do
       "Terms: #{retrieve_terms(active_memory)}",
       "Scope: #{inspect(Map.get(active_memory, :scope, %{}), pretty: true)}",
       "Candidate chunks before filter: #{Map.get(active_memory, :candidate_chunk_count_before_filter, 0)}",
-      "Candidate chunks after filter: #{Map.get(active_memory, :candidate_count_after_filter, 0)}"
+      "Candidate chunks after filter: #{Map.get(active_memory, :candidate_count_after_filter, 0)}",
+      "Valid at: #{temporal.valid_at || "now"}",
+      "Known at: #{temporal.known_at || "now"}"
     ]
 
     chunk_lines =
@@ -670,6 +773,15 @@ defmodule AllbertAssist.CLI.Areas.Memory do
 
   defp require_value(nil, message), do: {:error, {:arg, message}}
   defp require_value(value, _message), do: {:ok, value}
+
+  defp iso8601_option(nil, _option), do: {:ok, nil}
+
+  defp iso8601_option(value, option) do
+    case DateTime.from_iso8601(value) do
+      {:ok, datetime, _offset} -> {:ok, DateTime.to_iso8601(datetime)}
+      _error -> {:error, {:arg, "#{option} must be an ISO8601 timestamp."}}
+    end
+  end
 
   defp decode_json_map(nil, _option), do: {:ok, nil}
 

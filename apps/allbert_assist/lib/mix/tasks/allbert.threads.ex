@@ -9,6 +9,8 @@ defmodule Mix.Tasks.Allbert.Threads do
       mix allbert.threads --user alice --thread THREAD_ID
       mix allbert.threads --operator alice --limit 5
       mix allbert.threads complete THREAD_ID [--user alice]
+      mix allbert.threads delete-message MESSAGE_ID [--user alice]
+      mix allbert.threads delete-thread THREAD_ID [--user alice]
 
   The dispatch logic is shared with the packaged `allbert admin threads` command
   (`AllbertAssist.CLI.Areas.Threads`); this task is a thin Mix-shell wrapper.
