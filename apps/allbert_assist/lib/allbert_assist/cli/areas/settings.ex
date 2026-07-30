@@ -278,7 +278,8 @@ defmodule AllbertAssist.CLI.Areas.Settings do
              :string_list,
              :profile_ref_list,
              :public_tool_list,
-             :public_memory_namespace_list
+             :public_memory_namespace_list,
+             :v13_origin_scopes
            ] ->
         true
 

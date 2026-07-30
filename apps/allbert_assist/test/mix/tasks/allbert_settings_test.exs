@@ -261,6 +261,24 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
              Settings.get("acp_server.memory_namespaces_enabled")
   end
 
+  test "sets v1.3 origin grants from packaged CLI list syntax" do
+    memory_output =
+      capture_io(fn ->
+        assert :ok =
+                 SettingsTask.run([
+                   "set",
+                   "memory.collection.origin_grants",
+                   "local_operator"
+                 ])
+      end)
+
+    assert memory_output =~
+             "Updated: memory.collection.origin_grants=[\"local_operator\"]"
+
+    assert {:ok, ["local_operator"]} =
+             Settings.get("memory.collection.origin_grants")
+  end
+
   test "model-doctor renders the per-purpose recommendation matrix" do
     assert {:ok, _setting} =
              Settings.put("providers.local_ollama.base_url", "http://127.0.0.1:1/v1", %{
