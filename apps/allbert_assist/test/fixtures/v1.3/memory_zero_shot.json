@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "corpus_id": "v13-memory-zero-shot-v1",
+  "rows": [
+    {
+      "id": "positive-release-call-sign",
+      "kind": "positive",
+      "claim_id": "019fb383-4a88-7000-8000-000000000011",
+      "subject": "operator",
+      "predicate": "release_call_sign",
+      "question": "What is my release call sign?",
+      "memory_value": "The operator's release call sign is cedar-lantern-731.",
+      "expected_value": "cedar-lantern-731",
+      "source_replay": "During a long release-planning exchange, after comparing several unrelated naming ideas and discussing build logistics, the operator explicitly selected cedar-lantern-731 as the release call sign. This synthetic replay includes surrounding words that are not part of the compact reviewed claim."
+    },
+    {
+      "id": "positive-report-accent",
+      "kind": "positive",
+      "claim_id": "019fb383-4a88-7000-8000-000000000012",
+      "subject": "operator",
+      "predicate": "report_accent",
+      "question": "Which accent color should my reports use?",
+      "memory_value": "The operator's report accent color is glacier-teal-284.",
+      "expected_value": "glacier-teal-284",
+      "source_replay": "In a synthetic design discussion containing layout, typography, spacing, and export details, the operator chose glacier-teal-284 as the exact report accent color. The remaining discussion is context that a compact reviewed claim should not need to replay."
+    },
+    {
+      "id": "positive-briefing-window",
+      "kind": "positive",
+      "claim_id": "019fb383-4a88-7000-8000-000000000013",
+      "subject": "operator",
+      "predicate": "briefing_window",
+      "question": "What is my preferred daily briefing window?",
+      "memory_value": "The operator's preferred daily briefing window is 07:35-pacific.",
+      "expected_value": "07:35-pacific",
+      "source_replay": "While reviewing a synthetic daily schedule with several meetings and focus blocks, the operator said the preferred daily briefing window is 07:35-pacific. Other calendar details in this replay are deliberately irrelevant to the reviewed fact."
+    },
+    {
+      "id": "positive-export-label",
+      "kind": "positive",
+      "claim_id": "019fb383-4a88-7000-8000-000000000014",
+      "subject": "operator",
+      "predicate": "export_label",
+      "question": "What label should I use for my archive exports?",
+      "memory_value": "The operator's archive export label is northstar-bundle-662.",
+      "expected_value": "northstar-bundle-662",
+      "source_replay": "A synthetic archive conversation compared filenames, retention periods, and destination folders before the operator chose northstar-bundle-662 as the archive export label. Those surrounding details are not needed in the compact claim."
+    },
+    {
+      "id": "positive-review-phrase",
+      "kind": "positive",
+      "claim_id": "019fb383-4a88-7000-8000-000000000015",
+      "subject": "operator",
+      "predicate": "review_phrase",
+      "question": "What phrase marks my review as complete?",
+      "memory_value": "The operator's review-complete phrase is orbit-checked-905.",
+      "expected_value": "orbit-checked-905",
+      "source_replay": "In a synthetic quality-review exchange, the operator discussed several checks and then selected orbit-checked-905 as the exact phrase that marks review completion. The compact claim omits the surrounding checklist narration."
+    },
+    {
+      "id": "positive-notes-prefix",
+      "kind": "positive",
+      "claim_id": "019fb383-4a88-7000-8000-000000000016",
+      "subject": "operator",
+      "predicate": "notes_prefix",
+      "question": "What prefix should my field notes use?",
+      "memory_value": "The operator's field-notes prefix is trailnote-438.",
+      "expected_value": "trailnote-438",
+      "source_replay": "A synthetic field-work conversation covered device state, locations, and formatting before the operator chose trailnote-438 as the field-notes prefix. The verbose replay intentionally contains more material than the compact reviewed fact."
+    },
+    {
+      "id": "negative-absent",
+      "kind": "absent",
+      "question": "What is my private observatory access phrase?",
+      "forbidden_value": "opal-observatory-317"
+    },
+    {
+      "id": "negative-proposed",
+      "kind": "proposed",
+      "proposal_id": "proposal-zero-shot-seat",
+      "question": "Which travel seat did I approve?",
+      "memory_value": "The proposed travel seat is window-proposal-514.",
+      "forbidden_value": "window-proposal-514"
+    },
+    {
+      "id": "negative-superseded",
+      "kind": "superseded",
+      "claim_id": "019fb383-4a88-7000-8000-000000000017",
+      "subject": "operator",
+      "predicate": "launch_codename",
+      "question": "What is my retired launch codename, not its current replacement?",
+      "retired_value": "The operator's retired launch codename was ember-archive-419.",
+      "current_value": "The operator's current launch codename is silver-current-882.",
+      "forbidden_value": "ember-archive-419"
+    }
+  ]
+}

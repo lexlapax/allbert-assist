@@ -16,6 +16,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test metrics [--ingest-campaign DIR] [--ingest-v13-latency FILE]
       mix allbert.test bench-decide
       mix allbert.test bench-v13-latency [--consumer memory|search|both] [--output PATH] [--executable PATH --artifact-sha256 HEX]
+      mix allbert.test bench-v13-zero-shot [--profile NAME] [--fixture PATH] [--output PATH]
       mix allbert.test release
       mix allbert.test release.v042
       mix allbert.test release.v043
@@ -156,6 +157,7 @@ defmodule Mix.Tasks.Allbert.Test do
   defp do_run(["metrics" | rest]), do: metrics(rest)
   defp do_run(["bench-decide"]), do: bench_decide()
   defp do_run(["bench-v13-latency" | rest]), do: bench_v13_latency(rest)
+  defp do_run(["bench-v13-zero-shot" | rest]), do: bench_v13_zero_shot(rest)
   defp do_run(["release"]), do: release()
   defp do_run(["release.v042"]), do: release_v042()
   defp do_run(["release.v043"]), do: release_v043()
@@ -812,7 +814,7 @@ defmodule Mix.Tasks.Allbert.Test do
       ])
 
     try do
-      unless executable, do: migrate_v13_latency_home!(env)
+      unless executable, do: migrate_v13_benchmark_home!(env, "bench-v13-latency")
 
       expression =
         "Logger.configure(level: :warning); " <>
@@ -841,7 +843,69 @@ defmodule Mix.Tasks.Allbert.Test do
     end
   end
 
-  defp migrate_v13_latency_home!(env) do
+  defp bench_v13_zero_shot(args) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args, strict: [profile: :string, fixture: :string, output: :string])
+
+    reject_invalid!(invalid)
+    reject_rest!(rest)
+
+    profile = Keyword.get(opts, :profile, "local")
+
+    if String.trim(profile) == "" do
+      Mix.raise("--profile must not be blank")
+    end
+
+    fixture =
+      Keyword.get(
+        opts,
+        :fixture,
+        "apps/allbert_assist/test/fixtures/v1.3/memory_zero_shot.json"
+      )
+      |> Path.expand(root())
+
+    output = Keyword.get(opts, :output)
+    output = if output, do: Path.expand(output, root())
+
+    if !File.regular?(fixture), do: Mix.raise("zero-shot fixture does not exist: #{fixture}")
+    if output && File.exists?(output), do: Mix.raise("benchmark output already exists: #{output}")
+
+    {full_sha, dirty?} = v13_benchmark_provenance!()
+
+    env =
+      owned_env("bench-v13-zero-shot", 0)
+      |> List.keyreplace("MIX_ENV", 0, {"MIX_ENV", "dev"})
+      |> Kernel.++([
+        {"V13_ZERO_SHOT_FIXTURE", fixture},
+        {"V13_ZERO_SHOT_STORE", output},
+        {"V13_MODEL_PROFILE", profile},
+        {"V13_FULL_SHA", full_sha},
+        {"V13_DIRTY", to_string(dirty?)}
+      ])
+
+    try do
+      migrate_v13_benchmark_home!(env, "bench-v13-zero-shot")
+
+      expression =
+        "Logger.configure(level: :warning); " <>
+          "{:ok, _} = Application.ensure_all_started(:allbert_assist); " <>
+          "AllbertAssist.DevGates.V13ZeroShotEval.record_run!()"
+
+      {output_text, status} =
+        System.cmd("mix", ["run", "--no-start", "-e", expression],
+          cd: app_cwd(:core),
+          env: env,
+          stderr_to_stdout: true
+        )
+
+      print_output("bench-v13-zero-shot", output_text)
+      if status != 0, do: Mix.raise("bench-v13-zero-shot failed with status #{status}")
+    after
+      cleanup_owned_env(env)
+    end
+  end
+
+  defp migrate_v13_benchmark_home!(env, label) do
     {output, status} =
       System.cmd("mix", ["ecto.migrate.allbert", "--quiet"],
         cd: app_cwd(:core),
@@ -850,8 +914,8 @@ defmodule Mix.Tasks.Allbert.Test do
       )
 
     if status != 0 do
-      print_output("bench-v13-latency migrate", output)
-      Mix.raise("bench-v13-latency migrate failed with status #{status}")
+      print_output("#{label} migrate", output)
+      Mix.raise("#{label} migrate failed with status #{status}")
     end
   end
 
@@ -9848,6 +9912,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test metrics [--ingest-campaign DIR] [--ingest-v13-latency FILE]
       mix allbert.test bench-decide
       mix allbert.test bench-v13-latency [--consumer memory|search|both] [--output PATH] [--executable PATH --artifact-sha256 HEX]
+      mix allbert.test bench-v13-zero-shot [--profile NAME] [--fixture PATH] [--output PATH]
       mix allbert.test release
       mix allbert.test release.v042
       mix allbert.test release.v043
