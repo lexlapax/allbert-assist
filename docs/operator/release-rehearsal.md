@@ -104,105 +104,49 @@ echo 'PASS: release-promotion has a required reviewer, v* tag policy, and respon
 An API/authentication failure, empty reviewer set, absent tag rule, or implicit
 unprotected environment is FAIL. Do not create the tag.
 
-### Immutable source tag and staging
+### Local construction, draft qualification, and immutable publication
 
-For every 1.x product release, the tag is operator-held. Push the reviewed release
-commit, prove branch parity, then cut the annotated tag on that exact commit:
+Since v1.3, product tags no longer trigger hosted compilation. At one clean
+pushed SHA, the operator builds macOS arm64 locally, Linux x64 on the native
+`serenity` host, and Linux arm64 in the pinned native-architecture Docker
+container. The existing thin helper performs production assembly, license
+finalization, and target smoke; it emits four files per target. The active
+[v1.3 request flow §K5](../plans/v1.3-request-flow.md#k5-v13-pre-publication-candidate-construction)
+contains the exact paste-executable commands and pins.
 
-```sh
-git push origin main
-HEAD_SHA="$(git rev-parse HEAD)"
-REMOTE_SHA="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
-test "$HEAD_SHA" = "$REMOTE_SHA"
-git tag -a "$VERSION" -m "Allbert ${VERSION#v}"
-git push origin "$VERSION"
-TAG_SHA="$(git rev-parse "$VERSION^{}")"
-REMOTE_TAG_SHA="$(git ls-remote origin "refs/tags/$VERSION^{}" | awk '{print $1}')"
-test "$HEAD_SHA" = "$TAG_SHA"
-test "$TAG_SHA" = "$REMOTE_TAG_SHA"
-echo "PASS: HEAD, origin/main, and peeled $VERSION tag agree"
-```
+The operator then creates one draft release/provisional annotated tag, stages
+the complete 12-file generation without clobber, and dispatches
+`release-artifacts.yml` at that exact tag with `operation=qualification`.
+GitHub downloads release assets by numeric ID, rehashes them, runs packaged
+license/TUI protocol checks, and emits one content-free three-target
+qualification manifest. It does not compile or select artifacts.
 
-The tag push fires `.github/workflows/release-artifacts.yml`:
+> **HARD STOP — operator TUI sign-off.** Before promotion, run the short exact-
+> artifact sequence in [§4](#4-packaged-tui-rehearsal), observe a normal attach,
+> `/status`, one real-provider turn, `/health`, and clean detach. Automated PTY
+> evidence supports this observation but does not replace it.
 
-- **gate**: reads the annotated tag message. A **product-release** tag (no marker)
-  proceeds to build + stage. A **docs/source point-release** tag whose message
-  contains `[skip-artifacts]` short-circuits here — build/staging are skipped so
-  no packaged GitHub Release is created and GitHub "Latest" is not moved.
-- **build** (macos-arm64, linux-x64, linux-arm64): builds the OTP release and runs
-  `scripts/smoke/artifact_smoke.sh` per target - boot, version, plugin
-  registration, `/health`, a genuine attach round-trip, no-Mix-modules, and ERTS
-  crypto linkage, all through an operator-style symlink. Exact BEAM inputs are
-  recorded per target. A rerun reuses one prior successful immutable archive;
-  missing, expired, or duplicate successful producer evidence stops instead of
-  rebuilding that tag.
-- **linux-rehearsal**: consumes the accepted Linux x64 artifact by numeric ID and
-  exercises the checksum-bound preverified install layout without OIDC/signing.
-- **stage-digest-manifest**: collects numeric artifact IDs, upload-container and
-  inner archive digests, producer attempts, target toolchains, tag/ref, and source
-  SHA into an immutable attempt-qualified manifest. The source graph has no
-  signing or publication permission.
-- **M0.a3/M0.c3 qualification jobs**: consume
-  those same IDs and bytes without building, then upload the final immutable
-  qualification manifest. These job definitions must be committed before the
-  tag; a rerun cannot acquire jobs missing from the tagged workflow.
+After the human TUI/provider row, dispatch the same workflow at the provisional
+tag with `operation=promotion` and the exact draft/candidate/qualification
+bindings. Approve only the matching `release-promotion` deployment. The job
+rehashes the unchanged assets, creates deterministic checksums and an OIDC
+Cosign bundle, verifies the exact workflow/tag identity, and publishes the same
+draft. GitHub immutable releases must already report enabled; publication then
+locks the tag and assets.
 
-The source run ends before publication. Record its exact ID, latest successful
-attempt, and the digest/qualification artifact IDs plus upload SHA-256 values
-from its content-free summaries. Then dispatch the **same workflow at the exact
-tag ref**, supplying all seven bindings:
-
-> **HARD STOP — operator TUI sign-off.** Before dispatching promotion or
-> approving its protected environment, the operator must personally complete
-> the exact-artifact command sequence in [§4](#4-packaged-tui-rehearsal) and
-> return to this point. Automated PTY/CI evidence does not replace seeing the
-> packaged client attach and work. Do not continue unless the content-free
-> operator receipt exists and these bindings still match the selected artifact:
-
-```sh
-: "${V121_TUI_OPERATOR_RECEIPT:?complete section 4 operator TUI validation first}"
-test -f "$V121_TUI_OPERATOR_RECEIPT"
-grep -Fx 'kind=v121_tui_operator_observation' "$V121_TUI_OPERATOR_RECEIPT"
-grep -Fx "candidate_sha=$V121_EXPECTED_SOURCE_SHA" "$V121_TUI_OPERATOR_RECEIPT"
-grep -Fx "artifact_sha256=$V121_EXPECTED_SHA256" "$V121_TUI_OPERATOR_RECEIPT"
-grep -Fx "target=$V121_TARGET" "$V121_TUI_OPERATOR_RECEIPT"
-grep -Fx 'surface=tui' "$V121_TUI_OPERATOR_RECEIPT"
-grep -Fx 'operator_attended=true' "$V121_TUI_OPERATOR_RECEIPT"
-grep -Fx 'attach_status_provider_quit=pass' "$V121_TUI_OPERATOR_RECEIPT"
-grep -Fx 'terminal_exact_restore=pass' "$V121_TUI_OPERATOR_RECEIPT"
-grep -Fx 'post_tui_daemon_health=pass' "$V121_TUI_OPERATOR_RECEIPT"
-echo 'PASS: operator exact-artifact TUI receipt is bound and reviewed'
-```
-
-```sh
-export SOURCE_RUN_ID="${SOURCE_RUN_ID:?set successful tag-push run ID}"
-export SOURCE_RUN_ATTEMPT="${SOURCE_RUN_ATTEMPT:?set latest successful attempt}"
-export DIGEST_MANIFEST_ARTIFACT_ID="${DIGEST_MANIFEST_ARTIFACT_ID:?set numeric artifact ID}"
-export DIGEST_MANIFEST_SHA256="${DIGEST_MANIFEST_SHA256:?set upload-artifact SHA-256}"
-export QUALIFICATION_MANIFEST_ARTIFACT_ID="${QUALIFICATION_MANIFEST_ARTIFACT_ID:?set numeric artifact ID}"
-export QUALIFICATION_MANIFEST_SHA256="${QUALIFICATION_MANIFEST_SHA256:?set upload-artifact SHA-256}"
-gh workflow run release-artifacts.yml --ref "$VERSION" \
-  -f tag="$VERSION" \
-  -f source_run_id="$SOURCE_RUN_ID" \
-  -f source_run_attempt="$SOURCE_RUN_ATTEMPT" \
-  -f digest_manifest_artifact_id="$DIGEST_MANIFEST_ARTIFACT_ID" \
-  -f digest_manifest_sha256="$DIGEST_MANIFEST_SHA256" \
-  -f qualification_manifest_artifact_id="$QUALIFICATION_MANIFEST_ARTIFACT_ID" \
-  -f qualification_manifest_sha256="$QUALIFICATION_MANIFEST_SHA256"
-```
-
-Approve only the deployment whose ref and seven values match reviewed evidence.
-After approval, promotion authenticates the source run/tag/SHA/workflow and the
-21-day artifact window, rehashes the unchanged archives, creates or resumes a
-draft, uploads only missing assets, verifies the exact-tag cosign bundle, and
-publishes. It never checks out/builds, selects `latest`, or uses `--clobber`.
+Before publication, discard a failed draft and provisional tag only as one
+complete operator-authorized generation; never retain a successful target or
+use `--clobber`. After publication, never move/delete/reuse that tag: a source
+or byte correction requires a patch version. The signature attests protected
+GitHub promotion of operator-built bytes, not GitHub-hosted build provenance.
 
 ### Exceptional docs/source point tag (no packaged artifacts)
 
 An explicitly approved point tag that ships only source/docs/script fixes must
 NOT create packaged artifacts or steal `Latest` from the product release that owns the
-tarballs + `latest` aliases. Mark its annotated tag `[skip-artifacts]` so
-the `gate` job skips the packaged pipeline:
+tarballs + `latest` aliases. The release workflow has no tag trigger, so this
+exception is an annotated source tag only; retain `[skip-artifacts]` as an
+operator-visible declaration, not as automation control:
 
 ```sh
 DOC_VERSION="${DOC_VERSION:?set the exceptional docs/source tag}"
@@ -241,9 +185,10 @@ cosign verify-blob --bundle "/tmp/allbert-${VERSION}/SHA256SUMS.cosign.bundle" \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com'
 ```
 
-There is no branch `workflow_dispatch` build: dispatch is the protected publish
-path and must run at an exact tag. Before tagging, exercise only deterministic
-fixture/local-tree contracts:
+There is no tag-push or branch-dispatch build. Workflow dispatch is only
+no-build qualification or protected promotion at the exact provisional tag.
+Before staging, exercise only the focused local-tree contracts selected by the
+active plan:
 
 ```sh
 MIX_ENV=test mix test \
@@ -563,228 +508,46 @@ harness-only configured-provider inputs defined by the active request-flow;
 other targets report provider `not_required`.
 
 Automation supports but cannot replace seeing the exact packaged client attach
-and work. This human row is a documented command sequence, not an attended
-mode in the automation harness. Prepare a disposable Home physically below
-`TMPDIR` or `/tmp` with a real provider/model through the packaged interactive
-vault path. Start a disposable Bash subshell with `bash --noprofile --norc`;
-set the required inputs there (or export them before starting it), then paste
-each block below into that same shell. Fail-fast and the `EXIT` trap prevent a
-failed check from publishing a receipt or leaving the daemon running:
+and work. Human validation is intentionally only a short command sequence. Run
+it from `bash --noprofile --norc`, use a disposable Home with a real configured
+profile, and keep the daemon log private:
 
 ```sh
 set -Eeuo pipefail
 umask 077
-command -v awk curl grep jq script tee >/dev/null
-V121_TUI_DAEMON_PID=
-trap 'if test -n "${V121_TUI_DAEMON_PID:-}"; then kill "$V121_TUI_DAEMON_PID" 2>/dev/null || true; wait "$V121_TUI_DAEMON_PID" 2>/dev/null || true; fi' EXIT
-
-: "${V121_TARGET:?macos-arm64, linux-x64, or linux-arm64}"
-: "${V121_ARTIFACT:?absolute path to the selected target archive}"
-: "${V121_DIGEST_MANIFEST:?path to the authenticated immutable digest manifest}"
-: "${V121_TUI_HOME:?prepared disposable Home with the real provider/profile}"
-: "${V121_TUI_PROVIDER_PROFILE:?set the prepared real profile}"
-test -f "$V121_ARTIFACT"
-test -r "$V121_DIGEST_MANIFEST"
-case "$V121_ARTIFACT" in
-  /*) ;;
-  *) echo 'V121_ARTIFACT must be an absolute path' >&2; exit 1 ;;
-esac
-
-V121_HOST_OS=$(uname -s)
-V121_HOST_ARCH=$(uname -m)
-case "$V121_HOST_OS:$V121_HOST_ARCH" in
-  Darwin:arm64) V121_HOST_TARGET=macos-arm64 ;;
-  Linux:x86_64|Linux:amd64) V121_HOST_TARGET=linux-x64 ;;
-  Linux:aarch64|Linux:arm64) V121_HOST_TARGET=linux-arm64 ;;
-  *) echo "unsupported operator host: $V121_HOST_OS/$V121_HOST_ARCH" >&2; exit 1 ;;
-esac
-test "$V121_TARGET" = "$V121_HOST_TARGET"
-
-V121_EXPECTED_SHA256=$(jq -er --arg target "$V121_TARGET" \
-  '.archives[] | select(.target == $target) | .sha256' "$V121_DIGEST_MANIFEST")
-[[ "$V121_EXPECTED_SHA256" =~ ^[0-9a-f]{64}$ ]]
-V121_EXPECTED_SOURCE_SHA=$(jq -er '.source_sha' "$V121_DIGEST_MANIFEST")
-[[ "$V121_EXPECTED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
-export V121_TARGET V121_ARTIFACT V121_DIGEST_MANIFEST
-export V121_EXPECTED_SHA256 V121_EXPECTED_SOURCE_SHA
-
-V121_TUI_HOME=$(cd -P -- "$V121_TUI_HOME" && pwd -P)
-V121_TMP_ROOT=$(cd -P -- "${TMPDIR:-/tmp}" && pwd -P)
-V121_SYSTEM_TMP_ROOT=$(cd -P -- /tmp && pwd -P)
-V121_USER_HOME=$(cd -P -- "${HOME:?HOME must be set}" && pwd -P)
-case "$V121_TUI_HOME" in
-  "$V121_TMP_ROOT"/*|"$V121_SYSTEM_TMP_ROOT"/*) ;;
-  *) echo 'V121_TUI_HOME must be physically below TMPDIR or /tmp' >&2; exit 1 ;;
-esac
-if test -d "$V121_USER_HOME/.allbert"; then
-  V121_DEFAULT_ALLBERT_HOME=$(cd -P -- "$V121_USER_HOME/.allbert" && pwd -P)
-  test "$V121_TUI_HOME" != "$V121_DEFAULT_ALLBERT_HOME"
-else
-  test "$V121_TUI_HOME" != "$V121_USER_HOME/.allbert"
-fi
-
-V121_TUI_EVIDENCE_DIR=$(mktemp -d "$V121_TMP_ROOT/allbert-v121-artifact-operator.XXXXXX")
-V121_TUI_EXTRACT_PARENT=$(mktemp -d "$V121_TMP_ROOT/allbert-v121-artifact-extract.XXXXXX")
-V121_TUI_EXTRACT_DIR="$V121_TUI_EXTRACT_PARENT/release"
-V121_TUI_PORT="${V121_TUI_PORT:-$((49152 + RANDOM % 16384))}"
-[[ "$V121_TUI_PORT" =~ ^[0-9]+$ ]]
-(( V121_TUI_PORT >= 1024 && V121_TUI_PORT <= 65535 ))
-if (exec 3<>"/dev/tcp/127.0.0.1/$V121_TUI_PORT") 2>/dev/null; then
-  echo "localhost port $V121_TUI_PORT is already in use; choose another" >&2
-  exit 1
-fi
-export V121_TUI_HOME V121_TUI_PROVIDER_PROFILE V121_TUI_EVIDENCE_DIR
-export V121_TUI_EXTRACT_PARENT V121_TUI_EXTRACT_DIR V121_TUI_PORT
-
-if command -v sha256sum >/dev/null 2>&1; then
-  V121_ACTUAL_SHA256=$(sha256sum "$V121_ARTIFACT" | awk '{print $1}')
-else
-  command -v shasum >/dev/null
-  V121_ACTUAL_SHA256=$(shasum -a 256 "$V121_ARTIFACT" | awk '{print $1}')
-fi
-test "$V121_ACTUAL_SHA256" = "$V121_EXPECTED_SHA256"
+: "${TUI_ARTIFACT:?absolute path to the exact macos-arm64 archive}"
+: "${TUI_EXPECTED_SHA256:?SHA-256 from candidate-manifest.json}"
+: "${TUI_PROFILE:?real configured model profile, for example local}"
+export ALLBERT_HOME="$(mktemp -d /tmp/allbert-tui-operator.XXXXXX)"
+TUI_EXTRACT="$(mktemp -d /tmp/allbert-tui-release.XXXXXX)"
+TUI_PORT="${TUI_PORT:-4137}"
+TUI_ACTUAL_SHA256="$(shasum -a 256 "$TUI_ARTIFACT" | awk '{print $1}')"
+test "$TUI_ACTUAL_SHA256" = "$TUI_EXPECTED_SHA256"
 bash scripts/release/stage_artifacts.sh extract-release \
-  "$V121_ARTIFACT" "$V121_TUI_EXTRACT_DIR"
-V121_ALLBERT="$V121_TUI_EXTRACT_DIR/allbert/bin/allbert"
-test -x "$V121_ALLBERT"
-export V121_ALLBERT
-export ALLBERT_HOME="$V121_TUI_HOME"
-
-"$V121_ALLBERT" admin models use \
-  "$V121_TUI_PROVIDER_PROFILE" --enable-assist
-"$V121_ALLBERT" admin settings set \
-  intent.direct_answer_model_profile "$V121_TUI_PROVIDER_PROFILE"
-"$V121_ALLBERT" admin settings set \
-  intent.direct_answer_model_enabled true
-"$V121_ALLBERT" admin models list \
-  2>&1 \
-  | tee "$V121_TUI_EVIDENCE_DIR/model-list.txt"
-"$V121_ALLBERT" admin models doctor "$V121_TUI_PROVIDER_PROFILE" \
-  2>&1 \
-  | tee "$V121_TUI_EVIDENCE_DIR/provider-doctor.txt"
-
-PORT="$V121_TUI_PORT" "$V121_ALLBERT" serve \
-  >"$V121_TUI_EVIDENCE_DIR/daemon.log" 2>&1 &
-V121_TUI_DAEMON_PID=$!
-V121_TUI_DAEMON_READY=false
-V121_TUI_HEALTH_JSON=
-for ((V121_READY_ATTEMPT=1; V121_READY_ATTEMPT<=90; V121_READY_ATTEMPT++)); do
-  if ! kill -0 "$V121_TUI_DAEMON_PID" 2>/dev/null; then
-    tail -n 80 "$V121_TUI_EVIDENCE_DIR/daemon.log" >&2 || true
-    exit 1
-  fi
-  if V121_TUI_HEALTH_JSON=$(curl -fsS --max-time 2 \
-      "http://127.0.0.1:$V121_TUI_PORT/health" 2>/dev/null) && \
-      printf '%s\n' "$V121_TUI_HEALTH_JSON" \
-        | grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'; then
-    V121_TUI_DAEMON_READY=true
-    break
-  fi
+  "$TUI_ARTIFACT" "$TUI_EXTRACT"
+TUI_ALLBERT="$TUI_EXTRACT/allbert/bin/allbert"
+"$TUI_ALLBERT" admin models use "$TUI_PROFILE" --enable-assist
+"$TUI_ALLBERT" admin settings set intent.direct_answer_model_profile "$TUI_PROFILE"
+"$TUI_ALLBERT" admin settings set intent.direct_answer_model_enabled true
+"$TUI_ALLBERT" admin models doctor "$TUI_PROFILE"
+PORT="$TUI_PORT" "$TUI_ALLBERT" serve >"$ALLBERT_HOME/daemon.log" 2>&1 &
+TUI_DAEMON_PID=$!
+until curl -fsS "http://127.0.0.1:$TUI_PORT/health" | grep -q '"status":"ok"'; do
+  kill -0 "$TUI_DAEMON_PID"
   sleep 1
 done
-if test "$V121_TUI_DAEMON_READY" != true; then
-  tail -n 80 "$V121_TUI_EVIDENCE_DIR/daemon.log" >&2 || true
-  exit 1
-fi
-kill -0 "$V121_TUI_DAEMON_PID"
-printf '%s\n' "$V121_TUI_HEALTH_JSON" \
-  | tee "$V121_TUI_EVIDENCE_DIR/pre-tui-health.json"
-V121_STTY_BEFORE=$(stty -g)
-V121_TUI_TRANSCRIPT="$V121_TUI_EVIDENCE_DIR/tui-${V121_TARGET}.txt"
-export V121_TUI_TRANSCRIPT
+"$TUI_ALLBERT" tui
+curl -fsS "http://127.0.0.1:$TUI_PORT/health"
+kill "$TUI_DAEMON_PID"
+wait "$TUI_DAEMON_PID" || true
 ```
 
-Expected before opening the TUI: the model list names the selected active
-profile with model-assisted intent enabled; the redacted doctor reports that
-provider/model ready for an actual turn; and pre-TUI health contains
-`"status":"ok"`. Exit status alone is not enough—read the doctor output. The
-bounded readiness loop also proves that the daemon process stayed alive while
-reaching that state.
-
-In that same Bash shell, capture one normal packaged-client session; the daemon
-continues in the background:
-
-```sh
-if test "$V121_HOST_OS" = Darwin; then
-  script -q "$V121_TUI_TRANSCRIPT" "$V121_ALLBERT" tui
-else
-  printf -v V121_TUI_COMMAND '%q tui' "$V121_ALLBERT"
-  script -q -e -c "$V121_TUI_COMMAND" "$V121_TUI_TRANSCRIPT"
-fi
-```
-
-Inside the one client:
-
-1. Confirm the initial `Allbert TUI - daemon attached` banner and the
-   intentionally profile-neutral `allbert>` prompt render normally.
-2. Enter `/status`. Expected: the report includes `channel: tui`,
-   `operator_id: local`, `external_user_id: default`, and
-   `Channels.Supervisor: running`. Pre/post `/health` commands, not `/status`,
-   prove daemon health.
-3. Enter `what is 2+2?`. Expected: the selected real provider answers `4`.
-4. Enter `/quit`. Expected: normal detach to a usable, visually intact shell.
-
-After `/quit`, prove continuity, stop the daemon, and write the content-free
-receipt only after every observation above passed:
-
-```sh
-V121_STTY_AFTER=$(stty -g)
-test "$V121_STTY_BEFORE" = "$V121_STTY_AFTER"
-kill -0 "$V121_TUI_DAEMON_PID"
-V121_TUI_POST_HEALTH_JSON=$(curl -fsS --max-time 5 \
-  "http://127.0.0.1:$V121_TUI_PORT/health")
-printf '%s\n' "$V121_TUI_POST_HEALTH_JSON" \
-  | tee "$V121_TUI_EVIDENCE_DIR/post-tui-health.json"
-printf '%s\n' "$V121_TUI_POST_HEALTH_JSON" \
-  | grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'
-if command -v sha256sum >/dev/null 2>&1; then
-  V121_ACTUAL_SHA256=$(sha256sum "$V121_ARTIFACT" | awk '{print $1}')
-else
-  V121_ACTUAL_SHA256=$(shasum -a 256 "$V121_ARTIFACT" | awk '{print $1}')
-fi
-test "$V121_ACTUAL_SHA256" = "$V121_EXPECTED_SHA256"
-kill "$V121_TUI_DAEMON_PID"
-wait "$V121_TUI_DAEMON_PID" || true
-V121_TUI_DAEMON_PID=
-
-V121_TUI_OPERATOR_RECEIPT="$V121_TUI_EVIDENCE_DIR/v121-tui-${V121_TARGET}-${V121_EXPECTED_SHA256}.txt"
-export V121_TUI_OPERATOR_RECEIPT
-test ! -e "$V121_TUI_OPERATOR_RECEIPT"
-(
-  set -o noclobber
-  printf '%s\n' \
-    'kind=v121_tui_operator_observation' \
-    "candidate_sha=$V121_EXPECTED_SOURCE_SHA" \
-    "artifact_sha256=$V121_EXPECTED_SHA256" \
-    "target=$V121_TARGET" \
-    'surface=tui' \
-    'operator_attended=true' \
-    'attach_status_provider_quit=pass' \
-    'terminal_exact_restore=pass' \
-    'post_tui_daemon_health=pass' \
-    >"$V121_TUI_OPERATOR_RECEIPT"
-)
-chmod 600 "$V121_TUI_OPERATOR_RECEIPT"
-```
-
-The transcript and command output stay in the private operator directory; do
-not commit or upload the raw transcript. Review and archive the content-free
-receipt, then return to the promotion hard stop:
-
-```sh
-test -f "$V121_TUI_OPERATOR_RECEIPT"
-grep -Fx 'kind=v121_tui_operator_observation' "$V121_TUI_OPERATOR_RECEIPT"
-grep -Fx "candidate_sha=$V121_EXPECTED_SOURCE_SHA" "$V121_TUI_OPERATOR_RECEIPT"
-grep -Fx "artifact_sha256=$V121_EXPECTED_SHA256" "$V121_TUI_OPERATOR_RECEIPT"
-grep -Fx "target=$V121_TARGET" "$V121_TUI_OPERATOR_RECEIPT"
-grep -Fx 'surface=tui' "$V121_TUI_OPERATOR_RECEIPT"
-grep -Fx 'operator_attended=true' "$V121_TUI_OPERATOR_RECEIPT"
-grep -Fx 'attach_status_provider_quit=pass' "$V121_TUI_OPERATOR_RECEIPT"
-grep -Fx 'terminal_exact_restore=pass' "$V121_TUI_OPERATOR_RECEIPT"
-grep -Fx 'post_tui_daemon_health=pass' "$V121_TUI_OPERATOR_RECEIPT"
-trap - EXIT
-echo 'PASS: operator TUI receipt reviewed; return to section 1 hard stop'
-```
+Inside the one client, confirm `Allbert TUI - daemon attached`, run `/status`,
+ask `what is 2+2?`, run `/health`, then `/quit`. Expected: status shows the TUI
+channel and running supervisor, the real provider answers `4`, health is `ok`,
+and the normal shell is usable after detach. If any observation fails, do not
+set the promotion input `operator_tui_validation=confirmed`. No script,
+transcript, or synthetic receipt is required for this human observation.
 
 On a raw-absent Home, the authenticated daemon session still performs the one
 atomic `channels.tui.enabled=true` plus `default → local` bootstrap. The TUI
@@ -812,7 +575,7 @@ Use the packaged binary, an explicit browser/research setting, and the
 
 ```sh
 command -v node
-export PLAYWRIGHT_VERSION="${PLAYWRIGHT_VERSION:?set the active plan's exact Playwright version}"
+export PLAYWRIGHT_VERSION="${PLAYWRIGHT_VERSION:?set the active-plan exact Playwright version}"
 export ALLBERT_PLAYWRIGHT_ROOT="$(mktemp -d /tmp/allbert-release-playwright.XXXXXX)"
 export BROWSER_BINARY_PATH="${BROWSER_BINARY_PATH:?set an absolute OS-managed Chromium/Chrome executable}"
 test -x "$BROWSER_BINARY_PATH"

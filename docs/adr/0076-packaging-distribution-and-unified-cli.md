@@ -559,6 +559,20 @@ branches, and tag-first patch-recovery logic. Do not add self-hosted runners, a
 release daemon, database, durable candidate service, or a second permanent
 construction path.
 
+As built, the thin helper rejects root execution because packaged Erlexec is
+itself part of the smoke and correctly refuses root without an explicit target
+user. Container preparation may run as root, but compilation, finalization,
+and smoke switch to one unprivileged ephemeral user. The Linux arm64 base is
+the native platform manifest
+`erlang@sha256:c029064619207e6f87c672ccced24d4019cde7184015fbf4f4c1f2a9af3e1245`;
+the candidate row records that digest plus resolved Node, Playwright, and
+browser versions. Absolute host paths are not evidence and are not recorded.
+On macOS the finalizer changes the Exqlite NIF install ID to
+`@loader_path/sqlite3_nif.so`, ad-hoc signs and re-verifies it, and only then
+generates the package license manifest. That package-stable identity removes
+the formula-level compressed-NIF restore workaround without weakening the
+sealed manifest.
+
 Primary-source constraints for this amendment:
 
 - Docker Desktop runs containers inside a Linux VM, and Docker recommends
