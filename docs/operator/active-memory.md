@@ -59,7 +59,7 @@ boundaries) that Active Memory retrieval can surface before each reply.
 Prerequisite for operator-visible model behavior:
 `intent.direct_answer_model_enabled=true` and a usable direct-answer model
 profile. Active Memory itself is enabled separately by `active_memory.enabled`.
-On Allbert 1.2, first-run detection writes the direct-answer setting only when
+First-run detection writes the direct-answer setting only when
 it is absent and a usable provider is selected; an explicit `false` remains
 sticky.
 
@@ -136,6 +136,92 @@ the turn's markdown trace, placed after `## Intent Candidates` and before
 
 `allbert admin memory retrieve --query "..."` prints the same deterministic
 top-K for ad-hoc inspection.
+
+Use both explicit temporal axes when validating claim history. `valid-at` asks
+what was true at a domain time; `known-at` asks what Allbert had recorded by a
+knowledge time. Both must be absolute ISO8601 timestamps:
+
+```sh
+allbert admin memory retrieve \
+  --query "release call sign" \
+  --valid-at 2026-07-01T12:00:00Z \
+  --known-at 2026-07-15T12:00:00Z \
+  --user local
+```
+
+The command prints the normalized axes. Omitted axes default to now. Proposed,
+archived, forgotten, corrupt, out-of-time, or canonically mismatched claims are
+omitted before prompt insertion.
+
+## Consolidation And Review
+
+The existing recurring Jobs engine owns the weekly `memory-consolidation` job.
+Consolidation is disabled by default and reads no source until both the feature
+and an origin-scoped collection grant are present:
+
+```sh
+allbert admin settings set memory.collection.origin_grants local_operator
+allbert admin settings set memory.consolidation.enabled true
+allbert admin memory consolidate --user local
+allbert admin memory proposals --user local
+```
+
+The on-demand command and recurring job call the same registered action.
+Consolidation may create only inert, grounded proposals; it cannot keep, edit,
+archive, restore, or Forget a claim. It uses the configured local extraction
+profile or the deterministic safe subset and never falls back to a hosted
+provider. Disable collection without deleting review state:
+
+```sh
+allbert admin settings set memory.consolidation.enabled false
+```
+
+Inspect a proposal before review:
+
+```sh
+allbert admin memory proposal PROPOSAL_ID --user local
+```
+
+The proposal output supplies the revision and proposal digest required by the
+review command. A Keep or Edit is the authority transition; merely proposing a
+fact never makes it retrievable. Batch Keep similarly requires exact per-item
+bindings. Review recovery is idempotent if a process stops after the Markdown
+append but before the proposal row is scrubbed.
+
+## Archive, Restore, And Forget
+
+Archive is reversible and history-preserving. `delete` remains the compatibility
+name; `archive` says what the operation actually does:
+
+```sh
+allbert admin memory archive MEMORY_PATH --user local
+allbert admin confirmations approve CONFIRMATION_ID --reason "archive reviewed claim"
+allbert admin memory restore CLAIM_ID --user local
+```
+
+The archive preview prints the claim id and leaves the claim active until
+approval. Restore appends a new kept revision through the same canonical claim
+writer. If another revision could race the operation, pass the exact current
+tail as `--tail-digest` and treat a stale-tail response as a required re-read.
+
+Forget is the separately named destructive operation:
+
+```sh
+allbert admin memory forget CLAIM_ID --reason operator_requested --user local
+allbert admin confirmations approve CONFIRMATION_ID --reason "forget exact claim"
+```
+
+Allowed reason codes are `operator_requested`, `privacy`, `incorrect`, and
+`expired`; there is no free-form reason in the tombstone. Forget installs the
+content-free suppression tombstone first, then scrubs active claim, proposal,
+review, and projection paths. It prevents exact re-proposal and remains
+fail-closed across cleanup interruption. It does not promise physical byte
+erasure from storage media, backups, exports, or forensic remnants.
+
+Memory Forget also does not delete the originating conversation. That history
+remains searchable until the operator uses the separately confirmed canonical
+message/thread deletion path described in
+[Conversation Search](conversation-search.md#retention-delete-and-purge).
 
 ## Quick Smoke
 

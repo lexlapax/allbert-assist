@@ -1,4 +1,4 @@
-# Mix task -> `allbert` command mapping (v1.2.5 M0.a1)
+# Mix Task → `allbert` Command Mapping
 
 Generated from `AllbertAssist.CLI.Commands.task_dispositions/0` (the disposition
 table the `cli-command-inventory-spine-map-001` eval row asserts). Operator
@@ -32,6 +32,25 @@ status|install|uninstall`, `allbert admin health`, `allbert admin vault`, and
 `allbert licenses`; its source twin generates or checks the reviewed catalog
 union, while the packaged command only reads immutable artifact files.
 
+Top-level packaged commands without a one-to-one Mix task still belong in this
+inventory. This is the complete `CLI.Commands.groups/0` set:
+
+| Packaged group | Disposition |
+|---|---|
+| `allbert ask` | Built-in runtime turn; source twin is `mix allbert.ask`. |
+| `allbert chat` | Built-in web workspace launcher. |
+| `allbert tui` | Built-in thin daemon-attached terminal; source twin is `mix allbert.tui`. |
+| `allbert serve` | Built-in daemon/web runtime; source twins include `mix allbert.acp_server` and `mix allbert.mcp_server`. |
+| `allbert search` | `CLI.Areas.Search` over the central conversation Search API; no legacy Mix-task twin. |
+| `allbert licenses` | Built-in pure packaged-evidence viewer; source validation twin is `mix allbert.licenses`. |
+| `allbert onboard` | `CLI.Areas.Onboarding`; source twin is `mix allbert.onboard`. |
+| `allbert admin` | Closed area/action/read table in `CLI.Commands.operator_table/0`. |
+
+Search is intentionally top-level because it is a daily read surface, not an
+administrative storage command. `allbert admin memory search` remains a
+different operation over reviewed Memory claims. See the operator
+[Conversation Search guide](../operator/conversation-search.md).
+
 | Mix task | `allbert` command |
 |---|---|
 | `mix allbert.acp_server` | `allbert serve` |
@@ -62,7 +81,7 @@ union, while the packaged command only reads immutable artifact files.
 | `mix allbert.model` | `allbert admin models` |
 | `mix allbert.objective` | `allbert admin objectives` |
 | `mix allbert.objectives` | `allbert admin objectives` |
-| `mix allbert.onboard` | `allbert admin onboarding` |
+| `mix allbert.onboard` | `allbert onboard` |
 | `mix allbert.packages` | `allbert admin packages` |
 | `mix allbert.plan` | `allbert admin plan` |
 | `mix allbert.plugins` | `allbert admin plugins` |

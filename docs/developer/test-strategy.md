@@ -43,10 +43,12 @@ M1 of v0.41 must replace this preliminary baseline with an authoritative
 inventory containing file path, owner, case template, async setting, tags, timing,
 and resource classes.
 
-The authoritative M1 inventory is recorded in
-`docs/developer/v0.41-test-inventory.csv`. It is a heuristic file-level census,
-not a final async-safety proof; promotion still requires the ownership checks in
-this document.
+The historical M1 inventory was a heuristic file-level census and was removed
+at v0.52. The standing no-loss source of truth is now
+`docs/validation/test-manifest.csv`, regenerated with
+`mix allbert.test inventory --manifest` and checked with
+`mix allbert.test inventory --check-manifest`; promotion still requires the
+ownership checks in this document.
 
 ## Benchmark Records And Reorder Log
 
@@ -226,8 +228,9 @@ gate before it is accepted.
   4.34s, core async 15.57s / 172 tests, web async 7.64s / 10 tests, plugin async
   6.91s / 29 tests. Projected parallel-after-static lower bound is about
   19.91s, before any v0.41 gate implementation.
-- Lane breakdown: 233 test files recorded in
-  `docs/developer/v0.41-test-inventory.csv`. Owners: core 180, web 16,
+- Lane breakdown: the historical v0.41 census recorded 233 test files; use the
+  current `docs/validation/test-manifest.csv` for present-day membership. Its
+  historical owners were core 180, web 16,
   StockSage 35, telegram 1, email 1. Templates: `AllbertAssist.DataCase` 48,
   `AllbertAssistWeb.ConnCase` 14, `AllbertAssist.SecurityEvalCase` 13,
   `StockSage.DataCase` 21, plain `ExUnit.Case` 137. Async declarations:
@@ -326,7 +329,8 @@ gate before it is accepted.
   release oracle was running.
 - Commands:
   - `env MIX_ENV=test mix compile --warnings-as-errors`
-  - `env MIX_ENV=test mix allbert.test inventory --check-tags --output docs/developer/v0.41-test-inventory.csv`
+  - `env MIX_ENV=test mix allbert.test inventory --check-tags`
+  - `env MIX_ENV=test mix allbert.test inventory --manifest`
   - lane spot checks using `mix do ecto.migrate.allbert --quiet + allbert.test.raw --only <lane> <file>` for `pure_async`, `app_env_serial`, and `db_serial`
   - `/usr/bin/time -p env MIX_ENV=test mix allbert.test fast-local`
   - `/usr/bin/time -p env MIX_ENV=test mix allbert.test release`
@@ -945,6 +949,16 @@ hot/flaky entries are prompts to inspect the exercised PRODUCTION code for
 logic sprawl (AGENTS.md Workflow). Known limits: ingestion does not dedup;
 historical v042–v066 gate step runners and the pure_async group runner do
 not record (their runs surface via the release gate's phase records).
+
+v1.3 extends the same store with two focused evidence producers. The
+`bench-v13-latency` rows bind consumer, host, source/package mode, artifact
+SHA-256 when packaged, corpus/query counts, p50/p95/p99, and frozen limits.
+Memory and Search are reported separately on macOS arm64 and Linux x64; no host
+or consumer may be averaged away. `bench-v13-zero-shot` stores only aggregate
+synthetic-corpus correctness, abstention, interaction, and token counts plus the
+configured profile—never prompts, retrieved claim bodies, or answers. Dirty
+source rehearsals diagnose the harness; only clean exact-artifact rows close
+packaged release evidence.
 
 ### v1.0.2 M8 Final Measurement — 2026-07-17
 

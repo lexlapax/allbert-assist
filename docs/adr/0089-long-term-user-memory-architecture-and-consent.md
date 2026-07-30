@@ -2,8 +2,8 @@
 
 ## Status
 
-Proposed (v1.3 implementation complete through M5; operator-signed final pass
-2026-07-28). The architecture choices formerly named LD-R1–R5 are resolved by
+Accepted (v1.3 M9.b.1, 2026-07-30; operator-signed architecture and consent
+boundary). The architecture choices formerly named LD-R1–R5 are resolved by
 §8, ADR 0092, and the active v1.3 plan. M1 froze fixtures, quality floors,
 budgets, and runtime evidence without reopening source, proposal,
 extraction-authority, retrieval, model-egress, temporal, or Search ownership
@@ -12,9 +12,13 @@ binding source-tree chain — system proposal → proposed-never-in-prompt denia
 operator Keep → prompt-time retrieval — plus reviewed supersession with the
 prior value absent from current context and both revisions auditable on disk.
 The v1.3 plan's M5 Build Progress records frozen extraction/abstention and
-10,000-claim latency evidence. This ADR remains Proposed until M8/M9 records
-the separately required configured-real-model zero-shot uplift and token-usage
-delta; source-tree prompt plumbing is not misreported as that product evidence.
+10,000-claim latency evidence. M9.b.1 adds the separately required synthetic
+seeded-fact evaluator and records a configured `local_ollama/llama3.2:3b` run:
+6/6 reviewed facts answered, 3/3 absent/proposed/superseded rows abstained,
+zero-shot uplift `1.0`, and complete compact-versus-source token/interaction
+metrics. Together with the M5 full chain and supersession cycle, that closes the
+Accepted flip below. Final packaged latency and release gates validate the
+release candidate but no longer leave this architectural decision Proposed.
 
 **Amended 2026-07-28 (implementation-readiness pass, operator-signed).**
 The pass surveyed the deployed long-term-memory literature and found the

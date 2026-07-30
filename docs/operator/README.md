@@ -28,6 +28,7 @@ install variants, upgrades, uninstall, and artifact trust, use
 | Configure voice or provider preferences | [Voice and provider preferences](voice-and-provider-preferences.md) |
 | Create and steer multi-step work | [Plan, build, and workflows](plan-build-and-workflows.md) |
 | Check security posture and confirmations | [Security hardening](security-hardening.md) |
+| Search retained conversation history | [Conversation Search](conversation-search.md) |
 | Inspect packaged license evidence | [Installing Allbert](install.md#license) (`allbert licenses`) |
 | Check or migrate a Home's settings contract | [Settings version](settings-version.md) |
 
@@ -42,6 +43,8 @@ standalone/source runtime concurrently against the same Allbert Home.
   memory; this is the launch integration.
 - [Active Memory](active-memory.md) — identity slots, reviewed memory, retrieval,
   and trace visibility.
+- [Conversation Search](conversation-search.md) — central lexical conversation
+  search, mapped-DM scope, recurring index jobs, and canonical deletion.
 - [Artifacts Central](artifacts-central.md) — retained media posture and bounds.
 - [Artifacts browser](artifacts-browser.md) — browse, inspect, and export retained
   artifacts.

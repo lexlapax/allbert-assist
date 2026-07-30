@@ -25,7 +25,7 @@ ADRs record binding design decisions. They are not release plans; use
 - [ADR 0090: Adaptive usage profiling and confirmed customization](0090-adaptive-usage-profiling-and-confirmed-customization.md) (Proposed — v1.4)
 - [ADR 0091: Daemon-backed TUI session protocol and thin terminal client](0091-daemon-backed-tui-session-protocol.md) (Accepted — v1.2.5 M0.b1)
 - [ADR 0092: Search Central and conversation FTS](0092-search-central-and-conversation-fts.md) (Proposed — v1.3, final implementation-ready)
-- [ADR 0093: Canonical conversation deletion and retention boundary](0093-canonical-conversation-deletion-and-retention-boundary.md) (Proposed — v1.3, final implementation-ready)
+- [ADR 0093: Canonical conversation deletion and retention boundary](0093-canonical-conversation-deletion-and-retention-boundary.md) (Accepted — v1.3, 2026-07-30)
 - [ADR 0070: TUI operator console and read-only operator actions](0070-tui-operator-console-and-read-only-operator-actions.md)
 - [ADR 0068: Pi-mode coding surface and local coding trust tier](0068-pi-mode-coding-surface-and-local-coding-trust-tier.md)
 - [ADR 0065: Central action param contract enforcement](0065-central-action-param-contract-enforcement.md)

@@ -17,7 +17,12 @@ green. M8 made the shared Web/TUI/CLI/DM consumer, deterministic source-linked
 presentation, durable direct/shared/unknown transport-scope proof, exact
 confirmation/resubmit behavior, and cross-consumer security rows focused-gate
 green. This ADR remains Proposed only until M9 packaged native-runtime proof
-completes the acceptance bar.
+completes the acceptance bar. M9 added the loaded-Exqlite packaged capability
+smoke and an executable 25,000-message/250-thread/300-query latency harness;
+macOS source rehearsal is within the frozen bound. The remaining proof is the
+exact candidate archives running that capability smoke and recording Search
+latency separately on macOS arm64 and Linux x64. A source-tree probe or an
+average across hosts is not the packaged native-runtime proof required here.
 
 This ADR supersedes ADR 0089 §6's conditional external-content FTS design.
 Search ships as a central read product and point milestone without becoming a

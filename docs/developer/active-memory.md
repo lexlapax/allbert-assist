@@ -28,6 +28,8 @@ The action accepts:
 - `active_app`: active app id for same-app scope and affinity. `nil` and
   `allbert` are neutral/core context.
 - `identity_namespace`: defaults to `identity`.
+- `valid_at`: optional absolute ISO8601 domain-validity time.
+- `known_at`: optional absolute ISO8601 knowledge/recording time.
 - `now`: optional ISO8601 timestamp pinned by the caller for deterministic
   recency scoring.
 
@@ -108,3 +110,10 @@ Settings snapshot and one stop-word snapshot per turn.
 - `mix allbert.memory retrieve --query "..."` invokes
   `retrieve_active_memory` through the action runner and prints the same
   retrieved chunk ids and score breakdown shape used by trace metadata.
+- The packaged twin accepts `--valid-at` and `--known-at`, validates them at the
+  CLI boundary, forwards them to the registered action, and prints the
+  normalized axes. Surfaces do not call `Claims.as_of/3` directly.
+- Consolidation, archive/restore, and Forget remain distinct registered
+  mutations. They never live in this read-only retrieval module. Search Central
+  is an independent conversation consumer and never supplies Active Memory
+  chunks.

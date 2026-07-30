@@ -5,11 +5,11 @@
 Accepted (v1.2.5 M0.b1, 2026-07-28; operator-signed final-readiness decision).
 Binding on the daemon-backed-TUI milestones in the active release-line plan.
 The daemon session, integrity, and durable-receipt portion landed at M0.b2 on
-2026-07-28; the terminal client and attended validation remain M0.b3/M0.c3.
-The packaged macOS and Linux rows at M0.c3 must still prove one daemon per Home,
-Web/TUI continuity, failure restoration, and no embedded TUI runtime before the
-point release may ship; those rows validate this decision rather than delaying
-its acceptance.
+2026-07-28. M0.b3/M0.c3 then landed the thin terminal client and completed the
+packaged macOS and Linux rows: one daemon per Home, Web/TUI continuity, failure
+restoration, and no embedded TUI runtime. The v1.2.6 binary release is published;
+those attended rows validate this accepted decision and are no longer pending
+work in the v1.3 plan.
 
 The final readiness pass freezes the exact atom-tagged v1 packet schema,
 bounds, sequencing, acknowledgements, queues, drop order, and close reasons.

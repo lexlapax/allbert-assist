@@ -78,6 +78,8 @@ Today, Allbert includes:
 - Security Central for permission and policy decisions.
 - Markdown-first memory under Allbert Home, plus local files/notes as a launch
   integration.
+- One central lexical conversation-search API used by Web, TUI, CLI, and
+  verified mapped operator DMs, with canonical authorization on every result.
 - Inspectable traces, events, objectives, jobs, and operator reports.
 - Source-tree plugins and app surfaces, with StockSage as the main reference app.
 - Public protocol surfaces with bounded, policy-checked exposure.
@@ -140,6 +142,8 @@ If you want to run Allbert on your own machine:
   customization, provider setup, and repair after chat is available.
 - [docs/operator/local-knowledge.md](docs/operator/local-knowledge.md): connect
   local files/notes and reviewed agent memory (the launch integration).
+- [docs/operator/conversation-search.md](docs/operator/conversation-search.md):
+  search retained conversation history across the shared operator surfaces.
 - [docs/operator/install.md](docs/operator/install.md): packaged install,
   upgrade, uninstall, and distribution-trust notes.
 - [docs/operator/README.md](docs/operator/README.md): the complete task-based

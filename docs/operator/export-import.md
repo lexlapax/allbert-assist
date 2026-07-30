@@ -25,6 +25,13 @@ versions, secret-reference status, and a hashes-only Home file manifest. It
 excludes secret values, `settings/secrets.yml.enc`,
 `settings/.settings_key`, caches, and temporary files.
 
+The complete `<ALLBERT_HOME>/projections/` tree is also excluded. Search and
+Memory SQLite generations are disposable derivatives, not authoritative Home
+data. After a full backup restore, the managed `search-rebuild` and
+`memory-index-rebuild` paths recreate them from canonical conversation rows and
+Markdown claim streams. Do not copy an old projection into a destination Home
+or treat its absence as lost user data.
+
 ## Validate Against A Target Home
 
 Keep the evidence path outside the target Home:

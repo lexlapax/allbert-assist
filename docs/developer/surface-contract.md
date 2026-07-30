@@ -97,6 +97,33 @@ reads from `Confirmations`, `Settings.Store`, descriptor stores, or business
 stores are implementation bugs unless the plan explicitly marks them as internal
 facade code.
 
+## Search Central Consumer Contract
+
+Conversation Search follows the same rule at a feature-specific seam:
+
+```text
+Web / TUI / CLI / mapped operator DM
+  -> Search.Surface closed parser
+  -> registered search_conversations or authorize_search_query_scope action
+  -> Search central API
+  -> Corpus canonical reauthorization
+  -> Search.Presentation transport-neutral result text
+  -> ordinary Surface.Renderer adaptation
+```
+
+Surfaces may provide verified identity, channel origin, current canonical
+thread, and presentation primitives. They must not open Search SQLite files,
+construct FTS syntax, rank candidates, apply grants, widen scopes, store query
+chains, or fall back to canonical scans. Local Web/TUI/CLI use eligible
+all-history scope. A mapped direct operator DM is same-thread plus exact-origin
+by default; one cross-surface request requires the shared confirmation action
+and an exact transient resubmission. Shared or unknown DM transport scope fails
+closed.
+
+Search result turns carry the typed Search-render exclusion marker and are not
+automatically fed into prompts or indexed again. `allbert admin memory search`
+is a separate reviewed-claim consumer and does not bypass this contract.
+
 ## Operator Reads And Public Protocol
 
 Operator reads may be `:internal` and `:read_only`, but they are only reachable

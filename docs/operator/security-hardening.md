@@ -62,6 +62,8 @@ changes:
 | `self_improvement.trace_index.enabled` | `false` | v0.47 trace-index reads for self-improvement discovery. |
 | `artifacts.enabled` | `false` | v0.50 Artifacts Central action surface. |
 | `artifacts.retention_enabled` | `false` | v0.50 durable artifact retention writes. |
+| `search.enabled` | `false` | Search projection ingestion, management admission, and conversation-query availability. |
+| `memory.consolidation.enabled` | `false` | Conversation collection into inert Memory proposals; default is already false. |
 
 Example:
 
@@ -77,6 +79,8 @@ allbert admin settings set self_improvement.enabled false
 allbert admin settings set self_improvement.trace_index.enabled false
 allbert admin settings set artifacts.enabled false
 allbert admin settings set artifacts.retention_enabled false
+allbert admin settings set search.enabled false
+allbert admin settings set memory.consolidation.enabled false
 allbert admin settings set permissions.artifact_write denied
 allbert admin settings set permissions.artifact_delete needs_confirmation
 allbert admin settings set permissions.marketplace_install denied
@@ -150,6 +154,22 @@ allbert admin settings set permissions.sandbox_trial denied
   `:artifact_write`, and confirmation-gated `:artifact_delete`. Raw bytes stay
   under `<ALLBERT_HOME>/artifacts/objects/`; traces, sidecars, LiveView,
   audits, CLI output, and release evidence carry redacted metadata only.
+- Treat Search and Memory as independent Corpus consumers. Search is a
+  read-only, local, disposable conversation index enabled for local operator
+  surfaces by default. Memory consolidation is disabled until an origin grant
+  is set and produces inert proposals only. Their grants do not imply each
+  other:
+
+  ```sh
+  allbert admin settings set search.origin_grants local_operator
+  allbert admin settings set memory.collection.origin_grants local_operator
+  ```
+
+  Add `mapped_operator_dm` independently where remote one-to-one use is wanted;
+  add `e2ee_operator` only after accepting that the relevant local derivative
+  is plaintext. Search queries and snippets are excluded from Search-owned
+  confirmation, trace, and managed-job records. Every projected result is
+  canonically reauthorized before display.
 
 ## Threat surfaces and eval coverage
 

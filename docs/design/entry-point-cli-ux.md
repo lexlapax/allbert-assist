@@ -30,11 +30,14 @@ allbert
   chat
   tui
   serve [--open] [--daemon | --foreground]
+  search [options --] QUERY
   licenses [summary | list | show <component> | notices | --json]
   onboard [--quickstart | --advanced | --reset | --non-interactive --authorize]
   admin <area> <command>
-  gen <kind> ...
 ```
+
+Source-only `mix allbert.gen.*` helpers remain developer/CI commands; `gen` is
+not a packaged product group.
 
 Top-level commands:
 
@@ -45,10 +48,10 @@ Top-level commands:
 | `allbert chat` | Product chat session in the web workspace. | Split across web `/workspace`, ask, and TUI. | Primary target is the web workspace chat; v0.62 may temporarily fall back to a lightweight terminal/TUI session only while the web/onboarding surfaces are still incomplete or unavailable. |
 | `allbert tui` | Persistent terminal operator channel. | `mix allbert.tui`, ADR 0067/0070. | Mix-free daily-use terminal path. |
 | `allbert serve` | Run the local product and web workspace. | `mix phx.server` plus app boot. | Supports foreground and daemon/service management in v0.62. |
+| `allbert search` | Search canonical conversation history through Search Central. | No one-to-one Mix task; all surfaces use the same registered Search actions. | Local CLI/Web/TUI search eligible history by default; mapped DMs stay same-channel unless one exact cross-surface query is confirmed. |
 | `allbert licenses` | Inspect the immutable license evidence packaged in this target artifact. | `mix allbert.licenses --check` validates the source catalog/union. | Additive v1.2.5 informational leaf; dispatched before Req, daemon attachment, or application startup. |
 | `allbert onboard` | Guided setup/resume wizard. | `mix allbert.onboard` and v0.62 `admin onboarding` summary are scaffolding only. | New top-level v0.63 verb. `admin onboarding` remains a summary/read path derived from the same state. |
 | `allbert admin` | Grouped operator inspection/configuration. | `mix allbert.settings`, `channels`, `jobs`, `objectives`, `confirmations`, `security`, `mcp`, `public_protocol`, etc. | Thin views over existing registered actions/settings boundaries. |
-| `allbert gen` | Extension/developer generation helpers. | `mix allbert.gen.*`. | Kept separate from normal operator flow; never auto-runs from onboarding. |
 
 Developer/CI tasks stay Mix-only unless a later ADR promotes them: release gates,
 raw tests, migrations for test/dev, sandbox internals, validation helpers,
@@ -67,6 +70,7 @@ Start
   allbert chat               Open or start web workspace chat
   allbert ask "..."          Ask one question
   allbert tui                Open the terminal operator console
+  allbert search -- "..."   Search retained conversation history
 
 Set up
   allbert                    Resume setup or open the product
@@ -91,7 +95,6 @@ Extend
   allbert admin apps
   allbert admin mcp
   allbert admin plugins
-  allbert gen app|plugin|tool|flow
 
 Development and CI stay under mix.
 ```
