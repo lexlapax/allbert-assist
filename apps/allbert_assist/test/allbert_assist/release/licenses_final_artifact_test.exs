@@ -237,6 +237,74 @@ defmodule AllbertAssist.Release.LicensesFinalArtifactTest do
     assert_receive {:openssl_command, :verify, ^nif}
   end
 
+  test "macOS patch makes the Exqlite NIF install name package-manager stable", %{root: root} do
+    release_root = Path.join(root, "release")
+    nif = Path.join(release_root, "lib/exqlite-0.39.0/priv/sqlite3_nif.so")
+    absolute_id = "/Users/runner/work/exqlite/exqlite/_build/prod/lib/exqlite/priv/sqlite3_nif.so"
+    File.mkdir_p!(Path.dirname(nif))
+    File.write!(nif, "nif")
+    Process.put(:exqlite_rewritten, false)
+
+    runner = fn
+      "otool", ["-D", ^nif], _opts ->
+        install_name =
+          if Process.get(:exqlite_rewritten),
+            do: "@loader_path/sqlite3_nif.so",
+            else: absolute_id
+
+        {nif <> ":\n" <> install_name <> "\n", 0}
+
+      "install_name_tool", ["-id", "@loader_path/sqlite3_nif.so", ^nif], _opts ->
+        Process.put(:exqlite_rewritten, true)
+        send(self(), {:exqlite_command, :rewrite, nif})
+        {"", 0}
+
+      "codesign", ["-f", "-s", "-", ^nif], _opts ->
+        send(self(), {:exqlite_command, :sign, nif})
+        {"", 0}
+
+      "codesign", ["--verify", "--strict", ^nif], _opts ->
+        send(self(), {:exqlite_command, :verify, nif})
+        {"", 0}
+    end
+
+    assert %{install_name: "@loader_path/sqlite3_nif.so", rewritten?: true} =
+             FinalArtifact.patch_macos_exqlite_install_name_tree!(release_root,
+               command_runner: runner
+             )
+
+    assert_receive {:exqlite_command, :rewrite, ^nif}
+    assert_receive {:exqlite_command, :sign, ^nif}
+    assert_receive {:exqlite_command, :verify, ^nif}
+  end
+
+  test "macOS Exqlite patch rejects unexpected and ambiguous package paths", %{root: root} do
+    release_root = Path.join(root, "release")
+    nif = Path.join(release_root, "lib/exqlite-0.39.0/priv/sqlite3_nif.so")
+    File.mkdir_p!(Path.dirname(nif))
+    File.write!(nif, "nif")
+
+    runner = fn "otool", ["-D", ^nif], _opts ->
+      {nif <> ":\n@rpath/sqlite3_nif.so\n", 0}
+    end
+
+    assert_raise Mix.Error, ~r/unsupported Exqlite install name/, fn ->
+      FinalArtifact.patch_macos_exqlite_install_name_tree!(release_root,
+        command_runner: runner
+      )
+    end
+
+    second = Path.join(release_root, "lib/exqlite-0.40.0/priv/sqlite3_nif.so")
+    File.mkdir_p!(Path.dirname(second))
+    File.write!(second, "nif")
+
+    assert_raise Mix.Error, ~r/exactly one Exqlite NIF/, fn ->
+      FinalArtifact.patch_macos_exqlite_install_name_tree!(release_root,
+        command_runner: runner
+      )
+    end
+  end
+
   test "macOS patch omits unmeasured OpenSSL bytes", %{root: root} do
     release_root = Path.join(root, "release")
     nif_dir = Path.join(release_root, "lib/crypto-5.9/priv/lib")

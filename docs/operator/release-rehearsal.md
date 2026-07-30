@@ -319,15 +319,14 @@ with the post-tag documentation/roadmap archival; never move the product tag.
 Homebrew 6 note: path-based `brew audit [path ...]` is disabled, and untrusted
 third-party taps are refused. Audit by tapped formula name after trusting the tap.
 
-For v1.2.6, the formula also preserves regular `LICENSE`/`NOTICE` evidence in
-`libexec` while exposing conventional prefix links. Homebrew's source-formula
-relocation rewrites and ad-hoc signs the Exqlite NIF because that artifact still
-contains an absolute build-time Mach-O install name; the bounded formula
-post-install step restores the accepted NIF bytes before `brew test`. PASS
-therefore includes `allbert licenses --json`, not only `eval`. v1.3 M9.a2 must
-emit a package-manager-stable install name, prove the managed hash remains
-unchanged through Homebrew, and remove this compatibility step rather than
-weakening manifest validation.
+The formula preserves regular `LICENSE`/`NOTICE` evidence in `libexec` while
+exposing conventional prefix links. Since v1.3 M9.a2, release assembly rewrites
+the Exqlite NIF's absolute build-time Mach-O install name to the stable
+`@loader_path/sqlite3_nif.so` form and signs it before the license manifest is
+sealed. The formula must remain copy-only for that managed NIF: PASS includes an
+unchanged pre/post-Homebrew NIF SHA-256 and `allbert licenses --json`, not only
+`eval`. Do not restore the v1.2.6 compressed-NIF/post-install workaround or
+weaken manifest validation.
 
 ## 3. Per-OS Install Rehearsal
 

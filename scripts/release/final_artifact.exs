@@ -11,6 +11,8 @@ defmodule AllbertAssist.Release.FinalArtifact do
   @openssl_dylib ~r/^lib(?:crypto|ssl)(?:[._-][A-Za-z0-9._-]+)?\.dylib$/
   @catalogued_openssl "libcrypto.3.dylib"
   @catalogued_openssl_loader "@loader_path/libcrypto.3.dylib"
+  @exqlite_nif "sqlite3_nif.so"
+  @exqlite_install_name "@loader_path/sqlite3_nif.so"
   @system_command &System.cmd/3
 
   @doc false
@@ -162,6 +164,7 @@ defmodule AllbertAssist.Release.FinalArtifact do
   @doc false
   def patch_macos_openssl(release, opts \\ []) do
     if :os.type() == {:unix, :darwin} do
+      exqlite = patch_macos_exqlite_install_name_tree!(release.path, opts)
       summary = patch_macos_openssl_tree!(release.path, opts)
 
       disposition =
@@ -170,9 +173,48 @@ defmodule AllbertAssist.Release.FinalArtifact do
           else: "no measured OpenSSL edge; no library bundled"
 
       Mix.shell().info("==> macOS OpenSSL closure: " <> disposition)
+
+      Mix.shell().info(
+        "==> macOS Exqlite install name: #{exqlite.install_name}" <>
+          if(exqlite.rewritten?, do: " (rewritten)", else: " (already stable)")
+      )
     end
 
     release
+  end
+
+  @doc false
+  def patch_macos_exqlite_install_name_tree!(release_root, opts \\ []) do
+    runner = Keyword.get(opts, :command_runner, @system_command)
+    nif = exqlite_nif!(release_root)
+    current = mach_o_install_id!(release_root, nif, runner)
+
+    rewritten? =
+      cond do
+        current == @exqlite_install_name ->
+          false
+
+        Path.type(current) == :absolute and Path.basename(current) == @exqlite_nif ->
+          run_command!(
+            runner,
+            "install_name_tool",
+            ["-id", @exqlite_install_name, nif],
+            stderr_to_stdout: true
+          )
+
+          run_command!(runner, "codesign", ["-f", "-s", "-", nif], stderr_to_stdout: true)
+          true
+
+        true ->
+          Mix.raise("unsupported Exqlite install name #{current}")
+      end
+
+    unless mach_o_install_id!(release_root, nif, runner) == @exqlite_install_name do
+      Mix.raise("Exqlite install name is not package-manager stable after patch")
+    end
+
+    run_command!(runner, "codesign", ["--verify", "--strict", nif], stderr_to_stdout: true)
+    %{install_name: @exqlite_install_name, rewritten?: rewritten?}
   end
 
   @doc false
@@ -351,6 +393,41 @@ defmodule AllbertAssist.Release.FinalArtifact do
 
     if roots == [], do: Mix.raise("assembled release contains no crypto NIFs")
     roots
+  end
+
+  defp exqlite_nif!(release_root) do
+    {release_root, :directory} = assert_boundary_path!(release_root, release_root, :directory)
+    lib_root = Path.join(release_root, "lib")
+    assert_boundary_path!(release_root, lib_root, :directory)
+
+    candidates =
+      lib_root
+      |> File.ls!()
+      |> Enum.filter(&String.starts_with?(&1, "exqlite-"))
+      |> Enum.map(&Path.join([lib_root, &1, "priv", @exqlite_nif]))
+      |> Enum.filter(&File.exists?/1)
+      |> Enum.map(fn path ->
+        assert_boundary_path!(release_root, path, :regular)
+        path
+      end)
+
+    case candidates do
+      [nif] -> nif
+      _other -> Mix.raise("assembled release must contain exactly one Exqlite NIF")
+    end
+  end
+
+  defp mach_o_install_id!(release_root, binary, runner) do
+    assert_boundary_path!(release_root, binary, :regular)
+
+    case runner
+         |> run_command!("otool", ["-D", binary], stderr_to_stdout: true)
+         |> String.split("\n", trim: true)
+         |> Enum.map(&String.trim/1)
+         |> Enum.drop(1) do
+      [value] -> value
+      _other -> Mix.raise("could not resolve the Mach-O install id for #{binary}")
+    end
   end
 
   defp validate_staged_openssl_names!(release_root, roots) do

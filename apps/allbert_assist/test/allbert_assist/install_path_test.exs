@@ -106,8 +106,8 @@ defmodule AllbertAssist.InstallPathTest do
     assert body =~ "browser.driver.binary_path"
     assert body =~ ~s(prefix.install_symlink libexec/"LICENSE", libexec/"NOTICE")
     assert body =~ ~S(#{bin}/allbert licenses --json)
-    assert body =~ ~S|Dir["lib/exqlite-*/priv/sqlite3_nif.so"].fetch(0)|
-    assert body =~ ~s(def post_install)
+    refute body =~ "allbert-managed-nif"
+    refute body =~ ~s(def post_install)
 
     # Homebrew derives this formula's version from the release URLs. An explicit
     # version is redundant and rejected by current strict audit.

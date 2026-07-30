@@ -33,22 +33,12 @@ class Allbert < Formula
   end
 
   def install
-    # Homebrew rewrites and re-signs this bundle's absolute build-time Mach-O
-    # install name after install(), which would invalidate the packaged manifest.
-    # Preserve the accepted bytes until post_install runs after that relocation.
-    managed_nif = Dir["lib/exqlite-*/priv/sqlite3_nif.so"].fetch(0)
-    system "tar", "-czf", "allbert-managed-nif.tar.gz", managed_nif
-    pkgshare.install "allbert-managed-nif.tar.gz"
     libexec.install Dir["*"]
     # Homebrew otherwise relocates release metafiles out of libexec after this
     # method returns. Keep the runtime evidence regular and complete there while
     # exposing the conventional top-level paths as relative links.
     prefix.install_symlink libexec/"LICENSE", libexec/"NOTICE"
     (bin/"allbert").write_env_script libexec/"bin/allbert", SHELL: "/bin/sh"
-  end
-
-  def post_install
-    system "tar", "-xzf", pkgshare/"allbert-managed-nif.tar.gz", "-C", libexec
   end
 
   def caveats
