@@ -1404,9 +1404,12 @@ MIX_ENV=test mix allbert.test release.structure v121
 The command records the candidate SHA, clean-worktree verdict, all normalized
 ordered definitions, both exact-prefix comparisons, overall status, and the
 evidence SHA-256. It fails if the tree is dirty or either comparison differs.
-`release.v13` remains planned as the exact ordered `release.v121` prefix plus
-focused Corpus, Memory, Search, Jobs, security, compatibility, and surface
-contracts. Do not serially rerun inherited versioned gates when structural
+`release.v13` is implemented as the exact ordered `release.v121` prefix plus
+seven focused steps: security sweeps; Corpus/jobs/delete; Memory authority;
+Memory proposal/review; Memory retrieval compatibility; Search engine/lifecycle;
+and surfaces/legacy retirement. `mix allbert.test release.structure v13`
+computes and records the v1 -> v1.2 -> v1.2.6 -> v1.3 exact-prefix chain without
+executing a gate. Do not serially rerun inherited versioned gates when structural
 equality is proved; retain the older gate as fallback when it is not.
 
 The active v1.3 plan names exact focused files and serial lanes per milestone.

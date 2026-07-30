@@ -1,6 +1,6 @@
 defmodule AllbertAssist.Search.SchemaTest do
-  use ExUnit.Case, async: true
-  @moduletag :pure_async
+  use ExUnit.Case, async: false
+  @moduletag :home_fs_serial
 
   alias AllbertAssist.Search.Schema
   alias AllbertAssist.Search.SQLite

@@ -236,11 +236,12 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    TUI input-receipt gate that stops ambiguous reconnects from double-executing,
    then reused by every v1.3 Memory/Search/delete domain. Web asset digests are
    cleaned and rebuilt so no historical file survives into an artifact.
-8. **1.3 — Long-Term User Memory + Search Central.** (**Planned —
-   final implementation readiness approved 2026-07-28 after five passes:**
+8. **1.3 — Long-Term User Memory + Search Central.** (**Release candidate —
+   implementation complete; final implementation readiness approved 2026-07-28
+   after five passes; cumulative/artifact/publication closeout in progress:**
    `docs/plans/v1.3-plan.md` + request-flow + amended ADR 0002 and ADR 0089 +
    new ADR 0092 and ADR 0093, milestones M1–M9.b.
-   **Build starts only after v1.2.6 binary closeout.**) Long-Term User Memory
+   **Build started after v1.2.6 binary closeout.**) Long-Term User Memory
    remains the flagship: verified operator-authored conversation turns can
    produce reviewable proposals; only operator-kept append-only bi-temporal
    claims enter prompt context. Claims are authenticated immutable Markdown

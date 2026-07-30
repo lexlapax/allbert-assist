@@ -10,6 +10,36 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v1.3.0 - Long-Term Memory And Search Central
+
+Status: **release candidate assembly in progress.** The source implementation
+is complete; cumulative gates, one same-SHA three-target artifact generation,
+operator TUI/provider validation, protected publication, and tap closeout remain
+release barriers. This entry must not be read as a shipped-version claim until
+those barriers pass and the final tag, digests, and release identity are filled.
+
+- One typed `Conversations.Corpus` boundary now supplies independently
+  authorized conversation truth to Memory and Search without creating another
+  event platform or letting either projection become authority.
+- Reviewed long-term Memory uses append-only authenticated bi-temporal Markdown
+  claim streams, digest-valid span provenance, inert proposals, explicit keep,
+  archive, tombstone-first Forget, and a completely rebuildable SQLite
+  projection. Legacy memory-index and suggestion paths remain compatible but
+  are no longer parallel authorities.
+- Search Central owns a dedicated disposable SQLite FTS5 generation and one
+  registered action/API used by Web, TUI, CLI, and mapped DMs. Safe grammar,
+  bounded authorization refill, query-time Corpus reauthorization, redaction,
+  canonical delete, recoverable purge, and same-channel-by-default mapped-DM
+  disclosure are enforced centrally.
+- Existing Jobs owns visible managed Memory/Search ingestion, consolidation,
+  repair, maintenance, and rebuild entries. Settings Central owns feature and
+  source-class consent; routine authorized work does not repeatedly prompt.
+- Native artifacts now functionally prove the packaged Exqlite SQLite version,
+  `ENABLE_FTS5`, WAL, tokenizer/query/ranking, integrity, checkpoint, and secure-
+  deletion behavior. Local native construction replaces hosted release builds;
+  GitHub retains no-build qualification, protected signing, and immutable
+  publication.
+
 ## v1.2.6 - Self-Describing Binary And Daemon TUI
 
 Status: **shipped 2026-07-29.** Annotated tag `v1.2.6` points to

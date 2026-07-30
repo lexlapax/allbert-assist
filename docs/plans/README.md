@@ -9,8 +9,8 @@ plan and request-flow documents.
 - [Roadmap](roadmap.md)
 - [v1.2.6 foundational enablers -> v1.3 long-term memory and Search Central
   plan](v1.3-plan.md) and [request flow](v1.3-request-flow.md) (operator-approved
-  final implementation readiness; v1.2.6 binary closes before v1.3 schema work
-  begins)
+  final implementation readiness; v1.2.6 shipped and the v1.3 release candidate
+  is in aggregate/artifact closeout)
 - [v1.4 adaptive usage profiling plan](v1.4-plan.md) and
   [request flow](v1.4-request-flow.md) (planned; build after v1.3 closeout)
 - [Allbert Jido vision](allbert-jido-vision.md)

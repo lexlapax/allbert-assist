@@ -2,16 +2,15 @@
 
 ## Status
 
-Proposed (v1.3, operator-signed final readiness decision 2026-07-28). Binding on
-the Corpus milestone (M2) in the v1.3 plan; flips Accepted when the confirmed
-delete action, its exact conversation-owned cascade, live-dependency blocking,
-survivor disclosure, crash-safe idempotency, and cross-consumer reconciliation
-rows are green.
+Accepted (v1.3, 2026-07-30). The operator signed the final readiness decision
+on 2026-07-28. The Corpus milestone (M2) proved the confirmed delete action,
+exact conversation-owned cascade, live-dependency blocking, survivor
+disclosure, and crash-safe idempotency; M4/M6/M7 landed its proposal and
+projection consumers; M8 proved cross-consumer deletion and reconciliation.
 
-M2's canonical action/cascade/confirmation rows are green as of 2026-07-29 at
-`ffbe8fda`. This ADR remains Proposed until the M4/M6/M7 consumers exist and the
-M8 cross-consumer deletion/proposal/projection rows pass; implementation order
-does not weaken the decision's acceptance bar.
+M2's canonical action/cascade/confirmation rows became green on 2026-07-29 at
+`ffbe8fda`. The subsequent M4/M6/M7 consumers and M8 cross-consumer rows close
+the complete acceptance bar without moving deletion authority into Search.
 
 This ADR extracts the canonical-deletion decision that the fifth readiness pass
 found specified inside ADR 0092 §3. Deleting the operator's conversation history
