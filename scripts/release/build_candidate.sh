@@ -4,6 +4,7 @@
 # operator request flow; this helper emits only the four files named below.
 set -Eeuo pipefail
 export LC_ALL=C
+export MIX_ENV=prod
 umask 077
 
 TARGET="${1:?usage: build_candidate.sh TARGET OUTPUT_DIR}"
