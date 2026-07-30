@@ -452,64 +452,48 @@ defmodule AllbertAssist.InstallPathTest do
     assert {_, 0} = System.cmd("bash", ["-n", @linux_rehearsal], stderr_to_stdout: true)
     assert {_, 0} = System.cmd("bash", ["-n", @stage_script], stderr_to_stdout: true)
     assert {_, 0} = System.cmd("bash", ["-n", @promote_script], stderr_to_stdout: true)
-    assert body =~ "sha256sum"
     assert promoter =~ "SHA256SUMS"
     assert promoter =~ "sign-blob"
     refute body =~ "continue-on-error: true"
     refute promoter =~ "continue-on-error: true"
-    # Promotion creates a draft only when absent, resumes identical assets, and
-    # never mutably replaces an existing release asset.
-    assert promoter =~ "release_cli create" and promoter =~ "--verify-tag"
-    assert promoter =~ "--prerelease"
-    assert promoter =~ ~S|${release_upload_url}?name=${name}|
+    # Operator machines create and fill one draft generation. Promotion never
+    # creates, rebuilds, replaces, or clobbers product bytes.
+    refute promoter =~ "release create"
+    assert stage =~ "draft must have zero assets before complete-generation staging"
+    assert stage =~ "exactly 13 candidate assets"
     assert promoter =~ "Content-Type: application/octet-stream"
-    refute promoter =~ "release_cli upload"
-    assert promoter =~ "existing asset $name differs; refusing replacement"
     refute promoter =~ "--clobber"
-    # Native per-target matrix (no cross-compilation).
+    # The only target matrix is no-build qualification.
     assert body =~ "macos-arm64" and body =~ "linux-x64" and body =~ "linux-arm64"
-    assert body =~ "smoke"
-    # Digest staging waits for the Linux rehearsal; version-less aliases are
-    # derived from the exact target set only in protected promotion.
-    assert body =~ "needs: [build, linux-rehearsal]"
+    refute body =~ "mix release"
+    refute body =~ "setup-beam@"
+    refute body =~ "push:\n    tags:"
+    assert body =~ "qualify-target"
+    assert body =~ "collect-qualification"
+    # Version-less aliases are derived from the exact candidate archives only
+    # inside protected promotion.
     assert promoter =~ ~S|allbert-${target}.tar.gz|
-    # v1.0.5 RC: a tag-built filename must carry the exact tag, not only the
-    # internal product version, so ALLBERT_VERSION=v1.0.5-rc.1 resolves the
-    # signed prerelease asset while the executable still reports 1.0.5.
-    assert body =~ ~S|archive="allbert-${GITHUB_REF_NAME}-${TARGET}.tar.gz"|
-    assert body =~ ~S|dist/allbert-${{ github.ref_name }}-${{ matrix.target }}.tar.gz|
-    # v0.62b: a docs/source point-release tag marked `[skip-artifacts]` must NOT
-    # build or publish packaged artifacts (so v0.62.0 stays the Latest packaged
-    # release). The gate job reads the tag message; build depends on its output.
-    assert body =~ "[skip-artifacts]"
-    assert body =~ "needs.gate.outputs.artifacts == 'true'"
-    assert body =~ "needs: gate"
 
-    # Source-run qualification consumes a preverified immutable stage and has
-    # no OIDC/signing path. Only protected promotion receives id-token:write.
+    # Qualification consumes exact draft release-asset IDs and has no signing
+    # authority. Only protected promotion receives id-token:write.
     assert body =~ "actions: read"
     assert body =~ "id-token: write"
     assert body =~ "sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6"
-    assert body =~ ~S|[ "$resolved_cosign" = "v3.0.6" ]|
-    assert body =~ "ALLBERT_REHEARSAL_PREVERIFIED_STAGE"
-    assert body =~ "ALLBERT_REHEARSAL_VERSION"
-    refute body =~ "ALLBERT_REHEARSAL_SIGN_CHECKSUMS"
+    assert body =~ ~S|[ "$resolved_cosign" = v3.0.6 ]|
     assert body =~ "environment: release-promotion"
-    assert body =~ "github.event_name == 'workflow_dispatch'"
-    assert stage =~ "actions/artifacts/${id}/zip"
+    assert body =~ "inputs.operation == 'qualification'"
+    assert body =~ "inputs.operation == 'promotion'"
+    assert promoter =~ "/immutable-releases"
+    assert promoter =~ "published release did not become immutable"
+    assert promoter =~ "OPERATOR_TUI_VALIDATION"
+    assert promoter =~ "CONFIGURED_PROVIDER_VALIDATION"
+
+    # The existing local Linux rehearsal remains a signed installer-path
+    # fixture; it is no longer a hosted build dependency.
     assert rehearsal =~ "SHA256SUMS.cosign.bundle"
     assert rehearsal =~ "cosign sign-blob"
     assert rehearsal =~ "ALLBERT_REHEARSAL_SIGN_CHECKSUMS"
 
-    # v1.0.4: browser runtimes stay outside the tarball. Matrix/rehearsal jobs
-    # provision explicit host paths and launch the extracted binary's doctor.
-    assert body =~ "PLAYWRIGHT_NODE_PATH"
-    assert body =~ "BROWSER_BINARY_PATH"
-    assert body =~ "browser runtime prerequisites"
-    assert body =~ "matrix.target == 'linux-arm64'"
-    assert body =~ "node:22-bookworm"
-    assert body =~ "apt-get install -y ca-certificates chromium"
-    refute body =~ "node_modules/playwright/cli.js"
     assert rehearsal =~ "browser_runtime_boundary_smoke.sh"
     assert rehearsal =~ "linux-rehearsal:browser-doctor PASS"
     assert rehearsal =~ "PLAYWRIGHT_NODE_PATH"
