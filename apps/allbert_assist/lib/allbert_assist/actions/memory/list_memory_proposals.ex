@@ -33,7 +33,8 @@ defmodule AllbertAssist.Actions.Memory.ListMemoryProposals do
     decision = PermissionGate.authorize(:read_only, context)
 
     with true <- PermissionGate.allowed?(decision),
-         {:ok, user_id} <- Context.user_id(params, context) do
+         {:ok, user_id} <- Context.user_id(params, context),
+         {:ok, _reconciled} <- Proposals.reconcile_unavailable(user_id) do
       namespace = value(params, :namespace) || "default"
       proposals = Proposals.list(user_id, namespace) |> Enum.map(&Proposals.to_review_map/1)
 

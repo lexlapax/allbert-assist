@@ -24,30 +24,32 @@ defmodule AllbertAssist.Actions.Memory.RebuildMemoryProjection do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Actions.Memory.Context
   alias AllbertAssist.Drafts.Promotion, as: DraftPromotion
   alias AllbertAssist.Memory.Forget
   alias AllbertAssist.Memory.Projection
   alias AllbertAssist.Memory.ProposalReview
+  alias AllbertAssist.Memory.Proposals
   alias AllbertAssist.Security.PermissionGate
 
   @impl true
-  def run(_params, context) do
+  def run(params, context) do
     decision = PermissionGate.authorize(:memory_write, context)
 
-    cond do
-      not PermissionGate.allowed?(decision) ->
-        denied(decision)
-
-      is_nil(Process.whereis(Projection)) ->
-        error(decision, :memory_projection_owner_unavailable)
-
-      true ->
-        rebuild(decision)
+    with true <- PermissionGate.allowed?(decision),
+         false <- is_nil(Process.whereis(Projection)),
+         {:ok, user_id} <- Context.user_id(params, context) do
+      rebuild(decision, user_id)
+    else
+      false -> denied(decision)
+      true -> error(decision, :memory_projection_owner_unavailable)
+      {:error, reason} -> error(decision, reason)
     end
   end
 
-  defp rebuild(decision) do
+  defp rebuild(decision, user_id) do
     with {:ok, recovery} <- Forget.reconcile_pending(),
+         {:ok, stale_recovery} <- Proposals.reconcile_unavailable(user_id),
          {:ok, proposal_recovery} <- ProposalReview.reconcile_applying(),
          :ok <- recovery_complete(proposal_recovery),
          {:ok, batch_recovery} <- ProposalReview.reconcile_batches(),
@@ -57,6 +59,7 @@ defmodule AllbertAssist.Actions.Memory.RebuildMemoryProjection do
          {:ok, projection} <- rebuild_after_recovery(recovery) do
       result = %{
         recovery: recovery,
+        stale_recovery: stale_recovery,
         proposal_recovery: proposal_recovery,
         batch_recovery: batch_recovery,
         legacy_draft_recovery: legacy_draft_recovery,

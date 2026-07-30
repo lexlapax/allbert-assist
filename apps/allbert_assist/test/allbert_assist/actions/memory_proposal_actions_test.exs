@@ -10,6 +10,7 @@ defmodule AllbertAssist.Actions.MemoryProposalActionsTest do
   alias AllbertAssist.Conversations.Corpus
   alias AllbertAssist.Memory.Claims
   alias AllbertAssist.Memory.Proposals
+  alias AllbertAssist.Memory.Proposals.Proposal
   alias AllbertAssist.Memory.SpanProvenance
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.KeyCustody
@@ -148,6 +149,21 @@ defmodule AllbertAssist.Actions.MemoryProposalActionsTest do
     assert review_output =~ "status=kept"
     assert {:ok, current} = Claims.current(proposal.id)
     assert current["payload"]["value"] == "tea"
+  end
+
+  test "proposal listing scrubs revoked sources before returning DTO content", %{context: context} do
+    proposal = proposal("tea")
+    assert {:ok, _setting} = Settings.put("memory.collection.origin_grants", [])
+
+    assert {:ok, listed} = ListMemoryProposals.run(%{}, context)
+    assert listed.status == :completed
+    assert listed.proposals == []
+
+    stale = AllbertAssist.Repo.get!(Proposal, proposal.id)
+    assert stale.status == "stale"
+    assert stale.proposed_claim == %{"content_scrubbed" => true}
+    assert stale.span_provenance == %{"content_scrubbed" => true}
+    refute inspect(stale) =~ "tea"
   end
 
   defp proposal(value) do
