@@ -63,8 +63,8 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
            }
 
     expected_runners = %{
-      "linux-arm64" => "ubuntu-22.04-arm",
-      "linux-x64" => "ubuntu-22.04",
+      "linux-arm64" => "ubuntu-24.04-arm",
+      "linux-x64" => "ubuntu-24.04",
       "macos-arm64" => "macos-15"
     }
 
@@ -173,6 +173,7 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     assert stage =~ "libcrypto.so.3"
     assert stage =~ "OpenSSL 3."
     assert stage =~ "qualify-target"
+    assert stage =~ "Linux qualifier host requires glibc >= 2.36"
     assert stage =~ "licenses --json"
     assert stage =~ "v121_tui_qualification.sh"
     refute stage =~ "--clobber"

@@ -316,8 +316,16 @@ open_candidate_manifest() {
 qualify_target() {
   local target="$1" release_id="$2" manifest_id="$3" manifest_digest="$4" output="$5"
   local work manifest row archive_name archive_id archive_digest toolchain_name toolchain_id toolchain_digest
-  local smoke_name smoke_id smoke_digest digest_name digest_id digest_digest release_root viewer fv
+  local smoke_name smoke_id smoke_digest digest_name digest_id digest_digest release_root viewer fv host_libc host_libc_version
   case " ${TARGETS[*]} " in *" $target "*) ;; *) fail "unsupported target $target" ;; esac
+  if [[ "$target" == linux-* ]]; then
+    host_libc="$(getconf GNU_LIBC_VERSION 2>/dev/null || true)"
+    [[ "$host_libc" =~ ^glibc\ ([0-9]+\.[0-9]+)$ ]] ||
+      fail "Linux qualifier host did not report a supported glibc version: ${host_libc:-unknown}"
+    host_libc_version="${BASH_REMATCH[1]}"
+    [ "$(printf '%s\n' 2.36 "$host_libc_version" | sort -V | head -n 1)" = 2.36 ] ||
+      fail "Linux qualifier host requires glibc >= 2.36; found $host_libc_version"
+  fi
   work="$(mktemp -d)"; register_cleanup "$work"; mkdir -p "$(dirname "$output")"
   manifest="$work/candidate-manifest.json"
   open_candidate_manifest "$release_id" "$manifest_id" "$manifest_digest" "$work" "$manifest"

@@ -71,9 +71,9 @@ jobs:
         include:
           - os: macos-15
             target: macos-arm64
-          - os: ubuntu-22.04
+          - os: ubuntu-24.04
             target: linux-x64
-          - os: ubuntu-22.04-arm
+          - os: ubuntu-24.04-arm
             target: linux-arm64
     runs-on: ${{ matrix.os }}
     # Draft releases are visible only to identities with push access. Although
