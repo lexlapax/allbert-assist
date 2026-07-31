@@ -14,7 +14,7 @@ defmodule AllbertAssist.Intent.DecomposerTest do
   end
 
   defmodule CorpusProposer do
-    def propose(_text, context), do: {:ok, context.expected_tasks}
+    def propose(_text, context), do: {:ok, Map.get(context, :expected_tasks, [])}
   end
 
   test "ambiguous numbered lists and ordered chains use the bounded model proposer" do
@@ -55,9 +55,9 @@ defmodule AllbertAssist.Intent.DecomposerTest do
     refute_received {:model_consulted, _text}
   end
 
-  test "strips orchestration wording from an advisory semicolon proposal" do
+  test "strips orchestration wording from an advisory uncounted proposal" do
     prompt =
-      "Do these three tasks in parallel: explain OTP supervision in five numbered points; " <>
+      "Do these tasks in parallel: explain OTP supervision in five numbered points; " <>
         "compare GenServer and Agent in five numbered points; " <>
         "summarize this conversation in five numbered points"
 
@@ -72,7 +72,7 @@ defmodule AllbertAssist.Intent.DecomposerTest do
                model_result:
                  {:ok,
                   [
-                    "Do these three tasks in parallel: explain OTP supervision in five numbered points",
+                    "Do these tasks in parallel: explain OTP supervision in five numbered points",
                     "compare GenServer and Agent in five numbered points",
                     "summarize this conversation in five numbered points"
                   ]},
@@ -102,6 +102,17 @@ defmodule AllbertAssist.Intent.DecomposerTest do
   end
 
   test "only counted flagship orchestration is deterministic and other shapes stay advisory" do
+    counted =
+      "Do these three tasks in parallel: research option A; draft option B; report both"
+
+    assert {:fanout, ["research option A", "draft option B", "report both"]} =
+             Decomposer.propose(counted,
+               model_proposer: RecordingProposer,
+               test_pid: self()
+             )
+
+    refute_received {:model_consulted, ^counted}
+
     uncounted =
       "Do these tasks in parallel: research option A; draft option B; report both"
 
@@ -126,6 +137,18 @@ defmodule AllbertAssist.Intent.DecomposerTest do
                model_result: {:error, :offline},
                test_pid: self()
              )
+
+    mismatch =
+      "Do these four tasks in parallel: research option A; draft option B; report both"
+
+    assert :single =
+             Decomposer.propose(mismatch,
+               model_proposer: RecordingProposer,
+               model_result: {:error, :offline},
+               test_pid: self()
+             )
+
+    assert_received {:model_consulted, ^mismatch}
 
     ambiguous = "Research option A; draft option B"
 
@@ -290,6 +313,15 @@ defmodule AllbertAssist.Intent.DecomposerTest do
     assert length(negatives) == 150
     assert Enum.count(cases, &Map.get(&1.context, :steering_turn?, false)) == 50
     assert MapSet.size(MapSet.new(cases, & &1.surface)) == 13
+
+    supplied_negatives =
+      Enum.filter(cases, &(&1.label == :single and String.contains?(&1.text, "supplied")))
+
+    assert length(supplied_negatives) == 30
+    assert Enum.all?(supplied_negatives, &Decomposer.plausible_multi?(&1.text))
+    assert Enum.any?(supplied_negatives, &String.contains?(&1.text, ";"))
+    assert Enum.any?(supplied_negatives, &String.contains?(&1.text, "\n1."))
+    assert Enum.any?(supplied_negatives, &String.contains?(&1.text, "and then"))
     assert precision >= 0.97
     assert recall >= 0.85
     assert false_positive_rate <= 0.01

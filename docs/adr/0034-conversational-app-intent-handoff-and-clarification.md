@@ -28,6 +28,13 @@ qualified task profile (`direct_answer_local`) and deterministic sampling
 controls, while the global first-model profile remains independent. This is a
 task-quality boundary, not a new authority or model-judging subsystem.
 
+Third v1.3 M9.b.3 amendment (2026-07-31): Runtime's ADR 0083 Stage-0
+decomposition runs before `IntentAgent`, the two-stage intent router, and
+DirectAnswer. ADR 0083 therefore owns the supplied-text and explicit counted
+orchestration contract at that earlier stage. DirectAnswer policy cannot repair
+a turn that Stage 0 has already converted into child objectives; the two
+decisions remain separate and purpose-local.
+
 ## Context
 
 After v0.31, the safe routing behavior is visible in the operator UI: a neutral
@@ -105,6 +112,10 @@ recognition and app-owned action execution.
     prove DirectAnswer readiness. Image-bearing turns continue to resolve the
     separate `vision_input` capability profile, while sharing DirectAnswer's
     policy and deterministic request boundary.
+14. Runtime Stage-0 decomposition precedes every decision in this ADR and is
+    governed by ADR 0083. Its supplied-text rule preserves one enclosing
+    operator task before Intent/DirectAnswer selection; this ADR does not add a
+    second decomposition rule or make DirectAnswer policy a fan-out authority.
 
 ## Consequences
 
@@ -127,6 +138,10 @@ recognition and app-owned action execution.
   acknowledgment scenarios. Runtime code applies the declarative rules and
   fixed sampling controls; it does not regex-match responses, retry until an
   example passes, or place an always-on model judge behind ordinary answers.
+- Supplied-text intent regressions must exercise the Runtime Stage-0 seam as
+  well as `IntentAgent`; an `IntentAgent.respond/1` test alone begins too late
+  to detect premature fan-out. ADR 0083 owns the corresponding positive and
+  negative decomposition cases.
 - Prompt roles and DirectAnswer policy grant no permission. Registry, Runner,
   Security Central, confirmation, and registered Jido actions remain the sole
   execution authority boundary. This amendment requires no retry, response

@@ -2786,7 +2786,9 @@ defmodule AllbertAssist.Channels.TUITest do
              )
 
     assert {:ok, :rejected} =
-             Adapter.submit(server, "first task; second task",
+             Adapter.submit(
+               server,
+               "Do two things: first task and second task. Work on them in parallel.",
                external_event_id: "evt-failed-kickoff-#{output_failure}"
              )
 

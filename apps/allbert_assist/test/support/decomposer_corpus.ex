@@ -42,9 +42,9 @@ defmodule AllbertAssist.TestSupport.DecomposerCorpus do
 
   defp single_negatives do
     templates = [
-      "Explain the current scheduler behavior for case &1",
-      "Summarize this paragraph as one task for case &1",
-      "What is the status model for objective &1?",
+      "Summarize this supplied sentence for case &1: Project Juniper might begin after 2026-06-01; it is not approved, and it has no budget.",
+      "Summarize this supplied checklist for case &1:\n1. Restart service &1.\n2. Delete cache &1.",
+      "Explain this supplied sequence for case &1: inspect queue &1 and then delete cache &1.",
       "Draft one cohesive response about topic &1",
       "Research and summarize together for case &1",
       "Show channel configuration &1",

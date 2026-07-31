@@ -3,6 +3,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Conversations
+  alias AllbertAssist.Intent.Decomposer
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
@@ -10,12 +11,29 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
 
+  defmodule SingleTurnProposer do
+    def propose(text, context) do
+      send(context.test_pid, {:decomposition_model_consulted, text})
+      {:ok, []}
+    end
+  end
+
   setup do
     original = Application.get_env(:allbert_assist, Runtime)
+    test_pid = self()
 
     Application.put_env(:allbert_assist, Runtime,
       agent_runner: fn _signal, request ->
+        send(test_pid, {:single_turn_agent_called, request.text})
         {:ok, %{message: "single: #{request.text}", status: :completed}}
+      end,
+      decomposer: fn text, context ->
+        context =
+          context
+          |> Map.put(:model_proposer, SingleTurnProposer)
+          |> Map.put(:test_pid, test_pid)
+
+        Decomposer.propose(text, context)
       end
     )
 
@@ -42,13 +60,43 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     :ok
   end
 
+  test "supplied multi-shape data stays on the single-turn seam without objectives" do
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    cases = [
+      {"supplied-semicolon-runtime",
+       "Summarize this supplied sentence in one sentence: Project Juniper might begin after 2026-06-01; it is not approved, and it has no budget."},
+      {"supplied-numbered-runtime",
+       "Summarize this supplied list:\n1. Restart the service.\n2. Delete the cache."}
+    ]
+
+    for {user_id, text} <- cases do
+      assert Objectives.list_objectives(user_id) == []
+
+      assert {:ok, response} =
+               Runtime.submit_user_input(%{
+                 text: text,
+                 delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+                 channel: :test,
+                 user_id: user_id
+               })
+
+      assert_received {:decomposition_model_consulted, ^text}
+      assert_received {:single_turn_agent_called, ^text}
+      assert response.message == "single: #{text}"
+      assert Map.get(response, :fanout) == nil
+      assert Objectives.list_objectives(user_id) == []
+    end
+  end
+
   test "visible kickoff is a hard start barrier and acknowledgement is idempotent" do
     assert {:ok, _setting} =
              Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
 
     assert {:ok, response} =
              Runtime.submit_user_input(%{
-               text: "Research alpha and then draft beta",
+               text: "Do these two tasks in parallel: Research alpha; draft beta",
                delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
                channel: :test,
                user_id: "alice"
@@ -81,7 +129,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     assert {:ok, response} =
              Runtime.submit_user_input(%{
-               text: "first task; second task",
+               text: "Do these two tasks in parallel: first task; second task",
                delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
                channel: :test,
                user_id: "receipt-owner"
@@ -149,7 +197,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     for channel <- [:tui, :live_view] do
       assert {:ok, response} =
                Runtime.submit_user_input(%{
-                 text: "first task; second task",
+                 text: "Do these two tasks in parallel: first task; second task",
                  channel: channel,
                  user_id: "attached-#{channel}",
                  delivery_ack_capability: Runtime.fanout_delivery_ack_capability()
@@ -167,7 +215,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     assert {:ok, response} =
              Runtime.submit_user_input(%{
-               text: "first task; second task",
+               text: "Do these two tasks in parallel: first task; second task",
                channel: :telegram,
                user_id: "detached",
                delivery_ack_capability: Runtime.fanout_delivery_ack_capability()
@@ -186,7 +234,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     assert {:ok, response} =
              Runtime.submit_user_input(%{
-               text: "first task; second task",
+               text: "Do these two tasks in parallel: first task; second task",
                channel: :telegram,
                user_id: "authorized-remote",
                delivery_ack_capability: Runtime.fanout_delivery_ack_capability()
@@ -205,7 +253,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     assert {:ok, response} =
              Runtime.submit_user_input(%{
-               text: "first task; second task",
+               text: "Do these two tasks in parallel: first task; second task",
                channel: :cli,
                user_id: "one-shot-cli",
                delivery_ack_capability: Runtime.fanout_delivery_ack_capability()
@@ -226,7 +274,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
 
     request = %{
-      text: "first task; second task",
+      text: "Do these two tasks in parallel: first task; second task",
       channel: :test,
       user_id: "alice",
       delivery_ack_capability: Runtime.fanout_delivery_ack_capability()
@@ -780,7 +828,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     assert {:ok, response} =
              Runtime.submit_user_input(%{
-               text: "first task; second task",
+               text: "Do these two tasks in parallel: first task; second task",
                delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
                channel: :test,
                user_id: "alice"
@@ -819,7 +867,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     for capability <- [nil, false, true, "fanout_delivery_ack_v2", :fanout_delivery_ack_v1] do
       request = %{
-        text: "first task; second task",
+        text: "Do these two tasks in parallel: first task; second task",
         channel: :test,
         user_id: "unadapted-#{inspect(capability)}"
       }

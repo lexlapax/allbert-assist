@@ -13,6 +13,7 @@ defmodule AllbertAssist.Intent.Decomposer do
   @parallel_signal ~r/\b(in parallel|simultaneously|separately|independently|at the same time|also|and then|then)\b/iu
   @steering_only ~r/^\s*(status|progress|cancel|stop|pause|resume|retry|skip)(?:\s|$)/iu
   @counted_parallel ~r/^\s*do\s+(?<count>two|three|four|five|six|seven|eight|\d+)\s+(?:things|tasks)\s*:\s*(?<tasks>.+?)[.!?]\s+work on them in parallel(?:\s+and\s+report back)?[.!?]?\s*$/isu
+  @counted_inline_parallel ~r/^\s*do\s+these\s+(?<count>two|three|four|five|six|seven|eight|\d+)\s+(?:things|tasks)\s+in parallel\s*:\s*(?<tasks>.+?)\s*$/isu
   @orchestration_prefix ~r/^\s*do\s+(?:these\s+)?(?:(?:two|three|four|five|six|seven|eight|\d+)\s+)?(?:things|tasks)\s+in parallel\s*:\s*/iu
 
   @type result :: {:fanout, [String.t()]} | {:clarify, map()} | :single
@@ -64,15 +65,33 @@ defmodule AllbertAssist.Intent.Decomposer do
   # Punctuation and list shape are only evidence that a turn may contain
   # multiple tasks. They are not authority to frame durable child objectives:
   # the same shapes occur inside text an operator asks Allbert to summarize or
-  # discuss. The frozen counted flagship sentence is the sole deterministic
-  # grammar; every other plausible shape goes through the structured proposer.
-  defp deterministic_tasks(text), do: counted_parallel_tasks(text)
+  # discuss. Only the two frozen, explicitly counted orchestration grammars are
+  # deterministic; every other plausible shape goes through the structured
+  # proposer. Both grammars must parse exactly the declared number of children.
+  defp deterministic_tasks(text) do
+    case counted_parallel_tasks(text) do
+      nil -> counted_inline_parallel_tasks(text)
+      tasks -> tasks
+    end
+  end
 
   defp counted_parallel_tasks(text) do
     with %{"count" => count, "tasks" => tasks} <- Regex.named_captures(@counted_parallel, text),
          {:ok, expected_count} <- parse_count(count),
          parsed when length(parsed) == expected_count <-
            split_counted_tasks(tasks, expected_count) do
+      parsed
+    else
+      _other -> nil
+    end
+  end
+
+  defp counted_inline_parallel_tasks(text) do
+    with %{"count" => count, "tasks" => tasks} <-
+           Regex.named_captures(@counted_inline_parallel, text),
+         {:ok, expected_count} <- parse_count(count),
+         parsed = Regex.split(~r/\s*;\s*/u, tasks, trim: true),
+         true <- length(parsed) == expected_count do
       parsed
     else
       _other -> nil

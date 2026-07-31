@@ -91,7 +91,7 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
 
     assert {:ok, response} =
              Runtime.submit_user_input(%{
-               text: "Research alpha and then draft beta",
+               text: "Do two things: research alpha and draft beta. Work on them in parallel.",
                delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
                channel: :test,
                user_id: "alice"

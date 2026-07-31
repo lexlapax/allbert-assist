@@ -22,6 +22,11 @@ scheduling, steering, or atomic fan-in authority. Bounded WV-01 passed at `9ca0e
 final implementation candidate `f81a49de` passed expanded `release.v11`,
 pre-push, and the uninterrupted authoritative release cascade on 2026-07-26.
 
+The v1.3 M9.b.3 supplied-text amendment below narrows deterministic
+decomposition to explicit counted orchestration protocols and makes every
+ambiguous natural-language shape a bounded structured proposal. It preserves
+the accepted fan-out authority, delivery, Objectives, and execution model.
+
 ## Context
 
 The v1.1 flagship ("Asynchronous Background Agent Fan-Out With In-Channel
@@ -162,6 +167,46 @@ on 2026-07-18.
 8. **A supervised process has no authority by virtue of supervision.** Run
    processes carry the inline runner's context/identity rules. Report-back
    authority remains ADR 0084 and cancellation semantics remain ADR 0085.
+
+### v1.3 M9.b.3 amendment — supplied text and counted orchestration
+
+Decision 7's broad eligibility is retained, but deterministic parsing is now
+limited to two explicit, counted operator protocols:
+
+1. `Do N things/tasks: <task list>. Work on them in parallel[ and report back].`
+2. `Do these N tasks in parallel: <semicolon-delimited task list>.`
+
+For either protocol, `N` is required, must parse within the configured fan-out
+bound, and must equal the complete parsed child count. A missing or mismatched
+count, ambiguous delimiter structure, or incomplete child returns to the
+advisory path; it never truncates, merges, or deterministically frames a
+partial list. These exact protocols remain available offline so an operator
+can request fan-out without depending on a model.
+
+Every other semicolon, numbered or bulleted list, `then`/`and then` chain,
+parallel word, conjunction, and uncounted orchestration phrase is only a cheap
+plausibility signal. It may select the existing bounded structured
+`Intent.Decomposer.ReqLLMProposer`; it is not itself evidence that the outer
+operator request contains multiple tasks. The proposer must classify only the
+operator's outer request. Quoted, embedded, or otherwise supplied text is data
+owned by that request, so separators, imperative sentences, and numbered items
+inside it do not become children. A request to summarize, extract, translate,
+acknowledge, explain, critique, or otherwise transform one supplied item stays
+one turn even when that item looks action-shaped.
+
+The structured result remains advisory and is normalized by the existing
+child-count, uniqueness, non-empty, overflow, and nested-fan-out guards.
+Unavailable providers, timeouts, malformed output, a `single` decision, or
+fewer than two valid proposed tasks fail closed to the ordinary single-turn
+pipeline. A proposal above the configured maximum still clarifies with the
+complete list.
+
+This amendment adds no permission, confirmation path, action exposure, agent
+process, or execution authority. The Decomposer remains a stateless Stage-0
+module because Jido lifecycle/state composition buys nothing for this bounded
+classification. Runtime and Objectives retain the accepted framing/delivery
+contract, and every child still reaches registered Jido actions through the
+normal Engine, Registry, Runner, Security Central, and confirmation gates.
 
 ### M12.15 amendment — atomic terminal reduction and durable report work
 

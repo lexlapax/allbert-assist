@@ -197,7 +197,12 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
           "method" => "session/prompt",
           "params" => %{
             "sessionId" => session_id,
-            "prompt" => [%{"type" => "text", "text" => "first task; second task"}]
+            "prompt" => [
+              %{
+                "type" => "text",
+                "text" => "Do two things: first task and second task. Work on them in parallel."
+              }
+            ]
           }
         },
         state
@@ -242,7 +247,12 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
           "method" => "session/prompt",
           "params" => %{
             "sessionId" => session_id,
-            "prompt" => [%{"type" => "text", "text" => "first task; second task"}]
+            "prompt" => [
+              %{
+                "type" => "text",
+                "text" => "Do two things: first task and second task. Work on them in parallel."
+              }
+            ]
           }
         },
         state
@@ -285,7 +295,12 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
           "method" => "session/prompt",
           "params" => %{
             "sessionId" => session_id,
-            "prompt" => [%{"type" => "text", "text" => "first task; second task"}]
+            "prompt" => [
+              %{
+                "type" => "text",
+                "text" => "Do two things: first task and second task. Work on them in parallel."
+              }
+            ]
           }
         },
         state
