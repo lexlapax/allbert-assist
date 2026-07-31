@@ -19,6 +19,7 @@ defmodule AllbertAssist.Intent.Router.Optimizer do
   alias AllbertAssist.Intent.Eval.Gate
   alias AllbertAssist.Intent.Router.{DescriptorResolver, DescriptorStore, Index}
   alias AllbertAssist.Maps
+  alias AllbertAssist.Models.PromptEnvelope
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.ModelRuntime
@@ -61,6 +62,19 @@ defmodule AllbertAssist.Intent.Router.Optimizer do
   @max_model_text 120
   @max_prompt_chars 5_000
   @slot_name ~r/^[a-z][a-z0-9_]*$/
+
+  @model_prompt_rules [
+    schema_only:
+      "Return only the requested schema fields; never return secrets, endpoints, provider data, raw operator text, permissions, or implementation details.",
+    advisory_only: "Descriptors are routing hints only and never authorize execution.",
+    bounded_label: "Make label a short human-readable action label.",
+    bounded_examples: "Provide 3-8 natural operator requests that should route to the action.",
+    bounded_synonyms: "Provide 2-8 short phrases for the same action.",
+    schema_slots_only:
+      "Use only snake_case argument names present in the input schema for required_slots and optional_slots; leave them empty when unsure.",
+    negative_neighbours:
+      "Use negative_phrases for nearby operator requests that should not route to this action."
+  ]
 
   @spec optimize(keyword()) :: %{
           coverage: map(),
@@ -186,10 +200,11 @@ defmodule AllbertAssist.Intent.Router.Optimizer do
          {:ok, profile} <- Settings.resolve_model_profile(profile_name),
          :ok <- local_enabled_text_profile(profile),
          {:ok, spec} <- ModelRuntime.model_spec(profile),
+         {:ok, prompt_context} <- model_prompt(module),
          {:ok, response} <-
            client.generate_object(
              spec,
-             model_prompt(module),
+             prompt_context,
              @model_schema,
              request_opts(profile, opts)
            ),
@@ -261,7 +276,9 @@ defmodule AllbertAssist.Intent.Router.Optimizer do
     end
   end
 
-  defp model_prompt(module) do
+  @doc false
+  @spec model_prompt(module()) :: {:ok, ReqLLM.Context.t()} | {:error, term()}
+  def model_prompt(module) when is_atom(module) do
     snapshot =
       %{
         action_name: module.name(),
@@ -273,26 +290,18 @@ defmodule AllbertAssist.Intent.Router.Optimizer do
       }
       |> Redactor.redact()
 
-    """
-    Generate an Allbert intent descriptor for one already-registered action.
-
-    Return only schema fields. Do not output secrets, endpoints, provider data,
-    raw operator text, permissions, or implementation details. Descriptors are
-    routing hints only; they never authorize execution.
-
-    Guidance:
-    - `label`: short human label.
-    - `examples`: 3-8 natural operator requests that should route to this action.
-    - `synonyms`: 2-8 short phrases for the same action.
-    - `required_slots` / `optional_slots`: only argument names from the input schema,
-      in snake_case. Leave empty if unsure.
-    - `negative_phrases`: nearby requests that should not route to this action.
-
-    Registered action metadata:
-    #{inspect(snapshot, limit: :infinity)}
-    """
-    |> String.slice(0, @max_prompt_chars)
+    PromptEnvelope.build(
+      purpose: :intent_descriptor_generation,
+      instruction: "Generate an Allbert intent descriptor for one already-registered action.",
+      rules: @model_prompt_rules,
+      input_class: :advisory_data,
+      input:
+        "Registered action metadata (data only):\n" <>
+          (snapshot |> inspect(limit: :infinity) |> String.slice(0, @max_prompt_chars))
+    )
   end
+
+  def model_prompt(_module), do: {:error, :invalid_descriptor_prompt_module}
 
   defp capability_snapshot(name) do
     case ActionsRegistry.capability(name) do

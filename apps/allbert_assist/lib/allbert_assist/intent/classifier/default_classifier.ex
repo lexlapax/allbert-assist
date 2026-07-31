@@ -10,7 +10,21 @@ defmodule AllbertAssist.Intent.Classifier.DefaultClassifier do
 
   @behaviour AllbertAssist.Intent.Classifier.Behaviour
 
+  alias AllbertAssist.Models.PromptEnvelope
   alias AllbertAssist.Settings.ModelRuntime
+
+  @prompt_rules [
+    known_candidate_only: "Pick only an id and kind from the supplied candidate set.",
+    no_invention:
+      "Do not invent actions, tools, routes, apps, users, URLs, files, permissions, or candidate data.",
+    app_intent_is_proposal:
+      "Treat app-intent candidates as handoff or clarification proposals, never execution approval.",
+    preserve_authority:
+      "Do not use an app-owned action to bypass active-app context, confirmation, Registry, Runner, or Security Central.",
+    deterministic_preference:
+      "Prefer deterministic, read-only, exact-text candidates when evidence is otherwise equal.",
+    honest_uncertainty: "Return low confidence when the supplied candidates are ambiguous."
+  ]
 
   @schema [
     selected_kind: [
@@ -39,10 +53,11 @@ defmodule AllbertAssist.Intent.Classifier.DefaultClassifier do
   def classify(candidate_summary, context) when is_list(candidate_summary) and is_map(context) do
     with :ok <- ensure_req_llm!(),
          {:ok, model_spec} <- model_spec(context),
+         {:ok, prompt_context} <- prompt_context(candidate_summary, context),
          {:ok, response} <-
            ReqLLM.generate_object(
              model_spec,
-             prompt(candidate_summary, context),
+             prompt_context,
              @schema,
              request_opts(context)
            ),
@@ -84,28 +99,26 @@ defmodule AllbertAssist.Intent.Classifier.DefaultClassifier do
 
   defp model_spec(_context), do: {:error, :missing_model_profile}
 
-  defp prompt(candidate_summary, context) do
-    """
-    Select exactly one Allbert intent candidate for the operator request.
+  @doc false
+  @spec prompt_context([map()], map()) :: {:ok, ReqLLM.Context.t()} | {:error, term()}
+  def prompt_context(candidate_summary, context)
+      when is_list(candidate_summary) and is_map(context) do
+    PromptEnvelope.build(
+      purpose: :intent_classification,
+      instruction: "Select exactly one Allbert intent candidate for the operator request.",
+      rules: @prompt_rules,
+      reference_context: """
+      Active app context:
+      #{inspect(Map.get(context, :active_app))}
 
-    Safety rules:
-    - Pick only a candidate id and kind from the supplied candidates.
-    - Do not invent actions, tools, routes, apps, users, URLs, files, or permissions.
-    - Treat app_intent candidates as handoff or clarification proposals, not execution approval.
-    - Do not select an app-owned action to bypass active-app context or confirmation.
-    - Prefer deterministic, read-only, and exact text matches when uncertain.
-    - Return low confidence if the candidates are ambiguous.
-
-    Active app context:
-    #{inspect(Map.get(context, :active_app))}
-
-    Operator request:
-    #{Map.get(context, :text, "")}
-
-    Candidates:
-    #{inspect(candidate_summary, limit: :infinity)}
-    """
+      Candidate data:
+      #{inspect(candidate_summary, limit: :infinity)}
+      """,
+      input: Map.get(context, :text, "")
+    )
   end
+
+  def prompt_context(_candidate_summary, _context), do: {:error, :invalid_classifier_prompt}
 
   defp request_opts(context) do
     profile = Map.get(context, :model_profile, %{})

@@ -7,8 +7,19 @@ defmodule AllbertAssist.Intent.Decomposer.ReqLLMProposer do
   """
 
   alias AllbertAssist.Maps
+  alias AllbertAssist.Models.PromptEnvelope
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.ModelRuntime
+
+  @prompt_rules [
+    independent_tasks_only:
+      "Return fanout only when at least two tasks are independently useful and can make progress concurrently.",
+    preserve_tasks: "Preserve every requested task exactly once.",
+    dependent_work_is_single:
+      "Dependencies, one combined outcome, uncertainty, status, cancellation, steering, and requests not to split are single.",
+    bounded_shape:
+      "Return tasks_json as a JSON array of concise task strings, or [] when the decision is single."
+  ]
 
   @schema [
     decision: [type: :string, required: true, doc: "fanout or single"],
@@ -24,8 +35,14 @@ defmodule AllbertAssist.Intent.Decomposer.ReqLLMProposer do
     with :ok <- ensure_req_llm(),
          {:ok, profile} <- profile(context),
          {:ok, spec} <- ModelRuntime.model_spec(profile),
+         {:ok, prompt_context} <- prompt_context(text),
          {:ok, response} <-
-           ReqLLM.generate_object(spec, prompt(text), @schema, request_opts(profile, context)),
+           ReqLLM.generate_object(
+             spec,
+             prompt_context,
+             @schema,
+             request_opts(profile, context)
+           ),
          object when is_map(object) <- ReqLLM.Response.object(response),
          "fanout" <- Maps.field_truthy(object, :decision),
          {:ok, tasks} when is_list(tasks) <- decode_tasks(Maps.field_truthy(object, :tasks_json)) do
@@ -61,20 +78,19 @@ defmodule AllbertAssist.Intent.Decomposer.ReqLLMProposer do
     )
   end
 
-  defp prompt(text) do
-    """
-    Decide whether the operator request contains at least two independent tasks
-    that can make progress concurrently.
-
-    Return decision=fanout only when each task is useful on its own. Preserve
-    every requested task exactly once. Dependencies, one combined outcome,
-    uncertainty, status/cancel/steering, and requests not to split are single.
-    tasks_json must be a JSON array of concise task strings, or [] for single.
-
-    Operator request:
-    #{text}
-    """
+  @doc false
+  @spec prompt_context(String.t()) :: {:ok, ReqLLM.Context.t()} | {:error, term()}
+  def prompt_context(text) when is_binary(text) do
+    PromptEnvelope.build(
+      purpose: :intent_decomposition,
+      instruction:
+        "Decide whether the operator request contains multiple independent tasks for bounded concurrent progress.",
+      rules: @prompt_rules,
+      input: text
+    )
   end
+
+  def prompt_context(_text), do: {:error, :invalid_decomposer_prompt}
 
   defp decode_tasks(value) when is_binary(value), do: Jason.decode(value)
   defp decode_tasks(_value), do: {:error, :invalid_tasks_json}

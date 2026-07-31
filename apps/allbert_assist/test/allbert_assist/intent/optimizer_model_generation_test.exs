@@ -99,11 +99,13 @@ defmodule AllbertAssist.Intent.Router.OptimizerModelGenerationTest do
     assert schema[:label][:required]
     assert opts[:receive_timeout] == 20_000
     assert opts[:openai_structured_output_mode] == :json_schema
-    assert prompt =~ "send_channel_message"
-    assert prompt =~ "Send an outbound message to a channel"
-    refute prompt =~ "http://"
-    refute prompt =~ "secret://"
-    refute prompt =~ "sk-"
+    assert %ReqLLM.Context{} = prompt
+    assert Enum.map(prompt.messages, & &1.role) == [:system, :user]
+    assert context_text(prompt) =~ "send_channel_message"
+    assert context_text(prompt) =~ "Send an outbound message to a channel"
+    refute context_text(prompt) =~ "http://"
+    refute context_text(prompt) =~ "secret://"
+    refute context_text(prompt) =~ "sk-"
 
     assert attrs.label == "Send a channel message"
     assert "send channel message" in attrs.synonyms
@@ -166,6 +168,14 @@ defmodule AllbertAssist.Intent.Router.OptimizerModelGenerationTest do
       llm_client: client,
       llm_opts: [test_pid: self()]
     )
+  end
+
+  defp context_text(%ReqLLM.Context{messages: messages}) do
+    Enum.map_join(messages, "\n", fn message ->
+      message.content
+      |> Enum.filter(&(&1.type == :text))
+      |> Enum.map_join("", & &1.text)
+    end)
   end
 
   defp restore(key, nil), do: Application.delete_env(:allbert_assist, key)
