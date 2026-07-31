@@ -58,6 +58,18 @@ embeddings and a `:capable` / `:thinking` main loop as follow-on setup, while
 model posture are reviewed. Those recommendations never redefine the initial
 curated model that gets the operator to first useful chat.
 
+### v1.3 DirectAnswer qualification amendment
+
+The first-model substrate and DirectAnswer qualification are now separate.
+The curated `local` / `llama3.2:3b` profile proves that the modest local model
+substrate is usable. Ordinary DirectAnswer turns default to the independent
+`direct_answer_local` / `qwen2.5:7b` task head and may run only when that exact
+task route is ready. A persona may seed the existing enablement setting after
+review, but the persona, global primary, and curated-model probe do not select,
+qualify, or authorize a different DirectAnswer route. Purpose-specific model
+selection remains Settings Central state under ADRs 0051, 0072, 0087, and
+0088.
+
 ## Daily-Use Posture
 
 Personas are setup seeds only. After onboarding, daily-use surfaces, authority

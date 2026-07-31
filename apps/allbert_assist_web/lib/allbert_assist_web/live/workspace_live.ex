@@ -200,7 +200,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
        |> prepare_model_disclosure()
        |> assign(
          :error,
-         "Review and acknowledge the hosted-model disclosure before sending."
+         "Review the hosted-model disclosure, then retry after it clears."
        )}
     else
       {:noreply, submit_workspace_prompt(socket, prompt)}

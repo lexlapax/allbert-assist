@@ -1,6 +1,7 @@
 defmodule AllbertAssist.Actions.FirstModel.PullModel do
   @moduledoc """
-  Pull the curated default model (v0.62 M4, ADR 0078; M4 Authority Contract).
+  Pull an explicitly selected or curated-default model (v0.62 M4, ADR 0078;
+  M4 Authority Contract).
 
   Uses the local Ollama REST API (`POST /api/pull`) under the existing
   **`:external_network`** authority — its `:needs_confirmation` safety floor
@@ -17,7 +18,8 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
     confirmation: :required,
     resumable?: true,
     name: "pull_model",
-    description: "Pull the curated default model via the local Ollama API (confirmation-gated).",
+    description:
+      "Pull an explicitly selected or curated-default model via the local Ollama API (confirmation-gated).",
     category: "first_model",
     tags: ["first_model", "pull", "external_network", "confirmation"],
     schema: [
