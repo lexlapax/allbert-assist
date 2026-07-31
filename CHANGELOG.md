@@ -13,10 +13,11 @@ changelog entries or release notes.
 ## v1.3.0 - Long-Term Memory And Search Central
 
 Status: **release candidate assembly in progress.** The source implementation
-is complete; cumulative gates, one same-SHA three-target artifact generation,
-operator TUI/provider validation, protected publication, and tap closeout remain
-release barriers. This entry must not be read as a shipped-version claim until
-those barriers pass and the final tag, digests, and release identity are filled.
+and portability remediation are complete; the final cumulative rejoin, one
+same-SHA three-target artifact generation, operator TUI/provider validation,
+protected publication, and tap closeout remain release barriers. This entry
+must not be read as a shipped-version claim until those barriers pass and the
+final tag, digests, and release identity are filled.
 
 **Formula state: PRE-PUBLICATION ONLY.** The packaged Latest 1.2.6 remains in
 the repository formula during candidate qualification. At publish, the tap is
@@ -42,9 +43,11 @@ shipped 1.3.0 formula claim.
   source-class consent; routine authorized work does not repeatedly prompt.
 - Native artifacts now functionally prove the packaged Exqlite SQLite version,
   `ENABLE_FTS5`, WAL, tokenizer/query/ranking, integrity, checkpoint, and secure-
-  deletion behavior. Local native construction replaces hosted release builds;
-  GitHub retains no-build qualification, protected signing, and immutable
-  publication.
+  deletion behavior. Local native construction replaces hosted release builds:
+  macOS builds locally, while both Linux targets build natively from one pinned
+  multi-architecture Debian 11 image, glibc 2.31 floor, and source-built Exqlite
+  NIF policy. GitHub retains no-build qualification, protected signing, and
+  immutable publication.
 
 ## v1.2.6 - Self-Describing Binary And Daemon TUI
 

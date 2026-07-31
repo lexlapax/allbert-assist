@@ -519,15 +519,18 @@ requires a patch version.
 Release construction moves to operator-controlled target environments:
 
 - macOS arm64 builds natively on the operator Mac;
-- Linux x64 builds natively on the `serenity` Linux host; and
-- Linux arm64 builds and smokes in a pinned-digest `linux/arm64` container on
-  Apple Silicon Docker Desktop.
+- Linux x64 builds and smokes in a pinned-digest native `linux/amd64`
+  container on the `serenity` Linux host; and
+- Linux arm64 builds and smokes from the same multi-architecture image digest
+  in a native `linux/arm64` container on Apple Silicon Docker Desktop.
 
 Docker Desktop runs the engine inside a Linux VM. On Apple Silicon an explicit
 `--platform linux/arm64` container therefore executes Linux/aarch64 userspace
 on the matching host architecture; it produces a Linux arm64 artifact, not a
 macOS artifact. The builder must record `uname -s == Linux`,
-`uname -m == aarch64`, the image name and digest, and the exact toolchain. It
+`uname -m == aarch64`, the image name and digest, libc floor, native-NIF build
+mode, and exact toolchain. The x64 path applies the symmetric
+`Linux`/`x86_64` checks. It
 must not substitute `linux/amd64` emulation: Docker documents Intel containers
 on Apple Silicon as slower, more memory-intensive best effort. Builds use the
 container filesystem and copy only final staged output across the bind mount,
@@ -571,11 +574,17 @@ construction path.
 As built, the thin helper rejects root execution because packaged Erlexec is
 itself part of the smoke and correctly refuses root without an explicit target
 user. Container preparation may run as root, but compilation, finalization,
-and smoke switch to one unprivileged ephemeral user. The Linux arm64 base is
-the native platform manifest
-`erlang@sha256:c029064619207e6f87c672ccced24d4019cde7184015fbf4f4c1f2a9af3e1245`;
-the candidate row records that digest plus resolved Node, Playwright, and
-browser versions. Absolute host paths are not evidence and are not recorded.
+and smoke switch to one unprivileged ephemeral user. Both Linux targets use
+the Hex-maintained multi-architecture OTP 29.0.1 Debian 11 manifest
+`hexpm/erlang@sha256:8af614ad04450a1919c2ef1a992b7504e27c9f488674003ac08ee3e0b86fbd65`
+at its native platform. The helper requires and records glibc 2.31 and forces
+Exqlite's supported source-build path so the bundled ERTS, Exqlite, Erlexec,
+and other native payloads share the conservative builder floor. A downloaded,
+checksum-pinned Node 22 runtime and apt Chromium exist only for build/smoke;
+the browser boundary proves neither enters the archive. The candidate row
+records the image digest, libc floor, source-built-NIF policy, and resolved
+Node, Playwright, and browser versions. Absolute host paths are not evidence
+and are not recorded.
 On macOS the finalizer gives the Exqlite NIF and bundled
 `libcrypto.3.dylib` loader-relative install IDs, ad-hoc signs and re-verifies
 them, and only then generates the package license manifest. The M9.a2 shadow
@@ -598,6 +607,11 @@ Primary-source constraints for this amendment:
   native arm64 images on Apple Silicon rather than best-effort Intel emulation
   ([Docker Desktop networking](https://docs.docker.com/desktop/features/networking/),
   [multi-platform builds](https://docs.docker.com/build/building/multi-platform/)).
+- Hex's maintained Elixir/Erlang images encode exact language/runtime and OS
+  versions, while Exqlite documents `force_build: true` as the supported way
+  to opt out of precompiled NIFs
+  ([Hex image tags](https://hub.docker.com/r/hexpm/erlang/tags),
+  [Exqlite build configuration](https://github.com/elixir-sqlite/exqlite/blob/v0.39.0/README.md#configuration)).
 - GitHub recommends creating a draft, attaching all assets, then publishing;
   when immutable releases are enabled, tag and asset immutability begins at
   publication while draft state remains editable. Only identities with push
