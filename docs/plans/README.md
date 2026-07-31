@@ -17,10 +17,10 @@ plan and request-flow documents.
   [request flow](v1.5-request-flow.md) (planned; readiness passes not yet run)
 - [v1.6 connectivity enablers plan](v1.6-plan.md) and
   [request flow](v1.6-request-flow.md) (planned; readiness passes not yet run)
-- [v1.6.1 Knowledge Stage 1 plan](v1.6.1-plan.md) and
-  [request flow](v1.6.1-request-flow.md) (planned; readiness passes not yet run)
-- [v1.7 Knowledge Central plan](v1.7-plan.md) and
+- [v1.7 Knowledge Stage 1 plan](v1.7-plan.md) and
   [request flow](v1.7-request-flow.md) (planned; readiness passes not yet run)
+- [v1.8 Knowledge Central plan](v1.8-plan.md) and
+  [request flow](v1.8-request-flow.md) (planned; readiness passes not yet run)
 - [Allbert Jido vision](allbert-jido-vision.md)
 - [Future features](future-features.md)
 

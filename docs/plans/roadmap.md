@@ -333,8 +333,8 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    hardened egress path and subscription-plan auth rather than API keys.
    (Mid-action interruption, child-process cancellation, and the app-registry
    boundary check moved into 1.1.)
-12. **1.6.x — Knowledge Stage 1 (LLM Wiki over claims).** (**Proposed — intake
-   closed 2026-07-30:** ADR 0094 + ADR 0095; triad at `docs/plans/v1.6.1-plan.md` + request-flow.) A derived,
+12. **1.7 — Knowledge Stage 1 (LLM Wiki over claims).** (**Proposed — intake
+   closed 2026-07-30:** ADR 0094 + ADR 0095; triad at `docs/plans/v1.7-plan.md` + request-flow.) A derived,
    interlinked markdown page graph over v1.3 kept claims: page model,
    relative-markdown links with written backlinks, `index.md`, deterministic
    lint (contradictions, orphans, unresolved links, stale and under-populated
@@ -344,13 +344,13 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    new permission class, no fourth database. `knowledge.enabled` default false.
    Its own point release rather than an enabler rider, by operator decision
    2026-07-30, because the 1.5/1.6 train is already fully loaded.
-13. **1.7 — Knowledge Central (LLM Wiki flagship).** (**Proposed — intake closed
-   2026-07-30:** same ADRs; triad at `docs/plans/v1.7-plan.md` + request-flow.) Stage 2: document ingest
+13. **1.8 — Knowledge Central (LLM Wiki flagship).** (**Proposed — intake closed
+   2026-07-30:** same ADRs; triad at `docs/plans/v1.8-plan.md` + request-flow.) Stage 2: document ingest
    substrate, durable synthesis cache, source-summary pages, `log.md`, the
    operator-authored schema document with a confirmed review path, LLM-assisted
    lint, budgeted managed ingestion with named egress, and composite query
    across Memory, Search, and pages with every fact labelled by its origin
-   layer. A guided "Research assistant" persona follows in a 1.7 point release
+   layer. A guided "Research assistant" persona follows in a 1.8 point release
    once the loop is proven with real operators.
 14. **Beyond** — System Memory Distillation remains the parked
    learned/model-trained memory route; Knowledge Central does not replace it,

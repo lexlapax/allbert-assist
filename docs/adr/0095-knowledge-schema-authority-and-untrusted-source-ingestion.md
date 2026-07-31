@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (v1.6.x/v1.7, operator intake closed 2026-07-30). Binding on the
+Proposed (v1.7/v1.8, operator intake closed 2026-07-30). Binding on the
 Knowledge schema document and on document ingestion. Flips Accepted when the
 typed schema parse, the confirmed review path, and the named prompt-injection
 security-eval rows are green.

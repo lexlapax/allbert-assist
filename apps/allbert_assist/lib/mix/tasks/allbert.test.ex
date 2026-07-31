@@ -238,10 +238,10 @@ defmodule Mix.Tasks.Allbert.Test do
     "docs/plans/v1.5-request-flow.md",
     "docs/plans/v1.6-plan.md",
     "docs/plans/v1.6-request-flow.md",
-    "docs/plans/v1.6.1-plan.md",
-    "docs/plans/v1.6.1-request-flow.md",
     "docs/plans/v1.7-plan.md",
-    "docs/plans/v1.7-request-flow.md"
+    "docs/plans/v1.7-request-flow.md",
+    "docs/plans/v1.8-plan.md",
+    "docs/plans/v1.8-request-flow.md"
   ]
 
   defp docs_staleness_check! do

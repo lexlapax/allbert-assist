@@ -580,8 +580,8 @@ v1.3.0 tag per the lifecycle rule.
 
 ### Knowledge Central (LLM Wiki)
 
-Planned — `docs/plans/v1.6.1-plan.md` (Stage 1, page graph over claims) and
-`docs/plans/v1.7-plan.md` (Stage 2, document ingest) + ADR 0094 and ADR 0095.
+Planned — `docs/plans/v1.7-plan.md` (Stage 1, page graph over claims) and
+`docs/plans/v1.8-plan.md` (Stage 2, document ingest) + ADR 0094 and ADR 0095.
 
 ### System Memory Distillation
 

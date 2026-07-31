@@ -2,8 +2,8 @@
 
 ## Status
 
-Proposed (v1.6.x/v1.7, operator intake closed 2026-07-30 across three rounds).
-Binding on the Knowledge Stage 1 point release and the v1.7 Knowledge Central
+Proposed (v1.7/v1.8, operator intake closed 2026-07-30 across three rounds).
+Binding on the v1.7 Knowledge Stage 1 release and the v1.8 Knowledge Central
 flagship. Flips Accepted when the Stage 1 page graph, link and backlink
 contract, deterministic lint, edit-divergence promotion, and frozen scale and
 latency bounds are green on both packaged hosts.
@@ -188,7 +188,7 @@ that asymmetry is explained.
 
 ### 12. Staging
 
-**Stage 1 (v1.6.x)** derives the page graph from v1.3 kept claims: page model,
+**Stage 1 (v1.7)** derives the page graph from v1.3 kept claims: page model,
 relative-markdown links with written backlinks, `index.md`, deterministic lint,
 digest-based edit detection with promotion, workspace tile, and an
 `allbert knowledge` CLI group with TUI parity. No documents, no LLM, no egress,
