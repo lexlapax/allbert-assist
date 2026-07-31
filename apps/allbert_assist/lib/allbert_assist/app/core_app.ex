@@ -303,6 +303,24 @@ defmodule AllbertAssist.App.CoreApp do
       },
       %{
         app_id: :allbert,
+        action_name: "set_direct_answer_model_profile",
+        label: "Switch the DirectAnswer model profile",
+        examples: [
+          "use the fast model for direct answers",
+          "set the DirectAnswer model to local",
+          "switch my chat answer model"
+        ],
+        synonyms: [
+          "switch direct answer model",
+          "use model for direct answers",
+          "change chat answer model"
+        ],
+        vocabulary: %{clarification_phrases: ["DirectAnswer model settings"]},
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
         action_name: "list_model_catalog",
         label: "Browse model catalog",
         examples: ["browse models", "show the model catalog", "which models fit this task"],

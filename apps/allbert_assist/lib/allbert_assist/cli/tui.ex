@@ -9,6 +9,8 @@ defmodule AllbertAssist.CLI.Tui do
 
   alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.CLI.Tui.Client
+  alias AllbertAssist.FirstRun.Disclosure
+  alias AllbertAssist.FirstRun.Presentation
   alias AllbertAssist.Onboarding
   alias AllbertAssist.Security.Redactor
 
@@ -18,14 +20,21 @@ defmodule AllbertAssist.CLI.Tui do
   @doc "Attach the interactive terminal client to the running daemon."
   @spec launch() :: :ok | {:error, term()}
   def launch do
-    with :ok <- configure_operator_logging() do
+    with :ok <- configure_operator_logging(),
+         :ok <- deliver_model_disclosure([]) do
       Client.run()
     end
   end
 
   @doc false
   @spec launch(keyword()) :: :ok | {:error, term()}
-  def launch(opts) when is_list(opts), do: Client.run(opts)
+  def launch(opts) when is_list(opts) do
+    with :ok <- deliver_model_disclosure(opts) do
+      opts
+      |> Keyword.delete(:model_disclosure_output)
+      |> Client.run()
+    end
+  end
 
   @doc false
   @spec configure_operator_logging() :: :ok | {:error, {:invalid_tui_log_level, String.t()}}
@@ -58,6 +67,11 @@ defmodule AllbertAssist.CLI.Tui do
   def error_message(:not_available) do
     "No Allbert daemon is available for this Home. Start or repair `allbert serve`; " <>
       "the TUI did not start an embedded runtime."
+  end
+
+  def error_message({:disclosure_render_failed, _reason}) do
+    "Allbert could not display the model-route disclosure, so the TUI did not attach. " <>
+      "Repair terminal output and run `allbert tui` again; no hosted prompt was sent."
   end
 
   def error_message({:open_rejected, :already_attached, _message}) do
@@ -127,10 +141,60 @@ defmodule AllbertAssist.CLI.Tui do
   @doc false
   @spec startup_guidance(keyword()) :: String.t() | nil
   def startup_guidance(opts \\ []) do
-    case FirstRun.detect_details(opts) do
-      %{state: :product_ready} -> nil
-      details -> guard_message(details)
+    details = FirstRun.detect_details(opts)
+    projection = readiness_projection(details, opts)
+    readiness = projection.direct_answer_readiness
+
+    cond do
+      details.state in [:home_missing, :schema_incompatible] -> guard_message(details)
+      consent_disabled?(projection) -> disabled_model_message(projection)
+      details.state == :product_ready and readiness == :ready -> nil
+      readiness != :ready -> model_readiness_message(readiness)
+      details.state == :first_model_not_ready and readiness == :ready -> nil
+      true -> guard_message(details)
     end
+  end
+
+  defp consent_disabled?(%{enablement_result: %{state: :sticky_disabled}}), do: true
+  defp consent_disabled?(_projection), do: false
+
+  defp disabled_model_message(%{enablement_result: result}) do
+    presentation = Presentation.for(result, :tui)
+
+    "#{presentation.message} Open Models or run " <>
+      "`allbert admin settings set intent.direct_answer_model_enabled true` to re-enable; " <>
+      "chat remains available with the bounded fallback."
+  end
+
+  defp model_readiness_message(readiness) do
+    guidance = Onboarding.model_guidance_for(readiness, :quickstart)
+
+    "#{guidance.headline} Next: #{guidance.next_action} " <>
+      "Open Models or run `allbert onboard`; chat remains available with the bounded fallback."
+  end
+
+  # The TUI renders disclosures before raw mode and before opening the daemon
+  # attachment. Until Client.run/1 opens, no operator prompt can reach the
+  # runtime, so acknowledgement here is a hard pre-transport ordering barrier.
+  defp deliver_model_disclosure(opts) do
+    output = Keyword.get(opts, :model_disclosure_output, &IO.puts/1)
+    Disclosure.render_and_ack(:tui, output)
+  end
+
+  defp readiness_projection(details, opts) do
+    projection_opts =
+      case details.first_model_state do
+        nil -> []
+        model_state -> [model_state: model_state]
+      end
+
+    projection_opts =
+      case Keyword.fetch(opts, :enablement_result) do
+        {:ok, result} -> Keyword.put(projection_opts, :enablement_result, result)
+        :error -> projection_opts
+      end
+
+    FirstRun.readiness_projection(projection_opts)
   end
 
   defp guard_message(%{state: :first_model_not_ready, first_model_state: model_state}) do

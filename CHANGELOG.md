@@ -41,6 +41,16 @@ shipped 1.3.0 formula claim.
 - Existing Jobs owns visible managed Memory/Search ingestion, consolidation,
   repair, maintenance, and rebuild entries. Settings Central owns feature and
   source-class consent; routine authorized work does not repeatedly prompt.
+- DirectAnswer now uses its own qualified local task profile
+  (`direct_answer_local` / external Ollama `qwen2.5:7b`) while the global
+  `local` starter remains `llama3.2:3b`. The purpose-owned, operator-ordered
+  chain never gains the global primary implicitly; selection, readiness,
+  confirmation-gated pull repair, deterministic request controls, and
+  supplied-text semantic rules are shared across surfaces.
+- Hosted ordinary-text DirectAnswer transport is gated by one exact configured
+  route-set disclosure (primary plus at most one callable fallback). TUI
+  renders it before attachment, Web refreshes it in-session, CLI renders before
+  one-shot transport, and route changes invalidate stale acknowledgements.
 - Native artifacts now functionally prove the packaged Exqlite SQLite version,
   `ENABLE_FTS5`, WAL, tokenizer/query/ranking, integrity, checkpoint, and secure-
   deletion behavior. Local native construction replaces hosted release builds:

@@ -35,6 +35,35 @@ defmodule AllbertAssist.Settings.ProviderCatalogTest do
     end
   end
 
+  test "direct answers have a dedicated deterministic local profile" do
+    profiles = ProviderCatalog.model_profiles()
+
+    assert profiles["direct_answer_local"] == %{
+             "provider" => "local_ollama",
+             "model" => "qwen2.5:7b",
+             "aliases" => ["qwen2.5"],
+             "capabilities" => ["text_generation"],
+             "media" => %{
+               "input_modalities" => ["text"],
+               "output_modalities" => ["text"],
+               "deployment_mode" => "local_endpoint"
+             },
+             "temperature" => 0.0,
+             "max_tokens" => 1024,
+             "timeout_ms" => 60_000
+           }
+
+    assert profiles["local"]["model"] == "llama3.2:3b"
+    assert profiles["local"]["temperature"] == 0.2
+    assert profiles["pi_coding_local"]["model"] == "qwen2.5:7b"
+    assert profiles["pi_coding_local"]["temperature"] == 0.1
+    assert profiles["voice_text_local"]["model"] == "llama3.2:3b"
+
+    aliases = ProviderCatalog.jido_model_aliases()
+    assert aliases.direct_answer_local == "openai:qwen2.5:7b"
+    assert aliases.local == "openai:llama3.2:3b"
+  end
+
   test "voice profiles are descriptive settings defaults, not Jido text aliases" do
     profiles = ProviderCatalog.model_profiles()
     stt = profiles["voice_stt_fake"]

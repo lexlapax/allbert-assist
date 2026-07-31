@@ -27,13 +27,26 @@ defmodule AllbertAssist.CLI.FirstRun do
 
   alias AllbertAssist.FirstModel.Ollama
   alias AllbertAssist.FirstRun.Enablement
-  alias AllbertAssist.FirstRun.UsableModel
+  alias AllbertAssist.FirstRun.Presentation
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.ModelDoctor
-  alias AllbertAssist.Settings.Store
 
   @onboarding_file "onboarding.json"
+
+  @onboarding_marker_keys ~w(
+    onboarding_complete
+    profile_reviewed
+    wizard_started
+    track
+    wizard_step
+    wizard_done
+    wizard_direct_entry
+    applied_persona
+    model_answers_declined
+    model_reenable_offered
+    objective_reconciled_v063
+  )
 
   @type state ::
           :home_missing
@@ -64,23 +77,84 @@ defmodule AllbertAssist.CLI.FirstRun do
     end)
   end
 
+  @doc "Preview DirectAnswer enablement for one already-resolved substrate state without writing."
+  @spec preview_enablement(model_state(), keyword()) :: {:ok, map()} | {:error, term()}
+  def preview_enablement(model_state, opts \\ []) do
+    Settings.with_resolved_settings(fn -> Enablement.preview(model_state, opts) end)
+  end
+
+  @doc "Resolve substrate and DirectAnswer readiness as one surface-neutral projection."
+  @spec readiness_projection(keyword()) :: %{
+          model_state: model_state(),
+          substrate_readiness: Presentation.readiness(),
+          direct_answer_readiness: Presentation.readiness(),
+          enablement_result: map() | nil
+        }
+  def readiness_projection(opts \\ []) do
+    model_state = Keyword.get_lazy(opts, :model_state, &projection_model_state/0)
+
+    enablement_result =
+      opts
+      |> Keyword.get_lazy(:enablement_result, fn -> safe_preview_enablement(model_state) end)
+      |> normalize_enablement_result()
+
+    substrate_readiness = Presentation.substrate(model_state)
+
+    %{
+      model_state: model_state,
+      substrate_readiness: substrate_readiness,
+      direct_answer_readiness:
+        if(is_map(enablement_result),
+          do: Presentation.readiness(enablement_result),
+          else: unavailable_direct_answer_readiness(model_state, substrate_readiness)
+        ),
+      enablement_result: enablement_result
+    }
+  end
+
+  defp projection_model_state do
+    case Application.get_env(:allbert_assist, :first_model_state_override) do
+      state
+      when state in [
+             :local_ready,
+             :runtime_missing,
+             :runtime_unhealthy,
+             :model_missing,
+             :below_hardware_floor,
+             :byok_ready
+           ] ->
+        state
+
+      _other ->
+        first_model_state()
+    end
+  end
+
+  defp safe_preview_enablement(model_state) do
+    preview_enablement(model_state)
+  rescue
+    _error -> nil
+  catch
+    :exit, _reason -> nil
+  end
+
+  defp normalize_enablement_result({:ok, result}) when is_map(result), do: result
+  defp normalize_enablement_result(result) when is_map(result), do: result
+  defp normalize_enablement_result(_unavailable), do: nil
+
+  defp unavailable_direct_answer_readiness(model_state, _substrate)
+       when model_state in [:local_ready, :byok_ready],
+       do: :needs_selection
+
+  defp unavailable_direct_answer_readiness(_model_state, substrate), do: substrate
+
   defp boot_detection(opts) do
     case Keyword.fetch(opts, :model_state) do
       {:ok, model_state} ->
         {model_state, opts}
 
       :error ->
-        case Store.resolved_settings() do
-          {:ok, settings, _user_settings} -> detect_with_selection(settings, opts)
-          _error -> {first_model_state(), opts}
-        end
-    end
-  end
-
-  defp detect_with_selection(settings, opts) do
-    case UsableModel.select_local(settings, opts) do
-      {:ok, selection} -> {:local_ready, Keyword.put(opts, :local_selection, selection)}
-      {:error, :no_usable_model} -> {first_model_state(), opts}
+        {first_model_state(), opts}
     end
   end
 
@@ -223,14 +297,21 @@ defmodule AllbertAssist.CLI.FirstRun do
   end
 
   @doc """
-  Reset onboarding state by removing the Home marker (v0.63 M1 `--reset` seam).
-  Clears `onboarding_complete`, `profile_reviewed`, and any wizard progress; it
-  preserves all other Home data (db, secrets, settings, traces, memory, caches).
+  Reset onboarding state by removing only onboarding-owned marker keys (v0.63
+  M1 `--reset` seam). Independent marker namespaces, including model-disclosure
+  authority, survive alongside all other Home data (db, secrets, settings,
+  traces, memory, caches).
   """
   @spec reset_onboarding() :: :ok
   def reset_onboarding do
-    _ = File.rm(Path.join(Paths.home(), @onboarding_file))
-    :ok
+    remaining = Map.drop(marker(), @onboarding_marker_keys)
+
+    if map_size(remaining) == 0 do
+      _ = File.rm(Path.join(Paths.home(), @onboarding_file))
+      :ok
+    else
+      persist_marker(remaining)
+    end
   end
 
   @doc "Read the raw onboarding marker map (v0.63 M1; the single source of truth)."
@@ -335,12 +416,17 @@ defmodule AllbertAssist.CLI.FirstRun do
   # v0.63 M7.1: write atomically (temp + rename) so a crash mid-write can't leave a
   # truncated marker.
   defp write_marker(attrs) do
+    marker()
+    |> Map.merge(attrs)
+    |> persist_marker()
+  end
+
+  defp persist_marker(contents) do
     home = Paths.home()
     File.mkdir_p!(home)
     path = Path.join(home, @onboarding_file)
     tmp = path <> ".tmp"
-    merged = Map.merge(marker(), attrs)
-    File.write!(tmp, Jason.encode!(merged))
+    File.write!(tmp, Jason.encode!(contents))
     :ok = File.rename(tmp, path)
     :ok
   end

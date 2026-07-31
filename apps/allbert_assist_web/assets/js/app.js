@@ -74,8 +74,17 @@ const ThemeSync = {
 
 const ModelDisclosureAck = {
   mounted() {
+    this.ackDelivery()
+  },
+  updated() {
+    this.ackDelivery()
+  },
+  ackDelivery() {
     const handle = this.el.dataset.deliveryHandle
-    if (handle) this.pushEvent("ack_model_disclosure", {handle})
+    if (handle && handle !== this.lastDeliveryHandle) {
+      this.lastDeliveryHandle = handle
+      this.pushEvent("ack_model_disclosure", {handle})
+    }
   },
 }
 

@@ -12,10 +12,13 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
   alias AllbertAssist.Actions.Settings.ReadSetting
   alias AllbertAssist.Actions.Settings.ResolvedSettingsSnapshot
   alias AllbertAssist.Actions.Settings.SetActiveModelProfile
+  alias AllbertAssist.Actions.Settings.SetDirectAnswerModelProfile
   alias AllbertAssist.Actions.Settings.SetProviderCredential
   alias AllbertAssist.Actions.Settings.UpdateSetting
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.DoctorDiagnostics
+  alias AllbertAssist.FirstRun.Disclosure
+  alias AllbertAssist.Paths
 
   setup {Req.Test, :verify_on_exit!}
 
@@ -26,6 +29,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
 
   setup do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
+    original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_provider_env = Map.new(@provider_env_keys, &{&1, System.get_env(&1)})
     Enum.each(@provider_env_keys, &System.delete_env/1)
 
@@ -36,9 +40,11 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
       )
 
     Application.put_env(:allbert_assist, Settings, root: root)
+    Application.put_env(:allbert_assist, Paths, home: root)
 
     on_exit(fn ->
       restore_env(Settings, original_settings_config)
+      restore_env(Paths, original_paths_config)
 
       Enum.each(original_provider_env, fn
         {key, nil} -> System.delete_env(key)
@@ -359,6 +365,9 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert rows["intent_disambiguation"].status == "not-pulled"
     assert rows["intent_escalation"].status == "remote-egress-warning"
     assert rows["intent_escalation"].endpoint_kind == "credentialed_remote"
+    assert rows["direct_answer"].configured_profile == "direct_answer_local"
+    assert rows["direct_answer"].configured_model == "qwen2.5:7b"
+    assert rows["direct_answer"].status == "not-pulled"
     refute inspect(response) =~ "secret://"
   end
 
@@ -392,9 +401,191 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert set_active.provider == "local_ollama"
     assert {:ok, "local"} = Settings.get("intent.model_profile")
     assert {:ok, "local"} = Settings.get("model_preferences.primary")
+    assert {:ok, "local"} = Settings.get("intent.direct_answer_model_profile")
+    assert {:ok, ["local"]} = Settings.get("model_preferences.tasks.direct_answer")
     assert {:ok, true} = Settings.get("intent.model_assist_enabled")
     assert {:ok, true} = Settings.get("providers.local_ollama.enabled")
     assert Enum.any?(set_active.settings, &(&1.key == "intent.model_profile"))
+
+    assert Enum.any?(
+             set_active.settings,
+             &(&1.key == "model_preferences.tasks.direct_answer")
+           )
+  end
+
+  test "set active model preserves the operator-authored DirectAnswer fallback tail" do
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.tasks.direct_answer", ["fast", "local"], %{
+               audit?: false
+             })
+
+    assert {:ok, response} =
+             SetActiveModelProfile.run(%{profile: "local"}, %{
+               actor: "local",
+               channel: :cli
+             })
+
+    assert response.status == :completed
+
+    assert {:ok, ["local", "fast"]} =
+             Settings.get("model_preferences.tasks.direct_answer")
+  end
+
+  test "purpose-owned DirectAnswer selection leaves global primary unchanged and reconciles disclosure" do
+    assert {:ok, _setting} =
+             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.tasks.direct_answer", ["local", "fast"], %{
+               audit?: false
+             })
+
+    assert {:ok, response} =
+             SetDirectAnswerModelProfile.run(%{profile: "fast"}, %{
+               actor: "local",
+               channel: :cli
+             })
+
+    assert response.status == :completed
+    assert response.profile == "fast"
+    assert response.provider == "openai"
+    assert response.chain == ["fast", "local"]
+    assert response.disclosure.status == :reconciled
+    assert response.disclosure.surface == "cli"
+    assert response.disclosure.hosted_pending?
+    assert Disclosure.hosted_pending?(:cli)
+    assert {:ok, "local"} = Settings.get("model_preferences.primary")
+
+    assert {:ok, ["fast", "local"]} =
+             Settings.get("model_preferences.tasks.direct_answer")
+
+    assert {:ok, true} = Settings.get("providers.openai.enabled")
+  end
+
+  test "purpose-owned DirectAnswer selection rejects non-text profiles before writes" do
+    assert {:ok, response} =
+             SetDirectAnswerModelProfile.run(%{profile: "voice_stt_fake"}, %{
+               actor: "local",
+               channel: :cli
+             })
+
+    assert response.status == :denied
+    assert response.message =~ "profile_missing_capability"
+    assert {:ok, %{}} = Settings.read_user_settings()
+  end
+
+  test "set active model validates assist input before any durable write" do
+    assert {:ok, response} =
+             SetActiveModelProfile.run(%{profile: "local", enable_assist: "maybe"}, %{
+               actor: "local",
+               channel: :test
+             })
+
+    assert response.status == :denied
+    assert response.message =~ "invalid_boolean"
+    assert {:ok, %{}} = Settings.read_user_settings()
+  end
+
+  test "set active model rejects a non-text profile before any durable write" do
+    assert {:ok, response} =
+             SetActiveModelProfile.run(%{profile: "voice_stt_fake", enable_assist: true}, %{
+               actor: "local",
+               channel: :test
+             })
+
+    assert response.status == :denied
+    assert response.message =~ "profile_missing_capability"
+    assert response.message =~ "text_generation"
+    assert {:ok, %{}} = Settings.read_user_settings()
+  end
+
+  test "set active model preserves the legacy implicit-text profile contract" do
+    assert {:ok, _settings} =
+             Settings.write_user_settings(%{
+               "model_profiles" => %{
+                 "legacy_text" => %{
+                   "provider" => "local_ollama",
+                   "model" => "legacy-text:latest"
+                 }
+               }
+             })
+
+    assert {:ok, response} =
+             SetActiveModelProfile.run(%{profile: "legacy_text"}, %{
+               actor: "local",
+               channel: :test
+             })
+
+    assert response.status == :completed
+    assert response.message =~ "legacy_text"
+
+    assert {:ok, persisted} = Settings.read_user_settings()
+    assert get_in(persisted, ["model_preferences", "primary"]) == "legacy_text"
+
+    assert get_in(persisted, ["model_preferences", "tasks", "direct_answer"]) == [
+             "legacy_text"
+           ]
+  end
+
+  test "purpose-owned DirectAnswer selection preserves the legacy implicit-text profile contract" do
+    assert {:ok, _settings} =
+             Settings.write_user_settings(%{
+               "model_profiles" => %{
+                 "legacy_text" => %{
+                   "provider" => "local_ollama",
+                   "model" => "legacy-text:latest"
+                 }
+               }
+             })
+
+    assert {:ok, response} =
+             SetDirectAnswerModelProfile.run(%{profile: "legacy_text"}, %{
+               actor: "local",
+               channel: :cli
+             })
+
+    assert response.status == :completed
+    assert response.profile == "legacy_text"
+    assert response.provider == "local_ollama"
+    assert response.chain == ["legacy_text"]
+    assert {:ok, true} = Settings.get("providers.local_ollama.enabled")
+    assert {:ok, "local"} = Settings.get("model_preferences.primary")
+    assert {:ok, ["legacy_text"]} = Settings.get("model_preferences.tasks.direct_answer")
+  end
+
+  test "direct-answer doctor distinguishes the qualified model from global local" do
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.request_path == "/api/tags"
+
+      Plug.Conn.send_resp(
+        conn,
+        200,
+        Jason.encode!(%{"models" => [%{"model" => "llama3.2:3b"}]})
+      )
+    end)
+
+    context = %{req_options: [plug: {Req.Test, __MODULE__}]}
+
+    assert {:ok, missing} =
+             DoctorModelProfile.run(%{profile: "direct_answer_local"}, context)
+
+    assert missing.doctor.endpoint_ok
+    assert missing.doctor.model_available == false
+    assert [%{code: :local_model_missing}] = missing.doctor.diagnostics
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      Plug.Conn.send_resp(
+        conn,
+        200,
+        Jason.encode!(%{"models" => [%{"model" => "qwen2.5:7b"}]})
+      )
+    end)
+
+    assert {:ok, present} =
+             DoctorModelProfile.run(%{profile: "direct_answer_local"}, context)
+
+    assert present.doctor.model_available == true
+    assert present.doctor.diagnostics == []
   end
 
   test "local endpoint doctor distinguishes missing and present Ollama models" do
@@ -619,6 +810,27 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert response.message =~ "Provider credential saved"
     refute inspect(response) =~ "test-key"
     assert {:ok, "test-key"} = Settings.Secrets.get_secret("secret://providers/openai/api_key")
+  end
+
+  test "provider credential completion reconciles a newly callable hosted DirectAnswer route" do
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.tasks.direct_answer", ["fast"], %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+
+    refute Disclosure.hosted_pending?(:cli)
+
+    assert {:ok, response} =
+             SetProviderCredential.run(
+               %{provider: "openai", mode: :set_secret, api_key: "test-key"},
+               %{actor: "local", channel: :cli}
+             )
+
+    assert response.status == :completed
+    assert Disclosure.hosted_pending?(:cli)
+    assert Disclosure.text(:cli) =~ "fast from openai"
+    refute inspect(response) =~ "test-key"
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

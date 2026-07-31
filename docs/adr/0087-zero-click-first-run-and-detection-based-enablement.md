@@ -20,6 +20,12 @@ M8.5 amendment placed inside the onboarding wizard, and it redefines the
 first-run acceptance criteria (DIT-2 class) that assert QuickStart enables
 direct answers before the first question.
 
+v1.3 M9.b.3 amendment (2026-07-31): first-model substrate detection and
+DirectAnswer task readiness are evaluated separately. The global
+`local`/curated model remains `llama3.2:3b`; DirectAnswer defaults to the
+qualified `direct_answer_local` / `qwen2.5:7b` task profile. The task chain,
+not an unrelated global primary or hosted key, owns DirectAnswer selection.
+
 Related: ADR 0078 (First-Model Path — the assisted-local default, BYOK
 fallback, no-managed-hosted rejection, and the v1.0.5 configured-endpoint
 local-readiness amendment all stand; this ADR moves only the *enablement
@@ -84,8 +90,10 @@ separate wizard-owned enable step is retired as a gate.
 ### 1. The detection→enablement rule
 
 On first run and on every boot while unconfigured, Allbert runs the existing
-bounded read-only detection chain. When `model_preferences.primary` is
-raw-absent, it resolves the **first usable** hit in strict local-first order:
+bounded read-only detection chain. It first derives the existing six-state
+first-model substrate result from the global/curated path, then independently
+resolves the head of `model_preferences.tasks.direct_answer`. The global path
+still uses strict local-first order:
 
 1. configured local provider (`model_preferences.primary` →
    `ModelDoctor.diagnose/2`, `endpoint_kind: :local_endpoint` — the v1.0.5
@@ -94,38 +102,40 @@ raw-absent, it resolves the **first usable** hit in strict local-first order:
 3. an already-configured hosted provider (vaulted key or provider env var
    present).
 
-A hit auto-writes, through the ordinary audited safe-write path: the selected
-profile (when none is set) and `intent.direct_answer_model_enabled = true`
-(plus `intent.model_assist_enabled`, matching the wizard's existing pair).
-The write records detection provenance in the audit trail
-(`enabled_by: detection`, profile, provider class local|hosted).
+A DirectAnswer-task hit auto-writes, through the ordinary audited safe-write
+path, the task preference when raw-absent and
+`intent.direct_answer_model_enabled = true` (plus
+`intent.model_assist_enabled`, matching the wizard's existing pair). It does
+not rewrite the global primary. The write records detection provenance in the
+audit trail (`enabled_by: detection`, profile, provider class local|hosted).
 
 “Absent” means absent from the raw operator settings map, not the effective
 default-merged value. The check and conditional write execute under one
 Settings StoreLock-owned transaction; a separate read followed by a write is
 forbidden. Concurrent explicit `false` wins and remains sticky. If consent
-becomes explicitly false or a different primary appears between selection and
-the Store lock, the transaction applies none of the enablement subset and the
-pending disclosure is cancelled; stale selection may never enable transport.
+becomes explicitly false or the DirectAnswer task head changes between
+selection and the Store lock, the transaction applies none of the enablement
+subset and the pending disclosure is cancelled; stale selection may never
+enable transport.
 A concurrent explicit `true` with the same selected route retains the pending
 marker, preferring a repeated disclosure over undisclosed hosted egress.
 
-First-run selection cannot wait for the later chooser. A minimal deterministic
-usable-local-model predicate ships with enablement and is reused by the catalog:
-doctor-healthy configured local first, then the curated pulled tag, then a
-compatible pulled text-generation model if M0 can define that compatibility
-without guessing. Otherwise detection remains curated-tag-only. Hosted key
-presence is configured-but-unverified, not “reachable”; provider priority is
-explicit primary, task candidate order, then one stable documented order.
+First-run selection cannot wait for the later chooser. The existing global
+substrate detector still checks configured local, curated pulled, and bounded
+compatible local rungs. DirectAnswer readiness is deliberately narrower: it
+doctors the exact task head (or the empty-list compatibility primary) and
+abstains rather than substituting another pulled model. Hosted key presence is
+configured-but-unverified, not “reachable”; provider priority for DirectAnswer
+is its explicit task order.
 
-**Automatic selection is local-first; explicit selection is binding.** When
-the primary is raw-absent and both local and hosted are detected, local wins.
-A raw-explicit primary is an operator choice and must be the exact usable
-profile selected and disclosed; therefore an eligible explicit hosted primary
-may outrank a newly ready local model. If that exact explicit profile is not
+**Automatic selection is local-first; explicit task order is binding.** A
+non-empty DirectAnswer list is a closed chain in authored order. Its head must
+be the exact usable profile selected and disclosed; an explicitly authored
+hosted head may therefore outrank a newly ready local model. If the head is not
 usable, enablement abstains and projects `enabled_unavailable` instead of
-selecting or disclosing a different profile. ADR 0078's rejection of a managed
-hosted default is unchanged.
+appending the global primary or an unrelated configured provider. Only an
+empty task list retains the legacy primary compatibility fallback. ADR 0078's
+rejection of a managed hosted default is unchanged.
 
 ### 1a. Local TUI launcher bootstrap
 
@@ -166,28 +176,29 @@ remains binding; references below to launcher bootstrap mean this daemon-owned
 session-admission operation on v1.2.5 and later.
 
 **Availability-first, local-preferred projection (final readiness decision,
-operator 2026-07-26).** With no raw-explicit primary, a healthy local rung
-always wins. When a local runtime is detected but currently unusable
-(`model_missing`, `runtime_unhealthy`, or `below_hardware_floor`) and a hosted
-key is configured, detection selects the hosted profile so the first question
-still receives a model answer. A usable raw-explicit primary is the binding
-operator exception described in §1. The pre-egress disclosure remains
-mandatory; local pull/restart/hardware guidance is secondary and never blocks
-chat. Without a hosted key, those same states remain honest repair states with
-one primary CTA. Detection itself still performs no hosted probe or egress.
+operator 2026-07-26; task-chain correction v1.3).** With no explicit
+DirectAnswer preference, the shipped local DirectAnswer profile wins. A hosted
+profile may satisfy enablement only when it is explicitly present at the head
+of the DirectAnswer task chain (or when that chain is empty and the legacy
+primary fallback names it). The pre-egress disclosure remains mandatory;
+mere presence of an unrelated hosted key never escapes into DirectAnswer
+selection. Without an eligible task profile, unusable local states remain
+honest repair states with one primary CTA. Detection itself still performs no
+hosted probe or egress.
 
 **Stickiness is per key across the whole write set.**
 `intent.direct_answer_model_enabled` decides whether enablement runs at all;
-`intent.model_assist_enabled` and the selected profile are each written only
-when raw-absent. An explicitly stored value on any of the three survives
-detection, and the provenance row records which keys were written and which
-were already present. The raw-absent subset is applied atomically. Because the
+`intent.model_assist_enabled` and the DirectAnswer task preference are each
+written only when raw-absent. An explicitly stored value on any of the three
+survives detection, and the provenance row records which keys were written and
+which were already present. The raw-absent subset is applied atomically. Because the
 Settings `StoreLock` is not reentrant, the compare-and-write primitive is
 multi-key by construction: one lock, one raw read, one validation, one write,
 one audit row per applied key, and one transaction provenance envelope naming
 applied and preserved keys. A validation failure writes none of the subset.
-If locked state now contains explicit consent `false` or a different primary
-than the selection being disclosed, the primitive applies none of the subset;
+If locked state now contains explicit consent `false` or a different selected
+DirectAnswer task head than the route being disclosed, the primitive applies
+none of the subset;
 the caller cancels the pending disclosure and projects `sticky_disabled` or
 `enabled_unavailable`.
 
@@ -206,6 +217,12 @@ the caller cancels the pending disclosure and projects `sticky_disabled` or
   no usable model (`detected_needs_model` below) offers the existing
   confirmation-gated one-click pull; a multi-gigabyte download is never a
   silent side effect of opening the app.
+- **Curated readiness is not task readiness.** A healthy global
+  `local` / `llama3.2:3b` path with a missing selected
+  `direct_answer_local` / `qwen2.5:7b` path yields
+  `enabled_unavailable` with an explicit chooser or confirmation-gated Qwen
+  pull. It does not offer runtime install or the starter-model pull as if either
+  repaired the selected task.
 - **Explicit operator `false` is sticky.** Auto-enablement fires only when
   the key is *absent* (schema default). If the operator ever wrote
   `intent.direct_answer_model_enabled = false`, detection never overrides it
@@ -214,24 +231,58 @@ the caller cancels the pending disclosure and projects `sticky_disabled` or
 
 ### 3. Disclosure, not confirmation
 
-The first auto-enabled session on each surface carries a durable disclosure
-(normally once, not a modal):
+The first auto-enabled ordinary DirectAnswer text session on each local control
+surface carries a durable disclosure (normally once, not a modal):
 
-- **which** profile/provider was selected and **why** ("detected running
-  Ollama with llama3.2:3b" / "detected your configured OpenAI key");
-- **where inference runs** — on-device for local; for a hosted selection, an
+- **which** configured primary and enabled fallback profile/provider routes may
+  serve the task, in their bounded operator-authored order;
+- **where inference runs** — through the operator's configured local endpoint
+  for `local_endpoint` (which may be this device, a WSL host, or a configured
+  private/LAN endpoint); for a hosted selection, an
   explicit egress notice naming the provider **before the first message is
   sent**;
 - **how to change or revert** — the ADR 0088 chooser, and the one-command
-  revert (`allbert settings set intent.direct_answer_model_enabled false`).
+  revert (`allbert admin settings set intent.direct_answer_model_enabled false`).
 
-Web (chat surface), TUI (banner), and CLI (`allbert` first-run output, including
-one-shot `allbert ask`) all render it. Disclosure text is generated from the
-audit provenance, so what is shown is what was done. For hosted inference the
-marker is `pending` until the surface acknowledges rendering; transport
-admission requires `acknowledged`. A crash before acknowledgement may repeat
-the disclosure but cannot send the prompt first. Local inference is not gated
-by this egress acknowledgement.
+Web (chat surface), TUI (pre-attach banner), and provider-capable one-shot CLI
+(`allbert ask`, including its Mix dispatcher equivalent) all render the
+route-derived copy. Bare `allbert` reports readiness but cannot transport a
+prompt, so it does not create an acknowledgement merely by printing status.
+It says "configured" rather than claiming auto-detection or another provenance
+that may no longer be true after an operator edit. The durable record is the
+exact ordered route set (primary plus at most one callable fallback), not a
+surface boolean or one mutable route marker. A route-set change makes every
+surface pending; an acknowledgement is accepted only for the exact set that
+was rendered, so a concurrent edit cannot acknowledge different routes.
+
+For hosted ordinary DirectAnswer text transport selected by this ADR, the
+surface marker remains `pending` until rendering is acknowledged and provider
+admission requires that exact route set to be `acknowledged`. Web derives the
+surface from the runtime channel, not request metadata; TUI renders before raw
+mode and daemon attachment. A crash before acknowledgement may repeat the
+disclosure but cannot send the prompt first. A mapped DM or another
+non-presenting runtime surface may reuse only an exact acknowledgement from a
+Web, TUI, or CLI control surface in the same Allbert Home; otherwise it fails
+closed and leaves those control surfaces pending for repair. This Home-level
+acknowledgement records the operator's provider-egress configuration. It does
+not grant a remote identity channel access, data scope, or cross-surface
+history. Local DirectAnswer inference is disclosed but is not gated by the
+egress acknowledgement.
+
+The existing onboarding-marker seam uses atomic replacement but is not a
+cross-BEAM compare-and-swap store. A rare simultaneous Web/TUI/CLI marker write
+may therefore repeat a disclosure or require a retry. It cannot suppress a
+required hosted disclosure: provider admission always recomputes the current
+exact route set and rejects any stale or lost acknowledgement. v1.3 does not
+couple attach-only clients to the Settings SQLite lock or add a second marker
+locking subsystem for this fail-closed UX race.
+
+This boundary does not borrow authority for separately configured vision or
+coding profiles. Vision has its own capability/permission contract, and Pi-mode
+coding has its own explicit session admission. Generalizing pre-egress
+disclosure across every model capability requires capability-specific route
+sets and a separate ADR; it is not implemented as ad hoc calls from those
+branches.
 
 ### 4. The redefined detect-state matrix
 
@@ -240,12 +291,12 @@ is open, honest about its current capability, and never a dead end**:
 
 | Detect state | Meaning | First-run behavior |
 |---|---|---|
-| `detected_ready` | local ready, or any unusable/absent local state with a hosted key present | auto-enable per §1; automatic selection is local-first, while a usable raw-explicit primary is binding; disclosure names the actual route |
+| `detected_ready` | first-model substrate is ready and the selected DirectAnswer task head is usable, or an explicit hosted DirectAnswer head is eligible | auto-enable per §1; task order is binding and disclosure names the actual route |
 | `detected_needs_model` | local runtime healthy, no usable model, no hosted key | chat opens with deterministic fallback; single primary CTA: one-click curated pull (existing progress surface); BYOK secondary |
 | `runtime_unhealthy` | local runtime reachable but failing, no hosted key | chat opens with deterministic fallback; single primary CTA: restart/repair the local runtime; BYOK secondary |
 | `nothing_detected` | no runtime, no endpoint, no key | chat opens with deterministic fallback; single primary CTA: guided install / BYOK (ADR 0078 repair paths) |
 | `below_floor` | hardware below curated floor, no hosted key | chat opens with fallback; BYOK-first guidance (ADR 0078 degrade path) |
-| `enabled_unavailable` | consent key already `true` but its provider is gone, or the exact raw-explicit primary is not usable / changed before the enablement write | chat opens with honest unavailable text and a repair/selection CTA; no different profile is disclosed as ready |
+| `enabled_unavailable` | consent is already `true` but the selected DirectAnswer head is gone/unusable, changed before the write, or `llama3.2:3b` is ready while selected `qwen2.5:7b` is missing | chat opens with honest unavailable text and an explicit DirectAnswer select/pull repair; no different profile is disclosed as ready |
 
 These are presentations of the existing six first-model states
 (`cli/first_run.ex:42-49`); no parallel state machine is introduced. The
@@ -288,18 +339,22 @@ carries a regression.
 ### 6. Acceptance criteria (DIT-2 class) are redefined
 
 The v1.0 criterion "QuickStart enables direct answers before the first
-question" is retired. The v1.2 criteria:
+question" is retired. The v1.2 criteria, with the v1.3 task-readiness
+amendment, are:
 
-- fresh Home + any reachable provisioned provider → the **first question is
+- fresh Home + a usable selected DirectAnswer task head → the **first question is
   answered by the model with zero prior clicks**, and the disclosure is
-  visible. "Reachable provisioned" means a §4 `detected_ready` cell; an
-  unusable local runtime does not mask a configured hosted provider. On TUI,
+  visible. A hosted key qualifies only when its profile is the selected task
+  head (or the empty-list compatibility primary). On TUI,
   this includes atomic daemon-session bootstrap of raw-absent channel
   enablement and the built-in terminal identity before adapter initialization;
   no settings command is a prerequisite;
-- fresh Home + nothing provisioned → the chat surface still opens, the
-  deterministic fallback answers, and exactly one repair CTA per §4 is
-  presented — zero clicks to a working (fallback) chat, no wizard wall;
+- fresh Home + only the global starter ready, or nothing provisioned → the
+  chat surface still opens, the deterministic fallback answers, and exactly
+  one repair CTA per §4 is
+  presented — explicit DirectAnswer select/pull when Qwen is missing, otherwise
+  the applicable runtime/model/BYOK repair; zero clicks to a working fallback
+  chat and no wizard wall;
 - an operator-stored `false` is never overridden by detection;
 - a raw operator-stored `channels.tui.enabled = false` blocks session admission
   for both packaged and development TUI clients before Adapter startup,
@@ -310,12 +365,11 @@ question" is retired. The v1.2 criteria:
 - The first-impression path matches the zero-config bar the First-Model Path
   ADR set out to meet: install, open, chat — with the wizard as an upgrade
   path rather than a toll gate.
-- The consent line moves from a per-feature toggle to the provisioning act.
-  This is a deliberate relaxation for **already-provisioned** providers,
-  including hosted ones: an operator who entered an OpenAI key gets model
-  answers over that key without a second enable step. The disclosure banner
-  and sticky explicit-`false` are the compensating controls; initial key
-  entry and all credential custody are unchanged.
+- The consent line moves from a per-feature toggle to provisioning plus explicit
+  task selection. A hosted credential alone is insufficient; when its profile
+  is the selected DirectAnswer head, no second enable step is required. The
+  disclosure banner and sticky explicit-`false` are the compensating controls;
+  initial key entry and all credential custody are unchanged.
 - Boot-time detection inherits the known ordering hazards (`:req` started
   before probing, fresh-process settings reads — the v1.0.5 RC.2 lessons);
   the v1.2 plan carries them as named acceptance rows rather than rediscovery.

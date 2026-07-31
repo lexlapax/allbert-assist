@@ -24,6 +24,8 @@ defmodule AllbertAssist.Actions.Settings.SetActiveModelProfile do
   alias AllbertAssist.Maps
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.DirectAnswerSelection
+  alias AllbertAssist.Settings.ModelCapabilities
 
   @impl true
   def run(params, context) do
@@ -32,8 +34,18 @@ defmodule AllbertAssist.Actions.Settings.SetActiveModelProfile do
 
     with true <- PermissionGate.allowed?(permission_decision),
          {:ok, model_profile} <- Settings.resolve_model_profile(profile),
+         :ok <- validate_direct_answer_profile(model_profile),
+         {:ok, assist} <- validated_assist(params),
+         {:ok, direct_answer_chain} <- DirectAnswerSelection.chain_with_head(profile),
          {:ok, writes} <-
-           write_settings(profile, model_profile, params, context, permission_decision) do
+           write_settings(
+             profile,
+             model_profile,
+             direct_answer_chain,
+             assist,
+             context,
+             permission_decision
+           ) do
       {:ok, completed(profile, model_profile, writes, permission_decision)}
     else
       false ->
@@ -44,22 +56,52 @@ defmodule AllbertAssist.Actions.Settings.SetActiveModelProfile do
     end
   end
 
-  defp write_settings(profile, model_profile, params, context, permission_decision) do
+  defp write_settings(
+         profile,
+         model_profile,
+         direct_answer_chain,
+         assist,
+         context,
+         permission_decision
+       ) do
     action_context = action_context(context, permission_decision)
 
     with {:ok, model_setting} <- Settings.put("intent.model_profile", profile, action_context),
+         {:ok, direct_answer_setting} <-
+           Settings.put(
+             "model_preferences.tasks.direct_answer",
+             direct_answer_chain,
+             action_context
+           ),
          {:ok, provider_setting} <-
            Settings.put("providers.#{model_profile.provider}.enabled", true, action_context),
-         {:ok, assist_setting} <- maybe_write_assist(params, action_context) do
-      {:ok, Enum.reject([model_setting, provider_setting, assist_setting], &is_nil/1)}
+         {:ok, assist_setting} <- maybe_write_assist(assist, action_context) do
+      {:ok,
+       Enum.reject(
+         [model_setting, direct_answer_setting, provider_setting, assist_setting],
+         &is_nil/1
+       )}
     end
   end
 
-  defp maybe_write_assist(params, action_context) do
+  defp maybe_write_assist(:skip, _action_context), do: {:ok, nil}
+
+  defp maybe_write_assist(value, action_context) when is_boolean(value),
+    do: Settings.put("intent.model_assist_enabled", value, action_context)
+
+  defp validated_assist(params) do
     case assist_value(params) do
-      {:ok, value} -> Settings.put("intent.model_assist_enabled", value, action_context)
-      :skip -> {:ok, nil}
+      {:ok, value} -> {:ok, value}
+      :skip -> {:ok, :skip}
       {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp validate_direct_answer_profile(%{name: profile} = model_profile) do
+    if ModelCapabilities.runtime_text_generation?(model_profile) do
+      :ok
+    else
+      {:error, {:profile_missing_capability, profile, "text_generation"}}
     end
   end
 
@@ -77,6 +119,7 @@ defmodule AllbertAssist.Actions.Settings.SetActiveModelProfile do
       actions: [
         action(:completed, permission_decision, %{
           model_profile: profile,
+          direct_answer_model_profile: profile,
           provider: model_profile.provider,
           provider_enabled: true,
           model_assist_enabled: assist_value_for_metadata(assist_write),
@@ -102,11 +145,11 @@ defmodule AllbertAssist.Actions.Settings.SetActiveModelProfile do
   end
 
   defp completed_message(profile, model_profile, nil) do
-    "Active model profile set to #{profile}; provider #{model_profile.provider} enabled."
+    "Active model profile set to #{profile}; DirectAnswer task set to #{profile}; provider #{model_profile.provider} enabled."
   end
 
   defp completed_message(profile, model_profile, assist_write) do
-    "Active model profile set to #{profile}; provider #{model_profile.provider} enabled; model-assisted intent set to #{inspect(assist_write.value)}."
+    "Active model profile set to #{profile}; DirectAnswer task set to #{profile}; provider #{model_profile.provider} enabled; model-assisted intent set to #{inspect(assist_write.value)}."
   end
 
   defp action(status, permission_decision, metadata) do

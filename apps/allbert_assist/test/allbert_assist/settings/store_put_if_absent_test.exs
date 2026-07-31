@@ -8,7 +8,7 @@ defmodule AllbertAssist.Settings.StorePutIfAbsentTest do
   @values %{
     "intent.direct_answer_model_enabled" => true,
     "intent.model_assist_enabled" => true,
-    "model_preferences.primary" => "local"
+    "model_preferences.tasks.direct_answer" => ["direct_answer_local"]
   }
 
   setup do
@@ -40,7 +40,7 @@ defmodule AllbertAssist.Settings.StorePutIfAbsentTest do
             %{
               written: [
                 "intent.direct_answer_model_enabled",
-                "model_preferences.primary"
+                "model_preferences.tasks.direct_answer"
               ],
               present: %{"intent.model_assist_enabled" => false}
             }} = Store.put_user_settings_if_absent(@values, %{audit?: false})
@@ -48,7 +48,11 @@ defmodule AllbertAssist.Settings.StorePutIfAbsentTest do
     assert {:ok, user} = Store.read_user_settings()
     assert get_in(user, ["intent", "direct_answer_model_enabled"])
     refute get_in(user, ["intent", "model_assist_enabled"])
-    assert get_in(user, ["model_preferences", "primary"]) == "local"
+    assert get_in(user, ["model_preferences", "primary"]) == nil
+
+    assert get_in(user, ["model_preferences", "tasks", "direct_answer"]) == [
+             "direct_answer_local"
+           ]
 
     assert {:ok, %{written: [], present: present}} =
              Store.put_user_settings_if_absent(@values, %{audit?: false})
@@ -56,12 +60,13 @@ defmodule AllbertAssist.Settings.StorePutIfAbsentTest do
     assert present == %{
              "intent.direct_answer_model_enabled" => true,
              "intent.model_assist_enabled" => false,
-             "model_preferences.primary" => "local"
+             "model_preferences.tasks.direct_answer" => ["direct_answer_local"]
            }
   end
 
   test "validation failure writes none of the absent subset" do
-    invalid = Map.put(@values, "model_preferences.primary", "missing-profile")
+    invalid =
+      Map.put(@values, "model_preferences.tasks.direct_answer", ["missing-profile"])
 
     assert {:error, _reason} = Store.put_user_settings_if_absent(invalid, %{audit?: false})
     assert {:ok, %{}} = Store.read_user_settings()
@@ -84,18 +89,20 @@ defmodule AllbertAssist.Settings.StorePutIfAbsentTest do
     assert {:ok, disabled_user} = Store.read_user_settings()
     assert get_in(disabled_user, ["intent", "direct_answer_model_enabled"]) == false
     assert get_in(disabled_user, ["intent", "model_assist_enabled"]) == nil
-    assert get_in(disabled_user, ["model_preferences", "primary"]) == nil
+    assert get_in(disabled_user, ["model_preferences", "tasks", "direct_answer"]) == nil
 
     File.rm_rf!(Store.root())
 
     assert {:ok, _merged, _user, _diagnostics} =
-             Store.put_user_setting("model_preferences.primary", "fast", %{audit?: false})
+             Store.put_user_setting("model_preferences.tasks.direct_answer", ["fast"], %{
+               audit?: false
+             })
 
     assert {:ok, %{disposition: :selection_changed, written: []}} =
              Store.put_user_settings_if_absent(@values, %{audit?: false})
 
     assert {:ok, changed_user} = Store.read_user_settings()
-    assert get_in(changed_user, ["model_preferences", "primary"]) == "fast"
+    assert get_in(changed_user, ["model_preferences", "tasks", "direct_answer"]) == ["fast"]
     assert get_in(changed_user, ["intent", "direct_answer_model_enabled"]) == nil
     assert get_in(changed_user, ["intent", "model_assist_enabled"]) == nil
   end
@@ -108,13 +115,13 @@ defmodule AllbertAssist.Settings.StorePutIfAbsentTest do
     assert length(written) == 3
     assert audit =~ "intent.direct_answer_model_enabled"
     assert audit =~ "intent.model_assist_enabled"
-    assert audit =~ "model_preferences.primary"
+    assert audit =~ "model_preferences.tasks.direct_answer"
     assert audit =~ "settings.transaction"
     assert audit =~ "applied:"
 
     assert length(Regex.scan(~r/^## .* intent\.direct_answer_model_enabled$/m, audit)) == 1
     assert length(Regex.scan(~r/^## .* intent\.model_assist_enabled$/m, audit)) == 1
-    assert length(Regex.scan(~r/^## .* model_preferences\.primary$/m, audit)) == 1
+    assert length(Regex.scan(~r/^## .* model_preferences\.tasks\.direct_answer$/m, audit)) == 1
     assert length(Regex.scan(~r/^## .* settings\.transaction$/m, audit)) == 1
   end
 

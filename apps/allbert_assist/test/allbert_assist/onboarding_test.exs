@@ -65,7 +65,7 @@ defmodule AllbertAssist.OnboardingTest do
         ~w(welcome track_select model_path profile_select)
         |> Enum.reduce(state, fn step, _acc ->
           assert {:ok, s} =
-                   Onboarding.wizard_advance(step, %{}, first_model_state: :local_ready)
+                   Onboarding.wizard_advance(step, %{}, ready_direct_answer_opts())
 
           s
         end)
@@ -83,7 +83,7 @@ defmodule AllbertAssist.OnboardingTest do
 
       # Reaching first useful chat completes onboarding (optional_connect deferred).
       assert {:ok, state} =
-               Onboarding.wizard_advance("first_chat", %{}, first_model_state: :local_ready)
+               Onboarding.wizard_advance("first_chat", %{}, ready_direct_answer_opts())
 
       assert state.complete?
       assert FirstRun.read_marker()["onboarding_complete"] == true
@@ -92,18 +92,44 @@ defmodule AllbertAssist.OnboardingTest do
     test "last step does not claim completion while the configured model is unavailable" do
       Onboarding.wizard_start(:quickstart)
 
+      opts = [
+        first_model_state: :runtime_unhealthy,
+        enablement_result: %{
+          state: :needs_model,
+          model_state: :runtime_unhealthy,
+          availability: :unavailable
+        }
+      ]
+
       for step <- ~w(welcome track_select model_path profile_select profile_review health_check) do
-        assert {:ok, _state} =
-                 Onboarding.wizard_advance(step, %{}, first_model_state: :runtime_unhealthy)
+        assert {:ok, _state} = Onboarding.wizard_advance(step, %{}, opts)
       end
 
-      assert {:ok, state} =
-               Onboarding.wizard_advance(
-                 "first_chat",
-                 %{},
-                 first_model_state: :runtime_unhealthy
-               )
+      assert {:ok, state} = Onboarding.wizard_advance("first_chat", %{}, opts)
 
+      refute state.complete?
+      refute FirstRun.read_marker()["onboarding_complete"] == true
+    end
+
+    test "ready starter substrate cannot hide an unavailable DirectAnswer task at completion" do
+      Onboarding.wizard_start(:quickstart)
+
+      opts = [
+        first_model_state: :local_ready,
+        enablement_result: %{
+          state: :enabled_unavailable,
+          model_state: :local_ready,
+          availability: :unavailable
+        }
+      ]
+
+      for step <- ~w(welcome track_select model_path profile_select profile_review health_check) do
+        assert {:ok, _state} = Onboarding.wizard_advance(step, %{}, opts)
+      end
+
+      assert {:ok, state} = Onboarding.wizard_advance("first_chat", %{}, opts)
+      assert state.readiness == :ready
+      assert state.direct_answer_readiness == :needs_selection
       refute state.complete?
       refute FirstRun.read_marker()["onboarding_complete"] == true
     end
@@ -131,6 +157,31 @@ defmodule AllbertAssist.OnboardingTest do
       assert Onboarding.readiness_label(first_model_state: :model_missing) == :needs_model
       assert Onboarding.readiness_label(first_model_state: :below_hardware_floor) == :needs_review
     end
+
+    test "wizard cannot claim completion from substrate readiness while DirectAnswer needs repair" do
+      state =
+        Onboarding.wizard_state(
+          first_model_state: :local_ready,
+          enablement_result: %{state: :enabled_unavailable, model_state: :local_ready}
+        )
+
+      assert state.readiness == :ready
+      assert state.direct_answer_readiness == :needs_selection
+      refute Onboarding.first_chat_ready?(state)
+
+      sticky_ready =
+        Onboarding.wizard_state(
+          first_model_state: :local_ready,
+          enablement_result: %{
+            state: :sticky_disabled,
+            model_state: :local_ready,
+            availability: :available
+          }
+        )
+
+      assert sticky_ready.direct_answer_readiness == :ready
+      assert Onboarding.first_chat_ready?(sticky_ready)
+    end
   end
 
   describe "v0.63 M8.5 QuickStart reaches a working first chat (no-dead-end enablement)" do
@@ -142,7 +193,10 @@ defmodule AllbertAssist.OnboardingTest do
       # A ready model at model_path flips the gate so `allbert ask` works without a
       # manual settings edit (the operator-reported dead end).
       assert {:ok, s} =
-               Onboarding.wizard_advance("model_path", %{}, first_model_state: :local_ready)
+               Onboarding.wizard_advance("model_path", %{},
+                 first_model_state: :local_ready,
+                 enablement_result: %{state: :auto_enabled, model_state: :local_ready}
+               )
 
       assert s.readiness == :ready
       assert Settings.get("intent.direct_answer_model_enabled") == {:ok, true}
@@ -156,7 +210,13 @@ defmodule AllbertAssist.OnboardingTest do
       assert {:ok, _} = Onboarding.wizard_advance("track_select")
 
       assert {:ok, s} =
-               Onboarding.wizard_advance("model_path", %{}, first_model_state: :runtime_missing)
+               Onboarding.wizard_advance("model_path", %{},
+                 first_model_state: :runtime_missing,
+                 enablement_result: %{
+                   state: :nothing_detected,
+                   model_state: :runtime_missing
+                 }
+               )
 
       assert s.readiness == :needs_runtime
       refute Settings.get("intent.direct_answer_model_enabled") == {:ok, true}
@@ -179,7 +239,7 @@ defmodule AllbertAssist.OnboardingTest do
         ~w(welcome track_select model_path profile_select profile_review health_check)
         |> Enum.reduce(nil, fn step, _ ->
           assert {:ok, s} =
-                   Onboarding.wizard_advance(step, %{}, first_model_state: :local_ready)
+                   Onboarding.wizard_advance(step, %{}, ready_direct_answer_opts())
 
           s
         end)
@@ -196,7 +256,7 @@ defmodule AllbertAssist.OnboardingTest do
                Onboarding.wizard_advance(
                  "optional_connect",
                  %{},
-                 first_model_state: :local_ready
+                 ready_direct_answer_opts()
                )
 
       assert state.complete?
@@ -213,7 +273,7 @@ defmodule AllbertAssist.OnboardingTest do
           refute acc.step == "optional_connect"
 
           assert {:ok, s} =
-                   Onboarding.wizard_advance(step, %{}, first_model_state: :local_ready)
+                   Onboarding.wizard_advance(step, %{}, ready_direct_answer_opts())
 
           s
         end)
@@ -353,10 +413,10 @@ defmodule AllbertAssist.OnboardingTest do
   end
 
   describe "v1.0 R2 wizard rewind" do
-    test "first_chat_ready? is readiness-only and does not make consent a completion gate" do
-      refute Onboarding.first_chat_ready?(%{readiness: :needs_model})
-      assert Onboarding.first_chat_ready?(%{readiness: :ready})
-      refute Onboarding.first_chat_ready?(%{readiness: :needs_runtime})
+    test "first_chat_ready? follows task readiness and does not make consent a completion gate" do
+      refute Onboarding.first_chat_ready?(%{direct_answer_readiness: :needs_model})
+      assert Onboarding.first_chat_ready?(%{direct_answer_readiness: :ready})
+      refute Onboarding.first_chat_ready?(%{direct_answer_readiness: :needs_runtime})
     end
 
     test "rewinding to an earlier done step truncates done and makes it current" do
@@ -406,11 +466,11 @@ defmodule AllbertAssist.OnboardingTest do
       assert {:ok, _} = Onboarding.wizard_advance("track_select")
 
       assert {:ok, _} =
-               Onboarding.wizard_advance("model_path", %{}, first_model_state: :local_ready)
+               Onboarding.wizard_advance("model_path", %{}, ready_direct_answer_opts())
 
       for step <- ~w(profile_select profile_review health_check first_chat) do
         assert {:ok, _} =
-                 Onboarding.wizard_advance(step, %{}, first_model_state: :local_ready)
+                 Onboarding.wizard_advance(step, %{}, ready_direct_answer_opts())
       end
 
       assert FirstRun.read_marker()["onboarding_complete"] == true
@@ -452,14 +512,14 @@ defmodule AllbertAssist.OnboardingTest do
       for step <-
             ~w(welcome track_select model_path profile_select profile_review health_check first_chat) do
         assert {:ok, _state} =
-                 Onboarding.wizard_advance(step, %{}, first_model_state: :local_ready)
+                 Onboarding.wizard_advance(step, %{}, ready_direct_answer_opts())
       end
 
       before = FirstRun.read_marker()
       assert before["onboarding_complete"] == true
 
       for step <- Onboarding.wizard_steps() do
-        assert {:ok, state} = Onboarding.wizard_enter(step, first_model_state: :local_ready)
+        assert {:ok, state} = Onboarding.wizard_enter(step, ready_direct_answer_opts())
         assert state.step == step
         assert state.editing?
         assert state.complete?
@@ -478,7 +538,7 @@ defmodule AllbertAssist.OnboardingTest do
       for step <-
             ~w(welcome track_select model_path profile_select profile_review health_check first_chat) do
         assert {:ok, _state} =
-                 Onboarding.wizard_advance(step, %{}, first_model_state: :local_ready)
+                 Onboarding.wizard_advance(step, %{}, sticky_ready_direct_answer_opts())
       end
 
       assert FirstRun.read_marker()["onboarding_complete"] == true
@@ -542,6 +602,28 @@ defmodule AllbertAssist.OnboardingTest do
         assert Enum.any?(spine, &String.starts_with?(&1, prefix))
       end
     end
+  end
+
+  defp ready_direct_answer_opts do
+    [
+      first_model_state: :local_ready,
+      enablement_result: %{
+        state: :auto_enabled,
+        model_state: :local_ready,
+        availability: :available
+      }
+    ]
+  end
+
+  defp sticky_ready_direct_answer_opts do
+    [
+      first_model_state: :local_ready,
+      enablement_result: %{
+        state: :sticky_disabled,
+        model_state: :local_ready,
+        availability: :available
+      }
+    ]
   end
 
   defp ensure_channel_plugin!(module) do

@@ -63,6 +63,14 @@ First-run detection writes the direct-answer setting only when
 it is absent and a usable provider is selected; an explicit `false` remains
 sticky.
 
+The shipped v1.3 task profile is `direct_answer_local` /
+`qwen2.5:7b`; the global `local` / `llama3.2:3b` starter is independent and
+does not satisfy a non-empty DirectAnswer task chain. If Qwen is missing,
+Active Memory remains intact and inspectable, but the model-backed answer path
+reports `enabled_unavailable` until the operator selects or explicitly approves
+the model pull. It never inserts the global primary or a hosted provider
+silently.
+
 When `intent.direct_answer_model_enabled` is true, Allbert runs a
 deterministic top-K retrieval pass before each direct-answer model call over
 `review_status: :kept` memory scoped to

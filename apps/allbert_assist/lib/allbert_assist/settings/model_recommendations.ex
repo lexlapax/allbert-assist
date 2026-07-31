@@ -79,8 +79,21 @@ defmodule AllbertAssist.Settings.ModelRecommendations do
       probe?: false
     },
     %{
+      id: :direct_answer,
+      purpose: "Direct answers",
+      settings_key: "model_preferences.tasks.direct_answer",
+      source: {:task, "direct_answer"},
+      recommended_profile: "direct_answer_local",
+      recommended_model: "qwen2.5:7b",
+      required_capabilities: ["text_generation"],
+      min_size_b: 7,
+      privacy: "local default; another task chain is an explicit operator choice.",
+      fallback: "Honest unavailable response; no implicit global-primary fallback.",
+      probe?: true
+    },
+    %{
       id: :main_conversation,
-      purpose: "Main conversational loop",
+      purpose: "Global primary / general model profile",
       settings_key: "model_preferences.primary",
       source: {:setting, "model_preferences.primary"},
       recommended_profile: "local",
@@ -88,7 +101,7 @@ defmodule AllbertAssist.Settings.ModelRecommendations do
       required_capabilities: ["text_generation"],
       min_size_b: nil,
       privacy: "operator choice",
-      fallback: "Graceful decline or configured provider fallback.",
+      fallback: "Purpose-specific consumers resolve their own task preferences.",
       probe?: false
     },
     %{
@@ -190,6 +203,7 @@ defmodule AllbertAssist.Settings.ModelRecommendations do
     intent_escalation
     descriptor_generation
     intent_eval_live_bench
+    direct_answer
   )a
 
   @spec diagnose(map(), keyword()) :: map()

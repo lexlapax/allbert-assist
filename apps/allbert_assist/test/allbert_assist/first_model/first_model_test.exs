@@ -26,6 +26,9 @@ defmodule AllbertAssist.FirstModelTest do
     original_post_pull =
       Application.get_env(:allbert_assist, :first_model_post_pull_enablement)
 
+    original_post_pull_doctor =
+      Application.get_env(:allbert_assist, :first_model_post_pull_doctor)
+
     original_host = System.get_env("OLLAMA_HOST")
 
     Application.put_env(:allbert_assist, :first_model_post_pull_enablement, fn _model ->
@@ -55,6 +58,15 @@ defmodule AllbertAssist.FirstModelTest do
             original_post_pull
           ),
         else: Application.delete_env(:allbert_assist, :first_model_post_pull_enablement)
+
+      if original_post_pull_doctor,
+        do:
+          Application.put_env(
+            :allbert_assist,
+            :first_model_post_pull_doctor,
+            original_post_pull_doctor
+          ),
+        else: Application.delete_env(:allbert_assist, :first_model_post_pull_doctor)
 
       if original_host,
         do: System.put_env("OLLAMA_HOST", original_host),
@@ -171,6 +183,21 @@ defmodule AllbertAssist.FirstModelTest do
       assert Ollama.local_url("/api/version") == {:error, :non_loopback_host}
       assert Ollama.server_version() == :error
     end
+
+    test "provider target matching is loopback-equivalent and endpoint-exact" do
+      System.delete_env("OLLAMA_HOST")
+
+      assert Ollama.provider_targets_host_runtime?("http://localhost:11434/v1")
+      assert Ollama.provider_targets_host_runtime?("http://127.0.0.1:11434/v1/")
+      refute Ollama.provider_targets_host_runtime?("http://127.0.0.1:11435/v1")
+      refute Ollama.provider_targets_host_runtime?("http://127.0.0.1:11434/custom/v1")
+      refute Ollama.provider_targets_host_runtime?("http://192.168.1.9:11434/v1")
+      refute Ollama.provider_targets_host_runtime?("http://localhost:11434/v1?target=other")
+
+      System.put_env("OLLAMA_HOST", "127.0.0.1:11500")
+      assert Ollama.provider_targets_host_runtime?("http://localhost:11500/v1")
+      refute Ollama.provider_targets_host_runtime?("http://localhost:11434/v1")
+    end
   end
 
   test "Hardware.meets_floor? passes unknown RAM and honors a real floor" do
@@ -281,7 +308,7 @@ defmodule AllbertAssist.FirstModelTest do
       assert summary.status == "success"
     end
 
-    test "a completed pull event enables its exact configured local profile" do
+    test "a completed DirectAnswer-model pull enables its exact configured task profile" do
       root =
         Path.join(
           System.tmp_dir!(),
@@ -299,6 +326,13 @@ defmodule AllbertAssist.FirstModelTest do
       )
 
       Application.delete_env(:allbert_assist, :first_model_post_pull_enablement)
+
+      caller = self()
+
+      Application.put_env(:allbert_assist, :first_model_post_pull_doctor, fn profile ->
+        send(caller, {:post_pull_doctor, profile})
+        {:ok, %{endpoint_ok: true, model_available: true}}
+      end)
 
       Application.put_env(:allbert_assist, :first_model_pull, fn _model ->
         {:ok, %{status: "success"}, []}
@@ -326,18 +360,76 @@ defmodule AllbertAssist.FirstModelTest do
       end)
 
       assert {:ok, response} =
-               PullModel.run(%{}, %{confirmation: %{approved?: true}, actor: "local"})
+               PullModel.run(%{model: "qwen2.5:7b"}, %{
+                 confirmation: %{approved?: true},
+                 actor: "local"
+               })
 
       assert response.status == :completed
-      assert response.output_data.pulled_model == Ollama.curated_model()
+      assert response.output_data.pulled_model == "qwen2.5:7b"
       assert response.output_data.enablement.state == :auto_enabled
-      assert response.output_data.enablement.selection.profile == "local"
+      assert response.output_data.enablement.selection.profile == "direct_answer_local"
+      assert_receive {:post_pull_doctor, "direct_answer_local"}
       assert AllbertAssist.Settings.get("intent.direct_answer_model_enabled") == {:ok, true}
       assert AllbertAssist.Settings.get("model_preferences.primary") == {:ok, "local"}
+
+      assert AllbertAssist.Settings.get("model_preferences.tasks.direct_answer") ==
+               {:ok, ["direct_answer_local"]}
+
       assert Disclosure.pending?(:web)
     end
 
-    test "a completed pull preserves and discloses an eligible raw hosted primary" do
+    test "a host pull cannot enable a DirectAnswer profile whose configured endpoint is unavailable" do
+      root =
+        Path.join(
+          System.tmp_dir!(),
+          "allbert-post-pull-custom-endpoint-#{System.pid()}-#{System.unique_integer([:positive])}"
+        )
+
+      saved_paths = Application.get_env(:allbert_assist, AllbertAssist.Paths)
+      saved_settings = Application.get_env(:allbert_assist, AllbertAssist.Settings)
+
+      Application.put_env(:allbert_assist, AllbertAssist.Paths, home: root)
+
+      Application.put_env(:allbert_assist, AllbertAssist.Settings,
+        root: Path.join(root, "settings")
+      )
+
+      Application.delete_env(:allbert_assist, :first_model_post_pull_enablement)
+      Application.put_env(:allbert_assist, :first_model_pull, fn _model -> {:ok, %{}, []} end)
+
+      caller = self()
+
+      Application.put_env(:allbert_assist, :first_model_post_pull_doctor, fn profile ->
+        send(caller, {:post_pull_doctor, profile})
+        {:ok, %{endpoint_ok: false, model_available: :unknown}}
+      end)
+
+      on_exit(fn ->
+        if saved_paths,
+          do: Application.put_env(:allbert_assist, AllbertAssist.Paths, saved_paths),
+          else: Application.delete_env(:allbert_assist, AllbertAssist.Paths)
+
+        if saved_settings,
+          do: Application.put_env(:allbert_assist, AllbertAssist.Settings, saved_settings),
+          else: Application.delete_env(:allbert_assist, AllbertAssist.Settings)
+
+        File.rm_rf!(root)
+      end)
+
+      assert {:ok, response} =
+               PullModel.run(%{model: "qwen2.5:7b"}, %{
+                 confirmation: %{approved?: true},
+                 actor: "local"
+               })
+
+      assert_receive {:post_pull_doctor, "direct_answer_local"}
+      assert response.status == :completed
+      assert response.output_data.enablement.state == :enabled_unavailable
+      assert AllbertAssist.Settings.get("intent.direct_answer_model_enabled") == {:ok, false}
+    end
+
+    test "a completed pull preserves and discloses an explicit hosted DirectAnswer task" do
       root =
         Path.join(
           System.tmp_dir!(),
@@ -392,7 +484,9 @@ defmodule AllbertAssist.FirstModelTest do
 
       assert {:ok, _settings} =
                Store.write_user_settings(%{
-                 "model_preferences" => %{"primary" => "fast"}
+                 "model_preferences" => %{
+                   "tasks" => %{"direct_answer" => ["fast"]}
+                 }
                })
 
       assert {:ok, response} =
@@ -402,7 +496,11 @@ defmodule AllbertAssist.FirstModelTest do
       assert response.output_data.enablement.state == :auto_enabled
       assert response.output_data.enablement.selection.profile == "fast"
       assert response.output_data.enablement.selection.provider_class == :hosted
-      assert AllbertAssist.Settings.get("model_preferences.primary") == {:ok, "fast"}
+      assert AllbertAssist.Settings.get("model_preferences.primary") == {:ok, "local"}
+
+      assert AllbertAssist.Settings.get("model_preferences.tasks.direct_answer") ==
+               {:ok, ["fast"]}
+
       assert Disclosure.hosted_pending?(:web)
       assert Disclosure.text(:web) =~ "will leave this device"
     end

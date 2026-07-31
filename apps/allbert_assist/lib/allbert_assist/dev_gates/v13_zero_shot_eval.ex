@@ -24,7 +24,7 @@ defmodule AllbertAssist.DevGates.V13ZeroShotEval do
     store = blank_to_nil(System.get_env("V13_ZERO_SHOT_STORE"))
     full_sha = parse_full_sha!(System.get_env("V13_FULL_SHA"))
     dirty = parse_dirty!(System.get_env("V13_DIRTY"))
-    profile = System.get_env("V13_MODEL_PROFILE", "local")
+    profile = System.get_env("V13_MODEL_PROFILE", "direct_answer_local")
     started = System.monotonic_time(:millisecond)
 
     seed_fixture!(fixture)
@@ -93,7 +93,7 @@ defmodule AllbertAssist.DevGates.V13ZeroShotEval do
   end
 
   def evaluate!(%{"rows" => rows}, opts \\ []) do
-    profile = Keyword.get(opts, :profile, "local")
+    profile = Keyword.get(opts, :profile, "direct_answer_local")
     projection = Keyword.get(opts, :projection, Projection)
     replay_answerer = Keyword.get(opts, :replay_answerer, ReqLLMAnswerer)
 

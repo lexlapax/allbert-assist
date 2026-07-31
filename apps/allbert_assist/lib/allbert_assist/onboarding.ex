@@ -11,6 +11,7 @@ defmodule AllbertAssist.Onboarding do
   """
 
   alias AllbertAssist.CLI.FirstRun
+  alias AllbertAssist.FirstRun.Presentation
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Personas
@@ -43,14 +44,24 @@ defmodule AllbertAssist.Onboarding do
   is produced only by the provider step (hosted/BYOK chosen, no key present).
   """
   @type readiness ::
-          :ready | :needs_model | :needs_runtime | :needs_review | :needs_credentials
+          :ready
+          | :needs_model
+          | :needs_runtime
+          | :needs_review
+          | :needs_credentials
+          | :needs_selection
 
   @typedoc "The readiness labels the model probe can yield (excludes `:needs_credentials`)."
   @type probe_readiness :: :ready | :needs_model | :needs_runtime | :needs_review
 
   @typedoc "The single next action the `model_path`/provider step should route to."
   @type model_action ::
-          :start_chat | :install_runtime | :pull_model | :choose_provider | :enter_credentials
+          :start_chat
+          | :install_runtime
+          | :pull_model
+          | :choose_provider
+          | :enter_credentials
+          | :select_model
 
   @typedoc """
   Track-aware guidance for the `model_path` step: an operator-language headline +
@@ -74,6 +85,8 @@ defmodule AllbertAssist.Onboarding do
           done: [wizard_step()],
           next: wizard_step() | nil,
           readiness: readiness(),
+          direct_answer_readiness: readiness(),
+          direct_answer_enablement_result: map() | nil,
           profile_reviewed?: boolean(),
           editing?: boolean(),
           complete?: boolean(),
@@ -86,6 +99,7 @@ defmodule AllbertAssist.Onboarding do
           track: track(),
           step: wizard_step(),
           readiness: readiness(),
+          direct_answer_readiness: readiness(),
           complete?: boolean(),
           profile_reviewed?: boolean()
         }
@@ -233,13 +247,24 @@ defmodule AllbertAssist.Onboarding do
     # cached probe surfaces pass in — defeating M7.2 on exactly that path.
     probe = Keyword.get_lazy(opts, :first_model_state, &safe_first_model_state/0)
 
+    projection_opts =
+      if Keyword.has_key?(opts, :enablement_result) do
+        [model_state: probe, enablement_result: Keyword.get(opts, :enablement_result)]
+      else
+        [model_state: probe]
+      end
+
+    projection = FirstRun.readiness_projection(projection_opts)
+
     %{
       started?: marker["wizard_started"] == true,
       track: wizard_track(marker),
       step: step,
       done: done,
       next: next_wizard_step(step, wizard_track(marker)),
-      readiness: readiness_label(first_model_state: probe),
+      readiness: projection.substrate_readiness,
+      direct_answer_readiness: projection.direct_answer_readiness,
+      direct_answer_enablement_result: projection.enablement_result,
       profile_reviewed?: marker["profile_reviewed"] == true,
       editing?: marker["wizard_direct_entry"] == true,
       complete?: marker["onboarding_complete"] == true,
@@ -309,7 +334,11 @@ defmodule AllbertAssist.Onboarding do
         maybe_record_model_decline(step)
         state = wizard_state(opts)
         maybe_enable_model_answer(step, state)
-        state = wizard_state(opts)
+
+        projection_opts =
+          Keyword.put(opts, :enablement_result, state.direct_answer_enablement_result)
+
+        state = wizard_state(projection_opts)
 
         # v1.0.5 M8.4: reaching the last screen is not completion. The marker
         # becomes complete only when the same readiness contract used by TUI
@@ -318,7 +347,7 @@ defmodule AllbertAssist.Onboarding do
           FirstRun.mark_onboarding_complete()
         end
 
-        {:ok, wizard_state(opts)}
+        {:ok, wizard_state(projection_opts)}
     end
   end
 
@@ -331,7 +360,7 @@ defmodule AllbertAssist.Onboarding do
   # is never enabled — a below-floor/needs-runtime machine still routes to BYOK guidance.
   # The key is in `@safe_write_keys` (seed-only authority), so this needs no new grant.
   @model_answer_enable_steps ["model_path", "first_chat", "optional_connect"]
-  defp maybe_enable_model_answer(step, %{readiness: :ready})
+  defp maybe_enable_model_answer(step, %{direct_answer_readiness: :ready})
        when step in @model_answer_enable_steps do
     unless explicitly_disabled?() do
       Settings.put("intent.direct_answer_model_enabled", true, %{audit?: true})
@@ -354,7 +383,7 @@ defmodule AllbertAssist.Onboarding do
   not make the customization wizard impossible to complete.
   """
   @spec first_chat_ready?(wizard()) :: boolean()
-  def first_chat_ready?(%{readiness: :ready}), do: true
+  def first_chat_ready?(%{direct_answer_readiness: :ready}), do: true
 
   def first_chat_ready?(_wizard), do: false
 
@@ -499,6 +528,7 @@ defmodule AllbertAssist.Onboarding do
       track: s.track,
       step: s.step,
       readiness: s.readiness,
+      direct_answer_readiness: s.direct_answer_readiness,
       complete?: s.complete?,
       profile_reviewed?: s.profile_reviewed?
     }
@@ -561,14 +591,22 @@ defmodule AllbertAssist.Onboarding do
     # eager default ran `first_model_state/0` on *every* call, injected or not).
     probe = Keyword.get_lazy(opts, :first_model_state, &safe_first_model_state/0)
 
-    case probe do
-      :local_ready -> :ready
-      :byok_ready -> :ready
-      :runtime_missing -> :needs_runtime
-      :runtime_unhealthy -> :needs_runtime
-      :model_missing -> :needs_model
-      :below_hardware_floor -> :needs_review
-    end
+    Presentation.substrate(probe)
+  end
+
+  @doc "Project DirectAnswer task readiness without changing wizard substrate completion."
+  @spec direct_answer_readiness(keyword()) :: readiness()
+  def direct_answer_readiness(opts \\ []) do
+    probe = Keyword.get_lazy(opts, :first_model_state, &safe_first_model_state/0)
+
+    projection_opts =
+      if Keyword.has_key?(opts, :enablement_result) do
+        [model_state: probe, enablement_result: Keyword.get(opts, :enablement_result)]
+      else
+        [model_state: probe]
+      end
+
+    FirstRun.readiness_projection(projection_opts).direct_answer_readiness
   end
 
   @doc """
@@ -616,7 +654,14 @@ defmodule AllbertAssist.Onboarding do
   """
   @spec model_guidance_for(readiness(), track()) :: model_guidance()
   def model_guidance_for(readiness, track)
-      when readiness in [:ready, :needs_model, :needs_runtime, :needs_review, :needs_credentials] and
+      when readiness in [
+             :ready,
+             :needs_model,
+             :needs_runtime,
+             :needs_review,
+             :needs_credentials,
+             :needs_selection
+           ] and
              track in @wizard_tracks,
       do: build_guidance(readiness, track)
 
@@ -690,6 +735,22 @@ defmodule AllbertAssist.Onboarding do
           "or pick a different provider or the local runtime."
         ),
       action: :enter_credentials,
+      repairable?: true,
+      reaches_chat?: false
+    }
+  end
+
+  defp build_guidance(:needs_selection, track) do
+    %{
+      readiness: :needs_selection,
+      headline: "The selected DirectAnswer model is unavailable.",
+      next_action:
+        advanced_suffix(
+          track,
+          "Open Models to select a ready DirectAnswer profile or inspect its confirmation-gated repair.",
+          "an explicitly selected hosted DirectAnswer profile is also supported."
+        ),
+      action: :select_model,
       repairable?: true,
       reaches_chat?: false
     }

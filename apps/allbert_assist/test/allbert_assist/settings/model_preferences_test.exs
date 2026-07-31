@@ -54,6 +54,12 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
     assert {:ok, "local"} = Settings.get("model_preferences.primary")
     assert {:ok, "local"} = Settings.get("intent.model_profile")
 
+    assert {:ok, ["direct_answer_local"]} =
+             Settings.get("model_preferences.tasks.direct_answer")
+
+    assert {:ok, "direct_answer_local"} =
+             Settings.get("intent.direct_answer_model_profile")
+
     assert {:ok, ["voice_stt_local", "voice_stt_openai", "voice_stt_gemini"]} =
              Settings.get("model_preferences.capabilities.speech_to_text")
 
@@ -69,7 +75,9 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
     assert {:ok, direct_answer} = Models.for(:direct_answer)
     assert direct_answer.request_kind == :task
     assert direct_answer.capability == "text_generation"
-    assert direct_answer.profile.name == "local"
+    assert direct_answer.profile.name == "direct_answer_local"
+    assert direct_answer.profile.model == "qwen2.5:7b"
+    assert direct_answer.profile.temperature == 0.0
 
     assert {:ok, coding} = Models.for(:coding)
     assert coding.profile.name == "coding_local"
@@ -82,6 +90,19 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
 
     assert {:ok, [local_stt]} = Models.candidates_for(:speech_to_text)
     assert local_stt.profile.name == "voice_stt_local"
+  end
+
+  test "direct-answer task default does not alter unrelated model consumers" do
+    assert {:ok, primary} = Models.for(:text_generation)
+    assert primary.profile.name == "local"
+    assert primary.profile.model == "llama3.2:3b"
+
+    assert {:ok, coding} = Models.for(:coding)
+    assert coding.profile.name == "coding_local"
+
+    assert {:ok, pi} = Settings.resolve_model_profile("pi_coding_local")
+    assert pi.model == "qwen2.5:7b"
+    assert pi.temperature == 0.1
   end
 
   test "vision and image capability preferences resolve when a remote provider is enabled" do
@@ -146,11 +167,11 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
     assert Keyword.fetch!(opts, :api_key) == "ollama"
   end
 
-  test "direct-answer resolver orders local profiles before hosted profiles" do
+  test "direct-answer resolver walks the operator-authored task order" do
     assert {:ok, _setting} =
              Settings.put(
                "model_preferences.tasks.direct_answer",
-               ["fast", "voice_stt_fake", "local"],
+               ["fast", "local"],
                %{audit?: false}
              )
 
@@ -158,10 +179,95 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
 
     assert resolution.profile.name == "local"
 
-    refute Enum.any?(
+    assert Enum.any?(
              resolution.diagnostics,
-             &match?(%{profile: "fast"}, &1)
+             &match?(%{reason: {:provider_disabled, "fast", "openai"}}, &1)
            )
+  end
+
+  test "an explicitly authored hosted-first direct-answer chain is not reordered" do
+    assert {:ok, _setting} =
+             Settings.put("providers.openai.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.tasks.direct_answer", ["fast", "local"], %{
+               audit?: false
+             })
+
+    assert {:ok, resolution} = Models.for(:direct_answer)
+    assert resolution.profile.name == "fast"
+    assert resolution.diagnostics == []
+  end
+
+  test "non-empty direct-answer preferences are closed against the global primary" do
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.tasks.direct_answer", ["fast"], %{
+               audit?: false
+             })
+
+    assert {:error, {:no_capable_profile, diagnostic}} = Models.for(:direct_answer)
+    assert diagnostic.candidates == ["fast"]
+
+    refute Enum.any?(
+             diagnostic.diagnostics,
+             &match?(%{profile: "local"}, &1)
+           )
+
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.tasks.direct_answer", [], %{audit?: false})
+
+    assert {:ok, fallback} = Models.for(:direct_answer)
+    assert fallback.source == :primary
+    assert fallback.profile.name == "local"
+  end
+
+  test "direct-answer preferences reject profiles without text generation before writing" do
+    expected_error =
+      {:error,
+       {:invalid_setting, "model_preferences.tasks.direct_answer",
+        {:profile_missing_capability, "voice_stt_fake", "text_generation"}}}
+
+    assert ^expected_error =
+             Settings.validate({"model_preferences.tasks.direct_answer", ["voice_stt_fake"]})
+
+    assert ^expected_error =
+             Settings.put("model_preferences.tasks.direct_answer", ["voice_stt_fake"], %{
+               audit?: false
+             })
+
+    assert {:ok, %{}} = Settings.read_user_settings()
+
+    assert {:error,
+            {:invalid_setting, "intent.direct_answer_model_profile",
+             {:profile_missing_capability, "voice_stt_fake", "text_generation"}}} =
+             Settings.validate({"intent.direct_answer_model_profile", "voice_stt_fake"})
+
+    assert ^expected_error =
+             Settings.put("intent.direct_answer_model_profile", "voice_stt_fake", %{
+               audit?: false
+             })
+
+    assert {:ok, %{}} = Settings.read_user_settings()
+
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.tasks.direct_answer", ["fast", "local"], %{
+               audit?: false
+             })
+
+    assert {:ok, ["fast", "local"]} =
+             Settings.get("model_preferences.tasks.direct_answer")
+  end
+
+  test "legacy persisted direct-answer lists remain readable and skip incapable profiles" do
+    assert {:ok, _settings} =
+             Settings.write_user_settings(%{
+               "model_preferences" => %{
+                 "tasks" => %{"direct_answer" => ["voice_stt_fake", "local"]}
+               }
+             })
+
+    assert {:ok, resolution} = Models.for(:direct_answer)
+    assert resolution.profile.name == "local"
 
     assert Enum.any?(
              resolution.diagnostics,
@@ -172,12 +278,41 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
            )
   end
 
-  test "env credential makes a raw-absent default-disabled hosted provider resolvable" do
+  test "legacy persisted text profiles without capability metadata remain runnable and selectable" do
+    assert {:ok, _settings} =
+             Settings.write_user_settings(%{
+               "model_profiles" => %{
+                 "legacy_text" => %{
+                   "provider" => "local_ollama",
+                   "model" => "legacy-text:latest"
+                 }
+               },
+               "model_preferences" => %{
+                 "tasks" => %{"direct_answer" => ["legacy_text"]}
+               }
+             })
+
+    assert {:ok, resolution} = Models.for(:direct_answer)
+    assert resolution.profile.name == "legacy_text"
+    assert resolution.profile.capabilities == []
+
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.tasks.direct_answer", ["legacy_text"], %{
+               audit?: false
+             })
+
+    assert {:ok, ["legacy_text"]} =
+             Settings.get("model_preferences.tasks.direct_answer")
+  end
+
+  test "env credential makes an explicitly selected hosted direct-answer profile resolvable" do
     System.put_env("ALLBERT_VAULT_BACKEND", "env")
     System.put_env("OPENAI_API_KEY", "operator-env-key")
 
     assert {:ok, false} = Settings.get("providers.openai.enabled")
-    assert {:ok, _setting} = Settings.put("model_preferences.primary", "fast", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.tasks.direct_answer", ["fast"], %{audit?: false})
 
     assert {:ok, user_settings} = Settings.read_user_settings()
     assert get_in(user_settings, ["providers", "openai", "enabled"]) == nil
@@ -188,22 +323,24 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
     assert resolution.profile.provider_enabled
   end
 
-  test "raw explicit provider false blocks env credential during model resolution" do
+  test "raw explicit provider false closes the selected direct-answer chain" do
     System.put_env("ALLBERT_VAULT_BACKEND", "env")
     System.put_env("OPENAI_API_KEY", "operator-env-key")
 
     assert {:ok, _setting} =
              Settings.put("providers.openai.enabled", false, %{audit?: false})
 
-    assert {:ok, _setting} = Settings.put("model_preferences.primary", "fast", %{audit?: false})
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.tasks.direct_answer", ["fast"], %{audit?: false})
 
-    assert {:ok, resolution} = Models.for(:direct_answer)
-    assert resolution.profile.name == "local"
+    assert {:error, {:no_capable_profile, diagnostic}} = Models.for(:direct_answer)
 
     assert Enum.any?(
-             resolution.diagnostics,
+             diagnostic.diagnostics,
              &match?(%{reason: {:provider_disabled, "fast", "openai"}}, &1)
            )
+
+    refute Enum.any?(diagnostic.diagnostics, &match?(%{profile: "local"}, &1))
   end
 
   test "primary fallback is used only when the primary profile is capable" do

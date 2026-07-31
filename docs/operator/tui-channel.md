@@ -133,15 +133,19 @@ detection applies the same local-first selection and sticky-disable rules as
 the web workspace:
 
 - a usable provider can answer the first normal question without onboarding;
-- the applicable local-processing or hosted-egress disclosure appears once per
-  surface/provider selection;
+- before attachment, the applicable route-set disclosure names the configured
+  DirectAnswer primary and callable fallback; it normally appears once and any
+  route change makes it pending again;
 - missing or unhealthy local state returns the bounded fallback and a repair
   direction rather than blocking the prompt; and
 - no runtime install, model pull, hosted probe, or inference happens silently.
 
 Use `/catalog` to compare choices and `/models` to diagnose configured purpose
-profiles. Use the web Models panel or `allbert admin models …` for selection,
-confirmed pulls, and deeper repair.
+profiles. Use the web Models panel or `allbert admin models
+use-direct-answer PROFILE` for purpose-specific selection, confirmed pulls,
+and deeper repair. If a hosted route changes while the client is attached, the
+current turn fails closed with instructions to detach and re-run `allbert tui`;
+the new disclosure is rendered before the next attachment.
 
 ## Confirmations
 

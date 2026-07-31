@@ -2,6 +2,7 @@ defmodule AllbertAssist.Actions.Intent.ReqLLMAnswererTest do
   use ExUnit.Case, async: false
   @moduletag :app_env_serial
 
+  alias AllbertAssist.Actions.Intent.DirectAnswer.Policy
   alias AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer
   alias ReqLLM.Context
   alias ReqLLM.Response
@@ -35,8 +36,11 @@ defmodule AllbertAssist.Actions.Intent.ReqLLMAnswererTest do
   end
 
   test "the actual text provider call preserves system, Memory-data, and operator provenance" do
+    operator_request =
+      "Acknowledge this supplied statement: maintenance starts 2026-08-15, is staging-only, and uses opaque marker cobalt-17."
+
     assert {:ok, result} =
-             ReqLLMAnswerer.answer("operator-request-sentinel", %{
+             ReqLLMAnswerer.answer(operator_request, %{
                model_profile: profile(),
                active_memory: [
                  %{summary: "Preference", chunk_id: "chunk-1", body: "memory-body-sentinel"}
@@ -46,15 +50,19 @@ defmodule AllbertAssist.Actions.Intent.ReqLLMAnswererTest do
 
     assert result.message == "A useful captured answer."
 
-    assert_receive {:req_llm_generate_text, %{provider: :openai, id: "llama3.2:3b"},
+    assert_receive {:req_llm_generate_text, %{provider: :openai, id: "qwen2.5:7b"},
                     %ReqLLM.Context{} = prompt, opts}
 
     assert Enum.map(prompt.messages, & &1.role) == [:system, :user, :user]
-    refute message_text(hd(prompt.messages)) =~ "operator-request-sentinel"
+    refute message_text(hd(prompt.messages)) =~ operator_request
     refute message_text(hd(prompt.messages)) =~ "memory-body-sentinel"
     assert message_text(Enum.at(prompt.messages, 1)) =~ "memory-body-sentinel"
-    assert message_text(List.last(prompt.messages)) == "operator-request-sentinel"
-    assert opts[:temperature] == 0.2
+    assert message_text(List.last(prompt.messages)) == operator_request
+    assert hd(prompt.messages).metadata.allbert_prompt.rule_ids == Policy.rule_ids()
+    assert List.last(prompt.messages).metadata.allbert_prompt.rule_ids == Policy.rule_ids()
+    assert opts[:temperature] == 0.0
+    assert opts[:max_tokens] == 1024
+    assert opts[:receive_timeout] == 60_000
   end
 
   test "the actual vision provider call attaches the image only to the final user turn" do
@@ -91,6 +99,23 @@ defmodule AllbertAssist.Actions.Intent.ReqLLMAnswererTest do
     assert final.metadata.allbert_media == [Map.drop(image_input, [:path])]
   end
 
+  test "direct-answer sampling stays deterministic after an explicit profile override" do
+    overridden =
+      profile()
+      |> Map.put(:name, "operator_override")
+      |> Map.put(:temperature, 0.9)
+
+    assert {:ok, _result} =
+             ReqLLMAnswerer.answer("state the supplied fact", %{
+               model_profile: overridden,
+               active_memory: [],
+               image_inputs: []
+             })
+
+    assert_receive {:req_llm_generate_text, _spec, _prompt, opts}
+    assert opts[:temperature] == 0.0
+  end
+
   test "operator prompt truncation remains valid UTF-8 and inside the byte ceiling" do
     assert {:ok, prompt} =
              ReqLLMAnswerer.prompt_input(String.duplicate("🫡", 2_000), %{
@@ -107,12 +132,12 @@ defmodule AllbertAssist.Actions.Intent.ReqLLMAnswererTest do
 
   defp profile do
     %{
-      name: "local",
+      name: "direct_answer_local",
       provider_type: "local",
-      model: "llama3.2:3b",
-      temperature: 0.2,
-      max_tokens: 512,
-      timeout_ms: 3_000
+      model: "qwen2.5:7b",
+      temperature: 0.0,
+      max_tokens: 1024,
+      timeout_ms: 60_000
     }
   end
 

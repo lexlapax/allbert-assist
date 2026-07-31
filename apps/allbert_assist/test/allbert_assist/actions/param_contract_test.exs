@@ -486,6 +486,8 @@ defmodule AllbertAssist.Actions.ParamContractTest do
       "run_shell_command" => "confirmation-gated local process action",
       "search_online_skills" => "confirmation-gated online skill search",
       "set_active_model_profile" => "settings-write action with no identity params in schema",
+      "set_direct_answer_model_profile" =>
+        "purpose-owned settings-write action with no identity params in schema",
       "set_notes_root" => "settings-write action with no identity params in schema",
       "set_provider_credential" => "secret-write action with no identity params in schema",
       "show_online_skill" => "confirmation-gated online skill detail fetch",

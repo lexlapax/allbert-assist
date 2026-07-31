@@ -3,6 +3,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
   @moduletag :db_serial
 
   alias AllbertAssist.Actions.Intent.DirectAnswer
+  alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Projection
   alias AllbertAssist.Models.FallbackAudit
@@ -132,13 +133,14 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     assert response.status == :completed
     assert response.message == "Model-backed answer for 16 characters."
     assert response.direct_answer.source == :model
-    assert response.direct_answer.model_profile == "local"
+    assert response.direct_answer.model_profile == "direct_answer_local"
     assert response.direct_answer.provider == "local_ollama"
+    assert response.direct_answer.model == "qwen2.5:7b"
     assert response.direct_answer.model_resolution.capability == "text_generation"
     refute inspect(response.direct_answer) =~ "What is Allbert?"
   end
 
-  test "enabled model path resolves direct-answer preferences local-first" do
+  test "enabled model path walks the authored direct-answer task chain" do
     Application.put_env(:allbert_assist, DirectAnswer, answerer: FakeAnswerer)
 
     assert {:ok, _setting} =
@@ -155,7 +157,13 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     assert response.direct_answer.source == :model
     assert response.direct_answer.model_profile == "local"
 
-    assert response.direct_answer.model_resolution.diagnostics == []
+    assert [
+             %{
+               profile: "fast",
+               reason: {:provider_disabled, "fast", "openai"},
+               status: :skipped
+             }
+           ] = response.direct_answer.model_resolution.diagnostics
   end
 
   test "enabled model path receives bounded active memory context", %{projection: projection} do
@@ -322,6 +330,30 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     refute response.message =~ "Should this call a provider?"
   end
 
+  test "default direct-answer failure never calls the global local profile" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: ScriptedAnswerer)
+    put_setting!("intent.direct_answer_model_enabled", true)
+
+    assert {:ok, response} = DirectAnswer.run(%{text: "answer"}, %{actor: "alice"})
+
+    assert response.message =~ "configured direct-answer model was unavailable"
+    assert_receive {:provider_called, "direct_answer_local"}
+    refute_receive {:provider_called, "local"}
+  end
+
+  test "runtime failover cannot append global local to the closed default chain" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: ScriptedAnswerer)
+    put_setting!("intent.direct_answer_model_enabled", true)
+    put_setting!("models.fallback.enabled", true)
+
+    assert {:ok, response} = DirectAnswer.run(%{text: "answer"}, %{actor: "alice"})
+
+    assert response.message == "The configured model chain failed: direct_answer_local."
+    assert response.direct_answer.fallback.provider_call_count == 1
+    assert_receive {:provider_called, "direct_answer_local"}
+    refute_receive {:provider_called, "local"}
+  end
+
   test "runtime fallback is default off and makes exactly one provider call" do
     Application.put_env(:allbert_assist, DirectAnswer, answerer: ScriptedAnswerer)
     enable_text_chain!()
@@ -332,6 +364,67 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     assert_receive {:provider_called, "local"}
     refute_receive {:provider_called, "fast"}
     refute Map.has_key?(response.direct_answer, :fallback)
+  end
+
+  test "hosted primary makes no provider call before exact current-surface acknowledgement" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: ScriptedAnswerer)
+    enable_text_chain!(["fast", "local"])
+    Process.put({ScriptedAnswerer, "fast"}, {:ok, "hosted answer"})
+
+    assert Disclosure.hosted_pending?(:cli)
+
+    assert {:ok, denied} =
+             DirectAnswer.run(%{text: "answer"}, %{actor: "alice", channel: :cli})
+
+    assert denied.message =~ "waiting for its provider disclosure"
+    assert denied.message =~ "allbert ask"
+    assert denied.direct_answer.source == :bounded_fallback
+    refute_receive {:provider_called, "fast"}
+
+    assert :ok = Disclosure.render_and_ack(:cli, fn _text -> :ok end)
+
+    assert {:ok, answered} =
+             DirectAnswer.run(%{text: "answer"}, %{actor: "alice", channel: :cli})
+
+    assert answered.message == "hosted answer"
+    assert_receive {:provider_called, "fast"}
+  end
+
+  test "one surface cannot borrow another local surface acknowledgement" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: ScriptedAnswerer)
+    enable_text_chain!(["fast"])
+    Process.put({ScriptedAnswerer, "fast"}, {:ok, "must not appear"})
+
+    assert :ok = Disclosure.render_and_ack(:web, fn _text -> :ok end)
+
+    assert {:ok, denied} =
+             DirectAnswer.run(%{text: "answer"}, %{request: %{channel: :tui}})
+
+    assert denied.message =~ "allbert tui"
+    assert Disclosure.hosted_pending?(:tui)
+    refute_receive {:provider_called, "fast"}
+  end
+
+  test "resolver-skipped head still gates the actual hosted route before its first call" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: ScriptedAnswerer)
+
+    assert {:ok, _settings} =
+             Settings.write_user_settings(%{
+               "intent" => %{"direct_answer_model_enabled" => true},
+               "providers" => %{"openai" => %{"enabled" => true}},
+               "model_preferences" => %{
+                 "tasks" => %{"direct_answer" => ["voice_stt_fake", "fast"]}
+               }
+             })
+
+    Process.put({ScriptedAnswerer, "fast"}, {:ok, "must wait"})
+
+    assert {:ok, denied} =
+             DirectAnswer.run(%{text: "answer"}, %{request: %{channel: :cli}})
+
+    assert denied.message =~ "provider disclosure"
+    refute_receive {:provider_called, "fast"}
+    assert Disclosure.hosted_pending?(:cli)
   end
 
   test "local to hosted fallback is denied without the second acknowledgement" do
@@ -357,7 +450,11 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     put_setting!("models.fallback.allow_local_to_hosted", true)
     Process.put({ScriptedAnswerer, "fast"}, {:ok, "hosted answer"})
 
-    assert {:ok, response} = DirectAnswer.run(%{text: "answer"}, %{actor: "alice"})
+    assert Disclosure.hosted_pending?(:cli)
+    assert :ok = Disclosure.render_and_ack(:cli, fn _text -> :ok end)
+
+    assert {:ok, response} =
+             DirectAnswer.run(%{text: "answer"}, %{actor: "alice", channel: :cli})
 
     assert response.message == "hosted answer"
     assert response.direct_answer.model_profile == "fast"
@@ -371,6 +468,27 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     assert audit =~ "model_fallback.answered"
     assert audit =~ "failed_profile: local"
     assert audit =~ "answered_profile: fast"
+  end
+
+  test "opted-in fallback preserves the operator-authored task order" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: ScriptedAnswerer)
+    enable_text_chain!(["fast", "anthropic_fast", "local"])
+    put_setting!("providers.anthropic.enabled", true)
+    put_setting!("models.fallback.enabled", true)
+    Process.put({ScriptedAnswerer, "anthropic_fast"}, {:ok, "authored second answer"})
+
+    assert Disclosure.hosted_pending?(:cli)
+    assert :ok = Disclosure.render_and_ack(:cli, fn _text -> :ok end)
+
+    assert {:ok, response} =
+             DirectAnswer.run(%{text: "answer"}, %{actor: "alice", channel: :cli})
+
+    assert response.message == "authored second answer"
+    assert response.direct_answer.fallback.failed_profile == "fast"
+    assert response.direct_answer.fallback.answered_profile == "anthropic_fast"
+    assert_receive {:provider_called, "fast"}
+    assert_receive {:provider_called, "anthropic_fast"}
+    refute_receive {:provider_called, "local"}
   end
 
   test "unknown partial failures never retry" do
@@ -397,7 +515,11 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     put_setting!("models.fallback.allow_local_to_hosted", true)
     put_setting!("models.fallback.max_failovers_per_turn", 2)
 
-    assert {:ok, response} = DirectAnswer.run(%{text: "answer"}, %{actor: "alice"})
+    assert Disclosure.hosted_pending?(:cli)
+    assert :ok = Disclosure.render_and_ack(:cli, fn _text -> :ok end)
+
+    assert {:ok, response} =
+             DirectAnswer.run(%{text: "answer"}, %{actor: "alice", channel: :cli})
 
     assert response.message == "The configured model chain failed: local → fast."
     assert response.direct_answer.fallback.provider_call_count == 2

@@ -38,12 +38,12 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
   alias AllbertAssist.Actions.Support.ConfirmationRequest
   alias AllbertAssist.FirstModel.Ollama
   alias AllbertAssist.FirstRun.Enablement
-  alias AllbertAssist.FirstRun.UsableModel
   alias AllbertAssist.Security.PermissionGate
-  alias AllbertAssist.Settings.Store
+  alias AllbertAssist.Settings.ModelDoctor
   alias AllbertAssist.Signals
 
   @post_pull_enablement_key :first_model_post_pull_enablement
+  @post_pull_doctor_key :first_model_post_pull_doctor
   @req_options_key :first_model_req_options
   @progress_private_key :allbert_first_model_pull_progress
 
@@ -147,9 +147,10 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
   end
 
   # A completed pull is an explicit provisioning event, so it immediately
-  # re-enters the existing detection-based enablement engine. The successful
-  # local pull is the bounded readiness evidence: select only a configured
-  # local profile for that exact tag and do not issue a second network probe.
+  # re-enters the existing detection-based enablement engine. Pull completion
+  # proves only the host-managed Ollama target. Model Doctor remains the
+  # readiness authority for the configured profile endpoint, so a custom local
+  # endpoint cannot be enabled by an unrelated model on localhost.
   defp post_pull_enablement(model) do
     runner =
       Application.get_env(
@@ -190,7 +191,10 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
   defp post_pull_message(model, %{state: :sticky_disabled}),
     do: "Pulled #{model}. Model answers remain disabled by your saved setting."
 
-  defp post_pull_message(model, %{state: :auto_enabled, selection: %{} = _selection}),
+  defp post_pull_message(model, %{state: :auto_enabled, selection: %{profile: profile}}),
+    do: "Pulled #{model}. Model answers are ready with selected profile #{profile}."
+
+  defp post_pull_message(model, %{state: :auto_enabled}),
     do: "Pulled #{model}. Model answers are ready."
 
   defp post_pull_message(model, %{state: :enabled_unavailable}),
@@ -201,18 +205,12 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
     do: "Pulled #{model}, but model answers are not ready. Review the Models panel."
 
   defp default_post_pull_enablement(model) do
-    with {:ok, settings, _user_settings} <- Store.resolved_settings(),
-         {:ok, selection} <-
-           UsableModel.select_local(settings,
-             doctor: fn _profile -> {:error, :post_pull_probe_not_required} end,
-             tags: [model],
-             curated_model: model
-           ) do
-      Enablement.reconcile(:local_ready,
-        local_selection: selection,
-        context: %{trigger: :model_pull}
-      )
-    end
+    doctor = Application.get_env(:allbert_assist, @post_pull_doctor_key, &ModelDoctor.diagnose/1)
+
+    Enablement.reconcile(:local_ready,
+      doctor: doctor,
+      context: %{trigger: :model_pull, pulled_model: model}
+    )
   end
 
   # Injectable puller for tests; default streams POST /api/pull progress.

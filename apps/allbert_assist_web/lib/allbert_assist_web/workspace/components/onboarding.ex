@@ -13,11 +13,13 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
 
   alias AllbertAssist.Actions.ErrorExtraction
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.Maps
   alias AllbertAssist.Onboarding, as: OnboardingContext
   alias AllbertAssist.Onboarding.ProviderStep
   alias AllbertAssist.Personas
   alias AllbertAssist.Settings
+  alias AllbertAssistWeb.Workspace.Components.OperatorPanels, as: PanelSupport
   alias AllbertAssistWeb.Workspace.Components.Patterns
 
   @local_user_id "local"
@@ -29,7 +31,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
     needs_model: "Needs model",
     needs_runtime: "Needs runtime",
     needs_review: "Needs review",
-    needs_credentials: "Needs credentials"
+    needs_credentials: "Needs credentials",
+    needs_selection: "Needs model selection"
   }
 
   @impl true
@@ -64,14 +67,16 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
   @impl true
   def handle_event("wizard_start", %{"track" => track}, socket) do
     OnboardingContext.wizard_start(wizard_track(track))
-    {:noreply, refresh_state(reprobe(assign(socket, :onboarding_notice, "Wizard started.")))}
+    {:noreply, refresh_state(assign(socket, :onboarding_notice, "Wizard started."))}
   end
 
   def handle_event("wizard_advance", %{"step" => step}, socket) do
     socket =
       case OnboardingContext.wizard_advance(step) do
         {:ok, _state} ->
-          assign(socket, onboarding_notice: "Step recorded: #{step}.", onboarding_error: nil)
+          socket
+          |> notify_model_disclosure_refresh()
+          |> assign(onboarding_notice: "Step recorded: #{step}.", onboarding_error: nil)
 
         {:error, {:not_current_step, current}} ->
           assign(socket, onboarding_error: "That is not the current step (current: #{current}).")
@@ -80,7 +85,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
           assign(socket, onboarding_error: "Unknown step: #{unknown}.")
       end
 
-    {:noreply, refresh_state(reprobe(socket))}
+    {:noreply, refresh_state(socket)}
   end
 
   def handle_event("wizard_rewind", %{"step" => step}, socket) do
@@ -99,7 +104,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
           assign(socket, onboarding_error: "Unknown step: #{unknown}.")
       end
 
-    {:noreply, refresh_state(reprobe(socket))}
+    {:noreply, refresh_state(socket)}
   end
 
   def handle_event("wizard_enter", %{"step" => step}, socket) do
@@ -115,14 +120,16 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
           assign(socket, onboarding_error: "Unknown step: #{unknown}.")
       end
 
-    {:noreply, refresh_state(reprobe(socket))}
+    {:noreply, refresh_state(socket)}
   end
 
   def handle_event("reenable_model_answers", _params, socket) do
     socket =
       case OnboardingContext.reenable_model_answers() do
         :ok ->
-          assign(socket,
+          socket
+          |> notify_model_disclosure_refresh()
+          |> assign(
             onboarding_notice: "Model-backed answers re-enabled.",
             onboarding_error: nil,
             model_reenable_affordance?: false
@@ -132,7 +139,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
           assign(socket, onboarding_error: reason)
       end
 
-    {:noreply, refresh_state(socket)}
+    {:noreply, socket |> refresh_model_readiness() |> refresh_state()}
   end
 
   def handle_event("wizard_reset", _params, socket) do
@@ -143,7 +150,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
       |> assign(onboarding_notice: "Onboarding reset.", onboarding_error: nil)
       |> assign(selected_persona: nil, persona_review: nil)
 
-    {:noreply, refresh_state(reprobe(socket))}
+    {:noreply, refresh_state(socket)}
   end
 
   # -- M2 local knowledge: connect a notes folder -----------------------------
@@ -174,7 +181,9 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
              action_context(socket)
            ) do
         {:ok, %{status: :completed}} ->
-          assign(socket,
+          socket
+          |> notify_model_disclosure_refresh()
+          |> assign(
             onboarding_notice: "Provider key stored (masked) for #{provider}.",
             onboarding_error: nil,
             provider_form: provider_form(provider)
@@ -187,7 +196,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
           assign(socket, :onboarding_error, reason)
       end
 
-    {:noreply, refresh_state(reprobe(socket))}
+    {:noreply, socket |> refresh_model_readiness() |> refresh_state()}
   end
 
   def handle_event("run_doctor", %{"profile" => profile}, socket) do
@@ -204,27 +213,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
           assign(socket, :onboarding_error, reason)
       end
 
-    {:noreply, refresh_state(reprobe(socket))}
-  end
-
-  def handle_event("use_provider", %{"profile" => profile}, socket) do
-    socket =
-      case run_action("set_active_model_profile", %{profile: profile}, action_context(socket)) do
-        {:ok, %{status: :completed}} ->
-          assign(socket,
-            onboarding_notice:
-              "Active provider/model set to #{profile} (settings write, no config edit).",
-            onboarding_error: nil
-          )
-
-        {:ok, response} ->
-          assign(socket, :onboarding_error, response_error(response))
-
-        {:error, reason} ->
-          assign(socket, :onboarding_error, reason)
-      end
-
-    {:noreply, refresh_state(reprobe(socket))}
+    {:noreply, socket |> refresh_model_readiness() |> refresh_state()}
   end
 
   def handle_event("install_runtime", _params, socket) do
@@ -235,29 +224,59 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
        %{},
        "Local runtime installation approved and started."
      )
-     |> refresh_state()
-     |> reprobe()}
+     |> refresh_model_readiness()
+     |> refresh_state()}
   end
 
   def handle_event("pull_model", _params, socket) do
-    context = action_context(socket)
+    start_model_pull(socket, %{})
+  end
 
-    params =
-      %{}
-      |> maybe_put(:user_id, context.user_id)
-      |> maybe_put(:thread_id, get_in(context, [:request, :thread_id]))
+  def handle_event("pull_catalog_model", %{"entry-id" => entry_id}, socket) do
+    case catalog_pull_entry(socket.assigns.model_catalog, entry_id) do
+      {:ok, entry} ->
+        start_model_pull(socket, %{model: entry.model})
 
-    # v0.64.3: register as the parent's live progress target, then run the
-    # confirmation+pull asynchronously so this process stays free to receive the
-    # streamed progress frames (a synchronous pull blocks and batches them).
-    send(self(), {:register_model_pull_target, socket.assigns.myself})
+      :error ->
+        {:noreply,
+         assign(socket,
+           onboarding_error:
+             "That local catalog model is unavailable or already pulled. Refresh onboarding and try again."
+         )}
+    end
+  end
 
-    {:noreply,
-     socket
-     |> assign(model_pull_progress: [], model_pulling?: true, onboarding_error: nil)
-     |> start_async(:pull_model, fn ->
-       run_confirmed_onboarding_action_async("pull_model", params, context)
-     end)}
+  def handle_event("select_catalog_profile", %{"entry-id" => entry_id}, socket) do
+    case catalog_selection_entry(socket.assigns.model_catalog, entry_id) do
+      {:ok, entry} ->
+        case run_action(
+               "set_direct_answer_model_profile",
+               %{profile: field(entry, :profile)},
+               action_context(socket)
+             ) do
+          {:ok, %{status: :completed} = response} ->
+            send(self(), :refresh_model_disclosure)
+
+            {:noreply,
+             socket
+             |> assign(onboarding_notice: response.message, onboarding_error: nil)
+             |> refresh_model_readiness()
+             |> refresh_state()}
+
+          {:ok, response} ->
+            {:noreply, assign(socket, :onboarding_error, response_error(response))}
+
+          {:error, reason} ->
+            {:noreply, assign(socket, :onboarding_error, reason)}
+        end
+
+      :error ->
+        {:noreply,
+         assign(socket,
+           onboarding_error:
+             "That catalog profile is unavailable for DirectAnswer. Refresh onboarding and try again."
+         )}
+    end
   end
 
   # -- M4 persona review + apply ---------------------------------------------
@@ -281,6 +300,27 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
     {:noreply, refresh_state(apply_persona(socket, persona_id))}
   end
 
+  defp start_model_pull(socket, pull_params) do
+    context = action_context(socket)
+
+    params =
+      pull_params
+      |> maybe_put(:user_id, context.user_id)
+      |> maybe_put(:thread_id, get_in(context, [:request, :thread_id]))
+
+    # v0.64.3: register as the parent's live progress target, then run the
+    # confirmation+pull asynchronously so this process stays free to receive the
+    # streamed progress frames (a synchronous pull blocks and batches them).
+    send(self(), {:register_model_pull_target, socket.assigns.myself})
+
+    {:noreply,
+     socket
+     |> assign(model_pull_progress: [], model_pulling?: true, onboarding_error: nil)
+     |> start_async(:pull_model, fn ->
+       run_confirmed_onboarding_action_async("pull_model", params, context)
+     end)}
+  end
+
   # v0.64.3: finalize the async model pull started in `handle_event("pull_model", ...)`.
   # Streamed progress frames arrive separately via the targeted `update/2` clause.
   @impl true
@@ -291,32 +331,29 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
      socket
      |> assign(:model_pulling?, false)
      |> assign_action_success(response_message(response), response)
-     |> refresh_state()
-     |> reprobe()}
+     |> refresh_model_readiness()
+     |> refresh_state()}
   end
 
   def handle_async(:pull_model, {:ok, {:ok, response}}, socket) do
     {:noreply,
      socket
      |> assign(model_pulling?: false, onboarding_error: response_error(response))
-     |> refresh_state()
-     |> reprobe()}
+     |> refresh_state()}
   end
 
   def handle_async(:pull_model, {:ok, {:error, reason}}, socket) do
     {:noreply,
      socket
      |> assign(model_pulling?: false, onboarding_error: reason)
-     |> refresh_state()
-     |> reprobe()}
+     |> refresh_state()}
   end
 
   def handle_async(:pull_model, {:exit, reason}, socket) do
     {:noreply,
      socket
      |> assign(model_pulling?: false, onboarding_error: "Model pull crashed: #{inspect(reason)}")
-     |> refresh_state()
-     |> reprobe()}
+     |> refresh_state()}
   end
 
   @impl true
@@ -513,6 +550,9 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
     ~H"""
     <div id="workspace-wizard-provider" class="space-y-3">
       <section id="workspace-model-path-repair" class="space-y-2">
+        <p id="workspace-direct-answer-readiness" class="text-xs text-base-content/70">
+          DirectAnswer: {readiness_label(@onboarding_wizard.direct_answer_readiness)}
+        </p>
         <p class="text-xs font-medium text-base-content/80">{@model_guidance.headline}</p>
         <p class="text-xs text-base-content/70">{@model_guidance.next_action}</p>
 
@@ -555,13 +595,40 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
 
       <div id="workspace-onboarding-model-catalog" class="space-y-1">
         <div
-          :for={entry <- Enum.take(@model_catalog, 12)}
-          class="rounded border border-base-200 p-2 text-xs"
+          :for={entry <- onboarding_catalog(@model_catalog)}
+          id={"workspace-onboarding-catalog-row-#{PanelSupport.safe_id(entry.id)}"}
+          class="flex items-center justify-between gap-2 rounded border border-base-200 p-2 text-xs"
         >
-          <span class="font-medium">{entry.label}</span>
-          <span>{" — #{entry.model}"}</span>
-          <span :if={entry.floor_gb}>{" · floor #{entry.floor_gb} GB"}</span>
-          <span>{" · #{Enum.join(entry.purposes, ", ")}"}</span>
+          <div class="min-w-0">
+            <span class="font-medium">{entry.label}</span>
+            <span>{" — #{entry.model}"}</span>
+            <span :if={entry.floor_gb}>{" · floor #{entry.floor_gb} GB"}</span>
+            <span>{" · #{Enum.join(entry.purposes, ", ")}"}</span>
+            <span :if={catalog_model_pullable?(entry)}> · pull requires confirmation</span>
+          </div>
+          <button
+            :if={catalog_model_pullable?(entry)}
+            type="button"
+            id={"workspace-onboarding-catalog-pull-#{PanelSupport.safe_id(entry.id)}"}
+            class={Patterns.button_class!("secondary")}
+            phx-click="pull_catalog_model"
+            phx-value-entry-id={entry.id}
+            phx-target={@myself}
+            disabled={@model_pulling?}
+          >
+            {if @model_pulling?, do: "Pull in progress…", else: "Pull #{entry.model}"}
+          </button>
+          <button
+            :if={catalog_model_selectable?(entry)}
+            type="button"
+            id={"workspace-onboarding-catalog-use-#{PanelSupport.safe_id(entry.id)}"}
+            class={Patterns.button_class!("secondary")}
+            phx-click="select_catalog_profile"
+            phx-value-entry-id={entry.id}
+            phx-target={@myself}
+          >
+            Use for answers
+          </button>
         </div>
       </div>
 
@@ -594,17 +661,6 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
       </.form>
 
       <div class="flex flex-wrap gap-2">
-        <button
-          :for={p <- @provider_profiles}
-          type="button"
-          id={"workspace-provider-use-#{p.name}"}
-          class={Patterns.compact_button_class!("secondary")}
-          phx-click="use_provider"
-          phx-target={@myself}
-          phx-value-profile={p.name}
-        >
-          Use {p.name}
-        </button>
         <button
           type="button"
           id="workspace-provider-doctor"
@@ -723,29 +779,42 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
 
   # -- state / helpers --------------------------------------------------------
 
-  # M7.2: probe once per component, refreshed only on wizard actions.
-  defp ensure_probe(socket) do
-    if Map.get(socket.assigns, :onboarding_probe) do
+  # Cache the substrate probe and the matching DirectAnswer projection as one
+  # snapshot. Wizard navigation is presentation-only; model/provider mutations
+  # explicitly refresh the pair through `refresh_model_readiness/1`.
+  defp ensure_model_readiness(socket) do
+    if Map.has_key?(socket.assigns, :onboarding_probe) and
+         Map.has_key?(socket.assigns, :onboarding_enablement_result) do
       socket
     else
-      assign(socket, :onboarding_probe, OnboardingContext.safe_first_model_state())
+      refresh_model_readiness(socket)
     end
   end
 
-  defp reprobe(socket),
-    do: assign(socket, :onboarding_probe, OnboardingContext.safe_first_model_state())
+  defp refresh_model_readiness(socket) do
+    probe = OnboardingContext.safe_first_model_state()
+    projection = FirstRun.readiness_projection(model_state: probe)
+
+    assign(socket,
+      onboarding_probe: probe,
+      onboarding_enablement_result: projection.enablement_result
+    )
+  end
 
   defp refresh_state(socket) do
-    socket = ensure_probe(socket)
+    socket = ensure_model_readiness(socket)
 
     wizard =
-      OnboardingContext.wizard_state(first_model_state: socket.assigns.onboarding_probe)
+      OnboardingContext.wizard_state(
+        first_model_state: socket.assigns.onboarding_probe,
+        enablement_result: socket.assigns.onboarding_enablement_result
+      )
 
     socket
     |> assign(:onboarding_wizard, wizard)
     |> assign(
       :model_guidance,
-      OnboardingContext.model_guidance_for(wizard.readiness, wizard.track)
+      OnboardingContext.model_guidance_for(wizard.direct_answer_readiness, wizard.track)
     )
     |> assign(:step_guidance, step_guidance(wizard))
     |> assign(:first_chat_ready?, OnboardingContext.first_chat_ready?(wizard))
@@ -844,6 +913,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
   defp maybe_assign_pull_progress(socket, _response), do: socket
 
   defp notify_first_model_enablement(response) do
+    send(self(), :refresh_model_disclosure)
     output_data = Map.get(response, :output_data) || Map.get(response, "output_data") || %{}
 
     case Map.get(output_data, :enablement) || Map.get(output_data, "enablement") do
@@ -852,14 +922,65 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
     end
   end
 
+  defp notify_model_disclosure_refresh(socket) do
+    send(self(), :refresh_model_disclosure)
+    socket
+  end
+
   defp response_message(response) do
     output_data = Map.get(response, :output_data) || Map.get(response, "output_data") || %{}
 
     Map.get(output_data, :enablement_operator_message) ||
       Map.get(output_data, "enablement_operator_message") ||
       Map.get(response, :message) || Map.get(response, "message") ||
-      "Starter model pull approved and completed."
+      "Model pull approved and completed."
   end
+
+  defp catalog_pull_entry(entries, entry_id) when is_list(entries) and is_binary(entry_id) do
+    case Enum.find(entries, fn entry ->
+           field(entry, :id) == entry_id and catalog_model_pullable?(entry)
+         end) do
+      nil -> :error
+      entry -> {:ok, entry}
+    end
+  end
+
+  defp catalog_pull_entry(_entries, _entry_id), do: :error
+
+  defp catalog_model_pullable?(entry), do: field(entry, :direct_answer_repair?) == true
+
+  defp catalog_selection_entry(entries, entry_id)
+       when is_list(entries) and is_binary(entry_id) do
+    case Enum.find(entries, fn entry ->
+           field(entry, :id) == entry_id and catalog_model_selectable?(entry)
+         end) do
+      nil ->
+        :error
+
+      entry ->
+        case field(entry, :profile) do
+          profile when is_binary(profile) and profile != "" -> {:ok, entry}
+          _missing_or_invalid -> :error
+        end
+    end
+  end
+
+  defp catalog_selection_entry(_entries, _entry_id), do: :error
+
+  defp catalog_model_selectable?(entry), do: field(entry, :selectable?) == true
+
+  defp onboarding_catalog(entries) when is_list(entries) do
+    {actionable, informational} =
+      entries
+      |> Enum.sort_by(&field(&1, :id))
+      |> Enum.split_with(fn entry ->
+        catalog_model_pullable?(entry) or catalog_model_selectable?(entry)
+      end)
+
+    actionable ++ Enum.take(informational, max(12 - length(actionable), 0))
+  end
+
+  defp onboarding_catalog(_entries), do: []
 
   defp apply_persona(socket, persona_id) do
     context = action_context(socket)

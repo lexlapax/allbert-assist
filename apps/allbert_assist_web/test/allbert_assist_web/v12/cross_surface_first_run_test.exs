@@ -59,9 +59,14 @@ defmodule AllbertAssistWeb.V12.CrossSurfaceFirstRunTest do
     for model_state <- @states, hosted? <- [false, true] do
       reset_home!(root)
 
+      cell_settings =
+        if hosted? and model_state != :local_ready,
+          do: matrix_settings(["fast"]),
+          else: matrix_settings()
+
       assert {:ok, result} =
                Enablement.reconcile(model_state,
-                 settings: matrix_settings(),
+                 settings: cell_settings,
                  user_settings: %{},
                  local_selection: if(model_state == :local_ready, do: @local),
                  hosted_selection: if(hosted?, do: @hosted),
@@ -111,6 +116,7 @@ defmodule AllbertAssistWeb.V12.CrossSurfaceFirstRunTest do
                Enablement.reconcile(:runtime_unhealthy,
                  settings: matrix_settings(),
                  user_settings: user,
+                 local_selection: nil,
                  hosted_selection: nil
                )
 
@@ -147,7 +153,7 @@ defmodule AllbertAssistWeb.V12.CrossSurfaceFirstRunTest do
 
   defp expected_state(:local_ready, _hosted?), do: :auto_enabled
   defp expected_state(:byok_ready, true), do: :auto_enabled
-  defp expected_state(:byok_ready, false), do: :nothing_detected
+  defp expected_state(:byok_ready, false), do: :enabled_unavailable
   defp expected_state(:runtime_missing, false), do: :nothing_detected
   defp expected_state(:below_hardware_floor, false), do: :below_floor
   defp expected_state(_state, true), do: :auto_enabled
@@ -158,7 +164,7 @@ defmodule AllbertAssistWeb.V12.CrossSurfaceFirstRunTest do
     File.mkdir_p!(root)
   end
 
-  defp matrix_settings do
+  defp matrix_settings(direct_answer_profiles \\ ["local", "fast"]) do
     %{
       "intent" => %{
         "direct_answer_model_enabled" => false,
@@ -166,7 +172,7 @@ defmodule AllbertAssistWeb.V12.CrossSurfaceFirstRunTest do
       },
       "model_preferences" => %{
         "primary" => "local",
-        "tasks" => %{"direct_answer" => ["local", "fast"]}
+        "tasks" => %{"direct_answer" => direct_answer_profiles}
       },
       "providers" => %{
         "local_ollama" => %{

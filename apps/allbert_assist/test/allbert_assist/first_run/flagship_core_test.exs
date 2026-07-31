@@ -3,6 +3,7 @@ defmodule AllbertAssist.FirstRun.FlagshipCoreTest do
 
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.CLI.FirstRun
+  alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.{ModelRuntime, Models}
@@ -53,7 +54,7 @@ defmodule AllbertAssist.FirstRun.FlagshipCoreTest do
 
   test "fresh Home with a usable local profile answers the first question with zero clicks" do
     local = %{
-      profile: "local",
+      profile: "direct_answer_local",
       provider: "local_ollama",
       provider_class: :local,
       verification: :doctor_healthy
@@ -81,6 +82,7 @@ defmodule AllbertAssist.FirstRun.FlagshipCoreTest do
                req_started?: fn -> true end,
                settings: Settings.defaults(),
                user_settings: %{},
+               local_selection: nil,
                hosted_selection: nil,
                context: %{audit?: false}
              )
@@ -90,7 +92,7 @@ defmodule AllbertAssist.FirstRun.FlagshipCoreTest do
     assert response.message =~ "direct-answer model is disabled"
   end
 
-  test "every supported hosted env key enables and resolves its seeded profile" do
+  test "every supported hosted env key enables only its explicitly selected task profile" do
     rows = [
       {"OPENAI_API_KEY", "openai", "fast"},
       {"ANTHROPIC_API_KEY", "anthropic", "anthropic_fast"},
@@ -110,8 +112,13 @@ defmodule AllbertAssist.FirstRun.FlagshipCoreTest do
                  hardware_ok?: fn -> true end
                )
 
+      assert {:ok, _settings} =
+               Store.write_user_settings(%{
+                 "model_preferences" => %{"tasks" => %{"direct_answer" => [profile]}}
+               })
+
       assert {:ok, settings, user_settings} = Store.resolved_settings()
-      assert user_settings == %{}
+      assert get_in(user_settings, ["model_preferences", "tasks", "direct_answer"]) == [profile]
       assert get_in(settings, ["providers", provider, "enabled"]) == false
 
       assert {:ok,
@@ -139,6 +146,14 @@ defmodule AllbertAssist.FirstRun.FlagshipCoreTest do
 
       assert ModelRuntime.request_opts(resolution.profile)[:api_key] ==
                "operator-env-key-#{env_key}"
+
+      assert :ok =
+               Disclosure.render_and_ack(:cli, fn text ->
+                 assert text =~
+                          "Your configured DirectAnswer route uses #{profile} from #{provider}."
+
+                 :ok
+               end)
 
       assert {:ok, response} =
                DirectAnswer.run(%{text: "Can you answer?"}, %{actor: "operator"})

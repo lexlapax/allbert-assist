@@ -5,7 +5,7 @@ defmodule AllbertAssist.CLI.Areas.Model do
   The single source of truth for `mix allbert.model` and `allbert admin model`:
   `dispatch/2` parses the sub-argv, routes to the same
   `list_provider_profiles`/`list_model_profiles`/`set_active_model_profile`/
-  `doctor_*` registered actions the Mix task used, and returns
+  `set_direct_answer_model_profile`/`doctor_*` registered actions the Mix task used, and returns
   `{rendered_output, exit_code}` — no `Mix.*` calls, so it runs inside the
   packaged release. `Mix.Tasks.Allbert.Model` is a thin wrapper that prints the
   output through `Mix.shell/0`.
@@ -24,6 +24,7 @@ defmodule AllbertAssist.CLI.Areas.Model do
     allbert admin models list
     allbert admin models catalog [PURPOSE]
     allbert admin models use PROFILE [--enable-assist]
+    allbert admin models use-direct-answer PROFILE
     allbert admin models doctor PROFILE
   """
 
@@ -80,6 +81,13 @@ defmodule AllbertAssist.CLI.Areas.Model do
     end
   end
 
+  defp route(["use-direct-answer", profile], ctx) do
+    with {:ok, response} <-
+           completed_action("set_direct_answer_model_profile", %{profile: profile}, ctx) do
+      {:ok, {:use_direct_answer, response}}
+    end
+  end
+
   defp route(_args, _ctx), do: {:usage, @usage}
 
   defp catalog(purpose, ctx) do
@@ -133,10 +141,10 @@ defmodule AllbertAssist.CLI.Areas.Model do
     Render.ok(
       ["Model catalog v#{version}:"] ++
         Enum.map(entries, fn entry ->
-          ready = if entry.pulled? or entry.configured?, do: " ready", else: ""
+          readiness = catalog_readiness(entry)
           floor = if entry.floor_gb, do: " floor=#{entry.floor_gb}GB", else: ""
 
-          "- #{entry.id}: source=#{entry.source} purposes=#{Enum.join(entry.purposes, ",")}#{floor}#{ready}"
+          "- #{entry.id}: source=#{entry.source} purposes=#{Enum.join(entry.purposes, ",")}#{floor}#{readiness}"
         end)
     )
   end
@@ -145,9 +153,18 @@ defmodule AllbertAssist.CLI.Areas.Model do
     Render.ok([response.message | audit_lines(response.settings)])
   end
 
+  defp render({:ok, {:use_direct_answer, response}}) do
+    Render.ok([response.message | audit_lines(response.settings)])
+  end
+
   defp render({:error, {:message, message}}), do: Render.error(message)
   defp render({:usage, usage}), do: Render.usage(usage)
   defp render({:error, reason}), do: Render.error("Model command failed: #{inspect(reason)}")
+
+  defp catalog_readiness(%{status: :ready}), do: " ready"
+  defp catalog_readiness(%{status: :not_pulled}), do: " not-pulled"
+  defp catalog_readiness(%{status: :configured}), do: " configured"
+  defp catalog_readiness(_entry), do: ""
 
   defp completed_action(action_name, params, ctx) do
     ActionHelper.completed_action(action_name, params, ctx)

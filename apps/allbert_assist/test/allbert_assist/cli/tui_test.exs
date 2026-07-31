@@ -4,10 +4,63 @@ defmodule AllbertAssist.CLI.TuiTest do
 
   alias AllbertAssist.Channels.TUI.InputDriver
   alias AllbertAssist.CLI.Tui
+  alias AllbertAssist.FirstRun.Disclosure
+  alias AllbertAssist.Paths
   alias AllbertAssist.Runtime.Attach.TUIProtocol
   alias AllbertAssist.SecurityFixtures.AssertBinding
 
   @terminal %{columns: 100, rows: 30, color: :ansi256, unicode?: true}
+
+  test "model disclosure is rendered and acknowledged before daemon attachment" do
+    with_disclosure_home(fn ->
+      :ok = Disclosure.mark_pending(hosted_selection())
+      parent = self()
+
+      callbacks =
+        callbacks(parent,
+          open: fn _profile, _terminal ->
+            send(parent, {:ordered_event, :open})
+            {:error, :not_available}
+          end
+        )
+
+      assert {:error, :not_available} =
+               Tui.launch(
+                 callbacks: callbacks,
+                 model_disclosure_output: fn text ->
+                   send(parent, {:ordered_event, {:disclosure, text}})
+                   :ok
+                 end
+               )
+
+      assert_receive {:ordered_event, {:disclosure, text}}
+      assert text =~ "Your message will leave this device for openai"
+      assert_receive {:ordered_event, :open}
+      refute Disclosure.pending?(:tui)
+    end)
+  end
+
+  test "failed disclosure output preserves pending truth and never opens the daemon" do
+    with_disclosure_home(fn ->
+      :ok = Disclosure.mark_pending(hosted_selection())
+
+      callbacks =
+        callbacks(self(),
+          open: fn _profile, _terminal -> flunk("daemon opened before disclosure delivery") end
+        )
+
+      assert {:error, {:disclosure_render_failed, :closed}} =
+               Tui.launch(
+                 callbacks: callbacks,
+                 model_disclosure_output: fn _text -> {:error, :closed} end
+               )
+
+      assert Disclosure.pending?(:tui)
+
+      assert Tui.error_message({:disclosure_render_failed, :closed}) =~
+               "no hosted prompt was sent"
+    end)
+  end
 
   test "absent daemon is actionable and never mutates terminal or starts input" do
     parent = self()
@@ -1302,6 +1355,37 @@ defmodule AllbertAssist.CLI.TuiTest do
 
   defp index_of(events, predicate) do
     Enum.find_index(events, predicate) || flunk("missing event in #{inspect(events)}")
+  end
+
+  defp hosted_selection do
+    %{
+      profile: "fast",
+      provider: "openai",
+      provider_class: :hosted,
+      verification: :configured_unverified
+    }
+  end
+
+  defp with_disclosure_home(fun) do
+    saved_paths = Application.get_env(:allbert_assist, Paths)
+
+    root =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-tui-disclosure-#{System.unique_integer([:positive])}"
+      )
+
+    Application.put_env(:allbert_assist, Paths, home: root)
+
+    try do
+      fun.()
+    after
+      if saved_paths,
+        do: Application.put_env(:allbert_assist, Paths, saved_paths),
+        else: Application.delete_env(:allbert_assist, Paths)
+
+      File.rm_rf!(root)
+    end
   end
 
   defp reader_loop(parent, driver) do

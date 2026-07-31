@@ -49,7 +49,7 @@ defmodule AllbertAssist.Security.V12SweepEvalTest do
   @enable_values %{
     "intent.direct_answer_model_enabled" => true,
     "intent.model_assist_enabled" => true,
-    "model_preferences.primary" => "local"
+    "model_preferences.tasks.direct_answer" => ["local", "fast"]
   }
   @context %{actor: "local", channel: :cli, request: %{operator_id: "local", channel: :cli}}
 
@@ -95,7 +95,7 @@ defmodule AllbertAssist.Security.V12SweepEvalTest do
   test "v12-detect-no-egress-001" do
     assert {:ok, %{state: :auto_enabled, selection: %{provider_class: :hosted}}} =
              Enablement.reconcile(:runtime_missing,
-               settings: settings(),
+               settings: settings(["fast"]),
                user_settings: %{},
                hosted_selection: @hosted,
                doctor: fn _ -> send(self(), :transport_called) end,
@@ -138,6 +138,7 @@ defmodule AllbertAssist.Security.V12SweepEvalTest do
              Enablement.reconcile(:model_missing,
                settings: settings(),
                user_settings: %{},
+               local_selection: nil,
                hosted_selection: nil
              )
 
@@ -278,6 +279,16 @@ defmodule AllbertAssist.Security.V12SweepEvalTest do
     put!("models.fallback.enabled", true)
     put!("models.fallback.allow_local_to_hosted", true)
     put!("models.fallback.max_failovers_per_turn", 2)
+
+    assert Disclosure.hosted_pending?(:cli)
+    disclosure = Disclosure.text(:cli)
+    assert disclosure =~ "local"
+    assert disclosure =~ "fast"
+    refute disclosure =~ "anthropic_fast"
+    assert :ok = Disclosure.render_and_ack(:cli, fn _text -> :ok end)
+
+    # A headless/non-presenting request may reuse the exact route-set
+    # acknowledgement from a local operator-control surface.
     assert {:ok, response} = DirectAnswer.run(%{text: "answer"}, %{actor: "local"})
     assert response.direct_answer.fallback.provider_call_count == 2
     assert_receive {:provider_called, "local"}
@@ -339,7 +350,7 @@ defmodule AllbertAssist.Security.V12SweepEvalTest do
 
       assert {:ok, %{selection: %{provider_class: :hosted}}} =
                Enablement.reconcile(state,
-                 settings: settings(),
+                 settings: settings(["fast"]),
                  user_settings: %{},
                  hosted_selection: @hosted,
                  doctor: fn _ -> flunk("local probing/provisioning is forbidden") end,
@@ -384,12 +395,12 @@ defmodule AllbertAssist.Security.V12SweepEvalTest do
 
   defp bind(id, assertions), do: AssertBinding.check!(id, assertions)
 
-  defp settings do
+  defp settings(direct_answer_profiles \\ ["local", "fast"]) do
     %{
       "intent" => %{"direct_answer_model_enabled" => false, "model_assist_enabled" => false},
       "model_preferences" => %{
         "primary" => "local",
-        "tasks" => %{"direct_answer" => ["local", "fast"]}
+        "tasks" => %{"direct_answer" => direct_answer_profiles}
       },
       "providers" => %{
         "local_ollama" => %{

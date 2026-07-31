@@ -7,6 +7,11 @@ router model tiers), ADR 0047 (provider doctor contract), ADR 0062 (intent
 descriptor lifecycle), ADR 0071 (routing-accuracy evaluation harness), ADR 0006
 (Security Central).
 
+Amended by v1.3 M9.b.3 (2026-07-31): DirectAnswer is a separately qualified
+purpose. Its shipped local recommendation is `direct_answer_local` /
+`qwen2.5:7b` at deterministic temperature `0`; this does not replace the
+cross-platform `local` / `llama3.2:3b` first-model default.
+
 ## Context
 
 Allbert consumes models for many distinct purposes — intent Stage-1 embedding,
@@ -41,8 +46,9 @@ per purpose: recommended **local** profile, recommended **hosted** alternative
 Central** key/profile to set, the **verify** command, and the **fallback** when
 the model is unavailable. Purposes covered: intent embedding, intent
 disambiguation, intent escalation, descriptor generation, intent eval live lane,
-main conversational loop, voice STT/TTS, image generation, codegen committee,
-advisory critics, and a forward-looking Pi-mode coding row (v0.57).
+main conversational loop, DirectAnswer, voice STT/TTS, image generation,
+codegen committee, advisory critics, and a forward-looking Pi-mode coding row
+(v0.57).
 
 ### 2. Settings Central is authority; recommendations are advice
 
@@ -77,6 +83,15 @@ therefore keeps the existing Settings Central defaults (`router_escalation_local
 `gemma4:26b`, local STT validation default = `gemma4:e2b`) and reconciles stale docs
 that claimed `gemma4:*` was unavailable. `model_doctor` guards against drift by
 reporting `not-pulled`/`under-capable` for missing or insufficient local models.
+
+v1.3 adds the separate `direct_answer_local` recommendation on the official
+Ollama `qwen2.5:7b` tag (4.7 GB catalog size; 16 GB recommended floor) with
+temperature `0`, maximum `1024` output tokens, and a 60-second timeout. The
+[official Ollama catalog](https://ollama.com/library/qwen2.5) and
+[Qwen 2.5 release](https://qwenlm.github.io/blog/qwen2.5/) are the upstream
+metadata sources; Qwen identifies the 7B model as Apache-2.0. This task row
+does not replace `local` / `llama3.2:3b` as the first-model default, and its
+external Ollama weights are not packaged Allbert components.
 
 ### 4. UI/UX surfacing
 

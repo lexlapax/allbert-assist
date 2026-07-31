@@ -18,6 +18,7 @@ defmodule AllbertAssist.CLI do
   alias AllbertAssist.CLI.Ask
   alias AllbertAssist.CLI.Commands
   alias AllbertAssist.CLI.FirstRun
+  alias AllbertAssist.FirstRun.Presentation
   alias AllbertAssist.Licenses
   alias AllbertAssist.Onboarding
   alias AllbertAssist.Portability.Export
@@ -407,38 +408,82 @@ defmodule AllbertAssist.CLI do
   defp first_run do
     details = FirstRun.detect_details()
     state = details.state
+    projection = readiness_projection(details)
+    readiness = projection.direct_answer_readiness
 
     body =
-      case state do
-        :home_missing ->
-          "Allbert Home is not set up yet. Start the installed service, then open the web workspace. " <>
-            "Use `allbert admin service install --dry-run` to preview service setup, or `allbert serve --open` as a repair fallback."
+      if consent_disabled?(projection) and state not in [:home_missing, :schema_incompatible] do
+        disabled_model_message(projection)
+      else
+        case state do
+          :home_missing ->
+            "Allbert Home is not set up yet. Start the installed service, then open the web workspace. " <>
+              "Use `allbert admin service install --dry-run` to preview service setup, or `allbert serve --open` as a repair fallback."
 
-        :schema_incompatible ->
-          "Allbert Home needs a schema upgrade before it can start. See the upgrade guide."
+          :schema_incompatible ->
+            "Allbert Home needs a schema upgrade before it can start. See the upgrade guide."
 
-        :onboarding_incomplete ->
-          "Onboarding is incomplete. Open the web workspace to resume the wizard, or run `allbert onboard` in a terminal."
+          :onboarding_incomplete when readiness == :ready ->
+            "Onboarding is optional. Open the web workspace or run `allbert onboard` to customize Allbert."
 
-        :first_model_not_ready ->
-          model_repair_message(details.first_model_state)
+          :onboarding_incomplete ->
+            "Onboarding is optional. " <> model_repair_message(readiness)
 
-        :profile_unreviewed ->
-          "A profile is pending review. Open the web workspace onboarding panel, or run `allbert onboard`."
+          :first_model_not_ready when readiness == :ready ->
+            "DirectAnswer is ready with its selected profile. The optional global starter profile is unavailable; open Models to review it."
 
-        :product_ready ->
-          "Allbert is ready. Open the web workspace, or run `allbert --help`."
+          :first_model_not_ready ->
+            model_repair_message(readiness)
+
+          :profile_unreviewed ->
+            profile_review_message(readiness)
+
+          :product_ready when readiness == :ready ->
+            "Allbert is ready. Open the web workspace, or run `allbert --help`."
+
+          :product_ready ->
+            model_repair_message(readiness)
+        end
       end
 
     {body, 0}
   end
 
-  defp model_repair_message(first_model_state) do
-    readiness = Onboarding.readiness_label(first_model_state: first_model_state)
+  defp consent_disabled?(%{enablement_result: %{state: :sticky_disabled}}), do: true
+  defp consent_disabled?(_projection), do: false
+
+  defp disabled_model_message(%{enablement_result: result}) do
+    presentation = Presentation.for(result, :cli)
+
+    "#{presentation.message} Open Models or run " <>
+      "`allbert admin settings set intent.direct_answer_model_enabled true` to re-enable; " <>
+      "onboarding remains optional."
+  end
+
+  defp model_repair_message(readiness) do
     guidance = Onboarding.model_guidance_for(readiness, :quickstart)
 
-    "No usable model yet. #{guidance.headline} Next: #{guidance.next_action} " <>
+    prefix =
+      if readiness == :needs_selection,
+        do: "DirectAnswer is not ready.",
+        else: "No usable model yet."
+
+    "#{prefix} #{guidance.headline} Next: #{guidance.next_action} " <>
       "Open the Models panel in the web workspace#{repair_command_suffix(guidance.action)}."
+  end
+
+  defp profile_review_message(:ready) do
+    "A profile is pending review. Open the web workspace onboarding panel, or run `allbert onboard`."
+  end
+
+  defp profile_review_message(readiness) do
+    "A profile is pending review. " <> model_repair_message(readiness)
+  end
+
+  defp readiness_projection(%{first_model_state: nil}), do: FirstRun.readiness_projection()
+
+  defp readiness_projection(%{first_model_state: model_state}) do
+    FirstRun.readiness_projection(model_state: model_state)
   end
 
   defp repair_command_suffix(:install_runtime),
@@ -446,6 +491,9 @@ defmodule AllbertAssist.CLI do
 
   defp repair_command_suffix(:pull_model),
     do: ", or run `allbert onboard pull-model --authorize`"
+
+  defp repair_command_suffix(:select_model),
+    do: ", or run `allbert admin models catalog direct_answer`"
 
   defp repair_command_suffix(_action), do: ", or run `allbert onboard`"
 

@@ -219,6 +219,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Settings.ReadSetting
   alias AllbertAssist.Actions.Settings.ResolvedSettingsSnapshot
   alias AllbertAssist.Actions.Settings.SetActiveModelProfile
+  alias AllbertAssist.Actions.Settings.SetDirectAnswerModelProfile
   alias AllbertAssist.Actions.Settings.SetNotesRoot
   alias AllbertAssist.Actions.Settings.SetProviderCredential
   alias AllbertAssist.Actions.Settings.UpdateSetting
@@ -285,6 +286,7 @@ defmodule AllbertAssist.Actions.Registry do
     DoctorModelProfile,
     DoctorVoiceProvider,
     SetActiveModelProfile,
+    SetDirectAnswerModelProfile,
     GenerateImage,
     SynthesizeVoice,
     ListChannels,

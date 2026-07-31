@@ -986,7 +986,7 @@ defmodule Mix.Tasks.Allbert.Test do
     reject_invalid!(invalid)
     reject_rest!(rest)
 
-    profile = Keyword.get(opts, :profile, "local")
+    profile = Keyword.get(opts, :profile, "direct_answer_local")
 
     if String.trim(profile) == "" do
       Mix.raise("--profile must not be blank")

@@ -7,6 +7,7 @@ defmodule AllbertAssist.Settings.Models do
   """
 
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.ModelCapabilities
   alias AllbertAssist.Settings.ProviderCatalog
   alias AllbertAssist.Settings.ProviderEligibility
   alias AllbertAssist.Settings.Store
@@ -58,8 +59,7 @@ defmodule AllbertAssist.Settings.Models do
   @doc "Return true when a resolved profile declares a capability."
   @spec capable?(map(), atom() | String.t()) :: boolean()
   def capable?(profile, capability) when is_map(profile) do
-    capability = normalize_name(capability)
-    capability in Map.get(profile, :capabilities, [])
+    ModelCapabilities.runtime_supports?(profile, capability)
   end
 
   def capable?(_profile, _capability), do: false
@@ -107,14 +107,7 @@ defmodule AllbertAssist.Settings.Models do
         request_kind,
         request_name,
         preference_profiles,
-        primary,
-        explicit_primary?(user_settings)
-      )
-      |> local_first(
-        request_kind,
-        request_name,
-        settings,
-        explicit_primary?(user_settings)
+        primary
       )
 
     case first_capable_profile(candidates, capability, settings, user_settings) do
@@ -153,46 +146,22 @@ defmodule AllbertAssist.Settings.Models do
 
   defp preference_candidates(profiles), do: Enum.map(profiles, &{&1, :preference})
 
-  # Detection records the selected first-answer profile as primary. Honor it
-  # before legacy direct-answer defaults so a selected hosted profile is not
-  # shadowed by the default local candidate.
-  defp ranked_candidates(:task, "direct_answer", preferences, primary, true) do
-    primary_fallback([], primary) ++ preference_candidates(preferences)
+  # DirectAnswer owns a purpose-specific profile contract. A non-empty task
+  # preference is therefore the complete selection/failover set; appending the
+  # global primary could silently route supplied text through a model that was
+  # never qualified for semantic fidelity. An empty task preference retains the
+  # compatibility fallback defined by ADR 0051.
+  defp ranked_candidates(:task, "direct_answer", preferences, _primary)
+       when preferences != [] do
+    preference_candidates(preferences)
   end
 
-  defp ranked_candidates(_kind, _name, preferences, primary, _explicit_primary?) do
+  defp ranked_candidates(:task, "direct_answer", [], primary) do
+    primary_fallback([], primary)
+  end
+
+  defp ranked_candidates(_kind, _name, preferences, primary) do
     preference_candidates(preferences) ++ primary_fallback(preferences, primary)
-  end
-
-  defp explicit_primary?(user_settings) do
-    Settings.Schema.get_dotted(user_settings, "model_preferences.primary") not in [nil, ""]
-  end
-
-  # An explicit primary is the operator's current selection and remains first.
-  # Other configured candidates are local-first while retaining preference
-  # order within each endpoint class.
-  defp local_first(
-         [{primary, source} | rest],
-         :task,
-         "direct_answer",
-         settings,
-         true
-       ) do
-    [{primary, source} | Enum.sort_by(rest, &endpoint_rank(&1, settings))]
-  end
-
-  defp local_first(candidates, :task, "direct_answer", settings, false) do
-    Enum.sort_by(candidates, &endpoint_rank(&1, settings))
-  end
-
-  defp local_first(candidates, _request_kind, _request_name, _settings, _explicit_primary?),
-    do: candidates
-
-  defp endpoint_rank({profile_name, _source}, settings) do
-    provider = get_in(settings, ["model_profiles", profile_name, "provider"])
-    endpoint_kind = get_in(settings, ["providers", provider, "endpoint_kind"])
-
-    if provider == "local_ollama" or endpoint_kind == "local_endpoint", do: 0, else: 1
   end
 
   defp primary_fallback(candidates, primary) when is_binary(primary) and primary != "" do
@@ -235,14 +204,7 @@ defmodule AllbertAssist.Settings.Models do
         request_kind,
         request_name,
         preference_profiles,
-        primary,
-        explicit_primary?(user_settings)
-      )
-      |> local_first(
-        request_kind,
-        request_name,
-        settings,
-        explicit_primary?(user_settings)
+        primary
       )
 
     candidates
@@ -302,9 +264,7 @@ defmodule AllbertAssist.Settings.Models do
   end
 
   defp validate_profile_capability(profile_name, attrs, capability) do
-    capabilities = Map.get(attrs, "capabilities", [])
-
-    if capability in capabilities do
+    if ModelCapabilities.runtime_supports?(attrs, capability) do
       :ok
     else
       {:error, {:profile_missing_capability, profile_name, capability}}

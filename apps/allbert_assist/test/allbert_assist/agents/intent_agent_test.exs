@@ -113,6 +113,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
       "doctor_model_profile",
       "doctor_voice_provider",
       "set_active_model_profile",
+      "set_direct_answer_model_profile",
       "generate_image",
       "synthesize_voice",
       "list_channels",

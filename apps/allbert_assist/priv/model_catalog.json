@@ -2,6 +2,7 @@
   "version": 1,
   "local": [
     {"id":"ollama:llama3.2:3b","provider":"ollama","model":"llama3.2:3b","label":"Llama 3.2 3B","size_bytes":2000000000,"floor_gb":8,"capabilities":["text","tools","json","multilingual"],"purposes":["fast","general"],"license":"Llama 3.2 Community License","thinking":false},
+    {"id":"ollama:qwen2.5:7b","provider":"ollama","model":"qwen2.5:7b","label":"Qwen 2.5 7B Instruct","size_bytes":4700000000,"floor_gb":16,"capabilities":["text","json","multilingual"],"purposes":["direct_answer","capable","coding"],"license":"Apache-2.0","thinking":false},
     {"id":"ollama:qwen3:4b-instruct","provider":"ollama","model":"qwen3:4b-instruct","label":"Qwen 3 4B Instruct","size_bytes":2500000000,"floor_gb":8,"capabilities":["text","tools","json","multilingual"],"purposes":["fast","general"],"license":"Apache-2.0","thinking":false},
     {"id":"ollama:qwen3.5:4b","provider":"ollama","model":"qwen3.5:4b","label":"Qwen 3.5 4B","size_bytes":3400000000,"floor_gb":8,"capabilities":["text","tools","json","multilingual"],"purposes":["general","capable"],"license":"Apache-2.0","thinking":false},
     {"id":"ollama:qwen3.5:9b","provider":"ollama","model":"qwen3.5:9b","label":"Qwen 3.5 9B","size_bytes":6600000000,"floor_gb":16,"capabilities":["text","tools","json","multilingual","thinking"],"purposes":["capable","reasoning"],"license":"Apache-2.0","thinking":true}

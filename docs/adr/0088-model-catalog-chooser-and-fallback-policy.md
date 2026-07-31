@@ -7,6 +7,12 @@ M5 proved the fallback policy's no-silent-egress denial row). Consumed again by 
 (per-role model profiles read the catalog; adaptive suggestions propose
 catalog entries).
 
+v1.3 M9.b.3 amendment (2026-07-31): the catalog adds the qualified
+`direct_answer_local` / `qwen2.5:7b` local task row without changing the curated
+first row (`local` / `llama3.2:3b`). DirectAnswer's non-empty task list is
+closed and order-authoritative; that task-specific rule supersedes the generic
+implicit-primary selection wording below.
+
 Related: ADR 0087 (zero-click detection-based enablement — the detect states
 select *from* what this ADR catalogs and are the first fallback consumer),
 ADR 0078 (First-Model Path — curated-model criteria; no managed hosted
@@ -73,6 +79,12 @@ onboarding all render the same rows under surface policy. The catalog never
 performs hosted egress to build itself: hosted entries are static metadata;
 live probing stays local/configured-endpoint-only per ADR 0087.
 
+The v1.3 DirectAnswer row records the official Ollama `qwen2.5:7b` tag, its
+4.7 GB catalog size, 16 GB recommended floor, Apache-2.0 upstream license, and
+the `direct_answer` purpose. It is a catalog/profile default, not a bundled
+weight. Ollama owns the external download; the Allbert artifact license
+inventory covers shipped bytes and therefore does not inventory Qwen weights.
+
 The v1.2 M0/M4 cross-platform bakeoff treats `llama3.2:3b` as the control and
 tests Qwen 3 4B instruct/non-thinking, `qwen3.5:4b` as the direct successor,
 and `qwen3.5:9b` as a higher-floor quality challenger. First-run trials force
@@ -96,10 +108,16 @@ onboarding `model_path` step re-pointed at it) is render-and-dispatch only:
   status inline;
 - selecting a local model that is not pulled offers the existing
   confirmation-gated one-click pull (never a silent download);
-- selection writes the existing keys (`model_preferences.*`,
-  `model_profiles.*`, enablement flags) through the existing registered
-  settings actions — Settings Central remains the sole authority and every
-  write is audited. No chooser-private state exists.
+- DirectAnswer selection dispatches the registered
+  `set_direct_answer_model_profile` action. It validates the canonical
+  text-generation capability policy (including pre-capability text-profile
+  compatibility), moves the selected profile to the task head without losing
+  or duplicating the existing fallback tail, enables that provider, leaves the
+  global primary unchanged, and reconciles disclosure;
+- the intentionally broad `set_active_model_profile` action moves the same
+  profile to both global primary and DirectAnswer head while preserving the
+  tail. All writes use Settings Central and are audited. No chooser-private
+  state exists.
 
 ### 3. Fallback policy — two distinct mechanisms, one rule about egress
 
@@ -111,6 +129,14 @@ first; otherwise ordering is strict local-first, and the remaining chain is
 local-first. This
 mechanism only ever selects among providers the operator configured, so it
 introduces no egress and needs no opt-in.
+
+DirectAnswer is the explicit task-specific exception to generic implicit-
+primary completion. Its non-empty task list is already the complete chain and
+is walked in authored order without local reordering or a global-primary
+append. An empty DirectAnswer list alone uses the compatibility primary. This
+keeps a selected local model from silently becoming hosted, and also keeps an
+explicitly selected hosted DirectAnswer head from being silently displaced;
+the existing pre-egress disclosure still applies.
 
 **(b) Runtime failover (default OFF, explicit opt-in).** Mid-turn or
 mid-session automatic failover when the resolved provider fails:
@@ -133,6 +159,13 @@ mid-session automatic failover when the resolved provider fails:
   requires, in addition to the global opt-in, a per-chain acknowledgement
   (`models.fallback.allow_local_to_hosted`, default `false`) — silent
   paid/egress failover is structurally impossible, not just discouraged.
+- **One bounded disclosure set:** when a hosted primary or callable hosted
+  fallback exists, the pre-egress marker covers the ordered primary plus at
+  most one callable fallback. Any provider/profile/class/order change
+  invalidates it. A provider call is admitted only when that exact current set
+  was acknowledged on its local control surface or, for a non-presenting
+  channel, on a local operator-control surface in the same Allbert Home. One
+  route acknowledgement cannot oscillate into authority for another.
 - **No silent expensive failovers:** at most one failover per turn; the
   reply metadata names the profile that actually answered whenever it is
   not the primary; every fallback event writes a trace record and an audit

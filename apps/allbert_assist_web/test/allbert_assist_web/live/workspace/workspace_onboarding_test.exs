@@ -48,7 +48,58 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
       assert has_element?(view, "#workspace-model-disclosure")
       assert Disclosure.hosted_pending?(:web)
 
-      render_hook(view, "ack_model_disclosure", %{"handle" => handle})
+      refreshed_html = view |> element("#workspace-model-disclosure") |> render()
+
+      [refreshed_handle] =
+        Regex.run(~r/data-delivery-handle="([^"]+)"/, refreshed_html, capture: :all_but_first)
+
+      refute refreshed_handle == handle
+
+      render_hook(view, "ack_model_disclosure", %{"handle" => refreshed_handle})
+      refute has_element?(view, "#workspace-model-disclosure")
+      refute Disclosure.pending?(:web)
+    end
+
+    test "a stale acknowledgement refreshes the exact changed route and its hook re-acks updates",
+         %{conn: conn} do
+      assert :ok =
+               Disclosure.mark_pending(%{
+                 profile: "fast",
+                 provider: "openai",
+                 provider_class: :hosted
+               })
+
+      {:ok, view, _html} = live(conn, ~p"/workspace")
+      first_html = view |> element("#workspace-model-disclosure") |> render()
+      assert first_html =~ "will leave this device for openai"
+
+      [first_handle] =
+        Regex.run(~r/data-delivery-handle="([^"]+)"/, first_html, capture: :all_but_first)
+
+      assert :ok =
+               Disclosure.mark_pending(%{
+                 profile: "anthropic_fast",
+                 provider: "anthropic",
+                 provider_class: :hosted
+               })
+
+      render_hook(view, "ack_model_disclosure", %{"handle" => first_handle})
+
+      second_html = view |> element("#workspace-model-disclosure") |> render()
+      assert second_html =~ "will leave this device for anthropic"
+
+      [second_handle] =
+        Regex.run(~r/data-delivery-handle="([^"]+)"/, second_html, capture: :all_but_first)
+
+      refute second_handle == first_handle
+      assert Disclosure.hosted_pending?(:web)
+
+      app_js = File.read!(Path.expand("../../../../assets/js/app.js", __DIR__))
+      assert app_js =~ "const ModelDisclosureAck = {"
+      assert app_js =~ "updated()"
+      assert app_js =~ "handle !== this.lastDeliveryHandle"
+
+      render_hook(view, "ack_model_disclosure", %{"handle" => second_handle})
       refute has_element?(view, "#workspace-model-disclosure")
       refute Disclosure.pending?(:web)
     end
@@ -74,7 +125,90 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
       assert {:ok, %{}} = Store.read_user_settings()
       refute Disclosure.pending?(:web)
       refute has_element?(view, "#workspace-model-disclosure")
-      refute has_element?(view, "#workspace-model-repair-cta")
+    end
+
+    test "a same-session hosted route switch renders disclosure and admits no provider call before acknowledgement",
+         %{conn: conn} do
+      saved_runtime = Application.get_env(:allbert_assist, Runtime)
+      saved_backend = System.get_env("ALLBERT_VAULT_BACKEND")
+      saved_openai = System.get_env("OPENAI_API_KEY")
+      test_pid = self()
+
+      on_exit(fn ->
+        restore_app_env(Runtime, saved_runtime)
+        restore_system_env("ALLBERT_VAULT_BACKEND", saved_backend)
+        restore_system_env("OPENAI_API_KEY", saved_openai)
+      end)
+
+      System.put_env("ALLBERT_VAULT_BACKEND", "env")
+      System.put_env("OPENAI_API_KEY", "workspace-disclosure-test-key")
+
+      Application.put_env(:allbert_assist, Runtime,
+        agent_runner: fn _signal, request ->
+          send(test_pid, {:runtime_disclosure_request, request.text})
+
+          {:ok, profile} = Settings.resolve_model_profile("fast")
+
+          case Disclosure.authorize_transport(profile, %{request: request}) do
+            :ok ->
+              send(test_pid, {:provider_called, profile.name})
+              {:ok, %{message: "Hosted answer", status: :completed, actions: []}}
+
+            {:error, reason} ->
+              {:ok,
+               %{
+                 message: "Hosted disclosure required: #{inspect(reason)}",
+                 status: :completed,
+                 actions: []
+               }}
+          end
+        end
+      )
+
+      assert {:ok, _setting} =
+               Settings.put("model_preferences.tasks.direct_answer", ["direct_answer_local"], %{
+                 audit?: false
+               })
+
+      assert {:ok, _setting} =
+               Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+
+      assert :ok = Disclosure.acknowledge(:web)
+
+      {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:settings")
+      refute has_element?(view, "#workspace-model-disclosure")
+
+      view |> element("#use-model-fast") |> render_click()
+
+      assert eventually(fn -> has_element?(view, "#workspace-model-disclosure") end)
+      disclosure_html = view |> element("#workspace-model-disclosure") |> render()
+      assert disclosure_html =~ "will leave this device for openai"
+
+      view
+      |> form("#agent-form", %{"prompt" => "Answer through the selected hosted model"})
+      |> render_submit()
+
+      assert has_element?(view, "#workspace-model-disclosure")
+      refute_receive {:runtime_disclosure_request, _prompt}, 100
+      refute_receive {:provider_called, _profile}, 100
+
+      [handle] =
+        Regex.run(~r/data-delivery-handle="([^"]+)"/, render(view), capture: :all_but_first)
+
+      render_hook(view, "ack_model_disclosure", %{"handle" => handle})
+      refute has_element?(view, "#workspace-model-disclosure")
+
+      view |> element("#workspace-dest-output") |> render_click()
+
+      view
+      |> form("#agent-form", %{"prompt" => "Answer through the selected hosted model"})
+      |> render_submit()
+
+      assert_receive {:runtime_disclosure_request, "Answer through the selected hosted model"},
+                     2_000
+
+      assert_receive {:provider_called, "fast"}, 2_000
+      assert render_async(view, @runtime_async_timeout) =~ "Hosted answer"
     end
 
     test "a completed TUI turn remains available to the production web workspace", %{conn: conn} do
@@ -167,6 +301,215 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
       assert has_element?(onboarding_view, "#workspace-onboarding-model-catalog")
     end
 
+    test "v1.3: surfaces distinguish a ready substrate from an unavailable DirectAnswer model",
+         %{conn: conn} do
+      isolate_empty_ollama_inventory!()
+      saved_override = Application.get_env(:allbert_assist, :first_model_state_override)
+
+      on_exit(fn -> restore_app_env(:first_model_state_override, saved_override) end)
+
+      Application.put_env(:allbert_assist, :first_model_state_override, :local_ready)
+
+      {:ok, onboarding_view, _html} =
+        live(conn, ~p"/workspace?destination=workspace:onboard")
+
+      onboarding_view |> element("#workspace-wizard-enter-model_path") |> render_click()
+
+      readiness_html =
+        onboarding_view
+        |> element("#workspace-onboarding-readiness")
+        |> render()
+
+      direct_answer_html =
+        onboarding_view
+        |> element("#workspace-direct-answer-readiness")
+        |> render()
+
+      assert readiness_html =~ "Ready"
+      assert direct_answer_html =~ "DirectAnswer: Needs model selection"
+
+      {:ok, models_view, _html} = live(conn, ~p"/workspace?destination=workspace:models")
+
+      repair_headline =
+        models_view
+        |> element("#workspace-model-repair-headline")
+        |> render()
+
+      repair_next =
+        models_view
+        |> element("#workspace-model-repair-next")
+        |> render()
+
+      assert repair_headline =~ "selected DirectAnswer model is unavailable"
+      assert repair_next =~ "confirmation-gated repair"
+    end
+
+    test "v1.3: wizard navigation keeps one readiness snapshot until an explicit model refresh",
+         %{conn: conn} do
+      isolate_empty_ollama_inventory!()
+      saved_override = Application.get_env(:allbert_assist, :first_model_state_override)
+
+      on_exit(fn -> restore_app_env(:first_model_state_override, saved_override) end)
+
+      Application.put_env(:allbert_assist, :first_model_state_override, :runtime_missing)
+
+      {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:onboard")
+
+      Application.put_env(:allbert_assist, :first_model_state_override, :local_ready)
+
+      view |> element("#workspace-wizard-enter-model_path") |> render_click()
+
+      cached_html = view |> element("#workspace-direct-answer-readiness") |> render()
+      cached_substrate_html = view |> element("#workspace-onboarding-readiness") |> render()
+      assert cached_html =~ "DirectAnswer: Needs runtime"
+      assert cached_substrate_html =~ "Needs runtime"
+
+      view |> element("#workspace-provider-doctor") |> render_click()
+
+      refreshed_html = view |> element("#workspace-direct-answer-readiness") |> render()
+      refreshed_substrate_html = view |> element("#workspace-onboarding-readiness") |> render()
+      assert refreshed_html =~ "DirectAnswer: Needs model selection"
+      assert refreshed_substrate_html =~ "Ready"
+    end
+
+    test "v1.3: model surfaces pull the exact selected local catalog model", %{conn: conn} do
+      saved_http = Application.get_env(:allbert_assist, :first_model_http)
+      saved_puller = Application.get_env(:allbert_assist, :first_model_pull)
+      saved_post_pull = Application.get_env(:allbert_assist, :first_model_post_pull_enablement)
+      test_pid = self()
+
+      on_exit(fn ->
+        restore_app_env(:first_model_http, saved_http)
+        restore_app_env(:first_model_pull, saved_puller)
+        restore_app_env(:first_model_post_pull_enablement, saved_post_pull)
+      end)
+
+      Application.put_env(:allbert_assist, :first_model_http, fn url ->
+        if String.ends_with?(url, "/api/tags"),
+          do: {:ok, %{"models" => []}},
+          else: {:ok, %{"version" => "test"}}
+      end)
+
+      Application.put_env(:allbert_assist, :first_model_pull, fn model ->
+        send(test_pid, {:catalog_model_pulled, model})
+        {:ok, %{status: "success"}, []}
+      end)
+
+      Application.put_env(:allbert_assist, :first_model_post_pull_enablement, fn _model ->
+        {:ok, %{state: :enabled_unavailable}}
+      end)
+
+      {:ok, models_view, _html} = live(conn, ~p"/workspace?destination=workspace:models")
+
+      assert has_element?(
+               models_view,
+               "#workspace-catalog-pull-ollama-qwen2-5-7b[phx-value-entry-id='ollama:qwen2.5:7b']"
+             )
+
+      refute has_element?(
+               models_view,
+               "#workspace-catalog-pull-profile-direct_answer_local"
+             )
+
+      assert has_element?(
+               models_view,
+               "#workspace-catalog-use-profile-direct_answer_local"
+             )
+
+      refute has_element?(models_view, "#workspace-catalog-pull-openai-configured")
+
+      models_view
+      |> element("#workspace-catalog-pull-ollama-qwen2-5-7b")
+      |> render_click()
+
+      assert_receive {:catalog_model_pulled, "qwen2.5:7b"}, 2_000
+      _html = render_async(models_view, @runtime_async_timeout)
+
+      {:ok, onboarding_view, _html} =
+        live(conn, ~p"/workspace?destination=workspace:onboard")
+
+      onboarding_view |> element("#workspace-wizard-enter-model_path") |> render_click()
+
+      assert has_element?(
+               onboarding_view,
+               "#workspace-onboarding-catalog-pull-ollama-qwen2-5-7b[phx-value-entry-id='ollama:qwen2.5:7b']"
+             )
+
+      onboarding_view
+      |> element("#workspace-onboarding-catalog-pull-ollama-qwen2-5-7b")
+      |> render_click()
+
+      assert_receive {:catalog_model_pulled, "qwen2.5:7b"}, 2_000
+      _html = render_async(onboarding_view, @runtime_async_timeout)
+    end
+
+    test "v1.3: model catalog selection changes DirectAnswer without changing the global primary",
+         %{conn: conn} do
+      assert {:ok, global_primary} = Settings.get("model_preferences.primary")
+
+      {:ok, models_view, _html} = live(conn, ~p"/workspace?destination=workspace:models")
+
+      assert has_element?(
+               models_view,
+               "#workspace-catalog-use-profile-fast[phx-value-entry-id='profile:fast']"
+             )
+
+      refute has_element?(models_view, "#workspace-catalog-use-ollama-qwen2-5-7b")
+
+      models_view
+      |> element("#workspace-catalog-use-profile-fast")
+      |> render_click()
+
+      assert {:ok, ["fast" | _tail]} =
+               Settings.get("model_preferences.tasks.direct_answer")
+
+      assert Settings.get("model_preferences.primary") == {:ok, global_primary}
+
+      {:ok, onboarding_view, _html} =
+        live(conn, ~p"/workspace?destination=workspace:onboard")
+
+      onboarding_view |> element("#workspace-wizard-enter-model_path") |> render_click()
+
+      assert has_element?(
+               onboarding_view,
+               "#workspace-onboarding-catalog-use-profile-direct_answer_local[phx-value-entry-id='profile:direct_answer_local']"
+             )
+
+      refute has_element?(onboarding_view, "[id^='workspace-provider-use-']")
+
+      onboarding_view
+      |> element("#workspace-onboarding-catalog-use-profile-direct_answer_local")
+      |> render_click()
+
+      assert {:ok, ["direct_answer_local" | _tail]} =
+               Settings.get("model_preferences.tasks.direct_answer")
+
+      assert Settings.get("model_preferences.primary") == {:ok, global_primary}
+    end
+
+    test "v1.3: a custom DirectAnswer endpoint never offers an unrelated host pull",
+         %{conn: conn} do
+      isolate_empty_ollama_inventory!()
+
+      assert {:ok, _setting} =
+               Settings.put("providers.local_ollama.base_url", "http://127.0.0.1:2/v1", %{
+                 audit?: false
+               })
+
+      {:ok, models_view, _html} = live(conn, ~p"/workspace?destination=workspace:models")
+      assert has_element?(models_view, "#workspace-catalog-pull-ollama-qwen2-5-7b")
+
+      {:ok, onboarding_view, _html} =
+        live(conn, ~p"/workspace?destination=workspace:onboard")
+
+      onboarding_view |> element("#workspace-wizard-enter-model_path") |> render_click()
+
+      refute has_element?(
+               onboarding_view,
+               "#workspace-onboarding-catalog-pull-ollama-qwen2-5-7b"
+             )
+    end
+
     test "starts a track and advances the canonical steps through M1", %{conn: conn} do
       FirstRun.reset_onboarding()
       {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:onboard")
@@ -251,6 +594,12 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
     test "v1.2: fresh empty chat shows one primary repair CTA without a wizard wall",
          %{conn: conn} do
       isolate_empty_provider_vault!()
+      isolate_empty_ollama_inventory!()
+      saved_override = Application.get_env(:allbert_assist, :first_model_state_override)
+
+      on_exit(fn -> restore_app_env(:first_model_state_override, saved_override) end)
+
+      Application.put_env(:allbert_assist, :first_model_state_override, :runtime_missing)
       FirstRun.reset_onboarding()
       {:ok, view, _html} = live(conn, ~p"/workspace")
 
@@ -281,16 +630,16 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
       assert has_element?(view, "#workspace-model-repair-cta")
     end
 
-    test "v1.2: optional onboarding pull refreshes disclosure in the same LiveView",
+    test "v1.3: onboarding keeps starter pull separate from DirectAnswer model repair",
          %{conn: conn} do
       isolate_empty_provider_vault!()
+      isolate_empty_ollama_inventory!()
+      install_fake_host_model_pull!()
       saved_override = Application.get_env(:allbert_assist, :first_model_state_override)
-      saved_puller = Application.get_env(:allbert_assist, :first_model_pull)
       saved_post_pull = Application.get_env(:allbert_assist, :first_model_post_pull_enablement)
 
       on_exit(fn ->
         restore_app_env(:first_model_state_override, saved_override)
-        restore_app_env(:first_model_pull, saved_puller)
         restore_app_env(:first_model_post_pull_enablement, saved_post_pull)
       end)
 
@@ -305,15 +654,22 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
       Application.put_env(:allbert_assist, :first_model_state_override, :model_missing)
       Application.delete_env(:allbert_assist, :first_model_post_pull_enablement)
 
-      Application.put_env(:allbert_assist, :first_model_pull, fn _model ->
-        {:ok, %{status: "success"}, []}
-      end)
-
       {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:onboard")
       live_view_pid = view.pid
       assert has_element?(view, "#workspace-model-pull")
 
       view |> element("#workspace-model-pull") |> render_click()
+      _html = render_async(view, @runtime_async_timeout)
+
+      refute Settings.get("intent.direct_answer_model_enabled") == {:ok, true}
+      refute has_element?(view, "#workspace-model-disclosure")
+
+      assert has_element?(view, "#workspace-onboarding-catalog-pull-ollama-qwen2-5-7b")
+
+      view
+      |> element("#workspace-onboarding-catalog-pull-ollama-qwen2-5-7b")
+      |> render_click()
+
       _html = render_async(view, @runtime_async_timeout)
 
       assert eventually(fn ->
@@ -379,6 +735,7 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
 
     test "M7.3: the wizard drives real M3/M4 controls and has no legacy objective panel",
          %{conn: conn} do
+      isolate_empty_ollama_inventory!()
       FirstRun.reset_onboarding()
       original_override = Application.get_env(:allbert_assist, :first_model_state_override)
 
@@ -431,6 +788,8 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
 
     test "v0.64: completed onboarding with missing model opens standalone repair panel",
          %{conn: conn} do
+      isolate_empty_ollama_inventory!()
+
       provider_env_keys =
         ~w(ANTHROPIC_API_KEY OPENAI_API_KEY OPENROUTER_API_KEY GOOGLE_API_KEY GEMINI_API_KEY)
 
@@ -481,6 +840,8 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
 
     test "v0.64.3: model pull dispatches asynchronously and streams live progress frames",
          %{conn: conn} do
+      isolate_empty_ollama_inventory!()
+
       provider_env_keys =
         ~w(ANTHROPIC_API_KEY OPENAI_API_KEY OPENROUTER_API_KEY GOOGLE_API_KEY GEMINI_API_KEY)
 
@@ -553,17 +914,17 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
       _html = render_async(view, @runtime_async_timeout)
     end
 
-    test "v1.2: repair pull enables a model-backed answer in the same browser session",
+    test "v1.3: qualified catalog pull enables a model-backed answer in the same browser session",
          %{conn: conn} do
       isolate_empty_provider_vault!()
+      isolate_empty_ollama_inventory!()
+      install_fake_host_model_pull!()
       saved_override = Application.get_env(:allbert_assist, :first_model_state_override)
-      saved_puller = Application.get_env(:allbert_assist, :first_model_pull)
       saved_post_pull = Application.get_env(:allbert_assist, :first_model_post_pull_enablement)
       saved_runtime = Application.get_env(:allbert_assist, Runtime)
 
       on_exit(fn ->
         restore_app_env(:first_model_state_override, saved_override)
-        restore_app_env(:first_model_pull, saved_puller)
         restore_app_env(:first_model_post_pull_enablement, saved_post_pull)
         restore_app_env(Runtime, saved_runtime)
       end)
@@ -571,10 +932,6 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
       FirstRun.reset_onboarding()
       Application.put_env(:allbert_assist, :first_model_state_override, :runtime_missing)
       Application.delete_env(:allbert_assist, :first_model_post_pull_enablement)
-
-      Application.put_env(:allbert_assist, :first_model_pull, fn _model ->
-        {:ok, %{status: "success"}, []}
-      end)
 
       Application.put_env(:allbert_assist, Runtime,
         agent_runner: fn _signal, _request ->
@@ -619,6 +976,16 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
       assert has_element?(view, "#workspace-models-pull-model")
 
       view |> element("#workspace-models-pull-model") |> render_click()
+      _html = render_async(view, @runtime_async_timeout)
+
+      refute Settings.get("intent.direct_answer_model_enabled") == {:ok, true}
+
+      assert has_element?(view, "#workspace-catalog-pull-ollama-qwen2-5-7b")
+
+      view
+      |> element("#workspace-catalog-pull-ollama-qwen2-5-7b")
+      |> render_click()
+
       _html = render_async(view, @runtime_async_timeout)
 
       assert eventually(fn ->
@@ -666,6 +1033,53 @@ defmodule AllbertAssistWeb.WorkspaceOnboardingTest do
       if saved_backend,
         do: System.put_env("ALLBERT_VAULT_BACKEND", saved_backend),
         else: System.delete_env("ALLBERT_VAULT_BACKEND")
+    end)
+  end
+
+  defp isolate_empty_ollama_inventory! do
+    saved_http = Application.get_env(:allbert_assist, :first_model_http)
+    saved_ollama_host = System.get_env("OLLAMA_HOST")
+
+    System.put_env("OLLAMA_HOST", "http://127.0.0.1:1")
+
+    assert {:ok, _setting} =
+             Settings.put("providers.local_ollama.base_url", "http://127.0.0.1:1/v1", %{
+               audit?: false
+             })
+
+    Application.put_env(:allbert_assist, :first_model_http, fn url ->
+      if String.ends_with?(url, "/api/tags"),
+        do: {:ok, %{"models" => []}},
+        else: {:ok, %{"version" => "test"}}
+    end)
+
+    on_exit(fn ->
+      restore_app_env(:first_model_http, saved_http)
+      restore_system_env("OLLAMA_HOST", saved_ollama_host)
+    end)
+  end
+
+  defp install_fake_host_model_pull! do
+    saved_puller = Application.get_env(:allbert_assist, :first_model_pull)
+    saved_doctor = Application.get_env(:allbert_assist, :first_model_post_pull_doctor)
+    {:ok, inventory} = Agent.start_link(fn -> MapSet.new() end)
+
+    Application.put_env(:allbert_assist, :first_model_pull, fn model ->
+      Agent.update(inventory, &MapSet.put(&1, model))
+      {:ok, %{status: "success"}, []}
+    end)
+
+    Application.put_env(:allbert_assist, :first_model_post_pull_doctor, fn profile ->
+      model_available? =
+        profile == "direct_answer_local" and
+          Agent.get(inventory, &MapSet.member?(&1, "qwen2.5:7b"))
+
+      {:ok, %{endpoint_ok: true, model_available: model_available?}}
+    end)
+
+    on_exit(fn ->
+      restore_app_env(:first_model_pull, saved_puller)
+      restore_app_env(:first_model_post_pull_doctor, saved_doctor)
     end)
   end
 

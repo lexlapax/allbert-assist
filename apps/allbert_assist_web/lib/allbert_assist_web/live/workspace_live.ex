@@ -196,10 +196,11 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   def handle_event("ask", %{"prompt" => prompt}, socket) do
     if Disclosure.hosted_pending?(:web) do
       {:noreply,
-       assign(
-         socket,
+       socket
+       |> prepare_model_disclosure()
+       |> assign(
          :error,
-         "Model disclosure is still pending; wait for it to render before sending."
+         "Review and acknowledge the hosted-model disclosure before sending."
        )}
     else
       {:noreply, submit_workspace_prompt(socket, prompt)}
@@ -211,7 +212,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   def handle_event("ack_model_disclosure", %{"handle" => handle}, socket) do
     case Disclosure.acknowledge_web(handle) do
       :ok -> {:noreply, assign(socket, :model_disclosure, :none)}
-      {:error, :stale_delivery_handle} -> {:noreply, socket}
+      {:error, :stale_delivery_handle} -> {:noreply, prepare_model_disclosure(socket)}
     end
   end
 
@@ -840,17 +841,17 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   def handle_info({:first_model_enablement_changed, result}, socket) when is_map(result) do
-    case web_presentation_for(result) do
-      nil ->
-        {:noreply, socket}
+    socket =
+      case web_presentation_for(result) do
+        nil -> socket
+        presentation -> assign(socket, :first_run_presentation, presentation)
+      end
 
-      presentation ->
-        {:noreply,
-         assign(socket,
-           first_run_presentation: presentation,
-           model_disclosure: Disclosure.prepare_web_delivery()
-         )}
-    end
+    {:noreply, prepare_model_disclosure(socket)}
+  end
+
+  def handle_info(:refresh_model_disclosure, socket) do
+    {:noreply, prepare_model_disclosure(socket)}
   end
 
   # v0.64.3: an onboarding/model-repair component registers itself as the live
@@ -899,6 +900,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       )
       |> refresh_after_runtime_response(response)
       |> put_runtime_delivery_handle(response)
+      |> maybe_prepare_pending_model_disclosure()
 
     {:noreply, socket}
   end
@@ -2874,7 +2876,10 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   defp do_submit_workspace_prompt(socket, prompt, metadata, image_inputs) do
-    metadata = metadata |> metadata_map() |> maybe_put_image_inputs(image_inputs)
+    metadata =
+      metadata
+      |> metadata_map()
+      |> maybe_put_image_inputs(image_inputs)
 
     runtime_request =
       %{
@@ -3285,6 +3290,14 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   defp response_text(response) do
     SurfaceRenderer.response_text(response, %{payload: :surface_payload})
+  end
+
+  defp prepare_model_disclosure(socket) do
+    assign(socket, :model_disclosure, Disclosure.prepare_web_delivery())
+  end
+
+  defp maybe_prepare_pending_model_disclosure(socket) do
+    if Disclosure.pending?(:web), do: prepare_model_disclosure(socket), else: socket
   end
 
   defp workspace_response_status(%{status: :completed, fanout_start_receipt: receipt})

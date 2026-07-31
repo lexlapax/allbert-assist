@@ -7,8 +7,8 @@ defmodule AllbertAssist.FirstRun.UsableModel do
   presence only. M4's catalog reuses these ordering rules.
   """
 
-  alias AllbertAssist.FirstModel.Ollama
   alias AllbertAssist.Settings.ModelDoctor
+  alias AllbertAssist.Settings.ModelCapabilities
   alias AllbertAssist.Settings.ProviderEligibility
   alias AllbertAssist.Settings.Store
 
@@ -36,8 +36,6 @@ defmodule AllbertAssist.FirstRun.UsableModel do
   @spec select_local(map(), keyword()) :: {:ok, selection()} | {:error, :no_usable_model}
   def select_local(settings, opts \\ []) when is_map(settings) do
     doctor = Keyword.get(opts, :doctor, &ModelDoctor.diagnose/1)
-    tags = Keyword.get_lazy(opts, :tags, &Ollama.model_tags/0)
-    curated = Keyword.get_lazy(opts, :curated_model, &Ollama.curated_model/0)
 
     local_profiles(settings)
     |> Enum.find_value(fn {name, attrs} ->
@@ -47,7 +45,29 @@ defmodule AllbertAssist.FirstRun.UsableModel do
       end
     end)
     |> case do
-      nil -> select_curated_local(settings, tags, curated)
+      nil -> {:error, :no_usable_model}
+      selection -> {:ok, selection}
+    end
+  end
+
+  @doc "Select a doctor-verified local profile from one purpose-owned task list."
+  @spec select_local_for_task(String.t(), map(), keyword()) ::
+          {:ok, selection()} | {:error, :no_usable_model}
+  def select_local_for_task(task, settings, opts \\ [])
+      when is_binary(task) and is_map(settings) do
+    doctor = Keyword.get(opts, :doctor, &ModelDoctor.diagnose/1)
+
+    profiles = task_local_profiles(task, settings)
+
+    profiles
+    |> Enum.find_value(fn {name, attrs} ->
+      case doctor.(name) do
+        {:ok, %{endpoint_ok: true, model_available: true}} -> local_selection(name, attrs)
+        _other -> nil
+      end
+    end)
+    |> case do
+      nil -> {:error, :no_usable_model}
       selection -> {:ok, selection}
     end
   end
@@ -84,12 +104,61 @@ defmodule AllbertAssist.FirstRun.UsableModel do
     end
   end
 
-  defp select_curated_local(settings, tags, curated) do
-    local_profiles(settings)
-    |> Enum.find(fn {_name, attrs} -> attrs["model"] == curated and curated in tags end)
+  @doc "Select an eligible hosted profile from one purpose-owned task list."
+  @spec select_hosted_for_task(String.t(), map(), map()) ::
+          {:ok, selection()} | {:error, :no_usable_model}
+  def select_hosted_for_task(task, settings, user_settings \\ %{})
+      when is_binary(task) and is_map(settings) and is_map(user_settings) do
+    profiles = task_hosted_profiles(task, settings)
+
+    profiles
+    |> Enum.filter(fn {_name, attrs} ->
+      hosted_provider_eligible?(attrs["provider"], settings, user_settings)
+    end)
+    |> List.first()
     |> case do
-      {name, attrs} -> {:ok, local_selection(name, attrs)}
-      nil -> {:error, :no_usable_model}
+      {name, attrs} ->
+        {:ok,
+         %{
+           profile: name,
+           provider: attrs["provider"],
+           provider_class: :hosted,
+           verification: :configured_unverified
+         }}
+
+      nil ->
+        {:error, :no_usable_model}
+    end
+  end
+
+  defp task_local_profiles(task, settings) do
+    task
+    |> task_profile_names(settings)
+    |> Enum.take(1)
+    |> Enum.map(&{&1, get_in(settings, ["model_profiles", &1])})
+    |> Enum.filter(fn {_name, attrs} -> local_profile?(attrs, settings) end)
+  end
+
+  defp task_hosted_profiles(task, settings) do
+    task
+    |> task_profile_names(settings)
+    |> Enum.take(1)
+    |> Enum.map(&{&1, get_in(settings, ["model_profiles", &1])})
+    |> Enum.filter(fn {_name, attrs} ->
+      is_map(attrs) and text_profile?(attrs) and hosted_endpoint?(attrs, settings)
+    end)
+  end
+
+  defp task_profile_names(task, settings) do
+    case get_in(settings, ["model_preferences", "tasks", task]) do
+      profiles when is_list(profiles) and profiles != [] ->
+        Enum.filter(profiles, &(is_binary(&1) and &1 != ""))
+
+      _empty_or_missing ->
+        case get_in(settings, ["model_preferences", "primary"]) do
+          primary when is_binary(primary) and primary != "" -> [primary]
+          _missing -> []
+        end
     end
   end
 
@@ -145,12 +214,7 @@ defmodule AllbertAssist.FirstRun.UsableModel do
     end
   end
 
-  defp text_profile?(%{"capabilities" => capabilities}) when is_list(capabilities),
-    do: "text_generation" in capabilities
-
-  # Existing pre-capability profiles are text-generation profiles unless they
-  # explicitly declare another capability. This keeps v1.2 additive.
-  defp text_profile?(attrs), do: is_binary(attrs["model"]) and attrs["model"] != ""
+  defp text_profile?(attrs), do: ModelCapabilities.runtime_text_generation?(attrs)
 
   defp hosted_sort_key(name, attrs, settings) do
     primary = get_in(settings, ["model_preferences", "primary"])

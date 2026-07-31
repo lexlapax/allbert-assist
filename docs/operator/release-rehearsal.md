@@ -517,7 +517,8 @@ set -Eeuo pipefail
 umask 077
 : "${TUI_ARTIFACT:?absolute path to the exact macos-arm64 archive}"
 : "${TUI_EXPECTED_SHA256:?SHA-256 from candidate-manifest.json}"
-: "${TUI_PROFILE:?real configured model profile, for example local}"
+: "${TUI_PRIMARY_PROFILE:?global first-model profile, normally local}"
+: "${TUI_DIRECT_ANSWER_PROFILE:?qualified answer profile, normally direct_answer_local}"
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-tui-operator.XXXXXX)"
 TUI_EXTRACT="$(mktemp -d /tmp/allbert-tui-release.XXXXXX)"
 TUI_PORT="${TUI_PORT:-4137}"
@@ -526,10 +527,12 @@ test "$TUI_ACTUAL_SHA256" = "$TUI_EXPECTED_SHA256"
 bash scripts/release/stage_artifacts.sh extract-release \
   "$TUI_ARTIFACT" "$TUI_EXTRACT"
 TUI_ALLBERT="$TUI_EXTRACT/allbert/bin/allbert"
-"$TUI_ALLBERT" admin models use "$TUI_PROFILE" --enable-assist
-"$TUI_ALLBERT" admin settings set intent.direct_answer_model_profile "$TUI_PROFILE"
+"$TUI_ALLBERT" admin settings set intent.model_profile "$TUI_PRIMARY_PROFILE"
+"$TUI_ALLBERT" admin models use-direct-answer "$TUI_DIRECT_ANSWER_PROFILE"
+"$TUI_ALLBERT" admin settings set intent.model_assist_enabled true
 "$TUI_ALLBERT" admin settings set intent.direct_answer_model_enabled true
-"$TUI_ALLBERT" admin models doctor "$TUI_PROFILE"
+"$TUI_ALLBERT" admin models doctor "$TUI_PRIMARY_PROFILE"
+"$TUI_ALLBERT" admin models doctor "$TUI_DIRECT_ANSWER_PROFILE"
 PORT="$TUI_PORT" "$TUI_ALLBERT" serve >"$ALLBERT_HOME/daemon.log" 2>&1 &
 TUI_DAEMON_PID=$!
 until curl -fsS "http://127.0.0.1:$TUI_PORT/health" | grep -q '"status":"ok"'; do
@@ -542,12 +545,25 @@ kill "$TUI_DAEMON_PID"
 wait "$TUI_DAEMON_PID" || true
 ```
 
-Inside the one client, confirm `Allbert TUI - daemon attached`, run `/status`,
-ask `what is 2+2?`, run `/health`, then `/quit`. Expected: status shows the TUI
-channel and running supervisor, the real provider answers `4`, health is `ok`,
-and the normal shell is usable after detach. If any observation fails, do not
-set the promotion input `operator_tui_validation=confirmed`. No script,
-transcript, or synthetic receipt is required for this human observation.
+Inside the one client, confirm the route-derived on-device disclosure appears
+before `Allbert TUI - daemon attached`, run `/status`, ask `what is 2+2?`, run
+`/health`, then `/quit`. Expected: the disclosed profile/provider matches the
+configured DirectAnswer route, status shows the TUI channel and running
+supervisor, the real provider answers `4`, health is `ok`, and the normal shell
+is usable after detach. If any observation fails, do not set the promotion
+input `operator_tui_validation=confirmed`. No script, transcript, or synthetic
+receipt is required for this human observation.
+
+For v1.3, set `TUI_PRIMARY_PROFILE=local` and
+`TUI_DIRECT_ANSWER_PROFILE=direct_answer_local`. The first doctor must identify
+`llama3.2:3b`; the second must identify `qwen2.5:7b`; both must report the
+endpoint and model available. The broad `models use` command intentionally sets
+both choices when an operator invokes it, but this rehearsal uses the targeted
+DirectAnswer action so `local` is not introduced into the qualified task's
+fallback tail. Missing Qwen is an explicit catalog/select/pull repair, not a
+reason to accept the global starter as equivalent. Qwen weights remain an
+external Ollama download and are not expected in the packaged license
+inventory.
 
 On a raw-absent Home, the authenticated daemon session still performs the one
 atomic `channels.tui.enabled=true` plus `default → local` bootstrap. The TUI

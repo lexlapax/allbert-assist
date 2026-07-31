@@ -17,6 +17,7 @@ defmodule AllbertAssist.Settings.Schema do
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
   alias AllbertAssist.Settings.Fragments
+  alias AllbertAssist.Settings.ModelCapabilities
   alias AllbertAssist.Settings.ProviderCatalog
 
   @safe_write_keys [
@@ -750,7 +751,7 @@ defmodule AllbertAssist.Settings.Schema do
     },
     "intent.direct_answer_model_profile" => %{
       type: :profile_ref,
-      default: "local",
+      default: "direct_answer_local",
       writable?: true,
       sensitive?: false
     },
@@ -3714,7 +3715,7 @@ defmodule AllbertAssist.Settings.Schema do
       "handoff_margin" => 0.15,
       "clarify_floor" => 0.3,
       "direct_answer_model_enabled" => false,
-      "direct_answer_model_profile" => "local",
+      "direct_answer_model_profile" => "direct_answer_local",
       "router_strategy" => "two_stage_local",
       "router_embedding_profile" => "embedding_local",
       "router_model_profile" => "router_local",
@@ -3768,7 +3769,7 @@ defmodule AllbertAssist.Settings.Schema do
       "primary" => "local",
       "tasks" => %{
         "coding" => ["coding_local", "coding", "capable", "local"],
-        "direct_answer" => ["local"]
+        "direct_answer" => ["direct_answer_local"]
       },
       "capabilities" => %{
         "text_generation" => ["local", "fast"],
@@ -3819,6 +3820,14 @@ defmodule AllbertAssist.Settings.Schema do
         "temperature" => 0.2,
         "max_tokens" => 1024,
         "timeout_ms" => 30_000
+      },
+      "direct_answer_local" => %{
+        "provider" => "local_ollama",
+        "model" => "qwen2.5:7b",
+        "aliases" => ["qwen2.5"],
+        "temperature" => 0.0,
+        "max_tokens" => 1024,
+        "timeout_ms" => 60_000
       },
       "coding_local" => %{
         "provider" => "local_ollama",
@@ -4759,12 +4768,40 @@ defmodule AllbertAssist.Settings.Schema do
   defp public_protocol_settings_key?(_key), do: false
 
   defp validate_known_key_value(key, value, settings) do
-    schema_for_key(key)
-    |> validate_value(value, key, settings)
-    |> case do
-      :ok -> :ok
+    with :ok <- validate_value(schema_for_key(key), value, key, settings),
+         :ok <- validate_direct_answer_write_capability(key, value, settings) do
+      :ok
+    else
       {:error, reason} -> {:error, {:invalid_setting, key, reason}}
     end
+  end
+
+  defp validate_direct_answer_write_capability(
+         "model_preferences.tasks.direct_answer",
+         profiles,
+         settings
+       ),
+       do: validate_direct_answer_profiles(profiles, settings)
+
+  defp validate_direct_answer_write_capability(
+         "intent.direct_answer_model_profile",
+         profile,
+         settings
+       ),
+       do: validate_direct_answer_profiles([profile], settings)
+
+  defp validate_direct_answer_write_capability(_key, _value, _settings), do: :ok
+
+  defp validate_direct_answer_profiles(profiles, settings) do
+    Enum.reduce_while(profiles, :ok, fn profile, :ok ->
+      model_profile = get_in(settings, ["model_profiles", profile]) || %{}
+
+      if ModelCapabilities.runtime_text_generation?(model_profile) do
+        {:cont, :ok}
+      else
+        {:halt, {:error, {:profile_missing_capability, profile, "text_generation"}}}
+      end
+    end)
   end
 
   defp schema_for_key(key) do

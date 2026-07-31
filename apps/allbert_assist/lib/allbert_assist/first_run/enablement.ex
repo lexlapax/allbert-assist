@@ -10,6 +10,7 @@ defmodule AllbertAssist.FirstRun.Enablement do
 
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.FirstRun.UsableModel
+  alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Schema
   alias AllbertAssist.Settings.Store
 
@@ -71,16 +72,23 @@ defmodule AllbertAssist.FirstRun.Enablement do
   defp reconcile_settings(model_state, settings, user_settings, opts) do
     case Schema.get_dotted(user_settings, "intent.direct_answer_model_enabled") do
       false -> result(:sticky_disabled, model_state, nil)
-      true -> reconcile_enabled(model_state, settings, user_settings, opts)
+      true -> reconcile_explicit_enabled(model_state, settings, user_settings, opts)
       nil -> reconcile_absent(model_state, settings, user_settings, opts)
     end
   end
 
   defp preview_settings(model_state, settings, user_settings, opts) do
     case Schema.get_dotted(user_settings, "intent.direct_answer_model_enabled") do
-      false -> result(:sticky_disabled, model_state, nil)
+      false -> preview_sticky_disabled(model_state, settings, user_settings, opts)
       true -> reconcile_enabled(model_state, settings, user_settings, opts)
       nil -> preview_absent(model_state, settings, user_settings, opts)
+    end
+  end
+
+  defp preview_sticky_disabled(model_state, settings, user_settings, opts) do
+    case selection_for(model_state, settings, user_settings, opts) do
+      {:ok, selection} -> result(:sticky_disabled, model_state, selection)
+      {:error, :no_usable_model} -> result(:sticky_disabled, model_state, nil)
     end
   end
 
@@ -89,7 +97,19 @@ defmodule AllbertAssist.FirstRun.Enablement do
       {:ok, selection} ->
         result(:auto_enabled, model_state, selection)
 
-      {:error, reason} when reason in [:no_usable_model, :explicit_primary_unavailable] ->
+      {:error, :no_usable_model} ->
+        result(:enabled_unavailable, model_state, nil)
+    end
+  end
+
+  defp reconcile_explicit_enabled(model_state, settings, user_settings, opts) do
+    case selection_for(model_state, settings, user_settings, opts) do
+      {:ok, selection} ->
+        with :ok <- reconcile_current_disclosure(selection) do
+          result(:auto_enabled, model_state, selection)
+        end
+
+      {:error, :no_usable_model} ->
         result(:enabled_unavailable, model_state, nil)
     end
   end
@@ -97,13 +117,10 @@ defmodule AllbertAssist.FirstRun.Enablement do
   defp reconcile_absent(model_state, settings, user_settings, opts) do
     case selection_for(model_state, settings, user_settings, opts) do
       {:ok, selection} ->
-        enable(model_state, selection, opts)
+        enable(model_state, selection, settings, user_settings, opts)
 
       {:error, :no_usable_model} ->
-        result(repair_state(model_state), model_state, nil)
-
-      {:error, :explicit_primary_unavailable} ->
-        result(:enabled_unavailable, model_state, nil)
+        result(unavailable_or_repair_state(model_state), model_state, nil)
     end
   end
 
@@ -113,67 +130,28 @@ defmodule AllbertAssist.FirstRun.Enablement do
         result(:auto_enabled, model_state, selection)
 
       {:error, :no_usable_model} ->
-        result(repair_state(model_state), model_state, nil)
-
-      {:error, :explicit_primary_unavailable} ->
-        result(:enabled_unavailable, model_state, nil)
+        result(unavailable_or_repair_state(model_state), model_state, nil)
     end
   end
 
-  defp selection_for(:local_ready, settings, user_settings, opts) do
-    case explicit_primary(user_settings) do
-      nil -> local_selection(settings, opts)
-      primary -> explicit_selection(primary, :local_ready, settings, user_settings, opts)
-    end
-  end
-
-  defp selection_for(model_state, settings, user_settings, opts) do
-    case explicit_primary(user_settings) do
-      nil -> hosted_selection(settings, user_settings, opts)
-      primary -> explicit_selection(primary, model_state, settings, user_settings, opts)
+  defp selection_for(_model_state, settings, user_settings, opts) do
+    case local_selection(settings, opts) do
+      {:ok, selection} -> {:ok, selection}
+      {:error, :no_usable_model} -> hosted_selection(settings, user_settings, opts)
     end
   end
 
   defp local_selection(settings, opts) do
     case Keyword.fetch(opts, :local_selection) do
-      {:ok, selection} -> normalize_selection(selection)
-      :error -> UsableModel.select_local(settings, opts)
+      {:ok, selection} -> normalize_task_selection(selection, settings)
+      :error -> UsableModel.select_local_for_task("direct_answer", settings, opts)
     end
   end
 
   defp hosted_selection(settings, user_settings, opts) do
     case Keyword.fetch(opts, :hosted_selection) do
-      {:ok, selection} -> normalize_selection(selection)
-      :error -> UsableModel.select_hosted(settings, user_settings)
-    end
-  end
-
-  # A raw primary is an explicit operator choice and is also the profile the
-  # runtime ranks first. Enable only when that exact profile is usable, so the
-  # durable disclosure can never name a different route. Raw-absent settings
-  # retain automatic local-first selection.
-  defp explicit_selection(primary, model_state, settings, user_settings, opts) do
-    local =
-      if model_state == :local_ready,
-        do: local_selection(settings, opts),
-        else: {:error, :no_usable_model}
-
-    case local do
-      {:ok, %{profile: ^primary} = selection} ->
-        {:ok, selection}
-
-      _not_exact_local ->
-        case hosted_selection(settings, user_settings, opts) do
-          {:ok, %{profile: ^primary} = selection} -> {:ok, selection}
-          _not_exact_hosted -> {:error, :explicit_primary_unavailable}
-        end
-    end
-  end
-
-  defp explicit_primary(user_settings) do
-    case Schema.get_dotted(user_settings, "model_preferences.primary") do
-      primary when is_binary(primary) and primary != "" -> primary
-      _absent -> nil
+      {:ok, selection} -> normalize_task_selection(selection, settings)
+      :error -> UsableModel.select_hosted_for_task("direct_answer", settings, user_settings)
     end
   end
 
@@ -182,11 +160,26 @@ defmodule AllbertAssist.FirstRun.Enablement do
   defp normalize_selection({:error, :no_usable_model} = error), do: error
   defp normalize_selection(selection) when is_map(selection), do: {:ok, selection}
 
-  defp enable(model_state, selection, opts) do
+  # Injected detections use the same purpose boundary as live selection. This
+  # prevents a stale probe result from enabling one profile while the atomic
+  # Settings write binds and discloses a different DirectAnswer task head.
+  defp normalize_task_selection(selection, settings) do
+    with {:ok, normalized} <- normalize_selection(selection),
+         selected when is_binary(selected) <- Map.get(normalized, :profile),
+         ^selected <- direct_answer_task_chain(settings) |> List.first() do
+      {:ok, normalized}
+    else
+      _mismatch_or_missing -> {:error, :no_usable_model}
+    end
+  end
+
+  defp enable(model_state, selection, settings, user_settings, opts) do
+    task_chain = direct_answer_task_chain_for_write(settings, user_settings)
+
     values = %{
       "intent.direct_answer_model_enabled" => true,
       "intent.model_assist_enabled" => true,
-      "model_preferences.primary" => selection.profile
+      "model_preferences.tasks.direct_answer" => task_chain
     }
 
     context =
@@ -216,7 +209,9 @@ defmodule AllbertAssist.FirstRun.Enablement do
         result_with_provenance(:enabled_unavailable, model_state, nil, provenance)
 
       {:ok, provenance} ->
-        result_with_provenance(:auto_enabled, model_state, selection, provenance)
+        with :ok <- reconcile_current_disclosure(selection) do
+          result_with_provenance(:auto_enabled, model_state, selection, provenance)
+        end
 
       {:error, reason} ->
         {:error, reason}
@@ -224,7 +219,14 @@ defmodule AllbertAssist.FirstRun.Enablement do
   end
 
   defp result(state, model_state, selection) do
-    {:ok, %{state: state, model_state: model_state, selection: selection, provenance: nil}}
+    {:ok,
+     %{
+       state: state,
+       model_state: model_state,
+       selection: selection,
+       availability: availability(selection),
+       provenance: nil
+     }}
   end
 
   defp result_with_provenance(state, model_state, selection, provenance) do
@@ -233,8 +235,25 @@ defmodule AllbertAssist.FirstRun.Enablement do
        state: state,
        model_state: model_state,
        selection: selection,
+       availability: availability(selection),
        provenance: provenance
      }}
+  end
+
+  defp availability(%{}), do: :available
+  defp availability(nil), do: :unavailable
+
+  defp reconcile_current_disclosure(selection) do
+    case Settings.get("intent.direct_answer_model_enabled") do
+      {:ok, true} ->
+        case Disclosure.reconcile_current_direct_answer_route() do
+          :ok -> :ok
+          {:error, _reason} -> Disclosure.reconcile(selection)
+        end
+
+      _disabled_or_unavailable ->
+        Disclosure.reconcile(selection)
+    end
   end
 
   defp run_before_write_hook(opts) do
@@ -245,6 +264,29 @@ defmodule AllbertAssist.FirstRun.Enablement do
 
   defp repair_state(:local_ready), do: :nothing_detected
   defp repair_state(model_state), do: Map.fetch!(@repair_states, model_state)
+
+  defp unavailable_or_repair_state(model_state) when model_state in [:local_ready, :byok_ready],
+    do: :enabled_unavailable
+
+  defp unavailable_or_repair_state(model_state), do: repair_state(model_state)
+
+  defp direct_answer_task_chain(settings) do
+    case Schema.get_dotted(settings, "model_preferences.tasks.direct_answer") do
+      profiles when is_list(profiles) and profiles != [] ->
+        profiles
+
+      _empty ->
+        [Schema.get_dotted(settings, "model_preferences.primary")]
+    end
+    |> Enum.filter(&(is_binary(&1) and &1 != ""))
+  end
+
+  defp direct_answer_task_chain_for_write(settings, user_settings) do
+    case Schema.get_dotted(user_settings, "model_preferences.tasks.direct_answer") do
+      profiles when is_list(profiles) -> profiles
+      _raw_absent -> direct_answer_task_chain(settings)
+    end
+  end
 
   defp resolved_settings(opts) do
     case {Keyword.fetch(opts, :settings), Keyword.fetch(opts, :user_settings)} do

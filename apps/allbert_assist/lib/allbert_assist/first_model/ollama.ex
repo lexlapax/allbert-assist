@@ -79,6 +79,20 @@ defmodule AllbertAssist.FirstModel.Ollama do
     end
   end
 
+  @doc "Whether a configured OpenAI-compatible base URL targets the host-managed Ollama root."
+  @spec provider_targets_host_runtime?(String.t() | nil) :: boolean()
+  def provider_targets_host_runtime?(provider_base_url) when is_binary(provider_base_url) do
+    with {:ok, host_target} <- canonical_loopback_endpoint(base_url(), :host_runtime),
+         {:ok, provider_target} <-
+           canonical_loopback_endpoint(provider_base_url, :provider_api) do
+      host_target == provider_target
+    else
+      _invalid_or_different -> false
+    end
+  end
+
+  def provider_targets_host_runtime?(_provider_base_url), do: false
+
   @doc """
   Three-way probe → one of `:model_ready | :model_missing | :unhealthy |
   :missing`. `deps` injects `:binary?`, `:version`, and `:tags` for tests.
@@ -182,4 +196,31 @@ defmodule AllbertAssist.FirstModel.Ollama do
   defp normalize_host(""), do: nil
   defp normalize_host("http" <> _rest = url), do: url
   defp normalize_host(hostport), do: "http://" <> hostport
+
+  defp canonical_loopback_endpoint(url, kind) do
+    case URI.parse(url) do
+      %URI{
+        scheme: scheme,
+        host: host,
+        port: port,
+        path: path,
+        query: nil,
+        fragment: nil,
+        userinfo: nil
+      }
+      when scheme in ["http", "https"] and host in ["127.0.0.1", "localhost", "::1"] and
+             is_integer(port) ->
+        if accepted_endpoint_path?(path, kind) do
+          {:ok, {scheme, :loopback, port}}
+        else
+          {:error, :unexpected_path}
+        end
+
+      _other ->
+        {:error, :invalid_endpoint}
+    end
+  end
+
+  defp accepted_endpoint_path?(path, :host_runtime), do: path in [nil, "", "/"]
+  defp accepted_endpoint_path?(path, :provider_api), do: path in [nil, "", "/", "/v1", "/v1/"]
 end

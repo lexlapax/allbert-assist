@@ -40,10 +40,12 @@ allbert onboard --reset
 
 Before the wizard runs, zero-click detection may already have:
 
-- selected a ready local provider, or a configured hosted provider when no
-  usable local provider exists;
+- selected the usable head of the DirectAnswer task chain; a hosted profile is
+  eligible only when explicitly in that chain (or through the empty-list
+  primary compatibility case);
 - enabled direct model answers only when the enablement setting was absent;
-- shown the applicable local-processing or hosted-egress disclosure once; and
+- shown the exact configured DirectAnswer route-set disclosure once (and
+  marked it pending again after a route change); and
 - kept chat open with a bounded fallback when no provider was usable.
 
 Detection does not probe a hosted provider, install Ollama, pull a model, or
@@ -72,9 +74,13 @@ allbert onboard pull-model --authorize --yes       # apply after review
 ```
 
 The curated consumer default remains `llama3.2:3b` with an 8 GB RAM floor.
-Qwen 3 and Qwen 3.5 remain explicit catalog choices; they did not replace the
-cross-platform default in v1.2. Operators can override the curated tag or floor
-before a pull:
+It proves the global first-model substrate. DirectAnswer is independently
+qualified on `direct_answer_local` / `qwen2.5:7b`; a ready starter model with
+missing Qwen shows `enabled_unavailable` and an explicit DirectAnswer
+select/pull repair rather than claiming model answers are ready. Qwen 3 and
+Qwen 3.5 remain explicit catalog choices; they did not replace the
+cross-platform starter default in v1.2. Operators can override the curated tag
+or floor before a starter pull:
 
 ```sh
 allbert admin settings set first_model.curated_model llama3.2:3b
@@ -95,10 +101,26 @@ renders the shared read-only catalog and `/models` renders model health.
 Selecting a profile writes Settings Central. Pulling an uninstalled local
 model remains confirmation-gated.
 
-If a selected local model later becomes unavailable, the workspace opens the
+The DirectAnswer catalog row identifies `qwen2.5:7b` and offers the same
+confirmation-gated pull. The download is external Ollama model data, not part
+of the Allbert binary. After it completes, verify:
+
+```sh
+allbert admin models doctor direct_answer_local
+```
+
+`allbert admin models use PROFILE` intentionally changes both the global
+primary and DirectAnswer task. Use the targeted action when only DirectAnswer
+should change:
+
+```sh
+allbert admin models use-direct-answer direct_answer_local
+```
+
+If a selected DirectAnswer model later becomes unavailable, the workspace opens the
 Models repair panel instead of reopening onboarding. A missing or unhealthy
-local runtime does not silently switch to a hosted route. Runtime text fallback
-is independently opt-in:
+task head does not silently switch to the global primary or a hosted route.
+Runtime text fallback is independently opt-in:
 
 ```sh
 allbert admin settings set models.fallback.enabled true

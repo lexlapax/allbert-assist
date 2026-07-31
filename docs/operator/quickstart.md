@@ -37,8 +37,9 @@ Allbert detects what is already usable and keeps chat open in every state:
 
 | What Allbert finds | First-chat behavior |
 |---|---|
-| A ready local model | Selects local, enables model answers when that setting has never been written, and shows the local-processing disclosure once. |
-| A configured hosted-provider key | Selects the hosted profile and shows an egress disclosure before the first model-backed send. Detection checks credential presence; it does not make a hidden provider request. |
+| A ready DirectAnswer task profile | Selects its task head, enables model answers when that setting has never been written, and shows the applicable local-processing or hosted-egress disclosure once. |
+| Only the curated `local` / `llama3.2:3b` starter is ready | Keeps chat open, but reports DirectAnswer unavailable until the selected `direct_answer_local` / `qwen2.5:7b` profile is selected and pulled. Starter readiness is not DirectAnswer readiness. |
+| A configured hosted-provider key | Uses it only when that hosted profile is explicitly the DirectAnswer task head (or the task list is empty and the compatibility primary names it), and shows an egress disclosure before the first model-backed send. Detection checks credential presence; it does not make a hidden provider request. |
 | No usable provider | Returns a bounded, deterministic answer and shows one primary repair action in Models. Chat and the rest of the workspace remain usable. |
 | A missing model or unhealthy local runtime | Keeps the local path selected and offers the relevant repair action. It does not silently switch to hosted inference. |
 | Hardware below the curated local-model floor | Offers hosted setup when a configured key is present; otherwise it explains the hardware constraint and available choices. |
@@ -89,6 +90,8 @@ information:
 allbert admin models list
 allbert admin models catalog
 allbert admin models doctor local
+allbert admin models doctor direct_answer_local
+allbert admin models use-direct-answer direct_answer_local
 allbert admin settings doctor
 ```
 
@@ -113,7 +116,9 @@ Open the Models panel in the workspace first. It should show one primary action
 matching the detected condition:
 
 - **Needs model:** review and confirm the curated model pull, or select an
-  already available catalog entry.
+  already available catalog entry. If the starter `local` profile is already
+  ready, use the `direct_answer` catalog row to select/pull
+  `direct_answer_local` rather than pulling the starter again.
 - **Needs runtime, Ollama is not installed:** select **Install local runtime**,
   review the exact installer action, and approve it. Allbert uses Homebrew's
   Ollama package on macOS and Ollama's upstream installer on Linux; detection

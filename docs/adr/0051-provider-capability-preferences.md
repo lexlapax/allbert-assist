@@ -11,6 +11,13 @@ local Ollama text-generation profile for the listen -> think -> speak loop.
 Anthropic/Claude profiles remain `text_generation` profiles in v0.48 unless a
 future ADR/plan adds native Anthropic audio APIs.
 
+v1.3 M9.b.3 amendment (2026-07-31): DirectAnswer is the first task whose
+non-empty preference is a closed, operator-ordered execution chain rather than
+an open list followed implicitly by the global primary. The shipped head is
+`direct_answer_local` (`qwen2.5:7b`); the global `local`/primary profile remains
+`llama3.2:3b`. This amendment is additive and task-specific; other task and
+capability resolver behavior is unchanged.
+
 M1 closeout evidence:
 
 - `MIX_ENV=test mix test apps/allbert_assist/test/allbert_assist/settings/provider_catalog_test.exs apps/allbert_assist/test/allbert_assist/settings_test.exs`
@@ -207,6 +214,41 @@ The resolver must skip disabled profiles and profiles whose configured
 provider is disabled. Doctor output may be used as diagnostic context, but it
 does not grant authority and does not silently rewrite preferences.
 
+For `direct_answer`, a **non-empty**
+`model_preferences.tasks.direct_answer` list is the complete candidate chain.
+Its authored order is binding, and the resolver does not append or reorder
+`model_preferences.primary`. An explicitly configured hosted profile may
+therefore lead the task chain and still uses the existing pre-egress disclosure.
+An unrelated hosted credential or global primary cannot escape into the task.
+Only an **empty** DirectAnswer list uses the legacy primary fallback. This
+distinguishes explicit operator policy from the compatibility state without a
+second settings namespace.
+
+The shipped DirectAnswer defaults are:
+
+```elixir
+model_preferences = %{
+  "primary" => "local",
+  "tasks" => %{"direct_answer" => ["direct_answer_local"]}
+}
+
+model_profiles = %{
+  "local" => %{"provider" => "local_ollama", "model" => "llama3.2:3b"},
+  "direct_answer_local" => %{
+    "provider" => "local_ollama",
+    "model" => "qwen2.5:7b",
+    "temperature" => 0.0,
+    "max_tokens" => 1024,
+    "timeout_ms" => 60_000
+  }
+}
+```
+
+DirectAnswer forces temperature `0` at its request boundary even when an
+operator-authored profile carries a different temperature. Token and timeout
+bounds remain profile-owned. This deterministic task control does not affect
+the same profile when another consumer uses it.
+
 ### Backward Compatibility
 
 The existing text settings remain compatibility aliases:
@@ -217,6 +259,17 @@ The existing text settings remain compatibility aliases:
   `model_preferences.tasks.direct_answer` (single ↔ list): the legacy read
   returns the list head (or `primary` when the list is empty); a legacy write
   sets the list to `[value]`.
+
+`allbert admin models use PROFILE` is an intentionally broad operator command:
+it moves `PROFILE` to both the global-primary position and the DirectAnswer
+task head, preserves the existing DirectAnswer fallback tail without
+duplicates, and enables that provider (plus model assist when requested). A
+targeted change uses `allbert admin models use-direct-answer PROFILE`; its
+registered Settings action moves only the DirectAnswer head, preserves the
+tail, enables the selected provider, audits both writes, and leaves the global
+primary unchanged. The raw `intent.direct_answer_model_profile` alias remains
+for compatibility and retains its historical single-value behavior
+(`list = [value]`); operator chooser surfaces use the purpose-specific action.
 
 The `model_preferences.*` and `voice.*` namespaces declare `schema_version: 1`
 per ADR 0046. Existing callers can continue to read those keys during

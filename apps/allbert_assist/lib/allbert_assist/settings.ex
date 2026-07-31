@@ -4,6 +4,7 @@ defmodule AllbertAssist.Settings do
   """
 
   alias AllbertAssist.Conversations.Corpus
+  alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Jobs.Managed
   alias AllbertAssist.Memory.ReviewCadence
   alias AllbertAssist.Settings.Schema
@@ -21,7 +22,17 @@ defmodule AllbertAssist.Settings do
   defdelegate root(), to: Store
   defdelegate ensure_root!(), to: Store
   defdelegate read_user_settings(), to: Store
-  defdelegate write_user_settings(settings, opts \\ []), to: Store
+
+  def write_user_settings(settings, opts \\ []) do
+    case Store.write_user_settings(settings, opts) do
+      {:ok, _settings} = result ->
+        _diagnostics = reconcile_direct_answer_disclosure()
+        result
+
+      error ->
+        error
+    end
+  end
 
   # v1.0.2 M8.4: turn-scoped resolved-settings snapshot — pin one resolution
   # per intent turn / policy evaluation. See `Store.with_resolved_settings/1`
@@ -64,7 +75,11 @@ defmodule AllbertAssist.Settings do
 
     with {:ok, settings, user_settings, diagnostics} <-
            Store.put_user_setting(storage_key, storage_value, context) do
-      diagnostics = diagnostics ++ post_write_diagnostics(key, value, context)
+      diagnostics =
+        diagnostics ++
+          post_write_diagnostics(key, value, context) ++
+          maybe_reconcile_direct_answer_disclosure(storage_key)
+
       resolved = resolved_setting(key, Schema.get_dotted(settings, key), settings, user_settings)
 
       {:ok,
@@ -383,6 +398,43 @@ defmodule AllbertAssist.Settings do
   end
 
   defp post_write_diagnostics(_key, _value, _context), do: []
+
+  defp maybe_reconcile_direct_answer_disclosure(key) do
+    if direct_answer_affecting_key?(key) do
+      reconcile_direct_answer_disclosure()
+    else
+      []
+    end
+  end
+
+  defp direct_answer_affecting_key?(key) do
+    key in [
+      "intent.direct_answer_model_enabled",
+      "model_preferences.primary",
+      "model_preferences.tasks.direct_answer",
+      "models.fallback.enabled",
+      "models.fallback.allow_local_to_hosted"
+    ] or String.starts_with?(key, "model_profiles.") or
+      String.starts_with?(key, "providers.")
+  end
+
+  defp reconcile_direct_answer_disclosure do
+    case Disclosure.reconcile_current_direct_answer_route() do
+      :ok -> []
+      {:error, reason} -> [%{source: :model_disclosure, error: inspect(reason)}]
+    end
+  rescue
+    exception ->
+      [
+        %{
+          source: :model_disclosure,
+          error: Exception.message(exception),
+          kind: exception.__struct__
+        }
+      ]
+  catch
+    kind, reason -> [%{source: :model_disclosure, error: inspect({kind, reason})}]
+  end
 
   defp kick_search_jobs do
     Enum.map(["search-rebuild", "search-index"], fn identity ->

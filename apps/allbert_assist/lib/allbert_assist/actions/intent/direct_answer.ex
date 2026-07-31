@@ -27,6 +27,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Coding.Config, as: CodingConfig
   alias AllbertAssist.Coding.StreamingTurn
+  alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Maps
   alias AllbertAssist.Memory.ActiveMemory
   alias AllbertAssist.Models.Failure
@@ -111,6 +112,9 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
         {:ok, response} ->
           model_answer_result(response, resolution, active_memory)
 
+        {:error, {:transport_denied, reason}} ->
+          fallback({:disclosure_required, reason})
+
         {:error, reason} ->
           maybe_failover(text, context, active_memory, resolution, reason)
       end
@@ -120,13 +124,17 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   end
 
   defp call_answerer(text, context, active_memory, resolution) do
-    answerer().answer(
-      text,
-      Map.merge(context, %{
-        model_profile: resolution.profile,
-        active_memory: active_memory.chunks
-      })
-    )
+    with :ok <- Disclosure.authorize_transport(resolution.profile, context) do
+      answerer().answer(
+        text,
+        Map.merge(context, %{
+          model_profile: resolution.profile,
+          active_memory: active_memory.chunks
+        })
+      )
+    else
+      {:error, reason} -> {:error, {:transport_denied, reason}}
+    end
   end
 
   defp model_answer_result(response, resolution, active_memory, fallback_metadata \\ nil) do
@@ -176,6 +184,11 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
             audit_path: audit_path
           })
 
+        {:error, {:transport_denied, fallback_reason}} ->
+          audit_path = audit_fallback(:egress_denied, primary, classification, nil, context)
+
+          disclosure_chain_fallback(primary, classification, fallback_reason, audit_path)
+
         {:error, fallback_reason} ->
           audit_path = audit_fallback(:chain_failed, primary, classification, nil, context)
 
@@ -199,7 +212,6 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   defp next_failover_candidate(primary, candidates) do
     candidates
     |> Enum.reject(&(&1.profile.name == primary.profile.name))
-    |> Enum.sort_by(fn resolution -> if local_profile?(resolution.profile), do: 0, else: 1 end)
     |> List.first()
     |> case do
       nil -> {:error, :no_fallback_candidate}
@@ -249,6 +261,26 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
           failed_chain: chain,
           classification: classification,
           provider_call_count: length(chain),
+          audit_path: audit_path
+        }
+      },
+      attrs: %{}
+    }
+  end
+
+  defp disclosure_chain_fallback(primary, classification, reason, audit_path) do
+    %{
+      message: disclosure_required_message(reason),
+      direct_answer: %{
+        source: @fallback_source,
+        reason: bounded_reason(reason),
+        model_enabled?: model_enabled?(),
+        diagnostic: %{status: :fallback},
+        fallback: %{
+          used?: false,
+          failed_chain: [primary.profile.name],
+          classification: classification,
+          provider_call_count: 1,
           audit_path: audit_path
         }
       },
@@ -515,6 +547,9 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
 
         {:coding_stream_unavailable, _reason} ->
           "The configured coding stream was unavailable."
+
+        {:disclosure_required, reason} ->
+          disclosure_required_message(reason)
       end
 
     """
@@ -523,6 +558,27 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
     #{detail}
     """
     |> String.trim()
+  end
+
+  defp disclosure_required_message({:hosted_disclosure_required, %{surface: surface}}) do
+    case surface do
+      "web" ->
+        "The selected hosted model is waiting for its provider disclosure. Review the Web disclosure banner, then retry."
+
+      "tui" ->
+        "The selected hosted model is waiting for its provider disclosure. Detach and run `allbert tui` again to review it, then retry."
+
+      "cli" ->
+        "The selected hosted model is waiting for its provider disclosure. Retry with `allbert ask` so the CLI can display it before transport."
+    end
+  end
+
+  defp disclosure_required_message({:hosted_disclosure_unavailable, _route}) do
+    "The hosted model cannot run from this surface because no pre-egress disclosure channel is available. Use Web, TUI, or `allbert ask`."
+  end
+
+  defp disclosure_required_message(_reason) do
+    "The selected hosted model is waiting for its provider disclosure on this surface. Review it, then retry."
   end
 
   defp answer_result(message, direct_answer) do

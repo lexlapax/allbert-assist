@@ -21,6 +21,13 @@ task input is the current operator turn and it derives its instructions from
 declarative action policy. This amendment does not change the ADR's overall
 status or grant model content any authority.
 
+Second v1.3 M9.b.3 amendment (2026-07-31): a structurally correct
+DirectAnswer request is not considered implementation-ready merely because a
+small general-purpose model returns non-empty text. DirectAnswer now has a
+qualified task profile (`direct_answer_local`) and deterministic sampling
+controls, while the global first-model profile remains independent. This is a
+task-quality boundary, not a new authority or model-judging subsystem.
+
 ## Context
 
 After v0.31, the safe routing behavior is visible in the operator UI: a neutral
@@ -88,6 +95,16 @@ recognition and app-owned action execution.
     current operator turn, and vision parts attach only to it. DirectAnswer
     rules are declared by its registered action policy rather than duplicated
     as adapter prose.
+13. Text DirectAnswer resolves through its task preference, whose shipped local
+    profile is `direct_answer_local` (`local_ollama` / `qwen2.5:7b`,
+    temperature `0`, maximum `1024` output tokens, 60-second timeout). Its
+    non-empty preference list is closed and order-authoritative: it does not
+    silently append the global primary. An empty list retains the documented
+    primary compatibility fallback. The global `local` profile and curated
+    first model remain `llama3.2:3b`; readiness of that substrate does not
+    prove DirectAnswer readiness. Image-bearing turns continue to resolve the
+    separate `vision_input` capability profile, while sharing DirectAnswer's
+    policy and deterministic request boundary.
 
 ## Consequences
 
@@ -106,6 +123,10 @@ recognition and app-owned action execution.
   Structural tests prove message provenance; attended operator validation
   judges semantic usefulness without turning example wording into production
   matching logic.
+- The DirectAnswer model is qualified against generic supplied-text and
+  acknowledgment scenarios. Runtime code applies the declarative rules and
+  fixed sampling controls; it does not regex-match responses, retry until an
+  example passes, or place an always-on model judge behind ordinary answers.
 - Prompt roles and DirectAnswer policy grant no permission. Registry, Runner,
   Security Central, confirmation, and registered Jido actions remain the sole
   execution authority boundary. This amendment requires no retry, response

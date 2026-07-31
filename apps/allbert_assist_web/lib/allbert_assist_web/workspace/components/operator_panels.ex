@@ -418,18 +418,6 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
   @impl true
   def handle_event("refresh_models", _params, socket), do: {:noreply, refresh(socket)}
 
-  def handle_event("select_catalog_profile", %{"profile" => profile}, socket) do
-    context = Support.action_context(socket.assigns)
-
-    socket =
-      case ActionHelper.completed_action("set_active_model_profile", %{profile: profile}, context) do
-        {:ok, response} -> assign_model_action_success(socket, response.message, response)
-        {:error, reason} -> assign(socket, :models_diagnostics, inspect(reason))
-      end
-
-    {:noreply, refresh(socket)}
-  end
-
   def handle_event("install_runtime", _params, socket) do
     {:noreply,
      socket
@@ -442,10 +430,69 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
   end
 
   def handle_event("pull_model", _params, socket) do
+    start_model_pull(socket, %{})
+  end
+
+  def handle_event("pull_catalog_model", %{"entry-id" => entry_id}, socket) do
+    case catalog_pull_entry(socket.assigns.model_catalog, entry_id) do
+      {:ok, entry} ->
+        start_model_pull(socket, %{model: entry.model})
+
+      :error ->
+        {:noreply,
+         assign(socket,
+           models_diagnostics:
+             "That local catalog model is unavailable or already pulled. Refresh models and try again."
+         )}
+    end
+  end
+
+  def handle_event("select_catalog_profile", %{"entry-id" => entry_id}, socket) do
+    case catalog_selection_entry(socket.assigns.model_catalog, entry_id) do
+      {:ok, entry} ->
+        context = Support.action_context(socket.assigns)
+
+        case Runner.run(
+               "set_direct_answer_model_profile",
+               %{profile: entry.profile},
+               context
+             ) do
+          {:ok, %{status: :completed} = response} ->
+            send(self(), :refresh_model_disclosure)
+
+            {:noreply,
+             socket
+             |> assign(models_notice: response.message, models_diagnostics: "")
+             |> refresh()}
+
+          {:ok, response} ->
+            {:noreply, assign(socket, :models_diagnostics, model_action_error(response))}
+        end
+
+      :error ->
+        {:noreply,
+         assign(socket,
+           models_diagnostics:
+             "That catalog profile is unavailable for DirectAnswer. Refresh models and try again."
+         )}
+    end
+  end
+
+  def handle_event("toggle_model_inventory", _params, socket) do
+    socket = update(socket, :show_model_inventories?, &(!&1))
+
+    if socket.assigns.show_model_inventories? do
+      {:noreply, refresh(socket)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp start_model_pull(socket, pull_params) do
     context = Support.action_context(socket.assigns)
 
     params =
-      %{}
+      pull_params
       |> maybe_put(:user_id, context.user_id)
       |> maybe_put(:thread_id, context.thread_id)
 
@@ -460,16 +507,6 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
      |> start_async(:pull_model, fn ->
        run_confirmed_model_action_async("pull_model", params, context)
      end)}
-  end
-
-  def handle_event("toggle_model_inventory", _params, socket) do
-    socket = update(socket, :show_model_inventories?, &(!&1))
-
-    if socket.assigns.show_model_inventories? do
-      {:noreply, refresh(socket)}
-    else
-      {:noreply, socket}
-    end
   end
 
   # v0.64.3: finalize the async pull; streamed frames arrive via the targeted update/2.
@@ -634,20 +671,38 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
               </div>
               <div class="text-xs">
                 source={entry.source} status={entry.status} license={entry.license}
+                <span :if={catalog_model_pullable?(entry, @model_catalog)}>
+                  · pull requires confirmation
+                </span>
               </div>
             </div>
             <button
-              :if={entry.configured? and Map.has_key?(entry, :profile)}
+              :if={catalog_model_pullable?(entry, @model_catalog)}
               type="button"
-              id={"workspace-catalog-select-#{Support.safe_id(entry.profile)}"}
+              id={"workspace-catalog-pull-#{Support.safe_id(entry.id)}"}
+              class={Support.button_class!("secondary")}
+              phx-click="pull_catalog_model"
+              phx-value-entry-id={entry.id}
+              phx-target={@myself}
+              disabled={@model_pulling?}
+            >
+              {if @model_pulling?, do: "Pull in progress…", else: "Pull #{entry.model}"}
+            </button>
+            <button
+              :if={catalog_model_selectable?(entry)}
+              type="button"
+              id={"workspace-catalog-use-#{Support.safe_id(entry.id)}"}
               class={Support.button_class!("secondary")}
               phx-click="select_catalog_profile"
-              phx-value-profile={entry.profile}
+              phx-value-entry-id={entry.id}
               phx-target={@myself}
             >
-              Use profile
+              Use for answers
             </button>
-            <span :if={!entry.configured?} class="workspace-status-pill">
+            <span
+              :if={!entry.configured? and !catalog_model_pullable?(entry, @model_catalog)}
+              class="workspace-status-pill"
+            >
               {if entry.pulled?, do: "Pulled", else: "Available"}
             </span>
           </div>
@@ -808,6 +863,7 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
   defp model_action_error(response), do: Map.get(response, :message, inspect(response))
 
   defp notify_first_model_enablement(response) do
+    send(self(), :refresh_model_disclosure)
     output_data = Map.get(response, :output_data) || Map.get(response, "output_data") || %{}
 
     case Map.get(output_data, :enablement) || Map.get(output_data, "enablement") do
@@ -822,12 +878,74 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
     Map.get(output_data, :enablement_operator_message) ||
       Map.get(output_data, "enablement_operator_message") ||
       Map.get(response, :message) || Map.get(response, "message") ||
-      "Starter model pull approved."
+      "Model pull approved."
   end
+
+  defp catalog_pull_entry(entries, entry_id) when is_list(entries) and is_binary(entry_id) do
+    case Enum.find(entries, fn entry ->
+           Support.field(entry, :id) == entry_id and catalog_model_pullable?(entry, entries)
+         end) do
+      nil -> :error
+      entry -> {:ok, entry}
+    end
+  end
+
+  defp catalog_pull_entry(_entries, _entry_id), do: :error
+
+  defp catalog_model_pullable?(entry, entries) when is_list(entries) do
+    raw_catalog_model_pullable?(entry) and preferred_pull_entry?(entry, entries)
+  end
+
+  defp catalog_model_pullable?(_entry, _entries), do: false
+
+  defp preferred_pull_entry?(entry, entries) do
+    model = Support.field(entry, :model)
+
+    candidates =
+      Enum.filter(entries, fn candidate ->
+        raw_catalog_model_pullable?(candidate) and Support.field(candidate, :model) == model
+      end)
+
+    case candidates do
+      [] ->
+        false
+
+      candidates ->
+        preferred =
+          Enum.min_by(candidates, fn candidate ->
+            {pull_source_rank(Support.field(candidate, :source)),
+             Support.field(candidate, :id, "")}
+          end)
+
+        Support.field(preferred, :id) == Support.field(entry, :id)
+    end
+  end
+
+  defp raw_catalog_model_pullable?(entry),
+    do: Support.field(entry, :pullable?, false) == true
+
+  defp pull_source_rank(source) when source in [:curated, "curated"], do: 0
+  defp pull_source_rank(source) when source in [:configured, "configured"], do: 1
+  defp pull_source_rank(_source), do: 2
+
+  defp catalog_selection_entry(entries, entry_id)
+       when is_list(entries) and is_binary(entry_id) do
+    case Enum.find(entries, fn entry ->
+           Support.field(entry, :id) == entry_id and catalog_model_selectable?(entry)
+         end) do
+      %{profile: profile} = entry when is_binary(profile) and profile != "" -> {:ok, entry}
+      _missing_or_invalid -> :error
+    end
+  end
+
+  defp catalog_selection_entry(_entries, _entry_id), do: :error
+
+  defp catalog_model_selectable?(entry),
+    do: Support.field(entry, :selectable?, false) == true
 
   defp model_repair do
     probe = Onboarding.safe_first_model_state()
-    readiness = Onboarding.readiness_label(first_model_state: probe)
+    readiness = Onboarding.direct_answer_readiness(first_model_state: probe)
     Onboarding.model_guidance_for(readiness, :quickstart)
   end
 

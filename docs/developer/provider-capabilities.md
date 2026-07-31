@@ -107,10 +107,34 @@ and disabled providers, validates declared capabilities, and then falls back to
 `model_preferences.primary` only when the primary profile satisfies the
 requested capability. Otherwise it returns a bounded no-capable-profile error.
 
+DirectAnswer is the task-specific exception to implicit primary completion.
+When `model_preferences.tasks.direct_answer` is non-empty, that list is the
+complete chain in authored order; do not sort local profiles ahead of hosted
+profiles and do not append `model_preferences.primary`. When it is empty, use
+the legacy primary compatibility fallback. The shipped values keep
+`model_preferences.primary = "local"` (`llama3.2:3b`) and set the DirectAnswer
+task head to `direct_answer_local` (`qwen2.5:7b`).
+
+DirectAnswer request construction forces temperature `0`; its shipped profile
+also sets `max_tokens: 1024` and `timeout_ms: 60_000`. This is a consumer-owned
+determinism rule, not permission, and must not alter other consumers using the
+same provider/profile substrate.
+
 Existing text settings remain compatibility aliases:
 
 - `intent.model_profile` maps to the primary text-generation preference.
 - `intent.direct_answer_model_profile` maps to the direct-answer preference.
+
+The broad `set_active_model_profile` / `allbert admin models use` action writes
+both the global primary and the DirectAnswer task by design. The targeted
+`set_direct_answer_model_profile` / `allbert admin models use-direct-answer`
+action changes only the task head, preserves/deduplicates the existing tail,
+enables the selected provider, and leaves primary alone. Both selection paths
+use `Settings.ModelCapabilities.runtime_text_generation?/1`: a profile with an
+explicit non-empty capability list must declare `text_generation`; a persisted
+pre-capability profile with no capability list and a non-empty model remains
+compatible and selectable. Explicit voice/vision-only profiles never inherit
+text capability.
 
 Aliases are for migration. New v0.48+ code should use the resolver.
 

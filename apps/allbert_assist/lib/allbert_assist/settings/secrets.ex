@@ -29,8 +29,8 @@ defmodule AllbertAssist.Settings.Secrets do
     with :ok <- validate_secret_ref(secret_ref),
          old_status <- status(secret_ref),
          :ok <- put_secret_value(secret_ref, value, context),
+         :ok <- KeyCustody.invalidate(secret_ref),
          :ok <- maybe_write_setting_ref(secret_ref, context) do
-      KeyCustody.invalidate(secret_ref)
       diagnostics = audit_secret(secret_ref, old_status, :configured, context)
       {:ok, %{secret_ref: secret_ref, status: :configured, diagnostics: diagnostics}}
     end
@@ -52,8 +52,8 @@ defmodule AllbertAssist.Settings.Secrets do
   def finalize_external_secret(secret_ref, context \\ %{}) do
     with :ok <- validate_secret_ref(secret_ref),
          old_status <- status(secret_ref),
+         :ok <- KeyCustody.invalidate(secret_ref),
          :ok <- maybe_write_setting_ref(secret_ref, context) do
-      KeyCustody.invalidate(secret_ref)
       {:ok, audit_secret(secret_ref, old_status, :configured, context)}
     end
   end

@@ -25,21 +25,37 @@ secrets.
 
 ## First-Run Consent And Egress
 
-Allbert 1.2 detection is side-effect-free. It may select a ready local profile
-or a hosted profile whose credential is already configured, and may enable
-model answers only when the setting has never been written. It does not probe a
-hosted provider, send a prompt, install a runtime, or pull a model.
+Allbert detection is side-effect-free. It may select a usable DirectAnswer task
+head and enable model answers only when the setting has never been written. A
+hosted profile is eligible only when explicitly selected by that task chain (or
+by the empty-list primary compatibility case), not merely because a credential
+exists. Detection does not probe a hosted provider, send a prompt, install a
+runtime, or pull a model.
 
-- Local processing and hosted egress each have a surface-specific disclosure.
+- Local processing and hosted egress each have an exact configured-route-set
+  disclosure (primary plus at most one callable fallback).
 - The first hosted model send does not precede its disclosure.
 - `intent.direct_answer_model_enabled=false` is sticky operator state.
 - Missing/unhealthy local state remains repair-first; it is not an implicit
   hosted-fallback grant.
+- A non-empty DirectAnswer task list is closed and order-authoritative. An
+  unrelated global primary or hosted key cannot become an implicit answer
+  route; a selected hosted head still waits for its pre-egress disclosure.
 - A model pull, runtime install, or other effectful repair follows the normal
   preview and durable-confirmation path.
 
-These rules apply independently on web, TUI, and CLI surfaces. A disclosure is
-an acknowledgement record, not permission to bypass Security Central.
+The default `direct_answer_local` model (`qwen2.5:7b`) is an external Ollama
+download. It is never silently pulled and is not packaged into Allbert's binary
+or component-license inventory.
+
+Web, TUI, and CLI acknowledge their own rendered copy; any route-set change
+invalidates all three. TUI renders before attaching, and Web blocks a pending
+ask. A mapped DM or other non-presenting channel may reuse an exact
+acknowledgement from a local operator-control surface in the same Allbert Home;
+without one, hosted DirectAnswer fails closed and directs the operator to Web,
+TUI, or CLI. This Home-level record is consent to the configured provider
+egress, not remote-user authority: it never grants channel access, history
+scope, or a Security Central permission.
 
 ## Emergency Switches
 

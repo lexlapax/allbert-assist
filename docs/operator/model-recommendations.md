@@ -41,6 +41,29 @@ was unavailable, so no candidate had the required cross-platform promotion
 evidence. The result supports a task-specific Qwen recommendation, not a silent
 default or hardware-floor change.
 
+## v1.3 DirectAnswer Qualification
+
+The global `local` profile and curated first model still use
+`llama3.2:3b`. DirectAnswer now has a separate qualified local profile:
+
+| Profile | Model | Controls | Purpose |
+|---|---|---|---|
+| `direct_answer_local` | `qwen2.5:7b` | temperature `0`, maximum `1024` output tokens, 60-second timeout | Useful, deterministic text DirectAnswer responses, including supplied-text extraction and acknowledgment. Vision continues to resolve its `vision_input` profile. |
+
+The default task list is
+`model_preferences.tasks.direct_answer = ["direct_answer_local"]`. A non-empty
+list is the complete chain in operator-authored order; Allbert does not append
+or reorder the global primary. An empty list retains the compatibility fallback
+to primary. An explicitly selected hosted head still receives the hosted-egress
+disclosure; an unrelated hosted key is not a fallback candidate.
+
+The official Ollama catalog lists `qwen2.5:7b` as a 4.7 GB model, and the
+[official Qwen 2.5 7B Instruct model card](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct)
+records its license as Apache-2.0. The weights are an external,
+operator-managed Ollama download, not a file bundled in the Allbert binary or
+its component-license inventory. See the [official Ollama Qwen 2.5
+page](https://ollama.com/library/qwen2.5).
+
 Status values: `ok` · `missing` (no profile set) · `under-capable` (model too
 small/wrong capability) · `not-pulled` (local model not downloaded) ·
 `remote-egress-warning` (a hosted profile is configured).
@@ -54,6 +77,7 @@ small/wrong capability) · `not-pulled` (local model not downloaded) ·
 | Intent escalation (low-confidence tail) | `gemma4:26b` (local) | capable hosted | larger reasoning | local default; egress audited | `intent.router_escalation_profile = router_escalation_local` | second pass -> clarify |
 | Descriptor generation (v0.56) | reuse `router_local` | — keep local in v0.56 | json_schema generation | local-only, redacted | reuses `intent.router_model_profile` | heuristic generator |
 | Intent eval **live** bench (v0.56) | reuse `router_local` | — | same as disambiguation | local | reuses `intent.router_model_profile` | deterministic gate is model-free |
+| DirectAnswer | `direct_answer_local` (`qwen2.5:7b`) | explicitly selected hosted task profile | text generation, 7B; deterministic temperature | local by default; hosted head requires disclosure | `model_preferences.tasks.direct_answer` / `intent.direct_answer_model_profile` | honest unavailable response + explicit select/pull repair; no implicit global-primary append |
 | Main conversational loop | `:capable` / `:thinking` (object), `:fast` (text/stream) | per provider | text + structured output | operator choice | `jido_ai` aliases (config) + Settings Central model profiles | graceful decline |
 | Voice STT / TTS | per `docs/operator/voice-and-provider-preferences.md` | OpenAI / Gemini (audited) | audio in/out | per provider | `voice.*` | voice doctor reports gap |
 | Vision / image generation | per provider catalog (v0.49) | image provider (audited) | image generation | per provider | image profile | provider doctor reports gap |
@@ -81,10 +105,31 @@ already uses). Typical setup:
 ```sh
 ollama pull nomic-embed-text
 ollama pull llama3.1:8b
-ollama pull qwen2.5:7b     # Pi-mode tool-loop profile
+ollama pull qwen2.5:7b     # DirectAnswer profile; also used by the current Pi local recommendation
 ollama pull gemma4:26b      # optional local escalation tier
 allbert admin intent doctor # confirm embedder + router model report ok
 ```
+
+Prefer the web Models panel for the confirmation-gated Qwen pull. Verify the
+two independent local profiles explicitly:
+
+```sh
+allbert admin models doctor local
+allbert admin models doctor direct_answer_local
+```
+
+`allbert admin models use PROFILE` is the broad switch and intentionally sets
+both global primary and DirectAnswer to that profile. To change only
+DirectAnswer, use:
+
+```sh
+allbert admin models use-direct-answer direct_answer_local
+```
+
+The purpose-specific action preserves the authored fallback tail, enables the
+selected provider, records the Settings audit, and leaves global primary
+unchanged. The legacy direct-answer setting alias remains compatible but
+replaces the whole chain with its single value.
 
 For the v1.2 first-chat alternatives, prefer the web Models panel so catalog
 selection and any pull stay on the reviewed Settings/confirmation path. If you

@@ -43,6 +43,30 @@ defmodule AllbertAssist.CLI.DispatcherTest do
     end)
   end
 
+  test "bare allbert preserves sticky-disable consent copy when the selected task is available" do
+    with_first_run_home(fn ->
+      assert {:ok, _secret} =
+               Settings.Secrets.put_secret(
+                 "secret://providers/openai/api_key",
+                 "test-openai-key",
+                 %{audit?: false}
+               )
+
+      assert {:ok, _setting} =
+               Settings.put("intent.direct_answer_model_profile", "fast", %{audit?: false})
+
+      assert {:ok, _setting} =
+               Settings.put("intent.direct_answer_model_enabled", false, %{audit?: false})
+
+      {out, 0} = CLI.run([])
+
+      assert out =~ "Model answers remain disabled by your saved setting."
+      assert out =~ "to re-enable"
+      refute out =~ "DirectAnswer is not ready"
+      refute out =~ "pull"
+    end)
+  end
+
   test "--help renders grouped help with every group" do
     {out, 0} = CLI.run(["--help"])
     assert out =~ "Start" and out =~ "Operate"

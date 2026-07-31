@@ -64,6 +64,73 @@ defmodule AllbertAssist.CLI.FirstRunTest do
     end
   end
 
+  describe "readiness_projection/1" do
+    test "keeps substrate and DirectAnswer task readiness separate" do
+      projection =
+        FirstRun.readiness_projection(
+          model_state: :local_ready,
+          enablement_result: %{state: :enabled_unavailable, model_state: :local_ready}
+        )
+
+      assert projection.substrate_readiness == :ready
+      assert projection.direct_answer_readiness == :needs_selection
+    end
+
+    test "fails DirectAnswer closed when preview evidence is unavailable" do
+      projection =
+        FirstRun.readiness_projection(
+          model_state: :local_ready,
+          enablement_result: {:error, :settings_unavailable}
+        )
+
+      assert projection.substrate_readiness == :ready
+      assert projection.direct_answer_readiness == :needs_selection
+      assert projection.enablement_result == nil
+    end
+
+    test "sticky disable does not turn an optional wizard substrate into a repair state" do
+      projection =
+        FirstRun.readiness_projection(
+          model_state: :local_ready,
+          enablement_result: %{
+            state: :sticky_disabled,
+            model_state: :local_ready,
+            availability: :available
+          }
+        )
+
+      assert projection.substrate_readiness == :ready
+      assert projection.direct_answer_readiness == :ready
+    end
+
+    test "sticky consent does not hide selected-task availability in either direction" do
+      missing_task =
+        FirstRun.readiness_projection(
+          model_state: :local_ready,
+          enablement_result: %{
+            state: :sticky_disabled,
+            model_state: :local_ready,
+            availability: :unavailable
+          }
+        )
+
+      ready_task =
+        FirstRun.readiness_projection(
+          model_state: :model_missing,
+          enablement_result: %{
+            state: :sticky_disabled,
+            model_state: :model_missing,
+            availability: :available
+          }
+        )
+
+      assert missing_task.substrate_readiness == :ready
+      assert missing_task.direct_answer_readiness == :needs_selection
+      assert ready_task.substrate_readiness == :needs_model
+      assert ready_task.direct_answer_readiness == :ready
+    end
+  end
+
   describe "detect/0" do
     setup do
       root =

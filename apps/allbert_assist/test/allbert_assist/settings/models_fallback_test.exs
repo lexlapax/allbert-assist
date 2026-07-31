@@ -46,7 +46,7 @@ defmodule AllbertAssist.Settings.ModelsFallbackTest do
     assert setting.value == 2
   end
 
-  test "text candidates are local-first when no explicit primary was selected" do
+  test "DirectAnswer candidates preserve the operator-authored task order" do
     assert {:ok, _setting} = Settings.put("providers.openai.enabled", true, %{audit?: false})
 
     assert {:ok, _setting} =
@@ -55,9 +55,9 @@ defmodule AllbertAssist.Settings.ModelsFallbackTest do
              })
 
     assert {:ok, resolutions} = Models.candidates_for(:direct_answer)
-    assert Enum.map(resolutions, & &1.profile.name) == ["local", "fast"]
+    assert Enum.map(resolutions, & &1.profile.name) == ["fast", "local"]
 
     assert {:ok, resolution} = Models.for(:direct_answer)
-    assert resolution.profile.name == "local"
+    assert resolution.profile.name == "fast"
   end
 end

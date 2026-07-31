@@ -92,7 +92,7 @@ defmodule AllbertAssist.DevGates.V13ZeroShotEvalTest do
 
     result =
       V13ZeroShotEval.evaluate!(fixture,
-        profile: "local",
+        profile: "direct_answer_local",
         projection: projection,
         replay_answerer: DeterministicAnswerer
       )

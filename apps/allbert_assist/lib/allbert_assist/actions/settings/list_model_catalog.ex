@@ -60,12 +60,17 @@ defmodule AllbertAssist.Actions.Settings.ListModelCatalog do
   end
 
   defp render_entry(entry) do
-    readiness = if entry.pulled? or entry.configured?, do: " ready", else: ""
+    readiness = catalog_readiness(entry)
     floor = if entry.floor_gb, do: " floor=#{entry.floor_gb}GB", else: ""
 
     "- #{entry.id}: source=#{entry.source} " <>
       "purposes=#{Enum.join(entry.purposes, ",")}#{floor}#{readiness}"
   end
+
+  defp catalog_readiness(%{status: :ready}), do: " ready"
+  defp catalog_readiness(%{status: :not_pulled}), do: " not-pulled"
+  defp catalog_readiness(%{status: :configured}), do: " configured"
+  defp catalog_readiness(_entry), do: ""
 
   defp field(map, key), do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
 end

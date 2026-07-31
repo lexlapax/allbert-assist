@@ -116,9 +116,11 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
 
     assert remote.decision == :needs_confirmation
 
-    assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.direct_answer", ["voice_stt_fake", "local"], %{
-               audit?: false
+    assert {:ok, _settings} =
+             Settings.write_user_settings(%{
+               "model_preferences" => %{
+                 "tasks" => %{"direct_answer" => ["voice_stt_fake", "local"]}
+               }
              })
 
     assert {:ok, resolution} = Models.for(:direct_answer)

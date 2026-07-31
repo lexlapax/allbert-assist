@@ -10,6 +10,7 @@ defmodule AllbertAssist.CLI.Areas.ModelTest do
       assert {usage, _code} = Area.dispatch(["help"])
       assert usage =~ "admin models list"
       assert usage =~ "admin models use"
+      assert usage =~ "admin models use-direct-answer"
       assert usage =~ "admin models doctor"
       # The singular `admin model list/use/doctor` forms are NOT dispatchable here and
       # must not be advertised (guards against the regression the operator hit).

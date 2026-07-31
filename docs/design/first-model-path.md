@@ -6,6 +6,11 @@ the QuickStart path, option analysis, first-model-state handoff, and v0.62/v0.63
 packaging/onboarding implications. It is design only; v0.60 does not install,
 pull, configure, or call any model.
 
+v1.3 amendment (2026-07-31): the first-model substrate and a consumer's
+qualified task profile are distinct readiness dimensions. The curated/global
+`local` starter stays `llama3.2:3b`; DirectAnswer independently defaults to
+`direct_answer_local` / `qwen2.5:7b`.
+
 ## Decision Summary
 
 The v0.60 First-Model Path is:
@@ -80,6 +85,14 @@ the initial chat. If a persona recommends embeddings, `:capable`, `:thinking`, o
 Pi-mode model profiles, v0.63 may surface that as a follow-on readiness check or
 Advanced-track choice, but QuickStart must not block first useful chat on those
 persona tiers.
+
+Beginning in v1.3, that paragraph describes the **substrate** checkpoint, not a
+claim that every model-backed task is qualified. DirectAnswer checks its own
+task head independently. A healthy starter plus missing
+`direct_answer_local` produces an honest `enabled_unavailable` answer state and
+one explicit chooser/pull repair. It does not reinstall the runtime, silently
+download Qwen, or treat global `local` as a substitute. The operator may still
+use the rest of chat and the workspace while repairing the task profile.
 
 ## First-Model State Handoff
 

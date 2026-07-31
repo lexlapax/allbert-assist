@@ -13,15 +13,63 @@ defmodule AllbertAssist.FirstRun.UsableModelTest do
              UsableModel.select(settings: settings, doctor: doctor, tags: [])
   end
 
-  test "curated pulled profile is the bounded fallback when doctor is not healthy" do
+  test "direct-answer local readiness is limited to its purpose preference" do
+    settings =
+      settings()
+      |> put_in(["model_preferences", "tasks", "direct_answer"], ["direct_answer_local"])
+      |> put_in(
+        ["model_profiles", "direct_answer_local"],
+        text_profile("local_ollama", "qwen2.5:7b")
+      )
+
+    doctor = fn
+      "direct_answer_local" -> {:ok, %{endpoint_ok: true, model_available: false}}
+      "local" -> {:ok, %{endpoint_ok: true, model_available: true}}
+    end
+
+    assert {:error, :no_usable_model} =
+             UsableModel.select_local_for_task("direct_answer", settings,
+               doctor: doctor,
+               tags: ["qwen2.5:7b"]
+             )
+
+    ready_doctor = fn
+      "direct_answer_local" -> {:ok, %{endpoint_ok: true, model_available: true}}
+    end
+
+    assert {:ok, %{profile: "direct_answer_local", provider_class: :local}} =
+             UsableModel.select_local_for_task("direct_answer", settings,
+               doctor: ready_doctor,
+               tags: []
+             )
+  end
+
+  test "direct-answer hosted readiness stays inside the authored task chain" do
+    settings =
+      settings()
+      |> put_in(["model_preferences", "tasks", "direct_answer"], ["direct_answer_local"])
+      |> put_in(
+        ["model_profiles", "direct_answer_local"],
+        text_profile("local_ollama", "qwen2.5:7b")
+      )
+
+    assert {:error, :no_usable_model} =
+             UsableModel.select_hosted_for_task("direct_answer", settings)
+
+    settings =
+      put_in(settings, ["model_preferences", "tasks", "direct_answer"], ["fast"])
+
+    assert {:ok, %{profile: "fast", provider_class: :hosted}} =
+             UsableModel.select_hosted_for_task("direct_answer", settings)
+  end
+
+  test "host-local tags cannot override an unhealthy configured endpoint" do
     doctor = fn _profile -> {:ok, %{endpoint_ok: true, model_available: false}} end
 
-    assert {:ok, %{profile: "local", provider_class: :local}} =
-             UsableModel.select(
-               settings: settings(),
+    assert {:error, :no_usable_model} =
+             UsableModel.select_local(settings(),
                doctor: doctor,
-               tags: ["llama3.2:3b"],
-               curated_model: "llama3.2:3b"
+               tags: ["llama3.2:3b"]
              )
   end
 

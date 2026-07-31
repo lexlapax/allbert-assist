@@ -93,6 +93,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
       case completed_action("update_setting", %{key: key, value: value}) do
         {:ok, response} ->
           socket
+          |> notify_model_disclosure_refresh()
           |> assign(:settings_notice, "Setting saved.")
           |> assign(:diagnostics, "")
           |> assign(:last_audit_path, action_audit_path(response))
@@ -117,6 +118,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
       case completed_action("update_setting", %{key: key, value: value}) do
         {:ok, response} ->
           socket
+          |> notify_model_disclosure_refresh()
           |> assign(:settings_notice, "Permission setting saved.")
           |> assign(:diagnostics, "")
           |> assign(:last_audit_path, action_audit_path(response))
@@ -145,6 +147,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
            }) do
         {:ok, response} ->
           socket
+          |> notify_model_disclosure_refresh()
           |> assign(:settings_notice, "Provider credential saved.")
           |> assign(:diagnostics, "")
           |> assign(:last_audit_path, action_audit_path(response))
@@ -165,6 +168,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
       case completed_action("set_active_model_profile", %{profile: profile}) do
         {:ok, response} ->
           socket
+          |> notify_model_disclosure_refresh()
           |> assign(:settings_notice, "Model profile saved.")
           |> assign(:diagnostics, "")
           |> assign(:last_audit_path, action_audit_path(response))
@@ -205,6 +209,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
       case completed_action("approve_confirmation", %{id: id}) do
         {:ok, response} ->
           socket
+          |> notify_model_disclosure_refresh()
           |> assign(:settings_notice, confirmation_flash_message(response.confirmation))
           |> assign(:diagnostics, "")
           |> refresh(socket.assigns.selected_key)
@@ -233,6 +238,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
       case completed_action("approve_confirmation", approve_params) do
         {:ok, response} ->
           socket
+          |> notify_model_disclosure_refresh()
           |> assign(:settings_notice, confirmation_flash_message(response.confirmation))
           |> assign(:diagnostics, "")
           |> refresh(socket.assigns.selected_key)
@@ -1149,6 +1155,11 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
     confirmations
     |> Enum.reverse()
     |> Enum.take(5)
+  end
+
+  defp notify_model_disclosure_refresh(socket) do
+    send(self(), :refresh_model_disclosure)
+    socket
   end
 
   defp maybe_put(params, _key, nil), do: params

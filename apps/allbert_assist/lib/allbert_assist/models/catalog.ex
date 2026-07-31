@@ -6,6 +6,7 @@ defmodule AllbertAssist.Models.Catalog do
 
   alias AllbertAssist.FirstModel.Ollama
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.ModelCapabilities
 
   @catalog_path "model_catalog.json"
   @spec list(keyword()) ::
@@ -15,11 +16,15 @@ defmodule AllbertAssist.Models.Catalog do
     pulled = Keyword.get_lazy(opts, :pulled_models, &Ollama.model_tags/0)
     profiles = Keyword.get_lazy(opts, :profiles, &configured_profiles/0)
 
+    direct_answer_target =
+      Keyword.get_lazy(opts, :direct_answer_target, fn -> direct_answer_target(profiles) end)
+
     entries =
       shipped
       |> annotate_pulled(pulled)
       |> merge_runtime(pulled)
       |> merge_profiles(profiles, pulled)
+      |> annotate_direct_answer_repair(direct_answer_target)
       |> Enum.sort_by(&sort_key/1)
 
     {:ok, %{version: 1, entries: entries, diagnostics: diagnostics}}
@@ -51,7 +56,9 @@ defmodule AllbertAssist.Models.Catalog do
     Map.merge(values, %{
       source: if(values.provider == "ollama", do: :curated, else: :hosted_metadata),
       pulled?: false,
+      pullable?: values.provider == "ollama",
       configured?: false,
+      selectable?: false,
       status: :available
     })
   end
@@ -59,7 +66,7 @@ defmodule AllbertAssist.Models.Catalog do
   defp annotate_pulled(rows, pulled) do
     Enum.map(rows, fn row ->
       if row.provider == "ollama" and row.model in pulled,
-        do: %{row | pulled?: true, status: :ready},
+        do: %{row | pulled?: true, pullable?: false, status: :ready},
         else: row
     end)
   end
@@ -78,7 +85,9 @@ defmodule AllbertAssist.Models.Catalog do
           purposes: ["configured"],
           source: :runtime,
           pulled?: true,
+          pullable?: false,
           configured?: false,
+          selectable?: false,
           status: :ready,
           floor_gb: nil,
           size_bytes: nil,
@@ -91,6 +100,9 @@ defmodule AllbertAssist.Models.Catalog do
   defp merge_profiles(rows, profiles, pulled) do
     rows ++
       Enum.map(profiles, fn profile ->
+        host_managed? = Map.get(profile, :provider_target) == :host_ollama
+        pulled? = host_managed? and profile.model in pulled
+
         %{
           id: "profile:#{profile.name}",
           profile: profile.name,
@@ -100,9 +112,11 @@ defmodule AllbertAssist.Models.Catalog do
           capabilities: Enum.map(profile.capabilities, &to_string/1),
           purposes: ["configured"],
           source: :configured,
-          pulled?: to_string(profile.provider) == "ollama" and profile.model in pulled,
+          pulled?: pulled?,
+          pullable?: host_managed? and not pulled?,
           configured?: true,
-          status: :configured,
+          selectable?: text_generation_profile?(profile),
+          status: configured_status(host_managed?, pulled?),
           floor_gb: nil,
           size_bytes: nil,
           license: "provider/model terms",
@@ -111,11 +125,66 @@ defmodule AllbertAssist.Models.Catalog do
       end)
   end
 
+  defp configured_status(true, true), do: :ready
+  defp configured_status(true, false), do: :not_pulled
+  defp configured_status(false, _pulled?), do: :configured
+
   defp configured_profiles do
     case Settings.list_model_profiles() do
-      {:ok, profiles} -> profiles
+      {:ok, profiles} -> Enum.map(profiles, &annotate_provider_target/1)
       _error -> []
     end
+  end
+
+  defp annotate_provider_target(%{provider: provider} = profile) do
+    target =
+      with "local_ollama" <- to_string(provider),
+           "local_endpoint" <- Map.get(profile, :provider_endpoint_kind),
+           {:ok, provider_profile} <- Settings.resolve_provider_profile(to_string(provider)),
+           true <- Ollama.provider_targets_host_runtime?(provider_profile.base_url) do
+        :host_ollama
+      else
+        _configured_or_unavailable -> :configured_endpoint
+      end
+
+    Map.put(profile, :provider_target, target)
+  end
+
+  defp text_generation_profile?(profile) do
+    ModelCapabilities.runtime_text_generation?(profile)
+  end
+
+  defp direct_answer_target(profiles) do
+    with {:ok, task_profiles} <- Settings.get("model_preferences.tasks.direct_answer"),
+         profile_name when is_binary(profile_name) <-
+           direct_answer_profile_name(task_profiles),
+         %{} = profile <- Enum.find(profiles, &(to_string(&1.name) == profile_name)) do
+      profile
+    else
+      _unavailable -> nil
+    end
+  end
+
+  defp direct_answer_profile_name([profile | _rest]) when is_binary(profile), do: profile
+
+  defp direct_answer_profile_name(_empty_or_missing) do
+    case Settings.get("model_preferences.primary") do
+      {:ok, profile} when is_binary(profile) -> profile
+      _unavailable -> nil
+    end
+  end
+
+  defp annotate_direct_answer_repair(entries, target) do
+    target_model = if is_map(target), do: Map.get(target, :model)
+    host_target? = is_map(target) and Map.get(target, :provider_target) == :host_ollama
+
+    Enum.map(entries, fn entry ->
+      repair? =
+        host_target? and entry.source == :curated and entry.pullable? and
+          entry.model == target_model
+
+      Map.put(entry, :direct_answer_repair?, repair?)
+    end)
   end
 
   defp sort_key(row), do: {if(row.source == :curated, do: 0, else: 1), row.id}

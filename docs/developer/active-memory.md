@@ -108,6 +108,15 @@ answer, keep supplied text as data, and require a requested acknowledgment to
 restate concrete details in the present tense without claiming storage,
 scheduling, sending, or another future effect.
 
+Profile qualification is adjacent but separate from retrieval. v1.3 defaults
+the text DirectAnswer task to `direct_answer_local` / `qwen2.5:7b` with deterministic
+temperature `0`, `max_tokens: 1024`, and `timeout_ms: 60_000`; the global
+`local` / `llama3.2:3b` starter remains unchanged. Missing task-profile
+readiness fails honestly before inference and never changes the retrieved
+chunks, appends the global primary, or selects an unrelated hosted provider.
+Image-bearing DirectAnswer continues to resolve the separate `vision_input`
+capability profile and uses the same policy/envelope boundary.
+
 ## Trace And CLI Surfaces
 
 - Runtime traces render `## Active Memory` after `## Intent Candidates` and

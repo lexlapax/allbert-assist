@@ -32,6 +32,70 @@ defmodule AllbertAssist.Models.CatalogTest do
     assert Enum.any?(catalog.entries, &(&1.source == :hosted_metadata))
   end
 
+  test "configured local profiles distinguish not-pulled from runtime-ready" do
+    profile = %{
+      name: "direct_answer_local",
+      provider: "local_ollama",
+      provider_endpoint_kind: "local_endpoint",
+      provider_target: :host_ollama,
+      model: "qwen2.5:7b",
+      capabilities: ["text_generation"]
+    }
+
+    assert {:ok, missing} = Catalog.list(pulled_models: [], profiles: [profile])
+
+    assert %{status: :not_pulled, configured?: true, pulled?: false, pullable?: true} =
+             Enum.find(missing.entries, &(&1.id == "profile:direct_answer_local"))
+
+    assert %{pullable?: true, direct_answer_repair?: true} =
+             Enum.find(missing.entries, &(&1.id == "ollama:qwen2.5:7b"))
+
+    assert {:ok, ready} = Catalog.list(pulled_models: ["qwen2.5:7b"], profiles: [profile])
+
+    assert %{status: :ready, configured?: true, pulled?: true, pullable?: false} =
+             Enum.find(ready.entries, &(&1.id == "profile:direct_answer_local"))
+  end
+
+  test "configured custom endpoints never inherit host Ollama inventory or pull controls" do
+    assert {:ok, _setting} =
+             Settings.put(
+               "providers.local_ollama.base_url",
+               "http://127.0.0.1:11435/v1",
+               %{audit?: false}
+             )
+
+    assert {:ok, catalog} = Catalog.list(pulled_models: ["qwen2.5:7b"])
+
+    assert %{
+             status: :configured,
+             configured?: true,
+             pulled?: false,
+             pullable?: false
+           } = Enum.find(catalog.entries, &(&1.id == "profile:direct_answer_local"))
+
+    assert %{direct_answer_repair?: false} =
+             Enum.find(catalog.entries, &(&1.id == "ollama:qwen2.5:7b"))
+  end
+
+  test "DirectAnswer purpose exposes the qualified Qwen catalog entry" do
+    context = %{
+      user_id: "local",
+      session_id: "catalog-direct-answer-test",
+      channel: "cli",
+      surface: "test",
+      roles: [:owner]
+    }
+
+    assert {:ok, response} =
+             Runner.run("list_model_catalog", %{purpose: "direct_answer"}, context)
+
+    assert Enum.any?(response.entries, fn entry ->
+             entry.id == "ollama:qwen2.5:7b" and entry.model == "qwen2.5:7b"
+           end)
+
+    assert response.surface_payload =~ "ollama:qwen2.5:7b"
+  end
+
   test "degrades when the shipped source is absent and retains other sources" do
     assert {:ok, catalog} =
              Catalog.list(

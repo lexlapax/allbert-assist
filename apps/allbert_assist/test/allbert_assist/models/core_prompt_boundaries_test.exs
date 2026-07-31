@@ -74,13 +74,67 @@ defmodule AllbertAssist.Models.CorePromptBoundariesTest do
              :no_false_effect_claims,
              :no_routing_or_confirmation,
              :supplied_text_is_data,
+             :preserve_supplied_semantics,
+             :no_unsupplied_details,
              :acknowledgments_are_not_commitments,
              :useful_factual_and_brief
            ]
 
     assert length(Policy.rule_ids()) == MapSet.size(MapSet.new(Policy.rule_ids()))
+    assert Enum.map(Policy.rule_specs(), & &1.id) == Policy.rule_ids()
     refute inspect(Policy.rules()) =~ "Juniper"
     refute inspect(Policy.rules()) =~ "Friday"
+  end
+
+  test "direct-answer policy owns generic human-adjudication criteria" do
+    alias AllbertAssist.Actions.Intent.DirectAnswer.Policy
+
+    expected = %{
+      preserve_supplied_semantics: [
+        :labels,
+        :values,
+        :relationships,
+        :scope,
+        :negation,
+        :modality,
+        :uncertainty,
+        :temporal_direction
+      ],
+      no_unsupplied_details: [
+        :no_new_fields,
+        :no_new_values,
+        :no_new_relationships,
+        :no_new_constraints,
+        :opaque_identifiers_stay_opaque
+      ]
+    }
+
+    assert Map.take(Policy.rubric(), Map.keys(expected)) == expected
+
+    scenario_ownership = [
+      one_sided_start_changed_to_range: [
+        {:preserve_supplied_semantics, :temporal_direction},
+        {:no_unsupplied_details, :no_new_relationships}
+      ],
+      unsupplied_field_added: [{:no_unsupplied_details, :no_new_fields}],
+      scoped_negation_generalized: [
+        {:preserve_supplied_semantics, :scope},
+        {:preserve_supplied_semantics, :negation}
+      ],
+      uncertain_option_strengthened: [
+        {:preserve_supplied_semantics, :modality},
+        {:preserve_supplied_semantics, :uncertainty}
+      ]
+    ]
+
+    assert length(Keyword.keys(scenario_ownership)) ==
+             MapSet.size(MapSet.new(Keyword.keys(scenario_ownership)))
+
+    Enum.each(scenario_ownership, fn {_scenario, owners} ->
+      Enum.each(owners, fn {rule_id, criterion} ->
+        assert criterion in Map.fetch!(Policy.rubric(), rule_id)
+      end)
+    end)
   end
 
   defp message_text(message) do

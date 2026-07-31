@@ -17,7 +17,7 @@ defmodule AllbertAssist.Settings.Store do
   @auto_enablement_keys MapSet.new([
                           "intent.direct_answer_model_enabled",
                           "intent.model_assist_enabled",
-                          "model_preferences.primary"
+                          "model_preferences.tasks.direct_answer"
                         ])
   @tui_identity_key "channels.tui.identity_map"
   @tui_profile_key "channels.tui.profile"
@@ -359,19 +359,27 @@ defmodule AllbertAssist.Settings.Store do
 
   # The three values form one semantic enablement decision, even though raw
   # per-key stickiness is preserved. If consent became explicitly false or the
-  # selected primary changed before this lock was acquired, applying the other
-  # absent keys would bind enablement/disclosure to stale selection state.
+  # selected DirectAnswer task changed before this lock was acquired, applying
+  # the other absent keys would bind enablement/disclosure to stale selection.
   defp auto_enablement_disposition(values, user_settings) do
-    requested_primary = Map.get(values, "model_preferences.primary")
-    stored_primary = Schema.get_dotted(user_settings, "model_preferences.primary")
+    task_key = "model_preferences.tasks.direct_answer"
+    requested_task = Map.get(values, task_key)
+    stored_task = Schema.get_dotted(user_settings, task_key)
     stored_consent = Schema.get_dotted(user_settings, "intent.direct_answer_model_enabled")
 
     cond do
       stored_consent == false -> :explicitly_disabled
-      stored_primary not in [nil, requested_primary] -> :selection_changed
+      not same_selected_task?(stored_task, requested_task) -> :selection_changed
       true -> :apply
     end
   end
+
+  defp same_selected_task?(nil, _requested), do: true
+
+  defp same_selected_task?([stored | _rest], [requested | _requested_rest]),
+    do: stored == requested
+
+  defp same_selected_task?(stored, requested), do: stored == requested
 
   defp validate_auto_enablement_keys(values) do
     invalid_keys =

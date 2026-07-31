@@ -63,7 +63,8 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
     needs_model: "Needs model",
     needs_runtime: "Needs runtime",
     needs_review: "Needs review",
-    needs_credentials: "Needs credentials"
+    needs_credentials: "Needs credentials",
+    needs_selection: "Needs model selection"
   }
 
   @spec dispatch([String.t()], map() | nil) :: {String.t(), non_neg_integer()}
@@ -261,7 +262,7 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
   # Effectful per-step prompts. Masked entry never echoes the secret.
   defp maybe_step_action("model_path", context, io) do
     status = Onboarding.wizard_status()
-    guidance = Onboarding.model_guidance_for(status.readiness, status.track)
+    guidance = Onboarding.model_guidance_for(status.direct_answer_readiness, status.track)
 
     io.puts.(guidance.headline)
     io.puts.("Next: #{guidance.next_action}")
@@ -549,6 +550,7 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
           "Wizard: #{if state.started?, do: "in progress", else: "not started"} (track: #{state.track})",
           "Step: #{state.step}",
           "Readiness: #{Map.get(@readiness_copy, state.readiness, "Unknown")}",
+          "DirectAnswer: #{Map.get(@readiness_copy, state.direct_answer_readiness, "Unknown")}",
           "Profile reviewed: #{state.profile_reviewed?}",
           "Onboarding complete: #{state.complete?}"
         ] ++ guidance_lines(state) ++ reenable_lines(state) ++ first_chat_lines(state)
@@ -572,8 +574,8 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
   # At the model_path step (or whenever the model isn't ready yet), surface the
   # single next action in operator language — the M2 no-dead-end guarantee.
   defp guidance_lines(state) do
-    if state.step == "model_path" or state.readiness != :ready do
-      g = Onboarding.model_guidance_for(state.readiness, state.track)
+    if state.step == "model_path" or state.direct_answer_readiness != :ready do
+      g = Onboarding.model_guidance_for(state.direct_answer_readiness, state.track)
       [""] ++ [g.headline, "Next: #{g.next_action}"] ++ tier_lines(state.step)
     else
       []
@@ -623,6 +625,7 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
     "onboard status=#{if status.complete?, do: "complete", else: "in_progress"} " <>
       "track=#{status.track} step=#{status.step} " <>
       "readiness=#{Map.get(@readiness_copy, status.readiness, "unknown")} " <>
+      "direct_answer=#{Map.get(@readiness_copy, status.direct_answer_readiness, "unknown")} " <>
       "profile_reviewed=#{status.profile_reviewed?}\n"
   end
 end

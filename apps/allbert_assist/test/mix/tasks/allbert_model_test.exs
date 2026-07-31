@@ -31,6 +31,8 @@ defmodule Mix.Tasks.Allbert.ModelTest do
     assert output =~ "local_ollama"
     assert output =~ "endpoint_kind=local_endpoint"
     assert output =~ "llama3.2:3b"
+    assert output =~ "direct_answer_local"
+    assert output =~ "qwen2.5:7b"
   end
 
   test "uses model profile and can enable model-assisted intent" do
@@ -42,7 +44,29 @@ defmodule Mix.Tasks.Allbert.ModelTest do
     assert output =~ "Active model profile set to local"
     assert {:ok, "local"} = Settings.get("intent.model_profile")
     assert {:ok, "local"} = Settings.get("model_preferences.primary")
+    assert {:ok, ["local"]} = Settings.get("model_preferences.tasks.direct_answer")
     assert {:ok, true} = Settings.get("intent.model_assist_enabled")
+  end
+
+  test "uses a DirectAnswer profile without changing global primary and preserves fallback tail" do
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.tasks.direct_answer", ["local", "fast"], %{
+               audit?: false
+             })
+
+    output =
+      capture_io(fn ->
+        assert :ok = ModelTask.run(["use-direct-answer", "fast"])
+      end)
+
+    assert output =~ "DirectAnswer profile set to fast"
+    assert output =~ "global primary unchanged"
+    assert {:ok, "local"} = Settings.get("model_preferences.primary")
+
+    assert {:ok, ["fast", "local"]} =
+             Settings.get("model_preferences.tasks.direct_answer")
+
+    assert {:ok, true} = Settings.get("providers.openai.enabled")
   end
 
   test "doctors credentialed model profile without configured credential" do

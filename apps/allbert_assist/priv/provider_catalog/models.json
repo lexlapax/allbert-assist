@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "checked_at": "2026-06-08",
+  "checked_at": "2026-07-31",
   "sources": [
     "https://platform.claude.com/docs/en/about-claude/models/overview",
     "https://docs.anthropic.com/en/api/models",
@@ -12,6 +12,8 @@
     "https://ai.google.dev/gemini-api/docs/models",
     "https://ai.google.dev/gemini-api/docs/openai",
     "https://ollama.com/library/qwen2.5-coder",
+    "https://ollama.com/library/qwen2.5",
+    "https://huggingface.co/Qwen/Qwen2.5-7B-Instruct",
     "https://docs.ollama.com/api/openai-compatibility"
   ],
   "providers": {
@@ -79,6 +81,20 @@
       "temperature": 0.2,
       "max_tokens": 1024,
       "timeout_ms": 30000
+    },
+    "direct_answer_local": {
+      "provider": "local_ollama",
+      "model": "qwen2.5:7b",
+      "aliases": ["qwen2.5"],
+      "capabilities": ["text_generation"],
+      "media": {
+        "input_modalities": ["text"],
+        "output_modalities": ["text"],
+        "deployment_mode": "local_endpoint"
+      },
+      "temperature": 0.0,
+      "max_tokens": 1024,
+      "timeout_ms": 60000
     },
     "coding_local": {
       "provider": "local_ollama",

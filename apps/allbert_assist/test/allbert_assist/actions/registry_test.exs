@@ -117,6 +117,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "doctor_model_profile",
              "doctor_voice_provider",
              "set_active_model_profile",
+             "set_direct_answer_model_profile",
              "generate_image",
              "synthesize_voice",
              "list_channels",
@@ -641,6 +642,13 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert set_active_model_profile.permission == :settings_write
     assert set_active_model_profile.exposure == :agent
     assert set_active_model_profile.execution_mode == :settings_write
+
+    assert {:ok, set_direct_answer_model_profile} =
+             Registry.capability("set_direct_answer_model_profile")
+
+    assert set_direct_answer_model_profile.permission == :settings_write
+    assert set_direct_answer_model_profile.exposure == :agent
+    assert set_direct_answer_model_profile.execution_mode == :settings_write
 
     assert {:ok, resume_thread_on_channel} = Registry.capability("resume_thread_on_channel")
     assert resume_thread_on_channel.permission == :conversation_write

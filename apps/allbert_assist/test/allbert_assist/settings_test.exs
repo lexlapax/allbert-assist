@@ -103,8 +103,13 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, 0.6} = Settings.get("intent.handoff_threshold")
     assert {:ok, 0.15} = Settings.get("intent.handoff_margin")
     assert {:ok, 0.3} = Settings.get("intent.clarify_floor")
-    assert {:ok, "local"} = Settings.get("intent.direct_answer_model_profile")
-    assert Settings.schema()["intent.direct_answer_model_profile"].default == "local"
+
+    assert {:ok, "direct_answer_local"} =
+             Settings.get("intent.direct_answer_model_profile")
+
+    assert Settings.schema()["intent.direct_answer_model_profile"].default ==
+             "direct_answer_local"
+
     assert {:ok, 0.85} = Settings.get("intent.eval.min_accuracy")
     assert {:ok, 0.8} = Settings.get("intent.eval.min_per_domain_accuracy")
     assert {:ok, true} = Settings.get("intent.eval.block_on_regression")
@@ -1890,6 +1895,22 @@ defmodule AllbertAssist.SettingsTest do
     assert local.media["deployment_mode"] == "local_endpoint"
     assert Map.has_key?(local, :provider_base_url)
     assert Map.has_key?(local, :provider_api_key_ref)
+
+    assert {:ok, direct_answer_local} = Settings.resolve_model_profile("direct_answer_local")
+    assert direct_answer_local.provider == "local_ollama"
+    assert direct_answer_local.provider_endpoint_kind == "local_endpoint"
+    assert direct_answer_local.model == "qwen2.5:7b"
+    assert direct_answer_local.temperature == 0.0
+    assert direct_answer_local.max_tokens == 1024
+    assert direct_answer_local.timeout_ms == 60_000
+
+    assert {:ok, "local"} = Settings.get("model_preferences.primary")
+
+    assert {:ok, ["direct_answer_local"]} =
+             Settings.get("model_preferences.tasks.direct_answer")
+
+    assert {:ok, "direct_answer_local"} =
+             Settings.get("intent.direct_answer_model_profile")
 
     assert {:ok, profile} = Settings.resolve_model_profile("fast")
     assert profile.provider == "openai"

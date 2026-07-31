@@ -17,6 +17,10 @@ through the three-tier secret vault (OS Keychain / encrypted file / env) — see
 - Preferences are ranked lists. Allbert tries the first capable enabled profile
   and falls back deterministically.
 - `intent.model_profile` and `intent.direct_answer_model_profile` are live settings.
+- DirectAnswer is the closed-list exception: a non-empty task list is complete
+  and operator-ordered, so it does not append the global primary. Its shipped
+  local head is `direct_answer_local` / `qwen2.5:7b`; global `local` remains
+  `llama3.2:3b` for unrelated consumers and first-model readiness.
 - Voice does not create a parallel provider or secret system.
 - Media details such as accepted audio formats, duration limits, realtime
   session support, and local-vs-remote deployment mode are profile metadata,
@@ -108,6 +112,10 @@ Operator settings expose:
 - direct-answer preference;
 - speech-to-text preference;
 - text-to-speech preference.
+
+`allbert admin models use PROFILE` intentionally updates both global primary
+and DirectAnswer. Use `allbert admin models use-direct-answer PROFILE` when the
+voice loop's global text profile must remain unchanged.
 
 Capability validation protects the selection. A text-only model cannot be used
 as an STT provider just because it appears in a preference list.

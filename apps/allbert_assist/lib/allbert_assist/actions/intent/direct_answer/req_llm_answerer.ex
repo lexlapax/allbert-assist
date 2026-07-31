@@ -200,7 +200,11 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
     profile
     |> ModelRuntime.request_opts()
     |> Keyword.merge(
-      temperature: Map.get(profile, :temperature, 0.2),
+      # DirectAnswer is a source-faithful response task. Deterministic sampling
+      # is part of the task contract even when an operator selects another
+      # compatible profile; coding and other model consumers retain their own
+      # profile temperatures.
+      temperature: 0.0,
       max_tokens: ModelRuntime.max_tokens(profile, 512),
       receive_timeout: Map.get(profile, :timeout_ms, 3_000)
     )
