@@ -12,7 +12,6 @@ defmodule AllbertAssist.Intent.Decomposer do
   @explicit_single ~r/\b(as (?:a |one )?single task|as one task|together|do(?:n't| not) split|without splitting|one combined task)\b/iu
   @parallel_signal ~r/\b(in parallel|simultaneously|separately|independently|at the same time|also|and then|then)\b/iu
   @steering_only ~r/^\s*(status|progress|cancel|stop|pause|resume|retry|skip)(?:\s|$)/iu
-  @numbered_line ~r/^\s*(?:\d+[.)]|[-*])\s+(.+?)\s*$/u
   @counted_parallel ~r/^\s*do\s+(?<count>two|three|four|five|six|seven|eight|\d+)\s+(?:things|tasks)\s*:\s*(?<tasks>.+?)[.!?]\s+work on them in parallel(?:\s+and\s+report back)?[.!?]?\s*$/isu
   @orchestration_prefix ~r/^\s*do\s+(?:these\s+)?(?:(?:two|three|four|five|six|seven|eight|\d+)\s+)?(?:things|tasks)\s+in parallel\s*:\s*/iu
 
@@ -62,39 +61,12 @@ defmodule AllbertAssist.Intent.Decomposer do
       (Map.get(context, :active_fanout?, false) and Regex.match?(@steering_only, trimmed))
   end
 
-  defp deterministic_tasks(text) do
-    counted = counted_parallel_tasks(text)
-
-    numbered =
-      text
-      |> String.split("\n")
-      |> Enum.flat_map(fn line ->
-        case Regex.run(@numbered_line, line, capture: :all_but_first) do
-          [task] -> [task]
-          _ -> []
-        end
-      end)
-
-    cond do
-      counted ->
-        counted
-
-      length(numbered) >= 2 ->
-        numbered
-
-      String.contains?(text, ";") ->
-        split_on(text, ~r/\s*;\s*/u)
-
-      Regex.match?(~r/\b(?:and then|then)\b/iu, text) ->
-        split_on(text, ~r/\s+\b(?:and then|then)\b\s+/iu)
-
-      Regex.match?(~r/\b(?:in parallel|separately|independently)\b/iu, text) ->
-        split_parallel_clause(text)
-
-      true ->
-        nil
-    end
-  end
+  # Punctuation and list shape are only evidence that a turn may contain
+  # multiple tasks. They are not authority to frame durable child objectives:
+  # the same shapes occur inside text an operator asks Allbert to summarize or
+  # discuss. The frozen counted flagship sentence is the sole deterministic
+  # grammar; every other plausible shape goes through the structured proposer.
+  defp deterministic_tasks(text), do: counted_parallel_tasks(text)
 
   defp counted_parallel_tasks(text) do
     with %{"count" => count, "tasks" => tasks} <- Regex.named_captures(@counted_parallel, text),
@@ -135,12 +107,6 @@ defmodule AllbertAssist.Intent.Decomposer do
       {count, ""} when count >= 2 -> {:ok, count}
       _other -> :error
     end
-  end
-
-  defp split_parallel_clause(text) do
-    text
-    |> String.replace(~r/\b(?:in parallel|separately|independently)\b[:,]?/iu, "")
-    |> split_on(~r/\s+(?:and|also)\s+/iu)
   end
 
   defp split_on(text, pattern) do

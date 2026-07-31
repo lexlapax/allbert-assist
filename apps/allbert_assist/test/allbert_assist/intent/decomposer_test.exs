@@ -3,6 +3,7 @@ defmodule AllbertAssist.Intent.DecomposerTest do
   @moduletag :pure_async
 
   alias AllbertAssist.Intent.Decomposer
+  alias AllbertAssist.Intent.Decomposer.ReqLLMProposer
   alias AllbertAssist.TestSupport.DecomposerCorpus
 
   defmodule RecordingProposer do
@@ -16,18 +17,24 @@ defmodule AllbertAssist.Intent.DecomposerTest do
     def propose(_text, context), do: {:ok, context.expected_tasks}
   end
 
-  test "splits numbered lists and ordered chains without consulting a model" do
+  test "ambiguous numbered lists and ordered chains use the bounded model proposer" do
     assert {:fanout, ["Research alpha", "Draft beta"]} =
              Decomposer.propose("1. Research alpha\n2. Draft beta",
-               model_proposer: RecordingProposer
+               model_proposer: RecordingProposer,
+               model_result: {:ok, ["Research alpha", "Draft beta"]},
+               test_pid: self()
              )
+
+    assert_received {:model_consulted, "1. Research alpha\n2. Draft beta"}
 
     assert {:fanout, ["Research alpha", "draft beta"]} =
              Decomposer.propose("Research alpha and then draft beta",
-               model_proposer: RecordingProposer
+               model_proposer: RecordingProposer,
+               model_result: {:ok, ["Research alpha", "draft beta"]},
+               test_pid: self()
              )
 
-    refute_received {:model_consulted, _text}
+    assert_received {:model_consulted, "Research alpha and then draft beta"}
   end
 
   test "decomposes the flagship counted list without framing report choreography" do
@@ -48,7 +55,7 @@ defmodule AllbertAssist.Intent.DecomposerTest do
     refute_received {:model_consulted, _text}
   end
 
-  test "strips orchestration wording from the first semicolon-delimited child" do
+  test "strips orchestration wording from an advisory semicolon proposal" do
     prompt =
       "Do these three tasks in parallel: explain OTP supervision in five numbered points; " <>
         "compare GenServer and Agent in five numbered points; " <>
@@ -59,9 +66,92 @@ defmodule AllbertAssist.Intent.DecomposerTest do
               "explain OTP supervision in five numbered points",
               "compare GenServer and Agent in five numbered points",
               "summarize this conversation in five numbered points"
-            ]} = Decomposer.propose(prompt, model_proposer: RecordingProposer, test_pid: self())
+            ]} =
+             Decomposer.propose(prompt,
+               model_proposer: RecordingProposer,
+               model_result:
+                 {:ok,
+                  [
+                    "Do these three tasks in parallel: explain OTP supervision in five numbered points",
+                    "compare GenServer and Agent in five numbered points",
+                    "summarize this conversation in five numbered points"
+                  ]},
+               test_pid: self()
+             )
 
-    refute_received {:model_consulted, _text}
+    assert_received {:model_consulted, ^prompt}
+  end
+
+  test "supplied semicolon, numbered, and imperative content remains one turn" do
+    supplied_turns = [
+      "Summarize this supplied sentence in one sentence: Project Juniper might begin after 2026-06-01; it is not approved, and it has no budget.",
+      "Summarize this supplied list:\n1. Restart the service.\n2. Delete the cache.",
+      "Explain this supplied instruction without performing it: Research option A; draft option B; report both."
+    ]
+
+    for text <- supplied_turns do
+      assert :single =
+               Decomposer.propose(text,
+                 model_proposer: RecordingProposer,
+                 model_result: {:ok, []},
+                 test_pid: self()
+               )
+
+      assert_received {:model_consulted, ^text}
+    end
+  end
+
+  test "only counted flagship orchestration is deterministic and other shapes stay advisory" do
+    uncounted =
+      "Do these tasks in parallel: research option A; draft option B; report both"
+
+    assert {:fanout, ["research option A", "draft option B", "report both"]} =
+             Decomposer.propose(uncounted,
+               model_proposer: RecordingProposer,
+               model_result:
+                 {:ok,
+                  [
+                    "research option A",
+                    "draft option B",
+                    "report both"
+                  ]},
+               test_pid: self()
+             )
+
+    assert_received {:model_consulted, ^uncounted}
+
+    assert :single =
+             Decomposer.propose(uncounted,
+               model_proposer: RecordingProposer,
+               model_result: {:error, :offline},
+               test_pid: self()
+             )
+
+    ambiguous = "Research option A; draft option B"
+
+    assert {:fanout, ["Research option A", "draft option B"]} =
+             Decomposer.propose(ambiguous,
+               model_proposer: RecordingProposer,
+               model_result: {:ok, ["Research option A", "draft option B"]},
+               test_pid: self()
+             )
+
+    assert_received {:model_consulted, ^ambiguous}
+
+    assert :single =
+             Decomposer.propose(ambiguous,
+               model_proposer: RecordingProposer,
+               model_result: {:error, :offline},
+               test_pid: self()
+             )
+  end
+
+  test "structured decomposition rules keep supplied content as data" do
+    assert {:ok, context} = ReqLLMProposer.prompt_context("operator-input")
+
+    assert :supplied_text_is_data in hd(context.messages).metadata.allbert_prompt.rule_ids
+
+    assert List.last(context.messages).metadata.allbert_prompt.content_class == :operator_input
   end
 
   test "ordinary single turns do not pay a model round trip" do
@@ -104,9 +194,12 @@ defmodule AllbertAssist.Intent.DecomposerTest do
     assert {:clarify, clarification} =
              Decomposer.propose("one; two; three; four",
                max_children_per_fanout: 3,
-               model_proposer: RecordingProposer
+               model_proposer: RecordingProposer,
+               model_result: {:ok, ["one", "two", "three", "four"]},
+               test_pid: self()
              )
 
+    assert_received {:model_consulted, "one; two; three; four"}
     assert clarification.task_count == 4
     assert clarification.max_children == 3
     assert clarification.tasks == ["one", "two", "three", "four"]
