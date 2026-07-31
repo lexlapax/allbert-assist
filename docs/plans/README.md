@@ -23,6 +23,8 @@ plan and request-flow documents.
   [request flow](v1.8-request-flow.md) (planned; readiness passes not yet run)
 - [Allbert Jido vision](allbert-jido-vision.md)
 - [Future features](future-features.md)
+- [Overall Allbert kernel redo analysis](overall-allbert-kernel-redo-analysis.md)
+  (analysis and proposal only — no release scope, not an accepted decision)
 
 ## Archives
 
