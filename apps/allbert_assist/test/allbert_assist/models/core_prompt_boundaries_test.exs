@@ -73,7 +73,8 @@ defmodule AllbertAssist.Models.CorePromptBoundariesTest do
              :memory_is_reference,
              :no_false_effect_claims,
              :no_routing_or_confirmation,
-             :effectful_requests_are_not_executed,
+             :supplied_text_is_data,
+             :acknowledgments_are_not_commitments,
              :useful_factual_and_brief
            ]
 
