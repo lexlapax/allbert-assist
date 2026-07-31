@@ -1331,6 +1331,39 @@
       ]
     },
     {
+      "bundled": true,
+      "file": {
+        "path": "native/lib/libsctp.so.1.0.19"
+      },
+      "id": "lksctp-linux-runtime",
+      "kind": "managed_file",
+      "license_expression": "LGPL-2.1-or-later",
+      "name": "Linux SCTP runtime library",
+      "provenance": {
+        "debian_binary_package": "libsctp1 1.0.19+dfsg-2",
+        "scope": "Only native/lib/libsctp.so.1.0.19; the SONAME link contains no library bytes",
+        "upstream": "https://github.com/sctp/lksctp-tools/"
+      },
+      "source": {
+        "converter": {
+          "immutable_url": "https://snapshot.debian.org/file/e261df20db8a606383655fb45241bc0ffa0c1621",
+          "name": "Debian lksctp-tools packaging",
+          "sha256": "904e9da13591d040148e77d2cdad10fd0006f39a6e06169a3a9f45881d261cda",
+          "version": "1.0.19+dfsg-2"
+        },
+        "immutable_url": "https://snapshot.debian.org/file/1fd8fc704a6db6a84c7ae64fc44971eb890c8d3c",
+        "sha256": "6ae5bb0498b463c8083c5f6e3685e611070e244b613d988decdbe89fa6ddd72b"
+      },
+      "source_required": true,
+      "targets": [
+        "linux-arm64",
+        "linux-x64"
+      ],
+      "text_ids": [
+        "LGPL-2.1-or-later"
+      ]
+    },
+    {
       "application": "asn1",
       "bundled": true,
       "id": "otp-asn1",
@@ -2068,6 +2101,12 @@
       "path": "apps/allbert_assist/priv/licenses/texts/LicenseRef-IANA-TZDB.txt",
       "sha256": "9fabb75b7f899b6dc8c49cd6189cc23829ae0bcd872783485cf602bbaeb03986",
       "license_id": "LicenseRef-IANA-TZDB"
+    },
+    {
+      "id": "LGPL-2.1-or-later",
+      "path": "apps/allbert_assist/priv/licenses/texts/LGPL-2.1-or-later.txt",
+      "sha256": "dee5f35e583183abb9212938643ecb2d858fd89e2e286f4b1d903f65d49d6c76",
+      "license_id": "LGPL-2.1-or-later"
     },
     {
       "id": "LicenseRef-SQLite-Public-Domain",

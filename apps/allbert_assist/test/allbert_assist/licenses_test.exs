@@ -359,6 +359,27 @@ defmodule AllbertAssist.LicensesTest do
     ])
   end
 
+  test "the reviewed Linux SCTP closure binds one file, LGPL text, targets, and exact source" do
+    assert {:ok, catalog} = Licenses.load_catalog(repo_root: @repo_root)
+    component = Enum.find(catalog["components"], &(&1["id"] == "lksctp-linux-runtime"))
+    text = Enum.find(catalog["texts"], &(&1["id"] == "LGPL-2.1-or-later"))
+
+    assert component["kind"] == "managed_file"
+    assert component["license_expression"] == "LGPL-2.1-or-later"
+    assert component["text_ids"] == ["LGPL-2.1-or-later"]
+    assert component["file"]["path"] == "native/lib/libsctp.so.1.0.19"
+    assert component["targets"] == ["linux-arm64", "linux-x64"]
+    assert component["source_required"] == true
+    assert component["source"]["immutable_url"] =~ ~r|snapshot\.debian\.org/file/[0-9a-f]{40}|
+    assert component["source"]["sha256"] =~ ~r/^[0-9a-f]{64}$/
+
+    assert component["source"]["converter"]["immutable_url"] =~
+             ~r|snapshot\.debian\.org/file/[0-9a-f]{40}|
+
+    assert component["source"]["converter"]["sha256"] =~ ~r/^[0-9a-f]{64}$/
+    assert text["sha256"] =~ ~r/^[0-9a-f]{64}$/
+  end
+
   test "schema v1 rejects an unimplemented source companion mode" do
     fixture = fixture!(["alpha"])
     on_exit(fn -> File.rm_rf(fixture.tmp) end)

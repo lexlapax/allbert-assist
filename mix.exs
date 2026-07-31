@@ -43,6 +43,7 @@ defmodule AllbertAssist.Umbrella.MixProject do
           :assemble,
           &stage_plugins/1,
           &patch_macos_openssl/1,
+          &patch_linux_sctp/1,
           &install_dispatcher/1,
           &finalize_license_evidence/1
         ]
@@ -157,6 +158,13 @@ defmodule AllbertAssist.Umbrella.MixProject do
   # external and does not enter this patch path.
   defp patch_macos_openssl(release) do
     FinalArtifact.patch_macos_openssl(release)
+  end
+
+  # v1.3 M9.b: OTP's socket NIF loads libsctp dynamically when the runtime was
+  # built with SCTP. Own the exact small Debian library closure in Linux
+  # artifacts so clean hosts do not emit loader warnings into CLI stdout.
+  defp patch_linux_sctp(release) do
+    FinalArtifact.patch_linux_sctp(release)
   end
 
   defp build_web_assets(release) do

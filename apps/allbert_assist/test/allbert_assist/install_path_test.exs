@@ -25,6 +25,7 @@ defmodule AllbertAssist.InstallPathTest do
   @smoke Path.join(@repo_root, "scripts/smoke/artifact_smoke.sh")
   @browser_runtime_smoke Path.join(@repo_root, "scripts/smoke/browser_runtime_boundary_smoke.sh")
   @linux_rehearsal Path.join(@repo_root, "scripts/smoke/linux_rehearsal.sh")
+  @release_env Path.join(@repo_root, "rel/env.sh.eex")
   @service Path.join(@repo_root, "apps/allbert_assist/lib/allbert_assist/service.ex")
 
   test "install.sh parses under /bin/sh and honors the trust contract" do
@@ -92,6 +93,31 @@ defmodule AllbertAssist.InstallPathTest do
     assert body =~ "install-manifest"
     assert body =~ "--purge"
     assert body =~ "Allbert Home preserved"
+  end
+
+  @tag :tmp_dir
+  test "release environment prefers an artifact-local native library closure", %{tmp_dir: tmp_dir} do
+    release_root = Path.join(tmp_dir, "release")
+    File.mkdir_p!(Path.join(release_root, "native/lib"))
+
+    script = ~S"""
+    RELEASE_ROOT="$TEST_RELEASE_ROOT"
+    LD_LIBRARY_PATH="/host/lib"
+    export RELEASE_ROOT LD_LIBRARY_PATH
+    . "$TEST_RELEASE_ENV"
+    printf '%s\n' "$LD_LIBRARY_PATH"
+    """
+
+    assert {output, 0} =
+             System.cmd("sh", ["-c", script],
+               env: [
+                 {"TEST_RELEASE_ROOT", release_root},
+                 {"TEST_RELEASE_ENV", @release_env}
+               ],
+               stderr_to_stdout: true
+             )
+
+    assert String.trim(output) == Path.join(release_root, "native/lib") <> ":/host/lib"
   end
 
   test "the Homebrew formula is a formula with a service block and per-platform urls" do

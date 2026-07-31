@@ -65,7 +65,12 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
         "V13_ZERO_SHOT_STORE",
         "V13_MODEL_PROFILE",
         "V13_FULL_SHA",
-        "V13_DIRTY"
+        "V13_DIRTY",
+        # v1.3 native release composition inputs. The pinned builder resolves
+        # and validates these before Mix assembles the artifact; they are not
+        # runtime/operator configuration.
+        "ALLBERT_RELEASE_LIBSCTP_PATH",
+        "ALLBERT_RELEASE_LIBSCTP_PACKAGE_VERSION"
       ],
       operator_setting_keys: [
         "runtime.trace_default",

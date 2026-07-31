@@ -23,6 +23,8 @@ LINUX_CONTAINER_IMAGE="hexpm/erlang"
 LINUX_CONTAINER_DIGEST="sha256:d8c7836b5b2b3b90918fb504b9eac563814503957875658528d9ab4581bf1e6b"
 LINUX_GLIBC_VERSION="2.36"
 LINUX_CRYPTO_NEEDED="libcrypto.so.3"
+LINUX_SCTP_PACKAGE_VERSION="1.0.19+dfsg-2"
+LINUX_SCTP_FILE="libsctp.so.1.0.19"
 TARGETS="linux-arm64 linux-x64 macos-arm64"
 
 fail() {
@@ -88,6 +90,17 @@ if [ "$HOST_OS" = Linux ]; then
   RESOLVED_LIBC="$(getconf GNU_LIBC_VERSION 2>/dev/null || true)"
   [ "$RESOLVED_LIBC" = "glibc $LINUX_GLIBC_VERSION" ] ||
     fail "Linux candidates require glibc $LINUX_GLIBC_VERSION; found ${RESOLVED_LIBC:-unknown}"
+  RESOLVED_SCTP_PACKAGE_VERSION="$(dpkg-query -W -f='${Version}' libsctp1 2>/dev/null || true)"
+  [ "$RESOLVED_SCTP_PACKAGE_VERSION" = "$LINUX_SCTP_PACKAGE_VERSION" ] ||
+    fail "Linux candidates require libsctp1 $LINUX_SCTP_PACKAGE_VERSION; found ${RESOLVED_SCTP_PACKAGE_VERSION:-missing}"
+  SCTP_LINK="$(ldconfig -p | awk '$1 == "libsctp.so.1" {print $NF; exit}')"
+  [ -n "$SCTP_LINK" ] || fail "Linux builder cannot resolve libsctp.so.1"
+  RESOLVED_SCTP_PATH="$(readlink -f "$SCTP_LINK")"
+  [ -f "$RESOLVED_SCTP_PATH" ] || fail "Linux builder libsctp path is not a regular file"
+  [ "$(basename "$RESOLVED_SCTP_PATH")" = "$LINUX_SCTP_FILE" ] ||
+    fail "Linux builder resolved unexpected SCTP library $(basename "$RESOLVED_SCTP_PATH")"
+  export ALLBERT_RELEASE_LIBSCTP_PATH="$RESOLVED_SCTP_PATH"
+  export ALLBERT_RELEASE_LIBSCTP_PACKAGE_VERSION="$RESOLVED_SCTP_PACKAGE_VERSION"
   export ALLBERT_RELEASE_FORCE_EXQLITE_BUILD=1
 fi
 
@@ -124,6 +137,7 @@ mix hex.audit
 mix release allbert --overwrite --path "$RELEASE_ROOT"
 
 RESOLVED_OPENSSL=""
+RESOLVED_SCTP_PACKAGE_VERSION="${RESOLVED_SCTP_PACKAGE_VERSION:-}"
 if [ "$HOST_OS" = Linux ]; then
   CRYPTO_NIF="$(find "$RELEASE_ROOT/lib" -path '*/crypto-*/priv/lib/crypto.so' -type f -print)"
   [ "$(printf '%s\n' "$CRYPTO_NIF" | awk 'NF {count++} END {print count+0}')" -eq 1 ] ||
@@ -137,6 +151,17 @@ if [ "$HOST_OS" = Linux ]; then
     'OpenSSL 3.'*) ;;
     *) fail "Linux OTP crypto must resolve OpenSSL 3; found ${RESOLVED_OPENSSL:-unknown}" ;;
   esac
+  PACKAGED_SCTP="$RELEASE_ROOT/native/lib/$LINUX_SCTP_FILE"
+  PACKAGED_SCTP_LINK="$RELEASE_ROOT/native/lib/libsctp.so.1"
+  [ -f "$PACKAGED_SCTP" ] && [ ! -L "$PACKAGED_SCTP" ] ||
+    fail "Linux artifact does not own the exact SCTP library"
+  [ -L "$PACKAGED_SCTP_LINK" ] || fail "Linux artifact lacks the SCTP SONAME link"
+  [ "$(readlink "$PACKAGED_SCTP_LINK")" = "$LINUX_SCTP_FILE" ] ||
+    fail "Linux artifact SCTP SONAME link has an unexpected target"
+  PACKAGED_SCTP_SONAME="$(readelf -d "$PACKAGED_SCTP" |
+    awk '$2 == "(SONAME)" {gsub(/^\[|\]$/, "", $5); print $5}')"
+  [ "$PACKAGED_SCTP_SONAME" = libsctp.so.1 ] ||
+    fail "Linux artifact SCTP SONAME is ${PACKAGED_SCTP_SONAME:-missing}"
 fi
 
 tar -czf "$WORK/$ARCHIVE" -C "$WORK" allbert
@@ -177,7 +202,7 @@ jq -S -n \
   --arg libc_family "$LIBC_FAMILY" --arg libc_version "$LIBC_VERSION" \
   --arg native_nifs "$NATIVE_NIFS" \
   --arg otp "$RUNTIME_OTP" --arg elixir "$RUNTIME_ELIXIR" --arg erts "$RUNTIME_ERTS" \
-  --arg openssl "$RESOLVED_OPENSSL" \
+  --arg openssl "$RESOLVED_OPENSSL" --arg sctp "$RESOLVED_SCTP_PACKAGE_VERSION" \
   --arg hex "$RESOLVED_HEX" --arg rebar3 "$RESOLVED_REBAR3" \
   --arg node "$NODE_VERSION" --arg playwright "$PLAYWRIGHT_VERSION" \
   --arg browser "$BROWSER_VERSION" \
@@ -190,7 +215,9 @@ jq -S -n \
         {family: $libc_family, version: $libc_version} end),
       native_nifs: (if $native_nifs == "" then null else $native_nifs end)},
     runtime: {otp: $otp, elixir: $elixir, erts: $erts,
-      openssl: (if $openssl == "" then null else $openssl end)},
+      openssl: (if $openssl == "" then null else $openssl end),
+      sctp: (if $sctp == "" then null else {package: "libsctp1", version: $sctp,
+        soname: "libsctp.so.1"} end)},
     build_tools: {hex: $hex, rebar3: $rebar3},
     external_runtime: {node: $node, playwright: $playwright, browser: $browser}}' > "$WORK/$TOOLCHAIN"
 
@@ -212,15 +239,18 @@ jq -S -n \
   --arg archive "$ARCHIVE" --arg archive_sha256 "$ARCHIVE_SHA256" \
   --arg smoke_log_sha256 "$SMOKE_LOG_SHA256" --arg nif_sha256 "$MACOS_NIF_SHA256" \
   --arg nif_install_name "$MACOS_NIF_INSTALL_NAME" --arg openssl "$RESOLVED_OPENSSL" \
-  --arg crypto_needed "$LINUX_CRYPTO_NEEDED" \
+  --arg crypto_needed "$LINUX_CRYPTO_NEEDED" --arg sctp "$RESOLVED_SCTP_PACKAGE_VERSION" \
   '{schema_version: 2, kind: "allbert-candidate-target-smoke", target: $target,
     source_sha: $source_sha, generation: $generation, archive: $archive,
     archive_sha256: $archive_sha256, outcome: "passed",
     checks: ["boot", "version", "plugins", "browser_external_runtime", "browser_doctor",
-      "browser_no_download", "health", "attach", "no_mix", "sqlite_runtime", "crypto_linkage"],
+      "browser_no_download", "health", "attach", "no_mix", "license_json", "sqlite_runtime",
+      "crypto_linkage"] + (if $sctp == "" then [] else ["linux_sctp"] end),
     smoke_log_sha256: $smoke_log_sha256,
     linux_crypto: (if $openssl == "" then null else
       {needed: $crypto_needed, openssl: $openssl} end),
+    linux_sctp: (if $sctp == "" then null else
+      {package: "libsctp1", version: $sctp, soname: "libsctp.so.1"} end),
     macos_exqlite: (if $nif_sha256 == "" then null else
       {sha256: $nif_sha256, install_name: $nif_install_name} end)}' > "$WORK/$SMOKE"
 

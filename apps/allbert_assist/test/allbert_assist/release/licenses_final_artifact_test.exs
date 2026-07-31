@@ -93,6 +93,7 @@ defmodule AllbertAssist.Release.LicensesFinalArtifactTest do
              :assemble,
              :stage_plugins,
              :patch_macos_openssl,
+             :patch_linux_sctp,
              :install_dispatcher,
              :finalize_license_evidence
            ]
@@ -243,6 +244,107 @@ defmodule AllbertAssist.Release.LicensesFinalArtifactTest do
     assert_receive {:openssl_command, :sign, ^nif}
     assert_receive {:openssl_command, :verify, ^destination}
     assert_receive {:openssl_command, :verify, ^nif}
+  end
+
+  test "Linux patch owns the exact SCTP runtime closure before license sealing", %{root: root} do
+    release_root = Path.join(root, "release")
+    source = Path.join(root, "host/libsctp.so.1.0.19")
+    destination = Path.join(release_root, "native/lib/libsctp.so.1.0.19")
+    link = Path.join(release_root, "native/lib/libsctp.so.1")
+    File.mkdir_p!(Path.dirname(source))
+    File.mkdir_p!(release_root)
+    File.write!(source, "bookworm libsctp")
+
+    runner = fn
+      "readelf", ["-d", path], _opts when path in [source, destination] ->
+        {"Dynamic section:\n 0x000000000000000e (SONAME) Library soname: [libsctp.so.1]\n", 0}
+    end
+
+    assert %{
+             library: "native/lib/libsctp.so.1.0.19",
+             soname_link: "native/lib/libsctp.so.1",
+             package_version: "1.0.19+dfsg-2"
+           } =
+             FinalArtifact.patch_linux_sctp_tree!(release_root,
+               source_path: source,
+               package_version: "1.0.19+dfsg-2",
+               command_runner: runner
+             )
+
+    assert File.read!(destination) == "bookworm libsctp"
+    assert File.read_link!(link) == "libsctp.so.1.0.19"
+    assert File.stat!(destination).mode |> Bitwise.band(0o777) == 0o755
+  end
+
+  test "Linux SCTP patch leaves non-Linux artifacts unchanged", %{root: root} do
+    release = %Mix.Release{path: Path.join(root, "release")}
+    File.mkdir_p!(release.path)
+
+    assert ^release = FinalArtifact.patch_linux_sctp(release, os_type: {:unix, :darwin})
+    refute File.exists?(Path.join(release.path, "native"))
+  end
+
+  test "Linux SCTP patch fails closed on source, version, SONAME, and destination drift",
+       %{root: root} do
+    source = Path.join(root, "host/libsctp.so.1.0.19")
+    File.mkdir_p!(Path.dirname(source))
+    File.write!(source, "bookworm libsctp")
+
+    good_runner = fn "readelf", ["-d", _path], _opts ->
+      {"0x000000000000000e (SONAME) Library soname: [libsctp.so.1]\n", 0}
+    end
+
+    wrong_soname_runner = fn "readelf", ["-d", _path], _opts ->
+      {"0x000000000000000e (SONAME) Library soname: [libsctp.so.2]\n", 0}
+    end
+
+    version_root = Path.join(root, "version-release")
+    File.mkdir_p!(version_root)
+
+    assert_raise Mix.Error, ~r/requires Debian libsctp1 1\.0\.19\+dfsg-2/, fn ->
+      FinalArtifact.patch_linux_sctp_tree!(version_root,
+        source_path: source,
+        package_version: "1.0.21+dfsg-1",
+        command_runner: good_runner
+      )
+    end
+
+    soname_root = Path.join(root, "soname-release")
+    File.mkdir_p!(soname_root)
+
+    assert_raise Mix.Error, ~r/SONAME must be libsctp\.so\.1/, fn ->
+      FinalArtifact.patch_linux_sctp_tree!(soname_root,
+        source_path: source,
+        package_version: "1.0.19+dfsg-2",
+        command_runner: wrong_soname_runner
+      )
+    end
+
+    collision_root = Path.join(root, "collision-release")
+    collision = Path.join(collision_root, "native/lib/libsctp.so.1.0.19")
+    File.mkdir_p!(Path.dirname(collision))
+    File.write!(collision, "different bytes")
+
+    assert_raise Mix.Error, ~r/SCTP destination collision/, fn ->
+      FinalArtifact.patch_linux_sctp_tree!(collision_root,
+        source_path: source,
+        package_version: "1.0.19+dfsg-2",
+        command_runner: good_runner
+      )
+    end
+
+    symlink_root = Path.join(root, "symlink-release")
+    symlink_source = Path.join(root, "host/libsctp-link")
+    File.mkdir_p!(symlink_root)
+    File.ln_s!(source, symlink_source)
+
+    assert_raise Mix.Error, ~r/source must be a regular file/, fn ->
+      FinalArtifact.patch_linux_sctp_tree!(symlink_root,
+        source_path: symlink_source,
+        package_version: "1.0.19+dfsg-2",
+        command_runner: good_runner
+      )
+    end
   end
 
   test "macOS patch makes the Exqlite NIF install name package-manager stable", %{root: root} do

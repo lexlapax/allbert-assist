@@ -13,6 +13,9 @@ defmodule AllbertAssist.Release.FinalArtifact do
   @catalogued_openssl_loader "@loader_path/libcrypto.3.dylib"
   @exqlite_nif "sqlite3_nif.so"
   @exqlite_install_name "@loader_path/sqlite3_nif.so"
+  @linux_sctp_file "libsctp.so.1.0.19"
+  @linux_sctp_soname "libsctp.so.1"
+  @linux_sctp_package_version "1.0.19+dfsg-2"
   @system_command &System.cmd/3
 
   @doc false
@@ -181,6 +184,48 @@ defmodule AllbertAssist.Release.FinalArtifact do
     end
 
     release
+  end
+
+  @doc false
+  def patch_linux_sctp(release, opts \\ []) do
+    os_type = Keyword.get(opts, :os_type, :os.type())
+
+    if os_type == {:unix, :linux} do
+      summary = patch_linux_sctp_tree!(release.path, opts)
+
+      Mix.shell().info(
+        "==> Linux SCTP closure: bundled #{summary.library} from Debian libsctp1 #{summary.package_version}"
+      )
+    end
+
+    release
+  end
+
+  @doc false
+  def patch_linux_sctp_tree!(release_root, opts \\ []) do
+    runner = Keyword.get(opts, :command_runner, @system_command)
+    {source, package_version} = linux_sctp_inputs!(opts)
+
+    assert_linux_sctp_soname!(source, runner)
+    {release_root, :directory} = assert_boundary_path!(release_root, release_root, :directory)
+    native_lib = ensure_release_directories!(release_root, ["native", "lib"])
+    destination = Path.join(native_lib, @linux_sctp_file)
+    soname_link = Path.join(native_lib, @linux_sctp_soname)
+
+    {_destination, destination_type} =
+      assert_boundary_path!(release_root, destination, :regular_or_missing)
+
+    materialize_linux_sctp!(source, destination, destination_type)
+
+    File.chmod!(destination, 0o755)
+    assert_linux_sctp_soname!(destination, runner)
+    ensure_soname_link!(release_root, soname_link)
+
+    %{
+      library: Path.relative_to(destination, release_root),
+      soname_link: Path.relative_to(soname_link, release_root),
+      package_version: package_version
+    }
   end
 
   @doc false
@@ -562,6 +607,94 @@ defmodule AllbertAssist.Release.FinalArtifact do
       true ->
         Mix.raise("OpenSSL destination collision: #{destination} differs from measured source")
     end
+  end
+
+  defp assert_linux_sctp_soname!(path, runner) do
+    output = run_command!(runner, "readelf", ["-d", path], stderr_to_stdout: true)
+
+    sonames =
+      Regex.scan(~r/\(SONAME\).*?\[([^\]]+)\]/, output, capture: :all_but_first)
+      |> List.flatten()
+
+    unless sonames == [@linux_sctp_soname],
+      do: Mix.raise("Linux SCTP SONAME must be #{@linux_sctp_soname}; found #{inspect(sonames)}")
+  end
+
+  defp linux_sctp_inputs!(opts) do
+    source = Keyword.get(opts, :source_path) || System.get_env("ALLBERT_RELEASE_LIBSCTP_PATH")
+
+    package_version =
+      Keyword.get(opts, :package_version) ||
+        System.get_env("ALLBERT_RELEASE_LIBSCTP_PACKAGE_VERSION")
+
+    unless package_version == @linux_sctp_package_version do
+      Mix.raise(
+        "Linux release requires Debian libsctp1 #{@linux_sctp_package_version}; " <>
+          "found #{package_version || "no package version"}"
+      )
+    end
+
+    valid_source? =
+      is_binary(source) and Path.type(source) == :absolute and
+        Path.basename(source) == @linux_sctp_file and
+        match?({:ok, %File.Stat{type: :regular}}, File.lstat(source))
+
+    unless valid_source?,
+      do: Mix.raise("Linux SCTP source must be a regular file named #{@linux_sctp_file}")
+
+    {source, package_version}
+  end
+
+  defp materialize_linux_sctp!(source, destination, :missing),
+    do: File.cp!(source, destination)
+
+  defp materialize_linux_sctp!(source, destination, :regular) do
+    unless File.read!(source) == File.read!(destination),
+      do: Mix.raise("SCTP destination collision: #{destination} differs from measured source")
+  end
+
+  defp ensure_release_directories!(release_root, parts) do
+    Enum.reduce(parts, release_root, fn part, parent ->
+      path = Path.join(parent, part)
+
+      case File.lstat(path) do
+        {:ok, %File.Stat{type: :directory}} ->
+          path
+
+        {:error, :enoent} ->
+          File.mkdir!(path)
+          File.chmod!(path, 0o755)
+          path
+
+        {:ok, %File.Stat{type: type}} ->
+          Mix.raise("unsafe Linux native closure path is #{type}, expected directory: #{path}")
+
+        {:error, reason} ->
+          Mix.raise("Linux native closure path is unavailable (#{reason}): #{path}")
+      end
+    end)
+  end
+
+  defp ensure_soname_link!(release_root, path) do
+    case File.lstat(path) do
+      {:error, :enoent} ->
+        File.ln_s!(@linux_sctp_file, path)
+
+      {:ok, %File.Stat{type: :symlink}} ->
+        unless File.read_link!(path) == @linux_sctp_file,
+          do: Mix.raise("Linux SCTP SONAME link has an unexpected target")
+
+      {:ok, %File.Stat{type: type}} ->
+        Mix.raise("Linux SCTP SONAME path is #{type}, expected symlink")
+
+      {:error, reason} ->
+        Mix.raise("Linux SCTP SONAME path is unavailable (#{reason})")
+    end
+
+    unless path_within?(path, release_root),
+      do: Mix.raise("Linux SCTP SONAME link escapes the release root")
+
+    path
   end
 
   defp remove_unreferenced_openssl!(release_root, roots, referenced) do

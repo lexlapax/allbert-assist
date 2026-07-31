@@ -90,6 +90,8 @@ defmodule AllbertAssist.SettingsCentralNoBypassCheckTest do
     production_source = """
     defmodule ExampleHome do
       def home, do: System.get_env("ALLBERT_HOME")
+      def sctp_path, do: System.get_env("ALLBERT_RELEASE_LIBSCTP_PATH")
+      def sctp_version, do: System.get_env("ALLBERT_RELEASE_LIBSCTP_PACKAGE_VERSION")
     end
     """
 

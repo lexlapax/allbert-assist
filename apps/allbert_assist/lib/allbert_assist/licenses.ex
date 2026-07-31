@@ -30,6 +30,7 @@ defmodule AllbertAssist.Licenses do
     "ISC" => ["ISC"],
     "LicenseRef-IANA-TZDB" => ["LicenseRef-IANA-TZDB"],
     "LicenseRef-IANA-TZDB AND BSD-3-Clause" => ["LicenseRef-IANA-TZDB", "BSD-3-Clause"],
+    "LGPL-2.1-or-later" => ["LGPL-2.1-or-later"],
     "MIT" => ["MIT"],
     "MIT AND Apache-2.0" => ["MIT", "Apache-2.0"],
     "MIT AND LicenseRef-SQLite-Public-Domain" => [

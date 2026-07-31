@@ -209,10 +209,13 @@ validate_local_generation() {
            .builder.container_digest == "sha256:d8c7836b5b2b3b90918fb504b9eac563814503957875658528d9ab4581bf1e6b" and
            .builder.libc == {family: "glibc", version: "2.36"} and
            .builder.native_nifs == "source" and
-           (.runtime.openssl | startswith("OpenSSL 3."))
+           (.runtime.openssl | startswith("OpenSSL 3.")) and
+           .runtime.sctp == {package: "libsctp1", version: "1.0.19+dfsg-2",
+             soname: "libsctp.so.1"}
          else
            .builder.class == "operator-macos" and .builder.libc == null and
-           .builder.native_nifs == null and .runtime.openssl == null
+           .builder.native_nifs == null and .runtime.openssl == null and
+           .runtime.sctp == null
          end)) and
        .runtime.otp == "29.0.1" and .runtime.elixir == "1.19.5" and
        .build_tools.hex == "2.5.1" and .build_tools.rebar3 == "3.25.1" and
@@ -227,11 +230,15 @@ validate_local_generation() {
       '.schema_version == 2 and .kind == "allbert-candidate-target-smoke" and
        .target == $target and .source_sha == $source_sha and .generation == $generation and
        .archive == $archive and .archive_sha256 == $archive_sha and .outcome == "passed" and
-       (.checks == ["boot", "version", "plugins", "browser_external_runtime", "browser_doctor",
-         "browser_no_download", "health", "attach", "no_mix", "sqlite_runtime", "crypto_linkage"]) and
+       (.checks == (["boot", "version", "plugins", "browser_external_runtime", "browser_doctor",
+         "browser_no_download", "health", "attach", "no_mix", "license_json", "sqlite_runtime",
+         "crypto_linkage"] +
+         (if ($target | startswith("linux-")) then ["linux_sctp"] else [] end))) and
        (if ($target | startswith("linux-")) then
-          .linux_crypto == {needed: "libcrypto.so.3", openssl: $openssl}
-        else .linux_crypto == null end)' \
+          .linux_crypto == {needed: "libcrypto.so.3", openssl: $openssl} and
+          .linux_sctp == {package: "libsctp1", version: "1.0.19+dfsg-2",
+            soname: "libsctp.so.1"}
+        else .linux_crypto == null and .linux_sctp == null end)' \
       "$directory/$smoke" >/dev/null ||
       fail "invalid target-smoke row for $target"
     if [ "$target" = macos-arm64 ]; then

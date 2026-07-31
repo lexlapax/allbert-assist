@@ -128,6 +128,9 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     assert body =~ "glibc $LINUX_GLIBC_VERSION"
     assert body =~ "libcrypto.so.3"
     assert body =~ "OpenSSL 3."
+    assert body =~ "libsctp1"
+    assert body =~ "1.0.19+dfsg-2"
+    assert body =~ "ALLBERT_RELEASE_LIBSCTP_PATH"
     assert body =~ "ALLBERT_RELEASE_FORCE_EXQLITE_BUILD=1"
     assert body =~ "NATIVE_NIFS=source"
     prod_config = File.read!(@prod_config)
@@ -172,6 +175,8 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     assert stage =~ "exactly 13 candidate assets"
     assert stage =~ "libcrypto.so.3"
     assert stage =~ "OpenSSL 3."
+    assert stage =~ "libsctp1"
+    assert stage =~ "linux_sctp"
     assert stage =~ "qualify-target"
     assert stage =~ "Linux qualifier host requires glibc >= 2.36"
     assert stage =~ "licenses --json"

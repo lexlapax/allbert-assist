@@ -23,6 +23,7 @@ the offline drift check can pass.
 | Identifier | License ID | Reviewed source path | SHA-256 |
 | --- | --- | --- | --- |
 | `Apache-2.0` | `Apache-2.0` | `apps/allbert_assist/priv/licenses/texts/Apache-2.0.txt` | `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30` |
+| `LGPL-2.1-or-later` | `LGPL-2.1-or-later` | `apps/allbert_assist/priv/licenses/texts/LGPL-2.1-or-later.txt` | `dee5f35e583183abb9212938643ecb2d858fd89e2e286f4b1d903f65d49d6c76` |
 | `LicenseRef-IANA-TZDB` | `LicenseRef-IANA-TZDB` | `apps/allbert_assist/priv/licenses/texts/LicenseRef-IANA-TZDB.txt` | `9fabb75b7f899b6dc8c49cd6189cc23829ae0bcd872783485cf602bbaeb03986` |
 | `LicenseRef-SQLite-Public-Domain` | `LicenseRef-SQLite-Public-Domain` | `apps/allbert_assist/priv/licenses/texts/LicenseRef-SQLite-Public-Domain.txt` | `9de1b8e57a12e7120dce7ddd9263dd291ecd1c8a1eac1e03c33b18a660466280` |
 | `LicenseText-03e8f968360fd51fc91e` | `MIT` | `apps/allbert_assist_web/assets/node_modules/y-indexeddb/LICENSE` | `03e8f968360fd51fc91e383f472bdd10c47321ba868cb72749d1f7a5fd89ec05` |
@@ -776,6 +777,17 @@ the offline drift check can pass.
 - Managed application: `time_zone_info`
 - Managed relative path: `priv/data.etf`
 - Provenance: `{"observed_source_component":"time_zone_info 0.7.15","review_note":"The compiled data payload contains tz database data, not the three separately BSD-licensed tzdb source-code files.","upstream":"https://data.iana.org/time-zones/tzdb/"}`
+
+### `lksctp-linux-runtime` — Linux SCTP runtime library
+
+- Kind: `managed_file`
+- License expression: `LGPL-2.1-or-later`
+- Disposition: bundled when selected for the target
+- Required texts: `LGPL-2.1-or-later`
+- Managed path: `native/lib/libsctp.so.1.0.19`
+- Targets: `["linux-arm64","linux-x64"]`
+- Provenance: `{"debian_binary_package":"libsctp1 1.0.19+dfsg-2","scope":"Only native/lib/libsctp.so.1.0.19; the SONAME link contains no library bytes","upstream":"https://github.com/sctp/lksctp-tools/"}`
+- Source availability: `{"converter":{"immutable_url":"https://snapshot.debian.org/file/e261df20db8a606383655fb45241bc0ffa0c1621","name":"Debian lksctp-tools packaging","sha256":"904e9da13591d040148e77d2cdad10fd0006f39a6e06169a3a9f45881d261cda","version":"1.0.19+dfsg-2"},"immutable_url":"https://snapshot.debian.org/file/1fd8fc704a6db6a84c7ae64fc44971eb890c8d3c","sha256":"6ae5bb0498b463c8083c5f6e3685e611070e244b613d988decdbe89fa6ddd72b"}`
 
 ### `openssl-macos` — OpenSSL library copied into macOS ERTS
 

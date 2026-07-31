@@ -79,6 +79,25 @@ else
   fail boot "admin status exited non-zero"
 fi
 
+# Machine-readable commands own stdout completely. In particular, ERTS must
+# resolve optional Linux native libraries from the artifact before its socket
+# subsystem can emit a loader diagnostic ahead of the JSON document.
+if run_cli licenses --json >"$WORK/licenses.json" 2>"$WORK/licenses.err"; then
+  if [ -s "$WORK/licenses.err" ]; then
+    cat "$WORK/licenses.err"
+    fail license_json "packaged license viewer emitted stderr"
+  fi
+  jq -e '.schema_version == 1 and (.components | type == "array")' \
+    "$WORK/licenses.json" >/dev/null || {
+      cat "$WORK/licenses.json"
+      fail license_json "stdout is not one valid license manifest"
+    }
+  echo "smoke:license_json PASS machine-readable stdout is clean"
+else
+  cat "$WORK/licenses.json" "$WORK/licenses.err" 2>/dev/null || true
+  fail license_json "packaged license viewer exited non-zero"
+fi
+
 # 2) Version stamped from the release, not a checkout probe.
 VSN="$(run_cli eval 'IO.puts(AllbertAssist.App.CoreApp.version())' 2>/dev/null | tail -n1)"
 [ -n "$VSN" ] && echo "smoke:version PASS version=$VSN" || fail version "no version reported"
@@ -218,5 +237,29 @@ if [ -n "$CRYPTO_SO" ]; then
 else
   echo "smoke:crypto_linkage SKIP crypto.so not found under $REL_ROOT"
 fi
+
+# 9) OTP's Linux socket NIF loads SCTP with dlopen, so ldd cannot inventory the
+# edge. The artifact must own the exact library and SONAME link; the launcher
+# above proves the resulting CLI starts with this directory on LD_LIBRARY_PATH.
+case "$TARGET" in
+  linux-*)
+    SCTP_FILE="$REL_ROOT/native/lib/libsctp.so.1.0.19"
+    SCTP_LINK="$REL_ROOT/native/lib/libsctp.so.1"
+    [ -f "$SCTP_FILE" ] && [ ! -L "$SCTP_FILE" ] ||
+      fail linux_sctp "artifact-owned libsctp.so.1.0.19 missing"
+    [ -L "$SCTP_LINK" ] || fail linux_sctp "libsctp.so.1 SONAME link missing"
+    [ "$(readlink "$SCTP_LINK")" = libsctp.so.1.0.19 ] ||
+      fail linux_sctp "libsctp.so.1 SONAME link target differs"
+    SCTP_SONAME="$(readelf -d "$SCTP_FILE" |
+      awk '$2 == "(SONAME)" {gsub(/^\[|\]$/, "", $5); print $5}')"
+    [ "$SCTP_SONAME" = libsctp.so.1 ] ||
+      fail linux_sctp "unexpected SCTP SONAME ${SCTP_SONAME:-missing}"
+    echo "smoke:linux_sctp PASS artifact owns libsctp.so.1"
+    ;;
+  *)
+    [ ! -e "$REL_ROOT/native/lib/libsctp.so.1.0.19" ] ||
+      fail linux_sctp "non-Linux artifact unexpectedly bundles libsctp"
+    ;;
+esac
 
 echo "smoke:all PASS target=$TARGET version=$VSN"
