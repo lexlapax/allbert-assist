@@ -243,9 +243,9 @@ jq -S -n \
   '{schema_version: 2, kind: "allbert-candidate-target-smoke", target: $target,
     source_sha: $source_sha, generation: $generation, archive: $archive,
     archive_sha256: $archive_sha256, outcome: "passed",
-    checks: ["boot", "version", "plugins", "browser_external_runtime", "browser_doctor",
+    checks: (["boot", "version", "plugins", "browser_external_runtime", "browser_doctor",
       "browser_no_download", "health", "attach", "no_mix", "license_json", "sqlite_runtime",
-      "crypto_linkage"] + (if $sctp == "" then [] else ["linux_sctp"] end),
+      "crypto_linkage"] + (if $sctp == "" then [] else ["linux_sctp"] end)),
     smoke_log_sha256: $smoke_log_sha256,
     linux_crypto: (if $openssl == "" then null else
       {needed: $crypto_needed, openssl: $openssl} end),
