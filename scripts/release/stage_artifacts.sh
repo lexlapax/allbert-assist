@@ -376,7 +376,7 @@ qualify_target() {
 download_action_row() {
   local target="$1" work="$2" name metadata count id digest zip entry
   name="qualification-${GITHUB_RUN_ID}-a${GITHUB_RUN_ATTEMPT}-${target}"
-  metadata="$(api --paginate --slurp "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100" | jq -c '[.[][] | select(.name == "'"$name"'")]')"
+  metadata="$(api --paginate --slurp "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100" | jq -c '[.[].artifacts[] | select(.name == "'"$name"'")]')"
   count="$(printf '%s' "$metadata" | jq 'length')"; [ "$count" -eq 1 ] || fail "expected one $target qualification artifact, found $count"
   id="$(printf '%s' "$metadata" | jq -r '.[0].id')"; digest="$(printf '%s' "$metadata" | jq -r '.[0].digest | sub("^sha256:"; "")')"
   zip="$work/$target.zip"; api -H 'Accept: application/vnd.github+json' "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${id}/zip" > "$zip"

@@ -178,6 +178,7 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     assert stage =~ "libsctp1"
     assert stage =~ "linux_sctp"
     assert stage =~ "qualify-target"
+    assert stage =~ ".[].artifacts[]"
     assert stage =~ "Linux qualifier host requires glibc >= 2.36"
     assert stage =~ "licenses --json"
     assert stage =~ "v121_tui_qualification.sh"
