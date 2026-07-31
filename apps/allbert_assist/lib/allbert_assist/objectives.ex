@@ -222,6 +222,15 @@ defmodule AllbertAssist.Objectives do
   @spec new_id(String.t()) :: String.t()
   def new_id(prefix) when is_binary(prefix), do: prefix <> "_" <> Ecto.UUID.generate()
 
+  @doc false
+  @spec normalize_channel(term()) :: String.t() | nil
+  def normalize_channel(nil), do: nil
+  def normalize_channel(%{name: name}), do: normalize_channel(name)
+  def normalize_channel(%{"name" => name}), do: normalize_channel(name)
+  def normalize_channel(channel) when is_atom(channel), do: Atom.to_string(channel)
+  def normalize_channel(channel) when is_binary(channel) and channel != "", do: channel
+  def normalize_channel(_channel), do: nil
+
   @doc "Create an objective."
   @spec create_objective(map()) :: objective_result()
   def create_objective(attrs) when is_map(attrs) do
@@ -230,6 +239,7 @@ defmodule AllbertAssist.Objectives do
       |> atomize_known()
       |> Map.put_new(:id, new_id("obj"))
       |> Map.put_new(:status, "open")
+      |> update_if_present(:source_channel, &normalize_channel/1)
       |> Map.update(:acceptance_criteria, nil, &encode_jsonish/1)
       |> Map.update(:proposer_hint, nil, &encode_jsonish/1)
 
@@ -244,6 +254,7 @@ defmodule AllbertAssist.Objectives do
     attrs =
       attrs
       |> atomize_known()
+      |> update_if_present(:source_channel, &normalize_channel/1)
       |> update_if_present(:acceptance_criteria, &encode_jsonish/1)
       |> update_if_present(:proposer_hint, &encode_jsonish/1)
 

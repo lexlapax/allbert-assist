@@ -73,7 +73,7 @@ defmodule AllbertAssist.Objectives.Commands do
     %{
       user_id: param(params, :user_id),
       source_thread_id: param(params, :source_thread_id),
-      source_channel: channel_value(param(params, :source_channel)),
+      source_channel: Objectives.normalize_channel(param(params, :source_channel)),
       source_surface: surface_value(param(params, :source_surface)),
       session_id: param(params, :session_id),
       active_app: app_value(param(params, :active_app)),
@@ -187,14 +187,6 @@ defmodule AllbertAssist.Objectives.Commands do
 
   defp put_origin(context, _key, value) when value in [nil, ""], do: context
   defp put_origin(context, key, value), do: Map.put(context, key, value)
-
-  @doc false
-  def channel_value(nil), do: nil
-  def channel_value(%{name: name}), do: channel_value(name)
-  def channel_value(%{"name" => name}), do: channel_value(name)
-  def channel_value(channel) when is_atom(channel), do: Atom.to_string(channel)
-  def channel_value(channel) when is_binary(channel) and channel != "", do: channel
-  def channel_value(_channel), do: nil
 
   @doc false
   def surface_value(nil), do: nil

@@ -200,6 +200,9 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert {:ok, _setting} =
              Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
 
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.confirm_before_start", true, %{audit?: false})
+
     assert {:ok, response} =
              Runtime.submit_user_input(%{
                text: "first task; second task",
@@ -211,6 +214,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert response.message =~ "I'll report when you next message"
     refute response.message =~ "as soon as it is ready"
     refute Map.has_key?(response, :notify_offer)
+
+    assert :ok = Runtime.acknowledge_deliveries(response, %{channel: :cli})
+
+    assert {:ok, %{kickoff_delivery_state: "acknowledged", source_channel: "cli"}} =
+             Objectives.get_objective(response.fanout.parent_id)
   end
 
   test "an undelivered kickoff stays pending and retry reuses its receipt" do

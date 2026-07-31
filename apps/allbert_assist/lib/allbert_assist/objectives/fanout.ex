@@ -98,7 +98,7 @@ defmodule AllbertAssist.Objectives.Fanout do
     ref = map_field(context, :channel_thread_ref)
 
     presented = %{
-      channel: context |> map_field(:channel) |> optional_string(),
+      channel: context |> map_field(:channel) |> Objectives.normalize_channel(),
       origin_thread_ref_id: map_field(context, :origin_thread_ref_id) || map_field(ref, :id),
       origin_thread_ref_digest: map_field(context, :origin_thread_ref_digest),
       origin_receiver_account_ref:
@@ -118,9 +118,6 @@ defmodule AllbertAssist.Objectives.Fanout do
 
   defp map_field(nil, _key), do: nil
   defp map_field(map, key) when is_map(map), do: Map.get(map, key) || Map.get(map, to_string(key))
-
-  defp optional_string(nil), do: nil
-  defp optional_string(value), do: to_string(value)
 
   @spec join_status(Objective.t() | String.t()) :: %{
           terminal?: boolean(),
@@ -583,7 +580,7 @@ defmodule AllbertAssist.Objectives.Fanout do
       |> where([o], o.user_id == ^user_id)
       |> identity_filter(
         :source_channel,
-        context_field(context, :source_channel) || context_field(context, :channel)
+        context_channel(context)
       )
       |> identity_filter(
         :source_thread_id,
@@ -651,7 +648,7 @@ defmodule AllbertAssist.Objectives.Fanout do
     objective.user_id == context_field(context, :user_id) and
       required_if_stored?(
         objective.source_channel,
-        context_field(context, :source_channel) || context_field(context, :channel)
+        context_channel(context)
       ) and
       required_if_stored?(
         objective.source_thread_id,
@@ -674,6 +671,11 @@ defmodule AllbertAssist.Objectives.Fanout do
 
   defp required_if_stored?(nil, _supplied), do: true
   defp required_if_stored?(stored, supplied), do: stored == supplied
+
+  defp context_channel(context) do
+    Objectives.normalize_channel(context_field(context, :source_channel)) ||
+      Objectives.normalize_channel(context_field(context, :channel))
+  end
 
   defp receipt_delivery_context(parent) do
     %{

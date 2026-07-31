@@ -62,6 +62,40 @@ defmodule AllbertAssist.Objectives.FanoutTest do
            ]
   end
 
+  test "receipt identity normalizes atom and string forms for persisted surface channels" do
+    for channel <- [:cli, :tui, :live_view, :telegram] do
+      channel_name = Atom.to_string(channel)
+      thread_id = "#{channel_name}-receipt-thread"
+
+      assert {:ok, %{parent: parent, fanout_start_receipt: receipt}} =
+               Fanout.frame(
+                 %{
+                   user_id: "#{channel_name}-operator",
+                   source_thread_id: thread_id,
+                   source_channel: channel,
+                   title: "#{channel_name} receipt",
+                   objective: "Acknowledge through the persisted channel identity"
+                 },
+                 ["first", "second"]
+               )
+
+      assert parent.source_channel == channel_name
+
+      atom_context = %{
+        user_id: parent.user_id,
+        channel: channel,
+        thread_id: thread_id
+      }
+
+      string_context = %{atom_context | channel: channel_name}
+
+      assert :ok = Fanout.acknowledge_start(receipt, atom_context)
+      assert :ok = Fanout.acknowledge_start(receipt, string_context)
+      assert {:ok, %{id: parent_id}} = Fanout.parent_for_start_receipt(receipt, atom_context)
+      assert parent_id == parent.id
+    end
+  end
+
   test "invalid child set rolls back the parent" do
     before_count = length(Objectives.list_objectives("alice"))
 
