@@ -60,6 +60,14 @@ defmodule AllbertAssist.Models.PromptEnvelopeTest do
 
     assert {:error, :invalid_prompt_rules} =
              PromptEnvelope.build(base ++ [rules: [{"dynamic", "not an atom id"}]])
+
+    assert {:error, :invalid_prompt_purpose} =
+             PromptEnvelope.build(
+               purpose: nil,
+               instruction: "Do the task.",
+               input: "hello",
+               rules: [bounded: "Stay bounded."]
+             )
   end
 
   defp message_text(message) do

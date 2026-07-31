@@ -51,7 +51,9 @@ defmodule AllbertAssist.Models.PromptEnvelope do
           )
         ])
 
-      {:ok, Context.new(messages)}
+      messages
+      |> Context.new()
+      |> Context.validate()
     end
   end
 
@@ -59,7 +61,7 @@ defmodule AllbertAssist.Models.PromptEnvelope do
 
   defp purpose(opts) do
     case Keyword.get(opts, :purpose) do
-      purpose when is_atom(purpose) -> {:ok, purpose}
+      purpose when is_atom(purpose) and not is_nil(purpose) -> {:ok, purpose}
       _other -> {:error, :invalid_prompt_purpose}
     end
   end
