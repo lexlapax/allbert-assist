@@ -765,6 +765,51 @@ working-memory tier of the STM/LTM architecture question).
 
 Deferred at: operator intake (post-1.0 planning, 2026-07-14).
 
+### Knowledge Central (LLM Wiki)
+
+Class: Should (Verify:) · Effort: L · Slice: v1.6.x Stage 1, v1.7 flagship
+
+Status: proposed — ADR 0094 and ADR 0095; operator intake decisions closed
+2026-07-30 across three rounds. Plan triads not yet written.
+
+An LLM-maintained wiki over the operator's own knowledge: a derived, interlinked
+markdown page graph that compiles what Allbert knows into a browsable artifact,
+rather than re-deriving it per query. Follows the three-layer pattern (immutable
+sources, generated pages, schema) with three operations (ingest, query, lint).
+
+Allbert already owns the parts this pattern usually gets wrong — provenance,
+review, supersession, tombstones, redaction, bounded retention, managed jobs.
+What is missing is the page document model and the link graph.
+
+Staged across two releases. **Stage 1 (v1.6.x)** derives a page graph,
+backlinks, `index.md`, and deterministic lint from v1.3 kept claims: no
+documents, no LLM, no egress, no new source policy, no new permission class, and
+no fourth database. **Stage 2 (v1.7)** adds document ingest, a durable synthesis
+cache, source-summary pages, `log.md`, the operator schema document, LLM-assisted
+lint, and composite query across Memory, Search, and pages with each fact
+labelled by its origin layer.
+
+Pages are a derived projection under `<HOME>/projections/knowledge/` — never an
+authority, rebuildable, export-excluded, and inheriting the v1.3 Forget
+generation machinery. Durable state (schema, synthesis cache) lives separately
+under `<HOME>/knowledge/` and is backed up. Links are relative markdown and
+backlinks are written into each page as text, so any editor works — vi, VS Code,
+TextMate, or a future in-product notes browser. No external tool dependency.
+
+Operator edits to a derived page are detected by digest, never overwritten, and
+offered for promotion into a claim proposal or a connected-root note. Ingest
+detection is automatic and zero-egress; ingest spend is bounded by an operator
+budget and queues for approval beyond it.
+
+Related: Long-Term User Memory (supplies Stage 1's claims and stays the sole
+prompt-time path — Knowledge is operator-initiated only); Cross-Thread /
+Cross-App Memory Retrieval and Conversation History Full-Text Search (Search
+Central is a peer Corpus consumer that Knowledge composes at query time); System
+Memory Distillation (the parked learned/model-trained route — this is the
+deterministic projection-backed one, and does not replace it).
+
+Deferred at: operator intake (2026-07-30).
+
 ### System Memory Distillation
 
 Class: Must-candidate (confirmed 2026-07-14; co-flagship candidate for the 1.2/1.3 horizon, after the deterministic adaptive loop proves out) · Effort: L
@@ -794,6 +839,11 @@ Still parked:
 
 The v0.31–v0.40 sweep confirms embedding-backed Active Memory retrieval and
 memory pinning are also parked under this entry (no separate section).
+
+Knowledge Central (LLM Wiki) does **not** replace this entry. That feature is the
+deterministic, projection-backed route; this one remains the learned/model-trained
+route and stays parked. Absorbing this slot is the recorded fallback if the
+release ladder later needs compression.
 
 ### Cross-Thread / Cross-App Memory Retrieval
 
@@ -839,8 +889,9 @@ v1.3 grammar is deterministic lexical terms, phrases, prefixes, filters, and
 BM25 ranking only.
 
 Still parked: Search-to-Memory promotion, fuzzy/trigram/vector/embedding
-retrieval, autonomous model search, automatic canonical-history retention, and
-non-conversation document sources.
+retrieval, autonomous model search, and automatic canonical-history retention.
+Non-conversation document sources are now planned under Knowledge Central (LLM
+Wiki), which consumes them as a peer Corpus consumer rather than through Search.
 
 ### Post-v0.48 Media Follow-Ons
 

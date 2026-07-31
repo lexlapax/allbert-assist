@@ -307,10 +307,31 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    (XOAUTH2), MCP 2025-11-25 spec parity, full param-contract enforcement,
    PermissionGate deletion. (Mid-action interruption, child-process
    cancellation, and the app-registry boundary check moved into 1.1.)
-11. **Beyond** — System Memory Distillation is the post-profiling co-flagship
-   candidate; the Won't-now cluster stays in future-features.md with its review
-   cadence.
-12. **2.0 horizon — Self-Hosting Development.** Allbert develops Allbert (pi-mode
+11. **1.6.x — Knowledge Stage 1 (LLM Wiki over claims).** (**Proposed — intake
+   closed 2026-07-30:** ADR 0094 + ADR 0095; triad not yet written.) A derived,
+   interlinked markdown page graph over v1.3 kept claims: page model,
+   relative-markdown links with written backlinks, `index.md`, deterministic
+   lint (contradictions, orphans, unresolved links, stale and under-populated
+   pages), digest-based edit detection with promotion into a claim proposal or a
+   connected-root note, workspace tile, and an `allbert knowledge` CLI group
+   with TUI parity. No documents, no LLM, no egress, no new source policy, no
+   new permission class, no fourth database. `knowledge.enabled` default false.
+   Its own point release rather than an enabler rider, by operator decision
+   2026-07-30, because the 1.5/1.6 train is already fully loaded.
+12. **1.7 — Knowledge Central (LLM Wiki flagship).** (**Proposed — intake closed
+   2026-07-30:** same ADRs; triad not yet written.) Stage 2: document ingest
+   substrate, durable synthesis cache, source-summary pages, `log.md`, the
+   operator-authored schema document with a confirmed review path, LLM-assisted
+   lint, budgeted managed ingestion with named egress, and composite query
+   across Memory, Search, and pages with every fact labelled by its origin
+   layer. A guided "Research assistant" persona follows in a 1.7 point release
+   once the loop is proven with real operators.
+13. **Beyond** — System Memory Distillation remains the parked
+   learned/model-trained memory route; Knowledge Central does not replace it,
+   and absorbing its slot is the recorded fallback if the ladder needs
+   compression. The Won't-now cluster stays in future-features.md with its
+   review cadence.
+14. **2.0 horizon — Self-Hosting Development.** Allbert develops Allbert (pi-mode
    target on its own checkout; plan/build/test/document roles in-product, supervised).
    Its OAuth hosted-LLM providers sub-capability (Claude/OpenAI/Gemini subscription
    plans, not just API keys) lands earlier on the 1.5/1.6 enabler train.
