@@ -185,7 +185,7 @@ extract_release() {
 
 validate_local_generation() {
   local version="$1" source_sha="$2" generation="$3" directory="$4" work="$5"
-  local target archive toolchain smoke digest archive_sha digest_sha
+  local target archive toolchain smoke digest archive_sha digest_sha openssl
   [ -d "$directory" ] && [ ! -L "$directory" ] || fail "candidate directory must be a regular directory"
   : > "$work/expected"
   for target in "${TARGETS[@]}"; do
@@ -206,12 +206,13 @@ validate_local_generation() {
        ((if ($target | startswith("linux-")) then
            .builder.class == "docker-linux" and
            .builder.container_image == "hexpm/erlang" and
-           .builder.container_digest == "sha256:8af614ad04450a1919c2ef1a992b7504e27c9f488674003ac08ee3e0b86fbd65" and
-           .builder.libc == {family: "glibc", version: "2.31"} and
-           .builder.native_nifs == "source"
+           .builder.container_digest == "sha256:d8c7836b5b2b3b90918fb504b9eac563814503957875658528d9ab4581bf1e6b" and
+           .builder.libc == {family: "glibc", version: "2.36"} and
+           .builder.native_nifs == "source" and
+           (.runtime.openssl | startswith("OpenSSL 3."))
          else
            .builder.class == "operator-macos" and .builder.libc == null and
-           .builder.native_nifs == null
+           .builder.native_nifs == null and .runtime.openssl == null
          end)) and
        .runtime.otp == "29.0.1" and .runtime.elixir == "1.19.5" and
        .build_tools.hex == "2.5.1" and .build_tools.rebar3 == "3.25.1" and
@@ -220,13 +221,17 @@ validate_local_generation() {
        (.external_runtime.browser | type == "string" and length > 0 and length <= 200)' \
       "$directory/$toolchain" >/dev/null ||
       fail "invalid exact-toolchain row for $target"
+    openssl="$(jq -r '.runtime.openssl // empty' "$directory/$toolchain")"
     jq -e --arg target "$target" --arg source_sha "$source_sha" --arg generation "$generation" \
-      --arg archive "$archive" --arg archive_sha "$archive_sha" \
+      --arg archive "$archive" --arg archive_sha "$archive_sha" --arg openssl "$openssl" \
       '.schema_version == 2 and .kind == "allbert-candidate-target-smoke" and
        .target == $target and .source_sha == $source_sha and .generation == $generation and
        .archive == $archive and .archive_sha256 == $archive_sha and .outcome == "passed" and
        (.checks == ["boot", "version", "plugins", "browser_external_runtime", "browser_doctor",
-         "browser_no_download", "health", "attach", "no_mix", "sqlite_runtime", "crypto_linkage"])' \
+         "browser_no_download", "health", "attach", "no_mix", "sqlite_runtime", "crypto_linkage"]) and
+       (if ($target | startswith("linux-")) then
+          .linux_crypto == {needed: "libcrypto.so.3", openssl: $openssl}
+        else .linux_crypto == null end)' \
       "$directory/$smoke" >/dev/null ||
       fail "invalid target-smoke row for $target"
     if [ "$target" = macos-arm64 ]; then

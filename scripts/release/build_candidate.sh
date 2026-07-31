@@ -20,8 +20,9 @@ ELIXIR_VERSION="1.19.5"
 HEX_VERSION="2.5.1"
 REBAR3_VERSION="3.25.1"
 LINUX_CONTAINER_IMAGE="hexpm/erlang"
-LINUX_CONTAINER_DIGEST="sha256:8af614ad04450a1919c2ef1a992b7504e27c9f488674003ac08ee3e0b86fbd65"
-LINUX_GLIBC_VERSION="2.31"
+LINUX_CONTAINER_DIGEST="sha256:d8c7836b5b2b3b90918fb504b9eac563814503957875658528d9ab4581bf1e6b"
+LINUX_GLIBC_VERSION="2.36"
+LINUX_CRYPTO_NEEDED="libcrypto.so.3"
 TARGETS="linux-arm64 linux-x64 macos-arm64"
 
 fail() {
@@ -83,7 +84,7 @@ if [ "$HOST_OS" = Linux ]; then
   [ "$ALLBERT_CONTAINER_IMAGE" = "$LINUX_CONTAINER_IMAGE" ] ||
     fail "Linux candidates require $LINUX_CONTAINER_IMAGE"
   [ "$ALLBERT_CONTAINER_IMAGE_DIGEST" = "$LINUX_CONTAINER_DIGEST" ] ||
-    fail "Linux candidates require the frozen Debian 11 image digest"
+    fail "Linux candidates require the frozen Debian 12 image digest"
   RESOLVED_LIBC="$(getconf GNU_LIBC_VERSION 2>/dev/null || true)"
   [ "$RESOLVED_LIBC" = "glibc $LINUX_GLIBC_VERSION" ] ||
     fail "Linux candidates require glibc $LINUX_GLIBC_VERSION; found ${RESOLVED_LIBC:-unknown}"
@@ -121,6 +122,22 @@ RELEASE_ROOT="$WORK/allbert"
 mix deps.get --only prod
 mix hex.audit
 mix release allbert --overwrite --path "$RELEASE_ROOT"
+
+RESOLVED_OPENSSL=""
+if [ "$HOST_OS" = Linux ]; then
+  CRYPTO_NIF="$(find "$RELEASE_ROOT/lib" -path '*/crypto-*/priv/lib/crypto.so' -type f -print)"
+  [ "$(printf '%s\n' "$CRYPTO_NIF" | awk 'NF {count++} END {print count+0}')" -eq 1 ] ||
+    fail "expected exactly one packaged OTP crypto NIF"
+  RESOLVED_CRYPTO_NEEDED="$(readelf -d "$CRYPTO_NIF" |
+    awk '$2 == "(NEEDED)" && $5 ~ /^\[libcrypto\.so/ {gsub(/^\[|\]$/, "", $5); print $5}')"
+  [ "$RESOLVED_CRYPTO_NEEDED" = "$LINUX_CRYPTO_NEEDED" ] ||
+    fail "Linux OTP crypto requires ${RESOLVED_CRYPTO_NEEDED:-no OpenSSL library}; expected $LINUX_CRYPTO_NEEDED"
+  RESOLVED_OPENSSL="$(elixir -e 'case :crypto.info_lib() do [{_, _, version}] -> IO.write(version); other -> raise "unexpected crypto info: #{inspect(other)}" end')"
+  case "$RESOLVED_OPENSSL" in
+    'OpenSSL 3.'*) ;;
+    *) fail "Linux OTP crypto must resolve OpenSSL 3; found ${RESOLVED_OPENSSL:-unknown}" ;;
+  esac
+fi
 
 tar -czf "$WORK/$ARCHIVE" -C "$WORK" allbert
 if ! bash scripts/smoke/artifact_smoke.sh "$RELEASE_ROOT" "$TARGET" > "$WORK/smoke.log"; then
@@ -160,6 +177,7 @@ jq -S -n \
   --arg libc_family "$LIBC_FAMILY" --arg libc_version "$LIBC_VERSION" \
   --arg native_nifs "$NATIVE_NIFS" \
   --arg otp "$RUNTIME_OTP" --arg elixir "$RUNTIME_ELIXIR" --arg erts "$RUNTIME_ERTS" \
+  --arg openssl "$RESOLVED_OPENSSL" \
   --arg hex "$RESOLVED_HEX" --arg rebar3 "$RESOLVED_REBAR3" \
   --arg node "$NODE_VERSION" --arg playwright "$PLAYWRIGHT_VERSION" \
   --arg browser "$BROWSER_VERSION" \
@@ -171,7 +189,8 @@ jq -S -n \
       libc: (if $libc_family == "" then null else
         {family: $libc_family, version: $libc_version} end),
       native_nifs: (if $native_nifs == "" then null else $native_nifs end)},
-    runtime: {otp: $otp, elixir: $elixir, erts: $erts},
+    runtime: {otp: $otp, elixir: $elixir, erts: $erts,
+      openssl: (if $openssl == "" then null else $openssl end)},
     build_tools: {hex: $hex, rebar3: $rebar3},
     external_runtime: {node: $node, playwright: $playwright, browser: $browser}}' > "$WORK/$TOOLCHAIN"
 
@@ -192,13 +211,16 @@ jq -S -n \
   --arg target "$TARGET" --arg source_sha "$SOURCE_SHA" --arg generation "$GENERATION" \
   --arg archive "$ARCHIVE" --arg archive_sha256 "$ARCHIVE_SHA256" \
   --arg smoke_log_sha256 "$SMOKE_LOG_SHA256" --arg nif_sha256 "$MACOS_NIF_SHA256" \
-  --arg nif_install_name "$MACOS_NIF_INSTALL_NAME" \
+  --arg nif_install_name "$MACOS_NIF_INSTALL_NAME" --arg openssl "$RESOLVED_OPENSSL" \
+  --arg crypto_needed "$LINUX_CRYPTO_NEEDED" \
   '{schema_version: 2, kind: "allbert-candidate-target-smoke", target: $target,
     source_sha: $source_sha, generation: $generation, archive: $archive,
     archive_sha256: $archive_sha256, outcome: "passed",
     checks: ["boot", "version", "plugins", "browser_external_runtime", "browser_doctor",
       "browser_no_download", "health", "attach", "no_mix", "sqlite_runtime", "crypto_linkage"],
     smoke_log_sha256: $smoke_log_sha256,
+    linux_crypto: (if $openssl == "" then null else
+      {needed: $crypto_needed, openssl: $openssl} end),
     macos_exqlite: (if $nif_sha256 == "" then null else
       {sha256: $nif_sha256, install_name: $nif_install_name} end)}' > "$WORK/$SMOKE"
 

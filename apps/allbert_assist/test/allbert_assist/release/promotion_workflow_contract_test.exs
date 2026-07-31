@@ -124,8 +124,10 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     assert body =~ "operator-macos"
     assert body =~ "docker-linux"
     assert body =~ "hexpm/erlang"
-    assert body =~ "8af614ad04450a1919c2ef1a992b7504e27c9f488674003ac08ee3e0b86fbd65"
+    assert body =~ "d8c7836b5b2b3b90918fb504b9eac563814503957875658528d9ab4581bf1e6b"
     assert body =~ "glibc $LINUX_GLIBC_VERSION"
+    assert body =~ "libcrypto.so.3"
+    assert body =~ "OpenSSL 3."
     assert body =~ "ALLBERT_RELEASE_FORCE_EXQLITE_BUILD=1"
     assert body =~ "NATIVE_NIFS=source"
     prod_config = File.read!(@prod_config)
@@ -143,6 +145,7 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     assert body =~ "3.25.1"
     assert body =~ "NODE_VERSION"
     assert body =~ "BROWSER_VERSION"
+    assert body =~ ~S|openssl: (if $openssl == "" then null else $openssl end)|
     assert body =~ "external_runtime: {node: $node, playwright: $playwright, browser: $browser}"
     assert body =~ "@loader_path/sqlite3_nif.so"
     assert body =~ ~S|mv "$WORK/$ARCHIVE" "$OUTPUT_DIR/$ARCHIVE"|
@@ -167,6 +170,8 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     assert stage =~ "asset_digest"
     assert stage =~ "GitHub digest differs"
     assert stage =~ "exactly 13 candidate assets"
+    assert stage =~ "libcrypto.so.3"
+    assert stage =~ "OpenSSL 3."
     assert stage =~ "qualify-target"
     assert stage =~ "licenses --json"
     assert stage =~ "v121_tui_qualification.sh"

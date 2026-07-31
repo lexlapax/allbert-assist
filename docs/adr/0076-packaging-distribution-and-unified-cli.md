@@ -575,11 +575,19 @@ As built, the thin helper rejects root execution because packaged Erlexec is
 itself part of the smoke and correctly refuses root without an explicit target
 user. Container preparation may run as root, but compilation, finalization,
 and smoke switch to one unprivileged ephemeral user. Both Linux targets use
-the Hex-maintained multi-architecture OTP 29.0.1 Debian 11 manifest
-`hexpm/erlang@sha256:8af614ad04450a1919c2ef1a992b7504e27c9f488674003ac08ee3e0b86fbd65`
-at its native platform. The helper requires and records glibc 2.31 and forces
+the Hex-maintained multi-architecture OTP 29.0.1 Debian 12 manifest
+`hexpm/erlang@sha256:d8c7836b5b2b3b90918fb504b9eac563814503957875658528d9ab4581bf1e6b`
+at its native platform. The helper requires and records glibc 2.36 and forces
 Exqlite's supported source-build path so the bundled ERTS, Exqlite, Erlexec,
-and other native payloads share the conservative builder floor. A downloaded,
+and other native payloads share one explicit builder floor. It also proves the
+packaged OTP crypto NIF has exactly one `libcrypto.so.3` edge and records an
+`OpenSSL 3.*` runtime value in both toolchain and smoke evidence. The earlier
+Debian 11 candidate was rejected when no-build qualification showed its OTP
+runtime linked `libcrypto.so.1.1`: builder-local smoke masked a dependency that
+current Linux hosts do not provide. Bundling that library is forbidden because
+OpenSSL 1.1.1 is upstream-EOL and uses the older dual license; Linux continues
+to use the host's OpenSSL 3 rather than adding a second packaged crypto runtime
+or license-management branch. A downloaded,
 checksum-pinned Node 22 runtime and apt Chromium exist only for build/smoke;
 the browser boundary proves neither enters the archive. The candidate row
 records the image digest, libc floor, source-built-NIF policy, and resolved
@@ -665,6 +673,14 @@ Primary-source constraints:
 - OpenSSL 3.0+ is Apache-2.0 while earlier releases use the historical dual
   license, so classification is target/version-specific
   ([OpenSSL licensing](https://openssl-library.org/source/license/index.html)).
+- OpenSSL 1.1.1 reached public end of life on 11 September 2023; the rejected
+  Bullseye-linked runtime therefore must not be made portable by bundling it
+  ([OpenSSL 1.1.1 EOL](https://mirror.openssl-library.org/post/2023-03-28-1.1.1-eol/)).
+- Erlang/OTP recommends an up-to-date OpenSSL and exposes `--with-ssl` plus
+  `--disable-dynamic-ssl-lib` when a custom/static crypto runtime is
+  intentionally required. v1.3 does not add that second build path; it selects
+  the pinned OpenSSL-3-linked image and verifies the resulting edge instead
+  ([OTP secure coding](https://github.com/erlang/otp/blob/master/system/doc/design_principles/secure_coding.md)).
 - SQLite deliverable code is public domain; Mozilla-derived CA PEM data is
   MPL-2.0; and IANA tzdb has named BSD-3-Clause exceptions
   ([SQLite](https://www.sqlite.org/copyright.html),
