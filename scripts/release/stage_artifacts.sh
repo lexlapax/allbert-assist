@@ -176,7 +176,10 @@ extract_release() {
   [ ! -e "$destination" ] || fail "release extraction destination already exists"
   preflight_release_archive "$archive"
   mkdir -p "$destination"
-  tar -xzf "$archive" -C "$destination"
+  # Qualification runs under umask 077, but the packaged mode bits are part of
+  # the sealed license/payload evidence. Preserve the preflighted archive modes
+  # instead of allowing the verifier's environment to rewrite them on extract.
+  tar -xpzf "$archive" -C "$destination"
   [ -x "$destination/allbert/bin/allbert" ] || fail "packaged allbert executable is missing"
 }
 
@@ -200,7 +203,14 @@ validate_local_generation() {
     jq -e --arg target "$target" --arg source_sha "$source_sha" --arg generation "$generation" \
       '.schema_version == 2 and .kind == "allbert-candidate-toolchain" and
        .target == $target and .source_sha == $source_sha and .generation == $generation and
-       (.builder.class | IN("operator-macos", "native-linux", "docker-linux-arm64")) and
+       ((if ($target | startswith("linux-")) then
+           .builder.class == "docker-linux" and
+           .builder.container_image == "hexpm/erlang" and
+           .builder.container_digest == "sha256:aab708afe42b93775f43be71b47478749f90209e09cde63b9451511715894512" and
+           .builder.libc == {family: "glibc", version: "2.35"}
+         else
+           .builder.class == "operator-macos" and .builder.libc == null
+         end)) and
        .runtime.otp == "29.0.1" and .runtime.elixir == "1.19.5" and
        .build_tools.hex == "2.5.1" and .build_tools.rebar3 == "3.25.1" and
        (.external_runtime.node | test("^[0-9]+\\.[0-9]+\\.[0-9]+")) and

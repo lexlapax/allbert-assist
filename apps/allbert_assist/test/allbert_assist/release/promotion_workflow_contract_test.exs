@@ -121,8 +121,10 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     assert body =~ "export LC_ALL=C.UTF-8"
     assert body =~ ~S|mix release allbert --overwrite --path "$RELEASE_ROOT"|
     assert body =~ "operator-macos"
-    assert body =~ "native-linux"
-    assert body =~ "docker-linux-arm64"
+    assert body =~ "docker-linux"
+    assert body =~ "hexpm/erlang"
+    assert body =~ "aab708afe42b93775f43be71b47478749f90209e09cde63b9451511715894512"
+    assert body =~ "glibc $LINUX_GLIBC_VERSION"
     assert body =~ "Linux/aarch64"
     assert body =~ "candidate build and smoke must run as a non-root user"
     assert body =~ "mix release allbert --overwrite"
@@ -234,14 +236,29 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     destination = Path.join(root, "destination")
     archive = Path.join(root, "allbert.tar.gz")
     executable = Path.join([source, "allbert", "bin", "allbert"])
+    manifest = Path.join([source, "allbert", "THIRD-PARTY-MANIFEST.json"])
     File.mkdir_p!(Path.dirname(executable))
     File.write!(executable, "#!/bin/sh\nexit 0\n")
     File.chmod!(executable, 0o755)
+    File.write!(manifest, "{}\n")
+    File.chmod!(manifest, 0o644)
     on_exit(fn -> File.rm_rf!(root) end)
 
     assert {_, 0} = System.cmd("tar", ["-czf", archive, "-C", source, "allbert"])
     assert {_, 0} = run_stage(["extract-release", archive, destination])
     assert File.stat!(Path.join([destination, "allbert", "bin", "allbert"])).type == :regular
+
+    assert Bitwise.band(
+             File.stat!(Path.join([destination, "allbert", "bin", "allbert"])).mode,
+             0o777
+           ) ==
+             0o755
+
+    assert Bitwise.band(
+             File.stat!(Path.join([destination, "allbert", "THIRD-PARTY-MANIFEST.json"])).mode,
+             0o777
+           ) ==
+             0o644
   end
 
   test "release helpers are executable, warning-free shell, and contain no aggregate gates" do

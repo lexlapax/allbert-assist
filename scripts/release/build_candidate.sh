@@ -19,6 +19,9 @@ OTP_VERSION="29.0.1"
 ELIXIR_VERSION="1.19.5"
 HEX_VERSION="2.5.1"
 REBAR3_VERSION="3.25.1"
+LINUX_CONTAINER_IMAGE="hexpm/erlang"
+LINUX_CONTAINER_DIGEST="sha256:aab708afe42b93775f43be71b47478749f90209e09cde63b9451511715894512"
+LINUX_GLIBC_VERSION="2.35"
 TARGETS="linux-arm64 linux-x64 macos-arm64"
 
 fail() {
@@ -63,18 +66,28 @@ case "$TARGET" in
   linux-x64)
     [ "$HOST_OS" = Linux ] && { [ "$HOST_ARCH" = x86_64 ] || [ "$HOST_ARCH" = amd64 ]; } ||
       fail "linux-x64 requires Linux/x86_64"
-    [ "$BUILDER_CLASS" = native-linux ] || fail "linux-x64 requires native-linux builder class"
+    [ "$BUILDER_CLASS" = docker-linux ] || fail "linux-x64 requires docker-linux builder class"
     ;;
   linux-arm64)
     [ "$HOST_OS" = Linux ] && { [ "$HOST_ARCH" = aarch64 ] || [ "$HOST_ARCH" = arm64 ]; } ||
       fail "linux-arm64 requires Linux/aarch64"
-    [ "$BUILDER_CLASS" = docker-linux-arm64 ] || fail "linux-arm64 requires docker-linux-arm64 builder class"
+    [ "$BUILDER_CLASS" = docker-linux ] || fail "linux-arm64 requires docker-linux builder class"
+    ;;
+esac
+
+if [ "$HOST_OS" = Linux ]; then
     : "${ALLBERT_CONTAINER_IMAGE:?set ALLBERT_CONTAINER_IMAGE}"
     : "${ALLBERT_CONTAINER_IMAGE_DIGEST:?set ALLBERT_CONTAINER_IMAGE_DIGEST}"
     [[ "$ALLBERT_CONTAINER_IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] ||
       fail "container image digest must be a pinned sha256"
-    ;;
-esac
+  [ "$ALLBERT_CONTAINER_IMAGE" = "$LINUX_CONTAINER_IMAGE" ] ||
+    fail "Linux candidates require $LINUX_CONTAINER_IMAGE"
+  [ "$ALLBERT_CONTAINER_IMAGE_DIGEST" = "$LINUX_CONTAINER_DIGEST" ] ||
+    fail "Linux candidates require the frozen Ubuntu 22.04 image digest"
+  RESOLVED_LIBC="$(getconf GNU_LIBC_VERSION 2>/dev/null || true)"
+  [ "$RESOLVED_LIBC" = "glibc $LINUX_GLIBC_VERSION" ] ||
+    fail "Linux candidates require glibc $LINUX_GLIBC_VERSION; found ${RESOLVED_LIBC:-unknown}"
+fi
 
 VERSION="$(sed -n 's/^[[:space:]]*version: "\([^"]*\)".*/\1/p' mix.exs | head -1)"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]] || fail "could not resolve project version"
@@ -131,10 +144,17 @@ BROWSER_VERSION="$("$BROWSER_BINARY_PATH" --version | tr -d '\r\n')"
 
 CONTAINER_IMAGE="${ALLBERT_CONTAINER_IMAGE:-}"
 CONTAINER_DIGEST="${ALLBERT_CONTAINER_IMAGE_DIGEST:-}"
+LIBC_FAMILY=""
+LIBC_VERSION=""
+if [ "$HOST_OS" = Linux ]; then
+  LIBC_FAMILY=glibc
+  LIBC_VERSION="$LINUX_GLIBC_VERSION"
+fi
 jq -S -n \
   --arg target "$TARGET" --arg source_sha "$SOURCE_SHA" --arg generation "$GENERATION" \
   --arg builder_class "$BUILDER_CLASS" --arg host_os "$HOST_OS" --arg host_arch "$HOST_ARCH" \
   --arg container_image "$CONTAINER_IMAGE" --arg container_digest "$CONTAINER_DIGEST" \
+  --arg libc_family "$LIBC_FAMILY" --arg libc_version "$LIBC_VERSION" \
   --arg otp "$RUNTIME_OTP" --arg elixir "$RUNTIME_ELIXIR" --arg erts "$RUNTIME_ERTS" \
   --arg hex "$RESOLVED_HEX" --arg rebar3 "$RESOLVED_REBAR3" \
   --arg node "$NODE_VERSION" --arg playwright "$PLAYWRIGHT_VERSION" \
@@ -143,7 +163,9 @@ jq -S -n \
     source_sha: $source_sha, generation: $generation, builder: {
       class: $builder_class, os: $host_os, arch: $host_arch,
       container_image: (if $container_image == "" then null else $container_image end),
-      container_digest: (if $container_digest == "" then null else $container_digest end)},
+      container_digest: (if $container_digest == "" then null else $container_digest end),
+      libc: (if $libc_family == "" then null else
+        {family: $libc_family, version: $libc_version} end)},
     runtime: {otp: $otp, elixir: $elixir, erts: $erts},
     build_tools: {hex: $hex, rebar3: $rebar3},
     external_runtime: {node: $node, playwright: $playwright, browser: $browser}}' > "$WORK/$TOOLCHAIN"
