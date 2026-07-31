@@ -6,9 +6,17 @@ architecture center. The center is the runtime/action spine, Security Central,
 Settings Central, markdown-first memory, plugins, channels, public protocols, and
 Allbert Home.
 
-Keep this file compact. Do not turn it into release history or a subsystem manual.
-Use the roadmap, active plan, request-flow, ADRs, changelog, and
-`docs/developer/agent-context-map.md` as targeted references.
+Keep this file compact. It loads into every agent's context every session, so a
+line here is paid by everyone, forever. Add a rule only when an agent would act
+wrongly without it in context. Rationale, tables, diagrams, examples, and history
+go in the authority doc and are pointed to, never inlined here. Route detail to
+`DEVELOPMENT.md` (setup and environment), `docs/developer/test-strategy.md`
+(gates, lanes, release mechanics), `docs/developer/agent-context-map.md`
+(subsystem routing), `docs/developer/<subsystem>.md` (subsystem contracts),
+`docs/adr/` (decisions and consequences), `docs/plans/` (release scope), and
+`docs/operator/` (operator procedure). Before adding, check whether an existing
+rule should be strengthened instead — a second rule on the same subject is drift,
+not coverage.
 
 ## Reading Order
 
@@ -53,15 +61,11 @@ the north star, not a release-scope source.
 
 ## Planning Changes
 
-Planning documents — roadmap, future-features, plan triads, ADR index — are
-consistency artifacts. The check is the deliverable, not a step inside it.
-
-- Complete the full read-only sweep **before touching anything**:
-  cross-references, version and ladder numbering, gate prefix chains, link
-  resolution, index and gate coverage, orphans, stale slices.
-- Present findings and choices in one message. Decide, then execute.
-- Report done with nothing new attached. Surfacing defects after the commit means
-  shipping work that generates its own follow-up list.
+Planning docs (roadmap, future-features, plan triads, ADR index) are consistency
+artifacts: the check is the deliverable. Run the full read-only sweep first —
+cross-references, numbering, gate chains, links, index coverage, orphans — then
+present findings and choices, then execute. A commit that generates its own
+follow-up list means the sweep ran too late.
 
 ## Context7
 
@@ -134,10 +138,6 @@ business-logic debugging, code review, or repository-specific architecture revie
   handoff docs, or extra milestone docs without explicit user permission. Fold
   milestone detail into the active plan, request-flow, and relevant ADRs.
 - For docs-only changes, run `git diff --check` and the docs gate when available.
-- After v0.55.1, manual/operator validation defaults to one warm
-  `mix allbert.tui` session. Cold Mix tasks are for setup, deterministic gates,
-  provider/model preflight, and post-session evidence checks unless the active
-  request-flow states otherwise.
 - Implementation-readiness plans must name parallel workstreams, serial barriers,
   focused tests/gates, external smokes, full-precommit timing, and rejoin points
   for docs, drift review, validation, and release evidence.
@@ -204,3 +204,24 @@ business-logic debugging, code review, or repository-specific architecture revie
   the reason recorded in the plan.
 - Released plan/request-flow docs move to `docs/plans/archives/` at closeout; operator
   runbook steps must be paste-executable with inline PASS criteria.
+
+## Release Sequence (always applies)
+
+Ordered cheapest-first. Sequence, rationale, and the change-class table live in
+`docs/developer/test-strategy.md` ("Release Sequence And Re-Run Scope").
+Effective 2026-07-30; v1.3 completes under its prior rules.
+
+- **Preflight gates everything expensive.** One phase — cross-version compile,
+  format, docs, registry/param contract, inventory, fixture drift, lanes — under
+  two minutes. No expensive phase starts, and no remediation re-enters, until green.
+- **The aggregate runs last, once, never per fix**, and never before operator
+  validation.
+- **Source FV is a pre-filter; packaged FV is acceptance.** Check behavior from
+  source first — one warm `mix allbert.tui` session by default (v0.55.1) — to
+  catch obvious breakage for the price of a recompile. Acceptance runs on the
+  packaged binary and covers install, service lifecycle, vault, TTY, ABI,
+  relocation, license viewer, **and the feature paths under test**. This
+  product's defects live in host integration; the recorded validation history
+  contains no feature defect that source FV would have caught.
+- **Re-run scope is proportional to change class.** The full suite is not always
+  required.

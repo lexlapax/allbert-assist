@@ -42,7 +42,7 @@ release history mirror; use `CHANGELOG.md` for shipped details and
 | Dynamic code and plugin drafts | ADR 0032, ADR 0033, ADR 0035, ADR 0037, dynamic-plugin docs | Only sandbox/gate plus confirmed loader can integrate live code. |
 | Self-improvement | ADR 0045, self-improvement docs, v0.47/v0.47b docs | Discovery and drafts are inert until existing confirmed paths promote them. |
 | StockSage | ADR 0018, ADR 0020, ADR 0022, StockSage plans/changelog | Plugin-owned domain; Python bridge is comparison/reference after native work. |
-| Test strategy and gates | ADR 0049, ADR 0050, `docs/developer/test-strategy.md`, `DEVELOPMENT.md` | Lane classification and release-gate evidence live there. |
+| Test strategy and gates | ADR 0049, ADR 0050, `docs/developer/test-strategy.md`, `DEVELOPMENT.md` | Lane classification and release-gate evidence live there. The binding ordered release sequence, preflight contract, and change-class re-run table are in test-strategy.md § "Release Sequence And Re-Run Scope"; the four rules are summarized in AGENTS.md § "Release Sequence". |
 | Public contract freeze (1.0) | `docs/developer/public-contract-freeze.md`, `docs/plans/archives/v1.0-plan.md`, ADR 0021 A20 | Tiered frozen contracts; `mix allbert.test release.v1` enforces exact-name freeze. |
 | Release planning & backlog lifecycle | `docs/plans/roadmap.md`, `docs/plans/future-features.md`, `AGENTS.md` (Post-1.0 Release Model) | Items with an implementation plan are marked `Status: planned — <plan doc>` in future-features and linked on the roadmap ladder; once implemented and tagged they are removed from future-features and the roadmap is updated. Every binary release plan carries an upstream-dependency-refresh milestone (roadmap Working Rules). |
 
@@ -73,6 +73,12 @@ release history mirror; use `CHANGELOG.md` for shipped details and
 | v0.66 (packaged 0.66.0) | Released `v0.66.0` Product RC & No-Docs Validation before the v1.0 freeze. Deterministic `release.v066` proves 11 gate-bound `product-rc-*` rows across web render/dispatch, CLI/TUI no-mix split, local-knowledge floors, advanced-surface exposure, routing/first-model state, no-authority delta, portability, evidence redaction, and v1.0 handoff. Operator-attested evidence covers macOS/Linux packaged smokes, web usability, packaged CLI, and keyless-local first chat; remaining real-host/provider gaps are explicit DIT milestones in the v1.0 handoff. | v0.66 plan/request-flow, `docs/validation/v0.66/`, `docs/plans/archives/v1.0-handoff.md`, `release.v066`. |
 | v1.0 | Contract freeze + non-developer product launch after v0.66 (extended product acceptance matrix). | v1.0 plan/request-flow and roadmap. |
 | v1.1 | Released asynchronous background-agent fan-out with durable child objectives, bounded concurrency, in-channel steering/cancellation, atomic fan-in, default-OFF autonomous channel notifications, and canonical attached-Web report continuity. | ADR 0083/0084/0085, archived v1.1 plan/request-flow, `release.v11`. |
+| v1.2 / v1.2.5 / v1.2.6 | Released. Zero-click first run and detection-based enablement (v1.2), then foundational binary enablers — packaged licensing and the daemon-backed TUI/thin client (v1.2.5/v1.2.6). | ADR 0087/0088, ADR 0091, archived plans, `release.v12`, `release.v121`. |
+| v1.3 | Long-term user memory + Search Central: bi-temporal claim streams, review, archive, tombstone-first Forget, a canonical Corpus boundary, one FTS5 search projection, and canonical conversation deletion. **Release candidate at time of writing.** | ADR 0089/0092/0093, v1.3 plan/request-flow, `release.v13`. |
+| v1.4 | Planned. Adaptive usage profiling, one-click confirmed customization, effectiveness feedback, per-role model profiles, mobile stage 1 — and the **preflight gate plus the release sequence (M8.5)**, the first release to run its closeout in that order. | ADR 0090, ADR 0084 amendment, v1.4 plan/request-flow. |
+| v1.5 | Planned. Spine enablers: settings migration runner plus consumers, full param-contract enforcement, PermissionGate deletion, action-envelope consolidation. | ADR 0046, ADR 0065, v1.5 plan/request-flow. |
+| v1.6 | Planned. Connectivity enablers: one OAuth substrate for email XOAUTH2 and hosted-LLM subscriptions, MCP 2025-11-25 parity, network hardening. | ADR 0096, v1.6 plan/request-flow. |
+| v1.7 / v1.8 | Planned. Knowledge Central (LLM wiki) in two stages: a derived page graph over kept claims (v1.7), then document ingest, synthesis cache, schema, and composite query (v1.8). | ADR 0094/0095, v1.7 and v1.8 plan/request-flow. |
 
 ## Older History Pointers
 
@@ -95,9 +101,11 @@ Use `docs/developer/test-strategy.md` for the full contract.
 | Docs-only patch | `git diff --check`; run `MIX_ENV=test mix allbert.test docs` when relevant. |
 | Quick pure/local check | `mix allbert.test fast-local` |
 | High-coverage local check | `mix allbert.test fast-local --core-lanes --stocksage-lanes --web-lanes --partitions N` |
+| **Before anything expensive** | **`mix allbert.test preflight`** — cheapest-first phase, under two minutes. No expensive phase starts, and no remediation re-enters, until green. Lands v1.4 M8.5. |
 | Release handoff | `mix allbert.test release` or the version-specific release lane. |
-| v0.58 release readiness | `mix allbert.test release.v058` and request-flow S0-S6 operator validation passed during M15 closeout. |
-| v0.59 release readiness | `mix allbert.test release.v059`, standalone `MIX_ENV=test mix dialyzer`, SQLite startup-lock evidence scan, and request-flow S0-S8 operator validation passed during closeout. |
+| Release ordering | Do not improvise. The ordered sequence — preflight, audit, source pre-filter, release-scoped gate, aggregate only when the change class requires it, binary, packaged FV — is binding: AGENTS.md § "Release Sequence", detail in test-strategy.md. |
+| Which re-run after a fix | Change-class table in test-strategy.md § "Release Sequence And Re-Run Scope". The full suite is **not** always required. |
+| What validation proves | Source FV is a pre-filter, never acceptance; packaged FV on the real host is the acceptance bar. Evidence for why is in the same section. |
 
 Primary lane labels: `pure_async`, `db_serial`, `db_partition_safe`,
 `app_env_serial`, `home_fs_serial`, `global_process_serial`, `liveview_serial`,

@@ -301,6 +301,13 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    suggestion notifications ride here — and, by operator decision
    2026-07-24, **Mobile-Ready Web stage 1** rides as non-flagship scope
    (Dynamic Mobile Breakpoints folds in; stages 2–4 stay at horizon).
+   By operator decision 2026-07-30, v1.4 also carries the **preflight gate
+   and the AGENTS.md Release Sequence** (M8.5), and is the first release to
+   run its closeout in that order: preflight → audit → source pre-filter →
+   release-scoped gate → aggregate only if the change class requires it →
+   binary → packaged FV as the acceptance bar. v1.3 M9.b burned six
+   authoritative attempts, none stopped by a product regression; this is
+   the fix, and it lands before v1.5 rather than after.
 10. **1.5 — Spine enablers.** (**Planned — triad 2026-07-30:**
    `docs/plans/v1.5-plan.md` + request-flow; governed by ADR 0046 and ADR 0065,
    no new ADR.) The settings and action spine, sequenced first because every

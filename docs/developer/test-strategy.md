@@ -1215,6 +1215,7 @@ tree is unchanged. Recorded as an honest floor for M6.
 
 | Gate | Use | Evidence |
 | --- | --- | --- |
+| **Preflight** | **First, before anything expensive. Every release phase and every remediation.** | `mix allbert.test preflight`: compile matrix across every supported Elixir version, formatter, `git diff --check`, docs gate, registry/param-contract consistency, inventory and manifest reconciliation, fixture-drift checks, lane classification. Budget: **under two minutes**. Nothing downstream starts until green. |
 | Docs | Docs-only changes. | `mix allbert.test docs` (`git diff --check` and reference checks when configured). |
 | Focused | Every implementation milestone. | `mix allbert.test focused -- <files...>` using explicit files named in the plan/request-flow doc. |
 | Static | Code changes. | compile warning gate, formatter check, Credo strict, Dialyzer when required. |
@@ -1225,6 +1226,69 @@ tree is unchanged. Recorded as an honest floor for M6.
 | Release | Manual validation/release handoff. | `mix allbert.test release`: explicit full-suite phases plus Dialyzer and timing/evidence. |
 | External smoke | Machine-dependent integrations. | `mix allbert.test external-smoke -- <smoke-name>` for explicitly opted-in smokes. M6 implements Docker sandbox smokes; later browser/MCP/provider smokes must add their concrete command before use. |
 
+### Release Sequence And Re-Run Scope (2026-07-30)
+
+The ordered sequence is binding and lives in AGENTS.md ("Release Sequence").
+This section records why it exists and what each phase costs.
+
+**Why.** v1.3 M9.b burned six authoritative attempts. **Not one was stopped by a
+product-behavior regression:**
+
+| Attempt | Stopped by | Class |
+| --- | --- | --- |
+| cumulative 1 (`42adfef3`) | SQLite callsite inventory omission; promotion contract lost a security-row binding; changelog missing a disclosure | document/inventory |
+| authoritative 1 (`70b9bbf8`) | registry listed a destructive action as agent-exposed — caught after 1,384 tests | registry consistency |
+| authoritative 2 (`b9f60352`) | three Memory CLI fixtures; settings version floor | fixture drift |
+| authoritative 3 (`a86d721c`) | seventeen actions lacked negative intent probes | coverage inventory |
+| authoritative 4 (`10f392de`) | external-runtime lane: a test-load defect, not product | test harness |
+| authoritative 5 (`34c7452f`) | security lane: eight cumulative fixture drifts | fixture drift |
+| attempt 6 (`e9a39696`) | nine compiler warnings under a second Elixir version, surfaced from pasted output | compile check |
+
+Every one is cheap, deterministic, and repo-wide — and every one ran late, or
+was not in the gate at all. Recorded cost from the metrics store: the full
+`release` gate peaks at **47.7 min**, `serial-core` at 13 min. Six attempts is
+five-plus hours of gate time before remediation, rebuilds, or the two portability
+seams that followed.
+
+**Re-run scope by change class.** The full suite is not always required:
+
+| Change class | Required re-run |
+| --- | --- |
+| Docs-only | preflight + docs gate |
+| Single-lane fixture | preflight + that lane + release-scoped gate |
+| Product code, one subsystem | preflight + owning lanes + release-scoped gate |
+| Shared spine — settings schema, action registry, permission path, projection machinery, test harness, gate definitions | full authoritative aggregate |
+| Release/workflow code (tag-bound) | full replacement generation; never patched around |
+
+**Source FV is a pre-filter; packaged FV is acceptance.** An earlier draft of
+this section proposed splitting validation so that feature behavior was accepted
+from source and only packaging was validated on the binary. **The recorded
+evidence refutes that split** and it was withdrawn on 2026-07-30 before use:
+
+| Release | What operator/host validation caught | Would source FV have caught it? |
+| --- | --- | --- |
+| v1.0.3 | Artifacts shipped bridge manifests without `node_modules` or a Chromium payload | No |
+| v1.0.4 | BEAM `:hide` port option aborted Chrome in `TransformProcessType` — direct Chrome, direct Playwright, the packaged bridge, and the same port without `:hide` all passed | No; it reproduced only in the exact packaged configuration |
+| v1.0.5 RC.1 | Cross-process Settings YAML, systemd lifecycle, Windows-host Ollama readiness/onboarding/TUI defects on WSL2 | No |
+| v1.3 | glibc 2.36/2.35 ABI, OpenSSL 3.x resolution, macOS packaged NIF, loader diagnostic corrupting license output | No |
+
+There is **no recorded case of a feature defect caught by operator validation
+that source validation would also have caught.** The reason is structural: a
+large share of what Allbert *is* consists of host integration — vault backends,
+service lifecycle, TTY from a packaged launcher, NIF-backed SQLite, external
+provider processes, onboarding on a real host. "Feature defect" and "packaging
+defect" are not a clean partition here.
+
+So source FV earns its place only as a cheap pre-filter — do not build a
+three-target artifact to discover a page renders wrong — and packaged FV remains
+the acceptance bar, covering the feature paths under test rather than a reduced
+spot-check.
+
+Note also that the six M9.b gate failures and the validation failures above are
+**different failure classes**. The gate record justifies preflight, aggregate
+ordering, and change-class re-run scope. It does not justify claims about where
+validation should run; a rule must be derived from the failure class it governs.
+
 ### External Smoke Evidence Taxonomy
 
 Plans that depend on package managers, Docker, browser drivers, provider
@@ -1234,6 +1298,8 @@ they require. "External smoke" is a lane label, not a single proof strength.
 | Evidence class | Proves | Does not prove |
 | --- | --- | --- |
 | Source gate | Checkout compiles, tests, migrations, evals, and release-specific source checks pass. | Published artifacts or package-manager installs execute. |
+| **Source FV (pre-filter)** | Obvious feature breakage, caught by hand from `mix allbert.*` against real configured providers for the cost of a recompile. A cheap filter run before a binary is built. | **Acceptance of anything.** It does not prove install, service lifecycle, vault backend, TTY from a packaged launcher, filesystem layout, NIF loading, or ABI — and history shows Allbert's defects concentrate exactly there. |
+| **Packaged FV (acceptance)** | Install, uninstall, service lifecycle, vault, TTY, relocation, license viewer, ABI — **and the feature paths under test**, on the real artifact and the real host. This is the acceptance bar. | Cross-architecture coverage by itself; each target host is its own row. |
 | Remote artifact matrix | CI-built archives boot and pass binary smoke on target runners. | Tap formula correctness, local package-manager install, or TTY interaction. |
 | Package-manager install | Homebrew/curl install path fetches, verifies, installs, starts, tests, and uninstalls the packaged binary. | Real-host Linux service/vault behavior unless run on that host. |
 | Containerized Linux package smoke | Linux artifacts install/start/attach/uninstall in Docker for a requested `--platform`. | Desktop Secret Service, user systemd, login-session, or distro-specific host policy unless explicitly provided inside the container. |
