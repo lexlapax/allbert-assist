@@ -20,8 +20,8 @@ ELIXIR_VERSION="1.19.5"
 HEX_VERSION="2.5.1"
 REBAR3_VERSION="3.25.1"
 LINUX_CONTAINER_IMAGE="hexpm/erlang"
-LINUX_CONTAINER_DIGEST="sha256:aab708afe42b93775f43be71b47478749f90209e09cde63b9451511715894512"
-LINUX_GLIBC_VERSION="2.35"
+LINUX_CONTAINER_DIGEST="sha256:8af614ad04450a1919c2ef1a992b7504e27c9f488674003ac08ee3e0b86fbd65"
+LINUX_GLIBC_VERSION="2.31"
 TARGETS="linux-arm64 linux-x64 macos-arm64"
 
 fail() {
@@ -83,7 +83,7 @@ if [ "$HOST_OS" = Linux ]; then
   [ "$ALLBERT_CONTAINER_IMAGE" = "$LINUX_CONTAINER_IMAGE" ] ||
     fail "Linux candidates require $LINUX_CONTAINER_IMAGE"
   [ "$ALLBERT_CONTAINER_IMAGE_DIGEST" = "$LINUX_CONTAINER_DIGEST" ] ||
-    fail "Linux candidates require the frozen Ubuntu 22.04 image digest"
+    fail "Linux candidates require the frozen Debian 11 image digest"
   RESOLVED_LIBC="$(getconf GNU_LIBC_VERSION 2>/dev/null || true)"
   [ "$RESOLVED_LIBC" = "glibc $LINUX_GLIBC_VERSION" ] ||
     fail "Linux candidates require glibc $LINUX_GLIBC_VERSION; found ${RESOLVED_LIBC:-unknown}"

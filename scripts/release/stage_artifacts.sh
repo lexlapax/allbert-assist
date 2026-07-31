@@ -206,8 +206,8 @@ validate_local_generation() {
        ((if ($target | startswith("linux-")) then
            .builder.class == "docker-linux" and
            .builder.container_image == "hexpm/erlang" and
-           .builder.container_digest == "sha256:aab708afe42b93775f43be71b47478749f90209e09cde63b9451511715894512" and
-           .builder.libc == {family: "glibc", version: "2.35"}
+           .builder.container_digest == "sha256:8af614ad04450a1919c2ef1a992b7504e27c9f488674003ac08ee3e0b86fbd65" and
+           .builder.libc == {family: "glibc", version: "2.31"}
          else
            .builder.class == "operator-macos" and .builder.libc == null
          end)) and

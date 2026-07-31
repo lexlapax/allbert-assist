@@ -123,7 +123,7 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     assert body =~ "operator-macos"
     assert body =~ "docker-linux"
     assert body =~ "hexpm/erlang"
-    assert body =~ "aab708afe42b93775f43be71b47478749f90209e09cde63b9451511715894512"
+    assert body =~ "8af614ad04450a1919c2ef1a992b7504e27c9f488674003ac08ee3e0b86fbd65"
     assert body =~ "glibc $LINUX_GLIBC_VERSION"
     assert body =~ "Linux/aarch64"
     assert body =~ "candidate build and smoke must run as a non-root user"
