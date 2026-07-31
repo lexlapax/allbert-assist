@@ -16,6 +16,12 @@ through 1.8, the vision document, and the ADR set. Every quantitative claim
 below is measured from the tree and carries its anchor. Where a number is a
 count of files or lines it was taken from the working tree, not from memory.
 
+**Amended.** Sections 1 through 11 were written against committed sources.
+[Section 12](#12-amendment--re-check-against-v13-m9b4m9b5-adaptive-fan-out)
+records a re-check against the uncommitted v1.3 M9.b.4/M9.b.5 adaptive-fan-out
+revisions and supersedes part of §8. Read it before acting on the Jido
+recommendation.
+
 ---
 
 ## 1. What The Code Says
@@ -364,23 +370,29 @@ Grounded in measured usage:
   Jobs.Scheduler, Confirmations.Store, the codegen agent) plus three in plugins,
   and `JidoBacked` (266 lines) already re-wraps its AgentServer plumbing. AGENTS.md
   already codifies a pragmatic "plain GenServer when Jido.Agent buys nothing"
-  rule, and most state-bearing modules already are plain GenServers. The
+  rule, and most state-bearing modules already are plain GenServers.
+  **Narrowed by [§12](#12-amendment--re-check-against-v13-m9b4m9b5-adaptive-fan-out):**
+  the primary intent manager stays a `Jido.Agent` and gains a private planning
+  command, so this applies to new state-bearing modules and to the Turn Engine
+  loop, not to the manager. The
   proposal formalizes the existing reality: the Turn Engine should be an
   explicit, plain, restartable OTP state machine with exactly one owner per
   resource. Given that 1.1 spent eight corrective rounds on resource-ownership
   faults and ended at `pool_size: 1`, deterministic single-ownership is worth
   more here than lifecycle hooks.
-- **`jido_ai`** — used in two production call sites: model alias generation
-  (`settings/provider_catalog.ex:124-131`) and dynamic-plugin codegen
-  (`dynamic_plugins/codegen/llm.ex:49`, already guarded by
-  `Code.ensure_loaded?/1`). `ReqLLM` is the actual model substrate, referenced by
-  24 modules. One dependency and one refresh obligation per release for two call
-  sites. Drop it and move alias generation into the model layer Allbert already
-  owns.
+- **`jido_ai`** — **this bullet is superseded by [§12](#12-amendment--re-check-against-v13-m9b4m9b5-adaptive-fan-out).**
+  Measured against committed sources it had two production call sites: model
+  alias generation (`settings/provider_catalog.ex:124-131`) and dynamic-plugin
+  codegen (`dynamic_plugins/codegen/llm.ex:49`, already guarded by
+  `Code.ensure_loaded?/1`), against `ReqLLM` in 24 modules — which read as one
+  dependency and one refresh obligation per release for two call sites. The
+  v1.3 M9.b.4 `agent_loop` worker Adapter gives it a first substantive
+  consumer. **The recommendation to drop it is withdrawn.**
 
-Net: four Jido dependencies become two, and the kernel loop stops inheriting a
-framework's supervision semantics at precisely the place with the most recorded
-production pain.
+Net against committed sources: the kernel loop stops inheriting a framework's
+supervision semantics at precisely the place with the most recorded production
+pain. That part of the recommendation stands, and §12 records that the v1.3
+amendments now state the same rule normatively.
 
 ---
 
@@ -397,7 +409,7 @@ listed thing." Each ships value alone and is independently revertable.
 | **3** | **Gate inversion.** Packs own lanes; `release.vN` composes lanes. Retire the 43 historical gates behind one current gate plus archived definitions. | v1.5 M5 (already scoped as absolute suite duration) | Directly attacks the 47.7-minute aggregate and the six burned authoritative attempts. |
 | **4** | **Projection primitive** extracted from Memory and Search. | Before v1.7 | Otherwise Knowledge becomes the third bespoke copy. |
 | **5** | **OTP application extraction**, one pack at a time, cheapest first. | v1.6 onward, opportunistic | Only after 1–3, because 1–3 remove the reasons extraction is hard today. |
-| **6** | **Turn Engine consolidation** — Runtime, IntentAgent, and Fanout into one staged loop with strategy behaviours. | Last, its own release | Highest risk. Use the v1.1 fan-out invariants as the acceptance set. |
+| **6** | **Turn Engine consolidation** — Runtime, IntentAgent, and Fanout into one staged loop with strategy behaviours. | Last, its own release; precondition named in [§12](#12-amendment--re-check-against-v13-m9b4m9b5-adaptive-fan-out) | Use the v1.1 fan-out invariants as the acceptance set. v1.3 M9.b.4/M9.b.5 builds three of these seams with two Adapters each, which is the extraction trigger ADR 0021 §A22 requires. |
 
 Phases 0 through 3 fit inside v1.5 as currently scoped. Doing so changes v1.5's
 character from "one large mechanical sweep" to "one large mechanical sweep that
@@ -416,7 +428,10 @@ opening all 249 modules is the expensive part either way.
 - **Phase 6 is genuinely risky.** `runtime.ex` and `agents/intent_agent.ex` are
   5,100 lines encoding correctness won across eight corrective rounds in 1.1. If
   only phases 0 through 4 are done, most of the benefit is still realized. Phase 6
-  should stay optional until the invariant has held for two releases.
+  should stay optional until the invariant has held for two releases. [§12](#12-amendment--re-check-against-v13-m9b4m9b5-adaptive-fan-out)
+  revises this downward: v1.3 M9.b.4/M9.b.5 builds the hardest seams under
+  operator sign-off, so phase 6 becomes generalization of existing seams rather
+  than invention of new ones.
 - **Data-only home packs will feel limited.** No code means no novel effects,
   only recombination of registered and permitted capabilities. That is the
   correct trade under ADR 0017 and ADR 0032, but the expectation should be set
@@ -449,3 +464,115 @@ opening all 249 modules is the expensive part either way.
 
 Until those are answered this document remains analysis, and the roadmap ladder
 stands as written.
+
+---
+
+## 12. Amendment — Re-check Against v1.3 M9.b.4/M9.b.5 Adaptive Fan-Out
+
+Dated 2026-07-31. Sections 1 through 11 were written against committed sources.
+This section re-checks them against the **uncommitted working-tree revisions**
+to `docs/adr/0083-objectives-parallel-child-fanout.md`,
+`docs/adr/0021-intent-objective-capability-and-advisory-boundary.md` (new §A22),
+`docs/plans/allbert-jido-vision.md` (new "Parallel delegation and fan-in"
+subsection), and the v1.3 plan/request-flow M9.b.4/M9.b.5 milestones. Those
+revisions are operator-approved but not yet implemented or committed.
+
+### 12.1 What the revision changes
+
+The interim Stage-0 regex/classifier decomposer is replaced by four seams:
+
+1. The **primary intent manager** owns adaptive admission through a private
+   `propose_parallel_work` Jido command — not a registered action, intent
+   candidate, permission, or execution route.
+2. A **typed inert plan** plus a deterministic compiler validating grounding in
+   the original operator turn, independence, coverage, non-overlap, budgets, and
+   material parallel leverage, freezing a canonical plan digest on the parent
+   before any child exists.
+3. A **Worker Interface with two Adapters** — `action_once` (the existing
+   one-action Lifecycle) and `agent_loop` (a bounded, supervised `Jido.AI`
+   worker used only where iterative reasoning or tool use earns it). The
+   compiler, never the model, selects the kind.
+4. **Durable report composition** after terminal reduction: the last terminal
+   child freezes the child/result/receipt snapshot with
+   `report_composition_state=pending` and `report_delivery_state=not_ready`; a
+   recoverable composer may improve narrative only; a deterministic
+   complete-child renderer is the stored fallback.
+
+### 12.2 What still holds
+
+- **The four kernel lists (§1.3) are untouched.** Nothing in the revision edits
+  `Actions.Registry`, `Settings.Schema`, the gate task's list, or `Runtime`'s
+  subsystem aliases. The §1.5 diagnosis is unaffected.
+- **It mildly reinforces the diagnosis.** M9.b.4/M9.b.5 add
+  `intent/parallel_work/{plan,compiler,manager}`, the worker Adapters, and
+  `objectives/fanout_report_composer` to the kernel tree, plus two more
+  hand-maintained per-milestone test-file lane lists feeding the 10,117-line
+  gate task. The kernel grows and the gate list grows.
+- **Packs, registry inversion, settings inversion, gate inversion, the
+  Projection primitive, skills, and the security posture ladder are not
+  touched.** Sections 3 through 7 and phases 0 through 5 stand as written.
+- **The kernel/pack line looks correctly placed.** All new work lands in kernel
+  concerns 5 (Turn Engine) and 7 (Spine), and none of it is pack-shaped. That is
+  evidence for the split in §3.1 rather than against it.
+
+### 12.3 What is withdrawn
+
+**The recommendation to drop `jido_ai` (§8) is withdrawn.** It was measured
+correctly against committed sources — two production call sites against
+`ReqLLM`'s 24 — but the M9.b.4 `agent_loop` Adapter is a genuine first consumer,
+and a bounded iterative reasoning-and-tool loop is the case the library exists
+to serve. The dependency should be kept.
+
+**The "Jido.Agent as a pack-level choice" recommendation is narrowed.** The
+primary intent manager remains a `Jido.Agent` and gains a private planning
+command; that is the established "private Jido command modules are not Allbert
+capability actions" pattern and it is the right home for manager planning. The
+recommendation now applies to *new* state-bearing modules and to the Turn Engine
+loop itself, not to the manager.
+
+The principle underneath both — that framework process state is never durable
+authority — is unchanged and is now **normative rather than proposed**. ADR 0083
+§4 states that Jido child-process tracking and awaits are live execution aids
+that never substitute for durable Objectives state; §A22 states that a worker's
+process, parentage, state, output, or successful tool call is never durable
+authority. That is the same position §8 argued from v1.1's eight corrective
+rounds, and it no longer needs arguing here.
+
+### 12.4 What improves
+
+**Phase 6 gains a named precondition and loses risk.** §A22 permits extraction
+of the private planner, worker, and composer Interfaces "only after a second
+real Adapter exists" — the same evidence rule ADR 0021 §A20 applies to advisory
+providers. M9.b.4/M9.b.5 ships two Adapters for three seams simultaneously:
+
+| Seam | Adapter A | Adapter B |
+| --- | --- | --- |
+| Plan | manager model proposal | exact counted offline protocol |
+| Worker | `action_once` Lifecycle | `agent_loop` bounded Jido.AI worker |
+| Report | main-model composition | deterministic complete-child fallback |
+
+Once those land and their focused qualification is accepted, §A22's condition is
+satisfied for all three. Phase 6 therefore changes character: from "consolidate
+`runtime.ex`, `intent_agent.ex`, and Fanout into a staged loop with strategy
+behaviours" — inventing the seams — to "generalize three seams the project has
+already built, tested, and signed off on." The v1.1 fan-out invariants remain
+the acceptance set, joined by the M9.b.5 composition and delivery invariants.
+
+This does not make phase 6 cheap, and it stays last. It does mean the riskiest
+part of the proposal is being de-risked by work already scheduled.
+
+### 12.5 One note on the vision document
+
+The revision adds a "Parallel delegation and fan-in" subsection to
+[allbert-jido-vision.md](allbert-jido-vision.md), which carries a stability note
+against edits during normal version work. The note permits deliberate
+vision-level revision, and the operator approved this one. The added text is
+compatible with §3.1 concern 5 and adds useful specificity about where
+delegation authority sits; no claim in this analysis depended on the prior
+wording.
+
+### 12.6 Net effect on the proposal
+
+No phase is added, removed, or resequenced. One dependency recommendation is
+withdrawn, one is narrowed, the phase 6 risk estimate improves, and the §1.5
+diagnosis is unchanged. The five open decisions in §11 stand as written.
