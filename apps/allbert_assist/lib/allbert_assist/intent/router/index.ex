@@ -69,7 +69,7 @@ defmodule AllbertAssist.Intent.Router.Index do
   @spec entries(GenServer.server()) :: [entry()]
   def entries(server \\ __MODULE__), do: state(server).entries
 
-  @doc "The utterance text indexed for a descriptor (label ; examples ; synonyms)."
+  @doc "The utterance text indexed for a descriptor, including clarification vocabulary."
   @spec utterance_text(map()) :: String.t()
   def utterance_text(descriptor) do
     vocabulary = Map.get(descriptor, :vocabulary, %{}) || %{}
@@ -78,6 +78,10 @@ defmodule AllbertAssist.Intent.Router.Index do
     |> Kernel.++(Map.get(descriptor, :examples, []))
     |> Kernel.++(Map.get(descriptor, :synonyms, []))
     |> Kernel.++(Map.get(vocabulary, :phrases, []) || Map.get(vocabulary, "phrases", []))
+    |> Kernel.++(
+      Map.get(vocabulary, :clarification_phrases, []) ||
+        Map.get(vocabulary, "clarification_phrases", [])
+    )
     |> Enum.map(&to_string/1)
     |> Enum.reject(&(&1 == ""))
     |> Enum.join(" ; ")

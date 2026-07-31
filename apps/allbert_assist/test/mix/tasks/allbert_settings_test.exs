@@ -1,5 +1,5 @@
 defmodule Mix.Tasks.Allbert.SettingsTest do
-  use ExUnit.Case, async: false
+  use AllbertAssist.DataCase, async: false
   @moduletag :app_env_serial
 
   import ExUnit.CaptureIO

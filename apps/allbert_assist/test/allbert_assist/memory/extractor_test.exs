@@ -89,6 +89,25 @@ defmodule AllbertAssist.Memory.ExtractorTest do
     assert {:abstain, :ineligible_operator_source} = Extractor.extract([assistant])
   end
 
+  test "source validation's standalone Juniper assertion is grounded without a prompt-specific rule" do
+    text =
+      "Please keep operator runbooks for Project Juniper status summaries on Monday at 10:30, valid starting 2026-07-01 with validation marker juniperv13primary."
+
+    assert {:ok, result} = Extractor.extract([source(text, "operator")])
+    assert result.decision == :propose
+    assert result.proposed_claim["subject"] == "operator"
+    assert result.proposed_claim["predicate"] == "keep"
+    assert result.proposed_claim["value"] =~ "Monday at 10:30"
+    assert result.proposed_claim["value"] =~ "juniperv13primary"
+
+    assert {:ok, _verified} =
+             SpanProvenance.verify(
+               result.proposed_claim,
+               result.span_provenance,
+               result.source_envelopes
+             )
+  end
+
   defp score_eligible(test_case) do
     sources = sources(test_case)
     expected = test_case["expected"]

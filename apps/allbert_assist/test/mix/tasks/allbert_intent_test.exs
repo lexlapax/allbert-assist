@@ -187,7 +187,10 @@ defmodule Mix.Tasks.Allbert.IntentTest do
         app_id: :allbert,
         action_name: "show_app",
         label: "Show app",
-        examples: ["show app"],
+        # A promotable descriptor must preserve the frozen Apps corpus rather
+        # than relying on the lower-priority built-in descriptor to supply its
+        # selection evidence after the generated layer takes precedence.
+        examples: ["show app", "show the allbert app"],
         synonyms: ["app details"],
         required_slots: []
       })

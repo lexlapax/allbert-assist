@@ -14,7 +14,6 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
   alias AllbertAssist.Intent.Router.Embedder
   alias AllbertAssist.Intent.Router.Index
   alias AllbertAssist.Intent.Router.ScoringProfile
-  alias AllbertAssist.Maps
   alias AllbertAssist.Settings
 
   @type ranked :: %{
@@ -52,16 +51,18 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
   def rank(query_vector, entries, k, query)
       when is_list(entries) and is_integer(k) and k > 0 and is_binary(query) do
     scoring = ScoringProfile.prefilter()
+    match_context = Descriptor.prepare_match_context(query)
 
     ranked =
       entries
       |> Enum.map(fn entry ->
         slots = extracted_slots(entry, query)
         required_slots = Map.get(entry, :required_slots, [])
+        selection = selection_metadata(entry, query, slots, match_context)
 
         base_score =
           Embedder.cosine(query_vector, entry.vector) +
-            descriptor_text_boost(entry, query, scoring)
+            descriptor_text_boost(entry, match_context, scoring)
 
         %{
           action_name: entry.action_name,
@@ -71,6 +72,8 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
           optional_slots: Map.get(entry, :optional_slots, []),
           extracted_slots: slots.extracted_slots,
           missing_slots: slots.missing_slots,
+          selection_policy: selection.selection_policy,
+          selection_evidence: selection.selection_evidence,
           score: slot_adjusted_score(base_score, required_slots, slots, scoring)
         }
       end)
@@ -90,8 +93,15 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
 
   defp extracted_slots(_entry, _query), do: %{extracted_slots: %{}, missing_slots: []}
 
-  defp descriptor_text_boost(%{descriptor: %Descriptor{} = descriptor} = entry, query, scoring) do
-    descriptor_text_match_score(entry, descriptor, query)
+  defp descriptor_text_boost(
+         %{descriptor: %Descriptor{} = descriptor} = entry,
+         match_context,
+         scoring
+       ) do
+    max(
+      Descriptor.text_match_score(descriptor, match_context, [entry.label, entry.action_name]),
+      Descriptor.clarification_match_score(descriptor, match_context)
+    )
     |> case do
       score when score > 0 ->
         scoring.descriptor_text_match_boost +
@@ -104,93 +114,24 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
 
   defp descriptor_text_boost(_entry, _query, _scoring), do: 0.0
 
-  defp descriptor_text_match_score(entry, descriptor, query) do
-    vocabulary = Map.get(descriptor, :vocabulary, %{}) || %{}
-    allow_single? = field(vocabulary, :allow_single_token_match, true) != false
-
-    negative_values = field(vocabulary, :negative_phrases, []) || []
-
-    if Enum.any?(negative_values, &(descriptor_phrase_match_score(query, &1, true) > 0)) do
-      0
-    else
-      descriptor_values(entry, descriptor, vocabulary)
-      |> Enum.map(&descriptor_phrase_match_score(query, &1, allow_single?))
-      |> Enum.max(fn -> 0 end)
-    end
+  defp selection_metadata(
+         %{descriptor: %Descriptor{} = descriptor},
+         query,
+         slots,
+         match_context
+       ) do
+    %{
+      selection_policy: descriptor.selection_policy,
+      selection_evidence: Descriptor.selection_evidence(descriptor, query, slots, match_context)
+    }
   end
 
-  defp descriptor_values(entry, descriptor, vocabulary) do
-    [
-      Map.get(entry, :label),
-      Map.get(entry, :action_name),
-      Map.get(descriptor, :label),
-      Map.get(descriptor, :action_name)
-    ] ++
-      Map.get(descriptor, :examples, []) ++
-      Map.get(descriptor, :synonyms, []) ++
-      (field(vocabulary, :phrases, []) || [])
+  defp selection_metadata(_entry, _query, _slots, _match_context) do
+    %{
+      selection_policy: :semantic,
+      selection_evidence: %{satisfied?: true}
+    }
   end
-
-  defp descriptor_phrase_match_score(text, value, allow_single?) when is_binary(value) do
-    normalized_text = normalize_text(text)
-    normalized_value = normalize_text(value)
-    text_tokens = String.split(normalized_text, " ", trim: true)
-    value_tokens = String.split(normalized_value, " ", trim: true)
-    token_count = length(value_tokens)
-
-    cond do
-      normalized_value == "" ->
-        0
-
-      phrase_token_match?(normalized_text, normalized_value) ->
-        token_count
-
-      token_count > 1 and ordered_token_match?(text_tokens, value_tokens) ->
-        token_count
-
-      single_token_match?(allow_single?, value_tokens, text_tokens) ->
-        1
-
-      true ->
-        0
-    end
-  end
-
-  defp descriptor_phrase_match_score(_text, _value, _allow_single?), do: 0
-
-  defp normalize_text(value) when is_binary(value) do
-    value
-    |> String.downcase()
-    |> String.replace(~r/[^a-z0-9]+/u, " ")
-    |> String.trim()
-  end
-
-  defp phrase_token_match?(normalized_text, normalized_value) do
-    text_tokens = String.split(normalized_text, " ", trim: true)
-    value_tokens = String.split(normalized_value, " ", trim: true)
-
-    value_tokens != [] and
-      text_tokens
-      |> Enum.chunk_every(length(value_tokens), 1, :discard)
-      |> Enum.any?(&(&1 == value_tokens))
-  end
-
-  defp ordered_token_match?(_text_tokens, []), do: false
-  defp ordered_token_match?(text_tokens, tokens), do: do_ordered_token_match?(text_tokens, tokens)
-
-  defp do_ordered_token_match?(_text_tokens, []), do: true
-
-  defp do_ordered_token_match?(text_tokens, [token | rest]) do
-    case Enum.drop_while(text_tokens, &(&1 != token)) do
-      [_matched | remaining] -> do_ordered_token_match?(remaining, rest)
-      [] -> false
-    end
-  end
-
-  defp single_token_match?(true, [token], text_tokens),
-    do: String.length(token) >= 4 and token in text_tokens
-
-  defp single_token_match?(_allow_single?, _value_tokens, _text_tokens), do: false
 
   defp slot_adjusted_score(score, [], _slots, _scoring), do: score
 
@@ -243,6 +184,4 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
       _other -> default
     end
   end
-
-  defp field(map, key, default), do: Maps.field(map, key, default)
 end

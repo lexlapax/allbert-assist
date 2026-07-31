@@ -39,19 +39,18 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolver do
     ignore_disabled? = Keyword.get(opts, :ignore_disabled?, false)
     # Operator-disable overrides are honored unless the caller explicitly ignores them.
     disabled = if ignore_disabled?, do: [], else: disabled_keys()
-    # The capability/demo gates (Q2/Q3) are additionally bypassed by the test/eval app-env
-    # flag so the eval corpus can route to voice/StockSage as if fully configured — WITHOUT
-    # also disabling the operator-disable override above (which its own tests exercise).
-    gate_bypass? = ignore_disabled? or include_all_descriptors?()
+    # Deterministic eval explicitly includes capability-gated and demo descriptors. It
+    # remains distinct from `ignore_disabled?: true`: operator-authored disable overrides
+    # still win, as do active generated/override descriptor contents.
+    gate_bypass? =
+      ignore_disabled? or Keyword.get(opts, :availability) == :deterministic_eval or
+        include_all_descriptors?()
 
-    [
-      app_plugin_layer(opts),
-      action_module_layer(opts),
-      generated_layer(opts),
-      override_layer(opts)
-    ]
-    |> List.flatten()
-    |> dedup_later_wins()
+    canonical = dedup_later_wins(app_plugin_layer(opts) ++ action_module_layer(opts))
+    with_generated = merge_stored_layer(canonical, :generated)
+
+    with_generated
+    |> merge_stored_layer(:overrides)
     |> Enum.reject(fn descriptor ->
       {descriptor.app_id, descriptor.action_name} in disabled
     end)
@@ -133,30 +132,38 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolver do
     _exception -> :allbert
   end
 
-  # Accepted machine-generated descriptors (review-tier ones are NOT loaded).
-  defp generated_layer(_opts), do: safe_store_load(:generated)
+  # Stored descriptors replace routing language, but omitting a selection policy
+  # cannot silently weaken the policy already attached to the same canonical
+  # action. An explicitly supplied `semantic` remains an intentional override.
+  defp merge_stored_layer(inherited, tier) do
+    policies = Map.new(inherited, &{{&1.app_id, &1.action_name}, &1.selection_policy})
 
-  # Operator-curated descriptors (highest precedence). Disabled override files are
-  # disable markers only; they must not normalize into empty descriptor content
-  # when callers intentionally compute an enabled candidate set.
-  defp override_layer(_opts) do
-    :overrides
-    |> safe_store_attrs()
-    |> Enum.reject(fn attrs -> truthy?(field(attrs, :disabled)) end)
-    |> Descriptor.normalize_many(source: :overrides)
-    |> Map.fetch!(:descriptors)
+    stored =
+      tier
+      |> safe_store_attrs()
+      |> Enum.reject(fn attrs -> tier == :overrides and truthy?(field(attrs, :disabled)) end)
+      |> Enum.map(&inherit_omitted_selection_policy(&1, policies))
+      |> Descriptor.normalize_many(source: tier)
+      |> Map.fetch!(:descriptors)
+
+    dedup_later_wins(inherited ++ stored)
   rescue
-    _exception -> []
+    _exception -> inherited
   catch
-    :exit, _reason -> []
+    :exit, _reason -> inherited
   end
 
-  defp safe_store_load(tier) do
-    DescriptorStore.load(tier)
-  rescue
-    _exception -> []
-  catch
-    :exit, _reason -> []
+  defp inherit_omitted_selection_policy(attrs, policies) do
+    if Map.has_key?(attrs, :selection_policy) or Map.has_key?(attrs, "selection_policy") do
+      attrs
+    else
+      key = {normalize_app_id(field(attrs, :app_id)), to_string(field(attrs, :action_name))}
+
+      case Map.fetch(policies, key) do
+        {:ok, policy} -> Map.put(attrs, :selection_policy, policy)
+        :error -> attrs
+      end
+    end
   end
 
   defp safe_store_attrs(tier) do

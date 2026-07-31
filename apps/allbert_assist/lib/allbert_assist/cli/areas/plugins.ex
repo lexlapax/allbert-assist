@@ -211,7 +211,7 @@ defmodule AllbertAssist.CLI.Areas.Plugins do
     Render.ok([
       response.message,
       "Approve with:",
-      "  mix allbert.confirmations approve #{response.confirmation_id}"
+      "  allbert admin confirmations approve #{response.confirmation_id}"
     ])
   end
 

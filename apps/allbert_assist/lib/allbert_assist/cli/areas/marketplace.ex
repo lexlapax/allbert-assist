@@ -27,14 +27,14 @@ defmodule AllbertAssist.CLI.Areas.Marketplace do
 
   @usage """
   Usage:
-    mix allbert.marketplace list [--kind KIND]
-    mix allbert.marketplace show ENTRY_ID
-    mix allbert.marketplace install ENTRY_ID [--version VERSION]
-    mix allbert.marketplace installed
-    mix allbert.marketplace rollback ENTRY_ID
-    mix allbert.marketplace verify ENTRY_ID
-    mix allbert.marketplace mirror
-    mix allbert.marketplace doctor
+    allbert admin marketplace list [--kind KIND]
+    allbert admin marketplace show ENTRY_ID
+    allbert admin marketplace install ENTRY_ID [--version VERSION]
+    allbert admin marketplace installed
+    allbert admin marketplace rollback ENTRY_ID
+    allbert admin marketplace verify ENTRY_ID
+    allbert admin marketplace mirror
+    allbert admin marketplace doctor
   """
 
   @spec dispatch([String.t()], map() | nil) :: {String.t(), non_neg_integer()}
@@ -81,7 +81,7 @@ defmodule AllbertAssist.CLI.Areas.Marketplace do
         end
 
       _other ->
-        {:usage, "usage: mix allbert.marketplace show ENTRY_ID [--version VERSION]"}
+        {:usage, "usage: allbert admin marketplace show ENTRY_ID [--version VERSION]"}
     end
   end
 
@@ -99,7 +99,7 @@ defmodule AllbertAssist.CLI.Areas.Marketplace do
         end
 
       _other ->
-        {:usage, "usage: mix allbert.marketplace install ENTRY_ID [--version VERSION]"}
+        {:usage, "usage: allbert admin marketplace install ENTRY_ID [--version VERSION]"}
     end
   end
 
@@ -228,7 +228,7 @@ defmodule AllbertAssist.CLI.Areas.Marketplace do
   # rendered output.
   defp render({:needs_confirmation, response}) do
     id = Map.get(response, :confirmation_id) || get_in(response, [:confirmation, "id"])
-    Render.ok("Needs confirmation. Approve with: mix allbert.confirmations approve #{id}")
+    Render.ok("Needs confirmation. Approve with: allbert admin confirmations approve #{id}")
   end
 
   defp render({:error, {:guard, message}}), do: Render.error(message)

@@ -1,0 +1,51 @@
+---
+cases:
+  - schema_version: 1
+    id: memory-juniper-remember-001
+    domain: memory
+    surface: any
+    utterance: Remember that for Project Juniper I prefer status summaries on Friday at 09:00.
+    context: {}
+    expected:
+      kind: execute
+      action: append_memory
+    negative: false
+    holdout: false
+    rationale: Explicit remember language remains a positive memory-write request near the regression wording.
+
+  - schema_version: 1
+    id: memory-juniper-recall-001
+    domain: memory
+    surface: any
+    utterance: What do you remember about my Project Juniper status-summary preference?
+    context: {}
+    expected:
+      kind: execute
+      action: read_recent_memory
+    negative: false
+    holdout: false
+    rationale: Explicit recall remains a positive memory-read request adjacent to the referential-answer cases.
+
+  - schema_version: 1
+    id: memory-inline-quoted-remember-answer-001
+    domain: memory
+    surface: any
+    utterance: 'Summarize this quoted sentence: "Remember that I prefer aisle seats."'
+    context: {}
+    expected:
+      kind: answer
+    negative: false
+    holdout: false
+    rationale: Quoted imperative memory language must not escape the supplied-text interpretation boundary.
+
+  - schema_version: 1
+    id: memory-inline-quoted-recall-answer-001
+    domain: memory
+    surface: any
+    utterance: 'Explain this quoted sentence: "What do you remember about me?"'
+    context: {}
+    expected:
+      kind: answer
+    negative: false
+    holdout: true
+    rationale: Quoted recall language is an answer request and reserves a nearby holdout against memory-read overmatching.

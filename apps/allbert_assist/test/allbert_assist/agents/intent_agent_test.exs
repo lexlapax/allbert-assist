@@ -215,7 +215,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert server_response.decision.selected_action == "find_tools"
   end
 
-  test "natural-language operator report phrasing returns a bounded assistant summary" do
+  test "natural-language operator report phrasing cannot authorize a category action" do
     for {text, signal_id} <- [
           {"what are my recent channel events and model settings?", "sig-operator-report-guard"},
           {"whar are my recent channel events and model settings?",
@@ -233,18 +233,15 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
                })
 
       assert response.status == :completed
-      assert response.decision.selected_action == "list_settings"
+      assert response.decision.selected_action == "direct_answer"
 
       assert [
                %{
-                 name: "list_settings",
-                 permission_decision: %{decision: :allowed},
-                 settings_metadata: %{render_mode: :assistant_summary}
+                 name: "direct_answer",
+                 permission_decision: %{decision: :allowed}
                }
              ] = response.actions
 
-      assert response.message =~ "Settings Central has"
-      assert response.message =~ "won't dump the full operator report"
       refute response.message =~ "Settings Central values:"
       refute response.message =~ "provider=telegram_bot_api"
       refute response.message =~ "provider=terminal"
@@ -352,18 +349,23 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
   end
 
   test "routes explicit settings prompts to settings actions" do
-    assert {:ok, list_response} =
-             IntentAgent.respond(%{
-               text: "show settings",
-               channel: :test,
-               operator_id: "local",
-               input_signal_id: "sig-settings"
-             })
+    for {text, signal_id} <- [
+          {"show settings", "sig-settings"},
+          {"please list settings", "sig-polite-settings"}
+        ] do
+      assert {:ok, list_response} =
+               IntentAgent.respond(%{
+                 text: text,
+                 channel: :test,
+                 operator_id: "local",
+                 input_signal_id: signal_id
+               })
 
-    assert list_response.status == :completed
-    assert list_response.message =~ "Settings Central has"
-    refute list_response.message =~ "operator.timezone"
-    assert [%{name: "list_settings"}] = list_response.actions
+      assert list_response.status == :completed
+      assert list_response.message =~ "Settings Central has"
+      refute list_response.message =~ "operator.timezone"
+      assert [%{name: "list_settings"}] = list_response.actions
+    end
 
     assert {:ok, read_response} =
              IntentAgent.respond(%{

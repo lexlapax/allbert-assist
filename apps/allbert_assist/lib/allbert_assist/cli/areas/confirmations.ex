@@ -324,9 +324,9 @@ defmodule AllbertAssist.CLI.Areas.Confirmations do
 
   defp approval_command_lines(%{"status" => "pending", "id" => id}) do
     [
-      "Details: mix allbert.confirmations show #{id}",
-      "Approve: mix allbert.confirmations approve #{id}",
-      "Deny: mix allbert.confirmations deny #{id}",
+      "Details: allbert admin confirmations show #{id}",
+      "Approve: allbert admin confirmations approve #{id}",
+      "Deny: allbert admin confirmations deny #{id}",
       "Remember scopes: exact, directory, prefix, source, package"
     ]
   end

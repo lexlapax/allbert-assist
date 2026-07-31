@@ -181,6 +181,50 @@ defmodule AllbertAssist.Intent.RouterDisambiguatorTest do
       assert slots.body == "hi"
     end
 
+    test "selected descriptor policy and evidence propagate to execute and clarify outcomes" do
+      shortlist = [
+        %{
+          action_name: "append_memory",
+          app_id: :allbert,
+          label: "Remember a fact in memory",
+          required_slots: [:memory],
+          extracted_slots: %{memory: "Friday summaries"},
+          selection_policy: :explicit_evidence,
+          selection_evidence: %{satisfied?: false}
+        }
+      ]
+
+      assert %Outcome{
+               kind: :execute,
+               diagnostics: %{
+                 selected_action: "append_memory",
+                 selection_policy: :explicit_evidence,
+                 selection_evidence: %{satisfied?: false}
+               }
+             } =
+               Disambiguator.decide(
+                 %{selected: "append_memory", confidence: 0.95},
+                 shortlist,
+                 0.5,
+                 @opts
+               )
+
+      assert %Outcome{
+               kind: :clarify,
+               diagnostics: %{
+                 selected_action: "append_memory",
+                 selection_policy: :explicit_evidence,
+                 selection_evidence: %{satisfied?: false}
+               }
+             } =
+               Disambiguator.decide(
+                 %{selected: "append_memory", confidence: 0.1},
+                 shortlist,
+                 0.5,
+                 @opts
+               )
+    end
+
     test "single-token requests clarify when multiple actions remain plausible" do
       shortlist = [
         %{action_name: "search_notes", app_id: :notes_files, label: "Search local notes"},

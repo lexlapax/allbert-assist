@@ -74,7 +74,7 @@ defmodule AllbertAssist.Actions.Intent.ListReview do
   defp message(_proposals, total_count, %{render_mode: :assistant_summary}) do
     "Intent review has #{total_count} learned descriptor proposals pending. I can " <>
       "summarize review status here, but I won't dump the operator proposal inventory " <>
-      "in chat. Use `/intents` in the TUI or `mix allbert.intent review` for the operator report."
+      "in chat. Use `/intents` in the TUI or `allbert admin intent review` for the operator report."
   end
 
   defp bounded(rows, policy), do: Enum.take(rows, policy.max_rows)

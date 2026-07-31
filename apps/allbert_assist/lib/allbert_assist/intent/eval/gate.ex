@@ -30,7 +30,10 @@ defmodule AllbertAssist.Intent.Eval.Gate do
     with {:ok, candidate} <- Descriptor.normalize(attrs, source: :promotion_candidate),
          descriptors <-
            opts
-           |> Keyword.get(:descriptors, DescriptorResolver.resolve())
+           |> Keyword.get(
+             :descriptors,
+             DescriptorResolver.resolve(availability: :deterministic_eval)
+           )
            |> with_candidate(candidate) do
       check_descriptors(descriptors, opts)
     else
@@ -55,7 +58,10 @@ defmodule AllbertAssist.Intent.Eval.Gate do
       when is_atom(app_id) and is_binary(action_name) do
     descriptors =
       opts
-      |> Keyword.get(:descriptors, DescriptorResolver.resolve())
+      |> Keyword.get(
+        :descriptors,
+        DescriptorResolver.resolve(availability: :deterministic_eval)
+      )
       |> Enum.reject(&(&1.app_id == app_id and &1.action_name == action_name))
 
     check_descriptors(descriptors, opts)

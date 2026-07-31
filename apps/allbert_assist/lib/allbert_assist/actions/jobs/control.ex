@@ -88,7 +88,7 @@ defmodule AllbertAssist.Actions.Jobs.Control do
   defp control_error_message({:blocked_by_confirmation, confirmation_id}),
     do:
       "Job is blocked by pending confirmation #{confirmation_id}. " <>
-        "Inspect it with mix allbert.confirmations show #{confirmation_id}."
+        "Inspect it with allbert admin confirmations show #{confirmation_id}."
 
   defp control_error_message({:job_not_found, _id}), do: "Job not found for this user."
   defp control_error_message(reason), do: "Job control failed: #{inspect(reason)}"

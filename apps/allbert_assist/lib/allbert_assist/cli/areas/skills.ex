@@ -18,16 +18,16 @@ defmodule AllbertAssist.CLI.Areas.Skills do
 
   @usage """
   Usage:
-    mix allbert.skills validate PATH
-    mix allbert.skills list
-    mix allbert.skills create NAME ACTION PERMISSION DESCRIPTION... [--root ROOT] [--overwrite]
-    mix allbert.skills run SKILL SCRIPT [--cwd PATH] [--timeout MS] [--max-output-bytes BYTES] -- [ARGS...]
-    mix allbert.skills search-online QUERY...
-    mix allbert.skills show-online SOURCE/ID
-    mix allbert.skills audit-online SOURCE/ID
-    mix allbert.skills import-online SOURCE/ID
-    mix allbert.skills import-url URL
-    mix allbert.skills import-local PATH
+    allbert admin skills validate PATH
+    allbert admin skills list
+    allbert admin skills create NAME ACTION PERMISSION DESCRIPTION... [--root ROOT] [--overwrite]
+    allbert admin skills run SKILL SCRIPT [--cwd PATH] [--timeout MS] [--max-output-bytes BYTES] -- [ARGS...]
+    allbert admin skills search-online QUERY...
+    allbert admin skills show-online SOURCE/ID
+    allbert admin skills audit-online SOURCE/ID
+    allbert admin skills import-online SOURCE/ID
+    allbert admin skills import-url URL
+    allbert admin skills import-local PATH
   """
 
   @spec dispatch([String.t()], map() | nil) :: {String.t(), non_neg_integer()}
@@ -200,7 +200,7 @@ defmodule AllbertAssist.CLI.Areas.Skills do
   defp confirmation_notice(%{status: :needs_confirmation} = response) do
     # v0.54 M10: create_skill is now confirmation-gated.
     id = Map.get(response, :confirmation_id) || get_in(response, [:confirmation, "id"])
-    ["Needs confirmation. Approve with: mix allbert.confirmations approve #{id}"]
+    ["Needs confirmation. Approve with: allbert admin confirmations approve #{id}"]
   end
 
   defp confirmation_notice(_response), do: []

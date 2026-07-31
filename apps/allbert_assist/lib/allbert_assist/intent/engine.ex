@@ -18,6 +18,7 @@ defmodule AllbertAssist.Intent.Engine do
   alias AllbertAssist.Intent.Descriptor
   alias AllbertAssist.Intent.Handoff
   alias AllbertAssist.Intent.Ranker
+  alias AllbertAssist.Intent.Router
   alias AllbertAssist.Intent.Router.DescriptorResolver
   alias AllbertAssist.Jobs
   alias AllbertAssist.Maps
@@ -98,7 +99,12 @@ defmodule AllbertAssist.Intent.Engine do
         end
 
     with {:ok, decision} <- build_decision(attrs, request, classifier_diagnostic, registry) do
-      {:ok, put_candidate_metadata(decision, metadata_context(request, registry))}
+      {:ok,
+       put_candidate_metadata(
+         decision,
+         metadata_context(request, registry),
+         candidates
+       )}
     end
   end
 
@@ -107,6 +113,13 @@ defmodule AllbertAssist.Intent.Engine do
     request = request_from_context(context)
     registry = registry_opts(context)
     collected_candidates = collect_candidates(request, objective_opts(context) ++ registry)
+
+    put_candidate_metadata(decision, context, collected_candidates)
+  end
+
+  defp put_candidate_metadata(%Decision{} = decision, context, collected_candidates) do
+    request = request_from_context(context)
+    registry = registry_opts(context)
     selected = selected_candidate(decision, collected_candidates, registry)
 
     # v1.0.2 M8.2: collected_candidates is already ranked and bounded;
@@ -157,9 +170,11 @@ defmodule AllbertAssist.Intent.Engine do
 
   @spec collect_candidates(map(), keyword()) :: [Candidate.t()]
   def collect_candidates(request, opts) when is_map(request) and is_list(opts) do
+    match_context = Descriptor.prepare_match_context(field(request, :text) || "")
+
     request
-    |> do_collect_candidates(opts)
-    |> Ranker.rank(request)
+    |> do_collect_candidates(opts, match_context)
+    |> Ranker.rank(%{request: request, descriptor_match_context: match_context})
     |> Candidate.bound(total_limit: max_candidates())
   end
 
@@ -208,6 +223,7 @@ defmodule AllbertAssist.Intent.Engine do
           source_text: field(request, :text),
           classifier_selected?: not is_nil(classifier_diagnostic)
         }
+        |> put_action_selection_metadata(candidate)
         |> put_route_hint(candidate)
         |> put_classifier(classifier_diagnostic),
       context: %{request: request}
@@ -260,6 +276,7 @@ defmodule AllbertAssist.Intent.Engine do
           candidate_kind: :memory,
           classifier_selected?: not is_nil(classifier_diagnostic)
         }
+        |> put_action_selection_metadata(candidate)
         |> put_classifier(classifier_diagnostic),
       context: %{request: request}
     }
@@ -369,10 +386,48 @@ defmodule AllbertAssist.Intent.Engine do
   end
 
   defp selected_route_candidate(classifier_candidate, candidates, request) do
-    classifier_candidate ||
-      surface_navigation_candidate(candidates, request) ||
-      route_hint_candidate(candidates) ||
-      deterministic_candidate(candidates)
+    candidate =
+      classifier_candidate ||
+        surface_navigation_candidate(candidates, request) ||
+        route_hint_candidate(candidates) ||
+        deterministic_candidate(candidates)
+
+    if route_candidate_supported?(candidate), do: candidate
+  end
+
+  defp route_candidate_supported?(nil), do: false
+
+  defp route_candidate_supported?(candidate) do
+    if is_binary(field(candidate, :action_name)) do
+      if get_in_trace(candidate, :engine_route_hint?) == true do
+        deterministic_route_candidate_supported?(candidate)
+      else
+        candidate_selection_supported?(candidate)
+      end
+    else
+      true
+    end
+  end
+
+  defp deterministic_route_candidate_supported?(candidate) do
+    case get_in_trace(candidate, :selection_policy) do
+      policy when policy in [:semantic, "semantic"] ->
+        get_in_trace(candidate, :selection_resolution) == :resolved
+
+      policy when policy in [:explicit_evidence, "explicit_evidence"] ->
+        candidate_selection_supported?(candidate)
+
+      _unknown ->
+        false
+    end
+  end
+
+  defp candidate_selection_supported?(candidate) do
+    get_in_trace(candidate, :selection_resolution) == :resolved and
+      Descriptor.selection_supported?(%{
+        selection_policy: get_in_trace(candidate, :selection_policy),
+        selection_evidence: get_in_trace(candidate, :selection_evidence)
+      })
   end
 
   defp surface_navigation_candidate(candidates, request) do
@@ -498,26 +553,35 @@ defmodule AllbertAssist.Intent.Engine do
   defp selected_candidate(%Decision{} = decision, registry),
     do: Candidate.selected_from_decision(decision, registry)
 
-  defp do_collect_candidates(request, opts) do
+  defp do_collect_candidates(request, opts, match_context) do
     registry = RegistryContext.take(opts)
+    descriptors = resolved_descriptors(registry)
+    descriptors_by_action = Map.new(descriptors, &{&1.action_name, &1})
 
-    route_hint_candidates(request, registry) ++
-      action_candidates(request, registry) ++
-      descriptor_candidates(request, registry) ++
-      surface_candidates(registry) ++
-      relevant_job_candidates(request, registry) ++
-      relevant_channel_candidates(request, registry) ++
-      memory_candidates(request) ++
-      objective_candidates(request, Keyword.get(opts, :objective), registry) ++
-      refusal_candidates(request) ++
-      relevant_skill_candidates(request, registry)
+    (route_hint_candidates(request, registry, descriptors_by_action, match_context) ++
+       action_candidates(request, registry, descriptors_by_action, match_context) ++
+       descriptor_candidates(request, registry, descriptors, match_context) ++
+       surface_candidates(registry) ++
+       relevant_job_candidates(request, registry) ++
+       relevant_channel_candidates(request, registry) ++
+       memory_candidates(request, descriptors_by_action, match_context) ++
+       objective_candidates(request, Keyword.get(opts, :objective), registry) ++
+       refusal_candidates(request) ++
+       relevant_skill_candidates(request, registry))
+    |> Enum.map(
+      &put_candidate_selection_metadata(
+        &1,
+        descriptors_by_action,
+        field(request, :text) || "",
+        match_context
+      )
+    )
   end
 
-  defp descriptor_candidates(request, registry) do
+  defp descriptor_candidates(request, registry, descriptors, match_context) do
     if descriptors_enabled?() do
-      registry
-      |> DescriptorResolver.resolve()
-      |> Enum.map(&candidate_from_descriptor(&1, request, registry))
+      descriptors
+      |> Enum.map(&candidate_from_descriptor(&1, request, registry, match_context))
       |> Enum.reject(&is_nil/1)
     else
       []
@@ -620,6 +684,8 @@ defmodule AllbertAssist.Intent.Engine do
             source_text: field(request, :text),
             candidate_kind: :app_intent,
             intent_handoff: Handoff.to_map(handoff),
+            selection_policy: get_in_trace(candidate, :selection_policy) || :semantic,
+            selection_evidence: get_in_trace(candidate, :selection_evidence) || %{},
             classifier_selected?: not is_nil(classifier_diagnostic)
           }
           |> put_classifier(classifier_diagnostic),
@@ -686,6 +752,8 @@ defmodule AllbertAssist.Intent.Engine do
           descriptor_candidate_id: field(candidate, :id),
           extracted_slots: get_in_trace(candidate, :extracted_slots) || %{},
           missing_slots: get_in_trace(candidate, :missing_slots) || [],
+          selection_policy: get_in_trace(candidate, :selection_policy) || :semantic,
+          selection_evidence: get_in_trace(candidate, :selection_evidence) || %{},
           classifier_selected?: not is_nil(classifier_diagnostic)
         }
         |> put_classifier(classifier_diagnostic),
@@ -723,6 +791,8 @@ defmodule AllbertAssist.Intent.Engine do
             source_text: field(request, :text),
             candidate_kind: :app_intent,
             intent_handoff: Handoff.to_map(handoff),
+            selection_policy: get_in_trace(candidate, :selection_policy) || :semantic,
+            selection_evidence: get_in_trace(candidate, :selection_evidence) || %{},
             classifier_selected?: not is_nil(classifier_diagnostic)
           }
           |> put_classifier(classifier_diagnostic),
@@ -779,9 +849,15 @@ defmodule AllbertAssist.Intent.Engine do
   end
 
   defp descriptor_action_kind(candidate) do
-    case get_in_trace(candidate, :missing_slots) || [] do
-      [] -> :registry_action
-      _missing -> :clarify_intent
+    if get_in_trace(candidate, :missing_slots) in [nil, []] and
+         candidate_selection_supported?(candidate) do
+      :registry_action
+    else
+      # Ranking and category vocabulary may nominate an option for
+      # clarification, but they never authorize an action-shaped Engine
+      # decision. Keep this invariant at the central API as well as at its
+      # IntentAgent/Objectives consumers.
+      :clarify_intent
     end
   end
 
@@ -861,8 +937,17 @@ defmodule AllbertAssist.Intent.Engine do
     ]
   end
 
-  defp candidate_from_descriptor(descriptor, request, registry) do
+  defp candidate_from_descriptor(descriptor, request, registry, match_context) do
     slots = Descriptor.extract_slots(descriptor, field(request, :text) || "")
+
+    selection_evidence =
+      Descriptor.selection_evidence(
+        descriptor,
+        field(request, :text) || "",
+        slots,
+        match_context
+      )
+
     capability = descriptor.capability
 
     Candidate.new!(
@@ -885,6 +970,9 @@ defmodule AllbertAssist.Intent.Engine do
           descriptor: Descriptor.to_map(descriptor),
           extracted_slots: slots.extracted_slots,
           missing_slots: slots.missing_slots,
+          selection_resolution: :resolved,
+          selection_policy: descriptor.selection_policy,
+          selection_evidence: selection_evidence,
           handoff_required?: descriptor.handoff_required?
         }
       },
@@ -894,14 +982,31 @@ defmodule AllbertAssist.Intent.Engine do
     _exception -> nil
   end
 
-  defp action_candidates(request, registry) do
+  defp action_candidates(request, registry, descriptors_by_action, match_context) do
     registry
     |> ActionsRegistry.agent_capabilities()
-    |> Enum.map(&candidate_from_capability(&1, request, registry))
+    |> Enum.map(
+      &candidate_from_capability(
+        &1,
+        Map.get(descriptors_by_action, &1.name),
+        request,
+        registry,
+        match_context
+      )
+    )
     |> Enum.reject(&is_nil/1)
   end
 
-  defp candidate_from_capability(%Capability{} = capability, request, registry) do
+  defp candidate_from_capability(
+         %Capability{} = capability,
+         descriptor,
+         request,
+         registry,
+         match_context
+       ) do
+    selection =
+      descriptor_selection(descriptor, field(request, :text) || "", match_context)
+
     Candidate.new!(
       %{
         kind: :action,
@@ -918,7 +1023,10 @@ defmodule AllbertAssist.Intent.Engine do
         execution_mode: capability.execution_mode,
         confirmation: capability.confirmation,
         resource_access: action_resource_access(capability, request),
-        trace_metadata: Capability.summary(capability)
+        trace_metadata:
+          capability
+          |> Capability.summary()
+          |> Map.merge(selection)
       },
       registry
     )
@@ -926,11 +1034,38 @@ defmodule AllbertAssist.Intent.Engine do
     _exception -> nil
   end
 
+  defp descriptor_selection(%Descriptor{} = descriptor, text, match_context) do
+    slots = Descriptor.extract_slots(descriptor, text)
+
+    %{
+      selection_resolution: :resolved,
+      selection_policy: descriptor.selection_policy,
+      selection_evidence: Descriptor.selection_evidence(descriptor, text, slots, match_context)
+    }
+  end
+
+  defp descriptor_selection(_descriptor, _text, _match_context) do
+    %{
+      selection_resolution: :unresolved,
+      selection_policy: :unresolved,
+      selection_evidence: %{satisfied?: false}
+    }
+  end
+
   defp route_hint_candidates(
-         %{route_decision: %Decision{} = decision, route_hint: route_hint},
-         registry
+         %{route_decision: %Decision{} = decision, route_hint: route_hint} = request,
+         registry,
+         descriptors_by_action,
+         match_context
        ) do
     selected = Candidate.selected_from_decision(decision, registry)
+
+    selection =
+      descriptor_selection(
+        Map.get(descriptors_by_action, field(selected, :action_name)),
+        field(request, :text) || "",
+        match_context
+      )
 
     [
       %{
@@ -938,19 +1073,20 @@ defmodule AllbertAssist.Intent.Engine do
         | score: 1.0,
           source: :deterministic,
           reason: "Selected by the deterministic IntentAgent route candidate.",
-          trace_metadata: %{
-            engine_route_hint?: true,
-            route: field(route_hint, :route),
-            explicit?: field(route_hint, :explicit?, false),
-            source: field(route_hint, :source)
-          }
+          trace_metadata:
+            Map.merge(selection, %{
+              engine_route_hint?: true,
+              route: field(route_hint, :route),
+              explicit?: field(route_hint, :explicit?, false),
+              source: field(route_hint, :source)
+            })
       }
     ]
   rescue
     _exception -> []
   end
 
-  defp route_hint_candidates(_request, _registry), do: []
+  defp route_hint_candidates(_request, _registry, _descriptors_by_action, _match_context), do: []
 
   defp skill_candidates(request, registry) do
     {:ok, skills} = Skills.list(skills_context(request, registry))
@@ -1119,13 +1255,32 @@ defmodule AllbertAssist.Intent.Engine do
     _exception -> nil
   end
 
-  defp memory_candidates(request) do
+  defp memory_candidates(request, descriptors_by_action, match_context) do
     text = field(request, :text) || ""
 
     []
     |> add_indexed_memory_candidates(request, text)
     |> maybe_add_memory_append_candidate(text)
     |> maybe_add_memory_read_candidate(text)
+    |> Enum.map(&put_candidate_selection_metadata(&1, descriptors_by_action, text, match_context))
+  end
+
+  defp put_candidate_selection_metadata(candidate, descriptors_by_action, text, match_context) do
+    case field(candidate, :action_name) do
+      action_name when is_binary(action_name) ->
+        trace_metadata = field(candidate, :trace_metadata, %{}) || %{}
+
+        if field(trace_metadata, :selection_resolution) do
+          candidate
+        else
+          descriptor = Map.get(descriptors_by_action, action_name)
+          selection = descriptor_selection(descriptor, text, match_context)
+          Map.put(candidate, :trace_metadata, Map.merge(trace_metadata, selection))
+        end
+
+      _no_action ->
+        candidate
+    end
   end
 
   defp add_indexed_memory_candidates(candidates, request, text) do
@@ -1344,6 +1499,21 @@ defmodule AllbertAssist.Intent.Engine do
   defp put_classifier(trace_metadata, diagnostic),
     do: Map.put(trace_metadata, :classifier, diagnostic)
 
+  defp put_action_selection_metadata(trace_metadata, candidate) do
+    candidate_trace = field(candidate, :trace_metadata, %{}) || %{}
+    selection_metadata = Map.take(candidate_trace, [:selection_policy, :selection_evidence])
+
+    Map.merge(trace_metadata, selection_metadata)
+  end
+
+  defp resolved_descriptors(registry) do
+    DescriptorResolver.resolve(registry)
+  rescue
+    _exception -> []
+  catch
+    :exit, _reason -> []
+  end
+
   defp put_route_hint(trace_metadata, candidate) do
     if get_in_trace(candidate, :engine_route_hint?) == true do
       trace_metadata
@@ -1455,7 +1625,7 @@ defmodule AllbertAssist.Intent.Engine do
   end
 
   defp classifier_allowed?(request) do
-    route_hint_direct_answer?(request)
+    route_hint_direct_answer?(request) and Router.strategy() != :two_stage_local
   end
 
   defp rejected_candidates(candidates, selected) do

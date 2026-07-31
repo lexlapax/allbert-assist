@@ -88,7 +88,17 @@ defmodule AllbertNotesFiles.App do
           "save a note titled planning meeting with body next steps",
           "make a new note titled trip checklist with body packing and tickets"
         ],
-        synonyms: ["create note", "write note", "new note", "add note", "save note", "make note"],
+        synonyms: [
+          "create note",
+          "create a note",
+          "write note",
+          "new note",
+          "add note",
+          "save note",
+          "save a note",
+          "make note"
+        ],
+        vocabulary: %{clarification_phrases: ["note"]},
         required_slots: [:title, :body],
         slot_extractors: %{title: :title_phrase, body: :body_phrase},
         optional_slots: [:path],
@@ -103,7 +113,14 @@ defmodule AllbertNotesFiles.App do
           "search notes for release checklist",
           "look up my notes on billing"
         ],
-        synonyms: ["search notes", "find notes", "look up notes", "search my notes"],
+        synonyms: [
+          "search notes",
+          "find notes",
+          "find my notes",
+          "look up notes",
+          "search my notes"
+        ],
+        vocabulary: %{clarification_phrases: ["note"]},
         required_slots: [],
         handoff_required?: true
       },
@@ -113,9 +130,11 @@ defmodule AllbertNotesFiles.App do
         label: "Read a local note",
         examples: [
           "read the onboarding note",
+          "read the scratch note",
           "open the scratch note"
         ],
         synonyms: ["read note", "open note", "show note"],
+        vocabulary: %{clarification_phrases: ["note"]},
         required_slots: [:path],
         slot_extractors: %{path: :note_path_phrase},
         handoff_required?: true

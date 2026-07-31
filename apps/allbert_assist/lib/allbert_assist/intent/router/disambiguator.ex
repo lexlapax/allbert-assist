@@ -9,9 +9,11 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
     * a real shortlisted action with confidence ≥ `intent.router_min_confidence`
       → `:execute`. A tight Stage-1 margin (< `intent.disambiguation_margin`)
       does **not** veto a *decisive* selection (confidence ≥
-      `intent.router_decisive_confidence`): Stage 2 is the selection authority
-      (ADR 0060) and the embedding margin is a noisy, length-sensitive signal, so
-      a confident Stage-2 pick wins.
+      `intent.router_decisive_confidence`): Stage 2 owns the ranked proposal
+      inside the shortlist, and the embedding margin is a noisy,
+      length-sensitive signal, so a confident Stage-2 pick wins this local
+      confidence comparison. The canonical descriptor policy and Engine/
+      consumer acceptance gate still decide whether that proposal may execute.
     * a tight margin with only borderline confidence, plain low confidence, or a
       selection outside the shortlist → `:clarify` (a targeted question scoped to
       the shortlist), which may escalate to a higher-tier model
@@ -135,9 +137,9 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
     selected = selection |> Map.get(:selected) |> to_string()
     confidence = normalize_confidence(Map.get(selection, :confidence))
     min_conf = min_confidence(opts)
-    diag = base_diag(selection, confidence, margin)
     query = Keyword.get(opts, :query)
     selected_item = shortlist_item(selected, shortlist)
+    diag = base_diag(selection, confidence, margin, selected_item)
     slots = merged_slots(selection, selected_item)
     missing_slots = missing_required_slots(selected_item, slots)
 
@@ -307,8 +309,15 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
 
   defp low_information_query?(_query, _shortlist), do: false
 
-  defp base_diag(selection, confidence, margin) do
-    %{confidence: confidence, margin: margin, reason: Map.get(selection, :reason)}
+  defp base_diag(selection, confidence, margin, selected_item) do
+    %{
+      confidence: confidence,
+      margin: margin,
+      reason: Map.get(selection, :reason),
+      selected_action: Map.get(selected_item || %{}, :action_name),
+      selection_policy: Map.get(selected_item || %{}, :selection_policy, :semantic),
+      selection_evidence: Map.get(selected_item || %{}, :selection_evidence, %{satisfied?: true})
+    }
   end
 
   defp normalize_confidence(value) when is_number(value),

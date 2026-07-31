@@ -106,22 +106,28 @@ defmodule AllbertAssist.Actions.Intent.OperatorMutationActionsTest do
     {:ok, _path} =
       DescriptorStore.put(:review, %{
         app_id: :allbert,
-        action_name: "show_app",
-        label: "Show app",
-        examples: ["show app"],
-        synonyms: ["app details"],
-        required_slots: []
+        action_name: "append_memory",
+        label: "Remember a fact in memory",
+        examples: ["remember that my anniversary is June 20"],
+        synonyms: ["remember", "note to self"],
+        vocabulary: %{allow_single_token_match: false},
+        required_slots: [:memory],
+        slot_extractors: %{memory: :memory_phrase},
+        handoff_required?: true
       })
 
     assert {:ok, promoted} =
              Runner.run(
                "promote_intent_descriptor",
-               %{action: "show_app", from: "learned"},
+               %{action: "append_memory", from: "learned"},
                context()
              )
 
     assert promoted.status == :completed, promoted.message
-    assert promoted.message =~ "promoted show_app ->"
+    assert promoted.message =~ "promoted append_memory ->"
+    assert promoted.descriptor.selection_policy == :explicit_evidence
+    assert {:ok, generated_attrs} = YamlElixir.read_from_file(promoted.path)
+    assert generated_attrs["selection_policy"] == "explicit_evidence"
 
     {:ok, review_path} =
       DescriptorStore.put(:review, %{
@@ -142,6 +148,21 @@ defmodule AllbertAssist.Actions.Intent.OperatorMutationActionsTest do
 
     assert {:ok, generated_path} = DescriptorStore.path(:generated, :allbert, "list_channels")
     refute File.exists?(generated_path)
+  end
+
+  test "edit preserves the resolved descriptor selection policy in the override" do
+    assert {:ok, edited} =
+             Runner.run("edit_intent_descriptor", %{action: "append_memory"}, context())
+
+    assert edited.status == :completed, edited.message
+    assert edited.descriptor.selection_policy == :explicit_evidence
+    assert {:ok, override_attrs} = YamlElixir.read_from_file(edited.path)
+    assert override_attrs["selection_policy"] == "explicit_evidence"
+
+    assert descriptor =
+             Enum.find(DescriptorResolver.resolve(), &(&1.action_name == "append_memory"))
+
+    assert descriptor.selection_policy == :explicit_evidence
   end
 
   test "disable is blocked when removal would regress the committed corpus" do

@@ -73,7 +73,7 @@ defmodule AllbertAssist.Actions.Intent.ListDescriptors do
   defp message(_descriptors, total_count, %{render_mode: :assistant_summary}) do
     "Intent registry has #{total_count} resolved descriptors. I can summarize routing " <>
       "coverage here, but I won't dump the operator descriptor inventory in chat. " <>
-      "Use `/intents` in the TUI or `mix allbert.intent list` for the operator report."
+      "Use `/intents` in the TUI or `allbert admin intent list` for the operator report."
   end
 
   defp bounded(rows, policy), do: Enum.take(rows, policy.max_rows)

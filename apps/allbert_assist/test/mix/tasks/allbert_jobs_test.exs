@@ -226,11 +226,11 @@ defmodule Mix.Tasks.Allbert.JobsTest do
              })
              |> Repo.update()
 
-    assert_raise Mix.Error, ~r/mix allbert.confirmations show conf_cli_blocked_job/, fn ->
+    assert_raise Mix.Error, ~r/allbert admin confirmations show conf_cli_blocked_job/, fn ->
       capture_io(fn -> JobsTask.run(["resume", blocked_job.id]) end)
     end
 
-    assert_raise Mix.Error, ~r/mix allbert.confirmations show conf_cli_blocked_job/, fn ->
+    assert_raise Mix.Error, ~r/allbert admin confirmations show conf_cli_blocked_job/, fn ->
       capture_io(fn -> JobsTask.run(["run", blocked_job.id]) end)
     end
   end

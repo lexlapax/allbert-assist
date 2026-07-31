@@ -108,10 +108,14 @@ defmodule AllbertAssist.Actions.Intent.MutationSupport do
           {:ok,
            %{
              message:
-               "override #{action_name} -> #{path}; edit this YAML and run `mix allbert.intent reindex` to apply",
+               "override #{action_name} -> #{path}; edit this YAML and run `allbert admin intent reindex` to apply",
              status: :completed,
              path: path,
-             descriptor: %{app_id: descriptor.app_id, action_name: descriptor.action_name}
+             descriptor: %{
+               app_id: descriptor.app_id,
+               action_name: descriptor.action_name,
+               selection_policy: descriptor.selection_policy
+             }
            }}
         else
           {:error, failures} when is_list(failures) ->
@@ -136,7 +140,8 @@ defmodule AllbertAssist.Actions.Intent.MutationSupport do
            }) do
       {:ok,
        %{
-         message: "disabled #{action_name} (#{path}); run `mix allbert.intent reindex` to apply",
+         message:
+           "disabled #{action_name} (#{path}); run `allbert admin intent reindex` to apply",
          status: :completed,
          path: path,
          descriptor: %{app_id: app_id, action_name: action_name}
@@ -161,7 +166,7 @@ defmodule AllbertAssist.Actions.Intent.MutationSupport do
       {:ok,
        %{
          message:
-           "enabled #{action_name} (removed override #{path}); run `mix allbert.intent reindex` to apply",
+           "enabled #{action_name} (removed override #{path}); run `allbert admin intent reindex` to apply",
          status: :completed,
          path: path,
          descriptor: %{app_id: app_id, action_name: action_name}
@@ -184,13 +189,21 @@ defmodule AllbertAssist.Actions.Intent.MutationSupport do
 
     with {:ok, attrs} <- promotion_attrs(from, app_id, action_name),
          :ok <- Gate.check_promotion(attrs),
+         {:ok, _source_path} <- DescriptorStore.put(from, attrs),
          {:ok, path} <- DescriptorStore.promote(from, to, to_string(app_id), action_name) do
       {:ok,
        %{
-         message: "promoted #{action_name} -> #{path}; run `mix allbert.intent reindex` to apply",
+         message:
+           "promoted #{action_name} -> #{path}; run `allbert admin intent reindex` to apply",
          status: :completed,
          path: path,
-         descriptor: %{app_id: app_id, action_name: action_name, from: from, to: to}
+         descriptor: %{
+           app_id: app_id,
+           action_name: action_name,
+           selection_policy: field(attrs, :selection_policy, :semantic),
+           from: from,
+           to: to
+         }
        }}
     else
       {:error, failures} when is_list(failures) ->
@@ -309,8 +322,33 @@ defmodule AllbertAssist.Actions.Intent.MutationSupport do
     end)
     |> case do
       nil -> {:error, :not_found}
-      attrs -> {:ok, attrs}
+      attrs -> {:ok, inherit_selection_policy(attrs, app_id, action_name)}
     end
+  end
+
+  defp inherit_selection_policy(attrs, app_id, action_name) do
+    case field(attrs, :selection_policy) do
+      nil ->
+        case descriptor_for_action(app_id, action_name) do
+          nil ->
+            attrs
+
+          descriptor ->
+            attrs
+            |> Map.delete("selection_policy")
+            |> Map.put(:selection_policy, descriptor.selection_policy)
+        end
+
+      _existing_policy ->
+        attrs
+    end
+  end
+
+  defp descriptor_for_action(app_id, action_name) do
+    Enum.find(
+      DescriptorResolver.resolve(ignore_disabled?: true),
+      &(&1.app_id == app_id and &1.action_name == action_name)
+    )
   end
 
   defp override_attrs(descriptor) do
@@ -319,6 +357,7 @@ defmodule AllbertAssist.Actions.Intent.MutationSupport do
       action_name: descriptor.action_name,
       label: descriptor.label,
       destination: descriptor.destination,
+      selection_policy: descriptor.selection_policy,
       examples: descriptor.examples,
       synonyms: descriptor.synonyms,
       required_slots: descriptor.required_slots,

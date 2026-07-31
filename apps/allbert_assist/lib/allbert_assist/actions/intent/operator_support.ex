@@ -59,8 +59,12 @@ defmodule AllbertAssist.Actions.Intent.OperatorSupport do
 
   @spec review_proposals() :: [map()]
   def review_proposals do
+    selection_policies =
+      DescriptorResolver.resolve(ignore_disabled?: true)
+      |> Map.new(&{{app_id_label(&1.app_id), &1.action_name}, &1.selection_policy})
+
     DescriptorStore.read_attrs(:review)
-    |> Enum.map(&proposal_dto/1)
+    |> Enum.map(&proposal_dto(&1, selection_policies))
     |> Enum.sort_by(&{&1.app_id, &1.action_name})
   end
 
@@ -123,7 +127,8 @@ defmodule AllbertAssist.Actions.Intent.OperatorSupport do
   def render_descriptors(descriptors) do
     descriptors
     |> Enum.map(fn descriptor ->
-      "  #{descriptor.action_name} source=#{descriptor.source_label} app_id=#{descriptor.app_id}"
+      "  #{descriptor.action_name} source=#{descriptor.source_label} app_id=#{descriptor.app_id} " <>
+        "selection_policy=#{descriptor.selection_policy}"
     end)
     |> Enum.join("\n")
   end
@@ -139,6 +144,7 @@ defmodule AllbertAssist.Actions.Intent.OperatorSupport do
       synonyms: #{descriptor.synonyms_count}
       required_slots: #{inspect(descriptor.required_slots)}
       optional_slots: #{inspect(descriptor.optional_slots)}
+      selection_policy: #{descriptor.selection_policy}
       override file: #{descriptor.override_ref}
     """
     |> String.trim()
@@ -160,7 +166,7 @@ defmodule AllbertAssist.Actions.Intent.OperatorSupport do
     |> Enum.map(fn proposal ->
       "  #{proposal.action_name} app_id=#{proposal.app_id} " <>
         "support=#{proposal.support_count} confidence=#{proposal.confidence || "n/a"} " <>
-        "evidence=#{proposal.evidence_count}"
+        "evidence=#{proposal.evidence_count} selection_policy=#{proposal.selection_policy}"
     end)
     |> Enum.join("\n")
   end
@@ -203,21 +209,30 @@ defmodule AllbertAssist.Actions.Intent.OperatorSupport do
       synonyms_count: descriptor |> field(:synonyms, []) |> length(),
       required_slots: field(descriptor, :required_slots, []),
       optional_slots: field(descriptor, :optional_slots, []),
+      selection_policy:
+        normalize_selection_policy(field(descriptor, :selection_policy, :semantic)),
       disabled?: truthy?(field(descriptor, :disabled)),
       override_ref: override_ref(descriptor)
     }
   end
 
-  defp proposal_dto(attrs) do
+  defp proposal_dto(attrs, selection_policies) do
+    app_id = attrs |> field(:app_id, :allbert) |> app_id_label()
+    action_name = attrs |> field(:action_name) |> to_string()
+
     %{
-      app_id: attrs |> field(:app_id, :allbert) |> app_id_label(),
-      action_name: attrs |> field(:action_name) |> to_string(),
+      app_id: app_id,
+      action_name: action_name,
       label: field(attrs, :label),
       source: :review,
       source_label: source_label(:review),
       examples_count: attrs |> field(:examples, []) |> List.wrap() |> length(),
       synonyms_count: attrs |> field(:synonyms, []) |> List.wrap() |> length(),
       required_slots: field(attrs, :required_slots, []),
+      selection_policy:
+        attrs
+        |> field(:selection_policy, Map.get(selection_policies, {app_id, action_name}, :semantic))
+        |> normalize_selection_policy(),
       disabled?: truthy?(field(attrs, :disabled)),
       support_count: field(attrs, :support_count, 0),
       confidence: field(attrs, :confidence),
@@ -225,6 +240,12 @@ defmodule AllbertAssist.Actions.Intent.OperatorSupport do
       last_seen_at: field(attrs, :last_seen_at)
     }
   end
+
+  defp normalize_selection_policy(value) when value in [:explicit_evidence, "explicit_evidence"],
+    do: :explicit_evidence
+
+  defp normalize_selection_policy(value) when value in [:semantic, "semantic"], do: :semantic
+  defp normalize_selection_policy(_value), do: :invalid
 
   defp score_dto(score) do
     %{

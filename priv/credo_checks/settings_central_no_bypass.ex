@@ -41,6 +41,9 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
         "UID",
         "OLLAMA_HOST",
         "PORT",
+        # Standard Phoenix endpoint boot switch set by source/release launchers;
+        # process infrastructure, not durable operator policy.
+        "PHX_SERVER",
         # v1.2.5 terminal client capability inputs. These are process/TTY
         # metadata, not durable operator policy or Settings Central keys.
         "COLUMNS",

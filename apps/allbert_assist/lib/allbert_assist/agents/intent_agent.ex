@@ -15,14 +15,18 @@ defmodule AllbertAssist.Agents.IntentAgent do
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Intent.ConversationContext
   alias AllbertAssist.Intent.Decision
+  alias AllbertAssist.Intent.Descriptor
   alias AllbertAssist.Intent.Engine
   alias AllbertAssist.Intent.Handoff
   alias AllbertAssist.Intent.PendingClarification
   alias AllbertAssist.Intent.ResourceAccess
   alias AllbertAssist.Intent.Router
   alias AllbertAssist.Intent.Router.ClarifyResolver
+  alias AllbertAssist.Intent.Router.DescriptorResolver
+  alias AllbertAssist.Intent.Router.InputGuard
   alias AllbertAssist.Intent.Router.Outcome
   alias AllbertAssist.Intent.Router.PendingStore
+  alias AllbertAssist.Intent.SelectionPolicy
   alias AllbertAssist.Intent.Slots
   alias AllbertAssist.Maps
   alias AllbertAssist.Objectives.Engine.Agent, as: ObjectivesEngine
@@ -244,7 +248,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   defp handle_engine_decision(engine_result, route, text, context, %Decision{} = route_decision) do
     if coding_turn?(context) do
-      run_deterministic_route(:direct_answer, text, context, route_decision)
+      run_direct_answer_fallback(text, context)
     else
       handle_non_coding_engine_decision(engine_result, route, text, context, route_decision)
     end
@@ -266,7 +270,13 @@ defmodule AllbertAssist.Agents.IntentAgent do
          context,
          route_decision
        ) do
-    decision = if mcp_route?(route), do: route_decision, else: engine_decision
+    decision =
+      if mcp_route?(route) or not selection_decision_accepted?(engine_decision, text) do
+        route_decision
+      else
+        engine_decision
+      end
+
     run_validated_route(route, text, context, decision)
   end
 
@@ -291,7 +301,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   defp route_with_router(route, text, context, %Decision{} = decision) do
     if coding_turn?(context) do
-      run_deterministic_route(:direct_answer, text, context, decision)
+      run_direct_answer_fallback(text, context)
     else
       route_with_router_outcome(route, text, context, decision)
     end
@@ -303,10 +313,15 @@ defmodule AllbertAssist.Agents.IntentAgent do
     # phrases, capability questions, memory/settings requests); the router must
     # never override one — it engages only when the ladder found nothing
     # (:direct_answer).
-    if route == :direct_answer do
-      route_with_router_outcome_via_router(route, text, context, decision)
-    else
-      run_deterministic_route(route, text, context, decision)
+    cond do
+      route == :direct_answer ->
+        route_with_router_outcome_via_router(route, text, context, decision)
+
+      deterministic_route_accepted?(route, text, decision) ->
+        run_deterministic_route(route, text, context, decision)
+
+      true ->
+        run_direct_answer_fallback(text, context)
     end
   end
 
@@ -314,16 +329,26 @@ defmodule AllbertAssist.Agents.IntentAgent do
     case router_outcome(text, context) do
       {:ok, %Outcome{kind: :execute, action_name: action_name, slots: slots}}
       when is_binary(action_name) ->
-        run_router_action(action_name, slots, text, context, decision)
+        if selection_proposal_accepted?(action_name, text) do
+          run_router_action(action_name, slots, text, context, decision)
+        else
+          run_direct_answer_fallback(text, context)
+        end
 
       {:ok, %Outcome{kind: :clarify} = outcome} ->
-        {:ok, router_clarify_response(outcome, context, decision)}
+        case grounded_clarification(outcome, text) do
+          {:ok, grounded_outcome} ->
+            {:ok, router_clarify_response(grounded_outcome, context, decision)}
+
+          :error ->
+            run_direct_answer_fallback(text, context)
+        end
 
       {:ok, %Outcome{kind: :answer}} ->
-        run_deterministic_route(:direct_answer, text, context, decision)
+        run_direct_answer_fallback(text, context)
 
       {:ok, %Outcome{kind: :none}} ->
-        {:ok, router_none_response(decision)}
+        run_none_fallback(text, context, decision)
 
       _defer ->
         run_deterministic_route(route, text, context, decision)
@@ -342,6 +367,55 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   defp truthy?(value) when value in [true, "true", "1", 1], do: true
   defp truthy?(_value), do: false
+
+  # Engine and router output is a proposal, not authority. Re-derive policy from
+  # the canonical active descriptor here; advisory diagnostics cannot weaken it.
+  defp selection_proposal_accepted?(action_name, text) do
+    SelectionPolicy.evaluate(action_name, text).accepted?
+  end
+
+  defp selection_decision_accepted?(%Decision{} = decision, text),
+    do: SelectionPolicy.decision_accepted?(decision, text)
+
+  defp grounded_clarification(%Outcome{} = outcome, text) do
+    # Clarification itself has no effect, but unrelated advisory options are
+    # still confusing and could become authority-looking UI. Strictly validate
+    # the whole shortlist and keep only options grounded in the original turn.
+    case SelectionPolicy.grounded_shortlist(outcome.shortlist, text) do
+      {:ok, shortlist} -> {:ok, %{outcome | shortlist: shortlist}}
+      :error -> :error
+    end
+  end
+
+  defp deterministic_route_accepted?(_route, text, %Decision{selected_action: action_name})
+       when is_binary(action_name) do
+    # The route shape supplies params; the canonical descriptor supplies the
+    # final selection rule. Semantic/ungoverned legacy ladder routes remain
+    # compatible, while explicit policies apply to ladder and model proposals.
+    SelectionPolicy.deterministic_action_accepted?(action_name, text)
+  end
+
+  defp deterministic_route_accepted?(_route, _text, _decision), do: true
+
+  defp run_direct_answer_fallback(text, context) do
+    case decision_for_route(:direct_answer, text, context) do
+      {:ok, direct_answer_decision} ->
+        run_deterministic_route(:direct_answer, text, context, direct_answer_decision)
+
+      {:error, reason} ->
+        {:ok, invalid_decision_response(reason, text, context)}
+    end
+  end
+
+  # A model `:none` is an advisory abstention, not a final operator-facing
+  # refusal. Only the canonical deterministic input guard can keep a command or
+  # internal-action-shaped request away from the read-only answer path.
+  defp run_none_fallback(text, context, %Decision{} = decision) do
+    case InputGuard.guarded_outcome(text) do
+      {:ok, %Outcome{kind: :none}} -> {:ok, router_none_response(decision)}
+      :continue -> run_direct_answer_fallback(text, context)
+    end
+  end
 
   defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 
@@ -487,6 +561,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
       thread_id: Map.get(request, :thread_id),
       user_id: Map.get(request, :user_id),
       session_id: Map.get(request, :session_id),
+      prompt: Map.get(request, :text),
       question: question,
       options: options,
       created_at: now,
@@ -532,10 +607,17 @@ defmodule AllbertAssist.Agents.IntentAgent do
     request = Map.get(context, :request, %{})
 
     case take_pending(Map.get(request, :user_id), Map.get(request, :thread_id)) do
-      {:ok, %PendingClarification{options: options}} ->
-        case ClarifyResolver.resolve(text, options) do
-          {:ok, %{id: action_name}} when is_binary(action_name) and action_name != "" ->
-            {:resolved, run_router_action(action_name, %{}, text, context, decision)}
+      {:ok, %PendingClarification{options: options, prompt: original_prompt}} ->
+        case resolve_clarification_reply(text, options) do
+          {:ok, %{id: action_name}, slots} when is_binary(action_name) and action_name != "" ->
+            resolve_clarified_action(
+              action_name,
+              slots,
+              original_prompt || text,
+              text,
+              context,
+              decision
+            )
 
           _no_match ->
             :none
@@ -544,6 +626,84 @@ defmodule AllbertAssist.Agents.IntentAgent do
       :none ->
         :none
     end
+  end
+
+  defp resolve_clarified_action(action_name, slots, original_prompt, text, context, decision) do
+    if clarification_resolution_accepted?(action_name, original_prompt) do
+      context = put_clarification_origin(context, original_prompt)
+      {:resolved, run_router_action(action_name, slots, text, context, decision)}
+    else
+      {:resolved, run_direct_answer_fallback(text, context)}
+    end
+  end
+
+  defp resolve_clarification_reply(text, options) do
+    case ClarifyResolver.resolve(text, options) do
+      {:ok, option} -> {:ok, option, %{}}
+      :no_match -> resolve_missing_params_reply(text, options)
+    end
+  end
+
+  defp resolve_missing_params_reply(text, [option]) when is_binary(text) and is_map(option) do
+    missing_params = field(option, :missing_params, [])
+
+    missing_keys =
+      if is_list(missing_params) and Enum.all?(missing_params, &is_binary/1),
+        do: Enum.map(missing_params, &existing_param_atom/1),
+        else: []
+
+    action_name = field(option, :id)
+
+    with [_first | _rest] <- missing_keys,
+         false <- Enum.any?(missing_keys, &is_nil/1),
+         true <- is_binary(action_name) and action_name != "",
+         %Descriptor{} = descriptor <- descriptor_for_action(action_name),
+         params <- Descriptor.extract_slots(descriptor, text).extracted_slots,
+         params <- maybe_fill_single_missing_param(params, missing_keys, text),
+         true <- Enum.all?(missing_keys, &present_param?(params, &1)) do
+      {:ok, option, params}
+    else
+      _not_complete -> :no_match
+    end
+  end
+
+  defp resolve_missing_params_reply(_text, _options), do: :no_match
+
+  defp descriptor_for_action(action_name) do
+    Enum.find(DescriptorResolver.resolve(), fn
+      %Descriptor{action_name: ^action_name} -> true
+      _other -> false
+    end)
+  end
+
+  defp maybe_fill_single_missing_param(params, [missing_param], text) do
+    if present_param?(params, missing_param) do
+      params
+    else
+      Map.put(params, missing_param, String.trim(text))
+    end
+  end
+
+  defp maybe_fill_single_missing_param(params, _missing_params, _text), do: params
+
+  defp existing_param_atom(name) do
+    String.to_existing_atom(name)
+  rescue
+    ArgumentError -> nil
+  end
+
+  defp put_clarification_origin(context, prompt) when is_binary(prompt) do
+    Map.update(context, :request, %{text: prompt}, fn request ->
+      if is_map(request), do: Map.put(request, :text, prompt), else: %{text: prompt}
+    end)
+  end
+
+  # Resolving one persisted canonical option is the operator's explicit
+  # selection. Category vocabulary may have grounded presentation without
+  # independently authorizing execution, so revalidate the option under the
+  # same clarification contract before the normal Registry/Security gates.
+  defp clarification_resolution_accepted?(action_name, original_prompt) do
+    SelectionPolicy.supported_action_names([action_name], original_prompt) == [action_name]
   end
 
   defp take_pending(user_id, thread_id) do

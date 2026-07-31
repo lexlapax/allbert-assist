@@ -228,11 +228,11 @@ defmodule AllbertAssist.Conversations.Corpus do
   def set_origin_grant(consumer, scope, granted?, context)
       when consumer in @consumers and scope in @all_scopes and is_boolean(granted?) do
     key = grant_key(consumer)
+    context = Map.put(context, skip_policy_reconcile_key(consumer), true)
 
     with {:ok, current} <- Settings.get(key),
          updated <- update_grants(current, Atom.to_string(scope), granted?),
-         {:ok, _setting} <-
-           Settings.put(key, updated, Map.put(context, :skip_search_policy_reconcile?, true)),
+         {:ok, _setting} <- Settings.put(key, updated, context),
          {:ok, epoch} <- bump_eligibility_epoch(consumer),
          :ok <- kick_consumer_reconcile(consumer) do
       {:ok, epoch}
@@ -782,7 +782,12 @@ defmodule AllbertAssist.Conversations.Corpus do
   defp grant_key(:memory), do: "memory.collection.origin_grants"
   defp grant_key(:search), do: "search.origin_grants"
 
-  defp kick_consumer_reconcile(:memory), do: :ok
+  defp kick_consumer_reconcile(:memory) do
+    case Managed.reconcile("local") do
+      {:ok, _results} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
 
   defp kick_consumer_reconcile(:search) do
     Enum.each(["search-rebuild", "search-index"], fn identity ->
@@ -791,6 +796,9 @@ defmodule AllbertAssist.Conversations.Corpus do
 
     :ok
   end
+
+  defp skip_policy_reconcile_key(:memory), do: :skip_memory_policy_reconcile?
+  defp skip_policy_reconcile_key(:search), do: :skip_search_policy_reconcile?
 
   defp setting(key, default) do
     case Settings.get(key) do

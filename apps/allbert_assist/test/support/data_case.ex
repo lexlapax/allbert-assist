@@ -80,8 +80,28 @@ defmodule AllbertAssist.DataCase do
 
     # Tolerant of an owner the test retired itself (the M2 lease regression
     # replaces the case-provided owner); `stop_owner/1` on a dead pid exits.
-    on_exit(fn -> if Process.alive?(pid), do: Sandbox.stop_owner(pid) end)
+    on_exit(fn ->
+      await_signal_bridge()
+      if Process.alive?(pid), do: Sandbox.stop_owner(pid)
+    end)
+
     pid
+  end
+
+  # Jido's asynchronous PID dispatch has already placed published signals in
+  # subscriber mailboxes before publish/2 returns. Drain the app-wide Web
+  # bridge before releasing the shared sandbox owner so its durable objective-
+  # ownership lookup cannot race test teardown. This keeps the production
+  # forged-user reauthorization boundary intact and adds no runtime coupling.
+  defp await_signal_bridge do
+    case Process.whereis(AllbertAssistWeb.SignalBridge) do
+      nil -> :ok
+      pid -> :sys.get_state(pid, 5_000)
+    end
+
+    :ok
+  catch
+    :exit, _bridge_unavailable -> :ok
   end
 
   @doc """

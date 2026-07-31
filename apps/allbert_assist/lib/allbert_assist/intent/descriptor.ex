@@ -23,6 +23,7 @@ defmodule AllbertAssist.Intent.Descriptor do
     :source,
     :source_module,
     :destination,
+    selection_policy: :semantic,
     examples: [],
     synonyms: [],
     required_slots: [],
@@ -45,6 +46,7 @@ defmodule AllbertAssist.Intent.Descriptor do
           source: atom() | nil,
           source_module: module() | nil,
           destination: String.t() | nil,
+          selection_policy: :semantic | :explicit_evidence,
           examples: [String.t()],
           synonyms: [String.t()],
           required_slots: [atom()],
@@ -54,6 +56,12 @@ defmodule AllbertAssist.Intent.Descriptor do
           handoff_required?: boolean(),
           routable_by_default?: boolean(),
           capability: map()
+        }
+
+  @type match_context :: %{
+          optional(:source_text) => String.t(),
+          required(:normalized_text) => String.t(),
+          required(:tokens) => [String.t()]
         }
 
   @slot_extractors [
@@ -73,8 +81,10 @@ defmodule AllbertAssist.Intent.Descriptor do
   @max_descriptor_text 120
   @max_extracted_slot_text 1_000
   @max_list_items 20
+  @max_selection_list_items 40
   @slot_regex ~r/^[a-z][a-z0-9_]*$/
   @destination_regex ~r/^(app|workspace):[a-z][a-z0-9_]*$/
+  @operator_language_token_regex ~r/[\p{L}\p{N}]+/u
 
   @spec normalize(map(), keyword()) :: {:ok, t()} | {:error, map()}
   def normalize(attrs, opts \\ [])
@@ -85,6 +95,7 @@ defmodule AllbertAssist.Intent.Descriptor do
          {:ok, capability} <- capability(app_id, action_name, attrs, opts),
          {:ok, label} <- bounded_required_string(field(attrs, :label), :label),
          {:ok, destination} <- optional_destination(field(attrs, :destination)),
+         {:ok, selection_policy} <- selection_policy(field(attrs, :selection_policy, :semantic)),
          {:ok, examples} <- bounded_string_list(field(attrs, :examples, []), :examples),
          {:ok, synonyms} <- bounded_string_list(field(attrs, :synonyms, []), :synonyms),
          {:ok, required_slots} <- slot_list(field(attrs, :required_slots, [])),
@@ -101,6 +112,7 @@ defmodule AllbertAssist.Intent.Descriptor do
          source: Keyword.get(opts, :source, :app),
          source_module: Keyword.get(opts, :source_module),
          destination: destination,
+         selection_policy: selection_policy,
          examples: examples,
          synonyms: synonyms,
          required_slots: required_slots,
@@ -163,6 +175,150 @@ defmodule AllbertAssist.Intent.Descriptor do
     %{extracted_slots: %{}, missing_slots: descriptor.required_slots}
   end
 
+  @doc "Pre-normalizes one request for reuse across descriptor candidates and phrases."
+  @spec prepare_match_context(term()) :: match_context()
+  def prepare_match_context(%{normalized_text: text, tokens: tokens} = context)
+      when is_binary(text) and is_list(tokens),
+      do: Map.put_new(context, :source_text, text)
+
+  def prepare_match_context(value) do
+    normalized_text = normalize_match_text(value)
+
+    %{
+      source_text: to_string(value),
+      normalized_text: normalized_text,
+      tokens: String.split(normalized_text, " ", trim: true)
+    }
+  end
+
+  @doc "Returns the descriptor-owned text match score used by intent ranking and proposal evidence."
+  @spec text_match_score(t() | map(), String.t() | match_context(), [term()]) ::
+          non_neg_integer()
+  def text_match_score(descriptor, text, extra_values \\ [])
+
+  def text_match_score(descriptor, text, extra_values)
+      when is_map(descriptor) and (is_binary(text) or is_map(text)) and is_list(extra_values) do
+    match_context = prepare_match_context(text)
+    vocabulary = field(descriptor, :vocabulary, %{}) || %{}
+    allow_single? = field(vocabulary, :allow_single_token_match, true) != false
+
+    if negative_text_match?(vocabulary, match_context) do
+      0
+    else
+      descriptor_values(descriptor, vocabulary, extra_values)
+      |> Enum.map(&phrase_match_score(match_context, &1, allow_single?))
+      |> Enum.max(fn -> 0 end)
+    end
+  end
+
+  def text_match_score(_descriptor, _text, _extra_values), do: 0
+
+  @doc "Returns strict descriptor-owned evidence for semantic action selection."
+  @spec semantic_selection_match_score(t() | map(), String.t() | match_context()) ::
+          non_neg_integer()
+  def semantic_selection_match_score(descriptor, text)
+      when is_map(descriptor) and (is_binary(text) or is_map(text)) do
+    leading_text_match_score(descriptor, prepare_match_context(text))
+  end
+
+  def semantic_selection_match_score(_descriptor, _text), do: 0
+
+  @doc "Returns descriptor-owned category evidence used only to ground clarification options."
+  @spec clarification_match_score(t() | map(), String.t() | match_context()) ::
+          non_neg_integer()
+  def clarification_match_score(descriptor, text)
+      when is_map(descriptor) and (is_binary(text) or is_map(text)) do
+    match_context = prepare_match_context(text)
+    clarification_context = operator_language_match_context(match_context)
+    vocabulary = field(descriptor, :vocabulary, %{}) || %{}
+
+    if negative_text_match?(vocabulary, match_context) do
+      0
+    else
+      vocabulary
+      |> field(:clarification_phrases, [])
+      |> List.wrap()
+      |> Enum.map(&phrase_match_score(clarification_context, &1, true))
+      |> Enum.max(fn -> 0 end)
+    end
+  end
+
+  def clarification_match_score(_descriptor, _text), do: 0
+
+  @doc "Builds generic evidence for a descriptor-governed action proposal."
+  @spec selection_evidence(t() | map(), String.t(), map() | nil, match_context() | nil) :: map()
+  def selection_evidence(descriptor, text, slot_result \\ nil, match_context \\ nil)
+
+  def selection_evidence(descriptor, text, slot_result, match_context)
+      when is_map(descriptor) and is_binary(text) do
+    slots = slot_result || maybe_extract_slots(descriptor, text)
+    extracted_slots = field(slots, :extracted_slots, %{}) || %{}
+    required_slots = field(descriptor, :required_slots, []) || []
+    policy = field(descriptor, :selection_policy, :semantic)
+    match_context = match_context || prepare_match_context(text)
+
+    operator_act_match_score = leading_text_match_score(descriptor, match_context)
+    semantic_match_score = operator_act_match_score
+
+    negative_text_match? =
+      negative_text_match?(field(descriptor, :vocabulary, %{}) || %{}, match_context)
+
+    required_slot_evidence? =
+      required_slots != [] and Enum.all?(required_slots, &present_slot?(extracted_slots, &1))
+
+    required_slot_selection_allowed? =
+      field(field(descriptor, :vocabulary, %{}) || %{}, :allow_required_slot_selection, false) ==
+        true
+
+    %{
+      descriptor_match_score: operator_act_match_score,
+      descriptor_text_match?: operator_act_match_score > 0,
+      semantic_match_score: semantic_match_score,
+      semantic_text_match?: semantic_match_score > 0,
+      negative_text_match?: negative_text_match?,
+      required_slot_evidence?: required_slot_evidence?,
+      required_slot_selection_allowed?: required_slot_selection_allowed?,
+      satisfied?:
+        selection_evidence_satisfied?(
+          policy,
+          operator_act_match_score,
+          semantic_match_score,
+          required_slot_evidence?,
+          negative_text_match?,
+          required_slot_selection_allowed?
+        )
+    }
+  end
+
+  def selection_evidence(_descriptor, _text, _slot_result, _match_context) do
+    %{
+      descriptor_match_score: 0,
+      descriptor_text_match?: false,
+      semantic_match_score: 0,
+      semantic_text_match?: false,
+      negative_text_match?: false,
+      required_slot_evidence?: false,
+      required_slot_selection_allowed?: false,
+      satisfied?: false
+    }
+  end
+
+  @doc "Applies the validated descriptor selection policy to proposal metadata."
+  @spec selection_supported?(map()) :: boolean()
+  def selection_supported?(metadata) when is_map(metadata) do
+    case field(metadata, :selection_policy) do
+      policy when policy in [:semantic, "semantic", :explicit_evidence, "explicit_evidence"] ->
+        metadata
+        |> field(:selection_evidence, %{})
+        |> field(:satisfied?, false) == true
+
+      _unknown_policy ->
+        false
+    end
+  end
+
+  def selection_supported?(_metadata), do: false
+
   @spec to_map(t()) :: map()
   def to_map(%__MODULE__{} = descriptor) do
     descriptor
@@ -174,6 +330,302 @@ defmodule AllbertAssist.Intent.Descriptor do
 
   defp app_id(value, fallback, opts),
     do: AppId.normalize_or(value || fallback, opts, &{:invalid_app_id, &1})
+
+  defp selection_policy(value) when value in [:semantic, "semantic"], do: {:ok, :semantic}
+
+  defp selection_policy(value) when value in [:explicit_evidence, "explicit_evidence"],
+    do: {:ok, :explicit_evidence}
+
+  defp selection_policy(value), do: {:error, {:invalid_selection_policy, value}}
+
+  # Model proposals need a descriptor-owned operator act at the start of the
+  # utterance after bounded polite scaffolding. Semantic descriptors may also
+  # opt in to complete-slot selection; explicit policies never do.
+  defp selection_evidence_satisfied?(
+         policy,
+         operator_act_match_score,
+         semantic_match_score,
+         required_slot_evidence?,
+         negative_text_match?,
+         required_slot_selection_allowed?
+       ) do
+    if negative_text_match? do
+      false
+    else
+      case policy do
+        value when value in [:explicit_evidence, "explicit_evidence"] ->
+          operator_act_match_score > 0
+
+        value when value in [:semantic, "semantic"] ->
+          semantic_match_score > 0 or
+            (required_slot_selection_allowed? and required_slot_evidence?)
+
+        _unknown ->
+          false
+      end
+    end
+  end
+
+  # Explicit-evidence policies are operator-act aware: a descriptor-owned phrase
+  # must start the utterance. This rejects quoted or supplied action language
+  # without teaching the boundary prompt-specific referential regexes.
+  defp leading_text_match_score(descriptor, match_context) do
+    vocabulary = field(descriptor, :vocabulary, %{}) || %{}
+    match_context = prepare_match_context(match_context)
+    text_tokens = selection_tokens(match_context.normalized_text)
+    negative_values = field(vocabulary, :negative_phrases, []) || []
+    selection_negative_values = field(vocabulary, :selection_negative_phrases, []) || []
+
+    selection_values =
+      case field(vocabulary, :selection_phrases, []) || [] do
+        [] -> descriptor_values(descriptor, vocabulary, [])
+        values -> values
+      end
+
+    token_variants = operator_act_token_variants(text_tokens)
+
+    if leading_selection_rejected?(
+         match_context,
+         negative_values,
+         token_variants,
+         selection_negative_values
+       ) do
+      0
+    else
+      token_variants
+      |> Enum.flat_map(fn tokens ->
+        Enum.map(selection_values, &leading_phrase_match_score(tokens, &1))
+      end)
+      |> Enum.max(fn -> 0 end)
+    end
+  end
+
+  defp leading_selection_rejected?(
+         match_context,
+         negative_values,
+         token_variants,
+         selection_negative_values
+       ) do
+    Enum.any?([
+      not operator_act_starts_lexically?(match_context.source_text),
+      matching_negative_phrase?(match_context, negative_values),
+      matching_leading_negative_phrase?(token_variants, selection_negative_values)
+    ])
+  end
+
+  defp matching_negative_phrase?(match_context, negative_values) do
+    match_context = operator_language_match_context(match_context)
+    Enum.any?(negative_values, &(phrase_match_score(match_context, &1, true) > 0))
+  end
+
+  defp matching_leading_negative_phrase?(token_variants, negative_values) do
+    Enum.any?(token_variants, fn tokens ->
+      Enum.any?(negative_values, &(leading_phrase_match_score(tokens, &1) > 0))
+    end)
+  end
+
+  # Human-reviewed operator-request scaffolding is normalized before applying
+  # descriptor-owned selection phrases. This is a bounded token rule, not a
+  # prompt- or action-specific regular expression.
+  @operator_request_prefixes [
+    ~w[could you please],
+    ~w[can you please],
+    ~w[would you please],
+    ~w[will you please],
+    ~w[could you],
+    ~w[can you],
+    ~w[would you],
+    ~w[will you],
+    ~w[please do],
+    ~w[please]
+  ]
+
+  defp operator_act_token_variants(tokens) do
+    stripped =
+      Enum.flat_map(@operator_request_prefixes, fn prefix ->
+        if Enum.take(tokens, length(prefix)) == prefix,
+          do: [Enum.drop(tokens, length(prefix))],
+          else: []
+      end)
+
+    Enum.uniq([tokens | stripped])
+  end
+
+  defp descriptor_values(descriptor, vocabulary, extra_values) do
+    extra_values ++
+      [field(descriptor, :label), field(descriptor, :action_name)] ++
+      (field(descriptor, :examples, []) || []) ++
+      (field(descriptor, :synonyms, []) || []) ++
+      (field(vocabulary, :phrases, []) || []) ++
+      (field(vocabulary, :positive_phrases, []) || [])
+  end
+
+  defp leading_phrase_match_score(text_tokens, value) when is_binary(value) do
+    value_tokens = selection_tokens(value)
+
+    cond do
+      value_tokens == [] -> 0
+      length(value_tokens) == 1 and String.length(hd(value_tokens)) < 4 -> 0
+      Enum.take(text_tokens, length(value_tokens)) == value_tokens -> length(value_tokens)
+      true -> 0
+    end
+  end
+
+  defp leading_phrase_match_score(_text_tokens, _value), do: 0
+
+  # Do not discard wrappers before deciding whether action language leads the
+  # utterance. The first non-whitespace grapheme must itself be lexical; quotes,
+  # code spans, escapes, blockquotes, brackets, and parenthetical supplied text
+  # therefore cannot become operator acts after tokenization.
+  defp operator_act_starts_lexically?(text) do
+    text
+    |> String.trim_leading()
+    |> then(&Regex.match?(~r/^[\p{L}\p{N}]/u, &1))
+  end
+
+  # Selection phrases are operator-facing language. Treat ordinary punctuation
+  # as token boundaries without altering the long-standing ranker normalization.
+  # Quotes remain harmless because only a phrase at the start of the utterance
+  # can satisfy explicit evidence.
+  defp selection_tokens(value) do
+    value
+    |> to_string()
+    |> String.downcase()
+    |> then(&Regex.scan(@operator_language_token_regex, &1))
+    |> List.flatten()
+  end
+
+  # Category vocabulary is presentation evidence, not execution authority. It
+  # should nevertheless behave like operator-facing language: terminal
+  # punctuation must not make `model settings?` rank differently from `model
+  # settings`. Reuse the stricter selection tokenizer while retaining the
+  # existing anywhere/ordered category matching semantics.
+  defp operator_language_match_context(match_context) do
+    match_context = prepare_match_context(match_context)
+    tokens = selection_tokens(match_context.source_text)
+    %{match_context | normalized_text: Enum.join(tokens, " "), tokens: tokens}
+  end
+
+  defp maybe_extract_slots(%__MODULE__{} = descriptor, text), do: extract_slots(descriptor, text)
+  defp maybe_extract_slots(_descriptor, _text), do: %{extracted_slots: %{}, missing_slots: []}
+
+  defp present_slot?(slots, slot) do
+    Enum.any?([slot, to_string(slot)], fn key ->
+      case Map.get(slots, key) do
+        value when is_binary(value) -> String.trim(value) != ""
+        nil -> false
+        _value -> true
+      end
+    end)
+  end
+
+  defp phrase_match_score(match_context, value, allow_single?) when is_binary(value) do
+    text_tokens = prepare_match_context(match_context).tokens
+    normalized_value = normalize_match_text(value)
+    value_tokens = String.split(normalized_value, " ", trim: true)
+    token_count = length(value_tokens)
+
+    phrase_match_score_for_tokens(
+      text_tokens,
+      value_tokens,
+      normalized_value,
+      token_count,
+      allow_single?
+    )
+  end
+
+  defp phrase_match_score(_text, _value, _allow_single?), do: 0
+
+  defp phrase_match_score_for_tokens(_text_tokens, _value_tokens, "", _token_count, _allow),
+    do: 0
+
+  defp phrase_match_score_for_tokens(text_tokens, value_tokens, _value, token_count, allow) do
+    if contiguous_tokens?(text_tokens, value_tokens) do
+      token_count
+    else
+      noncontiguous_phrase_match_score(text_tokens, value_tokens, token_count, allow)
+    end
+  end
+
+  defp noncontiguous_phrase_match_score(text_tokens, value_tokens, token_count, allow_single?) do
+    if token_count > 1 and ordered_tokens?(text_tokens, value_tokens) do
+      token_count
+    else
+      single_token_match_score(text_tokens, value_tokens, token_count, allow_single?)
+    end
+  end
+
+  defp single_token_match_score(text_tokens, [token], 1, true) do
+    if String.length(token) >= 4 and token in text_tokens, do: 1, else: 0
+  end
+
+  defp single_token_match_score(_text_tokens, _value_tokens, _token_count, _allow_single?),
+    do: 0
+
+  defp negative_text_match?(vocabulary, match_context) do
+    match_context = operator_language_match_context(match_context)
+
+    vocabulary
+    |> field(:negative_phrases, [])
+    |> List.wrap()
+    |> Enum.any?(&(phrase_match_score(match_context, &1, true) > 0))
+  end
+
+  # Keep this byte-for-byte equivalent to the long-standing Ranker matcher:
+  # ASCII uses one bounded byte walk, while non-ASCII falls back to Unicode
+  # downcasing and the original punctuation/whitespace replacements. Unicode
+  # letters therefore remain matchable rather than being discarded.
+  defp normalize_match_text(value) do
+    binary = to_string(value)
+
+    case normalize_match_text_ascii(binary, <<>>, false) do
+      :non_ascii ->
+        binary
+        |> String.downcase()
+        |> String.replace(~r/[_\-:.\/]+/, " ")
+        |> String.replace(~r/\s+/, " ")
+        |> String.trim()
+
+      normalized ->
+        normalized
+    end
+  end
+
+  @match_separators [?_, ?-, ?:, ?., ?/, ?\s, ?\t, ?\n, ?\r]
+
+  defp normalize_match_text_ascii(<<c, rest::binary>>, acc, _pending?)
+       when c in @match_separators do
+    normalize_match_text_ascii(rest, acc, acc != <<>>)
+  end
+
+  defp normalize_match_text_ascii(<<c, rest::binary>>, acc, pending?)
+       when c >= 0x20 and c <= 0x7E do
+    acc = if pending?, do: <<acc::binary, ?\s>>, else: acc
+    c = if c >= ?A and c <= ?Z, do: c + 32, else: c
+    normalize_match_text_ascii(rest, <<acc::binary, c>>, false)
+  end
+
+  defp normalize_match_text_ascii(<<>>, acc, _pending?), do: acc
+  defp normalize_match_text_ascii(_binary, _acc, _pending?), do: :non_ascii
+
+  defp contiguous_tokens?(_text_tokens, []), do: false
+
+  defp contiguous_tokens?(text_tokens, value_tokens) do
+    text_tokens
+    |> Enum.chunk_every(length(value_tokens), 1, :discard)
+    |> Enum.any?(&(&1 == value_tokens))
+  end
+
+  defp ordered_tokens?(_text_tokens, []), do: false
+  defp ordered_tokens?(text_tokens, tokens), do: do_ordered_tokens?(text_tokens, tokens)
+  defp do_ordered_tokens?(_text_tokens, []), do: true
+
+  defp do_ordered_tokens?(text_tokens, [token | rest]) do
+    case Enum.drop_while(text_tokens, &(&1 != token)) do
+      [_matched | remaining] -> do_ordered_tokens?(remaining, rest)
+      [] -> false
+    end
+  end
 
   defp action_name(value) when is_atom(value), do: action_name(Atom.to_string(value))
 
@@ -281,20 +733,24 @@ defmodule AllbertAssist.Intent.Descriptor do
     end
   end
 
-  defp bounded_string_list(values, field_name) when is_list(values) do
+  defp bounded_string_list(values, field_name, max_items \\ @max_list_items)
+
+  defp bounded_string_list(values, field_name, max_items)
+       when is_list(values) and is_integer(max_items) and max_items > 0 do
     values =
       values
       |> Enum.map(&bounded_string/1)
       |> Enum.reject(&is_nil/1)
       |> Enum.uniq()
-      |> Enum.take(@max_list_items)
+      |> Enum.take(max_items)
 
     {:ok, values}
   rescue
     _exception -> {:error, {:invalid_field, field_name}}
   end
 
-  defp bounded_string_list(_values, field_name), do: {:error, {:invalid_field, field_name}}
+  defp bounded_string_list(_values, field_name, _max_items),
+    do: {:error, {:invalid_field, field_name}}
 
   defp bounded_string(value) when is_atom(value), do: bounded_string(Atom.to_string(value))
 
@@ -395,12 +851,35 @@ defmodule AllbertAssist.Intent.Descriptor do
            bounded_string_list(
              vocabulary_list(values, :negative_phrases),
              :vocabulary_negative_phrases
+           ),
+         {:ok, selection_phrases} <-
+           bounded_string_list(
+             vocabulary_list(values, :selection_phrases),
+             :vocabulary_selection_phrases,
+             @max_selection_list_items
+           ),
+         {:ok, selection_negative_phrases} <-
+           bounded_string_list(
+             vocabulary_list(values, :selection_negative_phrases),
+             :vocabulary_selection_negative_phrases,
+             @max_selection_list_items
+           ),
+         {:ok, clarification_phrases} <-
+           bounded_string_list(
+             vocabulary_list(values, :clarification_phrases),
+             :vocabulary_clarification_phrases,
+             @max_selection_list_items
            ) do
       {:ok,
        %{
          phrases: Enum.uniq(phrases ++ positive_phrases),
          negative_phrases: negative_phrases,
-         allow_single_token_match: field(values, :allow_single_token_match, true) != false
+         selection_phrases: selection_phrases,
+         selection_negative_phrases: selection_negative_phrases,
+         clarification_phrases: clarification_phrases,
+         allow_single_token_match: field(values, :allow_single_token_match, true) != false,
+         allow_required_slot_selection:
+           field(values, :allow_required_slot_selection, false) == true
        }}
     end
   end

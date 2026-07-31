@@ -1,11 +1,11 @@
 ---
 clarify_vs_execute:
   accuracy: 1.0
-  passed: 302
-  total: 302
+  passed: 304
+  total: 304
 confusion:
   - actual: answer
-    count: 1
+    count: 3
     expected: answer
   - actual: clarify
     count: 6
@@ -17,7 +17,7 @@ confusion:
     count: 1
     expected: execute:analyze_browser_screenshot
   - actual: execute:append_memory
-    count: 2
+    count: 3
     expected: execute:append_memory
   - actual: none
     count: 1
@@ -539,7 +539,7 @@ confusion:
     count: 1
     expected: execute:read_note
   - actual: execute:read_recent_memory
-    count: 1
+    count: 2
     expected: execute:read_recent_memory
   - actual: execute:read_setting
     count: 1
@@ -844,15 +844,15 @@ confusion:
   - actual: none
     count: 11
     expected: none
-corpus_case_count: 314
+corpus_case_count: 318
 gate:
   failures: []
   status: pass
-generated_at: 2026-07-30T12:18:52Z
+generated_at: 2026-07-31T06:09:03Z
 id: v056-release-baseline
 negative_violations: []
 overall_accuracy: 1.0
-passed: 314
+passed: 318
 per_domain:
   adversarial:
     accuracy: 1.0
@@ -912,8 +912,8 @@ per_domain:
     total: 2
   memory:
     accuracy: 1.0
-    passed: 3
-    total: 3
+    passed: 7
+    total: 7
   model:
     accuracy: 1.0
     passed: 7
@@ -993,8 +993,8 @@ per_domain:
 per_surface:
   any:
     accuracy: 1.0
-    passed: 305
-    total: 305
+    passed: 309
+    total: 309
   discord:
     accuracy: 1.0
     passed: 1
@@ -1036,4 +1036,4 @@ slot_accuracy:
   accuracy: 1.0
   passed: 8
   total: 8
-total: 314
+total: 318

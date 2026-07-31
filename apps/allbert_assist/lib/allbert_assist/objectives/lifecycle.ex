@@ -701,7 +701,7 @@ defmodule AllbertAssist.Objectives.Lifecycle do
     """
 
     alias AllbertAssist.Actions.{Registry, Runner}
-    alias AllbertAssist.Intent.{Decision, Engine}
+    alias AllbertAssist.Intent.{Decision, Engine, SelectionPolicy}
     alias AllbertAssist.Objectives
 
     def operation(:propose, %{objective: objective} = state, _opts) do
@@ -781,7 +781,7 @@ defmodule AllbertAssist.Objectives.Lifecycle do
       }
 
       with {:ok, decision} <- Engine.decide(request),
-           {:ok, action} <- selected_action(decision),
+           {:ok, action} <- selected_action(decision, objective.objective),
            {:ok, step} <-
              Objectives.create_step(%{
                objective_id: objective.id,
@@ -790,15 +790,19 @@ defmodule AllbertAssist.Objectives.Lifecycle do
                stage: "propose_steps",
                candidate_action: action,
                action_params: Jason.encode!(action_params(action, decision, objective.objective)),
-               resource_access:
-                 decision
-                 |> Decision.to_map()
-                 |> Map.get(:resource_access, [])
-                 |> Jason.encode!()
+               resource_access: Jason.encode!(step_resource_access(action, decision))
              }) do
         {:ok, Map.put(state, :step, step)}
       else
         {:error, reason} -> {:blocked, {:proposal_failed, reason}, state}
+      end
+    end
+
+    defp selected_action(%Decision{} = decision, text) do
+      if SelectionPolicy.decision_accepted?(decision, text) do
+        selected_action(decision)
+      else
+        {:ok, "direct_answer"}
       end
     end
 
@@ -811,14 +815,25 @@ defmodule AllbertAssist.Objectives.Lifecycle do
 
     defp selected_action(_decision), do: {:ok, "direct_answer"}
 
+    defp action_params("direct_answer", _decision, text), do: %{text: text}
+
     defp action_params(action, decision, text) do
       slots = get_in(decision.trace_metadata, [:extracted_slots]) || %{}
 
       case action do
-        "direct_answer" -> Map.put_new(slots, :text, text)
         "external_network_request" -> Map.put_new(slots, :request, text)
         _other -> slots
       end
+    end
+
+    # A rejected or invalid proposal becomes a clean direct-answer step. Do not
+    # carry advisory resource metadata from the rejected action into that step.
+    defp step_resource_access("direct_answer", _decision), do: []
+
+    defp step_resource_access(_action, decision) do
+      decision
+      |> Decision.to_map()
+      |> Map.get(:resource_access, [])
     end
 
     defp decode_params(nil), do: %{}

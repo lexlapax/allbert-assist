@@ -240,14 +240,41 @@ defmodule AllbertAssist.Jobs.ManagedTest do
                true
              )
 
-    assert {:ok, results} = Managed.reconcile("local")
-
-    assert %{outcome: :updated} =
-             Enum.find(results, &(&1.managed_identity == "memory-consolidation"))
-
     enabled = managed_job("memory-consolidation")
     assert enabled.metadata["feature_enabled"]
     assert %DateTime{} = enabled.next_due_at
+
+    assert {:ok, results} = Managed.reconcile("local")
+
+    assert %{outcome: :current} =
+             Enum.find(results, &(&1.managed_identity == "memory-consolidation"))
+  end
+
+  test "Memory policy settings immediately reconcile consolidation admission" do
+    assert {:ok, _results} = Managed.reconcile("local")
+    consolidation = managed_job("memory-consolidation")
+    refute consolidation.metadata["feature_enabled"]
+
+    assert {:ok, enabled_setting} = Settings.put("memory.consolidation.enabled", true)
+    assert Enum.any?(enabled_setting.diagnostics, &(&1.source == :memory_policy))
+    refute managed_job("memory-consolidation").metadata["feature_enabled"]
+
+    assert {:ok, grant_setting} =
+             Settings.put("memory.collection.origin_grants", ["local_operator"])
+
+    assert Enum.any?(grant_setting.diagnostics, &(&1.source == :memory_policy))
+    enabled = managed_job("memory-consolidation")
+    assert enabled.metadata["feature_enabled"]
+    assert %DateTime{} = enabled.next_due_at
+    assert {:ok, %Run{}} = Jobs.admit_run(enabled, %{trigger: "manual"})
+
+    assert {:ok, _disabled_setting} = Settings.put("memory.consolidation.enabled", false)
+    disabled = managed_job("memory-consolidation")
+    refute disabled.metadata["feature_enabled"]
+    assert disabled.next_due_at == nil
+
+    assert {:error, :managed_feature_disabled} =
+             Jobs.admit_run(disabled, %{trigger: "manual"})
   end
 
   test "enabled consolidation executes through ordinary Jobs admission and the action runner" do

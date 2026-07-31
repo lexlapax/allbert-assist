@@ -9,6 +9,8 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
   alias AllbertAssist.Settings.Store
 
   @resolution_hook_key {Store, :resolution_hook}
+  @quoted_preference_prompt "What day and time does this sentence say I prefer for Project Juniper status summaries? I prefer Friday at 09:00, valid starting 2026-06-01. The validation marker is juniper-v13-primary. Answer in one sentence."
+  @acknowledge_preference_prompt "In one sentence, acknowledge this stated preference: For Project Juniper validation, I prefer status summaries on Friday at 09:00, valid starting 2026-06-01. The validation marker is juniper-v13-primary."
 
   setup do
     on_exit(fn -> Process.delete(@resolution_hook_key) end)
@@ -331,6 +333,50 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
 
     assert [%{candidate_action: "direct_answer", status: "completed"}] =
              Objectives.list_steps(child.id)
+  end
+
+  test "unsupported Memory proposals become direct-answer objective steps" do
+    assert {:ok, child} =
+             create_child(%{
+               user_id: "alice",
+               title: "Quoted recall",
+               objective: ~s(Explain this quoted sentence: "What do you remember about me?"),
+               fanout_role: "child"
+             })
+
+    assert {:ok, completed} = Lifecycle.run(child.id)
+    assert completed.status == "completed"
+
+    assert [%{candidate_action: "direct_answer", status: "completed"} = step] =
+             Objectives.list_steps(child.id)
+
+    assert Jason.decode!(step.action_params) == %{
+             "text" => ~s(Explain this quoted sentence: "What do you remember about me?")
+           }
+
+    assert Jason.decode!(step.resource_access) == []
+  end
+
+  test "exact supplied-text regressions become clean direct-answer objective steps" do
+    for {prompt, index} <-
+          Enum.with_index([@quoted_preference_prompt, @acknowledge_preference_prompt], 1) do
+      assert {:ok, child} =
+               create_child(%{
+                 user_id: "alice",
+                 title: "Juniper supplied text #{index}",
+                 objective: prompt,
+                 fanout_role: "child"
+               })
+
+      assert {:ok, completed} = Lifecycle.run(child.id)
+      assert completed.status == "completed"
+
+      assert [%{candidate_action: "direct_answer", status: "completed"} = step] =
+               Objectives.list_steps(child.id)
+
+      assert Jason.decode!(step.action_params) == %{"text" => prompt}
+      assert Jason.decode!(step.resource_access) == []
+    end
   end
 
   test "each operation receives its own resolved-settings pin" do

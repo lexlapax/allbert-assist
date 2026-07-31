@@ -110,6 +110,39 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
                Prefilter.rank(FakeEmbedder.vector(query), entries, 2, query)
     end
 
+    test "carries descriptor selection policy and evidence with each proposal" do
+      {:ok, append} =
+        Descriptor.normalize(%{
+          app_id: :allbert,
+          action_name: "append_memory",
+          label: "Remember a fact in memory",
+          synonyms: ["remember", "note to self"],
+          required_slots: [:memory],
+          slot_extractors: %{memory: :memory_phrase},
+          selection_policy: :explicit_evidence
+        })
+
+      [entry] = [descriptor_entry(append)]
+
+      assert %{shortlist: [%{selection_policy: :explicit_evidence} = unsupported]} =
+               Prefilter.rank(
+                 FakeEmbedder.vector("What day does this sentence say I prefer?"),
+                 entry |> List.wrap(),
+                 1,
+                 "What day does this sentence say I prefer?"
+               )
+
+      refute unsupported.selection_evidence.satisfied?
+
+      assert %{shortlist: [%{selection_evidence: %{satisfied?: true}}]} =
+               Prefilter.rank(
+                 FakeEmbedder.vector("Remember that Friday is summary day"),
+                 [entry],
+                 1,
+                 "Remember that Friday is summary day"
+               )
+    end
+
     test "descriptor text signal reads Settings Central scoring values" do
       {:ok, write_note} =
         Descriptor.normalize(%{

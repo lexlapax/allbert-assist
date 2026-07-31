@@ -333,6 +333,26 @@ defmodule AllbertAssist.Settings do
     end
   end
 
+  defp post_write_diagnostics(key, _value, context)
+       when key in ["memory.consolidation.enabled", "memory.collection.origin_grants"] do
+    if context_value(context, :skip_memory_policy_reconcile?) do
+      []
+    else
+      with {:ok, epoch} <- Corpus.bump_eligibility_epoch(:memory),
+           {:ok, reconciliation} <- Managed.reconcile("local") do
+        [
+          %{
+            source: :memory_policy,
+            eligibility_epoch: epoch,
+            reconciliation: reconciliation
+          }
+        ]
+      else
+        {:error, reason} -> [%{source: :memory_policy, error: inspect(reason)}]
+      end
+    end
+  end
+
   defp post_write_diagnostics("channels." <> key, _value, _context) do
     if String.ends_with?(key, ".identity_map") do
       case Corpus.bump_eligibility_epoch(:all) do

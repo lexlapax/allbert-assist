@@ -118,7 +118,13 @@ defmodule AllbertAssist.App.CoreApp do
           "plan list my GitHub issues and email me a summary",
           "preview a plan"
         ],
-        synonyms: ["plan", "plan build", "workflow preview", "preview plan"],
+        synonyms: [
+          "plan",
+          "plan build",
+          "workflow preview",
+          "preview plan",
+          "preview my current plan"
+        ],
         required_slots: [],
         handoff_required?: false
       }
@@ -137,6 +143,7 @@ defmodule AllbertAssist.App.CoreApp do
         app_id: :allbert,
         action_name: "append_memory",
         label: "Remember a fact in memory",
+        selection_policy: :explicit_evidence,
         examples: [
           "remember that my anniversary is June 20",
           "note to self: the team retro is every Friday",
@@ -144,6 +151,43 @@ defmodule AllbertAssist.App.CoreApp do
         ],
         synonyms: ["remember", "remember that", "note to self", "memorize", "keep in mind"],
         vocabulary: %{
+          selection_phrases: [
+            "remember",
+            "remember that",
+            "note to self",
+            "memorize",
+            "keep in mind",
+            "save this to memory",
+            "save to memory",
+            "save this",
+            "save that",
+            "store this",
+            "store that",
+            "note this",
+            "note that",
+            "my name is",
+            "call me",
+            "i am",
+            "i'm",
+            "i prefer",
+            "i like",
+            "i want",
+            "i usually",
+            "my timezone is",
+            "my time zone is",
+            "please keep responses",
+            "please keep updates",
+            "please keep answers"
+          ],
+          selection_negative_phrases: [
+            "remember what",
+            "remember when",
+            "remember where",
+            "remember who",
+            "remember why",
+            "remember how",
+            "remember whether"
+          ],
           negative_phrases: [
             "my password",
             "my passphrase",
@@ -162,12 +206,48 @@ defmodule AllbertAssist.App.CoreApp do
         app_id: :allbert,
         action_name: "read_recent_memory",
         label: "Recall recent memory",
+        selection_policy: :explicit_evidence,
         examples: [
           "what do you remember about me",
           "what do you remember",
           "recall my recent notes to self"
         ],
         synonyms: ["recall", "what do you remember", "my memory", "recent memory"],
+        vocabulary: %{
+          selection_phrases: [
+            "recall",
+            "what do you remember",
+            "tell me what you remember",
+            "show me what you remember",
+            "do you remember",
+            "remember what",
+            "remember when",
+            "remember where",
+            "remember who",
+            "remember why",
+            "remember how",
+            "remember whether",
+            "my memory",
+            "recent memory",
+            "what is my name",
+            "who am i",
+            "what should you call me",
+            "what do you know about my preferences",
+            "how should you update me",
+            "how should you communicate with me",
+            "what timezone am i in",
+            "what time zone am i in",
+            "how do i like to test",
+            "what can you recall",
+            "what do you recall",
+            "show recent memory",
+            "list recent memory",
+            "read recent memory",
+            "show my memory",
+            "list my memory",
+            "read my memory"
+          ]
+        },
         required_slots: [],
         handoff_required?: true
       },
@@ -190,6 +270,7 @@ defmodule AllbertAssist.App.CoreApp do
         label: "Show settings",
         examples: ["show my settings", "list settings", "what are my current settings"],
         synonyms: ["settings", "show settings", "list settings", "my settings"],
+        vocabulary: %{clarification_phrases: ["model settings"]},
         required_slots: [],
         handoff_required?: true
       },
@@ -216,6 +297,7 @@ defmodule AllbertAssist.App.CoreApp do
           "set the active model to slow"
         ],
         synonyms: ["switch model", "use model", "set model", "change model profile"],
+        vocabulary: %{clarification_phrases: ["model settings"]},
         required_slots: [],
         handoff_required?: true
       },
@@ -225,6 +307,7 @@ defmodule AllbertAssist.App.CoreApp do
         label: "Browse model catalog",
         examples: ["browse models", "show the model catalog", "which models fit this task"],
         synonyms: ["model catalog", "browse models", "recommended models"],
+        vocabulary: %{clarification_phrases: ["model settings"]},
         required_slots: [],
         handoff_required?: true
       },
@@ -234,6 +317,7 @@ defmodule AllbertAssist.App.CoreApp do
         label: "List model profiles",
         examples: ["what models do I have", "list model profiles", "show available models"],
         synonyms: ["list models", "model profiles", "available models"],
+        vocabulary: %{clarification_phrases: ["model settings"]},
         required_slots: [],
         handoff_required?: true
       },
@@ -243,6 +327,7 @@ defmodule AllbertAssist.App.CoreApp do
         label: "List objectives",
         examples: ["what are my open goals", "list my objectives", "show my goals"],
         synonyms: ["my goals", "objectives", "open goals", "list objectives"],
+        vocabulary: %{clarification_phrases: ["goal"]},
         required_slots: [],
         handoff_required?: true
       },
@@ -261,6 +346,7 @@ defmodule AllbertAssist.App.CoreApp do
         label: "List channels",
         examples: ["list my channels", "what channels are connected", "show channels"],
         synonyms: ["channels", "my channels", "connected channels"],
+        vocabulary: %{clarification_phrases: ["channel"]},
         required_slots: [],
         handoff_required?: true
       },
@@ -274,6 +360,7 @@ defmodule AllbertAssist.App.CoreApp do
           "resume thread on discord"
         ],
         synonyms: ["resume thread", "continue on channel", "resume on"],
+        vocabulary: %{clarification_phrases: ["channel"]},
         required_slots: [],
         handoff_required?: true
       },
@@ -300,7 +387,14 @@ defmodule AllbertAssist.App.CoreApp do
         action_name: "list_skills",
         label: "List skills",
         examples: ["what skills do I have", "list my skills", "show available skills"],
-        synonyms: ["skills", "my skills", "available skills", "list skills"],
+        synonyms: [
+          "skills",
+          "my skills",
+          "available skills",
+          "list skills",
+          "what can you do"
+        ],
+        vocabulary: %{clarification_phrases: ["skill"]},
         required_slots: [],
         handoff_required?: true
       },
@@ -369,6 +463,7 @@ defmodule AllbertAssist.App.CoreApp do
         ],
         synonyms: [
           "install marketplace",
+          "install the marketplace bundle",
           "install bundle",
           "install skill",
           "add marketplace skill"
@@ -386,6 +481,7 @@ defmodule AllbertAssist.App.CoreApp do
           "scaffold a skill called release-notes"
         ],
         synonyms: ["create skill", "make a skill", "new skill", "scaffold skill"],
+        vocabulary: %{clarification_phrases: ["skill"]},
         required_slots: [],
         handoff_required?: true
       },
@@ -394,7 +490,13 @@ defmodule AllbertAssist.App.CoreApp do
         action_name: "continue_objective",
         label: "Continue an objective",
         examples: ["continue my goal", "resume the objective", "keep going on my objective"],
-        synonyms: ["continue objective", "resume objective", "continue goal"],
+        synonyms: [
+          "continue objective",
+          "continue my objective",
+          "resume objective",
+          "continue goal"
+        ],
+        vocabulary: %{clarification_phrases: ["goal"]},
         required_slots: [],
         handoff_required?: true
       },
@@ -404,6 +506,7 @@ defmodule AllbertAssist.App.CoreApp do
         label: "Cancel an objective",
         examples: ["cancel my objective", "stop the goal", "abandon this objective"],
         synonyms: ["cancel objective", "stop goal", "abandon objective"],
+        vocabulary: %{clarification_phrases: ["goal"]},
         required_slots: [],
         handoff_required?: true
       }
@@ -418,6 +521,7 @@ defmodule AllbertAssist.App.CoreApp do
         label: "Activate a skill",
         examples: ["activate the tdd skill", "enable the grill-me skill", "turn on pdf skill"],
         synonyms: ["activate skill", "enable skill", "turn on skill"],
+        vocabulary: %{clarification_phrases: ["skill"]},
         required_slots: [],
         handoff_required?: true
       },
@@ -431,6 +535,7 @@ defmodule AllbertAssist.App.CoreApp do
           "verify my channel configuration"
         ],
         synonyms: ["channel setup", "setup check", "channel configuration check"],
+        vocabulary: %{clarification_phrases: ["channel"]},
         required_slots: [],
         handoff_required?: true
       },
@@ -457,6 +562,7 @@ defmodule AllbertAssist.App.CoreApp do
           "diagnose model profile health"
         ],
         synonyms: ["model doctor", "doctor model profile", "model profile health"],
+        vocabulary: %{clarification_phrases: ["model settings"]},
         required_slots: [],
         handoff_required?: true
       },
@@ -578,6 +684,7 @@ defmodule AllbertAssist.App.CoreApp do
         label: "Read a skill",
         examples: ["read the tdd skill", "open the skill instructions", "show the pdf skill"],
         synonyms: ["read skill", "open skill", "show skill"],
+        vocabulary: %{clarification_phrases: ["skill"]},
         required_slots: [],
         handoff_required?: true
       },
@@ -591,6 +698,7 @@ defmodule AllbertAssist.App.CoreApp do
           "look up online skills"
         ],
         synonyms: ["search online skills", "find online skills", "installable skills"],
+        vocabulary: %{clarification_phrases: ["skill"]},
         required_slots: [],
         handoff_required?: true
       },
@@ -626,6 +734,7 @@ defmodule AllbertAssist.App.CoreApp do
           "open channel details"
         ],
         synonyms: ["show channel", "channel details", "channel info"],
+        vocabulary: %{clarification_phrases: ["channel"]},
         required_slots: [],
         handoff_required?: true
       },
@@ -639,6 +748,7 @@ defmodule AllbertAssist.App.CoreApp do
           "show installable skill details"
         ],
         synonyms: ["show online skill", "online skill details", "installable skill details"],
+        vocabulary: %{clarification_phrases: ["skill"]},
         required_slots: [],
         handoff_required?: true
       },

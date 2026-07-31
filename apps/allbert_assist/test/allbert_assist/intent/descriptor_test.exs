@@ -5,6 +5,9 @@ defmodule AllbertAssist.Intent.DescriptorTest do
   alias AllbertAssist.Intent.Descriptor
   alias AllbertAssist.TestSupport.ProviderPreconditions
 
+  @quoted_preference_prompt "What day and time does this sentence say I prefer for Project Juniper status summaries? I prefer Friday at 09:00, valid starting 2026-06-01. The validation marker is juniper-v13-primary. Answer in one sentence."
+  @acknowledge_preference_prompt "In one sentence, acknowledge this stated preference: For Project Juniper validation, I prefer status summaries on Friday at 09:00, valid starting 2026-06-01. The validation marker is juniper-v13-primary."
+
   setup do
     ProviderPreconditions.ensure_stocksage_descriptors!()
     ProviderPreconditions.ensure_notes_files_descriptors!()
@@ -117,6 +120,205 @@ defmodule AllbertAssist.Intent.DescriptorTest do
              "Remember this after review: I prefer concise answers."
            ) ==
              %{extracted_slots: %{memory: "I prefer concise answers."}, missing_slots: []}
+  end
+
+  test "validates selection policy and defaults existing descriptors to semantic" do
+    assert {:ok, semantic} =
+             Descriptor.normalize(%{
+               app_id: :allbert,
+               action_name: "read_recent_memory",
+               label: "Recall memory"
+             })
+
+    assert semantic.selection_policy == :semantic
+
+    assert {:ok, explicit} =
+             Descriptor.normalize(%{
+               app_id: :allbert,
+               action_name: "read_recent_memory",
+               label: "Recall memory",
+               selection_policy: "explicit_evidence"
+             })
+
+    assert explicit.selection_policy == :explicit_evidence
+
+    assert Descriptor.selection_supported?(%{
+             selection_policy: :semantic,
+             selection_evidence: %{satisfied?: true}
+           })
+
+    refute Descriptor.selection_supported?(%{
+             selection_policy: :semantic,
+             selection_evidence: %{satisfied?: false}
+           })
+
+    refute Descriptor.selection_supported?(%{})
+    refute Descriptor.selection_supported?(nil)
+
+    assert {:error, %{reason: {:invalid_selection_policy, :automatic}}} =
+             Descriptor.normalize(%{
+               app_id: :allbert,
+               action_name: "read_recent_memory",
+               label: "Recall memory",
+               selection_policy: :automatic
+             })
+  end
+
+  test "semantic proposal evidence must be grounded in descriptor language or complete slots" do
+    assert {:ok, read_setting} =
+             Descriptor.normalize(%{
+               app_id: :allbert,
+               action_name: "read_setting",
+               label: "Read one setting",
+               examples: ["read setting operator.timezone"],
+               synonyms: ["read setting", "show setting", "get setting"]
+             })
+
+    refute Descriptor.selection_evidence(read_setting, @quoted_preference_prompt).satisfied?
+
+    assert Descriptor.selection_evidence(read_setting, "Please show setting operator.timezone").satisfied?
+
+    assert {:ok, analyze_ticker} =
+             Descriptor.normalize(%{
+               app_id: :stocksage,
+               action_name: "run_analysis",
+               label: "Run stock analysis",
+               required_slots: [:ticker_symbol],
+               slot_extractors: %{ticker_symbol: :ticker_symbol}
+             })
+
+    assert Descriptor.selection_evidence(analyze_ticker, "AAPL").required_slot_evidence?
+    refute Descriptor.selection_evidence(analyze_ticker, "AAPL").satisfied?
+
+    assert {:ok, slot_authorized} =
+             Descriptor.normalize(%{
+               app_id: :stocksage,
+               action_name: "run_analysis",
+               label: "Run stock analysis",
+               vocabulary: %{allow_required_slot_selection: true},
+               required_slots: [:ticker_symbol],
+               slot_extractors: %{ticker_symbol: :ticker_symbol}
+             })
+
+    assert Descriptor.selection_evidence(slot_authorized, "AAPL").satisfied?
+  end
+
+  test "explicit memory evidence distinguishes action language from supplied preference text" do
+    assert {:ok, append} =
+             Descriptor.normalize(%{
+               app_id: :allbert,
+               action_name: "append_memory",
+               label: "Remember a fact in memory",
+               examples: ["remember that my anniversary is June 20"],
+               synonyms: ["remember", "note to self"],
+               vocabulary: %{
+                 allow_single_token_match: false,
+                 negative_phrases: ["my password", "my api key", "my token"]
+               },
+               required_slots: [:memory],
+               slot_extractors: %{memory: :memory_phrase},
+               selection_policy: :explicit_evidence
+             })
+
+    for prompt <- [@quoted_preference_prompt, @acknowledge_preference_prompt] do
+      refute Descriptor.selection_evidence(append, prompt).satisfied?
+    end
+
+    refute Descriptor.selection_evidence(
+             append,
+             ~s(Summarize this quoted sentence: "Remember that I prefer aisle seats.")
+           ).satisfied?
+
+    supplied_text_evidence =
+      Descriptor.selection_evidence(
+        append,
+        ~s(Summarize this quoted sentence: "Remember that I prefer aisle seats.")
+      )
+
+    assert supplied_text_evidence.required_slot_evidence?
+    refute supplied_text_evidence.descriptor_text_match?
+    refute supplied_text_evidence.satisfied?
+
+    assert Descriptor.selection_evidence(
+             append,
+             "Remember that I prefer concise Friday summaries."
+           ).satisfied?
+
+    assert Descriptor.selection_evidence(
+             append,
+             "Note to self: Project Juniper summaries are due Friday."
+           ).satisfied?
+
+    for prompt <- [
+          "Remember my password.",
+          "Remember my password?",
+          "Remember my API key!",
+          "Remember my token, please.",
+          "Remember my password？",
+          "Remember my API key！",
+          "Remember my password🙂"
+        ] do
+      evidence = Descriptor.selection_evidence(append, prompt)
+      assert evidence.negative_text_match?, prompt
+      refute evidence.satisfied?, prompt
+    end
+  end
+
+  test "prepared descriptor match context is reusable and preserves Unicode text" do
+    assert {:ok, descriptor} =
+             Descriptor.normalize(%{
+               app_id: :allbert,
+               action_name: "read_recent_memory",
+               label: "Rappeler mémoire",
+               synonyms: ["mémoire récente"]
+             })
+
+    context = Descriptor.prepare_match_context("RAPPELER MÉMOIRE récente")
+
+    assert context.normalized_text == "rappeler mémoire récente"
+    assert context.tokens == ["rappeler", "mémoire", "récente"]
+
+    assert Descriptor.text_match_score(descriptor, context) ==
+             Descriptor.text_match_score(descriptor, "RAPPELER MÉMOIRE récente")
+
+    assert Descriptor.text_match_score(descriptor, context) > 0
+  end
+
+  test "clarification category matching ignores ordinary terminal punctuation" do
+    assert {:ok, descriptor} =
+             Descriptor.normalize(%{
+               app_id: :allbert,
+               action_name: "list_settings",
+               label: "Show settings",
+               vocabulary: %{clarification_phrases: ["model settings"]}
+             })
+
+    assert Descriptor.clarification_match_score(descriptor, "model settings") == 2
+    assert Descriptor.clarification_match_score(descriptor, "model settings?") == 2
+
+    evidence = Descriptor.selection_evidence(descriptor, "model settings?")
+    refute evidence.satisfied?
+    refute evidence.descriptor_text_match?
+  end
+
+  test "slotless explicit policy requires descriptor phrase evidence" do
+    assert {:ok, recall} =
+             Descriptor.normalize(%{
+               app_id: :allbert,
+               action_name: "read_recent_memory",
+               label: "Recall recent memory",
+               synonyms: ["recall", "what do you remember"],
+               required_slots: [],
+               selection_policy: :explicit_evidence
+             })
+
+    assert Descriptor.selection_evidence(recall, "What do you remember about Juniper?").satisfied?
+    refute Descriptor.selection_evidence(recall, @quoted_preference_prompt).satisfied?
+
+    refute Descriptor.selection_evidence(
+             recall,
+             ~s(Explain this quoted sentence: "What do you remember about me?")
+           ).satisfied?
   end
 
   test "extracts bounded title and body phrases from operator syntax" do

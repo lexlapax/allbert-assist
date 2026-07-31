@@ -47,7 +47,7 @@ defmodule AllbertAssist.Actions.Email.SendEmail do
           "email bob@example.com about lunch",
           "send an email to team@example.com with body deployment is complete"
         ],
-        synonyms: ["send email", "email", "outbound email"],
+        synonyms: ["send email", "send an email", "email", "outbound email"],
         required_slots: [:to, :body],
         optional_slots: [:subject],
         slot_extractors: %{

@@ -74,6 +74,7 @@ defmodule AllbertAssist.Actions.Intent.OperatorReadActionsTest do
 
     assert append_memory = Enum.find(list.descriptors, &(&1.action_name == "append_memory"))
     assert append_memory.examples_count >= 1
+    assert append_memory.selection_policy == :explicit_evidence
     refute Map.has_key?(append_memory, :examples)
     refute Map.has_key?(append_memory, :synonyms)
 
@@ -88,7 +89,9 @@ defmodule AllbertAssist.Actions.Intent.OperatorReadActionsTest do
 
     assert show.status == :completed
     assert show.descriptor.action_name == "append_memory"
+    assert show.descriptor.selection_policy == :explicit_evidence
     assert show.message =~ "examples: #{append_memory.examples_count}"
+    assert show.message =~ "selection_policy: explicit_evidence"
 
     assert {:ok, missing} =
              Runner.run("intent_show_descriptor", %{action: "missing_action"}, context())
@@ -118,8 +121,12 @@ defmodule AllbertAssist.Actions.Intent.OperatorReadActionsTest do
 
     assert {:ok, review} = Runner.run("intent_list_review", operator_report_params(), context())
     assert review.status == :completed
-    assert [%{action_name: "show_app", app_id: "allbert"}] = review.proposals
+
+    assert [%{action_name: "show_app", app_id: "allbert", selection_policy: :semantic}] =
+             review.proposals
+
     assert review.message =~ "show_app app_id=allbert"
+    assert review.message =~ "selection_policy=semantic"
     assert [%{render_mode: :operator_report}] = review.actions
   end
 

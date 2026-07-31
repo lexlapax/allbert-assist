@@ -9,6 +9,7 @@ defmodule AllbertAssist.Intent.Ranker do
 
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Intent.Candidate
+  alias AllbertAssist.Intent.Descriptor
   alias AllbertAssist.Intent.Router.ScoringProfile
 
   @spec rank([Candidate.t() | map()], map()) :: [Candidate.t() | map()]
@@ -68,8 +69,13 @@ defmodule AllbertAssist.Intent.Ranker do
 
   defp apply_active_app_affinity(candidate, _context), do: candidate
 
-  defp apply_descriptor_text_match(candidate, %{text: text}, scoring) when is_binary(text) do
-    match_score = descriptor_text_match_score(candidate, text)
+  defp apply_descriptor_text_match(
+         candidate,
+         %{text: text, descriptor_match_context: match_context},
+         scoring
+       )
+       when is_binary(text) do
+    match_score = descriptor_text_match_score(candidate, match_context)
 
     if field(candidate, :kind) == :app_intent and match_score > 0 and
          get_in_trace(candidate, :ranking_reason) != :descriptor_text_match do
@@ -81,7 +87,7 @@ defmodule AllbertAssist.Intent.Ranker do
             scoring.descriptor_text_match_cap
           ),
         :descriptor_text_match,
-        "Request text matched an app intent descriptor."
+        "Request text matched app intent descriptor or clarification vocabulary."
       )
     else
       candidate
@@ -230,84 +236,13 @@ defmodule AllbertAssist.Intent.Ranker do
 
   defp surface_text_match?(_candidate, _text), do: false
 
-  defp descriptor_text_match_score(candidate, text) when is_binary(text) do
+  defp descriptor_text_match_score(candidate, match_context) when is_map(match_context) do
     descriptor = get_in_trace(candidate, :descriptor) || %{}
-    vocabulary = field(descriptor, :vocabulary, %{}) || %{}
 
-    values =
-      [
-        field(candidate, :label),
-        field(descriptor, :label),
-        field(descriptor, :action_name)
-      ] ++ field(descriptor, :examples, []) ++ field(descriptor, :synonyms, [])
-
-    vocabulary_values =
-      (field(vocabulary, :phrases, []) || []) ++ (field(vocabulary, :positive_phrases, []) || [])
-
-    negative_values = field(vocabulary, :negative_phrases, []) || []
-    allow_single? = field(vocabulary, :allow_single_token_match, true) != false
-
-    if Enum.any?(negative_values, &(descriptor_phrase_match_score(text, &1, true) > 0)) do
-      0
-    else
-      (values ++ vocabulary_values)
-      |> Enum.map(&descriptor_phrase_match_score(text, &1, allow_single?))
-      |> Enum.max(fn -> 0 end)
-    end
-  end
-
-  defp descriptor_phrase_match_score(text, value, allow_single?) when is_binary(value) do
-    normalized_text = normalize_text(text)
-    normalized_value = normalize_text(value)
-    text_tokens = String.split(normalized_text, " ", trim: true)
-    value_tokens = String.split(normalized_value, " ", trim: true)
-    token_count = length(value_tokens)
-
-    cond do
-      normalized_value == "" ->
-        0
-
-      phrase_token_match?(normalized_text, normalized_value) ->
-        token_count
-
-      token_count > 1 and ordered_token_match?(text_tokens, value_tokens) ->
-        token_count
-
-      single_token_match?(allow_single?, value_tokens, text_tokens) ->
-        1
-
-      true ->
-        0
-    end
-  end
-
-  defp descriptor_phrase_match_score(_text, _value, _allow_single?), do: 0
-
-  defp single_token_match?(true, [token], text_tokens),
-    do: String.length(token) >= 4 and token in text_tokens
-
-  defp single_token_match?(_allow_single?, _value_tokens, _text_tokens), do: false
-
-  defp phrase_token_match?(normalized_text, normalized_value) do
-    text_tokens = String.split(normalized_text, " ", trim: true)
-    value_tokens = String.split(normalized_value, " ", trim: true)
-
-    value_tokens != [] and
-      text_tokens
-      |> Enum.chunk_every(length(value_tokens), 1, :discard)
-      |> Enum.any?(&(&1 == value_tokens))
-  end
-
-  defp ordered_token_match?(_text_tokens, []), do: false
-  defp ordered_token_match?(text_tokens, tokens), do: do_ordered_token_match?(text_tokens, tokens)
-
-  defp do_ordered_token_match?(_text_tokens, []), do: true
-
-  defp do_ordered_token_match?(text_tokens, [token | rest]) do
-    case Enum.drop_while(text_tokens, &(&1 != token)) do
-      [_matched | remaining] -> do_ordered_token_match?(remaining, rest)
-      [] -> false
-    end
+    max(
+      Descriptor.text_match_score(descriptor, match_context, [field(candidate, :label)]),
+      Descriptor.clarification_match_score(descriptor, match_context)
+    )
   end
 
   defp action_text_match?(candidate, text) when is_binary(text) do
@@ -570,9 +505,14 @@ defmodule AllbertAssist.Intent.Ranker do
 
   defp ranking_context(context) do
     request = request_from_context(context)
+    text = field(request, :text) || field(context, :text)
+
+    match_context =
+      field(context, :descriptor_match_context) || Descriptor.prepare_match_context(text || "")
 
     %{
-      text: field(request, :text) || field(context, :text),
+      text: text,
+      descriptor_match_context: match_context,
       active_app: normalize_active_app(field(request, :active_app) || field(context, :active_app))
     }
   end

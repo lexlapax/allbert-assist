@@ -124,6 +124,7 @@ defmodule StockSage.App do
           "stocksage"
         ],
         vocabulary: %{
+          clarification_phrases: ["stock"],
           negative_phrases: [
             "show stock analysis",
             "show stocksage analysis",
@@ -155,6 +156,7 @@ defmodule StockSage.App do
           "stock trends",
           "trends"
         ],
+        vocabulary: %{clarification_phrases: ["stock"]},
         required_slots: [],
         optional_slots: [:symbol],
         slot_extractors: %{symbol: :ticker_symbol},
@@ -178,6 +180,7 @@ defmodule StockSage.App do
           "stock analyses",
           "stocksage history"
         ],
+        vocabulary: %{clarification_phrases: ["stock"]},
         required_slots: [],
         handoff_required?: true,
         # F5 Q3: StockSage is the bundled example plugin; keep its intents out of the
@@ -199,6 +202,7 @@ defmodule StockSage.App do
           "stock analysis details",
           "open analysis"
         ],
+        vocabulary: %{clarification_phrases: ["stock"]},
         required_slots: [],
         optional_slots: [:symbol],
         slot_extractors: %{symbol: :ticker_symbol},
@@ -222,6 +226,7 @@ defmodule StockSage.App do
           "add to stocksage queue",
           "add to queue"
         ],
+        vocabulary: %{clarification_phrases: ["stock"]},
         required_slots: [:symbol],
         slot_extractors: %{symbol: :ticker_symbol},
         handoff_required?: true,

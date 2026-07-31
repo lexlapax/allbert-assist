@@ -7,6 +7,7 @@ defmodule AllbertAssist.Intent.Eval.Runner do
   live-provider lanes on top of this stable core.
   """
 
+  alias AllbertAssist.Intent.Descriptor
   alias AllbertAssist.Intent.Eval.Corpus
   alias AllbertAssist.Intent.Router.DescriptorResolver
   alias AllbertAssist.Intent.Router.Disambiguator
@@ -15,6 +16,7 @@ defmodule AllbertAssist.Intent.Eval.Runner do
   alias AllbertAssist.Intent.Router.InputGuard
   alias AllbertAssist.Intent.Router.Outcome
   alias AllbertAssist.Intent.Router.Prefilter
+  alias AllbertAssist.Intent.SelectionPolicy
 
   @type run_result :: %{
           case: Corpus.t(),
@@ -33,7 +35,7 @@ defmodule AllbertAssist.Intent.Eval.Runner do
     results =
       Enum.map(cases, fn case ->
         ranked = rank_case(case, entries, embedder, top_k)
-        actual = route_case(case, ranked, opts)
+        actual = route_case(case, ranked, entries, opts)
 
         %{case: case, actual: actual, shortlist: ranked.shortlist, margin: ranked.margin}
       end)
@@ -65,7 +67,8 @@ defmodule AllbertAssist.Intent.Eval.Runner do
         entries_from_descriptors(Keyword.fetch!(opts, :descriptors), embedder)
 
       true ->
-        DescriptorResolver.resolve() |> entries_from_descriptors(embedder)
+        DescriptorResolver.resolve(availability: :deterministic_eval)
+        |> entries_from_descriptors(embedder)
     end
   end
 
@@ -141,16 +144,18 @@ defmodule AllbertAssist.Intent.Eval.Runner do
     end
   end
 
-  defp route_case(case, ranked, opts) do
+  defp route_case(case, ranked, entries, opts) do
     case Keyword.get(opts, :selector) do
       selector when is_function(selector, 2) ->
-        selector.(case, ranked.shortlist) |> normalize_actual(ranked)
+        selector.(case, ranked.shortlist)
+        |> normalize_actual(ranked)
+        |> apply_normalized_selection_policy(case.utterance, ranked.shortlist, entries)
 
       _other ->
         opts
         |> Keyword.get(:disambiguator, :top_ranked_fake)
         |> select(case, ranked, opts)
-        |> outcome(case, ranked, opts)
+        |> outcome(case, ranked, entries, opts)
     end
   end
 
@@ -202,7 +207,7 @@ defmodule AllbertAssist.Intent.Eval.Runner do
     {:ok, %{selected: "__none__", confidence: 1.0, slots: %{}}}
   end
 
-  defp outcome({:ok, selection}, case, ranked, opts) do
+  defp outcome({:ok, selection}, case, ranked, entries, opts) do
     decision_opts =
       opts
       |> Keyword.put_new(:query, case.utterance)
@@ -210,15 +215,108 @@ defmodule AllbertAssist.Intent.Eval.Runner do
 
     selection
     |> Disambiguator.decide(ranked.shortlist, ranked.margin, decision_opts)
+    |> apply_selection_policy(case.utterance, entries)
     |> normalize_actual(ranked)
   end
 
-  defp outcome({:error, reason}, _case, ranked, _opts) do
+  defp outcome({:error, reason}, _case, ranked, _entries, _opts) do
     normalize_actual(
       %{kind: :defer, action: nil, slots: %{}, confidence: nil, reason: reason},
       ranked
     )
   end
+
+  defp apply_selection_policy(%Outcome{kind: :execute} = outcome, utterance, entries) do
+    action_names = proposal_action_names(outcome)
+    descriptors = Enum.flat_map(entries, &entry_descriptor/1)
+
+    if SelectionPolicy.accept_all?(action_names, utterance, descriptors: descriptors) do
+      outcome
+    else
+      Outcome.answer(Map.put(outcome.diagnostics, :selection_rejected?, true))
+    end
+  end
+
+  defp apply_selection_policy(%Outcome{kind: :clarify} = outcome, utterance, entries) do
+    descriptors = Enum.flat_map(entries, &entry_descriptor/1)
+
+    case SelectionPolicy.grounded_shortlist(outcome.shortlist, utterance,
+           descriptors: descriptors
+         ) do
+      {:ok, shortlist} ->
+        %{outcome | shortlist: shortlist}
+
+      :error ->
+        Outcome.answer(Map.put(outcome.diagnostics, :selection_rejected?, true))
+    end
+  end
+
+  defp apply_selection_policy(outcome, _utterance, _entries), do: outcome
+
+  defp apply_normalized_selection_policy(
+         %{kind: :execute, action: action_name} = actual,
+         utterance,
+         _shortlist,
+         entries
+       )
+       when is_binary(action_name) do
+    descriptors = Enum.flat_map(entries, &entry_descriptor/1)
+
+    if SelectionPolicy.evaluate(action_name, utterance, descriptors: descriptors).accepted? do
+      actual
+    else
+      Map.merge(actual, %{kind: :answer, action: nil, diagnostics: %{selection_rejected?: true}})
+    end
+  end
+
+  defp apply_normalized_selection_policy(
+         %{kind: :clarify} = actual,
+         utterance,
+         ranked_shortlist,
+         entries
+       ) do
+    descriptors = Enum.flat_map(entries, &entry_descriptor/1)
+    proposed_shortlist = Map.get(actual, :shortlist, ranked_shortlist)
+
+    case SelectionPolicy.grounded_shortlist(proposed_shortlist, utterance,
+           descriptors: descriptors
+         ) do
+      {:ok, shortlist} ->
+        Map.put(actual, :shortlist, shortlist)
+
+      :error ->
+        Map.merge(actual, %{kind: :answer, action: nil, diagnostics: %{selection_rejected?: true}})
+    end
+  end
+
+  defp apply_normalized_selection_policy(actual, _utterance, _shortlist, _entries), do: actual
+
+  defp proposal_action_names(%Outcome{kind: :execute, action_name: action_name}),
+    do: List.wrap(action_name)
+
+  defp entry_descriptor(%{descriptor: %Descriptor{} = descriptor}), do: [descriptor]
+
+  # Explicit `entries:` is a deterministic runner test seam. Give those entries
+  # the same semantic-default descriptor shape instead of bypassing policy.
+  defp entry_descriptor(%{action_name: action_name} = entry) when is_binary(action_name) do
+    [
+      %Descriptor{
+        id: "eval-entry:#{action_name}",
+        app_id: Map.get(entry, :app_id) || :allbert,
+        action_name: action_name,
+        label: to_string(Map.get(entry, :label, action_name)),
+        selection_policy: Map.get(entry, :selection_policy, :semantic),
+        examples: Map.get(entry, :examples, []),
+        synonyms: Map.get(entry, :synonyms, []),
+        required_slots: Map.get(entry, :required_slots, []),
+        optional_slots: Map.get(entry, :optional_slots, []),
+        slot_extractors: Map.get(entry, :slot_extractors, %{}),
+        vocabulary: Map.get(entry, :vocabulary, %{})
+      }
+    ]
+  end
+
+  defp entry_descriptor(_entry), do: []
 
   defp normalize_actual(%Outcome{} = outcome, ranked) do
     %{
@@ -226,7 +324,7 @@ defmodule AllbertAssist.Intent.Eval.Runner do
       action: outcome.action_name,
       slots: outcome.slots || %{},
       confidence: outcome.confidence,
-      shortlist: ranked.shortlist,
+      shortlist: normalized_shortlist(outcome, ranked),
       reason: outcome.reason,
       diagnostics: outcome.diagnostics
     }
@@ -251,6 +349,11 @@ defmodule AllbertAssist.Intent.Eval.Runner do
       raw: other
     }
   end
+
+  defp normalized_shortlist(%Outcome{kind: :clarify, shortlist: shortlist}, _ranked),
+    do: shortlist
+
+  defp normalized_shortlist(_outcome, ranked), do: ranked.shortlist
 
   defp unsafe_or_noisy_none?(utterance) do
     text = normalize_text(utterance)

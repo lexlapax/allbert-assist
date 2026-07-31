@@ -265,9 +265,9 @@ defmodule AllbertAssist.CLI.Areas.Jobs do
 
     handoff_section ++
       [
-        "Details: mix allbert.confirmations show #{confirmation_id}",
-        "Approve: mix allbert.confirmations approve #{confirmation_id}",
-        "Deny: mix allbert.confirmations deny #{confirmation_id}"
+        "Details: allbert admin confirmations show #{confirmation_id}",
+        "Approve: allbert admin confirmations approve #{confirmation_id}",
+        "Deny: allbert admin confirmations deny #{confirmation_id}"
       ]
   end
 

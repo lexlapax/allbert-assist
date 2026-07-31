@@ -15,7 +15,7 @@ defmodule AllbertAssist.CLI.Areas.Intent do
   alias AllbertAssist.Intent.Bench
   alias AllbertAssist.Surfaces.ContextBuilder
 
-  @usage "Usage: mix allbert.intent doctor | bench [--subset|--holdout] | " <>
+  @usage "Usage: allbert admin intent doctor | bench [--subset|--holdout] | " <>
            "coverage | eval run [--surface SURFACE|--by-surface] | eval baseline|capture|add | " <>
            "optimize [--heuristic] | reindex | " <>
            "list | show ACTION | edit ACTION | disable ACTION | enable ACTION | promote ACTION | review"

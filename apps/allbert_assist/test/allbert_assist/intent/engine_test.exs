@@ -13,6 +13,7 @@ defmodule AllbertAssist.Intent.EngineTest do
   alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Intent.Engine
   alias AllbertAssist.Intent.EvalFixtures
+  alias AllbertAssist.Intent.Router.DescriptorResolver
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Projection
   alias AllbertAssist.Objectives
@@ -72,7 +73,28 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert decision.trace_metadata.intent_candidates.engine_version == "v0.19"
   end
 
-  test "operator report phrasing stays in normal action routing", %{registry: registry} do
+  test "decide resolves the layered descriptor set once for the turn", %{registry: registry} do
+    owner = self()
+    tracer = spawn_link(fn -> descriptor_trace_collector(owner, 0) end)
+    :erlang.trace(owner, true, [:call, {:tracer, tracer}])
+    :erlang.trace_pattern({DescriptorResolver, :resolve, 1}, true, [:local])
+
+    try do
+      assert {:ok, %Decision{}} =
+               Engine.decide(EvalFixtures.request(text: "tell me a tiny joke"), registry)
+
+      delivery_ref = :erlang.trace_delivered(owner)
+      assert_receive {:trace_delivered, ^owner, ^delivery_ref}
+      send(tracer, {:count, owner})
+      assert_receive {:descriptor_resolve_call_count, 1}
+    after
+      :erlang.trace_pattern({DescriptorResolver, :resolve, 1}, false, [:local])
+      :erlang.trace(owner, false, [:call])
+      Process.exit(tracer, :normal)
+    end
+  end
+
+  test "operator report category language cannot authorize an action", %{registry: registry} do
     for text <- [
           "what are my recent channel events and model settings?",
           "whar are my recent channel events and model settings?"
@@ -86,11 +108,23 @@ defmodule AllbertAssist.Intent.EngineTest do
                  registry
                )
 
-      assert decision.intent == :registry_action
-      assert decision.selected_action == "list_settings"
+      assert decision.intent == :clarify_intent
+      assert is_nil(decision.selected_action)
+      refute decision.trace_metadata.selection_evidence.satisfied?
 
       selected = decision.trace_metadata.intent_candidates.selected
-      assert selected.id == "list_settings"
+      assert selected.kind == :app_intent
+    end
+  end
+
+  test "ranked actions with false descriptor evidence cannot authorize an action", %{
+    registry: registry
+  } do
+    for text <- ["what about settings?", "tell me about settings?", "I saw settings?"] do
+      assert {:ok, decision} = Engine.decide(EvalFixtures.request(text: text), registry)
+
+      refute decision.intent == :registry_action
+      refute decision.selected_action == "list_settings"
     end
   end
 
@@ -685,6 +719,16 @@ defmodule AllbertAssist.Intent.EngineTest do
 
     assert_raise ArgumentError, fn ->
       String.to_existing_atom(unknown)
+    end
+  end
+
+  defp descriptor_trace_collector(owner, count) do
+    receive do
+      {:trace, ^owner, :call, {DescriptorResolver, :resolve, [_opts]}} ->
+        descriptor_trace_collector(owner, count + 1)
+
+      {:count, caller} ->
+        send(caller, {:descriptor_resolve_call_count, count})
     end
   end
 

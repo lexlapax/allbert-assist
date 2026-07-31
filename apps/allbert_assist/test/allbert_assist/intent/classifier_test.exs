@@ -2,12 +2,17 @@ defmodule AllbertAssist.Intent.ClassifierTest do
   use ExUnit.Case, async: false
   @moduletag :app_env_serial
 
+  alias AllbertAssist.Agents.IntentAgent
   alias AllbertAssist.Intent.Classifier
   alias AllbertAssist.Intent.Classifier.FakeClassifier
   alias AllbertAssist.Intent.Engine
   alias AllbertAssist.Intent.EvalFixtures
+  alias AllbertAssist.Intent.Router
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+
+  @quoted_preference_prompt "What day and time does this sentence say I prefer for Project Juniper status summaries? I prefer Friday at 09:00, valid starting 2026-06-01. The validation marker is juniper-v13-primary. Answer in one sentence."
+  @acknowledge_preference_prompt "In one sentence, acknowledge this stated preference: For Project Juniper validation, I prefer status summaries on Friday at 09:00, valid starting 2026-06-01. The validation marker is juniper-v13-primary."
 
   defmodule RaisingClassifier do
     @behaviour Classifier.Behaviour
@@ -21,6 +26,9 @@ defmodule AllbertAssist.Intent.ClassifierTest do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_classifier_config = Application.get_env(:allbert_assist, Classifier)
+
+    original_router_strategy =
+      Application.get_env(:allbert_assist, :intent_router_strategy_override)
 
     home =
       Path.join(
@@ -38,6 +46,7 @@ defmodule AllbertAssist.Intent.ClassifierTest do
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_env(Classifier, original_classifier_config)
+      restore_env(:intent_router_strategy_override, original_router_strategy)
       File.rm_rf!(home)
     end)
 
@@ -51,6 +60,69 @@ defmodule AllbertAssist.Intent.ClassifierTest do
 
     assert {:error, %{status: :disabled}} =
              Classifier.classify(candidates, EvalFixtures.request())
+  end
+
+  test "two-stage routing skips the legacy classifier and rejects unsupported memory proposals" do
+    Application.put_env(:allbert_assist, Classifier, classifier: RaisingClassifier)
+    Application.put_env(:allbert_assist, :intent_router_strategy_override, :two_stage_local)
+
+    assert Router.strategy() == :two_stage_local
+    assert {:ok, _setting} = Settings.put("intent.model_assist_enabled", true, %{audit?: false})
+
+    assert {:ok, decision} =
+             Engine.decide(EvalFixtures.request(text: @quoted_preference_prompt))
+
+    refute Map.has_key?(decision.trace_metadata, :classifier)
+    assert decision.intent == :direct_answer
+    assert decision.selected_action == "direct_answer"
+  end
+
+  test "Engine rejects unsupported legacy classifier action proposals" do
+    Application.put_env(:allbert_assist, :intent_router_strategy_override, :deterministic)
+    enable_fake_classifier!()
+
+    FakeClassifier.put_result(
+      {:ok,
+       %{
+         selected_kind: :action,
+         selected_id: "append_memory",
+         confidence: 0.99,
+         reason: "Quoted preference looked like a write request."
+       }}
+    )
+
+    for prompt <- [@quoted_preference_prompt, @acknowledge_preference_prompt] do
+      assert {:ok, decision} = Engine.decide(EvalFixtures.request(text: prompt))
+      assert decision.intent == :direct_answer
+      assert decision.selected_action == "direct_answer"
+      assert decision.trace_metadata.classifier.status == :used
+    end
+  end
+
+  test "IntentAgent rejects an unsupported legacy classifier memory proposal" do
+    Application.put_env(:allbert_assist, :intent_router_strategy_override, :deterministic)
+    enable_fake_classifier!()
+
+    FakeClassifier.put_result(
+      {:ok,
+       %{
+         selected_kind: :action,
+         selected_id: "append_memory",
+         confidence: 0.99,
+         reason: "Supplied preference looked like a write request."
+       }}
+    )
+
+    assert {:ok, response} =
+             IntentAgent.respond(%{
+               text: @quoted_preference_prompt,
+               user_id: "classifier-boundary-user",
+               thread_id: "classifier-boundary-thread"
+             })
+
+    assert response.status == :completed
+    assert response.decision.selected_action == "direct_answer"
+    assert [%{name: "direct_answer"}] = response.actions
   end
 
   test "fake classifier proposal can select a valid registered surface" do
