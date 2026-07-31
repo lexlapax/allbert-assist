@@ -800,6 +800,46 @@ What A21 does **not** do:
 - it does **not** promote any reserved advisory-provider role; A20
   stands unchanged.
 
+### A22. Parallel planning and report composition are advisory Objective work (v1.3 M9.b.4/M9.b.5)
+
+Status: accepted for v1.3 M9.b.4/M9.b.5; implementation and focused operator
+evidence remain release barriers in `docs/plans/v1.3-plan.md`.
+
+Adaptive parallel work deepens the existing Intent → Objective → Action spine;
+it does not create a fourth durable layer. On the clean DirectAnswer route, the
+qualified conversation model may return either the ordinary answer or a typed,
+inert parallel-work proposal. A deterministic compiler validates that proposal
+before the existing Objectives fan-out Interface can create a parent or
+children. The planning
+model cannot select an action, permission, identity, confirmation result,
+worker implementation, or delivery route. Exact counted fan-out protocols use
+a model-independent Adapter to the same compiler.
+
+Each compiled child remains an Objective. A normal Lifecycle Adapter executes
+a validated non-DirectAnswer action; a temporary bounded Jido worker delegates
+a clean conversational child to the same registered DirectAnswer action so its
+existing policy stack remains authoritative. In both cases, model-authored child prose is advisory. Effect selection
+must retain evidence from the original operator turn, and every effect still
+resolves through `Actions.Registry`, executes through `Actions.Runner.run/3`,
+and reaches Security Central and confirmations. A Jido worker's process,
+parentage, state, output, or successful tool call is never durable authority.
+
+After all children terminalize, deterministic reduction freezes their durable
+statuses, observations, and effect receipts. A private main-model composition
+command may convert that snapshot into the operator-facing narrative, but it
+cannot revise the plan, child state, join outcome, permissions, or receipt
+truth. The composed narrative or deterministic complete-child fallback is
+stored before report delivery becomes pending. Model failure therefore degrades
+presentation without losing completion evidence or indefinitely withholding a
+report.
+
+This amendment does not promote the reserved generic Planner/Evaluator or
+AdvisoryProvider vocabularies from A20. The v1.3 planner, worker, and composer
+are private Allbert implementations at the existing Intent/Objectives seams.
+Their tested Interfaces may inform a later extraction only after a second real
+Adapter exists. TUI, Web, DMs, plugins, and public protocols do not implement
+private planning, worker, or fan-in loops.
+
 ## Consequences
 
 ### What changes

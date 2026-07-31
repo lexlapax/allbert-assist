@@ -23,9 +23,11 @@ final implementation candidate `f81a49de` passed expanded `release.v11`,
 pre-push, and the uninterrupted authoritative release cascade on 2026-07-26.
 
 The v1.3 M9.b.3 supplied-text amendment below narrows deterministic
-decomposition to explicit counted orchestration protocols and makes every
-ambiguous natural-language shape a bounded structured proposal. It preserves
-the accepted fan-out authority, delivery, Objectives, and execution model.
+decomposition to explicit counted orchestration protocols. M9.b.4/M9.b.5 then
+supersede its interim Stage-0 model-classifier placement: the primary intent
+manager owns the advisory decision to propose parallel work, Objectives remains
+the durable authority, selected child runs may use bounded Jido.AI workers, and
+a durable main-model composition must finish before a report becomes pending.
 
 ## Context
 
@@ -201,12 +203,117 @@ fewer than two valid proposed tasks fail closed to the ordinary single-turn
 pipeline. A proposal above the configured maximum still clarifies with the
 complete list.
 
-This amendment adds no permission, confirmation path, action exposure, agent
-process, or execution authority. The Decomposer remains a stateless Stage-0
-module because Jido lifecycle/state composition buys nothing for this bounded
-classification. Runtime and Objectives retain the accepted framing/delivery
-contract, and every child still reaches registered Jido actions through the
-normal Engine, Registry, Runner, Security Central, and confirmation gates.
+This amendment adds no permission, confirmation path, action exposure, or
+execution authority. Its statement that the Decomposer remains the Stage-0
+classification module describes the M9.b.3 implementation only and is
+superseded by the M9.b.4/M9.b.5 amendment below. Runtime and Objectives retain
+the accepted framing/delivery contract, and every effectful child still reaches
+registered Jido actions through the normal Engine, Registry, Runner, Security
+Central, and confirmation gates.
+
+### v1.3 M9.b.4/M9.b.5 amendment — manager planning, selective workers, and durable composition
+
+The broad adaptive intent in Decision 7 remains accepted, but punctuation and
+list-shape heuristics no longer decide whether an ordinary turn may frame
+durable children. The implementation deepens the existing fan-out Module at
+three seams while preserving the shipped Objectives scheduler and authority
+model:
+
+1. **The qualified conversational manager owns bounded adaptive admission.**
+   After steering, Search commands, notification callbacks, and the two exact
+   counted offline protocols are handled, a turn that reaches the clean
+   DirectAnswer route makes one qualified model call that returns either the
+   ordinary answer or a parallel-work proposal. The manager Interface is not a
+   registered Allbert action, intent candidate, permission, or authority grant.
+   The model sees the original typed operator turn plus Allbert-authored rules;
+   it does not receive punctuation regex output as semantic evidence. v1.3 does
+   not replace the existing action router: uncounted mixed/effectful compound
+   work stays on the ordinary route, and the exact counted protocol remains the
+   explicit force path for it.
+2. **An adaptive plan is typed, bounded, and inert.** A parallel proposal
+   contains only a version, plan source, and bounded ordered children with
+   title, objective, and expected result. The model cannot name an Allbert action,
+   agent module, permission, identity, confirmation result, worker
+   implementation, dependency graph, or delivery route. The manager evaluates
+   semantic independence, supplied-text ownership, full coverage, and material
+   parallel leverage. A deterministic compiler then validates schema, original-
+   request binding, bounds, non-empty unique children, and forbidden authority
+   fields; code does not pretend to prove prose semantics. One bounded critique/
+   repair attempt is permitted before fail-closed single-turn fallback. A
+   dependency, ambiguous scope, planner timeout, malformed output, disagreement
+   after repair, or fewer than two valid children returns to the same-call
+   answer or ordinary DirectAnswer path; it never partially frames work.
+3. **The exact counted protocols remain the offline force Adapter.** Their
+   declared count and complete parse are deterministic and model-independent.
+   They enter the same canonical plan type, structural bounds, digest, and
+   durable framing Interface, but explicit operator orchestration satisfies
+   admission: this source does not invoke model planning, critique/repair, or a
+   semantic independence judge. A malformed/mismatched count or incomplete
+   child still creates nothing. These protocols do not use the former broad
+   Stage-0 classifier path, and their existence does not let punctuation or
+   uncounted orchestration bypass manager planning.
+4. **Objectives is the durable system of record.** The original parent objective
+   plus its ordered child rows are the canonical compiled plan; compact version,
+   source, and digest provenance uses existing bounded metadata and the
+   `fanout_proposed` event rather than duplicating the plan in another JSON
+   column. Child Objectives remain the queue, retry, cancellation, confirmation,
+   terminal-state, and recovery authority. Worker selection is deterministically
+   derived after the existing Engine proposal is validated. Existing Scheduler, Coordinator, RunServer,
+   acknowledgement, fair-capacity, atomic terminal reduction, and report-outbox
+   contracts remain. Jido child-process tracking and awaits are live execution
+   aids only and never substitute for durable Objectives state.
+5. **The Worker Interface has two real Adapters.** The ordinary Adapter
+   preserves the current Lifecycle implementation for a non-DirectAnswer
+   registered action. A clean DirectAnswer child uses one temporary, bounded
+   Jido worker which delegates to that same registered action, preserving its
+   model resolution, disclosure, Active Memory, prompt envelope, redaction, and
+   failure policy rather than recreating a second prompt stack. It receives only
+   its compiled child, original request context, and explicit budgets. Every effect still
+   resolves through Registry and executes through Runner, Security Central,
+   and confirmations. Effect selection is validated against the original
+   operator text/source spans, never against model-authored child prose alone;
+   generated plans do not amplify authority. Agent-loop workers cannot spawn a
+   nested fan-out in v1.3.
+6. **Terminal reduction precedes semantic composition, and composition precedes
+   delivery.** The last terminal child transaction still freezes the complete
+   child/result/status snapshot and parent join outcome, but it leaves
+   `report_delivery_state=not_ready` and atomically marks additive
+   `report_composition_state=queued`. A recoverable composer invokes a closed
+   `fanout_synthesis` task chain initially bound to the same qualified profile
+   used for the originating ordinary conversation
+   with the original request, frozen plan, and bounded durable child result
+   envelopes. It may improve only the report narrative. It cannot change child
+   status, hide failures, claim an effect without a receipt, execute an action,
+   or create another fan-out.
+7. **The composed report is itself durable.** Additive parent fields store
+   bounded `report_body`, `report_source`, and `report_input_digest`, with
+   `report_composition_state=not_ready | queued | composing | ready | fallback`.
+   Redacted event metadata carries body digest/model or content-free failure
+   provenance without redundant attempt/error columns. A successful composition transaction stores
+   the report and moves delivery to `pending`. Unavailable/model-failed/
+   exhausted composition durably stores the existing deterministic complete-
+   child renderer as the fallback and then moves delivery to `pending`; no
+   completed child result is withheld indefinitely for model quality. Recovery
+   claims queued work idempotently and converts a stranded composing row to the
+   deterministic fallback, and delivery consumers read only
+   the stored report selected by this transition.
+8. **Automatic fan-out stays balanced and operator-visible.** Independent
+   advisory/read-only work may start under the existing automatic rollout after
+   truthful kickoff custody. Effectful children encounter their ordinary
+   permission and confirmation rules; there is no new blanket fan-out
+   confirmation. Existing global/per-fan-out child caps are joined by bounded
+   per-plan model-call, iteration, token, and elapsed-time budgets resolved from
+   Settings Central. A failed admission or composition does not become an
+   operator-facing clarification unless the existing overflow or action
+   contract already requires one.
+
+The planning and composition Adapters initially reuse the qualified
+DirectAnswer task chain so one conversation model owns the split and the final
+answer. A future distinct task preference belongs in Settings Central and must
+be qualified before it becomes a default; it is not required merely to create
+another profile. This amendment creates no surface-private planner, worker,
+join, or report implementation: TUI, Web, DMs, CLI, and public protocols keep
+using the central Runtime/Objectives Interfaces.
 
 ### M12.15 amendment — atomic terminal reduction and durable report work
 

@@ -185,6 +185,38 @@ signals, summarize traces, prune memory, and prepare daily context.
 The important rule is that agents coordinate and decide. They do not become
 unbounded bags of side effects.
 
+#### Parallel delegation and fan-in
+
+When a clean conversational operator turn contains several genuinely
+independent tasks, its qualified conversation model is the manager. One call
+returns either the ordinary answer or a typed parallel-work proposal.
+Punctuation,
+list shape, and model confidence are not the Interface that creates durable
+work. The manager assesses semantic independence, coverage, and supplied-text
+ownership; a deterministic compiler validates the closed schema, original-turn
+binding, limits, and authority posture before framing any Objective. Exact
+counted operator protocols remain a model-independent Adapter to that same
+compiler and the force path for mixed/effectful compound work in v1.3.
+
+Objectives provides the durable orchestration Depth: parent/child identity,
+kickoff custody, scheduling, retries, cancellation, confirmations, terminal
+reduction, crash recovery, and delivery stay behind its existing Interface.
+A temporary bounded Jido worker sits at the clean DirectAnswer execution Seam
+and delegates through that registered action; the ordinary Lifecycle action
+path remains the other Adapter. This keeps locality in Objectives, preserves
+DirectAnswer's qualified policy stack, and avoids a second agent-owned durable
+graph. Jido process parentage, directives, and awaits are live execution aids,
+not persisted authority.
+
+Fan-in follows the same split. Code first freezes the durable result envelopes
+and join outcome. The qualified main conversation model may then synthesize a
+useful report from the original request, frozen plan, and those envelopes. The
+synthesizer cannot rewrite status, conceal failure, claim an unreceipted effect,
+or execute a new action. Its bounded output is durable before delivery becomes
+pending; model failure selects a deterministic complete-child fallback. Every
+surface consumes that one stored report through the existing Runtime/Objectives
+delivery path.
+
 ### Intent, Objectives, And World Models
 
 Allbert separates three layers of state across the runtime:
