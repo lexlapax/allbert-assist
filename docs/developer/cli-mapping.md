@@ -5,6 +5,17 @@ table the `cli-command-inventory-spine-map-001` eval row asserts). Operator
 tasks re-front onto the unified `allbert` dispatcher; developer/CI tasks stay
 Mix-only in a checkout.
 
+**v1.3 M9.b.3:** `mix allbert <argv>` is the source-checkout parity front door.
+For ordinary commands it invokes the same `AllbertAssist.CLI.run_entry/1`
+boundary as the packaged executable and deliberately loads configuration without
+starting Allbert, so attach transport gets the first opportunity and a second
+writer is not booted. `mix allbert tui` delegates to the existing thin TUI
+launcher; `mix allbert serve` delegates to the Phoenix daemon launcher with the
+writer-lock contract. The older `mix allbert.<area>` tasks remain developer and
+compatibility entry points, but source feature validation uses the unified form:
+`mix allbert ask`, `mix allbert search`, and `mix allbert admin ...` against the
+same running source daemon and disposable Allbert Home.
+
 **v0.62 M8.7:** every `allbert admin <area>` home below is **live in the packaged
 binary** and owns its full subcommand set through a release-safe
 `AllbertAssist.CLI.Areas.<Area>` module that is the single source of truth shared
@@ -20,7 +31,8 @@ advertised-but-missing command).
 The packaged dispatcher scopes OTP `+Bc` to `allbert tui` so raw Ctrl-C reaches
 the client's state-aware detach or active-turn interrupt/cancel path; it does
 not change daemon signal handling. The source-checkout equivalent is
-`ERL_AFLAGS="${ERL_AFLAGS:+$ERL_AFLAGS }+Bc" mix allbert.tui`. The focused
+`ERL_AFLAGS="${ERL_AFLAGS:+$ERL_AFLAGS }+Bc" mix allbert tui`; the flag must be
+present before the Mix VM starts. The focused
 v1.2.5 PTY runner and documented operator command apply that posture only to
 their TUI child.
 
@@ -37,14 +49,14 @@ inventory. This is the complete `CLI.Commands.groups/0` set:
 
 | Packaged group | Disposition |
 |---|---|
-| `allbert ask` | Built-in runtime turn; source twin is `mix allbert.ask`. |
-| `allbert chat` | Built-in web workspace launcher. |
-| `allbert tui` | Built-in thin daemon-attached terminal; source twin is `mix allbert.tui`. |
-| `allbert serve` | Built-in daemon/web runtime; source twins include `mix allbert.acp_server` and `mix allbert.mcp_server`. |
-| `allbert search` | `CLI.Areas.Search` over the central conversation Search API; no legacy Mix-task twin. |
-| `allbert licenses` | Built-in pure packaged-evidence viewer; source validation twin is `mix allbert.licenses`. |
-| `allbert onboard` | `CLI.Areas.Onboarding`; source twin is `mix allbert.onboard`. |
-| `allbert admin` | Closed area/action/read table in `CLI.Commands.operator_table/0`. |
+| `allbert ask` | Built-in runtime turn; source parity is `mix allbert ask` (legacy task: `mix allbert.ask`). |
+| `allbert chat` | Built-in web workspace launcher; source parity is `mix allbert chat`. |
+| `allbert tui` | Built-in thin daemon-attached terminal; source parity is `mix allbert tui` (legacy task: `mix allbert.tui`). |
+| `allbert serve` | Built-in daemon/web runtime; source parity is `mix allbert serve`; legacy server tasks include `mix allbert.acp_server` and `mix allbert.mcp_server`. |
+| `allbert search` | `CLI.Areas.Search` over the central conversation Search API; source parity is `mix allbert search`, with no legacy one-to-one task. |
+| `allbert licenses` | Built-in pure packaged-evidence viewer; source parity is `mix allbert licenses`, while `mix allbert.licenses` owns catalog generation/checks. |
+| `allbert onboard` | `CLI.Areas.Onboarding`; source parity is `mix allbert onboard` (legacy task: `mix allbert.onboard`). |
+| `allbert admin` | Closed area/action/read table in `CLI.Commands.operator_table/0`; source parity is `mix allbert admin ...`. |
 
 Search is intentionally top-level because it is a daily read surface, not an
 administrative storage command. `allbert admin memory search` remains a

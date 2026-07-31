@@ -16,6 +16,101 @@ hooks) per **ADR 0062**. The approval-gate separation here is unchanged and
 reaffirmed: a descriptor — code-declared, generated, or operator-authored — is a
 routing hint only; routable ≠ executable.
 
+**Amendment (2026-07-31, v1.3 M9.b.3):** an Engine/classifier or Router outcome
+is a **selection proposal**, not the final route. Descriptors now have an
+additive, validated `selection_policy`: existing descriptors default to
+`:semantic`, while a descriptor may require `:explicit_evidence`. The final
+policy is resolved from the active descriptor by action identity at each
+effectful Jido consumer: the interactive `IntentAgent` and the Objectives
+default lifecycle. Engine also enforces the same invariant at its central API:
+an ordinary classifier/ranker/model candidate cannot become
+`intent: :registry_action` or a non-`nil` selected action unless its canonical
+descriptor resolves and its evidence is satisfied. Proposal diagnostics are
+advisory and cannot weaken either check; no consumer may call `Intent.Engine`
+and later execute its selected action without the shared consumer check.
+Missing or unresolvable canonical descriptor policy rejects an ordinary
+Engine/Router proposal. Edit, override, promotion, and operator inspection
+preserve or expose this field so a later descriptor layer cannot silently reset
+an explicit policy to the compatibility default.
+
+The `:semantic` compatibility default is not unconditional proposal acceptance.
+A model/ranker proposal satisfies it only when a positive descriptor-owned
+operator-act phrase (label, action name, example, synonym, or positive
+vocabulary) leads the utterance after removal of only bounded polite-request
+scaffolding. A contiguous action phrase elsewhere in the utterance is ranking
+context, not final selection evidence. The broader ordered-token/fuzzy affinity
+used for ranking is likewise never final evidence. Required slots do not
+authorize an action by themselves unless that descriptor explicitly sets the
+validated `vocabulary.allow_required_slot_selection: true` opt-in; its default
+is `false`, and no v1.3 descriptor opts in unless a frozen-corpus compatibility
+case is individually reviewed and recorded before closeout. The leading-act
+boundary rejects negated, referential, and supplied-text frames that do not
+start with an operator act; descriptor-owned `negative_phrases` separately veto
+action-language and opted-in slot evidence. This does not claim a generic
+natural-language negation parser.
+
+For `:explicit_evidence`, the same leading-operator-act boundary applies and
+slots never independently authorize. Leading request scaffolding is a bounded
+token rule, and the first non-whitespace character must itself be lexical;
+tokenization never strips a quote, code span, escape, list marker, bracket, or
+other wrapper to manufacture an operator act. Negated acts and action phrases
+embedded in supplied or quoted text reject rather than execute. Ordinary
+punctuation after an act remains natural (`Remember, ...`, `What do you
+remember?`). Descriptor-owned phrases cover both explicit Memory commands and
+the established leading low-risk personal-assertion/recall forms. Extracted
+slots can strengthen and explain an operator act, but cannot create one. These
+are generic, bounded descriptor/token rules, not private prompt-shaped regular
+expressions.
+
+Operator-language matching scans Unicode letters and numbers and treats ASCII
+or Unicode punctuation, symbols, and emoji as token boundaries. That same token
+contract applies to leading selection phrases, descriptor negative vetoes, and
+clarification categories: `?`, fullwidth punctuation, or an emoji suffix cannot
+bypass a secret-bearing negative phrase, while `model settings?` ranks like
+`model settings`. The lexical-start check still inspects the original text, so
+tokenization never strips a leading wrapper into an operator act.
+
+Execute proposals must satisfy the resolved policy. A clarification shortlist
+is first validated as one complete proper list of well-formed action options;
+one malformed item rejects the whole advisory proposal. A structurally valid
+shortlist is then reduced to its canonically grounded options, and only that
+subset may be rendered or persisted. Dedicated descriptor
+`clarification_phrases` may ground category-level presentation (for example,
+bare `note`) but never authorize direct execution. Resolving one persisted,
+still-canonical option is the operator's bound selection; the consumer
+revalidates that choice against the original prompt's canonical clarification
+contract, then proceeds through ordinary parameter, Registry, Runner, Security
+Central, and confirmation gates. If the chosen action still lacks required
+parameters, the consumer persists that normal parameter clarification; the
+operator's third turn supplies them and resumes the same bound action through
+the same gates. If validation leaves no option, the consumer uses its clean
+canonical direct-answer path. A rejected proposal carries no rejected slots or
+resource metadata, creates no rejected action or pending clarification, and
+cannot be reinterpreted as another Engine action.
+
+A model/Router `:none` is likewise advisory abstention rather than an
+operator-facing refusal. For ordinary text, `IntentAgent` builds a fresh
+validated direct-answer decision. Only the canonical deterministic `InputGuard`
+may retain the terminal no-match response for slash-command or internal-action-
+shaped input; model diagnostics cannot impersonate that guard.
+
+Deterministic ladder routes remain compatible: an explicit deterministic
+`route_decision`/route hint is already selected by the typed ladder, so Engine
+annotates rather than replacing it. Its typed predicate is the selection
+evidence for a resolved semantic route, while an action carrying
+`:explicit_evidence` must satisfy the same stricter canonical policy at the
+consumer even when the ladder recognized it. A genuinely descriptor-ungoverned
+legacy route is not silently disabled unless an inherited explicit policy
+requires evidence. This exception does not authorize unresolved ordinary
+ranker/classifier/model candidates. Under the default `:two_stage_local`
+strategy, Engine does
+not also invoke the legacy model classifier before the Router. The deterministic
+eval runner applies the same execute/clarify proposal-acceptance contract against
+its resolved descriptor set; that is not a claim that it reproduces every
+interactive consumer outcome. This adds no process, state, permission,
+confirmation bypass, or authority; action execution remains behind Registry,
+Runner, and Security Central.
+
 This ADR is the **routing foundation** of v0.54 Intent Deepening (ADR 0019/0034),
 **resequenced ahead of completing v0.53** because the v0.53 channel approval
 workflow depends on it: a channel message that should run an action — and, for a
@@ -107,10 +202,17 @@ pin `:deterministic` on constrained hardware.
 
 A `:clarify` outcome renders a **targeted either/or question scoped to the
 shortlist** (e.g. "Did you want to *create* a note or *search* notes?"), not the
-open "hand this to app X" text. The operator's reply re-enters the router and
-executes. The app-handoff `:approval_card` workspace-only path is **removed for
-channel surfaces** and replaced everywhere by this targeted-clarify primitive,
-which renders through the existing ADR 0016 channel primitives
+open "hand this to app X" text. Before rendering, the consumer validates the
+whole proposed shortlist and removes options not grounded by the original turn's
+canonical descriptors. The operator's reply resolves one persisted option;
+that bound choice is revalidated under the current canonical clarification
+contract and enters the ordinary parameter, approval, and execution gates. A
+reply is selection evidence, not permission or confirmation, and an action with
+missing parameters persists its normal follow-up; the next operator turn
+supplies those parameters before the same bound action can continue. The
+app-handoff `:approval_card` workspace-only path is **removed for channel
+surfaces** and replaced everywhere by this targeted-clarify primitive, which
+renders through the existing ADR 0016 channel primitives
 (`:button`/`:typed_command`/`:list`).
 
 ### Approval-gate separation (the invariant)

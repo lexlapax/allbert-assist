@@ -8,6 +8,65 @@ generation, curation, reindex), ADR 0072 (recommended model profiles per
 purpose), ADR 0047 (provider doctor contract), ADR 0049 (development gates and
 test parallelization).
 
+**Amendment (2026-07-31, v1.3 M9.b.3):** deterministic replay now applies the
+same canonical descriptor `selection_policy` acceptance rule as the effectful
+Jido consumers (`IntentAgent` and the Objectives default lifecycle); an eval
+result cannot pass by selecting an execute proposal the runtime would reject or
+by retaining an ungrounded clarification option. Semantic proposals require a
+positive descriptor-owned operator-act phrase at the start after bounded polite
+scaffolding; an elsewhere-in-utterance match remains ranking context. Wrapped,
+negated, referential, and supplied-text mentions reject. Required slots alone
+are evidence only for a descriptor that explicitly sets the validated
+`vocabulary.allow_required_slot_selection: true` opt-in, whose default is
+`false`; no current v1.3 descriptor opts in unless a reviewed frozen-corpus
+compatibility case requires and records it. Explicit-policy proposals require
+the same leading operator act and never use slots alone. A typed deterministic
+semantic predicate remains valid route evidence; this compatibility exception
+does not permit an unresolved or false-evidence ordinary model/ranker proposal
+to score as execute. A structurally valid
+clarification shortlist is reduced to canonical execution- or category-grounded
+options, while a malformed shortlist or one with no supported option becomes an
+answer outcome. Category `clarification_phrases` ground presentation/ranking
+only and never contribute execution evidence. Selection, descriptor-negative,
+and clarification-category matching share Unicode letter/number tokenization
+with punctuation, symbols, and emoji as boundaries, so punctuation cannot
+change category preference or bypass a negative veto.
+
+The frozen behavioral distinction is intentional: `show settings`, `please
+list settings`, and `what is my timezone setting?` execute their descriptor-
+owned Settings actions; `what are my recent channel events and model settings?`
+is ordinary compound language and must answer without executing a Settings or
+Channels category action. Replay and focused Engine tests pin the proposal
+boundary, while the interactive consumer test pins the clean `direct_answer`
+outcome.
+
+Descriptor resolution has an explicit `:deterministic_eval` availability mode
+so capability/demo gates do not make the committed release corpus depend on
+ExUnit configuration, while operator-disabled overrides still win. Replay is
+selection-policy-equivalent for execute/clarify proposals given the same
+effective descriptor/settings state; it is not an end-to-end conversational
+outcome claim. Operator-generated descriptors, overrides, and Settings have not
+become hermetically frozen. Release replay therefore uses a fresh disposable
+Home and records that context.
+
+The v1.3 corpus adds human-reviewed adjacent Memory boundary cases: explicit
+remember/recall positives and quoted-language answers. The two longer prompts
+observed during operator validation are deliberately owned by final Jido-boundary
+behavior tests and real-provider source validation; the frozen Stage-1 fake
+selector cannot represent their whole-turn semantics honestly, and the 318-row
+baseline is not cited as proof of those exact prompts. Model-generated variants
+may be review candidates but enter the corpus only after human adjudication. A
+baseline may be recaptured only after the complete committed corpus passes at
+`1.0`; it must never ratchet around a failing behavior. The live model bench
+remains advisory because it exercises Router quality, while focused IntentAgent
+tests and attended validation prove final proposal acceptance and useful answers.
+Those consumer tests also own the ordinary model-`:none` to fresh direct-answer
+fallback and its canonical `InputGuard` exception; the 318-row fake-selector
+baseline is not cited as end-to-end proof of that interactive behavior. Consumer
+tests likewise own the three-turn category flow: category clarification, bound
+action choice, then missing-parameter completion through the normal action
+gates.
+
 ## Context
 
 ADR 0062 lets descriptors be generated (heuristic in v0.54, local-model in v0.56)
