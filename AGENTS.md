@@ -51,6 +51,18 @@ the north star, not a release-scope source.
 - Use `docs/developer/surface-contract.md` and
   `docs/developer/web-design-system.md` for v0.58 surface/web work.
 
+## Planning Changes
+
+Planning documents — roadmap, future-features, plan triads, ADR index — are
+consistency artifacts. The check is the deliverable, not a step inside it.
+
+- Complete the full read-only sweep **before touching anything**:
+  cross-references, version and ladder numbering, gate prefix chains, link
+  resolution, index and gate coverage, orphans, stale slices.
+- Present findings and choices in one message. Decide, then execute.
+- Report done with nothing new attached. Surfacing defects after the commit means
+  shipping work that generates its own follow-up list.
+
 ## Context7
 
 Use Context7 MCP for fresh docs whenever implementation depends on a library,
