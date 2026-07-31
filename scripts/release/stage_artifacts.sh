@@ -207,9 +207,11 @@ validate_local_generation() {
            .builder.class == "docker-linux" and
            .builder.container_image == "hexpm/erlang" and
            .builder.container_digest == "sha256:8af614ad04450a1919c2ef1a992b7504e27c9f488674003ac08ee3e0b86fbd65" and
-           .builder.libc == {family: "glibc", version: "2.31"}
+           .builder.libc == {family: "glibc", version: "2.31"} and
+           .builder.native_nifs == "source"
          else
-           .builder.class == "operator-macos" and .builder.libc == null
+           .builder.class == "operator-macos" and .builder.libc == null and
+           .builder.native_nifs == null
          end)) and
        .runtime.otp == "29.0.1" and .runtime.elixir == "1.19.5" and
        .build_tools.hex == "2.5.1" and .build_tools.rebar3 == "3.25.1" and

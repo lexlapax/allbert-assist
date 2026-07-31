@@ -8,6 +8,7 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
   @repo_root Path.expand("../../../../../", __DIR__)
   @workflow_path Path.join(@repo_root, ".github/workflows/release-artifacts.yml")
   @build_script Path.join(@repo_root, "scripts/release/build_candidate.sh")
+  @prod_config Path.join(@repo_root, "config/prod.exs")
   @stage_script Path.join(@repo_root, "scripts/release/stage_artifacts.sh")
   @promote_script Path.join(@repo_root, "scripts/release/promote_artifacts.sh")
   @checkout_sha "3d3c42e5aac5ba805825da76410c181273ba90b1"
@@ -125,6 +126,11 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     assert body =~ "hexpm/erlang"
     assert body =~ "8af614ad04450a1919c2ef1a992b7504e27c9f488674003ac08ee3e0b86fbd65"
     assert body =~ "glibc $LINUX_GLIBC_VERSION"
+    assert body =~ "ALLBERT_RELEASE_FORCE_EXQLITE_BUILD=1"
+    assert body =~ "NATIVE_NIFS=source"
+    prod_config = File.read!(@prod_config)
+    assert prod_config =~ ~s|System.get_env("ALLBERT_RELEASE_FORCE_EXQLITE_BUILD") == "1"|
+    assert prod_config =~ "config :exqlite, force_build: true"
     assert body =~ "Linux/aarch64"
     assert body =~ "candidate build and smoke must run as a non-root user"
     assert body =~ "mix release allbert --overwrite"

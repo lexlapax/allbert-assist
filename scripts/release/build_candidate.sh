@@ -87,6 +87,7 @@ if [ "$HOST_OS" = Linux ]; then
   RESOLVED_LIBC="$(getconf GNU_LIBC_VERSION 2>/dev/null || true)"
   [ "$RESOLVED_LIBC" = "glibc $LINUX_GLIBC_VERSION" ] ||
     fail "Linux candidates require glibc $LINUX_GLIBC_VERSION; found ${RESOLVED_LIBC:-unknown}"
+  export ALLBERT_RELEASE_FORCE_EXQLITE_BUILD=1
 fi
 
 VERSION="$(sed -n 's/^[[:space:]]*version: "\([^"]*\)".*/\1/p' mix.exs | head -1)"
@@ -146,15 +147,18 @@ CONTAINER_IMAGE="${ALLBERT_CONTAINER_IMAGE:-}"
 CONTAINER_DIGEST="${ALLBERT_CONTAINER_IMAGE_DIGEST:-}"
 LIBC_FAMILY=""
 LIBC_VERSION=""
+NATIVE_NIFS=""
 if [ "$HOST_OS" = Linux ]; then
   LIBC_FAMILY=glibc
   LIBC_VERSION="$LINUX_GLIBC_VERSION"
+  NATIVE_NIFS=source
 fi
 jq -S -n \
   --arg target "$TARGET" --arg source_sha "$SOURCE_SHA" --arg generation "$GENERATION" \
   --arg builder_class "$BUILDER_CLASS" --arg host_os "$HOST_OS" --arg host_arch "$HOST_ARCH" \
   --arg container_image "$CONTAINER_IMAGE" --arg container_digest "$CONTAINER_DIGEST" \
   --arg libc_family "$LIBC_FAMILY" --arg libc_version "$LIBC_VERSION" \
+  --arg native_nifs "$NATIVE_NIFS" \
   --arg otp "$RUNTIME_OTP" --arg elixir "$RUNTIME_ELIXIR" --arg erts "$RUNTIME_ERTS" \
   --arg hex "$RESOLVED_HEX" --arg rebar3 "$RESOLVED_REBAR3" \
   --arg node "$NODE_VERSION" --arg playwright "$PLAYWRIGHT_VERSION" \
@@ -165,7 +169,8 @@ jq -S -n \
       container_image: (if $container_image == "" then null else $container_image end),
       container_digest: (if $container_digest == "" then null else $container_digest end),
       libc: (if $libc_family == "" then null else
-        {family: $libc_family, version: $libc_version} end)},
+        {family: $libc_family, version: $libc_version} end),
+      native_nifs: (if $native_nifs == "" then null else $native_nifs end)},
     runtime: {otp: $otp, elixir: $elixir, erts: $erts},
     build_tools: {hex: $hex, rebar3: $rebar3},
     external_runtime: {node: $node, playwright: $playwright, browser: $browser}}' > "$WORK/$TOOLCHAIN"
