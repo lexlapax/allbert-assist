@@ -13,6 +13,14 @@ validation and the runner `active_app` boundary — reaffirming §5/§6/§10 (no
 silent selection, classifier advisory, slots never guessed) and §11 (reuse
 ephemeral primitives; no new catalog atom). See `docs/plans/archives/v0.54-plan.md`.
 
+Amendment note (v1.3 M9.b.3, 2026-07-31): model-message roles are part of
+the intent boundary's provenance and behavior contract. Core single-turn model
+consumers use one canonical envelope that separates Allbert-owned rules from
+inert reference/advisory data and the final typed task input. DirectAnswer's
+task input is the current operator turn and it derives its instructions from
+declarative action policy. This amendment does not change the ADR's overall
+status or grant model content any authority.
+
 ## Context
 
 After v0.31, the safe routing behavior is visible in the operator UI: a neutral
@@ -72,6 +80,14 @@ recognition and app-owned action execution.
     requires no ADR 0030 amendment. Slot extraction is descriptor-declared and
     conservative — missing or ambiguous slots produce clarification, never a
     guessed value.
+12. Every core single-turn model request uses a validated provenance envelope:
+    Allbert-owned instructions and derived rules are the only system-role
+    content; reviewed Memory, retrieved context, candidates, and runtime
+    metadata are labeled inert user-role reference/advisory data; and the typed
+    task input is the final user message. For DirectAnswer that input is the
+    current operator turn, and vision parts attach only to it. DirectAnswer
+    rules are declared by its registered action policy rather than duplicated
+    as adapter prose.
 
 ## Consequences
 
@@ -82,6 +98,21 @@ recognition and app-owned action execution.
   explicit matching `active_app` at the runner boundary.
 - The direct-answer path must become useful and side-effect-free rather than a
   static echo.
+- Supplied statements, examples, dates, identifiers, and preferences remain
+  data to answer about. A requested acknowledgment concretely restates that
+  data in the present tense; generic rule compliance, a no-action deflection,
+  or an implied future action is not a useful answer.
+- Correct intent selection without a useful answer is still a product failure.
+  Structural tests prove message provenance; attended operator validation
+  judges semantic usefulness without turning example wording into production
+  matching logic.
+- Prompt roles and DirectAnswer policy grant no permission. Registry, Runner,
+  Security Central, confirmation, and registered Jido actions remain the sole
+  execution authority boundary. This amendment requires no retry, response
+  blacklist, or always-on model judge.
+- Client-supplied OpenAI-compatible `system`/`developer` labels and ACP message
+  content are untrusted inbound data. Public adapters keep them inside the final
+  typed task input; they never promote them into Allbert's system-rule message.
 - Future app/plugin generator work must scaffold app intent descriptors only
   as inert proposal metadata.
 
@@ -125,6 +156,15 @@ symbols through the registered runner path. Workspace handoff surface ids are
 thread-scoped at persistence time so the same descriptor handoff can be
 rendered independently in multiple threads without treating the later proposal
 as a fragment conflict.
+
+v1.3 M9.b.3 implementation on 2026-07-31 added
+`AllbertAssist.Models.PromptEnvelope` and migrated all five core single-turn
+model adapters to it (`d80d7ba0`). DirectAnswer now derives generic
+supplied-text and acknowledgment rules from its action-owned policy
+(`e9a5ed05`). Envelope construction validates purpose, rules, inputs, role
+order, and the resulting ReqLLM context before provider invocation
+(`08e1c5ef`). Specialized multi-turn coding and Jido.AI agent contexts remain
+separate; embeddings and image generation are not chat-message consumers.
 
 ## References
 

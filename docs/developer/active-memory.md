@@ -97,6 +97,17 @@ boundaries, and records `prompt_budget_bytes`, `prompt_bytes`, and
 `prompt_truncated?` in body-free trace metadata. Active Memory resolves one
 Settings snapshot and one stop-word snapshot per turn.
 
+DirectAnswer composes that bounded context through the canonical single-turn
+prompt envelope in this order: (1) one system message containing only
+Allbert-owned rules derived from the DirectAnswer action policy; (2) an optional
+user-role reference message containing labeled, inert reviewed Memory; and
+(3) the final user message containing the current operator input. Vision parts,
+when present, attach only to the final operator message. Raw Memory and operator
+text never enter the system-rule message. The response rules require a useful
+answer, keep supplied text as data, and require a requested acknowledgment to
+restate concrete details in the present tense without claiming storage,
+scheduling, sending, or another future effect.
+
 ## Trace And CLI Surfaces
 
 - Runtime traces render `## Active Memory` after `## Intent Candidates` and

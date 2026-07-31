@@ -74,6 +74,10 @@ v0.51 is text-first.
   `stream_options`, unknown OpenAI fields, and unsupported `response_format`.
   The OpenAI-compatible surface does not expose artifacts or multimodal
   authority.
+- Client-supplied OpenAI `system`/`developer` labels and ACP message content
+  remain untrusted inbound data. The public adapters demote them into the final
+  typed task input passed to Allbert; they never become Allbert-owned system
+  instructions in the canonical model envelope.
 - ACP accepts text content blocks only. Reject image/audio/resource/resource-link
   blocks unless a later capability-specific plan exposes them. Treat `cwd` as
   inert metadata, and reject non-empty `additionalDirectories`, non-empty

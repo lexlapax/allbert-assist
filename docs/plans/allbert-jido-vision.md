@@ -97,6 +97,16 @@ validated action. Hold a standing minimalism budget against accretion: for each
 new capability, ask whether it belongs in the kernel or behind a
 contract/plugin/skill.
 
+Prompt roles form a model-provenance boundary alongside that authority spine;
+they are not incidental formatting. Allbert derives compact model instructions
+from declarative agent/action rules, while operator text, retrieved Memory,
+candidates, runtime metadata, and attachments remain explicitly typed data. A
+safe answer to an informational or supplied-text request must also be useful:
+saying that no effect occurred is not a substitute for answering the operator's
+question. Structural tests validate provenance, while human/operator semantic
+rules judge usefulness. Model output remains advisory content and never becomes
+execution authority.
+
 ## Jido Vocabulary
 
 Jido gives Allbert a clean architecture language:

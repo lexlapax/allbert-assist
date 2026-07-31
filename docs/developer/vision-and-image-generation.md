@@ -25,8 +25,12 @@ Vision input stays on the existing text path:
    ref and maps it into this same image-input shape.
 2. `direct_answer` detects image metadata on the request and resolves
    `Models.for(:vision_input)`.
-3. The ReqLLM answerer attaches the image as a multimodal content part on the
-   normal chat request.
+3. The ReqLLM answerer uses the same canonical provenance envelope as text:
+   Allbert-owned DirectAnswer rules are the system message, optional reviewed
+   Memory is a separately labeled user-role reference message, and the current
+   operator text is the final user message. The image is a multimodal content
+   part only on that final operator message; image data never enters the system
+   role.
 4. Transient image inputs are removed after the action returns.
 5. Runtime traces keep redacted metadata only.
 

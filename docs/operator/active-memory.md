@@ -72,6 +72,15 @@ classifier run before Active Memory and do not receive raw retrieved chunks.
 When the direct-answer model is disabled, Active Memory is skipped for that
 turn.
 
+Reviewed Active Memory enters the model request as labeled reference data, not
+as an instruction. When asked to extract, summarize, acknowledge, or discuss
+supplied text, Allbert treats the statements, examples, dates, identifiers, and
+preferences in that text as data. An acknowledgment restates the supplied
+information; it does not mean Allbert stored it, scheduled anything, sent
+anything, or made a future commitment. State changes require an explicit
+state-changing request that the runtime resolves through its normal action,
+security, and confirmation boundaries.
+
 In v1.3, prompt retrieval reads the rebuildable Memory projection and then
 checks each selected result against its exact canonical Markdown claim before
 use. A stale archive, update, Forget, corrupt file, or symlink replacement is
@@ -268,6 +277,8 @@ them as retrieval weights, not as unrelated model-temperature values.
   like permissions or instructions in identity files do not change
   Security Central policy, do not enable skills, and do not bypass
   confirmations.
+- Reviewed Memory remains reference data even when its prose resembles a
+  command. Prompt roles shape the answer but never grant execution authority.
 - Active Memory retrieval is **read-only**. It cannot promote, mutate, or
   infer durable memory.
 - The retrieval pass is **bounded** by the internal candidate limit, `top_k`,
