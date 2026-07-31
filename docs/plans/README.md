@@ -13,6 +13,10 @@ plan and request-flow documents.
   is in aggregate/artifact closeout)
 - [v1.4 adaptive usage profiling plan](v1.4-plan.md) and
   [request flow](v1.4-request-flow.md) (planned; build after v1.3 closeout)
+- [v1.5 spine enablers plan](v1.5-plan.md) and
+  [request flow](v1.5-request-flow.md) (planned; readiness passes not yet run)
+- [v1.6 connectivity enablers plan](v1.6-plan.md) and
+  [request flow](v1.6-request-flow.md) (planned; readiness passes not yet run)
 - [v1.6.1 Knowledge Stage 1 plan](v1.6.1-plan.md) and
   [request flow](v1.6.1-request-flow.md) (planned; readiness passes not yet run)
 - [v1.7 Knowledge Central plan](v1.7-plan.md) and

@@ -301,14 +301,40 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    suggestion notifications ride here — and, by operator decision
    2026-07-24, **Mobile-Ready Web stage 1** rides as non-flagship scope
    (Dynamic Mobile Breakpoints folds in; stages 2–4 stay at horizon).
-10. **1.5 / 1.6 — enabler releases.** Migration-runner cluster (runner + telegram/email
-   settings migration + legacy `intent.*model_profile` removal + automated rollback;
-   pulled earlier if any prior release needs a non-additive migration), email OAuth
-   (XOAUTH2), MCP 2025-11-25 spec parity, full param-contract enforcement,
-   PermissionGate deletion. (Mid-action interruption, child-process
-   cancellation, and the app-registry boundary check moved into 1.1.)
-11. **1.6.x — Knowledge Stage 1 (LLM Wiki over claims).** (**Proposed — intake
-   closed 2026-07-30:** ADR 0094 + ADR 0095; triad not yet written.) A derived,
+10. **1.5 — Spine enablers.** (**Planned — triad 2026-07-30:**
+   `docs/plans/v1.5-plan.md` + request-flow; governed by ADR 0046 and ADR 0065,
+   no new ADR.) The settings and action spine, sequenced first because every
+   later release builds on it: migration-runner cluster (runner + telegram/email
+   plugin-owned-settings migration + legacy `intent.*model_profile` removal +
+   automated rollback; pulled earlier if any prior release needs a non-additive
+   migration), full cross-action param-contract enforcement, and PermissionGate
+   deletion. **Sequencing rationale (code reuse):** param-contract enforcement
+   touches all 249 action modules, and so does the action-response-envelope
+   consolidation folded in here — `denied/1` hand-rolled in 130 modules,
+   `action/3` in 121, the standard four-key `output_schema` in 214 of 249, all
+   derivable from capability metadata the `use AllbertAssist.Action` macro
+   already receives. One sweep over those files instead of two.
+11. **1.6 — Connectivity enablers.** (**Planned — triad 2026-07-30:**
+   `docs/plans/v1.6-plan.md` + request-flow + **new ADR 0096** (delegated
+   OAuth authority).) Everything outward-facing, sequenced after the spine and
+   before Knowledge ingest: one OAuth substrate serving both email XOAUTH2
+   (Gmail/Microsoft) and OAuth-authenticated hosted LLM providers
+   (subscription plans, not just API keys); MCP 2025-11-25 spec parity; and
+   network hardening — non-local bind hardening plus free-form provider
+   URLs/probe targets through the external-network approval path.
+   **Sequencing rationale (code reuse):** the two OAuth consumers share an
+   entire substrate (authorization-code flow, tier-vault token storage,
+   refresh, revocation) and were previously tracked as unrelated entries in
+   different places; bind hardening and free-form provider URLs both touch
+   `HttpPolicy` and the external-network path, so the SSRF `private_ip?` table
+   currently triplicated across `external/http_policy.ex`,
+   `voice/provider_http.ex`, and `settings/model_doctor.ex` is consolidated
+   here. Landing connectivity before 1.7 also gives Knowledge ingest a
+   hardened egress path and subscription-plan auth rather than API keys.
+   (Mid-action interruption, child-process cancellation, and the app-registry
+   boundary check moved into 1.1.)
+12. **1.6.x — Knowledge Stage 1 (LLM Wiki over claims).** (**Proposed — intake
+   closed 2026-07-30:** ADR 0094 + ADR 0095; triad at `docs/plans/v1.6.1-plan.md` + request-flow.) A derived,
    interlinked markdown page graph over v1.3 kept claims: page model,
    relative-markdown links with written backlinks, `index.md`, deterministic
    lint (contradictions, orphans, unresolved links, stale and under-populated
@@ -318,20 +344,20 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    new permission class, no fourth database. `knowledge.enabled` default false.
    Its own point release rather than an enabler rider, by operator decision
    2026-07-30, because the 1.5/1.6 train is already fully loaded.
-12. **1.7 — Knowledge Central (LLM Wiki flagship).** (**Proposed — intake closed
-   2026-07-30:** same ADRs; triad not yet written.) Stage 2: document ingest
+13. **1.7 — Knowledge Central (LLM Wiki flagship).** (**Proposed — intake closed
+   2026-07-30:** same ADRs; triad at `docs/plans/v1.7-plan.md` + request-flow.) Stage 2: document ingest
    substrate, durable synthesis cache, source-summary pages, `log.md`, the
    operator-authored schema document with a confirmed review path, LLM-assisted
    lint, budgeted managed ingestion with named egress, and composite query
    across Memory, Search, and pages with every fact labelled by its origin
    layer. A guided "Research assistant" persona follows in a 1.7 point release
    once the loop is proven with real operators.
-13. **Beyond** — System Memory Distillation remains the parked
+14. **Beyond** — System Memory Distillation remains the parked
    learned/model-trained memory route; Knowledge Central does not replace it,
    and absorbing its slot is the recorded fallback if the ladder needs
    compression. The Won't-now cluster stays in future-features.md with its
    review cadence.
-14. **2.0 horizon — Self-Hosting Development.** Allbert develops Allbert (pi-mode
+15. **2.0 horizon — Self-Hosting Development.** Allbert develops Allbert (pi-mode
    target on its own checkout; plan/build/test/document roles in-product, supervised).
    Its OAuth hosted-LLM providers sub-capability (Claude/OpenAI/Gemini subscription
    plans, not just API keys) lands earlier on the 1.5/1.6 enabler train.

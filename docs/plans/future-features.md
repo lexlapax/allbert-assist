@@ -77,91 +77,20 @@ Provenance shorthand used in `Deferred at:` lines: `vX.YY-plan:N` and
 
 ## Platform & Runtime Debt
 
-### Daemon-Backed TUI / Thin Terminal Client
-
-Class: Must (foundational) (operator-confirmed 2026-07-27) · Effort: M · Slice: v1.2.5 point enabler before v1.3 schema work
-
-Status: planned — `docs/plans/v1.3-plan.md`, v1.2.5 milestones; operator
-promotion and second-pass architecture approved 2026-07-28. ADR 0091 owns the
-attach/session contract.
-
-The v0.62 packaged runtime shipped two adjacent but different behaviors:
-runtime-backed `allbert ask` / `allbert admin ...` invocations attach to a
-running `allbert serve` daemon over the authenticated Home-local Unix socket,
-while `allbert tui` bypasses that attach-first dispatcher and boots a second
-embedded application tree to own the terminal. Operators must therefore stop
-the service before TUI use against the same Home. The target experience is one
-durable daemon per Home with `allbert tui` acting as its local terminal client.
-
-The approved v1.2.5 milestones bind these minimum outcomes:
-
-- When a matching daemon is reachable, `allbert tui` opens no Repo, runs no
-  migration, and starts no competing runtime. Terminal input/output is a
-  session on the daemon-owned TUI/runtime spine.
-- The transport stays local-only and preserves the current token, Home, uid,
-  application-version, protocol-version, bounded-frame, concurrency, and
-  no-double-execution protections. A running daemon whose session attach fails
-  produces repair guidance; it never silently falls back to a second writer.
-- The additive Attach v1 session protocol covers streaming output, slash
-  commands, disclosures, typed confirmation handoff, fan-out status/report
-  delivery, Pi-mode raw input and Escape cancellation, backpressure, clean
-  detach, daemon shutdown, and terminal restoration. Requests without the new
-  session kind retain legacy unary behavior.
-- v1.2.5 permits one terminal session per Home and no live resume. The daemon
-  selects the verified mapped operator identity. When no daemon exists or
-  attach fails, the client returns start/repair guidance and never boots an
-  embedded runtime. A session-socket loss closes the attachment; durable
-  background work may finish, while an effectful Pi turn cancels fail closed.
-- Focused protocol/security tests prove authentication and lifecycle failures;
-  macOS and Linux operator validation keeps the service running before, during,
-  and after TUI use and proves Web/TUI continuity from one daemon. Operator
-  docs then remove the current service stop/restart dance.
-
-Provenance: operator intake during the accepted v1.2 M9.1 release-barrier pause,
-2026-07-27; existing attach substrate in
-`apps/allbert_assist/lib/allbert_assist/runtime/attach.ex` and attach-first
-dispatch in `apps/allbert_assist/lib/allbert_assist/cli.ex`; standalone TUI
-overlay in `rel/overlays/bin/allbert-dispatch`; historical daemon-stop
-requirement in `v1.0.4-request-flow:340-346`.
-
 ### Settings Runtime Migration Runner
 
-Class: Must (foundational) (confirmed 2026-07-14) · Effort: M · Slice: 1.1 — unconditional; first consumer is the Telegram/Email plugin-owned-settings migration
-
-Status: parked (deferred until the first non-additive settings migration).
-
-A `mix allbert.settings.migrate` runner plus a Migration DSL for settings
-schema changes that are not purely additive. Deferred in v0.59, re-deferred in
-the v1.0 plan; ADR 0046 records the deferral condition. Every future
-settings-shape change lands on this item first — it gates plugin-owned
-settings migration, legacy-key removal, and any rename.
-
-Deferred at: `roadmap:2850`, `adr/0046:67`, `v0.59-plan:135`, `v1.0-plan:137`.
+Planned — `docs/plans/v1.5-plan.md` M1 + ADR 0046. Ships unconditionally with
+automated rollback; three consumers queued behind it.
 
 ### PermissionGate Deletion / Parity Pass
 
-Class: Must (foundational) (confirmed 2026-07-14) · Effort: M · Slice: 1.1 (not frozen — verified against public-contract-freeze.md)
-
-Status: parked.
-
-PermissionGate is still a shim after the v0.31 permission rework. A deletion
-or parity pass removes the shim so future permission work has one authority
-path.
-
-Deferred at: `v0.31-rf:112`.
+Planned — `docs/plans/v1.5-plan.md` M6. Strictly after param-contract
+enforcement completes; every former call site proven identical red-first.
 
 ### Full Cross-Action Param-Contract Enforcement
 
-Class: Must (foundational) (confirmed 2026-07-14) · Effort: M · Slice: 1.1 · Verify first: diff the v0.59-shipped scope against the full v0.54 cross-action scope
-
-Status: verify.
-
-v0.54 planned full cross-action param-contract enforcement; a bounded scope
-shipped later (v0.59-era). The remainder — enforcement across every action
-boundary — completes the contract story that generated actions, workflows,
-and public protocol surfaces all lean on.
-
-Deferred at: `v0.54-plan:1291`.
+Planned — `docs/plans/v1.5-plan.md` M3 + ADR 0065. M0 resolves the v0.54-versus-
+v0.59 scope diff before the work is committed.
 
 ### Core-Action `app_id` Ownership (Option 2)
 
@@ -237,14 +166,8 @@ Deferred at: `v0.62-plan:383`.
 
 ### Automated Migration Rollback
 
-Class: Must (confirmed 2026-07-14) · Effort: M · Slice: 1.1, one milestone with the Settings Runtime Migration Runner
-
-Status: parked (deferred from v0.62 to v0.64; never shipped).
-
-Automated rollback of data/settings migrations when a packaged upgrade fails
-partway. Today recovery is the manual DB-backup path.
-
-Deferred at: `v0.62-plan:384`.
+Planned — `docs/plans/v1.5-plan.md` M1. Part of the runner milestone, not a
+follow-on: a migration runner without rollback is a one-way door.
 
 ### DIT-1 Windows/WSL2 Install Walkthrough
 
@@ -427,45 +350,13 @@ Still parked:
 
 ### Proactive Notifications Policy
 
-Class: Should (confirmed 2026-07-14) · Effort: M · Slice: 1.1 — scoped as the suggestion-delivery stage of Adaptive Usage Profiling
-
-Status: planned (suggestion-delivery stage only) — `docs/plans/v1.4-plan.md`
-M6 / ADR 0084 amendment 2026-07-24 (`:suggestion` kind, per-class opt-in,
-quiet hours, rate limit). Broader proactive classes remain parked below.
-Previously parked; added in the post-v0.37 planning pass.
-
-Allbert is reactive through v1.0, with one narrow carve-out: v0.42 adds an
-opt-in, paused-by-default background MCP-discovery scan (per ADR 0048) that runs
-as an operator-scheduled job and writes candidates to a *passive* Discovery
-Suggestions surface. That is unattended read-only scanning into a queue the
-operator pulls from — Allbert still never messages the operator unprompted and
-never connects without confirmation. Proactive *messaging* (Allbert pinging the
-operator first when a meeting starts, a job completes, an MCP server disconnects,
-a confirmation expires, or a discovery/self-improvement suggestion is ready)
-remains parked.
-
-Still parked:
-
-- per-channel proactive-message authority (including push about discovery
-  suggestions);
-- operator-opt-in policy per notification class;
-- rate-limit and quiet-hours policy;
-- abuse prevention for runaway notifications;
-- proactive-message audit and revocation.
+Planned — `docs/plans/v1.4-plan.md` M6 + ADR 0084 amendment (`:suggestion`
+kind, quiet hours, per-class rate limit). Default-off proactive delivery.
 
 ### Email OAuth (XOAUTH2; Gmail / Microsoft OAuth-Only Mailboxes)
 
-Class: Should (confirmed 2026-07-14) · Effort: M · Slice: 1.1
-
-Status: parked.
-
-The email channel authenticates with passwords/app-passwords only. XOAUTH2
-support is the named gap in the operator guide, and v0.53 separately deferred
-Gmail/Microsoft OAuth-only mailboxes. Increasingly a Must-shaped item as
-providers retire app passwords.
-
-Deferred at: `operator/email-channel:14` (XOAUTH2), `v0.53-plan:516`
-(Gmail/Microsoft OAuth-only mailboxes).
+Planned — `docs/plans/v1.6-plan.md` M2 + ADR 0096. Shares one OAuth substrate
+with hosted-LLM subscription auth.
 
 ### IMAP IDLE Push
 
@@ -530,14 +421,7 @@ Deferred at: `v0.52-plan:1065` (Events API HTTP transport), `v0.52-plan:147`
 
 ### Telegram/Email Plugin-Owned-Settings Migration
 
-Class: Should (confirmed 2026-07-14) · Effort: S · Slice: 1.1, one milestone with the Settings Runtime Migration Runner (its first real migration — makes the runner unconditional in 1.1)
-
-Status: parked (blocked on the Settings Runtime Migration Runner above).
-
-v0.52 deferred migrating telegram/email settings to plugin-owned settings
-namespaces; the first non-additive migration needs the runner first.
-
-Deferred at: `v0.52-plan:2312`.
+Planned — `docs/plans/v1.5-plan.md` M2. First runner consumer.
 
 ### Matrix E2EE Encrypted Rooms
 
@@ -632,50 +516,16 @@ Deferred at: `v0.61b-plan:1643`.
 
 ### Mobile-Ready Web UI/UX → Lightweight Native Mobile App
 
-Class: Must (confirmed 2026-07-18) · Effort: L · Slice: horizon (placed at the next ladder review; stage 1 may ride an earlier minor as non-flagship scope on operator direction)
+Stage 1 planned — `docs/plans/v1.4-plan.md` M7 (phone-form-factor usability at
+390 px for chat, objectives, settings, memory).
 
-Status: stage 1 planned — `docs/plans/v1.4-plan.md` M7 (operator decision
-2026-07-24: stage 1 rides v1.4 as non-flagship scope; Dynamic Mobile
-Breakpoints folds in). Stages 2–4 remain at horizon. Operator intake
-2026-07-18.
-
-Mobile-ready UI/UX for the web workspace, staged so the mobile-ready
-frontend can later be encapsulated into a lightweight native mobile app
-that calls APIs. That end-state may require readying the backend with API
-endpoints for remote-or-local frontend↔backend connectivity, including
-user auth for the remote path.
-
-Rough decomposition (stages, each independently valuable):
-1. **Mobile-ready web UI/UX** — first-class phone-form-factor workspace
-   (the existing mobile tabs/responsive work as the base; the parked
-   Dynamic Mobile Breakpoints entry folds in here as an enabler).
-2. **API surface readiness** — the frontend↔backend contract exposed as
-   stable API endpoints usable by a non-LiveView client (interacts with
-   the Public Protocols & Interop surfaces; local-first remains the
-   default posture).
-3. **User auth for remote connectivity** — authenticated remote
-   frontend→backend access (today's posture is local-single-operator;
-   remote auth is a new authority surface and needs its own ADR; relates
-   to the parked non-local bind hardening item on the 1.3 horizon).
-4. **Lightweight native shell** — the mobile-ready frontend wrapped as a
-   native app calling those APIs (distinct from the parked desktop
-   packaged-GUI cluster under Packaging & Distribution, which stays
-   parked).
-
-Provenance: operator intake, 2026-07-18 (v1.0.2 M8 window).
+Stages 2–4 remain the unplanned remainder: responsive information architecture,
+offline-capable PWA, and a lightweight native shell. Class: Must · Effort: L ·
+Slice: horizon, revisited at the next ladder review.
 
 ### Dynamic Mobile Breakpoints
 
-Class: Could (confirmed 2026-07-14) · Effort: S · Slice: hold — folds into the
-Mobile-Ready Web UI/UX intake (stage 1 enabler) if/when that is slotted
-
-Status: planned (folded) — stage 1 slotted into `docs/plans/v1.4-plan.md` M7
-(2026-07-24); this entry rides it as the breakpoint-roles enabler.
-
-v0.26 deferred dynamic (content-aware) mobile breakpoints for workspace
-layout.
-
-Deferred at: `v0.26-plan:683`.
+Planned (folded) — `docs/plans/v1.4-plan.md` M7 breakpoint token roles.
 
 ### Canvas.Agent Revisit
 
@@ -725,90 +575,13 @@ Deferred at: `v0.26-plan:2079`.
 
 ### Long-Term User Memory (Periodic Consolidation, Prompt-Time Context)
 
-Class: Must (confirmed 2026-07-14) · Effort: L · Slice: v1.3 flagship after the v1.2.5 point enabler
-
-Status: planned — `docs/plans/v1.3-plan.md` + amended ADR 0089; operator
-second-pass decisions approved 2026-07-28. M1 calibrates fixtures, quality
-floors, and budgets but does not reopen the architecture.
-
-The user-facing sibling of Adaptive Usage Profiling (Self-Improvement
-category): over time, build a **long-term user memory** that remembers facts
-about the user's personal life and preferences, **periodically consolidated by
-the system from user interaction history** — not only from explicit "remember
-this" asks. At prompt-formation time this memory is consulted to assemble
-proper context for the LLM, so answers land **zero-shot**: the stated goal is
-shortening token usage and interaction count by giving the model the right
-context up front instead of re-deriving it conversationally.
-
-The architecture is now locked: only verified operator-authored conversation
-turns can originate a proposal; assistant turns are bounded transient
-disambiguation only; traces/objectives do not originate or strengthen claims.
-System proposals require review, and only operator-kept append-only
-bi-temporal claims enter prompt context. Ordinary bulk review is frozen,
-partial, and idempotently resumable; protected claims require individual
-review. Archive is reversible, while separately confirmed Forget removes
-active Allbert-managed claim content and leaves only a content-free suppression
-tombstone. Search Central is an independent consumer of the canonical
-conversation corpus and never supplies memory facts.
-
-Related: Adaptive Usage Profiling (system-usage half of the same loop — the
-suggest job reads both memories); System Memory Distillation (the parked
-learned/model-trained variant — this entry is the deterministic/consolidated
-route); Cross-Thread / Cross-App Memory Retrieval (retrieval scope);
-Embedding-backed retrieval note under Distillation (semantic recall).
-
-Folded in (operator decision 2026-07-14): the v0.14 working-memory contract
-gaps - a precise data-safety definition for working memory and nested patch
-semantics for working-memory updates (`v0.14-plan:390`, `v0.14-plan:249`) -
-resolve inside this feature's research phase (short-term memory IS the
-working-memory tier of the STM/LTM architecture question).
-
-Deferred at: operator intake (post-1.0 planning, 2026-07-14).
+Planned — `docs/plans/v1.3-plan.md` + ADR 0089. Remove from this backlog at the
+v1.3.0 tag per the lifecycle rule.
 
 ### Knowledge Central (LLM Wiki)
 
-Class: Should (Verify:) · Effort: L · Slice: v1.6.x Stage 1, v1.7 flagship
-
-Status: proposed — ADR 0094 and ADR 0095; operator intake decisions closed
-2026-07-30 across three rounds. Plan triads not yet written.
-
-An LLM-maintained wiki over the operator's own knowledge: a derived, interlinked
-markdown page graph that compiles what Allbert knows into a browsable artifact,
-rather than re-deriving it per query. Follows the three-layer pattern (immutable
-sources, generated pages, schema) with three operations (ingest, query, lint).
-
-Allbert already owns the parts this pattern usually gets wrong — provenance,
-review, supersession, tombstones, redaction, bounded retention, managed jobs.
-What is missing is the page document model and the link graph.
-
-Staged across two releases. **Stage 1 (v1.6.x)** derives a page graph,
-backlinks, `index.md`, and deterministic lint from v1.3 kept claims: no
-documents, no LLM, no egress, no new source policy, no new permission class, and
-no fourth database. **Stage 2 (v1.7)** adds document ingest, a durable synthesis
-cache, source-summary pages, `log.md`, the operator schema document, LLM-assisted
-lint, and composite query across Memory, Search, and pages with each fact
-labelled by its origin layer.
-
-Pages are a derived projection under `<HOME>/projections/knowledge/` — never an
-authority, rebuildable, export-excluded, and inheriting the v1.3 Forget
-generation machinery. Durable state (schema, synthesis cache) lives separately
-under `<HOME>/knowledge/` and is backed up. Links are relative markdown and
-backlinks are written into each page as text, so any editor works — vi, VS Code,
-TextMate, or a future in-product notes browser. No external tool dependency.
-
-Operator edits to a derived page are detected by digest, never overwritten, and
-offered for promotion into a claim proposal or a connected-root note. Ingest
-detection is automatic and zero-egress; ingest spend is bounded by an operator
-budget and queues for approval beyond it.
-
-Related: Long-Term User Memory (supplies Stage 1's claims and stays the sole
-prompt-time path — Knowledge is operator-initiated only); Cross-Thread /
-Cross-App Memory Retrieval and Conversation History Full-Text Search (Search
-Central is a peer Corpus consumer that Knowledge composes at query time); System
-Memory Distillation (the parked learned/model-trained route — this is the
-deterministic projection-backed one, and does not replace it).
-
-Deferred at: operator intake (2026-07-30).
+Planned — `docs/plans/v1.6.1-plan.md` (Stage 1, page graph over claims) and
+`docs/plans/v1.7-plan.md` (Stage 2, document ingest) + ADR 0094 and ADR 0095.
 
 ### System Memory Distillation
 
@@ -847,51 +620,14 @@ release ladder later needs compression.
 
 ### Cross-Thread / Cross-App Memory Retrieval
 
-Class: Should (confirmed 2026-07-14) · Effort: M · Slice: v1.3 Search Central conversation-history scope
-
-Status: planned — `docs/plans/v1.3-plan.md`, Search Central milestones;
-operator promotion approved 2026-07-28. Previously parked; added in the
-post-v0.37 planning pass.
-
-v0.39b Active Memory retrieval is scoped to `{thread_id, active_app,
-identity_namespace}` with neutral/core context limited to identity + general
-chunks. Operators may want assistant context drawn from prior threads or
-across apps.
-
-Planned scope is explicit operator-intent conversation search through one typed
-central API. Local Web/TUI/CLI may search all eligible history; mapped operator
-DMs default to the same channel/thread and require confirmation before a
-cross-surface scope elevation. Search results are source-linked and
-reauthorized against the canonical corpus before disclosure.
-
-Still parked: automatic cross-app namespace mixing into prompt context,
-semantic retrieval/ranking, and non-conversation sources such as attachments
-or arbitrary app artifacts.
+Planned — `docs/plans/v1.3-plan.md` Search Central milestones + ADR 0092.
+Remove at the v1.3.0 tag. Still parked: automatic cross-app prompt mixing.
 
 ### Conversation History Full-Text Search
 
-Class: Should (confirmed 2026-07-14) · Effort: M · Slice: v1.3 Search Central
-
-Status: planned — `docs/plans/v1.3-plan.md`, Search Central engine/jobs/surface
-milestones; operator promotion approved 2026-07-28. Previously parked; added
-in the post-v0.37 planning pass.
-
-Markdown memory has full-text search through v0.21. SQLite `Thread`/`Message`
-conversation history does not. Operators may want to search prior threads.
-
-The planned implementation is one central typed Search API backed by a
-disposable redacted SQLite FTS5 projection under Allbert Home. Web, TUI, CLI,
-and mapped DMs consume that API; surfaces never query FTS directly. Existing
-Jobs owns visible managed ingestion/reconciliation, bounded
-maintenance/pruning, and on-demand rebuild entries. Query-time canonical
-authorization/digest checks suppress stale, deleted, or revoked hits. The
-v1.3 grammar is deterministic lexical terms, phrases, prefixes, filters, and
-BM25 ranking only.
-
-Still parked: Search-to-Memory promotion, fuzzy/trigram/vector/embedding
-retrieval, autonomous model search, and automatic canonical-history retention.
-Non-conversation document sources are now planned under Knowledge Central (LLM
-Wiki), which consumes them as a peer Corpus consumer rather than through Search.
+Planned — `docs/plans/v1.3-plan.md` Search Central milestones + ADR 0092.
+Remove at the v1.3.0 tag. Still parked: fuzzy/vector retrieval, Search-to-Memory
+promotion, automatic canonical-history retention.
 
 ### Post-v0.48 Media Follow-Ons
 
@@ -916,41 +652,18 @@ doctor fields, and release evidence before implementation:
 
 ### OAuth-Authenticated Hosted LLM Providers (Subscription Plans)
 
-Class: Should (operator intake 2026-07-15) · Effort: M · Slice: 1.4/1.5 enabler train (independently valuable before the 2.0 self-hosting flagship)
-
-Add Claude, OpenAI (Codex), and Gemini as hosted providers via **OAuth
-sign-in**, not only API keys — so an operator's monthly/yearly packaged
-pro/subscription plan powers Allbert instead of metered keys. Needs: OAuth
-device/browser flows per provider, refresh-token custody in the existing
-three-tier vault (OS keychain first), provider-ToS review per plan type, and
-model-catalog integration so these appear as selectable profiles. Feeds the
-adaptive loop's "suggest a BYOK/hosted coding model" one-click path and the
-2.0 self-hosting flagship (developer-grade models on subscription plans).
-
-Deferred at: operator intake (post-1.0 planning, 2026-07-15).
+Planned — `docs/plans/v1.6-plan.md` M2 + ADR 0096. Same substrate as email
+XOAUTH2; pulled forward from the 2.0 self-hosting horizon.
 
 ### Per-Role Fast/Capable/Thinking Model Profiles
 
-Class: Should (confirmed 2026-07-14) · Effort: M · Slice: 1.1 — the target surface of adaptive model suggestions
-
-Status: planned — `docs/plans/v1.4-plan.md` M5 / ADR 0090 (2026-07-24).
-
-v0.37 deferred per-role model profiles (a fast model for ranking, a capable
-model for main responses, a thinking model for planning) instead of one
-profile per intent.
-
-Deferred at: `v0.37-plan:229`.
+Planned — `docs/plans/v1.4-plan.md` M5 + ADR 0090. Additive `model_roles.*`
+fragments over the ADR 0088 catalog; remaps only via the confirmed path.
 
 ### Free-Form Provider URLs / Probe Targets Via Approval Path
 
-Class: Should (confirmed 2026-07-14) · Effort: S · Slice: 1.2 horizon — LAN/self-hosted model endpoints via the external-network approval path
-
-Status: parked.
-
-v0.39 deferred letting operators add free-form provider URLs and probe
-targets through the approval path (the provider list is curated today).
-
-Deferred at: `v0.39-plan:207`.
+Planned — `docs/plans/v1.6-plan.md` M4. LAN and loopback endpoints remain egress
+decisions; no "local" exemption.
 
 ### Separate Active Memory Consumer When Direct-Answer Disabled
 
@@ -1287,14 +1000,8 @@ Each follow-on is a small focused release. None block v1.0.
 
 ### MCP 2025-11-25 Spec Parity
 
-Class: Should (confirmed 2026-07-14) · Effort: M · Slice: 1.1 — verify the actual spec delta first
-
-Status: verify.
-
-Both ADR 0044 and the v0.51 plan note the shipped MCP client/server target an
-earlier spec revision; parity with the 2025-11-25 MCP spec was deferred.
-
-Deferred at: `adr/0044:38`, `v0.51-plan:100`.
+Planned — `docs/plans/v1.6-plan.md` M3. Scope follows the delta measured at M0,
+not the entry title.
 
 ### MCP/OpenAI/ACP Upstream-Tracking Wire Shapes
 
@@ -1310,14 +1017,8 @@ Deferred at: `v1.0-plan:299`.
 
 ### Non-Local Bind Hardening For Public Surfaces
 
-Class: Should (confirmed 2026-07-14) · Effort: S · Slice: 1.2 horizon
-
-Status: parked.
-
-v0.51 public surfaces bind local-only; the hardening story for a non-local
-bind (auth, TLS, exposure policy) was deferred.
-
-Deferred at: `v0.51-plan:305`.
+Planned — `docs/plans/v1.6-plan.md` M4. One bind policy; the OAuth callback
+listener obeys it with no exception.
 
 ### MCP Artifact Resources
 
@@ -1366,56 +1067,8 @@ Deferred at: operator intake (post-1.0 planning, 2026-07-15).
 
 ### Adaptive Usage Profiling & One-Click Customization Suggestions
 
-Class: Must (confirmed 2026-07-14) · Effort: L · Slice: 1.1 CO-FLAGSHIP — stages (a) substrate+distill, (b) suggest+apply (+ proactive notifications), (c) feedback
-
-Status: parked (operator-directed, post-1.0 intake 2026-07-14).
-
-A **system memory** distinct from user/operator memory: the system records its
-own construct usage (which intents route, which actions/apps/surfaces/models
-are invoked, how often, with what outcomes) as the operator uses Allbert. Two
-scheduled jobs close the loop:
-
-1. **Distill (small cadence)** — e.g. after every ~N operator invocations,
-   categorize and summarize raw usage into the system-memory namespace.
-2. **Suggest (large cadence)** — analyze the distilled usage **plus the
-   user/operator memory** and produce *suggestions* that tune the system to
-   respond more accurately in fewer interactions. Every suggestion is a
-   **one-click / one-action apply** — a registered, confirmed action that
-   takes effect for the next invocation.
-3. **Feedback** — a mechanism to learn whether an applied customization
-   actually helped (accept/dismiss/undo signals at minimum; effectiveness
-   scoring against subsequent usage).
-
-Operator-supplied examples of the suggestion vocabulary:
-
-- Frequent web searching → raise web-search intent priority.
-- Frequent coding asks → configure a stronger coding model profile (up to
-  suggesting a BYOK hosted LLM) and make pi-mode the default.
-- Web research + note-taking pattern → suggest scaffolding a custom
-  note-based research app (in the StockSage spirit, via the templated
-  creation path).
-- A thing the operator asks to do repeatedly → auto-draft a skill that knows
-  it (through the v0.47 supervised-draft path).
-
-Builds on shipped precursors rather than replacing them: the v0.39b inert
-`identity` system-memory namespace, the v0.47 trace-derived supervised draft
-suggestions, the v0.56 learned-review miner (shipped inert), the jobs
-scheduler, and templated creation. Authority posture is unchanged: system
-memory is inspectable via the memory review surface, suggestions are traced,
-and apply is always operator-approved — this is the supervised middle path
-between today's static profiles and the parked full-autonomy cluster (see
-System Memory Distillation, Autonomous Skill Creation, Learned-Review
-Autonomous Producers — this entry is the staged, consented route toward
-them). Likely decomposition when promoted: (a) system usage-memory substrate +
-distill job; (b) suggestion engine + one-click apply surface; (c) feedback/
-effectiveness loop.
-
-Folded in (operator decision 2026-07-14): the v0.39b-named
-`operator_settings_memory` system namespace (`v0.39b-plan:105`) is a named
-deliverable of stage (a) — the usage-memory substrate reuses the shipped
-system-namespace mechanism.
-
-Deferred at: operator intake (post-1.0 planning, 2026-07-14).
+Planned — `docs/plans/v1.4-plan.md` (flagship) + ADR 0090. Usage-signal store,
+distill/suggest jobs, one-click confirmed customization, effectiveness feedback.
 
 ### Autonomous Skill Creation Beyond Supervised Drafts
 
@@ -1848,15 +1501,8 @@ Deferred at: `v1.0.1-plan` second-pass implementation-readiness audit.
 
 ### Legacy `intent.*model_profile` Settings Removal
 
-Class: Should (confirmed 2026-07-14) · Effort: S · Slice: 1.1 — third consumer of the Settings Runtime Migration Runner
-
-Status: verify (blocked on the Settings Runtime Migration Runner for a
-non-additive removal).
-
-v0.48 noted the legacy `intent.*model_profile` settings should be removed per
-ADR 0046.
-
-Deferred at: `v0.48-plan:441`.
+Planned — `docs/plans/v1.5-plan.md` M2. Second runner consumer; maps to the
+v1.4 `model_roles.*` fragments.
 
 ### Optional Git-Hook Installation
 

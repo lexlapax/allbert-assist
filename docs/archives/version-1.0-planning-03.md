@@ -5,7 +5,7 @@ Status: planning recommendation. Not yet roadmap authority. To be promoted into
 `docs/plans/roadmap.md` and `docs/plans/future-features.md` after operator
 review.
 Inputs: `docs/archives/version-1.0-planning-01.md` (prior synthesis with OpenClaw/Hermes
-research), `docs/archives/version-10-planning-02.md` (independent second-pass replanning
+research), `docs/archives/version-1.0-planning-02.md` (independent second-pass replanning
 memo), the current roadmap and future-features parking lot, the 38 accepted
 ADRs, the v0.37.5 release closeout, and the v0.38 implementation-ready plan.
 
@@ -752,7 +752,7 @@ If you want to act on this plan:
 
 - `docs/archives/version-1.0-planning-01.md` — earlier synthesis with detailed
   OpenClaw/Hermes competitive research and the substrate inventory.
-- `docs/archives/version-10-planning-02.md` — independent second-pass replanning memo
+- `docs/archives/version-1.0-planning-02.md` — independent second-pass replanning memo
   with the recommended sequencing and the 1.0 acceptance matrix
   vocabulary.
 
