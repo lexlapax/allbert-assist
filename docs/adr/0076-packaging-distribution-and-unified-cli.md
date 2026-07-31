@@ -587,7 +587,26 @@ runtime linked `libcrypto.so.1.1`: builder-local smoke masked a dependency that
 current Linux hosts do not provide. Bundling that library is forbidden because
 OpenSSL 1.1.1 is upstream-EOL and uses the older dual license; Linux continues
 to use the host's OpenSSL 3 rather than adding a second packaged crypto runtime
-or license-management branch. A downloaded,
+or license-management branch.
+
+The same clean-host qualification exposed a different class of native edge:
+OTP's socket NIF attempts to load `libsctp.so.1` dynamically when ERTS was built
+with SCTP, so the dependency is absent from ordinary `ldd`/ELF `NEEDED` output.
+When the library was absent, ERTS still exited successfully but wrote an
+`=ESOCK` loader warning to stdout before `allbert licenses --json`, violating
+the machine-readable CLI contract. Builder-local and Serenity packages had
+masked the omission. Linux artifacts therefore own only Debian Bookworm
+`libsctp1 1.0.19+dfsg-2`'s `libsctp.so.1.0.19` plus its `libsctp.so.1` link in
+`native/lib`; the generated launcher prepends that directory only when it
+exists. The existing final-artifact/license phase verifies the exact package
+version, regular-file source, SONAME, destination bytes, target exclusion, LGPL
+text, and immutable source/build provenance before sealing. This is one
+catalogued late-loaded runtime edge, not a general dependency scanner or new
+license-management branch. Artifact smoke must parse unfiltered license JSON
+and clean-host qualification must pass without installing `libsctp` on the
+qualifier.
+
+A downloaded,
 checksum-pinned Node 22 runtime and apt Chromium exist only for build/smoke;
 the browser boundary proves neither enters the archive. The candidate row
 records the image digest, libc floor, source-built-NIF policy, and resolved
@@ -681,6 +700,13 @@ Primary-source constraints:
   intentionally required. v1.3 does not add that second build path; it selects
   the pinned OpenSSL-3-linked image and verifies the resulting edge instead
   ([OTP secure coding](https://github.com/erlang/otp/blob/master/system/doc/design_principles/secure_coding.md)).
+- OTP's Unix socket implementation dynamically loads SCTP support and emits the
+  warning at that boundary
+  ([OTP source](https://github.com/erlang/otp/blob/OTP-29.0.1/erts/emulator/nifs/unix/unix_socket_syncio.c));
+  Debian Bookworm supplies the copied library from `lksctp-tools
+  1.0.19+dfsg-2`, whose `src/lib/*` scope is LGPL-2.1-or-later
+  ([Debian source package](https://packages.debian.org/bookworm/source/lksctp-tools),
+  [Debian copyright](https://sources.debian.org/copyright/license/lksctp-tools/1.0.19%2Bdfsg-2/)).
 - SQLite deliverable code is public domain; Mozilla-derived CA PEM data is
   MPL-2.0; and IANA tzdb has named BSD-3-Clause exceptions
   ([SQLite](https://www.sqlite.org/copyright.html),
