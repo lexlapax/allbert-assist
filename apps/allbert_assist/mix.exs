@@ -87,7 +87,7 @@ defmodule AllbertAssist.MixProject do
       {:time_zone_info, "~> 0.7.15"},
       {:jsv, "~> 0.19"},
       {:yaml_elixir, "~> 2.12"},
-      {:ymlr, "~> 5.0"},
+      {:ymlr, "~> 5.1.6"},
       # Jido agent framework + ecosystem
       # Local override until upstream Memento releases an Elixir 1.19-safe
       # replacement for its conflicting `record/0` typespec.
