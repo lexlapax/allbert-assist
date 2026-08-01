@@ -18,6 +18,7 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
   alias AllbertAssist.Channels.TUI.Adapter
   alias AllbertAssist.Channels.TUI.IdentityBootstrap
   alias AllbertAssist.Channels.TUI.InputReceipt
+  alias AllbertAssist.Objectives.Fanout.Report
   alias AllbertAssist.Runtime.Attach.TUIProtocol
   alias AllbertAssist.Runtime.Redactor
 
@@ -124,14 +125,14 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
 
   @impl true
   def handle_call({:output, line}, _from, state) do
-    case output_entry(line, state, nil, :presentation) do
+    case output_entry(line, state, nil, :presentation, state.max_text_bytes) do
       {:ok, state, _custody} -> {:reply, :ok, state}
       {:error, reason, state} -> {:reply, {:error, reason}, state}
     end
   end
 
   def handle_call({:delivery_output, line}, from, state) do
-    case output_entry(line, state, from, :authority) do
+    case output_entry(line, state, from, :authority, Report.max_body_bytes()) do
       {:ok, state, :deferred} ->
         {:noreply, state}
 
@@ -140,7 +141,7 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
 
       {:error, reason, state} ->
         state = send_close(state, :overflow, "TUI output capacity was exceeded.")
-        {:stop, :overflow, {:error, reason}, state}
+        {:stop, :normal, {:error, reason}, state}
     end
   end
 
@@ -1019,8 +1020,8 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
   defp cast_result(%{closing?: true} = state), do: {:stop, :overflow, state}
   defp cast_result(state), do: {:noreply, state}
 
-  defp output_entry(line, state, waiter, priority) do
-    with {:ok, lines} <- render_lines(line, state.max_text_bytes) do
+  defp output_entry(line, state, waiter, priority, max_text_bytes) do
+    with {:ok, lines} <- render_lines(line, max_text_bytes) do
       revision = state.render_revision + 1
       payload = %{render_revision: revision, mode: :append, lines: lines}
 
@@ -1028,7 +1029,7 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
         state
         |> Map.put(:render_revision, revision)
         |> Map.put(:render_state, :streaming)
-        |> remember_render_lines(lines)
+        |> remember_render_lines(lines, max_text_bytes)
 
       case admit_protocol(state, :delta, payload, priority, waiter) do
         {:ok, state, custody} -> {:ok, state, custody}
@@ -1408,8 +1409,8 @@ defmodule AllbertAssist.Runtime.Attach.TUISession do
     end
   end
 
-  defp remember_render_lines(state, new_lines) do
-    render_limit = min(state.max_text_bytes, 48 * 1_024)
+  defp remember_render_lines(state, new_lines, max_text_bytes) do
+    render_limit = min(max_text_bytes, 48 * 1_024)
 
     {lines, _bytes, _count} =
       state.render_lines

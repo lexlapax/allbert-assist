@@ -5,6 +5,7 @@ defmodule AllbertAssist.CLI.TuiTest do
   alias AllbertAssist.Channels.TUI.InputDriver
   alias AllbertAssist.CLI.Tui
   alias AllbertAssist.FirstRun.Disclosure
+  alias AllbertAssist.Objectives.Fanout.Report
   alias AllbertAssist.Paths
   alias AllbertAssist.Runtime.Attach.TUIProtocol
   alias AllbertAssist.SecurityFixtures.AssertBinding
@@ -137,6 +138,42 @@ defmodule AllbertAssist.CLI.TuiTest do
     {:ok, server_flow} = accept_client(server_flow, delta_ack)
 
     finish_normally(task, :fake_socket, server_flow)
+  end
+
+  test "renders and cumulatively acknowledges the exact maximum authority report" do
+    {open_result, server_flow} = session(:maximum_report_socket, 16)
+    callbacks = callbacks(self(), open: fn _profile, _terminal -> open_result end)
+    task = Task.async(fn -> Tui.launch(callbacks: callbacks) end)
+
+    ready = collect_until(task.pid, &match?({:prompt, _, _}, &1))
+    {:ok, server_flow} = accept_client(server_flow, wire!(ready, :ack))
+
+    body = maximum_report_body()
+    lines = String.split(body, "\n", trim: false)
+
+    {delta, server_flow} =
+      daemon_frame(server_flow, :delta, %{
+        render_revision: 1,
+        mode: :append,
+        lines: lines
+      })
+
+    assert byte_size(body) == Report.max_body_bytes()
+    assert length(lines) == TUIProtocol.limits().list_items
+    send(task.pid, {:tcp, :maximum_report_socket, :erlang.term_to_binary(delta)})
+    rendered = collect_until(task.pid, &match?({:wire, %{frame: :ack}}, &1))
+
+    assert body ==
+             Enum.find_value(rendered, fn
+               {:write, _driver, text} -> text
+               _event -> nil
+             end)
+
+    report_ack = wire!(rendered, :ack)
+    assert report_ack.ack == delta.seq
+    {:ok, server_flow} = accept_client(server_flow, report_ack)
+
+    finish_normally(task, :maximum_report_socket, server_flow)
   end
 
   test "daemon-frame ack failure stops cleanly without exposing retained receipt state" do
@@ -1336,6 +1373,19 @@ defmodule AllbertAssist.CLI.TuiTest do
       _event -> []
     end)
     |> Enum.join()
+  end
+
+  defp maximum_report_body do
+    line_count = TUIProtocol.limits().list_items
+    content_bytes = Report.max_body_bytes() - (line_count - 1)
+    line_bytes = div(content_bytes, line_count)
+    longer_lines = rem(content_bytes, line_count)
+
+    1..line_count
+    |> Enum.map(fn index ->
+      String.duplicate("r", line_bytes + if(index <= longer_lines, do: 1, else: 0))
+    end)
+    |> Enum.join("\n")
   end
 
   defp event_index(events, :install_signals), do: index_of(events, &(&1 == :install_signals))

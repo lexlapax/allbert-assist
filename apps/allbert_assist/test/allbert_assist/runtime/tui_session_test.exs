@@ -1,11 +1,14 @@
 defmodule AllbertAssist.Runtime.TUISessionTest do
   use AllbertAssist.DataCase, async: false, lane: :global_process_serial
 
+  import ExUnit.CaptureLog, only: [capture_log: 1]
+
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Channels.TUI.Adapter
   alias AllbertAssist.Channels.TUI.InputReceipt
   alias AllbertAssist.Health
+  alias AllbertAssist.Objectives.Fanout.Report
   alias AllbertAssist.Paths
   alias AllbertAssist.Runtime.Attach
   alias AllbertAssist.Runtime.Attach.Server, as: AttachServer
@@ -1080,6 +1083,47 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
       detach(socket, client_flow)
     end
 
+    test "ordinary daemon output retains the default 12,000-byte ceiling" do
+      server = start_controllable_server()
+      {socket, _snapshot, client_flow} = open_session()
+      {"tui", adapter_pid, :worker, _modules} = tui_child()
+      body = bounded_multiline_body(12_000)
+
+      assert :ok = ControllableAdapter.output(adapter_pid, body)
+      delta = recv_term(socket)
+      assert delta.payload.lines |> Enum.join("\n") == body
+      {:ok, client_flow} = TUIProtocol.accept_frame(client_flow, :daemon_to_client, delta)
+
+      assert {:error, :output_too_large} =
+               ControllableAdapter.output(adapter_pid, body <> "x")
+
+      assert {:error, :timeout} = :gen_tcp.recv(socket, 0, 100)
+      assert %{status: :up, tui_session: :active} = AttachServer.status(server)
+      detach(socket, client_flow)
+    end
+
+    test "ordinary daemon output retains the configured 32,000-byte maximum" do
+      assert {:ok, _settings} =
+               Settings.put("channels.tui.max_text_bytes", 32_000, %{audit?: false})
+
+      server = start_controllable_server()
+      {socket, _snapshot, client_flow} = open_session()
+      {"tui", adapter_pid, :worker, _modules} = tui_child()
+      body = bounded_multiline_body(32_000)
+
+      assert :ok = ControllableAdapter.output(adapter_pid, body)
+      delta = recv_term(socket)
+      assert delta.payload.lines |> Enum.join("\n") == body
+      {:ok, client_flow} = TUIProtocol.accept_frame(client_flow, :daemon_to_client, delta)
+
+      assert {:error, :output_too_large} =
+               ControllableAdapter.output(adapter_pid, body <> "x")
+
+      assert {:error, :timeout} = :gen_tcp.recv(socket, 0, 100)
+      assert %{status: :up, tui_session: :active} = AttachServer.status(server)
+      detach(socket, client_flow)
+    end
+
     test "Settings input limit rejects semantically without closing the wire session" do
       assert {:ok, _settings} =
                Settings.put("channels.tui.max_text_bytes", 7, %{audit?: false})
@@ -1220,6 +1264,81 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
 
       :gen_tcp.close(socket)
       eventually(fn -> AttachServer.status(server).tui_session == :none end)
+    end
+
+    test "maximum fan-out authority delivery remains byte-exact through cumulative acknowledgement" do
+      server = start_supervised!(AttachServer)
+      {socket, _snapshot, client_flow} = open_session()
+      session_pid = :sys.get_state(server).session.pid
+      body = maximum_report_body()
+
+      assert byte_size(body) == Report.max_body_bytes()
+
+      delivery = Task.async(fn -> TUISession.delivery_output(session_pid, body) end)
+      delta = recv_term(socket)
+
+      assert %{frame: :delta, payload: %{mode: :append, lines: lines}} = delta
+      assert length(lines) == TUIProtocol.limits().list_items
+      assert Enum.sum(Enum.map(lines, &byte_size/1)) <= 48 * 1_024
+      assert Enum.join(lines, "\n") == body
+      assert byte_size(:erlang.term_to_binary(delta)) <= 64 * 1_024
+      assert Task.yield(delivery, 50) == nil
+
+      {:ok, client_flow} =
+        TUIProtocol.accept_frame(client_flow, :daemon_to_client, delta)
+
+      {:ok, ack, client_flow} =
+        TUIProtocol.send_frame(client_flow, :client_to_daemon, :ack, %{})
+
+      :ok = send_term(socket, ack)
+      assert Task.await(delivery, 5_000) == :ok
+
+      assert :ok = TUISession.output(session_pid, "ordinary presentation")
+      ordinary_delta = recv_term(socket)
+
+      assert %{frame: :delta, payload: %{lines: ["ordinary presentation"]}} = ordinary_delta
+
+      {:ok, client_flow} =
+        TUIProtocol.accept_frame(client_flow, :daemon_to_client, ordinary_delta)
+
+      render_lines = :sys.get_state(session_pid).render_lines
+      assert List.last(render_lines) == "ordinary presentation"
+      assert Enum.sum(Enum.map(render_lines, &byte_size/1)) <= 12_000
+
+      detach(socket, client_flow)
+      eventually(fn -> AttachServer.status(server).tui_session == :none end)
+    end
+
+    test "fan-out authority delivery rejects a body above 32,768 bytes" do
+      server = start_supervised!(AttachServer)
+      {socket, _snapshot, _client_flow} = open_session()
+      session_pid = :sys.get_state(server).session.pid
+      secret_marker = "v13-overbound-private-report-marker"
+      report = maximum_report_body()
+
+      body =
+        secret_marker <>
+          binary_part(
+            report,
+            byte_size(secret_marker),
+            byte_size(report) - byte_size(secret_marker)
+          ) <> "x"
+
+      assert byte_size(body) == Report.max_body_bytes() + 1
+
+      log =
+        capture_log(fn ->
+          assert {:error, :output_too_large} = TUISession.delivery_output(session_pid, body)
+
+          assert %{frame: :close, payload: %{code: :overflow, message: message}} =
+                   recv_term(socket)
+
+          assert message == "TUI output capacity was exceeded."
+          assert {:error, :closed} = :gen_tcp.recv(socket, 0, 1_000)
+          eventually(fn -> AttachServer.status(server).tui_session == :none end)
+        end)
+
+      refute log =~ secret_marker
     end
 
     test "authority delivery custody survives presentation gap recovery until acknowledgement" do
@@ -1739,6 +1858,27 @@ defmodule AllbertAssist.Runtime.TUISessionTest do
 
     assert {:ok, admitted} = InputReceipt.mark_admitted(event, %{})
     {receipt_id, admitted}
+  end
+
+  defp bounded_multiline_body(bytes) when is_integer(bytes) and bytes > 0 do
+    line = String.duplicate("r", 4_095) <> "\n"
+    full_lines = div(bytes, byte_size(line))
+    remainder = rem(bytes, byte_size(line))
+
+    String.duplicate(line, full_lines) <> String.duplicate("r", remainder)
+  end
+
+  defp maximum_report_body do
+    line_count = TUIProtocol.limits().list_items
+    content_bytes = Report.max_body_bytes() - (line_count - 1)
+    line_bytes = div(content_bytes, line_count)
+    longer_lines = rem(content_bytes, line_count)
+
+    1..line_count
+    |> Enum.map(fn index ->
+      String.duplicate("r", line_bytes + if(index <= longer_lines, do: 1, else: 0))
+    end)
+    |> Enum.join("\n")
   end
 
   defp assert_expected_frame(frame, {:confirmation, confirmation_id}) do

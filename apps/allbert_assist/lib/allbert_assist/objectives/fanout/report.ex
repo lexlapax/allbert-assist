@@ -92,6 +92,10 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
           fallback_body: String.t()
         }
 
+  @doc "Return the closed UTF-8 byte bound for one durable fan-out report body."
+  @spec max_body_bytes() :: pos_integer()
+  def max_body_bytes, do: @report_bytes
+
   @type composition_section :: %{
           relationship: String.t(),
           ordered_queue_positions: [non_neg_integer()]

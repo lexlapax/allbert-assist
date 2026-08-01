@@ -1,6 +1,7 @@
 defmodule AllbertAssist.Runtime.Attach.TUIProtocolTest do
   use ExUnit.Case, async: true
 
+  alias AllbertAssist.Objectives.Fanout.Report
   alias AllbertAssist.Runtime.Attach.TUIProtocol
   alias AllbertAssist.SecurityFixtures.AssertBinding
 
@@ -530,6 +531,23 @@ defmodule AllbertAssist.Runtime.Attach.TUIProtocolTest do
       assert %{code: :runtime_error, message: "Runtime error.", input_receipt_id: nil} =
                TUIProtocol.error_payload(:exception_name, <<255>>, "bad")
     end
+
+    test "accepts the central maximum report inside unchanged v1 line and frame bounds" do
+      body = maximum_report_body()
+      lines = String.split(body, "\n", trim: false)
+      payload = %{render_revision: 1, mode: :append, lines: lines}
+      envelope = frame(:delta, payload)
+      encoded = :erlang.term_to_binary(envelope)
+
+      assert byte_size(body) == Report.max_body_bytes()
+      assert Enum.join(lines, "\n") == body
+      assert length(lines) == TUIProtocol.limits().list_items
+      assert Enum.all?(lines, &(byte_size(&1) <= 8 * 1_024))
+      assert Enum.sum(Enum.map(lines, &byte_size/1)) <= 48 * 1_024
+      assert byte_size(encoded) <= 64 * 1_024
+      assert :ok = TUIProtocol.validate_frame(:daemon_to_client, envelope)
+      assert {:ok, ^envelope} = TUIProtocol.decode_frame(encoded, :daemon_to_client)
+    end
   end
 
   describe "session/receipt identity and receipt input normalization" do
@@ -783,6 +801,19 @@ defmodule AllbertAssist.Runtime.Attach.TUIProtocolTest do
 
   defp delta(mode, lines, revision \\ 1) do
     %{render_revision: revision, mode: mode, lines: lines}
+  end
+
+  defp maximum_report_body do
+    line_count = TUIProtocol.limits().list_items
+    content_bytes = Report.max_body_bytes() - (line_count - 1)
+    line_bytes = div(content_bytes, line_count)
+    longer_lines = rem(content_bytes, line_count)
+
+    1..line_count
+    |> Enum.map(fn index ->
+      String.duplicate("r", line_bytes + if(index <= longer_lines, do: 1, else: 0))
+    end)
+    |> Enum.join("\n")
   end
 
   defp frame(frame, payload, seq \\ 1, ack \\ 0) do
