@@ -36,7 +36,10 @@ structured provider assessment plus deterministic local Jido-owned
 adjudication, with an optional second provider call only for malformed or
 internally inconsistent output. The same remediation adds content-free
 manager/admission facts to the existing conversation action-log diagnostics;
-it creates no new authority or observability subsystem.
+it creates no new authority or observability subsystem. M9.b.4.2/M9.b.5.2 now
+accept the bounded semantic-quality and advisory-synthesis refinements in the
+amendment below; their executable evidence remains tracked by the active v1.3
+plan rather than inferred from the earlier commits.
 
 ## Context
 
@@ -309,6 +312,48 @@ model:
    Missing or inconsistent v1.3 provenance cannot be reclassified as legacy or
    escape the frozen budget. The one-turn Jido worker has no iterative tool loop
    and cannot spawn a nested fan-out in v1.3.
+   M9.b.4.2 deepens that private Jido worker for conversation-manager, exact-
+   counted, and verified operator-steered DirectAnswer children to
+   `draft` → `review_and_revise` → `accepted` or `unresolved`. One source-bound,
+   versioned quality contract is derived from the digest-verified original
+   request, compiled child objective, expected-result guidance, the existing
+   DirectAnswer rule catalog, and a small task-neutral child-coverage extension.
+   It derives both the prompt and closed review evidence; no domain
+   keyword/regex, prompt-specific fact, formatting oracle, or exact-answer
+   check is production policy. The registered DirectAnswer action remains the
+   first call and disables its own model failover only for this grounded worker
+   context. A model-backed draft then receives exactly one advisory
+   review-and-revise call through the existing `fanout_synthesis` task chain;
+   non-model draft outcomes spend no reviewer call, and a malformed, negative,
+   unavailable, or unresolved review fails the child in that attempt. Corrupt
+   provenance fails before quality completion; non-DirectAnswer children keep
+   the existing registered-action/effect-receipt path without review. The
+   existing two-call reservation is unchanged and never refunded; ordinary
+   DirectAnswer failover is unchanged.
+   A verified steering directive replaces the compiled child objective but not
+   its historical acceptance text. The derived contract therefore uses one
+   fixed task-neutral Allbert completion instruction and binds hashes of the
+   exact directive and directive-event id; it never judges steered work against
+   stale model-authored guidance.
+
+   Local code validates the closed result and normalizes the accepted answer at
+   the existing 2,000-character Objective-summary boundary. The worker records
+   the exact 0/1/2 provider-call outcome in ephemeral Jido state; only an
+   accepted two-call result
+   creates the content-free typed quality receipt. That receipt binds
+   Objective/step identity, task and rule versions, reviewer configuration,
+   call count, closed verdict and failed-rule ids, and the exact normalized-
+   answer digest. Lifecycle verifies it before the existing terminal transaction
+   appends it to `run_completed`; recovery verifies its digest before admitting
+   a completed child to a new report snapshot. Drafts and critique are not
+   persisted. The receipt records
+   review provenance only: it cannot select an action, grant permission, claim
+   an effect, alter state, or create work, and all original-source action rules
+   above remain unchanged.
+   For a reviewed completion, that event payload contains only the receipt;
+   answer prose remains on the Objective/Step and post-commit signal. This avoids
+   duplicating untrusted text into the existing bounded event payload and adds no
+   persistence mechanism.
 6. **Terminal reduction precedes semantic composition, and composition precedes
    delivery.** The last terminal child transaction still freezes the complete
    child/result/status snapshot and parent join outcome, but it leaves
@@ -333,6 +378,32 @@ model:
    appendix. Child detail is labelled as an observation; only a durable effect
    receipt reference is effect evidence. Composition cannot change child
    status, hide failures, execute an action, or create another fan-out.
+   That description is the layout-v1 compatibility contract. M9.b.5.2 makes
+   layout v1 validated read/replay only; every new selection writes layout v2.
+   `ReportComposer` remains the durable plain-GenServer owner of queueing,
+   claiming, compare-and-swap storage, recovery, and delivery readiness. A
+   private ephemeral Jido synthesis lifecycle runs only inside a claimed row:
+   deterministic baseline, one `fanout_synthesis` structured provider call,
+   then `accepted | unresolved`. The result contains relationship sections, one
+   bounded advisory synthesis paragraph, and closed rule/queue-position review
+   evidence. That one call performs review and revision together; there is no
+   second judge/repair call, queue, service, action, table, or setting.
+
+   Layout-v2 input binds the complete bounded original request, parent-only
+   join guidance, every reviewed DirectAnswer observation plus its verified
+   quality-receipt digest, and every non-DirectAnswer result plus its existing
+   effect receipt. A pre-contract DirectAnswer completion remains readable but
+   forces deterministic `legacy_unreviewed_children` fallback instead of model
+   synthesis. The 16 KiB canonical model-input allocator gives the
+   complete bounded request priority and fairly marks unavoidable child
+   shortening. Allbert alone renders status/attention truth, headings, receipt
+   language, and the ordered authoritative appendix. Those deterministic parts
+   have first claim on the 32 KiB report; advisory synthesis is one
+   anti-spoofed paragraph bounded to 4,096 UTF-8 bytes and cannot displace an
+   otherwise complete child appendix. Invalid, negative, unavailable,
+   timed-out, or deadline-exhausted synthesis stores the truthful deterministic
+   fallback with no model prose and opens delivery; it never masquerades as
+   healthy synthesis.
 7. **The composed report is itself durable.** Additive parent fields store
    bounded `report_body`, `report_source`, `report_input_digest`, and
    `report_selection_digest`, with
@@ -358,6 +429,17 @@ model:
    layout version, extra or missing provenance field, or any input, source,
    provenance, body, event, or digest tamper fails closed to an inconsistent
    projection: no pending report is rendered or acknowledged.
+   Layout v1 retains those exact domains and provenance byte-for-byte for
+   compatibility reads. Layout v2 binds the receipt-bearing snapshot under
+   `allbert:fanout-report-input:v2\0` and the exact `source` plus normalized
+   provenance under `allbert:fanout-report-selection:v2\0`. Model provenance
+   binds profile/provider/model, layout and synthesis-contract versions,
+   sections, accepted review, reviewed queue positions, and the exact advisory-
+   paragraph digest. Fallback provenance binds only its closed reason, layout
+   and contract versions, and `not_run | unresolved`; it contains no model
+   prose. Rehydration rejects a new v1 write, unknown version, missing or extra
+   provenance, receipt/input/section/synthesis/body mismatch, or event/digest
+   tamper before delivery.
 8. **Automatic fan-out stays balanced and operator-visible.** Independent
    advisory/read-only work may start under the existing automatic rollout after
    truthful kickoff custody. Uncounted effectful or mixed work stays on the

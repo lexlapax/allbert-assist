@@ -9,6 +9,7 @@ defmodule AllbertAssist.Objectives.Fanout.PlanProvenance do
   process because canonical validation and encoding require no mutable state.
   """
 
+  alias AllbertAssist.Objectives.CanonicalJSON
   alias AllbertAssist.Objectives.Fanout.Budget
   alias AllbertAssist.Runtime.Redactor
 
@@ -28,7 +29,7 @@ defmodule AllbertAssist.Objectives.Fanout.PlanProvenance do
   @spec encode_parent_hint(map()) :: {:ok, String.t()} | {:error, error_reason()}
   def encode_parent_hint(plan) when is_map(plan) do
     with {:ok, normalized} <- normalize_plan(plan) do
-      {:ok, canonical_json(%{"fanout_plan" => normalized})}
+      {:ok, CanonicalJSON.encode(%{"fanout_plan" => normalized})}
     end
   end
 
@@ -53,7 +54,7 @@ defmodule AllbertAssist.Objectives.Fanout.PlanProvenance do
   def encode_proposal_event(plan, child_ids) when is_map(plan) and is_list(child_ids) do
     with {:ok, normalized} <- normalize_plan(plan),
          :ok <- validate_child_ids(child_ids, normalized["budget"]["child_count"]) do
-      {:ok, canonical_json(event_from_plan(normalized, child_ids))}
+      {:ok, CanonicalJSON.encode(event_from_plan(normalized, child_ids))}
     end
   end
 
@@ -201,18 +202,4 @@ defmodule AllbertAssist.Objectives.Fanout.PlanProvenance do
 
   defp stringify_keys(value) when is_list(value), do: Enum.map(value, &stringify_keys/1)
   defp stringify_keys(value), do: value
-
-  defp canonical_json(value), do: encode_json(stringify_keys(value))
-
-  defp encode_json(map) when is_map(map) do
-    map
-    |> Enum.sort_by(fn {key, _value} -> key end)
-    |> Enum.map_join(",", fn {key, value} -> Jason.encode!(key) <> ":" <> encode_json(value) end)
-    |> then(&("{" <> &1 <> "}"))
-  end
-
-  defp encode_json(list) when is_list(list),
-    do: "[" <> Enum.map_join(list, ",", &encode_json/1) <> "]"
-
-  defp encode_json(value), do: Jason.encode!(value)
 end

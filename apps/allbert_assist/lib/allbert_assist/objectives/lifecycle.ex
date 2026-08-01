@@ -17,17 +17,16 @@ defmodule AllbertAssist.Objectives.Lifecycle do
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Objective
+  alias AllbertAssist.Objectives.ObservationSummary
   alias AllbertAssist.Objectives.Runs.CancelToken
   alias AllbertAssist.Objectives.Runs.Worker.{GroundedStepSpec, Grounding}
   alias AllbertAssist.Objectives.Steering
   alias AllbertAssist.Repo
-  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings.Store
   alias AllbertAssist.Signals
 
   @operations ~w[propose evaluate authorize execute observe advance]a
   @max_event_summary_chars 500
-  @max_summary_chars 2_000
 
   @spec run(String.t(), keyword()) :: {:ok, Objective.t()} | {:blocked, term()} | {:error, term()}
   def run(child_id, opts \\ []) when is_binary(child_id) do
@@ -508,15 +507,7 @@ defmodule AllbertAssist.Objectives.Lifecycle do
   defp finish_rerun({:blocked, reason, state}, _adapter, _opts), do: block(state, reason)
   defp finish_rerun({:error, reason, state}, _adapter, _opts), do: fail(state, reason)
 
-  defp bounded_summary(summary) do
-    summary = summary |> Redactor.redact(:signals) |> to_string()
-
-    if String.length(summary) > @max_summary_chars do
-      String.slice(summary, 0, @max_summary_chars - 1) <> "…"
-    else
-      summary
-    end
-  end
+  defp bounded_summary(summary), do: ObservationSummary.normalize(summary)
 
   defp block(%{objective: objective} = state, reason) do
     reason_text = inspect(reason, limit: 20, printable_limit: 300)

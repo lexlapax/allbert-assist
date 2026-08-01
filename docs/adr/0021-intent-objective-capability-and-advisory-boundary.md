@@ -802,9 +802,11 @@ What A21 does **not** do:
 
 ### A22. Parallel planning and report composition are advisory Objective work (v1.3 M9.b.4/M9.b.5)
 
-Status: accepted for v1.3 M9.b.4/M9.b.5 and implemented through the M9.b.5
-selected-report authority contract at `b7ea776d`; remaining operator and release
-evidence is governed by `docs/plans/v1.3-plan.md`.
+Status: accepted for v1.3 M9.b.4/M9.b.5 and implemented through the original
+M9.b.5 selected-report authority contract at `b7ea776d`. The M9.b.4.2/M9.b.5.2
+quality and synthesis refinements below are accepted for implementation;
+executable, operator, and release evidence remains governed by
+`docs/plans/v1.3-plan.md`.
 
 Adaptive parallel work deepens the existing Intent → Objective → Action spine;
 it does not create a fourth durable layer. On the clean DirectAnswer route, the
@@ -829,10 +831,47 @@ resolves through `Actions.Registry`, executes through `Actions.Runner.run/3`,
 and reaches Security Central and confirmations. A Jido worker's process,
 parentage, state, output, or successful tool call is never durable authority.
 
-After all children terminalize, deterministic reduction freezes their durable
-statuses, observations, and effect receipts. A private main-model composition
-command makes one structured-output call over that snapshot. Its response is a
-content-free, locally versioned relationship-section layout: closed
+M9.b.4.2 deepens only the temporary DirectAnswer worker for conversation-
+manager, exact-counted, or verified operator-steered fan-out children. One source-bound
+quality contract is derived from the digest-verified original request, compiled
+child objective, expected-result guidance, the existing DirectAnswer rules, and
+a small task-neutral child-coverage extension. The same typed rules derive the
+prompt and closed review evidence; production behavior contains no domain
+keyword/regex, prompt-specific fact, source-format oracle, or exact-answer
+check. The private Jido lifecycle is `draft` → `review_and_revise` → `accepted`
+or `unresolved`: the registered DirectAnswer action produces the draft, with model
+failover disabled only in this grounded worker context, and the already-budgeted
+second call uses the `fanout_synthesis` task chain to return the final answer and
+closed rule verdicts. A non-model draft spends no review call; malformed,
+negative, unavailable, or unresolved review fails the child honestly in that
+attempt. Corrupt/untrusted provenance cannot enter this quality path. Ordinary
+DirectAnswer fallback behavior is unchanged, and non-DirectAnswer children keep
+the existing registered-action/effect-receipt contract without a model review.
+Verified operator steering replaces the child objective, so its contract uses a
+fixed Allbert-owned task-neutral completion instruction and binds the verified
+directive/event digests instead of evaluating against stale pre-steer expected-
+result prose.
+
+The worker deterministically validates that advisory result and normalizes the
+accepted answer at the existing durable Objective-summary boundary. A typed,
+content-free quality receipt binds the Objective and step, task contract and
+rule-catalog version, reviewer configuration, exact provider-call count, closed
+verdict/failed-rule ids, and the exact normalized-answer digest; acceptance
+requires the full two-call path. Lifecycle
+observation verifies that binding before the existing terminal transaction can
+store it in `run_completed`; recovery verifies it again before a completed
+child may enter a new report snapshot. The receipt proves that the configured
+review boundary ran, not that model judgment is authority: it cannot select an
+action, grant permission, assert an effect, alter status, or create work.
+Reviewed completion does not duplicate answer prose into that event payload:
+the complete receipt is its sole payload member, while the exact normalized
+answer remains on the atomically committed Objective/Step and the post-commit
+signal. This keeps the existing event-payload bound without another store.
+
+Under the original layout-v1 selection contract, deterministic reduction froze
+child statuses, observations, and effect receipts and the composer used one
+structured-output call over that snapshot. Its response was a content-free,
+locally versioned relationship-section layout: closed
 `complementary | contrasting | sequential | supporting | independent` enums
 plus ordered completed-child queue positions. The deterministic compiler
 requires those sections to partition every completed child exactly once and
@@ -849,14 +888,45 @@ malformed output, provider failure, or unavailability therefore degrades
 presentation without losing completion evidence or indefinitely withholding a
 report.
 
-The durable selection is bound twice: `report_input_digest` binds the frozen
+M9.b.5.2 supersedes that write path without invalidating it: layout v1 remains
+validated read/replay compatibility only, and every new selection writes layout
+v2. `ReportComposer` remains the durable plain-GenServer owner of queueing,
+claiming, compare-and-swap persistence, recovery, and delivery readiness. Inside
+one claimed composition, a private ephemeral Jido synthesis lifecycle advances
+from deterministic baseline through one `fanout_synthesis` structured call to
+`accepted | unresolved`. That single result contains relationship sections,
+one bounded model-authored advisory paragraph, and closed rule/child-coverage
+evidence; it is both review and revision, not an additional judge or repair
+call. Invalid, negative, unavailable, timed-out, or deadline-exhausted synthesis
+selects a truthful deterministic fallback and never becomes healthy model
+provenance.
+
+Layout v2 binds the original request, parent-only join guidance, each reviewed
+DirectAnswer observation/quality-receipt digest, and each non-DirectAnswer
+result/effect receipt. A historical DirectAnswer completion without the new
+receipt remains readable but forces the closed `legacy_unreviewed_children`
+fallback rather than model synthesis. Deterministic code still owns every
+status and attention fact, failure/cancellation truth, effect receipt, ordered
+authoritative child appendix, heading/label, byte allocation, digest,
+persistence, and surface projection. The 16 KiB canonical model-input envelope
+prioritizes the complete bounded request and fairly marks any unavoidable child
+shortening. In the 32 KiB stored report, deterministic evidence has first claim
+on bytes; advisory synthesis is one anti-spoofed paragraph of at most 4,096 UTF-8
+bytes and cannot displace an otherwise complete child appendix. The model cannot
+revise observations, identifiers, ordering, authority, delivery, or work.
+
+Every durable selection is bound twice: `report_input_digest` binds the frozen
 authoritative snapshot, while `report_selection_digest` binds the selected
-source and every exact normalized provenance field. Model provenance is exactly
-profile, provider, model, layout version, and normalized sections; fallback
-provenance is exactly fallback reason and layout version. Projection rehydrates
-and deterministically re-renders that contract against the selection event and
-stored body. Unknown versions, extra or missing provenance, changed source or
-fallback reason, altered sections/body/input, or digest/event tampering fail
+source and every exact normalized provenance field. Layout v1 keeps its existing
+digest domains and closed provenance byte-for-byte for reads. Layout v2 uses the
+versioned canonical domains `allbert:fanout-report-input:v2\0` and
+`allbert:fanout-report-selection:v2\0`; model provenance additionally binds the
+synthesis contract/review, reviewed child positions, and exact paragraph digest,
+while fallback provenance binds its closed reason and `not_run | unresolved`
+outcome and contains no model prose. Projection rehydrates and deterministically
+re-renders the selected version against the event and stored body. Unknown
+versions, a new v1 write, extra or missing provenance, changed source/fallback,
+altered receipt/section/synthesis/body/input, or digest/event tampering fails
 closed to inconsistent Objective state and cannot become a deliverable report.
 
 The durable selection transaction precedes best-effort joined publication.

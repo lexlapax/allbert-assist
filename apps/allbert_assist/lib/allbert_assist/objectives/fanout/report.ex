@@ -12,6 +12,7 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
   """
 
   alias AllbertAssist.Objectives.AcceptanceCriteria
+  alias AllbertAssist.Objectives.CanonicalJSON
   alias AllbertAssist.Objectives.Fanout.PlanProvenance
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Runtime.Redactor
@@ -127,7 +128,7 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
   @spec digest(snapshot()) :: String.t()
   def digest(snapshot) when is_map(snapshot) do
     :sha256
-    |> :crypto.hash([@digest_domain, canonical_json(snapshot)])
+    |> :crypto.hash([@digest_domain, CanonicalJSON.encode(snapshot)])
     |> Base.encode16(case: :lower)
   end
 
@@ -311,7 +312,7 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
         :sha256
         |> :crypto.hash([
           @selection_digest_domain,
-          canonical_json(%{source: source, provenance: normalized})
+          CanonicalJSON.encode(%{source: source, provenance: normalized})
         ])
         |> Base.encode16(case: :lower)
 
@@ -918,12 +919,6 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
     end
   end
 
-  defp stringify_keys(value) when is_map(value),
-    do: Map.new(value, fn {key, nested} -> {to_string(key), stringify_keys(nested)} end)
-
-  defp stringify_keys(value) when is_list(value), do: Enum.map(value, &stringify_keys/1)
-  defp stringify_keys(value), do: value
-
   defp map_field(map, key) when is_map(map), do: Map.get(map, key)
   defp map_field(_value, _key), do: nil
 
@@ -949,18 +944,4 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
       do: value,
       else: value |> binary_part(0, byte_size(value) - 1) |> trim_invalid_utf8()
   end
-
-  defp canonical_json(value), do: encode_json(stringify_keys(value))
-
-  defp encode_json(map) when is_map(map) do
-    map
-    |> Enum.sort_by(fn {key, _value} -> key end)
-    |> Enum.map_join(",", fn {key, value} -> Jason.encode!(key) <> ":" <> encode_json(value) end)
-    |> then(&("{" <> &1 <> "}"))
-  end
-
-  defp encode_json(list) when is_list(list),
-    do: "[" <> Enum.map_join(list, ",", &encode_json/1) <> "]"
-
-  defp encode_json(value), do: Jason.encode!(value)
 end
