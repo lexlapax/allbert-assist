@@ -27,6 +27,16 @@ defmodule AllbertAssist.Intent.FanoutManager.Policy do
       ]
     },
     %{
+      id: :shared_deliverable_is_join_guidance,
+      instruction:
+        "Treat a requested final brief, report, comparison, recommendation, or other shared deliverable as parent-level join guidance, not as a child task or a dependency by itself. Work is dependent only when one child must consume another child's result before it can progress; two substantial self-contained advisory analyses may run concurrently and then be joined into one deliverable.",
+      criteria: [
+        :shared_deliverable_is_packaging,
+        :parent_join_is_not_child,
+        :dependency_requires_child_result_consumption
+      ]
+    },
+    %{
       id: :self_contained_children,
       instruction:
         "Make every child objective self-contained enough to perform independently. expected_result is output and evaluation guidance only; never hide task instructions, authority, or required context there.",
@@ -56,7 +66,7 @@ defmodule AllbertAssist.Intent.FanoutManager.Policy do
     %{
       id: :dependent_work_stays_single,
       instruction:
-        "Choose answer when work is sequential, dependent, one combined task, ambiguous, a steering turn, or explicitly requested without splitting.",
+        "Choose answer when work is sequential, when one work unit must consume another work unit's result, when the request is one indivisible task, when the split is ambiguous, on a steering turn, or when the operator explicitly requests no splitting. A shared final deliverable alone does not make otherwise independent work indivisible.",
       criteria: [
         :sequential_stays_single,
         :dependent_stays_single,

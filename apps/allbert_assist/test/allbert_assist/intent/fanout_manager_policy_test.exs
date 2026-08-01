@@ -14,6 +14,7 @@ defmodule AllbertAssist.Intent.FanoutManager.PolicyTest do
     assert FanoutPolicy.rule_ids() == [
              :useful_answer_always,
              :independent_children_only,
+             :shared_deliverable_is_join_guidance,
              :self_contained_children,
              :advisory_read_only_only,
              :supplied_text_ownership,
@@ -39,6 +40,11 @@ defmodule AllbertAssist.Intent.FanoutManager.PolicyTest do
         :concurrent_progress,
         :no_child_result_dependency
       ],
+      shared_deliverable_is_join_guidance: [
+        :shared_deliverable_is_packaging,
+        :parent_join_is_not_child,
+        :dependency_requires_child_result_consumption
+      ],
       self_contained_children: [
         :self_contained_objective,
         :expected_result_is_evaluation_guidance,
@@ -60,6 +66,12 @@ defmodule AllbertAssist.Intent.FanoutManager.PolicyTest do
         {:independent_children_only, :concurrent_progress},
         {:self_contained_children, :self_contained_objective},
         {:preserve_operator_work, :full_coverage}
+      ],
+      independent_work_with_one_joined_deliverable: [
+        {:shared_deliverable_is_join_guidance, :shared_deliverable_is_packaging},
+        {:shared_deliverable_is_join_guidance, :parent_join_is_not_child},
+        {:shared_deliverable_is_join_guidance, :dependency_requires_child_result_consumption},
+        {:independent_children_only, :no_child_result_dependency}
       ],
       supplied_command_list: [
         {:supplied_text_ownership, :outer_request_owns_supplied_text},
