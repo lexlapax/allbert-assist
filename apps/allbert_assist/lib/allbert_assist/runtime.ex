@@ -31,9 +31,11 @@ defmodule AllbertAssist.Runtime do
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Intent.Decomposer
+  alias AllbertAssist.Intent.FanoutPlan
   alias AllbertAssist.Intent.Steering
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Fanout.Budget, as: FanoutBudget
   alias AllbertAssist.Objectives.Runs.Scheduler
   alias AllbertAssist.Runtime.DeliveryAcknowledgement
   alias AllbertAssist.Runtime.MediaOutputs
@@ -77,6 +79,7 @@ defmodule AllbertAssist.Runtime do
   @type response :: %{
           optional(:fanout) => map(),
           optional(:fanout_start_receipt) => String.t(),
+          optional(:decomposition_overflow) => map(),
           optional(:pending_reports) => [map()],
           channel: atom() | String.t(),
           message: String.t(),
@@ -433,6 +436,7 @@ defmodule AllbertAssist.Runtime do
          coding_req_llm_context: fetch_value(attrs, :coding_req_llm_context),
          stream_event_sink: fetch_value(attrs, :stream_event_sink),
          delivery_ack_capability: fetch_value(attrs, :delivery_ack_capability),
+         fanout_manager_mode: :off,
          diagnostics: session_context.diagnostics ++ app_context.diagnostics,
          timeout_ms: fetch_value(attrs, :timeout_ms) || @default_timeout_ms
        }}
@@ -764,6 +768,7 @@ defmodule AllbertAssist.Runtime do
       coding_turn_id: request.coding_turn_id,
       coding_req_llm_context: request.coding_req_llm_context,
       stream_event_sink: request.stream_event_sink,
+      fanout_manager_mode: request.fanout_manager_mode,
       timeout_ms: request.timeout_ms,
       input_signal_id: signal.id,
       input_signal_type: signal.type
@@ -829,9 +834,17 @@ defmodule AllbertAssist.Runtime do
 
   defp run_fanout_or_agent(input_signal, request) do
     case fanout_proposal(request) do
-      {:fanout, tasks} -> frame_fanout_response(request, tasks)
-      {:clarify, clarification} -> {:ok, overflow_response(clarification)}
-      :single -> run_agent_turn(input_signal, request)
+      {:fanout, %FanoutPlan{} = plan} ->
+        frame_fanout_or_fallback(input_signal, request, plan, nil)
+
+      {:clarify, clarification} ->
+        {:ok, overflow_response(clarification)}
+
+      {:agent, mode} ->
+        run_managed_agent_turn(input_signal, request, mode)
+
+      :single ->
+        run_agent_turn(input_signal, request)
     end
   end
 
@@ -842,6 +855,12 @@ defmodule AllbertAssist.Runtime do
        do: :single
 
   defp fanout_proposal(request) do
+    if fanout_eligible_turn?(request),
+      do: fanout_proposal_for_eligible_turn(request),
+      else: :single
+  end
+
+  defp fanout_proposal_for_eligible_turn(request) do
     with {:ok, true} <- Settings.get("objectives.fanout.enabled"),
          {:ok, rollout} when rollout in ["explicit", "shadow", "automatic"] <-
            Settings.get("objectives.fanout.rollout_mode"),
@@ -854,17 +873,92 @@ defmodule AllbertAssist.Runtime do
           timeout_ms: min(request.timeout_ms, 4_000)
         })
 
-      apply_rollout(proposal, rollout, request)
+      apply_rollout(proposal, rollout, request, max_children)
     else
       _other -> :single
     end
   end
 
-  defp apply_rollout(_proposal, "shadow", _request), do: :single
-  defp apply_rollout(proposal, "automatic", _request), do: proposal
+  defp apply_rollout({:fanout, tasks}, rollout, request, max_children) do
+    if rollout == "shadow" or (rollout == "explicit" and not explicit_fanout?(request)) do
+      {:agent, if(rollout == "shadow", do: :off, else: manager_mode(rollout, request))}
+    else
+      case FanoutPlan.compile_counted(request.text, tasks, max_children: max_children) do
+        {:ok, plan} -> {:fanout, plan}
+        {:error, _reason} -> :single
+      end
+    end
+  end
 
-  defp apply_rollout(proposal, "explicit", request) do
-    if explicit_fanout?(request), do: proposal, else: :single
+  defp apply_rollout({:clarify, _clarification} = proposal, "automatic", _request, _max),
+    do: proposal
+
+  defp apply_rollout({:clarify, _clarification} = proposal, "explicit", request, _max) do
+    if explicit_fanout?(request), do: proposal, else: {:agent, :off}
+  end
+
+  defp apply_rollout({:clarify, _clarification}, "shadow", _request, _max),
+    do: {:agent, :off}
+
+  defp apply_rollout({:invalid_counted, _reason}, _rollout, _request, _max), do: :single
+
+  defp apply_rollout(:single, rollout, request, _max),
+    do: {:agent, manager_mode(rollout, request)}
+
+  defp manager_mode("automatic", _request), do: :automatic
+  defp manager_mode("shadow", _request), do: :shadow
+
+  defp manager_mode("explicit", request) do
+    if explicit_fanout?(request), do: :automatic, else: :off
+  end
+
+  defp fanout_eligible_turn?(request) do
+    text = String.trim(request.text)
+    text != "" and not String.starts_with?(text, "/") and not active_fanout?(request)
+  end
+
+  defp run_managed_agent_turn(input_signal, request, mode) do
+    request = %{request | fanout_manager_mode: mode}
+
+    case run_agent_turn(input_signal, request) do
+      {:ok, %{parallel_work_plan: %FanoutPlan{} = plan} = response} when mode == :automatic ->
+        case revalidate_manager_plan(plan, request) do
+          {:ok, validated_plan} ->
+            frame_fanout_or_fallback(input_signal, request, validated_plan, response)
+
+          {:error, _reason} ->
+            {:ok, strip_fanout_control(response)}
+        end
+
+      {:ok, %{parallel_work_clarification: clarification}} when mode == :automatic ->
+        {:ok, overflow_response(clarification)}
+
+      {:ok, response} when is_map(response) ->
+        {:ok, strip_fanout_control(response)}
+
+      other ->
+        other
+    end
+  end
+
+  defp revalidate_manager_plan(%FanoutPlan{} = plan, request) do
+    max_children =
+      case Settings.get("objectives.fanout.max_children_per_fanout") do
+        {:ok, value} when is_integer(value) -> value
+        _other -> 8
+      end
+
+    expected_digest = :crypto.hash(:sha256, request.text) |> Base.encode16(case: :lower)
+
+    with true <- plan.original_request == request.text,
+         true <- plan.original_request_sha256 == expected_digest do
+      FanoutPlan.compile(request.text, plan.children,
+        source: :model,
+        max_children: max_children
+      )
+    else
+      false -> {:error, :plan_request_binding_mismatch}
+    end
   end
 
   defp explicit_fanout?(request) do
@@ -873,12 +967,7 @@ defmodule AllbertAssist.Runtime do
   end
 
   defp active_fanout?(request) do
-    request.user_id
-    |> Objectives.list_objectives()
-    |> Enum.any?(fn objective ->
-      objective.fanout_role == "parent" and objective.source_thread_id == request.thread_id and
-        Fanout.parent_projection(objective).phase in [:awaiting_kickoff, :running]
-    end)
+    match?({:ok, _parent}, Fanout.active_parent(request.user_id, request.thread_id))
   end
 
   defp steering_turn?(request) do
@@ -889,24 +978,140 @@ defmodule AllbertAssist.Runtime do
       )
   end
 
-  defp frame_fanout_response(request, tasks) do
-    attrs = %{
-      user_id: request.user_id,
-      title: String.slice(request.text, 0, 160),
-      objective: request.text,
-      source_channel: to_string(request.channel),
-      source_surface: source_surface(request.channel),
-      source_thread_id: request.thread_id,
-      session_id: request.session_id,
-      active_app: optional_to_string(request.active_app),
-      origin_receiver_account_ref: origin_field(request, :receiver_account_ref),
-      origin_thread_ref_id: origin_field(request, :id),
-      origin_thread_ref_digest: origin_ref_digest(request.channel_thread_ref)
+  defp frame_fanout_or_fallback(input_signal, request, plan, fallback_response) do
+    case frame_fanout_response(request, plan, fallback_response) do
+      {:ok, _response} = success ->
+        success
+
+      {:error, reason} ->
+        fanout_frame_fallback(input_signal, request, fallback_response, reason)
+    end
+  end
+
+  defp frame_fanout_response(request, %FanoutPlan{} = plan, manager_response) do
+    manager_diagnostic = manager_diagnostic(manager_response)
+
+    with {:ok, budget} <- plan_budget(plan, manager_diagnostic),
+         {:ok, deadline_unix_ms} <- plan_deadline(budget, manager_diagnostic) do
+      provenance = plan_provenance(plan, budget, deadline_unix_ms, manager_diagnostic)
+
+      attrs = %{
+        user_id: request.user_id,
+        title: String.slice(request.text, 0, 160),
+        objective: request.text,
+        proposer_hint: %{"fanout_plan" => provenance},
+        source_channel: to_string(request.channel),
+        source_surface: source_surface(request.channel),
+        source_thread_id: request.thread_id,
+        session_id: request.session_id,
+        active_app: optional_to_string(request.active_app),
+        origin_receiver_account_ref: origin_field(request, :receiver_account_ref),
+        origin_thread_ref_id: origin_field(request, :id),
+        origin_thread_ref_digest: origin_ref_digest(request.channel_thread_ref)
+      }
+
+      with {:ok, framed} <- fanout_framer().(attrs, FanoutPlan.child_attrs(plan)) do
+        {:ok, kickoff_response(framed)}
+      end
+    end
+  end
+
+  defp fanout_frame_fallback(input_signal, request, nil, reason) do
+    request = %{request | fanout_manager_mode: :off}
+
+    case run_agent_turn(input_signal, request) do
+      {:ok, response} -> {:ok, add_fanout_diagnostic(response, reason)}
+      other -> other
+    end
+  end
+
+  defp fanout_frame_fallback(_input_signal, _request, response, reason) do
+    {:ok,
+     response
+     |> strip_fanout_control()
+     |> add_fanout_diagnostic(reason)}
+  end
+
+  defp add_fanout_diagnostic(response, reason) do
+    diagnostic = %{
+      source: :fanout_admission,
+      outcome: :single_turn_fallback,
+      reason: Redactor.redact(fanout_failure_kind(reason))
     }
 
-    with {:ok, framed} <- Fanout.frame(attrs, tasks) do
-      {:ok, kickoff_response(framed)}
+    Map.update(response, :diagnostics, [diagnostic], &[diagnostic | &1])
+  end
+
+  defp fanout_failure_kind({:fanout_already_active, _parent}), do: :fanout_already_active
+  defp fanout_failure_kind({:fanout_budget_exhausted, details}), do: details
+
+  defp fanout_failure_kind({:fanout_budget_setting_unavailable, key, _reason}),
+    do: {key, :unavailable}
+
+  defp fanout_failure_kind(reason) when is_atom(reason), do: reason
+  defp fanout_failure_kind(_reason), do: :fanout_frame_failed
+
+  defp strip_fanout_control(response) do
+    response
+    |> Map.delete(:parallel_work_plan)
+    |> Map.delete(:parallel_work_clarification)
+  end
+
+  defp manager_diagnostic(%{fanout_manager: %{} = diagnostic}), do: diagnostic
+  defp manager_diagnostic(_response), do: %{}
+
+  defp plan_budget(%FanoutPlan{source: :model, children: children}, diagnostic) do
+    attempts = map_integer(diagnostic, :attempts, 1)
+
+    case map_value(diagnostic, :budget_limits) do
+      %{} = limits -> FanoutBudget.resolve(length(children), attempts, limits)
+      _missing -> FanoutBudget.resolve(length(children), attempts)
     end
+  end
+
+  defp plan_budget(%FanoutPlan{source: :exact_counted, children: children}, _diagnostic),
+    do: FanoutBudget.resolve(length(children), 0)
+
+  defp plan_deadline(budget, diagnostic) do
+    deadline = map_value(diagnostic, :plan_deadline_unix_ms)
+
+    cond do
+      is_integer(deadline) and deadline > System.system_time(:millisecond) ->
+        {:ok, deadline}
+
+      map_integer(diagnostic, :attempts, 0) > 0 ->
+        {:error, :fanout_plan_deadline_exhausted}
+
+      true ->
+        {:ok, System.system_time(:millisecond) + budget["max_elapsed_ms"]}
+    end
+  end
+
+  defp plan_provenance(plan, budget, deadline_unix_ms, diagnostic) do
+    FanoutPlan.provenance(plan)
+    |> Map.put("budget", budget)
+    |> Map.put("deadline_unix_ms", deadline_unix_ms)
+    |> maybe_put_string("manager_profile", map_value(diagnostic, :model_profile))
+    |> maybe_put_string("manager_profile_sha256", map_value(diagnostic, :model_profile_sha256))
+    |> Map.put("manager_attempts", map_integer(diagnostic, :attempts, 0))
+  end
+
+  defp maybe_put_string(map, _key, value) when not is_binary(value), do: map
+  defp maybe_put_string(map, key, value), do: Map.put(map, key, value)
+
+  defp map_integer(map, key, default) do
+    case map_value(map, key) do
+      value when is_integer(value) -> value
+      _missing -> default
+    end
+  end
+
+  defp map_value(map, key) when is_map(map), do: Map.get(map, key) || Map.get(map, to_string(key))
+
+  defp fanout_framer do
+    :allbert_assist
+    |> Application.get_env(__MODULE__, [])
+    |> Keyword.get(:fanout_framer, &Fanout.frame_if_inactive/2)
   end
 
   defp kickoff_response(%{parent: parent, children: children, fanout_start_receipt: receipt}) do
@@ -1106,6 +1311,7 @@ defmodule AllbertAssist.Runtime do
     |> maybe_put(:coding_session_context, Map.get(agent_response, :coding_session_context))
     |> maybe_put(:fanout, Map.get(agent_response, :fanout))
     |> maybe_put(:fanout_start_receipt, Map.get(agent_response, :fanout_start_receipt))
+    |> maybe_put(:decomposition_overflow, Map.get(agent_response, :decomposition_overflow))
     |> maybe_put(:search_page, Map.get(agent_response, :search_page))
     |> maybe_put(:search_disclosure, Map.get(agent_response, :search_disclosure))
     |> maybe_put(:confirmation_id, Map.get(agent_response, :confirmation_id))

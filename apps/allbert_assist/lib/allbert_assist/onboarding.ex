@@ -595,7 +595,7 @@ defmodule AllbertAssist.Onboarding do
   end
 
   @doc "Project DirectAnswer task readiness without changing wizard substrate completion."
-  @spec direct_answer_readiness(keyword()) :: readiness()
+  @spec direct_answer_readiness(keyword()) :: Presentation.readiness()
   def direct_answer_readiness(opts \\ []) do
     probe = Keyword.get_lazy(opts, :first_model_state, &safe_first_model_state/0)
 

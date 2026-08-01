@@ -116,6 +116,21 @@ defmodule AllbertAssist.Actions.Intent.ReqLLMAnswererTest do
     assert opts[:temperature] == 0.0
   end
 
+  test "Objective worker context caps one provider call inside the frozen plan budget" do
+    assert {:ok, _result} =
+             ReqLLMAnswerer.answer("bounded worker answer", %{
+               model_profile: profile(),
+               active_memory: [],
+               image_inputs: [],
+               model_max_output_tokens: 512,
+               model_timeout_ms: 2_000
+             })
+
+    assert_receive {:req_llm_generate_text, _spec, _prompt, opts}
+    assert opts[:max_tokens] == 512
+    assert opts[:receive_timeout] == 2_000
+  end
+
   test "operator prompt truncation remains valid UTF-8 and inside the byte ceiling" do
     assert {:ok, prompt} =
              ReqLLMAnswerer.prompt_input(String.duplicate("🫡", 2_000), %{

@@ -20,6 +20,8 @@ defmodule AllbertAssist.Objectives.ObjectiveTest do
 
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.AcceptanceCriteria
+  alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Repo
 
@@ -133,6 +135,97 @@ defmodule AllbertAssist.Objectives.ObjectiveTest do
   test "public facade requires explicit user identity when framing" do
     assert {:error, :missing_user_id} =
              Objectives.frame(%{title: "No user", objective: "Do not silently default."}, %{})
+  end
+
+  test "objective preserves the canonical fanout request through 4,000 graphemes" do
+    base = %{
+      id: Objectives.new_id("obj"),
+      user_id: "alice",
+      title: "Bounded request",
+      objective: String.duplicate("x", 4_000)
+    }
+
+    assert Objective.changeset(%Objective{}, base).valid?
+
+    refute Objective.changeset(%Objective{}, %{base | objective: base.objective <> "x"}).valid?
+  end
+
+  test "generic active-child updates cannot rewrite inherited fanout structure or identity" do
+    parent_attrs = %{
+      user_id: unique_user("immutable_child"),
+      source_thread_id: "thread-original",
+      source_channel: "tui",
+      source_surface: "operator",
+      session_id: "session-original",
+      active_app: "allbert",
+      source_intent: "Compare both tasks.",
+      origin_thread_ref_id: "origin-thread",
+      origin_thread_ref_digest: "origin-digest",
+      origin_receiver_account_ref: "receiver-ref",
+      title: "Immutable fanout",
+      objective: "Compare both tasks."
+    }
+
+    tasks = [
+      %{
+        title: "First task",
+        objective: "Complete the first task.",
+        acceptance_criteria: AcceptanceCriteria.encode!(%{"summary" => "First result."}),
+        constraints: Jason.encode!(%{"scope" => "first"}),
+        proposer_hint: %{"fanout_child" => %{"version" => 1}}
+      },
+      %{title: "Second task", objective: "Complete the second task."}
+    ]
+
+    assert {:ok, %{children: [child, _sibling]}} = Fanout.frame(parent_attrs, tasks)
+
+    protected_updates = %{
+      user_id: "other-user",
+      source_thread_id: "other-thread",
+      source_channel: "web",
+      source_surface: "other-surface",
+      session_id: "other-session",
+      active_app: "other-app",
+      title: "Changed title",
+      objective: "Changed objective",
+      acceptance_criteria: AcceptanceCriteria.encode!(%{"summary" => "Changed result."}),
+      constraints: Jason.encode!(%{"scope" => "changed"}),
+      proposer_hint: %{"fanout_child" => %{"version" => 2}},
+      source_intent: "Changed source intent",
+      fanout_role: "parent",
+      parent_objective_id: Objectives.new_id("fanout"),
+      join_policy: "all_terminal",
+      join_outcome: "success",
+      kickoff_delivery_state: "acknowledged",
+      fanout_start_receipt_digest: "changed-start-receipt",
+      report_delivery_state: "pending",
+      report_delivery_receipt_digest: "changed-report-receipt",
+      origin_thread_ref_id: "changed-origin-thread",
+      origin_thread_ref_digest: "changed-origin-digest",
+      origin_receiver_account_ref: "changed-receiver",
+      queue_position: 1,
+      completed_at: DateTime.utc_now(),
+      run_attempt_count: 1
+    }
+
+    Enum.each(protected_updates, fn {field, value} ->
+      assert {:error, :fanout_structure_immutable} =
+               Objectives.update_objective(child, %{field => value})
+
+      assert {:ok, unchanged} = Objectives.get_objective(child.id)
+      assert Map.fetch!(unchanged, field) == Map.fetch!(child, field)
+    end)
+
+    assert {:ok, transitioned} =
+             TerminalTransitions.transition_active_child(
+               child,
+               %{status: "running", proposer_hint: %{"fanout_child" => %{"version" => 99}}},
+               "run_progress",
+               %{operation: "immutability_test"}
+             )
+
+    assert transitioned.status == "running"
+    assert transitioned.proposer_hint == child.proposer_hint
   end
 
   # ADR 0086 contract-1 ownership proof (v1.0.3 M1, release.v103

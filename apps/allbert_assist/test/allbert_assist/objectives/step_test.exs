@@ -78,4 +78,40 @@ defmodule AllbertAssist.Objectives.StepTest do
     assert completed.status == "completed"
     assert completed.result_summary == "completed"
   end
+
+  test "a confirmation resume binding is valid SHA-256 and write-once", %{objective: objective} do
+    digest = String.duplicate("a", 64)
+
+    assert {:ok, step} =
+             Objectives.create_step(%{
+               objective_id: objective.id,
+               kind: "action",
+               stage: "authorize_step",
+               confirmation_resume_params_sha256: digest
+             })
+
+    assert {:ok, unchanged} =
+             Objectives.update_step(step, %{confirmation_resume_params_sha256: digest})
+
+    assert unchanged.confirmation_resume_params_sha256 == digest
+
+    assert {:error, replacement} =
+             Objectives.update_step(step, %{
+               confirmation_resume_params_sha256: String.duplicate("b", 64)
+             })
+
+    assert %{confirmation_resume_params_sha256: [_]} = errors_on(replacement)
+
+    invalid =
+      Step.changeset(%Step{}, %{
+        id: Objectives.new_id("step"),
+        objective_id: objective.id,
+        kind: "action",
+        stage: "authorize_step",
+        confirmation_resume_params_sha256: "not-a-digest"
+      })
+
+    refute invalid.valid?
+    assert %{confirmation_resume_params_sha256: [_]} = errors_on(invalid)
+  end
 end

@@ -5,7 +5,7 @@ defmodule AllbertAssist.Models.CorePromptBoundariesTest do
   alias AllbertAssist.Actions.Channels.SendChannelMessage
   alias AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer
   alias AllbertAssist.Intent.Classifier.DefaultClassifier
-  alias AllbertAssist.Intent.Decomposer.ReqLLMProposer
+  alias AllbertAssist.Intent.FanoutManager.ReqLLMImplementation, as: FanoutManagerLLM
   alias AllbertAssist.Intent.Router.Disambiguator.ReqLLMDisambiguator
   alias AllbertAssist.Intent.Router.Optimizer
 
@@ -20,7 +20,7 @@ defmodule AllbertAssist.Models.CorePromptBoundariesTest do
         [%{id: "classifier-candidate-sentinel", kind: :action}],
         %{text: "classifier-operator-sentinel", active_app: nil}
       ),
-      ReqLLMProposer.prompt_context("decomposer-operator-sentinel"),
+      FanoutManagerLLM.prompt_context("manager-operator-sentinel", %{}),
       ReqLLMDisambiguator.prompt_context(
         "router-operator-sentinel",
         [%{action_name: "router-candidate-sentinel", label: "Candidate"}],

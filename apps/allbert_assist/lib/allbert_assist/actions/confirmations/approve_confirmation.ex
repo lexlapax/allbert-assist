@@ -172,7 +172,12 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   end
 
   defp resolve_after_recheck(record, reason, context, permission_decision, target_decision) do
-    case Objectives.fanout_confirmation_target(record) do
+    target_opts =
+      if target_decision.decision == :denied,
+        do: [verify_resume_binding?: false],
+        else: []
+
+    case Objectives.fanout_confirmation_target(record, target_opts) do
       {:ok, target} ->
         resolve_fanout_after_recheck(
           record,
@@ -328,7 +333,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
        do: :ok
 
   defp maybe_wake_fanout(%{} = confirmation) do
-    case Objectives.fanout_confirmation_target(confirmation) do
+    case Objectives.fanout_confirmation_target(confirmation, verify_resume_binding?: false) do
       {:ok, %{parent_id: parent_id}} -> Scheduler.wake_parent(parent_id)
       _other -> :ok
     end

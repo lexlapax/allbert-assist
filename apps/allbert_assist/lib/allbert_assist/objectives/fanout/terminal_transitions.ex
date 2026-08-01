@@ -21,7 +21,7 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
   @terminal ~w[completed cancelled failed abandoned]
   @active_fields ~w[
     status title objective progress_summary last_observation_summary review_reason
-    current_step_id run_attempt_count proposer_hint loop_count
+    current_step_id run_attempt_count loop_count
   ]a
   @terminal_fields ~w[status progress_summary last_observation_summary review_reason completed_at]a
 

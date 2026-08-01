@@ -65,7 +65,9 @@ defmodule AllbertAssist.Intent.Engine do
     # the former ranked_candidates/2 re-rank+re-bound was a measured hot-path
     # no-op (M1 made the ranking boosts idempotent).
     candidates = collect_candidates(request, registry)
-    {classifier_candidate, classifier_diagnostic} = classifier_candidate(candidates, request)
+
+    {classifier_candidate, classifier_diagnostic} =
+      classifier_candidate(candidates, request, opts)
 
     attrs =
       descriptor_decision_attrs(
@@ -467,8 +469,8 @@ defmodule AllbertAssist.Intent.Engine do
     end)
   end
 
-  defp classifier_candidate(candidates, request) do
-    if classifier_allowed?(request) do
+  defp classifier_candidate(candidates, request, opts) do
+    if classifier_allowed?(request, opts) do
       case Classifier.classify(candidates, request) do
         {:ok, %{candidate: candidate, diagnostic: diagnostic}} -> {candidate, diagnostic}
         {:error, %{status: :disabled}} -> {nil, nil}
@@ -1624,8 +1626,9 @@ defmodule AllbertAssist.Intent.Engine do
     |> field(:explicit?, false)
   end
 
-  defp classifier_allowed?(request) do
-    route_hint_direct_answer?(request) and Router.strategy() != :two_stage_local
+  defp classifier_allowed?(request, opts) do
+    Keyword.get(opts, :model_assist, true) != false and route_hint_direct_answer?(request) and
+      Router.strategy() != :two_stage_local
   end
 
   defp rejected_candidates(candidates, selected) do

@@ -14,8 +14,10 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
   alias AllbertAssist.Database.TransientError
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Fanout.Budget
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Runs.{RunServer, Scheduler, Supervisor}
+  alias AllbertAssist.Objectives.Runs.Worker.Grounding
   alias AllbertAssist.Objectives.Steering
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Signals
@@ -25,6 +27,7 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
   @max_join_retry_delay_ms 5_000
   @run_start_retry_delay_ms 50
   @max_run_start_retry_delay_ms 5_000
+  @legacy_worker_attempt_limit 2
 
   def child_spec(opts) do
     parent_id = Keyword.fetch!(opts, :parent_id)
@@ -315,8 +318,10 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
   end
 
   defp recover_unheld_missing_run(child, reason, state, opts) do
+    max_attempts = worker_attempt_limit(child)
+
     case {Objectives.Lifecycle.retry_safety(child.id), child.run_attempt_count} do
-      {:safe, attempts} when attempts <= 1 ->
+      {:safe, attempts} when is_integer(attempts) and attempts < max_attempts ->
         maybe_start_safe_recovery(child, state, opts)
 
       {:safe, _attempts} ->
@@ -328,6 +333,26 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
         child
         |> persist_recovery_intent(:park_uncertain, reason, state)
         |> settle_recovery_transition(child, reason, :park_uncertain, state)
+    end
+  end
+
+  defp worker_attempt_limit(child) do
+    case Grounding.resolve(child) do
+      %{
+        fanout_budget: %{"worker_attempts_per_child" => attempts} = budget,
+        fanout_deadline_unix_ms: deadline
+      }
+      when is_integer(attempts) and attempts in 1..4 and is_integer(deadline) ->
+        case Budget.authorize_worker(budget, 1, deadline) do
+          :ok -> attempts
+          {:error, _invalid_or_expired} -> 0
+        end
+
+      %{source: source} when source in [:ordinary, :legacy_ordinary] ->
+        @legacy_worker_attempt_limit
+
+      _current_invalid ->
+        0
     end
   end
 

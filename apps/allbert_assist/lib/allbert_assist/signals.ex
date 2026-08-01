@@ -393,7 +393,7 @@ defmodule AllbertAssist.Signals do
   defp bound_objective_payload(metadata) do
     metadata
     |> bound_string(:title, 200)
-    |> bound_string(:objective, 2_000)
+    |> bound_string(:objective, 4_000)
     |> bound_string(:acceptance_criteria, 2_000)
     |> bound_string(:observation_summary, 2_000)
     |> bound_string(:result_summary, 2_000)

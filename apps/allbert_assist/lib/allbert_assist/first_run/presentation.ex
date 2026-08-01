@@ -14,8 +14,17 @@ defmodule AllbertAssist.FirstRun.Presentation do
   @type readiness ::
           :ready | :needs_model | :needs_runtime | :needs_review | :needs_selection
 
+  @type model_state ::
+          :local_ready
+          | :runtime_missing
+          | :runtime_unhealthy
+          | :model_missing
+          | :below_hardware_floor
+          | :byok_ready
+
   @doc "Project DirectAnswer availability separately from first-model substrate readiness."
-  @spec readiness(%{required(:state) => state(), required(:model_state) => atom()}) :: readiness()
+  @spec readiness(%{required(:state) => state(), required(:model_state) => model_state()}) ::
+          readiness()
   def readiness(%{state: :auto_enabled}), do: :ready
   def readiness(%{state: :enabled_unavailable}), do: :needs_selection
   def readiness(%{state: :needs_model, model_state: :runtime_unhealthy}), do: :needs_runtime
@@ -28,7 +37,7 @@ defmodule AllbertAssist.FirstRun.Presentation do
     do: unavailable_readiness(model_state)
 
   @doc "Project the legacy six-state substrate without interpreting DirectAnswer availability."
-  @spec substrate(atom()) :: :ready | :needs_model | :needs_runtime | :needs_review
+  @spec substrate(model_state()) :: :ready | :needs_model | :needs_runtime | :needs_review
   def substrate(:local_ready), do: :ready
   def substrate(:byok_ready), do: :ready
   def substrate(:runtime_missing), do: :needs_runtime
@@ -41,8 +50,10 @@ defmodule AllbertAssist.FirstRun.Presentation do
 
   defp unavailable_readiness(model_state), do: substrate(model_state)
 
-  @spec for(%{required(:state) => state(), required(:model_state) => atom()}, :web | :tui | :cli) ::
-          %{message: String.t(), primary_ctas: [atom()]}
+  @spec for(
+          %{required(:state) => state(), required(:model_state) => model_state()},
+          :web | :tui | :cli
+        ) :: %{message: String.t(), readiness: readiness(), primary_ctas: [atom()]}
   def unquote(:for)(%{state: state, model_state: model_state} = result, surface)
       when surface in @surfaces do
     cta = primary_cta(state, model_state)

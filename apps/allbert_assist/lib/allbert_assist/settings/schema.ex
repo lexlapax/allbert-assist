@@ -35,6 +35,10 @@ defmodule AllbertAssist.Settings.Schema do
     "objectives.fanout.max_concurrent_runs_per_fanout",
     "objectives.fanout.max_concurrent_runs_global",
     "objectives.fanout.max_children_per_fanout",
+    "objectives.fanout.max_model_calls_per_plan",
+    "objectives.fanout.max_output_tokens_per_plan",
+    "objectives.fanout.max_elapsed_ms_per_plan",
+    "objectives.fanout.max_worker_attempts_per_child",
     "objectives.fanout.confirm_before_start",
     "execution.cancel.grace_ms",
     "conversations.unified_history.include_e2ee_origin",
@@ -617,6 +621,38 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       min: 2,
       max: 16
+    },
+    "objectives.fanout.max_model_calls_per_plan" => %{
+      type: :bounded_integer,
+      default: 40,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 256
+    },
+    "objectives.fanout.max_output_tokens_per_plan" => %{
+      type: :bounded_integer,
+      default: 24_000,
+      writable?: true,
+      sensitive?: false,
+      min: 1_024,
+      max: 1_000_000
+    },
+    "objectives.fanout.max_elapsed_ms_per_plan" => %{
+      type: :bounded_integer,
+      default: 300_000,
+      writable?: true,
+      sensitive?: false,
+      min: 1_000,
+      max: 3_600_000
+    },
+    "objectives.fanout.max_worker_attempts_per_child" => %{
+      type: :bounded_integer,
+      default: 2,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 4
     },
     "objectives.fanout.confirm_before_start" => %{
       type: :boolean,
@@ -3682,6 +3718,10 @@ defmodule AllbertAssist.Settings.Schema do
         "max_concurrent_runs_per_fanout" => 3,
         "max_concurrent_runs_global" => 6,
         "max_children_per_fanout" => 8,
+        "max_model_calls_per_plan" => 40,
+        "max_output_tokens_per_plan" => 24_000,
+        "max_elapsed_ms_per_plan" => 300_000,
+        "max_worker_attempts_per_child" => 2,
         "confirm_before_start" => false
       }
     },

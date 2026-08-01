@@ -77,6 +77,21 @@ defmodule AllbertAssist.Intent.ClassifierTest do
     assert decision.selected_action == "direct_answer"
   end
 
+  test "an explicit model-off decision never invokes the enabled classifier" do
+    Application.put_env(:allbert_assist, Classifier, classifier: RaisingClassifier)
+    Application.put_env(:allbert_assist, :intent_router_strategy_override, :deterministic)
+
+    assert {:ok, _setting} = Settings.put("intent.model_assist_enabled", true, %{audit?: false})
+
+    assert {:ok, decision} =
+             Engine.decide(EvalFixtures.request(text: "Remember Project Juniper"),
+               model_assist: false
+             )
+
+    refute Map.has_key?(decision.trace_metadata, :classifier)
+    assert decision.selected_action == "append_memory"
+  end
+
   test "Engine rejects unsupported legacy classifier action proposals" do
     Application.put_env(:allbert_assist, :intent_router_strategy_override, :deterministic)
     enable_fake_classifier!()

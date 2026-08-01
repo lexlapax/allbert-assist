@@ -28,6 +28,7 @@ defmodule AllbertAssist.Objectives.Step do
     field :observation_summary, :string
     field :trace_id, :string
     field :confirmation_id, :string
+    field :confirmation_resume_params_sha256, :string
     field :resource_access, :string
 
     timestamps(type: :utc_datetime_usec)
@@ -53,6 +54,7 @@ defmodule AllbertAssist.Objectives.Step do
       :observation_summary,
       :trace_id,
       :confirmation_id,
+      :confirmation_resume_params_sha256,
       :resource_access
     ])
     |> validate_required([:id, :objective_id, :kind, :status, :stage])
@@ -70,10 +72,28 @@ defmodule AllbertAssist.Objectives.Step do
     |> validate_length(:observation_summary, max: 2_000)
     |> validate_length(:trace_id, max: 128)
     |> validate_length(:confirmation_id, max: 128)
+    |> validate_format(:confirmation_resume_params_sha256, ~r/\A[0-9a-f]{64}\z/)
+    |> validate_immutable_confirmation_resume_binding()
     |> validate_length(:resource_access, max: 4_000)
     |> foreign_key_constraint(:objective_id)
   end
 
   def kinds, do: @kinds
   def statuses, do: @statuses
+
+  defp validate_immutable_confirmation_resume_binding(changeset) do
+    current = changeset.data.confirmation_resume_params_sha256
+
+    case fetch_change(changeset, :confirmation_resume_params_sha256) do
+      {:ok, replacement} when is_binary(current) and replacement != current ->
+        add_error(
+          changeset,
+          :confirmation_resume_params_sha256,
+          "cannot replace a durable confirmation resume binding"
+        )
+
+      _unchanged_or_first_binding ->
+        changeset
+    end
+  end
 end

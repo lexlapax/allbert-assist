@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
 
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.FirstRun.Disclosure
+  alias AllbertAssist.Intent.FanoutPlan
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Projection
   alias AllbertAssist.Models.FallbackAudit
@@ -57,6 +58,17 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     end
   end
 
+  defmodule ScriptedFanoutManager do
+    def respond(text, context) do
+      send(context.test_pid, {:fanout_manager_called, text, context})
+      Process.get({__MODULE__, :response}, {:error, :missing_script})
+    end
+  end
+
+  defmodule UnexpectedAnswerer do
+    def answer(_text, _context), do: raise("ordinary answerer should not be called")
+  end
+
   setup do
     original_home = System.get_env("ALLBERT_HOME")
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -79,6 +91,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
       Projection.start_link(root: Paths.memory_projection_root(), name: nil)
 
     on_exit(fn ->
+      Process.delete({ScriptedFanoutManager, :response})
       if Process.alive?(projection), do: GenServer.stop(projection)
       restore_home(original_home)
       restore_env(Paths, original_paths_config)
@@ -138,6 +151,156 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     assert response.direct_answer.model == "qwen2.5:7b"
     assert response.direct_answer.model_resolution.capability == "text_generation"
     refute inspect(response.direct_answer) =~ "What is Allbert?"
+  end
+
+  test "automatic clean DirectAnswer uses one manager call for an ordinary answer" do
+    Application.put_env(:allbert_assist, DirectAnswer,
+      answerer: UnexpectedAnswerer,
+      fanout_manager: ScriptedFanoutManager
+    )
+
+    Process.put(
+      {ScriptedFanoutManager, :response},
+      {:ok,
+       %{
+         kind: :answer,
+         message: "A useful one-turn answer.",
+         diagnostic: %{outcome: :answered, attempts: 1}
+       }}
+    )
+
+    assert {:ok, _setting} =
+             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+
+    assert {:ok, response} =
+             DirectAnswer.run(%{text: "Explain the supplied item."}, %{
+               actor: "alice",
+               test_pid: self(),
+               request: %{fanout_manager_mode: :automatic, timeout_ms: 1_234}
+             })
+
+    assert response.message == "A useful one-turn answer."
+    assert response.direct_answer.source == :model
+    assert response.direct_answer.diagnostic.manager.outcome == :answered
+    refute Map.has_key?(response, :parallel_work_plan)
+
+    assert_received {:fanout_manager_called, "Explain the supplied item.", context}
+    assert context.model_profile.name == "direct_answer_local"
+    assert context.active_memory == []
+    assert context.timeout_ms == 1_234
+  end
+
+  test "manager overflow returns inert clarification data to the central Runtime" do
+    Application.put_env(:allbert_assist, DirectAnswer,
+      answerer: UnexpectedAnswerer,
+      fanout_manager: ScriptedFanoutManager
+    )
+
+    clarification = %{
+      task_count: 3,
+      max_children: 2,
+      tasks: ["Research one", "Research two", "Research three"]
+    }
+
+    Process.put(
+      {ScriptedFanoutManager, :response},
+      {:ok,
+       %{
+         kind: :clarify,
+         fallback_answer: "I found three separate tasks.",
+         clarification: clarification,
+         diagnostic: %{outcome: :overflow, attempts: 1}
+       }}
+    )
+
+    assert {:ok, _setting} =
+             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+
+    assert {:ok, response} =
+             DirectAnswer.run(%{text: "Research these independent items."}, %{
+               actor: "alice",
+               test_pid: self(),
+               request: %{fanout_manager_mode: :automatic}
+             })
+
+    assert response.message == "I found three separate tasks."
+    assert response.parallel_work_clarification == clarification
+    assert response.fanout_manager.outcome == :overflow
+    refute Map.has_key?(response, :parallel_work_plan)
+  end
+
+  test "automatic clean DirectAnswer returns only a compiled inert plan to Runtime" do
+    Application.put_env(:allbert_assist, DirectAnswer,
+      answerer: UnexpectedAnswerer,
+      fanout_manager: ScriptedFanoutManager
+    )
+
+    text = "Research Juniper and Cedar independently and compare the findings."
+
+    assert {:ok, plan} =
+             FanoutPlan.compile(text, [
+               %{
+                 title: "Research Juniper",
+                 objective: "Research Juniper independently.",
+                 expected_result: "A Juniper summary."
+               },
+               %{
+                 title: "Research Cedar",
+                 objective: "Research Cedar independently.",
+                 expected_result: "A Cedar summary."
+               }
+             ])
+
+    Process.put(
+      {ScriptedFanoutManager, :response},
+      {:ok,
+       %{
+         kind: :fanout,
+         fallback_answer: "I can compare those projects in one turn.",
+         plan: plan,
+         diagnostic: %{outcome: :planned, attempts: 1}
+       }}
+    )
+
+    assert {:ok, _setting} =
+             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+
+    assert {:ok, response} =
+             DirectAnswer.run(%{text: text}, %{
+               actor: "alice",
+               test_pid: self(),
+               request: %{fanout_manager_mode: :automatic}
+             })
+
+    assert response.message == "I can compare those projects in one turn."
+    assert response.parallel_work_plan == plan
+    assert response.fanout_manager.outcome == :planned
+
+    assert Enum.map(response.parallel_work_plan.children, &Map.keys/1)
+           |> Enum.all?(&(Enum.sort(&1) == ~w[expected_result objective title]))
+  end
+
+  test "manager failure falls closed through the ordinary DirectAnswer implementation" do
+    Application.put_env(:allbert_assist, DirectAnswer,
+      answerer: FakeAnswerer,
+      fanout_manager: ScriptedFanoutManager
+    )
+
+    Process.put({ScriptedFanoutManager, :response}, {:error, :offline})
+
+    assert {:ok, _setting} =
+             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+
+    assert {:ok, response} =
+             DirectAnswer.run(%{text: "What is Allbert?"}, %{
+               actor: "alice",
+               test_pid: self(),
+               request: %{fanout_manager_mode: :automatic}
+             })
+
+    assert response.message == "Model-backed answer for 16 characters."
+    refute Map.has_key?(response, :parallel_work_plan)
+    assert_received {:fanout_manager_called, "What is Allbert?", _context}
   end
 
   test "enabled model path walks the authored direct-answer task chain" do

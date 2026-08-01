@@ -159,6 +159,15 @@ defmodule AllbertAssist.SignalsTest do
              })
 
     assert byte_size(signal.data.observation_summary) <= 2_003
+
+    assert {:ok, request_signal} =
+             Signals.objective_lifecycle(:created, %{
+               objective_id: "obj_request_bound",
+               objective: String.duplicate("x", 4_001)
+             })
+
+    assert String.length(request_signal.data.objective) == 4_003
+    assert String.ends_with?(request_signal.data.objective, "...")
   end
 
   test "registration lifecycle helpers redact and publish through the signal bus" do

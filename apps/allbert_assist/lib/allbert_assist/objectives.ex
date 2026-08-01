@@ -9,6 +9,7 @@ defmodule AllbertAssist.Objectives do
 
   import Ecto.Query
 
+  alias AllbertAssist.Confirmations.ResumeParamsBinding
   alias AllbertAssist.Objectives.{AcceptanceCriteria, Event, Objective, Step}
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Repo
@@ -18,6 +19,18 @@ defmodule AllbertAssist.Objectives do
   @active_statuses ~w[open running blocked]
   @terminal_statuses ~w[completed cancelled failed abandoned]
   @fanout_structural_fields [
+    :user_id,
+    :source_thread_id,
+    :source_channel,
+    :source_surface,
+    :session_id,
+    :active_app,
+    :title,
+    :objective,
+    :acceptance_criteria,
+    :constraints,
+    :proposer_hint,
+    :source_intent,
     :fanout_role,
     :parent_objective_id,
     :join_policy,
@@ -26,6 +39,9 @@ defmodule AllbertAssist.Objectives do
     :fanout_start_receipt_digest,
     :report_delivery_state,
     :report_delivery_receipt_digest,
+    :origin_thread_ref_id,
+    :origin_thread_ref_digest,
+    :origin_receiver_account_ref,
     :queue_position,
     :completed_at,
     :run_attempt_count
@@ -38,6 +54,7 @@ defmodule AllbertAssist.Objectives do
                 "active_app",
                 "candidate_action",
                 "completed_at",
+                "confirmation_resume_params_sha256",
                 "constraints",
                 "current_step_id",
                 "delegate_agent_id",
@@ -545,6 +562,27 @@ defmodule AllbertAssist.Objectives do
              | :ambiguous_confirmation_target
              | term()}
   def fanout_confirmation_target(%{} = confirmation) do
+    fanout_confirmation_target(confirmation, [])
+  end
+
+  def fanout_confirmation_target(confirmation_id)
+      when is_binary(confirmation_id) and confirmation_id != "" do
+    fanout_confirmation_target_by_id(confirmation_id, %{})
+  end
+
+  def fanout_confirmation_target(_missing), do: {:error, :not_fanout_confirmation}
+
+  @doc false
+  @spec fanout_confirmation_target(map(), keyword()) ::
+          {:ok,
+           %{
+             child: Objective.t(),
+             step: Step.t(),
+             parent_id: String.t(),
+             phase: :binding | :bound
+           }}
+          | {:error, term()}
+  def fanout_confirmation_target(%{} = confirmation, opts) when is_list(opts) do
     origin = facade_field(confirmation, :origin) || %{}
     target_action = facade_field(confirmation, :target_action) || %{}
 
@@ -556,16 +594,11 @@ defmodule AllbertAssist.Objectives do
       binding_kind: facade_field(confirmation, :objective_binding_kind),
       parent_objective_id: fanout_parent_marker(confirmation),
       target_action_name: facade_field(target_action, :name),
-      origin_user_id: facade_field(origin, :user_id)
+      origin_user_id: facade_field(origin, :user_id),
+      resume_params_ref: facade_field(confirmation, :resume_params_ref),
+      verify_resume_binding?: Keyword.get(opts, :verify_resume_binding?, true)
     })
   end
-
-  def fanout_confirmation_target(confirmation_id)
-      when is_binary(confirmation_id) and confirmation_id != "" do
-    fanout_confirmation_target_by_id(confirmation_id, %{})
-  end
-
-  def fanout_confirmation_target(_missing), do: {:error, :not_fanout_confirmation}
 
   defp fanout_confirmation_target_by_id(confirmation_id, expectations)
        when is_binary(confirmation_id) and confirmation_id != "" do
@@ -731,6 +764,8 @@ defmodule AllbertAssist.Objectives do
       parent_objective_id: Map.get(binding, :parent_objective_id),
       target_action_name: Map.get(binding, :target_action_name),
       user_id: Map.get(binding, :origin_user_id),
+      resume_params_ref: Map.get(binding, :resume_params_ref),
+      verify_resume_binding?: Map.get(binding, :verify_resume_binding?, false),
       required?: required?
     }
   end
@@ -788,8 +823,31 @@ defmodule AllbertAssist.Objectives do
              child.user_id,
              Map.get(expectations, :user_id),
              Map.get(expectations, :required?, false)
-           ) do
+           ),
+         :ok <- verify_confirmation_resume_binding(step, expectations) do
       :ok
+    end
+  end
+
+  defp verify_confirmation_resume_binding(
+         %Step{},
+         %{verify_resume_binding?: false}
+       ),
+       do: :ok
+
+  defp verify_confirmation_resume_binding(
+         %Step{confirmation_resume_params_sha256: nil},
+         _expectations
+       ),
+       do: :ok
+
+  defp verify_confirmation_resume_binding(
+         %Step{confirmation_resume_params_sha256: expected},
+         expectations
+       ) do
+    case ResumeParamsBinding.verify(expected, Map.get(expectations, :resume_params_ref)) do
+      :ok -> :ok
+      {:error, _reason} -> {:error, :confirmation_resume_params_mismatch}
     end
   end
 

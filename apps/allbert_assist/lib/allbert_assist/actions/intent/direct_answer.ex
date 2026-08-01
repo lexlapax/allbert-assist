@@ -28,6 +28,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   alias AllbertAssist.Coding.Config, as: CodingConfig
   alias AllbertAssist.Coding.StreamingTurn
   alias AllbertAssist.FirstRun.Disclosure
+  alias AllbertAssist.Intent.FanoutManager
   alias AllbertAssist.Maps
   alias AllbertAssist.Memory.ActiveMemory
   alias AllbertAssist.Models.Failure
@@ -108,9 +109,25 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
     with {:ok, resolution} <- Models.for(:direct_answer, context) do
       active_memory = retrieve_active_memory(text, context)
 
-      case call_answerer(text, context, active_memory, resolution) do
+      case call_text_model(text, context, active_memory, resolution) do
         {:ok, response} ->
           model_answer_result(response, resolution, active_memory)
+
+        {:fanout, response, plan, diagnostic} ->
+          response
+          |> model_answer_result(resolution, active_memory)
+          |> put_answer_attrs(%{
+            parallel_work_plan: plan,
+            fanout_manager: diagnostic
+          })
+
+        {:clarify, response, clarification, diagnostic} ->
+          response
+          |> model_answer_result(resolution, active_memory)
+          |> put_answer_attrs(%{
+            parallel_work_clarification: clarification,
+            fanout_manager: diagnostic
+          })
 
         {:error, {:transport_denied, reason}} ->
           fallback({:disclosure_required, reason})
@@ -122,6 +139,83 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
       {:error, reason} -> fallback({:model_unavailable, reason})
     end
   end
+
+  defp call_text_model(text, context, active_memory, resolution) do
+    if fanout_manager_enabled?(context) do
+      case call_fanout_manager(text, context, active_memory, resolution) do
+        {:ok, %{kind: :answer, message: message, diagnostic: diagnostic}} ->
+          {:ok, %{message: message, diagnostic: manager_diagnostic(diagnostic)}}
+
+        {:ok,
+         %{
+           kind: :fanout,
+           fallback_answer: message,
+           plan: plan,
+           diagnostic: diagnostic
+         }} ->
+          {:fanout, %{message: message, diagnostic: manager_diagnostic(diagnostic)}, plan,
+           diagnostic}
+
+        {:ok,
+         %{
+           kind: :clarify,
+           fallback_answer: message,
+           clarification: clarification,
+           diagnostic: diagnostic
+         }} ->
+          {:clarify, %{message: message, diagnostic: manager_diagnostic(diagnostic)},
+           clarification, diagnostic}
+
+        {:error, _reason} ->
+          call_answerer(text, context, active_memory, resolution)
+      end
+    else
+      call_answerer(text, context, active_memory, resolution)
+    end
+  end
+
+  defp call_fanout_manager(text, context, active_memory, resolution) do
+    fanout_manager().respond(
+      text,
+      Map.merge(context, %{
+        model_enabled?: true,
+        model_profile: resolution.profile,
+        active_memory: active_memory.chunks,
+        max_children_per_fanout: fanout_max_children(context),
+        timeout_ms: fanout_manager_timeout(context, resolution.profile)
+      })
+    )
+  end
+
+  defp fanout_manager_timeout(context, profile) do
+    case get_in(context, [:request, :timeout_ms]) do
+      value when is_integer(value) and value > 0 -> value
+      _missing -> Map.get(profile, :timeout_ms, 10_000)
+    end
+  end
+
+  defp fanout_manager_enabled?(context) do
+    get_in(context, [:request, :fanout_manager_mode]) in [:automatic, :shadow]
+  end
+
+  defp fanout_max_children(context) do
+    case get_in(context, [:request, :fanout_max_children]) do
+      value when is_integer(value) and value >= 2 ->
+        value
+
+      _other ->
+        case Settings.get("objectives.fanout.max_children_per_fanout") do
+          {:ok, value} when is_integer(value) -> value
+          _unavailable -> 8
+        end
+    end
+  end
+
+  defp manager_diagnostic(diagnostic) do
+    %{status: :used, manager: Redactor.redact(diagnostic)}
+  end
+
+  defp put_answer_attrs(answer, attrs), do: %{answer | attrs: Map.merge(answer.attrs, attrs)}
 
   defp call_answerer(text, context, active_memory, resolution) do
     with :ok <- Disclosure.authorize_transport(resolution.profile, context) do
@@ -589,6 +683,12 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
     :allbert_assist
     |> Application.get_env(@answerer_config, [])
     |> Keyword.get(:answerer, @default_answerer)
+  end
+
+  defp fanout_manager do
+    :allbert_assist
+    |> Application.get_env(@answerer_config, [])
+    |> Keyword.get(:fanout_manager, FanoutManager)
   end
 
   defp model_enabled? do

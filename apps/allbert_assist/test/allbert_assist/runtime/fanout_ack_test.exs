@@ -4,6 +4,8 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Conversations
   alias AllbertAssist.Intent.Decomposer
+  alias AllbertAssist.Intent.FanoutManager
+  alias AllbertAssist.Intent.FanoutPlan
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
@@ -16,6 +18,31 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
       send(context.test_pid, {:decomposition_model_consulted, text})
       {:ok, []}
     end
+  end
+
+  defmodule VerticalManagerModel do
+    def respond(_text, _profile, %{fanout_manager_attempt: :initial}) do
+      {:ok,
+       %{
+         "mode" => "fanout",
+         "answer" => "I can investigate both projects and report the findings.",
+         "children_json" =>
+           Jason.encode!([
+             %{
+               title: "Investigate Project Juniper",
+               objective: "Investigate Project Juniper retry behavior.",
+               expected_result: "A factual Juniper retry summary."
+             },
+             %{
+               title: "Investigate Project Cedar",
+               objective: "Investigate Project Cedar cancellation behavior.",
+               expected_result: "A factual Cedar cancellation summary."
+             }
+           ])
+       }}
+    end
+
+    def respond(_text, _profile, _context), do: {:error, :unexpected_repair}
   end
 
   setup do
@@ -82,12 +109,522 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  user_id: user_id
                })
 
-      assert_received {:decomposition_model_consulted, ^text}
+      refute_received {:decomposition_model_consulted, ^text}
       assert_received {:single_turn_agent_called, ^text}
       assert response.message == "single: #{text}"
       assert Map.get(response, :fanout) == nil
       assert Objectives.list_objectives(user_id) == []
     end
+  end
+
+  test "automatic conversational manager plans through the central runtime and freezes provenance" do
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    test_pid = self()
+    text = "Research Project Juniper and Project Cedar independently, then compare them."
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        send(test_pid, {:manager_mode, request.fanout_manager_mode})
+
+        {:ok, plan} =
+          FanoutPlan.compile(request.text, [
+            %{
+              title: "Research Project Juniper",
+              objective: "Research Project Juniper independently.",
+              expected_result: "A bounded factual Juniper summary."
+            },
+            %{
+              title: "Research Project Cedar",
+              objective: "Research Project Cedar independently.",
+              expected_result: "A bounded factual Cedar summary."
+            }
+          ])
+
+        {:ok,
+         %{
+           message: "I can research both projects and compare the findings.",
+           status: :completed,
+           parallel_work_plan: plan,
+           fanout_manager: manager_diagnostic()
+         }}
+      end
+    )
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: text,
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+               channel: :test,
+               user_id: "manager-plan"
+             })
+
+    assert_received {:manager_mode, :automatic}
+    assert response.message =~ "I split this into 2 tasks"
+    assert response.message =~ "Research Project Juniper"
+    assert response.message =~ "Research Project Cedar"
+
+    assert {:ok, parent} = Objectives.get_objective(response.fanout.parent_id)
+    assert parent.source_intent == nil
+
+    assert %{
+             "fanout_plan" => %{
+               "original_request_sha256" => digest,
+               "plan_sha256" => plan_digest,
+               "manager_profile" => "direct_answer_local",
+               "manager_profile_sha256" => profile_digest,
+               "manager_attempts" => 1,
+               "budget" => budget,
+               "source" => "conversation_manager",
+               "version" => 1,
+               "deadline_unix_ms" => deadline
+             }
+           } = Jason.decode!(parent.proposer_hint)
+
+    assert digest == Base.encode16(:crypto.hash(:sha256, text), case: :lower)
+    assert plan_digest =~ ~r/^[0-9a-f]{64}$/
+    assert profile_digest =~ ~r/^[0-9a-f]{64}$/
+    assert budget["manager_attempts"] == 1
+    assert budget["child_count"] == 2
+    assert deadline > System.system_time(:millisecond)
+
+    assert [%{payload: proposed_payload}] =
+             Objectives.list_events(parent.id)
+             |> Enum.filter(&(&1.kind == "fanout_proposed"))
+
+    proposed_payload = Jason.decode!(proposed_payload)
+    assert proposed_payload["plan_version"] == 1
+    assert proposed_payload["plan_source"] == "conversation_manager"
+    assert proposed_payload["original_request_sha256"] == digest
+    assert proposed_payload["plan_sha256"] == plan_digest
+
+    assert Enum.map(Fanout.children(parent), fn child ->
+             {child.title, Jason.decode!(child.acceptance_criteria)}
+           end) == [
+             {"Research Project Juniper", %{"summary" => "A bounded factual Juniper summary."}},
+             {"Research Project Cedar", %{"summary" => "A bounded factual Cedar summary."}}
+           ]
+  end
+
+  test "invalid exact-counted protocol cannot fall through to automatic manager planning" do
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    test_pid = self()
+    text = "Do these three tasks in parallel: inspect alpha; inspect beta"
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        send(test_pid, {:manager_mode, request.fanout_manager_mode})
+
+        {:ok, plan} =
+          FanoutPlan.compile(request.text, [
+            %{title: "Alpha", objective: "Inspect alpha", expected_result: "Alpha result"},
+            %{title: "Beta", objective: "Inspect beta", expected_result: "Beta result"}
+          ])
+
+        {:ok,
+         %{
+           message: "ordinary single-turn handling",
+           status: :completed,
+           parallel_work_plan: plan,
+           fanout_manager: manager_diagnostic()
+         }}
+      end
+    )
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: text,
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+               channel: :test,
+               user_id: "invalid-counted-manager-bypass"
+             })
+
+    assert_received {:manager_mode, :off}
+    assert response.message == "ordinary single-turn handling"
+    refute Map.has_key?(response, :fanout)
+    assert Objectives.list_objectives("invalid-counted-manager-bypass") == []
+  end
+
+  test "compiler-invalid counted overflow neither consults the manager nor writes objectives" do
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    test_pid = self()
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        send(test_pid, {:manager_mode, request.fanout_manager_mode})
+        {:ok, %{message: "ordinary bounded response", status: :completed}}
+      end
+    )
+
+    oversized = String.duplicate("x", 2_001)
+
+    cases = [
+      {"counted-overflow-duplicate",
+       "Do these 9 tasks in parallel: one; two; three; four; five; six; seven; eight; ONE"},
+      {"counted-overflow-oversized",
+       "Do these 9 tasks in parallel: #{oversized}; two; three; four; five; six; seven; eight; nine"}
+    ]
+
+    for {user_id, text} <- cases do
+      assert {:ok, response} =
+               Runtime.submit_user_input(%{
+                 text: text,
+                 delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+                 channel: :test,
+                 user_id: user_id
+               })
+
+      assert_received {:manager_mode, :off}
+      assert response.message == "ordinary bounded response"
+      refute Map.has_key?(response, :fanout)
+      refute Map.has_key?(response, :decomposition_overflow)
+      assert Objectives.list_objectives(user_id) == []
+    end
+  end
+
+  test "actual Runtime IntentAgent DirectAnswer manager path frames one central durable plan" do
+    original_manager = Application.get_env(:allbert_assist, FanoutManager)
+
+    on_exit(fn ->
+      if original_manager,
+        do: Application.put_env(:allbert_assist, FanoutManager, original_manager),
+        else: Application.delete_env(:allbert_assist, FanoutManager)
+    end)
+
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+
+    Application.put_env(:allbert_assist, Runtime, decomposer: fn _text, _context -> :single end)
+
+    Application.put_env(:allbert_assist, FanoutManager, model_client: VerticalManagerModel)
+
+    text =
+      "Investigate Project Juniper retry behavior and Project Cedar cancellation behavior, and report both findings."
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: text,
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+               channel: :test,
+               user_id: "vertical-manager"
+             })
+
+    assert response.message =~ "I split this into 2 tasks"
+    assert {:ok, parent} = Objectives.get_objective(response.fanout.parent_id)
+    assert parent.objective == text
+    assert parent.source_intent == nil
+
+    assert Enum.map(Fanout.children(parent), & &1.objective) == [
+             "Investigate Project Juniper retry behavior.",
+             "Investigate Project Cedar cancellation behavior."
+           ]
+
+    assert %{
+             "fanout_plan" => %{
+               "source" => "conversation_manager",
+               "manager_attempts" => 1,
+               "manager_profile" => profile,
+               "budget" => %{"child_count" => 2}
+             }
+           } = Jason.decode!(parent.proposer_hint)
+
+    assert is_binary(profile)
+  end
+
+  test "manager framing keeps one canonical request across old projection and objective boundaries" do
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        {:ok, plan} =
+          FanoutPlan.compile(request.text, [
+            %{title: "First", objective: "Research first", expected_result: "First result"},
+            %{title: "Second", objective: "Research second", expected_result: "Second result"}
+          ])
+
+        {:ok,
+         %{
+           message: "Safe same-call answer.",
+           status: :completed,
+           parallel_work_plan: plan,
+           fanout_manager: manager_diagnostic()
+         }}
+      end
+    )
+
+    requests = [
+      String.duplicate("a", 500),
+      String.duplicate("b", 501),
+      String.duplicate("c", 2_000),
+      String.duplicate("d", 2_001),
+      String.duplicate("🦉", 1_000)
+    ]
+
+    for {text, index} <- Enum.with_index(requests) do
+      assert byte_size(text) <= 4_000
+
+      assert {:ok, response} =
+               Runtime.submit_user_input(%{
+                 text: text,
+                 delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+                 channel: :test,
+                 user_id: "canonical-request-#{index}"
+               })
+
+      assert {:ok, parent} = Objectives.get_objective(response.fanout.parent_id)
+      assert parent.objective == text
+      assert parent.source_intent == nil
+
+      assert get_in(Jason.decode!(parent.proposer_hint), [
+               "fanout_plan",
+               "original_request_sha256"
+             ]) == Base.encode16(:crypto.hash(:sha256, text), case: :lower)
+    end
+  end
+
+  test "validated manager plan framing failure preserves the same-call answer and writes nothing" do
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    text = "Research Project Juniper and Cedar independently."
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        {:ok, plan} =
+          FanoutPlan.compile(request.text, [
+            %{title: "Juniper", objective: "Research Juniper", expected_result: "Facts"},
+            %{title: "Cedar", objective: "Research Cedar", expected_result: "Facts"}
+          ])
+
+        {:ok,
+         %{
+           message: "I can answer safely without parallel work.",
+           status: :completed,
+           parallel_work_plan: plan,
+           fanout_manager: manager_diagnostic()
+         }}
+      end,
+      fanout_framer: fn _attrs, _children -> {:error, :fixture_frame_failure} end
+    )
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: text,
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+               channel: :test,
+               user_id: "frame-fallback"
+             })
+
+    assert response.message == "I can answer safely without parallel work."
+    refute Map.has_key?(response, :fanout)
+    assert Objectives.list_objectives("frame-fallback") == []
+
+    assert Enum.any?(response.diagnostics, fn diagnostic ->
+             diagnostic.source == :fanout_admission and
+               diagnostic.outcome == :single_turn_fallback
+           end)
+  end
+
+  test "manager overflow uses the central complete-list clarification and frames nothing" do
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    tasks = ["Research one", "Research two", "Research three"]
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, _request ->
+        {:ok,
+         %{
+           message: "I found three tasks.",
+           status: :completed,
+           parallel_work_clarification: %{
+             task_count: 3,
+             max_children: 2,
+             tasks: tasks
+           }
+         }}
+      end
+    )
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "Research three independent topics.",
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+               channel: :test,
+               user_id: "manager-overflow"
+             })
+
+    assert response.message =~ "I found 3 separate tasks"
+    assert response.decomposition_overflow.tasks == tasks
+    assert Objectives.list_objectives("manager-overflow") == []
+  end
+
+  test "shadow manager plans are advisory and cannot create durable work" do
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "shadow", %{audit?: false})
+
+    test_pid = self()
+    text = "Research two independent options and compare them."
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        send(test_pid, {:manager_mode, request.fanout_manager_mode})
+
+        {:ok, plan} =
+          FanoutPlan.compile(request.text, [
+            %{title: "Option one", objective: "Research option one", expected_result: "One"},
+            %{title: "Option two", objective: "Research option two", expected_result: "Two"}
+          ])
+
+        {:ok,
+         %{
+           message: "One-turn fallback answer",
+           status: :completed,
+           parallel_work_plan: plan
+         }}
+      end
+    )
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: text,
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+               channel: :test,
+               user_id: "manager-shadow"
+             })
+
+    assert_received {:manager_mode, :shadow}
+    assert response.message == "One-turn fallback answer"
+    refute Map.has_key?(response, :fanout)
+    assert Objectives.list_objectives("manager-shadow") == []
+  end
+
+  test "shadow rollout keeps the exact-counted offline protocol out of the manager" do
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "shadow", %{audit?: false})
+
+    test_pid = self()
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        send(test_pid, {:manager_mode, request.fanout_manager_mode})
+        {:ok, %{message: "ordinary shadow response", status: :completed}}
+      end
+    )
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "Do these two tasks in parallel: inspect alpha; inspect beta",
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+               channel: :test,
+               user_id: "counted-shadow"
+             })
+
+    assert_received {:manager_mode, :off}
+    assert response.message == "ordinary shadow response"
+    refute Map.has_key?(response, :fanout)
+    assert Objectives.list_objectives("counted-shadow") == []
+  end
+
+  test "Runtime rejects a manager plan bound to a different operator request" do
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    test_pid = self()
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        send(test_pid, {:manager_mode, request.fanout_manager_mode})
+
+        {:ok, plan} =
+          FanoutPlan.compile("Different operator request", [
+            %{title: "One", objective: "Do one", expected_result: "One result"},
+            %{title: "Two", objective: "Do two", expected_result: "Two results"}
+          ])
+
+        {:ok,
+         %{
+           message: "Safe one-turn fallback",
+           status: :completed,
+           parallel_work_plan: plan
+         }}
+      end
+    )
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "Research two independent options and compare them.",
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+               channel: :test,
+               user_id: "binding-mismatch"
+             })
+
+    assert_received {:manager_mode, :automatic}
+    assert response.message == "Safe one-turn fallback"
+    refute Map.has_key?(response, :fanout)
+    assert Objectives.list_objectives("binding-mismatch") == []
+  end
+
+  test "an active parent refuses nested fanout before the manager can run" do
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    test_pid = self()
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        send(test_pid, {:manager_mode, request.fanout_manager_mode})
+        {:ok, %{message: "single nested response", status: :completed}}
+      end
+    )
+
+    assert {:ok, first_turn} =
+             Runtime.submit_user_input(%{
+               text: "hello",
+               channel: :test,
+               user_id: "nested-owner"
+             })
+
+    assert_received {:manager_mode, :off}
+
+    assert {:ok, %{parent: parent}} =
+             Fanout.frame(
+               %{
+                 user_id: "nested-owner",
+                 title: "Active parent",
+                 objective: "Active parent",
+                 source_channel: "test",
+                 source_thread_id: first_turn.thread_id
+               },
+               ["one", "two"]
+             )
+
+    assert Fanout.parent_projection(parent).phase == :awaiting_kickoff
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "Do these two tasks in parallel: nested one; nested two",
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+               channel: :test,
+               user_id: "nested-owner",
+               thread_id: first_turn.thread_id
+             })
+
+    assert_received {:manager_mode, :off}
+    assert response.message == "single nested response"
+    refute Map.has_key?(response, :fanout)
+
+    assert Enum.count(Objectives.list_objectives("nested-owner"), &(&1.fanout_role == "parent")) ==
+             1
   end
 
   test "visible kickoff is a hard start barrier and acknowledgement is idempotent" do
@@ -881,6 +1418,22 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
       assert response.message =~ "single:"
       assert Map.get(response, :fanout) == nil
     end
+  end
+
+  defp manager_diagnostic do
+    %{
+      attempts: 1,
+      model_profile: "direct_answer_local",
+      model_profile_sha256: String.duplicate("a", 64),
+      budget_limits: %{
+        version: 1,
+        max_model_calls: 40,
+        max_output_tokens: 24_000,
+        max_elapsed_ms: 300_000,
+        max_worker_attempts_per_child: 2
+      },
+      plan_deadline_unix_ms: System.system_time(:millisecond) + 300_000
+    }
   end
 
   defp eventually(fun, attempts \\ 100)

@@ -56,7 +56,11 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
            ModelRuntime.model_spec(%{provider_type: provider_type, model: model}),
          {:ok, prompt_input} <- prompt_input(text, context),
          {:ok, response} <-
-           req_llm_client().generate_text(model_spec, prompt_input, request_opts(profile)),
+           req_llm_client().generate_text(
+             model_spec,
+             prompt_input,
+             request_opts(profile, context)
+           ),
          text when is_binary(text) <- Response.text(response),
          text <- String.trim(text),
          false <- text == "" do
@@ -196,7 +200,17 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
 
   defp active_memory_prompt(_chunks), do: nil
 
-  defp request_opts(profile) do
+  defp request_opts(profile, context) do
+    max_tokens =
+      profile
+      |> ModelRuntime.max_tokens(512)
+      |> min(Map.get(context, :model_max_output_tokens, 1_000_000))
+
+    receive_timeout =
+      profile
+      |> Map.get(:timeout_ms, 3_000)
+      |> min(Map.get(context, :model_timeout_ms, 3_600_000))
+
     profile
     |> ModelRuntime.request_opts()
     |> Keyword.merge(
@@ -205,8 +219,8 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
       # compatible profile; coding and other model consumers retain their own
       # profile temperatures.
       temperature: 0.0,
-      max_tokens: ModelRuntime.max_tokens(profile, 512),
-      receive_timeout: Map.get(profile, :timeout_ms, 3_000)
+      max_tokens: max_tokens,
+      receive_timeout: receive_timeout
     )
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
   end

@@ -12,11 +12,13 @@ defmodule AllbertAssist.Objectives.Lifecycle do
 
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Record, as: ConfirmationRecord
+  alias AllbertAssist.Confirmations.ResumeParamsBinding
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Objectives.Runs.CancelToken
+  alias AllbertAssist.Objectives.Runs.Worker.{GroundedStepSpec, Grounding}
   alias AllbertAssist.Objectives.Steering
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime.Redactor
@@ -394,7 +396,12 @@ defmodule AllbertAssist.Objectives.Lifecycle do
   defp supersede_current_step(state), do: {:ok, Map.drop(state, [:step, :response])}
 
   defp pinned_operation(adapter, operation, current, opts) do
-    Store.with_resolved_settings(fn -> adapter.operation(operation, current, opts) end)
+    if function_exported?(adapter, :owns_settings_pin?, 1) and
+         adapter.owns_settings_pin?(operation) do
+      adapter.operation(operation, current, opts)
+    else
+      Store.with_resolved_settings(fn -> adapter.operation(operation, current, opts) end)
+    end
   end
 
   defp continue_operations({:cancelled, next}, _adapter, _operation, _rest, _current, _opts),
@@ -515,7 +522,8 @@ defmodule AllbertAssist.Objectives.Lifecycle do
     reason_text = inspect(reason, limit: 20, printable_limit: 300)
     current_step_id = state |> Map.get(:step, %{}) |> Map.get(:id)
 
-    with {:ok, objective} <-
+    with {:ok, parking_attrs} <- confirmation_parking_attrs(state, reason),
+         {:ok, objective} <-
            persist_transition(
              objective,
              %{
@@ -525,7 +533,7 @@ defmodule AllbertAssist.Objectives.Lifecycle do
              },
              "run_blocked",
              %{reason: reason_text},
-             fn -> park_step(state, reason) end
+             fn -> park_step(state, reason, parking_attrs) end
            ) do
       Signals.emit_fanout(:run_blocked, %{
         child_id: objective.id,
@@ -537,14 +545,51 @@ defmodule AllbertAssist.Objectives.Lifecycle do
     end
   end
 
-  defp park_step(%{step: step}, {:needs_confirmation, confirmation_id}) do
-    case Objectives.update_step(step, %{status: "blocked", confirmation_id: confirmation_id}) do
+  defp park_step(%{step: step}, {:needs_confirmation, _confirmation_id}, attrs)
+       when is_map(attrs) do
+    case Objectives.update_step(step, attrs) do
       {:ok, _step} -> :ok
       {:error, reason} -> {:error, reason}
     end
   end
 
-  defp park_step(_state, _reason), do: :ok
+  defp park_step(_state, _reason, nil), do: :ok
+
+  defp confirmation_parking_attrs(
+         %{objective: objective, step: step},
+         {:needs_confirmation, confirmation_id}
+       ) do
+    grounded_confirmation_parking_attrs(objective, step, confirmation_id)
+  end
+
+  defp confirmation_parking_attrs(_state, _reason), do: {:ok, nil}
+
+  defp grounded_confirmation_parking_attrs(objective, step, confirmation_id) do
+    grounding = Grounding.resolve(objective)
+
+    if grounding.source in [:ordinary, :legacy_ordinary] do
+      {:ok, %{status: "blocked", confirmation_id: confirmation_id}}
+    else
+      with {:ok, confirmation} <- Confirmations.read(confirmation_id),
+           {:ok, %{child: %{id: child_id}, step: %{id: step_id}}} <-
+             Objectives.fanout_confirmation_target(confirmation),
+           true <- child_id == objective.id and step_id == step.id,
+           %{} = resume_params <- Map.get(confirmation, "resume_params_ref"),
+           {:ok, digest} <- ResumeParamsBinding.digest(resume_params) do
+        {:ok,
+         %{
+           status: "blocked",
+           confirmation_id: confirmation_id,
+           confirmation_resume_params_sha256: digest
+         }}
+      else
+        false -> {:error, :confirmation_target_mismatch}
+        nil -> {:error, :invalid_confirmation_resume_params}
+        {:error, reason} -> {:error, reason}
+        _invalid -> {:error, :confirmation_target_mismatch}
+      end
+    end
+  end
 
   defp cancel(%{objective: objective} = state) do
     case TerminalTransitions.terminalize_child(
@@ -700,9 +745,14 @@ defmodule AllbertAssist.Objectives.Lifecycle do
     then executes it through the normal Registry/Runner authority boundary.
     """
 
-    alias AllbertAssist.Actions.{Registry, Runner}
-    alias AllbertAssist.Intent.{Decision, Engine, SelectionPolicy}
+    alias AllbertAssist.Actions.Registry
     alias AllbertAssist.Objectives
+    alias AllbertAssist.Objectives.Runs.Worker
+    alias AllbertAssist.Objectives.Runs.Worker.{GroundedStepSpec, Grounding}
+
+    @doc false
+    def owns_settings_pin?(:execute), do: true
+    def owns_settings_pin?(_operation), do: false
 
     def operation(:propose, %{objective: objective} = state, _opts) do
       active_step =
@@ -717,10 +767,19 @@ defmodule AllbertAssist.Objectives.Lifecycle do
       end
     end
 
-    def operation(:evaluate, %{step: %{candidate_action: action}} = state, _opts)
+    def operation(
+          :evaluate,
+          %{objective: objective, step: %{candidate_action: action}} = state,
+          _opts
+        )
         when is_binary(action) do
-      case Registry.resolve(action) do
-        {:ok, _module} -> {:ok, state}
+      grounding = Grounding.resolve(objective)
+
+      with :ok <- GroundedStepSpec.validate(objective, state.step, grounding),
+           {:ok, action_module} <- Registry.resolve(action),
+           :ok <- Grounding.authorize_action(grounding, action_module) do
+        {:ok, state}
+      else
         {:error, reason} -> {:error, reason, state}
       end
     end
@@ -730,6 +789,8 @@ defmodule AllbertAssist.Objectives.Lifecycle do
     def operation(:authorize, state, _opts), do: {:ok, state}
 
     def operation(:execute, %{objective: objective, step: step} = state, opts) do
+      grounding = Grounding.resolve(objective)
+
       context =
         %{
           user_id: objective.user_id,
@@ -745,22 +806,25 @@ defmodule AllbertAssist.Objectives.Lifecycle do
           parent_objective_id: objective.parent_objective_id,
           objective_title: objective.title,
           objective_status: objective.status,
+          objective_run_attempt: objective.run_attempt_count,
+          fanout_budget: grounding.fanout_budget,
+          fanout_deadline_unix_ms: grounding.fanout_deadline_unix_ms,
+          fanout_grounding: grounding,
           cancel_token: Keyword.get(opts, :cancel_token),
           registry: Keyword.get(opts, :registry, [])
         }
 
-      with {:ok, params, context} <- execution_request(objective, step, context) do
-        case Runner.run(step.candidate_action, params, context) do
-          {:ok, %{status: :needs_confirmation} = response} ->
-            {:blocked, {:needs_confirmation, Map.get(response, :confirmation_id)},
-             Map.put(state, :response, response)}
+      with :ok <-
+             Store.with_resolved_settings(fn ->
+               GroundedStepSpec.validate(objective, step, grounding)
+             end),
+           {:ok, params, context} <- execution_request(objective, step, context, grounding) do
+        case Worker.run(step.candidate_action, params, context, opts) do
+          {:ok, %{adapter: adapter, response: response}} ->
+            worker_response(response, adapter, state)
 
-          {:ok, %{status: status} = response} when status in [:completed, :advisory] ->
-            {:ok, Map.put(state, :response, response)}
-
-          {:ok, response} ->
-            {:error, {:action_not_completed, Map.get(response, :status)},
-             Map.put(state, :response, response)}
+          {:error, reason} ->
+            {:error, reason, state}
         end
       else
         {:error, reason} -> {:error, reason, state}
@@ -770,70 +834,39 @@ defmodule AllbertAssist.Objectives.Lifecycle do
     def operation(:observe, state, _opts), do: {:ok, state}
     def operation(:advance, state, _opts), do: {:ok, state}
 
-    defp propose_step(objective, state) do
-      request = %{
-        text: objective.objective,
-        user_id: objective.user_id,
-        thread_id: objective.source_thread_id,
-        session_id: objective.session_id,
-        active_app: objective.active_app,
-        channel: objective.source_channel
-      }
+    defp worker_response(%{status: :needs_confirmation} = response, adapter, state) do
+      {:blocked, {:needs_confirmation, Map.get(response, :confirmation_id)},
+       state |> Map.put(:response, response) |> Map.put(:worker_adapter, adapter)}
+    end
 
-      with {:ok, decision} <- Engine.decide(request),
-           {:ok, action} <- selected_action(decision, objective.objective),
+    defp worker_response(%{status: status} = response, adapter, state)
+         when status in [:completed, :advisory] do
+      {:ok, state |> Map.put(:response, response) |> Map.put(:worker_adapter, adapter)}
+    end
+
+    defp worker_response(response, adapter, state) do
+      next = state |> Map.put(:response, response) |> Map.put(:worker_adapter, adapter)
+      {:error, {:action_not_completed, Map.get(response, :status)}, next}
+    end
+
+    defp propose_step(objective, state) do
+      grounding = Grounding.resolve(objective)
+
+      with {:ok, spec} <- GroundedStepSpec.derive(objective, grounding),
            {:ok, step} <-
              Objectives.create_step(%{
                objective_id: objective.id,
                kind: "action",
                status: "selected",
                stage: "propose_steps",
-               candidate_action: action,
-               action_params: Jason.encode!(action_params(action, decision, objective.objective)),
-               resource_access: Jason.encode!(step_resource_access(action, decision))
+               candidate_action: spec.action,
+               action_params: Jason.encode!(spec.params),
+               resource_access: Jason.encode!(spec.resource_access)
              }) do
         {:ok, Map.put(state, :step, step)}
       else
         {:error, reason} -> {:blocked, {:proposal_failed, reason}, state}
       end
-    end
-
-    defp selected_action(%Decision{} = decision, text) do
-      if SelectionPolicy.decision_accepted?(decision, text) do
-        selected_action(decision)
-      else
-        {:ok, "direct_answer"}
-      end
-    end
-
-    defp selected_action(%{selected_action: action}) when is_binary(action) do
-      case Registry.resolve(action) do
-        {:ok, _capability} -> {:ok, action}
-        {:error, _reason} -> {:ok, "direct_answer"}
-      end
-    end
-
-    defp selected_action(_decision), do: {:ok, "direct_answer"}
-
-    defp action_params("direct_answer", _decision, text), do: %{text: text}
-
-    defp action_params(action, decision, text) do
-      slots = get_in(decision.trace_metadata, [:extracted_slots]) || %{}
-
-      case action do
-        "external_network_request" -> Map.put_new(slots, :request, text)
-        _other -> slots
-      end
-    end
-
-    # A rejected or invalid proposal becomes a clean direct-answer step. Do not
-    # carry advisory resource metadata from the rejected action into that step.
-    defp step_resource_access("direct_answer", _decision), do: []
-
-    defp step_resource_access(_action, decision) do
-      decision
-      |> Decision.to_map()
-      |> Map.get(:resource_access, [])
     end
 
     defp decode_params(nil), do: %{}
@@ -845,10 +878,10 @@ defmodule AllbertAssist.Objectives.Lifecycle do
       end
     end
 
-    defp execution_request(_objective, %{confirmation_id: nil} = step, context),
+    defp execution_request(_objective, %{confirmation_id: nil} = step, context, _grounding),
       do: {:ok, decode_params(step.action_params), context}
 
-    defp execution_request(objective, %{confirmation_id: id} = step, context)
+    defp execution_request(objective, %{confirmation_id: id} = step, context, grounding)
          when is_binary(id) and id != "" do
       case AllbertAssist.Confirmations.read(id) do
         {:ok, %{"status" => "approved"} = record} ->
@@ -857,7 +890,8 @@ defmodule AllbertAssist.Objectives.Lifecycle do
                {:ok, %{child: %{id: child_id}, step: %{id: step_id}}} <-
                  Objectives.fanout_confirmation_target(record),
                true <- child_id == objective.id and step_id == step.id,
-               %{} = params <- Map.get(record, "resume_params_ref", %{}) do
+               %{} = params <- Map.get(record, "resume_params_ref", %{}),
+               :ok <- GroundedStepSpec.validate_resume_params(step, params, grounding) do
             confirmation = %{
               id: id,
               approved?: true,
@@ -868,6 +902,7 @@ defmodule AllbertAssist.Objectives.Lifecycle do
 
             {:ok, params, Map.put(context, :confirmation, confirmation)}
           else
+            {:error, reason} -> {:error, reason}
             _mismatch -> {:error, :confirmation_target_mismatch}
           end
 
@@ -879,7 +914,7 @@ defmodule AllbertAssist.Objectives.Lifecycle do
       end
     end
 
-    defp execution_request(_objective, step, context),
+    defp execution_request(_objective, step, context, _grounding),
       do: {:ok, decode_params(step.action_params), context}
   end
 end

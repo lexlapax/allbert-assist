@@ -1,5 +1,5 @@
 defmodule AllbertAssist.TestSupport.DecomposerCorpus do
-  @moduledoc "Deterministic 200-row Stage-0 accuracy corpus for the v1.1 release gate."
+  @moduledoc "Deterministic 200-row corpus for the frozen counted fanout protocol."
 
   @surfaces ~w[tui web telegram email discord slack matrix whatsapp signal cli openai_api acp_stdio jobs]
 
@@ -25,19 +25,21 @@ defmodule AllbertAssist.TestSupport.DecomposerCorpus do
     left = "Research option #{index}"
     right = "summarize risk #{index}"
     third = "draft recommendation #{index}"
-    {"#{left}, #{right}, and #{third}", [left, right, third]}
+    {"Do these three tasks in parallel: #{left}; #{right}; #{third}", [left, right, third]}
   end
 
   defp positive(index) when rem(index, 2) == 0 do
     left = "Compare provider #{index}"
     right = "draft rollout #{index}"
-    {"#{left}; #{right}", [left, right]}
+    {"Do these two tasks in parallel: #{left}; #{right}", [left, right]}
   end
 
   defp positive(index) do
     left = "Inspect queue #{index}"
     right = "Write report #{index}"
-    {"1. #{left}\n2. #{right}", [left, right]}
+
+    {"Do two things: #{left} and #{right}. Work on them in parallel and report back.",
+     [left, right]}
   end
 
   defp single_negatives do

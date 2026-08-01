@@ -115,7 +115,7 @@ defmodule AllbertAssist.Objectives.Objective do
     |> validate_length(:session_id, max: 128)
     |> validate_length(:active_app, max: 64)
     |> validate_length(:title, min: 1, max: 200)
-    |> validate_length(:objective, min: 1, max: 2_000)
+    |> validate_length(:objective, min: 1, max: 4_000)
     |> validate_length(:acceptance_criteria, max: 2_000)
     |> validate_length(:constraints, max: 2_000)
     |> validate_length(:source_intent, max: 500)

@@ -40,7 +40,10 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
     {20_260_725_052_804, AllbertAssist.Repo.Migrations.EnforceUniqueFanoutJoinEvent,
      "apps/allbert_assist/priv/repo/migrations/20260725052804_enforce_unique_fanout_join_event.exs"},
     {20_260_725_052_900, AllbertAssist.Repo.Migrations.IndexPendingFanoutReportOutbox,
-     "apps/allbert_assist/priv/repo/migrations/20260725052900_index_pending_fanout_report_outbox.exs"}
+     "apps/allbert_assist/priv/repo/migrations/20260725052900_index_pending_fanout_report_outbox.exs"},
+    {20_260_731_000_100,
+     AllbertAssist.Repo.Migrations.AddConfirmationResumeBindingToObjectiveSteps,
+     "apps/allbert_assist/priv/repo/migrations/20260731000100_add_confirmation_resume_binding_to_objective_steps.exs"}
   ]
 
   test "objective and workspace migrations run up and down on an isolated sqlite database" do
@@ -65,7 +68,7 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
       File.rm(db_path)
     end)
 
-    Enum.each(Enum.drop(@migrations, -2), fn {version, module, _path} ->
+    Enum.each(Enum.drop(@migrations, -3), fn {version, module, _path} ->
       assert :ok = Ecto.Migrator.up(MigrationRepo, version, module, log: false)
     end)
 
@@ -92,7 +95,7 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
     end
 
     @migrations
-    |> Enum.take(-2)
+    |> Enum.take(-3)
     |> Enum.each(fn {version, module, _path} ->
       assert :ok = Ecto.Migrator.up(MigrationRepo, version, module, log: false)
     end)
@@ -121,6 +124,7 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
     assert trigger_exists?("objective_events_one_fanout_join_insert")
     assert trigger_exists?("objective_events_one_fanout_join_update")
     assert index_exists?("objectives_pending_fanout_report_outbox_idx")
+    assert column_exists?("objective_steps", "confirmation_resume_params_sha256")
 
     assert SQL.query!(
              MigrationRepo,

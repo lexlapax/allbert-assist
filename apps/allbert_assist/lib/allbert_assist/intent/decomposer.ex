@@ -1,178 +1,70 @@
 defmodule AllbertAssist.Intent.Decomposer do
   @moduledoc """
-  Advisory Stage-0 decomposition for eligible new Runtime turns.
+  Compatibility Interface for the frozen exact-counted fanout protocols.
 
-  Cheap deterministic guards run first. A model is consulted only for text
-  with plausible multi-task shape, and every result is bounded before it can
-  frame durable objectives. Decomposition grants no action authority.
+  The two counted protocols stay deterministic and offline so documented
+  automation and operator recovery do not depend on a model. Broader planning
+  belongs to the central conversational planning path; this module deliberately
+  fails every other shape closed as a single turn. A parsed protocol remains
+  advisory and grants no action authority.
   """
 
-  alias AllbertAssist.Intent.Decomposer.ReqLLMProposer
+  alias AllbertAssist.Intent.{FanoutCountedProtocol, FanoutPlan}
 
-  @explicit_single ~r/\b(as (?:a |one )?single task|as one task|together|do(?:n't| not) split|without splitting|one combined task)\b/iu
-  @parallel_signal ~r/\b(in parallel|simultaneously|separately|independently|at the same time|also|and then|then)\b/iu
   @steering_only ~r/^\s*(status|progress|cancel|stop|pause|resume|retry|skip)(?:\s|$)/iu
-  @counted_parallel ~r/^\s*do\s+(?<count>two|three|four|five|six|seven|eight|\d+)\s+(?:things|tasks)\s*:\s*(?<tasks>.+?)[.!?]\s+work on them in parallel(?:\s+and\s+report back)?[.!?]?\s*$/isu
-  @counted_inline_parallel ~r/^\s*do\s+these\s+(?<count>two|three|four|five|six|seven|eight|\d+)\s+(?:things|tasks)\s+in parallel\s*:\s*(?<tasks>.+?)\s*$/isu
-  @orchestration_prefix ~r/^\s*do\s+(?:these\s+)?(?:(?:two|three|four|five|six|seven|eight|\d+)\s+)?(?:things|tasks)\s+in parallel\s*:\s*/iu
 
-  @type result :: {:fanout, [String.t()]} | {:clarify, map()} | :single
+  @type result ::
+          {:fanout, [String.t()]}
+          | {:clarify, map()}
+          | {:invalid_counted, FanoutCountedProtocol.invalid_reason()}
+          | :single
 
   @spec propose(String.t(), map() | keyword()) :: result()
   def propose(text, context \\ %{})
 
   def propose(text, context) when is_binary(text) do
     context = normalize_context(context)
-    max_children = bounded_max(Map.get(context, :max_children_per_fanout, 8))
 
-    cond do
-      ineligible?(text, context) ->
-        :single
-
-      tasks = deterministic_tasks(text) ->
-        normalize_proposal(tasks, max_children)
-
-      plausible_multi?(text) ->
-        text
-        |> model_proposal(context)
-        |> normalize_proposal(max_children)
-
-      true ->
-        :single
+    if ineligible?(text, context) do
+      :single
+    else
+      case FanoutCountedProtocol.parse(text) do
+        {:ok, tasks} -> normalize_proposal(text, tasks, bounded_max(context))
+        {:invalid, reason} -> {:invalid_counted, reason}
+        :not_counted -> :single
+      end
     end
   end
 
   def propose(_text, _context), do: :single
 
-  @doc "Cheap guard used by Runtime to avoid a model call on ordinary single turns."
-  @spec plausible_multi?(String.t()) :: boolean()
-  def plausible_multi?(text) when is_binary(text) do
-    Regex.match?(@parallel_signal, text) or
-      length(Regex.scan(~r/(?:^|\n)\s*(?:\d+[.)]|[-*])\s+/u, text)) >= 2 or
-      String.contains?(text, ";") or
-      Regex.match?(~r/,[^,]+,\s*(?:and|also)\s+[^,]+$/iu, String.trim(text))
-  end
-
   defp ineligible?(text, context) do
     trimmed = String.trim(text)
 
     trimmed == "" or String.starts_with?(trimmed, "/") or
-      Regex.match?(@explicit_single, trimmed) or Map.get(context, :nested_fanout?, false) or
-      Map.get(context, :steering_turn?, false) or
+      Map.get(context, :nested_fanout?, false) or Map.get(context, :steering_turn?, false) or
       (Map.get(context, :active_fanout?, false) and Regex.match?(@steering_only, trimmed))
   end
 
-  # Punctuation and list shape are only evidence that a turn may contain
-  # multiple tasks. They are not authority to frame durable child objectives:
-  # the same shapes occur inside text an operator asks Allbert to summarize or
-  # discuss. Only the two frozen, explicitly counted orchestration grammars are
-  # deterministic; every other plausible shape goes through the structured
-  # proposer. Both grammars must parse exactly the declared number of children.
-  defp deterministic_tasks(text) do
-    case counted_parallel_tasks(text) do
-      nil -> counted_inline_parallel_tasks(text)
-      tasks -> tasks
-    end
-  end
-
-  defp counted_parallel_tasks(text) do
-    with %{"count" => count, "tasks" => tasks} <- Regex.named_captures(@counted_parallel, text),
-         {:ok, expected_count} <- parse_count(count),
-         parsed when length(parsed) == expected_count <-
-           split_counted_tasks(tasks, expected_count) do
-      parsed
-    else
-      _other -> nil
-    end
-  end
-
-  defp counted_inline_parallel_tasks(text) do
-    with %{"count" => count, "tasks" => tasks} <-
-           Regex.named_captures(@counted_inline_parallel, text),
-         {:ok, expected_count} <- parse_count(count),
-         parsed = Regex.split(~r/\s*;\s*/u, tasks, trim: true),
-         true <- length(parsed) == expected_count do
-      parsed
-    else
-      _other -> nil
-    end
-  end
-
-  defp split_counted_tasks(tasks, 2) do
-    split_on(tasks, ~r/\s*(?:,\s*)?\band\b\s*/iu) || []
-  end
-
-  defp split_counted_tasks(tasks, _count) do
-    tasks
-    |> String.split(~r/\s*,\s*/u, trim: true)
-    |> Enum.map(&String.replace(&1, ~r/^and\s+/iu, ""))
-  end
-
-  defp parse_count(count) do
-    case String.downcase(count) do
-      "two" -> {:ok, 2}
-      "three" -> {:ok, 3}
-      "four" -> {:ok, 4}
-      "five" -> {:ok, 5}
-      "six" -> {:ok, 6}
-      "seven" -> {:ok, 7}
-      "eight" -> {:ok, 8}
-      digits -> parse_numeric_count(digits)
-    end
-  end
-
-  defp parse_numeric_count(digits) do
-    case Integer.parse(digits) do
-      {count, ""} when count >= 2 -> {:ok, count}
-      _other -> :error
-    end
-  end
-
-  defp split_on(text, pattern) do
-    tasks = Regex.split(pattern, text, trim: true)
-    if length(tasks) >= 2, do: tasks, else: nil
-  end
-
-  defp model_proposal(text, context) do
-    proposer = Map.get(context, :model_proposer, ReqLLMProposer)
-
-    case proposer.propose(text, context) do
-      {:ok, tasks} when is_list(tasks) -> tasks
-      _ -> nil
-    end
-  rescue
-    _exception -> nil
-  catch
-    _kind, _reason -> nil
-  end
-
-  defp normalize_proposal(nil, _max), do: :single
-
-  defp normalize_proposal(tasks, max) do
-    tasks =
-      tasks
-      |> Enum.filter(&is_binary/1)
-      |> Enum.map(&strip_orchestration_prefix/1)
-      |> Enum.reject(&(&1 == ""))
-      |> Enum.uniq()
-
-    cond do
-      length(tasks) < 2 ->
-        :single
-
-      length(tasks) > max ->
-        {:clarify, %{task_count: length(tasks), max_children: max, tasks: tasks}}
-
-      true ->
+  defp normalize_proposal(original_request, tasks, max) do
+    case FanoutPlan.compile_counted_admission(original_request, tasks, max_children: max) do
+      {:ok, _plan} ->
         {:fanout, tasks}
+
+      {:clarify, clarification} ->
+        {:clarify, clarification}
+
+      {:error, _reason} ->
+        {:invalid_counted, :invalid_compiled_plan}
     end
   end
 
-  defp bounded_max(value) when is_integer(value), do: value |> max(2) |> min(16)
-  defp bounded_max(_value), do: 8
-
-  defp strip_orchestration_prefix(task),
-    do: task |> String.replace(@orchestration_prefix, "") |> String.trim()
+  defp bounded_max(context) do
+    case Map.get(context, :max_children_per_fanout, 8) do
+      value when is_integer(value) -> value |> max(2) |> min(16)
+      _value -> 8
+    end
+  end
 
   defp normalize_context(context) when is_list(context), do: Map.new(context)
   defp normalize_context(context) when is_map(context), do: context

@@ -3,42 +3,17 @@ defmodule AllbertAssist.Intent.DecomposerTest do
   @moduletag :pure_async
 
   alias AllbertAssist.Intent.Decomposer
-  alias AllbertAssist.Intent.Decomposer.ReqLLMProposer
   alias AllbertAssist.TestSupport.DecomposerCorpus
 
   defmodule RecordingProposer do
     def propose(text, context) do
       send(context.test_pid, {:model_consulted, text})
-      Map.get(context, :model_result, {:ok, []})
+      {:ok, ["model task one", "model task two"]}
     end
   end
 
-  defmodule CorpusProposer do
-    def propose(_text, context), do: {:ok, Map.get(context, :expected_tasks, [])}
-  end
-
-  test "ambiguous numbered lists and ordered chains use the bounded model proposer" do
-    assert {:fanout, ["Research alpha", "Draft beta"]} =
-             Decomposer.propose("1. Research alpha\n2. Draft beta",
-               model_proposer: RecordingProposer,
-               model_result: {:ok, ["Research alpha", "Draft beta"]},
-               test_pid: self()
-             )
-
-    assert_received {:model_consulted, "1. Research alpha\n2. Draft beta"}
-
-    assert {:fanout, ["Research alpha", "draft beta"]} =
-             Decomposer.propose("Research alpha and then draft beta",
-               model_proposer: RecordingProposer,
-               model_result: {:ok, ["Research alpha", "draft beta"]},
-               test_pid: self()
-             )
-
-    assert_received {:model_consulted, "Research alpha and then draft beta"}
-  end
-
-  test "decomposes the flagship counted list without framing report choreography" do
-    prompt =
+  test "parses only the two frozen exact-counted protocols without a model" do
+    report_protocol =
       "Do three things: research the elixir-lang.org homepage title, list my notes roots, and summarize this thread. Work on them in parallel and report back."
 
     assert {:fanout,
@@ -47,7 +22,16 @@ defmodule AllbertAssist.Intent.DecomposerTest do
               "list my notes roots",
               "summarize this thread"
             ]} =
-             Decomposer.propose(prompt,
+             Decomposer.propose(report_protocol,
+               model_proposer: RecordingProposer,
+               test_pid: self()
+             )
+
+    inline_protocol =
+      "Do these three tasks in parallel: research option A; draft option B; report both"
+
+    assert {:fanout, ["research option A", "draft option B", "report both"]} =
+             Decomposer.propose(inline_protocol,
                model_proposer: RecordingProposer,
                test_pid: self()
              )
@@ -55,243 +39,162 @@ defmodule AllbertAssist.Intent.DecomposerTest do
     refute_received {:model_consulted, _text}
   end
 
-  test "strips orchestration wording from an advisory uncounted proposal" do
-    prompt =
-      "Do these tasks in parallel: explain OTP supervision in five numbered points; " <>
-        "compare GenServer and Agent in five numbered points; " <>
-        "summarize this conversation in five numbered points"
+  test "plausible prose, lists, separators, and uncounted orchestration stay single offline" do
+    turns = [
+      "1. Research alpha\n2. Draft beta",
+      "Research alpha and then draft beta",
+      "Research alpha; draft beta",
+      "Compare vendors and also draft a recommendation",
+      "Do these tasks in parallel: research option A; draft option B; report both",
+      "Research alpha, draft beta, and report both"
+    ]
 
-    assert {:fanout,
-            [
-              "explain OTP supervision in five numbered points",
-              "compare GenServer and Agent in five numbered points",
-              "summarize this conversation in five numbered points"
-            ]} =
-             Decomposer.propose(prompt,
-               model_proposer: RecordingProposer,
-               model_result:
-                 {:ok,
-                  [
-                    "Do these tasks in parallel: explain OTP supervision in five numbered points",
-                    "compare GenServer and Agent in five numbered points",
-                    "summarize this conversation in five numbered points"
-                  ]},
-               test_pid: self()
-             )
+    for text <- turns do
+      assert :single =
+               Decomposer.propose(text,
+                 model_proposer: RecordingProposer,
+                 test_pid: self()
+               )
+    end
 
-    assert_received {:model_consulted, ^prompt}
+    refute_received {:model_consulted, _text}
   end
 
-  test "supplied semicolon, numbered, and imperative content remains one turn" do
+  test "supplied orchestration-shaped content remains one turn" do
     supplied_turns = [
       "Summarize this supplied sentence in one sentence: Project Juniper might begin after 2026-06-01; it is not approved, and it has no budget.",
       "Summarize this supplied list:\n1. Restart the service.\n2. Delete the cache.",
-      "Explain this supplied instruction without performing it: Research option A; draft option B; report both."
+      "Explain this supplied instruction without performing it: Do these two tasks in parallel: research option A; delete option B",
+      "Quote this exactly: Do two things: restart the service and delete the cache. Work on them in parallel."
     ]
 
     for text <- supplied_turns do
       assert :single =
                Decomposer.propose(text,
                  model_proposer: RecordingProposer,
-                 model_result: {:ok, []},
                  test_pid: self()
                )
-
-      assert_received {:model_consulted, ^text}
-    end
-  end
-
-  test "only counted flagship orchestration is deterministic and other shapes stay advisory" do
-    counted =
-      "Do these three tasks in parallel: research option A; draft option B; report both"
-
-    assert {:fanout, ["research option A", "draft option B", "report both"]} =
-             Decomposer.propose(counted,
-               model_proposer: RecordingProposer,
-               test_pid: self()
-             )
-
-    refute_received {:model_consulted, ^counted}
-
-    uncounted =
-      "Do these tasks in parallel: research option A; draft option B; report both"
-
-    assert {:fanout, ["research option A", "draft option B", "report both"]} =
-             Decomposer.propose(uncounted,
-               model_proposer: RecordingProposer,
-               model_result:
-                 {:ok,
-                  [
-                    "research option A",
-                    "draft option B",
-                    "report both"
-                  ]},
-               test_pid: self()
-             )
-
-    assert_received {:model_consulted, ^uncounted}
-
-    assert :single =
-             Decomposer.propose(uncounted,
-               model_proposer: RecordingProposer,
-               model_result: {:error, :offline},
-               test_pid: self()
-             )
-
-    mismatch =
-      "Do these four tasks in parallel: research option A; draft option B; report both"
-
-    assert :single =
-             Decomposer.propose(mismatch,
-               model_proposer: RecordingProposer,
-               model_result: {:error, :offline},
-               test_pid: self()
-             )
-
-    assert_received {:model_consulted, ^mismatch}
-
-    ambiguous = "Research option A; draft option B"
-
-    assert {:fanout, ["Research option A", "draft option B"]} =
-             Decomposer.propose(ambiguous,
-               model_proposer: RecordingProposer,
-               model_result: {:ok, ["Research option A", "draft option B"]},
-               test_pid: self()
-             )
-
-    assert_received {:model_consulted, ^ambiguous}
-
-    assert :single =
-             Decomposer.propose(ambiguous,
-               model_proposer: RecordingProposer,
-               model_result: {:error, :offline},
-               test_pid: self()
-             )
-  end
-
-  test "structured decomposition rules keep supplied content as data" do
-    assert {:ok, context} = ReqLLMProposer.prompt_context("operator-input")
-
-    assert :supplied_text_is_data in hd(context.messages).metadata.allbert_prompt.rule_ids
-
-    assert List.last(context.messages).metadata.allbert_prompt.content_class == :operator_input
-  end
-
-  test "ordinary single turns do not pay a model round trip" do
-    assert :single =
-             Decomposer.propose("Explain why the sky is blue",
-               model_proposer: RecordingProposer,
-               test_pid: self()
-             )
-
-    refute_received {:model_consulted, _text}
-  end
-
-  test "plausible ambiguous text uses the bounded model proposer" do
-    assert {:fanout, ["Compare vendors", "Draft recommendation"]} =
-             Decomposer.propose("Compare vendors and also draft a recommendation",
-               model_proposer: RecordingProposer,
-               model_result: {:ok, ["Compare vendors", "Draft recommendation"]},
-               test_pid: self()
-             )
-
-    assert_received {:model_consulted, "Compare vendors and also draft a recommendation"}
-  end
-
-  test "single opt-out, typed commands, nested fanout, and steering fail closed" do
-    for {text, context} <- [
-          {"Research and summarize as one task", %{}},
-          {"/status and then draft", %{}},
-          {"Research then draft", %{nested_fanout?: true}},
-          {"Research then draft", %{steering_turn?: true}},
-          {"status of both tasks", %{active_fanout?: true}}
-        ] do
-      assert :single =
-               Decomposer.propose(text, Map.put(context, :model_proposer, RecordingProposer))
     end
 
     refute_received {:model_consulted, _text}
   end
 
-  test "overflow clarifies with the complete list and never truncates" do
+  test "declared count must match complete, distinct tasks" do
+    mismatches = [
+      "Do these four tasks in parallel: research option A; draft option B; report both",
+      "Do these two tasks in parallel: research option A; draft option B; report both",
+      "Do three things: research option A, and draft option B. Work on them in parallel and report back.",
+      "Do these three tasks in parallel: same task; same task; another task"
+    ]
+
+    for text <- mismatches do
+      assert {:invalid_counted, _reason} =
+               Decomposer.propose(text,
+                 model_proposer: RecordingProposer,
+                 test_pid: self()
+               )
+    end
+
+    refute_received {:model_consulted, _text}
+  end
+
+  test "overflow clarifies with the complete counted task list and never truncates" do
+    prompt = "Do these four tasks in parallel: one; two; three; four"
+
     assert {:clarify, clarification} =
-             Decomposer.propose("one; two; three; four",
+             Decomposer.propose(prompt,
                max_children_per_fanout: 3,
                model_proposer: RecordingProposer,
-               model_result: {:ok, ["one", "two", "three", "four"]},
                test_pid: self()
              )
 
-    assert_received {:model_consulted, "one; two; three; four"}
     assert clarification.task_count == 4
     assert clarification.max_children == 3
     assert clarification.tasks == ["one", "two", "three", "four"]
+    refute_received {:model_consulted, _text}
   end
 
-  test "malformed, duplicate, and single model output degrades safely" do
-    assert :single =
-             Decomposer.propose("do this and also maybe something",
+  test "overflow is validated by the same bounded compiler before it can clarify" do
+    duplicate_prompt =
+      "Do these three tasks in parallel: inspect alpha;  INSPECT   ALPHA ; inspect beta"
+
+    assert {:invalid_counted, :invalid_compiled_plan} =
+             Decomposer.propose(duplicate_prompt,
+               max_children_per_fanout: 2,
                model_proposer: RecordingProposer,
-               model_result: {:ok, ["same", "same", ""]},
                test_pid: self()
              )
 
-    assert :single =
-             Decomposer.propose("do this and also maybe something",
+    oversized_task = String.duplicate("x", 2_001)
+    oversized_prompt = "Do these three tasks in parallel: #{oversized_task}; beta; gamma"
+
+    assert {:invalid_counted, :invalid_compiled_plan} =
+             Decomposer.propose(oversized_prompt,
+               max_children_per_fanout: 2,
                model_proposer: RecordingProposer,
-               model_result: {:error, :offline},
                test_pid: self()
              )
+
+    refute_received {:model_consulted, _text}
   end
 
-  test "model proposer matrix stays bounded and advisory" do
-    cases = [
-      {{:ok, ["Research sources", "Draft summary"]}, {:fanout, 2}},
-      {{:ok, %{tasks: ["one", "two"], confidence: 0.2}}, :single},
-      {{:ok, ["one", 2, nil]}, :single},
-      {{:error, :malformed_json}, :single},
-      {{:ok, Enum.map(1..9, &"task #{&1}")}, {:clarify, 9}},
-      {{:ok, ["Send the email", "Delete the backup"]}, {:fanout, 2}}
-    ]
+  test "typed commands, nested fanout, and steering fail closed" do
+    counted = "Do these two tasks in parallel: research alpha; draft beta"
 
-    for {model_result, expected} <- cases do
-      actual =
-        Decomposer.propose("consider this and also maybe that",
-          model_proposer: RecordingProposer,
-          model_result: model_result,
-          test_pid: self(),
-          max_children_per_fanout: 8
-        )
-
-      case {expected, actual} do
-        {{:fanout, count}, {:fanout, tasks}} -> assert length(tasks) == count
-        {{:clarify, count}, {:clarify, result}} -> assert result.task_count == count
-        {:single, :single} -> :ok
-        mismatch -> flunk("unexpected bounded proposer result: #{inspect(mismatch)}")
-      end
+    for {text, context} <- [
+          {"/" <> counted, %{}},
+          {counted, %{nested_fanout?: true}},
+          {counted, %{steering_turn?: true}},
+          {"status of both tasks", %{active_fanout?: true}}
+        ] do
+      assert :single =
+               Decomposer.propose(
+                 text,
+                 context
+                 |> Map.put(:model_proposer, RecordingProposer)
+                 |> Map.put(:test_pid, self())
+               )
     end
 
-    assert :single =
-             Decomposer.propose("Research then draft",
-               nested_fanout?: true,
-               model_proposer: RecordingProposer,
-               test_pid: self()
+    refute_received {:model_consulted, _text}
+  end
+
+  test "the frozen counted declaration owns admission without semantic phrase regexes" do
+    assert {:fanout, ["research alpha", "draft beta as one task"]} =
+             Decomposer.propose(
+               "Do these two tasks in parallel: research alpha; draft beta as one task"
              )
   end
 
-  test "200-row cross-surface corpus meets the automatic rollout numeric gate" do
+  test "non-binary, blank, and malformed inputs fail closed" do
+    assert :single = Decomposer.propose(nil)
+    assert :single = Decomposer.propose("")
+
+    assert {:invalid_counted, :invalid_declared_count} =
+             Decomposer.propose("Do these one tasks in parallel: only")
+
+    assert {:invalid_counted, :declared_count_mismatch} =
+             Decomposer.propose("Do these two tasks in parallel: one;")
+
+    assert {:invalid_counted, :incomplete_counted_protocol} =
+             Decomposer.propose("Do three things: one, two, and three")
+  end
+
+  test "200-row cross-surface corpus proves counted admission and fail-closed negatives" do
     cases = DecomposerCorpus.cases()
 
     results =
       Enum.map(cases, fn row ->
         context =
           row.context
-          |> Map.put(:model_proposer, CorpusProposer)
+          |> Map.put(:model_proposer, RecordingProposer)
+          |> Map.put(:test_pid, self())
           |> Map.put(:max_children_per_fanout, 8)
 
         actual =
           case Decomposer.propose(row.text, context) do
-            {:fanout, _tasks} -> :fanout
+            {:fanout, tasks} when tasks == row.context.expected_tasks -> :fanout
+            {:fanout, tasks} -> {:wrong_tasks, tasks}
             _other -> :single
           end
 
@@ -300,30 +203,14 @@ defmodule AllbertAssist.Intent.DecomposerTest do
 
     positives = Enum.filter(results, &(&1.label == :fanout))
     negatives = Enum.filter(results, &(&1.label == :single))
-    true_positive = Enum.count(positives, &(&1.actual == :fanout))
-    false_positive = Enum.count(negatives, &(&1.actual == :fanout))
-    predicted_positive = true_positive + false_positive
-
-    precision = true_positive / max(predicted_positive, 1)
-    recall = true_positive / length(positives)
-    false_positive_rate = false_positive / length(negatives)
 
     assert length(cases) == 200
     assert length(positives) == 50
     assert length(negatives) == 150
     assert Enum.count(cases, &Map.get(&1.context, :steering_turn?, false)) == 50
     assert MapSet.size(MapSet.new(cases, & &1.surface)) == 13
-
-    supplied_negatives =
-      Enum.filter(cases, &(&1.label == :single and String.contains?(&1.text, "supplied")))
-
-    assert length(supplied_negatives) == 30
-    assert Enum.all?(supplied_negatives, &Decomposer.plausible_multi?(&1.text))
-    assert Enum.any?(supplied_negatives, &String.contains?(&1.text, ";"))
-    assert Enum.any?(supplied_negatives, &String.contains?(&1.text, "\n1."))
-    assert Enum.any?(supplied_negatives, &String.contains?(&1.text, "and then"))
-    assert precision >= 0.97
-    assert recall >= 0.85
-    assert false_positive_rate <= 0.01
+    assert Enum.all?(positives, &(&1.actual == :fanout))
+    assert Enum.all?(negatives, &(&1.actual == :single))
+    refute_received {:model_consulted, _text}
   end
 end

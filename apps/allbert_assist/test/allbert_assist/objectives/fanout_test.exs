@@ -62,6 +62,176 @@ defmodule AllbertAssist.Objectives.FanoutTest do
            ]
   end
 
+  test "active parent lookup is scoped directly and cannot be starved by the list limit" do
+    assert {:ok, %{parent: active_parent}} =
+             Fanout.frame(
+               %{
+                 user_id: "alice",
+                 source_thread_id: "target-thread",
+                 title: "Older active fan-out",
+                 objective: "Keep this fan-out visible to admission"
+               },
+               ["first", "second"]
+             )
+
+    older = DateTime.add(DateTime.utc_now(), -60, :second)
+
+    assert {1, _rows} =
+             Objective
+             |> where([objective], objective.id == ^active_parent.id)
+             |> Repo.update_all(set: [inserted_at: older, updated_at: older])
+
+    for index <- 1..51 do
+      assert {:ok, _unrelated} =
+               Objectives.create_objective(%{
+                 user_id: "alice",
+                 source_thread_id: "other-thread-#{index}",
+                 title: "Newer unrelated objective #{index}",
+                 objective: "Unrelated work #{index}"
+               })
+    end
+
+    refute Enum.any?(Objectives.list_objectives("alice"), &(&1.id == active_parent.id))
+
+    assert {:ok, found} = Fanout.active_parent("alice", "target-thread")
+    assert found.id == active_parent.id
+    assert {:error, :not_found} = Fanout.active_parent("alice", "absent-thread")
+    assert {:error, :not_found} = Fanout.active_parent("mallory", "target-thread")
+  end
+
+  test "recovering parent remains an admission boundary" do
+    assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
+             Fanout.frame(
+               %{
+                 user_id: "alice",
+                 source_thread_id: "recovering-thread",
+                 title: "Recovering fan-out",
+                 objective: "Finish durable reduction"
+               },
+               ["first", "second"]
+             )
+
+    assert :ok =
+             Fanout.acknowledge_start(receipt, %{
+               user_id: "alice",
+               thread_id: "recovering-thread"
+             })
+
+    assert {2, _rows} =
+             Objective
+             |> where([objective], objective.id in ^Enum.map(children, & &1.id))
+             |> Repo.update_all(
+               set: [
+                 status: "completed",
+                 last_observation_summary: "durable result",
+                 completed_at: DateTime.utc_now()
+               ]
+             )
+
+    assert Fanout.parent_projection(parent).phase == :recovering
+    assert {:ok, found} = Fanout.active_parent("alice", "recovering-thread")
+    assert found.id == parent.id
+
+    assert {:error, {:fanout_already_active, refused_parent}} =
+             Fanout.frame_if_inactive(
+               %{
+                 user_id: "alice",
+                 source_thread_id: "recovering-thread",
+                 title: "Nested fan-out",
+                 objective: "Do not admit this fan-out"
+               },
+               ["third", "fourth"]
+             )
+
+    assert refused_parent.id == parent.id
+
+    assert 1 ==
+             Repo.aggregate(
+               from(objective in Objective,
+                 where:
+                   objective.user_id == "alice" and
+                     objective.source_thread_id == "recovering-thread" and
+                     objective.fanout_role == "parent"
+               ),
+               :count,
+               :id
+             )
+
+    assert {:ok, {:joined_now, joined}} = Fanout.reconcile_parent(parent)
+    assert joined.report_delivery_state == "pending"
+    assert {:error, :not_found} = Fanout.active_parent("alice", "recovering-thread")
+
+    assert {:ok, %{parent: successor}} =
+             Fanout.frame_if_inactive(
+               %{
+                 user_id: "alice",
+                 source_thread_id: "recovering-thread",
+                 title: "Successor fan-out",
+                 objective: "Admit work after the prior join"
+               },
+               ["third", "fourth"]
+             )
+
+    refute successor.id == parent.id
+  end
+
+  test "concurrent same-thread admissions frame exactly one durable parent" do
+    caller = self()
+
+    admissions =
+      for index <- 1..2 do
+        Task.async(fn ->
+          send(caller, {:admission_ready, self()})
+          receive do: (:admit -> :ok)
+
+          Fanout.frame_if_inactive(
+            %{
+              user_id: "alice",
+              source_thread_id: "concurrent-thread",
+              title: "Concurrent fan-out #{index}",
+              objective: "Only one request may frame"
+            },
+            ["first #{index}", "second #{index}"]
+          )
+        end)
+      end
+
+    pids =
+      for _index <- 1..2 do
+        assert_receive {:admission_ready, pid}
+        pid
+      end
+
+    Enum.each(pids, &send(&1, :admit))
+    results = Enum.map(admissions, &Task.await(&1, 2_000))
+
+    assert 1 == Enum.count(results, &match?({:ok, %{parent: %Objective{}}}, &1))
+
+    assert 1 ==
+             Enum.count(results, &match?({:error, {:fanout_already_active, %Objective{}}}, &1))
+
+    assert 1 ==
+             Repo.aggregate(
+               from(objective in Objective,
+                 where:
+                   objective.user_id == "alice" and
+                     objective.source_thread_id == "concurrent-thread" and
+                     objective.fanout_role == "parent"
+               ),
+               :count,
+               :id
+             )
+  end
+
+  test "scoped admission fails closed before writing when its durable scope is absent" do
+    attrs = %{user_id: "alice", title: "Unscoped", objective: "Do not frame"}
+
+    assert {:error, :fanout_admission_scope_required} =
+             Fanout.frame_if_inactive(attrs, ["first", "second"])
+
+    assert [] == Objectives.list_objectives("alice")
+  end
+
   test "receipt identity normalizes atom and string forms for persisted surface channels" do
     for channel <- [:cli, :tui, :live_view, :telegram] do
       channel_name = Atom.to_string(channel)
@@ -774,6 +944,17 @@ defmodule AllbertAssist.Objectives.FanoutTest do
 
     assert {:error, :fanout_active_transition_required} =
              Objectives.update_objective(child, %{status: "running"})
+
+    for attrs <- [
+          %{title: "mutated title"},
+          %{objective: "mutated objective"},
+          %{acceptance_criteria: %{"summary" => "mutated result"}},
+          %{constraints: "mutated constraints"},
+          %{source_intent: "mutated source"}
+        ] do
+      assert {:error, :fanout_structure_immutable} =
+               Objectives.update_objective(child, attrs)
+    end
 
     assert {:ok, %{status: "running"}} =
              TerminalTransitions.transition_active_child(

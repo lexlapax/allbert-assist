@@ -1,6 +1,6 @@
 defmodule AllbertAssist.CLI.TuiTest do
   use ExUnit.Case, async: false
-  @moduletag :global_process_serial
+  @moduletag :app_env_serial
 
   alias AllbertAssist.Channels.TUI.InputDriver
   alias AllbertAssist.CLI.Tui

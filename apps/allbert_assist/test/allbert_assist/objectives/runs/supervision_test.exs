@@ -7,10 +7,13 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Store.Persistence, as: ConfirmationPersistence
   alias AllbertAssist.Execution.Audit
+  alias AllbertAssist.Intent.FanoutPlan
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Fanout.Budget
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Objectives.Runs.Scheduler
+  alias AllbertAssist.Objectives.Runs.Worker.Grounding
   alias AllbertAssist.Objectives.Steering
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
@@ -474,6 +477,67 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     refute_receive {:approved_target_executed, _id}, 200
   end
 
+  test "denial reconciles a grounded child after its bound resume packet is tampered" do
+    %{parent: parent, children: [parked, sibling], receipt: receipt} = frame_two_with_budget()
+    step = add_safe_step(parked)
+    add_safe_step(sibling)
+
+    assert %{source: :conversation_manager} = Grounding.resolve(parked)
+    assert {:ok, confirmation} = create_child_confirmation(parked, step)
+    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    run_opts = [
+      lifecycle_opts: [
+        adapter: DurableConfirmationAdapter,
+        confirmation_child_id: parked.id,
+        confirmation_id: confirmation["id"],
+        test_pid: self()
+      ]
+    ]
+
+    assert {:ok, _coordinator} = Scheduler.start_fanout(parent.id, run_opts: run_opts)
+
+    eventually(fn ->
+      with {:ok, blocked} <- Objectives.get_objective(parked.id),
+           [blocked_step] <- Objectives.list_steps(parked.id) do
+        blocked.status == "blocked" and blocked_step.status == "blocked" and
+          is_binary(blocked_step.confirmation_resume_params_sha256) and
+          byte_size(blocked_step.confirmation_resume_params_sha256) == 64
+      else
+        _other -> false
+      end
+    end)
+
+    assert {:ok, pending} = Confirmations.read(confirmation["id"])
+    tampered = Map.put(pending, "resume_params_ref", %{"limit" => 5})
+    write_confirmation!(tampered)
+
+    assert {:error, :confirmation_resume_params_mismatch} =
+             Objectives.fanout_confirmation_target(tampered)
+
+    assert {:ok, denial} =
+             Runner.run(
+               "deny_confirmation",
+               %{id: confirmation["id"], reason: "operator declined tampered request"},
+               %{user_id: "alice", actor: "alice", channel: "test"}
+             )
+
+    assert denial.status == :completed
+    assert denial.confirmation["status"] == "denied"
+
+    eventually(fn ->
+      with {:ok, cancelled} <- Objectives.get_objective(parked.id),
+           {:ok, completed} <- Objectives.get_objective(sibling.id),
+           {:ok, joined} <- Objectives.get_objective(parent.id) do
+        cancelled.status == "cancelled" and completed.status == "completed" and
+          joined.status == "completed" and joined.join_outcome == "partial"
+      end
+    end)
+
+    assert [%{status: "cancelled"}] = Objectives.list_steps(parked.id)
+    refute_receive {:approved_target_executed, _id}, 200
+  end
+
   test "a real confirmed action resumes once through DefaultAdapter and atomic fan-in" do
     workspace =
       Path.join(
@@ -664,6 +728,68 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     end)
 
     refute_receive {:run_operation, ^crashing_id, :execute, _pid}, 200
+  end
+
+  test "safe recovery consumes the compiled plan's frozen worker-attempt limit" do
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.max_worker_attempts_per_child", 3, %{
+               audit?: false
+             })
+
+    %{parent: parent, children: [restarting, sibling], receipt: receipt} =
+      frame_two_with_budget()
+
+    add_safe_step(restarting)
+    add_safe_step(sibling)
+    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    run_opts = [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
+    assert {:ok, _coordinator} = Scheduler.start_fanout(parent.id, run_opts: run_opts)
+
+    first_pid = await_paused_run(restarting.id)
+    Process.exit(first_pid, :kill)
+    second_pid = await_paused_run(restarting.id)
+    Process.exit(second_pid, :kill)
+    third_pid = await_paused_run(restarting.id)
+    send(third_pid, :continue)
+    release_child_when_paused(sibling.id)
+
+    eventually(fn ->
+      with {:ok, completed} <- Objectives.get_objective(restarting.id) do
+        completed.status == "completed" and completed.run_attempt_count == 3
+      end
+    end)
+  end
+
+  test "compiled child with missing parent provenance receives no legacy crash retry" do
+    %{parent: parent, children: [untrusted, sibling], receipt: receipt} =
+      frame_two_with_budget()
+
+    assert {1, _rows} =
+             Objective
+             |> where([objective], objective.id == ^parent.id)
+             |> Repo.update_all(set: [proposer_hint: nil, updated_at: DateTime.utc_now()])
+
+    add_safe_step(untrusted)
+    add_safe_step(sibling)
+    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    run_opts = [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
+    assert {:ok, _coordinator} = Scheduler.start_fanout(parent.id, run_opts: run_opts)
+
+    untrusted_id = untrusted.id
+    first_pid = await_paused_run(untrusted_id)
+    Process.exit(first_pid, :kill)
+    release_child_when_paused(sibling.id)
+
+    eventually(fn ->
+      with {:ok, failed} <- Objectives.get_objective(untrusted_id) do
+        failed.status == "failed" and failed.run_attempt_count == 1 and
+          failed.review_reason =~ "retry_exhausted"
+      end
+    end)
+
+    refute_receive {:run_operation, ^untrusted_id, :execute, _pid}, 200
   end
 
   test "a safe run whose terminal persistence fails gets one restart, never an unbounded loop" do
@@ -1605,6 +1731,47 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
              Fanout.frame(
                %{user_id: "alice", title: unique("parent"), objective: "Parallel"},
                [unique("first"), unique("second")]
+             )
+
+    on_exit(fn -> stop_fanout_processes(parent.id, Enum.map(children, & &1.id)) end)
+
+    %{parent: parent, children: children, receipt: receipt}
+  end
+
+  defp frame_two_with_budget do
+    original = unique("Parallel frozen-budget request")
+
+    plan_children = [
+      %{
+        title: unique("first"),
+        objective: "Complete the first safe recovery fixture",
+        expected_result: "The first fixture completes"
+      },
+      %{
+        title: unique("second"),
+        objective: "Complete the second safe recovery fixture",
+        expected_result: "The second fixture completes"
+      }
+    ]
+
+    assert {:ok, compiled} = FanoutPlan.compile(original, plan_children, source: :model)
+    assert {:ok, budget} = Budget.resolve(2, 1)
+
+    provenance =
+      compiled
+      |> FanoutPlan.provenance()
+      |> Map.put("budget", budget)
+      |> Map.put("deadline_unix_ms", System.system_time(:millisecond) + 60_000)
+
+    assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
+             Fanout.frame(
+               %{
+                 user_id: "alice",
+                 title: unique("parent"),
+                 objective: original,
+                 proposer_hint: %{"fanout_plan" => provenance}
+               },
+               FanoutPlan.child_attrs(compiled)
              )
 
     on_exit(fn -> stop_fanout_processes(parent.id, Enum.map(children, & &1.id)) end)

@@ -17,12 +17,58 @@ defmodule AllbertAssist.Objectives.Fanout do
   alias AllbertAssist.Runtime.Redactor
 
   @terminal ~w[completed cancelled failed abandoned]
+  @active_kickoff_delivery_states ~w[pending blocked acknowledged]
   @report_detail_limit 500
 
   @spec frame(map(), [map() | String.t()]) :: {:ok, map()} | {:error, term()}
   def frame(parent_attrs, tasks) when is_map(parent_attrs) and is_list(tasks) do
     with :ok <- validate_tasks(tasks) do
-      Repo.transaction(fn -> frame_transaction!(parent_attrs, tasks) end)
+      transact_frame(fn -> frame_transaction!(parent_attrs, tasks) end)
+    end
+  end
+
+  @doc """
+  Frame one fan-out only when its durable user/thread scope has no active parent.
+
+  The scoped admission check and framing share one immediate transaction. Under
+  Allbert's single-writer SQLite topology, concurrent callers therefore observe
+  the first committed parent and cannot both frame work for the same thread.
+  Awaiting kickoff, running, and recovering parents all remain admission-active
+  until their report leaves `not_ready`.
+  """
+  @spec frame_if_inactive(map(), [map() | String.t()]) ::
+          {:ok, map()} | {:error, {:fanout_already_active, Objective.t()} | term()}
+  def frame_if_inactive(parent_attrs, tasks)
+      when is_map(parent_attrs) and is_list(tasks) do
+    with :ok <- validate_tasks(tasks),
+         {:ok, {user_id, source_thread_id}} <- admission_scope(parent_attrs) do
+      transact_frame(fn ->
+        frame_after_admission!(user_id, source_thread_id, parent_attrs, tasks)
+      end)
+    end
+  end
+
+  @doc """
+  Return the durable parent currently blocking fan-out admission for a scope.
+
+  This is a direct user/thread query, not a scan of the bounded general-purpose
+  objective listing. It includes awaiting-kickoff, running, and recovering
+  parents and excludes parents whose joined report is pending or delivered.
+  """
+  @spec active_parent(String.t(), String.t()) ::
+          {:ok, Objective.t()} | {:error, :not_found}
+  def active_parent(user_id, source_thread_id)
+      when is_binary(user_id) and is_binary(source_thread_id) do
+    case active_parent_query(user_id, source_thread_id) |> Repo.one() do
+      %Objective{} = parent -> {:ok, parent}
+      nil -> {:error, :not_found}
+    end
+  end
+
+  defp frame_after_admission!(user_id, source_thread_id, parent_attrs, tasks) do
+    case active_parent_query(user_id, source_thread_id) |> Repo.one() do
+      nil -> frame_transaction!(parent_attrs, tasks)
+      %Objective{} = parent -> Repo.rollback({:fanout_already_active, parent})
     end
   end
 
@@ -118,6 +164,7 @@ defmodule AllbertAssist.Objectives.Fanout do
 
   defp map_field(nil, _key), do: nil
   defp map_field(map, key) when is_map(map), do: Map.get(map, key) || Map.get(map, to_string(key))
+  defp map_field(_value, _key), do: nil
 
   @spec join_status(Objective.t() | String.t()) :: %{
           terminal?: boolean(),
@@ -506,15 +553,74 @@ defmodule AllbertAssist.Objectives.Fanout do
         |> insert!()
       end)
 
+    proposed_payload =
+      %{child_ids: Enum.map(children, & &1.id), child_count: length(children)}
+      |> Map.merge(plan_provenance(attrs))
+
     insert!(
       Objectives.create_event(%{
         objective_id: parent.id,
         kind: "fanout_proposed",
-        payload: %{child_ids: Enum.map(children, & &1.id), child_count: length(children)}
+        payload: proposed_payload
       })
     )
 
     %{parent: parent, children: children, fanout_start_receipt: receipt}
+  end
+
+  defp active_parent_query(user_id, source_thread_id) do
+    Objective
+    |> where(
+      [objective],
+      objective.fanout_role == "parent" and objective.user_id == ^user_id and
+        objective.source_thread_id == ^source_thread_id and
+        objective.report_delivery_state == "not_ready" and
+        objective.kickoff_delivery_state in ^@active_kickoff_delivery_states
+    )
+    |> order_by([objective], desc: objective.inserted_at, desc: objective.id)
+    |> limit(1)
+  end
+
+  defp admission_scope(attrs) do
+    user_id = map_field(attrs, :user_id)
+    source_thread_id = map_field(attrs, :source_thread_id)
+
+    if present_binary?(user_id) and present_binary?(source_thread_id) do
+      {:ok, {user_id, source_thread_id}}
+    else
+      {:error, :fanout_admission_scope_required}
+    end
+  end
+
+  defp present_binary?(value) when is_binary(value), do: String.trim(value) != ""
+  defp present_binary?(_value), do: false
+
+  defp transact_frame(fun) when is_function(fun, 0),
+    do: Repo.transaction(fun, mode: :immediate)
+
+  defp plan_provenance(attrs) do
+    attrs
+    |> map_field(:proposer_hint)
+    |> map_field(:fanout_plan)
+    |> case do
+      %{} = provenance ->
+        %{
+          plan_version: map_field(provenance, :version),
+          plan_source: map_field(provenance, :source),
+          original_request_sha256: map_field(provenance, :original_request_sha256),
+          plan_sha256: map_field(provenance, :plan_sha256),
+          manager_profile: map_field(provenance, :manager_profile),
+          manager_profile_sha256: map_field(provenance, :manager_profile_sha256),
+          manager_attempts: map_field(provenance, :manager_attempts),
+          budget: map_field(provenance, :budget),
+          deadline_unix_ms: map_field(provenance, :deadline_unix_ms)
+        }
+        |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+        |> Map.new()
+
+      _other ->
+        %{}
+    end
   end
 
   defp reduce([]), do: {"open", nil}
