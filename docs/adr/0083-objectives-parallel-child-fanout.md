@@ -477,7 +477,14 @@ model:
    Invalid, negative, unavailable,
    timed-out, or deadline-exhausted synthesis stores the truthful deterministic
    fallback with no model prose and opens delivery; it never masquerades as
-   healthy synthesis. The v2 authoritative appendix also renders the closed
+   healthy synthesis. `ReportComposer` owns one killable Task around the entire
+   private Jido lifecycle, capped by the already-authorized effective composer
+   timeout; Jido `cmd timeout: 0` is permitted only inside that Task. Once the
+   Task starts, expiry terminates it and records `synthesis_timeout/unresolved`,
+   while pre-dispatch exhaustion remains `deadline_exhausted/not_run`.
+   Unexpected Task exit stays crash-visible and restart recovery records
+   `recovery_after_restart/unresolved`; no provider or Jido child survives the
+   attempt. The v2 authoritative appendix also renders the closed
    authority class for every child: reviewed advisory rows carry their quality-
    receipt digest and explicitly deny effect-evidence meaning, completed
    registered-action rows mark semantic review not applicable and retain the
@@ -537,10 +544,12 @@ model:
    a stranded `composing` row cannot prove whether its one provider call ran.
    Historical pending/delivered v1 state remains on its explicit byte-exact
    compatibility path. The same explicit integrity-error classifier lets
-   queue scan and recovery log and leave one corrupt parent untouched while
+   queue scan and recovery aggregate and leave one corrupt parent untouched while
    continuing to later valid parents; unclassified storage/operational failures
-   still abort. Bounded skip diagnostics retain each parent id and its typed,
-   content-free reason rather than reducing different failures to an id range.
+   still abort. At most one bounded content-free diagnostic per typed reason
+   retains its count, first/last id, and complete ordered `parent_ids` list. The
+   100-row scan cap bounds that aggregate; it does not reduce failures to only a
+   count or id range.
    Before querying Steps or events for a v2 candidate, the queue boundary
    validates parent shape, terminal child shape, and the absolute 16-child
    limit. An oversized/corrupt parent therefore becomes a classified per-parent

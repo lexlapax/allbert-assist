@@ -908,7 +908,14 @@ one bounded model-authored advisory paragraph, and closed rule/child-coverage
 evidence; it is both review and revision, not an additional judge or repair
 call. Invalid, negative, unavailable, timed-out, or deadline-exhausted synthesis
 selects a truthful deterministic fallback and never becomes healthy model
-provenance. One pure `Fanout.Report.SynthesisPolicy` module owns the immutable
+provenance. `ReportComposer` owns one killable Task around the entire private
+Jido lifecycle, capped by the already-authorized effective composer timeout;
+Jido `cmd timeout: 0` is permitted only inside that Task. Once started, expiry
+terminates the Task and records `synthesis_timeout/unresolved`; pre-dispatch
+exhaustion remains `deadline_exhausted/not_run`. Unexpected Task exit stays
+crash-visible and restart recovery records `recovery_after_restart/unresolved`,
+so no provider or Jido child survives the attempt. One pure
+`Fanout.Report.SynthesisPolicy` module owns the immutable
 ordered synthesis rule catalog consumed by provider schema/prompt, local
 validation, and selection provenance.
 
@@ -1010,9 +1017,10 @@ An unselected queued or composing v1 input is verified and compare-and-swap
 rebound in the existing immediate transaction to its authority-bearing v2
 digest before claim/recovery selection; already-selected/pending/delivered v1
 state is never rebound. One explicit integrity-error classifier lets queue scan
-and recovery leave a corrupt parent untouched and continue later valid work;
-bounded diagnostics retain each skipped parent id plus its typed content-free
-reason instead of collapsing distinct integrity failures into an id range.
+and recovery leave a corrupt parent untouched and continue later valid work. At
+most one bounded content-free aggregate per typed reason retains its count,
+first/last id, and complete ordered `parent_ids` list; the 100-row scan cap bounds
+the record without collapsing distinct failures into only a count or id range.
 Parent shape, terminal child shape, and the absolute 16-child bound are checked
 before any v2 Step/Event query. Oversized or corrupt rows are classified and
 skipped per parent before they can exceed SQLite bind limits or block later
