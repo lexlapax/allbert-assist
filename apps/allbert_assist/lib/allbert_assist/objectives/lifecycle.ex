@@ -978,7 +978,7 @@ defmodule AllbertAssist.Objectives.Lifecycle do
            {:ok, params, context} <- execution_request(objective, step, context, grounding) do
         case Worker.run(step.candidate_action, params, context, opts) do
           {:ok, %{adapter: adapter, response: response} = result} ->
-            state = put_quality_receipt(state, result)
+            state = put_quality_receipt(state, result.quality_receipt)
             worker_response(response, adapter, state)
 
           {:error, reason} ->
@@ -992,10 +992,10 @@ defmodule AllbertAssist.Objectives.Lifecycle do
     def operation(:observe, state, _opts), do: {:ok, state}
     def operation(:advance, state, _opts), do: {:ok, state}
 
-    defp put_quality_receipt(state, %{quality_receipt: receipt}) when is_map(receipt),
+    defp put_quality_receipt(state, receipt) when is_map(receipt),
       do: Map.put(state, :quality_receipt, receipt)
 
-    defp put_quality_receipt(state, _result), do: Map.delete(state, :quality_receipt)
+    defp put_quality_receipt(state, nil), do: Map.delete(state, :quality_receipt)
 
     defp worker_response(%{status: :needs_confirmation} = response, adapter, state) do
       {:blocked, {:needs_confirmation, Map.get(response, :confirmation_id)},

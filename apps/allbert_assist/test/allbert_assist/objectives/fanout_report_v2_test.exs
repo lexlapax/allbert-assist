@@ -98,6 +98,25 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     refute frozen.input_digest == legacy.input_digest
   end
 
+  test "typed structure rejects malformed and duplicate child queue positions" do
+    parent = parent()
+    [first, second] = children()
+
+    for invalid_position <- [-1, nil, "0", 0.0] do
+      assert {:error, :invalid_fanout_report_child_position} =
+               Report.validate_structure(
+                 parent,
+                 [%{first | queue_position: invalid_position}, second]
+               )
+    end
+
+    assert {:error, :duplicate_fanout_report_child_position} =
+             Report.validate_structure(parent, [
+               first,
+               %{second | queue_position: first.queue_position}
+             ])
+  end
+
   test "v2 synthesis input preserves the complete parent request and fairly bounds every child" do
     trailing_guidance = "TRAILING-JOIN-GUIDANCE-MUST-REMAIN"
 

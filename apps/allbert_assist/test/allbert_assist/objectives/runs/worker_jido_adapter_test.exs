@@ -545,7 +545,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
              )
 
     assert response.message == "Ordinary one-call answer."
-    refute Map.has_key?(result, :quality_receipt)
+    assert result.quality_receipt == nil
     assert_receive {:ordinary_provider_call, nil}
     refute_receive {:review_prepared, _contract, _draft}
     refute_receive :review_invoked

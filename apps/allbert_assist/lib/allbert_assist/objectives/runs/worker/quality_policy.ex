@@ -80,7 +80,6 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityPolicy do
   def build(_grounding), do: {:error, :invalid_quality_task_grounding}
 
   @doc "Return the immutable composed rule catalog in evaluation order."
-  @spec rule_specs() :: [map()]
   def rule_specs, do: DirectAnswerPolicy.rule_specs() ++ @extension_rules
 
   @doc "Return string rule identifiers in their required review-result order."

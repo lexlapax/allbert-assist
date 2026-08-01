@@ -40,12 +40,8 @@ defmodule AllbertAssist.TestSupport.FanoutReportFixture do
       "Archiving first preserves diagnostic evidence, while restarting afterward restores service, so the two verified results form one ordered recovery procedure."
   }
 
-  @type selection_source :: :model | :fallback
-
-  @spec forged_label_corpus() :: map()
   def forged_label_corpus, do: @forged_label_corpus
 
-  @spec selected_report!(selection_source(), map()) :: map()
   def selected_report!(source, origin) when source in [:model, :fallback] and is_map(origin) do
     origin
     |> frame!()
@@ -68,7 +64,6 @@ defmodule AllbertAssist.TestSupport.FanoutReportFixture do
     frame
   end
 
-  @spec complete_and_select!(map(), selection_source()) :: map()
   def complete_and_select!(%{parent: parent, children: children}, source)
       when source in [:model, :fallback] do
     complete_children!(children)
@@ -84,12 +79,10 @@ defmodule AllbertAssist.TestSupport.FanoutReportFixture do
     |> Enum.each(fn {child, observation} -> complete_child!(child, observation) end)
   end
 
-  @spec select_completed!(map(), selection_source()) :: map()
   def select_completed!(%{parent: parent}, source) when source in [:model, :fallback] do
     select_pending!(parent.id, source)
   end
 
-  @spec select_pending!(String.t(), selection_source()) :: map()
   def select_pending!(parent_id, source)
       when is_binary(parent_id) and source in [:model, :fallback] do
     {:ok, %{parent: %{id: ^parent_id}, frozen: _frozen} = claim} =
@@ -98,7 +91,6 @@ defmodule AllbertAssist.TestSupport.FanoutReportFixture do
     select_claim!(claim, source)
   end
 
-  @spec select_claim!(map(), selection_source()) :: map()
   def select_claim!(%{parent: parent, frozen: frozen} = claim, source)
       when source in [:model, :fallback] do
     {selected_source, body, provenance} = selection!(source, frozen)

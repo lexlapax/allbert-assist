@@ -16,7 +16,11 @@ defmodule AllbertAssist.Objectives.Runs.Worker do
   alias AllbertAssist.RegistryContext
 
   @type adapter_name :: :ordinary | :jido
-  @type result :: %{adapter: adapter_name(), response: map()}
+  @type result :: %{
+          required(:adapter) => adapter_name(),
+          required(:response) => map(),
+          required(:quality_receipt) => map() | nil
+        }
 
   @doc "Execute one registered action through its deterministic worker Adapter."
   @spec run(module() | String.t() | atom(), map(), map(), keyword()) ::
@@ -41,7 +45,7 @@ defmodule AllbertAssist.Objectives.Runs.Worker do
   end
 
   defp worker_result(adapter, response),
-    do: {:ok, %{adapter: adapter, response: response}}
+    do: {:ok, %{adapter: adapter, response: response, quality_receipt: nil}}
 
   defp adapter_for(DirectAnswer), do: {:jido, JidoAdapter}
   defp adapter_for(_action_module), do: {:ordinary, ActionAdapter}

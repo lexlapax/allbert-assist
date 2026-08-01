@@ -54,10 +54,9 @@ defmodule AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy do
     }
   ]
 
-  @spec version() :: pos_integer()
+  @spec version() :: 1
   def version, do: @version
 
-  @spec rules() :: [map()]
   def rules, do: @rules
 
   @spec rule_ids() :: [String.t()]

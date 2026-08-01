@@ -93,7 +93,7 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
         }
 
   @doc "Return the closed UTF-8 byte bound for one durable fan-out report body."
-  @spec max_body_bytes() :: pos_integer()
+  @spec max_body_bytes() :: 32_768
   def max_body_bytes, do: @report_bytes
 
   @type composition_section :: %{
@@ -769,10 +769,10 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
          {:ok, provider} <- provenance_identifier(provenance_field(provenance, :provider), 120),
          {:ok, model} <- provenance_identifier(provenance_field(provenance, :model), 240),
          {:ok, layout} <-
-           normalize_v2_layout(%{
-             layout_version: provenance_field(provenance, :layout_version),
-             sections: provenance_field(provenance, :sections)
-           }),
+           normalize_v2_layout(
+             provenance_field(provenance, :layout_version),
+             provenance_field(provenance, :sections)
+           ),
          true <-
            provenance_field(provenance, :synthesis_contract_version) ==
              SynthesisPolicy.version(),
@@ -1065,12 +1065,9 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
     end
   end
 
-  defp normalize_v2_layout(layout) do
-    with true <-
-           map_size(layout) == 2 and
-             provenance_keys(layout) == ~w[layout_version sections],
-         @v2_version <- provenance_field(layout, :layout_version),
-         {:ok, sections} <- normalize_sections(provenance_field(layout, :sections)) do
+  defp normalize_v2_layout(version, unvalidated_sections) do
+    with @v2_version <- version,
+         {:ok, sections} <- normalize_sections(unvalidated_sections) do
       {:ok, %{layout_version: @v2_version, sections: sections}}
     else
       version when is_integer(version) -> {:error, :unsupported_fanout_report_layout_version}

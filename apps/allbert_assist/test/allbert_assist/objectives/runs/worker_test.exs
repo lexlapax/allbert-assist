@@ -73,7 +73,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerTest do
   test "a validated non-conversational action uses the ordinary Runner adapter" do
     context = %{user_id: "worker-user", operator_id: "worker-user", channel: "test"}
 
-    assert {:ok, %{adapter: :ordinary, response: response}} =
+    assert {:ok, %{adapter: :ordinary, response: response, quality_receipt: nil}} =
              Worker.run("list_objectives", %{user_id: "worker-user"}, context)
 
     assert response.status == :completed
@@ -85,7 +85,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerTest do
     counter = :counters.new(1, [])
     Process.put(@resolution_hook_key, fn -> :counters.add(counter, 1, 1) end)
 
-    assert {:ok, %{adapter: :ordinary, response: %{status: :completed}}} =
+    assert {:ok, %{adapter: :ordinary, response: %{status: :completed}, quality_receipt: nil}} =
              Worker.run(
                "list_objectives",
                %{user_id: "worker-user"},
