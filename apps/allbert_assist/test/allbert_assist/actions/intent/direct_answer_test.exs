@@ -155,6 +155,88 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     refute inspect(response.direct_answer) =~ "What is Allbert?"
   end
 
+  test "grounded fanout worker makes one direct provider call without conversation recursion" do
+    Application.put_env(:allbert_assist, DirectAnswer,
+      answerer: ScriptedAnswerer,
+      fanout_manager: ScriptedFanoutManager
+    )
+
+    Process.put({ScriptedAnswerer, "direct_answer_local"}, {:ok, "Grounded child draft."})
+
+    assert {:ok, _setting} =
+             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+
+    assert {:ok, response} =
+             DirectAnswer.run(%{text: "Complete the grounded child task."}, %{
+               actor: "alice",
+               test_pid: self(),
+               fanout_worker_policy: fanout_worker_policy(),
+               request: %{fanout_manager_mode: :automatic}
+             })
+
+    assert response.message == "Grounded child draft."
+    assert response.direct_answer.source == :model
+    assert response.fanout_worker == %{version: 1, provider_call_count: 1}
+    assert_receive {:provider_called, "direct_answer_local"}
+    refute_receive {:fanout_manager_called, _text, _context}
+  end
+
+  test "grounded fanout worker records zero calls when model resolution is unavailable" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: UnexpectedAnswerer)
+
+    put_setting!("intent.direct_answer_model_enabled", true)
+    put_setting!("model_preferences.tasks.direct_answer", ["fast"])
+
+    assert {:ok, response} =
+             DirectAnswer.run(%{text: "Complete the grounded child task."}, %{
+               actor: "alice",
+               fanout_worker_policy: fanout_worker_policy()
+             })
+
+    assert response.direct_answer.source == :bounded_fallback
+    assert response.fanout_worker == %{version: 1, provider_call_count: 0}
+  end
+
+  test "only the exact versioned fanout worker policy activates the private seam" do
+    Application.put_env(:allbert_assist, DirectAnswer,
+      answerer: UnexpectedAnswerer,
+      fanout_manager: ScriptedFanoutManager
+    )
+
+    Process.put(
+      {ScriptedFanoutManager, :response},
+      {:ok,
+       %{
+         kind: :answer,
+         message: "Ordinary manager answer.",
+         diagnostic: %{
+           outcome: :answered,
+           attempts: 1,
+           policy_outcome: :single_or_indivisible,
+           join_role: :none,
+           work_unit_count: 1,
+           reviewed?: false
+         }
+       }}
+    )
+
+    put_setting!("intent.direct_answer_model_enabled", true)
+
+    malformed_policy = Map.put(fanout_worker_policy(), :unrecognized, true)
+
+    assert {:ok, response} =
+             DirectAnswer.run(%{text: "Use ordinary conversation handling."}, %{
+               actor: "alice",
+               test_pid: self(),
+               fanout_worker_policy: malformed_policy,
+               request: %{fanout_manager_mode: :automatic}
+             })
+
+    assert response.message == "Ordinary manager answer."
+    refute Map.has_key?(response, :fanout_worker)
+    assert_receive {:fanout_manager_called, "Use ordinary conversation handling.", _context}
+  end
+
   test "automatic clean DirectAnswer uses one manager call for an ordinary answer" do
     Application.put_env(:allbert_assist, DirectAnswer,
       answerer: UnexpectedAnswerer,
@@ -202,6 +284,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     assert response.message == "A useful one-turn answer."
     assert response.direct_answer.source == :model
     assert response.direct_answer.diagnostic == %{status: :used}
+    refute Map.has_key?(response, :fanout_worker)
 
     assert response.diagnostics == [
              %{
@@ -663,6 +746,26 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     refute Map.has_key?(response.direct_answer, :fallback)
   end
 
+  test "grounded fanout worker never retries or audits a provider failure" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: ScriptedAnswerer)
+    enable_text_chain!()
+    put_setting!("models.fallback.enabled", true)
+    put_setting!("models.fallback.allow_local_to_hosted", true)
+    Process.put({ScriptedAnswerer, "fast"}, {:ok, "must not appear"})
+
+    assert {:ok, response} =
+             DirectAnswer.run(%{text: "Complete the grounded child task."}, %{
+               actor: "alice",
+               fanout_worker_policy: fanout_worker_policy()
+             })
+
+    assert response.direct_answer.source == :bounded_fallback
+    assert response.fanout_worker == %{version: 1, provider_call_count: 1}
+    assert_receive {:provider_called, "local"}
+    refute_receive {:provider_called, "fast"}
+    refute File.exists?(FallbackAudit.audit_path())
+  end
+
   test "hosted primary makes no provider call before exact current-surface acknowledgement" do
     Application.put_env(:allbert_assist, DirectAnswer, answerer: ScriptedAnswerer)
     enable_text_chain!(["fast", "local"])
@@ -685,6 +788,25 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
 
     assert answered.message == "hosted answer"
     assert_receive {:provider_called, "fast"}
+  end
+
+  test "grounded fanout worker records zero calls when disclosure denies transport" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: ScriptedAnswerer)
+    enable_text_chain!(["fast"])
+    Process.put({ScriptedAnswerer, "fast"}, {:ok, "must not appear"})
+
+    assert Disclosure.hosted_pending?(:cli)
+
+    assert {:ok, response} =
+             DirectAnswer.run(%{text: "Complete the grounded child task."}, %{
+               actor: "alice",
+               channel: :cli,
+               fanout_worker_policy: fanout_worker_policy()
+             })
+
+    assert response.direct_answer.source == :bounded_fallback
+    assert response.fanout_worker == %{version: 1, provider_call_count: 0}
+    refute_receive {:provider_called, "fast"}
   end
 
   test "one surface cannot borrow another local surface acknowledgement" do
@@ -758,6 +880,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     assert response.direct_answer.fallback.failed_profile == "local"
     assert response.direct_answer.fallback.answered_profile == "fast"
     assert response.direct_answer.fallback.provider_call_count == 2
+    refute Map.has_key?(response, :fanout_worker)
     assert_receive {:provider_called, "local"}
     assert_receive {:provider_called, "fast"}
 
@@ -847,6 +970,10 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     put_setting!("intent.direct_answer_model_enabled", true)
     put_setting!("providers.openai.enabled", true)
     put_setting!("model_preferences.tasks.direct_answer", profiles)
+  end
+
+  defp fanout_worker_policy do
+    %{version: 1, provider_failover: :disabled, conversation_fanout: :disabled}
   end
 
   defp put_setting!(key, value) do

@@ -46,6 +46,11 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   @answerer_config __MODULE__
   @default_answerer __MODULE__.ReqLLMAnswerer
   @fallback_source :bounded_fallback
+  @fanout_worker_policy %{
+    version: 1,
+    provider_failover: :disabled,
+    conversation_fanout: :disabled
+  }
   @max_reason_bytes 240
   @max_active_memory_prompt_bytes 8_000
 
@@ -53,7 +58,11 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   def run(%{text: text}, context) do
     image_inputs = image_inputs(context)
     permission_decision = permission_decision(context, image_inputs)
-    answer = answer(text, context, permission_decision, image_inputs)
+
+    answer =
+      text
+      |> answer(context, permission_decision, image_inputs)
+      |> put_fanout_worker_result(context)
 
     direct_answer_action = %{
       name: "direct_answer",
@@ -120,6 +129,42 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
 
   defp resolve_text_model_result({:ok, response}, _text, _context, active_memory, resolution),
     do: model_answer_result(response, resolution, active_memory)
+
+  defp resolve_text_model_result(
+         {:fanout_worker_provider_result, {:ok, response}},
+         _text,
+         _context,
+         active_memory,
+         resolution
+       ) do
+    response
+    |> model_answer_result(resolution, active_memory)
+    |> put_fanout_worker_count(1)
+  end
+
+  defp resolve_text_model_result(
+         {:fanout_worker_provider_result, {:error, {:transport_denied, reason}}},
+         _text,
+         _context,
+         _active_memory,
+         _resolution
+       ) do
+    {:disclosure_required, reason}
+    |> fallback()
+    |> put_fanout_worker_count(1)
+  end
+
+  defp resolve_text_model_result(
+         {:fanout_worker_provider_result, {:error, reason}},
+         _text,
+         _context,
+         _active_memory,
+         _resolution
+       ) do
+    {:model_unavailable, reason}
+    |> fallback()
+    |> put_fanout_worker_count(1)
+  end
 
   defp resolve_text_model_result(
          {:manager_answer, response, diagnostic},
@@ -278,7 +323,8 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   defp fanout_manager_enabled?(context) do
     request = Map.get(context, :request, %{})
 
-    request[:fanout_manager_mode] in [:automatic, :shadow] and
+    not fanout_worker_context?(context) and
+      request[:fanout_manager_mode] in [:automatic, :shadow] and
       not (Map.has_key?(request, :operator_text) and is_nil(request.operator_text))
   end
 
@@ -306,6 +352,25 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
 
   defp put_answer_attrs(answer, attrs), do: %{answer | attrs: Map.merge(answer.attrs, attrs)}
 
+  defp put_fanout_worker_result(answer, context) do
+    if fanout_worker_context?(context) do
+      if Map.has_key?(answer.attrs, :fanout_worker),
+        do: answer,
+        else: put_fanout_worker_count(answer, 0)
+    else
+      answer
+    end
+  end
+
+  defp put_fanout_worker_count(answer, count) when count in [0, 1] do
+    put_answer_attrs(answer, %{
+      fanout_worker: %{version: 1, provider_call_count: count}
+    })
+  end
+
+  defp fanout_worker_context?(context),
+    do: Map.get(context, :fanout_worker_policy) == @fanout_worker_policy
+
   defp put_answer_diagnostic(answer, diagnostic) do
     attrs = Map.update(answer.attrs, :diagnostics, [diagnostic], &(&1 ++ [diagnostic]))
     %{answer | attrs: attrs}
@@ -313,13 +378,18 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
 
   defp call_answerer(text, context, active_memory, resolution) do
     with :ok <- Disclosure.authorize_transport(resolution.profile, context) do
-      answerer().answer(
-        text,
-        Map.merge(context, %{
-          model_profile: resolution.profile,
-          active_memory: active_memory.chunks
-        })
-      )
+      result =
+        answerer().answer(
+          text,
+          Map.merge(context, %{
+            model_profile: resolution.profile,
+            active_memory: active_memory.chunks
+          })
+        )
+
+      if fanout_worker_context?(context),
+        do: {:fanout_worker_provider_result, result},
+        else: result
     else
       {:error, reason} -> {:error, {:transport_denied, reason}}
     end
