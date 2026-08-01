@@ -914,7 +914,14 @@ fallback `no_completed_children` with outcome `not_run`. A persisted non-
 DirectAnswer action must still resolve through the Action Registry before v2
 labels it `registered_action`; unknown action identity fails v2 freeze, while
 already-selected v1 replay remains byte-exact and independent of later Registry
-removal. Deterministic code still owns every
+removal. A completed child observation requires exact current-Step ownership and
+a completed Step. Cancellation, stale abandonment, and retry-exhaustion
+recovery may legitimately leave a non-completed child pointing at any valid
+active or terminal Step status; v2 verifies ownership and the real Step status,
+rejects completion/quality-receipt evidence for that non-result, Registry-
+resolves any persisted non-DirectAnswer action identity, and keeps the child
+outside synthesis. A missing Step is compatible only when `current_step_id` is
+nil. Deterministic code still owns every
 status and attention fact, failure/cancellation truth, effect receipt, ordered
 authoritative child appendix, heading/label, byte allocation, digest,
 persistence, and surface projection. The 16 KiB canonical model-input envelope
@@ -953,6 +960,8 @@ rebound in the existing immediate transaction to its authority-bearing v2
 digest before claim/recovery selection; already-selected/pending/delivered v1
 state is never rebound. One explicit integrity-error classifier lets queue scan
 and recovery leave a corrupt parent untouched and continue later valid work;
+bounded diagnostics retain each skipped parent id plus its typed content-free
+reason instead of collapsing distinct integrity failures into an id range.
 `recovery_after_restart` records `unresolved`, because a stranded `composing`
 row cannot prove whether its single provider call crossed the boundary;
 unclassified storage/operational failures still abort. Historical

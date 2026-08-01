@@ -403,9 +403,16 @@ model:
    non-DirectAnswer action must resolve through the central Action Registry
    before v2 calls it `registered_action`; an unknown action fails v2 freeze,
    while already-selected v1 replay remains byte-exact and does not acquire the
-   new dependency. The 16 KiB canonical model-input allocator gives the
-   complete bounded request priority and fairly marks unavoidable child
-   shortening. Allbert alone renders status/attention truth, headings, receipt
+   new dependency. A completed observation requires exact current-Step
+   ownership and a completed Step. For cancelled, failed, or abandoned children,
+   cancellation, stale abandonment, and retry recovery may leave any valid
+   active or terminal Step state; v2 verifies ownership/status, rejects
+   completion and quality-receipt authority, Registry-resolves any persisted
+   non-DirectAnswer action identity, and excludes that child from synthesis. A
+   missing Step is allowed only with a nil `current_step_id`. The 16 KiB
+   canonical model-input allocator gives the complete bounded request priority
+   and fairly marks unavoidable child shortening. Allbert alone renders
+   status/attention truth, headings, receipt
    language, and the ordered authoritative appendix. Those deterministic parts
    have first claim on the 32 KiB report; advisory synthesis is one
    anti-spoofed paragraph bounded to 4,096 UTF-8 bytes and cannot displace an
@@ -468,7 +475,8 @@ model:
    compatibility path. The same explicit integrity-error classifier lets
    queue scan and recovery log and leave one corrupt parent untouched while
    continuing to later valid parents; unclassified storage/operational failures
-   still abort.
+   still abort. Bounded skip diagnostics retain each parent id and its typed,
+   content-free reason rather than reducing different failures to an id range.
 8. **Automatic fan-out stays balanced and operator-visible.** Independent
    advisory/read-only work may start under the existing automatic rollout after
    truthful kickoff custody. Uncounted effectful or mixed work stays on the
