@@ -963,16 +963,26 @@ requests, then composes fixed synthetic child observations and evaluates the
 production worker reviewer/reviser over a separate frozen task-neutral draft
 matrix. It appends two phase rows under the same gate. The manager/composer row
 records only result kinds, counts, closed join/layout enums, ordered coverage
-positions, and profile provenance. The worker-quality row records only corpus/
-profile provenance, verdict and closed-rule aggregates, byte-change booleans,
-and both logical protocol-call count and actual configured-provider reviewer-
+positions, profile provenance, and the canonical manager-fixture SHA-256. The
+worker-quality row records only corpus/profile provenance, its canonical
+fixture SHA-256, verdict and closed-rule aggregates, `required_change_rows`,
+`required_change_rows_changed`, `optional_change_rows_changed`, and the closed
+boolean `required_changes_closed`, plus both logical protocol-call count and
+actual configured-provider reviewer-
 invocation count. Its frozen draft represents logical call 1 but makes no live
 request; the one reviewer invocation is the only configured-provider call in
-that phase. Neither row records prompts, drafts, answers, observations, answer
-digests, model objects, or rendered report text. Owner tests and attended
-`FOV-*` prove the complete two-call Worker lifecycle and remain operator
-acceptance. Dirty source rehearsals
-diagnose these harnesses; only clean exact-artifact rows close packaged release
+that phase. One monotonic per-row deadline bounds preparation plus invocation;
+invocation receives only the remaining time, and a preparation timeout records
+one logical call and zero reviewer invocations. Both decoded fixtures have
+pinned canonical digests and are schema/digest-validated before disposable Home
+creation or migration. A focused public-orchestrator owner test proves both
+phase rows, combined failure propagation, and default/explicit worker-fixture
+routing without a real provider. Neither row records prompts, drafts, answers,
+observations, answer digests, model objects, or rendered report text. Owner
+tests and attended `FOV-*` prove the complete two-call Worker lifecycle and remain operator
+acceptance; this self-reviewed protocol prefilter alone is not semantic proof of
+a factual repair. Dirty source rehearsals diagnose these harnesses; only clean
+exact-artifact rows close packaged release
 evidence where the active plan requires it.
 
 ### v1.0.2 M8 Final Measurement — 2026-07-17
