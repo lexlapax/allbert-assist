@@ -867,6 +867,10 @@ verifies it again before a completed
 child may enter a new report snapshot. The receipt proves that the configured
 review boundary ran, not that model judgment is authority: it cannot select an
 action, grant permission, assert an effect, alter status, or create work.
+All Lifecycle terminal paths reject a transient Step whose `objective_id` does
+not equal the child Objective id before persisting `current_step_id` or
+finalizing the Step. This is required even before the last sibling terminalizes;
+final report freeze is defense in depth, not the write-boundary ownership check.
 Reviewed completion does not duplicate answer prose into that event payload:
 the complete receipt and existing atomic Step id/status correlation are its only
 members, while the exact normalized answer remains on the atomically committed
@@ -990,6 +994,10 @@ state is never rebound. One explicit integrity-error classifier lets queue scan
 and recovery leave a corrupt parent untouched and continue later valid work;
 bounded diagnostics retain each skipped parent id plus its typed content-free
 reason instead of collapsing distinct integrity failures into an id range.
+Parent shape, terminal child shape, and the absolute 16-child bound are checked
+before any v2 Step/Event query. Oversized or corrupt rows are classified and
+skipped per parent before they can exceed SQLite bind limits or block later
+valid work.
 `recovery_after_restart` records `unresolved`, because a stranded `composing`
 row cannot prove whether its single provider call crossed the boundary;
 unclassified storage/operational failures still abort. Historical

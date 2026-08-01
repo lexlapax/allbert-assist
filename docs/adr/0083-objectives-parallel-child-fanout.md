@@ -354,6 +354,11 @@ model:
    review provenance only: it cannot select an action, grant permission, claim
    an effect, alter state, or create work, and all original-source action rules
    above remain unchanged.
+   Every Lifecycle terminal path first requires the transient Step's
+   `objective_id` to equal the child Objective id before it may persist
+   `current_step_id` or finalize that Step. This applies even when another child
+   is still active; a later final-parent report freeze is not a substitute for
+   write-boundary ownership validation.
    For a reviewed completion, that event payload contains only the receipt and
    existing atomic Step id/status correlation; answer prose remains on the
    Objective/Step and post-commit signal. This avoids duplicating untrusted text
@@ -516,6 +521,10 @@ model:
    continuing to later valid parents; unclassified storage/operational failures
    still abort. Bounded skip diagnostics retain each parent id and its typed,
    content-free reason rather than reducing different failures to an id range.
+   Before querying Steps or events for a v2 candidate, the queue boundary
+   validates parent shape, terminal child shape, and the absolute 16-child
+   limit. An oversized/corrupt parent therefore becomes a classified per-parent
+   integrity skip and cannot exceed SQLite bind limits or abort later work.
 8. **Automatic fan-out stays balanced and operator-visible.** Independent
    advisory/read-only work may start under the existing automatic rollout after
    truthful kickoff custody. Uncounted effectful or mixed work stays on the
