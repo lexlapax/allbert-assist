@@ -928,7 +928,10 @@ persistence, and surface projection. The 16 KiB canonical model-input envelope
 prioritizes the complete bounded request and fairly marks any unavoidable child
 shortening. In the 32 KiB stored report, deterministic evidence has first claim
 on bytes; advisory synthesis is one anti-spoofed paragraph of at most 4,096 UTF-8
-bytes and cannot displace an otherwise complete child appendix. The model cannot
+bytes and cannot displace an otherwise complete child appendix. The exact
+reviewed paragraph must fit unchanged after deterministic evidence allocation;
+otherwise selection is an unresolved deterministic fallback, never a truncated
+paragraph carrying accepted review provenance. The model cannot
 revise observations, identifiers, ordering, authority, delivery, or work.
 The v2 appendix makes its closed authority explicit per child: a reviewed
 advisory row names the verified quality-receipt digest and says that review is

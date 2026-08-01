@@ -421,7 +421,10 @@ model:
    language, and the ordered authoritative appendix. Those deterministic parts
    have first claim on the 32 KiB report; advisory synthesis is one
    anti-spoofed paragraph bounded to 4,096 UTF-8 bytes and cannot displace an
-   otherwise complete child appendix. Invalid, negative, unavailable,
+   otherwise complete child appendix. The exact reviewed paragraph must fit
+   unchanged after that allocation; otherwise the selection is an unresolved
+   deterministic fallback, not truncated prose with accepted provenance.
+   Invalid, negative, unavailable,
    timed-out, or deadline-exhausted synthesis stores the truthful deterministic
    fallback with no model prose and opens delivery; it never masquerades as
    healthy synthesis. The v2 authoritative appendix also renders the closed
