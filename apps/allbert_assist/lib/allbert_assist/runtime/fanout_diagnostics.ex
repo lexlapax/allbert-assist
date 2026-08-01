@@ -35,8 +35,26 @@ defmodule AllbertAssist.Runtime.FanoutDiagnostics do
     :plan_revalidation_failed
   ]
 
+  @type manager_result :: :answer | :fanout | :clarify
+  @type manager_outcome :: :answered | :answered_after_invalid_plan | :planned | :overflow
+  @type manager_fact :: %{
+          required(:source) => :fanout_manager,
+          required(:result) => manager_result(),
+          required(:outcome) => manager_outcome(),
+          optional(:policy_outcome) => atom(),
+          optional(:join_role) => atom(),
+          optional(:attempts) => 0..2,
+          optional(:work_unit_count) => 0..64,
+          optional(:reviewed) => boolean()
+        }
+  @type manager_error_fact :: %{
+          source: :fanout_manager,
+          result: :error,
+          outcome: :manager_unavailable
+        }
+
   @doc "Build a bounded fact for a successful manager result."
-  @spec manager(:answer | :fanout | :clarify, map()) :: map()
+  @spec manager(manager_result(), map()) :: manager_fact()
   def manager(result, diagnostic) when result in @manager_results and is_map(diagnostic) do
     %{source: :fanout_manager, result: result, outcome: default_manager_outcome(result)}
     |> copy_closed(diagnostic, :outcome, Map.fetch!(@manager_outcomes, result))
@@ -48,7 +66,7 @@ defmodule AllbertAssist.Runtime.FanoutDiagnostics do
   end
 
   @doc "Build the intentionally reason-free fact for a failed manager call."
-  @spec manager_error() :: map()
+  @spec manager_error() :: manager_error_fact()
   def manager_error do
     %{source: :fanout_manager, result: :error, outcome: :manager_unavailable}
   end

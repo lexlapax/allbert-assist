@@ -9,7 +9,22 @@ defmodule AllbertAssist.Intent.FanoutManager.Commands do
   authority.
   """
 
-  @spec assess(map(), (-> term())) :: {:ok, map()} | {:error, atom()}
+  @type assessed_state :: %{
+          required(:phase) => :assessed,
+          required(:phases) => nonempty_list(term()),
+          required(:attempts) => number(),
+          required(:last_result) => term(),
+          optional(term()) => term()
+        }
+  @type adjudicated_state :: %{
+          required(:phase) => :adjudicated,
+          required(:phases) => nonempty_list(term()),
+          required(:last_result) => term(),
+          optional(term()) => term()
+        }
+
+  @spec assess(map(), (-> term())) ::
+          {:ok, assessed_state()} | {:error, :invalid_fanout_assessment_transition}
   def assess(context, invoke) when is_map(context) and is_function(invoke, 0) do
     state = Map.get(context, :state, %{})
 
@@ -28,7 +43,8 @@ defmodule AllbertAssist.Intent.FanoutManager.Commands do
     end
   end
 
-  @spec adjudicate(map(), (-> term())) :: {:ok, map()} | {:error, atom()}
+  @spec adjudicate(map(), (-> term())) ::
+          {:ok, adjudicated_state()} | {:error, :invalid_fanout_adjudication_transition}
   def adjudicate(context, invoke) when is_map(context) and is_function(invoke, 0) do
     state = Map.get(context, :state, %{})
 

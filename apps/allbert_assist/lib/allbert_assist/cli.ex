@@ -54,9 +54,9 @@ defmodule AllbertAssist.CLI do
   # v0.63 (operator-validation F1): a packaged CLI command boots the embedded runtime,
   # whose :info plugin/registration/migration logs would otherwise flood the operator's
   # terminal ahead of the command result. Default ordinary CLI commands to :warning
-  # (the result stays on stdout via IO.puts; real problems still surface). Daemon entry
-  # points use :info so lifecycle signals remain observable without Ecto bind-value
-  # debug logs. Override either boundary with ALLBERT_LOG_LEVEL
+  # (the result stays on stdout via IO.puts; real problems still surface). The source
+  # daemon uses :info so lifecycle signals remain observable without
+  # Ecto bind-value debug logs. Override either source entry boundary with ALLBERT_LOG_LEVEL
   # (debug|info|notice|warning|error) for debugging.
   @doc false
   @spec configure_logging() :: :ok

@@ -6,8 +6,7 @@ defmodule AllbertAssist.Settings.YamlCodec.QuotedScalar do
 end
 
 defimpl Ymlr.Encoder, for: AllbertAssist.Settings.YamlCodec.QuotedScalar do
-  def encode(%{value: value}, _indent_level, _opts),
-    do: Ymlr.Encode.string(value, nil)
+  def encode(%{value: value}, _indent_level, _opts), do: inspect(value)
 end
 
 defmodule AllbertAssist.Settings.YamlCodec do

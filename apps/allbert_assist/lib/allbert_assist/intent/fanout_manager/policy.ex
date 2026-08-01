@@ -130,6 +130,15 @@ defmodule AllbertAssist.Intent.FanoutManager.Policy do
   @join_role_values [:none, :parent_presentation_only, :child_consumes_sibling_result]
 
   @type criterion :: atom()
+  @type admission_rule_id ::
+          :independent_children_only
+          | :shared_deliverable_is_join_guidance
+          | :self_contained_children
+          | :advisory_read_only_only
+          | :supplied_text_ownership
+          | :dependent_work_stays_single
+          | :preserve_operator_work
+          | :inert_plan_fields_only
   @type rule_spec :: %{
           id: atom(),
           instruction: String.t(),
@@ -146,7 +155,7 @@ defmodule AllbertAssist.Intent.FanoutManager.Policy do
   def rule_ids, do: Enum.map(@rule_specs, & &1.id)
 
   @doc "Rule IDs whose closed evidence participates in deterministic admission."
-  @spec admission_rule_ids() :: [atom()]
+  @spec admission_rule_ids() :: nonempty_list(admission_rule_id())
   def admission_rule_ids, do: @admission_rule_ids
 
   @doc "Return bounded Allbert-authored critique for a known evidence invariant failure."
