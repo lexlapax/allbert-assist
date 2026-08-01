@@ -89,12 +89,27 @@ defmodule AllbertAssist.Intent.FanoutManager.Policy do
       criteria: [:allowed_child_fields_only, :no_authority_fields]
     },
     %{
-      id: :closed_output,
+      id: :closed_assessment_output,
       instruction:
-        "Return mode as answer or fanout, answer as useful plain text, and children_json as a JSON array. Use [] for answer. For fanout, each array item must contain exactly title, objective, and expected_result.",
-      criteria: [:closed_manager_shape, :mode_children_consistency]
+        "For assessment, return only a useful answer and work_units. Each ordered work unit contains exactly title, objective, and expected_result. Use zero or one work unit for ordinary single-turn work, and never represent parent-level join guidance as a work unit.",
+      criteria: [:closed_assessment_shape, :bounded_outer_work_units]
+    },
+    %{
+      id: :closed_adjudication_output,
+      instruction:
+        "For adjudication, return only work_shape, join_role, and children. Use only the closed schema values. Return at least two bounded children only for independent_advisory; otherwise return an empty children list. Allbert derives the final answer-or-fan-out decision.",
+      criteria: [
+        :closed_adjudication_shape,
+        :disposition_children_consistency,
+        :allbert_derives_final_decision
+      ]
     }
   ]
+
+  @phase_output_rule_ids %{
+    assess: :closed_assessment_output,
+    adjudicate: :closed_adjudication_output
+  }
 
   @type criterion :: atom()
   @type rule_spec :: %{
@@ -111,6 +126,21 @@ defmodule AllbertAssist.Intent.FanoutManager.Policy do
 
   @spec rule_ids() :: [atom()]
   def rule_ids, do: Enum.map(@rule_specs, & &1.id)
+
+  @doc "Rules for one manager prompt phase, excluding the other phase's output contract."
+  @spec prompt_rules(:assess | :adjudicate) :: [{atom(), String.t()}]
+  def prompt_rules(phase) when phase in [:assess, :adjudicate] do
+    output_rule_id = Map.fetch!(@phase_output_rule_ids, phase)
+
+    @rule_specs
+    |> Enum.reject(&(&1.id in Map.values(@phase_output_rule_ids)))
+    |> Kernel.++([Enum.find(@rule_specs, &(&1.id == output_rule_id))])
+    |> Enum.map(&{&1.id, &1.instruction})
+  end
+
+  @doc "Rule IDs for one manager prompt phase."
+  @spec prompt_rule_ids(:assess | :adjudicate) :: [atom()]
+  def prompt_rule_ids(phase), do: Enum.map(prompt_rules(phase), &elem(&1, 0))
 
   @doc "Machine-readable criteria for focused tests and attended semantic adjudication."
   @spec rubric() :: %{atom() => [criterion()]}

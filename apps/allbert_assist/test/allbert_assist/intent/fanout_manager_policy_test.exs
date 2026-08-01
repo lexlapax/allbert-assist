@@ -5,6 +5,8 @@ defmodule AllbertAssist.Intent.FanoutManager.PolicyTest do
   alias AllbertAssist.Actions.Intent.DirectAnswer.Policy, as: DirectAnswerPolicy
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Intent.FanoutManager
+  alias AllbertAssist.Intent.FanoutManager.Agent, as: FanoutManagerAgent
+  alias AllbertAssist.Intent.FanoutManager.Commands.{Adjudicate, Assess}
   alias AllbertAssist.Intent.FanoutManager.Policy, as: FanoutPolicy
   alias AllbertAssist.Intent.FanoutManager.ReqLLMImplementation
   alias AllbertAssist.Objectives.Runs.Worker.Commands.Execute
@@ -21,7 +23,8 @@ defmodule AllbertAssist.Intent.FanoutManager.PolicyTest do
              :dependent_work_stays_single,
              :preserve_operator_work,
              :inert_plan_fields_only,
-             :closed_output
+             :closed_assessment_output,
+             :closed_adjudication_output
            ]
 
     assert length(FanoutPolicy.rule_ids()) ==
@@ -105,17 +108,41 @@ defmodule AllbertAssist.Intent.FanoutManager.PolicyTest do
 
     rule_ids = hd(prompt.messages).metadata.allbert_prompt.rule_ids
 
-    assert rule_ids == DirectAnswerPolicy.rule_ids() ++ FanoutPolicy.rule_ids()
+    assert rule_ids ==
+             DirectAnswerPolicy.rule_ids() ++ FanoutPolicy.prompt_rule_ids(:assess)
+
+    assert :closed_assessment_output in rule_ids
+    refute :closed_adjudication_output in rule_ids
     assert List.last(prompt.messages).metadata.allbert_prompt.content_class == :operator_input
+  end
+
+  test "each manager phase derives only its own closed output rule" do
+    assert :closed_assessment_output in FanoutPolicy.prompt_rule_ids(:assess)
+    refute :closed_adjudication_output in FanoutPolicy.prompt_rule_ids(:assess)
+
+    assert :closed_adjudication_output in FanoutPolicy.prompt_rule_ids(:adjudicate)
+    refute :closed_assessment_output in FanoutPolicy.prompt_rule_ids(:adjudicate)
+
+    assert FanoutPolicy.prompt_rule_ids(:assess) -- FanoutPolicy.prompt_rule_ids(:adjudicate) ==
+             [:closed_assessment_output]
+
+    assert FanoutPolicy.prompt_rule_ids(:adjudicate) -- FanoutPolicy.prompt_rule_ids(:assess) ==
+             [:closed_adjudication_output]
   end
 
   test "private manager and worker implementation are not runtime actions" do
     registered = Registry.modules()
 
     refute FanoutManager in registered
+    refute FanoutManagerAgent in registered
+    refute Assess in registered
+    refute Adjudicate in registered
     refute JidoAdapter in registered
     refute Execute in registered
     assert {:error, {:unknown_action, FanoutManager}} = Registry.resolve(FanoutManager)
+    assert {:error, {:unknown_action, FanoutManagerAgent}} = Registry.resolve(FanoutManagerAgent)
+    assert {:error, {:unknown_action, Assess}} = Registry.resolve(Assess)
+    assert {:error, {:unknown_action, Adjudicate}} = Registry.resolve(Adjudicate)
     assert {:error, {:unknown_action, JidoAdapter}} = Registry.resolve(JidoAdapter)
     assert {:error, {:unknown_action, Execute}} = Registry.resolve(Execute)
   end

@@ -25,28 +25,37 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
   end
 
   defmodule VerticalManagerModel do
-    def respond(_text, _profile, %{fanout_manager_attempt: :initial}) do
+    @children [
+      %{
+        title: "Investigate Project Juniper",
+        objective: "Investigate Project Juniper retry behavior.",
+        expected_result: "A factual Juniper retry summary."
+      },
+      %{
+        title: "Investigate Project Cedar",
+        objective: "Investigate Project Cedar cancellation behavior.",
+        expected_result: "A factual Cedar cancellation summary."
+      }
+    ]
+
+    def respond(_text, _profile, %{fanout_manager_phase: :assess}) do
       {:ok,
        %{
-         "mode" => "fanout",
          "answer" => "I can investigate both projects and report the findings.",
-         "children_json" =>
-           Jason.encode!([
-             %{
-               title: "Investigate Project Juniper",
-               objective: "Investigate Project Juniper retry behavior.",
-               expected_result: "A factual Juniper retry summary."
-             },
-             %{
-               title: "Investigate Project Cedar",
-               objective: "Investigate Project Cedar cancellation behavior.",
-               expected_result: "A factual Cedar cancellation summary."
-             }
-           ])
+         "work_units" => @children
        }}
     end
 
-    def respond(_text, _profile, _context), do: {:error, :unexpected_repair}
+    def respond(_text, _profile, %{fanout_manager_phase: :adjudicate}) do
+      {:ok,
+       %{
+         "work_shape" => "independent_advisory",
+         "join_role" => "presentation_only",
+         "children" => @children
+       }}
+    end
+
+    def respond(_text, _profile, _context), do: {:error, :unexpected_manager_phase}
   end
 
   setup do
@@ -395,7 +404,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert %{
              "fanout_plan" => %{
                "source" => "conversation_manager",
-               "manager_attempts" => 1,
+               "manager_attempts" => 2,
                "manager_profile" => profile,
                "budget" => %{"child_count" => 2}
              }

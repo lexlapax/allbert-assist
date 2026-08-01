@@ -65,6 +65,17 @@ defmodule AllbertAssist.Intent.FanoutPlan do
 
   def compile(_original_request, _children, _opts), do: {:error, :invalid_original_request}
 
+  @doc "Validate and normalize inert candidate work units before admission policy runs."
+  @spec normalize_candidates([map()]) :: {:ok, [child()]} | {:error, term()}
+  def normalize_candidates(children) when is_list(children) do
+    with {:ok, normalized} <- normalize_children(children),
+         :ok <- validate_unique_children(normalized) do
+      {:ok, normalized}
+    end
+  end
+
+  def normalize_candidates(_children), do: {:error, :invalid_candidate_children}
+
   @doc "Compile an admission plan, preserving a safe complete-list overflow for operator UX."
   @spec compile_admission(String.t(), [map()], keyword()) ::
           {:ok, t()} | {:clarify, map()} | {:error, term()}
@@ -75,8 +86,7 @@ defmodule AllbertAssist.Intent.FanoutPlan do
     with :ok <- validate_original_request(original_request),
          {:ok, max_children} <- max_children(opts),
          :ok <- validate_minimum_child_count(children),
-         {:ok, normalized} <- normalize_children(children),
-         :ok <- validate_unique_children(normalized),
+         {:ok, normalized} <- normalize_candidates(children),
          {:ok, source} <- source(opts) do
       if length(normalized) > max_children do
         {:clarify,
