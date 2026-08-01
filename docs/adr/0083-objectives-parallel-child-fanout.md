@@ -418,7 +418,11 @@ model:
    active or terminal Step state; v2 verifies ownership/status, rejects
    completion and quality-receipt authority, Registry-resolves any persisted
    non-DirectAnswer action identity, and excludes that child from synthesis. A
-   missing Step is allowed only with a nil `current_step_id`. Additive recovery
+   missing Step is allowed only with a nil `current_step_id`. That non-completed
+   child's appendix row renders terminal detail and explicitly says that no
+   completed result exists; the persisted action path does not turn that detail
+   into a registered-action result, and a non-completed DirectAnswer row does not
+   by itself require deterministic fallback. Additive recovery
    recognizes only the known pre-fix v1.3 completion payloads
    `{summary}`, `{summary, step_id}`,
    `{summary, step_id, step_status=completed}`, and
@@ -428,14 +432,9 @@ model:
    summary equality, and any receipt binding. The summary-only shape must exactly
    match the existing 500-character projection of the durable Objective summary
    and establishes no Step, action, or receipt authority. Recovery then preserves
-   the child only as `legacy_unreviewed_advisory` and
-   force deterministic fallback. It never reconstructs reviewed or registered-
+   the child only as `legacy_unreviewed_advisory` and forces deterministic
+   fallback. It never reconstructs reviewed or registered-
    action authority, rewrites history, or accepts empty/extra/unknown payloads.
-   Its appendix row
-   renders terminal detail and explicitly says that no completed result exists;
-   the persisted action path does not turn that detail into a registered-action
-   result, and a non-completed DirectAnswer row does not by itself require
-   deterministic fallback.
    A completed registered-action child additionally consumes the existing exact
    Lifecycle completion event—`summary` equal to the existing 500-character
    Lifecycle projection of `child.last_observation_summary`, with that durable

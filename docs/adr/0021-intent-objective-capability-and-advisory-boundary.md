@@ -929,7 +929,10 @@ active or terminal Step status; v2 verifies ownership and the real Step status,
 rejects completion/quality-receipt evidence for that non-result, Registry-
 resolves any persisted non-DirectAnswer action identity, and keeps the child
 outside synthesis. A missing Step is compatible only when `current_step_id` is
-nil. For additive recovery of pre-fix v1.3 rows, only exact completion payloads
+nil. That non-completed child's appendix row renders terminal detail, explicitly
+denies that a completed result exists, and does not treat a non-completed
+DirectAnswer row as a reason to force deterministic fallback. For additive
+recovery of pre-fix v1.3 rows, only exact completion payloads
 `{summary}`, `{summary, step_id}`,
 `{summary, step_id, step_status=completed}`, and
 `{summary, step_id, step_status=completed, quality_receipt}` may identify a Step
@@ -939,10 +942,7 @@ binding. The summary-only shape must exactly match the existing 500-character
 projection of the durable Objective summary and establishes no Step, action, or
 receipt authority. Recovery then classifies the row only as legacy-unreviewed
 deterministic fallback. It does not restore reviewed/registered authority or
-accept empty, extra, or unknown payloads. Its appendix row renders terminal
-detail, explicitly denies that a
-completed result exists, and does not treat a non-completed DirectAnswer row as
-a reason to force deterministic fallback. A completed registered-action child
+accept empty, extra, or unknown payloads. A completed registered-action child
 also requires the existing Lifecycle completion-event `summary` to equal the
 500-character Lifecycle projection of `Objective.last_observation_summary`,
 with that durable Objective summary byte-equal to the completed Step's
