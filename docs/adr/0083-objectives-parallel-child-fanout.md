@@ -350,10 +350,10 @@ model:
    review provenance only: it cannot select an action, grant permission, claim
    an effect, alter state, or create work, and all original-source action rules
    above remain unchanged.
-   For a reviewed completion, that event payload contains only the receipt;
-   answer prose remains on the Objective/Step and post-commit signal. This avoids
-   duplicating untrusted text into the existing bounded event payload and adds no
-   persistence mechanism.
+   For a reviewed completion, that event payload contains only the receipt and
+   existing atomic Step id/status correlation; answer prose remains on the
+   Objective/Step and post-commit signal. This avoids duplicating untrusted text
+   into the existing bounded event payload and adds no persistence mechanism.
 6. **Terminal reduction precedes semantic composition, and composition precedes
    delivery.** The last terminal child transaction still freezes the complete
    child/result/status snapshot and parent join outcome, but it leaves

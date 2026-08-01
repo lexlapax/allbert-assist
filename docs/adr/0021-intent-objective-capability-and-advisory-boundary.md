@@ -864,9 +864,10 @@ child may enter a new report snapshot. The receipt proves that the configured
 review boundary ran, not that model judgment is authority: it cannot select an
 action, grant permission, assert an effect, alter status, or create work.
 Reviewed completion does not duplicate answer prose into that event payload:
-the complete receipt is its sole payload member, while the exact normalized
-answer remains on the atomically committed Objective/Step and the post-commit
-signal. This keeps the existing event-payload bound without another store.
+the complete receipt and existing atomic Step id/status correlation are its only
+members, while the exact normalized answer remains on the atomically committed
+Objective/Step and the post-commit signal. This keeps the existing event-payload
+bound without another store.
 
 Under the original layout-v1 selection contract, deterministic reduction froze
 child statuses, observations, and effect receipts and the composer used one
