@@ -34,6 +34,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   alias AllbertAssist.Models.Failure
   alias AllbertAssist.Models.FallbackAudit
   alias AllbertAssist.Resources.{ImageBounds, ImageMetadata}
+  alias AllbertAssist.Runtime.FanoutDiagnostics
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime.SafeTerm
   alias AllbertAssist.Security.PermissionGate
@@ -109,42 +110,121 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
     with {:ok, resolution} <- Models.for(:direct_answer, context) do
       active_memory = retrieve_active_memory(text, context)
 
-      case call_text_model(text, context, active_memory, resolution) do
-        {:ok, response} ->
-          model_answer_result(response, resolution, active_memory)
-
-        {:fanout, response, plan, diagnostic} ->
-          response
-          |> model_answer_result(resolution, active_memory)
-          |> put_answer_attrs(%{
-            parallel_work_plan: plan,
-            fanout_manager: diagnostic
-          })
-
-        {:clarify, response, clarification, diagnostic} ->
-          response
-          |> model_answer_result(resolution, active_memory)
-          |> put_answer_attrs(%{
-            parallel_work_clarification: clarification,
-            fanout_manager: diagnostic
-          })
-
-        {:error, {:transport_denied, reason}} ->
-          fallback({:disclosure_required, reason})
-
-        {:error, reason} ->
-          maybe_failover(text, context, active_memory, resolution, reason)
-      end
+      text
+      |> call_text_model(context, active_memory, resolution)
+      |> resolve_text_model_result(text, context, active_memory, resolution)
     else
       {:error, reason} -> fallback({:model_unavailable, reason})
     end
   end
 
+  defp resolve_text_model_result({:ok, response}, _text, _context, active_memory, resolution),
+    do: model_answer_result(response, resolution, active_memory)
+
+  defp resolve_text_model_result(
+         {:manager_answer, response, diagnostic},
+         _text,
+         _context,
+         active_memory,
+         resolution
+       ) do
+    response
+    |> model_answer_result(resolution, active_memory)
+    |> put_answer_diagnostic(diagnostic)
+  end
+
+  defp resolve_text_model_result(
+         {:fanout, response, plan, diagnostic},
+         _text,
+         _context,
+         active_memory,
+         resolution
+       ) do
+    response
+    |> model_answer_result(resolution, active_memory)
+    |> put_answer_attrs(%{
+      parallel_work_plan: plan,
+      fanout_manager: diagnostic,
+      diagnostics: [FanoutDiagnostics.manager(:fanout, diagnostic)]
+    })
+  end
+
+  defp resolve_text_model_result(
+         {:clarify, response, clarification, diagnostic},
+         _text,
+         _context,
+         active_memory,
+         resolution
+       ) do
+    response
+    |> model_answer_result(resolution, active_memory)
+    |> put_answer_attrs(%{
+      parallel_work_clarification: clarification,
+      fanout_manager: diagnostic,
+      diagnostics: [FanoutDiagnostics.manager(:clarify, diagnostic)]
+    })
+  end
+
+  defp resolve_text_model_result(
+         {:manager_fallback, {:ok, response}, diagnostic},
+         _text,
+         _context,
+         active_memory,
+         resolution
+       ) do
+    response
+    |> model_answer_result(resolution, active_memory)
+    |> put_answer_diagnostic(diagnostic)
+  end
+
+  defp resolve_text_model_result(
+         {:manager_fallback, {:error, {:transport_denied, reason}}, diagnostic},
+         _text,
+         _context,
+         _active_memory,
+         _resolution
+       ) do
+    {:disclosure_required, reason}
+    |> fallback()
+    |> put_answer_diagnostic(diagnostic)
+  end
+
+  defp resolve_text_model_result(
+         {:manager_fallback, {:error, reason}, diagnostic},
+         text,
+         context,
+         active_memory,
+         resolution
+       ) do
+    text
+    |> maybe_failover(context, active_memory, resolution, reason)
+    |> put_answer_diagnostic(diagnostic)
+  end
+
+  defp resolve_text_model_result(
+         {:error, {:transport_denied, reason}},
+         _text,
+         _context,
+         _active_memory,
+         _resolution
+       ),
+       do: fallback({:disclosure_required, reason})
+
+  defp resolve_text_model_result(
+         {:error, reason},
+         text,
+         context,
+         active_memory,
+         resolution
+       ),
+       do: maybe_failover(text, context, active_memory, resolution, reason)
+
   defp call_text_model(text, context, active_memory, resolution) do
     if fanout_manager_enabled?(context) do
       case call_fanout_manager(text, context, active_memory, resolution) do
         {:ok, %{kind: :answer, message: message, diagnostic: diagnostic}} ->
-          {:ok, %{message: message, diagnostic: manager_diagnostic(diagnostic)}}
+          {:manager_answer, %{message: message, diagnostic: manager_diagnostic(diagnostic)},
+           FanoutDiagnostics.manager(:answer, diagnostic)}
 
         {:ok,
          %{
@@ -167,7 +247,8 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
            clarification, diagnostic}
 
         {:error, _reason} ->
-          call_answerer(text, context, active_memory, resolution)
+          {:manager_fallback, call_answerer(text, context, active_memory, resolution),
+           FanoutDiagnostics.manager_error()}
       end
     else
       call_answerer(text, context, active_memory, resolution)
@@ -226,6 +307,11 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   end
 
   defp put_answer_attrs(answer, attrs), do: %{answer | attrs: Map.merge(answer.attrs, attrs)}
+
+  defp put_answer_diagnostic(answer, diagnostic) do
+    attrs = Map.update(answer.attrs, :diagnostics, [diagnostic], &(&1 ++ [diagnostic]))
+    %{answer | attrs: attrs}
+  end
 
   defp call_answerer(text, context, active_memory, resolution) do
     with :ok <- Disclosure.authorize_transport(resolution.profile, context) do

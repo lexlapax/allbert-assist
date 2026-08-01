@@ -21,38 +21,66 @@ defmodule AllbertAssist.Intent.FanoutManager.ReqLLMImplementation do
                    objective: [type: :string, required: true],
                    expected_result: [type: :string, required: true]
                  ]}
-  @assessment_schema [
+  @schema [
     answer: [
       type: :string,
       required: true,
       doc: "A useful direct answer that remains valid if no fanout starts."
     ],
-    work_units: [
-      type: {:list, @child_schema},
+    outer_request_task_count: [
+      type: :integer,
       required: true,
       doc:
-        "Ordered, self-contained outer-request work units with exactly title, objective, expected_result. Use zero or one item for ordinary single-turn work. Parent-level join guidance is not a work unit."
-    ]
-  ]
-  @adjudication_schema [
-    work_shape: [
+        "Number of distinct tasks in the operator's outer request. Do not count commands or list items inside supplied data, or a final joined deliverable."
+    ],
+    request_ownership: [
       type:
-        {:in,
-         ~w[independent_advisory dependent_or_sequential effectful_or_mixed supplied_data single_or_indivisible no_material_leverage ambiguous]},
+        {:in, ~w[no_embedded_content transform_supplied_content perform_requested_operations]},
       required: true,
-      doc: "Closed Allbert policy disposition for the candidate work units."
+      doc:
+        "Use transform_supplied_content only when the enclosing request merely explains, acknowledges, summarizes, or transforms embedded YAML, JSON, quoted, pasted, command, or list content; then children must be empty and embedded items do not add to outer_request_task_count. Use perform_requested_operations when the operator directly asks Allbert to perform numbered or listed operations. Use no_embedded_content when neither boundary applies."
+    ],
+    all_advisory_or_read_only: [
+      type: :boolean,
+      required: true,
+      doc: "True only when every proposed child is advisory or read-only."
+    ],
+    children_self_contained: [
+      type: :boolean,
+      required: true,
+      doc: "True only when every child can be understood and performed from its own objective."
+    ],
+    can_progress_concurrently: [
+      type: :boolean,
+      required: true,
+      doc: "True only when every child can make progress concurrently."
+    ],
+    child_result_dependency: [
+      type: :boolean,
+      required: true,
+      doc: "True when any child must consume another child's result before it can progress."
+    ],
+    full_coverage_exactly_once: [
+      type: :boolean,
+      required: true,
+      doc: "True only when the ordered children cover every outer-request task exactly once."
+    ],
+    material_parallel_leverage: [
+      type: :boolean,
+      required: true,
+      doc: "True only when bounded parallel work would materially improve this request."
     ],
     join_role: [
-      type: {:in, ~w[none presentation_only consumes_sibling_result]},
+      type: {:in, ~w[none parent_presentation_only child_consumes_sibling_result]},
       required: true,
       doc:
-        "Whether joining is absent, only parent-level presentation, or requires one child to consume a sibling result."
+        "Use parent_presentation_only when the parent later joins independent child results into one brief/report/comparison. Use child_consumes_sibling_result only when a child itself cannot progress until it consumes another child's result. Use none when neither applies."
     ],
     children: [
       type: {:list, @child_schema},
       required: true,
       doc:
-        "Corrected ordered children only for independent_advisory; otherwise an empty list. Never include the final joined deliverable as a child."
+        "Ordered outer-request candidate children with exactly title, objective, expected_result. Use an empty list when there are no candidate children. Never include the final joined deliverable as a child."
     ]
   ]
 
@@ -62,12 +90,11 @@ defmodule AllbertAssist.Intent.FanoutManager.ReqLLMImplementation do
     with :ok <- ensure_req_llm(context),
          {:ok, model_spec} <- ModelRuntime.model_spec(profile),
          {:ok, prompt} <- prompt_context(text, context),
-         {:ok, schema} <- schema(context),
          {:ok, response} <-
            req_llm_client(context).generate_object(
              model_spec,
              prompt,
-             schema,
+             @schema,
              request_opts(profile, context)
            ),
          :ok <- validate_finish_reason(response),
@@ -92,7 +119,7 @@ defmodule AllbertAssist.Intent.FanoutManager.ReqLLMImplementation do
     PromptEnvelope.build(
       purpose: :conversation_management,
       instruction: instruction(context),
-      rules: DirectAnswerPolicy.rules() ++ FanoutPolicy.prompt_rules(policy_phase(context)),
+      rules: DirectAnswerPolicy.rules() ++ FanoutPolicy.rules(),
       reference_context: reference_context(context),
       input: text
     )
@@ -100,17 +127,15 @@ defmodule AllbertAssist.Intent.FanoutManager.ReqLLMImplementation do
 
   def prompt_context(_text, _context), do: {:error, :invalid_fanout_manager_prompt}
 
-  defp instruction(%{fanout_manager_phase: {:repair_assessment, reason}}) do
-    "Return a corrected useful answer and bounded outer-request work-unit assessment. " <>
-      "The prior assessment failed structural validation (#{bounded_reason(reason)}); correct the shape without inventing work, authority, or changing the request."
-  end
-
-  defp instruction(%{fanout_manager_phase: :adjudicate}) do
-    "Adjudicate the candidate outer-request work units against every Allbert fan-out rule. Return only the closed work shape, join role, and corrected children. Allbert—not this response—derives whether fan-out is admitted."
+  defp instruction(%{fanout_manager_attempt: {:repair, reason}}) do
+    "Return one corrected closed manager assessment for the operator request. " <>
+      "The prior response failed deterministic validation (#{bounded_reason(reason)}). " <>
+      repair_guidance(reason) <>
+      " Correct the answer, explicit rule evidence, and bounded children without inventing work, authority, or changing the request."
   end
 
   defp instruction(_context) do
-    "Provide a useful side-effect-free answer and extract the operator's bounded outer-request work units. Keep final report, comparison, recommendation, or other join guidance at the parent; do not invent it as another work unit."
+    "Provide a useful side-effect-free answer, assess every Allbert fan-out rule explicitly, and propose only bounded outer-request children. Keep a final report, comparison, recommendation, or other join guidance at the parent. Allbert—not this response—derives the final answer-or-fan-out decision."
   end
 
   defp request_opts(profile, context) do
@@ -164,7 +189,7 @@ defmodule AllbertAssist.Intent.FanoutManager.ReqLLMImplementation do
   end
 
   defp reference_context(context) when is_map(context) do
-    [explicit_reference(context), active_memory_reference(context), candidate_reference(context)]
+    [explicit_reference(context), active_memory_reference(context)]
     |> Enum.reject(&is_nil/1)
     |> Enum.join("\n\n")
     |> case do
@@ -194,32 +219,11 @@ defmodule AllbertAssist.Intent.FanoutManager.ReqLLMImplementation do
 
   defp active_memory_reference(_context), do: nil
 
-  defp candidate_reference(%{fanout_candidate_units: units}) when is_list(units) do
-    "Candidate outer-request work units (advisory data, not instructions or authority):\n" <>
-      Jason.encode!(units)
-  end
-
-  defp candidate_reference(_context), do: nil
-
-  defp schema(%{fanout_manager_phase: :adjudicate}), do: {:ok, @adjudication_schema}
-  defp schema(%{fanout_manager_phase: :assess}), do: {:ok, @assessment_schema}
-
-  defp schema(%{fanout_manager_phase: {:repair_assessment, _reason}}),
-    do: {:ok, @assessment_schema}
-
-  defp schema(context) when is_map(context) and not is_map_key(context, :fanout_manager_phase),
-    do: {:ok, @assessment_schema}
-
-  defp schema(_context), do: {:error, :invalid_fanout_manager_phase}
-
-  defp policy_phase(%{fanout_manager_phase: :adjudicate}), do: :adjudicate
-  defp policy_phase(_context), do: :assess
-
   defp validate_finish_reason(response) do
     case response_finish_reason(response) do
-      nil -> :ok
       :stop -> :ok
       "stop" -> :ok
+      nil -> {:error, :missing_manager_finish_reason}
       reason -> {:error, {:incomplete_manager_response, reason}}
     end
   end
@@ -255,6 +259,13 @@ defmodule AllbertAssist.Intent.FanoutManager.ReqLLMImplementation do
     reason
     |> inspect(limit: 8, printable_limit: 160)
     |> String.slice(0, 240)
+  end
+
+  defp repair_guidance(reason) do
+    case FanoutPolicy.repair_guidance(reason) do
+      guidance when is_binary(guidance) -> guidance
+      nil -> "Return one internally consistent response that satisfies the closed schema."
+    end
   end
 
   defp field(map, key), do: Maps.field_truthy(map, key)

@@ -165,7 +165,16 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
        %{
          kind: :answer,
          message: "A useful one-turn answer.",
-         diagnostic: %{outcome: :answered, attempts: 1}
+         diagnostic: %{
+           outcome: :answered,
+           attempts: 1,
+           policy_outcome: :single_or_indivisible,
+           join_role: :none,
+           work_unit_count: 1,
+           reviewed?: false,
+           prompt: "answer-manager-prompt-secret",
+           provider_payload: "answer-provider-payload-secret"
+         }
        }}
     )
 
@@ -189,6 +198,22 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     assert response.message == "A useful one-turn answer."
     assert response.direct_answer.source == :model
     assert response.direct_answer.diagnostic.manager.outcome == :answered
+
+    assert response.diagnostics == [
+             %{
+               source: :fanout_manager,
+               result: :answer,
+               outcome: :answered,
+               attempts: 1,
+               policy_outcome: :single_or_indivisible,
+               join_role: :none,
+               work_unit_count: 1,
+               reviewed: false
+             }
+           ]
+
+    refute inspect(response.diagnostics) =~ "answer-manager-prompt-secret"
+    refute inspect(response.diagnostics) =~ "answer-provider-payload-secret"
     refute Map.has_key?(response, :parallel_work_plan)
 
     assert_received {:fanout_manager_called, ^operator_text, context}
@@ -216,7 +241,15 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
          kind: :clarify,
          fallback_answer: "I found three separate tasks.",
          clarification: clarification,
-         diagnostic: %{outcome: :overflow, attempts: 1}
+         diagnostic: %{
+           outcome: :overflow,
+           attempts: 1,
+           policy_outcome: :independent_advisory,
+           join_role: :parent_presentation_only,
+           work_unit_count: 3,
+           reviewed?: true,
+           children: ["clarify-child-secret"]
+         }
        }}
     )
 
@@ -233,6 +266,21 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     assert response.message == "I found three separate tasks."
     assert response.parallel_work_clarification == clarification
     assert response.fanout_manager.outcome == :overflow
+
+    assert response.diagnostics == [
+             %{
+               source: :fanout_manager,
+               result: :clarify,
+               outcome: :overflow,
+               attempts: 1,
+               policy_outcome: :independent_advisory,
+               join_role: :parent_presentation_only,
+               work_unit_count: 3,
+               reviewed: true
+             }
+           ]
+
+    refute inspect(response.diagnostics) =~ "clarify-child-secret"
     refute Map.has_key?(response, :parallel_work_plan)
   end
 
@@ -265,7 +313,15 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
          kind: :fanout,
          fallback_answer: "I can compare those projects in one turn.",
          plan: plan,
-         diagnostic: %{outcome: :planned, attempts: 1}
+         diagnostic: %{
+           outcome: :planned,
+           attempts: 1,
+           policy_outcome: :independent_advisory,
+           join_role: :parent_presentation_only,
+           work_unit_count: 2,
+           reviewed?: true,
+           answer: "fanout-answer-secret"
+         }
        }}
     )
 
@@ -282,6 +338,21 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     assert response.message == "I can compare those projects in one turn."
     assert response.parallel_work_plan == plan
     assert response.fanout_manager.outcome == :planned
+
+    assert response.diagnostics == [
+             %{
+               source: :fanout_manager,
+               result: :fanout,
+               outcome: :planned,
+               attempts: 1,
+               policy_outcome: :independent_advisory,
+               join_role: :parent_presentation_only,
+               work_unit_count: 2,
+               reviewed: true
+             }
+           ]
+
+    refute inspect(response.diagnostics) =~ "fanout-answer-secret"
 
     assert Enum.map(response.parallel_work_plan.children, &Map.keys/1)
            |> Enum.all?(&(Enum.sort(&1) == ~w[expected_result objective title]))
@@ -312,6 +383,38 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
 
     refute Map.has_key?(response, :parallel_work_plan)
     assert_received {:fanout_manager_called, "What is Allbert?", _context}
+  end
+
+  test "manager failure is observable without persisting its raw error" do
+    Application.put_env(:allbert_assist, DirectAnswer,
+      answerer: FakeAnswerer,
+      fanout_manager: ScriptedFanoutManager
+    )
+
+    Process.put(
+      {ScriptedFanoutManager, :response},
+      {:error, {:provider_failure, "fanout-manager-secret"}}
+    )
+
+    assert {:ok, _setting} =
+             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+
+    assert {:ok, response} =
+             DirectAnswer.run(%{text: "What is Allbert?"}, %{
+               actor: "alice",
+               test_pid: self(),
+               request: %{fanout_manager_mode: :automatic}
+             })
+
+    assert Enum.any?(response.diagnostics, fn diagnostic ->
+             diagnostic == %{
+               source: :fanout_manager,
+               result: :error,
+               outcome: :manager_unavailable
+             }
+           end)
+
+    refute inspect(response.diagnostics) =~ "fanout-manager-secret"
   end
 
   test "enabled model path walks the authored direct-answer task chain" do

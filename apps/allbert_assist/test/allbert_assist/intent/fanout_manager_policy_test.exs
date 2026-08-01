@@ -23,8 +23,8 @@ defmodule AllbertAssist.Intent.FanoutManager.PolicyTest do
              :dependent_work_stays_single,
              :preserve_operator_work,
              :inert_plan_fields_only,
-             :closed_assessment_output,
-             :closed_adjudication_output
+             :contrastive_admission_scenarios,
+             :closed_manager_output
            ]
 
     assert length(FanoutPolicy.rule_ids()) ==
@@ -33,6 +33,11 @@ defmodule AllbertAssist.Intent.FanoutManager.PolicyTest do
     assert Enum.map(FanoutPolicy.rule_specs(), & &1.id) == FanoutPolicy.rule_ids()
     refute inspect(FanoutPolicy.rules()) =~ "Juniper"
     refute inspect(FanoutPolicy.rules()) =~ "Friday"
+
+    contrast = Map.fetch!(FanoutPolicy.rubric(), :contrastive_admission_scenarios)
+    assert :supplied_data_contrast in contrast
+    assert :parallel_parent_join_contrast in contrast
+    assert :dependent_effectful_contrast in contrast
   end
 
   test "manager policy owns the semantic operator-adjudication criteria" do
@@ -41,7 +46,8 @@ defmodule AllbertAssist.Intent.FanoutManager.PolicyTest do
         :at_least_two_children,
         :independently_useful,
         :concurrent_progress,
-        :no_child_result_dependency
+        :no_child_result_dependency,
+        :material_parallel_leverage
       ],
       shared_deliverable_is_join_guidance: [
         :shared_deliverable_is_packaging,
@@ -108,26 +114,68 @@ defmodule AllbertAssist.Intent.FanoutManager.PolicyTest do
 
     rule_ids = hd(prompt.messages).metadata.allbert_prompt.rule_ids
 
-    assert rule_ids ==
-             DirectAnswerPolicy.rule_ids() ++ FanoutPolicy.prompt_rule_ids(:assess)
+    assert rule_ids == DirectAnswerPolicy.rule_ids() ++ FanoutPolicy.rule_ids()
 
-    assert :closed_assessment_output in rule_ids
-    refute :closed_adjudication_output in rule_ids
+    assert :closed_manager_output in rule_ids
     assert List.last(prompt.messages).metadata.allbert_prompt.content_class == :operator_input
   end
 
-  test "each manager phase derives only its own closed output rule" do
-    assert :closed_assessment_output in FanoutPolicy.prompt_rule_ids(:assess)
-    refute :closed_adjudication_output in FanoutPolicy.prompt_rule_ids(:assess)
+  test "Allbert derives admission from explicit evidence with safe-rejection priority" do
+    eligible = eligible_evidence()
 
-    assert :closed_adjudication_output in FanoutPolicy.prompt_rule_ids(:adjudicate)
-    refute :closed_assessment_output in FanoutPolicy.prompt_rule_ids(:adjudicate)
+    assert {:admit,
+            %{
+              policy_outcome: :independent_advisory,
+              failed_criteria: [],
+              join_role: :parent_presentation_only
+            }} = FanoutPolicy.decide(eligible, 2)
 
-    assert FanoutPolicy.prompt_rule_ids(:assess) -- FanoutPolicy.prompt_rule_ids(:adjudicate) ==
-             [:closed_assessment_output]
+    assert {:answer,
+            %{
+              policy_outcome: :supplied_data,
+              failed_criteria: [:supplied_text_ownership]
+            }} =
+             FanoutPolicy.decide(
+               %{
+                 eligible
+                 | request_ownership: :transform_supplied_content,
+                   outer_request_task_count: 1,
+                   child_result_dependency: true
+               },
+               0
+             )
 
-    assert FanoutPolicy.prompt_rule_ids(:adjudicate) -- FanoutPolicy.prompt_rule_ids(:assess) ==
-             [:closed_adjudication_output]
+    assert {:error, :supplied_data_evidence_conflict} =
+             FanoutPolicy.decide(%{eligible | request_ownership: :transform_supplied_content}, 2)
+
+    assert {:answer,
+            %{
+              policy_outcome: :dependent_or_sequential,
+              failed_criteria: failures
+            }} =
+             FanoutPolicy.decide(
+               %{
+                 eligible
+                 | can_progress_concurrently: false,
+                   child_result_dependency: true,
+                   join_role: :child_consumes_sibling_result
+               },
+               2
+             )
+
+    assert :concurrent_progress in failures
+    assert :no_child_result_dependency in failures
+    assert :dependency_requires_child_result_consumption in failures
+    assert {:error, :adjudication_task_count_mismatch} = FanoutPolicy.decide(eligible, 3)
+  end
+
+  test "known evidence conflicts derive bounded repair guidance from policy" do
+    guidance = FanoutPolicy.repair_guidance(:supplied_data_evidence_conflict)
+
+    assert guidance =~ "transform_supplied_content"
+    assert guidance =~ "perform_requested_operations"
+    assert guidance =~ "no children"
+    assert FanoutPolicy.repair_guidance(:unknown) == nil
   end
 
   test "private manager and worker implementation are not runtime actions" do
@@ -145,5 +193,19 @@ defmodule AllbertAssist.Intent.FanoutManager.PolicyTest do
     assert {:error, {:unknown_action, Adjudicate}} = Registry.resolve(Adjudicate)
     assert {:error, {:unknown_action, JidoAdapter}} = Registry.resolve(JidoAdapter)
     assert {:error, {:unknown_action, Execute}} = Registry.resolve(Execute)
+  end
+
+  defp eligible_evidence do
+    %{
+      outer_request_task_count: 2,
+      request_ownership: :no_embedded_content,
+      all_advisory_or_read_only: true,
+      children_self_contained: true,
+      can_progress_concurrently: true,
+      child_result_dependency: false,
+      full_coverage_exactly_once: true,
+      material_parallel_leverage: true,
+      join_role: :parent_presentation_only
+    }
   end
 end

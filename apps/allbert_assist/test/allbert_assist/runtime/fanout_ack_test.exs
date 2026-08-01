@@ -38,19 +38,19 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
       }
     ]
 
-    def respond(_text, _profile, %{fanout_manager_phase: :assess}) do
+    def respond(_text, _profile, %{fanout_manager_attempt: :initial}) do
       {:ok,
        %{
          "answer" => "I can investigate both projects and report the findings.",
-         "work_units" => @children
-       }}
-    end
-
-    def respond(_text, _profile, %{fanout_manager_phase: :adjudicate}) do
-      {:ok,
-       %{
-         "work_shape" => "independent_advisory",
-         "join_role" => "presentation_only",
+         "outer_request_task_count" => 2,
+         "request_ownership" => "no_embedded_content",
+         "all_advisory_or_read_only" => true,
+         "children_self_contained" => true,
+         "can_progress_concurrently" => true,
+         "child_result_dependency" => false,
+         "full_coverage_exactly_once" => true,
+         "material_parallel_leverage" => true,
+         "join_role" => "parent_presentation_only",
          "children" => @children
        }}
     end
@@ -404,7 +404,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert %{
              "fanout_plan" => %{
                "source" => "conversation_manager",
-               "manager_attempts" => 2,
+               "manager_attempts" => 1,
                "manager_profile" => profile,
                "budget" => %{"child_count" => 2}
              }

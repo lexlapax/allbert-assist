@@ -38,6 +38,7 @@ defmodule AllbertAssist.Runtime do
   alias AllbertAssist.Objectives.Fanout.Budget, as: FanoutBudget
   alias AllbertAssist.Objectives.Runs.Scheduler
   alias AllbertAssist.Runtime.DeliveryAcknowledgement
+  alias AllbertAssist.Runtime.FanoutDiagnostics
   alias AllbertAssist.Runtime.MediaOutputs
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime.Response
@@ -981,12 +982,25 @@ defmodule AllbertAssist.Runtime do
           {:ok, validated_plan} ->
             frame_fanout_or_fallback(input_signal, request, validated_plan, response)
 
-          {:error, _reason} ->
-            {:ok, strip_fanout_control(response)}
+          {:error, reason} ->
+            {:ok,
+             response
+             |> strip_fanout_control()
+             |> add_admission_diagnostic(:rejected, revalidation_failure_kind(reason))}
         end
 
-      {:ok, %{parallel_work_clarification: clarification}} when mode == :automatic ->
-        {:ok, overflow_response(clarification)}
+      {:ok, %{parallel_work_clarification: clarification} = response}
+      when mode == :automatic ->
+        {:ok,
+         clarification
+         |> overflow_response()
+         |> copy_manager_fact(response)}
+
+      {:ok, response} when is_map(response) and mode == :shadow ->
+        {:ok,
+         response
+         |> strip_fanout_control()
+         |> add_admission_diagnostic(:shadow_only)}
 
       {:ok, response} when is_map(response) ->
         {:ok, strip_fanout_control(response)}
@@ -1070,7 +1084,11 @@ defmodule AllbertAssist.Runtime do
       }
 
       with {:ok, framed} <- fanout_framer().(attrs, FanoutPlan.child_attrs(plan)) do
-        {:ok, kickoff_response(framed)}
+        {:ok,
+         framed
+         |> kickoff_response()
+         |> copy_manager_fact(manager_response)
+         |> add_admission_diagnostic(:admitted)}
       end
     end
   end
@@ -1085,36 +1103,66 @@ defmodule AllbertAssist.Runtime do
   end
 
   defp fanout_frame_fallback(_input_signal, _request, response, reason) do
-    {:ok,
-     response
-     |> strip_fanout_control()
-     |> add_fanout_diagnostic(reason)}
+    {:ok, add_fanout_diagnostic(response, reason)}
   end
 
   defp add_fanout_diagnostic(response, reason) do
-    diagnostic = %{
-      source: :fanout_admission,
-      outcome: :single_turn_fallback,
-      reason: Redactor.redact(fanout_failure_kind(reason))
-    }
-
-    Map.update(response, :diagnostics, [diagnostic], &[diagnostic | &1])
+    response
+    |> strip_fanout_control()
+    |> add_admission_diagnostic(:single_turn_fallback, fanout_failure_kind(reason))
   end
 
   defp fanout_failure_kind({:fanout_already_active, _parent}), do: :fanout_already_active
-  defp fanout_failure_kind({:fanout_budget_exhausted, details}), do: details
+  defp fanout_failure_kind({:fanout_budget_exhausted, _details}), do: :fanout_budget_exhausted
 
-  defp fanout_failure_kind({:fanout_budget_setting_unavailable, key, _reason}),
-    do: {key, :unavailable}
+  defp fanout_failure_kind({:fanout_budget_setting_unavailable, _key, _reason}),
+    do: :fanout_budget_unavailable
 
-  defp fanout_failure_kind(reason) when is_atom(reason), do: reason
+  defp fanout_failure_kind(:fanout_plan_deadline_exhausted),
+    do: :fanout_plan_deadline_exhausted
+
   defp fanout_failure_kind(_reason), do: :fanout_frame_failed
+
+  defp revalidation_failure_kind(:plan_request_binding_mismatch),
+    do: :plan_request_binding_mismatch
+
+  defp revalidation_failure_kind(_reason), do: :plan_revalidation_failed
+
+  defp add_admission_diagnostic(response, outcome, reason \\ nil) do
+    Response.append_diagnostic(response, FanoutDiagnostics.admission(outcome, reason))
+  end
+
+  defp copy_manager_fact(response, manager_response) do
+    case FanoutDiagnostics.manager_fact(manager_response) do
+      nil -> response
+      fact -> Response.append_diagnostic(response, fact)
+    end
+  end
 
   defp strip_fanout_control(response) do
     response
     |> Map.delete(:parallel_work_plan)
     |> Map.delete(:parallel_work_clarification)
+    |> Map.delete(:fanout_manager)
+    |> strip_nested_manager_diagnostic()
+    |> Map.update(:diagnostics, [], &FanoutDiagnostics.sanitize/1)
   end
+
+  defp strip_nested_manager_diagnostic(%{direct_answer: direct_answer} = response)
+       when is_map(direct_answer) do
+    sanitized =
+      case Map.get(direct_answer, :diagnostic) do
+        diagnostic when is_map(diagnostic) ->
+          Map.put(direct_answer, :diagnostic, Map.delete(diagnostic, :manager))
+
+        _other ->
+          direct_answer
+      end
+
+    Map.put(response, :direct_answer, sanitized)
+  end
+
+  defp strip_nested_manager_diagnostic(response), do: response
 
   defp manager_diagnostic(%{fanout_manager: %{} = diagnostic}), do: diagnostic
   defp manager_diagnostic(_response), do: %{}

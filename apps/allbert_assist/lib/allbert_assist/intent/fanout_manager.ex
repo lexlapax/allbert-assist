@@ -2,47 +2,59 @@ defmodule AllbertAssist.Intent.FanoutManager do
   @moduledoc """
   Conversational planning Interface for one central Runtime turn.
 
-  One DirectAnswer-qualified assessment returns a useful answer plus bounded
-  outer-request work units. A multi-unit candidate receives one separate
-  policy adjudication; Allbert then derives either ordinary single-turn
-  handling or an inert ordered `FanoutPlan`. Invalid initial structure may use
-  that second call for repair instead, after which multi-unit work fails closed
-  because it has not been independently adjudicated.
+  One DirectAnswer-qualified model call returns a useful answer, bounded
+  candidate children, and closed evidence for Allbert's fan-out rules. A
+  private Jido Agent owns the assess/adjudicate lifecycle: the model-backed
+  assessment is advisory, while the adjudication command applies Allbert's
+  deterministic policy and plan compiler locally. A malformed or internally
+  inconsistent response may receive one bounded repair call under the same
+  monotonic deadline.
 
-  This module is deliberately stateless. Durable work begins only after the
-  caller hands a compiled plan to `AllbertAssist.Objectives`; model output does
-  not grant action, permission, confirmation, identity, or scheduling authority.
+  This Interface owns no durable or execution authority. Durable work begins
+  only after the caller hands a compiled inert plan to `AllbertAssist.Objectives`;
+  model output cannot grant an action, permission, confirmation, identity,
+  worker, scheduling, or delivery decision.
   """
 
   alias AllbertAssist.FirstRun.Disclosure
-  alias AllbertAssist.Intent.FanoutPlan
   alias AllbertAssist.Intent.FanoutManager.Agent, as: ManagerAgent
   alias AllbertAssist.Intent.FanoutManager.Commands.{Adjudicate, Assess}
+  alias AllbertAssist.Intent.FanoutManager.Policy
+  alias AllbertAssist.Intent.FanoutPlan
   alias AllbertAssist.Objectives.Fanout.Budget
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Models
+  alias Jido.Agent.Directive.Error, as: JidoErrorDirective
 
   @default_model_client __MODULE__.ReqLLMImplementation
   @model_config __MODULE__
-  @assessment_keys ~w[answer work_units]
-  @adjudication_keys ~w[work_shape join_role children]
-  @work_shapes %{
-    "independent_advisory" => :independent_advisory,
-    "dependent_or_sequential" => :dependent_or_sequential,
-    "effectful_or_mixed" => :effectful_or_mixed,
-    "supplied_data" => :supplied_data,
-    "single_or_indivisible" => :single_or_indivisible,
-    "no_material_leverage" => :no_material_leverage,
-    "ambiguous" => :ambiguous
+  @response_keys ~w[
+    answer
+    outer_request_task_count
+    request_ownership
+    all_advisory_or_read_only
+    children_self_contained
+    can_progress_concurrently
+    child_result_dependency
+    full_coverage_exactly_once
+    material_parallel_leverage
+    join_role
+    children
+  ]
+  @request_ownership %{
+    "no_embedded_content" => :no_embedded_content,
+    "transform_supplied_content" => :transform_supplied_content,
+    "perform_requested_operations" => :perform_requested_operations
   }
   @join_roles %{
     "none" => :none,
-    "presentation_only" => :presentation_only,
-    "consumes_sibling_result" => :consumes_sibling_result
+    "parent_presentation_only" => :parent_presentation_only,
+    "child_consumes_sibling_result" => :child_consumes_sibling_result
   }
   @max_request_bytes 4_000
   @max_answer_bytes 32_000
+  @max_reported_task_count 64
   @profile_binding_fields ~w[
     name
     provider
@@ -123,58 +135,49 @@ defmodule AllbertAssist.Intent.FanoutManager do
     agent = manager_agent()
 
     {agent, result} =
-      run_command(agent, Assess, fn -> call_model(text, profile, context, :assess, 1) end)
+      run_command(
+        agent,
+        Assess,
+        fn -> call_model(text, profile, context, :initial, 1) end,
+        context
+      )
 
     case result do
       {:ok, response} ->
-        case interpret_assessment(response) do
-          {:ok, assessment} ->
-            resolve_assessment(text, assessment, profile, context, budget_limits, agent)
-
-          {:error, reason} ->
-            repair_assessment(
-              text,
-              profile,
-              context,
-              budget_limits,
-              agent,
-              usable_answer(response),
-              reason
-            )
-        end
+        adjudicate_initial(text, response, profile, context, budget_limits, agent)
 
       {:error, reason} ->
         {:error, reason}
     end
   end
 
-  defp resolve_assessment(
-         text,
-         %{answer: answer, work_units: work_units},
-         profile,
-         context,
-         budget_limits,
-         agent
-       ) do
-    case length(work_units) do
-      count when count < 2 ->
-        result = %{kind: :answer, message: answer}
+  defp adjudicate_initial(text, response, profile, context, budget_limits, agent) do
+    {agent, result} =
+      run_command(
+        agent,
+        Adjudicate,
+        fn -> interpret_response(text, response, context) end,
+        context
+      )
 
-        {:ok,
-         decorate(result, profile, 1, budget_limits, context, %{
-           policy_outcome: :single_or_indivisible,
-           join_role: :none,
-           work_unit_count: count,
-           reviewed?: false,
-           phases: agent.state.phases
-         })}
+    case result do
+      {:ok, {resolved, semantic}} ->
+        {:ok, decorate(resolved, profile, 1, budget_limits, context, semantic, agent)}
 
-      _multi ->
-        adjudicate(text, answer, work_units, profile, context, budget_limits, agent)
+      {:error, reason} ->
+        repair_once(
+          text,
+          profile,
+          context,
+          budget_limits,
+          agent,
+          usable_answer(response),
+          reason
+        )
     end
   end
 
-  defp repair_assessment(
+  defp repair_once(
          text,
          profile,
          context,
@@ -183,74 +186,26 @@ defmodule AllbertAssist.Intent.FanoutManager do
          initial_answer,
          initial_reason
        ) do
-    invoke = fn ->
-      call_model(
-        text,
-        profile,
-        context,
-        {:repair_assessment, initial_reason},
-        2
+    {agent, result} =
+      run_command(
+        agent,
+        Assess,
+        fn -> call_model(text, profile, context, {:repair, initial_reason}, 2) end,
+        context
       )
-    end
-
-    {agent, result} = run_command(agent, Assess, invoke)
 
     case result do
-      {:ok, response} ->
-        case interpret_assessment(response) do
-          {:ok, %{answer: repaired_answer, work_units: units}} when length(units) < 2 ->
-            result = %{kind: :answer, message: repaired_answer}
-
-            {:ok,
-             decorate(result, profile, 2, budget_limits, context, %{
-               outcome: :answered_after_assessment_repair,
-               policy_outcome: :single_or_indivisible,
-               join_role: :none,
-               work_unit_count: length(units),
-               reviewed?: false,
-               phases: agent.state.phases,
-               assessment_error: initial_reason
-             })}
-
-          {:ok, %{answer: repaired_answer, work_units: units}} ->
-            retain_answer(
-              repaired_answer,
-              profile,
-              2,
-              budget_limits,
-              context,
-              %{
-                outcome: :answered_after_assessment_repair,
-                policy_outcome: :adjudication_not_run,
-                join_role: :none,
-                work_unit_count: length(units),
-                reviewed?: false,
-                phases: agent.state.phases,
-                assessment_error: initial_reason,
-                adjudication_error: :manager_call_budget_used_by_assessment_repair
-              }
-            )
-
-          {:error, repair_reason} ->
-            retain_answer_or_error(
-              initial_answer || usable_answer(response),
-              profile,
-              attempted_calls(repair_reason),
-              budget_limits,
-              context,
-              %{
-                outcome: :answered_after_invalid_assessment,
-                policy_outcome: :assessment_invalid,
-                join_role: :none,
-                work_unit_count: 0,
-                reviewed?: false,
-                phases: agent.state.phases,
-                assessment_error: initial_reason,
-                repair_error: repair_reason
-              },
-              {initial_reason, repair_reason}
-            )
-        end
+      {:ok, repaired_response} ->
+        adjudicate_repair(
+          text,
+          repaired_response,
+          profile,
+          context,
+          budget_limits,
+          agent,
+          initial_answer,
+          initial_reason
+        )
 
       {:error, repair_reason} ->
         retain_answer_or_error(
@@ -259,136 +214,114 @@ defmodule AllbertAssist.Intent.FanoutManager do
           attempted_calls(repair_reason),
           budget_limits,
           context,
-          %{
-            outcome: :answered_after_invalid_assessment,
-            policy_outcome: :assessment_invalid,
-            join_role: :none,
-            work_unit_count: 0,
-            reviewed?: false,
-            phases: agent.state.phases,
-            assessment_error: initial_reason,
-            repair_error: repair_reason
-          },
-          {initial_reason, repair_reason}
+          agent,
+          initial_reason,
+          repair_reason
         )
     end
   end
 
-  defp adjudicate(text, answer, work_units, profile, context, budget_limits, agent) do
-    adjudication_context = Map.put(context, :fanout_candidate_units, work_units)
-
-    {agent, result} =
-      run_command(agent, Adjudicate, fn ->
-        call_model(text, profile, adjudication_context, :adjudicate, 2)
-      end)
-
-    case result do
-      {:ok, response} ->
-        resolve_adjudication(
-          text,
-          answer,
-          work_units,
-          response,
-          profile,
-          context,
-          budget_limits,
-          agent
-        )
-
-      {:error, reason} ->
-        retain_answer(
-          answer,
-          profile,
-          attempted_calls(reason),
-          budget_limits,
-          context,
-          %{
-            outcome: :answered_after_adjudication_failure,
-            policy_outcome: :adjudication_unavailable,
-            join_role: :none,
-            work_unit_count: length(work_units),
-            reviewed?: false,
-            phases: agent.state.phases,
-            adjudication_error: reason
-          }
-        )
-    end
-  end
-
-  defp resolve_adjudication(
+  defp adjudicate_repair(
          text,
-         answer,
-         assessed_units,
-         response,
+         repaired_response,
          profile,
          context,
          budget_limits,
-         agent
+         agent,
+         initial_answer,
+         initial_reason
        ) do
-    case interpret_adjudication(response) do
-      {:admit, shape, join_role, children} ->
-        compile_adjudicated_plan(
-          text,
-          answer,
-          children,
-          shape,
-          join_role,
-          profile,
-          context,
-          budget_limits,
-          agent
-        )
+    {agent, result} =
+      run_command(
+        agent,
+        Adjudicate,
+        fn -> interpret_response(text, repaired_response, context) end,
+        context
+      )
 
-      {:answer, shape, join_role} ->
-        result = %{kind: :answer, message: answer}
+    case result do
+      {:ok, {resolved, semantic}} ->
+        semantic = Map.put(semantic, :initial_plan_error, initial_reason)
+        {:ok, decorate(resolved, profile, 2, budget_limits, context, semantic, agent)}
 
-        {:ok,
-         decorate(result, profile, 2, budget_limits, context, %{
-           policy_outcome: shape,
-           join_role: join_role,
-           work_unit_count: length(assessed_units),
-           reviewed?: true,
-           phases: agent.state.phases
-         })}
-
-      {:error, reason} ->
-        retain_answer(
-          answer,
+      {:error, repair_reason} ->
+        retain_answer_or_error(
+          initial_answer || usable_answer(repaired_response),
           profile,
           2,
           budget_limits,
           context,
-          %{
-            outcome: :answered_after_invalid_adjudication,
-            policy_outcome: :adjudication_invalid,
-            join_role: :none,
-            work_unit_count: length(assessed_units),
-            reviewed?: false,
-            phases: agent.state.phases,
-            adjudication_error: reason
-          }
+          agent,
+          initial_reason,
+          repair_reason
         )
     end
   end
 
-  defp compile_adjudicated_plan(
-         text,
+  defp retain_answer_or_error(
          answer,
-         children,
-         shape,
-         join_role,
          profile,
-         context,
+         attempts,
          budget_limits,
-         agent
-       ) do
+         context,
+         agent,
+         initial_reason,
+         repair_reason
+       )
+       when is_binary(answer) do
+    result = %{kind: :answer, message: answer}
+
     semantic = %{
-      policy_outcome: shape,
-      join_role: join_role,
-      work_unit_count: length(children),
-      reviewed?: true,
-      phases: agent.state.phases
+      outcome: :answered_after_invalid_plan,
+      policy_outcome: :manager_output_invalid,
+      join_role: :none,
+      work_unit_count: 0,
+      failed_criteria: [],
+      reviewed?: false,
+      plan_error: initial_reason,
+      repair_error: repair_reason
     }
+
+    {:ok, decorate(result, profile, attempts, budget_limits, context, semantic, agent)}
+  end
+
+  defp retain_answer_or_error(
+         nil,
+         _profile,
+         _attempts,
+         _budget_limits,
+         _context,
+         _agent,
+         initial_reason,
+         repair_reason
+       ),
+       do: {:error, {:fanout_manager_failed, {initial_reason, repair_reason}}}
+
+  defp interpret_response(text, response, context) do
+    with {:ok, object} <- closed_response(response),
+         {:ok, answer} <- answer(Map.fetch!(object, "answer")),
+         {:ok, criteria} <- rule_evidence(object),
+         {:ok, children} <- FanoutPlan.normalize_candidates(Map.fetch!(object, "children")) do
+      resolve_policy(text, answer, criteria, children, context)
+    end
+  end
+
+  defp resolve_policy(text, answer, criteria, children, context) do
+    case Policy.decide(criteria, length(children)) do
+      {:answer, decision} ->
+        result = %{kind: :answer, message: answer}
+        {:ok, {result, semantic(decision, length(children))}}
+
+      {:admit, decision} ->
+        compile_admitted_plan(text, answer, children, decision, context)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp compile_admitted_plan(text, answer, children, decision, context) do
+    semantic = semantic(decision, length(children))
 
     case FanoutPlan.compile_admission(text, children,
            max_children: max_children(context),
@@ -396,76 +329,75 @@ defmodule AllbertAssist.Intent.FanoutManager do
          ) do
       {:ok, plan} ->
         result = %{kind: :fanout, plan: plan, fallback_answer: answer}
-        {:ok, decorate(result, profile, 2, budget_limits, context, semantic)}
+        {:ok, {result, semantic}}
 
       {:clarify, clarification} ->
         result = %{kind: :clarify, clarification: clarification, fallback_answer: answer}
-        {:ok, decorate(result, profile, 2, budget_limits, context, semantic)}
+        {:ok, {result, semantic}}
 
       {:error, reason} ->
-        retain_answer(
-          answer,
-          profile,
-          2,
-          budget_limits,
-          context,
-          Map.merge(semantic, %{
-            outcome: :answered_after_invalid_plan,
-            policy_outcome: :compiled_plan_invalid,
-            plan_error: reason
-          })
-        )
+        {:error, reason}
     end
   end
 
-  defp interpret_assessment(response) do
-    with {:ok, object} <- closed_response(response, @assessment_keys, :invalid_assessment_keys),
-         {:ok, answer} <- answer(Map.fetch!(object, "answer")),
-         {:ok, work_units} <- FanoutPlan.normalize_candidates(Map.fetch!(object, "work_units")) do
-      {:ok, %{answer: answer, work_units: work_units}}
+  defp semantic(decision, child_count) do
+    decision
+    |> Map.put(:work_unit_count, child_count)
+    |> Map.put(:reviewed?, true)
+  end
+
+  defp rule_evidence(object) do
+    with {:ok, task_count} <- reported_task_count(object["outer_request_task_count"]),
+         {:ok, request_ownership} <-
+           closed_enum(object["request_ownership"], @request_ownership),
+         {:ok, all_advisory_or_read_only} <- closed_boolean(object["all_advisory_or_read_only"]),
+         {:ok, children_self_contained} <- closed_boolean(object["children_self_contained"]),
+         {:ok, can_progress_concurrently} <-
+           closed_boolean(object["can_progress_concurrently"]),
+         {:ok, child_result_dependency} <-
+           closed_boolean(object["child_result_dependency"]),
+         {:ok, full_coverage_exactly_once} <-
+           closed_boolean(object["full_coverage_exactly_once"]),
+         {:ok, material_parallel_leverage} <-
+           closed_boolean(object["material_parallel_leverage"]),
+         {:ok, join_role} <- closed_enum(object["join_role"], @join_roles) do
+      {:ok,
+       %{
+         outer_request_task_count: task_count,
+         request_ownership: request_ownership,
+         all_advisory_or_read_only: all_advisory_or_read_only,
+         children_self_contained: children_self_contained,
+         can_progress_concurrently: can_progress_concurrently,
+         child_result_dependency: child_result_dependency,
+         full_coverage_exactly_once: full_coverage_exactly_once,
+         material_parallel_leverage: material_parallel_leverage,
+         join_role: join_role
+       }}
     end
   end
 
-  defp interpret_adjudication(response) do
-    with {:ok, object} <-
-           closed_response(response, @adjudication_keys, :invalid_adjudication_keys),
-         {:ok, work_shape} <- closed_enum(Map.fetch!(object, "work_shape"), @work_shapes),
-         {:ok, join_role} <- closed_enum(Map.fetch!(object, "join_role"), @join_roles),
-         {:ok, children} <- FanoutPlan.normalize_candidates(Map.fetch!(object, "children")) do
-      adjudication_disposition(work_shape, join_role, children)
-    end
-  end
+  defp reported_task_count(value)
+       when is_integer(value) and value >= 0 and value <= @max_reported_task_count,
+       do: {:ok, value}
 
-  defp adjudication_disposition(:independent_advisory, join_role, children)
-       when join_role in [:none, :presentation_only] and length(children) >= 2,
-       do: {:admit, :independent_advisory, join_role, children}
+  defp reported_task_count(_value), do: {:error, :invalid_outer_request_task_count}
 
-  defp adjudication_disposition(work_shape, join_role, [])
-       when work_shape in [
-              :dependent_or_sequential,
-              :effectful_or_mixed,
-              :supplied_data,
-              :single_or_indivisible,
-              :no_material_leverage,
-              :ambiguous
-            ] and join_role in [:none, :consumes_sibling_result],
-       do: {:answer, work_shape, join_role}
+  defp closed_boolean(value) when is_boolean(value), do: {:ok, value}
+  defp closed_boolean(_value), do: {:error, :invalid_adjudication_boolean}
 
-  defp adjudication_disposition(_work_shape, _join_role, _children),
-    do: {:error, :inconsistent_adjudication}
-
-  defp closed_response(response, allowed_keys, error) when is_map(response) do
+  defp closed_response(response) when is_map(response) do
     pairs = Enum.map(response, fn {key, value} -> {normalize_key(key), value} end)
     keys = Enum.map(pairs, &elem(&1, 0))
 
-    if length(keys) == length(allowed_keys) and Enum.sort(keys) == Enum.sort(allowed_keys) do
+    if length(keys) == length(@response_keys) and
+         Enum.sort(keys) == Enum.sort(@response_keys) do
       {:ok, Map.new(pairs)}
     else
-      {:error, error}
+      {:error, :invalid_manager_response_keys}
     end
   end
 
-  defp closed_response(_response, _allowed_keys, error), do: {:error, error}
+  defp closed_response(_response), do: {:error, :invalid_manager_response_keys}
 
   defp closed_enum(value, allowed) when is_binary(value) do
     case Map.fetch(allowed, value) do
@@ -499,35 +431,9 @@ defmodule AllbertAssist.Intent.FanoutManager do
     end
   end
 
-  defp retain_answer_or_error(
-         answer,
-         profile,
-         attempts,
-         budget_limits,
-         context,
-         semantic,
-         _failure
-       )
-       when is_binary(answer),
-       do: retain_answer(answer, profile, attempts, budget_limits, context, semantic)
+  defp usable_answer(_response), do: nil
 
-  defp retain_answer_or_error(
-         nil,
-         _profile,
-         _attempts,
-         _budget_limits,
-         _context,
-         _semantic,
-         failure
-       ),
-       do: {:error, {:fanout_manager_failed, failure}}
-
-  defp retain_answer(answer, profile, attempts, budget_limits, context, semantic) do
-    result = %{kind: :answer, message: answer}
-    {:ok, decorate(result, profile, attempts, budget_limits, context, semantic)}
-  end
-
-  defp decorate(result, profile, attempts, budget_limits, context, semantic) do
+  defp decorate(result, profile, attempts, budget_limits, context, semantic, agent) do
     default_outcome = if result.kind == :fanout, do: :planned, else: :answered
     default_outcome = if result.kind == :clarify, do: :overflow, else: default_outcome
 
@@ -538,56 +444,88 @@ defmodule AllbertAssist.Intent.FanoutManager do
         model_profile: profile_name(profile),
         model_profile_sha256: profile_configuration_digest(profile),
         budget_limits: budget_limits,
-        plan_deadline_unix_ms: Map.fetch!(context, :fanout_plan_deadline_unix_ms)
+        plan_deadline_unix_ms: Map.fetch!(context, :fanout_plan_deadline_unix_ms),
+        phases: agent.state.phases
       }
       |> Map.merge(Map.delete(semantic, :outcome))
-      |> maybe_put_semantic_validation(result.kind)
+      |> maybe_put_policy_validation(result.kind)
 
     Map.put(result, :diagnostic, diagnostic)
   end
 
-  defp maybe_put_semantic_validation(diagnostic, :fanout) do
+  defp maybe_put_policy_validation(diagnostic, :fanout) do
     Map.merge(diagnostic, %{
-      semantic_validation: :model_adjudication_compiled,
-      semantic_claims: [
-        :independent_children,
-        :advisory_or_read_only_children,
-        :supplied_text_owned_by_outer_request,
-        :shared_deliverable_is_join_guidance
-      ]
+      semantic_validation: :allbert_policy_decision,
+      semantic_rule_ids: Policy.admission_rule_ids()
     })
   end
 
-  defp maybe_put_semantic_validation(diagnostic, _kind), do: diagnostic
+  defp maybe_put_policy_validation(diagnostic, _kind), do: diagnostic
 
   defp manager_agent do
     ManagerAgent.new(
-      id: "conversation-fanout-manager-#{System.unique_integer([:positive, :monotonic])}",
-      state: %{phase: :ready, phases: [], last_result: nil}
+      id: "conversation-fanout-manager-#{System.unique_integer([:positive, :monotonic])}"
     )
   end
 
-  defp run_command(agent, command, invoke) do
-    {agent, _directives} =
-      ManagerAgent.cmd(
-        agent,
-        {command, %{invoke: invoke}},
-        timeout: 0,
-        __jido_instance__: AllbertAssist.Jido
-      )
+  defp run_command(agent, command, invoke, context) do
+    with {:ok, timeout_ms} <- remaining_timeout(context) do
+      task =
+        Task.Supervisor.async_nolink(AllbertAssist.TaskSupervisor, fn ->
+          ManagerAgent.cmd(
+            agent,
+            {command, %{invoke: invoke}},
+            timeout: timeout_ms,
+            __jido_instance__: AllbertAssist.Jido
+          )
+        end)
 
-    {agent, Map.fetch!(agent.state, :last_result)}
+      await_command(task, agent, timeout_ms, context)
+    else
+      {:error, reason} -> {agent, {:error, reason}}
+    end
   end
 
-  defp call_model(text, profile, context, phase, attempt_number) do
+  defp await_command(task, prior_agent, timeout_ms, context) do
+    case Task.yield(task, timeout_ms) || Task.shutdown(task, :brutal_kill) do
+      {:ok, {agent, directives}} ->
+        command_result(agent, directives, context)
+
+      {:exit, _reason} ->
+        {prior_agent, {:error, :fanout_manager_command_exit}}
+
+      nil ->
+        {prior_agent, {:error, :fanout_manager_deadline_exhausted}}
+    end
+  end
+
+  defp command_result(agent, directives, context) do
+    cond do
+      Enum.any?(List.wrap(directives), &match?(%JidoErrorDirective{}, &1)) ->
+        {agent, {:error, :fanout_manager_command_failed}}
+
+      deadline_exhausted?(context) ->
+        {agent, {:error, :fanout_manager_deadline_exhausted}}
+
+      match?({:ok, _value}, Map.get(agent.state, :last_result)) ->
+        {agent, agent.state.last_result}
+
+      match?({:error, _reason}, Map.get(agent.state, :last_result)) ->
+        {agent, agent.state.last_result}
+
+      true ->
+        {agent, {:error, :missing_manager_command_result}}
+    end
+  end
+
+  defp call_model(text, profile, context, attempt, attempt_number) do
     with :ok <- authorize_manager_attempt(context, attempt_number),
          {:ok, timeout_ms} <- remaining_timeout(context) do
       client = model_client(context)
 
       call_context =
         context
-        |> Map.put(:fanout_manager_phase, phase)
-        |> Map.put(:fanout_manager_attempt, compatibility_attempt(phase))
+        |> Map.put(:fanout_manager_attempt, attempt)
         |> Map.put(:timeout_ms, timeout_ms)
 
       case client.respond(text, profile, call_context) do
@@ -609,10 +547,6 @@ defmodule AllbertAssist.Intent.FanoutManager do
       attempt_number
     )
   end
-
-  defp compatibility_attempt(:assess), do: :initial
-  defp compatibility_attempt(:adjudicate), do: :adjudicate
-  defp compatibility_attempt({:repair_assessment, reason}), do: {:repair, reason}
 
   defp model_client(context) do
     Map.get(context, :model_client) ||
@@ -667,6 +601,10 @@ defmodule AllbertAssist.Intent.FanoutManager do
     if remaining > 0,
       do: {:ok, remaining},
       else: {:error, :fanout_manager_deadline_exhausted}
+  end
+
+  defp deadline_exhausted?(context) do
+    Map.fetch!(context, :fanout_manager_deadline_ms) <= System.monotonic_time(:millisecond)
   end
 
   defp attempted_calls(:fanout_manager_deadline_exhausted), do: 1

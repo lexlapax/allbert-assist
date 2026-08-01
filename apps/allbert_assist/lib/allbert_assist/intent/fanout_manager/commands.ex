@@ -2,22 +2,60 @@ defmodule AllbertAssist.Intent.FanoutManager.Commands do
   @moduledoc """
   Private Jido commands for the ephemeral conversational fan-out manager.
 
-  These commands execute caller-bounded qualified model invocations and record
-  only their result in temporary Agent state. They are not registered Allbert
-  actions and grant no planning, execution, or permission authority.
+  `Assess` owns the bounded provider-call transition. `Adjudicate` owns the
+  model-off deterministic policy/compiler transition. Together they validate
+  the one-call-plus-optional-repair lifecycle in temporary Agent state. They are
+  not registered Allbert actions and grant no planning, execution, or permission
+  authority.
   """
 
-  @spec transition(map(), atom(), (-> term())) :: {:ok, map()}
-  def transition(context, phase, invoke) when is_map(context) and is_function(invoke, 0) do
+  @spec assess(map(), (-> term())) :: {:ok, map()} | {:error, atom()}
+  def assess(context, invoke) when is_map(context) and is_function(invoke, 0) do
     state = Map.get(context, :state, %{})
 
-    {:ok,
-     Map.merge(state, %{
-       phase: phase,
-       phases: Map.get(state, :phases, []) ++ [phase],
-       last_result: invoke.()
-     })}
+    if valid_assessment_transition?(state) do
+      result = invoke.()
+
+      {:ok,
+       Map.merge(state, %{
+         phase: :assessed,
+         phases: Map.get(state, :phases, []) ++ [:assessed],
+         attempts: Map.get(state, :attempts, 0) + 1,
+         last_result: result
+       })}
+    else
+      {:error, :invalid_fanout_assessment_transition}
+    end
   end
+
+  @spec adjudicate(map(), (-> term())) :: {:ok, map()} | {:error, atom()}
+  def adjudicate(context, invoke) when is_map(context) and is_function(invoke, 0) do
+    state = Map.get(context, :state, %{})
+
+    if state[:phase] == :assessed and match?({:ok, _response}, state[:last_result]) do
+      result = invoke.()
+
+      {:ok,
+       Map.merge(state, %{
+         phase: :adjudicated,
+         phases: Map.get(state, :phases, []) ++ [:adjudicated],
+         last_result: result
+       })}
+    else
+      {:error, :invalid_fanout_adjudication_transition}
+    end
+  end
+
+  defp valid_assessment_transition?(%{phase: :ready, attempts: 0}), do: true
+
+  defp valid_assessment_transition?(%{
+         phase: :adjudicated,
+         attempts: 1,
+         last_result: {:error, _reason}
+       }),
+       do: true
+
+  defp valid_assessment_transition?(_state), do: false
 end
 
 defmodule AllbertAssist.Intent.FanoutManager.Commands.Assess do
@@ -33,15 +71,9 @@ defmodule AllbertAssist.Intent.FanoutManager.Commands.Assess do
 
   @impl true
   def run(%{invoke: invoke}, context) when is_function(invoke, 0),
-    do: Commands.transition(context, :assessed, invoke)
+    do: Commands.assess(context, invoke)
 
-  def run(_params, context),
-    do:
-      {:ok,
-       Map.merge(Map.get(context, :state, %{}), %{
-         phase: :failed,
-         last_result: {:error, :invalid_assess_command}
-       })}
+  def run(_params, _context), do: {:error, :invalid_assess_command}
 end
 
 defmodule AllbertAssist.Intent.FanoutManager.Commands.Adjudicate do
@@ -57,13 +89,7 @@ defmodule AllbertAssist.Intent.FanoutManager.Commands.Adjudicate do
 
   @impl true
   def run(%{invoke: invoke}, context) when is_function(invoke, 0),
-    do: Commands.transition(context, :adjudicated, invoke)
+    do: Commands.adjudicate(context, invoke)
 
-  def run(_params, context),
-    do:
-      {:ok,
-       Map.merge(Map.get(context, :state, %{}), %{
-         phase: :failed,
-         last_result: {:error, :invalid_adjudicate_command}
-       })}
+  def run(_params, _context), do: {:error, :invalid_adjudicate_command}
 end
