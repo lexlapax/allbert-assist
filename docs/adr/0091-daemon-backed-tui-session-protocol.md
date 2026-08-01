@@ -304,6 +304,13 @@ remaining authority queue cannot drain within the bounded window, those
 waiters fail rather than being reported delivered and the best-effort close is
 `:overflow`.
 
+If a typed authority delivery is invalid or exceeds its closed central bound,
+the session sends the existing content-free `:overflow` close and returns the
+typed error to the trusted adapter, then terminates with normal process reason.
+It must not embed the authority body in an abnormal stop tuple: OTP crash
+reporting and `Last message` diagnostics are not permitted to copy the durable
+report into logs. This changes no wire code, acknowledgement, or retry meaning.
+
 Adding a key, frame, enum value, or relaxed interpretation requires a new
 additive session-protocol version and an explicit compatibility row. It does
 not alter kind-absent attach-v1.
