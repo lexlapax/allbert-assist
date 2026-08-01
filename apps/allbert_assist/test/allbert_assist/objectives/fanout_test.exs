@@ -1530,6 +1530,237 @@ defmodule AllbertAssist.Objectives.FanoutTest do
     assert same.fallback_body == frozen.fallback_body
   end
 
+  test "under-bound long child results remain complete exactly once in fallback and model reports" do
+    parent = report_parent("fanout_report_long_results", "Long result preservation", "success")
+
+    alpha_detail =
+      "Alpha evidence begins. " <>
+        String.duplicate("alpha-observation ", 70) <> "alpha-result-tail"
+
+    beta_detail =
+      "Beta evidence begins. " <>
+        String.duplicate("beta-observation ", 75) <> "beta-result-tail"
+
+    assert byte_size(alpha_detail) > 1_000
+    assert byte_size(beta_detail) > 1_000
+
+    children = [
+      report_child(0, "Alpha analysis", "Analyze alpha", "completed", alpha_detail),
+      report_child(1, "Beta analysis", "Analyze beta", "completed", beta_detail)
+    ]
+
+    assert {:ok, frozen} = Report.freeze(parent, children, %{})
+
+    assert {:ok, prepared} =
+             Report.prepare_composition(frozen.snapshot, %{
+               "sections" => [
+                 %{
+                   "relationship" => "complementary",
+                   "ordered_queue_positions" => [0, 1]
+                 }
+               ]
+             })
+
+    Enum.each([frozen.fallback_body, prepared.body], fn body ->
+      assert byte_size(body) <= 32_768
+      assert_occurs_once(body, alpha_detail)
+      assert_occurs_once(body, beta_detail)
+      assert body =~ "alpha-result-tail"
+      assert body =~ "beta-result-tail"
+      refute body =~ "truncated for report size"
+    end)
+  end
+
+  test "heterogeneous terminal children preserve ordered truth and exact effect receipts" do
+    parent = report_parent("fanout_report_terminal_truth", "Terminal truth", "partial")
+
+    completed_detail = "completed result with verified read evidence"
+    failed_detail = "provider failed after the final retry"
+    cancelled_detail = "cancelled by the operator before the write"
+
+    children = [
+      report_child(
+        0,
+        "Completed read",
+        "Read the durable state",
+        "completed",
+        completed_detail
+      ),
+      report_child(1, "Failed analysis", "Analyze the remote state", "failed", failed_detail),
+      report_child(
+        2,
+        "Cancelled write",
+        "Write the proposed change",
+        "cancelled",
+        cancelled_detail
+      )
+    ]
+
+    evidence_refs = %{
+      "obj-report-0" => %{
+        kind: "objective_step_trace",
+        action: "read_durable_state",
+        trace_id: "trace-terminal-completed"
+      }
+    }
+
+    assert {:ok, frozen} = Report.freeze(parent, Enum.reverse(children), evidence_refs)
+
+    assert {:ok, prepared} =
+             Report.prepare_composition(frozen.snapshot, %{
+               "sections" => [
+                 %{"relationship" => "independent", "ordered_queue_positions" => [0]}
+               ]
+             })
+
+    exact_receipt =
+      ~s(Effect receipt: kind="objective_step_trace"; action="read_durable_state"; trace_id="trace-terminal-completed")
+
+    no_receipt =
+      "Effect receipt: none recorded. Child-reported observation is not effect evidence."
+
+    Enum.each([frozen.fallback_body, prepared.body], fn body ->
+      assert_occurs_once(body, completed_detail)
+      assert_occurs_once(body, failed_detail)
+      assert_occurs_once(body, cancelled_detail)
+      assert_occurs_once(body, exact_receipt)
+      assert occurrence_count(body, no_receipt) == 2
+
+      authoritative =
+        body
+        |> String.split("Authoritative child results (ordered):", parts: 2)
+        |> List.last()
+
+      assert_ordered(authoritative, [
+        "Completed read [completed]",
+        "Failed analysis [failed]",
+        "Cancelled write [cancelled]"
+      ])
+
+      assert body =~
+               "Failed analysis [failed] — Child-reported observation (not effect evidence): #{failed_detail}"
+
+      assert body =~
+               "Cancelled write [cancelled] — Child-reported observation (not effect evidence): #{cancelled_detail}"
+    end)
+  end
+
+  test "over-bound Unicode and unbroken results preserve all sixteen children with explicit markers" do
+    {parent, children, evidence_refs, selection} = over_bound_report_fixture()
+
+    assert {:ok, frozen} = Report.freeze(parent, children, evidence_refs)
+    assert {:ok, prepared} = Report.prepare_composition(frozen.snapshot, selection)
+
+    Enum.each([frozen.fallback_body, prepared.body], fn body ->
+      assert String.valid?(body)
+      assert byte_size(body) <= 32_768
+
+      Enum.each(children, fn child ->
+        marker =
+          "… [truncated for report size; full result: Objective #{child.id}]"
+
+        assert_occurs_once(body, marker)
+        assert body =~ child.title
+        assert body =~ overflow_detail_prefix(child.queue_position)
+        assert body =~ ~s(trace_id="trace-overflow-#{child.queue_position}")
+      end)
+
+      last_child = List.last(children)
+
+      assert String.ends_with?(
+               body,
+               ~s(trace_id="trace-overflow-#{last_child.queue_position}")
+             )
+    end)
+  end
+
+  test "over-bound report allocation is deterministic across replay and child input order" do
+    {parent, children, evidence_refs, selection} = over_bound_report_fixture()
+
+    assert {:ok, first} = Report.freeze(parent, children, evidence_refs)
+    assert {:ok, replayed} = Report.freeze(parent, children, evidence_refs)
+    assert {:ok, reversed} = Report.freeze(parent, Enum.reverse(children), evidence_refs)
+
+    assert first.input_digest == replayed.input_digest
+    assert first.input_digest == reversed.input_digest
+    assert first.fallback_body == replayed.fallback_body
+    assert first.fallback_body == reversed.fallback_body
+
+    assert {:ok, first_model} = Report.prepare_composition(first.snapshot, selection)
+    assert {:ok, replayed_model} = Report.prepare_composition(replayed.snapshot, selection)
+    assert {:ok, reversed_model} = Report.prepare_composition(reversed.snapshot, selection)
+
+    assert first_model.body == replayed_model.body
+    assert first_model.body == reversed_model.body
+
+    Enum.each(children, fn child ->
+      marker = "… [truncated for report size; full result: Objective #{child.id}]"
+      assert first.fallback_body =~ marker
+      assert first_model.body =~ marker
+    end)
+  end
+
+  test "maximum admitted metadata preserves the explicit result-pointer floor" do
+    parent = %Objective{
+      id: "fanout_report_maximum_metadata",
+      title: "Maximum metadata " <> String.duplicate("\"\\", 90),
+      objective: String.duplicate("parent-request ", 250),
+      fanout_role: "parent",
+      status: "completed",
+      join_outcome: "success"
+    }
+
+    children =
+      Enum.map(0..15, fn position ->
+        %Objective{
+          id: "obj-maximum-metadata-#{String.pad_leading(to_string(position), 2, "0")}",
+          queue_position: position,
+          title: "Maximum child #{position} " <> String.duplicate("\"\\", 85),
+          objective: "Objective #{position} " <> String.duplicate("\"\\", 1_900),
+          fanout_role: "child",
+          status: "completed",
+          last_observation_summary:
+            String.duplicate("bounded-word-#{position} ", 100) <> "maximum-tail-#{position}"
+        }
+      end)
+
+    trace_id = String.duplicate("t", 128)
+
+    evidence_refs =
+      Map.new(children, fn child ->
+        {child.id,
+         %{
+           kind: String.duplicate("k", 40),
+           action: String.duplicate("\"", 240),
+           trace_id: trace_id
+         }}
+      end)
+
+    selection = %{
+      "sections" => [
+        %{
+          "relationship" => "complementary",
+          "ordered_queue_positions" => Enum.to_list(0..15)
+        }
+      ]
+    }
+
+    assert {:ok, frozen} = Report.freeze(parent, children, evidence_refs)
+    assert {:ok, prepared} = Report.prepare_composition(frozen.snapshot, selection)
+
+    Enum.each([frozen.fallback_body, prepared.body], fn body ->
+      assert byte_size(body) <= 32_768
+      refute body =~ "Authoritative child result references (ordered):"
+
+      Enum.each(children, fn child ->
+        assert body =~
+                 "… [truncated for report size; full result: Objective #{child.id}]"
+      end)
+
+      assert String.ends_with?(body, ~s(trace_id="#{trace_id}"))
+    end)
+  end
+
   test "one durable parent projection distinguishes running, recovery, joined, and corruption" do
     assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
              Fanout.frame(
@@ -1898,6 +2129,100 @@ defmodule AllbertAssist.Objectives.FanoutTest do
              )
 
     selected
+  end
+
+  defp report_parent(id, title, join_outcome) do
+    %Objective{
+      id: id,
+      title: title,
+      objective: "Join every terminal child into one truthful report",
+      fanout_role: "parent",
+      status: "completed",
+      join_outcome: join_outcome
+    }
+  end
+
+  defp report_child(position, title, objective, status, detail) do
+    base = %Objective{
+      id: "obj-report-#{position}",
+      queue_position: position,
+      title: title,
+      objective: objective,
+      fanout_role: "child",
+      status: status
+    }
+
+    if status == "completed" do
+      %{base | last_observation_summary: detail}
+    else
+      %{base | review_reason: detail}
+    end
+  end
+
+  defp over_bound_report_fixture do
+    parent = report_parent("fanout_report_over_bound", "Bounded sixteen-child report", "success")
+
+    children =
+      Enum.map(0..15, fn position ->
+        detail =
+          if rem(position, 2) == 0 do
+            "unicode-#{position}-" <> String.duplicate("界", 1_900) <> "-unicode-tail-#{position}"
+          else
+            "unbroken-#{position}-" <>
+              String.duplicate(Integer.to_string(rem(position, 10)), 1_900) <>
+              "-unbroken-tail-#{position}"
+          end
+
+        %Objective{
+          id: "obj-overflow-#{String.pad_leading(Integer.to_string(position), 2, "0")}",
+          queue_position: position,
+          title: "Overflow child #{String.pad_leading(Integer.to_string(position), 2, "0")}",
+          objective: "Preserve bounded result #{position}",
+          fanout_role: "child",
+          status: "completed",
+          last_observation_summary: detail
+        }
+      end)
+
+    evidence_refs =
+      Map.new(children, fn child ->
+        {child.id,
+         %{
+           kind: "objective_step_trace",
+           action: "inspect_overflow_#{child.queue_position}",
+           trace_id: "trace-overflow-#{child.queue_position}"
+         }}
+      end)
+
+    selection = %{
+      "sections" => [
+        %{
+          "relationship" => "complementary",
+          "ordered_queue_positions" => Enum.to_list(0..15)
+        }
+      ]
+    }
+
+    {parent, children, evidence_refs, selection}
+  end
+
+  defp assert_occurs_once(body, text), do: assert(occurrence_count(body, text) == 1)
+
+  defp occurrence_count(body, text), do: body |> :binary.matches(text) |> length()
+
+  defp overflow_detail_prefix(position) when rem(position, 2) == 0,
+    do: "unicode-#{position}-"
+
+  defp overflow_detail_prefix(position), do: "unbroken-#{position}-"
+
+  defp assert_ordered(body, fragments) do
+    positions =
+      Enum.map(fragments, fn fragment ->
+        {position, _length} = :binary.match(body, fragment)
+        position
+      end)
+
+    assert positions == Enum.sort(positions)
   end
 
   defp queued_parent!(title) do

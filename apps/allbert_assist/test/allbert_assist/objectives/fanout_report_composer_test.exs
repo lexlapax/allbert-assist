@@ -348,6 +348,91 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     refute_received {:compose_call, _, _, _, _}
   end
 
+  test "maximum-child composition prompt is a bounded excerpt projection of the full snapshot" do
+    parent = %Objective{
+      id: "fanout_provider_input_parent",
+      title: "Relate the complete architecture review",
+      objective: "Synthesize the sixteen independent architecture findings.",
+      fanout_role: "parent",
+      status: "completed",
+      join_outcome: "success",
+      proposer_hint: Jason.encode!(%{})
+    }
+
+    details =
+      Map.new(0..15, fn queue_position ->
+        tail = "authoritative-tail-child-#{queue_position}"
+
+        detail =
+          String.duplicate("child-#{queue_position}-authoritative-observation ", 48) <> tail
+
+        {queue_position, %{detail: detail, tail: tail}}
+      end)
+
+    children =
+      Enum.map(0..15, fn queue_position ->
+        %Objective{
+          id: "fanout_provider_input_child_#{queue_position}",
+          queue_position: queue_position,
+          title: "Architecture finding #{queue_position + 1}",
+          objective: "Explain bounded architecture concern #{queue_position + 1}.",
+          fanout_role: "child",
+          status: "completed",
+          last_observation_summary: details[queue_position].detail
+        }
+      end)
+
+    assert {:ok, frozen} = Report.freeze(parent, children)
+    assert {:ok, projection} = Report.composition_input(frozen.snapshot)
+
+    encoded_projection = Jason.encode!(projection)
+    assert byte_size(encoded_projection) <= 16_384
+
+    assert projection |> Map.keys() |> Enum.map(&to_string/1) |> Enum.sort() ==
+             ~w[children join_outcome original_request status title]
+
+    assert Enum.map(projection.children, & &1.queue_position) == Enum.to_list(0..15)
+
+    Enum.each(projection.children, fn child ->
+      authoritative = Enum.at(frozen.snapshot.children, child.queue_position)
+      expected = Map.fetch!(details, child.queue_position)
+
+      assert child |> Map.keys() |> Enum.map(&to_string/1) |> Enum.sort() ==
+               ~w[detail_excerpt detail_excerpt_truncated objective queue_position status title]
+
+      assert child.detail_excerpt_truncated
+      assert byte_size(child.detail_excerpt) < byte_size(authoritative.detail)
+      refute child.detail_excerpt =~ expected.tail
+      assert String.ends_with?(authoritative.detail, expected.tail)
+    end)
+
+    assert {:ok, prompt} = ReqLLMImplementation.prompt(frozen.snapshot)
+    advisory = prompt.messages |> List.last() |> message_text()
+
+    assert byte_size(advisory) <= 16_384
+    assert Jason.decode!(advisory) == Jason.decode!(encoded_projection)
+
+    control_heavy = String.duplicate("\"\\" <> <<1>>, 1_000)
+
+    stressed_snapshot = %{
+      frozen.snapshot
+      | title: control_heavy,
+        original_request: control_heavy,
+        children:
+          Enum.map(frozen.snapshot.children, fn child ->
+            %{
+              child
+              | title: control_heavy,
+                objective: control_heavy,
+                detail: control_heavy
+            }
+          end)
+    }
+
+    assert {:ok, stressed_projection} = Report.composition_input(stressed_snapshot)
+    assert byte_size(Jason.encode!(stressed_projection)) <= 16_384
+  end
+
   test "adapter refusal and truncated structured output fail closed without repair" do
     context = %{timeout_ms: 5_000, max_output_tokens: 1_024}
 
@@ -483,13 +568,22 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     assert {:ok, proposal} = PlanProvenance.decode_proposal_event(proposal_payload)
     assert proposal["budget"] == persisted_plan["budget"]
 
+    durable_details =
+      Map.new(children, fn child ->
+        detail =
+          String.duplicate("durable-child-#{child.queue_position}-result ", 48) <>
+            "durable-tail-#{child.queue_position}"
+
+        {child.queue_position, detail}
+      end)
+
     Enum.each(children, fn child ->
       assert {:ok, _transition} =
                TerminalTransitions.terminalize_child(
                  child,
                  %{
                    status: "completed",
-                   last_observation_summary: "complete durable result #{child.queue_position}",
+                   last_observation_summary: Map.fetch!(durable_details, child.queue_position),
                    completed_at: DateTime.utc_now()
                  },
                  "run_completed",
@@ -539,6 +633,11 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     assert delivered.report_delivery_state == "delivered"
     assert delivered.report_body =~ "Complementary findings:"
 
+    Enum.each(durable_details, fn {queue_position, detail} ->
+      assert occurrence_count(delivered.report_body, detail) == 1
+      assert delivered.report_body =~ "durable-tail-#{queue_position}"
+    end)
+
     assert [selected_event] =
              parent.id
              |> Objectives.list_events()
@@ -574,13 +673,22 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     assert {:error, :invalid_fanout_plan_provenance} =
              Fanout.verified_plan(tampered_parent)
 
+    durable_details =
+      Map.new(children, fn child ->
+        detail =
+          String.duplicate("fallback-child-#{child.queue_position}-result ", 48) <>
+            "fallback-tail-#{child.queue_position}"
+
+        {child.queue_position, detail}
+      end)
+
     Enum.each(children, fn child ->
       assert {:ok, _transition} =
                TerminalTransitions.terminalize_child(
                  child,
                  %{
                    status: "completed",
-                   last_observation_summary: "complete durable result #{child.queue_position}",
+                   last_observation_summary: Map.fetch!(durable_details, child.queue_position),
                    completed_at: DateTime.utc_now()
                  },
                  "run_completed",
@@ -617,6 +725,13 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
              "source" => "deterministic_fallback",
              "fallback_reason" => "invalid_budget_snapshot"
            } = Jason.decode!(selected_event.payload)
+
+    assert {:ok, fallback_parent} = Objectives.get_objective(parent.id)
+
+    Enum.each(durable_details, fn {queue_position, detail} ->
+      assert occurrence_count(fallback_parent.report_body, detail) == 1
+      assert fallback_parent.report_body =~ "fallback-tail-#{queue_position}"
+    end)
   end
 
   test "application supervises an idle composer in test so unrelated DataCase rows are not consumed" do
@@ -1123,35 +1238,27 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     assert body =~ "as complementary parts of the request."
     assert body =~ "Independent finding:"
     assert body =~ "Operator recovery guidance"
-    assert body =~ "Child 1: OTP supervision isolation [completed]"
-    assert body =~ "Child 2: Event-log recovery [completed]"
-    assert body =~ "Child 3: Operator recovery guidance [completed]"
+    assert body =~ "✓ OTP supervision isolation [completed]"
+    assert body =~ "✓ Event-log recovery [completed]"
+    assert body =~ "✓ Operator recovery guidance [completed]"
     assert body =~ "Effect verification comes only from the authoritative"
   end
 
   defp snapshot do
     %{
-      "parent_id" => "parent-1",
-      "original_request" => "operator-request-sentinel",
-      "plan" => [
+      title: "Compose one child",
+      original_request: "operator-request-sentinel",
+      status: "completed",
+      join_outcome: "success",
+      children: [
         %{
-          "position" => 1,
-          "title" => "First child",
-          "objective" => "Analyze one independent concern",
-          "expected_result" => "A bounded finding"
+          queue_position: 0,
+          title: "First child",
+          objective: "Analyze one independent concern",
+          status: "completed",
+          detail: "child-result-sentinel"
         }
-      ],
-      "children" => [
-        %{
-          "position" => 1,
-          "title" => "First child",
-          "status" => "completed",
-          "result" => "child-result-sentinel",
-          "effect_receipt" => nil
-        }
-      ],
-      "join_outcome" => "success",
-      "input_digest" => String.duplicate("a", 64)
+      ]
     }
   end
 
@@ -1345,6 +1452,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     {position, _length} = :binary.match(text, pattern)
     position
   end
+
+  defp occurrence_count(body, text), do: body |> :binary.matches(text) |> length()
 
   defp message_text(message) do
     message.content

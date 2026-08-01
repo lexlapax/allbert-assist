@@ -9,6 +9,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation do
 
   alias AllbertAssist.Maps
   alias AllbertAssist.Models.PromptEnvelope
+  alias AllbertAssist.Objectives.Fanout.Report
   alias AllbertAssist.Settings.ModelRuntime
   alias ReqLLM.Response
 
@@ -83,14 +84,16 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation do
   @doc false
   @spec prompt(map()) :: {:ok, ReqLLM.Context.t()} | {:error, term()}
   def prompt(snapshot) when is_map(snapshot) do
-    PromptEnvelope.build(
-      purpose: :fanout_report_composition,
-      instruction:
-        "Select how Allbert should deterministically present this immutable fan-out result snapshot. Allbert, not the model, writes the report.",
-      rules: @rules,
-      input: Jason.encode!(snapshot),
-      input_class: :advisory_data
-    )
+    with {:ok, composition_input} <- Report.composition_input(snapshot) do
+      PromptEnvelope.build(
+        purpose: :fanout_report_composition,
+        instruction:
+          "Select how Allbert should deterministically present this immutable fan-out result snapshot. Allbert, not the model, writes the report.",
+        rules: @rules,
+        input: Jason.encode!(composition_input),
+        input_class: :advisory_data
+      )
+    end
   rescue
     Jason.EncodeError -> {:error, :invalid_composition_snapshot}
   end

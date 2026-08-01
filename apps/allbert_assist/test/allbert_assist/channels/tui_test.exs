@@ -348,11 +348,29 @@ defmodule AllbertAssist.Channels.TUITest do
 
     assert {:ok, %{parent: parent, children: children}} = attached_fanout!()
     set_active_fanout(server, parent.id)
-    complete_children!(children)
+
+    details =
+      Map.new(children, fn child ->
+        detail =
+          String.duplicate("tui-child-#{child.queue_position}-observation ", 48) <>
+            "tui-tail-#{child.queue_position}"
+
+        {child.queue_position, detail}
+      end)
+
+    complete_children!(children, &Map.fetch!(details, &1.queue_position))
 
     assert_receive {:tui_output, "[fan-out] fanout joined: Attached fan-out"}, 1_000
     assert_receive {:tui_output, report}, 1_000
     assert report == Fanout.format_report(Fanout.report(parent))
+
+    assert %{parent: %{report_body: stored_report}} = Fanout.parent_projection(parent)
+    assert report == stored_report
+
+    Enum.each(details, fn {queue_position, detail} ->
+      assert length(:binary.matches(report, detail)) == 1
+      assert report =~ "tui-tail-#{queue_position}"
+    end)
 
     eventually(fn ->
       Fanout.parent_projection(parent).parent.report_delivery_state == "delivered"
@@ -2846,8 +2864,11 @@ defmodule AllbertAssist.Channels.TUITest do
     )
   end
 
-  defp complete_children!(children) do
-    terminalize_children!(children)
+  defp complete_children!(children),
+    do: complete_children!(children, &"result #{&1.queue_position}")
+
+  defp complete_children!(children, detail_fun) when is_function(detail_fun, 1) do
+    terminalize_children!(children, detail_fun)
 
     parent_id = children |> hd() |> Map.fetch!(:parent_objective_id)
 
@@ -2863,14 +2884,17 @@ defmodule AllbertAssist.Channels.TUITest do
              )
   end
 
-  defp terminalize_children!(children) do
+  defp terminalize_children!(children),
+    do: terminalize_children!(children, &"result #{&1.queue_position}")
+
+  defp terminalize_children!(children, detail_fun) when is_function(detail_fun, 1) do
     Enum.each(children, fn child ->
       assert {:ok, %{child: %{status: "completed"}}} =
                TerminalTransitions.terminalize_child(
                  child,
                  %{
                    status: "completed",
-                   last_observation_summary: "result #{child.queue_position}",
+                   last_observation_summary: detail_fun.(child),
                    completed_at: DateTime.utc_now()
                  },
                  "run_completed",

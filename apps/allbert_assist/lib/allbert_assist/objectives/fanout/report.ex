@@ -21,9 +21,16 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
   @digest_domain "allbert:fanout-report-input:v1\0"
   @selection_digest_domain "allbert:fanout-report-selection:v1\0"
   @terminal ~w[completed cancelled failed abandoned]
-  @detail_bytes 500
-  @rendered_objective_bytes 500
+  @max_children 16
+  @rendered_title_bytes 80
+  @rendered_objective_bytes 160
   @report_bytes 32_768
+  @composition_input_bytes 16_384
+  @composition_title_bytes 64
+  @composition_request_bytes 1_024
+  @composition_child_title_bytes 64
+  @composition_child_objective_bytes 128
+  @composition_detail_bytes 128
   @appendix_heading "Authoritative child results (ordered):"
   @relationships ~w[complementary contrasting sequential supporting independent]
   @relational_relationships ~w[complementary contrasting sequential supporting]
@@ -124,13 +131,39 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
     |> Base.encode16(case: :lower)
   end
 
+  @doc "Project a bounded, content-only advisory view for model layout selection."
+  @spec composition_input(snapshot()) :: {:ok, map()} | {:error, term()}
+  def composition_input(%{children: children} = snapshot) when is_list(children) do
+    projection = %{
+      title: advisory_text(map_field(snapshot, :title), @composition_title_bytes),
+      original_request:
+        advisory_text(
+          map_field(snapshot, :original_request),
+          @composition_request_bytes
+        ),
+      status: map_field(snapshot, :status),
+      join_outcome: map_field(snapshot, :join_outcome),
+      children: Enum.map(children, &composition_child/1)
+    }
+
+    case Jason.encode(projection) do
+      {:ok, encoded} when byte_size(encoded) <= @composition_input_bytes ->
+        {:ok, projection}
+
+      _invalid_or_too_large ->
+        {:error, :fanout_composition_input_too_large}
+    end
+  end
+
+  def composition_input(_snapshot), do: {:error, :invalid_fanout_report_input}
+
   @doc "Render the deterministic complete-child report used for fallback."
   @spec fallback(snapshot()) :: String.t()
   def fallback(snapshot) when is_map(snapshot) do
-    heading =
-      "#{snapshot.title} — #{snapshot.join_outcome || snapshot.status}"
-
-    bounded_report(heading <> "\n\n" <> authoritative_appendix(snapshot.children))
+    case fit_report_children(snapshot) do
+      {:ok, children} -> raw_fallback(snapshot, children)
+      {:error, :fanout_report_structure_too_large} -> emergency_fallback(snapshot)
+    end
   end
 
   @doc "Render a factual report from one closed, complete child-layout selection."
@@ -162,10 +195,9 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
       when is_list(children) and is_map(layout) do
     with {:ok, normalized} <- normalize_persisted_layout(layout),
          :ok <- validate_completed_partition(children, normalized.sections),
-         {:ok, rendered_sections} <- select_sections(children, normalized.sections) do
-      body =
-        deterministic_synthesis(snapshot, rendered_sections) <>
-          "\n\n" <> authoritative_appendix(children)
+         {:ok, fitted_children} <- fit_report_children(snapshot),
+         {:ok, rendered_sections} <- select_sections(fitted_children, normalized.sections) do
+      body = raw_composition(snapshot, fitted_children, rendered_sections)
 
       cond do
         body != Redactor.redact(body) -> {:error, :unredacted_fanout_report}
@@ -334,6 +366,9 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
 
   defp validate_children(children) do
     cond do
+      length(children) > @max_children ->
+        {:error, :fanout_report_child_limit_exceeded}
+
       Enum.any?(children, &(&1.fanout_role != "child")) ->
         {:error, :invalid_fanout_report_child}
 
@@ -512,7 +547,7 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
 
   defp attention_section(children) do
     "Attention required (not model-arranged):\n" <>
-      Enum.map_join(children, "\n", &synthesis_line/1)
+      Enum.map_join(children, "\n", &child_reference_line/1)
   end
 
   defp relationship_sections([]),
@@ -526,7 +561,7 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
     relationship_heading(relationship) <>
       "\nSelected relationship: #{relationship}.\n" <>
       relationship_intro(relationship, children) <>
-      "\n" <> Enum.map_join(children, "\n", &synthesis_line/1)
+      "\nSee the authoritative child results below."
   end
 
   defp relationship_heading("complementary"), do: "Complementary findings:"
@@ -567,19 +602,19 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
     do: children |> Enum.map(&member_ref/1) |> Enum.join(" then ")
 
   defp member_ref(child) do
-    title = child |> map_field(:title) |> inline_bounded_text(200)
+    title = child |> map_field(:title) |> inline_bounded_text(@rendered_title_bytes)
     objective = child |> map_field(:objective) |> inline_bounded_text(@rendered_objective_bytes)
     Jason.encode!(title) <> " (objective: " <> Jason.encode!(objective) <> ")"
   end
 
-  defp synthesis_line(child) do
+  defp child_reference_line(child) do
     position = map_field(child, :queue_position)
-    title = map_field(child, :title)
-    objective = bounded_text(map_field(child, :objective), @rendered_objective_bytes)
+    title = inline_bounded_text(map_field(child, :title), @rendered_title_bytes)
+    objective = inline_bounded_text(map_field(child, :objective), @rendered_objective_bytes)
 
     "- Child #{position + 1}: #{title} [#{map_field(child, :status)}]\n" <>
       "  Objective: #{objective}\n" <>
-      "  #{observation_label(child)}: #{map_field(child, :detail)}"
+      "  See the authoritative child result below."
   end
 
   defp observation_label(%{effect_receipt_ref: nil}),
@@ -651,8 +686,205 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
   defp bounded_detail(value, fallback) do
     case value |> Redactor.redact() |> to_string() |> String.trim() do
       "" -> fallback
-      text -> bounded_text(text, @detail_bytes)
+      text -> text
     end
+  end
+
+  defp composition_child(child) do
+    detail = map_field(child, :detail) || ""
+    normalized_detail = normalize_advisory_text(detail)
+    excerpt = truncate_utf8(normalized_detail, @composition_detail_bytes)
+
+    %{
+      queue_position: map_field(child, :queue_position),
+      title: advisory_text(map_field(child, :title), @composition_child_title_bytes),
+      objective:
+        advisory_text(
+          map_field(child, :objective),
+          @composition_child_objective_bytes
+        ),
+      status: map_field(child, :status),
+      detail_excerpt: excerpt,
+      detail_excerpt_truncated: byte_size(normalized_detail) > @composition_detail_bytes
+    }
+  end
+
+  defp advisory_text(value, limit),
+    do: value |> normalize_advisory_text() |> truncate_utf8(limit)
+
+  defp normalize_advisory_text(value) do
+    value
+    |> Redactor.redact()
+    |> to_string()
+    |> String.to_charlist()
+    |> Enum.map(fn
+      codepoint when codepoint < 0x20 or codepoint == 0x7F -> ?\s
+      codepoint -> codepoint
+    end)
+    |> List.to_string()
+    |> String.split()
+    |> Enum.join(" ")
+  end
+
+  defp raw_fallback(snapshot, children) do
+    heading =
+      "#{map_field(snapshot, :title)} — " <>
+        "#{map_field(snapshot, :join_outcome) || map_field(snapshot, :status)}"
+
+    heading <> "\n\n" <> authoritative_appendix(children)
+  end
+
+  defp raw_composition(snapshot, children, rendered_sections) do
+    snapshot
+    |> Map.put(:children, children)
+    |> deterministic_synthesis(rendered_sections)
+    |> Kernel.<>("\n\n" <> authoritative_appendix(children))
+  end
+
+  defp fit_report_children(%{children: children} = snapshot) when is_list(children) do
+    cond do
+      report_pair_fits?(snapshot, children) ->
+        {:ok, children}
+
+      report_pair_fits?(snapshot, marker_floor_children(children)) ->
+        largest_fitting_detail_cap(snapshot, children)
+
+      true ->
+        {:error, :fanout_report_structure_too_large}
+    end
+  end
+
+  defp fit_report_children(_snapshot), do: {:error, :fanout_report_structure_too_large}
+
+  defp report_pair_fits?(snapshot, children) do
+    fallback = raw_fallback(snapshot, children)
+    worst_model = raw_composition(snapshot, children, worst_case_sections(children))
+
+    byte_size(fallback) <= @report_bytes and byte_size(worst_model) <= @report_bytes
+  end
+
+  defp worst_case_sections(children) do
+    children
+    |> Enum.filter(&(map_field(&1, :status) == "completed"))
+    |> Enum.map(&%{relationship: "independent", children: [&1]})
+  end
+
+  defp marker_floor_children(children) do
+    Enum.map(children, fn child ->
+      marker = truncation_marker(child)
+      detail = map_field(child, :detail) || ""
+
+      if byte_size(detail) <= byte_size(marker),
+        do: child,
+        else: Map.put(child, :detail, marker)
+    end)
+  end
+
+  defp largest_fitting_detail_cap(snapshot, children) do
+    floor =
+      children
+      |> Enum.map(&byte_size(truncation_marker(&1)))
+      |> Enum.max(fn -> 0 end)
+
+    ceiling =
+      children
+      |> Enum.map(&(map_field(&1, :detail) || ""))
+      |> Enum.map(&byte_size/1)
+      |> Enum.max(fn -> floor end)
+
+    best = marker_floor_children(children)
+    {:ok, search_detail_cap(snapshot, children, floor, ceiling, best)}
+  end
+
+  defp search_detail_cap(_snapshot, _children, lower, upper, best) when lower > upper,
+    do: best
+
+  defp search_detail_cap(snapshot, children, lower, upper, best) do
+    cap = div(lower + upper, 2)
+    candidate = Enum.map(children, &fit_child_detail(&1, cap))
+
+    if report_pair_fits?(snapshot, candidate) do
+      search_detail_cap(snapshot, children, cap + 1, upper, candidate)
+    else
+      search_detail_cap(snapshot, children, lower, cap - 1, best)
+    end
+  end
+
+  defp fit_child_detail(child, cap) do
+    detail = map_field(child, :detail) || ""
+
+    if byte_size(detail) <= cap,
+      do: child,
+      else: Map.put(child, :detail, truncated_detail(detail, truncation_marker(child), cap))
+  end
+
+  defp truncation_marker(child) do
+    "… [truncated for report size; full result: Objective #{map_field(child, :id)}]"
+  end
+
+  defp truncated_detail(_detail, marker, cap) when cap <= byte_size(marker), do: marker
+
+  defp truncated_detail(detail, marker, cap) do
+    prefix_budget = cap - byte_size(marker) - 1
+    prefix = readable_prefix(detail, prefix_budget)
+
+    if prefix == "", do: marker, else: prefix <> " " <> marker
+  end
+
+  defp readable_prefix(_detail, budget) when budget <= 0, do: ""
+
+  defp readable_prefix(detail, budget) do
+    prefix = grapheme_prefix(detail, budget)
+    graphemes = String.graphemes(prefix)
+
+    boundary =
+      graphemes
+      |> Enum.with_index()
+      |> Enum.reduce(nil, fn {grapheme, index}, last ->
+        if String.trim(grapheme) == "", do: index, else: last
+      end)
+
+    candidate =
+      case boundary do
+        nil -> prefix
+        0 -> prefix
+        index -> graphemes |> Enum.take(index) |> Enum.join()
+      end
+
+    String.trim_trailing(candidate)
+  end
+
+  defp grapheme_prefix(value, limit) do
+    value
+    |> String.graphemes()
+    |> Enum.reduce_while({[], 0}, fn grapheme, {collected, used} ->
+      next = used + byte_size(grapheme)
+
+      if next <= limit,
+        do: {:cont, {[grapheme | collected], next}},
+        else: {:halt, {collected, used}}
+    end)
+    |> elem(0)
+    |> Enum.reverse()
+    |> Enum.join()
+  end
+
+  defp emergency_fallback(snapshot) do
+    heading =
+      "#{inline_bounded_text(map_field(snapshot, :title), @rendered_title_bytes)} — " <>
+        "#{map_field(snapshot, :join_outcome) || map_field(snapshot, :status)}"
+
+    children = map_field(snapshot, :children) || []
+
+    references =
+      Enum.map_join(children, "\n", fn child ->
+        "- #{glyph(map_field(child, :status))} Child #{map_field(child, :queue_position) + 1} " <>
+          "[#{map_field(child, :status)}]; Objective #{map_field(child, :id)}; " <>
+          "full durable result remains on this Objective.\n" <>
+          "  Effect receipt: #{effect_receipt(map_field(child, :effect_receipt_ref))}"
+      end)
+
+    heading <> "\n\nAuthoritative child result references (ordered):\n" <> references
   end
 
   defp authoritative_appendix(children) do
@@ -703,8 +935,6 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
     |> to_string()
     |> truncate_utf8(limit)
   end
-
-  defp bounded_report(report), do: truncate_utf8(report, @report_bytes)
 
   defp truncate_utf8(value, limit) when byte_size(value) <= limit, do: value
 

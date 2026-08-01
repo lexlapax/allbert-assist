@@ -1774,6 +1774,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     provenance =
       compiled
       |> FanoutPlan.provenance()
+      |> Map.put("manager_attempts", 1)
       |> Map.put("budget", budget)
       |> Map.put("deadline_unix_ms", System.system_time(:millisecond) + 60_000)
 
