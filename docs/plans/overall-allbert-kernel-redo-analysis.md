@@ -16,11 +16,16 @@ through 1.8, the vision document, and the ADR set. Every quantitative claim
 below is measured from the tree and carries its anchor. Where a number is a
 count of files or lines it was taken from the working tree, not from memory.
 
-**Amended.** Sections 1 through 11 were written against committed sources.
-[Section 12](#12-amendment--re-check-against-v13-m9b4m9b5-adaptive-fan-out)
-records a re-check against the uncommitted v1.3 M9.b.4/M9.b.5 adaptive-fan-out
-revisions and supersedes part of §8. Read it before acting on the Jido
-recommendation.
+**Amended twice. Read §13 first.**
+
+- [Section 12](#12-amendment--re-check-against-v13-m9b4m9b5-adaptive-fan-out)
+  re-checks §§1–11 against the v1.3 M9.b.4/M9.b.5 adaptive-fan-out revisions and
+  supersedes part of §8.
+- [Section 13](#13-resolved-recommendation--decided-structure-tiers-and-sequencing)
+  is the **resolved recommendation**: it adds the kernel-to-pack coupling
+  measurement, decides structure, tier tokens, and release sequencing, and
+  supersedes §11's open decisions entirely along with the tier tokens in §3.2 and
+  the phase placement in §9. Where §13 and an earlier section disagree, §13 wins.
 
 ---
 
@@ -63,6 +68,11 @@ not a compilation, deployment, or blast-radius boundary. Every consequence below
 follows from that gap.
 
 ### 1.3 Four hand-maintained kernel lists are the real architecture
+
+A fifth was found later and is recorded in
+[§13.1](#131-the-measurement-that-decides-the-strategy):
+`Plugin.Discovery.@shipped_modules`, a thirteen-entry plugin-id-to-module map
+that is the purest instance of the violation.
 
 | Kernel edit-point | Evidence | Effect |
 | --- | --- | --- |
@@ -183,6 +193,12 @@ tiers.
 | `:kernel` | in-tree, own OTP application | compiled | everything |
 | `:project` | `./packs/*`, own OTP application, compiled only by explicit build configuration | compiled | everything |
 | `:home` | `<ALLBERT_HOME>/packs/*` | **data only, never code** | skills, prompt rules, settings values, job definitions, intent descriptors, surface manifests |
+
+**Tier tokens superseded by [§13.2 decision 5](#132-every-decision-decided):**
+`:kernel` / `:native` / `:declared`. The rows above describe the right three
+tiers; only the middle and lower names change, because `:project` collides with
+Mix projects and the umbrella, and because provenance ("who wrote it") is
+orthogonal metadata rather than a tier.
 
 The `:home` tier is the part that gives operators a real extension story without
 a compiler, while preserving the durable non-goal in
@@ -401,6 +417,11 @@ amendments now state the same rule normatively.
 Each phase is literally "move the list from the kernel to the owner of the
 listed thing." Each ships value alone and is independently revertable.
 
+**Placement superseded by [§13.3](#133-sequencing):** the phases below are
+unchanged, but their release placement is decided there, together with the
+umbrella-app mechanism that makes them enforceable and the hard ordering
+constraint that gate inversion must precede module moves.
+
 | Phase | Change | Suggested placement | Rationale |
 | --- | --- | --- | --- |
 | **0** | Add a Credo check: no kernel file may name a capability module. It fails today; the failure list becomes the burn-down. | Anytime, small | The pattern already exists — `priv/credo_checks/settings_central_no_bypass.ex`. Makes the invariant enforceable before any code moves. |
@@ -450,6 +471,10 @@ opening all 249 modules is the expensive part either way.
 
 ## 11. Open Decisions For The Operator
 
+**Superseded in full by [§13](#13-resolved-recommendation--decided-structure-tiers-and-sequencing).**
+All five are resolved there. The list is retained because the reasoning in §13
+answers these specific questions and reads better against them.
+
 1. **Do phases 0–3 fold into v1.5?** This is the gating decision; v1.5 is the
    release that opens all 249 action modules, and that window does not reopen.
 2. **Is `packs` the accepted term**, replacing the current plugin/app split, or
@@ -469,13 +494,14 @@ stands as written.
 
 ## 12. Amendment — Re-check Against v1.3 M9.b.4/M9.b.5 Adaptive Fan-Out
 
-Dated 2026-07-31. Sections 1 through 11 were written against committed sources.
-This section re-checks them against the **uncommitted working-tree revisions**
-to `docs/adr/0083-objectives-parallel-child-fanout.md`,
+Dated 2026-07-31. Sections 1 through 11 were written against sources committed
+at that point. This section re-checks them against the revisions to
+`docs/adr/0083-objectives-parallel-child-fanout.md`,
 `docs/adr/0021-intent-objective-capability-and-advisory-boundary.md` (new §A22),
 `docs/plans/allbert-jido-vision.md` (new "Parallel delegation and fan-in"
 subsection), and the v1.3 plan/request-flow M9.b.4/M9.b.5 milestones. Those
-revisions are operator-approved but not yet implemented or committed.
+revisions were uncommitted when this section was written and landed as
+`bae38844`; implementation followed.
 
 ### 12.1 What the revision changes
 
@@ -571,8 +597,126 @@ compatible with §3.1 concern 5 and adds useful specificity about where
 delegation authority sits; no claim in this analysis depended on the prior
 wording.
 
-### 12.6 Net effect on the proposal
+### 12.6 Net effect on this amendment
 
 No phase is added, removed, or resequenced. One dependency recommendation is
 withdrawn, one is narrowed, the phase 6 risk estimate improves, and the §1.5
-diagnosis is unchanged. The five open decisions in §11 stand as written.
+diagnosis is unchanged. The five open decisions in §11 stood as written at the
+time of this amendment; [§13](#13-resolved-recommendation--decided-structure-tiers-and-sequencing)
+subsequently resolves all of them.
+
+---
+
+## 13. Resolved Recommendation — Decided Structure, Tiers, And Sequencing
+
+Dated 2026-07-31. This section closes every question §§1–12 left open. It
+supersedes §11 in full, the tier tokens in §3.2, and the release placement in §9.
+It changes no phase and withdraws no finding; it decides how the phases land.
+
+The prompting question was whether to start a parallel `allbert-kernel` project,
+build the kernel correctly there, add sibling projects for the other tiers, and
+wipe the existing tree at parity — optionally deferring everything into a 2.0
+that renumbers 1.6/1.7/1.8. The answer below keeps the isolation instinct and
+rejects the greenfield and the big-bang, on measured grounds.
+
+### 13.1 The measurement that decides the strategy
+
+Kernel-to-pack coupling — the references that must be broken before any pack can
+become its own OTP application — is **13 references across 7 files**, and only
+two are structural:
+
+| Reference | Location | Kind |
+| --- | --- | --- |
+| `@shipped_modules`, a 13-entry plugin-id-to-module map | `plugin/discovery.ex:8-22` | **structural** |
+| `@reserved_app_owners` — `stocksage: [StockSage.App]` | `app/validator.ex:25` | **structural** |
+| `"StockSage.Actions.RunAnalysis"` (×3) | `agents/intent_agent.ex:2316-2349` | documentation example strings |
+| the same string (×3) | `objectives/acceptance_criteria.ex:17`, `workspace/emitters.ex:25`, `workspace/fragment/guard.ex:21` | default value and allowlist entries |
+| `"StockSage.DataCase" => :db_serial` | `mix/tasks/allbert.test.ex:112` | test-lane mapping |
+
+The barrier between Allbert and a real kernel boundary is essentially one
+thirteen-line map. That single fact decides the strategy: **relocate, do not
+rebuild.** A greenfield kernel would spend a long arc re-earning correctness that
+already exists — the single writer and `pool_size: 1`, bounded idempotent receipt
+retry, atomic terminal reduction, the writer lock — in order to escape a coupling
+of thirteen lines. Parity would also be unmeasurable, because parity here is
+defined by 43 gates and 617 test files that live in the existing tree, while the
+target keeps moving underneath it.
+
+Two supporting measurements:
+
+- **Pack-to-kernel coupling is broad but legal.** Plugin code references 144
+  distinct `AllbertAssist.*` modules across 37 top-level subsystems. Some of those
+  are pack-tier under this proposal (Memory, Search, Coding, Workspace, CLI), so
+  they become pack-to-pack dependencies. That is permitted; only kernel-to-pack is
+  forbidden.
+- **Ownership metadata is nearly absent.** Only 5 of 268 action modules declare
+  `plugin_id` and 13 declare `app_id`, so registry inversion cannot lean on
+  existing metadata. Each module needs a pack assignment — which is one more field
+  in the sweep v1.5 already performs over all of them.
+
+### 13.2 Every decision, decided
+
+| # | Decision | Call | Basis |
+| --- | --- | --- | --- |
+| 1 | Separate repositories or umbrella applications | **Umbrella applications** | Sibling dependencies are declared and compile-enforced (`in_umbrella: true`, `apps/allbert_assist_web/mix.exs:69`), so the §2 invariant becomes a build failure rather than a lint. Keeps the shared release, cosign, tap, and license machinery. Separate repositories stay available later; nothing forecloses them. |
+| 2 | Greenfield or relocate | **Relocate into an initially empty `apps/allbert_kernel`** | §13.1. Module names are independent of application names on the BEAM, so `AllbertAssist.Security` moves without renaming and the v1.0 freeze is untouched. |
+| 3 | Do packs need optional compilation | **No — not a requirement** | `stage_plugins` already copies data from every directory under `plugins/`; pack code already compiles in through `elixirc_paths`; enablement is runtime settings (`plugins.enabled`, `plugins.disabled`, `plugins.load_policy`, `plugin/discovery.ex:24-29`). The artifact already ships everything. |
+| 4 | How packs are discovered without a kernel list | **`Application.loaded_applications/0` plus a pack-module lookup** | The kernel holds no list; the release manifest does. That is correct rather than a compromise: the v1.2.6 license generator already requires knowing exactly what ships. |
+| 5 | Tier tokens | **`:kernel` / `:native` / `:declared`** | Names the capability axis — may it contribute compiled code — instead of provenance, which becomes orthogonal metadata so a user may author a `:native` pack and a vendor a `:declared` one. Rejects `:project` (collides with Mix and the umbrella), `:core` (collides with kernel), `:extension` (vacuous), `:layer1` (opaque). |
+| 6 | A middle application between kernel and packs | **None. Two categories only: the kernel, or a named pack** | An `allbert_core` beside `allbert_kernel` is two names for one idea and becomes the drawer everything lands in, reconstructing the monolith with an extra hop. |
+| 7 | Where `External.HttpPolicy` and `RequestSpec` live | **Kernel, concern 3** | Egress policy is a security boundary and packs call it 14 times. v1.6 already consolidates the triplicated SSRF table; it should land in the kernel application. |
+| 8 | Fate of the `plugins/` directory | **Retires; each becomes `apps/allbert_<name>`** | Data staging moves to each application's `priv/`, which OTP releases handle natively — removing the custom `stage_plugins` release step. `<ALLBERT_HOME>/plugins` remains the `:declared` tier, renamed `packs`, with `plugins` retained as a compatibility scan path. |
+| 9 | StockSage | **`apps/allbert_stocksage`** | Whether it ships in the default artifact becomes a one-line release-manifest choice rather than an architectural fact. |
+| 10 | Does this become an ADR | **Yes, one** — pack contract, kernel application boundary, and tier model | It constrains future design, which is this project's stated ADR trigger. Amends ADR 0017 and ADR 0031; supersedes neither. |
+
+### 13.3 Sequencing
+
+Neither a single long v1.5 nor a 2.0 that absorbs everything and renumbers
+1.6/1.7/1.8. Both are the unbounded-scope failure mode this project has already
+demonstrated — v1.3 M9.b burned six authoritative attempts and v1.1 required
+eight corrective rounds. The seam to split on is the contract line.
+
+Checked rather than assumed: **only the Turn Engine needs a major.** Registry
+inversion preserves `modules/1` and `resolve/2` behaviour; settings inversion
+preserves key names and semantics; gate inversion is internal tooling; module
+relocation preserves module names. All are 1.x-legal. Only response shapes and
+signal names — phase 6 — require 2.0.
+
+| Version | Content |
+| --- | --- |
+| **1.4** | **As planned, untouched.** It lands the preflight gate, which is wanted before any release that relocates large numbers of files. |
+| **1.5** | Foundation. Create `apps/allbert_kernel` empty; registry inversion; settings inversion; gate inversion; delete `@shipped_modules` and `@reserved_app_owners`; relocate Home/Paths, Security Central with `HttpPolicy`, and the Capability plane. **Bounded by point tags** (1.5.1, 1.5.2, …), one per inversion, matching the established release model — that is the escape valve against an unbounded release. |
+| **1.6** | OAuth as planned — XOAUTH2 is increasingly the only route to a real mailbox and should not wait behind a rearchitecture — plus extraction of three packs (telegram, email, notes_files) to prove the pattern on real code. |
+| **1.7** | Projection primitive first, then Knowledge Stage 1 as a pack over it. Both smaller than currently planned. |
+| **1.8** | Knowledge Central, unchanged in intent. |
+| **2.0** | Turn Engine consolidation, remaining pack extraction, and accumulated Tier-1 cleanup. A bounded major. |
+| **2.1** | Self-Hosting Development, moved from the 2.0 slot (`roadmap.md:367`). |
+
+Moving self-hosting is a gain rather than a displacement: a pi-mode surface
+developing Allbert against a small kernel and named packs is far more tractable
+than against a single 181,000-line application, and self-hosting was always
+implicitly gated on the codebase being navigable.
+
+**Hard ordering constraint inside 1.5.** Gate inversion must precede module
+relocation. The 43 gates name test paths under `apps/allbert_assist/test/`, and
+umbrella applications own their own tests, so relocating a module relocates its
+test and breaks every gate list naming it. The order is registry inversion,
+settings inversion, gate inversion, then relocation.
+
+### 13.4 Risks and their mitigations
+
+| Risk | Mitigation |
+| --- | --- |
+| v1.5 runs long | Point tags; each inversion ships standalone |
+| Relocation breaks gate file lists | Gate inversion precedes relocation (§13.3) |
+| The v1.0 public-contract freeze | Module names unchanged; the freeze covers module and function contracts, not application membership |
+| Pack-to-pack dependency tangle across 37 subsystems | Permitted; only kernel-to-pack is forbidden. One dependency-graph pass during the v1.6 extraction |
+| `PermissionGate` deletion is not core-only — 7 pack call sites | Scope it in v1.5 as a cross-pack migration rather than a core edit |
+| Umbrella applications compile everything | Not a requirement (decision 3); third-party path dependencies already provide build-time optionality if it ever becomes one |
+
+### 13.5 The recommendation in one sentence
+
+Create `apps/allbert_kernel` empty, invert the five kernel lists so the compiler
+enforces the boundary, then relocate — v1.4 untouched, v1.5 as point-tagged
+foundation, v1.6 through v1.8 keeping their numbers and their features, and 2.0
+reserved for the one change that genuinely needs a major.
