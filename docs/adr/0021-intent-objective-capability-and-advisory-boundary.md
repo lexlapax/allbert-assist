@@ -948,14 +948,29 @@ inheriting registered-action authority. Deterministic code still owns every
 status and attention fact, failure/cancellation truth, effect receipt, ordered
 authoritative child appendix, heading/label, byte allocation, digest,
 persistence, and surface projection. The 16 KiB canonical model-input envelope
-prioritizes the complete bounded request and fairly marks any unavoidable child
-shortening. In the 32 KiB stored report, deterministic evidence has first claim
+keeps the complete bounded parent request fixed, allocates the largest common
+cap across every completed observation while optional child task text remains
+at its explicit marker floor. An accepted observation at or below 64 UTF-8
+bytes stays complete; a longer observation keeps at least a readable 64-byte
+content prefix plus its shortening marker. Only remaining bytes expand child objective/
+expected-result fields under a second common cap. If those evidence prefixes
+cannot fit, the provider is not called and composition falls back as
+`composition_input_too_large`. In the 32 KiB stored report, deterministic evidence has first claim
 on bytes; advisory synthesis is one anti-spoofed paragraph of at most 4,096 UTF-8
 bytes and cannot displace an otherwise complete child appendix. The exact
 reviewed paragraph must fit unchanged after deterministic evidence allocation;
 otherwise selection is an unresolved deterministic fallback, never a truncated
 paragraph carrying accepted review provenance. The model cannot
 revise observations, identifiers, ordering, authority, delivery, or work.
+The allocator computes the deterministic-fallback child representation first.
+Neither selected relationship sections nor synthesis may worsen any child's
+title/objective/detail shortening vector relative to that baseline; if they
+would displace otherwise fitting authoritative truth, selection falls back.
+Allbert renders the normalized synthesis inside one fixed Markdown blockquote
+beneath its deterministic advisory label. Structural framing, not an enumerable
+substring/regex denylist, prevents model prose from impersonating a heading or
+child row; the closed review rules own semantic presentation quality. The digest
+binds the exact inner paragraph and extraction verifies the exact frame.
 Before any whitespace/control normalization, Allbert compares the exact raw
 model synthesis with the Redactor result. Detectable secret material fails to
 deterministic fallback; it is never silently redacted into different prose that

@@ -439,9 +439,16 @@ model:
    matching `step_id` and `step_status=completed`—with no quality-receipt field;
    report validation does not create a summary-only parallel contract or let
    mismatched prose inherit registered-action authority.
-   The 16 KiB
-   canonical model-input allocator gives the complete bounded request priority
-   and fairly marks unavoidable child shortening. Allbert alone renders
+   The 16 KiB canonical model-input allocator keeps the complete bounded parent
+   request fixed, then allocates the largest common cap across every completed
+   observation while optional child objective/expected-result fields remain at
+   their explicit marker floor. An accepted observation of at most 64 UTF-8
+   bytes remains complete; a longer observation retains at least a readable
+   64-byte content prefix plus its shortening marker, never only the marker.
+   Only afterward may the
+   remaining bytes expand those optional task fields under their own common cap;
+   if all evidence prefixes cannot fit, no provider call occurs and composition
+   falls back as `composition_input_too_large`. Allbert alone renders
    status/attention truth, headings, receipt
    language, and the ordered authoritative appendix. Those deterministic parts
    have first claim on the 32 KiB report; advisory synthesis is one
@@ -449,6 +456,16 @@ model:
    otherwise complete child appendix. The exact reviewed paragraph must fit
    unchanged after that allocation; otherwise the selection is an unresolved
    deterministic fallback, not truncated prose with accepted provenance.
+   Allocation first computes the deterministic-fallback child representation.
+   Model-selected relationship sections and synthesis may not worsen any
+   child's title/objective/detail shortening vector versus that baseline; a
+   selection that would displace otherwise fitting authoritative child truth is
+   rejected in favor of fallback.
+   The normalized synthesis is rendered inside one fixed Markdown blockquote
+   beneath its Allbert-owned advisory label. That frame—not a substring or regex
+   inventory—is the visual authority boundary; the closed synthesis-rule review
+   owns semantic no-spoof quality. The stored digest continues to bind the exact
+   inner paragraph, and extraction validates the exact frame.
    Model synthesis is inspected for Redactor-detectable secret material on its
    exact raw returned bytes before whitespace/control normalization. A detected
    secret fails composition to deterministic fallback; Allbert never silently
