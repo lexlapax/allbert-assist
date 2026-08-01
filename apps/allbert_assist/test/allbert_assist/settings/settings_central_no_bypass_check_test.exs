@@ -123,6 +123,29 @@ defmodule AllbertAssist.SettingsCentralNoBypassCheckTest do
              |> SettingsCentralNoBypass.run([])
   end
 
+  test "allows the classified v1.3 development-gate evidence inputs" do
+    source = """
+    defmodule Example.V13DevelopmentGate do
+      def latency_consumer, do: System.get_env("V13_LATENCY_CONSUMER")
+      def latency_store, do: System.get_env("V13_LATENCY_STORE")
+      def artifact_sha256, do: System.get_env("V13_ARTIFACT_SHA256")
+      def zero_shot_fixture, do: System.get_env("V13_ZERO_SHOT_FIXTURE")
+      def zero_shot_store, do: System.get_env("V13_ZERO_SHOT_STORE")
+      def fanout_fixture, do: System.get_env("V13_FANOUT_FIXTURE")
+      def fanout_worker_fixture, do: System.get_env("V13_FANOUT_WORKER_FIXTURE")
+      def fanout_store, do: System.get_env("V13_FANOUT_STORE")
+      def model_profile, do: System.get_env("V13_MODEL_PROFILE")
+      def full_sha, do: System.get_env("V13_FULL_SHA")
+      def dirty, do: System.get_env("V13_DIRTY")
+    end
+    """
+
+    assert [] =
+             source
+             |> SourceFile.parse("apps/allbert_assist/lib/example_v13_development_gate.ex")
+             |> SettingsCentralNoBypass.run([])
+  end
+
   test "flags unknown non-ALLBERT operator env reads in production source" do
     source = """
     defmodule Example.NovelEnvBypass do

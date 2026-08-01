@@ -9,6 +9,8 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
   alias AllbertAssist.Objectives.Runs.Worker.{QualityPolicy, QualityReceipt}
 
   defmodule AcceptingReviewer do
+    alias AllbertAssist.Objectives.Runs.Worker.QualityPolicy
+
     @config_digest String.duplicate("a", 64)
 
     def prepare(contract, draft, context) do
@@ -20,7 +22,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
       send(context.test_pid, :review_invoked)
 
       rule_results =
-        AllbertAssist.Objectives.Runs.Worker.QualityPolicy.rule_ids()
+        QualityPolicy.rule_ids()
         |> Enum.map(&%{"rule_id" => &1, "verdict" => "satisfied"})
 
       {:ok,
@@ -92,17 +94,20 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
   end
 
   defmodule CancellingReviewer do
+    alias AllbertAssist.Objectives.Runs.CancelToken
+    alias AllbertAssist.Objectives.Runs.Worker.QualityPolicy
+
     @digest String.duplicate("f", 64)
 
     def prepare(_contract, _draft, _context),
       do: {:ok, %{reviewer_config_sha256: @digest}}
 
     def invoke(_prepared, context) do
-      :ok = AllbertAssist.Objectives.Runs.CancelToken.cancel(context.cancel_token)
+      :ok = CancelToken.cancel(context.cancel_token)
       send(context.test_pid, :review_completed_during_cancellation)
 
       rule_results =
-        AllbertAssist.Objectives.Runs.Worker.QualityPolicy.rule_ids()
+        QualityPolicy.rule_ids()
         |> Enum.map(&%{"rule_id" => &1, "verdict" => "satisfied"})
 
       {:ok,
@@ -145,13 +150,15 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
   end
 
   defmodule UnresolvedReviewer do
+    alias AllbertAssist.Objectives.Runs.Worker.QualityPolicy
+
     @digest String.duplicate("e", 64)
     def prepare(_contract, _draft, _context), do: {:ok, %{reviewer_config_sha256: @digest}}
 
     def invoke(_prepared, context) do
       send(context.test_pid, {:reviewer_invoked_branch, __MODULE__})
 
-      [first | rest] = AllbertAssist.Objectives.Runs.Worker.QualityPolicy.rule_ids()
+      [first | rest] = QualityPolicy.rule_ids()
 
       rule_results =
         [%{"rule_id" => first, "verdict" => "unsatisfied"}] ++

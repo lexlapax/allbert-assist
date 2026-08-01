@@ -90,6 +90,7 @@ defmodule Mix.Tasks.Allbert.Test do
   alias AllbertAssist.DevGates.PhaseRunner
   alias AllbertAssist.DevGates.TestManifest
   alias AllbertAssist.DevGates.TestMetrics
+  alias AllbertAssist.DevGates.V13FanoutEval
 
   @shortdoc "Run Allbert developer test gates"
 
@@ -1080,8 +1081,7 @@ defmodule Mix.Tasks.Allbert.Test do
     if !File.regular?(worker_fixture),
       do: Mix.raise("fan-out worker fixture does not exist: #{worker_fixture}")
 
-    _fixtures =
-      AllbertAssist.DevGates.V13FanoutEval.load_fixtures!(fixture, worker_fixture)
+    _fixtures = V13FanoutEval.load_fixtures!(fixture, worker_fixture)
 
     validate_new_output!(output)
 

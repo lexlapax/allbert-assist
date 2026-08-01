@@ -43,6 +43,8 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
   end
 
   defmodule RecordingReqLLM do
+    alias AllbertAssist.Objectives.Runs.Worker.QualityPolicy
+
     def generate_object(model_spec, prompt, schema, opts) do
       send(
         Keyword.fetch!(opts, :test_pid),
@@ -50,7 +52,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
       )
 
       rule_results =
-        AllbertAssist.Objectives.Runs.Worker.QualityPolicy.rule_ids()
+        QualityPolicy.rule_ids()
         |> Enum.map(&%{"rule_id" => &1, "verdict" => "satisfied"})
 
       {:ok,

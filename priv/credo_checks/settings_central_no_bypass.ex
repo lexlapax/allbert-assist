@@ -67,6 +67,7 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
         "V13_ZERO_SHOT_FIXTURE",
         "V13_ZERO_SHOT_STORE",
         "V13_FANOUT_FIXTURE",
+        "V13_FANOUT_WORKER_FIXTURE",
         "V13_FANOUT_STORE",
         "V13_MODEL_PROFILE",
         "V13_FULL_SHA",

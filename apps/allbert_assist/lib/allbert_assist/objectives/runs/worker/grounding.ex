@@ -88,13 +88,9 @@ defmodule AllbertAssist.Objectives.Runs.Worker.Grounding do
       {:ok, plan} ->
         plan_source = plan["source"]
         digest = plan["original_request_sha256"]
-        plan_digest = plan["plan_sha256"]
 
         with {:ok, source_intent} <- verified_source(parent, digest) do
-          case verified_plan(parent, child, plan_source, plan_digest) do
-            :ok -> grounded_child(child, source_intent, plan_source, plan)
-            {:error, _changed} -> changed_plan_child(child, plan, source_intent)
-          end
+          resolve_child_binding(child, parent, plan, plan_source, source_intent)
         else
           _missing_or_inconsistent -> direct_answer_only(child, :untrusted, plan)
         end
@@ -106,6 +102,13 @@ defmodule AllbertAssist.Objectives.Runs.Worker.Grounding do
 
       {:error, _invalid} ->
         direct_answer_only(child, :untrusted)
+    end
+  end
+
+  defp resolve_child_binding(child, parent, plan, plan_source, source_intent) do
+    case verified_plan(parent, child, plan_source, plan["plan_sha256"]) do
+      :ok -> grounded_child(child, source_intent, plan_source, plan)
+      {:error, _changed} -> changed_plan_child(child, plan, source_intent)
     end
   end
 
