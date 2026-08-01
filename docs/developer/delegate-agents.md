@@ -66,12 +66,23 @@ and invokes delegate steps through this same registered action. The fair
 `Objectives.Runs.Scheduler` bounds running children globally and per parent;
 the Coordinator rebuilds live supervision from durable Objectives state. Every
 child terminal writer delegates to `Objectives.Fanout.TerminalTransitions`,
-whose immediate transaction records the child terminal result, reduces the
-parent once, appends the unique join event, and exposes the pending report
-receipt atomically. The Coordinator may reconcile that state but does not own a
-second best-effort join path. Delegate agents must not create their own durable
-fan-out loop, acknowledge a kickoff/report receipt, or deliver channel reports
-directly.
+whose immediate transaction records the child terminal result and reduces the
+parent once. The final transition appends the unique join event, freezes the
+ordered child statuses, observations, authoritative effect-receipt references,
+and parent outcome behind an input digest, and queues central report composition;
+delivery remains `not_ready`. The Coordinator may reconcile that state but does
+not own a second best-effort join path.
+
+The private fan-out composer may select only a versioned, content-free
+relationship layout: closed relationship values plus grouping and queue order.
+It cannot author report prose, omit terminal children, reinterpret statuses, or
+turn a child observation into effect evidence. A deterministic renderer owns all
+status, failure, observation, and receipt wording from the frozen snapshot. The
+selected model layout or deterministic fallback, rendered body, source, and
+selection provenance are stored centrally before delivery becomes `pending`.
+Delegate agents and channel surfaces must not create their own durable fan-out
+loop, compose or deliver an alternate report, or acknowledge kickoff/report
+receipts directly.
 
 v1.3 adaptive fan-out's temporary `Objectives.Runs.Worker.JidoAdapter` is not a
 delegate-agent registry entry. Its private one-turn Jido command exists only to
@@ -106,9 +117,11 @@ migration.
 
 Delegate output is advisory unless the called registered action has already
 performed a confirmed authoritative effect. Delegate agents return normalized
-response/report packets with summaries and evidence references. A delegate
-result never grants permission, never confirms a browser navigation, never
-promotes memory, and never changes Settings Central by itself.
+response/report packets with summaries and evidence references. A summary about
+an effect is a child-reported observation, not effect evidence; only the durable
+receipt from the registered action is authoritative. A delegate result never
+grants permission, never confirms a browser navigation, never promotes memory,
+and never changes Settings Central by itself.
 
 ## Plugin Example
 

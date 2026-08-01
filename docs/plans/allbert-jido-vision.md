@@ -212,13 +212,16 @@ existing behavior. Jido process parentage, directives, and awaits are live
 execution aids, not persisted authority.
 
 Fan-in follows the same split. Code first freezes the durable result envelopes
-and join outcome. The qualified main conversation model may then synthesize a
-useful report from the original request, frozen plan, and those envelopes. The
-synthesizer cannot rewrite status, conceal failure, claim an unreceipted effect,
-or execute a new action. Its bounded output is durable before delivery becomes
-pending; model failure selects a deterministic complete-child fallback. Every
-surface consumes that one stored report through the existing Runtime/Objectives
-delivery path.
+and join outcome. The qualified main conversation model may then select only a
+content-free, versioned relationship layout over completed children. A local
+compiler requires exact child coverage and keeps failed, cancelled, and
+abandoned work outside model control; Allbert deterministically writes every
+report word, status, observation, and effect-receipt statement. The model cannot
+rewrite status, conceal failure, turn an unreceipted observation into effect
+evidence, or execute a new action. The selected source, normalized provenance,
+and rendered body are durably bound before delivery becomes pending; model
+failure selects a deterministic complete-child fallback. Every surface consumes
+that one stored report through the existing Runtime/Objectives delivery path.
 
 ### Intent, Objectives, And World Models
 

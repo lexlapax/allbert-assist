@@ -109,12 +109,24 @@ DirectAnswer-only; they cannot turn generated prose into an effect.
 
 Child execution begins only after the kickoff receipt has been delivered or
 durably recorded. The children then run concurrently within Settings Central's
-global and per-fan-out bounds, and the final report lists every child as
-completed, failed, abandoned, or cancelled—partial success is never presented as
-total success. A mix of terminal outcomes is reported as `partial`; a fan-out
-whose children were all cancelled is reported as `cancelled`. Completion is one
-durable fan-in transition, so a crash or restart cannot legitimately leave an
-all-terminal child set looking like a still-running parent.
+global and per-fan-out bounds. The final child freezes one ordered durable
+snapshot and queues central report composition; it does not ask a child or the
+current surface to write the report. A qualified composer can select only a
+versioned relationship grouping and order. All report wording is rendered
+deterministically from the frozen statuses, observations, and effect receipts,
+then the chosen model result or deterministic fallback is stored before delivery
+becomes pending. A crash or restart therefore resumes composition or delivery
+from durable state instead of inventing another fan-in result.
+
+The stored report lists every child as completed, failed, abandoned, or
+cancelled—partial success is never presented as total success. A mix of terminal
+outcomes is reported as `partial`; a fan-out whose children were all cancelled
+is reported as `cancelled`. A child's summary of an effect is labelled as an
+observation, not proof; only an attached durable action receipt is effect
+evidence. Inspect the central state with
+`allbert admin objectives show OBJECTIVE_ID`; `Report composition` identifies
+whether selection is still in progress or ready, and `Report source` identifies
+the model selection or deterministic fallback.
 
 A supervisor admission failure before a child worker or effect exists is retried
 automatically with capped backoff; it is not shown as `uncertain_effect`.
@@ -133,8 +145,9 @@ is active, an unqualified Escape cancellation asks you to name the fan-out or
 child instead of guessing.
 
 Attached Web and TUI sessions show the joined report before recording its exact
-delivery receipt. Failed rendering/output leaves that report pending for the
-next turn. This attended behavior does not enable autonomous remote
+delivery receipt. They render the exact centrally stored body rather than
+re-composing it. Failed rendering/output leaves that report pending for recovery
+or the next turn. This attended behavior does not enable autonomous remote
 notifications; remote report-back remains a separate, default-off per-channel
 setting described in the security guide.
 

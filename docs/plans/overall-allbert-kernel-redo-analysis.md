@@ -528,8 +528,12 @@ The interim Stage-0 regex/classifier decomposer is replaced by four seams:
 4. **Durable report composition** after terminal reduction: the last terminal
    child freezes the child/result/receipt snapshot with
    `report_composition_state=queued` and `report_delivery_state=not_ready`; a
-   recoverable composer may improve narrative only; a deterministic
-   complete-child renderer is the stored fallback.
+   recoverable composer may select only one content-free, versioned
+   relationship-section layout over completed children. A deterministic
+   Allbert renderer owns all report language, keeps non-completed children
+   outside model control, and stores a complete-child fallback. The selected
+   source and normalized provenance are digest-bound before delivery becomes
+   pending.
 
 ### 12.2 What still holds
 

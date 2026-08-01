@@ -802,8 +802,9 @@ What A21 does **not** do:
 
 ### A22. Parallel planning and report composition are advisory Objective work (v1.3 M9.b.4/M9.b.5)
 
-Status: accepted for v1.3 M9.b.4/M9.b.5; implementation and focused operator
-evidence remain release barriers in `docs/plans/v1.3-plan.md`.
+Status: accepted for v1.3 M9.b.4/M9.b.5 and implemented through the M9.b.5
+selected-report authority contract at `b7ea776d`; remaining operator and release
+evidence is governed by `docs/plans/v1.3-plan.md`.
 
 Adaptive parallel work deepens the existing Intent → Objective → Action spine;
 it does not create a fourth durable layer. On the clean DirectAnswer route, the
@@ -830,12 +831,41 @@ parentage, state, output, or successful tool call is never durable authority.
 
 After all children terminalize, deterministic reduction freezes their durable
 statuses, observations, and effect receipts. A private main-model composition
-command may convert that snapshot into the operator-facing narrative, but it
-cannot revise the plan, child state, join outcome, permissions, or receipt
-truth. The composed narrative or deterministic complete-child fallback is
-stored before report delivery becomes pending. Model failure therefore degrades
+command makes one structured-output call over that snapshot. Its response is a
+content-free, locally versioned relationship-section layout: closed
+`complementary | contrasting | sequential | supporting | independent` enums
+plus ordered completed-child queue positions. The deterministic compiler
+requires those sections to partition every completed child exactly once and
+rejects unknown positions, duplicates, omissions, extra fields, invalid
+cardinality, and an all-independent result when two or more children completed.
+All non-completed children remain outside model ordering and are rendered first
+by Allbert's local deterministic compiler. The model writes none of the report
+language and cannot revise the plan, child state, join outcome, permissions,
+observations, failures, or receipt truth. Child detail remains explicitly an
+observation; only a durable effect receipt reference supports an effect claim.
+The resulting local rendering or deterministic complete-child fallback is
+stored before report delivery becomes pending. Model refusal, truncation,
+malformed output, provider failure, or unavailability therefore degrades
 presentation without losing completion evidence or indefinitely withholding a
 report.
+
+The durable selection is bound twice: `report_input_digest` binds the frozen
+authoritative snapshot, while `report_selection_digest` binds the selected
+source and every exact normalized provenance field. Model provenance is exactly
+profile, provider, model, layout version, and normalized sections; fallback
+provenance is exactly fallback reason and layout version. Projection rehydrates
+and deterministically re-renders that contract against the selection event and
+stored body. Unknown versions, extra or missing provenance, changed source or
+fallback reason, altered sections/body/input, or digest/event tampering fail
+closed to inconsistent Objective state and cannot become a deliverable report.
+
+The durable selection transaction precedes best-effort joined publication.
+Signals are wake-ups rather than report authority: bounded API waiters perform a
+final durable projection check, attached TUI sessions monitor/re-subscribe to
+SignalBus and reconcile only their owned attachment set, and unattended
+notification consumers reconcile the durable completion outbox. Publication
+loss or a SignalBus-only restart can delay notification but cannot erase,
+consume, or authorize a report.
 
 This amendment does not promote the reserved generic Planner/Evaluator or
 AdvisoryProvider vocabularies from A20. The v1.3 planner, worker, and composer

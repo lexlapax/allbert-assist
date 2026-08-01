@@ -14,13 +14,13 @@ changelog entries or release notes.
 
 Status: **release candidate remediation in progress.** The Memory/Search source
 implementation and portability remediation are complete. Adaptive fan-out
-M9.b.4 is implemented; M9.b.5 durable report composition, its focused operator
-qualification, the fresh full source validation, final cumulative rejoin, one
-same-SHA three-target artifact generation, packaged operator validation,
+M9.b.4 and M9.b.5 code, focused automated qualification, and the independent
+code audit are complete at `b7ea776d`. Real-provider focused `FOV-*`
+qualification, fresh full source validation (`SV-*`), final cumulative rejoin,
+one same-SHA three-target artifact generation, packaged operator validation,
 protected publication, and tap closeout remain release barriers. This entry
-must not be read as a shipped-
-version claim until those barriers pass and the final tag, digests, and release
-identity are filled.
+must not be read as a shipped-version claim until those barriers pass and the
+final tag, digests, and release identity are filled.
 
 **Formula state: PRE-PUBLICATION ONLY.** The packaged Latest 1.2.6 remains in
 the repository formula during candidate qualification. At publish, the tap is
@@ -49,8 +49,13 @@ shipped 1.3.0 formula claim.
   admission. Exact counted protocols converge on the same durable plan;
   ordinary actions and bounded one-turn DirectAnswer Jido workers share one
   Worker Interface, and confirmation resume packets are durably bound before
-  approval or recovery. Main-model report composition remains the M9.b.5
-  release barrier.
+  approval or recovery. The final child freezes one durable, digest-bound report
+  input and queues central composition. The model may return only a versioned,
+  content-free relationship grouping/order; a deterministic renderer owns the
+  report language, preserves every terminal child, and distinguishes advisory
+  observations from authoritative effect receipts. The selected model or
+  fallback body and its provenance are stored before delivery becomes pending,
+  while TUI bus-restart recovery re-subscribes and reconciles that durable state.
 - DirectAnswer now uses its own qualified local task profile
   (`direct_answer_local` / external Ollama `qwen2.5:7b`) while the global
   `local` starter remains `llama3.2:3b`. The purpose-owned, operator-ordered

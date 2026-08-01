@@ -29,6 +29,8 @@ manager owns the advisory decision to propose parallel work, Objectives remains
 the durable authority, clean DirectAnswer children use bounded one-turn
 Jido.Agent-backed workers, and
 a durable main-model composition must finish before a report becomes pending.
+M9.b.5's selected-report authority and recovery contract is implemented at
+`b7ea776d`.
 
 ## Context
 
@@ -298,21 +300,47 @@ model:
    `fanout_synthesis` task chain initially bound to the same qualified profile
    used for the originating ordinary conversation
    with the original request, frozen plan, and bounded durable child result
-   envelopes. It may improve only the report narrative. It cannot change child
-   status, hide failures, claim an effect without a receipt, execute an action,
-   or create another fan-out.
+   envelopes. It makes exactly one structured-output call whose only model-
+   authored value is a content-free list of relationship sections. Each
+   section contains one closed relationship enum (`complementary | contrasting
+   | sequential | supporting | independent`) and ordered completed-child queue
+   positions. Allbert's local compiler stamps layout version 1, rejects extra
+   fields, requires an exact partition of every completed child once, requires
+   a non-independent multi-child section when at least two children completed,
+   and enforces singleton `independent` versus multi-child relationship
+   cardinality. Failed, cancelled, and abandoned children never enter the
+   model-controlled partition. They remain in deterministic local status and
+   attention sections. The model therefore selects grouping and order only; it
+   writes no prose, fact, status, failure, observation, or effect claim. Allbert
+   deterministically renders every word and the complete authoritative child
+   appendix. Child detail is labelled as an observation; only a durable effect
+   receipt reference is effect evidence. Composition cannot change child
+   status, hide failures, execute an action, or create another fan-out.
 7. **The composed report is itself durable.** Additive parent fields store
-   bounded `report_body`, `report_source`, and `report_input_digest`, with
+   bounded `report_body`, `report_source`, `report_input_digest`, and
+   `report_selection_digest`, with
    `report_composition_state=not_ready | queued | composing | ready | fallback`.
-   Redacted event metadata carries body digest/model or content-free failure
-   provenance without redundant attempt/error columns. A successful composition transaction stores
-   the report and moves delivery to `pending`. Unavailable/model-failed/
+   Redacted `fanout_report_selected` event metadata carries the body/input
+   digests and exact normalized, content-free selection provenance. For a model
+   selection that provenance is exactly profile, provider, model, layout
+   version, and normalized sections; for deterministic fallback it is exactly
+   fallback reason and layout version. The selection digest domain binds the
+   selected source plus that complete normalized provenance, so changing a
+   source, provenance field, section, or fallback reason is detectable rather
+   than cosmetic. A successful composition transaction stores the report and
+   opens the existing delivery outbox by moving delivery to `pending`.
+   Unavailable/model-failed/
    exhausted composition durably stores the existing deterministic complete-
    child renderer as the fallback and then moves delivery to `pending`; no
    completed child result is withheld indefinitely for model quality. Recovery
    claims queued work idempotently and converts a stranded composing row to the
-   deterministic fallback, and delivery consumers read only
-   the stored report selected by this transition.
+   deterministic fallback, and delivery consumers read only the stored report
+   selected by this transition. Rehydration re-freezes the authoritative input,
+   validates the input and selection digests, normalizes the exact event
+   provenance, and deterministically re-renders the selected layout. An unknown
+   layout version, extra or missing provenance field, or any input, source,
+   provenance, body, event, or digest tamper fails closed to an inconsistent
+   projection: no pending report is rendered or acknowledged.
 8. **Automatic fan-out stays balanced and operator-visible.** Independent
    advisory/read-only work may start under the existing automatic rollout after
    truthful kickoff custody. Uncounted effectful or mixed work stays on the
@@ -334,6 +362,13 @@ configured to the same qualified profile so one conversation model owns both
 sides without coupling their task-chain policy. This amendment creates no
 surface-private planner, worker, join, or report implementation: TUI, Web, DMs,
 CLI, and public protocols keep using the central Runtime/Objectives Interfaces.
+The selection transaction is authoritative before its joined signal is
+published. Signals remain low-latency wake-ups: an API waiter rechecks the
+durable projection at its timeout boundary, the attached TUI monitors and
+re-subscribes to SignalBus then reconciles only its bounded owned attachment
+set, and notification recovery reconciles its durable completion outbox. A
+failed publication or SignalBus-only restart can delay the wake-up but cannot
+strand, duplicate, or consume the pending report.
 
 ### M12.15 amendment — atomic terminal reduction and durable report work
 

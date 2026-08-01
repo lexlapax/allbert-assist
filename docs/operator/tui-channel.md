@@ -166,10 +166,18 @@ conversation history retains only `model_payload`.
 ## Fan-Out And Steering
 
 An eligible multi-task turn prints its kickoff before child work begins. The
-TUI then shows `[fan-out]` lifecycle lines and one honest joined report. Mixed
-terminal outcomes are `partial`; all-cancelled work is `cancelled`. A failed
-terminal write leaves the exact report receipt pending so the report can return
-on a later turn.
+TUI then shows `[fan-out]` lifecycle lines and the exact report body selected and
+stored by the central Objectives fan-in. It never synthesizes a surface-local
+version. Mixed terminal outcomes are `partial`; all-cancelled work is
+`cancelled`, and child-reported observations are not presented as effect evidence
+without durable action receipts.
+
+SignalBus notifications are delivery hints, not report truth. The attached TUI
+monitors the bus, re-subscribes after a bus restart, and reconciles eligible
+pending reports from durable Objectives state. A failed terminal write or
+receipt acknowledgement leaves the same report pending for recovery or a later
+turn; replay suppression prevents a successfully acknowledged report from being
+shown twice.
 
 One session can track multiple fan-outs. Plain replies can steer or cancel a
 named child. If more than one fan-out is active, an unqualified Escape
