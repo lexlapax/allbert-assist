@@ -387,14 +387,23 @@ model:
    then `accepted | unresolved`. The result contains relationship sections, one
    bounded advisory synthesis paragraph, and closed rule/queue-position review
    evidence. That one call performs review and revision together; there is no
-   second judge/repair call, queue, service, action, table, or setting.
+   second judge/repair call, queue, service, action, table, or setting. One pure
+   `Fanout.Report.SynthesisPolicy` module is the single immutable catalog for
+   the versioned ordered rules consumed by provider schema/prompt, local
+   validation, and selection provenance.
 
    Layout-v2 input binds the complete bounded original request, parent-only
    join guidance, every reviewed DirectAnswer observation plus its verified
    quality-receipt digest, and every non-DirectAnswer result plus its existing
    effect receipt. A pre-contract DirectAnswer completion remains readable but
    forces deterministic `legacy_unreviewed_children` fallback instead of model
-   synthesis. The 16 KiB canonical model-input allocator gives the
+   synthesis. A fan-out with no completed child has no accepted observation to
+   synthesize and therefore makes no provider call; it stores deterministic v2
+   fallback reason `no_completed_children` with outcome `not_run`. A persisted
+   non-DirectAnswer action must resolve through the central Action Registry
+   before v2 calls it `registered_action`; an unknown action fails v2 freeze,
+   while already-selected v1 replay remains byte-exact and does not acquire the
+   new dependency. The 16 KiB canonical model-input allocator gives the
    complete bounded request priority and fairly marks unavoidable child
    shortening. Allbert alone renders status/attention truth, headings, receipt
    language, and the ordered authoritative appendix. Those deterministic parts
@@ -438,8 +447,15 @@ model:
    paragraph digest. Fallback provenance binds only its closed reason, layout
    and contract versions, and `not_run | unresolved`; it contains no model
    prose. Rehydration rejects a new v1 write, unknown version, missing or extra
-   provenance, receipt/input/section/synthesis/body mismatch, or event/digest
-   tamper before delivery.
+   provenance, a version-crossed snapshot/selection, any receipt/input/section/
+   synthesis/body mismatch, or event/digest tamper before delivery. An
+   unselected queued or composing v1 digest is verified and compare-and-swap
+   rebound in the existing immediate transaction to an authority-bearing v2
+   digest before claim or recovery selection; selected/pending/delivered v1
+   state is never rebound. The same explicit integrity-error classifier lets
+   queue scan and recovery log and leave one corrupt parent untouched while
+   continuing to later valid parents; unclassified storage/operational failures
+   still abort.
 8. **Automatic fan-out stays balanced and operator-visible.** Independent
    advisory/read-only work may start under the existing automatic rollout after
    truthful kickoff custody. Uncounted effectful or mixed work stays on the

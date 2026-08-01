@@ -900,13 +900,21 @@ one bounded model-authored advisory paragraph, and closed rule/child-coverage
 evidence; it is both review and revision, not an additional judge or repair
 call. Invalid, negative, unavailable, timed-out, or deadline-exhausted synthesis
 selects a truthful deterministic fallback and never becomes healthy model
-provenance.
+provenance. One pure `Fanout.Report.SynthesisPolicy` module owns the immutable
+ordered synthesis rule catalog consumed by provider schema/prompt, local
+validation, and selection provenance.
 
 Layout v2 binds the original request, parent-only join guidance, each reviewed
 DirectAnswer observation/quality-receipt digest, and each non-DirectAnswer
 result/effect receipt. A historical DirectAnswer completion without the new
 receipt remains readable but forces the closed `legacy_unreviewed_children`
-fallback rather than model synthesis. Deterministic code still owns every
+fallback rather than model synthesis. With no completed child there is no
+accepted advisory substrate: the composer makes no provider call and stores v2
+fallback `no_completed_children` with outcome `not_run`. A persisted non-
+DirectAnswer action must still resolve through the Action Registry before v2
+labels it `registered_action`; unknown action identity fails v2 freeze, while
+already-selected v1 replay remains byte-exact and independent of later Registry
+removal. Deterministic code still owns every
 status and attention fact, failure/cancellation truth, effect receipt, ordered
 authoritative child appendix, heading/label, byte allocation, digest,
 persistence, and surface projection. The 16 KiB canonical model-input envelope
@@ -929,6 +937,12 @@ re-renders the selected version against the event and stored body. Unknown
 versions, a new v1 write, extra or missing provenance, changed source/fallback,
 altered receipt/section/synthesis/body/input, or digest/event tampering fails
 closed to inconsistent Objective state and cannot become a deliverable report.
+An unselected queued or composing v1 input is verified and compare-and-swap
+rebound in the existing immediate transaction to its authority-bearing v2
+digest before claim/recovery selection; already-selected/pending/delivered v1
+state is never rebound. One explicit integrity-error classifier lets queue scan
+and recovery leave a corrupt parent untouched and continue later valid work;
+unclassified storage/operational failures still abort.
 
 The durable selection transaction precedes best-effort joined publication.
 Signals are wake-ups rather than report authority: bounded API waiters perform a
