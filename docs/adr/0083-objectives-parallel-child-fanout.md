@@ -317,13 +317,22 @@ model:
    `draft` → `review_and_revise` → `accepted` or `unresolved`. One source-bound,
    versioned quality contract is derived from the digest-verified original
    request, compiled child objective, expected-result guidance, the existing
-   DirectAnswer rule catalog, and a small task-neutral child-coverage extension.
+   DirectAnswer rule catalog, and a small task-neutral child-coverage/completion
+   extension. After the existing three-field FanoutPlan/child binding is
+   verified, Allbert adds a typed completion obligation: requirements are the
+   union of child objective and expected-result guidance, every explicit result
+   must be present and supported, and missing required evidence leaves the child
+   unresolved.
    It derives both the prompt and closed review evidence; no domain
    keyword/regex, prompt-specific fact, formatting oracle, or exact-answer
    check is production policy. The registered DirectAnswer action remains the
    first call and disables its own model failover only for this grounded worker
    context. A model-backed draft then receives exactly one advisory
    review-and-revise call through the existing `fanout_synthesis` task chain;
+   its provider result carries the final answer and one catalog-keyed Boolean
+   violation judgment per rule, not an aggregate verdict, rule ids/order, or a
+   failed-rule list. Allbert normalizes catalog order and Jido accepts only when
+   no rule is violated;
    non-model draft outcomes spend no reviewer call, and a malformed, negative,
    unavailable, or unresolved review fails the child in that attempt. Corrupt
    provenance fails before quality completion; non-DirectAnswer children keep
@@ -335,6 +344,13 @@ model:
    fixed task-neutral Allbert completion instruction and binds hashes of the
    exact directive and directive-event id; it never judges steered work against
    stale model-authored guidance.
+
+   Quality task-contract/rule-catalog writes use version 2 and a v2 digest
+   domain. The receipt envelope remains version 1; new receipts name catalog
+   version 2, while verification retains valid catalog-v1 receipt replay and
+   rejects unknown future versions. The canonical contract binds the catalog,
+   but provider user data carries task fields, the completion obligation, and
+   catalog version/digest; catalog-derived system rules appear once.
 
    Local code validates the closed result and normalizes the accepted answer at
    the existing 2,000-character Objective-summary boundary. The worker records
@@ -400,6 +416,14 @@ model:
    `Fanout.Report.SynthesisPolicy` module is the single immutable catalog for
    the versioned ordered rules consumed by provider schema/prompt, local
    validation, and selection provenance.
+
+   Worker QualityPolicy and SynthesisPolicy share the pure
+   `AllbertAssist.Models.ClosedRuleEvidence` transport/normalization boundary.
+   It emits a closed raw JSON Schema whose `rule_violations` object requires one
+   Boolean property per policy-owned rule and rejects additions. Raw JSON Schema
+   is only ReqLLM/provider transport encoding: each policy retains rule meaning
+   and applicability, and Allbert derives ordered results, failed ids, and the
+   aggregate verdict locally before Jido can advance.
 
    Layout-v2 input binds the complete bounded original request, parent-only
    join guidance, every reviewed DirectAnswer observation plus its verified
@@ -472,8 +496,8 @@ model:
    Model synthesis is inspected for Redactor-detectable secret material on its
    exact raw returned bytes before whitespace/control normalization. A detected
    secret fails composition to deterministic fallback; Allbert never silently
-   redacts or otherwise mutates model prose and then preserves the review verdict
-   or digest as if it covered those changed bytes.
+   redacts or otherwise mutates model prose and then preserves the locally
+   derived review verdict or digest as if it covered those changed bytes.
    Invalid, negative, unavailable,
    timed-out, or deadline-exhausted synthesis stores the truthful deterministic
    fallback with no model prose and opens delivery; it never masquerades as

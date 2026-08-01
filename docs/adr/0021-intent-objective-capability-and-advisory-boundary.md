@@ -835,14 +835,21 @@ M9.b.4.2 deepens only the temporary DirectAnswer worker for conversation-
 manager, exact-counted, or verified operator-steered fan-out children. One source-bound
 quality contract is derived from the digest-verified original request, compiled
 child objective, expected-result guidance, the existing DirectAnswer rules, and
-a small task-neutral child-coverage extension. The same typed rules derive the
-prompt and closed review evidence; production behavior contains no domain
-keyword/regex, prompt-specific fact, source-format oracle, or exact-answer
-check. The private Jido lifecycle is `draft` → `review_and_revise` → `accepted`
+a small task-neutral child-coverage/completion extension. After the existing
+three-field FanoutPlan/child binding is verified, Allbert adds one typed
+completion obligation: requirements are the union of the child objective and
+expected-result guidance, every explicit result must be present and supported,
+and missing required evidence leaves the child unresolved. The same typed rules
+derive the prompt and closed review evidence; production behavior contains no
+domain keyword/regex, prompt-specific fact, source-format oracle, or exact-
+answer check. The private Jido lifecycle is `draft` → `review_and_revise` → `accepted`
 or `unresolved`: the registered DirectAnswer action produces the draft, with model
 failover disabled only in this grounded worker context, and the already-budgeted
 second call uses the `fanout_synthesis` task chain to return the final answer and
-closed rule verdicts. A non-model draft spends no review call; malformed,
+one catalog-keyed Boolean violation judgment per rule. The provider does not
+author an aggregate verdict, rule ids, order, or failed-rule list. Allbert
+normalizes in catalog order and Jido advances to `accepted` only when no rule is
+violated. A non-model draft spends no review call; malformed,
 negative, unavailable, or unresolved review fails the child honestly in that
 attempt. Corrupt/untrusted provenance cannot enter this quality path. Ordinary
 DirectAnswer fallback behavior is unchanged, and non-DirectAnswer children keep
@@ -851,6 +858,15 @@ Verified operator steering replaces the child objective, so its contract uses a
 fixed Allbert-owned task-neutral completion instruction and binds the verified
 directive/event digests instead of evaluating against stale pre-steer expected-
 result prose.
+
+Worker task-contract/rule-catalog writes use version 2 and its distinct digest
+domain. The quality-receipt envelope remains version 1; new receipts name rule-
+catalog version 2, while verification retains valid catalog-v1 receipt replay
+and rejects unknown future versions. This preserves existing durable evidence
+without adding a plan, Objective, event, database, Settings, or migration
+version. The canonical contract binds the complete immutable catalog, but
+provider user data carries only task fields, the completion obligation, and the
+catalog version/digest; catalog-derived system rules appear once.
 
 The worker deterministically validates that advisory result and normalizes the
 accepted answer at the existing durable Objective-summary boundary. A typed,
@@ -919,6 +935,15 @@ so no provider or Jido child survives the attempt. One pure
 ordered synthesis rule catalog consumed by provider schema/prompt, local
 validation, and selection provenance.
 
+Worker QualityPolicy and SynthesisPolicy share one pure
+`AllbertAssist.Models.ClosedRuleEvidence` transport/normalization boundary. It
+generates a closed raw JSON Schema whose `rule_violations` object requires one
+Boolean property per policy-owned rule and rejects additions. Raw JSON Schema is
+only ReqLLM/provider transport encoding. Each policy retains rule meaning and
+applicability; Allbert derives ordered results, failed ids, and the aggregate
+verdict locally. Provider rule judgments and prose remain advisory and cannot
+cause a state transition without those local checks.
+
 Layout v2 binds the original request, parent-only join guidance, each reviewed
 DirectAnswer observation/quality-receipt digest, and each non-DirectAnswer
 result/effect receipt. A historical DirectAnswer completion without the new
@@ -985,7 +1010,7 @@ binds the exact inner paragraph and extraction verifies the exact frame.
 Before any whitespace/control normalization, Allbert compares the exact raw
 model synthesis with the Redactor result. Detectable secret material fails to
 deterministic fallback; it is never silently redacted into different prose that
-retains the original review verdict or digest.
+retains the original locally derived review verdict or digest.
 The v2 appendix makes its closed authority explicit per child: a reviewed
 advisory row names the verified quality-receipt digest and says that review is
 not effect evidence; a completed registered-action row marks semantic review
