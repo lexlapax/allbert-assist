@@ -7,8 +7,8 @@ defmodule AllbertAssist.FirstRun.UsableModel do
   presence only. M4's catalog reuses these ordering rules.
   """
 
-  alias AllbertAssist.Settings.ModelDoctor
   alias AllbertAssist.Settings.ModelCapabilities
+  alias AllbertAssist.Settings.ModelDoctor
   alias AllbertAssist.Settings.ProviderEligibility
   alias AllbertAssist.Settings.Store
 

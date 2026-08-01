@@ -411,43 +411,45 @@ defmodule AllbertAssist.CLI do
     projection = readiness_projection(details)
     readiness = projection.direct_answer_readiness
 
-    body =
-      if consent_disabled?(projection) and state not in [:home_missing, :schema_incompatible] do
-        disabled_model_message(projection)
-      else
-        case state do
-          :home_missing ->
-            "Allbert Home is not set up yet. Start the installed service, then open the web workspace. " <>
-              "Use `allbert admin service install --dry-run` to preview service setup, or `allbert serve --open` as a repair fallback."
-
-          :schema_incompatible ->
-            "Allbert Home needs a schema upgrade before it can start. See the upgrade guide."
-
-          :onboarding_incomplete when readiness == :ready ->
-            "Onboarding is optional. Open the web workspace or run `allbert onboard` to customize Allbert."
-
-          :onboarding_incomplete ->
-            "Onboarding is optional. " <> model_repair_message(readiness)
-
-          :first_model_not_ready when readiness == :ready ->
-            "DirectAnswer is ready with its selected profile. The optional global starter profile is unavailable; open Models to review it."
-
-          :first_model_not_ready ->
-            model_repair_message(readiness)
-
-          :profile_unreviewed ->
-            profile_review_message(readiness)
-
-          :product_ready when readiness == :ready ->
-            "Allbert is ready. Open the web workspace, or run `allbert --help`."
-
-          :product_ready ->
-            model_repair_message(readiness)
-        end
-      end
-
-    {body, 0}
+    {first_run_message(state, projection, readiness), 0}
   end
+
+  defp first_run_message(state, projection, readiness) do
+    if consent_disabled?(projection) and state not in [:home_missing, :schema_incompatible],
+      do: disabled_model_message(projection),
+      else: first_run_state_message(state, readiness)
+  end
+
+  defp first_run_state_message(:home_missing, _readiness) do
+    "Allbert Home is not set up yet. Start the installed service, then open the web workspace. " <>
+      "Use `allbert admin service install --dry-run` to preview service setup, or `allbert serve --open` as a repair fallback."
+  end
+
+  defp first_run_state_message(:schema_incompatible, _readiness),
+    do: "Allbert Home needs a schema upgrade before it can start. See the upgrade guide."
+
+  defp first_run_state_message(:onboarding_incomplete, :ready),
+    do:
+      "Onboarding is optional. Open the web workspace or run `allbert onboard` to customize Allbert."
+
+  defp first_run_state_message(:onboarding_incomplete, readiness),
+    do: "Onboarding is optional. " <> model_repair_message(readiness)
+
+  defp first_run_state_message(:first_model_not_ready, :ready),
+    do:
+      "DirectAnswer is ready with its selected profile. The optional global starter profile is unavailable; open Models to review it."
+
+  defp first_run_state_message(:first_model_not_ready, readiness),
+    do: model_repair_message(readiness)
+
+  defp first_run_state_message(:profile_unreviewed, readiness),
+    do: profile_review_message(readiness)
+
+  defp first_run_state_message(:product_ready, :ready),
+    do: "Allbert is ready. Open the web workspace, or run `allbert --help`."
+
+  defp first_run_state_message(:product_ready, readiness),
+    do: model_repair_message(readiness)
 
   defp consent_disabled?(%{enablement_result: %{state: :sticky_disabled}}), do: true
   defp consent_disabled?(_projection), do: false

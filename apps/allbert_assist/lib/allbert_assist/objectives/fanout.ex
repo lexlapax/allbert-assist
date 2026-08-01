@@ -10,8 +10,8 @@ defmodule AllbertAssist.Objectives.Fanout do
 
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Event
-  alias AllbertAssist.Objectives.Fanout.ReceiptSecret
   alias AllbertAssist.Objectives.Fanout.PlanProvenance
+  alias AllbertAssist.Objectives.Fanout.ReceiptSecret
   alias AllbertAssist.Objectives.Fanout.Report
   alias AllbertAssist.Objectives.Fanout.ReportComposer
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions

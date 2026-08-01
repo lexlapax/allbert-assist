@@ -15,10 +15,10 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
   alias AllbertAssist.Actions.Settings.SetDirectAnswerModelProfile
   alias AllbertAssist.Actions.Settings.SetProviderCredential
   alias AllbertAssist.Actions.Settings.UpdateSetting
-  alias AllbertAssist.Settings
-  alias AllbertAssist.Settings.DoctorDiagnostics
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Paths
+  alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.DoctorDiagnostics
 
   setup {Req.Test, :verify_on_exit!}
 
