@@ -7,11 +7,36 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   alias AllbertAssist.Objectives.Fanout.Budget
   alias AllbertAssist.Objectives.Fanout.PlanProvenance
   alias AllbertAssist.Objectives.Fanout.Report
+  alias AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy
   alias AllbertAssist.Objectives.Fanout.ReportComposer
   alias AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Objective
   alias ReqLLM.Response
+
+  defmodule SynthesisFixture do
+    alias AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy
+
+    def accepted(relationship, ordered_queue_positions, synthesis) do
+      %{
+        "sections" => [
+          %{
+            "relationship" => relationship,
+            "ordered_queue_positions" => ordered_queue_positions
+          }
+        ],
+        "advisory_synthesis" => synthesis,
+        "review" => %{
+          "verdict" => "accepted",
+          "rule_results" =>
+            Enum.map(SynthesisPolicy.rule_ids(), fn rule_id ->
+              %{"rule_id" => rule_id, "verdict" => "satisfied"}
+            end),
+          "covered_queue_positions" => ordered_queue_positions
+        }
+      }
+    end
+  end
 
   defmodule CaptureClient do
     def generate_object(spec, prompt, schema, opts) do
@@ -22,11 +47,13 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
          id: "fanout-composition",
          model: "fixture-model",
          context: prompt,
-         object: %{
-           "sections" => [
-             %{"relationship" => "independent", "ordered_queue_positions" => [0]}
-           ]
-         },
+         object:
+           SynthesisFixture.accepted(
+             "independent",
+             [0],
+             "The first accepted observation addresses the requested independent concern."
+           ),
+         finish_reason: :stop,
          provider_meta: %{"raw_response" => "raw-provider-response-sentinel"},
          usage: %{input_tokens: 40, output_tokens: 8}
        }}
@@ -230,11 +257,11 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
       send(context.test_pid, {:process_compose, snapshot, context})
 
       {:ok,
-       %{
-         "sections" => [
-           %{"relationship" => "independent", "ordered_queue_positions" => [0]}
-         ]
-       }}
+       SynthesisFixture.accepted(
+         "independent",
+         [0],
+         "The first accepted observation answers the requested independent concern."
+       )}
     end
   end
 
@@ -243,11 +270,11 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
       send(context.test_pid, {:durable_process_compose, snapshot, context})
 
       {:ok,
-       %{
-         "sections" => [
-           %{"relationship" => "complementary", "ordered_queue_positions" => [0, 1]}
-         ]
-       }}
+       SynthesisFixture.accepted(
+         "complementary",
+         [0, 1],
+         "The two accepted observations complement each other in answering the joined request."
+       )}
     end
   end
 
@@ -293,12 +320,14 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   end
 
   test "one bounded model call receives the frozen report snapshot only as advisory data" do
-    assert {:ok,
-            %{
-              "sections" => [
-                %{"relationship" => "independent", "ordered_queue_positions" => [0]}
-              ]
-            }} =
+    expected =
+      SynthesisFixture.accepted(
+        "independent",
+        [0],
+        "The first accepted observation addresses the requested independent concern."
+      )
+
+    assert {:ok, ^expected} =
              ReqLLMImplementation.compose(snapshot(), profile(), %{
                req_llm_client: CaptureClient,
                test_pid: self(),
@@ -318,18 +347,13 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
 
     assert List.last(prompt.messages).metadata.allbert_prompt == %{
              schema_version: 1,
-             purpose: :fanout_report_composition,
+             purpose: :fanout_report_synthesis,
              content_class: :advisory_data,
-             rule_ids: [
-               :typed_selection_only,
-               :exact_completed_child_partition,
-               :meaningful_relationship,
-               :relationship_cardinality,
-               :layout_only,
-               :no_fact_or_effect_claims,
-               :no_nested_fanout
-             ]
+             rule_ids: SynthesisPolicy.prompt_rule_ids()
            }
+
+    assert schema |> Keyword.keys() |> Enum.sort() ==
+             ~w[advisory_synthesis review sections]a
 
     assert schema[:sections][:required]
     assert {:list, {:map, section_schema}} = schema[:sections][:type]
@@ -340,6 +364,13 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     assert section_schema[:relationship][:required]
     assert section_schema[:ordered_queue_positions][:type] == {:list, :integer}
     assert section_schema[:ordered_queue_positions][:required]
+    assert schema[:advisory_synthesis][:type] == :string
+    assert schema[:advisory_synthesis][:required]
+    assert {:map, review_schema} = schema[:review][:type]
+    assert review_schema[:verdict][:type] == {:in, ~w[accepted unresolved]}
+    assert {:list, {:map, rule_result_schema}} = review_schema[:rule_results][:type]
+    assert rule_result_schema[:rule_id][:type] == {:in, SynthesisPolicy.rule_ids()}
+    assert review_schema[:covered_queue_positions][:type] == {:list, :integer}
     assert opts[:temperature] == 0.0
     assert opts[:max_tokens] == 1_024
     assert opts[:receive_timeout] == 5_000
@@ -436,14 +467,14 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   test "adapter refusal and truncated structured output fail closed without repair" do
     context = %{timeout_ms: 5_000, max_output_tokens: 1_024}
 
-    assert {:error, :structured_output_refusal} =
+    assert {:error, {:provider_failed, :structured_output_refusal}} =
              ReqLLMImplementation.compose(
                snapshot(),
                profile(),
                Map.put(context, :req_llm_client, RefusalClient)
              )
 
-    assert {:error, {:incomplete_composition_response, :length}} =
+    assert {:error, {:invalid_model_output, {:incomplete_composition_response, :length}}} =
              ReqLLMImplementation.compose(
                snapshot(),
                profile(),
@@ -497,6 +528,16 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   test "supervised composer selects a typed layout and stores one deterministic factual report" do
     claim = claim()
 
+    expected_result =
+      SynthesisFixture.accepted(
+        "independent",
+        [0],
+        "The first accepted observation answers the requested independent concern."
+      )
+
+    assert {:ok, expected_prepared} =
+             Report.prepare_synthesis(claim.frozen.snapshot, expected_result)
+
     store =
       start_supervised!({Agent, fn -> %{claims: [claim], selected: [], recoveries: 0} end})
 
@@ -529,21 +570,31 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
            end)
 
     [{^claim, "model", body, provenance}] = Agent.get(store, & &1.selected)
+    assert body == expected_prepared.body
     assert body =~ "Independent finding:"
     assert body =~ "Selected relationship: independent."
     assert body =~ ~s|"First child" (objective: "First objective")|
-    assert body =~ "Child-reported observation (not effect evidence): child-result-sentinel"
-    assert body =~ "Child-reported observation (not effect evidence): provider failed"
+    assert body =~ "Model-authored advisory synthesis:"
+    assert body =~ "The first accepted observation answers the requested independent concern."
+    assert body =~ ~s|Registered-action result: observation="child-result-sentinel"|
+
+    assert body =~
+             ~s|Registered-action terminal detail (no completed result): observation="provider failed"|
+
     assert body =~ "Authoritative child results (ordered):"
-    assert body =~ "✓ First child [completed] — Child-reported observation"
-    assert body =~ "✗ Second child [failed] — Child-reported observation"
+    assert body =~ ~s|✓ title="First child" [completed] — Registered-action result|
+    assert body =~ ~s|✗ title="Second child" [failed] — Registered-action terminal detail|
 
     assert provenance == %{
              model_profile: "direct_answer_local",
              provider: "local_ollama",
              model: "qwen2.5:7b",
-             layout_version: 1,
-             sections: [%{relationship: "independent", ordered_queue_positions: [0]}]
+             layout_version: 2,
+             sections: [%{relationship: "independent", ordered_queue_positions: [0]}],
+             synthesis_contract_version: SynthesisPolicy.version(),
+             review_verdict: "accepted",
+             reviewed_queue_positions: [0],
+             synthesis_sha256: expected_prepared.synthesis_sha256
            }
 
     refute_received {:process_compose, _, _}
@@ -578,17 +629,11 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
       end)
 
     Enum.each(children, fn child ->
-      assert {:ok, _transition} =
-               TerminalTransitions.terminalize_child(
-                 child,
-                 %{
-                   status: "completed",
-                   last_observation_summary: Map.fetch!(durable_details, child.queue_position),
-                   completed_at: DateTime.utc_now()
-                 },
-                 "run_completed",
-                 %{}
-               )
+      complete_registered_action_child!(
+        child,
+        Map.fetch!(durable_details, child.queue_position),
+        "durable-composer-#{child.queue_position}"
+      )
     end)
 
     start_process_composer(
@@ -683,17 +728,11 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
       end)
 
     Enum.each(children, fn child ->
-      assert {:ok, _transition} =
-               TerminalTransitions.terminalize_child(
-                 child,
-                 %{
-                   status: "completed",
-                   last_observation_summary: Map.fetch!(durable_details, child.queue_position),
-                   completed_at: DateTime.utc_now()
-                 },
-                 "run_completed",
-                 %{}
-               )
+      complete_registered_action_child!(
+        child,
+        Map.fetch!(durable_details, child.queue_position),
+        "corrupt-budget-#{child.queue_position}"
+      )
     end)
 
     start_process_composer(
@@ -1175,7 +1214,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   end
 
   test "partial report renders non-completed children first outside model-controlled sections" do
-    snapshot = claim().frozen.snapshot
+    snapshot = legacy_claim_snapshot()
 
     assert {:ok, body} =
              Report.compose(snapshot, %{
@@ -1276,6 +1315,38 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   end
 
   defp claim do
+    {parent, children} = claim_objectives()
+
+    child_authorities =
+      Map.new(children, fn child ->
+        {child.id,
+         %{
+           result_authority: "registered_action",
+           quality_receipt_sha256: nil
+         }}
+      end)
+
+    assert {:ok, frozen} = Report.freeze_v2(parent, children, %{}, child_authorities)
+
+    assert {:ok, budget} =
+             Budget.resolve(2, 0, %{
+               version: 1,
+               max_model_calls: 40,
+               max_output_tokens: 24_000,
+               max_elapsed_ms: 300_000,
+               max_worker_attempts_per_child: 2
+             })
+
+    %{
+      parent: parent,
+      frozen: frozen,
+      budget: budget,
+      deadline_unix_ms: System.system_time(:millisecond) + 10_000,
+      context: %{request: %{channel: :cli}}
+    }
+  end
+
+  defp claim_objectives do
     parent = %Objective{
       id: "fanout_process_parent",
       title: "Compose both children",
@@ -1307,24 +1378,13 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
       }
     ]
 
+    {parent, children}
+  end
+
+  defp legacy_claim_snapshot do
+    {parent, children} = claim_objectives()
     assert {:ok, frozen} = Report.freeze(parent, children)
-
-    assert {:ok, budget} =
-             Budget.resolve(2, 0, %{
-               version: 1,
-               max_model_calls: 40,
-               max_output_tokens: 24_000,
-               max_elapsed_ms: 300_000,
-               max_worker_attempts_per_child: 2
-             })
-
-    %{
-      parent: parent,
-      frozen: frozen,
-      budget: budget,
-      deadline_unix_ms: System.system_time(:millisecond) + 10_000,
-      context: %{request: %{channel: :cli}}
-    }
+    frozen.snapshot
   end
 
   defp claim_with_test_pid do
@@ -1372,8 +1432,40 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     )
   end
 
+  defp complete_registered_action_child!(child, summary, trace_id) do
+    assert {:ok, step} =
+             Objectives.create_step(%{
+               objective_id: child.id,
+               kind: "action",
+               status: "completed",
+               stage: "execute_step",
+               candidate_action: "append_memory",
+               result_summary: summary,
+               trace_id: trace_id
+             })
+
+    assert {:ok, transition} =
+             TerminalTransitions.terminalize_child(
+               child,
+               %{
+                 status: "completed",
+                 current_step_id: step.id,
+                 last_observation_summary: summary,
+                 completed_at: DateTime.utc_now()
+               },
+               "run_completed",
+               %{
+                 summary: String.slice(summary, 0, 500),
+                 step_id: step.id,
+                 step_status: "completed"
+               }
+             )
+
+    transition
+  end
+
   defp completed_snapshot(count) when count in 2..3 do
-    base = claim().frozen.snapshot
+    base = legacy_claim_snapshot()
 
     fixtures = [
       {"fanout_process_child_1", "OTP supervision isolation", "Explain process isolation.",
@@ -1421,20 +1513,28 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   end
 
   defp assert_selected_fallback(store, claim, reason) do
+    assert {:ok, expected_provenance} =
+             Report.fallback_provenance(claim.frozen.snapshot, reason)
+
     assert eventually(fn ->
-             Agent.get(store, fn state ->
-               match?(
-                 %{
-                   selected: [
-                     {^claim, "deterministic_fallback", body, %{fallback_reason: ^reason}}
-                   ]
-                 }
-                 when body == claim.frozen.fallback_body,
-                 state
-               )
-             end)
+             store
+             |> Agent.get(& &1)
+             |> selected_fallback?(claim, expected_provenance)
            end)
   end
+
+  defp selected_fallback?(
+         %{
+           selected: [
+             {claim, "deterministic_fallback", body, provenance}
+           ]
+         },
+         claim,
+         expected_provenance
+       ),
+       do: body == claim.frozen.fallback_body and provenance == expected_provenance
+
+  defp selected_fallback?(_state, _claim, _expected_provenance), do: false
 
   defp eventually(fun, attempts \\ 50)
   defp eventually(fun, 0), do: fun.()

@@ -1,6 +1,6 @@
 defmodule AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation do
   @moduledoc """
-  One-shot ReqLLM adapter for advisory fan-out report layout selection.
+  One-shot ReqLLM adapter for grounded advisory fan-out report synthesis.
 
   It owns no Objective state, report selection, delivery, action, or fan-out
   authority. The caller supplies one frozen domain snapshot and exact call
@@ -9,7 +9,9 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation do
 
   alias AllbertAssist.Maps
   alias AllbertAssist.Models.PromptEnvelope
+  alias AllbertAssist.Objectives.CanonicalJSON
   alias AllbertAssist.Objectives.Fanout.Report
+  alias AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy
   alias AllbertAssist.Settings.ModelRuntime
   alias ReqLLM.Response
 
@@ -27,70 +29,66 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation do
                        doc: "Completed child queue positions in this section's result order."
                      ]
                    ]}
-  @schema [
-    sections: [
-      type: {:list, @section_schema},
-      required: true,
-      doc:
-        "Ordered relationship sections that partition every completed child queue_position exactly once."
-    ]
-  ]
-  @rules [
-    typed_selection_only:
-      "Return only sections and each section's two schema fields. Do not return prose, summaries, facts, claims, or additional keys.",
-    exact_completed_child_partition:
-      "Partition every status=completed child queue_position exactly once with no duplicate, missing, unknown, failed, cancelled, or abandoned position.",
-    meaningful_relationship:
-      "When two or more children completed, at least one section must relate two or more children using a non-independent relationship.",
-    relationship_cardinality:
-      "Use independent for exactly one child; complementary, contrasting, sequential, and supporting require at least two children.",
-    layout_only:
-      "Choose only closed relationship enums, grouping, and order; Allbert deterministically renders all language and all non-completed children first.",
-    no_fact_or_effect_claims:
-      "Do not produce result text, status text, failure text, action claims, or effect claims.",
-    no_nested_fanout: "Do not propose or start more work, tools, agents, or fan-out."
-  ]
-
   @spec compose(map(), map(), map()) :: {:ok, map()} | {:error, term()}
   def compose(snapshot, profile, context)
       when is_map(snapshot) and is_map(profile) and is_map(context) do
-    with :ok <- ensure_req_llm(context),
-         {:ok, model_spec} <- ModelRuntime.model_spec(profile),
-         {:ok, prompt} <- prompt(snapshot),
-         {:ok, response} <-
-           req_llm_client(context).generate_object(
-             model_spec,
-             prompt,
-             @schema,
-             request_opts(profile, context)
-           ),
-         :ok <- validate_finish_reason(response),
-         object when is_map(object) <- response_object(response) do
-      {:ok, object}
-    else
-      nil -> {:error, :empty_composition_selection}
-      {:error, reason} -> {:error, reason}
-      _other -> {:error, :invalid_composition_selection}
+    with {:ok, model_spec} <- resolve_provider(profile, context) do
+      {:ok, prompt} = prompt(snapshot)
+      opts = request_opts(profile, context)
+      object_schema = schema()
+
+      case invoke_provider(req_llm_client(context), model_spec, prompt, object_schema, opts) do
+        {:ok, response} -> validate_response(response)
+        {:error, {:provider_failed, _reason}} = error -> error
+      end
     end
-  rescue
-    exception -> {:error, exception.__struct__}
-  catch
-    :exit, reason -> {:error, reason}
-    kind, reason -> {:error, {kind, reason}}
   end
 
   def compose(_snapshot, _profile, _context), do: {:error, :invalid_composition_request}
+
+  defp resolve_provider(profile, context) do
+    with :ok <- ensure_req_llm(context),
+         {:ok, model_spec} <- ModelRuntime.model_spec(profile) do
+      {:ok, model_spec}
+    else
+      {:error, reason} -> {:error, {:profile_unavailable, reason}}
+    end
+  end
+
+  defp invoke_provider(client, model_spec, prompt, object_schema, opts) do
+    case client.generate_object(model_spec, prompt, object_schema, opts) do
+      {:ok, response} -> {:ok, response}
+      {:error, reason} -> {:error, {:provider_failed, reason}}
+      invalid -> {:error, {:provider_failed, {:invalid_provider_result, invalid}}}
+    end
+  rescue
+    exception -> {:error, {:provider_failed, exception.__struct__}}
+  catch
+    :exit, reason -> {:error, {:provider_failed, {:exit, reason}}}
+    kind, reason -> {:error, {:provider_failed, {kind, reason}}}
+  end
+
+  defp validate_response(response) do
+    with :ok <- validate_finish_reason(response),
+         object when is_map(object) <- response_object(response) do
+      {:ok, object}
+    else
+      nil -> {:error, {:invalid_model_output, :empty_composition_selection}}
+      {:error, reason} -> {:error, {:invalid_model_output, reason}}
+      _other -> {:error, {:invalid_model_output, :invalid_composition_selection}}
+    end
+  end
 
   @doc false
   @spec prompt(map()) :: {:ok, ReqLLM.Context.t()} | {:error, term()}
   def prompt(snapshot) when is_map(snapshot) do
     with {:ok, composition_input} <- Report.composition_input(snapshot) do
       PromptEnvelope.build(
-        purpose: :fanout_report_composition,
+        purpose: :fanout_report_synthesis,
         instruction:
-          "Select how Allbert should deterministically present this immutable fan-out result snapshot. Allbert, not the model, writes the report.",
-        rules: @rules,
-        input: Jason.encode!(composition_input),
+          "Produce one bounded advisory synthesis and its closed self-review from this immutable fan-out snapshot. Allbert retains all status, receipt, authority, ordering, and report rendering truth.",
+        rules: SynthesisPolicy.prompt_rules(),
+        input: CanonicalJSON.encode(composition_input),
         input_class: :advisory_data
       )
     end
@@ -99,6 +97,63 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation do
   end
 
   def prompt(_snapshot), do: {:error, :invalid_composition_snapshot}
+
+  defp schema do
+    rule_result_schema =
+      {:map,
+       [
+         rule_id: [
+           type: {:in, SynthesisPolicy.rule_ids()},
+           required: true,
+           doc: "One exact synthesis-contract rule id."
+         ],
+         verdict: [
+           type: {:in, ~w[satisfied unsatisfied]},
+           required: true,
+           doc: "Closed verdict for this rule."
+         ]
+       ]}
+
+    review_schema =
+      {:map,
+       [
+         verdict: [
+           type: {:in, ~w[accepted unresolved]},
+           required: true,
+           doc: "Accepted only when every catalog rule is satisfied."
+         ],
+         rule_results: [
+           type: {:list, rule_result_schema},
+           required: true,
+           doc: "Every synthesis rule exactly once in catalog order."
+         ],
+         covered_queue_positions: [
+           type: {:list, :integer},
+           required: true,
+           doc: "Every completed child queue position once in ascending order."
+         ]
+       ]}
+
+    [
+      sections: [
+        type: {:list, @section_schema},
+        required: true,
+        doc:
+          "Ordered relationship sections that partition every completed child queue_position exactly once."
+      ],
+      advisory_synthesis: [
+        type: :string,
+        required: true,
+        doc:
+          "One non-authoritative paragraph answering the joined request from the supplied accepted observations."
+      ],
+      review: [
+        type: review_schema,
+        required: true,
+        doc: "Closed self-review and exact completed-child coverage evidence."
+      ]
+    ]
+  end
 
   defp request_opts(profile, context) do
     profile
@@ -136,7 +191,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation do
 
   defp validate_finish_reason(response) do
     case response_finish_reason(response) do
-      nil -> :ok
+      nil -> {:error, :missing_composition_finish_reason}
       :stop -> :ok
       "stop" -> :ok
       reason -> {:error, {:incomplete_composition_response, reason}}

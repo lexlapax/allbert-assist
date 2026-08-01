@@ -8,6 +8,7 @@ defmodule AllbertAssist.Objectives.Fanout do
 
   import Ecto.Query
 
+  alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Event
   alias AllbertAssist.Objectives.Fanout.PlanProvenance
@@ -17,13 +18,17 @@ defmodule AllbertAssist.Objectives.Fanout do
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Objectives.Runs.Scheduler
+  alias AllbertAssist.Objectives.Runs.Worker.{Grounding, QualityPolicy, QualityReceipt}
   alias AllbertAssist.Objectives.Step
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime.Redactor
 
   @terminal ~w[completed cancelled failed abandoned]
+  @noncompleted_terminal ~w[cancelled failed abandoned]
+  @compatible_noncompleted_step_statuses Step.statuses()
   @active_kickoff_delivery_states ~w[pending blocked acknowledged]
   @report_detail_limit 500
+  @composition_work_batch_size 100
 
   @spec frame(map(), [map() | String.t()]) :: {:ok, map()} | {:error, term()}
   def frame(parent_attrs, tasks) when is_map(parent_attrs) and is_list(tasks) do
@@ -115,11 +120,14 @@ defmodule AllbertAssist.Objectives.Fanout do
           {:ok, Report.frozen()} | {:error, term()}
   def report_input(%Objective{} = parent) do
     report_parent = report_parent(parent)
+    report_children = children(parent.id)
 
-    with {:ok, frozen} <-
-           Report.freeze(report_parent, children(parent.id), effect_evidence_refs(parent.id)),
-         :ok <- verify_persisted_input(parent, frozen) do
-      {:ok, frozen}
+    case parent.report_input_digest do
+      nil ->
+        report_input_v2(parent, report_parent, report_children)
+
+      digest when is_binary(digest) ->
+        report_input_for_digest(parent, report_parent, report_children, digest)
     end
   end
 
@@ -127,6 +135,86 @@ defmodule AllbertAssist.Objectives.Fanout do
     case Repo.get(Objective, parent_id) do
       %Objective{} = parent -> report_input(parent)
       nil -> {:error, :fanout_parent_not_found}
+    end
+  end
+
+  defp report_input_for_digest(parent, report_parent, report_children, digest) do
+    with {:ok, v1_frozen} <- report_input_v1(parent, report_parent, report_children) do
+      resolve_report_input_version(v1_frozen, parent, report_parent, report_children, digest)
+    end
+  end
+
+  defp resolve_report_input_version(
+         %{input_digest: digest} = v1_frozen,
+         _parent,
+         _report_parent,
+         _report_children,
+         digest
+       ),
+       do: {:ok, v1_frozen}
+
+  defp resolve_report_input_version(
+         _v1_frozen,
+         parent,
+         report_parent,
+         report_children,
+         digest
+       ) do
+    with {:ok, v2_frozen} <- report_input_v2(parent, report_parent, report_children),
+         :ok <- Report.verify(v2_frozen, digest) do
+      {:ok, v2_frozen}
+    end
+  end
+
+  @doc false
+  @spec report_input_v1(Objective.t()) :: {:ok, Report.frozen()} | {:error, term()}
+  def report_input_v1(%Objective{} = parent) do
+    report_input_v1(parent, report_parent(parent), children(parent.id))
+  end
+
+  @doc false
+  @spec report_input_v2(Objective.t()) :: {:ok, Report.frozen()} | {:error, term()}
+  def report_input_v2(%Objective{} = parent) do
+    report_input_v2(parent, report_parent(parent), children(parent.id))
+  end
+
+  @doc false
+  @spec report_input_for_selection(Objective.t()) ::
+          {:ok, %{frozen: Report.frozen(), rebind_from: String.t() | nil}} | {:error, term()}
+  def report_input_for_selection(%Objective{} = parent) do
+    with {:ok, persisted} <- report_input(parent) do
+      selection_report_input(parent, persisted)
+    end
+  end
+
+  defp selection_report_input(_parent, %{snapshot: %{version: 2}} = persisted),
+    do: {:ok, %{frozen: persisted, rebind_from: nil}}
+
+  defp selection_report_input(parent, %{snapshot: %{version: 1}} = persisted) do
+    with {:ok, current} <- report_input_v2(parent) do
+      {:ok, %{frozen: current, rebind_from: persisted.input_digest}}
+    end
+  end
+
+  defp report_input_v2(_parent, report_parent, report_children) do
+    with :ok <- Report.validate_structure(report_parent, report_children),
+         {:ok, child_authorities} <- report_child_authorities(report_children) do
+      Report.freeze_v2(
+        report_parent,
+        report_children,
+        v2_effect_evidence_refs(report_children),
+        child_authorities
+      )
+    end
+  end
+
+  defp report_input_v1(_parent, report_parent, report_children) do
+    with :ok <- Report.validate_structure(report_parent, report_children) do
+      Report.freeze(
+        report_parent,
+        report_children,
+        effect_evidence_refs(report_parent.id)
+      )
     end
   end
 
@@ -202,19 +290,50 @@ defmodule AllbertAssist.Objectives.Fanout do
     end
   end
 
-  @doc "Return composer-owned rows without exposing them to the run scheduler."
-  @spec composition_work() :: [Objective.t()]
-  def composition_work do
-    Objective
-    |> where(
+  @doc false
+  @spec composition_work_batch(nil | {DateTime.t() | nil, String.t()}) ::
+          {:done, [Objective.t()]} | {:more, [Objective.t()], {DateTime.t() | nil, String.t()}}
+  def composition_work_batch(cursor \\ nil) do
+    work =
+      Objective
+      |> where(
+        [objective],
+        objective.fanout_role == "parent" and
+          (objective.report_composition_state in ["queued", "composing"] or
+             (objective.report_composition_state == "not_ready" and
+                objective.report_delivery_state in ["pending", "delivered"]))
+      )
+      |> after_composition_work_cursor(cursor)
+      |> order_by([objective], asc: objective.completed_at, asc: objective.id)
+      |> limit(@composition_work_batch_size)
+      |> Repo.all()
+
+    if length(work) < @composition_work_batch_size do
+      {:done, work}
+    else
+      last = List.last(work)
+      {:more, work, {last.completed_at, last.id}}
+    end
+  end
+
+  defp after_composition_work_cursor(query, nil), do: query
+
+  defp after_composition_work_cursor(query, {nil, id}) do
+    where(
+      query,
       [objective],
-      objective.fanout_role == "parent" and
-        (objective.report_composition_state in ["queued", "composing"] or
-           (objective.report_composition_state == "not_ready" and
-              objective.report_delivery_state in ["pending", "delivered"]))
+      (is_nil(objective.completed_at) and objective.id > ^id) or
+        not is_nil(objective.completed_at)
     )
-    |> order_by([objective], asc: objective.completed_at, asc: objective.id)
-    |> Repo.all()
+  end
+
+  defp after_composition_work_cursor(query, {completed_at, id}) do
+    where(
+      query,
+      [objective],
+      objective.completed_at > ^completed_at or
+        (objective.completed_at == ^completed_at and objective.id > ^id)
+    )
   end
 
   @doc "Return acknowledged fan-out parents eligible for executor reconciliation."
@@ -424,20 +543,7 @@ defmodule AllbertAssist.Objectives.Fanout do
   defp join_event_matches?(parent_id, %Objective{} = parent, selection_payload) do
     case event_payload(parent_id, "fanout_joined") do
       %{} = payload ->
-        base_matches? =
-          payload["status"] == parent.status and
-            payload["join_outcome"] == parent.join_outcome
-
-        composition_matches? =
-          payload["report_composition_state"] == "queued" and
-            payload["report_input_digest"] == parent.report_input_digest
-
-        legacy_backfill? =
-          is_nil(payload["report_composition_state"]) and
-            is_nil(payload["report_input_digest"]) and
-            selection_payload["historical_backfill"] == true
-
-        base_matches? and (composition_matches? or legacy_backfill?)
+        join_payload_matches?(payload, parent, selection_payload)
 
       nil ->
         false
@@ -445,6 +551,53 @@ defmodule AllbertAssist.Objectives.Fanout do
   end
 
   defp join_event_matches?(_parent_id, _parent, _selection_payload), do: false
+
+  defp join_payload_matches?(payload, parent, selection_payload) do
+    join_base_matches?(payload, parent) and
+      (current_join_input_matches?(payload, parent) or
+         upgraded_v1_join_matches?(payload, parent, selection_payload) or
+         legacy_backfill_join_matches?(payload, selection_payload))
+  end
+
+  defp join_base_matches?(payload, parent),
+    do:
+      payload["status"] == parent.status and
+        payload["join_outcome"] == parent.join_outcome
+
+  defp current_join_input_matches?(payload, parent),
+    do:
+      payload["report_composition_state"] == "queued" and
+        payload["report_input_digest"] == parent.report_input_digest
+
+  defp upgraded_v1_join_matches?(payload, parent, selection_payload),
+    do:
+      payload["report_composition_state"] == "queued" and
+        selection_payload["layout_version"] == 2 and
+        selection_payload["input_digest"] == parent.report_input_digest and
+        v1_join_input_matches?(parent, payload["report_input_digest"])
+
+  defp legacy_backfill_join_matches?(payload, selection_payload),
+    do:
+      is_nil(payload["report_composition_state"]) and
+        is_nil(payload["report_input_digest"]) and
+        selection_payload["historical_backfill"] == true
+
+  defp v1_join_input_matches?(%Objective{} = parent, event_digest)
+       when is_binary(event_digest) do
+    report_parent = report_parent(parent)
+    report_children = children(parent.id)
+
+    case Report.freeze(
+           report_parent,
+           report_children,
+           effect_evidence_refs(parent.id)
+         ) do
+      {:ok, frozen} -> frozen.input_digest == event_digest
+      {:error, _reason} -> false
+    end
+  end
+
+  defp v1_join_input_matches?(_parent, _event_digest), do: false
 
   defp report_selection_payload(parent_id),
     do: event_payload(parent_id, "fanout_report_selected") || %{}
@@ -462,18 +615,24 @@ defmodule AllbertAssist.Objectives.Fanout do
   defp report_selection_matches?(_payload, _parent), do: false
 
   defp report_selection_provenance_matches?(payload, "model") do
-    expected_keys =
-      ~w[body_sha256 input_digest layout_version model model_profile provider sections source]
+    provenance_keys =
+      if payload["layout_version"] == 2 do
+        ~w[
+          layout_version model model_profile provider review_verdict reviewed_queue_positions
+          sections synthesis_contract_version synthesis_sha256
+        ]
+      else
+        ~w[layout_version model model_profile provider sections]
+      end
+
+    expected_keys = Enum.sort(~w[body_sha256 input_digest source] ++ provenance_keys)
 
     payload_keys(payload) == expected_keys and
       match?(
         {:ok, _normalized},
         Report.normalize_selection_provenance(
           "model",
-          Map.take(
-            payload,
-            ~w[layout_version model model_profile provider sections]
-          )
+          Map.take(payload, provenance_keys)
         )
       )
   end
@@ -481,12 +640,19 @@ defmodule AllbertAssist.Objectives.Fanout do
   defp report_selection_provenance_matches?(payload, "deterministic_fallback") do
     reason = payload["fallback_reason"]
     historical? = reason == "historical_backfill"
+    v2? = payload["layout_version"] == 2
+
+    provenance_keys =
+      if v2?,
+        do: ~w[
+            fallback_reason layout_version synthesis_contract_version synthesis_outcome
+          ],
+        else: ~w[fallback_reason layout_version]
 
     expected_keys =
       if historical?,
-        do:
-          ~w[body_sha256 fallback_reason historical_backfill input_digest layout_version source],
-        else: ~w[body_sha256 fallback_reason input_digest layout_version source]
+        do: Enum.sort(~w[body_sha256 historical_backfill input_digest source] ++ provenance_keys),
+        else: Enum.sort(~w[body_sha256 input_digest source] ++ provenance_keys)
 
     payload_keys(payload) == expected_keys and
       payload["historical_backfill"] == if(historical?, do: true, else: nil) and
@@ -494,7 +660,7 @@ defmodule AllbertAssist.Objectives.Fanout do
         {:ok, _normalized},
         Report.normalize_selection_provenance(
           "deterministic_fallback",
-          Map.take(payload, ~w[fallback_reason layout_version])
+          Map.take(payload, provenance_keys)
         )
       )
   end
@@ -554,12 +720,28 @@ defmodule AllbertAssist.Objectives.Fanout do
 
   defp selected_report_integrity?(_parent, _selection_payload), do: false
 
-  defp selection_provenance("model", payload),
+  defp selection_provenance("model", %{"layout_version" => 2} = payload),
     do:
       Map.take(
         payload,
-        ~w[layout_version model model_profile provider sections]
+        ~w[
+          layout_version model model_profile provider review_verdict reviewed_queue_positions
+          sections synthesis_contract_version synthesis_sha256
+        ]
       )
+
+  defp selection_provenance("model", payload),
+    do: Map.take(payload, ~w[layout_version model model_profile provider sections])
+
+  defp selection_provenance(
+         "deterministic_fallback",
+         %{"layout_version" => 2} = payload
+       ),
+       do:
+         Map.take(
+           payload,
+           ~w[fallback_reason layout_version synthesis_contract_version synthesis_outcome]
+         )
 
   defp selection_provenance("deterministic_fallback", payload),
     do: Map.take(payload, ~w[fallback_reason layout_version])
@@ -568,15 +750,10 @@ defmodule AllbertAssist.Objectives.Fanout do
 
   defp composition_input_valid?(
          %Objective{report_composition_state: state} = parent,
-         children
+         _children
        )
        when state in ["queued", "composing", "ready", "fallback"] do
-    with {:ok, frozen} <- Report.freeze(parent, children, effect_evidence_refs(parent.id)),
-         :ok <- Report.verify(frozen, parent.report_input_digest) do
-      true
-    else
-      _error -> false
-    end
+    match?({:ok, _frozen}, report_input(parent))
   end
 
   defp composition_input_valid?(_parent, _children), do: true
@@ -1169,10 +1346,450 @@ defmodule AllbertAssist.Objectives.Fanout do
     |> Map.new()
   end
 
-  defp verify_persisted_input(%Objective{report_input_digest: nil}, _frozen), do: :ok
+  defp report_child_authorities(children) do
+    child_ids = Enum.map(children, & &1.id)
+    run_completed_events = run_completed_events_by_child(child_ids)
+    steps = terminal_steps_by_id(children, run_completed_events)
 
-  defp verify_persisted_input(%Objective{report_input_digest: digest}, frozen),
-    do: Report.verify(frozen, digest)
+    children
+    |> Enum.reduce_while({:ok, %{}}, fn child, {:ok, authorities} ->
+      step = Map.get(steps, child.current_step_id)
+      events = Map.get(run_completed_events, child.id, [])
+
+      case child_report_authority(child, step, events, steps) do
+        {:ok, authority} ->
+          {:cont, {:ok, Map.put(authorities, child.id, authority)}}
+
+        {:error, _reason} = error ->
+          {:halt, error}
+      end
+    end)
+  end
+
+  defp child_report_authority(
+         %Objective{status: "completed", current_step_id: nil} = child,
+         nil,
+         events,
+         steps
+       ),
+       do: legacy_nil_pointer_authority(child, events, steps)
+
+  defp child_report_authority(child, step, events, _steps),
+    do: child_report_authority(child, step, events)
+
+  defp child_report_authority(
+         %Objective{id: child_id},
+         %Step{objective_id: step_child_id},
+         _events
+       )
+       when child_id != step_child_id,
+       do: {:error, :invalid_fanout_report_terminal_step}
+
+  defp child_report_authority(%Objective{status: "completed"} = child, step, events) do
+    with :ok <- validate_child_step_status(child, step) do
+      case step && step.candidate_action do
+        "direct_answer" -> reviewed_or_legacy_authority(child, step, events)
+        nil -> reviewed_or_legacy_authority(child, step, events)
+        _registered_action -> registered_action_authority(child, step, events)
+      end
+    end
+  end
+
+  defp child_report_authority(%Objective{} = child, step, events) do
+    with :ok <- validate_child_step_status(child, step) do
+      case step && step.candidate_action do
+        action when is_binary(action) and action != "direct_answer" ->
+          registered_action_authority(child, step, events)
+
+        _direct_or_historical ->
+          noncompleted_legacy_authority(events)
+      end
+    end
+  end
+
+  defp noncompleted_legacy_authority(events) do
+    with :ok <- ensure_no_completion_event(events) do
+      {:ok,
+       %{
+         result_authority: "legacy_unreviewed_advisory",
+         quality_receipt_sha256: nil
+       }}
+    end
+  end
+
+  defp validate_child_step_status(%Objective{current_step_id: nil}, nil), do: :ok
+
+  defp validate_child_step_status(%Objective{}, nil),
+    do: {:error, :invalid_fanout_report_terminal_step}
+
+  defp validate_child_step_status(%Objective{status: "completed"}, %Step{status: "completed"}),
+    do: :ok
+
+  defp validate_child_step_status(%Objective{status: status}, %Step{status: step_status})
+       when status in @noncompleted_terminal and
+              step_status in @compatible_noncompleted_step_statuses,
+       do: :ok
+
+  defp validate_child_step_status(_child, _step),
+    do: {:error, :invalid_fanout_report_terminal_step}
+
+  defp reviewed_or_legacy_authority(child, step, [event]) do
+    cond do
+      quality_receipt_event?(event) ->
+        reviewed_authority(child, step, event)
+
+      legacy_completion_event?(event, child, step) ->
+        {:ok,
+         %{
+           result_authority: "legacy_unreviewed_advisory",
+           quality_receipt_sha256: nil
+         }}
+
+      true ->
+        {:error, :invalid_fanout_report_quality_receipt}
+    end
+  end
+
+  defp reviewed_or_legacy_authority(_child, _step, []),
+    do: {:error, :missing_fanout_report_completion_event}
+
+  defp reviewed_or_legacy_authority(_child, _step, _events),
+    do: {:error, :invalid_fanout_report_quality_receipt}
+
+  defp reviewed_authority(
+         %Objective{current_step_id: step_id} = child,
+         %Step{id: step_id, status: "completed", candidate_action: "direct_answer"} = step,
+         event
+       ) do
+    with true <- step.objective_id == child.id,
+         {:ok, task_contract} <- child |> Grounding.resolve() |> QualityPolicy.build(),
+         {:ok, task_digest} <- QualityPolicy.digest(task_contract),
+         final_answer when is_binary(final_answer) <-
+           child.last_observation_summary || child.progress_summary,
+         {:ok, _receipt, receipt_digest} <-
+           QualityReceipt.from_event_payload(event.payload, %{
+             objective_id: child.id,
+             step_id: step.id,
+             task_contract_sha256: task_digest,
+             final_answer: final_answer
+           }) do
+      {:ok,
+       %{
+         result_authority: "reviewed_advisory",
+         quality_receipt_sha256: receipt_digest
+       }}
+    else
+      _invalid -> {:error, :invalid_fanout_report_quality_receipt}
+    end
+  end
+
+  defp reviewed_authority(_child, _step, _event),
+    do: {:error, :invalid_fanout_report_quality_receipt}
+
+  defp registered_action_authority(
+         %Objective{status: "completed"} = child,
+         %Step{candidate_action: action, status: "completed"} = step,
+         [event]
+       )
+       when is_binary(action) and action != "direct_answer" do
+    with {:ok, _action_module} <- resolve_report_action(action),
+         true <- legacy_completion_event?(event, child, step) do
+      {:ok,
+       %{
+         result_authority: "registered_action",
+         quality_receipt_sha256: nil
+       }}
+    else
+      {:error, _reason} = error -> error
+      false -> {:error, :invalid_fanout_report_completion_event}
+    end
+  end
+
+  defp registered_action_authority(
+         %Objective{status: "completed"},
+         %Step{candidate_action: action, status: "completed"},
+         events
+       )
+       when is_binary(action) and action != "direct_answer" do
+    with {:ok, _action_module} <- resolve_report_action(action) do
+      case events do
+        [] -> {:error, :missing_fanout_report_completion_event}
+        _unexpected -> {:error, :invalid_fanout_report_completion_event}
+      end
+    end
+  end
+
+  defp registered_action_authority(
+         %Objective{status: child_status},
+         %Step{candidate_action: action, status: step_status},
+         []
+       )
+       when child_status in @noncompleted_terminal and
+              step_status in @compatible_noncompleted_step_statuses and is_binary(action) and
+              action != "direct_answer" do
+    with {:ok, _action_module} <- resolve_report_action(action) do
+      {:ok,
+       %{
+         result_authority: "registered_action",
+         quality_receipt_sha256: nil
+       }}
+    end
+  end
+
+  defp registered_action_authority(
+         %Objective{status: child_status},
+         %Step{candidate_action: action, status: step_status},
+         _events
+       )
+       when child_status in @noncompleted_terminal and
+              step_status in @compatible_noncompleted_step_statuses and is_binary(action) and
+              action != "direct_answer",
+       do: {:error, :invalid_fanout_report_completion_event}
+
+  defp registered_action_authority(_child, _step, _events),
+    do: {:error, :invalid_fanout_report_registered_action}
+
+  defp resolve_report_action(action) do
+    case ActionsRegistry.resolve(action) do
+      {:ok, action_module} -> {:ok, action_module}
+      {:error, _unknown} -> {:error, :invalid_fanout_report_registered_action}
+    end
+  end
+
+  defp ensure_no_completion_event([]), do: :ok
+
+  defp ensure_no_completion_event(_events),
+    do: {:error, :invalid_fanout_report_completion_event}
+
+  defp terminal_steps_by_id(children, events_by_child) do
+    current_step_ids = children |> Enum.map(& &1.current_step_id) |> Enum.reject(&is_nil/1)
+
+    legacy_step_ids =
+      Enum.flat_map(children, &legacy_child_step_ids(&1, events_by_child))
+
+    step_ids = Enum.uniq(current_step_ids ++ legacy_step_ids)
+
+    Step
+    |> where([step], step.id in ^step_ids)
+    |> Repo.all()
+    |> Map.new(&{&1.id, &1})
+  end
+
+  defp legacy_child_step_ids(%Objective{current_step_id: nil, id: child_id}, events_by_child) do
+    events_by_child
+    |> Map.get(child_id, [])
+    |> legacy_event_step_ids()
+  end
+
+  defp legacy_child_step_ids(_child, _events_by_child), do: []
+
+  defp legacy_event_step_ids([event]) do
+    case legacy_event_step_id(event) do
+      {:ok, step_id} -> [step_id]
+      :none -> []
+    end
+  end
+
+  defp legacy_event_step_ids(_events), do: []
+
+  defp legacy_nil_pointer_authority(child, [event], steps) do
+    with {:ok, payload} <- decode_event_payload(event.payload),
+         :ok <- validate_legacy_nil_pointer_payload(child, payload, steps) do
+      {:ok,
+       %{
+         result_authority: "legacy_unreviewed_advisory",
+         quality_receipt_sha256: nil
+       }}
+    else
+      _invalid -> {:error, :invalid_fanout_report_completion_event}
+    end
+  end
+
+  defp legacy_nil_pointer_authority(_child, [], _steps),
+    do: {:error, :missing_fanout_report_completion_event}
+
+  defp legacy_nil_pointer_authority(_child, _events, _steps),
+    do: {:error, :invalid_fanout_report_completion_event}
+
+  defp validate_legacy_nil_pointer_payload(child, %{"summary" => summary} = payload, _steps)
+       when map_size(payload) == 1 and is_binary(summary) do
+    if ordinary_result_summaries_match?(child, nil, summary),
+      do: :ok,
+      else: {:error, :invalid_summary}
+  end
+
+  defp validate_legacy_nil_pointer_payload(
+         child,
+         %{"summary" => summary, "step_id" => step_id} = payload,
+         steps
+       )
+       when map_size(payload) == 2 and is_binary(summary) and is_binary(step_id),
+       do: validate_legacy_named_step(child, Map.get(steps, step_id), summary)
+
+  defp validate_legacy_nil_pointer_payload(
+         child,
+         %{
+           "summary" => summary,
+           "step_id" => step_id,
+           "step_status" => "completed"
+         } = payload,
+         steps
+       )
+       when map_size(payload) == 3 and is_binary(summary) and is_binary(step_id),
+       do: validate_legacy_named_step(child, Map.get(steps, step_id), summary)
+
+  defp validate_legacy_nil_pointer_payload(
+         child,
+         %{
+           "summary" => summary,
+           "step_id" => step_id,
+           "step_status" => "completed",
+           "quality_receipt" => receipt
+         } = payload,
+         steps
+       )
+       when map_size(payload) == 4 and is_binary(summary) and is_binary(step_id) and
+              is_map(receipt) do
+    with %Step{} = step <- Map.get(steps, step_id),
+         :ok <- validate_legacy_named_step(child, step, summary),
+         :ok <- validate_legacy_receipt_binding(child, step, receipt) do
+      :ok
+    else
+      _invalid -> {:error, :invalid_receipt_binding}
+    end
+  end
+
+  defp validate_legacy_nil_pointer_payload(_child, _payload, _steps),
+    do: {:error, :unknown_legacy_payload}
+
+  defp validate_legacy_named_step(
+         %Objective{id: child_id} = child,
+         %Step{objective_id: child_id, status: "completed"} = step,
+         summary
+       ) do
+    if ordinary_result_summaries_match?(child, step, summary),
+      do: :ok,
+      else: {:error, :invalid_summary_binding}
+  end
+
+  defp validate_legacy_named_step(_child, _step, _summary),
+    do: {:error, :invalid_step_binding}
+
+  defp validate_legacy_receipt_binding(child, step, receipt) do
+    with {:ok, task_contract} <- child |> Grounding.resolve() |> QualityPolicy.build(),
+         {:ok, task_digest} <- QualityPolicy.digest(task_contract),
+         final_answer when is_binary(final_answer) <-
+           child.last_observation_summary || child.progress_summary,
+         :ok <-
+           QualityReceipt.validate(receipt, %{
+             objective_id: child.id,
+             step_id: step.id,
+             task_contract_sha256: task_digest,
+             final_answer: final_answer
+           }) do
+      :ok
+    else
+      _invalid -> {:error, :invalid_receipt_binding}
+    end
+  end
+
+  defp legacy_event_step_id(%Event{payload: payload}) do
+    with {:ok, decoded} <- decode_event_payload(payload),
+         %{"step_id" => step_id} <- decoded,
+         true <- known_legacy_step_payload?(decoded) and is_binary(step_id) do
+      {:ok, step_id}
+    else
+      _invalid -> :none
+    end
+  end
+
+  defp legacy_event_step_id(_event), do: :none
+
+  defp known_legacy_step_payload?(%{"summary" => summary, "step_id" => step_id} = payload)
+       when map_size(payload) == 2,
+       do: is_binary(summary) and is_binary(step_id)
+
+  defp known_legacy_step_payload?(
+         %{"summary" => summary, "step_id" => step_id, "step_status" => "completed"} = payload
+       )
+       when map_size(payload) == 3,
+       do: is_binary(summary) and is_binary(step_id)
+
+  defp known_legacy_step_payload?(
+         %{
+           "summary" => summary,
+           "step_id" => step_id,
+           "step_status" => "completed",
+           "quality_receipt" => receipt
+         } = payload
+       )
+       when map_size(payload) == 4,
+       do: is_binary(summary) and is_binary(step_id) and is_map(receipt)
+
+  defp known_legacy_step_payload?(_payload), do: false
+
+  defp run_completed_events_by_child(child_ids) do
+    Event
+    |> where(
+      [event],
+      event.objective_id in ^child_ids and event.kind == "run_completed"
+    )
+    |> order_by([event], asc: event.objective_id, asc: event.recorded_at, asc: event.id)
+    |> Repo.all()
+    |> Enum.group_by(& &1.objective_id)
+  end
+
+  defp quality_receipt_event?(%Event{payload: payload}) when is_binary(payload) do
+    case Jason.decode(payload) do
+      {:ok, %{} = decoded} -> Map.has_key?(decoded, "quality_receipt")
+      _invalid -> false
+    end
+  end
+
+  defp quality_receipt_event?(%Event{payload: payload}) when is_map(payload),
+    do: Map.has_key?(payload, "quality_receipt") or Map.has_key?(payload, :quality_receipt)
+
+  defp quality_receipt_event?(_event), do: false
+
+  defp legacy_completion_event?(%Event{payload: payload}, child, step) do
+    with {:ok, decoded} <- decode_event_payload(payload) do
+      legacy_completion_payload?(decoded, child, step)
+    else
+      _invalid -> false
+    end
+  end
+
+  defp legacy_completion_event?(_event, _child, _step), do: false
+
+  defp legacy_completion_payload?(%{"summary" => summary} = payload, child, nil)
+       when map_size(payload) == 1 and is_binary(summary),
+       do: ordinary_result_summaries_match?(child, nil, summary)
+
+  defp legacy_completion_payload?(
+         %{
+           "summary" => summary,
+           "step_id" => step_id,
+           "step_status" => "completed"
+         } = payload,
+         child,
+         %Step{id: step_id, status: "completed"} = step
+       )
+       when map_size(payload) == 3 and is_binary(summary),
+       do: ordinary_result_summaries_match?(child, step, summary)
+
+  defp legacy_completion_payload?(_payload, _child, _step), do: false
+
+  defp ordinary_result_summaries_match?(child, step, event_summary) do
+    objective_summary = child.last_observation_summary || child.progress_summary
+
+    is_binary(objective_summary) and
+      event_summary == String.slice(objective_summary, 0, 500) and
+      (is_nil(step) or step.result_summary == objective_summary)
+  end
+
+  defp decode_event_payload(payload) when is_binary(payload), do: Jason.decode(payload)
+  defp decode_event_payload(payload) when is_map(payload), do: {:ok, payload}
+  defp decode_event_payload(_payload), do: {:error, :invalid_event_payload}
 
   defp effect_evidence_refs(parent_id) do
     child_ids = Enum.map(children(parent_id), & &1.id)
@@ -1191,6 +1808,30 @@ defmodule AllbertAssist.Objectives.Fanout do
         action: step.candidate_action,
         trace_id: step.trace_id
       })
+    end)
+  end
+
+  defp v2_effect_evidence_refs(children) do
+    current_step_ids =
+      children
+      |> Enum.map(& &1.current_step_id)
+      |> Enum.reject(&is_nil/1)
+
+    Step
+    |> where(
+      [step],
+      step.id in ^current_step_ids and step.status == "completed" and
+        not is_nil(step.candidate_action) and step.candidate_action != "direct_answer" and
+        not is_nil(step.trace_id)
+    )
+    |> Repo.all()
+    |> Map.new(fn step ->
+      {step.objective_id,
+       %{
+         kind: "objective_step_trace",
+         action: step.candidate_action,
+         trace_id: step.trace_id
+       }}
     end)
   end
 

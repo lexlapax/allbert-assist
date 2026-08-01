@@ -28,7 +28,9 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
     status title objective progress_summary last_observation_summary review_reason
     current_step_id run_attempt_count loop_count
   ]a
-  @terminal_fields ~w[status progress_summary last_observation_summary review_reason completed_at]a
+  @terminal_fields ~w[
+    status progress_summary last_observation_summary review_reason completed_at current_step_id
+  ]a
 
   @type join_result ::
           :not_terminal
@@ -176,23 +178,58 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
 
   @doc "Resolve stranded composing and legacy selected-report rows deterministically."
   @spec recover_composition() :: {:ok, non_neg_integer()} | {:error, term()}
-  def recover_composition do
-    Fanout.composition_work()
-    |> Enum.reduce_while({:ok, 0}, &recover_composition_step/2)
+  def recover_composition, do: recover_composition_batches(nil, 0)
+
+  defp recover_composition_batches(cursor, recovered_total) do
+    case Fanout.composition_work_batch(cursor) do
+      {:done, parents} ->
+        recover_final_composition_batch(parents, recovered_total)
+
+      {:more, parents, next_cursor} ->
+        case recover_composition_batch(parents) do
+          {:ok, recovered, integrity_failures} ->
+            log_skipped_integrity_failures(integrity_failures)
+            recover_composition_batches(next_cursor, recovered_total + recovered)
+
+          {:error, reason, integrity_failures} ->
+            log_skipped_integrity_failures(integrity_failures)
+            {:error, reason}
+        end
+    end
+  end
+
+  defp recover_final_composition_batch(parents, recovered_total) do
+    case recover_composition_batch(parents) do
+      {:ok, recovered, integrity_failures} ->
+        log_skipped_integrity_failures(integrity_failures)
+        {:ok, recovered_total + recovered}
+
+      {:error, reason, integrity_failures} ->
+        log_skipped_integrity_failures(integrity_failures)
+        {:error, reason}
+    end
+  end
+
+  defp recover_composition_batch(parents) do
+    Enum.reduce_while(parents, {:ok, 0, []}, &recover_composition_step/2)
   end
 
   defp claim_next_composition_transaction do
     case oldest_valid_queued_parent() do
       :none -> :none
-      {:ok, parent, frozen} -> claim_queued_composition(parent, frozen)
+      {:ok, parent, selection_input} -> claim_queued_composition(parent, selection_input)
     end
   end
 
-  defp claim_queued_composition(parent, frozen) do
+  defp claim_queued_composition(parent, %{frozen: frozen} = selection_input) do
     now = DateTime.utc_now()
 
-    case Repo.update_all(composition_claim_query(parent),
-           set: [report_composition_state: "composing", updated_at: now]
+    case Repo.update_all(composition_claim_query(parent, selection_input),
+           set: [
+             report_composition_state: "composing",
+             report_input_digest: frozen.input_digest,
+             updated_at: now
+           ]
          ) do
       {1, _rows} ->
         parent
@@ -204,35 +241,38 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
     end
   end
 
-  defp composition_claim_query(parent) do
-    from objective in Objective,
-      where:
-        objective.id == ^parent.id and objective.fanout_role == "parent" and
-          objective.report_composition_state == "queued" and
-          objective.report_input_digest == ^parent.report_input_digest
+  defp composition_claim_query(parent, selection_input) do
+    expected_digest = selection_input.rebind_from || parent.report_input_digest
+
+    Objective
+    |> where([objective], objective.id == ^parent.id)
+    |> where([objective], objective.fanout_role == "parent")
+    |> where([objective], objective.report_composition_state == "queued")
+    |> where([objective], objective.report_delivery_state == "not_ready")
+    |> where([objective], objective.report_input_digest == ^expected_digest)
+    |> where([objective], is_nil(objective.report_selection_digest))
+    |> where([objective], is_nil(objective.report_body))
+    |> where([objective], is_nil(objective.report_source))
+    |> where([objective], is_nil(objective.report_delivery_receipt_digest))
   end
 
-  defp recover_composition_step(parent, {:ok, count}) do
+  defp recover_composition_step(parent, {:ok, count, integrity_failures}) do
     parent
     |> recover_composition_parent()
-    |> recover_composition_result(parent, count)
+    |> recover_composition_result(parent, count, integrity_failures)
   end
 
-  defp recover_composition_result(:queued, _parent, count),
-    do: {:cont, {:ok, count}}
+  defp recover_composition_result(:queued, _parent, count, integrity_failures),
+    do: {:cont, {:ok, count, integrity_failures}}
 
-  defp recover_composition_result({:ok, :recovered}, _parent, count),
-    do: {:cont, {:ok, count + 1}}
+  defp recover_composition_result({:ok, :recovered}, _parent, count, integrity_failures),
+    do: {:cont, {:ok, count + 1, integrity_failures}}
 
-  defp recover_composition_result({:error, reason}, parent, count) do
+  defp recover_composition_result({:error, reason}, parent, count, integrity_failures) do
     if composition_integrity_failure?(reason) do
-      Logger.error(
-        "fan-out report recovery skipped integrity failure parent_id=#{parent.id} reason=#{inspect(reason)}"
-      )
-
-      {:cont, {:ok, count}}
+      {:cont, {:ok, count, [{parent.id, reason} | integrity_failures]}}
     else
-      {:halt, {:error, reason}}
+      {:halt, {:error, reason, integrity_failures}}
     end
   end
 
@@ -477,12 +517,12 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
     parents = queued_parent_batch(cursor)
 
     case scan_queued_batch(parents) do
-      {:ok, parent, frozen, invalid_ids} ->
-        log_skipped_integrity_failures(invalid_ids)
-        {:ok, parent, frozen}
+      {:ok, parent, selection_input, integrity_failures} ->
+        log_skipped_integrity_failures(integrity_failures)
+        {:ok, parent, selection_input}
 
-      {:none, invalid_ids} ->
-        log_skipped_integrity_failures(invalid_ids)
+      {:none, integrity_failures} ->
+        log_skipped_integrity_failures(integrity_failures)
 
         if length(parents) < @composition_scan_batch_size do
           :none
@@ -527,30 +567,51 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
   end
 
   defp scan_queued_batch(parents) do
-    Enum.reduce_while(parents, {:none, []}, fn parent, {_result, invalid_ids} ->
-      case Fanout.report_input(parent) do
-        {:ok, frozen} ->
-          {:halt, {:ok, parent, frozen, invalid_ids}}
-
-        {:error, :fanout_report_input_mismatch} ->
-          {:cont, {:none, [parent.id | invalid_ids]}}
-
-        {:error, reason} ->
-          Repo.rollback(reason)
-      end
+    Enum.reduce_while(parents, {:none, []}, fn parent, {_result, integrity_failures} ->
+      parent
+      |> Fanout.report_input_for_selection()
+      |> scan_queued_result(parent, integrity_failures)
     end)
+  end
+
+  defp scan_queued_result({:ok, selection_input}, parent, integrity_failures),
+    do: {:halt, {:ok, parent, selection_input, integrity_failures}}
+
+  defp scan_queued_result({:error, reason}, parent, integrity_failures) do
+    if composition_integrity_failure?(reason) do
+      {:cont, {:none, [{parent.id, reason} | integrity_failures]}}
+    else
+      Repo.rollback(reason)
+    end
   end
 
   defp log_skipped_integrity_failures([]), do: :ok
 
-  defp log_skipped_integrity_failures(ids) do
-    ordered_ids = Enum.reverse(ids)
+  defp log_skipped_integrity_failures(failures) do
+    {reason_order, parent_ids_by_reason} =
+      failures
+      |> Enum.reverse()
+      |> Enum.reduce({[], %{}}, fn {parent_id, reason}, {reason_order, grouped} ->
+        if Map.has_key?(grouped, reason) do
+          {reason_order, Map.update!(grouped, reason, &[parent_id | &1])}
+        else
+          {[reason | reason_order], Map.put(grouped, reason, [parent_id])}
+        end
+      end)
 
-    Logger.error(
-      "fan-out report composition skipped frozen-input integrity failures " <>
-        "count=#{length(ordered_ids)} first_parent_id=#{List.first(ordered_ids)} " <>
-        "last_parent_id=#{List.last(ordered_ids)}"
-    )
+    reason_order
+    |> Enum.reverse()
+    |> Enum.each(fn reason ->
+      parent_ids = parent_ids_by_reason |> Map.fetch!(reason) |> Enum.reverse()
+
+      Logger.error(
+        "fan-out report composition skipped frozen-input integrity failures " <>
+          "reason=#{inspect(reason)} count=#{length(parent_ids)} " <>
+          "first_parent_id=#{List.first(parent_ids)} " <>
+          "last_parent_id=#{List.last(parent_ids)} " <>
+          "parent_ids=#{Enum.join(parent_ids, ",")}"
+      )
+    end)
   end
 
   defp composition_claim(parent, frozen) do
@@ -660,13 +721,16 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
   defp recover_composition_parent(%Objective{report_composition_state: "queued"}), do: :queued
 
   defp recover_composition_parent(%Objective{report_composition_state: "composing"} = parent) do
-    with {:ok, frozen} <- Fanout.report_input(parent),
+    with {:ok, selection_input} <- Fanout.report_input_for_selection(parent),
+         {:ok, rebound_parent, frozen} <- rebind_composing_input(parent, selection_input),
+         {:ok, provenance} <-
+           Report.fallback_provenance(frozen.snapshot, "recovery_after_restart"),
          {:ok, _selected} <-
            select_composition(
-             composition_claim(parent, frozen),
+             composition_claim(rebound_parent, frozen),
              "deterministic_fallback",
              frozen.fallback_body,
-             %{fallback_reason: "recovery_after_restart"}
+             provenance
            ) do
       {:ok, :recovered}
     end
@@ -680,7 +744,8 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
        )
        when state in ["pending", "delivered"] do
     with :ok <- validate_legacy_report_receipt(parent),
-         {:ok, frozen} <- Fanout.report_input(parent),
+         {:ok, frozen} <- Fanout.report_input_v1(parent),
+         :ok <- verify_historical_report_input(parent, frozen),
          {:ok, selected} <- backfill_legacy_report(parent, frozen) do
       if state == "pending" do
         publish_join(selected, %{historical_backfill: true, report_source: selected.report_source})
@@ -692,6 +757,42 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
 
   defp recover_composition_parent(_parent), do: :queued
 
+  defp rebind_composing_input(parent, %{frozen: frozen, rebind_from: nil}),
+    do: {:ok, parent, frozen}
+
+  defp rebind_composing_input(parent, %{frozen: frozen, rebind_from: old_digest}) do
+    transaction = fn -> rebind_composing_transaction(parent, frozen, old_digest) end
+
+    case Repo.transaction(transaction, mode: :immediate) do
+      {:ok, result} -> result
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp rebind_composing_transaction(parent, frozen, old_digest) do
+    query = rebind_composing_query(parent, old_digest)
+
+    case Repo.update_all(query,
+           set: [report_input_digest: frozen.input_digest, updated_at: DateTime.utc_now()]
+         ) do
+      {1, _rows} -> {:ok, Repo.get!(Objective, parent.id), frozen}
+      {0, _rows} -> Repo.rollback(:stale_composition_claim)
+    end
+  end
+
+  defp rebind_composing_query(parent, old_digest) do
+    Objective
+    |> where([objective], objective.id == ^parent.id)
+    |> where([objective], objective.fanout_role == "parent")
+    |> where([objective], objective.report_composition_state == "composing")
+    |> where([objective], objective.report_delivery_state == "not_ready")
+    |> where([objective], objective.report_input_digest == ^old_digest)
+    |> where([objective], is_nil(objective.report_selection_digest))
+    |> where([objective], is_nil(objective.report_body))
+    |> where([objective], is_nil(objective.report_source))
+    |> where([objective], is_nil(objective.report_delivery_receipt_digest))
+  end
+
   defp validate_legacy_report_receipt(%Objective{report_delivery_receipt_digest: digest})
        when is_binary(digest),
        do: :ok
@@ -699,17 +800,29 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
   defp validate_legacy_report_receipt(_parent),
     do: {:error, :fanout_report_legacy_receipt_invalid}
 
+  defp verify_historical_report_input(%Objective{report_input_digest: nil}, _frozen), do: :ok
+
+  defp verify_historical_report_input(%Objective{report_input_digest: digest}, frozen),
+    do: Report.verify(frozen, digest)
+
   defp composition_integrity_failure?(reason)
        when reason in [
               :fanout_report_input_mismatch,
               :invalid_fanout_report_input,
               :invalid_fanout_report_parent,
               :fanout_report_children_required,
+              :fanout_report_child_limit_exceeded,
               :invalid_fanout_report_child,
               :fanout_report_children_not_terminal,
               :invalid_fanout_report_child_position,
               :duplicate_fanout_report_child_position,
-              :fanout_report_legacy_receipt_invalid
+              :fanout_report_legacy_receipt_invalid,
+              :invalid_fanout_report_child_authority,
+              :invalid_fanout_report_quality_receipt,
+              :missing_fanout_report_completion_event,
+              :invalid_fanout_report_completion_event,
+              :invalid_fanout_report_terminal_step,
+              :invalid_fanout_report_registered_action
             ],
        do: true
 
@@ -719,9 +832,7 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
     now = DateTime.utc_now()
 
     {:ok, event_provenance} =
-      Report.normalize_selection_provenance("deterministic_fallback", %{
-        fallback_reason: "historical_backfill"
-      })
+      Report.fallback_provenance(frozen.snapshot, "historical_backfill")
 
     {:ok, selection_digest} =
       Report.selection_digest("deterministic_fallback", event_provenance)

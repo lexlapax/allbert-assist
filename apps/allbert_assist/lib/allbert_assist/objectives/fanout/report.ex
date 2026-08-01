@@ -5,22 +5,28 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
   Durable Objectives rows remain the authority. This module only normalizes an
   already-loaded parent and its terminal children into one canonical snapshot,
   hashes that snapshot, and renders either a deterministic fallback or one
-  deterministic synthesis selected through a closed, content-free section
-  layout. The model may group completed child observations by a bounded
-  relationship enum and order them; it cannot arrange failures or author report
-  facts, status language, failure language, or effect claims.
+  deterministic selection. Frozen layout-v1 reports retain their byte-exact,
+  content-free section-layout compatibility path. Layout v2 may add one bounded,
+  reviewed advisory paragraph, while Allbert still owns every status, failure,
+  authority, receipt, delimiter, appendix, byte bound, and digest. Model output
+  cannot arrange failures or become action, permission, delivery, or effect
+  evidence.
   """
 
   alias AllbertAssist.Objectives.AcceptanceCriteria
   alias AllbertAssist.Objectives.CanonicalJSON
   alias AllbertAssist.Objectives.Fanout.PlanProvenance
+  alias AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Runtime.Redactor
 
   @version 1
   @layout_version 1
+  @v2_version 2
   @digest_domain "allbert:fanout-report-input:v1\0"
+  @v2_digest_domain "allbert:fanout-report-input:v2\0"
   @selection_digest_domain "allbert:fanout-report-selection:v1\0"
+  @v2_selection_digest_domain "allbert:fanout-report-selection:v2\0"
   @terminal ~w[completed cancelled failed abandoned]
   @max_children 16
   @rendered_title_bytes 80
@@ -32,13 +38,22 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
   @composition_child_title_bytes 64
   @composition_child_objective_bytes 128
   @composition_detail_bytes 128
+  @synthesis_shortening_marker "… [shortened for synthesis input]"
+  @synthesis_bytes 4_096
   @appendix_heading "Authoritative child results (ordered):"
   @relationships ~w[complementary contrasting sequential supporting independent]
   @relational_relationships ~w[complementary contrasting sequential supporting]
-  @fallback_reasons ~w[
+  @result_authorities ~w[reviewed_advisory registered_action legacy_unreviewed_advisory]
+  @sha256_pattern ~r/^[0-9a-f]{64}$/
+  @v1_fallback_reasons ~w[
     model_disabled budget_denied invalid_budget_snapshot deadline_exhausted
     profile_unavailable transport_denied provider_failed invalid_model_output
     recovery_after_restart historical_backfill
+  ]
+  @v2_fallback_reasons @v1_fallback_reasons ++
+                         ~w[legacy_unreviewed_children composition_input_too_large no_completed_children synthesis_timeout]
+  @unresolved_fallback_reasons ~w[
+    provider_failed invalid_model_output recovery_after_restart synthesis_timeout
   ]
 
   @type evidence_ref :: %{
@@ -55,7 +70,9 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
           expected_result: String.t() | nil,
           status: String.t(),
           detail: String.t(),
-          effect_receipt_ref: evidence_ref() | nil
+          effect_receipt_ref: evidence_ref() | nil,
+          result_authority: String.t() | nil,
+          quality_receipt_sha256: String.t() | nil
         }
 
   @type snapshot :: %{
@@ -94,8 +111,7 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
       when is_list(children) and is_map(effect_evidence_refs) do
     ordered = Enum.sort_by(children, &{&1.queue_position, &1.id})
 
-    with :ok <- validate_parent(parent),
-         :ok <- validate_children(ordered),
+    with :ok <- validate_structure(parent, ordered),
          {:ok, envelopes} <- child_envelopes(ordered, effect_evidence_refs) do
       safe_plan = plan_provenance(parent.proposer_hint)
 
@@ -124,16 +140,83 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
   def freeze(_parent, _children, _effect_evidence_refs),
     do: {:error, :invalid_fanout_report_input}
 
+  @doc "Build the receipt-bearing layout-v2 input used for every new durable selection."
+  @spec freeze_v2(
+          Objective.t(),
+          [Objective.t()],
+          %{optional(String.t()) => evidence_ref()},
+          %{optional(String.t()) => map()}
+        ) :: {:ok, frozen()} | {:error, term()}
+  def freeze_v2(parent, children, effect_evidence_refs \\ %{}, child_authorities \\ %{})
+
+  def freeze_v2(%Objective{} = parent, children, effect_evidence_refs, child_authorities)
+      when is_list(children) and is_map(effect_evidence_refs) and is_map(child_authorities) do
+    ordered = Enum.sort_by(children, &{&1.queue_position, &1.id})
+
+    with :ok <- validate_structure(parent, ordered),
+         {:ok, envelopes} <- v2_child_envelopes(ordered, effect_evidence_refs),
+         {:ok, envelopes} <- bind_child_authorities(envelopes, child_authorities) do
+      safe_plan = plan_provenance(parent.proposer_hint)
+
+      snapshot =
+        Redactor.redact(%{
+          version: @v2_version,
+          parent_id: parent.id,
+          title: bounded_characters(parent.title, 200),
+          original_request: bounded_characters(parent.objective, 4_000),
+          status: parent.status,
+          join_outcome: parent.join_outcome,
+          plan: %{},
+          children: envelopes
+        })
+        |> Map.put(:plan, safe_plan)
+
+      {:ok,
+       %{
+         snapshot: snapshot,
+         input_digest: digest(snapshot),
+         fallback_body: fallback(snapshot)
+       }}
+    end
+  end
+
+  def freeze_v2(_parent, _children, _effect_evidence_refs, _child_authorities),
+    do: {:error, :invalid_fanout_report_input}
+
+  @doc false
+  @spec validate_structure(Objective.t(), [Objective.t()]) :: :ok | {:error, term()}
+  def validate_structure(%Objective{} = parent, children) when is_list(children) do
+    ordered = Enum.sort_by(children, &{&1.queue_position, &1.id})
+
+    with :ok <- validate_parent(parent),
+         :ok <- validate_children(ordered) do
+      :ok
+    end
+  end
+
+  def validate_structure(_parent, _children), do: {:error, :invalid_fanout_report_input}
+
   @doc "Return the lowercase SHA-256 binding for one canonical snapshot."
   @spec digest(snapshot()) :: String.t()
   def digest(snapshot) when is_map(snapshot) do
+    domain =
+      case map_field(snapshot, :version) do
+        @v2_version -> @v2_digest_domain
+        _v1_or_legacy -> @digest_domain
+      end
+
     :sha256
-    |> :crypto.hash([@digest_domain, CanonicalJSON.encode(snapshot)])
+    |> :crypto.hash([domain, CanonicalJSON.encode(snapshot)])
     |> Base.encode16(case: :lower)
   end
 
   @doc "Project a bounded, content-only advisory view for model layout selection."
   @spec composition_input(snapshot()) :: {:ok, map()} | {:error, term()}
+  def composition_input(%{version: @v2_version, children: children} = snapshot)
+      when is_list(children) do
+    v2_composition_input(snapshot, children)
+  end
+
   def composition_input(%{children: children} = snapshot) when is_list(children) do
     projection = %{
       title: advisory_text(map_field(snapshot, :title), @composition_title_bytes),
@@ -158,8 +241,244 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
 
   def composition_input(_snapshot), do: {:error, :invalid_fanout_report_input}
 
+  @doc "Return whether a frozen input may cross the layout-v2 synthesis boundary."
+  @spec synthesis_eligibility(snapshot()) :: :ok | {:error, term()}
+  def synthesis_eligibility(%{version: @v2_version, children: children})
+      when is_list(children) do
+    completed = Enum.filter(children, &(map_field(&1, :status) == "completed"))
+
+    cond do
+      completed == [] ->
+        {:error, :no_completed_children}
+
+      Enum.any?(completed, fn child ->
+        map_field(child, :result_authority) == "legacy_unreviewed_advisory"
+      end) ->
+        {:error, :legacy_unreviewed_children}
+
+      Enum.all?(completed, &valid_synthesis_child_authority?/1) ->
+        :ok
+
+      true ->
+        {:error, :invalid_fanout_report_child_authority}
+    end
+  end
+
+  def synthesis_eligibility(%{version: @version}),
+    do: {:error, :legacy_unreviewed_children}
+
+  def synthesis_eligibility(_snapshot),
+    do: {:error, :invalid_fanout_report_input}
+
+  defp valid_synthesis_child_authority?(child) do
+    case map_field(child, :result_authority) do
+      "reviewed_advisory" -> sha256?(map_field(child, :quality_receipt_sha256))
+      "registered_action" -> is_nil(map_field(child, :quality_receipt_sha256))
+      _invalid -> false
+    end
+  end
+
+  defp v2_composition_input(snapshot, children) do
+    children = Enum.filter(children, &(map_field(&1, :status) == "completed"))
+
+    task_upper_bound =
+      children
+      |> Enum.flat_map(fn child ->
+        [map_field(child, :objective), map_field(child, :expected_result)]
+      end)
+      |> Enum.map(&normalized_input_size/1)
+      |> Enum.max(fn -> 0 end)
+      |> max(byte_size(@synthesis_shortening_marker))
+
+    observation_upper_bound =
+      children
+      |> Enum.map(&map_field(&1, :detail))
+      |> Enum.map(&normalized_input_size/1)
+      |> Enum.max(fn -> 0 end)
+      |> max(byte_size(@synthesis_shortening_marker))
+
+    task_floor = byte_size(@synthesis_shortening_marker)
+
+    with {:ok, observation_floor} <- observation_floor_cap(children),
+         true <-
+           input_projection_fits?(
+             v2_input_projection(snapshot, children, task_floor, observation_floor)
+           ),
+         {:ok, observation_cap} <-
+           largest_fitting_input_cap(
+             observation_floor,
+             max(observation_upper_bound, observation_floor),
+             fn cap -> v2_input_projection(snapshot, children, task_floor, cap) end
+           ),
+         {:ok, task_cap} <-
+           largest_fitting_input_cap(
+             task_floor,
+             task_upper_bound,
+             fn cap -> v2_input_projection(snapshot, children, cap, observation_cap) end
+           ),
+         projection <-
+           v2_input_projection(snapshot, children, task_cap, observation_cap),
+         true <- input_projection_fits?(projection) do
+      {:ok, projection}
+    else
+      _does_not_fit -> {:error, :fanout_composition_input_too_large}
+    end
+  end
+
+  defp observation_floor_cap(children) do
+    children
+    |> Enum.map(&map_field(&1, :detail))
+    |> Enum.reduce_while({:ok, 0}, &accumulate_observation_floor/2)
+  end
+
+  defp accumulate_observation_floor(value, {:ok, current_floor}) do
+    value
+    |> normalize_advisory_text()
+    |> observation_floor_result(current_floor)
+  end
+
+  defp observation_floor_result("", current_floor),
+    do: {:cont, {:ok, current_floor}}
+
+  defp observation_floor_result(normalized, current_floor)
+       when byte_size(normalized) <= 64,
+       do: {:cont, {:ok, max(current_floor, byte_size(normalized))}}
+
+  defp observation_floor_result(normalized, current_floor) do
+    normalized
+    |> grapheme_prefix(64)
+    |> prefixed_observation_floor(current_floor)
+  end
+
+  defp prefixed_observation_floor("", _current_floor),
+    do: {:halt, {:error, :fanout_composition_input_too_large}}
+
+  defp prefixed_observation_floor(prefix, current_floor) do
+    required = byte_size(prefix) + 1 + byte_size(@synthesis_shortening_marker)
+    {:cont, {:ok, max(current_floor, required)}}
+  end
+
+  defp v2_input_projection(snapshot, children, task_cap, observation_cap) do
+    %{
+      synthesis_contract_version: SynthesisPolicy.version(),
+      title: map_field(snapshot, :title),
+      original_request: map_field(snapshot, :original_request),
+      status: map_field(snapshot, :status),
+      join_outcome: map_field(snapshot, :join_outcome),
+      children: Enum.map(children, &v2_composition_child(&1, task_cap, observation_cap))
+    }
+  end
+
+  defp v2_composition_child(child, task_cap, observation_cap) do
+    {objective, objective_shortened?} =
+      bounded_synthesis_input(map_field(child, :objective), task_cap)
+
+    {expected_result, expected_result_shortened?} =
+      optional_bounded_synthesis_input(map_field(child, :expected_result), task_cap)
+
+    {observation, observation_shortened?} =
+      if map_field(child, :status) == "completed" do
+        bounded_observation_input(map_field(child, :detail), observation_cap)
+      else
+        {nil, false}
+      end
+
+    %{
+      id: map_field(child, :id),
+      queue_position: map_field(child, :queue_position),
+      title: map_field(child, :title),
+      status: map_field(child, :status),
+      result_authority: map_field(child, :result_authority),
+      quality_receipt_sha256: map_field(child, :quality_receipt_sha256),
+      effect_receipt_ref: map_field(child, :effect_receipt_ref),
+      objective: objective,
+      objective_shortened: objective_shortened?,
+      expected_result: expected_result,
+      expected_result_shortened: expected_result_shortened?,
+      accepted_observation: observation,
+      accepted_observation_shortened: observation_shortened?
+    }
+  end
+
+  defp optional_bounded_synthesis_input(value, _cap) when value in [nil, ""],
+    do: {nil, false}
+
+  defp optional_bounded_synthesis_input(value, cap), do: bounded_synthesis_input(value, cap)
+
+  defp bounded_observation_input(value, cap) do
+    normalized = normalize_advisory_text(value)
+
+    if byte_size(normalized) <= cap do
+      {normalized, false}
+    else
+      prefix_budget = max(cap - byte_size(@synthesis_shortening_marker) - 1, 0)
+      prefix = grapheme_prefix(normalized, prefix_budget)
+
+      shortened =
+        if prefix == "",
+          do: @synthesis_shortening_marker,
+          else: prefix <> " " <> @synthesis_shortening_marker
+
+      {shortened, true}
+    end
+  end
+
+  defp bounded_synthesis_input(value, cap) do
+    normalized = normalize_advisory_text(value)
+
+    if byte_size(normalized) <= cap do
+      {normalized, false}
+    else
+      prefix_budget = max(cap - byte_size(@synthesis_shortening_marker) - 1, 0)
+      prefix = readable_prefix(normalized, prefix_budget)
+
+      shortened =
+        if prefix == "",
+          do: @synthesis_shortening_marker,
+          else: prefix <> " " <> @synthesis_shortening_marker
+
+      {shortened, true}
+    end
+  end
+
+  defp normalized_input_size(value) when value in [nil, ""], do: 0
+  defp normalized_input_size(value), do: value |> normalize_advisory_text() |> byte_size()
+
+  defp largest_fitting_input_cap(lower, upper, builder) when lower <= upper do
+    if input_projection_fits?(builder.(lower)) do
+      {:ok, search_input_cap(lower, upper, lower, builder)}
+    else
+      {:error, :fanout_composition_input_too_large}
+    end
+  end
+
+  defp largest_fitting_input_cap(_lower, _upper, _builder),
+    do: {:error, :fanout_composition_input_too_large}
+
+  defp search_input_cap(lower, upper, best, _builder) when lower > upper, do: best
+
+  defp search_input_cap(lower, upper, best, builder) do
+    cap = div(lower + upper, 2)
+
+    if input_projection_fits?(builder.(cap)) do
+      search_input_cap(cap + 1, upper, cap, builder)
+    else
+      search_input_cap(lower, cap - 1, best, builder)
+    end
+  end
+
+  defp input_projection_fits?(projection),
+    do: byte_size(CanonicalJSON.encode(projection)) <= @composition_input_bytes
+
   @doc "Render the deterministic complete-child report used for fallback."
   @spec fallback(snapshot()) :: String.t()
+  def fallback(%{version: @v2_version} = snapshot) do
+    case fit_v2_fallback_children(snapshot) do
+      {:ok, children} -> raw_fallback(snapshot, children)
+      {:error, :fanout_report_structure_too_large} -> emergency_fallback(snapshot)
+    end
+  end
+
   def fallback(snapshot) when is_map(snapshot) do
     case fit_report_children(snapshot) do
       {:ok, children} -> raw_fallback(snapshot, children)
@@ -190,6 +509,72 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
   def prepare_composition(_snapshot, _selection),
     do: {:error, :invalid_fanout_report_selection}
 
+  @doc "Validate one layout-v2 advisory synthesis and render it around durable child truth."
+  @spec prepare_synthesis(snapshot(), map()) ::
+          {:ok,
+           %{
+             body: String.t(),
+             layout: map(),
+             synthesis_contract_version: pos_integer(),
+             review_verdict: String.t(),
+             reviewed_queue_positions: [non_neg_integer()],
+             synthesis_sha256: String.t()
+           }}
+          | {:error, term()}
+  def prepare_synthesis(%{version: @v2_version, children: children} = snapshot, result)
+      when is_list(children) and is_map(result) do
+    with {:ok, normalized} <- normalize_synthesis_result(children, result),
+         {:ok, fitted_children} <-
+           fit_v2_report_children(snapshot, normalized.sections),
+         {:ok, rendered_sections} <-
+           select_sections(fitted_children, normalized.sections),
+         {:ok, body, synthesis} <-
+           raw_v2_composition(
+             snapshot,
+             fitted_children,
+             rendered_sections,
+             normalized.advisory_synthesis
+           ),
+         true <- body == Redactor.redact(body),
+         true <- byte_size(body) <= @report_bytes do
+      {:ok,
+       %{
+         body: body,
+         layout: %{layout_version: @v2_version, sections: normalized.sections},
+         synthesis_contract_version: SynthesisPolicy.version(),
+         review_verdict: "accepted",
+         reviewed_queue_positions: normalized.reviewed_queue_positions,
+         synthesis_sha256: sha256(synthesis)
+       }}
+    else
+      false -> {:error, :invalid_model_fanout_synthesis}
+      {:error, _reason} = error -> error
+    end
+  end
+
+  def prepare_synthesis(_snapshot, _result),
+    do: {:error, :invalid_fanout_report_selection}
+
+  defp render_v2_synthesis(%{children: children} = snapshot, sections, synthesis)
+       when is_list(children) and is_list(sections) and is_binary(synthesis) do
+    with :ok <- validate_completed_partition(children, sections),
+         {:ok, fitted_children} <- fit_v2_report_children(snapshot, sections),
+         {:ok, rendered_sections} <- select_sections(fitted_children, sections),
+         {:ok, body, fitted_synthesis} <-
+           raw_v2_composition(snapshot, fitted_children, rendered_sections, synthesis),
+         true <- fitted_synthesis == synthesis,
+         true <- body == Redactor.redact(body),
+         true <- byte_size(body) <= @report_bytes do
+      {:ok, body}
+    else
+      false -> {:error, :invalid_model_fanout_report}
+      {:error, _reason} = error -> error
+    end
+  end
+
+  defp render_v2_synthesis(_snapshot, _sections, _synthesis),
+    do: {:error, :invalid_model_fanout_report}
+
   @doc "Render one already-versioned durable layout through its exact contract version."
   @spec render_composition(snapshot(), map()) :: {:ok, String.t()} | {:error, term()}
   def render_composition(%{children: children} = snapshot, layout)
@@ -216,24 +601,53 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
           :ok | {:error, term()}
   def validate_selected_body(snapshot, "deterministic_fallback", body, provenance)
       when is_map(snapshot) and is_binary(body) and is_map(provenance) do
-    with {:ok, _normalized} <-
-           normalize_selection_provenance("deterministic_fallback", provenance) do
+    with {:ok, normalized} <-
+           normalize_selection_provenance("deterministic_fallback", provenance),
+         true <- report_generation(snapshot) == normalized.layout_version do
       cond do
         body != Redactor.redact(body) -> {:error, :unredacted_fanout_report}
         body != fallback(snapshot) -> {:error, :invalid_deterministic_fanout_report}
         true -> :ok
       end
+    else
+      false -> {:error, :fanout_report_layout_generation_mismatch}
+      {:error, _reason} = error -> error
     end
   end
 
   def validate_selected_body(snapshot, "model", body, provenance)
       when is_map(snapshot) and is_binary(body) and is_map(provenance) do
-    with {:ok, normalized} <- normalize_selection_provenance("model", provenance),
-         layout <- %{
-           layout_version: normalized.layout_version,
-           sections: normalized.sections
-         },
-         {:ok, expected_body} <- render_composition(snapshot, layout),
+    case normalize_selection_provenance("model", provenance) do
+      {:ok, %{layout_version: @v2_version} = normalized} ->
+        validate_v2_selected_body(snapshot, body, normalized)
+
+      {:ok, normalized} ->
+        with true <- report_generation(snapshot) == normalized.layout_version,
+             layout <- %{
+               layout_version: normalized.layout_version,
+               sections: normalized.sections
+             },
+             {:ok, expected_body} <- render_composition(snapshot, layout),
+             true <- body == expected_body do
+          :ok
+        else
+          false -> {:error, :invalid_model_fanout_report}
+          {:error, _reason} = error -> error
+        end
+
+      {:error, _reason} = error ->
+        error
+    end
+  end
+
+  def validate_selected_body(_snapshot, _source, _body, _provenance),
+    do: {:error, :invalid_fanout_report_selection}
+
+  defp validate_v2_selected_body(%{version: @v2_version} = snapshot, body, provenance) do
+    with {:ok, synthesis} <- extract_v2_synthesis(body),
+         true <- sha256(synthesis) == provenance.synthesis_sha256,
+         {:ok, expected_body} <-
+           render_v2_synthesis(snapshot, provenance.sections, synthesis),
          true <- body == expected_body do
       :ok
     else
@@ -242,13 +656,76 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
     end
   end
 
-  def validate_selected_body(_snapshot, _source, _body, _provenance),
-    do: {:error, :invalid_fanout_report_selection}
+  defp validate_v2_selected_body(_snapshot, _body, _provenance),
+    do: {:error, :invalid_fanout_report_input}
+
+  defp extract_v2_synthesis(body) do
+    opening = "Model-authored advisory synthesis:\n\n> "
+
+    closing =
+      "\n\nEffect verification comes only from the authoritative child-results appendix below."
+
+    with [before, after_opening] <- :binary.split(body, opening, [:global]),
+         true <- before != "",
+         [synthesis, after_closing] <- :binary.split(after_opening, closing, [:global]),
+         true <- synthesis != "" and after_closing != "",
+         {:ok, normalized} <- normalize_advisory_synthesis(synthesis),
+         true <- normalized == synthesis do
+      {:ok, synthesis}
+    else
+      _invalid -> {:error, :invalid_model_fanout_report}
+    end
+  end
 
   @doc "Normalize the only content-free provenance allowed on a selected report event."
   @spec normalize_selection_provenance(String.t(), map()) ::
           {:ok, map()} | {:error, term()}
   def normalize_selection_provenance("model", provenance) when is_map(provenance) do
+    case provenance_field(provenance, :layout_version) do
+      @v2_version -> normalize_v2_model_provenance(provenance)
+      _v1_or_invalid -> normalize_v1_model_provenance(provenance)
+    end
+  end
+
+  def normalize_selection_provenance("deterministic_fallback", provenance)
+      when is_map(provenance) do
+    normalize_fallback_provenance(provenance)
+  end
+
+  def normalize_selection_provenance(_source, _provenance),
+    do: {:error, :invalid_fanout_report_provenance}
+
+  @doc "Derive exact generation-matched provenance for one deterministic fallback reason."
+  @spec fallback_provenance(snapshot(), atom() | String.t()) ::
+          {:ok, map()} | {:error, term()}
+  def fallback_provenance(snapshot, reason) when is_map(snapshot) do
+    reason = if is_atom(reason), do: Atom.to_string(reason), else: reason
+
+    provenance =
+      case report_generation(snapshot) do
+        @v2_version ->
+          %{
+            fallback_reason: reason,
+            layout_version: @v2_version,
+            synthesis_contract_version: SynthesisPolicy.version(),
+            synthesis_outcome:
+              if(reason in @unresolved_fallback_reasons, do: "unresolved", else: "not_run")
+          }
+
+        @version ->
+          %{fallback_reason: reason, layout_version: @layout_version}
+
+        _unknown ->
+          %{}
+      end
+
+    normalize_selection_provenance("deterministic_fallback", provenance)
+  end
+
+  def fallback_provenance(_snapshot, _reason),
+    do: {:error, :invalid_fanout_report_input}
+
+  defp normalize_v1_model_provenance(provenance) do
     with true <-
            map_size(provenance) == 5 and
              provenance_keys(provenance) ==
@@ -275,8 +752,60 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
     end
   end
 
-  def normalize_selection_provenance("deterministic_fallback", provenance)
-      when is_map(provenance) do
+  defp normalize_v2_model_provenance(provenance) do
+    with true <-
+           map_size(provenance) == 9 and
+             provenance_keys(provenance) ==
+               ~w[
+                 layout_version model model_profile provider review_verdict
+                 reviewed_queue_positions sections synthesis_contract_version synthesis_sha256
+               ],
+         {:ok, profile} <-
+           provenance_identifier(provenance_field(provenance, :model_profile), 120),
+         {:ok, provider} <- provenance_identifier(provenance_field(provenance, :provider), 120),
+         {:ok, model} <- provenance_identifier(provenance_field(provenance, :model), 240),
+         {:ok, layout} <-
+           normalize_v2_layout(%{
+             layout_version: provenance_field(provenance, :layout_version),
+             sections: provenance_field(provenance, :sections)
+           }),
+         true <-
+           provenance_field(provenance, :synthesis_contract_version) ==
+             SynthesisPolicy.version(),
+         "accepted" <- provenance_field(provenance, :review_verdict),
+         {:ok, positions} <-
+           normalize_reviewed_positions(
+             provenance_field(provenance, :reviewed_queue_positions),
+             layout.sections
+           ),
+         synthesis_sha when is_binary(synthesis_sha) <-
+           provenance_field(provenance, :synthesis_sha256),
+         true <- sha256?(synthesis_sha) do
+      {:ok,
+       %{
+         model_profile: profile,
+         provider: provider,
+         model: model,
+         layout_version: @v2_version,
+         sections: layout.sections,
+         synthesis_contract_version: SynthesisPolicy.version(),
+         review_verdict: "accepted",
+         reviewed_queue_positions: positions,
+         synthesis_sha256: synthesis_sha
+       }}
+    else
+      _invalid -> {:error, :invalid_fanout_report_provenance}
+    end
+  end
+
+  defp normalize_fallback_provenance(provenance) do
+    case provenance_field(provenance, :layout_version) do
+      @v2_version -> normalize_v2_fallback_provenance(provenance)
+      _v1_or_missing -> normalize_v1_fallback_provenance(provenance)
+    end
+  end
+
+  defp normalize_v1_fallback_provenance(provenance) do
     reason = provenance_field(provenance, :fallback_reason)
     normalized_reason = if is_atom(reason), do: Atom.to_string(reason), else: reason
 
@@ -290,7 +819,7 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
       map_size(provenance) != length(keys) ->
         {:error, :invalid_fanout_report_provenance}
 
-      normalized_reason not in @fallback_reasons ->
+      normalized_reason not in @v1_fallback_reasons ->
         {:error, :invalid_fanout_report_provenance}
 
       version != @layout_version ->
@@ -301,17 +830,53 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
     end
   end
 
-  def normalize_selection_provenance(_source, _provenance),
-    do: {:error, :invalid_fanout_report_provenance}
+  defp normalize_v2_fallback_provenance(provenance) do
+    reason = provenance_field(provenance, :fallback_reason)
+    reason = if is_atom(reason), do: Atom.to_string(reason), else: reason
+    outcome = provenance_field(provenance, :synthesis_outcome)
+
+    expected_outcome =
+      if reason in @unresolved_fallback_reasons,
+        do: "unresolved",
+        else: "not_run"
+
+    with true <-
+           map_size(provenance) == 4 and
+             provenance_keys(provenance) ==
+               ~w[
+                 fallback_reason layout_version synthesis_contract_version synthesis_outcome
+               ],
+         true <- reason in @v2_fallback_reasons,
+         @v2_version <- provenance_field(provenance, :layout_version),
+         true <-
+           provenance_field(provenance, :synthesis_contract_version) ==
+             SynthesisPolicy.version(),
+         ^expected_outcome <- outcome do
+      {:ok,
+       %{
+         fallback_reason: reason,
+         layout_version: @v2_version,
+         synthesis_contract_version: SynthesisPolicy.version(),
+         synthesis_outcome: outcome
+       }}
+    else
+      _invalid -> {:error, :invalid_fanout_report_provenance}
+    end
+  end
 
   @doc "Bind the selected source and every normalized provenance field."
   @spec selection_digest(String.t(), map()) :: {:ok, String.t()} | {:error, term()}
   def selection_digest(source, provenance) when is_binary(source) and is_map(provenance) do
     with {:ok, normalized} <- normalize_selection_provenance(source, provenance) do
+      domain =
+        if provenance_field(normalized, :layout_version) == @v2_version,
+          do: @v2_selection_digest_domain,
+          else: @selection_digest_domain
+
       digest =
         :sha256
         |> :crypto.hash([
-          @selection_digest_domain,
+          domain,
           CanonicalJSON.encode(%{source: source, provenance: normalized})
         ])
         |> Base.encode16(case: :lower)
@@ -395,6 +960,94 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
     end
   end
 
+  defp normalize_synthesis_result(children, result) do
+    with true <-
+           map_size(result) == 3 and
+             provenance_keys(result) == ~w[advisory_synthesis review sections],
+         {:ok, sections} <- normalize_sections(provenance_field(result, :sections)),
+         :ok <- validate_completed_partition(children, sections),
+         {:ok, synthesis} <-
+           normalize_advisory_synthesis(provenance_field(result, :advisory_synthesis)),
+         {:ok, reviewed_queue_positions} <-
+           normalize_synthesis_review(children, provenance_field(result, :review)) do
+      {:ok,
+       %{
+         sections: sections,
+         advisory_synthesis: synthesis,
+         reviewed_queue_positions: reviewed_queue_positions
+       }}
+    else
+      {:error, _reason} = error -> error
+      _invalid -> {:error, :invalid_fanout_report_synthesis_selection}
+    end
+  end
+
+  defp normalize_synthesis_review(children, review) when is_map(review) do
+    expected_positions = completed_positions(children)
+
+    with true <-
+           map_size(review) == 3 and
+             provenance_keys(review) ==
+               ~w[covered_queue_positions rule_results verdict],
+         "accepted" <- provenance_field(review, :verdict),
+         ^expected_positions <- provenance_field(review, :covered_queue_positions),
+         :ok <- normalize_synthesis_rule_results(provenance_field(review, :rule_results)) do
+      {:ok, expected_positions}
+    else
+      _invalid -> {:error, :unresolved_fanout_report_synthesis}
+    end
+  end
+
+  defp normalize_synthesis_review(_children, _review),
+    do: {:error, :invalid_fanout_report_synthesis_review}
+
+  defp normalize_synthesis_rule_results(results) when is_list(results) do
+    normalized =
+      Enum.map(results, fn result ->
+        if is_map(result) and map_size(result) == 2 and
+             provenance_keys(result) == ~w[rule_id verdict] do
+          {provenance_field(result, :rule_id), provenance_field(result, :verdict)}
+        else
+          :invalid
+        end
+      end)
+
+    expected = Enum.map(SynthesisPolicy.rule_ids(), &{&1, "satisfied"})
+    if normalized == expected, do: :ok, else: {:error, :unresolved_fanout_report_synthesis}
+  end
+
+  defp normalize_synthesis_rule_results(_results),
+    do: {:error, :invalid_fanout_report_synthesis_review}
+
+  defp normalize_advisory_synthesis(value) when is_binary(value) do
+    if Redactor.redact(value) == value do
+      normalized = normalize_unredacted_advisory_text(value)
+
+      cond do
+        normalized == "" ->
+          {:error, :empty_fanout_report_synthesis}
+
+        byte_size(normalized) > @synthesis_bytes ->
+          {:error, :fanout_report_synthesis_too_large}
+
+        true ->
+          {:ok, normalized}
+      end
+    else
+      {:error, :unredacted_fanout_report_synthesis}
+    end
+  end
+
+  defp normalize_advisory_synthesis(_value),
+    do: {:error, :invalid_fanout_report_synthesis}
+
+  defp completed_positions(children) do
+    children
+    |> Enum.filter(&(map_field(&1, :status) == "completed"))
+    |> Enum.map(&map_field(&1, :queue_position))
+    |> Enum.sort()
+  end
+
   defp normalize_persisted_layout(layout) do
     with true <-
            map_size(layout) == 2 and
@@ -407,6 +1060,33 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
       _invalid -> {:error, :invalid_fanout_report_composition_selection}
     end
   end
+
+  defp normalize_v2_layout(layout) do
+    with true <-
+           map_size(layout) == 2 and
+             provenance_keys(layout) == ~w[layout_version sections],
+         @v2_version <- provenance_field(layout, :layout_version),
+         {:ok, sections} <- normalize_sections(provenance_field(layout, :sections)) do
+      {:ok, %{layout_version: @v2_version, sections: sections}}
+    else
+      version when is_integer(version) -> {:error, :unsupported_fanout_report_layout_version}
+      _invalid -> {:error, :invalid_fanout_report_composition_selection}
+    end
+  end
+
+  defp normalize_reviewed_positions(positions, sections) when is_list(positions) do
+    selected = sections |> Enum.flat_map(& &1.ordered_queue_positions) |> Enum.sort()
+
+    if positions == selected and Enum.all?(positions, &(is_integer(&1) and &1 >= 0)) and
+         length(Enum.uniq(positions)) == length(positions) do
+      {:ok, positions}
+    else
+      {:error, :invalid_fanout_report_reviewed_positions}
+    end
+  end
+
+  defp normalize_reviewed_positions(_positions, _sections),
+    do: {:error, :invalid_fanout_report_reviewed_positions}
 
   defp normalize_sections(sections) when is_list(sections) do
     sections
@@ -551,6 +1231,21 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
       Enum.map_join(children, "\n", &child_reference_line/1)
   end
 
+  defp v2_attention_section([]), do: nil
+
+  defp v2_attention_section(children) do
+    "Attention required (not model-arranged):\n" <>
+      Enum.map_join(children, "\n", fn child ->
+        position = map_field(child, :queue_position)
+        title = truncate_utf8(map_field(child, :title), @rendered_title_bytes)
+        objective = truncate_utf8(map_field(child, :objective), @rendered_objective_bytes)
+
+        "- Child #{position + 1}: title=#{Jason.encode!(title)}; " <>
+          "status=#{Jason.encode!(map_field(child, :status))}; " <>
+          "objective=#{Jason.encode!(objective)}; see the authoritative child result below."
+      end)
+  end
+
   defp relationship_sections([]),
     do: "Completed synthesis:\nNo completed child result was recorded."
 
@@ -646,6 +1341,70 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
      end)}
   end
 
+  defp v2_child_envelopes(children, effect_evidence_refs) do
+    {:ok,
+     Enum.map(children, fn child ->
+       %{
+         id: child.id,
+         queue_position: child.queue_position,
+         title: bounded_characters(child.title, 200),
+         objective: bounded_characters(child.objective, 4_000),
+         expected_result: v2_expected_result(child.acceptance_criteria),
+         status: child.status,
+         detail: terminal_detail(child),
+         effect_receipt_ref: evidence_ref(effect_evidence_refs, child.id)
+       }
+     end)}
+  end
+
+  defp bind_child_authorities(envelopes, child_authorities) do
+    envelopes
+    |> Enum.reduce_while({:ok, []}, fn envelope, {:ok, bound} ->
+      case normalized_child_authority(Map.get(child_authorities, envelope.id)) do
+        {:ok, authority} -> {:cont, {:ok, [Map.merge(envelope, authority) | bound]}}
+        {:error, _reason} = error -> {:halt, error}
+      end
+    end)
+    |> case do
+      {:ok, bound} -> {:ok, Enum.reverse(bound)}
+      {:error, _reason} = error -> error
+    end
+  end
+
+  defp normalized_child_authority(authority) when is_map(authority) do
+    keys = provenance_keys(authority)
+    result_authority = provenance_field(authority, :result_authority)
+    receipt = provenance_field(authority, :quality_receipt_sha256)
+
+    cond do
+      map_size(authority) != 2 or
+          keys != ~w[quality_receipt_sha256 result_authority] ->
+        {:error, :invalid_fanout_report_child_authority}
+
+      result_authority not in @result_authorities ->
+        {:error, :invalid_fanout_report_child_authority}
+
+      result_authority == "reviewed_advisory" and not sha256?(receipt) ->
+        {:error, :invalid_fanout_report_quality_receipt}
+
+      result_authority != "reviewed_advisory" and not is_nil(receipt) ->
+        {:error, :invalid_fanout_report_quality_receipt}
+
+      true ->
+        {:ok,
+         %{
+           result_authority: result_authority,
+           quality_receipt_sha256: receipt
+         }}
+    end
+  end
+
+  defp normalized_child_authority(_authority),
+    do: {:error, :invalid_fanout_report_child_authority}
+
+  defp sha256?(value) when is_binary(value), do: Regex.match?(@sha256_pattern, value)
+  defp sha256?(_value), do: false
+
   defp evidence_ref(refs, child_id) do
     case Map.get(refs, child_id) do
       %{kind: kind, action: action, trace_id: trace_id}
@@ -665,6 +1424,16 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
     case AcceptanceCriteria.decode(criteria) do
       {:ok, %{"summary" => summary}} when is_binary(summary) -> bounded_text(summary, 500)
       _other -> nil
+    end
+  end
+
+  defp v2_expected_result(criteria) do
+    case AcceptanceCriteria.decode(criteria) do
+      {:ok, %{"summary" => summary}} when is_binary(summary) ->
+        bounded_characters(summary, 500)
+
+      _other ->
+        nil
     end
   end
 
@@ -716,6 +1485,11 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
   defp normalize_advisory_text(value) do
     value
     |> Redactor.redact()
+    |> normalize_unredacted_advisory_text()
+  end
+
+  defp normalize_unredacted_advisory_text(value) do
+    value
     |> to_string()
     |> String.to_charlist()
     |> Enum.map(fn
@@ -727,20 +1501,77 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
     |> Enum.join(" ")
   end
 
+  defp raw_fallback(%{version: @v2_version} = snapshot, children) do
+    snapshot = Map.put(snapshot, :children, children)
+
+    [
+      v2_heading(snapshot),
+      status_totals(children),
+      v2_attention_section(Enum.reject(children, &(map_field(&1, :status) == "completed"))),
+      "No model-authored advisory synthesis was selected.",
+      "Effect verification comes only from the authoritative child-results appendix below.",
+      v2_authoritative_appendix(children)
+    ]
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> Enum.join("\n\n")
+  end
+
   defp raw_fallback(snapshot, children) do
     heading =
       "#{map_field(snapshot, :title)} — " <>
         "#{map_field(snapshot, :join_outcome) || map_field(snapshot, :status)}"
 
-    heading <> "\n\n" <> authoritative_appendix(children)
+    heading <> "\n\n" <> authoritative_appendix(snapshot, children)
   end
 
   defp raw_composition(snapshot, children, rendered_sections) do
     snapshot
     |> Map.put(:children, children)
     |> deterministic_synthesis(rendered_sections)
-    |> Kernel.<>("\n\n" <> authoritative_appendix(children))
+    |> Kernel.<>("\n\n" <> v1_authoritative_appendix(children))
   end
+
+  defp raw_v2_composition(snapshot, children, rendered_sections, synthesis) do
+    prefix = v2_deterministic_prefix(Map.put(snapshot, :children, children), rendered_sections)
+
+    suffix =
+      "\n\nEffect verification comes only from the authoritative child-results appendix below." <>
+        "\n\n" <> v2_authoritative_appendix(children)
+
+    fixed = prefix <> "\n\nModel-authored advisory synthesis:\n\n> " <> suffix
+    allowance = min(@synthesis_bytes, @report_bytes - byte_size(fixed))
+
+    with {:ok, fitted_synthesis} <- fit_report_synthesis(synthesis, allowance) do
+      {:ok,
+       prefix <>
+         "\n\nModel-authored advisory synthesis:\n\n> " <>
+         fitted_synthesis <>
+         suffix, fitted_synthesis}
+    end
+  end
+
+  defp v2_deterministic_prefix(snapshot, rendered_sections) do
+    children = map_field(snapshot, :children)
+    attention = Enum.reject(children, &(map_field(&1, :status) == "completed"))
+
+    [
+      v2_heading(snapshot),
+      status_totals(children),
+      v2_attention_section(attention),
+      relationship_sections(rendered_sections)
+    ]
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> Enum.join("\n\n")
+  end
+
+  defp fit_report_synthesis(_synthesis, allowance) when allowance <= 0,
+    do: {:error, :fanout_report_structure_too_large}
+
+  defp fit_report_synthesis(synthesis, allowance) when byte_size(synthesis) <= allowance,
+    do: {:ok, synthesis}
+
+  defp fit_report_synthesis(_synthesis, _allowance),
+    do: {:error, :fanout_report_synthesis_too_large}
 
   defp fit_report_children(%{children: children} = snapshot) when is_list(children) do
     cond do
@@ -756,6 +1587,176 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
   end
 
   defp fit_report_children(_snapshot), do: {:error, :fanout_report_structure_too_large}
+
+  defp fit_v2_fallback_children(%{children: children} = snapshot) when is_list(children) do
+    cond do
+      v2_fallback_fits?(snapshot, children) ->
+        {:ok, children}
+
+      v2_fallback_fits?(snapshot, marker_floor_children(children)) ->
+        largest_fitting_v2_fallback_detail_cap(snapshot, children)
+
+      true ->
+        {:error, :fanout_report_structure_too_large}
+    end
+  end
+
+  defp fit_v2_fallback_children(_snapshot),
+    do: {:error, :fanout_report_structure_too_large}
+
+  defp v2_fallback_fits?(snapshot, children),
+    do: byte_size(raw_fallback(snapshot, children)) <= @report_bytes
+
+  defp largest_fitting_v2_fallback_detail_cap(snapshot, children) do
+    floor =
+      children
+      |> Enum.map(&byte_size(truncation_marker(&1)))
+      |> Enum.max(fn -> 0 end)
+
+    ceiling =
+      children
+      |> Enum.map(&(map_field(&1, :detail) || ""))
+      |> Enum.map(&byte_size/1)
+      |> Enum.max(fn -> floor end)
+
+    best = marker_floor_children(children)
+    {:ok, search_v2_fallback_detail_cap(snapshot, children, floor, ceiling, best)}
+  end
+
+  defp search_v2_fallback_detail_cap(_snapshot, _children, lower, upper, best)
+       when lower > upper,
+       do: best
+
+  defp search_v2_fallback_detail_cap(snapshot, children, lower, upper, best) do
+    cap = div(lower + upper, 2)
+    candidate = Enum.map(children, &fit_child_detail(&1, cap))
+
+    if v2_fallback_fits?(snapshot, candidate) do
+      search_v2_fallback_detail_cap(snapshot, children, cap + 1, upper, candidate)
+    else
+      search_v2_fallback_detail_cap(snapshot, children, lower, cap - 1, best)
+    end
+  end
+
+  defp fit_v2_report_children(%{children: children} = snapshot, sections)
+       when is_list(children) and is_list(sections) do
+    with {:ok, fallback_children} <- fit_v2_fallback_children(snapshot),
+         {:ok, model_children} <- fit_v2_model_children(snapshot, children, sections),
+         true <- model_allocation_not_worse?(children, fallback_children, model_children) do
+      {:ok, model_children}
+    else
+      false -> {:error, :fanout_report_model_displaces_authoritative_evidence}
+      {:error, _reason} = error -> error
+    end
+  end
+
+  defp fit_v2_report_children(_snapshot, _sections),
+    do: {:error, :fanout_report_structure_too_large}
+
+  defp fit_v2_model_children(snapshot, children, sections) do
+    cond do
+      v2_report_structure_fits?(snapshot, children, sections) ->
+        {:ok, children}
+
+      v2_report_structure_fits?(snapshot, marker_floor_children(children), sections) ->
+        largest_fitting_v2_detail_cap(snapshot, children, sections)
+
+      true ->
+        {:error, :fanout_report_structure_too_large}
+    end
+  end
+
+  defp model_allocation_not_worse?(original, fallback, model)
+       when length(original) == length(fallback) and length(original) == length(model) do
+    original
+    |> Enum.zip(fallback)
+    |> Enum.zip(model)
+    |> Enum.all?(fn {{source, baseline}, candidate} ->
+      same_child? =
+        map_field(source, :id) == map_field(baseline, :id) and
+          map_field(source, :id) == map_field(candidate, :id)
+
+      unchanged_context? =
+        Enum.all?([:title, :objective], fn field ->
+          map_field(candidate, field) == map_field(baseline, field)
+        end)
+
+      same_child? and unchanged_context? and
+        retained_detail_bytes(candidate, source) >= retained_detail_bytes(baseline, source)
+    end)
+  end
+
+  defp model_allocation_not_worse?(_original, _fallback, _model), do: false
+
+  defp retained_detail_bytes(child, original) do
+    detail = map_field(child, :detail) || ""
+    original_detail = map_field(original, :detail) || ""
+    marker = truncation_marker(original)
+
+    cond do
+      detail == original_detail ->
+        byte_size(original_detail)
+
+      detail == marker ->
+        0
+
+      String.ends_with?(detail, " " <> marker) ->
+        byte_size(detail) - byte_size(marker) - 1
+
+      true ->
+        -1
+    end
+  end
+
+  defp v2_report_structure_fits?(snapshot, children, sections) do
+    case select_sections(children, sections) do
+      {:ok, rendered_sections} ->
+        prefix =
+          v2_deterministic_prefix(Map.put(snapshot, :children, children), rendered_sections)
+
+        fixed =
+          prefix <>
+            "\n\nModel-authored advisory synthesis:\n\n> " <>
+            "\n\nEffect verification comes only from the authoritative child-results appendix below." <>
+            "\n\n" <> v2_authoritative_appendix(children)
+
+        byte_size(fixed) < @report_bytes
+
+      {:error, _reason} ->
+        false
+    end
+  end
+
+  defp largest_fitting_v2_detail_cap(snapshot, children, sections) do
+    floor =
+      children
+      |> Enum.map(&byte_size(truncation_marker(&1)))
+      |> Enum.max(fn -> 0 end)
+
+    ceiling =
+      children
+      |> Enum.map(&(map_field(&1, :detail) || ""))
+      |> Enum.map(&byte_size/1)
+      |> Enum.max(fn -> floor end)
+
+    best = marker_floor_children(children)
+    {:ok, search_v2_detail_cap(snapshot, children, sections, floor, ceiling, best)}
+  end
+
+  defp search_v2_detail_cap(_snapshot, _children, _sections, lower, upper, best)
+       when lower > upper,
+       do: best
+
+  defp search_v2_detail_cap(snapshot, children, sections, lower, upper, best) do
+    cap = div(lower + upper, 2)
+    candidate = Enum.map(children, &fit_child_detail(&1, cap))
+
+    if v2_report_structure_fits?(snapshot, candidate, sections) do
+      search_v2_detail_cap(snapshot, children, sections, cap + 1, upper, candidate)
+    else
+      search_v2_detail_cap(snapshot, children, sections, lower, cap - 1, best)
+    end
+  end
 
   defp report_pair_fits?(snapshot, children) do
     fallback = raw_fallback(snapshot, children)
@@ -870,6 +1871,32 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
     |> Enum.join()
   end
 
+  defp emergency_fallback(%{version: @v2_version} = snapshot) do
+    heading = v2_heading(snapshot)
+
+    children = map_field(snapshot, :children) || []
+
+    references =
+      Enum.map_join(children, "\n", fn child ->
+        "- #{glyph(map_field(child, :status))} Child #{map_field(child, :queue_position) + 1} " <>
+          "[#{map_field(child, :status)}]; Objective #{map_field(child, :id)}; " <>
+          "full durable result remains on this Objective.\n" <>
+          "  #{v2_quality_authority_line(child)}\n" <>
+          "  Effect receipt: #{v2_effect_receipt(child)}"
+      end)
+
+    [
+      heading,
+      status_totals(children),
+      v2_attention_section(Enum.reject(children, &(map_field(&1, :status) == "completed"))),
+      "No model-authored advisory synthesis was selected.",
+      "Effect verification comes only from the authoritative child-results appendix below.",
+      "Authoritative child result references (ordered):\n" <> references
+    ]
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> Enum.join("\n\n")
+  end
+
   defp emergency_fallback(snapshot) do
     heading =
       "#{inline_bounded_text(map_field(snapshot, :title), @rendered_title_bytes)} — " <>
@@ -888,7 +1915,17 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
     heading <> "\n\nAuthoritative child result references (ordered):\n" <> references
   end
 
-  defp authoritative_appendix(children) do
+  defp v2_heading(snapshot) do
+    "title=#{Jason.encode!(map_field(snapshot, :title))} — " <>
+      "#{map_field(snapshot, :join_outcome) || map_field(snapshot, :status)}"
+  end
+
+  defp authoritative_appendix(%{version: @v2_version}, children),
+    do: v2_authoritative_appendix(children)
+
+  defp authoritative_appendix(_v1_or_legacy, children), do: v1_authoritative_appendix(children)
+
+  defp v1_authoritative_appendix(children) do
     lines =
       Enum.map_join(children, "\n", fn child ->
         "- #{glyph(child.status)} #{child.title} [#{child.status}] — " <>
@@ -898,6 +1935,83 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
 
     @appendix_heading <> "\n" <> lines
   end
+
+  defp v2_authoritative_appendix(children) do
+    lines =
+      Enum.map_join(children, "\n", fn child ->
+        "- #{glyph(child.status)} title=#{Jason.encode!(child.title)} " <>
+          "[#{child.status}] — #{v2_observation_label(child)}: " <>
+          "observation=#{Jason.encode!(child.detail)}\n" <>
+          "  #{v2_quality_authority_line(child)}\n" <>
+          "  Effect receipt: #{v2_effect_receipt(child)}"
+      end)
+
+    @appendix_heading <> "\n" <> lines
+  end
+
+  defp v2_observation_label(%{result_authority: "reviewed_advisory"}),
+    do: "Reviewed advisory observation (not effect evidence)"
+
+  defp v2_observation_label(%{status: "completed", result_authority: "registered_action"}),
+    do: "Registered-action result"
+
+  defp v2_observation_label(%{result_authority: "registered_action"}),
+    do: "Registered-action terminal detail (no completed result)"
+
+  defp v2_observation_label(%{
+         status: status,
+         result_authority: "legacy_unreviewed_advisory"
+       })
+       when status in ~w[cancelled failed abandoned],
+       do: "Terminal detail (no completed result)"
+
+  defp v2_observation_label(%{result_authority: "legacy_unreviewed_advisory"}),
+    do: "Legacy unreviewed advisory observation (not effect evidence)"
+
+  defp v2_quality_authority_line(%{
+         result_authority: "reviewed_advisory",
+         quality_receipt_sha256: digest
+       }) do
+    "Result authority: reviewed_advisory; quality_receipt_sha256=#{digest}; " <>
+      "receipt verifies advisory quality, not effect evidence."
+  end
+
+  defp v2_quality_authority_line(%{
+         status: "completed",
+         result_authority: "registered_action"
+       }),
+       do: "Result authority: registered_action; advisory quality review is not applicable."
+
+  defp v2_quality_authority_line(%{result_authority: "registered_action"}),
+    do:
+      "Result authority: registered_action identity verified; no completed-result authority; advisory quality review is not applicable."
+
+  defp v2_quality_authority_line(%{
+         status: status,
+         result_authority: "legacy_unreviewed_advisory"
+       })
+       when status in ~w[cancelled failed abandoned],
+       do:
+         "Result authority: none; no completed result; advisory quality review is not applicable."
+
+  defp v2_quality_authority_line(%{result_authority: "legacy_unreviewed_advisory"}),
+    do:
+      "Result authority: legacy_unreviewed_advisory; quality receipt absent; advisory output is unreviewed and deterministic fallback is required."
+
+  defp v2_effect_receipt(%{
+         status: "completed",
+         effect_receipt_ref: nil,
+         result_authority: "registered_action"
+       }),
+       do: "none recorded. Registered-action result has no recorded effect evidence."
+
+  defp v2_effect_receipt(%{effect_receipt_ref: nil, result_authority: "registered_action"}),
+    do: "none recorded. No completed registered-action result or recorded effect evidence."
+
+  defp v2_effect_receipt(%{effect_receipt_ref: nil}),
+    do: "none recorded. Advisory observation is not effect evidence."
+
+  defp v2_effect_receipt(%{effect_receipt_ref: ref}), do: effect_receipt(ref)
 
   defp effect_receipt(nil),
     do: "none recorded. Child-reported observation is not effect evidence."
@@ -931,6 +2045,15 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
     |> truncate_utf8(limit)
   end
 
+  defp bounded_characters(nil, _limit), do: ""
+
+  defp bounded_characters(value, limit) do
+    value
+    |> Redactor.redact()
+    |> to_string()
+    |> String.slice(0, limit)
+  end
+
   defp truncate_utf8(value, limit) when byte_size(value) <= limit, do: value
 
   defp truncate_utf8(value, limit) do
@@ -943,5 +2066,16 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
     if String.valid?(value),
       do: value,
       else: value |> binary_part(0, byte_size(value) - 1) |> trim_invalid_utf8()
+  end
+
+  defp sha256(value),
+    do: :sha256 |> :crypto.hash(value) |> Base.encode16(case: :lower)
+
+  defp report_generation(snapshot) do
+    case map_field(snapshot, :version) do
+      @v2_version -> @v2_version
+      @version -> @version
+      _unknown -> nil
+    end
   end
 end

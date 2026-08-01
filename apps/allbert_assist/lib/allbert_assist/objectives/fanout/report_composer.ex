@@ -5,8 +5,10 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
   A plain GenServer is the pragmatic substrate: the durable state machine and
   compare-and-set authority live in Objectives/SQLite, while this process only
   serializes one provider call per claimed report and wakes durable work after
-  boot or terminal reduction. It has no Jido skills, action registry exposure,
-  iterative loop, or private authority state for a Jido.Agent to preserve.
+  boot or terminal reduction. Inside that durable claim it invokes one
+  temporary Jido synthesis lifecycle; the Jido state is discarded before this
+  GenServer persists the selected report and never becomes queue or authority
+  state.
   """
 
   use GenServer
@@ -16,6 +18,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Fanout.Budget
   alias AllbertAssist.Objectives.Fanout.Report
+  alias AllbertAssist.Objectives.Fanout.ReportComposer.SynthesisAgent
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Models
 
@@ -192,9 +195,21 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
   end
 
   defp selected_body(%{frozen: frozen} = claim, state) do
-    case model_enabled(state) do
-      :ok -> select_budgeted_model_body(claim, state)
-      {:error, _reason} -> fallback_selection(frozen, :model_disabled)
+    case Report.synthesis_eligibility(frozen.snapshot) do
+      :ok ->
+        case model_enabled(state) do
+          :ok -> select_budgeted_model_body(claim, state)
+          {:error, _reason} -> fallback_selection(frozen, :model_disabled, :not_run)
+        end
+
+      {:error, :legacy_unreviewed_children} ->
+        fallback_selection(frozen, :legacy_unreviewed_children, :not_run)
+
+      {:error, :no_completed_children} ->
+        fallback_selection(frozen, :no_completed_children, :not_run)
+
+      {:error, _reason} ->
+        fallback_selection(frozen, :invalid_model_output, :unresolved)
     end
   end
 
@@ -204,24 +219,24 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
         select_resolved_model_body(claim, limits, state)
 
       {:error, :invalid_fanout_budget_snapshot} ->
-        fallback_selection(frozen, :invalid_budget_snapshot)
+        fallback_selection(frozen, :invalid_budget_snapshot, :not_run)
 
       {:error, :fanout_plan_deadline_exhausted} ->
-        fallback_selection(frozen, :deadline_exhausted)
+        fallback_selection(frozen, :deadline_exhausted, :not_run)
     end
   end
 
   defp select_resolved_model_body(%{frozen: frozen} = claim, limits, state) do
     case state.models.for(:fanout_synthesis, claim.context) do
       {:ok, %{profile: profile}} -> select_disclosed_model_body(claim, profile, limits, state)
-      {:error, _reason} -> fallback_selection(frozen, :profile_unavailable)
+      {:error, _reason} -> fallback_selection(frozen, :profile_unavailable, :not_run)
     end
   end
 
   defp select_disclosed_model_body(%{frozen: frozen} = claim, profile, limits, state) do
     case state.disclosure.authorize_transport(profile, claim.context) do
       :ok -> compose_model_body(claim, profile, limits, state)
-      {:error, _reason} -> fallback_selection(frozen, :transport_denied)
+      {:error, _reason} -> fallback_selection(frozen, :transport_denied, :not_run)
     end
   end
 
@@ -232,19 +247,23 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
         max_output_tokens: limits.max_output_tokens
       })
 
-    case state.model_client.compose(frozen.snapshot, profile, context) do
-      {:ok, composition_selection} ->
-        case Report.prepare_composition(frozen.snapshot, composition_selection) do
-          {:ok, prepared} -> model_selection(prepared, profile)
-          {:error, _reason} -> fallback_selection(frozen, :invalid_model_output)
-        end
+    case SynthesisAgent.run(
+           frozen.snapshot,
+           profile,
+           context,
+           state.model_client,
+           limits.timeout_ms
+         ) do
+      {:ok, prepared} ->
+        model_selection(prepared, profile)
 
       {:error, reason} ->
-        fallback_selection(frozen, model_failure_category(reason))
+        {category, outcome} = model_failure_category(reason)
+        fallback_selection(frozen, category, outcome)
     end
   end
 
-  defp model_selection(%{body: body, layout: layout}, profile) do
+  defp model_selection(%{body: body, layout: layout} = prepared, profile) do
     %{
       source: "model",
       body: body,
@@ -253,29 +272,46 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
         provider: to_string(Map.fetch!(profile, :provider)),
         model: to_string(Map.fetch!(profile, :model)),
         layout_version: Map.fetch!(layout, :layout_version),
-        sections: Map.fetch!(layout, :sections)
+        sections: Map.fetch!(layout, :sections),
+        synthesis_contract_version: Map.fetch!(prepared, :synthesis_contract_version),
+        review_verdict: Map.fetch!(prepared, :review_verdict),
+        reviewed_queue_positions: Map.fetch!(prepared, :reviewed_queue_positions),
+        synthesis_sha256: Map.fetch!(prepared, :synthesis_sha256)
       }
     }
   end
 
-  defp fallback_selection(frozen, category) do
+  defp fallback_selection(frozen, category, outcome) do
+    {:ok, provenance} = Report.fallback_provenance(frozen.snapshot, category)
+
+    if Map.has_key?(provenance, :synthesis_outcome) do
+      true = provenance.synthesis_outcome == to_string(outcome)
+    end
+
     %{
       source: "deterministic_fallback",
       body: frozen.fallback_body,
-      provenance: %{fallback_reason: category}
+      provenance: provenance
     }
   end
 
-  defp model_failure_category(reason)
-       when reason in [
-              :empty_composition_selection,
-              :invalid_composition_selection,
-              :invalid_composition_request,
-              :invalid_composition_snapshot
-            ],
-       do: :invalid_model_output
+  defp model_failure_category({:invalid_model_output, _reason}),
+    do: {:invalid_model_output, :unresolved}
 
-  defp model_failure_category(_reason), do: :provider_failed
+  defp model_failure_category({:provider_failed, _reason}),
+    do: {:provider_failed, :unresolved}
+
+  defp model_failure_category({:profile_unavailable, _reason}),
+    do: {:profile_unavailable, :not_run}
+
+  defp model_failure_category(:fanout_composition_input_too_large),
+    do: {:composition_input_too_large, :not_run}
+
+  defp model_failure_category(:fanout_synthesis_timeout),
+    do: {:synthesis_timeout, :unresolved}
+
+  defp model_failure_category(reason),
+    do: exit({:unexpected_fanout_synthesis_error, reason})
 
   defp model_enabled(%{model_enabled?: enabled?}) when is_boolean(enabled?) do
     if enabled?, do: :ok, else: {:error, :direct_answer_model_disabled}
