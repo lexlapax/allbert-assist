@@ -959,11 +959,19 @@ synthetic-corpus correctness, abstention, interaction, and token counts plus the
 configured profile—never prompts, retrieved claim bodies, or answers.
 `bench-v13-fanout --profile NAME` is an opt-in real-provider development gate,
 not an aggregate/precommit/CI step. It evaluates the exact FOV-3/FOV-4 manager
-requests, then composes fixed synthetic child observations. Its one row records
-only result kinds, counts, closed join/layout enums, ordered coverage positions,
-and profile provenance—never prompts, answers, observations, model objects, or
-rendered report text. It proves the harness-visible manager/composer structures;
-the attended `FOV-*` row remains operator acceptance. Dirty source rehearsals
+requests, then composes fixed synthetic child observations and evaluates the
+production worker reviewer/reviser over a separate frozen task-neutral draft
+matrix. It appends two phase rows under the same gate. The manager/composer row
+records only result kinds, counts, closed join/layout enums, ordered coverage
+positions, and profile provenance. The worker-quality row records only corpus/
+profile provenance, verdict and closed-rule aggregates, byte-change booleans,
+and both logical protocol-call count and actual configured-provider reviewer-
+invocation count. Its frozen draft represents logical call 1 but makes no live
+request; the one reviewer invocation is the only configured-provider call in
+that phase. Neither row records prompts, drafts, answers, observations, answer
+digests, model objects, or rendered report text. Owner tests and attended
+`FOV-*` prove the complete two-call Worker lifecycle and remain operator
+acceptance. Dirty source rehearsals
 diagnose these harnesses; only clean exact-artifact rows close packaged release
 evidence where the active plan requires it.
 
