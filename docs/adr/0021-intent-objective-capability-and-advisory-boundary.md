@@ -925,7 +925,22 @@ active or terminal Step status; v2 verifies ownership and the real Step status,
 rejects completion/quality-receipt evidence for that non-result, Registry-
 resolves any persisted non-DirectAnswer action identity, and keeps the child
 outside synthesis. A missing Step is compatible only when `current_step_id` is
-nil. Deterministic code still owns every
+nil. For additive recovery of pre-fix v1.3 rows, only exact completion payloads
+`{summary, step_id}`, `{summary, step_id, step_status=completed}`, and
+`{summary, step_id, step_status=completed, quality_receipt}` may identify a Step
+when `current_step_id` is nil. Recovery verifies exact child ownership,
+completed Step status, durable result-summary equality, and any receipt binding,
+then classifies the row only as legacy-unreviewed deterministic fallback. It
+does not restore reviewed/registered authority or accept empty, extra, or
+unknown payloads. Its appendix row renders terminal detail, explicitly denies that a
+completed result exists, and does not treat a non-completed DirectAnswer row as
+a reason to force deterministic fallback. A completed registered-action child
+also requires the existing Lifecycle completion-event `summary` to equal the
+500-character Lifecycle projection of `Objective.last_observation_summary`,
+with that durable Objective summary byte-equal to the completed Step's
+`result_summary`, matching `step_id`, `step_status=completed`, and no quality-
+receipt key. Mismatched event or durable prose fails closed instead of
+inheriting registered-action authority. Deterministic code still owns every
 status and attention fact, failure/cancellation truth, effect receipt, ordered
 authoritative child appendix, heading/label, byte allocation, digest,
 persistence, and surface projection. The 16 KiB canonical model-input envelope
@@ -937,11 +952,17 @@ reviewed paragraph must fit unchanged after deterministic evidence allocation;
 otherwise selection is an unresolved deterministic fallback, never a truncated
 paragraph carrying accepted review provenance. The model cannot
 revise observations, identifiers, ordering, authority, delivery, or work.
+Before any whitespace/control normalization, Allbert compares the exact raw
+model synthesis with the Redactor result. Detectable secret material fails to
+deterministic fallback; it is never silently redacted into different prose that
+retains the original review verdict or digest.
 The v2 appendix makes its closed authority explicit per child: a reviewed
 advisory row names the verified quality-receipt digest and says that review is
-not effect evidence; a registered-action row marks semantic review not
-applicable and preserves the separate effect-receipt truth; a legacy-unreviewed
-row exposes the absent receipt and required deterministic fallback. Layout-v1
+not effect evidence; a completed registered-action row marks semantic review
+not applicable and preserves the separate effect-receipt truth; a non-completed
+row exposes terminal detail and says no completed result exists; and a completed
+legacy-unreviewed row exposes the absent receipt and required deterministic
+fallback. Layout-v1
 rendering remains byte-exact. In layout v2, the operator-derived parent title
 and every rendered child title, objective, and observation/detail are untrusted
 display data. All occurrences use deterministic reversible JSON-string encoding

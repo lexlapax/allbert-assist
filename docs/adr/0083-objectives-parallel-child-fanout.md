@@ -413,11 +413,27 @@ model:
    active or terminal Step state; v2 verifies ownership/status, rejects
    completion and quality-receipt authority, Registry-resolves any persisted
    non-DirectAnswer action identity, and excludes that child from synthesis. A
-   missing Step is allowed only with a nil `current_step_id`.
+   missing Step is allowed only with a nil `current_step_id`. Additive recovery
+   recognizes only the known pre-fix v1.3 completion payloads
+   `{summary, step_id}`, `{summary, step_id, step_status=completed}`, and
+   `{summary, step_id, step_status=completed, quality_receipt}` when
+   `current_step_id` is nil. It must load that exact Step, verify child
+   ownership, completed status, durable result-summary equality, and any receipt
+   binding, then preserve the child only as `legacy_unreviewed_advisory` and
+   force deterministic fallback. It never reconstructs reviewed or registered-
+   action authority, rewrites history, or accepts empty/extra/unknown payloads.
+   Its appendix row
+   renders terminal detail and explicitly says that no completed result exists;
+   the persisted action path does not turn that detail into a registered-action
+   result, and a non-completed DirectAnswer row does not by itself require
+   deterministic fallback.
    A completed registered-action child additionally consumes the existing exact
-   Lifecycle completion event—`summary`, matching `step_id`, and
-   `step_status=completed`—with no quality-receipt field; report validation does
-   not create a summary-only parallel contract.
+   Lifecycle completion event—`summary` equal to the existing 500-character
+   Lifecycle projection of `child.last_observation_summary`, with that durable
+   Objective summary byte-equal to the completed Step's `result_summary`, plus
+   matching `step_id` and `step_status=completed`—with no quality-receipt field;
+   report validation does not create a summary-only parallel contract or let
+   mismatched prose inherit registered-action authority.
    The 16 KiB
    canonical model-input allocator gives the complete bounded request priority
    and fairly marks unavoidable child shortening. Allbert alone renders
@@ -428,15 +444,22 @@ model:
    otherwise complete child appendix. The exact reviewed paragraph must fit
    unchanged after that allocation; otherwise the selection is an unresolved
    deterministic fallback, not truncated prose with accepted provenance.
+   Model synthesis is inspected for Redactor-detectable secret material on its
+   exact raw returned bytes before whitespace/control normalization. A detected
+   secret fails composition to deterministic fallback; Allbert never silently
+   redacts or otherwise mutates model prose and then preserves the review verdict
+   or digest as if it covered those changed bytes.
    Invalid, negative, unavailable,
    timed-out, or deadline-exhausted synthesis stores the truthful deterministic
    fallback with no model prose and opens delivery; it never masquerades as
    healthy synthesis. The v2 authoritative appendix also renders the closed
    authority class for every child: reviewed advisory rows carry their quality-
-   receipt digest and explicitly deny effect-evidence meaning, registered-action
-   rows mark semantic review not applicable and retain the separate effect-
-   receipt line, and legacy-unreviewed rows expose the absent receipt/fallback
-   condition. Layout v2 treats the operator-derived parent title and every
+   receipt digest and explicitly deny effect-evidence meaning, completed
+   registered-action rows mark semantic review not applicable and retain the
+   separate effect-receipt line, non-completed rows expose terminal detail and
+   the absence of a completed result, and completed legacy-unreviewed rows
+   expose the absent receipt/fallback condition. Layout v2 treats the
+   operator-derived parent title and every
    rendered child title, objective, and observation/detail as untrusted display
    data: ordinary, fallback, attention, relationship, appendix, and emergency
    paths deterministically JSON-string encode every occurrence before
