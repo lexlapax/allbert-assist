@@ -859,7 +859,11 @@ rule-catalog version, reviewer configuration, exact provider-call count, closed
 verdict/failed-rule ids, and the exact normalized-answer digest; acceptance
 requires the full two-call path. Lifecycle
 observation verifies that binding before the existing terminal transaction can
-store it in `run_completed`; recovery verifies it again before a completed
+store it in `run_completed`. That same transaction writes the exact transient
+`state.step.id` to `Objective.current_step_id`, finalizes that Step, appends the
+matching event correlation, and only then freezes any final parent report input;
+none of those bindings may be reconstructed later by report code. Recovery
+verifies it again before a completed
 child may enter a new report snapshot. The receipt proves that the configured
 review boundary ran, not that model judgment is authority: it cannot select an
 action, grant permission, assert an effect, alter status, or create work.

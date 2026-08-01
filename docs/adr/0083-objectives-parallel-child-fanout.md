@@ -344,7 +344,11 @@ model:
    Objective/step identity, task and rule versions, reviewer configuration,
    call count, closed verdict and failed-rule ids, and the exact normalized-
    answer digest. Lifecycle verifies it before the existing terminal transaction
-   appends it to `run_completed`; recovery verifies its digest before admitting
+   writes the exact transient `state.step.id` to
+   `Objective.current_step_id`, finalizes that Step, appends the correlated
+   `run_completed` payload, and then performs final parent reduction/report-input
+   freeze in the same immediate transaction. Report code never reconstructs the
+   missing binding. Recovery verifies its digest before admitting
    a completed child to a new report snapshot. Drafts and critique are not
    persisted. The receipt records
    review provenance only: it cannot select an action, grant permission, claim
