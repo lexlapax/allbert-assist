@@ -5,6 +5,7 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
 
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Conversations
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Paths
   alias AllbertAssist.PublicProtocol.RateLimiter
@@ -12,6 +13,7 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
   alias AllbertAssist.PublicProtocol.TokenAuth
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.FanoutReportFixture
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -217,7 +219,15 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
              Fanout.format_report(Fanout.report(parent))
 
     assert parent.kickoff_delivery_state == "acknowledged"
-    assert Enum.all?(Fanout.children(parent), &(&1.status == "completed"))
+    children = Fanout.children(parent)
+
+    assert Enum.map(children, & &1.status) == ["failed", "failed"]
+
+    assert Enum.all?(children, fn child ->
+             child.review_reason =~ "quality_model_draft_unavailable"
+           end)
+
+    assert AllbertAssist.Repo.reload!(parent).report_source == "deterministic_fallback"
     assert AllbertAssist.Repo.reload!(parent).report_delivery_state == "delivered"
     assert_fanout_quiesced(parent.id)
   end
@@ -259,6 +269,71 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
 
     eventually(fn -> AllbertAssist.Repo.reload!(parent).report_delivery_state == "delivered" end)
     assert_fanout_quiesced(parent.id)
+  end
+
+  for selection_source <- [:model, :fallback] do
+    test "fanout non-streaming emits exact stored #{selection_source} report bytes", %{
+      conn: conn,
+      token: token
+    } do
+      selection_source = unquote(selection_source)
+      selected = selected_public_report!(selection_source)
+      install_joined_report_runner!(selected.parent.id)
+
+      conn =
+        conn
+        |> auth_conn(token)
+        |> post_json(%{
+          "model" => "local",
+          "allbert_thread_id" => selected.parent.source_thread_id,
+          "messages" => [%{"role" => "user", "content" => "Return the joined report"}]
+        })
+
+      parent = AllbertAssist.Repo.reload!(selected.parent)
+
+      assert get_in(json_response(conn, 200), [
+               "choices",
+               Access.at(0),
+               "message",
+               "content"
+             ]) == parent.report_body
+
+      assert parent.report_body == selected.report_body
+
+      eventually(fn ->
+        AllbertAssist.Repo.reload!(parent).report_delivery_state == "delivered"
+      end)
+    end
+
+    test "fanout streaming final chunk emits exact stored #{selection_source} report bytes", %{
+      conn: conn,
+      token: token
+    } do
+      selection_source = unquote(selection_source)
+      selected = selected_public_report!(selection_source)
+      install_joined_report_runner!(selected.parent.id)
+
+      conn =
+        conn
+        |> auth_conn(token)
+        |> post_json(%{
+          "model" => "local",
+          "stream" => true,
+          "allbert_thread_id" => selected.parent.source_thread_id,
+          "messages" => [%{"role" => "user", "content" => "Stream the joined report"}]
+        })
+
+      parent = AllbertAssist.Repo.reload!(selected.parent)
+
+      assert conn.status == 200
+      assert final_sse_content(conn.resp_body) == parent.report_body
+      assert parent.report_body == selected.report_body
+      assert conn.resp_body =~ "data: [DONE]"
+
+      eventually(fn ->
+        AllbertAssist.Repo.reload!(parent).report_delivery_state == "delivered"
+      end)
+    end
   end
 
   test "fanout timeout returns kickoff while the eventual report remains pending", %{
@@ -398,6 +473,41 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
     assert {:ok, _setting} = Settings.put("openai_api.clients", updated, %{audit?: false})
   end
 
+  defp selected_public_report!(selection_source) do
+    user_id = "public-protocol:openai-client"
+    {:ok, thread} = Conversations.create_general_thread(user_id, "OpenAI report parity")
+
+    FanoutReportFixture.selected_report!(selection_source, %{
+      user_id: user_id,
+      source_channel: "openai_api",
+      source_surface: "api",
+      source_thread_id: thread.id
+    })
+  end
+
+  defp install_joined_report_runner!(parent_id) do
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, _request ->
+        {:ok,
+         %{
+           message: "The joined report is ready.",
+           status: :completed,
+           actions: [],
+           fanout: %{parent_id: parent_id, delivery_context: %{}}
+         }}
+      end
+    )
+  end
+
+  defp final_sse_content(body) do
+    body
+    |> String.split("\n\n", trim: true)
+    |> Enum.filter(&String.starts_with?(&1, "data: {"))
+    |> Enum.map(fn "data: " <> json -> Jason.decode!(json) end)
+    |> List.last()
+    |> get_in(["choices", Access.at(0), "delta", "content"])
+  end
+
   defp context, do: %{actor: "test", channel: "test", audit?: false}
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
@@ -407,13 +517,8 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
 
   defp select_next_report!(attempts) when attempts > 0 do
     case Fanout.claim_next_composition() do
-      {:ok, %{frozen: frozen} = claim} ->
-        Fanout.select_composition(
-          claim,
-          "deterministic_fallback",
-          frozen.fallback_body,
-          %{fallback_reason: "model_disabled"}
-        )
+      {:ok, claim} ->
+        {:ok, FanoutReportFixture.select_claim!(claim, :fallback)}
 
       :none ->
         Process.sleep(10)

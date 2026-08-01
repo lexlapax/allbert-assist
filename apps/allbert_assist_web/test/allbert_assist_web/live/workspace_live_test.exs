@@ -13,9 +13,9 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   import ExUnit.CaptureLog
   import Phoenix.LiveViewTest
 
-  alias AllbertAssist.{Confirmations, Conversations, Objectives, Runtime, Session, Settings}
+  alias AllbertAssist.{Confirmations, Conversations, Objectives, Repo, Runtime, Session, Settings}
   alias AllbertAssist.Objectives.Fanout
-  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
+  alias AllbertAssist.TestSupport.FanoutReportFixture
 
   @runtime_async_timeout 60_000
 
@@ -185,13 +185,18 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")
     complete_fanout_children!(children)
 
-    html = eventually_render(view, "Web fan-in — success")
+    report_title = rendered_report_title("Web fan-in")
+    html = eventually_render(view, report_title)
 
-    assert html =~
-             "✓ research [completed] — Child-reported observation (not effect evidence): result 0"
+    for observation <- FanoutReportFixture.forged_label_corpus().observations do
+      escaped =
+        observation
+        |> Jason.encode!()
+        |> Phoenix.HTML.html_escape()
+        |> Phoenix.HTML.safe_to_string()
 
-    assert html =~
-             "✓ draft [completed] — Child-reported observation (not effect evidence): result 1"
+      assert html =~ escaped
+    end
 
     assert has_element?(view, "#attached-fanout-report-#{parent.id}")
 
@@ -221,7 +226,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     )
 
     duplicate_html = render(element(view, "#workspace-chat-timeline"))
-    assert length(Regex.scan(~r/Web fan-in — success/, duplicate_html)) == 1
+    assert length(:binary.matches(duplicate_html, report_title)) == 1
 
     assert {:ok, _ordinary_answer} =
              Conversations.append_assistant_message(thread, "The result of 2 + 2 is 4.")
@@ -230,8 +235,50 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     remounted_timeline = render(element(remounted, "#workspace-chat-timeline"))
 
     assert remounted_timeline =~ "The result of 2 + 2 is 4."
-    assert length(Regex.scan(~r/Web fan-in — success/, remounted_timeline)) == 1
+    assert length(:binary.matches(remounted_timeline, report_title)) == 1
     refute has_element?(remounted, "#attached-fanout-report-#{parent.id}")
+  end
+
+  for selection_source <- [:model, :fallback] do
+    test "attached Web preserves exact #{selection_source} layout-v2 report bytes", %{
+      conn: conn
+    } do
+      selection_source = unquote(selection_source)
+
+      assert {:ok, thread} =
+               Conversations.create_general_thread(
+                 "local",
+                 "#{selection_source} surface parity"
+               )
+
+      frame =
+        FanoutReportFixture.frame!(%{
+          user_id: "local",
+          source_channel: "live_view",
+          source_surface: "channel",
+          source_thread_id: thread.id
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")
+      selected = FanoutReportFixture.complete_and_select!(frame, selection_source)
+      parent = Repo.reload!(selected.parent)
+
+      assert parent.report_body == selected.report_body
+      assert parent.report_source == selected.source
+
+      _html = eventually_render(view, "Surface parity")
+      assert has_element?(view, "#attached-fanout-report-#{parent.id}")
+
+      assert [canonical_report] = Conversations.list_messages(thread)
+      assert canonical_report.role == "assistant"
+      assert canonical_report.content == parent.report_body
+      assert canonical_report.metadata["parent_objective_id"] == parent.id
+
+      render_hook(view, "ack_attached_fanout_report", %{"parent_id" => parent.id})
+
+      assert Repo.reload!(parent).report_delivery_state == "delivered"
+      refute has_element?(view, "#attached-fanout-report-#{parent.id}")
+    end
   end
 
   test "a different Web thread does not consume a pending fan-in report", %{conn: conn} do
@@ -260,7 +307,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
        Jido.Signal.new!("allbert.objectives.fanout.joined", %{parent_id: parent.id})}
     )
 
-    refute render(other_view) =~ "Thread-bound fan-in — success"
+    refute render(other_view) =~ rendered_report_title("Thread-bound fan-in")
     assert Fanout.parent_projection(parent).parent.report_delivery_state == "pending"
   end
 
@@ -285,7 +332,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     {:ok, view, html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")
 
-    assert html =~ "Remount recovery — success"
+    assert html =~ rendered_report_title("Remount recovery")
     assert has_element?(view, "#attached-fanout-report-#{parent.id}")
     assert [_canonical_report] = Conversations.list_messages(thread)
 
@@ -329,7 +376,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     html = Process.delete(:canonical_persistence_failure_html)
 
     assert log =~ "live fan-in canonical persistence failed reason=:thread_completed"
-    refute html =~ "Pending after write failure — success"
+    refute html =~ rendered_report_title("Pending after write failure")
     refute has_element?(view, "#attached-fanout-report-#{parent.id}")
     assert Fanout.parent_projection(parent).parent.report_delivery_state == "pending"
     assert Conversations.list_messages(thread) == []
@@ -362,9 +409,9 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")
     Enum.each(frames, &complete_fanout_children!(&1.children))
 
-    _html = eventually_render(view, "Web fan-in A — success")
-    html = eventually_render(view, "Web fan-in B — success")
-    assert html =~ "Web fan-in B — success"
+    _html = eventually_render(view, rendered_report_title("Web fan-in A"))
+    html = eventually_render(view, rendered_report_title("Web fan-in B"))
+    assert html =~ rendered_report_title("Web fan-in B")
 
     for frame <- frames do
       assert has_element?(view, "#attached-fanout-report-#{frame.parent.id}")
@@ -412,7 +459,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
        Jido.Signal.new!("allbert.objectives.fanout.joined", %{parent_id: parent.id})}
     )
 
-    refute render(view) =~ "Wrong-channel fan-in — success"
+    refute render(view) =~ rendered_report_title("Wrong-channel fan-in")
     refute has_element?(view, "#attached-fanout-report-#{parent.id}")
 
     render_hook(view, "ack_attached_fanout_report", %{"parent_id" => parent.id})
@@ -491,32 +538,16 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   end
 
   defp complete_fanout_children!(children) do
-    Enum.each(children, fn child ->
-      assert {:ok, _transition} =
-               TerminalTransitions.terminalize_child(
-                 child,
-                 %{
-                   status: "completed",
-                   last_observation_summary: "result #{child.queue_position}",
-                   completed_at: DateTime.utc_now()
-                 },
-                 "run_completed",
-                 %{}
-               )
-    end)
+    :ok = FanoutReportFixture.complete_children!(children)
 
     parent_id = children |> hd() |> Map.fetch!(:parent_objective_id)
+    %{parent: %{id: ^parent_id}} = FanoutReportFixture.select_pending!(parent_id, :fallback)
+  end
 
-    assert {:ok, %{parent: %{id: ^parent_id}, frozen: frozen} = claim} =
-             Fanout.claim_next_composition()
-
-    assert {:ok, _selected} =
-             Fanout.select_composition(
-               claim,
-               "deterministic_fallback",
-               frozen.fallback_body,
-               %{fallback_reason: "model_disabled"}
-             )
+  defp rendered_report_title(title) do
+    "title=\"#{title}\" — success"
+    |> Phoenix.HTML.html_escape()
+    |> Phoenix.HTML.safe_to_string()
   end
 
   defp eventually_render(view, expected, attempts \\ 100)
