@@ -546,10 +546,10 @@ model:
    compatibility path. The same explicit integrity-error classifier lets
    queue scan and recovery aggregate and leave one corrupt parent untouched while
    continuing to later valid parents; unclassified storage/operational failures
-   still abort. At most one bounded content-free diagnostic per typed reason
-   retains its count, first/last id, and complete ordered `parent_ids` list. The
-   100-row scan cap bounds that aggregate; it does not reduce failures to only a
-   count or id range.
+   still abort. Both paths cursor through deterministic 100-row batches. At most
+   one bounded content-free diagnostic per typed reason per batch retains its
+   count, first/last id, and complete ordered `parent_ids` list; the batch cap
+   bounds that aggregate without reducing failures to only a count or id range.
    Before querying Steps or events for a v2 candidate, the queue boundary
    validates parent shape, terminal child shape, and the absolute 16-child
    limit. An oversized/corrupt parent therefore becomes a classified per-parent

@@ -1017,10 +1017,11 @@ An unselected queued or composing v1 input is verified and compare-and-swap
 rebound in the existing immediate transaction to its authority-bearing v2
 digest before claim/recovery selection; already-selected/pending/delivered v1
 state is never rebound. One explicit integrity-error classifier lets queue scan
-and recovery leave a corrupt parent untouched and continue later valid work. At
-most one bounded content-free aggregate per typed reason retains its count,
-first/last id, and complete ordered `parent_ids` list; the 100-row scan cap bounds
-the record without collapsing distinct failures into only a count or id range.
+and recovery leave a corrupt parent untouched and continue later valid work.
+Both paths cursor through deterministic 100-row batches. At most one bounded
+content-free aggregate per typed reason per batch retains its count, first/last
+id, and complete ordered `parent_ids` list; the batch cap bounds the record
+without collapsing distinct failures into only a count or id range.
 Parent shape, terminal child shape, and the absolute 16-child bound are checked
 before any v2 Step/Event query. Oversized or corrupt rows are classified and
 skipped per parent before they can exceed SQLite bind limits or block later
