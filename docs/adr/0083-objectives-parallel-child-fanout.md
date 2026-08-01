@@ -516,7 +516,11 @@ model:
    completed child result is withheld indefinitely for model quality. Recovery
    claims queued work idempotently and converts a stranded composing row to the
    deterministic fallback, and delivery consumers read only the stored report
-   selected by this transition. Rehydration re-freezes the authoritative input,
+   selected by this transition. Every central projection—including TUI and its
+   subscriptions, Notify/DM, Web, and public protocols—emits those exact stored
+   bytes for both model and deterministic-fallback selections; no surface
+   reconstructs a body or accepts a weaker terminal-event/provenance shape.
+   Rehydration re-freezes the authoritative input,
    validates the input and selection digests, normalizes the exact event
    provenance, and deterministically re-renders the selected layout. An unknown
    layout version, extra or missing provenance field, or any input, source,

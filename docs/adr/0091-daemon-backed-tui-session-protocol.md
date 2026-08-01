@@ -204,9 +204,16 @@ above the 256-entry bound. The thin client applies the same CRLF/LF expansion
 defensively to every received presentation, status, error, close, and
 confirmation-prompt string. Bare CR, ESC, BEL, and every other C0/C1 terminal
 control remain non-structural and render as U+FFFD; daemon text is never passed
-through as ANSI. Presentation may be bounded by the existing display budget,
-while an authority-bearing confirmation that cannot fit fails closed before
-acknowledgement.
+through as ANSI. Ordinary presentation remains bounded by the existing display
+budget. The existing typed authority-only `delivery_output/2` seam may exceed
+`channels.tui.max_text_bytes` only up to that central durable contract's closed
+output bound—32,768 UTF-8 bytes for the v1.3 fan-out report—and still must fit
+the unchanged 48 KiB `lines` sum and 64 KiB frame body. The exception is chosen
+from the typed delivery envelope, never inferred from text; it grants no larger
+operator input, adds no setting, and does not permit clipping or reconstructing
+the stored authority body. Existing protocol-v1 clients already accept this
+payload inside the unchanged `:delta` line/frame schema. An authority-bearing
+confirmation that cannot fit still fails closed before acknowledgement.
 
 | Direction | Frame | Exact payload |
 | --- | --- | --- |
@@ -286,7 +293,11 @@ fresh open; transient presentation is not replayed.
 Droppability follows queue priority and custody, not the frame tag alone. In
 particular, a fan-out authority delivery may use a `:delta`, but its cumulative-
 ack waiter makes it non-droppable and ineligible for gap absorption or adjacent
-presentation reduction. A terminal close is likewise a queue barrier: after
+presentation reduction. That typed authority path alone uses the central
+fan-out report's 32,768-byte body bound rather than the ordinary presentation
+setting; its existing `:delta` still obeys every protocol-v1 line, frame,
+sequence, queue, and cumulative-ack rule. A terminal close is likewise a queue
+barrier: after
 applying the peer's cumulative ack, the session drains already-admitted
 non-droppable frames in order, then emits close as the final frame. If the
 remaining authority queue cannot drain within the bounded window, those
