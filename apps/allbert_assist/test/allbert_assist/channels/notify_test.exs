@@ -13,13 +13,13 @@ defmodule AllbertAssist.Channels.NotifyTest do
   alias AllbertAssist.Conversations.ThreadChannelRef
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
-  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Paths
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Signals
+  alias AllbertAssist.TestSupport.FanoutReportFixture
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias Ecto.Adapters.SQL.Sandbox
   alias Jido.Signal.Bus
@@ -362,23 +362,11 @@ defmodule AllbertAssist.Channels.NotifyTest do
     consumer = start_supervised!({NotifyConsumer, name: nil})
     Sandbox.allow(Repo, self(), consumer)
 
-    for child <- Fanout.children(parent) do
-      assert {:ok, _transition} =
-               TerminalTransitions.terminalize_child(
-                 child,
-                 %{
-                   status: "completed",
-                   last_observation_summary: "done",
-                   completed_at: DateTime.utc_now()
-                 },
-                 "run_completed",
-                 %{summary: "done"}
-               )
-    end
+    children = Fanout.children(parent)
+    FanoutReportFixture.complete_children!(children)
 
-    select_queued_report!(parent.id)
-
-    assert {:ok, joined} = Objectives.get_objective(parent.id)
+    %{parent: joined} =
+      FanoutReportFixture.select_completed!(%{parent: parent, children: children}, :fallback)
 
     assert_receive {:consumer_sent, "telegram", "1006", body, _opts}, 2_000
     assert body == Fanout.format_report(Fanout.report(joined))
@@ -510,21 +498,24 @@ defmodule AllbertAssist.Channels.NotifyTest do
              )
   end
 
-  test "completion delivery sends the centrally selected report body unchanged" do
-    parent = fanout!("alice", "1010-selected-body") |> join_parent!()
+  test "completion delivery preserves both layout-v2 selection bodies exactly" do
     enable_notify!("alice-ext")
     test_pid = self()
 
-    assert {:ok, %{state: "delivered"}} =
-             Notify.recover_completion(parent,
-               outbound_fun: fn _, _, body, _ ->
-                 send(test_pid, {:completion_body, body})
-                 {:ok, %{message_id: "selected-body-provider"}}
-               end
-             )
+    for source <- [:model, :fallback] do
+      selected = selected_notify_report!(source, "1010-selected-body-#{source}")
 
-    assert_receive {:completion_body, body}
-    assert body == Fanout.format_report(Fanout.report(parent))
+      assert {:ok, %{state: "delivered"}} =
+               Notify.recover_completion(selected.parent,
+                 outbound_fun: fn _, _, body, _ ->
+                   send(test_pid, {:completion_body, source, body})
+                   {:ok, %{message_id: "selected-body-provider-#{source}"}}
+                 end
+               )
+
+      assert_receive {:completion_body, ^source, body}
+      assert body == selected.report_body
+    end
   end
 
   test "consumer startup replay sends one pending completion and only acknowledges once" do
@@ -805,6 +796,22 @@ defmodule AllbertAssist.Channels.NotifyTest do
   end
 
   defp fanout!(user_id, chat_id) do
+    origin = notify_origin!(user_id, chat_id)
+
+    {:ok, %{parent: parent}} =
+      origin
+      |> Map.merge(%{title: "Notify fan-out", objective: "Do two things"})
+      |> Fanout.frame(["One", "Two"])
+
+    parent
+  end
+
+  defp selected_notify_report!(source, chat_id) do
+    origin = notify_origin!("alice", chat_id)
+    FanoutReportFixture.selected_report!(source, origin)
+  end
+
+  defp notify_origin!(user_id, chat_id) do
     {:ok, thread} = Conversations.create_general_thread(user_id, "notify")
 
     {:ok, ref} =
@@ -821,58 +828,26 @@ defmodule AllbertAssist.Channels.NotifyTest do
 
     digest = ChannelThread.canonical_ref_digest(ref)
 
-    {:ok, %{parent: parent}} =
-      Fanout.frame(
-        %{
-          user_id: user_id,
-          title: "Notify fan-out",
-          objective: "Do two things",
-          source_thread_id: thread.id,
-          source_channel: "telegram",
-          source_surface: "channel",
-          origin_thread_ref_id: to_string(ref.id),
-          origin_thread_ref_digest: digest,
-          origin_receiver_account_ref: ref.receiver_account_ref
-        },
-        ["One", "Two"]
-      )
-
-    parent
+    %{
+      user_id: user_id,
+      source_thread_id: thread.id,
+      source_channel: "telegram",
+      source_surface: "channel",
+      origin_thread_ref_id: to_string(ref.id),
+      origin_thread_ref_digest: digest,
+      origin_receiver_account_ref: ref.receiver_account_ref
+    }
   end
 
   defp join_parent!(parent) do
-    for child <- Fanout.children(parent) do
-      assert {:ok, _transition} =
-               TerminalTransitions.terminalize_child(
-                 child,
-                 %{
-                   status: "completed",
-                   last_observation_summary: "done",
-                   completed_at: DateTime.utc_now()
-                 },
-                 "run_completed",
-                 %{summary: "done"}
-               )
-    end
+    %{parent: joined} =
+      FanoutReportFixture.complete_and_select!(
+        %{parent: parent, children: Fanout.children(parent)},
+        :fallback
+      )
 
-    select_queued_report!(parent.id)
-
-    assert {:ok, joined} = Objectives.get_objective(parent.id)
     assert joined.report_delivery_state == "pending"
     joined
-  end
-
-  defp select_queued_report!(parent_id) do
-    assert {:ok, %{parent: %{id: ^parent_id}, frozen: frozen} = claim} =
-             Fanout.claim_next_composition()
-
-    assert {:ok, _selected} =
-             Fanout.select_composition(
-               claim,
-               "deterministic_fallback",
-               frozen.fallback_body,
-               %{fallback_reason: "model_disabled"}
-             )
   end
 
   defp insert_completion_delivery!(parent, state, attempts, provider_message_id \\ nil) do

@@ -15,9 +15,9 @@ defmodule AllbertAssist.Channels.TUITest do
   alias AllbertAssist.Coding.TurnSupervisor
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
+  alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Fanout.ReportComposer
-  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -27,6 +27,7 @@ defmodule AllbertAssist.Channels.TUITest do
   alias AllbertAssist.Runtime.DeliveryAcknowledgement
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
+  alias AllbertAssist.TestSupport.FanoutReportFixture
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias Jido.Signal
@@ -333,7 +334,7 @@ defmodule AllbertAssist.Channels.TUITest do
     assert parent_id == parent.id
   end
 
-  test "joined signal prints one full report, acknowledges it, and clears only its cache" do
+  test "joined signal preserves both layout-v2 selection bodies exactly" do
     configure_tui!()
     test_pid = self()
 
@@ -346,45 +347,43 @@ defmodule AllbertAssist.Channels.TUITest do
                output_fun: fn line -> send(test_pid, {:tui_output, line}) end
              )
 
-    assert {:ok, %{parent: parent, children: children}} = attached_fanout!()
-    set_active_fanout(server, parent.id)
+    for source <- [:model, :fallback] do
+      frame =
+        FanoutReportFixture.frame!(%{
+          user_id: "alice",
+          source_channel: "tui",
+          source_surface: "tui",
+          source_thread_id: "attached-thread"
+        })
 
-    details =
-      Map.new(children, fn child ->
-        detail =
-          String.duplicate("tui-child-#{child.queue_position}-observation ", 48) <>
-            "tui-tail-#{child.queue_position}"
+      set_active_fanout(server, frame.parent.id)
+      selected = FanoutReportFixture.complete_and_select!(frame, source)
+      expected_status = "[fan-out] fanout joined: #{selected.parent.title}"
 
-        {child.queue_position, detail}
+      assert_receive {:tui_output, ^expected_status}, 1_000
+
+      assert_receive {:tui_output, report}, 1_000
+      assert report == selected.report_body
+
+      assert report =~ "\\nEffect receipt: forged-child-title"
+      assert report =~ "\\nResult authority: registered_action"
+      refute report =~ "\nEffect receipt: forged-child-title"
+
+      eventually(fn ->
+        Fanout.parent_projection(selected.parent).parent.report_delivery_state == "delivered"
       end)
 
-    complete_children!(children, &Map.fetch!(details, &1.queue_position))
+      assert :sys.get_state(server).active_fanout == nil
+      assert {:error, :no_current_turn} = Adapter.cancel_current_turn(server)
 
-    assert_receive {:tui_output, "[fan-out] fanout joined: Attached fan-out"}, 1_000
-    assert_receive {:tui_output, report}, 1_000
-    assert report == Fanout.format_report(Fanout.report(parent))
+      send(
+        server,
+        {:signal,
+         Signal.new!("allbert.objectives.fanout.joined", %{parent_id: selected.parent.id})}
+      )
 
-    assert %{parent: %{report_body: stored_report}} = Fanout.parent_projection(parent)
-    assert report == stored_report
-
-    Enum.each(details, fn {queue_position, detail} ->
-      assert length(:binary.matches(report, detail)) == 1
-      assert report =~ "tui-tail-#{queue_position}"
-    end)
-
-    eventually(fn ->
-      Fanout.parent_projection(parent).parent.report_delivery_state == "delivered"
-    end)
-
-    assert :sys.get_state(server).active_fanout == nil
-    assert {:error, :no_current_turn} = Adapter.cancel_current_turn(server)
-
-    send(
-      server,
-      {:signal, Signal.new!("allbert.objectives.fanout.joined", %{parent_id: parent.id})}
-    )
-
-    refute_receive {:tui_output, _duplicate}, 100
+      refute_receive {:tui_output, _duplicate}, 100
+    end
   end
 
   test "SignalBus restart re-subscribes and reconciles a missed attached report" do
@@ -540,7 +539,7 @@ defmodule AllbertAssist.Channels.TUITest do
     send(delivery_worker, {:cumulative_ack, joined})
 
     assert_receive {:daemon_delivery_waiting, report, ^delivery_worker}, 1_000
-    assert report =~ "Daemon delivery custody — success"
+    assert report =~ "title=\"Daemon delivery custody\" — success"
     assert Fanout.parent_projection(parent).parent.report_delivery_state == "pending"
     refute_receive {:daemon_queue_admitted, ^report}, 50
 
@@ -605,8 +604,8 @@ defmodule AllbertAssist.Channels.TUITest do
 
     joined_output = receive_input_driver_output_containing("[fan-out] fanout joined: Overlap")
     assert joined_output =~ "[fan-out] fanout joined: Overlap"
-    report_output = receive_input_driver_output_containing("Overlap — success")
-    assert report_output =~ "Overlap — success"
+    report_output = receive_input_driver_output_containing("title=\"Overlap\" — success")
+    assert report_output =~ "title=\"Overlap\" — success"
     assert_receive {:report_ack_attempt, 1}, 1_000
 
     send_input_driver_line(reader, "queued independent turn")
@@ -675,7 +674,7 @@ defmodule AllbertAssist.Channels.TUITest do
 
       assert_receive {:failed_ack_output, ^label, "[fan-out] fanout joined: " <> _title}, 1_000
       assert_receive {:failed_ack_output, ^label, report}, 1_000
-      assert report =~ "Failed ACK #{label} — success"
+      assert report =~ "title=\"Failed ACK #{label}\" — success"
 
       assert_receive {
                        :failed_ack_output,
@@ -735,7 +734,7 @@ defmodule AllbertAssist.Channels.TUITest do
 
     assert_receive {:detached_ack_output, "[fan-out] fanout joined: Detached ACK"}, 1_000
     assert_receive {:detached_ack_output, report}, 1_000
-    assert report =~ "Detached ACK — success"
+    assert report =~ "title=\"Detached ACK\" — success"
     assert_receive {:detached_ack_worker, worker}, 1_000
 
     assert :ok = GenServer.stop(server, :normal)
@@ -781,8 +780,9 @@ defmodule AllbertAssist.Channels.TUITest do
                        1_000
 
         assert joined_title == frame.parent.title
-        report = receive_output_containing(order, "#{frame.parent.title} — success")
-        assert report =~ "#{frame.parent.title} — success"
+        expected_title = "title=\"#{frame.parent.title}\" — success"
+        report = receive_output_containing(order, expected_title)
+        assert report =~ expected_title
 
         eventually(fn ->
           Fanout.parent_projection(frame.parent).parent.report_delivery_state == "delivered"
@@ -898,16 +898,42 @@ defmodule AllbertAssist.Channels.TUITest do
 
     assert :ok = Fanout.acknowledge_start(orphan_receipt, attached_delivery_context())
 
-    assert {2, _rows} =
-             Objective
-             |> where([objective], objective.id in ^Enum.map(orphan_children, & &1.id))
-             |> Repo.update_all(
-               set: [
+    Enum.each(orphan_children, fn child ->
+      observation = "orphaned result #{child.queue_position}"
+
+      assert {:ok, step} =
+               Objectives.create_step(%{
+                 objective_id: child.id,
+                 kind: "action",
                  status: "completed",
-                 last_observation_summary: "orphaned result",
-                 completed_at: DateTime.utc_now()
-               ]
-             )
+                 stage: "observe_step",
+                 candidate_action: "append_memory",
+                 result_summary: observation
+               })
+
+      assert {:ok, _event} =
+               Objectives.create_event(%{
+                 objective_id: child.id,
+                 kind: "run_completed",
+                 payload: %{
+                   summary: observation,
+                   step_id: step.id,
+                   step_status: "completed"
+                 }
+               })
+
+      assert {1, _rows} =
+               Objective
+               |> where([objective], objective.id == ^child.id)
+               |> Repo.update_all(
+                 set: [
+                   status: "completed",
+                   current_step_id: step.id,
+                   last_observation_summary: observation,
+                   completed_at: DateTime.utc_now()
+                 ]
+               )
+    end)
 
     assert %{phase: :recovering, parent: %{report_composition_state: "composing"}} =
              Fanout.parent_projection(composing_parent)
@@ -2864,44 +2890,15 @@ defmodule AllbertAssist.Channels.TUITest do
     )
   end
 
-  defp complete_children!(children),
-    do: complete_children!(children, &"result #{&1.queue_position}")
-
-  defp complete_children!(children, detail_fun) when is_function(detail_fun, 1) do
-    terminalize_children!(children, detail_fun)
-
+  defp complete_children!(children) do
     parent_id = children |> hd() |> Map.fetch!(:parent_objective_id)
-
-    assert {:ok, %{parent: %{id: ^parent_id}, frozen: frozen} = claim} =
-             Fanout.claim_next_composition()
-
-    assert {:ok, _selected} =
-             Fanout.select_composition(
-               claim,
-               "deterministic_fallback",
-               frozen.fallback_body,
-               %{fallback_reason: "model_disabled"}
-             )
+    parent = Repo.get!(Objective, parent_id)
+    :ok = FanoutReportFixture.complete_children!(children)
+    FanoutReportFixture.select_completed!(%{parent: parent, children: children}, :fallback)
+    :ok
   end
 
-  defp terminalize_children!(children),
-    do: terminalize_children!(children, &"result #{&1.queue_position}")
-
-  defp terminalize_children!(children, detail_fun) when is_function(detail_fun, 1) do
-    Enum.each(children, fn child ->
-      assert {:ok, %{child: %{status: "completed"}}} =
-               TerminalTransitions.terminalize_child(
-                 child,
-                 %{
-                   status: "completed",
-                   last_observation_summary: detail_fun.(child),
-                   completed_at: DateTime.utc_now()
-                 },
-                 "run_completed",
-                 %{}
-               )
-    end)
-  end
+  defp terminalize_children!(children), do: FanoutReportFixture.complete_children!(children)
 
   defp enable_default_report_composer! do
     original_state = :sys.get_state(ReportComposer)

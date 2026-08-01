@@ -4,7 +4,7 @@ defmodule AllbertAssist.Channels.TUISubscriptionsTest do
   alias AllbertAssist.Channels.TUI.Subscriptions
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
-  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
+  alias AllbertAssist.TestSupport.FanoutReportFixture
   alias Jido.Signal
 
   test "renders only signals owned by the attached identity map" do
@@ -41,65 +41,43 @@ defmodule AllbertAssist.Channels.TUISubscriptionsTest do
     assert :ok = Subscriptions.unregister(nil)
   end
 
-  test "joined delivery is durable, result-bearing, and owned" do
-    assert {:ok, %{parent: parent, children: [completed, cancelled]}} =
-             Fanout.frame(
-               %{
-                 user_id: "alice",
-                 source_channel: "tui",
-                 source_thread_id: "thread-attached",
-                 title: "Attached results",
-                 objective: "Render the durable report"
-               },
-               ["completed task", "cancelled task"]
-             )
-
-    assert {:ok, _transition} =
-             TerminalTransitions.terminalize_child(
-               completed,
-               %{
-                 status: "completed",
-                 last_observation_summary: "completed result",
-                 completed_at: DateTime.utc_now()
-               },
-               "run_completed",
-               %{}
-             )
-
-    assert {:ok, _transition} =
-             TerminalTransitions.terminalize_child(
-               cancelled,
-               %{
-                 status: "cancelled",
-                 review_reason: "cancelled by operator",
-                 completed_at: DateTime.utc_now()
-               },
-               "run_cancelled",
-               %{}
-             )
-
-    select_report!(parent.id)
-
-    signal = Signal.new!("allbert.objectives.fanout.joined", %{parent_id: parent.id})
+  test "joined delivery preserves both layout-v2 selection bodies exactly" do
     identity_map = [%{"external_user_id" => "local", "user_id" => "alice", "enabled" => true}]
 
-    assert {:ok, delivery} = Subscriptions.delivery(signal, identity_map)
-    assert delivery.parent_id == parent.id
+    for source <- [:model, :fallback] do
+      selected =
+        FanoutReportFixture.selected_report!(source, %{
+          user_id: "alice",
+          source_channel: "tui",
+          source_surface: "tui",
+          source_thread_id: "thread-attached-#{source}"
+        })
 
-    assert delivery.lines == [
-             "[fan-out] fanout joined: Attached results",
-             Fanout.format_report(Fanout.report(parent))
-           ]
+      signal =
+        Signal.new!("allbert.objectives.fanout.joined", %{parent_id: selected.parent.id})
 
-    assert {:ok, recovered_without_signal} =
-             Subscriptions.pending_join_delivery(parent.id, identity_map, %{})
+      assert {:ok, delivery} = Subscriptions.delivery(signal, identity_map)
+      assert delivery.parent_id == selected.parent.id
 
-    assert recovered_without_signal == delivery
+      assert delivery.lines == [
+               "[fan-out] fanout joined: #{selected.parent.title}",
+               selected.report_body
+             ]
 
-    assert :ignore =
-             Subscriptions.delivery(signal, [
-               %{"external_user_id" => "local", "user_id" => "mallory", "enabled" => true}
-             ])
+      assert {:ok, recovered_without_signal} =
+               Subscriptions.pending_join_delivery(selected.parent.id, identity_map, %{})
+
+      assert recovered_without_signal == delivery
+
+      assert :ignore =
+               Subscriptions.delivery(signal, [
+                 %{
+                   "external_user_id" => "local",
+                   "user_id" => "mallory",
+                   "enabled" => true
+                 }
+               ])
+    end
   end
 
   test "same-user remote channels and other TUI profiles are not attached deliveries" do
@@ -110,30 +88,14 @@ defmodule AllbertAssist.Channels.TUISubscriptionsTest do
           {"telegram", "telegram:bot:test"},
           {"tui", "tui:other-profile"}
         ] do
-      assert {:ok, %{parent: parent, children: children}} =
-               Fanout.frame(
-                 %{
-                   user_id: "alice",
-                   source_channel: source_channel,
-                   source_thread_id: "thread-#{source_channel}",
-                   origin_receiver_account_ref: receiver_account_ref,
-                   title: "Other origin",
-                   objective: "Do not consume here"
-                 },
-                 ["one", "two"]
-               )
-
-      Enum.each(children, fn child ->
-        assert {:ok, _transition} =
-                 TerminalTransitions.terminalize_child(
-                   child,
-                   %{status: "completed", completed_at: DateTime.utc_now()},
-                   "run_completed",
-                   %{}
-                 )
-      end)
-
-      select_report!(parent.id)
+      %{parent: parent} =
+        FanoutReportFixture.selected_report!(:fallback, %{
+          user_id: "alice",
+          source_channel: source_channel,
+          source_surface: "channel",
+          source_thread_id: "thread-#{source_channel}",
+          origin_receiver_account_ref: receiver_account_ref
+        })
 
       signal = Signal.new!("allbert.objectives.fanout.joined", %{parent_id: parent.id})
       assert :ignore = Subscriptions.delivery(signal, identity_map, attachment)
@@ -144,19 +106,17 @@ defmodule AllbertAssist.Channels.TUISubscriptionsTest do
   test "attached lifecycle and report delivery require the active parent thread and session" do
     identity_map = [%{"external_user_id" => "local", "user_id" => "alice", "enabled" => true}]
 
-    assert {:ok, %{parent: parent, children: children}} =
-             Fanout.frame(
-               %{
-                 user_id: "alice",
-                 source_channel: "tui",
-                 source_thread_id: "origin-thread",
-                 session_id: "origin-session",
-                 origin_receiver_account_ref: "tui:default",
-                 title: "Scoped TUI fan-out",
-                 objective: "Stay in one attached session"
-               },
-               ["one", "two"]
-             )
+    frame =
+      FanoutReportFixture.frame!(%{
+        user_id: "alice",
+        source_channel: "tui",
+        source_surface: "tui",
+        source_thread_id: "origin-thread",
+        session_id: "origin-session",
+        origin_receiver_account_ref: "tui:default"
+      })
+
+    %{parent: parent, children: children} = frame
 
     wrong_attachment = %{
       channel: "tui",
@@ -174,17 +134,7 @@ defmodule AllbertAssist.Channels.TUISubscriptionsTest do
 
     assert :ignore = Subscriptions.delivery(child_signal, identity_map, wrong_attachment)
 
-    Enum.each(children, fn child ->
-      assert {:ok, _transition} =
-               TerminalTransitions.terminalize_child(
-                 child,
-                 %{status: "completed", completed_at: DateTime.utc_now()},
-                 "run_completed",
-                 %{}
-               )
-    end)
-
-    select_report!(parent.id)
+    FanoutReportFixture.complete_and_select!(frame, :fallback)
 
     joined = Signal.new!("allbert.objectives.fanout.joined", %{parent_id: parent.id})
     assert :ignore = Subscriptions.delivery(joined, identity_map, wrong_attachment)
@@ -200,18 +150,5 @@ defmodule AllbertAssist.Channels.TUISubscriptionsTest do
              Subscriptions.delivery(joined, identity_map, right_attachment)
 
     assert receipt == Fanout.receipt_for(:report, parent.id)
-  end
-
-  defp select_report!(parent_id) do
-    assert {:ok, %{parent: %{id: ^parent_id}, frozen: frozen} = claim} =
-             Fanout.claim_next_composition()
-
-    assert {:ok, _selected} =
-             Fanout.select_composition(
-               claim,
-               "deterministic_fallback",
-               frozen.fallback_body,
-               %{fallback_reason: "model_disabled"}
-             )
   end
 end

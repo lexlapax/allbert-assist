@@ -10,40 +10,44 @@ defmodule AllbertAssist.Actions.Conversations.PersistAttachedFanoutReportTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Conversations
   alias AllbertAssist.Objectives.Fanout
-  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Runtime
+  alias AllbertAssist.TestSupport.FanoutReportFixture
 
-  test "repeated persistence for one joined Web parent creates one canonical message" do
-    {:ok, thread} = Conversations.create_general_thread("local", "Fan-in origin")
-    %{parent: parent, children: children} = joined_web_fanout!(thread.id)
+  test "both layout-v2 selections persist their exact body once" do
+    for source <- [:model, :fallback] do
+      {:ok, thread} = Conversations.create_general_thread("local", "Fan-in origin #{source}")
 
-    params = %{thread_id: thread.id, parent_id: parent.id}
+      %{parent: parent, children: children, report_body: report_body} =
+        joined_web_fanout!(thread.id, source)
 
-    assert {:ok,
-            %{
-              status: :completed,
-              parent_id: parent_id,
-              canonical_message_id: message_id,
-              report_delivery_receipt: receipt,
-              delivery_context: %{channel: "live_view"},
-              acknowledgement_required?: true
-            }} = Runner.run("persist_attached_fanout_report", params, %{user_id: "local"})
+      params = %{thread_id: thread.id, parent_id: parent.id}
 
-    assert parent_id == parent.id
-    assert is_binary(message_id)
-    assert is_binary(receipt)
+      assert {:ok,
+              %{
+                status: :completed,
+                parent_id: parent_id,
+                canonical_message_id: message_id,
+                report_delivery_receipt: receipt,
+                delivery_context: %{channel: "live_view"},
+                acknowledgement_required?: true
+              }} = Runner.run("persist_attached_fanout_report", params, %{user_id: "local"})
 
-    assert {:ok, %{status: :completed, canonical_message_id: ^message_id}} =
-             Runner.run("persist_attached_fanout_report", params, %{user_id: "local"})
+      assert parent_id == parent.id
+      assert is_binary(message_id)
+      assert is_binary(receipt)
 
-    assert [message] = Conversations.list_messages(thread)
-    assert message.id == message_id
-    assert message.role == "assistant"
-    assert message.content == Fanout.format_report(Fanout.report(parent))
-    assert message.metadata["kind"] == "fanout_join_report"
-    assert message.metadata["parent_objective_id"] == parent.id
-    assert Fanout.parent_projection(parent).parent.report_delivery_state == "pending"
-    assert Enum.all?(children, &(&1.status == "open"))
+      assert {:ok, %{status: :completed, canonical_message_id: ^message_id}} =
+               Runner.run("persist_attached_fanout_report", params, %{user_id: "local"})
+
+      assert [message] = Conversations.list_messages(thread)
+      assert message.id == message_id
+      assert message.role == "assistant"
+      assert message.content == report_body
+      assert message.metadata["kind"] == "fanout_join_report"
+      assert message.metadata["parent_objective_id"] == parent.id
+      assert Fanout.parent_projection(parent).parent.report_delivery_state == "pending"
+      assert Enum.all?(children, &(&1.status == "completed"))
+    end
   end
 
   test "server-derived identity and origin thread prevent cross-owner or cross-thread writes" do
@@ -91,7 +95,7 @@ defmodule AllbertAssist.Actions.Conversations.PersistAttachedFanoutReportTest do
                %{user_id: "local"}
              )
 
-    %{parent: tui_parent} = joined_fanout!(thread.id, "tui", "TUI report")
+    %{parent: tui_parent} = joined_fanout!(thread.id, "tui")
 
     assert {:ok, %{status: :error, error: :not_attached_web_origin}} =
              Runner.run(
@@ -146,51 +150,16 @@ defmodule AllbertAssist.Actions.Conversations.PersistAttachedFanoutReportTest do
     assert Fanout.parent_projection(parent).parent.report_delivery_state == "pending"
   end
 
-  defp joined_web_fanout!(thread_id) do
-    joined_fanout!(thread_id, "live_view", "Canonical Web fan-in")
+  defp joined_web_fanout!(thread_id, source \\ :fallback) do
+    joined_fanout!(thread_id, "live_view", source)
   end
 
-  defp joined_fanout!(thread_id, channel, title) do
-    assert {:ok, %{parent: parent, children: children}} =
-             Fanout.frame(
-               %{
-                 user_id: "local",
-                 source_channel: channel,
-                 source_surface: "channel",
-                 source_thread_id: thread_id,
-                 title: title,
-                 objective: "Persist exactly once"
-               },
-               ["research", "draft"]
-             )
-
-    Enum.each(children, fn child ->
-      assert {:ok, _transition} =
-               TerminalTransitions.terminalize_child(
-                 child,
-                 %{
-                   status: "completed",
-                   last_observation_summary: "result #{child.queue_position}",
-                   completed_at: DateTime.utc_now()
-                 },
-                 "run_completed",
-                 %{}
-               )
-    end)
-
-    assert {:ok, %{parent: %{id: parent_id}, frozen: frozen} = claim} =
-             Fanout.claim_next_composition()
-
-    assert parent_id == parent.id
-
-    assert {:ok, _selected} =
-             Fanout.select_composition(
-               claim,
-               "deterministic_fallback",
-               frozen.fallback_body,
-               %{fallback_reason: "model_disabled"}
-             )
-
-    %{parent: parent, children: children}
+  defp joined_fanout!(thread_id, channel, source \\ :fallback) do
+    FanoutReportFixture.selected_report!(source, %{
+      user_id: "local",
+      source_channel: channel,
+      source_surface: "channel",
+      source_thread_id: thread_id
+    })
   end
 end
