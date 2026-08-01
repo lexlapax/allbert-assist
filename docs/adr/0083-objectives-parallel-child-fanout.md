@@ -26,7 +26,8 @@ The v1.3 M9.b.3 supplied-text amendment below narrows deterministic
 decomposition to explicit counted orchestration protocols. M9.b.4/M9.b.5 then
 supersede its interim Stage-0 model-classifier placement: the primary intent
 manager owns the advisory decision to propose parallel work, Objectives remains
-the durable authority, selected child runs may use bounded Jido.AI workers, and
+the durable authority, clean DirectAnswer children use bounded one-turn
+Jido.Agent-backed workers, and
 a durable main-model composition must finish before a report becomes pending.
 
 ## Context
@@ -230,9 +231,10 @@ model:
    not replace the existing action router: uncounted mixed/effectful compound
    work stays on the ordinary route, and the exact counted protocol remains the
    explicit force path for it.
-2. **An adaptive plan is typed, bounded, and inert.** A parallel proposal
-   contains only a version, plan source, and bounded ordered children with
-   title, objective, and expected result. The model cannot name an Allbert action,
+2. **An adaptive plan is typed, bounded, and inert.** The model proposal
+   contains only bounded ordered children with title, objective, and expected
+   result; the compiler, not the model, assigns plan version and source. The
+   model cannot name an Allbert action,
    agent module, permission, identity, confirmation result, worker
    implementation, dependency graph, or delivery route. The manager evaluates
    semantic independence, supplied-text ownership, full coverage, and material
@@ -267,13 +269,27 @@ model:
    registered action. A clean DirectAnswer child uses one temporary, bounded
    Jido worker which delegates to that same registered action, preserving its
    model resolution, disclosure, Active Memory, prompt envelope, redaction, and
-   failure policy rather than recreating a second prompt stack. It receives only
-   its compiled child, original request context, and explicit budgets. Every effect still
+   failure policy rather than recreating a second prompt stack. For an
+   unchanged digest-verified child, its bounded Allbert-authored task envelope
+   contains the child objective plus expected-result guidance; that guidance is
+   not action authority. The worker also receives only child-scoped original
+   request context and explicit budgets. Every effect still
    resolves through Registry and executes through Runner, Security Central,
    and confirmations. Effect selection is validated against the original
    operator text/source spans, never against model-authored child prose alone;
-   generated plans do not amplify authority. Agent-loop workers cannot spawn a
-   nested fan-out in v1.3.
+   generated plans do not amplify authority. Conversation-manager children are
+   DirectAnswer-only. Exact-counted children may select an action only from an
+   exact span of the digest-verified operator request. Selection and recovered
+   action/parameter validation for v1.3 children are deterministic and model-
+   off; legacy ordinary Objectives retain their existing model-assist behavior.
+   When a registered action normalizes a resumable confirmation packet, the
+   action-owned packet is canonically digested into the durable step when it is
+   parked. Approval and pre-Runner recovery both recheck that binding; they do
+   not require the normalized packet to equal the pre-confirmation input, and
+   they do not trust mutable confirmation YAML by itself.
+   Missing or inconsistent v1.3 provenance cannot be reclassified as legacy or
+   escape the frozen budget. The one-turn Jido worker has no iterative tool loop
+   and cannot spawn a nested fan-out in v1.3.
 6. **Terminal reduction precedes semantic composition, and composition precedes
    delivery.** The last terminal child transaction still freezes the complete
    child/result/status snapshot and parent join outcome, but it leaves
@@ -299,23 +315,33 @@ model:
    the stored report selected by this transition.
 8. **Automatic fan-out stays balanced and operator-visible.** Independent
    advisory/read-only work may start under the existing automatic rollout after
-   truthful kickoff custody. Effectful children encounter their ordinary
-   permission and confirmation rules; there is no new blanket fan-out
+   truthful kickoff custody. Uncounted effectful or mixed work stays on the
+   ordinary single-turn action route; the exact-counted protocol is the
+   explicit force path and still encounters each action's ordinary permission,
+   confirmation, and provider-use policy. There is no new blanket fan-out
    confirmation. Existing global/per-fan-out child caps are joined by bounded
-   per-plan model-call, iteration, token, and elapsed-time budgets resolved from
-   Settings Central. A failed admission or composition does not become an
+   fan-out-owned planning, selection, DirectAnswer, composition, retry, token,
+   and elapsed-time budgets resolved from Settings Central. A registered
+   action's own downstream provider work remains governed by that action's
+   existing budget and authority contract rather than an invented generic
+   model-call ledger. A failed admission or composition does not become an
    operator-facing clarification unless the existing overflow or action
    contract already requires one.
 
-The planning and composition Adapters initially reuse the qualified
-DirectAnswer task chain so one conversation model owns the split and the final
-answer. A future distinct task preference belongs in Settings Central and must
-be qualified before it becomes a default; it is not required merely to create
-another profile. This amendment creates no surface-private planner, worker,
-join, or report implementation: TUI, Web, DMs, CLI, and public protocols keep
-using the central Runtime/Objectives Interfaces.
+Manager planning runs inside the qualified DirectAnswer turn. Composition uses
+the separate closed `model_preferences.tasks.fanout_synthesis` task, initially
+configured to the same qualified profile so one conversation model owns both
+sides without coupling their task-chain policy. This amendment creates no
+surface-private planner, worker, join, or report implementation: TUI, Web, DMs,
+CLI, and public protocols keep using the central Runtime/Objectives Interfaces.
 
 ### M12.15 amendment — atomic terminal reduction and durable report work
+
+The M12.15 wording below records the pre-M9.b.5 transition. Where it says the
+last child moves report delivery directly to `pending`, the later accepted
+M9.b.5 amendment above supersedes it with composition `queued` plus delivery
+`not_ready`; only a stored composed or deterministic fallback report becomes
+delivery `pending`.
 
 The original Decisions 4 and 6 are refined as follows. This is a correction of
 their durability/reconstruction intent, not a new fan-out architecture or

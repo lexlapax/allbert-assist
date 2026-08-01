@@ -12,12 +12,15 @@ changelog entries or release notes.
 
 ## v1.3.0 - Long-Term Memory And Search Central
 
-Status: **release candidate assembly in progress.** The source implementation
-and portability remediation are complete; the final cumulative rejoin, one
-same-SHA three-target artifact generation, operator TUI/provider validation,
+Status: **release candidate remediation in progress.** The Memory/Search source
+implementation and portability remediation are complete. Adaptive fan-out
+M9.b.4 is implemented; M9.b.5 durable report composition, its focused operator
+qualification, the fresh full source validation, final cumulative rejoin, one
+same-SHA three-target artifact generation, packaged operator validation,
 protected publication, and tap closeout remain release barriers. This entry
-must not be read as a shipped-version claim until those barriers pass and the
-final tag, digests, and release identity are filled.
+must not be read as a shipped-
+version claim until those barriers pass and the final tag, digests, and release
+identity are filled.
 
 **Formula state: PRE-PUBLICATION ONLY.** The packaged Latest 1.2.6 remains in
 the repository formula during candidate qualification. At publish, the tap is
@@ -41,6 +44,13 @@ shipped 1.3.0 formula claim.
 - Existing Jobs owns visible managed Memory/Search ingestion, consolidation,
   repair, maintenance, and rebuild entries. Settings Central owns feature and
   source-class consent; routine authorized work does not repeatedly prompt.
+- Adaptive fan-out now uses one qualified conversational manager and a
+  deterministic, source-bound plan compiler instead of punctuation/list-shape
+  admission. Exact counted protocols converge on the same durable plan;
+  ordinary actions and bounded one-turn DirectAnswer Jido workers share one
+  Worker Interface, and confirmation resume packets are durably bound before
+  approval or recovery. Main-model report composition remains the M9.b.5
+  release barrier.
 - DirectAnswer now uses its own qualified local task profile
   (`direct_answer_local` / external Ollama `qwen2.5:7b`) while the global
   `local` starter remains `llama3.2:3b`. The purpose-owned, operator-ordered

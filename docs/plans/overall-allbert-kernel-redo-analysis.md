@@ -373,7 +373,8 @@ also makes 1.7 and 1.8 materially smaller releases than currently planned.
 ## 8. Jido — The Recommendation
 
 **Keep `Jido.Signal` and `Jido.Action`. Make `Jido.Agent` a pack-level choice.
-Drop `jido_ai`.**
+Retain `jido_ai` only for its proven specialist consumers until those owners
+are deliberately migrated or requalified.**
 
 Grounded in measured usage:
 
@@ -387,23 +388,25 @@ Grounded in measured usage:
   and `JidoBacked` (266 lines) already re-wraps its AgentServer plumbing. AGENTS.md
   already codifies a pragmatic "plain GenServer when Jido.Agent buys nothing"
   rule, and most state-bearing modules already are plain GenServers.
-  **Narrowed by [§12](#12-amendment--re-check-against-v13-m9b4m9b5-adaptive-fan-out):**
-  the primary intent manager stays a `Jido.Agent` and gains a private planning
-  command, so this applies to new state-bearing modules and to the Turn Engine
-  loop, not to the manager. The
-  proposal formalizes the existing reality: the Turn Engine should be an
+  The v1.3 M9.b.4 re-check in
+  [§12](#12-amendment--re-check-against-v13-m9b4m9b5-adaptive-fan-out)
+  does not narrow this recommendation: its `FanoutManager` is a stateless
+  Interface invoked inside the existing DirectAnswer turn, while its temporary
+  worker uses `Jido.Agent` for one bounded lifecycle. The proposal formalizes
+  the existing reality: the Turn Engine should be an
   explicit, plain, restartable OTP state machine with exactly one owner per
   resource. Given that 1.1 spent eight corrective rounds on resource-ownership
   faults and ended at `pool_size: 1`, deterministic single-ownership is worth
   more here than lifecycle hooks.
-- **`jido_ai`** — **this bullet is superseded by [§12](#12-amendment--re-check-against-v13-m9b4m9b5-adaptive-fan-out).**
-  Measured against committed sources it had two production call sites: model
+- **`jido_ai`** — Measured against committed sources it has two production call sites: model
   alias generation (`settings/provider_catalog.ex:124-131`) and dynamic-plugin
   codegen (`dynamic_plugins/codegen/llm.ex:49`, already guarded by
   `Code.ensure_loaded?/1`), against `ReqLLM` in 24 modules — which read as one
-  dependency and one refresh obligation per release for two call sites. The
-  v1.3 M9.b.4 `agent_loop` worker Adapter gives it a first substantive
-  consumer. **The recommendation to drop it is withdrawn.**
+  dependency and one refresh obligation per release for two call sites. v1.3
+  M9.b.4 adds no `jido_ai` call site, so it supplies no evidence either for
+  keeping or removing that dependency. Retain it for the StockSage and codegen
+  consumers that actually use it; remove it only when those owners have an
+  accepted replacement and focused parity evidence.
 
 Net against committed sources: the kernel loop stops inheriting a framework's
 supervision semantics at precisely the place with the most recorded production
@@ -507,30 +510,34 @@ revisions were uncommitted when this section was written and landed as
 
 The interim Stage-0 regex/classifier decomposer is replaced by four seams:
 
-1. The **primary intent manager** owns adaptive admission through a private
-   `propose_parallel_work` Jido command — not a registered action, intent
-   candidate, permission, or execution route.
-2. A **typed inert plan** plus a deterministic compiler validating grounding in
-   the original operator turn, independence, coverage, non-overlap, budgets, and
-   material parallel leverage, freezing a canonical plan digest on the parent
-   before any child exists.
-3. A **Worker Interface with two Adapters** — `action_once` (the existing
-   one-action Lifecycle) and `agent_loop` (a bounded, supervised `Jido.AI`
-   worker used only where iterative reasoning or tool use earns it). The
-   compiler, never the model, selects the kind.
+1. A stateless **`FanoutManager` Interface** owns adaptive admission inside the
+   existing registered DirectAnswer turn — it is not a Jido command, registered
+   action, intent candidate, permission, or execution route.
+2. A **typed inert `FanoutPlan`** plus a deterministic compiler validates the
+   closed schema, original-request binding, structural bounds, uniqueness, and
+   inert child fields. The model/rubric assesses independence, advisory/read-
+   only scope, supplied-text ownership, coverage, and material leverage; code
+   does not claim to prove prose semantics. Compact canonical provenance binds
+   the parent request and ordered durable child rows.
+3. A **Worker Interface with two Adapters** — `ActionAdapter` for the existing
+   registered-action Lifecycle and a one-turn `JidoAdapter` hosting the same
+   registered DirectAnswer action in a bounded temporary `Jido.Agent`. Resolved
+   registered action identity and original-request grounding select the
+   Adapter; neither the model nor the compiler can name it. v1.3 adds no worker
+   tool loop or `Jido.AI` call.
 4. **Durable report composition** after terminal reduction: the last terminal
    child freezes the child/result/receipt snapshot with
-   `report_composition_state=pending` and `report_delivery_state=not_ready`; a
+   `report_composition_state=queued` and `report_delivery_state=not_ready`; a
    recoverable composer may improve narrative only; a deterministic
    complete-child renderer is the stored fallback.
 
 ### 12.2 What still holds
 
-- **The four kernel lists (§1.3) are untouched.** Nothing in the revision edits
-  `Actions.Registry`, `Settings.Schema`, the gate task's list, or `Runtime`'s
-  subsystem aliases. The §1.5 diagnosis is unaffected.
+- **The kernel-list diagnosis (§1.3) is unchanged.** M9.b.4 additively extends
+  `Settings.Schema` with fan-out limits but does not invert ownership of that
+  list; it does not alter the Registry contribution model or gate ownership.
 - **It mildly reinforces the diagnosis.** M9.b.4/M9.b.5 add
-  `intent/parallel_work/{plan,compiler,manager}`, the worker Adapters, and
+  `intent/{fanout_manager,fanout_plan}`, the worker Adapters, and
   `objectives/fanout_report_composer` to the kernel tree, plus two more
   hand-maintained per-milestone test-file lane lists feeding the 10,117-line
   gate task. The kernel grows and the gate list grows.
@@ -541,20 +548,16 @@ The interim Stage-0 regex/classifier decomposer is replaced by four seams:
   concerns 5 (Turn Engine) and 7 (Spine), and none of it is pack-shaped. That is
   evidence for the split in §3.1 rather than against it.
 
-### 12.3 What is withdrawn
+### 12.3 What the implementation does not change
 
-**The recommendation to drop `jido_ai` (§8) is withdrawn.** It was measured
-correctly against committed sources — two production call sites against
-`ReqLLM`'s 24 — but the M9.b.4 `agent_loop` Adapter is a genuine first consumer,
-and a bounded iterative reasoning-and-tool loop is the case the library exists
-to serve. The dependency should be kept.
+**M9.b.4 does not decide the `jido_ai` dependency question.** Its manager uses
+ReqLLM inside a stateless Interface and its worker uses plain `Jido.Agent` for a
+single registered DirectAnswer call. The two pre-existing StockSage/codegen
+consumers remain the evidence for any keep/remove decision.
 
-**The "Jido.Agent as a pack-level choice" recommendation is narrowed.** The
-primary intent manager remains a `Jido.Agent` and gains a private planning
-command; that is the established "private Jido command modules are not Allbert
-capability actions" pattern and it is the right home for manager planning. The
-recommendation now applies to *new* state-bearing modules and to the Turn Engine
-loop itself, not to the manager.
+**The "Jido.Agent as a pack-level choice" recommendation is not narrowed.** A
+one-turn temporary worker is exactly a pragmatic lifecycle use; the stateless
+manager is not an Agent and owns no process state.
 
 The principle underneath both — that framework process state is never durable
 authority — is unchanged and is now **normative rather than proposed**. ADR 0083
@@ -574,7 +577,7 @@ providers. M9.b.4/M9.b.5 ships two Adapters for three seams simultaneously:
 | Seam | Adapter A | Adapter B |
 | --- | --- | --- |
 | Plan | manager model proposal | exact counted offline protocol |
-| Worker | `action_once` Lifecycle | `agent_loop` bounded Jido.AI worker |
+| Worker | registered-action `ActionAdapter` | one-turn DirectAnswer `JidoAdapter` |
 | Report | main-model composition | deterministic complete-child fallback |
 
 Once those land and their focused qualification is accepted, §A22's condition is
@@ -599,11 +602,12 @@ wording.
 
 ### 12.6 Net effect on this amendment
 
-No phase is added, removed, or resequenced. One dependency recommendation is
-withdrawn, one is narrowed, the phase 6 risk estimate improves, and the §1.5
-diagnosis is unchanged. The five open decisions in §11 stood as written at the
-time of this amendment; [§13](#13-resolved-recommendation--decided-structure-tiers-and-sequencing)
-subsequently resolves all of them.
+No phase is added, removed, or resequenced. M9.b.4 does not change the
+dependency or pragmatic-Agent recommendations; it makes three candidate seams
+concrete, improves the phase 6 risk estimate, and leaves the §1.5 diagnosis
+unchanged. The five open decisions in §11 stood as written at the time of this
+amendment; [§13](#13-resolved-recommendation--decided-structure-tiers-and-sequencing)
+subsequently resolves them and records the current `jido_ai` disposition.
 
 ---
 
@@ -668,6 +672,7 @@ Two supporting measurements:
 | 8 | Fate of the `plugins/` directory | **Retires; each becomes `apps/allbert_<name>`** | Data staging moves to each application's `priv/`, which OTP releases handle natively — removing the custom `stage_plugins` release step. `<ALLBERT_HOME>/plugins` remains the `:declared` tier, renamed `packs`, with `plugins` retained as a compatibility scan path. |
 | 9 | StockSage | **`apps/allbert_stocksage`** | Whether it ships in the default artifact becomes a one-line release-manifest choice rather than an architectural fact. |
 | 10 | Does this become an ADR | **Yes, one** — pack contract, kernel application boundary, and tier model | It constrains future design, which is this project's stated ADR trigger. Amends ADR 0017 and ADR 0031; supersedes neither. |
+| 11 | `jido_ai` disposition | **Retain only for current StockSage/codegen consumers; M9.b.4 does not expand its role** | Removing a live dependency without owner migration is not additive; using M9.b.4 to justify it would be factually wrong because that milestone uses ReqLLM plus plain `Jido.Agent`. |
 
 ### 13.3 Sequencing
 

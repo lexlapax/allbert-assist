@@ -89,8 +89,25 @@ silently retried.
 
 ## Background Fan-Out And Steering
 
-An eligible multi-part request can return a kickoff receipt listing its child
-tasks. Child execution begins only after that receipt has been delivered or
+An eligible multi-part advisory/read-only request can return a kickoff receipt
+listing its child tasks. On the ordinary conversational route, Allbert's
+qualified manager model applies the same documented rules used by operator
+qualification: the tasks must be independent, concurrently useful, fully cover
+the outer request, and treat quoted/pasted/list content as data. Dependent,
+ambiguous, effectful, mixed, or explicitly unsplit work remains one turn. A
+manager failure preserves its useful same-call answer and creates no partial
+Objective tree.
+
+Two exact operator protocols remain a model-independent force path:
+`Do N things: ... . Work on them in parallel and report back.` and
+`Do these N tasks in parallel: ...; ...`. Their declared count must match a
+complete distinct task list. A malformed, partial, or mismatched protocol stays
+one manager-off turn and creates no parent or child. Counted effectful tasks do
+not gain authority: each action still passes Registry, Runner, Security Central,
+and its normal confirmation contract. Manager-authored children are
+DirectAnswer-only; they cannot turn generated prose into an effect.
+
+Child execution begins only after the kickoff receipt has been delivered or
 durably recorded. The children then run concurrently within Settings Central's
 global and per-fan-out bounds, and the final report lists every child as
 completed, failed, abandoned, or cancelled—partial success is never presented as
@@ -126,13 +143,20 @@ Relevant Settings Central keys and shipped defaults:
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `objectives.fanout.enabled` | `true` | Enable the shared fan-out runtime. |
-| `objectives.fanout.rollout_mode` | `automatic` | `explicit`, `shadow`, or broad automatic decomposition. |
+| `objectives.fanout.rollout_mode` | `automatic` | `explicit`, `shadow`, or rules-derived automatic advisory planning. |
 | `objectives.fanout.max_concurrent_runs_per_fanout` | `3` | Fair per-parent running-child bound. |
 | `objectives.fanout.max_concurrent_runs_global` | `6` | Runtime-wide running-child bound. |
 | `objectives.fanout.max_children_per_fanout` | `8` | Decomposition ceiling (allowed 2–16). |
 | `objectives.fanout.confirm_before_start` | `false` | Require an explicit start confirmation in addition to kickoff delivery. |
+| `objectives.fanout.max_model_calls_per_plan` | `40` | Structural ceiling for fan-out-owned manager, DirectAnswer-worker, and composer calls (allowed 1–256); child action selection is deterministic/model-off. |
+| `objectives.fanout.max_output_tokens_per_plan` | `24000` | Structural output-token ceiling for those fan-out-owned calls (allowed 1,024–1,000,000). |
+| `objectives.fanout.max_elapsed_ms_per_plan` | `300000` | Frozen plan window in milliseconds (allowed 1,000–3,600,000). It is a dispatch boundary for ordinary actions and a hard execution bound for the read-only Jido worker. |
+| `objectives.fanout.max_worker_attempts_per_child` | `2` | Frozen child-attempt ceiling consumed by Coordinator recovery (allowed 1–4). |
 
-These knobs change scheduling or friction, not action authority. Inspect them
+These knobs change scheduling, resource limits, or friction, not action
+authority. Registered actions retain their own provider-use budgets; the
+fan-out layer does not count arbitrary provider calls hidden inside an action.
+Inspect the settings
 with `allbert admin settings get <key>` (or `mix allbert.settings get <key>` in
 a checkout) and change them only through Settings Central.
 

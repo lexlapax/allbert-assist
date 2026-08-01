@@ -73,6 +73,12 @@ second best-effort join path. Delegate agents must not create their own durable
 fan-out loop, acknowledge a kickoff/report receipt, or deliver channel reports
 directly.
 
+v1.3 adaptive fan-out's temporary `Objectives.Runs.Worker.JidoAdapter` is not a
+delegate-agent registry entry. Its private one-turn Jido command exists only to
+own cancellation and timeout around the registered DirectAnswer action; it has
+no public command id, iterative tool loop, or durable agent state. Do not add it
+to `AgentRegistry` or treat it as a template for model-selected delegation.
+
 ## Objective Step Shape
 
 Workflow YAML and Plan/Build delegate steps use the v0.44 nested action

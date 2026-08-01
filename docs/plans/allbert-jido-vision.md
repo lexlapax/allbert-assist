@@ -205,8 +205,11 @@ A temporary bounded Jido worker sits at the clean DirectAnswer execution Seam
 and delegates through that registered action; the ordinary Lifecycle action
 path remains the other Adapter. This keeps locality in Objectives, preserves
 DirectAnswer's qualified policy stack, and avoids a second agent-owned durable
-graph. Jido process parentage, directives, and awaits are live execution aids,
-not persisted authority.
+graph. Conversation-manager children are DirectAnswer-only. Exact-counted
+children may select another registered action only from an exact span of the
+digest-verified operator request; legacy ordinary Objectives keep their
+existing behavior. Jido process parentage, directives, and awaits are live
+execution aids, not persisted authority.
 
 Fan-in follows the same split. Code first freezes the durable result envelopes
 and join outcome. The qualified main conversation model may then synthesize a

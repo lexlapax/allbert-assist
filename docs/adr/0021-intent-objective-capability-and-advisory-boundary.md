@@ -818,8 +818,12 @@ a model-independent Adapter to the same compiler.
 Each compiled child remains an Objective. A normal Lifecycle Adapter executes
 a validated non-DirectAnswer action; a temporary bounded Jido worker delegates
 a clean conversational child to the same registered DirectAnswer action so its
-existing policy stack remains authoritative. In both cases, model-authored child prose is advisory. Effect selection
-must retain evidence from the original operator turn, and every effect still
+existing policy stack remains authoritative. Conversation-manager children are
+DirectAnswer-only. An exact-counted child may select a registered action only
+when its task is an exact span of the digest-verified operator request; legacy
+ordinary Objectives preserve their existing behavior. In every case,
+model-authored child prose is advisory. Effect selection must retain evidence
+from the original operator turn, and every effect still
 resolves through `Actions.Registry`, executes through `Actions.Runner.run/3`,
 and reaches Security Central and confirmations. A Jido worker's process,
 parentage, state, output, or successful tool call is never durable authority.
