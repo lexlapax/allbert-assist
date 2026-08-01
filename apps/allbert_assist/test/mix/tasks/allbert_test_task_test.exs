@@ -7,6 +7,9 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
   alias AllbertAssist.DevGates.PhaseRunner
   alias Mix.Tasks.Allbert.Test, as: AllbertTestTask
 
+  @v13_fanout_fixture Path.expand("../../fixtures/v1.3/fanout_real_model_eval.json", __DIR__)
+  @v13_worker_fixture Path.expand("../../fixtures/v1.3/fanout_worker_quality_eval.json", __DIR__)
+
   setup do
     original_runner = Application.get_env(:allbert_assist, :gate_command_runner)
     original_evidence_root = Application.get_env(:allbert_assist, :gate_evidence_root)
@@ -281,6 +284,44 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
       end
 
     assert error.message == "fan-out worker fixture does not exist: #{explicit}"
+  end
+
+  test "v1.3 fan-out benchmark validates fixture schema and digest before allocating a Home" do
+    root = temp_path("v13-fanout-preflight")
+    invalid_manager = Path.join(root, "invalid-manager.json")
+    changed_worker = Path.join(root, "changed-worker.json")
+    File.mkdir_p!(root)
+    File.write!(invalid_manager, "{}")
+
+    worker = @v13_worker_fixture |> File.read!() |> Jason.decode!()
+    changed_worker_fixture = update_in(worker, ["scenarios", Access.at(0), "draft"], &(&1 <> " "))
+    File.write!(changed_worker, Jason.encode!(changed_worker_fixture))
+    on_exit(fn -> File.rm_rf!(root) end)
+
+    gate_glob = Path.join([System.tmp_dir!(), "allbert_test_gates", "bench-v13-fanout", "*"])
+    before_roots = MapSet.new(Path.wildcard(gate_glob))
+
+    assert_raise RuntimeError, "invalid v1.3 fan-out fixture", fn ->
+      AllbertTestTask.run([
+        "bench-v13-fanout",
+        "--fixture",
+        invalid_manager,
+        "--worker-fixture",
+        @v13_worker_fixture
+      ])
+    end
+
+    assert_raise RuntimeError, "invalid v1.3 fan-out worker-quality fixture digest", fn ->
+      AllbertTestTask.run([
+        "bench-v13-fanout",
+        "--fixture",
+        @v13_fanout_fixture,
+        "--worker-fixture",
+        changed_worker
+      ])
+    end
+
+    assert MapSet.new(Path.wildcard(gate_glob)) == before_roots
   end
 
   test "commit gate mixed changes still run focused commit phases" do

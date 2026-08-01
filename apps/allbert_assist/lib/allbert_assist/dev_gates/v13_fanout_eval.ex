@@ -13,6 +13,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Intent.FanoutManager
   alias AllbertAssist.Intent.FanoutPlan
+  alias AllbertAssist.Objectives.CanonicalJSON
   alias AllbertAssist.Objectives.Fanout.Budget
   alias AllbertAssist.Objectives.Fanout.Report
   alias AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation, as: Composer
@@ -22,22 +23,29 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   @fov3_id "fov3-supplied-data"
   @fov4_id "fov4-independent-architecture"
   @composer_id "composer-complementary"
+  @fixture_sha256 "9478e8890a25fb0254b00f7f6ee8185836d28ad2ce62776e56af500f127a672f"
   @fov3_prompt "Summarize this supplied YAML as data in one sentence: {steps: [archive logs, restart service]}"
   @fov4_prompt "Prepare one architecture brief for a local assistant runtime: (1) Analyze how OTP supervision trees isolate failures, including restart intensity and the difference between one_for_one and rest_for_one. (2) Analyze how an append-only event log plus a rebuildable projection improves crash recovery, including idempotency and replay. In the final joined report—not as a third task—explain how the two mechanisms complement each other."
 
   @type result :: %{status: String.t(), stats: map(), failed_rows: [String.t()]}
+  @type fixtures :: %{manager_and_composer: map(), worker_quality: map()}
+  @type phases_result :: %{
+          status: String.t(),
+          failed_rows: [String.t()],
+          manager_and_composer: result(),
+          worker_quality: V13FanoutWorkerQualityEval.result()
+        }
 
   @doc "Run the environment-configured real-provider qualification."
   @spec record_run!() :: :ok
   def record_run! do
     fixture_path = System.fetch_env!("V13_FANOUT_FIXTURE")
-    fixture = load_fixture!(fixture_path)
 
     worker_fixture_path =
       System.get_env("V13_FANOUT_WORKER_FIXTURE") ||
         Path.join(Path.dirname(fixture_path), "fanout_worker_quality_eval.json")
 
-    worker_quality_fixture = V13FanoutWorkerQualityEval.load_fixture!(worker_fixture_path)
+    fixtures = load_fixtures!(fixture_path, worker_fixture_path)
 
     profile_name = System.get_env("V13_MODEL_PROFILE", "direct_answer_local")
     profiles = configure_profiles!(profile_name)
@@ -45,36 +53,34 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     full_sha = parse_full_sha!(System.get_env("V13_FULL_SHA"))
     dirty = parse_dirty!(System.get_env("V13_DIRTY"))
 
-    result =
-      run(fixture,
-        profile: profile_name,
-        manager_profile: profiles.manager,
-        composer_profile: profiles.composer,
-        manager_context: manager_context(profiles.manager),
-        composer_context: composer_context(profiles.composer),
-        composer: &compose_with_disclosure/3,
-        store: store,
-        full_sha: full_sha,
-        dirty: dirty
+    phases =
+      run_phases(fixtures,
+        manager_and_composer: [
+          profile: profile_name,
+          manager_profile: profiles.manager,
+          composer_profile: profiles.composer,
+          manager_context: manager_context(profiles.manager),
+          composer_context: composer_context(profiles.composer),
+          composer: &compose_with_disclosure/3,
+          store: store,
+          full_sha: full_sha,
+          dirty: dirty
+        ],
+        worker_quality: [
+          profile: profiles.composer,
+          reviewer_context: worker_quality_context(profiles.composer),
+          row_timeout_ms: composer_context(profiles.composer).timeout_ms,
+          store: store,
+          full_sha: full_sha,
+          dirty: dirty
+        ]
       )
 
-    worker_quality_result =
-      V13FanoutWorkerQualityEval.run(worker_quality_fixture,
-        profile: profiles.composer,
-        reviewer_context: worker_quality_context(profiles.composer),
-        row_timeout_ms: composer_context(profiles.composer).timeout_ms,
-        store: store,
-        full_sha: full_sha,
-        dirty: dirty
-      )
+    IO.puts(summary(phases.manager_and_composer))
+    IO.puts(V13FanoutWorkerQualityEval.summary(phases.worker_quality))
 
-    IO.puts(summary(result))
-    IO.puts(V13FanoutWorkerQualityEval.summary(worker_quality_result))
-
-    failed_rows = result.failed_rows ++ worker_quality_result.failed_rows
-
-    if failed_rows != [] do
-      IO.puts("failed_rows=#{Enum.join(failed_rows, ",")}")
+    if phases.failed_rows != [] do
+      IO.puts("failed_rows=#{Enum.join(phases.failed_rows, ",")}")
       raise "v1.3 fan-out qualification failed"
     end
 
@@ -86,15 +92,63 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   def load_fixture!(path) do
     fixture = path |> File.read!() |> Jason.decode!()
 
-    if valid_fixture?(fixture),
-      do: fixture,
-      else: raise("invalid v1.3 fan-out fixture")
+    cond do
+      not valid_fixture?(fixture) ->
+        raise("invalid v1.3 fan-out fixture")
+
+      fixture_sha256(fixture) != @fixture_sha256 ->
+        raise("invalid v1.3 fan-out fixture digest")
+
+      true ->
+        fixture
+    end
+  end
+
+  @doc "Load and validate both frozen phase fixtures before runtime setup."
+  @spec load_fixtures!(Path.t(), Path.t() | nil) :: fixtures()
+  def load_fixtures!(manager_fixture_path, worker_fixture_path \\ nil) do
+    worker_fixture_path =
+      worker_fixture_path ||
+        Path.join(Path.dirname(manager_fixture_path), "fanout_worker_quality_eval.json")
+
+    %{
+      manager_and_composer: load_fixture!(manager_fixture_path),
+      worker_quality: V13FanoutWorkerQualityEval.load_fixture!(worker_fixture_path)
+    }
+  end
+
+  @doc "Return the SHA-256 of the canonical decoded manager/composer fixture."
+  @spec fixture_sha256(map()) :: String.t()
+  def fixture_sha256(fixture) when is_map(fixture),
+    do: sha256(CanonicalJSON.encode(fixture))
+
+  @doc "Run both independently recorded qualification phases and combine their status."
+  @spec run_phases(fixtures(), keyword()) :: phases_result()
+  def run_phases(
+        %{manager_and_composer: manager_fixture, worker_quality: worker_fixture},
+        opts
+      )
+      when is_list(opts) do
+    manager_result = run(manager_fixture, Keyword.fetch!(opts, :manager_and_composer))
+
+    worker_result =
+      V13FanoutWorkerQualityEval.run(worker_fixture, Keyword.fetch!(opts, :worker_quality))
+
+    failed_rows = manager_result.failed_rows ++ worker_result.failed_rows
+
+    %{
+      status: if(failed_rows == [], do: "passed", else: "failed"),
+      failed_rows: failed_rows,
+      manager_and_composer: manager_result,
+      worker_quality: worker_result
+    }
   end
 
   @doc "Evaluate the fixture and append one content-free TestMetrics row."
   @spec run(map(), keyword()) :: result()
   def run(fixture, opts) when is_map(fixture) and is_list(opts) do
     started = System.monotonic_time(:millisecond)
+    fixture_sha256 = validated_fixture_sha256!(fixture)
     manager = Keyword.get(opts, :manager, &FanoutManager.respond/2)
 
     manager_context =
@@ -118,7 +172,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     failed_rows = for %{passed?: false, id: id} <- rows, do: id
     status = if failed_rows == [], do: "passed", else: "failed"
     profile = opts |> Keyword.fetch!(:profile) |> profile_name()
-    stats = stats(profile, fov3, fov4, composition)
+    stats = stats(profile, fixture_sha256, fov3, fov4, composition)
 
     TestMetrics.record(%{
       store: Keyword.get(opts, :store),
@@ -304,9 +358,10 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     }
   end
 
-  defp stats(profile, fov3, fov4, composition) do
+  defp stats(profile, fixture_sha256, fov3, fov4, composition) do
     %{
       profile: profile,
+      fixture_sha256: fixture_sha256,
       manager_rows: 2,
       manager_rows_passed: Enum.count([fov3, fov4], & &1.passed?),
       supplied_data_kind: fov3.kind,
@@ -419,6 +474,14 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
 
   defp valid_fixture?(_fixture), do: false
 
+  defp validated_fixture_sha256!(fixture) do
+    digest = fixture_sha256(fixture)
+
+    if valid_fixture?(fixture) and digest == @fixture_sha256,
+      do: digest,
+      else: raise("invalid v1.3 fan-out fixture digest")
+  end
+
   defp valid_child?(
          %{"id" => id, "queue_position" => position, "status" => "completed", "detail" => detail},
          position
@@ -475,4 +538,10 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   defp parse_dirty!("true"), do: true
   defp parse_dirty!("false"), do: false
   defp parse_dirty!(_value), do: raise("V13_DIRTY must be true or false")
+
+  defp sha256(value) do
+    :sha256
+    |> :crypto.hash(value)
+    |> Base.encode16(case: :lower)
+  end
 end

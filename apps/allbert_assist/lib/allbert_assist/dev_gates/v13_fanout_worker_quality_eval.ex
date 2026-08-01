@@ -20,6 +20,7 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
   """
 
   alias AllbertAssist.DevGates.TestMetrics
+  alias AllbertAssist.Objectives.CanonicalJSON
   alias AllbertAssist.Objectives.Runs.Worker.{QualityPolicy, ReqLLMReviewer}
 
   @scenario_ids [
@@ -30,6 +31,7 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
     "unrelated-domain-accepted"
   ]
   @corpus_id "v13-fanout-worker-quality-real-model-v1"
+  @fixture_sha256 "7ed03c9e828492bcb6460ca7a540ffeffaf52a31b4139dbc0cb1f12829140b9b"
   @safe_identifier ~r/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/
   @fixture_keys ~w[schema_version corpus_id scenarios]
   @scenario_keys ~w[id task draft expected]
@@ -57,15 +59,28 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
   def load_fixture!(path) do
     fixture = path |> File.read!() |> Jason.decode!()
 
-    if valid_fixture?(fixture),
-      do: fixture,
-      else: raise("invalid v1.3 fan-out worker-quality fixture")
+    cond do
+      not valid_fixture?(fixture) ->
+        raise("invalid v1.3 fan-out worker-quality fixture")
+
+      fixture_sha256(fixture) != @fixture_sha256 ->
+        raise("invalid v1.3 fan-out worker-quality fixture digest")
+
+      true ->
+        fixture
+    end
   end
+
+  @doc "Return the SHA-256 of the canonical decoded worker-quality fixture."
+  @spec fixture_sha256(map()) :: String.t()
+  def fixture_sha256(fixture) when is_map(fixture),
+    do: sha256(CanonicalJSON.encode(fixture))
 
   @doc "Evaluate the matrix and append one content-free phase record."
   @spec run(map(), keyword()) :: result()
   def run(fixture, opts) when is_map(fixture) and is_list(opts) do
     started = System.monotonic_time(:millisecond)
+    fixture_sha256 = validated_fixture_sha256!(fixture)
     reviewer = Keyword.get(opts, :reviewer, ReqLLMReviewer)
     reviewer_context = Keyword.get(opts, :reviewer_context, %{})
     row_timeout_ms = bounded_row_timeout(Keyword.get(opts, :row_timeout_ms))
@@ -78,7 +93,7 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
     failed_rows = for %{passed?: false, id: id} <- rows, do: id
     status = if failed_rows == [], do: "passed", else: "failed"
     profile = opts |> Keyword.fetch!(:profile) |> profile_name()
-    stats = stats(profile, rows)
+    stats = stats(profile, fixture_sha256, fixture["scenarios"], rows)
 
     TestMetrics.record(%{
       store: Keyword.get(opts, :store),
@@ -109,18 +124,30 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
   end
 
   defp evaluate_scenario(scenario, reviewer, base_context, row_timeout_ms) do
-    context = scenario_context(base_context, scenario["id"], row_timeout_ms)
+    row_deadline_monotonic_ms = System.monotonic_time(:millisecond) + row_timeout_ms
+
+    context =
+      scenario_context(base_context, scenario["id"], row_timeout_ms, row_deadline_monotonic_ms)
 
     with {:ok, contract} <- quality_contract(scenario),
-         {:ok, prepared} <- safe_prepare(reviewer, contract, scenario["draft"], context) do
-      evaluate_invoked(scenario, reviewer, prepared, context, row_timeout_ms)
+         {:ok, prepared} <-
+           call_before_deadline(
+             fn -> safe_prepare(reviewer, contract, scenario["draft"], context) end,
+             row_deadline_monotonic_ms,
+             :reviewer_prepare_timeout
+           ) do
+      evaluate_invoked(scenario, reviewer, prepared, context, row_deadline_monotonic_ms)
     else
       _prepare_failure -> invalid_row(scenario["id"], 1)
     end
   end
 
-  defp evaluate_invoked(scenario, reviewer, prepared, context, row_timeout_ms) do
-    case invoke_with_timeout(reviewer, prepared, context, row_timeout_ms) do
+  defp evaluate_invoked(scenario, reviewer, prepared, context, row_deadline_monotonic_ms) do
+    case call_before_deadline(
+           fn -> safe_invoke(reviewer, prepared, context) end,
+           row_deadline_monotonic_ms,
+           :reviewer_invoke_timeout
+         ) do
       {:ok, reviewed} ->
         case closed_review(reviewed, prepared) do
           {:ok, evidence} -> reviewed_row(scenario, evidence)
@@ -240,23 +267,30 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
     _kind, _reason -> {:error, :reviewer_invoke_failed}
   end
 
-  defp invoke_with_timeout(reviewer, prepared, context, row_timeout_ms) do
-    task = Task.async(fn -> safe_invoke(reviewer, prepared, context) end)
+  defp call_before_deadline(callback, deadline_monotonic_ms, timeout_reason) do
+    remaining_ms = deadline_monotonic_ms - System.monotonic_time(:millisecond)
 
-    case Task.yield(task, row_timeout_ms) do
-      {:ok, result} ->
-        result
+    if remaining_ms > 0 do
+      task = Task.async(callback)
 
-      {:exit, _reason} ->
-        {:error, :reviewer_invoke_failed}
+      case Task.yield(task, remaining_ms) do
+        {:ok, result} ->
+          result
 
-      nil ->
-        _ = Task.shutdown(task, :brutal_kill)
-        {:error, :reviewer_invoke_timeout}
+        {:exit, _reason} ->
+          {:error, :reviewer_task_failed}
+
+        nil ->
+          _ = Task.shutdown(task, :brutal_kill)
+          {:error, timeout_reason}
+      end
+    else
+      {:error, timeout_reason}
     end
   end
 
-  defp scenario_context(base, case_id, row_timeout_ms) when is_map(base) do
+  defp scenario_context(base, case_id, row_timeout_ms, deadline_monotonic_ms)
+       when is_map(base) do
     base
     |> Map.put(:quality_eval_case_id, case_id)
     |> Map.put(
@@ -265,14 +299,19 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
     )
     |> Map.put(
       :fanout_worker_deadline_monotonic_ms,
-      System.monotonic_time(:millisecond) + row_timeout_ms
+      deadline_monotonic_ms
     )
     |> Map.put(:model_max_output_tokens, 512)
   end
 
-  defp stats(profile, rows) do
+  defp stats(profile, fixture_sha256, scenarios, rows) do
+    scenario_rows = Enum.zip(scenarios, rows)
+    required_change_rows = count_change_rows(scenario_rows, "required", nil)
+    required_change_rows_changed = count_change_rows(scenario_rows, "required", true)
+
     %{
       profile: profile,
+      fixture_sha256: fixture_sha256,
       worker_quality_rows: length(rows),
       worker_quality_rows_passed: Enum.count(rows, & &1.passed?),
       accepted_rows: Enum.count(rows, &(&1.verdict == "accepted")),
@@ -280,10 +319,29 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
       protocol_provider_call_count: Enum.sum(Enum.map(rows, & &1.provider_call_count)),
       configured_reviewer_invocation_count:
         Enum.sum(Enum.map(rows, & &1.configured_reviewer_invocation_count)),
+      required_change_rows: required_change_rows,
+      required_change_rows_changed: required_change_rows_changed,
+      optional_change_rows_changed: count_change_rows(scenario_rows, "allowed", true),
+      required_changes_closed: required_change_rows_changed == required_change_rows,
       rule_catalog_version: 1,
       rule_count: length(QualityPolicy.rule_ids()),
       rule_evidence_closed: Enum.all?(rows, & &1.rule_evidence_closed)
     }
+  end
+
+  defp count_change_rows(scenario_rows, requirement, changed?) do
+    Enum.count(scenario_rows, fn {scenario, row} ->
+      scenario["expected"]["answer_change"] == requirement and
+        (is_nil(changed?) or row.answer_changed == changed?)
+    end)
+  end
+
+  defp validated_fixture_sha256!(fixture) do
+    digest = fixture_sha256(fixture)
+
+    if valid_fixture?(fixture) and digest == @fixture_sha256,
+      do: digest,
+      else: raise("invalid v1.3 fan-out worker-quality fixture digest")
   end
 
   defp valid_fixture?(fixture) do
@@ -349,4 +407,10 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
   end
 
   defp sha256?(_value), do: false
+
+  defp sha256(value) do
+    :sha256
+    |> :crypto.hash(value)
+    |> Base.encode16(case: :lower)
+  end
 end

@@ -1080,6 +1080,9 @@ defmodule Mix.Tasks.Allbert.Test do
     if !File.regular?(worker_fixture),
       do: Mix.raise("fan-out worker fixture does not exist: #{worker_fixture}")
 
+    _fixtures =
+      AllbertAssist.DevGates.V13FanoutEval.load_fixtures!(fixture, worker_fixture)
+
     validate_new_output!(output)
 
     {full_sha, dirty?} = v13_benchmark_provenance!()

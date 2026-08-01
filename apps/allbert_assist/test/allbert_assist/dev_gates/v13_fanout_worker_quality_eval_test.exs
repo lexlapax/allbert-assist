@@ -6,6 +6,7 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEvalTest do
   alias AllbertAssist.Objectives.Runs.Worker.QualityPolicy
 
   @fixture Path.expand("../../fixtures/v1.3/fanout_worker_quality_eval.json", __DIR__)
+  @fixture_sha256 "7ed03c9e828492bcb6460ca7a540ffeffaf52a31b4139dbc0cb1f12829140b9b"
   @full_sha String.duplicate("a", 40)
   @profile %{
     name: "direct_answer_local",
@@ -194,6 +195,27 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEvalTest do
     end
   end
 
+  defmodule SlowPrepareReviewer do
+    @config_digest String.duplicate("3", 64)
+
+    def prepare(contract, draft, context) do
+      send(context.test_pid, {:slow_prepare_started, context.quality_eval_case_id})
+      Process.sleep(100)
+
+      {:ok,
+       %{
+         contract: contract,
+         draft: draft,
+         reviewer_config_sha256: @config_digest
+       }}
+    end
+
+    def invoke(_prepared, context) do
+      send(context.test_pid, {:invoke_after_slow_prepare, context.quality_eval_case_id})
+      {:error, :must_not_invoke_after_prepare_timeout}
+    end
+  end
+
   defmodule PrepareFailureReviewer do
     def prepare(_contract, _draft, _context), do: {:error, :transport_denied}
     def invoke(_prepared, _context), do: raise("must not invoke after prepare failure")
@@ -230,6 +252,11 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEvalTest do
              unresolved_rows: 1,
              protocol_provider_call_count: 10,
              configured_reviewer_invocation_count: 5,
+             fixture_sha256: @fixture_sha256,
+             required_change_rows: 2,
+             required_change_rows_changed: 2,
+             optional_change_rows_changed: 0,
+             required_changes_closed: true,
              rule_catalog_version: 1,
              rule_count: length(QualityPolicy.rule_ids()),
              rule_evidence_closed: true
@@ -268,6 +295,11 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEvalTest do
     assert record["dirty"] == false
     assert record["stats"]["protocol_provider_call_count"] == 10
     assert record["stats"]["configured_reviewer_invocation_count"] == 5
+    assert record["stats"]["fixture_sha256"] == @fixture_sha256
+    assert record["stats"]["required_change_rows"] == 2
+    assert record["stats"]["required_change_rows_changed"] == 2
+    assert record["stats"]["optional_change_rows_changed"] == 0
+    assert record["stats"]["required_changes_closed"] == true
     assert record["stats"]["rule_evidence_closed"] == true
 
     assert V13FanoutWorkerQualityEval.summary(result) ==
@@ -388,6 +420,36 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEvalTest do
     end
   end
 
+  test "one row deadline bounds preparation and prevents invocation after prepare timeout" do
+    fixture = V13FanoutWorkerQualityEval.load_fixture!(@fixture)
+    started = System.monotonic_time(:millisecond)
+
+    result =
+      V13FanoutWorkerQualityEval.run(fixture,
+        profile: @profile,
+        reviewer: SlowPrepareReviewer,
+        reviewer_context: %{test_pid: self()},
+        row_timeout_ms: 5,
+        store: :disabled,
+        full_sha: @full_sha,
+        dirty: true
+      )
+
+    elapsed_ms = System.monotonic_time(:millisecond) - started
+
+    assert result.status == "failed"
+    assert result.stats.protocol_provider_call_count == 5
+    assert result.stats.configured_reviewer_invocation_count == 0
+    assert Enum.all?(result.rows, &(&1.provider_call_count == 1))
+    assert Enum.all?(result.rows, &(&1.configured_reviewer_invocation_count == 0))
+    assert elapsed_ms < 300
+
+    for case_id <- Enum.map(fixture["scenarios"], & &1["id"]) do
+      assert_received {:slow_prepare_started, ^case_id}
+      refute_received {:invoke_after_slow_prepare, ^case_id}
+    end
+  end
+
   test "provider accounting distinguishes pre-invocation denial from an invoked failure" do
     fixture = V13FanoutWorkerQualityEval.load_fixture!(@fixture)
 
@@ -456,6 +518,21 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEvalTest do
       assert_raise RuntimeError, "invalid v1.3 fan-out worker-quality fixture", fn ->
         V13FanoutWorkerQualityEval.load_fixture!(path)
       end
+    end
+  end
+
+  test "fixture digest binds the decoded frozen scenario bytes" do
+    fixture = @fixture |> File.read!() |> Jason.decode!()
+
+    changed =
+      update_in(fixture, ["scenarios", Access.at(0), "draft"], fn draft ->
+        draft <> " "
+      end)
+
+    path = write_fixture(changed)
+
+    assert_raise RuntimeError, "invalid v1.3 fan-out worker-quality fixture digest", fn ->
+      V13FanoutWorkerQualityEval.load_fixture!(path)
     end
   end
 
