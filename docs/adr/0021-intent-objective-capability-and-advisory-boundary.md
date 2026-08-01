@@ -928,7 +928,12 @@ advisory row names the verified quality-receipt digest and says that review is
 not effect evidence; a registered-action row marks semantic review not
 applicable and preserves the separate effect-receipt truth; a legacy-unreviewed
 row exposes the absent receipt and required deterministic fallback. Layout-v1
-rendering remains byte-exact.
+rendering remains byte-exact. In layout v2, the operator-derived parent title
+and every rendered child title, objective, and observation/detail are untrusted
+display data. All occurrences use deterministic reversible JSON-string encoding
+before Allbert-owned status/authority/receipt syntax, including ordinary,
+fallback, attention, relationship, appendix, and emergency rendering; embedded
+newlines therefore cannot forge a report boundary.
 
 Every durable selection is bound twice: `report_input_digest` binds the frozen
 authoritative snapshot, while `report_selection_digest` binds the selected
@@ -948,7 +953,11 @@ rebound in the existing immediate transaction to its authority-bearing v2
 digest before claim/recovery selection; already-selected/pending/delivered v1
 state is never rebound. One explicit integrity-error classifier lets queue scan
 and recovery leave a corrupt parent untouched and continue later valid work;
-unclassified storage/operational failures still abort.
+`recovery_after_restart` records `unresolved`, because a stranded `composing`
+row cannot prove whether its single provider call crossed the boundary;
+unclassified storage/operational failures still abort. Historical
+pending/delivered v1 state remains on its explicit byte-exact compatibility
+path.
 
 The durable selection transaction precedes best-effort joined publication.
 Signals are wake-ups rather than report authority: bounded API waiters perform a

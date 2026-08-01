@@ -417,7 +417,12 @@ model:
    receipt digest and explicitly deny effect-evidence meaning, registered-action
    rows mark semantic review not applicable and retain the separate effect-
    receipt line, and legacy-unreviewed rows expose the absent receipt/fallback
-   condition. Layout-v1 body bytes do not change.
+   condition. Layout v2 treats the operator-derived parent title and every
+   rendered child title, objective, and observation/detail as untrusted display
+   data: ordinary, fallback, attention, relationship, appendix, and emergency
+   paths deterministically JSON-string encode every occurrence before
+   Allbert-owned status/authority/receipt syntax. Embedded newlines cannot forge
+   a report boundary. Layout-v1 body bytes do not change.
 7. **The composed report is itself durable.** Additive parent fields store
    bounded `report_body`, `report_source`, `report_input_digest`, and
    `report_selection_digest`, with
@@ -457,7 +462,10 @@ model:
    unselected queued or composing v1 digest is verified and compare-and-swap
    rebound in the existing immediate transaction to an authority-bearing v2
    digest before claim or recovery selection; selected/pending/delivered v1
-   state is never rebound. The same explicit integrity-error classifier lets
+   state is never rebound. `recovery_after_restart` records `unresolved`, since
+   a stranded `composing` row cannot prove whether its one provider call ran.
+   Historical pending/delivered v1 state remains on its explicit byte-exact
+   compatibility path. The same explicit integrity-error classifier lets
    queue scan and recovery log and leave one corrupt parent untouched while
    continuing to later valid parents; unclassified storage/operational failures
    still abort.
