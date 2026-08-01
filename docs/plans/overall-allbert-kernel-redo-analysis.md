@@ -16,7 +16,8 @@ through 1.8, the vision document, and the ADR set. Every quantitative claim
 below is measured from the tree and carries its anchor. Where a number is a
 count of files or lines it was taken from the working tree, not from memory.
 
-**Amended twice. Read §13 first.**
+**Amended three times. Read §13 for the resolved recommendation and §14 for
+the routines/execution-graph re-check.**
 
 - [Section 12](#12-amendment--re-check-against-v13-m9b4m9b5-adaptive-fan-out)
   re-checks §§1–11 against the v1.3 M9.b.4/M9.b.5 adaptive-fan-out revisions and
@@ -26,6 +27,12 @@ count of files or lines it was taken from the working tree, not from memory.
   measurement, decides structure, tier tokens, and release sequencing, and
   supersedes §11's open decisions entirely along with the tier tokens in §3.2 and
   the phase placement in §9. Where §13 and an earlier section disagree, §13 wins.
+- [Section 14](#14-amendment--routines-typed-execution-graphs-and-learning)
+  re-checks the Turn Engine and Spine against primary-source Routines/workflow
+  research and the v1.3 attended fan-out finding. It does not change §13's
+  kernel/pack structure or sequencing; it decides that any future routine or
+  graph capability deepens Jobs and Objectives instead of creating another
+  runtime.
 
 ---
 
@@ -729,3 +736,288 @@ Create `apps/allbert_kernel` empty, invert the five kernel lists so the compiler
 enforces the boundary, then relocate — v1.4 untouched, v1.5 as point-tagged
 foundation, v1.6 through v1.8 keeping their numbers and their features, and 2.0
 reserved for the one change that genuinely needs a major.
+
+---
+
+## 14. Amendment — Routines, Typed Execution Graphs, And Learning
+
+Dated 2026-08-01. This amendment evaluates the useful idea behind the linked
+"build a graph that runs itself" commentary against its primary sources and
+against Allbert's implemented architecture. It does not add a release milestone
+or change §13's structure, tiers, or sequencing. It decides how routine-shaped
+and graph-shaped work fits the proposed kernel if and when a real consumer
+requires it.
+
+### 14.1 What the external example actually establishes
+
+The source presentation is about
+[Claude Code Routines](https://code.claude.com/docs/en/routines), not a generic
+self-learning graph runtime. A Routine saves an instruction, repository and
+connector context, and trigger configuration; a schedule, GitHub event, or API
+call starts a managed session that an operator can inspect and continue. The
+prompt has not disappeared — it has become versionable configuration used to
+start a fresh run. The official
+[proactive-agent-workflow session](https://claude.com/code-with-claude/session/ldn-build-a-proactive-agent-workflow-with-claude-code)
+demonstrates unattended initiation and event chaining, not automatic model
+learning or a universal DAG Interface.
+
+Anthropic's broader guidance makes the useful part more precise:
+
+- use predefined workflows when the path is known and reserve dynamic agents
+  for work whose path cannot be predicted;
+- use orchestrator/worker fan-out when subtasks are genuinely independent or
+  dynamically discovered;
+- join results through an explicit synthesis or evaluation step;
+- prefer the simplest topology that meets the acceptance criteria because
+  dynamic planning, multi-agent execution, and evaluator loops add latency,
+  token cost, and compounding failure modes.
+
+Those constraints appear in
+[Building effective agents](https://www.anthropic.com/engineering/building-effective-agents),
+[dynamic workflows in Claude Code](https://claude.com/blog/a-harness-for-every-task-dynamic-workflows-in-claude-code),
+and Anthropic's
+[multi-agent research-system retrospective](https://www.anthropic.com/engineering/multi-agent-research-system).
+The primary sources support durable, observable orchestration. They do not
+support collapsing three separate concepts into "a graph that learns":
+
+| Concept | Interface | What it does not mean |
+| --- | --- | --- |
+| **Routine definition** | Reusable instruction/context plus trigger, limits, and operator policy | Consent to every later effect or a durable run |
+| **Execution graph** | Typed nodes, dependencies, ready-set rules, joins, checkpoints, and terminal state | Semantic correctness, permission, or learning |
+| **Improvement loop** | Evidence and evaluation produce a reviewable, versioned change proposal | Silent prompt, topology, routing, or authority mutation |
+
+Keeping these as three Modules produces locality: trigger bugs stay in routine
+binding, scheduling and recovery bugs stay in execution, and adaptation bugs
+stay in the reviewed improvement loop. Combining them behind one magical
+"agent graph" Interface would be shallow — every caller would still need to
+understand triggers, authority, recovery, evaluation, and mutation policy.
+
+### 14.2 The Allbert mapping is one deep Interface over existing Modules
+
+The external pattern validates Allbert's existing concern split rather than
+adding an eighth concern:
+
+| Routine/product responsibility | Existing Allbert owner |
+| --- | --- |
+| Inert reusable declaration | Workflow YAML today; a future `:declared` pack artifact only after its contract is accepted |
+| Schedule or recurring trigger | Jobs, the single recurring engine |
+| Channel or public-protocol trigger | The ingress Adapter into the Turn Engine |
+| Turn-scoped plan proposal | A bounded Turn Engine strategy Adapter |
+| Structural validation and compilation | A deterministic typed-plan compiler Module |
+| Durable nodes, checkpoints, attempts, cancellation, and recovery | Objectives in the Spine |
+| Live worker lifecycle | Plain OTP or Jido.Agent under the pragmatic substrate rule |
+| Effect execution | Registry → Runner → Security Central → confirmations |
+| Wake-up and observation | Signals, followed by a read of durable state |
+| Watch, pause, steer, resume, cancel, and result UX | Surface Plane projections shared by TUI, Web, DMs, CLI, and public protocols |
+
+This is an orchestration product contract assembled across existing concerns,
+not a `Routines` scheduler, store, or executor. Jobs owns when a run is
+requested; Objectives owns whether and how it durably advances. Signals wake
+observers but never become run or report authority. Jido process state assists
+live lifecycle but never substitutes for Objective rows and events. A routine
+id, graph id, Objective id, node id, trigger, saved prompt, or enabled connector
+is never permission.
+
+The pack contract therefore should not casually gain a `routines/0` callback.
+Its existing `jobs`, `prompt_rules`, `intent_descriptors`, workflow owner, and
+action contributions already expose the pieces. A new callback is justified
+only if a later ADR finds a distinct, second declaration Adapter that cannot be
+expressed through Workflow YAML or a data-only `:declared` pack without a
+shallow pass-through Module.
+
+### 14.3 Static plans first; dynamic graphs only behind the same compiler
+
+Allbert already has two deliberately different plan forms:
+
+1. ADR 0041 Workflow YAML is static, schema-validated inert data expanded into
+   ordered Objective steps. It rejects cycles and forward references, but v1
+   intentionally has no parallel step kind, event trigger, loop, or retry DSL.
+2. ADR 0083 M9.b.4/M9.b.5 is one bounded, shallow diamond: a manager proposes
+   independent inert children; deterministic policy and compilation may frame
+   one durable parent plus ordered child Objectives; workers run in parallel;
+   atomic terminal reduction freezes the join; a separate advisory composer
+   selects relationships; Allbert renders one durable report. It is not an
+   arbitrary dependency graph, nested fan-out, or general workflow language.
+
+They do not yet share a canonical plan type, and this analysis does not pretend
+that they do. The additive deepening opportunity is a future
+`Objectives.ExecutionGraph` Interface compiled into the existing Objective,
+Step, Event, receipt, and recovery Implementation:
+
+```text
+operator goal or trigger
+        |
+        v
+static Workflow Adapter ----------- dynamic model proposal Adapter
+        \                                  /
+         +---- typed inert graph compiler +
+                          |
+                          v
+             durable Objective run/checkpoints
+                          |
+                  deterministic ready set
+                     /            \
+             Action Adapter    bounded Jido Adapter
+                     \            /
+                      terminal join
+                          |
+                evaluator/composer Adapter
+                          |
+                 one durable result/outbox
+```
+
+Static Workflow expansion should be the first real Adapter. Only after that
+Interface is proven should an LLM be considered as a second Adapter producing
+the same inert type. The model may propose nodes, dependency edges,
+relationships, or a replan; it may not name an implementation, identity,
+permission, confirmation result, delivery route, or unregistered capability.
+The local compiler owns:
+
+- graph/version schema and source binding;
+- node and edge bounds, uniqueness, acyclicity, and complete reference checks;
+- deterministic ready-set and terminal-reduction rules;
+- action identity resolution from registered capabilities and original
+  operator evidence rather than generated prose alone;
+- confirmation, cancellation, retry-safety, and budget propagation;
+- idempotent replay, monotonic terminal state, partial fan-in, and bounded
+  replan rules;
+- graph and input digests sufficient to explain exactly what ran.
+
+Every effect still crosses Registry, Runner, Security Central, and ordinary
+confirmation. Contribution is not grant; compilation is not grant; a completed
+advisory worker is not proof that an effect occurred. A durable effect receipt
+remains the evidence for an effect claim.
+
+Simple work must retain a direct path. Normalizing every greeting, lookup, or
+single answer into a one-node graph would make the Interface shallower: callers
+would pay graph latency and failure modes without gaining concurrency,
+checkpointing, or recovery. The Turn Engine should choose the cheapest adequate
+topology, and the operator may explicitly request the static/graph path when
+deterministic orchestration matters.
+
+### 14.4 The v1.3 finding is an admission lesson, not a graph-runtime lesson
+
+The attended v1.3 FOV-4 finding recorded in the active plan, request flow, and
+ADR 0083 occurred before durable planning: fan-out was enabled, but the manager
+returned an ordinary answer and created no parent or child Objectives. No
+worker, scheduler, join, or composer ran. A better downstream graph executor
+could not correct a plan that was never admitted.
+
+That distinction matters systemically. Structural compilation can prove shape,
+bounds, binding, references, and acyclicity. It cannot prove that supplied YAML
+is data rather than requested work, that two prose analyses are semantically
+independent, or that parallelism creates material leverage. Forcing every turn
+through graph generation merely moves the same semantic decision into node and
+edge generation while increasing false-positive risk for supplied data and
+latency for ordinary turns.
+
+The immediate and future acceptance surface therefore spans the entire chain:
+
+> pre-admission evidence → policy decision → typed compile → durable frame →
+> ready-set execution → terminal reduction → composition → delivery.
+
+Content-free closed diagnostics must explain the outcome at each seam,
+including why an apparently decomposable request was answered directly. Tests
+should assert operator-owned semantic rules across multiple supplied-data,
+single-task, independent-task, dependent-task, mixed-effect, refusal, timeout,
+and malformed-plan scenarios. They should validate durable outcomes and
+decision evidence, not exact prompts, model prose, punctuation regexes, or
+source formatting. Real-provider operator qualification remains necessary
+because a structurally perfect graph harness cannot establish semantic
+admission quality.
+
+This also narrows §12.4's de-risking inference. M9.b.4/M9.b.5 created concrete
+Plan, Worker, and Report Interfaces with multiple structural Adapters, but the
+adaptive-admission seam is not qualified until the attended FOV contract passes.
+The existence of the Interfaces reduces implementation uncertainty; it does not
+substitute architecture narrative or automated probes for operator evidence.
+
+### 14.5 Derived prompts and learning remain reviewed, bounded work
+
+Operator UX should not depend on prompt engineering. The operator states the
+goal, constraints, and desired result; Allbert derives each manager, worker,
+evaluator, and composer prompt from typed rules, the compiled plan, bounded
+source context, current durable state, model-role policy, and the
+`Models.PromptEnvelope` Interface. Prompts remain inspectable implementation
+data with provenance, not the primary product Interface.
+
+Likewise, an execution graph does not learn by running. Memory and Search may
+supply bounded context and provenance to planning or evaluation, and objective
+events, test metrics, traces, and explicit operator feedback may feed §6's
+managed improvement job. That job may propose a typed, versioned delta to a
+prompt rule, adaptive setting, model-role map, router descriptor, workflow, or
+routine definition. Review, confirmation, audit, measurement, and one-click
+revert remain required. It may never silently mutate graph topology, action
+authority, permissions, confirmations, credentials, egress, or safety floors.
+
+A generator/critic or evaluator/optimizer pair is therefore an optional
+strategy Adapter with explicit budget and stop criteria, not the default
+topology and never an authority-bearing judge. Deterministic validation should
+handle deterministic facts. Model evaluation earns its cost only for semantic
+criteria that local code cannot honestly decide.
+
+### 14.6 Operator UX is the graph's acceptance Interface
+
+Operators should not need graph terminology. Before meaningful multi-step work,
+surfaces should explain in plain language what Allbert proposes, for example:
+"two read-only analyses in parallel, then one joined architecture brief," with
+estimated time/model use, effect and confirmation points, and the source of the
+plan. During and after execution every surface should project the same durable
+facts:
+
+- routine/trigger provenance and graph version/digest;
+- current, ready, running, blocked, and terminal work;
+- dependency and join reasons rather than an undifferentiated spinner;
+- confirmation points, retries, fallbacks, and partial-result treatment;
+- pause, steer, resume, cancel, and inspect controls;
+- the durable result, receipts, and evaluation outcome.
+
+This provides leverage across TUI, Web, DMs, CLI, Jobs, and public protocols
+while keeping locality in Objectives and the Surface Plane. A surface-private
+graph, planner, or status store would fail the deletion test: removing it would
+merely redistribute the same recovery and authority logic across every Adapter.
+
+### 14.7 Release workflow as a design fixture, not new v1.3 scope
+
+The release pain recorded across 1.1–1.3 is a strong future design fixture for
+the same pattern:
+
+```text
+preflight
+    |
+    +-- implementation lanes --+
+    +-- docs/drift audit -------+--> focused validation
+                                      |
+                              operator validation
+                                      |
+                         one authoritative aggregate
+                                      |
+                         package / sign / publish
+```
+
+An executable remediation should invalidate only its affected node and
+downstream evidence; it should not force unchanged operator rows, packaging, or
+the aggregate to repeat. This is the dependency-aware behavior the release
+cadence now describes. The development workflow may use this as a harness and
+evaluation fixture before a product execution-graph Interface exists; the
+product must not become a prerequisite for releasing itself.
+
+### 14.8 Net effect on the resolved recommendation
+
+- No kernel concern, pack tier, phase, or release is added, removed, or
+  resequenced.
+- The future opportunity is one deep typed-graph Interface compiled into
+  Objectives, not a second graph runtime or durable store.
+- Jobs and ingress Adapters trigger; Objectives executes and recovers; Jido or
+  plain OTP supplies bounded live lifecycle; Signals wake; surfaces project;
+  Actions and Security Central retain effect authority.
+- Static declarations precede dynamic model proposals. Both remain inert until
+  deterministic compilation and ordinary authority checks succeed.
+- Simple turns bypass graph machinery. Graph depth is earned by dependency,
+  concurrency, checkpointing, recovery, or evaluation needs.
+- Learning is a separate reviewed typed-delta loop, never autonomous
+  self-modification.
+- Phase 6 remains last and remains the place to generalize the Turn Engine's
+  Plan/Worker/Report strategy Interfaces. Adding dependency-graph semantics
+  still requires operator demand and an ADR amending ADR 0041/0083; the external
+  research alone does not promote it.
