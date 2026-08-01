@@ -1160,8 +1160,6 @@ defmodule AllbertAssist.Runtime do
     end
   end
 
-  defp strip_nested_manager_diagnostic(response), do: response
-
   defp strip_direct_answer_manager(%{direct_answer: direct_answer} = container)
        when is_map(direct_answer) do
     sanitized =

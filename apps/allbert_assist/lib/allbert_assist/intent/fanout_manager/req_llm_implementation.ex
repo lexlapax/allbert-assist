@@ -198,8 +198,6 @@ defmodule AllbertAssist.Intent.FanoutManager.ReqLLMImplementation do
     end
   end
 
-  defp reference_context(_context), do: nil
-
   defp explicit_reference(%{reference_context: text}) when is_binary(text),
     do: text
 

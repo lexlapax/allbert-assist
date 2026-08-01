@@ -23,12 +23,13 @@ defmodule AllbertAssist.FirstRun.Enablement do
     :byok_ready
   ]
 
-  @repair_states %{
+  @unavailable_states %{
+    local_ready: :enabled_unavailable,
     runtime_missing: :nothing_detected,
     runtime_unhealthy: :needs_model,
     model_missing: :needs_model,
     below_hardware_floor: :below_floor,
-    byok_ready: :nothing_detected
+    byok_ready: :enabled_unavailable
   }
 
   @spec reconcile(atom(), keyword()) :: {:ok, map()} | {:error, term()}
@@ -262,13 +263,8 @@ defmodule AllbertAssist.FirstRun.Enablement do
     |> then(fn hook -> hook.() end)
   end
 
-  defp repair_state(:local_ready), do: :nothing_detected
-  defp repair_state(model_state), do: Map.fetch!(@repair_states, model_state)
-
-  defp unavailable_or_repair_state(model_state) when model_state in [:local_ready, :byok_ready],
-    do: :enabled_unavailable
-
-  defp unavailable_or_repair_state(model_state), do: repair_state(model_state)
+  defp unavailable_or_repair_state(model_state),
+    do: Map.fetch!(@unavailable_states, model_state)
 
   defp direct_answer_task_chain(settings) do
     case Schema.get_dotted(settings, "model_preferences.tasks.direct_answer") do
