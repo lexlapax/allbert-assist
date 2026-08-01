@@ -5,8 +5,8 @@ defmodule AllbertAssist.CLI.CommandsTest do
   built-in; no command reaches a store directly; dev/CI stays Mix-only. This is
   the `cli-command-inventory-spine-map-001` invariant asserted as data.
   """
-  use ExUnit.Case, async: true
-  @moduletag :db_serial
+  use ExUnit.Case, async: false
+  @moduletag :global_process_serial
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.CLI.Commands
@@ -108,8 +108,8 @@ defmodule AllbertAssist.CLI.CommandsTest do
       |> Enum.filter(&String.ends_with?(&1, ".ex"))
       |> Enum.map(
         &(&1
-          |> String.replace_prefix("allbert.", "")
-          |> String.replace_suffix(".ex", ""))
+          |> Path.rootname()
+          |> String.replace_prefix("allbert.", ""))
       )
       |> MapSet.new()
 
@@ -121,6 +121,7 @@ defmodule AllbertAssist.CLI.CommandsTest do
   end
 
   test "developer/CI tasks are flagged mix_only" do
+    assert Commands.task_dispositions()["allbert"] == :root_dispatcher
     assert Commands.mix_only?("test")
     assert Commands.mix_only?("gen.app")
     refute Commands.mix_only?("ask")

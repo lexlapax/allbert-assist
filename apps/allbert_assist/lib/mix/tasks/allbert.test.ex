@@ -9798,8 +9798,12 @@ defmodule Mix.Tasks.Allbert.Test do
     |> Enum.map(fn {class, _present?} -> class end)
   end
 
-  defp db_resource?(text, template),
-    do: template =~ "DataCase" or text =~ "Repo" or text =~ "Ecto."
+  defp db_resource?(text, template) do
+    template =~ "DataCase" or
+      Regex.match?(~r/\bRepo\./, text) or
+      Regex.match?(~r/^\s*alias\s+[^\n]*\bRepo\b/m, text) or
+      text =~ "Ecto."
+  end
 
   defp security_eval_resource?(path, template) do
     String.contains?(path, "/test/security/") or template =~ "SecurityEvalCase"
@@ -9890,6 +9894,11 @@ defmodule Mix.Tasks.Allbert.Test do
     # the module is async-safe; keep those inert prompt words from moving the
     # entire file into the global-process lane.
     "apps/allbert_assist/test/allbert_assist/intent/decomposer_test.exs" => :pure_async,
+    # M9.b.5.2's synthesis lifecycle tests start only unnamed, per-test Agents
+    # and supervisors. `Report` is not `Repo`, and no shared process or database
+    # belongs to this file; retain the binding pure_async plan lane.
+    "apps/allbert_assist/test/allbert_assist/objectives/report_synthesis_agent_test.exs" =>
+      :pure_async,
     # Every license fixture owns a unique tmp tree and removes only that tree;
     # the filesystem scan is therefore an owned resource, not a shared Home.
     "apps/allbert_assist/test/allbert_assist/licenses_test.exs" => :pure_async,

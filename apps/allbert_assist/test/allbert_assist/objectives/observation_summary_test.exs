@@ -1,6 +1,8 @@
 defmodule AllbertAssist.Objectives.ObservationSummaryTest do
   use ExUnit.Case, async: true
 
+  @moduletag :pure_async
+
   alias AllbertAssist.Objectives.ObservationSummary
 
   test "redacts at the signal boundary before returning durable text" do

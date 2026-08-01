@@ -1,6 +1,8 @@
 defmodule AllbertAssist.Settings.YamlCodecTest do
   use ExUnit.Case, async: true
 
+  @moduletag :pure_async
+
   alias AllbertAssist.Settings.YamlCodec
 
   test "mixed line endings in scalar values cannot escape into the YAML document" do

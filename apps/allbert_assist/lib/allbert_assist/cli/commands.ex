@@ -31,6 +31,7 @@ defmodule AllbertAssist.CLI.Commands do
           | :builtin
           | :mix_only
           | :retired
+  @type task_disposition :: {:command, path()} | :mix_only | :root_dispatcher
 
   # ---- operator surface on the binary --------------------------------------
 
@@ -112,6 +113,7 @@ defmodule AllbertAssist.CLI.Commands do
   # above; the rest stay mix_only.
 
   @task_dispositions %{
+    "allbert" => :root_dispatcher,
     "ask" => {:command, ["ask"]},
     "tui" => {:command, ["tui"]},
     "licenses" => {:command, ["licenses"]},
@@ -180,7 +182,7 @@ defmodule AllbertAssist.CLI.Commands do
   end
 
   @doc "Mix-task -> `allbert` mapping (the reverse doc deliverable)."
-  @spec task_dispositions() :: %{String.t() => {:command, path()} | :mix_only}
+  @spec task_dispositions() :: %{String.t() => task_disposition()}
   def task_dispositions, do: @task_dispositions
 
   @doc "Group names surfaced in `allbert --help`."

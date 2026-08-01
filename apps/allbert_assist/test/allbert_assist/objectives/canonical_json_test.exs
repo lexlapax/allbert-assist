@@ -1,6 +1,8 @@
 defmodule AllbertAssist.Objectives.CanonicalJSONTest do
   use ExUnit.Case, async: true
 
+  @moduletag :pure_async
+
   alias AllbertAssist.Objectives.CanonicalJSON
   alias AllbertAssist.Objectives.Fanout.PlanProvenance
   alias AllbertAssist.Objectives.Fanout.Report

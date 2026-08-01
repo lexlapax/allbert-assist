@@ -1,6 +1,6 @@
 defmodule AllbertAssist.Runtime.TraceTest do
   use ExUnit.Case, async: false
-  @moduletag :db_serial
+  @moduletag :app_env_serial
 
   alias AllbertAssist.Runtime.Trace
   alias AllbertAssist.Trace, as: LegacyTrace

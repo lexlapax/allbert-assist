@@ -110,4 +110,32 @@ defmodule Mix.Tasks.Allbert.TestLanePackingTest do
       assert row.lane_tags == "module:app_env_serial; describe:external_runtime_serial"
     end
   end
+
+  test "resource classification distinguishes Report from Repo and retains audited owners" do
+    records = Map.new(AllbertTestTask.inventory_records(), &{&1.path, &1.primary_lane})
+
+    assert records[
+             "apps/allbert_assist/test/allbert_assist/objectives/canonical_json_test.exs"
+           ] == :pure_async
+
+    assert records[
+             "apps/allbert_assist/test/allbert_assist/objectives/report_synthesis_agent_test.exs"
+           ] == :pure_async
+
+    assert records["apps/allbert_assist/test/allbert_assist/cli/tui_test.exs"] ==
+             :app_env_serial
+
+    assert records["apps/allbert_assist/test/mix/tasks/allbert_dispatcher_test.exs"] ==
+             :external_runtime_serial
+
+    assert records[
+             "apps/allbert_assist/test/allbert_assist/actions/intent/direct_answer_test.exs"
+           ] == :app_env_serial
+
+    assert records["apps/allbert_assist/test/allbert_assist/runtime/trace_test.exs"] ==
+             :app_env_serial
+
+    assert records["apps/allbert_assist/test/allbert_assist/cli/commands_test.exs"] ==
+             :global_process_serial
+  end
 end
