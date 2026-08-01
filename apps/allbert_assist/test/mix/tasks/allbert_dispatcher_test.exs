@@ -12,10 +12,14 @@ defmodule Mix.Tasks.AllbertDispatcherTest do
 
   test "source daemon logging defaults to info and honors the validated override" do
     previous_level = Logger.level()
+    previous_primary_level = :logger.get_primary_config() |> Map.fetch!(:level)
+    previous_config_level = Application.get_env(:logger, :level)
     previous_override = System.get_env("ALLBERT_LOG_LEVEL")
 
     on_exit(fn ->
+      restore_logger_config(previous_config_level)
       Logger.configure(level: previous_level)
+      _result = :logger.set_primary_config(:level, previous_primary_level)
       restore_env("ALLBERT_LOG_LEVEL", previous_override)
     end)
 
@@ -23,14 +27,63 @@ defmodule Mix.Tasks.AllbertDispatcherTest do
     Logger.configure(level: :debug)
     assert :ok = CLI.configure_daemon_logging()
     assert Logger.level() == :info
+    assert Application.get_env(:logger, :level) == :info
+    assert :logger.get_primary_config() |> Map.fetch!(:level) == :info
 
     System.put_env("ALLBERT_LOG_LEVEL", "debug")
     assert :ok = CLI.configure_daemon_logging()
     assert Logger.level() == :debug
+    assert Application.get_env(:logger, :level) == :debug
+    assert :logger.get_primary_config() |> Map.fetch!(:level) == :debug
 
     System.put_env("ALLBERT_LOG_LEVEL", "invalid")
     assert :ok = CLI.configure_daemon_logging()
     assert Logger.level() == :info
+    assert Application.get_env(:logger, :level) == :info
+    assert :logger.get_primary_config() |> Map.fetch!(:level) == :info
+  end
+
+  if System.get_env("ALLBERT_SOURCE_DAEMON_LOG_INTEGRATION") != "1" do
+    @tag skip: "set ALLBERT_SOURCE_DAEMON_LOG_INTEGRATION=1 for the source-daemon subprocess row"
+  end
+
+  test "source daemon keeps lifecycle info and excludes dev debug query binds" do
+    root =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-source-daemon-log-#{System.pid()}-#{System.unique_integer([:positive])}"
+      )
+
+    home = Path.join(root, "home")
+    log_path = Path.join(root, "source-daemon.log")
+    port = available_port()
+    File.mkdir_p!(home)
+    on_exit(fn -> File.rm_rf!(root) end)
+
+    env = source_daemon_env(home, log_path, port)
+    mix = System.find_executable("mix") || flunk("mix executable not found")
+
+    {migration_output, 0} =
+      System.cmd(mix, ["allbert.ecto.migrate", "--quiet"],
+        cd: repo_root(),
+        env: env,
+        stderr_to_stdout: true
+      )
+
+    {serve_output, serve_status} =
+      System.cmd("/bin/bash", ["--noprofile", "--norc", "-c", source_daemon_script()],
+        cd: repo_root(),
+        env: [{"SOURCE_MIX", mix} | env],
+        stderr_to_stdout: true
+      )
+
+    assert serve_status == 0, migration_output <> serve_output
+
+    log = File.read!(log_path)
+    assert log =~ "[info] writer lock acquired"
+    assert log =~ "[info] allbert signal allbert.plugin.registered"
+    refute log =~ "[debug]"
+    refute log =~ "QUERY OK"
   end
 
   test "renders pure help and version through the unified CLI entry" do
@@ -108,6 +161,63 @@ defmodule Mix.Tasks.AllbertDispatcherTest do
 
   defp restore_app_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_app_env(module, value), do: Application.put_env(:allbert_assist, module, value)
+
+  defp restore_logger_config(nil), do: Application.delete_env(:logger, :level)
+  defp restore_logger_config(level), do: Application.put_env(:logger, :level, level)
+
+  defp available_port do
+    {:ok, socket} = :gen_tcp.listen(0, [:binary, active: false, ip: {127, 0, 0, 1}])
+    {:ok, {_address, port}} = :inet.sockname(socket)
+    :ok = :gen_tcp.close(socket)
+    port
+  end
+
+  defp source_daemon_env(home, log_path, port) do
+    [
+      {"ALLBERT_HOME", home},
+      {"ALLBERT_HOME_DIR", home},
+      {"ALLBERT_LOG_LEVEL", nil},
+      {"ALLBERT_SETTINGS_MASTER_KEY", 32 |> :crypto.strong_rand_bytes() |> Base.encode64()},
+      {"MIX_ENV", "dev"},
+      {"SOURCE_DAEMON_LOG", log_path},
+      {"SOURCE_DAEMON_PORT", Integer.to_string(port)}
+    ]
+  end
+
+  defp source_daemon_script do
+    """
+    set -Eeuo pipefail
+    daemon_pid=
+    cleanup() {
+      if test -n "${daemon_pid:-}"; then
+        kill "$daemon_pid" 2>/dev/null || true
+        wait "$daemon_pid" 2>/dev/null || true
+      fi
+    }
+    trap cleanup EXIT INT TERM
+
+    PORT="$SOURCE_DAEMON_PORT" "$SOURCE_MIX" allbert serve >"$SOURCE_DAEMON_LOG" 2>&1 &
+    daemon_pid=$!
+    ready=false
+    for ((attempt=1; attempt<=90; attempt++)); do
+      if curl -fsS --max-time 2 "http://127.0.0.1:$SOURCE_DAEMON_PORT/health" 2>/dev/null |
+           grep -q '"status":"ok"'; then
+        ready=true
+        break
+      fi
+      if ! kill -0 "$daemon_pid" 2>/dev/null; then
+        break
+      fi
+      sleep 0.2
+    done
+    test "$ready" = true
+    kill "$daemon_pid" 2>/dev/null || true
+    wait "$daemon_pid" 2>/dev/null || true
+    daemon_pid=
+    """
+  end
+
+  defp repo_root, do: Path.expand("../../../../..", __DIR__)
 
   defp restore_env(name, nil), do: System.delete_env(name)
   defp restore_env(name, value), do: System.put_env(name, value)

@@ -64,7 +64,19 @@ defmodule AllbertAssist.CLI do
 
   @doc false
   @spec configure_daemon_logging() :: :ok
-  def configure_daemon_logging, do: configure_logging(:info)
+  def configure_daemon_logging do
+    level = configured_log_level(:info)
+
+    # `mix run` restarts Logger while starting applications. Persist the source
+    # daemon level in all three Logger seams so that restart cannot restore
+    # dev's :debug level and expose Ecto bind values.
+    Application.put_env(:logger, :level, level)
+    Logger.configure(level: level)
+    _result = :logger.set_primary_config(:level, level)
+    :ok
+  rescue
+    _error -> :ok
+  end
 
   defp configure_logging(default_level) do
     Logger.configure(level: configured_log_level(default_level))

@@ -22,8 +22,15 @@ defmodule Mix.Tasks.Allbert do
   def run(["tui" | args]), do: Mix.Task.run("allbert.tui", args)
 
   def run(["serve" | args]) do
-    CLI.configure_daemon_logging()
-    with_source_daemon_env(fn -> Mix.Task.run("phx.server", args) end)
+    with_source_daemon_env(fn ->
+      # `phx.server` delegates to `mix run`, whose application-config load would
+      # otherwise restore dev's :debug level after our daemon boundary. Load it
+      # once while the source-daemon environment is active, then make :info (or
+      # the validated override) authoritative before applications start.
+      Mix.Task.run("app.config")
+      CLI.configure_daemon_logging()
+      Mix.Task.run("phx.server", args)
+    end)
   end
 
   def run(args) do
