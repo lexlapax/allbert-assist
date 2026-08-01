@@ -30,7 +30,13 @@ the durable authority, clean DirectAnswer children use bounded one-turn
 Jido.Agent-backed workers, and
 a durable main-model composition must finish before a report becomes pending.
 M9.b.5's selected-report authority and recovery contract is implemented at
-`b7ea776d`.
+`b7ea776d`. After the first attended FOV-4 exposed a false single-turn result,
+M9.b.4 commit `1b4d3014` clarified and implemented the manager boundary as one
+structured provider assessment plus deterministic local Jido-owned
+adjudication, with an optional second provider call only for malformed or
+internally inconsistent output. The same remediation adds content-free
+manager/admission facts to the existing conversation action-log diagnostics;
+it creates no new authority or observability subsystem.
 
 ## Context
 
@@ -225,25 +231,36 @@ model:
 1. **The qualified conversational manager owns bounded adaptive admission.**
    After steering, Search commands, notification callbacks, and the two exact
    counted offline protocols are handled, a turn that reaches the clean
-   DirectAnswer route makes one qualified model call that returns either the
-   ordinary answer or a parallel-work proposal. The manager Interface is not a
+   DirectAnswer route makes one qualified model call that returns one useful
+   answer, explicit closed evidence for the admission rules, and zero or more
+   inert candidate children. The manager Interface is not a
    registered Allbert action, intent candidate, permission, or authority grant.
    The model sees the original typed operator turn plus Allbert-authored rules;
    it does not receive punctuation regex output as semantic evidence. v1.3 does
    not replace the existing action router: uncounted mixed/effectful compound
    work stays on the ordinary route, and the exact counted protocol remains the
    explicit force path for it.
-2. **An adaptive plan is typed, bounded, and inert.** The model proposal
-   contains only bounded ordered children with title, objective, and expected
-   result; the compiler, not the model, assigns plan version and source. The
-   model cannot name an Allbert action,
+2. **An adaptive plan is typed, bounded, and inert.** One declarative rule
+   catalog derives both the system-role assessment instructions and Allbert's
+   local decision criteria. A private Jido Agent owns the lifecycle transition
+   from model-backed `assess` to model-off `adjudicate`; Jido state records the
+   phases and result, while deterministic `FanoutManager.Policy` derives answer
+   versus admission from the closed evidence. This is one provider call in the
+   valid path, not one planning call followed by an LLM judge. The model
+   proposal contains only bounded ordered children with title, objective, and
+   expected result; the compiler, not the model, assigns plan version and
+   source. The model cannot name an Allbert action,
    agent module, permission, identity, confirmation result, worker
    implementation, dependency graph, or delivery route. The manager evaluates
    semantic independence, supplied-text ownership, full coverage, and material
    parallel leverage. A deterministic compiler then validates schema, original-
    request binding, bounds, non-empty unique children, and forbidden authority
-   fields; code does not pretend to prove prose semantics. One bounded critique/
-   repair attempt is permitted before fail-closed single-turn fallback. A
+   fields; code does not pretend to prove prose semantics. The model supplies
+   bounded semantic claims; Allbert owns structural validity, deterministic
+   policy, source binding, compilation, and authority. One bounded repair
+   provider call is permitted only after malformed or internally inconsistent
+   evidence; a valid answer decision does not get repaired merely because it
+   declines fan-out. A
    dependency, ambiguous scope, planner timeout, malformed output, disagreement
    after repair, or fewer than two valid children returns to the same-call
    answer or ordinary DirectAnswer path; it never partially frames work.
@@ -355,6 +372,26 @@ model:
    model-call ledger. A failed admission or composition does not become an
    operator-facing clarification unless the existing overflow or action
    contract already requires one.
+
+9. **Manager and admission observability reuses the conversation action log.**
+   Each ordinary manager result may append one bounded, content-free
+   `fanout_manager` diagnostic containing only the closed result/outcome/policy/
+   join values, attempt and work-unit counts, and reviewed flag. Runtime
+   framing may append one `fanout_admission` diagnostic containing only
+   admitted, rejected, single-turn-fallback, or shadow-only plus a closed reason
+   where applicable. A sanitizer rebuilds these facts from an allow-list before
+   response signals, traces, or `conversation_messages.action_log` persistence.
+   It discards operator/model text, answers, candidate children, profile or
+   provider payloads, and raw errors. DirectAnswer action results carry only
+   their ordinary used-status diagnostic before Runner publishes
+   `allbert.action.completed`; the full manager structure remains transient for
+   Runtime admission/provenance and is removed from both top-level and nested
+   action responses before persistence. Manager result/outcome pairs and
+   policy/join classifications are closed enums, repeated sanitization
+   preserves only bounded booleans/counts, and an answer's effective join role
+   is always `none`. This adds no database migration, event family, log service,
+   or authority-bearing state; Objectives remains the only durable truth for
+   admitted work.
 
 Manager planning runs inside the qualified DirectAnswer turn. Composition uses
 the separate closed `model_preferences.tasks.fanout_synthesis` task, initially
