@@ -923,6 +923,12 @@ shortening. In the 32 KiB stored report, deterministic evidence has first claim
 on bytes; advisory synthesis is one anti-spoofed paragraph of at most 4,096 UTF-8
 bytes and cannot displace an otherwise complete child appendix. The model cannot
 revise observations, identifiers, ordering, authority, delivery, or work.
+The v2 appendix makes its closed authority explicit per child: a reviewed
+advisory row names the verified quality-receipt digest and says that review is
+not effect evidence; a registered-action row marks semantic review not
+applicable and preserves the separate effect-receipt truth; a legacy-unreviewed
+row exposes the absent receipt and required deterministic fallback. Layout-v1
+rendering remains byte-exact.
 
 Every durable selection is bound twice: `report_input_digest` binds the frozen
 authoritative snapshot, while `report_selection_digest` binds the selected

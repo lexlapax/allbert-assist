@@ -412,7 +412,12 @@ model:
    otherwise complete child appendix. Invalid, negative, unavailable,
    timed-out, or deadline-exhausted synthesis stores the truthful deterministic
    fallback with no model prose and opens delivery; it never masquerades as
-   healthy synthesis.
+   healthy synthesis. The v2 authoritative appendix also renders the closed
+   authority class for every child: reviewed advisory rows carry their quality-
+   receipt digest and explicitly deny effect-evidence meaning, registered-action
+   rows mark semantic review not applicable and retain the separate effect-
+   receipt line, and legacy-unreviewed rows expose the absent receipt/fallback
+   condition. Layout-v1 body bytes do not change.
 7. **The composed report is itself durable.** Additive parent fields store
    bounded `report_body`, `report_source`, `report_input_digest`, and
    `report_selection_digest`, with
