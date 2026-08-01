@@ -189,22 +189,32 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
     token: token
   } do
     enable_automatic_fanout!()
+    selector = Task.async(&select_next_report!/0)
 
     conn =
       conn
       |> auth_conn(token)
       |> post_json(%{
         "model" => "local",
-        "messages" => [%{"role" => "user", "content" => "first task; second task"}]
+        "messages" => [
+          %{
+            "role" => "user",
+            "content" => "Do these 2 tasks in parallel: first task; second task"
+          }
+        ]
       })
 
+    assert {:ok, _selected} = Task.await(selector, 5_000)
+
     body = json_response(conn, 200)
-    assert get_in(body, ["choices", Access.at(0), "message", "content"]) =~ "Fan-out completed"
 
     [parent] =
       "public-protocol:openai-client"
       |> AllbertAssist.Objectives.list_objectives()
       |> Enum.filter(&(&1.fanout_role == "parent"))
+
+    assert get_in(body, ["choices", Access.at(0), "message", "content"]) ==
+             Fanout.format_report(Fanout.report(parent))
 
     assert parent.kickoff_delivery_state == "acknowledged"
     assert Enum.all?(Fanout.children(parent), &(&1.status == "completed"))
@@ -217,6 +227,7 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
     token: token
   } do
     enable_automatic_fanout!()
+    selector = Task.async(&select_next_report!/0)
 
     conn =
       conn
@@ -224,19 +235,27 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
       |> post_json(%{
         "model" => "local",
         "stream" => true,
-        "messages" => [%{"role" => "user", "content" => "first task; second task"}]
+        "messages" => [
+          %{
+            "role" => "user",
+            "content" => "Do these 2 tasks in parallel: first task; second task"
+          }
+        ]
       })
+
+    assert {:ok, _selected} = Task.await(selector, 5_000)
 
     assert conn.status == 200
     assert conn.resp_body =~ "I split this into 2 tasks"
     assert conn.resp_body =~ ~s("allbert_status":"working")
-    assert conn.resp_body =~ "Fan-out completed"
-    assert conn.resp_body =~ "data: [DONE]"
 
     [parent] =
       "public-protocol:openai-client"
       |> AllbertAssist.Objectives.list_objectives()
       |> Enum.filter(&(&1.fanout_role == "parent"))
+
+    assert conn.resp_body =~ Jason.encode!(Fanout.format_report(Fanout.report(parent)))
+    assert conn.resp_body =~ "data: [DONE]"
 
     eventually(fn -> AllbertAssist.Repo.reload!(parent).report_delivery_state == "delivered" end)
     assert_fanout_quiesced(parent.id)
@@ -247,6 +266,7 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
     token: token
   } do
     enable_automatic_fanout!()
+    selector = Task.async(&select_next_report!/0)
 
     runtime_config = Application.get_env(:allbert_assist, Runtime, [])
 
@@ -261,8 +281,15 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
       |> auth_conn(token)
       |> post_json(%{
         "model" => "local",
-        "messages" => [%{"role" => "user", "content" => "first task; second task"}]
+        "messages" => [
+          %{
+            "role" => "user",
+            "content" => "Do these 2 tasks in parallel: first task; second task"
+          }
+        ]
       })
+
+    assert {:ok, _selected} = Task.await(selector, 5_000)
 
     assert get_in(json_response(conn, 200), ["choices", Access.at(0), "message", "content"]) =~
              "I split this into 2 tasks"
@@ -375,6 +402,32 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp select_next_report!(attempts \\ 500)
+
+  defp select_next_report!(attempts) when attempts > 0 do
+    case Fanout.claim_next_composition() do
+      {:ok, %{frozen: frozen} = claim} ->
+        Fanout.select_composition(
+          claim,
+          "deterministic_fallback",
+          frozen.fallback_body,
+          %{fallback_reason: "model_disabled"}
+        )
+
+      :none ->
+        Process.sleep(10)
+        select_next_report!(attempts - 1)
+
+      {:error, :stale_composition_claim} ->
+        select_next_report!(attempts - 1)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp select_next_report!(0), do: {:error, :composition_not_queued}
 
   defp eventually(fun, attempts \\ 100)
   defp eventually(fun, 0), do: assert(fun.())

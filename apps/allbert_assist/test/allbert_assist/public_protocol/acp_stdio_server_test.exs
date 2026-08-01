@@ -188,6 +188,7 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
              Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
 
     {session_id, state} = started_session()
+    selector = Task.async(&select_next_report!/0)
 
     {:ok, [update, response], worker_state} =
       Server.handle_message(
@@ -200,7 +201,7 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
             "prompt" => [
               %{
                 "type" => "text",
-                "text" => "Do two things: first task and second task. Work on them in parallel."
+                "text" => "Do these 2 tasks in parallel: first task; second task"
               }
             ]
           }
@@ -208,14 +209,20 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
         state
       )
 
-    assert update["params"]["update"]["content"]["text"] =~ "Fan-out completed"
-    assert response["result"]["stopReason"] == "end_turn"
+    assert {:ok, _selected} = Task.await(selector, 5_000)
 
     [parent] =
       "public-protocol:zed-fixture"
       |> AllbertAssist.Objectives.list_objectives()
       |> Enum.filter(&(&1.fanout_role == "parent"))
 
+    selected_body = Fanout.format_report(Fanout.report(parent))
+    delivered_text = update["params"]["update"]["content"]["text"]
+
+    assert delivered_text =~ "I split this into 2 tasks"
+    assert String.ends_with?(delivered_text, "\n\n#{selected_body}")
+
+    assert response["result"]["stopReason"] == "end_turn"
     assert parent.kickoff_delivery_state == "acknowledged"
     assert Enum.all?(Fanout.children(parent), &(&1.status == "completed"))
     assert worker_state.report_deliveries == [parent.id]
@@ -238,6 +245,7 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
     )
 
     {session_id, state} = started_session()
+    selector = Task.async(&select_next_report!/0)
 
     {:ok, [update, response], worker_state} =
       Server.handle_message(
@@ -250,13 +258,15 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
             "prompt" => [
               %{
                 "type" => "text",
-                "text" => "Do two things: first task and second task. Work on them in parallel."
+                "text" => "Do these 2 tasks in parallel: first task; second task"
               }
             ]
           }
         },
         state
       )
+
+    assert {:ok, _selected} = Task.await(selector, 5_000)
 
     assert update["params"]["update"]["content"]["text"] =~ "I split this into 2 tasks"
     assert response["result"]["stopReason"] == "end_turn"
@@ -286,6 +296,7 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
     )
 
     {session_id, state} = started_session()
+    selector = Task.async(&select_next_report!/0)
 
     {:ok, [_kickoff_update, _kickoff_response], first_worker_state} =
       Server.handle_message(
@@ -298,13 +309,15 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
             "prompt" => [
               %{
                 "type" => "text",
-                "text" => "Do two things: first task and second task. Work on them in parallel."
+                "text" => "Do these 2 tasks in parallel: first task; second task"
               }
             ]
           }
         },
         state
       )
+
+    assert {:ok, _selected} = Task.await(selector, 5_000)
 
     [parent] =
       "public-protocol:zed-fixture"
@@ -405,7 +418,9 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
                })
     end
 
+    selector = Task.async(&select_next_report!/0)
     assert :ok = Server.cancel_session_fanouts(session_id, state)
+    assert {:ok, _selected} = Task.await(selector, 5_000)
 
     eventually(fn ->
       projection = Fanout.parent_projection(parent)
@@ -670,9 +685,48 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
                )
     end)
 
+    assert {:ok, %{parent: %{id: parent_id}, frozen: frozen} = claim} =
+             Fanout.claim_next_composition()
+
+    assert parent_id == parent.id
+
+    assert {:ok, _selected} =
+             Fanout.select_composition(
+               claim,
+               "deterministic_fallback",
+               frozen.fallback_body,
+               %{fallback_reason: "model_disabled"}
+             )
+
     assert Fanout.parent_projection(parent).phase == :joined
     Repo.reload!(parent)
   end
+
+  defp select_next_report!(attempts \\ 500)
+
+  defp select_next_report!(attempts) when attempts > 0 do
+    case Fanout.claim_next_composition() do
+      {:ok, %{frozen: frozen} = claim} ->
+        Fanout.select_composition(
+          claim,
+          "deterministic_fallback",
+          frozen.fallback_body,
+          %{fallback_reason: "model_disabled"}
+        )
+
+      :none ->
+        Process.sleep(10)
+        select_next_report!(attempts - 1)
+
+      {:error, :stale_composition_claim} ->
+        select_next_report!(attempts - 1)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp select_next_report!(0), do: {:error, :composition_not_queued}
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)

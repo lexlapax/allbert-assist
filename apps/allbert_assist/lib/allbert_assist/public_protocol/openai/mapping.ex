@@ -29,6 +29,7 @@ defmodule AllbertAssist.PublicProtocol.OpenAI.Mapping do
   @type chat_request :: %{
           required(:model) => String.t(),
           required(:text) => String.t(),
+          required(:operator_text) => String.t() | nil,
           required(:stream?) => boolean(),
           required(:user_id) => String.t(),
           optional(:thread_id) => String.t(),
@@ -50,11 +51,13 @@ defmodule AllbertAssist.PublicProtocol.OpenAI.Mapping do
          :ok <- validate_enabled_model(model),
          :ok <- validate_response_format(Map.get(request, "response_format")),
          {:ok, stream?} <- stream_flag(Map.get(request, "stream", false)),
-         {:ok, text} <- flatten_messages(Map.get(request, "messages")) do
+         {:ok, text} <- flatten_messages(Map.get(request, "messages")),
+         {:ok, operator_text} <- latest_user_text(Map.get(request, "messages")) do
       {:ok,
        %{
          model: model,
          text: text,
+         operator_text: operator_text,
          stream?: stream?,
          user_id: user_id(request, auth),
          thread_id: optional_string(Map.get(request, "allbert_thread_id")),
@@ -87,6 +90,7 @@ defmodule AllbertAssist.PublicProtocol.OpenAI.Mapping do
       }
     }
     |> drop_nil_values()
+    |> Map.put(:operator_text, chat.operator_text)
   end
 
   @spec models_response() :: {:ok, map()} | {:error, error()}
@@ -339,6 +343,15 @@ defmodule AllbertAssist.PublicProtocol.OpenAI.Mapping do
 
   defp flatten_messages(_messages),
     do: {:error, invalid("messages must be a non-empty array.", "invalid_type", "messages")}
+
+  defp latest_user_text(messages) when is_list(messages) do
+    case Enum.find(Enum.reverse(messages), &(Map.get(&1, "role") == "user")) do
+      nil -> {:ok, nil}
+      message -> message_content(message)
+    end
+  end
+
+  defp latest_user_text(_messages), do: {:ok, nil}
 
   defp message_line(%{"role" => role} = message) when role in @allowed_roles do
     with :ok <- validate_assistant_no_tools(role, message),

@@ -150,6 +150,32 @@ defmodule AllbertAssist.Objectives.ObjectiveTest do
     refute Objective.changeset(%Objective{}, %{base | objective: base.objective <> "x"}).valid?
   end
 
+  test "fanout report composition fields enforce their durable domains and bounds" do
+    base = %{
+      id: Objectives.new_id("obj"),
+      user_id: "alice",
+      title: "Composed fanout report",
+      objective: "Persist one selected report.",
+      report_composition_state: "ready",
+      report_source: "model",
+      report_input_digest: String.duplicate("a", 64),
+      report_selection_digest: String.duplicate("b", 64),
+      report_body: "Selected report"
+    }
+
+    assert Objective.changeset(%Objective{}, base).valid?
+
+    for {field, value} <- [
+          report_composition_state: "retrying",
+          report_source: "unknown",
+          report_input_digest: String.duplicate("A", 64),
+          report_selection_digest: String.duplicate("B", 64),
+          report_body: String.duplicate("x", 32_769)
+        ] do
+      refute Objective.changeset(%Objective{}, Map.put(base, field, value)).valid?
+    end
+  end
+
   test "generic active-child updates cannot rewrite inherited fanout structure or identity" do
     parent_attrs = %{
       user_id: unique_user("immutable_child"),

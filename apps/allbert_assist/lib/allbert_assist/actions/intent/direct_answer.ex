@@ -176,7 +176,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
 
   defp call_fanout_manager(text, context, active_memory, resolution) do
     fanout_manager().respond(
-      text,
+      fanout_manager_text(text, context),
       Map.merge(context, %{
         model_enabled?: true,
         model_profile: resolution.profile,
@@ -195,7 +195,17 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   end
 
   defp fanout_manager_enabled?(context) do
-    get_in(context, [:request, :fanout_manager_mode]) in [:automatic, :shadow]
+    request = Map.get(context, :request, %{})
+
+    request[:fanout_manager_mode] in [:automatic, :shadow] and
+      not (Map.has_key?(request, :operator_text) and is_nil(request.operator_text))
+  end
+
+  defp fanout_manager_text(text, context) do
+    case get_in(context, [:request, :operator_text]) do
+      operator_text when is_binary(operator_text) -> operator_text
+      _missing -> text
+    end
   end
 
   defp fanout_max_children(context) do

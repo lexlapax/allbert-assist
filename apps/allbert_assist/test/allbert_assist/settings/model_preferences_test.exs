@@ -57,6 +57,9 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
     assert {:ok, ["direct_answer_local"]} =
              Settings.get("model_preferences.tasks.direct_answer")
 
+    assert {:ok, ["direct_answer_local"]} =
+             Settings.get("model_preferences.tasks.fanout_synthesis")
+
     assert {:ok, "direct_answer_local"} =
              Settings.get("intent.direct_answer_model_profile")
 
@@ -78,6 +81,11 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
     assert direct_answer.profile.name == "direct_answer_local"
     assert direct_answer.profile.model == "qwen2.5:7b"
     assert direct_answer.profile.temperature == 0.0
+
+    assert {:ok, fanout_synthesis} = Models.for(:fanout_synthesis)
+    assert fanout_synthesis.request_kind == :task
+    assert fanout_synthesis.capability == "text_generation"
+    assert fanout_synthesis.profile.name == "direct_answer_local"
 
     assert {:ok, coding} = Models.for(:coding)
     assert coding.profile.name == "coding_local"
@@ -219,6 +227,45 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
     assert {:ok, fallback} = Models.for(:direct_answer)
     assert fallback.source == :primary
     assert fallback.profile.name == "local"
+  end
+
+  test "fan-out synthesis is a closed text-generation task chain" do
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.tasks.fanout_synthesis", ["fast"], %{
+               audit?: false
+             })
+
+    assert {:error, {:no_capable_profile, diagnostic}} = Models.for(:fanout_synthesis)
+    assert diagnostic.candidates == ["fast"]
+    refute Enum.any?(diagnostic.diagnostics, &match?(%{profile: "local"}, &1))
+
+    assert {:error,
+            {:invalid_setting, "model_preferences.tasks.fanout_synthesis",
+             {:profile_missing_capability, "voice_stt_fake", "text_generation"}}} =
+             Settings.put("model_preferences.tasks.fanout_synthesis", ["voice_stt_fake"], %{
+               audit?: false
+             })
+
+    assert {:error,
+            {:invalid_setting, "model_preferences.tasks.fanout_synthesis",
+             :fanout_synthesis_profiles_required}} =
+             Settings.put("model_preferences.tasks.fanout_synthesis", [], %{audit?: false})
+
+    assert {:error,
+            {:invalid_setting, "model_preferences.tasks.fanout_synthesis",
+             :fanout_synthesis_profiles_required}} =
+             Settings.write_user_settings(%{
+               "model_preferences" => %{"tasks" => %{"fanout_synthesis" => []}}
+             })
+
+    assert {:error,
+            {:invalid_setting, "model_preferences.tasks.fanout_synthesis",
+             {:profile_missing_capability, "voice_stt_fake", "text_generation"}}} =
+             Settings.write_user_settings(%{
+               "model_preferences" => %{
+                 "tasks" => %{"fanout_synthesis" => ["voice_stt_fake"]}
+               }
+             })
   end
 
   test "direct-answer preferences reject profiles without text generation before writing" do

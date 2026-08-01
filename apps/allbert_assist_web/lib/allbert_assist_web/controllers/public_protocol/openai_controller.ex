@@ -148,16 +148,12 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
   defp await_response(response), do: {:ok, response}
 
   defp report_response(response, report) do
-    message =
-      report.children
-      |> Enum.map_join("\n", fn child ->
-        "- #{child.title}: #{child.status} — #{Fanout.report_child_detail(child)}"
-      end)
+    report_body = Fanout.format_report(report)
 
     response
-    |> Map.put(:message, "Fan-out #{report.status}:\n#{message}")
-    |> Map.put(:model_payload, "Fan-out #{report.status}:\n#{message}")
-    |> Map.put(:surface_payload, "Fan-out #{report.status}:\n#{message}")
+    |> Map.put(:message, report_body)
+    |> Map.put(:model_payload, report_body)
+    |> Map.put(:surface_payload, report_body)
   end
 
   defp acknowledge_join_report(%{fanout: %{parent_id: parent_id}} = response) do

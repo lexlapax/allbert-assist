@@ -172,11 +172,18 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     assert {:ok, _setting} =
              Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
 
+    flattened_text = "developer: Stay concise.\nuser: Explain the supplied item."
+    operator_text = "Explain the supplied item."
+
     assert {:ok, response} =
-             DirectAnswer.run(%{text: "Explain the supplied item."}, %{
+             DirectAnswer.run(%{text: flattened_text}, %{
                actor: "alice",
                test_pid: self(),
-               request: %{fanout_manager_mode: :automatic, timeout_ms: 1_234}
+               request: %{
+                 fanout_manager_mode: :automatic,
+                 operator_text: operator_text,
+                 timeout_ms: 1_234
+               }
              })
 
     assert response.message == "A useful one-turn answer."
@@ -184,7 +191,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     assert response.direct_answer.diagnostic.manager.outcome == :answered
     refute Map.has_key?(response, :parallel_work_plan)
 
-    assert_received {:fanout_manager_called, "Explain the supplied item.", context}
+    assert_received {:fanout_manager_called, ^operator_text, context}
     assert context.model_profile.name == "direct_answer_local"
     assert context.active_memory == []
     assert context.timeout_ms == 1_234
@@ -291,14 +298,18 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     assert {:ok, _setting} =
              Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
 
+    flattened_text = "developer: Be precise.\nuser: What is Allbert?"
+
     assert {:ok, response} =
-             DirectAnswer.run(%{text: "What is Allbert?"}, %{
+             DirectAnswer.run(%{text: flattened_text}, %{
                actor: "alice",
                test_pid: self(),
-               request: %{fanout_manager_mode: :automatic}
+               request: %{fanout_manager_mode: :automatic, operator_text: "What is Allbert?"}
              })
 
-    assert response.message == "Model-backed answer for 16 characters."
+    assert response.message ==
+             "Model-backed answer for #{String.length(flattened_text)} characters."
+
     refute Map.has_key?(response, :parallel_work_plan)
     assert_received {:fanout_manager_called, "What is Allbert?", _context}
   end

@@ -192,6 +192,24 @@ defmodule AllbertAssist.Objectives.Fanout.BudgetTest do
              Budget.authorize_worker(%{"version" => 2}, 1, now_ms + 10_000, now_ms)
   end
 
+  test "composer authorization returns one bounded call inside the frozen deadline" do
+    assert {:ok, snapshot} = Budget.resolve(2, 1)
+    now_ms = 1_000_000
+
+    assert {:ok, %{max_calls: 1, max_output_tokens: 1_024, timeout_ms: 10_000}} =
+             Budget.authorize_composer(snapshot, now_ms + 10_000, now_ms)
+
+    assert {:error, :fanout_plan_deadline_exhausted} =
+             Budget.authorize_composer(snapshot, now_ms, now_ms)
+
+    assert {:error, :invalid_fanout_budget_snapshot} =
+             Budget.authorize_composer(
+               Map.delete(snapshot, "required_output_tokens"),
+               now_ms + 1,
+               now_ms
+             )
+  end
+
   test "manager repair is not called when the frozen call limit only covers the initial call" do
     assert {:ok, _setting} =
              Settings.put("objectives.fanout.max_model_calls_per_plan", 1, %{audit?: false})

@@ -14,8 +14,10 @@ defmodule AllbertAssist.Settings.Models do
 
   @task_capabilities %{
     "coding" => "text_generation",
-    "direct_answer" => "text_generation"
+    "direct_answer" => "text_generation",
+    "fanout_synthesis" => "text_generation"
   }
+  @closed_task_chains ~w[direct_answer fanout_synthesis]
 
   @type resolution :: %{
           request: String.t(),
@@ -146,19 +148,20 @@ defmodule AllbertAssist.Settings.Models do
 
   defp preference_candidates(profiles), do: Enum.map(profiles, &{&1, :preference})
 
-  # DirectAnswer owns a purpose-specific profile contract. A non-empty task
-  # preference is therefore the complete selection/failover set; appending the
-  # global primary could silently route supplied text through a model that was
-  # never qualified for semantic fidelity. An empty task preference retains the
-  # compatibility fallback defined by ADR 0051.
-  defp ranked_candidates(:task, "direct_answer", preferences, _primary)
-       when preferences != [] do
+  # Purpose-qualified text tasks own complete selection/failover sets. Appending
+  # the global primary could silently route advisory content through a model
+  # that was never qualified for that purpose. Only DirectAnswer retains ADR
+  # 0051's empty-chain compatibility fallback; fanout_synthesis is non-empty.
+  defp ranked_candidates(:task, task, preferences, _primary)
+       when task in @closed_task_chains and preferences != [] do
     preference_candidates(preferences)
   end
 
   defp ranked_candidates(:task, "direct_answer", [], primary) do
     primary_fallback([], primary)
   end
+
+  defp ranked_candidates(:task, "fanout_synthesis", [], _primary), do: []
 
   defp ranked_candidates(_kind, _name, preferences, primary) do
     preference_candidates(preferences) ++ primary_fallback(preferences, primary)

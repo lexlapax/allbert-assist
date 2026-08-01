@@ -60,6 +60,7 @@ defmodule AllbertAssist.Runtime do
 
   @type request :: %{
           text: String.t(),
+          operator_text: String.t() | nil,
           channel: atom() | String.t(),
           user_id: String.t(),
           operator_id: String.t(),
@@ -233,7 +234,7 @@ defmodule AllbertAssist.Runtime do
           {:ok, Fanout.report(parent)}
 
         %{phase: :recovering} ->
-          _ = Scheduler.wake_parent(parent.id)
+          _ = Fanout.wake_recovery(parent)
           await_join_signal(parent, user_id, timeout_ms)
 
         _pending ->
@@ -248,9 +249,7 @@ defmodule AllbertAssist.Runtime do
   def subscribe_fanout(parent_id, user_id, sink)
       when is_binary(parent_id) and is_binary(user_id) and is_pid(sink) do
     with {:ok, _parent} <- owned_fanout(parent_id, user_id) do
-      Bus.subscribe(AllbertAssist.SignalBus, "allbert.objectives.**",
-        dispatch: {:pid, target: sink}
-      )
+      Bus.subscribe(fanout_bus(), "allbert.objectives.**", dispatch: {:pid, target: sink})
     end
   end
 
@@ -331,14 +330,14 @@ defmodule AllbertAssist.Runtime do
             {:ok, Fanout.report(parent)}
 
           %{phase: :recovering} ->
-            _ = Scheduler.wake_parent(parent.id)
+            _ = Fanout.wake_recovery(parent)
             receive_join(parent, System.monotonic_time(:millisecond) + timeout_ms)
 
           _pending ->
             receive_join(parent, System.monotonic_time(:millisecond) + timeout_ms)
         end
       after
-        Bus.unsubscribe(AllbertAssist.SignalBus, subscription_id)
+        Bus.unsubscribe(fanout_bus(), subscription_id)
       end
     end
   end
@@ -355,7 +354,7 @@ defmodule AllbertAssist.Runtime do
               {:ok, Fanout.report(parent)}
 
             %{phase: :recovering} ->
-              _ = Scheduler.wake_parent(parent.id)
+              _ = Fanout.wake_recovery(parent)
               receive_join(parent, deadline_ms)
 
             _not_joined ->
@@ -365,15 +364,38 @@ defmodule AllbertAssist.Runtime do
           receive_join(parent, deadline_ms)
         end
     after
-      remaining_ms -> {:timeout, fanout_kickoff(parent)}
+      remaining_ms -> receive_join_timeout(parent)
     end
+  end
+
+  # Signals are a low-latency wake-up only. The durable projection gets the
+  # final word at the timeout boundary so a committed report cannot be hidden
+  # by a failed or delayed publication.
+  defp receive_join_timeout(parent) do
+    case Fanout.parent_projection(parent) do
+      %{phase: :joined, authoritatively_joined?: true} ->
+        {:ok, Fanout.report(parent)}
+
+      %{phase: :recovering} ->
+        _ = Fanout.wake_recovery(parent)
+        {:timeout, fanout_kickoff(parent)}
+
+      _pending ->
+        {:timeout, fanout_kickoff(parent)}
+    end
+  end
+
+  defp fanout_bus do
+    :allbert_assist
+    |> Application.get_env(__MODULE__, [])
+    |> Keyword.get(:fanout_bus, AllbertAssist.SignalBus)
   end
 
   defp fanout_kickoff(parent) do
     projection = Fanout.parent_projection(parent)
 
     if projection.phase == :recovering do
-      _ = Scheduler.wake_parent(parent.id)
+      _ = Fanout.wake_recovery(parent)
     end
 
     %{
@@ -406,6 +428,7 @@ defmodule AllbertAssist.Runtime do
     channel = fetch_value(attrs, :channel) || :unknown
 
     with {:ok, text} <- text,
+         {:ok, operator_text} <- normalize_operator_text(attrs, text),
          {:ok, identity} <- identity(attrs),
          {:ok, session_id} <- normalize_session_id(attrs),
          {:ok, channel_thread_ref} <- normalize_channel_thread_ref(channel, attrs),
@@ -416,6 +439,7 @@ defmodule AllbertAssist.Runtime do
       {:ok,
        %{
          text: text,
+         operator_text: operator_text,
          channel: channel,
          user_id: identity.user_id,
          operator_id: identity.operator_id,
@@ -515,6 +539,30 @@ defmodule AllbertAssist.Runtime do
   end
 
   defp normalize_text(_value), do: {:error, :missing_text}
+
+  defp normalize_operator_text(attrs, default_text) do
+    cond do
+      Map.has_key?(attrs, :operator_text) ->
+        normalize_operator_text_value(Map.get(attrs, :operator_text))
+
+      Map.has_key?(attrs, "operator_text") ->
+        normalize_operator_text_value(Map.get(attrs, "operator_text"))
+
+      true ->
+        {:ok, default_text}
+    end
+  end
+
+  defp normalize_operator_text_value(nil), do: {:ok, nil}
+
+  defp normalize_operator_text_value(value) when is_binary(value) do
+    case String.trim(value) do
+      "" -> {:error, :empty_operator_text}
+      text -> {:ok, text}
+    end
+  end
+
+  defp normalize_operator_text_value(_value), do: {:error, :invalid_operator_text}
 
   defp identity(attrs) do
     user_id = optional_string(fetch_value(attrs, :user_id))
@@ -756,6 +804,7 @@ defmodule AllbertAssist.Runtime do
 
     IntentAgent.respond(%{
       text: request.text,
+      operator_text: request.operator_text,
       channel: request.channel,
       user_id: request.user_id,
       operator_id: request.operator_id,
@@ -866,7 +915,7 @@ defmodule AllbertAssist.Runtime do
            Settings.get("objectives.fanout.rollout_mode"),
          {:ok, max_children} <- Settings.get("objectives.fanout.max_children_per_fanout") do
       proposal =
-        decomposer().(request.text, %{
+        decomposer().(request.operator_text, %{
           max_children_per_fanout: max_children,
           active_fanout?: active_fanout?(request),
           steering_turn?: steering_turn?(request),
@@ -883,7 +932,7 @@ defmodule AllbertAssist.Runtime do
     if rollout == "shadow" or (rollout == "explicit" and not explicit_fanout?(request)) do
       {:agent, if(rollout == "shadow", do: :off, else: manager_mode(rollout, request))}
     else
-      case FanoutPlan.compile_counted(request.text, tasks, max_children: max_children) do
+      case FanoutPlan.compile_counted(request.operator_text, tasks, max_children: max_children) do
         {:ok, plan} -> {:fanout, plan}
         {:error, _reason} -> :single
       end
@@ -913,8 +962,14 @@ defmodule AllbertAssist.Runtime do
   end
 
   defp fanout_eligible_turn?(request) do
-    text = String.trim(request.text)
-    text != "" and not String.starts_with?(text, "/") and not active_fanout?(request)
+    case request.operator_text do
+      text when is_binary(text) ->
+        text = String.trim(text)
+        text != "" and not String.starts_with?(text, "/") and not active_fanout?(request)
+
+      nil ->
+        false
+    end
   end
 
   defp run_managed_agent_turn(input_signal, request, mode) do
@@ -948,11 +1003,12 @@ defmodule AllbertAssist.Runtime do
         _other -> 8
       end
 
-    expected_digest = :crypto.hash(:sha256, request.text) |> Base.encode16(case: :lower)
+    expected_digest =
+      :crypto.hash(:sha256, request.operator_text) |> Base.encode16(case: :lower)
 
-    with true <- plan.original_request == request.text,
+    with true <- plan.original_request == request.operator_text,
          true <- plan.original_request_sha256 == expected_digest do
-      FanoutPlan.compile(request.text, plan.children,
+      FanoutPlan.compile(request.operator_text, plan.children,
         source: :model,
         max_children: max_children
       )
@@ -963,7 +1019,10 @@ defmodule AllbertAssist.Runtime do
 
   defp explicit_fanout?(request) do
     truthy?(fetch_value(request.metadata, :fanout)) or
-      Regex.match?(~r/\b(in parallel|simultaneously|separately|independently)\b/iu, request.text)
+      Regex.match?(
+        ~r/\b(in parallel|simultaneously|separately|independently)\b/iu,
+        request.operator_text
+      )
   end
 
   defp active_fanout?(request) do
@@ -974,7 +1033,7 @@ defmodule AllbertAssist.Runtime do
     active_fanout?(request) and
       Regex.match?(
         ~r/^\s*(status|progress|cancel|stop|pause|resume|retry|skip)(?:\s|$)/iu,
-        request.text
+        request.operator_text
       )
   end
 
@@ -997,8 +1056,8 @@ defmodule AllbertAssist.Runtime do
 
       attrs = %{
         user_id: request.user_id,
-        title: String.slice(request.text, 0, 160),
-        objective: request.text,
+        title: String.slice(request.operator_text, 0, 160),
+        objective: request.operator_text,
         proposer_hint: %{"fanout_plan" => provenance},
         source_channel: to_string(request.channel),
         source_surface: source_surface(request.channel),
@@ -1214,7 +1273,7 @@ defmodule AllbertAssist.Runtime do
           :ok
 
         {:error, _transient_reason} ->
-          Scheduler.wake_parent(parent.id)
+          Fanout.wake_recovery(parent)
       end
     else
       :ok

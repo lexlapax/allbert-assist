@@ -145,6 +145,12 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
 
     assert_coherent_fanout_read(shown.objective)
     assert Enum.map(shown.children, & &1.id) == Enum.map(children, & &1.id)
+
+    if shown.objective.fanout_phase == :joined do
+      assert shown.objective.report_body == Fanout.format_report(Fanout.report(parent))
+    else
+      refute Map.has_key?(shown.objective, :report_body)
+    end
   end
 
   test "cancel_objective transitions objective and pending steps cooperatively" do
@@ -190,15 +196,29 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
     assert Enum.any?(Objectives.list_events(objective.id), &(&1.kind == "cancelled"))
   end
 
-  defp assert_coherent_fanout_read(%{fanout_phase: :recovering} = objective) do
+  defp assert_coherent_fanout_read(
+         %{
+           fanout_phase: :recovering,
+           report_composition_state: "not_ready"
+         } = objective
+       ) do
     assert objective.status == "finalizing"
     assert objective.persisted_status == "open"
+    assert objective.report_delivery_state == "not_ready"
+  end
+
+  defp assert_coherent_fanout_read(%{fanout_phase: :recovering} = objective) do
+    assert objective.status == "finalizing"
+    assert objective.persisted_status == "completed"
+    assert objective.report_composition_state in ["queued", "composing"]
     assert objective.report_delivery_state == "not_ready"
   end
 
   defp assert_coherent_fanout_read(%{fanout_phase: :joined} = objective) do
     assert objective.status == "completed"
     assert objective.persisted_status == "completed"
+    assert objective.report_composition_state in ["ready", "fallback"]
+    assert objective.report_source in ["model", "deterministic_fallback"]
     assert objective.report_delivery_state in ["pending", "delivered"]
   end
 

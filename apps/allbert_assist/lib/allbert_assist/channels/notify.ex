@@ -9,6 +9,8 @@ defmodule AllbertAssist.Channels.Notify do
 
   import Ecto.Query
 
+  require Logger
+
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.NotifyDelivery
   alias AllbertAssist.Channels.Outbound
@@ -26,6 +28,8 @@ defmodule AllbertAssist.Channels.Notify do
   @live_attached_channels ~w[tui live_view]
   @non_autonomous_channels ~w[tui web live_view cli acp_stdio openai_api job]
   @completion_event_key "joined"
+  @default_completion_work_limit 100
+  @completion_scan_batch_size 100
 
   @doc "Settings Central fragment shared by channel plugins."
   def settings_schema(channel, opts \\ []) when is_binary(channel) do
@@ -109,21 +113,93 @@ defmodule AllbertAssist.Channels.Notify do
   end
 
   @doc "List durable completion outboxes that can make progress after restart."
-  @spec pending_completion_work() :: [Objective.t()]
-  def pending_completion_work do
+  @spec pending_completion_work(pos_integer()) :: [Objective.t()]
+  def pending_completion_work(limit \\ @default_completion_work_limit)
+      when is_integer(limit) and limit > 0 do
+    scan_pending_completion_work(nil, limit, [])
+  end
+
+  defp scan_pending_completion_work(cursor, remaining, accepted) do
+    parents = pending_completion_batch(cursor)
+
+    {remaining, accepted, skipped_ids} =
+      Enum.reduce_while(parents, {remaining, accepted, []}, &scan_pending_completion_parent/2)
+
+    log_skipped_completion_integrity_failures(skipped_ids)
+
+    cond do
+      remaining == 0 ->
+        Enum.reverse(accepted)
+
+      length(parents) < @completion_scan_batch_size ->
+        Enum.reverse(accepted)
+
+      true ->
+        last = List.last(parents)
+        scan_pending_completion_work({last.completed_at, last.id}, remaining, accepted)
+    end
+  end
+
+  defp scan_pending_completion_parent(parent, {remaining, accepted, skipped}) do
+    projection = Fanout.parent_projection(parent)
+
+    if projection.phase == :joined and projection.authoritatively_joined? do
+      next = {remaining - 1, [parent | accepted], skipped}
+      if remaining == 1, do: {:halt, next}, else: {:cont, next}
+    else
+      {:cont, {remaining, accepted, [parent.id | skipped]}}
+    end
+  end
+
+  defp pending_completion_batch(cursor) do
     Objective
-    |> where(
-      [objective],
-      objective.fanout_role == "parent" and objective.report_delivery_state == "pending"
+    |> join(:left, [objective], delivery in NotifyDelivery,
+      on: delivery.fanout_id == objective.id and delivery.kind == "completion"
     )
+    |> where(
+      [objective, delivery],
+      objective.fanout_role == "parent" and objective.report_delivery_state == "pending" and
+        objective.report_composition_state in ["ready", "fallback"] and
+        objective.source_channel not in ^@non_autonomous_channels and
+        (is_nil(delivery.id) or delivery.state in ["reserved", "sending", "delivered"] or
+           (delivery.state == "failed" and delivery.attempt_count < 2))
+    )
+    |> after_completion_cursor(cursor)
     |> order_by([objective], asc: objective.completed_at, asc: objective.id)
+    |> limit(@completion_scan_batch_size)
     |> Repo.all()
-    |> Enum.reject(&autonomous_delivery_suppressed?/1)
-    |> Enum.filter(fn parent ->
-      projection = Fanout.parent_projection(parent)
-      projection.phase == :joined and projection.authoritatively_joined?
-    end)
-    |> Enum.filter(&completion_recoverable?/1)
+  end
+
+  defp after_completion_cursor(query, nil), do: query
+
+  defp after_completion_cursor(query, {nil, id}) do
+    where(
+      query,
+      [objective, _delivery],
+      (is_nil(objective.completed_at) and objective.id > ^id) or
+        not is_nil(objective.completed_at)
+    )
+  end
+
+  defp after_completion_cursor(query, {completed_at, id}) do
+    where(
+      query,
+      [objective, _delivery],
+      objective.completed_at > ^completed_at or
+        (objective.completed_at == ^completed_at and objective.id > ^id)
+    )
+  end
+
+  defp log_skipped_completion_integrity_failures([]), do: :ok
+
+  defp log_skipped_completion_integrity_failures(ids) do
+    ordered_ids = Enum.reverse(ids)
+
+    Logger.error(
+      "notification completion scan skipped report integrity failures " <>
+        "count=#{length(ordered_ids)} first_parent_id=#{List.first(ordered_ids)} " <>
+        "last_parent_id=#{List.last(ordered_ids)}"
+    )
   end
 
   @doc "Reserve the one-time in-band consent offer; true means it should render."
@@ -730,15 +806,6 @@ defmodule AllbertAssist.Channels.Notify do
     end
   end
 
-  defp completion_recoverable?(fanout) do
-    case Repo.get_by(NotifyDelivery, delivery_key: completion_delivery_key(fanout)) do
-      nil -> true
-      %NotifyDelivery{state: state} when state in ~w[reserved sending delivered] -> true
-      %NotifyDelivery{state: "failed", attempt_count: attempts} when attempts < 2 -> true
-      %NotifyDelivery{} -> false
-    end
-  end
-
   @doc false
   @spec completion_delivery_key(Objective.t()) :: String.t()
   def completion_delivery_key(%Objective{fanout_role: "parent"} = fanout) do
@@ -746,20 +813,10 @@ defmodule AllbertAssist.Channels.Notify do
   end
 
   defp completion_body(fanout) do
-    report = Fanout.report(fanout)
-
-    children =
-      Enum.map_join(report.children, "; ", fn child ->
-        "#{glyph(child.status)} #{child.title} — #{Fanout.report_child_detail(child)}"
-      end)
-
-    "#{report.title} — #{report.join_outcome}. #{children}"
+    fanout
+    |> Fanout.report()
+    |> Fanout.format_report()
   end
-
-  defp glyph("completed"), do: "✓"
-  defp glyph("cancelled"), do: "⊘"
-  defp glyph("failed"), do: "✗"
-  defp glyph(_status), do: "•"
 
   defp receipt_id(receipt) when is_map(receipt) do
     receipt

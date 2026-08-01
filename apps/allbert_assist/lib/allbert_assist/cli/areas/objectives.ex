@@ -257,7 +257,10 @@ defmodule AllbertAssist.CLI.Areas.Objectives do
     [
       "Fan-out phase: #{objective[:fanout_phase] || "unknown"}",
       "Join outcome: #{objective[:join_outcome] || objective[:derived_join_outcome] || "pending"}",
+      "Report composition: #{report_composition_label(objective[:report_composition_state])}",
+      "Report source: #{objective[:report_source] || "not_selected"}",
       "Report delivery: #{objective[:report_delivery_state] || "not_ready"}",
+      report_line(objective[:report_body]),
       "Fan-out tasks:"
     ] ++
       Enum.map(children, fn child ->
@@ -273,6 +276,17 @@ defmodule AllbertAssist.CLI.Areas.Objectives do
   end
 
   defp fanout_lines(_objective, _children), do: []
+
+  defp report_composition_label("ready"), do: "completed"
+  defp report_composition_label("fallback"), do: "fallback"
+
+  defp report_composition_label(state) when state in ["queued", "composing", "not_ready"],
+    do: state
+
+  defp report_composition_label(_state), do: "not_ready"
+
+  defp report_line(body) when is_binary(body) and body != "", do: "Report: #{body}"
+  defp report_line(_body), do: "Report: not ready"
 
   defp continue_lines(response) do
     [response.message] ++

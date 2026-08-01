@@ -133,6 +133,36 @@ defmodule AllbertAssist.Objectives.Fanout.Budget do
   def authorize_worker(_snapshot, _attempt, _deadline_unix_ms, _now_unix_ms),
     do: {:error, :invalid_fanout_budget_snapshot}
 
+  @doc "Authorize the single report-composition call inside the frozen plan deadline."
+  @spec authorize_composer(snapshot(), integer(), integer()) ::
+          {:ok,
+           %{
+             required(:max_calls) => 1,
+             required(:max_output_tokens) => 1_024,
+             required(:timeout_ms) => pos_integer()
+           }}
+          | {:error, :invalid_fanout_budget_snapshot | :fanout_plan_deadline_exhausted}
+  def authorize_composer(
+        snapshot,
+        deadline_unix_ms,
+        now_unix_ms \\ System.system_time(:millisecond)
+      )
+
+  def authorize_composer(snapshot, deadline_unix_ms, now_unix_ms)
+      when is_integer(deadline_unix_ms) and is_integer(now_unix_ms) do
+    with true <- valid_composer_snapshot?(snapshot),
+         remaining when remaining > 0 <- deadline_unix_ms - now_unix_ms do
+      {:ok,
+       %{max_calls: @composer_calls, max_output_tokens: @composer_tokens, timeout_ms: remaining}}
+    else
+      false -> {:error, :invalid_fanout_budget_snapshot}
+      _expired -> {:error, :fanout_plan_deadline_exhausted}
+    end
+  end
+
+  def authorize_composer(_snapshot, _deadline_unix_ms, _now_unix_ms),
+    do: {:error, :invalid_fanout_budget_snapshot}
+
   defp build_snapshot(child_count, manager_attempts, limits) do
     worker_attempts = limits.max_worker_attempts_per_child
 
@@ -236,6 +266,73 @@ defmodule AllbertAssist.Objectives.Fanout.Budget do
     Enum.all?([max_attempts, max_elapsed_ms, attempt], &(is_integer(&1) and &1 > 0)) and
       Enum.all?([deadline_unix_ms, now_unix_ms], &is_integer/1)
   end
+
+  defp valid_composer_snapshot?(%{
+         "version" => @version,
+         "child_count" => child_count,
+         "manager_attempts" => manager_attempts,
+         "worker_attempts_per_child" => worker_attempts,
+         "configured_model_calls" => configured_calls,
+         "required_model_calls" => required_calls,
+         "configured_output_tokens" => configured_tokens,
+         "required_output_tokens" => required_tokens,
+         "max_elapsed_ms" => max_elapsed_ms
+       }) do
+    expected_calls =
+      manager_attempts + child_count * worker_attempts * @worker_calls_per_attempt +
+        @composer_calls
+
+    expected_tokens =
+      manager_attempts * @manager_tokens_per_attempt +
+        child_count * worker_attempts * @worker_calls_per_attempt * @worker_tokens_per_call +
+        @composer_tokens
+
+    valid_composer_dimensions?(
+      child_count,
+      manager_attempts,
+      worker_attempts,
+      max_elapsed_ms
+    ) and
+      valid_composer_totals?(
+        configured_calls,
+        required_calls,
+        expected_calls,
+        configured_tokens,
+        required_tokens,
+        expected_tokens
+      )
+  end
+
+  defp valid_composer_snapshot?(_snapshot), do: false
+
+  defp valid_composer_dimensions?(
+         child_count,
+         manager_attempts,
+         worker_attempts,
+         max_elapsed_ms
+       ) do
+    Enum.all?([
+      integer_in_range?(child_count, 2, 16),
+      integer_in_range?(manager_attempts, 0, 2),
+      integer_in_range?(worker_attempts, 1, 4),
+      is_integer(max_elapsed_ms) and max_elapsed_ms >= 1_000
+    ])
+  end
+
+  defp valid_composer_totals?(
+         configured_calls,
+         required_calls,
+         expected_calls,
+         configured_tokens,
+         required_tokens,
+         expected_tokens
+       ) do
+    required_calls == expected_calls and configured_calls >= required_calls and
+      required_tokens == expected_tokens and configured_tokens >= required_tokens
+  end
+
+  defp integer_in_range?(value, minimum, maximum),
+    do: is_integer(value) and value >= minimum and value <= maximum
 
   defp exhausted(budget, required, configured) do
     {:error,

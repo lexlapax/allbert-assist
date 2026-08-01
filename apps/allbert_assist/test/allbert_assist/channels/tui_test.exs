@@ -16,6 +16,7 @@ defmodule AllbertAssist.Channels.TUITest do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Fanout.ReportComposer
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Paths
@@ -29,6 +30,7 @@ defmodule AllbertAssist.Channels.TUITest do
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias AllbertAssist.Trace
   alias Jido.Signal
+  alias Jido.Signal.Bus
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -350,9 +352,7 @@ defmodule AllbertAssist.Channels.TUITest do
 
     assert_receive {:tui_output, "[fan-out] fanout joined: Attached fan-out"}, 1_000
     assert_receive {:tui_output, report}, 1_000
-    assert report =~ "Attached fan-out — success"
-    assert report =~ "✓ first — result 0"
-    assert report =~ "✓ second — result 1"
+    assert report == Fanout.format_report(Fanout.report(parent))
 
     eventually(fn ->
       Fanout.parent_projection(parent).parent.report_delivery_state == "delivered"
@@ -367,6 +367,115 @@ defmodule AllbertAssist.Channels.TUITest do
     )
 
     refute_receive {:tui_output, _duplicate}, 100
+  end
+
+  test "SignalBus restart re-subscribes and reconciles a missed attached report" do
+    configure_tui!()
+    test_pid = self()
+    bus = :"tui-fanout-recovery-bus-#{System.unique_integer([:positive])}"
+    bus_child = {:tui_fanout_recovery_bus, bus}
+    bus_pid = start_supervised!({Bus, name: bus}, id: bus_child)
+
+    assert {:ok, server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: false,
+               enabled?: true,
+               live_screen?: false,
+               fanout_bus: bus,
+               fanout_reconnect_delay_ms: 10,
+               output_fun: fn line -> send(test_pid, {:recovered_tui_output, line}) end
+             )
+
+    eventually(fn ->
+      state = :sys.get_state(server)
+      state.fanout_bus_pid == bus_pid and is_binary(state.fanout_subscription_id)
+    end)
+
+    assert {:ok, %{parent: parent, children: children}} =
+             attached_fanout!("Missed attached publication")
+
+    set_active_fanout(server, parent.id)
+    assert :ok = stop_supervised(bus_child)
+    eventually(fn -> is_nil(:sys.get_state(server).fanout_bus_pid) end)
+
+    complete_children!(children)
+    assert Fanout.parent_projection(parent).parent.report_delivery_state == "pending"
+    refute_receive {:recovered_tui_output, _line}, 100
+
+    restarted_bus_pid = start_supervised!({Bus, name: bus}, id: bus_child)
+
+    assert_receive {:recovered_tui_output,
+                    "[fan-out] fanout joined: Missed attached publication"},
+                   2_000
+
+    assert_receive {:recovered_tui_output, report}, 1_000
+    assert report == Fanout.format_report(Fanout.report(parent))
+
+    eventually(fn ->
+      state = :sys.get_state(server)
+
+      state.fanout_bus_pid == restarted_bus_pid and
+        Fanout.parent_projection(parent).parent.report_delivery_state == "delivered"
+    end)
+
+    send(
+      server,
+      {:signal, Signal.new!("allbert.objectives.fanout.joined", %{parent_id: parent.id})}
+    )
+
+    refute_receive {:recovered_tui_output, _duplicate}, 100
+  end
+
+  test "a newly tracked attachment reconciles only after kickoff acknowledgement" do
+    configure_tui!()
+    test_pid = self()
+    bus = :"tui-post-ack-recovery-bus-#{System.unique_integer([:positive])}"
+    _bus_pid = start_supervised!({Bus, name: bus})
+
+    assert {:ok, server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: false,
+               enabled?: true,
+               live_screen?: false,
+               fanout_bus: bus,
+               output_fun: fn line -> send(test_pid, {:post_ack_tui_output, line}) end
+             )
+
+    assert {:ok, %{parent: parent, children: children}} =
+             attached_fanout!("Post-ack reconciliation")
+
+    complete_children!(children)
+
+    :sys.replace_state(server, fn state ->
+      %{state | attended_turn: %{turn_id: "post-ack-turn"}}
+    end)
+
+    assert :ok =
+             GenServer.call(
+               server,
+               {:attended_turn_handoff, "post-ack-turn",
+                %{
+                  fanout: %{parent_id: parent.id},
+                  thread_id: parent.source_thread_id,
+                  session_id: parent.session_id
+                }}
+             )
+
+    refute_receive {:post_ack_tui_output, _line}, 100
+
+    send(server, {:tui_fanout_kickoff_acknowledged, parent.id})
+
+    assert_receive {:post_ack_tui_output, "[fan-out] fanout joined: Post-ack reconciliation"},
+                   1_000
+
+    assert_receive {:post_ack_tui_output, report}, 1_000
+    assert report == Fanout.format_report(Fanout.report(parent))
+
+    eventually(fn ->
+      Fanout.parent_projection(parent).parent.report_delivery_state == "delivered"
+    end)
   end
 
   test "daemon delivery custody waits for cumulative acknowledgement without blocking ordinary output" do
@@ -736,8 +845,62 @@ defmodule AllbertAssist.Channels.TUITest do
     end
   end
 
-  test "escape reports finalizing for an orphaned reduction and wakes recovery" do
+  test "escape reports finalizing and wakes the durable owner for each recovery phase" do
     configure_tui!()
+
+    assert {:ok,
+            %{
+              parent: composing_parent,
+              children: composing_children,
+              fanout_start_receipt: composing_receipt
+            }} = attached_fanout!("Interrupted report composition")
+
+    assert :ok = Fanout.acknowledge_start(composing_receipt, attached_delivery_context())
+    terminalize_children!(composing_children)
+
+    assert {:ok, %{parent: claimed_composing_parent}} = Fanout.claim_next_composition()
+    assert claimed_composing_parent.id == composing_parent.id
+
+    assert {:ok,
+            %{
+              parent: queued_parent,
+              children: queued_children,
+              fanout_start_receipt: queued_receipt
+            }} = attached_fanout!("Queued report composition")
+
+    assert :ok = Fanout.acknowledge_start(queued_receipt, attached_delivery_context())
+    terminalize_children!(queued_children)
+
+    assert {:ok,
+            %{
+              parent: orphan_parent,
+              children: orphan_children,
+              fanout_start_receipt: orphan_receipt
+            }} = attached_fanout!("Orphaned execution reduction")
+
+    assert :ok = Fanout.acknowledge_start(orphan_receipt, attached_delivery_context())
+
+    assert {2, _rows} =
+             Objective
+             |> where([objective], objective.id in ^Enum.map(orphan_children, & &1.id))
+             |> Repo.update_all(
+               set: [
+                 status: "completed",
+                 last_observation_summary: "orphaned result",
+                 completed_at: DateTime.utc_now()
+               ]
+             )
+
+    assert %{phase: :recovering, parent: %{report_composition_state: "composing"}} =
+             Fanout.parent_projection(composing_parent)
+
+    assert %{phase: :recovering, parent: %{report_composition_state: "queued"}} =
+             Fanout.parent_projection(queued_parent)
+
+    assert %{phase: :recovering, parent: %{report_composition_state: "not_ready"}} =
+             Fanout.parent_projection(orphan_parent)
+
+    enable_default_report_composer!()
 
     assert {:ok, server} =
              Adapter.start_link(
@@ -748,28 +911,25 @@ defmodule AllbertAssist.Channels.TUITest do
                output_fun: fn _line -> :ok end
              )
 
-    assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
-             attached_fanout!()
+    for parent <- [queued_parent, claimed_composing_parent, orphan_parent] do
+      set_active_fanout(server, parent.id)
+      assert {:ok, {:fanout_finalizing, parent_id}} = Adapter.cancel_current_turn(server)
+      assert parent_id == parent.id
+      refute match?({:ok, {:fanout_cancel_offer, _}}, Adapter.cancel_current_turn(server))
 
-    assert :ok = Fanout.acknowledge_start(receipt, attached_delivery_context())
+      eventually(fn -> Fanout.parent_projection(parent).phase == :joined end)
 
-    assert {2, _rows} =
-             Objective
-             |> where([objective], objective.id in ^Enum.map(children, & &1.id))
-             |> Repo.update_all(
-               set: [
-                 status: "completed",
-                 last_observation_summary: "orphaned result",
-                 completed_at: DateTime.utc_now()
-               ]
-             )
+      projection = Fanout.parent_projection(parent)
+      assert projection.parent.report_composition_state == "fallback"
+      assert projection.parent.report_delivery_state in ["pending", "delivered"]
+      assert is_binary(projection.parent.report_body)
+    end
 
-    set_active_fanout(server, parent.id)
-    assert {:ok, {:fanout_finalizing, parent_id}} = Adapter.cancel_current_turn(server)
-    assert parent_id == parent.id
-    refute match?({:ok, {:fanout_cancel_offer, _}}, Adapter.cancel_current_turn(server))
+    composing_selection = report_selection_payload(claimed_composing_parent.id)
+    assert composing_selection["fallback_reason"] == "recovery_after_restart"
 
-    eventually(fn -> Fanout.parent_projection(parent).phase == :joined end)
+    orphan_join = objective_event_payload(orphan_parent.id, "fanout_joined")
+    assert orphan_join["recovered"] == true
   end
 
   test "non-interactive supervised child stays quiet without launcher opts" do
@@ -1949,7 +2109,11 @@ defmodule AllbertAssist.Channels.TUITest do
 
     {server, reader} = start_raw_tui!(parent)
 
-    send_input_driver_line(reader, "first handoff task; second handoff task")
+    send_input_driver_line(
+      reader,
+      "Do these two tasks in parallel: first handoff task; second handoff task"
+    )
+
     assert_receive {:input_driver_output, "\r\n"}
     assert_receive {:input_driver_output, "allbert:default> "}
 
@@ -2683,6 +2847,23 @@ defmodule AllbertAssist.Channels.TUITest do
   end
 
   defp complete_children!(children) do
+    terminalize_children!(children)
+
+    parent_id = children |> hd() |> Map.fetch!(:parent_objective_id)
+
+    assert {:ok, %{parent: %{id: ^parent_id}, frozen: frozen} = claim} =
+             Fanout.claim_next_composition()
+
+    assert {:ok, _selected} =
+             Fanout.select_composition(
+               claim,
+               "deterministic_fallback",
+               frozen.fallback_body,
+               %{fallback_reason: "model_disabled"}
+             )
+  end
+
+  defp terminalize_children!(children) do
     Enum.each(children, fn child ->
       assert {:ok, %{child: %{status: "completed"}}} =
                TerminalTransitions.terminalize_child(
@@ -2696,6 +2877,51 @@ defmodule AllbertAssist.Channels.TUITest do
                  %{}
                )
     end)
+  end
+
+  defp enable_default_report_composer! do
+    original_state = :sys.get_state(ReportComposer)
+
+    on_exit(fn -> restore_report_composer_state(original_state) end)
+
+    :sys.replace_state(ReportComposer, fn state ->
+      %{
+        state
+        | enabled?: true,
+          model_enabled?: false,
+          phase: :ready,
+          drain_requested?: false,
+          reconcile_requested?: false,
+          retry_attempts: %{recover: 0, claim: 0, select: 0}
+      }
+    end)
+  end
+
+  defp restore_report_composer_state(original_state) do
+    if Process.whereis(ReportComposer) do
+      :sys.replace_state(ReportComposer, fn state ->
+        %{
+          state
+          | enabled?: original_state.enabled?,
+            model_enabled?: original_state.model_enabled?,
+            phase: original_state.phase,
+            drain_requested?: original_state.drain_requested?,
+            reconcile_requested?: original_state.reconcile_requested?,
+            retry_attempts: original_state.retry_attempts
+        }
+      end)
+    end
+  end
+
+  defp report_selection_payload(parent_id),
+    do: objective_event_payload(parent_id, "fanout_report_selected")
+
+  defp objective_event_payload(parent_id, kind) do
+    parent_id
+    |> AllbertAssist.Objectives.list_events()
+    |> Enum.find(&(&1.kind == kind))
+    |> Map.fetch!(:payload)
+    |> Jason.decode!()
   end
 
   defp receive_output_containing(order, needle) do

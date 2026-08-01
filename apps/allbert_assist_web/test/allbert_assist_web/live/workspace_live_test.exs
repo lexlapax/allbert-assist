@@ -186,8 +186,13 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     complete_fanout_children!(children)
 
     html = eventually_render(view, "Web fan-in — success")
-    assert html =~ "✓ research — result 0"
-    assert html =~ "✓ draft — result 1"
+
+    assert html =~
+             "✓ research [completed] — Child-reported observation (not effect evidence): result 0"
+
+    assert html =~
+             "✓ draft [completed] — Child-reported observation (not effect evidence): result 1"
+
     assert has_element?(view, "#attached-fanout-report-#{parent.id}")
 
     assert has_element?(
@@ -206,6 +211,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     assert [canonical_report] = Conversations.list_messages(thread)
     assert canonical_report.role == "assistant"
+    assert canonical_report.content == Fanout.format_report(Fanout.report(parent))
     assert canonical_report.metadata["parent_objective_id"] == parent.id
 
     send(
@@ -427,7 +433,9 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     view
     |> element("#agent-form")
-    |> render_submit(%{"prompt" => "first task; second task"})
+    |> render_submit(%{
+      "prompt" => "Do these 2 tasks in parallel: first task; second task"
+    })
 
     html = render_async(view, @runtime_async_timeout)
     assert html =~ "I split this into 2 tasks"
@@ -468,7 +476,9 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     view
     |> element("#agent-form")
-    |> render_submit(%{"prompt" => "first task; second task"})
+    |> render_submit(%{
+      "prompt" => "Do these 2 tasks in parallel: first task; second task"
+    })
 
     html = render_async(view, @runtime_async_timeout)
     assert html =~ "I split this into 2 tasks"
@@ -494,6 +504,19 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
                  %{}
                )
     end)
+
+    parent_id = children |> hd() |> Map.fetch!(:parent_objective_id)
+
+    assert {:ok, %{parent: %{id: ^parent_id}, frozen: frozen} = claim} =
+             Fanout.claim_next_composition()
+
+    assert {:ok, _selected} =
+             Fanout.select_composition(
+               claim,
+               "deterministic_fallback",
+               frozen.fallback_body,
+               %{fallback_reason: "model_disabled"}
+             )
   end
 
   defp eventually_render(view, expected, attempts \\ 100)

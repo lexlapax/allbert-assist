@@ -10,7 +10,6 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
-  alias AllbertAssist.Objectives.Runs.Scheduler
   alias AllbertAssist.PublicProtocol.Acp.Mapping
   alias AllbertAssist.Runtime
   alias AllbertAssist.Surface.EventRecorder
@@ -226,17 +225,10 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
   defp await_response(response), do: {:ok, response}
 
   defp report_response(response, report) do
-    message =
-      report.children
-      |> Enum.map_join("\n", fn child ->
-        "- #{child.title}: #{child.status} — #{Fanout.report_child_detail(child)}"
-      end)
+    report_body = Fanout.format_report(report)
 
     response
-    |> Map.put(
-      :message,
-      Enum.join([response.message, "Fan-out #{report.status}:\n#{message}"], "\n\n")
-    )
+    |> Map.put(:message, Enum.join([response.message, report_body], "\n\n"))
     |> Map.put(:joined_report_parent_id, report.parent_objective_id)
   end
 
@@ -290,7 +282,7 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
           )
 
         %{phase: :recovering} ->
-          Scheduler.wake_parent(objective.id)
+          Fanout.wake_recovery(objective)
 
         _not_active ->
           :ok

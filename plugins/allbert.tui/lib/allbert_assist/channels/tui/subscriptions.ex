@@ -13,13 +13,20 @@ defmodule AllbertAssist.Channels.TUI.Subscriptions do
 
   @topic "allbert.objectives.**"
 
-  def register(false), do: {:ok, nil}
-  def register(true), do: Bus.subscribe(AllbertAssist.SignalBus, @topic)
+  def register(enabled?, bus \\ AllbertAssist.SignalBus)
 
-  def unregister(nil), do: :ok
+  def register(false, _bus), do: {:ok, nil}
+  def register(true, bus), do: Bus.subscribe(bus, @topic)
 
-  def unregister(subscription_id) when is_binary(subscription_id),
-    do: Bus.unsubscribe(AllbertAssist.SignalBus, subscription_id)
+  def unregister(subscription_id, bus \\ AllbertAssist.SignalBus)
+
+  def unregister(nil, _bus), do: :ok
+
+  def unregister(subscription_id, bus) when is_binary(subscription_id),
+    do: Bus.unsubscribe(bus, subscription_id)
+
+  @doc "Resolve the current bus process so an attached consumer can monitor it."
+  def bus_pid(bus \\ AllbertAssist.SignalBus), do: Bus.whereis(bus)
 
   def attached_user_signal?(%Signal{data: data}, identity_map) when is_map(data) do
     match?({:ok, _objective}, attached_objective(data, identity_map, %{}))
@@ -47,6 +54,15 @@ defmodule AllbertAssist.Channels.TUI.Subscriptions do
   end
 
   def delivery(_signal, _identity_map, _attachment), do: :ignore
+
+  @doc "Reconcile one attached parent from durable state without requiring a signal."
+  def pending_join_delivery(parent_id, identity_map, attachment)
+      when is_binary(parent_id) and is_list(identity_map) and is_map(attachment) do
+    case attached_objective(%{parent_id: parent_id}, identity_map, attachment) do
+      {:ok, parent} -> joined_delivery(parent)
+      :ignore -> :ignore
+    end
+  end
 
   def status_line(%Signal{type: type, data: data}) do
     label = type |> String.replace_prefix("allbert.objectives.", "") |> String.replace(".", " ")

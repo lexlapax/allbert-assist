@@ -256,6 +256,19 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
         )
     end)
 
+    assert {:ok, %{parent: %{id: parent_id}, frozen: frozen} = claim} =
+             Fanout.claim_next_composition()
+
+    assert parent_id == parent.id
+
+    assert {:ok, _selected} =
+             Fanout.select_composition(
+               claim,
+               "deterministic_fallback",
+               frozen.fallback_body,
+               %{fallback_reason: "model_disabled"}
+             )
+
     assert {:ok, %{report_delivery_receipt: receipt}} = Fanout.finalize_join(parent)
 
     assert {:error, :receipt_identity_mismatch} =

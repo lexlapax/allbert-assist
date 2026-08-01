@@ -9,7 +9,6 @@ defmodule AllbertAssist.Intent.Steering do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
-  alias AllbertAssist.Objectives.Runs.Scheduler
 
   @active ~w[open running blocked]
   @status ~r/^\s*(?:status|progress|how(?:'s| is)|what(?:'s| is) the status)\b/iu
@@ -188,14 +187,14 @@ defmodule AllbertAssist.Intent.Steering do
 
   defp active_parent?(%{fanout_role: "parent"} = objective) do
     projection = Fanout.parent_projection(objective)
-    maybe_wake_recovery(objective.id, projection.phase)
+    maybe_wake_recovery(objective, projection.phase)
     projection.phase in [:awaiting_kickoff, :running, :recovering]
   end
 
   defp active_parent?(_objective), do: false
 
-  defp maybe_wake_recovery(parent_id, :recovering), do: Scheduler.wake_parent(parent_id)
-  defp maybe_wake_recovery(_parent_id, _phase), do: :ok
+  defp maybe_wake_recovery(parent, :recovering), do: Fanout.wake_recovery(parent)
+  defp maybe_wake_recovery(_parent, _phase), do: :ok
 
   defp run_cancel(request, target) do
     {:ok, result} =

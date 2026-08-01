@@ -3,8 +3,8 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
 
   @moduletag :app_env_serial
 
-  alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.CLI.FirstRun
+  alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Store
@@ -227,6 +227,91 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
     assert Disclosure.pending?(:cli)
     refute Disclosure.hosted_pending?(:cli)
     assert Disclosure.text(:cli) =~ "Inference uses your configured local endpoint"
+  end
+
+  test "a separately configured synthesis route joins the exact bounded disclosure set" do
+    assert {:ok, _settings} =
+             Settings.write_user_settings(%{
+               "intent" => %{"direct_answer_model_enabled" => true},
+               "model_preferences" => %{
+                 "tasks" => %{
+                   "direct_answer" => ["direct_answer_local"],
+                   "fanout_synthesis" => ["fast"]
+                 }
+               },
+               "providers" => %{"openai" => %{"enabled" => true}}
+             })
+
+    assert {:ok, routes} = Disclosure.current_model_routes()
+
+    assert Enum.map(routes, &{&1.profile, &1.provider, &1.usage}) == [
+             {"direct_answer_local", "local_ollama", :primary},
+             {"fast", "openai", :fanout_synthesis}
+           ]
+
+    assert Disclosure.hosted_pending?(:cli)
+    assert Disclosure.text(:cli) =~ "fan-out report synthesis route uses fast from openai"
+
+    hosted_synthesis = %{
+      name: "fast",
+      provider: "openai",
+      provider_endpoint_kind: "credentialed_remote"
+    }
+
+    assert {:error,
+            {:hosted_disclosure_required, %{profile: "fast", provider: "openai", surface: "cli"}}} =
+             Disclosure.authorize_transport(hosted_synthesis, %{request: %{channel: :cli}})
+
+    assert :ok = Disclosure.render_and_ack(:cli, fn _text -> :ok end)
+
+    assert :ok =
+             Disclosure.authorize_transport(hosted_synthesis, %{request: %{channel: :cli}})
+
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.tasks.fanout_synthesis", ["direct_answer_local"], %{
+               audit?: false
+             })
+
+    assert {:ok, [deduped]} = Disclosure.current_model_routes()
+    assert deduped.profile == "direct_answer_local"
+    assert Disclosure.pending?(:cli)
+    refute Disclosure.hosted_pending?(:cli)
+  end
+
+  test "one shared hosted route retains both DirectAnswer and synthesis disclosure usages" do
+    assert {:ok, _settings} =
+             Settings.write_user_settings(%{
+               "intent" => %{"direct_answer_model_enabled" => true},
+               "model_preferences" => %{
+                 "tasks" => %{
+                   "direct_answer" => ["fast"],
+                   "fanout_synthesis" => ["fast"]
+                 }
+               },
+               "providers" => %{"openai" => %{"enabled" => true}}
+             })
+
+    assert {:ok, [route]} = Disclosure.current_model_routes()
+    assert route.profile == "fast"
+    assert route.usages == [:primary, :fanout_synthesis]
+
+    text = Disclosure.text(:cli)
+    assert text =~ "configured DirectAnswer route uses fast from openai"
+    assert text =~ "fan-out report synthesis route uses fast from openai"
+
+    assert :ok = Disclosure.render_and_ack(:cli, fn _text -> :ok end)
+    assert :ok = Disclosure.reconcile_current_direct_answer_route()
+    refute Disclosure.pending?(:cli)
+
+    assert :ok =
+             Disclosure.authorize_transport(
+               %{
+                 name: "fast",
+                 provider: "openai",
+                 provider_endpoint_kind: "credentialed_remote"
+               },
+               %{request: %{channel: :cli}}
+             )
   end
 
   test "onboarding reset preserves independent disclosure authority" do

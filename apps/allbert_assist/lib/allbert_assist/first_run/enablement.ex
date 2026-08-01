@@ -246,7 +246,7 @@ defmodule AllbertAssist.FirstRun.Enablement do
   defp reconcile_current_disclosure(selection) do
     case Settings.get("intent.direct_answer_model_enabled") do
       {:ok, true} ->
-        case Disclosure.reconcile_current_direct_answer_route() do
+        case Disclosure.reconcile_current_direct_answer_route(selection) do
           :ok -> :ok
           {:error, _reason} -> Disclosure.reconcile(selection)
         end

@@ -39,6 +39,10 @@ defmodule AllbertAssist.Objectives do
     :fanout_start_receipt_digest,
     :report_delivery_state,
     :report_delivery_receipt_digest,
+    :report_composition_state,
+    :report_body,
+    :report_source,
+    :report_input_digest,
     :origin_thread_ref_id,
     :origin_thread_ref_digest,
     :origin_receiver_account_ref,
@@ -72,6 +76,10 @@ defmodule AllbertAssist.Objectives do
                 "fanout_start_receipt_digest",
                 "report_delivery_state",
                 "report_delivery_receipt_digest",
+                "report_composition_state",
+                "report_body",
+                "report_source",
+                "report_input_digest",
                 "origin_thread_ref_id",
                 "origin_thread_ref_digest",
                 "origin_receiver_account_ref",
@@ -512,9 +520,11 @@ defmodule AllbertAssist.Objectives do
       |> Map.update(:action_params, nil, &encode_jsonish/1)
       |> Map.update(:resource_access, nil, &encode_jsonish/1)
 
-    %Step{}
-    |> Step.changeset(attrs)
-    |> Repo.insert()
+    with :ok <- authorize_step_write(Map.get(attrs, :objective_id)) do
+      %Step{}
+      |> Step.changeset(attrs)
+      |> Repo.insert()
+    end
   end
 
   @doc "Update a step."
@@ -527,9 +537,11 @@ defmodule AllbertAssist.Objectives do
       |> update_if_present(:action_params, &encode_jsonish/1)
       |> update_if_present(:resource_access, &encode_jsonish/1)
 
-    step
-    |> Step.changeset(attrs)
-    |> Repo.update()
+    with :ok <- authorize_step_write(step.objective_id) do
+      step
+      |> Step.changeset(attrs)
+      |> Repo.update()
+    end
   end
 
   @doc "Transition a step to a new status."
@@ -537,6 +549,24 @@ defmodule AllbertAssist.Objectives do
   def transition_step(%Step{} = step, status, attrs \\ %{}) do
     update_step(step, Map.merge(attrs, %{status: normalize_string(status)}))
   end
+
+  defp authorize_step_write(objective_id) when is_binary(objective_id) do
+    query =
+      from child in Objective,
+        join: parent in Objective,
+        on: parent.id == child.parent_objective_id,
+        where:
+          child.id == ^objective_id and child.fanout_role == "child" and
+            parent.fanout_role == "parent" and parent.report_composition_state != "not_ready",
+        or_where:
+          child.id == ^objective_id and child.fanout_role == "child" and
+            parent.fanout_role == "parent" and parent.report_delivery_state != "not_ready",
+        select: true
+
+    if Repo.exists?(query), do: {:error, :fanout_report_input_frozen}, else: :ok
+  end
+
+  defp authorize_step_write(_objective_id), do: :ok
 
   @doc "List steps for an objective."
   @spec list_steps(String.t()) :: [Step.t()]

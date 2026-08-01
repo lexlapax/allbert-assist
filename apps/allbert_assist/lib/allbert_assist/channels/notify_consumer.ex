@@ -23,6 +23,11 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
   @signal_path "allbert.objectives.**"
   @reconnect_delay_ms 100
   @retry_delay_ms 1_000
+  @reconcile_interval_ms 30_000
+  @minimum_reconcile_interval_ms 1_000
+  @maximum_reconcile_interval_ms 300_000
+  @default_reconcile_batch_size 100
+  @maximum_reconcile_batch_size 500
 
   def start_link(opts \\ []) do
     case Keyword.get(opts, :name, __MODULE__) do
@@ -39,15 +44,19 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
       bus_monitor: nil,
       subscription_id: nil,
       reconnect_timer: nil,
+      reconcile_timer: nil,
       retry_timers: %{},
       subscribe_fun: Keyword.get(opts, :subscribe_fun, &Bus.subscribe/2),
       unsubscribe_fun: Keyword.get(opts, :unsubscribe_fun, &Bus.unsubscribe/2),
       whereis_fun: Keyword.get(opts, :whereis_fun, &Bus.whereis/1),
       notify_opts: Keyword.get(opts, :notify_opts, []),
-      retry_delay_ms: Keyword.get(opts, :retry_delay_ms, @retry_delay_ms)
+      retry_delay_ms: Keyword.get(opts, :retry_delay_ms, @retry_delay_ms),
+      reconcile_interval_ms:
+        bounded_reconcile_interval(Keyword.get(opts, :reconcile_interval_ms)),
+      reconcile_batch_size: bounded_reconcile_batch_size(Keyword.get(opts, :reconcile_batch_size))
     }
 
-    {:ok, connect_bus(state)}
+    {:ok, state |> connect_bus() |> schedule_reconcile()}
   end
 
   @impl true
@@ -57,7 +66,9 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
   end
 
   def handle_info(:reconcile_completion_outbox, state) do
+    state = cancel_reconcile_timer(state)
     state = safely(fn -> reconcile_outbox(state) end, state)
+    state = schedule_reconcile(state)
     {:noreply, state}
   end
 
@@ -135,8 +146,30 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
 
   defp schedule_reconnect(state), do: state
 
+  defp schedule_reconcile(%{reconcile_timer: nil} = state) do
+    timer =
+      Process.send_after(
+        self(),
+        :reconcile_completion_outbox,
+        state.reconcile_interval_ms
+      )
+
+    %{state | reconcile_timer: timer}
+  end
+
+  defp schedule_reconcile(state), do: state
+
+  defp cancel_reconcile_timer(%{reconcile_timer: nil} = state), do: state
+
+  defp cancel_reconcile_timer(%{reconcile_timer: timer} = state) do
+    Process.cancel_timer(timer)
+    %{state | reconcile_timer: nil}
+  end
+
   defp reconcile_outbox(state) do
-    Enum.reduce(Notify.pending_completion_work(), state, &reconcile_parent/2)
+    state.reconcile_batch_size
+    |> Notify.pending_completion_work()
+    |> Enum.reduce(state, &reconcile_parent/2)
   end
 
   defp handle_signal(
@@ -298,4 +331,20 @@ defmodule AllbertAssist.Channels.NotifyConsumer do
   end
 
   defp field(map, key), do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
+
+  defp bounded_reconcile_interval(value) when is_integer(value) do
+    value
+    |> max(@minimum_reconcile_interval_ms)
+    |> min(@maximum_reconcile_interval_ms)
+  end
+
+  defp bounded_reconcile_interval(_value), do: @reconcile_interval_ms
+
+  defp bounded_reconcile_batch_size(value) when is_integer(value) do
+    value
+    |> max(1)
+    |> min(@maximum_reconcile_batch_size)
+  end
+
+  defp bounded_reconcile_batch_size(_value), do: @default_reconcile_batch_size
 end

@@ -25,7 +25,6 @@ defmodule AllbertAssist.Actions.Objectives.CancelObjectiveRun do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Runs.Cancel
-  alias AllbertAssist.Objectives.Runs.Scheduler
   alias AllbertAssist.Security.PermissionGate
 
   @tiers %{cooperative: 1, supervised: 2, os_kill: 3}
@@ -62,7 +61,7 @@ defmodule AllbertAssist.Actions.Objectives.CancelObjectiveRun do
         end
 
       %{phase: :recovering} ->
-        _ = Scheduler.wake_parent(parent.id)
+        _ = Fanout.wake_recovery(parent)
         {:ok, {:finalizing, parent}}
 
       %{phase: :joined, parent: joined} ->

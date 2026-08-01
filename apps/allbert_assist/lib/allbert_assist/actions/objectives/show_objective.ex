@@ -29,7 +29,6 @@ defmodule AllbertAssist.Actions.Objectives.ShowObjective do
   alias AllbertAssist.Maps
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
-  alias AllbertAssist.Objectives.Runs.Scheduler
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Validation
 
@@ -52,7 +51,7 @@ defmodule AllbertAssist.Actions.Objectives.ShowObjective do
         if objective.fanout_role == "parent", do: Fanout.parent_projection(objective)
 
       if projection && projection.phase == :recovering,
-        do: wake_parent(projection.parent.id)
+        do: wake_parent(projection.parent)
 
       projected_parent = if projection, do: projection.parent, else: objective
 
@@ -109,7 +108,10 @@ defmodule AllbertAssist.Actions.Objectives.ShowObjective do
       join_outcome: objective.join_outcome,
       derived_join_outcome: projection && projection.derived_join_outcome,
       kickoff_delivery_state: objective.kickoff_delivery_state,
+      report_composition_state: objective.report_composition_state,
+      report_source: objective.report_source,
       report_delivery_state: objective.report_delivery_state,
+      report_body: report_body(projection),
       children_terminal?: projection && projection.children_terminal?,
       active_app: objective.active_app,
       source_intent: objective.source_intent,
@@ -131,8 +133,16 @@ defmodule AllbertAssist.Actions.Objectives.ShowObjective do
   defp maybe_project_status(map, nil), do: map
   defp maybe_project_status(map, projection), do: Map.put(map, :status, projection.display_status)
 
-  defp wake_parent(parent_id) do
-    Scheduler.wake_parent(parent_id)
+  defp report_body(%{phase: :joined, authoritatively_joined?: true} = projection) do
+    projection
+    |> Fanout.report()
+    |> Fanout.format_report()
+  end
+
+  defp report_body(_projection), do: nil
+
+  defp wake_parent(parent) do
+    Fanout.wake_recovery(parent)
   catch
     :exit, _reason -> :ok
   end

@@ -43,7 +43,9 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
      "apps/allbert_assist/priv/repo/migrations/20260725052900_index_pending_fanout_report_outbox.exs"},
     {20_260_731_000_100,
      AllbertAssist.Repo.Migrations.AddConfirmationResumeBindingToObjectiveSteps,
-     "apps/allbert_assist/priv/repo/migrations/20260731000100_add_confirmation_resume_binding_to_objective_steps.exs"}
+     "apps/allbert_assist/priv/repo/migrations/20260731000100_add_confirmation_resume_binding_to_objective_steps.exs"},
+    {20_260_731_000_200, AllbertAssist.Repo.Migrations.AddFanoutReportComposition,
+     "apps/allbert_assist/priv/repo/migrations/20260731000200_add_fanout_report_composition.exs"}
   ]
 
   test "objective and workspace migrations run up and down on an isolated sqlite database" do
@@ -68,7 +70,7 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
       File.rm(db_path)
     end)
 
-    Enum.each(Enum.drop(@migrations, -3), fn {version, module, _path} ->
+    Enum.each(Enum.drop(@migrations, -4), fn {version, module, _path} ->
       assert :ok = Ecto.Migrator.up(MigrationRepo, version, module, log: false)
     end)
 
@@ -95,7 +97,7 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
     end
 
     @migrations
-    |> Enum.take(-3)
+    |> Enum.take(-4)
     |> Enum.each(fn {version, module, _path} ->
       assert :ok = Ecto.Migrator.up(MigrationRepo, version, module, log: false)
     end)
@@ -125,6 +127,20 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
     assert trigger_exists?("objective_events_one_fanout_join_update")
     assert index_exists?("objectives_pending_fanout_report_outbox_idx")
     assert column_exists?("objective_steps", "confirmation_resume_params_sha256")
+    assert column_exists?("objectives", "report_composition_state")
+    assert column_exists?("objectives", "report_body")
+    assert column_exists?("objectives", "report_source")
+    assert column_exists?("objectives", "report_input_digest")
+    assert column_exists?("objectives", "report_selection_digest")
+    assert index_exists?("objectives_fanout_report_composition_work_idx")
+    assert index_exists?("objective_events_one_fanout_report_selected_idx")
+    assert trigger_exists?("objective_steps_frozen_fanout_report_insert")
+    assert trigger_exists?("objective_steps_frozen_fanout_report_update")
+    assert trigger_exists?("objective_steps_frozen_fanout_report_delete")
+    assert trigger_exists?("objectives_frozen_fanout_child_insert")
+    assert trigger_exists?("objectives_frozen_fanout_child_update")
+    assert trigger_exists?("objectives_frozen_fanout_child_delete")
+    assert trigger_exists?("objectives_frozen_fanout_parent_input_update")
 
     assert SQL.query!(
              MigrationRepo,
@@ -137,6 +153,61 @@ defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
                MigrationRepo,
                "INSERT INTO objective_events (id, objective_id, kind, payload, recorded_at) VALUES ('new-join', ?, 'fanout_joined', '{}', ?)",
                ["pre-m6-objective", "2026-07-25T00:00:00Z"]
+             )
+
+    SQL.query!(
+      MigrationRepo,
+      "INSERT INTO objective_events (id, objective_id, kind, payload, recorded_at) VALUES ('selected-1', ?, 'fanout_report_selected', '{}', ?)",
+      ["pre-m6-objective", "2026-07-31T00:00:00Z"]
+    )
+
+    assert {:error, _constraint} =
+             SQL.query(
+               MigrationRepo,
+               "INSERT INTO objective_events (id, objective_id, kind, payload, recorded_at) VALUES ('selected-2', ?, 'fanout_report_selected', '{}', ?)",
+               ["pre-m6-objective", "2026-07-31T00:00:01Z"]
+             )
+
+    report_input_digest = String.duplicate("a", 64)
+    report_selection_digest = String.duplicate("b", 64)
+    report_delivery_receipt_digest = String.duplicate("c", 64)
+
+    assert {:error, _constraint} =
+             SQL.query(
+               MigrationRepo,
+               """
+               UPDATE objectives
+               SET report_composition_state = 'ready',
+                   report_input_digest = ?,
+                   report_body = 'selected report',
+                   report_source = 'model',
+                   report_delivery_state = 'pending',
+                   report_delivery_receipt_digest = ?
+               WHERE id = ?
+               """,
+               [report_input_digest, report_delivery_receipt_digest, "pre-m6-objective"]
+             )
+
+    assert %{num_rows: 1} =
+             SQL.query!(
+               MigrationRepo,
+               """
+               UPDATE objectives
+               SET report_composition_state = 'ready',
+                   report_input_digest = ?,
+                   report_selection_digest = ?,
+                   report_body = 'selected report',
+                   report_source = 'model',
+                   report_delivery_state = 'pending',
+                   report_delivery_receipt_digest = ?
+               WHERE id = ?
+               """,
+               [
+                 report_input_digest,
+                 report_selection_digest,
+                 report_delivery_receipt_digest,
+                 "pre-m6-objective"
+               ]
              )
 
     assert SQL.query!(MigrationRepo, "SELECT count(*) FROM objectives WHERE id = ?", [

@@ -11,8 +11,12 @@ defmodule AllbertAssist.Objectives.Fanout do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Event
   alias AllbertAssist.Objectives.Fanout.ReceiptSecret
+  alias AllbertAssist.Objectives.Fanout.Report
+  alias AllbertAssist.Objectives.Fanout.ReportComposer
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Objective
+  alias AllbertAssist.Objectives.Runs.Scheduler
+  alias AllbertAssist.Objectives.Step
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime.Redactor
 
@@ -82,6 +86,97 @@ defmodule AllbertAssist.Objectives.Fanout do
     |> Repo.all()
   end
 
+  @doc "Reconstruct and verify the canonical frozen report input from durable rows."
+  @spec report_input(Objective.t() | String.t()) ::
+          {:ok, Report.frozen()} | {:error, term()}
+  def report_input(%Objective{} = parent) do
+    with {:ok, frozen} <-
+           Report.freeze(parent, children(parent.id), effect_evidence_refs(parent.id)),
+         :ok <- verify_persisted_input(parent, frozen) do
+      {:ok, frozen}
+    end
+  end
+
+  def report_input(parent_id) when is_binary(parent_id) do
+    case Repo.get(Objective, parent_id) do
+      %Objective{} = parent -> report_input(parent)
+      nil -> {:error, :fanout_parent_not_found}
+    end
+  end
+
+  @doc "Claim the oldest queued report composition and return its verified input."
+  @spec claim_next_composition() ::
+          {:ok, TerminalTransitions.composition_claim()} | :none | {:error, term()}
+  def claim_next_composition, do: TerminalTransitions.claim_next_composition()
+
+  @doc "Select one report with bounded, content-free composition provenance."
+  @spec select_composition(
+          TerminalTransitions.composition_claim(),
+          String.t(),
+          String.t(),
+          map()
+        ) ::
+          {:ok, Objective.t()} | {:error, term()}
+  def select_composition(claim, source, body, provenance),
+    do: TerminalTransitions.select_composition(claim, source, body, provenance)
+
+  @doc "Recover interrupted composition and legacy selected-report rows at boot."
+  @spec recover_composition() :: {:ok, non_neg_integer()} | {:error, term()}
+  def recover_composition, do: TerminalTransitions.recover_composition()
+
+  @doc "Wake the durable owner for a parent that currently projects as recovering."
+  @spec wake_recovery(Objective.t() | String.t(), keyword()) :: :ok
+  def wake_recovery(parent, opts \\ [])
+
+  def wake_recovery(
+        %Objective{
+          report_composition_state: "queued",
+          id: parent_id
+        },
+        opts
+      ) do
+    ReportComposer.enqueue(parent_id, Keyword.get(opts, :composer, ReportComposer))
+  end
+
+  def wake_recovery(
+        %Objective{
+          report_composition_state: composition_state,
+          report_delivery_state: delivery_state,
+          id: parent_id
+        },
+        opts
+      )
+      when composition_state == "composing" or
+             (composition_state == "not_ready" and delivery_state in ["pending", "delivered"]) do
+    ReportComposer.reconcile(parent_id, Keyword.get(opts, :composer, ReportComposer))
+  end
+
+  def wake_recovery(%Objective{id: parent_id}, opts) do
+    Scheduler.wake_parent(parent_id, Keyword.get(opts, :scheduler, Scheduler))
+  end
+
+  def wake_recovery(parent_id, opts) when is_binary(parent_id) do
+    case Repo.get(Objective, parent_id) do
+      %Objective{} = parent -> wake_recovery(parent, opts)
+      nil -> :ok
+    end
+  end
+
+  @doc "Return composer-owned rows without exposing them to the run scheduler."
+  @spec composition_work() :: [Objective.t()]
+  def composition_work do
+    Objective
+    |> where(
+      [objective],
+      objective.fanout_role == "parent" and
+        (objective.report_composition_state in ["queued", "composing"] or
+           (objective.report_composition_state == "not_ready" and
+              objective.report_delivery_state in ["pending", "delivered"]))
+    )
+    |> order_by([objective], asc: objective.completed_at, asc: objective.id)
+    |> Repo.all()
+  end
+
   @doc "Return acknowledged fan-out parents eligible for executor reconciliation."
   @spec runnable_parents() :: [Objective.t()]
   def runnable_parents do
@@ -89,7 +184,7 @@ defmodule AllbertAssist.Objectives.Fanout do
     |> where(
       [o],
       o.fanout_role == "parent" and o.kickoff_delivery_state == "acknowledged" and
-        o.report_delivery_state == "not_ready"
+        o.report_delivery_state == "not_ready" and o.report_composition_state == "not_ready"
     )
     |> order_by([o], asc: o.inserted_at, asc: o.id)
     |> Repo.all()
@@ -99,7 +194,8 @@ defmodule AllbertAssist.Objectives.Fanout do
   @spec recovery_required?(Objective.t() | String.t()) :: boolean()
   def recovery_required?(%Objective{} = parent) do
     parent.fanout_role == "parent" and parent.kickoff_delivery_state == "acknowledged" and
-      parent.report_delivery_state == "not_ready"
+      parent.report_delivery_state == "not_ready" and
+      parent.report_composition_state == "not_ready"
   end
 
   def recovery_required?(parent_id) when is_binary(parent_id) do
@@ -117,7 +213,8 @@ defmodule AllbertAssist.Objectives.Fanout do
     |> where(
       [o],
       o.fanout_role == "parent" and o.user_id == ^user_id and
-        o.source_thread_id == ^thread_id and o.report_delivery_state == "pending"
+        o.source_thread_id == ^thread_id and o.report_delivery_state == "pending" and
+        o.report_composition_state in ["ready", "fallback"]
     )
     |> order_by([o], asc: o.completed_at, asc: o.id)
     |> Repo.all()
@@ -192,6 +289,7 @@ defmodule AllbertAssist.Objectives.Fanout do
           derived_join_outcome: String.t() | nil,
           children_terminal?: boolean(),
           authoritatively_joined?: boolean(),
+          composition_input_valid?: boolean(),
           recovery_required?: boolean()
         }
 
@@ -205,6 +303,7 @@ defmodule AllbertAssist.Objectives.Fanout do
     {derived_status, derived_outcome} = reduce(children)
     children_terminal? = children != [] and Enum.all?(children, &(&1.status in @terminal))
     authoritatively_joined? = authoritatively_joined?(parent_id, parent)
+    composition_input_valid? = composition_input_valid?(parent, children)
     recovery_required? = recovery_required_parent?(parent)
 
     state = %{
@@ -212,6 +311,7 @@ defmodule AllbertAssist.Objectives.Fanout do
       children: children,
       children_terminal?: children_terminal?,
       authoritatively_joined?: authoritatively_joined?,
+      composition_input_valid?: composition_input_valid?,
       reduction_matches?:
         reduction_matches?(parent, children_terminal?, derived_status, derived_outcome),
       recovery_required?: recovery_required?
@@ -230,6 +330,7 @@ defmodule AllbertAssist.Objectives.Fanout do
       derived_join_outcome: derived_outcome,
       children_terminal?: children_terminal?,
       authoritatively_joined?: authoritatively_joined?,
+      composition_input_valid?: composition_input_valid?,
       recovery_required?: recovery_required?
     }
   end
@@ -237,13 +338,39 @@ defmodule AllbertAssist.Objectives.Fanout do
   defp authoritatively_joined?(parent_id, parent) do
     joined_marker? = joined_marker?(parent)
     receipt_matches? = report_receipt_matches?(parent_id, parent)
-    join_event? = join_event_recorded?(parent_id)
+    selection_payload = report_selection_payload(parent_id)
+    selection_integrity? = selected_report_integrity?(parent, selection_payload)
+    selection_event_matches? = report_selection_matches?(selection_payload, parent)
+    join_event_matches? = join_event_matches?(parent_id, parent, selection_payload)
 
-    joined_marker? and receipt_matches? and join_event?
+    joined_marker? and receipt_matches? and selection_event_matches? and join_event_matches? and
+      selection_integrity?
   end
 
-  defp joined_marker?(%Objective{fanout_role: "parent", report_delivery_state: state})
-       when state in ["pending", "delivered"],
+  defp joined_marker?(%Objective{
+         fanout_role: "parent",
+         report_composition_state: "ready",
+         report_delivery_state: delivery_state,
+         report_body: body,
+         report_source: "model",
+         report_input_digest: digest,
+         report_selection_digest: selection_digest
+       })
+       when delivery_state in ["pending", "delivered"] and is_binary(body) and
+              is_binary(digest) and is_binary(selection_digest),
+       do: true
+
+  defp joined_marker?(%Objective{
+         fanout_role: "parent",
+         report_composition_state: "fallback",
+         report_delivery_state: delivery_state,
+         report_body: body,
+         report_source: "deterministic_fallback",
+         report_input_digest: digest,
+         report_selection_digest: selection_digest
+       })
+       when delivery_state in ["pending", "delivered"] and is_binary(body) and
+              is_binary(digest) and is_binary(selection_digest),
        do: true
 
   defp joined_marker?(_parent), do: false
@@ -254,12 +381,165 @@ defmodule AllbertAssist.Objectives.Fanout do
 
   defp report_receipt_matches?(_parent_id, _parent), do: false
 
-  defp join_event_recorded?(parent_id) do
-    Repo.exists?(
-      from event in Event,
-        where: event.objective_id == ^parent_id and event.kind == "fanout_joined"
-    )
+  defp join_event_matches?(parent_id, %Objective{} = parent, selection_payload) do
+    case event_payload(parent_id, "fanout_joined") do
+      %{} = payload ->
+        base_matches? =
+          payload["status"] == parent.status and
+            payload["join_outcome"] == parent.join_outcome
+
+        composition_matches? =
+          payload["report_composition_state"] == "queued" and
+            payload["report_input_digest"] == parent.report_input_digest
+
+        legacy_backfill? =
+          is_nil(payload["report_composition_state"]) and
+            is_nil(payload["report_input_digest"]) and
+            selection_payload["historical_backfill"] == true
+
+        base_matches? and (composition_matches? or legacy_backfill?)
+
+      nil ->
+        false
+    end
   end
+
+  defp join_event_matches?(_parent_id, _parent, _selection_payload), do: false
+
+  defp report_selection_payload(parent_id),
+    do: event_payload(parent_id, "fanout_report_selected") || %{}
+
+  defp report_selection_matches?(payload, %Objective{} = parent) do
+    provenance = selection_provenance(parent.report_source, payload)
+
+    payload["source"] == parent.report_source and
+      payload["input_digest"] == parent.report_input_digest and
+      payload["body_sha256"] == digest(parent.report_body || "") and
+      report_selection_provenance_matches?(payload, parent.report_source) and
+      selection_digest_matches?(parent, provenance)
+  end
+
+  defp report_selection_matches?(_payload, _parent), do: false
+
+  defp report_selection_provenance_matches?(payload, "model") do
+    expected_keys =
+      ~w[body_sha256 input_digest layout_version model model_profile provider sections source]
+
+    payload_keys(payload) == expected_keys and
+      match?(
+        {:ok, _normalized},
+        Report.normalize_selection_provenance(
+          "model",
+          Map.take(
+            payload,
+            ~w[layout_version model model_profile provider sections]
+          )
+        )
+      )
+  end
+
+  defp report_selection_provenance_matches?(payload, "deterministic_fallback") do
+    reason = payload["fallback_reason"]
+    historical? = reason == "historical_backfill"
+
+    expected_keys =
+      if historical?,
+        do:
+          ~w[body_sha256 fallback_reason historical_backfill input_digest layout_version source],
+        else: ~w[body_sha256 fallback_reason input_digest layout_version source]
+
+    payload_keys(payload) == expected_keys and
+      payload["historical_backfill"] == if(historical?, do: true, else: nil) and
+      match?(
+        {:ok, _normalized},
+        Report.normalize_selection_provenance(
+          "deterministic_fallback",
+          Map.take(payload, ~w[fallback_reason layout_version])
+        )
+      )
+  end
+
+  defp report_selection_provenance_matches?(_payload, _source), do: false
+
+  defp selection_digest_matches?(
+         %Objective{report_source: source, report_selection_digest: stored},
+         provenance
+       )
+       when is_binary(source) and is_binary(stored) and is_map(provenance) do
+    case Report.selection_digest(source, provenance) do
+      {:ok, computed} -> computed == stored
+      {:error, _reason} -> false
+    end
+  end
+
+  defp selection_digest_matches?(_parent, _provenance), do: false
+
+  defp payload_keys(payload), do: payload |> Map.keys() |> Enum.sort()
+
+  defp event_payload(parent_id, kind) do
+    case Repo.one(
+           from event in Event,
+             where: event.objective_id == ^parent_id and event.kind == ^kind,
+             select: event.payload,
+             limit: 1
+         ) do
+      payload when is_binary(payload) ->
+        case Jason.decode(payload) do
+          {:ok, %{} = decoded} -> decoded
+          _invalid -> nil
+        end
+
+      _missing ->
+        nil
+    end
+  end
+
+  defp selected_report_integrity?(
+         %Objective{
+           report_source: source,
+           report_body: body
+         } = parent,
+         selection_payload
+       )
+       when is_binary(source) and is_binary(body) and is_map(selection_payload) do
+    provenance = selection_provenance(source, selection_payload)
+
+    with {:ok, frozen} <- report_input(parent),
+         :ok <- Report.validate_selected_body(frozen.snapshot, source, body, provenance) do
+      true
+    else
+      _error -> false
+    end
+  end
+
+  defp selected_report_integrity?(_parent, _selection_payload), do: false
+
+  defp selection_provenance("model", payload),
+    do:
+      Map.take(
+        payload,
+        ~w[layout_version model model_profile provider sections]
+      )
+
+  defp selection_provenance("deterministic_fallback", payload),
+    do: Map.take(payload, ~w[fallback_reason layout_version])
+
+  defp selection_provenance(_source, _payload), do: %{}
+
+  defp composition_input_valid?(
+         %Objective{report_composition_state: state} = parent,
+         children
+       )
+       when state in ["queued", "composing", "ready", "fallback"] do
+    with {:ok, frozen} <- Report.freeze(parent, children, effect_evidence_refs(parent.id)),
+         :ok <- Report.verify(frozen, parent.report_input_digest) do
+      true
+    else
+      _error -> false
+    end
+  end
+
+  defp composition_input_valid?(_parent, _children), do: true
 
   defp reduction_matches?(parent, children_terminal?, derived_status, derived_outcome) do
     children_terminal? and match?(%Objective{}, parent) and parent.status == derived_status and
@@ -269,7 +549,8 @@ defmodule AllbertAssist.Objectives.Fanout do
   defp recovery_required_parent?(%Objective{
          fanout_role: "parent",
          kickoff_delivery_state: "acknowledged",
-         report_delivery_state: "not_ready"
+         report_delivery_state: "not_ready",
+         report_composition_state: "not_ready"
        }),
        do: true
 
@@ -299,6 +580,37 @@ defmodule AllbertAssist.Objectives.Fanout do
        do: :recovering
 
   defp projection_phase(%{
+         parent: %Objective{fanout_role: "parent", report_composition_state: state},
+         children: [_child | _rest],
+         children_terminal?: true,
+         reduction_matches?: true,
+         composition_input_valid?: true
+       })
+       when state in ["queued", "composing"],
+       do: :recovering
+
+  defp projection_phase(%{
+         parent: %Objective{fanout_role: "parent", report_composition_state: state},
+         children: [_child | _rest],
+         composition_input_valid?: false
+       })
+       when state in ["queued", "composing", "ready", "fallback"],
+       do: :inconsistent
+
+  defp projection_phase(%{
+         parent: %Objective{
+           fanout_role: "parent",
+           report_composition_state: "not_ready",
+           report_delivery_state: state
+         },
+         children: [_child | _rest],
+         children_terminal?: true,
+         reduction_matches?: true
+       })
+       when state in ["pending", "delivered"],
+       do: :recovering
+
+  defp projection_phase(%{
          parent: %Objective{fanout_role: "parent"},
          children: [_child | _rest],
          recovery_required?: true
@@ -322,7 +634,10 @@ defmodule AllbertAssist.Objectives.Fanout do
           parent_objective_id: String.t(),
           status: String.t(),
           join_outcome: String.t() | nil,
-          children: [map()]
+          children: [map()],
+          body: String.t() | nil,
+          source: String.t() | nil,
+          input_digest: String.t() | nil
         }
 
   @spec report(Objective.t() | String.t() | parent_projection()) :: report()
@@ -338,23 +653,37 @@ defmodule AllbertAssist.Objectives.Fanout do
   end
 
   defp report_from_projection(projection) do
-    Redactor.redact(%{
-      parent_objective_id: projection.parent && projection.parent.id,
-      title: (projection.parent && projection.parent.title) || "Fan-out",
-      status: projection.derived_status,
-      join_outcome: projection.derived_join_outcome,
-      children:
-        Enum.map(projection.children, fn child ->
-          %{
-            id: child.id,
-            title: child.title,
-            status: child.status,
-            result_summary: child.last_observation_summary || child.progress_summary,
-            review_reason: child.review_reason
-          }
-        end)
-    })
+    metadata =
+      Redactor.redact(%{
+        parent_objective_id: projection.parent && projection.parent.id,
+        title: (projection.parent && projection.parent.title) || "Fan-out",
+        status: projection.derived_status,
+        join_outcome: projection.derived_join_outcome,
+        source: projection.parent && projection.parent.report_source,
+        input_digest: projection.parent && projection.parent.report_input_digest,
+        children:
+          Enum.map(projection.children, fn child ->
+            %{
+              id: child.id,
+              title: child.title,
+              status: child.status,
+              result_summary: child.last_observation_summary || child.progress_summary,
+              review_reason: child.review_reason
+            }
+          end)
+      })
+
+    Map.put(metadata, :body, authoritative_report_body(projection))
   end
+
+  defp authoritative_report_body(%{
+         authoritatively_joined?: true,
+         parent: %Objective{report_body: body}
+       })
+       when is_binary(body),
+       do: body
+
+  defp authoritative_report_body(_projection), do: nil
 
   @doc "Returns one bounded, redacted, truthful child result or terminal reason."
   @spec report_child_detail(map()) :: String.t()
@@ -378,25 +707,14 @@ defmodule AllbertAssist.Objectives.Fanout do
 
   @doc false
   @spec format_report(report()) :: String.t()
-  def format_report(report) when is_map(report) do
-    children =
-      Enum.map_join(report.children, "; ", fn child ->
-        "#{report_glyph(child.status)} #{child.title} — #{report_child_detail(child)}"
-      end)
-
-    "#{report.title} — #{report.join_outcome || report.status}: #{children}"
-  end
+  def format_report(%{body: body}) when is_binary(body), do: body
+  def format_report(_report), do: ""
 
   defp projection_display_status(:recovering, _parent), do: "finalizing"
   defp projection_display_status(:running, _parent), do: "running"
   defp projection_display_status(:inconsistent, _parent), do: "inconsistent"
   defp projection_display_status(_phase, %Objective{status: status}), do: status
   defp projection_display_status(_phase, nil), do: "inconsistent"
-
-  defp report_glyph("completed"), do: "✓"
-  defp report_glyph("cancelled"), do: "⊘"
-  defp report_glyph("failed"), do: "✗"
-  defp report_glyph(_status), do: "•"
 
   @doc "Atomically records successful kickoff delivery. The receipt is single-use and identity-bound."
   @spec acknowledge_start(String.t(), map()) ::
@@ -478,13 +796,19 @@ defmodule AllbertAssist.Objectives.Fanout do
 
   def finalize_join(parent_id) when is_binary(parent_id) do
     case reconcile_parent(parent_id, recovered?: false) do
-      {:ok, {state, parent}} when state in [:joined_now, :already_joined] ->
+      {:ok, {state, %Objective{report_composition_state: composition_state} = parent}}
+      when state in [:joined_now, :already_joined] and composition_state in ["ready", "fallback"] ->
         {:ok,
          %{
            parent: parent,
            report: report(parent),
            report_delivery_receipt: receipt_for(:report, parent_id)
          }}
+
+      {:ok, {state, %Objective{report_composition_state: composition_state}}}
+      when state in [:joined_now, :already_joined] and
+             composition_state in ["queued", "composing"] ->
+        {:error, :fanout_report_composition_pending}
 
       {:ok, :not_terminal} ->
         {:error, :fanout_not_terminal_or_already_finalized}
@@ -791,6 +1115,31 @@ defmodule AllbertAssist.Objectives.Fanout do
     }
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
     |> Map.new()
+  end
+
+  defp verify_persisted_input(%Objective{report_input_digest: nil}, _frozen), do: :ok
+
+  defp verify_persisted_input(%Objective{report_input_digest: digest}, frozen),
+    do: Report.verify(frozen, digest)
+
+  defp effect_evidence_refs(parent_id) do
+    child_ids = Enum.map(children(parent_id), & &1.id)
+
+    Step
+    |> where(
+      [step],
+      step.objective_id in ^child_ids and step.status == "completed" and
+        not is_nil(step.candidate_action) and not is_nil(step.trace_id)
+    )
+    |> order_by([step], asc: step.objective_id, desc: step.updated_at, desc: step.id)
+    |> Repo.all()
+    |> Enum.reduce(%{}, fn step, refs ->
+      Map.put_new(refs, step.objective_id, %{
+        kind: "objective_step_trace",
+        action: step.candidate_action,
+        trace_id: step.trace_id
+      })
+    end)
   end
 
   defp context_field(map, key), do: Map.get(map, key) || Map.get(map, Atom.to_string(key))

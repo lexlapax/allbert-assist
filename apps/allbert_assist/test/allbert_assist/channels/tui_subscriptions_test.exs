@@ -78,6 +78,8 @@ defmodule AllbertAssist.Channels.TUISubscriptionsTest do
                %{}
              )
 
+    select_report!(parent.id)
+
     signal = Signal.new!("allbert.objectives.fanout.joined", %{parent_id: parent.id})
     identity_map = [%{"external_user_id" => "local", "user_id" => "alice", "enabled" => true}]
 
@@ -86,8 +88,13 @@ defmodule AllbertAssist.Channels.TUISubscriptionsTest do
 
     assert delivery.lines == [
              "[fan-out] fanout joined: Attached results",
-             "Attached results — partial: ✓ completed task — completed result; ⊘ cancelled task — cancelled by operator"
+             Fanout.format_report(Fanout.report(parent))
            ]
+
+    assert {:ok, recovered_without_signal} =
+             Subscriptions.pending_join_delivery(parent.id, identity_map, %{})
+
+    assert recovered_without_signal == delivery
 
     assert :ignore =
              Subscriptions.delivery(signal, [
@@ -125,6 +132,8 @@ defmodule AllbertAssist.Channels.TUISubscriptionsTest do
                    %{}
                  )
       end)
+
+      select_report!(parent.id)
 
       signal = Signal.new!("allbert.objectives.fanout.joined", %{parent_id: parent.id})
       assert :ignore = Subscriptions.delivery(signal, identity_map, attachment)
@@ -175,6 +184,8 @@ defmodule AllbertAssist.Channels.TUISubscriptionsTest do
                )
     end)
 
+    select_report!(parent.id)
+
     joined = Signal.new!("allbert.objectives.fanout.joined", %{parent_id: parent.id})
     assert :ignore = Subscriptions.delivery(joined, identity_map, wrong_attachment)
     assert Fanout.parent_projection(parent).parent.report_delivery_state == "pending"
@@ -189,5 +200,18 @@ defmodule AllbertAssist.Channels.TUISubscriptionsTest do
              Subscriptions.delivery(joined, identity_map, right_attachment)
 
     assert receipt == Fanout.receipt_for(:report, parent.id)
+  end
+
+  defp select_report!(parent_id) do
+    assert {:ok, %{parent: %{id: ^parent_id}, frozen: frozen} = claim} =
+             Fanout.claim_next_composition()
+
+    assert {:ok, _selected} =
+             Fanout.select_composition(
+               claim,
+               "deterministic_fallback",
+               frozen.fallback_body,
+               %{fallback_reason: "model_disabled"}
+             )
   end
 end

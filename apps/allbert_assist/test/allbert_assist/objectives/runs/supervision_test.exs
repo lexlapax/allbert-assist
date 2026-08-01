@@ -196,7 +196,8 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
       with {:ok, completed} <- Objectives.get_objective(parked.id),
            {:ok, joined} <- Objectives.get_objective(parent.id) do
         completed.status == "completed" and completed.run_attempt_count == 1 and
-          joined.report_delivery_state == "pending"
+          joined.report_composition_state == "queued" and
+          joined.report_delivery_state == "not_ready"
       end
     end)
 
@@ -256,7 +257,8 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     eventually(fn ->
       with {:ok, completed} <- Objectives.get_objective(parked.id),
            {:ok, joined} <- Objectives.get_objective(parent.id) do
-        completed.status == "completed" and joined.report_delivery_state == "pending"
+        completed.status == "completed" and joined.report_composition_state == "queued" and
+          joined.report_delivery_state == "not_ready"
       end
     end)
 
@@ -359,7 +361,8 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
            {:ok, joined} <- Objectives.get_objective(parent.id) do
         cancelled.status == "cancelled" and completed.status == "completed" and
           joined.status == "completed" and joined.join_outcome == "partial" and
-          joined.report_delivery_state == "pending"
+          joined.report_composition_state == "queued" and
+          joined.report_delivery_state == "not_ready"
       end
     end)
 
@@ -661,8 +664,12 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
 
     eventually(fn ->
       case Objectives.get_objective(parent.id) do
-        {:ok, objective} -> objective.report_delivery_state == "pending"
-        _ -> false
+        {:ok, objective} ->
+          objective.report_composition_state == "queued" and
+            objective.report_delivery_state == "not_ready"
+
+        _ ->
+          false
       end
     end)
 
@@ -1357,7 +1364,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     assert response.status == :finalizing
     assert response.message =~ "no active tasks"
 
-    eventually(fn -> Fanout.parent_projection(parent).phase == :joined end)
+    eventually(fn -> Fanout.parent_projection(parent).phase == :recovering end)
 
     for objective <- [parent | children] do
       kinds = Enum.map(Objectives.list_events(objective.id), & &1.kind)
@@ -1472,7 +1479,8 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     eventually(fn ->
       with {:ok, joined} <- Objectives.get_objective(parent.id) do
         joined.status == "completed" and joined.join_outcome == "success" and
-          joined.report_delivery_state == "pending"
+          joined.report_composition_state == "queued" and
+          joined.report_delivery_state == "not_ready"
       end
     end)
 
@@ -1516,7 +1524,9 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     eventually(fn ->
       projection = Fanout.parent_projection(parent)
 
-      projection.phase == :joined and projection.parent.report_delivery_state == "pending"
+      projection.phase == :recovering and
+        projection.parent.report_composition_state == "queued" and
+        projection.parent.report_delivery_state == "not_ready"
     end)
 
     assert Agent.get(attempts, & &1) >= 3
@@ -1561,7 +1571,9 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     eventually(fn ->
       projection = Fanout.parent_projection(parent)
 
-      projection.phase == :joined and projection.parent.report_delivery_state == "pending"
+      projection.phase == :recovering and
+        projection.parent.report_composition_state == "queued" and
+        projection.parent.report_delivery_state == "not_ready"
     end)
 
     assert Agent.get(attempts, & &1) >= 4
@@ -1607,7 +1619,9 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     eventually(fn ->
       projection = Fanout.parent_projection(parent)
 
-      projection.phase == :joined and projection.parent.report_delivery_state == "pending" and
+      projection.phase == :recovering and
+        projection.parent.report_composition_state == "queued" and
+        projection.parent.report_delivery_state == "not_ready" and
         Registry.lookup(AllbertAssist.Objectives.Runs.Registry, {:fanout, parent.id}) == []
     end)
   end

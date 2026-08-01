@@ -44,12 +44,52 @@ defmodule AllbertAssist.PublicProtocol.OpenAIMappingTest do
     assert chat.user_id == "operator"
     assert chat.stream? == false
     assert chat.text == "developer: Stay concise.\nuser: First line.\nSecond line."
+    assert chat.operator_text == "First line.\nSecond line."
 
     runtime_request = Mapping.runtime_request(chat, %{client_id: "local"})
     assert runtime_request.channel == :openai_api
     assert runtime_request.user_id == "operator"
+    assert runtime_request.operator_text == "First line.\nSecond line."
     assert get_in(runtime_request.metadata, [:public_protocol, :surface]) == "openai_api"
     assert get_in(runtime_request.metadata, [:openai_api, :model]) == "local"
+  end
+
+  test "selects the latest user content without replacing flattened conversation history" do
+    request = %{
+      "model" => "local",
+      "messages" => [
+        %{"role" => "system", "content" => "System policy."},
+        %{"role" => "user", "content" => "Earlier request."},
+        %{"role" => "assistant", "content" => "Earlier response."},
+        %{"role" => "user", "content" => "Do these 2 tasks in parallel: first; second"},
+        %{"role" => "assistant", "content" => "Pending response."}
+      ]
+    }
+
+    assert {:ok, chat} = Mapping.parse_chat_request(request, %{client_id: "local"})
+    assert chat.text =~ "system: System policy."
+    assert chat.text =~ "assistant: Pending response."
+    assert chat.operator_text == "Do these 2 tasks in parallel: first; second"
+
+    assert Mapping.runtime_request(chat, %{client_id: "local"}).operator_text ==
+             chat.operator_text
+  end
+
+  test "conversation history without a user message stays valid and explicitly suppresses fanout" do
+    request = %{
+      "model" => "local",
+      "messages" => [
+        %{"role" => "developer", "content" => "Developer context."},
+        %{"role" => "assistant", "content" => "Assistant history."}
+      ]
+    }
+
+    assert {:ok, chat} = Mapping.parse_chat_request(request, %{client_id: "local"})
+    assert chat.operator_text == nil
+
+    runtime_request = Mapping.runtime_request(chat, %{client_id: "local"})
+    assert Map.has_key?(runtime_request, :operator_text)
+    assert runtime_request.operator_text == nil
   end
 
   test "rejects client tool selection and non-text content" do

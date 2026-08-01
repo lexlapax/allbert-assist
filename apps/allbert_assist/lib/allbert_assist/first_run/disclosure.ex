@@ -17,10 +17,13 @@ defmodule AllbertAssist.FirstRun.Disclosure do
   alias AllbertAssist.Settings.Models
 
   @surfaces ~w(web tui cli)
+  @max_route_count 3
+  @route_usages [:primary, :fallback, :fanout_synthesis]
 
   @type provider_class :: :local | :hosted
   @type route :: %{
-          optional(:usage) => :primary | :fallback,
+          optional(:usage) => :primary | :fallback | :fanout_synthesis,
+          optional(:usages) => [:primary | :fallback | :fanout_synthesis],
           required(:profile) => String.t(),
           required(:provider) => String.t(),
           required(:provider_class) => provider_class()
@@ -47,11 +50,11 @@ defmodule AllbertAssist.FirstRun.Disclosure do
 
   def reconcile(_selection), do: {:error, :invalid_disclosure_route}
 
-  @doc "Reconcile the bounded primary plus at-most-one-fallback route set."
+  @doc "Reconcile the deduplicated bounded callable model-route set."
   @spec reconcile_routes([route() | map()]) :: :ok | {:error, term()}
   def reconcile_routes(selections) when is_list(selections) and selections != [] do
-    with true <- length(selections) <= 2,
-         {:ok, routes} <- normalize_routes(selections) do
+    with {:ok, routes} <- normalize_routes(selections),
+         true <- length(routes) <= @max_route_count do
       marker = FirstRun.read_marker()
       current = Map.get(marker, "model_disclosure", %{})
 
@@ -79,18 +82,53 @@ defmodule AllbertAssist.FirstRun.Disclosure do
   def reconcile_profile(_profile), do: {:error, :invalid_model_profile}
 
   @doc """
-  Reconcile the currently configured DirectAnswer route when model answers are
-  enabled. This is the central post-settings/boot hook; disabled configurations
-  leave the dormant marker alone and gain no transport authority from it.
+  Reconcile the currently callable DirectAnswer and fan-out synthesis routes
+  when model answers are enabled. This retained name is the backward-compatible
+  central post-settings/boot hook; disabled configurations leave the dormant
+  marker alone and gain no transport authority from it.
   """
-  @spec reconcile_current_direct_answer_route() :: :ok | {:error, term()}
-  def reconcile_current_direct_answer_route do
+  @spec reconcile_current_direct_answer_route(route() | map() | nil) :: :ok | {:error, term()}
+  def reconcile_current_direct_answer_route(fallback_direct_answer_route \\ nil) do
     with {:ok, true} <- Settings.get("intent.direct_answer_model_enabled"),
-         {:ok, routes} <- current_direct_answer_routes() do
+         {:ok, routes} <- current_model_routes(fallback_direct_answer_route) do
       reconcile_routes(routes)
     else
       {:ok, false} -> :ok
       {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc "Resolve the exact bounded union of callable DirectAnswer and synthesis routes."
+  @spec current_model_routes() :: {:ok, [route()]} | {:error, term()}
+  def current_model_routes, do: current_model_routes(nil)
+
+  defp current_model_routes(fallback_direct_answer_route) do
+    with {:ok, direct_answer_routes} <-
+           current_direct_answer_routes_or(fallback_direct_answer_route),
+         {:ok, synthesis_routes} <- optional_callable_routes(&current_fanout_synthesis_routes/0) do
+      case deduplicate_routes(direct_answer_routes ++ synthesis_routes) do
+        [] -> {:error, :no_callable_disclosure_routes}
+        routes when length(routes) <= @max_route_count -> {:ok, routes}
+        _too_many -> {:error, :disclosure_route_set_too_large}
+      end
+    end
+  end
+
+  defp current_direct_answer_routes_or(fallback_route) do
+    case current_direct_answer_routes() do
+      {:ok, routes} ->
+        {:ok, routes}
+
+      {:error, {:no_capable_profile, _diagnostic}} when is_map(fallback_route) ->
+        with {:ok, route} <- normalize_route(fallback_route) do
+          {:ok, [with_usage(route, :primary)]}
+        end
+
+      {:error, {:no_capable_profile, _diagnostic}} ->
+        {:ok, []}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -99,17 +137,36 @@ defmodule AllbertAssist.FirstRun.Disclosure do
   def current_direct_answer_routes do
     with {:ok, [primary | rest]} <- Models.candidates_for(:direct_answer),
          {:ok, primary_route} <- route_for_profile(primary.profile) do
-      routes = [Map.put(primary_route, :usage, :primary)]
+      routes = [with_usage(primary_route, :primary)]
 
       case callable_fallback(primary.profile, List.first(rest)) do
         %{profile: fallback_profile} ->
-          with {:ok, fallback_route} <- route_for_profile(fallback_profile) do
-            {:ok, routes ++ [Map.put(fallback_route, :usage, :fallback)]}
-          end
+          append_direct_answer_fallback(routes, fallback_profile)
 
         nil ->
           {:ok, routes}
       end
+    end
+  end
+
+  defp append_direct_answer_fallback(routes, fallback_profile) do
+    with {:ok, fallback_route} <- route_for_profile(fallback_profile) do
+      {:ok, routes ++ [with_usage(fallback_route, :fallback)]}
+    end
+  end
+
+  defp current_fanout_synthesis_routes do
+    with {:ok, %{profile: profile}} <- Models.for(:fanout_synthesis),
+         {:ok, route} <- route_for_profile(profile) do
+      {:ok, [with_usage(route, :fanout_synthesis)]}
+    end
+  end
+
+  defp optional_callable_routes(resolver) do
+    case resolver.() do
+      {:ok, routes} -> {:ok, routes}
+      {:error, {:no_capable_profile, _diagnostic}} -> {:ok, []}
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -323,7 +380,7 @@ defmodule AllbertAssist.FirstRun.Disclosure do
   defp authorize_transport_route(%{provider_class: :local}, _surface), do: :ok
 
   defp authorize_transport_route(%{provider_class: :hosted} = route, surface) do
-    with {:ok, expected_routes} <- current_direct_answer_routes(),
+    with {:ok, expected_routes} <- current_model_routes(),
          true <- route_member?(expected_routes, route) do
       authorize_route_set(route, expected_routes, surface)
     else
@@ -401,7 +458,8 @@ defmodule AllbertAssist.FirstRun.Disclosure do
       "profile" => route.profile,
       "provider" => route.provider,
       "provider_class" => Atom.to_string(route.provider_class),
-      "usage" => route |> Map.get(:usage, :primary) |> Atom.to_string()
+      "usage" => route |> Map.get(:usage, :primary) |> Atom.to_string(),
+      "usages" => route |> Map.get(:usages, [:primary]) |> Enum.map(&Atom.to_string/1)
     }
   end
 
@@ -427,7 +485,7 @@ defmodule AllbertAssist.FirstRun.Disclosure do
 
   defp route_sets_match?(left, right) do
     length(left) == length(right) and
-      Enum.zip(left, right) |> Enum.all?(fn {a, b} -> same_route?(a, b) end)
+      Enum.zip(left, right) |> Enum.all?(fn {a, b} -> same_route_entry?(a, b) end)
   end
 
   defp same_route?(left, right) do
@@ -435,17 +493,29 @@ defmodule AllbertAssist.FirstRun.Disclosure do
       left.provider_class == right.provider_class
   end
 
+  defp same_route_entry?(left, right) do
+    same_route?(left, right) and Map.get(left, :usages, []) == Map.get(right, :usages, [])
+  end
+
   defp normalize_route(selection) do
     profile = map_value(selection, :profile)
     provider = map_value(selection, :provider)
     provider_class = normalize_provider_class(map_value(selection, :provider_class))
-    usage = normalize_usage(map_value(selection, :usage))
 
-    if is_binary(profile) and profile != "" and is_binary(provider) and provider != "" and
-         provider_class in [:local, :hosted] do
-      {:ok, %{profile: profile, provider: provider, provider_class: provider_class, usage: usage}}
+    with {:ok, usages} <- normalize_usages(selection),
+         true <-
+           is_binary(profile) and profile != "" and is_binary(provider) and provider != "" and
+             provider_class in [:local, :hosted] do
+      {:ok,
+       %{
+         profile: profile,
+         provider: provider,
+         provider_class: provider_class,
+         usage: hd(usages),
+         usages: usages
+       }}
     else
-      {:error, :invalid_disclosure_route}
+      _invalid -> {:error, :invalid_disclosure_route}
     end
   end
 
@@ -453,10 +523,47 @@ defmodule AllbertAssist.FirstRun.Disclosure do
     selections
     |> Enum.reduce_while({:ok, []}, fn selection, {:ok, routes} ->
       case normalize_route(selection) do
-        {:ok, route} -> {:cont, {:ok, routes ++ [route]}}
+        {:ok, route} -> {:cont, {:ok, append_unless_duplicate(routes, route)}}
         {:error, reason} -> {:halt, {:error, reason}}
       end
     end)
+  end
+
+  defp deduplicate_routes(routes), do: Enum.reduce(routes, [], &append_unless_duplicate(&2, &1))
+
+  defp append_unless_duplicate(routes, route) do
+    case Enum.find_index(routes, &same_route?(&1, route)) do
+      nil -> routes ++ [route]
+      index -> List.update_at(routes, index, &merge_route_usages(&1, route))
+    end
+  end
+
+  defp merge_route_usages(existing, additional) do
+    usages = ordered_usages(existing.usages ++ additional.usages)
+    %{existing | usage: hd(usages), usages: usages}
+  end
+
+  defp with_usage(route, usage), do: %{route | usage: usage, usages: [usage]}
+
+  defp normalize_usages(selection) do
+    values = map_value(selection, :usages)
+
+    usages =
+      case values do
+        values when is_list(values) -> Enum.map(values, &normalize_usage/1)
+        _missing -> [normalize_usage(map_value(selection, :usage))]
+      end
+
+    if usages != [] and Enum.all?(usages, &(&1 in @route_usages)) do
+      {:ok, ordered_usages(usages)}
+    else
+      {:error, :invalid_disclosure_route_usage}
+    end
+  end
+
+  defp ordered_usages(usages) do
+    @route_usages
+    |> Enum.filter(&(&1 in usages))
   end
 
   defp normalize_provider_class(value) when value in [:local, "local"], do: :local
@@ -464,7 +571,12 @@ defmodule AllbertAssist.FirstRun.Disclosure do
   defp normalize_provider_class(_value), do: nil
 
   defp normalize_usage(value) when value in [:fallback, "fallback"], do: :fallback
-  defp normalize_usage(_value), do: :primary
+
+  defp normalize_usage(value) when value in [:fanout_synthesis, "fanout_synthesis"],
+    do: :fanout_synthesis
+
+  defp normalize_usage(value) when value in [:primary, "primary", nil], do: :primary
+  defp normalize_usage(_value), do: :invalid
 
   defp provider_class(profile) do
     case map_value(profile, :provider_endpoint_kind) || map_value(profile, :endpoint_kind) do
@@ -479,7 +591,12 @@ defmodule AllbertAssist.FirstRun.Disclosure do
     canonical =
       Enum.map_join(routes, "\n", fn route ->
         Enum.join(
-          [route.profile, route.provider, Atom.to_string(route.provider_class)],
+          [
+            route.profile,
+            route.provider,
+            Atom.to_string(route.provider_class),
+            Enum.map_join(route.usages, ",", &Atom.to_string/1)
+          ],
           <<0>>
         )
       end)
@@ -514,17 +631,22 @@ defmodule AllbertAssist.FirstRun.Disclosure do
     Enum.map_join(routes, "\n", &route_disclosure_text/1)
   end
 
-  defp route_disclosure_text(%{
+  defp route_disclosure_text(route) do
+    route
+    |> stored_route_usages()
+    |> Enum.map_join("\n", &usage_disclosure_text(&1, route))
+  end
+
+  defp usage_disclosure_text(:fallback, %{
          "profile" => profile,
          "provider" => provider,
-         "provider_class" => "hosted",
-         "usage" => "fallback"
+         "provider_class" => "hosted"
        }) do
     "Allbert may use #{profile} from #{provider} as the configured DirectAnswer failover. " <>
       "If the primary model fails, your message may leave this device for #{provider}. Change the fallback in Models, or disable cross-boundary fallback with `allbert admin settings set models.fallback.allow_local_to_hosted false`."
   end
 
-  defp route_disclosure_text(%{
+  defp usage_disclosure_text(:primary, %{
          "profile" => profile,
          "provider" => provider,
          "provider_class" => "hosted"
@@ -533,18 +655,50 @@ defmodule AllbertAssist.FirstRun.Disclosure do
       "Your message will leave this device for #{provider}. Change the model in Models, or disable model answers with `allbert admin settings set intent.direct_answer_model_enabled false`."
   end
 
-  defp route_disclosure_text(%{
+  defp usage_disclosure_text(:fallback, %{
          "profile" => profile,
          "provider" => provider,
-         "usage" => "fallback"
+         "provider_class" => "local"
        }) do
     "Allbert may use #{profile} from #{provider} as the configured local DirectAnswer failover. " <>
       "Inference uses your configured local endpoint. Change the fallback in Models, or disable model fallback with `allbert admin settings set models.fallback.enabled false`."
   end
 
-  defp route_disclosure_text(%{"profile" => profile, "provider" => provider}) do
+  defp usage_disclosure_text(:primary, %{
+         "profile" => profile,
+         "provider" => provider,
+         "provider_class" => "local"
+       }) do
     "Your configured DirectAnswer route uses #{profile} from #{provider}. " <>
       "Inference uses your configured local endpoint. Change the model in Models, or disable model answers with `allbert admin settings set intent.direct_answer_model_enabled false`."
+  end
+
+  defp usage_disclosure_text(:fanout_synthesis, %{
+         "profile" => profile,
+         "provider" => provider,
+         "provider_class" => "hosted"
+       }) do
+    "Your configured fan-out report synthesis route uses #{profile} from #{provider}. " <>
+      "Joined child results may leave this device for #{provider}. Change `model_preferences.tasks.fanout_synthesis`, or disable model answers with `allbert admin settings set intent.direct_answer_model_enabled false`."
+  end
+
+  defp usage_disclosure_text(:fanout_synthesis, %{
+         "profile" => profile,
+         "provider" => provider,
+         "provider_class" => "local"
+       }) do
+    "Your configured fan-out report synthesis route uses #{profile} from #{provider}. " <>
+      "Inference uses your configured local endpoint. Change `model_preferences.tasks.fanout_synthesis`, or disable model answers with `allbert admin settings set intent.direct_answer_model_enabled false`."
+  end
+
+  defp stored_route_usages(route) do
+    route
+    |> map_value(:usages)
+    |> case do
+      values when is_list(values) -> Enum.map(values, &normalize_usage/1)
+      _missing -> [normalize_usage(map_value(route, :usage))]
+    end
+    |> ordered_usages()
   end
 
   defp known_surface(value) do

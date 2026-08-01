@@ -9,9 +9,13 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
+  alias AllbertAssist.Objectives.Objective
+  alias AllbertAssist.Objectives.Runs.Scheduler
   alias AllbertAssist.Objectives.Runs.Supervisor, as: RunsSupervisor
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
+  alias Ecto.Adapters.SQL.Sandbox
+  alias Jido.Signal.Bus
 
   defmodule SingleTurnProposer do
     def propose(text, context) do
@@ -71,6 +75,14 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put("channels.telegram.autonomous_notify.enabled", false, %{audit?: false})
 
     on_exit(fn ->
+      if Process.whereis(Scheduler) do
+        Objective
+        |> where([objective], objective.fanout_role == "parent")
+        |> select([objective], objective.id)
+        |> Repo.all()
+        |> Enum.each(&Scheduler.finish_fanout/1)
+      end
+
       if Process.whereis(RunsSupervisor) do
         RunsSupervisor
         |> DynamicSupervisor.which_children()
@@ -78,6 +90,8 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
           DynamicSupervisor.terminate_child(RunsSupervisor, pid)
         end)
       end
+
+      if Process.whereis(Scheduler), do: Scheduler.snapshot()
 
       if original,
         do: Application.put_env(:allbert_assist, Runtime, original),
@@ -115,6 +129,57 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
       assert Map.get(response, :fanout) == nil
       assert Objectives.list_objectives(user_id) == []
     end
+  end
+
+  test "surface operator text drives counted fanout while the ordinary transcript stays intact" do
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    operator_text = "Do these 2 tasks in parallel: inspect alpha; inspect beta"
+    transcript = "developer: Stay concise.\nassistant: Ready.\nuser: #{operator_text}"
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: transcript,
+               operator_text: operator_text,
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+               channel: :test,
+               user_id: "operator-text-counted"
+             })
+
+    refute_received {:single_turn_agent_called, _text}
+    assert response.message =~ "I split this into 2 tasks"
+
+    assert {:ok, parent} = Objectives.get_objective(response.fanout.parent_id)
+    assert parent.objective == operator_text
+    assert parent.title == operator_text
+
+    assert %{"fanout_plan" => %{"original_request_sha256" => digest}} =
+             Jason.decode!(parent.proposer_hint)
+
+    assert digest == Base.encode16(:crypto.hash(:sha256, operator_text), case: :lower)
+  end
+
+  test "an explicitly absent surface operator turn cannot fan out conversation history" do
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    transcript =
+      "developer: Context only.\nassistant: Do these 2 tasks in parallel: inspect alpha; inspect beta"
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: transcript,
+               operator_text: nil,
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+               channel: :test,
+               user_id: "operator-text-absent"
+             })
+
+    assert_received {:single_turn_agent_called, ^transcript}
+    assert response.message == "single: #{transcript}"
+    assert Map.get(response, :fanout) == nil
+    assert Objectives.list_objectives("operator-text-absent") == []
   end
 
   test "automatic conversational manager plans through the central runtime and freezes provenance" do
@@ -651,10 +716,12 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert :ok = Runtime.acknowledge_fanout_start(response.fanout_start_receipt, identity)
     assert :ok = Runtime.acknowledge_fanout_start(response.fanout_start_receipt, identity)
 
-    eventually(fn ->
-      Fanout.children(response.fanout.parent_id)
-      |> Enum.all?(&(&1.run_attempt_count >= 1 and &1.status != "running"))
-    end)
+    terminal_children = await_fanout_terminal(response.fanout.parent_id)
+
+    assert Enum.all?(
+             terminal_children,
+             &(&1.run_attempt_count >= 1 and &1.status != "running")
+           )
 
     assert Enum.map(Fanout.children(response.fanout.parent_id), &{&1.status, &1.review_reason}) ==
              [{"completed", nil}, {"completed", nil}]
@@ -684,10 +751,10 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     identity = %{user_id: "receipt-owner", channel: "test", thread_id: response.thread_id}
     assert :ok = Runtime.acknowledge_fanout_start(response.fanout_start_receipt, identity)
 
-    eventually(fn ->
-      Fanout.children(response.fanout.parent_id)
-      |> Enum.all?(&(&1.status == "completed"))
-    end)
+    assert Enum.all?(
+             await_fanout_terminal(response.fanout.parent_id),
+             &(&1.status == "completed")
+           )
   end
 
   test "kickoff acknowledgement after an authoritative join is a no-op" do
@@ -719,6 +786,8 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  %{}
                )
     end)
+
+    select_queued_report!(parent.id)
 
     assert Fanout.parent_projection(parent).phase == :joined
     attempts_before = Enum.map(Fanout.children(parent), & &1.run_attempt_count)
@@ -834,9 +903,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert {:ok, acknowledged} = Objectives.get_objective(parent.id)
     assert acknowledged.kickoff_delivery_state == "acknowledged"
 
-    eventually(fn ->
-      Fanout.children(parent) |> Enum.all?(&(&1.status == "completed"))
-    end)
+    assert Enum.all?(await_fanout_terminal(parent.id), &(&1.status == "completed"))
   end
 
   test "pending reports are non-destructive and identity-bound until delivery acknowledgement" do
@@ -870,6 +937,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                )
     end
 
+    select_queued_report!(parent.id)
     assert {:ok, %{report_delivery_receipt: receipt}} = Fanout.finalize_join(parent)
     parent_id = parent.id
 
@@ -884,9 +952,8 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert [%{parent_objective_id: ^parent_id, report_delivery_receipt: ^receipt}] =
              next_turn.pending_reports
 
-    assert next_turn.message =~ "Finished work"
-    assert next_turn.message =~ "✓ one — done 0"
-    assert next_turn.message =~ "✓ two — done 1"
+    expected_report = Fanout.format_report(Fanout.report(parent))
+    assert next_turn.message == "single: what next?\n\n#{expected_report}"
 
     assert {:error, :receipt_identity_mismatch} =
              Runtime.acknowledge_report_delivery(receipt, %{
@@ -962,6 +1029,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                %{}
              )
 
+    select_queued_report!(parent.id)
     assert {:ok, _join} = Fanout.finalize_join(parent)
 
     assert {:ok, next_turn} =
@@ -972,9 +1040,10 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                thread_id: first_turn.thread_id
              })
 
-    assert next_turn.message =~ "✓ completed task — completed result"
-    assert next_turn.message =~ "⊘ cancelled task — cancelled by operator"
-    assert next_turn.message =~ "✗ failed task — provider unavailable"
+    expected_report = Fanout.format_report(Fanout.report(parent))
+    assert next_turn.message == "single: report\n\n#{expected_report}"
+    assert next_turn.model_payload == "single: report\n\n#{expected_report}"
+    assert next_turn.surface_payload == "single: report\n\n#{expected_report}"
     refute next_turn.message =~ "stale progress"
   end
 
@@ -1008,6 +1077,8 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  %{}
                )
     end
+
+    select_queued_report!(parent.id)
 
     assert {:ok, canonical} =
              Runner.run(
@@ -1081,6 +1152,8 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                )
     end
 
+    select_queued_report!(parent.id)
+
     assert {:ok, next_turn} =
              Runtime.submit_user_input(%{
                text: "what next?",
@@ -1145,6 +1218,8 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                )
     end
 
+    select_queued_report!(parent.id)
+
     assert {:ok, wrong_channel} =
              Runtime.submit_user_input(%{
                text: "show completed fan-out report",
@@ -1194,6 +1269,8 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  %{}
                )
     end)
+
+    select_queued_report!(parent.id)
 
     refreshed_ref = %{
       id: "99",
@@ -1273,6 +1350,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                )
     end
 
+    select_queued_report!(parent.id)
     assert {:ok, _join} = Fanout.finalize_join(parent)
 
     assert {:ok, joined} =
@@ -1285,9 +1363,8 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     refute_received :report_phrase_reached_agent
     refute joined.message =~ "missing_plan_source"
-    assert joined.message =~ "Controlled report — success"
-    assert joined.message =~ "✓ one — result 1"
-    assert joined.message =~ "✓ two — result 2"
+    selected_body = Fanout.format_report(Fanout.report(parent))
+    assert joined.message == "Completed fan-out report:\n\n#{selected_body}"
   end
 
   test "exact origin binding denies missing or changed account context" do
@@ -1356,6 +1433,62 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert length(kickoff.children) == 2
   end
 
+  test "await continuation returns a durably joined report when its publication is missed" do
+    bus = :"runtime-fanout-wait-bus-#{System.unique_integer([:positive])}"
+    bus_child = {:runtime_fanout_wait_bus, bus}
+    _bus_pid = start_supervised!({Bus, name: bus}, id: bus_child)
+
+    runtime_config = Application.get_env(:allbert_assist, Runtime, [])
+    Application.put_env(:allbert_assist, Runtime, Keyword.put(runtime_config, :fanout_bus, bus))
+
+    assert {:ok, %{parent: parent, children: children}} =
+             Fanout.frame(
+               %{
+                 user_id: "alice",
+                 title: "Missed publication",
+                 objective: "Recover the durable report",
+                 source_channel: "openai_api",
+                 source_surface: "api",
+                 source_thread_id: "thread-missed-publication"
+               },
+               ["one", "two"]
+             )
+
+    waiter =
+      Task.async(fn ->
+        receive do
+          :await -> Runtime.await_fanout(parent.id, "alice", 2_000)
+        end
+      end)
+
+    Sandbox.allow(Repo, self(), waiter.pid)
+    send(waiter.pid, :await)
+    await_bus_subscription!(bus)
+
+    Enum.each(children, fn child ->
+      assert {:ok, _transition} =
+               TerminalTransitions.terminalize_child(
+                 child,
+                 %{
+                   status: "completed",
+                   last_observation_summary: "done #{child.queue_position}",
+                   completed_at: DateTime.utc_now()
+                 },
+                 "run_completed",
+                 %{}
+               )
+    end)
+
+    # Selection publishes to the production SignalBus. The waiter is
+    # deliberately subscribed to the isolated bus and therefore receives no
+    # joined wake-up; the timeout-boundary projection recheck must recover it.
+    select_queued_report!(parent.id)
+
+    assert {:ok, report} = Task.await(waiter, 3_000)
+    assert report.parent_objective_id == parent.id
+    assert is_binary(report.body)
+  end
+
   test "confirm-before-start persists approval and resumes only through the registered action" do
     assert {:ok, _setting} =
              Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
@@ -1392,10 +1525,10 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                channel: "test"
              })
 
-    eventually(fn ->
-      Fanout.children(response.fanout.parent_id)
-      |> Enum.all?(&(&1.status == "completed"))
-    end)
+    assert Enum.all?(
+             await_fanout_terminal(response.fanout.parent_id),
+             &(&1.status == "completed")
+           )
   end
 
   test "missing or malformed delivery acknowledgement capability fails closed to one turn" do
@@ -1436,15 +1569,49 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     }
   end
 
-  defp eventually(fun, attempts \\ 100)
-  defp eventually(fun, 0), do: assert(fun.())
+  defp select_queued_report!(parent_id) do
+    assert {:ok, %{parent: %{id: ^parent_id}, frozen: frozen} = claim} =
+             Fanout.claim_next_composition()
 
-  defp eventually(fun, attempts) do
-    if fun.() do
+    assert {:ok, _selected} =
+             Fanout.select_composition(
+               claim,
+               "deterministic_fallback",
+               frozen.fallback_body,
+               %{fallback_reason: "model_disabled"}
+             )
+  end
+
+  defp await_bus_subscription!(bus, attempts \\ 100)
+
+  defp await_bus_subscription!(_bus, 0), do: flunk("fan-out waiter did not subscribe")
+
+  defp await_bus_subscription!(bus, attempts) do
+    {:ok, bus_pid} = Bus.whereis(bus)
+
+    if map_size(:sys.get_state(bus_pid).subscriptions) > 0 do
       :ok
     else
-      Process.sleep(20)
-      eventually(fun, attempts - 1)
+      Process.sleep(10)
+      await_bus_subscription!(bus, attempts - 1)
     end
+  end
+
+  defp await_fanout_terminal(parent_id) do
+    case Registry.lookup(AllbertAssist.Objectives.Runs.Registry, {:fanout, parent_id}) do
+      [{coordinator, _value}] ->
+        monitor_ref = Process.monitor(coordinator)
+        assert_receive {:DOWN, ^monitor_ref, :process, ^coordinator, _reason}, 5_000
+
+      [] ->
+        :ok
+    end
+
+    children = Fanout.children(parent_id)
+
+    assert Enum.all?(children, &(&1.status in ~w[completed cancelled failed abandoned])),
+           "fan-out coordinator retired without terminalizing every child: #{inspect(children)}"
+
+    children
   end
 end

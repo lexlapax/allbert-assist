@@ -14,6 +14,8 @@ defmodule AllbertAssist.Objectives.Objective do
   @join_outcomes ~w[success partial failed cancelled]
   @kickoff_delivery_states ~w[pending blocked acknowledged cancelled]
   @report_delivery_states ~w[not_ready pending delivered]
+  @report_composition_states ~w[not_ready queued composing ready fallback]
+  @report_sources ~w[model deterministic_fallback]
 
   @primary_key {:id, :string, autogenerate: false}
   @foreign_key_type :string
@@ -41,6 +43,11 @@ defmodule AllbertAssist.Objectives.Objective do
     field :fanout_start_receipt_digest, :string
     field :report_delivery_state, :string
     field :report_delivery_receipt_digest, :string
+    field :report_composition_state, :string, default: "not_ready"
+    field :report_body, :string
+    field :report_source, :string
+    field :report_input_digest, :string
+    field :report_selection_digest, :string
     field :origin_thread_ref_id, :string
     field :origin_thread_ref_digest, :string
     field :origin_receiver_account_ref, :string
@@ -84,6 +91,11 @@ defmodule AllbertAssist.Objectives.Objective do
       :fanout_start_receipt_digest,
       :report_delivery_state,
       :report_delivery_receipt_digest,
+      :report_composition_state,
+      :report_body,
+      :report_source,
+      :report_input_digest,
+      :report_selection_digest,
       :origin_thread_ref_id,
       :origin_thread_ref_digest,
       :origin_receiver_account_ref,
@@ -107,6 +119,8 @@ defmodule AllbertAssist.Objectives.Objective do
     |> validate_optional_inclusion(:join_outcome, @join_outcomes)
     |> validate_optional_inclusion(:kickoff_delivery_state, @kickoff_delivery_states)
     |> validate_optional_inclusion(:report_delivery_state, @report_delivery_states)
+    |> validate_inclusion(:report_composition_state, @report_composition_states)
+    |> validate_optional_inclusion(:report_source, @report_sources)
     |> validate_length(:id, min: 5, max: 80)
     |> validate_length(:user_id, min: 1, max: 128)
     |> validate_length(:source_thread_id, max: 128)
@@ -124,12 +138,27 @@ defmodule AllbertAssist.Objectives.Objective do
     |> validate_length(:proposer_hint, max: 4_000)
     |> validate_length(:fanout_start_receipt_digest, max: 128)
     |> validate_length(:report_delivery_receipt_digest, max: 128)
+    |> validate_format(:report_input_digest, ~r/\A[0-9a-f]{64}\z/)
+    |> validate_format(:report_selection_digest, ~r/\A[0-9a-f]{64}\z/)
+    |> validate_change(:report_body, fn :report_body, value ->
+      if byte_size(value) <= 32_768,
+        do: [],
+        else: [report_body: "must be at most 32768 bytes"]
+    end)
     |> validate_length(:origin_thread_ref_id, max: 128)
     |> validate_length(:origin_thread_ref_digest, max: 128)
     |> validate_length(:origin_receiver_account_ref, max: 128)
     |> validate_length(:review_reason, max: 240)
     |> unique_constraint(:fanout_start_receipt_digest)
     |> unique_constraint(:report_delivery_receipt_digest)
+    |> check_constraint(:report_composition_state,
+      name: :objectives_report_composition_state_check
+    )
+    |> check_constraint(:report_body, name: :objectives_report_body_size_check)
+    |> check_constraint(:report_source, name: :objectives_report_source_check)
+    |> check_constraint(:report_composition_state,
+      name: :objectives_report_composition_contract_check
+    )
     |> validate_acceptance_criteria()
   end
 

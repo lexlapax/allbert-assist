@@ -39,6 +39,7 @@ defmodule AllbertAssist.Application do
         AllbertAssist.Execution.ProcessOwners,
         AllbertAssist.Settings.Supervisor,
         first_run_enablement_child(),
+        report_composer_child(),
         notify_consumer_child(),
         AllbertAssist.Artifacts.GC,
         AllbertAssist.PublicProtocol.RateLimiter,
@@ -74,6 +75,17 @@ defmodule AllbertAssist.Application do
   defp notify_consumer_child do
     opts = Application.get_env(:allbert_assist, AllbertAssist.Channels.NotifyConsumer, [])
     if Keyword.get(opts, :enabled?, true), do: {AllbertAssist.Channels.NotifyConsumer, opts}
+  end
+
+  defp report_composer_child do
+    opts =
+      Application.get_env(
+        :allbert_assist,
+        AllbertAssist.Objectives.Fanout.ReportComposer,
+        []
+      )
+
+    {AllbertAssist.Objectives.Fanout.ReportComposer, opts}
   end
 
   defp first_run_enablement_child do

@@ -226,7 +226,8 @@ defmodule AllbertAssist.Objectives.DelegateCancelTest do
             %{
               status: "completed",
               join_outcome: "partial",
-              report_delivery_state: "pending"
+              report_composition_state: "queued",
+              report_delivery_state: "not_ready"
             }} = Objectives.get_objective(parent.id)
 
     assert Enum.count(Objectives.list_events(parent.id), &(&1.kind == "fanout_joined")) == 1
@@ -245,10 +246,22 @@ defmodule AllbertAssist.Objectives.DelegateCancelTest do
                )
     end)
 
-    assert {:ok, already_finished} =
+    assert {:ok, finalizing} =
              Runner.run(
                "cancel_objective_run",
                %{objective_id: joined_parent.id, reason: "late cancel"},
+               %{user_id: "cancel-user", channel: "test"}
+             )
+
+    assert finalizing.status == :finalizing
+    assert Fanout.parent_projection(joined_parent).phase == :recovering
+
+    select_fallback!(joined_parent)
+
+    assert {:ok, already_finished} =
+             Runner.run(
+               "cancel_objective_run",
+               %{objective_id: joined_parent.id, reason: "late cancel after report selection"},
                %{user_id: "cancel-user", channel: "test"}
              )
 
@@ -344,6 +357,8 @@ defmodule AllbertAssist.Objectives.DelegateCancelTest do
       assert {:ok, response} = Task.await(cancellation, 2_000)
       assert response.status in [:cancelled, :already_finished]
 
+      eventually(fn -> Fanout.parent_projection(parent).phase == :recovering end)
+      select_fallback!(parent)
       eventually(fn -> Fanout.parent_projection(parent).phase == :joined end)
 
       assert Enum.all?(Fanout.children(parent), fn child ->
@@ -367,6 +382,19 @@ defmodule AllbertAssist.Objectives.DelegateCancelTest do
       },
       ["first", "second"]
     )
+  end
+
+  defp select_fallback!(parent) do
+    assert {:ok, claim} = Fanout.claim_next_composition()
+    assert claim.parent.id == parent.id
+
+    assert {:ok, _selected} =
+             Fanout.select_composition(
+               claim,
+               "deterministic_fallback",
+               claim.frozen.fallback_body,
+               %{fallback_reason: "model_disabled"}
+             )
   end
 
   defp eventually(fun, attempts \\ 100)

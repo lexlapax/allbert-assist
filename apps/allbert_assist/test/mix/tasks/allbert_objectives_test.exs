@@ -5,6 +5,7 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
 
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Fanout.Report
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias Mix.Tasks.Allbert.Objectives, as: ObjectivesTask
 
@@ -122,6 +123,8 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
                )
     end)
 
+    selected_body = select_report!(parent.id, "deterministic_fallback")
+
     output =
       capture_io(fn ->
         assert :ok = ObjectivesTask.run(["show", parent.id, "--user", "alice"])
@@ -129,9 +132,50 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
 
     assert output =~ "Fan-out phase: joined"
     assert output =~ "Join outcome: success"
+    assert output =~ "Report composition: fallback"
+    assert output =~ "Report source: deterministic_fallback"
     assert output =~ "Report delivery: pending"
+    assert output =~ "Report: #{selected_body}"
     assert output =~ "- completed one — result 0"
     assert output =~ "- completed two — result 1"
+  end
+
+  test "show maps a model-selected report to completed without changing its body" do
+    assert {:ok, %{parent: parent, children: children}} =
+             Fanout.frame(
+               %{
+                 user_id: "alice",
+                 title: "Model CLI fan-in",
+                 objective: "Render one model report"
+               },
+               ["one", "two"]
+             )
+
+    Enum.each(children, fn child ->
+      assert {:ok, _transition} =
+               TerminalTransitions.terminalize_child(
+                 child,
+                 %{
+                   status: "completed",
+                   last_observation_summary: "result #{child.queue_position}",
+                   completed_at: DateTime.utc_now()
+                 },
+                 "run_completed",
+                 %{}
+               )
+    end)
+
+    selected_body = select_report!(parent.id, "model")
+
+    output =
+      capture_io(fn ->
+        assert :ok = ObjectivesTask.run(["show", parent.id, "--user", "alice"])
+      end)
+
+    assert output =~ "Fan-out phase: joined"
+    assert output =~ "Report composition: completed"
+    assert output =~ "Report source: model"
+    assert output =~ "Report: #{selected_body}"
   end
 
   test "operator alias must match user" do
@@ -168,5 +212,57 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
 
     assert output =~ "cannot continue"
     assert output =~ "Reason: Objective is abandoned."
+  end
+
+  defp select_report!(parent_id, source) do
+    assert {:ok, %{parent: %{id: ^parent_id}, frozen: frozen} = claim} =
+             Fanout.claim_next_composition()
+
+    completed_positions =
+      frozen.snapshot.children
+      |> Enum.filter(&(&1.status == "completed"))
+      |> Enum.map(& &1.queue_position)
+
+    sections =
+      case completed_positions do
+        [] ->
+          []
+
+        [_one] = positions ->
+          [%{relationship: "independent", ordered_queue_positions: positions}]
+
+        positions ->
+          [%{relationship: "complementary", ordered_queue_positions: positions}]
+      end
+
+    body =
+      case source do
+        "model" ->
+          assert {:ok, body} =
+                   Report.compose(frozen.snapshot, %{sections: sections})
+
+          body
+
+        "deterministic_fallback" ->
+          frozen.fallback_body
+      end
+
+    provenance =
+      case source do
+        "model" ->
+          %{
+            model_profile: "test",
+            provider: "test_provider",
+            model: "test_model",
+            layout_version: 1,
+            sections: sections
+          }
+
+        "deterministic_fallback" ->
+          %{fallback_reason: "model_disabled"}
+      end
+
+    assert {:ok, _selected} = Fanout.select_composition(claim, source, body, provenance)
+    body
   end
 end

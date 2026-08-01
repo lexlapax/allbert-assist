@@ -5,11 +5,15 @@ defmodule AllbertAssist.Objectives.FanoutTest do
 
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Fanout.Report
+  alias AllbertAssist.Objectives.Fanout.ReportComposer
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Lifecycle
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Objectives.Runs.CancelToken
   alias AllbertAssist.Repo
+  alias Ecto.Adapters.SQL
+  alias Jido.Signal.Bus
 
   defmodule CompletingAdapter do
     def operation(:execute, state, _opts),
@@ -21,6 +25,18 @@ defmodule AllbertAssist.Objectives.FanoutTest do
   defmodule FailingAdapter do
     def operation(:execute, state, _opts), do: {:error, :fixture_failure, state}
     def operation(_operation, state, _opts), do: {:ok, state}
+  end
+
+  defmodule WakeScheduler do
+    use GenServer
+
+    def start_link(owner), do: GenServer.start_link(__MODULE__, owner)
+    def init(owner), do: {:ok, owner}
+
+    def handle_call({:wake_parent, parent_id}, _from, owner) do
+      send(owner, {:scheduler_wake, parent_id})
+      {:reply, :ok, owner}
+    end
   end
 
   test "frames parent and ordered children atomically without starting them" do
@@ -60,6 +76,103 @@ defmodule AllbertAssist.Objectives.FanoutTest do
              "fanout_acknowledged",
              "fanout_proposed"
            ]
+  end
+
+  test "central recovery wake drains queued work and reconciles composing and legacy work" do
+    scheduler = start_supervised!({WakeScheduler, self()})
+    composer_name = :"fanout-wake-composer-#{System.unique_integer([:positive])}"
+
+    composer =
+      start_supervised!(
+        {ReportComposer,
+         name: composer_name, model_enabled?: false, reconcile_interval_ms: 60_000}
+      )
+
+    assert %{phase: :ready} = :sys.get_state(composer)
+
+    assert {:ok, _subscription_id} =
+             Bus.subscribe(AllbertAssist.SignalBus, "allbert.objectives.fanout.joined")
+
+    assert {:ok, %{parent: execution_parent}} =
+             Fanout.frame(%{user_id: "alice", title: "execution", objective: "execution"}, [
+               "first",
+               "second"
+             ])
+
+    assert :ok =
+             Fanout.wake_recovery(execution_parent,
+               scheduler: scheduler,
+               composer: composer_name
+             )
+
+    assert_receive {:scheduler_wake, parent_id}
+    assert parent_id == execution_parent.id
+
+    queued = queued_parent!("queued wake")
+    assert :ok = Fanout.wake_recovery(queued, composer: composer_name, scheduler: scheduler)
+
+    assert_receive {:signal,
+                    %{type: "allbert.objectives.fanout.joined", subject: queued_parent_id}},
+                   1_000
+
+    assert queued_parent_id == queued.id
+    assert {:ok, %{report_composition_state: "fallback"}} = Objectives.get_objective(queued.id)
+    assert selection_payload(queued.id)["fallback_reason"] == "model_disabled"
+
+    composing_queued = queued_parent!("composing wake")
+    assert {:ok, %{parent: composing}} = Fanout.claim_next_composition()
+    assert composing.id == composing_queued.id
+
+    assert :ok = Fanout.wake_recovery(composing, composer: composer_name, scheduler: scheduler)
+
+    assert_receive {:signal,
+                    %{type: "allbert.objectives.fanout.joined", subject: composing_parent_id}},
+                   1_000
+
+    assert composing_parent_id == composing.id
+
+    assert {:ok, %{report_composition_state: "fallback"}} =
+             Objectives.get_objective(composing.id)
+
+    assert selection_payload(composing.id)["fallback_reason"] == "recovery_after_restart"
+
+    legacy_queued = queued_parent!("legacy wake")
+
+    receipt_digest =
+      :crypto.hash(:sha256, Fanout.receipt_for(:report, legacy_queued.id))
+      |> Base.encode16(case: :lower)
+
+    assert {1, _rows} =
+             Objective
+             |> where([objective], objective.id == ^legacy_queued.id)
+             |> Repo.update_all(
+               set: [
+                 report_composition_state: "not_ready",
+                 report_input_digest: nil,
+                 report_delivery_state: "pending",
+                 report_delivery_receipt_digest: receipt_digest
+               ]
+             )
+
+    assert {:ok, legacy_pending} = Objectives.get_objective(legacy_queued.id)
+
+    assert :ok =
+             Fanout.wake_recovery(legacy_pending,
+               composer: composer_name,
+               scheduler: scheduler
+             )
+
+    assert_receive {:signal,
+                    %{type: "allbert.objectives.fanout.joined", subject: legacy_parent_id}},
+                   1_000
+
+    assert legacy_parent_id == legacy_pending.id
+
+    assert {:ok, %{report_composition_state: "fallback"}} =
+             Objectives.get_objective(legacy_pending.id)
+
+    assert selection_payload(legacy_pending.id)["fallback_reason"] == "historical_backfill"
+    refute_receive {:scheduler_wake, _parent_id}
   end
 
   test "active parent lookup is scoped directly and cannot be starved by the list limit" do
@@ -158,7 +271,13 @@ defmodule AllbertAssist.Objectives.FanoutTest do
              )
 
     assert {:ok, {:joined_now, joined}} = Fanout.reconcile_parent(parent)
-    assert joined.report_delivery_state == "pending"
+    assert joined.report_composition_state == "queued"
+    assert joined.report_delivery_state == "not_ready"
+    assert {:ok, still_active} = Fanout.active_parent("alice", "recovering-thread")
+    assert still_active.id == parent.id
+
+    selected = select_fallback!(parent)
+    assert selected.report_delivery_state == "pending"
     assert {:error, :not_found} = Fanout.active_parent("alice", "recovering-thread")
 
     assert {:ok, %{parent: successor}} =
@@ -488,7 +607,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
              Objectives.fanout_confirmation_target(%{"id" => confirmation_id})
   end
 
-  test "the last public lifecycle completion atomically joins its parent" do
+  test "the last public lifecycle completion atomically freezes and queues its parent report" do
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
                %{user_id: "alice", title: "Atomic join", objective: "Run every child"},
@@ -503,13 +622,585 @@ defmodule AllbertAssist.Objectives.FanoutTest do
     assert {:ok, joined} = Objectives.get_objective(parent.id)
     assert joined.status == "completed"
     assert joined.join_outcome == "success"
-    assert joined.report_delivery_state == "pending"
-    assert is_binary(joined.report_delivery_receipt_digest)
+    assert joined.report_composition_state == "queued"
+    assert joined.report_input_digest =~ ~r/\A[0-9a-f]{64}\z/
+    assert joined.report_body == nil
+    assert joined.report_source == nil
+    assert joined.report_delivery_state == "not_ready"
+    assert joined.report_delivery_receipt_digest == nil
+    assert Fanout.parent_projection(parent).phase == :recovering
+    refute Enum.any?(Fanout.runnable_parents(), &(&1.id == parent.id))
 
     assert Enum.count(Objectives.list_events(parent.id), &(&1.kind == "fanout_joined")) == 1
+    refute Enum.any?(Objectives.list_events(parent.id), &(&1.kind == "fanout_report_selected"))
   end
 
-  test "concurrent final siblings reduce to one join and one stable report receipt" do
+  test "composition claim and selection publish one stored authoritative report" do
+    assert {:ok, %{parent: parent, children: children}} =
+             Fanout.frame(
+               %{user_id: "alice", title: "Selected report", objective: "Run both children"},
+               ["first", "second"]
+             )
+
+    Enum.each(children, fn child ->
+      assert {:ok, _transition} =
+               TerminalTransitions.terminalize_child(
+                 child,
+                 %{
+                   status: "completed",
+                   last_observation_summary: "result #{child.queue_position}",
+                   completed_at: DateTime.utc_now()
+                 },
+                 "run_completed",
+                 %{}
+               )
+    end)
+
+    assert {:ok, claim} = Fanout.claim_next_composition()
+    assert claim.parent.id == parent.id
+    assert claim.parent.report_composition_state == "composing"
+    assert claim.frozen.input_digest == claim.parent.report_input_digest
+    assert :none = Fanout.claim_next_composition()
+
+    composition_selection = %{
+      sections: [
+        %{relationship: "complementary", ordered_queue_positions: [0, 1]}
+      ]
+    }
+
+    assert {:ok, body} =
+             Report.compose(claim.frozen.snapshot, composition_selection)
+
+    assert body =~ "Complementary findings:"
+
+    model_provenance = %{
+      model_profile: "local",
+      provider: "local_ollama",
+      model: "llama3.2:3b",
+      layout_version: 1,
+      sections: [%{relationship: "complementary", ordered_queue_positions: [0, 1]}]
+    }
+
+    assert {:error, :invalid_fanout_report_provenance} =
+             Fanout.select_composition(
+               claim,
+               "model",
+               body,
+               Map.put(model_provenance, :raw_error, "must never enter an event")
+             )
+
+    assert {:ok, selected} =
+             Fanout.select_composition(claim, "model", body, model_provenance)
+
+    assert selected.report_composition_state == "ready"
+    assert selected.report_source == "model"
+    assert selected.report_selection_digest =~ ~r/\A[0-9a-f]{64}\z/
+    assert selected.report_body == body
+    assert selected.report_delivery_state == "pending"
+    assert is_binary(selected.report_delivery_receipt_digest)
+
+    assert %{body: ^body, source: "model", input_digest: input_digest} = Fanout.report(selected)
+    assert input_digest == claim.frozen.input_digest
+    assert Fanout.format_report(Fanout.report(selected)) == body
+
+    assert {:error, :stale_composition_claim} =
+             Fanout.select_composition(claim, "model", body, model_provenance)
+
+    assert [selection_event] =
+             Enum.filter(
+               Objectives.list_events(parent.id),
+               &(&1.kind == "fanout_report_selected")
+             )
+
+    assert %{
+             "source" => "model",
+             "model_profile" => "local",
+             "provider" => "local_ollama",
+             "model" => "llama3.2:3b",
+             "layout_version" => 1,
+             "sections" => [
+               %{
+                 "relationship" => "complementary",
+                 "ordered_queue_positions" => [0, 1]
+               }
+             ]
+           } = Jason.decode!(selection_event.payload)
+
+    refute selection_event.payload =~ "raw_error"
+
+    assert Fanout.parent_projection(selected).phase == :joined
+
+    original_payload = Jason.decode!(selection_event.payload)
+
+    for tampered_payload <- [
+          Map.put(original_payload, "model_profile", "another_valid_profile"),
+          Map.put(original_payload, "provider", "another_valid_provider"),
+          Map.put(original_payload, "model", "another_valid_model"),
+          Map.put(original_payload, "layout_version", 2),
+          put_in(
+            original_payload,
+            ["sections", Access.at(0), "relationship"],
+            "supporting"
+          )
+        ] do
+      assert {1, _rows} =
+               AllbertAssist.Objectives.Event
+               |> where([event], event.id == ^selection_event.id)
+               |> Repo.update_all(set: [payload: Jason.encode!(tampered_payload)])
+
+      assert %{phase: :inconsistent, authoritatively_joined?: false} =
+               Fanout.parent_projection(parent)
+
+      assert {1, _rows} =
+               AllbertAssist.Objectives.Event
+               |> where([event], event.id == ^selection_event.id)
+               |> Repo.update_all(set: [payload: selection_event.payload])
+
+      assert Fanout.parent_projection(parent).phase == :joined
+    end
+
+    assert {1, _rows} =
+             Objective
+             |> where([objective], objective.id == ^parent.id)
+             |> Repo.update_all(set: [report_selection_digest: String.duplicate("b", 64)])
+
+    assert %{phase: :inconsistent, authoritatively_joined?: false} =
+             Fanout.parent_projection(parent)
+
+    assert {1, _rows} =
+             Objective
+             |> where([objective], objective.id == ^parent.id)
+             |> Repo.update_all(set: [report_selection_digest: selected.report_selection_digest])
+
+    assert Fanout.parent_projection(parent).phase == :joined
+
+    assert {:ok, altered_body} =
+             Report.compose(claim.frozen.snapshot, %{
+               sections: [
+                 %{relationship: "supporting", ordered_queue_positions: [1, 0]}
+               ]
+             })
+
+    assert {1, _rows} =
+             Objective
+             |> where([objective], objective.id == ^parent.id)
+             |> Repo.update_all(set: [report_body: altered_body])
+
+    assert %{phase: :inconsistent, authoritatively_joined?: false} =
+             Fanout.parent_projection(parent)
+
+    assert %{body: nil} = Fanout.report(parent)
+  end
+
+  test "queued report input freezes completed action-step evidence" do
+    assert {:ok, %{parent: parent, children: [first, second]}} =
+             Fanout.frame(
+               %{user_id: "alice", title: "Evidence freeze", objective: "Run both children"},
+               ["first", "second"]
+             )
+
+    assert {:ok, action_step} =
+             Objectives.create_step(%{
+               objective_id: first.id,
+               kind: "action",
+               status: "completed",
+               stage: "execute_step",
+               candidate_action: "example_read_action",
+               trace_id: "trace-frozen",
+               result_summary: "effect completed"
+             })
+
+    Enum.each([first, second], fn child ->
+      assert {:ok, _transition} =
+               TerminalTransitions.terminalize_child(
+                 child,
+                 %{status: "completed", completed_at: DateTime.utc_now()},
+                 "run_completed",
+                 %{}
+               )
+    end)
+
+    assert {:ok, frozen_before} = Fanout.report_input(parent.id)
+
+    assert get_in(frozen_before, [:snapshot, :children, Access.at(0), :effect_receipt_ref]) == %{
+             kind: "objective_step_trace",
+             action: "example_read_action",
+             trace_id: "trace-frozen"
+           }
+
+    assert {:error, :fanout_report_input_frozen} =
+             Objectives.update_step(action_step, %{trace_id: "trace-mutated"})
+
+    assert {:error, :fanout_report_input_frozen} =
+             Objectives.create_step(%{
+               objective_id: first.id,
+               kind: "action",
+               status: "completed",
+               stage: "execute_step",
+               candidate_action: "late_action",
+               trace_id: "trace-late"
+             })
+
+    assert {:ok, frozen_after} = Fanout.report_input(parent.id)
+    assert frozen_after.input_digest == frozen_before.input_digest
+  end
+
+  test "database triggers freeze step insert update and delete, including legacy pending parents" do
+    assert {:ok, %{parent: parent, children: [first, second]}} =
+             Fanout.frame(
+               %{user_id: "alice", title: "SQL freeze", objective: "Freeze evidence rows"},
+               ["first", "second"]
+             )
+
+    assert {:ok, action_step} =
+             Objectives.create_step(%{
+               objective_id: first.id,
+               kind: "action",
+               status: "completed",
+               stage: "execute_step",
+               candidate_action: "example_read_action",
+               trace_id: "trace-before-freeze"
+             })
+
+    Enum.each([first, second], fn child ->
+      assert {:ok, _transition} =
+               TerminalTransitions.terminalize_child(
+                 child,
+                 %{status: "completed", completed_at: DateTime.utc_now()},
+                 "run_completed",
+                 %{}
+               )
+    end)
+
+    assert {:ok, %{report_composition_state: "queued"}} =
+             Objectives.get_objective(parent.id)
+
+    assert_frozen_step_sql(
+      """
+      INSERT INTO objective_steps
+        (id, objective_id, kind, status, stage, inserted_at, updated_at)
+      VALUES (?, ?, 'action', 'completed', 'execute_step', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      """,
+      [Objectives.new_id("step"), first.id]
+    )
+
+    assert_frozen_step_sql(
+      "UPDATE objective_steps SET trace_id = ? WHERE id = ?",
+      ["trace-after-freeze", action_step.id]
+    )
+
+    assert_frozen_step_sql("DELETE FROM objective_steps WHERE id = ?", [action_step.id])
+
+    assert_frozen_child_sql(
+      """
+      INSERT INTO objectives
+        (id, user_id, status, title, objective, fanout_role, parent_objective_id,
+         queue_position, inserted_at, updated_at)
+      VALUES (?, 'alice', 'open', 'late child', 'late child', 'child', ?, 2,
+              CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      """,
+      [Objectives.new_id("obj"), parent.id]
+    )
+
+    assert_frozen_child_sql(
+      "UPDATE objectives SET last_observation_summary = ? WHERE id = ?",
+      ["mutated result", first.id]
+    )
+
+    assert_frozen_child_sql("DELETE FROM objectives WHERE id = ?", [second.id])
+
+    assert_frozen_parent_sql(
+      "UPDATE objectives SET title = ? WHERE id = ?",
+      ["mutated parent input", parent.id]
+    )
+
+    assert {1, _rows} =
+             Objective
+             |> where([objective], objective.id == ^parent.id)
+             |> Repo.update_all(
+               set: [
+                 report_composition_state: "not_ready",
+                 report_input_digest: nil,
+                 report_delivery_state: "pending"
+               ]
+             )
+
+    assert_frozen_step_sql(
+      "UPDATE objective_steps SET trace_id = ? WHERE id = ?",
+      ["trace-after-legacy-freeze", action_step.id]
+    )
+
+    assert_frozen_child_sql(
+      "UPDATE objectives SET last_observation_summary = ? WHERE id = ?",
+      ["mutated legacy result", first.id]
+    )
+
+    assert_frozen_parent_sql(
+      "UPDATE objectives SET objective = ? WHERE id = ?",
+      ["mutated legacy request", parent.id]
+    )
+
+    assert Repo.get!(AllbertAssist.Objectives.Step, action_step.id).trace_id ==
+             "trace-before-freeze"
+  end
+
+  test "legacy pending recovery wakes delivery while delivered custody stays silent" do
+    assert {:ok, _subscription_id} =
+             Bus.subscribe(AllbertAssist.SignalBus, "allbert.objectives.fanout.joined")
+
+    parents =
+      for {title, delivery_state} <- [
+            {"pending legacy", "pending"},
+            {"delivered legacy", "delivered"}
+          ] do
+        assert {:ok, %{parent: parent, children: children}} =
+                 Fanout.frame(
+                   %{user_id: "alice", title: title, objective: "Recover selected report"},
+                   ["first", "second"]
+                 )
+
+        Enum.each(children, fn child ->
+          assert {:ok, _transition} =
+                   TerminalTransitions.terminalize_child(
+                     child,
+                     %{status: "completed", completed_at: DateTime.utc_now()},
+                     "run_completed",
+                     %{}
+                   )
+        end)
+
+        receipt_digest =
+          :crypto.hash(:sha256, Fanout.receipt_for(:report, parent.id))
+          |> Base.encode16(case: :lower)
+
+        assert {1, _rows} =
+                 Objective
+                 |> where([objective], objective.id == ^parent.id)
+                 |> Repo.update_all(
+                   set: [
+                     report_composition_state: "not_ready",
+                     report_input_digest: nil,
+                     report_body: nil,
+                     report_source: nil,
+                     report_delivery_state: delivery_state,
+                     report_delivery_receipt_digest: receipt_digest
+                   ]
+                 )
+
+        {parent.id, delivery_state, receipt_digest}
+      end
+
+    assert {:ok, 2} = Fanout.recover_composition()
+
+    for {parent_id, delivery_state, receipt_digest} <- parents do
+      assert {:ok, recovered} = Objectives.get_objective(parent_id)
+      assert recovered.report_composition_state == "fallback"
+      assert recovered.report_source == "deterministic_fallback"
+      assert recovered.report_delivery_state == delivery_state
+      assert recovered.report_delivery_receipt_digest == receipt_digest
+      assert recovered.report_body =~ "Authoritative child results (ordered):"
+
+      assert selected_event =
+               Enum.find(
+                 Objectives.list_events(parent_id),
+                 &(&1.kind == "fanout_report_selected")
+               )
+
+      assert %{
+               "fallback_reason" => "historical_backfill",
+               "historical_backfill" => true
+             } = Jason.decode!(selected_event.payload)
+    end
+
+    pending_id =
+      parents |> Enum.find(fn {_id, state, _digest} -> state == "pending" end) |> elem(0)
+
+    delivered_id =
+      parents |> Enum.find(fn {_id, state, _digest} -> state == "delivered" end) |> elem(0)
+
+    assert_receive {:signal, %{type: "allbert.objectives.fanout.joined", subject: ^pending_id}},
+                   1_000
+
+    refute_receive {:signal, %{type: "allbert.objectives.fanout.joined", subject: ^delivered_id}},
+                   100
+  end
+
+  test "a corrupt oldest queued snapshot fails closed without blocking later valid work" do
+    queued =
+      for title <- ["oldest corrupt", "later valid"] do
+        assert {:ok, %{parent: parent, children: children}} =
+                 Fanout.frame(
+                   %{user_id: "alice", title: title, objective: "Complete both children"},
+                   ["first", "second"]
+                 )
+
+        Enum.each(children, fn child ->
+          assert {:ok, _transition} =
+                   TerminalTransitions.terminalize_child(
+                     child,
+                     %{status: "completed", completed_at: DateTime.utc_now()},
+                     "run_completed",
+                     %{}
+                   )
+        end)
+
+        {parent, children}
+      end
+
+    [{corrupt_parent, _corrupt_children}, {valid_parent, _valid_children}] = queued
+
+    assert {1, _rows} =
+             Objective
+             |> where([objective], objective.id == ^corrupt_parent.id)
+             |> Repo.update_all(set: [report_input_digest: String.duplicate("0", 64)])
+
+    assert %{phase: :inconsistent, composition_input_valid?: false} =
+             Fanout.parent_projection(corrupt_parent)
+
+    assert {:ok, claim} = Fanout.claim_next_composition()
+    assert claim.parent.id == valid_parent.id
+    assert :none = Fanout.claim_next_composition()
+
+    assert {:ok, still_queued} = Objectives.get_objective(corrupt_parent.id)
+    assert still_queued.report_composition_state == "queued"
+    assert still_queued.report_delivery_state == "not_ready"
+  end
+
+  test "composition claim scans beyond a full corrupt batch without starving valid work" do
+    corrupt_parent_ids =
+      for index <- 1..100 do
+        assert {:ok, %{parent: parent, children: children}} =
+                 Fanout.frame(
+                   %{
+                     user_id: "alice",
+                     title: "corrupt #{index}",
+                     objective: "Complete both children"
+                   },
+                   ["first", "second"]
+                 )
+
+        Enum.each(children, fn child ->
+          assert {:ok, _transition} =
+                   TerminalTransitions.terminalize_child(
+                     child,
+                     %{status: "completed", completed_at: DateTime.utc_now()},
+                     "run_completed",
+                     %{}
+                   )
+        end)
+
+        parent.id
+      end
+
+    assert {:ok, %{parent: valid_parent, children: valid_children}} =
+             Fanout.frame(
+               %{
+                 user_id: "alice",
+                 title: "valid after batch",
+                 objective: "Complete both children"
+               },
+               ["first", "second"]
+             )
+
+    Enum.each(valid_children, fn child ->
+      assert {:ok, _transition} =
+               TerminalTransitions.terminalize_child(
+                 child,
+                 %{status: "completed", completed_at: DateTime.utc_now()},
+                 "run_completed",
+                 %{}
+               )
+    end)
+
+    assert {100, _rows} =
+             Objective
+             |> where([objective], objective.id in ^corrupt_parent_ids)
+             |> Repo.update_all(set: [report_input_digest: String.duplicate("0", 64)])
+
+    assert {:ok, claim} = Fanout.claim_next_composition()
+    assert claim.parent.id == valid_parent.id
+  end
+
+  test "boot recovery records a closed reason for a stranded composing fallback" do
+    assert {:ok, %{parent: parent, children: children}} =
+             Fanout.frame(
+               %{
+                 user_id: "alice",
+                 title: "recover composing",
+                 objective: "Complete both children"
+               },
+               ["first", "second"]
+             )
+
+    Enum.each(children, fn child ->
+      assert {:ok, _transition} =
+               TerminalTransitions.terminalize_child(
+                 child,
+                 %{status: "completed", completed_at: DateTime.utc_now()},
+                 "run_completed",
+                 %{}
+               )
+    end)
+
+    assert {:ok, %{parent: %{id: parent_id}}} = Fanout.claim_next_composition()
+    assert parent_id == parent.id
+    assert {:ok, 1} = Fanout.recover_composition()
+
+    assert selected_event =
+             Enum.find(
+               Objectives.list_events(parent.id),
+               &(&1.kind == "fanout_report_selected")
+             )
+
+    assert %{
+             "source" => "deterministic_fallback",
+             "fallback_reason" => "recovery_after_restart"
+           } = Jason.decode!(selected_event.payload)
+  end
+
+  test "boot recovery skips corrupt composing work and leaves later queued work claimable" do
+    queued =
+      for title <- ["stranded composing", "later queued"] do
+        assert {:ok, %{parent: parent, children: children}} =
+                 Fanout.frame(
+                   %{user_id: "alice", title: title, objective: "Complete both children"},
+                   ["first", "second"]
+                 )
+
+        Enum.each(children, fn child ->
+          assert {:ok, _transition} =
+                   TerminalTransitions.terminalize_child(
+                     child,
+                     %{status: "completed", completed_at: DateTime.utc_now()},
+                     "run_completed",
+                     %{}
+                   )
+        end)
+
+        {parent, children}
+      end
+
+    [{stranded, _stranded_children}, {later, _children}] = queued
+    assert {:ok, %{parent: %{id: stranded_id}}} = Fanout.claim_next_composition()
+    assert stranded_id == stranded.id
+
+    assert {1, _rows} =
+             Objective
+             |> where([objective], objective.id == ^stranded.id)
+             |> Repo.update_all(set: [report_input_digest: String.duplicate("0", 64)])
+
+    assert {:ok, 0} = Fanout.recover_composition()
+    assert %{phase: :inconsistent} = Fanout.parent_projection(stranded)
+
+    assert {:ok, %{parent: %{id: later_id}}} = Fanout.claim_next_composition()
+    assert later_id == later.id
+
+    assert {:ok, unchanged} = Objectives.get_objective(stranded.id)
+    assert unchanged.report_composition_state == "composing"
+    assert unchanged.report_delivery_state == "not_ready"
+  end
+
+  test "concurrent final siblings reduce to one queue and one stable selected report receipt" do
     for iteration <- 1..12 do
       assert {:ok, %{parent: parent, children: children}} =
                Fanout.frame(
@@ -545,11 +1236,16 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                match?({:ok, %{child: %{status: "completed"}}}, Task.await(task, 2_000))
              end)
 
-      assert %{phase: :joined, parent: joined, children: terminal_children} =
+      assert %{phase: :recovering, parent: queued, children: terminal_children} =
                Fanout.parent_projection(parent)
 
       assert Enum.all?(terminal_children, &(&1.status == "completed"))
-      assert joined.report_delivery_state == "pending"
+      assert queued.report_composition_state == "queued"
+      assert queued.report_delivery_state == "not_ready"
+      assert queued.report_delivery_receipt_digest == nil
+
+      joined = select_fallback!(parent)
+      assert Fanout.parent_projection(joined).phase == :joined
 
       assert joined.report_delivery_receipt_digest ==
                :crypto.hash(:sha256, Fanout.receipt_for(:report, parent.id))
@@ -574,7 +1270,8 @@ defmodule AllbertAssist.Objectives.FanoutTest do
     assert {:ok, joined} = Objectives.get_objective(parent.id)
     assert joined.status == "completed"
     assert joined.join_outcome == "partial"
-    assert joined.report_delivery_state == "pending"
+    assert joined.report_composition_state == "queued"
+    assert joined.report_delivery_state == "not_ready"
     assert Enum.count(Objectives.list_events(parent.id), &(&1.kind == "fanout_joined")) == 1
   end
 
@@ -600,7 +1297,8 @@ defmodule AllbertAssist.Objectives.FanoutTest do
     assert {:ok, joined} = Objectives.get_objective(parent.id)
     assert joined.status == "completed"
     assert joined.join_outcome == "partial"
-    assert joined.report_delivery_state == "pending"
+    assert joined.report_composition_state == "queued"
+    assert joined.report_delivery_state == "not_ready"
     assert Enum.count(Objectives.list_events(parent.id), &(&1.kind == "fanout_joined")) == 1
   end
 
@@ -619,8 +1317,11 @@ defmodule AllbertAssist.Objectives.FanoutTest do
     assert %{terminal?: true, status: "completed", outcome: "partial"} =
              Fanout.join_status(parent)
 
+    assert {:error, :fanout_report_composition_pending} = Fanout.finalize_join(parent)
+    selected = select_fallback!(parent)
+
     assert {:ok, %{parent: joined, report_delivery_receipt: report_receipt}} =
-             Fanout.finalize_join(parent)
+             Fanout.finalize_join(selected)
 
     assert joined.join_outcome == "partial"
     assert joined.report_delivery_state == "pending"
@@ -629,6 +1330,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
 
     assert Enum.map(Objectives.list_events(parent.id), & &1.kind) == [
              "report_delivered",
+             "fanout_report_selected",
              "fanout_joined",
              "fanout_proposed"
            ]
@@ -661,11 +1363,14 @@ defmodule AllbertAssist.Objectives.FanoutTest do
 
     assert {:ok, {:joined_now, joined}} = Fanout.reconcile_parent(parent.id)
     assert joined.status == "completed"
-    assert joined.report_delivery_state == "pending"
+    assert joined.report_composition_state == "queued"
+    assert joined.report_delivery_state == "not_ready"
 
     assert {:ok, {:already_joined, same_parent}} = Fanout.reconcile_parent(parent.id)
     assert same_parent.id == joined.id
     assert Enum.count(Objectives.list_events(parent.id), &(&1.kind == "fanout_joined")) == 1
+
+    assert select_fallback!(parent).report_delivery_state == "pending"
   end
 
   test "stale abandonment never starts or completes an undelivered fan-out" do
@@ -717,7 +1422,8 @@ defmodule AllbertAssist.Objectives.FanoutTest do
             %{
               status: "failed",
               join_outcome: "failed",
-              report_delivery_state: "pending"
+              report_composition_state: "queued",
+              report_delivery_state: "not_ready"
             }} = Objectives.get_objective(parent.id)
 
     assert Enum.count(Objectives.list_events(parent.id), &(&1.kind == "fanout_joined")) == 1
@@ -738,6 +1444,90 @@ defmodule AllbertAssist.Objectives.FanoutTest do
 
     assert Fanout.report_child_detail(%{status: "failed"}) ==
              "No terminal reason recorded."
+  end
+
+  test "frozen report input is canonical, redacted, ordered, and renders every terminal child" do
+    parent = %Objective{
+      id: "fanout_report_parent",
+      title: "Parallel investigation",
+      objective: "Compare both results using token=Bearer raw-secret",
+      fanout_role: "parent",
+      status: "completed",
+      join_outcome: "partial",
+      proposer_hint:
+        Jason.encode!(%{
+          "fanout_plan" => %{
+            "version" => 1,
+            "source" => "adaptive_manager",
+            "plan_sha256" => String.duplicate("b", 64),
+            "original_request_sha256" => String.duplicate("c", 64),
+            "budget" => %{"composer_calls" => 1},
+            "deadline_unix_ms" => 1_800_000_000_000
+          }
+        })
+    }
+
+    children = [
+      %Objective{
+        id: "obj_second",
+        queue_position: 1,
+        title: "Second",
+        objective: "Inspect second",
+        fanout_role: "child",
+        acceptance_criteria: Jason.encode!(%{"summary" => "Second evidence"}),
+        status: "failed",
+        review_reason: "provider failed"
+      },
+      %Objective{
+        id: "obj_first",
+        queue_position: 0,
+        title: "First",
+        objective: "Inspect first",
+        fanout_role: "child",
+        acceptance_criteria: Jason.encode!(%{"summary" => "First evidence"}),
+        status: "completed",
+        last_observation_summary: "first result"
+      }
+    ]
+
+    evidence_refs = %{
+      "obj_first" => %{
+        kind: "objective_step_trace",
+        action: "example_read_action",
+        trace_id: "trace-first"
+      }
+    }
+
+    assert {:ok, frozen} = Report.freeze(parent, children, evidence_refs)
+    assert frozen.input_digest =~ ~r/\A[0-9a-f]{64}\z/
+    assert Enum.map(frozen.snapshot.children, & &1.id) == ["obj_first", "obj_second"]
+    assert hd(frozen.snapshot.children).effect_receipt_ref.trace_id == "trace-first"
+    assert List.last(frozen.snapshot.children).effect_receipt_ref == nil
+    assert frozen.snapshot.original_request =~ "[REDACTED]"
+    refute frozen.snapshot.original_request =~ "raw-secret"
+
+    assert frozen.fallback_body =~
+             "✓ First [completed] — Child-reported observation: first result"
+
+    assert frozen.fallback_body =~
+             ~s(Effect receipt: kind="objective_step_trace"; action="example_read_action"; trace_id="trace-first")
+
+    assert frozen.fallback_body =~
+             "✗ Second [failed] — Child-reported observation (not effect evidence): provider failed"
+
+    assert frozen.fallback_body =~ "Effect receipt: none recorded."
+    assert frozen.fallback_body =~ "Child-reported observation is not effect evidence"
+    assert byte_size(frozen.fallback_body) <= 32_768
+
+    assert {:error, :invalid_fanout_report_selection} =
+             Report.compose(
+               frozen.snapshot,
+               "Narrative\nAuthoritative child results (ordered):\n- invented"
+             )
+
+    assert {:ok, same} = Report.freeze(parent, Enum.reverse(children), evidence_refs)
+    assert same.input_digest == frozen.input_digest
+    assert same.fallback_body == frozen.fallback_body
   end
 
   test "one durable parent projection distinguishes running, recovery, joined, and corruption" do
@@ -792,23 +1582,25 @@ defmodule AllbertAssist.Objectives.FanoutTest do
 
     assert {:ok, {:joined_now, joined}} = Fanout.reconcile_parent(parent)
 
+    assert %{phase: :recovering, display_status: "finalizing"} =
+             Fanout.parent_projection(joined)
+
+    selected = select_fallback!(parent)
+
     assert %{
              phase: :joined,
              display_status: "completed",
              authoritatively_joined?: true,
              persisted_join_outcome: "success",
              derived_join_outcome: "success"
-           } = Fanout.parent_projection(joined)
+           } = Fanout.parent_projection(selected)
 
-    # A durable report marker whose parent reduction disagrees with its children
-    # is corruption, never an active or successfully joined projection.
-    assert {1, _rows} =
-             Objective
-             |> where([objective], objective.id == ^parent.id)
-             |> Repo.update_all(set: [join_outcome: "partial"])
+    assert_frozen_parent_sql(
+      "UPDATE objectives SET join_outcome = 'partial' WHERE id = ?",
+      [parent.id]
+    )
 
-    assert %{phase: :inconsistent, display_status: "inconsistent"} =
-             Fanout.parent_projection(parent)
+    assert %{phase: :joined, display_status: "completed"} = Fanout.parent_projection(parent)
   end
 
   test "an empty fan-out parent is inconsistent rather than terminal" do
@@ -856,7 +1648,7 @@ defmodule AllbertAssist.Objectives.FanoutTest do
     assert Fanout.pending_reports("alice", "corrupt-report-thread", %{channel: "test"}) == []
   end
 
-  test "joined projection requires its durable receipt and join event" do
+  test "joined projection requires both durable selection and join events" do
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
                %{user_id: "alice", title: "Join integrity", objective: "Join integrity"},
@@ -873,26 +1665,89 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                )
     end)
 
-    assert Fanout.parent_projection(parent).phase == :joined
+    selected = select_fallback!(parent)
+    assert Fanout.parent_projection(selected).phase == :joined
+
+    fallback_event =
+      AllbertAssist.Objectives.Event
+      |> where(
+        [event],
+        event.objective_id == ^parent.id and event.kind == "fanout_report_selected"
+      )
+      |> Repo.one!()
+
+    tampered_fallback_payload =
+      fallback_event.payload
+      |> Jason.decode!()
+      |> Map.put("fallback_reason", "provider_failed")
+      |> Jason.encode!()
 
     assert {1, _rows} =
-             Objective
-             |> where([objective], objective.id == ^parent.id)
-             |> Repo.update_all(set: [report_delivery_receipt_digest: nil])
+             AllbertAssist.Objectives.Event
+             |> where([event], event.id == ^fallback_event.id)
+             |> Repo.update_all(set: [payload: tampered_fallback_payload])
 
     assert %{phase: :inconsistent, authoritatively_joined?: false} =
              Fanout.parent_projection(parent)
 
     assert {1, _rows} =
-             Objective
-             |> where([objective], objective.id == ^parent.id)
-             |> Repo.update_all(
-               set: [
-                 report_delivery_receipt_digest:
-                   :crypto.hash(:sha256, Fanout.receipt_for(:report, parent.id))
-                   |> Base.encode16(case: :lower)
-               ]
+             AllbertAssist.Objectives.Event
+             |> where([event], event.id == ^fallback_event.id)
+             |> Repo.update_all(set: [payload: fallback_event.payload])
+
+    assert Fanout.parent_projection(parent).phase == :joined
+
+    assert {1, _rows} =
+             AllbertAssist.Objectives.Event
+             |> where(
+               [event],
+               event.objective_id == ^parent.id and event.kind == "fanout_report_selected"
              )
+             |> Repo.delete_all()
+
+    assert %{phase: :inconsistent, authoritatively_joined?: false} =
+             Fanout.parent_projection(parent)
+
+    assert {:ok, _missing_provenance_event} =
+             Objectives.create_event(%{
+               objective_id: parent.id,
+               kind: "fanout_report_selected",
+               payload: %{
+                 source: "deterministic_fallback",
+                 input_digest: selected.report_input_digest,
+                 body_sha256:
+                   :crypto.hash(:sha256, selected.report_body)
+                   |> Base.encode16(case: :lower)
+               }
+             })
+
+    assert %{phase: :inconsistent, authoritatively_joined?: false} =
+             Fanout.parent_projection(parent)
+
+    assert {1, _rows} =
+             AllbertAssist.Objectives.Event
+             |> where(
+               [event],
+               event.objective_id == ^parent.id and event.kind == "fanout_report_selected"
+             )
+             |> Repo.delete_all()
+
+    assert {:ok, _selection_event} =
+             Objectives.create_event(%{
+               objective_id: parent.id,
+               kind: "fanout_report_selected",
+               payload: %{
+                 source: "deterministic_fallback",
+                 fallback_reason: "model_disabled",
+                 layout_version: 1,
+                 input_digest: selected.report_input_digest,
+                 body_sha256:
+                   :crypto.hash(:sha256, selected.report_body)
+                   |> Base.encode16(case: :lower)
+               }
+             })
+
+    assert Fanout.parent_projection(parent).phase == :joined
 
     assert {1, _rows} =
              AllbertAssist.Objectives.Event
@@ -1028,5 +1883,65 @@ defmodule AllbertAssist.Objectives.FanoutTest do
              })
 
     assert "is invalid" in errors_on(invalid).kickoff_delivery_state
+  end
+
+  defp select_fallback!(parent) do
+    assert {:ok, claim} = Fanout.claim_next_composition()
+    assert claim.parent.id == parent.id
+
+    assert {:ok, selected} =
+             Fanout.select_composition(
+               claim,
+               "deterministic_fallback",
+               claim.frozen.fallback_body,
+               %{fallback_reason: "model_disabled"}
+             )
+
+    selected
+  end
+
+  defp queued_parent!(title) do
+    assert {:ok, %{parent: parent, children: children}} =
+             Fanout.frame(%{user_id: "alice", title: title, objective: title}, [
+               "first",
+               "second"
+             ])
+
+    Enum.each(children, fn child ->
+      assert {:ok, _transition} =
+               TerminalTransitions.terminalize_child(
+                 child,
+                 %{status: "completed", completed_at: DateTime.utc_now()},
+                 "run_completed",
+                 %{}
+               )
+    end)
+
+    assert {:ok, queued} = Objectives.get_objective(parent.id)
+    assert queued.report_composition_state == "queued"
+    queued
+  end
+
+  defp selection_payload(parent_id) do
+    parent_id
+    |> Objectives.list_events()
+    |> Enum.find(&(&1.kind == "fanout_report_selected"))
+    |> Map.fetch!(:payload)
+    |> Jason.decode!()
+  end
+
+  defp assert_frozen_step_sql(statement, params) do
+    assert {:error, error} = SQL.query(Repo, statement, params)
+    assert Exception.message(error) =~ "fanout report input is frozen"
+  end
+
+  defp assert_frozen_child_sql(statement, params) do
+    assert {:error, error} = SQL.query(Repo, statement, params)
+    assert Exception.message(error) =~ "fanout report child snapshot is frozen"
+  end
+
+  defp assert_frozen_parent_sql(statement, params) do
+    assert {:error, error} = SQL.query(Repo, statement, params)
+    assert Exception.message(error) =~ "fanout report parent input is frozen"
   end
 end

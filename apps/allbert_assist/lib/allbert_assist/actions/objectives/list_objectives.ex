@@ -29,7 +29,6 @@ defmodule AllbertAssist.Actions.Objectives.ListObjectives do
   alias AllbertAssist.Maps
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
-  alias AllbertAssist.Objectives.Runs.Scheduler
   alias AllbertAssist.Security.PermissionGate
 
   @impl true
@@ -77,7 +76,7 @@ defmodule AllbertAssist.Actions.Objectives.ListObjectives do
 
   defp objective_map(%{fanout_role: "parent"} = objective) do
     projection = Fanout.parent_projection(objective)
-    if projection.phase == :recovering, do: wake_parent(projection.parent.id)
+    if projection.phase == :recovering, do: wake_parent(projection.parent)
 
     projection.parent
     |> base_objective_map()
@@ -89,6 +88,7 @@ defmodule AllbertAssist.Actions.Objectives.ListObjectives do
       derived_status: projection.derived_status,
       join_outcome: projection.persisted_join_outcome,
       derived_join_outcome: projection.derived_join_outcome,
+      report_composition_state: projection.parent.report_composition_state,
       report_delivery_state: projection.parent.report_delivery_state,
       children_terminal?: projection.children_terminal?
     })
@@ -97,8 +97,8 @@ defmodule AllbertAssist.Actions.Objectives.ListObjectives do
 
   defp objective_map(objective), do: objective |> base_objective_map() |> drop_nil()
 
-  defp wake_parent(parent_id) do
-    Scheduler.wake_parent(parent_id)
+  defp wake_parent(parent) do
+    Fanout.wake_recovery(parent)
   catch
     :exit, _reason -> :ok
   end

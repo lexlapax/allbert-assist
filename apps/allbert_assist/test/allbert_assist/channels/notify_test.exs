@@ -376,12 +376,12 @@ defmodule AllbertAssist.Channels.NotifyTest do
                )
     end
 
+    select_queued_report!(parent.id)
+
     assert {:ok, joined} = Objectives.get_objective(parent.id)
 
     assert_receive {:consumer_sent, "telegram", "1006", body, _opts}, 2_000
-    assert body =~ "Notify fan-out"
-    assert body =~ "✓ One — done"
-    assert body =~ "✓ Two — done"
+    assert body == Fanout.format_report(Fanout.report(joined))
 
     assert eventually(fn -> Objectives.get_objective(joined.id) end).report_delivery_state ==
              "delivered"
@@ -510,6 +510,23 @@ defmodule AllbertAssist.Channels.NotifyTest do
              )
   end
 
+  test "completion delivery sends the centrally selected report body unchanged" do
+    parent = fanout!("alice", "1010-selected-body") |> join_parent!()
+    enable_notify!("alice-ext")
+    test_pid = self()
+
+    assert {:ok, %{state: "delivered"}} =
+             Notify.recover_completion(parent,
+               outbound_fun: fn _, _, body, _ ->
+                 send(test_pid, {:completion_body, body})
+                 {:ok, %{message_id: "selected-body-provider"}}
+               end
+             )
+
+    assert_receive {:completion_body, body}
+    assert body == Fanout.format_report(Fanout.report(parent))
+  end
+
   test "consumer startup replay sends one pending completion and only acknowledges once" do
     parent = fanout!("alice", "1013") |> join_parent!()
     enable_notify!("alice-ext")
@@ -539,6 +556,53 @@ defmodule AllbertAssist.Channels.NotifyTest do
 
     send(consumer, :reconcile_completion_outbox)
     refute_receive {:startup_replay_sent, _parent_id}, 200
+  end
+
+  test "periodic durable reconcile delivers a selected pending report without a signal" do
+    enable_notify!("alice-ext")
+    test_pid = self()
+
+    consumer =
+      start_supervised!(
+        {NotifyConsumer,
+         name: nil,
+         whereis_fun: fn _bus -> {:error, :bus_unavailable} end,
+         reconcile_interval_ms: 1_000,
+         notify_opts: [
+           outbound_fun: fn _, _, body, _ ->
+             send(test_pid, {:periodic_reconcile_sent, body})
+             {:ok, %{message_id: "periodic-provider"}}
+           end
+         ]}
+      )
+
+    Sandbox.allow(Repo, self(), consumer)
+    parent = fanout!("alice", "1013-periodic") |> join_parent!()
+
+    assert_receive {:periodic_reconcile_sent, body}, 2_000
+    assert body == Fanout.format_report(Fanout.report(parent))
+
+    assert eventually(fn -> Objectives.get_objective(parent.id) end).report_delivery_state ==
+             "delivered"
+  end
+
+  test "completion work scans beyond a full corrupt prefix without starving valid delivery" do
+    corrupt_ids =
+      for index <- 1..100 do
+        "notify-hol"
+        |> fanout!("hol-corrupt-#{index}")
+        |> join_parent!()
+        |> Map.fetch!(:id)
+      end
+
+    valid = fanout!("notify-hol", "hol-valid") |> join_parent!()
+
+    assert {100, _rows} =
+             Objective
+             |> where([objective], objective.id in ^corrupt_ids)
+             |> Repo.update_all(set: [report_body: "corrupt selected report body"])
+
+    assert Enum.map(Notify.pending_completion_work(1), & &1.id) == [valid.id]
   end
 
   test "consumer acknowledges durable delivery when its audit append fails" do
@@ -791,9 +855,24 @@ defmodule AllbertAssist.Channels.NotifyTest do
                )
     end
 
+    select_queued_report!(parent.id)
+
     assert {:ok, joined} = Objectives.get_objective(parent.id)
     assert joined.report_delivery_state == "pending"
     joined
+  end
+
+  defp select_queued_report!(parent_id) do
+    assert {:ok, %{parent: %{id: ^parent_id}, frozen: frozen} = claim} =
+             Fanout.claim_next_composition()
+
+    assert {:ok, _selected} =
+             Fanout.select_composition(
+               claim,
+               "deterministic_fallback",
+               frozen.fallback_body,
+               %{fallback_reason: "model_disabled"}
+             )
   end
 
   defp insert_completion_delivery!(parent, state, attempts, provider_message_id \\ nil) do

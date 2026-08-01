@@ -23,6 +23,7 @@ defmodule AllbertAssist.Objectives.Event do
     fanout_acknowledged
     fanout_delivery_blocked
     fanout_joined
+    fanout_report_selected
     report_delivered
     run_started
     run_resumed
@@ -64,6 +65,9 @@ defmodule AllbertAssist.Objectives.Event do
     |> validate_length(:payload, max: 2_000)
     |> foreign_key_constraint(:objective_id)
     |> foreign_key_constraint(:step_id)
+    |> unique_constraint(:objective_id,
+      name: :objective_events_one_fanout_report_selected_idx
+    )
   end
 
   def kinds, do: @kinds

@@ -3809,7 +3809,8 @@ defmodule AllbertAssist.Settings.Schema do
       "primary" => "local",
       "tasks" => %{
         "coding" => ["coding_local", "coding", "capable", "local"],
-        "direct_answer" => ["direct_answer_local"]
+        "direct_answer" => ["direct_answer_local"],
+        "fanout_synthesis" => ["direct_answer_local"]
       },
       "capabilities" => %{
         "text_generation" => ["local", "fast"],
@@ -4809,30 +4810,43 @@ defmodule AllbertAssist.Settings.Schema do
 
   defp validate_known_key_value(key, value, settings) do
     with :ok <- validate_value(schema_for_key(key), value, key, settings),
-         :ok <- validate_direct_answer_write_capability(key, value, settings) do
+         :ok <- validate_closed_task_write(key, value),
+         :ok <- validate_text_task_write_capability(key, value, settings) do
       :ok
     else
       {:error, reason} -> {:error, {:invalid_setting, key, reason}}
     end
   end
 
-  defp validate_direct_answer_write_capability(
+  defp validate_closed_task_write("model_preferences.tasks.fanout_synthesis", []),
+    do: {:error, :fanout_synthesis_profiles_required}
+
+  defp validate_closed_task_write(_key, _value), do: :ok
+
+  defp validate_text_task_write_capability(
          "model_preferences.tasks.direct_answer",
          profiles,
          settings
        ),
-       do: validate_direct_answer_profiles(profiles, settings)
+       do: validate_text_generation_profiles(profiles, settings)
 
-  defp validate_direct_answer_write_capability(
+  defp validate_text_task_write_capability(
+         "model_preferences.tasks.fanout_synthesis",
+         profiles,
+         settings
+       ),
+       do: validate_text_generation_profiles(profiles, settings)
+
+  defp validate_text_task_write_capability(
          "intent.direct_answer_model_profile",
          profile,
          settings
        ),
-       do: validate_direct_answer_profiles([profile], settings)
+       do: validate_text_generation_profiles([profile], settings)
 
-  defp validate_direct_answer_write_capability(_key, _value, _settings), do: :ok
+  defp validate_text_task_write_capability(_key, _value, _settings), do: :ok
 
-  defp validate_direct_answer_profiles(profiles, settings) do
+  defp validate_text_generation_profiles(profiles, settings) do
     Enum.reduce_while(profiles, :ok, fn profile, :ok ->
       model_profile = get_in(settings, ["model_profiles", profile]) || %{}
 
@@ -4977,7 +4991,8 @@ defmodule AllbertAssist.Settings.Schema do
       key = "#{prefix}.#{name}"
 
       with :ok <- validate_model_preference_name(name, key, kind),
-           :ok <- validate_value(%{type: :profile_ref_list}, profiles, key, settings) do
+           :ok <- validate_value(%{type: :profile_ref_list}, profiles, key, settings),
+           :ok <- validate_model_task_contract(kind, name, profiles, settings) do
         {:cont, :ok}
       else
         {:error, {:invalid_setting, _key, _reason} = reason} ->
@@ -4991,6 +5006,14 @@ defmodule AllbertAssist.Settings.Schema do
 
   defp validate_model_preference_map(other, prefix, _kind, _settings),
     do: {:error, {:invalid_setting, prefix, {:expected_map, other}}}
+
+  defp validate_model_task_contract(:task, "fanout_synthesis", [], _settings),
+    do: {:error, :fanout_synthesis_profiles_required}
+
+  defp validate_model_task_contract(:task, "fanout_synthesis", profiles, settings),
+    do: validate_text_generation_profiles(profiles, settings)
+
+  defp validate_model_task_contract(_kind, _name, _profiles, _settings), do: :ok
 
   defp validate_model_preference_name(name, key, :task) do
     if valid_name?(name), do: :ok, else: {:error, {:invalid_setting, key, :invalid_name}}

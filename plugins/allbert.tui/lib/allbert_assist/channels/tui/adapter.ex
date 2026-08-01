@@ -22,7 +22,6 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Objectives.Fanout
-  alias AllbertAssist.Objectives.Runs.Scheduler
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.Redactor
   alias Jido.Signal
@@ -35,6 +34,8 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   @max_report_acknowledgements 32
   @max_displayed_unacknowledged_reports 32
   @max_displayed_progress_runs 128
+  @max_attached_fanout_reconciliation 32
+  @fanout_reconnect_delay_ms 100
   # The attended worker receives a snapshot while the Adapter remains the live
   # owner of input, fan-out attachments, subscriptions, and presentation state.
   # Only worker-owned conversational fields may cross back at handoff.
@@ -189,17 +190,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
         case Subscriptions.delivery(
                signal,
                Map.get(state.settings, "identity_map", []),
-               Map.merge(
-                 %{
-                   channel: @channel,
-                   receiver_account_ref: "tui:#{state.profile}",
-                   fanouts: state.attached_fanouts
-                 },
-                 if(map_size(state.attached_fanouts) == 0,
-                   do: state.active_fanout || %{},
-                   else: %{}
-                 )
-               )
+               fanout_attachment_context(state)
              ) do
           {:ok, delivery} ->
             state
@@ -214,6 +205,19 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       end
 
     {:noreply, state}
+  end
+
+  def handle_info(:connect_fanout_bus, state) do
+    {:noreply, subscribe_fanout_events(%{state | fanout_reconnect_timer: nil})}
+  end
+
+  def handle_info(:reconcile_attached_fanouts, state) do
+    {:noreply, reconcile_attached_fanouts(state)}
+  end
+
+  def handle_info({:tui_fanout_kickoff_acknowledged, parent_id}, state)
+      when is_binary(parent_id) do
+    {:noreply, reconcile_attached_fanout(parent_id, state)}
   end
 
   def handle_info(
@@ -273,6 +277,22 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   end
 
   def handle_info(:advance_attended_turn_queue, state), do: advance_attended_turn_queue(state)
+
+  def handle_info(
+        {:DOWN, monitor_ref, :process, pid, _reason},
+        %{fanout_bus_monitor: monitor_ref, fanout_bus_pid: pid} = state
+      ) do
+    state =
+      state
+      |> Map.merge(%{
+        fanout_bus_pid: nil,
+        fanout_bus_monitor: nil,
+        fanout_subscription_id: nil
+      })
+      |> schedule_fanout_reconnect()
+
+    {:noreply, state}
+  end
 
   def handle_info({:DOWN, monitor_ref, :process, pid, reason}, state) do
     cond do
@@ -718,7 +738,13 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       displayed_unacknowledged_reports: MapSet.new(),
       displayed_progress_runs: MapSet.new(),
       queued_correction: nil,
-      fanout_subscription_id: nil
+      fanout_bus: Keyword.get(opts, :fanout_bus, AllbertAssist.SignalBus),
+      fanout_bus_pid: nil,
+      fanout_bus_monitor: nil,
+      fanout_subscription_id: nil,
+      fanout_reconnect_timer: nil,
+      fanout_reconnect_delay_ms:
+        Keyword.get(opts, :fanout_reconnect_delay_ms, @fanout_reconnect_delay_ms)
     }
   end
 
@@ -1182,7 +1208,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
         {{:ok, {:fanout_cancel_offer, parent_id}}, state}
 
       %{phase: :recovering} ->
-        _ = Scheduler.wake_parent(parent_id)
+        _ = Fanout.wake_recovery(parent_id)
         {{:ok, {:fanout_finalizing, parent_id}}, maybe_clear_active_fanout(state, parent_id)}
 
       %{phase: :joined} = projection ->
@@ -1348,6 +1374,28 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   end
 
   defp track_active_fanout(_response, state), do: state
+
+  # The live adapter records the attachment before kickoff acknowledgement so
+  # no fast child can outrun attachment custody. Reconciliation is deliberately
+  # requested only after that acknowledgement succeeds and opens the start
+  # barrier.
+  defp reconcile_tracked_fanout_after_kickoff_ack(
+         %{fanout: %{parent_id: parent_id}},
+         %{attended_turn_owner: {owner, _turn_id}} = state
+       )
+       when is_binary(parent_id) and is_pid(owner) do
+    send(owner, {:tui_fanout_kickoff_acknowledged, parent_id})
+    state
+  end
+
+  defp reconcile_tracked_fanout_after_kickoff_ack(
+         %{fanout: %{parent_id: parent_id}},
+         state
+       )
+       when is_binary(parent_id),
+       do: reconcile_attached_fanout(parent_id, state)
+
+  defp reconcile_tracked_fanout_after_kickoff_ack(_response, state), do: state
 
   defp handoff_attended_turn(response, %{
          attended_turn_owner: {owner, turn_id}
@@ -2137,6 +2185,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
            end),
          :ok <- handoff_attended_turn(response, state),
          :ok <- Runtime.acknowledge_deliveries(response, %{channel: @channel}),
+         state <- reconcile_tracked_fanout_after_kickoff_ack(response, state),
          {:ok, event} <- mark_processed(event, response, user_id, session_id) do
       {{:ok, {:processed, event, rendered}}, state}
     else
@@ -2459,17 +2508,93 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
 
   defp subscribe_fanout_events(%{enabled?: false} = state), do: state
 
+  defp subscribe_fanout_events(
+         %{
+           fanout_subscription_id: subscription_id,
+           fanout_bus_pid: bus_pid
+         } = state
+       )
+       when is_binary(subscription_id) and is_pid(bus_pid),
+       do: state
+
   defp subscribe_fanout_events(state) do
-    case Subscriptions.register(true) do
-      {:ok, subscription_id} -> %{state | fanout_subscription_id: subscription_id}
-      {:error, _reason} -> state
+    with {:ok, bus_pid} <- Subscriptions.bus_pid(state.fanout_bus),
+         true <- Process.alive?(bus_pid),
+         {:ok, subscription_id} <- Subscriptions.register(true, state.fanout_bus) do
+      monitor_ref = Process.monitor(bus_pid)
+      send(self(), :reconcile_attached_fanouts)
+
+      %{
+        state
+        | fanout_bus_pid: bus_pid,
+          fanout_bus_monitor: monitor_ref,
+          fanout_subscription_id: subscription_id,
+          fanout_reconnect_timer: nil
+      }
+    else
+      _reason -> schedule_fanout_reconnect(state)
     end
   end
 
-  defp unsubscribe_fanout_events(%{fanout_subscription_id: id}) when is_binary(id),
-    do: Subscriptions.unregister(id)
+  defp schedule_fanout_reconnect(%{enabled?: false} = state), do: state
+
+  defp schedule_fanout_reconnect(%{fanout_reconnect_timer: nil} = state) do
+    timer =
+      Process.send_after(
+        self(),
+        :connect_fanout_bus,
+        max(state.fanout_reconnect_delay_ms, 0)
+      )
+
+    %{state | fanout_reconnect_timer: timer}
+  end
+
+  defp schedule_fanout_reconnect(state), do: state
+
+  defp unsubscribe_fanout_events(%{
+         fanout_subscription_id: id,
+         fanout_bus: bus,
+         fanout_bus_pid: pid
+       })
+       when is_binary(id) and is_pid(pid) do
+    if Process.alive?(pid), do: Subscriptions.unregister(id, bus), else: :ok
+  end
 
   defp unsubscribe_fanout_events(_state), do: :ok
+
+  defp reconcile_attached_fanouts(state) do
+    state.attached_fanouts
+    |> Enum.sort_by(fn {parent_id, _attachment} -> parent_id end)
+    |> Enum.take(@max_attached_fanout_reconciliation)
+    |> Enum.reduce(state, fn {parent_id, _attachment}, acc ->
+      reconcile_attached_fanout(parent_id, acc)
+    end)
+  end
+
+  defp reconcile_attached_fanout(parent_id, state) do
+    case Subscriptions.pending_join_delivery(
+           parent_id,
+           Map.get(state.settings, "identity_map", []),
+           fanout_attachment_context(state)
+         ) do
+      {:ok, delivery} -> deliver_attached_fanout(delivery, state)
+      :ignore -> state
+    end
+  end
+
+  defp fanout_attachment_context(state) do
+    Map.merge(
+      %{
+        channel: @channel,
+        receiver_account_ref: "tui:#{state.profile}",
+        fanouts: state.attached_fanouts
+      },
+      if(map_size(state.attached_fanouts) == 0,
+        do: state.active_fanout || %{},
+        else: %{}
+      )
+    )
+  end
 
   defp mark_processed(event, response, user_id, session_id) do
     Channels.update_event(event, %{

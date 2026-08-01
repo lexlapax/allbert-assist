@@ -16,6 +16,9 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIFanoutTest do
     assert source =~ "chunk(Mapping.sse_chunk(kickoff))"
     assert source =~ "persist_and_acknowledge(event, response)"
     assert source =~ "Runtime.await_fanout"
+    assert source =~ "Fanout.format_report(report)"
+    refute source =~ "report.children"
+    refute source =~ "Fanout.report_child_detail"
     assert source =~ "data: [DONE]"
   end
 

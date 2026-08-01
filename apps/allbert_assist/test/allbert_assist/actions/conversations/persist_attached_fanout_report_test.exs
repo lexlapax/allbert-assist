@@ -178,6 +178,19 @@ defmodule AllbertAssist.Actions.Conversations.PersistAttachedFanoutReportTest do
                )
     end)
 
+    assert {:ok, %{parent: %{id: parent_id}, frozen: frozen} = claim} =
+             Fanout.claim_next_composition()
+
+    assert parent_id == parent.id
+
+    assert {:ok, _selected} =
+             Fanout.select_composition(
+               claim,
+               "deterministic_fallback",
+               frozen.fallback_body,
+               %{fallback_reason: "model_disabled"}
+             )
+
     %{parent: parent, children: children}
   end
 end
