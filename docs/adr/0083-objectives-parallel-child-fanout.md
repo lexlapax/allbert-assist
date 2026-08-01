@@ -420,11 +420,15 @@ model:
    non-DirectAnswer action identity, and excludes that child from synthesis. A
    missing Step is allowed only with a nil `current_step_id`. Additive recovery
    recognizes only the known pre-fix v1.3 completion payloads
-   `{summary, step_id}`, `{summary, step_id, step_status=completed}`, and
+   `{summary}`, `{summary, step_id}`,
+   `{summary, step_id, step_status=completed}`, and
    `{summary, step_id, step_status=completed, quality_receipt}` when
-   `current_step_id` is nil. It must load that exact Step, verify child
-   ownership, completed status, durable result-summary equality, and any receipt
-   binding, then preserve the child only as `legacy_unreviewed_advisory` and
+   `current_step_id` is nil. When the payload names a Step, recovery must load
+   that exact Step and verify child ownership, completed status, durable result-
+   summary equality, and any receipt binding. The summary-only shape must exactly
+   match the existing 500-character projection of the durable Objective summary
+   and establishes no Step, action, or receipt authority. Recovery then preserves
+   the child only as `legacy_unreviewed_advisory` and
    force deterministic fallback. It never reconstructs reviewed or registered-
    action authority, rewrites history, or accepts empty/extra/unknown payloads.
    Its appendix row
