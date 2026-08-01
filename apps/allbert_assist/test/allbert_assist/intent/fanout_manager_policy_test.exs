@@ -133,6 +133,7 @@ defmodule AllbertAssist.Intent.FanoutManager.PolicyTest do
     assert {:answer,
             %{
               policy_outcome: :supplied_data,
+              join_role: :none,
               failed_criteria: [:supplied_text_ownership]
             }} =
              FanoutPolicy.decide(
@@ -151,6 +152,7 @@ defmodule AllbertAssist.Intent.FanoutManager.PolicyTest do
     assert {:answer,
             %{
               policy_outcome: :dependent_or_sequential,
+              join_role: :none,
               failed_criteria: failures
             }} =
              FanoutPolicy.decide(

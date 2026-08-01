@@ -223,7 +223,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
     if fanout_manager_enabled?(context) do
       case call_fanout_manager(text, context, active_memory, resolution) do
         {:ok, %{kind: :answer, message: message, diagnostic: diagnostic}} ->
-          {:manager_answer, %{message: message, diagnostic: manager_diagnostic(diagnostic)},
+          {:manager_answer, %{message: message, diagnostic: manager_answer_diagnostic()},
            FanoutDiagnostics.manager(:answer, diagnostic)}
 
         {:ok,
@@ -233,7 +233,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
            plan: plan,
            diagnostic: diagnostic
          }} ->
-          {:fanout, %{message: message, diagnostic: manager_diagnostic(diagnostic)}, plan,
+          {:fanout, %{message: message, diagnostic: manager_answer_diagnostic()}, plan,
            diagnostic}
 
         {:ok,
@@ -243,8 +243,8 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
            clarification: clarification,
            diagnostic: diagnostic
          }} ->
-          {:clarify, %{message: message, diagnostic: manager_diagnostic(diagnostic)},
-           clarification, diagnostic}
+          {:clarify, %{message: message, diagnostic: manager_answer_diagnostic()}, clarification,
+           diagnostic}
 
         {:error, _reason} ->
           {:manager_fallback, call_answerer(text, context, active_memory, resolution),
@@ -302,9 +302,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
     end
   end
 
-  defp manager_diagnostic(diagnostic) do
-    %{status: :used, manager: Redactor.redact(diagnostic)}
-  end
+  defp manager_answer_diagnostic, do: %{status: :used}
 
   defp put_answer_attrs(answer, attrs), do: %{answer | attrs: Map.merge(answer.attrs, attrs)}
 

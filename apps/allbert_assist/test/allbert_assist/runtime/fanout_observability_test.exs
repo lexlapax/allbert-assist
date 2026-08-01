@@ -6,6 +6,7 @@ defmodule AllbertAssist.Runtime.FanoutObservabilityTest do
   alias AllbertAssist.Intent.FanoutPlan
   alias AllbertAssist.Objectives
   alias AllbertAssist.Runtime
+  alias AllbertAssist.Runtime.FanoutDiagnostics
   alias AllbertAssist.Settings
 
   setup do
@@ -376,6 +377,15 @@ defmodule AllbertAssist.Runtime.FanoutObservabilityTest do
                source: :model,
                diagnostic: %{status: :used, manager: %{raw_error: secret}}
              },
+             actions: [
+               %{
+                 name: "direct_answer",
+                 direct_answer: %{
+                   source: :model,
+                   diagnostic: %{status: :used, manager: %{raw_error: secret}}
+                 }
+               }
+             ],
              fanout_manager: %{provider_payload: secret},
              diagnostics: [diagnostic]
            }}
@@ -393,6 +403,7 @@ defmodule AllbertAssist.Runtime.FanoutObservabilityTest do
       refute inspect(response) =~ secret
 
       persisted = persisted_assistant_diagnostics!(user_id, response.thread_id)
+      action_log = persisted_assistant_action_log!(user_id, response.thread_id)
 
       assert Enum.any?(persisted, fn diagnostic ->
                diagnostic == %{
@@ -403,17 +414,52 @@ defmodule AllbertAssist.Runtime.FanoutObservabilityTest do
              end)
 
       refute inspect(persisted) =~ secret
+      refute inspect(action_log) =~ secret
+
+      refute get_in(action_log, ["actions", Access.at(0), "direct_answer", "diagnostic"])[
+               "manager"
+             ]
     end
   end
 
+  test "manager facts accept only closed result-coherent classifications" do
+    assert [fact] =
+             FanoutDiagnostics.sanitize([
+               %{
+                 source: :fanout_manager,
+                 result: :answer,
+                 outcome: :planned,
+                 policy_outcome: :invented_policy,
+                 join_role: :invented_join,
+                 attempts: 1,
+                 work_unit_count: 0,
+                 reviewed: true
+               }
+             ])
+
+    assert fact == %{
+             source: :fanout_manager,
+             result: :answer,
+             outcome: :answered,
+             attempts: 1,
+             work_unit_count: 0,
+             reviewed: true
+           }
+  end
+
   defp persisted_assistant_diagnostics!(user_id, thread_id) do
+    user_id
+    |> persisted_assistant_action_log!(thread_id)
+    |> Map.fetch!("diagnostics")
+  end
+
+  defp persisted_assistant_action_log!(user_id, thread_id) do
     {:ok, thread} = Conversations.get_thread(user_id, thread_id)
 
     thread
     |> Conversations.list_messages(limit: 10)
     |> Enum.find(&(&1.role == "assistant"))
     |> Map.fetch!(:action_log)
-    |> Map.fetch!("diagnostics")
   end
 
   defp manager_fact(result, outcome) do

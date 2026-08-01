@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "corpus_id": "v13-fanout-real-model-v1",
+  "manager_cases": [
+    {
+      "id": "fov3-supplied-data",
+      "prompt": "Summarize this supplied YAML as data in one sentence: {steps: [archive logs, restart service]}",
+      "expected": {
+        "kind": "answer",
+        "child_count": 0,
+        "join_role": "none",
+        "policy_outcome": "supplied_data",
+        "manager_attempts": 1,
+        "reviewed": true
+      }
+    },
+    {
+      "id": "fov4-independent-architecture",
+      "prompt": "Prepare one architecture brief for a local assistant runtime: (1) Analyze how OTP supervision trees isolate failures, including restart intensity and the difference between one_for_one and rest_for_one. (2) Analyze how an append-only event log plus a rebuildable projection improves crash recovery, including idempotency and replay. In the final joined report—not as a third task—explain how the two mechanisms complement each other.",
+      "expected": {
+        "kind": "fanout",
+        "child_count": 2,
+        "join_role": "parent_presentation_only",
+        "policy_outcome": "independent_advisory",
+        "manager_attempts": 1,
+        "reviewed": true
+      }
+    }
+  ],
+  "composition": {
+    "parent_id": "v13-fanout-qualification-parent",
+    "title": "Local assistant runtime architecture brief",
+    "child_results": [
+      {
+        "id": "v13-fanout-qualification-child-0",
+        "queue_position": 0,
+        "status": "completed",
+        "detail": "OTP supervisors isolate process failures, bound restart intensity, and apply one_for_one or rest_for_one according to dependency order."
+      },
+      {
+        "id": "v13-fanout-qualification-child-1",
+        "queue_position": 1,
+        "status": "completed",
+        "detail": "An append-only event log supports idempotent replay into a rebuildable projection after a crash."
+      }
+    ],
+    "expected": {
+      "relationship": "complementary",
+      "ordered_queue_positions": [0, 1]
+    }
+  }
+}

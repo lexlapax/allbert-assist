@@ -237,6 +237,15 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert output =~ "==> docs"
   end
 
+  test "v1.3 fan-out benchmark is an opt-in gate with a required nonblank profile" do
+    error =
+      assert_raise Mix.Error, fn ->
+        AllbertTestTask.run(["bench-v13-fanout", "--profile", " "])
+      end
+
+    assert error.message == "--profile must not be blank"
+  end
+
   test "commit gate mixed changes still run focused commit phases" do
     put_changed_files(["docs/plans/archives/v0.49-plan.md", "apps/allbert_assist/lib/example.ex"])
 
@@ -276,6 +285,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert error.message =~ "mix allbert.test release.v066"
     assert error.message =~ "mix allbert.test release.v121"
     assert error.message =~ "mix allbert.test release.v13"
+    assert error.message =~ "mix allbert.test bench-v13-fanout [--profile NAME]"
     assert error.message =~ "mix allbert.test release.structure v121 [--output PATH]"
     assert error.message =~ "mix allbert.test release.structure v13 [--output PATH]"
     assert error.message =~ "mix allbert.test external-smoke -- telegram"

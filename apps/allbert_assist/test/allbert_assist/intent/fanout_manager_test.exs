@@ -1,6 +1,6 @@
 defmodule AllbertAssist.Intent.FanoutManagerTest do
-  use ExUnit.Case, async: true
-  @moduletag :pure_async
+  use ExUnit.Case, async: false
+  @moduletag :global_process_serial
 
   import ExUnit.CaptureLog, only: [with_log: 1]
 
@@ -169,7 +169,7 @@ defmodule AllbertAssist.Intent.FanoutManagerTest do
               diagnostic: %{
                 attempts: 1,
                 policy_outcome: :dependent_or_sequential,
-                join_role: :child_consumes_sibling_result,
+                join_role: :none,
                 failed_criteria: failures
               }
             }} = FanoutManager.respond(@request, context(initial_response: {:ok, dependent}))

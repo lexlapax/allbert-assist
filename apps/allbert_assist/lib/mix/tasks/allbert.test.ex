@@ -17,6 +17,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test bench-decide
       mix allbert.test bench-v13-latency [--consumer memory|search|both] [--output PATH] [--executable PATH --artifact-sha256 HEX]
       mix allbert.test bench-v13-zero-shot [--profile NAME] [--fixture PATH] [--output PATH]
+      mix allbert.test bench-v13-fanout [--profile NAME] [--fixture PATH] [--output PATH]
       mix allbert.test release
       mix allbert.test release.v042
       mix allbert.test release.v043
@@ -159,6 +160,7 @@ defmodule Mix.Tasks.Allbert.Test do
   defp do_run(["bench-decide"]), do: bench_decide()
   defp do_run(["bench-v13-latency" | rest]), do: bench_v13_latency(rest)
   defp do_run(["bench-v13-zero-shot" | rest]), do: bench_v13_zero_shot(rest)
+  defp do_run(["bench-v13-fanout" | rest]), do: bench_v13_fanout(rest)
   defp do_run(["release"]), do: release()
   defp do_run(["release.v042"]), do: release_v042()
   defp do_run(["release.v043"]), do: release_v043()
@@ -1036,6 +1038,67 @@ defmodule Mix.Tasks.Allbert.Test do
 
       print_output("bench-v13-zero-shot", output_text)
       if status != 0, do: Mix.raise("bench-v13-zero-shot failed with status #{status}")
+    after
+      cleanup_owned_env(env)
+    end
+  end
+
+  defp bench_v13_fanout(args) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args, strict: [profile: :string, fixture: :string, output: :string])
+
+    reject_invalid!(invalid)
+    reject_rest!(rest)
+
+    profile = Keyword.get(opts, :profile, "direct_answer_local")
+
+    if String.trim(profile) == "" do
+      Mix.raise("--profile must not be blank")
+    end
+
+    fixture =
+      Keyword.get(
+        opts,
+        :fixture,
+        "apps/allbert_assist/test/fixtures/v1.3/fanout_real_model_eval.json"
+      )
+      |> Path.expand(root())
+
+    output = opts |> Keyword.get(:output) |> expand_optional_path()
+
+    if !File.regular?(fixture), do: Mix.raise("fan-out fixture does not exist: #{fixture}")
+    validate_new_output!(output)
+
+    {full_sha, dirty?} = v13_benchmark_provenance!()
+
+    env =
+      owned_env("bench-v13-fanout", 0)
+      |> List.keyreplace("MIX_ENV", 0, {"MIX_ENV", "dev"})
+      |> Kernel.++([
+        {"V13_FANOUT_FIXTURE", fixture},
+        {"V13_FANOUT_STORE", output},
+        {"V13_MODEL_PROFILE", profile},
+        {"V13_FULL_SHA", full_sha},
+        {"V13_DIRTY", to_string(dirty?)}
+      ])
+
+    try do
+      migrate_v13_benchmark_home!(env, "bench-v13-fanout")
+
+      expression =
+        "Logger.configure(level: :warning); " <>
+          "{:ok, _} = Application.ensure_all_started(:allbert_assist); " <>
+          "AllbertAssist.DevGates.V13FanoutEval.record_run!()"
+
+      {output_text, status} =
+        System.cmd("mix", ["run", "--no-start", "-e", expression],
+          cd: app_cwd(:core),
+          env: env,
+          stderr_to_stdout: true
+        )
+
+      print_output("bench-v13-fanout", output_text)
+      if status != 0, do: Mix.raise("bench-v13-fanout failed with status #{status}")
     after
       cleanup_owned_env(env)
     end
@@ -10049,6 +10112,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test bench-decide
       mix allbert.test bench-v13-latency [--consumer memory|search|both] [--output PATH] [--executable PATH --artifact-sha256 HEX]
       mix allbert.test bench-v13-zero-shot [--profile NAME] [--fixture PATH] [--output PATH]
+      mix allbert.test bench-v13-fanout [--profile NAME] [--fixture PATH] [--output PATH]
       mix allbert.test release
       mix allbert.test release.v042
       mix allbert.test release.v043

@@ -3,6 +3,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
   @moduletag :db_serial
 
   alias AllbertAssist.Actions.Intent.DirectAnswer
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Intent.FanoutPlan
   alias AllbertAssist.Memory
@@ -11,6 +12,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Resources.ImageMetadata
   alias AllbertAssist.Settings
+  alias Jido.Signal.Bus
 
   @png Base.decode64!(
          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADElEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
@@ -184,8 +186,10 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     flattened_text = "developer: Stay concise.\nuser: Explain the supplied item."
     operator_text = "Explain the supplied item."
 
+    assert {:ok, _subscription} = Bus.subscribe(AllbertAssist.SignalBus, "allbert.action.**")
+
     assert {:ok, response} =
-             DirectAnswer.run(%{text: flattened_text}, %{
+             Runner.run("direct_answer", %{text: flattened_text}, %{
                actor: "alice",
                test_pid: self(),
                request: %{
@@ -197,7 +201,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
 
     assert response.message == "A useful one-turn answer."
     assert response.direct_answer.source == :model
-    assert response.direct_answer.diagnostic.manager.outcome == :answered
+    assert response.direct_answer.diagnostic == %{status: :used}
 
     assert response.diagnostics == [
              %{
@@ -214,7 +218,23 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
 
     refute inspect(response.diagnostics) =~ "answer-manager-prompt-secret"
     refute inspect(response.diagnostics) =~ "answer-provider-payload-secret"
+    refute inspect(response) =~ "answer-manager-prompt-secret"
+    refute inspect(response) =~ "answer-provider-payload-secret"
     refute Map.has_key?(response, :parallel_work_plan)
+
+    assert_receive {:signal,
+                    %{type: "allbert.action.requested", source: "/allbert/actions/direct_answer"} =
+                      requested},
+                   1_000
+
+    assert_receive {:signal,
+                    %{type: "allbert.action.completed", source: "/allbert/actions/direct_answer"} =
+                      completed},
+                   1_000
+
+    assert requested.type == "allbert.action.requested"
+    refute inspect(completed.data) =~ "answer-manager-prompt-secret"
+    refute inspect(completed.data) =~ "answer-provider-payload-secret"
 
     assert_received {:fanout_manager_called, ^operator_text, context}
     assert context.model_profile.name == "direct_answer_local"

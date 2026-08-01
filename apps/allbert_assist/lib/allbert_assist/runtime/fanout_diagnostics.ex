@@ -8,7 +8,22 @@ defmodule AllbertAssist.Runtime.FanoutDiagnostics do
   """
 
   @manager_results [:answer, :fanout, :clarify]
-  @manager_fields [:outcome, :policy_outcome, :join_role]
+  @manager_outcomes %{
+    answer: [:answered, :answered_after_invalid_plan],
+    fanout: [:planned],
+    clarify: [:overflow]
+  }
+  @policy_outcomes [
+    :independent_advisory,
+    :supplied_data,
+    :single_or_indivisible,
+    :effectful_or_mixed,
+    :ambiguous,
+    :dependent_or_sequential,
+    :no_material_leverage,
+    :manager_output_invalid
+  ]
+  @join_roles [:none, :parent_presentation_only, :child_consumes_sibling_result]
   @admission_outcomes [:admitted, :rejected, :single_turn_fallback, :shadow_only]
   @admission_reasons [
     :fanout_already_active,
@@ -24,7 +39,9 @@ defmodule AllbertAssist.Runtime.FanoutDiagnostics do
   @spec manager(:answer | :fanout | :clarify, map()) :: map()
   def manager(result, diagnostic) when result in @manager_results and is_map(diagnostic) do
     %{source: :fanout_manager, result: result, outcome: default_manager_outcome(result)}
-    |> copy_atom_fields(diagnostic, @manager_fields)
+    |> copy_closed(diagnostic, :outcome, Map.fetch!(@manager_outcomes, result))
+    |> copy_closed(diagnostic, :policy_outcome, @policy_outcomes)
+    |> copy_closed(diagnostic, :join_role, @join_roles)
     |> copy_bounded_integer(diagnostic, :attempts, 0, 2)
     |> copy_bounded_integer(diagnostic, :work_unit_count, 0, 64)
     |> copy_boolean(diagnostic, :reviewed?, :reviewed)
@@ -101,13 +118,11 @@ defmodule AllbertAssist.Runtime.FanoutDiagnostics do
   defp default_manager_outcome(:fanout), do: :planned
   defp default_manager_outcome(:clarify), do: :overflow
 
-  defp copy_atom_fields(target, source, keys) do
-    Enum.reduce(keys, target, fn key, acc ->
-      case value(source, key) do
-        value when is_atom(value) and not is_nil(value) -> Map.put(acc, key, value)
-        _other -> acc
-      end
-    end)
+  defp copy_closed(target, source, key, allowed) do
+    case normalize_closed(value(source, key), allowed) do
+      nil -> target
+      normalized -> Map.put(target, key, normalized)
+    end
   end
 
   defp copy_bounded_integer(target, source, key, minimum, maximum) do
@@ -121,7 +136,13 @@ defmodule AllbertAssist.Runtime.FanoutDiagnostics do
   end
 
   defp copy_boolean(target, source, source_key, target_key) do
-    case value(source, source_key) do
+    value =
+      case value(source, source_key) do
+        boolean when is_boolean(boolean) -> boolean
+        _other -> value(source, target_key)
+      end
+
+    case value do
       value when is_boolean(value) -> Map.put(target, target_key, value)
       _other -> target
     end

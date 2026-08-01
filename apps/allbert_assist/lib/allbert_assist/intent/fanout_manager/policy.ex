@@ -299,7 +299,7 @@ defmodule AllbertAssist.Intent.FanoutManager.Policy do
     {:answer,
      %{
        policy_outcome: outcome,
-       join_role: criteria.join_role,
+       join_role: :none,
        outer_request_task_count: criteria.outer_request_task_count,
        failed_criteria: failed_criteria
      }}

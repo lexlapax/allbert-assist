@@ -1148,7 +1148,21 @@ defmodule AllbertAssist.Runtime do
     |> Map.update(:diagnostics, [], &FanoutDiagnostics.sanitize/1)
   end
 
-  defp strip_nested_manager_diagnostic(%{direct_answer: direct_answer} = response)
+  defp strip_nested_manager_diagnostic(response) when is_map(response) do
+    response = strip_direct_answer_manager(response)
+
+    case Map.fetch(response, :actions) do
+      {:ok, actions} when is_list(actions) ->
+        Map.put(response, :actions, Enum.map(actions, &strip_direct_answer_manager/1))
+
+      _other ->
+        response
+    end
+  end
+
+  defp strip_nested_manager_diagnostic(response), do: response
+
+  defp strip_direct_answer_manager(%{direct_answer: direct_answer} = container)
        when is_map(direct_answer) do
     sanitized =
       case Map.get(direct_answer, :diagnostic) do
@@ -1159,10 +1173,10 @@ defmodule AllbertAssist.Runtime do
           direct_answer
       end
 
-    Map.put(response, :direct_answer, sanitized)
+    Map.put(container, :direct_answer, sanitized)
   end
 
-  defp strip_nested_manager_diagnostic(response), do: response
+  defp strip_direct_answer_manager(container), do: container
 
   defp manager_diagnostic(%{fanout_manager: %{} = diagnostic}), do: diagnostic
   defp manager_diagnostic(_response), do: %{}
