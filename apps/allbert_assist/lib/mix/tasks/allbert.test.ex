@@ -17,7 +17,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test bench-decide
       mix allbert.test bench-v13-latency [--consumer memory|search|both] [--output PATH] [--executable PATH --artifact-sha256 HEX]
       mix allbert.test bench-v13-zero-shot [--profile NAME] [--fixture PATH] [--output PATH]
-      mix allbert.test bench-v13-fanout [--profile NAME] [--fixture PATH] [--output PATH]
+      mix allbert.test bench-v13-fanout [--profile NAME] [--fixture PATH] [--worker-fixture PATH] [--output PATH]
       mix allbert.test release
       mix allbert.test release.v042
       mix allbert.test release.v043
@@ -1045,7 +1045,9 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp bench_v13_fanout(args) do
     {opts, rest, invalid} =
-      OptionParser.parse(args, strict: [profile: :string, fixture: :string, output: :string])
+      OptionParser.parse(args,
+        strict: [profile: :string, fixture: :string, worker_fixture: :string, output: :string]
+      )
 
     reject_invalid!(invalid)
     reject_rest!(rest)
@@ -1064,9 +1066,20 @@ defmodule Mix.Tasks.Allbert.Test do
       )
       |> Path.expand(root())
 
+    worker_fixture =
+      opts
+      |> Keyword.get_lazy(:worker_fixture, fn ->
+        Path.join(Path.dirname(fixture), "fanout_worker_quality_eval.json")
+      end)
+      |> Path.expand(root())
+
     output = opts |> Keyword.get(:output) |> expand_optional_path()
 
     if !File.regular?(fixture), do: Mix.raise("fan-out fixture does not exist: #{fixture}")
+
+    if !File.regular?(worker_fixture),
+      do: Mix.raise("fan-out worker fixture does not exist: #{worker_fixture}")
+
     validate_new_output!(output)
 
     {full_sha, dirty?} = v13_benchmark_provenance!()
@@ -1076,6 +1089,7 @@ defmodule Mix.Tasks.Allbert.Test do
       |> List.keyreplace("MIX_ENV", 0, {"MIX_ENV", "dev"})
       |> Kernel.++([
         {"V13_FANOUT_FIXTURE", fixture},
+        {"V13_FANOUT_WORKER_FIXTURE", worker_fixture},
         {"V13_FANOUT_STORE", output},
         {"V13_MODEL_PROFILE", profile},
         {"V13_FULL_SHA", full_sha},
@@ -10112,7 +10126,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test bench-decide
       mix allbert.test bench-v13-latency [--consumer memory|search|both] [--output PATH] [--executable PATH --artifact-sha256 HEX]
       mix allbert.test bench-v13-zero-shot [--profile NAME] [--fixture PATH] [--output PATH]
-      mix allbert.test bench-v13-fanout [--profile NAME] [--fixture PATH] [--output PATH]
+      mix allbert.test bench-v13-fanout [--profile NAME] [--fixture PATH] [--worker-fixture PATH] [--output PATH]
       mix allbert.test release
       mix allbert.test release.v042
       mix allbert.test release.v043

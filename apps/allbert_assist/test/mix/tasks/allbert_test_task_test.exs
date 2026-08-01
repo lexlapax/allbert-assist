@@ -246,6 +246,43 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert error.message == "--profile must not be blank"
   end
 
+  test "v1.3 fan-out benchmark preflights its default sibling and explicit worker fixture" do
+    root =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-v13-fanout-fixtures-#{System.unique_integer([:positive])}"
+      )
+
+    fixture = Path.join(root, "fanout.json")
+    sibling = Path.join(root, "fanout_worker_quality_eval.json")
+    explicit = Path.join(root, "explicit-worker.json")
+    File.mkdir_p!(root)
+    File.write!(fixture, "{}")
+    on_exit(fn -> File.rm_rf!(root) end)
+
+    error =
+      assert_raise Mix.Error, fn ->
+        AllbertTestTask.run(["bench-v13-fanout", "--fixture", fixture])
+      end
+
+    assert error.message == "fan-out worker fixture does not exist: #{sibling}"
+
+    File.write!(sibling, "{}")
+
+    error =
+      assert_raise Mix.Error, fn ->
+        AllbertTestTask.run([
+          "bench-v13-fanout",
+          "--fixture",
+          fixture,
+          "--worker-fixture",
+          explicit
+        ])
+      end
+
+    assert error.message == "fan-out worker fixture does not exist: #{explicit}"
+  end
+
   test "commit gate mixed changes still run focused commit phases" do
     put_changed_files(["docs/plans/archives/v0.49-plan.md", "apps/allbert_assist/lib/example.ex"])
 
@@ -285,7 +322,11 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert error.message =~ "mix allbert.test release.v066"
     assert error.message =~ "mix allbert.test release.v121"
     assert error.message =~ "mix allbert.test release.v13"
-    assert error.message =~ "mix allbert.test bench-v13-fanout [--profile NAME]"
+
+    assert error.message =~
+             "mix allbert.test bench-v13-fanout [--profile NAME] [--fixture PATH] " <>
+               "[--worker-fixture PATH] [--output PATH]"
+
     assert error.message =~ "mix allbert.test release.structure v121 [--output PATH]"
     assert error.message =~ "mix allbert.test release.structure v13 [--output PATH]"
     assert error.message =~ "mix allbert.test external-smoke -- telegram"

@@ -9,7 +9,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   printed or recorded in TestMetrics.
   """
 
-  alias AllbertAssist.DevGates.TestMetrics
+  alias AllbertAssist.DevGates.{TestMetrics, V13FanoutWorkerQualityEval}
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Intent.FanoutManager
   alias AllbertAssist.Intent.FanoutPlan
@@ -30,9 +30,20 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   @doc "Run the environment-configured real-provider qualification."
   @spec record_run!() :: :ok
   def record_run! do
-    fixture = load_fixture!(System.fetch_env!("V13_FANOUT_FIXTURE"))
+    fixture_path = System.fetch_env!("V13_FANOUT_FIXTURE")
+    fixture = load_fixture!(fixture_path)
+
+    worker_fixture_path =
+      System.get_env("V13_FANOUT_WORKER_FIXTURE") ||
+        Path.join(Path.dirname(fixture_path), "fanout_worker_quality_eval.json")
+
+    worker_quality_fixture = V13FanoutWorkerQualityEval.load_fixture!(worker_fixture_path)
+
     profile_name = System.get_env("V13_MODEL_PROFILE", "direct_answer_local")
     profiles = configure_profiles!(profile_name)
+    store = blank_to_nil(System.get_env("V13_FANOUT_STORE"))
+    full_sha = parse_full_sha!(System.get_env("V13_FULL_SHA"))
+    dirty = parse_dirty!(System.get_env("V13_DIRTY"))
 
     result =
       run(fixture,
@@ -42,15 +53,28 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
         manager_context: manager_context(profiles.manager),
         composer_context: composer_context(profiles.composer),
         composer: &compose_with_disclosure/3,
-        store: blank_to_nil(System.get_env("V13_FANOUT_STORE")),
-        full_sha: parse_full_sha!(System.get_env("V13_FULL_SHA")),
-        dirty: parse_dirty!(System.get_env("V13_DIRTY"))
+        store: store,
+        full_sha: full_sha,
+        dirty: dirty
+      )
+
+    worker_quality_result =
+      V13FanoutWorkerQualityEval.run(worker_quality_fixture,
+        profile: profiles.composer,
+        reviewer_context: worker_quality_context(profiles.composer),
+        row_timeout_ms: composer_context(profiles.composer).timeout_ms,
+        store: store,
+        full_sha: full_sha,
+        dirty: dirty
       )
 
     IO.puts(summary(result))
+    IO.puts(V13FanoutWorkerQualityEval.summary(worker_quality_result))
 
-    if result.status != "passed" do
-      IO.puts("failed_rows=#{Enum.join(result.failed_rows, ",")}")
+    failed_rows = result.failed_rows ++ worker_quality_result.failed_rows
+
+    if failed_rows != [] do
+      IO.puts("failed_rows=#{Enum.join(failed_rows, ",")}")
       raise "v1.3 fan-out qualification failed"
     end
 
@@ -338,6 +362,15 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     %{
       max_output_tokens: min(limit(profile, :max_tokens, 1_024), 1_024),
       timeout_ms: Enum.min([limit(profile, :timeout_ms, 10_000), limits.max_elapsed_ms, 60_000])
+    }
+  end
+
+  defp worker_quality_context(profile) do
+    %{
+      actor: "local",
+      user_id: "local",
+      request: %{channel: :cli},
+      model_profile: profile
     }
   end
 

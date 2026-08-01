@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "corpus_id": "v13-fanout-worker-quality-real-model-v1",
+  "scenarios": [
+    {
+      "id": "restart-inaccuracy-repaired",
+      "task": {
+        "source": "conversation_manager",
+        "original_request": "Using only the supplied architecture facts, explain the two OTP restart strategies. Supplied facts: one_for_one restarts only the failed child; rest_for_one restarts the failed child and the children started after it.",
+        "child_objective": "Distinguish one_for_one from rest_for_one without changing which children each strategy restarts.",
+        "expected_result": "A brief, factual distinction that preserves the supplied restart scope and makes no availability guarantee."
+      },
+      "draft": "one_for_one restarts every child in the supervisor, while rest_for_one restarts only the child that failed.",
+      "expected": {
+        "verdict": "accepted",
+        "provider_call_count": 2,
+        "answer_change": "required",
+        "required_failed_rule_ids": []
+      }
+    },
+    {
+      "id": "replay-guarantee-overclaim-repaired",
+      "task": {
+        "source": "conversation_manager",
+        "original_request": "Using only the supplied recovery contract, describe replay. Supplied contract: the append-only log can redeliver an event; idempotent handlers make repeated application safe; the contract does not guarantee exactly-once delivery.",
+        "child_objective": "Explain how replay supports recovery without strengthening the delivery guarantee.",
+        "expected_result": "A brief explanation that preserves possible redelivery, idempotency, and the absence of an exactly-once guarantee."
+      },
+      "draft": "The append-only log guarantees exactly-once replay, so each event is applied once after a crash.",
+      "expected": {
+        "verdict": "accepted",
+        "provider_call_count": 2,
+        "answer_change": "required",
+        "required_failed_rule_ids": []
+      }
+    },
+    {
+      "id": "omitted-required-nuance-unresolved",
+      "task": {
+        "source": "conversation_manager",
+        "original_request": "Read the supplied rollout record. Supplied record: owner=Team Blue; rollback_threshold is not present.",
+        "child_objective": "Return both the exact rollout owner and the exact rollback threshold from the supplied record.",
+        "expected_result": "The child result is complete only if both exact supplied values are available. Do not infer, estimate, or invent the missing threshold; leave the task unresolved when it cannot be supplied."
+      },
+      "draft": "The rollout owner is Team Blue.",
+      "expected": {
+        "verdict": "unresolved",
+        "provider_call_count": 2,
+        "answer_change": "allowed",
+        "required_failed_rule_ids": [
+          "requested_dimensions"
+        ]
+      }
+    },
+    {
+      "id": "accurate-paraphrase-accepted",
+      "task": {
+        "source": "conversation_manager",
+        "original_request": "Summarize the supplied maintenance datum. Supplied datum: maintenance starts at 09:00 UTC on 2026-09-01 and applies only to read replicas.",
+        "child_objective": "Paraphrase the maintenance start and scope in one sentence.",
+        "expected_result": "Preserve that the time is a start boundary and that the scope is limited to read replicas."
+      },
+      "draft": "Maintenance begins at 09:00 UTC on 2026-09-01 and is limited to read replicas.",
+      "expected": {
+        "verdict": "accepted",
+        "provider_call_count": 2,
+        "answer_change": "allowed",
+        "required_failed_rule_ids": []
+      }
+    },
+    {
+      "id": "unrelated-domain-accepted",
+      "task": {
+        "source": "conversation_manager",
+        "original_request": "Compare only the supplied garden-light observations. Supplied observations: the mint container receives four hours of morning sun; the basil bed receives seven hours of sun. No yield result is supplied.",
+        "child_objective": "Compare the two locations' supplied light exposure without predicting plant yield.",
+        "expected_result": "A brief comparison of the two supplied durations with no unsupported yield guarantee."
+      },
+      "draft": "The basil bed receives three more hours of sun than the mint container, and the observations do not establish either location's yield.",
+      "expected": {
+        "verdict": "accepted",
+        "provider_call_count": 2,
+        "answer_change": "allowed",
+        "required_failed_rule_ids": []
+      }
+    }
+  ]
+}
