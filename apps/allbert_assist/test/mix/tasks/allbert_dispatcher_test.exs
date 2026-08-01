@@ -3,11 +3,35 @@ defmodule Mix.Tasks.AllbertDispatcherTest do
 
   import ExUnit.CaptureIO
 
+  alias AllbertAssist.CLI
   alias AllbertAssist.Paths
   alias AllbertAssist.Runtime.Attach
   alias Mix.Tasks.Allbert, as: AllbertTask
 
   @moduletag :cli_dispatcher
+
+  test "source daemon logging defaults to info and honors the validated override" do
+    previous_level = Logger.level()
+    previous_override = System.get_env("ALLBERT_LOG_LEVEL")
+
+    on_exit(fn ->
+      Logger.configure(level: previous_level)
+      restore_env("ALLBERT_LOG_LEVEL", previous_override)
+    end)
+
+    System.delete_env("ALLBERT_LOG_LEVEL")
+    Logger.configure(level: :debug)
+    assert :ok = CLI.configure_daemon_logging()
+    assert Logger.level() == :info
+
+    System.put_env("ALLBERT_LOG_LEVEL", "debug")
+    assert :ok = CLI.configure_daemon_logging()
+    assert Logger.level() == :debug
+
+    System.put_env("ALLBERT_LOG_LEVEL", "invalid")
+    assert :ok = CLI.configure_daemon_logging()
+    assert Logger.level() == :info
+  end
 
   test "renders pure help and version through the unified CLI entry" do
     previous_level = Logger.level()

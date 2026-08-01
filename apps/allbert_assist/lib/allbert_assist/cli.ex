@@ -53,22 +53,29 @@ defmodule AllbertAssist.CLI do
 
   # v0.63 (operator-validation F1): a packaged CLI command boots the embedded runtime,
   # whose :info plugin/registration/migration logs would otherwise flood the operator's
-  # terminal ahead of the command result. Default the CLI to :warning (the result stays
-  # on stdout via IO.puts; real problems still surface). Override with ALLBERT_LOG_LEVEL
-  # (debug|info|notice|warning|error) for debugging. `serve` runs via a different entry
-  # (bin/allbert start) and keeps the config-level :info.
+  # terminal ahead of the command result. Default ordinary CLI commands to :warning
+  # (the result stays on stdout via IO.puts; real problems still surface). Daemon entry
+  # points use :info so lifecycle signals remain observable without Ecto bind-value
+  # debug logs. Override either boundary with ALLBERT_LOG_LEVEL
+  # (debug|info|notice|warning|error) for debugging.
   @doc false
   @spec configure_logging() :: :ok
-  def configure_logging do
-    Logger.configure(level: cli_log_level())
+  def configure_logging, do: configure_logging(:warning)
+
+  @doc false
+  @spec configure_daemon_logging() :: :ok
+  def configure_daemon_logging, do: configure_logging(:info)
+
+  defp configure_logging(default_level) do
+    Logger.configure(level: configured_log_level(default_level))
   rescue
     _error -> :ok
   end
 
-  defp cli_log_level do
+  defp configured_log_level(default_level) do
     case System.get_env("ALLBERT_LOG_LEVEL") do
       level when level in ~w(debug info notice warning error) -> String.to_existing_atom(level)
-      _absent_or_invalid -> :warning
+      _absent_or_invalid -> default_level
     end
   end
 

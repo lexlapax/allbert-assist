@@ -22,6 +22,7 @@ defmodule Mix.Tasks.Allbert do
   def run(["tui" | args]), do: Mix.Task.run("allbert.tui", args)
 
   def run(["serve" | args]) do
+    CLI.configure_daemon_logging()
     with_source_daemon_env(fn -> Mix.Task.run("phx.server", args) end)
   end
 
