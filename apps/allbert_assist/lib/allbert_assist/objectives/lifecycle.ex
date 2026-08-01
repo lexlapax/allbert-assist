@@ -262,26 +262,32 @@ defmodule AllbertAssist.Objectives.Lifecycle do
       get_in(confirmation, ["operator_resolution", "resolution_reason"]) ||
         "confirmation_denied"
 
-    case TerminalTransitions.terminalize_child(
-           objective,
-           %{
-             status: "cancelled",
-             review_reason: "confirmation_denied: #{String.slice(to_string(reason), 0, 210)}",
-             completed_at: DateTime.utc_now()
-           },
-           "run_cancelled",
-           %{confirmation_id: confirmation["id"], reason: "confirmation_denied"},
-           transaction_hook: fn _child -> finalize_step(step, "cancelled", reason) end,
-           signal:
-             {:run_cancelled,
-              %{confirmation_id: confirmation["id"], reason: "confirmation_denied"}}
-         ) do
-      {:ok, %{child: child}} = result ->
-        annotate_confirmation_record(confirmation, child, step, "cancelled", reason)
-        result
+    attrs = %{
+      status: "cancelled",
+      review_reason: "confirmation_denied: #{String.slice(to_string(reason), 0, 210)}",
+      completed_at: DateTime.utc_now()
+    }
 
-      {:error, _reason} = error ->
-        error
+    with {:ok, attrs} <- terminal_attrs(attrs, objective, step),
+         result <-
+           TerminalTransitions.terminalize_child(
+             objective,
+             attrs,
+             "run_cancelled",
+             %{confirmation_id: confirmation["id"], reason: "confirmation_denied"},
+             transaction_hook: fn _child -> finalize_step(step, "cancelled", reason) end,
+             signal:
+               {:run_cancelled,
+                %{confirmation_id: confirmation["id"], reason: "confirmation_denied"}}
+           ) do
+      case result do
+        {:ok, %{child: child}} = result ->
+          annotate_confirmation_record(confirmation, child, step, "cancelled", reason)
+          result
+
+        {:error, _reason} = error ->
+          error
+      end
     end
   end
 
@@ -578,24 +584,26 @@ defmodule AllbertAssist.Objectives.Lifecycle do
       (get_in(state, [:response, :message]) || objective.progress_summary || "Completed.")
       |> bounded_summary()
 
-    case TerminalTransitions.terminalize_child(
-           objective,
-           %{
-             status: "completed",
-             last_observation_summary: summary,
-             completed_at: DateTime.utc_now()
-           },
-           "run_completed",
-           completion_event_payload(state, summary),
-           transaction_hook: fn _child -> finalize_state_step(state, "completed", summary) end,
-           signal: {:run_completed, %{summary: summary}}
-         ) do
-      {:ok, %{child: completed}} ->
-        annotate_confirmation_outcome(state, "completed", summary)
-        {:ok, completed}
+    attrs = %{
+      status: "completed",
+      last_observation_summary: summary,
+      completed_at: DateTime.utc_now()
+    }
 
-      {:error, reason} ->
-        {:error, reason}
+    with {:ok, attrs} <- terminal_attrs(attrs, objective, Map.get(state, :step)),
+         {:ok, %{child: completed}} <-
+           TerminalTransitions.terminalize_child(
+             objective,
+             attrs,
+             "run_completed",
+             completion_event_payload(state, summary),
+             transaction_hook: fn _child -> finalize_state_step(state, "completed", summary) end,
+             signal: {:run_completed, %{summary: summary}}
+           ) do
+      annotate_confirmation_outcome(state, "completed", summary)
+      {:ok, completed}
+    else
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -710,50 +718,54 @@ defmodule AllbertAssist.Objectives.Lifecycle do
   end
 
   defp cancel(%{objective: objective} = state) do
-    case TerminalTransitions.terminalize_child(
-           objective,
-           %{
-             status: "cancelled",
-             review_reason: "cancelled",
-             completed_at: DateTime.utc_now()
-           },
-           "run_cancelled",
-           %{},
-           transaction_hook: fn _child ->
-             finalize_state_step(state, "cancelled", "cancelled")
-           end,
-           signal: {:run_cancelled, %{}}
-         ) do
-      {:ok, %{child: cancelled}} ->
-        annotate_confirmation_outcome(state, "cancelled", "cancelled")
-        {:ok, cancelled}
+    attrs = %{
+      status: "cancelled",
+      review_reason: "cancelled",
+      completed_at: DateTime.utc_now()
+    }
 
-      {:error, reason} ->
-        {:error, reason}
+    with {:ok, attrs} <- terminal_attrs(attrs, objective, Map.get(state, :step)),
+         {:ok, %{child: cancelled}} <-
+           TerminalTransitions.terminalize_child(
+             objective,
+             attrs,
+             "run_cancelled",
+             %{},
+             transaction_hook: fn _child ->
+               finalize_state_step(state, "cancelled", "cancelled")
+             end,
+             signal: {:run_cancelled, %{}}
+           ) do
+      annotate_confirmation_outcome(state, "cancelled", "cancelled")
+      {:ok, cancelled}
+    else
+      {:error, reason} -> {:error, reason}
     end
   end
 
   defp fail(%{objective: objective} = state, reason) do
     reason_text = inspect(reason, limit: 20, printable_limit: 300)
 
-    case TerminalTransitions.terminalize_child(
-           objective,
-           %{
-             status: "failed",
-             review_reason: reason_text,
-             completed_at: DateTime.utc_now()
-           },
-           "run_failed",
-           %{reason: reason_text},
-           transaction_hook: fn _child -> finalize_state_step(state, "failed", reason_text) end,
-           signal: {:run_failed, %{reason: reason_text}}
-         ) do
-      {:ok, %{child: _failed}} ->
-        annotate_confirmation_outcome(state, "failed", reason_text)
-        {:error, reason}
+    attrs = %{
+      status: "failed",
+      review_reason: reason_text,
+      completed_at: DateTime.utc_now()
+    }
 
-      {:error, transition_reason} ->
-        {:error, transition_reason}
+    with {:ok, attrs} <- terminal_attrs(attrs, objective, Map.get(state, :step)),
+         {:ok, %{child: _failed}} <-
+           TerminalTransitions.terminalize_child(
+             objective,
+             attrs,
+             "run_failed",
+             %{reason: reason_text},
+             transaction_hook: fn _child -> finalize_state_step(state, "failed", reason_text) end,
+             signal: {:run_failed, %{reason: reason_text}}
+           ) do
+      annotate_confirmation_outcome(state, "failed", reason_text)
+      {:error, reason}
+    else
+      {:error, transition_reason} -> {:error, transition_reason}
     end
   end
 
@@ -814,6 +826,28 @@ defmodule AllbertAssist.Objectives.Lifecycle do
     do: finalize_step(step, status, summary)
 
   defp finalize_state_step(_state, _status, _summary), do: {:ok, %{}}
+
+  defp terminal_attrs(
+         attrs,
+         %Objective{id: objective_id},
+         %{id: step_id, objective_id: objective_id}
+       )
+       when is_binary(step_id),
+       do: {:ok, Map.put(attrs, :current_step_id, step_id)}
+
+  defp terminal_attrs(
+         _attrs,
+         %Objective{id: objective_id},
+         %{id: step_id, objective_id: step_objective_id}
+       )
+       when is_binary(step_id) do
+    {:error, {:terminal_step_objective_mismatch, step_id, step_objective_id, objective_id}}
+  end
+
+  defp terminal_attrs(attrs, %Objective{}, nil), do: {:ok, attrs}
+
+  defp terminal_attrs(_attrs, %Objective{}, _invalid_step),
+    do: {:error, :invalid_terminal_step_binding}
 
   defp finalize_step(step, status, summary) do
     case step.status do

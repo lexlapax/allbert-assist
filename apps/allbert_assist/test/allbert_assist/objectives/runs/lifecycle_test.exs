@@ -100,6 +100,16 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     def operation(_operation, state, _opts), do: {:ok, state}
   end
 
+  defmodule ForeignStepAdapter do
+    def operation(:propose, state, opts),
+      do: {:ok, Map.put(state, :step, Keyword.fetch!(opts, :foreign_step))}
+
+    def operation(:execute, state, _opts),
+      do: {:ok, Map.put(state, :response, %{message: "foreign step must not commit"})}
+
+    def operation(_operation, state, _opts), do: {:ok, state}
+  end
+
   defmodule DelayedProposalAdapter do
     alias AllbertAssist.Objectives
 
@@ -362,6 +372,52 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
              Objectives.list_steps(child.id)
 
     assert step_id == step.id
+  end
+
+  test "a non-final child cannot persist or finalize another child's transient Step" do
+    assert {:ok, child} =
+             create_child(%{
+               user_id: "alice",
+               title: "Bound child",
+               objective: "Complete only the bound child",
+               fanout_role: "child"
+             })
+
+    sibling =
+      child.parent_objective_id
+      |> Fanout.children()
+      |> Enum.find(&(&1.id != child.id))
+
+    assert {:ok, foreign_step} =
+             Objectives.create_step(%{
+               objective_id: sibling.id,
+               kind: "action",
+               status: "selected",
+               stage: "propose_steps",
+               candidate_action: "list_objectives",
+               action_params: %{user_id: "alice"}
+             })
+
+    assert {:error,
+            {:terminal_step_objective_mismatch, step_id, step_objective_id, child_objective_id}} =
+             Lifecycle.run(child.id,
+               adapter: ForeignStepAdapter,
+               foreign_step: foreign_step
+             )
+
+    assert step_id == foreign_step.id
+    assert step_objective_id == sibling.id
+    assert child_objective_id == child.id
+
+    assert {:ok, still_running} = Objectives.get_objective(child.id)
+    assert still_running.status == "running"
+    assert still_running.current_step_id == nil
+    refute Enum.any?(Objectives.list_events(child.id), &(&1.kind == "run_completed"))
+
+    assert [%{id: step_id, status: "selected", result_summary: nil}] =
+             Objectives.list_steps(sibling.id)
+
+    assert step_id == foreign_step.id
   end
 
   test "a required reviewed DirectAnswer receipt cannot be omitted or rebound to another answer" do
