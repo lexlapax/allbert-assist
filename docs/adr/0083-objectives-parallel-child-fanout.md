@@ -469,7 +469,11 @@ model:
    unselected queued or composing v1 digest is verified and compare-and-swap
    rebound in the existing immediate transaction to an authority-bearing v2
    digest before claim or recovery selection; selected/pending/delivered v1
-   state is never rebound. `recovery_after_restart` records `unresolved`, since
+   state is never rebound. The append-only `fanout_joined` event is not rewritten
+   by that CAS: projection verifies its old digest against the exact frozen v1
+   snapshot while parent/selection/body independently verify v2; any other old-
+   event mismatch remains inconsistent. `recovery_after_restart` records
+   `unresolved`, since
    a stranded `composing` row cannot prove whether its one provider call ran.
    Historical pending/delivered v1 state remains on its explicit byte-exact
    compatibility path. The same explicit integrity-error classifier lets
