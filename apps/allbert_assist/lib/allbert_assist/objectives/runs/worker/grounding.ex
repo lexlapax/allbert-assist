@@ -20,6 +20,15 @@ defmodule AllbertAssist.Objectives.Runs.Worker.Grounding do
           decision_text: String.t() | nil,
           direct_answer_text: String.t(),
           action_text: String.t() | nil,
+          original_request: String.t() | nil,
+          child_objective: String.t(),
+          expected_result: String.t() | nil,
+          steering:
+            nil
+            | %{
+                directive_event_id: String.t(),
+                directive: String.t()
+              },
           fanout_budget: map() | nil,
           fanout_deadline_unix_ms: integer() | nil,
           source:
@@ -47,6 +56,10 @@ defmodule AllbertAssist.Objectives.Runs.Worker.Grounding do
       decision_text: objective.objective,
       direct_answer_text: objective.objective,
       action_text: objective.objective,
+      original_request: nil,
+      child_objective: objective.objective,
+      expected_result: nil,
+      steering: nil,
       fanout_budget: nil,
       fanout_deadline_unix_ms: nil,
       source: :ordinary
@@ -77,11 +90,13 @@ defmodule AllbertAssist.Objectives.Runs.Worker.Grounding do
         digest = plan["original_request_sha256"]
         plan_digest = plan["plan_sha256"]
 
-        with {:ok, source_intent} <- verified_source(parent, digest),
-             :ok <- verified_plan(parent, child, plan_source, plan_digest) do
-          grounded_child(child, source_intent, plan_source, plan)
+        with {:ok, source_intent} <- verified_source(parent, digest) do
+          case verified_plan(parent, child, plan_source, plan_digest) do
+            :ok -> grounded_child(child, source_intent, plan_source, plan)
+            {:error, _changed} -> changed_plan_child(child, plan, source_intent)
+          end
         else
-          _missing_or_inconsistent -> changed_plan_child(child, plan)
+          _missing_or_inconsistent -> direct_answer_only(child, :untrusted, plan)
         end
 
       {:error, :missing_plan_provenance} ->
@@ -94,27 +109,31 @@ defmodule AllbertAssist.Objectives.Runs.Worker.Grounding do
     end
   end
 
-  defp grounded_child(child, _source_intent, "conversation_manager", plan) do
-    %{
+  defp grounded_child(child, source_intent, "conversation_manager", plan) do
+    child
+    |> quality_fields(source_intent, nil)
+    |> Map.merge(%{
       decision_text: nil,
       direct_answer_text: compiled_task_input(child),
       action_text: nil,
       fanout_budget: Map.get(plan, "budget"),
       fanout_deadline_unix_ms: Map.get(plan, "deadline_unix_ms"),
       source: :conversation_manager
-    }
+    })
   end
 
   defp grounded_child(child, source_intent, "counted_protocol", plan) do
     if exact_span?(source_intent, child.objective) do
-      %{
+      child
+      |> quality_fields(source_intent, nil)
+      |> Map.merge(%{
         decision_text: child.objective,
         direct_answer_text: compiled_task_input(child),
         action_text: child.objective,
         fanout_budget: Map.get(plan, "budget"),
         fanout_deadline_unix_ms: Map.get(plan, "deadline_unix_ms"),
         source: :counted_protocol
-      }
+      })
     else
       direct_answer_only(child, :untrusted, plan)
     end
@@ -132,23 +151,29 @@ defmodule AllbertAssist.Objectives.Runs.Worker.Grounding do
       decision_text: nil,
       direct_answer_text: child.objective,
       action_text: nil,
+      original_request: nil,
+      child_objective: child.objective,
+      expected_result: nil,
+      steering: nil,
       fanout_budget: Map.get(plan, "budget"),
       fanout_deadline_unix_ms: Map.get(plan, "deadline_unix_ms"),
       source: source
     }
   end
 
-  defp changed_plan_child(child, plan) do
+  defp changed_plan_child(child, plan, source_intent) do
     case verified_steering(child) do
-      {:ok, directive} ->
-        %{
+      {:ok, %{directive: directive} = steering} ->
+        child
+        |> quality_fields(source_intent, steering)
+        |> Map.merge(%{
           decision_text: directive,
           direct_answer_text: directive,
           action_text: directive,
           fanout_budget: Map.get(plan, "budget"),
           fanout_deadline_unix_ms: Map.get(plan, "deadline_unix_ms"),
           source: :operator_steered
-        }
+        })
 
       {:error, _not_operator_steered} ->
         direct_answer_only(child, :untrusted, plan)
@@ -160,6 +185,10 @@ defmodule AllbertAssist.Objectives.Runs.Worker.Grounding do
       decision_text: child.objective,
       direct_answer_text: child.objective,
       action_text: child.objective,
+      original_request: nil,
+      child_objective: child.objective,
+      expected_result: nil,
+      steering: nil,
       fanout_budget: nil,
       fanout_deadline_unix_ms: nil,
       source: :legacy_ordinary
@@ -285,14 +314,19 @@ defmodule AllbertAssist.Objectives.Runs.Worker.Grounding do
          directive when is_binary(directive) <- payload_value(directive_payload, "directive"),
          true <- child.objective == directive,
          true <- child.title == String.slice(directive, 0, 200) do
-      {:ok, directive}
+      {:ok, %{directive_event_id: directive_event_id, directive: directive}}
     else
       _missing_or_changed -> {:error, :unverified_steering}
     end
   end
 
-  defp payload_value(payload, key) when is_map(payload),
-    do: Map.get(payload, key) || Map.get(payload, String.to_existing_atom(key))
+  defp payload_value(payload, "directive_event_id") when is_map(payload),
+    do: Map.get(payload, "directive_event_id") || Map.get(payload, :directive_event_id)
+
+  defp payload_value(payload, "directive") when is_map(payload),
+    do: Map.get(payload, "directive") || Map.get(payload, :directive)
+
+  defp payload_value(payload, _key) when is_map(payload), do: nil
 
   defp payload_value(payload, key) when is_binary(payload) do
     case Jason.decode(payload) do
@@ -305,6 +339,21 @@ defmodule AllbertAssist.Objectives.Runs.Worker.Grounding do
 
   defp exact_span?(source_intent, child_text) do
     child_text != "" and String.contains?(source_intent, child_text)
+  end
+
+  defp quality_fields(child, source_intent, steering) do
+    expected_result =
+      case durable_child(child) do
+        {:ok, %{"expected_result" => expected_result}} -> expected_result
+        {:error, _invalid} -> nil
+      end
+
+    %{
+      original_request: source_intent,
+      child_objective: child.objective,
+      expected_result: expected_result,
+      steering: steering
+    }
   end
 
   defp sha256(text) do

@@ -17,6 +17,9 @@ defmodule AllbertAssist.Objectives.Runs.Worker.Agent do
     name: "allbert_objective_direct_answer_worker",
     description: "Run one clean DirectAnswer child through the registered Allbert action.",
     signal_routes: [
-      {"allbert.objectives.worker.execute", AllbertAssist.Objectives.Runs.Worker.Commands.Execute}
+      {"allbert.objectives.worker.execute",
+       AllbertAssist.Objectives.Runs.Worker.Commands.Execute},
+      {"allbert.objectives.worker.review_and_revise",
+       AllbertAssist.Objectives.Runs.Worker.Commands.ReviewAndRevise}
     ]
 end

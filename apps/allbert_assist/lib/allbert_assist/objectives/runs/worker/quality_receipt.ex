@@ -1,0 +1,213 @@
+defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
+  @moduledoc """
+  Builds and verifies the content-free receipt for one reviewed worker result.
+
+  A receipt proves only that the closed local review boundary ran and accepted
+  one exact normalized observation. It grants no action, effect, permission,
+  status transition, or report authority by itself.
+  """
+
+  alias AllbertAssist.Objectives.CanonicalJSON
+
+  @version 1
+  @receipt_digest_domain "allbert:fanout-worker-quality-receipt:v1\0"
+  @receipt_keys ~w[
+    version objective_id_sha256 step_id_sha256 task_contract_sha256
+    rule_catalog_version reviewer_config_sha256 provider_call_count verdict
+    failed_rule_ids final_answer_sha256
+  ]
+  @event_keys ~w[quality_receipt step_id step_status]
+  @build_binding_keys ~w[
+    objective_id step_id task_contract_sha256 rule_catalog_version
+    reviewer_config_sha256 provider_call_count verdict failed_rule_ids final_answer
+  ]
+  @verify_binding_keys ~w[objective_id step_id task_contract_sha256 final_answer]
+
+  @type receipt :: %{required(String.t()) => term()}
+
+  @doc "Build one exact accepted v1 receipt from transient worker bindings."
+  @spec build(map()) :: {:ok, receipt()} | {:error, :invalid_quality_receipt_binding}
+  def build(binding) when is_map(binding) do
+    with {:ok, binding} <- normalize_map(binding),
+         true <- exact_keys?(binding, @build_binding_keys) do
+      receipt = %{
+        "version" => @version,
+        "objective_id_sha256" => sha256(binding["objective_id"]),
+        "step_id_sha256" => sha256(binding["step_id"]),
+        "task_contract_sha256" => binding["task_contract_sha256"],
+        "rule_catalog_version" => binding["rule_catalog_version"],
+        "reviewer_config_sha256" => binding["reviewer_config_sha256"],
+        "provider_call_count" => binding["provider_call_count"],
+        "verdict" => binding["verdict"],
+        "failed_rule_ids" => binding["failed_rule_ids"],
+        "final_answer_sha256" => sha256(binding["final_answer"])
+      }
+
+      case validate(receipt, binding) do
+        :ok -> {:ok, receipt}
+        {:error, _reason} -> {:error, :invalid_quality_receipt_binding}
+      end
+    else
+      _invalid -> {:error, :invalid_quality_receipt_binding}
+    end
+  end
+
+  def build(_binding), do: {:error, :invalid_quality_receipt_binding}
+
+  @doc "Validate receipt invariants and its required identity/task/answer binding."
+  @spec validate(map(), map()) :: :ok | {:error, :invalid_quality_receipt}
+  def validate(receipt, binding) when is_map(receipt) and is_map(binding) do
+    with {:ok, receipt} <- normalize_map(receipt),
+         {:ok, binding} <- normalize_map(binding),
+         true <- valid_receipt?(receipt),
+         true <- required_binding?(binding),
+         true <- receipt["objective_id_sha256"] == sha256(binding["objective_id"]),
+         true <- receipt["step_id_sha256"] == sha256(binding["step_id"]),
+         true <- receipt["task_contract_sha256"] == binding["task_contract_sha256"],
+         true <- receipt["final_answer_sha256"] == sha256(binding["final_answer"]),
+         true <- optional_bindings_match?(receipt, binding) do
+      :ok
+    else
+      _invalid -> {:error, :invalid_quality_receipt}
+    end
+  end
+
+  def validate(_receipt, _binding), do: {:error, :invalid_quality_receipt}
+
+  @doc "Validate and digest one exact receipt."
+  @spec digest(map()) :: {:ok, String.t()} | {:error, :invalid_quality_receipt}
+  def digest(receipt) when is_map(receipt) do
+    with {:ok, receipt} <- normalize_map(receipt),
+         true <- valid_receipt?(receipt) do
+      {:ok, sha256(@receipt_digest_domain <> CanonicalJSON.encode(receipt))}
+    else
+      _invalid -> {:error, :invalid_quality_receipt}
+    end
+  end
+
+  def digest(_receipt), do: {:error, :invalid_quality_receipt}
+
+  @doc "Decode and verify the exact reviewed run_completed event payload."
+  @spec from_event_payload(String.t() | map(), map()) ::
+          {:ok, receipt(), String.t()} | {:error, :invalid_quality_receipt_event}
+  def from_event_payload(payload, binding) do
+    with {:ok, payload} <- decode_payload(payload),
+         true <- exact_keys?(payload, @event_keys),
+         true <- payload["step_id"] == binding_value(binding, "step_id"),
+         true <- payload["step_status"] == "completed",
+         receipt when is_map(receipt) <- payload["quality_receipt"],
+         :ok <- validate(receipt, binding),
+         {:ok, digest} <- digest(receipt) do
+      {:ok, receipt, digest}
+    else
+      _invalid -> {:error, :invalid_quality_receipt_event}
+    end
+  end
+
+  defp valid_receipt?(receipt) do
+    exact_keys?(receipt, @receipt_keys) and receipt["version"] == @version and
+      receipt["rule_catalog_version"] == @version and
+      receipt["provider_call_count"] == 2 and receipt["verdict"] == "accepted" and
+      receipt["failed_rule_ids"] == [] and
+      Enum.all?(
+        ~w[objective_id_sha256 step_id_sha256 task_contract_sha256 reviewer_config_sha256 final_answer_sha256],
+        &lowercase_sha256?(receipt[&1])
+      )
+  end
+
+  defp required_binding?(binding) do
+    Enum.all?(@verify_binding_keys, &Map.has_key?(binding, &1)) and
+      is_binary(binding["objective_id"]) and is_binary(binding["step_id"]) and
+      lowercase_sha256?(binding["task_contract_sha256"]) and
+      is_binary(binding["final_answer"])
+  end
+
+  defp optional_bindings_match?(receipt, binding) do
+    Enum.all?(
+      [
+        {"rule_catalog_version", "rule_catalog_version"},
+        {"reviewer_config_sha256", "reviewer_config_sha256"},
+        {"provider_call_count", "provider_call_count"},
+        {"verdict", "verdict"},
+        {"failed_rule_ids", "failed_rule_ids"}
+      ],
+      fn {receipt_key, binding_key} ->
+        not Map.has_key?(binding, binding_key) or receipt[receipt_key] == binding[binding_key]
+      end
+    )
+  end
+
+  defp decode_payload(payload) when is_binary(payload) do
+    case Jason.decode(payload) do
+      {:ok, decoded} -> normalize_map(decoded)
+      {:error, _reason} -> {:error, :invalid_json}
+    end
+  end
+
+  defp decode_payload(payload) when is_map(payload), do: normalize_map(payload)
+  defp decode_payload(_payload), do: {:error, :invalid_payload}
+
+  defp normalize_map(map) when is_map(map), do: normalize_map_entries(map)
+
+  defp normalize_map_entries(map) do
+    Enum.reduce_while(map, {:ok, %{}}, fn {key, value}, {:ok, normalized} ->
+      with {:ok, key} <- normalize_key(key),
+           false <- Map.has_key?(normalized, key),
+           {:ok, value} <- normalize_value(value) do
+        {:cont, {:ok, Map.put(normalized, key, value)}}
+      else
+        _invalid -> {:halt, {:error, :invalid_or_colliding_key}}
+      end
+    end)
+  end
+
+  defp normalize_value(value) when is_map(value), do: normalize_map_entries(value)
+
+  defp normalize_value(value) when is_list(value) do
+    value
+    |> Enum.reduce_while({:ok, []}, fn item, {:ok, normalized} ->
+      case normalize_value(item) do
+        {:ok, item} -> {:cont, {:ok, [item | normalized]}}
+        {:error, _reason} = error -> {:halt, error}
+      end
+    end)
+    |> case do
+      {:ok, normalized} -> {:ok, Enum.reverse(normalized)}
+      {:error, _reason} = error -> error
+    end
+  end
+
+  defp normalize_value(value), do: {:ok, value}
+
+  defp normalize_key(key) when is_binary(key), do: {:ok, key}
+  defp normalize_key(key) when is_atom(key), do: {:ok, Atom.to_string(key)}
+  defp normalize_key(_key), do: {:error, :invalid_key}
+
+  defp binding_value(binding, key) when is_map(binding) do
+    Map.get(binding, key) || Map.get(binding, safe_existing_atom(key))
+  end
+
+  defp binding_value(_binding, _key), do: nil
+
+  defp safe_existing_atom("step_id"), do: :step_id
+
+  defp exact_keys?(map, keys) when is_map(map), do: Enum.sort(Map.keys(map)) == Enum.sort(keys)
+  defp exact_keys?(_map, _keys), do: false
+
+  defp lowercase_sha256?(value) when is_binary(value) and byte_size(value) == 64 do
+    case Base.decode16(value, case: :lower) do
+      {:ok, decoded} -> byte_size(decoded) == 32
+      :error -> false
+    end
+  end
+
+  defp lowercase_sha256?(_value), do: false
+
+  defp sha256(value) when is_binary(value) do
+    :sha256
+    |> :crypto.hash(value)
+    |> Base.encode16(case: :lower)
+  end
+
+  defp sha256(_value), do: nil
+end

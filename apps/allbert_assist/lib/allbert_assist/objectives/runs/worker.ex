@@ -29,9 +29,19 @@ defmodule AllbertAssist.Objectives.Runs.Worker do
          :ok <- authorize_action(context, action_module),
          {adapter_name, adapter} <- adapter_for(action_module),
          {:ok, response} <- adapter.run(action_module, params, context, opts) do
-      {:ok, %{adapter: adapter_name, response: response}}
+      worker_result(adapter_name, response)
     end
   end
+
+  defp worker_result(
+         :jido,
+         %{response: response, quality_receipt: quality_receipt}
+       ) do
+    {:ok, %{adapter: :jido, response: response, quality_receipt: quality_receipt}}
+  end
+
+  defp worker_result(adapter, response),
+    do: {:ok, %{adapter: adapter, response: response}}
 
   defp adapter_for(DirectAnswer), do: {:jido, JidoAdapter}
   defp adapter_for(_action_module), do: {:ordinary, ActionAdapter}

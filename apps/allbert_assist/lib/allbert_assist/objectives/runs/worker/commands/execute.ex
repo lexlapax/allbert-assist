@@ -38,10 +38,55 @@ defmodule AllbertAssist.Objectives.Runs.Worker.Commands.Execute do
           {:error, :cancelled}
       end
 
-    {:ok, terminal_state(context, result)}
+    {:ok, next_state(context, result)}
   end
 
-  def run(_params, context), do: {:ok, terminal_state(context, {:error, :invalid_worker_input})}
+  def run(_params, context), do: {:ok, next_state(context, {:error, :invalid_worker_input})}
+
+  defp next_state(%{state: %{task_contract: %{} = _contract} = state}, result),
+    do: quality_state(state, result)
+
+  defp next_state(context, result), do: terminal_state(context, result)
+
+  defp quality_state(
+         state,
+         {:ok,
+          %{
+            direct_answer: %{source: :model},
+            fanout_worker: %{version: 1, provider_call_count: 1}
+          } = response}
+       ) do
+    Map.merge(state, %{
+      status: :draft,
+      provider_call_count: 1,
+      draft_response: Map.delete(response, :fanout_worker),
+      last_command: :execute,
+      last_result: {:ok, :draft}
+    })
+  end
+
+  defp quality_state(state, {:ok, response}) when is_map(response) do
+    provider_call_count =
+      case Map.get(response, :fanout_worker) do
+        %{version: 1, provider_call_count: count} when count in [0, 1] -> count
+        _missing_or_invalid -> 0
+      end
+
+    quality_unresolved(state, :quality_model_draft_unavailable, provider_call_count)
+  end
+
+  defp quality_state(state, {:error, reason}),
+    do: quality_unresolved(state, {:quality_draft_failed, reason}, 0)
+
+  defp quality_unresolved(state, reason, provider_call_count) do
+    Map.merge(state, %{
+      status: :unresolved,
+      provider_call_count: provider_call_count,
+      error: reason,
+      last_command: :execute,
+      last_result: {:error, reason}
+    })
+  end
 
   defp terminal_state(context, {:ok, response} = result) do
     context

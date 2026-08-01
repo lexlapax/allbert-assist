@@ -14,7 +14,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
   alias AllbertAssist.Objectives.Lifecycle
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Objectives.Runs.CancelToken
-  alias AllbertAssist.Objectives.Runs.Worker.Grounding
+  alias AllbertAssist.Objectives.Runs.Worker.{Grounding, QualityPolicy, QualityReceipt}
   alias AllbertAssist.Objectives.Steering
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings.Store
@@ -73,6 +73,28 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     def operation(:execute, state, _opts) do
       result = "AIzaSyDUMMYSecretShapeForAudit59 " <> String.duplicate("long result ", 300)
       {:ok, Map.put(state, :response, %{message: result})}
+    end
+
+    def operation(_operation, state, _opts), do: {:ok, state}
+  end
+
+  defmodule QualityCompletionAdapter do
+    def operation(:propose, state, opts),
+      do: {:ok, Map.put(state, :step, Keyword.fetch!(opts, :quality_step))}
+
+    def operation(:execute, state, opts) do
+      state =
+        state
+        |> Map.put(:response, %{message: Keyword.fetch!(opts, :quality_answer)})
+        |> Map.put(:worker_adapter, :jido)
+
+      next =
+        case Keyword.fetch(opts, :quality_receipt) do
+          {:ok, receipt} -> Map.put(state, :quality_receipt, receipt)
+          :error -> state
+        end
+
+      {:ok, next}
     end
 
     def operation(_operation, state, _opts), do: {:ok, state}
@@ -248,6 +270,131 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     assert Enum.count(Objectives.list_events(child.id), &(&1.kind == "run_completed")) == 1
   end
 
+  test "reviewed DirectAnswer completion atomically binds the exact answer and closed receipt" do
+    answer = "A reviewed task-neutral child answer."
+    {child, step, receipt, task_digest} = reviewed_completion_fixture(answer)
+
+    assert {:ok, completed} =
+             Lifecycle.run(child.id,
+               adapter: QualityCompletionAdapter,
+               quality_step: step,
+               quality_answer: answer,
+               quality_receipt: receipt
+             )
+
+    assert completed.status == "completed"
+    assert completed.last_observation_summary == answer
+
+    assert [completed_step] = Objectives.list_steps(child.id)
+    assert completed_step.id == step.id
+    assert completed_step.status == "completed"
+    assert completed_step.result_summary == answer
+
+    assert completed_event =
+             Enum.find(Objectives.list_events(child.id), &(&1.kind == "run_completed"))
+
+    payload = Jason.decode!(completed_event.payload)
+    assert Map.keys(payload) |> Enum.sort() == ~w[quality_receipt step_id step_status]
+    assert payload["step_id"] == step.id
+    assert payload["step_status"] == "completed"
+
+    binding = %{
+      objective_id: child.id,
+      step_id: step.id,
+      task_contract_sha256: task_digest,
+      final_answer: answer
+    }
+
+    assert {:ok, ^receipt, receipt_digest} =
+             QualityReceipt.from_event_payload(payload, binding)
+
+    assert {:ok, ^receipt_digest} = QualityReceipt.digest(receipt)
+    refute Map.has_key?(payload, "summary")
+  end
+
+  test "reviewed completion resumes idempotently when its step already completed" do
+    answer = "A reviewed task-neutral child answer."
+    {child, step, receipt, _task_digest} = reviewed_completion_fixture(answer)
+
+    assert {:ok, completed_step} =
+             Objectives.transition_step(step, "completed", %{result_summary: answer})
+
+    assert {:ok, completed} =
+             Lifecycle.run(child.id,
+               adapter: QualityCompletionAdapter,
+               quality_step: completed_step,
+               quality_answer: answer,
+               quality_receipt: receipt
+             )
+
+    assert completed.status == "completed"
+    assert completed.last_observation_summary == answer
+
+    assert Enum.count(Objectives.list_events(child.id), &(&1.kind == "run_completed")) == 1
+
+    assert [%{id: step_id, status: "completed", result_summary: ^answer}] =
+             Objectives.list_steps(child.id)
+
+    assert step_id == step.id
+  end
+
+  test "an incompatible terminal step rolls back reviewed Objective completion and event" do
+    answer = "A reviewed task-neutral child answer."
+    {child, step, receipt, _task_digest} = reviewed_completion_fixture(answer)
+
+    assert {:ok, failed_step} =
+             Objectives.transition_step(step, "failed", %{result_summary: "earlier failure"})
+
+    assert {:error, {:incompatible_terminal_step_status, step_id, "failed", "completed"}} =
+             Lifecycle.run(child.id,
+               adapter: QualityCompletionAdapter,
+               quality_step: failed_step,
+               quality_answer: answer,
+               quality_receipt: receipt
+             )
+
+    assert step_id == step.id
+    assert {:ok, still_running} = Objectives.get_objective(child.id)
+    assert still_running.status == "running"
+    refute Enum.any?(Objectives.list_events(child.id), &(&1.kind == "run_completed"))
+
+    assert [%{id: step_id, status: "failed", result_summary: "earlier failure"}] =
+             Objectives.list_steps(child.id)
+
+    assert step_id == step.id
+  end
+
+  test "a required reviewed DirectAnswer receipt cannot be omitted or rebound to another answer" do
+    answer = "A reviewed task-neutral child answer."
+
+    {missing_child, missing_step, _receipt, _task_digest} =
+      reviewed_completion_fixture(answer)
+
+    assert {:error, :missing_fanout_worker_quality_receipt} =
+             Lifecycle.run(missing_child.id,
+               adapter: QualityCompletionAdapter,
+               quality_step: missing_step,
+               quality_answer: answer
+             )
+
+    assert {:ok, %{status: "failed"}} = Objectives.get_objective(missing_child.id)
+    refute Enum.any?(Objectives.list_events(missing_child.id), &(&1.kind == "run_completed"))
+
+    {changed_child, changed_step, receipt, _task_digest} =
+      reviewed_completion_fixture(answer)
+
+    assert {:error, {:invalid_fanout_worker_quality_receipt, _reason}} =
+             Lifecycle.run(changed_child.id,
+               adapter: QualityCompletionAdapter,
+               quality_step: changed_step,
+               quality_answer: answer <> " changed",
+               quality_receipt: receipt
+             )
+
+    assert {:ok, %{status: "failed"}} = Objectives.get_objective(changed_child.id)
+    refute Enum.any?(Objectives.list_events(changed_child.id), &(&1.kind == "run_completed"))
+  end
+
   test "steering received during proposal replans before execution" do
     assert {:ok, child} =
              create_child(%{
@@ -308,6 +455,40 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     assert {:ok, completed} = Task.await(task, 2_000)
     assert completed.last_observation_summary == "executed: #{directive}"
     assert completed.run_attempt_count == 1
+  end
+
+  test "a repeated identical steering event still clears the prior response and reruns safely" do
+    directive = "Explain OTP supervision as a hospital"
+
+    assert {:ok, child} =
+             create_child(%{
+               user_id: "alice",
+               title: directive,
+               objective: directive,
+               fanout_role: "child"
+             })
+
+    assert {:ok, _first} = Steering.steer("alice", child.id, directive)
+    assert {:ok, already_steered} = Steering.apply_pending(child.id)
+    assert already_steered.objective == directive
+
+    test_pid = self()
+
+    task =
+      Task.async(fn ->
+        Lifecycle.run(child.id, adapter: DelayedExecutionAdapter, test_pid: test_pid)
+      end)
+
+    assert_receive {:execution_in_flight, runner, ^directive}, 2_000
+    assert {:ok, _second} = Steering.steer("alice", child.id, directive)
+    send(runner, :finish_execution)
+
+    assert_receive {:executed_objective, 1, ^directive}, 2_000
+    assert_receive {:executed_objective, 2, ^directive}, 2_000
+    assert {:ok, completed} = Task.await(task, 2_000)
+    assert completed.last_observation_summary == "executed: #{directive}"
+
+    assert Enum.count(Objectives.list_events(child.id), &(&1.kind == "steer_applied")) == 2
   end
 
   test "steering after a possibly effectful execution blocks instead of replaying it" do
@@ -434,7 +615,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     end
   end
 
-  test "a conversation-manager child cannot amplify generated prose into action authority" do
+  test "a conversation-manager child cannot amplify generated prose or an unreviewed fallback into completion" do
     assert {:ok, _setting} =
              AllbertAssist.Settings.put("intent.direct_answer_model_enabled", false, %{
                audit?: false
@@ -448,10 +629,10 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     assert {:ok, child} =
              create_grounded_child("conversation_manager", original, generated)
 
-    assert {:ok, completed} = Lifecycle.run(child.id)
-    assert completed.status == "completed"
+    assert {:error, _unreviewed} = Lifecycle.run(child.id)
+    assert {:ok, %{status: "failed"}} = Objectives.get_objective(child.id)
 
-    assert [%{candidate_action: "direct_answer", status: "completed"} = step] =
+    assert [%{candidate_action: "direct_answer", status: "failed"} = step] =
              Objectives.list_steps(child.id)
 
     assert Jason.decode!(step.action_params) == %{
@@ -527,15 +708,15 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     assert Jason.decode!(step.action_params)["memory"] =~ "Project Juniper launch code is opal"
   end
 
-  test "a verified compiled child gives DirectAnswer bounded output guidance" do
+  test "a verified compiled child gives DirectAnswer bounded guidance but requires reviewed completion" do
     child_text = "Explain OTP fault tolerance"
     original = "Do these two tasks in parallel: #{child_text}; explain GenServer.call"
 
     assert {:ok, child} = create_grounded_child("counted_protocol", original, child_text)
-    assert {:ok, completed} = Lifecycle.run(child.id)
-    assert completed.status == "completed"
+    assert {:error, _unreviewed} = Lifecycle.run(child.id)
+    assert {:ok, %{status: "failed"}} = Objectives.get_objective(child.id)
 
-    assert [%{candidate_action: "direct_answer", status: "completed"} = step] =
+    assert [%{candidate_action: "direct_answer", status: "failed"} = step] =
              Objectives.list_steps(child.id)
 
     assert Jason.decode!(step.action_params) == %{
@@ -977,6 +1158,46 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     Complete the first bounded task.
     """
     |> String.trim()
+  end
+
+  defp reviewed_completion_fixture(answer) do
+    child_objective = "Analyze one bounded mechanism and state its tradeoffs."
+
+    assert {:ok, child} =
+             create_grounded_child(
+               "conversation_manager",
+               "Prepare one joined brief from two bounded analyses.",
+               child_objective
+             )
+
+    assert {:ok, step} =
+             Objectives.create_step(%{
+               objective_id: child.id,
+               kind: "action",
+               status: "selected",
+               stage: "propose_steps",
+               candidate_action: "direct_answer",
+               action_params: %{text: child_objective}
+             })
+
+    grounding = Grounding.resolve(child)
+    assert {:ok, contract} = QualityPolicy.build(grounding)
+    assert {:ok, task_digest} = QualityPolicy.digest(contract)
+
+    assert {:ok, receipt} =
+             QualityReceipt.build(%{
+               objective_id: child.id,
+               step_id: step.id,
+               task_contract_sha256: task_digest,
+               rule_catalog_version: 1,
+               reviewer_config_sha256: String.duplicate("b", 64),
+               provider_call_count: 2,
+               verdict: "accepted",
+               failed_rule_ids: [],
+               final_answer: answer
+             })
+
+    {child, step, receipt, task_digest}
   end
 
   defp create_child(attrs) do

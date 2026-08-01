@@ -10,6 +10,8 @@ defmodule AllbertAssist.Objectives.Lifecycle do
 
   require Logger
 
+  alias AllbertAssist.Actions.Intent.DirectAnswer
+  alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Record, as: ConfirmationRecord
   alias AllbertAssist.Confirmations.ResumeParamsBinding
@@ -19,7 +21,14 @@ defmodule AllbertAssist.Objectives.Lifecycle do
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Objectives.ObservationSummary
   alias AllbertAssist.Objectives.Runs.CancelToken
-  alias AllbertAssist.Objectives.Runs.Worker.{GroundedStepSpec, Grounding}
+
+  alias AllbertAssist.Objectives.Runs.Worker.{
+    GroundedStepSpec,
+    Grounding,
+    QualityPolicy,
+    QualityReceipt
+  }
+
   alias AllbertAssist.Objectives.Steering
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings.Store
@@ -355,7 +364,8 @@ defmodule AllbertAssist.Objectives.Lifecycle do
       {:ok, updated} ->
         steered? =
           updated.objective != objective.objective or updated.title != objective.title or
-            updated.progress_summary != objective.progress_summary
+            updated.progress_summary != objective.progress_summary or
+            updated.updated_at != objective.updated_at
 
         {%{state | objective: updated}, steered?}
 
@@ -387,12 +397,31 @@ defmodule AllbertAssist.Objectives.Lifecycle do
       end
 
     case result do
-      {:ok, _step} -> {:ok, Map.drop(state, [:step, :response])}
-      {:error, reason} -> {:error, reason}
+      {:ok, _step} ->
+        {:ok,
+         Map.drop(state, [
+           :step,
+           :response,
+           :worker_adapter,
+           :quality_receipt,
+           :quality_receipt_digest
+         ])}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
-  defp supersede_current_step(state), do: {:ok, Map.drop(state, [:step, :response])}
+  defp supersede_current_step(state) do
+    {:ok,
+     Map.drop(state, [
+       :step,
+       :response,
+       :worker_adapter,
+       :quality_receipt,
+       :quality_receipt_digest
+     ])}
+  end
 
   defp pinned_operation(adapter, operation, current, opts) do
     if function_exported?(adapter, :owns_settings_pin?, 1) and
@@ -408,18 +437,24 @@ defmodule AllbertAssist.Objectives.Lifecycle do
 
   defp continue_operations({:ok, next}, adapter, operation, rest, current, opts)
        when is_map(next) do
-    case event(current.objective, "run_progress", %{operation: operation}) do
-      {:ok, _event} ->
-        Signals.emit_fanout(:run_progress, %{
-          child_id: current.objective.id,
-          parent_id: current.objective.parent_objective_id,
-          operation: operation
-        })
+    case verify_operation_result(operation, next) do
+      {:ok, verified} ->
+        case event(current.objective, "run_progress", %{operation: operation}) do
+          {:ok, _event} ->
+            Signals.emit_fanout(:run_progress, %{
+              child_id: current.objective.id,
+              parent_id: current.objective.parent_objective_id,
+              operation: operation
+            })
 
-        run_operations(adapter, rest, next, opts)
+            run_operations(adapter, rest, verified, opts)
+
+          {:error, reason} ->
+            {:error, reason, current}
+        end
 
       {:error, reason} ->
-        {:error, reason, current}
+        {:error, reason, next}
     end
   end
 
@@ -456,7 +491,89 @@ defmodule AllbertAssist.Objectives.Lifecycle do
   defp continue_operations(other, _adapter, operation, _rest, current, _opts),
     do: {:error, {:invalid_lifecycle_result, operation, other}, current}
 
-  defp complete(%{objective: objective} = state) do
+  defp verify_operation_result(:observe, state), do: verify_quality_completion(state)
+  defp verify_operation_result(_operation, state), do: {:ok, state}
+
+  defp verify_quality_completion(%{objective: objective} = state) do
+    summary =
+      (get_in(state, [:response, :message]) || objective.progress_summary || "Completed.")
+      |> bounded_summary()
+
+    case quality_task_binding(state) do
+      {:ok, task_digest} ->
+        verify_required_quality_receipt(state, summary, task_digest)
+
+      :not_required ->
+        if is_nil(Map.get(state, :quality_receipt)) do
+          {:ok, Map.delete(state, :quality_receipt_digest)}
+        else
+          {:error, :unexpected_fanout_worker_quality_receipt}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp quality_task_binding(%{objective: objective, step: %{candidate_action: action}})
+       when is_binary(action) do
+    grounding = Grounding.resolve(objective)
+
+    case Registry.resolve(action) do
+      {:ok, DirectAnswer} -> quality_task_binding_from_grounding(grounding)
+      {:ok, _non_direct_answer} -> :not_required
+      {:error, reason} -> {:error, {:invalid_fanout_worker_quality_action, reason}}
+    end
+  end
+
+  defp quality_task_binding(_state), do: :not_required
+
+  defp quality_task_binding_from_grounding(%{source: source} = grounding)
+       when source in [:conversation_manager, :counted_protocol, :operator_steered] do
+    with {:ok, contract} <- QualityPolicy.build(grounding),
+         {:ok, digest} <- QualityPolicy.digest(contract) do
+      {:ok, digest}
+    else
+      {:error, reason} -> {:error, {:invalid_fanout_worker_quality_task, reason}}
+    end
+  end
+
+  defp quality_task_binding_from_grounding(%{source: :untrusted}),
+    do: {:error, :untrusted_fanout_worker_quality_task}
+
+  defp quality_task_binding_from_grounding(_legacy_or_ordinary), do: :not_required
+
+  defp verify_required_quality_receipt(state, summary, task_digest) do
+    case Map.fetch(state, :quality_receipt) do
+      {:ok, receipt} when is_map(receipt) ->
+        binding = %{
+          objective_id: state.objective.id,
+          step_id: state.step.id,
+          task_contract_sha256: task_digest,
+          final_answer: summary
+        }
+
+        with :ok <- QualityReceipt.validate(receipt, binding),
+             {:ok, digest} <- QualityReceipt.digest(receipt) do
+          {:ok, Map.put(state, :quality_receipt_digest, digest)}
+        else
+          {:error, reason} ->
+            {:error, {:invalid_fanout_worker_quality_receipt, reason}}
+        end
+
+      _missing ->
+        {:error, :missing_fanout_worker_quality_receipt}
+    end
+  end
+
+  defp complete(state) do
+    case verify_quality_completion(state) do
+      {:ok, verified} -> do_complete(verified)
+      {:error, reason} -> fail(state, reason)
+    end
+  end
+
+  defp do_complete(%{objective: objective} = state) do
     summary =
       (get_in(state, [:response, :message]) || objective.progress_summary || "Completed.")
       |> bounded_summary()
@@ -469,7 +586,7 @@ defmodule AllbertAssist.Objectives.Lifecycle do
              completed_at: DateTime.utc_now()
            },
            "run_completed",
-           %{summary: String.slice(summary, 0, @max_event_summary_chars)},
+           completion_event_payload(state, summary),
            transaction_hook: fn _child -> finalize_state_step(state, "completed", summary) end,
            signal: {:run_completed, %{summary: summary}}
          ) do
@@ -481,6 +598,16 @@ defmodule AllbertAssist.Objectives.Lifecycle do
         {:error, reason}
     end
   end
+
+  defp completion_event_payload(
+         %{quality_receipt: receipt, quality_receipt_digest: digest},
+         _summary
+       )
+       when is_map(receipt) and is_binary(digest),
+       do: %{quality_receipt: receipt}
+
+  defp completion_event_payload(_state, summary),
+    do: %{summary: String.slice(summary, 0, @max_event_summary_chars)}
 
   defp complete_after_final_steering_boundary(adapter, state, opts) do
     {current, steered?} = reconcile_steering(state)
@@ -689,15 +816,20 @@ defmodule AllbertAssist.Objectives.Lifecycle do
   defp finalize_state_step(_state, _status, _summary), do: {:ok, %{}}
 
   defp finalize_step(step, status, summary) do
-    if step.status in ~w[completed failed cancelled skipped] do
-      {:ok, %{step_id: step.id}}
-    else
-      case Objectives.transition_step(step, status, %{
-             result_summary: String.slice(to_string(summary), 0, 2_000)
-           }) do
-        {:ok, updated} -> {:ok, %{step_id: updated.id, step_status: updated.status}}
-        {:error, reason} -> {:error, reason}
-      end
+    case step.status do
+      ^status ->
+        {:ok, %{step_id: step.id, step_status: step.status}}
+
+      terminal when terminal in ~w[completed failed cancelled skipped] ->
+        {:error, {:incompatible_terminal_step_status, step.id, terminal, status}}
+
+      _active ->
+        case Objectives.transition_step(step, status, %{
+               result_summary: String.slice(to_string(summary), 0, 2_000)
+             }) do
+          {:ok, updated} -> {:ok, %{step_id: updated.id, step_status: updated.status}}
+          {:error, reason} -> {:error, reason}
+        end
     end
   end
 
@@ -811,7 +943,8 @@ defmodule AllbertAssist.Objectives.Lifecycle do
              end),
            {:ok, params, context} <- execution_request(objective, step, context, grounding) do
         case Worker.run(step.candidate_action, params, context, opts) do
-          {:ok, %{adapter: adapter, response: response}} ->
+          {:ok, %{adapter: adapter, response: response} = result} ->
+            state = put_quality_receipt(state, result)
             worker_response(response, adapter, state)
 
           {:error, reason} ->
@@ -824,6 +957,11 @@ defmodule AllbertAssist.Objectives.Lifecycle do
 
     def operation(:observe, state, _opts), do: {:ok, state}
     def operation(:advance, state, _opts), do: {:ok, state}
+
+    defp put_quality_receipt(state, %{quality_receipt: receipt}) when is_map(receipt),
+      do: Map.put(state, :quality_receipt, receipt)
+
+    defp put_quality_receipt(state, _result), do: Map.delete(state, :quality_receipt)
 
     defp worker_response(%{status: :needs_confirmation} = response, adapter, state) do
       {:blocked, {:needs_confirmation, Map.get(response, :confirmation_id)},
