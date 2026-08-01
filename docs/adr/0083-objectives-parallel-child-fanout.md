@@ -409,7 +409,12 @@ model:
    active or terminal Step state; v2 verifies ownership/status, rejects
    completion and quality-receipt authority, Registry-resolves any persisted
    non-DirectAnswer action identity, and excludes that child from synthesis. A
-   missing Step is allowed only with a nil `current_step_id`. The 16 KiB
+   missing Step is allowed only with a nil `current_step_id`.
+   A completed registered-action child additionally consumes the existing exact
+   Lifecycle completion event—`summary`, matching `step_id`, and
+   `step_status=completed`—with no quality-receipt field; report validation does
+   not create a summary-only parallel contract.
+   The 16 KiB
    canonical model-input allocator gives the complete bounded request priority
    and fairly marks unavoidable child shortening. Allbert alone renders
    status/attention truth, headings, receipt
