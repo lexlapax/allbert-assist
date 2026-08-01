@@ -4,6 +4,7 @@ defmodule AllbertAssist.Objectives.Fanout.BudgetTest do
 
   alias AllbertAssist.Intent.FanoutManager
   alias AllbertAssist.Objectives.Fanout.Budget
+  alias AllbertAssist.Objectives.Fanout.PlanProvenance
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
@@ -210,6 +211,68 @@ defmodule AllbertAssist.Objectives.Fanout.BudgetTest do
              )
   end
 
+  test "closed plan provenance round-trips one canonical typed parent and proposal event" do
+    plan = valid_plan()
+
+    assert {:ok, encoded_hint} = PlanProvenance.encode_parent_hint(plan)
+    assert {:ok, ^plan} = PlanProvenance.decode_parent_hint(encoded_hint)
+
+    assert %{"fanout_plan" => %{"budget" => persisted_budget}} = Jason.decode!(encoded_hint)
+    assert persisted_budget["configured_output_tokens"] == 24_000
+    assert persisted_budget["required_output_tokens"] == 6_144
+
+    child_ids = ["child-0", "child-1"]
+
+    assert {:ok, encoded_event} = PlanProvenance.encode_proposal_event(plan, child_ids)
+    assert {:ok, event} = PlanProvenance.decode_proposal_event(encoded_event)
+    assert event["child_ids"] == child_ids
+    assert event["child_count"] == 2
+    assert event["budget"] == plan["budget"]
+    assert event["plan_sha256"] == plan["plan_sha256"]
+
+    assert {:ok, ^plan} =
+             PlanProvenance.verify_binding(encoded_hint, encoded_event, child_ids)
+
+    tampered_event = put_in(event, ["budget", "configured_model_calls"], 41)
+
+    assert {:error, :invalid_fanout_plan_provenance} =
+             PlanProvenance.verify_binding(encoded_hint, tampered_event, child_ids)
+  end
+
+  test "closed plan provenance rejects extra, missing, coerced, corrupt, and inconsistent fields" do
+    plan = valid_plan()
+    budget = plan["budget"]
+
+    invalid_plans = [
+      Map.put(plan, "extra", "not-allowed"),
+      Map.delete(plan, "budget"),
+      put_in(plan, ["budget", "configured_output_tokens"], "24000"),
+      put_in(plan, ["budget", "configured_output_tokens"], -1),
+      put_in(plan, ["budget", "configured_output_tokens"], "[REDACTED]"),
+      put_in(plan, ["budget", "required_output_tokens"], budget["required_output_tokens"] + 1),
+      put_in(plan, ["budget", "version"], 2),
+      Map.put(plan, "version", 2),
+      Map.put(plan, "manager_attempts", 2)
+    ]
+
+    for invalid <- invalid_plans do
+      assert {:error, :invalid_fanout_plan_provenance} =
+               PlanProvenance.decode_parent_hint(%{"fanout_plan" => invalid})
+
+      assert {:error, :invalid_fanout_plan_provenance} =
+               PlanProvenance.encode_parent_hint(invalid)
+    end
+
+    assert {:error, :invalid_fanout_plan_provenance} =
+             PlanProvenance.decode_parent_hint(%{"fanout_plan" => plan, "extra" => true})
+
+    assert {:error, :invalid_fanout_plan_provenance} =
+             PlanProvenance.encode_proposal_event(plan, ["duplicate", "duplicate"])
+
+    assert {:error, :invalid_fanout_plan_provenance} =
+             PlanProvenance.encode_proposal_event(plan, ["only-one"])
+  end
+
   test "manager repair is not called when the frozen call limit only covers the initial call" do
     assert {:ok, _setting} =
              Settings.put("objectives.fanout.max_model_calls_per_plan", 1, %{audit?: false})
@@ -276,6 +339,22 @@ defmodule AllbertAssist.Objectives.Fanout.BudgetTest do
       model_client: InvalidManagerModel,
       test_pid: self(),
       max_children_per_fanout: 8
+    }
+  end
+
+  defp valid_plan do
+    {:ok, budget} = Budget.resolve(2, 1)
+
+    %{
+      "version" => 1,
+      "source" => "conversation_manager",
+      "original_request_sha256" => String.duplicate("a", 64),
+      "plan_sha256" => String.duplicate("b", 64),
+      "manager_profile" => "direct_answer_local",
+      "manager_profile_sha256" => String.duplicate("c", 64),
+      "manager_attempts" => 1,
+      "budget" => budget,
+      "deadline_unix_ms" => System.system_time(:millisecond) + 300_000
     }
   end
 

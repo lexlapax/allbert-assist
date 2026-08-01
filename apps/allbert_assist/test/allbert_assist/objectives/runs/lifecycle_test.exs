@@ -615,8 +615,8 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
           %{"version" => nil},
           %{"permission" => "allowed"}
         ] do
-      assert {:ok, child} =
-               create_grounded_child("conversation_manager", original, generated, override)
+      assert {:ok, child} = create_grounded_child("conversation_manager", original, generated)
+      assert :ok = tamper_parent_plan(child, override)
 
       assert %{
                source: :untrusted,
@@ -668,8 +668,8 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
           },
           %{"deadline_unix_ms" => "not-a-deadline"}
         ] do
-      assert {:ok, child} =
-               create_grounded_child("conversation_manager", original, generated, override)
+      assert {:ok, child} = create_grounded_child("conversation_manager", original, generated)
+      assert :ok = tamper_parent_plan(child, override)
 
       assert {:error, :invalid_fanout_budget_snapshot} = Lifecycle.run(child.id)
       assert {:ok, %{status: "failed"}} = Objectives.get_objective(child.id)
@@ -1037,5 +1037,21 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
       {:ok, %{children: [child, _sibling]}} -> {:ok, child}
       {:error, reason} -> {:error, reason}
     end
+  end
+
+  defp tamper_parent_plan(child, overrides) do
+    assert {:ok, parent} = Objectives.get_objective(child.parent_objective_id)
+    assert %{"fanout_plan" => plan} = Jason.decode!(parent.proposer_hint)
+
+    tampered_hint = Jason.encode!(%{"fanout_plan" => Map.merge(plan, overrides)})
+
+    assert {1, _rows} =
+             Objective
+             |> where([objective], objective.id == ^parent.id)
+             |> Repo.update_all(
+               set: [proposer_hint: tampered_hint, updated_at: DateTime.utc_now()]
+             )
+
+    :ok
   end
 end

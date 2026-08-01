@@ -72,6 +72,25 @@ defmodule AllbertAssist.Runtime.RedactorTest do
     assert redacted.token == "[REDACTED]"
   end
 
+  test "numeric and string token-shaped values remain generically redacted" do
+    redacted =
+      Redactor.redact(%{
+        configured_output_tokens: 24_000,
+        required_output_tokens: 6_144,
+        nested: %{
+          configured_output_tokens: "secret-token-value",
+          required_output_tokens: "secret://providers/local/token"
+        },
+        token: 24_000
+      })
+
+    assert redacted.configured_output_tokens == "[REDACTED]"
+    assert redacted.required_output_tokens == "[REDACTED]"
+    assert redacted.nested.configured_output_tokens == "[REDACTED]"
+    assert redacted.nested.required_output_tokens == "[REDACTED]"
+    assert redacted.token == "[REDACTED]"
+  end
+
   test "surface-specific runtime redaction uses the same strict policy" do
     payload = %{
       resource_access: %{raw_response: %{token: "secret"}},

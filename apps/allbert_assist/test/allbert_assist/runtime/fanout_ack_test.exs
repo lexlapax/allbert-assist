@@ -8,6 +8,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
   alias AllbertAssist.Intent.FanoutPlan
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
+  alias AllbertAssist.Objectives.Fanout.Budget
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Objectives.Runs.Scheduler
@@ -261,7 +262,12 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert profile_digest =~ ~r/^[0-9a-f]{64}$/
     assert budget["manager_attempts"] == 1
     assert budget["child_count"] == 2
+    assert budget["configured_output_tokens"] == 24_000
+    assert budget["required_output_tokens"] == 6_144
     assert deadline > System.system_time(:millisecond)
+
+    assert {:ok, %{max_calls: 1, max_output_tokens: 1_024}} =
+             Budget.authorize_composer(budget, deadline, System.system_time(:millisecond))
 
     assert [%{payload: proposed_payload}] =
              Objectives.list_events(parent.id)
@@ -272,6 +278,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert proposed_payload["plan_source"] == "conversation_manager"
     assert proposed_payload["original_request_sha256"] == digest
     assert proposed_payload["plan_sha256"] == plan_digest
+    assert proposed_payload["budget"] == budget
 
     assert Enum.map(Fanout.children(parent), fn child ->
              {child.title, Jason.decode!(child.acceptance_criteria)}

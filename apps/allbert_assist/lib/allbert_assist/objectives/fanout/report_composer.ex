@@ -200,8 +200,14 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
 
   defp select_budgeted_model_body(%{frozen: frozen} = claim, state) do
     case Budget.authorize_composer(claim.budget, claim.deadline_unix_ms) do
-      {:ok, limits} -> select_resolved_model_body(claim, limits, state)
-      {:error, _reason} -> fallback_selection(frozen, :budget_denied)
+      {:ok, limits} ->
+        select_resolved_model_body(claim, limits, state)
+
+      {:error, :invalid_fanout_budget_snapshot} ->
+        fallback_selection(frozen, :invalid_budget_snapshot)
+
+      {:error, :fanout_plan_deadline_exhausted} ->
+        fallback_selection(frozen, :deadline_exhausted)
     end
   end
 

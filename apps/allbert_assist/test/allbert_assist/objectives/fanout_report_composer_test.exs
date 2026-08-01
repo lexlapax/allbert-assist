@@ -2,10 +2,14 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   use AllbertAssist.DataCase, async: false
   @moduletag :db_serial
 
+  alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Fanout.Budget
+  alias AllbertAssist.Objectives.Fanout.PlanProvenance
   alias AllbertAssist.Objectives.Fanout.Report
   alias AllbertAssist.Objectives.Fanout.ReportComposer
   alias AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation
+  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Objective
   alias ReqLLM.Response
 
@@ -234,6 +238,19 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     end
   end
 
+  defmodule ComplementaryProcessModel do
+    def compose(snapshot, _profile, context) do
+      send(context.test_pid, {:durable_process_compose, snapshot, context})
+
+      {:ok,
+       %{
+         "sections" => [
+           %{"relationship" => "complementary", "ordered_queue_positions" => [0, 1]}
+         ]
+       }}
+    end
+  end
+
   defmodule FailingProcessModel do
     def compose(snapshot, _profile, context) do
       send(context.test_pid, {:failed_process_compose, snapshot})
@@ -445,6 +462,161 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
            }
 
     refute_received {:process_compose, _, _}
+  end
+
+  test "SQLite-backed frame reload authorizes exactly one model composition and delivery" do
+    plan = durable_plan()
+
+    assert {:ok, %{parent: parent, children: children}} =
+             frame_durable_fanout("durable-composer", "durable-composer-thread", plan)
+
+    assert {:ok, persisted_plan} = Fanout.verified_plan(parent)
+    assert persisted_plan == plan
+    assert is_integer(persisted_plan["budget"]["configured_output_tokens"])
+    assert is_integer(persisted_plan["budget"]["required_output_tokens"])
+
+    assert [%{payload: proposal_payload}] =
+             parent.id
+             |> Objectives.list_events()
+             |> Enum.filter(&(&1.kind == "fanout_proposed"))
+
+    assert {:ok, proposal} = PlanProvenance.decode_proposal_event(proposal_payload)
+    assert proposal["budget"] == persisted_plan["budget"]
+
+    Enum.each(children, fn child ->
+      assert {:ok, _transition} =
+               TerminalTransitions.terminalize_child(
+                 child,
+                 %{
+                   status: "completed",
+                   last_observation_summary: "complete durable result #{child.queue_position}",
+                   completed_at: DateTime.utc_now()
+                 },
+                 "run_completed",
+                 %{}
+               )
+    end)
+
+    start_process_composer(
+      store: Fanout,
+      disclosure: AllowDisclosure,
+      model_client: ComplementaryProcessModel,
+      model_enabled?: true
+    )
+
+    assert_receive {:durable_process_compose, snapshot, call_context}, 1_000
+    assert Enum.map(snapshot.children, & &1.queue_position) == [0, 1]
+    assert call_context.max_output_tokens == 1_024
+
+    assert eventually(fn ->
+             case Objectives.get_objective(parent.id) do
+               {:ok, selected} ->
+                 selected.report_composition_state == "ready" and
+                   selected.report_source == "model" and
+                   selected.report_delivery_state == "pending"
+
+               _missing ->
+                 false
+             end
+           end)
+
+    assert [pending] =
+             Fanout.pending_reports("durable-composer", "durable-composer-thread", %{
+               channel: :test
+             })
+
+    assert :ok =
+             Fanout.acknowledge_report(
+               pending.report_delivery_receipt,
+               Map.merge(pending.delivery_context, %{
+                 user_id: "durable-composer",
+                 source_channel: "test",
+                 source_thread_id: "durable-composer-thread"
+               })
+             )
+
+    assert {:ok, delivered} = Objectives.get_objective(parent.id)
+    assert delivered.report_delivery_state == "delivered"
+    assert delivered.report_body =~ "Complementary findings:"
+
+    assert [selected_event] =
+             parent.id
+             |> Objectives.list_events()
+             |> Enum.filter(&(&1.kind == "fanout_report_selected"))
+
+    assert %{"source" => "model"} = Jason.decode!(selected_event.payload)
+    refute_receive {:durable_process_compose, _, _}, 100
+  end
+
+  test "SQLite-backed corrupt plan budget selects explicit fallback without a model call" do
+    plan = durable_plan()
+
+    assert {:ok, %{parent: parent, children: children}} =
+             frame_durable_fanout("corrupt-budget", "corrupt-budget-thread", plan)
+
+    tampered_hint =
+      parent.proposer_hint
+      |> Jason.decode!()
+      |> put_in(["fanout_plan", "budget", "configured_output_tokens"], "[REDACTED]")
+
+    assert {1, _rows} =
+             Objective
+             |> where([objective], objective.id == ^parent.id)
+             |> Repo.update_all(
+               set: [
+                 proposer_hint: Jason.encode!(tampered_hint),
+                 updated_at: DateTime.utc_now()
+               ]
+             )
+
+    assert {:ok, tampered_parent} = Objectives.get_objective(parent.id)
+
+    assert {:error, :invalid_fanout_plan_provenance} =
+             Fanout.verified_plan(tampered_parent)
+
+    Enum.each(children, fn child ->
+      assert {:ok, _transition} =
+               TerminalTransitions.terminalize_child(
+                 child,
+                 %{
+                   status: "completed",
+                   last_observation_summary: "complete durable result #{child.queue_position}",
+                   completed_at: DateTime.utc_now()
+                 },
+                 "run_completed",
+                 %{}
+               )
+    end)
+
+    start_process_composer(
+      store: Fanout,
+      disclosure: AllowDisclosure,
+      model_client: UnexpectedProcessModel,
+      model_enabled?: true
+    )
+
+    assert eventually(fn ->
+             case Objectives.get_objective(parent.id) do
+               {:ok, selected} ->
+                 selected.report_composition_state == "fallback" and
+                   selected.report_source == "deterministic_fallback"
+
+               _missing ->
+                 false
+             end
+           end)
+
+    refute_received :unexpected_process_compose
+
+    assert [selected_event] =
+             parent.id
+             |> Objectives.list_events()
+             |> Enum.filter(&(&1.kind == "fanout_report_selected"))
+
+    assert %{
+             "source" => "deterministic_fallback",
+             "fallback_reason" => "invalid_budget_snapshot"
+           } = Jason.decode!(selected_event.payload)
   end
 
   test "application supervises an idle composer in test so unrelated DataCase rows are not consumed" do
@@ -735,7 +907,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     refute_receive {:failed_process_compose, _}, 100
   end
 
-  test "an exhausted composition deadline records the closed budget fallback category" do
+  test "an exhausted composition deadline records its distinct closed fallback category" do
     claim = %{claim_with_test_pid() | deadline_unix_ms: System.system_time(:millisecond) - 1}
     store = process_store([claim])
 
@@ -746,7 +918,25 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
       model_enabled?: true
     )
 
-    assert_selected_fallback(store, claim, :budget_denied)
+    assert_selected_fallback(store, claim, :deadline_exhausted)
+    refute_received :unexpected_process_compose
+  end
+
+  test "a corrupt durable budget records invalid snapshot without making a provider call" do
+    claim =
+      claim_with_test_pid()
+      |> put_in([:budget, "configured_output_tokens"], "[REDACTED]")
+
+    store = process_store([claim])
+
+    start_process_composer(
+      store: {ProcessStore, store},
+      disclosure: AllowDisclosure,
+      model_client: UnexpectedProcessModel,
+      model_enabled?: true
+    )
+
+    assert_selected_fallback(store, claim, :invalid_budget_snapshot)
     refute_received :unexpected_process_compose
   end
 
@@ -1033,6 +1223,46 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   defp claim_with_test_pid do
     claim = claim()
     %{claim | context: Map.put(claim.context, :test_pid, self())}
+  end
+
+  defp durable_plan do
+    assert {:ok, budget} =
+             Budget.resolve(2, 1, %{
+               version: 1,
+               max_model_calls: 40,
+               max_output_tokens: 24_000,
+               max_elapsed_ms: 300_000,
+               max_worker_attempts_per_child: 2
+             })
+
+    %{
+      "version" => 1,
+      "source" => "conversation_manager",
+      "original_request_sha256" => String.duplicate("a", 64),
+      "plan_sha256" => String.duplicate("b", 64),
+      "manager_profile" => "direct_answer_local",
+      "manager_profile_sha256" => String.duplicate("c", 64),
+      "manager_attempts" => 1,
+      "budget" => budget,
+      "deadline_unix_ms" => System.system_time(:millisecond) + 300_000
+    }
+  end
+
+  defp frame_durable_fanout(user_id, thread_id, plan) do
+    Fanout.frame(
+      %{
+        user_id: user_id,
+        title: "Compose durable children",
+        objective: "Analyze two independent mechanisms.",
+        source_channel: "test",
+        source_thread_id: thread_id,
+        proposer_hint: %{"fanout_plan" => plan}
+      },
+      [
+        %{title: "First", objective: "Analyze first", expected_result: "First result"},
+        %{title: "Second", objective: "Analyze second", expected_result: "Second result"}
+      ]
+    )
   end
 
   defp completed_snapshot(count) when count in 2..3 do

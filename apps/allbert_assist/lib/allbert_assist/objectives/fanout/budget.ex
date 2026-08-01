@@ -23,6 +23,12 @@ defmodule AllbertAssist.Objectives.Fanout.Budget do
     "objectives.fanout.max_worker_attempts_per_child"
   ]
 
+  @snapshot_keys ~w[
+    version child_count manager_attempts worker_attempts_per_child
+    configured_model_calls required_model_calls configured_output_tokens
+    required_output_tokens max_elapsed_ms
+  ]
+
   @limit_setting_keys %{
     max_model_calls: "objectives.fanout.max_model_calls_per_plan",
     max_output_tokens: "objectives.fanout.max_output_tokens_per_plan",
@@ -163,6 +169,16 @@ defmodule AllbertAssist.Objectives.Fanout.Budget do
   def authorize_composer(_snapshot, _deadline_unix_ms, _now_unix_ms),
     do: {:error, :invalid_fanout_budget_snapshot}
 
+  @doc "Validate and return one exact closed durable budget snapshot."
+  @spec validate_snapshot(map()) :: {:ok, snapshot()} | {:error, :invalid_fanout_budget_snapshot}
+  def validate_snapshot(snapshot) when is_map(snapshot) do
+    if valid_composer_snapshot?(snapshot),
+      do: {:ok, snapshot},
+      else: {:error, :invalid_fanout_budget_snapshot}
+  end
+
+  def validate_snapshot(_snapshot), do: {:error, :invalid_fanout_budget_snapshot}
+
   defp build_snapshot(child_count, manager_attempts, limits) do
     worker_attempts = limits.max_worker_attempts_per_child
 
@@ -267,32 +283,46 @@ defmodule AllbertAssist.Objectives.Fanout.Budget do
       Enum.all?([deadline_unix_ms, now_unix_ms], &is_integer/1)
   end
 
-  defp valid_composer_snapshot?(%{
-         "version" => @version,
-         "child_count" => child_count,
-         "manager_attempts" => manager_attempts,
-         "worker_attempts_per_child" => worker_attempts,
-         "configured_model_calls" => configured_calls,
-         "required_model_calls" => required_calls,
-         "configured_output_tokens" => configured_tokens,
-         "required_output_tokens" => required_tokens,
-         "max_elapsed_ms" => max_elapsed_ms
-       }) do
-    expected_calls =
-      manager_attempts + child_count * worker_attempts * @worker_calls_per_attempt +
-        @composer_calls
+  defp valid_composer_snapshot?(
+         %{
+           "version" => @version,
+           "child_count" => child_count,
+           "manager_attempts" => manager_attempts,
+           "worker_attempts_per_child" => worker_attempts,
+           "configured_model_calls" => configured_calls,
+           "required_model_calls" => required_calls,
+           "configured_output_tokens" => configured_tokens,
+           "required_output_tokens" => required_tokens,
+           "max_elapsed_ms" => max_elapsed_ms
+         } = snapshot
+       ) do
+    with true <-
+           Map.keys(snapshot) |> Enum.map(&to_string/1) |> Enum.sort() ==
+             Enum.sort(@snapshot_keys),
+         true <-
+           valid_composer_dimensions?(
+             child_count,
+             manager_attempts,
+             worker_attempts,
+             max_elapsed_ms
+           ),
+         true <-
+           valid_configured_limits?(
+             configured_calls,
+             configured_tokens,
+             max_elapsed_ms,
+             worker_attempts
+           ),
+         true <- Enum.all?([required_calls, required_tokens], &(is_integer(&1) and &1 > 0)) do
+      expected_calls =
+        manager_attempts + child_count * worker_attempts * @worker_calls_per_attempt +
+          @composer_calls
 
-    expected_tokens =
-      manager_attempts * @manager_tokens_per_attempt +
-        child_count * worker_attempts * @worker_calls_per_attempt * @worker_tokens_per_call +
-        @composer_tokens
+      expected_tokens =
+        manager_attempts * @manager_tokens_per_attempt +
+          child_count * worker_attempts * @worker_calls_per_attempt * @worker_tokens_per_call +
+          @composer_tokens
 
-    valid_composer_dimensions?(
-      child_count,
-      manager_attempts,
-      worker_attempts,
-      max_elapsed_ms
-    ) and
       valid_composer_totals?(
         configured_calls,
         required_calls,
@@ -301,6 +331,9 @@ defmodule AllbertAssist.Objectives.Fanout.Budget do
         required_tokens,
         expected_tokens
       )
+    else
+      false -> false
+    end
   end
 
   defp valid_composer_snapshot?(_snapshot), do: false
@@ -329,6 +362,14 @@ defmodule AllbertAssist.Objectives.Fanout.Budget do
        ) do
     required_calls == expected_calls and configured_calls >= required_calls and
       required_tokens == expected_tokens and configured_tokens >= required_tokens
+  end
+
+  defp valid_configured_limits?(calls, tokens, elapsed_ms, worker_attempts) do
+    Settings.validate({@limit_setting_keys.max_model_calls, calls}) == :ok and
+      Settings.validate({@limit_setting_keys.max_output_tokens, tokens}) == :ok and
+      Settings.validate({@limit_setting_keys.max_elapsed_ms, elapsed_ms}) == :ok and
+      Settings.validate({@limit_setting_keys.max_worker_attempts_per_child, worker_attempts}) ==
+        :ok
   end
 
   defp integer_in_range?(value, minimum, maximum),

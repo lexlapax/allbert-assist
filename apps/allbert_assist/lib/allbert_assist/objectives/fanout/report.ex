@@ -12,6 +12,7 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
   """
 
   alias AllbertAssist.Objectives.AcceptanceCriteria
+  alias AllbertAssist.Objectives.Fanout.PlanProvenance
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Runtime.Redactor
 
@@ -27,12 +28,9 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
   @relationships ~w[complementary contrasting sequential supporting independent]
   @relational_relationships ~w[complementary contrasting sequential supporting]
   @fallback_reasons ~w[
-    model_disabled budget_denied profile_unavailable transport_denied provider_failed
-    invalid_model_output recovery_after_restart historical_backfill
-  ]
-  @provenance_keys ~w[
-    version source original_request_sha256 plan_sha256 manager_profile
-    manager_profile_sha256 manager_attempts budget deadline_unix_ms
+    model_disabled budget_denied invalid_budget_snapshot deadline_exhausted
+    profile_unavailable transport_denied provider_failed invalid_model_output
+    recovery_after_restart historical_backfill
   ]
 
   @type evidence_ref :: %{
@@ -91,6 +89,8 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
     with :ok <- validate_parent(parent),
          :ok <- validate_children(ordered),
          {:ok, envelopes} <- child_envelopes(ordered, effect_evidence_refs) do
+      safe_plan = plan_provenance(parent.proposer_hint)
+
       snapshot =
         Redactor.redact(%{
           version: @version,
@@ -99,9 +99,10 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
           original_request: bounded_text(parent.objective, 4_000),
           status: parent.status,
           join_outcome: parent.join_outcome,
-          plan: plan_provenance(parent.proposer_hint),
+          plan: %{},
           children: envelopes
         })
+        |> Map.put(:plan, safe_plan)
 
       {:ok,
        %{
@@ -679,25 +680,11 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
   defp glyph("abandoned"), do: "✗"
 
   defp plan_provenance(value) do
-    value
-    |> decoded_map()
-    |> map_field("fanout_plan")
-    |> case do
-      %{} = plan -> Map.take(plan, @provenance_keys)
-      _other -> %{}
+    case PlanProvenance.decode_parent_hint(value) do
+      {:ok, plan} -> plan
+      {:error, _reason} -> %{}
     end
   end
-
-  defp decoded_map(value) when is_map(value), do: stringify_keys(value)
-
-  defp decoded_map(value) when is_binary(value) do
-    case Jason.decode(value) do
-      {:ok, %{} = decoded} -> decoded
-      _other -> %{}
-    end
-  end
-
-  defp decoded_map(_value), do: %{}
 
   defp stringify_keys(value) when is_map(value),
     do: Map.new(value, fn {key, nested} -> {to_string(key), stringify_keys(nested)} end)

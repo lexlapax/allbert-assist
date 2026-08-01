@@ -11,6 +11,7 @@ defmodule AllbertAssist.Objectives.Fanout do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Event
   alias AllbertAssist.Objectives.Fanout.ReceiptSecret
+  alias AllbertAssist.Objectives.Fanout.PlanProvenance
   alias AllbertAssist.Objectives.Fanout.Report
   alias AllbertAssist.Objectives.Fanout.ReportComposer
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
@@ -86,12 +87,37 @@ defmodule AllbertAssist.Objectives.Fanout do
     |> Repo.all()
   end
 
+  @doc "Verify one parent's closed plan against its proposal event and child order."
+  @spec verified_plan(Objective.t()) ::
+          {:ok, map()} | {:error, :missing_plan_provenance | term()}
+  def verified_plan(%Objective{proposer_hint: nil}), do: {:error, :missing_plan_provenance}
+
+  def verified_plan(%Objective{} = parent) do
+    proposed_events =
+      Event
+      |> where([event], event.objective_id == ^parent.id and event.kind == "fanout_proposed")
+      |> order_by([event], asc: event.recorded_at, asc: event.id)
+      |> Repo.all()
+
+    child_ids = parent |> children() |> Enum.map(& &1.id)
+
+    case proposed_events do
+      [%Event{payload: payload}] ->
+        PlanProvenance.verify_binding(parent.proposer_hint, payload, child_ids)
+
+      _missing_or_duplicate ->
+        {:error, :invalid_fanout_plan_provenance}
+    end
+  end
+
   @doc "Reconstruct and verify the canonical frozen report input from durable rows."
   @spec report_input(Objective.t() | String.t()) ::
           {:ok, Report.frozen()} | {:error, term()}
   def report_input(%Objective{} = parent) do
+    report_parent = report_parent(parent)
+
     with {:ok, frozen} <-
-           Report.freeze(parent, children(parent.id), effect_evidence_refs(parent.id)),
+           Report.freeze(report_parent, children(parent.id), effect_evidence_refs(parent.id)),
          :ok <- verify_persisted_input(parent, frozen) do
       {:ok, frozen}
     end
@@ -101,6 +127,20 @@ defmodule AllbertAssist.Objectives.Fanout do
     case Repo.get(Objective, parent_id) do
       %Objective{} = parent -> report_input(parent)
       nil -> {:error, :fanout_parent_not_found}
+    end
+  end
+
+  defp report_parent(parent) do
+    case verified_plan(parent) do
+      {:ok, plan} ->
+        {:ok, encoded} = PlanProvenance.encode_parent_hint(plan)
+        %{parent | proposer_hint: encoded}
+
+      {:error, :missing_plan_provenance} ->
+        parent
+
+      {:error, _invalid_or_mismatched} ->
+        %{parent | proposer_hint: nil}
     end
   end
 
@@ -833,6 +873,7 @@ defmodule AllbertAssist.Objectives.Fanout do
   end
 
   defp frame_transaction!(attrs, tasks) do
+    {attrs, plan} = prepare_plan_provenance!(attrs)
     parent_id = Map.get(attrs, :id) || Map.get(attrs, "id") || Objectives.new_id("fanout")
     receipt = receipt_for(:start, parent_id)
 
@@ -877,9 +918,19 @@ defmodule AllbertAssist.Objectives.Fanout do
         |> insert!()
       end)
 
+    child_ids = Enum.map(children, & &1.id)
+
     proposed_payload =
-      %{child_ids: Enum.map(children, & &1.id), child_count: length(children)}
-      |> Map.merge(plan_provenance(attrs))
+      case plan do
+        %{} = provenance ->
+          case PlanProvenance.encode_proposal_event(provenance, child_ids) do
+            {:ok, encoded} -> encoded
+            {:error, reason} -> Repo.rollback(reason)
+          end
+
+        nil ->
+          %{child_ids: child_ids, child_count: length(children)}
+      end
 
     insert!(
       Objectives.create_event(%{
@@ -922,30 +973,31 @@ defmodule AllbertAssist.Objectives.Fanout do
   defp transact_frame(fun) when is_function(fun, 0),
     do: Repo.transaction(fun, mode: :immediate)
 
-  defp plan_provenance(attrs) do
-    attrs
-    |> map_field(:proposer_hint)
-    |> map_field(:fanout_plan)
-    |> case do
-      %{} = provenance ->
-        %{
-          plan_version: map_field(provenance, :version),
-          plan_source: map_field(provenance, :source),
-          original_request_sha256: map_field(provenance, :original_request_sha256),
-          plan_sha256: map_field(provenance, :plan_sha256),
-          manager_profile: map_field(provenance, :manager_profile),
-          manager_profile_sha256: map_field(provenance, :manager_profile_sha256),
-          manager_attempts: map_field(provenance, :manager_attempts),
-          budget: map_field(provenance, :budget),
-          deadline_unix_ms: map_field(provenance, :deadline_unix_ms)
-        }
-        |> Enum.reject(fn {_key, value} -> is_nil(value) end)
-        |> Map.new()
+  defp prepare_plan_provenance!(attrs) do
+    hint = map_field(attrs, :proposer_hint)
 
-      _other ->
-        %{}
+    if fanout_plan_hint?(hint) do
+      with {:ok, plan} <- PlanProvenance.decode_parent_hint(hint),
+           {:ok, encoded} <- PlanProvenance.encode_parent_hint(plan) do
+        {attrs |> Map.delete("proposer_hint") |> Map.put(:proposer_hint, encoded), plan}
+      else
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    else
+      {attrs, nil}
     end
   end
+
+  defp fanout_plan_hint?(%{} = hint), do: is_map(map_field(hint, :fanout_plan))
+
+  defp fanout_plan_hint?(hint) when is_binary(hint) do
+    case Jason.decode(hint) do
+      {:ok, %{} = decoded} -> fanout_plan_hint?(decoded)
+      _invalid -> false
+    end
+  end
+
+  defp fanout_plan_hint?(_hint), do: false
 
   defp reduce([]), do: {"open", nil}
 

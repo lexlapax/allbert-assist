@@ -16,19 +16,6 @@ defmodule AllbertAssist.Objectives.Runs.Worker.Grounding do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.{AcceptanceCriteria, Fanout, Objective}
 
-  @plan_version 1
-  @allowed_plan_keys ~w[
-    version
-    source
-    original_request_sha256
-    plan_sha256
-    manager_profile
-    manager_profile_sha256
-    manager_attempts
-    budget
-    deadline_unix_ms
-  ]
-
   @type t :: %{
           decision_text: String.t() | nil,
           direct_answer_text: String.t(),
@@ -84,8 +71,12 @@ defmodule AllbertAssist.Objectives.Runs.Worker.Grounding do
     do: {:error, :fanout_child_action_not_authorized}
 
   defp resolve_child(child, parent) do
-    case plan_provenance(parent.proposer_hint) do
-      {:ok, plan_source, digest, plan_digest, plan} ->
+    case Fanout.verified_plan(parent) do
+      {:ok, plan} ->
+        plan_source = plan["source"]
+        digest = plan["original_request_sha256"]
+        plan_digest = plan["plan_sha256"]
+
         with {:ok, source_intent} <- verified_source(parent, digest),
              :ok <- verified_plan(parent, child, plan_source, plan_digest) do
           grounded_child(child, source_intent, plan_source, plan)
@@ -174,35 +165,6 @@ defmodule AllbertAssist.Objectives.Runs.Worker.Grounding do
       source: :legacy_ordinary
     }
   end
-
-  defp plan_provenance(hint) when is_binary(hint) do
-    case Jason.decode(hint) do
-      {:ok, decoded} -> plan_provenance(decoded)
-      {:error, _reason} -> {:error, :invalid_plan_provenance}
-    end
-  end
-
-  defp plan_provenance(%{"fanout_plan" => %{} = plan}) do
-    keys = Map.keys(plan)
-
-    case {
-      Map.get(plan, "version"),
-      Map.get(plan, "source"),
-      Map.get(plan, "original_request_sha256"),
-      Map.get(plan, "plan_sha256"),
-      Enum.all?(keys, &(&1 in @allowed_plan_keys))
-    } do
-      {@plan_version, source, digest, plan_digest, true}
-      when source in ["conversation_manager", "counted_protocol"] and is_binary(digest) and
-             is_binary(plan_digest) and byte_size(digest) == 64 and byte_size(plan_digest) == 64 ->
-        {:ok, source, digest, plan_digest, plan}
-
-      _invalid ->
-        {:error, :invalid_plan_provenance}
-    end
-  end
-
-  defp plan_provenance(_hint), do: {:error, :missing_plan_provenance}
 
   defp compiled_child_binding_present?(hint) when is_binary(hint) do
     case Jason.decode(hint) do
