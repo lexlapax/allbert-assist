@@ -14,26 +14,53 @@ defmodule AllbertAssist.Objectives.Fanout.ReviewRound do
   alias AllbertAssist.Objectives.Runs.CancelToken
 
   @poll_interval_ms 10
+  @attempt_counter_key :fanout_review_provider_attempt_counter
   @reviewer_config_aggregate_domain "allbert:fanout-reviewer-config-aggregate:v1\0"
 
   @doc "Run one bounded two-group critic round and return content-free merged evidence."
   @spec run(ReviewProtocol.t(), map(), String.t(), map(), keyword()) ::
-          {:ok, map()} | {:error, atom()}
+          {:ok, map()} | {:error, {:review_round_failed, atom(), non_neg_integer()}}
   def run(protocol, sources, candidate, context, opts \\ [])
 
   def run(%ReviewProtocol{} = protocol, sources, candidate, context, opts)
       when is_map(sources) and is_binary(candidate) and is_map(context) and is_list(opts) do
-    with :ok <- active(context),
-         {:ok, source_bindings} <- ReviewProtocol.bind_sources(sources, candidate),
-         {:ok, implementation} <- critic_implementation(opts),
-         {:ok, deadline} <- deadline(opts) do
-      tasks = start_critics(protocol, source_bindings, context, implementation)
-      await(protocol, source_bindings, context, deadline, pending(tasks), [])
-    end
+    attempt_counter = :counters.new(1, [:write_concurrency])
+    context = Map.put(context, @attempt_counter_key, attempt_counter)
+
+    result =
+      with :ok <- active(context),
+           {:ok, source_bindings} <- ReviewProtocol.bind_sources(sources, candidate),
+           {:ok, implementation} <- critic_implementation(opts),
+           {:ok, deadline} <- deadline(opts) do
+        tasks = start_critics(protocol, source_bindings, context, implementation)
+        await(protocol, source_bindings, context, deadline, pending(tasks), [])
+      end
+
+    bind_attempt_count(result, attempt_counter)
   end
 
   def run(_protocol, _sources, _candidate, _context, _opts),
-    do: {:error, :invalid_review_round_input}
+    do: {:error, {:review_round_failed, :invalid_review_round_input, 0}}
+
+  @doc false
+  @spec note_provider_attempt(map()) :: :ok | {:error, :invalid_review_attempt_counter}
+  def note_provider_attempt(context) when is_map(context) do
+    case Map.get(context, @attempt_counter_key) do
+      nil ->
+        :ok
+
+      counter ->
+        try do
+          :ok = :counters.add(counter, 1, 1)
+        rescue
+          _exception -> {:error, :invalid_review_attempt_counter}
+        catch
+          _kind, _reason -> {:error, :invalid_review_attempt_counter}
+        end
+    end
+  end
+
+  def note_provider_attempt(_context), do: {:error, :invalid_review_attempt_counter}
 
   defp start_critics(protocol, source_bindings, context, implementation) do
     Enum.map(ReviewProtocol.group_ids(protocol), fn group_id ->
@@ -188,6 +215,22 @@ defmodule AllbertAssist.Objectives.Fanout.ReviewRound do
        )}
     end
   end
+
+  defp bind_attempt_count({:ok, result}, attempt_counter) do
+    case :counters.get(attempt_counter, 1) do
+      2 -> {:ok, Map.put(result, :provider_call_count, 2)}
+      _invalid -> round_failure(:invalid_review_provider_call_count, attempt_counter)
+    end
+  end
+
+  defp bind_attempt_count({:error, reason}, attempt_counter) when is_atom(reason),
+    do: round_failure(reason, attempt_counter)
+
+  defp bind_attempt_count(_invalid, attempt_counter),
+    do: round_failure(:invalid_review_round_result, attempt_counter)
+
+  defp round_failure(reason, attempt_counter),
+    do: {:error, {:review_round_failed, reason, :counters.get(attempt_counter, 1)}}
 
   defp order_results(protocol, results) do
     by_group = Map.new(results, &{&1.group_id, &1})

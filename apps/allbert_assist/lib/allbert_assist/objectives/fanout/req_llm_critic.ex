@@ -13,7 +13,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReqLLMCritic do
   alias AllbertAssist.Maps
   alias AllbertAssist.Models.PromptEnvelope
   alias AllbertAssist.Objectives.CanonicalJSON
-  alias AllbertAssist.Objectives.Fanout.ReviewProtocol
+  alias AllbertAssist.Objectives.Fanout.{ReviewProtocol, ReviewRound}
   alias AllbertAssist.Settings.{ModelRuntime, Models}
   alias ReqLLM.Response
 
@@ -50,7 +50,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReqLLMCritic do
              timeout_ms,
              max_output_tokens
            ),
-         {:ok, response} <- invoke(client, model_spec, prompt, schema, opts),
+         {:ok, response} <- invoke(client, model_spec, prompt, schema, opts, context),
          :ok <- validate_finish_reason(response),
          object when is_map(object) <- response_object(response) do
       {:ok,
@@ -309,10 +309,12 @@ defmodule AllbertAssist.Objectives.Fanout.ReqLLMCritic do
     sha256(@reviewer_config_domain <> CanonicalJSON.encode(config))
   end
 
-  defp invoke(client, model_spec, prompt, schema, opts) do
-    case client.generate_object(model_spec, prompt, schema, opts) do
-      {:ok, response} -> {:ok, response}
-      _failure -> {:error, :fanout_review_provider_failed}
+  defp invoke(client, model_spec, prompt, schema, opts, context) do
+    with :ok <- ReviewRound.note_provider_attempt(context) do
+      case client.generate_object(model_spec, prompt, schema, opts) do
+        {:ok, response} -> {:ok, response}
+        _failure -> {:error, :fanout_review_provider_failed}
+      end
     end
   rescue
     _exception -> {:error, :fanout_review_provider_failed}

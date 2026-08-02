@@ -11,6 +11,7 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
 
   defmodule ScriptedCritic do
     def assess(request, context) do
+      :ok = ReviewRound.note_provider_attempt(context)
       group_id = request["group"]["id"]
       send(context.test_pid, {:critic_started, group_id, self(), request})
       Process.sleep(Map.fetch!(context.delays, group_id))
@@ -42,6 +43,7 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
 
   defmodule SuppliedAssessmentCritic do
     def assess(request, context) do
+      :ok = ReviewRound.note_provider_attempt(context)
       group_id = request["group"]["id"]
 
       {:ok,
@@ -60,12 +62,14 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
 
   defmodule FailingAndBlockingCritic do
     def assess(%{"group" => %{"id" => "coverage_fidelity"}}, context) do
+      :ok = ReviewRound.note_provider_attempt(context)
       send(context.test_pid, {:failing_critic_started, self()})
       Process.sleep(100)
       {:error, :retryable_provider_failure}
     end
 
     def assess(%{"group" => %{"id" => "safety_consistency"}}, context) do
+      :ok = ReviewRound.note_provider_attempt(context)
       send(context.test_pid, {:blocking_critic_started, self()})
 
       receive do
@@ -76,8 +80,29 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
 
   defmodule BlockingCritic do
     def assess(request, context) do
+      :ok = ReviewRound.note_provider_attempt(context)
       group_id = request["group"]["id"]
       send(context.test_pid, {:blocking_critic_started, group_id, self()})
+
+      receive do
+        :unexpected_release -> {:error, :unexpected_release}
+      end
+    end
+  end
+
+  defmodule CountedFailingAndBlockingCritic do
+    def assess(%{"group" => %{"id" => "coverage_fidelity"}}, context) do
+      :ok = ReviewRound.note_provider_attempt(context)
+      send(context.test_pid, {:counted_failing_critic_started, self()})
+
+      receive do
+        :release_failure -> {:error, :retryable_provider_failure}
+      end
+    end
+
+    def assess(%{"group" => %{"id" => "safety_consistency"}}, context) do
+      :ok = ReviewRound.note_provider_attempt(context)
+      send(context.test_pid, {:counted_blocking_critic_started, self()})
 
       receive do
         :unexpected_release -> {:error, :unexpected_release}
@@ -329,7 +354,7 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
   end
 
   test "the first critic infrastructure failure brutally stops its running sibling" do
-    assert {:error, :critic_implementation_failed} =
+    assert {:error, {:review_round_failed, :critic_implementation_failed, 2}} =
              ReviewRound.run(
                protocol!(),
                %{"task_contract" => "Review this bounded task."},
@@ -345,8 +370,34 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
     refute Process.alive?(blocking_pid)
   end
 
+  test "a failed round reports every admitted physical provider attempt" do
+    test_pid = self()
+
+    round =
+      Task.async(fn ->
+        ReviewRound.run(
+          protocol!(),
+          %{"task_contract" => "Review this bounded task."},
+          "Candidate under review.",
+          %{test_pid: test_pid},
+          critic_implementation: CountedFailingAndBlockingCritic,
+          deadline_monotonic_ms: System.monotonic_time(:millisecond) + 1_000
+        )
+      end)
+
+    assert_receive {:counted_failing_critic_started, failing_pid}
+    assert_receive {:counted_blocking_critic_started, blocking_pid}
+    send(failing_pid, :release_failure)
+
+    assert {:error, {:review_round_failed, :critic_implementation_failed, 2}} =
+             Task.await(round, 1_000)
+
+    refute Process.alive?(failing_pid)
+    refute Process.alive?(blocking_pid)
+  end
+
   test "one monotonic deadline stops both critics without returning partial evidence" do
-    assert {:error, :review_deadline_exhausted} =
+    assert {:error, {:review_round_failed, :review_deadline_exhausted, 2}} =
              ReviewRound.run(
                protocol!(),
                %{"task_contract" => "Review this bounded task."},
@@ -381,7 +432,7 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
     assert_receive {:blocking_critic_started, "coverage_fidelity", coverage_pid}
     assert_receive {:blocking_critic_started, "safety_consistency", safety_pid}
     assert :ok = CancelToken.cancel(cancel_token)
-    assert {:error, :review_cancelled} = Task.await(round, 1_000)
+    assert {:error, {:review_round_failed, :review_cancelled, 2}} = Task.await(round, 1_000)
     refute Process.alive?(coverage_pid)
     refute Process.alive?(safety_pid)
   end
@@ -448,7 +499,7 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
     ]
 
     Enum.each(invalid_coverage, fn invalid ->
-      assert {:error, :invalid_critic_assessment} =
+      assert {:error, {:review_round_failed, :invalid_critic_assessment, 2}} =
                ReviewRound.run(
                  protocol!(),
                  %{"task_contract" => "Review this bounded task."},
@@ -464,7 +515,7 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
                )
     end)
 
-    assert {:error, :invalid_review_sources} =
+    assert {:error, {:review_round_failed, :invalid_review_sources, 0}} =
              ReviewRound.run(
                protocol!(),
                %{},
@@ -474,7 +525,7 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
                deadline_monotonic_ms: System.monotonic_time(:millisecond) + 1_000
              )
 
-    assert {:error, :invalid_review_sources} =
+    assert {:error, {:review_round_failed, :invalid_review_sources, 0}} =
              ReviewRound.run(
                protocol!(),
                %{"task_contract" => "Task", "foreign_source" => "data"},
