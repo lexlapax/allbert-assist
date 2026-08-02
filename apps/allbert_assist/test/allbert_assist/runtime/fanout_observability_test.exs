@@ -11,6 +11,13 @@ defmodule AllbertAssist.Runtime.FanoutObservabilityTest do
 
   setup do
     original_runtime = Application.get_env(:allbert_assist, Runtime)
+    original_readiness = Application.get_env(:allbert_assist, :runtime_model_readiness)
+
+    Application.put_env(
+      :allbert_assist,
+      :runtime_model_readiness,
+      AllbertAssist.Test.ModelReadinessFake
+    )
 
     assert {:ok, _setting} =
              Settings.put("objectives.fanout.enabled", true, %{audit?: false})
@@ -22,6 +29,9 @@ defmodule AllbertAssist.Runtime.FanoutObservabilityTest do
              Settings.put("objectives.fanout.confirm_before_start", false, %{audit?: false})
 
     assert {:ok, _setting} =
+             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
              Settings.put("channels.telegram.autonomous_notify.enabled", false, %{audit?: false})
 
     Application.put_env(:allbert_assist, Runtime, decomposer: fn _text, _context -> :single end)
@@ -30,6 +40,10 @@ defmodule AllbertAssist.Runtime.FanoutObservabilityTest do
       if original_runtime,
         do: Application.put_env(:allbert_assist, Runtime, original_runtime),
         else: Application.delete_env(:allbert_assist, Runtime)
+
+      if is_nil(original_readiness),
+        do: Application.delete_env(:allbert_assist, :runtime_model_readiness),
+        else: Application.put_env(:allbert_assist, :runtime_model_readiness, original_readiness)
     end)
 
     :ok

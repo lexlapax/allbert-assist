@@ -74,117 +74,76 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
   }
 
   defmodule DeterministicDraftAnswerer do
-    def answer(_text, _context) do
-      {:ok, %{message: "Initial child draft.", diagnostic: %{status: :used}}}
+    alias AllbertAssist.Models.ProviderAttempt
+
+    def answer(_text, context) do
+      :ok = ProviderAttempt.mark(context)
+
+      message =
+        case Map.get(context, :fanout_worker_phase) do
+          :revision -> "Revised phase-reviewed child answer."
+          _draft -> "Phase-reviewed child answer."
+        end
+
+      {:ok, %{message: message, diagnostic: %{status: :used}}}
     end
   end
 
-  defmodule WorkerQualityModels do
-    def for(:fanout_synthesis, _context) do
+  defmodule AcceptingPhaseCritic do
+    alias AllbertAssist.Objectives.Fanout.ReviewRound
+
+    def assess(request, context), do: phase_assessment(request, context, nil)
+
+    defp phase_assessment(request, context, violated_rule_id) do
+      :ok = ReviewRound.note_provider_attempt(context)
+      group = Map.fetch!(request, "group")
+
+      assessments =
+        Enum.map(Map.fetch!(group, "rule_ids"), fn rule_id ->
+          %{
+            "rule_id" => rule_id,
+            "status" => if(rule_id == violated_rule_id, do: "violated", else: "satisfied"),
+            "source_handles" => ["task_contract", "candidate"]
+          }
+        end)
+
       {:ok,
        %{
-         profile: %{
-           name: "worker-quality-test",
-           provider: "local_ollama",
-           provider_endpoint_kind: "local_endpoint",
-           provider_type: "openai_compatible",
-           model: "fixture-quality-model",
-           max_tokens: 1_024,
-           timeout_ms: 60_000
-         }
+         assessment: %{"group_id" => group["id"], "assessments" => assessments},
+         reviewer_config_sha256: sha256("accepted:#{context.fanout_review_phase}:#{group["id"]}")
        }}
     end
+
+    defp sha256(value),
+      do: :sha256 |> :crypto.hash(value) |> Base.encode16(case: :lower)
   end
 
-  defmodule AllowWorkerQualityDisclosure do
-    def authorize_transport(_profile, _context), do: :ok
-  end
+  defmodule PersistentlyViolatingPhaseCritic do
+    alias AllbertAssist.Objectives.Fanout.ReviewRound
 
-  defmodule AcceptingRawQualityClient do
-    alias AllbertAssist.Objectives.Runs.Worker.QualityPolicy
+    def assess(request, context) do
+      :ok = ReviewRound.note_provider_attempt(context)
+      group = Map.fetch!(request, "group")
 
-    def generate_object(_model_spec, prompt, _schema, _opts) do
-      {:ok,
-       %ReqLLM.Response{
-         id: "raw-worker-quality-accepted",
-         model: "fixture-quality-model",
-         context: prompt,
-         finish_reason: :stop,
-         object: %{
-           "final_answer" => "Raw-reviewed child answer.",
-           "rule_violations" => Map.new(QualityPolicy.rule_ids(), &{&1, false})
-         }
-       }}
-    end
-  end
-
-  defmodule AcceptingProductionReviewer do
-    alias AllbertAssist.Objectives.Runs.Worker.ReqLLMReviewer
-
-    def prepare(contract, draft, context),
-      do: ReqLLMReviewer.prepare(contract, draft, reviewer_context(context))
-
-    def invoke(prepared, context),
-      do: ReqLLMReviewer.invoke(prepared, reviewer_context(context))
-
-    defp reviewer_context(context) do
-      context
-      |> Map.put(:models, AllbertAssist.Objectives.Fanout.ReportV2Test.WorkerQualityModels)
-      |> Map.put(
-        :disclosure,
-        AllbertAssist.Objectives.Fanout.ReportV2Test.AllowWorkerQualityDisclosure
-      )
-      |> Map.put(
-        :req_llm_client,
-        AllbertAssist.Objectives.Fanout.ReportV2Test.AcceptingRawQualityClient
-      )
-    end
-  end
-
-  defmodule ViolatingRawQualityClient do
-    alias AllbertAssist.Objectives.Runs.Worker.QualityPolicy
-
-    def generate_object(_model_spec, prompt, _schema, _opts) do
-      violations =
-        QualityPolicy.rule_ids()
-        |> Map.new(&{&1, false})
-        |> Map.put("completion_preconditions", true)
+      assessments =
+        Enum.map(Map.fetch!(group, "rule_ids"), fn rule_id ->
+          %{
+            "rule_id" => rule_id,
+            "status" =>
+              if(rule_id == "completion_preconditions", do: "violated", else: "satisfied"),
+            "source_handles" => ["task_contract", "candidate"]
+          }
+        end)
 
       {:ok,
-       %ReqLLM.Response{
-         id: "raw-worker-quality-unresolved",
-         model: "fixture-quality-model",
-         context: prompt,
-         finish_reason: :stop,
-         object: %{
-           "final_answer" => "The required evidence remains unavailable.",
-           "rule_violations" => violations
-         }
+       %{
+         assessment: %{"group_id" => group["id"], "assessments" => assessments},
+         reviewer_config_sha256: sha256("violating:#{context.fanout_review_phase}:#{group["id"]}")
        }}
     end
-  end
 
-  defmodule ViolatingProductionReviewer do
-    alias AllbertAssist.Objectives.Runs.Worker.ReqLLMReviewer
-
-    def prepare(contract, draft, context),
-      do: ReqLLMReviewer.prepare(contract, draft, reviewer_context(context))
-
-    def invoke(prepared, context),
-      do: ReqLLMReviewer.invoke(prepared, reviewer_context(context))
-
-    defp reviewer_context(context) do
-      context
-      |> Map.put(:models, AllbertAssist.Objectives.Fanout.ReportV2Test.WorkerQualityModels)
-      |> Map.put(
-        :disclosure,
-        AllbertAssist.Objectives.Fanout.ReportV2Test.AllowWorkerQualityDisclosure
-      )
-      |> Map.put(
-        :req_llm_client,
-        AllbertAssist.Objectives.Fanout.ReportV2Test.ViolatingRawQualityClient
-      )
-    end
+    defp sha256(value),
+      do: :sha256 |> :crypto.hash(value) |> Base.encode16(case: :lower)
   end
 
   defmodule RegisteredActionLifecycleAdapter do
@@ -632,7 +591,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     end
   end
 
-  test "v2 model provenance binds exact synthesis and fails closed on body tamper" do
+  test "historical synthesis-contract-v1 provenance binds exact synthesis and replays unchanged" do
     authorities =
       Map.new(children(), fn child ->
         {child.id,
@@ -694,6 +653,188 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
 
     assert {:error, _reason} =
              Report.validate_selected_body(frozen.snapshot, "model", tampered, provenance)
+  end
+
+  test "synthesis-contract-v2 provenance accepts only both closed phase topologies" do
+    no_revision = synthesis_contract_v2_provenance()
+
+    revised =
+      synthesis_contract_v2_provenance(%{
+        revision_call_count: 1,
+        final_critic_call_count: 2,
+        provider_call_count: 6,
+        final_assessment_sha256: String.duplicate("f", 64),
+        accepted_assessment_sha256: String.duplicate("f", 64)
+      })
+
+    for provenance <- [no_revision, revised] do
+      assert {:ok, normalized} = Report.normalize_selection_provenance("model", provenance)
+      assert normalized == provenance
+
+      assert {:ok, digest} = Report.selection_digest("model", provenance)
+
+      expected_digest =
+        :sha256
+        |> :crypto.hash([
+          "allbert:fanout-report-selection:v2\0",
+          CanonicalJSON.encode(%{source: "model", provenance: provenance})
+        ])
+        |> Base.encode16(case: :lower)
+
+      assert digest == expected_digest
+    end
+
+    invalid = [
+      Map.delete(no_revision, :accepted_assessment_sha256),
+      Map.put(no_revision, :unexpected, true),
+      Map.put(no_revision, :synthesis_contract_version, 3),
+      Map.put(no_revision, :review_protocol_version, 2),
+      Map.put(no_revision, :critic_group_count, 1),
+      Map.put(no_revision, :rule_group_catalog_version, 2),
+      Map.put(no_revision, :rule_group_catalog_sha256, String.duplicate("0", 64)),
+      Map.put(no_revision, :reviewer_config_sha256, String.duplicate("A", 64)),
+      Map.put(no_revision, :generation_call_count, 2),
+      Map.put(no_revision, :initial_critic_call_count, 1),
+      Map.put(no_revision, :revision_call_count, 2),
+      Map.put(no_revision, :final_critic_call_count, 2),
+      Map.put(no_revision, :provider_call_count, 4),
+      Map.put(no_revision, :initial_assessment_sha256, String.duplicate("A", 64)),
+      Map.put(no_revision, :final_assessment_sha256, String.duplicate("f", 64)),
+      Map.put(no_revision, :accepted_assessment_sha256, String.duplicate("f", 64)),
+      Map.put(revised, :final_assessment_sha256, nil),
+      Map.put(revised, :accepted_assessment_sha256, no_revision.initial_assessment_sha256)
+    ]
+
+    Enum.each(invalid, fn provenance ->
+      assert {:error, :invalid_fanout_report_provenance} =
+               Report.normalize_selection_provenance("model", provenance)
+    end)
+  end
+
+  test "durable selected-event replay delegates exact synthesis-contract-v2 validation" do
+    assert {:ok, %{parent: parent, children: children}} =
+             Fanout.frame(
+               %{
+                 user_id: "report-v2-selection-event",
+                 title: "Select one phase-reviewed report",
+                 objective: "Join two registered-action observations."
+               },
+               ["first registered action", "second registered action"]
+             )
+
+    Enum.each(children, fn child ->
+      summary = "registered action result #{child.queue_position}"
+
+      assert {:ok, step} =
+               Objectives.create_step(%{
+                 objective_id: child.id,
+                 kind: "action",
+                 status: "completed",
+                 stage: "observe_step",
+                 candidate_action: "append_memory",
+                 result_summary: summary
+               })
+
+      assert {:ok, _child} =
+               child
+               |> Objective.changeset(%{
+                 status: "completed",
+                 current_step_id: step.id,
+                 last_observation_summary: summary,
+                 completed_at: DateTime.utc_now()
+               })
+               |> Repo.update()
+
+      assert {:ok, _event} =
+               Objectives.create_event(%{
+                 objective_id: child.id,
+                 kind: "run_completed",
+                 payload: %{
+                   summary: summary,
+                   step_id: step.id,
+                   step_status: "completed"
+                 }
+               })
+    end)
+
+    assert {:ok, terminal_parent} =
+             parent
+             |> Objective.changeset(%{
+               status: "completed",
+               join_outcome: "success",
+               completed_at: DateTime.utc_now()
+             })
+             |> Repo.update()
+
+    assert {:ok, frozen} = Fanout.report_input_v2(terminal_parent)
+
+    assert {:ok, composing_parent} =
+             terminal_parent
+             |> Objective.changeset(%{
+               report_composition_state: "composing",
+               report_input_digest: frozen.input_digest,
+               report_delivery_state: "not_ready"
+             })
+             |> Repo.update()
+
+    assert {:ok, _join_event} =
+             Objectives.create_event(%{
+               objective_id: parent.id,
+               kind: "fanout_joined",
+               payload: %{
+                 status: "completed",
+                 join_outcome: "success",
+                 report_composition_state: "queued",
+                 report_input_digest: frozen.input_digest
+               }
+             })
+
+    synthesis = "The two registered-action observations complement the joined request."
+    assert {:ok, prepared} = Report.prepare_synthesis(frozen.snapshot, accepted_result(synthesis))
+
+    provenance =
+      synthesis_contract_v2_provenance(%{
+        sections: prepared.layout.sections,
+        synthesis_sha256: prepared.synthesis_sha256
+      })
+
+    assert {:ok, selected} =
+             Fanout.select_composition(
+               %{parent: composing_parent, frozen: frozen},
+               "model",
+               prepared.body,
+               provenance
+             )
+
+    assert Fanout.parent_projection(selected).authoritatively_joined?
+
+    assert [selection_event] =
+             parent.id
+             |> Objectives.list_events()
+             |> Enum.filter(&(&1.kind == "fanout_report_selected"))
+
+    original_payload = Jason.decode!(selection_event.payload)
+    assert original_payload["synthesis_contract_version"] == 2
+    assert original_payload["provider_call_count"] == 3
+
+    for tampered_payload <- [
+          Map.put(original_payload, "unexpected", true),
+          Map.put(original_payload, "provider_call_count", 4)
+        ] do
+      assert {:ok, _event} =
+               selection_event
+               |> Ecto.Changeset.change(payload: Jason.encode!(tampered_payload))
+               |> Repo.update()
+
+      refute Fanout.parent_projection(selected).authoritatively_joined?
+    end
+
+    assert {:ok, _event} =
+             selection_event
+             |> Ecto.Changeset.change(payload: Jason.encode!(original_payload))
+             |> Repo.update()
+
+    assert Fanout.parent_projection(selected).authoritatively_joined?
   end
 
   test "new fallback provenance records whether synthesis was not run or unresolved" do
@@ -954,25 +1095,27 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
         assert {:ok, task_digest} = QualityPolicy.digest(contract)
         assert {:ok, task_digests} = QualityPolicy.receipt_task_digests(contract)
 
-        assert {:ok, current_receipt} =
-                 QualityReceipt.build(%{
-                   objective_id: child.id,
-                   step_id: step.id,
-                   task_contract_sha256: task_digest,
-                   rule_catalog_version: QualityPolicy.version(),
-                   reviewer_config_sha256: String.duplicate("b", 64),
-                   provider_call_count: 2,
-                   verdict: "accepted",
-                   failed_rule_ids: [],
-                   final_answer: answer
-                 })
-
         receipt =
           if child.queue_position == 0 do
-            current_receipt
-            |> Map.put("rule_catalog_version", 1)
-            |> Map.put("task_contract_sha256", task_digests["1"])
+            legacy_quality_receipt(
+              child.id,
+              step.id,
+              task_digests["1"],
+              answer,
+              String.duplicate("b", 64)
+            )
           else
+            assert {:ok, current_receipt} =
+                     QualityReceipt.build(
+                       quality_receipt_v2_binding(
+                         child.id,
+                         step.id,
+                         task_digest,
+                         answer,
+                         String.duplicate("b", 64)
+                       )
+                     )
+
             current_receipt
           end
 
@@ -1095,7 +1238,10 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
       "not-json",
       Jason.encode!(%{}),
       decoded_payload |> Map.delete("quality_receipt") |> Jason.encode!(),
-      decoded_payload |> Map.put("unexpected", true) |> Jason.encode!()
+      decoded_payload |> Map.put("unexpected", true) |> Jason.encode!(),
+      decoded_payload
+      |> put_in(["quality_receipt", "rule_group_catalog_sha256"], String.duplicate("f", 64))
+      |> Jason.encode!()
     ]
 
     Enum.each(invalid_payloads, fn invalid_payload ->
@@ -1200,17 +1346,15 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
               assert {:ok, task_digest} = QualityPolicy.digest(contract)
 
               assert {:ok, receipt} =
-                       QualityReceipt.build(%{
-                         objective_id: child.id,
-                         step_id: step.id,
-                         task_contract_sha256: task_digest,
-                         rule_catalog_version: QualityPolicy.version(),
-                         reviewer_config_sha256: String.duplicate("d", 64),
-                         provider_call_count: 2,
-                         verdict: "accepted",
-                         failed_rule_ids: [],
-                         final_answer: summary
-                       })
+                       QualityReceipt.build(
+                         quality_receipt_v2_binding(
+                           child.id,
+                           step.id,
+                           task_digest,
+                           summary,
+                           String.duplicate("d", 64)
+                         )
+                       )
 
               %{
                 summary: summary,
@@ -1320,7 +1464,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
              Fanout.report_input_v2(parent)
   end
 
-  test "two raw reviewed DirectAnswer lifecycles atomically bind v2 receipts and queue one v2 join" do
+  test "two phase-reviewed DirectAnswer lifecycles atomically bind v2 receipts and queue one v2 join" do
     with_direct_answer_worker(fn ->
       original_request =
         "Prepare two reviewed analyses and explain their substantive relationship in one joined report."
@@ -1362,10 +1506,10 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
       receipt_digests =
         Map.new(children, fn child ->
           assert {:ok, completed} =
-                   Lifecycle.run(child.id, quality_reviewer: AcceptingProductionReviewer)
+                   Lifecycle.run(child.id, quality_critic: AcceptingPhaseCritic)
 
           assert completed.status == "completed"
-          assert completed.last_observation_summary == "Raw-reviewed child answer."
+          assert completed.last_observation_summary == "Phase-reviewed child answer."
 
           assert [%{candidate_action: "direct_answer", status: "completed"} = step] =
                    Objectives.list_steps(child.id)
@@ -1384,9 +1528,21 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                  } = Jason.decode!(event.payload)
 
           assert step_id == step.id
-          assert receipt["version"] == 1
+          assert receipt["version"] == 2
           assert receipt["rule_catalog_version"] == QualityPolicy.version()
-          assert receipt["provider_call_count"] == 2
+          assert receipt["review_protocol_version"] == 1
+          assert receipt["critic_group_count"] == 2
+          assert receipt["rule_group_catalog_version"] == 1
+          assert receipt["draft_call_count"] == 1
+          assert receipt["initial_critic_call_count"] == 2
+          assert receipt["revision_call_count"] == 0
+          assert receipt["final_critic_call_count"] == 0
+          assert receipt["provider_call_count"] == 3
+          assert receipt["final_assessment_sha256"] == nil
+
+          assert receipt["accepted_assessment_sha256"] ==
+                   receipt["initial_assessment_sha256"]
+
           assert receipt["verdict"] == "accepted"
           assert receipt["failed_rule_ids"] == []
           assert {:ok, receipt_digest} = QualityReceipt.digest(receipt)
@@ -1418,7 +1574,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     end)
   end
 
-  test "one raw worker rule violation fails without a receipt or completed child event" do
+  test "a persistent phase-review violation revises once then fails without durable receipt" do
     with_direct_answer_worker(fn ->
       original_request = "Analyze two mechanisms and join only completed reviewed findings."
 
@@ -1458,8 +1614,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
 
       assert {:error,
               {:fanout_worker_unresolved,
-               %{provider_call_count: 2, reason: :invalid_or_unresolved_quality_review}}} =
-               Lifecycle.run(child.id, quality_reviewer: ViolatingProductionReviewer)
+               %{provider_call_count: 6, reason: :quality_review_unresolved}}} =
+               Lifecycle.run(child.id, quality_critic: PersistentlyViolatingPhaseCritic)
 
       assert {:ok, failed} = Objectives.get_objective(child.id)
       assert failed.status == "failed"
@@ -1842,6 +1998,47 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     assert replayed.input_digest == selected.report_input_digest
   end
 
+  test "exact Budget-v1 queued report snapshot stays v1 and selects the upgrade fallback" do
+    plan = legacy_composer_plan(2)
+    {parent, legacy_with_plan, _join_event} = legacy_unselected_parent!("queued", plan)
+
+    assert {:ok,
+            %{
+              parent: %{id: parent_id},
+              frozen: %{snapshot: %{version: 1}},
+              budget: %{"version" => 1}
+            } = claim} = Fanout.claim_next_composition()
+
+    assert parent_id == parent.id
+    assert claim.frozen.input_digest == legacy_with_plan.input_digest
+
+    assert {:ok, provenance} =
+             Report.fallback_provenance(
+               claim.frozen.snapshot,
+               "review_protocol_upgrade_required"
+             )
+
+    assert {:ok, selected} =
+             Fanout.select_composition(
+               claim,
+               "deterministic_fallback",
+               claim.frozen.fallback_body,
+               provenance
+             )
+
+    assert selected.report_composition_state == "fallback"
+    assert selected.report_input_digest == legacy_with_plan.input_digest
+    assert selected.report_delivery_state == "pending"
+
+    assert [selection_event] =
+             parent.id
+             |> Objectives.list_events()
+             |> Enum.filter(&(&1.kind == "fanout_report_selected"))
+
+    assert Jason.decode!(selection_event.payload)["fallback_reason"] ==
+             "review_protocol_upgrade_required"
+  end
+
   test "stranded composing v1 input recovers once into an unresolved v2 fallback" do
     {parent, legacy, join_event} = legacy_unselected_parent!("composing")
     original_join_payload = join_event.payload
@@ -1870,6 +2067,46 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
 
     assert Fanout.parent_projection(recovered).phase == :joined
     assert {:ok, 0} = Fanout.recover_composition()
+  end
+
+  test "recovery classifies an unsupported explicit budget as an invalid snapshot" do
+    invalid_budget =
+      2
+      |> legacy_composer_plan()
+      |> get_in(["budget"])
+      |> Map.put("version", 99)
+
+    snapshot =
+      @frozen_v1_snapshot
+      |> Map.put(:version, 2)
+      |> Map.put(:plan, %{"budget" => invalid_budget})
+
+    assert {:ok,
+            %{
+              fallback_reason: "invalid_budget_snapshot",
+              synthesis_outcome: "not_run"
+            }} = Report.recovery_fallback_provenance(snapshot)
+  end
+
+  test "recovery distinguishes an absent historical budget from an explicit malformed value" do
+    historical_snapshot =
+      @frozen_v1_snapshot
+      |> Map.put(:version, 2)
+      |> Map.put(:plan, %{})
+
+    malformed_snapshot = put_in(historical_snapshot, [:plan, "budget"], nil)
+
+    assert {:ok,
+            %{
+              fallback_reason: "recovery_after_restart",
+              synthesis_outcome: "unresolved"
+            }} = Report.recovery_fallback_provenance(historical_snapshot)
+
+    assert {:ok,
+            %{
+              fallback_reason: "invalid_budget_snapshot",
+              synthesis_outcome: "not_run"
+            }} = Report.recovery_fallback_provenance(malformed_snapshot)
   end
 
   test "literal pre-v2 report input, fallback body, join event, and digest remain byte-exact" do
@@ -1972,8 +2209,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
 
     assert {:ok, budget} =
              Budget.resolve(16, 1, %{
-               version: 1,
-               max_model_calls: 100,
+               version: 2,
+               max_model_calls: 128,
                max_output_tokens: 100_000,
                max_elapsed_ms: 300_000,
                max_worker_attempts_per_child: 2
@@ -2016,17 +2253,15 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
       assert {:ok, task_digest} = QualityPolicy.digest(contract)
 
       assert {:ok, receipt} =
-               QualityReceipt.build(%{
-                 objective_id: child.id,
-                 step_id: step.id,
-                 task_contract_sha256: task_digest,
-                 rule_catalog_version: QualityPolicy.version(),
-                 reviewer_config_sha256: String.duplicate("c", 64),
-                 provider_call_count: 2,
-                 verdict: "accepted",
-                 failed_rule_ids: [],
-                 final_answer: answer
-               })
+               QualityReceipt.build(
+                 quality_receipt_v2_binding(
+                   child.id,
+                   step.id,
+                   task_digest,
+                   answer,
+                   String.duplicate("c", 64)
+                 )
+               )
 
       assert {:ok, _child} =
                child
@@ -2088,17 +2323,15 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     assert byte_size(prepared.body) <= 32_768
     assert occurrence_count(prepared.body, "truncated for report size") == 0
 
-    provenance = %{
-      model_profile: String.duplicate("p", 120),
-      provider: String.duplicate("r", 120),
-      model: String.duplicate("m", 240),
-      layout_version: 2,
-      sections: prepared.layout.sections,
-      synthesis_contract_version: SynthesisPolicy.version(),
-      review_verdict: "accepted",
-      reviewed_queue_positions: positions,
-      synthesis_sha256: prepared.synthesis_sha256
-    }
+    provenance =
+      synthesis_contract_v2_provenance(%{
+        model_profile: String.duplicate("p", 120),
+        provider: String.duplicate("r", 120),
+        model: String.duplicate("m", 240),
+        sections: prepared.layout.sections,
+        reviewed_queue_positions: positions,
+        synthesis_sha256: prepared.synthesis_sha256
+      })
 
     assert :ok =
              Report.validate_selected_body(
@@ -2179,17 +2412,115 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     }
   end
 
-  defp legacy_unselected_parent!(composition_state)
+  defp quality_receipt_v2_binding(
+         objective_id,
+         step_id,
+         task_contract_sha256,
+         final_answer,
+         reviewer_config_sha256
+       ) do
+    {:ok, rule_group_catalog_sha256} = QualityPolicy.rule_group_catalog_sha256(1)
+
+    assessment_sha256 =
+      sha256("#{objective_id}\0#{step_id}\0#{task_contract_sha256}\0#{final_answer}")
+
+    %{
+      objective_id: objective_id,
+      step_id: step_id,
+      task_contract_sha256: task_contract_sha256,
+      rule_catalog_version: QualityPolicy.version(),
+      review_protocol_version: 1,
+      critic_group_count: 2,
+      rule_group_catalog_version: 1,
+      rule_group_catalog_sha256: rule_group_catalog_sha256,
+      reviewer_config_sha256: reviewer_config_sha256,
+      draft_call_count: 1,
+      initial_critic_call_count: 2,
+      revision_call_count: 0,
+      final_critic_call_count: 0,
+      provider_call_count: 3,
+      initial_assessment_sha256: assessment_sha256,
+      final_assessment_sha256: nil,
+      accepted_assessment_sha256: assessment_sha256,
+      verdict: "accepted",
+      failed_rule_ids: [],
+      final_answer: final_answer
+    }
+  end
+
+  defp legacy_quality_receipt(
+         objective_id,
+         step_id,
+         task_contract_sha256,
+         final_answer,
+         reviewer_config_sha256
+       ) do
+    %{
+      "version" => 1,
+      "objective_id_sha256" => sha256(objective_id),
+      "step_id_sha256" => sha256(step_id),
+      "task_contract_sha256" => task_contract_sha256,
+      "rule_catalog_version" => 1,
+      "reviewer_config_sha256" => reviewer_config_sha256,
+      "provider_call_count" => 2,
+      "verdict" => "accepted",
+      "failed_rule_ids" => [],
+      "final_answer_sha256" => sha256(final_answer)
+    }
+  end
+
+  defp synthesis_contract_v2_provenance(overrides \\ %{}) do
+    {:ok, catalog_sha256} = SynthesisPolicy.rule_group_catalog_sha256(1)
+
+    Map.merge(
+      %{
+        model_profile: "direct_answer_local",
+        provider: "local_ollama",
+        model: "qwen2.5:7b",
+        layout_version: 2,
+        sections: [
+          %{relationship: "complementary", ordered_queue_positions: [0, 1]}
+        ],
+        synthesis_contract_version: 2,
+        review_protocol_version: 1,
+        critic_group_count: 2,
+        rule_group_catalog_version: 1,
+        rule_group_catalog_sha256: catalog_sha256,
+        reviewer_config_sha256: String.duplicate("b", 64),
+        generation_call_count: 1,
+        initial_critic_call_count: 2,
+        revision_call_count: 0,
+        final_critic_call_count: 0,
+        provider_call_count: 3,
+        initial_assessment_sha256: String.duplicate("c", 64),
+        final_assessment_sha256: nil,
+        accepted_assessment_sha256: String.duplicate("c", 64),
+        review_verdict: "accepted",
+        reviewed_queue_positions: [0, 1],
+        synthesis_sha256: String.duplicate("d", 64)
+      },
+      overrides
+    )
+  end
+
+  defp legacy_unselected_parent!(composition_state, plan \\ nil)
        when composition_state in ~w[queued composing] do
     suffix = System.unique_integer([:positive, :monotonic])
 
+    parent_attrs = %{
+      user_id: "report-v2-legacy-#{suffix}",
+      title: "Legacy unselected report #{suffix}",
+      objective: "Recover one exact legacy report input"
+    }
+
+    parent_attrs =
+      if is_map(plan),
+        do: Map.put(parent_attrs, :proposer_hint, %{"fanout_plan" => plan}),
+        else: parent_attrs
+
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               %{
-                 user_id: "report-v2-legacy-#{suffix}",
-                 title: "Legacy unselected report #{suffix}",
-                 objective: "Recover one exact legacy report input"
-               },
+               parent_attrs,
                ["legacy first", "legacy second"]
              )
 
@@ -2247,6 +2578,32 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
              })
 
     {parent, legacy, join_event}
+  end
+
+  defp legacy_composer_plan(child_count) do
+    budget = %{
+      "version" => 1,
+      "child_count" => child_count,
+      "manager_attempts" => 0,
+      "worker_attempts_per_child" => 2,
+      "configured_model_calls" => 40,
+      "required_model_calls" => child_count * 4 + 1,
+      "configured_output_tokens" => 24_000,
+      "required_output_tokens" => child_count * 2_048 + 1_024,
+      "max_elapsed_ms" => 300_000
+    }
+
+    assert {:ok, ^budget} = Budget.validate_snapshot(budget)
+
+    %{
+      "version" => 1,
+      "source" => "counted_protocol",
+      "original_request_sha256" => String.duplicate("a", 64),
+      "plan_sha256" => String.duplicate("b", 64),
+      "manager_attempts" => 0,
+      "budget" => budget,
+      "deadline_unix_ms" => System.system_time(:millisecond) + 300_000
+    }
   end
 
   defp with_direct_answer_worker(callback) when is_function(callback, 0) do

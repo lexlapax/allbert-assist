@@ -12,8 +12,8 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Fanout.Budget
   alias AllbertAssist.Objectives.Objective
-  alias AllbertAssist.Objectives.Runs.Scheduler
-  alias AllbertAssist.Objectives.Runs.Worker.Grounding
+  alias AllbertAssist.Objectives.Runs.{RunServer, Scheduler}
+  alias AllbertAssist.Objectives.Runs.Worker.{GroundedStepSpec, Grounding}
   alias AllbertAssist.Objectives.Steering
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
@@ -703,6 +703,123 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     end)
 
     refute_receive {:run_operation, ^unknown_id, :execute, _pid}, 200
+  end
+
+  test "Budget v2 DirectAnswer retries before start but never replays an interrupted dispatch" do
+    %{parent: parent, children: [safe, direct], receipt: receipt} =
+      frame_two_with_budget(source: :exact_counted)
+
+    add_safe_step(safe)
+    add_action_step(direct, "direct_answer")
+    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    {:ok, starts} = Agent.start_link(fn -> %{} end)
+    direct_id = direct.id
+
+    run_starter = fn {run_server, opts} ->
+      child_id = Keyword.fetch!(opts, :child_id)
+
+      start_number =
+        Agent.get_and_update(starts, fn counts ->
+          start_number = Map.get(counts, child_id, 0) + 1
+          {start_number, Map.put(counts, child_id, start_number)}
+        end)
+
+      if child_id == direct_id and start_number == 1 do
+        {:error, :injected_pre_start_failure}
+      else
+        DynamicSupervisor.start_child(
+          AllbertAssist.Objectives.Runs.Supervisor,
+          {run_server, opts}
+        )
+      end
+    end
+
+    assert {:ok, _coordinator} =
+             Scheduler.start_fanout(parent.id,
+               run_starter: run_starter,
+               run_opts: [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
+             )
+
+    direct_pid = await_paused_run(direct_id)
+
+    eventually(fn -> Agent.get(starts, &Map.get(&1, direct_id)) == 2 end)
+
+    assert {:ok, %{status: "running", run_attempt_count: 1}} =
+             Objectives.get_objective(direct_id)
+
+    assert Enum.count(Objectives.list_events(direct_id), &(&1.kind == "run_started")) == 1
+
+    Process.exit(direct_pid, :kill)
+    release_child_when_paused(safe.id)
+
+    eventually(fn ->
+      with {:ok, parked} <- Objectives.get_objective(direct_id) do
+        parked.status == "blocked" and parked.run_attempt_count == 1 and
+          parked.review_reason =~ "uncertain_effect"
+      end
+    end)
+
+    refute_receive {:run_operation, ^direct_id, :execute, _pid}, 200
+    assert Agent.get(starts, &Map.fetch!(&1, direct_id)) == 2
+
+    events = Objectives.list_events(direct_id)
+    assert Enum.count(events, &(&1.kind == "run_started")) == 1
+    assert Enum.count(events, &(&1.kind == "run_blocked")) == 1
+
+    assert :ok = Scheduler.wake_parent(parent.id)
+    Process.sleep(100)
+
+    refute_receive {:run_operation, ^direct_id, :execute, _pid}, 100
+    assert Agent.get(starts, &Map.fetch!(&1, direct_id)) == 2
+    assert Enum.count(Objectives.list_events(direct_id), &(&1.kind == "run_blocked")) == 1
+  end
+
+  test "boot recovery parks a missing Budget v2 DirectAnswer run without starting it again" do
+    %{parent: parent, children: [direct, sibling], receipt: receipt} = frame_two_with_budget()
+    add_action_step(direct, "direct_answer")
+    force_historical_active_state(direct, "running", 1)
+    force_legacy_terminal_children!([sibling], "already completed sibling")
+
+    assert {:ok, _event} =
+             Objectives.create_event(%{
+               objective_id: direct.id,
+               kind: "run_started",
+               payload: %{attempt: 1}
+             })
+
+    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+    test_pid = self()
+
+    forbidden_starter = fn {_run_server, opts} ->
+      send(test_pid, {:unexpected_direct_answer_restart, Keyword.fetch!(opts, :child_id)})
+      {:error, :direct_answer_must_not_restart}
+    end
+
+    assert {:ok, _coordinator} =
+             Scheduler.start_fanout(parent.id,
+               recovery?: true,
+               run_starter: forbidden_starter
+             )
+
+    eventually(fn ->
+      with {:ok, parked} <- Objectives.get_objective(direct.id) do
+        parked.status == "blocked" and parked.run_attempt_count == 1 and
+          parked.review_reason =~ "uncertain_effect"
+      end
+    end)
+
+    refute_receive {:unexpected_direct_answer_restart, _child_id}, 200
+
+    events = Objectives.list_events(direct.id)
+    assert Enum.count(events, &(&1.kind == "run_started")) == 1
+    assert Enum.count(events, &(&1.kind == "run_blocked")) == 1
+
+    assert :ok = Scheduler.wake_parent(parent.id)
+    Process.sleep(100)
+
+    refute_receive {:unexpected_direct_answer_restart, _child_id}, 100
+    assert Enum.count(Objectives.list_events(direct.id), &(&1.kind == "run_blocked")) == 1
   end
 
   test "safe work gets only one restart and then fails honestly" do
@@ -1696,6 +1813,232 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     end)
   end
 
+  test "Budget v1 recovery blocks DirectAnswer before a run starts and preserves safe actions" do
+    %{
+      parent: direct_parent,
+      children: [queued_direct, running_direct],
+      receipt: direct_receipt
+    } = frame_two_with_budget(budget: :legacy)
+
+    running_step = add_action_step(running_direct, "direct_answer")
+    assert :ok = Fanout.acknowledge_start(direct_receipt, %{user_id: "alice"})
+    running_direct_id = running_direct.id
+
+    assert {:ok, historical_run} =
+             DynamicSupervisor.start_child(
+               AllbertAssist.Objectives.Runs.Supervisor,
+               {RunServer,
+                child_id: running_direct_id,
+                parent_id: direct_parent.id,
+                coordinator: self(),
+                lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]}
+             )
+
+    assert await_paused_run(running_direct_id) == historical_run
+    historical_monitor = Process.monitor(historical_run)
+
+    test_pid = self()
+
+    forbidden_starter = fn {_run_server, opts} ->
+      send(test_pid, {:budget_v1_provider_boundary_entered, Keyword.fetch!(opts, :child_id)})
+      {:error, :budget_v1_provider_boundary_must_not_start}
+    end
+
+    assert {:ok, _coordinator} =
+             Scheduler.start_fanout(direct_parent.id, run_starter: forbidden_starter)
+
+    eventually(fn ->
+      with {:ok, queued} <- Objectives.get_objective(queued_direct.id),
+           {:ok, running} <- Objectives.get_objective(running_direct.id) do
+        queued.status == "failed" and queued.run_attempt_count == 0 and
+          queued.review_reason == "quality_protocol_upgrade_required" and
+          running.status == "failed" and running.run_attempt_count == 1 and
+          running.review_reason == "quality_protocol_upgrade_required"
+      end
+    end)
+
+    refute_receive {:budget_v1_provider_boundary_entered, _child_id}, 200
+    assert_receive {:DOWN, ^historical_monitor, :process, ^historical_run, _reason}, 1_000
+    refute_receive {:run_operation, ^running_direct_id, :execute, _pid}, 100
+
+    assert Enum.count(Objectives.list_events(queued_direct.id), &(&1.kind == "run_failed")) == 1
+    refute Enum.any?(Objectives.list_events(queued_direct.id), &(&1.kind == "run_started"))
+
+    assert Enum.count(Objectives.list_events(running_direct.id), &(&1.kind == "run_failed")) == 1
+    assert Enum.count(Objectives.list_events(running_direct.id), &(&1.kind == "run_started")) == 1
+
+    assert [%{id: step_id, status: "failed", result_summary: step_reason}] =
+             Objectives.list_steps(running_direct.id)
+
+    assert step_id == running_step.id
+    assert step_reason == "quality_protocol_upgrade_required"
+
+    eventually(fn ->
+      with {:ok, joined} <- Objectives.get_objective(direct_parent.id) do
+        joined.join_outcome == "failed" and
+          joined.report_composition_state in ~w[queued composing ready fallback]
+      end
+    end)
+
+    assert Enum.count(Objectives.list_events(direct_parent.id), &(&1.kind == "fanout_joined")) ==
+             1
+
+    assert :ok = Scheduler.wake_parent(direct_parent.id)
+    Process.sleep(100)
+
+    refute_receive {:budget_v1_provider_boundary_entered, _child_id}, 200
+
+    for child <- [queued_direct, running_direct] do
+      assert Enum.count(Objectives.list_events(child.id), &(&1.kind == "run_failed")) == 1
+    end
+
+    %{parent: safe_parent, children: [safe, direct_sibling], receipt: safe_receipt} =
+      frame_two_with_budget(source: :exact_counted, budget: :legacy)
+
+    assert %{source: :counted_protocol} = grounding = Grounding.resolve(safe)
+    assert {:ok, %{action: "list_objectives"}} = GroundedStepSpec.derive(safe, grounding)
+
+    add_safe_step(safe)
+    force_historical_active_state(safe, "running", 1)
+    assert :ok = Fanout.acknowledge_start(safe_receipt, %{user_id: "alice"})
+    direct_sibling_id = direct_sibling.id
+
+    safe_starter = fn {run_server, opts} ->
+      child_id = Keyword.fetch!(opts, :child_id)
+
+      if child_id == direct_sibling_id do
+        send(test_pid, {:budget_v1_provider_boundary_entered, child_id})
+        {:error, :budget_v1_provider_boundary_must_not_start}
+      else
+        DynamicSupervisor.start_child(
+          AllbertAssist.Objectives.Runs.Supervisor,
+          {run_server, opts}
+        )
+      end
+    end
+
+    assert {:ok, safe_coordinator} =
+             Scheduler.start_fanout(safe_parent.id,
+               run_starter: safe_starter,
+               run_opts: [lifecycle_opts: [adapter: PausingAdapter, test_pid: self()]]
+             )
+
+    safe_pid = await_paused_run(safe.id)
+
+    eventually(fn ->
+      with {:ok, failed} <- Objectives.get_objective(direct_sibling.id) do
+        failed.status == "failed" and
+          failed.review_reason == "quality_protocol_upgrade_required"
+      end
+    end)
+
+    send(safe_coordinator, {:run_grant, direct_sibling_id})
+    refute_receive {:budget_v1_provider_boundary_entered, ^direct_sibling_id}, 200
+    send(safe_pid, :continue)
+
+    eventually(fn ->
+      with {:ok, completed} <- Objectives.get_objective(safe.id) do
+        completed.status == "completed" and completed.run_attempt_count == 2
+      end
+    end)
+
+    refute Enum.any?(Objectives.list_events(safe.id), fn event ->
+             event.kind == "run_failed" and
+               Jason.decode!(event.payload)["reason"] == "quality_protocol_upgrade_required"
+           end)
+
+    eventually(fn ->
+      with {:ok, joined} <- Objectives.get_objective(safe_parent.id) do
+        joined.join_outcome == "partial" and
+          joined.report_composition_state in ~w[queued composing ready fallback]
+      end
+    end)
+
+    assert Enum.count(Objectives.list_events(safe_parent.id), &(&1.kind == "fanout_joined")) == 1
+  end
+
+  test "Budget v1 recovery closes blocked and pending-steered DirectAnswer states once" do
+    %{parent: parent, children: [blocked, steered], receipt: receipt} =
+      frame_two_with_budget(budget: :legacy)
+
+    blocked_step = add_action_step(blocked, "direct_answer")
+    assert {:ok, _blocked_step} = Objectives.transition_step(blocked_step, "blocked")
+    force_historical_active_state(blocked, "blocked", 1)
+
+    first_directive = "Replace the historical child task before recovery"
+    directive = "List objectives"
+    assert {:ok, _first_event} = Steering.steer("alice", steered.id, first_directive)
+    assert {:ok, _second_event} = Steering.steer("alice", steered.id, directive)
+    assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
+
+    {:ok, transition_attempts} = Agent.start_link(fn -> %{blocked.id => 0, steered.id => 0} end)
+
+    recovery_transaction_hook = fn child ->
+      if child.id in [blocked.id, steered.id] do
+        case Agent.get_and_update(transition_attempts, fn attempts ->
+               attempt = Map.fetch!(attempts, child.id) + 1
+               {attempt, Map.put(attempts, child.id, attempt)}
+             end) do
+          1 -> {:error, %Exqlite.Error{message: "database is locked"}}
+          _later -> :ok
+        end
+      else
+        :ok
+      end
+    end
+
+    test_pid = self()
+
+    forbidden_starter = fn {_run_server, opts} ->
+      send(test_pid, {:budget_v1_provider_boundary_entered, Keyword.fetch!(opts, :child_id)})
+      {:error, :budget_v1_provider_boundary_must_not_start}
+    end
+
+    assert Registry.lookup(AllbertAssist.Objectives.Runs.Registry, {:fanout, parent.id}) == []
+
+    assert {:ok, _coordinator} =
+             Scheduler.start_fanout(parent.id,
+               run_starter: forbidden_starter,
+               recovery_transaction_hook: recovery_transaction_hook
+             )
+
+    eventually(fn ->
+      with {:ok, failed_blocked} <- Objectives.get_objective(blocked.id),
+           {:ok, failed_steered} <- Objectives.get_objective(steered.id) do
+        failed_blocked.status == "failed" and
+          failed_blocked.review_reason == "quality_protocol_upgrade_required" and
+          failed_steered.status == "failed" and
+          failed_steered.title == directive and
+          failed_steered.review_reason == "quality_protocol_upgrade_required"
+      end
+    end)
+
+    refute_receive {:budget_v1_provider_boundary_entered, _child_id}, 200
+    assert Agent.get(transition_attempts, & &1) == %{blocked.id => 2, steered.id => 2}
+
+    for child <- [blocked, steered] do
+      assert Enum.count(Objectives.list_events(child.id), &(&1.kind == "run_failed")) == 1
+      refute Enum.any?(Objectives.list_events(child.id), &(&1.kind == "run_started"))
+    end
+
+    assert Enum.count(Objectives.list_events(steered.id), &(&1.kind == "steer_applied")) == 2
+    refute Enum.any?(Objectives.list_events(steered.id), &(&1.kind == "run_blocked"))
+
+    eventually(fn ->
+      with {:ok, joined} <- Objectives.get_objective(parent.id) do
+        joined.join_outcome == "failed" and
+          joined.report_composition_state in ~w[queued composing ready fallback]
+      end
+    end)
+
+    assert :ok = Scheduler.wake_parent(parent.id)
+    Process.sleep(100)
+
+    for child <- [blocked, steered] do
+      assert Enum.count(Objectives.list_events(child.id), &(&1.kind == "run_failed")) == 1
+    end
+  end
+
   defp frame_two do
     assert {:ok, %{parent: parent, children: children, fanout_start_receipt: receipt}} =
              Fanout.frame(
@@ -1708,29 +2051,66 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     %{parent: parent, children: children, receipt: receipt}
   end
 
-  defp frame_two_with_budget do
-    original = unique("Parallel frozen-budget request")
+  defp frame_two_with_budget(opts \\ []) do
+    source = Keyword.get(opts, :source, :model)
 
-    plan_children = [
-      %{
-        title: unique("first"),
-        objective: "Complete the first safe recovery fixture",
-        expected_result: "The first fixture completes"
-      },
-      %{
-        title: unique("second"),
-        objective: "Complete the second safe recovery fixture",
-        expected_result: "The second fixture completes"
-      }
-    ]
+    {original, plan_children, manager_attempts} =
+      case source do
+        :model ->
+          {
+            unique("Parallel frozen-budget request"),
+            [
+              %{
+                title: unique("first"),
+                objective: "Complete the first safe recovery fixture",
+                expected_result: "The first fixture completes"
+              },
+              %{
+                title: unique("second"),
+                objective: "Complete the second safe recovery fixture",
+                expected_result: "The second fixture completes"
+              }
+            ],
+            1
+          }
 
-    assert {:ok, compiled} = FanoutPlan.compile(original, plan_children, source: :model)
-    assert {:ok, budget} = Budget.resolve(2, 1)
+        :exact_counted ->
+          {
+            "Do these two tasks in parallel: List objectives; Explain OTP supervision",
+            [
+              %{
+                title: "List objectives",
+                objective: "List objectives",
+                expected_result: "Return the current objective list"
+              },
+              %{
+                title: "Explain OTP supervision",
+                objective: "Explain OTP supervision",
+                expected_result: "Explain the supervision mechanism"
+              }
+            ],
+            0
+          }
+      end
+
+    assert {:ok, compiled} = FanoutPlan.compile(original, plan_children, source: source)
+
+    budget =
+      case Keyword.get(opts, :budget, :current) do
+        :current ->
+          assert {:ok, current} = Budget.resolve(length(plan_children), manager_attempts)
+          current
+
+        :legacy ->
+          legacy = legacy_budget(length(plan_children), manager_attempts)
+          assert {:ok, ^legacy} = Budget.validate_snapshot(legacy)
+          legacy
+      end
 
     provenance =
       compiled
       |> FanoutPlan.provenance()
-      |> Map.put("manager_attempts", 1)
+      |> Map.put("manager_attempts", manager_attempts)
       |> Map.put("budget", budget)
       |> Map.put("deadline_unix_ms", System.system_time(:millisecond) + 60_000)
 
@@ -1748,6 +2128,23 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     on_exit(fn -> stop_fanout_processes(parent.id, Enum.map(children, & &1.id)) end)
 
     %{parent: parent, children: children, receipt: receipt}
+  end
+
+  defp legacy_budget(child_count, manager_attempts) do
+    worker_attempts = 2
+
+    %{
+      "version" => 1,
+      "child_count" => child_count,
+      "manager_attempts" => manager_attempts,
+      "worker_attempts_per_child" => worker_attempts,
+      "configured_model_calls" => 40,
+      "required_model_calls" => manager_attempts + child_count * worker_attempts * 2 + 1,
+      "configured_output_tokens" => 24_000,
+      "required_output_tokens" =>
+        manager_attempts * 1_024 + child_count * worker_attempts * 2 * 512 + 1_024,
+      "max_elapsed_ms" => 300_000
+    }
   end
 
   defp stop_fanout_processes(parent_id, child_ids) do

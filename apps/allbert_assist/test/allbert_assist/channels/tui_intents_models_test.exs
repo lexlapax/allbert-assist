@@ -96,6 +96,13 @@ defmodule AllbertAssist.Channels.TUIIntentsModelsTest do
     assert models =~ "intent_embedding"
     assert models =~ "intent_escalation"
     assert models =~ "gemma4:26b"
+
+    for role <- ~w[fanout_manager fanout_review fanout_synthesis] do
+      assert models =~ "#{role} status="
+      assert models =~ "chain=[direct_answer_local] resolved=direct_answer_local(qwen2.5:7b)"
+      assert models =~ "auto-pull=false key=model_preferences.tasks.#{role}"
+    end
+
     refute models =~ "secret://"
     refute models =~ "api_key"
     refute models =~ "http://"

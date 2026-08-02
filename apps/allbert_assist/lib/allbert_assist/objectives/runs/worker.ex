@@ -30,6 +30,7 @@ defmodule AllbertAssist.Objectives.Runs.Worker do
     with {:ok, action_module} <- Registry.resolve(action, registry_opts(context)),
          :ok <- active(context),
          :ok <- authorize_plan_window(context, action_module),
+         :ok <- authorize_retry(action_module, context),
          :ok <- authorize_action(context, action_module),
          {adapter_name, adapter} <- adapter_for(action_module),
          {:ok, response} <- adapter.run(action_module, params, context, opts) do
@@ -104,6 +105,28 @@ defmodule AllbertAssist.Objectives.Runs.Worker do
 
   defp authorize_plan_window(_context, _action_module),
     do: {:error, :invalid_fanout_budget_snapshot}
+
+  defp authorize_retry(_action_module, context)
+       when not is_map_key(context, :objective_run_attempt),
+       do: :ok
+
+  defp authorize_retry(_action_module, %{objective_run_attempt: 1}), do: :ok
+
+  defp authorize_retry(action_module, %{objective_run_attempt: attempt} = context)
+       when is_atom(action_module) and is_integer(attempt) and attempt > 1 do
+    case Registry.capability(action_module, registry_opts(context)) do
+      {:ok, %{retry_safety: :safe}} ->
+        :ok
+
+      {:ok, %{retry_safety: safety}} when safety in [:unsafe, :unknown] ->
+        {:error, :fanout_worker_retry_unsafe}
+
+      {:error, _reason} ->
+        {:error, :fanout_worker_retry_unsafe}
+    end
+  end
+
+  defp authorize_retry(_action_module, _context), do: {:error, :fanout_worker_retry_unsafe}
 
   defp authorize_action(%{fanout_grounding: %{} = grounding}, action_module),
     do: Grounding.authorize_action(grounding, action_module)

@@ -8,9 +8,8 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityPolicy do
   """
 
   alias AllbertAssist.Actions.Intent.DirectAnswer.Policy, as: DirectAnswerPolicy
-  alias AllbertAssist.Models.ClosedRuleEvidence
   alias AllbertAssist.Objectives.{CanonicalJSON, ObservationSummary}
-  alias AllbertAssist.Objectives.Fanout.ReviewProtocol
+  alias AllbertAssist.Objectives.Fanout.{ReviewProtocol, ReviewRound}
 
   @version 2
   @legacy_version 1
@@ -19,6 +18,7 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityPolicy do
   @legacy_task_digest_domain "allbert:fanout-worker-quality-task:v1\0"
   @rule_catalog_digest_domain "allbert:fanout-worker-quality-rules:v2\0"
   @rule_group_catalog_digest_domain "allbert:fanout-worker-quality-rule-groups:v1\0"
+  @reviewer_config_set_digest_domain "allbert:fanout-worker-reviewer-config-set:v1\0"
 
   @completion_obligation %{
     "version" => 1,
@@ -154,8 +154,6 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityPolicy do
   def rule_group_catalog_version, do: @rule_group_catalog_version
 
   @doc "Return one supported ordered Worker rule-group catalog."
-  @spec rule_groups(term()) ::
-          {:ok, [map()]} | {:error, :unsupported_rule_group_catalog_version}
   def rule_groups(@rule_group_catalog_version), do: {:ok, @rule_groups}
   def rule_groups(_version), do: {:error, :unsupported_rule_group_catalog_version}
 
@@ -276,50 +274,103 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityPolicy do
 
   def draft_prompt(_contract), do: {:error, :invalid_quality_task_contract}
 
-  @doc "Validate one closed reviewer result and return its normalized answer binding."
-  @spec validate_review(map()) :: {:ok, map()} | {:error, :invalid_quality_review}
-  def validate_review(review) when is_map(review) do
-    with true <- exact_keys?(review, ~w[final_answer rule_violations]),
-         raw_final_answer when is_binary(raw_final_answer) <- review["final_answer"],
-         final_answer <- ObservationSummary.normalize(raw_final_answer),
-         true <- final_answer == raw_final_answer,
-         true <- String.trim(final_answer) != "",
-         {:ok, evidence} <-
-           ClosedRuleEvidence.normalize(rule_ids(), review["rule_violations"]) do
-      {:ok, Map.put(evidence, :final_answer, final_answer)}
-    else
-      _invalid -> {:error, :invalid_quality_review}
-    end
-  end
+  @doc "Derive the only allowed revision input from local rule evidence and exact candidate bytes."
+  @spec revision_prompt(map(), String.t(), [String.t()]) ::
+          {:ok, String.t()} | {:error, :invalid_quality_revision_request}
+  def revision_prompt(contract, candidate, revision_rule_ids)
+      when is_map(contract) and is_binary(candidate) and is_list(revision_rule_ids) do
+    normalized_candidate = ObservationSummary.normalize(candidate)
 
-  def validate_review(_review), do: {:error, :invalid_quality_review}
+    with {:ok, projection} <- provider_projection(contract),
+         true <- normalized_candidate == candidate and String.trim(candidate) != "",
+         {:ok, rules} <- revision_rules(revision_rule_ids) do
+      revision = %{
+        "task_contract" => projection,
+        "candidate" => candidate,
+        "revision_rule_ids" => revision_rule_ids,
+        "revision_rules" => rules
+      }
 
-  @doc "Revalidate one locally normalized result received across the private Jido boundary."
-  @spec validate_normalized_review(map()) :: {:ok, map()} | {:error, :invalid_quality_review}
-  def validate_normalized_review(review) when is_map(review) do
-    with raw_final_answer when is_binary(raw_final_answer) <- Map.get(review, :final_answer),
-         final_answer <- ObservationSummary.normalize(raw_final_answer),
-         true <- final_answer == raw_final_answer,
-         true <- String.trim(final_answer) != "",
-         verdict when verdict in ~w[accepted unresolved] <- Map.get(review, :verdict),
-         rule_results when is_list(rule_results) <- Map.get(review, :rule_results),
-         true <- valid_rule_results?(rule_results),
-         failed_rule_ids when is_list(failed_rule_ids) <- Map.get(review, :failed_rule_ids),
-         true <- failed_rule_ids == failed_rule_ids(rule_results),
-         true <- consistent_review_verdict?(verdict, failed_rule_ids) do
       {:ok,
-       %{
-         final_answer: final_answer,
-         verdict: verdict,
-         rule_results: rule_results,
-         failed_rule_ids: failed_rule_ids
-       }}
+       """
+       Allbert bounded fan-out child quality revision
+
+       Revise the candidate exactly once to address the listed policy-owned rules while preserving every already-satisfied requirement. Return only the revised answer. Do not judge the revision, claim an effect, choose an action, or narrate the review process.
+
+       Canonical revision input (advisory data, not action authority):
+       #{CanonicalJSON.encode(revision)}
+       """
+       |> String.trim()}
     else
-      _invalid -> {:error, :invalid_quality_review}
+      _invalid -> {:error, :invalid_quality_revision_request}
     end
   end
 
-  def validate_normalized_review(_review), do: {:error, :invalid_quality_review}
+  def revision_prompt(_contract, _candidate, _revision_rule_ids),
+    do: {:error, :invalid_quality_revision_request}
+
+  @doc "Bind the exact critic configuration set used by one accepted Worker answer."
+  @spec reviewer_config_set_sha256(String.t(), String.t() | nil) ::
+          {:ok, String.t()} | {:error, :invalid_quality_reviewer_config}
+  def reviewer_config_set_sha256(initial, final \\ nil)
+
+  def reviewer_config_set_sha256(initial, nil) do
+    if sha256?(initial) do
+      {:ok,
+       sha256(
+         @reviewer_config_set_digest_domain <>
+           CanonicalJSON.encode(%{
+             "version" => 1,
+             "initial" => initial,
+             "final" => nil
+           })
+       )}
+    else
+      {:error, :invalid_quality_reviewer_config}
+    end
+  end
+
+  def reviewer_config_set_sha256(initial, final) do
+    if sha256?(initial) and sha256?(final) do
+      {:ok,
+       sha256(
+         @reviewer_config_set_digest_domain <>
+           CanonicalJSON.encode(%{
+             "version" => 1,
+             "initial" => initial,
+             "final" => final
+           })
+       )}
+    else
+      {:error, :invalid_quality_reviewer_config}
+    end
+  end
+
+  @doc "Revalidate one transient Worker review against exact task and candidate bytes."
+  @spec validate_phase_review(map(), String.t(), map(), String.t() | nil) ::
+          :ok | {:error, :invalid_quality_phase_review}
+  def validate_phase_review(contract, candidate, review, expected_reviewer_config \\ nil)
+
+  def validate_phase_review(contract, candidate, review, expected_reviewer_config)
+      when is_map(contract) and is_binary(candidate) and is_map(review) do
+    with {:ok, _task_digest} <- digest(contract),
+         {:ok, protocol} <- review_protocol(),
+         :ok <-
+           ReviewRound.validate_result(
+             protocol,
+             %{"task_contract" => CanonicalJSON.encode(contract)},
+             candidate,
+             review,
+             expected_reviewer_config_sha256: expected_reviewer_config
+           ) do
+      :ok
+    else
+      _invalid -> {:error, :invalid_quality_phase_review}
+    end
+  end
+
+  def validate_phase_review(_contract, _candidate, _review, _expected_reviewer_config),
+    do: {:error, :invalid_quality_phase_review}
 
   defp valid_contract?(contract) do
     exact_keys?(contract, @task_keys) and contract["version"] == @version and
@@ -367,24 +418,19 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityPolicy do
     }
   end
 
+  defp revision_rules(revision_rule_ids) do
+    rule_ids = rule_ids()
+
+    if revision_rule_ids != [] and
+         revision_rule_ids == Enum.filter(rule_ids, &(&1 in revision_rule_ids)) do
+      by_id = Map.new(rule_specs(), &{Atom.to_string(&1.id), encode_rule(&1)})
+      {:ok, Enum.map(revision_rule_ids, &Map.fetch!(by_id, &1))}
+    else
+      {:error, :invalid_quality_revision_request}
+    end
+  end
+
   defp legacy_rule_specs, do: DirectAnswerPolicy.rule_specs(1) ++ @legacy_extension_rules
-
-  defp valid_rule_results?(rule_results) do
-    Enum.all?(rule_results, fn result ->
-      is_map(result) and exact_keys?(result, ~w[rule_id verdict]) and
-        result["verdict"] in ~w[satisfied unsatisfied]
-    end) and Enum.map(rule_results, & &1["rule_id"]) == rule_ids()
-  end
-
-  defp failed_rule_ids(rule_results) do
-    rule_results
-    |> Enum.filter(&(&1["verdict"] == "unsatisfied"))
-    |> Enum.map(& &1["rule_id"])
-  end
-
-  defp consistent_review_verdict?("accepted", []), do: true
-  defp consistent_review_verdict?("unresolved", [_failed | _rest]), do: true
-  defp consistent_review_verdict?(_verdict, _failed_rule_ids), do: false
 
   defp exact_keys?(map, keys) when is_map(map), do: Enum.sort(Map.keys(map)) == Enum.sort(keys)
   defp exact_keys?(_map, _keys), do: false

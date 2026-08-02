@@ -2,7 +2,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   use AllbertAssist.DataCase, async: false
   @moduletag :db_serial
 
-  alias AllbertAssist.Models.ClosedRuleEvidence
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Fanout.Budget
@@ -34,14 +33,12 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     end
 
     def provider(relationship, ordered_queue_positions, synthesis) do
+      candidate(relationship, ordered_queue_positions, synthesis)
+    end
+
+    def candidate(relationship, ordered_queue_positions, synthesis) do
       base(relationship, ordered_queue_positions, synthesis)
-      |> put_in(
-        ["review"],
-        %{
-          "rule_violations" => Map.new(SynthesisPolicy.rule_ids(), &{&1, false}),
-          "covered_queue_positions" => ordered_queue_positions
-        }
-      )
+      |> Map.delete("review")
     end
 
     defp base(relationship, ordered_queue_positions, synthesis) do
@@ -55,6 +52,37 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
         "advisory_synthesis" => synthesis,
         "review" => %{}
       }
+    end
+  end
+
+  defmodule SatisfiedCritic do
+    alias AllbertAssist.Objectives.Fanout.ReviewRound
+
+    def assess(request, context) do
+      :ok = ReviewRound.note_provider_attempt(context)
+      send(context.test_pid, {:report_synthesis_critic_call, request["group"]["id"]})
+
+      {:ok,
+       %{
+         assessment: %{
+           "group_id" => request["group"]["id"],
+           "assessments" =>
+             Enum.map(request["group"]["rules"], fn rule ->
+               %{
+                 "rule_id" => rule["id"],
+                 "status" => "satisfied",
+                 "source_handles" => ["task_contract", "candidate"]
+               }
+             end)
+         },
+         reviewer_config_sha256: sha256("composer-critic:" <> request["group"]["id"])
+       }}
+    end
+
+    defp sha256(value) do
+      value
+      |> then(&:crypto.hash(:sha256, &1))
+      |> Base.encode16(case: :lower)
     end
   end
 
@@ -273,11 +301,31 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   end
 
   defmodule ProcessModel do
+    alias AllbertAssist.Models.ProviderAttempt
+
     def compose(snapshot, _profile, context) do
+      :ok = ProviderAttempt.mark(context)
       send(context.test_pid, {:process_compose, snapshot, context})
 
       {:ok,
-       SynthesisFixture.accepted(
+       SynthesisFixture.candidate(
+         "independent",
+         [0],
+         "The first accepted observation answers the requested independent concern."
+       )}
+    end
+  end
+
+  defmodule DoubleMarkedProcessModel do
+    alias AllbertAssist.Models.ProviderAttempt
+
+    def compose(snapshot, _profile, context) do
+      :ok = ProviderAttempt.mark(context)
+      :ok = ProviderAttempt.mark(context)
+      send(context.test_pid, {:double_marked_process_compose, snapshot})
+
+      {:ok,
+       SynthesisFixture.candidate(
          "independent",
          [0],
          "The first accepted observation answers the requested independent concern."
@@ -286,11 +334,14 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   end
 
   defmodule ComplementaryProcessModel do
+    alias AllbertAssist.Models.ProviderAttempt
+
     def compose(snapshot, _profile, context) do
+      :ok = ProviderAttempt.mark(context)
       send(context.test_pid, {:durable_process_compose, snapshot, context})
 
       {:ok,
-       SynthesisFixture.accepted(
+       SynthesisFixture.candidate(
          "complementary",
          [0, 1],
          "The two accepted observations complement each other in answering the joined request."
@@ -299,21 +350,30 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   end
 
   defmodule FailingProcessModel do
+    alias AllbertAssist.Models.ProviderAttempt
+
     def compose(snapshot, _profile, context) do
+      :ok = ProviderAttempt.mark(context)
       send(context.test_pid, {:failed_process_compose, snapshot})
       {:error, :provider_unavailable}
     end
   end
 
   defmodule InvalidProcessModel do
+    alias AllbertAssist.Models.ProviderAttempt
+
     def compose(snapshot, _profile, context) do
+      :ok = ProviderAttempt.mark(context)
       send(context.test_pid, {:invalid_process_compose, snapshot})
       {:ok, %{"sections" => []}}
     end
   end
 
   defmodule ClaimingProcessModel do
+    alias AllbertAssist.Models.ProviderAttempt
+
     def compose(snapshot, _profile, context) do
+      :ok = ProviderAttempt.mark(context)
       send(context.test_pid, {:claiming_process_compose, snapshot})
 
       {:ok,
@@ -339,9 +399,9 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     end
   end
 
-  test "one bounded model call receives the frozen report snapshot only as advisory data" do
+  test "one bounded generation call receives the frozen report snapshot only as advisory data" do
     expected =
-      SynthesisFixture.accepted(
+      SynthesisFixture.candidate(
         "independent",
         [0],
         "The first accepted observation addresses the requested independent concern."
@@ -361,20 +421,20 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     assert Enum.map(prompt.messages, & &1.role) == [:system, :user]
     system = message_text(hd(prompt.messages))
     advisory = message_text(List.last(prompt.messages))
-    assert system =~ ClosedRuleEvidence.violation_semantics()
+    assert system =~ "Follow the declared rules"
     refute system =~ "operator-request-sentinel"
     assert advisory =~ "operator-request-sentinel"
     assert advisory =~ "child-result-sentinel"
 
     assert List.last(prompt.messages).metadata.allbert_prompt == %{
              schema_version: 2,
-             purpose: :fanout_report_synthesis,
+             purpose: :fanout_report_synthesis_generation,
              content_class: :advisory_data,
              rule_ids: SynthesisPolicy.prompt_rule_ids()
            }
 
     assert schema["type"] == "object"
-    assert schema["required"] == ~w[sections advisory_synthesis review]
+    assert schema["required"] == ~w[sections advisory_synthesis]
     assert schema["additionalProperties"] == false
 
     section_schema = schema["properties"]["sections"]["items"]
@@ -392,21 +452,12 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
 
     assert schema["properties"]["advisory_synthesis"]["type"] == "string"
 
-    review_schema = schema["properties"]["review"]
-    assert review_schema["required"] == ~w[rule_violations covered_queue_positions]
-    assert review_schema["additionalProperties"] == false
-
-    assert review_schema["properties"]["rule_violations"] ==
-             ClosedRuleEvidence.schema!(SynthesisPolicy.rule_ids())
-
-    assert review_schema["properties"]["covered_queue_positions"] == %{
-             "type" => "array",
-             "items" => %{"type" => "integer", "minimum" => 0}
-           }
+    refute Map.has_key?(schema["properties"], "review")
 
     assert opts[:temperature] == 0.0
     assert opts[:max_tokens] == 1_024
     assert opts[:receive_timeout] == 5_000
+    assert opts[:total_timeout] == 5_000
     assert opts[:openai_structured_output_mode] == :json_schema
     assert opts[:json_repair] == false
     assert opts[:max_retries] == 0
@@ -557,6 +608,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     [{^claim, "model", body, provenance}] = Agent.get(store, & &1.selected)
     refute body =~ "raw-provider-response-sentinel"
     refute inspect(provenance) =~ "raw-provider-response-sentinel"
+    refute Map.has_key?(provenance, :generation_configuration_sha256)
+    refute Map.has_key?(provenance, :revision_configuration_sha256)
   end
 
   test "supervised composer selects a typed layout and stores one deterministic factual report" do
@@ -585,13 +638,23 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
        disclosure: AllowDisclosure,
        model_client: ProcessModel,
        model_enabled?: true,
-       model_context: %{test_pid: self()}}
+       model_context: %{
+         test_pid: self(),
+         critic_implementation: SatisfiedCritic,
+         models: UnavailableModels,
+         disclosure: DenyDisclosure,
+         request: %{channel: :shadow}
+       }}
     )
 
     assert_receive {:process_compose, snapshot, call_context}, 1_000
     assert snapshot == claim.frozen.snapshot
     assert call_context.max_output_tokens == 1_024
     assert call_context.timeout_ms > 0
+    assert call_context.fanout_deadline_unix_ms == claim.deadline_unix_ms
+    assert call_context.models == ProcessModels
+    assert call_context.disclosure == AllowDisclosure
+    assert call_context.request == %{channel: :cli}
 
     assert eventually(fn ->
              Agent.get(store, fn state ->
@@ -619,19 +682,69 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     assert body =~ ~s|✓ title="First child" [completed] — Registered-action result|
     assert body =~ ~s|✗ title="Second child" [failed] — Registered-action terminal detail|
 
-    assert provenance == %{
+    assert %{
              model_profile: "direct_answer_local",
              provider: "local_ollama",
              model: "qwen2.5:7b",
              layout_version: 2,
              sections: [%{relationship: "independent", ordered_queue_positions: [0]}],
-             synthesis_contract_version: SynthesisPolicy.version(),
+             synthesis_contract_version: 2,
              review_verdict: "accepted",
              reviewed_queue_positions: [0],
-             synthesis_sha256: expected_prepared.synthesis_sha256
-           }
+             synthesis_sha256: expected_synthesis_sha256,
+             review_protocol_version: 1,
+             critic_group_count: 2,
+             rule_group_catalog_version: 1,
+             generation_call_count: 1,
+             initial_critic_call_count: 2,
+             revision_call_count: 0,
+             final_critic_call_count: 0,
+             provider_call_count: 3,
+             final_assessment_sha256: nil
+           } = provenance
+
+    assert expected_synthesis_sha256 == expected_prepared.synthesis_sha256
+
+    Enum.each(
+      [
+        :rule_group_catalog_sha256,
+        :reviewer_config_sha256,
+        :initial_assessment_sha256,
+        :accepted_assessment_sha256
+      ],
+      fn field -> assert provenance[field] =~ ~r/^[0-9a-f]{64}$/ end
+    )
+
+    assert provenance.accepted_assessment_sha256 == provenance.initial_assessment_sha256
+    assert_receive {:report_synthesis_critic_call, _first_group}
+    assert_receive {:report_synthesis_critic_call, _second_group}
 
     refute_received {:process_compose, _, _}
+  end
+
+  test "composer rejects double-marked generation and selects no model report" do
+    claim = claim_with_test_pid()
+    store = process_store([claim])
+
+    start_process_composer(
+      store: {ProcessStore, store},
+      disclosure: AllowDisclosure,
+      model_client: DoubleMarkedProcessModel,
+      model_context: %{test_pid: self(), critic_implementation: SatisfiedCritic},
+      model_enabled?: true
+    )
+
+    assert_receive {:double_marked_process_compose, _snapshot}, 1_000
+    assert_selected_fallback(store, claim, :provider_failed)
+
+    [{^claim, "deterministic_fallback", _body, provenance}] =
+      Agent.get(store, & &1.selected)
+
+    assert provenance.fallback_reason == "provider_failed"
+
+    refute Enum.any?(Agent.get(store, & &1.selected), fn {_claim, source, _body, _provenance} ->
+             source == "model"
+           end)
   end
 
   test "SQLite-backed frame reload authorizes exactly one model composition and delivery" do
@@ -805,6 +918,148 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
       assert occurrence_count(fallback_parent.report_body, detail) == 1
       assert fallback_parent.report_body =~ "fallback-tail-#{queue_position}"
     end)
+  end
+
+  test "SQLite-backed Budget-v1 joined parent selects upgrade fallback before provider" do
+    plan = durable_plan() |> Map.put("budget", legacy_budget(1))
+
+    assert {:ok, %{parent: parent, children: children}} =
+             frame_durable_fanout("budget-v1-joined", "budget-v1-joined-thread", plan)
+
+    Enum.each(children, fn child ->
+      complete_registered_action_child!(
+        child,
+        "Budget-v1 completed result #{child.queue_position}",
+        "budget-v1-joined-#{child.queue_position}"
+      )
+    end)
+
+    assert {:ok, queued} = Objectives.get_objective(parent.id)
+    assert queued.report_composition_state == "queued"
+
+    start_process_composer(
+      store: Fanout,
+      disclosure: AllowDisclosure,
+      model_client: UnexpectedProcessModel,
+      model_enabled?: true
+    )
+
+    assert eventually(fn ->
+             match?(
+               {:ok,
+                %{
+                  report_composition_state: "fallback",
+                  report_source: "deterministic_fallback",
+                  report_delivery_state: "pending"
+                }},
+               Objectives.get_objective(parent.id)
+             )
+           end)
+
+    refute_received :unexpected_process_compose
+    assert_selection_reason!(parent.id, "review_protocol_upgrade_required")
+  end
+
+  test "SQLite-backed mixed terminal Budget-v1 parent selects the same upgrade fallback" do
+    plan = durable_plan() |> Map.put("budget", legacy_budget(1))
+
+    assert {:ok, %{parent: parent, children: [completed, failed]}} =
+             frame_durable_fanout("budget-v1-mixed", "budget-v1-mixed-thread", plan)
+
+    complete_registered_action_child!(
+      completed,
+      "Budget-v1 reviewed completed result",
+      "budget-v1-mixed-completed"
+    )
+
+    fail_child!(failed, "Budget-v1 historical child failed")
+
+    assert {:ok, queued} = Objectives.get_objective(parent.id)
+    assert queued.join_outcome == "partial"
+    assert queued.report_composition_state == "queued"
+
+    start_process_composer(
+      store: Fanout,
+      disclosure: AllowDisclosure,
+      model_client: UnexpectedProcessModel,
+      model_enabled?: true
+    )
+
+    assert eventually(fn ->
+             match?(
+               {:ok,
+                %{
+                  report_composition_state: "fallback",
+                  report_source: "deterministic_fallback"
+                }},
+               Objectives.get_objective(parent.id)
+             )
+           end)
+
+    refute_received :unexpected_process_compose
+    assert_selection_reason!(parent.id, "review_protocol_upgrade_required")
+  end
+
+  test "stranded composing Budget-v1 recovery selects once without duplicate report or delivery" do
+    plan = durable_plan() |> Map.put("budget", legacy_budget(1))
+
+    assert {:ok, %{parent: parent, children: children}} =
+             frame_durable_fanout("budget-v1-composing", "budget-v1-composing-thread", plan)
+
+    Enum.each(children, fn child ->
+      complete_registered_action_child!(
+        child,
+        "Budget-v1 composing result #{child.queue_position}",
+        "budget-v1-composing-#{child.queue_position}"
+      )
+    end)
+
+    assert {:ok, %{parent: %{id: parent_id}, budget: %{"version" => 1}}} =
+             Fanout.claim_next_composition()
+
+    assert parent_id == parent.id
+
+    start_process_composer(
+      store: Fanout,
+      disclosure: AllowDisclosure,
+      model_client: UnexpectedProcessModel,
+      model_enabled?: true
+    )
+
+    assert eventually(fn ->
+             match?(
+               {:ok,
+                %{
+                  report_composition_state: "fallback",
+                  report_source: "deterministic_fallback",
+                  report_delivery_state: "pending"
+                }},
+               Objectives.get_objective(parent.id)
+             )
+           end)
+
+    refute_received :unexpected_process_compose
+    assert {:ok, recovered} = Objectives.get_objective(parent.id)
+    assert is_binary(recovered.report_delivery_receipt_digest)
+    assert_selection_reason!(parent.id, "review_protocol_upgrade_required")
+
+    selection_events =
+      parent.id
+      |> Objectives.list_events()
+      |> Enum.filter(&(&1.kind == "fanout_report_selected"))
+
+    assert length(selection_events) == 1
+    assert {:ok, 0} = Fanout.recover_composition()
+
+    assert [same_event] =
+             parent.id
+             |> Objectives.list_events()
+             |> Enum.filter(&(&1.kind == "fanout_report_selected"))
+
+    assert same_event.id == hd(selection_events).id
+    assert {:ok, unchanged} = Objectives.get_objective(parent.id)
+    assert unchanged.report_selection_digest == recovered.report_selection_digest
+    assert unchanged.report_delivery_receipt_digest == recovered.report_delivery_receipt_digest
   end
 
   test "application supervises an idle composer in test so unrelated DataCase rows are not consumed" do
@@ -999,7 +1254,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
       )
 
     assert eventually(fn ->
-             Agent.get(store, &(&1.recoveries == 1 and &1.claim_attempts >= 1))
+             Agent.get(store, &(&1.recoveries >= 1 and Map.get(&1, :claim_attempts, 0) >= 1))
            end)
 
     Agent.update(store, &Map.put(&1, :claims, [claim]))
@@ -1125,6 +1380,100 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     )
 
     assert_selected_fallback(store, claim, :invalid_budget_snapshot)
+    refute_received :unexpected_process_compose
+  end
+
+  test "a corrupt budget precedes legacy and no-completed synthesis ineligibility" do
+    base_claim = claim_with_test_pid()
+
+    cases = [
+      legacy_unreviewed:
+        Enum.map(base_claim.frozen.snapshot.children, fn
+          %{status: "completed"} = child ->
+            %{child | result_authority: "legacy_unreviewed_advisory"}
+
+          child ->
+            child
+        end),
+      no_completed:
+        Enum.map(base_claim.frozen.snapshot.children, fn child ->
+          %{child | status: "failed", result_authority: "registered_action"}
+        end)
+    ]
+
+    Enum.each(cases, fn {case_name, children} ->
+      snapshot = %{base_claim.frozen.snapshot | children: children}
+
+      claim = %{
+        base_claim
+        | budget: Map.put(base_claim.budget, "configured_output_tokens", "[REDACTED]"),
+          frozen: %{
+            snapshot: snapshot,
+            input_digest: Report.digest(snapshot),
+            fallback_body: Report.fallback(snapshot)
+          }
+      }
+
+      store =
+        start_supervised!(
+          Supervisor.child_spec(
+            {Agent, fn -> %{claims: [claim], selected: [], recoveries: 0} end},
+            id: {:corrupt_budget_precedence_store, case_name}
+          )
+        )
+
+      start_process_composer(
+        store: {ProcessStore, store},
+        disclosure: AllowDisclosure,
+        model_client: UnexpectedProcessModel,
+        model_enabled?: true
+      )
+
+      assert_selected_fallback(store, claim, :invalid_budget_snapshot)
+    end)
+
+    refute_received :unexpected_process_compose
+  end
+
+  test "an exact Budget-v1 claim takes the protocol-upgrade fallback before synthesis eligibility" do
+    claim = claim_with_test_pid()
+
+    legacy_children =
+      Enum.map(claim.frozen.snapshot.children, fn
+        %{status: "completed"} = child ->
+          %{child | result_authority: "legacy_unreviewed_advisory"}
+
+        child ->
+          child
+      end)
+
+    legacy_snapshot = %{claim.frozen.snapshot | children: legacy_children}
+
+    claim = %{
+      claim
+      | budget: legacy_budget(),
+        frozen: %{
+          snapshot: legacy_snapshot,
+          input_digest: Report.digest(legacy_snapshot),
+          fallback_body: Report.fallback(legacy_snapshot)
+        }
+    }
+
+    assert {:ok, _legacy} = Budget.validate_snapshot(claim.budget)
+
+    assert {:error, :legacy_unreviewed_children} =
+             Report.synthesis_eligibility(claim.frozen.snapshot)
+
+    store = process_store([claim])
+
+    start_process_composer(
+      store: {ProcessStore, store},
+      disclosure: AllowDisclosure,
+      model_client: UnexpectedProcessModel,
+      model_enabled?: true
+    )
+
+    assert_selected_fallback(store, claim, :review_protocol_upgrade_required)
     refute_received :unexpected_process_compose
   end
 
@@ -1364,7 +1713,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
 
     assert {:ok, budget} =
              Budget.resolve(2, 0, %{
-               version: 1,
+               version: 2,
                max_model_calls: 40,
                max_output_tokens: 24_000,
                max_elapsed_ms: 300_000,
@@ -1429,7 +1778,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   defp durable_plan do
     assert {:ok, budget} =
              Budget.resolve(2, 1, %{
-               version: 1,
+               version: 2,
                max_model_calls: 40,
                max_output_tokens: 24_000,
                max_elapsed_ms: 300_000,
@@ -1446,6 +1795,20 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
       "manager_attempts" => 1,
       "budget" => budget,
       "deadline_unix_ms" => System.system_time(:millisecond) + 300_000
+    }
+  end
+
+  defp legacy_budget(manager_attempts \\ 0) do
+    %{
+      "version" => 1,
+      "child_count" => 2,
+      "manager_attempts" => manager_attempts,
+      "worker_attempts_per_child" => 2,
+      "configured_model_calls" => 40,
+      "required_model_calls" => manager_attempts + 9,
+      "configured_output_tokens" => 24_000,
+      "required_output_tokens" => manager_attempts * 1_024 + 5_120,
+      "max_elapsed_ms" => 300_000
     }
   end
 
@@ -1498,6 +1861,31 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     transition
   end
 
+  defp fail_child!(child, reason) do
+    assert {:ok, transition} =
+             TerminalTransitions.terminalize_child(
+               child,
+               %{
+                 status: "failed",
+                 review_reason: reason,
+                 completed_at: DateTime.utc_now()
+               },
+               "run_failed",
+               %{reason: reason}
+             )
+
+    transition
+  end
+
+  defp assert_selection_reason!(parent_id, expected_reason) do
+    assert [selection_event] =
+             parent_id
+             |> Objectives.list_events()
+             |> Enum.filter(&(&1.kind == "fanout_report_selected"))
+
+    assert Jason.decode!(selection_event.payload)["fallback_reason"] == expected_reason
+  end
+
   defp completed_snapshot(count) when count in 2..3 do
     base = legacy_claim_snapshot()
 
@@ -1537,13 +1925,22 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   defp start_process_composer(opts) do
     name = :"fanout-report-composer-#{System.unique_integer([:positive])}"
 
-    defaults = [
-      name: name,
-      models: ProcessModels,
-      model_context: %{test_pid: self()}
-    ]
+    model_context =
+      Map.merge(
+        %{test_pid: self(), critic_implementation: SatisfiedCritic},
+        Keyword.get(opts, :model_context, %{})
+      )
 
-    start_supervised!({ReportComposer, Keyword.merge(defaults, opts)})
+    defaults = [name: name, models: ProcessModels]
+
+    opts = Keyword.put(opts, :model_context, model_context)
+
+    start_supervised!(
+      Supervisor.child_spec(
+        {ReportComposer, Keyword.merge(defaults, opts)},
+        id: name
+      )
+    )
   end
 
   defp assert_selected_fallback(store, claim, reason) do

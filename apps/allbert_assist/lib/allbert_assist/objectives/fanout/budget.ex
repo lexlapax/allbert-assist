@@ -9,12 +9,19 @@ defmodule AllbertAssist.Objectives.Fanout.Budget do
 
   alias AllbertAssist.Settings
 
-  @version 1
+  @legacy_version 1
+  @version 2
   @manager_tokens_per_attempt 1_024
-  @worker_tokens_per_call 512
-  @worker_calls_per_attempt 2
-  @composer_calls 1
-  @composer_tokens 1_024
+  @worker_calls_per_child 6
+  @worker_tokens_per_child 3_072
+  @composer_calls 6
+  @composer_tokens 4_096
+  @composer_max_output_tokens 1_024
+
+  @legacy_worker_tokens_per_call 512
+  @legacy_worker_calls_per_attempt 2
+  @legacy_composer_calls 1
+  @legacy_composer_tokens 1_024
 
   @setting_keys [
     "objectives.fanout.max_model_calls_per_plan",
@@ -41,7 +48,7 @@ defmodule AllbertAssist.Objectives.Fanout.Budget do
 
   @typedoc "Settings-owned plan limits frozen before the first manager call."
   @type limits :: %{
-          required(:version) => 1,
+          required(:version) => 2,
           required(:max_model_calls) => pos_integer(),
           required(:max_output_tokens) => pos_integer(),
           required(:max_elapsed_ms) => pos_integer(),
@@ -117,15 +124,22 @@ defmodule AllbertAssist.Objectives.Fanout.Budget do
 
   def authorize_worker(
         %{
-          "version" => @version,
+          "version" => version,
           "worker_attempts_per_child" => max_attempts,
           "max_elapsed_ms" => max_elapsed_ms
-        },
+        } = snapshot,
         attempt,
         deadline_unix_ms,
         now_unix_ms
       ) do
-    if valid_worker_window?(max_attempts, max_elapsed_ms, attempt, deadline_unix_ms, now_unix_ms) do
+    if version in [@legacy_version, @version] and valid_snapshot?(snapshot) and
+         valid_worker_window?(
+           max_attempts,
+           max_elapsed_ms,
+           attempt,
+           deadline_unix_ms,
+           now_unix_ms
+         ) do
       cond do
         attempt > max_attempts -> {:error, :fanout_worker_attempt_budget_exhausted}
         deadline_unix_ms <= now_unix_ms -> {:error, :fanout_plan_deadline_exhausted}
@@ -139,15 +153,18 @@ defmodule AllbertAssist.Objectives.Fanout.Budget do
   def authorize_worker(_snapshot, _attempt, _deadline_unix_ms, _now_unix_ms),
     do: {:error, :invalid_fanout_budget_snapshot}
 
-  @doc "Authorize the single report-composition call inside the frozen plan deadline."
+  @doc "Authorize the bounded phase-separated composition protocol inside the frozen deadline."
   @spec authorize_composer(snapshot(), integer(), integer()) ::
           {:ok,
            %{
-             required(:max_calls) => 1,
+             required(:max_calls) => 6,
              required(:max_output_tokens) => 1_024,
              required(:timeout_ms) => pos_integer()
            }}
-          | {:error, :invalid_fanout_budget_snapshot | :fanout_plan_deadline_exhausted}
+          | {:error,
+             :invalid_fanout_budget_snapshot
+             | :review_protocol_upgrade_required
+             | :fanout_plan_deadline_exhausted}
   def authorize_composer(
         snapshot,
         deadline_unix_ms,
@@ -156,12 +173,16 @@ defmodule AllbertAssist.Objectives.Fanout.Budget do
 
   def authorize_composer(snapshot, deadline_unix_ms, now_unix_ms)
       when is_integer(deadline_unix_ms) and is_integer(now_unix_ms) do
-    with true <- valid_composer_snapshot?(snapshot),
+    with :ok <- composer_compatibility(snapshot),
          remaining when remaining > 0 <- deadline_unix_ms - now_unix_ms do
       {:ok,
-       %{max_calls: @composer_calls, max_output_tokens: @composer_tokens, timeout_ms: remaining}}
+       %{
+         max_calls: @composer_calls,
+         max_output_tokens: @composer_max_output_tokens,
+         timeout_ms: remaining
+       }}
     else
-      false -> {:error, :invalid_fanout_budget_snapshot}
+      {:error, _reason} = error -> error
       _expired -> {:error, :fanout_plan_deadline_exhausted}
     end
   end
@@ -169,10 +190,22 @@ defmodule AllbertAssist.Objectives.Fanout.Budget do
   def authorize_composer(_snapshot, _deadline_unix_ms, _now_unix_ms),
     do: {:error, :invalid_fanout_budget_snapshot}
 
+  @doc "Classify one exact frozen budget for the phase-separated composer protocol."
+  @spec composer_compatibility(snapshot()) ::
+          :ok
+          | {:error, :invalid_fanout_budget_snapshot | :review_protocol_upgrade_required}
+  def composer_compatibility(snapshot) do
+    case validate_snapshot(snapshot) do
+      {:ok, %{"version" => @version}} -> :ok
+      {:ok, %{"version" => @legacy_version}} -> {:error, :review_protocol_upgrade_required}
+      {:error, :invalid_fanout_budget_snapshot} = error -> error
+    end
+  end
+
   @doc "Validate and return one exact closed durable budget snapshot."
   @spec validate_snapshot(map()) :: {:ok, snapshot()} | {:error, :invalid_fanout_budget_snapshot}
   def validate_snapshot(snapshot) when is_map(snapshot) do
-    if valid_composer_snapshot?(snapshot),
+    if valid_snapshot?(snapshot),
       do: {:ok, snapshot},
       else: {:error, :invalid_fanout_budget_snapshot}
   end
@@ -183,13 +216,11 @@ defmodule AllbertAssist.Objectives.Fanout.Budget do
     worker_attempts = limits.max_worker_attempts_per_child
 
     required_calls =
-      manager_attempts +
-        child_count * worker_attempts * @worker_calls_per_attempt + @composer_calls
+      manager_attempts + child_count * @worker_calls_per_child + @composer_calls
 
     required_tokens =
       manager_attempts * @manager_tokens_per_attempt +
-        child_count * worker_attempts * @worker_calls_per_attempt * @worker_tokens_per_call +
-        @composer_tokens
+        child_count * @worker_tokens_per_child + @composer_tokens
 
     snapshot = %{
       "version" => limits.version,
@@ -283,9 +314,9 @@ defmodule AllbertAssist.Objectives.Fanout.Budget do
       Enum.all?([deadline_unix_ms, now_unix_ms], &is_integer/1)
   end
 
-  defp valid_composer_snapshot?(
+  defp valid_snapshot?(
          %{
-           "version" => @version,
+           "version" => version,
            "child_count" => child_count,
            "manager_attempts" => manager_attempts,
            "worker_attempts_per_child" => worker_attempts,
@@ -296,7 +327,8 @@ defmodule AllbertAssist.Objectives.Fanout.Budget do
            "max_elapsed_ms" => max_elapsed_ms
          } = snapshot
        ) do
-    with true <-
+    with true <- version in [@legacy_version, @version],
+         true <-
            Map.keys(snapshot) |> Enum.map(&to_string/1) |> Enum.sort() ==
              Enum.sort(@snapshot_keys),
          true <-
@@ -314,14 +346,8 @@ defmodule AllbertAssist.Objectives.Fanout.Budget do
              worker_attempts
            ),
          true <- Enum.all?([required_calls, required_tokens], &(is_integer(&1) and &1 > 0)) do
-      expected_calls =
-        manager_attempts + child_count * worker_attempts * @worker_calls_per_attempt +
-          @composer_calls
-
-      expected_tokens =
-        manager_attempts * @manager_tokens_per_attempt +
-          child_count * worker_attempts * @worker_calls_per_attempt * @worker_tokens_per_call +
-          @composer_tokens
+      {expected_calls, expected_tokens} =
+        expected_totals(version, child_count, manager_attempts, worker_attempts)
 
       valid_composer_totals?(
         configured_calls,
@@ -336,7 +362,26 @@ defmodule AllbertAssist.Objectives.Fanout.Budget do
     end
   end
 
-  defp valid_composer_snapshot?(_snapshot), do: false
+  defp valid_snapshot?(_snapshot), do: false
+
+  defp expected_totals(@version, child_count, manager_attempts, _worker_attempts) do
+    {
+      manager_attempts + child_count * @worker_calls_per_child + @composer_calls,
+      manager_attempts * @manager_tokens_per_attempt +
+        child_count * @worker_tokens_per_child + @composer_tokens
+    }
+  end
+
+  defp expected_totals(@legacy_version, child_count, manager_attempts, worker_attempts) do
+    {
+      manager_attempts +
+        child_count * worker_attempts * @legacy_worker_calls_per_attempt +
+        @legacy_composer_calls,
+      manager_attempts * @manager_tokens_per_attempt +
+        child_count * worker_attempts * @legacy_worker_calls_per_attempt *
+          @legacy_worker_tokens_per_call + @legacy_composer_tokens
+    }
+  end
 
   defp valid_composer_dimensions?(
          child_count,

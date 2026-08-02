@@ -15,6 +15,7 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
 
   alias AllbertAssist.Objectives.AcceptanceCriteria
   alias AllbertAssist.Objectives.CanonicalJSON
+  alias AllbertAssist.Objectives.Fanout.Budget
   alias AllbertAssist.Objectives.Fanout.PlanProvenance
   alias AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy
   alias AllbertAssist.Objectives.Objective
@@ -23,6 +24,11 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
   @version 1
   @layout_version 1
   @v2_version 2
+  @synthesis_contract_v1 1
+  @synthesis_contract_v2 2
+  @review_protocol_version 1
+  @critic_group_count 2
+  @rule_group_catalog_version 1
   @digest_domain "allbert:fanout-report-input:v1\0"
   @v2_digest_domain "allbert:fanout-report-input:v2\0"
   @selection_digest_domain "allbert:fanout-report-selection:v1\0"
@@ -48,12 +54,13 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
   @v1_fallback_reasons ~w[
     model_disabled budget_denied invalid_budget_snapshot deadline_exhausted
     profile_unavailable transport_denied provider_failed invalid_model_output
-    recovery_after_restart historical_backfill
+    recovery_after_restart historical_backfill review_protocol_upgrade_required
   ]
   @v2_fallback_reasons @v1_fallback_reasons ++
-                         ~w[legacy_unreviewed_children composition_input_too_large no_completed_children synthesis_timeout]
+                         ~w[legacy_unreviewed_children composition_input_too_large no_completed_children synthesis_timeout phase_review_unresolved]
   @unresolved_fallback_reasons ~w[
     provider_failed invalid_model_output recovery_after_restart synthesis_timeout
+    phase_review_unresolved
   ]
 
   @type evidence_ref :: %{
@@ -729,6 +736,40 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
   def fallback_provenance(_snapshot, _reason),
     do: {:error, :invalid_fanout_report_input}
 
+  @doc "Derive generation-matched provenance for one interrupted composition recovery."
+  @spec recovery_fallback_provenance(snapshot()) :: {:ok, map()} | {:error, term()}
+  def recovery_fallback_provenance(snapshot) when is_map(snapshot) do
+    fallback_provenance(snapshot, recovery_fallback_reason(snapshot))
+  end
+
+  def recovery_fallback_provenance(_snapshot),
+    do: {:error, :invalid_fanout_report_input}
+
+  defp recovery_fallback_reason(snapshot) do
+    case snapshot |> map_field(:plan) |> explicit_budget() do
+      :missing ->
+        "recovery_after_restart"
+
+      {:present, budget} ->
+        case Budget.composer_compatibility(budget) do
+          :ok -> "recovery_after_restart"
+          {:error, :review_protocol_upgrade_required} -> "review_protocol_upgrade_required"
+          {:error, :invalid_fanout_budget_snapshot} -> "invalid_budget_snapshot"
+        end
+    end
+  end
+
+  defp explicit_budget(plan) when is_map(plan) do
+    case {Map.fetch(plan, "budget"), Map.fetch(plan, :budget)} do
+      {{:ok, budget}, :error} -> {:present, budget}
+      {:error, {:ok, budget}} -> {:present, budget}
+      {:error, :error} -> :missing
+      {_duplicate_string_and_atom_keys, _duplicate} -> {:present, :invalid}
+    end
+  end
+
+  defp explicit_budget(_plan), do: :missing
+
   defp normalize_v1_model_provenance(provenance) do
     with true <-
            map_size(provenance) == 5 and
@@ -757,6 +798,14 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
   end
 
   defp normalize_v2_model_provenance(provenance) do
+    case provenance_field(provenance, :synthesis_contract_version) do
+      @synthesis_contract_v1 -> normalize_v2_contract_v1_model_provenance(provenance)
+      @synthesis_contract_v2 -> normalize_v2_contract_v2_model_provenance(provenance)
+      _unsupported_or_missing -> {:error, :invalid_fanout_report_provenance}
+    end
+  end
+
+  defp normalize_v2_contract_v1_model_provenance(provenance) do
     with true <-
            map_size(provenance) == 9 and
              provenance_keys(provenance) ==
@@ -773,9 +822,8 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
              provenance_field(provenance, :layout_version),
              provenance_field(provenance, :sections)
            ),
-         true <-
-           provenance_field(provenance, :synthesis_contract_version) ==
-             SynthesisPolicy.version(),
+         @synthesis_contract_v1 <-
+           provenance_field(provenance, :synthesis_contract_version),
          "accepted" <- provenance_field(provenance, :review_verdict),
          {:ok, positions} <-
            normalize_reviewed_positions(
@@ -792,7 +840,7 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
          model: model,
          layout_version: @v2_version,
          sections: layout.sections,
-         synthesis_contract_version: SynthesisPolicy.version(),
+         synthesis_contract_version: @synthesis_contract_v1,
          review_verdict: "accepted",
          reviewed_queue_positions: positions,
          synthesis_sha256: synthesis_sha
@@ -801,6 +849,129 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
       _invalid -> {:error, :invalid_fanout_report_provenance}
     end
   end
+
+  defp normalize_v2_contract_v2_model_provenance(provenance) do
+    with true <-
+           map_size(provenance) == 22 and
+             provenance_keys(provenance) ==
+               ~w[
+                 accepted_assessment_sha256 critic_group_count final_assessment_sha256
+                 final_critic_call_count generation_call_count initial_assessment_sha256
+                 initial_critic_call_count layout_version model model_profile provider
+                 provider_call_count review_protocol_version review_verdict
+                 reviewed_queue_positions reviewer_config_sha256 revision_call_count
+                 rule_group_catalog_sha256 rule_group_catalog_version sections
+                 synthesis_contract_version synthesis_sha256
+               ],
+         {:ok, profile} <-
+           provenance_identifier(provenance_field(provenance, :model_profile), 120),
+         {:ok, provider} <- provenance_identifier(provenance_field(provenance, :provider), 120),
+         {:ok, model} <- provenance_identifier(provenance_field(provenance, :model), 240),
+         {:ok, layout} <-
+           normalize_v2_layout(
+             provenance_field(provenance, :layout_version),
+             provenance_field(provenance, :sections)
+           ),
+         @synthesis_contract_v2 <-
+           provenance_field(provenance, :synthesis_contract_version),
+         @review_protocol_version <- provenance_field(provenance, :review_protocol_version),
+         @critic_group_count <- provenance_field(provenance, :critic_group_count),
+         @rule_group_catalog_version <-
+           provenance_field(provenance, :rule_group_catalog_version),
+         {:ok, catalog_sha256} <-
+           SynthesisPolicy.rule_group_catalog_sha256(@rule_group_catalog_version),
+         ^catalog_sha256 <- provenance_field(provenance, :rule_group_catalog_sha256),
+         "accepted" <- provenance_field(provenance, :review_verdict),
+         {:ok, positions} <-
+           normalize_reviewed_positions(
+             provenance_field(provenance, :reviewed_queue_positions),
+             layout.sections
+           ),
+         synthesis_sha when is_binary(synthesis_sha) <-
+           provenance_field(provenance, :synthesis_sha256),
+         reviewer_config_sha when is_binary(reviewer_config_sha) <-
+           provenance_field(provenance, :reviewer_config_sha256),
+         initial_assessment_sha when is_binary(initial_assessment_sha) <-
+           provenance_field(provenance, :initial_assessment_sha256),
+         true <- sha256?(synthesis_sha),
+         true <- sha256?(reviewer_config_sha),
+         true <- sha256?(initial_assessment_sha),
+         revision_call_count <- provenance_field(provenance, :revision_call_count),
+         :ok <-
+           validate_synthesis_phase_counts(
+             provenance_field(provenance, :generation_call_count),
+             provenance_field(provenance, :initial_critic_call_count),
+             revision_call_count,
+             provenance_field(provenance, :final_critic_call_count),
+             provenance_field(provenance, :provider_call_count)
+           ),
+         final_assessment_sha <- provenance_field(provenance, :final_assessment_sha256),
+         accepted_assessment_sha <- provenance_field(provenance, :accepted_assessment_sha256),
+         :ok <-
+           validate_synthesis_assessment_binding(
+             revision_call_count,
+             initial_assessment_sha,
+             final_assessment_sha,
+             accepted_assessment_sha
+           ) do
+      {:ok,
+       %{
+         model_profile: profile,
+         provider: provider,
+         model: model,
+         layout_version: @v2_version,
+         sections: layout.sections,
+         synthesis_contract_version: @synthesis_contract_v2,
+         review_protocol_version: @review_protocol_version,
+         critic_group_count: @critic_group_count,
+         rule_group_catalog_version: @rule_group_catalog_version,
+         rule_group_catalog_sha256: catalog_sha256,
+         reviewer_config_sha256: reviewer_config_sha,
+         generation_call_count: 1,
+         initial_critic_call_count: 2,
+         revision_call_count: revision_call_count,
+         final_critic_call_count: if(revision_call_count == 1, do: 2, else: 0),
+         provider_call_count: if(revision_call_count == 1, do: 6, else: 3),
+         initial_assessment_sha256: initial_assessment_sha,
+         final_assessment_sha256: final_assessment_sha,
+         accepted_assessment_sha256: accepted_assessment_sha,
+         review_verdict: "accepted",
+         reviewed_queue_positions: positions,
+         synthesis_sha256: synthesis_sha
+       }}
+    else
+      _invalid -> {:error, :invalid_fanout_report_provenance}
+    end
+  end
+
+  defp validate_synthesis_phase_counts(1, 2, 0, 0, 3), do: :ok
+  defp validate_synthesis_phase_counts(1, 2, 1, 2, 6), do: :ok
+
+  defp validate_synthesis_phase_counts(
+         _generation,
+         _initial_critics,
+         _revision,
+         _final_critics,
+         _total
+       ),
+       do: {:error, :invalid_fanout_report_provenance}
+
+  defp validate_synthesis_assessment_binding(0, initial, nil, initial)
+       when is_binary(initial),
+       do: :ok
+
+  defp validate_synthesis_assessment_binding(1, initial, final, final)
+       when is_binary(initial) and is_binary(final) do
+    if sha256?(final), do: :ok, else: {:error, :invalid_fanout_report_provenance}
+  end
+
+  defp validate_synthesis_assessment_binding(
+         _revision,
+         _initial,
+         _final,
+         _accepted
+       ),
+       do: {:error, :invalid_fanout_report_provenance}
 
   defp normalize_fallback_provenance(provenance) do
     case provenance_field(provenance, :layout_version) do

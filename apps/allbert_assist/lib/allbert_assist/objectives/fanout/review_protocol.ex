@@ -206,28 +206,28 @@ defmodule AllbertAssist.Objectives.Fanout.ReviewProtocol do
            Map.get(rule, :instruction, Map.get(rule, "instruction")),
          true <- nonempty?(instruction) do
       normalized = %{"id" => id, "instruction" => instruction}
-
-      case Map.get(rule, :criteria, Map.get(rule, "criteria")) do
-        nil ->
-          {:ok, normalized}
-
-        criteria when is_list(criteria) and criteria != [] ->
-          with {:ok, criteria} <- map_all(criteria, &normalize_id/1),
-               true <- unique?(criteria) do
-            {:ok, Map.put(normalized, "criteria", criteria)}
-          else
-            _invalid -> {:error, :invalid_review_protocol}
-          end
-
-        _invalid ->
-          {:error, :invalid_review_protocol}
-      end
+      normalize_rule_criteria(normalized, Map.get(rule, :criteria, Map.get(rule, "criteria")))
     else
       _invalid -> {:error, :invalid_review_protocol}
     end
   end
 
   defp normalize_rule(_rule), do: {:error, :invalid_review_protocol}
+
+  defp normalize_rule_criteria(normalized, nil), do: {:ok, normalized}
+
+  defp normalize_rule_criteria(normalized, criteria)
+       when is_list(criteria) and criteria != [] do
+    with {:ok, criteria} <- map_all(criteria, &normalize_id/1),
+         true <- unique?(criteria) do
+      {:ok, Map.put(normalized, "criteria", criteria)}
+    else
+      _invalid -> {:error, :invalid_review_protocol}
+    end
+  end
+
+  defp normalize_rule_criteria(_normalized, _criteria),
+    do: {:error, :invalid_review_protocol}
 
   defp normalize_groups(groups, rules) when length(groups) == @critic_group_count do
     with {:ok, normalized} <- map_all(groups, &normalize_group/1),
@@ -350,8 +350,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReviewProtocol do
       end)
   end
 
-  defp valid_source_bindings?(_bindings), do: false
-
   defp source_binding(content), do: %{"content" => content, "sha256" => sha256(content)}
 
   defp source_sha256(bindings),
@@ -400,7 +398,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReviewProtocol do
 
   defp unique?(values), do: length(values) == MapSet.size(MapSet.new(values))
   defp exact_keys?(map, keys), do: Enum.sort(Map.keys(map)) == Enum.sort(keys)
-  defp nonempty?(value), do: is_binary(value) and String.trim(value) != ""
+  defp nonempty?(value), do: String.trim(value) != ""
 
   defp sha256?(value) when is_binary(value) and byte_size(value) == 64 do
     case Base.decode16(value, case: :lower) do

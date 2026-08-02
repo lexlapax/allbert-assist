@@ -16,6 +16,8 @@ defmodule AllbertAssist.Actions.Intent.OperatorReadActionsTest do
     intent_list_review
   )
 
+  setup {Req.Test, :verify_on_exit!}
+
   setup do
     original_home = System.get_env("ALLBERT_HOME")
     original_home_dir = System.get_env("ALLBERT_HOME_DIR")
@@ -62,6 +64,50 @@ defmodule AllbertAssist.Actions.Intent.OperatorReadActionsTest do
       assert capability.confirmation == :not_required
       refute module in agent_modules
     end
+  end
+
+  test "intent doctor includes the three closed fan-out role chains" do
+    Req.Test.stub(__MODULE__, fn conn ->
+      assert conn.method == "GET"
+      assert conn.request_path == "/api/tags"
+
+      Req.Test.json(conn, %{
+        "models" => [
+          %{"model" => "nomic-embed-text", "context_length" => 2_048},
+          %{"model" => "llama3.1:8b", "context_length" => 128_000},
+          %{"model" => "gemma4:26b", "context_length" => 256_000},
+          %{"model" => "qwen2.5:7b", "context_length" => 32_768}
+        ]
+      })
+    end)
+
+    context = Map.put(context(), :req_options, plug: {Req.Test, __MODULE__})
+    assert {:ok, response} = Runner.run("intent_doctor", %{}, context)
+
+    rows = Map.new(response.intent_doctor.model_doctor.rows, &{&1.id, &1})
+
+    for role <- ~w[fanout_manager fanout_review fanout_synthesis] do
+      row = Map.fetch!(rows, role)
+
+      assert %{
+               role: ^role,
+               chain_kind: "closed_task",
+               settings_key: settings_key,
+               configured_profiles: ["direct_answer_local"],
+               resolution_status: "resolved",
+               resolved_profile: "direct_answer_local",
+               role_readiness: "ok",
+               unavailable_role: nil,
+               auto_pull: false
+             } = row
+
+      assert settings_key == "model_preferences.tasks.#{role}"
+      assert response.message =~ role
+    end
+
+    refute Map.has_key?(rows, "voice_stt")
+    refute inspect(response) =~ "secret://"
+    refute inspect(response) =~ "api_key"
   end
 
   test "descriptor read actions return redacted DTOs" do

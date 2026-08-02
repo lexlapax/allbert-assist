@@ -91,7 +91,8 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
   end
 
   @impl true
-  def handle_info({:run_grant, child_id}, state), do: {:noreply, start_run(child_id, state)}
+  def handle_info({:run_grant, child_id}, state),
+    do: {:noreply, start_granted_run(child_id, state)}
 
   def handle_info(:scheduler_reconcile, state), do: handle_continue(:reconcile, state)
   def handle_info(:retry_join, state), do: {:noreply, maybe_join(state)}
@@ -101,12 +102,12 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
 
     state =
       case Objectives.get_objective(child_id) do
-        {:ok, %{status: "running"} = child} ->
+        {:ok, %{status: status} = child} when status in ~w[open running blocked] ->
           case Map.fetch(state.recovery_transition_intents, child_id) do
             {:ok, {intent, reason}} ->
-              child
-              |> persist_recovery_intent(intent, reason, state)
-              |> settle_recovery_transition(child, reason, intent, state)
+              transition = persist_recovery_intent(child, intent, reason, state)
+
+              settle_recovery_transition(transition, child, reason, intent, state)
 
             :error ->
               recover_missing_run(child, :recovery_transition_retry, state, start_safe?: false)
@@ -146,6 +147,13 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
   def handle_info(:stop_after_join, state), do: {:stop, :normal, state}
 
   defp reconcile_child(child, state) do
+    case reconcile_quality_protocol_upgrade(child, state) do
+      {:continue, next} -> reconcile_current_child(child, next)
+      {:resolved, next} -> stop_historical_quality_run(child.id, next)
+    end
+  end
+
+  defp reconcile_current_child(child, state) do
     case Registry.lookup(AllbertAssist.Objectives.Runs.Registry, {:run, child.id}) do
       [{pid, _}] ->
         Scheduler.recover_slot(state.parent_id, child.id)
@@ -154,6 +162,27 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
       [] ->
         reconcile_missing_run(child, state)
     end
+  end
+
+  defp stop_historical_quality_run(child_id, state) do
+    state = drop_monitor(state, child_id)
+
+    case Registry.lookup(AllbertAssist.Objectives.Runs.Registry, {:run, child_id}) do
+      [{pid, _}] ->
+        case DynamicSupervisor.terminate_child(Supervisor, pid) do
+          :ok ->
+            :ok
+
+          {:error, :not_found} ->
+            :ok
+        end
+
+      [] ->
+        :ok
+    end
+
+    Scheduler.release(child_id)
+    state
   end
 
   defp reconcile_missing_run(%{status: "open"} = child, state),
@@ -189,6 +218,24 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
     case Scheduler.request_slot(state.parent_id, child_id, self()) do
       :granted -> start_run(child_id, state)
       :queued -> state
+    end
+  end
+
+  defp start_granted_run(child_id, state) do
+    case Objectives.get_objective(child_id) do
+      {:ok, %{status: status} = child} when status in ~w[open running] ->
+        case reconcile_quality_protocol_upgrade(child, state) do
+          {:continue, next} ->
+            start_run(child_id, next)
+
+          {:resolved, next} ->
+            Scheduler.release(child_id)
+            next
+        end
+
+      _terminal_blocked_or_missing ->
+        Scheduler.release(child_id)
+        state
     end
   end
 
@@ -310,10 +357,44 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
   end
 
   defp recover_missing_run(child, reason, state, opts) do
-    if MapSet.member?(state.recovery_transition_holds, child.id) do
-      state
-    else
-      recover_unheld_missing_run(child, reason, state, opts)
+    case reconcile_quality_protocol_upgrade(child, state) do
+      {:continue, next} ->
+        if MapSet.member?(next.recovery_transition_holds, child.id) do
+          next
+        else
+          recover_unheld_missing_run(child, reason, next, opts)
+        end
+
+      {:resolved, next} ->
+        next
+    end
+  end
+
+  defp reconcile_quality_protocol_upgrade(child, state) do
+    transition_opts =
+      recovery_transition_opts(
+        state,
+        {:run_failed, %{reason: "quality_protocol_upgrade_required"}}
+      )
+
+    case Objectives.Lifecycle.reconcile_quality_protocol_upgrade(child, transition_opts) do
+      {:ok, :current} ->
+        {:continue, state}
+
+      {:ok, {:failed, _failed}} ->
+        {:resolved, clear_recovery_transition_retry(state, child.id)}
+
+      {:error, transition_reason} ->
+        next =
+          settle_recovery_transition(
+            {:error, transition_reason},
+            child,
+            :quality_protocol_upgrade_required,
+            :fail_quality_protocol_upgrade,
+            state
+          )
+
+        {:resolved, next}
     end
   end
 
@@ -371,6 +452,15 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
   defp persist_recovery_intent(child, :pending_steering_review, reason, state),
     do: reconcile_pending_steering_before_review(child, reason, state)
 
+  defp persist_recovery_intent(child, :fail_quality_protocol_upgrade, _reason, state) do
+    Objectives.Lifecycle.reconcile_quality_protocol_upgrade(
+      child,
+      state
+      |> recovery_transition_opts({:run_failed, %{reason: "quality_protocol_upgrade_required"}})
+      |> Keyword.put(:force_quality_protocol_upgrade?, true)
+    )
+  end
+
   defp park_uncertain_effect(child, reason, state) do
     reason_text = bounded_review_reason("uncertain_effect", reason)
 
@@ -401,6 +491,28 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
 
   defp settle_recovery_transition({:ok, _transition}, child, _reason, _intent, state),
     do: clear_recovery_transition_retry(state, child.id)
+
+  defp settle_recovery_transition(
+         {:error, :pending_steering_directive},
+         child,
+         reason,
+         :fail_quality_protocol_upgrade = intent,
+         state
+       ) do
+    case Steering.apply_pending(child.id) do
+      {:ok, _steered} ->
+        schedule_recovery_transition_retry(
+          state,
+          child.id,
+          :pending_steering_directive,
+          intent,
+          reason
+        )
+
+      {:error, transition_reason} ->
+        settle_recovery_transition({:error, transition_reason}, child, reason, intent, state)
+    end
+  end
 
   defp settle_recovery_transition(
          {:error, :pending_steering_directive},
@@ -468,7 +580,8 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
 
     Logger.warning(
       "fan-out recovery transition deferred without replay child=#{child_id} " <>
-        "delay_ms=#{delay} reason=#{bounded_review_reason("transient_database", transition_reason)}"
+        "delay_ms=#{delay} " <>
+        "reason=#{bounded_recovery_transition_reason(transition_reason)}"
     )
 
     Process.send_after(self(), {:retry_recovery_transition, child_id}, delay)
@@ -481,6 +594,12 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
       &Map.put(&1, child_id, {intent, recovery_reason})
     )
   end
+
+  defp bounded_recovery_transition_reason(:pending_steering_directive),
+    do: "pending_steering_directive"
+
+  defp bounded_recovery_transition_reason(reason),
+    do: bounded_review_reason("transient_database", reason)
 
   defp hold_recovery_transition(state, child_id) do
     Map.update!(state, :recovery_transition_holds, &MapSet.put(&1, child_id))

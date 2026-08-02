@@ -11,8 +11,8 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
   alias AllbertAssist.Actions.Intent.DirectAnswer.Policy
   alias AllbertAssist.Maps
   alias AllbertAssist.Models.Failure
-  alias AllbertAssist.Models.ProviderAttempt
   alias AllbertAssist.Models.PromptEnvelope
+  alias AllbertAssist.Models.ProviderAttempt
   alias AllbertAssist.Runtime.SafeTerm
   alias AllbertAssist.Settings.ModelRuntime
   alias ReqLLM.Message.ContentPart

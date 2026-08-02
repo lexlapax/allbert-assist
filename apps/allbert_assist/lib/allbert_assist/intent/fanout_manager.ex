@@ -21,7 +21,8 @@ defmodule AllbertAssist.Intent.FanoutManager do
   alias AllbertAssist.Intent.FanoutManager.Commands.{Adjudicate, Assess}
   alias AllbertAssist.Intent.FanoutManager.Policy
   alias AllbertAssist.Intent.FanoutPlan
-  alias AllbertAssist.Objectives.Fanout.Budget
+  alias AllbertAssist.Models.ProviderAttempt
+  alias AllbertAssist.Objectives.Fanout.{Budget, RoleProfileConfiguration}
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Models
@@ -55,23 +56,6 @@ defmodule AllbertAssist.Intent.FanoutManager do
   @max_request_bytes 4_000
   @max_answer_bytes 32_000
   @max_reported_task_count 64
-  @fanout_roles [:fanout_manager, :fanout_review, :fanout_synthesis]
-  @profile_binding_fields ~w[
-    name
-    provider
-    provider_type
-    provider_endpoint_kind
-    model
-    aliases
-    capabilities
-    media
-    temperature
-    max_tokens
-    timeout_ms
-    provider_base_url
-    provider_api_key_ref
-  ]a
-
   @type answer_result :: %{
           kind: :answer,
           message: String.t(),
@@ -96,14 +80,15 @@ defmodule AllbertAssist.Intent.FanoutManager do
   def respond(text, context \\ %{})
 
   def respond(text, context) when is_binary(text) and is_map(context) do
+    {context, provider_attempt_counter} = ProviderAttempt.attach(context)
+
     with :ok <- validate_request(text),
          :ok <- ensure_model_enabled(context),
-         {:ok, role_profiles} <- resolve_role_profiles(context),
-         :ok <- authorize_role_profiles(role_profiles, context),
+         {:ok, profile} <- resolve_manager_profile(context),
+         :ok <- authorize_manager_profile(profile, context),
          {:ok, budget_limits} <- Budget.limits(),
-         profile = Map.fetch!(role_profiles, :fanout_manager),
          context <- put_plan_deadline(context, profile, budget_limits) do
-      assess(text, profile, context, budget_limits)
+      assess(text, profile, context, budget_limits, provider_attempt_counter)
     end
   end
 
@@ -111,10 +96,30 @@ defmodule AllbertAssist.Intent.FanoutManager do
 
   @doc "Return a content-free binding for the exact qualified manager profile configuration."
   @spec profile_binding(map()) :: profile_binding()
-  def profile_binding(profile) when is_map(profile) do
+  def profile_binding(profile) when is_map(profile), do: profile_binding(:fanout_manager, profile)
+
+  @doc false
+  @spec profile_binding(atom(), map()) :: profile_binding()
+  def profile_binding(role, profile) when is_atom(role) and is_map(profile) do
+    {:ok, configuration} =
+      @default_model_client.request_configuration(profile, %{
+        timeout_ms: Map.get(profile, :timeout_ms, 10_000)
+      })
+
+    {:ok, attempt_digest} =
+      RoleProfileConfiguration.digest(
+        role,
+        profile,
+        configuration.transport,
+        configuration.protocol
+      )
+
+    {:ok, configuration_sha256} =
+      RoleProfileConfiguration.attempt_set_digest([attempt_digest])
+
     %{
       "name" => profile_name(profile),
-      "configuration_sha256" => profile_configuration_digest(profile)
+      "configuration_sha256" => configuration_sha256
     }
   end
 
@@ -133,7 +138,7 @@ defmodule AllbertAssist.Intent.FanoutManager do
     end
   end
 
-  defp assess(text, profile, context, budget_limits) do
+  defp assess(text, profile, context, budget_limits, provider_attempt_counter) do
     agent = manager_agent()
 
     {agent, result} =
@@ -145,15 +150,22 @@ defmodule AllbertAssist.Intent.FanoutManager do
       )
 
     case result do
-      {:ok, response} ->
-        adjudicate_initial(text, response, profile, context, budget_limits, agent)
+      {:ok, {response, configuration}} ->
+        with {:ok, attempts} <-
+               expect_provider_attempts(provider_attempt_counter, 1) do
+          flow =
+            manager_flow(text, profile, context, budget_limits, provider_attempt_counter, agent)
+            |> Map.merge(%{attempts: attempts, configurations: [configuration]})
+
+          adjudicate_initial(response, flow)
+        end
 
       {:error, reason} ->
-        {:error, reason}
+        preserve_provider_failure(provider_attempt_counter, 0, 1, reason)
     end
   end
 
-  defp adjudicate_initial(text, response, profile, context, budget_limits, agent) do
+  defp adjudicate_initial(response, %{text: text, context: context, agent: agent} = flow) do
     {agent, result} =
       run_command(
         agent,
@@ -164,29 +176,26 @@ defmodule AllbertAssist.Intent.FanoutManager do
 
     case result do
       {:ok, {resolved, semantic}} ->
-        {:ok, decorate(resolved, profile, 1, budget_limits, context, semantic, agent)}
+        decorate(resolved, semantic, %{flow | agent: agent})
 
       {:error, reason} ->
-        repair_once(
-          text,
-          profile,
-          context,
-          budget_limits,
-          agent,
-          usable_answer(response),
-          reason
-        )
+        repair_once(%{
+          flow
+          | agent: agent,
+            initial_answer: usable_answer(response),
+            initial_reason: reason
+        })
     end
   end
 
   defp repair_once(
-         text,
-         profile,
-         context,
-         budget_limits,
-         agent,
-         initial_answer,
-         initial_reason
+         %{
+           text: text,
+           profile: profile,
+           context: context,
+           agent: agent,
+           initial_reason: initial_reason
+         } = flow
        ) do
     {agent, result} =
       run_command(
@@ -197,41 +206,36 @@ defmodule AllbertAssist.Intent.FanoutManager do
       )
 
     case result do
-      {:ok, repaired_response} ->
-        adjudicate_repair(
-          text,
-          repaired_response,
-          profile,
-          context,
-          budget_limits,
-          agent,
-          initial_answer,
-          initial_reason
-        )
+      {:ok, {repaired_response, repair_configuration}} ->
+        with {:ok, attempts} <-
+               expect_provider_attempts(flow.provider_attempt_counter, 2) do
+          adjudicate_repair(repaired_response, %{
+            flow
+            | agent: agent,
+              attempts: attempts,
+              configurations: flow.configurations ++ [repair_configuration]
+          })
+        end
 
-      {:error, repair_reason} ->
-        retain_answer_or_error(
-          initial_answer,
-          profile,
-          attempted_calls(repair_reason),
-          budget_limits,
-          context,
-          agent,
-          initial_reason,
-          repair_reason
-        )
+      {:error, internal_repair_reason} ->
+        {repair_reason, repair_configurations} =
+          model_call_error(internal_repair_reason, flow.configurations)
+
+        with {:ok, attempts} <-
+               bounded_provider_attempts(flow.provider_attempt_counter, 1, 2) do
+          retain_answer_or_error(repair_reason, %{
+            flow
+            | agent: agent,
+              attempts: attempts,
+              configurations: repair_configurations
+          })
+        end
     end
   end
 
   defp adjudicate_repair(
-         text,
          repaired_response,
-         profile,
-         context,
-         budget_limits,
-         agent,
-         initial_answer,
-         initial_reason
+         %{text: text, context: context, agent: agent, initial_reason: initial_reason} = flow
        ) do
     {agent, result} =
       run_command(
@@ -244,31 +248,21 @@ defmodule AllbertAssist.Intent.FanoutManager do
     case result do
       {:ok, {resolved, semantic}} ->
         semantic = Map.put(semantic, :initial_plan_error, initial_reason)
-        {:ok, decorate(resolved, profile, 2, budget_limits, context, semantic, agent)}
+
+        decorate(resolved, semantic, %{flow | agent: agent})
 
       {:error, repair_reason} ->
-        retain_answer_or_error(
-          initial_answer || usable_answer(repaired_response),
-          profile,
-          2,
-          budget_limits,
-          context,
-          agent,
-          initial_reason,
-          repair_reason
-        )
+        retain_answer_or_error(repair_reason, %{
+          flow
+          | agent: agent,
+            initial_answer: flow.initial_answer || usable_answer(repaired_response)
+        })
     end
   end
 
   defp retain_answer_or_error(
-         answer,
-         profile,
-         attempts,
-         budget_limits,
-         context,
-         agent,
-         initial_reason,
-         repair_reason
+         repair_reason,
+         %{initial_answer: answer, initial_reason: initial_reason} = flow
        )
        when is_binary(answer) do
     result = %{kind: :answer, message: answer}
@@ -284,18 +278,12 @@ defmodule AllbertAssist.Intent.FanoutManager do
       repair_error: repair_reason
     }
 
-    {:ok, decorate(result, profile, attempts, budget_limits, context, semantic, agent)}
+    decorate(result, semantic, flow)
   end
 
   defp retain_answer_or_error(
-         nil,
-         _profile,
-         _attempts,
-         _budget_limits,
-         _context,
-         _agent,
-         initial_reason,
-         repair_reason
+         repair_reason,
+         %{initial_answer: nil, initial_reason: initial_reason}
        ),
        do: {:error, {:fanout_manager_failed, {initial_reason, repair_reason}}}
 
@@ -435,24 +423,54 @@ defmodule AllbertAssist.Intent.FanoutManager do
 
   defp usable_answer(_response), do: nil
 
-  defp decorate(result, profile, attempts, budget_limits, context, semantic, agent) do
+  defp manager_flow(text, profile, context, budget_limits, provider_attempt_counter, agent) do
+    %{
+      text: text,
+      profile: profile,
+      context: context,
+      budget_limits: budget_limits,
+      provider_attempt_counter: provider_attempt_counter,
+      agent: agent,
+      attempts: 0,
+      configurations: [],
+      initial_answer: nil,
+      initial_reason: nil
+    }
+  end
+
+  defp decorate(
+         result,
+         semantic,
+         %{
+           profile: profile,
+           attempts: attempts,
+           budget_limits: budget_limits,
+           context: context,
+           agent: agent,
+           configurations: configurations
+         }
+       ) do
     default_outcome = if result.kind == :fanout, do: :planned, else: :answered
     default_outcome = if result.kind == :clarify, do: :overflow, else: default_outcome
 
-    diagnostic =
-      %{
-        outcome: Map.get(semantic, :outcome, default_outcome),
-        attempts: attempts,
-        model_profile: profile_name(profile),
-        model_profile_sha256: profile_configuration_digest(profile),
-        budget_limits: budget_limits,
-        plan_deadline_unix_ms: Map.fetch!(context, :fanout_plan_deadline_unix_ms),
-        phases: agent.state.phases
-      }
-      |> Map.merge(Map.delete(semantic, :outcome))
-      |> maybe_put_policy_validation(result.kind)
+    with {:ok, configuration_binding} <-
+           manager_configuration_binding(profile, attempts, configurations) do
+      diagnostic =
+        %{
+          outcome: Map.get(semantic, :outcome, default_outcome),
+          attempts: attempts,
+          model_profile: profile_name(profile),
+          model_profile_sha256: configuration_binding.sha256,
+          model_profile_configuration_evidence: configuration_binding.evidence,
+          budget_limits: budget_limits,
+          plan_deadline_unix_ms: Map.fetch!(context, :fanout_plan_deadline_unix_ms),
+          phases: agent.state.phases
+        }
+        |> Map.merge(Map.delete(semantic, :outcome))
+        |> maybe_put_policy_validation(result.kind)
 
-    Map.put(result, :diagnostic, diagnostic)
+      {:ok, Map.put(result, :diagnostic, diagnostic)}
+    end
   end
 
   defp maybe_put_policy_validation(diagnostic, :fanout) do
@@ -531,17 +549,57 @@ defmodule AllbertAssist.Intent.FanoutManager do
         |> Map.put(:fanout_manager_attempt, attempt)
         |> Map.put(:timeout_ms, timeout_ms)
 
-      case client.respond(text, profile, call_context) do
-        {:ok, response} when is_map(response) -> {:ok, response}
-        {:error, reason} -> {:error, {:model_call_failed, Redactor.redact(reason)}}
-        _other -> {:error, {:model_call_failed, :invalid_callback_return}}
-      end
+      invoke_model_client(client, text, profile, call_context)
     end
   rescue
     exception -> {:error, {:model_call_failed, exception.__struct__}}
   catch
     :exit, reason -> {:error, {:model_call_failed, Redactor.redact(reason)}}
     kind, reason -> {:error, {:model_call_failed, Redactor.redact({kind, reason})}}
+  end
+
+  defp invoke_model_client(@default_model_client, text, profile, context) do
+    case @default_model_client.respond_with_configuration(text, profile, context) do
+      {:ok, response, configuration} when is_map(response) and is_map(configuration) ->
+        {:ok, {response, configuration}}
+
+      {:error, reason, configuration} when is_map(configuration) ->
+        {:error,
+         {:with_manager_request_configuration, {:model_call_failed, Redactor.redact(reason)},
+          configuration}}
+
+      {:error, reason} ->
+        {:error, {:model_call_failed, Redactor.redact(reason)}}
+
+      _other ->
+        {:error, {:model_call_failed, :invalid_callback_return}}
+    end
+  end
+
+  defp invoke_model_client(client, text, profile, context) do
+    configuration = %{
+      evidence_source: :injected_model_client,
+      protocol: %{
+        "phase" =>
+          if(match?({:repair, _reason}, context.fanout_manager_attempt),
+            do: "repair",
+            else: "initial"
+          )
+      }
+    }
+
+    case client.respond(text, profile, context) do
+      {:ok, response} when is_map(response) ->
+        {:ok, {response, configuration}}
+
+      {:error, reason} ->
+        {:error,
+         {:with_manager_request_configuration, {:model_call_failed, Redactor.redact(reason)},
+          configuration}}
+
+      _other ->
+        {:error, {:model_call_failed, :invalid_callback_return}}
+    end
   end
 
   defp authorize_manager_attempt(context, attempt_number) do
@@ -569,50 +627,24 @@ defmodule AllbertAssist.Intent.FanoutManager do
     end
   end
 
-  defp resolve_role_profiles(context) do
-    case Map.fetch(context, :fanout_role_profiles) do
-      {:ok, profiles} -> validate_injected_role_profiles(profiles)
-      :error -> resolve_configured_role_profiles(context)
+  defp resolve_manager_profile(%{model_profile: profile}) when is_map(profile),
+    do: {:ok, profile}
+
+  defp resolve_manager_profile(%{model_profile: _invalid}),
+    do: {:error, {:fanout_role_unavailable, :fanout_manager}}
+
+  defp resolve_manager_profile(context) do
+    case Models.for(:fanout_manager, context) do
+      {:ok, %{profile: profile}} -> {:ok, profile}
+      {:error, _reason} -> {:error, {:fanout_role_unavailable, :fanout_manager}}
     end
   end
 
-  defp validate_injected_role_profiles(profiles) when is_map(profiles) do
-    Enum.reduce_while(@fanout_roles, {:ok, %{}}, fn role, {:ok, resolved} ->
-      case Map.fetch(profiles, role) do
-        {:ok, profile} when is_map(profile) ->
-          {:cont, {:ok, Map.put(resolved, role, profile)}}
-
-        _missing_or_invalid ->
-          {:halt, {:error, {:fanout_role_unavailable, role}}}
-      end
-    end)
-  end
-
-  defp validate_injected_role_profiles(_profiles),
-    do: {:error, {:fanout_role_unavailable, :fanout_manager}}
-
-  defp resolve_configured_role_profiles(context) do
-    Enum.reduce_while(@fanout_roles, {:ok, %{}}, fn role, {:ok, resolved} ->
-      case Models.for(role, context) do
-        {:ok, %{profile: profile}} ->
-          {:cont, {:ok, Map.put(resolved, role, profile)}}
-
-        {:error, _reason} ->
-          {:halt, {:error, {:fanout_role_unavailable, role}}}
-      end
-    end)
-  end
-
-  defp authorize_role_profiles(role_profiles, context) do
-    @fanout_roles
-    |> Enum.map(&{&1, Map.fetch!(role_profiles, &1)})
-    |> Enum.uniq_by(fn {_role, profile} -> profile_binding(profile) end)
-    |> Enum.reduce_while(:ok, fn {role, profile}, :ok ->
-      case Disclosure.authorize_transport(profile, context) do
-        :ok -> {:cont, :ok}
-        {:error, _reason} -> {:halt, {:error, {:fanout_role_transport_unavailable, role}}}
-      end
-    end)
+  defp authorize_manager_profile(profile, context) do
+    case Disclosure.authorize_transport(profile, context) do
+      :ok -> :ok
+      {:error, _reason} -> {:error, {:fanout_role_transport_unavailable, :fanout_manager}}
+    end
   end
 
   defp max_children(context), do: Map.get(context, :max_children_per_fanout, 8)
@@ -647,43 +679,84 @@ defmodule AllbertAssist.Intent.FanoutManager do
     Map.fetch!(context, :fanout_manager_deadline_ms) <= System.monotonic_time(:millisecond)
   end
 
-  defp attempted_calls(:fanout_manager_deadline_exhausted), do: 1
-  defp attempted_calls({:fanout_budget_exhausted, _detail}), do: 1
-  defp attempted_calls(_repair_reason), do: 2
+  defp expect_provider_attempts(provider_attempt_counter, expected) do
+    observed = ProviderAttempt.count(provider_attempt_counter)
+
+    if observed == expected,
+      do: {:ok, observed},
+      else: provider_attempt_mismatch(expected, observed)
+  end
+
+  defp bounded_provider_attempts(provider_attempt_counter, minimum, maximum) do
+    observed = ProviderAttempt.count(provider_attempt_counter)
+
+    cond do
+      observed < minimum -> provider_attempt_mismatch(minimum, observed)
+      observed > maximum -> provider_attempt_mismatch(maximum, observed)
+      true -> {:ok, observed}
+    end
+  end
+
+  defp preserve_provider_failure(provider_attempt_counter, minimum, maximum, reason) do
+    case bounded_provider_attempts(provider_attempt_counter, minimum, maximum) do
+      {:ok, _observed} -> {:error, public_model_call_error(reason)}
+      {:error, _mismatch} = error -> error
+    end
+  end
+
+  defp provider_attempt_mismatch(expected, observed) do
+    {:error,
+     {:fanout_manager_provider_attempt_mismatch, %{expected: expected, observed: observed}}}
+  end
+
+  defp model_call_error(
+         {:with_manager_request_configuration, reason, configuration},
+         configurations
+       )
+       when is_map(configuration),
+       do: {reason, configurations ++ [configuration]}
+
+  defp model_call_error(reason, configurations), do: {reason, configurations}
+
+  defp public_model_call_error({:with_manager_request_configuration, reason, _configuration}),
+    do: reason
+
+  defp public_model_call_error(reason), do: reason
 
   defp profile_name(profile), do: Map.get(profile, :name) || Map.get(profile, "name")
 
-  defp profile_configuration_digest(profile) do
-    canonical =
-      Enum.map(@profile_binding_fields, fn key ->
-        value = Map.get(profile, key) || Map.get(profile, Atom.to_string(key))
-        encoded = canonical_value(value)
-        [Atom.to_string(key), ?:, Integer.to_string(byte_size(encoded)), ?:, encoded, ?;]
-      end)
+  defp manager_configuration_binding(profile, attempts, configurations) do
+    sources = Enum.map(configurations, &Map.get(&1, :evidence_source))
 
-    :sha256
-    |> :crypto.hash(canonical)
-    |> Base.encode16(case: :lower)
+    cond do
+      sources != [] and Enum.all?(sources, &(&1 == :production_req_llm)) and
+          length(configurations) == attempts ->
+        with {:ok, attempt_digests} <- exact_attempt_digests(profile, configurations),
+             {:ok, sha256} <- RoleProfileConfiguration.attempt_set_digest(attempt_digests) do
+          {:ok, %{sha256: sha256, evidence: :production_exact_attempt_set}}
+        end
+
+      Enum.all?(sources, &(&1 in [:injected_model_client, :injected_req_llm_client])) ->
+        {:ok, %{sha256: nil, evidence: :injected_client_fixture}}
+
+      true ->
+        {:error, :invalid_fanout_manager_configuration_evidence}
+    end
   end
 
-  defp canonical_value(value) when is_map(value) do
-    value
-    |> Enum.map(fn {key, nested} -> {to_string(key), nested} end)
-    |> Enum.sort_by(&elem(&1, 0))
-    |> Enum.map(fn {key, nested} -> [key, ?=, canonical_value(nested), ?;] end)
-    |> IO.iodata_to_binary()
-  end
-
-  defp canonical_value(value) when is_list(value) do
-    value
-    |> Enum.map(fn nested ->
-      encoded = canonical_value(nested)
-      [Integer.to_string(byte_size(encoded)), ?:, encoded, ?;]
+  defp exact_attempt_digests(profile, configurations) do
+    Enum.reduce_while(configurations, {:ok, []}, fn configuration, {:ok, digests} ->
+      case RoleProfileConfiguration.digest(
+             :fanout_manager,
+             profile,
+             Map.fetch!(configuration, :transport),
+             Map.fetch!(configuration, :protocol)
+           ) do
+        {:ok, digest} -> {:cont, {:ok, digests ++ [digest]}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
     end)
-    |> IO.iodata_to_binary()
   end
-
-  defp canonical_value(value), do: Jason.encode!(value)
 
   defp normalize_key(key) when is_atom(key), do: Atom.to_string(key)
   defp normalize_key(key) when is_binary(key), do: key

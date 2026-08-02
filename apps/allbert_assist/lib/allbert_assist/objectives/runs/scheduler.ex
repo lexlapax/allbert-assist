@@ -60,7 +60,29 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
     GenServer.cast(server, {:recovery_stable, parent_id, pid})
   end
 
-  def start_fanout(parent_id, opts \\ [], server \\ __MODULE__) do
+  @doc """
+  Start one fan-out with the centrally configured default execution options.
+
+  Both direct kickoff acknowledgement and confirmation-resumed registered
+  actions enter through this arity. Keeping the injectable execution boundary
+  here prevents those authority-equivalent starts from drifting onto different
+  providers while explicit two- and three-arity callers retain full control of
+  their options and scheduler process.
+  """
+  def start_fanout(parent_id) do
+    opts =
+      :allbert_assist
+      |> Application.get_env(__MODULE__, [])
+      |> Keyword.get(:start_fanout_opts, [])
+
+    start_fanout(parent_id, opts, __MODULE__)
+  end
+
+  def start_fanout(parent_id, opts) do
+    start_fanout(parent_id, opts, __MODULE__)
+  end
+
+  def start_fanout(parent_id, opts, server) do
     GenServer.call(server, {:start_fanout, parent_id, opts})
   end
 

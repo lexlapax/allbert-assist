@@ -11,6 +11,7 @@ defmodule AllbertAssist.Objectives.Fanout do
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Event
+  alias AllbertAssist.Objectives.Fanout.Budget
   alias AllbertAssist.Objectives.Fanout.PlanProvenance
   alias AllbertAssist.Objectives.Fanout.ReceiptSecret
   alias AllbertAssist.Objectives.Fanout.Report
@@ -191,9 +192,18 @@ defmodule AllbertAssist.Objectives.Fanout do
     do: {:ok, %{frozen: persisted, rebind_from: nil}}
 
   defp selection_report_input(parent, %{snapshot: %{version: 1}} = persisted) do
-    with {:ok, current} <- report_input_v2(parent) do
-      {:ok, %{frozen: current, rebind_from: persisted.input_digest}}
+    if legacy_composer_budget?(persisted.snapshot) do
+      {:ok, %{frozen: persisted, rebind_from: nil}}
+    else
+      with {:ok, current} <- report_input_v2(parent) do
+        {:ok, %{frozen: current, rebind_from: persisted.input_digest}}
+      end
     end
+  end
+
+  defp legacy_composer_budget?(%{plan: plan}) when is_map(plan) do
+    budget = Map.get(plan, "budget") || Map.get(plan, :budget)
+    Budget.composer_compatibility(budget) == {:error, :review_protocol_upgrade_required}
   end
 
   defp report_input_v2(_parent, report_parent, report_children) do
@@ -615,26 +625,9 @@ defmodule AllbertAssist.Objectives.Fanout do
   defp report_selection_matches?(_payload, _parent), do: false
 
   defp report_selection_provenance_matches?(payload, "model") do
-    provenance_keys =
-      if payload["layout_version"] == 2 do
-        ~w[
-          layout_version model model_profile provider review_verdict reviewed_queue_positions
-          sections synthesis_contract_version synthesis_sha256
-        ]
-      else
-        ~w[layout_version model model_profile provider sections]
-      end
+    provenance = selection_provenance("model", payload)
 
-    expected_keys = Enum.sort(~w[body_sha256 input_digest source] ++ provenance_keys)
-
-    payload_keys(payload) == expected_keys and
-      match?(
-        {:ok, _normalized},
-        Report.normalize_selection_provenance(
-          "model",
-          Map.take(payload, provenance_keys)
-        )
-      )
+    match?({:ok, _normalized}, Report.normalize_selection_provenance("model", provenance))
   end
 
   defp report_selection_provenance_matches?(payload, "deterministic_fallback") do
@@ -720,18 +713,8 @@ defmodule AllbertAssist.Objectives.Fanout do
 
   defp selected_report_integrity?(_parent, _selection_payload), do: false
 
-  defp selection_provenance("model", %{"layout_version" => 2} = payload),
-    do:
-      Map.take(
-        payload,
-        ~w[
-          layout_version model model_profile provider review_verdict reviewed_queue_positions
-          sections synthesis_contract_version synthesis_sha256
-        ]
-      )
-
   defp selection_provenance("model", payload),
-    do: Map.take(payload, ~w[layout_version model model_profile provider sections])
+    do: Map.drop(payload, ~w[body_sha256 input_digest source])
 
   defp selection_provenance(
          "deterministic_fallback",

@@ -11,6 +11,7 @@ defmodule AllbertAssist.Intent.FanoutManager.ReqLLMImplementation do
   alias AllbertAssist.Intent.FanoutManager.Policy, as: FanoutPolicy
   alias AllbertAssist.Maps
   alias AllbertAssist.Models.PromptEnvelope
+  alias AllbertAssist.Models.ProviderAttempt
   alias AllbertAssist.Settings.ModelRuntime
 
   @max_reference_bytes 8_000
@@ -84,34 +85,62 @@ defmodule AllbertAssist.Intent.FanoutManager.ReqLLMImplementation do
     ]
   ]
 
+  @doc false
+  @spec response_schema_sha256() :: String.t()
+  def response_schema_sha256 do
+    :sha256
+    |> :crypto.hash(:erlang.term_to_binary(@schema, [:deterministic]))
+    |> Base.encode16(case: :lower)
+  end
+
+  @doc false
+  @spec request_configuration(map(), map()) ::
+          {:ok,
+           %{
+             transport: map(),
+             protocol: map(),
+             evidence_source: :production_req_llm | :injected_req_llm_client
+           }}
+          | {:error, term()}
+  def request_configuration(profile, context) when is_map(profile) and is_map(context) do
+    with {:ok, configuration} <- prepare_request_configuration(profile, context) do
+      {:ok, evidence(configuration)}
+    end
+  end
+
+  def request_configuration(_profile, _context),
+    do: {:error, :invalid_manager_request_configuration}
+
   @spec respond(String.t(), map(), map()) :: {:ok, map()} | {:error, term()}
   def respond(text, profile, context)
+      when is_binary(text) and is_map(profile) and is_map(context) do
+    case respond_with_configuration(text, profile, context) do
+      {:ok, object, _configuration} -> {:ok, object}
+      {:error, reason, _configuration} -> {:error, reason}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def respond(_text, _profile, _context), do: {:error, :invalid_model_request}
+
+  @doc false
+  @spec respond_with_configuration(String.t(), map(), map()) ::
+          {:ok, map(), map()} | {:error, term(), map()} | {:error, term()}
+  def respond_with_configuration(text, profile, context)
       when is_binary(text) and is_map(profile) and is_map(context) do
     with :ok <- ensure_req_llm(context),
          {:ok, model_spec} <- ModelRuntime.model_spec(profile),
          {:ok, prompt} <- prompt_context(text, context),
-         {:ok, response} <-
-           req_llm_client(context).generate_object(
-             model_spec,
-             prompt,
-             @schema,
-             request_opts(profile, context)
-           ),
-         :ok <- validate_finish_reason(response),
-         object when is_map(object) <- response_object(response) do
-      {:ok, object}
+         {:ok, configuration} <- prepare_request_configuration(profile, context),
+         :ok <- ProviderAttempt.mark(context) do
+      invoke_req_llm(model_spec, prompt, configuration, context)
     else
-      nil -> {:error, :empty_model_object}
       {:error, reason} -> {:error, reason}
-      _other -> {:error, :invalid_model_object}
     end
-  rescue
-    exception -> {:error, exception.__struct__}
-  catch
-    :exit, reason -> {:error, reason}
   end
 
-  def respond(_text, _profile, _context), do: {:error, :invalid_model_request}
+  def respond_with_configuration(_text, _profile, _context),
+    do: {:error, :invalid_model_request}
 
   @doc false
   @spec prompt_context(String.t(), map()) :: {:ok, ReqLLM.Context.t()} | {:error, term()}
@@ -139,14 +168,17 @@ defmodule AllbertAssist.Intent.FanoutManager.ReqLLMImplementation do
   end
 
   defp request_opts(profile, context) do
+    timeout_ms =
+      Map.get(context, :timeout_ms, Map.get(profile, :timeout_ms, 10_000))
+      |> min(Map.get(profile, :timeout_ms, 10_000))
+
     profile
     |> ModelRuntime.request_opts()
     |> Keyword.merge(
       temperature: 0.0,
       max_tokens: min(ModelRuntime.max_tokens(profile, 1_024), 1_024),
-      receive_timeout:
-        Map.get(context, :timeout_ms, Map.get(profile, :timeout_ms, 10_000))
-        |> min(Map.get(profile, :timeout_ms, 10_000)),
+      receive_timeout: timeout_ms,
+      total_timeout: timeout_ms,
       max_retries: 0,
       openai_structured_output_mode: :json_schema,
       json_repair: false
@@ -154,6 +186,76 @@ defmodule AllbertAssist.Intent.FanoutManager.ReqLLMImplementation do
     |> maybe_put_test_pid(context)
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
   end
+
+  defp prepare_request_configuration(profile, context) do
+    request_opts = request_opts(profile, context)
+
+    with {:ok, _effective_transport} <- ModelRuntime.effective_transport(profile, request_opts) do
+      {:ok,
+       %{
+         request_opts: request_opts,
+         transport: transport_projection(request_opts),
+         protocol: %{"phase" => request_phase(context)},
+         evidence_source: request_configuration_source(context)
+       }}
+    end
+  rescue
+    ArgumentError -> {:error, :invalid_manager_request_configuration}
+  end
+
+  defp transport_projection(request_opts) do
+    %{
+      base_url: Keyword.get(request_opts, :base_url),
+      response_schema_sha256: response_schema_sha256(),
+      temperature: Keyword.fetch!(request_opts, :temperature),
+      max_output_tokens: Keyword.fetch!(request_opts, :max_tokens),
+      receive_timeout_ms: Keyword.fetch!(request_opts, :receive_timeout),
+      total_timeout_ms: Keyword.fetch!(request_opts, :total_timeout),
+      max_retries: Keyword.fetch!(request_opts, :max_retries),
+      structured_output_mode: Keyword.fetch!(request_opts, :openai_structured_output_mode),
+      json_repair: Keyword.fetch!(request_opts, :json_repair)
+    }
+  end
+
+  defp request_configuration_source(context) do
+    if req_llm_client(context) == ReqLLM,
+      do: :production_req_llm,
+      else: :injected_req_llm_client
+  end
+
+  defp request_phase(%{fanout_manager_attempt: {:repair, _reason}}), do: "repair"
+  defp request_phase(_context), do: "initial"
+
+  defp invoke_req_llm(model_spec, prompt, configuration, context) do
+    result =
+      with {:ok, response} <-
+             req_llm_client(context).generate_object(
+               model_spec,
+               prompt,
+               @schema,
+               configuration.request_opts
+             ),
+           :ok <- validate_finish_reason(response),
+           object when is_map(object) <- response_object(response) do
+        {:ok, object}
+      else
+        nil -> {:error, :empty_model_object}
+        {:error, reason} -> {:error, reason}
+        _other -> {:error, :invalid_model_object}
+      end
+
+    case result do
+      {:ok, object} -> {:ok, object, evidence(configuration)}
+      {:error, reason} -> {:error, reason, evidence(configuration)}
+    end
+  rescue
+    exception -> {:error, exception.__struct__, evidence(configuration)}
+  catch
+    :exit, reason -> {:error, reason, evidence(configuration)}
+  end
+
+  defp evidence(configuration),
+    do: Map.take(configuration, [:transport, :protocol, :evidence_source])
 
   defp maybe_put_test_pid(opts, %{test_pid: pid}) when is_pid(pid),
     do: Keyword.put(opts, :test_pid, pid)

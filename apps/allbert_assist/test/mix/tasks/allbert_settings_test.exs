@@ -289,6 +289,14 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
     assert output =~ "model doctor ok="
     assert output =~ "intent_embedding"
     assert output =~ "intent_escalation"
+
+    for role <- ~w[fanout_manager fanout_review fanout_synthesis] do
+      assert output =~ "#{role} status="
+      assert output =~ "chain=[direct_answer_local] resolved=direct_answer_local(qwen2.5:7b)"
+      assert output =~ "unavailable-role=#{role} auto-pull=false"
+      assert output =~ "key=model_preferences.tasks.#{role}"
+    end
+
     refute output =~ "secret://"
     refute output =~ "api_key"
   end

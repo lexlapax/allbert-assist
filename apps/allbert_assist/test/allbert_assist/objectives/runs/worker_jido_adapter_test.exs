@@ -2,42 +2,17 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
   use AllbertAssist.DataCase, async: false, lane: :db_serial
 
   alias AllbertAssist.Actions.Intent.DirectAnswer
-  alias AllbertAssist.Objectives.Fanout.Budget
+  alias AllbertAssist.Models.ProviderAttempt
+  alias AllbertAssist.Objectives.Fanout.{Budget, ReviewRound}
+  alias AllbertAssist.Objectives.ObservationSummary
   alias AllbertAssist.Objectives.Runs.{CancelToken, Worker}
   alias AllbertAssist.Objectives.Runs.Worker.Commands.Execute
-  alias AllbertAssist.Objectives.Runs.Worker.Commands.ReviewAndRevise
-  alias AllbertAssist.Objectives.Runs.Worker.{QualityPolicy, QualityReceipt}
-
-  defmodule AcceptingReviewer do
-    alias AllbertAssist.Objectives.Runs.Worker.QualityPolicy
-
-    @config_digest String.duplicate("a", 64)
-
-    def prepare(contract, draft, context) do
-      send(context.test_pid, {:review_prepared, contract, draft})
-      {:ok, %{reviewer_config_sha256: @config_digest}}
-    end
-
-    def invoke(%{reviewer_config_sha256: @config_digest}, context) do
-      send(context.test_pid, :review_invoked)
-
-      rule_results =
-        QualityPolicy.rule_ids()
-        |> Enum.map(&%{"rule_id" => &1, "verdict" => "satisfied"})
-
-      {:ok,
-       %{
-         final_answer: "The reviewed and revised child answer.",
-         verdict: "accepted",
-         failed_rule_ids: [],
-         rule_results: rule_results,
-         reviewer_config_sha256: @config_digest
-       }}
-    end
-  end
+  alias AllbertAssist.Objectives.Runs.Worker.JidoAdapter
+  alias AllbertAssist.Objectives.Runs.Worker.QualityPolicy
 
   defmodule DraftAnswerer do
     def answer(text, context) do
+      :ok = ProviderAttempt.mark(context)
       send(context.test_pid, {:draft_provider_call, text, context.fanout_worker_policy})
       {:ok, %{message: "Initial model draft.", diagnostic: %{status: :used}}}
     end
@@ -50,10 +25,159 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
     end
   end
 
+  defmodule LongRedactableAnswerer do
+    @message "AIzaSyDUMMYSecretShapeForAudit59 " <> String.duplicate("durable answer ", 220)
+
+    def message, do: @message
+
+    def answer(_text, context) do
+      :ok = ProviderAttempt.mark(context)
+      send(context.test_pid, :long_redactable_draft_generated)
+      {:ok, %{message: @message, diagnostic: %{status: :used}}}
+    end
+  end
+
+  defmodule BlankDraftAnswerer do
+    def answer(_text, context) do
+      :ok = ProviderAttempt.mark(context)
+      send(context.test_pid, :blank_draft_generated)
+      {:ok, %{message: " \n\t ", diagnostic: %{status: :used}}}
+    end
+  end
+
+  defmodule PhaseAnswerer do
+    def answer(_text, context) do
+      :ok = ProviderAttempt.mark(context)
+      phase = Map.fetch!(context, :fanout_worker_phase)
+      send(context.test_pid, {:worker_generation_call, phase})
+
+      default =
+        case phase do
+          :draft -> "Initial phase-separated draft."
+          :revision -> "Revised phase-separated answer."
+        end
+
+      message = get_in(context, [:worker_phase_messages, phase]) || default
+
+      {:ok, %{message: message, diagnostic: %{status: :used}}}
+    end
+  end
+
+  defmodule BlockingDraftAnswerer do
+    def answer(_text, context) do
+      :ok = ProviderAttempt.mark(context)
+      send(context.test_pid, :blocking_draft_started)
+      Process.sleep(1_000)
+      send(context.test_pid, :blocking_draft_returned)
+      {:ok, %{message: "Late draft must not be accepted.", diagnostic: %{status: :used}}}
+    end
+  end
+
+  defmodule TimeoutRecordingAnswerer do
+    def answer(_text, context) do
+      :ok = ProviderAttempt.mark(context)
+
+      send(
+        context.test_pid,
+        {:quality_deadline_context, context.model_timeout_ms,
+         context.fanout_worker_deadline_monotonic_ms, context.fanout_review_deadline_monotonic_ms}
+      )
+
+      {:ok, %{message: "Deadline-bound draft.", diagnostic: %{status: :used}}}
+    end
+  end
+
+  defmodule PhaseCritic do
+    def assess(request, context) do
+      :ok = ReviewRound.note_provider_attempt(context)
+      phase = Map.fetch!(context, :fanout_review_phase)
+      group_id = request["group"]["id"]
+      send(context.test_pid, {:worker_critic_call, phase, group_id})
+
+      if Map.get(context, :record_critic_candidates, false) do
+        send(
+          context.test_pid,
+          {:worker_critic_candidate, phase, group_id,
+           get_in(request, ["sources", "candidate", "content"])}
+        )
+      end
+
+      status =
+        context
+        |> Map.fetch!(:critic_statuses)
+        |> Map.fetch!(phase)
+        |> Map.get(group_id, "satisfied")
+
+      assessments =
+        Enum.map(request["group"]["rule_ids"], fn rule_id ->
+          %{
+            "rule_id" => rule_id,
+            "status" => status,
+            "source_handles" => ["task_contract", "candidate"]
+          }
+        end)
+
+      {:ok,
+       %{
+         assessment: %{"group_id" => group_id, "assessments" => assessments},
+         reviewer_config_sha256: sha256("#{phase}:#{group_id}")
+       }}
+    end
+
+    defp sha256(value) do
+      :sha256
+      |> :crypto.hash(value)
+      |> Base.encode16(case: :lower)
+    end
+  end
+
   defmodule FailingDraftAnswerer do
     def answer(_text, context) do
+      :ok = ProviderAttempt.mark(context)
       send(context.test_pid, :draft_provider_failed)
       {:error, :provider_unavailable}
+    end
+  end
+
+  defmodule RaisingDraftAnswerer do
+    def answer(_text, context) do
+      :ok = ProviderAttempt.mark(context)
+      send(context.test_pid, :raising_draft_provider_called)
+      raise "injected provider exception after dispatch"
+    end
+  end
+
+  defmodule ExitingDraftAnswerer do
+    def answer(_text, context) do
+      :ok = ProviderAttempt.mark(context)
+      send(context.test_pid, :exiting_draft_provider_called)
+      exit(:injected_provider_exit_after_dispatch)
+    end
+  end
+
+  defmodule PreflightFailingDraftAnswerer do
+    def answer(_text, context) do
+      send(context.test_pid, :draft_preflight_failed)
+      {:error, :model_spec_unavailable}
+    end
+  end
+
+  defmodule DoubleAttemptAnswerer do
+    def answer(_text, context) do
+      :ok = ProviderAttempt.mark(context)
+      :ok = ProviderAttempt.mark(context)
+      send(context.test_pid, {:double_provider_attempt, context.fanout_worker_phase})
+      {:ok, %{message: "Over-budget answer.", diagnostic: %{status: :used}}}
+    end
+  end
+
+  defmodule DoubleRevisionAttemptAnswerer do
+    def answer(_text, context) do
+      phase = context.fanout_worker_phase
+      :ok = ProviderAttempt.mark(context)
+      if phase == :revision, do: :ok = ProviderAttempt.mark(context)
+      send(context.test_pid, {:phase_provider_attempt, phase})
+      {:ok, %{message: "#{phase} answer.", diagnostic: %{status: :used}}}
     end
   end
 
@@ -61,6 +185,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
     alias AllbertAssist.Objectives.Runs.CancelToken
 
     def answer(_text, context) do
+      :ok = ProviderAttempt.mark(context)
       :ok = CancelToken.cancel(context.cancel_token)
       send(context.test_pid, :draft_cancelled_before_review)
 
@@ -69,109 +194,30 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
     end
   end
 
-  defmodule DeniedReviewer do
-    def prepare(_contract, _draft, context) do
-      send(context.test_pid, :review_prepare_denied)
-      {:error, :transport_denied}
-    end
-
-    def invoke(_prepared, context) do
-      send(context.test_pid, :unexpected_denied_review_invoke)
-      {:error, :must_not_run}
+  defmodule UnavailableCritic do
+    def assess(request, context) do
+      send(context.test_pid, {:critic_unavailable, request["group"]["id"]})
+      {:error, :fanout_review_profile_unavailable}
     end
   end
 
-  defmodule DeadlineReviewer do
-    def prepare(_contract, _draft, context) do
-      send(context.test_pid, :review_deadline_checked)
-      {:error, :fanout_plan_deadline_exhausted}
-    end
+  defmodule DoubleAttemptCritic do
+    alias AllbertAssist.Objectives.Fanout.ReviewRound
+    alias AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest.PhaseCritic
 
-    def invoke(_prepared, context) do
-      send(context.test_pid, :unexpected_deadline_review_invoke)
-      {:error, :must_not_run}
+    def assess(request, context) do
+      :ok = ReviewRound.note_provider_attempt(context)
+      PhaseCritic.assess(request, context)
     end
   end
 
-  defmodule CancellingReviewer do
+  defmodule CancellingCritic do
     alias AllbertAssist.Objectives.Runs.CancelToken
-    alias AllbertAssist.Objectives.Runs.Worker.QualityPolicy
 
-    @digest String.duplicate("f", 64)
-
-    def prepare(_contract, _draft, _context),
-      do: {:ok, %{reviewer_config_sha256: @digest}}
-
-    def invoke(_prepared, context) do
+    def assess(request, context) do
       :ok = CancelToken.cancel(context.cancel_token)
-      send(context.test_pid, :review_completed_during_cancellation)
-
-      rule_results =
-        QualityPolicy.rule_ids()
-        |> Enum.map(&%{"rule_id" => &1, "verdict" => "satisfied"})
-
-      {:ok,
-       %{
-         final_answer: "A review result that must not survive cancellation.",
-         verdict: "accepted",
-         failed_rule_ids: [],
-         rule_results: rule_results,
-         reviewer_config_sha256: @digest
-       }}
-    end
-  end
-
-  defmodule InvokedFailureReviewer do
-    def prepare(_contract, _draft, _context),
-      do: {:ok, %{reviewer_config_sha256: String.duplicate("c", 64)}}
-
-    def invoke(_prepared, context) do
-      send(context.test_pid, {:reviewer_invoked_branch, __MODULE__})
-      {:error, :timeout}
-    end
-  end
-
-  defmodule MalformedReviewer do
-    @digest String.duplicate("d", 64)
-    def prepare(_contract, _draft, _context), do: {:ok, %{reviewer_config_sha256: @digest}}
-
-    def invoke(_prepared, context) do
-      send(context.test_pid, {:reviewer_invoked_branch, __MODULE__})
-
-      {:ok,
-       %{
-         final_answer: "Malformed evidence",
-         verdict: "accepted",
-         failed_rule_ids: [],
-         rule_results: "not-a-list",
-         reviewer_config_sha256: @digest
-       }}
-    end
-  end
-
-  defmodule UnresolvedReviewer do
-    alias AllbertAssist.Objectives.Runs.Worker.QualityPolicy
-
-    @digest String.duplicate("e", 64)
-    def prepare(_contract, _draft, _context), do: {:ok, %{reviewer_config_sha256: @digest}}
-
-    def invoke(_prepared, context) do
-      send(context.test_pid, {:reviewer_invoked_branch, __MODULE__})
-
-      [first | rest] = QualityPolicy.rule_ids()
-
-      rule_results =
-        [%{"rule_id" => first, "verdict" => "unsatisfied"}] ++
-          Enum.map(rest, &%{"rule_id" => &1, "verdict" => "satisfied"})
-
-      {:ok,
-       %{
-         final_answer: "Still unresolved.",
-         verdict: "unresolved",
-         failed_rule_ids: [first],
-         rule_results: rule_results,
-         reviewer_config_sha256: @digest
-       }}
+      send(context.test_pid, {:critic_cancelled_run, request["group"]["id"]})
+      {:error, :review_cancelled}
     end
   end
 
@@ -187,61 +233,6 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
     end)
 
     :ok
-  end
-
-  test "review-and-revise accepts one model draft and emits a bound transient receipt" do
-    assert {:ok, contract} =
-             QualityPolicy.build(%{
-               source: :conversation_manager,
-               original_request: "Prepare two independent analyses.",
-               child_objective: "Analyze the first mechanism.",
-               expected_result: "Cover its behavior and tradeoffs.",
-               steering: nil
-             })
-
-    assert {:ok, task_digest} = QualityPolicy.digest(contract)
-
-    state = %{
-      status: :draft,
-      objective_id: "objective-reviewed",
-      step_id: "step-reviewed",
-      provider_call_count: 1,
-      task_contract: contract,
-      task_contract_sha256: task_digest,
-      draft_response: %{
-        message: "Initial model draft.",
-        status: :completed,
-        direct_answer: %{source: :model}
-      },
-      last_command: :execute,
-      last_result: {:ok, :draft}
-    }
-
-    params = %{
-      reviewer: AcceptingReviewer,
-      runner_context: %{test_pid: self()}
-    }
-
-    assert {:ok, accepted} = ReviewAndRevise.run(params, %{state: state})
-    assert_receive {:review_prepared, ^contract, "Initial model draft."}
-    assert_receive :review_invoked
-
-    assert accepted.status == :accepted
-    assert accepted.provider_call_count == 2
-    assert accepted.draft_response == nil
-    assert accepted.error == nil
-    assert accepted.last_command == :review_and_revise
-    assert {:ok, %{response: response, quality_receipt: receipt}} = accepted.last_result
-    assert response.message == "The reviewed and revised child answer."
-    refute Map.has_key?(response, :fanout_worker)
-
-    assert :ok =
-             QualityReceipt.validate(receipt, %{
-               objective_id: state.objective_id,
-               step_id: state.step_id,
-               task_contract_sha256: task_digest,
-               final_answer: response.message
-             })
   end
 
   test "execute consumes the closed DirectAnswer worker marker into one private draft" do
@@ -309,64 +300,6 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
     assert draft.last_result == {:ok, :draft}
   end
 
-  test "the Worker runs sequential draft and review commands and returns only the accepted response plus receipt" do
-    Application.put_env(:allbert_assist, DirectAnswer, answerer: DraftAnswerer)
-
-    assert {:ok, _setting} =
-             AllbertAssist.Settings.put("intent.direct_answer_model_enabled", true, %{
-               audit?: false
-             })
-
-    assert {:ok, budget} = Budget.resolve(2, 1)
-    deadline = System.system_time(:millisecond) + 60_000
-
-    grounding = %{
-      source: :conversation_manager,
-      original_request: "Prepare two independent analyses.",
-      child_objective: "Analyze the first mechanism.",
-      expected_result: "Cover its behavior and tradeoffs.",
-      steering: nil,
-      decision_text: nil,
-      direct_answer_text: "legacy compiled task input",
-      action_text: nil,
-      fanout_budget: budget,
-      fanout_deadline_unix_ms: deadline
-    }
-
-    context = %{
-      user_id: "quality-worker-user",
-      operator_id: "quality-worker-user",
-      actor: "quality-worker-user",
-      channel: "test",
-      surface: "test",
-      test_pid: self(),
-      objective_id: "objective-sequential",
-      step_id: "step-sequential",
-      objective_run_attempt: 1,
-      fanout_budget: budget,
-      fanout_deadline_unix_ms: deadline,
-      fanout_grounding: grounding
-    }
-
-    assert {:ok, %{adapter: :jido, response: response, quality_receipt: receipt}} =
-             Worker.run(
-               "direct_answer",
-               %{text: grounding.direct_answer_text},
-               context,
-               quality_reviewer: AcceptingReviewer
-             )
-
-    assert_receive {:draft_provider_call, draft_prompt, _closed_policy}
-    assert draft_prompt =~ "Allbert bounded fan-out child quality task"
-    assert_receive {:review_prepared, _contract, "Initial model draft."}
-    assert_receive :review_invoked
-
-    assert response.message == "The reviewed and revised child answer."
-    refute Map.has_key?(response, :fanout_worker)
-    assert receipt["provider_call_count"] == 2
-    assert receipt["verdict"] == "accepted"
-  end
-
   test "a model-disabled quality child fails before any provider or reviewer call with count zero" do
     Application.put_env(:allbert_assist, DirectAnswer, answerer: DraftAnswerer)
 
@@ -383,13 +316,11 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
              Worker.run(
                "direct_answer",
                %{text: grounding.direct_answer_text},
-               context,
-               quality_reviewer: AcceptingReviewer
+               context
              )
 
     refute_receive {:draft_provider_call, _prompt, _policy}
-    refute_receive {:review_prepared, _contract, _draft}
-    refute_receive :review_invoked
+    refute_receive {:worker_critic_call, _phase, _group}
   end
 
   test "a failed draft provider cannot trigger action fallback or reviewer work and reports count one" do
@@ -408,16 +339,222 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
              Worker.run(
                "direct_answer",
                %{text: grounding.direct_answer_text},
-               context,
-               quality_reviewer: AcceptingReviewer
+               context
              )
 
     assert_receive :draft_provider_failed
-    refute_receive {:review_prepared, _contract, _draft}
-    refute_receive :review_invoked
+    refute_receive {:worker_critic_call, _phase, _group}
   end
 
-  test "reviewer preparation denial preserves the one-call draft count" do
+  test "a draft provider exception after dispatch remains one unresolved physical attempt" do
+    assert_post_dispatch_draft_failure(
+      RaisingDraftAnswerer,
+      :raising_draft_provider_called
+    )
+  end
+
+  test "a draft provider exit after dispatch remains one unresolved physical attempt" do
+    assert_post_dispatch_draft_failure(
+      ExitingDraftAnswerer,
+      :exiting_draft_provider_called
+    )
+  end
+
+  test "a draft preflight failure reports zero physical provider attempts" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: PreflightFailingDraftAnswerer)
+
+    assert {:ok, _setting} =
+             AllbertAssist.Settings.put("intent.direct_answer_model_enabled", true, %{
+               audit?: false
+             })
+
+    {grounding, context} = quality_worker_context()
+
+    assert {:error,
+            {:fanout_worker_unresolved,
+             %{provider_call_count: 0, reason: :quality_model_draft_unavailable}}} =
+             Worker.run(
+               "direct_answer",
+               %{text: grounding.direct_answer_text},
+               context
+             )
+
+    assert_receive :draft_preflight_failed
+    refute_receive {:worker_critic_call, _phase, _group}
+  end
+
+  test "critics and receipt bind the exact redacted bounded durable draft bytes" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: LongRedactableAnswerer)
+
+    assert {:ok, _setting} =
+             AllbertAssist.Settings.put("intent.direct_answer_model_enabled", true, %{
+               audit?: false
+             })
+
+    {grounding, context} = quality_worker_context()
+
+    context =
+      context
+      |> Map.put(:record_critic_candidates, true)
+      |> Map.put(:critic_statuses, %{initial: %{}})
+
+    expected = ObservationSummary.normalize(LongRedactableAnswerer.message())
+    assert String.length(expected) == 2_000
+    refute expected == LongRedactableAnswerer.message()
+    refute expected =~ "AIzaSyDUMMYSecretShapeForAudit59"
+    assert expected =~ "[REDACTED]"
+
+    assert {:ok, %{response: %{message: ^expected}, quality_receipt: receipt}} =
+             Worker.run("direct_answer", %{text: grounding.direct_answer_text}, context,
+               quality_critic: PhaseCritic
+             )
+
+    assert receipt["provider_call_count"] == 3
+    assert receipt["final_answer_sha256"] == sha256(expected)
+    assert_receive :long_redactable_draft_generated
+
+    assert_receive {:worker_critic_candidate, :initial, "coverage_fidelity", ^expected}
+    assert_receive {:worker_critic_candidate, :initial, "safety_consistency", ^expected}
+  end
+
+  test "an empty normalized draft stops after its one generation attempt" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: BlankDraftAnswerer)
+
+    assert {:ok, _setting} =
+             AllbertAssist.Settings.put("intent.direct_answer_model_enabled", true, %{
+               audit?: false
+             })
+
+    {grounding, context} = quality_worker_context()
+
+    assert {:error,
+            {:fanout_worker_unresolved,
+             %{provider_call_count: 1, reason: :quality_model_draft_unavailable}}} =
+             Worker.run("direct_answer", %{text: grounding.direct_answer_text}, context,
+               quality_critic: PhaseCritic
+             )
+
+    assert_receive :blank_draft_generated
+    refute_receive {:worker_critic_call, _phase, _group}
+  end
+
+  test "multiple draft provider attempts fail closed with the exact count" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: DoubleAttemptAnswerer)
+
+    assert {:ok, _setting} =
+             AllbertAssist.Settings.put("intent.direct_answer_model_enabled", true, %{
+               audit?: false
+             })
+
+    {grounding, context} = quality_worker_context()
+
+    assert {:error,
+            {:fanout_worker_unresolved,
+             %{provider_call_count: 2, reason: :quality_provider_attempt_bound_exceeded}}} =
+             Worker.run("direct_answer", %{text: grounding.direct_answer_text}, context)
+
+    assert_receive {:double_provider_attempt, :draft}
+  end
+
+  test "multiple revision provider attempts fail closed before final critics" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: DoubleRevisionAttemptAnswerer)
+
+    assert {:ok, _setting} =
+             AllbertAssist.Settings.put("intent.direct_answer_model_enabled", true, %{
+               audit?: false
+             })
+
+    {grounding, context} = quality_worker_context()
+
+    context =
+      Map.put(context, :critic_statuses, %{
+        initial: %{"coverage_fidelity" => "violated"},
+        final: %{}
+      })
+
+    assert {:error,
+            {:fanout_worker_unresolved,
+             %{provider_call_count: 5, reason: :quality_provider_attempt_bound_exceeded}}} =
+             Worker.run("direct_answer", %{text: grounding.direct_answer_text}, context,
+               quality_critic: PhaseCritic
+             )
+
+    assert_receive {:phase_provider_attempt, :draft}
+    assert_receive {:phase_provider_attempt, :revision}
+    refute_receive {:worker_critic_call, :final, _group}
+  end
+
+  test "quality work uses the remaining plan window instead of the legacy thirty-second cap" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: TimeoutRecordingAnswerer)
+
+    assert {:ok, _setting} =
+             AllbertAssist.Settings.put("intent.direct_answer_model_enabled", true, %{
+               audit?: false
+             })
+
+    {_grounding, context} = quality_worker_context()
+    context = Map.put(context, :critic_statuses, %{initial: %{}})
+
+    assert {:ok, %{quality_receipt: %{"provider_call_count" => 3}}} =
+             Worker.run("direct_answer", %{text: "legacy compiled task input"}, context,
+               quality_critic: PhaseCritic
+             )
+
+    assert_receive {:quality_deadline_context, timeout_ms, worker_deadline, review_deadline}
+    assert timeout_ms > 30_000
+    assert timeout_ms <= 60_000
+    assert worker_deadline == review_deadline
+  end
+
+  test "an expired durable plan deadline stops before a Worker task or provider attempt" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: TimeoutRecordingAnswerer)
+
+    assert {:ok, _setting} =
+             AllbertAssist.Settings.put("intent.direct_answer_model_enabled", true, %{
+               audit?: false
+             })
+
+    {grounding, context} = quality_worker_context()
+    expired = System.system_time(:millisecond) - 1
+
+    context =
+      context
+      |> Map.put(:fanout_deadline_unix_ms, expired)
+      |> Map.put(:fanout_grounding, %{grounding | fanout_deadline_unix_ms: expired})
+
+    assert {:error, :fanout_plan_deadline_exhausted} =
+             JidoAdapter.run(DirectAnswer, %{text: grounding.direct_answer_text}, context, [])
+
+    refute_receive {:quality_deadline_context, _timeout, _worker_deadline, _review_deadline}
+  end
+
+  test "the Worker owner rejects and kills a draft that returns after its absolute deadline" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: BlockingDraftAnswerer)
+
+    assert {:ok, _setting} =
+             AllbertAssist.Settings.put("intent.direct_answer_model_enabled", true, %{
+               audit?: false
+             })
+
+    {grounding, context} = quality_worker_context()
+    deadline = System.system_time(:millisecond) + 500
+
+    context =
+      context
+      |> Map.put(:fanout_deadline_unix_ms, deadline)
+      |> Map.put(:fanout_grounding, %{grounding | fanout_deadline_unix_ms: deadline})
+
+    assert {:error, :worker_timeout} =
+             Worker.run("direct_answer", %{text: grounding.direct_answer_text}, context,
+               quality_critic: PhaseCritic
+             )
+
+    assert_receive :blocking_draft_started
+    refute_receive :blocking_draft_returned, 600
+    refute_receive {:worker_critic_call, _phase, _group}
+  end
+
+  test "critic unavailability cannot promote the draft to checked completion" do
     Application.put_env(:allbert_assist, DirectAnswer, answerer: DraftAnswerer)
 
     assert {:ok, _setting} =
@@ -431,43 +568,65 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
             {:fanout_worker_unresolved,
              %{
                provider_call_count: 1,
-               reason: {:quality_reviewer_unavailable, :transport_denied}
+               reason: :critic_implementation_failed
              }}} =
              Worker.run(
                "direct_answer",
                %{text: grounding.direct_answer_text},
                context,
-               quality_reviewer: DeniedReviewer
+               quality_critic: UnavailableCritic
              )
 
     assert_receive {:draft_provider_call, _prompt, _policy}
-    assert_receive :review_prepare_denied
-    refute_receive :unexpected_denied_review_invoke
+    assert_receive {:critic_unavailable, _group}
   end
 
-  test "every invoked reviewer failure or unresolved result reports the exact two-call count" do
-    Application.put_env(:allbert_assist, DirectAnswer, answerer: DraftAnswerer)
+  test "excess critic provider attempts fail closed with their exact physical count" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: PhaseAnswerer)
 
     assert {:ok, _setting} =
              AllbertAssist.Settings.put("intent.direct_answer_model_enabled", true, %{
                audit?: false
              })
 
-    for reviewer <- [InvokedFailureReviewer, MalformedReviewer, UnresolvedReviewer] do
-      {grounding, context} = quality_worker_context()
+    {grounding, context} = quality_worker_context()
+    context = Map.put(context, :critic_statuses, %{initial: %{}})
 
-      assert {:error,
-              {:fanout_worker_unresolved, %{provider_call_count: 2, reason: _closed_reason}}} =
-               Worker.run(
-                 "direct_answer",
-                 %{text: grounding.direct_answer_text},
-                 context,
-                 quality_reviewer: reviewer
-               )
+    assert {:error,
+            {:fanout_worker_unresolved,
+             %{provider_call_count: 5, reason: :quality_provider_attempt_bound_exceeded}}} =
+             Worker.run("direct_answer", %{text: grounding.direct_answer_text}, context,
+               quality_critic: DoubleAttemptCritic
+             )
 
-      assert_receive {:draft_provider_call, _prompt, _policy}
-      assert_receive {:reviewer_invoked_branch, ^reviewer}
-    end
+    assert_receive {:worker_critic_call, :initial, "coverage_fidelity"}
+    assert_receive {:worker_critic_call, :initial, "safety_consistency"}
+  end
+
+  test "post-review receipt rejection retains all three spent provider calls" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: PhaseAnswerer)
+
+    assert {:ok, _setting} =
+             AllbertAssist.Settings.put("intent.direct_answer_model_enabled", true, %{
+               audit?: false
+             })
+
+    {grounding, context} = quality_worker_context()
+
+    context =
+      context
+      |> Map.put(:objective_id, nil)
+      |> Map.put(:critic_statuses, %{initial: %{}})
+
+    assert {:error,
+            {:fanout_worker_unresolved,
+             %{provider_call_count: 3, reason: :invalid_quality_receipt_binding}}} =
+             Worker.run("direct_answer", %{text: grounding.direct_answer_text}, context,
+               quality_critic: PhaseCritic
+             )
+
+    assert_receive {:worker_critic_call, :initial, "coverage_fidelity"}
+    assert_receive {:worker_critic_call, :initial, "safety_consistency"}
   end
 
   test "cancellation arriving after the draft prevents review and preserves count one" do
@@ -486,16 +645,14 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
              Worker.run(
                "direct_answer",
                %{text: grounding.direct_answer_text},
-               context,
-               quality_reviewer: AcceptingReviewer
+               context
              )
 
     assert_receive :draft_cancelled_before_review
-    refute_receive {:review_prepared, _contract, _draft}
-    refute_receive :review_invoked
+    refute_receive {:worker_critic_call, _phase, _group}
   end
 
-  test "cancellation arriving during review prevents accepted completion and preserves count two" do
+  test "cancellation arriving during a critic round prevents checked completion" do
     Application.put_env(:allbert_assist, DirectAnswer, answerer: DraftAnswerer)
 
     assert {:ok, _setting} =
@@ -507,16 +664,18 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
     {grounding, context} = quality_worker_context()
     context = Map.put(context, :cancel_token, token)
 
-    assert {:error, {:fanout_worker_unresolved, %{provider_call_count: 2, reason: :cancelled}}} =
+    assert {:error,
+            {:fanout_worker_unresolved,
+             %{provider_call_count: 1, reason: :critic_implementation_failed}}} =
              Worker.run(
                "direct_answer",
                %{text: grounding.direct_answer_text},
                context,
-               quality_reviewer: CancellingReviewer
+               quality_critic: CancellingCritic
              )
 
     assert_receive {:draft_provider_call, _prompt, _policy}
-    assert_receive :review_completed_during_cancellation
+    assert_receive {:critic_cancelled_run, _group}
   end
 
   test "ordinary DirectAnswer remains one provider call with no worker policy, review, or receipt" do
@@ -540,19 +699,202 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
                  test_pid: self(),
                  objective_id: "ordinary-objective",
                  step_id: "ordinary-step"
-               },
-               quality_reviewer: AcceptingReviewer
+               }
              )
 
     assert response.message == "Ordinary one-call answer."
     assert result.quality_receipt == nil
     assert_receive {:ordinary_provider_call, nil}
-    refute_receive {:review_prepared, _contract, _draft}
-    refute_receive :review_invoked
+    refute_receive {:worker_critic_call, _phase, _group}
   end
 
-  test "deadline exhaustion after the draft spends no review call and reports count one" do
-    Application.put_env(:allbert_assist, DirectAnswer, answerer: DraftAnswerer)
+  test "phase-separated Worker accepts an unchanged draft after two independent critics" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: PhaseAnswerer)
+
+    assert {:ok, _setting} =
+             AllbertAssist.Settings.put("intent.direct_answer_model_enabled", true, %{
+               audit?: false
+             })
+
+    {grounding, context} = quality_worker_context()
+
+    context =
+      Map.put(context, :critic_statuses, %{
+        initial: %{
+          "coverage_fidelity" => "satisfied",
+          "safety_consistency" => "satisfied"
+        }
+      })
+
+    assert {:ok, %{adapter: :jido, response: response, quality_receipt: receipt}} =
+             Worker.run(
+               "direct_answer",
+               %{text: grounding.direct_answer_text},
+               context,
+               quality_critic: PhaseCritic
+             )
+
+    assert response.message == "Initial phase-separated draft."
+    assert receipt["version"] == 2
+    assert receipt["draft_call_count"] == 1
+    assert receipt["initial_critic_call_count"] == 2
+    assert receipt["revision_call_count"] == 0
+    assert receipt["final_critic_call_count"] == 0
+    assert receipt["provider_call_count"] == 3
+    assert receipt["final_assessment_sha256"] == nil
+    assert receipt["accepted_assessment_sha256"] == receipt["initial_assessment_sha256"]
+
+    assert_receive {:worker_generation_call, :draft}
+    assert_receive {:worker_critic_call, :initial, "coverage_fidelity"}
+    assert_receive {:worker_critic_call, :initial, "safety_consistency"}
+    refute_receive {:worker_generation_call, :revision}
+    refute_receive {:worker_critic_call, :final, _group}
+  end
+
+  test "phase-separated Worker revises once and uses a fresh critic pair for acceptance" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: PhaseAnswerer)
+
+    assert {:ok, _setting} =
+             AllbertAssist.Settings.put("intent.direct_answer_model_enabled", true, %{
+               audit?: false
+             })
+
+    {grounding, context} = quality_worker_context()
+
+    context =
+      Map.put(context, :critic_statuses, %{
+        initial: %{
+          "coverage_fidelity" => "violated",
+          "safety_consistency" => "satisfied"
+        },
+        final: %{
+          "coverage_fidelity" => "satisfied",
+          "safety_consistency" => "satisfied"
+        }
+      })
+
+    assert {:ok, %{adapter: :jido, response: response, quality_receipt: receipt}} =
+             Worker.run(
+               "direct_answer",
+               %{text: grounding.direct_answer_text},
+               context,
+               quality_critic: PhaseCritic
+             )
+
+    assert response.message == "Revised phase-separated answer."
+    assert receipt["version"] == 2
+    assert receipt["draft_call_count"] == 1
+    assert receipt["initial_critic_call_count"] == 2
+    assert receipt["revision_call_count"] == 1
+    assert receipt["final_critic_call_count"] == 2
+    assert receipt["provider_call_count"] == 6
+    assert receipt["accepted_assessment_sha256"] == receipt["final_assessment_sha256"]
+    assert receipt["accepted_assessment_sha256"] != receipt["initial_assessment_sha256"]
+
+    assert_receive {:worker_generation_call, :draft}
+    assert_receive {:worker_critic_call, :initial, "coverage_fidelity"}
+    assert_receive {:worker_critic_call, :initial, "safety_consistency"}
+    assert_receive {:worker_generation_call, :revision}
+    assert_receive {:worker_critic_call, :final, "coverage_fidelity"}
+    assert_receive {:worker_critic_call, :final, "safety_consistency"}
+  end
+
+  test "final critics and receipt bind the exact redacted bounded revision bytes" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: PhaseAnswerer)
+
+    assert {:ok, _setting} =
+             AllbertAssist.Settings.put("intent.direct_answer_model_enabled", true, %{
+               audit?: false
+             })
+
+    raw_revision = LongRedactableAnswerer.message()
+    expected = ObservationSummary.normalize(raw_revision)
+    refute expected =~ "AIzaSyDUMMYSecretShapeForAudit59"
+    assert expected =~ "[REDACTED]"
+    {grounding, context} = quality_worker_context()
+
+    context =
+      context
+      |> Map.put(:record_critic_candidates, true)
+      |> Map.put(:worker_phase_messages, %{revision: raw_revision})
+      |> Map.put(:critic_statuses, %{
+        initial: %{"coverage_fidelity" => "violated"},
+        final: %{}
+      })
+
+    assert {:ok, %{response: %{message: ^expected}, quality_receipt: receipt}} =
+             Worker.run("direct_answer", %{text: grounding.direct_answer_text}, context,
+               quality_critic: PhaseCritic
+             )
+
+    assert receipt["provider_call_count"] == 6
+    assert receipt["final_answer_sha256"] == sha256(expected)
+    assert_receive {:worker_critic_candidate, :final, "coverage_fidelity", ^expected}
+    assert_receive {:worker_critic_candidate, :final, "safety_consistency", ^expected}
+  end
+
+  test "an empty normalized revision stops at call four before final critics" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: PhaseAnswerer)
+
+    assert {:ok, _setting} =
+             AllbertAssist.Settings.put("intent.direct_answer_model_enabled", true, %{
+               audit?: false
+             })
+
+    {grounding, context} = quality_worker_context()
+
+    context =
+      context
+      |> Map.put(:worker_phase_messages, %{revision: " \n\t "})
+      |> Map.put(:critic_statuses, %{initial: %{"coverage_fidelity" => "violated"}})
+
+    assert {:error,
+            {:fanout_worker_unresolved,
+             %{provider_call_count: 4, reason: :quality_model_revision_unavailable}}} =
+             Worker.run("direct_answer", %{text: grounding.direct_answer_text}, context,
+               quality_critic: PhaseCritic
+             )
+
+    assert_receive {:worker_generation_call, :revision}
+    refute_receive {:worker_critic_call, :final, _group}
+  end
+
+  test "a revised answer that fails fresh verification remains honestly unresolved" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: PhaseAnswerer)
+
+    assert {:ok, _setting} =
+             AllbertAssist.Settings.put("intent.direct_answer_model_enabled", true, %{
+               audit?: false
+             })
+
+    {grounding, context} = quality_worker_context()
+
+    context =
+      Map.put(context, :critic_statuses, %{
+        initial: %{"coverage_fidelity" => "violated"},
+        final: %{"safety_consistency" => "unresolved"}
+      })
+
+    assert {:error,
+            {:fanout_worker_unresolved,
+             %{provider_call_count: 6, reason: :quality_review_unresolved}}} =
+             Worker.run(
+               "direct_answer",
+               %{text: grounding.direct_answer_text},
+               context,
+               quality_critic: PhaseCritic
+             )
+
+    assert_receive {:worker_generation_call, :draft}
+    assert_receive {:worker_generation_call, :revision}
+    assert_receive {:worker_critic_call, :initial, "coverage_fidelity"}
+    assert_receive {:worker_critic_call, :initial, "safety_consistency"}
+    assert_receive {:worker_critic_call, :final, "coverage_fidelity"}
+    assert_receive {:worker_critic_call, :final, "safety_consistency"}
+  end
+
+  defp assert_post_dispatch_draft_failure(answerer, provider_message) do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: answerer)
 
     assert {:ok, _setting} =
              AllbertAssist.Settings.put("intent.direct_answer_model_enabled", true, %{
@@ -563,20 +905,16 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
 
     assert {:error,
             {:fanout_worker_unresolved,
-             %{
-               provider_call_count: 1,
-               reason: {:quality_reviewer_unavailable, :fanout_plan_deadline_exhausted}
-             }}} =
+             %{provider_call_count: 1, reason: :quality_model_draft_unavailable}}} =
              Worker.run(
                "direct_answer",
                %{text: grounding.direct_answer_text},
-               context,
-               quality_reviewer: DeadlineReviewer
+               context
              )
 
-    assert_receive {:draft_provider_call, _prompt, _policy}
-    assert_receive :review_deadline_checked
-    refute_receive :unexpected_deadline_review_invoke
+    assert_receive ^provider_message
+    refute_receive ^provider_message
+    refute_receive {:worker_critic_call, _phase, _group}
   end
 
   defp quality_worker_context do
@@ -612,5 +950,11 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
     }
 
     {grounding, context}
+  end
+
+  defp sha256(value) do
+    :sha256
+    |> :crypto.hash(value)
+    |> Base.encode16(case: :lower)
   end
 end

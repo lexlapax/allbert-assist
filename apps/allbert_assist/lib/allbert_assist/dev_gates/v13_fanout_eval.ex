@@ -49,6 +49,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     duplicate_fanout_report_composition_position incomplete_fanout_report_composition_selection
     fanout_report_relationship_section_required unknown_fanout_report_composition_position
     unresolved_fanout_report_synthesis invalid_fanout_report_synthesis_review
+    phase_review_unresolved
     empty_fanout_report_synthesis fanout_report_synthesis_too_large
     unredacted_fanout_report_synthesis invalid_fanout_report_synthesis
     invalid_model_fanout_synthesis fanout_report_structure_too_large
@@ -67,6 +68,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   ]a
   @synthesis_review_reasons ~w[
     unresolved_fanout_report_synthesis invalid_fanout_report_synthesis_review
+    phase_review_unresolved
   ]a
   @synthesis_body_reasons ~w[
     empty_fanout_report_synthesis fanout_report_synthesis_too_large
@@ -123,9 +125,9 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
           dirty: dirty
         ],
         worker_quality: [
-          profile: profiles.composer,
-          reviewer_context: worker_quality_context(profiles.composer),
-          row_timeout_ms: composer_context(profiles.composer).timeout_ms,
+          profile: profiles.reviewer,
+          runner_context: worker_quality_context(profiles.reviewer),
+          row_timeout_ms: composer_context(profiles.reviewer).timeout_ms,
           store: store,
           full_sha: full_sha,
           dirty: dirty
@@ -349,10 +351,17 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
              end)
            ),
          :ok <- expected_layout(composition_case, prepared),
-         provenance <- provenance(profile, prepared),
+         {:ok, provenance} <- provenance(profile, prepared),
          :ok <- selected_body_valid(snapshot, prepared, provenance),
+         phase_evidence <- phase_evidence(provenance),
          {:ok, selection_sha256} <- selection_digest(provenance) do
-      successful_composition(composition_case, prepared, provenance, selection_sha256)
+      successful_composition(
+        composition_case,
+        prepared,
+        provenance,
+        phase_evidence,
+        selection_sha256
+      )
     else
       {:error, {stage, reason}} ->
         failed_composition(composition_case, stage, reason)
@@ -388,6 +397,9 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
 
   defp classify_synthesis_failure(:callback_failed),
     do: {"synthesis_lifecycle", "callback_failed"}
+
+  defp classify_synthesis_failure({:phase_review_unresolved, _closed_reason}),
+    do: {"synthesis_review", "phase_review_unresolved"}
 
   defp classify_synthesis_failure(_reason),
     do: {"synthesis_lifecycle", "unclassified_failure"}
@@ -451,7 +463,13 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     end
   end
 
-  defp successful_composition(composition_case, prepared, provenance, selection_sha256) do
+  defp successful_composition(
+         composition_case,
+         prepared,
+         provenance,
+         phase_evidence,
+         selection_sha256
+       ) do
     sections = prepared.layout.sections
 
     %{
@@ -469,6 +487,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
       provenance_sha256: sha256(CanonicalJSON.encode(provenance)),
       selection_sha256: selection_sha256
     }
+    |> Map.merge(phase_evidence)
   end
 
   defp failed_composition(composition_case, stage, reason)
@@ -486,22 +505,85 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
       failure_reason: reason,
       body_sha256: nil,
       provenance_sha256: nil,
-      selection_sha256: nil
+      selection_sha256: nil,
+      generation_call_count: nil,
+      initial_critic_call_count: nil,
+      revision_call_count: nil,
+      final_critic_call_count: nil,
+      provider_call_count: nil,
+      critic_group_count: nil,
+      review_protocol_version: nil,
+      rule_group_catalog_version: nil,
+      rule_group_catalog_sha256: nil,
+      revision_used: nil,
+      reviewer_config_sha256: nil,
+      initial_assessment_sha256: nil,
+      final_assessment_sha256: nil,
+      accepted_assessment_sha256: nil
     }
   end
 
-  defp provenance(profile, prepared) do
-    %{
-      model_profile: field(profile, :name),
-      provider: field(profile, :provider),
-      model: field(profile, :model),
-      layout_version: prepared.layout.layout_version,
-      sections: prepared.layout.sections,
-      synthesis_contract_version: prepared.synthesis_contract_version,
-      review_verdict: prepared.review_verdict,
-      reviewed_queue_positions: prepared.reviewed_queue_positions,
-      synthesis_sha256: prepared.synthesis_sha256
-    }
+  defp provenance(
+         profile,
+         %{layout: %{layout_version: layout_version, sections: sections}} = prepared
+       ) do
+    required = [
+      :synthesis_contract_version,
+      :review_protocol_version,
+      :critic_group_count,
+      :rule_group_catalog_version,
+      :rule_group_catalog_sha256,
+      :reviewer_config_sha256,
+      :generation_call_count,
+      :initial_critic_call_count,
+      :revision_call_count,
+      :final_critic_call_count,
+      :provider_call_count,
+      :initial_assessment_sha256,
+      :final_assessment_sha256,
+      :accepted_assessment_sha256,
+      :review_verdict,
+      :reviewed_queue_positions,
+      :synthesis_sha256
+    ]
+
+    if Enum.all?(required, &Map.has_key?(prepared, &1)) do
+      {:ok,
+       prepared
+       |> Map.take(required)
+       |> Map.merge(%{
+         model_profile: field(profile, :name),
+         provider: field(profile, :provider),
+         model: field(profile, :model),
+         layout_version: layout_version,
+         sections: sections
+       })}
+    else
+      {:error, {"synthesis_review", "invalid_fanout_report_synthesis_review"}}
+    end
+  end
+
+  defp provenance(_profile, _prepared),
+    do: {:error, {"synthesis_review", "invalid_fanout_report_synthesis_review"}}
+
+  defp phase_evidence(provenance) do
+    provenance
+    |> Map.take([
+      :generation_call_count,
+      :initial_critic_call_count,
+      :revision_call_count,
+      :final_critic_call_count,
+      :provider_call_count,
+      :critic_group_count,
+      :review_protocol_version,
+      :rule_group_catalog_version,
+      :rule_group_catalog_sha256,
+      :reviewer_config_sha256,
+      :initial_assessment_sha256,
+      :final_assessment_sha256,
+      :accepted_assessment_sha256
+    ])
+    |> Map.put(:revision_used, provenance.revision_call_count == 1)
   end
 
   defp stats(profile, fixture_sha256, fov3, fov4, compositions) do
@@ -537,6 +619,25 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
       composition_body_sha256_by_row: row_map(compositions, :body_sha256),
       composition_provenance_sha256_by_row: row_map(compositions, :provenance_sha256),
       composition_selection_sha256_by_row: row_map(compositions, :selection_sha256),
+      composition_generation_call_count_by_row: row_map(compositions, :generation_call_count),
+      composition_initial_critic_call_count_by_row:
+        row_map(compositions, :initial_critic_call_count),
+      composition_revision_call_count_by_row: row_map(compositions, :revision_call_count),
+      composition_final_critic_call_count_by_row: row_map(compositions, :final_critic_call_count),
+      composition_provider_call_count_by_row: row_map(compositions, :provider_call_count),
+      composition_critic_group_count_by_row: row_map(compositions, :critic_group_count),
+      composition_review_protocol_version_by_row: row_map(compositions, :review_protocol_version),
+      composition_rule_group_catalog_version_by_row:
+        row_map(compositions, :rule_group_catalog_version),
+      composition_rule_group_catalog_sha256_by_row:
+        row_map(compositions, :rule_group_catalog_sha256),
+      composition_revision_used_by_row: row_map(compositions, :revision_used),
+      composition_reviewer_config_sha256_by_row: row_map(compositions, :reviewer_config_sha256),
+      composition_initial_assessment_sha256_by_row:
+        row_map(compositions, :initial_assessment_sha256),
+      composition_final_assessment_sha256_by_row: row_map(compositions, :final_assessment_sha256),
+      composition_accepted_assessment_sha256_by_row:
+        row_map(compositions, :accepted_assessment_sha256),
       composition_valid: Enum.all?(compositions, & &1.valid?)
     }
   end
@@ -551,11 +652,16 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
          {:ok, _} <-
            Settings.put("model_preferences.tasks.direct_answer", [profile_name], context),
          {:ok, _} <-
+           Settings.put("model_preferences.tasks.fanout_manager", [profile_name], context),
+         {:ok, _} <-
+           Settings.put("model_preferences.tasks.fanout_review", [profile_name], context),
+         {:ok, _} <-
            Settings.put("model_preferences.tasks.fanout_synthesis", [profile_name], context),
          {:ok, _} <- Settings.put("intent.direct_answer_model_enabled", true, context),
-         {:ok, %{profile: manager}} <- Models.for(:direct_answer, context),
+         {:ok, %{profile: manager}} <- Models.for(:fanout_manager, context),
+         {:ok, %{profile: reviewer}} <- Models.for(:fanout_review, context),
          {:ok, %{profile: composer}} <- Models.for(:fanout_synthesis, context) do
-      %{manager: manager, composer: composer}
+      %{manager: manager, reviewer: reviewer, composer: composer}
     else
       {:error, reason} -> raise "unable to configure v1.3 fan-out profile: #{inspect(reason)}"
     end

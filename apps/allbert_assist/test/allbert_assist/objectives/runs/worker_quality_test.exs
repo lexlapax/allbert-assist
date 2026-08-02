@@ -24,87 +24,26 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
 
   alias AllbertAssist.Actions.Intent.DirectAnswer.Policy, as: DirectAnswerPolicy
   alias AllbertAssist.Intent.FanoutPlan
-  alias AllbertAssist.Models.ClosedRuleEvidence
   alias AllbertAssist.Objectives.CanonicalJSON
   alias AllbertAssist.Objectives.Event
   alias AllbertAssist.Objectives.Fanout
-  alias AllbertAssist.Objectives.Fanout.Budget
+  alias AllbertAssist.Objectives.Fanout.{Budget, ReviewProtocol}
   alias AllbertAssist.Objectives.Steering
 
-  alias AllbertAssist.Objectives.Runs.Worker.{
-    Grounding,
-    QualityPolicy,
-    QualityReceipt,
-    ReqLLMReviewer
-  }
+  alias AllbertAssist.Objectives.Runs.Worker.Agent, as: WorkerAgent
+  alias AllbertAssist.Objectives.Runs.Worker.{Grounding, QualityPolicy, QualityReceipt}
 
-  alias ReqLLM.Response
+  alias AllbertAssist.Objectives.Runs.Worker.Commands.Revise
 
-  defmodule FixtureModels do
-    def for(:fanout_synthesis, _context) do
-      {:ok,
-       %{
-         profile: %{
-           name: "quality-review-profile",
-           provider: "local_ollama",
-           provider_endpoint_kind: "local_endpoint",
-           provider_type: "openai_compatible",
-           model: "fixture-quality-model",
-           max_tokens: 1_024,
-           timeout_ms: 60_000
-         }
-       }}
-    end
-  end
-
-  defmodule StableTimeoutModels do
-    def for(:fanout_synthesis, _context) do
-      {:ok,
-       %{
-         profile: %{
-           name: "quality-review-profile",
-           provider: "local_ollama",
-           provider_endpoint_kind: "local_endpoint",
-           provider_type: "openai_compatible",
-           model: "fixture-quality-model",
-           max_tokens: 1_024,
-           timeout_ms: 1_234
-         }
-       }}
-    end
-  end
-
-  defmodule AllowDisclosure do
-    def authorize_transport(profile, context) do
-      send(context.test_pid, {:quality_disclosure, profile.name})
-      :ok
-    end
-  end
-
-  defmodule RecordingReqLLM do
-    alias AllbertAssist.Objectives.Runs.Worker.QualityPolicy
-
-    def generate_object(model_spec, prompt, schema, opts) do
-      send(
-        Keyword.fetch!(opts, :test_pid),
-        {:quality_review_call, model_spec, prompt, schema, opts}
-      )
-
-      {:ok,
-       %Response{
-         id: "quality-review",
-         model: "fixture-quality-model",
-         context: prompt,
-         finish_reason: :stop,
-         object: %{
-           "final_answer" => "The reviewed child answer.",
-           "rule_violations" => Map.new(QualityPolicy.rule_ids(), &{&1, false})
-         }
-       }}
-    end
-  end
-
-  defmodule UnavailableReqLLM do
+  test "Worker exposes only the phase-separated quality transitions" do
+    assert WorkerAgent.signal_routes() == [
+             {"allbert.objectives.worker.execute",
+              AllbertAssist.Objectives.Runs.Worker.Commands.Execute},
+             {"allbert.objectives.worker.review_round",
+              AllbertAssist.Objectives.Runs.Worker.Commands.ReviewRound},
+             {"allbert.objectives.worker.revise",
+              AllbertAssist.Objectives.Runs.Worker.Commands.Revise}
+           ]
   end
 
   test "one typed child contract composes the existing DirectAnswer rules in declared order" do
@@ -214,14 +153,28 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
     assert {:ok, _digest} = QualityPolicy.digest(contract)
   end
 
-  test "one content-free receipt binds the reviewed answer and exact terminal event" do
+  test "one content-free v2 receipt binds the phase-reviewed answer and exact terminal event" do
+    accepted_assessment_sha256 = String.duplicate("4", 64)
+    assert {:ok, group_catalog_sha256} = QualityPolicy.rule_group_catalog_sha256(1)
+
     binding = %{
       objective_id: "objective-原文",
       step_id: "step-019fb2a4",
       task_contract_sha256: String.duplicate("1", 64),
       rule_catalog_version: 2,
       reviewer_config_sha256: String.duplicate("2", 64),
-      provider_call_count: 2,
+      review_protocol_version: 1,
+      critic_group_count: 2,
+      rule_group_catalog_version: 1,
+      rule_group_catalog_sha256: group_catalog_sha256,
+      draft_call_count: 1,
+      initial_critic_call_count: 2,
+      revision_call_count: 0,
+      final_critic_call_count: 0,
+      provider_call_count: 3,
+      initial_assessment_sha256: accepted_assessment_sha256,
+      final_assessment_sha256: nil,
+      accepted_assessment_sha256: accepted_assessment_sha256,
       verdict: "accepted",
       failed_rule_ids: [],
       final_answer: "A normalized reviewed answer."
@@ -230,8 +183,9 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
     assert {:ok, receipt} = QualityReceipt.build(binding)
 
     assert Map.keys(receipt) |> Enum.sort() ==
-             ~w[failed_rule_ids final_answer_sha256 objective_id_sha256 provider_call_count reviewer_config_sha256 rule_catalog_version step_id_sha256 task_contract_sha256 verdict version]
+             ~w[accepted_assessment_sha256 critic_group_count draft_call_count failed_rule_ids final_answer_sha256 final_assessment_sha256 final_critic_call_count initial_assessment_sha256 initial_critic_call_count objective_id_sha256 provider_call_count review_protocol_version reviewer_config_sha256 revision_call_count rule_catalog_version rule_group_catalog_sha256 rule_group_catalog_version step_id_sha256 task_contract_sha256 verdict version]
 
+    assert receipt["version"] == 2
     assert receipt["objective_id_sha256"] == sha256(binding.objective_id)
     assert receipt["step_id_sha256"] == sha256(binding.step_id)
     assert receipt["final_answer_sha256"] == sha256(binding.final_answer)
@@ -241,7 +195,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
     assert {:ok, receipt_digest} = QualityReceipt.digest(receipt)
 
     assert receipt_digest ==
-             sha256("allbert:fanout-worker-quality-receipt:v1\0" <> CanonicalJSON.encode(receipt))
+             sha256("allbert:fanout-worker-quality-receipt:v2\0" <> CanonicalJSON.encode(receipt))
 
     event_payload = %{
       "quality_receipt" => receipt,
@@ -251,6 +205,27 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
 
     assert {:ok, ^receipt, ^receipt_digest} =
              QualityReceipt.from_event_payload(event_payload, binding)
+
+    revised_binding = %{
+      binding
+      | revision_call_count: 1,
+        final_critic_call_count: 2,
+        provider_call_count: 6,
+        final_assessment_sha256: String.duplicate("5", 64),
+        accepted_assessment_sha256: String.duplicate("5", 64)
+    }
+
+    assert {:ok, revised_receipt} = QualityReceipt.build(revised_binding)
+    assert :ok = QualityReceipt.validate_current(revised_receipt, revised_binding)
+
+    for invalid <- [
+          %{binding | provider_call_count: 4},
+          %{binding | rule_group_catalog_sha256: String.duplicate("3", 64)},
+          %{binding | final_assessment_sha256: String.duplicate("5", 64)},
+          %{revised_binding | accepted_assessment_sha256: accepted_assessment_sha256}
+        ] do
+      assert {:error, :invalid_quality_receipt_binding} = QualityReceipt.build(invalid)
+    end
   end
 
   test "new receipt writes require catalog v2 while valid catalog-v1 receipts replay" do
@@ -317,261 +292,69 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
            } = Grounding.resolve(child)
   end
 
-  test "the task-resolved reviewer prepares before and then makes one bounded structured call" do
-    assert {:ok, contract} =
-             QualityPolicy.build(%{
-               source: :conversation_manager,
-               original_request: "Prepare two independent analyses.",
-               child_objective: "Analyze the first mechanism.",
-               expected_result: "Cover its behavior and tradeoffs.",
-               steering: nil
-             })
-
-    context = %{
-      models: FixtureModels,
-      disclosure: AllowDisclosure,
-      req_llm_client: RecordingReqLLM,
-      test_pid: self(),
-      fanout_deadline_unix_ms: System.system_time(:millisecond) + 60_000,
-      fanout_worker_deadline_monotonic_ms: System.monotonic_time(:millisecond) + 5_000,
-      model_max_output_tokens: 512
-    }
-
-    assert {:ok, prepared} = ReqLLMReviewer.prepare(contract, "Initial draft.", context)
-    assert_receive {:quality_disclosure, "quality-review-profile"}
-    refute_receive {:quality_review_call, _spec, _prompt, _schema, _opts}
-    assert prepared.max_output_tokens == 512
-    assert prepared.timeout_ms in 1..5_000
-    assert byte_size(prepared.reviewer_config_sha256) == 64
-
-    assert {:ok, reviewed} = ReqLLMReviewer.invoke(prepared, context)
-    assert reviewed.final_answer == "The reviewed child answer."
-    assert reviewed.verdict == "accepted"
-    assert reviewed.failed_rule_ids == []
-    assert reviewed.reviewer_config_sha256 == prepared.reviewer_config_sha256
-
-    assert_receive {:quality_review_call, %{provider: :openai, id: "fixture-quality-model"},
-                    prompt, schema, opts}
-
-    assert schema == %{
-             "type" => "object",
-             "properties" => %{
-               "final_answer" => %{
-                 "type" => "string",
-                 "description" => "The reviewed and, when needed, revised child answer itself."
-               },
-               "rule_violations" => %{
-                 "type" => "object",
-                 "properties" =>
-                   Map.new(QualityPolicy.rule_ids(), fn rule_id ->
-                     {rule_id,
-                      %{
-                        "type" => "boolean",
-                        "description" =>
-                          "For rule #{rule_id}, true means the rule remains violated in the returned final output after any revision; false means the rule is satisfied or not applicable to that final output."
-                      }}
-                   end),
-                 "required" => QualityPolicy.rule_ids(),
-                 "additionalProperties" => false
-               }
-             },
-             "required" => ["final_answer", "rule_violations"],
-             "additionalProperties" => false
-           }
-
-    [system_message, user_message] = prompt.messages
-    system_text = Enum.map_join(system_message.content, & &1.text)
-    user_text = Enum.map_join(user_message.content, & &1.text)
-    assert system_text =~ ClosedRuleEvidence.violation_semantics()
-
-    for rule <- QualityPolicy.rule_specs() do
-      assert count_occurrences(system_text, "- [#{rule.id}] #{rule.instruction}") == 1
-      assert count_occurrences(system_text, rule.instruction) == 1
-      refute user_text =~ rule.instruction
-
-      assert schema["properties"]["rule_violations"]["properties"][Atom.to_string(rule.id)][
-               "description"
-             ] ==
-               "For rule #{rule.id}, true means the rule remains violated in the returned final output after any revision; false means the rule is satisfied or not applicable to that final output."
-    end
-
-    refute user_text =~ "\"rules\""
-
-    assert opts[:max_tokens] == 512
-    assert opts[:receive_timeout] == prepared.timeout_ms
-    assert opts[:openai_structured_output_mode] == :json_schema
-    assert opts[:json_repair] == false
-    assert opts[:max_retries] == 0
-  end
-
-  test "reviewer configuration deterministically binds the revised closed transport" do
+  test "revision rejects stale or mutated initial-review evidence before generation" do
     assert {:ok, contract} = quality_contract()
+    assert {:ok, task_digest} = QualityPolicy.digest(contract)
+    draft = "Initial exact draft bytes."
+    assert {:ok, review} = phase_review(contract, draft, "violated")
+    expected_config = review.reviewer_config_sha256
 
-    context = %{
-      models: StableTimeoutModels,
-      disclosure: AllowDisclosure,
-      req_llm_client: RecordingReqLLM,
-      test_pid: self(),
-      fanout_deadline_unix_ms: System.system_time(:millisecond) + 60_000,
-      fanout_worker_deadline_monotonic_ms: System.monotonic_time(:millisecond) + 60_000,
-      model_max_output_tokens: 512
+    base_state = %{
+      status: :revision_required,
+      objective_id: "objective-review-binding",
+      step_id: "step-review-binding",
+      provider_call_count: 3,
+      task_contract: contract,
+      task_contract_sha256: task_digest,
+      draft_response: %{message: draft},
+      initial_review: review,
+      initial_reviewer_config_sha256: expected_config
     }
 
-    assert {:ok, first} = ReqLLMReviewer.prepare(contract, "Initial draft.", context)
-    assert {:ok, second} = ReqLLMReviewer.prepare(contract, "Initial draft.", context)
-    assert first.timeout_ms == 1_234
-    assert second.timeout_ms == first.timeout_ms
-    assert second.reviewer_config_sha256 == first.reviewer_config_sha256
+    mutated_states = [
+      put_in(base_state, [:draft_response, :message], "Changed draft bytes."),
+      put_in(
+        base_state,
+        [:initial_review, :source_sha256, "candidate"],
+        String.duplicate("0", 64)
+      ),
+      put_in(base_state, [:initial_review, :assessments, Access.at(0), "status"], "satisfied"),
+      put_in(base_state, [:initial_review, :revision_rule_ids], ["foreign_rule"]),
+      put_in(base_state, [:initial_review, :reviewer_config_sha256], String.duplicate("f", 64))
+    ]
 
-    schema = worker_review_schema()
-
-    expected_config = %{
-      "version" => 2,
-      "model_profile" => "quality-review-profile",
-      "provider" => "local_ollama",
-      "model" => "fixture-quality-model",
-      "timeout_ms" => 1_234,
-      "max_output_tokens" => 512,
-      "transport" => %{
-        "closed_rule_evidence_version" => ClosedRuleEvidence.transport_version(),
-        "response_schema_sha256" => sha256(CanonicalJSON.encode(schema))
-      }
-    }
-
-    assert first.reviewer_config_sha256 ==
-             sha256(
-               "allbert:fanout-worker-reviewer-config:v2\0" <>
-                 CanonicalJSON.encode(expected_config)
-             )
-
-    refute first.reviewer_config_sha256 ==
-             sha256(
-               "allbert:fanout-worker-reviewer-config:v1\0" <>
-                 CanonicalJSON.encode(Map.put(expected_config, "version", 1))
-             )
-  end
-
-  test "closed violation evidence derives its verdict locally and rejects malformed transport" do
-    no_violations = Map.new(QualityPolicy.rule_ids(), &{&1, false})
-
-    for invalid_answer <- [
-          String.duplicate("界", 2_001),
-          "token=Bearer DUMMYSecretShapeForAudit59 completed"
-        ] do
-      assert {:error, :invalid_quality_review} =
-               QualityPolicy.validate_review(%{
-                 "final_answer" => invalid_answer,
-                 "rule_violations" => no_violations
-               })
-    end
-
-    completion_violation = Map.put(no_violations, "completion_preconditions", true)
-
-    assert {:ok,
-            %{
-              verdict: "unresolved",
-              failed_rule_ids: ["completion_preconditions"],
-              rule_results: rule_results
-            }} =
-             QualityPolicy.validate_review(%{
-               "final_answer" => "Required evidence was not supplied.",
-               "rule_violations" => completion_violation
-             })
-
-    assert Enum.find(rule_results, &(&1["rule_id"] == "completion_preconditions")) == %{
-             "rule_id" => "completion_preconditions",
-             "verdict" => "unsatisfied"
-           }
-
-    refute Enum.find(rule_results, &(&1["rule_id"] == "memory_is_reference"))["verdict"] ==
-             "unsatisfied"
-
-    assert {:error, :invalid_quality_review} =
-             QualityPolicy.validate_review(%{
-               "final_answer" => "Valid bounded bytes.",
-               "rule_violations" => Map.delete(no_violations, "memory_is_reference")
-             })
-
-    assert {:error, :invalid_quality_review} =
-             QualityPolicy.validate_review(%{
-               "final_answer" => "Valid bounded bytes.",
-               "rule_violations" => Map.put(no_violations, "invented_rule", false)
-             })
-
-    assert {:error, :invalid_quality_review} =
-             QualityPolicy.validate_review(%{
-               "final_answer" => "Valid bounded bytes.",
-               "rule_violations" => Map.put(no_violations, "memory_is_reference", "false")
-             })
-
-    for legacy_shape <- [
-          %{"final_answer" => "Legacy", "verdict" => "accepted", "rule_results" => []},
-          %{
-            "final_answer" => "Legacy",
-            "verdict" => "accepted",
-            "rule_results" => [
-              %{"rule_id" => "memory_is_reference", "verdict" => "unsatisfied"}
-            ]
-          }
-        ] do
-      assert {:error, :invalid_quality_review} = QualityPolicy.validate_review(legacy_shape)
-    end
-  end
-
-  test "review preparation rejects an unavailable client before a provider call can be counted" do
-    assert {:ok, contract} = quality_contract()
-
-    context = %{
-      models: FixtureModels,
-      disclosure: AllowDisclosure,
-      req_llm_client: UnavailableReqLLM,
-      test_pid: self(),
-      fanout_deadline_unix_ms: System.system_time(:millisecond) + 60_000,
-      fanout_worker_deadline_monotonic_ms: System.monotonic_time(:millisecond) + 5_000,
-      model_max_output_tokens: 512
-    }
-
-    assert {:error, :req_llm_unavailable} =
-             ReqLLMReviewer.prepare(contract, "Initial draft.", context)
-
-    refute_receive {:quality_review_call, _spec, _prompt, _schema, _opts}
-  end
-
-  test "review preparation fails when either governing deadline expired after the draft" do
-    assert {:ok, contract} = quality_contract()
-
-    now_unix = System.system_time(:millisecond)
-    now_monotonic = System.monotonic_time(:millisecond)
-
-    for {unix_deadline, monotonic_deadline} <- [
-          {now_unix - 1, now_monotonic + 5_000},
-          {now_unix + 60_000, now_monotonic - 1}
-        ] do
-      context = %{
-        models: FixtureModels,
-        disclosure: AllowDisclosure,
-        req_llm_client: RecordingReqLLM,
-        test_pid: self(),
-        fanout_deadline_unix_ms: unix_deadline,
-        fanout_worker_deadline_monotonic_ms: monotonic_deadline,
-        model_max_output_tokens: 512
-      }
-
-      assert {:error, :fanout_plan_deadline_exhausted} =
-               ReqLLMReviewer.prepare(contract, "Initial draft.", context)
-    end
-
-    refute_receive {:quality_review_call, _spec, _prompt, _schema, _opts}
+    Enum.each(mutated_states, fn state ->
+      assert {:ok,
+              %{
+                status: :unresolved,
+                error: :invalid_quality_revision_transition,
+                provider_call_count: 3
+              }} = Revise.run(%{runner_context: %{}}, %{state: state})
+    end)
   end
 
   test "the maximal identity receipt stays below the event payload bound and rejects key collisions" do
+    accepted_assessment_sha256 = String.duplicate("c", 64)
+    assert {:ok, group_catalog_sha256} = QualityPolicy.rule_group_catalog_sha256(1)
+
     binding = %{
       objective_id: String.duplicate("o", 80),
       step_id: String.duplicate("s", 80),
       task_contract_sha256: String.duplicate("a", 64),
       rule_catalog_version: 2,
       reviewer_config_sha256: String.duplicate("b", 64),
-      provider_call_count: 2,
+      review_protocol_version: 1,
+      critic_group_count: 2,
+      rule_group_catalog_version: 1,
+      rule_group_catalog_sha256: group_catalog_sha256,
+      draft_call_count: 1,
+      initial_critic_call_count: 2,
+      revision_call_count: 0,
+      final_critic_call_count: 0,
+      provider_call_count: 3,
+      initial_assessment_sha256: accepted_assessment_sha256,
+      final_assessment_sha256: nil,
+      accepted_assessment_sha256: accepted_assessment_sha256,
       verdict: "accepted",
       failed_rule_ids: [],
       final_answer: String.duplicate("界", 2_000)
@@ -601,6 +384,20 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
 
     assert event_changeset.valid?
     assert {:ok, ^receipt, _digest} = QualityReceipt.from_event_payload(encoded, binding)
+
+    mutated_receipt =
+      Map.put(receipt, "rule_group_catalog_sha256", String.duplicate("f", 64))
+
+    assert {:error, :invalid_quality_receipt} =
+             QualityReceipt.validate(mutated_receipt, binding)
+
+    assert {:error, :invalid_quality_receipt} = QualityReceipt.digest(mutated_receipt)
+
+    assert {:error, :invalid_quality_receipt_event} =
+             QualityReceipt.from_event_payload(
+               Map.put(payload, "quality_receipt", mutated_receipt),
+               binding
+             )
 
     collision = Map.put(payload, :step_id, binding.step_id)
 
@@ -637,28 +434,6 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
     :sha256
     |> :crypto.hash(value)
     |> Base.encode16(case: :lower)
-  end
-
-  defp count_occurrences(text, needle) do
-    text
-    |> String.split(needle)
-    |> length()
-    |> Kernel.-(1)
-  end
-
-  defp worker_review_schema do
-    %{
-      "type" => "object",
-      "properties" => %{
-        "final_answer" => %{
-          "type" => "string",
-          "description" => "The reviewed and, when needed, revised child answer itself."
-        },
-        "rule_violations" => ClosedRuleEvidence.schema!(QualityPolicy.rule_ids())
-      },
-      "required" => ["final_answer", "rule_violations"],
-      "additionalProperties" => false
-    }
   end
 
   defp create_grounded_child(original_request, child_objective, expected_result) do
@@ -706,5 +481,34 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
       expected_result: "Cover its behavior and tradeoffs.",
       steering: nil
     })
+  end
+
+  defp phase_review(contract, candidate, status) do
+    with {:ok, protocol} <- QualityPolicy.review_protocol(),
+         {:ok, sources} <-
+           ReviewProtocol.bind_sources(
+             %{"task_contract" => CanonicalJSON.encode(contract)},
+             candidate
+           ),
+         group_results =
+           Enum.map(protocol.groups, fn group ->
+             %{
+               "group_id" => group["id"],
+               "assessments" =>
+                 Enum.map(group["rule_ids"], fn rule_id ->
+                   %{
+                     "rule_id" => rule_id,
+                     "status" => status,
+                     "source_handles" => ["task_contract", "candidate"]
+                   }
+                 end)
+             }
+           end),
+         {:ok, review} <- ReviewProtocol.merge(protocol, group_results, sources) do
+      {:ok,
+       review
+       |> Map.put(:reviewer_config_sha256, String.duplicate("a", 64))
+       |> Map.put(:provider_call_count, 2)}
+    end
   end
 end

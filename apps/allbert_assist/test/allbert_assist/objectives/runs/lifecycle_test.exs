@@ -348,6 +348,36 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     refute Enum.any?(Objectives.list_events(child.id), &(&1.kind == "run_completed"))
   end
 
+  test "current DirectAnswer completion rejects mutated review protocol and phase evidence" do
+    answer = "A phase-reviewed task-neutral child answer."
+
+    mutations = [
+      &Map.put(&1, "review_protocol_version", 2),
+      &Map.put(&1, "critic_group_count", 1),
+      &Map.put(&1, "rule_group_catalog_version", 2),
+      &Map.put(&1, "rule_group_catalog_sha256", String.duplicate("f", 64)),
+      &Map.put(&1, "draft_call_count", 0),
+      &Map.put(&1, "initial_critic_call_count", 1),
+      &Map.put(&1, "provider_call_count", 4),
+      &Map.put(&1, "accepted_assessment_sha256", String.duplicate("e", 64))
+    ]
+
+    Enum.each(mutations, fn mutate ->
+      {child, step, receipt, _task_digest} = reviewed_completion_fixture(answer)
+
+      assert {:error, {:invalid_fanout_worker_quality_receipt, :invalid_quality_receipt}} =
+               Lifecycle.run(child.id,
+                 adapter: QualityCompletionAdapter,
+                 quality_step: step,
+                 quality_answer: answer,
+                 quality_receipt: mutate.(receipt)
+               )
+
+      assert {:ok, %{status: "failed"}} = Objectives.get_objective(child.id)
+      refute Enum.any?(Objectives.list_events(child.id), &(&1.kind == "run_completed"))
+    end)
+  end
+
   test "reviewed completion resumes idempotently when its step already completed" do
     answer = "A reviewed task-neutral child answer."
     {child, step, receipt, _task_digest} = reviewed_completion_fixture(answer)
@@ -522,7 +552,11 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
 
     task =
       Task.async(fn ->
-        Lifecycle.run(child.id, adapter: DelayedExecutionAdapter, test_pid: test_pid)
+        Lifecycle.run(child.id,
+          adapter: DelayedExecutionAdapter,
+          candidate_action: "list_objectives",
+          test_pid: test_pid
+        )
       end)
 
     assert_receive {:execution_in_flight, runner, "Explain OTP supervision as a restaurant"},
@@ -558,7 +592,11 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
 
     task =
       Task.async(fn ->
-        Lifecycle.run(child.id, adapter: DelayedExecutionAdapter, test_pid: test_pid)
+        Lifecycle.run(child.id,
+          adapter: DelayedExecutionAdapter,
+          candidate_action: "list_objectives",
+          test_pid: test_pid
+        )
       end)
 
     assert_receive {:execution_in_flight, runner, ^directive}, 2_000
@@ -1188,6 +1226,59 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     end
   end
 
+  test "Budget v1 DirectAnswer recovery fails once and cannot resume through steering" do
+    legacy_budget = %{
+      "version" => 1,
+      "child_count" => 2,
+      "manager_attempts" => 1,
+      "worker_attempts_per_child" => 2,
+      "configured_model_calls" => 40,
+      "required_model_calls" => 10,
+      "configured_output_tokens" => 24_000,
+      "required_output_tokens" => 6_144,
+      "max_elapsed_ms" => 300_000
+    }
+
+    assert {:ok, ^legacy_budget} = Budget.validate_snapshot(legacy_budget)
+
+    assert {:ok, child} =
+             create_grounded_child(
+               "conversation_manager",
+               "Prepare two historical recovery analyses.",
+               "Analyze the first historical recovery fixture.",
+               %{"budget" => legacy_budget}
+             )
+
+    assert {:ok, {:failed, failed}} = Lifecycle.reconcile_quality_protocol_upgrade(child)
+    assert failed.status == "failed"
+    assert failed.review_reason == "quality_protocol_upgrade_required"
+    assert failed.run_attempt_count == 0
+    assert %DateTime{} = failed.completed_at
+
+    assert {:ok, {:failed, same}} = Lifecycle.reconcile_quality_protocol_upgrade(failed)
+    assert same.id == child.id
+
+    assert {:error, :terminal} =
+             Steering.steer(
+               "alice",
+               child.id,
+               "Analyze a replacement historical recovery fixture."
+             )
+
+    assert {:error, {:objective_not_runnable, "failed"}} =
+             Lifecycle.run(child.id, adapter: RecordingAdapter, test_pid: self())
+
+    assert {:ok, unchanged} = Objectives.get_objective(child.id)
+    assert unchanged.status == "failed"
+    assert unchanged.review_reason == "quality_protocol_upgrade_required"
+    assert unchanged.run_attempt_count == 0
+
+    assert Enum.count(Objectives.list_events(child.id), &(&1.kind == "run_failed")) == 1
+    refute Enum.any?(Objectives.list_events(child.id), &(&1.kind == "run_started"))
+    refute Enum.any?(Objectives.list_events(child.id), &(&1.kind == "steer_applied"))
+    refute_receive {:operation, _operation}, 100
+  end
+
   test "confirmation parking persists the step receipt without blocking another run" do
     assert {:ok, child} =
              create_child(%{
@@ -1265,6 +1356,8 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     grounding = Grounding.resolve(child)
     assert {:ok, contract} = QualityPolicy.build(grounding)
     assert {:ok, task_digest} = QualityPolicy.digest(contract)
+    assert {:ok, protocol} = QualityPolicy.review_protocol()
+    accepted_assessment_sha256 = String.duplicate("a", 64)
 
     assert {:ok, receipt} =
              QualityReceipt.build(%{
@@ -1272,8 +1365,19 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
                step_id: step.id,
                task_contract_sha256: task_digest,
                rule_catalog_version: QualityPolicy.version(),
+               review_protocol_version: protocol.review_protocol_version,
+               critic_group_count: length(protocol.groups),
+               rule_group_catalog_version: protocol.rule_group_catalog_version,
+               rule_group_catalog_sha256: protocol.rule_group_catalog_sha256,
                reviewer_config_sha256: String.duplicate("b", 64),
-               provider_call_count: 2,
+               draft_call_count: 1,
+               initial_critic_call_count: 2,
+               revision_call_count: 0,
+               final_critic_call_count: 0,
+               provider_call_count: 3,
+               initial_assessment_sha256: accepted_assessment_sha256,
+               final_assessment_sha256: nil,
+               accepted_assessment_sha256: accepted_assessment_sha256,
                verdict: "accepted",
                failed_rule_ids: [],
                final_answer: answer

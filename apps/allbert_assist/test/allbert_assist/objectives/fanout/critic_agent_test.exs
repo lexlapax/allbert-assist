@@ -8,6 +8,8 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
   alias AllbertAssist.Objectives.Runs.CancelToken
 
   @reviewer_config_aggregate_domain "allbert:fanout-reviewer-config-aggregate:v1\0"
+  @critic_start_event [:allbert_assist, :objectives, :fanout, :critic, :start]
+  @critic_stop_event [:allbert_assist, :objectives, :fanout, :critic, :stop]
 
   defmodule ScriptedCritic do
     def assess(request, context) do
@@ -90,6 +92,38 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
     end
   end
 
+  defmodule HeldSuccessCritic do
+    def assess(request, context) do
+      :ok = ReviewRound.note_provider_attempt(context)
+      group_id = request["group"]["id"]
+      send(context.test_pid, {:held_critic_started, group_id, self()})
+
+      receive do
+        :release ->
+          assessments =
+            Enum.map(request["group"]["rule_ids"], fn rule_id ->
+              %{
+                "rule_id" => rule_id,
+                "status" => "satisfied",
+                "source_handles" => ["candidate"]
+              }
+            end)
+
+          {:ok,
+           %{
+             assessment: %{"group_id" => group_id, "assessments" => assessments},
+             reviewer_config_sha256: fixture_config_sha256(group_id)
+           }}
+      end
+    end
+
+    defp fixture_config_sha256(group_id) do
+      :sha256
+      |> :crypto.hash("held-reviewer-config:" <> group_id)
+      |> Base.encode16(case: :lower)
+    end
+  end
+
   defmodule CountedFailingAndBlockingCritic do
     def assess(%{"group" => %{"id" => "coverage_fidelity"}}, context) do
       :ok = ReviewRound.note_provider_attempt(context)
@@ -106,6 +140,25 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
 
       receive do
         :unexpected_release -> {:error, :unexpected_release}
+      end
+    end
+  end
+
+  defmodule OneAttemptAndPreflightFailureCritic do
+    def assess(%{"group" => %{"id" => "coverage_fidelity"}}, context) do
+      :ok = ReviewRound.note_provider_attempt(context)
+      send(context.test_pid, {:one_attempt_blocking_critic_started, self()})
+
+      receive do
+        :unexpected_release -> {:error, :unexpected_release}
+      end
+    end
+
+    def assess(%{"group" => %{"id" => "safety_consistency"}}, context) do
+      send(context.test_pid, {:preflight_failing_critic_ready, self()})
+
+      receive do
+        :release_preflight_failure -> {:error, :fanout_review_profile_unavailable}
       end
     end
   end
@@ -141,10 +194,12 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
   end
 
   test "two critics may finish out of order while fan-in remains in catalog order" do
+    attach_critic_telemetry()
     protocol = protocol!()
 
     context = %{
       test_pid: self(),
+      fanout_review_phase: :initial,
       delays: %{"coverage_fidelity" => 40, "safety_consistency" => 0}
     }
 
@@ -189,6 +244,46 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
 
     refute Process.alive?(coverage_pid)
     refute Process.alive?(safety_pid)
+
+    telemetry = take_critic_telemetry(4)
+    starts = Enum.filter(telemetry, &match?({@critic_start_event, _, _}, &1))
+    stops = Enum.filter(telemetry, &match?({@critic_stop_event, _, _}, &1))
+
+    assert length(starts) == 2
+    assert length(stops) == 2
+
+    Enum.each(starts, fn {@critic_start_event, measurements, metadata} ->
+      assert Map.keys(measurements) == [:system_time]
+      assert Enum.sort(Map.keys(metadata)) == [:consumer, :group_id, :phase, :round_token]
+      assert metadata.consumer == :worker
+      assert metadata.phase == :initial
+      assert metadata.group_id in ["coverage_fidelity", "safety_consistency"]
+      assert is_reference(metadata.round_token)
+    end)
+
+    Enum.each(stops, fn {@critic_stop_event, measurements, metadata} ->
+      assert Map.keys(measurements) == [:duration]
+
+      assert Enum.sort(Map.keys(metadata)) == [
+               :consumer,
+               :group_id,
+               :outcome,
+               :phase,
+               :round_token
+             ]
+
+      assert metadata.consumer == :worker
+      assert metadata.phase == :initial
+      assert metadata.outcome == :success
+      assert measurements.duration >= 0
+    end)
+
+    assert Map.new(starts, fn {_event, _measurements, metadata} ->
+             {metadata.group_id, metadata.round_token}
+           end) ==
+             Map.new(stops, fn {_event, _measurements, metadata} ->
+               {metadata.group_id, metadata.round_token}
+             end)
 
     assert Enum.map(result.group_results, & &1["group_id"]) == [
              "coverage_fidelity",
@@ -392,12 +487,18 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
   end
 
   test "the first critic infrastructure failure brutally stops its running sibling" do
+    attach_critic_telemetry()
+
     assert {:error, {:review_round_failed, :critic_implementation_failed, 2}} =
              ReviewRound.run(
                protocol!(),
                %{"task_contract" => "Review this bounded task."},
                "Candidate under review.",
-               %{test_pid: self()},
+               %{
+                 test_pid: self(),
+                 fanout_review_consumer: :worker,
+                 fanout_review_phase: :final
+               },
                critic_implementation: FailingAndBlockingCritic,
                deadline_monotonic_ms: System.monotonic_time(:millisecond) + 1_000
              )
@@ -406,6 +507,15 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
     assert_receive {:blocking_critic_started, blocking_pid}
     refute Process.alive?(failing_pid)
     refute Process.alive?(blocking_pid)
+
+    telemetry = take_critic_telemetry(4)
+
+    assert telemetry_outcomes(telemetry) == [
+             {"coverage_fidelity", :failure},
+             {"safety_consistency", :brutal_sibling_stop}
+           ]
+
+    assert_balanced_telemetry(telemetry, :worker, :final)
   end
 
   test "a failed round reports every admitted physical provider attempt" do
@@ -434,13 +544,41 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
     refute Process.alive?(blocking_pid)
   end
 
+  test "a mixed preflight and in-flight critic failure reports exactly one attempt" do
+    test_pid = self()
+
+    round =
+      Task.async(fn ->
+        ReviewRound.run(
+          protocol!(),
+          %{"task_contract" => "Review this bounded task."},
+          "Candidate under review.",
+          %{test_pid: test_pid},
+          critic_implementation: OneAttemptAndPreflightFailureCritic,
+          deadline_monotonic_ms: System.monotonic_time(:millisecond) + 1_000
+        )
+      end)
+
+    assert_receive {:one_attempt_blocking_critic_started, blocking_pid}
+    assert_receive {:preflight_failing_critic_ready, failing_pid}
+    send(failing_pid, :release_preflight_failure)
+
+    assert {:error, {:review_round_failed, :critic_implementation_failed, 1}} =
+             Task.await(round, 1_000)
+
+    refute Process.alive?(blocking_pid)
+    refute Process.alive?(failing_pid)
+  end
+
   test "one monotonic deadline stops both critics without returning partial evidence" do
+    attach_critic_telemetry()
+
     assert {:error, {:review_round_failed, :review_deadline_exhausted, 2}} =
              ReviewRound.run(
                protocol!(),
                %{"task_contract" => "Review this bounded task."},
                "Candidate under review.",
-               %{test_pid: self()},
+               %{test_pid: self(), review_phase: :final},
                critic_implementation: BlockingCritic,
                deadline_monotonic_ms: System.monotonic_time(:millisecond) + 100
              )
@@ -449,9 +587,19 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
     assert_receive {:blocking_critic_started, "safety_consistency", safety_pid}
     refute Process.alive?(coverage_pid)
     refute Process.alive?(safety_pid)
+
+    telemetry = take_critic_telemetry(4)
+
+    assert telemetry_outcomes(telemetry) == [
+             {"coverage_fidelity", :timeout},
+             {"safety_consistency", :timeout}
+           ]
+
+    assert_balanced_telemetry(telemetry, :composer, :final)
   end
 
   test "cooperative cancellation stops both critics and returns no assessment" do
+    attach_critic_telemetry()
     cancel_token = CancelToken.new()
     test_pid = self()
 
@@ -461,7 +609,12 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
           protocol!(),
           %{"task_contract" => "Review this bounded task."},
           "Candidate under review.",
-          %{test_pid: test_pid, cancel_token: cancel_token},
+          %{
+            test_pid: test_pid,
+            cancel_token: cancel_token,
+            fanout_review_consumer: :worker,
+            fanout_review_phase: :initial
+          },
           critic_implementation: BlockingCritic,
           deadline_monotonic_ms: System.monotonic_time(:millisecond) + 1_000
         )
@@ -473,6 +626,106 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
     assert {:error, {:review_round_failed, :review_cancelled, 2}} = Task.await(round, 1_000)
     refute Process.alive?(coverage_pid)
     refute Process.alive?(safety_pid)
+
+    telemetry = take_critic_telemetry(4)
+
+    assert telemetry_outcomes(telemetry) == [
+             {"coverage_fidelity", :cancelled},
+             {"safety_consistency", :cancelled}
+           ]
+
+    assert_balanced_telemetry(telemetry, :worker, :initial)
+  end
+
+  test "six Worker rounds plus one composer round peak at fourteen critics and clean to zero" do
+    attach_critic_telemetry()
+    test_pid = self()
+    deadline = System.monotonic_time(:millisecond) + 5_000
+
+    worker_rounds =
+      Enum.map(0..5, fn index ->
+        phase = if index < 3, do: :initial, else: :final
+        protocol = protocol!("worker_#{index}")
+
+        Task.async(fn ->
+          ReviewRound.run(
+            protocol,
+            %{"task_contract" => "Worker task #{index}."},
+            "Worker candidate #{index}.",
+            %{
+              test_pid: test_pid,
+              fanout_review_phase: phase
+            },
+            critic_implementation: HeldSuccessCritic,
+            deadline_monotonic_ms: deadline
+          )
+        end)
+      end)
+
+    composer_round =
+      Task.async(fn ->
+        ReviewRound.run(
+          protocol!("composer"),
+          %{"task_contract" => "Composer task."},
+          "Composer candidate.",
+          %{test_pid: test_pid, review_phase: :final},
+          critic_implementation: HeldSuccessCritic,
+          deadline_monotonic_ms: deadline
+        )
+      end)
+
+    starts = take_critic_telemetry(14)
+
+    critic_by_group =
+      Map.new(1..14, fn _index ->
+        assert_receive {:held_critic_started, group_id, critic_pid}, 1_000
+        {group_id, critic_pid}
+      end)
+
+    critic_pids = Map.values(critic_by_group)
+    assert map_size(critic_by_group) == 14
+    assert length(Enum.uniq(critic_pids)) == 14
+    assert Enum.all?(critic_pids, &Process.alive?/1)
+    refute_receive {:critic_telemetry, @critic_stop_event, _, _}, 25
+
+    Enum.each(critic_pids, &send(&1, :release))
+
+    stops =
+      Enum.map(1..14, fn _index ->
+        assert_receive {:critic_telemetry, @critic_stop_event, measurements, metadata}, 1_000
+        refute Process.alive?(Map.fetch!(critic_by_group, metadata.group_id))
+        {@critic_stop_event, measurements, metadata}
+      end)
+
+    Enum.each(worker_rounds ++ [composer_round], fn round ->
+      assert {:ok, %{provider_call_count: 2, outcome: :satisfied}} = Task.await(round, 2_000)
+    end)
+
+    events = starts ++ stops
+
+    assert telemetry_peak_and_final(events) == {14, 0}
+    assert Enum.all?(critic_pids, &(not Process.alive?(&1)))
+
+    start_metadata = Enum.map(starts, fn {@critic_start_event, _, metadata} -> metadata end)
+    stop_metadata = Enum.map(stops, fn {@critic_stop_event, _, metadata} -> metadata end)
+
+    assert Enum.frequencies_by(start_metadata, & &1.consumer) == %{worker: 12, composer: 2}
+
+    assert Enum.frequencies_by(start_metadata, &{&1.consumer, &1.phase}) == %{
+             {:worker, :initial} => 6,
+             {:worker, :final} => 6,
+             {:composer, :final} => 2
+           }
+
+    assert MapSet.new(start_metadata, & &1.group_id) == MapSet.new(Map.keys(critic_by_group))
+
+    assert MapSet.size(MapSet.new(start_metadata, & &1.round_token)) == 7
+    assert Enum.all?(stop_metadata, &(&1.outcome == :success))
+
+    assert MapSet.new(start_metadata, &{&1.round_token, &1.group_id}) ==
+             MapSet.new(stop_metadata, &{&1.round_token, &1.group_id})
+
+    refute_receive {:critic_telemetry, _, _, _}
   end
 
   test "critic tasks die with their unsupervised review owner" do
@@ -595,8 +848,8 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
     end
   end
 
-  defp protocol! do
-    groups = rule_groups()
+  defp protocol!(group_prefix \\ nil) do
+    groups = rule_groups(group_prefix)
 
     assert {:ok, protocol} =
              ReviewProtocol.compile(rule_specs(), groups, protocol_options(groups))
@@ -613,7 +866,9 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
     ]
   end
 
-  defp rule_groups do
+  defp rule_groups(group_prefix \\ nil)
+
+  defp rule_groups(nil) do
     [
       %{
         "id" => "coverage_fidelity",
@@ -623,6 +878,15 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
         "id" => "safety_consistency",
         "rule_ids" => ["no_false_effect_claims", "internal_consistency"]
       }
+    ]
+  end
+
+  defp rule_groups(group_prefix) when is_binary(group_prefix) do
+    [coverage, safety] = rule_groups()
+
+    [
+      Map.put(coverage, "id", "#{group_prefix}_coverage_fidelity"),
+      Map.put(safety, "id", "#{group_prefix}_safety_consistency")
     ]
   end
 
@@ -656,6 +920,67 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
 
   defp fixture_config_sha256(group_id),
     do: sha256("fixture-reviewer-config:" <> group_id)
+
+  defp attach_critic_telemetry do
+    handler_id = {__MODULE__, self(), System.unique_integer([:positive])}
+
+    :ok =
+      :telemetry.attach_many(
+        handler_id,
+        [@critic_start_event, @critic_stop_event],
+        fn event, measurements, metadata, test_pid ->
+          send(test_pid, {:critic_telemetry, event, measurements, metadata})
+        end,
+        self()
+      )
+
+    on_exit(fn -> :telemetry.detach(handler_id) end)
+  end
+
+  defp take_critic_telemetry(count) do
+    Enum.map(1..count, fn _index ->
+      assert_receive {:critic_telemetry, event, measurements, metadata}, 500
+      {event, measurements, metadata}
+    end)
+  end
+
+  defp telemetry_outcomes(events) do
+    events
+    |> Enum.filter(&match?({@critic_stop_event, _, _}, &1))
+    |> Enum.map(fn {@critic_stop_event, _measurements, metadata} ->
+      {metadata.group_id, metadata.outcome}
+    end)
+    |> Enum.sort()
+  end
+
+  defp assert_balanced_telemetry(events, consumer, phase) do
+    starts = Enum.filter(events, &match?({@critic_start_event, _, _}, &1))
+    stops = Enum.filter(events, &match?({@critic_stop_event, _, _}, &1))
+
+    assert length(starts) == length(stops)
+
+    assert MapSet.new(starts, fn {_event, _measurements, metadata} ->
+             {metadata.round_token, metadata.group_id}
+           end) ==
+             MapSet.new(stops, fn {_event, _measurements, metadata} ->
+               {metadata.round_token, metadata.group_id}
+             end)
+
+    assert Enum.all?(starts ++ stops, fn {_event, _measurements, metadata} ->
+             metadata.consumer == consumer and metadata.phase == phase
+           end)
+  end
+
+  defp telemetry_peak_and_final(events) do
+    Enum.reduce(events, {0, 0}, fn
+      {@critic_start_event, _measurements, _metadata}, {peak, active} ->
+        active = active + 1
+        {max(peak, active), active}
+
+      {@critic_stop_event, _measurements, _metadata}, {peak, active} ->
+        {peak, active - 1}
+    end)
+  end
 
   defp sha256(value) do
     :sha256

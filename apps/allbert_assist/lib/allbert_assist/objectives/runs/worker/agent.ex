@@ -19,7 +19,8 @@ defmodule AllbertAssist.Objectives.Runs.Worker.Agent do
     signal_routes: [
       {"allbert.objectives.worker.execute",
        AllbertAssist.Objectives.Runs.Worker.Commands.Execute},
-      {"allbert.objectives.worker.review_and_revise",
-       AllbertAssist.Objectives.Runs.Worker.Commands.ReviewAndRevise}
+      {"allbert.objectives.worker.review_round",
+       AllbertAssist.Objectives.Runs.Worker.Commands.ReviewRound},
+      {"allbert.objectives.worker.revise", AllbertAssist.Objectives.Runs.Worker.Commands.Revise}
     ]
 end

@@ -624,7 +624,7 @@ defmodule AllbertAssist.Settings.Schema do
     },
     "objectives.fanout.max_model_calls_per_plan" => %{
       type: :bounded_integer,
-      default: 40,
+      default: 64,
       writable?: true,
       sensitive?: false,
       min: 1,
@@ -632,7 +632,7 @@ defmodule AllbertAssist.Settings.Schema do
     },
     "objectives.fanout.max_output_tokens_per_plan" => %{
       type: :bounded_integer,
-      default: 24_000,
+      default: 32_768,
       writable?: true,
       sensitive?: false,
       min: 1_024,
@@ -3718,8 +3718,8 @@ defmodule AllbertAssist.Settings.Schema do
         "max_concurrent_runs_per_fanout" => 3,
         "max_concurrent_runs_global" => 6,
         "max_children_per_fanout" => 8,
-        "max_model_calls_per_plan" => 40,
-        "max_output_tokens_per_plan" => 24_000,
+        "max_model_calls_per_plan" => 64,
+        "max_output_tokens_per_plan" => 32_768,
         "max_elapsed_ms_per_plan" => 300_000,
         "max_worker_attempts_per_child" => 2,
         "confirm_before_start" => false

@@ -11,6 +11,7 @@ defmodule AllbertAssist.Settings.ModelDoctor do
   alias AllbertAssist.Maps
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.DoctorDiagnostics
+  alias AllbertAssist.Settings.ModelRuntime
   alias AllbertAssist.Settings.ProviderCatalog
   alias AllbertAssist.Settings.Vault
 
@@ -37,19 +38,9 @@ defmodule AllbertAssist.Settings.ModelDoctor do
   def diagnose(profile_name, context) when is_binary(profile_name) do
     with {:ok, model_profile} <- Settings.resolve_model_profile(profile_name),
          {:ok, provider_profile} <- Settings.resolve_provider_profile(model_profile.provider) do
-      endpoint_kind = endpoint_kind(provider_profile.endpoint_kind)
-
-      result =
-        case endpoint_kind do
-          :local_endpoint ->
-            diagnose_local(model_profile, provider_profile, context)
-
-          :credentialed_remote ->
-            diagnose_remote(model_profile, provider_profile, context)
-        end
-
       {:ok,
-       result
+       model_profile
+       |> diagnose_resolved_profile(provider_profile, context)
        |> Map.put(:profile, profile_name)
        |> Map.put(:model, model_profile.model)
        |> Map.put(:provider, provider_profile.name)
@@ -59,9 +50,59 @@ defmodule AllbertAssist.Settings.ModelDoctor do
 
   def diagnose(_profile_name, _context), do: {:error, :invalid_model_profile}
 
-  defp diagnose_local(model_profile, provider_profile, context) do
-    with {:ok, url} <- local_tags_url(provider_profile),
-         {:ok, uri} <- validate_probe_url(url, :local_endpoint),
+  defp diagnose_resolved_profile(model_profile, provider_profile, context) do
+    configured_endpoint_kind = endpoint_kind(provider_profile.endpoint_kind)
+
+    case ModelRuntime.effective_transport(model_profile) do
+      {:ok, effective_transport} ->
+        effective_endpoint_kind = endpoint_kind(effective_transport.endpoint_class)
+
+        model_profile
+        |> diagnose_effective_profile(
+          provider_profile,
+          configured_endpoint_kind,
+          effective_endpoint_kind,
+          context
+        )
+        |> Map.put(:endpoint_kind, effective_endpoint_kind)
+
+      {:error, reason} ->
+        effective_transport_error_summary(configured_endpoint_kind, reason)
+    end
+  end
+
+  defp diagnose_effective_profile(
+         model_profile,
+         provider_profile,
+         :local_endpoint,
+         effective_endpoint_kind,
+         context
+       ) do
+    diagnose_local(model_profile, provider_profile, effective_endpoint_kind, context)
+  end
+
+  defp diagnose_effective_profile(
+         model_profile,
+         provider_profile,
+         :credentialed_remote,
+         effective_endpoint_kind,
+         context
+       ) do
+    diagnose_remote(model_profile, provider_profile, effective_endpoint_kind, context)
+  end
+
+  defp effective_transport_error_summary(endpoint_kind, :invalid_effective_model_endpoint) do
+    base_summary(endpoint_kind, "unknown", [diagnostic(:invalid_provider_base_url)])
+  end
+
+  defp effective_transport_error_summary(endpoint_kind, :non_loopback_local_model_endpoint) do
+    base_summary(endpoint_kind, "unknown", [diagnostic(:provider_host_denied)])
+  end
+
+  defp diagnose_local(model_profile, provider_profile, effective_endpoint_kind, context) do
+    with {:ok, base_url} <- ModelRuntime.effective_base_url(model_profile),
+         {:ok, url} <- local_tags_url(base_url),
+         {:ok, uri} <- validate_probe_url(url, effective_endpoint_kind),
          {:ok, response} <- request(:get, uri, [], timeout_ms(model_profile), context) do
       local_response_summary(
         uri,
@@ -81,6 +122,16 @@ defmodule AllbertAssist.Settings.ModelDoctor do
           diagnostic(:invalid_provider_base_url)
         ])
 
+      {:error, :invalid_effective_model_endpoint} ->
+        base_summary(:local_endpoint, "unknown", [
+          diagnostic(:invalid_provider_base_url)
+        ])
+
+      {:error, :non_loopback_local_model_endpoint} ->
+        base_summary(:local_endpoint, "unknown", [
+          diagnostic(:provider_host_denied)
+        ])
+
       {:error, {:transport_error, _reason, url}} ->
         host = url |> URI.parse() |> redacted_host()
 
@@ -90,10 +141,16 @@ defmodule AllbertAssist.Settings.ModelDoctor do
     end
   end
 
-  defp diagnose_remote(model_profile, provider_profile, context) do
-    with {:ok, credential} <- provider_credential(provider_profile),
-         {:ok, url} <- remote_models_url(provider_profile),
-         {:ok, uri} <- validate_probe_url(url, :credentialed_remote),
+  defp diagnose_remote(model_profile, provider_profile, effective_endpoint_kind, context) do
+    with {:ok, base_url} <- ModelRuntime.effective_base_url(model_profile),
+         {:ok, credential} <-
+           provider_credential(provider_profile, base_url, effective_endpoint_kind),
+         {:ok, url} <- remote_models_url(provider_profile.type, base_url),
+         {:ok, uri} <-
+           validate_probe_url(
+             url,
+             remote_probe_endpoint_kind(provider_profile, effective_endpoint_kind)
+           ),
          {:ok, response} <-
            request(
              :get,
@@ -130,6 +187,16 @@ defmodule AllbertAssist.Settings.ModelDoctor do
           diagnostic(:invalid_provider_base_url)
         ])
 
+      {:error, :invalid_effective_model_endpoint} ->
+        base_summary(:credentialed_remote, "unknown", [
+          diagnostic(:invalid_provider_base_url)
+        ])
+
+      {:error, :non_loopback_local_model_endpoint} ->
+        base_summary(:credentialed_remote, "unknown", [
+          diagnostic(:provider_host_denied)
+        ])
+
       {:error, {:transport_error, _reason, url}} ->
         host = url |> URI.parse() |> redacted_host()
 
@@ -138,6 +205,12 @@ defmodule AllbertAssist.Settings.ModelDoctor do
         ])
     end
   end
+
+  defp remote_probe_endpoint_kind(%{type: "openai_compatible"}, effective_endpoint_kind),
+    do: effective_endpoint_kind
+
+  defp remote_probe_endpoint_kind(_provider_profile, _effective_endpoint_kind),
+    do: :credentialed_remote
 
   defp local_response_summary(uri, provider_type, model, aliases, %{status: status} = response)
        when status in 200..299 do
@@ -309,11 +382,9 @@ defmodule AllbertAssist.Settings.ModelDoctor do
     )
   end
 
-  defp provider_credential(%{api_key_ref: nil} = provider),
-    do: {:error, {:credential_missing, provider_host(provider)}}
-
-  defp provider_credential(%{api_key_ref: ref} = provider) do
-    host = provider_host(provider)
+  defp provider_credential(%{api_key_ref: ref} = provider, base_url, _endpoint_kind)
+       when is_binary(ref) do
+    host = provider_host(provider, base_url)
 
     # F2: resolve through the tier vault (os → encrypted_file → env), the same path the
     # model runtime uses — so the doctor can verify a key stored in the OS Keychain OR
@@ -339,7 +410,19 @@ defmodule AllbertAssist.Settings.ModelDoctor do
     end
   end
 
-  defp provider_host(%{type: type, base_url: base_url}) do
+  defp provider_credential(
+         %{type: "openai_compatible", api_key_ref: nil},
+         _base_url,
+         :local_endpoint
+       ),
+       do: {:ok, "ollama"}
+
+  defp provider_credential(%{api_key_ref: nil} = provider, base_url, _endpoint_kind),
+    do: {:error, {:credential_missing, provider_host(provider, base_url)}}
+
+  defp provider_host(%{type: type} = provider, effective_base_url) do
+    base_url = effective_base_url || Map.get(provider, :base_url)
+
     case remote_base_url(type, base_url) do
       {:ok, url} -> redacted_host(url)
       {:error, _reason} -> redacted_host(base_url)
@@ -392,9 +475,9 @@ defmodule AllbertAssist.Settings.ModelDoctor do
     end
   end
 
-  defp local_tags_url(%{base_url: nil}), do: {:ok, "http://localhost:11434/api/tags"}
+  defp local_tags_url(nil), do: {:ok, "http://localhost:11434/api/tags"}
 
-  defp local_tags_url(%{base_url: base_url}) when is_binary(base_url) do
+  defp local_tags_url(base_url) when is_binary(base_url) do
     uri = URI.parse(base_url)
     root_path = local_root_path(uri.path || "")
 
@@ -406,7 +489,7 @@ defmodule AllbertAssist.Settings.ModelDoctor do
      |> URI.to_string()}
   end
 
-  defp remote_models_url(%{type: type, base_url: base_url}) do
+  defp remote_models_url(type, base_url) do
     with {:ok, base_url} <- remote_base_url(type, base_url) do
       uri = URI.parse(base_url)
 
@@ -638,6 +721,8 @@ defmodule AllbertAssist.Settings.ModelDoctor do
 
   defp endpoint_kind("local_endpoint"), do: :local_endpoint
   defp endpoint_kind(:local_endpoint), do: :local_endpoint
+  defp endpoint_kind("local"), do: :local_endpoint
+  defp endpoint_kind(:local), do: :local_endpoint
   defp endpoint_kind(_kind), do: :credentialed_remote
 
   defp timeout_ms(profile) do

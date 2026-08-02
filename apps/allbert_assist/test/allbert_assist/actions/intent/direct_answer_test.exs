@@ -69,7 +69,10 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
   end
 
   defmodule RoleRecordingManagerModel do
+    alias AllbertAssist.Models.ProviderAttempt
+
     def respond(_text, profile, context) do
+      :ok = ProviderAttempt.mark(context)
       send(context.test_pid, {:fanout_manager_provider_called, profile.name})
       {:ok, Map.fetch!(context, :fanout_manager_response)}
     end
@@ -81,6 +84,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
 
   setup do
     original_home = System.get_env("ALLBERT_HOME")
+    original_ollama_base_url = System.get_env("OLLAMA_BASE_URL")
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_memory_config = Application.get_env(:allbert_assist, Memory)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
@@ -104,6 +108,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
       Process.delete({ScriptedFanoutManager, :response})
       if Process.alive?(projection), do: GenServer.stop(projection)
       restore_home(original_home)
+      restore_system_env("OLLAMA_BASE_URL", original_ollama_base_url)
       restore_env(Paths, original_paths_config)
       restore_env(Memory, original_memory_config)
       restore_env(Settings, original_settings_config)
@@ -519,7 +524,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     assert_receive {:fanout_manager_provider_called, "local"}
   end
 
-  test "any unavailable fanout role falls back to one ordinary DirectAnswer without framing" do
+  test "an unavailable manager role falls back before DirectAnswer can invoke the manager" do
     Application.put_env(:allbert_assist, DirectAnswer,
       answerer: ScriptedAnswerer,
       fanout_manager: FanoutManager
@@ -531,40 +536,37 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     )
 
     put_setting!("intent.direct_answer_model_enabled", true)
+    put_setting!("model_preferences.tasks.fanout_manager", ["fast"])
+    put_setting!("model_preferences.tasks.fanout_review", ["direct_answer_local"])
+    put_setting!("model_preferences.tasks.fanout_synthesis", ["direct_answer_local"])
 
-    for role <- ~w[fanout_manager fanout_review fanout_synthesis] do
-      put_setting!("model_preferences.tasks.#{role}", ["fast"])
+    assert {:ok, response} =
+             DirectAnswer.run(%{text: "Research alpha and beta independently."}, %{
+               actor: "alice",
+               test_pid: self(),
+               model_client: RoleRecordingManagerModel,
+               fanout_manager_response: fanout_manager_response(),
+               request: %{fanout_manager_mode: :automatic}
+             })
 
-      assert {:ok, response} =
-               DirectAnswer.run(%{text: "Research alpha and beta independently."}, %{
-                 actor: "alice",
-                 test_pid: self(),
-                 model_client: RoleRecordingManagerModel,
-                 fanout_manager_response: fanout_manager_response(),
-                 request: %{fanout_manager_mode: :automatic}
-               })
+    assert response.message == "One ordinary answer without parallel framing."
+    refute Map.has_key?(response, :parallel_work_plan)
 
-      assert response.message == "One ordinary answer without parallel framing."
-      refute Map.has_key?(response, :parallel_work_plan)
+    assert response.diagnostics == [
+             %{
+               source: :fanout_manager,
+               result: :error,
+               outcome: :manager_unavailable
+             }
+           ]
 
-      assert response.diagnostics == [
-               %{
-                 source: :fanout_manager,
-                 result: :error,
-                 outcome: :manager_unavailable
-               }
-             ]
-
-      assert_receive {:provider_called, "direct_answer_local"}
-      refute_receive {:provider_called, "direct_answer_local"}
-      refute_receive {:fanout_manager_provider_called, _profile}
-      refute Enum.any?(response.actions, &(&1.status == :needs_confirmation))
-
-      put_setting!("model_preferences.tasks.#{role}", ["direct_answer_local"])
-    end
+    assert_receive {:provider_called, "direct_answer_local"}
+    refute_receive {:provider_called, "direct_answer_local"}
+    refute_receive {:fanout_manager_provider_called, _profile}
+    refute Enum.any?(response.actions, &(&1.status == :needs_confirmation))
   end
 
-  test "each distinct hosted fanout role route must cross disclosure before framing" do
+  test "DirectAnswer gates the hosted manager route while Runtime owns downstream roles" do
     Application.put_env(:allbert_assist, DirectAnswer,
       answerer: ScriptedAnswerer,
       fanout_manager: FanoutManager
@@ -577,10 +579,9 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
 
     put_setting!("intent.direct_answer_model_enabled", true)
     put_setting!("providers.openai.enabled", true)
-    put_setting!("providers.openrouter.enabled", true)
-    put_setting!("model_preferences.tasks.fanout_manager", ["local"])
-    put_setting!("model_preferences.tasks.fanout_review", ["fast"])
-    put_setting!("model_preferences.tasks.fanout_synthesis", ["openrouter_fast"])
+    put_setting!("model_preferences.tasks.fanout_manager", ["fast"])
+    put_setting!("model_preferences.tasks.fanout_review", ["direct_answer_local"])
+    put_setting!("model_preferences.tasks.fanout_synthesis", ["direct_answer_local"])
 
     context = %{
       actor: "alice",
@@ -609,7 +610,8 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
              DirectAnswer.run(%{text: "Research alpha and beta independently."}, context)
 
     assert admitted_response.parallel_work_plan.source == :model
-    assert_receive {:fanout_manager_provider_called, "local"}
+    assert admitted_response.fanout_manager.model_profile == "fast"
+    assert_receive {:fanout_manager_provider_called, "fast"}
     refute_receive {:provider_called, "direct_answer_local"}
   end
 
@@ -934,6 +936,48 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     refute_receive {:provider_called, "fast"}
   end
 
+  test "non-loopback override for a local profile fails before provider attempt or answerer" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: ScriptedAnswerer)
+    enable_text_chain!(["local"])
+    System.put_env("OLLAMA_BASE_URL", "https://remote-ollama.example.invalid/v1")
+    Process.put({ScriptedAnswerer, "local"}, {:ok, "must not appear"})
+
+    assert {:ok, response} =
+             DirectAnswer.run(%{text: "Complete the grounded child task."}, %{
+               actor: "alice",
+               channel: :cli,
+               fanout_worker_policy: fanout_worker_policy()
+             })
+
+    assert response.direct_answer.source == :bounded_fallback
+    assert response.fanout_worker == %{version: 1, provider_call_count: 0}
+    refute Disclosure.hosted_pending?(:cli)
+    refute_receive {:provider_called, "local"}
+  end
+
+  test "loopback override remains local and reaches the answerer through the exact route" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: ScriptedAnswerer)
+    System.put_env("OLLAMA_BASE_URL", "http://localhost:12434/v1")
+    enable_text_chain!(["local"])
+    Process.put({ScriptedAnswerer, "local"}, {:ok, "loopback answer"})
+
+    assert {:ok, [route]} = Disclosure.current_direct_answer_routes()
+    assert route.endpoint_class == :local
+
+    assert {:ok, response} =
+             DirectAnswer.run(%{text: "Complete the grounded child task."}, %{
+               actor: "alice",
+               channel: :cli,
+               fanout_worker_policy: fanout_worker_policy()
+             })
+
+    assert response.message == "loopback answer"
+    assert response.direct_answer.source == :model
+    assert response.fanout_worker == %{version: 1, provider_call_count: 1}
+    refute Disclosure.hosted_pending?(:cli)
+    assert_receive {:provider_called, "local"}
+  end
+
   test "one surface cannot borrow another local surface acknowledgement" do
     Application.put_env(:allbert_assist, DirectAnswer, answerer: ScriptedAnswerer)
     enable_text_chain!(["fast"])
@@ -1134,6 +1178,9 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
 
   defp restore_home(nil), do: System.delete_env("ALLBERT_HOME")
   defp restore_home(value), do: System.put_env("ALLBERT_HOME", value)
+
+  defp restore_system_env(name, nil), do: System.delete_env(name)
+  defp restore_system_env(name, value), do: System.put_env(name, value)
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)

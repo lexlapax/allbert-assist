@@ -1,6 +1,7 @@
 defmodule AllbertAssist.Runtime.FanoutAckTest do
   use AllbertAssist.DataCase, async: false
 
+  alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Conversations
   alias AllbertAssist.Intent.Decomposer
@@ -9,14 +10,18 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Fanout.Budget
+  alias AllbertAssist.Objectives.Fanout.Report
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Objectives.Runs.Scheduler
   alias AllbertAssist.Objectives.Runs.Supervisor, as: RunsSupervisor
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.Store
   alias Ecto.Adapters.SQL.Sandbox
   alias Jido.Signal.Bus
+
+  @settings_resolution_hook_key {Store, :resolution_hook}
 
   defmodule SingleTurnProposer do
     def propose(text, context) do
@@ -25,7 +30,9 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     end
   end
 
-  defmodule VerticalManagerModel do
+  defmodule VerticalManagerEndpoint do
+    alias Plug.Conn
+
     @children [
       %{
         title: "Investigate Project Juniper",
@@ -39,29 +46,106 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
       }
     ]
 
-    def respond(_text, _profile, %{fanout_manager_attempt: :initial}) do
+    def init(opts), do: opts
+
+    def call(conn, test_pid: test_pid) do
+      {:ok, request_body, conn} = Conn.read_body(conn)
+      send(test_pid, {:vertical_manager_request, conn.method, conn.request_path, request_body})
+
+      manager_object = %{
+        "answer" => "I can investigate both projects and report the findings.",
+        "outer_request_task_count" => 2,
+        "request_ownership" => "no_embedded_content",
+        "all_advisory_or_read_only" => true,
+        "children_self_contained" => true,
+        "can_progress_concurrently" => true,
+        "child_result_dependency" => false,
+        "full_coverage_exactly_once" => true,
+        "material_parallel_leverage" => true,
+        "join_role" => "parent_presentation_only",
+        "children" => @children
+      }
+
+      response = %{
+        "id" => "chatcmpl-allbert-manager-test",
+        "object" => "chat.completion",
+        "created" => 0,
+        "model" => "qwen2.5:7b",
+        "choices" => [
+          %{
+            "index" => 0,
+            "message" => %{
+              "role" => "assistant",
+              "content" => Jason.encode!(manager_object)
+            },
+            "finish_reason" => "stop"
+          }
+        ],
+        "usage" => %{
+          "prompt_tokens" => 1,
+          "completion_tokens" => 1,
+          "total_tokens" => 2
+        }
+      }
+
+      conn
+      |> Conn.put_resp_content_type("application/json")
+      |> Conn.send_resp(200, Jason.encode!(response))
+    end
+  end
+
+  defmodule DeterministicDraftAnswerer do
+    alias AllbertAssist.Models.ProviderAttempt
+
+    def answer(_text, context) do
+      :ok = ProviderAttempt.mark(context)
+
       {:ok,
        %{
-         "answer" => "I can investigate both projects and report the findings.",
-         "outer_request_task_count" => 2,
-         "request_ownership" => "no_embedded_content",
-         "all_advisory_or_read_only" => true,
-         "children_self_contained" => true,
-         "can_progress_concurrently" => true,
-         "child_result_dependency" => false,
-         "full_coverage_exactly_once" => true,
-         "material_parallel_leverage" => true,
-         "join_role" => "parent_presentation_only",
-         "children" => @children
+         message: "Deterministic Runtime integration result.",
+         diagnostic: %{status: :used}
        }}
     end
+  end
 
-    def respond(_text, _profile, _context), do: {:error, :unexpected_manager_phase}
+  defmodule DeterministicQualityCritic do
+    alias AllbertAssist.Objectives.Fanout.ReviewRound
+
+    def assess(request, context) do
+      :ok = ReviewRound.note_provider_attempt(context)
+      group_id = request["group"]["id"]
+
+      assessments =
+        Enum.map(request["group"]["rule_ids"], fn rule_id ->
+          %{
+            "rule_id" => rule_id,
+            "status" => "satisfied",
+            "source_handles" => ["task_contract", "candidate"]
+          }
+        end)
+
+      {:ok,
+       %{
+         assessment: %{"group_id" => group_id, "assessments" => assessments},
+         reviewer_config_sha256:
+           :crypto.hash(:sha256, "runtime-quality:" <> group_id)
+           |> Base.encode16(case: :lower)
+       }}
+    end
   end
 
   setup do
     original = Application.get_env(:allbert_assist, Runtime)
+    original_direct_answer = Application.get_env(:allbert_assist, DirectAnswer)
+    original_readiness = Application.get_env(:allbert_assist, :runtime_model_readiness)
+    original_scheduler = Application.get_env(:allbert_assist, Scheduler)
     test_pid = self()
+
+    Application.put_env(
+      :allbert_assist,
+      :runtime_model_readiness,
+      AllbertAssist.Test.ModelReadinessFake
+    )
 
     Application.put_env(:allbert_assist, Runtime,
       agent_runner: fn _signal, request ->
@@ -77,6 +161,18 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
         Decomposer.propose(text, context)
       end
     )
+
+    Application.put_env(
+      :allbert_assist,
+      Scheduler,
+      Keyword.put(original_scheduler || [], :start_fanout_opts,
+        run_opts: [lifecycle_opts: [quality_critic: DeterministicQualityCritic]]
+      )
+    )
+
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: DeterministicDraftAnswerer)
+
+    reset_fanout_roles!()
 
     assert {:ok, _setting} =
              Settings.put("objectives.fanout.confirm_before_start", false, %{audit?: false})
@@ -106,6 +202,18 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
       if original,
         do: Application.put_env(:allbert_assist, Runtime, original),
         else: Application.delete_env(:allbert_assist, Runtime)
+
+      if original_direct_answer,
+        do: Application.put_env(:allbert_assist, DirectAnswer, original_direct_answer),
+        else: Application.delete_env(:allbert_assist, DirectAnswer)
+
+      if is_nil(original_readiness),
+        do: Application.delete_env(:allbert_assist, :runtime_model_readiness),
+        else: Application.put_env(:allbert_assist, :runtime_model_readiness, original_readiness)
+
+      if original_scheduler,
+        do: Application.put_env(:allbert_assist, Scheduler, original_scheduler),
+        else: Application.delete_env(:allbert_assist, Scheduler)
     end)
 
     :ok
@@ -142,6 +250,8 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
   end
 
   test "surface operator text drives counted fanout while the ordinary transcript stays intact" do
+    reset_fanout_roles!()
+
     assert {:ok, _setting} =
              Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
 
@@ -168,6 +278,317 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Jason.decode!(parent.proposer_hint)
 
     assert digest == Base.encode16(:crypto.hash(:sha256, operator_text), case: :lower)
+  end
+
+  test "exact-counted framing rejects every unavailable execution role before durable rows" do
+    reset_fanout_roles!()
+    on_exit(&reset_fanout_roles!/0)
+
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    for role <- ~w[direct_answer fanout_review fanout_synthesis] do
+      put_setting!("model_preferences.tasks.#{role}", ["fast"])
+      user_id = "counted-unavailable-#{role}"
+      text = "Do these 2 tasks in parallel: inspect alpha; inspect beta"
+
+      assert {:ok, response} =
+               Runtime.submit_user_input(%{
+                 text: text,
+                 delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+                 channel: :test,
+                 user_id: user_id
+               })
+
+      assert response.message == "single: #{text}"
+      refute Map.has_key?(response, :fanout)
+      assert Objectives.list_objectives(user_id) == []
+      put_setting!("model_preferences.tasks.#{role}", ["direct_answer_local"])
+    end
+  end
+
+  test "callability preflight names each unavailable execution role and frames zero rows" do
+    reset_fanout_roles!()
+    on_exit(&reset_fanout_roles!/0)
+
+    original_readiness = Application.get_env(:allbert_assist, :runtime_model_readiness)
+
+    on_exit(fn ->
+      if is_nil(original_readiness) do
+        Application.delete_env(:allbert_assist, :runtime_model_readiness)
+      else
+        Application.put_env(:allbert_assist, :runtime_model_readiness, original_readiness)
+      end
+    end)
+
+    put_setting!("objectives.fanout.rollout_mode", "automatic")
+    {:ok, profile} = Settings.resolve_model_profile("direct_answer_local")
+
+    reasons = %{
+      direct_answer: :fanout_direct_answer_unavailable,
+      fanout_review: :fanout_review_unavailable,
+      fanout_synthesis: :fanout_synthesis_unavailable
+    }
+
+    for {role, reason} <- reasons do
+      Application.put_env(
+        :allbert_assist,
+        :runtime_model_readiness,
+        fn specs, _context ->
+          Map.new(specs, fn {id, _spec} ->
+            result = %{
+              callable?: id != role,
+              status: if(id == role, do: :unavailable, else: :callable),
+              reason: if(id == role, do: :endpoint_unavailable, else: nil),
+              resolution_status: :resolved,
+              profile: profile,
+              doctor: nil
+            }
+
+            {id, result}
+          end)
+        end
+      )
+
+      user_id = "callability-unavailable-#{role}"
+      text = "Do these 2 tasks in parallel: inspect alpha; inspect beta"
+
+      assert {:ok, response} =
+               Runtime.submit_user_input(%{
+                 text: text,
+                 delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+                 channel: :test,
+                 user_id: user_id
+               })
+
+      assert response.message == "single: #{text}"
+      refute Map.has_key?(response, :fanout)
+      assert Objectives.list_objectives(user_id) == []
+
+      assert Enum.any?(response.diagnostics, fn diagnostic ->
+               diagnostic == %{
+                 source: :fanout_admission,
+                 outcome: :single_turn_fallback,
+                 reason: reason
+               }
+             end)
+
+      {:ok, thread} = Conversations.get_thread(user_id, response.thread_id)
+
+      persisted_diagnostics =
+        thread
+        |> Conversations.list_messages(limit: 10)
+        |> Enum.find(&(&1.role == "assistant"))
+        |> Map.fetch!(:action_log)
+        |> Map.fetch!("diagnostics")
+
+      assert %{
+               "source" => "fanout_admission",
+               "outcome" => "single_turn_fallback",
+               "reason" => persisted_reason
+             } = Enum.find(persisted_diagnostics, &(&1["source"] == "fanout_admission"))
+
+      assert persisted_reason == Atom.to_string(reason)
+    end
+  end
+
+  test "exact-counted framing rejects disabled model execution before durable rows" do
+    reset_fanout_roles!()
+    on_exit(&reset_fanout_roles!/0)
+
+    put_setting!("objectives.fanout.rollout_mode", "automatic")
+    put_setting!("intent.direct_answer_model_enabled", false)
+
+    text = "Do these 2 tasks in parallel: inspect alpha; inspect beta"
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: text,
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+               channel: :test,
+               user_id: "counted-model-disabled"
+             })
+
+    assert response.message == "single: #{text}"
+    refute Map.has_key?(response, :fanout)
+    assert Objectives.list_objectives("counted-model-disabled") == []
+
+    assert Enum.any?(response.diagnostics, fn diagnostic ->
+             diagnostic.source == :fanout_admission and
+               diagnostic.outcome == :single_turn_fallback and
+               diagnostic.reason == :direct_answer_model_disabled
+           end)
+  end
+
+  test "manager framing rechecks execution-role readiness before durable rows" do
+    reset_fanout_roles!()
+    on_exit(&reset_fanout_roles!/0)
+
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    put_setting!("model_preferences.tasks.fanout_synthesis", ["fast"])
+    text = "Research Project Juniper and Cedar independently."
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        {:ok, plan} =
+          FanoutPlan.compile(request.text, [
+            %{title: "Juniper", objective: "Research Juniper", expected_result: "Facts"},
+            %{title: "Cedar", objective: "Research Cedar", expected_result: "Facts"}
+          ])
+
+        {:ok,
+         %{
+           message: "Same-call manager answer.",
+           status: :completed,
+           parallel_work_plan: plan,
+           fanout_manager: manager_diagnostic()
+         }}
+      end
+    )
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: text,
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+               channel: :test,
+               user_id: "manager-execution-role-unavailable"
+             })
+
+    assert response.message == "Same-call manager answer."
+    refute Map.has_key?(response, :fanout)
+    assert Objectives.list_objectives("manager-execution-role-unavailable") == []
+  end
+
+  test "manager framing rejects disabled model execution before durable rows" do
+    reset_fanout_roles!()
+    on_exit(&reset_fanout_roles!/0)
+
+    put_setting!("objectives.fanout.rollout_mode", "automatic")
+    put_setting!("intent.direct_answer_model_enabled", false)
+    text = "Research Project Juniper and Cedar independently."
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        {:ok, plan} =
+          FanoutPlan.compile(request.text, [
+            %{title: "Juniper", objective: "Research Juniper", expected_result: "Facts"},
+            %{title: "Cedar", objective: "Research Cedar", expected_result: "Facts"}
+          ])
+
+        {:ok,
+         %{
+           message: "Same-call manager answer.",
+           status: :completed,
+           parallel_work_plan: plan,
+           fanout_manager: manager_diagnostic()
+         }}
+      end
+    )
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: text,
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+               channel: :test,
+               user_id: "manager-model-disabled"
+             })
+
+    assert response.message == "Same-call manager answer."
+    refute Map.has_key?(response, :fanout)
+    assert Objectives.list_objectives("manager-model-disabled") == []
+
+    assert Enum.any?(response.diagnostics, fn diagnostic ->
+             diagnostic.source == :fanout_admission and
+               diagnostic.outcome == :single_turn_fallback and
+               diagnostic.reason == :direct_answer_model_disabled
+           end)
+  end
+
+  test "exact-counted hosted execution role requires current disclosure before framing" do
+    reset_fanout_roles!()
+    on_exit(&reset_fanout_roles!/0)
+
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    put_setting!("providers.openai.enabled", true)
+    put_setting!("model_preferences.tasks.fanout_review", ["fast"])
+
+    text = "Do these 2 tasks in parallel: inspect alpha; inspect beta"
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: text,
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+               channel: :cli,
+               user_id: "counted-hosted-role-unacknowledged"
+             })
+
+    assert response.message == "single: #{text}"
+    refute Map.has_key?(response, :fanout)
+    assert Objectives.list_objectives("counted-hosted-role-unacknowledged") == []
+  end
+
+  test "exact-counted framing does not require an unused manager role" do
+    reset_fanout_roles!()
+    on_exit(&reset_fanout_roles!/0)
+
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    put_setting!("model_preferences.tasks.fanout_manager", ["fast"])
+    text = "Do these 2 tasks in parallel: inspect alpha; inspect beta"
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: text,
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+               channel: :test,
+               user_id: "counted-manager-role-unused"
+             })
+
+    assert response.message =~ "I split this into 2 tasks"
+    assert {:ok, _parent} = Objectives.get_objective(response.fanout.parent_id)
+  end
+
+  test "framing resolves every execution role and budget from one Settings snapshot" do
+    reset_fanout_roles!()
+    on_exit(&reset_fanout_roles!/0)
+
+    assert {:ok, _setting} =
+             Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
+
+    counter = :counters.new(1, [])
+    Process.put(@settings_resolution_hook_key, fn -> :counters.add(counter, 1, 1) end)
+    on_exit(fn -> Process.delete(@settings_resolution_hook_key) end)
+    test_pid = self()
+
+    runtime_config = Application.fetch_env!(:allbert_assist, Runtime)
+
+    Application.put_env(
+      :allbert_assist,
+      Runtime,
+      Keyword.put(runtime_config, :fanout_framer, fn _attrs, _children ->
+        send(test_pid, {:settings_resolutions_before_frame, :counters.get(counter, 1)})
+        {:error, :fixture_stop_before_durable_frame}
+      end)
+    )
+
+    text = "Do these 2 tasks in parallel: inspect alpha; inspect beta"
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: text,
+               delivery_ack_capability: Runtime.fanout_delivery_ack_capability(),
+               channel: :test,
+               user_id: "counted-one-settings-snapshot"
+             })
+
+    assert_receive {:settings_resolutions_before_frame, 4}
+    assert response.message == "single: #{text}"
+    assert Objectives.list_objectives("counted-one-settings-snapshot") == []
   end
 
   test "an explicitly absent surface operator turn cannot fan out conversation history" do
@@ -262,11 +683,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert profile_digest =~ ~r/^[0-9a-f]{64}$/
     assert budget["manager_attempts"] == 1
     assert budget["child_count"] == 2
-    assert budget["configured_output_tokens"] == 24_000
-    assert budget["required_output_tokens"] == 6_144
+    assert budget["configured_output_tokens"] == 32_768
+    assert budget["required_output_tokens"] == 11_264
     assert deadline > System.system_time(:millisecond)
 
-    assert {:ok, %{max_calls: 1, max_output_tokens: 1_024}} =
+    assert {:ok, %{max_calls: 6, max_output_tokens: 1_024}} =
              Budget.authorize_composer(budget, deadline, System.system_time(:millisecond))
 
     assert [%{payload: proposed_payload}] =
@@ -370,12 +791,32 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
   test "actual Runtime IntentAgent DirectAnswer manager path frames one central durable plan" do
     original_manager = Application.get_env(:allbert_assist, FanoutManager)
+    original_ollama_base_url = System.get_env("OLLAMA_BASE_URL")
 
     on_exit(fn ->
       if original_manager,
         do: Application.put_env(:allbert_assist, FanoutManager, original_manager),
         else: Application.delete_env(:allbert_assist, FanoutManager)
+
+      if original_ollama_base_url,
+        do: System.put_env("OLLAMA_BASE_URL", original_ollama_base_url),
+        else: System.delete_env("OLLAMA_BASE_URL")
     end)
+
+    endpoint =
+      start_supervised!(
+        {Bandit,
+         plug: {VerticalManagerEndpoint, test_pid: self()},
+         ip: {127, 0, 0, 1},
+         port: 0,
+         startup_log: false}
+      )
+
+    assert {:ok, {{127, 0, 0, 1}, endpoint_port}} =
+             ThousandIsland.listener_info(endpoint)
+
+    System.put_env("OLLAMA_BASE_URL", "http://127.0.0.1:#{endpoint_port}/v1")
+    Application.put_env(:allbert_assist, FanoutManager, [])
 
     assert {:ok, _setting} =
              Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
@@ -384,8 +825,6 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
 
     Application.put_env(:allbert_assist, Runtime, decomposer: fn _text, _context -> :single end)
-
-    Application.put_env(:allbert_assist, FanoutManager, model_client: VerticalManagerModel)
 
     text =
       "Investigate Project Juniper retry behavior and Project Cedar cancellation behavior, and report both findings."
@@ -397,6 +836,11 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                channel: :test,
                user_id: "vertical-manager"
              })
+
+    assert_received {:vertical_manager_request, "POST", "/v1/chat/completions", request_body}
+
+    assert %{"model" => "qwen2.5:7b", "response_format" => %{"type" => "json_schema"}} =
+             Jason.decode!(request_body)
 
     assert response.message =~ "I split this into 2 tasks"
     assert {:ok, parent} = Objectives.get_objective(response.fanout.parent_id)
@@ -413,11 +857,13 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                "source" => "conversation_manager",
                "manager_attempts" => 1,
                "manager_profile" => profile,
+               "manager_profile_sha256" => profile_sha256,
                "budget" => %{"child_count" => 2}
              }
            } = Jason.decode!(parent.proposer_hint)
 
     assert is_binary(profile)
+    assert profile_sha256 =~ ~r/^[0-9a-f]{64}$/
   end
 
   test "manager framing keeps one canonical request across old projection and objective boundaries" do
@@ -799,7 +1245,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                    completed_at: DateTime.utc_now()
                  },
                  "run_completed",
-                 %{}
+                 %{summary: "done"}
                )
     end)
 
@@ -949,7 +1395,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                    completed_at: DateTime.utc_now()
                  },
                  "run_completed",
-                 %{}
+                 %{summary: "done #{child.queue_position}"}
                )
     end
 
@@ -1017,7 +1463,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                  completed_at: DateTime.utc_now()
                },
                "run_completed",
-               %{}
+               %{summary: "completed result"}
              )
 
     assert {:ok, %{child: %{status: "cancelled"}}} =
@@ -1090,7 +1536,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                    completed_at: DateTime.utc_now()
                  },
                  "run_completed",
-                 %{}
+                 %{summary: "done #{child.queue_position}"}
                )
     end
 
@@ -1164,7 +1610,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                    completed_at: DateTime.utc_now()
                  },
                  "run_completed",
-                 %{}
+                 %{summary: "done #{child.queue_position}"}
                )
     end
 
@@ -1230,7 +1676,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                    completed_at: DateTime.utc_now()
                  },
                  "run_completed",
-                 %{}
+                 %{summary: "origin-only result"}
                )
     end
 
@@ -1280,9 +1726,13 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
       assert {:ok, _transition} =
                TerminalTransitions.terminalize_child(
                  child,
-                 %{status: "completed", completed_at: DateTime.utc_now()},
+                 %{
+                   status: "completed",
+                   last_observation_summary: "done #{child.queue_position}",
+                   completed_at: DateTime.utc_now()
+                 },
                  "run_completed",
-                 %{}
+                 %{summary: "done #{child.queue_position}"}
                )
     end)
 
@@ -1362,7 +1812,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                    completed_at: DateTime.utc_now()
                  },
                  "run_completed",
-                 %{}
+                 %{summary: "result #{child.queue_position + 1}"}
                )
     end
 
@@ -1491,7 +1941,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
                    completed_at: DateTime.utc_now()
                  },
                  "run_completed",
-                 %{}
+                 %{summary: "done #{child.queue_position}"}
                )
     end)
 
@@ -1569,15 +2019,29 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     end
   end
 
+  defp reset_fanout_roles! do
+    put_setting!("providers.openai.enabled", false)
+    put_setting!("intent.direct_answer_model_enabled", true)
+
+    Enum.each(~w[direct_answer fanout_manager fanout_review fanout_synthesis], fn role ->
+      put_setting!("model_preferences.tasks.#{role}", ["direct_answer_local"])
+    end)
+  end
+
+  defp put_setting!(key, value) do
+    {:ok, _setting} = Settings.put(key, value, %{audit?: false})
+    :ok
+  end
+
   defp manager_diagnostic do
     %{
       attempts: 1,
       model_profile: "direct_answer_local",
       model_profile_sha256: String.duplicate("a", 64),
       budget_limits: %{
-        version: 1,
-        max_model_calls: 40,
-        max_output_tokens: 24_000,
+        version: 2,
+        max_model_calls: 64,
+        max_output_tokens: 32_768,
         max_elapsed_ms: 300_000,
         max_worker_attempts_per_child: 2
       },
@@ -1589,12 +2053,14 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert {:ok, %{parent: %{id: ^parent_id}, frozen: frozen} = claim} =
              Fanout.claim_next_composition()
 
+    assert {:ok, provenance} = Report.fallback_provenance(frozen.snapshot, :model_disabled)
+
     assert {:ok, _selected} =
              Fanout.select_composition(
                claim,
                "deterministic_fallback",
                frozen.fallback_body,
-               %{fallback_reason: "model_disabled"}
+               provenance
              )
   end
 
@@ -1617,7 +2083,18 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     case Registry.lookup(AllbertAssist.Objectives.Runs.Registry, {:fanout, parent_id}) do
       [{coordinator, _value}] ->
         monitor_ref = Process.monitor(coordinator)
-        assert_receive {:DOWN, ^monitor_ref, :process, ^coordinator, _reason}, 5_000
+
+        receive do
+          {:DOWN, ^monitor_ref, :process, ^coordinator, _reason} -> :ok
+        after
+          5_000 ->
+            states =
+              parent_id
+              |> Fanout.children()
+              |> Enum.map(&{&1.id, &1.status, &1.run_attempt_count, &1.review_reason})
+
+            flunk("fan-out coordinator did not retire; child states: #{inspect(states)}")
+        end
 
       [] ->
         :ok

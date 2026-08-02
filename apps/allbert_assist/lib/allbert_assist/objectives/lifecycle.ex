@@ -17,7 +17,7 @@ defmodule AllbertAssist.Objectives.Lifecycle do
   alias AllbertAssist.Confirmations.ResumeParamsBinding
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
-  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
+  alias AllbertAssist.Objectives.Fanout.{Budget, TerminalTransitions}
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Objectives.ObservationSummary
   alias AllbertAssist.Objectives.Runs.CancelToken
@@ -36,6 +36,7 @@ defmodule AllbertAssist.Objectives.Lifecycle do
 
   @operations ~w[propose evaluate authorize execute observe advance]a
   @max_event_summary_chars 500
+  @quality_protocol_upgrade_reason "quality_protocol_upgrade_required"
 
   @spec run(String.t(), keyword()) :: {:ok, Objective.t()} | {:blocked, term()} | {:error, term()}
   def run(child_id, opts \\ []) when is_binary(child_id) do
@@ -64,6 +65,26 @@ defmodule AllbertAssist.Objectives.Lifecycle do
 
       _ ->
         :unknown
+    end
+  end
+
+  @doc "Fail one historical Budget v1 DirectAnswer child before recovery can execute it."
+  @spec reconcile_quality_protocol_upgrade(Objective.t(), keyword()) ::
+          {:ok, :current | {:failed, Objective.t()}} | {:error, term()}
+  def reconcile_quality_protocol_upgrade(%Objective{} = objective, opts \\ [])
+      when is_list(opts) do
+    cond do
+      quality_protocol_upgrade_failed?(objective) ->
+        {:ok, {:failed, objective}}
+
+      objective.status not in ~w[open running blocked] ->
+        {:ok, :current}
+
+      quality_protocol_upgrade_required?(objective, opts) ->
+        transition_quality_protocol_upgrade(objective, opts)
+
+      true ->
+        {:ok, :current}
     end
   end
 
@@ -230,6 +251,150 @@ defmodule AllbertAssist.Objectives.Lifecycle do
 
   defp reconcile_confirmation_status(_status, _objective, _step, _confirmation),
     do: {:ok, :parked}
+
+  defp quality_protocol_upgrade_failed?(%Objective{
+         status: "failed",
+         review_reason: @quality_protocol_upgrade_reason
+       }),
+       do: true
+
+  defp quality_protocol_upgrade_failed?(%Objective{}), do: false
+
+  defp quality_protocol_upgrade_required?(%Objective{} = objective, opts) do
+    grounding = Grounding.resolve(objective)
+
+    with %{"version" => 1} = budget <- grounding.fanout_budget,
+         {:ok, ^budget} <- Budget.validate_snapshot(budget),
+         true <-
+           Keyword.get(opts, :force_quality_protocol_upgrade?, false) or
+             direct_answer_upgrade_target?(objective, grounding) do
+      true
+    else
+      _current_non_direct_or_invalid -> false
+    end
+  end
+
+  defp direct_answer_upgrade_target?(objective, grounding) do
+    case Store.with_resolved_settings(fn -> GroundedStepSpec.derive(objective, grounding) end) do
+      {:ok, %{action_module: DirectAnswer}} -> true
+      _non_direct_or_invalid -> false
+    end
+  end
+
+  defp transition_quality_protocol_upgrade(objective, opts),
+    do: transition_quality_protocol_upgrade(objective, opts, true)
+
+  defp transition_quality_protocol_upgrade(objective, opts, retry_pending_steering?) do
+    {attrs, transition_opts} = quality_protocol_upgrade_transition(objective, opts)
+
+    objective
+    |> TerminalTransitions.terminalize_child(
+      attrs,
+      "run_failed",
+      %{reason: @quality_protocol_upgrade_reason},
+      transition_opts
+    )
+    |> resolve_quality_protocol_upgrade_transition(objective, opts, retry_pending_steering?)
+  end
+
+  defp quality_protocol_upgrade_transition(objective, opts) do
+    step =
+      objective.id
+      |> Objectives.list_steps()
+      |> Enum.reject(&(&1.status in ~w[completed failed cancelled skipped]))
+      |> List.last()
+
+    attrs = %{
+      status: "failed",
+      review_reason: @quality_protocol_upgrade_reason,
+      completed_at: DateTime.utc_now()
+    }
+
+    attrs = if step, do: Map.put(attrs, :current_step_id, step.id), else: attrs
+
+    transaction_hook = quality_protocol_upgrade_hook(step, Keyword.get(opts, :transaction_hook))
+
+    transition_opts =
+      opts
+      |> Keyword.take([:signal])
+      |> Keyword.put_new(
+        :signal,
+        {:run_failed, %{reason: @quality_protocol_upgrade_reason}}
+      )
+      |> Keyword.put(:transaction_hook, transaction_hook)
+
+    {attrs, transition_opts}
+  end
+
+  defp quality_protocol_upgrade_hook(step, outer_hook) do
+    fn child ->
+      with :ok <- finalize_quality_protocol_upgrade_step(step) do
+        run_quality_protocol_upgrade_hook(outer_hook, child)
+      end
+    end
+  end
+
+  defp run_quality_protocol_upgrade_hook(hook, child) when is_function(hook, 1), do: hook.(child)
+  defp run_quality_protocol_upgrade_hook(_hook, _child), do: :ok
+
+  defp resolve_quality_protocol_upgrade_transition(
+         {:ok, %{child: failed}},
+         _objective,
+         _opts,
+         _retry_pending_steering?
+       ),
+       do: {:ok, {:failed, failed}}
+
+  defp resolve_quality_protocol_upgrade_transition(
+         {:error, {:objective_not_terminalizable, "failed"}},
+         objective,
+         _opts,
+         _retry_pending_steering?
+       ),
+       do: resolve_existing_quality_protocol_upgrade(objective.id)
+
+  defp resolve_quality_protocol_upgrade_transition(
+         {:error, :pending_steering_directive},
+         objective,
+         opts,
+         true
+       ) do
+    with {:ok, steered} <- Steering.apply_pending(objective.id) do
+      transition_quality_protocol_upgrade(steered, opts, false)
+    end
+  end
+
+  defp resolve_quality_protocol_upgrade_transition(
+         {:error, reason},
+         _objective,
+         _opts,
+         _retry_pending_steering?
+       ),
+       do: {:error, reason}
+
+  defp resolve_existing_quality_protocol_upgrade(objective_id) do
+    case Objectives.get_objective(objective_id) do
+      {:ok, %Objective{} = current} -> resolve_existing_quality_protocol_upgrade_state(current)
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp resolve_existing_quality_protocol_upgrade_state(current) do
+    if quality_protocol_upgrade_failed?(current),
+      do: {:ok, {:failed, current}},
+      else: {:error, {:objective_not_terminalizable, current.status}}
+  end
+
+  defp finalize_quality_protocol_upgrade_step(nil), do: :ok
+
+  defp finalize_quality_protocol_upgrade_step(step) do
+    case Objectives.transition_step(step, "failed", %{
+           result_summary: @quality_protocol_upgrade_reason
+         }) do
+      {:ok, _failed} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
 
   defp blocked_confirmation(objective) do
     step =

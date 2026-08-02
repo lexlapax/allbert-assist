@@ -723,8 +723,7 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
   defp recover_composition_parent(%Objective{report_composition_state: "composing"} = parent) do
     with {:ok, selection_input} <- Fanout.report_input_for_selection(parent),
          {:ok, rebound_parent, frozen} <- rebind_composing_input(parent, selection_input),
-         {:ok, provenance} <-
-           Report.fallback_provenance(frozen.snapshot, "recovery_after_restart"),
+         {:ok, provenance} <- Report.recovery_fallback_provenance(frozen.snapshot),
          {:ok, _selected} <-
            select_composition(
              composition_claim(rebound_parent, frozen),

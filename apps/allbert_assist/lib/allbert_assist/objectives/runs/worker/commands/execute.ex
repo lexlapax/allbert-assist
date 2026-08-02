@@ -14,6 +14,7 @@ defmodule AllbertAssist.Objectives.Runs.Worker.Commands.Execute do
 
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Objectives.ObservationSummary
   alias AllbertAssist.Objectives.Runs.CancelToken
   alias AllbertAssist.Settings.Store
 
@@ -56,27 +57,46 @@ defmodule AllbertAssist.Objectives.Runs.Worker.Commands.Execute do
             fanout_worker: %{version: 1, provider_call_count: 1}
           } = response}
        ) do
-    Map.merge(state, %{
-      status: :draft,
-      provider_call_count: 1,
-      draft_response: Map.delete(response, :fanout_worker),
-      last_command: :execute,
-      last_result: {:ok, :draft}
-    })
+    case normalized_response(response) do
+      {:ok, response} ->
+        Map.merge(state, %{
+          status: :draft,
+          provider_call_count: 1,
+          draft_response: Map.delete(response, :fanout_worker),
+          last_command: :execute,
+          last_result: {:ok, :draft}
+        })
+
+      {:error, reason} ->
+        quality_unresolved(state, reason, 1)
+    end
   end
 
   defp quality_state(state, {:ok, response}) when is_map(response) do
-    provider_call_count =
-      case Map.get(response, :fanout_worker) do
-        %{version: 1, provider_call_count: count} when count in [0, 1] -> count
-        _missing_or_invalid -> 0
-      end
+    case Map.get(response, :fanout_worker) do
+      %{version: 1, provider_call_count: count} when count in [0, 1] ->
+        quality_unresolved(state, :quality_model_draft_unavailable, count)
 
-    quality_unresolved(state, :quality_model_draft_unavailable, provider_call_count)
+      %{version: 1, provider_call_count: count} when is_integer(count) and count > 1 ->
+        quality_unresolved(state, :quality_provider_attempt_bound_exceeded, count)
+
+      _missing_or_invalid ->
+        quality_unresolved(state, :quality_model_draft_unavailable, 0)
+    end
   end
 
   defp quality_state(state, {:error, reason}),
     do: quality_unresolved(state, {:quality_draft_failed, reason}, 0)
+
+  defp normalized_response(%{message: message} = response) when is_binary(message) do
+    normalized = ObservationSummary.normalize(message)
+
+    if String.trim(normalized) == "",
+      do: {:error, :quality_model_draft_unavailable},
+      else: {:ok, Map.put(response, :message, normalized)}
+  end
+
+  defp normalized_response(_response), do: {:error, :quality_model_draft_unavailable}
 
   defp quality_unresolved(state, reason, provider_call_count) do
     Map.merge(state, %{

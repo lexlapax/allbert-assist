@@ -41,7 +41,6 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgent.Commands.Assess do
          }}
       else
         {:error, reason} when is_atom(reason) -> {:error, reason}
-        _invalid -> {:error, :invalid_critic_result}
       end
 
     {:ok, terminal_state(Map.get(context, :state, %{}), result)}

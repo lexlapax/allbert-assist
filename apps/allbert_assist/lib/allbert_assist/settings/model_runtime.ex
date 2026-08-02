@@ -9,6 +9,16 @@ defmodule AllbertAssist.Settings.ModelRuntime do
   alias AllbertAssist.Settings.Vault
 
   @openai_min_max_tokens 16
+  @endpoint_digest_domain "allbert:model-runtime-effective-endpoint:v1\0"
+
+  @type endpoint_class :: :local | :hosted
+  @type effective_transport :: %{
+          required(:endpoint_class) => endpoint_class(),
+          required(:endpoint_sha256) => String.t(),
+          required(:redacted_host) => String.t()
+        }
+  @type endpoint_error ::
+          :invalid_effective_model_endpoint | :non_loopback_local_model_endpoint
 
   @spec model_spec(map()) :: {:ok, map()} | {:error, term()}
   def model_spec(%{provider_type: provider_type, model: model}) when is_binary(model) do
@@ -52,13 +62,54 @@ defmodule AllbertAssist.Settings.ModelRuntime do
 
   @spec request_opts(map()) :: keyword()
   def request_opts(profile) when is_map(profile) do
-    []
-    |> maybe_put_base_url(base_url(profile))
-    |> maybe_put_api_key(profile)
-    |> maybe_put_openai_compatible_api_key(profile)
+    case effective_base_url(profile) do
+      {:ok, base_url} ->
+        []
+        |> maybe_put_base_url(base_url)
+        |> maybe_put_api_key(profile)
+        |> maybe_put_openai_compatible_api_key(profile)
+
+      {:error, reason}
+      when reason in [:invalid_effective_model_endpoint, :non_loopback_local_model_endpoint] ->
+        raise ArgumentError, "invalid effective model endpoint"
+    end
   end
 
   def request_opts(_profile), do: []
+
+  @doc """
+  Return the secret-free identity and egress class of the endpoint a request
+  will actually use.
+
+  When exact request options are supplied, their `:base_url` wins. Otherwise
+  this applies the same environment/profile precedence as `request_opts/1`.
+  Raw URLs, userinfo, query values, and credentials never cross this boundary.
+  """
+  @spec effective_transport(map(), keyword() | nil) ::
+          {:ok, effective_transport()} | {:error, endpoint_error()}
+  def effective_transport(profile, request_opts \\ nil)
+
+  def effective_transport(profile, request_opts)
+      when is_map(profile) and (is_list(request_opts) or is_nil(request_opts)) do
+    with {:ok, base_url} <- request_base_url(profile, request_opts) do
+      endpoint_identity(profile, base_url)
+    end
+  end
+
+  def effective_transport(_profile, _request_opts),
+    do: {:error, :invalid_effective_model_endpoint}
+
+  @doc "Return the exact validated environment/profile base URL used by `request_opts/1`."
+  @spec effective_base_url(map()) ::
+          {:ok, String.t() | nil} | {:error, endpoint_error()}
+  def effective_base_url(profile) when is_map(profile) do
+    with {:ok, base_url} <- profile |> base_url() |> valid_base_url(),
+         :ok <- validate_endpoint_class(profile, base_url) do
+      {:ok, base_url}
+    end
+  end
+
+  def effective_base_url(_profile), do: {:error, :invalid_effective_model_endpoint}
 
   @spec req_llm_provider(String.t() | nil) :: {:ok, atom()} | {:error, term()}
   def req_llm_provider("openai"), do: {:ok, :openai}
@@ -111,6 +162,113 @@ defmodule AllbertAssist.Settings.ModelRuntime do
       _missing ->
         nil
     end
+  end
+
+  defp endpoint_identity(profile, nil) do
+    provider = Map.get(profile, :provider) || Map.get(profile, "provider") || "unknown"
+
+    provider_type =
+      Map.get(profile, :provider_type) || Map.get(profile, "provider_type") || "unknown"
+
+    endpoint_class = configured_endpoint_class(profile)
+
+    {:ok,
+     %{
+       endpoint_class: endpoint_class,
+       endpoint_sha256: endpoint_sha256(["default", provider, provider_type]),
+       redacted_host: "provider-default"
+     }}
+  end
+
+  defp endpoint_identity(_profile, base_url) when is_binary(base_url) do
+    uri = URI.parse(String.trim(base_url))
+
+    if valid_uri?(uri) do
+      host = String.downcase(uri.host)
+
+      {:ok,
+       %{
+         endpoint_class: if(loopback_host?(host), do: :local, else: :hosted),
+         endpoint_sha256:
+           endpoint_sha256([
+             String.downcase(uri.scheme),
+             host,
+             Integer.to_string(uri.port || default_port(uri.scheme)),
+             uri.path || ""
+           ]),
+         redacted_host: host
+       }}
+    else
+      {:error, :invalid_effective_model_endpoint}
+    end
+  end
+
+  defp configured_endpoint_class(profile) do
+    case Map.get(profile, :provider_endpoint_kind) || Map.get(profile, "provider_endpoint_kind") ||
+           Map.get(profile, :endpoint_kind) || Map.get(profile, "endpoint_kind") do
+      value when value in [:local_endpoint, "local_endpoint"] -> :local
+      _other -> :hosted
+    end
+  end
+
+  defp validate_endpoint_class(profile, base_url) when is_binary(base_url) do
+    host = base_url |> URI.parse() |> Map.fetch!(:host) |> String.downcase()
+
+    if configured_endpoint_class(profile) == :local and not loopback_host?(host),
+      do: {:error, :non_loopback_local_model_endpoint},
+      else: :ok
+  end
+
+  defp validate_endpoint_class(_profile, _provider_default), do: :ok
+
+  defp request_base_url(profile, nil), do: effective_base_url(profile)
+
+  defp request_base_url(profile, request_opts) when is_list(request_opts) do
+    with {:ok, base_url} <- request_opts |> Keyword.get(:base_url) |> valid_base_url(),
+         :ok <- validate_endpoint_class(profile, base_url) do
+      {:ok, base_url}
+    end
+  end
+
+  defp valid_base_url(nil), do: {:ok, nil}
+
+  defp valid_base_url(value) when is_binary(value) do
+    value = String.trim(value)
+
+    cond do
+      value == "" -> {:ok, nil}
+      valid_uri?(URI.parse(value)) -> {:ok, value}
+      true -> {:error, :invalid_effective_model_endpoint}
+    end
+  end
+
+  defp valid_base_url(_value), do: {:error, :invalid_effective_model_endpoint}
+
+  defp valid_uri?(uri) do
+    uri.scheme in ["http", "https"] and is_binary(uri.host) and uri.host != "" and
+      is_nil(uri.userinfo) and is_nil(uri.query) and is_nil(uri.fragment)
+  end
+
+  defp loopback_host?(host)
+       when host in ["localhost", "localhost.localdomain", "host.docker.internal", "::1"],
+       do: true
+
+  defp loopback_host?(host) do
+    case :inet.parse_address(String.to_charlist(host)) do
+      {:ok, {127, _, _, _}} -> true
+      {:ok, {0, 0, 0, 0, 0, 0, 0, 1}} -> true
+      _other -> false
+    end
+  end
+
+  defp default_port("http"), do: 80
+  defp default_port("https"), do: 443
+
+  defp endpoint_sha256(parts) do
+    parts
+    |> Enum.intersperse(<<0>>)
+    |> then(&:crypto.hash(:sha256, [@endpoint_digest_domain, &1]))
+    |> Base.encode16(case: :lower)
   end
 
   defp maybe_put_api_key(opts, profile) do

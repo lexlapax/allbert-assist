@@ -4,6 +4,7 @@ config :allbert_assist, AllbertAssist.Channels.NotifyConsumer, enabled?: false
 config :allbert_assist, AllbertAssist.Objectives.Fanout.ReportComposer, enabled?: false
 config :allbert_assist, AllbertAssist.Channels.Supervisor, exclude_channels: ["tui"]
 config :allbert_assist, :first_run_enablement_boot?, false
+config :allbert_assist, :runtime_model_readiness, AllbertAssist.Test.ModelReadinessFake
 
 env_value = fn name ->
   case System.get_env(name) do

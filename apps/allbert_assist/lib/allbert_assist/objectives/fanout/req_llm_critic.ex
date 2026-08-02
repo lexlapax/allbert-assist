@@ -12,15 +12,13 @@ defmodule AllbertAssist.Objectives.Fanout.ReqLLMCritic do
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Maps
   alias AllbertAssist.Models.PromptEnvelope
-  alias AllbertAssist.Objectives.CanonicalJSON
   alias AllbertAssist.Models.ProviderAttempt
-  alias AllbertAssist.Objectives.Fanout.ReviewProtocol
+  alias AllbertAssist.Objectives.CanonicalJSON
+  alias AllbertAssist.Objectives.Fanout.{ReviewProtocol, RoleProfileConfiguration}
   alias AllbertAssist.Settings.{ModelRuntime, Models}
   alias ReqLLM.Response
 
   @maximum_output_tokens 512
-  @reviewer_config_version 1
-  @reviewer_config_domain "allbert:fanout-reviewer-config:v1\0"
   @statuses ["satisfied", "violated", "unresolved"]
   @source_handles ["task_contract", "candidate"]
   @request_keys ~w[
@@ -49,7 +47,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReqLLMCritic do
              request,
              schema,
              timeout_ms,
-             max_output_tokens
+             max_output_tokens,
+             opts
            ),
          {:ok, response} <- invoke(client, model_spec, prompt, schema, opts, context),
          :ok <- validate_finish_reason(response),
@@ -282,32 +281,33 @@ defmodule AllbertAssist.Objectives.Fanout.ReqLLMCritic do
          request,
          schema,
          timeout_ms,
-         max_output_tokens
+         max_output_tokens,
+         opts
        ) do
-    config = %{
-      "version" => @reviewer_config_version,
-      "role" => "fanout_review",
-      "model_profile" => profile_value(profile, :name),
-      "provider" => profile_value(profile, :provider),
-      "provider_type" => profile_value(profile, :provider_type),
-      "model" => profile_value(profile, :model),
-      "timeout_ms" => timeout_ms,
-      "max_output_tokens" => max_output_tokens,
-      "review_protocol_version" => request["review_protocol_version"],
-      "policy_version" => request["policy_version"],
-      "group_id" => request["group"]["id"],
-      "rule_group_catalog_version" => request["rule_group_catalog_version"],
-      "rule_group_catalog_sha256" => request["rule_group_catalog_sha256"],
-      "transport" => %{
-        "response_schema_sha256" => sha256(CanonicalJSON.encode(schema)),
-        "temperature" => 0.0,
-        "max_retries" => 0,
-        "json_repair" => false,
-        "structured_output_mode" => "json_schema"
-      }
+    transport = %{
+      base_url: Keyword.get(opts, :base_url),
+      response_schema_sha256: sha256(CanonicalJSON.encode(schema)),
+      temperature: Keyword.fetch!(opts, :temperature),
+      max_output_tokens: max_output_tokens,
+      receive_timeout_ms: timeout_ms,
+      total_timeout_ms: Keyword.fetch!(opts, :total_timeout),
+      max_retries: Keyword.fetch!(opts, :max_retries),
+      structured_output_mode: Keyword.fetch!(opts, :openai_structured_output_mode),
+      json_repair: Keyword.fetch!(opts, :json_repair)
     }
 
-    sha256(@reviewer_config_domain <> CanonicalJSON.encode(config))
+    extras = %{
+      review_protocol_version: request["review_protocol_version"],
+      policy_version: request["policy_version"],
+      group_id: request["group"]["id"],
+      rule_group_catalog_version: request["rule_group_catalog_version"],
+      rule_group_catalog_sha256: request["rule_group_catalog_sha256"]
+    }
+
+    {:ok, digest} =
+      RoleProfileConfiguration.digest(:fanout_review, profile, transport, extras)
+
+    digest
   end
 
   defp invoke(client, model_spec, prompt, schema, opts, context) do
@@ -366,9 +366,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReqLLMCritic do
     do: Keyword.put(opts, :test_pid, pid)
 
   defp maybe_put_test_pid(opts, _context), do: opts
-
-  defp profile_value(profile, key),
-    do: Map.get(profile, key) || Map.get(profile, Atom.to_string(key))
 
   defp unique_nonempty_ids?(values) do
     Enum.all?(values, &nonempty?/1) and length(values) == MapSet.size(MapSet.new(values))

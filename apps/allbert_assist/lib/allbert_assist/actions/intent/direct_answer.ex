@@ -393,7 +393,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
 
       if fanout_worker_context?(context) do
         {answerer_context, attempt_counter} = ProviderAttempt.attach(answerer_context)
-        result = answerer().answer(text, answerer_context)
+        result = invoke_fanout_worker_answerer(text, answerer_context)
 
         {:fanout_worker_provider_result, result, ProviderAttempt.count(attempt_counter)}
       else
@@ -402,6 +402,15 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
     else
       {:error, reason} -> {:error, {:transport_denied, reason}}
     end
+  end
+
+  defp invoke_fanout_worker_answerer(text, context) do
+    answerer().answer(text, context)
+  rescue
+    _exception -> {:error, :fanout_worker_provider_exception}
+  catch
+    :exit, _reason -> {:error, :fanout_worker_provider_exit}
+    _kind, _reason -> {:error, :fanout_worker_provider_failure}
   end
 
   defp model_answer_result(response, resolution, active_memory, fallback_metadata \\ nil) do

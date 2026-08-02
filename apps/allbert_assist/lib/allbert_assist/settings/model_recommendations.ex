@@ -3,14 +3,14 @@ defmodule AllbertAssist.Settings.ModelRecommendations do
   Advisory per-purpose model recommendations for operator doctors.
 
   Settings Central remains the source of configured truth. This module only
-  compares the current settings to the v0.56 recommendation matrix and returns a
-  redacted read model for CLI/TUI/web surfaces.
+  compares the current settings to the project recommendation matrix and returns
+  a redacted read model for CLI/TUI/web surfaces.
   """
 
   alias AllbertAssist.Settings
-  alias AllbertAssist.Settings.ModelDoctor
+  alias AllbertAssist.Settings.ModelReadiness
 
-  @statuses ~w(ok missing under-capable not-pulled remote-egress-warning)
+  @statuses ~w(ok missing under-capable not-pulled unavailable remote-egress-warning)
 
   @rows [
     %{
@@ -83,12 +83,56 @@ defmodule AllbertAssist.Settings.ModelRecommendations do
       purpose: "Direct answers",
       settings_key: "model_preferences.tasks.direct_answer",
       source: {:task, "direct_answer"},
+      task_role: :direct_answer,
       recommended_profile: "direct_answer_local",
       recommended_model: "qwen2.5:7b",
       required_capabilities: ["text_generation"],
       min_size_b: 7,
       privacy: "local default; another task chain is an explicit operator choice.",
-      fallback: "Honest unavailable response; no implicit global-primary fallback.",
+      fallback:
+        "Empty-chain compatibility uses the global primary; a non-empty task chain has no implicit primary fallback.",
+      probe?: true
+    },
+    %{
+      id: :fanout_manager,
+      purpose: "Fan-out planning",
+      settings_key: "model_preferences.tasks.fanout_manager",
+      source: {:task, "fanout_manager"},
+      task_role: :fanout_manager,
+      recommended_profile: "direct_answer_local",
+      recommended_model: "qwen2.5:7b",
+      required_capabilities: ["text_generation"],
+      min_size_b: 7,
+      privacy: "local default; another closed task chain is an explicit operator choice.",
+      fallback: "Ordinary single-answer handling before durable fan-out framing.",
+      probe?: true
+    },
+    %{
+      id: :fanout_review,
+      purpose: "Fan-out worker and report review",
+      settings_key: "model_preferences.tasks.fanout_review",
+      source: {:task, "fanout_review"},
+      task_role: :fanout_review,
+      recommended_profile: "direct_answer_local",
+      recommended_model: "qwen2.5:7b",
+      required_capabilities: ["text_generation"],
+      min_size_b: 7,
+      privacy: "local default; another closed task chain is an explicit operator choice.",
+      fallback: "Ordinary single-answer handling before durable fan-out framing.",
+      probe?: true
+    },
+    %{
+      id: :fanout_synthesis,
+      purpose: "Fan-out report synthesis and revision",
+      settings_key: "model_preferences.tasks.fanout_synthesis",
+      source: {:task, "fanout_synthesis"},
+      task_role: :fanout_synthesis,
+      recommended_profile: "direct_answer_local",
+      recommended_model: "qwen2.5:7b",
+      required_capabilities: ["text_generation"],
+      min_size_b: 7,
+      privacy: "local default; another closed task chain is an explicit operator choice.",
+      fallback: "Ordinary single-answer handling before durable fan-out framing.",
       probe?: true
     },
     %{
@@ -204,21 +248,25 @@ defmodule AllbertAssist.Settings.ModelRecommendations do
     descriptor_generation
     intent_eval_live_bench
     direct_answer
+    fanout_manager
+    fanout_review
+    fanout_synthesis
   )a
 
   @spec diagnose(map(), keyword()) :: map()
   def diagnose(context \\ %{}, opts \\ []) do
-    rows =
-      @rows
-      |> maybe_filter(Keyword.get(opts, :scope, :all))
-      |> Enum.map(&row_dto(&1, context))
+    Settings.with_resolved_settings(fn ->
+      definitions = maybe_filter(@rows, Keyword.get(opts, :scope, :all))
+      readiness = ModelReadiness.check(readiness_specs(definitions), context)
+      rows = Enum.map(definitions, &row_dto(&1, Map.get(readiness, &1.id)))
 
-    %{
-      checked_at: DateTime.utc_now() |> DateTime.to_iso8601(),
-      statuses: @statuses,
-      rows: rows,
-      summary: summary(rows)
-    }
+      %{
+        checked_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+        statuses: @statuses,
+        rows: rows,
+        summary: summary(rows)
+      }
+    end)
   end
 
   @spec render(map()) :: String.t()
@@ -228,27 +276,95 @@ defmodule AllbertAssist.Settings.ModelRecommendations do
     header =
       "model doctor ok=#{summary["ok"]} missing=#{summary["missing"]} " <>
         "under-capable=#{summary["under-capable"]} not-pulled=#{summary["not-pulled"]} " <>
+        "unavailable=#{summary["unavailable"]} " <>
         "remote-egress-warning=#{summary["remote-egress-warning"]}"
 
     lines =
       report.rows
-      |> Enum.map(fn row ->
-        "  #{row.id} status=#{row.status} recommended=#{recommended_label(row)} " <>
-          "configured=#{configured_label(row)} key=#{row.settings_key || "future"}"
-      end)
+      |> Enum.map(&render_row/1)
 
     Enum.join([header | lines], "\n")
+  end
+
+  defp render_row(%{chain_kind: "closed_task"} = row) do
+    chain = Enum.join(row.configured_profiles, ",")
+
+    "  #{row.id} status=#{row.status} chain=[#{chain}] resolved=#{resolved_label(row)} " <>
+      "unavailable-role=#{row.unavailable_role || "none"} auto-pull=#{row.auto_pull} " <>
+      "key=#{row.settings_key} recommended=#{recommended_label(row)}"
+  end
+
+  defp render_row(row) do
+    "  #{row.id} status=#{row.status} recommended=#{recommended_label(row)} " <>
+      "configured=#{configured_label(row)} key=#{row.settings_key || "future"}"
   end
 
   defp maybe_filter(rows, :intent), do: Enum.filter(rows, &(&1.id in @intent_ids))
   defp maybe_filter(rows, _scope), do: rows
 
-  defp row_dto(row, context) do
+  defp readiness_specs(rows) do
+    rows
+    |> Enum.filter(& &1.probe?)
+    |> Map.new(fn row -> {row.id, readiness_spec(row)} end)
+  end
+
+  defp readiness_spec(%{task_role: role}), do: {:role, role}
+
+  defp readiness_spec(row) do
+    case configured_profiles(row.source) do
+      [profile | _rest] -> {:profile, profile}
+      [] -> {:profile, ""}
+    end
+  end
+
+  defp row_dto(%{task_role: role} = row, readiness) do
     configured_profiles = configured_profiles(row.source)
     configured_profile = List.first(configured_profiles)
-    resolved = resolve_profile(configured_profile)
-    doctor = maybe_doctor(row, resolved, context)
-    status = status(row, resolved, doctor)
+    configured = resolve_profile(configured_profile)
+    resolved = readiness_resolution(readiness, :unavailable_role)
+    doctor = readiness_doctor(readiness)
+    status = status(row, resolved, readiness)
+
+    row
+    |> Map.take([
+      :id,
+      :purpose,
+      :settings_key,
+      :recommended_profile,
+      :recommended_model,
+      :required_capabilities,
+      :min_size_b,
+      :privacy,
+      :fallback
+    ])
+    |> Map.merge(%{
+      id: Atom.to_string(row.id),
+      role: Atom.to_string(role),
+      chain_kind: "closed_task",
+      configured_profile: configured_profile,
+      configured_profiles: configured_profiles,
+      configured_model: configured_model(configured),
+      configured_provider: configured_provider(configured),
+      endpoint_kind: endpoint_kind(configured),
+      resolution_status: resolution_status(resolved),
+      resolved_profile: resolved_profile(resolved),
+      resolved_model: configured_model(resolved),
+      resolved_provider: configured_provider(resolved),
+      role_readiness: status,
+      unavailable_role: unavailable_role(role, status),
+      auto_pull: false,
+      status: status,
+      diagnostics: task_role_diagnostics(row, role, resolved, doctor, status, readiness),
+      doctor: public_doctor(doctor)
+    })
+  end
+
+  defp row_dto(row, readiness) do
+    configured_profiles = configured_profiles(row.source)
+    configured_profile = List.first(configured_profiles)
+    resolved = readiness_resolution(readiness, :missing_profile, configured_profile)
+    doctor = readiness_doctor(readiness)
+    status = status(row, resolved, readiness)
 
     row
     |> Map.take([
@@ -270,7 +386,7 @@ defmodule AllbertAssist.Settings.ModelRecommendations do
       configured_provider: configured_provider(resolved),
       endpoint_kind: endpoint_kind(resolved),
       status: status,
-      diagnostics: diagnostics(row, resolved, doctor, status),
+      diagnostics: diagnostics(row, resolved, doctor, status, readiness),
       doctor: public_doctor(doctor)
     })
   end
@@ -306,33 +422,63 @@ defmodule AllbertAssist.Settings.ModelRecommendations do
     end
   end
 
-  defp maybe_doctor(
-         %{probe?: true},
-         {:ok, %{provider_endpoint_kind: "local_endpoint"}} = resolved,
-         context
-       ) do
-    {:ok, profile} = resolved
+  defp readiness_resolution(readiness, error),
+    do: readiness_resolution(readiness, error, nil)
 
-    case ModelDoctor.diagnose(profile.name, context) do
-      {:ok, result} -> {:ok, result}
-      {:error, reason} -> {:error, reason}
-    end
+  defp readiness_resolution(%{resolution_status: :resolved, profile: profile}, _error, _fallback)
+       when is_map(profile),
+       do: {:ok, profile}
+
+  defp readiness_resolution(nil, _error, fallback) when is_binary(fallback),
+    do: resolve_profile(fallback)
+
+  defp readiness_resolution(_readiness, error, _fallback), do: {:error, error}
+
+  defp readiness_doctor(%{doctor: doctor}) when is_map(doctor), do: {:ok, doctor}
+  defp readiness_doctor(_readiness), do: nil
+
+  defp resolution_status({:ok, _profile}), do: "resolved"
+  defp resolution_status({:error, _reason}), do: "unavailable"
+
+  defp resolved_profile({:ok, profile}), do: profile.name
+  defp resolved_profile({:error, _reason}), do: nil
+
+  defp unavailable_role(role, status)
+       when status in ["missing", "under-capable", "not-pulled", "unavailable"],
+       do: Atom.to_string(role)
+
+  defp unavailable_role(_role, _status), do: nil
+
+  defp task_role_diagnostics(
+         _row,
+         role,
+         {:error, _reason},
+         _doctor,
+         _status,
+         _readiness
+       ),
+       do: ["task role #{role} is unavailable"]
+
+  defp task_role_diagnostics(row, _role, resolved, doctor, status, readiness) do
+    diagnostics(row, resolved, doctor, status, readiness, "resolved")
   end
 
-  defp maybe_doctor(_row, _resolved, _context), do: nil
+  defp status(%{task_role: _role}, {:error, :unavailable_role}, _readiness), do: "missing"
+  defp status(_row, {:error, :missing_profile}, _readiness), do: "missing"
 
-  defp status(_row, {:error, :missing_profile}, _doctor), do: "missing"
-
-  defp status(row, {:ok, profile}, doctor) do
+  defp status(row, {:ok, profile}, readiness) do
     cond do
+      readiness_status(readiness) == :model_not_pulled ->
+        "not-pulled"
+
+      readiness_status(readiness) == :unavailable ->
+        "unavailable"
+
       under_capable?(row, profile) ->
         "under-capable"
 
       remote?(profile) ->
         "remote-egress-warning"
-
-      not_pulled?(doctor) ->
-        "not-pulled"
 
       true ->
         "ok"
@@ -380,33 +526,59 @@ defmodule AllbertAssist.Settings.ModelRecommendations do
   defp remote?(%{provider_endpoint_kind: "credentialed_remote"}), do: true
   defp remote?(_profile), do: false
 
-  defp not_pulled?({:ok, doctor}) when doctor.model_available in [false, :unknown], do: true
-  defp not_pulled?(_doctor), do: false
+  defp readiness_status(%{status: status}), do: status
+  defp readiness_status(_readiness), do: nil
 
-  defp diagnostics(row, resolved, doctor, status) do
+  defp diagnostics(row, resolved, doctor, status, readiness) do
+    diagnostics(row, resolved, doctor, status, readiness, "configured")
+  end
+
+  defp diagnostics(row, resolved, doctor, status, readiness, subject) do
     []
-    |> maybe_add(status == "missing", "configured profile is missing")
-    |> maybe_add(status == "under-capable", under_capable_message(row, resolved))
-    |> maybe_add(status == "not-pulled", "configured local model was not confirmed as pulled")
-    |> maybe_add(status == "remote-egress-warning", "configured profile uses a remote provider")
+    |> maybe_add(status == "missing", "#{subject} profile is missing")
+    |> maybe_add(status == "under-capable", under_capable_message(row, resolved, subject))
+    |> maybe_add(
+      status == "not-pulled",
+      "#{subject} local model was not confirmed as pulled"
+    )
+    |> maybe_add(status == "unavailable", unavailable_message(readiness, subject))
+    |> maybe_add(
+      status == "remote-egress-warning",
+      "#{subject} profile uses a remote provider"
+    )
     |> Kernel.++(doctor_diagnostics(doctor))
     |> Enum.uniq()
   end
 
-  defp under_capable_message(row, {:ok, profile}) do
+  defp unavailable_message(%{reason: :endpoint_unavailable}, subject),
+    do: "#{subject} local endpoint is unavailable"
+
+  defp unavailable_message(%{reason: :credential_unavailable}, subject),
+    do: "#{subject} provider credential is unavailable"
+
+  defp unavailable_message(%{reason: :provider_disabled}, subject),
+    do: "#{subject} provider is disabled"
+
+  defp unavailable_message(%{reason: :availability_unknown}, subject),
+    do: "#{subject} model availability is unknown"
+
+  defp unavailable_message(_readiness, subject), do: "#{subject} model route is unavailable"
+
+  defp under_capable_message(row, {:ok, profile}, subject) do
     cond do
       missing_capability?(row.required_capabilities, profile.capabilities) ->
-        "configured profile lacks required capability"
+        "#{subject} profile lacks required capability"
 
       below_min_size?(profile.model, row.min_size_b) ->
-        "configured local model is below the recommended size"
+        "#{subject} local model is below the recommended size"
 
       true ->
-        "configured profile is under-capable"
+        "#{subject} profile is under-capable"
     end
   end
 
-  defp under_capable_message(_row, _resolved), do: "configured profile is under-capable"
+  defp under_capable_message(_row, _resolved, subject),
+    do: "#{subject} profile is under-capable"
 
   defp maybe_add(items, true, item), do: [item | items]
   defp maybe_add(items, false, _item), do: items
@@ -457,5 +629,11 @@ defmodule AllbertAssist.Settings.ModelRecommendations do
 
   defp configured_label(row) do
     "#{row.configured_profile}(#{row.configured_model || "unknown"})"
+  end
+
+  defp resolved_label(%{resolved_profile: nil}), do: "none"
+
+  defp resolved_label(row) do
+    "#{row.resolved_profile}(#{row.resolved_model || "unknown"})"
   end
 end

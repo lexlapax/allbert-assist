@@ -13,9 +13,10 @@ defmodule AllbertAssist.Objectives.Runs.Worker.JidoAdapter do
   @behaviour AllbertAssist.Objectives.Runs.Worker.Adapter
 
   alias AllbertAssist.Actions.Intent.DirectAnswer
+  alias AllbertAssist.Objectives.Fanout.ReqLLMCritic
   alias AllbertAssist.Objectives.Runs.CancelToken
-  alias AllbertAssist.Objectives.Runs.Worker.{Agent, QualityPolicy, ReqLLMReviewer}
-  alias AllbertAssist.Objectives.Runs.Worker.Commands.{Execute, ReviewAndRevise}
+  alias AllbertAssist.Objectives.Runs.Worker.{Agent, QualityPolicy}
+  alias AllbertAssist.Objectives.Runs.Worker.Commands.{Execute, ReviewRound, Revise}
 
   @default_timeout_ms 30_000
   @maximum_timeout_ms 120_000
@@ -28,12 +29,12 @@ defmodule AllbertAssist.Objectives.Runs.Worker.JidoAdapter do
   @impl true
   def run(DirectAnswer, params, context, opts) do
     with :ok <- active(context),
-         {:ok, quality} <- quality_context(context) do
-      timeout = bounded_timeout(opts, context)
-      context = put_model_limits(context, timeout, quality)
+         {:ok, quality} <- quality_context(context),
+         {:ok, bounds} <- bounded_timeout(opts, context, quality) do
+      context = put_model_limits(context, bounds, quality)
       worker = Task.async(fn -> execute(params, context, quality, opts) end)
       emit_start(worker.pid, context)
-      await(worker, timeout)
+      await(worker, bounds.deadline_monotonic_ms)
     end
   end
 
@@ -51,7 +52,7 @@ defmodule AllbertAssist.Objectives.Runs.Worker.JidoAdapter do
     payload = %{
       action_module: DirectAnswer,
       action_params: action_params(params, quality),
-      runner_context: context
+      runner_context: draft_context(context, quality)
     }
 
     # Timeout zero keeps Jido.Exec inside this owned worker process. The outer
@@ -78,25 +79,74 @@ defmodule AllbertAssist.Objectives.Runs.Worker.JidoAdapter do
   defp continue(%{state: %{status: :draft}} = agent, context, %{contract: contract}, opts) do
     with :ok <- active(context) do
       review_payload = %{
-        reviewer: Keyword.get(opts, :quality_reviewer, ReqLLMReviewer),
-        task_contract: contract,
+        phase: :initial,
+        critic: Keyword.get(opts, :quality_critic, ReqLLMCritic),
         runner_context: context
       }
 
       {agent, _directives} =
         Agent.cmd(
           agent,
-          {ReviewAndRevise, review_payload},
+          {ReviewRound, review_payload},
           timeout: 0,
           max_retries: 0,
           __jido_instance__: AllbertAssist.Jido
         )
 
-      case active(context) do
-        :ok -> accepted_result(agent.state)
-        {:error, reason} -> unresolved_error(agent.state, reason)
-      end
+      continue(agent, context, %{contract: contract}, opts)
     else
+      {:error, reason} -> unresolved_error(agent.state, reason)
+    end
+  end
+
+  defp continue(
+         %{state: %{status: :revision_required}} = agent,
+         context,
+         %{contract: contract},
+         opts
+       ) do
+    with :ok <- active(context) do
+      {agent, _directives} =
+        Agent.cmd(
+          agent,
+          {Revise, %{runner_context: context}},
+          timeout: 0,
+          max_retries: 0,
+          __jido_instance__: AllbertAssist.Jido
+        )
+
+      continue(agent, context, %{contract: contract}, opts)
+    else
+      {:error, reason} -> unresolved_error(agent.state, reason)
+    end
+  end
+
+  defp continue(%{state: %{status: :revised}} = agent, context, %{contract: contract}, opts) do
+    with :ok <- active(context) do
+      review_payload = %{
+        phase: :final,
+        critic: Keyword.get(opts, :quality_critic, ReqLLMCritic),
+        runner_context: context
+      }
+
+      {agent, _directives} =
+        Agent.cmd(
+          agent,
+          {ReviewRound, review_payload},
+          timeout: 0,
+          max_retries: 0,
+          __jido_instance__: AllbertAssist.Jido
+        )
+
+      continue(agent, context, %{contract: contract}, opts)
+    else
+      {:error, reason} -> unresolved_error(agent.state, reason)
+    end
+  end
+
+  defp continue(%{state: %{status: :accepted}} = agent, context, %{contract: _contract}, _opts) do
+    case active(context) do
+      :ok -> accepted_result(agent.state)
       {:error, reason} -> unresolved_error(agent.state, reason)
     end
   end
@@ -169,6 +219,11 @@ defmodule AllbertAssist.Objectives.Runs.Worker.JidoAdapter do
   defp action_params(params, :legacy), do: params
   defp action_params(params, %{draft_prompt: prompt}), do: Map.put(params, :text, prompt)
 
+  defp draft_context(context, :legacy), do: context
+
+  defp draft_context(context, %{contract: _contract}),
+    do: Map.put(context, :fanout_worker_phase, :draft)
+
   defp active(context) do
     case CancelToken.checkpoint(context) do
       :ok -> :ok
@@ -176,18 +231,32 @@ defmodule AllbertAssist.Objectives.Runs.Worker.JidoAdapter do
     end
   end
 
-  defp await(worker, timeout) do
-    case Task.yield(worker, timeout) do
-      {:ok, result} ->
-        result
+  defp await(worker, deadline_monotonic_ms) do
+    remaining = deadline_monotonic_ms - System.monotonic_time(:millisecond)
 
-      {:exit, reason} ->
-        {:error, {:worker_exit, reason}}
-
-      nil ->
-        _ = Task.shutdown(worker, :brutal_kill)
-        {:error, :worker_timeout}
+    if remaining > 0 do
+      worker
+      |> Task.yield(remaining)
+      |> resolve_await(worker, deadline_monotonic_ms)
+    else
+      timeout(worker)
     end
+  end
+
+  defp resolve_await({:ok, result}, _worker, deadline_monotonic_ms) do
+    if System.monotonic_time(:millisecond) < deadline_monotonic_ms,
+      do: result,
+      else: {:error, :worker_timeout}
+  end
+
+  defp resolve_await({:exit, reason}, _worker, _deadline_monotonic_ms),
+    do: {:error, {:worker_exit, reason}}
+
+  defp resolve_await(nil, worker, _deadline_monotonic_ms), do: timeout(worker)
+
+  defp timeout(worker) do
+    _ = Task.shutdown(worker, :brutal_kill)
+    {:error, :worker_timeout}
   end
 
   defp emit_start(worker, context) do
@@ -213,37 +282,67 @@ defmodule AllbertAssist.Objectives.Runs.Worker.JidoAdapter do
     |> Enum.join("-")
   end
 
-  defp bounded_timeout(opts, context) do
+  defp bounded_timeout(opts, context, :legacy) do
     configured =
       case Keyword.get(opts, :worker_timeout_ms, @default_timeout_ms) do
         timeout when is_integer(timeout) and timeout > 0 -> min(timeout, @maximum_timeout_ms)
         _invalid -> @default_timeout_ms
       end
 
-    case Map.get(context, :fanout_deadline_unix_ms) do
-      deadline when is_integer(deadline) ->
-        min(configured, max(deadline - System.system_time(:millisecond), 1))
+    timeout_ms =
+      case Map.get(context, :fanout_deadline_unix_ms) do
+        deadline when is_integer(deadline) ->
+          min(configured, max(deadline - System.system_time(:millisecond), 1))
 
-      _legacy ->
-        configured
+        _legacy ->
+          configured
+      end
+
+    {:ok,
+     %{
+       timeout_ms: timeout_ms,
+       deadline_monotonic_ms: System.monotonic_time(:millisecond) + timeout_ms
+     }}
+  end
+
+  defp bounded_timeout(opts, context, %{contract: _contract}) do
+    now_unix_ms = System.system_time(:millisecond)
+    now_monotonic_ms = System.monotonic_time(:millisecond)
+
+    with deadline when is_integer(deadline) <- Map.get(context, :fanout_deadline_unix_ms),
+         remaining when remaining > 0 <- deadline - now_unix_ms do
+      timeout_ms =
+        case Keyword.fetch(opts, :worker_timeout_ms) do
+          {:ok, configured} when is_integer(configured) and configured > 0 ->
+            min(configured, remaining)
+
+          _missing_or_invalid ->
+            remaining
+        end
+
+      {:ok,
+       %{
+         timeout_ms: timeout_ms,
+         deadline_monotonic_ms: now_monotonic_ms + timeout_ms
+       }}
+    else
+      _missing_expired_or_invalid -> {:error, :fanout_plan_deadline_exhausted}
     end
   end
 
-  defp put_model_limits(context, timeout, :legacy) do
+  defp put_model_limits(context, bounds, :legacy) do
     context
     |> Map.put(:model_max_output_tokens, 512)
-    |> Map.put(:model_timeout_ms, timeout)
+    |> Map.put(:model_timeout_ms, bounds.timeout_ms)
   end
 
-  defp put_model_limits(context, timeout, %{contract: _contract}) do
+  defp put_model_limits(context, bounds, %{contract: _contract}) do
     context
     |> Map.put(:model_max_output_tokens, 512)
-    |> Map.put(:model_timeout_ms, timeout)
+    |> Map.put(:model_timeout_ms, bounds.timeout_ms)
     |> Map.put(:model_max_retries, 0)
-    |> Map.put(
-      :fanout_worker_deadline_monotonic_ms,
-      System.monotonic_time(:millisecond) + timeout
-    )
+    |> Map.put(:fanout_worker_deadline_monotonic_ms, bounds.deadline_monotonic_ms)
+    |> Map.put(:fanout_review_deadline_monotonic_ms, bounds.deadline_monotonic_ms)
     |> Map.put(:fanout_worker_policy, @fanout_worker_policy)
   end
 end

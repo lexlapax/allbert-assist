@@ -1,15 +1,16 @@
 defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
-  use ExUnit.Case, async: false
-  @moduletag :home_fs_serial
+  use AllbertAssist.DataCase, async: false, lane: :db_serial
 
+  alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.DevGates.{V13FanoutEval, V13FanoutWorkerQualityEval}
   alias AllbertAssist.Intent.FanoutPlan
-  alias AllbertAssist.Objectives.Runs.Worker.QualityPolicy
+  alias AllbertAssist.Models.ProviderAttempt
+  alias AllbertAssist.Objectives.Fanout.ReviewRound
 
   @fixture Path.expand("../../fixtures/v1.3/fanout_real_model_eval.json", __DIR__)
   @worker_fixture Path.expand("../../fixtures/v1.3/fanout_worker_quality_eval.json", __DIR__)
   @fixture_sha256 "59c2b74ec85f004cea27ad0c5088eeb5f1ea98f3cf45dd3949524f41f6f93f99"
-  @worker_fixture_sha256 "35992f6ee830e8f36af4cb80d4c08b1be5617d26bb3687377d1d12c146d8b425"
+  @worker_fixture_sha256 "a482d406a5037b66e31b8d9fd91b2435b7ef7aa0985221aced5b338558ffbd83"
   @full_sha String.duplicate("a", 40)
   @profile %{
     name: "direct_answer_local",
@@ -17,66 +18,119 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
     model: "qwen2.5:7b"
   }
 
-  defmodule QualifiedReviewer do
-    @config_digest String.duplicate("b", 64)
+  defmodule QualifiedCritic do
+    def assess(request, context) do
+      :ok = ReviewRound.note_provider_attempt(context)
+      phase = Map.fetch!(context, :fanout_review_phase)
+      case_id = Map.fetch!(context, :quality_eval_case_id)
+      group_id = request["group"]["id"]
+      failed = failed_rule_ids(case_id, phase)
 
-    def prepare(contract, draft, _context),
-      do: {:ok, %{contract: contract, draft: draft, reviewer_config_sha256: @config_digest}}
+      assessments =
+        Enum.map(request["group"]["rule_ids"], fn rule_id ->
+          %{
+            "rule_id" => rule_id,
+            "status" => if(rule_id in failed, do: "violated", else: "satisfied"),
+            "source_handles" => ["task_contract", "candidate"]
+          }
+        end)
 
-    def invoke(prepared, context) do
-      {final_answer, verdict, failed_rule_ids} =
-        case context.quality_eval_case_id do
-          id
-          when id in [
-                 "restart-inaccuracy-repaired",
-                 "replay-guarantee-overclaim-repaired"
-               ] ->
-            {prepared.draft <> " Reviewed correction.", "accepted", []}
+      {:ok,
+       %{
+         assessment: %{"group_id" => group_id, "assessments" => assessments},
+         reviewer_config_sha256: sha256("#{phase}:#{group_id}:qualified-v1")
+       }}
+    end
 
-          "omitted-required-nuance-unresolved" ->
-            {prepared.draft, "unresolved", ["completion_preconditions"]}
+    defp failed_rule_ids("restart-inaccuracy-repaired", :initial),
+      do: ["preserve_supplied_semantics"]
 
-          _accepted ->
-            {prepared.draft, "accepted", []}
-        end
+    defp failed_rule_ids("replay-guarantee-overclaim-repaired", :initial),
+      do: ["uncertainty_and_guarantees"]
 
-      violations = Map.new(QualityPolicy.rule_ids(), &{&1, &1 in failed_rule_ids})
+    defp failed_rule_ids("omitted-required-nuance-unresolved", _phase),
+      do: ["completion_preconditions"]
 
-      {:ok, normalized} =
-        QualityPolicy.validate_review(%{
-          "final_answer" => final_answer,
-          "rule_violations" => violations
-        })
+    defp failed_rule_ids(_case_id, _phase), do: []
 
-      if normalized.verdict != verdict,
-        do: raise("fixture verdict does not match locally derived rule evidence")
-
-      {:ok, Map.put(normalized, :reviewer_config_sha256, @config_digest)}
+    defp sha256(value) do
+      :sha256
+      |> :crypto.hash(value)
+      |> Base.encode16(case: :lower)
     end
   end
 
-  defmodule FailingReviewer do
-    def prepare(_contract, _draft, _context), do: {:error, :reviewer_unavailable}
-    def invoke(_prepared, _context), do: raise("must not invoke after prepare failure")
+  defmodule QualifiedRevisionAnswerer do
+    def answer(_prompt, context) do
+      :ok = ProviderAttempt.mark(context)
+
+      message =
+        case context.quality_eval_case_id do
+          "restart-inaccuracy-repaired" -> "Corrected restart strategy distinction."
+          "replay-guarantee-overclaim-repaired" -> "Corrected replay guarantee distinction."
+          "omitted-required-nuance-unresolved" -> "The required threshold remains unavailable."
+        end
+
+      {:ok, %{message: message, diagnostic: %{status: :used}}}
+    end
+  end
+
+  defmodule FailingCritic do
+    def assess(_request, _context), do: {:error, :reviewer_unavailable}
+  end
+
+  defmodule QualifiedSynthesisCritic do
+    def assess(request, context) do
+      :ok = ReviewRound.note_provider_attempt(context)
+      group_id = request["group"]["id"]
+
+      assessments =
+        Enum.map(request["group"]["rule_ids"], fn rule_id ->
+          %{
+            "rule_id" => rule_id,
+            "status" => "satisfied",
+            "source_handles" => ["task_contract", "candidate"]
+          }
+        end)
+
+      {:ok,
+       %{
+         assessment: %{"group_id" => group_id, "assessments" => assessments},
+         reviewer_config_sha256: String.duplicate("e", 64)
+       }}
+    end
+  end
+
+  setup do
+    previous = Application.get_env(:allbert_assist, DirectAnswer)
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: QualifiedRevisionAnswerer)
+
+    assert {:ok, _setting} =
+             AllbertAssist.Settings.put("intent.direct_answer_model_enabled", true, %{
+               audit?: false
+             })
+
+    on_exit(fn ->
+      if previous,
+        do: Application.put_env(:allbert_assist, DirectAnswer, previous),
+        else: Application.delete_env(:allbert_assist, DirectAnswer)
+
+      AllbertAssist.Settings.put("intent.direct_answer_model_enabled", false, %{audit?: false})
+    end)
+
+    :ok
   end
 
   defmodule QualifiedSynthesisClient do
-    alias AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy
-
     def compose(snapshot, _profile, context) do
+      :ok = ProviderAttempt.mark(context)
       send(context.test_pid, {:synthesis_client, snapshot})
 
       {:ok,
        %{
          sections: sections(snapshot.parent_id),
          advisory_synthesis:
-           "The reviewed observations support the selected relationship while durable status and receipt truth remain authoritative in Allbert.",
-         review: %{
-           verdict: "accepted",
-           rule_results:
-             Enum.map(SynthesisPolicy.rule_ids(), &%{rule_id: &1, verdict: "satisfied"}),
-           covered_queue_positions: completed_positions(snapshot)
-         }
+           "The reviewed observations support the selected relationship while durable status and receipt truth remain authoritative in Allbert."
        }}
     end
 
@@ -104,18 +158,22 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
 
     defp sections("v13-composer-unrelated-domain-culinary"),
       do: [%{relationship: "complementary", ordered_queue_positions: [0, 1]}]
-
-    defp completed_positions(snapshot) do
-      snapshot.children
-      |> Enum.filter(&(&1.status == "completed"))
-      |> Enum.map(& &1.queue_position)
-      |> Enum.sort()
-    end
   end
 
   defmodule SensitiveProviderFailureClient do
     def compose(_snapshot, _profile, _context),
       do: {:error, {:provider_failed, "sensitive provider body must never enter metrics"}}
+  end
+
+  defmodule ForgedPhaseEvidenceSynthesisClient do
+    alias AllbertAssist.DevGates.V13FanoutEvalTest.QualifiedSynthesisClient
+
+    def compose(snapshot, profile, context) do
+      {:ok, selection} =
+        QualifiedSynthesisClient.compose(snapshot, profile, context)
+
+      {:ok, Map.put(selection, :provider_call_count, 0)}
+    end
   end
 
   defmodule ClassifiedFailureSynthesisClient do
@@ -143,14 +201,15 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
         composer_context: %{
           timeout_ms: 10_000,
           max_output_tokens: 1_024,
-          test_pid: self()
+          test_pid: self(),
+          critic_implementation: QualifiedSynthesisCritic
         },
         store: store,
         full_sha: @full_sha,
         dirty: false
       )
 
-    assert result.status == "passed"
+    assert result.status == "passed", inspect(result, limit: :infinity)
     assert result.failed_rows == []
 
     assert result.stats.profile == "direct_answer_local"
@@ -195,6 +254,42 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
     assert Enum.all?(composition_rows, &(&1.failure_reason == "none"))
 
     assert Enum.all?(composition_rows, fn row ->
+             Map.take(row, [
+               :generation_call_count,
+               :initial_critic_call_count,
+               :revision_call_count,
+               :final_critic_call_count,
+               :provider_call_count,
+               :critic_group_count,
+               :review_protocol_version,
+               :rule_group_catalog_version,
+               :revision_used
+             ]) == %{
+               generation_call_count: 1,
+               initial_critic_call_count: 2,
+               revision_call_count: 0,
+               final_critic_call_count: 0,
+               provider_call_count: 3,
+               critic_group_count: 2,
+               review_protocol_version: 1,
+               rule_group_catalog_version: 1,
+               revision_used: false
+             }
+           end)
+
+    assert Enum.all?(composition_rows, fn row ->
+             Enum.all?(
+               [
+                 row.rule_group_catalog_sha256,
+                 row.reviewer_config_sha256,
+                 row.initial_assessment_sha256,
+                 row.accepted_assessment_sha256
+               ],
+               &(is_binary(&1) and byte_size(&1) == 64)
+             ) and is_nil(row.final_assessment_sha256)
+           end)
+
+    assert Enum.all?(composition_rows, fn row ->
              Enum.all?(
                [row.body_sha256, row.provenance_sha256, row.selection_sha256],
                &(is_binary(&1) and byte_size(&1) == 64)
@@ -209,6 +304,25 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
 
     assert result.stats.composition_selection_sha256_by_row ==
              Map.new(composition_rows, &{&1.id, &1.selection_sha256})
+
+    for {stat, row_key} <- [
+          composition_generation_call_count_by_row: :generation_call_count,
+          composition_initial_critic_call_count_by_row: :initial_critic_call_count,
+          composition_revision_call_count_by_row: :revision_call_count,
+          composition_final_critic_call_count_by_row: :final_critic_call_count,
+          composition_provider_call_count_by_row: :provider_call_count,
+          composition_critic_group_count_by_row: :critic_group_count,
+          composition_review_protocol_version_by_row: :review_protocol_version,
+          composition_rule_group_catalog_version_by_row: :rule_group_catalog_version,
+          composition_rule_group_catalog_sha256_by_row: :rule_group_catalog_sha256,
+          composition_revision_used_by_row: :revision_used,
+          composition_reviewer_config_sha256_by_row: :reviewer_config_sha256,
+          composition_initial_assessment_sha256_by_row: :initial_assessment_sha256,
+          composition_final_assessment_sha256_by_row: :final_assessment_sha256,
+          composition_accepted_assessment_sha256_by_row: :accepted_assessment_sha256
+        ] do
+      assert Map.fetch!(result.stats, stat) == Map.new(composition_rows, &{&1.id, &1[row_key]})
+    end
 
     for composition_case <- fixture["composition_cases"] do
       assert_received {:composer_authorized, @profile, %{test_pid: test_pid}}
@@ -241,6 +355,18 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
 
     assert record["stats"]["composition_selection_sha256_by_row"] ==
              result.stats.composition_selection_sha256_by_row
+
+    assert record["stats"]["composition_provider_call_count_by_row"] ==
+             result.stats.composition_provider_call_count_by_row
+
+    assert record["stats"]["composition_revision_used_by_row"] ==
+             result.stats.composition_revision_used_by_row
+
+    assert record["stats"]["composition_reviewer_config_sha256_by_row"] ==
+             result.stats.composition_reviewer_config_sha256_by_row
+
+    assert record["stats"]["composition_accepted_assessment_sha256_by_row"] ==
+             result.stats.composition_accepted_assessment_sha256_by_row
 
     evidence = File.read!(store)
     refute evidence =~ "archive logs"
@@ -374,6 +500,65 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
     refute inspect(incomplete.stats) =~ "sensitive finish detail"
   end
 
+  test "phase-separated critic failure records one closed review class without nested detail" do
+    fixture = V13FanoutEval.load_fixture!(@fixture)
+
+    result =
+      V13FanoutEval.run(fixture,
+        profile: @profile,
+        manager_profile: @profile,
+        composer_profile: @profile,
+        manager: qualified_manager(fixture, self()),
+        composer_client: QualifiedSynthesisClient,
+        composer_authorizer: fn _profile, _context -> :ok end,
+        composer_context: %{
+          timeout_ms: 10_000,
+          max_output_tokens: 1_024,
+          test_pid: self(),
+          critic_implementation: FailingCritic
+        },
+        store: :disabled,
+        full_sha: @full_sha,
+        dirty: true
+      )
+
+    assert_closed_composer_failure(result, "synthesis_review", "phase_review_unresolved")
+    refute inspect(result.stats) =~ "reviewer_unavailable"
+    refute inspect(result.stats) =~ "review_round_failed"
+  end
+
+  test "a fake composer result cannot forge passing phase evidence" do
+    fixture = V13FanoutEval.load_fixture!(@fixture)
+
+    result =
+      V13FanoutEval.run(fixture,
+        profile: @profile,
+        manager_profile: @profile,
+        composer_profile: @profile,
+        manager: qualified_manager(fixture, self()),
+        composer_client: ForgedPhaseEvidenceSynthesisClient,
+        composer_authorizer: fn _profile, _context -> :ok end,
+        composer_context: %{
+          timeout_ms: 10_000,
+          max_output_tokens: 1_024,
+          test_pid: self(),
+          critic_implementation: QualifiedSynthesisCritic
+        },
+        store: :disabled,
+        full_sha: @full_sha,
+        dirty: true
+      )
+
+    assert_closed_composer_failure(result, "provider_output", "invalid_model_output")
+
+    assert result.stats.composition_provider_call_count_by_row |> Map.values() |> Enum.uniq() == [
+             nil
+           ]
+
+    assert result.stats.composition_reviewer_config_sha256_by_row |> Map.values() |> Enum.uniq() ==
+             [nil]
+  end
+
   test "composer keeps extraction schema layout review and body diagnostics distinct" do
     fixture = V13FanoutEval.load_fixture!(@fixture)
 
@@ -428,11 +613,11 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
         fixtures,
         phase_options(fixtures,
           store: store,
-          reviewer: QualifiedReviewer
+          critic: QualifiedCritic
         )
       )
 
-    assert result.status == "passed"
+    assert result.status == "passed", inspect(result, limit: :infinity)
     assert result.failed_rows == []
     assert result.manager_and_composer.status == "passed"
     assert result.worker_quality.status == "passed"
@@ -447,6 +632,29 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
     assert manager_record["stats"]["fixture_sha256"] == @fixture_sha256
     assert worker_record["stats"]["fixture_sha256"] == @worker_fixture_sha256
 
+    assert worker_record["stats"]["worker_quality_verdict_by_row"] ==
+             result.worker_quality.stats.worker_quality_verdict_by_row
+
+    assert worker_record["stats"]["worker_quality_provider_call_count_by_row"] ==
+             result.worker_quality.stats.worker_quality_provider_call_count_by_row
+
+    assert worker_record["stats"]["worker_quality_revision_used_by_row"] ==
+             result.worker_quality.stats.worker_quality_revision_used_by_row
+
+    assert worker_record["stats"]["worker_quality_initial_failed_rule_count_by_row"] ==
+             result.worker_quality.stats.worker_quality_initial_failed_rule_count_by_row
+
+    assert worker_record["stats"]["worker_quality_final_failed_rule_count_by_row"] ==
+             result.worker_quality.stats.worker_quality_final_failed_rule_count_by_row
+
+    assert worker_record["stats"]["worker_quality_review_protocol_version_by_row"]
+           |> Map.values()
+           |> Enum.uniq() == [1]
+
+    assert worker_record["stats"]["worker_quality_reviewer_config_sha256_by_row"]
+           |> Map.values()
+           |> Enum.all?(&(is_binary(&1) and byte_size(&1) == 64))
+
     evidence = File.read!(store)
     assert evidence =~ @fixture_sha256
     assert evidence =~ @worker_fixture_sha256
@@ -454,6 +662,9 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
     refute evidence =~ Path.basename(@worker_fixture)
     refute evidence =~ "archive logs"
     refute evidence =~ "one_for_one"
+    refute evidence =~ "preserve_supplied_semantics"
+    refute evidence =~ "uncertainty_and_guarantees"
+    refute evidence =~ "completion_preconditions"
     refute evidence =~ "Reviewed correction"
   end
 
@@ -465,7 +676,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
         fixtures,
         phase_options(fixtures,
           store: :disabled,
-          reviewer: FailingReviewer
+          critic: FailingCritic
         )
       )
 
@@ -473,7 +684,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
     assert result.manager_and_composer.status == "passed"
     assert result.worker_quality.status == "failed"
     assert result.failed_rows == Enum.map(fixtures.worker_quality["scenarios"], & &1["id"])
-    assert result.worker_quality.stats.configured_reviewer_invocation_count == 0
+    assert result.worker_quality.stats.configured_critic_invocation_count > 0
   end
 
   test "fixture bundle routing honors default sibling and explicit worker paths" do
@@ -609,7 +820,8 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
         composer_context: %{
           timeout_ms: 10_000,
           max_output_tokens: 1_024,
-          test_pid: self()
+          test_pid: self(),
+          critic_implementation: QualifiedSynthesisCritic
         },
         store: store,
         full_sha: @full_sha,
@@ -617,9 +829,9 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
       ],
       worker_quality: [
         profile: @profile,
-        reviewer: Keyword.fetch!(opts, :reviewer),
-        reviewer_context: %{},
-        row_timeout_ms: 100,
+        critic: Keyword.fetch!(opts, :critic),
+        runner_context: %{},
+        row_timeout_ms: 5_000,
         store: store,
         full_sha: @full_sha,
         dirty: false

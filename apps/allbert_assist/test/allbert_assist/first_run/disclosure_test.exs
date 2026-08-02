@@ -10,6 +10,8 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
   alias AllbertAssist.Settings.Store
 
   setup do
+    original_ollama_base_url = System.get_env("OLLAMA_BASE_URL")
+
     home =
       Path.join(
         System.tmp_dir!(),
@@ -24,6 +26,7 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
         do: Application.put_env(:allbert_assist, Paths, previous),
         else: Application.delete_env(:allbert_assist, Paths)
 
+      restore_system_env("OLLAMA_BASE_URL", original_ollama_base_url)
       File.rm_rf!(home)
     end)
 
@@ -88,11 +91,138 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
     refute Disclosure.pending?(:cli)
     assert Disclosure.acknowledged_for?(:cli, selection(:hosted))
 
-    changed_provider = %{profile: "fast", provider: "anthropic", provider_class: :hosted}
+    changed_provider = exact_route!("anthropic_fast")
     assert :ok = Disclosure.reconcile(changed_provider)
     assert Disclosure.pending?(:cli)
     refute Disclosure.acknowledged_for?(:cli, selection(:hosted))
     refute Disclosure.acknowledged_for?(:web, changed_provider)
+  end
+
+  test "an effective endpoint change invalidates the exact route acknowledgement" do
+    System.put_env("OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1")
+    assert {:ok, profile} = Settings.resolve_model_profile("direct_answer_local")
+    assert {:ok, first_route} = Disclosure.route_for_profile(profile)
+
+    assert first_route.endpoint_class == :local
+    assert {:ok, first_endpoint_digest} = Base.decode16(first_route.endpoint_sha256, case: :lower)
+    assert byte_size(first_endpoint_digest) == 32
+    refute Map.has_key?(first_route, :redacted_host)
+
+    assert :ok = Disclosure.reconcile(first_route)
+    assert :ok = Disclosure.render_and_ack(:cli, fn _text -> :ok end)
+    assert Disclosure.acknowledged_for?(:cli, first_route)
+
+    System.put_env("OLLAMA_BASE_URL", "http://127.0.0.1:11435/v1")
+    assert {:ok, changed_route} = Disclosure.route_for_profile(profile)
+    refute changed_route.endpoint_sha256 == first_route.endpoint_sha256
+
+    assert :ok = Disclosure.reconcile(changed_route)
+    assert Disclosure.pending?(:cli)
+    refute Disclosure.acknowledged_for?(:cli, first_route)
+    refute Disclosure.acknowledged_for?(:cli, changed_route)
+
+    persisted = FirstRun.read_marker() |> get_in(["model_disclosure", "cli"])
+    assert inspect(persisted) =~ changed_route.endpoint_sha256
+    refute inspect(persisted) =~ "127.0.0.1"
+    refute inspect(persisted) =~ "11435"
+  end
+
+  test "a full supplied profile binds the endpoint snapshot actually passed to transport" do
+    assert {:ok, current_profile} = Settings.resolve_model_profile("fast")
+    assert {:ok, current_route} = Disclosure.route_for_profile(current_profile)
+
+    supplied_profile = %{
+      current_profile
+      | provider_base_url: "https://alternate-openai.example.test/v1"
+    }
+
+    assert {:ok, supplied_route} = Disclosure.route_for_profile(supplied_profile)
+    assert supplied_route.endpoint_class == :hosted
+    refute supplied_route.endpoint_sha256 == current_route.endpoint_sha256
+
+    assert :ok = Disclosure.reconcile(supplied_route)
+    persisted = FirstRun.read_marker() |> get_in(["model_disclosure", "cli"])
+    assert inspect(persisted) =~ supplied_route.endpoint_sha256
+    refute inspect(persisted) =~ "alternate-openai.example.test"
+  end
+
+  test "stored routes without endpoint identity are stale and reconcile pending" do
+    assert :ok =
+             FirstRun.merge_marker(%{
+               "model_disclosure" => %{
+                 "cli" => %{
+                   "state" => "acknowledged",
+                   "routes" => [
+                     %{
+                       "profile" => "fast",
+                       "provider" => "openai",
+                       "provider_class" => "hosted",
+                       "usage" => "primary",
+                       "usages" => ["primary"]
+                     }
+                   ]
+                 }
+               }
+             })
+
+    refute Disclosure.acknowledged_for?(:cli, selection(:hosted))
+    assert :ok = Disclosure.reconcile(selection(:hosted))
+    assert Disclosure.pending?(:cli)
+    refute Disclosure.acknowledged_for?(:cli, selection(:hosted))
+
+    persisted = FirstRun.read_marker() |> get_in(["model_disclosure", "cli"])
+
+    assert [%{"endpoint_class" => "hosted", "endpoint_sha256" => endpoint_sha256}] =
+             persisted["routes"]
+
+    assert {:ok, endpoint_digest} = Base.decode16(endpoint_sha256, case: :lower)
+    assert byte_size(endpoint_digest) == 32
+    refute inspect(persisted) =~ "provider_class"
+  end
+
+  test "route evidence persists only endpoint identity and rejects unsafe URL components" do
+    profile = %{
+      name: "private_hosted",
+      provider: "private_provider",
+      provider_type: "openai",
+      provider_endpoint_kind: "credentialed_remote",
+      provider_base_url: "https://private-model.example.test/v1",
+      provider_api_key_ref: "vault://private-provider-token",
+      api_key: "raw-private-provider-secret",
+      prompt: "operator prompt must not persist"
+    }
+
+    assert {:ok, route} = Disclosure.route_for_profile(profile)
+
+    assert Map.keys(route) |> Enum.sort() ==
+             [:endpoint_class, :endpoint_sha256, :profile, :provider, :usage, :usages]
+
+    assert :ok = Disclosure.reconcile(route)
+    persisted = FirstRun.read_marker() |> get_in(["model_disclosure", "cli"])
+    persisted_text = inspect(persisted)
+
+    assert persisted_text =~ route.endpoint_sha256
+    refute persisted_text =~ "https://"
+    refute persisted_text =~ "private-model.example.test"
+    refute persisted_text =~ "vault://"
+    refute persisted_text =~ "raw-private-provider-secret"
+    refute persisted_text =~ "operator prompt must not persist"
+
+    unsafe_profile = %{
+      profile
+      | name: "unsafe_hosted",
+        provider_base_url:
+          "https://unsafe-user:unsafe-password@unsafe.example.test/v1?token=unsafe-query#fragment"
+    }
+
+    assert {:error, :invalid_effective_model_endpoint} =
+             Disclosure.route_for_profile(unsafe_profile)
+
+    persisted_text = FirstRun.read_marker() |> inspect()
+    refute persisted_text =~ "unsafe-user"
+    refute persisted_text =~ "unsafe-password"
+    refute persisted_text =~ "unsafe.example.test"
+    refute persisted_text =~ "unsafe-query"
   end
 
   test "bare acknowledgement grants no route and hosted authority is exact per surface" do
@@ -176,7 +306,7 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
     assert Disclosure.acknowledged_for?(:cli, primary)
     assert Disclosure.acknowledged_for?(:cli, fallback)
 
-    changed = %{fallback | provider: "openrouter"}
+    changed = exact_route!("openrouter_fast", :fallback)
     assert :ok = Disclosure.reconcile_routes([primary, changed])
     assert Disclosure.pending?(:cli)
     refute Disclosure.acknowledged_for?(:cli, primary)
@@ -185,7 +315,7 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
 
   test "render acknowledgement is bound to the exact route-set snapshot" do
     assert :ok = Disclosure.reconcile(selection(:hosted))
-    changed = %{profile: "other", provider: "anthropic", provider_class: :hosted}
+    changed = exact_route!("anthropic_fast")
 
     assert {:error, :stale_disclosure_route} =
              Disclosure.render_and_ack(:cli, fn text ->
@@ -201,7 +331,7 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
     assert :ok = Disclosure.reconcile(selection(:hosted))
     assert {:ok, %{handle: handle}} = Disclosure.prepare_web_delivery()
 
-    changed = %{profile: "other", provider: "anthropic", provider_class: :hosted}
+    changed = exact_route!("anthropic_fast")
     assert :ok = Disclosure.reconcile(changed)
 
     assert {:error, :stale_delivery_handle} = Disclosure.acknowledge_web(handle)
@@ -526,4 +656,13 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
                "providers" => %{"openai" => %{"enabled" => true}}
              })
   end
+
+  defp exact_route!(profile_name, usage \\ :primary) do
+    {:ok, profile} = Settings.resolve_model_profile(profile_name)
+    {:ok, route} = Disclosure.route_for_profile(profile)
+    %{route | usage: usage, usages: [usage]}
+  end
+
+  defp restore_system_env(name, nil), do: System.delete_env(name)
+  defp restore_system_env(name, value), do: System.put_env(name, value)
 end

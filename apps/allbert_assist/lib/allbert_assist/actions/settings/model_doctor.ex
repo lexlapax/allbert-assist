@@ -75,7 +75,8 @@ defmodule AllbertAssist.Actions.Settings.ModelDoctor do
 
     "Model doctor checked #{total_count} recommendation rows: ok=#{summary["ok"]} " <>
       "missing=#{summary["missing"]} under-capable=#{summary["under-capable"]} " <>
-      "not-pulled=#{summary["not-pulled"]} remote-egress-warning=#{summary["remote-egress-warning"]}. " <>
+      "not-pulled=#{summary["not-pulled"]} unavailable=#{summary["unavailable"]} " <>
+      "remote-egress-warning=#{summary["remote-egress-warning"]}. " <>
       "I can discuss model readiness safely here, but I won't dump the operator matrix in chat. " <>
       "Use `/models` in the TUI or `mix allbert.settings model-doctor` for the operator report."
   end

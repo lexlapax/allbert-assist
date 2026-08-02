@@ -30,6 +30,7 @@ defmodule AllbertAssist.Runtime do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ChannelThread
+  alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Intent.Decomposer
   alias AllbertAssist.Intent.FanoutPlan
   alias AllbertAssist.Intent.Steering
@@ -45,6 +46,7 @@ defmodule AllbertAssist.Runtime do
   alias AllbertAssist.Search.Surface, as: SearchSurface
   alias AllbertAssist.Session
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.ModelReadiness
   alias AllbertAssist.Signals
   alias Jido.Signal
   alias Jido.Signal.Bus
@@ -58,6 +60,7 @@ defmodule AllbertAssist.Runtime do
   @trace_recorded "allbert.trace.recorded"
 
   @default_timeout_ms 120_000
+  @fanout_execution_roles [:direct_answer, :fanout_review, :fanout_synthesis]
 
   @type request :: %{
           text: String.t(),
@@ -1062,34 +1065,79 @@ defmodule AllbertAssist.Runtime do
   end
 
   defp frame_fanout_response(request, %FanoutPlan{} = plan, manager_response) do
-    manager_diagnostic = manager_diagnostic(manager_response)
+    Settings.with_resolved_settings(fn ->
+      manager_diagnostic = manager_diagnostic(manager_response)
 
-    with {:ok, budget} <- plan_budget(plan, manager_diagnostic),
-         {:ok, deadline_unix_ms} <- plan_deadline(budget, manager_diagnostic) do
-      provenance = plan_provenance(plan, budget, deadline_unix_ms, manager_diagnostic)
-
-      attrs = %{
-        user_id: request.user_id,
-        title: String.slice(request.operator_text, 0, 160),
-        objective: request.operator_text,
-        proposer_hint: %{"fanout_plan" => provenance},
-        source_channel: to_string(request.channel),
-        source_surface: source_surface(request.channel),
-        source_thread_id: request.thread_id,
-        session_id: request.session_id,
-        active_app: optional_to_string(request.active_app),
-        origin_receiver_account_ref: origin_field(request, :receiver_account_ref),
-        origin_thread_ref_id: origin_field(request, :id),
-        origin_thread_ref_digest: origin_ref_digest(request.channel_thread_ref)
-      }
-
-      with {:ok, framed} <- fanout_framer().(attrs, FanoutPlan.child_attrs(plan)) do
+      with :ok <- ensure_fanout_model_enabled(),
+           :ok <- ensure_fanout_execution_roles_ready(request),
+           {:ok, budget} <- plan_budget(plan, manager_diagnostic),
+           {:ok, deadline_unix_ms} <- plan_deadline(budget, manager_diagnostic),
+           {:ok, framed} <-
+             frame_fanout_plan(request, plan, budget, deadline_unix_ms, manager_diagnostic) do
         {:ok,
          framed
          |> kickoff_response()
          |> copy_manager_fact(manager_response)
          |> add_admission_diagnostic(:admitted)}
       end
+    end)
+  end
+
+  defp frame_fanout_plan(request, plan, budget, deadline_unix_ms, manager_diagnostic) do
+    provenance = plan_provenance(plan, budget, deadline_unix_ms, manager_diagnostic)
+
+    attrs = %{
+      user_id: request.user_id,
+      title: String.slice(request.operator_text, 0, 160),
+      objective: request.operator_text,
+      proposer_hint: %{"fanout_plan" => provenance},
+      source_channel: to_string(request.channel),
+      source_surface: source_surface(request.channel),
+      source_thread_id: request.thread_id,
+      session_id: request.session_id,
+      active_app: optional_to_string(request.active_app),
+      origin_receiver_account_ref: origin_field(request, :receiver_account_ref),
+      origin_thread_ref_id: origin_field(request, :id),
+      origin_thread_ref_digest: origin_ref_digest(request.channel_thread_ref)
+    }
+
+    fanout_framer().(attrs, FanoutPlan.child_attrs(plan))
+  end
+
+  defp ensure_fanout_model_enabled do
+    case Settings.get("intent.direct_answer_model_enabled") do
+      {:ok, true} -> :ok
+      {:ok, false} -> {:error, :direct_answer_model_disabled}
+      {:error, reason} -> {:error, {:fanout_model_setting_unavailable, reason}}
+    end
+  end
+
+  defp ensure_fanout_execution_roles_ready(request) do
+    context = %{request: request}
+    specs = Map.new(@fanout_execution_roles, &{&1, {:role, &1}})
+    readiness = model_readiness(specs, context)
+
+    Enum.reduce_while(@fanout_execution_roles, :ok, fn role, :ok ->
+      fanout_role_readiness_step(Map.get(readiness, role), role, context)
+    end)
+  end
+
+  defp fanout_role_readiness_step(%{callable?: true, profile: profile}, role, context)
+       when is_map(profile) do
+    case Disclosure.authorize_transport(profile, context) do
+      :ok -> {:cont, :ok}
+      {:error, _reason} -> {:halt, {:error, {:fanout_role_transport_unavailable, role}}}
+    end
+  end
+
+  defp fanout_role_readiness_step(_uncallable_or_invalid, role, _context),
+    do: {:halt, {:error, {:fanout_role_unavailable, role}}}
+
+  defp model_readiness(specs, context) do
+    case Application.get_env(:allbert_assist, :runtime_model_readiness, ModelReadiness) do
+      fun when is_function(fun, 2) -> fun.(specs, context)
+      module when is_atom(module) -> module.check(specs, context)
+      _invalid -> ModelReadiness.check(specs, context)
     end
   end
 
@@ -1120,6 +1168,21 @@ defmodule AllbertAssist.Runtime do
 
   defp fanout_failure_kind(:fanout_plan_deadline_exhausted),
     do: :fanout_plan_deadline_exhausted
+
+  defp fanout_failure_kind(:direct_answer_model_disabled),
+    do: :direct_answer_model_disabled
+
+  defp fanout_failure_kind({kind, :direct_answer})
+       when kind in [:fanout_role_unavailable, :fanout_role_transport_unavailable],
+       do: :fanout_direct_answer_unavailable
+
+  defp fanout_failure_kind({kind, :fanout_review})
+       when kind in [:fanout_role_unavailable, :fanout_role_transport_unavailable],
+       do: :fanout_review_unavailable
+
+  defp fanout_failure_kind({kind, :fanout_synthesis})
+       when kind in [:fanout_role_unavailable, :fanout_role_transport_unavailable],
+       do: :fanout_synthesis_unavailable
 
   defp fanout_failure_kind(_reason), do: :fanout_frame_failed
 

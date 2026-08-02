@@ -9,13 +9,17 @@ defmodule AllbertAssist.Objectives.Fanout.ReviewRound do
   supervisor child, durable Objective, queue, or AgentServer.
   """
 
-  alias AllbertAssist.Objectives.Fanout.{CriticAgent, ReviewProtocol}
   alias AllbertAssist.Models.ProviderAttempt
   alias AllbertAssist.Objectives.CanonicalJSON
+  alias AllbertAssist.Objectives.Fanout.{CriticAgent, ReviewProtocol}
   alias AllbertAssist.Objectives.Runs.CancelToken
 
   @poll_interval_ms 10
   @reviewer_config_aggregate_domain "allbert:fanout-reviewer-config-aggregate:v1\0"
+  @critic_start_event [:allbert_assist, :objectives, :fanout, :critic, :start]
+  @critic_stop_event [:allbert_assist, :objectives, :fanout, :critic, :stop]
+  @telemetry_consumers [:worker, :composer]
+  @telemetry_phases [:initial, :final]
   @result_keys [
     :assessment_sha256,
     :assessments,
@@ -94,13 +98,19 @@ defmodule AllbertAssist.Objectives.Fanout.ReviewRound do
     do: {:error, :invalid_review_round_result}
 
   defp start_critics(protocol, source_bindings, context, implementation) do
+    round_token = make_ref()
+    telemetry_identity = telemetry_identity(context)
+
     Enum.map(ReviewProtocol.group_ids(protocol), fn group_id ->
+      started_at = System.monotonic_time()
+
       task =
         Task.async(fn ->
           guarded_assess(protocol, group_id, source_bindings, context, implementation)
         end)
 
-      {group_id, task}
+      telemetry = emit_critic_start(telemetry_identity, group_id, round_token, started_at)
+      {group_id, task, telemetry}
     end)
   end
 
@@ -116,8 +126,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReviewRound do
   end
 
   defp pending(tasks) do
-    Map.new(tasks, fn {group_id, task} ->
-      {task.ref, %{group_id: group_id, task: task}}
+    Map.new(tasks, fn {group_id, task, telemetry} ->
+      {task.ref, %{group_id: group_id, task: task, telemetry: telemetry}}
     end)
   end
 
@@ -130,8 +140,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReviewRound do
          {:ok, remaining} <- remaining(deadline) do
       receive do
         {ref, result} when is_map_key(pending, ref) ->
-          %{group_id: group_id, task: task} = Map.fetch!(pending, ref)
-          Process.demonitor(task.ref, [:flush])
+          %{group_id: group_id, task: task} = critic = Map.fetch!(pending, ref)
+          await_task_exit(task)
           pending = Map.delete(pending, ref)
 
           case result do
@@ -140,6 +150,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReviewRound do
                assessment: %{"group_id" => ^group_id} = group_result,
                reviewer_config_sha256: reviewer_config_sha256
              }} ->
+              emit_critic_stop(critic, :success)
+
               await(
                 protocol,
                 source_bindings,
@@ -157,21 +169,26 @@ defmodule AllbertAssist.Objectives.Fanout.ReviewRound do
               )
 
             {:ok, _wrong_group} ->
-              stop_all(pending)
+              emit_critic_stop(critic, :failure)
+              stop_all(pending, :brutal_sibling_stop)
               {:error, :invalid_critic_assessment}
 
             {:error, reason} when is_atom(reason) ->
-              stop_all(pending)
+              emit_critic_stop(critic, :failure)
+              stop_all(pending, :brutal_sibling_stop)
               {:error, reason}
 
             _invalid ->
-              stop_all(pending)
+              emit_critic_stop(critic, :failure)
+              stop_all(pending, :brutal_sibling_stop)
               {:error, :invalid_critic_result}
           end
 
         {:DOWN, ref, :process, _pid, _reason} when is_map_key(pending, ref) ->
+          critic = Map.fetch!(pending, ref)
+          emit_critic_stop(critic, :failure)
           pending = Map.delete(pending, ref)
-          stop_all(pending)
+          stop_all(pending, :brutal_sibling_stop)
           {:error, :critic_process_failed}
       after
         min(remaining, @poll_interval_ms) ->
@@ -179,7 +196,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReviewRound do
       end
     else
       {:error, reason} ->
-        stop_all(pending)
+        stop_all(pending, stop_outcome(reason))
         {:error, reason}
     end
   end
@@ -257,9 +274,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReviewRound do
   defp bind_attempt_count({:error, reason}, attempt_counter) when is_atom(reason),
     do: round_failure(reason, attempt_counter)
 
-  defp bind_attempt_count(_invalid, attempt_counter),
-    do: round_failure(:invalid_review_round_result, attempt_counter)
-
   defp round_failure(reason, attempt_counter),
     do: {:error, {:review_round_failed, reason, ProviderAttempt.count(attempt_counter)}}
 
@@ -268,13 +282,62 @@ defmodule AllbertAssist.Objectives.Fanout.ReviewRound do
     Enum.map(ReviewProtocol.group_ids(protocol), &Map.fetch!(by_group, &1))
   end
 
-  defp stop_all(pending) do
-    Enum.each(pending, fn {_ref, %{task: task}} ->
+  defp stop_all(pending, outcome) do
+    Enum.each(pending, fn {_ref, %{task: task} = critic} ->
       _ = Task.shutdown(task, :brutal_kill)
+      emit_critic_stop(critic, outcome)
     end)
 
     :ok
   end
+
+  defp await_task_exit(%Task{ref: ref, pid: pid}) do
+    receive do
+      {:DOWN, ^ref, :process, ^pid, _reason} -> :ok
+    end
+  end
+
+  defp telemetry_identity(context) do
+    phase = Map.get(context, :fanout_review_phase) || Map.get(context, :review_phase)
+
+    consumer =
+      Map.get(context, :fanout_review_consumer) ||
+        cond do
+          Map.has_key?(context, :fanout_review_phase) -> :worker
+          Map.has_key?(context, :review_phase) -> :composer
+          true -> nil
+        end
+
+    if consumer in @telemetry_consumers and phase in @telemetry_phases,
+      do: %{consumer: consumer, phase: phase},
+      else: nil
+  end
+
+  defp emit_critic_start(nil, _group_id, _round_token, _started_at), do: nil
+
+  defp emit_critic_start(identity, group_id, round_token, started_at) do
+    metadata =
+      Map.merge(identity, %{
+        group_id: group_id,
+        round_token: round_token
+      })
+
+    :telemetry.execute(@critic_start_event, %{system_time: System.system_time()}, metadata)
+    %{metadata: metadata, started_at: started_at}
+  end
+
+  defp emit_critic_stop(%{telemetry: nil}, _outcome), do: :ok
+
+  defp emit_critic_stop(%{telemetry: telemetry}, outcome) do
+    :telemetry.execute(
+      @critic_stop_event,
+      %{duration: max(System.monotonic_time() - telemetry.started_at, 0)},
+      Map.put(telemetry.metadata, :outcome, outcome)
+    )
+  end
+
+  defp stop_outcome(:review_cancelled), do: :cancelled
+  defp stop_outcome(:review_deadline_exhausted), do: :timeout
 
   defp sha256(value) do
     :sha256

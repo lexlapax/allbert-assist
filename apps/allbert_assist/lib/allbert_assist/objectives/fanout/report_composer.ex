@@ -4,11 +4,11 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
 
   A plain GenServer is the pragmatic substrate: the durable state machine and
   compare-and-set authority live in Objectives/SQLite, while this process only
-  serializes one provider call per claimed report and wakes durable work after
-  boot or terminal reduction. Inside that durable claim it invokes one
-  temporary Jido synthesis lifecycle; the Jido state is discarded before this
-  GenServer persists the selected report and never becomes queue or authority
-  state.
+  serializes one bounded phase-separated synthesis protocol per claimed report
+  and wakes durable work after boot or terminal reduction. Inside that durable
+  claim it invokes one temporary Jido synthesis lifecycle; the Jido/critic
+  state is discarded before this GenServer persists the selected report and
+  never becomes queue or authority state.
   """
 
   use GenServer
@@ -195,6 +195,19 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
   end
 
   defp selected_body(%{frozen: frozen} = claim, state) do
+    case Budget.composer_compatibility(claim.budget) do
+      :ok ->
+        select_synthesis_eligible_body(claim, state)
+
+      {:error, :review_protocol_upgrade_required} ->
+        fallback_selection(frozen, :review_protocol_upgrade_required, :not_run)
+
+      {:error, :invalid_fanout_budget_snapshot} ->
+        fallback_selection(frozen, :invalid_budget_snapshot, :not_run)
+    end
+  end
+
+  defp select_synthesis_eligible_body(%{frozen: frozen} = claim, state) do
     case Report.synthesis_eligibility(frozen.snapshot) do
       :ok ->
         case model_enabled(state) do
@@ -240,11 +253,21 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
     end
   end
 
-  defp compose_model_body(%{frozen: frozen}, profile, limits, state) do
+  defp compose_model_body(
+         %{frozen: frozen, deadline_unix_ms: deadline_unix_ms, context: claim_context},
+         profile,
+         limits,
+         state
+       ) do
     context =
-      Map.merge(state.model_context, %{
+      state.model_context
+      |> Map.merge(claim_context)
+      |> Map.put(:models, state.models)
+      |> Map.put(:disclosure, state.disclosure)
+      |> Map.merge(%{
         timeout_ms: limits.timeout_ms,
-        max_output_tokens: limits.max_output_tokens
+        max_output_tokens: limits.max_output_tokens,
+        fanout_deadline_unix_ms: deadline_unix_ms
       })
 
     case SynthesisAgent.run(
@@ -276,7 +299,20 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
         synthesis_contract_version: Map.fetch!(prepared, :synthesis_contract_version),
         review_verdict: Map.fetch!(prepared, :review_verdict),
         reviewed_queue_positions: Map.fetch!(prepared, :reviewed_queue_positions),
-        synthesis_sha256: Map.fetch!(prepared, :synthesis_sha256)
+        synthesis_sha256: Map.fetch!(prepared, :synthesis_sha256),
+        review_protocol_version: Map.fetch!(prepared, :review_protocol_version),
+        critic_group_count: Map.fetch!(prepared, :critic_group_count),
+        rule_group_catalog_version: Map.fetch!(prepared, :rule_group_catalog_version),
+        rule_group_catalog_sha256: Map.fetch!(prepared, :rule_group_catalog_sha256),
+        reviewer_config_sha256: Map.fetch!(prepared, :reviewer_config_sha256),
+        generation_call_count: Map.fetch!(prepared, :generation_call_count),
+        initial_critic_call_count: Map.fetch!(prepared, :initial_critic_call_count),
+        revision_call_count: Map.fetch!(prepared, :revision_call_count),
+        final_critic_call_count: Map.fetch!(prepared, :final_critic_call_count),
+        provider_call_count: Map.fetch!(prepared, :provider_call_count),
+        initial_assessment_sha256: Map.fetch!(prepared, :initial_assessment_sha256),
+        final_assessment_sha256: Map.fetch!(prepared, :final_assessment_sha256),
+        accepted_assessment_sha256: Map.fetch!(prepared, :accepted_assessment_sha256)
       }
     }
   end
@@ -301,6 +337,9 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
   defp model_failure_category({:provider_failed, _reason}),
     do: {:provider_failed, :unresolved}
 
+  defp model_failure_category({:fanout_synthesis_provider_attempt_mismatch, _counts}),
+    do: {:provider_failed, :unresolved}
+
   defp model_failure_category({:profile_unavailable, _reason}),
     do: {:profile_unavailable, :not_run}
 
@@ -309,6 +348,12 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
 
   defp model_failure_category(:fanout_synthesis_timeout),
     do: {:synthesis_timeout, :unresolved}
+
+  defp model_failure_category(:review_deadline_exhausted),
+    do: {:deadline_exhausted, :not_run}
+
+  defp model_failure_category({:phase_review_unresolved, _reason}),
+    do: {:phase_review_unresolved, :unresolved}
 
   defp model_failure_category(reason),
     do: exit({:unexpected_fanout_synthesis_error, reason})

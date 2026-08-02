@@ -2,6 +2,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerTest do
   use AllbertAssist.DataCase, async: false, lane: :db_serial
 
   alias AllbertAssist.Actions.Intent.DirectAnswer
+  alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Fanout.Budget
@@ -292,6 +293,60 @@ defmodule AllbertAssist.Objectives.Runs.WorkerTest do
 
     assert {:error, :fanout_plan_deadline_exhausted} =
              Worker.run("direct_answer", %{text: "Do not start."}, expired)
+  end
+
+  test "a v2 retry is admitted only for a registered retry-safe action" do
+    assert {:ok, budget} = Budget.resolve(2, 1)
+
+    context = %{
+      user_id: "worker-user",
+      operator_id: "worker-user",
+      channel: "test",
+      test_pid: self(),
+      fanout_budget: budget,
+      fanout_deadline_unix_ms: System.system_time(:millisecond) + 10_000,
+      objective_run_attempt: 2
+    }
+
+    assert {:ok, %{adapter: :ordinary, response: %{status: :completed}}} =
+             Worker.run("list_objectives", %{user_id: "worker-user"}, context)
+
+    assert {:ok, %{retry_safety: :unknown}} = Registry.capability("cancel_objective")
+
+    assert {:error, :fanout_worker_retry_unsafe} =
+             Worker.run("cancel_objective", %{id: "must-not-run"}, context)
+
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: ForbiddenAnswerer)
+
+    assert {:error, :fanout_worker_retry_unsafe} =
+             Worker.run("direct_answer", %{text: "Do not invoke a provider."}, context)
+
+    refute_receive :unexpected_direct_answer_execution
+  end
+
+  test "a budgetless compatibility retry still honors registered retry safety" do
+    context = %{
+      user_id: "worker-user",
+      operator_id: "worker-user",
+      channel: "test",
+      test_pid: self(),
+      objective_run_attempt: 2
+    }
+
+    assert {:ok, %{adapter: :ordinary, response: %{status: :completed}}} =
+             Worker.run("list_objectives", %{user_id: "worker-user"}, context)
+
+    assert {:ok, %{retry_safety: :unknown}} = Registry.capability("cancel_objective")
+
+    assert {:error, :fanout_worker_retry_unsafe} =
+             Worker.run("cancel_objective", %{id: "must-not-run"}, context)
+
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: ForbiddenAnswerer)
+
+    assert {:error, :fanout_worker_retry_unsafe} =
+             Worker.run("direct_answer", %{text: "Do not invoke a provider."}, context)
+
+    refute_receive :unexpected_direct_answer_execution
   end
 
   test "a timed-out Jido worker is terminated before the Adapter returns" do

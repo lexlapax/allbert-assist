@@ -26,12 +26,16 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
   # them, so a "missing credential" test must clear them or the ambient shell/CI env makes
   # it non-deterministic.
   @provider_env_keys ~w(ANTHROPIC_API_KEY OPENAI_API_KEY OPENROUTER_API_KEY GOOGLE_API_KEY GEMINI_API_KEY)
+  @runtime_env_keys ~w(OLLAMA_BASE_URL)
 
   setup do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_paths_config = Application.get_env(:allbert_assist, Paths)
-    original_provider_env = Map.new(@provider_env_keys, &{&1, System.get_env(&1)})
-    Enum.each(@provider_env_keys, &System.delete_env/1)
+
+    original_model_env =
+      Map.new(@provider_env_keys ++ @runtime_env_keys, &{&1, System.get_env(&1)})
+
+    Enum.each(@provider_env_keys ++ @runtime_env_keys, &System.delete_env/1)
 
     root =
       Path.join(
@@ -46,7 +50,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
       restore_env(Settings, original_settings_config)
       restore_env(Paths, original_paths_config)
 
-      Enum.each(original_provider_env, fn
+      Enum.each(original_model_env, fn
         {key, nil} -> System.delete_env(key)
         {key, value} -> System.put_env(key, value)
       end)
@@ -287,7 +291,8 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
         "models" => [
           %{"model" => "nomic-embed-text:latest", "context_length" => 2048},
           %{"model" => "llama3.1:8b", "context_length" => 128_000},
-          %{"model" => "gemma4:26b", "context_length" => 256_000}
+          %{"model" => "gemma4:26b", "context_length" => 256_000},
+          %{"model" => "qwen2.5:7b", "context_length" => 32_768}
         ]
       })
     end)
@@ -309,6 +314,21 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert rows["pi_mode_coding"].recommended_profile == "pi_coding_local"
     assert rows["pi_mode_coding"].settings_key == "coding.model_profile"
 
+    for role <- ~w[fanout_manager fanout_review fanout_synthesis] do
+      row = Map.fetch!(rows, role)
+
+      assert row.role == role
+      assert row.chain_kind == "closed_task"
+      assert row.settings_key == "model_preferences.tasks.#{role}"
+      assert row.configured_profiles == ["direct_answer_local"]
+      assert row.resolution_status == "resolved"
+      assert row.resolved_profile == "direct_answer_local"
+      assert row.resolved_model == "qwen2.5:7b"
+      assert row.role_readiness == row.status
+      assert row.unavailable_role == nil
+      assert row.auto_pull == false
+    end
+
     refute inspect(response) =~ "secret://"
     refute inspect(response) =~ "api_key"
     refute inspect(response) =~ "sk-"
@@ -323,6 +343,143 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert report_response.message =~ "intent_embedding status=ok"
     assert report_response.message =~ "intent_escalation status=ok"
     assert [%{render_mode: :operator_report}] = report_response.actions
+  end
+
+  test "model doctor names the exact unavailable closed fan-out role without pulling" do
+    assert {:ok, _setting} =
+             Settings.put(
+               "model_preferences.tasks.fanout_manager",
+               ["fast", "direct_answer_local"],
+               %{audit?: false}
+             )
+
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.tasks.fanout_review", ["fast"], %{audit?: false})
+
+    Req.Test.stub(__MODULE__, fn conn ->
+      assert conn.method == "GET"
+      assert conn.request_path == "/api/tags"
+
+      Req.Test.json(conn, %{
+        "models" => [
+          %{"model" => "qwen2.5:7b", "context_length" => 32_768},
+          %{"model" => "nomic-embed-text", "context_length" => 2_048},
+          %{"model" => "llama3.1:8b", "context_length" => 128_000},
+          %{"model" => "gemma4:26b", "context_length" => 256_000}
+        ]
+      })
+    end)
+
+    assert {:ok, response} =
+             ModelDoctorAction.run(operator_report_params(), %{
+               req_options: [plug: {Req.Test, __MODULE__}]
+             })
+
+    rows = Map.new(response.model_doctor.rows, &{&1.id, &1})
+
+    assert rows["fanout_manager"].resolution_status == "resolved"
+    assert rows["fanout_manager"].configured_profiles == ["fast", "direct_answer_local"]
+    assert rows["fanout_manager"].configured_profile == "fast"
+    assert rows["fanout_manager"].resolved_profile == "direct_answer_local"
+    assert rows["fanout_manager"].role_readiness == "ok"
+    assert rows["fanout_manager"].unavailable_role == nil
+
+    assert %{
+             role: "fanout_review",
+             chain_kind: "closed_task",
+             settings_key: "model_preferences.tasks.fanout_review",
+             configured_profile: "fast",
+             configured_profiles: ["fast"],
+             resolution_status: "unavailable",
+             resolved_profile: nil,
+             resolved_model: nil,
+             resolved_provider: nil,
+             role_readiness: "missing",
+             unavailable_role: "fanout_review",
+             auto_pull: false,
+             status: "missing",
+             doctor: nil
+           } = rows["fanout_review"]
+
+    assert rows["fanout_review"].diagnostics == ["task role fanout_review is unavailable"]
+    assert rows["fanout_synthesis"].resolution_status == "resolved"
+    assert rows["fanout_synthesis"].resolved_profile == "direct_answer_local"
+    assert rows["fanout_synthesis"].unavailable_role == nil
+
+    assert response.message =~
+             "fanout_review status=missing chain=[fast] resolved=none unavailable-role=fanout_review auto-pull=false key=model_preferences.tasks.fanout_review"
+
+    assert response.message =~
+             "fanout_manager status=ok chain=[fast,direct_answer_local] resolved=direct_answer_local(qwen2.5:7b) unavailable-role=none auto-pull=false key=model_preferences.tasks.fanout_manager"
+
+    refute inspect(response) =~ "secret://"
+    refute inspect(response) =~ "api_key"
+  end
+
+  test "resolved hosted and capable alternate fan-out roles remain available warnings" do
+    assert {:ok, _secret} =
+             Settings.Secrets.put_secret(
+               "secret://providers/openai/api_key",
+               "operator-test-key",
+               %{audit?: false}
+             )
+
+    assert {:ok, _setting} =
+             Settings.put("providers.openai.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.tasks.fanout_manager", ["fast"], %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.tasks.fanout_synthesis", ["coding_local"], %{
+               audit?: false
+             })
+
+    Req.Test.stub(__MODULE__, fn conn ->
+      assert conn.method == "GET"
+      assert conn.request_path == "/api/tags"
+
+      Req.Test.json(conn, %{
+        "models" => [
+          %{"model" => "qwen2.5:7b", "context_length" => 32_768},
+          %{"model" => "qwen2.5-coder:7b", "context_length" => 32_768},
+          %{"model" => "nomic-embed-text", "context_length" => 2_048},
+          %{"model" => "llama3.1:8b", "context_length" => 128_000},
+          %{"model" => "gemma4:26b", "context_length" => 256_000}
+        ]
+      })
+    end)
+
+    assert {:ok, response} =
+             ModelDoctorAction.run(%{}, %{req_options: [plug: {Req.Test, __MODULE__}]})
+
+    rows = Map.new(response.model_doctor.rows, &{&1.id, &1})
+
+    assert %{
+             configured_profiles: ["fast"],
+             resolution_status: "resolved",
+             resolved_profile: "fast",
+             resolved_provider: "openai",
+             role_readiness: "remote-egress-warning",
+             unavailable_role: nil,
+             auto_pull: false,
+             doctor: nil
+           } = rows["fanout_manager"]
+
+    assert %{
+             configured_profiles: ["coding_local"],
+             resolution_status: "resolved",
+             resolved_profile: "coding_local",
+             resolved_model: "qwen2.5-coder:7b",
+             role_readiness: "ok",
+             unavailable_role: nil,
+             auto_pull: false
+           } = rows["fanout_synthesis"]
+
+    assert rows["fanout_synthesis"].recommended_profile == "direct_answer_local"
+    assert rows["fanout_synthesis"].recommended_model == "qwen2.5:7b"
+    refute inspect(response) =~ "secret://"
+    refute inspect(response) =~ "api_key"
   end
 
   test "settings doctor reports fragment version contract without leaking secrets" do
@@ -344,7 +501,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     refute inspect(report_response) =~ "api_key"
   end
 
-  test "model doctor flags not-pulled, under-capable, and remote egress states" do
+  test "model doctor prioritizes callability failures over recommendation strength" do
     assert {:ok, _setting} =
              Settings.put("intent.router_embedding_profile", "local", %{audit?: false})
 
@@ -361,13 +518,27 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
 
     rows = Map.new(response.model_doctor.rows, &{&1.id, &1})
 
-    assert rows["intent_embedding"].status == "under-capable"
+    assert rows["intent_embedding"].status == "not-pulled"
     assert rows["intent_disambiguation"].status == "not-pulled"
-    assert rows["intent_escalation"].status == "remote-egress-warning"
+    assert rows["intent_escalation"].status == "unavailable"
     assert rows["intent_escalation"].endpoint_kind == "credentialed_remote"
+
+    assert "configured provider is disabled" in rows["intent_escalation"].diagnostics
+
     assert rows["direct_answer"].configured_profile == "direct_answer_local"
     assert rows["direct_answer"].configured_model == "qwen2.5:7b"
     assert rows["direct_answer"].status == "not-pulled"
+
+    for role <- ~w[fanout_manager fanout_review fanout_synthesis] do
+      row = Map.fetch!(rows, role)
+
+      assert row.resolution_status == "resolved"
+      assert row.resolved_profile == "direct_answer_local"
+      assert row.role_readiness == "not-pulled"
+      assert row.unavailable_role == role
+      assert row.auto_pull == false
+    end
+
     refute inspect(response) =~ "secret://"
   end
 
@@ -775,6 +946,83 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert denied.status == :completed
     assert denied.doctor.endpoint_ok == false
     assert [%{code: :provider_host_denied}] = denied.doctor.diagnostics
+  end
+
+  test "model doctor completes with redacted diagnostics for invalid OLLAMA_BASE_URL" do
+    System.put_env("OLLAMA_BASE_URL", "not-a-valid-provider-url")
+
+    assert {:ok, invalid} =
+             DoctorModelProfile.run(%{profile: "direct_answer_local"}, %{})
+
+    assert invalid.status == :completed
+    assert invalid.profile == "direct_answer_local"
+    assert invalid.provider == "local_ollama"
+    assert invalid.model == "qwen2.5:7b"
+    assert invalid.doctor.endpoint_kind == :local_endpoint
+    assert invalid.doctor.redacted_host == "unknown"
+    assert invalid.doctor.endpoint_ok == false
+    assert [%{code: :invalid_provider_base_url}] = invalid.doctor.diagnostics
+    refute inspect(invalid) =~ "not-a-valid-provider-url"
+  end
+
+  test "model doctor completes with redacted diagnostics for a nonloopback Ollama override" do
+    System.put_env("OLLAMA_BASE_URL", "https://models.example.test/v1")
+
+    assert {:ok, denied} =
+             DoctorModelProfile.run(%{profile: "direct_answer_local"}, %{})
+
+    assert denied.status == :completed
+    assert denied.profile == "direct_answer_local"
+    assert denied.provider == "local_ollama"
+    assert denied.model == "qwen2.5:7b"
+    assert denied.doctor.endpoint_kind == :local_endpoint
+    assert denied.doctor.redacted_host == "unknown"
+    assert denied.doctor.endpoint_ok == false
+    assert [%{code: :provider_host_denied}] = denied.doctor.diagnostics
+    refute inspect(denied) =~ "models.example.test"
+  end
+
+  test "local openai-compatible doctor prefers the configured vault key without leaking it" do
+    secret = "sk-openai-compatible-doctor-key"
+
+    assert {:ok, _settings} =
+             Settings.write_user_settings(%{
+               "providers" => %{"openai" => %{"type" => "openai_compatible"}}
+             })
+
+    assert {:ok, _secret} =
+             Settings.Secrets.put_secret(
+               "secret://providers/openai/api_key",
+               secret,
+               %{actor: "local", channel: :test}
+             )
+
+    System.put_env("OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1")
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.request_path == "/v1/models"
+      assert {"authorization", "Bearer #{secret}"} in conn.req_headers
+      refute {"authorization", "Bearer ollama"} in conn.req_headers
+
+      Plug.Conn.send_resp(
+        conn,
+        200,
+        Jason.encode!(%{"data" => [%{"id" => "gpt-4o-mini"}]})
+      )
+    end)
+
+    assert {:ok, doctor} =
+             DoctorModelProfile.run(%{profile: "fast"}, %{
+               req_options: [plug: {Req.Test, __MODULE__}]
+             })
+
+    assert doctor.status == :completed
+    assert doctor.doctor.endpoint_kind == :local_endpoint
+    assert doctor.doctor.credential_ok == true
+    assert doctor.doctor.endpoint_ok == true
+    assert doctor.doctor.model_available == true
+    assert doctor.doctor.diagnostics == []
+    refute inspect(doctor) =~ secret
   end
 
   test "provider credential action gives explicit flow guidance and refuses raw prompt secrets" do

@@ -4,27 +4,35 @@ defmodule AllbertAssist.Objectives.Fanout.ReqLLMCriticTest do
   @moduletag :pure_async
 
   alias AllbertAssist.Objectives.CanonicalJSON
-  alias AllbertAssist.Objectives.Fanout.{ReqLLMCritic, ReviewProtocol}
+
+  alias AllbertAssist.Objectives.Fanout.{
+    ReqLLMCritic,
+    ReviewProtocol,
+    RoleProfileConfiguration
+  }
+
   alias AllbertAssist.Objectives.Runs.Worker.QualityPolicy
   alias ReqLLM.Response
 
-  @reviewer_config_domain "allbert:fanout-reviewer-config:v1\0"
-
   defmodule FixtureModels do
+    def profile do
+      %{
+        name: "review-profile",
+        provider: "local_ollama",
+        provider_type: "openai_compatible",
+        provider_endpoint_kind: "local_endpoint",
+        provider_base_url: "http://localhost:11434/v1",
+        provider_api_key_ref: "secret://providers/local_ollama/reviewer",
+        provider_api_key: "resolved-secret-must-not-bind",
+        model: "fixture-review-model",
+        max_tokens: 2_048,
+        timeout_ms: 5_000
+      }
+    end
+
     def for(role, context) do
       send(context.test_pid, {:model_resolved, role})
-
-      {:ok,
-       %{
-         profile: %{
-           name: "review-profile",
-           provider: "local_ollama",
-           provider_type: "openai_compatible",
-           model: "fixture-review-model",
-           max_tokens: 2_048,
-           timeout_ms: 5_000
-         }
-       }}
+      {:ok, %{profile: profile()}}
     end
   end
 
@@ -184,31 +192,36 @@ defmodule AllbertAssist.Objectives.Fanout.ReqLLMCriticTest do
     assert opts[:openai_structured_output_mode] == :json_schema
     assert opts[:json_repair] == false
 
-    expected_config = %{
-      "version" => 1,
-      "role" => "fanout_review",
-      "model_profile" => "review-profile",
-      "provider" => "local_ollama",
-      "provider_type" => "openai_compatible",
-      "model" => "fixture-review-model",
-      "timeout_ms" => opts[:receive_timeout],
-      "max_output_tokens" => 512,
-      "review_protocol_version" => request["review_protocol_version"],
-      "policy_version" => request["policy_version"],
-      "group_id" => request["group"]["id"],
-      "rule_group_catalog_version" => request["rule_group_catalog_version"],
-      "rule_group_catalog_sha256" => request["rule_group_catalog_sha256"],
-      "transport" => %{
-        "response_schema_sha256" => sha256(CanonicalJSON.encode(schema)),
-        "temperature" => 0.0,
-        "max_retries" => 0,
-        "json_repair" => false,
-        "structured_output_mode" => "json_schema"
-      }
+    transport = %{
+      base_url: opts[:base_url],
+      response_schema_sha256: sha256(CanonicalJSON.encode(schema)),
+      temperature: opts[:temperature],
+      max_output_tokens: opts[:max_tokens],
+      receive_timeout_ms: opts[:receive_timeout],
+      total_timeout_ms: opts[:total_timeout],
+      max_retries: opts[:max_retries],
+      structured_output_mode: opts[:openai_structured_output_mode],
+      json_repair: opts[:json_repair]
     }
 
-    assert reviewer_config_sha256 ==
-             sha256(@reviewer_config_domain <> CanonicalJSON.encode(expected_config))
+    extras = %{
+      review_protocol_version: request["review_protocol_version"],
+      policy_version: request["policy_version"],
+      group_id: request["group"]["id"],
+      rule_group_catalog_version: request["rule_group_catalog_version"],
+      rule_group_catalog_sha256: request["rule_group_catalog_sha256"]
+    }
+
+    assert {:ok, expected_digest} =
+             RoleProfileConfiguration.digest(
+               :fanout_review,
+               FixtureModels.profile(),
+               transport,
+               extras
+             )
+
+    assert reviewer_config_sha256 == expected_digest
+    refute reviewer_config_sha256 =~ "resolved-secret"
   end
 
   test "profile disclosure and both deadlines fail before provider egress" do

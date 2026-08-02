@@ -8,30 +8,47 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
   """
 
   alias AllbertAssist.Objectives.CanonicalJSON
+  alias AllbertAssist.Objectives.Runs.Worker.QualityPolicy
 
-  @version 1
+  @legacy_version 1
+  @version 2
   @write_rule_catalog_version 2
   @replay_rule_catalog_versions [1, 2]
-  @receipt_digest_domain "allbert:fanout-worker-quality-receipt:v1\0"
-  @receipt_keys ~w[
+  @legacy_receipt_digest_domain "allbert:fanout-worker-quality-receipt:v1\0"
+  @receipt_digest_domain "allbert:fanout-worker-quality-receipt:v2\0"
+  @legacy_receipt_keys ~w[
     version objective_id_sha256 step_id_sha256 task_contract_sha256
     rule_catalog_version reviewer_config_sha256 provider_call_count verdict
     failed_rule_ids final_answer_sha256
   ]
+  @receipt_keys ~w[
+    version objective_id_sha256 step_id_sha256 task_contract_sha256
+    rule_catalog_version review_protocol_version critic_group_count
+    rule_group_catalog_version rule_group_catalog_sha256 reviewer_config_sha256
+    draft_call_count initial_critic_call_count revision_call_count
+    final_critic_call_count provider_call_count initial_assessment_sha256
+    final_assessment_sha256 accepted_assessment_sha256 verdict failed_rule_ids
+    final_answer_sha256
+  ]
   @event_keys ~w[quality_receipt step_id step_status]
   @build_binding_keys ~w[
     objective_id step_id task_contract_sha256 rule_catalog_version
-    reviewer_config_sha256 provider_call_count verdict failed_rule_ids final_answer
+    review_protocol_version critic_group_count rule_group_catalog_version
+    rule_group_catalog_sha256 reviewer_config_sha256 draft_call_count
+    initial_critic_call_count revision_call_count final_critic_call_count
+    provider_call_count initial_assessment_sha256 final_assessment_sha256
+    accepted_assessment_sha256 verdict failed_rule_ids final_answer
   ]
   @verify_binding_keys ~w[objective_id step_id task_contract_sha256 final_answer]
 
   @type receipt :: %{required(String.t()) => term()}
 
-  @doc "Build one exact accepted v1 receipt from transient worker bindings."
+  @doc "Build one exact accepted v2 receipt from transient phase-review bindings."
   @spec build(map()) :: {:ok, receipt()} | {:error, :invalid_quality_receipt_binding}
   def build(binding) when is_map(binding) do
     with {:ok, binding} <- normalize_map(binding),
          true <- exact_keys?(binding, @build_binding_keys),
+         true <- valid_hash_inputs?(binding),
          true <- binding["rule_catalog_version"] == @write_rule_catalog_version do
       receipt = %{
         "version" => @version,
@@ -39,8 +56,19 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
         "step_id_sha256" => sha256(binding["step_id"]),
         "task_contract_sha256" => binding["task_contract_sha256"],
         "rule_catalog_version" => binding["rule_catalog_version"],
+        "review_protocol_version" => binding["review_protocol_version"],
+        "critic_group_count" => binding["critic_group_count"],
+        "rule_group_catalog_version" => binding["rule_group_catalog_version"],
+        "rule_group_catalog_sha256" => binding["rule_group_catalog_sha256"],
         "reviewer_config_sha256" => binding["reviewer_config_sha256"],
+        "draft_call_count" => binding["draft_call_count"],
+        "initial_critic_call_count" => binding["initial_critic_call_count"],
+        "revision_call_count" => binding["revision_call_count"],
+        "final_critic_call_count" => binding["final_critic_call_count"],
         "provider_call_count" => binding["provider_call_count"],
+        "initial_assessment_sha256" => binding["initial_assessment_sha256"],
+        "final_assessment_sha256" => binding["final_assessment_sha256"],
+        "accepted_assessment_sha256" => binding["accepted_assessment_sha256"],
         "verdict" => binding["verdict"],
         "failed_rule_ids" => binding["failed_rule_ids"],
         "final_answer_sha256" => sha256(binding["final_answer"])
@@ -56,6 +84,13 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
   end
 
   def build(_binding), do: {:error, :invalid_quality_receipt_binding}
+
+  defp valid_hash_inputs?(binding) do
+    Enum.all?(~w[objective_id step_id final_answer], fn key ->
+      value = binding[key]
+      is_binary(value) and value != ""
+    end)
+  end
 
   @doc "Validate receipt invariants and its required identity/task/answer binding."
   @spec validate(map(), map()) :: :ok | {:error, :invalid_quality_receipt}
@@ -82,7 +117,9 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
   def validate_current(receipt, binding) when is_map(receipt) and is_map(binding) do
     with :ok <- validate(receipt, binding),
          {:ok, receipt} <- normalize_map(receipt),
-         true <- receipt["rule_catalog_version"] == @write_rule_catalog_version do
+         true <- receipt["version"] == @version,
+         true <- receipt["rule_catalog_version"] == @write_rule_catalog_version,
+         true <- current_review_protocol?(receipt) do
       :ok
     else
       _invalid -> {:error, :invalid_quality_receipt}
@@ -91,12 +128,28 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
 
   def validate_current(_receipt, _binding), do: {:error, :invalid_quality_receipt}
 
+  defp current_review_protocol?(receipt) do
+    with {:ok, protocol} <- QualityPolicy.review_protocol() do
+      receipt["review_protocol_version"] == protocol.review_protocol_version and
+        receipt["critic_group_count"] == length(protocol.groups) and
+        receipt["rule_group_catalog_version"] == protocol.rule_group_catalog_version and
+        receipt["rule_group_catalog_sha256"] == protocol.rule_group_catalog_sha256
+    else
+      _unavailable -> false
+    end
+  end
+
   @doc "Validate and digest one exact receipt."
   @spec digest(map()) :: {:ok, String.t()} | {:error, :invalid_quality_receipt}
   def digest(receipt) when is_map(receipt) do
     with {:ok, receipt} <- normalize_map(receipt),
          true <- valid_receipt?(receipt) do
-      {:ok, sha256(@receipt_digest_domain <> CanonicalJSON.encode(receipt))}
+      domain =
+        if receipt["version"] == @legacy_version,
+          do: @legacy_receipt_digest_domain,
+          else: @receipt_digest_domain
+
+      {:ok, sha256(domain <> CanonicalJSON.encode(receipt))}
     else
       _invalid -> {:error, :invalid_quality_receipt}
     end
@@ -121,8 +174,8 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
     end
   end
 
-  defp valid_receipt?(receipt) do
-    exact_keys?(receipt, @receipt_keys) and receipt["version"] == @version and
+  defp valid_receipt?(%{"version" => @legacy_version} = receipt) do
+    exact_keys?(receipt, @legacy_receipt_keys) and
       receipt["rule_catalog_version"] in @replay_rule_catalog_versions and
       receipt["provider_call_count"] == 2 and receipt["verdict"] == "accepted" and
       receipt["failed_rule_ids"] == [] and
@@ -131,6 +184,71 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
         &lowercase_sha256?(receipt[&1])
       )
   end
+
+  defp valid_receipt?(%{"version" => @version} = receipt) do
+    valid_v2_shape?(receipt) and valid_v2_protocol?(receipt) and
+      valid_v2_outcome?(receipt) and valid_phase_arithmetic?(receipt) and
+      valid_phase_assessment_binding?(receipt) and valid_v2_digests?(receipt)
+  end
+
+  defp valid_receipt?(_receipt), do: false
+
+  defp valid_v2_shape?(receipt), do: exact_keys?(receipt, @receipt_keys)
+
+  defp valid_v2_protocol?(receipt) do
+    with true <- receipt["rule_catalog_version"] == @write_rule_catalog_version,
+         true <- receipt["review_protocol_version"] == 1,
+         true <- receipt["critic_group_count"] == 2,
+         {:ok, expected_catalog_sha256} <-
+           QualityPolicy.rule_group_catalog_sha256(receipt["rule_group_catalog_version"]),
+         true <- receipt["rule_group_catalog_sha256"] == expected_catalog_sha256 do
+      true
+    else
+      _invalid_or_unsupported -> false
+    end
+  end
+
+  defp valid_v2_outcome?(receipt) do
+    receipt["draft_call_count"] == 1 and receipt["initial_critic_call_count"] == 2 and
+      receipt["verdict"] == "accepted" and receipt["failed_rule_ids"] == []
+  end
+
+  defp valid_v2_digests?(receipt) do
+    Enum.all?(
+      ~w[objective_id_sha256 step_id_sha256 task_contract_sha256 rule_group_catalog_sha256 reviewer_config_sha256 initial_assessment_sha256 accepted_assessment_sha256 final_answer_sha256],
+      &lowercase_sha256?(receipt[&1])
+    )
+  end
+
+  defp valid_phase_arithmetic?(receipt) do
+    revision_calls = receipt["revision_call_count"]
+    final_critic_calls = receipt["final_critic_call_count"]
+
+    valid_shape =
+      {revision_calls, final_critic_calls} in [{0, 0}, {1, 2}]
+
+    valid_shape and
+      receipt["provider_call_count"] ==
+        receipt["draft_call_count"] + receipt["initial_critic_call_count"] +
+          revision_calls + final_critic_calls
+  end
+
+  defp valid_phase_assessment_binding?(%{
+         "revision_call_count" => 0,
+         "final_assessment_sha256" => nil,
+         "initial_assessment_sha256" => accepted,
+         "accepted_assessment_sha256" => accepted
+       }),
+       do: lowercase_sha256?(accepted)
+
+  defp valid_phase_assessment_binding?(%{
+         "revision_call_count" => 1,
+         "final_assessment_sha256" => final,
+         "accepted_assessment_sha256" => final
+       }),
+       do: lowercase_sha256?(final)
+
+  defp valid_phase_assessment_binding?(_receipt), do: false
 
   defp required_binding?(binding) do
     Enum.all?(@verify_binding_keys, &Map.has_key?(binding, &1)) and
@@ -170,8 +288,19 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
     Enum.all?(
       [
         {"rule_catalog_version", "rule_catalog_version"},
+        {"review_protocol_version", "review_protocol_version"},
+        {"critic_group_count", "critic_group_count"},
+        {"rule_group_catalog_version", "rule_group_catalog_version"},
+        {"rule_group_catalog_sha256", "rule_group_catalog_sha256"},
         {"reviewer_config_sha256", "reviewer_config_sha256"},
+        {"draft_call_count", "draft_call_count"},
+        {"initial_critic_call_count", "initial_critic_call_count"},
+        {"revision_call_count", "revision_call_count"},
+        {"final_critic_call_count", "final_critic_call_count"},
         {"provider_call_count", "provider_call_count"},
+        {"initial_assessment_sha256", "initial_assessment_sha256"},
+        {"final_assessment_sha256", "final_assessment_sha256"},
+        {"accepted_assessment_sha256", "accepted_assessment_sha256"},
         {"verdict", "verdict"},
         {"failed_rule_ids", "failed_rule_ids"}
       ],

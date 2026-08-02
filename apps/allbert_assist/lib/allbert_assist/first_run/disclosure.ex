@@ -14,13 +14,14 @@ defmodule AllbertAssist.FirstRun.Disclosure do
 
   alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.ModelRuntime
   alias AllbertAssist.Settings.Models
 
   @surfaces ~w(web tui cli)
   @max_route_count 5
   @route_usages [:primary, :fallback, :fanout_manager, :fanout_review, :fanout_synthesis]
 
-  @type provider_class :: :local | :hosted
+  @type endpoint_class :: :local | :hosted
   @type route :: %{
           optional(:usage) =>
             :primary | :fallback | :fanout_manager | :fanout_review | :fanout_synthesis,
@@ -29,14 +30,11 @@ defmodule AllbertAssist.FirstRun.Disclosure do
           ],
           required(:profile) => String.t(),
           required(:provider) => String.t(),
-          required(:provider_class) => provider_class()
+          required(:endpoint_class) => endpoint_class(),
+          required(:endpoint_sha256) => String.t()
         }
 
-  @spec mark_pending(%{
-          required(:profile) => term(),
-          required(:provider) => term(),
-          required(:provider_class) => atom()
-        }) :: :ok | {:error, term()}
+  @spec mark_pending(route() | map()) :: :ok | {:error, term()}
   def mark_pending(selection) when is_map(selection), do: reconcile(selection)
 
   @doc """
@@ -240,14 +238,55 @@ defmodule AllbertAssist.FirstRun.Disclosure do
   @doc "Project a resolved model profile to the non-secret route fingerprint."
   @spec route_for_profile(map()) :: {:ok, route()} | {:error, term()}
   def route_for_profile(profile) when is_map(profile) do
-    normalize_route(%{
-      profile: map_value(profile, :name) || map_value(profile, :profile),
-      provider: map_value(profile, :provider),
-      provider_class: provider_class(profile)
-    })
+    with {:ok, profile} <- current_transport_profile(profile),
+         {:ok, transport} <- ModelRuntime.effective_transport(profile) do
+      normalize_exact_route(%{
+        profile: map_value(profile, :name) || map_value(profile, :profile),
+        provider: map_value(profile, :provider),
+        endpoint_class: transport.endpoint_class,
+        endpoint_sha256: transport.endpoint_sha256
+      })
+    end
   end
 
   def route_for_profile(_profile), do: {:error, :invalid_model_profile}
+
+  defp current_transport_profile(profile) do
+    if resolved_transport_profile?(profile),
+      do: {:ok, profile},
+      else: rehydrate_partial_transport_profile(profile)
+  end
+
+  defp rehydrate_partial_transport_profile(profile) do
+    profile_name = map_value(profile, :name) || map_value(profile, :profile)
+    provider = map_value(profile, :provider)
+
+    case Settings.resolve_model_profile(profile_name) do
+      {:ok, resolved} when is_binary(provider) ->
+        if map_value(resolved, :provider) == provider,
+          do: {:ok, resolved},
+          else: {:error, :invalid_model_profile}
+
+      {:error, _reason} ->
+        {:ok, profile}
+
+      _invalid ->
+        {:error, :invalid_model_profile}
+    end
+  end
+
+  defp resolved_transport_profile?(profile) do
+    is_binary(map_value(profile, :provider)) and
+      is_binary(map_value(profile, :provider_type)) and
+      is_binary(map_value(profile, :model)) and
+      (Map.has_key?(profile, :provider_base_url) or Map.has_key?(profile, "provider_base_url")) and
+      map_value(profile, :provider_endpoint_kind) in [
+        :local_endpoint,
+        "local_endpoint",
+        :credentialed_remote,
+        "credentialed_remote"
+      ]
+  end
 
   defp callable_fallback(_primary, nil), do: nil
 
@@ -276,7 +315,7 @@ defmodule AllbertAssist.FirstRun.Disclosure do
     disclosure = record(surface)
 
     disclosure["state"] == "pending" and
-      Enum.any?(record_routes(disclosure), &(&1.provider_class == :hosted))
+      Enum.any?(record_routes(disclosure), &(&1.endpoint_class == :hosted))
   end
 
   @spec text(atom() | String.t()) :: String.t() | nil
@@ -396,9 +435,9 @@ defmodule AllbertAssist.FirstRun.Disclosure do
     end
   end
 
-  defp authorize_transport_route(%{provider_class: :local}, _surface), do: :ok
+  defp authorize_transport_route(%{endpoint_class: :local}, _surface), do: :ok
 
-  defp authorize_transport_route(%{provider_class: :hosted} = route, surface) do
+  defp authorize_transport_route(%{endpoint_class: :hosted} = route, surface) do
     with {:ok, expected_routes} <- current_model_routes(),
          true <- route_member?(expected_routes, route) do
       authorize_route_set(route, expected_routes, surface)
@@ -476,21 +515,22 @@ defmodule AllbertAssist.FirstRun.Disclosure do
     %{
       "profile" => route.profile,
       "provider" => route.provider,
-      "provider_class" => Atom.to_string(route.provider_class),
+      "endpoint_class" => Atom.to_string(route.endpoint_class),
+      "endpoint_sha256" => route.endpoint_sha256,
       "usage" => route |> Map.get(:usage, :primary) |> Atom.to_string(),
       "usages" => route |> Map.get(:usages, [:primary]) |> Enum.map(&Atom.to_string/1)
     }
   end
 
   defp record_routes(%{"routes" => routes}) when is_list(routes) do
-    case normalize_routes(routes) do
+    case normalize_stored_routes(routes) do
       {:ok, normalized} -> normalized
       {:error, _reason} -> []
     end
   end
 
   defp record_routes(%{} = legacy_record) do
-    case normalize_route(legacy_record) do
+    case normalize_exact_route(legacy_record) do
       {:ok, route} -> [route]
       {:error, _reason} -> []
     end
@@ -509,7 +549,8 @@ defmodule AllbertAssist.FirstRun.Disclosure do
 
   defp same_route?(left, right) do
     left.profile == right.profile and left.provider == right.provider and
-      left.provider_class == right.provider_class
+      left.endpoint_class == right.endpoint_class and
+      left.endpoint_sha256 == right.endpoint_sha256
   end
 
   defp same_route_entry?(left, right) do
@@ -517,22 +558,47 @@ defmodule AllbertAssist.FirstRun.Disclosure do
   end
 
   defp normalize_route(selection) do
+    case map_value(selection, :endpoint_sha256) do
+      endpoint_sha256 when is_binary(endpoint_sha256) -> normalize_exact_route(selection)
+      _missing -> resolve_legacy_input_route(selection)
+    end
+  end
+
+  defp normalize_exact_route(selection) do
     profile = map_value(selection, :profile)
     provider = map_value(selection, :provider)
-    provider_class = normalize_provider_class(map_value(selection, :provider_class))
+    endpoint_class = normalize_endpoint_class(map_value(selection, :endpoint_class))
+    endpoint_sha256 = normalize_endpoint_sha256(map_value(selection, :endpoint_sha256))
 
     with {:ok, usages} <- normalize_usages(selection),
          true <-
            is_binary(profile) and profile != "" and is_binary(provider) and provider != "" and
-             provider_class in [:local, :hosted] do
+             endpoint_class in [:local, :hosted] and is_binary(endpoint_sha256) do
       {:ok,
        %{
          profile: profile,
          provider: provider,
-         provider_class: provider_class,
+         endpoint_class: endpoint_class,
+         endpoint_sha256: endpoint_sha256,
          usage: hd(usages),
          usages: usages
        }}
+    else
+      _invalid -> {:error, :invalid_disclosure_route}
+    end
+  end
+
+  defp resolve_legacy_input_route(selection) do
+    profile_name = map_value(selection, :profile)
+    provider = map_value(selection, :provider)
+
+    with true <- is_binary(profile_name) and profile_name != "",
+         true <- is_binary(provider) and provider != "",
+         {:ok, profile} <- Settings.resolve_model_profile(profile_name),
+         true <- map_value(profile, :provider) == provider,
+         {:ok, route} <- route_for_profile(profile),
+         {:ok, usages} <- normalize_usages(selection) do
+      {:ok, %{route | usage: hd(usages), usages: usages}}
     else
       _invalid -> {:error, :invalid_disclosure_route}
     end
@@ -542,6 +608,16 @@ defmodule AllbertAssist.FirstRun.Disclosure do
     selections
     |> Enum.reduce_while({:ok, []}, fn selection, {:ok, routes} ->
       case normalize_route(selection) do
+        {:ok, route} -> {:cont, {:ok, append_unless_duplicate(routes, route)}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp normalize_stored_routes(selections) do
+    selections
+    |> Enum.reduce_while({:ok, []}, fn selection, {:ok, routes} ->
+      case normalize_exact_route(selection) do
         {:ok, route} -> {:cont, {:ok, append_unless_duplicate(routes, route)}}
         {:error, reason} -> {:halt, {:error, reason}}
       end
@@ -585,9 +661,18 @@ defmodule AllbertAssist.FirstRun.Disclosure do
     |> Enum.filter(&(&1 in usages))
   end
 
-  defp normalize_provider_class(value) when value in [:local, "local"], do: :local
-  defp normalize_provider_class(value) when value in [:hosted, "hosted"], do: :hosted
-  defp normalize_provider_class(_value), do: nil
+  defp normalize_endpoint_class(value) when value in [:local, "local"], do: :local
+  defp normalize_endpoint_class(value) when value in [:hosted, "hosted"], do: :hosted
+  defp normalize_endpoint_class(_value), do: nil
+
+  defp normalize_endpoint_sha256(value) when is_binary(value) and byte_size(value) == 64 do
+    case Base.decode16(value, case: :mixed) do
+      {:ok, bytes} when byte_size(bytes) == 32 -> String.downcase(value)
+      _invalid -> nil
+    end
+  end
+
+  defp normalize_endpoint_sha256(_value), do: nil
 
   defp normalize_usage(value) when value in [:fallback, "fallback"], do: :fallback
 
@@ -603,13 +688,6 @@ defmodule AllbertAssist.FirstRun.Disclosure do
   defp normalize_usage(value) when value in [:primary, "primary", nil], do: :primary
   defp normalize_usage(_value), do: :invalid
 
-  defp provider_class(profile) do
-    case map_value(profile, :provider_endpoint_kind) || map_value(profile, :endpoint_kind) do
-      value when value in [:local_endpoint, "local_endpoint"] -> :local
-      _other -> :hosted
-    end
-  end
-
   defp record_route_set_digest(record), do: record |> record_routes() |> route_set_digest()
 
   defp route_set_digest(routes) do
@@ -619,7 +697,8 @@ defmodule AllbertAssist.FirstRun.Disclosure do
           [
             route.profile,
             route.provider,
-            Atom.to_string(route.provider_class),
+            Atom.to_string(route.endpoint_class),
+            route.endpoint_sha256,
             Enum.map_join(route.usages, ",", &Atom.to_string/1)
           ],
           <<0>>
@@ -657,15 +736,17 @@ defmodule AllbertAssist.FirstRun.Disclosure do
   end
 
   defp route_disclosure_text(route) do
-    route
+    presentation_route = Map.put(route, "endpoint_class", stored_endpoint_class(route))
+
+    presentation_route
     |> stored_route_usages()
-    |> Enum.map_join("\n", &usage_disclosure_text(&1, route))
+    |> Enum.map_join("\n", &usage_disclosure_text(&1, presentation_route))
   end
 
   defp usage_disclosure_text(:fallback, %{
          "profile" => profile,
          "provider" => provider,
-         "provider_class" => "hosted"
+         "endpoint_class" => "hosted"
        }) do
     "Allbert may use #{profile} from #{provider} as the configured DirectAnswer failover. " <>
       "If the primary model fails, your message may leave this device for #{provider}. Change the fallback in Models, or disable cross-boundary fallback with `allbert admin settings set models.fallback.allow_local_to_hosted false`."
@@ -674,7 +755,7 @@ defmodule AllbertAssist.FirstRun.Disclosure do
   defp usage_disclosure_text(:primary, %{
          "profile" => profile,
          "provider" => provider,
-         "provider_class" => "hosted"
+         "endpoint_class" => "hosted"
        }) do
     "Your configured DirectAnswer route uses #{profile} from #{provider}. " <>
       "Your message will leave this device for #{provider}. Change the model in Models, or disable model answers with `allbert admin settings set intent.direct_answer_model_enabled false`."
@@ -683,7 +764,7 @@ defmodule AllbertAssist.FirstRun.Disclosure do
   defp usage_disclosure_text(:fallback, %{
          "profile" => profile,
          "provider" => provider,
-         "provider_class" => "local"
+         "endpoint_class" => "local"
        }) do
     "Allbert may use #{profile} from #{provider} as the configured local DirectAnswer failover. " <>
       "Inference uses your configured local endpoint. Change the fallback in Models, or disable model fallback with `allbert admin settings set models.fallback.enabled false`."
@@ -692,7 +773,7 @@ defmodule AllbertAssist.FirstRun.Disclosure do
   defp usage_disclosure_text(:primary, %{
          "profile" => profile,
          "provider" => provider,
-         "provider_class" => "local"
+         "endpoint_class" => "local"
        }) do
     "Your configured DirectAnswer route uses #{profile} from #{provider}. " <>
       "Inference uses your configured local endpoint. Change the model in Models, or disable model answers with `allbert admin settings set intent.direct_answer_model_enabled false`."
@@ -701,7 +782,7 @@ defmodule AllbertAssist.FirstRun.Disclosure do
   defp usage_disclosure_text(:fanout_manager, %{
          "profile" => profile,
          "provider" => provider,
-         "provider_class" => "hosted"
+         "endpoint_class" => "hosted"
        }) do
     "Your configured fan-out manager route uses #{profile} from #{provider}. " <>
       "Parent objective and planning context may leave this device for #{provider}. Change `model_preferences.tasks.fanout_manager`, or disable model answers with `allbert admin settings set intent.direct_answer_model_enabled false`."
@@ -710,7 +791,7 @@ defmodule AllbertAssist.FirstRun.Disclosure do
   defp usage_disclosure_text(:fanout_manager, %{
          "profile" => profile,
          "provider" => provider,
-         "provider_class" => "local"
+         "endpoint_class" => "local"
        }) do
     "Your configured fan-out manager route uses #{profile} from #{provider}. " <>
       "Inference uses your configured local endpoint. Change `model_preferences.tasks.fanout_manager`, or disable model answers with `allbert admin settings set intent.direct_answer_model_enabled false`."
@@ -719,7 +800,7 @@ defmodule AllbertAssist.FirstRun.Disclosure do
   defp usage_disclosure_text(:fanout_review, %{
          "profile" => profile,
          "provider" => provider,
-         "provider_class" => "hosted"
+         "endpoint_class" => "hosted"
        }) do
     "Your configured fan-out review route uses #{profile} from #{provider}. " <>
       "Child drafts and review context may leave this device for #{provider}. Change `model_preferences.tasks.fanout_review`, or disable model answers with `allbert admin settings set intent.direct_answer_model_enabled false`."
@@ -728,7 +809,7 @@ defmodule AllbertAssist.FirstRun.Disclosure do
   defp usage_disclosure_text(:fanout_review, %{
          "profile" => profile,
          "provider" => provider,
-         "provider_class" => "local"
+         "endpoint_class" => "local"
        }) do
     "Your configured fan-out review route uses #{profile} from #{provider}. " <>
       "Inference uses your configured local endpoint. Change `model_preferences.tasks.fanout_review`, or disable model answers with `allbert admin settings set intent.direct_answer_model_enabled false`."
@@ -737,7 +818,7 @@ defmodule AllbertAssist.FirstRun.Disclosure do
   defp usage_disclosure_text(:fanout_synthesis, %{
          "profile" => profile,
          "provider" => provider,
-         "provider_class" => "hosted"
+         "endpoint_class" => "hosted"
        }) do
     "Your configured fan-out report synthesis route uses #{profile} from #{provider}. " <>
       "Joined child results may leave this device for #{provider}. Change `model_preferences.tasks.fanout_synthesis`, or disable model answers with `allbert admin settings set intent.direct_answer_model_enabled false`."
@@ -746,7 +827,7 @@ defmodule AllbertAssist.FirstRun.Disclosure do
   defp usage_disclosure_text(:fanout_synthesis, %{
          "profile" => profile,
          "provider" => provider,
-         "provider_class" => "local"
+         "endpoint_class" => "local"
        }) do
     "Your configured fan-out report synthesis route uses #{profile} from #{provider}. " <>
       "Inference uses your configured local endpoint. Change `model_preferences.tasks.fanout_synthesis`, or disable model answers with `allbert admin settings set intent.direct_answer_model_enabled false`."
@@ -760,6 +841,10 @@ defmodule AllbertAssist.FirstRun.Disclosure do
       _missing -> [normalize_usage(map_value(route, :usage))]
     end
     |> ordered_usages()
+  end
+
+  defp stored_endpoint_class(route) do
+    map_value(route, :endpoint_class) || map_value(route, :provider_class)
   end
 
   defp known_surface(value) do
