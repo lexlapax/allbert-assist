@@ -132,7 +132,6 @@ defmodule AllbertAssist.SettingsCentralNoBypassCheckTest do
       def zero_shot_fixture, do: System.get_env("V13_ZERO_SHOT_FIXTURE")
       def zero_shot_store, do: System.get_env("V13_ZERO_SHOT_STORE")
       def fanout_fixture, do: System.get_env("V13_FANOUT_FIXTURE")
-      def fanout_worker_fixture, do: System.get_env("V13_FANOUT_WORKER_FIXTURE")
       def fanout_store, do: System.get_env("V13_FANOUT_STORE")
       def model_profile, do: System.get_env("V13_MODEL_PROFILE")
       def full_sha, do: System.get_env("V13_FULL_SHA")

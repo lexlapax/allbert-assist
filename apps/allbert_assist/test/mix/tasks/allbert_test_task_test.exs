@@ -8,7 +8,6 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
   alias Mix.Tasks.Allbert.Test, as: AllbertTestTask
 
   @v13_fanout_fixture Path.expand("../../fixtures/v1.3/fanout_real_model_eval.json", __DIR__)
-  @v13_worker_fixture Path.expand("../../fixtures/v1.3/fanout_worker_quality_eval.json", __DIR__)
 
   setup do
     original_runner = Application.get_env(:allbert_assist, :gate_command_runner)
@@ -267,48 +266,29 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert MapSet.new(Path.wildcard(gate_glob)) == before_roots
   end
 
-  test "v1.3 fan-out benchmark preflights its default sibling and explicit worker fixture" do
+  test "v1.3 fan-out benchmark preflights a missing manager fixture" do
     root =
       Path.join(
         System.tmp_dir!(),
         "allbert-v13-fanout-fixtures-#{System.unique_integer([:positive])}"
       )
 
-    fixture = Path.join(root, "fanout.json")
-    sibling = Path.join(root, "fanout_worker_quality_eval.json")
-    explicit = Path.join(root, "explicit-worker.json")
+    missing = Path.join(root, "fanout.json")
     File.mkdir_p!(root)
-    File.write!(fixture, "{}")
     on_exit(fn -> File.rm_rf!(root) end)
 
     error =
       assert_raise Mix.Error, fn ->
-        AllbertTestTask.run(["bench-v13-fanout", "--fixture", fixture])
+        AllbertTestTask.run(["bench-v13-fanout", "--fixture", missing])
       end
 
-    assert error.message == "fan-out worker fixture does not exist: #{sibling}"
-
-    File.write!(sibling, "{}")
-
-    error =
-      assert_raise Mix.Error, fn ->
-        AllbertTestTask.run([
-          "bench-v13-fanout",
-          "--fixture",
-          fixture,
-          "--worker-fixture",
-          explicit
-        ])
-      end
-
-    assert error.message == "fan-out worker fixture does not exist: #{explicit}"
+    assert error.message == "fan-out fixture does not exist: #{missing}"
   end
 
   test "v1.3 fan-out benchmark validates fixture schema and digest before allocating a Home" do
     root = temp_path("v13-fanout-preflight")
     invalid_manager = Path.join(root, "invalid-manager.json")
     changed_manager = Path.join(root, "changed-manager.json")
-    changed_worker = Path.join(root, "changed-worker.json")
     File.mkdir_p!(root)
     File.write!(invalid_manager, "{}")
 
@@ -323,42 +303,17 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
 
     File.write!(changed_manager, Jason.encode!(changed_manager_fixture))
 
-    worker = @v13_worker_fixture |> File.read!() |> Jason.decode!()
-    changed_worker_fixture = update_in(worker, ["scenarios", Access.at(0), "draft"], &(&1 <> " "))
-    File.write!(changed_worker, Jason.encode!(changed_worker_fixture))
     on_exit(fn -> File.rm_rf!(root) end)
 
     gate_glob = Path.join([System.tmp_dir!(), "allbert_test_gates", "bench-v13-fanout", "*"])
     before_roots = MapSet.new(Path.wildcard(gate_glob))
 
     assert_raise RuntimeError, "invalid v1.3 fan-out fixture", fn ->
-      AllbertTestTask.run([
-        "bench-v13-fanout",
-        "--fixture",
-        invalid_manager,
-        "--worker-fixture",
-        @v13_worker_fixture
-      ])
+      AllbertTestTask.run(["bench-v13-fanout", "--fixture", invalid_manager])
     end
 
     assert_raise RuntimeError, "invalid v1.3 fan-out fixture digest", fn ->
-      AllbertTestTask.run([
-        "bench-v13-fanout",
-        "--fixture",
-        changed_manager,
-        "--worker-fixture",
-        @v13_worker_fixture
-      ])
-    end
-
-    assert_raise RuntimeError, "invalid v1.3 fan-out worker-quality fixture digest", fn ->
-      AllbertTestTask.run([
-        "bench-v13-fanout",
-        "--fixture",
-        @v13_fanout_fixture,
-        "--worker-fixture",
-        changed_worker
-      ])
+      AllbertTestTask.run(["bench-v13-fanout", "--fixture", changed_manager])
     end
 
     assert MapSet.new(Path.wildcard(gate_glob)) == before_roots
@@ -406,8 +361,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
 
     assert error.message =~
              "mix allbert.test bench-v13-fanout [--profile NAME] [--mixed-mistral] " <>
-               "[--fixture PATH] " <>
-               "[--worker-fixture PATH] [--output PATH]"
+               "[--fixture PATH] [--output PATH]"
 
     assert error.message =~ "mix allbert.test release.structure v121 [--output PATH]"
     assert error.message =~ "mix allbert.test release.structure v13 [--output PATH]"

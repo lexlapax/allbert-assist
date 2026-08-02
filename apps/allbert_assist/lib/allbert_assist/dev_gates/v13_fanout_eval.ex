@@ -10,7 +10,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   recorded in TestMetrics.
   """
 
-  alias AllbertAssist.DevGates.{TestMetrics, V13FanoutWorkerQualityEval}
+  alias AllbertAssist.DevGates.TestMetrics
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Intent.FanoutManager
   alias AllbertAssist.Intent.FanoutPlan
@@ -105,12 +105,11 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
           failed_rows: [String.t()],
           rows: [map()]
         }
-  @type fixtures :: %{manager_and_composer: map(), worker_quality: map()}
+  @type fixtures :: %{manager_and_composer: map()}
   @type phases_result :: %{
           status: String.t(),
           failed_rows: [String.t()],
-          manager_and_composer: result(),
-          worker_quality: V13FanoutWorkerQualityEval.result()
+          manager_and_composer: result()
         }
 
   @doc "Run the environment-configured real-provider qualification."
@@ -118,11 +117,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   def record_run! do
     fixture_path = System.fetch_env!("V13_FANOUT_FIXTURE")
 
-    worker_fixture_path =
-      System.get_env("V13_FANOUT_WORKER_FIXTURE") ||
-        Path.join(Path.dirname(fixture_path), "fanout_worker_quality_eval.json")
-
-    fixtures = load_fixtures!(fixture_path, worker_fixture_path)
+    fixtures = load_fixtures!(fixture_path)
 
     profile_name = System.get_env("V13_MODEL_PROFILE", "direct_answer_local")
 
@@ -187,8 +182,8 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   end
 
   @doc "Load and validate the frozen qualification fixture before runtime setup."
-  @spec load_fixtures!(Path.t(), Path.t() | nil) :: fixtures()
-  def load_fixtures!(manager_fixture_path, _worker_fixture_path \\ nil) do
+  @spec load_fixtures!(Path.t()) :: fixtures()
+  def load_fixtures!(manager_fixture_path) do
     %{manager_and_composer: load_fixture!(manager_fixture_path)}
   end
 
@@ -616,7 +611,12 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   defp row_map(rows, key), do: Map.new(rows, &{&1.id, Map.fetch!(&1, key)})
 
   @doc "Configure the uniform gate profile or its one frozen mixed-Mistral comparison."
-  @spec configure_profiles!(String.t(), keyword()) :: map()
+  @spec configure_profiles!(String.t(), keyword()) :: %{
+          worker: map(),
+          manager: map(),
+          synthesis: map(),
+          bindings: map()
+        }
   def configure_profiles!(profile_name, opts \\ []) do
     context = %{actor: "v13-fanout-eval", audit?: false}
     mixed_mistral? = Keyword.get(opts, :mixed_mistral?, false)
