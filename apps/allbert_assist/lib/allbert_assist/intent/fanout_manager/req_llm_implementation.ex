@@ -39,7 +39,7 @@ defmodule AllbertAssist.Intent.FanoutManager.ReqLLMImplementation do
         {:in, ~w[no_embedded_content transform_supplied_content perform_requested_operations]},
       required: true,
       doc:
-        "Use transform_supplied_content only when the enclosing request merely explains, acknowledges, summarizes, or transforms embedded YAML, JSON, quoted, pasted, command, or list content; then children must be empty and embedded items do not add to outer_request_task_count. Use perform_requested_operations when the operator directly asks Allbert to perform numbered or listed operations. Use no_embedded_content when neither boundary applies."
+        "Decide what the operator wants back, not what the request looks like. Both boundaries can appear as numbered or bulleted lists, so the list form itself decides nothing. Use transform_supplied_content when the items are material the operator handed you and wants a statement ABOUT — summarizing, explaining, acknowledging, or reformatting it — so the reply describes the content and never carries it out; then children must be empty and embedded items do not add to outer_request_task_count. Use perform_requested_operations when the items are work the operator is directing you to carry out, so that each item asks you to analyze, research, compare, draft, or produce something and the request is only satisfied by doing them. Use no_embedded_content when neither boundary applies."
     ],
     all_advisory_or_read_only: [
       type: :boolean,

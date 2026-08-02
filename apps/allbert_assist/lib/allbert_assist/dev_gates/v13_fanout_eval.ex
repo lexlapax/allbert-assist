@@ -497,8 +497,29 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
                  Map.fetch!(context, :timeout_ms)
                )
              end)
-           ),
-         :ok <- expected_layout(composition_case, prepared),
+           ) do
+      composed_row(composition_case, snapshot, profile, prepared)
+    else
+      # No synthesis result exists here, so no attempt evidence exists either.
+      # A synthesis-internal failure still consumes a call that the agent
+      # observes and discards on its error path; recording it would require
+      # changing the production error contract.
+      {:error, {stage, reason}} ->
+        failed_composition(composition_case, stage, reason)
+
+      _unclassified ->
+        failed_composition(composition_case, "synthesis_lifecycle", "unclassified_failure")
+    end
+  end
+
+  # Once a synthesis result exists, its attempt evidence is real and survives
+  # every later rejection. A row that reached the provider and then failed
+  # validation must not report null calls: the gate would under-report actual
+  # provider usage on exactly the paths worth auditing.
+  defp composed_row(composition_case, snapshot, profile, prepared) do
+    attempted = attempted_evidence(prepared)
+
+    with :ok <- expected_layout(composition_case, prepared),
          {:ok, provenance} <- provenance(profile, prepared),
          :ok <- selected_body_valid(snapshot, prepared, provenance),
          phase_evidence <- phase_evidence(provenance),
@@ -512,11 +533,14 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
       )
     else
       {:error, {stage, reason}} ->
-        failed_composition(composition_case, stage, reason)
-
-      _unclassified ->
-        failed_composition(composition_case, "synthesis_lifecycle", "unclassified_failure")
+        failed_composition(composition_case, stage, reason, attempted)
     end
+  end
+
+  defp attempted_evidence(prepared) do
+    prepared
+    |> Map.take([:generation_call_count, :provider_call_count])
+    |> Map.filter(fn {_key, value} -> is_integer(value) end)
   end
 
   defp authorize_result(:ok), do: :ok
@@ -638,8 +662,10 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     |> Map.merge(phase_evidence)
   end
 
-  defp failed_composition(composition_case, stage, reason)
-       when stage in @failure_stages and reason in @failure_reasons do
+  defp failed_composition(composition_case, stage, reason, attempted \\ %{})
+
+  defp failed_composition(composition_case, stage, reason, attempted)
+       when stage in @failure_stages and reason in @failure_reasons and is_map(attempted) do
     %{
       id: composition_case["id"],
       domain: composition_case["domain"],
@@ -654,8 +680,8 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
       body_sha256: nil,
       provenance_sha256: nil,
       selection_sha256: nil,
-      generation_call_count: nil,
-      provider_call_count: nil
+      generation_call_count: Map.get(attempted, :generation_call_count),
+      provider_call_count: Map.get(attempted, :provider_call_count)
     }
   end
 

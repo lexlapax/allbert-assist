@@ -168,6 +168,21 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
     end
   end
 
+  defmodule MismatchedLayoutSynthesisClient do
+    alias AllbertAssist.Models.ProviderAttempt
+
+    def compose(_snapshot, _profile, context) do
+      :ok = ProviderAttempt.mark(context)
+
+      {:ok,
+       %{
+         sections: [%{relationship: "sequential", ordered_queue_positions: [0, 1]}],
+         advisory_synthesis:
+           "The observations follow one another while durable status and receipt truth remain authoritative in Allbert."
+       }}
+    end
+  end
+
   defmodule ClassifiedFailureSynthesisClient do
     def compose(_snapshot, _profile, context), do: Map.fetch!(context, :failure_result)
   end
@@ -630,6 +645,69 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
       refute Map.has_key?(result.stats, :control_status)
       refute Map.has_key?(result.stats, :control_answer_sha256)
     end
+  end
+
+  test "a row rejected after its provider call still reports that call" do
+    fixture = V13FanoutEval.load_fixture!(@fixture)
+
+    # Valid layout, wrong relationship for the fixture: the provider was called
+    # and answered, then the row failed fixture expectation.
+    result =
+      V13FanoutEval.run(fixture,
+        profile: @profile,
+        manager_profile: @profile,
+        composer_profile: @profile,
+        manager: qualified_manager(fixture, self()),
+        composer_client: MismatchedLayoutSynthesisClient,
+        composer_authorizer: fn _profile, _context -> :ok end,
+        composer_context: %{
+          timeout_ms: 10_000,
+          max_output_tokens: 1_024,
+          test_pid: self()
+        },
+        store: :disabled,
+        full_sha: @full_sha,
+        dirty: true
+      )
+
+    rejected = for %{failure_stage: "fixture_expectation"} = row <- result.rows, do: row
+    assert rejected != []
+
+    # The whole point: a row that reached the provider and was then rejected
+    # must not hide the call it consumed.
+    for row <- rejected do
+      assert row.failure_reason == "layout_mismatch"
+      assert row.provider_call_count == 1, "#{row.id} hid its provider call"
+      assert row.generation_call_count == 1, "#{row.id} hid its generation call"
+    end
+  end
+
+  test "a row that never reached the provider reports no calls" do
+    fixture = V13FanoutEval.load_fixture!(@fixture)
+
+    result =
+      V13FanoutEval.run(fixture,
+        profile: @profile,
+        manager_profile: @profile,
+        composer_profile: @profile,
+        manager: qualified_manager(fixture, self()),
+        composer_client: QualifiedSynthesisClient,
+        composer_authorizer: fn _profile, _context -> {:error, :denied} end,
+        composer_context: %{
+          timeout_ms: 10_000,
+          max_output_tokens: 1_024,
+          test_pid: self()
+        },
+        store: :disabled,
+        full_sha: @full_sha,
+        dirty: true
+      )
+
+    assert_closed_composer_failure(result, "transport_authorization", "transport_denied")
+
+    assert result.stats.composition_provider_call_count_by_row
+           |> Map.values()
+           |> Enum.uniq() == [nil]
   end
 
   test "manager/composer fixture digest binds the decoded frozen corpus" do
