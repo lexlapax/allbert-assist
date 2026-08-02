@@ -1006,3 +1006,56 @@ authority class.
   (`release-v11-1785097379.json`), pre-push
   (`prepush-2026-07-26T20_32_10Z.json`), and the uninterrupted authoritative
   release gate (`release-2026-07-26T20_48_52Z.json`).
+
+### v1.3 M9.b.6 amendment — critic removal, single-call children, and parity qualification
+
+Operator decisions 2026-08-02. This amendment supersedes the M9.b.4.3/M9.b.5.3
+phase-separated critic contract recorded above and restores the M9.b.4/M9.b.5
+generation model with an explicit call bound. ADR 0021 A24 records the matching
+authority-boundary statement. The accepted fan-out authority, delivery,
+Objectives, and execution model is unchanged.
+
+1. **The private critic layer is deleted, not disabled.** `CriticAgent` and its
+   `Assess` command, `ReqLLMCritic`, `ReviewProtocol`, `ReviewRound`,
+   `Report.SynthesisPolicy`, the Worker `ReviewRound`/`Revise` commands,
+   `QualityPolicy`, `QualityReceipt`, and the worker-quality qualification gate
+   are removed with their owner tests. The `fanout_review` closed task chain is
+   removed from the schema, its defaults, and its closed-write validation. None
+   of this shipped, so there is no migration, compatibility shape, or
+   operator-visible removal. Receipt-v1 and synthesis-contract-v1 read and
+   replay paths remain byte-exact.
+2. **One generation per owner.** A healthy DirectAnswer child executes exactly
+   one physical provider call through the registered action and terminalizes.
+   The composer executes exactly one synthesis call and otherwise stores the
+   existing deterministic complete-child renderer. Receipt arithmetic asserts
+   one call per healthy owner; the former `1/2/0/0/3` and `1/2/1/2/6` shapes are
+   retired for new writes. No path retries a ReqLLM or Jido attempt.
+3. **Verification stays deterministic.** Because no model reviews model output,
+   acceptance rests entirely on the deterministic properties this ADR already
+   owned: child status totals, ordered authoritative appendix, receipt labelling
+   and truthfulness, digests, and report bounds. No semantic regex, domain
+   oracle, or model-authored verdict enters acceptance — the constraint that
+   made the critic layer unable to help in the first place.
+4. **Budget v3.** `manager_attempts + child_count * worker_attempts_per_child + 1`
+   calls and `manager_attempts * 1024 + child_count * 3072 + 4096` output
+   tokens, reserved before durable framing, failing closed on exhaustion,
+   under the unchanged single hard plan deadline. Defaults are unchanged at 64
+   calls and 32,768 output tokens. Nonterminal v1 and v2 work still fails closed
+   without a provider call.
+5. **Same-endpoint serialization.** Child model calls that resolve to one local
+   endpoint identity are admitted one at a time within the existing plan
+   deadline. Attempt accounting is recorded before dispatch, so a deadline
+   cannot collapse dispatched work into null per-row counts. Hosted endpoints
+   keep existing concurrency. This is a policy predicate over the already
+   resolved endpoint binding: no scheduler, queue, store, or supervision change.
+6. **Adaptive admission is unchanged and still ships.** Manager planning, the
+   typed plan, the deterministic compiler, both exact counted offline protocols,
+   the `action_once` and `agent_loop` worker Adapters, durable Objectives
+   children, terminal reduction, and stored-report-before-delivery all remain as
+   accepted. Admission was never the failing component in any recorded run.
+7. **Content is qualified as parity.** Fan-out passes on orchestration
+   absolutely and on content relative to a frozen single-turn control using the
+   identical prompt and configured head. Absolute answer correctness belongs to
+   DirectAnswer task-head qualification. No fan-out topology can supply
+   knowledge the configured model lacks, which five model families demonstrated
+   without parameter count or family predicting the outcome.

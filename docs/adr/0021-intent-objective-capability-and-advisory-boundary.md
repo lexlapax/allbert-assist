@@ -1097,7 +1097,11 @@ private planning, worker, or fan-in loops.
 
 ### A23. Phase-separated private criticism verifies advisory fan-out output (v1.3 M9.b.4.3/M9.b.5.3)
 
-Status: accepted and implemented at `c3baec24`. This amendment supersedes
+Status: **superseded by A24 (v1.3 M9.b.6) and removed before release.** The
+contract below was accepted and implemented at `c3baec24`, qualified as RED, and
+its implementation deleted while still unreleased. It is retained as
+implementation history and as the record of a measured negative result; it
+describes no shipped behavior. This amendment superseded
 A22's new-write combined Worker review/revision call and combined synthesis
 self-review call. It does not invalidate historical receipt-v1 or synthesis-
 contract-v1/layout-v2 replay.
@@ -1165,6 +1169,57 @@ surface-private loop, or authority boundary is introduced. New effects still
 require exact operator-source provenance and execute only through
 `Actions.Registry`, `Actions.Runner.run/3`, Security Central, and confirmation;
 quality evidence never becomes effect evidence.
+
+### A24. Advisory fan-out output is generated once and verified deterministically (v1.3 M9.b.6)
+
+Status: accepted for v1.3 M9.b.6; implementation and focused operator evidence
+remain release barriers in `docs/plans/v1.3-plan.md`. This amendment supersedes
+A23 in full and restores A22's generation contract with an explicit call bound.
+
+The private criticism layer described in A23 is removed rather than tuned. Its
+own frozen qualification recorded a regression — Worker from `1/5` with closed
+rule evidence to `0/5`, every row ending at a deadline with null per-row attempt
+counts — because six provider calls per child against one local endpoint exceeds
+the plan deadline. The layer also lacked the one input that makes external
+criticism work: a tool-grounded oracle. Allbert's no-regex, no-domain-oracle
+constraint is deliberate and stays, so a critic can only re-ask the same model
+family about the same bytes. Published results agree on that mechanism rather
+than on parameter tuning: intrinsic self-correction without external grounded
+feedback does not reliably improve small-model factual accuracy, and added
+verification agents frequently lose to a single agent once compute is held
+constant.
+
+A DirectAnswer child therefore performs exactly one generation through the
+registered action and terminalizes. The composer performs exactly one synthesis
+call and falls back to the existing deterministic complete-child renderer. No
+model judges its own bytes, because no model judges any bytes: verification is
+deterministic and structural — status totals, ordered appendix, receipt
+labelling, digests, and bounds — exactly as A22 specified.
+
+The authority model is unchanged from A22. Model-authored child prose and
+synthesis prose remain advisory. Effect selection retains original-operator
+evidence. Every effect resolves through `Actions.Registry`, executes through
+`Actions.Runner.run/3`, and reaches Security Central and confirmations. A Jido
+worker's process, parentage, state, or output is never durable authority.
+Objectives remains the system of record; terminal reduction still precedes
+composition, and composition still precedes delivery.
+
+Two bounded additions accompany the removal. The plan budget is versioned to v3
+with geometry `manager_attempts + child_count * worker_attempts_per_child + 1`
+calls, reserved before durable framing and failing closed on exhaustion. Child
+model calls sharing one resolved local endpoint identity are admitted one at a
+time within the existing plan deadline, with attempt accounting recorded before
+dispatch so a deadline cannot collapse dispatched work into null counts. Neither
+adds a scheduler, queue, store, confirmation, or new operator setting.
+
+Qualification of answer content is re-scoped accordingly. Fan-out is qualified on
+parity against a frozen single-turn control on the identical prompt and
+configured head: decomposition must not make an answer materially worse than one
+turn by the same model. Absolute answer correctness is qualified at the
+DirectAnswer task head, where the operator may select a stronger model under
+existing pre-egress disclosure. Five model families failed the previous absolute
+rows without parameter count or family predicting success, which locates that
+property in the configured model rather than in the orchestration.
 
 ## Consequences
 
