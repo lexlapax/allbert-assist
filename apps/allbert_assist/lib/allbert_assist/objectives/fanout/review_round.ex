@@ -10,12 +10,26 @@ defmodule AllbertAssist.Objectives.Fanout.ReviewRound do
   """
 
   alias AllbertAssist.Objectives.Fanout.{CriticAgent, ReviewProtocol}
+  alias AllbertAssist.Models.ProviderAttempt
   alias AllbertAssist.Objectives.CanonicalJSON
   alias AllbertAssist.Objectives.Runs.CancelToken
 
   @poll_interval_ms 10
-  @attempt_counter_key :fanout_review_provider_attempt_counter
   @reviewer_config_aggregate_domain "allbert:fanout-reviewer-config-aggregate:v1\0"
+  @result_keys [
+    :assessment_sha256,
+    :assessments,
+    :critic_group_count,
+    :group_results,
+    :outcome,
+    :provider_call_count,
+    :review_protocol_version,
+    :reviewer_config_sha256,
+    :revision_rule_ids,
+    :rule_group_catalog_sha256,
+    :rule_group_catalog_version,
+    :source_sha256
+  ]
 
   @doc "Run one bounded two-group critic round and return content-free merged evidence."
   @spec run(ReviewProtocol.t(), map(), String.t(), map(), keyword()) ::
@@ -24,8 +38,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReviewRound do
 
   def run(%ReviewProtocol{} = protocol, sources, candidate, context, opts)
       when is_map(sources) and is_binary(candidate) and is_map(context) and is_list(opts) do
-    attempt_counter = :counters.new(1, [:write_concurrency])
-    context = Map.put(context, @attempt_counter_key, attempt_counter)
+    {context, attempt_counter} = ProviderAttempt.attach(context)
 
     result =
       with :ok <- active(context),
@@ -44,23 +57,41 @@ defmodule AllbertAssist.Objectives.Fanout.ReviewRound do
 
   @doc false
   @spec note_provider_attempt(map()) :: :ok | {:error, :invalid_review_attempt_counter}
-  def note_provider_attempt(context) when is_map(context) do
-    case Map.get(context, @attempt_counter_key) do
-      nil ->
-        :ok
-
-      counter ->
-        try do
-          :ok = :counters.add(counter, 1, 1)
-        rescue
-          _exception -> {:error, :invalid_review_attempt_counter}
-        catch
-          _kind, _reason -> {:error, :invalid_review_attempt_counter}
-        end
+  def note_provider_attempt(context) do
+    case ProviderAttempt.mark(context) do
+      :ok -> :ok
+      {:error, :invalid_provider_attempt_counter} -> {:error, :invalid_review_attempt_counter}
     end
   end
 
-  def note_provider_attempt(_context), do: {:error, :invalid_review_attempt_counter}
+  @doc "Revalidate one merged result against exact current source bytes and configuration."
+  @spec validate_result(ReviewProtocol.t(), map(), String.t(), map(), keyword()) ::
+          :ok | {:error, :invalid_review_round_result}
+  def validate_result(protocol, sources, candidate, result, opts \\ [])
+
+  def validate_result(%ReviewProtocol{} = protocol, sources, candidate, result, opts)
+      when is_map(sources) and is_binary(candidate) and is_map(result) and is_list(opts) do
+    expected_config = Keyword.get(opts, :expected_reviewer_config_sha256)
+
+    with true <- Enum.sort(Map.keys(result)) == Enum.sort(@result_keys),
+         true <- sha256?(result.reviewer_config_sha256),
+         true <- is_nil(expected_config) or result.reviewer_config_sha256 == expected_config,
+         true <- result.provider_call_count == 2,
+         {:ok, source_bindings} <- ReviewProtocol.bind_sources(sources, candidate),
+         {:ok, merged} <- ReviewProtocol.merge(protocol, result.group_results, source_bindings),
+         expected =
+           merged
+           |> Map.put(:reviewer_config_sha256, result.reviewer_config_sha256)
+           |> Map.put(:provider_call_count, 2),
+         true <- expected == result do
+      :ok
+    else
+      _invalid -> {:error, :invalid_review_round_result}
+    end
+  end
+
+  def validate_result(_protocol, _sources, _candidate, _result, _opts),
+    do: {:error, :invalid_review_round_result}
 
   defp start_critics(protocol, source_bindings, context, implementation) do
     Enum.map(ReviewProtocol.group_ids(protocol), fn group_id ->
@@ -217,7 +248,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReviewRound do
   end
 
   defp bind_attempt_count({:ok, result}, attempt_counter) do
-    case :counters.get(attempt_counter, 1) do
+    case ProviderAttempt.count(attempt_counter) do
       2 -> {:ok, Map.put(result, :provider_call_count, 2)}
       _invalid -> round_failure(:invalid_review_provider_call_count, attempt_counter)
     end
@@ -230,7 +261,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReviewRound do
     do: round_failure(:invalid_review_round_result, attempt_counter)
 
   defp round_failure(reason, attempt_counter),
-    do: {:error, {:review_round_failed, reason, :counters.get(attempt_counter, 1)}}
+    do: {:error, {:review_round_failed, reason, ProviderAttempt.count(attempt_counter)}}
 
   defp order_results(protocol, results) do
     by_group = Map.new(results, &{&1.group_id, &1})
@@ -250,4 +281,13 @@ defmodule AllbertAssist.Objectives.Fanout.ReviewRound do
     |> :crypto.hash(value)
     |> Base.encode16(case: :lower)
   end
+
+  defp sha256?(value) when is_binary(value) and byte_size(value) == 64 do
+    case Base.decode16(value, case: :lower) do
+      {:ok, bytes} -> byte_size(bytes) == 32
+      :error -> false
+    end
+  end
+
+  defp sha256?(_value), do: false
 end

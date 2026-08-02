@@ -7,6 +7,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
     permission: :read_only,
     exposure: :agent,
     execution_mode: :read_only,
+    retry_safety: :unsafe,
     skill_backed?: true,
     confirmation: :not_required,
     name: "direct_answer",
@@ -33,6 +34,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   alias AllbertAssist.Memory.ActiveMemory
   alias AllbertAssist.Models.Failure
   alias AllbertAssist.Models.FallbackAudit
+  alias AllbertAssist.Models.ProviderAttempt
   alias AllbertAssist.Resources.{ImageBounds, ImageMetadata}
   alias AllbertAssist.Runtime.FanoutDiagnostics
   alias AllbertAssist.Runtime.Redactor
@@ -131,7 +133,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
     do: model_answer_result(response, resolution, active_memory)
 
   defp resolve_text_model_result(
-         {:fanout_worker_provider_result, {:ok, response}},
+         {:fanout_worker_provider_result, {:ok, response}, provider_call_count},
          _text,
          _context,
          active_memory,
@@ -139,11 +141,12 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
        ) do
     response
     |> model_answer_result(resolution, active_memory)
-    |> put_fanout_worker_count(1)
+    |> put_fanout_worker_count(provider_call_count)
   end
 
   defp resolve_text_model_result(
-         {:fanout_worker_provider_result, {:error, {:transport_denied, reason}}},
+         {:fanout_worker_provider_result, {:error, {:transport_denied, reason}},
+          provider_call_count},
          _text,
          _context,
          _active_memory,
@@ -151,11 +154,11 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
        ) do
     {:disclosure_required, reason}
     |> fallback()
-    |> put_fanout_worker_count(1)
+    |> put_fanout_worker_count(provider_call_count)
   end
 
   defp resolve_text_model_result(
-         {:fanout_worker_provider_result, {:error, reason}},
+         {:fanout_worker_provider_result, {:error, reason}, provider_call_count},
          _text,
          _context,
          _active_memory,
@@ -163,7 +166,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
        ) do
     {:model_unavailable, reason}
     |> fallback()
-    |> put_fanout_worker_count(1)
+    |> put_fanout_worker_count(provider_call_count)
   end
 
   defp resolve_text_model_result(
@@ -366,7 +369,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
     end
   end
 
-  defp put_fanout_worker_count(answer, count) when count in [0, 1] do
+  defp put_fanout_worker_count(answer, count) when is_integer(count) and count >= 0 do
     put_answer_attrs(answer, %{
       fanout_worker: %{version: 1, provider_call_count: count}
     })
@@ -382,18 +385,20 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
 
   defp call_answerer(text, context, active_memory, resolution) do
     with :ok <- Disclosure.authorize_transport(resolution.profile, context) do
-      result =
-        answerer().answer(
-          text,
-          Map.merge(context, %{
-            model_profile: resolution.profile,
-            active_memory: active_memory.chunks
-          })
-        )
+      answerer_context =
+        Map.merge(context, %{
+          model_profile: resolution.profile,
+          active_memory: active_memory.chunks
+        })
 
-      if fanout_worker_context?(context),
-        do: {:fanout_worker_provider_result, result},
-        else: result
+      if fanout_worker_context?(context) do
+        {answerer_context, attempt_counter} = ProviderAttempt.attach(answerer_context)
+        result = answerer().answer(text, answerer_context)
+
+        {:fanout_worker_provider_result, result, ProviderAttempt.count(attempt_counter)}
+      else
+        answerer().answer(text, answerer_context)
+      end
     else
       {:error, reason} -> {:error, {:transport_denied, reason}}
     end

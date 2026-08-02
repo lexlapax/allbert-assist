@@ -11,6 +11,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
   alias AllbertAssist.Actions.Intent.DirectAnswer.Policy
   alias AllbertAssist.Maps
   alias AllbertAssist.Models.Failure
+  alias AllbertAssist.Models.ProviderAttempt
   alias AllbertAssist.Models.PromptEnvelope
   alias AllbertAssist.Runtime.SafeTerm
   alias AllbertAssist.Settings.ModelRuntime
@@ -55,6 +56,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
          {:ok, model_spec} <-
            ModelRuntime.model_spec(%{provider_type: provider_type, model: model}),
          {:ok, prompt_input} <- prompt_input(text, context),
+         :ok <- ProviderAttempt.mark(context),
          {:ok, response} <-
            req_llm_client().generate_text(
              model_spec,

@@ -82,7 +82,10 @@ defmodule AllbertAssist.Actions.RegistryTest do
     :ok
   end
 
-  test "retry safety is safe only for reviewed idempotent modes and unknown otherwise" do
+  test "retry safety honors explicit unsafe declarations before reviewed mode defaults" do
+    assert {:ok, unsafe} = Registry.capability("direct_answer")
+    assert unsafe.retry_safety == :unsafe
+
     assert {:ok, safe} = Registry.capability("list_settings")
     assert safe.retry_safety == :safe
 
@@ -1132,7 +1135,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
   test "retry-safety inventory is generated from the shipped capability catalog" do
     inventory = Enum.frequencies_by(Registry.capabilities(), & &1.retry_safety)
 
-    assert Map.keys(inventory) |> Enum.sort() == [:safe, :unknown]
+    assert Map.keys(inventory) |> Enum.sort() == [:safe, :unknown, :unsafe]
+    assert inventory.unsafe >= 1
     assert Enum.sum(Map.values(inventory)) == length(Registry.modules())
 
     IO.puts(

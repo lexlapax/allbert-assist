@@ -237,6 +237,44 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
              "candidate" => sha256("The candidate answer."),
              "task_contract" => sha256("Answer the bounded task.")
            }
+
+    sources = %{"task_contract" => "Answer the bounded task."}
+
+    assert :ok =
+             ReviewRound.validate_result(
+               protocol,
+               sources,
+               "The candidate answer.",
+               result,
+               expected_reviewer_config_sha256: expected_reviewer_config_sha256
+             )
+
+    mutated_results = [
+      put_in(result, [:source_sha256, "candidate"], String.duplicate("0", 64)),
+      put_in(result, [:assessments, Access.at(0), "status"], "violated"),
+      Map.put(result, :revision_rule_ids, ["answer_current_request"]),
+      Map.put(result, :reviewer_config_sha256, String.duplicate("f", 64))
+    ]
+
+    assert {:error, :invalid_review_round_result} =
+             ReviewRound.validate_result(
+               protocol,
+               sources,
+               "Changed candidate bytes.",
+               result,
+               expected_reviewer_config_sha256: expected_reviewer_config_sha256
+             )
+
+    Enum.each(mutated_results, fn mutated ->
+      assert {:error, :invalid_review_round_result} =
+               ReviewRound.validate_result(
+                 protocol,
+                 sources,
+                 "The candidate answer.",
+                 mutated,
+                 expected_reviewer_config_sha256: expected_reviewer_config_sha256
+               )
+    end)
   end
 
   test "a protocol compiles only when two nonempty groups exactly cover the rule catalog" do

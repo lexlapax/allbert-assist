@@ -13,7 +13,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReqLLMCritic do
   alias AllbertAssist.Maps
   alias AllbertAssist.Models.PromptEnvelope
   alias AllbertAssist.Objectives.CanonicalJSON
-  alias AllbertAssist.Objectives.Fanout.{ReviewProtocol, ReviewRound}
+  alias AllbertAssist.Models.ProviderAttempt
+  alias AllbertAssist.Objectives.Fanout.ReviewProtocol
   alias AllbertAssist.Settings.{ModelRuntime, Models}
   alias ReqLLM.Response
 
@@ -310,7 +311,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReqLLMCritic do
   end
 
   defp invoke(client, model_spec, prompt, schema, opts, context) do
-    with :ok <- ReviewRound.note_provider_attempt(context) do
+    with :ok <- ProviderAttempt.mark(context) do
       case client.generate_object(model_spec, prompt, schema, opts) do
         {:ok, response} -> {:ok, response}
         _failure -> {:error, :fanout_review_provider_failed}

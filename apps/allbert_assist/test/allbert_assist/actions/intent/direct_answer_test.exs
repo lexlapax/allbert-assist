@@ -8,7 +8,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
   alias AllbertAssist.Intent.{FanoutManager, FanoutPlan}
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Projection
-  alias AllbertAssist.Models.FallbackAudit
+  alias AllbertAssist.Models.{FallbackAudit, ProviderAttempt}
   alias AllbertAssist.Paths
   alias AllbertAssist.Resources.ImageMetadata
   alias AllbertAssist.Settings
@@ -33,7 +33,8 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
   end
 
   defmodule ScriptedAnswerer do
-    def answer(_text, %{model_profile: profile}) do
+    def answer(_text, %{model_profile: profile} = context) do
+      :ok = ProviderAttempt.mark(context)
       send(self(), {:provider_called, profile.name})
 
       case Process.get({__MODULE__, profile.name}, {:error, :timeout}) do
