@@ -8,7 +8,11 @@ defmodule AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy do
   authority, so neither a Jido agent nor a GenServer is appropriate.
   """
 
+  alias AllbertAssist.Objectives.CanonicalJSON
+
   @version 1
+  @rule_group_catalog_version 1
+  @rule_group_catalog_digest_domain "allbert:fanout-synthesis-rule-groups:v1\0"
   @rules [
     %{
       id: "complete_child_coverage",
@@ -54,8 +58,50 @@ defmodule AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy do
     }
   ]
 
+  @rule_groups [
+    %{
+      "id" => "coverage_relationship",
+      "rule_ids" => [
+        "complete_child_coverage",
+        "parent_join_request_coverage",
+        "relationship_support"
+      ]
+    },
+    %{
+      "id" => "integrity_authority",
+      "rule_ids" => [
+        "internal_consistency",
+        "uncertainty_marking",
+        "no_effect_or_authority_claims",
+        "one_paragraph_presentation"
+      ]
+    }
+  ]
+
   @spec version() :: 1
   def version, do: @version
+
+  @doc "Return the current synthesis rule-group catalog version."
+  @spec rule_group_catalog_version() :: 1
+  def rule_group_catalog_version, do: @rule_group_catalog_version
+
+  @doc "Return one supported ordered synthesis rule-group catalog."
+  @spec rule_groups(term()) ::
+          {:ok, [map()]} | {:error, :unsupported_rule_group_catalog_version}
+  def rule_groups(@rule_group_catalog_version), do: {:ok, @rule_groups}
+  def rule_groups(_version), do: {:error, :unsupported_rule_group_catalog_version}
+
+  @doc "Return the canonical SHA-256 binding for one supported rule-group catalog."
+  @spec rule_group_catalog_sha256(term()) ::
+          {:ok, String.t()} | {:error, :unsupported_rule_group_catalog_version}
+  def rule_group_catalog_sha256(version) do
+    with {:ok, groups} <- rule_groups(version) do
+      {:ok,
+       @rule_group_catalog_digest_domain
+       |> Kernel.<>(CanonicalJSON.encode(groups))
+       |> sha256()}
+    end
+  end
 
   def rules, do: @rules
 
@@ -67,4 +113,10 @@ defmodule AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy do
 
   @spec prompt_rule_ids() :: [atom()]
   def prompt_rule_ids, do: Enum.map(@rules, & &1.prompt_id)
+
+  defp sha256(value) do
+    value
+    |> then(&:crypto.hash(:sha256, &1))
+    |> Base.encode16(case: :lower)
+  end
 end
