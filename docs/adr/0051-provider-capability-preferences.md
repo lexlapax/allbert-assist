@@ -18,6 +18,14 @@ an open list followed implicitly by the global primary. The shipped head is
 `llama3.2:3b`. This amendment is additive and task-specific; other task and
 capability resolver behavior is unchanged.
 
+v1.3 M9.b.4.3/M9.b.5.3 amendment (implemented at `c3baec24`): add distinct,
+non-empty closed task chains for `fanout_manager`, `fanout_review`, and
+`fanout_synthesis`. Their additive shipped values reuse
+`direct_answer_local`, but the roles remain independently resolved,
+disclosed, diagnosed, and operator-overridable. Selection configures a route;
+it is not model qualification, transport consent, permission, or effect
+authority.
+
 M1 closeout evidence:
 
 - `MIX_ENV=test mix test apps/allbert_assist/test/allbert_assist/settings/provider_catalog_test.exs apps/allbert_assist/test/allbert_assist/settings_test.exs`
@@ -224,6 +232,37 @@ Only an **empty** DirectAnswer list uses the legacy primary fallback. This
 distinguishes explicit operator policy from the compatibility state without a
 second settings namespace.
 
+The three phase-separated fan-out roles are also complete, closed task chains:
+
+```elixir
+%{
+  "fanout_manager" => ["direct_answer_local"],
+  "fanout_review" => ["direct_answer_local"],
+  "fanout_synthesis" => ["direct_answer_local"]
+}
+```
+
+For these roles an empty list is invalid, and the resolver never appends the
+global primary. `fanout_manager` is consumed only by conversational planning;
+`fanout_review` is consumed only by the separate Worker/composer critics;
+`fanout_synthesis` is consumed only by initial/revised report composition.
+DirectAnswer child generation and its one possible revision continue through
+the registered `direct_answer` task route rather than borrowing either critic
+or synthesis selection. Reusing the same initial profile in all four chains is
+an additive compatibility default, not permission to treat the purposes as one
+role or evidence that a model has passed the frozen fan-out qualification.
+
+Resolution checks declared capability and enabled provider state. Runtime then
+performs callability preflight and exact effective-transport Disclosure before
+durable fan-out framing; provider invocation retains the request-specific
+configuration binding. The read-only model doctor reports each complete chain,
+the exact resolved profile, callability, and the exact unavailable role. It
+never auto-pulls a model, rewrites a preference, or initiates a per-turn
+prompt. A
+hosted profile remains an explicit operator choice and requires the existing
+bounded exact-route disclosure; one shared route may carry several role usages
+under one acknowledgement.
+
 The shipped DirectAnswer defaults are:
 
 ```elixir
@@ -270,6 +309,9 @@ tail, enables the selected provider, audits both writes, and leaves the global
 primary unchanged. The raw `intent.direct_answer_model_profile` alias remains
 for compatibility and retains its historical single-value behavior
 (`list = [value]`); operator chooser surfaces use the purpose-specific action.
+There are no legacy single-value aliases for the three fan-out role chains;
+they are written through their canonical Settings Central keys so role intent
+cannot be lost in alias projection.
 
 The `model_preferences.*` and `voice.*` namespaces declare `schema_version: 1`
 per ADR 0046. Existing callers can continue to read those keys during

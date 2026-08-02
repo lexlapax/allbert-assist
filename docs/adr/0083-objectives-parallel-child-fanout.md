@@ -39,7 +39,10 @@ manager/admission facts to the existing conversation action-log diagnostics;
 it creates no new authority or observability subsystem. M9.b.4.2/M9.b.5.2 now
 accept the bounded semantic-quality and advisory-synthesis refinements in the
 amendment below; their executable evidence remains tracked by the active v1.3
-plan rather than inferred from the earlier commits.
+plan rather than inferred from the earlier commits. M9.b.4.3/M9.b.5.3 commit
+`c3baec24` supersedes the combined Worker review/revision and synthesis self-
+review new-write paths with the phase-separated protocol recorded below.
+Historical durable carriers keep only their explicit replay compatibility.
 
 ## Context
 
@@ -339,6 +342,8 @@ model:
    the existing registered-action/effect-receipt path without review. The
    existing two-call reservation is unchanged and never refunded; ordinary
    DirectAnswer failover is unchanged.
+   This M9.b.4.2 combined review/revise topology is implementation history and
+   is superseded for new work by the M9.b.4.3/M9.b.5.3 amendment below.
    A verified steering directive replaces the compiled child objective but not
    its historical acceptance text. The derived contract therefore uses one
    fixed task-neutral Allbert completion instruction and binds hashes of the
@@ -420,6 +425,9 @@ model:
    `Fanout.Report.SynthesisPolicy` module is the single immutable catalog for
    the versioned ordered rules consumed by provider schema/prompt, local
    validation, and selection provenance.
+   This M9.b.5.2 combined synthesis/self-review topology is implementation
+   history and is superseded for new work by the M9.b.4.3/M9.b.5.3 amendment
+   below.
 
    Worker QualityPolicy and SynthesisPolicy share the pure
    `AllbertAssist.Models.ClosedRuleEvidence` transport/normalization boundary.
@@ -647,6 +655,110 @@ re-subscribes to SignalBus then reconciles only its bounded owned attachment
 set, and notification recovery reconciles its durable completion outbox. A
 failed publication or SignalBus-only restart can delay the wake-up but cannot
 strand, duplicate, or consume the pending report.
+
+### v1.3 M9.b.4.3/M9.b.5.3 amendment — phase-separated critics and verified generation
+
+This amendment is accepted and implemented at `c3baec24`. It supersedes the
+M9.b.4.2 Worker `review_and_revise` call and the M9.b.5.2 combined synthesis/
+self-review call for all new work. It preserves their task/rule meanings,
+durable Objective/report authority, layout-v2 rendering, historical replay,
+and deterministic fallback contracts.
+
+1. **Generation, criticism, revision, and verification are separate phases.**
+   A DirectAnswer Worker first produces one immutable draft through the
+   registered `direct_answer` action. Exactly two non-empty policy-owned groups
+   form a disjoint exact cover of the fourteen ordered `QualityPolicy` rules.
+   Two transient private Jido Critic Agents, each hosted in its own owner-linked
+   and monitored Task, separately assess those groups. Allbert validates and
+   merges their closed results in catalog order. An all-satisfied first round
+   accepts the unchanged draft. If a complete first round instead contains
+   violated/unresolved rules, the registered DirectAnswer path may revise once
+   from those deterministic rule ids, after which a fresh pair of Critic Agents
+   verifies the exact revised bytes. A critic
+   never generates or revises an answer, and no first-round critic verifies a
+   revision it caused.
+2. **The composer uses the same protocol under its existing durable owner.**
+   `ReportComposer` remains the only durable queue/claim/recovery/selection/
+   delivery owner. Its private Synthesis Agent generates relationship sections
+   and one bounded advisory paragraph through `fanout_synthesis`. Exactly two
+   policy-owned groups cover all seven ordered `SynthesisPolicy` rules and are
+   assessed by separate `fanout_review` critics. A complete first round with
+   violated/unresolved evidence permits one separate `fanout_synthesis`
+   revision and a fresh critic pair.
+   Allbert still validates the exact completed-child partition, relationship
+   enum/cardinality, child/receipt/status truth, appendix, byte allocation,
+   framing, and surface bytes. Partial or unresolved review selects the
+   existing truthful deterministic fallback rather than unverified prose.
+3. **Assessment transport is closed and source-bound.** Each critic sees only
+   its assigned rules, the exact candidate, and closed source handles bound to
+   whole-source digests. It returns only `satisfied | violated | unresolved`
+   per owned rule and a non-empty subset of allowed handles. Missing,
+   duplicate, extra, wrong-group, foreign-handle, malformed, or unresolved
+   evidence fails closed. The pure review compiler owns group catalogs and
+   aggregate verdicts; model output owns neither. Raw task/candidate text,
+   handle assignments, critic prose, and provider errors remain outside
+   receipts, selections, metrics, traces, and persisted diagnostics.
+4. **Calls and budgets match the physical topology.** Accepted unchanged
+   Worker and composer paths each record `1/2/0/0/3`; accepted revised paths
+   each record `1/2/1/2/6`. Budget v2 reserves
+   `manager_attempts + child_count * 6 + 6` provider calls and
+   `manager_attempts * 1024 + child_count * 3072 + 4096` output tokens before
+   framing. The existing Settings limits now default to 64 calls and 32,768
+   tokens; explicit operator values and allowed ranges remain authoritative.
+   The plan retains one 300,000 ms hard deadline and no refund or hidden
+   semantic-retry ledger.
+5. **One counted call means one physical attempt.** ReqLLM 1.18.0 honors
+   caller `max_retries: 0`; every fan-out-owned manager, DirectAnswer draft/
+   revision, critic, and synthesis generation/revision request and enclosing
+   Jido command sets that limit. Structured fan-out requests also disable JSON
+   repair. The DirectAnswer worker marks automatic retry unsafe after dispatch.
+   Timeout, cancellation, owner death, or the first infrastructure failure
+   brutally stops remaining critic siblings. Restart never replays a call
+   whose dispatch is uncertain.
+6. **Roles are independently selected and disclosed.** Manager planning
+   resolves only the closed `model_preferences.tasks.fanout_manager` chain.
+   DirectAnswer draft/revision remains the registered `direct_answer` route.
+   Every critic resolves `model_preferences.tasks.fanout_review`; synthesis
+   generation/revision resolves `model_preferences.tasks.fanout_synthesis`.
+   Runtime, not the manager, rechecks all downstream role callability from one
+   Settings snapshot before durable framing and crosses Disclosure for each
+   exact effective transport. Missing readiness returns the same ordinary
+   single answer with a closed role-specific reason, no auto-pull, no repeated
+   per-turn confirmation, and no fan-out rows.
+7. **Configuration and protocol provenance are exact but non-authoritative.**
+   Domain-separated role digests bind selected profile/provider/model,
+   configured and effective endpoint identity, hashed secret-reference
+   identity, profile contract, response schema, sampling/output/timeout/retry
+   controls, and the exact phase/catalog fields. Manager repair binds an
+   ordered set of per-attempt digests. Raw URLs, credentials, prompts, source
+   contents, and provider output are excluded. These digests make drift and
+   endpoint changes detectable; they do not grant egress, permission, semantic
+   truth, or effect authority.
+8. **New durable evidence is additive and replay-safe.** Worker writes use
+   quality-receipt v2 with review-protocol and group-catalog versions, exact
+   frozen group-catalog digest, reviewer-configuration and assessment digests,
+   candidate/answer binding, and exact phase/provider counts. Model report
+   selections use synthesis-contract v2 with parallel phase evidence. Replay
+   recomputes catalog digests, exact keys, phase arithmetic, candidate/source
+   bindings, and selection/body/event digests. Receipt-v1 and synthesis-
+   contract-v1 rows remain byte-exact historical replay only and cannot
+   authorize new phase-separated success.
+9. **Upgrade and recovery fail closed without new calls.** Nonterminal Budget-
+   v1 DirectAnswer children transition idempotently to failed/unresolved with
+   `quality_protocol_upgrade_required`; Budget-v1 joined/composing parents use
+   the complete-child deterministic fallback with
+   `review_protocol_upgrade_required`. Both make zero provider calls, mint no
+   replacement receipt, and tolerate repeated compare-and-set recovery without
+   duplicate events, reports, or delivery. An operator retry creates a new
+   Budget-v2 plan rather than rebinding history.
+10. **No authority or durable subsystem is added.** Critic Agents are private
+    ephemeral Jido FSMs, not Objectives, registered actions, services, queues,
+    or permissions. The protocol adds no table, store, event family, surface-
+    private loop, or action exposure. Objectives/Lifecycle and ReportComposer
+    retain durable state; Registry/Runner, Security Central, confirmations,
+    exact operator-source provenance, and effect receipts retain execution and
+    effect authority. Critic and synthesis evidence remains advisory quality
+    evidence only.
 
 ### M12.15 amendment — atomic terminal reduction and durable report work
 

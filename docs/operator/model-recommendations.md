@@ -41,7 +41,7 @@ was unavailable, so no candidate had the required cross-platform promotion
 evidence. The result supports a task-specific Qwen recommendation, not a silent
 default or hardware-floor change.
 
-## v1.3 DirectAnswer Qualification
+## v1.3 DirectAnswer And Fan-Out Qualification
 
 The global `local` profile and curated first model still use
 `llama3.2:3b`. DirectAnswer now has a separate qualified local profile:
@@ -50,12 +50,43 @@ The global `local` profile and curated first model still use
 |---|---|---|---|
 | `direct_answer_local` | `qwen2.5:7b` | temperature `0`, maximum `1024` output tokens, 60-second timeout | Useful, deterministic text DirectAnswer responses, including supplied-text extraction and acknowledgment. Vision continues to resolve its `vision_input` profile. |
 
-The default task list is
+The default DirectAnswer task list is
 `model_preferences.tasks.direct_answer = ["direct_answer_local"]`. A non-empty
 list is the complete chain in operator-authored order; Allbert does not append
-or reorder the global primary. An empty list retains the compatibility fallback
-to primary. An explicitly selected hosted head still receives the hosted-egress
-disclosure; an unrelated hosted key is not a fallback candidate.
+or reorder the global primary. An empty DirectAnswer list retains the
+compatibility fallback to primary. An explicitly selected hosted head still
+receives the hosted-egress disclosure; an unrelated hosted key is not a
+fallback candidate.
+
+Fan-out has three separate closed task chains, each defaulting to
+`["direct_answer_local"]`:
+
+| Task setting | Role |
+|---|---|
+| `model_preferences.tasks.fanout_manager` | Decide whether an advisory request should split and produce the typed child plan. |
+| `model_preferences.tasks.fanout_review` | Run the two policy-owned critics for each Worker or synthesis review round. |
+| `model_preferences.tasks.fanout_synthesis` | Generate and, at most once, revise the joined advisory paragraph and relationship layout. |
+
+Child draft/revision calls continue to resolve `model_preferences.tasks.direct_answer`.
+The roles may share one profile without becoming one authority or one call. The
+runtime resolves them independently from one Settings snapshot before durable
+fan-out framing. If a required fan-out role is missing, disabled, not pulled,
+or otherwise unavailable, the turn remains an ordinary single answer; Allbert
+does not auto-pull or repeatedly prompt.
+
+The pre-phase-separation configured-provider ladder remains RED evidence, not a
+recommendation for larger hardware:
+
+| Frozen candidate | Manager | Composer | Worker | Disposition |
+|---|---:|---:|---:|---|
+| `mistral-small3.1:24b-instruct-2503-q4_K_M` | 2/2 | 3/7 | 1/5 | Best prior full-path result, still below the frozen bar; no promotion. |
+| `qwen3.6:35b-a3b-q8_0` | 0/2 | not evaluated | 0/5 | Typed admission and reviewer invocation failed; no promotion. |
+
+Those rows exercised the superseded combined review topology. They do not
+qualify the current phase-separated implementation, change any model default,
+or raise the global 8 GB starter or task-role floor. Current fan-out acceptance
+still requires a fresh configured-provider matrix and attended operator
+validation.
 
 The official Ollama catalog lists `qwen2.5:7b` as a 4.7 GB model, and the
 [official Qwen 2.5 7B Instruct model card](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct)
@@ -66,7 +97,16 @@ page](https://ollama.com/library/qwen2.5).
 
 Status values: `ok` · `missing` (no profile set) · `under-capable` (model too
 small/wrong capability) · `not-pulled` (local model not downloaded) ·
-`remote-egress-warning` (a hosted profile is configured).
+`unavailable` (disabled provider, unreachable/invalid endpoint, unavailable
+credential, or unknown availability) · `remote-egress-warning` (a hosted
+profile is configured).
+
+The recommendation doctor renders each closed task row with its exact `chain`,
+resolved profile, `unavailable-role`, and `auto-pull=false`. The exact-profile
+doctor reports only `endpoint_kind`, `credential_ok`, `endpoint_ok`,
+`model_available`, `redacted_host`, and closed diagnostics. For example,
+`invalid_provider_base_url`, `provider_host_denied`, and `endpoint_unreachable`
+identify the repair class without printing a credential or full endpoint URL.
 
 ## Recommendation matrix
 
@@ -78,6 +118,9 @@ small/wrong capability) · `not-pulled` (local model not downloaded) ·
 | Descriptor generation (v0.56) | reuse `router_local` | — keep local in v0.56 | json_schema generation | local-only, redacted | reuses `intent.router_model_profile` | heuristic generator |
 | Intent eval **live** bench (v0.56) | reuse `router_local` | — | same as disambiguation | local | reuses `intent.router_model_profile` | deterministic gate is model-free |
 | DirectAnswer | `direct_answer_local` (`qwen2.5:7b`) | explicitly selected hosted task profile | text generation, 7B; deterministic temperature | local by default; hosted head requires disclosure | `model_preferences.tasks.direct_answer` / `intent.direct_answer_model_profile` | honest unavailable response + explicit select/pull repair; no implicit global-primary append |
+| Fan-out manager | `direct_answer_local` (`qwen2.5:7b`) | explicitly selected hosted task profile | structured text generation, 7B | local by default; hosted route requires disclosure | `model_preferences.tasks.fanout_manager` | ordinary single answer before durable framing |
+| Fan-out review | `direct_answer_local` (`qwen2.5:7b`) | explicitly selected hosted task profile | structured text generation, 7B | local by default; hosted route requires disclosure | `model_preferences.tasks.fanout_review` | unresolved child/report; never unchecked success |
+| Fan-out synthesis | `direct_answer_local` (`qwen2.5:7b`) | explicitly selected hosted task profile | structured text generation, 7B | local by default; hosted route requires disclosure | `model_preferences.tasks.fanout_synthesis` | truthful deterministic complete-child report |
 | Main conversational loop | `:capable` / `:thinking` (object), `:fast` (text/stream) | per provider | text + structured output | operator choice | `jido_ai` aliases (config) + Settings Central model profiles | graceful decline |
 | Voice STT / TTS | per `docs/operator/voice-and-provider-preferences.md` | OpenAI / Gemini (audited) | audio in/out | per provider | `voice.*` | voice doctor reports gap |
 | Vision / image generation | per provider catalog (v0.49) | image provider (audited) | image generation | per provider | image profile | provider doctor reports gap |
@@ -111,11 +154,12 @@ allbert admin intent doctor # confirm embedder + router model report ok
 ```
 
 Prefer the web Models panel for the confirmation-gated Qwen pull. Verify the
-two independent local profiles explicitly:
+two independent local profiles and the purpose routes explicitly:
 
 ```sh
 allbert admin models doctor local
 allbert admin models doctor direct_answer_local
+allbert admin settings model-doctor
 ```
 
 `allbert admin models use PROFILE` is the broad switch and intentionally sets

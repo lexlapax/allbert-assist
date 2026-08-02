@@ -12,15 +12,16 @@ changelog entries or release notes.
 
 ## v1.3.0 - Long-Term Memory And Search Central
 
-Status: **release candidate remediation in progress.** The Memory/Search source
-implementation and portability remediation are complete. Adaptive fan-out
-M9.b.4 and M9.b.5 code, focused automated qualification, and the independent
-code audit are complete at `b7ea776d`. Real-provider focused `FOV-*`
-qualification, fresh full source validation (`SV-*`), final cumulative rejoin,
-one same-SHA three-target artifact generation, packaged operator validation,
-protected publication, and tap closeout remain release barriers. This entry
-must not be read as a shipped-version claim until those barriers pass and the
-final tag, digests, and release identity are filled.
+Status: **implemented, not operator- or release-accepted.** The Memory/Search
+source implementation and portability remediation are complete. Adaptive
+fan-out M9.b.4.3/M9.b.5.3 phase separation is executable at `c3baec24`; its
+focused/static checks and independent audit are green. No aggregate, package,
+or operator-validation run is claimed for that checkpoint. Fresh real-provider
+focused `FOV-*` qualification, full source validation (`SV-*`), final cumulative
+rejoin, one same-SHA three-target artifact generation, packaged operator
+validation, protected publication, and tap closeout remain release barriers.
+This entry must not be read as a shipped-version claim until those barriers
+pass and the final tag, digests, and release identity are filled.
 
 **Formula state: PRE-PUBLICATION ONLY.** The packaged Latest 1.2.6 remains in
 the repository formula during candidate qualification. At publish, the tap is
@@ -47,21 +48,36 @@ shipped 1.3.0 formula claim.
 - Adaptive fan-out now uses one qualified conversational manager and a
   deterministic, source-bound plan compiler instead of punctuation/list-shape
   admission. Exact counted protocols converge on the same durable plan;
-  ordinary actions and bounded one-turn DirectAnswer Jido workers share one
-  Worker Interface, and confirmation resume packets are durably bound before
-  approval or recovery. The final child freezes one durable, digest-bound report
-  input and queues central composition. The model may return only a versioned,
-  content-free relationship grouping/order; a deterministic renderer owns the
-  report language, preserves every terminal child, and distinguishes advisory
-  observations from authoritative effect receipts. The selected model or
-  fallback body and its provenance are stored before delivery becomes pending,
-  while TUI bus-restart recovery re-subscribes and reconciles that durable state.
+  ordinary actions and bounded DirectAnswer Jido workers share one Worker
+  Interface, and confirmation resume packets are durably bound before approval
+  or recovery. Closed Settings routes separate `fanout_manager`,
+  `fanout_review`, and `fanout_synthesis` while child draft/revision remains on
+  `direct_answer`; unavailable role readiness keeps the turn on ordinary
+  single-answer handling before durable framing. Worker and composer each use
+  a phase-separated three-call acceptance or six-call revision path: one
+  generation, two disjoint private Jido critics, at most one revision, and two
+  fresh critics. The final child freezes one durable, digest-bound report input
+  and queues central composition. The verified model may supply only the joined
+  advisory paragraph and versioned relationship grouping/order; deterministic
+  rendering still owns status, identity, ordering, effect-receipt truth,
+  appendix, byte bounds, and fallback. Content-free phase/configuration digests
+  and exact call arithmetic bind the stored selection before delivery becomes
+  pending, while TUI bus-restart recovery re-subscribes and reconciles that
+  durable state without replaying an uncertain provider call.
 - DirectAnswer now uses its own qualified local task profile
   (`direct_answer_local` / external Ollama `qwen2.5:7b`) while the global
   `local` starter remains `llama3.2:3b`. The purpose-owned, operator-ordered
   chain never gains the global primary implicitly; selection, readiness,
   confirmation-gated pull repair, deterministic request controls, and
-  supplied-text semantic rules are shared across surfaces.
+  supplied-text semantic rules are shared across surfaces. Model Doctor now
+  reports each closed fan-out role, its exact unavailable role, and redacted
+  endpoint diagnostics without auto-pulling or exposing credentials/full URLs.
+- The v1.3 dependency refresh moves `ymlr` from vulnerable 5.1.5 to fixed 5.1.6
+  while Settings remains on map-only encoding, and moves ReqLLM to 1.18.0 so
+  fan-out's `max_retries: 0` reaches the transport retry step. Fan-out-owned
+  manager, generation/revision, critic, and synthesis requests bind exact
+  per-phase provider-attempt counts; a retryable failure regression proves one
+  counted call is one physical provider attempt.
 - Hosted ordinary-text DirectAnswer transport is gated by one exact configured
   route-set disclosure (primary plus at most one callable fallback). TUI
   renders it before attachment, Web refreshes it in-session, CLI renders before

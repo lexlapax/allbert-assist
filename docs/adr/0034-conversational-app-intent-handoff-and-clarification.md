@@ -35,6 +35,13 @@ orchestration contract at that earlier stage. DirectAnswer policy cannot repair
 a turn that Stage 0 has already converted into child objectives; the two
 decisions remain separate and purpose-local.
 
+Fourth v1.3 amendment (M9.b.4.3/M9.b.5.3, implemented at `c3baec24`):
+phase-separated fan-out gives planning, DirectAnswer generation/revision,
+criticism, and synthesis distinct Settings-owned task roles and exact
+secret-free request-configuration provenance. Model-role selection and model
+output remain advisory; Runtime readiness, effective-transport disclosure,
+Registry/Runner, and Security Central retain their existing authority.
+
 ## Context
 
 After v0.31, the safe routing behavior is visible in the operator UI: a neutral
@@ -120,6 +127,32 @@ recognition and app-owned action execution.
     governed by ADR 0083. Its supplied-text rule preserves one enclosing
     operator task before Intent/DirectAnswer selection; this ADR does not add a
     second decomposition rule or make DirectAnswer policy a fan-out authority.
+15. Fan-out model roles are purpose-local and do not collapse into one implicit
+    conversation-model authority. The conversational manager resolves only
+    `model_preferences.tasks.fanout_manager` for its initial assessment and
+    optional malformed/inconsistent-output repair. Child draft and optional
+    revision remain calls to the registered `direct_answer` action. Separate
+    rule critics resolve `model_preferences.tasks.fanout_review`; initial and
+    revised report prose resolve `model_preferences.tasks.fanout_synthesis`.
+    After a manager proposes a structurally valid plan and before Objectives
+    framing, Runtime rechecks DirectAnswer, review, and synthesis callability
+    from one Settings snapshot and crosses Disclosure for each exact effective
+    transport. An unavailable role returns the ordinary single answer with a
+    closed content-free reason and creates no durable fan-out rows. Disclosure
+    reconciles the bounded exact route set, so a shared route is acknowledged
+    once rather than prompting once per role; local routes require no egress
+    acknowledgement.
+16. Each production fan-out request binds a domain-separated, secret-free
+    configuration digest covering its role, selected profile/provider/model,
+    configured and effective endpoint identity, hashed secret-reference
+    identity, profile contract, response-schema digest, deterministic sampling,
+    output/time bounds, `max_retries: 0`, structured-output controls, and the
+    applicable protocol/catalog/phase fields. Manager repair binds the ordered
+    exact attempt set rather than pretending the shorter repair request is the
+    initial request. Raw credentials, URLs, prompts, reference contents, and
+    provider output never enter durable provenance. A digest proves which
+    configuration was attempted; it does not prove semantic correctness,
+    provider success, permission, or effect.
 
 ## Consequences
 
@@ -211,6 +244,15 @@ to version 2 and renders every policy-owned stable rule id beside its exact
 instruction (`- [rule_id] instruction`). That prompt-to-schema correlation is
 descriptive, not authority: role order, user inputs, local policy ownership,
 registered-action execution, and Security Central remain unchanged.
+
+The v1.3 M9.b.4.3/M9.b.5.3 implementation at `c3baec24` keeps that canonical
+role separation while replacing combined self-review with separately invoked
+private critics. Every manager, DirectAnswer generation/revision, critic, and
+synthesis generation/revision request uses the exact effective endpoint and
+configuration binding described above and disables hidden framework retry;
+structured fan-out requests also disable JSON repair. Critic source handles
+remain inert reference data; only Allbert's local catalog, digest, phase, and
+authority validation may advance the private Jido lifecycle.
 
 ## References
 

@@ -808,6 +808,12 @@ quality and synthesis refinements below are accepted for implementation;
 executable, operator, and release evidence remains governed by
 `docs/plans/v1.3-plan.md`.
 
+The M9.b.4.2/M9.b.5.2 combined review-and-revise and synthesis-self-review
+descriptions in A22 are retained as implementation history. A23 supersedes
+them for every new Worker completion and report selection after `c3baec24`;
+their durable v1 carriers remain validation/replay inputs only where A23 says
+so.
+
 Adaptive parallel work deepens the existing Intent → Objective → Action spine;
 it does not create a fourth durable layer. On the clean DirectAnswer route, the
 qualified conversation model may return either the ordinary answer or a typed,
@@ -1088,6 +1094,77 @@ are private Allbert implementations at the existing Intent/Objectives seams.
 Their tested Interfaces may inform a later extraction only after a second real
 Adapter exists. TUI, Web, DMs, plugins, and public protocols do not implement
 private planning, worker, or fan-in loops.
+
+### A23. Phase-separated private criticism verifies advisory fan-out output (v1.3 M9.b.4.3/M9.b.5.3)
+
+Status: accepted and implemented at `c3baec24`. This amendment supersedes
+A22's new-write combined Worker review/revision call and combined synthesis
+self-review call. It does not invalidate historical receipt-v1 or synthesis-
+contract-v1/layout-v2 replay.
+
+Worker and composer quality now use one shared, private, phase-separated
+review protocol. An Allbert-owned policy catalog partitions every current rule
+into exactly two non-empty, disjoint groups whose union is the complete ordered
+catalog. Two separate owner-linked, monitored Tasks each host one transient
+private Jido Critic Agent and one provider invocation for its assigned group.
+The critics assess only closed `satisfied | violated | unresolved` properties
+and bound source handles; they cannot generate or revise the candidate, inspect
+their sibling's result, select an action, or author the aggregate verdict.
+Allbert validates source and candidate digests, group/rule ownership, exact
+coverage, and the frozen group-catalog digest, then merges results in catalog
+order rather than completion order.
+
+For a DirectAnswer child, the registered `direct_answer` action generates one
+immutable draft. If both first-round critic groups are satisfied, that exact
+draft is accepted without ceremonial rewriting. If a complete first round
+instead contains violated/unresolved rules, the registered DirectAnswer path
+may revise once from only that deterministic rule set, and a fresh pair of
+critics verifies the exact revised bytes. The phase counts are exactly
+`1/2/0/0/3` for draft, first critics, no
+revision, no final critics, and total provider calls; or `1/2/1/2/6` after
+revision. Any missing, duplicate, malformed, foreign, timed-out, violated, or
+unresolved final evidence leaves the child honestly unresolved.
+
+The composer follows the same topology without becoming a second durable
+owner. `ReportComposer` retains queue, claim, compare-and-set recovery,
+selection, persistence, and delivery ownership. The `fanout_synthesis` route
+generates relationship sections plus the bounded advisory paragraph; two
+`fanout_review` critics assess the frozen synthesis groups. A failed first
+round with complete violated/unresolved evidence permits one separate
+`fanout_synthesis` revision followed by a fresh critic pair. Its accepted
+selection has the same exact three-call or six-call
+phase arithmetic. Deterministic code still owns child status/order, effect and
+quality receipt truth, the exact completed-child partition, appendix, byte
+bounds, report framing, selection, and every surface projection.
+
+New Worker receipts are version 2. They retain the existing task/rule and
+answer bindings and add review-protocol/group-catalog versions and exact
+catalog digest, exact phase counts, initial/final/accepted assessment digests,
+reviewer-configuration digest, and total provider-call count. New model report
+selections use synthesis contract version 2 with the parallel content-free
+phase evidence. Validators recompute the frozen catalog digest and phase
+arithmetic rather than accepting a well-shaped arbitrary digest. Historical
+receipt-v1 and synthesis-contract-v1 selections remain byte-exact replay only
+and cannot authorize a new phase-separated completion or selection.
+
+Every fan-out-owned Jido command and ReqLLM request sets `max_retries: 0`;
+ReqLLM 1.18.0 honors that caller limit, so one recorded provider call is one
+physical attempt. Generation, criticism, revision, and verification share one
+hard plan deadline. Cancellation, timeout, owner death, or the first
+infrastructure failure brutally stops remaining critic siblings. An uncertain
+interrupted dispatch is never replayed merely because the process restarted.
+Budget-v1 nonterminal Worker work fails closed as
+`quality_protocol_upgrade_required`, and Budget-v1 composition selects the
+existing deterministic fallback as `review_protocol_upgrade_required`, both
+with zero new provider calls and idempotent compare-and-set recovery.
+
+These agents and receipts remain advisory evidence inside the existing three
+durable layers. A critic is not an Objective, registered capability action,
+permission, confirmation, store, queue, or service. No new table, event family,
+surface-private loop, or authority boundary is introduced. New effects still
+require exact operator-source provenance and execute only through
+`Actions.Registry`, `Actions.Runner.run/3`, Security Central, and confirmation;
+quality evidence never becomes effect evidence.
 
 ## Consequences
 

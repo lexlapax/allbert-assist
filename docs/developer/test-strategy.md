@@ -959,31 +959,44 @@ synthetic-corpus correctness, abstention, interaction, and token counts plus the
 configured profile—never prompts, retrieved claim bodies, or answers.
 `bench-v13-fanout --profile NAME` is an opt-in real-provider development gate,
 not an aggregate/precommit/CI step. It evaluates the exact FOV-3/FOV-4 manager
-requests, then composes fixed synthetic child observations and evaluates the
-production worker reviewer/reviser over a separate frozen task-neutral draft
-matrix. It appends two phase rows under the same gate. The manager/composer row
-records only result kinds, counts, closed join/layout enums, ordered coverage
-positions, profile provenance, and the canonical manager-fixture SHA-256. The
-worker-quality row records only corpus/profile provenance, its canonical
-fixture SHA-256, verdict and closed-rule aggregates, `required_change_rows`,
-`required_change_rows_changed`, `optional_change_rows_changed`, and the closed
-boolean `required_changes_closed`, plus both logical protocol-call count and
-actual configured-provider reviewer-
-invocation count. Its frozen draft represents logical call 1 but makes no live
-request; the one reviewer invocation is the only configured-provider call in
-that phase. One monotonic per-row deadline bounds preparation plus invocation;
-invocation receives only the remaining time, and a preparation timeout records
-one logical call and zero reviewer invocations. Both decoded fixtures have
-pinned canonical digests and are schema/digest-validated before disposable Home
-creation or migration. A focused public-orchestrator owner test proves both
-phase rows, combined failure propagation, and default/explicit worker-fixture
-routing without a real provider. Neither row records prompts, drafts, answers,
-observations, answer digests, model objects, or rendered report text. Owner
-tests and attended `FOV-*` prove the complete two-call Worker lifecycle and remain operator
-acceptance; this self-reviewed protocol prefilter alone is not semantic proof of
-a factual repair. Dirty source rehearsals diagnose these harnesses; only clean
-exact-artifact rows close packaged release
-evidence where the active plan requires it.
+requests through `fanout_manager`, then sends seven fixed synthetic reviewed
+snapshots through the production phase-separated composer. Initial/revised
+generation resolves `fanout_synthesis`; both two-critic rounds resolve
+`fanout_review`. A first-pass accepted synthesis is exactly three physical
+provider attempts (generation plus two critics); a revised acceptance is
+exactly six (generation, two critics, revision, two fresh critics).
+
+The same public gate evaluates the production Worker state machine over a
+separate frozen five-row task-neutral draft matrix. The frozen draft represents
+logical call 1 without making a live request. Each first review makes two live
+critic invocations; a revision-required row then makes one live registered
+DirectAnswer revision and two fresh critic invocations. The row therefore
+records the production protocol's exact three-call or six-call geometry while
+also recording the actual configured-provider critic and revision invocation
+counts (two or five live calls in this draft-supplied harness). One monotonic
+per-row deadline bounds preparation and every phase; no framework retry,
+fallback, or JSON-repair call is hidden under a counted attempt.
+
+The gate appends separate `manager-and-composer` and `worker-quality` rows. The
+first records only result kinds/counts, closed join/layout and review enums,
+ordered coverage positions, phase call arithmetic, content-free configuration
+digests, profile provenance, and its canonical fixture SHA-256. The second
+records only corpus/profile provenance, its canonical fixture SHA-256, typed
+verdict/failure aggregates, closed rule-group and assessment evidence, exact
+phase call arithmetic, and content-free configuration/receipt digests. Both
+decoded fixtures are schema/digest-validated before disposable Home creation or
+migration. Focused public-orchestrator owner tests prove both rows, combined
+failure propagation, and default/explicit fixture routing without a real
+provider. Neither row records prompts, drafts, answers, observations, source
+handles, model objects, or rendered report text.
+
+Owner tests prove the 3/6 Worker and composer protocols mechanically; a fresh
+configured-provider matrix and attended `FOV-*` remain semantic/operator
+acceptance. Dirty source rehearsals diagnose the harnesses; only clean
+exact-artifact rows close packaged release evidence where the active plan
+requires it. At executable checkpoint `c3baec24`, focused/static checks and the
+independent audit are green; no aggregate, package, or operator-validation run
+has been claimed for that checkpoint.
 
 ### v1.0.2 M8 Final Measurement — 2026-07-17
 

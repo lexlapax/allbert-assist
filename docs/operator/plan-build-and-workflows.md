@@ -98,6 +98,17 @@ ambiguous, effectful, mixed, or explicitly unsplit work remains one turn. A
 manager failure preserves its useful same-call answer and creates no partial
 Objective tree.
 
+Fan-out resolves three closed, independently operator-configurable model task
+chains before durable framing. `fanout_manager` decides whether and how to
+split; `fanout_review` supplies the policy-bound critics for Worker and report
+review; `fanout_synthesis` generates and, when required, revises the joined
+advisory paragraph and relationship layout. Child drafting and revision remain
+on the existing `direct_answer` route. All four routes default to
+`direct_answer_local`, but sharing a profile does not merge their roles. An
+unavailable fan-out role leaves the request on the ordinary single-answer path;
+Allbert neither creates a partial Objective tree nor auto-pulls a model or asks
+again on every turn.
+
 Two exact operator protocols remain a model-independent force path:
 `Do N things: ... . Work on them in parallel and report back.` and
 `Do these N tasks in parallel: ...; ...`. Their declared count must match a
@@ -109,14 +120,26 @@ DirectAnswer-only; they cannot turn generated prose into an effect.
 
 Child execution begins only after the kickoff receipt has been delivered or
 durably recorded. The children then run concurrently within Settings Central's
-global and per-fan-out bounds. The final child freezes one ordered durable
-snapshot and queues central report composition; it does not ask a child or the
-current surface to write the report. A qualified composer can select only a
-versioned relationship grouping and order. All report wording is rendered
-deterministically from the frozen statuses, observations, and effect receipts,
-then the chosen model result or deterministic fallback is stored before delivery
-becomes pending. A crash or restart therefore resumes composition or delivery
-from durable state instead of inventing another fan-in result.
+global and per-fan-out bounds. A DirectAnswer Worker makes one immutable draft,
+then two separate private Jido critics assess disjoint policy-owned rule groups.
+An all-satisfied first round accepts the unchanged draft in exactly three
+provider attempts: one draft plus two critics. Otherwise one separate revision
+is followed by two fresh critics, for exactly six attempts. A remaining
+violation, unresolved assessment, timeout, or malformed group fails the child
+honestly unresolved; no model revises and verifies the same bytes in one call.
+
+The final child freezes one ordered durable snapshot and queues central report
+composition; it does not ask a child or the current surface to write the
+report. The composer uses the same three-attempt/six-attempt shape: one initial
+synthesis plus two critics, with at most one revision and two fresh critics.
+The verified model result may supply only the advisory paragraph and a
+versioned relationship grouping/order. Allbert's deterministic renderer still
+owns child identity, status, ordering, effect-receipt truth, the authoritative
+appendix, byte bounds, and the truthful complete-child fallback. The selected
+model result or fallback and its provenance are stored before delivery becomes
+pending. A crash or restart therefore resumes composition or delivery from
+durable state instead of replaying an uncertain provider call or inventing
+another fan-in result.
 
 The stored report lists every child as completed, failed, abandoned, or
 cancelled—partial success is never presented as total success. A mix of terminal
@@ -161,10 +184,13 @@ Relevant Settings Central keys and shipped defaults:
 | `objectives.fanout.max_concurrent_runs_global` | `6` | Runtime-wide running-child bound. |
 | `objectives.fanout.max_children_per_fanout` | `8` | Decomposition ceiling (allowed 2–16). |
 | `objectives.fanout.confirm_before_start` | `false` | Require an explicit start confirmation in addition to kickoff delivery. |
-| `objectives.fanout.max_model_calls_per_plan` | `40` | Structural ceiling for fan-out-owned manager, DirectAnswer-worker, and composer calls (allowed 1–256); child action selection is deterministic/model-off. |
-| `objectives.fanout.max_output_tokens_per_plan` | `24000` | Structural output-token ceiling for those fan-out-owned calls (allowed 1,024–1,000,000). |
+| `objectives.fanout.max_model_calls_per_plan` | `64` | Structural ceiling for up to two manager attempts, six calls per DirectAnswer child, and six composer calls (allowed 1–256); the default maximum eight-child plan reserves 56. Child action selection is deterministic/model-off. |
+| `objectives.fanout.max_output_tokens_per_plan` | `32768` | Structural output-token ceiling for those fan-out-owned calls (allowed 1,024–1,000,000); the default maximum eight-child/two-manager plan reserves 30,720. |
 | `objectives.fanout.max_elapsed_ms_per_plan` | `300000` | Frozen plan window in milliseconds (allowed 1,000–3,600,000). It is a dispatch boundary for ordinary actions and a hard execution bound for the read-only Jido worker. |
 | `objectives.fanout.max_worker_attempts_per_child` | `2` | Frozen child-attempt ceiling consumed by Coordinator recovery (allowed 1–4). |
+| `model_preferences.tasks.fanout_manager` | `["direct_answer_local"]` | Closed planning route; unavailable readiness keeps the turn out of durable fan-out. |
+| `model_preferences.tasks.fanout_review` | `["direct_answer_local"]` | Closed route for both Worker and synthesis critic rounds. |
+| `model_preferences.tasks.fanout_synthesis` | `["direct_answer_local"]` | Closed route for initial and, at most, one revised joined synthesis. |
 
 These knobs change scheduling, resource limits, or friction, not action
 authority. Registered actions retain their own provider-use budgets; the

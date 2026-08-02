@@ -12,6 +12,12 @@ purpose. Its shipped local recommendation is `direct_answer_local` /
 `qwen2.5:7b` at deterministic temperature `0`; this does not replace the
 cross-platform `local` / `llama3.2:3b` first-model default.
 
+Amended by v1.3 M9.b.4.3/M9.b.5.3 (implemented at `c3baec24`): the
+operator matrix and doctor add distinct `fanout_manager`, `fanout_review`, and
+`fanout_synthesis` purpose rows. These rows expose Settings-owned task-route
+selection and readiness; they do not independently choose a new default,
+qualify a model, grant hosted egress, or make a recommendation authoritative.
+
 ## Context
 
 Allbert consumes models for many distinct purposes — intent Stage-1 embedding,
@@ -47,8 +53,8 @@ Central** key/profile to set, the **verify** command, and the **fallback** when
 the model is unavailable. Purposes covered: intent embedding, intent
 disambiguation, intent escalation, descriptor generation, intent eval live lane,
 main conversational loop, DirectAnswer, voice STT/TTS, image generation,
-codegen committee, advisory critics, and a forward-looking Pi-mode coding row
-(v0.57).
+fan-out planning, fan-out rule review, fan-out synthesis/revision, codegen
+committee, advisory critics, and a forward-looking Pi-mode coding row (v0.57).
 
 ### 2. Settings Central is authority; recommendations are advice
 
@@ -71,8 +77,10 @@ Operator Action Layer pattern). The v0.58 panel also consumes the bounded
 `list_model_profiles` and `list_provider_profiles` read actions for profile inventory
 display under surface policy. For each purpose `model_doctor` returns **recommended** vs
 **configured** vs **status** — `ok | missing | under-capable | not-pulled |
-remote-egress-warning` — using the ADR 0047 doctor envelope (redacted; never prints
-secrets or raw endpoints).
+unavailable | remote-egress-warning` — using the ADR 0047 doctor envelope
+(redacted; never prints secrets or raw endpoints). Closed fan-out task rows
+also expose their ordered chain, exact resolved profile, role readiness, and
+exact unavailable role, with `auto_pull=false`.
 
 ### Current public model tags
 
@@ -93,6 +101,16 @@ metadata sources; Qwen identifies the 7B model as Apache-2.0. This task row
 does not replace `local` / `llama3.2:3b` as the first-model default, and its
 external Ollama weights are not packaged Allbert components.
 
+The three fan-out role rows use `direct_answer_local` / `qwen2.5:7b` as the
+advisory local recommendation aligned with ADR 0051's additive initial task
+chains. That alignment is not a fan-out quality verdict. The frozen configured-
+provider matrix and attended operator validation determine whether a selected
+profile qualifies for manager, critic, or composer behavior. An operator may
+configure different capable profiles per role without changing the global
+primary or DirectAnswer chain. The doctor reports configured truth and
+callability; it does not silently substitute the recommendation when a role is
+missing or unavailable.
+
 ### 4. UI/UX surfacing
 
 The recommendation read-model (purpose -> recommended/configured/status) is exposed
@@ -105,6 +123,9 @@ raw-report policy are flagged for v0.58 (see the v0.56 plan UI/UX milestone).
 ## Authority invariants
 
 - A recommendation is advice; Settings Central is the configuration authority.
+- A role-chain selection is configuration, not semantic qualification or
+  execution authority; Runtime callability and Disclosure still apply before
+  durable fan-out framing.
 - No recommendation grants capability, enables egress, or lowers a safety floor.
 - Hosted/egress profiles stay explicit operator opt-ins, audited at the boundary
   (ADR 0051/0006).
