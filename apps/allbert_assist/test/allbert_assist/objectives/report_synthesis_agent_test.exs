@@ -2,6 +2,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
   use ExUnit.Case, async: true
   @moduletag :pure_async
 
+  alias AllbertAssist.Models.ClosedRuleEvidence
   alias AllbertAssist.Objectives.Fanout.Budget
   alias AllbertAssist.Objectives.Fanout.Report
   alias AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy
@@ -381,12 +382,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
     assert review_schema["required"] == ~w[rule_violations covered_queue_positions]
     assert review_schema["additionalProperties"] == false
 
-    assert review_schema["properties"]["rule_violations"] == %{
-             "type" => "object",
-             "properties" => Map.new(SynthesisPolicy.rule_ids(), &{&1, %{"type" => "boolean"}}),
-             "required" => SynthesisPolicy.rule_ids(),
-             "additionalProperties" => false
-           }
+    assert review_schema["properties"]["rule_violations"] ==
+             ClosedRuleEvidence.schema!(SynthesisPolicy.rule_ids())
 
     assert review_schema["properties"]["covered_queue_positions"] == %{
              "type" => "array",
@@ -397,7 +394,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
     assert opts[:json_repair] == false
 
     metadata = List.last(prompt.messages).metadata.allbert_prompt
-    assert metadata.schema_version == 1
+    assert metadata.schema_version == 2
     assert metadata.purpose == :fanout_report_synthesis
     assert metadata.rule_ids == SynthesisPolicy.prompt_rule_ids()
     refute_receive {:req_llm_synthesis, _, _, _, _}

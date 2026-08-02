@@ -16,7 +16,7 @@ defmodule AllbertAssist.Models.PromptEnvelope do
   alias ReqLLM.Context
   alias ReqLLM.Message.ContentPart
 
-  @schema_version 1
+  @schema_version 2
 
   @type rule :: {atom(), String.t()}
   @type user_content :: String.t() | [ContentPart.t()]
@@ -122,7 +122,7 @@ defmodule AllbertAssist.Models.PromptEnvelope do
   defp metadata(_value), do: {:error, :invalid_prompt_metadata}
 
   defp render_system(instruction, rules) do
-    rendered_rules = Enum.map_join(rules, "\n", fn {_id, text} -> "- #{text}" end)
+    rendered_rules = Enum.map_join(rules, "\n", fn {id, text} -> "- [#{id}] #{text}" end)
     instruction <> "\n\nRules:\n" <> rendered_rules
   end
 

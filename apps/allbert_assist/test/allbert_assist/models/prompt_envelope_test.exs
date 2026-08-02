@@ -5,6 +5,35 @@ defmodule AllbertAssist.Models.PromptEnvelopeTest do
   alias AllbertAssist.Models.PromptEnvelope
   alias ReqLLM.Message.ContentPart
 
+  test "renders each stable rule id beside its instruction in declared order" do
+    assert {:ok, context} =
+             PromptEnvelope.build(
+               purpose: :rule_rendering_test,
+               instruction: "Perform the bounded advisory task.",
+               rules: [
+                 known_inputs_only: "Use only supplied inputs.",
+                 concise_answer: "Keep the answer concise."
+               ],
+               reference_context: "reference-sentinel",
+               input: "operator-sentinel"
+             )
+
+    assert [system, reference, operator] = context.messages
+
+    assert message_text(system) ==
+             "Perform the bounded advisory task.\n\nRules:\n" <>
+               "- [known_inputs_only] Use only supplied inputs.\n" <>
+               "- [concise_answer] Keep the answer concise."
+
+    refute message_text(system) =~ "reference-sentinel"
+    refute message_text(system) =~ "operator-sentinel"
+
+    for message <- [system, reference, operator] do
+      assert message.metadata.allbert_prompt.schema_version == 2
+      assert message.metadata.allbert_prompt.rule_ids == [:known_inputs_only, :concise_answer]
+    end
+  end
+
   test "keeps Allbert rules, reference data, and the final operator turn in distinct roles" do
     assert {:ok, context} =
              PromptEnvelope.build(

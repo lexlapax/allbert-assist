@@ -367,7 +367,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     assert advisory =~ "child-result-sentinel"
 
     assert List.last(prompt.messages).metadata.allbert_prompt == %{
-             schema_version: 1,
+             schema_version: 2,
              purpose: :fanout_report_synthesis,
              content_class: :advisory_data,
              rule_ids: SynthesisPolicy.prompt_rule_ids()
@@ -396,12 +396,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     assert review_schema["required"] == ~w[rule_violations covered_queue_positions]
     assert review_schema["additionalProperties"] == false
 
-    assert review_schema["properties"]["rule_violations"] == %{
-             "type" => "object",
-             "properties" => Map.new(SynthesisPolicy.rule_ids(), &{&1, %{"type" => "boolean"}}),
-             "required" => SynthesisPolicy.rule_ids(),
-             "additionalProperties" => false
-           }
+    assert review_schema["properties"]["rule_violations"] ==
+             ClosedRuleEvidence.schema!(SynthesisPolicy.rule_ids())
 
     assert review_schema["properties"]["covered_queue_positions"] == %{
              "type" => "array",
