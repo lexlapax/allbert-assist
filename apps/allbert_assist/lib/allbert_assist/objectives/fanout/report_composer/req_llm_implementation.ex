@@ -1,13 +1,15 @@
 defmodule AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation do
   @moduledoc """
-  One-request ReqLLM adapter for grounded advisory fan-out report generation
-  and its optional separate revision.
+  One-request ReqLLM adapter for grounded advisory fan-out report generation.
 
   It owns no Objective state, report selection, delivery, action, or fan-out
-  authority or review verdict. The caller supplies one frozen domain snapshot,
-  exact locally validated candidate bytes for revision, typed failed-rule ids,
+  authority or review verdict. The caller supplies one frozen domain snapshot
   and exact call bounds after durable claim, budget, model-selection, and
   disclosure checks.
+
+  v1.3 M9.b.6 removed the separate revision request with the critic topology:
+  composition makes exactly one physical provider call, and the deterministic
+  complete-child renderer is the only fallback.
   """
 
   alias AllbertAssist.Maps
@@ -43,7 +45,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation do
       object_schema = schema()
 
       with {:ok, configuration_sha256} <-
-             configuration_digest(profile, object_schema, opts, :generation, []),
+             configuration_digest(profile, object_schema, opts),
            {:ok, response} <-
              invoke_provider(
                req_llm_client(context),
@@ -61,69 +63,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation do
 
   def compose_with_provenance(_snapshot, _profile, _context),
     do: {:error, :invalid_composition_request}
-
-  @doc "Revise one exact locally validated candidate from closed critic-rule feedback."
-  @spec revise(map(), String.t(), [String.t()], map(), map()) ::
-          {:ok, map()} | {:error, term()}
-  def revise(snapshot, candidate, revision_rule_ids, profile, context)
-      when is_map(snapshot) and is_binary(candidate) and is_list(revision_rule_ids) and
-             is_map(profile) and is_map(context) do
-    case revise_with_provenance(snapshot, candidate, revision_rule_ids, profile, context) do
-      {:ok, %{candidate: revised}} -> {:ok, revised}
-      {:error, _reason} = error -> error
-    end
-  end
-
-  def revise(_snapshot, _candidate, _revision_rule_ids, _profile, _context),
-    do: {:error, :invalid_revision_request}
-
-  @doc false
-  @spec revise_with_provenance(map(), String.t(), [String.t()], map(), map()) ::
-          {:ok, %{candidate: map(), configuration_sha256: String.t()}} | {:error, term()}
-  def revise_with_provenance(snapshot, candidate, revision_rule_ids, profile, context)
-      when is_map(snapshot) and is_binary(candidate) and is_list(revision_rule_ids) and
-             is_map(profile) and is_map(context) do
-    with {:ok, model_spec} <- resolve_provider(profile, context),
-         {:ok, source_projection} <- Report.composition_input(snapshot),
-         source_contract <- CanonicalJSON.encode(source_projection),
-         :ok <- validate_canonical_candidate(candidate),
-         {:ok, revision_rules} <- revision_rules(revision_rule_ids),
-         {:ok, prompt} <-
-           revision_prompt(source_contract, candidate, revision_rule_ids, revision_rules) do
-      opts = request_opts(profile, context)
-      object_schema = schema()
-
-      with {:ok, configuration_sha256} <-
-             configuration_digest(
-               profile,
-               object_schema,
-               opts,
-               :revision,
-               revision_rule_ids
-             ),
-           {:ok, response} <-
-             invoke_provider(
-               req_llm_client(context),
-               model_spec,
-               prompt,
-               object_schema,
-               opts,
-               context
-             ),
-           {:ok, revised} <- validate_response(response) do
-        {:ok, %{candidate: revised, configuration_sha256: configuration_sha256}}
-      end
-    end
-  end
-
-  def revise_with_provenance(
-        _snapshot,
-        _candidate,
-        _revision_rule_ids,
-        _profile,
-        _context
-      ),
-      do: {:error, :invalid_revision_request}
 
   defp resolve_provider(profile, context) do
     with :ok <- ensure_req_llm(context),
@@ -181,51 +120,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation do
   end
 
   def prompt(_snapshot), do: {:error, :invalid_composition_snapshot}
-
-  defp revision_prompt(source_contract, candidate, revision_rule_ids, revision_rules) do
-    PromptEnvelope.build(
-      purpose: :fanout_report_synthesis_revision,
-      instruction:
-        "Revise the supplied candidate once to address exactly the declared failed rule ids. " <>
-          "Return a replacement candidate only; do not assess it or claim that review passed. " <>
-          "Allbert retains all status, receipt, authority, ordering, review, and rendering truth.",
-      rules: revision_rules,
-      input:
-        CanonicalJSON.encode(%{
-          "task_contract" => source_contract,
-          "candidate" => candidate,
-          "revision_rule_ids" => revision_rule_ids
-        }),
-      input_class: :advisory_data
-    )
-  end
-
-  defp revision_rules(rule_ids) do
-    rules_by_id = Map.new(SynthesisPolicy.rules(), &{&1.id, &1})
-
-    with true <- rule_ids != [] and length(rule_ids) == MapSet.size(MapSet.new(rule_ids)),
-         true <- Enum.all?(rule_ids, &Map.has_key?(rules_by_id, &1)),
-         expected <- Enum.filter(SynthesisPolicy.rule_ids(), &(&1 in rule_ids)),
-         true <- expected == rule_ids do
-      {:ok,
-       Enum.map(rule_ids, fn rule_id ->
-         rule = Map.fetch!(rules_by_id, rule_id)
-         {rule.prompt_id, rule.instruction}
-       end)}
-    else
-      _invalid -> {:error, :invalid_revision_rule_ids}
-    end
-  end
-
-  defp validate_canonical_candidate(candidate) do
-    with {:ok, decoded} when is_map(decoded) <- Jason.decode(candidate),
-         true <- exact_keys?(decoded, ~w[sections advisory_synthesis]),
-         true <- CanonicalJSON.encode(decoded) == candidate do
-      :ok
-    else
-      _invalid -> {:error, :invalid_revision_candidate}
-    end
-  end
 
   defp schema do
     %{
@@ -317,7 +211,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation do
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
   end
 
-  defp configuration_digest(profile, object_schema, opts, phase, revision_rule_ids) do
+  defp configuration_digest(profile, object_schema, opts) do
     transport = %{
       base_url: Keyword.get(opts, :base_url),
       response_schema_sha256: sha256(CanonicalJSON.encode(object_schema)),
@@ -331,20 +225,9 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation do
     }
 
     extras = %{
-      phase: phase,
+      phase: :generation,
       policy_version: SynthesisPolicy.version()
     }
-
-    extras =
-      if revision_rule_ids == [] do
-        extras
-      else
-        Map.put(
-          extras,
-          :revision_rule_ids_sha256,
-          sha256(CanonicalJSON.encode(revision_rule_ids))
-        )
-      end
 
     RoleProfileConfiguration.digest(:fanout_synthesis, profile, transport, extras)
   end

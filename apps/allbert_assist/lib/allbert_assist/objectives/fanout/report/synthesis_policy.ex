@@ -8,7 +8,6 @@ defmodule AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy do
   authority, so neither a Jido agent nor a GenServer is appropriate.
   """
 
-
   @version 1
   @rules [
     %{
@@ -55,10 +54,8 @@ defmodule AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy do
     }
   ]
 
-
   @spec version() :: 1
   def version, do: @version
-
 
   def rules, do: @rules
 

@@ -112,7 +112,6 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
 
   def validate_current(_receipt, _binding), do: {:error, :invalid_quality_receipt}
 
-
   @doc "Validate and digest one exact receipt."
   @spec digest(map()) :: {:ok, String.t()} | {:error, :invalid_quality_receipt}
   def digest(receipt) when is_map(receipt) do

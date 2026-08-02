@@ -35,20 +35,25 @@ defmodule AllbertAssist.Objectives.Runs.Worker.JidoAdapter do
          {:ok, quality} <- quality_context(context),
          {:ok, bounds} <- bounded_timeout(opts, context, quality) do
       context = put_model_limits(context, bounds, quality)
-      endpoint_id = EndpointAdmission.endpoint_id(Map.get(context, :fanout_role_binding))
+      worker = Task.async(fn -> admitted_execute(params, context, quality, bounds) end)
 
-      worker =
-        Task.async(fn ->
-          EndpointAdmission.with_endpoint(endpoint_id, bounds.deadline_monotonic_ms, fn ->
-            execute(params, context, quality)
-          end)
-        end)
       emit_start(worker.pid, context)
       await(worker, bounds.deadline_monotonic_ms)
     end
   end
 
   def run(_action_module, _params, _context, _opts), do: {:error, :unsupported_jido_action}
+
+  # Children sharing one local endpoint contend for the same weights; admission
+  # runs them one at a time inside the same plan deadline.
+  defp admitted_execute(params, context, quality, bounds) do
+    context
+    |> Map.get(:fanout_role_binding)
+    |> EndpointAdmission.endpoint_id()
+    |> EndpointAdmission.with_endpoint(bounds.deadline_monotonic_ms, fn ->
+      execute(params, context, quality)
+    end)
+  end
 
   defp execute(params, context, quality) do
     state = initial_state(context, quality)

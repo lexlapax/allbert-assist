@@ -14,8 +14,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
   alias AllbertAssist.Objectives.Objective
   alias ReqLLM.Response
 
-  @reviewer_config_aggregate_domain "allbert:fanout-reviewer-config-aggregate:v1\0"
-
   defmodule AcceptedModel do
     alias AllbertAssist.Models.ProviderAttempt
 
@@ -30,37 +28,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
          ],
          "advisory_synthesis" =>
            "Failure isolation limits the process blast radius while durable replay restores the state needed after restart."
-       }}
-    end
-  end
-
-  defmodule RevisionModel do
-    alias AllbertAssist.Models.ProviderAttempt
-
-    def compose(snapshot, _profile, context) do
-      :ok = ProviderAttempt.mark(context)
-      send(context.test_pid, {:initial_synthesis_provider_call, snapshot})
-
-      {:ok,
-       %{
-         "sections" => [
-           %{"relationship" => "complementary", "ordered_queue_positions" => [0, 1]}
-         ],
-         "advisory_synthesis" => "The observations are related."
-       }}
-    end
-
-    def revise(snapshot, candidate, rule_ids, _profile, context) do
-      :ok = ProviderAttempt.mark(context)
-      send(context.test_pid, {:synthesis_revision_call, snapshot, candidate, rule_ids})
-
-      {:ok,
-       %{
-         "sections" => [
-           %{"relationship" => "complementary", "ordered_queue_positions" => [0, 1]}
-         ],
-         "advisory_synthesis" =>
-           "OTP supervision contains live-process failures while replay restores durable state, so together they bound interruption and recovery."
        }}
     end
   end
@@ -93,41 +60,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
       send(context.test_pid, {:double_failed_generation_provider_call, snapshot})
       {:error, :provider_unavailable}
     end
-  end
-
-  defmodule DoubleRevisionAttemptModel do
-    alias AllbertAssist.Models.ProviderAttempt
-
-    def compose(snapshot, _profile, context) do
-      :ok = ProviderAttempt.mark(context)
-      send(context.test_pid, {:double_revision_initial_provider_call, snapshot})
-
-      {:ok,
-       %{
-         "sections" => [
-           %{"relationship" => "complementary", "ordered_queue_positions" => [0, 1]}
-         ],
-         "advisory_synthesis" => "The observations are related."
-       }}
-    end
-
-    def revise(snapshot, candidate, rule_ids, _profile, context) do
-      :ok = ProviderAttempt.mark(context)
-      :ok = ProviderAttempt.mark(context)
-      send(context.test_pid, {:double_revision_provider_call, snapshot, candidate, rule_ids})
-
-      {:ok,
-       %{
-         "sections" => [
-           %{"relationship" => "complementary", "ordered_queue_positions" => [0, 1]}
-         ],
-         "advisory_synthesis" =>
-           "OTP supervision contains live failures while replay restores durable state."
-       }}
-    end
-  end
-
-  defmodule MissingCritic do
   end
 
   defmodule LocallyRejectedModel do
@@ -216,29 +148,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
            ],
            "advisory_synthesis" =>
              "Failure isolation and durable replay complement each other at restart."
-         },
-         finish_reason: :stop
-       }}
-    end
-  end
-
-  defmodule CaptureRevisionReqLLM do
-    def generate_object(spec, prompt, schema, opts) do
-      send(
-        Keyword.fetch!(opts, :test_pid),
-        {:req_llm_synthesis_revision, spec, prompt, schema, opts}
-      )
-
-      {:ok,
-       %Response{
-         id: "fanout-synthesis-revision",
-         model: "fixture-model",
-         context: prompt,
-         object: %{
-           "sections" => [
-             %{"relationship" => "complementary", "ordered_queue_positions" => [0, 1]}
-           ],
-           "advisory_synthesis" => "The revised synthesis explains the supported relationship."
          },
          finish_reason: :stop
        }}
@@ -1149,7 +1058,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
     end)
   end
 
-
   defp sequence_clock(values) do
     clock = start_supervised!({Agent, fn -> values end})
 
@@ -1165,12 +1073,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
     value
     |> then(&:crypto.hash(:sha256, &1))
     |> Base.encode16(case: :lower)
-  end
-
-  defp message_text(message) do
-    message.content
-    |> Enum.filter(&(&1.type == :text))
-    |> Enum.map_join("", & &1.text)
   end
 
   defp eventually(fun, attempts \\ 50)

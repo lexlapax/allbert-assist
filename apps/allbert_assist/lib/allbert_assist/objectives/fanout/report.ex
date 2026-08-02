@@ -904,9 +904,9 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
   end
 
   defp validate_synthesis_phase_counts(1, 1), do: :ok
+
   defp validate_synthesis_phase_counts(_generation, _total),
     do: {:error, :invalid_fanout_report_provenance}
-
 
   defp normalize_fallback_provenance(provenance) do
     case provenance_field(provenance, :layout_version) do

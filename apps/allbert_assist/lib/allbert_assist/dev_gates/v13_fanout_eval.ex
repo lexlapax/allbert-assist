@@ -529,19 +529,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
       provenance_sha256: nil,
       selection_sha256: nil,
       generation_call_count: nil,
-      initial_critic_call_count: nil,
-      revision_call_count: nil,
-      final_critic_call_count: nil,
-      provider_call_count: nil,
-      critic_group_count: nil,
-      review_protocol_version: nil,
-      rule_group_catalog_version: nil,
-      rule_group_catalog_sha256: nil,
-      revision_used: nil,
-      reviewer_config_sha256: nil,
-      initial_assessment_sha256: nil,
-      final_assessment_sha256: nil,
-      accepted_assessment_sha256: nil
+      provider_call_count: nil
     }
   end
 
@@ -551,19 +539,8 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
        ) do
     required = [
       :synthesis_contract_version,
-      :review_protocol_version,
-      :critic_group_count,
-      :rule_group_catalog_version,
-      :rule_group_catalog_sha256,
-      :reviewer_config_sha256,
       :generation_call_count,
-      :initial_critic_call_count,
-      :revision_call_count,
-      :final_critic_call_count,
       :provider_call_count,
-      :initial_assessment_sha256,
-      :final_assessment_sha256,
-      :accepted_assessment_sha256,
       :review_verdict,
       :reviewed_queue_positions,
       :synthesis_sha256
@@ -589,23 +566,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     do: {:error, {"synthesis_review", "invalid_fanout_report_synthesis_review"}}
 
   defp phase_evidence(provenance) do
-    provenance
-    |> Map.take([
-      :generation_call_count,
-      :initial_critic_call_count,
-      :revision_call_count,
-      :final_critic_call_count,
-      :provider_call_count,
-      :critic_group_count,
-      :review_protocol_version,
-      :rule_group_catalog_version,
-      :rule_group_catalog_sha256,
-      :reviewer_config_sha256,
-      :initial_assessment_sha256,
-      :final_assessment_sha256,
-      :accepted_assessment_sha256
-    ])
-    |> Map.put(:revision_used, provenance.revision_call_count == 1)
+    Map.take(provenance, [:generation_call_count, :provider_call_count])
   end
 
   defp stats(profile, fixture_sha256, fov3, fov4, compositions, role_profile_bindings) do
@@ -647,24 +608,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
       composition_provenance_sha256_by_row: row_map(compositions, :provenance_sha256),
       composition_selection_sha256_by_row: row_map(compositions, :selection_sha256),
       composition_generation_call_count_by_row: row_map(compositions, :generation_call_count),
-      composition_initial_critic_call_count_by_row:
-        row_map(compositions, :initial_critic_call_count),
-      composition_revision_call_count_by_row: row_map(compositions, :revision_call_count),
-      composition_final_critic_call_count_by_row: row_map(compositions, :final_critic_call_count),
       composition_provider_call_count_by_row: row_map(compositions, :provider_call_count),
-      composition_critic_group_count_by_row: row_map(compositions, :critic_group_count),
-      composition_review_protocol_version_by_row: row_map(compositions, :review_protocol_version),
-      composition_rule_group_catalog_version_by_row:
-        row_map(compositions, :rule_group_catalog_version),
-      composition_rule_group_catalog_sha256_by_row:
-        row_map(compositions, :rule_group_catalog_sha256),
-      composition_revision_used_by_row: row_map(compositions, :revision_used),
-      composition_reviewer_config_sha256_by_row: row_map(compositions, :reviewer_config_sha256),
-      composition_initial_assessment_sha256_by_row:
-        row_map(compositions, :initial_assessment_sha256),
-      composition_final_assessment_sha256_by_row: row_map(compositions, :final_assessment_sha256),
-      composition_accepted_assessment_sha256_by_row:
-        row_map(compositions, :accepted_assessment_sha256),
       composition_valid: Enum.all?(compositions, & &1.valid?)
     }
   end
@@ -841,7 +785,6 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
       timeout_ms: Enum.min([limit(profile, :timeout_ms, 10_000), limits.max_elapsed_ms, 60_000])
     }
   end
-
 
   defp authorize_composer(profile, _context) do
     disclosure = %{actor: "local", user_id: "local", request: %{channel: :cli}}

@@ -108,32 +108,6 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     end
   end
 
-  defmodule DeterministicQualityCritic do
-    alias AllbertAssist.Objectives.Fanout.ReviewRound
-
-    def assess(request, context) do
-      :ok = ReviewRound.note_provider_attempt(context)
-      group_id = request["group"]["id"]
-
-      assessments =
-        Enum.map(request["group"]["rule_ids"], fn rule_id ->
-          %{
-            "rule_id" => rule_id,
-            "status" => "satisfied",
-            "source_handles" => ["task_contract", "candidate"]
-          }
-        end)
-
-      {:ok,
-       %{
-         assessment: %{"group_id" => group_id, "assessments" => assessments},
-         reviewer_config_sha256:
-           :crypto.hash(:sha256, "runtime-quality:" <> group_id)
-           |> Base.encode16(case: :lower)
-       }}
-    end
-  end
-
   setup do
     original = Application.get_env(:allbert_assist, Runtime)
     original_direct_answer = Application.get_env(:allbert_assist, DirectAnswer)
@@ -160,14 +134,6 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
         Decomposer.propose(text, context)
       end
-    )
-
-    Application.put_env(
-      :allbert_assist,
-      Scheduler,
-      Keyword.put(original_scheduler || [], :start_fanout_opts,
-        run_opts: [lifecycle_opts: [quality_critic: DeterministicQualityCritic]]
-      )
     )
 
     Application.put_env(:allbert_assist, DirectAnswer, answerer: DeterministicDraftAnswerer)
@@ -687,7 +653,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert budget["required_output_tokens"] == 11_264
     assert deadline > System.system_time(:millisecond)
 
-    assert {:ok, %{max_calls: 6, max_output_tokens: 1_024}} =
+    assert {:ok, %{max_calls: 1, max_output_tokens: 1_024}} =
              Budget.authorize_composer(budget, deadline, System.system_time(:millisecond))
 
     assert [%{payload: proposed_payload}] =
@@ -2039,7 +2005,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
       model_profile: "direct_answer_local",
       model_profile_sha256: String.duplicate("a", 64),
       budget_limits: %{
-        version: 2,
+        version: 3,
         max_model_calls: 64,
         max_output_tokens: 32_768,
         max_elapsed_ms: 300_000,

@@ -68,7 +68,6 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityPolicy do
                      ]
                    })
 
-
   @task_keys ~w[version source original_request child_objective expected_result completion_obligation steering rules]
   @provider_projection_keys ~w[
     version source original_request child_objective expected_result
@@ -210,7 +209,6 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityPolicy do
   end
 
   def draft_prompt(_contract), do: {:error, :invalid_quality_task_contract}
-
 
   defp valid_contract?(contract) do
     exact_keys?(contract, @task_keys) and contract["version"] == @version and

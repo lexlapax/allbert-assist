@@ -89,63 +89,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     end
   end
 
-  defmodule AcceptingPhaseCritic do
-    alias AllbertAssist.Objectives.Fanout.ReviewRound
-
-    def assess(request, context), do: phase_assessment(request, context, nil)
-
-    defp phase_assessment(request, context, violated_rule_id) do
-      :ok = ReviewRound.note_provider_attempt(context)
-      group = Map.fetch!(request, "group")
-
-      assessments =
-        Enum.map(Map.fetch!(group, "rule_ids"), fn rule_id ->
-          %{
-            "rule_id" => rule_id,
-            "status" => if(rule_id == violated_rule_id, do: "violated", else: "satisfied"),
-            "source_handles" => ["task_contract", "candidate"]
-          }
-        end)
-
-      {:ok,
-       %{
-         assessment: %{"group_id" => group["id"], "assessments" => assessments},
-         reviewer_config_sha256: sha256("accepted:#{context.fanout_review_phase}:#{group["id"]}")
-       }}
-    end
-
-    defp sha256(value),
-      do: :sha256 |> :crypto.hash(value) |> Base.encode16(case: :lower)
-  end
-
-  defmodule PersistentlyViolatingPhaseCritic do
-    alias AllbertAssist.Objectives.Fanout.ReviewRound
-
-    def assess(request, context) do
-      :ok = ReviewRound.note_provider_attempt(context)
-      group = Map.fetch!(request, "group")
-
-      assessments =
-        Enum.map(Map.fetch!(group, "rule_ids"), fn rule_id ->
-          %{
-            "rule_id" => rule_id,
-            "status" =>
-              if(rule_id == "completion_preconditions", do: "violated", else: "satisfied"),
-            "source_handles" => ["task_contract", "candidate"]
-          }
-        end)
-
-      {:ok,
-       %{
-         assessment: %{"group_id" => group["id"], "assessments" => assessments},
-         reviewer_config_sha256: sha256("violating:#{context.fanout_review_phase}:#{group["id"]}")
-       }}
-    end
-
-    defp sha256(value),
-      do: :sha256 |> :crypto.hash(value) |> Base.encode16(case: :lower)
-  end
-
   defmodule RegisteredActionLifecycleAdapter do
     def operation(:propose, state, opts),
       do: {:ok, Map.put(state, :step, Keyword.fetch!(opts, :action_step))}
@@ -1483,8 +1426,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
 
       receipt_digests =
         Map.new(children, fn child ->
-          assert {:ok, completed} =
-                   Lifecycle.run(child.id, quality_critic: AcceptingPhaseCritic)
+          assert {:ok, completed} = Lifecycle.run(child.id)
 
           assert completed.status == "completed"
           assert completed.last_observation_summary == "Phase-reviewed child answer."

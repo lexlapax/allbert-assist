@@ -55,37 +55,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     end
   end
 
-  defmodule SatisfiedCritic do
-    alias AllbertAssist.Objectives.Fanout.ReviewRound
-
-    def assess(request, context) do
-      :ok = ReviewRound.note_provider_attempt(context)
-      send(context.test_pid, {:report_synthesis_critic_call, request["group"]["id"]})
-
-      {:ok,
-       %{
-         assessment: %{
-           "group_id" => request["group"]["id"],
-           "assessments" =>
-             Enum.map(request["group"]["rules"], fn rule ->
-               %{
-                 "rule_id" => rule["id"],
-                 "status" => "satisfied",
-                 "source_handles" => ["task_contract", "candidate"]
-               }
-             end)
-         },
-         reviewer_config_sha256: sha256("composer-critic:" <> request["group"]["id"])
-       }}
-    end
-
-    defp sha256(value) do
-      value
-      |> then(&:crypto.hash(:sha256, &1))
-      |> Base.encode16(case: :lower)
-    end
-  end
-
   defmodule CaptureClient do
     def generate_object(spec, prompt, schema, opts) do
       send(Keyword.fetch!(opts, :test_pid), {:compose_call, spec, prompt, schema, opts})

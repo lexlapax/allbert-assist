@@ -61,7 +61,8 @@ defmodule AllbertAssist.Objectives.Fanout.EndpointAdmission do
     end
   end
 
-  def with_endpoint(_endpoint_id, _deadline_monotonic_ms, fun) when is_function(fun, 0), do: fun.()
+  def with_endpoint(_endpoint_id, _deadline_monotonic_ms, fun) when is_function(fun, 0),
+    do: fun.()
 
   @doc "Return the registry key used for one endpoint identity."
   @spec key(String.t()) :: {:fanout_endpoint, String.t()}

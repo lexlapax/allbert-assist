@@ -60,7 +60,9 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.Commands.Synthesize do
          {:ok, {generated, generation_configuration_sha256}} <-
            invoke_generation(workflow, call_context),
          {:ok, candidate} <- prepare_candidate(workflow.snapshot, generated) do
-      accepted(Map.put(candidate, :generation_configuration_sha256, generation_configuration_sha256))
+      accepted(
+        Map.put(candidate, :generation_configuration_sha256, generation_configuration_sha256)
+      )
     end
   end
 

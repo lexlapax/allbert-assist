@@ -1356,6 +1356,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     grounding = Grounding.resolve(child)
     assert {:ok, contract} = QualityPolicy.build(grounding)
     assert {:ok, task_digest} = QualityPolicy.digest(contract)
+
     assert {:ok, receipt} =
              QualityReceipt.build(%{
                objective_id: child.id,
