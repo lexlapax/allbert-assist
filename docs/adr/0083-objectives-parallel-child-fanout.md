@@ -429,6 +429,15 @@ model:
    and applicability, and Allbert derives ordered results, failed ids, and the
    aggregate verdict locally before Jido can advance.
 
+   Transport v2 correlates each closed schema key with the same stable rule id
+   rendered beside its policy-owned prompt instruction. Every required Boolean
+   describes the same polarity explicitly: `true` means the rule remains
+   violated in the returned final output after revision; `false` means satisfied
+   or not applicable. The Worker reviewer-configuration v2 digest also binds
+   this transport version and the exact response schema. This is an additive
+   provider-contract clarification; Jido transitions, local verdict derivation,
+   durable replay, report authority, and call bounds do not change.
+
    Layout-v2 input binds the complete bounded original request, parent-only
    join guidance, every reviewed DirectAnswer observation plus its verified
    quality-receipt digest, and every non-DirectAnswer result plus its existing

@@ -948,6 +948,16 @@ applicability; Allbert derives ordered results, failed ids, and the aggregate
 verdict locally. Provider rule judgments and prose remain advisory and cannot
 cause a state transition without those local checks.
 
+The M9.b.4.2/M9.b.5.2 transport-v2 clarification renders those same stable rule
+ids beside their policy-owned prompt instructions and gives every required
+Boolean an exact property description: `true` means the rule remains violated
+in the returned final output after any revision; `false` means satisfied or not
+applicable to that final output. The Worker reviewer-configuration v2 digest
+binds the closed-evidence transport version and exact response-schema digest in
+addition to profile/provider/model and effective bounds. New evidence therefore
+cannot silently cross prompt/schema meanings, while historical receipt/report
+replay and every local authority check remain unchanged.
+
 Layout v2 binds the original request, parent-only join guidance, each reviewed
 DirectAnswer observation/quality-receipt digest, and each non-DirectAnswer
 result/effect receipt. A historical DirectAnswer completion without the new

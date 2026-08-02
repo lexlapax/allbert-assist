@@ -202,6 +202,12 @@ order, and the resulting ReqLLM context before provider invocation
 (`08e1c5ef`). Specialized multi-turn coding and Jido.AI agent contexts remain
 separate; embeddings and image generation are not chat-message consumers.
 
+The v1.3 M9.b.4.2/M9.b.5.2 amendment advances the internal envelope metadata
+to version 2 and renders every policy-owned stable rule id beside its exact
+instruction (`- [rule_id] instruction`). That prompt-to-schema correlation is
+descriptive, not authority: role order, user inputs, local policy ownership,
+registered-action execution, and Security Central remain unchanged.
+
 ## References
 
 - Amazon Lex Intent Disambiguation:
