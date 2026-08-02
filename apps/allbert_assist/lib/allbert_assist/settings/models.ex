@@ -16,10 +16,9 @@ defmodule AllbertAssist.Settings.Models do
     "coding" => "text_generation",
     "direct_answer" => "text_generation",
     "fanout_manager" => "text_generation",
-    "fanout_review" => "text_generation",
     "fanout_synthesis" => "text_generation"
   }
-  @closed_task_chains ~w[direct_answer fanout_manager fanout_review fanout_synthesis]
+  @closed_task_chains ~w[direct_answer fanout_manager fanout_synthesis]
 
   @type resolution :: %{
           request: String.t(),
@@ -164,7 +163,7 @@ defmodule AllbertAssist.Settings.Models do
   end
 
   defp ranked_candidates(:task, task, [], _primary)
-       when task in ["fanout_manager", "fanout_review", "fanout_synthesis"],
+       when task in ["fanout_manager", "fanout_synthesis"],
        do: []
 
   defp ranked_candidates(_kind, _name, preferences, primary) do

@@ -15,7 +15,7 @@ defmodule AllbertAssist.Objectives.Fanout.RoleProfileConfiguration do
   @version 1
   @digest_domain "allbert:fanout-role-profile-configuration:v1\0"
   @attempt_set_digest_domain "allbert:fanout-role-profile-attempt-set:v1\0"
-  @roles ~w[fanout_manager fanout_review fanout_synthesis]
+  @roles ~w[fanout_manager fanout_synthesis]
   @transport_keys ~w[
     base_url response_schema_sha256 temperature max_output_tokens
     receive_timeout_ms total_timeout_ms max_retries structured_output_mode json_repair

@@ -630,7 +630,6 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     names = %{
       worker: profile_name,
       manager: fanout_profile,
-      review: fanout_profile,
       synthesis: fanout_profile
     }
 
@@ -644,28 +643,14 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
          {:ok, _} <-
            Settings.put("model_preferences.tasks.fanout_manager", [fanout_profile], context),
          {:ok, _} <-
-           Settings.put("model_preferences.tasks.fanout_review", [fanout_profile], context),
-         {:ok, _} <-
            Settings.put("model_preferences.tasks.fanout_synthesis", [fanout_profile], context),
          {:ok, _} <- Settings.put("intent.direct_answer_model_enabled", true, context),
          {:ok, %{profile: worker}} <- Models.for(:direct_answer, context),
          {:ok, %{profile: manager}} <- Models.for(:fanout_manager, context),
-         {:ok, %{profile: review}} <- Models.for(:fanout_review, context),
          {:ok, %{profile: synthesis}} <- Models.for(:fanout_synthesis, context),
          {:ok, bindings} <-
-           profile_bindings(%{
-             worker: worker,
-             manager: manager,
-             review: review,
-             synthesis: synthesis
-           }) do
-      %{
-        worker: worker,
-        manager: manager,
-        review: review,
-        synthesis: synthesis,
-        bindings: bindings
-      }
+           profile_bindings(%{worker: worker, manager: manager, synthesis: synthesis}) do
+      %{worker: worker, manager: manager, synthesis: synthesis, bindings: bindings}
     else
       {:error, reason} -> raise "unable to configure v1.3 fan-out profile: #{inspect(reason)}"
     end

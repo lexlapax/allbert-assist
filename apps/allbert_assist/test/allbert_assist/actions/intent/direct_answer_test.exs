@@ -537,7 +537,6 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
 
     put_setting!("intent.direct_answer_model_enabled", true)
     put_setting!("model_preferences.tasks.fanout_manager", ["fast"])
-    put_setting!("model_preferences.tasks.fanout_review", ["direct_answer_local"])
     put_setting!("model_preferences.tasks.fanout_synthesis", ["direct_answer_local"])
 
     assert {:ok, response} =
@@ -580,7 +579,6 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     put_setting!("intent.direct_answer_model_enabled", true)
     put_setting!("providers.openai.enabled", true)
     put_setting!("model_preferences.tasks.fanout_manager", ["fast"])
-    put_setting!("model_preferences.tasks.fanout_review", ["direct_answer_local"])
     put_setting!("model_preferences.tasks.fanout_synthesis", ["direct_answer_local"])
 
     context = %{

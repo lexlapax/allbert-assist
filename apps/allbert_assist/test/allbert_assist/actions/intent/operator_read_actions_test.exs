@@ -86,7 +86,7 @@ defmodule AllbertAssist.Actions.Intent.OperatorReadActionsTest do
 
     rows = Map.new(response.intent_doctor.model_doctor.rows, &{&1.id, &1})
 
-    for role <- ~w[fanout_manager fanout_review fanout_synthesis] do
+    for role <- ~w[fanout_manager fanout_synthesis] do
       row = Map.fetch!(rows, role)
 
       assert %{

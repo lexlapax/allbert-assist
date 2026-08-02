@@ -57,7 +57,7 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
     assert {:ok, ["direct_answer_local"]} =
              Settings.get("model_preferences.tasks.direct_answer")
 
-    for task <- ~w[fanout_manager fanout_review fanout_synthesis] do
+    for task <- ~w[fanout_manager fanout_synthesis] do
       assert {:ok, ["direct_answer_local"]} =
                Settings.get("model_preferences.tasks.#{task}")
     end
@@ -84,7 +84,7 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
     assert direct_answer.profile.model == "qwen2.5:7b"
     assert direct_answer.profile.temperature == 0.0
 
-    for task <- [:fanout_manager, :fanout_review, :fanout_synthesis] do
+    for task <- [:fanout_manager, :fanout_synthesis] do
       assert {:ok, resolution} = Models.for(task)
       assert resolution.request_kind == :task
       assert resolution.capability == "text_generation"
@@ -236,7 +236,6 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
   test "fan-out role chains are closed text-generation tasks" do
     roles = [
       {"fanout_manager", :fanout_manager, :fanout_manager_profiles_required},
-      {"fanout_review", :fanout_review, :fanout_review_profiles_required},
       {"fanout_synthesis", :fanout_synthesis, :fanout_synthesis_profiles_required}
     ]
 

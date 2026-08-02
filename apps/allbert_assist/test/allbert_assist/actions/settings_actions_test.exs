@@ -314,7 +314,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert rows["pi_mode_coding"].recommended_profile == "pi_coding_local"
     assert rows["pi_mode_coding"].settings_key == "coding.model_profile"
 
-    for role <- ~w[fanout_manager fanout_review fanout_synthesis] do
+    for role <- ~w[fanout_manager fanout_synthesis] do
       row = Map.fetch!(rows, role)
 
       assert row.role == role
@@ -354,7 +354,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              )
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.fanout_review", ["fast"], %{audit?: false})
+             Settings.put("model_preferences.tasks.fanout_synthesis", ["fast"], %{audit?: false})
 
     Req.Test.stub(__MODULE__, fn conn ->
       assert conn.method == "GET"
@@ -385,9 +385,9 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert rows["fanout_manager"].unavailable_role == nil
 
     assert %{
-             role: "fanout_review",
+             role: "fanout_synthesis",
              chain_kind: "closed_task",
-             settings_key: "model_preferences.tasks.fanout_review",
+             settings_key: "model_preferences.tasks.fanout_synthesis",
              configured_profile: "fast",
              configured_profiles: ["fast"],
              resolution_status: "unavailable",
@@ -395,19 +395,16 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              resolved_model: nil,
              resolved_provider: nil,
              role_readiness: "missing",
-             unavailable_role: "fanout_review",
+             unavailable_role: "fanout_synthesis",
              auto_pull: false,
              status: "missing",
              doctor: nil
-           } = rows["fanout_review"]
+           } = rows["fanout_synthesis"]
 
-    assert rows["fanout_review"].diagnostics == ["task role fanout_review is unavailable"]
-    assert rows["fanout_synthesis"].resolution_status == "resolved"
-    assert rows["fanout_synthesis"].resolved_profile == "direct_answer_local"
-    assert rows["fanout_synthesis"].unavailable_role == nil
+    assert rows["fanout_synthesis"].diagnostics == ["task role fanout_synthesis is unavailable"]
 
     assert response.message =~
-             "fanout_review status=missing chain=[fast] resolved=none unavailable-role=fanout_review auto-pull=false key=model_preferences.tasks.fanout_review"
+             "fanout_synthesis status=missing chain=[fast] resolved=none unavailable-role=fanout_synthesis auto-pull=false key=model_preferences.tasks.fanout_synthesis"
 
     assert response.message =~
              "fanout_manager status=ok chain=[fast,direct_answer_local] resolved=direct_answer_local(qwen2.5:7b) unavailable-role=none auto-pull=false key=model_preferences.tasks.fanout_manager"
@@ -529,7 +526,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert rows["direct_answer"].configured_model == "qwen2.5:7b"
     assert rows["direct_answer"].status == "not-pulled"
 
-    for role <- ~w[fanout_manager fanout_review fanout_synthesis] do
+    for role <- ~w[fanout_manager fanout_synthesis] do
       row = Map.fetch!(rows, role)
 
       assert row.resolution_status == "resolved"

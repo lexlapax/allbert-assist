@@ -60,7 +60,7 @@ defmodule AllbertAssist.Runtime do
   @trace_recorded "allbert.trace.recorded"
 
   @default_timeout_ms 120_000
-  @fanout_execution_roles [:direct_answer, :fanout_review, :fanout_synthesis]
+  @fanout_execution_roles [:direct_answer, :fanout_synthesis]
 
   @type request :: %{
           text: String.t(),
@@ -1175,10 +1175,6 @@ defmodule AllbertAssist.Runtime do
   defp fanout_failure_kind({kind, :direct_answer})
        when kind in [:fanout_role_unavailable, :fanout_role_transport_unavailable],
        do: :fanout_direct_answer_unavailable
-
-  defp fanout_failure_kind({kind, :fanout_review})
-       when kind in [:fanout_role_unavailable, :fanout_role_transport_unavailable],
-       do: :fanout_review_unavailable
 
   defp fanout_failure_kind({kind, :fanout_synthesis})
        when kind in [:fanout_role_unavailable, :fanout_role_transport_unavailable],

@@ -108,20 +108,6 @@ defmodule AllbertAssist.Settings.ModelRecommendations do
       probe?: true
     },
     %{
-      id: :fanout_review,
-      purpose: "Fan-out worker and report review",
-      settings_key: "model_preferences.tasks.fanout_review",
-      source: {:task, "fanout_review"},
-      task_role: :fanout_review,
-      recommended_profile: "direct_answer_local",
-      recommended_model: "qwen2.5:7b",
-      required_capabilities: ["text_generation"],
-      min_size_b: 7,
-      privacy: "local default; another closed task chain is an explicit operator choice.",
-      fallback: "Ordinary single-answer handling before durable fan-out framing.",
-      probe?: true
-    },
-    %{
       id: :fanout_synthesis,
       purpose: "Fan-out report synthesis and revision",
       settings_key: "model_preferences.tasks.fanout_synthesis",
@@ -249,7 +235,6 @@ defmodule AllbertAssist.Settings.ModelRecommendations do
     intent_eval_live_bench
     direct_answer
     fanout_manager
-    fanout_review
     fanout_synthesis
   )a
 

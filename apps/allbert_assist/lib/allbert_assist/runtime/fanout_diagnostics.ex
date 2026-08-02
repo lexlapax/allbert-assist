@@ -31,7 +31,6 @@ defmodule AllbertAssist.Runtime.FanoutDiagnostics do
     :fanout_budget_unavailable,
     :direct_answer_model_disabled,
     :fanout_direct_answer_unavailable,
-    :fanout_review_unavailable,
     :fanout_synthesis_unavailable,
     :fanout_frame_failed,
     :fanout_plan_deadline_exhausted,

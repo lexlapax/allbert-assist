@@ -16,7 +16,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
     model: "qwen2.5:7b"
   }
   @role_profile_bindings Map.new(
-                           Enum.with_index(~w[worker manager review synthesis]),
+                           Enum.with_index(~w[worker manager synthesis]),
                            fn {role, index} ->
                              {role,
                               %{
@@ -37,7 +37,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
 
     assert profiles.worker.name == "direct_answer_local"
 
-    for role <- [:manager, :review, :synthesis] do
+    for role <- [:manager, :synthesis] do
       profile = Map.fetch!(profiles, role)
       assert profile.name == "mistral_small31_24b_challenger"
       assert profile.provider == "local_ollama"
@@ -52,12 +52,12 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
     assert {:ok, ["direct_answer_local"]} =
              Settings.get("model_preferences.tasks.direct_answer")
 
-    for task <- ~w[fanout_manager fanout_review fanout_synthesis] do
+    for task <- ~w[fanout_manager fanout_synthesis] do
       assert {:ok, ["mistral_small31_24b_challenger"]} =
                Settings.get("model_preferences.tasks.#{task}")
     end
 
-    assert Map.keys(profiles.bindings) |> Enum.sort() == ~w[manager review synthesis worker]
+    assert Map.keys(profiles.bindings) |> Enum.sort() == ~w[manager synthesis worker]
 
     for {_role, binding} <- profiles.bindings do
       assert Map.keys(binding) |> Enum.sort() ==

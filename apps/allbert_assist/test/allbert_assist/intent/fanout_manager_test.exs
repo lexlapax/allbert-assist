@@ -496,12 +496,12 @@ defmodule AllbertAssist.Intent.FanoutManagerTest do
       })
 
     binding = FanoutManager.profile_binding(profile)
-    review_binding = FanoutManager.profile_binding(:fanout_review, profile)
+    synthesis_binding = FanoutManager.profile_binding(:fanout_synthesis, profile)
 
     assert binding == FanoutManager.profile_binding(Map.new(profile))
     assert binding["name"] == "local"
     assert binding["configuration_sha256"] =~ ~r/^[0-9a-f]{64}$/
-    refute binding["configuration_sha256"] == review_binding["configuration_sha256"]
+    refute binding["configuration_sha256"] == synthesis_binding["configuration_sha256"]
     refute inspect(binding) =~ "fixture-model"
     refute inspect(binding) =~ "must-never-enter-provenance"
     assert FanoutManager.profile_matches?(profile, binding)
@@ -545,10 +545,10 @@ defmodule AllbertAssist.Intent.FanoutManagerTest do
     assert {:ok, manager_digest} =
              RoleProfileConfiguration.digest(:fanout_manager, profile, transport, %{})
 
-    assert {:ok, review_digest} =
-             RoleProfileConfiguration.digest(:fanout_review, profile, transport, %{})
+    assert {:ok, synthesis_digest} =
+             RoleProfileConfiguration.digest(:fanout_synthesis, profile, transport, %{})
 
-    refute manager_digest == review_digest
+    refute manager_digest == synthesis_digest
 
     assert {:ok, projection} =
              RoleProfileConfiguration.projection(

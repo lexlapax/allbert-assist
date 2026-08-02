@@ -58,16 +58,15 @@ compatibility fallback to primary. An explicitly selected hosted head still
 receives the hosted-egress disclosure; an unrelated hosted key is not a
 fallback candidate.
 
-Fan-out has three separate closed task chains, each defaulting to
+Fan-out has two separate closed task chains, each defaulting to
 `["direct_answer_local"]`:
 
 | Task setting | Role |
 |---|---|
 | `model_preferences.tasks.fanout_manager` | Decide whether an advisory request should split and produce the typed child plan. |
-| `model_preferences.tasks.fanout_review` | Run the two policy-owned critics for each Worker or synthesis review round. |
-| `model_preferences.tasks.fanout_synthesis` | Generate and, at most once, revise the joined advisory paragraph and relationship layout. |
+| `model_preferences.tasks.fanout_synthesis` | Generate the joined advisory paragraph and relationship layout in one call. |
 
-Child draft/revision calls continue to resolve `model_preferences.tasks.direct_answer`.
+Child generation calls continue to resolve `model_preferences.tasks.direct_answer`.
 The roles may share one profile without becoming one authority or one call. The
 runtime resolves them independently from one Settings snapshot before durable
 fan-out framing. If a required fan-out role is missing, disabled, not pulled,
@@ -136,7 +135,6 @@ identify the repair class without printing a credential or full endpoint URL.
 | Intent eval **live** bench (v0.56) | reuse `router_local` | — | same as disambiguation | local | reuses `intent.router_model_profile` | deterministic gate is model-free |
 | DirectAnswer | `direct_answer_local` (`qwen2.5:7b`) | explicitly selected hosted task profile | text generation, 7B; deterministic temperature | local by default; hosted head requires disclosure | `model_preferences.tasks.direct_answer` / `intent.direct_answer_model_profile` | honest unavailable response + explicit select/pull repair; no implicit global-primary append |
 | Fan-out manager | `direct_answer_local` (`qwen2.5:7b`) | explicitly selected hosted task profile | structured text generation, 7B | local by default; hosted route requires disclosure | `model_preferences.tasks.fanout_manager` | ordinary single answer before durable framing |
-| Fan-out review | `direct_answer_local` (`qwen2.5:7b`) | explicitly selected hosted task profile | structured text generation, 7B | local by default; hosted route requires disclosure | `model_preferences.tasks.fanout_review` | unresolved child/report; never unchecked success |
 | Fan-out synthesis | `direct_answer_local` (`qwen2.5:7b`) | explicitly selected hosted task profile | structured text generation, 7B | local by default; hosted route requires disclosure | `model_preferences.tasks.fanout_synthesis` | truthful deterministic complete-child report |
 | Main conversational loop | `:capable` / `:thinking` (object), `:fast` (text/stream) | per provider | text + structured output | operator choice | `jido_ai` aliases (config) + Settings Central model profiles | graceful decline |
 | Voice STT / TTS | per `docs/operator/voice-and-provider-preferences.md` | OpenAI / Gemini (audited) | audio in/out | per provider | `voice.*` | voice doctor reports gap |

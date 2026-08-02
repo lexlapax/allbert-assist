@@ -82,7 +82,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
              Settings.put("providers.openai.enabled", true, %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.fanout_review", ["fast"], %{audit?: false})
+             Settings.put("model_preferences.tasks.fanout_synthesis", ["fast"], %{audit?: false})
 
     Req.Test.stub(__MODULE__, fn conn ->
       send(test_pid, {:unexpected_hosted_probe, conn.request_path})
@@ -90,7 +90,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
     end)
 
     assert %{
-             review: %{
+             synthesis: %{
                callable?: false,
                status: :unavailable,
                reason: :credential_unavailable,
@@ -100,7 +100,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
              }
            } =
              ModelReadiness.check(
-               %{review: {:role, :fanout_review}},
+               %{synthesis: {:role, :fanout_synthesis}},
                %{req_options: [plug: {Req.Test, __MODULE__}]}
              )
 
@@ -187,14 +187,13 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
         %{
           direct_answer: {:role, :direct_answer},
           manager: {:role, :fanout_manager},
-          review: {:role, :fanout_review},
           synthesis: {:role, :fanout_synthesis}
         },
         %{req_options: [plug: {Req.Test, __MODULE__}]}
       )
 
     assert Map.keys(readiness) |> Enum.sort() ==
-             [:direct_answer, :manager, :review, :synthesis]
+             [:direct_answer, :manager, :synthesis]
 
     for {_id, result} <- readiness do
       assert result.callable?
@@ -408,7 +407,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
 
     rows = Map.new(report.rows, &{&1.id, &1})
 
-    for id <- ~w[direct_answer fanout_manager fanout_review fanout_synthesis] do
+    for id <- ~w[direct_answer fanout_manager fanout_synthesis] do
       assert rows[id].status == "ok"
       assert rows[id].doctor.endpoint_ok == true
       assert rows[id].doctor.model_available == true
@@ -495,7 +494,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
     Req.Test.expect(__MODULE__, fn conn -> Plug.Conn.send_resp(conn, 503, "unavailable") end)
 
     assert %{
-             review: %{
+             synthesis: %{
                callable?: false,
                status: :unavailable,
                reason: :endpoint_unavailable,
@@ -504,7 +503,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
              }
            } =
              ModelReadiness.check(
-               %{review: {:role, :fanout_review}},
+               %{synthesis: {:role, :fanout_synthesis}},
                %{req_options: [plug: {Req.Test, __MODULE__}]}
              )
   end

@@ -416,7 +416,6 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
                  "tasks" => %{
                    "direct_answer" => ["fast"],
                    "fanout_manager" => ["fast"],
-                   "fanout_review" => ["fast"],
                    "fanout_synthesis" => ["fast"]
                  }
                },
@@ -426,17 +425,11 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
     assert {:ok, [route]} = Disclosure.current_model_routes()
     assert route.profile == "fast"
 
-    assert route.usages == [
-             :primary,
-             :fanout_manager,
-             :fanout_review,
-             :fanout_synthesis
-           ]
+    assert route.usages == [:primary, :fanout_manager, :fanout_synthesis]
 
     text = Disclosure.text(:cli)
     assert text =~ "configured DirectAnswer route uses fast from openai"
     assert text =~ "fan-out manager route uses fast from openai"
-    assert text =~ "fan-out review route uses fast from openai"
     assert text =~ "fan-out report synthesis route uses fast from openai"
 
     assert :ok = Disclosure.render_and_ack(:cli, fn _text -> :ok end)
@@ -454,7 +447,7 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
              )
   end
 
-  test "the bounded disclosure set admits five distinct callable routes" do
+  test "the bounded disclosure set admits four distinct callable routes" do
     assert {:ok, _settings} =
              Settings.write_user_settings(%{
                "intent" => %{"direct_answer_model_enabled" => true},
@@ -468,7 +461,6 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
                  "tasks" => %{
                    "direct_answer" => ["direct_answer_local", "fast"],
                    "fanout_manager" => ["anthropic_fast"],
-                   "fanout_review" => ["openrouter_fast"],
                    "fanout_synthesis" => ["coding"]
                  }
                },
@@ -486,12 +478,11 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
              {"direct_answer_local", :primary},
              {"fast", :fallback},
              {"anthropic_fast", :fanout_manager},
-             {"openrouter_fast", :fanout_review},
              {"coding", :fanout_synthesis}
            ]
   end
 
-  test "manager and review disclosure copy names role-specific hosted egress" do
+  test "manager and synthesis disclosure copy names role-specific hosted egress" do
     assert {:ok, _settings} =
              Settings.write_user_settings(%{
                "intent" => %{"direct_answer_model_enabled" => true},
@@ -499,8 +490,7 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
                  "tasks" => %{
                    "direct_answer" => ["direct_answer_local"],
                    "fanout_manager" => ["fast"],
-                   "fanout_review" => ["anthropic_fast"],
-                   "fanout_synthesis" => ["direct_answer_local"]
+                   "fanout_synthesis" => ["anthropic_fast"]
                  }
                },
                "providers" => %{
@@ -514,12 +504,12 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
     assert text =~ "fan-out manager route uses fast from openai"
     assert text =~ "Parent objective and planning context may leave this device for openai"
     assert text =~ "model_preferences.tasks.fanout_manager"
-    assert text =~ "fan-out review route uses anthropic_fast from anthropic"
-    assert text =~ "Child drafts and review context may leave this device for anthropic"
-    assert text =~ "model_preferences.tasks.fanout_review"
+    assert text =~ "fan-out report synthesis route uses anthropic_fast from anthropic"
+    assert text =~ "Joined child results may leave this device for anthropic"
+    assert text =~ "model_preferences.tasks.fanout_synthesis"
   end
 
-  test "manager and review task-chain writes re-pend the exact route set" do
+  test "manager and synthesis task-chain writes re-pend the exact route set" do
     assert {:ok, _settings} =
              Settings.write_user_settings(%{
                "intent" => %{"direct_answer_model_enabled" => true},
@@ -527,7 +517,6 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
                  "tasks" => %{
                    "direct_answer" => ["direct_answer_local"],
                    "fanout_manager" => ["fast"],
-                   "fanout_review" => ["direct_answer_local"],
                    "fanout_synthesis" => ["direct_answer_local"]
                  }
                },
@@ -547,13 +536,13 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
     assert :ok = Disclosure.render_and_ack(:cli, fn _text -> :ok end)
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.fanout_review", ["fast"], %{audit?: false})
+             Settings.put("model_preferences.tasks.fanout_synthesis", ["fast"], %{audit?: false})
 
     assert Disclosure.pending?(:cli)
     assert Disclosure.hosted_pending?(:cli)
   end
 
-  test "hosted manager and review routes require current exact-set admission" do
+  test "hosted manager and synthesis routes require current exact-set admission" do
     assert {:ok, _settings} =
              Settings.write_user_settings(%{
                "intent" => %{"direct_answer_model_enabled" => true},
@@ -561,8 +550,7 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
                  "tasks" => %{
                    "direct_answer" => ["direct_answer_local"],
                    "fanout_manager" => ["fast"],
-                   "fanout_review" => ["anthropic_fast"],
-                   "fanout_synthesis" => ["direct_answer_local"]
+                   "fanout_synthesis" => ["anthropic_fast"]
                  }
                },
                "providers" => %{
@@ -577,7 +565,7 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
       provider_endpoint_kind: "credentialed_remote"
     }
 
-    reviewer = %{
+    synthesizer = %{
       name: "anthropic_fast",
       provider: "anthropic",
       provider_endpoint_kind: "credentialed_remote"
@@ -589,17 +577,17 @@ defmodule AllbertAssist.FirstRun.DisclosureTest do
 
     assert :ok = Disclosure.render_and_ack(:cli, fn _text -> :ok end)
     assert :ok = Disclosure.authorize_transport(manager, %{request: %{channel: :cli}})
-    assert :ok = Disclosure.authorize_transport(reviewer, %{request: %{channel: :cli}})
+    assert :ok = Disclosure.authorize_transport(synthesizer, %{request: %{channel: :cli}})
 
     assert {:ok, _setting} =
-             Settings.put("model_preferences.tasks.fanout_review", ["direct_answer_local"], %{
+             Settings.put("model_preferences.tasks.fanout_synthesis", ["direct_answer_local"], %{
                audit?: false
              })
 
     assert {:error,
             {:hosted_route_not_current,
              %{profile: "anthropic_fast", provider: "anthropic", surface: "cli"}}} =
-             Disclosure.authorize_transport(reviewer, %{request: %{channel: :cli}})
+             Disclosure.authorize_transport(synthesizer, %{request: %{channel: :cli}})
   end
 
   test "onboarding reset preserves independent disclosure authority" do

@@ -253,7 +253,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     assert {:ok, _setting} =
              Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
 
-    for role <- ~w[direct_answer fanout_review fanout_synthesis] do
+    for role <- ~w[direct_answer fanout_synthesis] do
       put_setting!("model_preferences.tasks.#{role}", ["fast"])
       user_id = "counted-unavailable-#{role}"
       text = "Do these 2 tasks in parallel: inspect alpha; inspect beta"
@@ -292,7 +292,6 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
 
     reasons = %{
       direct_answer: :fanout_direct_answer_unavailable,
-      fanout_review: :fanout_review_unavailable,
       fanout_synthesis: :fanout_synthesis_unavailable
     }
 
@@ -480,7 +479,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
              Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
 
     put_setting!("providers.openai.enabled", true)
-    put_setting!("model_preferences.tasks.fanout_review", ["fast"])
+    put_setting!("model_preferences.tasks.fanout_synthesis", ["fast"])
 
     text = "Do these 2 tasks in parallel: inspect alpha; inspect beta"
 
@@ -1989,7 +1988,7 @@ defmodule AllbertAssist.Runtime.FanoutAckTest do
     put_setting!("providers.openai.enabled", false)
     put_setting!("intent.direct_answer_model_enabled", true)
 
-    Enum.each(~w[direct_answer fanout_manager fanout_review fanout_synthesis], fn role ->
+    Enum.each(~w[direct_answer fanout_manager fanout_synthesis], fn role ->
       put_setting!("model_preferences.tasks.#{role}", ["direct_answer_local"])
     end)
   end
