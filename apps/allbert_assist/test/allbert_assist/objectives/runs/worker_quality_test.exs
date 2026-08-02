@@ -57,6 +57,23 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
     end
   end
 
+  defmodule StableTimeoutModels do
+    def for(:fanout_synthesis, _context) do
+      {:ok,
+       %{
+         profile: %{
+           name: "quality-review-profile",
+           provider: "local_ollama",
+           provider_endpoint_kind: "local_endpoint",
+           provider_type: "openai_compatible",
+           model: "fixture-quality-model",
+           max_tokens: 1_024,
+           timeout_ms: 1_234
+         }
+       }}
+    end
+  end
+
   defmodule AllowDisclosure do
     def authorize_transport(profile, context) do
       send(context.test_pid, {:quality_disclosure, profile.name})
@@ -345,7 +362,15 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
                },
                "rule_violations" => %{
                  "type" => "object",
-                 "properties" => Map.new(QualityPolicy.rule_ids(), &{&1, %{"type" => "boolean"}}),
+                 "properties" =>
+                   Map.new(QualityPolicy.rule_ids(), fn rule_id ->
+                     {rule_id,
+                      %{
+                        "type" => "boolean",
+                        "description" =>
+                          "For rule #{rule_id}, true means the rule remains violated in the returned final output after any revision; false means the rule is satisfied or not applicable to that final output."
+                      }}
+                   end),
                  "required" => QualityPolicy.rule_ids(),
                  "additionalProperties" => false
                }
@@ -360,8 +385,14 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
     assert system_text =~ ClosedRuleEvidence.violation_semantics()
 
     for rule <- QualityPolicy.rule_specs() do
+      assert count_occurrences(system_text, "- [#{rule.id}] #{rule.instruction}") == 1
       assert count_occurrences(system_text, rule.instruction) == 1
       refute user_text =~ rule.instruction
+
+      assert schema["properties"]["rule_violations"]["properties"][Atom.to_string(rule.id)][
+               "description"
+             ] ==
+               "For rule #{rule.id}, true means the rule remains violated in the returned final output after any revision; false means the rule is satisfied or not applicable to that final output."
     end
 
     refute user_text =~ "\"rules\""
@@ -370,6 +401,53 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
     assert opts[:receive_timeout] == prepared.timeout_ms
     assert opts[:openai_structured_output_mode] == :json_schema
     assert opts[:json_repair] == false
+  end
+
+  test "reviewer configuration deterministically binds the revised closed transport" do
+    assert {:ok, contract} = quality_contract()
+
+    context = %{
+      models: StableTimeoutModels,
+      disclosure: AllowDisclosure,
+      req_llm_client: RecordingReqLLM,
+      test_pid: self(),
+      fanout_deadline_unix_ms: System.system_time(:millisecond) + 60_000,
+      fanout_worker_deadline_monotonic_ms: System.monotonic_time(:millisecond) + 60_000,
+      model_max_output_tokens: 512
+    }
+
+    assert {:ok, first} = ReqLLMReviewer.prepare(contract, "Initial draft.", context)
+    assert {:ok, second} = ReqLLMReviewer.prepare(contract, "Initial draft.", context)
+    assert first.timeout_ms == 1_234
+    assert second.timeout_ms == first.timeout_ms
+    assert second.reviewer_config_sha256 == first.reviewer_config_sha256
+
+    schema = worker_review_schema()
+
+    expected_config = %{
+      "version" => 2,
+      "model_profile" => "quality-review-profile",
+      "provider" => "local_ollama",
+      "model" => "fixture-quality-model",
+      "timeout_ms" => 1_234,
+      "max_output_tokens" => 512,
+      "transport" => %{
+        "closed_rule_evidence_version" => ClosedRuleEvidence.transport_version(),
+        "response_schema_sha256" => sha256(CanonicalJSON.encode(schema))
+      }
+    }
+
+    assert first.reviewer_config_sha256 ==
+             sha256(
+               "allbert:fanout-worker-reviewer-config:v2\0" <>
+                 CanonicalJSON.encode(expected_config)
+             )
+
+    refute first.reviewer_config_sha256 ==
+             sha256(
+               "allbert:fanout-worker-reviewer-config:v1\0" <>
+                 CanonicalJSON.encode(Map.put(expected_config, "version", 1))
+             )
   end
 
   test "closed violation evidence derives its verdict locally and rejects malformed transport" do
@@ -565,6 +643,21 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
     |> String.split(needle)
     |> length()
     |> Kernel.-(1)
+  end
+
+  defp worker_review_schema do
+    %{
+      "type" => "object",
+      "properties" => %{
+        "final_answer" => %{
+          "type" => "string",
+          "description" => "The reviewed and, when needed, revised child answer itself."
+        },
+        "rule_violations" => ClosedRuleEvidence.schema!(QualityPolicy.rule_ids())
+      },
+      "required" => ["final_answer", "rule_violations"],
+      "additionalProperties" => false
+    }
   end
 
   defp create_grounded_child(original_request, child_objective, expected_result) do

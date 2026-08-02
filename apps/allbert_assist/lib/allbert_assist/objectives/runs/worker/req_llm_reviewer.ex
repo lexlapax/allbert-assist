@@ -16,7 +16,8 @@ defmodule AllbertAssist.Objectives.Runs.Worker.ReqLLMReviewer do
   alias AllbertAssist.Settings.{ModelRuntime, Models}
   alias ReqLLM.Response
 
-  @reviewer_config_domain "allbert:fanout-worker-reviewer-config:v1\0"
+  @reviewer_config_version 2
+  @reviewer_config_domain "allbert:fanout-worker-reviewer-config:v2\0"
   @maximum_output_tokens 512
   @schema %{
     "type" => "object",
@@ -171,12 +172,16 @@ defmodule AllbertAssist.Objectives.Runs.Worker.ReqLLMReviewer do
 
   defp reviewer_config_digest(profile, timeout_ms, max_output_tokens) do
     config = %{
-      "version" => 1,
+      "version" => @reviewer_config_version,
       "model_profile" => profile_value(profile, :name),
       "provider" => profile_value(profile, :provider),
       "model" => profile_value(profile, :model),
       "timeout_ms" => timeout_ms,
-      "max_output_tokens" => max_output_tokens
+      "max_output_tokens" => max_output_tokens,
+      "transport" => %{
+        "closed_rule_evidence_version" => ClosedRuleEvidence.transport_version(),
+        "response_schema_sha256" => sha256(CanonicalJSON.encode(@schema))
+      }
     }
 
     sha256(@reviewer_config_domain <> CanonicalJSON.encode(config))

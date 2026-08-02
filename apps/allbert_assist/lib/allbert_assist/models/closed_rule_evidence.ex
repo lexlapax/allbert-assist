@@ -9,7 +9,12 @@ defmodule AllbertAssist.Models.ClosedRuleEvidence do
   appropriate.
   """
 
-  @violation_semantics "For every catalog-keyed rule_violations Boolean, return true only when the final output violates that rule and false when it satisfies the rule or the rule's triggering condition does not apply."
+  @transport_version 2
+  @violation_semantics "For every catalog-keyed rule_violations Boolean, judge the returned final output after any revision: return true only when that output still violates the rule, and false when it satisfies the rule or the rule's triggering condition does not apply."
+
+  @doc "Return the fixed provider transport-contract version."
+  @spec transport_version() :: 2
+  def transport_version, do: @transport_version
 
   @doc "Return the shared provider-facing meaning of closed violation Booleans."
   @spec violation_semantics() :: String.t()
@@ -21,7 +26,7 @@ defmodule AllbertAssist.Models.ClosedRuleEvidence do
     if valid_rule_ids?(rule_ids) do
       %{
         "type" => "object",
-        "properties" => Map.new(rule_ids, &{&1, %{"type" => "boolean"}}),
+        "properties" => Map.new(rule_ids, &{&1, violation_property(&1)}),
         "required" => rule_ids,
         "additionalProperties" => false
       }
@@ -69,6 +74,14 @@ defmodule AllbertAssist.Models.ClosedRuleEvidence do
   defp rule_result(rule_id, violations) do
     verdict = if violations[rule_id], do: "unsatisfied", else: "satisfied"
     %{"rule_id" => rule_id, "verdict" => verdict}
+  end
+
+  defp violation_property(rule_id) do
+    %{
+      "type" => "boolean",
+      "description" =>
+        "For rule #{rule_id}, true means the rule remains violated in the returned final output after any revision; false means the rule is satisfied or not applicable to that final output."
+    }
   end
 
   defp normalize_violation_keys(violations) do

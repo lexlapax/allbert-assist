@@ -8,7 +8,9 @@ defmodule AllbertAssist.Models.ClosedRuleEvidenceTest do
   test "defines one shared violation and non-applicability meaning for providers" do
     semantics = ClosedRuleEvidence.violation_semantics()
 
-    assert semantics =~ "true only when the final output violates"
+    assert ClosedRuleEvidence.transport_version() == 2
+    assert semantics =~ "returned final output after any revision"
+    assert semantics =~ "true only when"
     assert semantics =~ "false when it satisfies"
     assert semantics =~ "triggering condition does not apply"
   end
@@ -17,12 +19,28 @@ defmodule AllbertAssist.Models.ClosedRuleEvidenceTest do
     assert ClosedRuleEvidence.schema!(~w[first_rule second_rule]) == %{
              "type" => "object",
              "properties" => %{
-               "first_rule" => %{"type" => "boolean"},
-               "second_rule" => %{"type" => "boolean"}
+               "first_rule" => %{
+                 "type" => "boolean",
+                 "description" =>
+                   "For rule first_rule, true means the rule remains violated in the returned final output after any revision; false means the rule is satisfied or not applicable to that final output."
+               },
+               "second_rule" => %{
+                 "type" => "boolean",
+                 "description" =>
+                   "For rule second_rule, true means the rule remains violated in the returned final output after any revision; false means the rule is satisfied or not applicable to that final output."
+               }
              },
              "required" => ["first_rule", "second_rule"],
              "additionalProperties" => false
            }
+  end
+
+  test "rejects malformed or duplicate schema rule identifiers" do
+    for rule_ids <- [[], ["first_rule", "first_rule"], ["first_rule", ""], [:first_rule]] do
+      assert_raise ArgumentError, fn -> ClosedRuleEvidence.schema!(rule_ids) end
+    end
+
+    assert_raise ArgumentError, fn -> ClosedRuleEvidence.schema!(%{"first_rule" => true}) end
   end
 
   test "derives ordered rule results and the aggregate verdict locally" do
