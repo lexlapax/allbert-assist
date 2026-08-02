@@ -3,17 +3,31 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   Opt-in real-model qualification for the v1.3 fan-out manager and composer.
 
   The exact FOV-3/FOV-4 requests exercise the production manager. The composer
-  then receives a frozen seven-row matrix of reviewed layout-v2 snapshots.
+  then receives a frozen seven-row matrix of layout-v2 snapshots.
   Acceptance uses only typed results, counts, closed manager evidence, validated
   body/provenance bindings, and content-free digests; prompts, answers,
   observations, model objects, and rendered reports are never printed or
   recorded in TestMetrics.
+
+  v1.3 M9.b.6 adds the single-turn parity control: the exact FOV-4 prompt
+  answered by one DirectAnswer call on the configured head, with no manager, no
+  children, and no synthesis. It is the reference the operator scores fan-out
+  child observations against, so fan-out is qualified on what fan-out controls —
+  that decomposing a request does not make the answer materially worse than the
+  same model answering it in one turn.
+
+  The control's answer text is the thing being scored, so it cannot go into
+  TestMetrics without breaking the content-free invariant. The metrics row
+  carries only the call count, byte size, digest, and resolved profile; the exact
+  text is written to a separate operator-named transcript path and nowhere else.
   """
 
+  alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.DevGates.TestMetrics
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Intent.FanoutManager
   alias AllbertAssist.Intent.FanoutPlan
+  alias AllbertAssist.Models.ProviderAttempt
   alias AllbertAssist.Objectives.CanonicalJSON
   alias AllbertAssist.Objectives.Fanout.Budget
   alias AllbertAssist.Objectives.Fanout.Report
@@ -44,6 +58,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
 
   @fov3_id "fov3-supplied-data"
   @fov4_id "fov4-independent-architecture"
+  @control_id "fov4-single-turn-control"
   @composition_case_ids ~w[
     composer-complementary-architecture
     composer-contrasting-energy
@@ -105,6 +120,15 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
           failed_rows: [String.t()],
           rows: [map()]
         }
+  @typedoc "The content-free single-turn parity control row."
+  @type control_row :: %{
+          id: String.t(),
+          provider_call_count: non_neg_integer(),
+          answer_bytes: non_neg_integer() | nil,
+          answer_sha256: String.t() | nil,
+          model_profile: String.t() | nil,
+          passed?: boolean()
+        }
   @type fixtures :: %{manager_and_composer: map()}
   @type phases_result :: %{
           status: String.t(),
@@ -134,24 +158,38 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
         else: "bench-v13-fanout --profile #{profile_name}"
 
     store = blank_to_nil(System.get_env("V13_FANOUT_STORE"))
+    control_output = blank_to_nil(System.get_env("V13_FANOUT_CONTROL_OUTPUT"))
     full_sha = parse_full_sha!(System.get_env("V13_FULL_SHA"))
     dirty = parse_dirty!(System.get_env("V13_DIRTY"))
 
+    control_opts =
+      if control_output do
+        [
+          control_answerer: &direct_answer/2,
+          control_profile: profiles.worker,
+          control_context: control_context(profiles.worker),
+          control_output: control_output
+        ]
+      else
+        []
+      end
+
     phases =
       run_phases(fixtures,
-        manager_and_composer: [
-          profile: profiles.manager,
-          manager_profile: profiles.manager,
-          composer_profile: profiles.synthesis,
-          manager_context: manager_context(profiles.manager),
-          composer_context: composer_context(profiles.synthesis),
-          composer_client: Composer,
-          role_profile_bindings: profiles.bindings,
-          command: command,
-          store: store,
-          full_sha: full_sha,
-          dirty: dirty
-        ]
+        manager_and_composer:
+          [
+            profile: profiles.manager,
+            manager_profile: profiles.manager,
+            composer_profile: profiles.synthesis,
+            manager_context: manager_context(profiles.manager),
+            composer_context: composer_context(profiles.synthesis),
+            composer_client: Composer,
+            role_profile_bindings: profiles.bindings,
+            command: command,
+            store: store,
+            full_sha: full_sha,
+            dirty: dirty
+          ] ++ control_opts
       )
 
     IO.puts(summary(phases.manager_and_composer))
@@ -216,6 +254,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
         model_profile: Keyword.fetch!(opts, :manager_profile)
       })
 
+    control = control_row(opts)
     fov3 = manager_row(fixture, @fov3_id, manager, manager_context)
     fov4 = manager_row(fixture, @fov4_id, manager, manager_context)
 
@@ -229,7 +268,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
         Keyword.fetch!(opts, :composer_context)
       )
 
-    rows = [fov3, fov4] ++ composition_rows
+    rows = List.wrap(control) ++ [fov3, fov4] ++ composition_rows
     failed_rows = for %{passed?: false, id: id} <- rows, do: id
     status = if failed_rows == [], do: "passed", else: "failed"
     profile = opts |> Keyword.fetch!(:profile) |> profile_name()
@@ -243,6 +282,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
         composition_rows,
         Keyword.get(opts, :role_profile_bindings, %{})
       )
+      |> Map.merge(control_stats(control))
 
     TestMetrics.record(%{
       store: Keyword.get(opts, :store),
@@ -260,6 +300,97 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     })
 
     %{status: status, stats: stats, failed_rows: failed_rows, rows: composition_rows}
+  end
+
+  @doc """
+  Answer the exact FOV-4 prompt once on the configured head, with no fan-out.
+
+  This is the parity reference. It deliberately does not go through the manager,
+  the plan compiler, Objectives, or the composer: those are the very things the
+  control exists to hold fan-out accountable to. A control that routed through
+  any of them could not distinguish "the model does not know this" from
+  "decomposing made it worse", which is the only question this row answers.
+  """
+  @spec run_control(keyword()) :: control_row() | nil
+  def run_control(opts) when is_list(opts), do: control_row(opts)
+
+  @doc "Return the exact frozen FOV-4 prompt the control and the manager share."
+  @spec control_prompt() :: String.t()
+  def control_prompt, do: @fov4_prompt
+
+  defp control_row(opts) do
+    case Keyword.get(opts, :control_answerer) do
+      nil -> nil
+      answerer -> control_row(answerer, opts)
+    end
+  end
+
+  defp control_row(answerer, opts) do
+    context =
+      opts
+      |> Keyword.get(:control_context, %{})
+      |> Map.put(:model_profile, Keyword.get(opts, :control_profile))
+
+    {context, counter} = ProviderAttempt.attach(context)
+    result = invoke(fn -> answerer.(@fov4_prompt, context) end)
+    calls = ProviderAttempt.count(counter)
+    message = control_message(result)
+
+    row = %{
+      id: @control_id,
+      provider_call_count: calls,
+      answer_bytes: if(message, do: byte_size(message)),
+      answer_sha256: if(message, do: sha256(message)),
+      model_profile: control_profile_name(result, opts),
+      # One call is the whole point: a control that retried or fell back would
+      # be a different amount of compute than the fan-out row it anchors.
+      passed?: calls == 1 and is_binary(message) and message != ""
+    }
+
+    write_control_transcript(Keyword.get(opts, :control_output), row, message)
+    row
+  end
+
+  defp control_message({:ok, %{message: message}}) when is_binary(message), do: message
+  defp control_message(_result), do: nil
+
+  defp control_profile_name(_result, opts) do
+    case Keyword.get(opts, :control_profile) do
+      nil -> nil
+      profile -> profile_name(profile)
+    end
+  end
+
+  defp control_stats(nil), do: %{}
+
+  defp control_stats(row) do
+    %{
+      control_status: if(row.passed?, do: "passed", else: "failed"),
+      control_provider_call_count: row.provider_call_count,
+      control_answer_bytes: row.answer_bytes,
+      control_answer_sha256: row.answer_sha256,
+      control_model_profile: row.model_profile
+    }
+  end
+
+  # The transcript is the operator's scoring input and the only place the exact
+  # answer bytes are written. TestMetrics never sees them.
+  defp write_control_transcript(nil, _row, _message), do: :ok
+
+  defp write_control_transcript(path, row, message) do
+    payload = %{
+      "id" => @control_id,
+      "prompt" => @fov4_prompt,
+      "answer" => message,
+      "answer_sha256" => row.answer_sha256,
+      "answer_bytes" => row.answer_bytes,
+      "provider_call_count" => row.provider_call_count,
+      "model_profile" => row.model_profile,
+      "status" => if(row.passed?, do: "passed", else: "failed")
+    }
+
+    path |> Path.dirname() |> File.mkdir_p!()
+    File.write!(path, CanonicalJSON.encode(payload))
   end
 
   defp manager_row(fixture, id, manager, context) do
@@ -762,6 +893,19 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     }
   end
 
+  # The control is one ordinary single-turn request on the Worker head: same
+  # surface, same disclosure, no fan-out capability in the context.
+  defp control_context(_profile) do
+    %{
+      actor: "local",
+      user_id: "local",
+      request: %{channel: :cli},
+      model_enabled?: true
+    }
+  end
+
+  defp direct_answer(text, context), do: DirectAnswer.run(%{text: text}, context)
+
   defp composer_context(profile) do
     {:ok, limits} = Budget.limits()
 
@@ -1046,12 +1190,20 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
       "composition=#{stats.composition_rows_passed}/#{stats.composition_rows} " <>
       "primary=#{stats.composition_relationship}:" <>
       Enum.join(stats.composition_ordered_queue_positions, ",") <>
+      control_summary(stats) <>
       role_profile_summary(stats.role_profile_bindings)
   end
 
-  defp role_profile_summary(bindings) when map_size(bindings) == 4 do
+  defp control_summary(%{control_status: status} = stats) do
+    " control=#{status}/#{stats.control_provider_call_count}call" <>
+      " control_answer=#{stats.control_answer_bytes}B/#{stats.control_answer_sha256}"
+  end
+
+  defp control_summary(_stats), do: ""
+
+  defp role_profile_summary(bindings) when map_size(bindings) == 3 do
     " profiles " <>
-      Enum.map_join(~w[worker manager review synthesis], " ", fn role ->
+      Enum.map_join(~w[worker manager synthesis], " ", fn role ->
         binding = Map.fetch!(bindings, role)
 
         "#{role}=#{binding.profile}|#{binding.provider}|#{binding.model}|" <>

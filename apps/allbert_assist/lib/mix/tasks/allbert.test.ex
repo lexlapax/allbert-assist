@@ -17,7 +17,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test bench-decide
       mix allbert.test bench-v13-latency [--consumer memory|search|both] [--output PATH] [--executable PATH --artifact-sha256 HEX]
       mix allbert.test bench-v13-zero-shot [--profile NAME] [--fixture PATH] [--output PATH]
-      mix allbert.test bench-v13-fanout [--profile NAME] [--mixed-mistral] [--fixture PATH] [--output PATH]
+      mix allbert.test bench-v13-fanout [--profile NAME] [--mixed-mistral] [--fixture PATH] [--output PATH] [--control-output PATH]
       mix allbert.test release
       mix allbert.test release.v042
       mix allbert.test release.v043
@@ -1051,7 +1051,8 @@ defmodule Mix.Tasks.Allbert.Test do
           profile: :string,
           mixed_mistral: :boolean,
           fixture: :string,
-          output: :string
+          output: :string,
+          control_output: :string
         ]
       )
 
@@ -1078,12 +1079,14 @@ defmodule Mix.Tasks.Allbert.Test do
       |> Path.expand(root())
 
     output = opts |> Keyword.get(:output) |> expand_optional_path()
+    control_output = opts |> Keyword.get(:control_output) |> expand_optional_path()
 
     if !File.regular?(fixture), do: Mix.raise("fan-out fixture does not exist: #{fixture}")
 
     _fixtures = V13FanoutEval.load_fixtures!(fixture)
 
     validate_new_output!(output)
+    validate_new_output!(control_output)
 
     {full_sha, dirty?} = v13_benchmark_provenance!()
 
@@ -1093,6 +1096,7 @@ defmodule Mix.Tasks.Allbert.Test do
       |> Kernel.++([
         {"V13_FANOUT_FIXTURE", fixture},
         {"V13_FANOUT_STORE", output},
+        {"V13_FANOUT_CONTROL_OUTPUT", control_output || ""},
         {"V13_MODEL_PROFILE", profile},
         {"V13_FANOUT_MIXED_MISTRAL", to_string(mixed_mistral?)},
         {"V13_FULL_SHA", full_sha},
@@ -10138,7 +10142,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test bench-decide
       mix allbert.test bench-v13-latency [--consumer memory|search|both] [--output PATH] [--executable PATH --artifact-sha256 HEX]
       mix allbert.test bench-v13-zero-shot [--profile NAME] [--fixture PATH] [--output PATH]
-      mix allbert.test bench-v13-fanout [--profile NAME] [--mixed-mistral] [--fixture PATH] [--output PATH]
+      mix allbert.test bench-v13-fanout [--profile NAME] [--mixed-mistral] [--fixture PATH] [--output PATH] [--control-output PATH]
       mix allbert.test release
       mix allbert.test release.v042
       mix allbert.test release.v043

@@ -528,6 +528,110 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
     refute evidence =~ "one_for_one"
   end
 
+  describe "single-turn parity control" do
+    test "records one call, content-free stats, and an operator transcript" do
+      fixture = V13FanoutEval.load_fixture!(@fixture)
+      parent = self()
+      store = temp_store()
+      transcript = Path.join(Path.dirname(store), "control.json")
+      on_exit(fn -> File.rm_rf!(Path.dirname(store)) end)
+
+      answer =
+        "Supervision trees bound restart blast radius while an append-only log replays state."
+
+      result =
+        run_with_control(fixture,
+          store: store,
+          control_output: transcript,
+          control_answerer: fn prompt, context ->
+            :ok = ProviderAttempt.mark(context)
+            send(parent, {:control_call, prompt, context})
+            {:ok, %{message: answer}}
+          end
+        )
+
+      assert result.status == "passed", inspect(result, limit: :infinity)
+
+      # The control answers the exact FOV-4 prompt, with no fan-out capability.
+      assert_received {:control_call, prompt, context}
+      assert prompt == V13FanoutEval.control_prompt()
+      assert context.model_profile == @profile
+      refute Map.has_key?(context, :fanout_role_binding)
+
+      assert result.stats.control_status == "passed"
+      assert result.stats.control_provider_call_count == 1
+      assert result.stats.control_answer_bytes == byte_size(answer)
+      assert result.stats.control_answer_sha256 == sha256(answer)
+      assert result.stats.control_model_profile == "direct_answer_local"
+
+      # The scored text is the operator's, not the metrics store's.
+      evidence = File.read!(store)
+      refute evidence =~ answer
+      assert evidence =~ sha256(answer)
+
+      assert %{
+               "id" => "fov4-single-turn-control",
+               "answer" => ^answer,
+               "provider_call_count" => 1,
+               "status" => "passed",
+               "model_profile" => "direct_answer_local"
+             } = transcript |> File.read!() |> Jason.decode!()
+
+      assert Jason.decode!(File.read!(transcript))["prompt"] ==
+               V13FanoutEval.control_prompt()
+    end
+
+    test "a control that took more than one call fails the run" do
+      fixture = V13FanoutEval.load_fixture!(@fixture)
+
+      result =
+        run_with_control(fixture,
+          store: :disabled,
+          control_answerer: fn _prompt, context ->
+            :ok = ProviderAttempt.mark(context)
+            :ok = ProviderAttempt.mark(context)
+            {:ok, %{message: "Retried behind the seam."}}
+          end
+        )
+
+      assert result.status == "failed"
+      assert "fov4-single-turn-control" in result.failed_rows
+      assert result.stats.control_status == "failed"
+      assert result.stats.control_provider_call_count == 2
+    end
+
+    test "an unavailable or empty control fails closed without content" do
+      fixture = V13FanoutEval.load_fixture!(@fixture)
+
+      for answerer <- [
+            fn _prompt, _context -> {:error, {:provider_failed, "sensitive control body"}} end,
+            fn _prompt, context ->
+              :ok = ProviderAttempt.mark(context)
+              {:ok, %{message: ""}}
+            end,
+            fn _prompt, _context -> raise "control exploded" end
+          ] do
+        result = run_with_control(fixture, store: :disabled, control_answerer: answerer)
+
+        assert result.status == "failed"
+        assert "fov4-single-turn-control" in result.failed_rows
+        assert result.stats.control_status == "failed"
+        assert result.stats.control_answer_sha256 in [nil, sha256("")]
+        refute inspect(result.stats) =~ "sensitive control body"
+        refute inspect(result.stats) =~ "control exploded"
+      end
+    end
+
+    test "omitting the control leaves the run and its stats unchanged" do
+      fixture = V13FanoutEval.load_fixture!(@fixture)
+      result = run_with_control(fixture, store: :disabled)
+
+      assert result.status == "passed", inspect(result, limit: :infinity)
+      refute Map.has_key?(result.stats, :control_status)
+      refute Map.has_key?(result.stats, :control_answer_sha256)
+    end
+  end
+
   test "manager/composer fixture digest binds the decoded frozen corpus" do
     fixture = @fixture |> File.read!() |> Jason.decode!()
 
@@ -627,6 +731,32 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
     assert result.stats.composition_failure_reason_by_row |> Map.values() |> Enum.uniq() == [
              reason
            ]
+  end
+
+  defp run_with_control(fixture, opts) do
+    V13FanoutEval.run(
+      fixture,
+      [
+        profile: @profile,
+        manager_profile: @profile,
+        composer_profile: @profile,
+        control_profile: @profile,
+        manager: qualified_manager(fixture, self()),
+        composer_client: QualifiedSynthesisClient,
+        composer_authorizer: fn _profile, _context -> :ok end,
+        composer_context: %{
+          timeout_ms: 10_000,
+          max_output_tokens: 1_024,
+          test_pid: self()
+        },
+        full_sha: @full_sha,
+        dirty: false
+      ] ++ opts
+    )
+  end
+
+  defp sha256(value) do
+    :sha256 |> :crypto.hash(value) |> Base.encode16(case: :lower)
   end
 
   defp phase_options(store) do

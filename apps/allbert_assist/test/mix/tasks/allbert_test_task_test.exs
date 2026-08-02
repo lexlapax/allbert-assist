@@ -361,7 +361,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
 
     assert error.message =~
              "mix allbert.test bench-v13-fanout [--profile NAME] [--mixed-mistral] " <>
-               "[--fixture PATH] [--output PATH]"
+               "[--fixture PATH] [--output PATH] [--control-output PATH]"
 
     assert error.message =~ "mix allbert.test release.structure v121 [--output PATH]"
     assert error.message =~ "mix allbert.test release.structure v13 [--output PATH]"

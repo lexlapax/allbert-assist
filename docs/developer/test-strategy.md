@@ -982,6 +982,23 @@ Focused public-orchestrator owner tests prove the row and its reduced phase
 evidence without a real provider. The row records no prompts, drafts, answers,
 observations, source handles, model objects, or rendered report text.
 
+The same gate records the single-turn parity control: the exact FOV-4 prompt
+answered by one DirectAnswer call on the configured Worker head, with no
+manager, no children, and no synthesis. It is the reference the operator scores
+fan-out child observations against, so fan-out is qualified on decomposition
+not making the answer materially worse than the same model answering in one
+turn — absolute answer correctness belongs to DirectAnswer task-head
+qualification. The control row fails unless the call count is exactly one and
+the answer is non-empty, so a retry or fallback behind the seam cannot silently
+anchor parity to a different amount of compute.
+
+The control's answer text is the thing being scored, so it cannot enter the
+content-free metrics store. `--control-output PATH` writes the exact prompt,
+answer, digest, byte size, call count, and resolved profile to one operator-named
+transcript; the metrics row carries only the call count, byte size, digest, and
+profile. Without `--control-output` the control does not run and the row is
+absent, which keeps the ordinary uniform-profile gate unchanged.
+
 Owner tests prove the one-call Worker and composer contracts mechanically; the
 frozen configured-provider and attended `FOV-*` bars remain release
 acceptance. Dirty
