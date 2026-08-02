@@ -10,12 +10,15 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityPolicy do
   alias AllbertAssist.Actions.Intent.DirectAnswer.Policy, as: DirectAnswerPolicy
   alias AllbertAssist.Models.ClosedRuleEvidence
   alias AllbertAssist.Objectives.{CanonicalJSON, ObservationSummary}
+  alias AllbertAssist.Objectives.Fanout.ReviewProtocol
 
   @version 2
   @legacy_version 1
+  @rule_group_catalog_version 1
   @task_digest_domain "allbert:fanout-worker-quality-task:v2\0"
   @legacy_task_digest_domain "allbert:fanout-worker-quality-task:v1\0"
   @rule_catalog_digest_domain "allbert:fanout-worker-quality-rules:v2\0"
+  @rule_group_catalog_digest_domain "allbert:fanout-worker-quality-rule-groups:v1\0"
 
   @completion_obligation %{
     "version" => 1,
@@ -63,6 +66,33 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityPolicy do
                        :no_invention_to_force_completion
                      ]
                    })
+
+  @rule_groups [
+    %{
+      "id" => "coverage_fidelity",
+      "rule_ids" => [
+        "answer_current_request",
+        "supplied_text_is_data",
+        "preserve_supplied_semantics",
+        "no_unsupplied_details",
+        "child_task_scope",
+        "requested_dimensions",
+        "completion_preconditions"
+      ]
+    },
+    %{
+      "id" => "safety_consistency",
+      "rule_ids" => [
+        "memory_is_reference",
+        "no_false_effect_claims",
+        "no_routing_or_confirmation",
+        "acknowledgments_are_not_commitments",
+        "useful_factual_and_brief",
+        "internal_consistency",
+        "uncertainty_and_guarantees"
+      ]
+    }
+  ]
 
   @task_keys ~w[version source original_request child_objective expected_result completion_obligation steering rules]
   @provider_projection_keys ~w[
@@ -118,6 +148,46 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityPolicy do
   @doc "Return the current quality task/rule-catalog version."
   @spec version() :: 2
   def version, do: @version
+
+  @doc "Return the current Worker rule-group catalog version."
+  @spec rule_group_catalog_version() :: 1
+  def rule_group_catalog_version, do: @rule_group_catalog_version
+
+  @doc "Return one supported ordered Worker rule-group catalog."
+  @spec rule_groups(term()) ::
+          {:ok, [map()]} | {:error, :unsupported_rule_group_catalog_version}
+  def rule_groups(@rule_group_catalog_version), do: {:ok, @rule_groups}
+  def rule_groups(_version), do: {:error, :unsupported_rule_group_catalog_version}
+
+  @doc "Return the canonical SHA-256 binding for one supported Worker group catalog."
+  @spec rule_group_catalog_sha256(term()) ::
+          {:ok, String.t()} | {:error, :unsupported_rule_group_catalog_version}
+  def rule_group_catalog_sha256(version) do
+    with {:ok, groups} <- rule_groups(version) do
+      {:ok,
+       sha256(
+         @rule_group_catalog_digest_domain <>
+           CanonicalJSON.encode(groups)
+       )}
+    end
+  end
+
+  @doc "Compile the current Worker catalog into the shared closed review protocol."
+  @spec review_protocol() :: {:ok, ReviewProtocol.t()} | {:error, term()}
+  def review_protocol, do: review_protocol(@rule_group_catalog_version)
+
+  @doc "Compile one supported Worker group catalog for critic execution."
+  @spec review_protocol(term()) :: {:ok, ReviewProtocol.t()} | {:error, term()}
+  def review_protocol(version) do
+    with {:ok, groups} <- rule_groups(version),
+         {:ok, digest} <- rule_group_catalog_sha256(version) do
+      ReviewProtocol.compile(rule_specs(), groups,
+        policy_version: @version,
+        rule_group_catalog_version: version,
+        rule_group_catalog_sha256: digest
+      )
+    end
+  end
 
   @doc "Validate and hash one exact v2 task contract."
   @spec digest(map()) :: {:ok, String.t()} | {:error, :invalid_quality_task_contract}

@@ -4,8 +4,10 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
   @moduletag :pure_async
 
   alias AllbertAssist.Objectives.CanonicalJSON
-  alias AllbertAssist.Objectives.Fanout.{ReviewProtocol, ReviewRound}
+  alias AllbertAssist.Objectives.Fanout.{CriticAgent, ReviewProtocol, ReviewRound}
   alias AllbertAssist.Objectives.Runs.CancelToken
+
+  @reviewer_config_aggregate_domain "allbert:fanout-reviewer-config-aggregate:v1\0"
 
   defmodule ScriptedCritic do
     def assess(request, context) do
@@ -23,14 +25,36 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
         end)
 
       send(context.test_pid, {:critic_finished, group_id})
-      {:ok, %{"group_id" => group_id, "assessments" => assessments}}
+
+      {:ok,
+       %{
+         assessment: %{"group_id" => group_id, "assessments" => assessments},
+         reviewer_config_sha256: fixture_config_sha256(group_id)
+       }}
+    end
+
+    defp fixture_config_sha256(group_id) do
+      :sha256
+      |> :crypto.hash("fixture-reviewer-config:" <> group_id)
+      |> Base.encode16(case: :lower)
     end
   end
 
   defmodule SuppliedAssessmentCritic do
     def assess(request, context) do
       group_id = request["group"]["id"]
-      {:ok, Map.fetch!(context.assessments, group_id)}
+
+      {:ok,
+       %{
+         assessment: Map.fetch!(context.assessments, group_id),
+         reviewer_config_sha256: fixture_config_sha256(group_id)
+       }}
+    end
+
+    defp fixture_config_sha256(group_id) do
+      :sha256
+      |> :crypto.hash("fixture-reviewer-config:" <> group_id)
+      |> Base.encode16(case: :lower)
     end
   end
 
@@ -58,6 +82,36 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
       receive do
         :unexpected_release -> {:error, :unexpected_release}
       end
+    end
+  end
+
+  defmodule UnboundCritic do
+    def assess(request, _context) do
+      {:ok, valid_assessment(request)}
+    end
+
+    def valid_assessment(request) do
+      %{
+        "group_id" => request["group"]["id"],
+        "assessments" =>
+          Enum.map(request["group"]["rule_ids"], fn rule_id ->
+            %{
+              "rule_id" => rule_id,
+              "status" => "satisfied",
+              "source_handles" => ["candidate"]
+            }
+          end)
+      }
+    end
+  end
+
+  defmodule InvalidConfigCritic do
+    def assess(request, _context) do
+      {:ok,
+       %{
+         assessment: UnboundCritic.valid_assessment(request),
+         reviewer_config_sha256: String.duplicate("A", 64)
+       }}
     end
   end
 
@@ -130,6 +184,29 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
     assert result.rule_group_catalog_version == 1
     assert result.rule_group_catalog_sha256 == protocol.rule_group_catalog_sha256
     assert byte_size(result.assessment_sha256) == 64
+
+    expected_reviewer_config_sha256 =
+      sha256(
+        @reviewer_config_aggregate_domain <>
+          CanonicalJSON.encode(%{
+            "review_protocol_version" => 1,
+            "rule_group_catalog_version" => 1,
+            "rule_group_catalog_sha256" => protocol.rule_group_catalog_sha256,
+            "critics" => [
+              %{
+                "group_id" => "coverage_fidelity",
+                "reviewer_config_sha256" => fixture_config_sha256("coverage_fidelity")
+              },
+              %{
+                "group_id" => "safety_consistency",
+                "reviewer_config_sha256" => fixture_config_sha256("safety_consistency")
+              }
+            ]
+          })
+      )
+
+    assert result.reviewer_config_sha256 == expected_reviewer_config_sha256
+    refute Map.has_key?(result, :reviewer_config_bindings)
 
     assert result.source_sha256 == %{
              "candidate" => sha256("The candidate answer."),
@@ -408,6 +485,27 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
              )
   end
 
+  test "critic output is rejected unless assessment and configuration digest are both bound" do
+    protocol = protocol!()
+
+    assert {:ok, source_bindings} =
+             ReviewProtocol.bind_sources(
+               %{"task_contract" => "Review this bounded task."},
+               "Candidate under review."
+             )
+
+    for implementation <- [UnboundCritic, InvalidConfigCritic] do
+      assert {:error, :invalid_critic_result} =
+               CriticAgent.assess(
+                 protocol,
+                 "coverage_fidelity",
+                 source_bindings,
+                 %{},
+                 implementation
+               )
+    end
+  end
+
   defp protocol! do
     groups = rule_groups()
 
@@ -466,6 +564,9 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgentTest do
         end)
     }
   end
+
+  defp fixture_config_sha256(group_id),
+    do: sha256("fixture-reviewer-config:" <> group_id)
 
   defp sha256(value) do
     :sha256

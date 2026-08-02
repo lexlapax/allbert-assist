@@ -32,7 +32,12 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgent do
       agent =
         new(
           id: "fanout-critic-#{group_id}-#{System.unique_integer([:positive, :monotonic])}",
-          state: %{status: :ready, assessment: nil, error: nil}
+          state: %{
+            status: :ready,
+            assessment: nil,
+            reviewer_config_sha256: nil,
+            error: nil
+          }
         )
 
       payload = %{
@@ -52,8 +57,17 @@ defmodule AllbertAssist.Objectives.Fanout.CriticAgent do
         )
 
       case agent.state do
-        %{status: :assessed, assessment: assessment} when is_map(assessment) ->
-          {:ok, assessment}
+        %{
+          status: :assessed,
+          assessment: assessment,
+          reviewer_config_sha256: reviewer_config_sha256
+        }
+        when is_map(assessment) and is_binary(reviewer_config_sha256) ->
+          {:ok,
+           %{
+             assessment: assessment,
+             reviewer_config_sha256: reviewer_config_sha256
+           }}
 
         %{status: :failed, error: reason} when is_atom(reason) ->
           {:error, reason}

@@ -10,9 +10,11 @@ defmodule AllbertAssist.Objectives.Fanout.ReviewRound do
   """
 
   alias AllbertAssist.Objectives.Fanout.{CriticAgent, ReviewProtocol}
+  alias AllbertAssist.Objectives.CanonicalJSON
   alias AllbertAssist.Objectives.Runs.CancelToken
 
   @poll_interval_ms 10
+  @reviewer_config_aggregate_domain "allbert:fanout-reviewer-config-aggregate:v1\0"
 
   @doc "Run one bounded two-group critic round and return content-free merged evidence."
   @spec run(ReviewProtocol.t(), map(), String.t(), map(), keyword()) ::
@@ -63,7 +65,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReviewRound do
 
   defp await(protocol, source_bindings, _context, _deadline, pending, results)
        when map_size(pending) == 0,
-       do: ReviewProtocol.merge(protocol, results, source_bindings)
+       do: finalize(protocol, source_bindings, results)
 
   defp await(protocol, source_bindings, context, deadline, pending, results) do
     with :ok <- active(context),
@@ -75,14 +77,25 @@ defmodule AllbertAssist.Objectives.Fanout.ReviewRound do
           pending = Map.delete(pending, ref)
 
           case result do
-            {:ok, %{"group_id" => ^group_id} = group_result} ->
+            {:ok,
+             %{
+               assessment: %{"group_id" => ^group_id} = group_result,
+               reviewer_config_sha256: reviewer_config_sha256
+             }} ->
               await(
                 protocol,
                 source_bindings,
                 context,
                 deadline,
                 pending,
-                [group_result | results]
+                [
+                  %{
+                    group_id: group_id,
+                    assessment: group_result,
+                    reviewer_config_sha256: reviewer_config_sha256
+                  }
+                  | results
+                ]
               )
 
             {:ok, _wrong_group} ->
@@ -145,11 +158,53 @@ defmodule AllbertAssist.Objectives.Fanout.ReviewRound do
     end
   end
 
+  defp finalize(protocol, source_bindings, results) do
+    ordered_results = order_results(protocol, results)
+
+    with {:ok, merged} <-
+           ReviewProtocol.merge(
+             protocol,
+             Enum.map(ordered_results, & &1.assessment),
+             source_bindings
+           ) do
+      aggregate_input = %{
+        "review_protocol_version" => protocol.review_protocol_version,
+        "rule_group_catalog_version" => protocol.rule_group_catalog_version,
+        "rule_group_catalog_sha256" => protocol.rule_group_catalog_sha256,
+        "critics" =>
+          Enum.map(ordered_results, fn result ->
+            %{
+              "group_id" => result.group_id,
+              "reviewer_config_sha256" => result.reviewer_config_sha256
+            }
+          end)
+      }
+
+      {:ok,
+       Map.put(
+         merged,
+         :reviewer_config_sha256,
+         sha256(@reviewer_config_aggregate_domain <> CanonicalJSON.encode(aggregate_input))
+       )}
+    end
+  end
+
+  defp order_results(protocol, results) do
+    by_group = Map.new(results, &{&1.group_id, &1})
+    Enum.map(ReviewProtocol.group_ids(protocol), &Map.fetch!(by_group, &1))
+  end
+
   defp stop_all(pending) do
     Enum.each(pending, fn {_ref, %{task: task}} ->
       _ = Task.shutdown(task, :brutal_kill)
     end)
 
     :ok
+  end
+
+  defp sha256(value) do
+    :sha256
+    |> :crypto.hash(value)
+    |> Base.encode16(case: :lower)
   end
 end
