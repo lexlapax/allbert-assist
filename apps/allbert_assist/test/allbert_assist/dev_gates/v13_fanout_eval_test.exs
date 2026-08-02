@@ -482,12 +482,13 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
 
     assert_closed_composer_failure(result, "provider_output", "invalid_model_output")
 
-    assert result.stats.composition_provider_call_count_by_row |> Map.values() |> Enum.uniq() == [
-             nil
-           ]
-
+    # The forged result claims zero provider calls. The row records what the
+    # gate's own counter observed instead, so a self-reported count can neither
+    # pass the row nor understate the compute the run actually spent.
     assert result.stats.composition_provider_call_count_by_row |> Map.values() |> Enum.uniq() ==
-             [nil]
+             [1]
+
+    refute Enum.any?(result.rows, & &1.passed?)
   end
 
   test "composer keeps extraction schema layout review and body diagnostics distinct" do

@@ -421,7 +421,13 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
              "items" => %{"type" => "integer", "minimum" => 0}
            }
 
-    assert Map.keys(positions_schema) |> Enum.sort() == ~w[description items type]
+    assert Map.keys(positions_schema) |> Enum.sort() ==
+             ~w[description items minItems type uniqueItems]
+
+    # Enforced as grammar so the model cannot emit an empty or
+    # self-duplicating section at all.
+    assert positions_schema["minItems"] == 1
+    assert positions_schema["uniqueItems"] == true
 
     # v1.3 M9.b.6: both closed choices carry their meaning, because the model
     # was previously handed the enum with no definition of any value.

@@ -32,7 +32,11 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.SynthesisAgent do
              is_atom(model_client) and is_integer(timeout_ms) and timeout_ms > 0 do
     monotonic_now = monotonic_now(model_context)
     deadline_monotonic_ms = monotonic_now.() + timeout_ms
-    {model_context, provider_attempt_counter} = ProviderAttempt.attach(model_context)
+    # Reuse a caller-supplied counter so attempt evidence outlives this call.
+    # A failure returns a bare error tuple, so an owner that needs to record
+    # what the failed row actually consumed cannot recover it afterwards from
+    # a counter this function created and dropped.
+    {model_context, provider_attempt_counter} = ProviderAttempt.attach_or_reuse(model_context)
 
     model_context =
       Map.put_new(

@@ -484,6 +484,11 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   end
 
   defp composition_row(composition_case, client, authorizer, profile, context) do
+    # Own the attempt counter so a row that fails inside synthesis still reports
+    # the calls it consumed. The agent reuses a supplied counter, so this
+    # observes the same physical attempts it enforces its own bounds against.
+    {context, counter} = ProviderAttempt.attach(context)
+
     with {:ok, snapshot} <- fixture_snapshot(composition_case["snapshot"]),
          :ok <- authorize_result(invoke(fn -> authorizer.(profile, context) end)),
          {:ok, prepared} <-
@@ -500,15 +505,31 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
            ) do
       composed_row(composition_case, snapshot, profile, prepared)
     else
-      # No synthesis result exists here, so no attempt evidence exists either.
-      # A synthesis-internal failure still consumes a call that the agent
-      # observes and discards on its error path; recording it would require
-      # changing the production error contract.
       {:error, {stage, reason}} ->
-        failed_composition(composition_case, stage, reason)
+        failed_composition(composition_case, stage, reason, observed_evidence(counter))
 
       _unclassified ->
-        failed_composition(composition_case, "synthesis_lifecycle", "unclassified_failure")
+        failed_composition(
+          composition_case,
+          "synthesis_lifecycle",
+          "unclassified_failure",
+          observed_evidence(counter)
+        )
+    end
+  end
+
+  # A row that never reached the provider reports no calls rather than zero, so
+  # "not attempted" stays distinguishable from "attempted and returned nothing".
+  defp observed_evidence(counter) do
+    case ProviderAttempt.phase_counts(counter) do
+      %{total: 0} ->
+        %{}
+
+      %{total: total, generation: generation} ->
+        %{
+          provider_call_count: total,
+          generation_call_count: generation
+        }
     end
   end
 

@@ -1002,9 +1002,12 @@ absent, which keeps the ordinary uniform-profile gate unchanged.
 A rejected model synthesis stays a failed row even though the composer stores
 its deterministic fallback and still delivers a truthful joined report, so the
 gate measures model synthesis compliance rather than delivery. Under that bar
-the default head records `4/7` and the 24B `5/7`; the residual failures are
-relationship judgment on the frozen fixture, not schema or orchestration
-faults.
+both the default head and the 24B record `5/7`. Every row, passing or failing,
+reports exactly one generation and one provider call, because the gate owns the
+attempt counter for each composition row rather than reading a count the result
+reports about itself. The two residual failures are one behavior — the head
+appends a spurious trailing `independent` section — and implicate neither
+orchestration nor the one-call contract.
 
 Owner tests prove the one-call Worker and composer contracts mechanically; the
 frozen configured-provider and attended `FOV-*` bars remain release

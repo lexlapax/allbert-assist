@@ -28,6 +28,22 @@ defmodule AllbertAssist.Models.ProviderAttempt do
     {Map.put(context, @counter_key, counter), counter}
   end
 
+  @doc """
+  Reuse the caller's counter when one is present, otherwise attach a fresh one.
+
+  An owner that already holds a counter can read exact attempt evidence after
+  the callee returns, including on failure paths where the callee's own counter
+  would be discarded with its error. Callers that supply nothing keep the
+  previous attach-a-fresh-counter behavior exactly.
+  """
+  @spec attach_or_reuse(map()) :: {map(), :counters.counters_ref()}
+  def attach_or_reuse(context) when is_map(context) do
+    case Map.get(context, @counter_key) do
+      nil -> attach(context)
+      counter -> {context, counter}
+    end
+  end
+
   @doc "Tag a bounded provider context with its generation or revision phase."
   @spec put_phase(map(), phase()) :: phased_context()
   def put_phase(context, phase)

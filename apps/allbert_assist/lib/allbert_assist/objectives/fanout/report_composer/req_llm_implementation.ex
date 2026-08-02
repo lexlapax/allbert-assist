@@ -157,8 +157,13 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation do
               "supporting: one observation provides evidence or grounding for another. " <>
               "independent: they have no substantive relationship to each other; use independent for a section holding a single observation that stands alone."
         },
+        # minItems/uniqueItems are grammar, not advice: an empty or
+        # self-duplicating section was the model's most common failure, and a
+        # constraint it cannot express is worth more here than one it can ignore.
         "ordered_queue_positions" => %{
           "type" => "array",
+          "minItems" => 1,
+          "uniqueItems" => true,
           "items" => %{"type" => "integer", "minimum" => 0},
           "description" =>
             "The completed children in this section, by queue_position, in reading order. " <>
