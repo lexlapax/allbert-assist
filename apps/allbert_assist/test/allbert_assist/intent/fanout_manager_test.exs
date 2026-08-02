@@ -456,6 +456,7 @@ defmodule AllbertAssist.Intent.FanoutManagerTest do
     assert opts[:receive_timeout] == 3_000
     assert opts[:openai_structured_output_mode] == :json_schema
     assert opts[:json_repair] == false
+    assert opts[:max_retries] == 0
     assert hd(prompt.messages).metadata.allbert_prompt.purpose == :conversation_management
   end
 

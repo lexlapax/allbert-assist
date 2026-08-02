@@ -147,6 +147,7 @@ defmodule AllbertAssist.Intent.FanoutManager.ReqLLMImplementation do
       receive_timeout:
         Map.get(context, :timeout_ms, Map.get(profile, :timeout_ms, 10_000))
         |> min(Map.get(profile, :timeout_ms, 10_000)),
+      max_retries: 0,
       openai_structured_output_mode: :json_schema,
       json_repair: false
     )

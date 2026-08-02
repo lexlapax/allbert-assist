@@ -51,7 +51,8 @@ defmodule AllbertAssist.Actions.Intent.ReqLLMAnswererTest do
                active_memory: [
                  %{summary: "Preference", chunk_id: "chunk-1", body: "memory-body-sentinel"}
                ],
-               image_inputs: []
+               image_inputs: [],
+               model_max_retries: 0
              })
 
     assert result.message == "A useful captured answer."
@@ -69,6 +70,7 @@ defmodule AllbertAssist.Actions.Intent.ReqLLMAnswererTest do
     assert opts[:temperature] == 0.0
     assert opts[:max_tokens] == 1024
     assert opts[:receive_timeout] == 60_000
+    assert opts[:max_retries] == 0
   end
 
   test "the actual vision provider call attaches the image only to the final user turn" do

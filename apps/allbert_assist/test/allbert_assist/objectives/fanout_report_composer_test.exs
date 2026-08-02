@@ -409,6 +409,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     assert opts[:receive_timeout] == 5_000
     assert opts[:openai_structured_output_mode] == :json_schema
     assert opts[:json_repair] == false
+    assert opts[:max_retries] == 0
     refute_received {:compose_call, _, _, _, _}
   end
 

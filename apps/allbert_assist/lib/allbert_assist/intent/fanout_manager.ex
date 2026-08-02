@@ -476,6 +476,7 @@ defmodule AllbertAssist.Intent.FanoutManager do
             agent,
             {command, %{invoke: invoke}},
             timeout: timeout_ms,
+            max_retries: 0,
             __jido_instance__: AllbertAssist.Jido
           )
         end)

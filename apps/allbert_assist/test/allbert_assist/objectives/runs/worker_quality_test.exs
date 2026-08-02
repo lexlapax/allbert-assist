@@ -401,6 +401,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
     assert opts[:receive_timeout] == prepared.timeout_ms
     assert opts[:openai_structured_output_mode] == :json_schema
     assert opts[:json_repair] == false
+    assert opts[:max_retries] == 0
   end
 
   test "reviewer configuration deterministically binds the revised closed transport" do

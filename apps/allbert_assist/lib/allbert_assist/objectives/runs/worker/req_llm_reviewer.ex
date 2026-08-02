@@ -194,6 +194,7 @@ defmodule AllbertAssist.Objectives.Runs.Worker.ReqLLMReviewer do
       temperature: 0.0,
       max_tokens: max_output_tokens,
       receive_timeout: timeout_ms,
+      max_retries: 0,
       openai_structured_output_mode: :json_schema,
       json_repair: false
     )

@@ -220,10 +220,14 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
       # profile temperatures.
       temperature: 0.0,
       max_tokens: max_tokens,
-      receive_timeout: receive_timeout
+      receive_timeout: receive_timeout,
+      max_retries: fanout_max_retries(context)
     )
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
   end
+
+  defp fanout_max_retries(%{model_max_retries: 0}), do: 0
+  defp fanout_max_retries(_context), do: nil
 
   defp bounded_text(text) when is_binary(text) do
     if byte_size(text) <= @max_prompt_bytes do

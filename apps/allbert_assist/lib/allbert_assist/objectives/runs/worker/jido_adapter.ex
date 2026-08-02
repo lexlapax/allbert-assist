@@ -58,7 +58,11 @@ defmodule AllbertAssist.Objectives.Runs.Worker.JidoAdapter do
     # Adapter timeout below is the one bounded lifecycle budget and can kill
     # the whole Runner/provider call without leaving a supervisor-owned task.
     {agent, _directives} =
-      Agent.cmd(agent, {Execute, payload}, timeout: 0, __jido_instance__: AllbertAssist.Jido)
+      Agent.cmd(agent, {Execute, payload},
+        timeout: 0,
+        max_retries: 0,
+        __jido_instance__: AllbertAssist.Jido
+      )
 
     continue(agent, context, quality, opts)
   end
@@ -84,6 +88,7 @@ defmodule AllbertAssist.Objectives.Runs.Worker.JidoAdapter do
           agent,
           {ReviewAndRevise, review_payload},
           timeout: 0,
+          max_retries: 0,
           __jido_instance__: AllbertAssist.Jido
         )
 
@@ -234,6 +239,7 @@ defmodule AllbertAssist.Objectives.Runs.Worker.JidoAdapter do
     context
     |> Map.put(:model_max_output_tokens, 512)
     |> Map.put(:model_timeout_ms, timeout)
+    |> Map.put(:model_max_retries, 0)
     |> Map.put(
       :fanout_worker_deadline_monotonic_ms,
       System.monotonic_time(:millisecond) + timeout

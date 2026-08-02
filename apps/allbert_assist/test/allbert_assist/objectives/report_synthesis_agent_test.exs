@@ -392,6 +392,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
 
     assert opts[:temperature] == 0.0
     assert opts[:json_repair] == false
+    assert opts[:max_retries] == 0
 
     metadata = List.last(prompt.messages).metadata.allbert_prompt
     assert metadata.schema_version == 2

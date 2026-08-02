@@ -192,6 +192,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation do
         profile
         |> Map.get(:timeout_ms, 10_000)
         |> min(Map.fetch!(context, :timeout_ms)),
+      max_retries: 0,
       openai_structured_output_mode: :json_schema,
       json_repair: false
     )
