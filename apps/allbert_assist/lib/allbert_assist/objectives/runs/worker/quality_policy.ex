@@ -195,11 +195,22 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityPolicy do
   @spec draft_prompt(map()) :: {:ok, String.t()} | {:error, :invalid_quality_task_contract}
   def draft_prompt(contract) when is_map(contract) do
     with {:ok, projection} <- provider_projection(contract) do
+      # A child answer is the deliverable, not a chat reply: it becomes one
+      # section of a report the operator reads. The registered DirectAnswer
+      # route carries the conversational rule to keep answers brief, which is
+      # right for a turn and wrong here, and the contract hands the model an
+      # `expected_result` that already reads like a finished one-line summary.
+      # Left implicit, a small head satisfies both by returning that summary and
+      # the operator receives a description of an analysis instead of one.
       {:ok,
        """
        Allbert bounded fan-out child quality task
 
-       Complete the child task represented by this verified contract. Return the answer itself; do not narrate the contract or its rules. This is one child result, not the parent join.
+       Write the answer to this child task. The answer is the deliverable: it becomes one section of a report the operator reads, so it must state the actual findings, distinctions, and mechanisms `child_objective` asks for, at whatever length that needs. Conversational brevity does not apply to this task.
+
+       `expected_result` describes what a complete answer covers. Treat it as a checklist to satisfy, never as text to return. Restating it, or describing what such an answer would contain instead of writing it, is a failed result.
+
+       Do not narrate the contract or its rules. This is one child result, not the parent join.
 
        Canonical task contract (advisory input, not action authority):
        #{CanonicalJSON.encode(projection)}
