@@ -257,7 +257,28 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEvalTest do
              required_changes_closed: true,
              rule_catalog_version: QualityPolicy.version(),
              rule_count: length(QualityPolicy.rule_ids()),
-             rule_evidence_closed: true
+             rule_evidence_closed: true,
+             worker_quality_failure_stage_by_row: %{
+               "restart-inaccuracy-repaired" => "none",
+               "replay-guarantee-overclaim-repaired" => "none",
+               "omitted-required-nuance-unresolved" => "none",
+               "accurate-paraphrase-accepted" => "none",
+               "unrelated-domain-accepted" => "none"
+             },
+             worker_quality_failure_reason_by_row: %{
+               "restart-inaccuracy-repaired" => "none",
+               "replay-guarantee-overclaim-repaired" => "none",
+               "omitted-required-nuance-unresolved" => "none",
+               "accurate-paraphrase-accepted" => "none",
+               "unrelated-domain-accepted" => "none"
+             },
+             worker_quality_failed_rule_count_by_row: %{
+               "restart-inaccuracy-repaired" => 0,
+               "replay-guarantee-overclaim-repaired" => 0,
+               "omitted-required-nuance-unresolved" => 1,
+               "accurate-paraphrase-accepted" => 0,
+               "unrelated-domain-accepted" => 0
+             }
            }
 
     assert Enum.map(result.rows, &{&1.id, &1.verdict, &1.provider_call_count}) == [
@@ -270,6 +291,16 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEvalTest do
 
     assert Enum.all?(result.rows, & &1.rule_evidence_closed)
     assert Enum.all?(result.rows, &(&1.configured_reviewer_invocation_count == 1))
+    assert Enum.all?(result.rows, &(&1.failure_stage == "none"))
+    assert Enum.all?(result.rows, &(&1.failure_reason == "none"))
+
+    assert Enum.map(result.rows, &{&1.id, &1.failed_rule_count}) == [
+             {"restart-inaccuracy-repaired", 0},
+             {"replay-guarantee-overclaim-repaired", 0},
+             {"omitted-required-nuance-unresolved", 1},
+             {"accurate-paraphrase-accepted", 0},
+             {"unrelated-domain-accepted", 0}
+           ]
 
     assert Enum.map(result.rows, &{&1.id, &1.answer_changed}) == [
              {"restart-inaccuracy-repaired", true},
@@ -317,13 +348,15 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEvalTest do
 
   test "a semantically wrong closed verdict fails its scenario without inspecting answer prose" do
     fixture = V13FanoutWorkerQualityEval.load_fixture!(@fixture)
+    store = temp_store()
+    on_exit(fn -> File.rm_rf!(Path.dirname(store)) end)
 
     result =
       V13FanoutWorkerQualityEval.run(fixture,
         profile: @profile,
         reviewer: WrongVerdictReviewer,
         reviewer_context: %{},
-        store: :disabled,
+        store: store,
         full_sha: @full_sha,
         dirty: true
       )
@@ -333,6 +366,33 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEvalTest do
     assert "omitted-required-nuance-unresolved" in result.failed_rows
     assert "restart-inaccuracy-repaired" in result.failed_rows
     assert "replay-guarantee-overclaim-repaired" in result.failed_rows
+
+    assert result.stats.worker_quality_failure_stage_by_row == %{
+             "restart-inaccuracy-repaired" => "fixture_expectation",
+             "replay-guarantee-overclaim-repaired" => "fixture_expectation",
+             "omitted-required-nuance-unresolved" => "fixture_expectation",
+             "accurate-paraphrase-accepted" => "none",
+             "unrelated-domain-accepted" => "none"
+           }
+
+    assert result.stats.worker_quality_failure_reason_by_row == %{
+             "restart-inaccuracy-repaired" => "answer_change_mismatch",
+             "replay-guarantee-overclaim-repaired" => "answer_change_mismatch",
+             "omitted-required-nuance-unresolved" => "verdict_mismatch",
+             "accurate-paraphrase-accepted" => "none",
+             "unrelated-domain-accepted" => "none"
+           }
+
+    assert result.stats.worker_quality_failed_rule_count_by_row
+           |> Map.values()
+           |> Enum.uniq() == [0]
+
+    refute Enum.any?(result.rows, &Map.has_key?(&1, :failed_rule_ids))
+
+    evidence = File.read!(store)
+    refute evidence =~ "completion_preconditions"
+    refute evidence =~ "final_answer"
+    refute evidence =~ "rule_results"
   end
 
   test "duplicated or extra reviewer rule evidence fails closed" do
@@ -353,6 +413,9 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEvalTest do
     assert result.stats.rule_evidence_closed == false
     assert Enum.all?(result.rows, &(&1.provider_call_count == 2))
     assert Enum.all?(result.rows, &(&1.configured_reviewer_invocation_count == 1))
+    assert Enum.all?(result.rows, &(&1.failure_stage == "review_validation"))
+    assert Enum.all?(result.rows, &(&1.failure_reason == "invalid_review_evidence"))
+    assert Enum.all?(result.rows, &(&1.failed_rule_count == 0))
   end
 
   test "reviewer evidence must bind the exact prepared reviewer configuration" do
@@ -373,6 +436,8 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEvalTest do
     assert result.stats.protocol_provider_call_count == 10
     assert result.stats.configured_reviewer_invocation_count == 5
     assert Enum.all?(result.rows, &(&1.rule_evidence_closed == false))
+    assert Enum.all?(result.rows, &(&1.failure_stage == "review_validation"))
+    assert Enum.all?(result.rows, &(&1.failure_reason == "invalid_review_evidence"))
   end
 
   test "expected failed rules are exact rather than a permissive subset" do
@@ -392,10 +457,14 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEvalTest do
     assert result.failed_rows == ["omitted-required-nuance-unresolved"]
 
     assert %{
-             failed_rule_ids: ["completion_preconditions", "internal_consistency"],
+             failed_rule_count: 2,
+             failure_stage: "fixture_expectation",
+             failure_reason: "failed_rules_mismatch",
              passed?: false
            } =
              Enum.find(result.rows, &(&1.id == "omitted-required-nuance-unresolved"))
+
+    refute Enum.any?(result.rows, &Map.has_key?(&1, :failed_rule_ids))
   end
 
   test "a slow invoked reviewer is killed at the outer row timeout and counted once" do
@@ -417,6 +486,9 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEvalTest do
     assert result.stats.configured_reviewer_invocation_count == 5
     assert Enum.all?(result.rows, &(&1.provider_call_count == 2))
     assert Enum.all?(result.rows, &(&1.configured_reviewer_invocation_count == 1))
+    assert Enum.all?(result.rows, &(&1.failure_stage == "reviewer_invoke"))
+    assert Enum.all?(result.rows, &(&1.failure_reason == "reviewer_invoke_timeout"))
+    assert Enum.all?(result.rows, &(&1.failed_rule_count == 0))
 
     for case_id <- Enum.map(fixture["scenarios"], & &1["id"]) do
       assert_received {:slow_review_invoked, ^case_id}
@@ -445,6 +517,8 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEvalTest do
     assert result.stats.configured_reviewer_invocation_count == 0
     assert Enum.all?(result.rows, &(&1.provider_call_count == 1))
     assert Enum.all?(result.rows, &(&1.configured_reviewer_invocation_count == 0))
+    assert Enum.all?(result.rows, &(&1.failure_stage == "reviewer_prepare"))
+    assert Enum.all?(result.rows, &(&1.failure_reason == "reviewer_prepare_timeout"))
     assert elapsed_ms < 300
 
     for case_id <- Enum.map(fixture["scenarios"], & &1["id"]) do
@@ -471,6 +545,8 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEvalTest do
     assert prepare_failure.stats.configured_reviewer_invocation_count == 0
     assert Enum.all?(prepare_failure.rows, &(&1.provider_call_count == 1))
     assert Enum.all?(prepare_failure.rows, &(&1.configured_reviewer_invocation_count == 0))
+    assert Enum.all?(prepare_failure.rows, &(&1.failure_stage == "reviewer_prepare"))
+    assert Enum.all?(prepare_failure.rows, &(&1.failure_reason == "reviewer_prepare_failed"))
 
     invoke_failure =
       V13FanoutWorkerQualityEval.run(fixture,
@@ -487,6 +563,8 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEvalTest do
     assert invoke_failure.stats.configured_reviewer_invocation_count == 5
     assert Enum.all?(invoke_failure.rows, &(&1.provider_call_count == 2))
     assert Enum.all?(invoke_failure.rows, &(&1.configured_reviewer_invocation_count == 1))
+    assert Enum.all?(invoke_failure.rows, &(&1.failure_stage == "reviewer_invoke"))
+    assert Enum.all?(invoke_failure.rows, &(&1.failure_reason == "reviewer_invoke_failed"))
   end
 
   test "fixture rejects response or regex oracles instead of turning examples into policy" do

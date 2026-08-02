@@ -118,6 +118,10 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
       do: {:error, {:provider_failed, "sensitive provider body must never enter metrics"}}
   end
 
+  defmodule ClassifiedFailureSynthesisClient do
+    def compose(_snapshot, _profile, context), do: Map.fetch!(context, :failure_result)
+  end
+
   test "focused qualification accepts seven reviewed v2 syntheses through the lifecycle" do
     fixture = V13FanoutEval.load_fixture!(@fixture)
     parent = self()
@@ -339,6 +343,64 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
     refute evidence =~ "sensitive provider body"
   end
 
+  test "composer distinguishes unresolved review from finish failures without provider text" do
+    fixture = V13FanoutEval.load_fixture!(@fixture)
+
+    unresolved =
+      run_composer_failure(
+        fixture,
+        {:error, {:invalid_model_output, :unresolved_fanout_report_synthesis}}
+      )
+
+    assert_closed_composer_failure(
+      unresolved,
+      "synthesis_review",
+      "unresolved_fanout_report_synthesis"
+    )
+
+    incomplete =
+      run_composer_failure(
+        fixture,
+        {:error,
+         {:invalid_model_output, {:incomplete_composition_response, "sensitive finish detail"}}}
+      )
+
+    assert_closed_composer_failure(
+      incomplete,
+      "provider_output",
+      "incomplete_composition_response"
+    )
+
+    refute inspect(incomplete.stats) =~ "sensitive finish detail"
+  end
+
+  test "composer keeps extraction schema layout review and body diagnostics distinct" do
+    fixture = V13FanoutEval.load_fixture!(@fixture)
+
+    cases = [
+      {:empty_composition_selection, "provider_output", "empty_composition_selection"},
+      {:invalid_synthesis_rule_evidence, "provider_output", "invalid_synthesis_rule_evidence"},
+      {:invalid_fanout_report_synthesis_selection, "synthesis_schema",
+       "invalid_fanout_report_synthesis_selection"},
+      {:invalid_fanout_report_composition_section, "synthesis_layout",
+       "invalid_fanout_report_composition_section"},
+      {:invalid_fanout_report_synthesis_review, "synthesis_review",
+       "invalid_fanout_report_synthesis_review"},
+      {:fanout_report_synthesis_too_large, "synthesis_body", "fanout_report_synthesis_too_large"},
+      {{:arbitrary_provider_reason, "private provider text"}, "provider_output",
+       "invalid_model_output"}
+    ]
+
+    for {nested_reason, expected_stage, expected_reason} <- cases do
+      result =
+        run_composer_failure(fixture, {:error, {:invalid_model_output, nested_reason}})
+
+      assert_closed_composer_failure(result, expected_stage, expected_reason)
+      refute inspect(result.stats) =~ "private provider text"
+      refute inspect(result.stats) =~ "arbitrary_provider_reason"
+    end
+  end
+
   test "manager/composer fixture digest binds the decoded frozen corpus" do
     fixture = @fixture |> File.read!() |> Jason.decode!()
 
@@ -502,6 +564,35 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
            }}
       end
     end
+  end
+
+  defp run_composer_failure(fixture, failure_result) do
+    V13FanoutEval.run(fixture,
+      profile: @profile,
+      manager_profile: @profile,
+      composer_profile: @profile,
+      manager: qualified_manager(fixture, self()),
+      composer_client: ClassifiedFailureSynthesisClient,
+      composer_authorizer: fn _profile, _context -> :ok end,
+      composer_context: %{
+        timeout_ms: 10_000,
+        max_output_tokens: 1_024,
+        failure_result: failure_result
+      },
+      store: :disabled,
+      full_sha: @full_sha,
+      dirty: true
+    )
+  end
+
+  defp assert_closed_composer_failure(result, stage, reason) do
+    assert result.status == "failed"
+    assert result.stats.composition_rows_passed == 0
+    assert result.stats.composition_failure_stage_by_row |> Map.values() |> Enum.uniq() == [stage]
+
+    assert result.stats.composition_failure_reason_by_row |> Map.values() |> Enum.uniq() == [
+             reason
+           ]
   end
 
   defp phase_options(fixtures, opts) do

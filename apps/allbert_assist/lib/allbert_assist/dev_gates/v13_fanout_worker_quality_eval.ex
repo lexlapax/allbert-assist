@@ -44,6 +44,12 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
     :rule_results,
     :verdict
   ]
+  @failure_stages ~w[none reviewer_prepare reviewer_invoke review_validation fixture_expectation]
+  @failure_reasons ~w[
+    none reviewer_prepare_timeout reviewer_prepare_failed reviewer_invoke_timeout
+    reviewer_invoke_failed invalid_review_evidence verdict_mismatch failed_rules_mismatch
+    answer_change_mismatch
+  ]
   @default_row_timeout_ms 30_000
   @maximum_row_timeout_ms 60_000
 
@@ -129,16 +135,29 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
     context =
       scenario_context(base_context, scenario["id"], row_timeout_ms, row_deadline_monotonic_ms)
 
-    with {:ok, contract} <- quality_contract(scenario),
-         {:ok, prepared} <-
-           call_before_deadline(
-             fn -> safe_prepare(reviewer, contract, scenario["draft"], context) end,
-             row_deadline_monotonic_ms,
-             :reviewer_prepare_timeout
-           ) do
-      evaluate_invoked(scenario, reviewer, prepared, context, row_deadline_monotonic_ms)
-    else
-      _prepare_failure -> invalid_row(scenario["id"], 1)
+    case quality_contract(scenario) do
+      {:ok, contract} ->
+        evaluate_prepared(scenario, reviewer, contract, context, row_deadline_monotonic_ms)
+
+      _invalid_contract ->
+        invalid_row(scenario["id"], 1, "reviewer_prepare", "reviewer_prepare_failed")
+    end
+  end
+
+  defp evaluate_prepared(scenario, reviewer, contract, context, row_deadline_monotonic_ms) do
+    case call_before_deadline(
+           fn -> safe_prepare(reviewer, contract, scenario["draft"], context) end,
+           row_deadline_monotonic_ms,
+           :reviewer_prepare_timeout
+         ) do
+      {:ok, prepared} ->
+        evaluate_invoked(scenario, reviewer, prepared, context, row_deadline_monotonic_ms)
+
+      {:error, :reviewer_prepare_timeout} ->
+        invalid_row(scenario["id"], 1, "reviewer_prepare", "reviewer_prepare_timeout")
+
+      {:error, _reason} ->
+        invalid_row(scenario["id"], 1, "reviewer_prepare", "reviewer_prepare_failed")
     end
   end
 
@@ -149,51 +168,77 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
            :reviewer_invoke_timeout
          ) do
       {:ok, reviewed} ->
-        case closed_review(reviewed, prepared) do
-          {:ok, evidence} -> reviewed_row(scenario, evidence)
-          {:error, _reason} -> invalid_row(scenario["id"], 2)
-        end
+        evaluate_reviewed(scenario, reviewed, prepared)
+
+      {:error, :reviewer_invoke_timeout} ->
+        invalid_row(scenario["id"], 2, "reviewer_invoke", "reviewer_invoke_timeout")
 
       {:error, _reason} ->
-        invalid_row(scenario["id"], 2)
+        invalid_row(scenario["id"], 2, "reviewer_invoke", "reviewer_invoke_failed")
+    end
+  end
+
+  defp evaluate_reviewed(scenario, reviewed, prepared) do
+    case closed_review(reviewed, prepared) do
+      {:ok, evidence} ->
+        reviewed_row(scenario, evidence)
+
+      {:error, _reason} ->
+        invalid_row(scenario["id"], 2, "review_validation", "invalid_review_evidence")
     end
   end
 
   defp reviewed_row(scenario, evidence) do
     expected = scenario["expected"]
     answer_changed = evidence.final_answer != scenario["draft"]
-
-    passed? =
-      evidence.verdict == expected["verdict"] and
-        evidence.provider_call_count == expected["provider_call_count"] and
-        evidence.rule_evidence_closed and
-        expected_failures_match?(
-          evidence.failed_rule_ids,
-          expected["required_failed_rule_ids"]
-        ) and answer_change_valid?(answer_changed, expected["answer_change"])
+    {failure_stage, failure_reason} = expectation_failure(evidence, expected, answer_changed)
 
     %{
       id: scenario["id"],
-      passed?: passed?,
+      passed?: failure_stage == "none",
       verdict: evidence.verdict,
       provider_call_count: evidence.provider_call_count,
       configured_reviewer_invocation_count: 1,
-      failed_rule_ids: evidence.failed_rule_ids,
+      failed_rule_count: length(evidence.failed_rule_ids),
       rule_evidence_closed: evidence.rule_evidence_closed,
-      answer_changed: answer_changed
+      answer_changed: answer_changed,
+      failure_stage: failure_stage,
+      failure_reason: failure_reason
     }
   end
 
-  defp invalid_row(id, provider_call_count) do
+  defp expectation_failure(evidence, expected, answer_changed) do
+    cond do
+      evidence.verdict != expected["verdict"] ->
+        {"fixture_expectation", "verdict_mismatch"}
+
+      not expected_failures_match?(
+        evidence.failed_rule_ids,
+        expected["required_failed_rule_ids"]
+      ) ->
+        {"fixture_expectation", "failed_rules_mismatch"}
+
+      not answer_change_valid?(answer_changed, expected["answer_change"]) ->
+        {"fixture_expectation", "answer_change_mismatch"}
+
+      true ->
+        {"none", "none"}
+    end
+  end
+
+  defp invalid_row(id, provider_call_count, failure_stage, failure_reason)
+       when failure_stage in @failure_stages and failure_reason in @failure_reasons do
     %{
       id: id,
       passed?: false,
       verdict: "invalid",
       provider_call_count: provider_call_count,
       configured_reviewer_invocation_count: if(provider_call_count == 2, do: 1, else: 0),
-      failed_rule_ids: [],
+      failed_rule_count: 0,
       rule_evidence_closed: false,
-      answer_changed: false
+      answer_changed: false,
+      failure_stage: failure_stage,
+      failure_reason: failure_reason
     }
   end
 
@@ -323,9 +368,14 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
       required_changes_closed: required_change_rows_changed == required_change_rows,
       rule_catalog_version: QualityPolicy.version(),
       rule_count: length(QualityPolicy.rule_ids()),
-      rule_evidence_closed: Enum.all?(rows, & &1.rule_evidence_closed)
+      rule_evidence_closed: Enum.all?(rows, & &1.rule_evidence_closed),
+      worker_quality_failure_stage_by_row: row_map(rows, :failure_stage),
+      worker_quality_failure_reason_by_row: row_map(rows, :failure_reason),
+      worker_quality_failed_rule_count_by_row: row_map(rows, :failed_rule_count)
     }
   end
+
+  defp row_map(rows, key), do: Map.new(rows, &{&1.id, Map.fetch!(&1, key)})
 
   defp count_change_rows(scenario_rows, requirement, changed?) do
     Enum.count(scenario_rows, fn {scenario, row} ->

@@ -36,13 +36,44 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   ]
   @failure_stages ~w[
     none manager_admission transport_authorization provider_setup provider_call
-    provider_output synthesis_lifecycle fixture_expectation body_validation selection_digest
+    provider_output synthesis_schema synthesis_layout synthesis_review synthesis_body
+    synthesis_lifecycle fixture_expectation body_validation selection_digest
   ]
   @failure_reasons ~w[
     none manager_row_failed transport_denied profile_unavailable provider_failed
-    invalid_model_output synthesis_timeout synthesis_unresolved callback_failed
-    layout_mismatch selected_body_invalid selection_digest_invalid unclassified_failure
+    invalid_model_output missing_composition_finish_reason incomplete_composition_response
+    empty_composition_selection invalid_composition_selection invalid_synthesis_rule_evidence
+    invalid_fanout_report_selection invalid_fanout_report_synthesis_selection
+    invalid_fanout_report_composition_selection invalid_fanout_report_composition_sections
+    invalid_fanout_report_composition_section invalid_fanout_report_relationship_cardinality
+    duplicate_fanout_report_composition_position incomplete_fanout_report_composition_selection
+    fanout_report_relationship_section_required unknown_fanout_report_composition_position
+    unresolved_fanout_report_synthesis invalid_fanout_report_synthesis_review
+    empty_fanout_report_synthesis fanout_report_synthesis_too_large
+    unredacted_fanout_report_synthesis invalid_fanout_report_synthesis
+    invalid_model_fanout_synthesis fanout_report_structure_too_large
+    fanout_report_model_displaces_authoritative_evidence synthesis_timeout synthesis_unresolved
+    callback_failed layout_mismatch selected_body_invalid selection_digest_invalid
+    unclassified_failure
   ]
+  @synthesis_schema_reasons ~w[
+    invalid_fanout_report_selection invalid_fanout_report_synthesis_selection
+  ]a
+  @synthesis_layout_reasons ~w[
+    invalid_fanout_report_composition_selection invalid_fanout_report_composition_sections
+    invalid_fanout_report_composition_section invalid_fanout_report_relationship_cardinality
+    duplicate_fanout_report_composition_position incomplete_fanout_report_composition_selection
+    fanout_report_relationship_section_required unknown_fanout_report_composition_position
+  ]a
+  @synthesis_review_reasons ~w[
+    unresolved_fanout_report_synthesis invalid_fanout_report_synthesis_review
+  ]a
+  @synthesis_body_reasons ~w[
+    empty_fanout_report_synthesis fanout_report_synthesis_too_large
+    unredacted_fanout_report_synthesis invalid_fanout_report_synthesis
+    invalid_model_fanout_synthesis fanout_report_structure_too_large
+    fanout_report_model_displaces_authoritative_evidence
+  ]a
   @fixture_sha256 "59c2b74ec85f004cea27ad0c5088eeb5f1ea98f3cf45dd3949524f41f6f93f99"
   @fov3_prompt "Summarize this supplied YAML as data in one sentence: {steps: [archive logs, restart service]}"
   @fov4_prompt "Prepare one architecture brief for a local assistant runtime: (1) Analyze how OTP supervision trees isolate failures, including restart intensity and the difference between one_for_one and rest_for_one. (2) Analyze how an append-only event log plus a rebuildable projection improves crash recovery, including idempotency and replay. In the final joined report—not as a third task—explain how the two mechanisms complement each other."
@@ -338,26 +369,57 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
 
   defp synthesis_result({:ok, prepared}) when is_map(prepared), do: {:ok, prepared}
 
-  defp synthesis_result({:error, {:profile_unavailable, _reason}}),
-    do: {:error, {"provider_setup", "profile_unavailable"}}
-
-  defp synthesis_result({:error, {:provider_failed, _reason}}),
-    do: {:error, {"provider_call", "provider_failed"}}
-
-  defp synthesis_result({:error, {:invalid_model_output, _reason}}),
-    do: {:error, {"provider_output", "invalid_model_output"}}
-
-  defp synthesis_result({:error, :fanout_synthesis_timeout}),
-    do: {:error, {"synthesis_lifecycle", "synthesis_timeout"}}
-
-  defp synthesis_result({:error, :callback_failed}),
-    do: {:error, {"synthesis_lifecycle", "callback_failed"}}
-
-  defp synthesis_result({:error, _reason}),
-    do: {:error, {"synthesis_lifecycle", "unclassified_failure"}}
+  defp synthesis_result({:error, reason}), do: {:error, classify_synthesis_failure(reason)}
 
   defp synthesis_result(_invalid),
     do: {:error, {"synthesis_lifecycle", "synthesis_unresolved"}}
+
+  defp classify_synthesis_failure({:profile_unavailable, _reason}),
+    do: {"provider_setup", "profile_unavailable"}
+
+  defp classify_synthesis_failure({:provider_failed, _reason}),
+    do: {"provider_call", "provider_failed"}
+
+  defp classify_synthesis_failure({:invalid_model_output, reason}),
+    do: classify_invalid_model_output(reason)
+
+  defp classify_synthesis_failure(:fanout_synthesis_timeout),
+    do: {"synthesis_lifecycle", "synthesis_timeout"}
+
+  defp classify_synthesis_failure(:callback_failed),
+    do: {"synthesis_lifecycle", "callback_failed"}
+
+  defp classify_synthesis_failure(_reason),
+    do: {"synthesis_lifecycle", "unclassified_failure"}
+
+  defp classify_invalid_model_output(:missing_composition_finish_reason),
+    do: {"provider_output", "missing_composition_finish_reason"}
+
+  defp classify_invalid_model_output({:incomplete_composition_response, _reason}),
+    do: {"provider_output", "incomplete_composition_response"}
+
+  defp classify_invalid_model_output(reason)
+       when reason in [
+              :empty_composition_selection,
+              :invalid_composition_selection,
+              :invalid_synthesis_rule_evidence
+            ],
+       do: {"provider_output", Atom.to_string(reason)}
+
+  defp classify_invalid_model_output(reason) when reason in @synthesis_schema_reasons,
+    do: {"synthesis_schema", Atom.to_string(reason)}
+
+  defp classify_invalid_model_output(reason) when reason in @synthesis_layout_reasons,
+    do: {"synthesis_layout", Atom.to_string(reason)}
+
+  defp classify_invalid_model_output(reason) when reason in @synthesis_review_reasons,
+    do: {"synthesis_review", Atom.to_string(reason)}
+
+  defp classify_invalid_model_output(reason) when reason in @synthesis_body_reasons,
+    do: {"synthesis_body", Atom.to_string(reason)}
+
+  defp classify_invalid_model_output(_reason),
+    do: {"provider_output", "invalid_model_output"}
 
   defp expected_layout(composition_case, prepared) do
     {:ok, expected} = fixture_expected(composition_case["expected"])
