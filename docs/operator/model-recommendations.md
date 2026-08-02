@@ -92,14 +92,20 @@ The first phase-separated row is also RED evidence, not a recommendation:
 
 | Frozen phase-separated topology | Manager | Composer | Worker | Disposition |
 |---|---:|---:|---:|---|
-| all roles `direct_answer_local` / `qwen2.5:7b` | 1/2 | not evaluated—manager blocked | 0/5 | Evidence closed; semantic miss; no promotion or default change. |
+| legacy all-equal `--profile direct_answer_local` / `qwen2.5:7b` | 1/2 | not evaluated—manager blocked | 0/5 | Manager/Worker semantic RED; the pre-seam row did not independently attest four role bindings; no promotion or default change. |
 
 That result activates one disposable comparison which retains
 `direct_answer_local` for Worker generation/revision and uses exact installed
-Mistral Small 3.1 only for manager, critic, and synthesis roles. It is a release
-qualification experiment, not an operator profile or model recommendation.
-Any shipped role-floor change remains a separate holistic catalog, Settings,
-Doctor, onboarding, operator-guide, and ADR decision after passing evidence.
+Mistral Small 3.1 only for manager, critic, and synthesis roles. Exact clean
+pushed `933d604a` exposes that comparison only as
+`mix allbert.test bench-v13-fanout --mixed-mistral`, seeds its fixed Mistral
+profile in the disposable gate Home, and records four role bindings. It is a
+release qualification experiment, not an operator profile or model
+recommendation. Run it once. RED freezes the evidence and returns to the
+operator. PASS is recorded but changes no default: the operator must separately
+authorize a holistic catalog, Settings, Doctor, onboarding, operator-guide, and
+ADR role-floor change, which must then pass focused configured-provider
+requalification before FOV is activated.
 
 The official Ollama catalog lists `qwen2.5:7b` as a 4.7 GB model, and the
 [official Qwen 2.5 7B Instruct model card](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct)

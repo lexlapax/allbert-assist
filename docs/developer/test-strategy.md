@@ -957,8 +957,14 @@ Memory and Search are reported separately on macOS arm64 and Linux x64; no host
 or consumer may be averaged away. `bench-v13-zero-shot` stores only aggregate
 synthetic-corpus correctness, abstention, interaction, and token counts plus the
 configured profile—never prompts, retrieved claim bodies, or answers.
-`bench-v13-fanout --profile NAME` is an opt-in real-provider development gate,
-not an aggregate/precommit/CI step. It evaluates the exact FOV-3/FOV-4 manager
+`bench-v13-fanout` is an opt-in real-provider development gate, not an
+aggregate/precommit/CI step. `--profile NAME` remains its uniform all-role
+mode. The only mixed mode is the frozen `--mixed-mistral` release comparison:
+Worker stays exact `direct_answer_local` / `qwen2.5:7b`, while manager, review,
+and synthesis use gate-owned disposable `mistral_small31_24b_challenger` / exact
+`mistral-small3.1:24b-instruct-2503-q4_K_M`. The gate seeds that fixed profile
+only in its disposable Home and exposes no general role selector or product
+catalog/default change. It evaluates the exact FOV-3/FOV-4 manager
 requests through `fanout_manager`, then sends seven fixed synthetic reviewed
 snapshots through the production phase-separated composer. Initial/revised
 generation resolves `fanout_synthesis`; both two-critic rounds resolve
@@ -977,11 +983,13 @@ counts (two or five live calls in this draft-supplied harness). One monotonic
 per-row deadline bounds preparation and every phase; no framework retry,
 fallback, or JSON-repair call is hidden under a counted attempt.
 
-The gate appends separate `manager-and-composer` and `worker-quality` rows. The
-first records only result kinds/counts, closed join/layout and review enums,
+The gate appends separate `manager-and-composer` and `worker-quality` rows. Both
+now record the same four resolved role bindings: profile, provider, model,
+effective-endpoint class and digest, and a role-domain-separated configuration
+digest. The first records only result kinds/counts, closed join/layout and review enums,
 ordered coverage positions, phase call arithmetic, content-free configuration
-digests, profile provenance, and its canonical fixture SHA-256. The second
-records only corpus/profile provenance, its canonical fixture SHA-256, typed
+digests, role-profile provenance, and its canonical fixture SHA-256. The second
+records only corpus/role-profile provenance, its canonical fixture SHA-256, typed
 verdict/failure aggregates, closed rule-group and assessment evidence, exact
 phase call arithmetic, and content-free configuration/receipt digests. Both
 decoded fixtures are schema/digest-validated before disposable Home creation or
@@ -995,13 +1003,18 @@ configured-provider matrix and attended `FOV-*` remain semantic/operator
 acceptance. Dirty source rehearsals diagnose the harnesses; only clean
 exact-artifact rows close packaged release evidence where the active plan
 requires it. At executable checkpoint `c3baec24`, focused/static checks and the
-independent audit are green. The exact clean all-`direct_answer_local`
-phase-separated matrix at `e805045f` is RED at manager `1/2`, composer not
-evaluated, and Worker `0/5`; Worker phase/rule/call evidence is closed, so this
-is semantic evidence rather than a harness or transport failure. It activates
-the active plan's single mixed-role comparison but changes no product default.
-No aggregate, package, or operator-validation run has been claimed for either
-checkpoint.
+independent audit are green. The exact clean legacy all-equal
+`--profile direct_answer_local` row at `e805045f` is RED at manager `1/2`,
+composer not evaluated, and Worker `0/5`; the manager outcome and counted
+attempts are recorded, and Worker phase/rule/call evidence is closed, but that
+pre-seam row did not independently attest four role bindings. Exact clean pushed
+`933d604a` adds that attestation mechanism and the sole frozen `--mixed-mistral`
+switch; its owner-test evidence is not a real-provider PASS.
+Run the mixed comparison once. RED freezes evidence and returns to the operator;
+PASS is recorded and returned for operator authorization of a holistic role-
+floor change before defaults, focused requalification, or FOV can move. No
+aggregate, package, or operator-validation run has been claimed for these
+checkpoints.
 
 ### v1.0.2 M8 Final Measurement — 2026-07-17
 
