@@ -85,8 +85,21 @@ recommendation for larger hardware:
 Those rows exercised the superseded combined review topology. They do not
 qualify the current phase-separated implementation, change any model default,
 or raise the global 8 GB starter or task-role floor. Current fan-out acceptance
-still requires a fresh configured-provider matrix and attended operator
+still requires a passing configured-provider matrix and attended operator
 validation.
+
+The first phase-separated row is also RED evidence, not a recommendation:
+
+| Frozen phase-separated topology | Manager | Composer | Worker | Disposition |
+|---|---:|---:|---:|---|
+| all roles `direct_answer_local` / `qwen2.5:7b` | 1/2 | not evaluated—manager blocked | 0/5 | Evidence closed; semantic miss; no promotion or default change. |
+
+That result activates one disposable comparison which retains
+`direct_answer_local` for Worker generation/revision and uses exact installed
+Mistral Small 3.1 only for manager, critic, and synthesis roles. It is a release
+qualification experiment, not an operator profile or model recommendation.
+Any shipped role-floor change remains a separate holistic catalog, Settings,
+Doctor, onboarding, operator-guide, and ADR decision after passing evidence.
 
 The official Ollama catalog lists `qwen2.5:7b` as a 4.7 GB model, and the
 [official Qwen 2.5 7B Instruct model card](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct)

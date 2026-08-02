@@ -995,8 +995,13 @@ configured-provider matrix and attended `FOV-*` remain semantic/operator
 acceptance. Dirty source rehearsals diagnose the harnesses; only clean
 exact-artifact rows close packaged release evidence where the active plan
 requires it. At executable checkpoint `c3baec24`, focused/static checks and the
-independent audit are green; no aggregate, package, or operator-validation run
-has been claimed for that checkpoint.
+independent audit are green. The exact clean all-`direct_answer_local`
+phase-separated matrix at `e805045f` is RED at manager `1/2`, composer not
+evaluated, and Worker `0/5`; Worker phase/rule/call evidence is closed, so this
+is semantic evidence rather than a harness or transport failure. It activates
+the active plan's single mixed-role comparison but changes no product default.
+No aggregate, package, or operator-validation run has been claimed for either
+checkpoint.
 
 ### v1.0.2 M8 Final Measurement — 2026-07-17
 
