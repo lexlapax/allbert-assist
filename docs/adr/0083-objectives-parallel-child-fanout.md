@@ -437,6 +437,10 @@ model:
    this transport version and the exact response schema. This is an additive
    provider-contract clarification; Jido transitions, local verdict derivation,
    durable replay, report authority, and call bounds do not change.
+   Focused configured-provider gates expose only closed, allowlisted failure
+   stages, reasons, and counts. Raw prompts, provider/model output, answers,
+   arbitrary nested errors, and failed-rule identifiers do not enter
+   TestMetrics.
 
    Layout-v2 input binds the complete bounded original request, parent-only
    join guidance, every reviewed DirectAnswer observation plus its verified

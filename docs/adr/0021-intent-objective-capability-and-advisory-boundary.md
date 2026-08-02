@@ -957,6 +957,9 @@ binds the closed-evidence transport version and exact response-schema digest in
 addition to profile/provider/model and effective bounds. New evidence therefore
 cannot silently cross prompt/schema meanings, while historical receipt/report
 replay and every local authority check remain unchanged.
+Focused configured-provider gates expose only closed, allowlisted failure
+stages, reasons, and counts. Raw prompts, provider/model output, answers,
+arbitrary nested errors, and failed-rule identifiers do not enter TestMetrics.
 
 Layout v2 binds the original request, parent-only join guidance, each reviewed
 DirectAnswer observation/quality-receipt digest, and each non-DirectAnswer

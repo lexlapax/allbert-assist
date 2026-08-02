@@ -101,7 +101,11 @@ recognition and app-owned action execution.
     task input is the final user message. For DirectAnswer that input is the
     current operator turn, and vision parts attach only to it. DirectAnswer
     rules are declared by its registered action policy rather than duplicated
-    as adapter prose.
+    as adapter prose. Envelope metadata version 2 carries the ordered stable
+    rule ids, and the system projection renders each id beside its policy-owned
+    instruction in that same order. Those labels bind prompt instructions to
+    structured-review properties; they grant no route, action, permission, or
+    execution authority.
 13. Text DirectAnswer resolves through its task preference, whose shipped local
     profile is `direct_answer_local` (`local_ollama` / `qwen2.5:7b`,
     temperature `0`, maximum `1024` output tokens, 60-second timeout). Its
