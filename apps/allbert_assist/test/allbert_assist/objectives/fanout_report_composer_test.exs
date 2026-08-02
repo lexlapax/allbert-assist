@@ -18,6 +18,32 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     alias AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy
 
     def accepted(relationship, ordered_queue_positions, synthesis) do
+      base(relationship, ordered_queue_positions, synthesis)
+      |> put_in(
+        ["review"],
+        %{
+          "verdict" => "accepted",
+          "rule_results" =>
+            Enum.map(SynthesisPolicy.rule_ids(), fn rule_id ->
+              %{"rule_id" => rule_id, "verdict" => "satisfied"}
+            end),
+          "covered_queue_positions" => ordered_queue_positions
+        }
+      )
+    end
+
+    def provider(relationship, ordered_queue_positions, synthesis) do
+      base(relationship, ordered_queue_positions, synthesis)
+      |> put_in(
+        ["review"],
+        %{
+          "rule_violations" => Map.new(SynthesisPolicy.rule_ids(), &{&1, false}),
+          "covered_queue_positions" => ordered_queue_positions
+        }
+      )
+    end
+
+    defp base(relationship, ordered_queue_positions, synthesis) do
       %{
         "sections" => [
           %{
@@ -26,14 +52,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
           }
         ],
         "advisory_synthesis" => synthesis,
-        "review" => %{
-          "verdict" => "accepted",
-          "rule_results" =>
-            Enum.map(SynthesisPolicy.rule_ids(), fn rule_id ->
-              %{"rule_id" => rule_id, "verdict" => "satisfied"}
-            end),
-          "covered_queue_positions" => ordered_queue_positions
-        }
+        "review" => %{}
       }
     end
   end
@@ -48,7 +67,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
          model: "fixture-model",
          context: prompt,
          object:
-           SynthesisFixture.accepted(
+           SynthesisFixture.provider(
              "independent",
              [0],
              "The first accepted observation addresses the requested independent concern."
@@ -352,25 +371,41 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
              rule_ids: SynthesisPolicy.prompt_rule_ids()
            }
 
-    assert schema |> Keyword.keys() |> Enum.sort() ==
-             ~w[advisory_synthesis review sections]a
+    assert schema["type"] == "object"
+    assert schema["required"] == ~w[sections advisory_synthesis review]
+    assert schema["additionalProperties"] == false
 
-    assert schema[:sections][:required]
-    assert {:list, {:map, section_schema}} = schema[:sections][:type]
+    section_schema = schema["properties"]["sections"]["items"]
 
-    assert section_schema[:relationship][:type] ==
-             {:in, ~w[complementary contrasting sequential supporting independent]}
+    assert section_schema["properties"]["relationship"]["enum"] ==
+             ~w[complementary contrasting sequential supporting independent]
 
-    assert section_schema[:relationship][:required]
-    assert section_schema[:ordered_queue_positions][:type] == {:list, :integer}
-    assert section_schema[:ordered_queue_positions][:required]
-    assert schema[:advisory_synthesis][:type] == :string
-    assert schema[:advisory_synthesis][:required]
-    assert {:map, review_schema} = schema[:review][:type]
-    assert review_schema[:verdict][:type] == {:in, ~w[accepted unresolved]}
-    assert {:list, {:map, rule_result_schema}} = review_schema[:rule_results][:type]
-    assert rule_result_schema[:rule_id][:type] == {:in, SynthesisPolicy.rule_ids()}
-    assert review_schema[:covered_queue_positions][:type] == {:list, :integer}
+    assert section_schema["required"] == ~w[relationship ordered_queue_positions]
+    assert section_schema["additionalProperties"] == false
+
+    assert section_schema["properties"]["ordered_queue_positions"] == %{
+             "type" => "array",
+             "items" => %{"type" => "integer", "minimum" => 0}
+           }
+
+    assert schema["properties"]["advisory_synthesis"]["type"] == "string"
+
+    review_schema = schema["properties"]["review"]
+    assert review_schema["required"] == ~w[rule_violations covered_queue_positions]
+    assert review_schema["additionalProperties"] == false
+
+    assert review_schema["properties"]["rule_violations"] == %{
+             "type" => "object",
+             "properties" => Map.new(SynthesisPolicy.rule_ids(), &{&1, %{"type" => "boolean"}}),
+             "required" => SynthesisPolicy.rule_ids(),
+             "additionalProperties" => false
+           }
+
+    assert review_schema["properties"]["covered_queue_positions"] == %{
+             "type" => "array",
+             "items" => %{"type" => "integer", "minimum" => 0}
+           }
+
     assert opts[:temperature] == 0.0
     assert opts[:max_tokens] == 1_024
     assert opts[:receive_timeout] == 5_000

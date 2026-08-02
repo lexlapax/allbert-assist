@@ -145,11 +145,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
            "advisory_synthesis" =>
              "Failure isolation and durable replay complement each other at restart.",
            "review" => %{
-             "verdict" => "accepted",
-             "rule_results" =>
-               Enum.map(SynthesisPolicy.rule_ids(), fn rule_id ->
-                 %{"rule_id" => rule_id, "verdict" => "satisfied"}
-               end),
+             "rule_violations" => Map.new(SynthesisPolicy.rule_ids(), &{&1, false}),
              "covered_queue_positions" => [0, 1]
            }
          },
@@ -167,6 +163,38 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
          context: prompt,
          object: %{},
          finish_reason: nil
+       }}
+    end
+  end
+
+  defmodule ViolatedRuleReqLLM do
+    alias AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy
+
+    def generate_object(_spec, prompt, _schema, _opts) do
+      [violated_rule | _rest] = SynthesisPolicy.rule_ids()
+
+      violations =
+        SynthesisPolicy.rule_ids()
+        |> Map.new(&{&1, false})
+        |> Map.put(violated_rule, true)
+
+      {:ok,
+       %Response{
+         id: "violated-synthesis-rule",
+         model: "fixture-model",
+         context: prompt,
+         object: %{
+           "sections" => [
+             %{"relationship" => "complementary", "ordered_queue_positions" => [0, 1]}
+           ],
+           "advisory_synthesis" =>
+             "Failure isolation and durable replay complement each other at restart.",
+           "review" => %{
+             "rule_violations" => violations,
+             "covered_queue_positions" => [0, 1]
+           }
+         },
+         finish_reason: :stop
        }}
     end
   end
@@ -321,7 +349,19 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
   end
 
   test "ReqLLM adapter requests one exact synthesis and closed review object" do
-    assert {:ok, %{"review" => %{"verdict" => "accepted"}}} =
+    expected_rule_results =
+      Enum.map(SynthesisPolicy.rule_ids(), fn rule_id ->
+        %{"rule_id" => rule_id, "verdict" => "satisfied"}
+      end)
+
+    assert {:ok,
+            %{
+              "review" => %{
+                "verdict" => "accepted",
+                "rule_results" => ^expected_rule_results,
+                "covered_queue_positions" => [0, 1]
+              }
+            }} =
              ReqLLMImplementation.compose(snapshot(), profile(), %{
                req_llm_client: CaptureReqLLM,
                test_pid: self(),
@@ -332,16 +372,27 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
     assert_receive {:req_llm_synthesis, %{provider: :openai, id: "qwen2.5:7b"}, prompt, schema,
                     opts}
 
-    assert schema |> Keyword.keys() |> Enum.sort() ==
-             ~w[advisory_synthesis review sections]a
+    assert schema["type"] == "object"
+    assert schema["required"] == ~w[sections advisory_synthesis review]
+    assert schema["additionalProperties"] == false
+    assert {:ok, %{schema: ^schema, compiled: nil}} = ReqLLM.Schema.compile(schema)
 
-    assert schema[:advisory_synthesis][:required]
-    assert {:map, review_schema} = schema[:review][:type]
-    assert review_schema[:verdict][:type] == {:in, ["accepted", "unresolved"]}
-    assert review_schema[:rule_results][:required]
-    {:list, {:map, rule_result_schema}} = review_schema[:rule_results][:type]
-    assert rule_result_schema[:rule_id][:type] == {:in, SynthesisPolicy.rule_ids()}
-    assert review_schema[:covered_queue_positions][:type] == {:list, :integer}
+    review_schema = schema["properties"]["review"]
+    assert review_schema["required"] == ~w[rule_violations covered_queue_positions]
+    assert review_schema["additionalProperties"] == false
+
+    assert review_schema["properties"]["rule_violations"] == %{
+             "type" => "object",
+             "properties" => Map.new(SynthesisPolicy.rule_ids(), &{&1, %{"type" => "boolean"}}),
+             "required" => SynthesisPolicy.rule_ids(),
+             "additionalProperties" => false
+           }
+
+    assert review_schema["properties"]["covered_queue_positions"] == %{
+             "type" => "array",
+             "items" => %{"type" => "integer", "minimum" => 0}
+           }
+
     assert opts[:temperature] == 0.0
     assert opts[:json_repair] == false
 
@@ -350,6 +401,21 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
     assert metadata.purpose == :fanout_report_synthesis
     assert metadata.rule_ids == SynthesisPolicy.prompt_rule_ids()
     refute_receive {:req_llm_synthesis, _, _, _, _}
+  end
+
+  test "one provider-reported rule violation remains unresolved through the Jido lifecycle" do
+    assert {:error, {:invalid_model_output, :unresolved_fanout_report_synthesis}} =
+             SynthesisAgent.run(
+               snapshot(),
+               profile(),
+               %{
+                 req_llm_client: ViolatedRuleReqLLM,
+                 timeout_ms: 5_000,
+                 max_output_tokens: 1_024
+               },
+               ReqLLMImplementation,
+               5_000
+             )
   end
 
   test "oversized full Unicode join request closes before the provider boundary" do
