@@ -1458,18 +1458,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     %{parent: parent, children: children, receipt: receipt} = frame_two()
     assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
 
-    for child <- children do
-      assert {1, _rows} =
-               Objective
-               |> where([objective], objective.id == ^child.id)
-               |> Repo.update_all(
-                 set: [
-                   status: "completed",
-                   last_observation_summary: "historical result",
-                   completed_at: DateTime.utc_now()
-                 ]
-               )
-    end
+    force_legacy_terminal_children!(children, "historical result")
 
     tracked = spawn(fn -> receive do: (:stop -> :ok) end)
     Scheduler.track_coordinator(parent.id, tracked)
@@ -1495,18 +1484,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     %{parent: parent, children: children, receipt: receipt} = frame_two()
     assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
 
-    for child <- children do
-      assert {1, _rows} =
-               Objective
-               |> where([objective], objective.id == ^child.id)
-               |> Repo.update_all(
-                 set: [
-                   status: "completed",
-                   last_observation_summary: "durable result",
-                   completed_at: DateTime.utc_now()
-                 ]
-               )
-    end
+    force_legacy_terminal_children!(children, "durable result")
 
     {:ok, attempts} = Agent.start_link(fn -> 0 end)
 
@@ -1537,18 +1515,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     %{parent: parent, children: children, receipt: receipt} = frame_two()
     assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
 
-    for child <- children do
-      assert {1, _rows} =
-               Objective
-               |> where([objective], objective.id == ^child.id)
-               |> Repo.update_all(
-                 set: [
-                   status: "completed",
-                   last_observation_summary: "durable result",
-                   completed_at: DateTime.utc_now()
-                 ]
-               )
-    end
+    force_legacy_terminal_children!(children, "durable result")
 
     {:ok, attempts} = Agent.start_link(fn -> 0 end)
 
@@ -1585,18 +1552,7 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     %{parent: parent, children: children, receipt: receipt} = frame_two()
     assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
 
-    for child <- children do
-      assert {1, _rows} =
-               Objective
-               |> where([objective], objective.id == ^child.id)
-               |> Repo.update_all(
-                 set: [
-                   status: "completed",
-                   last_observation_summary: "durable result",
-                   completed_at: DateTime.utc_now()
-                 ]
-               )
-    end
+    force_legacy_terminal_children!(children, "durable result")
 
     {:ok, attempts} = Agent.start_link(fn -> 0 end)
 
@@ -1860,6 +1816,28 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
              )
 
     :ok
+  end
+
+  defp force_legacy_terminal_children!(children, summary) do
+    Enum.each(children, fn child ->
+      assert {1, _rows} =
+               Objective
+               |> where([objective], objective.id == ^child.id)
+               |> Repo.update_all(
+                 set: [
+                   status: "completed",
+                   last_observation_summary: summary,
+                   completed_at: DateTime.utc_now()
+                 ]
+               )
+
+      assert {:ok, _event} =
+               Objectives.create_event(%{
+                 objective_id: child.id,
+                 kind: "run_completed",
+                 payload: %{summary: String.slice(summary, 0, 500)}
+               })
+    end)
   end
 
   defp terminate_registered_process(key) do
