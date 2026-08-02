@@ -1356,30 +1356,16 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     grounding = Grounding.resolve(child)
     assert {:ok, contract} = QualityPolicy.build(grounding)
     assert {:ok, task_digest} = QualityPolicy.digest(contract)
-    assert {:ok, protocol} = QualityPolicy.review_protocol()
-    accepted_assessment_sha256 = String.duplicate("a", 64)
-
     assert {:ok, receipt} =
              QualityReceipt.build(%{
                objective_id: child.id,
                step_id: step.id,
                task_contract_sha256: task_digest,
                rule_catalog_version: QualityPolicy.version(),
-               review_protocol_version: protocol.review_protocol_version,
-               critic_group_count: length(protocol.groups),
-               rule_group_catalog_version: protocol.rule_group_catalog_version,
-               rule_group_catalog_sha256: protocol.rule_group_catalog_sha256,
-               reviewer_config_sha256: String.duplicate("b", 64),
-               draft_call_count: 1,
-               initial_critic_call_count: 2,
-               revision_call_count: 0,
-               final_critic_call_count: 0,
-               provider_call_count: 3,
-               initial_assessment_sha256: accepted_assessment_sha256,
-               final_assessment_sha256: nil,
-               accepted_assessment_sha256: accepted_assessment_sha256,
+               generator_config_sha256: String.duplicate("b", 64),
+               generation_call_count: 1,
+               provider_call_count: 1,
                verdict: "accepted",
-               failed_rule_ids: [],
                final_answer: answer
              })
 

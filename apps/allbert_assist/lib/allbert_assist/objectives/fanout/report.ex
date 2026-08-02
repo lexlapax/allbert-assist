@@ -852,7 +852,7 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
   # not readable; contract v1 replay is unchanged above.
   defp normalize_v2_contract_v3_model_provenance(provenance) do
     with true <-
-           map_size(provenance) == 10 and
+           map_size(provenance) == 11 and
              provenance_keys(provenance) ==
                ~w[
                  generation_call_count layout_version model model_profile provider

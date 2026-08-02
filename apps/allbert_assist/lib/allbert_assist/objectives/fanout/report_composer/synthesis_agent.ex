@@ -121,14 +121,14 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.SynthesisAgent do
     {:error, :fanout_synthesis_timeout}
   end
 
+  # v1.3 M9.b.6 (ADR 0021 A24): one generation, no revision phase.
   defp bind_provider_attempt_count(
-         {:ok, %{generation_call_count: 1, revision_call_count: revision_count}} = result,
+         {:ok, %{generation_call_count: 1}} = result,
          provider_attempt_counter
-       )
-       when revision_count in [0, 1] do
+       ) do
     expect_provider_attempts(
       provider_attempt_counter,
-      %{total: 1 + revision_count, generation: 1, revision: revision_count},
+      %{total: 1, generation: 1, revision: 0},
       result
     )
   end

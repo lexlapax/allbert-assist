@@ -199,6 +199,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
       :ok ->
         select_synthesis_eligible_body(claim, state)
 
+      {:error, :fanout_budget_version_retired} ->
+        fallback_selection(frozen, :fanout_budget_version_retired, :not_run)
 
       {:error, :invalid_fanout_budget_snapshot} ->
         fallback_selection(frozen, :invalid_budget_snapshot, :not_run)
@@ -299,7 +301,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
         reviewed_queue_positions: Map.fetch!(prepared, :reviewed_queue_positions),
         synthesis_sha256: Map.fetch!(prepared, :synthesis_sha256),
         generation_call_count: Map.fetch!(prepared, :generation_call_count),
-        provider_call_count: Map.fetch!(prepared, :provider_call_count),
+        provider_call_count: Map.fetch!(prepared, :provider_call_count)
       }
     }
   end

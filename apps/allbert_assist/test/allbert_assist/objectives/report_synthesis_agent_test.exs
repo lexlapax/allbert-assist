@@ -10,7 +10,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
   alias AllbertAssist.Objectives.Fanout.ReportComposer
   alias AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation
   alias AllbertAssist.Objectives.Fanout.ReportComposer.SynthesisAgent
-  alias AllbertAssist.Objectives.Fanout.ReviewProtocol
   alias AllbertAssist.Objectives.Fanout.RoleProfileConfiguration
   alias AllbertAssist.Objectives.Objective
   alias ReqLLM.Response
@@ -32,39 +31,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
          "advisory_synthesis" =>
            "Failure isolation limits the process blast radius while durable replay restores the state needed after restart."
        }}
-    end
-  end
-
-  defmodule SatisfiedCritic do
-    alias AllbertAssist.Objectives.Fanout.ReviewRound
-
-    def assess(request, context) do
-      :ok = ReviewRound.note_provider_attempt(context)
-      send(context.test_pid, {:synthesis_critic_call, request})
-
-      assessments =
-        Enum.map(request["group"]["rules"], fn rule ->
-          %{
-            "rule_id" => rule["id"],
-            "status" => "satisfied",
-            "source_handles" => ["task_contract", "candidate"]
-          }
-        end)
-
-      {:ok,
-       %{
-         assessment: %{
-           "group_id" => request["group"]["id"],
-           "assessments" => assessments
-         },
-         reviewer_config_sha256: sha256("synthesis-critic:" <> request["group"]["id"])
-       }}
-    end
-
-    defp sha256(value) do
-      value
-      |> then(&:crypto.hash(:sha256, &1))
-      |> Base.encode16(case: :lower)
     end
   end
 
@@ -161,186 +127,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
     end
   end
 
-  defmodule RevisionCritic do
-    alias AllbertAssist.Objectives.Fanout.ReviewRound
-
-    def assess(request, context) do
-      :ok = ReviewRound.note_provider_attempt(context)
-      phase = context.review_phase
-      send(context.test_pid, {:revision_critic_call, phase, request})
-
-      assessments =
-        Enum.map(request["group"]["rules"], fn rule ->
-          status =
-            if phase == :initial and rule["id"] == "relationship_support",
-              do: "violated",
-              else: "satisfied"
-
-          %{
-            "rule_id" => rule["id"],
-            "status" => status,
-            "source_handles" => ["task_contract", "candidate"]
-          }
-        end)
-
-      {:ok,
-       %{
-         assessment: %{
-           "group_id" => request["group"]["id"],
-           "assessments" => assessments
-         },
-         reviewer_config_sha256:
-           sha256("synthesis-revision-critic:#{phase}:" <> request["group"]["id"])
-       }}
-    end
-
-    defp sha256(value) do
-      value
-      |> then(&:crypto.hash(:sha256, &1))
-      |> Base.encode16(case: :lower)
-    end
-  end
-
-  defmodule PersistentlyViolatedCritic do
-    alias AllbertAssist.Objectives.Fanout.ReviewRound
-
-    def assess(request, context) do
-      :ok = ReviewRound.note_provider_attempt(context)
-      send(context.test_pid, {:persistently_violated_critic_call, context.review_phase})
-
-      assessments =
-        Enum.map(request["group"]["rules"], fn rule ->
-          %{
-            "rule_id" => rule["id"],
-            "status" =>
-              if(rule["id"] == "relationship_support", do: "violated", else: "satisfied"),
-            "source_handles" => ["task_contract", "candidate"]
-          }
-        end)
-
-      {:ok,
-       %{
-         assessment: %{
-           "group_id" => request["group"]["id"],
-           "assessments" => assessments
-         },
-         reviewer_config_sha256:
-           sha256("persistent-critic:#{context.review_phase}:" <> request["group"]["id"])
-       }}
-    end
-
-    defp sha256(value) do
-      value
-      |> then(&:crypto.hash(:sha256, &1))
-      |> Base.encode16(case: :lower)
-    end
-  end
-
-  defmodule MalformedCritic do
-    alias AllbertAssist.Objectives.Fanout.ReviewRound
-
-    def assess(request, context) do
-      :ok = ReviewRound.note_provider_attempt(context)
-      send(context.test_pid, {:malformed_critic_call, request["group"]["id"]})
-
-      {:ok,
-       %{
-         assessment: %{
-           "group_id" => request["group"]["id"],
-           "assessments" => []
-         },
-         reviewer_config_sha256: sha256("malformed-critic:" <> request["group"]["id"])
-       }}
-    end
-
-    defp sha256(value) do
-      value
-      |> then(&:crypto.hash(:sha256, &1))
-      |> Base.encode16(case: :lower)
-    end
-  end
-
   defmodule MissingCritic do
-  end
-
-  defmodule OverAttemptCritic do
-    alias AllbertAssist.Objectives.Fanout.ReviewRound
-
-    def assess(request, context) do
-      :ok = ReviewRound.note_provider_attempt(context)
-      :ok = ReviewRound.note_provider_attempt(context)
-      send(context.test_pid, {:over_attempt_critic_call, context.review_phase})
-
-      {:ok,
-       %{
-         assessment: satisfied_assessment(request),
-         reviewer_config_sha256: sha256("over-attempt:" <> request["group"]["id"])
-       }}
-    end
-
-    defp satisfied_assessment(request) do
-      %{
-        "group_id" => request["group"]["id"],
-        "assessments" =>
-          Enum.map(request["group"]["rules"], fn rule ->
-            %{
-              "rule_id" => rule["id"],
-              "status" => "satisfied",
-              "source_handles" => ["task_contract", "candidate"]
-            }
-          end)
-      }
-    end
-
-    defp sha256(value) do
-      value
-      |> then(&:crypto.hash(:sha256, &1))
-      |> Base.encode16(case: :lower)
-    end
-  end
-
-  defmodule FinalOverAttemptCritic do
-    alias AllbertAssist.Objectives.Fanout.ReviewRound
-
-    def assess(request, context) do
-      attempt_count = if(context.review_phase == :final, do: 2, else: 1)
-
-      Enum.each(1..attempt_count, fn _attempt ->
-        :ok = ReviewRound.note_provider_attempt(context)
-      end)
-
-      send(context.test_pid, {:final_over_attempt_critic_call, context.review_phase})
-
-      assessments =
-        Enum.map(request["group"]["rules"], fn rule ->
-          status =
-            if context.review_phase == :initial and rule["id"] == "relationship_support",
-              do: "violated",
-              else: "satisfied"
-
-          %{
-            "rule_id" => rule["id"],
-            "status" => status,
-            "source_handles" => ["task_contract", "candidate"]
-          }
-        end)
-
-      {:ok,
-       %{
-         assessment: %{
-           "group_id" => request["group"]["id"],
-           "assessments" => assessments
-         },
-         reviewer_config_sha256:
-           sha256("final-over-attempt:#{context.review_phase}:" <> request["group"]["id"])
-       }}
-    end
-
-    defp sha256(value) do
-      value
-      |> then(&:crypto.hash(:sha256, &1))
-      |> Base.encode16(case: :lower)
-    end
   end
 
   defmodule LocallyRejectedModel do
@@ -600,74 +387,27 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
     def authorize_transport(_profile, _context), do: :ok
   end
 
-  test "one generated synthesis is accepted only after two disjoint critics approve exact bytes" do
+  test "one generated synthesis is accepted after exactly one provider call" do
     snapshot = snapshot()
 
     assert {:ok, prepared} =
              SynthesisAgent.run(
                snapshot,
                %{name: "direct_answer_local"},
-               %{test_pid: self(), critic_implementation: SatisfiedCritic},
+               %{test_pid: self()},
                AcceptedModel,
                5_000
              )
 
     assert prepared.layout.layout_version == 2
-    assert prepared.synthesis_contract_version == 2
+    assert prepared.synthesis_contract_version == 3
     assert prepared.review_verdict == "accepted"
     assert prepared.reviewed_queue_positions == [0, 1]
-    assert prepared.review_protocol_version == 1
-    assert prepared.critic_group_count == 2
-    assert prepared.rule_group_catalog_version == 1
     assert prepared.generation_call_count == 1
-    assert prepared.initial_critic_call_count == 2
-    assert prepared.revision_call_count == 0
-    assert prepared.final_critic_call_count == 0
-    assert prepared.provider_call_count == 3
-    assert prepared.final_assessment_sha256 == nil
-    assert prepared.accepted_assessment_sha256 == prepared.initial_assessment_sha256
+    assert prepared.provider_call_count == 1
     assert prepared.generation_configuration_sha256 == nil
-    assert prepared.revision_configuration_sha256 == nil
     assert prepared.body =~ "Model-authored advisory synthesis:"
     assert_receive {:synthesis_provider_call, ^snapshot}
-
-    requests =
-      for _index <- 1..2 do
-        assert_receive {:synthesis_critic_call, request}
-        request
-      end
-
-    assert Enum.sort(Enum.map(requests, & &1["group"]["id"])) ==
-             ~w[coverage_relationship integrity_authority]
-
-    initial_reviewer_config =
-      review_round_config_sha256(fn group_id ->
-        sha256("synthesis-critic:" <> group_id)
-      end)
-
-    assert {:ok, expected_reviewer_config} =
-             SynthesisPolicy.reviewer_config_set_sha256(initial_reviewer_config)
-
-    assert prepared.reviewer_config_sha256 == expected_reviewer_config
-
-    {:ok, source_contract} = Report.composition_input(snapshot)
-
-    expected_source = CanonicalJSON.encode(source_contract)
-
-    expected_candidate =
-      CanonicalJSON.encode(%{
-        "sections" => [
-          %{"relationship" => "complementary", "ordered_queue_positions" => [0, 1]}
-        ],
-        "advisory_synthesis" =>
-          "Failure isolation limits the process blast radius while durable replay restores the state needed after restart."
-      })
-
-    assert Enum.all?(requests, fn request ->
-             request["sources"]["task_contract"]["content"] == expected_source and
-               request["sources"]["candidate"]["content"] == expected_candidate
-           end)
-
     refute_receive {:synthesis_provider_call, _snapshot}
   end
 
@@ -681,14 +421,12 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
              SynthesisAgent.run(
                snapshot(),
                profile(),
-               %{test_pid: self(), critic_implementation: SatisfiedCritic},
+               %{test_pid: self()},
                DoubleGenerationAttemptModel,
                5_000
              )
 
     assert_receive {:double_generation_provider_call, _snapshot}
-    assert_receive {:synthesis_critic_call, _request}
-    assert_receive {:synthesis_critic_call, _request}
   end
 
   test "a double-marked failed generation cannot pass as an ordinary provider failure" do
@@ -701,13 +439,12 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
              SynthesisAgent.run(
                snapshot(),
                profile(),
-               %{test_pid: self(), critic_implementation: SatisfiedCritic},
+               %{test_pid: self()},
                DoubleFailedGenerationAttemptModel,
                5_000
              )
 
     assert_receive {:double_failed_generation_provider_call, _snapshot}
-    refute_receive {:synthesis_critic_call, _request}
   end
 
   test "an absolute synthesis deadline is exhausted at equality before awaiting" do
@@ -720,14 +457,11 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
                profile(),
                %{
                  test_pid: self(),
-                 critic_implementation: SatisfiedCritic,
                  synthesis_monotonic_now: monotonic_now
                },
                SlowModel,
                5_000
              )
-
-    refute_receive {:synthesis_critic_call, _request}
   end
 
   test "a completed synthesis is accepted only when the post-result clock is before deadline" do
@@ -740,7 +474,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
                profile(),
                %{
                  test_pid: self(),
-                 critic_implementation: SatisfiedCritic,
                  synthesis_monotonic_now: monotonic_now
                },
                AcceptedModel,
@@ -748,8 +481,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
              )
 
     assert_receive {:synthesis_provider_call, _snapshot}
-    assert_receive {:synthesis_critic_call, _request}
-    assert_receive {:synthesis_critic_call, _request}
   end
 
   test "a completed synthesis is rejected when the post-result clock equals deadline" do
@@ -762,7 +493,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
                profile(),
                %{
                  test_pid: self(),
-                 critic_implementation: SatisfiedCritic,
                  synthesis_monotonic_now: monotonic_now
                },
                AcceptedModel,
@@ -770,8 +500,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
              )
 
     assert_receive {:synthesis_provider_call, _snapshot}
-    assert_receive {:synthesis_critic_call, _request}
-    assert_receive {:synthesis_critic_call, _request}
   end
 
   test "production adapter configuration evidence remains transient through synthesis" do
@@ -781,7 +509,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
                profile(),
                %{
                  test_pid: self(),
-                 critic_implementation: SatisfiedCritic,
                  req_llm_client: CaptureReqLLM,
                  max_output_tokens: 1_024
                },
@@ -790,136 +517,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
              )
 
     assert prepared.generation_configuration_sha256 =~ ~r/^[0-9a-f]{64}$/
-    assert prepared.revision_configuration_sha256 == nil
     assert_receive {:req_llm_synthesis, _, _, _, _}
-    assert_receive {:synthesis_critic_call, _request}
-    assert_receive {:synthesis_critic_call, _request}
     refute_receive {:req_llm_synthesis, _, _, _, _}
-  end
-
-  test "one violated rule permits one revision followed by a fresh two-critic verification" do
-    snapshot = snapshot()
-
-    assert {:ok, prepared} =
-             SynthesisAgent.run(
-               snapshot,
-               %{name: "direct_answer_local"},
-               %{test_pid: self(), critic_implementation: RevisionCritic},
-               RevisionModel,
-               5_000
-             )
-
-    assert prepared.synthesis_contract_version == 2
-    assert prepared.generation_call_count == 1
-    assert prepared.initial_critic_call_count == 2
-    assert prepared.revision_call_count == 1
-    assert prepared.final_critic_call_count == 2
-    assert prepared.provider_call_count == 6
-    assert prepared.initial_assessment_sha256 != prepared.final_assessment_sha256
-    assert prepared.accepted_assessment_sha256 == prepared.final_assessment_sha256
-
-    assert prepared.body =~
-             "OTP supervision contains live-process failures while replay restores durable state"
-
-    assert_receive {:initial_synthesis_provider_call, ^snapshot}
-
-    assert_receive {:synthesis_revision_call, ^snapshot, initial_candidate,
-                    ["relationship_support"]}
-
-    assert initial_candidate ==
-             CanonicalJSON.encode(%{
-               "sections" => [
-                 %{
-                   "relationship" => "complementary",
-                   "ordered_queue_positions" => [0, 1]
-                 }
-               ],
-               "advisory_synthesis" => "The observations are related."
-             })
-
-    calls =
-      for _index <- 1..4 do
-        assert_receive {:revision_critic_call, phase, request}
-        {phase, request}
-      end
-
-    assert Enum.frequencies_by(calls, &elem(&1, 0)) == %{initial: 2, final: 2}
-
-    initial_reviewer_config =
-      review_round_config_sha256(fn group_id ->
-        sha256("synthesis-revision-critic:initial:" <> group_id)
-      end)
-
-    final_reviewer_config =
-      review_round_config_sha256(fn group_id ->
-        sha256("synthesis-revision-critic:final:" <> group_id)
-      end)
-
-    assert initial_reviewer_config != final_reviewer_config
-
-    assert {:ok, expected_reviewer_config} =
-             SynthesisPolicy.reviewer_config_set_sha256(
-               initial_reviewer_config,
-               final_reviewer_config
-             )
-
-    assert prepared.reviewer_config_sha256 == expected_reviewer_config
-    tampered_initial_config = sha256("tampered-initial-reviewer-config")
-
-    assert {:ok, tampered_reviewer_config} =
-             SynthesisPolicy.reviewer_config_set_sha256(
-               tampered_initial_config,
-               final_reviewer_config
-             )
-
-    refute tampered_reviewer_config == prepared.reviewer_config_sha256
-
-    assert {:error, :invalid_synthesis_reviewer_config} =
-             SynthesisPolicy.reviewer_config_set_sha256(
-               String.upcase(initial_reviewer_config),
-               final_reviewer_config
-             )
-
-    initial_candidates =
-      calls
-      |> Enum.filter(&(elem(&1, 0) == :initial))
-      |> Enum.map(&elem(&1, 1)["sources"]["candidate"]["content"])
-      |> Enum.uniq()
-
-    final_candidates =
-      calls
-      |> Enum.filter(&(elem(&1, 0) == :final))
-      |> Enum.map(&elem(&1, 1)["sources"]["candidate"]["content"])
-      |> Enum.uniq()
-
-    assert initial_candidates == [initial_candidate]
-    assert length(final_candidates) == 1
-    refute final_candidates == initial_candidates
-  end
-
-  test "a double-marked revision is rejected with the exact physical count" do
-    assert {:error,
-            {:fanout_synthesis_provider_attempt_mismatch,
-             %{
-               expected: %{total: 2, generation: 1, revision: 1},
-               observed: %{total: 3, generation: 1, revision: 2}
-             }}} =
-             SynthesisAgent.run(
-               snapshot(),
-               profile(),
-               %{test_pid: self(), critic_implementation: RevisionCritic},
-               DoubleRevisionAttemptModel,
-               5_000
-             )
-
-    assert_receive {:double_revision_initial_provider_call, _snapshot}
-
-    assert_receive {:double_revision_provider_call, _snapshot, _candidate,
-                    ["relationship_support"]}
-
-    for _index <- 1..4 do
-      assert_receive {:revision_critic_call, _phase, _request}
-    end
   end
 
   test "ReqLLM generation requests candidate bytes without a self-review verdict" do
@@ -969,182 +568,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
     assert metadata.purpose == :fanout_report_synthesis_generation
     assert metadata.rule_ids == SynthesisPolicy.prompt_rule_ids()
     refute_receive {:req_llm_synthesis, _, _, _, _}
-  end
-
-  test "ReqLLM revision receives only exact source, candidate, and typed rule feedback" do
-    {:ok, projection} = Report.composition_input(snapshot())
-    source_contract = CanonicalJSON.encode(projection)
-
-    candidate =
-      CanonicalJSON.encode(%{
-        "sections" => [
-          %{"relationship" => "complementary", "ordered_queue_positions" => [0, 1]}
-        ],
-        "advisory_synthesis" => "The observations are related."
-      })
-
-    assert {:ok,
-            %{
-              candidate: %{"advisory_synthesis" => revised},
-              configuration_sha256: configuration_sha256
-            }} =
-             ReqLLMImplementation.revise_with_provenance(
-               snapshot(),
-               candidate,
-               ["relationship_support"],
-               profile(),
-               %{
-                 req_llm_client: CaptureRevisionReqLLM,
-                 test_pid: self(),
-                 timeout_ms: 5_000,
-                 max_output_tokens: 1_024
-               }
-             )
-
-    assert revised =~ "supported relationship"
-
-    assert_receive {:req_llm_synthesis_revision, %{provider: :openai, id: "qwen2.5:7b"}, prompt,
-                    schema, opts}
-
-    assert schema["required"] == ~w[sections advisory_synthesis]
-    assert opts[:max_retries] == 0
-    assert opts[:total_timeout] == 5_000
-
-    assert {:ok, expected_configuration_sha256} =
-             RoleProfileConfiguration.digest(
-               :fanout_synthesis,
-               profile(),
-               synthesis_transport(schema, opts),
-               synthesis_extras(:revision, ["relationship_support"])
-             )
-
-    assert configuration_sha256 == expected_configuration_sha256
-
-    assert List.last(prompt.messages).metadata.allbert_prompt.purpose ==
-             :fanout_report_synthesis_revision
-
-    assert List.last(prompt.messages).metadata.allbert_prompt.rule_ids == [
-             :relationship_support
-           ]
-
-    assert Jason.decode!(message_text(List.last(prompt.messages))) == %{
-             "task_contract" => source_contract,
-             "candidate" => candidate,
-             "revision_rule_ids" => ["relationship_support"]
-           }
-
-    refute_receive {:req_llm_synthesis_revision, _, _, _, _}
-  end
-
-  test "a still-violated revised candidate closes as phase-review fallback, never model success" do
-    assert {:error, {:phase_review_unresolved, :final_verification_failed}} =
-             SynthesisAgent.run(
-               snapshot(),
-               profile(),
-               %{
-                 test_pid: self(),
-                 critic_implementation: PersistentlyViolatedCritic
-               },
-               RevisionModel,
-               5_000
-             )
-
-    assert_receive {:initial_synthesis_provider_call, _snapshot}
-    assert_receive {:synthesis_revision_call, _snapshot, _candidate, ["relationship_support"]}
-
-    phases =
-      for _index <- 1..4 do
-        assert_receive {:persistently_violated_critic_call, phase}
-        phase
-      end
-
-    assert Enum.frequencies(phases) == %{initial: 2, final: 2}
-
-    assert {:ok, provenance} =
-             Report.fallback_provenance(snapshot(), :phase_review_unresolved)
-
-    assert provenance.fallback_reason == "phase_review_unresolved"
-    assert provenance.synthesis_outcome == "unresolved"
-  end
-
-  test "malformed critic evidence closes with only content-free attempted-call detail" do
-    assert {:error,
-            {:phase_review_unresolved,
-             %{reason: :phase_review_failed, provider_call_count: provider_call_count}}} =
-             SynthesisAgent.run(
-               snapshot(),
-               profile(),
-               %{test_pid: self(), critic_implementation: MalformedCritic},
-               AcceptedModel,
-               5_000
-             )
-
-    assert provider_call_count in 2..3
-    assert_receive {:synthesis_provider_call, _snapshot}
-    assert_receive {:malformed_critic_call, _group_id}
-    refute_receive {:synthesis_revision_call, _, _, _}
-  end
-
-  test "critic failure before egress includes the completed generation call" do
-    assert {:error,
-            {:phase_review_unresolved, %{reason: :phase_review_failed, provider_call_count: 1}}} =
-             SynthesisAgent.run(
-               snapshot(),
-               profile(),
-               %{test_pid: self(), critic_implementation: MissingCritic},
-               AcceptedModel,
-               5_000
-             )
-
-    assert_receive {:synthesis_provider_call, _snapshot}
-    refute_receive {:synthesis_critic_call, _request}
-  end
-
-  test "initial review over-attempt closes with its exact physical provider call count" do
-    assert {:error,
-            {:phase_review_unresolved,
-             %{
-               phase: :initial,
-               reason: :quality_provider_attempt_bound_exceeded,
-               provider_call_count: 5
-             }}} =
-             SynthesisAgent.run(
-               snapshot(),
-               profile(),
-               %{test_pid: self(), critic_implementation: OverAttemptCritic},
-               AcceptedModel,
-               5_000
-             )
-
-    assert_receive {:synthesis_provider_call, _snapshot}
-    assert_receive {:over_attempt_critic_call, :initial}
-    assert_receive {:over_attempt_critic_call, :initial}
-    refute_receive {:synthesis_revision_call, _, _, _}
-  end
-
-  test "final review over-attempt includes generation, initial review, and revision calls" do
-    assert {:error,
-            {:phase_review_unresolved,
-             %{
-               phase: :final,
-               reason: :quality_provider_attempt_bound_exceeded,
-               provider_call_count: 8
-             }}} =
-             SynthesisAgent.run(
-               snapshot(),
-               profile(),
-               %{test_pid: self(), critic_implementation: FinalOverAttemptCritic},
-               RevisionModel,
-               5_000
-             )
-
-    assert_receive {:initial_synthesis_provider_call, _snapshot}
-    assert_receive {:synthesis_revision_call, _snapshot, _candidate, ["relationship_support"]}
-
-    assert_receive {:final_over_attempt_critic_call, :initial}
-    assert_receive {:final_over_attempt_critic_call, :initial}
-    assert_receive {:final_over_attempt_critic_call, :final}
-    assert_receive {:final_over_attempt_critic_call, :final}
   end
 
   test "oversized full Unicode join request closes before the provider boundary" do
@@ -1357,7 +780,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
        disclosure: AllowDisclosure,
        model_client: AcceptedModel,
        model_enabled?: true,
-       model_context: %{test_pid: self(), critic_implementation: SatisfiedCritic},
+       model_context: %{test_pid: self()},
        reconcile_interval_ms: 5_000}
     )
 
@@ -1368,43 +791,12 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
 
     [{^claim, "model", body, provenance}] = Agent.get(store, & &1.selected)
     assert provenance.layout_version == 2
-    assert provenance.synthesis_contract_version == 2
+    assert provenance.synthesis_contract_version == 3
     assert provenance.review_verdict == "accepted"
     assert provenance.reviewed_queue_positions == [0, 1]
     assert provenance.synthesis_sha256 =~ ~r/^[0-9a-f]{64}$/
     assert body =~ "Model-authored advisory synthesis:"
     refute_receive {:synthesis_provider_call, _snapshot}
-  end
-
-  test "durable composer persists complete-child fallback after final critic rejection" do
-    claim = claim()
-    store = start_supervised!({Agent, fn -> %{claims: [claim], selected: []} end})
-    name = :"report-synthesis-phase-fallback-#{System.unique_integer([:positive])}"
-
-    start_supervised!(
-      {ReportComposer,
-       name: name,
-       store: {ProcessStore, store},
-       models: ProcessModels,
-       disclosure: AllowDisclosure,
-       model_client: RevisionModel,
-       model_enabled?: true,
-       model_context: %{
-         test_pid: self(),
-         critic_implementation: PersistentlyViolatedCritic
-       },
-       reconcile_interval_ms: 5_000}
-    )
-
-    assert eventually(fn -> Agent.get(store, &match?([_selection], &1.selected)) end)
-
-    [{^claim, "deterministic_fallback", body, provenance}] =
-      Agent.get(store, & &1.selected)
-
-    assert body == claim.frozen.fallback_body
-    assert provenance.fallback_reason == "phase_review_unresolved"
-    assert provenance.synthesis_outcome == "unresolved"
-    refute body =~ "OTP supervision contains live-process failures"
   end
 
   test "durable composer classifies locally rejected provider output as invalid model output" do
@@ -1672,7 +1064,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
 
     {:ok, budget} =
       Budget.resolve(2, 0, %{
-        version: 2,
+        version: 3,
         max_model_calls: 40,
         max_output_tokens: 24_000,
         max_elapsed_ms: 300_000,
@@ -1744,18 +1136,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
   end
 
   defp synthesis_extras(phase, revision_rule_ids \\ []) do
-    {:ok, protocol} = SynthesisPolicy.review_protocol()
-
-    {:ok, catalog_sha256} =
-      SynthesisPolicy.rule_group_catalog_sha256(SynthesisPolicy.rule_group_catalog_version())
-
-    %{
-      phase: phase,
-      policy_version: SynthesisPolicy.version(),
-      review_protocol_version: protocol.review_protocol_version,
-      rule_group_catalog_version: SynthesisPolicy.rule_group_catalog_version(),
-      rule_group_catalog_sha256: catalog_sha256
-    }
+    %{phase: phase, policy_version: SynthesisPolicy.version()}
     |> then(fn extras ->
       if revision_rule_ids == [],
         do: extras,
@@ -1768,24 +1149,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
     end)
   end
 
-  defp review_round_config_sha256(reviewer_config_for_group) do
-    {:ok, protocol} = SynthesisPolicy.review_protocol()
-
-    aggregate_input = %{
-      "review_protocol_version" => protocol.review_protocol_version,
-      "rule_group_catalog_version" => protocol.rule_group_catalog_version,
-      "rule_group_catalog_sha256" => protocol.rule_group_catalog_sha256,
-      "critics" =>
-        Enum.map(ReviewProtocol.group_ids(protocol), fn group_id ->
-          %{
-            "group_id" => group_id,
-            "reviewer_config_sha256" => reviewer_config_for_group.(group_id)
-          }
-        end)
-    }
-
-    sha256(@reviewer_config_aggregate_domain <> CanonicalJSON.encode(aggregate_input))
-  end
 
   defp sequence_clock(values) do
     clock = start_supervised!({Agent, fn -> values end})

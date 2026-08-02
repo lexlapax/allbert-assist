@@ -640,7 +640,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
        model_enabled?: true,
        model_context: %{
          test_pid: self(),
-         critic_implementation: SatisfiedCritic,
          models: UnavailableModels,
          disclosure: DenyDisclosure,
          request: %{channel: :shadow}
@@ -688,36 +687,17 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
              model: "qwen2.5:7b",
              layout_version: 2,
              sections: [%{relationship: "independent", ordered_queue_positions: [0]}],
-             synthesis_contract_version: 2,
+             synthesis_contract_version: 3,
              review_verdict: "accepted",
              reviewed_queue_positions: [0],
              synthesis_sha256: expected_synthesis_sha256,
-             review_protocol_version: 1,
-             critic_group_count: 2,
-             rule_group_catalog_version: 1,
              generation_call_count: 1,
-             initial_critic_call_count: 2,
-             revision_call_count: 0,
-             final_critic_call_count: 0,
-             provider_call_count: 3,
-             final_assessment_sha256: nil
+             provider_call_count: 1
            } = provenance
 
     assert expected_synthesis_sha256 == expected_prepared.synthesis_sha256
 
-    Enum.each(
-      [
-        :rule_group_catalog_sha256,
-        :reviewer_config_sha256,
-        :initial_assessment_sha256,
-        :accepted_assessment_sha256
-      ],
-      fn field -> assert provenance[field] =~ ~r/^[0-9a-f]{64}$/ end
-    )
-
-    assert provenance.accepted_assessment_sha256 == provenance.initial_assessment_sha256
-    assert_receive {:report_synthesis_critic_call, _first_group}
-    assert_receive {:report_synthesis_critic_call, _second_group}
+    assert provenance.synthesis_sha256 =~ ~r/^[0-9a-f]{64}$/
 
     refute_received {:process_compose, _, _}
   end
@@ -730,7 +710,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
       store: {ProcessStore, store},
       disclosure: AllowDisclosure,
       model_client: DoubleMarkedProcessModel,
-      model_context: %{test_pid: self(), critic_implementation: SatisfiedCritic},
+      model_context: %{test_pid: self()},
       model_enabled?: true
     )
 
@@ -957,7 +937,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
            end)
 
     refute_received :unexpected_process_compose
-    assert_selection_reason!(parent.id, "review_protocol_upgrade_required")
+    assert_selection_reason!(parent.id, "fanout_budget_version_retired")
   end
 
   test "SQLite-backed mixed terminal Budget-v1 parent selects the same upgrade fallback" do
@@ -997,7 +977,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
            end)
 
     refute_received :unexpected_process_compose
-    assert_selection_reason!(parent.id, "review_protocol_upgrade_required")
+    assert_selection_reason!(parent.id, "fanout_budget_version_retired")
   end
 
   test "stranded composing Budget-v1 recovery selects once without duplicate report or delivery" do
@@ -1041,7 +1021,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     refute_received :unexpected_process_compose
     assert {:ok, recovered} = Objectives.get_objective(parent.id)
     assert is_binary(recovered.report_delivery_receipt_digest)
-    assert_selection_reason!(parent.id, "review_protocol_upgrade_required")
+    assert_selection_reason!(parent.id, "fanout_budget_version_retired")
 
     selection_events =
       parent.id
@@ -1473,7 +1453,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
       model_enabled?: true
     )
 
-    assert_selected_fallback(store, claim, :review_protocol_upgrade_required)
+    assert_selected_fallback(store, claim, :fanout_budget_version_retired)
     refute_received :unexpected_process_compose
   end
 
@@ -1713,7 +1693,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
 
     assert {:ok, budget} =
              Budget.resolve(2, 0, %{
-               version: 2,
+               version: 3,
                max_model_calls: 40,
                max_output_tokens: 24_000,
                max_elapsed_ms: 300_000,
@@ -1778,7 +1758,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   defp durable_plan do
     assert {:ok, budget} =
              Budget.resolve(2, 1, %{
-               version: 2,
+               version: 3,
                max_model_calls: 40,
                max_output_tokens: 24_000,
                max_elapsed_ms: 300_000,
@@ -1927,7 +1907,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
 
     model_context =
       Map.merge(
-        %{test_pid: self(), critic_implementation: SatisfiedCritic},
+        %{test_pid: self()},
         Keyword.get(opts, :model_context, %{})
       )
 

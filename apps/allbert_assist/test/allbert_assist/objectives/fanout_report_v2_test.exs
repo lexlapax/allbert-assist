@@ -655,63 +655,41 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
              Report.validate_selected_body(frozen.snapshot, "model", tampered, provenance)
   end
 
-  test "synthesis-contract-v2 provenance accepts only both closed phase topologies" do
-    no_revision = synthesis_contract_v2_provenance()
+  test "synthesis-contract-v3 provenance accepts only the single-call topology" do
+    provenance = synthesis_contract_v3_provenance()
 
-    revised =
-      synthesis_contract_v2_provenance(%{
-        revision_call_count: 1,
-        final_critic_call_count: 2,
-        provider_call_count: 6,
-        final_assessment_sha256: String.duplicate("f", 64),
-        accepted_assessment_sha256: String.duplicate("f", 64)
-      })
+    assert {:ok, normalized} = Report.normalize_selection_provenance("model", provenance)
+    assert normalized == provenance
 
-    for provenance <- [no_revision, revised] do
-      assert {:ok, normalized} = Report.normalize_selection_provenance("model", provenance)
-      assert normalized == provenance
+    assert {:ok, digest} = Report.selection_digest("model", provenance)
 
-      assert {:ok, digest} = Report.selection_digest("model", provenance)
+    expected_digest =
+      :sha256
+      |> :crypto.hash([
+        "allbert:fanout-report-selection:v2\0",
+        CanonicalJSON.encode(%{source: "model", provenance: provenance})
+      ])
+      |> Base.encode16(case: :lower)
 
-      expected_digest =
-        :sha256
-        |> :crypto.hash([
-          "allbert:fanout-report-selection:v2\0",
-          CanonicalJSON.encode(%{source: "model", provenance: provenance})
-        ])
-        |> Base.encode16(case: :lower)
-
-      assert digest == expected_digest
-    end
+    assert digest == expected_digest
 
     invalid = [
-      Map.delete(no_revision, :accepted_assessment_sha256),
-      Map.put(no_revision, :unexpected, true),
-      Map.put(no_revision, :synthesis_contract_version, 3),
-      Map.put(no_revision, :review_protocol_version, 2),
-      Map.put(no_revision, :critic_group_count, 1),
-      Map.put(no_revision, :rule_group_catalog_version, 2),
-      Map.put(no_revision, :rule_group_catalog_sha256, String.duplicate("0", 64)),
-      Map.put(no_revision, :reviewer_config_sha256, String.duplicate("A", 64)),
-      Map.put(no_revision, :generation_call_count, 2),
-      Map.put(no_revision, :initial_critic_call_count, 1),
-      Map.put(no_revision, :revision_call_count, 2),
-      Map.put(no_revision, :final_critic_call_count, 2),
-      Map.put(no_revision, :provider_call_count, 4),
-      Map.put(no_revision, :initial_assessment_sha256, String.duplicate("A", 64)),
-      Map.put(no_revision, :final_assessment_sha256, String.duplicate("f", 64)),
-      Map.put(no_revision, :accepted_assessment_sha256, String.duplicate("f", 64)),
-      Map.put(revised, :final_assessment_sha256, nil),
-      Map.put(revised, :accepted_assessment_sha256, no_revision.initial_assessment_sha256)
+      Map.delete(provenance, :synthesis_sha256),
+      Map.put(provenance, :unexpected, true),
+      Map.put(provenance, :synthesis_contract_version, 2),
+      Map.put(provenance, :generation_call_count, 2),
+      Map.put(provenance, :provider_call_count, 3),
+      Map.put(provenance, :review_verdict, "revised"),
+      Map.put(provenance, :synthesis_sha256, "not-a-digest")
     ]
 
-    Enum.each(invalid, fn provenance ->
+    Enum.each(invalid, fn candidate ->
       assert {:error, :invalid_fanout_report_provenance} =
-               Report.normalize_selection_provenance("model", provenance)
+               Report.normalize_selection_provenance("model", candidate)
     end)
   end
 
-  test "durable selected-event replay delegates exact synthesis-contract-v2 validation" do
+  test "durable selected-event replay delegates exact synthesis-contract-v3 validation" do
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
                %{
@@ -793,7 +771,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     assert {:ok, prepared} = Report.prepare_synthesis(frozen.snapshot, accepted_result(synthesis))
 
     provenance =
-      synthesis_contract_v2_provenance(%{
+      synthesis_contract_v3_provenance(%{
         sections: prepared.layout.sections,
         synthesis_sha256: prepared.synthesis_sha256
       })
@@ -814,12 +792,12 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
              |> Enum.filter(&(&1.kind == "fanout_report_selected"))
 
     original_payload = Jason.decode!(selection_event.payload)
-    assert original_payload["synthesis_contract_version"] == 2
-    assert original_payload["provider_call_count"] == 3
+    assert original_payload["synthesis_contract_version"] == 3
+    assert original_payload["provider_call_count"] == 1
 
     for tampered_payload <- [
           Map.put(original_payload, "unexpected", true),
-          Map.put(original_payload, "provider_call_count", 4)
+          Map.put(original_payload, "provider_call_count", 2)
         ] do
       assert {:ok, _event} =
                selection_event
@@ -1107,7 +1085,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
           else
             assert {:ok, current_receipt} =
                      QualityReceipt.build(
-                       quality_receipt_v2_binding(
+                       quality_receipt_v3_binding(
                          child.id,
                          step.id,
                          task_digest,
@@ -1347,7 +1325,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
 
               assert {:ok, receipt} =
                        QualityReceipt.build(
-                         quality_receipt_v2_binding(
+                         quality_receipt_v3_binding(
                            child.id,
                            step.id,
                            task_digest,
@@ -1464,7 +1442,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
              Fanout.report_input_v2(parent)
   end
 
-  test "two phase-reviewed DirectAnswer lifecycles atomically bind v2 receipts and queue one v2 join" do
+  test "two DirectAnswer lifecycles atomically bind v3 receipts and queue one v2 join" do
     with_direct_answer_worker(fn ->
       original_request =
         "Prepare two reviewed analyses and explain their substantive relationship in one joined report."
@@ -1528,23 +1506,11 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                  } = Jason.decode!(event.payload)
 
           assert step_id == step.id
-          assert receipt["version"] == 2
+          assert receipt["version"] == 3
           assert receipt["rule_catalog_version"] == QualityPolicy.version()
-          assert receipt["review_protocol_version"] == 1
-          assert receipt["critic_group_count"] == 2
-          assert receipt["rule_group_catalog_version"] == 1
-          assert receipt["draft_call_count"] == 1
-          assert receipt["initial_critic_call_count"] == 2
-          assert receipt["revision_call_count"] == 0
-          assert receipt["final_critic_call_count"] == 0
-          assert receipt["provider_call_count"] == 3
-          assert receipt["final_assessment_sha256"] == nil
-
-          assert receipt["accepted_assessment_sha256"] ==
-                   receipt["initial_assessment_sha256"]
-
+          assert receipt["generation_call_count"] == 1
+          assert receipt["provider_call_count"] == 1
           assert receipt["verdict"] == "accepted"
-          assert receipt["failed_rule_ids"] == []
           assert {:ok, receipt_digest} = QualityReceipt.digest(receipt)
           {child.id, receipt_digest}
         end)
@@ -1571,68 +1537,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                |> Enum.filter(&(&1.kind == "fanout_joined"))
 
       assert Jason.decode!(join_event.payload)["report_input_digest"] == frozen.input_digest
-    end)
-  end
-
-  test "a persistent phase-review violation revises once then fails without durable receipt" do
-    with_direct_answer_worker(fn ->
-      original_request = "Analyze two mechanisms and join only completed reviewed findings."
-
-      plan_children = [
-        %{
-          title: "Missing-evidence mechanism",
-          objective: "Analyze the mechanism and state the required unavailable evidence.",
-          expected_result: "Complete only when every required output is supported."
-        },
-        %{
-          title: "Independent sibling",
-          objective: "Analyze an independent sibling mechanism.",
-          expected_result: "Return one bounded sibling finding."
-        }
-      ]
-
-      assert {:ok, compiled} = FanoutPlan.compile(original_request, plan_children, source: :model)
-      assert {:ok, budget} = Budget.resolve(2, 1)
-
-      plan =
-        compiled
-        |> FanoutPlan.provenance()
-        |> Map.put("manager_attempts", 1)
-        |> Map.put("budget", budget)
-        |> Map.put("deadline_unix_ms", System.system_time(:millisecond) + 60_000)
-
-      assert {:ok, %{parent: parent, children: [child, sibling]}} =
-               Fanout.frame(
-                 %{
-                   user_id: "report-v2-unresolved-worker",
-                   title: "Keep unresolved worker evidence out of the join",
-                   objective: original_request,
-                   proposer_hint: %{"fanout_plan" => plan}
-                 },
-                 FanoutPlan.child_attrs(compiled)
-               )
-
-      assert {:error,
-              {:fanout_worker_unresolved,
-               %{provider_call_count: 6, reason: :quality_review_unresolved}}} =
-               Lifecycle.run(child.id, quality_critic: PersistentlyViolatingPhaseCritic)
-
-      assert {:ok, failed} = Objectives.get_objective(child.id)
-      assert failed.status == "failed"
-      assert failed.last_observation_summary == nil
-
-      assert [%{candidate_action: "direct_answer", status: "failed"}] =
-               Objectives.list_steps(child.id)
-
-      events = Objectives.list_events(child.id)
-      assert Enum.count(events, &(&1.kind == "run_failed")) == 1
-      refute Enum.any?(events, &(&1.kind == "run_completed"))
-      refute Enum.any?(events, &(Jason.decode!(&1.payload)["quality_receipt"] != nil))
-
-      assert {:ok, current_parent} = Objectives.get_objective(parent.id)
-      assert current_parent.status == "open"
-      assert current_parent.report_composition_state == "not_ready"
-      assert {:ok, %{status: "open"}} = Objectives.get_objective(sibling.id)
     end)
   end
 
@@ -2015,7 +1919,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     assert {:ok, provenance} =
              Report.fallback_provenance(
                claim.frozen.snapshot,
-               "review_protocol_upgrade_required"
+               "fanout_budget_version_retired"
              )
 
     assert {:ok, selected} =
@@ -2036,7 +1940,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
              |> Enum.filter(&(&1.kind == "fanout_report_selected"))
 
     assert Jason.decode!(selection_event.payload)["fallback_reason"] ==
-             "review_protocol_upgrade_required"
+             "fanout_budget_version_retired"
   end
 
   test "stranded composing v1 input recovers once into an unresolved v2 fallback" do
@@ -2209,7 +2113,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
 
     assert {:ok, budget} =
              Budget.resolve(16, 1, %{
-               version: 2,
+               version: 3,
                max_model_calls: 128,
                max_output_tokens: 100_000,
                max_elapsed_ms: 300_000,
@@ -2254,7 +2158,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
 
       assert {:ok, receipt} =
                QualityReceipt.build(
-                 quality_receipt_v2_binding(
+                 quality_receipt_v3_binding(
                    child.id,
                    step.id,
                    task_digest,
@@ -2324,7 +2228,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     assert occurrence_count(prepared.body, "truncated for report size") == 0
 
     provenance =
-      synthesis_contract_v2_provenance(%{
+      synthesis_contract_v3_provenance(%{
         model_profile: String.duplicate("p", 120),
         provider: String.duplicate("r", 120),
         model: String.duplicate("m", 240),
@@ -2412,38 +2316,22 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     }
   end
 
-  defp quality_receipt_v2_binding(
+  defp quality_receipt_v3_binding(
          objective_id,
          step_id,
          task_contract_sha256,
          final_answer,
-         reviewer_config_sha256
+         generator_config_sha256
        ) do
-    {:ok, rule_group_catalog_sha256} = QualityPolicy.rule_group_catalog_sha256(1)
-
-    assessment_sha256 =
-      sha256("#{objective_id}\0#{step_id}\0#{task_contract_sha256}\0#{final_answer}")
-
     %{
       objective_id: objective_id,
       step_id: step_id,
       task_contract_sha256: task_contract_sha256,
       rule_catalog_version: QualityPolicy.version(),
-      review_protocol_version: 1,
-      critic_group_count: 2,
-      rule_group_catalog_version: 1,
-      rule_group_catalog_sha256: rule_group_catalog_sha256,
-      reviewer_config_sha256: reviewer_config_sha256,
-      draft_call_count: 1,
-      initial_critic_call_count: 2,
-      revision_call_count: 0,
-      final_critic_call_count: 0,
-      provider_call_count: 3,
-      initial_assessment_sha256: assessment_sha256,
-      final_assessment_sha256: nil,
-      accepted_assessment_sha256: assessment_sha256,
+      generator_config_sha256: generator_config_sha256,
+      generation_call_count: 1,
+      provider_call_count: 1,
       verdict: "accepted",
-      failed_rule_ids: [],
       final_answer: final_answer
     }
   end
@@ -2469,9 +2357,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     }
   end
 
-  defp synthesis_contract_v2_provenance(overrides \\ %{}) do
-    {:ok, catalog_sha256} = SynthesisPolicy.rule_group_catalog_sha256(1)
-
+  defp synthesis_contract_v3_provenance(overrides \\ %{}) do
     Map.merge(
       %{
         model_profile: "direct_answer_local",
@@ -2481,20 +2367,9 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
         sections: [
           %{relationship: "complementary", ordered_queue_positions: [0, 1]}
         ],
-        synthesis_contract_version: 2,
-        review_protocol_version: 1,
-        critic_group_count: 2,
-        rule_group_catalog_version: 1,
-        rule_group_catalog_sha256: catalog_sha256,
-        reviewer_config_sha256: String.duplicate("b", 64),
+        synthesis_contract_version: 3,
         generation_call_count: 1,
-        initial_critic_call_count: 2,
-        revision_call_count: 0,
-        final_critic_call_count: 0,
-        provider_call_count: 3,
-        initial_assessment_sha256: String.duplicate("c", 64),
-        final_assessment_sha256: nil,
-        accepted_assessment_sha256: String.duplicate("c", 64),
+        provider_call_count: 1,
         review_verdict: "accepted",
         reviewed_queue_positions: [0, 1],
         synthesis_sha256: String.duplicate("d", 64)

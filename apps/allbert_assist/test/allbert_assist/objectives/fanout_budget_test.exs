@@ -66,12 +66,12 @@ defmodule AllbertAssist.Objectives.Fanout.BudgetTest do
     assert {:ok, snapshot} = Budget.resolve(8, 2)
 
     assert snapshot == %{
-             "version" => 2,
+             "version" => 3,
              "child_count" => 8,
              "manager_attempts" => 2,
              "worker_attempts_per_child" => 2,
              "configured_model_calls" => 64,
-             "required_model_calls" => 56,
+             "required_model_calls" => 11,
              "configured_output_tokens" => 32_768,
              "required_output_tokens" => 30_720,
              "max_elapsed_ms" => 300_000
@@ -82,14 +82,14 @@ defmodule AllbertAssist.Objectives.Fanout.BudgetTest do
 
   test "refuses a plan whose structural call requirement exceeds its configured limit" do
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.max_model_calls_per_plan", 55, %{audit?: false})
+             Settings.put("objectives.fanout.max_model_calls_per_plan", 10, %{audit?: false})
 
     assert {:error,
             {:fanout_budget_exhausted,
              %{
                "budget" => "model_calls",
-               "configured" => 55,
-               "required" => 56
+               "configured" => 10,
+               "required" => 11
              }}} = Budget.resolve(8, 2)
   end
 
@@ -124,7 +124,7 @@ defmodule AllbertAssist.Objectives.Fanout.BudgetTest do
     assert {:ok, limits} = Budget.limits()
 
     assert limits == %{
-             version: 2,
+             version: 3,
              max_model_calls: 64,
              max_output_tokens: 32_768,
              max_elapsed_ms: 300_000,
@@ -134,13 +134,13 @@ defmodule AllbertAssist.Objectives.Fanout.BudgetTest do
     assert limits.max_elapsed_ms == 300_000
 
     assert {:ok, _setting} =
-             Settings.put("objectives.fanout.max_model_calls_per_plan", 5, %{audit?: false})
+             Settings.put("objectives.fanout.max_model_calls_per_plan", 2, %{audit?: false})
 
     assert {:ok, %{"configured_model_calls" => 64}} = Budget.resolve(2, 0, limits)
 
     assert {:error,
             {:fanout_budget_exhausted,
-             %{"budget" => "model_calls", "configured" => 5, "required" => 18}}} =
+             %{"budget" => "model_calls", "configured" => 2, "required" => 3}}} =
              Budget.resolve(2, 0)
   end
 
@@ -213,18 +213,18 @@ defmodule AllbertAssist.Objectives.Fanout.BudgetTest do
 
     assert :ok = Budget.authorize_worker(historical, 1, 1_010_000, 1_000_000)
 
-    assert {:error, :review_protocol_upgrade_required} =
+    assert {:error, :fanout_budget_version_retired} =
              Budget.authorize_composer(historical, 1_010_000, 1_000_000)
 
-    assert {:error, :review_protocol_upgrade_required} =
+    assert {:error, :fanout_budget_version_retired} =
              Budget.composer_compatibility(historical)
   end
 
-  test "composer authorization returns the bounded six-call protocol inside the deadline" do
+  test "composer authorization returns the bounded one-call protocol inside the deadline" do
     assert {:ok, snapshot} = Budget.resolve(2, 1)
     now_ms = 1_000_000
 
-    assert {:ok, %{max_calls: 6, max_output_tokens: 1_024, timeout_ms: 10_000}} =
+    assert {:ok, %{max_calls: 1, max_output_tokens: 1_024, timeout_ms: 10_000}} =
              Budget.authorize_composer(snapshot, now_ms + 10_000, now_ms)
 
     assert {:error, :fanout_plan_deadline_exhausted} =
