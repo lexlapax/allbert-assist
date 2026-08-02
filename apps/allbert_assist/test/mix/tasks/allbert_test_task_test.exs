@@ -249,6 +249,24 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert error.message == "--profile must not be blank"
   end
 
+  test "v1.3 mixed-Mistral benchmark rejects a non-default Worker before Home allocation" do
+    gate_glob = Path.join([System.tmp_dir!(), "allbert_test_gates", "bench-v13-fanout", "*"])
+    before_roots = MapSet.new(Path.wildcard(gate_glob))
+
+    error =
+      assert_raise Mix.Error, fn ->
+        AllbertTestTask.run([
+          "bench-v13-fanout",
+          "--profile",
+          "local",
+          "--mixed-mistral"
+        ])
+      end
+
+    assert error.message == "--mixed-mistral requires --profile direct_answer_local"
+    assert MapSet.new(Path.wildcard(gate_glob)) == before_roots
+  end
+
   test "v1.3 fan-out benchmark preflights its default sibling and explicit worker fixture" do
     root =
       Path.join(
@@ -387,7 +405,8 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert error.message =~ "mix allbert.test release.v13"
 
     assert error.message =~
-             "mix allbert.test bench-v13-fanout [--profile NAME] [--fixture PATH] " <>
+             "mix allbert.test bench-v13-fanout [--profile NAME] [--mixed-mistral] " <>
+               "[--fixture PATH] " <>
                "[--worker-fixture PATH] [--output PATH]"
 
     assert error.message =~ "mix allbert.test release.structure v121 [--output PATH]"

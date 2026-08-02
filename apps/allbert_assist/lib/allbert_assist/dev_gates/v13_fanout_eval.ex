@@ -21,7 +21,26 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   alias AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation, as: Composer
   alias AllbertAssist.Objectives.Fanout.ReportComposer.SynthesisAgent
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.ModelRuntime
   alias AllbertAssist.Settings.Models
+
+  @profile_binding_domain "allbert:v13-fanout-gate-profile-binding:v1\0"
+  @mixed_mistral_profile "mistral_small31_24b_challenger"
+  @mixed_mistral_model "mistral-small3.1:24b-instruct-2503-q4_K_M"
+  @mixed_mistral_fields [
+    provider: "local_ollama",
+    model: @mixed_mistral_model,
+    aliases: [],
+    capabilities: ["text_generation"],
+    media: %{
+      "input_modalities" => ["text"],
+      "output_modalities" => ["text"],
+      "deployment_mode" => "local_endpoint"
+    },
+    temperature: 0.0,
+    max_tokens: 1_024,
+    timeout_ms: 60_000
+  ]
 
   @fov3_id "fov3-supplied-data"
   @fov4_id "fov4-independent-architecture"
@@ -106,7 +125,19 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     fixtures = load_fixtures!(fixture_path, worker_fixture_path)
 
     profile_name = System.get_env("V13_MODEL_PROFILE", "direct_answer_local")
-    profiles = configure_profiles!(profile_name)
+
+    mixed_mistral? =
+      "V13_FANOUT_MIXED_MISTRAL"
+      |> System.get_env("false")
+      |> parse_mixed_mistral!()
+
+    profiles = configure_profiles!(profile_name, mixed_mistral?: mixed_mistral?)
+
+    command =
+      if mixed_mistral?,
+        do: "bench-v13-fanout --mixed-mistral",
+        else: "bench-v13-fanout --profile #{profile_name}"
+
     store = blank_to_nil(System.get_env("V13_FANOUT_STORE"))
     full_sha = parse_full_sha!(System.get_env("V13_FULL_SHA"))
     dirty = parse_dirty!(System.get_env("V13_DIRTY"))
@@ -114,20 +145,24 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     phases =
       run_phases(fixtures,
         manager_and_composer: [
-          profile: profile_name,
+          profile: profiles.manager,
           manager_profile: profiles.manager,
-          composer_profile: profiles.composer,
+          composer_profile: profiles.synthesis,
           manager_context: manager_context(profiles.manager),
-          composer_context: composer_context(profiles.composer),
+          composer_context: composer_context(profiles.synthesis),
           composer_client: Composer,
+          role_profile_bindings: profiles.bindings,
+          command: command,
           store: store,
           full_sha: full_sha,
           dirty: dirty
         ],
         worker_quality: [
-          profile: profiles.reviewer,
-          runner_context: worker_quality_context(profiles.reviewer),
-          row_timeout_ms: composer_context(profiles.reviewer).timeout_ms,
+          profile: profiles.worker,
+          runner_context: worker_quality_context(profiles.worker),
+          row_timeout_ms: composer_context(profiles.worker).timeout_ms,
+          role_profile_bindings: profiles.bindings,
+          command: command,
           store: store,
           full_sha: full_sha,
           dirty: dirty
@@ -231,7 +266,16 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     failed_rows = for %{passed?: false, id: id} <- rows, do: id
     status = if failed_rows == [], do: "passed", else: "failed"
     profile = opts |> Keyword.fetch!(:profile) |> profile_name()
-    stats = stats(profile, fixture_sha256, fov3, fov4, composition_rows)
+
+    stats =
+      stats(
+        profile,
+        fixture_sha256,
+        fov3,
+        fov4,
+        composition_rows,
+        Keyword.get(opts, :role_profile_bindings, %{})
+      )
 
     TestMetrics.record(%{
       store: Keyword.get(opts, :store),
@@ -242,7 +286,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
       gate: "bench-v13-fanout",
       phase_or_step: "manager-and-composer",
       corpus_id: fixture["corpus_id"],
-      command: "bench-v13-fanout --profile #{profile}",
+      command: Keyword.get(opts, :command, "bench-v13-fanout --profile #{profile}"),
       status: status,
       wall_ms: System.monotonic_time(:millisecond) - started,
       stats: stats
@@ -281,6 +325,8 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
       work_unit_count: Map.get(diagnostic, :work_unit_count),
       attempts: Map.get(diagnostic, :attempts),
       reviewed: Map.get(diagnostic, :reviewed?),
+      model_profile: Map.get(diagnostic, :model_profile),
+      model_profile_sha256: Map.get(diagnostic, :model_profile_sha256),
       result: result
     }
   end
@@ -296,6 +342,8 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
       work_unit_count: Map.get(diagnostic, :work_unit_count),
       attempts: Map.get(diagnostic, :attempts),
       reviewed: Map.get(diagnostic, :reviewed?),
+      model_profile: Map.get(diagnostic, :model_profile),
+      model_profile_sha256: Map.get(diagnostic, :model_profile_sha256),
       result: result
     }
   end
@@ -309,6 +357,8 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
       work_unit_count: nil,
       attempts: nil,
       reviewed: nil,
+      model_profile: nil,
+      model_profile_sha256: nil,
       result: nil
     }
   end
@@ -586,11 +636,12 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     |> Map.put(:revision_used, provenance.revision_call_count == 1)
   end
 
-  defp stats(profile, fixture_sha256, fov3, fov4, compositions) do
+  defp stats(profile, fixture_sha256, fov3, fov4, compositions, role_profile_bindings) do
     primary = List.first(compositions)
 
     %{
       profile: profile,
+      role_profile_bindings: role_profile_bindings,
       fixture_sha256: fixture_sha256,
       manager_rows: 2,
       manager_rows_passed: Enum.count([fov3, fov4], & &1.passed?),
@@ -600,12 +651,16 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
       supplied_data_policy_outcome: fov3.policy_outcome,
       supplied_data_manager_attempts: fov3.attempts,
       supplied_data_reviewed: fov3.reviewed,
+      supplied_data_model_profile: fov3.model_profile,
+      supplied_data_model_profile_sha256: fov3.model_profile_sha256,
       adaptive_kind: fov4.kind,
       adaptive_child_count: fov4.child_count,
       adaptive_join_role: fov4.join_role,
       adaptive_policy_outcome: fov4.policy_outcome,
       adaptive_manager_attempts: fov4.attempts,
       adaptive_reviewed: fov4.reviewed,
+      adaptive_model_profile: fov4.model_profile,
+      adaptive_model_profile_sha256: fov4.model_profile_sha256,
       composition_rows: length(compositions),
       composition_rows_passed: Enum.count(compositions, & &1.passed?),
       composition_layout_version: primary.layout_version,
@@ -644,36 +699,165 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
 
   defp row_map(rows, key), do: Map.new(rows, &{&1.id, Map.fetch!(&1, key)})
 
-  defp configure_profiles!(profile_name) do
+  @doc "Configure the uniform gate profile or its one frozen mixed-Mistral comparison."
+  @spec configure_profiles!(String.t(), keyword()) :: map()
+  def configure_profiles!(profile_name, opts \\ []) do
     context = %{actor: "v13-fanout-eval", audit?: false}
+    mixed_mistral? = Keyword.get(opts, :mixed_mistral?, false)
 
-    with {:ok, configured} <- Settings.resolve_model_profile(profile_name),
-         {:ok, _} <- Settings.put("providers.#{configured.provider}.enabled", true, context),
+    if mixed_mistral? and profile_name != "direct_answer_local" do
+      raise "unable to configure v1.3 fan-out profile: :mixed_mistral_requires_direct_answer_local"
+    end
+
+    fanout_profile = if mixed_mistral?, do: @mixed_mistral_profile, else: profile_name
+
+    names = %{
+      worker: profile_name,
+      manager: fanout_profile,
+      review: fanout_profile,
+      synthesis: fanout_profile
+    }
+
+    with {:ok, worker_profile} <- Settings.resolve_model_profile(profile_name),
+         :ok <- validate_worker_profile(worker_profile, mixed_mistral?),
+         :ok <- maybe_seed_mixed_mistral(mixed_mistral?, context),
+         {:ok, configured} <- resolve_role_profiles(names),
+         :ok <- enable_role_providers(configured, context),
          {:ok, _} <-
            Settings.put("model_preferences.tasks.direct_answer", [profile_name], context),
          {:ok, _} <-
-           Settings.put("model_preferences.tasks.fanout_manager", [profile_name], context),
+           Settings.put("model_preferences.tasks.fanout_manager", [fanout_profile], context),
          {:ok, _} <-
-           Settings.put("model_preferences.tasks.fanout_review", [profile_name], context),
+           Settings.put("model_preferences.tasks.fanout_review", [fanout_profile], context),
          {:ok, _} <-
-           Settings.put("model_preferences.tasks.fanout_synthesis", [profile_name], context),
+           Settings.put("model_preferences.tasks.fanout_synthesis", [fanout_profile], context),
          {:ok, _} <- Settings.put("intent.direct_answer_model_enabled", true, context),
+         {:ok, %{profile: worker}} <- Models.for(:direct_answer, context),
          {:ok, %{profile: manager}} <- Models.for(:fanout_manager, context),
-         {:ok, %{profile: reviewer}} <- Models.for(:fanout_review, context),
-         {:ok, %{profile: composer}} <- Models.for(:fanout_synthesis, context) do
-      %{manager: manager, reviewer: reviewer, composer: composer}
+         {:ok, %{profile: review}} <- Models.for(:fanout_review, context),
+         {:ok, %{profile: synthesis}} <- Models.for(:fanout_synthesis, context),
+         {:ok, bindings} <-
+           profile_bindings(%{
+             worker: worker,
+             manager: manager,
+             review: review,
+             synthesis: synthesis
+           }) do
+      %{
+        worker: worker,
+        manager: manager,
+        review: review,
+        synthesis: synthesis,
+        bindings: bindings
+      }
     else
       {:error, reason} -> raise "unable to configure v1.3 fan-out profile: #{inspect(reason)}"
     end
   end
 
-  defp manager_context(profile) do
+  defp validate_worker_profile(_profile, false), do: :ok
+
+  defp validate_worker_profile(
+         %{
+           name: "direct_answer_local",
+           provider: "local_ollama",
+           provider_endpoint_kind: "local_endpoint",
+           model: "qwen2.5:7b"
+         },
+         true
+       ),
+       do: :ok
+
+  defp validate_worker_profile(_profile, true), do: {:error, :mixed_mistral_worker_drift}
+
+  defp maybe_seed_mixed_mistral(false, _context), do: :ok
+
+  defp maybe_seed_mixed_mistral(true, context) do
+    Enum.reduce_while(@mixed_mistral_fields, :ok, fn {field, value}, :ok ->
+      case Settings.put("model_profiles.#{@mixed_mistral_profile}.#{field}", value, context) do
+        {:ok, _setting} -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, {:mixed_mistral_seed_failed, field, reason}}}
+      end
+    end)
+  end
+
+  defp resolve_role_profiles(names) do
+    Enum.reduce_while(names, {:ok, %{}}, fn {role, name}, {:ok, profiles} ->
+      case Settings.resolve_model_profile(name) do
+        {:ok, profile} -> {:cont, {:ok, Map.put(profiles, role, profile)}}
+        {:error, reason} -> {:halt, {:error, {:role_profile_unavailable, role, reason}}}
+      end
+    end)
+  end
+
+  defp enable_role_providers(profiles, context) do
+    profiles
+    |> Map.values()
+    |> Enum.map(& &1.provider)
+    |> Enum.uniq()
+    |> Enum.reduce_while(:ok, fn provider, :ok ->
+      case Settings.put("providers.#{provider}.enabled", true, context) do
+        {:ok, _setting} -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp profile_bindings(profiles) do
+    Enum.reduce_while(profiles, {:ok, %{}}, fn {role, profile}, {:ok, bindings} ->
+      case profile_binding(role, profile) do
+        {:ok, binding} ->
+          {:cont, {:ok, Map.put(bindings, Atom.to_string(role), binding)}}
+
+        {:error, reason} ->
+          {:halt, {:error, {:invalid_role_profile_binding, role, reason}}}
+      end
+    end)
+  end
+
+  defp profile_binding(role, profile) do
+    with {:ok, transport} <- ModelRuntime.effective_transport(profile) do
+      projection = %{
+        "role" => Atom.to_string(role),
+        "profile" =>
+          Map.take(profile, [
+            :name,
+            :provider,
+            :provider_type,
+            :provider_endpoint_kind,
+            :model,
+            :aliases,
+            :capabilities,
+            :media,
+            :temperature,
+            :max_tokens,
+            :timeout_ms
+          ]),
+        "endpoint_sha256" => transport.endpoint_sha256,
+        "credential_reference_sha256" => optional_sha256(profile.provider_api_key_ref)
+      }
+
+      {:ok,
+       %{
+         profile: profile.name,
+         provider: profile.provider,
+         model: profile.model,
+         endpoint_class: to_string(transport.endpoint_class),
+         endpoint_sha256: transport.endpoint_sha256,
+         configuration_sha256: sha256(@profile_binding_domain <> CanonicalJSON.encode(projection))
+       }}
+    end
+  end
+
+  defp optional_sha256(value) when is_binary(value) and value != "", do: sha256(value)
+  defp optional_sha256(_missing), do: nil
+
+  defp manager_context(_profile) do
     %{
       actor: "local",
       user_id: "local",
       request: %{channel: :cli},
-      model_enabled?: true,
-      model_profile: profile
+      model_enabled?: true
     }
   end
 
@@ -691,7 +875,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
       actor: "local",
       user_id: "local",
       request: %{channel: :cli},
-      model_profile: profile
+      quality_eval_worker_profile: profile.name
     }
   end
 
@@ -969,8 +1153,21 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
       "adaptive_children=#{stats.adaptive_child_count} join_role=#{stats.adaptive_join_role} " <>
       "composition=#{stats.composition_rows_passed}/#{stats.composition_rows} " <>
       "primary=#{stats.composition_relationship}:" <>
-      Enum.join(stats.composition_ordered_queue_positions, ",")
+      Enum.join(stats.composition_ordered_queue_positions, ",") <>
+      role_profile_summary(stats.role_profile_bindings)
   end
+
+  defp role_profile_summary(bindings) when map_size(bindings) == 4 do
+    " profiles " <>
+      Enum.map_join(~w[worker manager review synthesis], " ", fn role ->
+        binding = Map.fetch!(bindings, role)
+
+        "#{role}=#{binding.profile}|#{binding.provider}|#{binding.model}|" <>
+          "#{binding.endpoint_class}|#{binding.endpoint_sha256}|#{binding.configuration_sha256}"
+      end)
+  end
+
+  defp role_profile_summary(_bindings), do: ""
 
   defp profile_name(value) when is_binary(value), do: value
   defp profile_name(value) when is_map(value), do: field(value, :name)
@@ -1003,6 +1200,12 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   defp parse_dirty!("true"), do: true
   defp parse_dirty!("false"), do: false
   defp parse_dirty!(_value), do: raise("V13_DIRTY must be true or false")
+
+  defp parse_mixed_mistral!("true"), do: true
+  defp parse_mixed_mistral!("false"), do: false
+
+  defp parse_mixed_mistral!(_value),
+    do: raise("V13_FANOUT_MIXED_MISTRAL must be true or false")
 
   defp sha256(value) do
     :sha256

@@ -17,7 +17,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test bench-decide
       mix allbert.test bench-v13-latency [--consumer memory|search|both] [--output PATH] [--executable PATH --artifact-sha256 HEX]
       mix allbert.test bench-v13-zero-shot [--profile NAME] [--fixture PATH] [--output PATH]
-      mix allbert.test bench-v13-fanout [--profile NAME] [--fixture PATH] [--worker-fixture PATH] [--output PATH]
+      mix allbert.test bench-v13-fanout [--profile NAME] [--mixed-mistral] [--fixture PATH] [--worker-fixture PATH] [--output PATH]
       mix allbert.test release
       mix allbert.test release.v042
       mix allbert.test release.v043
@@ -1047,16 +1047,27 @@ defmodule Mix.Tasks.Allbert.Test do
   defp bench_v13_fanout(args) do
     {opts, rest, invalid} =
       OptionParser.parse(args,
-        strict: [profile: :string, fixture: :string, worker_fixture: :string, output: :string]
+        strict: [
+          profile: :string,
+          mixed_mistral: :boolean,
+          fixture: :string,
+          worker_fixture: :string,
+          output: :string
+        ]
       )
 
     reject_invalid!(invalid)
     reject_rest!(rest)
 
     profile = Keyword.get(opts, :profile, "direct_answer_local")
+    mixed_mistral? = Keyword.get(opts, :mixed_mistral, false)
 
     if String.trim(profile) == "" do
       Mix.raise("--profile must not be blank")
+    end
+
+    if mixed_mistral? and profile != "direct_answer_local" do
+      Mix.raise("--mixed-mistral requires --profile direct_answer_local")
     end
 
     fixture =
@@ -1095,6 +1106,7 @@ defmodule Mix.Tasks.Allbert.Test do
         {"V13_FANOUT_WORKER_FIXTURE", worker_fixture},
         {"V13_FANOUT_STORE", output},
         {"V13_MODEL_PROFILE", profile},
+        {"V13_FANOUT_MIXED_MISTRAL", to_string(mixed_mistral?)},
         {"V13_FULL_SHA", full_sha},
         {"V13_DIRTY", to_string(dirty?)}
       ])
@@ -10138,7 +10150,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test bench-decide
       mix allbert.test bench-v13-latency [--consumer memory|search|both] [--output PATH] [--executable PATH --artifact-sha256 HEX]
       mix allbert.test bench-v13-zero-shot [--profile NAME] [--fixture PATH] [--output PATH]
-      mix allbert.test bench-v13-fanout [--profile NAME] [--fixture PATH] [--worker-fixture PATH] [--output PATH]
+      mix allbert.test bench-v13-fanout [--profile NAME] [--mixed-mistral] [--fixture PATH] [--worker-fixture PATH] [--output PATH]
       mix allbert.test release
       mix allbert.test release.v042
       mix allbert.test release.v043

@@ -133,7 +133,11 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
     failed_rows = for %{passed?: false, id: id} <- rows, do: id
     status = if failed_rows == [], do: "passed", else: "failed"
     profile = opts |> Keyword.fetch!(:profile) |> profile_name()
-    stats = stats(profile, fixture_sha256, fixture["scenarios"], rows)
+
+    stats =
+      profile
+      |> stats(fixture_sha256, fixture["scenarios"], rows)
+      |> Map.put(:role_profile_bindings, Keyword.get(opts, :role_profile_bindings, %{}))
 
     TestMetrics.record(%{
       store: Keyword.get(opts, :store),
@@ -144,7 +148,7 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
       gate: "bench-v13-fanout",
       phase_or_step: "worker-quality",
       corpus_id: fixture["corpus_id"],
-      command: "bench-v13-fanout --profile #{profile}",
+      command: Keyword.get(opts, :command, "bench-v13-fanout --profile #{profile}"),
       status: status,
       wall_ms: System.monotonic_time(:millisecond) - started,
       stats: stats
@@ -161,8 +165,21 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
       "protocol_calls=#{stats.protocol_provider_call_count} " <>
       "critic_invocations=#{stats.configured_critic_invocation_count} " <>
       "revision_invocations=#{stats.configured_revision_invocation_count} " <>
-      "phases_closed=#{stats.phase_evidence_closed}"
+      "phases_closed=#{stats.phase_evidence_closed}" <>
+      role_profile_summary(stats.role_profile_bindings)
   end
+
+  defp role_profile_summary(bindings) when map_size(bindings) == 4 do
+    " profiles " <>
+      Enum.map_join(~w[worker manager review synthesis], " ", fn role ->
+        binding = Map.fetch!(bindings, role)
+
+        "#{role}=#{binding.profile}|#{binding.provider}|#{binding.model}|" <>
+          "#{binding.endpoint_class}|#{binding.endpoint_sha256}|#{binding.configuration_sha256}"
+      end)
+  end
+
+  defp role_profile_summary(_bindings), do: ""
 
   defp evaluate_scenario(scenario, critic, base_context, row_timeout_ms, monotonic_now) do
     deadline_monotonic_ms = monotonic_now.() + row_timeout_ms
@@ -234,7 +251,13 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
       agent =
         WorkerAgent.new(
           id: "quality-eval-#{scenario["id"]}",
-          state: initial_state(scenario, contract, contract_sha256)
+          state:
+            initial_state(
+              scenario,
+              contract,
+              contract_sha256,
+              Map.get(base_context, :quality_eval_worker_profile)
+            )
         )
 
       {agent, initial_evidence} = run_review_phase(agent, :initial, protocol, context)
@@ -406,6 +429,12 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
     answer_changed = is_binary(answer) and answer != scenario["draft"]
     evidence_closed = phase_evidence_closed?(initial, final, state.provider_call_count)
 
+    revision_model_profile = revision_model_profile(state, final)
+
+    revision_profile_closed =
+      is_nil(state.expected_worker_profile) or is_nil(final) or
+        revision_model_profile == state.expected_worker_profile
+
     evidence = %{
       verdict: verdict,
       provider_call_count: state.provider_call_count,
@@ -415,11 +444,17 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
       answer_changed: answer_changed
     }
 
-    {failure_stage, failure_reason} = expectation_failure(evidence, scenario["expected"])
+    {failure_stage, failure_reason} =
+      reviewed_row_failure(
+        evidence,
+        scenario["expected"],
+        evidence_closed,
+        revision_profile_closed
+      )
 
     %{
       id: scenario["id"],
-      passed?: failure_stage == "none" and evidence_closed,
+      passed?: failure_stage == "none",
       verdict: verdict,
       provider_call_count: state.provider_call_count,
       draft_call_count: 1,
@@ -439,6 +474,7 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
         initial.invocation_count + evidence_value(final, :invocation_count, 0),
       configured_revision_invocation_count:
         if(state.provider_call_count in [4, 5, 6], do: 1, else: 0),
+      revision_model_profile: revision_model_profile,
       initial_critic_group_count: initial.group_count,
       final_critic_group_count: evidence_value(final, :group_count, 0),
       receipt_version: receipt && receipt["version"],
@@ -447,10 +483,32 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
       final_failed_rule_count: count_or_nil(protocol_evidence.final_failed_rule_ids),
       rule_evidence_closed: evidence_closed,
       answer_changed: answer_changed,
-      failure_stage: if(evidence_closed, do: failure_stage, else: "final_review"),
-      failure_reason: if(evidence_closed, do: failure_reason, else: "final_review_failed")
+      failure_stage: failure_stage,
+      failure_reason: failure_reason
     }
   end
+
+  defp revision_model_profile(_state, nil), do: nil
+
+  defp revision_model_profile(state, _final) do
+    response =
+      Map.get(state, :revised_response) ||
+        case Map.get(state, :last_result) do
+          {:ok, %{response: response}} -> response
+          _other -> %{}
+        end
+
+    get_in(response, [:direct_answer, :model_profile])
+  end
+
+  defp reviewed_row_failure(_evidence, _expected, _evidence_closed, false),
+    do: {"revision", "revision_failed"}
+
+  defp reviewed_row_failure(_evidence, _expected, false, true),
+    do: {"final_review", "final_review_failed"}
+
+  defp reviewed_row_failure(evidence, expected, true, true),
+    do: expectation_failure(evidence, expected)
 
   defp invalid_state_row(id, state, initial, final, stage, reason) do
     invalid_row(
@@ -496,6 +554,7 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
       accepted_assessment_sha256: nil,
       configured_critic_invocation_count: critic_invocations,
       configured_revision_invocation_count: revision_invocations,
+      revision_model_profile: nil,
       initial_critic_group_count: initial_group_count,
       final_critic_group_count: final_group_count,
       receipt_version: nil,
@@ -799,7 +858,7 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
   defp source("counted_protocol"), do: :counted_protocol
   defp source(_source), do: :invalid
 
-  defp initial_state(scenario, contract, contract_sha256) do
+  defp initial_state(scenario, contract, contract_sha256, expected_worker_profile) do
     %{
       status: :draft,
       objective_id: "quality-eval-objective-#{scenario["id"]}",
@@ -807,6 +866,7 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
       provider_call_count: 1,
       task_contract: contract,
       task_contract_sha256: contract_sha256,
+      expected_worker_profile: expected_worker_profile,
       draft_response: %{
         message: scenario["draft"],
         direct_answer: %{source: :model}
@@ -879,6 +939,7 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
       worker_quality_revision_call_count_by_row: row_map(rows, :revision_call_count),
       worker_quality_final_critic_call_count_by_row: row_map(rows, :final_critic_call_count),
       worker_quality_revision_used_by_row: row_map(rows, :revision_used),
+      worker_quality_revision_model_profile_by_row: row_map(rows, :revision_model_profile),
       worker_quality_critic_group_count_by_row: row_map(rows, :critic_group_count),
       worker_quality_review_protocol_version_by_row: row_map(rows, :review_protocol_version),
       worker_quality_rule_group_catalog_version_by_row:

@@ -6,6 +6,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
   alias AllbertAssist.Intent.FanoutPlan
   alias AllbertAssist.Models.ProviderAttempt
   alias AllbertAssist.Objectives.Fanout.ReviewRound
+  alias AllbertAssist.Settings
 
   @fixture Path.expand("../../fixtures/v1.3/fanout_real_model_eval.json", __DIR__)
   @worker_fixture Path.expand("../../fixtures/v1.3/fanout_worker_quality_eval.json", __DIR__)
@@ -17,6 +18,68 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
     provider: "local_ollama",
     model: "qwen2.5:7b"
   }
+  @role_profile_bindings Map.new(
+                           Enum.with_index(~w[worker manager review synthesis]),
+                           fn {role, index} ->
+                             {role,
+                              %{
+                                profile: "direct_answer_local",
+                                provider: "local_ollama",
+                                model: "qwen2.5:7b",
+                                endpoint_class: "local",
+                                endpoint_sha256: String.duplicate("a", 64),
+                                configuration_sha256:
+                                  String.duplicate(Integer.to_string(index + 1), 64)
+                              }}
+                           end
+                         )
+
+  test "frozen mixed topology keeps Worker on 7B and binds every fan-out role to Mistral" do
+    profiles =
+      V13FanoutEval.configure_profiles!("direct_answer_local", mixed_mistral?: true)
+
+    assert profiles.worker.name == "direct_answer_local"
+
+    for role <- [:manager, :review, :synthesis] do
+      profile = Map.fetch!(profiles, role)
+      assert profile.name == "mistral_small31_24b_challenger"
+      assert profile.provider == "local_ollama"
+      assert profile.model == "mistral-small3.1:24b-instruct-2503-q4_K_M"
+      assert profile.aliases == []
+      assert profile.capabilities == ["text_generation"]
+      assert profile.temperature == 0.0
+      assert profile.max_tokens == 1_024
+      assert profile.timeout_ms == 60_000
+    end
+
+    assert {:ok, ["direct_answer_local"]} =
+             Settings.get("model_preferences.tasks.direct_answer")
+
+    for task <- ~w[fanout_manager fanout_review fanout_synthesis] do
+      assert {:ok, ["mistral_small31_24b_challenger"]} =
+               Settings.get("model_preferences.tasks.#{task}")
+    end
+
+    assert Map.keys(profiles.bindings) |> Enum.sort() == ~w[manager review synthesis worker]
+
+    for {_role, binding} <- profiles.bindings do
+      assert Map.keys(binding) |> Enum.sort() ==
+               ~w[configuration_sha256 endpoint_class endpoint_sha256 model profile provider]a
+
+      assert byte_size(binding.endpoint_sha256) == 64
+      assert byte_size(binding.configuration_sha256) == 64
+    end
+  end
+
+  test "frozen mixed topology rejects a non-default Worker before settings writes" do
+    before = Settings.get("model_preferences.tasks.direct_answer")
+
+    assert_raise RuntimeError, ~r/mixed_mistral_requires_direct_answer_local/, fn ->
+      V13FanoutEval.configure_profiles!("local", mixed_mistral?: true)
+    end
+
+    assert Settings.get("model_preferences.tasks.direct_answer") == before
+  end
 
   defmodule QualifiedCritic do
     def assess(request, context) do
@@ -632,6 +695,23 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
     assert manager_record["stats"]["fixture_sha256"] == @fixture_sha256
     assert worker_record["stats"]["fixture_sha256"] == @worker_fixture_sha256
 
+    assert manager_record["stats"]["role_profile_bindings"] ==
+             Jason.decode!(Jason.encode!(@role_profile_bindings))
+
+    assert worker_record["stats"]["role_profile_bindings"] ==
+             manager_record["stats"]["role_profile_bindings"]
+
+    assert manager_record["command"] == "bench-v13-fanout --mixed-mistral"
+    assert worker_record["command"] == "bench-v13-fanout --mixed-mistral"
+
+    revision_profiles =
+      worker_record["stats"]["worker_quality_revision_model_profile_by_row"]
+      |> Map.values()
+      |> Enum.reject(&is_nil/1)
+
+    assert length(revision_profiles) == 3
+    assert Enum.uniq(revision_profiles) == ["direct_answer_local"]
+
     assert worker_record["stats"]["worker_quality_verdict_by_row"] ==
              result.worker_quality.stats.worker_quality_verdict_by_row
 
@@ -823,6 +903,8 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
           test_pid: self(),
           critic_implementation: QualifiedSynthesisCritic
         },
+        role_profile_bindings: @role_profile_bindings,
+        command: "bench-v13-fanout --mixed-mistral",
         store: store,
         full_sha: @full_sha,
         dirty: false
@@ -830,8 +912,10 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
       worker_quality: [
         profile: @profile,
         critic: Keyword.fetch!(opts, :critic),
-        runner_context: %{},
+        runner_context: %{quality_eval_worker_profile: "direct_answer_local"},
         row_timeout_ms: 5_000,
+        role_profile_bindings: @role_profile_bindings,
+        command: "bench-v13-fanout --mixed-mistral",
         store: store,
         full_sha: @full_sha,
         dirty: false
