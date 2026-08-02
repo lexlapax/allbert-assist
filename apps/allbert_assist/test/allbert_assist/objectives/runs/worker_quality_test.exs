@@ -51,10 +51,6 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
         {:quality_review_call, model_spec, prompt, schema, opts}
       )
 
-      rule_results =
-        QualityPolicy.rule_ids()
-        |> Enum.map(&%{"rule_id" => &1, "verdict" => "satisfied"})
-
       {:ok,
        %Response{
          id: "quality-review",
@@ -63,8 +59,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
          finish_reason: :stop,
          object: %{
            "final_answer" => "The reviewed child answer.",
-           "verdict" => "accepted",
-           "rule_results" => rule_results
+           "rule_violations" => Map.new(QualityPolicy.rule_ids(), &{&1, false})
          }
        }}
     end
@@ -85,13 +80,21 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
     assert {:ok, contract} = QualityPolicy.build(grounding)
 
     assert Map.keys(contract) |> Enum.sort() ==
-             ~w[child_objective expected_result original_request rules source steering version]
+             ~w[child_objective completion_obligation expected_result original_request rules source steering version]
 
-    assert contract["version"] == 1
+    assert contract["version"] == 2
     assert contract["source"] == "conversation_manager"
     assert contract["original_request"] == grounding.original_request
     assert contract["child_objective"] == grounding.child_objective
     assert contract["expected_result"] == grounding.expected_result
+
+    assert contract["completion_obligation"] == %{
+             "version" => 1,
+             "requirement_sources" => ["child_objective", "expected_result"],
+             "satisfaction_policy" => "all_explicit_requirements_present_and_supported",
+             "missing_required_evidence_outcome" => "unresolved"
+           }
+
     assert contract["steering"] == nil
 
     direct_answer_ids = Enum.map(DirectAnswerPolicy.rule_specs(), &Atom.to_string(&1.id))
@@ -100,15 +103,52 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
              direct_answer_ids
 
     assert Enum.map(contract["rules"], & &1["id"]) == QualityPolicy.rule_ids()
+    assert "completion_preconditions" in QualityPolicy.rule_ids()
 
     assert {:ok, digest} = QualityPolicy.digest(contract)
 
     assert digest ==
-             sha256("allbert:fanout-worker-quality-task:v1\0" <> CanonicalJSON.encode(contract))
+             sha256("allbert:fanout-worker-quality-task:v2\0" <> CanonicalJSON.encode(contract))
+
+    assert {:ok, %{"1" => legacy_digest, "2" => ^digest}} =
+             QualityPolicy.receipt_task_digests(contract)
+
+    legacy_contract =
+      contract
+      |> Map.drop(["completion_obligation"])
+      |> Map.put("version", 1)
+      |> Map.update!(
+        "rules",
+        &Enum.reject(&1, fn rule ->
+          rule["id"] == "completion_preconditions"
+        end)
+      )
+
+    assert legacy_digest ==
+             sha256(
+               "allbert:fanout-worker-quality-task:v1\0" <>
+                 CanonicalJSON.encode(legacy_contract)
+             )
+
+    assert {:ok, projection} = QualityPolicy.provider_projection(contract)
+
+    assert Map.keys(projection) |> Enum.sort() ==
+             ~w[child_objective completion_obligation expected_result original_request rule_catalog source steering version]
+
+    refute Map.has_key?(projection, "rules")
+    assert projection["version"] == 2
+    assert projection["rule_catalog"]["version"] == 2
+
+    assert projection["rule_catalog"]["sha256"] ==
+             sha256(
+               "allbert:fanout-worker-quality-rules:v2\0" <>
+                 CanonicalJSON.encode(contract["rules"])
+             )
 
     assert {:ok, draft_prompt} = QualityPolicy.draft_prompt(contract)
     assert draft_prompt =~ "Allbert bounded fan-out child quality task"
-    assert draft_prompt =~ CanonicalJSON.encode(contract)
+    assert draft_prompt =~ CanonicalJSON.encode(projection)
+    refute draft_prompt =~ hd(contract["rules"])["instruction"]
   end
 
   test "verified steering replaces stale expected-result guidance and binds exact source bytes" do
@@ -140,7 +180,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
       objective_id: "objective-原文",
       step_id: "step-019fb2a4",
       task_contract_sha256: String.duplicate("1", 64),
-      rule_catalog_version: 1,
+      rule_catalog_version: 2,
       reviewer_config_sha256: String.duplicate("2", 64),
       provider_call_count: 2,
       verdict: "accepted",
@@ -171,6 +211,64 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
 
     assert {:ok, ^receipt, ^receipt_digest} =
              QualityReceipt.from_event_payload(event_payload, binding)
+  end
+
+  test "new receipt writes require catalog v2 while valid catalog-v1 receipts replay" do
+    assert {:ok, contract} = quality_contract()
+
+    assert {:ok, %{"1" => legacy_digest, "2" => current_digest} = task_digests} =
+             QualityPolicy.receipt_task_digests(contract)
+
+    binding = %{
+      objective_id: "legacy-objective",
+      step_id: "legacy-step",
+      task_contract_sha256: current_digest,
+      task_contract_sha256_by_rule_catalog_version: task_digests,
+      final_answer: "A legacy reviewed answer."
+    }
+
+    legacy_receipt = %{
+      "version" => 1,
+      "objective_id_sha256" => sha256(binding.objective_id),
+      "step_id_sha256" => sha256(binding.step_id),
+      "task_contract_sha256" => legacy_digest,
+      "rule_catalog_version" => 1,
+      "reviewer_config_sha256" => String.duplicate("2", 64),
+      "provider_call_count" => 2,
+      "verdict" => "accepted",
+      "failed_rule_ids" => [],
+      "final_answer_sha256" => sha256(binding.final_answer)
+    }
+
+    assert :ok = QualityReceipt.validate(legacy_receipt, binding)
+    assert {:ok, _digest} = QualityReceipt.digest(legacy_receipt)
+
+    payload = %{
+      "quality_receipt" => legacy_receipt,
+      "step_id" => binding.step_id,
+      "step_status" => "completed"
+    }
+
+    assert {:ok, ^legacy_receipt, _digest} =
+             QualityReceipt.from_event_payload(payload, binding)
+
+    refute match?(
+             {:ok, _receipt},
+             QualityReceipt.build(%{
+               objective_id: binding.objective_id,
+               step_id: binding.step_id,
+               task_contract_sha256: legacy_digest,
+               rule_catalog_version: 1,
+               reviewer_config_sha256: String.duplicate("2", 64),
+               provider_call_count: 2,
+               verdict: "accepted",
+               failed_rule_ids: [],
+               final_answer: binding.final_answer
+             })
+           )
+
+    unknown_receipt = Map.put(legacy_receipt, "rule_catalog_version", 3)
+    assert {:error, :invalid_quality_receipt} = QualityReceipt.validate(unknown_receipt, binding)
   end
 
   test "verified grounding exposes the exact original request and compiled child guidance" do
@@ -224,7 +322,36 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
     assert reviewed.reviewer_config_sha256 == prepared.reviewer_config_sha256
 
     assert_receive {:quality_review_call, %{provider: :openai, id: "fixture-quality-model"},
-                    _prompt, _schema, opts}
+                    prompt, schema, opts}
+
+    assert schema == %{
+             "type" => "object",
+             "properties" => %{
+               "final_answer" => %{
+                 "type" => "string",
+                 "description" => "The reviewed and, when needed, revised child answer itself."
+               },
+               "rule_violations" => %{
+                 "type" => "object",
+                 "properties" => Map.new(QualityPolicy.rule_ids(), &{&1, %{"type" => "boolean"}}),
+                 "required" => QualityPolicy.rule_ids(),
+                 "additionalProperties" => false
+               }
+             },
+             "required" => ["final_answer", "rule_violations"],
+             "additionalProperties" => false
+           }
+
+    [system_message, user_message] = prompt.messages
+    system_text = Enum.map_join(system_message.content, & &1.text)
+    user_text = Enum.map_join(user_message.content, & &1.text)
+
+    for rule <- QualityPolicy.rule_specs() do
+      assert count_occurrences(system_text, rule.instruction) == 1
+      refute user_text =~ rule.instruction
+    end
+
+    refute user_text =~ "\"rules\""
 
     assert opts[:max_tokens] == 512
     assert opts[:receive_timeout] == prepared.timeout_ms
@@ -232,9 +359,8 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
     assert opts[:json_repair] == false
   end
 
-  test "review evidence is rejected when its final bytes require normalization or its rule rows are malformed" do
-    satisfied_results =
-      Enum.map(QualityPolicy.rule_ids(), &%{"rule_id" => &1, "verdict" => "satisfied"})
+  test "closed violation evidence derives its verdict locally and rejects malformed transport" do
+    no_violations = Map.new(QualityPolicy.rule_ids(), &{&1, false})
 
     for invalid_answer <- [
           String.duplicate("界", 2_001),
@@ -243,17 +369,61 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
       assert {:error, :invalid_quality_review} =
                QualityPolicy.validate_review(%{
                  "final_answer" => invalid_answer,
-                 "verdict" => "accepted",
-                 "rule_results" => satisfied_results
+                 "rule_violations" => no_violations
                })
     end
+
+    completion_violation = Map.put(no_violations, "completion_preconditions", true)
+
+    assert {:ok,
+            %{
+              verdict: "unresolved",
+              failed_rule_ids: ["completion_preconditions"],
+              rule_results: rule_results
+            }} =
+             QualityPolicy.validate_review(%{
+               "final_answer" => "Required evidence was not supplied.",
+               "rule_violations" => completion_violation
+             })
+
+    assert Enum.find(rule_results, &(&1["rule_id"] == "completion_preconditions")) == %{
+             "rule_id" => "completion_preconditions",
+             "verdict" => "unsatisfied"
+           }
+
+    refute Enum.find(rule_results, &(&1["rule_id"] == "memory_is_reference"))["verdict"] ==
+             "unsatisfied"
 
     assert {:error, :invalid_quality_review} =
              QualityPolicy.validate_review(%{
                "final_answer" => "Valid bounded bytes.",
-               "verdict" => "accepted",
-               "rule_results" => ["not-a-rule-map"]
+               "rule_violations" => Map.delete(no_violations, "memory_is_reference")
              })
+
+    assert {:error, :invalid_quality_review} =
+             QualityPolicy.validate_review(%{
+               "final_answer" => "Valid bounded bytes.",
+               "rule_violations" => Map.put(no_violations, "invented_rule", false)
+             })
+
+    assert {:error, :invalid_quality_review} =
+             QualityPolicy.validate_review(%{
+               "final_answer" => "Valid bounded bytes.",
+               "rule_violations" => Map.put(no_violations, "memory_is_reference", "false")
+             })
+
+    for legacy_shape <- [
+          %{"final_answer" => "Legacy", "verdict" => "accepted", "rule_results" => []},
+          %{
+            "final_answer" => "Legacy",
+            "verdict" => "accepted",
+            "rule_results" => [
+              %{"rule_id" => "memory_is_reference", "verdict" => "unsatisfied"}
+            ]
+          }
+        ] do
+      assert {:error, :invalid_quality_review} = QualityPolicy.validate_review(legacy_shape)
+    end
   end
 
   test "review preparation rejects an unavailable client before a provider call can be counted" do
@@ -307,7 +477,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
       objective_id: String.duplicate("o", 80),
       step_id: String.duplicate("s", 80),
       task_contract_sha256: String.duplicate("a", 64),
-      rule_catalog_version: 1,
+      rule_catalog_version: 2,
       reviewer_config_sha256: String.duplicate("b", 64),
       provider_call_count: 2,
       verdict: "accepted",
@@ -346,28 +516,6 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
              QualityReceipt.from_event_payload(collision, binding)
   end
 
-  test "review rule evidence rejects reordering, duplicates, extras, and extra row fields" do
-    valid = Enum.map(QualityPolicy.rule_ids(), &%{"rule_id" => &1, "verdict" => "satisfied"})
-
-    [first | rest] = valid
-
-    invalid_sets = [
-      Enum.reverse(valid),
-      [first, first | rest],
-      valid ++ [%{"rule_id" => "invented_rule", "verdict" => "satisfied"}],
-      [Map.put(first, "critique", "free-form") | rest]
-    ]
-
-    for rule_results <- invalid_sets do
-      assert {:error, :invalid_quality_review} =
-               QualityPolicy.validate_review(%{
-                 "final_answer" => "Bounded reviewed answer.",
-                 "verdict" => "accepted",
-                 "rule_results" => rule_results
-               })
-    end
-  end
-
   test "verified durable steering supplies exact event and directive bytes to the quality contract" do
     original_request = "Prepare two independent architecture analyses."
     original_child = "Analyze the first mechanism."
@@ -397,6 +545,13 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
     :sha256
     |> :crypto.hash(value)
     |> Base.encode16(case: :lower)
+  end
+
+  defp count_occurrences(text, needle) do
+    text
+    |> String.split(needle)
+    |> length()
+    |> Kernel.-(1)
   end
 
   defp create_grounded_child(original_request, child_objective, expected_result) do

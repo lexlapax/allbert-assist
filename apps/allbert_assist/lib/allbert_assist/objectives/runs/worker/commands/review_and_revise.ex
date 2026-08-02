@@ -81,7 +81,7 @@ defmodule AllbertAssist.Objectives.Runs.Worker.Commands.ReviewAndRevise do
              objective_id: state.objective_id,
              step_id: state.step_id,
              task_contract_sha256: state.task_contract_sha256,
-             rule_catalog_version: 1,
+             rule_catalog_version: QualityPolicy.version(),
              reviewer_config_sha256: reviewer_config_sha256,
              provider_call_count: 2,
              verdict: normalized.verdict,
@@ -106,12 +106,13 @@ defmodule AllbertAssist.Objectives.Runs.Worker.Commands.ReviewAndRevise do
 
   defp normalize_reviewed(reviewed) when is_map(reviewed) do
     review = %{
-      "final_answer" => Map.get(reviewed, :final_answer),
-      "verdict" => Map.get(reviewed, :verdict),
-      "rule_results" => Map.get(reviewed, :rule_results)
+      final_answer: Map.get(reviewed, :final_answer),
+      verdict: Map.get(reviewed, :verdict),
+      rule_results: Map.get(reviewed, :rule_results),
+      failed_rule_ids: Map.get(reviewed, :failed_rule_ids)
     }
 
-    QualityPolicy.validate_review(review)
+    QualityPolicy.validate_normalized_review(review)
   end
 
   defp normalize_reviewed(_reviewed), do: {:error, :invalid_quality_review}

@@ -10,6 +10,8 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
   alias AllbertAssist.Objectives.CanonicalJSON
 
   @version 1
+  @write_rule_catalog_version 2
+  @replay_rule_catalog_versions [1, 2]
   @receipt_digest_domain "allbert:fanout-worker-quality-receipt:v1\0"
   @receipt_keys ~w[
     version objective_id_sha256 step_id_sha256 task_contract_sha256
@@ -29,7 +31,8 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
   @spec build(map()) :: {:ok, receipt()} | {:error, :invalid_quality_receipt_binding}
   def build(binding) when is_map(binding) do
     with {:ok, binding} <- normalize_map(binding),
-         true <- exact_keys?(binding, @build_binding_keys) do
+         true <- exact_keys?(binding, @build_binding_keys),
+         true <- binding["rule_catalog_version"] == @write_rule_catalog_version do
       receipt = %{
         "version" => @version,
         "objective_id_sha256" => sha256(binding["objective_id"]),
@@ -63,7 +66,7 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
          true <- required_binding?(binding),
          true <- receipt["objective_id_sha256"] == sha256(binding["objective_id"]),
          true <- receipt["step_id_sha256"] == sha256(binding["step_id"]),
-         true <- receipt["task_contract_sha256"] == binding["task_contract_sha256"],
+         true <- task_contract_digest_matches?(receipt, binding),
          true <- receipt["final_answer_sha256"] == sha256(binding["final_answer"]),
          true <- optional_bindings_match?(receipt, binding) do
       :ok
@@ -106,7 +109,7 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
 
   defp valid_receipt?(receipt) do
     exact_keys?(receipt, @receipt_keys) and receipt["version"] == @version and
-      receipt["rule_catalog_version"] == @version and
+      receipt["rule_catalog_version"] in @replay_rule_catalog_versions and
       receipt["provider_call_count"] == 2 and receipt["verdict"] == "accepted" and
       receipt["failed_rule_ids"] == [] and
       Enum.all?(
@@ -119,7 +122,34 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
     Enum.all?(@verify_binding_keys, &Map.has_key?(binding, &1)) and
       is_binary(binding["objective_id"]) and is_binary(binding["step_id"]) and
       lowercase_sha256?(binding["task_contract_sha256"]) and
-      is_binary(binding["final_answer"])
+      is_binary(binding["final_answer"]) and valid_versioned_task_digests?(binding)
+  end
+
+  defp task_contract_digest_matches?(receipt, binding) do
+    expected =
+      case Map.get(binding, "task_contract_sha256_by_rule_catalog_version") do
+        digests when is_map(digests) ->
+          Map.get(digests, Integer.to_string(receipt["rule_catalog_version"]))
+
+        _missing ->
+          binding["task_contract_sha256"]
+      end
+
+    receipt["task_contract_sha256"] == expected
+  end
+
+  defp valid_versioned_task_digests?(binding) do
+    case Map.get(binding, "task_contract_sha256_by_rule_catalog_version") do
+      nil ->
+        true
+
+      digests when is_map(digests) ->
+        exact_keys?(digests, Enum.map(@replay_rule_catalog_versions, &Integer.to_string/1)) and
+          Enum.all?(Map.values(digests), &lowercase_sha256?/1)
+
+      _invalid ->
+        false
+    end
   end
 
   defp optional_bindings_match?(receipt, binding) do

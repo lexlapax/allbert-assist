@@ -798,19 +798,29 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
 
         assert {:ok, contract} = child |> Grounding.resolve() |> QualityPolicy.build()
         assert {:ok, task_digest} = QualityPolicy.digest(contract)
+        assert {:ok, task_digests} = QualityPolicy.receipt_task_digests(contract)
 
-        assert {:ok, receipt} =
+        assert {:ok, current_receipt} =
                  QualityReceipt.build(%{
                    objective_id: child.id,
                    step_id: step.id,
                    task_contract_sha256: task_digest,
-                   rule_catalog_version: 1,
+                   rule_catalog_version: QualityPolicy.version(),
                    reviewer_config_sha256: String.duplicate("b", 64),
                    provider_call_count: 2,
                    verdict: "accepted",
                    failed_rule_ids: [],
                    final_answer: answer
                  })
+
+        receipt =
+          if child.queue_position == 0 do
+            current_receipt
+            |> Map.put("rule_catalog_version", 1)
+            |> Map.put("task_contract_sha256", task_digests["1"])
+          else
+            current_receipt
+          end
 
         assert {:ok, receipt_digest} = QualityReceipt.digest(receipt)
 
@@ -1040,7 +1050,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                          objective_id: child.id,
                          step_id: step.id,
                          task_contract_sha256: task_digest,
-                         rule_catalog_version: 1,
+                         rule_catalog_version: QualityPolicy.version(),
                          reviewer_config_sha256: String.duplicate("d", 64),
                          provider_call_count: 2,
                          verdict: "accepted",
@@ -1216,7 +1226,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                    objective_id: child.id,
                    step_id: step.id,
                    task_contract_sha256: task_digest,
-                   rule_catalog_version: 1,
+                   rule_catalog_version: QualityPolicy.version(),
                    reviewer_config_sha256: String.duplicate("d", 64),
                    provider_call_count: 2,
                    verdict: "accepted",
@@ -1796,7 +1806,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                  objective_id: child.id,
                  step_id: step.id,
                  task_contract_sha256: task_digest,
-                 rule_catalog_version: 1,
+                 rule_catalog_version: QualityPolicy.version(),
                  reviewer_config_sha256: String.duplicate("c", 64),
                  provider_call_count: 2,
                  verdict: "accepted",

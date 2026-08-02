@@ -10,7 +10,7 @@ defmodule AllbertAssist.Objectives.Runs.Worker.ReqLLMReviewer do
 
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Maps
-  alias AllbertAssist.Models.PromptEnvelope
+  alias AllbertAssist.Models.{ClosedRuleEvidence, PromptEnvelope}
   alias AllbertAssist.Objectives.{CanonicalJSON, ObservationSummary}
   alias AllbertAssist.Objectives.Runs.Worker.QualityPolicy
   alias AllbertAssist.Settings.{ModelRuntime, Models}
@@ -18,36 +18,18 @@ defmodule AllbertAssist.Objectives.Runs.Worker.ReqLLMReviewer do
 
   @reviewer_config_domain "allbert:fanout-worker-reviewer-config:v1\0"
   @maximum_output_tokens 512
-  @rule_result_schema {:map,
-                       [
-                         rule_id: [
-                           type: {:in, QualityPolicy.rule_ids()},
-                           required: true,
-                           doc: "One known quality rule id in catalog order."
-                         ],
-                         verdict: [
-                           type: {:in, ~w[satisfied unsatisfied]},
-                           required: true,
-                           doc: "Closed verdict for this rule against the returned final answer."
-                         ]
-                       ]}
-  @schema [
-    final_answer: [
-      type: :string,
-      required: true,
-      doc: "The reviewed and, when needed, revised child answer itself."
-    ],
-    verdict: [
-      type: {:in, ~w[accepted unresolved]},
-      required: true,
-      doc: "Accepted only when every rule is satisfied by final_answer."
-    ],
-    rule_results: [
-      type: {:list, @rule_result_schema},
-      required: true,
-      doc: "Exactly one result per quality rule in the declared catalog order."
-    ]
-  ]
+  @schema %{
+    "type" => "object",
+    "properties" => %{
+      "final_answer" => %{
+        "type" => "string",
+        "description" => "The reviewed and, when needed, revised child answer itself."
+      },
+      "rule_violations" => ClosedRuleEvidence.schema!(QualityPolicy.rule_ids())
+    },
+    "required" => ["final_answer", "rule_violations"],
+    "additionalProperties" => false
+  }
 
   @type prepared :: %{
           required(:model_spec) => map(),
@@ -128,18 +110,20 @@ defmodule AllbertAssist.Objectives.Runs.Worker.ReqLLMReviewer do
   def invoke(_prepared, _context), do: {:error, :invalid_quality_review_request}
 
   defp prompt(contract, draft) do
-    PromptEnvelope.build(
-      purpose: :fanout_worker_quality_review,
-      instruction:
-        "Review the draft against every declared rule and return the answer itself after any necessary revision. Mark accepted only when the returned final answer satisfies every rule.",
-      rules: Enum.map(QualityPolicy.rule_specs(), &{&1.id, &1.instruction}),
-      input:
-        CanonicalJSON.encode(%{
-          "task_contract" => contract,
-          "draft" => draft
-        }),
-      input_class: :advisory_data
-    )
+    with {:ok, projection} <- QualityPolicy.provider_projection(contract) do
+      PromptEnvelope.build(
+        purpose: :fanout_worker_quality_review,
+        instruction:
+          "Review the draft against every declared rule and return the answer itself after any necessary revision. For each catalog-keyed rule_violations Boolean, return true only when the final answer violates that rule and false otherwise. A rule whose triggering condition does not apply is not violated. Allbert derives the aggregate outcome locally.",
+        rules: Enum.map(QualityPolicy.rule_specs(), &{&1.id, &1.instruction}),
+        input:
+          CanonicalJSON.encode(%{
+            "task_contract" => projection,
+            "draft" => draft
+          }),
+        input_class: :advisory_data
+      )
+    end
   end
 
   defp remaining_timeout(profile, context) do

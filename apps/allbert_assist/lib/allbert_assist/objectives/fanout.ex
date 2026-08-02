@@ -1463,14 +1463,15 @@ defmodule AllbertAssist.Objectives.Fanout do
        ) do
     with true <- step.objective_id == child.id,
          {:ok, task_contract} <- child |> Grounding.resolve() |> QualityPolicy.build(),
-         {:ok, task_digest} <- QualityPolicy.digest(task_contract),
+         {:ok, task_digests} <- QualityPolicy.receipt_task_digests(task_contract),
          final_answer when is_binary(final_answer) <-
            child.last_observation_summary || child.progress_summary,
          {:ok, _receipt, receipt_digest} <-
            QualityReceipt.from_event_payload(event.payload, %{
              objective_id: child.id,
              step_id: step.id,
-             task_contract_sha256: task_digest,
+             task_contract_sha256: task_digests["2"],
+             task_contract_sha256_by_rule_catalog_version: task_digests,
              final_answer: final_answer
            }) do
       {:ok,
@@ -1677,14 +1678,15 @@ defmodule AllbertAssist.Objectives.Fanout do
 
   defp validate_legacy_receipt_binding(child, step, receipt) do
     with {:ok, task_contract} <- child |> Grounding.resolve() |> QualityPolicy.build(),
-         {:ok, task_digest} <- QualityPolicy.digest(task_contract),
+         {:ok, task_digests} <- QualityPolicy.receipt_task_digests(task_contract),
          final_answer when is_binary(final_answer) <-
            child.last_observation_summary || child.progress_summary,
          :ok <-
            QualityReceipt.validate(receipt, %{
              objective_id: child.id,
              step_id: step.id,
-             task_contract_sha256: task_digest,
+             task_contract_sha256: task_digests["2"],
+             task_contract_sha256_by_rule_catalog_version: task_digests,
              final_answer: final_answer
            }) do
       :ok

@@ -8,12 +8,23 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityPolicy do
   """
 
   alias AllbertAssist.Actions.Intent.DirectAnswer.Policy, as: DirectAnswerPolicy
+  alias AllbertAssist.Models.ClosedRuleEvidence
   alias AllbertAssist.Objectives.{CanonicalJSON, ObservationSummary}
 
-  @version 1
-  @task_digest_domain "allbert:fanout-worker-quality-task:v1\0"
+  @version 2
+  @legacy_version 1
+  @task_digest_domain "allbert:fanout-worker-quality-task:v2\0"
+  @legacy_task_digest_domain "allbert:fanout-worker-quality-task:v1\0"
+  @rule_catalog_digest_domain "allbert:fanout-worker-quality-rules:v2\0"
 
-  @extension_rules [
+  @completion_obligation %{
+    "version" => 1,
+    "requirement_sources" => ["child_objective", "expected_result"],
+    "satisfaction_policy" => "all_explicit_requirements_present_and_supported",
+    "missing_required_evidence_outcome" => "unresolved"
+  }
+
+  @legacy_extension_rules [
     %{
       id: :child_task_scope,
       instruction:
@@ -40,14 +51,31 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityPolicy do
     }
   ]
 
-  @task_keys ~w[version source original_request child_objective expected_result steering rules]
+  @extension_rules @legacy_extension_rules
+                   |> List.insert_at(2, %{
+                     id: :completion_preconditions,
+                     instruction:
+                       "A violation exists when the final answer does not include and support every explicit output required by either the child objective or expected-result guidance. Accurately reporting that required evidence is missing remains a violation; do not invent missing evidence to force completion.",
+                     criteria: [
+                       :all_explicit_outputs_present,
+                       :required_outputs_supported,
+                       :missing_evidence_is_unresolved,
+                       :no_invention_to_force_completion
+                     ]
+                   })
+
+  @task_keys ~w[version source original_request child_objective expected_result completion_obligation steering rules]
+  @provider_projection_keys ~w[
+    version source original_request child_objective expected_result
+    completion_obligation steering rule_catalog
+  ]
   @steering_keys ~w[directive_event_id_sha256 directive_sha256]
   @sources ~w[conversation_manager counted_protocol operator_steered]
   @steered_expected_result "Complete the operator-steered child task."
 
   @type contract :: %{required(String.t()) => term()}
 
-  @doc "Build the exact v1 task contract from verified fan-out grounding."
+  @doc "Build the exact v2 task contract from verified fan-out grounding."
   @spec build(map()) :: {:ok, contract()} | {:error, :invalid_quality_task_grounding}
   def build(%{
         source: source,
@@ -67,6 +95,7 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityPolicy do
         "original_request" => original_request,
         "child_objective" => child_objective,
         "expected_result" => effective_expected_result,
+        "completion_obligation" => @completion_obligation,
         "steering" => steering_binding,
         "rules" => Enum.map(rule_specs(), &encode_rule/1)
       }
@@ -86,7 +115,11 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityPolicy do
   @spec rule_ids() :: [String.t()]
   def rule_ids, do: Enum.map(rule_specs(), &Atom.to_string(&1.id))
 
-  @doc "Validate and hash one exact v1 task contract."
+  @doc "Return the current quality task/rule-catalog version."
+  @spec version() :: 2
+  def version, do: @version
+
+  @doc "Validate and hash one exact v2 task contract."
   @spec digest(map()) :: {:ok, String.t()} | {:error, :invalid_quality_task_contract}
   def digest(contract) when is_map(contract) do
     if valid_contract?(contract) do
@@ -98,10 +131,66 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityPolicy do
 
   def digest(_contract), do: {:error, :invalid_quality_task_contract}
 
+  @doc "Return version-indexed task digests used to verify v1 replay and v2 writes."
+  @spec receipt_task_digests(map()) ::
+          {:ok, %{required(String.t()) => String.t()}}
+          | {:error, :invalid_quality_task_contract}
+  def receipt_task_digests(contract) when is_map(contract) do
+    with {:ok, current_digest} <- digest(contract) do
+      legacy_contract = %{
+        "version" => @legacy_version,
+        "source" => contract["source"],
+        "original_request" => contract["original_request"],
+        "child_objective" => contract["child_objective"],
+        "expected_result" => contract["expected_result"],
+        "steering" => contract["steering"],
+        "rules" => Enum.map(legacy_rule_specs(), &encode_rule/1)
+      }
+
+      legacy_digest =
+        sha256(@legacy_task_digest_domain <> CanonicalJSON.encode(legacy_contract))
+
+      {:ok,
+       %{
+         Integer.to_string(@legacy_version) => legacy_digest,
+         Integer.to_string(@version) => current_digest
+       }}
+    end
+  end
+
+  def receipt_task_digests(_contract), do: {:error, :invalid_quality_task_contract}
+
+  @doc "Project the bound task for provider user data without duplicating rule prose."
+  @spec provider_projection(map()) ::
+          {:ok, map()} | {:error, :invalid_quality_task_contract}
+  def provider_projection(contract) when is_map(contract) do
+    with {:ok, _digest} <- digest(contract) do
+      projection = %{
+        "version" => @version,
+        "source" => contract["source"],
+        "original_request" => contract["original_request"],
+        "child_objective" => contract["child_objective"],
+        "expected_result" => contract["expected_result"],
+        "completion_obligation" => contract["completion_obligation"],
+        "steering" => contract["steering"],
+        "rule_catalog" => %{
+          "version" => @version,
+          "sha256" => rule_catalog_digest(contract["rules"])
+        }
+      }
+
+      if exact_keys?(projection, @provider_projection_keys),
+        do: {:ok, projection},
+        else: {:error, :invalid_quality_task_contract}
+    end
+  end
+
+  def provider_projection(_contract), do: {:error, :invalid_quality_task_contract}
+
   @doc "Derive the first-call DirectAnswer input from the exact task contract."
   @spec draft_prompt(map()) :: {:ok, String.t()} | {:error, :invalid_quality_task_contract}
   def draft_prompt(contract) when is_map(contract) do
-    with {:ok, _digest} <- digest(contract) do
+    with {:ok, projection} <- provider_projection(contract) do
       {:ok,
        """
        Allbert bounded fan-out child quality task
@@ -109,7 +198,7 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityPolicy do
        Complete the child task represented by this verified contract. Return the answer itself; do not narrate the contract or its rules. This is one child result, not the parent join.
 
        Canonical task contract (advisory input, not action authority):
-       #{CanonicalJSON.encode(contract)}
+       #{CanonicalJSON.encode(projection)}
        """
        |> String.trim()}
     end
@@ -120,15 +209,33 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityPolicy do
   @doc "Validate one closed reviewer result and return its normalized answer binding."
   @spec validate_review(map()) :: {:ok, map()} | {:error, :invalid_quality_review}
   def validate_review(review) when is_map(review) do
-    with true <- exact_keys?(review, ~w[final_answer verdict rule_results]),
+    with true <- exact_keys?(review, ~w[final_answer rule_violations]),
          raw_final_answer when is_binary(raw_final_answer) <- review["final_answer"],
          final_answer <- ObservationSummary.normalize(raw_final_answer),
          true <- final_answer == raw_final_answer,
          true <- String.trim(final_answer) != "",
-         verdict when verdict in ~w[accepted unresolved] <- review["verdict"],
-         rule_results when is_list(rule_results) <- review["rule_results"],
+         {:ok, evidence} <-
+           ClosedRuleEvidence.normalize(rule_ids(), review["rule_violations"]) do
+      {:ok, Map.put(evidence, :final_answer, final_answer)}
+    else
+      _invalid -> {:error, :invalid_quality_review}
+    end
+  end
+
+  def validate_review(_review), do: {:error, :invalid_quality_review}
+
+  @doc "Revalidate one locally normalized result received across the private Jido boundary."
+  @spec validate_normalized_review(map()) :: {:ok, map()} | {:error, :invalid_quality_review}
+  def validate_normalized_review(review) when is_map(review) do
+    with raw_final_answer when is_binary(raw_final_answer) <- Map.get(review, :final_answer),
+         final_answer <- ObservationSummary.normalize(raw_final_answer),
+         true <- final_answer == raw_final_answer,
+         true <- String.trim(final_answer) != "",
+         verdict when verdict in ~w[accepted unresolved] <- Map.get(review, :verdict),
+         rule_results when is_list(rule_results) <- Map.get(review, :rule_results),
          true <- valid_rule_results?(rule_results),
-         failed_rule_ids <- failed_rule_ids(rule_results),
+         failed_rule_ids when is_list(failed_rule_ids) <- Map.get(review, :failed_rule_ids),
+         true <- failed_rule_ids == failed_rule_ids(rule_results),
          true <- consistent_review_verdict?(verdict, failed_rule_ids) do
       {:ok,
        %{
@@ -142,12 +249,13 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityPolicy do
     end
   end
 
-  def validate_review(_review), do: {:error, :invalid_quality_review}
+  def validate_normalized_review(_review), do: {:error, :invalid_quality_review}
 
   defp valid_contract?(contract) do
     exact_keys?(contract, @task_keys) and contract["version"] == @version and
       contract["source"] in @sources and nonempty?(contract["original_request"]) and
       nonempty?(contract["child_objective"]) and nonempty?(contract["expected_result"]) and
+      contract["completion_obligation"] == @completion_obligation and
       valid_steering?(contract["source"], contract["steering"], contract["expected_result"]) and
       contract["rules"] == Enum.map(rule_specs(), &encode_rule/1)
   end
@@ -189,6 +297,8 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityPolicy do
     }
   end
 
+  defp legacy_rule_specs, do: DirectAnswerPolicy.rule_specs() ++ @legacy_extension_rules
+
   defp valid_rule_results?(rule_results) do
     Enum.all?(rule_results, fn result ->
       is_map(result) and exact_keys?(result, ~w[rule_id verdict]) and
@@ -223,5 +333,9 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityPolicy do
     :sha256
     |> :crypto.hash(value)
     |> Base.encode16(case: :lower)
+  end
+
+  defp rule_catalog_digest(rules) do
+    sha256(@rule_catalog_digest_domain <> CanonicalJSON.encode(rules))
   end
 end

@@ -322,6 +322,42 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     refute Map.has_key?(payload, "summary")
   end
 
+  test "a valid catalog-v1 reviewed receipt resumes through the current lifecycle" do
+    answer = "A replayed catalog-v1 reviewed answer."
+    {child, step, current_receipt, _task_digest} = reviewed_completion_fixture(answer)
+
+    assert {:ok, contract} = child |> Grounding.resolve() |> QualityPolicy.build()
+
+    assert {:ok, %{"1" => legacy_digest} = task_digests} =
+             QualityPolicy.receipt_task_digests(contract)
+
+    legacy_receipt =
+      current_receipt
+      |> Map.put("rule_catalog_version", 1)
+      |> Map.put("task_contract_sha256", legacy_digest)
+
+    assert {:ok, completed} =
+             Lifecycle.run(child.id,
+               adapter: QualityCompletionAdapter,
+               quality_step: step,
+               quality_answer: answer,
+               quality_receipt: legacy_receipt
+             )
+
+    assert completed.status == "completed"
+
+    assert event = Enum.find(Objectives.list_events(child.id), &(&1.kind == "run_completed"))
+
+    assert {:ok, ^legacy_receipt, _receipt_digest} =
+             QualityReceipt.from_event_payload(event.payload, %{
+               objective_id: child.id,
+               step_id: step.id,
+               task_contract_sha256: task_digests["2"],
+               task_contract_sha256_by_rule_catalog_version: task_digests,
+               final_answer: answer
+             })
+  end
+
   test "reviewed completion resumes idempotently when its step already completed" do
     answer = "A reviewed task-neutral child answer."
     {child, step, receipt, _task_digest} = reviewed_completion_fixture(answer)
@@ -1245,7 +1281,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
                objective_id: child.id,
                step_id: step.id,
                task_contract_sha256: task_digest,
-               rule_catalog_version: 1,
+               rule_catalog_version: QualityPolicy.version(),
                reviewer_config_sha256: String.duplicate("b", 64),
                provider_call_count: 2,
                verdict: "accepted",

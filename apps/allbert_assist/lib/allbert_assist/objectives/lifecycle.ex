@@ -506,8 +506,8 @@ defmodule AllbertAssist.Objectives.Lifecycle do
       |> bounded_summary()
 
     case quality_task_binding(state) do
-      {:ok, task_digest} ->
-        verify_required_quality_receipt(state, summary, task_digest)
+      {:ok, task_digests} ->
+        verify_required_quality_receipt(state, summary, task_digests)
 
       :not_required ->
         if is_nil(Map.get(state, :quality_receipt)) do
@@ -537,8 +537,8 @@ defmodule AllbertAssist.Objectives.Lifecycle do
   defp quality_task_binding_from_grounding(%{source: source} = grounding)
        when source in [:conversation_manager, :counted_protocol, :operator_steered] do
     with {:ok, contract} <- QualityPolicy.build(grounding),
-         {:ok, digest} <- QualityPolicy.digest(contract) do
-      {:ok, digest}
+         {:ok, digests} <- QualityPolicy.receipt_task_digests(contract) do
+      {:ok, digests}
     else
       {:error, reason} -> {:error, {:invalid_fanout_worker_quality_task, reason}}
     end
@@ -549,13 +549,14 @@ defmodule AllbertAssist.Objectives.Lifecycle do
 
   defp quality_task_binding_from_grounding(_legacy_or_ordinary), do: :not_required
 
-  defp verify_required_quality_receipt(state, summary, task_digest) do
+  defp verify_required_quality_receipt(state, summary, task_digests) do
     case Map.fetch(state, :quality_receipt) do
       {:ok, receipt} when is_map(receipt) ->
         binding = %{
           objective_id: state.objective.id,
           step_id: state.step.id,
-          task_contract_sha256: task_digest,
+          task_contract_sha256: task_digests["2"],
+          task_contract_sha256_by_rule_catalog_version: task_digests,
           final_answer: summary
         }
 
