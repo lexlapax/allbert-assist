@@ -998,9 +998,9 @@ failure propagation, and default/explicit fixture routing without a real
 provider. Neither row records prompts, drafts, answers, observations, source
 handles, model objects, or rendered report text.
 
-Owner tests prove the 3/6 Worker and composer protocols mechanically; a fresh
-configured-provider matrix and attended `FOV-*` remain semantic/operator
-acceptance. Dirty source rehearsals diagnose the harnesses; only clean
+Owner tests prove the 3/6 Worker and composer protocols mechanically; the frozen
+configured-provider and attended `FOV-*` bars remain release acceptance. Dirty
+source rehearsals diagnose the harnesses; only clean
 exact-artifact rows close packaged release evidence where the active plan
 requires it. At executable checkpoint `c3baec24`, focused/static checks and the
 independent audit are green. The exact clean legacy all-equal
@@ -1009,12 +1009,20 @@ composer not evaluated, and Worker `0/5`; the manager outcome and counted
 attempts are recorded, and Worker phase/rule/call evidence is closed, but that
 pre-seam row did not independently attest four role bindings. Exact clean pushed
 `933d604a` adds that attestation mechanism and the sole frozen `--mixed-mistral`
-switch; its owner-test evidence is not a real-provider PASS.
-Run the mixed comparison once. RED freezes evidence and returns to the operator;
-PASS is recorded and returned for operator authorization of a holistic role-
-floor change before defaults, focused requalification, or FOV can move. No
-aggregate, package, or operator-validation run has been claimed for these
-checkpoints.
+switch. Its one clean real-provider run at full SHA
+`3bb42119e81b473b3b173b7cf2ad6b2aee0559e1` on `darwin-aarch64-20` is valid
+bounded performance RED: manager `2/2`; composer `2/7` in `134,939 ms`, with
+five `synthesis_layout/incomplete_fanout_report_composition_selection` rows;
+and Worker `0/5` in `300,005 ms`, with all five rows
+`deadline/row_timeout` and no admissible terminal result inside the frozen
+60-second row budget. The Worker's aggregate protocol/critic/revision counters
+are `0`, but per-row counts are null and accounting closure flags are false
+after brutal outer timeout, so the row does not prove that no physical provider
+call occurred. Both metrics rows attest the same four role bindings and local
+endpoint recorded in the active plan/request flow. The sole comparison is
+exhausted: freeze evidence, leave defaults/catalog unchanged, do not rerun/tune
+or enter FOV, and return to the operator. No aggregate, package, or operator-
+validation run has been claimed for these checkpoints.
 
 ### v1.0.2 M8 Final Measurement — 2026-07-17
 

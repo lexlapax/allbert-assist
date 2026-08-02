@@ -84,28 +84,26 @@ recommendation for larger hardware:
 
 Those rows exercised the superseded combined review topology. They do not
 qualify the current phase-separated implementation, change any model default,
-or raise the global 8 GB starter or task-role floor. Current fan-out acceptance
-still requires a passing configured-provider matrix and attended operator
-validation.
+or raise the global 8 GB starter or task-role floor. The configured-provider bar
+remains unmet, and attended operator validation remains held.
 
-The first phase-separated row is also RED evidence, not a recommendation:
+The phase-separated rows are also RED evidence, not recommendations:
 
 | Frozen phase-separated topology | Manager | Composer | Worker | Disposition |
 |---|---:|---:|---:|---|
 | legacy all-equal `--profile direct_answer_local` / `qwen2.5:7b` | 1/2 | not evaluated—manager blocked | 0/5 | Manager/Worker semantic RED; the pre-seam row did not independently attest four role bindings; no promotion or default change. |
+| Worker `direct_answer_local`; manager/review/synthesis `mistral_small31_24b_challenger` | 2/2 | 2/7 | 0/5 | Valid bounded performance RED: five composer layout failures and five 60-second Worker deadlines; no promotion or default change. |
 
-That result activates one disposable comparison which retains
-`direct_answer_local` for Worker generation/revision and uses exact installed
-Mistral Small 3.1 only for manager, critic, and synthesis roles. Exact clean
-pushed `933d604a` exposes that comparison only as
-`mix allbert.test bench-v13-fanout --mixed-mistral`, seeds its fixed Mistral
-profile in the disposable gate Home, and records four role bindings. It is a
-release qualification experiment, not an operator profile or model
-recommendation. Run it once. RED freezes the evidence and returns to the
-operator. PASS is recorded but changes no default: the operator must separately
-authorize a holistic catalog, Settings, Doctor, onboarding, operator-guide, and
-ADR role-floor change, which must then pass focused configured-provider
-requalification before FOV is activated.
+The disposable comparison ran once at exact clean `3bb42119` through
+`mix allbert.test bench-v13-fanout --mixed-mistral`. Manager passed `2/2`;
+composer passed `2/7`, with five typed incomplete-layout failures; Worker passed
+`0/5`, with no admissible terminal result inside any frozen 60-second row
+budget. Worker call counts are unclosed after the outer timeouts, so aggregate
+zeroes do not prove that no physical provider call occurred. This is bounded
+performance RED, not semantic RED. The comparison is exhausted: its fixed
+Mistral profile remains a disposable gate fixture, not an operator profile or
+recommendation. Catalog/defaults remain unchanged, FOV remains held, and the
+system returns to the operator without a proposed remediation.
 
 The official Ollama catalog lists `qwen2.5:7b` as a 4.7 GB model, and the
 [official Qwen 2.5 7B Instruct model card](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct)
