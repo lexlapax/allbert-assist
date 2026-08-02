@@ -8,7 +8,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
   alias AllbertAssist.Settings
 
   @fixture Path.expand("../../fixtures/v1.3/fanout_real_model_eval.json", __DIR__)
-  @fixture_sha256 "59c2b74ec85f004cea27ad0c5088eeb5f1ea98f3cf45dd3949524f41f6f93f99"
+  @fixture_sha256 "22f00e5a126245763ef650fb5d17c553f57611f4a70d2e9d3655461a2fabb9d6"
   @full_sha String.duplicate("a", 40)
   @profile %{
     name: "direct_answer_local",
@@ -180,6 +180,41 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
          advisory_synthesis:
            "The observations follow one another while durable status and receipt truth remain authoritative in Allbert."
        }}
+    end
+  end
+
+  defmodule RelabelledFirstSection do
+    alias AllbertAssist.DevGates.V13FanoutEvalTest.QualifiedSynthesisClient
+
+    def compose(snapshot, profile, context) do
+      {:ok, selection} = QualifiedSynthesisClient.compose(snapshot, profile, context)
+
+      relabelled =
+        case selection.sections do
+          [first | rest] -> [%{first | relationship: "complementary"} | rest]
+          sections -> sections
+        end
+
+      {:ok, %{selection | sections: relabelled}}
+    end
+  end
+
+  defmodule RepartitionedSections do
+    alias AllbertAssist.DevGates.V13FanoutEvalTest.QualifiedSynthesisClient
+
+    def compose(snapshot, profile, context) do
+      {:ok, selection} = QualifiedSynthesisClient.compose(snapshot, profile, context)
+
+      collapsed =
+        case selection.sections do
+          [_first, _second] ->
+            [%{relationship: "complementary", ordered_queue_positions: [0, 1, 2]}]
+
+          sections ->
+            sections
+        end
+
+      {:ok, %{selection | sections: collapsed}}
     end
   end
 
@@ -711,6 +746,60 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
            |> Enum.uniq() == [nil]
   end
 
+  describe "relationship binding" do
+    test "a request-named relationship must be honored exactly" do
+      fixture = V13FanoutEval.load_fixture!(@fixture)
+
+      # Every row except independent-travel's first section is request-named,
+      # so substituting one label fails those rows.
+      result = run_with_control(fixture, store: :disabled)
+
+      assert result.status == "passed", inspect(result, limit: :infinity)
+
+      mismatched =
+        V13FanoutEval.run(fixture,
+          profile: @profile,
+          manager_profile: @profile,
+          composer_profile: @profile,
+          manager: qualified_manager(fixture, self()),
+          composer_client: MismatchedLayoutSynthesisClient,
+          composer_authorizer: fn _profile, _context -> :ok end,
+          composer_context: %{timeout_ms: 10_000, max_output_tokens: 1_024, test_pid: self()},
+          store: :disabled,
+          full_sha: @full_sha,
+          dirty: true
+        )
+
+      named = for %{failure_stage: "fixture_expectation"} = row <- mismatched.rows, do: row.id
+      assert "composer-complementary-architecture" in named
+      assert "composer-supporting-archaeology" in named
+    end
+
+    test "an unnamed relationship accepts any label the partition allows" do
+      fixture = V13FanoutEval.load_fixture!(@fixture)
+
+      # independent-travel's first section is not named by its request
+      # ("Combine the related transport findings"), so a different but
+      # cardinality-valid label must still pass while its positions stay exact.
+      result =
+        run_with_control(fixture, store: :disabled, composer_client: RelabelledFirstSection)
+
+      row = Enum.find(result.rows, &(&1.id == "composer-independent-travel"))
+      assert row.passed?, inspect(row)
+      assert row.relationship == "complementary"
+    end
+
+    test "an unnamed relationship still requires the exact partition" do
+      fixture = V13FanoutEval.load_fixture!(@fixture)
+
+      result = run_with_control(fixture, store: :disabled, composer_client: RepartitionedSections)
+
+      row = Enum.find(result.rows, &(&1.id == "composer-independent-travel"))
+      refute row.passed?
+      assert row.failure_stage in ["fixture_expectation", "synthesis_layout"]
+    end
+  end
+
   test "manager/composer fixture digest binds the decoded frozen corpus" do
     fixture = @fixture |> File.read!() |> Jason.decode!()
 
@@ -813,6 +902,8 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
   end
 
   defp run_with_control(fixture, opts) do
+    {client, opts} = Keyword.pop(opts, :composer_client, QualifiedSynthesisClient)
+
     V13FanoutEval.run(
       fixture,
       [
@@ -821,7 +912,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
         composer_profile: @profile,
         control_profile: @profile,
         manager: qualified_manager(fixture, self()),
-        composer_client: QualifiedSynthesisClient,
+        composer_client: client,
         composer_authorizer: fn _profile, _context -> :ok end,
         composer_context: %{
           timeout_ms: 10_000,

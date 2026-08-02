@@ -14,7 +14,7 @@ defmodule AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy do
       id: "complete_child_coverage",
       prompt_id: :complete_child_coverage,
       instruction:
-        "Use every completed child's accepted observation in the joined reasoning. Across all sections, list every completed queue position exactly once in ordered_queue_positions, in ascending order, and never list a position that is not supplied as completed or that another section already lists. Every section must carry at least one queue position; never return a section whose ordered_queue_positions is empty."
+        "Use every completed child's accepted observation in the joined reasoning. The sections partition the completed children: group them so that every completed child appears in exactly one section, and put children that stand in the same relationship together in that same section rather than giving each child a section of its own. List positions in ascending order within a section, and never repeat a child in a second section after already placing it. Do not list a position that is not supplied as completed, and never return a section with no positions."
     },
     %{
       id: "parent_join_request_coverage",

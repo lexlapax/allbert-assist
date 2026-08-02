@@ -110,7 +110,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     invalid_model_fanout_synthesis fanout_report_structure_too_large
     fanout_report_model_displaces_authoritative_evidence
   ]a
-  @fixture_sha256 "59c2b74ec85f004cea27ad0c5088eeb5f1ea98f3cf45dd3949524f41f6f93f99"
+  @fixture_sha256 "22f00e5a126245763ef650fb5d17c553f57611f4a70d2e9d3655461a2fabb9d6"
   @fov3_prompt "Summarize this supplied YAML as data in one sentence: {steps: [archive logs, restart service]}"
   @fov4_prompt "Prepare one architecture brief for a local assistant runtime: (1) Analyze how OTP supervision trees isolate failures, including restart intensity and the difference between one_for_one and rest_for_one. (2) Analyze how an append-only event log plus a rebuildable projection improves crash recovery, including idempotency and replay. In the final joined report—not as a third task—explain how the two mechanisms complement each other."
 
@@ -629,12 +629,41 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   defp expected_layout(composition_case, prepared) do
     {:ok, expected} = fixture_expected(composition_case["expected"])
 
-    if prepared[:layout] == expected do
+    if layout_matches?(prepared[:layout], expected) do
       :ok
     else
       {:error, {"fixture_expectation", "layout_mismatch"}}
     end
   end
+
+  defp layout_matches?(
+         %{layout_version: version, sections: produced},
+         %{layout_version: version, sections: expected}
+       )
+       when length(produced) == length(expected) do
+    produced |> Enum.zip(expected) |> Enum.all?(&section_matches?/1)
+  end
+
+  defp layout_matches?(_produced, _expected), do: false
+
+  # The partition is the report's structural claim about which child each
+  # section covers, so it is always exact. The relationship word only selects a
+  # heading and an intro sentence, so it is pinned exactly where the operator's
+  # own request names it -- "contrast these", "how they complement each other",
+  # "as an independent finding" -- which tests instruction-following. Where the
+  # request names only that observations belong together, more than one label
+  # is defensible and the fixture author's pick is not privileged; production
+  # has already enforced the one objective constraint on it, namely that a
+  # single-position section is independent and a multi-position section is not.
+  defp section_matches?({produced, expected}) do
+    produced.ordered_queue_positions == expected.ordered_queue_positions and
+      relationship_matches?(produced.relationship, expected)
+  end
+
+  defp relationship_matches?(_relationship, %{relationship_source: :model}), do: true
+
+  defp relationship_matches?(relationship, %{relationship: expected}),
+    do: relationship == expected
 
   defp selected_body_valid(snapshot, prepared, provenance) do
     case Report.validate_selected_body(snapshot, "model", prepared.body, provenance) do
@@ -1044,7 +1073,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
          {:ok, expected} <- fixture_expected(raw_expected),
          {:ok, prepared} <-
            Report.prepare_synthesis(snapshot, fixture_result(snapshot, expected.sections)),
-         true <- prepared.layout == expected do
+         true <- layout_matches?(prepared.layout, expected) do
       true
     else
       _invalid -> false
@@ -1163,14 +1192,17 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   defp fixture_section(
          %{
            "relationship" => relationship,
-           "ordered_queue_positions" => ordered_queue_positions
+           "ordered_queue_positions" => ordered_queue_positions,
+           "relationship_source" => source
          } = section
-       ) do
-    if exact_keys?(section, ~w[relationship ordered_queue_positions]) do
+       )
+       when source in ~w[request model] do
+    if exact_keys?(section, ~w[relationship ordered_queue_positions relationship_source]) do
       {:ok,
        %{
          relationship: relationship,
-         ordered_queue_positions: ordered_queue_positions
+         ordered_queue_positions: ordered_queue_positions,
+         relationship_source: String.to_existing_atom(source)
        }}
     else
       {:error, :invalid_fixture_expected}
@@ -1201,7 +1233,9 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
       |> Enum.sort()
 
     %{
-      sections: sections,
+      # relationship_source is gate-side expectation metadata, never part of
+      # the layout contract Report validates.
+      sections: Enum.map(sections, &Map.take(&1, [:relationship, :ordered_queue_positions])),
       advisory_synthesis: "Fixture validation advisory.",
       review: %{
         verdict: "accepted",

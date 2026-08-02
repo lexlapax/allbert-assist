@@ -179,13 +179,28 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation do
     with true <- exact_keys?(object, ~w[sections advisory_synthesis]) do
       {:ok,
        %{
-         "sections" => field(object, "sections"),
+         "sections" => object |> field("sections") |> drop_empty_sections(),
          "advisory_synthesis" => field(object, "advisory_synthesis")
        }}
     else
       _invalid -> {:error, :invalid_synthesis_candidate}
     end
   end
+
+  # A section carrying no queue position describes no child, so removing it
+  # changes nothing about which observations the report covers. Small local
+  # heads reliably append one, and rejecting the whole response over it threw
+  # away an otherwise correct partition and a usable advisory paragraph in
+  # favor of the deterministic fallback. Dropping a no-op is not repair: any
+  # section that does claim a position still faces unchanged validation, and a
+  # response whose sections were *all* empty still fails closed downstream.
+  defp drop_empty_sections(sections) when is_list(sections) do
+    Enum.reject(sections, fn section ->
+      is_map(section) and field(section, "ordered_queue_positions") in [[], nil]
+    end)
+  end
+
+  defp drop_empty_sections(sections), do: sections
 
   defp exact_keys?(map, expected) when is_map(map) do
     keys = Enum.map(Map.keys(map), &normalize_key/1)

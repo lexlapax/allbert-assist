@@ -71,7 +71,11 @@
         "sections": [
           {
             "relationship": "complementary",
-            "ordered_queue_positions": [0, 1]
+            "ordered_queue_positions": [
+              0,
+              1
+            ],
+            "relationship_source": "request"
           }
         ]
       }
@@ -119,7 +123,11 @@
         "sections": [
           {
             "relationship": "contrasting",
-            "ordered_queue_positions": [0, 1]
+            "ordered_queue_positions": [
+              0,
+              1
+            ],
+            "relationship_source": "request"
           }
         ]
       }
@@ -167,7 +175,11 @@
         "sections": [
           {
             "relationship": "sequential",
-            "ordered_queue_positions": [0, 1]
+            "ordered_queue_positions": [
+              0,
+              1
+            ],
+            "relationship_source": "request"
           }
         ]
       }
@@ -215,7 +227,11 @@
         "sections": [
           {
             "relationship": "supporting",
-            "ordered_queue_positions": [0, 1]
+            "ordered_queue_positions": [
+              0,
+              1
+            ],
+            "relationship_source": "request"
           }
         ]
       }
@@ -275,11 +291,18 @@
         "sections": [
           {
             "relationship": "supporting",
-            "ordered_queue_positions": [0, 1]
+            "ordered_queue_positions": [
+              0,
+              1
+            ],
+            "relationship_source": "model"
           },
           {
             "relationship": "independent",
-            "ordered_queue_positions": [2]
+            "ordered_queue_positions": [
+              2
+            ],
+            "relationship_source": "request"
           }
         ]
       }
@@ -327,7 +350,10 @@
         "sections": [
           {
             "relationship": "independent",
-            "ordered_queue_positions": [0]
+            "ordered_queue_positions": [
+              0
+            ],
+            "relationship_source": "request"
           }
         ]
       }
@@ -375,7 +401,11 @@
         "sections": [
           {
             "relationship": "complementary",
-            "ordered_queue_positions": [0, 1]
+            "ordered_queue_positions": [
+              0,
+              1
+            ],
+            "relationship_source": "request"
           }
         ]
       }

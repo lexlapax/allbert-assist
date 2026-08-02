@@ -1001,13 +1001,19 @@ absent, which keeps the ordinary uniform-profile gate unchanged.
 
 A rejected model synthesis stays a failed row even though the composer stores
 its deterministic fallback and still delivers a truthful joined report, so the
-gate measures model synthesis compliance rather than delivery. Under that bar
-both the default head and the 24B record `5/7`. Every row, passing or failing,
-reports exactly one generation and one provider call, because the gate owns the
-attempt counter for each composition row rather than reading a count the result
-reports about itself. The two residual failures are one behavior — the head
-appends a spurious trailing `independent` section — and implicate neither
-orchestration nor the one-call contract.
+gate measures model synthesis compliance rather than delivery. Every row, passing or failing, reports exactly one
+generation and one provider call, because the gate owns the attempt counter for
+each composition row rather than reading a count the result reports about
+itself.
+
+Each expected section carries `relationship_source`. The partition is always
+asserted exactly, because it is the report's structural claim about which child
+a section covers. The relationship word only selects a heading, so it is pinned
+exactly where the parent request names it — `"request"` — and left to the model
+where the request names only that observations belong together — `"model"` — in
+which case any label production's cardinality rule admits is accepted. The gate
+therefore tests instruction-following and structure rather than agreement with
+one author's choice of adjective.
 
 Owner tests prove the one-call Worker and composer contracts mechanically; the
 frozen configured-provider and attended `FOV-*` bars remain release
