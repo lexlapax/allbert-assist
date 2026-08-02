@@ -636,17 +636,19 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
          raw_snapshot,
          ~w[version parent_id title original_request status join_outcome plan children]
        ) and is_list(raw_children) do
-      {:ok,
-       %{
-         version: 2,
-         parent_id: parent_id,
-         title: title,
-         original_request: original_request,
-         status: status,
-         join_outcome: join_outcome,
-         plan: plan,
-         children: fixture_atom_keys(raw_children)
-       }}
+      with {:ok, children} <- fixture_children(raw_children) do
+        {:ok,
+         %{
+           version: 2,
+           parent_id: parent_id,
+           title: title,
+           original_request: original_request,
+           status: status,
+           join_outcome: join_outcome,
+           plan: plan,
+           children: children
+         }}
+      end
     else
       {:error, :invalid_fixture_snapshot}
     end
@@ -657,8 +659,10 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   defp fixture_snapshot(_raw_snapshot), do: {:error, :invalid_fixture_snapshot}
 
   defp fixture_expected(%{"layout_version" => 2, "sections" => raw_sections} = expected) do
-    if exact_keys?(expected, ~w[layout_version sections]) and is_list(raw_sections) do
-      {:ok, %{layout_version: 2, sections: fixture_atom_keys(raw_sections)}}
+    if exact_keys?(expected, ~w[layout_version sections]) do
+      with {:ok, sections} <- fixture_sections(raw_sections) do
+        {:ok, %{layout_version: 2, sections: sections}}
+      end
     else
       {:error, :invalid_fixture_expected}
     end
@@ -668,15 +672,91 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
 
   defp fixture_expected(_expected), do: {:error, :invalid_fixture_expected}
 
-  defp fixture_atom_keys(values) when is_list(values), do: Enum.map(values, &fixture_atom_keys/1)
-
-  defp fixture_atom_keys(value) when is_map(value) do
-    Map.new(value, fn {key, nested} ->
-      {String.to_existing_atom(key), fixture_atom_keys(nested)}
-    end)
+  defp fixture_children(children) when is_list(children) do
+    traverse_fixture(children, &fixture_child/1, :invalid_fixture_snapshot)
   end
 
-  defp fixture_atom_keys(value), do: value
+  defp fixture_children(_children), do: {:error, :invalid_fixture_snapshot}
+
+  defp fixture_child(
+         %{
+           "id" => id,
+           "queue_position" => queue_position,
+           "title" => title,
+           "objective" => objective,
+           "expected_result" => expected_result,
+           "status" => status,
+           "detail" => detail,
+           "effect_receipt_ref" => effect_receipt_ref,
+           "result_authority" => result_authority,
+           "quality_receipt_sha256" => quality_receipt_sha256
+         } = child
+       ) do
+    if exact_keys?(
+         child,
+         ~w[
+           id queue_position title objective expected_result status detail effect_receipt_ref
+           result_authority quality_receipt_sha256
+         ]
+       ) do
+      {:ok,
+       %{
+         id: id,
+         queue_position: queue_position,
+         title: title,
+         objective: objective,
+         expected_result: expected_result,
+         status: status,
+         detail: detail,
+         effect_receipt_ref: effect_receipt_ref,
+         result_authority: result_authority,
+         quality_receipt_sha256: quality_receipt_sha256
+       }}
+    else
+      {:error, :invalid_fixture_snapshot}
+    end
+  end
+
+  defp fixture_child(_child), do: {:error, :invalid_fixture_snapshot}
+
+  defp fixture_sections(sections) when is_list(sections) do
+    traverse_fixture(sections, &fixture_section/1, :invalid_fixture_expected)
+  end
+
+  defp fixture_sections(_sections), do: {:error, :invalid_fixture_expected}
+
+  defp fixture_section(
+         %{
+           "relationship" => relationship,
+           "ordered_queue_positions" => ordered_queue_positions
+         } = section
+       ) do
+    if exact_keys?(section, ~w[relationship ordered_queue_positions]) do
+      {:ok,
+       %{
+         relationship: relationship,
+         ordered_queue_positions: ordered_queue_positions
+       }}
+    else
+      {:error, :invalid_fixture_expected}
+    end
+  end
+
+  defp fixture_section(_section), do: {:error, :invalid_fixture_expected}
+
+  defp traverse_fixture(values, decoder, error_reason) do
+    values
+    |> Enum.reduce_while({:ok, []}, fn value, {:ok, decoded} ->
+      case decoder.(value) do
+        {:ok, item} -> {:cont, {:ok, [item | decoded]}}
+        {:error, _reason} -> {:halt, {:error, error_reason}}
+      end
+    end)
+    |> case do
+      {:ok, decoded} -> {:ok, Enum.reverse(decoded)}
+      {:error, _reason} = error -> error
+    end
+  end
 
   defp fixture_result(snapshot, sections) do
     completed_positions =
