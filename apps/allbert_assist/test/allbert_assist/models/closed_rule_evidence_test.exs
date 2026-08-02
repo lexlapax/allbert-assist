@@ -5,6 +5,14 @@ defmodule AllbertAssist.Models.ClosedRuleEvidenceTest do
 
   alias AllbertAssist.Models.ClosedRuleEvidence
 
+  test "defines one shared violation and non-applicability meaning for providers" do
+    semantics = ClosedRuleEvidence.violation_semantics()
+
+    assert semantics =~ "true only when the final output violates"
+    assert semantics =~ "false when it satisfies"
+    assert semantics =~ "triggering condition does not apply"
+  end
+
   test "builds one closed required Boolean property per immutable rule" do
     assert ClosedRuleEvidence.schema!(~w[first_rule second_rule]) == %{
              "type" => "object",

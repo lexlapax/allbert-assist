@@ -351,6 +351,10 @@ model:
    rejects unknown future versions. The canonical contract binds the catalog,
    but provider user data carries task fields, the completion obligation, and
    catalog version/digest; catalog-derived system rules appear once.
+   Catalog-v1 reconstruction uses pinned DirectAnswer-policy version 1 rather
+   than the mutable current catalog. Lifecycle's pre-commit validator accepts
+   only current catalog-v2 receipts for new events; recovery/report readers
+   retain the replay-permissive v1/v2 validator.
 
    Local code validates the closed result and normalizes the accepted answer at
    the existing 2,000-character Objective-summary boundary. The worker records

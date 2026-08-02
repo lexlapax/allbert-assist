@@ -46,7 +46,7 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
         "final_answer_sha256" => sha256(binding["final_answer"])
       }
 
-      case validate(receipt, binding) do
+      case validate_current(receipt, binding) do
         :ok -> {:ok, receipt}
         {:error, _reason} -> {:error, :invalid_quality_receipt_binding}
       end
@@ -76,6 +76,20 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
   end
 
   def validate(_receipt, _binding), do: {:error, :invalid_quality_receipt}
+
+  @doc "Validate a receipt for a new current-catalog completion event write."
+  @spec validate_current(map(), map()) :: :ok | {:error, :invalid_quality_receipt}
+  def validate_current(receipt, binding) when is_map(receipt) and is_map(binding) do
+    with :ok <- validate(receipt, binding),
+         {:ok, receipt} <- normalize_map(receipt),
+         true <- receipt["rule_catalog_version"] == @write_rule_catalog_version do
+      :ok
+    else
+      _invalid -> {:error, :invalid_quality_receipt}
+    end
+  end
+
+  def validate_current(_receipt, _binding), do: {:error, :invalid_quality_receipt}
 
   @doc "Validate and digest one exact receipt."
   @spec digest(map()) :: {:ok, String.t()} | {:error, :invalid_quality_receipt}

@@ -1,8 +1,30 @@
 defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
   use AllbertAssist.DataCase, async: false, lane: :db_serial
 
+  @legacy_task_v1_sha256 "f0bbb60c11e684c33a96018e91e848244abdb02bd8489383852206577b46f1c6"
+  @legacy_receipt_v1_sha256 "3d9bde95e3334ba01d9da7d42f9350d28a69c284af4f4301cc7cfcfdd770acf8"
+  @legacy_event_v1_json ~S"""
+  {
+    "quality_receipt": {
+      "failed_rule_ids": [],
+      "final_answer_sha256": "d4c737f7c54c8c52accb5ce9efa5aac4fdda8f24a04f801cd14c2fa8fc7566e0",
+      "objective_id_sha256": "5cc7d5b0d5578ffe5f5793b667f123709a0916bd58dbf5f9514cbc1ffbb6df5f",
+      "provider_call_count": 2,
+      "reviewer_config_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "rule_catalog_version": 1,
+      "step_id_sha256": "2ff994001718bfd4fe63aa1d61db00846a05c04f97133a2d6b50670a4b4f09ae",
+      "task_contract_sha256": "f0bbb60c11e684c33a96018e91e848244abdb02bd8489383852206577b46f1c6",
+      "verdict": "accepted",
+      "version": 1
+    },
+    "step_id": "legacy-step",
+    "step_status": "completed"
+  }
+  """
+
   alias AllbertAssist.Actions.Intent.DirectAnswer.Policy, as: DirectAnswerPolicy
   alias AllbertAssist.Intent.FanoutPlan
+  alias AllbertAssist.Models.ClosedRuleEvidence
   alias AllbertAssist.Objectives.CanonicalJSON
   alias AllbertAssist.Objectives.Event
   alias AllbertAssist.Objectives.Fanout
@@ -197,6 +219,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
     assert receipt["step_id_sha256"] == sha256(binding.step_id)
     assert receipt["final_answer_sha256"] == sha256(binding.final_answer)
     assert :ok = QualityReceipt.validate(receipt, binding)
+    assert :ok = QualityReceipt.validate_current(receipt, binding)
 
     assert {:ok, receipt_digest} = QualityReceipt.digest(receipt)
 
@@ -219,6 +242,8 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
     assert {:ok, %{"1" => legacy_digest, "2" => current_digest} = task_digests} =
              QualityPolicy.receipt_task_digests(contract)
 
+    assert legacy_digest == @legacy_task_v1_sha256
+
     binding = %{
       objective_id: "legacy-objective",
       step_id: "legacy-step",
@@ -227,30 +252,17 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
       final_answer: "A legacy reviewed answer."
     }
 
-    legacy_receipt = %{
-      "version" => 1,
-      "objective_id_sha256" => sha256(binding.objective_id),
-      "step_id_sha256" => sha256(binding.step_id),
-      "task_contract_sha256" => legacy_digest,
-      "rule_catalog_version" => 1,
-      "reviewer_config_sha256" => String.duplicate("2", 64),
-      "provider_call_count" => 2,
-      "verdict" => "accepted",
-      "failed_rule_ids" => [],
-      "final_answer_sha256" => sha256(binding.final_answer)
-    }
+    legacy_receipt = Jason.decode!(@legacy_event_v1_json)["quality_receipt"]
 
     assert :ok = QualityReceipt.validate(legacy_receipt, binding)
-    assert {:ok, _digest} = QualityReceipt.digest(legacy_receipt)
 
-    payload = %{
-      "quality_receipt" => legacy_receipt,
-      "step_id" => binding.step_id,
-      "step_status" => "completed"
-    }
+    assert {:error, :invalid_quality_receipt} =
+             QualityReceipt.validate_current(legacy_receipt, binding)
+
+    assert {:ok, @legacy_receipt_v1_sha256} = QualityReceipt.digest(legacy_receipt)
 
     assert {:ok, ^legacy_receipt, _digest} =
-             QualityReceipt.from_event_payload(payload, binding)
+             QualityReceipt.from_event_payload(@legacy_event_v1_json, binding)
 
     refute match?(
              {:ok, _receipt},
@@ -345,6 +357,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerQualityTest do
     [system_message, user_message] = prompt.messages
     system_text = Enum.map_join(system_message.content, & &1.text)
     user_text = Enum.map_join(user_message.content, & &1.text)
+    assert system_text =~ ClosedRuleEvidence.violation_semantics()
 
     for rule <- QualityPolicy.rule_specs() do
       assert count_occurrences(system_text, rule.instruction) == 1

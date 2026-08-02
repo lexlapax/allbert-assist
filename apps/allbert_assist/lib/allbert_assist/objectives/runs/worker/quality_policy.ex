@@ -297,7 +297,7 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityPolicy do
     }
   end
 
-  defp legacy_rule_specs, do: DirectAnswerPolicy.rule_specs() ++ @legacy_extension_rules
+  defp legacy_rule_specs, do: DirectAnswerPolicy.rule_specs(1) ++ @legacy_extension_rules
 
   defp valid_rule_results?(rule_results) do
     Enum.all?(rule_results, fn result ->

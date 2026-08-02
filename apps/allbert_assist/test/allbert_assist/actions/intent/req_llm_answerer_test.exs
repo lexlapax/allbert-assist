@@ -35,6 +35,12 @@ defmodule AllbertAssist.Actions.Intent.ReqLLMAnswererTest do
     :ok
   end
 
+  test "DirectAnswer exposes its current catalog as pinned version 1" do
+    assert Policy.version() == 1
+    assert Policy.rule_specs(1) == Policy.rule_specs()
+    assert_raise ArgumentError, fn -> Policy.rule_specs(2) end
+  end
+
   test "the actual text provider call preserves system, Memory-data, and operator provenance" do
     operator_request =
       "Acknowledge this supplied statement: maintenance starts 2026-08-15, is staging-only, and uses opaque marker cobalt-17."

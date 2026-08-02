@@ -6,7 +6,7 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEvalTest do
   alias AllbertAssist.Objectives.Runs.Worker.QualityPolicy
 
   @fixture Path.expand("../../fixtures/v1.3/fanout_worker_quality_eval.json", __DIR__)
-  @fixture_sha256 "7ed03c9e828492bcb6460ca7a540ffeffaf52a31b4139dbc0cb1f12829140b9b"
+  @fixture_sha256 "35992f6ee830e8f36af4cb80d4c08b1be5617d26bb3687377d1d12c146d8b425"
   @full_sha String.duplicate("a", 40)
   @profile %{
     name: "direct_answer_local",
@@ -33,20 +33,18 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEvalTest do
 
       {final_answer, verdict, failed_rule_ids} = scenario(context.quality_eval_case_id, prepared)
 
-      rule_results =
-        Enum.map(QualityPolicy.rule_ids(), fn rule_id ->
-          verdict = if rule_id in failed_rule_ids, do: "unsatisfied", else: "satisfied"
-          %{"rule_id" => rule_id, "verdict" => verdict}
-        end)
+      violations = Map.new(QualityPolicy.rule_ids(), &{&1, &1 in failed_rule_ids})
 
-      {:ok,
-       %{
-         final_answer: final_answer,
-         verdict: verdict,
-         rule_results: rule_results,
-         failed_rule_ids: failed_rule_ids,
-         reviewer_config_sha256: @config_digest
-       }}
+      {:ok, normalized} =
+        QualityPolicy.validate_review(%{
+          "final_answer" => final_answer,
+          "rule_violations" => violations
+        })
+
+      if normalized.verdict != verdict,
+        do: raise("fixture verdict does not match locally derived rule evidence")
+
+      {:ok, Map.put(normalized, :reviewer_config_sha256, @config_digest)}
     end
 
     defp scenario("restart-inaccuracy-repaired", prepared),
@@ -56,7 +54,7 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEvalTest do
       do: {prepared.draft <> " Reviewed correction.", "accepted", []}
 
     defp scenario("omitted-required-nuance-unresolved", prepared),
-      do: {prepared.draft, "unresolved", ["requested_dimensions"]}
+      do: {prepared.draft, "unresolved", ["completion_preconditions"]}
 
     defp scenario(_accepted_case, prepared), do: {prepared.draft, "accepted", []}
   end
@@ -146,7 +144,7 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEvalTest do
     def invoke(prepared, context) do
       failed_rule_ids =
         if context.quality_eval_case_id == "omitted-required-nuance-unresolved",
-          do: ["requested_dimensions", "internal_consistency"],
+          do: ["completion_preconditions", "internal_consistency"],
           else: []
 
       verdict = if failed_rule_ids == [], do: "accepted", else: "unresolved"
@@ -226,7 +224,7 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEvalTest do
     def invoke(_prepared, _context), do: {:error, :timeout}
   end
 
-  test "task-neutral scenario matrix closes semantic verdict, rule evidence, and call counts" do
+  test "task-neutral matrix locally derives raw violations and closes call evidence" do
     fixture = V13FanoutWorkerQualityEval.load_fixture!(@fixture)
     store = temp_store()
     on_exit(fn -> File.rm_rf!(Path.dirname(store)) end)
@@ -257,7 +255,7 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEvalTest do
              required_change_rows_changed: 2,
              optional_change_rows_changed: 0,
              required_changes_closed: true,
-             rule_catalog_version: 1,
+             rule_catalog_version: QualityPolicy.version(),
              rule_count: length(QualityPolicy.rule_ids()),
              rule_evidence_closed: true
            }
@@ -313,6 +311,8 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEvalTest do
     refute evidence =~ "mint container"
     refute evidence =~ "Reviewed correction"
     refute evidence =~ "configured_provider_call_count"
+    refute evidence =~ "rule_violations"
+    refute evidence =~ "completion_preconditions"
   end
 
   test "a semantically wrong closed verdict fails its scenario without inspecting answer prose" do
@@ -391,7 +391,10 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEvalTest do
     assert result.status == "failed"
     assert result.failed_rows == ["omitted-required-nuance-unresolved"]
 
-    assert %{failed_rule_ids: ["requested_dimensions", "internal_consistency"], passed?: false} =
+    assert %{
+             failed_rule_ids: ["completion_preconditions", "internal_consistency"],
+             passed?: false
+           } =
              Enum.find(result.rows, &(&1.id == "omitted-required-nuance-unresolved"))
   end
 

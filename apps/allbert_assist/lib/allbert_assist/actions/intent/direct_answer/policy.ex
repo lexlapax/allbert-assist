@@ -10,8 +10,9 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.Policy do
   """
 
   @instruction "Provide a useful, side-effect-free answer to the operator's current request."
+  @version 1
 
-  @rule_specs [
+  @v1_rule_specs [
     %{
       id: :answer_current_request,
       instruction:
@@ -92,16 +93,28 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.Policy do
   @spec instruction() :: String.t()
   def instruction, do: @instruction
 
+  @doc "Return the current immutable DirectAnswer rule-catalog version."
+  @spec version() :: 1
+  def version, do: @version
+
   @spec rule_specs() :: [rule_spec()]
-  def rule_specs, do: @rule_specs
+  def rule_specs, do: rule_specs(@version)
+
+  @doc "Return one pinned DirectAnswer rule catalog for durable replay."
+  @spec rule_specs(1) :: [rule_spec()]
+  def rule_specs(1), do: @v1_rule_specs
+
+  def rule_specs(version) do
+    raise ArgumentError, "unknown DirectAnswer rule-catalog version: #{inspect(version)}"
+  end
 
   @spec rules() :: [{atom(), String.t()}]
-  def rules, do: Enum.map(@rule_specs, &{&1.id, &1.instruction})
+  def rules, do: Enum.map(rule_specs(), &{&1.id, &1.instruction})
 
   @spec rule_ids() :: [atom()]
-  def rule_ids, do: Enum.map(@rule_specs, & &1.id)
+  def rule_ids, do: Enum.map(rule_specs(), & &1.id)
 
   @doc "Machine-readable criteria for focused tests and human/operator semantic adjudication."
   @spec rubric() :: %{atom() => [criterion()]}
-  def rubric, do: Map.new(@rule_specs, &{&1.id, &1.criteria})
+  def rubric, do: Map.new(rule_specs(), &{&1.id, &1.criteria})
 end

@@ -48,7 +48,7 @@
         "provider_call_count": 2,
         "answer_change": "allowed",
         "required_failed_rule_ids": [
-          "requested_dimensions"
+          "completion_preconditions"
         ]
       }
     },

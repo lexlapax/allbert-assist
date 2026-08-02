@@ -76,7 +76,9 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation do
       PromptEnvelope.build(
         purpose: :fanout_report_synthesis,
         instruction:
-          "Produce one bounded advisory synthesis and its closed self-review from this immutable fan-out snapshot. Allbert retains all status, receipt, authority, ordering, and report rendering truth.",
+          "Produce one bounded advisory synthesis and its closed self-review from this immutable fan-out snapshot. " <>
+            ClosedRuleEvidence.violation_semantics() <>
+            " Allbert retains all status, receipt, authority, ordering, and report rendering truth.",
         rules: SynthesisPolicy.prompt_rules(),
         input: CanonicalJSON.encode(composition_input),
         input_class: :advisory_data

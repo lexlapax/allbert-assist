@@ -31,7 +31,7 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
     "unrelated-domain-accepted"
   ]
   @corpus_id "v13-fanout-worker-quality-real-model-v1"
-  @fixture_sha256 "7ed03c9e828492bcb6460ca7a540ffeffaf52a31b4139dbc0cb1f12829140b9b"
+  @fixture_sha256 "35992f6ee830e8f36af4cb80d4c08b1be5617d26bb3687377d1d12c146d8b425"
   @safe_identifier ~r/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/
   @fixture_keys ~w[schema_version corpus_id scenarios]
   @scenario_keys ~w[id task draft expected]
@@ -204,11 +204,9 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
          true <- sha256?(reviewer_config_sha256),
          true <- reviewed.reviewer_config_sha256 == reviewer_config_sha256,
          {:ok, normalized} <-
-           QualityPolicy.validate_review(%{
-             "final_answer" => reviewed.final_answer,
-             "verdict" => reviewed.verdict,
-             "rule_results" => reviewed.rule_results
-           }),
+           reviewed
+           |> Map.drop([:reviewer_config_sha256])
+           |> QualityPolicy.validate_normalized_review(),
          true <- normalized.failed_rule_ids == reviewed.failed_rule_ids,
          true <- closed_rule_evidence?(normalized.rule_results) do
       {:ok,
@@ -323,7 +321,7 @@ defmodule AllbertAssist.DevGates.V13FanoutWorkerQualityEval do
       required_change_rows_changed: required_change_rows_changed,
       optional_change_rows_changed: count_change_rows(scenario_rows, "allowed", true),
       required_changes_closed: required_change_rows_changed == required_change_rows,
-      rule_catalog_version: 1,
+      rule_catalog_version: QualityPolicy.version(),
       rule_count: length(QualityPolicy.rule_ids()),
       rule_evidence_closed: Enum.all?(rows, & &1.rule_evidence_closed)
     }

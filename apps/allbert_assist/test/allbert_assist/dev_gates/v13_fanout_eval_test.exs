@@ -8,8 +8,8 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
 
   @fixture Path.expand("../../fixtures/v1.3/fanout_real_model_eval.json", __DIR__)
   @worker_fixture Path.expand("../../fixtures/v1.3/fanout_worker_quality_eval.json", __DIR__)
-  @fixture_sha256 "9478e8890a25fb0254b00f7f6ee8185836d28ad2ce62776e56af500f127a672f"
-  @worker_fixture_sha256 "7ed03c9e828492bcb6460ca7a540ffeffaf52a31b4139dbc0cb1f12829140b9b"
+  @fixture_sha256 "59c2b74ec85f004cea27ad0c5088eeb5f1ea98f3cf45dd3949524f41f6f93f99"
+  @worker_fixture_sha256 "35992f6ee830e8f36af4cb80d4c08b1be5617d26bb3687377d1d12c146d8b425"
   @full_sha String.duplicate("a", 40)
   @profile %{
     name: "direct_answer_local",
@@ -34,26 +34,24 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
             {prepared.draft <> " Reviewed correction.", "accepted", []}
 
           "omitted-required-nuance-unresolved" ->
-            {prepared.draft, "unresolved", ["requested_dimensions"]}
+            {prepared.draft, "unresolved", ["completion_preconditions"]}
 
           _accepted ->
             {prepared.draft, "accepted", []}
         end
 
-      rule_results =
-        Enum.map(QualityPolicy.rule_ids(), fn rule_id ->
-          rule_verdict = if rule_id in failed_rule_ids, do: "unsatisfied", else: "satisfied"
-          %{"rule_id" => rule_id, "verdict" => rule_verdict}
-        end)
+      violations = Map.new(QualityPolicy.rule_ids(), &{&1, &1 in failed_rule_ids})
 
-      {:ok,
-       %{
-         final_answer: final_answer,
-         verdict: verdict,
-         rule_results: rule_results,
-         failed_rule_ids: failed_rule_ids,
-         reviewer_config_sha256: @config_digest
-       }}
+      {:ok, normalized} =
+        QualityPolicy.validate_review(%{
+          "final_answer" => final_answer,
+          "rule_violations" => violations
+        })
+
+      if normalized.verdict != verdict,
+        do: raise("fixture verdict does not match locally derived rule evidence")
+
+      {:ok, Map.put(normalized, :reviewer_config_sha256, @config_digest)}
     end
   end
 
@@ -62,12 +60,68 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
     def invoke(_prepared, _context), do: raise("must not invoke after prepare failure")
   end
 
-  test "focused qualification accepts structured manager and composer outcomes" do
+  defmodule QualifiedSynthesisClient do
+    alias AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy
+
+    def compose(snapshot, _profile, context) do
+      send(context.test_pid, {:synthesis_client, snapshot})
+
+      {:ok,
+       %{
+         sections: sections(snapshot.parent_id),
+         advisory_synthesis:
+           "The reviewed observations support the selected relationship while durable status and receipt truth remain authoritative in Allbert.",
+         review: %{
+           verdict: "accepted",
+           rule_results:
+             Enum.map(SynthesisPolicy.rule_ids(), &%{rule_id: &1, verdict: "satisfied"}),
+           covered_queue_positions: completed_positions(snapshot)
+         }
+       }}
+    end
+
+    defp sections("v13-composer-complementary-architecture"),
+      do: [%{relationship: "complementary", ordered_queue_positions: [0, 1]}]
+
+    defp sections("v13-composer-contrasting-energy"),
+      do: [%{relationship: "contrasting", ordered_queue_positions: [0, 1]}]
+
+    defp sections("v13-composer-sequential-incident-response"),
+      do: [%{relationship: "sequential", ordered_queue_positions: [0, 1]}]
+
+    defp sections("v13-composer-supporting-archaeology"),
+      do: [%{relationship: "supporting", ordered_queue_positions: [0, 1]}]
+
+    defp sections("v13-composer-independent-travel") do
+      [
+        %{relationship: "supporting", ordered_queue_positions: [0, 1]},
+        %{relationship: "independent", ordered_queue_positions: [2]}
+      ]
+    end
+
+    defp sections("v13-composer-partial-data-migration"),
+      do: [%{relationship: "independent", ordered_queue_positions: [0]}]
+
+    defp sections("v13-composer-unrelated-domain-culinary"),
+      do: [%{relationship: "complementary", ordered_queue_positions: [0, 1]}]
+
+    defp completed_positions(snapshot) do
+      snapshot.children
+      |> Enum.filter(&(&1.status == "completed"))
+      |> Enum.map(& &1.queue_position)
+      |> Enum.sort()
+    end
+  end
+
+  defmodule SensitiveProviderFailureClient do
+    def compose(_snapshot, _profile, _context),
+      do: {:error, {:provider_failed, "sensitive provider body must never enter metrics"}}
+  end
+
+  test "focused qualification accepts seven reviewed v2 syntheses through the lifecycle" do
     fixture = V13FanoutEval.load_fixture!(@fixture)
     parent = self()
     manager = qualified_manager(fixture, parent)
-    composer = qualified_composer(parent)
-
     store = temp_store()
     on_exit(fn -> File.rm_rf!(Path.dirname(store)) end)
 
@@ -77,8 +131,16 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
         manager_profile: @profile,
         composer_profile: @profile,
         manager: manager,
-        composer: composer,
-        composer_context: %{timeout_ms: 10_000, max_output_tokens: 1_024},
+        composer_client: QualifiedSynthesisClient,
+        composer_authorizer: fn profile, context ->
+          send(parent, {:composer_authorized, profile, context})
+          :ok
+        end,
+        composer_context: %{
+          timeout_ms: 10_000,
+          max_output_tokens: 1_024,
+          test_pid: self()
+        },
         store: store,
         full_sha: @full_sha,
         dirty: false
@@ -87,28 +149,31 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
     assert result.status == "passed"
     assert result.failed_rows == []
 
-    assert result.stats == %{
-             profile: "direct_answer_local",
-             fixture_sha256: @fixture_sha256,
-             manager_rows: 2,
-             manager_rows_passed: 2,
-             supplied_data_kind: "answer",
-             supplied_data_child_count: 0,
-             supplied_data_join_role: "none",
-             supplied_data_policy_outcome: "supplied_data",
-             supplied_data_manager_attempts: 1,
-             supplied_data_reviewed: true,
-             adaptive_kind: "fanout",
-             adaptive_child_count: 2,
-             adaptive_join_role: "parent_presentation_only",
-             adaptive_policy_outcome: "independent_advisory",
-             adaptive_manager_attempts: 1,
-             adaptive_reviewed: true,
-             composition_layout_version: 1,
-             composition_relationship: "complementary",
-             composition_ordered_queue_positions: [0, 1],
-             composition_valid: true
+    assert result.stats.profile == "direct_answer_local"
+    assert result.stats.fixture_sha256 == @fixture_sha256
+    assert result.stats.manager_rows == 2
+    assert result.stats.manager_rows_passed == 2
+    assert result.stats.supplied_data_kind == "answer"
+    assert result.stats.supplied_data_policy_outcome == "supplied_data"
+    assert result.stats.adaptive_kind == "fanout"
+    assert result.stats.adaptive_child_count == 2
+    assert result.stats.adaptive_join_role == "parent_presentation_only"
+    assert result.stats.composition_rows == 7
+    assert result.stats.composition_rows_passed == 7
+    assert result.stats.composition_layout_version == 2
+    assert result.stats.composition_relationship == "complementary"
+    assert result.stats.composition_ordered_queue_positions == [0, 1]
+    assert result.stats.composition_domain_count == 7
+
+    assert result.stats.composition_relationship_counts == %{
+             "complementary" => 2,
+             "contrasting" => 1,
+             "independent" => 2,
+             "sequential" => 1,
+             "supporting" => 2
            }
+
+    assert result.stats.composition_valid == true
 
     assert_received {:manager, supplied_prompt, %{model_profile: @profile}}
     assert supplied_prompt == manager_case(fixture, "fov3-supplied-data")["prompt"]
@@ -116,26 +181,71 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
     assert_received {:manager, architecture_prompt, %{model_profile: @profile}}
     assert architecture_prompt == manager_case(fixture, "fov4-independent-architecture")["prompt"]
 
-    assert_received {:composer, snapshot, @profile,
-                     %{max_output_tokens: 1_024, timeout_ms: 10_000}}
+    composition_rows = result.rows
 
-    assert Enum.map(snapshot.children, & &1.queue_position) == [0, 1]
-    assert Enum.map(snapshot.children, & &1.status) == ["completed", "completed"]
+    assert Enum.map(composition_rows, & &1.id) ==
+             Enum.map(fixture["composition_cases"], & &1["id"])
+
+    assert Enum.all?(composition_rows, &(&1.layout_version == 2))
+    assert Enum.all?(composition_rows, &(&1.failure_stage == "none"))
+    assert Enum.all?(composition_rows, &(&1.failure_reason == "none"))
+
+    assert Enum.all?(composition_rows, fn row ->
+             Enum.all?(
+               [row.body_sha256, row.provenance_sha256, row.selection_sha256],
+               &(is_binary(&1) and byte_size(&1) == 64)
+             )
+           end)
+
+    assert result.stats.composition_body_sha256_by_row ==
+             Map.new(composition_rows, &{&1.id, &1.body_sha256})
+
+    assert result.stats.composition_provenance_sha256_by_row ==
+             Map.new(composition_rows, &{&1.id, &1.provenance_sha256})
+
+    assert result.stats.composition_selection_sha256_by_row ==
+             Map.new(composition_rows, &{&1.id, &1.selection_sha256})
+
+    for composition_case <- fixture["composition_cases"] do
+      assert_received {:composer_authorized, @profile, %{test_pid: test_pid}}
+      assert test_pid == self()
+      assert_received {:synthesis_client, snapshot}
+      assert snapshot.version == 2
+      assert snapshot.parent_id == composition_case["snapshot"]["parent_id"]
+
+      for child <- Enum.filter(snapshot.children, &(&1.status == "completed")) do
+        assert child.result_authority == "reviewed_advisory"
+        assert byte_size(child.quality_receipt_sha256) == 64
+      end
+    end
 
     assert [record] = read_store(store)
     assert record["gate"] == "bench-v13-fanout"
-    assert record["corpus_id"] == "v13-fanout-real-model-v1"
+    assert record["corpus_id"] == "v13-fanout-real-model-v2"
     assert record["status"] == "passed"
     assert record["full_sha"] == @full_sha
     assert record["dirty"] == false
     assert record["stats"]["fixture_sha256"] == @fixture_sha256
     assert record["stats"]["composition_ordered_queue_positions"] == [0, 1]
+    assert record["stats"]["composition_rows_passed"] == 7
+
+    assert record["stats"]["composition_body_sha256_by_row"] ==
+             result.stats.composition_body_sha256_by_row
+
+    assert record["stats"]["composition_provenance_sha256_by_row"] ==
+             result.stats.composition_provenance_sha256_by_row
+
+    assert record["stats"]["composition_selection_sha256_by_row"] ==
+             result.stats.composition_selection_sha256_by_row
 
     evidence = File.read!(store)
     refute evidence =~ "archive logs"
     refute evidence =~ "restart intensity"
     refute evidence =~ "fixture-sensitive"
     refute evidence =~ "idempotent replay"
+    refute evidence =~ "Energy storage trade-off"
+    refute evidence =~ "Bread fermentation brief"
+    refute evidence =~ "durable status and receipt truth"
   end
 
   test "focused qualification fails closed on a structurally wrong manager outcome" do
@@ -162,7 +272,8 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
         manager_profile: @profile,
         composer_profile: @profile,
         manager: manager,
-        composer: fn _snapshot, _profile, _context ->
+        composer_client: QualifiedSynthesisClient,
+        composer_authorizer: fn _profile, _context ->
           flunk("composer must not run after the fan-out row fails")
         end,
         composer_context: %{timeout_ms: 10_000, max_output_tokens: 1_024},
@@ -172,19 +283,71 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
       )
 
     assert result.status == "failed"
-    assert result.failed_rows == ["fov4-independent-architecture", "composer-complementary"]
+
+    assert result.failed_rows ==
+             ["fov4-independent-architecture"] ++
+               Enum.map(fixture["composition_cases"], & &1["id"])
+
     assert result.stats.adaptive_kind == "answer"
     assert result.stats.adaptive_child_count == 0
     assert result.stats.composition_valid == false
+    assert result.stats.composition_rows_passed == 0
+
+    assert result.stats.composition_failure_stage_by_row
+           |> Map.values()
+           |> Enum.uniq() == ["manager_admission"]
+
+    assert result.stats.composition_failure_reason_by_row
+           |> Map.values()
+           |> Enum.uniq() == ["manager_row_failed"]
+  end
+
+  test "composer failures record only closed stage and reason evidence" do
+    fixture = V13FanoutEval.load_fixture!(@fixture)
+    store = temp_store()
+    on_exit(fn -> File.rm_rf!(Path.dirname(store)) end)
+
+    result =
+      V13FanoutEval.run(fixture,
+        profile: @profile,
+        manager_profile: @profile,
+        composer_profile: @profile,
+        manager: qualified_manager(fixture, self()),
+        composer_client: SensitiveProviderFailureClient,
+        composer_authorizer: fn _profile, _context -> :ok end,
+        composer_context: %{timeout_ms: 10_000, max_output_tokens: 1_024},
+        store: store,
+        full_sha: @full_sha,
+        dirty: true
+      )
+
+    assert result.status == "failed"
+    assert result.stats.manager_rows_passed == 2
+    assert result.stats.composition_rows_passed == 0
+
+    assert result.stats.composition_failure_stage_by_row
+           |> Map.values()
+           |> Enum.uniq() == ["provider_call"]
+
+    assert result.stats.composition_failure_reason_by_row
+           |> Map.values()
+           |> Enum.uniq() == ["provider_failed"]
+
+    evidence = File.read!(store)
+    assert evidence =~ "provider_call"
+    assert evidence =~ "provider_failed"
+    refute evidence =~ "sensitive provider body"
   end
 
   test "manager/composer fixture digest binds the decoded frozen corpus" do
     fixture = @fixture |> File.read!() |> Jason.decode!()
 
     changed =
-      update_in(fixture, ["composition", "child_results", Access.at(0), "detail"], fn detail ->
-        detail <> " "
-      end)
+      update_in(
+        fixture,
+        ["composition_cases", Access.at(0), "snapshot", "children", Access.at(0), "detail"],
+        fn detail -> detail <> " " end
+      )
 
     path = write_fixture(changed)
 
@@ -341,19 +504,6 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
     end
   end
 
-  defp qualified_composer(parent) do
-    fn snapshot, profile, context ->
-      send(parent, {:composer, snapshot, profile, context})
-
-      {:ok,
-       %{
-         sections: [
-           %{relationship: "complementary", ordered_queue_positions: [0, 1]}
-         ]
-       }}
-    end
-  end
-
   defp phase_options(fixtures, opts) do
     store = Keyword.fetch!(opts, :store)
 
@@ -363,8 +513,13 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
         manager_profile: @profile,
         composer_profile: @profile,
         manager: qualified_manager(fixtures.manager_and_composer, self()),
-        composer: qualified_composer(self()),
-        composer_context: %{timeout_ms: 10_000, max_output_tokens: 1_024},
+        composer_client: QualifiedSynthesisClient,
+        composer_authorizer: fn _profile, _context -> :ok end,
+        composer_context: %{
+          timeout_ms: 10_000,
+          max_output_tokens: 1_024,
+          test_pid: self()
+        },
         store: store,
         full_sha: @full_sha,
         dirty: false

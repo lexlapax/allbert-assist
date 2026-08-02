@@ -867,6 +867,10 @@ without adding a plan, Objective, event, database, Settings, or migration
 version. The canonical contract binds the complete immutable catalog, but
 provider user data carries only task fields, the completion obligation, and the
 catalog version/digest; catalog-derived system rules appear once.
+The shared DirectAnswer rules used by catalog-v1 reconstruction are themselves
+exposed as pinned DirectAnswer-policy version 1. Lifecycle uses a current-write
+validator before appending a new completion event; only durable recovery/report
+readers use the replay-permissive validator.
 
 The worker deterministically validates that advisory result and normalizes the
 accepted answer at the existing durable Objective-summary boundary. A typed,

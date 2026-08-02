@@ -560,7 +560,7 @@ defmodule AllbertAssist.Objectives.Lifecycle do
           final_answer: summary
         }
 
-        with :ok <- QualityReceipt.validate(receipt, binding),
+        with :ok <- QualityReceipt.validate_current(receipt, binding),
              {:ok, digest} <- QualityReceipt.digest(receipt) do
           {:ok, Map.put(state, :quality_receipt_digest, digest)}
         else

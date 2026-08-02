@@ -2,6 +2,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   use AllbertAssist.DataCase, async: false
   @moduletag :db_serial
 
+  alias AllbertAssist.Models.ClosedRuleEvidence
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Fanout.Budget
@@ -360,6 +361,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     assert Enum.map(prompt.messages, & &1.role) == [:system, :user]
     system = message_text(hd(prompt.messages))
     advisory = message_text(List.last(prompt.messages))
+    assert system =~ ClosedRuleEvidence.violation_semantics()
     refute system =~ "operator-request-sentinel"
     assert advisory =~ "operator-request-sentinel"
     assert advisory =~ "child-result-sentinel"

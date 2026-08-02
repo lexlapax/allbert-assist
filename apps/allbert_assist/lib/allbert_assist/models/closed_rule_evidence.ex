@@ -9,6 +9,12 @@ defmodule AllbertAssist.Models.ClosedRuleEvidence do
   appropriate.
   """
 
+  @violation_semantics "For every catalog-keyed rule_violations Boolean, return true only when the final output violates that rule and false when it satisfies the rule or the rule's triggering condition does not apply."
+
+  @doc "Return the shared provider-facing meaning of closed violation Booleans."
+  @spec violation_semantics() :: String.t()
+  def violation_semantics, do: @violation_semantics
+
   @doc "Return a closed raw JSON Schema for one immutable rule catalog."
   @spec schema!([String.t()]) :: map()
   def schema!(rule_ids) when is_list(rule_ids) do

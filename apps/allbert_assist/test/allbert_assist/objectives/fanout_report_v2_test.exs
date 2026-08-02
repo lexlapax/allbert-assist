@@ -4,6 +4,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
 
   import Ecto.Query
 
+  alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Intent.FanoutPlan
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.CanonicalJSON
@@ -13,24 +14,177 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
   alias AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy
   alias AllbertAssist.Objectives.Lifecycle
   alias AllbertAssist.Objectives.Objective
-  alias AllbertAssist.Objectives.Runs.Worker.{Grounding, QualityPolicy, QualityReceipt}
+
+  alias AllbertAssist.Objectives.Runs.Worker.{
+    Grounding,
+    QualityPolicy,
+    QualityReceipt
+  }
+
   alias AllbertAssist.Repo
 
   @receipt_sha String.duplicate("a", 64)
+  @frozen_v1_snapshot %{
+    version: 1,
+    parent_id: "frozen-v1-parent",
+    title: "Frozen v1 report",
+    original_request: "Join the two frozen historical child results.",
+    status: "completed",
+    join_outcome: "success",
+    plan: %{},
+    children: [
+      %{
+        id: "frozen-v1-child-0",
+        queue_position: 0,
+        title: "Frozen child one",
+        objective: "Return the first historical result.",
+        expected_result: nil,
+        status: "completed",
+        detail: "First frozen result.",
+        effect_receipt_ref: nil
+      },
+      %{
+        id: "frozen-v1-child-1",
+        queue_position: 1,
+        title: "Frozen child two",
+        objective: "Return the second historical result.",
+        expected_result: nil,
+        status: "failed",
+        detail: "Second frozen failure.",
+        effect_receipt_ref: nil
+      }
+    ]
+  }
+  @frozen_v1_body """
+                  Frozen v1 report — success
 
-  defmodule ReviewedLifecycleAdapter do
-    def operation(:propose, state, opts),
-      do: {:ok, Map.put(state, :step, Keyword.fetch!(opts, :quality_step))}
+                  Authoritative child results (ordered):
+                  - ✓ Frozen child one [completed] — Child-reported observation (not effect evidence): First frozen result.
+                    Effect receipt: none recorded. Child-reported observation is not effect evidence.
+                  - ✗ Frozen child two [failed] — Child-reported observation (not effect evidence): Second frozen failure.
+                    Effect receipt: none recorded. Child-reported observation is not effect evidence.
+                  """
+                  |> String.trim_trailing()
+  @frozen_v1_input_digest "f2f7db7cb5dbff56ace83b22167feae7e0481e128b8232f71a27bb9cd2943cf7"
+  @frozen_v1_join_event %{
+    "status" => "completed",
+    "join_outcome" => "success",
+    "report_composition_state" => "queued",
+    "report_input_digest" => @frozen_v1_input_digest
+  }
 
-    def operation(:execute, state, opts) do
-      {:ok,
-       state
-       |> Map.put(:response, %{message: Keyword.fetch!(opts, :quality_answer)})
-       |> Map.put(:quality_receipt, Keyword.fetch!(opts, :quality_receipt))
-       |> Map.put(:worker_adapter, :jido)}
+  defmodule DeterministicDraftAnswerer do
+    def answer(_text, _context) do
+      {:ok, %{message: "Initial child draft.", diagnostic: %{status: :used}}}
     end
+  end
 
-    def operation(_operation, state, _opts), do: {:ok, state}
+  defmodule WorkerQualityModels do
+    def for(:fanout_synthesis, _context) do
+      {:ok,
+       %{
+         profile: %{
+           name: "worker-quality-test",
+           provider: "local_ollama",
+           provider_endpoint_kind: "local_endpoint",
+           provider_type: "openai_compatible",
+           model: "fixture-quality-model",
+           max_tokens: 1_024,
+           timeout_ms: 60_000
+         }
+       }}
+    end
+  end
+
+  defmodule AllowWorkerQualityDisclosure do
+    def authorize_transport(_profile, _context), do: :ok
+  end
+
+  defmodule AcceptingRawQualityClient do
+    alias AllbertAssist.Objectives.Runs.Worker.QualityPolicy
+
+    def generate_object(_model_spec, prompt, _schema, _opts) do
+      {:ok,
+       %ReqLLM.Response{
+         id: "raw-worker-quality-accepted",
+         model: "fixture-quality-model",
+         context: prompt,
+         finish_reason: :stop,
+         object: %{
+           "final_answer" => "Raw-reviewed child answer.",
+           "rule_violations" => Map.new(QualityPolicy.rule_ids(), &{&1, false})
+         }
+       }}
+    end
+  end
+
+  defmodule AcceptingProductionReviewer do
+    alias AllbertAssist.Objectives.Runs.Worker.ReqLLMReviewer
+
+    def prepare(contract, draft, context),
+      do: ReqLLMReviewer.prepare(contract, draft, reviewer_context(context))
+
+    def invoke(prepared, context),
+      do: ReqLLMReviewer.invoke(prepared, reviewer_context(context))
+
+    defp reviewer_context(context) do
+      context
+      |> Map.put(:models, AllbertAssist.Objectives.Fanout.ReportV2Test.WorkerQualityModels)
+      |> Map.put(
+        :disclosure,
+        AllbertAssist.Objectives.Fanout.ReportV2Test.AllowWorkerQualityDisclosure
+      )
+      |> Map.put(
+        :req_llm_client,
+        AllbertAssist.Objectives.Fanout.ReportV2Test.AcceptingRawQualityClient
+      )
+    end
+  end
+
+  defmodule ViolatingRawQualityClient do
+    alias AllbertAssist.Objectives.Runs.Worker.QualityPolicy
+
+    def generate_object(_model_spec, prompt, _schema, _opts) do
+      violations =
+        QualityPolicy.rule_ids()
+        |> Map.new(&{&1, false})
+        |> Map.put("completion_preconditions", true)
+
+      {:ok,
+       %ReqLLM.Response{
+         id: "raw-worker-quality-unresolved",
+         model: "fixture-quality-model",
+         context: prompt,
+         finish_reason: :stop,
+         object: %{
+           "final_answer" => "The required evidence remains unavailable.",
+           "rule_violations" => violations
+         }
+       }}
+    end
+  end
+
+  defmodule ViolatingProductionReviewer do
+    alias AllbertAssist.Objectives.Runs.Worker.ReqLLMReviewer
+
+    def prepare(contract, draft, context),
+      do: ReqLLMReviewer.prepare(contract, draft, reviewer_context(context))
+
+    def invoke(prepared, context),
+      do: ReqLLMReviewer.invoke(prepared, reviewer_context(context))
+
+    defp reviewer_context(context) do
+      context
+      |> Map.put(:models, AllbertAssist.Objectives.Fanout.ReportV2Test.WorkerQualityModels)
+      |> Map.put(
+        :disclosure,
+        AllbertAssist.Objectives.Fanout.ReportV2Test.AllowWorkerQualityDisclosure
+      )
+      |> Map.put(
+        :req_llm_client,
+        AllbertAssist.Objectives.Fanout.ReportV2Test.ViolatingRawQualityClient
+      )
+    end
   end
 
   defmodule RegisteredActionLifecycleAdapter do
@@ -1166,124 +1320,164 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
              Fanout.report_input_v2(parent)
   end
 
-  test "two real reviewed DirectAnswer lifecycles atomically bind steps and queue one v2 join" do
-    original_request =
-      "Prepare two reviewed analyses and explain their substantive relationship in one joined report."
+  test "two raw reviewed DirectAnswer lifecycles atomically bind v2 receipts and queue one v2 join" do
+    with_direct_answer_worker(fn ->
+      original_request =
+        "Prepare two reviewed analyses and explain their substantive relationship in one joined report."
 
-    plan_children = [
-      %{
-        title: "Reviewed mechanism one",
-        objective: "Analyze reviewed mechanism one.",
-        expected_result: "State the first bounded finding."
-      },
-      %{
-        title: "Reviewed mechanism two",
-        objective: "Analyze reviewed mechanism two.",
-        expected_result: "State the second bounded finding."
-      }
-    ]
+      plan_children = [
+        %{
+          title: "Reviewed mechanism one",
+          objective: "Analyze reviewed mechanism one.",
+          expected_result: "State the first bounded finding."
+        },
+        %{
+          title: "Reviewed mechanism two",
+          objective: "Analyze reviewed mechanism two.",
+          expected_result: "State the second bounded finding."
+        }
+      ]
 
-    assert {:ok, compiled} = FanoutPlan.compile(original_request, plan_children, source: :model)
-    assert {:ok, budget} = Budget.resolve(2, 1)
+      assert {:ok, compiled} = FanoutPlan.compile(original_request, plan_children, source: :model)
+      assert {:ok, budget} = Budget.resolve(2, 1)
 
-    plan =
-      compiled
-      |> FanoutPlan.provenance()
-      |> Map.put("manager_attempts", 1)
-      |> Map.put("budget", budget)
-      |> Map.put("deadline_unix_ms", System.system_time(:millisecond) + 60_000)
+      plan =
+        compiled
+        |> FanoutPlan.provenance()
+        |> Map.put("manager_attempts", 1)
+        |> Map.put("budget", budget)
+        |> Map.put("deadline_unix_ms", System.system_time(:millisecond) + 60_000)
 
-    assert {:ok, %{parent: parent, children: children}} =
-             Fanout.frame(
-               %{
-                 user_id: "report-v2-real-lifecycle",
-                 title: "Join two reviewed lifecycle results",
-                 objective: original_request,
-                 proposer_hint: %{"fanout_plan" => plan}
-               },
-               FanoutPlan.child_attrs(compiled)
-             )
+      assert {:ok, %{parent: parent, children: children}} =
+               Fanout.frame(
+                 %{
+                   user_id: "report-v2-real-lifecycle",
+                   title: "Join two reviewed lifecycle results",
+                   objective: original_request,
+                   proposer_hint: %{"fanout_plan" => plan}
+                 },
+                 FanoutPlan.child_attrs(compiled)
+               )
 
-    receipt_digests =
-      Map.new(children, fn child ->
-        answer = "Reviewed answer for child #{child.queue_position}."
+      receipt_digests =
+        Map.new(children, fn child ->
+          assert {:ok, completed} =
+                   Lifecycle.run(child.id, quality_reviewer: AcceptingProductionReviewer)
 
-        assert {:ok, step} =
-                 Objectives.create_step(%{
-                   objective_id: child.id,
-                   kind: "action",
-                   status: "selected",
-                   stage: "propose_steps",
-                   candidate_action: "direct_answer",
-                   action_params: %{text: child.objective}
-                 })
+          assert completed.status == "completed"
+          assert completed.last_observation_summary == "Raw-reviewed child answer."
 
-        assert {:ok, contract} = child |> Grounding.resolve() |> QualityPolicy.build()
-        assert {:ok, task_digest} = QualityPolicy.digest(contract)
+          assert [%{candidate_action: "direct_answer", status: "completed"} = step] =
+                   Objectives.list_steps(child.id)
 
-        assert {:ok, receipt} =
-                 QualityReceipt.build(%{
-                   objective_id: child.id,
-                   step_id: step.id,
-                   task_contract_sha256: task_digest,
-                   rule_catalog_version: QualityPolicy.version(),
-                   reviewer_config_sha256: String.duplicate("d", 64),
-                   provider_call_count: 2,
-                   verdict: "accepted",
-                   failed_rule_ids: [],
-                   final_answer: answer
-                 })
+          assert completed.current_step_id == step.id
 
-        assert {:ok, receipt_digest} = QualityReceipt.digest(receipt)
+          assert [event] =
+                   child.id
+                   |> Objectives.list_events()
+                   |> Enum.filter(&(&1.kind == "run_completed"))
 
-        assert {:ok, completed} =
-                 Lifecycle.run(child.id,
-                   adapter: ReviewedLifecycleAdapter,
-                   quality_step: step,
-                   quality_answer: answer,
-                   quality_receipt: receipt
-                 )
+          assert %{
+                   "quality_receipt" => receipt,
+                   "step_id" => step_id,
+                   "step_status" => "completed"
+                 } = Jason.decode!(event.payload)
 
-        assert completed.status == "completed"
-        assert completed.current_step_id == step.id
+          assert step_id == step.id
+          assert receipt["version"] == 1
+          assert receipt["rule_catalog_version"] == QualityPolicy.version()
+          assert receipt["provider_call_count"] == 2
+          assert receipt["verdict"] == "accepted"
+          assert receipt["failed_rule_ids"] == []
+          assert {:ok, receipt_digest} = QualityReceipt.digest(receipt)
+          {child.id, receipt_digest}
+        end)
 
-        assert [event] =
-                 child.id
-                 |> Objectives.list_events()
-                 |> Enum.filter(&(&1.kind == "run_completed"))
+      assert {:ok, joined} = Objectives.get_objective(parent.id)
+      assert joined.status == "completed"
+      assert joined.report_composition_state == "queued"
+      assert joined.report_delivery_state == "not_ready"
 
-        assert %{
-                 "quality_receipt" => _quality_receipt,
-                 "step_id" => step_id,
-                 "step_status" => "completed"
-               } = Jason.decode!(event.payload)
+      assert {:ok, frozen} = Fanout.report_input(joined)
+      assert frozen.snapshot.version == 2
+      assert frozen.input_digest == joined.report_input_digest
 
-        assert step_id == step.id
-        {child.id, receipt_digest}
-      end)
+      assert Enum.map(frozen.snapshot.children, fn child ->
+               {child.id, child.result_authority, child.quality_receipt_sha256}
+             end) ==
+               Enum.map(children, fn child ->
+                 {child.id, "reviewed_advisory", Map.fetch!(receipt_digests, child.id)}
+               end)
 
-    assert {:ok, joined} = Objectives.get_objective(parent.id)
-    assert joined.status == "completed"
-    assert joined.report_composition_state == "queued"
-    assert joined.report_delivery_state == "not_ready"
+      assert [join_event] =
+               parent.id
+               |> Objectives.list_events()
+               |> Enum.filter(&(&1.kind == "fanout_joined"))
 
-    assert {:ok, frozen} = Fanout.report_input(joined)
-    assert frozen.snapshot.version == 2
-    assert frozen.input_digest == joined.report_input_digest
+      assert Jason.decode!(join_event.payload)["report_input_digest"] == frozen.input_digest
+    end)
+  end
 
-    assert Enum.map(frozen.snapshot.children, fn child ->
-             {child.id, child.result_authority, child.quality_receipt_sha256}
-           end) ==
-             Enum.map(children, fn child ->
-               {child.id, "reviewed_advisory", Map.fetch!(receipt_digests, child.id)}
-             end)
+  test "one raw worker rule violation fails without a receipt or completed child event" do
+    with_direct_answer_worker(fn ->
+      original_request = "Analyze two mechanisms and join only completed reviewed findings."
 
-    assert [join_event] =
-             parent.id
-             |> Objectives.list_events()
-             |> Enum.filter(&(&1.kind == "fanout_joined"))
+      plan_children = [
+        %{
+          title: "Missing-evidence mechanism",
+          objective: "Analyze the mechanism and state the required unavailable evidence.",
+          expected_result: "Complete only when every required output is supported."
+        },
+        %{
+          title: "Independent sibling",
+          objective: "Analyze an independent sibling mechanism.",
+          expected_result: "Return one bounded sibling finding."
+        }
+      ]
 
-    assert Jason.decode!(join_event.payload)["report_input_digest"] == frozen.input_digest
+      assert {:ok, compiled} = FanoutPlan.compile(original_request, plan_children, source: :model)
+      assert {:ok, budget} = Budget.resolve(2, 1)
+
+      plan =
+        compiled
+        |> FanoutPlan.provenance()
+        |> Map.put("manager_attempts", 1)
+        |> Map.put("budget", budget)
+        |> Map.put("deadline_unix_ms", System.system_time(:millisecond) + 60_000)
+
+      assert {:ok, %{parent: parent, children: [child, sibling]}} =
+               Fanout.frame(
+                 %{
+                   user_id: "report-v2-unresolved-worker",
+                   title: "Keep unresolved worker evidence out of the join",
+                   objective: original_request,
+                   proposer_hint: %{"fanout_plan" => plan}
+                 },
+                 FanoutPlan.child_attrs(compiled)
+               )
+
+      assert {:error,
+              {:fanout_worker_unresolved,
+               %{provider_call_count: 2, reason: :invalid_or_unresolved_quality_review}}} =
+               Lifecycle.run(child.id, quality_reviewer: ViolatingProductionReviewer)
+
+      assert {:ok, failed} = Objectives.get_objective(child.id)
+      assert failed.status == "failed"
+      assert failed.last_observation_summary == nil
+
+      assert [%{candidate_action: "direct_answer", status: "failed"}] =
+               Objectives.list_steps(child.id)
+
+      events = Objectives.list_events(child.id)
+      assert Enum.count(events, &(&1.kind == "run_failed")) == 1
+      refute Enum.any?(events, &(&1.kind == "run_completed"))
+      refute Enum.any?(events, &(Jason.decode!(&1.payload)["quality_receipt"] != nil))
+
+      assert {:ok, current_parent} = Objectives.get_objective(parent.id)
+      assert current_parent.status == "open"
+      assert current_parent.report_composition_state == "not_ready"
+      assert {:ok, %{status: "open"}} = Objectives.get_objective(sibling.id)
+    end)
   end
 
   test "current lifecycle steps bind registered actions while noncompleted children stay outside synthesis" do
@@ -1678,6 +1872,26 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     assert {:ok, 0} = Fanout.recover_composition()
   end
 
+  test "literal pre-v2 report input, fallback body, join event, and digest remain byte-exact" do
+    frozen = %{
+      snapshot: @frozen_v1_snapshot,
+      input_digest: @frozen_v1_input_digest,
+      fallback_body: @frozen_v1_body
+    }
+
+    assert Report.digest(@frozen_v1_snapshot) == @frozen_v1_input_digest
+    assert Report.fallback(@frozen_v1_snapshot) == @frozen_v1_body
+    assert @frozen_v1_join_event["report_input_digest"] == @frozen_v1_input_digest
+
+    assert CanonicalJSON.encode(@frozen_v1_join_event) ==
+             ~s({"join_outcome":"success","report_composition_state":"queued","report_input_digest":"#{@frozen_v1_input_digest}","status":"completed"})
+
+    assert :ok = Report.verify(frozen, @frozen_v1_input_digest)
+
+    assert {:error, :legacy_unreviewed_children} =
+             Report.synthesis_eligibility(@frozen_v1_snapshot)
+  end
+
   test "historical pending v1 backfill remains byte-exact through selected replay" do
     {parent, legacy, join_event} = legacy_unselected_parent!("queued")
 
@@ -2033,6 +2247,36 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
              })
 
     {parent, legacy, join_event}
+  end
+
+  defp with_direct_answer_worker(callback) when is_function(callback, 0) do
+    previous_answerer = Application.get_env(:allbert_assist, DirectAnswer)
+    previous_enabled = AllbertAssist.Settings.get("intent.direct_answer_model_enabled")
+
+    try do
+      Application.put_env(:allbert_assist, DirectAnswer, answerer: DeterministicDraftAnswerer)
+
+      assert {:ok, _setting} =
+               AllbertAssist.Settings.put("intent.direct_answer_model_enabled", true, %{
+                 audit?: false
+               })
+
+      callback.()
+    after
+      if previous_answerer,
+        do: Application.put_env(:allbert_assist, DirectAnswer, previous_answerer),
+        else: Application.delete_env(:allbert_assist, DirectAnswer)
+
+      case previous_enabled do
+        {:ok, enabled} ->
+          AllbertAssist.Settings.put("intent.direct_answer_model_enabled", enabled, %{
+            audit?: false
+          })
+
+        _unavailable ->
+          :ok
+      end
+    end
   end
 
   defp sha256(value),

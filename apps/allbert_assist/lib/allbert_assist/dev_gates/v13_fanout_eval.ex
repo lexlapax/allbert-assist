@@ -3,10 +3,11 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   Opt-in real-model qualification for the v1.3 fan-out manager and composer.
 
   The exact FOV-3/FOV-4 requests exercise the production manager. The composer
-  then receives fixed synthetic child observations. Acceptance uses only typed
-  results, counts, closed manager evidence, and the validated report partition;
-  prompts, answers, observations, model objects, and rendered reports are never
-  printed or recorded in TestMetrics.
+  then receives a frozen seven-row matrix of reviewed layout-v2 snapshots.
+  Acceptance uses only typed results, counts, closed manager evidence, validated
+  body/provenance bindings, and content-free digests; prompts, answers,
+  observations, model objects, and rendered reports are never printed or
+  recorded in TestMetrics.
   """
 
   alias AllbertAssist.DevGates.{TestMetrics, V13FanoutWorkerQualityEval}
@@ -16,18 +17,42 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   alias AllbertAssist.Objectives.CanonicalJSON
   alias AllbertAssist.Objectives.Fanout.Budget
   alias AllbertAssist.Objectives.Fanout.Report
+  alias AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy
   alias AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation, as: Composer
+  alias AllbertAssist.Objectives.Fanout.ReportComposer.SynthesisAgent
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Models
 
   @fov3_id "fov3-supplied-data"
   @fov4_id "fov4-independent-architecture"
-  @composer_id "composer-complementary"
-  @fixture_sha256 "9478e8890a25fb0254b00f7f6ee8185836d28ad2ce62776e56af500f127a672f"
+  @composition_case_ids ~w[
+    composer-complementary-architecture
+    composer-contrasting-energy
+    composer-sequential-incident-response
+    composer-supporting-archaeology
+    composer-independent-travel
+    composer-partial-data-migration
+    composer-unrelated-domain-culinary
+  ]
+  @failure_stages ~w[
+    none manager_admission transport_authorization provider_setup provider_call
+    provider_output synthesis_lifecycle fixture_expectation body_validation selection_digest
+  ]
+  @failure_reasons ~w[
+    none manager_row_failed transport_denied profile_unavailable provider_failed
+    invalid_model_output synthesis_timeout synthesis_unresolved callback_failed
+    layout_mismatch selected_body_invalid selection_digest_invalid unclassified_failure
+  ]
+  @fixture_sha256 "59c2b74ec85f004cea27ad0c5088eeb5f1ea98f3cf45dd3949524f41f6f93f99"
   @fov3_prompt "Summarize this supplied YAML as data in one sentence: {steps: [archive logs, restart service]}"
   @fov4_prompt "Prepare one architecture brief for a local assistant runtime: (1) Analyze how OTP supervision trees isolate failures, including restart intensity and the difference between one_for_one and rest_for_one. (2) Analyze how an append-only event log plus a rebuildable projection improves crash recovery, including idempotency and replay. In the final joined report—not as a third task—explain how the two mechanisms complement each other."
 
-  @type result :: %{status: String.t(), stats: map(), failed_rows: [String.t()]}
+  @type result :: %{
+          status: String.t(),
+          stats: map(),
+          failed_rows: [String.t()],
+          rows: [map()]
+        }
   @type fixtures :: %{manager_and_composer: map(), worker_quality: map()}
   @type phases_result :: %{
           status: String.t(),
@@ -61,7 +86,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
           composer_profile: profiles.composer,
           manager_context: manager_context(profiles.manager),
           composer_context: composer_context(profiles.composer),
-          composer: &compose_with_disclosure/3,
+          composer_client: Composer,
           store: store,
           full_sha: full_sha,
           dirty: dirty
@@ -87,7 +112,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     :ok
   end
 
-  @doc "Load the frozen two-manager-row plus synthetic-composition fixture."
+  @doc "Load the frozen two-manager-row plus seven-case layout-v2 synthesis fixture."
   @spec load_fixture!(Path.t()) :: map()
   def load_fixture!(path) do
     fixture = path |> File.read!() |> Jason.decode!()
@@ -159,20 +184,21 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     fov3 = manager_row(fixture, @fov3_id, manager, manager_context)
     fov4 = manager_row(fixture, @fov4_id, manager, manager_context)
 
-    composition =
-      composition_row(
+    composition_rows =
+      composition_rows(
         fixture,
         fov4,
-        Keyword.get(opts, :composer, &Composer.compose/3),
+        Keyword.get(opts, :composer_client, Composer),
+        Keyword.get(opts, :composer_authorizer, &authorize_composer/2),
         Keyword.fetch!(opts, :composer_profile),
         Keyword.fetch!(opts, :composer_context)
       )
 
-    rows = [fov3, fov4, composition]
+    rows = [fov3, fov4] ++ composition_rows
     failed_rows = for %{passed?: false, id: id} <- rows, do: id
     status = if failed_rows == [], do: "passed", else: "failed"
     profile = opts |> Keyword.fetch!(:profile) |> profile_name()
-    stats = stats(profile, fixture_sha256, fov3, fov4, composition)
+    stats = stats(profile, fixture_sha256, fov3, fov4, composition_rows)
 
     TestMetrics.record(%{
       store: Keyword.get(opts, :store),
@@ -189,7 +215,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
       stats: stats
     })
 
-    %{status: status, stats: stats, failed_rows: failed_rows}
+    %{status: status, stats: stats, failed_rows: failed_rows, rows: composition_rows}
   end
 
   defp manager_row(fixture, id, manager, context) do
@@ -264,101 +290,161 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
 
   defp valid_result?(_id, _result, _prompt), do: false
 
-  defp composition_row(
-         fixture,
-         %{passed?: true, result: %{plan: plan}},
-         composer,
-         profile,
-         context
-       ) do
-    snapshot = snapshot(fixture, plan)
+  defp composition_rows(fixture, %{passed?: true}, client, authorizer, profile, context) do
+    Enum.map(fixture["composition_cases"], fn composition_case ->
+      composition_row(composition_case, client, authorizer, profile, context)
+    end)
+  end
 
-    with {:ok, selection} <- invoke(fn -> composer.(snapshot, profile, context) end),
-         {:ok, prepared} <- Report.prepare_composition(snapshot, selection),
-         true <- expected_layout?(fixture, prepared.layout),
-         provenance <- provenance(profile, prepared.layout),
-         :ok <- Report.validate_selected_body(snapshot, "model", prepared.body, provenance),
-         {:ok, _digest} <- Report.selection_digest("model", provenance) do
-      [section] = prepared.layout.sections
+  defp composition_rows(fixture, _fov4, _client, _authorizer, _profile, _context) do
+    Enum.map(fixture["composition_cases"], fn composition_case ->
+      failed_composition(composition_case, "manager_admission", "manager_row_failed")
+    end)
+  end
 
-      %{
-        id: @composer_id,
-        passed?: true,
-        valid?: true,
-        layout_version: prepared.layout.layout_version,
-        relationship: section.relationship,
-        ordered_queue_positions: section.ordered_queue_positions
-      }
+  defp composition_row(composition_case, client, authorizer, profile, context) do
+    with {:ok, snapshot} <- fixture_snapshot(composition_case["snapshot"]),
+         :ok <- authorize_result(invoke(fn -> authorizer.(profile, context) end)),
+         {:ok, prepared} <-
+           synthesis_result(
+             invoke(fn ->
+               SynthesisAgent.run(
+                 snapshot,
+                 profile,
+                 context,
+                 client,
+                 Map.fetch!(context, :timeout_ms)
+               )
+             end)
+           ),
+         :ok <- expected_layout(composition_case, prepared),
+         provenance <- provenance(profile, prepared),
+         :ok <- selected_body_valid(snapshot, prepared, provenance),
+         {:ok, selection_sha256} <- selection_digest(provenance) do
+      successful_composition(composition_case, prepared, provenance, selection_sha256)
     else
-      _invalid -> empty_composition()
+      {:error, {stage, reason}} ->
+        failed_composition(composition_case, stage, reason)
+
+      _unclassified ->
+        failed_composition(composition_case, "synthesis_lifecycle", "unclassified_failure")
     end
   end
 
-  defp composition_row(_fixture, _fov4, _composer, _profile, _context),
-    do: empty_composition()
+  defp authorize_result(:ok), do: :ok
 
-  defp empty_composition do
+  defp authorize_result(_denied),
+    do: {:error, {"transport_authorization", "transport_denied"}}
+
+  defp synthesis_result({:ok, prepared}) when is_map(prepared), do: {:ok, prepared}
+
+  defp synthesis_result({:error, {:profile_unavailable, _reason}}),
+    do: {:error, {"provider_setup", "profile_unavailable"}}
+
+  defp synthesis_result({:error, {:provider_failed, _reason}}),
+    do: {:error, {"provider_call", "provider_failed"}}
+
+  defp synthesis_result({:error, {:invalid_model_output, _reason}}),
+    do: {:error, {"provider_output", "invalid_model_output"}}
+
+  defp synthesis_result({:error, :fanout_synthesis_timeout}),
+    do: {:error, {"synthesis_lifecycle", "synthesis_timeout"}}
+
+  defp synthesis_result({:error, :callback_failed}),
+    do: {:error, {"synthesis_lifecycle", "callback_failed"}}
+
+  defp synthesis_result({:error, _reason}),
+    do: {:error, {"synthesis_lifecycle", "unclassified_failure"}}
+
+  defp synthesis_result(_invalid),
+    do: {:error, {"synthesis_lifecycle", "synthesis_unresolved"}}
+
+  defp expected_layout(composition_case, prepared) do
+    {:ok, expected} = fixture_expected(composition_case["expected"])
+
+    if prepared[:layout] == expected do
+      :ok
+    else
+      {:error, {"fixture_expectation", "layout_mismatch"}}
+    end
+  end
+
+  defp selected_body_valid(snapshot, prepared, provenance) do
+    case Report.validate_selected_body(snapshot, "model", prepared.body, provenance) do
+      :ok ->
+        :ok
+
+      {:error, _reason} ->
+        {:error, {"body_validation", "selected_body_invalid"}}
+    end
+  end
+
+  defp selection_digest(provenance) do
+    case Report.selection_digest("model", provenance) do
+      {:ok, digest} ->
+        {:ok, digest}
+
+      {:error, _reason} ->
+        {:error, {"selection_digest", "selection_digest_invalid"}}
+    end
+  end
+
+  defp successful_composition(composition_case, prepared, provenance, selection_sha256) do
+    sections = prepared.layout.sections
+
     %{
-      id: @composer_id,
+      id: composition_case["id"],
+      domain: composition_case["domain"],
+      passed?: true,
+      valid?: true,
+      layout_version: prepared.layout.layout_version,
+      relationship: sections |> List.first() |> Map.fetch!(:relationship),
+      relationships: Enum.map(sections, & &1.relationship),
+      ordered_queue_positions: Enum.flat_map(sections, & &1.ordered_queue_positions),
+      failure_stage: "none",
+      failure_reason: "none",
+      body_sha256: sha256(prepared.body),
+      provenance_sha256: sha256(CanonicalJSON.encode(provenance)),
+      selection_sha256: selection_sha256
+    }
+  end
+
+  defp failed_composition(composition_case, stage, reason)
+       when stage in @failure_stages and reason in @failure_reasons do
+    %{
+      id: composition_case["id"],
+      domain: composition_case["domain"],
       passed?: false,
       valid?: false,
       layout_version: nil,
       relationship: "invalid",
-      ordered_queue_positions: []
+      relationships: [],
+      ordered_queue_positions: [],
+      failure_stage: stage,
+      failure_reason: reason,
+      body_sha256: nil,
+      provenance_sha256: nil,
+      selection_sha256: nil
     }
   end
 
-  defp snapshot(fixture, %FanoutPlan{} = plan) do
-    composition = fixture["composition"]
-
-    children =
-      plan.children
-      |> Enum.zip(composition["child_results"])
-      |> Enum.map(fn {child, result} ->
-        %{
-          id: result["id"],
-          queue_position: result["queue_position"],
-          title: child["title"],
-          objective: child["objective"],
-          expected_result: child["expected_result"],
-          status: "completed",
-          detail: result["detail"],
-          effect_receipt_ref: nil
-        }
-      end)
-
-    %{
-      version: 1,
-      parent_id: composition["parent_id"],
-      title: composition["title"],
-      original_request: plan.original_request,
-      status: "completed",
-      join_outcome: "success",
-      plan: FanoutPlan.provenance(plan),
-      children: children
-    }
-  end
-
-  defp expected_layout?(fixture, %{layout_version: 1, sections: [section]}) do
-    expected = fixture["composition"]["expected"]
-
-    section.relationship == expected["relationship"] and
-      section.ordered_queue_positions == expected["ordered_queue_positions"]
-  end
-
-  defp expected_layout?(_fixture, _layout), do: false
-
-  defp provenance(profile, layout) do
+  defp provenance(profile, prepared) do
     %{
       model_profile: field(profile, :name),
       provider: field(profile, :provider),
       model: field(profile, :model),
-      layout_version: layout.layout_version,
-      sections: layout.sections
+      layout_version: prepared.layout.layout_version,
+      sections: prepared.layout.sections,
+      synthesis_contract_version: prepared.synthesis_contract_version,
+      review_verdict: prepared.review_verdict,
+      reviewed_queue_positions: prepared.reviewed_queue_positions,
+      synthesis_sha256: prepared.synthesis_sha256
     }
   end
 
-  defp stats(profile, fixture_sha256, fov3, fov4, composition) do
+  defp stats(profile, fixture_sha256, fov3, fov4, compositions) do
+    primary = List.first(compositions)
+
     %{
       profile: profile,
       fixture_sha256: fixture_sha256,
@@ -376,12 +462,24 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
       adaptive_policy_outcome: fov4.policy_outcome,
       adaptive_manager_attempts: fov4.attempts,
       adaptive_reviewed: fov4.reviewed,
-      composition_layout_version: composition.layout_version,
-      composition_relationship: composition.relationship,
-      composition_ordered_queue_positions: composition.ordered_queue_positions,
-      composition_valid: composition.valid?
+      composition_rows: length(compositions),
+      composition_rows_passed: Enum.count(compositions, & &1.passed?),
+      composition_layout_version: primary.layout_version,
+      composition_relationship: primary.relationship,
+      composition_ordered_queue_positions: primary.ordered_queue_positions,
+      composition_relationship_counts:
+        compositions |> Enum.flat_map(& &1.relationships) |> Enum.frequencies(),
+      composition_domain_count: compositions |> Enum.map(& &1.domain) |> Enum.uniq() |> length(),
+      composition_failure_stage_by_row: row_map(compositions, :failure_stage),
+      composition_failure_reason_by_row: row_map(compositions, :failure_reason),
+      composition_body_sha256_by_row: row_map(compositions, :body_sha256),
+      composition_provenance_sha256_by_row: row_map(compositions, :provenance_sha256),
+      composition_selection_sha256_by_row: row_map(compositions, :selection_sha256),
+      composition_valid: Enum.all?(compositions, & &1.valid?)
     }
   end
+
+  defp row_map(rows, key), do: Map.new(rows, &{&1.id, Map.fetch!(&1, key)})
 
   defp configure_profiles!(profile_name) do
     context = %{actor: "v13-fanout-eval", audit?: false}
@@ -429,31 +527,26 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     }
   end
 
-  defp compose_with_disclosure(snapshot, profile, context) do
+  defp authorize_composer(profile, _context) do
     disclosure = %{actor: "local", user_id: "local", request: %{channel: :cli}}
-
-    with :ok <- Disclosure.authorize_transport(profile, disclosure),
-         do: Composer.compose(snapshot, profile, context)
+    Disclosure.authorize_transport(profile, disclosure)
   end
 
-  defp valid_fixture?(%{
-         "schema_version" => 1,
-         "corpus_id" => corpus_id,
-         "manager_cases" => [
-           %{"id" => @fov3_id, "prompt" => @fov3_prompt, "expected" => fov3},
-           %{"id" => @fov4_id, "prompt" => @fov4_prompt, "expected" => fov4}
-         ],
-         "composition" => %{
-           "parent_id" => parent_id,
-           "title" => title,
-           "child_results" => [child0, child1],
-           "expected" => %{
-             "relationship" => "complementary",
-             "ordered_queue_positions" => [0, 1]
-           }
-         }
-       }) do
-    nonempty?(corpus_id) and nonempty?(parent_id) and nonempty?(title) and
+  defp valid_fixture?(
+         %{
+           "schema_version" => 2,
+           "corpus_id" => corpus_id,
+           "manager_cases" => [
+             %{"id" => @fov3_id, "prompt" => @fov3_prompt, "expected" => fov3} = manager0,
+             %{"id" => @fov4_id, "prompt" => @fov4_prompt, "expected" => fov4} = manager1
+           ],
+           "composition_cases" => composition_cases
+         } = fixture
+       ) do
+    exact_keys?(fixture, ~w[schema_version corpus_id manager_cases composition_cases]) and
+      exact_keys?(manager0, ~w[id prompt expected]) and
+      exact_keys?(manager1, ~w[id prompt expected]) and
+      nonempty?(corpus_id) and
       fov3 == %{
         "kind" => "answer",
         "child_count" => 0,
@@ -469,7 +562,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
         "policy_outcome" => "independent_advisory",
         "manager_attempts" => 1,
         "reviewed" => true
-      } and valid_child?(child0, 0) and valid_child?(child1, 1)
+      } and valid_composition_cases?(composition_cases)
   end
 
   defp valid_fixture?(_fixture), do: false
@@ -482,13 +575,136 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
       else: raise("invalid v1.3 fan-out fixture digest")
   end
 
-  defp valid_child?(
-         %{"id" => id, "queue_position" => position, "status" => "completed", "detail" => detail},
-         position
-       ),
-       do: nonempty?(id) and nonempty?(detail)
+  defp valid_composition_cases?(cases) when is_list(cases) do
+    Enum.all?(cases, &is_map/1) and
+      Enum.map(cases, & &1["id"]) == @composition_case_ids and
+      valid_domains?(cases) and
+      Enum.all?(cases, &valid_composition_case?/1) and
+      MapSet.equal?(
+        covered_relationships(cases),
+        MapSet.new(~w[complementary contrasting sequential supporting independent])
+      ) and
+      Enum.any?(cases, &(&1["snapshot"]["join_outcome"] == "partial"))
+  end
 
-  defp valid_child?(_child, _position), do: false
+  defp valid_composition_cases?(_cases), do: false
+
+  defp valid_domains?(cases) do
+    domains = Enum.map(cases, & &1["domain"])
+    Enum.all?(domains, &nonempty?/1) and length(Enum.uniq(domains)) == length(cases)
+  end
+
+  defp valid_composition_case?(
+         %{
+           "id" => id,
+           "domain" => domain,
+           "snapshot" => raw_snapshot,
+           "expected" => raw_expected
+         } = composition_case
+       ) do
+    with true <- exact_keys?(composition_case, ~w[id domain snapshot expected]),
+         true <- nonempty?(id) and nonempty?(domain),
+         {:ok, snapshot} <- fixture_snapshot(raw_snapshot),
+         :ok <- Report.synthesis_eligibility(snapshot),
+         {:ok, expected} <- fixture_expected(raw_expected),
+         {:ok, prepared} <-
+           Report.prepare_synthesis(snapshot, fixture_result(snapshot, expected.sections)),
+         true <- prepared.layout == expected do
+      true
+    else
+      _invalid -> false
+    end
+  rescue
+    _invalid_fixture -> false
+  end
+
+  defp valid_composition_case?(_composition_case), do: false
+
+  defp fixture_snapshot(
+         %{
+           "version" => 2,
+           "parent_id" => parent_id,
+           "title" => title,
+           "original_request" => original_request,
+           "status" => status,
+           "join_outcome" => join_outcome,
+           "plan" => plan,
+           "children" => raw_children
+         } = raw_snapshot
+       ) do
+    if exact_keys?(
+         raw_snapshot,
+         ~w[version parent_id title original_request status join_outcome plan children]
+       ) and is_list(raw_children) do
+      {:ok,
+       %{
+         version: 2,
+         parent_id: parent_id,
+         title: title,
+         original_request: original_request,
+         status: status,
+         join_outcome: join_outcome,
+         plan: plan,
+         children: fixture_atom_keys(raw_children)
+       }}
+    else
+      {:error, :invalid_fixture_snapshot}
+    end
+  rescue
+    _invalid_fixture -> {:error, :invalid_fixture_snapshot}
+  end
+
+  defp fixture_snapshot(_raw_snapshot), do: {:error, :invalid_fixture_snapshot}
+
+  defp fixture_expected(%{"layout_version" => 2, "sections" => raw_sections} = expected) do
+    if exact_keys?(expected, ~w[layout_version sections]) and is_list(raw_sections) do
+      {:ok, %{layout_version: 2, sections: fixture_atom_keys(raw_sections)}}
+    else
+      {:error, :invalid_fixture_expected}
+    end
+  rescue
+    _invalid_fixture -> {:error, :invalid_fixture_expected}
+  end
+
+  defp fixture_expected(_expected), do: {:error, :invalid_fixture_expected}
+
+  defp fixture_atom_keys(values) when is_list(values), do: Enum.map(values, &fixture_atom_keys/1)
+
+  defp fixture_atom_keys(value) when is_map(value) do
+    Map.new(value, fn {key, nested} ->
+      {String.to_existing_atom(key), fixture_atom_keys(nested)}
+    end)
+  end
+
+  defp fixture_atom_keys(value), do: value
+
+  defp fixture_result(snapshot, sections) do
+    completed_positions =
+      snapshot.children
+      |> Enum.filter(&(&1.status == "completed"))
+      |> Enum.map(& &1.queue_position)
+      |> Enum.sort()
+
+    %{
+      sections: sections,
+      advisory_synthesis: "Fixture validation advisory.",
+      review: %{
+        verdict: "accepted",
+        rule_results: Enum.map(SynthesisPolicy.rule_ids(), &%{rule_id: &1, verdict: "satisfied"}),
+        covered_queue_positions: completed_positions
+      }
+    }
+  end
+
+  defp covered_relationships(cases) do
+    cases
+    |> Enum.flat_map(&get_in(&1, ["expected", "sections"]))
+    |> Enum.map(& &1["relationship"])
+    |> MapSet.new()
+  end
+
+  defp exact_keys?(map, keys) when is_map(map),
+    do: map |> Map.keys() |> Enum.sort() == Enum.sort(keys)
 
   defp find_case(fixture, id), do: Enum.find(fixture["manager_cases"], &(&1["id"] == id))
 
@@ -503,7 +719,8 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   defp summary(%{status: status, stats: stats}) do
     "v13-fanout status=#{status} manager=#{stats.manager_rows_passed}/#{stats.manager_rows} " <>
       "adaptive_children=#{stats.adaptive_child_count} join_role=#{stats.adaptive_join_role} " <>
-      "composition=#{stats.composition_relationship}:" <>
+      "composition=#{stats.composition_rows_passed}/#{stats.composition_rows} " <>
+      "primary=#{stats.composition_relationship}:" <>
       Enum.join(stats.composition_ordered_queue_positions, ",")
   end
 

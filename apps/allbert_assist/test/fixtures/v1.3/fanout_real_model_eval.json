@@ -1,6 +1,6 @@
 {
-  "schema_version": 1,
-  "corpus_id": "v13-fanout-real-model-v1",
+  "schema_version": 2,
+  "corpus_id": "v13-fanout-real-model-v2",
   "manager_cases": [
     {
       "id": "fov3-supplied-data",
@@ -27,26 +27,358 @@
       }
     }
   ],
-  "composition": {
-    "parent_id": "v13-fanout-qualification-parent",
-    "title": "Local assistant runtime architecture brief",
-    "child_results": [
-      {
-        "id": "v13-fanout-qualification-child-0",
-        "queue_position": 0,
+  "composition_cases": [
+    {
+      "id": "composer-complementary-architecture",
+      "domain": "software-architecture",
+      "snapshot": {
+        "version": 2,
+        "parent_id": "v13-composer-complementary-architecture",
+        "title": "Local assistant runtime architecture brief",
+        "original_request": "Explain how supervised process recovery and durable state replay complement each other in a local assistant runtime.",
         "status": "completed",
-        "detail": "OTP supervisors isolate process failures, bound restart intensity, and apply one_for_one or rest_for_one according to dependency order."
+        "join_outcome": "success",
+        "plan": {},
+        "children": [
+          {
+            "id": "v13-complementary-child-0",
+            "queue_position": 0,
+            "title": "Supervised process recovery",
+            "objective": "Analyze supervision-tree failure isolation and restart policy.",
+            "expected_result": "A bounded account of failure isolation and restart intensity.",
+            "status": "completed",
+            "detail": "Supervision trees isolate a child failure and apply bounded restart policy according to dependency structure.",
+            "effect_receipt_ref": null,
+            "result_authority": "reviewed_advisory",
+            "quality_receipt_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          {
+            "id": "v13-complementary-child-1",
+            "queue_position": 1,
+            "title": "Durable state replay",
+            "objective": "Analyze append-only replay and rebuildable projections.",
+            "expected_result": "A bounded account of idempotent state reconstruction.",
+            "status": "completed",
+            "detail": "An append-only event log supports idempotent replay into a rebuildable projection after a crash.",
+            "effect_receipt_ref": null,
+            "result_authority": "reviewed_advisory",
+            "quality_receipt_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+          }
+        ]
       },
-      {
-        "id": "v13-fanout-qualification-child-1",
-        "queue_position": 1,
-        "status": "completed",
-        "detail": "An append-only event log supports idempotent replay into a rebuildable projection after a crash."
+      "expected": {
+        "layout_version": 2,
+        "sections": [
+          {
+            "relationship": "complementary",
+            "ordered_queue_positions": [0, 1]
+          }
+        ]
       }
-    ],
-    "expected": {
-      "relationship": "complementary",
-      "ordered_queue_positions": [0, 1]
+    },
+    {
+      "id": "composer-contrasting-energy",
+      "domain": "energy-policy",
+      "snapshot": {
+        "version": 2,
+        "parent_id": "v13-composer-contrasting-energy",
+        "title": "Energy storage trade-off",
+        "original_request": "Contrast the operating trade-offs of the two storage approaches without choosing a winner.",
+        "status": "completed",
+        "join_outcome": "success",
+        "plan": {},
+        "children": [
+          {
+            "id": "v13-contrasting-child-0",
+            "queue_position": 0,
+            "title": "Fast-response storage",
+            "objective": "Describe the operating strengths and constraints of short-duration storage.",
+            "expected_result": "A qualified short-duration storage observation.",
+            "status": "completed",
+            "detail": "Short-duration storage responds quickly but supplies its rated output for a limited interval.",
+            "effect_receipt_ref": null,
+            "result_authority": "reviewed_advisory",
+            "quality_receipt_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          {
+            "id": "v13-contrasting-child-1",
+            "queue_position": 1,
+            "title": "Long-duration storage",
+            "objective": "Describe the operating strengths and constraints of long-duration storage.",
+            "expected_result": "A qualified long-duration storage observation.",
+            "status": "completed",
+            "detail": "Long-duration storage sustains output longer but typically responds with different cost and efficiency trade-offs.",
+            "effect_receipt_ref": null,
+            "result_authority": "reviewed_advisory",
+            "quality_receipt_sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+          }
+        ]
+      },
+      "expected": {
+        "layout_version": 2,
+        "sections": [
+          {
+            "relationship": "contrasting",
+            "ordered_queue_positions": [0, 1]
+          }
+        ]
+      }
+    },
+    {
+      "id": "composer-sequential-incident-response",
+      "domain": "incident-response",
+      "snapshot": {
+        "version": 2,
+        "parent_id": "v13-composer-sequential-incident-response",
+        "title": "Incident recovery sequence",
+        "original_request": "Join the two observations into the correct operational sequence for recovering an unhealthy service.",
+        "status": "completed",
+        "join_outcome": "success",
+        "plan": {},
+        "children": [
+          {
+            "id": "v13-sequential-child-0",
+            "queue_position": 0,
+            "title": "Preserve evidence",
+            "objective": "Identify the first bounded recovery step.",
+            "expected_result": "The prerequisite recovery observation.",
+            "status": "completed",
+            "detail": "Capture the relevant logs and current process state before changing the service.",
+            "effect_receipt_ref": null,
+            "result_authority": "reviewed_advisory",
+            "quality_receipt_sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+          },
+          {
+            "id": "v13-sequential-child-1",
+            "queue_position": 1,
+            "title": "Restore service",
+            "objective": "Identify the subsequent bounded recovery step.",
+            "expected_result": "The dependent recovery observation.",
+            "status": "completed",
+            "detail": "Restart the service only after evidence capture, then verify its health endpoint.",
+            "effect_receipt_ref": null,
+            "result_authority": "reviewed_advisory",
+            "quality_receipt_sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+          }
+        ]
+      },
+      "expected": {
+        "layout_version": 2,
+        "sections": [
+          {
+            "relationship": "sequential",
+            "ordered_queue_positions": [0, 1]
+          }
+        ]
+      }
+    },
+    {
+      "id": "composer-supporting-archaeology",
+      "domain": "archaeology",
+      "snapshot": {
+        "version": 2,
+        "parent_id": "v13-composer-supporting-archaeology",
+        "title": "Settlement chronology evidence",
+        "original_request": "Explain how the independent dating observations support one bounded chronology claim.",
+        "status": "completed",
+        "join_outcome": "success",
+        "plan": {},
+        "children": [
+          {
+            "id": "v13-supporting-child-0",
+            "queue_position": 0,
+            "title": "Material sequence",
+            "objective": "Assess the relative material chronology.",
+            "expected_result": "One qualified relative-dating observation.",
+            "status": "completed",
+            "detail": "The later deposit consistently overlies the earlier material layer across the sampled trench.",
+            "effect_receipt_ref": null,
+            "result_authority": "reviewed_advisory",
+            "quality_receipt_sha256": "7777777777777777777777777777777777777777777777777777777777777777"
+          },
+          {
+            "id": "v13-supporting-child-1",
+            "queue_position": 1,
+            "title": "Independent date range",
+            "objective": "Assess the available absolute date range.",
+            "expected_result": "One qualified absolute-dating observation.",
+            "status": "completed",
+            "detail": "The independent sample date falls inside the interval inferred from the material sequence.",
+            "effect_receipt_ref": null,
+            "result_authority": "reviewed_advisory",
+            "quality_receipt_sha256": "8888888888888888888888888888888888888888888888888888888888888888"
+          }
+        ]
+      },
+      "expected": {
+        "layout_version": 2,
+        "sections": [
+          {
+            "relationship": "supporting",
+            "ordered_queue_positions": [0, 1]
+          }
+        ]
+      }
+    },
+    {
+      "id": "composer-independent-travel",
+      "domain": "travel-planning",
+      "snapshot": {
+        "version": 2,
+        "parent_id": "v13-composer-independent-travel",
+        "title": "Travel preparation brief",
+        "original_request": "Combine the related transport findings and retain the separate document reminder as an independent finding.",
+        "status": "completed",
+        "join_outcome": "success",
+        "plan": {},
+        "children": [
+          {
+            "id": "v13-independent-child-0",
+            "queue_position": 0,
+            "title": "Rail arrival",
+            "objective": "Record the rail arrival constraint.",
+            "expected_result": "One reviewed transport observation.",
+            "status": "completed",
+            "detail": "The final direct train reaches the destination before the evening transfer window closes.",
+            "effect_receipt_ref": null,
+            "result_authority": "reviewed_advisory",
+            "quality_receipt_sha256": "9999999999999999999999999999999999999999999999999999999999999999"
+          },
+          {
+            "id": "v13-independent-child-1",
+            "queue_position": 1,
+            "title": "Local transfer",
+            "objective": "Record the local transfer constraint.",
+            "expected_result": "One reviewed transport observation.",
+            "status": "completed",
+            "detail": "The local transfer departs after the direct train's scheduled arrival with a bounded connection margin.",
+            "effect_receipt_ref": null,
+            "result_authority": "reviewed_advisory",
+            "quality_receipt_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "id": "v13-independent-child-2",
+            "queue_position": 2,
+            "title": "Document reminder",
+            "objective": "Record the separate document constraint.",
+            "expected_result": "One reviewed independent observation.",
+            "status": "completed",
+            "detail": "The travel document must remain valid through the stated return date.",
+            "effect_receipt_ref": null,
+            "result_authority": "reviewed_advisory",
+            "quality_receipt_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          }
+        ]
+      },
+      "expected": {
+        "layout_version": 2,
+        "sections": [
+          {
+            "relationship": "supporting",
+            "ordered_queue_positions": [0, 1]
+          },
+          {
+            "relationship": "independent",
+            "ordered_queue_positions": [2]
+          }
+        ]
+      }
+    },
+    {
+      "id": "composer-partial-data-migration",
+      "domain": "data-migration",
+      "snapshot": {
+        "version": 2,
+        "parent_id": "v13-composer-partial-data-migration",
+        "title": "Partial migration assessment",
+        "original_request": "State what can be concluded from the completed validation while preserving the failed validation as attention truth.",
+        "status": "completed",
+        "join_outcome": "partial",
+        "plan": {},
+        "children": [
+          {
+            "id": "v13-partial-child-0",
+            "queue_position": 0,
+            "title": "Schema validation",
+            "objective": "Validate the migrated schema shape.",
+            "expected_result": "A reviewed schema observation.",
+            "status": "completed",
+            "detail": "The sampled migrated records conform to the expected field and type shape.",
+            "effect_receipt_ref": null,
+            "result_authority": "reviewed_advisory",
+            "quality_receipt_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          {
+            "id": "v13-partial-child-1",
+            "queue_position": 1,
+            "title": "Historical reconciliation",
+            "objective": "Reconcile historical aggregate totals.",
+            "expected_result": "A bounded reconciliation result.",
+            "status": "failed",
+            "detail": "The historical reconciliation did not complete, so no aggregate conclusion is available.",
+            "effect_receipt_ref": null,
+            "result_authority": "legacy_unreviewed_advisory",
+            "quality_receipt_sha256": null
+          }
+        ]
+      },
+      "expected": {
+        "layout_version": 2,
+        "sections": [
+          {
+            "relationship": "independent",
+            "ordered_queue_positions": [0]
+          }
+        ]
+      }
+    },
+    {
+      "id": "composer-unrelated-domain-culinary",
+      "domain": "culinary-science",
+      "snapshot": {
+        "version": 2,
+        "parent_id": "v13-composer-unrelated-domain-culinary",
+        "title": "Bread fermentation brief",
+        "original_request": "Explain how temperature control and fermentation time complement each other without claiming one fixed recipe.",
+        "status": "completed",
+        "join_outcome": "success",
+        "plan": {},
+        "children": [
+          {
+            "id": "v13-unrelated-child-0",
+            "queue_position": 0,
+            "title": "Temperature observation",
+            "objective": "Describe the qualified role of dough temperature.",
+            "expected_result": "A bounded fermentation-temperature observation.",
+            "status": "completed",
+            "detail": "Warmer dough generally ferments faster within the observed range, while exact rates remain recipe-dependent.",
+            "effect_receipt_ref": null,
+            "result_authority": "reviewed_advisory",
+            "quality_receipt_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+          },
+          {
+            "id": "v13-unrelated-child-1",
+            "queue_position": 1,
+            "title": "Time observation",
+            "objective": "Describe the qualified role of fermentation time.",
+            "expected_result": "A bounded fermentation-time observation.",
+            "status": "completed",
+            "detail": "Longer fermentation can increase development, but the useful interval depends on temperature and dough condition.",
+            "effect_receipt_ref": null,
+            "result_authority": "reviewed_advisory",
+            "quality_receipt_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        ]
+      },
+      "expected": {
+        "layout_version": 2,
+        "sections": [
+          {
+            "relationship": "complementary",
+            "ordered_queue_positions": [0, 1]
+          }
+        ]
+      }
     }
-  }
+  ]
 }

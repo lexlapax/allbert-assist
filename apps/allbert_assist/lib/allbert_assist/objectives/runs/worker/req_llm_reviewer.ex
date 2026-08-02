@@ -114,7 +114,9 @@ defmodule AllbertAssist.Objectives.Runs.Worker.ReqLLMReviewer do
       PromptEnvelope.build(
         purpose: :fanout_worker_quality_review,
         instruction:
-          "Review the draft against every declared rule and return the answer itself after any necessary revision. For each catalog-keyed rule_violations Boolean, return true only when the final answer violates that rule and false otherwise. A rule whose triggering condition does not apply is not violated. Allbert derives the aggregate outcome locally.",
+          "Review the draft against every declared rule and return the answer itself after any necessary revision. " <>
+            ClosedRuleEvidence.violation_semantics() <>
+            " Allbert derives the aggregate outcome locally.",
         rules: Enum.map(QualityPolicy.rule_specs(), &{&1.id, &1.instruction}),
         input:
           CanonicalJSON.encode(%{

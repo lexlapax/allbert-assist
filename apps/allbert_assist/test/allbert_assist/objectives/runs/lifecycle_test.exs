@@ -322,13 +322,13 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
     refute Map.has_key?(payload, "summary")
   end
 
-  test "a valid catalog-v1 reviewed receipt resumes through the current lifecycle" do
-    answer = "A replayed catalog-v1 reviewed answer."
+  test "a replay-valid catalog-v1 receipt cannot become a new completion event" do
+    answer = "A replay-valid catalog-v1 reviewed answer."
     {child, step, current_receipt, _task_digest} = reviewed_completion_fixture(answer)
 
     assert {:ok, contract} = child |> Grounding.resolve() |> QualityPolicy.build()
 
-    assert {:ok, %{"1" => legacy_digest} = task_digests} =
+    assert {:ok, %{"1" => legacy_digest}} =
              QualityPolicy.receipt_task_digests(contract)
 
     legacy_receipt =
@@ -336,7 +336,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
       |> Map.put("rule_catalog_version", 1)
       |> Map.put("task_contract_sha256", legacy_digest)
 
-    assert {:ok, completed} =
+    assert {:error, {:invalid_fanout_worker_quality_receipt, :invalid_quality_receipt}} =
              Lifecycle.run(child.id,
                adapter: QualityCompletionAdapter,
                quality_step: step,
@@ -344,18 +344,8 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
                quality_receipt: legacy_receipt
              )
 
-    assert completed.status == "completed"
-
-    assert event = Enum.find(Objectives.list_events(child.id), &(&1.kind == "run_completed"))
-
-    assert {:ok, ^legacy_receipt, _receipt_digest} =
-             QualityReceipt.from_event_payload(event.payload, %{
-               objective_id: child.id,
-               step_id: step.id,
-               task_contract_sha256: task_digests["2"],
-               task_contract_sha256_by_rule_catalog_version: task_digests,
-               final_answer: answer
-             })
+    assert {:ok, %{status: "failed"}} = Objectives.get_objective(child.id)
+    refute Enum.any?(Objectives.list_events(child.id), &(&1.kind == "run_completed"))
   end
 
   test "reviewed completion resumes idempotently when its step already completed" do

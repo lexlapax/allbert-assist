@@ -289,9 +289,21 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
   test "v1.3 fan-out benchmark validates fixture schema and digest before allocating a Home" do
     root = temp_path("v13-fanout-preflight")
     invalid_manager = Path.join(root, "invalid-manager.json")
+    changed_manager = Path.join(root, "changed-manager.json")
     changed_worker = Path.join(root, "changed-worker.json")
     File.mkdir_p!(root)
     File.write!(invalid_manager, "{}")
+
+    manager = @v13_fanout_fixture |> File.read!() |> Jason.decode!()
+
+    changed_manager_fixture =
+      update_in(
+        manager,
+        ["composition_cases", Access.at(0), "snapshot", "children", Access.at(0), "detail"],
+        &(&1 <> " ")
+      )
+
+    File.write!(changed_manager, Jason.encode!(changed_manager_fixture))
 
     worker = @v13_worker_fixture |> File.read!() |> Jason.decode!()
     changed_worker_fixture = update_in(worker, ["scenarios", Access.at(0), "draft"], &(&1 <> " "))
@@ -306,6 +318,16 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
         "bench-v13-fanout",
         "--fixture",
         invalid_manager,
+        "--worker-fixture",
+        @v13_worker_fixture
+      ])
+    end
+
+    assert_raise RuntimeError, "invalid v1.3 fan-out fixture digest", fn ->
+      AllbertTestTask.run([
+        "bench-v13-fanout",
+        "--fixture",
+        changed_manager,
         "--worker-fixture",
         @v13_worker_fixture
       ])
