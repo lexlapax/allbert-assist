@@ -999,6 +999,13 @@ transcript; the metrics row carries only the call count, byte size, digest, and
 profile. Without `--control-output` the control does not run and the row is
 absent, which keeps the ordinary uniform-profile gate unchanged.
 
+A rejected model synthesis stays a failed row even though the composer stores
+its deterministic fallback and still delivers a truthful joined report, so the
+gate measures model synthesis compliance rather than delivery. Under that bar
+the default head records `4/7` and the 24B `5/7`; the residual failures are
+relationship judgment on the frozen fixture, not schema or orchestration
+faults.
+
 Owner tests prove the one-call Worker and composer contracts mechanically; the
 frozen configured-provider and attended `FOV-*` bars remain release
 acceptance. Dirty

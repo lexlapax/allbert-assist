@@ -14,7 +14,7 @@ defmodule AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy do
       id: "complete_child_coverage",
       prompt_id: :complete_child_coverage,
       instruction:
-        "Use every completed child's accepted observation in the joined reasoning and list every completed queue position once in ascending covered_queue_positions."
+        "Use every completed child's accepted observation in the joined reasoning. Across all sections, list every completed queue position exactly once in ordered_queue_positions, in ascending order, and never list a position that is not supplied as completed or that another section already lists. Every section must carry at least one queue position; never return a section whose ordered_queue_positions is empty."
     },
     %{
       id: "parent_join_request_coverage",
@@ -26,7 +26,7 @@ defmodule AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy do
       id: "relationship_support",
       prompt_id: :relationship_support,
       instruction:
-        "Choose relationship sections supported by the supplied observations and explain the substantive cross-child relationship in advisory_synthesis."
+        "Choose relationship sections supported by the supplied observations and explain the substantive cross-child relationship in advisory_synthesis. Choose each section's relationship by how its observations stand to each other: complementary when they cover different aspects that together give a fuller picture and neither depends on the other; contrasting when they differ, disagree, or set out trade-offs; sequential when they describe stages that follow one another in order; supporting when one observation provides evidence or grounding for another; independent when they have no substantive relationship, which is also the correct choice for a section holding a single observation that stands alone. Return the fewest sections that describe the supplied observations: when every completed child stands in the same relationship, return exactly one section covering all of them, and only split into further sections when a subset genuinely stands differently. A section covering exactly one queue position must use independent."
     },
     %{
       id: "internal_consistency",

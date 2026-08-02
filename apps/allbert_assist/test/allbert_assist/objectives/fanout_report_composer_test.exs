@@ -414,10 +414,19 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
     assert section_schema["required"] == ~w[relationship ordered_queue_positions]
     assert section_schema["additionalProperties"] == false
 
-    assert section_schema["properties"]["ordered_queue_positions"] == %{
+    positions_schema = section_schema["properties"]["ordered_queue_positions"]
+
+    assert Map.take(positions_schema, ~w[type items]) == %{
              "type" => "array",
              "items" => %{"type" => "integer", "minimum" => 0}
            }
+
+    assert Map.keys(positions_schema) |> Enum.sort() == ~w[description items type]
+
+    # v1.3 M9.b.6: both closed choices carry their meaning, because the model
+    # was previously handed the enum with no definition of any value.
+    assert positions_schema["description"] =~ "at most once"
+    assert section_schema["properties"]["relationship"]["description"] =~ "complementary"
 
     assert schema["properties"]["advisory_synthesis"]["type"] == "string"
 

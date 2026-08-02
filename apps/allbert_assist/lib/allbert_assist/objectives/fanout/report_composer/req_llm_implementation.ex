@@ -146,10 +146,23 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation do
     %{
       "type" => "object",
       "properties" => %{
-        "relationship" => %{"type" => "string", "enum" => @relationships},
+        "relationship" => %{
+          "type" => "string",
+          "enum" => @relationships,
+          "description" =>
+            "How the observations in this section stand to each other. " <>
+              "complementary: they cover different aspects that together give a fuller picture, and neither depends on the other. " <>
+              "contrasting: they differ, disagree, or set out trade-offs against each other. " <>
+              "sequential: they describe stages that follow one another in order. " <>
+              "supporting: one observation provides evidence or grounding for another. " <>
+              "independent: they have no substantive relationship to each other; use independent for a section holding a single observation that stands alone."
+        },
         "ordered_queue_positions" => %{
           "type" => "array",
-          "items" => %{"type" => "integer", "minimum" => 0}
+          "items" => %{"type" => "integer", "minimum" => 0},
+          "description" =>
+            "The completed children in this section, by queue_position, in reading order. " <>
+              "Use only positions supplied as completed, list each position at most once here, and never repeat a position that another section already lists."
         }
       },
       "required" => ~w[relationship ordered_queue_positions],
