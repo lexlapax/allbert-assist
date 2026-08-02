@@ -156,21 +156,10 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
           store: store,
           full_sha: full_sha,
           dirty: dirty
-        ],
-        worker_quality: [
-          profile: profiles.worker,
-          runner_context: worker_quality_context(profiles.worker),
-          row_timeout_ms: composer_context(profiles.worker).timeout_ms,
-          role_profile_bindings: profiles.bindings,
-          command: command,
-          store: store,
-          full_sha: full_sha,
-          dirty: dirty
         ]
       )
 
     IO.puts(summary(phases.manager_and_composer))
-    IO.puts(V13FanoutWorkerQualityEval.summary(phases.worker_quality))
 
     if phases.failed_rows != [] do
       IO.puts("failed_rows=#{Enum.join(phases.failed_rows, ",")}")
@@ -197,17 +186,10 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     end
   end
 
-  @doc "Load and validate both frozen phase fixtures before runtime setup."
+  @doc "Load and validate the frozen qualification fixture before runtime setup."
   @spec load_fixtures!(Path.t(), Path.t() | nil) :: fixtures()
-  def load_fixtures!(manager_fixture_path, worker_fixture_path \\ nil) do
-    worker_fixture_path =
-      worker_fixture_path ||
-        Path.join(Path.dirname(manager_fixture_path), "fanout_worker_quality_eval.json")
-
-    %{
-      manager_and_composer: load_fixture!(manager_fixture_path),
-      worker_quality: V13FanoutWorkerQualityEval.load_fixture!(worker_fixture_path)
-    }
+  def load_fixtures!(manager_fixture_path, _worker_fixture_path \\ nil) do
+    %{manager_and_composer: load_fixture!(manager_fixture_path)}
   end
 
   @doc "Return the SHA-256 of the canonical decoded manager/composer fixture."
@@ -215,25 +197,15 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   def fixture_sha256(fixture) when is_map(fixture),
     do: sha256(CanonicalJSON.encode(fixture))
 
-  @doc "Run both independently recorded qualification phases and combine their status."
+  @doc "Run the recorded qualification phase and report its status."
   @spec run_phases(fixtures(), keyword()) :: phases_result()
-  def run_phases(
-        %{manager_and_composer: manager_fixture, worker_quality: worker_fixture},
-        opts
-      )
-      when is_list(opts) do
+  def run_phases(%{manager_and_composer: manager_fixture}, opts) when is_list(opts) do
     manager_result = run(manager_fixture, Keyword.fetch!(opts, :manager_and_composer))
 
-    worker_result =
-      V13FanoutWorkerQualityEval.run(worker_fixture, Keyword.fetch!(opts, :worker_quality))
-
-    failed_rows = manager_result.failed_rows ++ worker_result.failed_rows
-
     %{
-      status: if(failed_rows == [], do: "passed", else: "failed"),
-      failed_rows: failed_rows,
-      manager_and_composer: manager_result,
-      worker_quality: worker_result
+      status: if(manager_result.failed_rows == [], do: "passed", else: "failed"),
+      failed_rows: manager_result.failed_rows,
+      manager_and_composer: manager_result
     }
   end
 
@@ -870,14 +842,6 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     }
   end
 
-  defp worker_quality_context(profile) do
-    %{
-      actor: "local",
-      user_id: "local",
-      request: %{channel: :cli},
-      quality_eval_worker_profile: profile.name
-    }
-  end
 
   defp authorize_composer(profile, _context) do
     disclosure = %{actor: "local", user_id: "local", request: %{channel: :cli}}

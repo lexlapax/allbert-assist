@@ -330,30 +330,23 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation do
       json_repair: Keyword.fetch!(opts, :json_repair)
     }
 
-    with {:ok, protocol} <- SynthesisPolicy.review_protocol(),
-         {:ok, catalog_sha256} <-
-           SynthesisPolicy.rule_group_catalog_sha256(SynthesisPolicy.rule_group_catalog_version()) do
-      extras = %{
-        phase: phase,
-        policy_version: SynthesisPolicy.version(),
-        review_protocol_version: protocol.review_protocol_version,
-        rule_group_catalog_version: SynthesisPolicy.rule_group_catalog_version(),
-        rule_group_catalog_sha256: catalog_sha256
-      }
+    extras = %{
+      phase: phase,
+      policy_version: SynthesisPolicy.version()
+    }
 
-      extras =
-        if revision_rule_ids == [] do
-          extras
-        else
-          Map.put(
-            extras,
-            :revision_rule_ids_sha256,
-            sha256(CanonicalJSON.encode(revision_rule_ids))
-          )
-        end
+    extras =
+      if revision_rule_ids == [] do
+        extras
+      else
+        Map.put(
+          extras,
+          :revision_rule_ids_sha256,
+          sha256(CanonicalJSON.encode(revision_rule_ids))
+        )
+      end
 
-      RoleProfileConfiguration.digest(:fanout_synthesis, profile, transport, extras)
-    end
+    RoleProfileConfiguration.digest(:fanout_synthesis, profile, transport, extras)
   end
 
   defp ensure_req_llm(context) do

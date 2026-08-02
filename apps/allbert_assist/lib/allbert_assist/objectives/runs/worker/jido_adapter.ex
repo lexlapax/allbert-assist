@@ -1,6 +1,9 @@
 defmodule AllbertAssist.Objectives.Runs.Worker.JidoAdapter do
   @moduledoc """
-  Temporary bounded Jido Adapter for a clean DirectAnswer Objective child.
+  Bounded Jido Adapter for one DirectAnswer Objective child.
+
+  v1.3 M9.b.6 (ADR 0021 A24): one generation call, then terminalize. The
+  draft/review/revise continuation is removed — no model judges model output.
 
   A linked task hosts one pure `Jido.Agent.cmd/3` lifecycle and is terminated
   before the Adapter returns. We intentionally do not use AgentServer here:
@@ -13,10 +16,10 @@ defmodule AllbertAssist.Objectives.Runs.Worker.JidoAdapter do
   @behaviour AllbertAssist.Objectives.Runs.Worker.Adapter
 
   alias AllbertAssist.Actions.Intent.DirectAnswer
-  alias AllbertAssist.Objectives.Fanout.ReqLLMCritic
+  alias AllbertAssist.Objectives.Fanout.EndpointAdmission
   alias AllbertAssist.Objectives.Runs.CancelToken
   alias AllbertAssist.Objectives.Runs.Worker.{Agent, QualityPolicy}
-  alias AllbertAssist.Objectives.Runs.Worker.Commands.{Execute, ReviewRound, Revise}
+  alias AllbertAssist.Objectives.Runs.Worker.Commands.Execute
 
   @default_timeout_ms 30_000
   @maximum_timeout_ms 120_000
@@ -32,7 +35,14 @@ defmodule AllbertAssist.Objectives.Runs.Worker.JidoAdapter do
          {:ok, quality} <- quality_context(context),
          {:ok, bounds} <- bounded_timeout(opts, context, quality) do
       context = put_model_limits(context, bounds, quality)
-      worker = Task.async(fn -> execute(params, context, quality, opts) end)
+      endpoint_id = EndpointAdmission.endpoint_id(Map.get(context, :fanout_role_binding))
+
+      worker =
+        Task.async(fn ->
+          EndpointAdmission.with_endpoint(endpoint_id, bounds.deadline_monotonic_ms, fn ->
+            execute(params, context, quality)
+          end)
+        end)
       emit_start(worker.pid, context)
       await(worker, bounds.deadline_monotonic_ms)
     end
@@ -40,7 +50,7 @@ defmodule AllbertAssist.Objectives.Runs.Worker.JidoAdapter do
 
   def run(_action_module, _params, _context, _opts), do: {:error, :unsupported_jido_action}
 
-  defp execute(params, context, quality, opts) do
+  defp execute(params, context, quality) do
     state = initial_state(context, quality)
 
     agent =
@@ -65,10 +75,10 @@ defmodule AllbertAssist.Objectives.Runs.Worker.JidoAdapter do
         __jido_instance__: AllbertAssist.Jido
       )
 
-    continue(agent, context, quality, opts)
+    resolve(agent, context, quality)
   end
 
-  defp continue(agent, _context, :legacy, _opts) do
+  defp resolve(agent, _context, :legacy) do
     case agent.state do
       %{last_result: {:ok, response}} -> {:ok, response}
       %{last_result: {:error, reason}} -> {:error, reason}
@@ -76,83 +86,12 @@ defmodule AllbertAssist.Objectives.Runs.Worker.JidoAdapter do
     end
   end
 
-  defp continue(%{state: %{status: :draft}} = agent, context, %{contract: contract}, opts) do
-    with :ok <- active(context) do
-      review_payload = %{
-        phase: :initial,
-        critic: Keyword.get(opts, :quality_critic, ReqLLMCritic),
-        runner_context: context
-      }
-
-      {agent, _directives} =
-        Agent.cmd(
-          agent,
-          {ReviewRound, review_payload},
-          timeout: 0,
-          max_retries: 0,
-          __jido_instance__: AllbertAssist.Jido
-        )
-
-      continue(agent, context, %{contract: contract}, opts)
-    else
-      {:error, reason} -> unresolved_error(agent.state, reason)
-    end
-  end
-
-  defp continue(
-         %{state: %{status: :revision_required}} = agent,
-         context,
-         %{contract: contract},
-         opts
-       ) do
-    with :ok <- active(context) do
-      {agent, _directives} =
-        Agent.cmd(
-          agent,
-          {Revise, %{runner_context: context}},
-          timeout: 0,
-          max_retries: 0,
-          __jido_instance__: AllbertAssist.Jido
-        )
-
-      continue(agent, context, %{contract: contract}, opts)
-    else
-      {:error, reason} -> unresolved_error(agent.state, reason)
-    end
-  end
-
-  defp continue(%{state: %{status: :revised}} = agent, context, %{contract: contract}, opts) do
-    with :ok <- active(context) do
-      review_payload = %{
-        phase: :final,
-        critic: Keyword.get(opts, :quality_critic, ReqLLMCritic),
-        runner_context: context
-      }
-
-      {agent, _directives} =
-        Agent.cmd(
-          agent,
-          {ReviewRound, review_payload},
-          timeout: 0,
-          max_retries: 0,
-          __jido_instance__: AllbertAssist.Jido
-        )
-
-      continue(agent, context, %{contract: contract}, opts)
-    else
-      {:error, reason} -> unresolved_error(agent.state, reason)
-    end
-  end
-
-  defp continue(%{state: %{status: :accepted}} = agent, context, %{contract: _contract}, _opts) do
+  defp resolve(agent, context, %{contract: _contract}) do
     case active(context) do
       :ok -> accepted_result(agent.state)
       {:error, reason} -> unresolved_error(agent.state, reason)
     end
   end
-
-  defp continue(%{state: state}, _context, %{contract: _contract}, _opts),
-    do: unresolved_error(state, Map.get(state, :error, :quality_draft_unresolved))
 
   defp accepted_result(%{
          status: :accepted,
@@ -161,7 +100,7 @@ defmodule AllbertAssist.Objectives.Runs.Worker.JidoAdapter do
        do: {:ok, %{response: response, quality_receipt: receipt}}
 
   defp accepted_result(state),
-    do: unresolved_error(state, Map.get(state, :error, :quality_review_unresolved))
+    do: unresolved_error(state, Map.get(state, :error, :quality_generation_unresolved))
 
   defp unresolved_error(state, reason) do
     {:error,
@@ -222,7 +161,7 @@ defmodule AllbertAssist.Objectives.Runs.Worker.JidoAdapter do
   defp draft_context(context, :legacy), do: context
 
   defp draft_context(context, %{contract: _contract}),
-    do: Map.put(context, :fanout_worker_phase, :draft)
+    do: Map.put(context, :fanout_worker_phase, :generation)
 
   defp active(context) do
     case CancelToken.checkpoint(context) do
@@ -342,7 +281,6 @@ defmodule AllbertAssist.Objectives.Runs.Worker.JidoAdapter do
     |> Map.put(:model_timeout_ms, bounds.timeout_ms)
     |> Map.put(:model_max_retries, 0)
     |> Map.put(:fanout_worker_deadline_monotonic_ms, bounds.deadline_monotonic_ms)
-    |> Map.put(:fanout_review_deadline_monotonic_ms, bounds.deadline_monotonic_ms)
     |> Map.put(:fanout_worker_policy, @fanout_worker_policy)
   end
 end

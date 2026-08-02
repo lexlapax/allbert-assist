@@ -203,7 +203,7 @@ defmodule AllbertAssist.Objectives.Fanout do
 
   defp legacy_composer_budget?(%{plan: plan}) when is_map(plan) do
     budget = Map.get(plan, "budget") || Map.get(plan, :budget)
-    Budget.composer_compatibility(budget) == {:error, :review_protocol_upgrade_required}
+    Budget.composer_compatibility(budget) == {:error, :fanout_budget_version_retired}
   end
 
   defp report_input_v2(_parent, report_parent, report_children) do

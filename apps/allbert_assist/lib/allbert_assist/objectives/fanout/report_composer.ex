@@ -199,8 +199,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
       :ok ->
         select_synthesis_eligible_body(claim, state)
 
-      {:error, :review_protocol_upgrade_required} ->
-        fallback_selection(frozen, :review_protocol_upgrade_required, :not_run)
 
       {:error, :invalid_fanout_budget_snapshot} ->
         fallback_selection(frozen, :invalid_budget_snapshot, :not_run)
@@ -300,19 +298,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
         review_verdict: Map.fetch!(prepared, :review_verdict),
         reviewed_queue_positions: Map.fetch!(prepared, :reviewed_queue_positions),
         synthesis_sha256: Map.fetch!(prepared, :synthesis_sha256),
-        review_protocol_version: Map.fetch!(prepared, :review_protocol_version),
-        critic_group_count: Map.fetch!(prepared, :critic_group_count),
-        rule_group_catalog_version: Map.fetch!(prepared, :rule_group_catalog_version),
-        rule_group_catalog_sha256: Map.fetch!(prepared, :rule_group_catalog_sha256),
-        reviewer_config_sha256: Map.fetch!(prepared, :reviewer_config_sha256),
         generation_call_count: Map.fetch!(prepared, :generation_call_count),
-        initial_critic_call_count: Map.fetch!(prepared, :initial_critic_call_count),
-        revision_call_count: Map.fetch!(prepared, :revision_call_count),
-        final_critic_call_count: Map.fetch!(prepared, :final_critic_call_count),
         provider_call_count: Map.fetch!(prepared, :provider_call_count),
-        initial_assessment_sha256: Map.fetch!(prepared, :initial_assessment_sha256),
-        final_assessment_sha256: Map.fetch!(prepared, :final_assessment_sha256),
-        accepted_assessment_sha256: Map.fetch!(prepared, :accepted_assessment_sha256)
       }
     }
   end

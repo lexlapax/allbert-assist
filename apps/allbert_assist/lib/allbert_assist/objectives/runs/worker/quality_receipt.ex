@@ -1,21 +1,24 @@
 defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
   @moduledoc """
-  Builds and verifies the content-free receipt for one reviewed worker result.
+  Builds and verifies the content-free receipt for one worker result.
 
-  A receipt proves only that the closed local review boundary ran and accepted
-  one exact normalized observation. It grants no action, effect, permission,
+  A receipt binds identity, the exact task contract, the physical provider call
+  count, and the accepted answer bytes. It grants no action, effect, permission,
   status transition, or report authority by itself.
+
+  v1.3 M9.b.6 (ADR 0021 A24) writes v3: one generation call, no critic phases.
+  v1 stays a byte-exact read/replay path because it shipped. v2 was the
+  phase-separated critic shape; it never shipped and is not readable.
   """
 
   alias AllbertAssist.Objectives.CanonicalJSON
-  alias AllbertAssist.Objectives.Runs.Worker.QualityPolicy
 
   @legacy_version 1
-  @version 2
+  @version 3
   @write_rule_catalog_version 2
   @replay_rule_catalog_versions [1, 2]
   @legacy_receipt_digest_domain "allbert:fanout-worker-quality-receipt:v1\0"
-  @receipt_digest_domain "allbert:fanout-worker-quality-receipt:v2\0"
+  @receipt_digest_domain "allbert:fanout-worker-quality-receipt:v3\0"
   @legacy_receipt_keys ~w[
     version objective_id_sha256 step_id_sha256 task_contract_sha256
     rule_catalog_version reviewer_config_sha256 provider_call_count verdict
@@ -23,27 +26,20 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
   ]
   @receipt_keys ~w[
     version objective_id_sha256 step_id_sha256 task_contract_sha256
-    rule_catalog_version review_protocol_version critic_group_count
-    rule_group_catalog_version rule_group_catalog_sha256 reviewer_config_sha256
-    draft_call_count initial_critic_call_count revision_call_count
-    final_critic_call_count provider_call_count initial_assessment_sha256
-    final_assessment_sha256 accepted_assessment_sha256 verdict failed_rule_ids
-    final_answer_sha256
+    rule_catalog_version generator_config_sha256 generation_call_count
+    provider_call_count verdict final_answer_sha256
   ]
   @event_keys ~w[quality_receipt step_id step_status]
   @build_binding_keys ~w[
     objective_id step_id task_contract_sha256 rule_catalog_version
-    review_protocol_version critic_group_count rule_group_catalog_version
-    rule_group_catalog_sha256 reviewer_config_sha256 draft_call_count
-    initial_critic_call_count revision_call_count final_critic_call_count
-    provider_call_count initial_assessment_sha256 final_assessment_sha256
-    accepted_assessment_sha256 verdict failed_rule_ids final_answer
+    generator_config_sha256 generation_call_count provider_call_count verdict
+    final_answer
   ]
   @verify_binding_keys ~w[objective_id step_id task_contract_sha256 final_answer]
 
   @type receipt :: %{required(String.t()) => term()}
 
-  @doc "Build one exact accepted v2 receipt from transient phase-review bindings."
+  @doc "Build one exact accepted v3 receipt from a single-generation worker run."
   @spec build(map()) :: {:ok, receipt()} | {:error, :invalid_quality_receipt_binding}
   def build(binding) when is_map(binding) do
     with {:ok, binding} <- normalize_map(binding),
@@ -56,21 +52,10 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
         "step_id_sha256" => sha256(binding["step_id"]),
         "task_contract_sha256" => binding["task_contract_sha256"],
         "rule_catalog_version" => binding["rule_catalog_version"],
-        "review_protocol_version" => binding["review_protocol_version"],
-        "critic_group_count" => binding["critic_group_count"],
-        "rule_group_catalog_version" => binding["rule_group_catalog_version"],
-        "rule_group_catalog_sha256" => binding["rule_group_catalog_sha256"],
-        "reviewer_config_sha256" => binding["reviewer_config_sha256"],
-        "draft_call_count" => binding["draft_call_count"],
-        "initial_critic_call_count" => binding["initial_critic_call_count"],
-        "revision_call_count" => binding["revision_call_count"],
-        "final_critic_call_count" => binding["final_critic_call_count"],
+        "generator_config_sha256" => binding["generator_config_sha256"],
+        "generation_call_count" => binding["generation_call_count"],
         "provider_call_count" => binding["provider_call_count"],
-        "initial_assessment_sha256" => binding["initial_assessment_sha256"],
-        "final_assessment_sha256" => binding["final_assessment_sha256"],
-        "accepted_assessment_sha256" => binding["accepted_assessment_sha256"],
         "verdict" => binding["verdict"],
-        "failed_rule_ids" => binding["failed_rule_ids"],
         "final_answer_sha256" => sha256(binding["final_answer"])
       }
 
@@ -118,8 +103,7 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
     with :ok <- validate(receipt, binding),
          {:ok, receipt} <- normalize_map(receipt),
          true <- receipt["version"] == @version,
-         true <- receipt["rule_catalog_version"] == @write_rule_catalog_version,
-         true <- current_review_protocol?(receipt) do
+         true <- receipt["rule_catalog_version"] == @write_rule_catalog_version do
       :ok
     else
       _invalid -> {:error, :invalid_quality_receipt}
@@ -128,16 +112,6 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
 
   def validate_current(_receipt, _binding), do: {:error, :invalid_quality_receipt}
 
-  defp current_review_protocol?(receipt) do
-    with {:ok, protocol} <- QualityPolicy.review_protocol() do
-      receipt["review_protocol_version"] == protocol.review_protocol_version and
-        receipt["critic_group_count"] == length(protocol.groups) and
-        receipt["rule_group_catalog_version"] == protocol.rule_group_catalog_version and
-        receipt["rule_group_catalog_sha256"] == protocol.rule_group_catalog_sha256
-    else
-      _unavailable -> false
-    end
-  end
 
   @doc "Validate and digest one exact receipt."
   @spec digest(map()) :: {:ok, String.t()} | {:error, :invalid_quality_receipt}
@@ -186,69 +160,26 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
   end
 
   defp valid_receipt?(%{"version" => @version} = receipt) do
-    valid_v2_shape?(receipt) and valid_v2_protocol?(receipt) and
-      valid_v2_outcome?(receipt) and valid_phase_arithmetic?(receipt) and
-      valid_phase_assessment_binding?(receipt) and valid_v2_digests?(receipt)
+    valid_v3_shape?(receipt) and valid_v3_outcome?(receipt) and valid_v3_digests?(receipt)
   end
 
   defp valid_receipt?(_receipt), do: false
 
-  defp valid_v2_shape?(receipt), do: exact_keys?(receipt, @receipt_keys)
+  defp valid_v3_shape?(receipt), do: exact_keys?(receipt, @receipt_keys)
 
-  defp valid_v2_protocol?(receipt) do
-    with true <- receipt["rule_catalog_version"] == @write_rule_catalog_version,
-         true <- receipt["review_protocol_version"] == 1,
-         true <- receipt["critic_group_count"] == 2,
-         {:ok, expected_catalog_sha256} <-
-           QualityPolicy.rule_group_catalog_sha256(receipt["rule_group_catalog_version"]),
-         true <- receipt["rule_group_catalog_sha256"] == expected_catalog_sha256 do
-      true
-    else
-      _invalid_or_unsupported -> false
-    end
+  defp valid_v3_outcome?(receipt) do
+    receipt["rule_catalog_version"] == @write_rule_catalog_version and
+      receipt["generation_call_count"] == 1 and
+      receipt["provider_call_count"] == receipt["generation_call_count"] and
+      receipt["verdict"] == "accepted"
   end
 
-  defp valid_v2_outcome?(receipt) do
-    receipt["draft_call_count"] == 1 and receipt["initial_critic_call_count"] == 2 and
-      receipt["verdict"] == "accepted" and receipt["failed_rule_ids"] == []
-  end
-
-  defp valid_v2_digests?(receipt) do
+  defp valid_v3_digests?(receipt) do
     Enum.all?(
-      ~w[objective_id_sha256 step_id_sha256 task_contract_sha256 rule_group_catalog_sha256 reviewer_config_sha256 initial_assessment_sha256 accepted_assessment_sha256 final_answer_sha256],
+      ~w[objective_id_sha256 step_id_sha256 task_contract_sha256 generator_config_sha256 final_answer_sha256],
       &lowercase_sha256?(receipt[&1])
     )
   end
-
-  defp valid_phase_arithmetic?(receipt) do
-    revision_calls = receipt["revision_call_count"]
-    final_critic_calls = receipt["final_critic_call_count"]
-
-    valid_shape =
-      {revision_calls, final_critic_calls} in [{0, 0}, {1, 2}]
-
-    valid_shape and
-      receipt["provider_call_count"] ==
-        receipt["draft_call_count"] + receipt["initial_critic_call_count"] +
-          revision_calls + final_critic_calls
-  end
-
-  defp valid_phase_assessment_binding?(%{
-         "revision_call_count" => 0,
-         "final_assessment_sha256" => nil,
-         "initial_assessment_sha256" => accepted,
-         "accepted_assessment_sha256" => accepted
-       }),
-       do: lowercase_sha256?(accepted)
-
-  defp valid_phase_assessment_binding?(%{
-         "revision_call_count" => 1,
-         "final_assessment_sha256" => final,
-         "accepted_assessment_sha256" => final
-       }),
-       do: lowercase_sha256?(final)
-
-  defp valid_phase_assessment_binding?(_receipt), do: false
 
   defp required_binding?(binding) do
     Enum.all?(@verify_binding_keys, &Map.has_key?(binding, &1)) and

@@ -16,6 +16,7 @@ defmodule AllbertAssist.Objectives.Runs.Worker.Commands.Execute do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Objectives.ObservationSummary
   alias AllbertAssist.Objectives.Runs.CancelToken
+  alias AllbertAssist.Objectives.Runs.Worker.QualityReceipt
   alias AllbertAssist.Settings.Store
 
   @impl true
@@ -57,18 +58,19 @@ defmodule AllbertAssist.Objectives.Runs.Worker.Commands.Execute do
             fanout_worker: %{version: 1, provider_call_count: 1}
           } = response}
        ) do
-    case normalized_response(response) do
-      {:ok, response} ->
-        Map.merge(state, %{
-          status: :draft,
-          provider_call_count: 1,
-          draft_response: Map.delete(response, :fanout_worker),
-          last_command: :execute,
-          last_result: {:ok, :draft}
-        })
-
-      {:error, reason} ->
-        quality_unresolved(state, reason, 1)
+    # v1.3 M9.b.6 (ADR 0021 A24): one generation terminalizes the child. There is
+    # no draft/critic/revision continuation, so the receipt is minted here.
+    with {:ok, response} <- normalized_response(response),
+         {:ok, receipt} <- accepted_receipt(state, response) do
+      Map.merge(state, %{
+        status: :accepted,
+        provider_call_count: 1,
+        last_command: :execute,
+        last_result:
+          {:ok, %{response: Map.delete(response, :fanout_worker), quality_receipt: receipt}}
+      })
+    else
+      {:error, reason} -> quality_unresolved(state, reason, 1)
     end
   end
 
@@ -87,6 +89,38 @@ defmodule AllbertAssist.Objectives.Runs.Worker.Commands.Execute do
 
   defp quality_state(state, {:error, reason}),
     do: quality_unresolved(state, {:quality_draft_failed, reason}, 0)
+
+  defp accepted_receipt(state, response) do
+    binding = %{
+      "objective_id" => Map.get(state, :objective_id),
+      "step_id" => Map.get(state, :step_id),
+      "task_contract_sha256" => Map.get(state, :task_contract_sha256),
+      "rule_catalog_version" => 2,
+      "generator_config_sha256" => generator_config_sha256(response),
+      "generation_call_count" => 1,
+      "provider_call_count" => 1,
+      "verdict" => "accepted",
+      "final_answer" => Map.get(response, :message)
+    }
+
+    case QualityReceipt.build(binding) do
+      {:ok, receipt} -> {:ok, receipt}
+      {:error, _reason} -> {:error, :quality_receipt_unavailable}
+    end
+  end
+
+  defp generator_config_sha256(response) do
+    case get_in(response, [:fanout_worker, :configuration_sha256]) do
+      digest when is_binary(digest) -> digest
+      _missing -> sha256(inspect(Map.get(response, :direct_answer)))
+    end
+  end
+
+  defp sha256(value) do
+    :sha256
+    |> :crypto.hash(value)
+    |> Base.encode16(case: :lower)
+  end
 
   defp normalized_response(%{message: message} = response) when is_binary(message) do
     normalized = ObservationSummary.normalize(message)

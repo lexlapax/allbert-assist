@@ -10,11 +10,12 @@ defmodule AllbertAssist.Objectives.Fanout.Budget do
   alias AllbertAssist.Settings
 
   @legacy_version 1
-  @version 2
+  @critic_version 2
+  @version 3
   @manager_tokens_per_attempt 1_024
-  @worker_calls_per_child 6
+  @worker_calls_per_child 1
   @worker_tokens_per_child 3_072
-  @composer_calls 6
+  @composer_calls 1
   @composer_tokens 4_096
   @composer_max_output_tokens 1_024
 
@@ -48,7 +49,7 @@ defmodule AllbertAssist.Objectives.Fanout.Budget do
 
   @typedoc "Settings-owned plan limits frozen before the first manager call."
   @type limits :: %{
-          required(:version) => 2,
+          required(:version) => 3,
           required(:max_model_calls) => pos_integer(),
           required(:max_output_tokens) => pos_integer(),
           required(:max_elapsed_ms) => pos_integer(),
@@ -132,7 +133,7 @@ defmodule AllbertAssist.Objectives.Fanout.Budget do
         deadline_unix_ms,
         now_unix_ms
       ) do
-    if version in [@legacy_version, @version] and valid_snapshot?(snapshot) and
+    if version in [@legacy_version, @critic_version, @version] and valid_snapshot?(snapshot) and
          valid_worker_window?(
            max_attempts,
            max_elapsed_ms,
@@ -153,17 +154,17 @@ defmodule AllbertAssist.Objectives.Fanout.Budget do
   def authorize_worker(_snapshot, _attempt, _deadline_unix_ms, _now_unix_ms),
     do: {:error, :invalid_fanout_budget_snapshot}
 
-  @doc "Authorize the bounded phase-separated composition protocol inside the frozen deadline."
+  @doc "Authorize the single composition call inside the frozen deadline."
   @spec authorize_composer(snapshot(), integer(), integer()) ::
           {:ok,
            %{
-             required(:max_calls) => 6,
+             required(:max_calls) => 1,
              required(:max_output_tokens) => 1_024,
              required(:timeout_ms) => pos_integer()
            }}
           | {:error,
              :invalid_fanout_budget_snapshot
-             | :review_protocol_upgrade_required
+             | :fanout_budget_version_retired
              | :fanout_plan_deadline_exhausted}
   def authorize_composer(
         snapshot,
@@ -193,11 +194,12 @@ defmodule AllbertAssist.Objectives.Fanout.Budget do
   @doc "Classify one exact frozen budget for the phase-separated composer protocol."
   @spec composer_compatibility(snapshot()) ::
           :ok
-          | {:error, :invalid_fanout_budget_snapshot | :review_protocol_upgrade_required}
+          | {:error, :invalid_fanout_budget_snapshot | :fanout_budget_version_retired}
   def composer_compatibility(snapshot) do
     case validate_snapshot(snapshot) do
       {:ok, %{"version" => @version}} -> :ok
-      {:ok, %{"version" => @legacy_version}} -> {:error, :review_protocol_upgrade_required}
+      {:ok, %{"version" => @critic_version}} -> {:error, :fanout_budget_version_retired}
+      {:ok, %{"version" => @legacy_version}} -> {:error, :fanout_budget_version_retired}
       {:error, :invalid_fanout_budget_snapshot} = error -> error
     end
   end
@@ -327,7 +329,7 @@ defmodule AllbertAssist.Objectives.Fanout.Budget do
            "max_elapsed_ms" => max_elapsed_ms
          } = snapshot
        ) do
-    with true <- version in [@legacy_version, @version],
+    with true <- version in [@legacy_version, @critic_version, @version],
          true <-
            Map.keys(snapshot) |> Enum.map(&to_string/1) |> Enum.sort() ==
              Enum.sort(@snapshot_keys),
@@ -363,6 +365,14 @@ defmodule AllbertAssist.Objectives.Fanout.Budget do
   end
 
   defp valid_snapshot?(_snapshot), do: false
+
+  defp expected_totals(@critic_version, child_count, manager_attempts, _worker_attempts) do
+    {
+      manager_attempts + child_count * 6 + 6,
+      manager_attempts * @manager_tokens_per_attempt + child_count * @worker_tokens_per_child +
+        @composer_tokens
+    }
+  end
 
   defp expected_totals(@version, child_count, manager_attempts, _worker_attempts) do
     {
