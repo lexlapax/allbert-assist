@@ -29,7 +29,7 @@ defmodule AllbertAssist.Objectives.Runs.Worker do
       when is_map(params) and is_map(context) and is_list(opts) do
     with {:ok, action_module} <- Registry.resolve(action, registry_opts(context)),
          :ok <- active(context),
-         :ok <- authorize_plan_window(context),
+         :ok <- authorize_plan_window(context, action_module),
          :ok <- authorize_action(context, action_module),
          {adapter_name, adapter} <- adapter_for(action_module),
          {:ok, response} <- adapter.run(action_module, params, context, opts) do
@@ -57,11 +57,27 @@ defmodule AllbertAssist.Objectives.Runs.Worker do
     end
   end
 
-  defp authorize_plan_window(%{
-         fanout_budget: %{} = budget,
-         fanout_deadline_unix_ms: deadline,
-         objective_run_attempt: attempt
-       }) do
+  defp authorize_plan_window(
+         %{
+           fanout_budget: %{"version" => 1} = budget,
+           fanout_deadline_unix_ms: deadline,
+           objective_run_attempt: attempt
+         },
+         DirectAnswer
+       ) do
+    with :ok <- Budget.authorize_worker(budget, attempt, deadline) do
+      {:error, :quality_protocol_upgrade_required}
+    end
+  end
+
+  defp authorize_plan_window(
+         %{
+           fanout_budget: %{} = budget,
+           fanout_deadline_unix_ms: deadline,
+           objective_run_attempt: attempt
+         },
+         _action_module
+       ) do
     Budget.authorize_worker(budget, attempt, deadline)
   end
 
@@ -69,18 +85,25 @@ defmodule AllbertAssist.Objectives.Runs.Worker do
   # only for explicitly resolved ordinary/legacy work or callers predating the
   # grounding context. A compiled v1.3 child never acquires a legacy budget by
   # losing or corrupting provenance.
-  defp authorize_plan_window(%{
-         fanout_grounding: %{source: source},
-         fanout_budget: nil
-       })
+  defp authorize_plan_window(
+         %{
+           fanout_grounding: %{source: source},
+           fanout_budget: nil
+         },
+         _action_module
+       )
        when source in [:ordinary, :legacy_ordinary],
        do: :ok
 
-  defp authorize_plan_window(%{fanout_grounding: %{}}),
+  defp authorize_plan_window(%{fanout_grounding: %{}}, _action_module),
     do: {:error, :invalid_fanout_budget_snapshot}
 
-  defp authorize_plan_window(context) when not is_map_key(context, :fanout_grounding), do: :ok
-  defp authorize_plan_window(_context), do: {:error, :invalid_fanout_budget_snapshot}
+  defp authorize_plan_window(context, _action_module)
+       when not is_map_key(context, :fanout_grounding),
+       do: :ok
+
+  defp authorize_plan_window(_context, _action_module),
+    do: {:error, :invalid_fanout_budget_snapshot}
 
   defp authorize_action(%{fanout_grounding: %{} = grounding}, action_module),
     do: Grounding.authorize_action(grounding, action_module)

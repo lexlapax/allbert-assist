@@ -51,6 +51,13 @@ defmodule AllbertAssist.Objectives.Runs.WorkerTest do
     end
   end
 
+  defmodule ForbiddenAnswerer do
+    def answer(_text, context) do
+      send(context.test_pid, :unexpected_direct_answer_execution)
+      {:ok, %{message: "must not execute", diagnostic: %{status: :used}}}
+    end
+  end
+
   setup do
     handler_id = {__MODULE__, self()}
     original_direct_answer_config = Application.get_env(:allbert_assist, DirectAnswer)
@@ -196,6 +203,52 @@ defmodule AllbertAssist.Objectives.Runs.WorkerTest do
       assert {:error, :invalid_fanout_budget_snapshot} =
                Worker.run("direct_answer", %{text: "Do not run."}, context)
     end
+  end
+
+  test "a valid v1 budget preserves safe non-model work but cannot enter DirectAnswer" do
+    budget = %{
+      "version" => 1,
+      "child_count" => 2,
+      "manager_attempts" => 1,
+      "worker_attempts_per_child" => 2,
+      "configured_model_calls" => 40,
+      "required_model_calls" => 10,
+      "configured_output_tokens" => 24_000,
+      "required_output_tokens" => 6_144,
+      "max_elapsed_ms" => 300_000
+    }
+
+    deadline = System.system_time(:millisecond) + 10_000
+
+    grounding = %{
+      decision_text: "List objectives",
+      direct_answer_text: "List objectives",
+      action_text: "List objectives",
+      fanout_budget: budget,
+      fanout_deadline_unix_ms: deadline,
+      source: :counted_protocol
+    }
+
+    context = %{
+      user_id: "worker-user",
+      operator_id: "worker-user",
+      channel: "test",
+      test_pid: self(),
+      fanout_budget: budget,
+      fanout_deadline_unix_ms: deadline,
+      objective_run_attempt: 1,
+      fanout_grounding: grounding
+    }
+
+    assert {:ok, %{adapter: :ordinary, response: %{status: :completed}}} =
+             Worker.run("list_objectives", %{user_id: "worker-user"}, context)
+
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: ForbiddenAnswerer)
+
+    assert {:error, :quality_protocol_upgrade_required} =
+             Worker.run("direct_answer", %{text: "Do not invoke a provider."}, context)
+
+    refute_receive :unexpected_direct_answer_execution
   end
 
   test "a cancelled RunServer token stops either Adapter before action execution" do
