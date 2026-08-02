@@ -3810,6 +3810,8 @@ defmodule AllbertAssist.Settings.Schema do
       "tasks" => %{
         "coding" => ["coding_local", "coding", "capable", "local"],
         "direct_answer" => ["direct_answer_local"],
+        "fanout_manager" => ["direct_answer_local"],
+        "fanout_review" => ["direct_answer_local"],
         "fanout_synthesis" => ["direct_answer_local"]
       },
       "capabilities" => %{
@@ -4818,6 +4820,12 @@ defmodule AllbertAssist.Settings.Schema do
     end
   end
 
+  defp validate_closed_task_write("model_preferences.tasks.fanout_manager", []),
+    do: {:error, :fanout_manager_profiles_required}
+
+  defp validate_closed_task_write("model_preferences.tasks.fanout_review", []),
+    do: {:error, :fanout_review_profiles_required}
+
   defp validate_closed_task_write("model_preferences.tasks.fanout_synthesis", []),
     do: {:error, :fanout_synthesis_profiles_required}
 
@@ -4825,6 +4833,20 @@ defmodule AllbertAssist.Settings.Schema do
 
   defp validate_text_task_write_capability(
          "model_preferences.tasks.direct_answer",
+         profiles,
+         settings
+       ),
+       do: validate_text_generation_profiles(profiles, settings)
+
+  defp validate_text_task_write_capability(
+         "model_preferences.tasks.fanout_manager",
+         profiles,
+         settings
+       ),
+       do: validate_text_generation_profiles(profiles, settings)
+
+  defp validate_text_task_write_capability(
+         "model_preferences.tasks.fanout_review",
          profiles,
          settings
        ),
@@ -5007,8 +5029,18 @@ defmodule AllbertAssist.Settings.Schema do
   defp validate_model_preference_map(other, prefix, _kind, _settings),
     do: {:error, {:invalid_setting, prefix, {:expected_map, other}}}
 
+  defp validate_model_task_contract(:task, "fanout_manager", [], _settings),
+    do: {:error, :fanout_manager_profiles_required}
+
+  defp validate_model_task_contract(:task, "fanout_review", [], _settings),
+    do: {:error, :fanout_review_profiles_required}
+
   defp validate_model_task_contract(:task, "fanout_synthesis", [], _settings),
     do: {:error, :fanout_synthesis_profiles_required}
+
+  defp validate_model_task_contract(:task, task, profiles, settings)
+       when task in ["fanout_manager", "fanout_review"],
+       do: validate_text_generation_profiles(profiles, settings)
 
   defp validate_model_task_contract(:task, "fanout_synthesis", profiles, settings),
     do: validate_text_generation_profiles(profiles, settings)

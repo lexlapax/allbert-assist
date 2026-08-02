@@ -5,7 +5,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.FirstRun.Disclosure
-  alias AllbertAssist.Intent.FanoutPlan
+  alias AllbertAssist.Intent.{FanoutManager, FanoutPlan}
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Projection
   alias AllbertAssist.Models.FallbackAudit
@@ -64,6 +64,13 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     def respond(text, context) do
       send(context.test_pid, {:fanout_manager_called, text, context})
       Process.get({__MODULE__, :response}, {:error, :missing_script})
+    end
+  end
+
+  defmodule RoleRecordingManagerModel do
+    def respond(_text, profile, context) do
+      send(context.test_pid, {:fanout_manager_provider_called, profile.name})
+      {:ok, Map.fetch!(context, :fanout_manager_response)}
     end
   end
 
@@ -320,7 +327,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     refute inspect(completed.data) =~ "answer-provider-payload-secret"
 
     assert_received {:fanout_manager_called, ^operator_text, context}
-    assert context.model_profile.name == "direct_answer_local"
+    refute Map.has_key?(context, :model_profile)
     assert context.active_memory == []
     assert context.timeout_ms == 1_234
   end
@@ -486,6 +493,123 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
 
     refute Map.has_key?(response, :parallel_work_plan)
     assert_received {:fanout_manager_called, "What is Allbert?", _context}
+  end
+
+  test "automatic fanout resolves its manager role independently from DirectAnswer" do
+    Application.put_env(:allbert_assist, DirectAnswer,
+      answerer: UnexpectedAnswerer,
+      fanout_manager: FanoutManager
+    )
+
+    put_setting!("intent.direct_answer_model_enabled", true)
+    put_setting!("model_preferences.tasks.fanout_manager", ["local"])
+
+    assert {:ok, response} =
+             DirectAnswer.run(%{text: "Research alpha and beta independently."}, %{
+               actor: "alice",
+               test_pid: self(),
+               model_client: RoleRecordingManagerModel,
+               fanout_manager_response: fanout_manager_response(),
+               request: %{fanout_manager_mode: :automatic}
+             })
+
+    assert response.parallel_work_plan.source == :model
+    assert response.fanout_manager.model_profile == "local"
+    assert_receive {:fanout_manager_provider_called, "local"}
+  end
+
+  test "any unavailable fanout role falls back to one ordinary DirectAnswer without framing" do
+    Application.put_env(:allbert_assist, DirectAnswer,
+      answerer: ScriptedAnswerer,
+      fanout_manager: FanoutManager
+    )
+
+    Process.put(
+      {ScriptedAnswerer, "direct_answer_local"},
+      {:ok, "One ordinary answer without parallel framing."}
+    )
+
+    put_setting!("intent.direct_answer_model_enabled", true)
+
+    for role <- ~w[fanout_manager fanout_review fanout_synthesis] do
+      put_setting!("model_preferences.tasks.#{role}", ["fast"])
+
+      assert {:ok, response} =
+               DirectAnswer.run(%{text: "Research alpha and beta independently."}, %{
+                 actor: "alice",
+                 test_pid: self(),
+                 model_client: RoleRecordingManagerModel,
+                 fanout_manager_response: fanout_manager_response(),
+                 request: %{fanout_manager_mode: :automatic}
+               })
+
+      assert response.message == "One ordinary answer without parallel framing."
+      refute Map.has_key?(response, :parallel_work_plan)
+
+      assert response.diagnostics == [
+               %{
+                 source: :fanout_manager,
+                 result: :error,
+                 outcome: :manager_unavailable
+               }
+             ]
+
+      assert_receive {:provider_called, "direct_answer_local"}
+      refute_receive {:provider_called, "direct_answer_local"}
+      refute_receive {:fanout_manager_provider_called, _profile}
+      refute Enum.any?(response.actions, &(&1.status == :needs_confirmation))
+
+      put_setting!("model_preferences.tasks.#{role}", ["direct_answer_local"])
+    end
+  end
+
+  test "each distinct hosted fanout role route must cross disclosure before framing" do
+    Application.put_env(:allbert_assist, DirectAnswer,
+      answerer: ScriptedAnswerer,
+      fanout_manager: FanoutManager
+    )
+
+    Process.put(
+      {ScriptedAnswerer, "direct_answer_local"},
+      {:ok, "One ordinary answer while fanout disclosure is pending."}
+    )
+
+    put_setting!("intent.direct_answer_model_enabled", true)
+    put_setting!("providers.openai.enabled", true)
+    put_setting!("providers.openrouter.enabled", true)
+    put_setting!("model_preferences.tasks.fanout_manager", ["local"])
+    put_setting!("model_preferences.tasks.fanout_review", ["fast"])
+    put_setting!("model_preferences.tasks.fanout_synthesis", ["openrouter_fast"])
+
+    context = %{
+      actor: "alice",
+      channel: :cli,
+      test_pid: self(),
+      model_client: RoleRecordingManagerModel,
+      fanout_manager_response: fanout_manager_response(),
+      request: %{fanout_manager_mode: :automatic, channel: :cli}
+    }
+
+    assert Disclosure.hosted_pending?(:cli)
+
+    assert {:ok, pending_response} =
+             DirectAnswer.run(%{text: "Research alpha and beta independently."}, context)
+
+    assert pending_response.message ==
+             "One ordinary answer while fanout disclosure is pending."
+
+    refute Map.has_key?(pending_response, :parallel_work_plan)
+    assert_receive {:provider_called, "direct_answer_local"}
+    refute_receive {:fanout_manager_provider_called, _profile}
+
+    assert :ok = Disclosure.render_and_ack(:cli, fn _text -> :ok end)
+
+    assert {:ok, admitted_response} =
+             DirectAnswer.run(%{text: "Research alpha and beta independently."}, context)
+
+    assert admitted_response.parallel_work_plan.source == :model
+    assert_receive {:fanout_manager_provider_called, "local"}
+    refute_receive {:provider_called, "direct_answer_local"}
   end
 
   test "manager failure is observable without persisting its raw error" do
@@ -974,6 +1098,33 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
 
   defp fanout_worker_policy do
     %{version: 1, provider_failover: :disabled, conversation_fanout: :disabled}
+  end
+
+  defp fanout_manager_response do
+    %{
+      "answer" => "I can research both items and join the findings.",
+      "outer_request_task_count" => 2,
+      "request_ownership" => "no_embedded_content",
+      "all_advisory_or_read_only" => true,
+      "children_self_contained" => true,
+      "can_progress_concurrently" => true,
+      "child_result_dependency" => false,
+      "full_coverage_exactly_once" => true,
+      "material_parallel_leverage" => true,
+      "join_role" => "parent_presentation_only",
+      "children" => [
+        %{
+          "title" => "Research alpha",
+          "objective" => "Research alpha independently.",
+          "expected_result" => "A factual alpha summary."
+        },
+        %{
+          "title" => "Research beta",
+          "objective" => "Research beta independently.",
+          "expected_result" => "A factual beta summary."
+        }
+      ]
+    }
   end
 
   defp put_setting!(key, value) do

@@ -55,6 +55,7 @@ defmodule AllbertAssist.Intent.FanoutManager do
   @max_request_bytes 4_000
   @max_answer_bytes 32_000
   @max_reported_task_count 64
+  @fanout_roles [:fanout_manager, :fanout_review, :fanout_synthesis]
   @profile_binding_fields ~w[
     name
     provider
@@ -97,9 +98,10 @@ defmodule AllbertAssist.Intent.FanoutManager do
   def respond(text, context) when is_binary(text) and is_map(context) do
     with :ok <- validate_request(text),
          :ok <- ensure_model_enabled(context),
-         {:ok, profile} <- resolve_profile(context),
-         :ok <- Disclosure.authorize_transport(profile, context),
+         {:ok, role_profiles} <- resolve_role_profiles(context),
+         :ok <- authorize_role_profiles(role_profiles, context),
          {:ok, budget_limits} <- Budget.limits(),
+         profile = Map.fetch!(role_profiles, :fanout_manager),
          context <- put_plan_deadline(context, profile, budget_limits) do
       assess(text, profile, context, budget_limits)
     end
@@ -567,13 +569,50 @@ defmodule AllbertAssist.Intent.FanoutManager do
     end
   end
 
-  defp resolve_profile(%{model_profile: profile}) when is_map(profile), do: {:ok, profile}
-
-  defp resolve_profile(context) do
-    case Models.for(:direct_answer, context) do
-      {:ok, %{profile: profile}} -> {:ok, profile}
-      {:error, reason} -> {:error, {:model_unavailable, reason}}
+  defp resolve_role_profiles(context) do
+    case Map.fetch(context, :fanout_role_profiles) do
+      {:ok, profiles} -> validate_injected_role_profiles(profiles)
+      :error -> resolve_configured_role_profiles(context)
     end
+  end
+
+  defp validate_injected_role_profiles(profiles) when is_map(profiles) do
+    Enum.reduce_while(@fanout_roles, {:ok, %{}}, fn role, {:ok, resolved} ->
+      case Map.fetch(profiles, role) do
+        {:ok, profile} when is_map(profile) ->
+          {:cont, {:ok, Map.put(resolved, role, profile)}}
+
+        _missing_or_invalid ->
+          {:halt, {:error, {:fanout_role_unavailable, role}}}
+      end
+    end)
+  end
+
+  defp validate_injected_role_profiles(_profiles),
+    do: {:error, {:fanout_role_unavailable, :fanout_manager}}
+
+  defp resolve_configured_role_profiles(context) do
+    Enum.reduce_while(@fanout_roles, {:ok, %{}}, fn role, {:ok, resolved} ->
+      case Models.for(role, context) do
+        {:ok, %{profile: profile}} ->
+          {:cont, {:ok, Map.put(resolved, role, profile)}}
+
+        {:error, _reason} ->
+          {:halt, {:error, {:fanout_role_unavailable, role}}}
+      end
+    end)
+  end
+
+  defp authorize_role_profiles(role_profiles, context) do
+    @fanout_roles
+    |> Enum.map(&{&1, Map.fetch!(role_profiles, &1)})
+    |> Enum.uniq_by(fn {_role, profile} -> profile_binding(profile) end)
+    |> Enum.reduce_while(:ok, fn {role, profile}, :ok ->
+      case Disclosure.authorize_transport(profile, context) do
+        :ok -> {:cont, :ok}
+        {:error, _reason} -> {:halt, {:error, {:fanout_role_transport_unavailable, role}}}
+      end
+    end)
   end
 
   defp max_children(context), do: Map.get(context, :max_children_per_fanout, 8)

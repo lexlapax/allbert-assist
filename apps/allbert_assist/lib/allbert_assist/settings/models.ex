@@ -15,9 +15,11 @@ defmodule AllbertAssist.Settings.Models do
   @task_capabilities %{
     "coding" => "text_generation",
     "direct_answer" => "text_generation",
+    "fanout_manager" => "text_generation",
+    "fanout_review" => "text_generation",
     "fanout_synthesis" => "text_generation"
   }
-  @closed_task_chains ~w[direct_answer fanout_synthesis]
+  @closed_task_chains ~w[direct_answer fanout_manager fanout_review fanout_synthesis]
 
   @type resolution :: %{
           request: String.t(),
@@ -161,7 +163,9 @@ defmodule AllbertAssist.Settings.Models do
     primary_fallback([], primary)
   end
 
-  defp ranked_candidates(:task, "fanout_synthesis", [], _primary), do: []
+  defp ranked_candidates(:task, task, [], _primary)
+       when task in ["fanout_manager", "fanout_review", "fanout_synthesis"],
+       do: []
 
   defp ranked_candidates(_kind, _name, preferences, primary) do
     preference_candidates(preferences) ++ primary_fallback(preferences, primary)

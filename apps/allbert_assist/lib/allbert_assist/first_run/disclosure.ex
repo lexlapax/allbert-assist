@@ -17,13 +17,16 @@ defmodule AllbertAssist.FirstRun.Disclosure do
   alias AllbertAssist.Settings.Models
 
   @surfaces ~w(web tui cli)
-  @max_route_count 3
-  @route_usages [:primary, :fallback, :fanout_synthesis]
+  @max_route_count 5
+  @route_usages [:primary, :fallback, :fanout_manager, :fanout_review, :fanout_synthesis]
 
   @type provider_class :: :local | :hosted
   @type route :: %{
-          optional(:usage) => :primary | :fallback | :fanout_synthesis,
-          optional(:usages) => [:primary | :fallback | :fanout_synthesis],
+          optional(:usage) =>
+            :primary | :fallback | :fanout_manager | :fanout_review | :fanout_synthesis,
+          optional(:usages) => [
+            :primary | :fallback | :fanout_manager | :fanout_review | :fanout_synthesis
+          ],
           required(:profile) => String.t(),
           required(:provider) => String.t(),
           required(:provider_class) => provider_class()
@@ -82,7 +85,7 @@ defmodule AllbertAssist.FirstRun.Disclosure do
   def reconcile_profile(_profile), do: {:error, :invalid_model_profile}
 
   @doc """
-  Reconcile the currently callable DirectAnswer and fan-out synthesis routes
+  Reconcile the currently callable DirectAnswer and fan-out role routes
   when model answers are enabled. This retained name is the backward-compatible
   central post-settings/boot hook; disabled configurations leave the dormant
   marker alone and gain no transport authority from it.
@@ -98,15 +101,19 @@ defmodule AllbertAssist.FirstRun.Disclosure do
     end
   end
 
-  @doc "Resolve the exact bounded union of callable DirectAnswer and synthesis routes."
+  @doc "Resolve the exact bounded union of callable DirectAnswer and fan-out role routes."
   @spec current_model_routes() :: {:ok, [route()]} | {:error, term()}
   def current_model_routes, do: current_model_routes(nil)
 
   defp current_model_routes(fallback_direct_answer_route) do
     with {:ok, direct_answer_routes} <-
            current_direct_answer_routes_or(fallback_direct_answer_route),
+         {:ok, manager_routes} <- optional_callable_routes(&current_fanout_manager_routes/0),
+         {:ok, review_routes} <- optional_callable_routes(&current_fanout_review_routes/0),
          {:ok, synthesis_routes} <- optional_callable_routes(&current_fanout_synthesis_routes/0) do
-      case deduplicate_routes(direct_answer_routes ++ synthesis_routes) do
+      case deduplicate_routes(
+             direct_answer_routes ++ manager_routes ++ review_routes ++ synthesis_routes
+           ) do
         [] -> {:error, :no_callable_disclosure_routes}
         routes when length(routes) <= @max_route_count -> {:ok, routes}
         _too_many -> {:error, :disclosure_route_set_too_large}
@@ -156,9 +163,21 @@ defmodule AllbertAssist.FirstRun.Disclosure do
   end
 
   defp current_fanout_synthesis_routes do
-    with {:ok, %{profile: profile}} <- Models.for(:fanout_synthesis),
+    current_fanout_role_routes(:fanout_synthesis)
+  end
+
+  defp current_fanout_manager_routes do
+    current_fanout_role_routes(:fanout_manager)
+  end
+
+  defp current_fanout_review_routes do
+    current_fanout_role_routes(:fanout_review)
+  end
+
+  defp current_fanout_role_routes(usage) do
+    with {:ok, %{profile: profile}} <- Models.for(usage),
          {:ok, route} <- route_for_profile(profile) do
-      {:ok, [with_usage(route, :fanout_synthesis)]}
+      {:ok, [with_usage(route, usage)]}
     end
   end
 
@@ -572,6 +591,12 @@ defmodule AllbertAssist.FirstRun.Disclosure do
 
   defp normalize_usage(value) when value in [:fallback, "fallback"], do: :fallback
 
+  defp normalize_usage(value) when value in [:fanout_manager, "fanout_manager"],
+    do: :fanout_manager
+
+  defp normalize_usage(value) when value in [:fanout_review, "fanout_review"],
+    do: :fanout_review
+
   defp normalize_usage(value) when value in [:fanout_synthesis, "fanout_synthesis"],
     do: :fanout_synthesis
 
@@ -671,6 +696,42 @@ defmodule AllbertAssist.FirstRun.Disclosure do
        }) do
     "Your configured DirectAnswer route uses #{profile} from #{provider}. " <>
       "Inference uses your configured local endpoint. Change the model in Models, or disable model answers with `allbert admin settings set intent.direct_answer_model_enabled false`."
+  end
+
+  defp usage_disclosure_text(:fanout_manager, %{
+         "profile" => profile,
+         "provider" => provider,
+         "provider_class" => "hosted"
+       }) do
+    "Your configured fan-out manager route uses #{profile} from #{provider}. " <>
+      "Parent objective and planning context may leave this device for #{provider}. Change `model_preferences.tasks.fanout_manager`, or disable model answers with `allbert admin settings set intent.direct_answer_model_enabled false`."
+  end
+
+  defp usage_disclosure_text(:fanout_manager, %{
+         "profile" => profile,
+         "provider" => provider,
+         "provider_class" => "local"
+       }) do
+    "Your configured fan-out manager route uses #{profile} from #{provider}. " <>
+      "Inference uses your configured local endpoint. Change `model_preferences.tasks.fanout_manager`, or disable model answers with `allbert admin settings set intent.direct_answer_model_enabled false`."
+  end
+
+  defp usage_disclosure_text(:fanout_review, %{
+         "profile" => profile,
+         "provider" => provider,
+         "provider_class" => "hosted"
+       }) do
+    "Your configured fan-out review route uses #{profile} from #{provider}. " <>
+      "Child drafts and review context may leave this device for #{provider}. Change `model_preferences.tasks.fanout_review`, or disable model answers with `allbert admin settings set intent.direct_answer_model_enabled false`."
+  end
+
+  defp usage_disclosure_text(:fanout_review, %{
+         "profile" => profile,
+         "provider" => provider,
+         "provider_class" => "local"
+       }) do
+    "Your configured fan-out review route uses #{profile} from #{provider}. " <>
+      "Inference uses your configured local endpoint. Change `model_preferences.tasks.fanout_review`, or disable model answers with `allbert admin settings set intent.direct_answer_model_enabled false`."
   end
 
   defp usage_disclosure_text(:fanout_synthesis, %{

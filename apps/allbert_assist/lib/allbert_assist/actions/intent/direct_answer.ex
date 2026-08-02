@@ -301,15 +301,19 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   end
 
   defp call_fanout_manager(text, context, active_memory, resolution) do
-    fanout_manager().respond(
-      fanout_manager_text(text, context),
-      Map.merge(context, %{
+    manager_context =
+      context
+      |> Map.delete(:model_profile)
+      |> Map.merge(%{
         model_enabled?: true,
-        model_profile: resolution.profile,
         active_memory: active_memory.chunks,
         max_children_per_fanout: fanout_max_children(context),
         timeout_ms: fanout_manager_timeout(context, resolution.profile)
       })
+
+    fanout_manager().respond(
+      fanout_manager_text(text, context),
+      manager_context
     )
   end
 

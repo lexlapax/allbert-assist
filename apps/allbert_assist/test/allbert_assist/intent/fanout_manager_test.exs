@@ -380,6 +380,21 @@ defmodule AllbertAssist.Intent.FanoutManagerTest do
     refute_received {:model_call, _attempt, _text, _profile, _timeout}
   end
 
+  test "explicit role injection fails before planning when the review role is absent" do
+    context =
+      context(initial_response: {:ok, fanout_response()})
+      |> Map.delete(:model_profile)
+      |> Map.put(:fanout_role_profiles, %{
+        fanout_manager: @profile,
+        fanout_synthesis: @profile
+      })
+
+    assert {:error, {:fanout_role_unavailable, :fanout_review}} =
+             FanoutManager.respond(@request, context)
+
+    refute_received {:model_call, _attempt, _text, _profile, _timeout}
+  end
+
   test "oversized requests fail before an incomplete planning prompt" do
     assert {:error, :request_too_large_for_fanout} =
              FanoutManager.respond(
@@ -479,7 +494,11 @@ defmodule AllbertAssist.Intent.FanoutManagerTest do
     |> Map.new()
     |> Map.merge(%{
       model_enabled?: true,
-      model_profile: @profile,
+      fanout_role_profiles: %{
+        fanout_manager: @profile,
+        fanout_review: @profile,
+        fanout_synthesis: @profile
+      },
       model_client: ScriptedModel,
       test_pid: self(),
       max_children_per_fanout: 8,

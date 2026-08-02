@@ -412,6 +412,8 @@ defmodule AllbertAssist.Settings do
       "intent.direct_answer_model_enabled",
       "model_preferences.primary",
       "model_preferences.tasks.direct_answer",
+      "model_preferences.tasks.fanout_manager",
+      "model_preferences.tasks.fanout_review",
       "model_preferences.tasks.fanout_synthesis",
       "models.fallback.enabled",
       "models.fallback.allow_local_to_hosted"
