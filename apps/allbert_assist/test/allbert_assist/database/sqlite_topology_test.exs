@@ -34,7 +34,15 @@ defmodule AllbertAssist.Database.SQLiteTopologyTest do
     "apps/allbert_assist/lib/allbert_assist/objectives.ex" => 1,
     "apps/allbert_assist/lib/allbert_assist/objectives/commands.ex" => 7,
     "apps/allbert_assist/lib/allbert_assist/objectives/fanout.ex" => 2,
-    "apps/allbert_assist/lib/allbert_assist/objectives/fanout/terminal_transitions.ex" => 3,
+    # v1.3 M9.b.12.c. Raised 3 -> 7 after review, not to make the census pass.
+    # The four added during M9.b.5/M9.b.5.2 are transition_active_child,
+    # persist_selected_composition, rebind_composing_transaction, and the
+    # selection path at the end of the module. All seven callsites were read on
+    # 2026-08-03 and every one opens with `mode: :immediate`, which is the
+    # property this census protects: under the single-writer topology a deferred
+    # transaction that upgrades to a write lock mid-flight is the SQLITE_BUSY
+    # shape v1.1 M12.19 was built to avoid.
+    "apps/allbert_assist/lib/allbert_assist/objectives/fanout/terminal_transitions.ex" => 7,
     "apps/allbert_assist/lib/allbert_assist/objectives/lifecycle.ex" => 1,
     "apps/allbert_assist/lib/allbert_assist/objectives/steering.ex" => 1,
     "apps/allbert_assist/lib/allbert_assist/workspace/offline.ex" => 1,
