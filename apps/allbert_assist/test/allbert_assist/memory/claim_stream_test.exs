@@ -8,6 +8,7 @@ defmodule AllbertAssist.Memory.ClaimStreamTest do
   alias AllbertAssist.Actions.Memory.ConfirmManualMemoryRevision
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory
+  alias AllbertAssist.Memory.ClaimConfirmation
   alias AllbertAssist.Memory.Claims
   alias AllbertAssist.Memory.Claims.Format
   alias AllbertAssist.Paths
@@ -296,6 +297,11 @@ defmodule AllbertAssist.Memory.ClaimStreamTest do
     assert {:ok, current} = Claims.current(claim_id)
     assert current["payload"]["value"] == exact_value
 
+    # v1.3 M9.b.13.a. A confirmed manual revision advances canonical claim state,
+    # so it must advance the projection with it. Before M9.b.12.a this path
+    # appended and told the projection nothing, leaving it on the prior revision
+    # digest — the M9.b.11 failure reached through a different action. No row
+    # asserted this outcome, which is how the gap survived.
     assert List.last(Claims.read(claim_id) |> elem(1) |> Map.fetch!(:records))["payload"]
            |> Map.has_key?("value") == false
   end
@@ -408,6 +414,52 @@ defmodule AllbertAssist.Memory.ClaimStreamTest do
       normalizer_version: 1
     }
     |> Map.merge(Map.new(bindings))
+  end
+
+  # v1.3 M9.b.13.a. ClaimConfirmation is exercised end to end through the two
+  # confirmation actions above, but no row asserted the projection outcome that
+  # M9.b.12.a added — and ApproveConfirmation does not surface the target
+  # action's result, so it cannot be asserted from there. These rows call the
+  # module directly, which is the only place the propagation is observable.
+  test "confirming a manual revision advances the projection with the canonical append" do
+    claim_id = Ecto.UUID.generate()
+    assert {:ok, first} = Claims.append(claim_id, nil, transition())
+    assert {:ok, stream} = Claims.read(claim_id)
+
+    manual = manual_revision(stream, value: "manually imported exact value")
+    File.write!(first.path, Format.render(nil, stream.records ++ [manual]))
+
+    assert {:ok, pending} = Claims.read(claim_id)
+    assert pending.status == :pending_manual
+
+    assert {:ok, %{binding: binding}} =
+             ClaimConfirmation.prepare_manual(claim_id, "operator:local")
+
+    assert {:ok, result} = ClaimConfirmation.confirm_manual(binding)
+
+    assert %{outcome: outcome} = result.projection,
+           "a confirmed manual revision must report a projection outcome; before " <>
+             "M9.b.12.a it appended and told the projection nothing"
+
+    assert outcome in ["refreshed", "repair_pending"]
+
+    assert {:ok, current} = Claims.current(claim_id)
+    assert current["payload"]["value"] == "manually imported exact value"
+  end
+
+  test "preparing a manual confirmation refuses a claim that has no pending revision" do
+    claim_id = Ecto.UUID.generate()
+    assert {:ok, _first} = Claims.append(claim_id, nil, transition())
+
+    assert {:error, :manual_revision_missing} =
+             ClaimConfirmation.prepare_manual(claim_id, "operator:local")
+  end
+
+  test "an invalid binding is refused by name rather than appending anything" do
+    assert {:error, :invalid_manual_confirmation_binding} = ClaimConfirmation.confirm_manual(nil)
+
+    assert {:error, :invalid_destination_confirmation_binding} =
+             ClaimConfirmation.confirm_destination("not a binding")
   end
 
   defp manual_revision(stream, overrides) do
