@@ -72,6 +72,35 @@ Probed on that same question, `llama3.1:8b` and
 `mistral_small31_24b` are also wrong, and `gemma4:31b` is correct. Model size
 does not predict accuracy here.
 
+There is a second, rarer failure mode. Asked to acknowledge a stated preference,
+the default head once answered that status summaries "will be provided" starting
+on a date, turning an acknowledgment into a commitment Allbert had not made and
+could not keep. Allbert schedules nothing from an acknowledgment. This was seen
+once during attended validation and did not recur in thirty-six attempts, so
+treat it as occasional rather than systematic, and never read a future-tense
+answer as evidence that anything was scheduled, stored, or sent.
+
+### Selecting a stronger answering head
+
+If factual precision or careful instruction-following matters for your work,
+select a larger head for DirectAnswer rather than relying on the default. The
+seam is one setting:
+
+```sh
+allbert admin settings set intent.direct_answer_model_profile <profile>
+```
+
+Pick a profile from the Models catalog whose model you have pulled and can run.
+Larger heads cost proportionally more disk and memory: the default `qwen2.5:7b`
+is roughly 4.7 GB, while a 31B head is roughly 20 GB and will not run
+comfortably on a 16 GB machine. Allbert does not raise this default for you,
+because the hardware floor is your constraint rather than its preference.
+
+Qualify any head you select on your own material before trusting it. Allbert
+ships no factual-accuracy bar for answering heads today; that qualification is
+planned rather than delivered, so a head that answers your domain well is
+something you establish, not something the default asserts.
+
 Treat model answers on specialist topics as advisory and verify them against a
 primary source. Allbert's own status, receipts, effect evidence, and report
 structure are deterministic and unaffected by this: a wrong claim inside an

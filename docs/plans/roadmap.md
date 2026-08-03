@@ -291,6 +291,26 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    Horizon items remain free-form provider URLs, non-local bind hardening,
    semantic/fuzzy search, automatic canonical-history retention, and automatic
    cross-app prompt mixing.
+8b. **1.3.1 — Answering-Head Qualification.** (**Planned — triad ready
+   2026-08-02:** `docs/plans/v1.3.1-plan.md` + request-flow + ADR 0097
+   (answering-head qualification bar). **Build starts after v1.3
+   closeout.**) Carries v1.3 M9.b.8, deferred by operator decision after
+   attended validation recorded two independent failures of the shipped
+   answering head — a factual error (`rest_for_one` described as
+   `one_for_one`, where `mistral-small3.1:24b` is wrong the same way and
+   parameter count predicts nothing) and a rule-following error (an
+   acknowledgment answered as a future commitment, observed once and not
+   reproduced in thirty-six trials). v1.3 ships the head unchanged, both
+   limits disclosed, and `intent.direct_answer_model_profile` as the opt-in
+   seam; this release supplies the evidence that opt-in lacks. A frozen,
+   digest-bound corpus covering **both** failure families — a facts-only
+   corpus would have passed the head on the acknowledgment row — scored by
+   closed deterministic predicates over the production request path, run N
+   times per row against a minimum frozen before any head is measured. No
+   model judges another model (v1.3 M9.b.6), no runtime rule enforcement
+   (ADR 0021), no change to the shipped default: the bar produces the
+   evidence, raising the default stays an operator decision. Opt-in dev
+   gate, in no aggregate or CI path; recorded evidence is content-free.
 9. **1.4 — Adaptive Usage Profiling.** (**Planned — triad ready
    2026-07-24:** `docs/plans/v1.4-plan.md` + request-flow + ADR 0090
    (profiling + confirmed customization) + ADR 0084 amendment

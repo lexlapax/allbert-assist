@@ -11,6 +11,9 @@ plan and request-flow documents.
   plan](v1.3-plan.md) and [request flow](v1.3-request-flow.md) (operator-approved
   final implementation readiness; v1.2.6 shipped and the v1.3 release candidate
   is in aggregate/artifact closeout)
+- [v1.3.1 answering-head qualification plan](v1.3.1-plan.md) and
+  [request flow](v1.3.1-request-flow.md) (planned; build after v1.3 closeout —
+  carries v1.3 M9.b.8, deferred by operator decision 2026-08-02)
 - [v1.4 adaptive usage profiling plan](v1.4-plan.md) and
   [request flow](v1.4-request-flow.md) (planned; build after v1.3 closeout)
 - [v1.5 spine enablers plan](v1.5-plan.md) and
