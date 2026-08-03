@@ -9,6 +9,7 @@ defmodule AllbertAssist.Drafts.Promotion do
   alias AllbertAssist.Drafts.Store
   alias AllbertAssist.Memory.Claims
   alias AllbertAssist.Memory.Claims.Format
+  alias AllbertAssist.Memory.ProjectionSync
   alias AllbertAssist.Objectives
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings.YamlCodec
@@ -115,6 +116,10 @@ defmodule AllbertAssist.Drafts.Promotion do
              transition(draft, memory, binding)
            ),
          outcome <- memory_outcome(append),
+         # v1.3 M9.b.12.a. Promotion appends a canonical claim, so the
+         # projection must advance with it; otherwise the promoted claim is
+         # unretrievable until a full rebuild.
+         outcome <- Map.put(outcome, :projection, ProjectionSync.refresh(append.claim_id)),
          {:ok, promoted} <- Store.complete_memory_promotion(id, draft.kind, outcome) do
       result = Map.put(outcome, :path, append.path)
       {:ok, %{draft: promoted, memory: result, result: result}}

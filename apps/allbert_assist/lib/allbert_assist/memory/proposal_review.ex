@@ -15,7 +15,7 @@ defmodule AllbertAssist.Memory.ProposalReview do
   alias AllbertAssist.Memory.Claims
   alias AllbertAssist.Memory.Claims.Format
   alias AllbertAssist.Memory.CollectionPolicy
-  alias AllbertAssist.Memory.Projection
+  alias AllbertAssist.Memory.ProjectionSync
   alias AllbertAssist.Memory.Proposals.Batch
   alias AllbertAssist.Memory.Proposals.Proposal
   alias AllbertAssist.Memory.Proposals.Suppression
@@ -86,7 +86,7 @@ defmodule AllbertAssist.Memory.ProposalReview do
          :ok <- verify_frozen_payload(proposal, sources),
          {:ok, append} <-
            Claims.append(claim_id(proposal), expected_tail(proposal), transition(proposal)),
-         projection <- refresh_projection(claim_id(proposal)),
+         projection <- ProjectionSync.refresh(claim_id(proposal)),
          {:ok, terminal} <- finalize(proposal, append, projection) do
       {:ok, content_free_result(terminal)}
     else
@@ -348,7 +348,7 @@ defmodule AllbertAssist.Memory.ProposalReview do
              payload["expected_tail_digest"],
              transition(proposal, payload, "protected_individual_review")
            ),
-         projection <- refresh_projection(payload["claim_id"]) do
+         projection <- ProjectionSync.refresh(payload["claim_id"]) do
       terminal_update!(proposal, "kept", actor, now(), %{
         outcome: "kept",
         claim_id: append.claim_id,
@@ -619,24 +619,6 @@ defmodule AllbertAssist.Memory.ProposalReview do
     |> Integer.to_string(16)
     |> String.downcase(:ascii)
     |> String.pad_leading(width, "0")
-  end
-
-  # v1.3 M9.b.10.b. "repair_pending" previously named a repair nobody scheduled:
-  # the outcome was recorded and dropped, so a keep against a not-ready projection
-  # left the claim unretrievable indefinitely. Queue the repair the outcome claims.
-  defp refresh_projection(claim_id) do
-    if Process.whereis(Projection) do
-      case Projection.refresh_claim(claim_id) do
-        {:ok, result} ->
-          %{outcome: "refreshed", revision: result.projection_revision}
-
-        {:error, reason} ->
-          Projection.queue_repair([reason])
-          %{outcome: "repair_pending", reason: inspect(reason)}
-      end
-    else
-      %{outcome: "repair_pending", reason: "projection_owner_unavailable"}
-    end
   end
 
   defp claim_id(proposal), do: proposal.applying_payload["claim_id"]

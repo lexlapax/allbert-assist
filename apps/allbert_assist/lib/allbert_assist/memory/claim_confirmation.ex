@@ -9,6 +9,7 @@ defmodule AllbertAssist.Memory.ClaimConfirmation do
   """
 
   alias AllbertAssist.Memory.Claims
+  alias AllbertAssist.Memory.ProjectionSync
 
   @doc "Prepare an exact raw-manual-revision confirmation."
   def prepare_manual(claim_id, actor) do
@@ -45,14 +46,15 @@ defmodule AllbertAssist.Memory.ClaimConfirmation do
   def confirm_manual(binding) when is_map(binding) do
     binding = stringify(binding)
 
-    Claims.append(
-      binding["claim_id"],
+    binding["claim_id"]
+    |> Claims.append(
       binding["expected_tail_digest"],
       confirmation_transition(binding, "manual_import_confirmed", %{
         "pending_revision_digest" => binding["pending_revision_digest"],
         "prior_chain_digest" => binding["prior_chain_digest"]
       })
     )
+    |> sync_projection()
   end
 
   def confirm_manual(_binding), do: {:error, :invalid_manual_confirmation_binding}
@@ -97,17 +99,28 @@ defmodule AllbertAssist.Memory.ClaimConfirmation do
   def confirm_destination(binding) when is_map(binding) do
     binding = stringify(binding)
 
-    Claims.append(
-      binding["claim_id"],
+    binding["claim_id"]
+    |> Claims.append(
       binding["expected_tail_digest"],
       confirmation_transition(binding, "destination_chain_confirmed", %{
         "source_chain_digest" => binding["source_chain_digest"],
         "prior_chain_digest" => binding["prior_chain_digest"]
       })
     )
+    |> sync_projection()
   end
 
   def confirm_destination(_binding), do: {:error, :invalid_destination_confirmation_binding}
+
+  # v1.3 M9.b.12.a. Both confirmations advance canonical claim state, so both
+  # must advance the projection. Before this they did not, and a confirmed
+  # manual revision or destination chain left the projection holding the prior
+  # revision digest -- the M9.b.11 failure in a different action.
+  defp sync_projection({:ok, %{claim_id: claim_id} = result}) when is_binary(claim_id) do
+    {:ok, Map.put(result, :projection, ProjectionSync.refresh(claim_id))}
+  end
+
+  defp sync_projection(other), do: other
 
   defp confirmation_transition(binding, action, exact_binding) do
     %{
