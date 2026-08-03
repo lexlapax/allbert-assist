@@ -76,9 +76,12 @@ There is a second, rarer failure mode. Asked to acknowledge a stated preference,
 the default head once answered that status summaries "will be provided" starting
 on a date, turning an acknowledgment into a commitment Allbert had not made and
 could not keep. Allbert schedules nothing from an acknowledgment. This was seen
-once during attended validation and did not recur in thirty-six attempts, so
-treat it as occasional rather than systematic, and never read a future-tense
-answer as evidence that anything was scheduled, stored, or sent.
+once during attended validation, did not recur in thirty-six retries within that
+same session, and then reproduced on the first attempt of a later independent
+session — so treat it as a real recurring limit rather than a one-off. Allbert
+schedules, stores, and sends nothing on the strength of an acknowledgment, so
+never read a future-tense answer as evidence that anything was scheduled,
+stored, or sent.
 
 ### Selecting a stronger answering head
 
