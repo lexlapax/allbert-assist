@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+#
+# ARCHIVED v0.66 validation script. That release shipped and its acceptance
+# run completed; this file is provenance, not a live fixture. It is not
+# executed by any gate or test and is not verified against the current
+# schema, CLI, or settings, so treat it as a record of what was run rather
+# than as something that still runs. Release-specific validation scripts
+# are not permanent repository fixtures.
 # v0.66 M1 — Product RC & No-Docs Validation acceptance script.
 #
 # Two-layer verification (v0.66-plan Locked Decision 1). This script owns the
@@ -15,7 +22,7 @@
 # second host). They are printed as the operator checklist run against the packaged
 # binary and recorded in docs/validation/v0.66/ as operator-attested evidence.
 #
-# Usage: scripts/smoke/v066_product_rc.sh
+# Historical usage: scripts/smoke/v066_product_rc.sh
 set -euo pipefail
 
 pass() { echo "smoke:$1 pass ${2:-}"; }

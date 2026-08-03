@@ -251,7 +251,7 @@ defmodule Allbert.V048VoiceLiveSmoke do
     %{
       actor: "local",
       channel: :cli,
-      surface: "scripts/v048_voice_live_smoke.exs",
+      surface: "scripts/smoke/voice_live_smoke.exs",
       request: %{operator_id: "local", channel: :cli}
     }
   end

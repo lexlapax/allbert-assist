@@ -116,7 +116,7 @@ For browser validation, seed a real artifact fixture through the core
 
 ```sh
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v050b-browser.XXXXXX)"
-mix run scripts/v050b_artifacts_browser_smoke.exs --seed-only
+mix run scripts/smoke/artifacts_browser_seed.exs --seed-only
 ```
 
 Expected output:

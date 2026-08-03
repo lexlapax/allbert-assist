@@ -122,5 +122,5 @@ mix allbert.test release.v050b
 ```
 
 The release lane seeds a deterministic browser fixture through
-`scripts/v050b_artifacts_browser_smoke.exs --seed-only` and records the fixture
+`scripts/smoke/artifacts_browser_seed.exs --seed-only` and records the fixture
 SHA/thread/URLs in the evidence JSON.

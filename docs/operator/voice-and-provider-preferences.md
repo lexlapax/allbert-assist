@@ -72,7 +72,7 @@ The CLI does not open a live microphone. Live capture is a workspace feature so
 that the operator can see and confirm microphone use.
 
 For real local-endpoint or remote-credentialed provider validation, use
-`scripts/v048_voice_live_smoke.exs`. It drives the durable
+`scripts/smoke/voice_live_smoke.exs`. It drives the durable
 `transcribe_voice`/`synthesize_voice` confirmation-resume path and then runs the
 Ollama-backed text turn.
 
@@ -143,7 +143,7 @@ as `provider_capabilities`, `provider_deployment_mode`,
 Enable `voice.enabled` with a disposable `ALLBERT_HOME`, then transcribe a short clip
 (`mix allbert.ask --voice <file> --trace`) or exercise workspace capture / Telegram voice
 notes. For real local-endpoint or remote-provider validation, drive
-`scripts/v048_voice_live_smoke.exs`. Fake STT/TTS profiles are fixtures only — use a real
+`scripts/smoke/voice_live_smoke.exs`. Fake STT/TTS profiles are fixtures only — use a real
 local or remote profile. Confirm traces carry redacted audio metadata (never raw bytes or
 local paths). Voice first shipped under the `release.v048` gate; each release ships a
 deterministic `mix allbert.test release.vNN` gate (see the

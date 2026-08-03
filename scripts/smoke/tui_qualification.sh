@@ -2,16 +2,16 @@
 # v1.2.1 M0.b3 — thin-TUI PTY qualification.
 #
 # Automated source row:
-#   scripts/smoke/v121_tui_qualification.sh --source
+#   scripts/smoke/tui_qualification.sh --source
 # Release-stage exact-artifact row (primary CI contract):
-#   scripts/smoke/v121_tui_qualification.sh RELEASE_ROOT TARGET OUTPUT_JSON
+#   scripts/smoke/tui_qualification.sh RELEASE_ROOT TARGET OUTPUT_JSON
 # Standalone exact-archive row:
-#   scripts/smoke/v121_tui_qualification.sh --artifact /path/allbert-v1.2.1-TARGET.tar.gz
+#   scripts/smoke/tui_qualification.sh --artifact /path/allbert-v1.2.1-TARGET.tar.gz
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-PYTHON_HELPER="$SCRIPT_DIR/v121_tui_pty.py"
+PYTHON_HELPER="$SCRIPT_DIR/tui_pty.py"
 
 MODE=""
 ARTIFACT=""
@@ -23,9 +23,9 @@ FV_OUTPUT=""
 usage() {
   cat <<'USAGE'
 Usage:
-  v121_tui_qualification.sh RELEASE_ROOT TARGET OUTPUT_JSON
-  v121_tui_qualification.sh --source
-  v121_tui_qualification.sh --artifact ARCHIVE
+  tui_qualification.sh RELEASE_ROOT TARGET OUTPUT_JSON
+  tui_qualification.sh --source
+  tui_qualification.sh --artifact ARCHIVE
 
 Automated rows use a new disposable Allbert Home and retain only a content-free
 PASS manifest.

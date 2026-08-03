@@ -29,7 +29,7 @@ exercised and is not scoped out) · `SCOPED-OUT` (explicitly deferred with ratio
 | `product-rc-consumer-default-oneclick-model-no-key-first-chat-001` | M7 | gate + attested | PASS | gate: `v066_security_sweep` + `v066_routing_first_model`; attested: `m7-first-chat-keyless-local.log` — packaged `bin/allbert` detected `local_ready` and answered via local Ollama qwen2.5 with **no API key**. One-click *download* itself (from empty) still PENDING-OPERATOR | macOS, disposable home |
 | `product-rc-web-smoke-no-console-error-001` | M3 | gate + attested | PASS | gate: `v066_security_sweep` + `v066_web_render_dispatch`; attested: `item11-usability-audit.md` (/, /workspace, /jobs, /objectives, workspace:notes — 0 console errors) | |
 | `product-rc-cli-tui-no-mix-needed-001` | M4 | gate + attested | PASS | gate: `v066_security_sweep` + `v066_cli_tui_dispatch`; attested: `m4-packaged-cli-smoke.log` — packaged `bin/allbert` version/--help(grouped)/admin status/admin health all toolchain-free | macOS `allbert-0.66.0`, disposable home |
-| `product-rc-local-files-notes-memory-policy-bounded-001` | M5/M8 | gate + attested | PASS (gate) / PENDING-OPERATOR ([model] recall-in-chat) | gate: `v066_security_sweep` (floors) + `v066_local_knowledge` (root-bounding fail-closed, :kept-only recall, review transitions — 22 tests); attested [model]: recall influencing a real later chat needs a configured model | deterministic core proven; `scripts/smoke/v066_product_rc.sh` core 8/8 |
+| `product-rc-local-files-notes-memory-policy-bounded-001` | M5/M8 | gate + attested | PASS (gate) / PENDING-OPERATOR ([model] recall-in-chat) | gate: `v066_security_sweep` (floors) + `v066_local_knowledge` (root-bounding fail-closed, :kept-only recall, review transitions — 22 tests); attested [model]: recall influencing a real later chat needs a configured model | deterministic core proven; `docs/plans/archives/v0.66-scripts/v066_product_rc.sh` core 8/8 |
 | `product-rc-advanced-surfaces-no-regression-001` | M6 | gate + attested | PASS (gate) / PENDING-OPERATOR (live per-class) | gate: `v066_security_sweep` (agent/internal capability sets disjoint, advanced actions registered) + `v066_advanced_surfaces` (public-protocol/channel/MCP/browser exposure evals, 35 tests); live per-class needs configured providers/servers/model | `m6-external-smoke-selectors.log` |
 | `product-rc-export-import-upgrade-001` | M9 | gate + attested | PASS (gate) / PENDING-OPERATOR (real cross-version upgrade) | gate: `v066_security_sweep` (export ref+status, import dry-run blocks) + `v066_portability` (full export/import test, 4 tests); real v0.58/v0.59→v0.66 Home upgrade needs an old-version home | |
 
@@ -66,7 +66,7 @@ checkout, so live runs are `PENDING-OPERATOR` with the exact commands — not sc
 
 ## Deterministic core (this checkout)
 
-`scripts/smoke/v066_product_rc.sh` runs the model-free product-RC core (onboarding
+`docs/plans/archives/v0.66-scripts/v066_product_rc.sh` runs the model-free product-RC core (onboarding
 state machine + local files/notes/memory loop) on a disposable home. Record the
 `smoke:<id>` transcript here when run.
 

@@ -361,7 +361,7 @@ qualify_target() {
   jq -e --arg target "$target" '.schema_version == 1 and .target.triple == $target and (.components | length > 0)' "$work/licenses.json" >/dev/null || fail "packaged license viewer failed"
 
   fv="$work/fv.json"
-  scripts/smoke/v121_tui_qualification.sh "$release_root" "$target" "$fv"
+  scripts/smoke/tui_qualification.sh "$release_root" "$target" "$fv"
   jq -e --arg target "$target" '.schema_version == 1 and .target == $target and .protocol_tty == "passed" and .provider == "not_required"' "$fv" >/dev/null || fail "packaged TUI protocol qualification failed"
   jq -S -n --arg target "$target" --argjson release_id "$release_id" \
     --arg manifest_sha256 "$(sha256_file "$manifest")" --arg license_sha256 "$(sha256_file "$work/licenses.json")" \

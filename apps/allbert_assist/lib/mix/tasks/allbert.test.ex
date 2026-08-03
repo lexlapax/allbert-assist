@@ -2214,7 +2214,7 @@ defmodule Mix.Tasks.Allbert.Test do
       title: "deterministic browser-validation artifact fixture",
       cwd: :core,
       executable: "mix",
-      args: ["run", "../../scripts/v050b_artifacts_browser_smoke.exs", "--seed-only"],
+      args: ["run", "../../scripts/smoke/artifacts_browser_seed.exs", "--seed-only"],
       coverage: [
         "deterministic artifact fixture through core put_artifact",
         "printed fixture SHA and thread id for Chrome validation",

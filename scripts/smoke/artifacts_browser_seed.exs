@@ -15,7 +15,7 @@ defmodule Allbert.V050bArtifactsBrowserSmoke do
     {opts, rest, invalid} = OptionParser.parse(argv, strict: [seed_only: :boolean])
 
     unless invalid == [] and rest == [] and Keyword.get(opts, :seed_only, false) do
-      Mix.raise("Usage: mix run scripts/v050b_artifacts_browser_smoke.exs --seed-only")
+      Mix.raise("Usage: mix run scripts/smoke/artifacts_browser_seed.exs --seed-only")
     end
 
     validate_allbert_home!()

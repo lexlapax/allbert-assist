@@ -181,7 +181,7 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     assert stage =~ ".[].artifacts[]"
     assert stage =~ "Linux qualifier host requires glibc >= 2.36"
     assert stage =~ "licenses --json"
-    assert stage =~ "v121_tui_qualification.sh"
+    assert stage =~ "smoke/tui_qualification.sh"
     refute stage =~ "--clobber"
     refute stage =~ "actions/runs/${GITHUB_RUN_ID}/attempts"
     refute stage =~ "successful producer"

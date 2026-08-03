@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+#
+# ARCHIVED v0.65 validation script. That release shipped and its acceptance
+# run completed; this file is provenance, not a live fixture. It is not
+# executed by any gate or test and is not verified against the current
+# schema, CLI, or settings, so treat it as a record of what was run rather
+# than as something that still runs. Release-specific validation scripts
+# are not permanent repository fixtures.
 # v0.65 M7 — local-knowledge product acceptance script.
 #
 # The exact fresh-home path v0.66 validates: connect a notes root, search a note,
@@ -10,7 +17,7 @@
 # printed as the operator checklist v0.66 runs against the packaged binary with a
 # model configured.
 #
-# Usage: scripts/smoke/v065_local_knowledge.sh
+# Historical usage: scripts/smoke/v065_local_knowledge.sh
 # Exits non-zero on the first failed check.
 set -euo pipefail
 

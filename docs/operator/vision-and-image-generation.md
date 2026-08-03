@@ -96,6 +96,6 @@ Request image generation through the runtime/action surface. Expected behavior:
 Each release ships a deterministic `mix allbert.test release.vNN` gate; see the
 [roadmap](../plans/roadmap.md) for the current line.
 For a live vision/image smoke against configured providers, the reusable script is
-`scripts/v049_vision_live_smoke.exs` (OpenAI / Gemini / Ollama), driven from a disposable
+`scripts/smoke/vision_live_smoke.exs` (OpenAI / Gemini / Ollama), driven from a disposable
 `ALLBERT_HOME`. Detailed release-validation runbooks live in the version plan/request-flow
 docs, not here.

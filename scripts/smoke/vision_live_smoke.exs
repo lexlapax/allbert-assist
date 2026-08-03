@@ -527,7 +527,7 @@ defmodule Allbert.V049VisionLiveSmoke do
     %{
       actor: "local",
       channel: :cli,
-      surface: "scripts/v049_vision_live_smoke.exs",
+      surface: "scripts/smoke/vision_live_smoke.exs",
       request: %{operator_id: "local", channel: :cli, provider: provider}
     }
   end

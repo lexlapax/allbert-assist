@@ -494,7 +494,7 @@ client must never start Repo, migrations, providers, or an embedded writer.
 The exact-artifact CI row uses the bounded standard-library PTY harness:
 
 ```sh
-scripts/smoke/v121_tui_qualification.sh \
+scripts/smoke/tui_qualification.sh \
   /absolute/path/to/extracted/allbert TARGET "$EVIDENCE_ROOT/fv-result.json"
 ```
 
@@ -775,7 +775,7 @@ and representative data remain without `--purge`.
 | Artifact matrix | published artifacts boot and pass binary smoke | `.github/workflows/release-artifacts.yml` | current line |
 | Tap fill | URL-derived formula version and checksums match the release | `homebrew/fill-sha256.sh`; `brew audit --strict --online --formula` | current packaged line |
 | Package-manager install | package installs and invokes packaged binary | `brew install`; `brew test`; uninstall | current line |
-| Packaged TUI | exact thin client attaches to the one daemon, passes bounded protocol/TTY rows, answers from a ready real provider, restores the terminal, and preserves concurrent Web continuity | automated `scripts/smoke/v121_tui_qualification.sh`; §4 operator command sequence | current line |
+| Packaged TUI | exact thin client attaches to the one daemon, passes bounded protocol/TTY rows, answers from a ready real provider, restores the terminal, and preserves concurrent Web continuity | automated `scripts/smoke/tui_qualification.sh`; §4 operator command sequence | current line |
 | Docker Linux package smoke | both Linux artifacts install/start/attach/uninstall in containers | `docker run --platform linux/arm64`; `docker run --platform linux/amd64` | current line |
 | Real-host service/vault | launchd/systemd and OS keychain integration on actual hosts | host service/vault commands | operator closeout |
 
