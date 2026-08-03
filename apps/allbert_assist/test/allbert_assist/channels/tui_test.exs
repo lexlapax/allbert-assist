@@ -2149,6 +2149,8 @@ defmodule AllbertAssist.Channels.TUITest do
     assert {:ok, _setting} =
              Settings.put("objectives.fanout.confirm_before_start", true, %{audit?: false})
 
+    configure_fanout_roles!()
+
     parent = self()
 
     {server, reader} = start_raw_tui!(parent)
@@ -3007,6 +3009,8 @@ defmodule AllbertAssist.Channels.TUITest do
   defp assert_failed_kickoff_output_preserves_start_barrier(output_failure) do
     configure_tui!()
 
+    configure_fanout_roles!()
+
     assert {:ok, _setting} =
              Settings.put("objectives.fanout.enabled", true, %{audit?: false})
 
@@ -3056,6 +3060,39 @@ defmodule AllbertAssist.Channels.TUITest do
 
     assert Fanout.children(parent)
            |> Enum.all?(&(&1.status == "open" and &1.run_attempt_count == 0))
+  end
+
+  # v1.3 M9.b.12.d. Runtime gates fan-out admission on model readiness
+  # (`fanout_role_readiness_step/3`): with no callable profile the turn degrades
+  # to a single answer and no parent is ever created. These rows predate that
+  # gate and never stubbed it, so they asserted a start barrier on a fan-out that
+  # could not exist. `fanout_ack_test` already uses this pattern.
+  defp configure_fanout_roles! do
+    original_readiness = Application.get_env(:allbert_assist, :runtime_model_readiness)
+
+    Application.put_env(
+      :allbert_assist,
+      :runtime_model_readiness,
+      AllbertAssist.Test.ModelReadinessFake
+    )
+
+    on_exit(fn ->
+      if original_readiness,
+        do: Application.put_env(:allbert_assist, :runtime_model_readiness, original_readiness),
+        else: Application.delete_env(:allbert_assist, :runtime_model_readiness)
+    end)
+
+    assert {:ok, _} = Settings.put("providers.openai.enabled", false, %{audit?: false})
+    assert {:ok, _} = Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+
+    Enum.each(~w[direct_answer fanout_manager fanout_synthesis], fn role ->
+      assert {:ok, _} =
+               Settings.put(
+                 "model_preferences.tasks.#{role}",
+                 ["direct_answer_local"],
+                 %{audit?: false}
+               )
+    end)
   end
 
   defp configure_tui! do
