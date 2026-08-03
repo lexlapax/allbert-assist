@@ -9,8 +9,8 @@ defmodule AllbertAssist.Database.OperatorTopologyIntegrationTest do
   alias AllbertAssist.Conversations
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
-  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Repo
+  alias AllbertAssist.TestSupport.FanoutReportFixture
   alias Ecto.Adapters.SQL.Sandbox
 
   setup_all do
@@ -87,15 +87,8 @@ defmodule AllbertAssist.Database.OperatorTopologyIntegrationTest do
       |> Task.async_stream(
         fn child ->
           with {:ok, _admission} <-
-                 Conversations.admit_user_message(thread, "completed #{child.title}", %{}),
-               {:ok, transition} <-
-                 TerminalTransitions.terminalize_child(
-                   child,
-                   %{status: "completed", completed_at: DateTime.utc_now()},
-                   "run_completed",
-                   %{operator_topology: true}
-                 ) do
-            {:ok, transition}
+                 Conversations.admit_user_message(thread, "completed #{child.title}", %{}) do
+            {:ok, FanoutReportFixture.complete_child!(child, "completed #{child.title}")}
           end
         end,
         max_concurrency: 8,

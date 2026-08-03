@@ -8,12 +8,12 @@ defmodule AllbertAssist.Objectives.DelegateCancelTest do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.AgentRegistry
   alias AllbertAssist.Objectives.Fanout
-  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Lifecycle
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Objectives.Runs.Cancel
   alias AllbertAssist.Objectives.Runs.CancelToken
   alias AllbertAssist.Repo
+  alias AllbertAssist.TestSupport.FanoutReportFixture
 
   defmodule CheckpointAdapter do
     def operation(operation, state, opts) do
@@ -199,17 +199,7 @@ defmodule AllbertAssist.Objectives.DelegateCancelTest do
   test "parent cancellation preserves completed children and cancels active children" do
     assert {:ok, %{parent: parent, children: [completed, active]}} = frame()
 
-    assert {:ok, %{child: %{status: "completed"}}} =
-             TerminalTransitions.terminalize_child(
-               completed,
-               %{
-                 status: "completed",
-                 completed_at: DateTime.utc_now(),
-                 last_observation_summary: "finished before parent cancellation"
-               },
-               "run_completed",
-               %{}
-             )
+    FanoutReportFixture.complete_child!(completed, "finished before parent cancellation")
 
     assert {:ok, response} =
              Runner.run(
@@ -237,13 +227,7 @@ defmodule AllbertAssist.Objectives.DelegateCancelTest do
     assert {:ok, %{parent: joined_parent, children: joined_children}} = frame()
 
     Enum.each(joined_children, fn child ->
-      assert {:ok, _transition} =
-               TerminalTransitions.terminalize_child(
-                 child,
-                 %{status: "completed", completed_at: DateTime.utc_now()},
-                 "run_completed",
-                 %{}
-               )
+      FanoutReportFixture.complete_child!(child, "joined child result")
     end)
 
     assert {:ok, finalizing} =
@@ -328,16 +312,7 @@ defmodule AllbertAssist.Objectives.DelegateCancelTest do
         Task.async(fn ->
           receive do: (:go -> :ok)
 
-          TerminalTransitions.terminalize_child(
-            racing,
-            %{
-              status: "completed",
-              last_observation_summary: "won the cancellation race",
-              completed_at: DateTime.utc_now()
-            },
-            "run_completed",
-            %{}
-          )
+          FanoutReportFixture.complete_child!(racing, "won the cancellation race")
         end)
 
       cancellation =
@@ -384,18 +359,11 @@ defmodule AllbertAssist.Objectives.DelegateCancelTest do
     )
   end
 
-  defp select_fallback!(parent) do
-    assert {:ok, claim} = Fanout.claim_next_composition()
-    assert claim.parent.id == parent.id
-
-    assert {:ok, _selected} =
-             Fanout.select_composition(
-               claim,
-               "deterministic_fallback",
-               claim.frozen.fallback_body,
-               %{fallback_reason: "model_disabled"}
-             )
-  end
+  # v1.3 M9.b.12.b. This hand-rolled `%{fallback_reason: "model_disabled"}` as
+  # provenance, which carries no layout version, so selection failed
+  # `:fanout_report_layout_generation_mismatch` once layout v2 landed. The shared
+  # fixture builds provenance through `Report.fallback_provenance/2`.
+  defp select_fallback!(parent), do: FanoutReportFixture.select_pending!(parent.id, :fallback)
 
   defp eventually(fun, attempts \\ 100)
   defp eventually(_fun, 0), do: flunk("condition did not become true")

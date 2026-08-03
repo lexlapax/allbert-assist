@@ -7,6 +7,7 @@ defmodule AllbertAssistWeb.ObjectivesLiveTest do
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Surface.Catalog
+  alias AllbertAssist.TestSupport.FanoutReportFixture
 
   test "renders a populated objectives index through the catalog renderer", %{conn: conn} do
     assert {:ok, objective} =
@@ -104,14 +105,12 @@ defmodule AllbertAssistWeb.ObjectivesLiveTest do
     assert html =~ "Live index fan-out"
 
     Enum.each(children, fn child ->
-      assert {:ok, _transition} =
-               TerminalTransitions.terminalize_child(
-                 child,
-                 %{status: "completed", completed_at: DateTime.utc_now()},
-                 "run_completed",
-                 %{}
-               )
+      FanoutReportFixture.complete_child!(child, "live child result")
     end)
+
+    # v1.3 M9.b.12.b. Completing the children joins the parent but leaves it
+    # composing; it reaches "completed" only once a report is selected.
+    FanoutReportFixture.select_pending!(parent.id, :fallback)
 
     assert_eventually(fn ->
       has_element?(view, "#objective-index-#{parent.id}", "completed")

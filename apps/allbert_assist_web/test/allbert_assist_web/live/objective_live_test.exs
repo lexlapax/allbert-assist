@@ -7,6 +7,7 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Surface.Catalog
+  alias AllbertAssist.TestSupport.FanoutReportFixture
 
   test "renders objective details and cancels through registered action", %{conn: conn} do
     assert {:ok, objective} =
@@ -261,17 +262,7 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
                ["Finished research", "Active draft"]
              )
 
-    assert {:ok, _transition} =
-             TerminalTransitions.terminalize_child(
-               completed,
-               %{
-                 status: "completed",
-                 last_observation_summary: "Finished evidence is retained",
-                 completed_at: DateTime.utc_now()
-               },
-               "run_completed",
-               %{}
-             )
+    FanoutReportFixture.complete_child!(completed, "Finished evidence is retained")
 
     {:ok, view, _html} = live(conn, ~p"/objectives/#{parent.id}")
 
@@ -308,18 +299,10 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
                ["Completed research", "Failed draft"]
              )
 
-    assert {:ok, _transition} =
-             TerminalTransitions.terminalize_child(
-               completed,
-               %{
-                 status: "completed",
-                 last_observation_summary:
-                   "**Primary sources** reviewed " <> String.duplicate("detail ", 60) <> "TAIL",
-                 completed_at: DateTime.utc_now()
-               },
-               "run_completed",
-               %{}
-             )
+    FanoutReportFixture.complete_child!(
+      completed,
+      "**Primary sources** reviewed " <> String.duplicate("detail ", 60) <> "TAIL"
+    )
 
     assert {:ok, _transition} =
              TerminalTransitions.terminalize_child(

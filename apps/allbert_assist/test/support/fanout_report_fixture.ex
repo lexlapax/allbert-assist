@@ -112,7 +112,21 @@ defmodule AllbertAssist.TestSupport.FanoutReportFixture do
     }
   end
 
-  defp complete_child!(child, observation) do
+  @doc """
+  Complete one child through the durable path with a truthful completion event.
+
+  v1.3 M9.b.12.b. This was private, so every one-off call site hand-rolled
+  `TerminalTransitions.terminalize_child/4` and passed an empty event. M9.b.5
+  then made that event required and required its summary to match the child's
+  recorded result, so those call sites failed
+  `:invalid_fanout_report_completion_event` — the single largest cluster in the
+  first cumulative `release.v13` run. Completing a child is the operation tests
+  actually need, so it is public.
+
+  Returns the completed child's terminal step.
+  """
+  @spec complete_child!(struct(), String.t()) :: struct()
+  def complete_child!(child, observation) when is_binary(observation) do
     {:ok, step} =
       Objectives.create_step(%{
         objective_id: child.id,
@@ -142,6 +156,7 @@ defmodule AllbertAssist.TestSupport.FanoutReportFixture do
       )
 
     true = step_id == step.id
+    step
   end
 
   defp selection!(:fallback, frozen) do

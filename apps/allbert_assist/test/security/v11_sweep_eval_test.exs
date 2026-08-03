@@ -20,6 +20,7 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
+  alias AllbertAssist.TestSupport.FanoutReportFixture
   alias AllbertAssist.TestSupport.ShippedRegistries
 
   @ids ~w[
@@ -247,27 +248,10 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
     {:ok, %{parent: parent, children: children}} = bound_fanout!()
 
     Enum.each(children, fn child ->
-      {:ok, _} =
-        TerminalTransitions.terminalize_child(
-          child,
-          %{status: "completed", completed_at: DateTime.utc_now()},
-          "run_completed",
-          %{}
-        )
+      FanoutReportFixture.complete_child!(child, "sweep child result")
     end)
 
-    assert {:ok, %{parent: %{id: parent_id}, frozen: frozen} = claim} =
-             Fanout.claim_next_composition()
-
-    assert parent_id == parent.id
-
-    assert {:ok, _selected} =
-             Fanout.select_composition(
-               claim,
-               "deterministic_fallback",
-               frozen.fallback_body,
-               %{fallback_reason: "model_disabled"}
-             )
+    FanoutReportFixture.select_pending!(parent.id, :fallback)
 
     assert {:ok, %{report_delivery_receipt: receipt}} = Fanout.finalize_join(parent)
 

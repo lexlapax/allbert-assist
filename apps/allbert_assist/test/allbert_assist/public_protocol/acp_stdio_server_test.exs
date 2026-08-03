@@ -11,6 +11,7 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
   alias AllbertAssist.PublicProtocol.ResultReadback
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.FanoutReportFixture
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -676,27 +677,10 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
              )
 
     Enum.each(children, fn child ->
-      assert {:ok, _transition} =
-               TerminalTransitions.terminalize_child(
-                 child,
-                 %{status: "completed", completed_at: DateTime.utc_now()},
-                 "run_completed",
-                 %{}
-               )
+      FanoutReportFixture.complete_child!(child, "acp child result")
     end)
 
-    assert {:ok, %{parent: %{id: parent_id}, frozen: frozen} = claim} =
-             Fanout.claim_next_composition()
-
-    assert parent_id == parent.id
-
-    assert {:ok, _selected} =
-             Fanout.select_composition(
-               claim,
-               "deterministic_fallback",
-               frozen.fallback_body,
-               %{fallback_reason: "model_disabled"}
-             )
+    FanoutReportFixture.select_pending!(parent.id, :fallback)
 
     assert Fanout.parent_projection(parent).phase == :joined
     Repo.reload!(parent)
@@ -706,13 +690,8 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
 
   defp select_next_report!(attempts) when attempts > 0 do
     case Fanout.claim_next_composition() do
-      {:ok, %{frozen: frozen} = claim} ->
-        Fanout.select_composition(
-          claim,
-          "deterministic_fallback",
-          frozen.fallback_body,
-          %{fallback_reason: "model_disabled"}
-        )
+      {:ok, claim} ->
+        {:ok, FanoutReportFixture.select_claim!(claim, :fallback)}
 
       :none ->
         Process.sleep(10)

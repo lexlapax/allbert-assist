@@ -5,6 +5,7 @@ defmodule AllbertAssist.Objectives.FanoutSteeringTest do
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Steering
+  alias AllbertAssist.TestSupport.FanoutReportFixture
 
   test "directive is ownership-bound, durable, idempotent, and applied at a boundary" do
     {:ok, %{children: [child | _]}} =
@@ -64,31 +65,11 @@ defmodule AllbertAssist.Objectives.FanoutSteeringTest do
 
     assert {:ok, steered} = Steering.apply_pending(child.id)
 
-    assert {:ok, %{child: %{status: "completed"}}} =
-             TerminalTransitions.terminalize_child(
-               steered,
-               %{
-                 status: "completed",
-                 last_observation_summary: "The supervisor is the restaurant manager.",
-                 completed_at: DateTime.utc_now()
-               },
-               "run_completed",
-               %{}
-             )
+    FanoutReportFixture.complete_child!(steered, "The supervisor is the restaurant manager.")
 
     [_steered_child, other] = Fanout.children(parent)
 
-    assert {:ok, %{child: %{status: "completed"}}} =
-             TerminalTransitions.terminalize_child(
-               other,
-               %{
-                 status: "completed",
-                 last_observation_summary: "Second result",
-                 completed_at: DateTime.utc_now()
-               },
-               "run_completed",
-               %{}
-             )
+    FanoutReportFixture.complete_child!(other, "Second result")
 
     report = Fanout.report(parent)
     [steered_report | _] = report.children

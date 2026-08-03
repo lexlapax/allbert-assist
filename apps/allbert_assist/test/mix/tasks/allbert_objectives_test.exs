@@ -6,7 +6,7 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Fanout.Report
-  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
+  alias AllbertAssist.TestSupport.FanoutReportFixture
   alias Mix.Tasks.Allbert.Objectives, as: ObjectivesTask
 
   setup do
@@ -110,17 +110,7 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
              )
 
     Enum.each(children, fn child ->
-      assert {:ok, _transition} =
-               TerminalTransitions.terminalize_child(
-                 child,
-                 %{
-                   status: "completed",
-                   last_observation_summary: "result #{child.queue_position}",
-                   completed_at: DateTime.utc_now()
-                 },
-                 "run_completed",
-                 %{}
-               )
+      FanoutReportFixture.complete_child!(child, "result #{child.queue_position}")
     end)
 
     selected_body = select_report!(parent.id, "deterministic_fallback")
@@ -152,17 +142,7 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
              )
 
     Enum.each(children, fn child ->
-      assert {:ok, _transition} =
-               TerminalTransitions.terminalize_child(
-                 child,
-                 %{
-                   status: "completed",
-                   last_observation_summary: "result #{child.queue_position}",
-                   completed_at: DateTime.utc_now()
-                 },
-                 "run_completed",
-                 %{}
-               )
+      FanoutReportFixture.complete_child!(child, "result #{child.queue_position}")
     end)
 
     selected_body = select_report!(parent.id, "model")
@@ -214,55 +194,13 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
     assert output =~ "Reason: Objective is abandoned."
   end
 
-  defp select_report!(parent_id, source) do
-    assert {:ok, %{parent: %{id: ^parent_id}, frozen: frozen} = claim} =
-             Fanout.claim_next_composition()
+  # v1.3 M9.b.12.b. This hand-rolled its own sections, body and provenance,
+  # pinning `layout_version: 1`, so selection failed
+  # `:fanout_report_layout_generation_mismatch` once layout v2 landed. The shared
+  # fixture builds all three through the production seams.
+  defp select_report!(parent_id, "deterministic_fallback"),
+    do: FanoutReportFixture.select_pending!(parent_id, :fallback).report_body
 
-    completed_positions =
-      frozen.snapshot.children
-      |> Enum.filter(&(&1.status == "completed"))
-      |> Enum.map(& &1.queue_position)
-
-    sections =
-      case completed_positions do
-        [] ->
-          []
-
-        [_one] = positions ->
-          [%{relationship: "independent", ordered_queue_positions: positions}]
-
-        positions ->
-          [%{relationship: "complementary", ordered_queue_positions: positions}]
-      end
-
-    body =
-      case source do
-        "model" ->
-          assert {:ok, body} =
-                   Report.compose(frozen.snapshot, %{sections: sections})
-
-          body
-
-        "deterministic_fallback" ->
-          frozen.fallback_body
-      end
-
-    provenance =
-      case source do
-        "model" ->
-          %{
-            model_profile: "test",
-            provider: "test_provider",
-            model: "test_model",
-            layout_version: 1,
-            sections: sections
-          }
-
-        "deterministic_fallback" ->
-          %{fallback_reason: "model_disabled"}
-      end
-
-    assert {:ok, _selected} = Fanout.select_composition(claim, source, body, provenance)
-    body
-  end
+  defp select_report!(parent_id, "model"),
+    do: FanoutReportFixture.select_pending!(parent_id, :model).report_body
 end
