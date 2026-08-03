@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# Extracted from docs/plans/v1.3-request-flow.md. Checked in so the
-# operator invokes one line instead of pasting hundreds, and so
-# test/fov_scripts_test.exs can execute checks against it.
-# v1.3-SCOPED. Archive with the v1.3 plan at closeout; do not carry
-# forward. Release-specific validation scripts are not permanent
-# repository fixtures.
+# ARCHIVED v1.3 attended-validation script. Extracted from
+# docs/plans/v1.3-request-flow.md so the operator invoked one line
+# instead of pasting hundreds. The v1.3 FOV run it belongs to completed
+# and passed on 2026-08-02; this file is provenance, not a live fixture.
+#
+# It is no longer executed by any test and no longer verified against the
+# current schema, renderer, or CLI, so treat it as a record of what was
+# run rather than as something that still runs. Release-specific
+# validation scripts are not permanent repository fixtures.
 fov_7r_validate() {
   FOV_MAIN_DB="$ALLBERT_HOME/db/allbert.sqlite3"
   FOV_SEARCH_DB="$ALLBERT_HOME/projections/search/current.sqlite3"
