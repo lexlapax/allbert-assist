@@ -166,7 +166,12 @@ defmodule AllbertAssist.Memory.ProposalReviewTest do
     assert {:ok, preview} = ClaimLifecycle.preview(original.id, "alice")
 
     assert {:ok, archived} =
-             ClaimLifecycle.transition(preview, :archive, "operator:alice", ClaimLifecycle.new_ids())
+             ClaimLifecycle.transition(
+               preview,
+               :archive,
+               "operator:alice",
+               ClaimLifecycle.new_ids()
+             )
 
     assert archived.state == :archived
 

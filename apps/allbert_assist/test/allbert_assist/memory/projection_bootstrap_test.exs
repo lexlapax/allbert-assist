@@ -116,7 +116,9 @@ defmodule AllbertAssist.Memory.ProjectionBootstrapTest do
     {:ok, projection} = start_owner(bootstrap_jobs?: false)
     assert {:ok, _build} = Projection.rebuild(projection)
 
-    {:ok, holder} = Agent.start_link(fn -> :owner end, name: AllbertAssist.Runtime.WriterLock.Holder)
+    {:ok, holder} =
+      Agent.start_link(fn -> :owner end, name: AllbertAssist.Runtime.WriterLock.Holder)
+
     on_exit(fn -> if Process.alive?(holder), do: Agent.stop(holder) end)
 
     before = managed_dirty_seq("memory-index-rebuild")
