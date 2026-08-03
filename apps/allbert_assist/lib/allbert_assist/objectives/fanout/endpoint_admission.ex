@@ -21,8 +21,6 @@ defmodule AllbertAssist.Objectives.Fanout.EndpointAdmission do
   confirmations are unchanged.
   """
 
-  require Logger
-
   @registry AllbertAssist.Objectives.Runs.Registry
   @poll_interval_ms 25
 

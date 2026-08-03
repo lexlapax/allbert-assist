@@ -1136,11 +1136,10 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
 
   defp fixture_expected(_expected), do: {:error, :invalid_fixture_expected}
 
+  # The only caller guards is_list/1, so a non-list never reaches here.
   defp fixture_children(children) when is_list(children) do
     traverse_fixture(children, &fixture_child/1, :invalid_fixture_snapshot)
   end
-
-  defp fixture_children(_children), do: {:error, :invalid_fixture_snapshot}
 
   defp fixture_child(
          %{

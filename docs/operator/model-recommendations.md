@@ -58,6 +58,29 @@ compatibility fallback to primary. An explicitly selected hosted head still
 receives the hosted-egress disclosure; an unrelated hosted key is not a
 fallback candidate.
 
+### Known accuracy limit of the default answering head
+
+`direct_answer_local` (`qwen2.5:7b`) is the shipped default for DirectAnswer and
+for both fan-out chains. It answers general questions usefully, but it is not a
+reference for specialist technical detail, and v1.3 attended validation recorded
+a concrete example: asked which processes an Erlang/OTP supervisor restarts
+under `rest_for_one`, it answers that only the crashed child restarts. That
+describes `one_for_one`. `rest_for_one` restarts the crashed child and every
+child started after it.
+
+Probed on that same question, `llama3.1:8b` and
+`mistral_small31_24b` are also wrong, and `gemma4:31b` is correct. Model size
+does not predict accuracy here.
+
+Treat model answers on specialist topics as advisory and verify them against a
+primary source. Allbert's own status, receipts, effect evidence, and report
+structure are deterministic and unaffected by this: a wrong claim inside an
+answer never becomes effect evidence, and the authoritative child-results
+appendix always shows what actually ran. If your work depends on factual
+accuracy in a specific domain, select a stronger head for
+`model_preferences.tasks.direct_answer` and qualify it on your own material
+first.
+
 Fan-out has two separate closed task chains, each defaulting to
 `["direct_answer_local"]`:
 
