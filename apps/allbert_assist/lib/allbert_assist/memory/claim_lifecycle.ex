@@ -10,6 +10,7 @@ defmodule AllbertAssist.Memory.ClaimLifecycle do
 
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Claims
+  alias AllbertAssist.Memory.Projection
 
   @actions %{
     archive: {"archived", "archive"},
@@ -63,12 +64,35 @@ defmodule AllbertAssist.Memory.ClaimLifecycle do
        Map.merge(result, %{
          state: String.to_existing_atom(state),
          operation: operation,
-         archived_path: result.path
+         archived_path: result.path,
+         projection: refresh_projection(preview.claim_id)
        })}
     end
   end
 
   def transition(_preview, _operation, _actor, _ids), do: {:error, :invalid_lifecycle_transition}
+
+  # v1.3 M9.b.11.b. Archive and restore advanced canonical state and left the
+  # projection behind: `Projection.refresh_claim/1` was reachable only from
+  # `ProposalReview`, so a claim archived and then restored kept the projection
+  # revision from its original keep. Retrieval's canonical recheck then refused
+  # to serve it -- correctly, per ADR 0089 -- and the claim became permanently
+  # unretrievable while canonical reported it kept. Every claim transition now
+  # advances the projection the way a keep does.
+  defp refresh_projection(claim_id) do
+    if Process.whereis(Projection) do
+      case Projection.refresh_claim(claim_id) do
+        {:ok, refreshed} ->
+          %{outcome: "refreshed", revision: refreshed.projection_revision}
+
+        {:error, reason} ->
+          Projection.queue_repair([reason])
+          %{outcome: "repair_queued", reason: inspect(reason)}
+      end
+    else
+      %{outcome: "repair_queued", reason: "projection_owner_unavailable"}
+    end
+  end
 
   @doc "Generate retry-stable revision and transition IDs for a confirmation receipt."
   def new_ids do

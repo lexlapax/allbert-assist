@@ -184,7 +184,7 @@ defmodule AllbertAssist.Memory.Projection do
     safe_reasons = reasons |> Enum.map(&error_code/1) |> Enum.uniq() |> Enum.sort()
     state = mark_dirty(state, {:canonical_revalidation_failed, safe_reasons})
 
-    if WriterLockHolder.enabled?(), do: send(self(), :kick_projection_repair)
+    if repair_owner?(), do: send(self(), :kick_projection_repair)
     {:noreply, state}
   end
 
@@ -230,13 +230,25 @@ defmodule AllbertAssist.Memory.Projection do
   end
 
   defp maybe_kick_forget_recovery(tombstones) do
-    if WriterLockHolder.enabled?() and Enum.any?(tombstones, &(&1["phase"] == "pending")) do
+    if repair_owner?() and Enum.any?(tombstones, &(&1["phase"] == "pending")) do
       send(self(), :kick_forget_recovery)
       true
     else
       false
     end
   end
+
+  # v1.3 M9.b.11.c. This used to be `WriterLockHolder.enabled?()`, which reads
+  # the `ALLBERT_HOLD_WRITER_LOCK` environment variable. That variable describes
+  # how the daemon was *launched*; it is set and restored around startup by
+  # `Mix.Tasks.Allbert.with_source_daemon_env/1`, so it is not a dependable
+  # statement about whether this VM owns the writer at the moment a repair is
+  # queued. Ownership is a fact about this VM: the holder process is either
+  # running here or it is not. An attended run on 2026-08-03 saw a queued repair
+  # mark the projection dirty (control `dirty_seq` 2 -> 3) while
+  # `memory-index-rebuild` was never kicked (job `dirty_seq` stayed 1), leaving
+  # the projection degraded with no path back.
+  defp repair_owner?, do: is_pid(Process.whereis(WriterLockHolder))
 
   defp kick_forget_recovery do
     case Managed.kick("memory-index-rebuild", "local") do

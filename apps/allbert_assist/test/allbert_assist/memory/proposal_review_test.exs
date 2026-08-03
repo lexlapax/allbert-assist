@@ -5,6 +5,7 @@ defmodule AllbertAssist.Memory.ProposalReviewTest do
   alias AllbertAssist.Conversations.Corpus
   alias AllbertAssist.Conversations.Message
   alias AllbertAssist.Memory.ActiveMemory
+  alias AllbertAssist.Memory.ClaimLifecycle
   alias AllbertAssist.Memory.Claims
   alias AllbertAssist.Memory.Forget
   alias AllbertAssist.Memory.Projection
@@ -136,6 +137,66 @@ defmodule AllbertAssist.Memory.ProposalReviewTest do
     after_control = Projection.status(projection).control
     assert after_control["dirty_seq"] > before_seq
     assert after_control["last_error_code"]
+  end
+
+  # v1.3 M9.b.11.b. Archive and restore advanced canonical state and left the
+  # projection at the revision from the original keep, so retrieval's canonical
+  # recheck refused the claim and it became permanently unretrievable while
+  # canonical reported it kept. Attended SV-6D.3 hit exactly this.
+  test "archive and restore each advance the projection instead of leaving it stale" do
+    {:ok, projection} =
+      Projection.start_link(root: Paths.memory_projection_root(), name: Projection)
+
+    on_exit(fn -> if Process.alive?(projection), do: GenServer.stop(projection) end)
+    assert {:ok, _build} = Projection.rebuild(projection)
+
+    original = proposal("tea")
+
+    assert {:ok, kept} =
+             ProposalReview.review(
+               original.id,
+               proposal_binding(original),
+               %{operation: :keep},
+               "operator:alice"
+             )
+
+    assert kept.status == "kept"
+    kept_revision = Projection.status(projection).control["projection_revision"]
+
+    assert {:ok, preview} = ClaimLifecycle.preview(original.id, "alice")
+
+    assert {:ok, archived} =
+             ClaimLifecycle.transition(preview, :archive, "operator:alice", ClaimLifecycle.new_ids())
+
+    assert archived.state == :archived
+
+    assert archived.projection.outcome == "refreshed",
+           "archive must advance the projection, got #{inspect(archived.projection)}"
+
+    archived_revision = Projection.status(projection).control["projection_revision"]
+    assert archived_revision > kept_revision
+
+    assert {:ok, restore_preview} = ClaimLifecycle.preview(original.id, "alice")
+
+    assert {:ok, restored} =
+             ClaimLifecycle.transition(
+               restore_preview,
+               :restore,
+               "operator:alice",
+               ClaimLifecycle.new_ids()
+             )
+
+    assert restored.state == :kept
+
+    assert restored.projection.outcome == "refreshed",
+           "restore must advance the projection, got #{inspect(restored.projection)}"
+
+    assert Projection.status(projection).control["projection_revision"] > archived_revision
+
+    # The point of the row: the restored claim is servable again with no rebuild.
+    assert {:ok, recalled} = retrieve("tea", projection)
+    assert [%{claim_id: claim_id}] = recalled.chunks
+    assert claim_id == original.id
   end
 
   test "proposal review reaches prompt retrieval and reviewed supersession replaces current context" do

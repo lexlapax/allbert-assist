@@ -103,6 +103,53 @@ defmodule AllbertAssist.Memory.ProjectionBootstrapTest do
            "an existing ready generation must be served as-is, not rebuilt on every boot"
   end
 
+  # v1.3 M9.b.11.c. The guard here used to be `WriterLockHolder.enabled?()`, which
+  # reads ALLBERT_HOLD_WRITER_LOCK. Mix.Tasks.Allbert.with_source_daemon_env/1 sets
+  # that variable around startup and restores it in an `after` block, so in a live
+  # daemon it described how the process was launched rather than whether this VM
+  # owns the writer now. An attended run on 2026-08-03 watched a queued repair mark
+  # the projection dirty while memory-index-rebuild was never kicked, leaving the
+  # projection degraded with no path back. Ownership is now read from the holder
+  # process, which is a fact about this VM.
+  test "a queued repair kicks the managed rebuild when this VM owns the writer" do
+    assert {:ok, _results} = Managed.reconcile("local")
+    {:ok, projection} = start_owner(bootstrap_jobs?: false)
+    assert {:ok, _build} = Projection.rebuild(projection)
+
+    {:ok, holder} = Agent.start_link(fn -> :owner end, name: AllbertAssist.Runtime.WriterLock.Holder)
+    on_exit(fn -> if Process.alive?(holder), do: Agent.stop(holder) end)
+
+    before = managed_dirty_seq("memory-index-rebuild")
+    Projection.queue_repair([:canonical_revalidation_failed], projection)
+    _settled = Projection.status(projection)
+    Process.sleep(200)
+
+    assert managed_dirty_seq("memory-index-rebuild") > before,
+           "queue_repair must reach Managed.kick when the writer-lock holder runs here"
+  end
+
+  test "a queued repair does not kick when this VM does not own the writer" do
+    assert {:ok, _results} = Managed.reconcile("local")
+    {:ok, projection} = start_owner(bootstrap_jobs?: false)
+    assert {:ok, _build} = Projection.rebuild(projection)
+    refute Process.whereis(AllbertAssist.Runtime.WriterLock.Holder)
+
+    before = managed_dirty_seq("memory-index-rebuild")
+    Projection.queue_repair([:canonical_revalidation_failed], projection)
+    _settled = Projection.status(projection)
+    Process.sleep(200)
+
+    assert managed_dirty_seq("memory-index-rebuild") == before,
+           "a non-owner must never kick a rebuild"
+  end
+
+  defp managed_dirty_seq(identity) do
+    case managed_job(identity) do
+      nil -> 0
+      job -> job.metadata |> Kernel.||(%{}) |> Map.get("dirty_seq", 0)
+    end
+  end
+
   defp start_owner(opts) do
     # Registered under the real module name on purpose: ProposalReview and the
     # repair path both resolve the owner with Process.whereis(Projection), so an
