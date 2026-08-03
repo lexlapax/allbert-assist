@@ -32,8 +32,10 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
       )
     end
 
-    def provider(relationship, ordered_queue_positions, synthesis) do
-      candidate(relationship, ordered_queue_positions, synthesis)
+    # v1.3 M9.b.7: the provider returns only the relationship and the paragraph;
+    # Allbert derives the section from the completed positions it already owns.
+    def provider(relationship, _ordered_queue_positions, synthesis) do
+      %{"relationship" => relationship, "advisory_synthesis" => synthesis}
     end
 
     def candidate(relationship, ordered_queue_positions, synthesis) do
@@ -403,36 +405,20 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
            }
 
     assert schema["type"] == "object"
-    assert schema["required"] == ~w[sections advisory_synthesis]
+    assert schema["required"] == ~w[relationship advisory_synthesis]
     assert schema["additionalProperties"] == false
 
-    section_schema = schema["properties"]["sections"]["items"]
+    # v1.3 M9.b.7: the provider is asked only for the relationship judgment and
+    # the paragraph. No partition is requested, because Allbert already owns
+    # which children completed and constrained decoding cannot enforce a
+    # partition anyway.
+    refute Map.has_key?(schema["properties"], "sections")
+    refute Map.has_key?(schema["properties"], "ordered_queue_positions")
 
-    assert section_schema["properties"]["relationship"]["enum"] ==
+    assert schema["properties"]["relationship"]["enum"] ==
              ~w[complementary contrasting sequential supporting independent]
 
-    assert section_schema["required"] == ~w[relationship ordered_queue_positions]
-    assert section_schema["additionalProperties"] == false
-
-    positions_schema = section_schema["properties"]["ordered_queue_positions"]
-
-    assert Map.take(positions_schema, ~w[type items]) == %{
-             "type" => "array",
-             "items" => %{"type" => "integer", "minimum" => 0}
-           }
-
-    assert Map.keys(positions_schema) |> Enum.sort() ==
-             ~w[description items minItems type uniqueItems]
-
-    # Enforced as grammar so the model cannot emit an empty or
-    # self-duplicating section at all.
-    assert positions_schema["minItems"] == 1
-    assert positions_schema["uniqueItems"] == true
-
-    # v1.3 M9.b.6: both closed choices carry their meaning, because the model
-    # was previously handed the enum with no definition of any value.
-    assert positions_schema["description"] =~ "at most once"
-    assert section_schema["properties"]["relationship"]["description"] =~ "complementary"
+    assert schema["properties"]["relationship"]["description"] =~ "complementary"
 
     assert schema["properties"]["advisory_synthesis"]["type"] == "string"
 

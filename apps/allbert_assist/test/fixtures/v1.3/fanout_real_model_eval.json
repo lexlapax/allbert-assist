@@ -293,16 +293,10 @@
             "relationship": "supporting",
             "ordered_queue_positions": [
               0,
-              1
-            ],
-            "relationship_source": "model"
-          },
-          {
-            "relationship": "independent",
-            "ordered_queue_positions": [
+              1,
               2
             ],
-            "relationship_source": "request"
+            "relationship_source": "model"
           }
         ]
       }

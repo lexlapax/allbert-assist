@@ -55,7 +55,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation do
                opts,
                context
              ),
-           {:ok, candidate} <- validate_response(response) do
+           {:ok, candidate} <- validate_response(response, snapshot) do
         {:ok, %{candidate: candidate, configuration_sha256: configuration_sha256}}
       end
     end
@@ -88,10 +88,10 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation do
     kind, reason -> {:error, {:provider_failed, {kind, reason}}}
   end
 
-  defp validate_response(response) do
+  defp validate_response(response, snapshot) do
     with :ok <- validate_finish_reason(response),
          object when is_map(object) <- response_object(response),
-         {:ok, normalized} <- normalize_provider_object(object) do
+         {:ok, normalized} <- normalize_provider_object(object, snapshot) do
       {:ok, normalized}
     else
       nil -> {:error, {:invalid_model_output, :empty_composition_selection}}
@@ -121,28 +121,13 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation do
 
   def prompt(_snapshot), do: {:error, :invalid_composition_snapshot}
 
+  # v1.3 M9.b.7: the provider is asked only for the judgment it can make. Which
+  # children completed is settled fact Allbert already holds, and asking a model
+  # to restate it as an array is asking it to re-derive owned data -- every
+  # measured failure was exactly that re-derivation going wrong. Constrained
+  # decoding cannot enforce a partition, cardinality, or the relational-section
+  # rule anyway, so those invariants were only ever instructions.
   defp schema do
-    %{
-      "type" => "object",
-      "properties" => %{
-        "sections" => %{
-          "type" => "array",
-          "items" => section_json_schema(),
-          "description" =>
-            "Ordered relationship sections that partition every completed child queue_position exactly once."
-        },
-        "advisory_synthesis" => %{
-          "type" => "string",
-          "description" =>
-            "One non-authoritative paragraph answering the joined request from the supplied accepted observations."
-        }
-      },
-      "required" => ~w[sections advisory_synthesis],
-      "additionalProperties" => false
-    }
-  end
-
-  defp section_json_schema do
     %{
       "type" => "object",
       "properties" => %{
@@ -150,36 +135,36 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation do
           "type" => "string",
           "enum" => @relationships,
           "description" =>
-            "How the observations in this section stand to each other. " <>
+            "How the completed child observations stand to each other as one group. " <>
               "complementary: they cover different aspects that together give a fuller picture, and neither depends on the other. " <>
               "contrasting: they differ, disagree, or set out trade-offs against each other. " <>
               "sequential: they describe stages that follow one another in order. " <>
               "supporting: one observation provides evidence or grounding for another. " <>
-              "independent: they have no substantive relationship to each other; use independent for a section holding a single observation that stands alone."
+              "independent: they have no substantive relationship to each other."
         },
-        # minItems/uniqueItems are grammar, not advice: an empty or
-        # self-duplicating section was the model's most common failure, and a
-        # constraint it cannot express is worth more here than one it can ignore.
-        "ordered_queue_positions" => %{
-          "type" => "array",
-          "minItems" => 1,
-          "uniqueItems" => true,
-          "items" => %{"type" => "integer", "minimum" => 0},
+        "advisory_synthesis" => %{
+          "type" => "string",
           "description" =>
-            "The completed children in this section, by queue_position, in reading order. " <>
-              "Use only positions supplied as completed, list each position at most once here, and never repeat a position that another section already lists."
+            "One non-authoritative paragraph answering the joined request from the supplied accepted observations."
         }
       },
-      "required" => ~w[relationship ordered_queue_positions],
+      "required" => ~w[relationship advisory_synthesis],
       "additionalProperties" => false
     }
   end
 
-  defp normalize_provider_object(object) do
-    with true <- exact_keys?(object, ~w[sections advisory_synthesis]) do
+  defp normalize_provider_object(object, snapshot) do
+    with true <- exact_keys?(object, ~w[relationship advisory_synthesis]),
+         relationship when relationship in @relationships <- field(object, "relationship"),
+         [_first | _rest] = positions <- completed_positions(snapshot) do
       {:ok,
        %{
-         "sections" => object |> field("sections") |> drop_empty_sections(),
+         "sections" => [
+           %{
+             "relationship" => group_relationship(relationship, positions),
+             "ordered_queue_positions" => positions
+           }
+         ],
          "advisory_synthesis" => field(object, "advisory_synthesis")
        }}
     else
@@ -187,20 +172,31 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation do
     end
   end
 
-  # A section carrying no queue position describes no child, so removing it
-  # changes nothing about which observations the report covers. Small local
-  # heads reliably append one, and rejecting the whole response over it threw
-  # away an otherwise correct partition and a usable advisory paragraph in
-  # favor of the deterministic fallback. Dropping a no-op is not repair: any
-  # section that does claim a position still faces unchanged validation, and a
-  # response whose sections were *all* empty still fails closed downstream.
-  defp drop_empty_sections(sections) when is_list(sections) do
-    Enum.reject(sections, fn section ->
-      is_map(section) and field(section, "ordered_queue_positions") in [[], nil]
-    end)
+  # A lone completed child cannot stand in a relationship with anything, and
+  # Report.validate_relationship_cardinality/2 already requires independent
+  # there. Deriving it rather than trusting the model keeps the one structural
+  # claim about the layout in deterministic code.
+  defp group_relationship(_relationship, [_single]), do: "independent"
+  defp group_relationship(relationship, _positions), do: relationship
+
+  defp completed_positions(snapshot) do
+    case Report.composition_input(snapshot) do
+      {:ok, %{children: children}} when is_list(children) ->
+        children
+        |> Enum.filter(&(child_field(&1, :status) == "completed"))
+        |> Enum.map(&child_field(&1, :queue_position))
+        |> Enum.reject(&is_nil/1)
+        |> Enum.sort()
+
+      _unavailable ->
+        []
+    end
   end
 
-  defp drop_empty_sections(sections), do: sections
+  defp child_field(child, key) when is_map(child),
+    do: Map.get(child, key) || Map.get(child, Atom.to_string(key))
+
+  defp child_field(_child, _key), do: nil
 
   defp exact_keys?(map, expected) when is_map(map) do
     keys = Enum.map(Map.keys(map), &normalize_key/1)

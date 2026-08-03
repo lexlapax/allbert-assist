@@ -143,9 +143,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
          model: "fixture-model",
          context: prompt,
          object: %{
-           "sections" => [
-             %{"relationship" => "complementary", "ordered_queue_positions" => [0, 1]}
-           ],
+           "relationship" => "complementary",
            "advisory_synthesis" =>
              "Failure isolation and durable replay complement each other at restart."
          },
@@ -452,7 +450,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
                     opts}
 
     assert schema["type"] == "object"
-    assert schema["required"] == ~w[sections advisory_synthesis]
+    assert schema["required"] == ~w[relationship advisory_synthesis]
     assert schema["additionalProperties"] == false
     assert {:ok, %{schema: ^schema, compiled: nil}} = ReqLLM.Schema.compile(schema)
 

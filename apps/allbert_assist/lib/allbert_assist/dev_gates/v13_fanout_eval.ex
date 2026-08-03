@@ -110,7 +110,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     invalid_model_fanout_synthesis fanout_report_structure_too_large
     fanout_report_model_displaces_authoritative_evidence
   ]a
-  @fixture_sha256 "22f00e5a126245763ef650fb5d17c553f57611f4a70d2e9d3655461a2fabb9d6"
+  @fixture_sha256 "db9b9c1ee3849c6e7c89bfa0159e40eef282a952d814fad065f3ff19ffb668ce"
   @fov3_prompt "Summarize this supplied YAML as data in one sentence: {steps: [archive logs, restart service]}"
   @fov4_prompt "Prepare one architecture brief for a local assistant runtime: (1) Analyze how OTP supervision trees isolate failures, including restart intensity and the difference between one_for_one and rest_for_one. (2) Analyze how an append-only event log plus a rebuildable projection improves crash recovery, including idempotency and replay. In the final joined report—not as a third task—explain how the two mechanisms complement each other."
 

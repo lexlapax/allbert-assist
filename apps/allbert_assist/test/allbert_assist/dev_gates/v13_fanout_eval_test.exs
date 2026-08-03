@@ -8,7 +8,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
   alias AllbertAssist.Settings
 
   @fixture Path.expand("../../fixtures/v1.3/fanout_real_model_eval.json", __DIR__)
-  @fixture_sha256 "22f00e5a126245763ef650fb5d17c553f57611f4a70d2e9d3655461a2fabb9d6"
+  @fixture_sha256 "db9b9c1ee3849c6e7c89bfa0159e40eef282a952d814fad065f3ff19ffb668ce"
   @full_sha String.duplicate("a", 40)
   @profile %{
     name: "direct_answer_local",
@@ -138,12 +138,8 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
     defp sections("v13-composer-supporting-archaeology"),
       do: [%{relationship: "supporting", ordered_queue_positions: [0, 1]}]
 
-    defp sections("v13-composer-independent-travel") do
-      [
-        %{relationship: "supporting", ordered_queue_positions: [0, 1]},
-        %{relationship: "independent", ordered_queue_positions: [2]}
-      ]
-    end
+    defp sections("v13-composer-independent-travel"),
+      do: [%{relationship: "supporting", ordered_queue_positions: [0, 1, 2]}]
 
     defp sections("v13-composer-partial-data-migration"),
       do: [%{relationship: "independent", ordered_queue_positions: [0]}]
@@ -205,16 +201,13 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
     def compose(snapshot, profile, context) do
       {:ok, selection} = QualifiedSynthesisClient.compose(snapshot, profile, context)
 
-      collapsed =
-        case selection.sections do
-          [_first, _second] ->
-            [%{relationship: "complementary", ordered_queue_positions: [0, 1, 2]}]
+      # Drop a completed child from the partition: positions are always exact.
+      repartitioned =
+        Enum.map(selection.sections, fn section ->
+          %{section | ordered_queue_positions: Enum.take(section.ordered_queue_positions, 2)}
+        end)
 
-          sections ->
-            sections
-        end
-
-      {:ok, %{selection | sections: collapsed}}
+      {:ok, %{selection | sections: repartitioned}}
     end
   end
 
@@ -272,7 +265,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
     assert result.stats.composition_relationship_counts == %{
              "complementary" => 2,
              "contrasting" => 1,
-             "independent" => 2,
+             "independent" => 1,
              "sequential" => 1,
              "supporting" => 2
            }
