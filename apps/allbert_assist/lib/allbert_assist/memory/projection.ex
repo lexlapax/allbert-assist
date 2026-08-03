@@ -95,9 +95,26 @@ defmodule AllbertAssist.Memory.Projection do
       ready?: not is_nil(serving_conn)
     }
 
-    maybe_kick_forget_recovery(tombstones)
-    {:ok, state}
+    # Forget recovery kicks the same managed rebuild, so it already covers the
+    # bootstrap. Only fall through to :bootstrap_projection when it did not fire.
+    if maybe_kick_forget_recovery(tombstones) do
+      {:ok, state}
+    else
+      maybe_bootstrap_projection(state, Keyword.get(opts, :bootstrap_jobs?, false))
+    end
   end
+
+  # v1.3 M9.b.10.a. A fresh Home has no generation, so `ready?` is false and every
+  # read returns :memory_projection_not_ready forever: init only kicked the rebuild
+  # when Forget tombstones were pending, a keep recorded "repair_pending" without
+  # queueing a repair, and retrieval's repair path needs results it cannot get. The
+  # only creator was a manual job run. Search already solves this with
+  # `bootstrap_jobs?`; Memory now uses the same seam so the first generation is
+  # promoted by the owner that discovers it missing.
+  defp maybe_bootstrap_projection(%{ready?: false} = state, true),
+    do: {:ok, state, {:continue, :bootstrap_projection}}
+
+  defp maybe_bootstrap_projection(state, _bootstrap?), do: {:ok, state}
 
   @impl true
   def handle_call(:status, _from, state) do
@@ -172,6 +189,18 @@ defmodule AllbertAssist.Memory.Projection do
   end
 
   @impl true
+  def handle_continue(:bootstrap_projection, state) do
+    case kick_forget_recovery() do
+      {:ok, _result} ->
+        {:noreply, state}
+
+      {:error, reason} ->
+        diagnostic = %{code: "projection_bootstrap_kick_failed", reason: error_code(reason)}
+        {:noreply, %{state | diagnostics: [diagnostic | state.diagnostics]}}
+    end
+  end
+
+  @impl true
   def handle_info(:kick_forget_recovery, state) do
     case kick_forget_recovery() do
       {:ok, _result} ->
@@ -203,6 +232,9 @@ defmodule AllbertAssist.Memory.Projection do
   defp maybe_kick_forget_recovery(tombstones) do
     if WriterLockHolder.enabled?() and Enum.any?(tombstones, &(&1["phase"] == "pending")) do
       send(self(), :kick_forget_recovery)
+      true
+    else
+      false
     end
   end
 

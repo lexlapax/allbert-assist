@@ -621,11 +621,18 @@ defmodule AllbertAssist.Memory.ProposalReview do
     |> String.pad_leading(width, "0")
   end
 
+  # v1.3 M9.b.10.b. "repair_pending" previously named a repair nobody scheduled:
+  # the outcome was recorded and dropped, so a keep against a not-ready projection
+  # left the claim unretrievable indefinitely. Queue the repair the outcome claims.
   defp refresh_projection(claim_id) do
     if Process.whereis(Projection) do
       case Projection.refresh_claim(claim_id) do
-        {:ok, result} -> %{outcome: "refreshed", revision: result.projection_revision}
-        {:error, reason} -> %{outcome: "repair_pending", reason: inspect(reason)}
+        {:ok, result} ->
+          %{outcome: "refreshed", revision: result.projection_revision}
+
+        {:error, reason} ->
+          Projection.queue_repair([reason])
+          %{outcome: "repair_pending", reason: inspect(reason)}
       end
     else
       %{outcome: "repair_pending", reason: "projection_owner_unavailable"}

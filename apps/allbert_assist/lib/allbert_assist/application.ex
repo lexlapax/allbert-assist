@@ -106,7 +106,7 @@ defmodule AllbertAssist.Application do
     if WriterLockHolder.enabled?() do
       children ++
         [
-          AllbertAssist.Memory.Projection,
+          {AllbertAssist.Memory.Projection, bootstrap_jobs?: true},
           {AllbertAssist.Search.Projection, bootstrap_jobs?: true}
         ]
     else

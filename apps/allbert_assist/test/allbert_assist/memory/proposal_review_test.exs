@@ -101,6 +101,43 @@ defmodule AllbertAssist.Memory.ProposalReviewTest do
     assert length(stream.records) == 1
   end
 
+  # v1.3 M9.b.10.b. Every other row in this file starts the owner with `name: nil`,
+  # so Process.whereis(Projection) is nil and a keep never reaches refresh_claim/1 at
+  # all -- it records "projection_owner_unavailable" and the test's manual rebuild
+  # hides the gap. This row registers the owner under its real name, exactly as the
+  # daemon does, and proves the reported repair is actually queued.
+  test "a keep against a not-ready projection queues the repair it reports" do
+    {:ok, projection} =
+      Projection.start_link(root: Paths.memory_projection_root(), name: Projection)
+
+    on_exit(fn -> if Process.alive?(projection), do: GenServer.stop(projection) end)
+
+    refute Projection.status(projection).ready?,
+           "this row is only meaningful against a projection with no generation"
+
+    before_seq = Projection.status(projection).control["dirty_seq"]
+
+    original = proposal("tea")
+
+    assert {:ok, kept} =
+             ProposalReview.review(
+               original.id,
+               proposal_binding(original),
+               %{operation: :keep},
+               "operator:alice"
+             )
+
+    assert kept.status == "kept"
+    assert kept.result["projection"]["outcome"] == "repair_pending"
+
+    # queue_repair/2 marks the control dirty and records the error code. Before
+    # M9.b.10.b the outcome string was recorded and dropped, so nothing moved here
+    # and the claim stayed unretrievable forever.
+    after_control = Projection.status(projection).control
+    assert after_control["dirty_seq"] > before_seq
+    assert after_control["last_error_code"]
+  end
+
   test "proposal review reaches prompt retrieval and reviewed supersession replaces current context" do
     {:ok, projection} = Projection.start_link(root: Paths.memory_projection_root(), name: nil)
     on_exit(fn -> if Process.alive?(projection), do: GenServer.stop(projection) end)
