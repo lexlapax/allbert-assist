@@ -31,7 +31,6 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   alias AllbertAssist.Objectives.CanonicalJSON
   alias AllbertAssist.Objectives.Fanout.Budget
   alias AllbertAssist.Objectives.Fanout.Report
-  alias AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy
   alias AllbertAssist.Objectives.Fanout.ReportComposer.ReqLLMImplementation, as: Composer
   alias AllbertAssist.Objectives.Fanout.ReportComposer.SynthesisAgent
   alias AllbertAssist.Settings
@@ -70,7 +69,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   ]
   @failure_stages ~w[
     none manager_admission transport_authorization provider_setup provider_call
-    provider_output synthesis_schema synthesis_layout synthesis_review synthesis_body
+    provider_output synthesis_schema synthesis_layout synthesis_validation synthesis_body
     synthesis_lifecycle fixture_expectation body_validation selection_digest
   ]
   @failure_reasons ~w[
@@ -82,8 +81,8 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     invalid_fanout_report_composition_section invalid_fanout_report_relationship_cardinality
     duplicate_fanout_report_composition_position incomplete_fanout_report_composition_selection
     fanout_report_relationship_section_required unknown_fanout_report_composition_position
-    unresolved_fanout_report_synthesis invalid_fanout_report_synthesis_review
-    phase_review_unresolved
+    unresolved_fanout_report_synthesis invalid_fanout_report_synthesis_validation
+    phase_validation_unresolved
     empty_fanout_report_synthesis fanout_report_synthesis_too_large
     unredacted_fanout_report_synthesis invalid_fanout_report_synthesis
     invalid_model_fanout_synthesis fanout_report_structure_too_large
@@ -100,9 +99,9 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     duplicate_fanout_report_composition_position incomplete_fanout_report_composition_selection
     fanout_report_relationship_section_required unknown_fanout_report_composition_position
   ]a
-  @synthesis_review_reasons ~w[
-    unresolved_fanout_report_synthesis invalid_fanout_report_synthesis_review
-    phase_review_unresolved
+  @synthesis_validation_reasons ~w[
+    unresolved_fanout_report_synthesis invalid_fanout_report_synthesis_validation
+    phase_validation_unresolved
   ]a
   @synthesis_body_reasons ~w[
     empty_fanout_report_synthesis fanout_report_synthesis_too_large
@@ -110,7 +109,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
     invalid_model_fanout_synthesis fanout_report_structure_too_large
     fanout_report_model_displaces_authoritative_evidence
   ]a
-  @fixture_sha256 "db9b9c1ee3849c6e7c89bfa0159e40eef282a952d814fad065f3ff19ffb668ce"
+  @fixture_sha256 "0e18ee567d76021a8816a0345dba80f52bf463d72c9699d1cfac308dd64aa0d1"
   @fov3_prompt "Summarize this supplied YAML as data in one sentence: {steps: [archive logs, restart service]}"
   @fov4_prompt "Prepare one architecture brief for a local assistant runtime: (1) Analyze how OTP supervision trees isolate failures, including restart intensity and the difference between one_for_one and rest_for_one. (2) Analyze how an append-only event log plus a rebuildable projection improves crash recovery, including idempotency and replay. In the final joined report—not as a third task—explain how the two mechanisms complement each other."
 
@@ -591,8 +590,8 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   defp classify_synthesis_failure(:callback_failed),
     do: {"synthesis_lifecycle", "callback_failed"}
 
-  defp classify_synthesis_failure({:phase_review_unresolved, _closed_reason}),
-    do: {"synthesis_review", "phase_review_unresolved"}
+  defp classify_synthesis_failure({:phase_validation_unresolved, _closed_reason}),
+    do: {"synthesis_validation", "phase_validation_unresolved"}
 
   defp classify_synthesis_failure(_reason),
     do: {"synthesis_lifecycle", "unclassified_failure"}
@@ -617,8 +616,8 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
   defp classify_invalid_model_output(reason) when reason in @synthesis_layout_reasons,
     do: {"synthesis_layout", Atom.to_string(reason)}
 
-  defp classify_invalid_model_output(reason) when reason in @synthesis_review_reasons,
-    do: {"synthesis_review", Atom.to_string(reason)}
+  defp classify_invalid_model_output(reason) when reason in @synthesis_validation_reasons,
+    do: {"synthesis_validation", Atom.to_string(reason)}
 
   defp classify_invalid_model_output(reason) when reason in @synthesis_body_reasons,
     do: {"synthesis_body", Atom.to_string(reason)}
@@ -743,8 +742,8 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
       :synthesis_contract_version,
       :generation_call_count,
       :provider_call_count,
-      :review_verdict,
-      :reviewed_queue_positions,
+      :validation_outcome,
+      :covered_queue_positions,
       :synthesis_sha256
     ]
 
@@ -760,12 +759,12 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
          sections: sections
        })}
     else
-      {:error, {"synthesis_review", "invalid_fanout_report_synthesis_review"}}
+      {:error, {"synthesis_validation", "invalid_fanout_report_synthesis_validation"}}
     end
   end
 
   defp provenance(_profile, _prepared),
-    do: {:error, {"synthesis_review", "invalid_fanout_report_synthesis_review"}}
+    do: {:error, {"synthesis_validation", "invalid_fanout_report_synthesis_validation"}}
 
   defp phase_evidence(provenance) do
     Map.take(provenance, [:generation_call_count, :provider_call_count])
@@ -1236,11 +1235,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEval do
       # the layout contract Report validates.
       sections: Enum.map(sections, &Map.take(&1, [:relationship, :ordered_queue_positions])),
       advisory_synthesis: "Fixture validation advisory.",
-      review: %{
-        verdict: "accepted",
-        rule_results: Enum.map(SynthesisPolicy.rule_ids(), &%{rule_id: &1, verdict: "satisfied"}),
-        covered_queue_positions: completed_positions
-      }
+      validation: %{outcome: "passed", covered_queue_positions: completed_positions}
     }
   end
 

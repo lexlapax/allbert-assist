@@ -1459,7 +1459,7 @@ defmodule AllbertAssist.Objectives.Fanout do
            }) do
       {:ok,
        %{
-         result_authority: "reviewed_advisory",
+         result_authority: "generated_advisory",
          quality_receipt_sha256: receipt_digest
        }}
     else

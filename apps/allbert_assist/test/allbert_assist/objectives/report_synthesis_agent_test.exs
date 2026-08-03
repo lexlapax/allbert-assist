@@ -308,8 +308,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
 
     assert prepared.layout.layout_version == 2
     assert prepared.synthesis_contract_version == 3
-    assert prepared.review_verdict == "accepted"
-    assert prepared.reviewed_queue_positions == [0, 1]
+    assert prepared.validation_outcome == "passed"
+    assert prepared.covered_queue_positions == [0, 1]
     assert prepared.generation_call_count == 1
     assert prepared.provider_call_count == 1
     assert prepared.generation_configuration_sha256 == nil
@@ -699,8 +699,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
     [{^claim, "model", body, provenance}] = Agent.get(store, & &1.selected)
     assert provenance.layout_version == 2
     assert provenance.synthesis_contract_version == 3
-    assert provenance.review_verdict == "accepted"
-    assert provenance.reviewed_queue_positions == [0, 1]
+    assert provenance.validation_outcome == "passed"
+    assert provenance.covered_queue_positions == [0, 1]
     assert provenance.synthesis_sha256 =~ ~r/^[0-9a-f]{64}$/
     assert body =~ "Model-authored advisory synthesis:"
     refute_receive {:synthesis_provider_call, _snapshot}
@@ -938,7 +938,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
     }
   end
 
-  defp claim(authority \\ "reviewed_advisory") do
+  defp claim(authority \\ "generated_advisory") do
     parent = %Objective{
       id: "synthesis-durable-parent",
       title: "Join two mechanisms",
@@ -960,7 +960,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
          %{
            result_authority: authority,
            quality_receipt_sha256:
-             if(authority == "reviewed_advisory",
+             if(authority == "generated_advisory",
                do: String.duplicate(Integer.to_string(child.queue_position + 1), 64),
                else: nil
              )
@@ -1009,7 +1009,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
       status: "completed",
       detail: detail,
       effect_receipt_ref: nil,
-      result_authority: "reviewed_advisory",
+      result_authority: "generated_advisory",
       quality_receipt_sha256: String.duplicate(Integer.to_string(position + 1), 64)
     }
   end

@@ -1362,11 +1362,11 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
                objective_id: child.id,
                step_id: step.id,
                task_contract_sha256: task_digest,
-               rule_catalog_version: QualityPolicy.version(),
+               instructed_rule_catalog_version: QualityPolicy.version(),
                generator_config_sha256: String.duplicate("b", 64),
                generation_call_count: 1,
                provider_call_count: 1,
-               verdict: "accepted",
+               outcome: "generated",
                final_answer: answer
              })
 

@@ -95,11 +95,11 @@ defmodule AllbertAssist.Objectives.Runs.Worker.Commands.Execute do
       "objective_id" => Map.get(state, :objective_id),
       "step_id" => Map.get(state, :step_id),
       "task_contract_sha256" => Map.get(state, :task_contract_sha256),
-      "rule_catalog_version" => 2,
+      "instructed_rule_catalog_version" => 2,
       "generator_config_sha256" => generator_config_sha256(response),
       "generation_call_count" => 1,
       "provider_call_count" => 1,
-      "verdict" => "accepted",
+      "outcome" => "generated",
       "final_answer" => Map.get(response, :message)
     }
 

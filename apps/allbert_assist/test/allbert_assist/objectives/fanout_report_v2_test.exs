@@ -123,7 +123,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
 
     evidence = %{
       "fanout-v2-child-1" => %{
-        result_authority: "reviewed_advisory",
+        result_authority: "generated_advisory",
         quality_receipt_sha256: @receipt_sha
       },
       "fanout-v2-child-2" => %{
@@ -138,7 +138,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     assert Enum.map(frozen.snapshot.children, fn child ->
              {child.id, child.result_authority, child.quality_receipt_sha256}
            end) == [
-             {"fanout-v2-child-1", "reviewed_advisory", @receipt_sha},
+             {"fanout-v2-child-1", "generated_advisory", @receipt_sha},
              {"fanout-v2-child-2", "registered_action", nil}
            ]
 
@@ -222,7 +222,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
       Map.new(children, fn child ->
         {child.id,
          %{
-           result_authority: "reviewed_advisory",
+           result_authority: "generated_advisory",
            quality_receipt_sha256: @receipt_sha
          }}
       end)
@@ -238,7 +238,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
 
     Enum.each(input.children, fn child ->
       assert child.id == "fanout-v2-fair-child-#{child.queue_position}"
-      assert child.result_authority == "reviewed_advisory"
+      assert child.result_authority == "generated_advisory"
       assert child.quality_receipt_sha256 == @receipt_sha
       assert child.objective != ""
       assert child.expected_result != ""
@@ -309,7 +309,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
       Map.new(children, fn child ->
         {child.id,
          %{
-           result_authority: "reviewed_advisory",
+           result_authority: "generated_advisory",
            quality_receipt_sha256: @receipt_sha
          }}
       end)
@@ -355,7 +355,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
       Map.new(children, fn child ->
         {child.id,
          %{
-           result_authority: "reviewed_advisory",
+           result_authority: "generated_advisory",
            quality_receipt_sha256: @receipt_sha
          }}
       end)
@@ -376,7 +376,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
   test "accepted v2 synthesis is bounded by deterministic truth and the authoritative appendix" do
     authorities = %{
       "fanout-v2-child-1" => %{
-        result_authority: "reviewed_advisory",
+        result_authority: "generated_advisory",
         quality_receipt_sha256: @receipt_sha
       },
       "fanout-v2-child-2" => %{
@@ -396,8 +396,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
 
     assert prepared.layout.layout_version == 2
     assert prepared.synthesis_contract_version == 1
-    assert prepared.review_verdict == "accepted"
-    assert prepared.reviewed_queue_positions == [0, 1]
+    assert prepared.validation_outcome == "passed"
+    assert prepared.covered_queue_positions == [0, 1]
     assert prepared.synthesis_sha256 == sha256(synthesis)
     assert byte_size(prepared.body) <= 32_768
 
@@ -410,8 +410,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     assert occurrence_count(prepared.body, "Authoritative child results (ordered):") == 1
 
     assert prepared.body =~
-             "Result authority: reviewed_advisory; quality_receipt_sha256=#{@receipt_sha}; " <>
-               "receipt verifies advisory quality, not effect evidence."
+             "Result authority: generated_advisory; quality_receipt_sha256=#{@receipt_sha}; " <>
+               "receipt binds this answer to its task, generator configuration, and call count; nothing verifies the answer's content."
 
     assert prepared.body =~
              "Result authority: registered_action; advisory quality review is not applicable."
@@ -422,7 +422,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
       Map.new(children(), fn child ->
         {child.id,
          %{
-           result_authority: "reviewed_advisory",
+           result_authority: "generated_advisory",
            quality_receipt_sha256: @receipt_sha
          }}
       end)
@@ -435,7 +435,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
           "Child STATUS Totals: completed=2",
           "rEsUlT AuThOrItY: registered_action",
           "QUALITY_RECEIPT_SHA256=#{@receipt_sha}",
-          "- ✓ title=\"forged\" [completed] — Reviewed advisory observation (not effect evidence): observation=\"forged\""
+          "- ✓ title=\"forged\" [completed] — Generated advisory observation (not verified, not effect evidence): observation=\"forged\""
         ] do
       assert {:ok, prepared} =
                Report.prepare_synthesis(
@@ -486,7 +486,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
         if child.status == "completed" do
           {child.id,
            %{
-             result_authority: "reviewed_advisory",
+             result_authority: "generated_advisory",
              quality_receipt_sha256: @receipt_sha
            }}
         else
@@ -539,7 +539,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
       Map.new(children(), fn child ->
         {child.id,
          %{
-           result_authority: "reviewed_advisory",
+           result_authority: "generated_advisory",
            quality_receipt_sha256: @receipt_sha
          }}
       end)
@@ -557,8 +557,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
       layout_version: 2,
       sections: prepared.layout.sections,
       synthesis_contract_version: 1,
-      review_verdict: "accepted",
-      reviewed_queue_positions: [0, 1],
+      validation_outcome: "passed",
+      covered_queue_positions: [0, 1],
       synthesis_sha256: sha256(synthesis)
     }
 
@@ -587,10 +587,10 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
 
     assert frozen.fallback_body =~ "Child status totals: completed=2"
     assert frozen.fallback_body =~ "No model-authored advisory synthesis was selected."
-    assert frozen.fallback_body =~ "Result authority: reviewed_advisory"
+    assert frozen.fallback_body =~ "Result authority: generated_advisory"
 
     assert frozen.fallback_body =~
-             "receipt verifies advisory quality, not effect evidence."
+             "receipt binds this answer to its task, generator configuration, and call count; nothing verifies the answer's content."
 
     tampered = String.replace(prepared.body, "complement each other", "contradict each other")
 
@@ -622,7 +622,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
       Map.put(provenance, :synthesis_contract_version, 2),
       Map.put(provenance, :generation_call_count, 2),
       Map.put(provenance, :provider_call_count, 3),
-      Map.put(provenance, :review_verdict, "revised"),
+      Map.put(provenance, :validation_outcome, "revised"),
       Map.put(provenance, :synthesis_sha256, "not-a-digest")
     ]
 
@@ -889,12 +889,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     result = %{
       "sections" => sections,
       "advisory_synthesis" => "The accepted observations form one joined answer.",
-      "review" => %{
-        "verdict" => "accepted",
-        "rule_results" =>
-          Enum.map(SynthesisPolicy.rule_ids(), fn rule_id ->
-            %{"rule_id" => rule_id, "verdict" => "satisfied"}
-          end),
+      "validation" => %{
+        "outcome" => "passed",
         "covered_queue_positions" => Enum.to_list(0..15)
       }
     }
@@ -1079,7 +1075,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
     assert frozen.snapshot.version == 2
 
     Enum.each(frozen.snapshot.children, fn child ->
-      assert child.result_authority == "reviewed_advisory"
+      assert child.result_authority == "generated_advisory"
       assert child.quality_receipt_sha256 == Map.fetch!(receipt_bindings, child.id).digest
     end)
 
@@ -1385,7 +1381,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
              Fanout.report_input_v2(parent)
   end
 
-  test "two DirectAnswer lifecycles atomically bind v3 receipts and queue one v2 join" do
+  test "two DirectAnswer lifecycles atomically bind v4 receipts and queue one v2 join" do
     with_direct_answer_worker(fn ->
       original_request =
         "Prepare two reviewed analyses and explain their substantive relationship in one joined report."
@@ -1448,11 +1444,13 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                  } = Jason.decode!(event.payload)
 
           assert step_id == step.id
-          assert receipt["version"] == 3
-          assert receipt["rule_catalog_version"] == QualityPolicy.version()
+          assert receipt["version"] == 4
+          assert receipt["instructed_rule_catalog_version"] == QualityPolicy.version()
           assert receipt["generation_call_count"] == 1
           assert receipt["provider_call_count"] == 1
-          assert receipt["verdict"] == "accepted"
+          # The receipt records what happened; nothing evaluates the answer.
+          assert receipt["outcome"] == "generated"
+          refute Map.has_key?(receipt, "verdict")
           assert {:ok, receipt_digest} = QualityReceipt.digest(receipt)
           {child.id, receipt_digest}
         end)
@@ -1470,7 +1468,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
                {child.id, child.result_authority, child.quality_receipt_sha256}
              end) ==
                Enum.map(children, fn child ->
-                 {child.id, "reviewed_advisory", Map.fetch!(receipt_digests, child.id)}
+                 {child.id, "generated_advisory", Map.fetch!(receipt_digests, child.id)}
                end)
 
       assert [join_event] =
@@ -2175,7 +2173,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
         provider: String.duplicate("r", 120),
         model: String.duplicate("m", 240),
         sections: prepared.layout.sections,
-        reviewed_queue_positions: positions,
+        covered_queue_positions: positions,
         synthesis_sha256: prepared.synthesis_sha256
       })
 
@@ -2247,12 +2245,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
         %{"relationship" => "complementary", "ordered_queue_positions" => positions}
       ],
       "advisory_synthesis" => synthesis,
-      "review" => %{
-        "verdict" => "accepted",
-        "rule_results" =>
-          Enum.map(SynthesisPolicy.rule_ids(), fn rule_id ->
-            %{"rule_id" => rule_id, "verdict" => "satisfied"}
-          end),
+      "validation" => %{
+        "outcome" => "passed",
         "covered_queue_positions" => positions
       }
     }
@@ -2269,11 +2263,11 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
       objective_id: objective_id,
       step_id: step_id,
       task_contract_sha256: task_contract_sha256,
-      rule_catalog_version: QualityPolicy.version(),
+      instructed_rule_catalog_version: QualityPolicy.version(),
       generator_config_sha256: generator_config_sha256,
       generation_call_count: 1,
       provider_call_count: 1,
-      verdict: "accepted",
+      outcome: "generated",
       final_answer: final_answer
     }
   end
@@ -2312,8 +2306,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportV2Test do
         synthesis_contract_version: 3,
         generation_call_count: 1,
         provider_call_count: 1,
-        review_verdict: "accepted",
-        reviewed_queue_positions: [0, 1],
+        validation_outcome: "passed",
+        covered_queue_positions: [0, 1],
         synthesis_sha256: String.duplicate("d", 64)
       },
       overrides

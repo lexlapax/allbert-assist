@@ -49,7 +49,7 @@
             "status": "completed",
             "detail": "Supervision trees isolate a child failure and apply bounded restart policy according to dependency structure.",
             "effect_receipt_ref": null,
-            "result_authority": "reviewed_advisory",
+            "result_authority": "generated_advisory",
             "quality_receipt_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
           },
           {
@@ -61,7 +61,7 @@
             "status": "completed",
             "detail": "An append-only event log supports idempotent replay into a rebuildable projection after a crash.",
             "effect_receipt_ref": null,
-            "result_authority": "reviewed_advisory",
+            "result_authority": "generated_advisory",
             "quality_receipt_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
           }
         ]
@@ -101,7 +101,7 @@
             "status": "completed",
             "detail": "Short-duration storage responds quickly but supplies its rated output for a limited interval.",
             "effect_receipt_ref": null,
-            "result_authority": "reviewed_advisory",
+            "result_authority": "generated_advisory",
             "quality_receipt_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
           },
           {
@@ -113,7 +113,7 @@
             "status": "completed",
             "detail": "Long-duration storage sustains output longer but typically responds with different cost and efficiency trade-offs.",
             "effect_receipt_ref": null,
-            "result_authority": "reviewed_advisory",
+            "result_authority": "generated_advisory",
             "quality_receipt_sha256": "4444444444444444444444444444444444444444444444444444444444444444"
           }
         ]
@@ -153,7 +153,7 @@
             "status": "completed",
             "detail": "Capture the relevant logs and current process state before changing the service.",
             "effect_receipt_ref": null,
-            "result_authority": "reviewed_advisory",
+            "result_authority": "generated_advisory",
             "quality_receipt_sha256": "5555555555555555555555555555555555555555555555555555555555555555"
           },
           {
@@ -165,7 +165,7 @@
             "status": "completed",
             "detail": "Restart the service only after evidence capture, then verify its health endpoint.",
             "effect_receipt_ref": null,
-            "result_authority": "reviewed_advisory",
+            "result_authority": "generated_advisory",
             "quality_receipt_sha256": "6666666666666666666666666666666666666666666666666666666666666666"
           }
         ]
@@ -205,7 +205,7 @@
             "status": "completed",
             "detail": "The later deposit consistently overlies the earlier material layer across the sampled trench.",
             "effect_receipt_ref": null,
-            "result_authority": "reviewed_advisory",
+            "result_authority": "generated_advisory",
             "quality_receipt_sha256": "7777777777777777777777777777777777777777777777777777777777777777"
           },
           {
@@ -217,7 +217,7 @@
             "status": "completed",
             "detail": "The independent sample date falls inside the interval inferred from the material sequence.",
             "effect_receipt_ref": null,
-            "result_authority": "reviewed_advisory",
+            "result_authority": "generated_advisory",
             "quality_receipt_sha256": "8888888888888888888888888888888888888888888888888888888888888888"
           }
         ]
@@ -257,7 +257,7 @@
             "status": "completed",
             "detail": "The final direct train reaches the destination before the evening transfer window closes.",
             "effect_receipt_ref": null,
-            "result_authority": "reviewed_advisory",
+            "result_authority": "generated_advisory",
             "quality_receipt_sha256": "9999999999999999999999999999999999999999999999999999999999999999"
           },
           {
@@ -269,7 +269,7 @@
             "status": "completed",
             "detail": "The local transfer departs after the direct train's scheduled arrival with a bounded connection margin.",
             "effect_receipt_ref": null,
-            "result_authority": "reviewed_advisory",
+            "result_authority": "generated_advisory",
             "quality_receipt_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
           },
           {
@@ -281,7 +281,7 @@
             "status": "completed",
             "detail": "The travel document must remain valid through the stated return date.",
             "effect_receipt_ref": null,
-            "result_authority": "reviewed_advisory",
+            "result_authority": "generated_advisory",
             "quality_receipt_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
           }
         ]
@@ -322,7 +322,7 @@
             "status": "completed",
             "detail": "The sampled migrated records conform to the expected field and type shape.",
             "effect_receipt_ref": null,
-            "result_authority": "reviewed_advisory",
+            "result_authority": "generated_advisory",
             "quality_receipt_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
           },
           {
@@ -373,7 +373,7 @@
             "status": "completed",
             "detail": "Warmer dough generally ferments faster within the observed range, while exact rates remain recipe-dependent.",
             "effect_receipt_ref": null,
-            "result_authority": "reviewed_advisory",
+            "result_authority": "generated_advisory",
             "quality_receipt_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
           },
           {
@@ -385,7 +385,7 @@
             "status": "completed",
             "detail": "Longer fermentation can increase development, but the useful interval depends on temperature and dough condition.",
             "effect_receipt_ref": null,
-            "result_authority": "reviewed_advisory",
+            "result_authority": "generated_advisory",
             "quality_receipt_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
           }
         ]

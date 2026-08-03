@@ -161,8 +161,8 @@ defmodule AllbertAssist.TestSupport.FanoutReportFixture do
       layout_version: 2,
       sections: prepared.layout.sections,
       synthesis_contract_version: SynthesisPolicy.version(),
-      review_verdict: prepared.review_verdict,
-      reviewed_queue_positions: prepared.reviewed_queue_positions,
+      validation_outcome: prepared.validation_outcome,
+      covered_queue_positions: prepared.covered_queue_positions,
       synthesis_sha256: prepared.synthesis_sha256
     }
 
@@ -175,12 +175,8 @@ defmodule AllbertAssist.TestSupport.FanoutReportFixture do
         %{"relationship" => "sequential", "ordered_queue_positions" => positions}
       ],
       "advisory_synthesis" => @forged_label_corpus.advisory_synthesis,
-      "review" => %{
-        "verdict" => "accepted",
-        "rule_results" =>
-          Enum.map(SynthesisPolicy.rule_ids(), fn id ->
-            %{"rule_id" => id, "verdict" => "satisfied"}
-          end),
+      "validation" => %{
+        "outcome" => "passed",
         "covered_queue_positions" => positions
       }
     }

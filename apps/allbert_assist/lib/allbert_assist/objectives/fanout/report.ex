@@ -46,7 +46,7 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
   @appendix_heading "Authoritative child results (ordered):"
   @relationships ~w[complementary contrasting sequential supporting independent]
   @relational_relationships ~w[complementary contrasting sequential supporting]
-  @result_authorities ~w[reviewed_advisory registered_action legacy_unreviewed_advisory]
+  @result_authorities ~w[generated_advisory registered_action legacy_unreviewed_advisory]
   @sha256_pattern ~r/^[0-9a-f]{64}$/
   @v1_fallback_reasons ~w[
     model_disabled budget_denied invalid_budget_snapshot deadline_exhausted
@@ -280,7 +280,7 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
 
   defp valid_synthesis_child_authority?(child) do
     case map_field(child, :result_authority) do
-      "reviewed_advisory" -> sha256?(map_field(child, :quality_receipt_sha256))
+      "generated_advisory" -> sha256?(map_field(child, :quality_receipt_sha256))
       "registered_action" -> is_nil(map_field(child, :quality_receipt_sha256))
       _invalid -> false
     end
@@ -524,8 +524,8 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
              body: String.t(),
              layout: map(),
              synthesis_contract_version: pos_integer(),
-             review_verdict: String.t(),
-             reviewed_queue_positions: [non_neg_integer()],
+             validation_outcome: String.t(),
+             covered_queue_positions: [non_neg_integer()],
              synthesis_sha256: String.t()
            }}
           | {:error, term()}
@@ -550,8 +550,8 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
          body: body,
          layout: %{layout_version: @v2_version, sections: normalized.sections},
          synthesis_contract_version: SynthesisPolicy.version(),
-         review_verdict: "accepted",
-         reviewed_queue_positions: normalized.reviewed_queue_positions,
+         validation_outcome: "passed",
+         covered_queue_positions: normalized.covered_queue_positions,
          synthesis_sha256: sha256(synthesis)
        }}
     else
@@ -807,8 +807,8 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
            map_size(provenance) == 9 and
              provenance_keys(provenance) ==
                ~w[
-                 layout_version model model_profile provider review_verdict
-                 reviewed_queue_positions sections synthesis_contract_version synthesis_sha256
+                 covered_queue_positions layout_version model model_profile provider
+                 sections synthesis_contract_version synthesis_sha256 validation_outcome
                ],
          {:ok, profile} <-
            provenance_identifier(provenance_field(provenance, :model_profile), 120),
@@ -821,10 +821,10 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
            ),
          @synthesis_contract_v1 <-
            provenance_field(provenance, :synthesis_contract_version),
-         "accepted" <- provenance_field(provenance, :review_verdict),
+         "passed" <- provenance_field(provenance, :validation_outcome),
          {:ok, positions} <-
            normalize_reviewed_positions(
-             provenance_field(provenance, :reviewed_queue_positions),
+             provenance_field(provenance, :covered_queue_positions),
              layout.sections
            ),
          synthesis_sha when is_binary(synthesis_sha) <-
@@ -838,8 +838,8 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
          layout_version: @v2_version,
          sections: layout.sections,
          synthesis_contract_version: @synthesis_contract_v1,
-         review_verdict: "accepted",
-         reviewed_queue_positions: positions,
+         validation_outcome: "passed",
+         covered_queue_positions: positions,
          synthesis_sha256: synthesis_sha
        }}
     else
@@ -855,9 +855,9 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
            map_size(provenance) == 11 and
              provenance_keys(provenance) ==
                ~w[
-                 generation_call_count layout_version model model_profile provider
-                 provider_call_count review_verdict reviewed_queue_positions sections
-                 synthesis_contract_version synthesis_sha256
+                 covered_queue_positions generation_call_count layout_version model
+                 model_profile provider provider_call_count sections
+                 synthesis_contract_version synthesis_sha256 validation_outcome
                ],
          {:ok, profile} <-
            provenance_identifier(provenance_field(provenance, :model_profile), 120),
@@ -870,10 +870,10 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
            ),
          @synthesis_contract_v3 <-
            provenance_field(provenance, :synthesis_contract_version),
-         "accepted" <- provenance_field(provenance, :review_verdict),
+         "passed" <- provenance_field(provenance, :validation_outcome),
          {:ok, positions} <-
            normalize_reviewed_positions(
-             provenance_field(provenance, :reviewed_queue_positions),
+             provenance_field(provenance, :covered_queue_positions),
              layout.sections
            ),
          synthesis_sha when is_binary(synthesis_sha) <-
@@ -894,8 +894,8 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
          synthesis_contract_version: @synthesis_contract_v3,
          generation_call_count: 1,
          provider_call_count: 1,
-         review_verdict: "accepted",
-         reviewed_queue_positions: positions,
+         validation_outcome: "passed",
+         covered_queue_positions: positions,
          synthesis_sha256: synthesis_sha
        }}
     else
@@ -1073,18 +1073,18 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
   defp normalize_synthesis_result(children, result) do
     with true <-
            map_size(result) == 3 and
-             provenance_keys(result) == ~w[advisory_synthesis review sections],
+             provenance_keys(result) == ~w[advisory_synthesis sections validation],
          {:ok, sections} <- normalize_sections(provenance_field(result, :sections)),
          :ok <- validate_completed_partition(children, sections),
          {:ok, synthesis} <-
            normalize_advisory_synthesis(provenance_field(result, :advisory_synthesis)),
-         {:ok, reviewed_queue_positions} <-
-           normalize_synthesis_review(children, provenance_field(result, :review)) do
+         {:ok, covered_queue_positions} <-
+           normalize_synthesis_validation(children, provenance_field(result, :validation)) do
       {:ok,
        %{
          sections: sections,
          advisory_synthesis: synthesis,
-         reviewed_queue_positions: reviewed_queue_positions
+         covered_queue_positions: covered_queue_positions
        }}
     else
       {:error, _reason} = error -> error
@@ -1092,42 +1092,26 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
     end
   end
 
-  defp normalize_synthesis_review(children, review) when is_map(review) do
+  # The composer's own deterministic check: the coverage it claims must equal the
+  # completed children Allbert holds. The former rule_results block asserted every
+  # catalog rule "satisfied" and no code evaluated it, so it is gone rather than
+  # renamed -- a self-certification is not evidence in any vocabulary.
+  defp normalize_synthesis_validation(children, validation) when is_map(validation) do
     expected_positions = completed_positions(children)
 
     with true <-
-           map_size(review) == 3 and
-             provenance_keys(review) ==
-               ~w[covered_queue_positions rule_results verdict],
-         "accepted" <- provenance_field(review, :verdict),
-         ^expected_positions <- provenance_field(review, :covered_queue_positions),
-         :ok <- normalize_synthesis_rule_results(provenance_field(review, :rule_results)) do
+           map_size(validation) == 2 and
+             provenance_keys(validation) == ~w[covered_queue_positions outcome],
+         "passed" <- provenance_field(validation, :outcome),
+         ^expected_positions <- provenance_field(validation, :covered_queue_positions) do
       {:ok, expected_positions}
     else
       _invalid -> {:error, :unresolved_fanout_report_synthesis}
     end
   end
 
-  defp normalize_synthesis_review(_children, _review),
-    do: {:error, :invalid_fanout_report_synthesis_review}
-
-  defp normalize_synthesis_rule_results(results) when is_list(results) do
-    normalized =
-      Enum.map(results, fn result ->
-        if is_map(result) and map_size(result) == 2 and
-             provenance_keys(result) == ~w[rule_id verdict] do
-          {provenance_field(result, :rule_id), provenance_field(result, :verdict)}
-        else
-          :invalid
-        end
-      end)
-
-    expected = Enum.map(SynthesisPolicy.rule_ids(), &{&1, "satisfied"})
-    if normalized == expected, do: :ok, else: {:error, :unresolved_fanout_report_synthesis}
-  end
-
-  defp normalize_synthesis_rule_results(_results),
-    do: {:error, :invalid_fanout_report_synthesis_review}
+  defp normalize_synthesis_validation(_children, _validation),
+    do: {:error, :invalid_fanout_report_synthesis_validation}
 
   defp normalize_advisory_synthesis(value) when is_binary(value) do
     if Redactor.redact(value) == value do
@@ -1491,10 +1475,10 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
       result_authority not in @result_authorities ->
         {:error, :invalid_fanout_report_child_authority}
 
-      result_authority == "reviewed_advisory" and not sha256?(receipt) ->
+      result_authority == "generated_advisory" and not sha256?(receipt) ->
         {:error, :invalid_fanout_report_quality_receipt}
 
-      result_authority != "reviewed_advisory" and not is_nil(receipt) ->
+      result_authority != "generated_advisory" and not is_nil(receipt) ->
         {:error, :invalid_fanout_report_quality_receipt}
 
       true ->
@@ -2056,8 +2040,8 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
     @appendix_heading <> "\n" <> lines
   end
 
-  defp v2_observation_label(%{result_authority: "reviewed_advisory"}),
-    do: "Reviewed advisory observation (not effect evidence)"
+  defp v2_observation_label(%{result_authority: "generated_advisory"}),
+    do: "Generated advisory observation (not verified, not effect evidence)"
 
   defp v2_observation_label(%{status: "completed", result_authority: "registered_action"}),
     do: "Registered-action result"
@@ -2076,11 +2060,12 @@ defmodule AllbertAssist.Objectives.Fanout.Report do
     do: "Legacy unreviewed advisory observation (not effect evidence)"
 
   defp v2_quality_authority_line(%{
-         result_authority: "reviewed_advisory",
+         result_authority: "generated_advisory",
          quality_receipt_sha256: digest
        }) do
-    "Result authority: reviewed_advisory; quality_receipt_sha256=#{digest}; " <>
-      "receipt verifies advisory quality, not effect evidence."
+    "Result authority: generated_advisory; quality_receipt_sha256=#{digest}; " <>
+      "receipt binds this answer to its task, generator configuration, and call " <>
+      "count; nothing verifies the answer's content."
   end
 
   defp v2_quality_authority_line(%{

@@ -687,8 +687,8 @@ defmodule AllbertAssist.Objectives.FanoutTest do
       layout_version: prepared.layout.layout_version,
       sections: prepared.layout.sections,
       synthesis_contract_version: prepared.synthesis_contract_version,
-      review_verdict: prepared.review_verdict,
-      reviewed_queue_positions: prepared.reviewed_queue_positions,
+      validation_outcome: prepared.validation_outcome,
+      covered_queue_positions: prepared.covered_queue_positions,
       synthesis_sha256: prepared.synthesis_sha256
     }
 
@@ -736,8 +736,8 @@ defmodule AllbertAssist.Objectives.FanoutTest do
                }
              ],
              "synthesis_contract_version" => 1,
-             "review_verdict" => "accepted",
-             "reviewed_queue_positions" => [0, 1],
+             "validation_outcome" => "passed",
+             "covered_queue_positions" => [0, 1],
              "synthesis_sha256" => synthesis_sha256
            } = Jason.decode!(selection_event.payload)
 
@@ -2520,12 +2520,8 @@ defmodule AllbertAssist.Objectives.FanoutTest do
         %{"relationship" => "complementary", "ordered_queue_positions" => [0, 1]}
       ],
       "advisory_synthesis" => synthesis,
-      "review" => %{
-        "verdict" => "accepted",
-        "rule_results" =>
-          Enum.map(SynthesisPolicy.rule_ids(), fn rule_id ->
-            %{"rule_id" => rule_id, "verdict" => "satisfied"}
-          end),
+      "validation" => %{
+        "outcome" => "passed",
         "covered_queue_positions" => [0, 1]
       }
     }

@@ -8,7 +8,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.Commands.Synthesize do
   alias AllbertAssist.Models.ProviderAttempt
   alias AllbertAssist.Objectives.CanonicalJSON
   alias AllbertAssist.Objectives.Fanout.Report
-  alias AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy
   alias AllbertAssist.Objectives.Runs.CancelToken
 
   @synthesis_contract_version 3
@@ -120,7 +119,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.Commands.Synthesize do
     with true <- exact_candidate_keys?(selection),
          {:ok, normalized_synthesis} <- normalize_synthesis(selection),
          {:ok, prepared} <-
-           Report.prepare_synthesis(snapshot, locally_reviewed(selection, snapshot)),
+           Report.prepare_synthesis(snapshot, locally_validated(selection, snapshot)),
          true <- prepared.synthesis_sha256 == sha256(normalized_synthesis) do
       {:ok,
        %{
@@ -147,13 +146,13 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer.Commands.Synthesize do
      })}
   end
 
-  defp locally_reviewed(selection, snapshot) do
-    Map.put(selection, "review", %{
-      "verdict" => "accepted",
-      "rule_results" =>
-        Enum.map(SynthesisPolicy.rule_ids(), fn rule_id ->
-          %{"rule_id" => rule_id, "verdict" => "satisfied"}
-        end),
+  # Deterministic local validation, not a review. The composer checks the
+  # partition it built against the completed children and records that outcome.
+  # It previously also marked every catalog rule "satisfied", which no code
+  # evaluated -- the same path that produced the candidate certified it.
+  defp locally_validated(selection, snapshot) do
+    Map.put(selection, "validation", %{
+      "outcome" => "passed",
       "covered_queue_positions" => completed_positions(snapshot)
     })
   end

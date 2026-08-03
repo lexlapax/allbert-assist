@@ -8,7 +8,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
   alias AllbertAssist.Settings
 
   @fixture Path.expand("../../fixtures/v1.3/fanout_real_model_eval.json", __DIR__)
-  @fixture_sha256 "db9b9c1ee3849c6e7c89bfa0159e40eef282a952d814fad065f3ff19ffb668ce"
+  @fixture_sha256 "0e18ee567d76021a8816a0345dba80f52bf463d72c9699d1cfac308dd64aa0d1"
   @full_sha String.duplicate("a", 40)
   @profile %{
     name: "direct_answer_local",
@@ -325,7 +325,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
       assert snapshot.parent_id == composition_case["snapshot"]["parent_id"]
 
       for child <- Enum.filter(snapshot.children, &(&1.status == "completed")) do
-        assert child.result_authority == "reviewed_advisory"
+        assert child.result_authority == "generated_advisory"
         assert byte_size(child.quality_receipt_sha256) == 64
       end
     end
@@ -467,7 +467,7 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
 
     assert_closed_composer_failure(
       unresolved,
-      "synthesis_review",
+      "synthesis_validation",
       "unresolved_fanout_report_synthesis"
     )
 
@@ -529,8 +529,8 @@ defmodule AllbertAssist.DevGates.V13FanoutEvalTest do
        "invalid_fanout_report_synthesis_selection"},
       {:invalid_fanout_report_composition_section, "synthesis_layout",
        "invalid_fanout_report_composition_section"},
-      {:invalid_fanout_report_synthesis_review, "synthesis_review",
-       "invalid_fanout_report_synthesis_review"},
+      {:invalid_fanout_report_synthesis_validation, "synthesis_validation",
+       "invalid_fanout_report_synthesis_validation"},
       {:fanout_report_synthesis_too_large, "synthesis_body", "fanout_report_synthesis_too_large"},
       {{:arbitrary_provider_reason, "private provider text"}, "provider_output",
        "invalid_model_output"}

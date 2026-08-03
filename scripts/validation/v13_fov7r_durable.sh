@@ -235,7 +235,7 @@ fov_7r_validate() {
           WHERE e.kind='fanout_report_selected'),
        json_extract(s.payload,'$.source'),
        json_extract(s.payload,'$.layout_version'),
-       json_extract(s.payload,'$.review_verdict'),
+       json_extract(s.payload,'$.validation_outcome'),
        json_extract(s.payload,'$.synthesis_contract_version'),
        CASE WHEN json_extract(s.payload,'$.generation_call_count')=1 AND
                       json_extract(s.payload,'$.provider_call_count')=1
@@ -243,7 +243,7 @@ fov_7r_validate() {
        json_array_length(json_extract(s.payload,'$.sections')),
        json_extract(s.payload,'$.sections[0].relationship'),
        json(json_extract(s.payload,'$.sections[0].ordered_queue_positions')),
-       json(json_extract(s.payload,'$.reviewed_queue_positions')),
+       json(json_extract(s.payload,'$.covered_queue_positions')),
        CASE WHEN length(json_extract(s.payload,'$.synthesis_sha256'))=64
             THEN 1 ELSE 0 END
      FROM parent AS p CROSS JOIN selected AS s;" \

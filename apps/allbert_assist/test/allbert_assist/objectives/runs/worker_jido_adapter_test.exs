@@ -140,7 +140,7 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
     :ok
   end
 
-  test "one generation terminalizes the child and mints a v3 receipt" do
+  test "one generation terminalizes the child and mints a v4 provenance receipt" do
     Application.put_env(:allbert_assist, DirectAnswer, answerer: GenerationAnswerer)
     enable_model!()
 
@@ -150,10 +150,13 @@ defmodule AllbertAssist.Objectives.Runs.WorkerJidoAdapterTest do
              Worker.run("direct_answer", %{text: grounding.direct_answer_text}, context)
 
     assert message == "One generated child observation."
-    assert receipt["version"] == 3
+    assert receipt["version"] == 4
     assert receipt["generation_call_count"] == 1
     assert receipt["provider_call_count"] == 1
-    assert receipt["verdict"] == "accepted"
+    # The receipt records what happened, not a judgment: nothing evaluates the
+    # answer, so it must not claim acceptance.
+    assert receipt["outcome"] == "generated"
+    refute Map.has_key?(receipt, "verdict")
     assert receipt["final_answer_sha256"] == sha256(message)
 
     assert_receive {:generation_call, _text, %{version: 1}}

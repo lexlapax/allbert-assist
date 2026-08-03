@@ -297,8 +297,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
         layout_version: Map.fetch!(layout, :layout_version),
         sections: Map.fetch!(layout, :sections),
         synthesis_contract_version: Map.fetch!(prepared, :synthesis_contract_version),
-        review_verdict: Map.fetch!(prepared, :review_verdict),
-        reviewed_queue_positions: Map.fetch!(prepared, :reviewed_queue_positions),
+        validation_outcome: Map.fetch!(prepared, :validation_outcome),
+        covered_queue_positions: Map.fetch!(prepared, :covered_queue_positions),
         synthesis_sha256: Map.fetch!(prepared, :synthesis_sha256),
         generation_call_count: Map.fetch!(prepared, :generation_call_count),
         provider_call_count: Map.fetch!(prepared, :provider_call_count)

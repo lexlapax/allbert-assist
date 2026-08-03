@@ -14,11 +14,11 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
   alias AllbertAssist.Objectives.CanonicalJSON
 
   @legacy_version 1
-  @version 3
+  @version 4
   @write_rule_catalog_version 2
   @replay_rule_catalog_versions [1, 2]
   @legacy_receipt_digest_domain "allbert:fanout-worker-quality-receipt:v1\0"
-  @receipt_digest_domain "allbert:fanout-worker-quality-receipt:v3\0"
+  @receipt_digest_domain "allbert:fanout-worker-quality-receipt:v4\0"
   @legacy_receipt_keys ~w[
     version objective_id_sha256 step_id_sha256 task_contract_sha256
     rule_catalog_version reviewer_config_sha256 provider_call_count verdict
@@ -26,36 +26,36 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
   ]
   @receipt_keys ~w[
     version objective_id_sha256 step_id_sha256 task_contract_sha256
-    rule_catalog_version generator_config_sha256 generation_call_count
-    provider_call_count verdict final_answer_sha256
+    instructed_rule_catalog_version generator_config_sha256 generation_call_count
+    provider_call_count outcome final_answer_sha256
   ]
   @event_keys ~w[quality_receipt step_id step_status]
   @build_binding_keys ~w[
-    objective_id step_id task_contract_sha256 rule_catalog_version
-    generator_config_sha256 generation_call_count provider_call_count verdict
+    objective_id step_id task_contract_sha256 instructed_rule_catalog_version
+    generator_config_sha256 generation_call_count provider_call_count outcome
     final_answer
   ]
   @verify_binding_keys ~w[objective_id step_id task_contract_sha256 final_answer]
 
   @type receipt :: %{required(String.t()) => term()}
 
-  @doc "Build one exact accepted v3 receipt from a single-generation worker run."
+  @doc "Build one exact v4 provenance receipt from a single-generation worker run."
   @spec build(map()) :: {:ok, receipt()} | {:error, :invalid_quality_receipt_binding}
   def build(binding) when is_map(binding) do
     with {:ok, binding} <- normalize_map(binding),
          true <- exact_keys?(binding, @build_binding_keys),
          true <- valid_hash_inputs?(binding),
-         true <- binding["rule_catalog_version"] == @write_rule_catalog_version do
+         true <- binding["instructed_rule_catalog_version"] == @write_rule_catalog_version do
       receipt = %{
         "version" => @version,
         "objective_id_sha256" => sha256(binding["objective_id"]),
         "step_id_sha256" => sha256(binding["step_id"]),
         "task_contract_sha256" => binding["task_contract_sha256"],
-        "rule_catalog_version" => binding["rule_catalog_version"],
+        "instructed_rule_catalog_version" => binding["instructed_rule_catalog_version"],
         "generator_config_sha256" => binding["generator_config_sha256"],
         "generation_call_count" => binding["generation_call_count"],
         "provider_call_count" => binding["provider_call_count"],
-        "verdict" => binding["verdict"],
+        "outcome" => binding["outcome"],
         "final_answer_sha256" => sha256(binding["final_answer"])
       }
 
@@ -103,7 +103,7 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
     with :ok <- validate(receipt, binding),
          {:ok, receipt} <- normalize_map(receipt),
          true <- receipt["version"] == @version,
-         true <- receipt["rule_catalog_version"] == @write_rule_catalog_version do
+         true <- receipt["instructed_rule_catalog_version"] == @write_rule_catalog_version do
       :ok
     else
       _invalid -> {:error, :invalid_quality_receipt}
@@ -159,21 +159,24 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
   end
 
   defp valid_receipt?(%{"version" => @version} = receipt) do
-    valid_v3_shape?(receipt) and valid_v3_outcome?(receipt) and valid_v3_digests?(receipt)
+    valid_current_shape?(receipt) and valid_current_outcome?(receipt) and
+      valid_current_digests?(receipt)
   end
 
   defp valid_receipt?(_receipt), do: false
 
-  defp valid_v3_shape?(receipt), do: exact_keys?(receipt, @receipt_keys)
+  defp valid_current_shape?(receipt), do: exact_keys?(receipt, @receipt_keys)
 
-  defp valid_v3_outcome?(receipt) do
-    receipt["rule_catalog_version"] == @write_rule_catalog_version and
+  # "generated" states what happened. Nothing evaluates the answer, so the
+  # receipt records completion and provenance and claims no judgment.
+  defp valid_current_outcome?(receipt) do
+    receipt["instructed_rule_catalog_version"] == @write_rule_catalog_version and
       receipt["generation_call_count"] == 1 and
       receipt["provider_call_count"] == receipt["generation_call_count"] and
-      receipt["verdict"] == "accepted"
+      receipt["outcome"] == "generated"
   end
 
-  defp valid_v3_digests?(receipt) do
+  defp valid_current_digests?(receipt) do
     Enum.all?(
       ~w[objective_id_sha256 step_id_sha256 task_contract_sha256 generator_config_sha256 final_answer_sha256],
       &lowercase_sha256?(receipt[&1])
@@ -187,11 +190,15 @@ defmodule AllbertAssist.Objectives.Runs.Worker.QualityReceipt do
       is_binary(binding["final_answer"]) and valid_versioned_task_digests?(binding)
   end
 
+  # v4 names the field for what it is; legacy replay receipts keep the old key.
+  defp catalog_version(receipt),
+    do: receipt["instructed_rule_catalog_version"] || receipt["rule_catalog_version"]
+
   defp task_contract_digest_matches?(receipt, binding) do
     expected =
       case Map.get(binding, "task_contract_sha256_by_rule_catalog_version") do
         digests when is_map(digests) ->
-          Map.get(digests, Integer.to_string(receipt["rule_catalog_version"]))
+          Map.get(digests, Integer.to_string(catalog_version(receipt)))
 
         _missing ->
           binding["task_contract_sha256"]

@@ -15,20 +15,11 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   alias ReqLLM.Response
 
   defmodule SynthesisFixture do
-    alias AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy
-
     def accepted(relationship, ordered_queue_positions, synthesis) do
       base(relationship, ordered_queue_positions, synthesis)
       |> put_in(
-        ["review"],
-        %{
-          "verdict" => "accepted",
-          "rule_results" =>
-            Enum.map(SynthesisPolicy.rule_ids(), fn rule_id ->
-              %{"rule_id" => rule_id, "verdict" => "satisfied"}
-            end),
-          "covered_queue_positions" => ordered_queue_positions
-        }
+        ["validation"],
+        %{"outcome" => "passed", "covered_queue_positions" => ordered_queue_positions}
       )
     end
 
@@ -40,7 +31,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
 
     def candidate(relationship, ordered_queue_positions, synthesis) do
       base(relationship, ordered_queue_positions, synthesis)
-      |> Map.delete("review")
+      |> Map.delete("validation")
     end
 
     defp base(relationship, ordered_queue_positions, synthesis) do
@@ -52,7 +43,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
           }
         ],
         "advisory_synthesis" => synthesis,
-        "review" => %{}
+        "validation" => %{}
       }
     end
   end
@@ -658,8 +649,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
              layout_version: 2,
              sections: [%{relationship: "independent", ordered_queue_positions: [0]}],
              synthesis_contract_version: 3,
-             review_verdict: "accepted",
-             reviewed_queue_positions: [0],
+             validation_outcome: "passed",
+             covered_queue_positions: [0],
              synthesis_sha256: expected_synthesis_sha256,
              generation_call_count: 1,
              provider_call_count: 1
