@@ -92,8 +92,10 @@ different risk from one that fails open.
 
 ## Release gate
 
-`release.v13` is green: **32 of 32 steps passed** at `1270045b0` on a clean
-tree, evidence `release-v13-1785810884.json`, generated 2026-08-04T03:11:08Z.
+`release.v13` is green: **32 of 32 steps passed** at `a16997919` on a clean
+tree, evidence `release-v13-1785813865.json`, generated 2026-08-04T04:00:50Z.
+That is the confirming run taken after the last intermittent row was diagnosed;
+the first green was `1270045b0` / `release-v13-1785810884.json`.
 
 It took four cumulative runs, and each surfaced a different class of problem —
 which is the argument for running the gate to green rather than trusting
