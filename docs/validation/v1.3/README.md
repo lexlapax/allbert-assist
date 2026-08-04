@@ -471,6 +471,16 @@ matching remote and local SHA-256
 `5811e5ff803af7fb568d0782d7c7e68893fca34b817c02a813fa2e594092b92c`.
 No-build qualification remains pending; promotion is prohibited.
 
+No-build qualification run `30961472818` then passed separately on macOS
+arm64, Linux x64, and Linux arm64, followed by the joined evidence job;
+promotion was skipped. Qualification-manifest artifact ID `8913118715` has
+Actions ZIP SHA-256
+`ba48a084e2bd35b10fc0e923f6f590400d7358f34b326d980011a28063b79249`
+and content SHA-256
+`99e9525141edcd833cd0922fbbd3ea75735cbd5472cbf92011e2c79e5aff0c18`.
+The release remains an unpublished mutable draft. Packaged latency and
+replacement PV-3 remain pending; no release has been published.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
