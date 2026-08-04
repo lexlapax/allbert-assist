@@ -122,7 +122,15 @@ its green runs implied:
   giving the file its own `Settings` root.
 - **Fixture timing assumptions only held on an idle machine.** The ACP fixture
   polled for 5s to service a hold that waits 120s, so any real contention
-  deadlocked the row. One `StoreTuiIdentityBootstrapTest` concurrency row remains
-  intermittent at roughly one failure in nineteen runs; it passed in runs 2 and
-  4 and is **not** claimed fixed. Its assertions now report the actual tally of
-  dispositions on failure so the next occurrence is diagnosable.
+  deadlocked the row. The `StoreTuiIdentityBootstrapTest` concurrency row had the
+  same shape: it required all twelve racers to win a 5s SQLite lock race, so
+  under load nine returned `:settings_lock_timeout`. Both are fixed by asserting
+  the property the row is named for instead of a timing coincidence — the
+  concurrency row now proves convergence deterministically, after the burst
+  settles, and still refuses a torn write, a second bootstrap, a second audit
+  row, or any non-timeout failure. Verified 0 failures in 12 runs under the load
+  that reproduced it.
+
+All three intermittent-looking failures in this milestone had concrete
+structural causes once investigated. None was irreducible, and none required a
+product change.

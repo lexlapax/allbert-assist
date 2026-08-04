@@ -185,20 +185,60 @@ defmodule AllbertAssist.Settings.StoreTuiIdentityBootstrapTest do
       )
       |> Enum.map(fn {:ok, result} -> result end)
 
-    # v1.3 M9.b.12.d — this row is intermittent, so report what actually came
-    # back rather than a bare count mismatch. A "3 != 11" tells the next reader
-    # nothing about whether the other nine were a third disposition or an
-    # outright error.
+    # v1.3 M9.b.12.d — this row asserted a *timing* property on top of the
+    # convergence property it is named for. StoreLock.with_lock/2 gives up after
+    # 5s, and twelve racers against one exclusive SQLite lock do not all get
+    # through that budget on a loaded machine: reproduced under CPU load as
+    # %{{:error, {:settings_lock_timeout, "database is locked"}} => 9,
+    #   {:ok, :bootstrapped} => 1, {:ok, :present} => 2}.
+    #
+    # A bounded lock timeout is designed behaviour and twelve simultaneous first
+    # launches is not a real scenario, so the timeout is not the defect — the
+    # assertion was. What must hold under any interleaving is convergence: one
+    # bootstrap, one audit row, and no torn write. That is asserted here, and
+    # convergence of the resulting state is then proven deterministically below
+    # rather than inferred from how many racers won a lock race.
     tally = Enum.frequencies_by(results, &result_shape/1)
 
     assert Enum.count(results, &match?({:ok, %{disposition: :bootstrapped}}, &1)) == 1,
            "expected exactly one bootstrap; got #{inspect(tally)}"
 
-    assert Enum.count(results, &match?({:ok, %{disposition: :present}}, &1)) == 11,
-           "expected the other eleven launches to observe the mapping; got #{inspect(tally)}"
+    refute Enum.any?(results, &match?({:ok, %{disposition: :activated}}, &1)),
+           "no launch may see the enabled flag without the identity map — that is a torn " <>
+             "write of the bootstrap subset; got #{inspect(tally)}"
+
+    for result <- results do
+      case result do
+        {:ok, %{disposition: disposition}} ->
+          assert disposition in [:bootstrapped, :present],
+                 "unexpected disposition #{inspect(disposition)}; got #{inspect(tally)}"
+
+        {:error, {:settings_lock_timeout, _reason}} ->
+          :ok
+
+        other ->
+          flunk("only a lock timeout may fail a concurrent launch, got #{inspect(other)}")
+      end
+    end
 
     audit = File.read!(Audit.audit_path())
     assert length(Regex.scan(~r/^## .* channels\.tui\.identity_map$/m, audit)) == 1
+
+    # Deterministic convergence: once the burst has settled, every further
+    # launch observes the one mapping and writes nothing more. This is the
+    # guarantee the row exists for, and it does not depend on lock contention.
+    for _ <- 1..3 do
+      assert {:ok, %{disposition: :present, written: []}} =
+               Store.prepare_local_tui_launch(bootstrap_context())
+    end
+
+    assert {:ok, user_settings} = Store.read_user_settings()
+    assert get_in(user_settings, ["channels", "tui", "identity_map"]) == @default_mapping
+
+    assert length(
+             Regex.scan(~r/^## .* channels\.tui\.identity_map$/m, File.read!(Audit.audit_path()))
+           ) ==
+             1
   end
 
   test "surfaces an audit append failure in bootstrap diagnostics" do
