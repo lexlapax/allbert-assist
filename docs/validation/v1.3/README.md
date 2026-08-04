@@ -261,6 +261,19 @@ authoritative cross-version `release` aggregate remains blocked until all 32
 version steps pass, and promotion remains blocked pending both green aggregates
 and explicit operator approval of the exact candidate bindings above.
 
+The resulting `release.v13` diagnostic completed 31/32. Its sole failure was
+`v11_runtime_fanout`, seed `161591`, in the Budget-v1 pending-steering recovery
+fixture; all later steps passed. Evidence:
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v13/p0-14339/home/release_evidence/v13/release-v13-1785869464.json`.
+The row passed alone at the same seed. Under the full loaded step, queued
+pre-acknowledgement steering wakeups allowed the default coordinator to close
+the two historical children before the test's injected coordinator owned the
+transition. Both durable outcomes were correct, but the private injected-hook
+counter remained zero. This is a test-control race, not a product-behavior
+failure. The plan requires a pre-acknowledgement Scheduler mailbox barrier,
+focused loaded proof, whole unpublished-candidate replacement, and a fresh K6
+rejoin. No authoritative `release` aggregate started from this red run.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
