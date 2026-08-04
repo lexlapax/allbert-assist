@@ -197,20 +197,21 @@ product change.
 
 ## Exact candidate construction and packaged qualification
 
-Final K5 replacement completed on 2026-08-04 from one frozen clean pushed
-source SHA; no target was retained from an earlier failed generation:
+Current K5 replacement completed on 2026-08-04 from one frozen clean pushed
+executable source SHA; the prior unpublished generation was discarded whole
+and no target was retained:
 
 | Binding | Exact value |
 | --- | --- |
-| source SHA | `8e76e98b50fdc5236fad0c76d35bd26b3d33b9c5` |
-| candidate generation | `v13-20260804T170726Z-8e76e98b50fd` |
-| macOS arm64 archive SHA-256 | `e892f2f38107fc5fa4d04e2750a4febbae8a413493393a2383ae2531ef1591f9` |
-| Linux x64 archive SHA-256 | `d873714d32cd705f57a579149af4479419a83f04d765b56b427fef473f2e69ab` |
-| Linux arm64 archive SHA-256 | `412126ca22da7c82bb6105bcdf85cb516b890c4d810789e85465f1844520177f` |
-| unpublished draft release | `365029002` — 13 assets, immutable `false` |
-| candidate manifest | asset `501608624`, digest `d07a3d078662f47388c34114a6a6f89746b67358267c657094c48c46075ea6d8` |
-| no-build qualification | run `30933151096` — all three targets passed |
-| qualification manifest | artifact `8902019635`, digest `04685735a957dce825082daff342541f909f61038f4d155d1106972820d93e66` |
+| source SHA | `2b9cb986fdb1ad7a9750b4b4b9e5c165e7f425bd` |
+| candidate generation | `v13-20260804T191500Z-2b9cb986fdb1` |
+| macOS arm64 archive SHA-256 | `aecf00a14348b5a7a544ab39ef3c4b37b2b4feaf0f7624cfe832f4f2307044dd` |
+| Linux x64 archive SHA-256 | `eb60e09f5b8b9782d33876c78a22bdb76c1d459ba7fcaa2c114a08935845e65f` |
+| Linux arm64 archive SHA-256 | `c300920a979313d59d5e6a179797fc0b9201a8cd1726ea32a6331fdfa1ba802c` |
+| unpublished draft release | `365073075` — 13 assets, immutable `false` |
+| candidate manifest | asset `501681290`, digest `c8e259d39838fbb8db1f2a4b9adb81b4e2abfdc6e8c0787198c1cdb28fc88a80` |
+| no-build qualification | run `30939617912` — all three targets passed |
+| qualification manifest | artifact `8904611857`, digest `d4117829264232250ae7844bbb89265bde91bf6a0d23c9f6cce808e55fa8e2d7` |
 
 Each native builder passed its SHA/generation/toolchain, package, sealed-license,
 and runtime smoke. Both Linux outputs came from native architecture execution
@@ -229,10 +230,10 @@ across host or consumer—and are ingested into
 
 | Host | Consumer | Frozen scale | p95 ms | p99 ms | Result |
 | --- | --- | --- | ---: | ---: | --- |
-| macOS arm64 | Memory | 10,000 claims / 200 measured queries | 50.095 | 52.496 | PASS |
-| macOS arm64 | Search | 25,000 messages / 250 threads / 300 measured queries | 62.635 | 66.847 | PASS |
-| Linux x64 | Memory | 10,000 claims / 200 measured queries | 38.255 | 40.090 | PASS |
-| Linux x64 | Search | 25,000 messages / 250 threads / 300 measured queries | 48.406 | 52.243 | PASS |
+| macOS arm64 | Memory | 10,000 claims / 200 measured queries | 52.957 | 55.349 | PASS |
+| macOS arm64 | Search | 25,000 messages / 250 threads / 300 measured queries | 65.373 | 69.106 | PASS |
+| Linux x64 | Memory | 10,000 claims / 200 measured queries | 37.647 | 38.593 | PASS |
+| Linux x64 | Search | 25,000 messages / 250 threads / 300 measured queries | 47.407 | 50.980 | PASS |
 
 Every row carries the full candidate SHA, its exact archive digest, a complete
 warm pass, the frozen threshold, clean provenance, and `status=passed`. Combined
@@ -240,6 +241,12 @@ with the loaded-Exqlite capability smoke in all three native packages, these
 rows satisfy ADR 0092's last flip condition. ADR 0092 is Accepted. Source-tree
 rehearsals and the prior mixed-SHA portability builds are not used as this
 evidence.
+
+PV-0 through PV-8 were not repeated for this compatibility-metadata/test-
+fixture correction. Their accepted feature observations are inherited under
+the active plan's narrow re-run rule and are not relabelled as observations of
+the current package; current identity, integrity, Homebrew/package smoke,
+qualification, and all four packaged latency cells did rerun.
 
 ## Packaged operator validation
 
