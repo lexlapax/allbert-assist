@@ -393,6 +393,14 @@ qualification-manifest content SHA-256 is
 `2474960f3338fd8bc6d43e4c042199b467953e8418b35eba38c141ee19bf0875`.
 Promotion was skipped. Packaged latency and K6 remain pending.
 
+The four replacement packaged-latency cells then passed and were ingested:
+macOS arm64 Memory p95/p99 `53.285/55.028 ms`, macOS arm64 Search
+`64.207/65.948 ms`, Serenity Linux x64 Memory `38.950/39.719 ms`, and Linux
+x64 Search `47.334/50.711 ms`. Every row is clean and binds full candidate SHA
+`d93b4a2a9f10da6051c80afc971bb5291301e03a` plus its target archive digest;
+no host or consumer was averaged. K6 remains pending and promotion is still
+prohibited.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
