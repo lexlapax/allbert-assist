@@ -401,6 +401,13 @@ x64 Search `47.334/50.711 ms`. Every row is clean and binds full candidate SHA
 no host or consumer was averaged. K6 remains pending and promotion is still
 prohibited.
 
+K6 structural proof subsequently passed in a fresh detached checkout of exact
+candidate SHA `d93b4a2a9f10da6051c80afc971bb5291301e03a`. The evidence at
+`/tmp/allbert-v13-k6-d93b4a2a9f10/home/release_evidence/v13/release-structure-v13.json`
+has SHA-256
+`626265569e4e222dc739ac3272327d3fd568ef3be6c70d7c7c2dc078b5486c6f`.
+`release.v13` and the authoritative aggregate remain pending.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
