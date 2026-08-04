@@ -22,10 +22,29 @@ distinction below is stated rather than blurred.
 
 ## Operator-exercised, v1.3 attended source validation
 
-Run on a fresh disposable Home at `88c36187e`, daemon 6601, on 2026-08-03. The
-setup steps above SV-6D were agent-run, so this is a targeted re-test of the
-M9.b.10 and M9.b.11 fixes rather than a full acceptance row; the acceptance run
-remains a complete SV-0 through SV-9.
+**Acceptance run: complete contiguous SV-0 through SV-9 on a fresh disposable
+Home at `e66674cf9`, daemon 81317, 2026-08-04.** The operator drove every TUI
+and Web interaction personally; terminal-2 command steps were agent-run against
+the same daemon and Home at the operator's direction. This supersedes the
+2026-08-03 targeted re-test, which covered only the M9.b.10/M9.b.11 fixes.
+
+Block results: SV-0–SV-5 setup PASS; SV-5B fan-out PASS (3/3); SV-6A boundary
+and seeding PASS with one disclosed known-mode failure recorded; SV-6B
+consolidate/keep PASS; SV-6C retrieval PASS; SV-6D archive/restore/Forget PASS;
+SV-6E canonical delete PASS; SV-7A three-surface parity PASS (5/5); SV-7B
+UNAVAILABLE (verified); SV-8A managed Jobs PASS (6/6); SV-8B UNAVAILABLE
+(verified); SV-9 close PASS.
+
+**Both Memory production defects found in the previous run are proven fixed**,
+in runbook order, with no manual rebuild at any point:
+
+- **M9.b.10** — the projection bootstrapped at daemon boot, so SV-6C retrieval
+  returned the kept claim in place rather than reporting
+  `:memory_projection_not_ready`. Before the fix this row could not pass in
+  order; the only step that built a generation was SV-8A.5c, far below it.
+- **M9.b.11** — archive removed the candidate from the projection itself
+  (`Candidate chunks before filter: 0`, not merely a filtered zero), and restore
+  made the same claim retrievable again immediately.
 
 | Subcommand | Row | Result |
 | --- | --- | --- |
@@ -89,6 +108,45 @@ different risk from one that fails open.
 - **The shipped answering head has two disclosed failure modes**, unchanged by
   this milestone and documented in `docs/operator/model-recommendations.md`. The
   qualification bar for selecting a different head is v1.3.1.
+
+## Findings from the 2026-08-04 acceptance run
+
+None blocks the release, and **no product code was changed during validation.**
+Full text for each is retained in the run's evidence root.
+
+- **`SV-6A.1a.ii` known-mode failure, observed twice.** The disclosed
+  acknowledgment-to-commitment mode: asked to *acknowledge* a stated preference,
+  the head answered "Status summaries … **will be provided** … starting June 1,
+  2026", and at SV-6A.2 similarly "will be kept". All required content was
+  present; the defect is the commitment framing. Dispositioned to v1.3.1 by
+  M9.b.8 on 2026-08-02. The boundary itself held — verified in the durable
+  record, the supplied text was never captured as Memory and no domain action
+  fired.
+- **Runbook defect, found and fixed mid-run.** SV-6A.1a closed with the literal
+  "both supplied-text answers were useful" on a row that *explicitly permits*
+  the `.ii` failure and instructs the operator to continue past it. On exactly
+  the runs it exists to tolerate, it emitted a PASS contradicting its own
+  adjudication. Reworded at `e66674cf9`.
+- **`claim_stream_watermark` is stale after consecutive incremental refreshes.**
+  It records the digest of the claim set at the last *full build*, and
+  `refresh_claim/2` does not advance it, so after keep/archive/restore it
+  described an empty stream while the projection held claims. Inert today — the
+  field is write-only and nothing reads it back — and it self-heals at the next
+  rebuild. Must not have drift detection wired to it as-is. v1.3.1 intake.
+- **A paused job repopulates `Next due`.** After `jobs pause`, `search-index`
+  showed `Next due: none`, then a concrete timestamp while still paused and
+  still not running. The adjacent case is handled correctly: disabling
+  `memory.consolidation.enabled` set `Next due: none` and held it. Two "will not
+  run now" states presented inconsistently on an operator-facing surface.
+  Cosmetic, v1.3.1 intake.
+- **One PASS line in the transcript was retracted.** The agent-run adaptation of
+  SV-8A.2 rewrote the runbook's `set -e` assertion chain as
+  `grep … && echo OK || echo FAIL` and gated the final PASS on an unrelated
+  check, so it printed PASS while `jobs pause` had crashed and left the job
+  active. Harness error, not a product finding; the crash itself was a shared
+  `_build` tree between the agent's `MIX_ENV=test` gate runs and the operator's
+  `MIX_ENV=dev` session. Every later block ran under `set -Eeuo pipefail`, and
+  SV-8A.2 genuinely passed on re-run.
 
 ## Release gate
 
