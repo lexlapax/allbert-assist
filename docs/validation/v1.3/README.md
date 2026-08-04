@@ -314,6 +314,26 @@ fan-out lane passed 332/332 at a new aggregate seed. The one authoritative
 cross-version `release` is now authorized in this same checkout/Home;
 promotion remains blocked pending that result and explicit operator approval.
 
+The one authoritative cross-version `release` stopped in
+`high_coverage_fast_local` after Hex audit, warnings-as-errors compile,
+unused-dependency checking, formatter, and Credo passed. Its only red row was
+`global_process_serial` partition 3/4, seed `412113`:
+`CorpusCompletenessTest` found no positive execute case for the registered,
+agent-exposed `set_direct_answer_model_profile` action. Evidence
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-16578/home/release_evidence/gates/release-2026-08-04T20_53_23Z.json`
+has SHA-256
+`5fe88fda6939fc371cf3f807dd6ceec31f0777c55990190c83c102abc27e81bf`;
+the gate ran 941,000 ms. No later release phase ran and the draft remains
+unpublished.
+
+The action, DirectAnswer-specific descriptor, registry contract, parameter
+contract, and intent-agent owner coverage are present, so this is classified as
+committed evaluation-evidence drift rather than a production routing change.
+M9.b.16 requires one real positive model-domain corpus case, a frozen-baseline
+recapture, focused deterministic corpus/eval proof, then whole unpublished
+candidate replacement and one fresh K6 rejoin. It explicitly forbids hiding the
+gap in the intentionally-uncovered set or running an aggregate per fix.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
