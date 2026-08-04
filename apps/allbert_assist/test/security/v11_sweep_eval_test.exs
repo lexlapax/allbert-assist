@@ -21,6 +21,7 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.TestSupport.FanoutReportFixture
+  alias AllbertAssist.TestSupport.FanoutRoles
   alias AllbertAssist.TestSupport.ShippedRegistries
 
   @ids ~w[
@@ -87,6 +88,14 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
   end
 
   test "fanout-decomposition-advisory-001" do
+    # v1.3 M9.b.12.d — this row asserts that a decomposition proposal is advisory,
+    # which is only observable if the fan-out is admitted in the first place.
+    # M9.b's readiness gate (Runtime.fanout_role_readiness_step/3) refuses
+    # admission when the fan-out roles have no ready model, so without this the
+    # input falls through to a single direct answer and the row silently stops
+    # testing advisory behaviour.
+    FanoutRoles.configure!()
+
     put!("objectives.fanout.rollout_mode", "automatic")
     put!("objectives.fanout.confirm_before_start", true)
 

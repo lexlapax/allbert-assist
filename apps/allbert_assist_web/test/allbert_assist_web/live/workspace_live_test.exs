@@ -16,6 +16,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   alias AllbertAssist.{Confirmations, Conversations, Objectives, Repo, Runtime, Session, Settings}
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.TestSupport.FanoutReportFixture
+  alias AllbertAssist.TestSupport.FanoutRoles
 
   @runtime_async_timeout 60_000
 
@@ -469,6 +470,12 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   test "real Workspace kickoff acknowledgement uses the persisted live_view identity", %{
     conn: conn
   } do
+    # v1.3 M9.b.12.d — this row submits real input and asserts the split
+    # announcement, so the fan-out roles must be admissible. Without it
+    # Runtime's readiness gate refuses admission and the prompt returns a
+    # single direct answer, which never renders "I split this into N tasks".
+    FanoutRoles.configure!()
+
     assert {:ok, _setting} =
              Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
 
@@ -512,6 +519,8 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   end
 
   test "fan-out start confirmation remains visible instead of a running label", %{conn: conn} do
+    FanoutRoles.configure!()
+
     assert {:ok, _setting} =
              Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
 

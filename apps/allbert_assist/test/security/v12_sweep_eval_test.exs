@@ -163,7 +163,21 @@ defmodule AllbertAssist.Security.V12SweepEvalTest do
     assert Enum.sort(written) == Enum.sort(Map.keys(@enable_values))
     audit = File.read!(Audit.audit_path())
     assert audit =~ "settings.transaction"
-    assert Disclosure.text(:cli) =~ "stays on this device"
+
+    # v1.3 M9.b.3 reworded this disclosure from "Inference stays on this device"
+    # to "Inference uses your configured local endpoint", because a local
+    # provider may be reachable at an endpoint that is not this machine — the
+    # old sentence made a claim Allbert could not guarantee. This row's binding
+    # is :disclosure_derived_from_selection, so it now asserts the disclosure
+    # names the selection it was derived from rather than pinning a literal
+    # that a later truthfulness fix is free to change.
+    disclosure = Disclosure.text(:cli)
+    assert disclosure =~ @local.profile
+    assert disclosure =~ @local.provider
+    assert disclosure =~ "Inference uses your configured local endpoint"
+
+    refute disclosure =~ @hosted.provider,
+           "a local-ready selection must not disclose hosted egress"
 
     bind("v12-enable-provenance-001", [
       :closed_three_key_write,

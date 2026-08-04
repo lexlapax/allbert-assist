@@ -5,7 +5,6 @@ defmodule AllbertAssistWeb.ObjectivesLiveTest do
 
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
-  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Surface.Catalog
   alias AllbertAssist.TestSupport.FanoutReportFixture
 
