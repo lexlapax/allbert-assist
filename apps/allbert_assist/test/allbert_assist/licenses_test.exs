@@ -591,6 +591,8 @@ defmodule AllbertAssist.LicensesTest do
     fixture = fixture!(["alpha"])
     on_exit(fn -> File.rm_rf(fixture.tmp) end)
     write_union!(fixture)
+    payload = Path.join(fixture.release, "payload.txt")
+    File.chmod!(payload, 0o644)
     assert {:ok, result} = finalize(fixture)
 
     manifest_path = Path.join(fixture.release, "THIRD-PARTY-MANIFEST.json")
@@ -613,7 +615,6 @@ defmodule AllbertAssist.LicensesTest do
              Licenses.view([], release_root: fixture.release)
 
     assert {:ok, result} = finalize(fixture)
-    payload = Path.join(fixture.release, "payload.txt")
     File.chmod!(payload, 0o600)
 
     assert {:error, %{code: :payload_mutated}} =
