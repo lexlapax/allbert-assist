@@ -203,15 +203,15 @@ and no target was retained:
 
 | Binding | Exact value |
 | --- | --- |
-| source SHA | `2b9cb986fdb1ad7a9750b4b4b9e5c165e7f425bd` |
-| candidate generation | `v13-20260804T191500Z-2b9cb986fdb1` |
-| macOS arm64 archive SHA-256 | `aecf00a14348b5a7a544ab39ef3c4b37b2b4feaf0f7624cfe832f4f2307044dd` |
-| Linux x64 archive SHA-256 | `eb60e09f5b8b9782d33876c78a22bdb76c1d459ba7fcaa2c114a08935845e65f` |
-| Linux arm64 archive SHA-256 | `c300920a979313d59d5e6a179797fc0b9201a8cd1726ea32a6331fdfa1ba802c` |
-| unpublished draft release | `365073075` — 13 assets, immutable `false` |
-| candidate manifest | asset `501681290`, digest `c8e259d39838fbb8db1f2a4b9adb81b4e2abfdc6e8c0787198c1cdb28fc88a80` |
-| no-build qualification | run `30939617912` — all three targets passed |
-| qualification manifest | artifact `8904611857`, digest `d4117829264232250ae7844bbb89265bde91bf6a0d23c9f6cce808e55fa8e2d7` |
+| source SHA | `c7df6e7e5e9f1baab2719c31c481702e1456ad68` |
+| candidate generation | `v13-20260804T194722Z-c7df6e7e5e9f` |
+| macOS arm64 archive SHA-256 | `3149a38249df1d893810a647b2fc7cc17d8f465bb096aa770897198056aaf396` |
+| Linux x64 archive SHA-256 | `07d6f735db689834a4616254f162826078be8430a960391a9f5438da82e65e5f` |
+| Linux arm64 archive SHA-256 | `ce3a29807ab89f19afa8aa452a16c40ef675fc71f783f4c4cfd392e22b1cd7e9` |
+| unpublished draft release | `365113275` — 13 assets, immutable `false` |
+| candidate manifest | asset `501751833`, digest `e6ef8b42a569b1234abcbdb65200142aaecaadecbdefd57ace4b22901a23159c` |
+| no-build qualification | run `30945495378` — all three targets passed |
+| qualification manifest | artifact `8906942033`, digest `c8e640e329d5c76fd630f8a1bd9433110dce9e53c01851cd17fe2c123de558b2` |
 
 Each native builder passed its SHA/generation/toolchain, package, sealed-license,
 and runtime smoke. Both Linux outputs came from native architecture execution
@@ -230,10 +230,10 @@ across host or consumer—and are ingested into
 
 | Host | Consumer | Frozen scale | p95 ms | p99 ms | Result |
 | --- | --- | --- | ---: | ---: | --- |
-| macOS arm64 | Memory | 10,000 claims / 200 measured queries | 52.957 | 55.349 | PASS |
-| macOS arm64 | Search | 25,000 messages / 250 threads / 300 measured queries | 65.373 | 69.106 | PASS |
-| Linux x64 | Memory | 10,000 claims / 200 measured queries | 37.647 | 38.593 | PASS |
-| Linux x64 | Search | 25,000 messages / 250 threads / 300 measured queries | 47.407 | 50.980 | PASS |
+| macOS arm64 | Memory | 10,000 claims / 200 measured queries | 53.267 | 54.257 | PASS |
+| macOS arm64 | Search | 25,000 messages / 250 threads / 300 measured queries | 64.283 | 67.128 | PASS |
+| Linux x64 | Memory | 10,000 claims / 200 measured queries | 38.470 | 38.870 | PASS |
+| Linux x64 | Search | 25,000 messages / 250 threads / 300 measured queries | 47.709 | 51.556 | PASS |
 
 Every row carries the full candidate SHA, its exact archive digest, a complete
 warm pass, the frozen threshold, clean provenance, and `status=passed`. Combined
@@ -283,6 +283,14 @@ passed 332/332 in 407.4 seconds. Test and development warnings-as-errors
 compiles, formatter, docs, and diff hygiene also passed. This is focused
 remediation evidence only; the unpublished candidate must still be replaced
 whole and the final K6 sequence rerun.
+
+That whole replacement is now complete at candidate SHA
+`c7df6e7e5e9f1baab2719c31c481702e1456ad68` with the exact construction,
+qualification, and latency bindings above. The source change from the prior
+candidate is test-only. PV feature observations remain inherited without being
+relabelled; current identity, integrity, Homebrew/package smoke, qualification,
+and all four latency cells reran. Final K6 must now start in a fresh detached
+checkout of this SHA.
 
 ## Packaged operator validation
 
