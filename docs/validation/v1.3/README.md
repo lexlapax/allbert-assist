@@ -357,6 +357,25 @@ unchanged. Test/development warnings-as-errors compiles, whole-project format,
 docs, and diff hygiene passed; the draft remains unpublished pending
 replacement.
 
+Replacement construction is in progress from exact executable SHA
+`d93b4a2a9f10da6051c80afc971bb5291301e03a`, annotated tag object
+`504b5ac1990b7e76d617198fea8769ac6d61c81c`, generation
+`v13-20260804T213555Z-d93b4a2a9f10`, and empty unpublished draft `365170833`.
+All three builder/smoke rows passed and produced exactly 12 files. Archive
+SHA-256 values are macOS arm64
+`38d2acb580ca1ffbd557f5dd10eee253ee68f322a0b648a75ddd662e53ebb509`,
+Linux x64
+`bb03c691c8a447a51ea26964dfedca146d5f7021eea0d8f42e686c938b769d6d`,
+and Linux arm64
+`27dbbb90a3e0cb319e23a2748d51f010afe0880f6d60a207d86b37ea0fe0ed11`.
+The real local Homebrew shadow install then passed `brew test`, reported
+`allbert 1.3.0`, rendered the packaged JSON license inventory, and restored the
+sealed OpenSSL and Exqlite payloads byte-for-byte under operator `umask 077`.
+Their installed SHA-256 values are respectively
+`643372e6478f280423b2f9536fa1523f1086f806309e9d98eca5ce11e22d3e18` and
+`8559739c2ba3e6970b421de7f09650017661e0a278b8653c012bd0ed847031e1`.
+Staging, qualification, and latency evidence are not yet claimed.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
