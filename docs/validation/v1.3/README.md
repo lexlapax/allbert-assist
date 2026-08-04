@@ -376,6 +376,15 @@ Their installed SHA-256 values are respectively
 `8559739c2ba3e6970b421de7f09650017661e0a278b8653c012bd0ed847031e1`.
 Staging, qualification, and latency evidence are not yet claimed.
 
+Complete-generation staging subsequently validated and uploaded the 12 target
+files plus candidate manifest asset `501853439`. Draft `365170833` now has
+exactly 13 uploaded assets, remains unpublished, and still binds executable
+SHA `d93b4a2a9f10da6051c80afc971bb5291301e03a`. The candidate manifest's
+release-asset and local SHA-256 are both
+`033e3a98879dcd7ff7dda223b44c1310e95a3ac8d451d3745132fb65338b4305`.
+No-build qualification run `30953764112` is pending; packaged latency and K6
+have not yet run for this replacement generation.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
