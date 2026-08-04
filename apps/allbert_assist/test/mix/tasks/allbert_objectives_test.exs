@@ -5,7 +5,6 @@ defmodule Mix.Tasks.Allbert.ObjectivesTest do
 
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
-  alias AllbertAssist.Objectives.Fanout.Report
   alias AllbertAssist.TestSupport.FanoutReportFixture
   alias Mix.Tasks.Allbert.Objectives, as: ObjectivesTask
 

@@ -11,7 +11,6 @@ defmodule AllbertAssist.Security.V11SweepEvalTest do
   alias AllbertAssist.Execution.ProcessOwner
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
-  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Runs.Cancel
   alias AllbertAssist.Objectives.Steering
   alias AllbertAssist.Paths

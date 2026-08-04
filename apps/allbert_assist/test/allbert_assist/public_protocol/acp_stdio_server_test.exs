@@ -5,7 +5,6 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.Fanout
-  alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Paths
   alias AllbertAssist.PublicProtocol.Acp.Server
   alias AllbertAssist.PublicProtocol.ResultReadback
