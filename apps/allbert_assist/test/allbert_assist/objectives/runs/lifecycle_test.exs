@@ -17,6 +17,7 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
   alias AllbertAssist.Objectives.Runs.Worker.{Grounding, QualityPolicy, QualityReceipt}
   alias AllbertAssist.Objectives.Steering
   alias AllbertAssist.Repo
+  alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Store
   alias AllbertAssist.Settings.YamlCodec
 
@@ -25,8 +26,29 @@ defmodule AllbertAssist.Objectives.Runs.LifecycleTest do
   @acknowledge_preference_prompt "In one sentence, acknowledge this stated preference: For Project Juniper validation, I prefer status summaries on Friday at 09:00, valid starting 2026-06-01. The validation marker is juniper-v13-primary."
 
   setup do
-    on_exit(fn -> Process.delete(@resolution_hook_key) end)
-    :ok
+    original_settings_config = Application.get_env(:allbert_assist, Settings)
+
+    settings_root =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-lifecycle-settings-#{System.unique_integer([:positive])}"
+      )
+
+    Application.put_env(:allbert_assist, Settings, root: settings_root)
+
+    on_exit(fn ->
+      Process.delete(@resolution_hook_key)
+
+      if original_settings_config do
+        Application.put_env(:allbert_assist, Settings, original_settings_config)
+      else
+        Application.delete_env(:allbert_assist, Settings)
+      end
+
+      File.rm_rf!(settings_root)
+    end)
+
+    {:ok, settings_root: settings_root}
   end
 
   defmodule RecordingAdapter do

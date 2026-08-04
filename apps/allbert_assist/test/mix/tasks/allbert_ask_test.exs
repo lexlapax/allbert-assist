@@ -151,11 +151,14 @@ defmodule Mix.Tasks.Allbert.AskTest do
         assert :ok = Ask.run(["first hosted turn"])
       end)
 
-    assert first_output =~ "Allbert selected fast from openai"
+    assert first_output =~ "Your configured DirectAnswer route uses fast from openai"
     assert first_output =~ "Your message will leave this device for openai"
     assert first_output =~ "Status: completed"
 
-    assert disclosure_offset = :binary.match(first_output, "Allbert selected fast") |> elem(0)
+    assert disclosure_offset =
+             :binary.match(first_output, "Your configured DirectAnswer route uses fast")
+             |> elem(0)
+
     assert response_offset = :binary.match(first_output, "Status: completed") |> elem(0)
     assert disclosure_offset < response_offset
 
@@ -167,7 +170,7 @@ defmodule Mix.Tasks.Allbert.AskTest do
         assert :ok = Ask.run(["second hosted turn"])
       end)
 
-    refute second_output =~ "Allbert selected fast from openai"
+    refute second_output =~ "Your configured DirectAnswer route uses fast from openai"
     refute second_output =~ "will leave this device"
     assert second_output =~ "Status: completed"
     assert_received {:disclosure_pending_at_transport, false}
@@ -188,7 +191,7 @@ defmodule Mix.Tasks.Allbert.AskTest do
         end
       end)
 
-    assert output =~ "Allbert selected voice_stt_openai from openai"
+    assert output =~ "Your configured DirectAnswer route uses voice_stt_openai from openai"
     assert output =~ "will leave this device for openai"
     refute Disclosure.pending?(:cli)
     refute_received {:agent_request, _request}

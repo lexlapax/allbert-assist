@@ -8,6 +8,7 @@ defmodule AllbertAssist.CLI.DispatcherTest do
 
   alias AllbertAssist.CLI
   alias AllbertAssist.CLI.FirstRun
+  alias AllbertAssist.ConfigContext
   alias AllbertAssist.Paths
   alias AllbertAssist.Runtime.Attach
   alias AllbertAssist.SecurityFixtures.AssertBinding
@@ -588,29 +589,25 @@ defmodule AllbertAssist.CLI.DispatcherTest do
   end
 
   defp with_first_run_home(fun) do
-    original_paths_config = Application.get_env(:allbert_assist, Paths)
-
     root =
       Path.join(
         System.tmp_dir!(),
         "allbert-first-run-#{System.unique_integer([:positive])}"
       )
 
-    Application.put_env(:allbert_assist, Paths, home: root)
     File.mkdir_p!(Path.join([root, "db"]))
     File.write!(Path.join([root, "db", "allbert.sqlite3"]), "x")
-    FirstRun.mark_onboarding_complete()
-    FirstRun.mark_profile_reviewed()
 
-    on_exit(fn ->
-      if original_paths_config,
-        do: Application.put_env(:allbert_assist, Paths, original_paths_config),
-        else: Application.delete_env(:allbert_assist, Paths)
+    on_exit(fn -> File.rm_rf!(root) end)
 
-      File.rm_rf!(root)
-    end)
-
-    fun.()
+    ConfigContext.with_context(
+      [home: root, settings_root: Path.join(root, "settings")],
+      fn ->
+        FirstRun.mark_onboarding_complete()
+        FirstRun.mark_profile_reviewed()
+        fun.()
+      end
+    )
   end
 
   defp with_no_model_provider_env(fun) do

@@ -394,7 +394,7 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
 
     assert {:ok, response} =
              Runtime.submit_user_input(%{
-               text: "Generate a one-pixel validation image.",
+               text: "Generate an image of a one-pixel validation marker.",
                channel: :test,
                operator_id: "local"
              })
@@ -438,7 +438,7 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
 
     assert {:ok, response} =
              Runtime.submit_user_input(%{
-               text: "Speak this sentence aloud: v0.48 voice routing.",
+               text: "Speak this text out loud: v0.48 voice routing.",
                channel: :test,
                operator_id: "local"
              })
