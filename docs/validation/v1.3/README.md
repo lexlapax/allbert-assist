@@ -464,6 +464,13 @@ and Exqlite SHA-256
 Evidence root `/tmp/allbert-v13-homebrew.jNah5F` is retained. The candidate is
 installed for replacement PV-3; the draft remains empty and unpublished.
 
+Whole-generation staging then uploaded the validated 12-file set and wrote the
+manifest last. Draft `365211382` now contains exactly 13 assets and remains
+unpublished/immutable `false`. Candidate-manifest asset ID `501951481` has
+matching remote and local SHA-256
+`5811e5ff803af7fb568d0782d7c7e68893fca34b817c02a813fa2e594092b92c`.
+No-build qualification remains pending; promotion is prohibited.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
