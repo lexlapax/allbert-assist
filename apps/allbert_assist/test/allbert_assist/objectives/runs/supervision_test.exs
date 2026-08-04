@@ -1969,6 +1969,13 @@ defmodule AllbertAssist.Objectives.Runs.SupervisionTest do
     directive = "List objectives"
     assert {:ok, _first_event} = Steering.steer("alice", steered.id, first_directive)
     assert {:ok, _second_event} = Steering.steer("alice", steered.id, directive)
+
+    # Steering wake-ups are hints queued on the global Scheduler. Cross its
+    # mailbox while kickoff is still blocked so the injected coordinator below,
+    # rather than a delayed default recovery, owns this transition fixture.
+    assert is_map(Scheduler.snapshot())
+    assert Registry.lookup(AllbertAssist.Objectives.Runs.Registry, {:fanout, parent.id}) == []
+
     assert :ok = Fanout.acknowledge_start(receipt, %{user_id: "alice"})
 
     {:ok, transition_attempts} = Agent.start_link(fn -> %{blocked.id => 0, steered.id => 0} end)

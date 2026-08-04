@@ -274,6 +274,16 @@ failure. The plan requires a pre-acknowledgement Scheduler mailbox barrier,
 focused loaded proof, whole unpublished-candidate replacement, and a fresh K6
 rejoin. No authoritative `release` aggregate started from this red run.
 
+The focused repair makes the fixture cross a synchronous Scheduler mailbox
+barrier while kickoff is still blocked and proves Registry ownership remains
+empty before acknowledgement. Production code is unchanged. At the original
+seed `161591`, the exact row passed 12/12 independent runs, the complete
+Supervision owner passed 40/40, and the exact loaded `v11_runtime_fanout` step
+passed 332/332 in 407.4 seconds. Test and development warnings-as-errors
+compiles, formatter, docs, and diff hygiene also passed. This is focused
+remediation evidence only; the unpublished candidate must still be replaced
+whole and the final K6 sequence rerun.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
