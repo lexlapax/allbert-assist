@@ -245,6 +245,8 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
       Keyword.put(runtime_config, :fanout_timeout_ms, 0)
     )
 
+    configure_fanout_roles!()
+
     {session_id, state} = started_session()
     selector = Task.async(&select_next_report!/0)
 
@@ -295,6 +297,8 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
       Runtime,
       Keyword.put(runtime_config, :fanout_timeout_ms, 0)
     )
+
+    configure_fanout_roles!()
 
     {session_id, state} = started_session()
     selector = Task.async(&select_next_report!/0)
@@ -643,6 +647,38 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
       )
 
     state
+  end
+
+  # v1.3 M9.b.12.d. Runtime gates fan-out admission on model readiness
+  # (`fanout_role_readiness_step/3`). Without a callable profile the prompt
+  # degrades to a single answer, no composition is ever queued, and the poller
+  # these rows await times out. Same root as the TUI start-barrier cluster.
+  defp configure_fanout_roles! do
+    original_readiness = Application.get_env(:allbert_assist, :runtime_model_readiness)
+
+    Application.put_env(
+      :allbert_assist,
+      :runtime_model_readiness,
+      AllbertAssist.Test.ModelReadinessFake
+    )
+
+    on_exit(fn ->
+      if original_readiness,
+        do: Application.put_env(:allbert_assist, :runtime_model_readiness, original_readiness),
+        else: Application.delete_env(:allbert_assist, :runtime_model_readiness)
+    end)
+
+    assert {:ok, _} = Settings.put("providers.openai.enabled", false, %{audit?: false})
+    assert {:ok, _} = Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+
+    Enum.each(~w[direct_answer fanout_manager fanout_synthesis], fn role ->
+      assert {:ok, _} =
+               Settings.put(
+                 "model_preferences.tasks.#{role}",
+                 ["direct_answer_local"],
+                 %{audit?: false}
+               )
+    end)
   end
 
   defp started_session do
