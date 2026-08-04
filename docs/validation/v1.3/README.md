@@ -240,3 +240,34 @@ with the loaded-Exqlite capability smoke in all three native packages, these
 rows satisfy ADR 0092's last flip condition. ADR 0092 is Accepted. Source-tree
 rehearsals and the prior mixed-SHA portability builds are not used as this
 evidence.
+
+## Packaged operator validation
+
+The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
+The completed run used the installed Homebrew candidate bound to source SHA
+`a3cd5781617b3a9ee511425b687ff359bdfcb0c7`, generation
+`v13-20260804T071638Z-a3cd5781617b`, and macOS archive SHA-256
+`8400ae64b991cc97d428dd058a21dcfb5eff5a2379f1b3deb363055e3ec10588`.
+It used a fresh disposable Home and the real configured local Ollama profiles;
+no fake provider or source-tree executable substituted for the installed
+package.
+
+| Row | Redacted outcome |
+| --- | --- |
+| PV-0–PV-4 | PASS — fixed port free, exact candidate bound, fresh Home/key, both real profiles available, packaged daemon and attach healthy |
+| PV-5 | PASS — all three configured route disclosures preceded attach; TUI identity, real-provider arithmetic answer, and health were correct |
+| PV-6 | PASS — CLI and TUI reached the same packaged daemon/Home; durable disclosure state contained exactly primary, fan-out manager, and fan-out synthesis usages |
+| PV-7.1 | PASS with `PV-7.1-ack KNOWN-MODE FAIL` — supplied-text routing boundary held, only explicit Memory was stored, and explicit recall succeeded |
+| PV-7.2 | PASS — Search became available in 62 seconds, CLI/TUI named the same canonical source, and all five managed jobs were unique |
+| mapped DM | UNAVAILABLE — every non-TUI channel was disabled, missing credentials, and unmapped; no fixture substituted |
+| PV-8 | PASS — TUI detached, daemon stopped, port 4137 free, shared environment pointer removed |
+
+The acknowledgment result is the same future-commitment failure already
+disclosed and accepted for v1.3 by M9.b.8; it is not reclassified as a clean
+answer. The first attempt also found two runbook defects—an incomplete route-
+disclosure literal and a packaged hard stop that contradicted M9.b.8. They were
+reconciled systemically for source and packaged validation at `da077bb3b`, the
+docs gate passed, and the complete run restarted with a new Home. Candidate
+bytes, tag binding, staging, qualification, and packaged latency evidence were
+unchanged, and no aggregate gate ran. Raw prompts, Memory values, Search
+snippets, credentials, and generated identifiers are excluded from this record.
