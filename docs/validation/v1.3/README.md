@@ -454,6 +454,16 @@ Installed-package proof, whole-generation staging, no-build qualification, the
 four latency cells, replacement PV-3, and K6 remain pending; no release has
 been published.
 
+The exact macOS candidate also passed the real Homebrew shadow-install row. It
+installed and tested as `allbert 1.3.0`, rendered its packaged JSON license
+inventory, and retained archive-identical sealed payloads after Homebrew
+relocation: OpenSSL SHA-256
+`643372e6478f280423b2f9536fa1523f1086f806309e9d98eca5ce11e22d3e18`
+and Exqlite SHA-256
+`8559739c2ba3e6970b421de7f09650017661e0a278b8653c012bd0ed847031e1`.
+Evidence root `/tmp/allbert-v13-homebrew.jNah5F` is retained. The candidate is
+installed for replacement PV-3; the draft remains empty and unpublished.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
