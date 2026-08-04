@@ -416,6 +416,26 @@ has SHA-256
 The authoritative cross-version aggregate remains pending, and promotion is
 still prohibited.
 
+The subsequent one authoritative aggregate at exact candidate SHA
+`d93b4a2a9f10da6051c80afc971bb5291301e03a` passed its cheap/static phase,
+`high_coverage_fast_local`, and `core_external_runtime_serial`, then stopped in
+`core_security_eval_serial` with 3 failures out of 387. Evidence
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-14340/home/release_evidence/gates/release-2026-08-04T22_41_02Z.json`
+has SHA-256
+`eb64ba4aed059be70a9247dd29a896d3b8ed9176c7a72431c60244635c1f3668`.
+The result is diagnostic, not promotable.
+
+Focused remediation updated two stale security expectations and restored the
+frozen configured `endpoint_kind` response contract while adding the actual
+validated `effective_endpoint_class`. The two failing security owners passed
+12/12 at seed `542984`; the affected Model Doctor/action/readiness/CLI owners
+passed 53/53; forced development and test warnings-as-errors compiles were
+clean; and the complete security-eval lane passed 387/387 at seed `156033` in
+391.0 seconds. Because the packaged Doctor output changes additively, PV-3 is
+the only attended row invalidated; all other PV rows remain inherited and are
+not relabelled. The unpublished generation must be replaced whole before PV-3
+and the final K6 rejoin run.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.

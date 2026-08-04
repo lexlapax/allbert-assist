@@ -22,6 +22,7 @@ defmodule AllbertAssist.Settings.ModelDoctor do
 
   @type summary :: %{
           endpoint_kind: :credentialed_remote | :local_endpoint,
+          effective_endpoint_class: :local | :hosted | :unknown,
           credential_ok: boolean() | nil,
           endpoint_ok: boolean(),
           model_available: boolean() | :unknown,
@@ -64,7 +65,8 @@ defmodule AllbertAssist.Settings.ModelDoctor do
           effective_endpoint_kind,
           context
         )
-        |> Map.put(:endpoint_kind, effective_endpoint_kind)
+        |> Map.put(:endpoint_kind, configured_endpoint_kind)
+        |> Map.put(:effective_endpoint_class, effective_transport.endpoint_class)
 
       {:error, reason} ->
         effective_transport_error_summary(configured_endpoint_kind, reason)
@@ -706,6 +708,7 @@ defmodule AllbertAssist.Settings.ModelDoctor do
   defp summary(endpoint_kind, host, opts) do
     %{
       endpoint_kind: endpoint_kind,
+      effective_endpoint_class: Keyword.get(opts, :effective_endpoint_class, :unknown),
       credential_ok: Keyword.get(opts, :credential_ok),
       endpoint_ok: Keyword.fetch!(opts, :endpoint_ok),
       model_available: Keyword.fetch!(opts, :model_available),

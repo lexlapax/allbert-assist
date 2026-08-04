@@ -77,6 +77,17 @@ derived from provider type alone, and **not** decided inside the doctor
 module. The Settings Central field is authority; the doctor module reads it
 after resolving the model profile's referenced provider.
 
+The configured branch and the actual request route are related but distinct.
+The frozen `endpoint_kind` response field continues to report the configured
+Settings Central branch. The additive `effective_endpoint_class` field reports
+the secret-free transport actually selected after environment/profile URL
+precedence and host validation: `local`, `hosted`, or `unknown` when validation
+fails before a route can be established. Runtime disclosure, egress admission,
+and route digests use that effective class; they do not reinterpret the
+configured branch. Doctor probes still execute the configured branch, so a
+credentialed-compatible provider routed to a loopback endpoint uses its remote
+catalog shape while honestly reporting that the effective route is local.
+
 ### 1a. Shipped provider catalog is seed data, not authority
 
 Allbert ships provider/model defaults in
@@ -124,6 +135,9 @@ Additive-only post-v0.39: later milestones may add new optional fields, but no
 field is removed or renamed without an ADR amendment and an ADR 0046 schema
 migration. Known additive fields:
 
+- **v1.3 model profiles** (`doctor_model_profile`) add
+  `:effective_endpoint_class` (`:local | :hosted | :unknown`) without changing
+  the configured meaning of `:endpoint_kind`.
 - **v0.40 MCP** (`mcp_doctor_server`) adds `:transport_kind`
   (`:streamable_http | :sse | :stdio`), `:tools_listable` (boolean),
   `:resources_listable` (boolean), `:tool_count`
@@ -166,6 +180,8 @@ Doctors **never** return:
 - raw secret values;
 - raw HTTP error response bodies;
 - full URLs (path and query are stripped; only `redacted_host` is returned);
+- provider base URLs containing userinfo, query, or fragment data (rejected
+  before a probe; the failure reports `redacted_host: "unknown"`);
 - backend stack traces;
 - credential fragments (no prefix/suffix peeks).
 

@@ -124,12 +124,15 @@ defmodule AllbertAssist.CLI.Areas.Model do
     Render.ok(
       [
         response.message,
-        "endpoint_kind=#{doctor.endpoint_kind}",
-        "credential_ok=#{inspect(doctor.credential_ok)}",
-        "endpoint_ok=#{doctor.endpoint_ok}",
-        "model_available=#{inspect(doctor.model_available)}",
-        "redacted_host=#{doctor.redacted_host}"
+        "endpoint_kind=#{doctor.endpoint_kind}"
       ] ++
+        effective_endpoint_lines(doctor) ++
+        [
+          "credential_ok=#{inspect(doctor.credential_ok)}",
+          "endpoint_ok=#{doctor.endpoint_ok}",
+          "model_available=#{inspect(doctor.model_available)}",
+          "redacted_host=#{doctor.redacted_host}"
+        ] ++
         voice_doctor_lines(doctor) ++
         Enum.map(doctor.diagnostics, fn diagnostic ->
           "diagnostic=#{diagnostic.code}: #{diagnostic.message}"
@@ -191,6 +194,11 @@ defmodule AllbertAssist.CLI.Areas.Model do
   end
 
   defp voice_capable?(_profile), do: false
+
+  defp effective_endpoint_lines(%{effective_endpoint_class: endpoint_class}),
+    do: ["effective_endpoint_class=#{endpoint_class}"]
+
+  defp effective_endpoint_lines(_doctor), do: []
 
   defp voice_doctor_lines(%{provider_capabilities: capabilities} = doctor) do
     [

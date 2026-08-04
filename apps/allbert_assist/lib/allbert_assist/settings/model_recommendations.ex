@@ -581,6 +581,7 @@ defmodule AllbertAssist.Settings.ModelRecommendations do
   defp public_doctor({:ok, doctor}) do
     %{
       endpoint_kind: doctor.endpoint_kind,
+      effective_endpoint_class: doctor.effective_endpoint_class,
       endpoint_ok: doctor.endpoint_ok,
       model_available: doctor.model_available,
       context_window: doctor.context_window,

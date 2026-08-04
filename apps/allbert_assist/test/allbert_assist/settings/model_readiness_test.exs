@@ -320,7 +320,8 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
                status: :callable,
                reason: nil,
                doctor: %{
-                 endpoint_kind: :local_endpoint,
+                 endpoint_kind: :credentialed_remote,
+                 effective_endpoint_class: :local,
                  redacted_host: "127.0.0.1",
                  endpoint_ok: true,
                  model_available: true

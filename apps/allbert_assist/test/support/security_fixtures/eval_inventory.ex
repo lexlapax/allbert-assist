@@ -1332,7 +1332,8 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
             id: "provider-doctor-redacted-host-only-001",
             milestone: :v039,
             surface: :first_run_onboarding,
-            scenario: "doctor strips path, query, and fragments from provider host diagnostics",
+            scenario:
+              "doctor returns host-only diagnostics for valid routes and rejects secret-bearing URL parts before probe",
             boundary: :provider_doctor_redaction,
             expected: :allowed,
             assert: [:allowed, :redacted_host_only],

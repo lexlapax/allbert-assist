@@ -174,8 +174,11 @@ profile is configured).
 
 The recommendation doctor renders each closed task row with its exact `chain`,
 resolved profile, `unavailable-role`, and `auto-pull=false`. The exact-profile
-doctor reports only `endpoint_kind`, `credential_ok`, `endpoint_ok`,
-`model_available`, `redacted_host`, and closed diagnostics. For example,
+doctor reports only configured `endpoint_kind`, actual
+`effective_endpoint_class`, `credential_ok`, `endpoint_ok`, `model_available`,
+`redacted_host`, and closed diagnostics. `effective_endpoint_class` is
+`local`, `hosted`, or `unknown` after URL precedence and validation; this keeps
+an operator override distinct from the route a request would actually use. For example,
 `invalid_provider_base_url`, `provider_host_denied`, and `endpoint_unreachable`
 identify the repair class without printing a credential or full endpoint URL.
 

@@ -63,6 +63,7 @@ defmodule AllbertAssist.Actions.Settings.DoctorModelProfile do
           provider_type: result.provider_type,
           model: result.model,
           endpoint_kind: doctor.endpoint_kind,
+          effective_endpoint_class: doctor.effective_endpoint_class,
           redacted_host: doctor.redacted_host,
           diagnostics: doctor.diagnostics
         })
@@ -118,7 +119,7 @@ defmodule AllbertAssist.Actions.Settings.DoctorModelProfile do
 
     [
       "Model profile #{result.profile}: provider=#{result.provider}, model=#{result.model}.",
-      "Doctor: endpoint_kind=#{doctor.endpoint_kind}, endpoint_ok=#{doctor.endpoint_ok}, model_available=#{availability}, host=#{doctor.redacted_host}.",
+      "Doctor: endpoint_kind=#{doctor.endpoint_kind}, effective_endpoint_class=#{doctor.effective_endpoint_class}, endpoint_ok=#{doctor.endpoint_ok}, model_available=#{availability}, host=#{doctor.redacted_host}.",
       diagnostic_text(doctor.diagnostics)
     ]
     |> Enum.reject(&(&1 in [nil, ""]))

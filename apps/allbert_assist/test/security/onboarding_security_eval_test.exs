@@ -240,15 +240,37 @@ defmodule AllbertAssist.Onboarding.SecurityEvalTest do
   end
 
   test "onboarding-reset-preserves-home-001: reset clears the marker, preserves other data" do
+    independent_marker = %{"state" => "preserve"}
+
+    FirstRun.merge_marker(%{"security_eval_independent" => independent_marker})
     FirstRun.mark_onboarding_complete()
     FirstRun.mark_profile_reviewed()
     assert FirstRun.read_marker()["onboarding_complete"] == true
 
     Onboarding.wizard_reset()
-    assert FirstRun.read_marker() == %{}
+
+    marker = FirstRun.read_marker()
+
+    for key <- ~w(
+      onboarding_complete
+      profile_reviewed
+      wizard_started
+      track
+      wizard_step
+      wizard_done
+      wizard_direct_entry
+      applied_persona
+      model_answers_declined
+      model_reenable_offered
+      objective_reconciled_v063
+    ) do
+      refute Map.has_key?(marker, key), "reset must clear onboarding-owned marker #{key}"
+    end
+
+    assert marker["security_eval_independent"] == independent_marker
 
     IO.puts(
-      "onboarding-reset-preserves-home-001 status=pass marker_cleared=true home_preserved=true"
+      "onboarding-reset-preserves-home-001 status=pass onboarding_cleared=true independent_marker_preserved=true home_preserved=true"
     )
 
     AssertBinding.check!("onboarding-reset-preserves-home-001", [

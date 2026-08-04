@@ -772,6 +772,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert {:ok, missing} = DoctorModelProfile.run(%{profile: "local"}, context)
     assert missing.status == :completed
     assert missing.doctor.endpoint_kind == :local_endpoint
+    assert missing.doctor.effective_endpoint_class == :local
     assert missing.doctor.credential_ok == nil
     assert missing.doctor.endpoint_ok
     assert missing.doctor.model_available == false
@@ -827,6 +828,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
 
     assert doctor.status == :completed
     assert doctor.doctor.endpoint_kind == :credentialed_remote
+    assert doctor.doctor.effective_endpoint_class == :hosted
     assert doctor.doctor.credential_ok
     assert doctor.doctor.endpoint_ok
     assert doctor.doctor.model_available == true
@@ -1014,7 +1016,8 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              })
 
     assert doctor.status == :completed
-    assert doctor.doctor.endpoint_kind == :local_endpoint
+    assert doctor.doctor.endpoint_kind == :credentialed_remote
+    assert doctor.doctor.effective_endpoint_class == :local
     assert doctor.doctor.credential_ok == true
     assert doctor.doctor.endpoint_ok == true
     assert doctor.doctor.model_available == true

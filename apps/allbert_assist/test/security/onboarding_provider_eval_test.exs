@@ -115,6 +115,7 @@ defmodule AllbertAssist.Security.OnboardingProviderEvalTest do
              Enum.sort([
                "intent.model_assist_enabled",
                "intent.model_profile",
+               "model_preferences.tasks.direct_answer",
                "providers.local_ollama.enabled"
              ])
   end
@@ -251,11 +252,23 @@ defmodule AllbertAssist.Security.OnboardingProviderEvalTest do
                 audit?: false
               })
 
-            {:ok, response} = Runner.run("doctor_model_profile", %{profile: "local"}, context())
+            Req.Test.expect(__MODULE__, fn conn ->
+              assert conn.request_path == "/v1/models"
+              Plug.Conn.send_resp(conn, 401, "{}")
+            end)
+
+            {:ok, response} =
+              Runner.run(
+                "doctor_model_profile",
+                %{profile: "local"},
+                context(%{req_options: [plug: {Req.Test, __MODULE__}]})
+              )
 
             %{
               decision:
-                if(response.doctor.endpoint_kind == :credentialed_remote,
+                if(
+                  response.doctor.endpoint_kind == :credentialed_remote and
+                    response.doctor.effective_endpoint_class == :local,
                   do: :allowed,
                   else: :denied
                 ),
@@ -271,6 +284,7 @@ defmodule AllbertAssist.Security.OnboardingProviderEvalTest do
 
     assert_allowed(endpoint_kind)
     assert endpoint_kind.result.doctor.endpoint_kind == :credentialed_remote
+    assert endpoint_kind.result.doctor.effective_endpoint_class == :local
     assert endpoint_kind.result.doctor.credential_ok == false
 
     redacted_host =
@@ -285,7 +299,7 @@ defmodule AllbertAssist.Security.OnboardingProviderEvalTest do
             {:ok, _setting} =
               Settings.put(
                 "providers.local_ollama.base_url",
-                "http://localhost:11434/v1?token=#{@secret}",
+                "http://localhost:11434/v1",
                 %{audit?: false}
               )
 
@@ -319,6 +333,23 @@ defmodule AllbertAssist.Security.OnboardingProviderEvalTest do
     assert_no_secret_in(redacted_host, [@secret])
     refute inspect(redacted_host.result.doctor) =~ "/v1"
     refute inspect(redacted_host.result.doctor) =~ "token="
+
+    {:ok, _setting} =
+      Settings.put(
+        "providers.local_ollama.base_url",
+        "http://localhost:11434/v1?token=#{@secret}",
+        %{audit?: false}
+      )
+
+    {:ok, rejected_url} =
+      Runner.run("doctor_model_profile", %{profile: "local"}, context())
+
+    assert rejected_url.doctor.endpoint_kind == :local_endpoint
+    assert rejected_url.doctor.effective_endpoint_class == :unknown
+    assert rejected_url.doctor.redacted_host == "unknown"
+    assert diagnostic_codes(rejected_url) == [:invalid_provider_base_url]
+    refute inspect(rejected_url) =~ @secret
+    refute inspect(rejected_url) =~ "token="
   end
 
   test "local default model evals distinguish missing and present model state" do

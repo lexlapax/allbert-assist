@@ -76,6 +76,7 @@ defmodule Mix.Tasks.Allbert.ModelTest do
       end)
 
     assert output =~ "endpoint_kind=credentialed_remote"
+    assert output =~ "effective_endpoint_class=hosted"
     assert output =~ "credential_ok=false"
     assert output =~ "diagnostic=credential_missing"
   end
