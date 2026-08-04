@@ -197,20 +197,20 @@ product change.
 
 ## Exact candidate construction and packaged qualification
 
-K5 completed on 2026-08-04 from one frozen clean pushed source SHA; no target
-was retained from either earlier failed generation:
+Final K5 replacement completed on 2026-08-04 from one frozen clean pushed
+source SHA; no target was retained from an earlier failed generation:
 
 | Binding | Exact value |
 | --- | --- |
-| source SHA | `a3cd5781617b3a9ee511425b687ff359bdfcb0c7` |
-| candidate generation | `v13-20260804T071638Z-a3cd5781617b` |
-| macOS arm64 archive SHA-256 | `8400ae64b991cc97d428dd058a21dcfb5eff5a2379f1b3deb363055e3ec10588` |
-| Linux x64 archive SHA-256 | `7adf07cf095ed8c82bff69bf59aef79be9d854a4c087bbefb61cead24814dd55` |
-| Linux arm64 archive SHA-256 | `8d499eb39885150e9471485e3deb1282a244844bfc28ce637a09e0a4ee57072f` |
-| unpublished draft release | `364678592` — 13 assets, immutable `false` |
-| candidate manifest | asset `501038434`, digest `a8dd0fef2b793fdaf5d769e2bb671330540519bc442886179d47ce0b2e63c54c` |
-| no-build qualification | run `30888023502` — all three targets passed |
-| qualification manifest | artifact `8883887082`, digest `cf2576e5954c98490c0264157b11511984e35b794b87547a540d3f356b765e9a` |
+| source SHA | `8e76e98b50fdc5236fad0c76d35bd26b3d33b9c5` |
+| candidate generation | `v13-20260804T170726Z-8e76e98b50fd` |
+| macOS arm64 archive SHA-256 | `e892f2f38107fc5fa4d04e2750a4febbae8a413493393a2383ae2531ef1591f9` |
+| Linux x64 archive SHA-256 | `d873714d32cd705f57a579149af4479419a83f04d765b56b427fef473f2e69ab` |
+| Linux arm64 archive SHA-256 | `412126ca22da7c82bb6105bcdf85cb516b890c4d810789e85465f1844520177f` |
+| unpublished draft release | `365029002` — 13 assets, immutable `false` |
+| candidate manifest | asset `501608624`, digest `d07a3d078662f47388c34114a6a6f89746b67358267c657094c48c46075ea6d8` |
+| no-build qualification | run `30933151096` — all three targets passed |
+| qualification manifest | artifact `8902019635`, digest `04685735a957dce825082daff342541f909f61038f4d155d1106972820d93e66` |
 
 Each native builder passed its SHA/generation/toolchain, package, sealed-license,
 and runtime smoke. Both Linux outputs came from native architecture execution
@@ -229,10 +229,10 @@ across host or consumer—and are ingested into
 
 | Host | Consumer | Frozen scale | p95 ms | p99 ms | Result |
 | --- | --- | --- | ---: | ---: | --- |
-| macOS arm64 | Memory | 10,000 claims / 200 measured queries | 48.093 | 49.338 | PASS |
-| macOS arm64 | Search | 25,000 messages / 250 threads / 300 measured queries | 59.379 | 60.162 | PASS |
-| Linux x64 | Memory | 10,000 claims / 200 measured queries | 37.424 | 38.882 | PASS |
-| Linux x64 | Search | 25,000 messages / 250 threads / 300 measured queries | 47.343 | 51.260 | PASS |
+| macOS arm64 | Memory | 10,000 claims / 200 measured queries | 50.095 | 52.496 | PASS |
+| macOS arm64 | Search | 25,000 messages / 250 threads / 300 measured queries | 62.635 | 66.847 | PASS |
+| Linux x64 | Memory | 10,000 claims / 200 measured queries | 38.255 | 40.090 | PASS |
+| Linux x64 | Search | 25,000 messages / 250 threads / 300 measured queries | 48.406 | 52.243 | PASS |
 
 Every row carries the full candidate SHA, its exact archive digest, a complete
 warm pass, the frozen threshold, clean provenance, and `status=passed`. Combined
