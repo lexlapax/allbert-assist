@@ -385,6 +385,14 @@ release-asset and local SHA-256 are both
 No-build qualification run `30953764112` is pending; packaged latency and K6
 have not yet run for this replacement generation.
 
+Run `30953764112` subsequently passed exact binding, packaged license, and
+protocol-TTY qualification on all three targets. Joined qualification artifact
+`8910205764` has Actions ZIP SHA-256
+`a6c65095296edced91a3f5b6d7cd609264d76fe38f73b0549271439fb232f1ea`;
+qualification-manifest content SHA-256 is
+`2474960f3338fd8bc6d43e4c042199b467953e8418b35eba38c141ee19bf0875`.
+Promotion was skipped. Packaged latency and K6 remain pending.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
