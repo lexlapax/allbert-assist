@@ -132,13 +132,20 @@ Full text for each is retained in the run's evidence root.
   `refresh_claim/2` does not advance it, so after keep/archive/restore it
   described an empty stream while the projection held claims. Inert today — the
   field is write-only and nothing reads it back — and it self-heals at the next
-  rebuild. Must not have drift detection wired to it as-is. v1.3.1 intake.
+  rebuild. Must not have drift detection wired to it as-is. Confirmed
+  post-release intake candidate pending operator disposition; it is not part of
+  the answering-head-only v1.3.1 plan. The preferred repair is to advance the
+  watermark in the same incremental transaction and prove consecutive
+  keep/archive/restore refreshes against the exact claim-stream digest.
 - **A paused job repopulates `Next due`.** After `jobs pause`, `search-index`
   showed `Next due: none`, then a concrete timestamp while still paused and
   still not running. The adjacent case is handled correctly: disabling
   `memory.consolidation.enabled` set `Next due: none` and held it. Two "will not
   run now" states presented inconsistently on an operator-facing surface.
-  Cosmetic, v1.3.1 intake.
+  Cosmetic, confirmed post-release operator-UX intake candidate pending
+  operator disposition; it is not part of the answering-head-only v1.3.1 plan.
+  The preferred repair keeps `next_due_at` nil while paused and proves pause ->
+  dirty kick -> show -> resume without weakening dirty-intent preservation.
 - **One PASS line in the transcript was retracted.** The agent-run adaptation of
   SV-8A.2 rewrote the runbook's `set -e` assertion chain as
   `grep … && echo OK || echo FAIL` and gated the final PASS on an unrelated
@@ -289,8 +296,14 @@ That whole replacement is now complete at candidate SHA
 qualification, and latency bindings above. The source change from the prior
 candidate is test-only. PV feature observations remain inherited without being
 relabelled; current identity, integrity, Homebrew/package smoke, qualification,
-and all four latency cells reran. Final K6 must now start in a fresh detached
-checkout of this SHA.
+and all four latency cells reran. A fresh detached checkout of this SHA passed
+the K6 structural prefix. Evidence
+`/tmp/allbert-v13-k6-final.sHQ98g/home/release_evidence/v13/release-structure-v13.json`
+has SHA-256
+`ea38b1f4822b396394cf2ac56697fd6ad90694cb80be19c59cfcd7755ef5e27b`.
+The one `release.v13` run is next in that same checkout/Home; the authoritative
+`release` remains blocked on 32/32 green and promotion remains blocked on both
+aggregates plus explicit operator approval.
 
 ## Packaged operator validation
 

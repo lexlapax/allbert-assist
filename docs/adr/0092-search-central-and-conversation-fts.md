@@ -16,14 +16,15 @@ green. M8 made the shared Web/TUI/CLI/DM consumer, deterministic source-linked
 presentation, durable direct/shared/unknown transport-scope proof, exact
 confirmation/resubmit behavior, and cross-consumer security rows focused-gate
 green. M9 added the loaded-Exqlite packaged capability smoke and an executable
-25,000-message/250-thread/300-query latency harness. Exact candidate generation
-`v13-20260804T071638Z-a3cd5781617b` ran the capability smoke from all three
-native archives. The four clean packaged latency cells are recorded separately
-in `docs/validation/test-metrics/summary.md`: macOS arm64 Search p95/p99
-`59.379/60.162 ms`, Linux x64 Search `47.343/51.260 ms`, macOS arm64 Memory
-`48.093/49.338 ms`, and Linux x64 Memory `37.424/38.882 ms`. Every row binds
-full source SHA `a3cd5781617b3a9ee511425b687ff359bdfcb0c7` and its target archive
-digest; no source-tree probe or cross-host average is substituted.
+25,000-message/250-thread/300-query latency harness. Exact release candidate
+generation `v13-20260804T194722Z-c7df6e7e5e9f` ran the capability smoke from
+all three native archives. The four clean packaged latency cells are recorded
+separately in `docs/validation/test-metrics/summary.md`: macOS arm64 Search
+p95/p99 `64.283/67.128 ms`, Linux x64 Search `47.709/51.556 ms`, macOS arm64
+Memory `53.267/54.257 ms`, and Linux x64 Memory `38.470/38.870 ms`. Every row
+binds full source SHA `c7df6e7e5e9f1baab2719c31c481702e1456ad68` and its target archive
+digest; no source-tree probe, older provisional package, or cross-host average
+is substituted.
 
 This ADR supersedes ADR 0089 §6's conditional external-content FTS design.
 Search ships as a central read product and point milestone without becoming a
