@@ -194,3 +194,49 @@ its green runs implied:
 All three intermittent-looking failures in this milestone had concrete
 structural causes once investigated. None was irreducible, and none required a
 product change.
+
+## Exact candidate construction and packaged qualification
+
+K5 completed on 2026-08-04 from one frozen clean pushed source SHA; no target
+was retained from either earlier failed generation:
+
+| Binding | Exact value |
+| --- | --- |
+| source SHA | `a3cd5781617b3a9ee511425b687ff359bdfcb0c7` |
+| candidate generation | `v13-20260804T071638Z-a3cd5781617b` |
+| macOS arm64 archive SHA-256 | `8400ae64b991cc97d428dd058a21dcfb5eff5a2379f1b3deb363055e3ec10588` |
+| Linux x64 archive SHA-256 | `7adf07cf095ed8c82bff69bf59aef79be9d854a4c087bbefb61cead24814dd55` |
+| Linux arm64 archive SHA-256 | `8d499eb39885150e9471485e3deb1282a244844bfc28ce637a09e0a4ee57072f` |
+| unpublished draft release | `364678592` — 13 assets, immutable `false` |
+| candidate manifest | asset `501038434`, digest `a8dd0fef2b793fdaf5d769e2bb671330540519bc442886179d47ce0b2e63c54c` |
+| no-build qualification | run `30888023502` — all three targets passed |
+| qualification manifest | artifact `8883887082`, digest `cf2576e5954c98490c0264157b11511984e35b794b87547a540d3f356b765e9a` |
+
+Each native builder passed its SHA/generation/toolchain, package, sealed-license,
+and runtime smoke. Both Linux outputs came from native architecture execution
+of the same pinned Debian multi-architecture image digest. Homebrew installed
+the actual macOS candidate under `umask 077`; `brew test`, packaged
+`allbert licenses --json`, all sealed evidence `0644`/`0755` modes, and exact
+archive-versus-install hashes for both relocation-managed Mach-O payloads
+passed. This is the successful proof of M9.b.14; the draft remains unpublished.
+
+## Packaged native latency and ADR 0092
+
+The exact macOS arm64 and Linux x64 archives ran the frozen Memory and Search
+workloads through their packaged executables. Results are separate—not averaged
+across host or consumer—and are ingested into
+`docs/validation/test-metrics/summary.md`:
+
+| Host | Consumer | Frozen scale | p95 ms | p99 ms | Result |
+| --- | --- | --- | ---: | ---: | --- |
+| macOS arm64 | Memory | 10,000 claims / 200 measured queries | 48.093 | 49.338 | PASS |
+| macOS arm64 | Search | 25,000 messages / 250 threads / 300 measured queries | 59.379 | 60.162 | PASS |
+| Linux x64 | Memory | 10,000 claims / 200 measured queries | 37.424 | 38.882 | PASS |
+| Linux x64 | Search | 25,000 messages / 250 threads / 300 measured queries | 47.343 | 51.260 | PASS |
+
+Every row carries the full candidate SHA, its exact archive digest, a complete
+warm pass, the frozen threshold, clean provenance, and `status=passed`. Combined
+with the loaded-Exqlite capability smoke in all three native packages, these
+rows satisfy ADR 0092's last flip condition. ADR 0092 is Accepted. Source-tree
+rehearsals and the prior mixed-SHA portability builds are not used as this
+evidence.

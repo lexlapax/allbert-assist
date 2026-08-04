@@ -24,7 +24,7 @@ ADRs record binding design decisions. They are not release plans; use
 - [ADR 0089: Long-term user memory architecture and consent boundary](0089-long-term-user-memory-architecture-and-consent.md) (Accepted — v1.3 M9.b.1, 2026-07-30)
 - [ADR 0090: Adaptive usage profiling and confirmed customization](0090-adaptive-usage-profiling-and-confirmed-customization.md) (Proposed — v1.4)
 - [ADR 0091: Daemon-backed TUI session protocol and thin terminal client](0091-daemon-backed-tui-session-protocol.md) (Accepted — v1.2.5 M0.b1)
-- [ADR 0092: Search Central and conversation FTS](0092-search-central-and-conversation-fts.md) (Proposed — v1.3, final implementation-ready)
+- [ADR 0092: Search Central and conversation FTS](0092-search-central-and-conversation-fts.md) (Accepted — v1.3, 2026-08-04)
 - [ADR 0093: Canonical conversation deletion and retention boundary](0093-canonical-conversation-deletion-and-retention-boundary.md) (Accepted — v1.3, 2026-07-30)
 - [ADR 0094: Knowledge Central and the derived wiki projection](0094-knowledge-central-and-derived-wiki.md) (Proposed — v1.7/v1.8)
 - [ADR 0095: Knowledge schema authority and untrusted source ingestion](0095-knowledge-schema-authority-and-untrusted-source-ingestion.md) (Proposed — v1.7/v1.8)

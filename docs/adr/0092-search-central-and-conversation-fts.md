@@ -2,10 +2,9 @@
 
 ## Status
 
-Proposed (v1.3, operator-signed final readiness decision 2026-07-28). Binding
-on the Search Central milestone in the v1.3 plan; flips Accepted when the
-central API, canonical re-authorization, generation lifecycle, recurring
-maintenance, surface scope rows, and packaged native-runtime proof are green.
+Accepted (v1.3, 2026-08-04). The central API, canonical re-authorization,
+generation lifecycle, recurring maintenance, surface scope rows, and packaged
+native-runtime proof are green.
 M1 froze the numeric query, paging, drain, scale, latency, and capability
 contracts on 2026-07-29. M6 subsequently made the central API, canonical
 candidate reauthorization, trace-safe request path, loaded-Exqlite capability
@@ -16,13 +15,15 @@ exclusion, and confirmed crash-resumable all-generation purge focused-gate
 green. M8 made the shared Web/TUI/CLI/DM consumer, deterministic source-linked
 presentation, durable direct/shared/unknown transport-scope proof, exact
 confirmation/resubmit behavior, and cross-consumer security rows focused-gate
-green. This ADR remains Proposed only until M9 packaged native-runtime proof
-completes the acceptance bar. M9 added the loaded-Exqlite packaged capability
-smoke and an executable 25,000-message/250-thread/300-query latency harness;
-macOS source rehearsal is within the frozen bound. The remaining proof is the
-exact candidate archives running that capability smoke and recording Search
-latency separately on macOS arm64 and Linux x64. A source-tree probe or an
-average across hosts is not the packaged native-runtime proof required here.
+green. M9 added the loaded-Exqlite packaged capability smoke and an executable
+25,000-message/250-thread/300-query latency harness. Exact candidate generation
+`v13-20260804T071638Z-a3cd5781617b` ran the capability smoke from all three
+native archives. The four clean packaged latency cells are recorded separately
+in `docs/validation/test-metrics/summary.md`: macOS arm64 Search p95/p99
+`59.379/60.162 ms`, Linux x64 Search `47.343/51.260 ms`, macOS arm64 Memory
+`48.093/49.338 ms`, and Linux x64 Memory `37.424/38.882 ms`. Every row binds
+full source SHA `a3cd5781617b3a9ee511425b687ff359bdfcb0c7` and its target archive
+digest; no source-tree probe or cross-host average is substituted.
 
 This ADR supersedes ADR 0089 §6's conditional external-content FTS design.
 Search ships as a central read product and point milestone without becoming a
