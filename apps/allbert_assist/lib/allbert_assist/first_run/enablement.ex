@@ -135,6 +135,12 @@ defmodule AllbertAssist.FirstRun.Enablement do
     end
   end
 
+  # `model_state` is the *global starter model* probe and deliberately does not
+  # gate this clause: M9.b.3 qualified DirectAnswer routing per task, so a
+  # qualified local task model can be present and healthy while the global 3B is
+  # absent (see EnablementTest "an already-enabled qualified task remains ready
+  # when the global 3B is absent"). Whether the task's own model is usable is
+  # UsableModel's judgement, not this clause's.
   defp selection_for(_model_state, settings, user_settings, opts) do
     case local_selection(settings, opts) do
       {:ok, selection} -> {:ok, selection}

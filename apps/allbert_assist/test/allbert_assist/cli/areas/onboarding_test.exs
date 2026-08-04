@@ -19,7 +19,13 @@ defmodule AllbertAssist.CLI.Areas.OnboardingTest do
     File.rm_rf!(home)
     System.put_env("ALLBERT_HOME", home)
 
+    # v1.3 M9.b.12.d — each test gets its own Home, but the resolved-settings
+    # cache does not follow it, so a settings write in one test was visible to
+    # the next. Clear on both edges.
+    AllbertAssist.Settings.Fragments.clear_cache()
+
     on_exit(fn ->
+      AllbertAssist.Settings.Fragments.clear_cache()
       File.rm_rf!(home)
 
       if original,
@@ -70,7 +76,24 @@ defmodule AllbertAssist.CLI.Areas.OnboardingTest do
     # With --yes: resets.
     assert {msg, 0} = Area.dispatch(["--reset", "--yes"])
     assert msg =~ "reset"
-    assert FirstRun.read_marker() == %{}
+
+    # `--reset` is scoped to onboarding: reset_onboarding/0 drops the onboarding
+    # keys and deliberately preserves any other namespace sharing the marker
+    # file. Asserting `== %{}` only held while onboarding was the sole writer;
+    # M9.b.3 added "model_disclosure" alongside it. Preserving that is correct,
+    # not a leak — Disclosure re-pends on every surface whenever the route set
+    # changes (disclosure.ex "any route-set change becomes pending"), so consent
+    # is bound to the routes rather than to onboarding state. Assert the
+    # contract that actually holds.
+    marker = FirstRun.read_marker()
+
+    for key <- ~w(onboarding_complete profile_reviewed wizard_started track
+                  wizard_step wizard_done wizard_direct_entry applied_persona) do
+      refute Map.has_key?(marker, key), "--reset must clear the onboarding key #{key}"
+    end
+
+    assert Map.keys(marker) -- ["model_disclosure"] == [],
+           "--reset must leave nothing behind but non-onboarding namespaces"
   end
 
   test "unknown flags render usage with exit code 2" do
@@ -163,13 +186,40 @@ defmodule AllbertAssist.CLI.Areas.OnboardingTest do
       end)
 
       Application.put_env(:allbert_assist, :first_model_state_override, :model_missing)
+
+      # v1.3 M9.b.12.d — :first_model_state_override only substitutes the *global
+      # starter model* probe. M9.b.3 qualified DirectAnswer routing per task, and
+      # that path reaches ModelDoctor, which probes the endpoint configured in
+      # settings — a live localhost Ollama. On a developer machine running Ollama
+      # with a model matching `direct_answer_local`, the doctor returns
+      # model_available: true, DirectAnswer readiness is genuinely :ready, and
+      # the wizard correctly says so — so this row failed on the developer
+      # machine and passed on CI. Pin the local endpoint unreachable so
+      # ":model_missing" means it for the task model too, and the row tests the
+      # repair path on every machine.
+      assert {:ok, _} =
+               AllbertAssist.Settings.put(
+                 "providers.local_ollama.base_url",
+                 "http://127.0.0.1:1/v1",
+                 %{audit?: false}
+               )
+
       {io, out} = scripted_io(["q", "", "", "", :quit])
 
       assert {"", 0} = Area.run_interactive(nil, io)
       text = output(out)
 
-      assert text =~ "The runtime is up, but the starter model isn't downloaded."
-      assert text =~ "Next: Pull the starter model"
+      # M9.b.3 qualified this step's guidance to the DirectAnswer route rather
+      # than the global starter model, so an unusable route reports itself in
+      # route language. The row's contract is unchanged: model_path names a
+      # concrete local repair before any provider key is requested.
+      assert text =~ "The selected DirectAnswer model is unavailable."
+      assert text =~ "Next: Open Models to select a ready DirectAnswer profile"
+
+      assert String.contains?(text, "Provider key") == false or
+               :binary.match(text, "The selected DirectAnswer model is unavailable.") <
+                 :binary.match(text, "Provider key"),
+             "local repair must be offered before provider key entry"
     end
 
     test "quitting pauses without completing" do

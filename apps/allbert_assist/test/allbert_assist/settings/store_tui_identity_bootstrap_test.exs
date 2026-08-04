@@ -21,10 +21,17 @@ defmodule AllbertAssist.Settings.StoreTuiIdentityBootstrapTest do
       "enabled" => true
     }
   ]
+  # v1.3 M9.b.12.d — auto-enablement writes the task-scoped DirectAnswer chain,
+  # not the global primary. M9.b.3 narrowed @auto_enablement_keys to match, so a
+  # fixture naming "model_preferences.primary" is now refused outright with
+  # :settings_if_absent_keys_not_allowed and this row stopped exercising the
+  # serialization it is named for. The key is the fixture's; the contract under
+  # test — that a concurrent identity bootstrap loses none of these — is
+  # unchanged.
   @enablement_values %{
     "intent.direct_answer_model_enabled" => true,
     "intent.model_assist_enabled" => true,
-    "model_preferences.primary" => "local"
+    "model_preferences.tasks.direct_answer" => ["local"]
   }
 
   setup do
@@ -231,7 +238,7 @@ defmodule AllbertAssist.Settings.StoreTuiIdentityBootstrapTest do
     assert get_in(user_settings, ["channels", "tui", "identity_map"]) == @default_mapping
     assert get_in(user_settings, ["intent", "direct_answer_model_enabled"])
     assert get_in(user_settings, ["intent", "model_assist_enabled"])
-    assert get_in(user_settings, ["model_preferences", "primary"]) == "local"
+    assert get_in(user_settings, ["model_preferences", "tasks", "direct_answer"]) == ["local"]
   end
 
   test "a concurrent explicit map is the final authority" do
