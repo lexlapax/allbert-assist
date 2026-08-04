@@ -334,6 +334,17 @@ recapture, focused deterministic corpus/eval proof, then whole unpublished
 candidate replacement and one fresh K6 rejoin. It explicitly forbids hiding the
 gap in the intentionally-uncovered set or running an aggregate per fix.
 
+Before that replacement, the broader legacy v0.56 security owner was also run
+as a bounded stress check. Three rows fail reproducibly because their test setup
+predates current contracts: ReqLLM prompts are structured Contexts rather than
+strings; remote readiness is unavailable unless the test enables and
+credentials the provider; and the promotion gate refuses a deliberately thin
+review descriptor that regresses apps-domain routing to 0.5. Production is not
+being loosened. M9.b.16 folds Context-aware redaction assertions, explicit
+remote-callability setup, and a canonical-equivalent promotion fixture into the
+same test-only tranche, followed by isolated rows and complete focused owners
+before one whole candidate replacement.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
