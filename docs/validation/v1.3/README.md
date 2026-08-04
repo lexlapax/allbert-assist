@@ -305,6 +305,15 @@ The one `release.v13` run is next in that same checkout/Home; the authoritative
 `release` remains blocked on 32/32 green and promotion remains blocked on both
 aggregates plus explicit operator approval.
 
+The exact `release.v13` run then passed 32/32. Evidence
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v13/p0-2243/home/release_evidence/v13/release-v13-1785874157.json`
+has SHA-256
+`ab4d58aaafbbd795bcccb6629fbe4c9c795439327b2ab7938b0f5d0bf5d41388`;
+the 32 step durations total 2,559,206 ms and no row failed. The repaired loaded
+fan-out lane passed 332/332 at a new aggregate seed. The one authoritative
+cross-version `release` is now authorized in this same checkout/Home;
+promotion remains blocked pending that result and explicit operator approval.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
