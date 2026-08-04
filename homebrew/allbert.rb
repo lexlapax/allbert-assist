@@ -46,6 +46,15 @@ class Allbert < Formula
       THIRD-PARTY-MANIFEST.json
       licenses
     ]
+    sealed_evidence_files = sealed_evidence.take(4) + Dir["licenses/**/*"].select { |path| File.file?(path) }
+    sealed_evidence_directories = ["licenses"] + Dir["licenses/**/*"].select { |path| File.directory?(path) }
+
+    # Homebrew's initial extraction honors the invoking umask. Canonicalize the
+    # bounded generated evidence before preserving it, so both the archive and
+    # the installed license verifier see the release's sealed 0644/0755 modes.
+    File.chmod(0o644, *sealed_evidence_files)
+    File.chmod(0o755, *sealed_evidence_directories)
+
     managed_payloads = managed_machos.flatten + sealed_evidence
 
     system "tar", "-czf", "allbert-managed-payloads.tar.gz", *managed_payloads

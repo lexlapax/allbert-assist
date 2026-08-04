@@ -136,6 +136,8 @@ defmodule AllbertAssist.InstallPathTest do
     assert body =~ "libcrypto.3.dylib"
     assert body =~ "sqlite3_nif.so"
     assert body =~ "managed_payloads = managed_machos.flatten + sealed_evidence"
+    assert body =~ "File.chmod(0o644, *sealed_evidence_files)"
+    assert body =~ "File.chmod(0o755, *sealed_evidence_directories)"
     assert body =~ ~s(system "tar", "-xpzf", pkgshare/"allbert-managed-payloads.tar.gz")
 
     for evidence_root <- [
@@ -265,10 +267,17 @@ defmodule AllbertAssist.InstallPathTest do
     File.mkdir_p!(installed)
     File.write!(manifest, "{}\n")
     File.write!(catalog, "{}\n")
+    # Homebrew's URL extraction has already applied the invoking umask before
+    # the formula runs. The formula must establish the sealed release modes
+    # before it creates its private preservation archive.
+    File.chmod!(manifest, 0o600)
+    File.chmod!(catalog, 0o600)
+    File.chmod!(Path.dirname(catalog), 0o700)
+    on_exit(fn -> File.rm_rf!(root) end)
+
     File.chmod!(manifest, 0o644)
     File.chmod!(catalog, 0o644)
     File.chmod!(Path.dirname(catalog), 0o755)
-    on_exit(fn -> File.rm_rf!(root) end)
 
     assert {_, 0} =
              System.cmd(
