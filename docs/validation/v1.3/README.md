@@ -436,6 +436,24 @@ the only attended row invalidated; all other PV rows remain inherited and are
 not relabelled. The unpublished generation must be replaced whole before PV-3
 and the final K6 rejoin run.
 
+That replacement K5 build is now complete at clean pushed executable SHA
+`a302aae61483d76272771011a3e9ec59a46cfad2`, annotated tag object
+`0ca7ea3e4aac3d4ca79163079f04397063842220`, empty unpublished draft
+`365211382`, and generation `v13-20260804T234212Z-a302aae61483`. The candidate
+directory contains exactly 12 target files. macOS arm64 archive SHA-256 is
+`6e1b7ed41fb844eb0cf3f602e6c4fe8b02c87ed4a406809512346454dab8b09d`,
+Linux x64 is
+`b4ec90492889abf48c20515f4407a40bf292713f796a115c833db25a4c046f89`,
+and Linux arm64 is
+`a6d1ff762e0f996ca20b86323bf2ec10021bb3847bd404c7ebc3c4e04040627b`.
+All toolchain and smoke rows bind the exact SHA and generation, all smoke rows
+say `passed`, and all three archive sidecars verify. Both Linux targets used
+native target execution under pinned image digest
+`sha256:d8c7836b5b2b3b90918fb504b9eac563814503957875658528d9ab4581bf1e6b`.
+Installed-package proof, whole-generation staging, no-build qualification, the
+four latency cells, replacement PV-3, and K6 remain pending; no release has
+been published.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
