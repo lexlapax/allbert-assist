@@ -7,6 +7,8 @@ defmodule AllbertAssist.Portability.ExportImportTest do
   alias AllbertAssist.Portability.Import
   alias AllbertAssist.Portability.SecretReferences
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.KeyCustody
+  alias AllbertAssist.Settings.Secrets
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -24,10 +26,12 @@ defmodule AllbertAssist.Portability.ExportImportTest do
 
     Application.put_env(:allbert_assist, Paths, home: home_a)
     Application.delete_env(:allbert_assist, Settings)
+    KeyCustody.invalidate(:all)
 
     on_exit(fn ->
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
+      KeyCustody.invalidate(:all)
       File.rm_rf!(root)
     end)
 
@@ -42,6 +46,7 @@ defmodule AllbertAssist.Portability.ExportImportTest do
     home_a: home_a
   } do
     seed_home!(home_a)
+    assert Secrets.status("secret://providers/openai/api_key") == :missing
 
     assert {:ok, envelope} = Export.build(home: home_a)
 
@@ -178,8 +183,6 @@ defmodule AllbertAssist.Portability.ExportImportTest do
   defp seed_home!(home) do
     File.mkdir_p!(Path.join(home, "memory/notes"))
     File.write!(Path.join(home, "memory/notes/note.md"), "portable note\n")
-    File.write!(Path.join(home, "settings/secrets.yml.enc"), "sk-test raw-secret\n")
-    File.write!(Path.join(home, "settings/.settings_key"), "raw-secret\n")
     File.mkdir_p!(Path.join(home, "projections/memory"))
     File.write!(Path.join(home, "projections/memory/current.sqlite3"), "derived claim bytes")
     File.mkdir_p!(Path.join(home, "projections/search"))
@@ -220,6 +223,13 @@ defmodule AllbertAssist.Portability.ExportImportTest do
                  }
                }
              })
+
+    assert {:ok, %{status: :configured}} =
+             Secrets.put_secret(
+               "secret://mcp/portability/fixture",
+               "raw-secret",
+               %{audit?: false}
+             )
   end
 
   defp tree_digest(root) do

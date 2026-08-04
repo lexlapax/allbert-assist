@@ -108,7 +108,7 @@ defmodule AllbertAssist.SettingsTest do
              Settings.get("intent.direct_answer_model_profile")
 
     assert Settings.schema()["intent.direct_answer_model_profile"].default ==
-             "direct_answer_local"
+             "local"
 
     assert {:ok, 0.85} = Settings.get("intent.eval.min_accuracy")
     assert {:ok, 0.8} = Settings.get("intent.eval.min_per_domain_accuracy")

@@ -787,7 +787,7 @@ defmodule AllbertAssist.Settings.Schema do
     },
     "intent.direct_answer_model_profile" => %{
       type: :profile_ref,
-      default: "direct_answer_local",
+      default: "local",
       writable?: true,
       sensitive?: false
     },
@@ -3755,7 +3755,7 @@ defmodule AllbertAssist.Settings.Schema do
       "handoff_margin" => 0.15,
       "clarify_floor" => 0.3,
       "direct_answer_model_enabled" => false,
-      "direct_answer_model_profile" => "direct_answer_local",
+      "direct_answer_model_profile" => "local",
       "router_strategy" => "two_stage_local",
       "router_embedding_profile" => "embedding_local",
       "router_model_profile" => "router_local",
