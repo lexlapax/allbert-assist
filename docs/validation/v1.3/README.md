@@ -248,6 +248,19 @@ the active plan's narrow re-run rule and are not relabelled as observations of
 the current package; current identity, integrity, Homebrew/package smoke,
 qualification, and all four packaged latency cells did rerun.
 
+## Final K6 aggregate closeout
+
+The isolated detached checkout at exact executable candidate SHA
+`2b9cb986fdb1ad7a9750b4b4b9e5c165e7f425bd` passed the structural-prefix
+proof before either aggregate started. Evidence:
+`/tmp/allbert-v13-k6-final.dlOVjJ/home/release_evidence/v13/release-structure-v13.json`;
+SHA-256
+`e22761eff2c1de324895e862b2f828debebdadf7f0504841d23e092b647028c2`.
+The final `release.v13` run is now authorized in that same checkout. The
+authoritative cross-version `release` aggregate remains blocked until all 32
+version steps pass, and promotion remains blocked pending both green aggregates
+and explicit operator approval of the exact candidate bindings above.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
