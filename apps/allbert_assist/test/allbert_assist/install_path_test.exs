@@ -132,9 +132,22 @@ defmodule AllbertAssist.InstallPathTest do
     assert body =~ "browser.driver.binary_path"
     assert body =~ ~s(prefix.install_symlink libexec/"LICENSE", libexec/"NOTICE")
     assert body =~ ~S(#{bin}/allbert licenses --json)
-    assert body =~ "allbert-managed-machos.tar.gz"
+    assert body =~ "allbert-managed-payloads.tar.gz"
     assert body =~ "libcrypto.3.dylib"
     assert body =~ "sqlite3_nif.so"
+    assert body =~ "managed_payloads = managed_machos.flatten + sealed_evidence"
+    assert body =~ ~s(system "tar", "-xpzf", pkgshare/"allbert-managed-payloads.tar.gz")
+
+    for evidence_root <- [
+          "LICENSE",
+          "NOTICE",
+          "THIRD-PARTY-LICENSES.md",
+          "THIRD-PARTY-MANIFEST.json",
+          "licenses"
+        ] do
+      assert body =~ evidence_root
+    end
+
     assert body =~ ~s(def post_install)
 
     # Homebrew derives this formula's version from the release URLs. An explicit
@@ -236,6 +249,50 @@ defmodule AllbertAssist.InstallPathTest do
 
     assert body =~ "sha256"
     refute body =~ "v0.63.0"
+  end
+
+  test "the Homebrew payload restore preserves sealed evidence modes under restrictive umask" do
+    root =
+      Path.join(System.tmp_dir!(), "allbert-homebrew-modes-#{System.unique_integer([:positive])}")
+
+    source = Path.join(root, "source")
+    installed = Path.join(root, "installed")
+    archive = Path.join(root, "managed-payloads.tar.gz")
+    manifest = Path.join(source, "THIRD-PARTY-MANIFEST.json")
+    catalog = Path.join([source, "licenses", "catalog.json"])
+
+    File.mkdir_p!(Path.dirname(catalog))
+    File.mkdir_p!(installed)
+    File.write!(manifest, "{}\n")
+    File.write!(catalog, "{}\n")
+    File.chmod!(manifest, 0o644)
+    File.chmod!(catalog, 0o644)
+    File.chmod!(Path.dirname(catalog), 0o755)
+    on_exit(fn -> File.rm_rf!(root) end)
+
+    assert {_, 0} =
+             System.cmd(
+               "tar",
+               ["-czf", archive, "-C", source, "THIRD-PARTY-MANIFEST.json", "licenses"],
+               stderr_to_stdout: true
+             )
+
+    File.cp!(manifest, Path.join(installed, "THIRD-PARTY-MANIFEST.json"))
+    File.cp_r!(Path.join(source, "licenses"), Path.join(installed, "licenses"))
+    File.chmod!(Path.join(installed, "THIRD-PARTY-MANIFEST.json"), 0o600)
+    File.chmod!(Path.join([installed, "licenses", "catalog.json"]), 0o600)
+    File.chmod!(Path.join(installed, "licenses"), 0o700)
+
+    assert {_, 0} =
+             System.cmd(
+               "sh",
+               ["-c", "umask 077; tar -xpzf \"$1\" -C \"$2\"", "sh", archive, installed],
+               stderr_to_stdout: true
+             )
+
+    assert permission_mode(Path.join(installed, "THIRD-PARTY-MANIFEST.json")) == 0o644
+    assert permission_mode(Path.join([installed, "licenses", "catalog.json"])) == 0o644
+    assert permission_mode(Path.join(installed, "licenses")) == 0o755
   end
 
   test "fill-sha256 updates formula urls and checksums from release sums" do
@@ -542,6 +599,8 @@ defmodule AllbertAssist.InstallPathTest do
     |> then(&Regex.run(~r/version: "([^"]+)"/, &1))
     |> List.last()
   end
+
+  defp permission_mode(path), do: Bitwise.band(File.stat!(path).mode, 0o777)
 
   defp temp_release_root(label) do
     path =

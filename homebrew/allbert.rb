@@ -39,8 +39,17 @@ class Allbert < Formula
     ]
     odie "expected exactly two managed Mach-O payloads" unless managed_machos.all?(&:one?)
 
-    system "tar", "-czf", "allbert-managed-machos.tar.gz", *managed_machos.flatten
-    pkgshare.install "allbert-managed-machos.tar.gz"
+    sealed_evidence = %w[
+      LICENSE
+      NOTICE
+      THIRD-PARTY-LICENSES.md
+      THIRD-PARTY-MANIFEST.json
+      licenses
+    ]
+    managed_payloads = managed_machos.flatten + sealed_evidence
+
+    system "tar", "-czf", "allbert-managed-payloads.tar.gz", *managed_payloads
+    pkgshare.install "allbert-managed-payloads.tar.gz"
     libexec.install Dir["*"]
     # Homebrew otherwise relocates release metafiles out of libexec after this
     # method returns. Keep the runtime evidence regular and complete there while
@@ -50,7 +59,7 @@ class Allbert < Formula
   end
 
   def post_install
-    system "tar", "-xzf", pkgshare/"allbert-managed-machos.tar.gz", "-C", libexec
+    system "tar", "-xpzf", pkgshare/"allbert-managed-payloads.tar.gz", "-C", libexec
   end
 
   def caveats
