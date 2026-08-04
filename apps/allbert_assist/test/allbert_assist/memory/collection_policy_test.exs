@@ -24,8 +24,8 @@ defmodule AllbertAssist.Memory.CollectionPolicyTest do
     struct!(
       %SourceEnvelope{
         source_type: :conversation,
-        source_id: "msg_" <> Ecto.UUID.generate(),
-        thread_id: "thr_" <> Ecto.UUID.generate(),
+        source_id: "msg_#{System.unique_integer([:positive])}",
+        thread_id: "thr_#{System.unique_integer([:positive])}",
         operator_id: "local",
         principal_digest: "sha256:" <> String.duplicate("a", 64),
         author: :operator,

@@ -1,6 +1,6 @@
 defmodule AllbertAssist.Intent.FanoutManagerTest do
   use ExUnit.Case, async: false
-  @moduletag :global_process_serial
+  @moduletag :app_env_serial
 
   import ExUnit.CaptureLog, only: [with_log: 1]
 

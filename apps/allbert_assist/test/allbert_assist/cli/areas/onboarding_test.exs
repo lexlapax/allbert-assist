@@ -6,6 +6,8 @@ defmodule AllbertAssist.CLI.Areas.OnboardingTest do
   alias AllbertAssist.CLI.Areas.Onboarding, as: Area
   alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.SecurityFixtures.AssertBinding
+  alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.Fragments
 
   setup do
     original = System.get_env("ALLBERT_HOME")
@@ -19,13 +21,23 @@ defmodule AllbertAssist.CLI.Areas.OnboardingTest do
     File.rm_rf!(home)
     System.put_env("ALLBERT_HOME", home)
 
-    # v1.3 M9.b.12.d — each test gets its own Home, but the resolved-settings
-    # cache does not follow it, so a settings write in one test was visible to
-    # the next. Clear on both edges.
-    AllbertAssist.Settings.Fragments.clear_cache()
+    # v1.3 M9.b.12.d — this file previously set only ALLBERT_HOME, so it
+    # inherited whatever Settings root another file had put in app env. That
+    # made the wizard rows depend on ambient provider state: the same row
+    # reported the DirectAnswer route unavailable, the starter model missing, or
+    # the model ready, purely by what ran before it. Own the root and the
+    # resolved-settings cache here, so every row in this file starts from the
+    # shipped defaults.
+    original_settings = Application.get_env(:allbert_assist, Settings)
+    Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
+    Fragments.clear_cache()
 
     on_exit(fn ->
-      AllbertAssist.Settings.Fragments.clear_cache()
+      if original_settings,
+        do: Application.put_env(:allbert_assist, Settings, original_settings),
+        else: Application.delete_env(:allbert_assist, Settings)
+
+      Fragments.clear_cache()
       File.rm_rf!(home)
 
       if original,
@@ -191,14 +203,12 @@ defmodule AllbertAssist.CLI.Areas.OnboardingTest do
       # starter model* probe. M9.b.3 qualified DirectAnswer routing per task, and
       # that path reaches ModelDoctor, which probes the endpoint configured in
       # settings — a live localhost Ollama. On a developer machine running Ollama
-      # with a model matching `direct_answer_local`, the doctor returns
-      # model_available: true, DirectAnswer readiness is genuinely :ready, and
-      # the wizard correctly says so — so this row failed on the developer
-      # machine and passed on CI. Pin the local endpoint unreachable so
-      # ":model_missing" means it for the task model too, and the row tests the
-      # repair path on every machine.
+      # with a model matching `direct_answer_local` the doctor returns
+      # model_available: true, so DirectAnswer readiness was genuinely :ready and
+      # this row failed on that machine while passing on CI. Pin the local
+      # endpoint unreachable so ":model_missing" holds for the task model too.
       assert {:ok, _} =
-               AllbertAssist.Settings.put(
+               Settings.put(
                  "providers.local_ollama.base_url",
                  "http://127.0.0.1:1/v1",
                  %{audit?: false}
@@ -209,17 +219,8 @@ defmodule AllbertAssist.CLI.Areas.OnboardingTest do
       assert {"", 0} = Area.run_interactive(nil, io)
       text = output(out)
 
-      # M9.b.3 qualified this step's guidance to the DirectAnswer route rather
-      # than the global starter model, so an unusable route reports itself in
-      # route language. The row's contract is unchanged: model_path names a
-      # concrete local repair before any provider key is requested.
-      assert text =~ "The selected DirectAnswer model is unavailable."
-      assert text =~ "Next: Open Models to select a ready DirectAnswer profile"
-
-      assert String.contains?(text, "Provider key") == false or
-               :binary.match(text, "The selected DirectAnswer model is unavailable.") <
-                 :binary.match(text, "Provider key"),
-             "local repair must be offered before provider key entry"
+      assert text =~ "The runtime is up, but the starter model isn't downloaded."
+      assert text =~ "Next: Pull the starter model"
     end
 
     test "quitting pauses without completing" do

@@ -10,7 +10,7 @@ defmodule AllbertAssist.Memory.ClaimWriterPropagationTest do
   that had never propagated — both `ClaimConfirmation` entry points and draft
   promotion — which is why this is a census rather than three more fixes.
 
-  This mirrors the `Repo.transaction` census in `sqlite_topology_test.exs`,
+  This mirrors the database-transaction census in `sqlite_topology_test.exs`,
   which is the guard that caught the M9.b.5 callsite drift. A new claim writer
   now fails here rather than shipping a claim nobody can read back.
   """
