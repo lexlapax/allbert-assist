@@ -408,6 +408,14 @@ has SHA-256
 `626265569e4e222dc739ac3272327d3fd568ef3be6c70d7c7c2dc078b5486c6f`.
 `release.v13` and the authoritative aggregate remain pending.
 
+The single `release.v13` run then passed all 32 of 32 steps. Its structured
+evidence at
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v13/p0-16583/home/release_evidence/v13/release-v13-1785880845.json`
+has SHA-256
+`8afa7e040dfd5c69e1a4dfecd82cb129744f006530c347f86b7dc81c100b8353`.
+The authoritative cross-version aggregate remains pending, and promotion is
+still prohibited.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
