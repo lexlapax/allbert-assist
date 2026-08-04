@@ -219,8 +219,10 @@ defmodule AllbertAssist.Security.V056IntentEvalTest do
 
     assert_receive {:llm_request, %{id: "llama3.1:8b"}, prompt, schema}
     assert schema[:label][:required]
-    refute prompt =~ "http://"
-    refute prompt =~ "secret://"
+    assert %ReqLLM.Context{} = prompt
+    assert Enum.map(prompt.messages, & &1.role) == [:system, :user]
+    refute context_text(prompt) =~ "http://"
+    refute context_text(prompt) =~ "secret://"
     assert attrs.generation.strategy == "model"
     assert attrs.generation.model_profile == "router_local"
     assert attrs.generation.endpoint_kind == "local_endpoint"
@@ -273,15 +275,27 @@ defmodule AllbertAssist.Security.V056IntentEvalTest do
     assert_eval_group!(:authority_lifecycle)
     assert_eval_group!(:routing_accuracy)
 
-    {:ok, _review_path} =
-      DescriptorStore.put(:review, %{
-        app_id: :allbert,
-        action_name: "show_app",
-        label: "Show app",
-        examples: ["show app"],
-        synonyms: ["app details"],
-        required_slots: []
-      })
+    canonical_show_app =
+      DescriptorResolver.resolve(ignore_disabled?: true)
+      |> Enum.find(&(&1.app_id == :allbert and &1.action_name == "show_app"))
+      |> Map.from_struct()
+      |> Map.take([
+        :app_id,
+        :action_name,
+        :label,
+        :destination,
+        :selection_policy,
+        :examples,
+        :synonyms,
+        :required_slots,
+        :optional_slots,
+        :slot_extractors,
+        :vocabulary,
+        :handoff_required?,
+        :routable_by_default?
+      ])
+
+    {:ok, _review_path} = DescriptorStore.put(:review, canonical_show_app)
 
     refute DescriptorResolver.resolve()
            |> Enum.any?(&(&1.action_name == "show_app" and &1.source == :review))
@@ -442,6 +456,16 @@ defmodule AllbertAssist.Security.V056IntentEvalTest do
     assert {:ok, _setting} =
              Settings.put("intent.router_escalation_profile", "fast", %{audit?: false})
 
+    assert {:ok, _secret} =
+             Settings.Secrets.put_secret(
+               "secret://providers/openai/api_key",
+               "v056-operator-test-key",
+               %{audit?: false}
+             )
+
+    assert {:ok, _setting} =
+             Settings.put("providers.openai.enabled", true, %{audit?: false})
+
     Req.Test.stub(__MODULE__, fn conn ->
       assert conn.request_path == "/api/tags"
 
@@ -546,6 +570,14 @@ defmodule AllbertAssist.Security.V056IntentEvalTest do
     refute text =~ "sk-"
     refute text =~ "http://"
     refute text =~ "https://"
+  end
+
+  defp context_text(%ReqLLM.Context{messages: messages}) do
+    Enum.map_join(messages, "\n", fn message ->
+      message.content
+      |> Enum.filter(&(&1.type == :text))
+      |> Enum.map_join("", & &1.text)
+    end)
   end
 
   defp restore_env(key, nil) when is_atom(key), do: Application.delete_env(:allbert_assist, key)

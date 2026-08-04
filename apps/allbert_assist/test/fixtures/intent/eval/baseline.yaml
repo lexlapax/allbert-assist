@@ -1,8 +1,8 @@
 ---
 clarify_vs_execute:
   accuracy: 1.0
-  passed: 304
-  total: 304
+  passed: 305
+  total: 305
 confusion:
   - actual: answer
     count: 3
@@ -679,7 +679,7 @@ confusion:
   - actual: none
     count: 1
     expected: execute:security_status
-  - actual: execute:list_model_catalog
+  - actual: answer
     count: 1
     expected: execute:send_channel_message
   - actual: execute:send_channel_message
@@ -700,6 +700,9 @@ confusion:
   - actual: execute:set_active_model_profile
     count: 1
     expected: execute:set_active_model_profile
+  - actual: execute:set_direct_answer_model_profile
+    count: 1
+    expected: execute:set_direct_answer_model_profile
   - actual: execute:set_provider_credential
     count: 1
     expected: execute:set_provider_credential
@@ -844,15 +847,15 @@ confusion:
   - actual: none
     count: 11
     expected: none
-corpus_case_count: 318
+corpus_case_count: 319
 gate:
   failures: []
   status: pass
-generated_at: 2026-07-31T06:09:03Z
+generated_at: 2026-08-04T21:15:14Z
 id: v056-release-baseline
 negative_violations: []
 overall_accuracy: 1.0
-passed: 318
+passed: 319
 per_domain:
   adversarial:
     accuracy: 1.0
@@ -916,8 +919,8 @@ per_domain:
     total: 7
   model:
     accuracy: 1.0
-    passed: 7
-    total: 7
+    passed: 8
+    total: 8
   negative-doctor:
     accuracy: 1.0
     passed: 13
@@ -993,8 +996,8 @@ per_domain:
 per_surface:
   any:
     accuracy: 1.0
-    passed: 309
-    total: 309
+    passed: 310
+    total: 310
   discord:
     accuracy: 1.0
     passed: 1
@@ -1036,4 +1039,4 @@ slot_accuracy:
   accuracy: 1.0
   passed: 8
   total: 8
-total: 318
+total: 319

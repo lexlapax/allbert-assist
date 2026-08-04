@@ -345,6 +345,18 @@ remote-callability setup, and a canonical-equivalent promotion fixture into the
 same test-only tranche, followed by isolated rows and complete focused owners
 before one whole candidate replacement.
 
+Those focused repairs are green. The new canonical DirectAnswer case and
+project-generated baseline record 319/319 cases at 1.0 accuracy (model domain
+8/8). At aggregate seed `412113`, the original completeness row passed 1/1;
+each repaired security row passed alone; the complete legacy security owner
+passed 7/7; and the bounded corpus, current optimizer, and Model Doctor owners
+passed 50/50. The recapture's one unrelated confusion entry is an existing
+negative channel case now ending in a selection-policy-rejected answer rather
+than a wrong action shortlist; neither path executes. Production code remains
+unchanged. Test/development warnings-as-errors compiles, whole-project format,
+docs, and diff hygiene passed; the draft remains unpublished pending
+replacement.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.

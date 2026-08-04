@@ -1,0 +1,10 @@
+---
+context: {}
+domain: model
+expected:
+  action: set_direct_answer_model_profile
+  kind: execute
+id: direct-answer-model-switch-001
+rationale: select a named DirectAnswer profile without changing the global primary model
+schema_version: 1
+utterance: set the DirectAnswer model to local

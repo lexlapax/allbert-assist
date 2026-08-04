@@ -254,6 +254,7 @@ defmodule AllbertAssist.Intent.Eval.CorpusCompletenessTest do
     assert baseline["schema_version"] == 1
     assert baseline["id"] == "v056-release-baseline"
     assert baseline["corpus_case_count"] == length(cases)
+    # 319 = 318 + the v1.3 DirectAnswer profile-selection positive routing row.
     # 318 = 314 + four v1.3 operator-act Memory boundary rows (explicit
     # remember/recall plus quoted remember/recall non-actions).
     # 314 = 297 + the seventeen v1.3 search and Memory negative-internal rows.
@@ -269,7 +270,7 @@ defmodule AllbertAssist.Intent.Eval.CorpusCompletenessTest do
     # create/rotate/revoke_protocol_token; ensure_voice_token) + five v0.62 M8.19
     # rows (workspace signing-secret rotation and MCP scan lifecycle/run-once).
     # 277 = 269 + the eight earlier v0.62 rows (M0.1/M4/M5/M7) recaptured at M7.
-    assert baseline["corpus_case_count"] == 318
+    assert baseline["corpus_case_count"] == 319
     assert baseline["overall_accuracy"] == 1.0
     assert is_map(baseline["per_domain"])
     assert get_in(baseline, ["gate", "status"]) == "pass"
