@@ -185,8 +185,17 @@ defmodule AllbertAssist.Settings.StoreTuiIdentityBootstrapTest do
       )
       |> Enum.map(fn {:ok, result} -> result end)
 
-    assert Enum.count(results, &match?({:ok, %{disposition: :bootstrapped}}, &1)) == 1
-    assert Enum.count(results, &match?({:ok, %{disposition: :present}}, &1)) == 11
+    # v1.3 M9.b.12.d — this row is intermittent, so report what actually came
+    # back rather than a bare count mismatch. A "3 != 11" tells the next reader
+    # nothing about whether the other nine were a third disposition or an
+    # outright error.
+    tally = Enum.frequencies_by(results, &result_shape/1)
+
+    assert Enum.count(results, &match?({:ok, %{disposition: :bootstrapped}}, &1)) == 1,
+           "expected exactly one bootstrap; got #{inspect(tally)}"
+
+    assert Enum.count(results, &match?({:ok, %{disposition: :present}}, &1)) == 11,
+           "expected the other eleven launches to observe the mapping; got #{inspect(tally)}"
 
     audit = File.read!(Audit.audit_path())
     assert length(Regex.scan(~r/^## .* channels\.tui\.identity_map$/m, audit)) == 1
@@ -305,6 +314,10 @@ defmodule AllbertAssist.Settings.StoreTuiIdentityBootstrapTest do
                Store.prepare_local_tui_launch(%{audit?: false, profile: "default"})
     end
   end
+
+  defp result_shape({:ok, %{disposition: disposition}}), do: {:ok, disposition}
+  defp result_shape({:error, reason}), do: {:error, reason}
+  defp result_shape(other), do: {:other, other}
 
   defp bootstrap_context do
     %{actor: "first-run-local-tui-bootstrap", channel: "tui", profile: "default"}

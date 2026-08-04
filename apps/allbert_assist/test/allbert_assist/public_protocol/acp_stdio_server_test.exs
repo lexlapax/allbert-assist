@@ -12,6 +12,7 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.FanoutReportFixture
+  alias AllbertAssist.TestSupport.FanoutRoles
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -184,6 +185,7 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
 
   test "session/prompt acknowledges a durable kickoff and holds for the joined report" do
     enable_acp_stdio!()
+    FanoutRoles.configure!()
 
     assert {:ok, _setting} =
              Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
@@ -245,7 +247,7 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
       Keyword.put(runtime_config, :fanout_timeout_ms, 0)
     )
 
-    configure_fanout_roles!()
+    FanoutRoles.configure!()
 
     {session_id, state} = started_session()
     selector = Task.async(&select_next_report!/0)
@@ -298,7 +300,7 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
       Keyword.put(runtime_config, :fanout_timeout_ms, 0)
     )
 
-    configure_fanout_roles!()
+    FanoutRoles.configure!()
 
     {session_id, state} = started_session()
     selector = Task.async(&select_next_report!/0)
@@ -653,34 +655,6 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
   # (`fanout_role_readiness_step/3`). Without a callable profile the prompt
   # degrades to a single answer, no composition is ever queued, and the poller
   # these rows await times out. Same root as the TUI start-barrier cluster.
-  defp configure_fanout_roles! do
-    original_readiness = Application.get_env(:allbert_assist, :runtime_model_readiness)
-
-    Application.put_env(
-      :allbert_assist,
-      :runtime_model_readiness,
-      AllbertAssist.Test.ModelReadinessFake
-    )
-
-    on_exit(fn ->
-      if original_readiness,
-        do: Application.put_env(:allbert_assist, :runtime_model_readiness, original_readiness),
-        else: Application.delete_env(:allbert_assist, :runtime_model_readiness)
-    end)
-
-    assert {:ok, _} = Settings.put("providers.openai.enabled", false, %{audit?: false})
-    assert {:ok, _} = Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
-
-    Enum.each(~w[direct_answer fanout_manager fanout_synthesis], fn role ->
-      assert {:ok, _} =
-               Settings.put(
-                 "model_preferences.tasks.#{role}",
-                 ["direct_answer_local"],
-                 %{audit?: false}
-               )
-    end)
-  end
-
   defp started_session do
     state = initialized_state()
 

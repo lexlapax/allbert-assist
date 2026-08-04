@@ -119,7 +119,19 @@ defmodule AllbertAssist.Objectives.FanoutTest do
 
     assert queued_parent_id == queued.id
     assert {:ok, %{report_composition_state: "fallback"}} = Objectives.get_objective(queued.id)
-    assert selection_payload(queued.id)["fallback_reason"] == "legacy_unreviewed_children"
+
+    # v1.3 M9.b.12.d — this row is about the recovery wake draining queued work,
+    # and the drained parent still lands on a deterministic fallback. The
+    # *reason* changed: M9.b.6 put the budget-snapshot compatibility check ahead
+    # of synthesis eligibility in ReportComposer.selected_body/2, so a
+    # legacy-shaped parent — framed without a plan budget, exactly like a row
+    # predating budgets — now reports the snapshot it lacks rather than the
+    # unreviewed children it also has. Both paths reach the same fallback body,
+    # so this is a precedence change in a diagnostic label, not a behaviour
+    # change. `legacy_unreviewed_children` keeps its own direct coverage in
+    # fanout_report_v2_test, fanout_report_composer_test, and
+    # report_synthesis_agent_test.
+    assert selection_payload(queued.id)["fallback_reason"] == "invalid_budget_snapshot"
 
     composing_queued = queued_parent!("composing wake")
     assert {:ok, %{parent: composing}} = Fanout.claim_next_composition()
