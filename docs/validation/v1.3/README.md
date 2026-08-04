@@ -90,8 +90,39 @@ different risk from one that fails open.
   this milestone and documented in `docs/operator/model-recommendations.md`. The
   qualification bar for selecting a different head is v1.3.1.
 
-## What is still outstanding at the time of writing
+## Release gate
 
-The first cumulative `release.v13` run is red. Its triage is M9.b.12; the
-remaining failures are outside Memory. This file will not claim a green release
-gate until one exists.
+`release.v13` is green: **32 of 32 steps passed** at `1270045b0` on a clean
+tree, evidence `release-v13-1785810884.json`, generated 2026-08-04T03:11:08Z.
+
+It took four cumulative runs, and each surfaced a different class of problem —
+which is the argument for running the gate to green rather than trusting
+per-step numbers:
+
+| Run | Result |
+| --- | --- |
+| 1 | 30 ExUnit failures across seven steps |
+| 2 | 0 failing tests, but two **non-test** steps red (`credo_strict`, `v121_lane_inventory`) — these were never part of the thirty, which counted ExUnit failures only |
+| 3 | 1 failure: a structural deadlock in the ACP test fixture, invisible in isolation |
+| 4 | green |
+
+**No product behaviour was changed by any of it.** Every one of the thirty was a
+test that had stopped asserting its own contract — which is worse than a red
+test, because it reports green while guarding nothing. The Memory rows this file
+documents were unaffected throughout; the failures were in fan-out admission,
+first-run onboarding, and test infrastructure.
+
+Two findings worth carrying forward, because both mean the suite was weaker than
+its green runs implied:
+
+- **The gate was not hermetic.** `Settings.ModelDoctor` probes the endpoint
+  configured in settings, so an onboarding row's result depended on whether the
+  machine running it had Ollama up with a matching model. It passed on CI and
+  failed on a developer machine. Fixed by pinning the endpoint unreachable and
+  giving the file its own `Settings` root.
+- **Fixture timing assumptions only held on an idle machine.** The ACP fixture
+  polled for 5s to service a hold that waits 120s, so any real contention
+  deadlocked the row. One `StoreTuiIdentityBootstrapTest` concurrency row remains
+  intermittent at roughly one failure in nineteen runs; it passed in runs 2 and
+  4 and is **not** claimed fixed. Its assertions now report the actual tally of
+  dispositions on failure so the next occurrence is diagnosable.
