@@ -13,11 +13,6 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
   alias AllbertAssist.TestSupport.FanoutReportFixture
   alias AllbertAssist.TestSupport.FanoutRoles
 
-  # Must exceed the selector's own 45s poll budget so Task.await never fires
-  # before the fixture has finished trying, and stay under ExUnit's 60s test
-  # timeout so a real failure surfaces as an assertion.
-  @selector_timeout_ms 50_000
-
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
@@ -195,7 +190,7 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
              Settings.put("objectives.fanout.rollout_mode", "automatic", %{audit?: false})
 
     {session_id, state} = started_session()
-    selector = Task.async(&select_next_report!/0)
+    selector = Task.async(&FanoutReportFixture.select_next_report/0)
 
     {:ok, [update, response], worker_state} =
       Server.handle_message(
@@ -216,7 +211,8 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
         state
       )
 
-    assert {:ok, _selected} = Task.await(selector, @selector_timeout_ms)
+    assert {:ok, _selected} =
+             Task.await(selector, FanoutReportFixture.composition_await_timeout_ms())
 
     [parent] =
       "public-protocol:zed-fixture"
@@ -254,7 +250,7 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
     FanoutRoles.configure!()
 
     {session_id, state} = started_session()
-    selector = Task.async(&select_next_report!/0)
+    selector = Task.async(&FanoutReportFixture.select_next_report/0)
 
     {:ok, [update, response], worker_state} =
       Server.handle_message(
@@ -275,7 +271,8 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
         state
       )
 
-    assert {:ok, _selected} = Task.await(selector, @selector_timeout_ms)
+    assert {:ok, _selected} =
+             Task.await(selector, FanoutReportFixture.composition_await_timeout_ms())
 
     assert update["params"]["update"]["content"]["text"] =~ "I split this into 2 tasks"
     assert response["result"]["stopReason"] == "end_turn"
@@ -307,7 +304,7 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
     FanoutRoles.configure!()
 
     {session_id, state} = started_session()
-    selector = Task.async(&select_next_report!/0)
+    selector = Task.async(&FanoutReportFixture.select_next_report/0)
 
     {:ok, [_kickoff_update, _kickoff_response], first_worker_state} =
       Server.handle_message(
@@ -328,7 +325,8 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
         state
       )
 
-    assert {:ok, _selected} = Task.await(selector, @selector_timeout_ms)
+    assert {:ok, _selected} =
+             Task.await(selector, FanoutReportFixture.composition_await_timeout_ms())
 
     [parent] =
       "public-protocol:zed-fixture"
@@ -429,9 +427,11 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
                })
     end
 
-    selector = Task.async(&select_next_report!/0)
+    selector = Task.async(&FanoutReportFixture.select_next_report/0)
     assert :ok = Server.cancel_session_fanouts(session_id, state)
-    assert {:ok, _selected} = Task.await(selector, @selector_timeout_ms)
+
+    assert {:ok, _selected} =
+             Task.await(selector, FanoutReportFixture.composition_await_timeout_ms())
 
     eventually(fn ->
       projection = Fanout.parent_projection(parent)
@@ -699,42 +699,6 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
     assert Fanout.parent_projection(parent).phase == :joined
     Repo.reload!(parent)
   end
-
-  # v1.3 M9.b.12.d — the poll budget must outlive the server's hold, not the
-  # other way round. `session/prompt` blocks in `Runtime.await_fanout/3` for up
-  # to `fanout_continuation_timeout_ms` (120s by default) waiting for a report
-  # to be selected, and this fixture is what selects it. At the previous budget
-  # of 500 × 10ms the fixture gave up after five seconds, so any load that
-  # pushed child completion past that deadlocked the test: the selector was
-  # gone, nothing could ever join, and the row died on ExUnit's 60s timeout
-  # rather than on its own assertion. That is exactly what happened under the
-  # cumulative gate while the file passed in isolation.
-  #
-  # 4_500 × 10ms = 45s keeps the fixture alive well past any realistic
-  # contention while still failing inside the 60s test timeout, so a genuine
-  # "never queued" reports itself as :composition_not_queued instead of an
-  # opaque timeout. Polling exits the moment work appears, so this costs
-  # nothing on a healthy run.
-  defp select_next_report!(attempts \\ 4_500)
-
-  defp select_next_report!(attempts) when attempts > 0 do
-    case Fanout.claim_next_composition() do
-      {:ok, claim} ->
-        {:ok, FanoutReportFixture.select_claim!(claim, :fallback)}
-
-      :none ->
-        Process.sleep(10)
-        select_next_report!(attempts - 1)
-
-      {:error, :stale_composition_claim} ->
-        select_next_report!(attempts - 1)
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  defp select_next_report!(0), do: {:error, :composition_not_queued}
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)

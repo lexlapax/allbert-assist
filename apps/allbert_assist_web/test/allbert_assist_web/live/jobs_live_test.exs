@@ -190,14 +190,14 @@ defmodule AllbertAssistWeb.JobsLiveTest do
     |> element("#resume-#{blocked_job.id}")
     |> render_click()
 
-    assert render(view) =~ "mix allbert.confirmations show conf_live_blocked_job"
+    assert render(view) =~ "allbert admin confirmations show conf_live_blocked_job"
     assert Repo.reload!(blocked_job).status == "blocked"
 
     view
     |> element("#run-#{blocked_job.id}")
     |> render_click()
 
-    assert render(view) =~ "mix allbert.confirmations show conf_live_blocked_job"
+    assert render(view) =~ "allbert admin confirmations show conf_live_blocked_job"
     assert [] = Jobs.list_runs(blocked_job)
   end
 

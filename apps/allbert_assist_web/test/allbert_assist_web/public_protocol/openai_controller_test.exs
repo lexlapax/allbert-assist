@@ -14,6 +14,7 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.FanoutReportFixture
+  alias AllbertAssist.TestSupport.FanoutRoles
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -191,7 +192,8 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
     token: token
   } do
     enable_automatic_fanout!()
-    selector = Task.async(&select_next_report!/0)
+    FanoutRoles.configure!()
+    selector = Task.async(&FanoutReportFixture.select_next_report/0)
 
     conn =
       conn
@@ -206,7 +208,8 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
         ]
       })
 
-    assert {:ok, _selected} = Task.await(selector, 5_000)
+    assert {:ok, _selected} =
+             Task.await(selector, FanoutReportFixture.composition_await_timeout_ms())
 
     body = json_response(conn, 200)
 
@@ -221,11 +224,7 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
     assert parent.kickoff_delivery_state == "acknowledged"
     children = Fanout.children(parent)
 
-    assert Enum.map(children, & &1.status) == ["failed", "failed"]
-
-    assert Enum.all?(children, fn child ->
-             child.review_reason =~ "quality_model_draft_unavailable"
-           end)
+    assert Enum.map(children, & &1.status) == ["completed", "completed"]
 
     assert AllbertAssist.Repo.reload!(parent).report_source == "deterministic_fallback"
     assert AllbertAssist.Repo.reload!(parent).report_delivery_state == "delivered"
@@ -237,7 +236,8 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
     token: token
   } do
     enable_automatic_fanout!()
-    selector = Task.async(&select_next_report!/0)
+    FanoutRoles.configure!()
+    selector = Task.async(&FanoutReportFixture.select_next_report/0)
 
     conn =
       conn
@@ -253,7 +253,8 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
         ]
       })
 
-    assert {:ok, _selected} = Task.await(selector, 5_000)
+    assert {:ok, _selected} =
+             Task.await(selector, FanoutReportFixture.composition_await_timeout_ms())
 
     assert conn.status == 200
     assert conn.resp_body =~ "I split this into 2 tasks"
@@ -341,7 +342,8 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
     token: token
   } do
     enable_automatic_fanout!()
-    selector = Task.async(&select_next_report!/0)
+    FanoutRoles.configure!()
+    selector = Task.async(&FanoutReportFixture.select_next_report/0)
 
     runtime_config = Application.get_env(:allbert_assist, Runtime, [])
 
@@ -364,7 +366,8 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
         ]
       })
 
-    assert {:ok, _selected} = Task.await(selector, 5_000)
+    assert {:ok, _selected} =
+             Task.await(selector, FanoutReportFixture.composition_await_timeout_ms())
 
     assert get_in(json_response(conn, 200), ["choices", Access.at(0), "message", "content"]) =~
              "I split this into 2 tasks"
@@ -512,27 +515,6 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
-
-  defp select_next_report!(attempts \\ 500)
-
-  defp select_next_report!(attempts) when attempts > 0 do
-    case Fanout.claim_next_composition() do
-      {:ok, claim} ->
-        {:ok, FanoutReportFixture.select_claim!(claim, :fallback)}
-
-      :none ->
-        Process.sleep(10)
-        select_next_report!(attempts - 1)
-
-      {:error, :stale_composition_claim} ->
-        select_next_report!(attempts - 1)
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  defp select_next_report!(0), do: {:error, :composition_not_queued}
 
   defp eventually(fun, attempts \\ 100)
   defp eventually(fun, 0), do: assert(fun.())

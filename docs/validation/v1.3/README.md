@@ -628,13 +628,30 @@ per fix and promotion remains prohibited.
 Exact-candidate focused reproduction classified both groups as test-contract
 drift. Jobs repeated `1/4` RED because only the LiveView assertion still
 expected obsolete source-only `mix allbert.confirmations show` copy; current
-product/CLI output is package-first `allbert admin confirmations show`. OpenAI
-repeated `3/14` RED because its duplicated five-second selector fixture expired
-before healthy composition at about 6.2 seconds. ACP already owns the same
-surface contract with M9.b.12.d's 45-second poll/50-second await. The bounded
-repair centralizes that policy in `FanoutReportFixture`, routes both protocol
-owners through it, removes the duplicate loops, and updates only the stale Jobs
-expectations. No production behavior or accepted operator row is changed.
+product/CLI output is package-first `allbert admin confirmations show`. The
+initial OpenAI timing diagnosis was retracted: a serial 45-second poll/50-second
+await still returned `:composition_not_queued`. The three rows omitted
+M9.b.12.d's shared `FanoutRoles.configure!/0` admission fixture, so callable-role
+readiness correctly took the direct-answer path and no composition could be
+queued. The bounded repair adds that existing seam to the three OpenAI rows,
+centralizes ACP's proven selector budget in `FanoutReportFixture` for both
+protocol owners, removes the duplicate loops, and updates only the stale Jobs
+expectations. The first admitted OpenAI reproduction joined all three rows and
+also exposed a stale model-disabled child-failure assertion; the shared seam
+enables the model, so this transport owner returns to asserting its deterministic
+runner's completed children while dedicated Worker tests retain the unavailable-
+quality branch. Repo-backed owner files run serially. No production behavior or
+accepted operator row is changed.
+
+The bounded repair then passed Jobs `4/4`, ACP `15/15`, OpenAI `14/14`, and the
+Worker quality owner `15/15` at seed `795785`. The three formerly failing
+OpenAI rows passed three additional serial runs (`9/9`), including seed
+`928844`. Warning-free compile, scoped formatter, scoped strict Credo (`4`
+files, `52` mods/funs, zero issues), docs staleness/index, and diff hygiene pass.
+This is executable test/docs closure, not release acceptance: the resulting exact clean SHA must
+replace the unpublished three-target generation and rejoin one authoritative
+aggregate. SV/PV remain inherited because no product module or accepted
+operator behavior changed.
 
 Four final packaged-latency rows passed and were ingested for exact source SHA
 `43859a9ea7f5773ae056208ebb8e687d21f7d91a`: macOS arm64 Memory
