@@ -593,6 +593,14 @@ for macOS and
 for Linux. K6 structure, `release.v13`, and authoritative `release` remain;
 promotion is prohibited.
 
+Final K6 structure passed from the detached clean exact-SHA checkout at
+`43859a9ea7f5773ae056208ebb8e687d21f7d91a`. The structured evidence at
+`/tmp/allbert-v13-k6-43859.JxQaGR/home/release_evidence/v13/release-structure-v13.json`
+has SHA-256
+`4a051120abb2007cabdc20a4df5e8405e6c1c6e32b662ea1691256c01017dd92`.
+All cumulative prefix comparisons were exact. `release.v13` and authoritative
+`release` remain; promotion is prohibited.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
