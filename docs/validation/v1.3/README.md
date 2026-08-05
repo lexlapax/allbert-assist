@@ -509,6 +509,13 @@ has SHA-256
 `7b740631b40639c0bb93a61d0816cd9537c4718a0129d34f16c7520af1b5a663`.
 The one `release.v13` is next; no aggregate has run for this replacement.
 
+That single `release.v13` then passed 32/32 ordered steps. Structured evidence
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v13/p0-16578/home/release_evidence/v13/release-v13-1785888752.json`
+has SHA-256
+`3ce292aeb01dfe3482ea7be932494a14f425ec736cbd3663e8e6d9bda397fd26`;
+step duration totals 2,331,579 ms. The one authoritative aggregate is now the
+only remaining gate before explicit promotion approval.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
