@@ -7,8 +7,8 @@ defmodule StockSage.ActionsTest do
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Intent.Engine
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
-  alias AllbertAssist.Skills
   alias AllbertAssist.Settings
+  alias AllbertAssist.Skills
   alias StockSage.{Analyses, Queue}
   alias StockSage.LegacyFixture
 
@@ -331,7 +331,7 @@ defmodule StockSage.ActionsTest do
     assert "run-analysis" in skill_names
   end
 
-  test "active StockSage app context produces StockSage action candidates" do
+  test "active StockSage app context selects its descriptor-owned list action" do
     assert {:ok, decision} =
              Engine.decide(%{
                text: "list my recent analyses",
@@ -341,9 +341,14 @@ defmodule StockSage.ActionsTest do
 
     selected = decision.trace_metadata.intent_candidates.selected
 
+    assert decision.intent == :registry_action
+    assert decision.selected_action == "list_analyses"
+    assert decision.trace_metadata.candidate_kind == :app_intent
+    assert decision.trace_metadata.descriptor_candidate_id == "stocksage:list_analyses"
     assert selected.kind == :action
+    assert selected.id == "list_analyses"
     assert selected.app_id == :stocksage
-    assert selected.action_name in ["list_analyses", "show_analysis"]
+    assert selected.action_name == "list_analyses"
   end
 
   test "RunAnalysis appears as a candidate when active_app is stocksage" do

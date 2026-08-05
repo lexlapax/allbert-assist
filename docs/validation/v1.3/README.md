@@ -288,16 +288,26 @@ has SHA-256
 The one authoritative `release` aggregate completed every preceding phase and
 stopped RED at `stocksage_tests` after `5,121,000 ms`; promotion remains
 prohibited. StockSage ran `198` tests at seed `429706` and reported two
-failures in its actions owner: one stale pre-descriptor candidate-kind
-assertion and one long-standing `list my analyses` operator phrase that fell
-through to disabled DirectAnswer instead of executing the registered
-`list_analyses` action. Evidence
+operator-language failures in its actions owner: `list my recent analyses`
+stopped at an unexecuted app-intent candidate rather than selecting the
+registered action, and `list my analyses` fell through to disabled DirectAnswer
+instead of executing `list_analyses`. Evidence
 `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-15491/home/release_evidence/gates/release-2026-08-05T07_21_01Z.json`
 has SHA-256
 `c98816e38a119ac41d0aee2e7e5d9b36cd769f9f237eafd4edf9148871a0cb81`.
 The complete StockSage actions owner reproduced the same `23/2` result at the
 same candidate SHA and seed. M9.b.17 owns a bounded descriptor/test repair; no
 aggregate runs per fix and no partial PASS is claimed.
+
+The focused M9.b.17 repair is GREEN. It adds only the two missing natural
+operator phrases to StockSage's inert descriptor; no central matcher or
+authority boundary changed. At seed `429706`, the descriptor/actions owners
+passed `26/26`, central supplied-text/selection/CLI owners passed `41/41`, and
+the complete StockSage phase passed `201/201`, including positive registered-
+action execution and negative quoted/supplied-text coverage. Both warning-free
+compiles, formatter, scoped strict Credo, docs, and diff hygiene pass. This does
+not accept candidate bytes: the unpublished generation must be replaced whole
+and the bounded package/K6 rejoin must pass before promotion.
 The entries below preserve earlier exact-SHA diagnostic runs and their
 remediations rather than presenting them as current acceptance evidence.
 

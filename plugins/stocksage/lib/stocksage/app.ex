@@ -171,6 +171,8 @@ defmodule StockSage.App do
         label: "List StockSage analyses",
         examples: [
           "list stock analyses",
+          "list my analyses",
+          "list my recent analyses",
           "show recent StockSage analyses",
           "what analyses have I run"
         ],
