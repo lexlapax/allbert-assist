@@ -854,3 +854,31 @@ docs gate passed, and the complete run restarted with a new Home. Candidate
 bytes, tag binding, staging, qualification, and packaged latency evidence were
 unchanged, and no aggregate gate ran. Raw prompts, Memory values, Search
 snippets, credentials, and generated identifiers are excluded from this record.
+
+## M9.b.17 packaged StockSage rejoin finding
+
+Candidate SHA `868f354ce9479b8bcef66f15eef104c35b391d5b`, generation
+`v13-20260805T090448Z-868f354ce947`, and unpublished mutable draft `365400371`
+passed three-target native assembly, target smoke, exact-archive Homebrew
+reinstall/test and installed-tree integrity, complete 13-asset staging, and
+no-build qualification run `30992415157`. Promotion was skipped.
+
+A focused packaged StockSage acceptance row then failed through the real
+Runtime: with the registered StockSage app active, `list my analyses` fell to
+DirectAnswer and the daemon recorded `selection_not_in_shortlist`. The
+package-owned phrase was present, but the production router index had already
+removed all descriptors marked `routable_by_default?: false` before the
+validated active-app context reached Prefilter. This invalidates the entire
+candidate and its qualification as release evidence; none of its target assets
+may be retained for promotion.
+
+M9.b.17 now owns the shared request-scoped correction and its focused evidence.
+The router index may retain non-default app descriptors only as inert data;
+Prefilter must expose them only for the matching validated active app while
+preserving operator-disable, capability-off, descriptor-selection,
+Registry/Security, and confirmation boundaries. Required automated evidence is
+the real production-strategy Runtime positive route plus default-app and
+supplied/quoted/explanatory negatives, backed by resolver/index/prefilter and
+complete StockSage owners. No aggregate runs per fix. A new exact-clean-SHA
+three-target generation and one final K6 rejoin remain required; promotion is
+prohibited.
