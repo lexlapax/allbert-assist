@@ -110,8 +110,8 @@ Since v1.3, product tags no longer trigger hosted compilation. At one clean
 pushed SHA, the operator builds macOS arm64 locally, Linux x64 on the native
 `serenity` host, and Linux arm64 in the pinned native-architecture Docker
 container. The existing thin helper performs production assembly, license
-finalization, and target smoke; it emits four files per target. The active
-[v1.3 request flow §K5](../plans/archives/v1.3-request-flow.md#k5-v13-pre-publication-candidate-construction)
+finalization, and target smoke; it emits four files per target. The
+[archived v1.3 request flow §K5](../plans/archives/v1.3-request-flow.md#k5-v13-pre-publication-candidate-construction)
 contains the exact paste-executable commands and pins.
 
 The operator then creates one draft release/provisional annotated tag, stages
@@ -126,9 +126,20 @@ qualification manifest. It does not compile or select artifacts.
 > `/status`, one real-provider turn, `/health`, and clean detach. Automated PTY
 > evidence supports this observation but does not replace it.
 
-After the human TUI/provider row, dispatch the same workflow at the provisional
-tag with `operation=promotion` and the exact draft/candidate/qualification
-bindings. Approve only the matching `release-promotion` deployment. The job
+Before the long authoritative aggregate, run the active release plan's complete
+attended primary-function matrix on this provisional exact-clean-SHA candidate.
+Classify findings as environment, documentation, or executable. Batch executable
+remediations, replace the whole generation once, and repeat only invalidated
+operator rows before the one aggregate rejoin. A docs-only commit that moves the
+release SHA defers candidate rebinding rather than repeating broad behavior.
+After that aggregate, broad operator validation does not restart: repeat only
+identity, integrity, package smoke, and operator rows explicitly invalidated by
+changed bytes.
+
+After the attended matrix and required aggregate rejoin are green, dispatch the
+same workflow at the provisional tag with `operation=promotion` and the exact
+draft/candidate/qualification bindings. Approve only the matching
+`release-promotion` deployment. The job
 rehashes the unchanged assets, creates deterministic checksums and an OIDC
 Cosign bundle, verifies the exact workflow/tag identity, and publishes the same
 draft. GitHub immutable releases must already report enabled; publication then

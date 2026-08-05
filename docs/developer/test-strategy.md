@@ -1342,6 +1342,30 @@ seams that followed.
 | Shared spine — settings schema, action registry, permission path, projection machinery, test harness, gate definitions | full authoritative aggregate |
 | Release/workflow code (tag-bound) | full replacement generation; never patched around |
 
+**Primary-function validation precedes the aggregate.** Once the focused and
+release-scoped gates are green, assemble one provisional generation from an
+exact clean pushed SHA and run attended primary-function validation against
+those packaged bytes. This is the earliest expensive human gate and the last
+place broad executable findings should enter before the one authoritative
+aggregate rejoin.
+
+Classify every finding before changing anything:
+
+| Finding class | Corrective cadence |
+| --- | --- |
+| Environment | Correct the host/provider/setup only; repeat the affected row. No source change and no aggregate re-entry. |
+| Documentation | Correct the owning runbook/plan and run diff hygiene plus docs checks. Repeat only a row whose instructions or expectation changed; if the commit moves the release SHA, defer candidate identity/integrity/package-smoke rebinding to the final candidate. |
+| Executable | Hold the candidate, collect the bounded set of executable findings, fix them as one remediation tranche, run preflight + owning/release-scoped gates, replace the whole generation, and repeat only invalidated operator rows. |
+
+After attended primary behavior is accepted, run the long authoritative
+aggregate once at that final exact clean SHA when the change-class table
+requires it. Do not repeat the whole operator matrix afterward. If final
+identity must be rebound or the candidate bytes changed, repeat only source/tag
+identity, integrity/signature/checksum binding, package smoke, and the operator
+rows explicitly invalidated by those bytes. Any executable finding discovered
+after the aggregate invalidates the rejoin and returns to the batched executable
+cadence; it never triggers one aggregate per fix.
+
 **Source FV is a pre-filter; packaged FV is acceptance.** An earlier draft of
 this section proposed splitting validation so that feature behavior was accepted
 from source and only packaging was validated on the binary. **The recorded

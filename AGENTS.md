@@ -216,6 +216,11 @@ Effective 2026-07-30; v1.3 completes under its prior rules.
   two minutes. No expensive phase starts, and no remediation re-enters, until green.
 - **The aggregate runs last, once, never per fix**, and never before operator
   validation.
+- **Validate primary behavior before the aggregate.** Attended primary-function
+  validation runs on a provisional exact-clean-SHA candidate. Classify findings
+  as environment, documentation, or executable; batch executable remediations
+  before one aggregate rejoin. Afterward repeat only identity, integrity,
+  package smoke, and operator rows explicitly invalidated by changed bytes.
 - **Source FV is a pre-filter; packaged FV is acceptance.** Check behavior from
   source first — one warm `mix allbert.tui` session by default (v0.55.1) — to
   catch obvious breakage for the price of a recompile. Acceptance runs on the
