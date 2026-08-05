@@ -1295,6 +1295,11 @@ tree is unchanged. Recorded as an honest floor for M6.
 
 ## Gate Matrix
 
+`mix allbert.test preflight` is the v1.4 M8.5 target contract and is not yet an
+implemented command. Until that milestone lands, an active plan must enumerate
+and run its cheap equivalent components directly; it must not claim a green
+command that does not exist. v1.3.1 freezes that temporary bundle in M0.
+
 | Gate | Use | Evidence |
 | --- | --- | --- |
 | **Preflight** | **First, before anything expensive. Every release phase and every remediation.** | `mix allbert.test preflight`: compile matrix across every supported Elixir version, formatter, `git diff --check`, docs gate, registry/param-contract consistency, inventory and manifest reconciliation, fixture-drift checks, lane classification. Budget: **under two minutes**. Nothing downstream starts until green. |
@@ -1365,6 +1370,19 @@ identity, integrity/signature/checksum binding, package smoke, and the operator
 rows explicitly invalidated by those bytes. Any executable finding discovered
 after the aggregate invalidates the rejoin and returns to the batched executable
 cadence; it never triggers one aggregate per fix.
+
+**Operator-approved source-only point tags.** When an active plan explicitly
+classifies a version as a source point tag rather than a packaged product
+release, use the same cheapest-first cadence with the exact clean pushed source
+SHA as the provisional candidate. Attended source validation precedes the
+aggregate; a short release-version delta gate must not replay a prior version
+gate when the final aggregate already retains that prefix. Run the aggregate
+only when the change-class table requires it, and at most once after the final
+remediation rejoin. There is no artifact generation or packaged FV. The
+annotated tag carries `[skip-artifacts]`; verify that no GitHub Release exists,
+the prior packaged release remains Latest, and the package-manager source did
+not move. The source correction reaches installed operators with the next
+binary release.
 
 **Source FV is a pre-filter; packaged FV is acceptance.** An earlier draft of
 this section proposed splitting validation so that feature behavior was accepted

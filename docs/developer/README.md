@@ -22,6 +22,8 @@ gates. Start with the compact maps, then open subsystem guides as needed.
 ## Runtime And Extension Systems
 
 - [Active Memory](active-memory.md)
+- [Conversation Search architecture](../adr/0092-search-central-and-conversation-fts.md)
+  and its [shared surface contract](surface-contract.md#search-central-consumer-contract)
 - [Artifact store](artifact-store.md)
 - [Artifacts browser](artifacts-browser.md)
 - [Browser plugin](browser-plugin.md)

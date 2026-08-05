@@ -20,6 +20,15 @@ metrics. Together with the M5 full chain and supersession cycle, that closes the
 Accepted flip below. Final packaged latency and release gates validate the
 release candidate but no longer leave this architectural decision Proposed.
 
+**Clarified 2026-08-05 (v1.3.1 corrective hardening, operator-signed).** The
+derived generation watermark is explicitly the input digest of the last full
+build, not a live cursor advanced by incremental refresh. v1.3.1 renames it
+`full_build_source_watermark` and rebuilds schema-1 disposable projections.
+Incremental truth remains `projection_revision`, per-claim revision digests,
+and canonical reauthorization. This avoids an O(n) claim-stream scan and a new
+global writer lock on every one-claim refresh; no canonical Memory authority or
+public contract changes.
+
 **Amended 2026-07-28 (implementation-readiness pass, operator-signed).**
 The pass surveyed the deployed long-term-memory literature and found the
 original decision modelled memory as append-only: it handled restatement
@@ -586,12 +595,25 @@ queues ordinary projection repair. Thus a crash after archive, correction, or
 Forget cannot make a stale projection authoritative or place the stale fact in
 a prompt.
 
+The generation/control key `full_build_source_watermark` records the exact
+canonical input digest used to construct that full generation and does not
+claim to describe later incremental refreshes. Incremental refresh stays
+bounded to the affected claim, advances `projection_revision` in the same
+SQLite transaction as its projected rows, and retains that claim's canonical
+revision digest. No consumer may treat the full-build watermark as current
+source equality after `projection_revision` advances. A complete rebuild
+recomputes the watermark. The legacy unqualified `claim_stream_watermark` is
+schema-1 disposable state and causes rebuild rather than field-by-field
+migration.
+
 The fixed projection root is `<ALLBERT_HOME>/projections/memory/`, containing
 `control.json`, `current.sqlite3`, `previous.sqlite3`, and at most one live
 `build-<UUIDv7>.sqlite3` plus SQLite sidecars. The shared `projections/` root is
-excluded from authoritative backup/export. Schema-1 control and generation
-metadata follow plan LD 84; fixed-file promotion uses no symlink, pointer
-service, Ecto Repo, or generic projection registry.
+excluded from authoritative backup/export. Schema-2 control and generation
+metadata preserve plan LD 84's fixed-file layout and compatibility fields, with
+the watermark clarification above as the only schema-1 metadata replacement;
+fixed-file promotion uses no symlink, pointer service, Ecto Repo, or generic
+projection registry.
 
 Startup ownership is ordered without adding a coordinator. The supervised
 `Memory.Projection` process first discovers and verifies every tombstone and

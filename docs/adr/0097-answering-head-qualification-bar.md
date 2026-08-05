@@ -34,8 +34,9 @@ answered that status summaries "will be provided" starting on a date. Allbert's
 own DirectAnswer catalog carries `:acknowledgments_are_not_commitments` for
 exactly this, and the head violated it while the rule was in its prompt. Thirty-
 six subsequent trials across four conditions — including the exact production
-request path — reproduced nothing. The failure is real, observed once, and its
-rate is unknown.
+request path — reproduced nothing. It then reappeared on the first attempt of a
+later independent session. The failure is real, recurring, and its rate is
+unknown.
 
 Neither is an orchestration defect. Neither is fixable by prompt work we can
 demonstrate, since the rule was already present and the correction cannot be
@@ -58,10 +59,9 @@ Model-judges-model is out. v1.3 M9.b.6 deleted the fan-out critic topology for
 recorded reasons — a second model's verdict about a first model's output is not
 evidence, and shipping one here would reintroduce exactly what was removed.
 
-Single-shot pass/fail is out. A bar that runs each case once would have called
-the head compliant on thirty-six of thirty-seven observations of the
-acknowledgment case. Any bar over a nondeterministic generator has to measure a
-rate.
+Single-shot pass/fail is out. Thirty-six consecutive passes between independent
+failures show that one observation can easily miss the acknowledgment mode. Any
+bar over a nondeterministic generator has to record repeated-trial counts.
 
 ## Decision
 
@@ -89,10 +89,12 @@ operator runs against a candidate answering head and reads as a pass rate.
    over that recorded value. No model grades another model's output. No
    heuristic quality score.
 
-5. **Reliability is measured, not asserted.** Every row runs N trials against one
-   resolved profile. Results are per-row pass counts and a per-class pass rate
-   against a minimum frozen before any head is measured — so no head is qualified
-   against a bar chosen after seeing its score.
+5. **Reliability is measured, not asserted.** The v1.3.1 release record runs
+   five trials per row against one resolved profile and requires 5/5 on every
+   row. Results are per-row pass counts and a per-class pass rate against that
+   minimum, frozen before any head is measured — so no head is qualified against
+   a bar chosen after seeing its score. This small screen is not a statistical
+   population-rate claim; later plans may version a larger corpus/budget.
 
 6. **Requests go through the production path.** Same DirectAnswer assembly, same
    rule catalog, same `temperature: 0.0` and `max_retries: 0`. A bar with its own
@@ -126,9 +128,9 @@ Corpus maintenance is a real cost. Rows drawn from stable technical semantics �
 OTP supervision, event-sourcing replay, SQLite durability — age slowly, which is
 why the corpus draws from there rather than from anything current.
 
-The measurement is expensive. N trials per row per head against a local model is
-minutes, not seconds, which is why the bar is opt-in and in no aggregate,
-precommit, or CI path.
+The measurement is expensive. Five trials for each of six rows per required
+local head is minutes, not seconds, which is why the bar is opt-in and in no
+aggregate, precommit, or CI path.
 
 Passing the bar and being unreliable in practice remain compatible. A rare
 failure mode nobody has observed yet is not in the corpus, and this ADR does not

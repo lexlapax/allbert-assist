@@ -7,9 +7,10 @@ plan and request-flow documents.
 ## Current And Next
 
 - [Roadmap](roadmap.md)
-- [v1.3.1 answering-head qualification plan](v1.3.1-plan.md) and
-  [request flow](v1.3.1-request-flow.md) (planned; v1.3 predecessor cleared —
-  carries v1.3 M9.b.8, deferred by operator decision 2026-08-02)
+- [v1.3.1 qualification and corrective-hardening plan](v1.3.1-plan.md) and
+  [request flow](v1.3.1-request-flow.md) (implementation-ready; v1.3 predecessor
+  cleared; operator-approved source-only `[skip-artifacts]` point tag; carries
+  M9.b.8 plus the two v1.3 post-validation corrections)
 - [v1.4 adaptive usage profiling plan](v1.4-plan.md) and
   [request flow](v1.4-request-flow.md) (planned; v1.3 predecessor cleared)
 - [v1.5 spine enablers plan](v1.5-plan.md) and

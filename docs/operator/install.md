@@ -3,13 +3,13 @@
 New to Allbert? Follow [Quickstart: Install, Open, Chat](quickstart.md); return
 here for alternate install paths, upgrades, uninstall, and artifact trust.
 
-The current packaged release is **v1.2.0**. Homebrew and the default curl
+The current packaged release is **v1.3.0**. Homebrew and the default curl
 installer resolve to that stable GitHub Latest release.
 
-The thin TUI lifecycle documented on `main` begins with v1.2.5. Until that
-point release is installed, use the v1.2.0 web workspace or the documentation
-at the installed tag; do not apply the new attach-only TUI instructions to an
-older binary.
+It includes the daemon-backed thin TUI, packaged license inventory/viewer,
+reviewed long-term Memory, and Search Central. The planned v1.3.1 source-only
+tag does not update an installed binary; these corrections first reach packaged
+operators in v1.4.
 
 Allbert ships its direct runtime dependencies and Erlang/OTP runtime — no
 Elixir/OTP toolchain is required on your machine. Optional browser research
@@ -119,7 +119,7 @@ Every release publishes `SHA256SUMS` and `SHA256SUMS.cosign.bundle`. To check a
 download by hand:
 
 ```sh
-VERSION="${VERSION:?set the exact tag, for example v1.2.0}"
+VERSION="${VERSION:?set the exact tag, for example v1.3.0}"
 cosign verify-blob \
   --bundle SHA256SUMS.cosign.bundle \
   --certificate-identity "https://github.com/lexlapax/allbert-assist/.github/workflows/release-artifacts.yml@refs/tags/$VERSION" \
@@ -234,11 +234,9 @@ Mozilla-derived CA bundle: Castore code is Apache-2.0, while the generated PEM
 remains MPL-2.0 and must retain its license and source/conversion provenance.
 This does not relicense the larger Allbert work under MPL.
 
-Stable v1.2.0 does not yet ship a generated target inventory. The planned
-v1.2.5 binary adds a best-effort inventory of known shipped components, required
-license texts, exact source-availability metadata, a per-target manifest, and an
-offline `allbert licenses` viewer. It is not a complete SBOM or legal-compliance
-guarantee. Until v1.2.5
-ships, dependency metadata and source license files are useful inputs, but a
-redistributor must also inspect the actual target artifact and any staged
-native/data payloads.
+Stable v1.3.0 ships a best-effort inventory of known packaged components,
+required license texts, exact source-availability metadata, a per-target
+manifest, and an offline `allbert licenses` viewer. It is not a complete SBOM or
+legal-compliance guarantee. Dependency metadata and source license files remain
+inputs rather than proof by themselves; a redistributor must also inspect the
+actual target artifact and any staged native/data payloads.

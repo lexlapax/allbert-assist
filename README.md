@@ -63,9 +63,10 @@ becoming opaque or unbounded.
 ## Current Shape
 
 This README is the stable project orientation. The current packaged release is
-**v1.2.6**. For its features and the full release-by-release history, see the
-[CHANGELOG](CHANGELOG.md); forward planning lives in the
-[roadmap](docs/plans/roadmap.md).
+**v1.3.0**. The planned v1.3.1 corrective line is an operator-approved source-
+only point tag; v1.3.0 remains the installed/package-manager line until v1.4.
+For features and the full release-by-release history, see the
+[CHANGELOG](CHANGELOG.md); forward planning lives in the [roadmap](docs/plans/roadmap.md).
 
 Today, Allbert includes:
 
@@ -76,8 +77,9 @@ Today, Allbert includes:
   report across terminal, Web, and supported chat surfaces.
 - Settings Central for operator-tunable configuration.
 - Security Central for permission and policy decisions.
-- Markdown-first memory under Allbert Home, plus local files/notes as a launch
-  integration.
+- Reviewed, bi-temporal Markdown-first long-term memory under Allbert Home,
+  including archive/correction, tombstone-first Forget, bounded retrieval, and
+  local files/notes as a launch integration.
 - One central lexical conversation-search API used by Web, TUI, CLI, and
   verified mapped operator DMs, with canonical authorization on every result.
 - Inspectable traces, events, objectives, jobs, and operator reports.
@@ -86,9 +88,10 @@ Today, Allbert includes:
 
 The packaged install and zero-click first run are what make Allbert runnable by
 someone who is not me, including a non-developer, across the curl and Homebrew
-paths. In v1.2, install, open, and chat is the primary experience: onboarding is
-optional, an existing local or hosted provider is detected without hidden
-inference, and an unavailable model leaves chat open with one honest repair path.
+paths. The v1.2 zero-click contract remains the v1.3 first-run experience:
+install, open, and chat is primary; onboarding is optional; an existing local or
+hosted provider is detected without hidden inference; and an unavailable model
+leaves chat open with one honest repair path.
 
 ## What I Use It For
 

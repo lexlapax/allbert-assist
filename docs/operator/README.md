@@ -6,8 +6,9 @@ only when you need the feature they cover.
 
 ## Start Here
 
-1. [Quickstart: Install, Open, Chat](quickstart.md) — the canonical Allbert
-   1.2.0 first run. Chat opens without an onboarding or model-setup gate.
+1. [Quickstart: Install, Open, Chat](quickstart.md) — the canonical zero-click
+   first run introduced in Allbert 1.2 and retained by the current packaged
+   line. Chat opens without an onboarding or model-setup gate.
 2. [Workspace](workspace.md) — conversations, Models, settings, objectives, and
    the docked canvas.
 3. [Local knowledge](local-knowledge.md) — connect local notes and review what
@@ -29,6 +30,8 @@ install variants, upgrades, uninstall, and artifact trust, use
 | Create and steer multi-step work | [Plan, build, and workflows](plan-build-and-workflows.md) |
 | Check security posture and confirmations | [Security hardening](security-hardening.md) |
 | Search retained conversation history | [Conversation Search](conversation-search.md) |
+| Review long-term Memory or inspect its repair state | [Active Memory](active-memory.md) |
+| Inspect or pause Search/Memory recurring work | [Conversation Search](conversation-search.md#index-health-and-recurring-work) and [Active Memory](active-memory.md) |
 | Inspect packaged license evidence | [Installing Allbert](install.md#license) (`allbert licenses`) |
 | Check or migrate a Home's settings contract | [Settings version](settings-version.md) |
 

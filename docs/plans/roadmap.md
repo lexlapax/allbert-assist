@@ -5,8 +5,11 @@ The 0.x -> 1.0 roadmap is archived at [archives/1.0-roadmap.md](archives/1.0-roa
 
 ## Release Model (1.x)
 
-Every release is a **binary release**: tagged, CI-built, cosign-signed, published as a
-GitHub Release, Homebrew tap filled. Each versioned plan covers one or more features and
+Every packaged product release is a **binary release**: tagged, CI-built,
+cosign-signed, published as a GitHub Release, Homebrew tap filled. An explicitly
+operator-approved `[skip-artifacts]` source point tag is not a packaged release;
+its changes reach operators in the next named binary and the packaged Latest/tap
+do not move. Each versioned plan covers one or more features and
 ships as one or more point tags (1.0.1, 1.0.2, ...) that accumulate toward the next
 minor (1.1, 1.2, ...). Minors carry one flagship feature each, foundational-first.
 Plans follow the established triad convention (plan + request-flow, ADRs as needed);
@@ -291,26 +294,37 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    Horizon items remain free-form provider URLs, non-local bind hardening,
    semantic/fuzzy search, automatic canonical-history retention, and automatic
    cross-app prompt mixing.
-8b. **1.3.1 — Answering-Head Qualification.** (**Planned — triad ready
-   2026-08-02:** `docs/plans/v1.3.1-plan.md` + request-flow + ADR 0097
-   (answering-head qualification bar). **v1.3 predecessor cleared.**) Carries
+8b. **1.3.1 — Answering-Head Qualification And v1.3 Corrective Hardening.**
+   (**Planned — amended implementation-ready triad 2026-08-05:**
+   `docs/plans/v1.3.1-plan.md` + request-flow + ADR 0097, with bounded ADR
+   0089/0092 corrections. **v1.3 predecessor cleared.**) Carries
    v1.3 M9.b.8, deferred by operator decision after
    attended validation recorded two independent failures of the shipped
    answering head — a factual error (`rest_for_one` described as
    `one_for_one`, where `mistral-small3.1:24b` is wrong the same way and
    parameter count predicts nothing) and a rule-following error (an
-   acknowledgment answered as a future commitment, observed once and not
-   reproduced in thirty-six trials). v1.3 ships the head unchanged, both
+   acknowledgment answered as a future commitment, absent in thirty-six retries
+   but reproduced in a later independent session). v1.3 ships the head unchanged, both
    limits disclosed, and `intent.direct_answer_model_profile` as the opt-in
    seam; this release supplies the evidence that opt-in lacks. A frozen,
    digest-bound corpus covering **both** failure families — a facts-only
    corpus would have passed the head on the acknowledgment row — scored by
-   closed deterministic predicates over the production request path, run N
-   times per row against a minimum frozen before any head is measured. No
+   closed deterministic predicates over the production request path, run five
+   times per row against a 5/5 floor frozen before any head is measured. No
    model judges another model (v1.3 M9.b.6), no runtime rule enforcement
    (ADR 0021), no change to the shipped default: the bar produces the
-   evidence, raising the default stays an operator decision. Opt-in dev
-   gate, in no aggregate or CI path; recorded evidence is content-free.
+   evidence, raising the default stays an operator decision. The operator also
+   assigned two non-blocking v1.3 validation findings here: rename the derived
+   last-full-build Memory watermark instead of adding an O(n) incremental scan,
+   and enforce the existing central invariant that a paused managed job retains
+   dirty intent with no effective due timestamp. The opt-in real-model matrix is
+   in no aggregate or CI path and records content-free evidence. By explicit
+   operator decision, v1.3.1 is an annotated `[skip-artifacts]` source point tag:
+   no GitHub Release, package build, Homebrew movement, or packaged FV; v1.3.0
+   remains packaged Latest and v1.4 carries these source corrections into the
+   next binary. Focused tests and attended source validation precede one short
+   delta gate and, because projection machinery is shared code, exactly one
+   final authoritative aggregate—never an aggregate per fix.
 9. **1.4 — Adaptive Usage Profiling.** (**Planned — triad ready
    2026-07-24:** `docs/plans/v1.4-plan.md` + request-flow + ADR 0090
    (profiling + confirmed customization) + ADR 0084 amendment
@@ -322,8 +336,10 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    2026-07-24, **Mobile-Ready Web stage 1** rides as non-flagship scope
    (Dynamic Mobile Breakpoints folds in; stages 2–4 stay at horizon).
    By operator decision 2026-07-30, v1.4 also carries the **preflight gate
-   and the AGENTS.md Release Sequence** (M8.5), and is the first release to
-   run its closeout in that order: preflight → audit → source pre-filter →
+   and the AGENTS.md Release Sequence** (M8.5), and is the first binary release
+   and first release with the implemented `preflight` command. Source-only
+   v1.3.1 uses the same cadence through its named temporary bundle. v1.4 runs:
+   preflight → audit → source pre-filter →
    release-scoped gate → aggregate only if the change class requires it →
    binary → packaged FV as the acceptance bar. v1.3 M9.b burned six
    authoritative attempts, none stopped by a product regression; this is

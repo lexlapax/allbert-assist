@@ -146,6 +146,14 @@ Full text for each is retained in the run's evidence root.
   operator disposition; it is not part of the answering-head-only v1.3.1 plan.
   The preferred repair keeps `next_due_at` nil while paused and proves pause ->
   dirty kick -> show -> resume without weakening dirty-intent preservation.
+
+**Post-release disposition, 2026-08-05.** The two findings above were pending
+when this acceptance record was written. The operator has now assigned both to
+v1.3.1: the Memory repair uses the more truthful full-build-only rename rather
+than an O(n), cross-claim incremental recomputation; the Jobs repair keeps
+paused effective due nil while retaining dirty intent. v1.3.1 is source-only,
+so v1.3.0 remains the packaged Latest and v1.4 first packages the corrections.
+
 - **One PASS line in the transcript was retracted.** The agent-run adaptation of
   SV-8A.2 rewrote the runbook's `set -e` assertion chain as
   `grep … && echo OK || echo FAIL` and gated the final PASS on an unrelated

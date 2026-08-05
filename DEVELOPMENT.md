@@ -73,14 +73,14 @@ stale guidance.
 
 - Packaged releases include ERTS and selected runtime/native/data payloads, so
   binary redistribution must carry the notices and source offers required by
-  the bytes in each target artifact. Stable v1.2.0 does not yet package a
-  generated inventory. v1.2.5 adds one deterministic final-artifact generator,
-  one reviewed catalog/exceptions file, target manifests, required texts, and a
-  pure offline viewer. Its honest claim is a best-effort inventory of known
-  shipped components; it is not a complete SBOM, universal ownership scanner,
-  or legal-compliance guarantee. Until that binary ships, dependency metadata,
-  source license files, and direct artifact inspection are complementary
-  evidence rather than a single complete authority.
+  the bytes in each target artifact. Stable v1.3.0 includes the deterministic
+  final-artifact generator introduced on the v1.2.5/v1.2.6 line, one reviewed
+  catalog/exceptions file, target manifests, required texts, and a pure offline
+  viewer. Its honest claim is a best-effort inventory of known shipped
+  components; it is not a complete SBOM, universal ownership scanner, or legal-
+  compliance guarantee. Dependency metadata, source license files, generated
+  target evidence, and direct artifact inspection remain complementary rather
+  than a single complete authority.
 - Run `mix allbert.licenses --check` after dependency, packaged payload, license
   metadata, or catalog changes. The check is deterministic and offline; it
   validates the reviewed catalog/text digests and committed union without
@@ -168,6 +168,7 @@ Docs-only verification:
 
 ```sh
 git diff --check
+MIX_ENV=test mix allbert.test docs
 ```
 
 ## Development Gate Matrix
@@ -180,6 +181,7 @@ ADR 0050 before changing dependencies.
 
 | Gate | Use | Typical evidence |
 | --- | --- | --- |
+| Preflight | First, before expensive release phases and every executable remediation. | Target command `mix allbert.test preflight` lands in v1.4 M8.5. Until then, run the active plan's enumerated cheap constituent bundle; v1.3.1 M0 freezes that bridge. |
 | Docs | Docs-only changes. | `git diff --check` plus reference/link checks. |
 | Focused | Every implementation milestone. | Explicit test files named in the active plan/request-flow doc. |
 | Static | Code changes. | `mix allbert.hex_audit`, `mix compile --warnings-as-errors`, `mix format --check-formatted`, `mix credo --strict`, and Dialyzer when required. |

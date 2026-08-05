@@ -21,14 +21,16 @@ current packaged release line). This runbook
 covers Homebrew tap fill, package-manager install, curl trust, packaged TUI, and Linux
 rehearsal evidence for the packaged path.
 Binary release is the post-1.0 default. `[skip-artifacts]` remains only for an
-explicitly approved docs/source point tag that is not a product release; it does not
-replace the binary-release obligation of a versioned feature plan.
+explicitly operator-approved source/docs point tag that is not a packaged
+product release. Its active plan must name the bounded source changes, source
+validation, gate cadence, and next binary carrier; it does not silently replace
+the binary-release obligation of another versioned feature plan.
 
 Set this once from the release checkout; every active command below consumes it:
 
 ```sh
-export VERSION="${VERSION:?set VERSION, for example v1.2.0}"
-export EXPECTED_VERSION="${EXPECTED_VERSION:?set product version, for example 1.2.0}"
+export VERSION="${VERSION:?set VERSION, for example v1.3.0}"
+export EXPECTED_VERSION="${EXPECTED_VERSION:?set product version, for example 1.3.0}"
 export REPO="${REPO:-lexlapax/allbert-assist}"
 export PLAYWRIGHT_VERSION="${PLAYWRIGHT_VERSION:-1.58.2}"
 export EVIDENCE_ROOT="${EVIDENCE_ROOT:-$(mktemp -d /tmp/allbert-release-evidence.XXXXXX)}"
@@ -151,22 +153,24 @@ use `--clobber`. After publication, never move/delete/reuse that tag: a source
 or byte correction requires a patch version. The signature attests protected
 GitHub promotion of operator-built bytes, not GitHub-hosted build provenance.
 
-### Exceptional docs/source point tag (no packaged artifacts)
+### Exceptional source/docs point tag (no packaged artifacts)
 
-An explicitly approved point tag that ships only source/docs/script fixes must
-NOT create packaged artifacts or steal `Latest` from the product release that owns the
-tarballs + `latest` aliases. The release workflow has no tag trigger, so this
-exception is an annotated source tag only; retain `[skip-artifacts]` as an
-operator-visible declaration, not as automation control:
+An explicitly approved point tag that ships bounded source, docs, test, or
+script corrections must NOT create packaged artifacts or steal `Latest` from
+the product release that owns the tarballs + `latest` aliases. Product code in
+such a tag is not installed until the next binary and the active plan must say
+so. The release workflow has no tag trigger, so this exception is an annotated
+source tag only; retain `[skip-artifacts]` as an operator-visible declaration,
+not as automation control:
 
 ```sh
-DOC_VERSION="${DOC_VERSION:?set the exceptional docs/source tag}"
+SOURCE_VERSION="${SOURCE_VERSION:?set the exceptional source/docs tag}"
 PACKAGED_VERSION="${PACKAGED_VERSION:?set the current packaged release tag}"
-git tag -a "$DOC_VERSION" -m "Allbert ${DOC_VERSION#v} - release-doc closeout [skip-artifacts]"
-git push origin "$DOC_VERSION"
-# Verify: no DOC_VERSION release exists and PACKAGED_VERSION stays Latest.
+git tag -a "$SOURCE_VERSION" -m "Allbert ${SOURCE_VERSION#v} source point tag [skip-artifacts]"
+git push origin "$SOURCE_VERSION"
+# Verify: no SOURCE_VERSION release exists and PACKAGED_VERSION stays Latest.
 test "$(gh release view --repo "$REPO" --json tagName --jq .tagName)" = "$PACKAGED_VERSION"
-if gh release view "$DOC_VERSION" --repo "$REPO"; then exit 1; fi
+if gh release view "$SOURCE_VERSION" --repo "$REPO"; then exit 1; fi
 ```
 
 Verify release and tag state after publish:
@@ -174,7 +178,7 @@ Verify release and tag state after publish:
 ```sh
 gh release view "$PACKAGED_VERSION" --repo "$REPO" \
   --json tagName,publishedAt,url
-git ls-remote --tags origin "$DOC_VERSION" "$PACKAGED_VERSION"
+git ls-remote --tags origin "$SOURCE_VERSION" "$PACKAGED_VERSION"
 git rev-parse "$PACKAGED_VERSION^{}"
 ```
 

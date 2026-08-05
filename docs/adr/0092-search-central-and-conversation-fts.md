@@ -27,6 +27,14 @@ row binds full accepted source SHA
 source-tree probe, superseded provisional package, or cross-host average is
 substituted.
 
+**Implementation correction noted 2026-08-05 (v1.3.1, operator-signed).** The
+shipped `Jobs.Managed.apply_kick/1` could retain `status: paused` yet repopulate
+`next_due_at`, diverging from the already-accepted §7 contract below. v1.3.1
+centralizes effective-due calculation so paused/disabled managed rows keep a
+nil due while dirty intent survives; resume computes one catch-up opportunity.
+This enforces the accepted decision for every managed identity and adds no
+scheduler or Search-specific exception.
+
 This ADR supersedes ADR 0089 §6's conditional external-content FTS design.
 Search ships as a central read product and point milestone without becoming a
 Memory authority or displacing Long-Term User Memory as the v1.3 flagship.
