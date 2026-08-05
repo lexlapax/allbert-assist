@@ -556,6 +556,16 @@ Every checksum and source/generation binding verifies, all smoke outcomes are
 The draft remains empty, unpublished, and mutable; later K5/K6 evidence is
 pending and promotion remains prohibited.
 
+The replacement macOS archive passed Homebrew shadow install/test and packaged
+license rendering. Homebrew relocation preserved archive-identical sealed
+OpenSSL SHA-256
+`643372e6478f280423b2f9536fa1523f1086f806309e9d98eca5ce11e22d3e18`
+and Exqlite SHA-256
+`8559739c2ba3e6970b421de7f09650017661e0a278b8653c012bd0ed847031e1`.
+Evidence roots `/tmp/allbert-v13-homebrew.g8mGvo` and
+`/tmp/allbert-v13-homebrew-archive.HFsXyT` are retained. The exact candidate is
+installed; staging and all later gates remain pending.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
