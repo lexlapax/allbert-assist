@@ -1034,3 +1034,16 @@ x64 Search `48.192/52.278 ms`. All four rows are clean and bind exact candidate
 SHA `bc584c295f74700de485530ecdc70fe5792e6421` plus their matching archive
 digest. No host or consumer is averaged away. The isolated K6 sequence remains
 pending and the draft is not published.
+
+The exact-SHA K6 structural prefix proof then passed from a fresh detached
+checkout with `worktree_clean: true` and every cumulative prefix comparison
+exact. Evidence
+`/tmp/allbert-v13-k6-bc584-a/home/release_evidence/v13/release-structure-v13.json`
+has SHA-256
+`7eec0200d444b9c6de1da5423560806c236a7904ae9830fa016d33b827660484`.
+The one `release.v13` then passed all `32/32` ordered steps. Evidence
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v13/p0-15493/home/release_evidence/v13/release-v13-1785950871.json`
+has SHA-256
+`8353d4a3ca236560da751dc2087e4f59ad794eaf80b77d9decce9b994fb7b16a`;
+recorded step durations total `2,469,945 ms`. The authoritative aggregate is
+running in the same exact-SHA checkout; the draft remains unpublished.
