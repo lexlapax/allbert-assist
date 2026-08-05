@@ -226,34 +226,50 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
     end
 
     def select_composition(agent, claim, source, body, provenance) do
-      Agent.update(
-        agent,
-        &Map.update!(&1, :selected, fn selected ->
-          [{claim, source, body, provenance} | selected]
+      listener =
+        Agent.get_and_update(agent, fn state ->
+          updated =
+            Map.update!(state, :selected, fn selected ->
+              [{claim, source, body, provenance} | selected]
+            end)
+
+          {Map.get(state, :selection_listener), updated}
         end)
-      )
+
+      notify_selection(listener)
 
       {:ok, claim.parent}
     end
+
+    def notify_selection({pid, reference}) when is_pid(pid) and is_reference(reference),
+      do: send(pid, {:composition_selected, reference})
+
+    def notify_selection(_listener), do: :ok
   end
 
   defmodule RecoveringProcessStore do
+    alias AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest.ProcessStore
     alias AllbertAssist.Objectives.Fanout.Report
 
     def recover_composition(agent) do
-      Agent.get_and_update(agent, fn
-        %{inflight: claim, selected: []} = state when is_map(claim) ->
-          {:ok, provenance} =
-            Report.fallback_provenance(claim.frozen.snapshot, "recovery_after_restart")
+      {result, listener} =
+        Agent.get_and_update(agent, fn
+          %{inflight: claim, selected: []} = state when is_map(claim) ->
+            {:ok, provenance} =
+              Report.fallback_provenance(claim.frozen.snapshot, "recovery_after_restart")
 
-          selection =
-            {claim, "deterministic_fallback", claim.frozen.fallback_body, provenance}
+            selection =
+              {claim, "deterministic_fallback", claim.frozen.fallback_body, provenance}
 
-          {{:ok, 1}, %{state | inflight: nil, selected: [selection]}}
+            {{{:ok, 1}, Map.get(state, :selection_listener)},
+             %{state | inflight: nil, selected: [selection]}}
 
-        state ->
-          {{:ok, 0}, state}
-      end)
+          state ->
+            {{{:ok, 0}, nil}, state}
+        end)
+
+      ProcessStore.notify_selection(listener)
+      result
     end
 
     def claim_next_composition(agent) do
@@ -267,10 +283,13 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
     end
 
     def select_composition(agent, claim, source, body, provenance) do
-      Agent.update(agent, fn state ->
-        %{state | inflight: nil, selected: [{claim, source, body, provenance}]}
-      end)
+      listener =
+        Agent.get_and_update(agent, fn state ->
+          {Map.get(state, :selection_listener),
+           %{state | inflight: nil, selected: [{claim, source, body, provenance}]}}
+        end)
 
+      ProcessStore.notify_selection(listener)
       {:ok, claim.parent}
     end
   end
@@ -524,11 +543,16 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
   test "ReqLLM catches only provider-boundary raises and exits" do
     Enum.each([raise: RaisingReqLLM, exit: ExitingReqLLM], fn {kind, req_llm_client} ->
       claim = claim()
+      selection_ref = make_ref()
+      selection_listener = {self(), selection_ref}
 
       store =
         start_supervised!(
           Supervisor.child_spec(
-            {Agent, fn -> %{claims: [claim], selected: []} end},
+            {Agent,
+             fn ->
+               %{claims: [claim], selected: [], selection_listener: selection_listener}
+             end},
             id: {:provider_boundary_store, kind}
           )
         )
@@ -552,7 +576,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
 
       assert_receive {:provider_boundary_fault, ^kind, lifecycle_pid}
       assert lifecycle_pid != Process.whereis(name)
-      assert eventually(fn -> Agent.get(store, &match?([_selection], &1.selected)) end)
+      assert_selection_persisted(selection_ref)
 
       [{^claim, "deterministic_fallback", body, provenance}] =
         Agent.get(store, & &1.selected)
@@ -579,7 +603,15 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
 
   test "unavailable ReqLLM boundary records profile unavailable without a provider call" do
     claim = claim()
-    store = start_supervised!({Agent, fn -> %{claims: [claim], selected: []} end})
+    selection_ref = make_ref()
+    selection_listener = {self(), selection_ref}
+
+    store =
+      start_supervised!(
+        {Agent,
+         fn -> %{claims: [claim], selected: [], selection_listener: selection_listener} end}
+      )
+
     name = :"report-synthesis-profile-unavailable-#{System.unique_integer([:positive])}"
 
     start_supervised!(
@@ -594,7 +626,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
        reconcile_interval_ms: 5_000}
     )
 
-    assert eventually(fn -> Agent.get(store, &match?([_selection], &1.selected)) end)
+    assert_selection_persisted(selection_ref)
 
     [{^claim, "deterministic_fallback", body, provenance}] =
       Agent.get(store, & &1.selected)
@@ -614,12 +646,20 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
 
   test "local synthesis programming fault crashes visibly and restart recovery selects fallback" do
     claim = claim()
+    selection_ref = make_ref()
+    selection_listener = {self(), selection_ref}
 
     store =
       start_supervised!(
         {Agent,
          fn ->
-           %{claim: claim, claimed?: false, inflight: nil, selected: []}
+           %{
+             claim: claim,
+             claimed?: false,
+             inflight: nil,
+             selected: [],
+             selection_listener: selection_listener
+           }
          end}
       )
 
@@ -645,16 +685,13 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
     ExUnit.CaptureLog.capture_log(fn ->
       send(lifecycle_pid, :trigger_local_synthesis_fault)
       assert_receive {:DOWN, ^composer_monitor, :process, ^composer_pid, _reason}, 1_000
-
-      assert eventually(fn ->
-               case Process.whereis(name) do
-                 pid when is_pid(pid) -> pid != composer_pid and Process.alive?(pid)
-                 _missing -> false
-               end
-             end)
-
-      assert eventually(fn -> Agent.get(store, &match?([_selection], &1.selected)) end)
+      assert_selection_persisted(selection_ref)
     end)
+
+    restarted_composer_pid = Process.whereis(name)
+    assert is_pid(restarted_composer_pid)
+    assert restarted_composer_pid != composer_pid
+    assert Process.alive?(restarted_composer_pid)
 
     [{^claim, "deterministic_fallback", body, provenance}] =
       Agent.get(store, & &1.selected)
@@ -673,9 +710,14 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
 
   test "durable composer persists one layout-v2 synthesis selected by its Jido lifecycle" do
     claim = claim()
+    selection_ref = make_ref()
+    selection_listener = {self(), selection_ref}
 
     store =
-      start_supervised!({Agent, fn -> %{claims: [claim], selected: []} end})
+      start_supervised!(
+        {Agent,
+         fn -> %{claims: [claim], selected: [], selection_listener: selection_listener} end}
+      )
 
     name = :"report-synthesis-agent-#{System.unique_integer([:positive])}"
 
@@ -694,7 +736,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
     assert_receive {:synthesis_provider_call, snapshot}
     assert snapshot == claim.frozen.snapshot
 
-    assert eventually(fn -> Agent.get(store, &match?([_selection], &1.selected)) end)
+    assert_selection_persisted(selection_ref)
 
     [{^claim, "model", body, provenance}] = Agent.get(store, & &1.selected)
     assert provenance.layout_version == 2
@@ -708,9 +750,14 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
 
   test "durable composer classifies locally rejected provider output as invalid model output" do
     claim = claim()
+    selection_ref = make_ref()
+    selection_listener = {self(), selection_ref}
 
     store =
-      start_supervised!({Agent, fn -> %{claims: [claim], selected: []} end})
+      start_supervised!(
+        {Agent,
+         fn -> %{claims: [claim], selected: [], selection_listener: selection_listener} end}
+      )
 
     name = :"report-synthesis-local-rejection-#{System.unique_integer([:positive])}"
 
@@ -728,7 +775,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
 
     assert_receive {:locally_rejected_provider_call, snapshot}
     assert snapshot == claim.frozen.snapshot
-    assert eventually(fn -> Agent.get(store, &match?([_selection], &1.selected)) end)
+    assert_selection_persisted(selection_ref)
 
     [{^claim, "deterministic_fallback", body, provenance}] =
       Agent.get(store, & &1.selected)
@@ -750,11 +797,16 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
       [:duplicate_position, :missing_position, :invalid_relationship_cardinality],
       fn rejection ->
         claim = claim()
+        selection_ref = make_ref()
+        selection_listener = {self(), selection_ref}
 
         store =
           start_supervised!(
             Supervisor.child_spec(
-              {Agent, fn -> %{claims: [claim], selected: []} end},
+              {Agent,
+               fn ->
+                 %{claims: [claim], selected: [], selection_listener: selection_listener}
+               end},
               id: {:structural_rejection_store, rejection}
             )
           )
@@ -778,7 +830,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
 
         assert_receive {:structurally_rejected_provider_call, ^rejection, snapshot}
         assert snapshot == claim.frozen.snapshot
-        assert eventually(fn -> Agent.get(store, &match?([_selection], &1.selected)) end)
+        assert_selection_persisted(selection_ref)
 
         [{^claim, "deterministic_fallback", body, provenance}] =
           Agent.get(store, & &1.selected)
@@ -799,9 +851,14 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
 
   test "durable composer terminates the whole synthesis lifecycle at its authorized timeout" do
     claim = %{claim() | deadline_unix_ms: System.system_time(:millisecond) + 300}
+    selection_ref = make_ref()
+    selection_listener = {self(), selection_ref}
 
     store =
-      start_supervised!({Agent, fn -> %{claims: [claim], selected: []} end})
+      start_supervised!(
+        {Agent,
+         fn -> %{claims: [claim], selected: [], selection_listener: selection_listener} end}
+      )
 
     name = :"report-synthesis-timeout-#{System.unique_integer([:positive])}"
 
@@ -822,7 +879,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
     assert lifecycle_pid != Process.whereis(name)
     lifecycle_monitor = Process.monitor(lifecycle_pid)
 
-    assert eventually(fn -> Agent.get(store, &match?([_selection], &1.selected)) end, 100)
+    assert_selection_persisted(selection_ref)
 
     [{^claim, "deterministic_fallback", body, provenance}] =
       Agent.get(store, & &1.selected)
@@ -843,7 +900,15 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
 
   test "legacy unreviewed completed children bypass synthesis and remain deliverable" do
     claim = claim("legacy_unreviewed_advisory")
-    store = start_supervised!({Agent, fn -> %{claims: [claim], selected: []} end})
+    selection_ref = make_ref()
+    selection_listener = {self(), selection_ref}
+
+    store =
+      start_supervised!(
+        {Agent,
+         fn -> %{claims: [claim], selected: [], selection_listener: selection_listener} end}
+      )
+
     name = :"report-synthesis-legacy-#{System.unique_integer([:positive])}"
 
     start_supervised!(
@@ -858,7 +923,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
        reconcile_interval_ms: 5_000}
     )
 
-    assert eventually(fn -> Agent.get(store, &match?([_selection], &1.selected)) end)
+    assert_selection_persisted(selection_ref)
 
     [{^claim, "deterministic_fallback", body, provenance}] =
       Agent.get(store, & &1.selected)
@@ -894,7 +959,15 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
         }
     }
 
-    store = start_supervised!({Agent, fn -> %{claims: [claim], selected: []} end})
+    selection_ref = make_ref()
+    selection_listener = {self(), selection_ref}
+
+    store =
+      start_supervised!(
+        {Agent,
+         fn -> %{claims: [claim], selected: [], selection_listener: selection_listener} end}
+      )
+
     name = :"report-synthesis-zero-completed-#{System.unique_integer([:positive])}"
 
     start_supervised!(
@@ -909,7 +982,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
        reconcile_interval_ms: 5_000}
     )
 
-    assert eventually(fn -> Agent.get(store, &match?([_selection], &1.selected)) end)
+    assert_selection_persisted(selection_ref)
 
     [{^claim, "deterministic_fallback", body, provenance}] =
       Agent.get(store, & &1.selected)
@@ -1073,15 +1146,7 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
     |> Base.encode16(case: :lower)
   end
 
-  defp eventually(fun, attempts \\ 50)
-  defp eventually(fun, 0), do: fun.()
-
-  defp eventually(fun, attempts) do
-    if fun.() do
-      true
-    else
-      Process.sleep(10)
-      eventually(fun, attempts - 1)
-    end
+  defp assert_selection_persisted(selection_ref) do
+    assert_receive {:composition_selected, ^selection_ref}, 5_000
   end
 end

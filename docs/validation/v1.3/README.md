@@ -529,6 +529,18 @@ No later aggregate phase ran. The owner row/seed, repeated row, full owner file,
 and directly related owners are the bounded diagnostic scope; no aggregate runs
 per remediation. Promotion remains prohibited.
 
+Focused diagnosis classified the failure as test fixture ownership. The exact
+candidate row passed 100/100 at seed `785475` in isolation and its complete
+owner passed 19/19. The test store now emits a unique persisted-selection
+receipt after its synchronous Agent update; all nine affected rows, including
+crash recovery, wait for that effect instead of polling for 500/1,000 ms. The
+repaired row passed 100/100 and the combined ReportSynthesis/ReportComposer/
+ReqLLM owner set passed 53/53 at seed `785475`. Test/dev warnings-as-errors
+compiles, formatter, docs gate, and diff hygiene are clean with zero warnings.
+No production or accepted operator contract changed. Complete candidate
+replacement and one fresh K6 rejoin remain required by exact-SHA provenance;
+PV-0 through PV-8 remain inherited without relabelling.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
