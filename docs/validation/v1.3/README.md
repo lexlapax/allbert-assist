@@ -285,7 +285,19 @@ Evidence
 `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v13/p0-5701/home/release_evidence/v13/release-v13-1785912076.json`
 has SHA-256
 `2d1878f1677b6b10617fee57a811ab76dd3ba5567b3217a5fe8748de03f1f83c`.
-The one authoritative `release` aggregate is running; promotion is prohibited.
+The one authoritative `release` aggregate completed every preceding phase and
+stopped RED at `stocksage_tests` after `5,121,000 ms`; promotion remains
+prohibited. StockSage ran `198` tests at seed `429706` and reported two
+failures in its actions owner: one stale pre-descriptor candidate-kind
+assertion and one long-standing `list my analyses` operator phrase that fell
+through to disabled DirectAnswer instead of executing the registered
+`list_analyses` action. Evidence
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-15491/home/release_evidence/gates/release-2026-08-05T07_21_01Z.json`
+has SHA-256
+`c98816e38a119ac41d0aee2e7e5d9b36cd769f9f237eafd4edf9148871a0cb81`.
+The complete StockSage actions owner reproduced the same `23/2` result at the
+same candidate SHA and seed. M9.b.17 owns a bounded descriptor/test repair; no
+aggregate runs per fix and no partial PASS is claimed.
 The entries below preserve earlier exact-SHA diagnostic runs and their
 remediations rather than presenting them as current acceptance evidence.
 
