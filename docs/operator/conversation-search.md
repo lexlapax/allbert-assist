@@ -112,8 +112,13 @@ allbert admin jobs pause JOB_ID
 allbert admin jobs resume JOB_ID
 ```
 
-Pausing a managed job preserves the operator's pause and cadence. Disabling
-Search retains those rows but blocks effective admission:
+Pausing a managed job preserves the operator's pause, cadence, and any dirty
+work that arrives while paused. `allbert admin jobs show JOB_ID` reports
+`Next due: none` until resume; resume computes one catch-up opportunity and the
+ordinary atomic admission rule still permits at most one open run. This is the
+same central managed-job rule for Memory and Search identities. Disabling
+Search retains its rows and dirty intent but also keeps their effective due time
+empty and blocks admission:
 
 ```sh
 allbert admin settings set search.enabled false

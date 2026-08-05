@@ -6,6 +6,7 @@ defmodule Mix.Tasks.Allbert.JobsTest do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Jobs
   alias AllbertAssist.Jobs.Job
+  alias AllbertAssist.Jobs.Managed
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
   alias AllbertAssist.Repo
@@ -142,6 +143,24 @@ defmodule Mix.Tasks.Allbert.JobsTest do
 
     assert runs_output =~ "trigger=manual"
     assert runs_output =~ "status=completed"
+  end
+
+  test "shows no next due time after a paused managed job receives a dirty kick" do
+    assert {:ok, _results} = Managed.reconcile("local")
+    search = Enum.find(Jobs.list_jobs("local", limit: 100), &(&1.name == "search-index"))
+    assert {:ok, paused} = Jobs.pause_job(search)
+
+    assert {:ok, %{status: "paused", due_at: nil, dirty_seq: 1}} =
+             Managed.kick("search-index", "local")
+
+    show_output =
+      capture_io(fn ->
+        assert :ok = JobsTask.run(["show", paused.id])
+      end)
+
+    assert show_output =~ "Status: paused"
+    assert show_output =~ "Next due: none"
+    assert show_output =~ ~s("dirty_seq" => 1)
   end
 
   test "lists templates and creates registered-action template jobs" do

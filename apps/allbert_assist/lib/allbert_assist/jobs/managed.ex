@@ -307,13 +307,7 @@ defmodule AllbertAssist.Jobs.Managed do
     dirty_seq = metadata_integer(metadata, "dirty_seq") + 1
     metadata = Map.put(metadata, "dirty_seq", dirty_seq)
     enabled? = metadata_value(metadata, "feature_enabled") == true
-
-    due_at =
-      if enabled? do
-        earliest_due(job.next_due_at, kick_due_at())
-      else
-        job.next_due_at
-      end
+    due_at = effective_due(job, enabled?, metadata)
 
     job
     |> Job.changeset(%{metadata: metadata, next_due_at: due_at})

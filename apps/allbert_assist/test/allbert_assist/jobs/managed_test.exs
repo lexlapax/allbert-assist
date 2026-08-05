@@ -168,9 +168,23 @@ defmodule AllbertAssist.Jobs.ManagedTest do
     assert {:ok, first_kick} = Managed.kick("search-index", "local")
     assert first_kick.status == "paused"
     assert first_kick.dirty_seq == 1
+    assert first_kick.due_at == nil
     assert [] = Jobs.list_runs(paused)
 
-    assert {:ok, resumed} = Jobs.resume_job(paused)
+    assert {:ok, persisted_paused} = Jobs.get_job(paused.id)
+    assert persisted_paused.status == "paused"
+    assert persisted_paused.next_due_at == nil
+    assert persisted_paused.metadata["dirty_seq"] == 1
+
+    assert {:ok, %{outcome: :current}} =
+             Managed.reconcile_identity("search-index", "local")
+
+    assert {:ok, reconciled_paused} = Jobs.get_job(paused.id)
+    assert reconciled_paused.status == "paused"
+    assert reconciled_paused.next_due_at == nil
+    assert reconciled_paused.metadata["dirty_seq"] == 1
+
+    assert {:ok, resumed} = Jobs.resume_job(reconciled_paused)
     assert resumed.status == "active"
     assert %DateTime{} = resumed.next_due_at
 
@@ -203,6 +217,27 @@ defmodule AllbertAssist.Jobs.ManagedTest do
     assert after_completion.metadata["dirty_seq"] == 2
     assert after_completion.metadata["clean_dirty_seq"] == 0
     assert %DateTime{} = after_completion.next_due_at
+  end
+
+  test "every paused managed identity keeps dirty intent with no effective due" do
+    assert {:ok, _results} = Managed.reconcile("local")
+
+    Enum.each(managed_names(), fn identity ->
+      job = managed_job(identity)
+      assert {:ok, paused} = Jobs.pause_job(job)
+      assert {:ok, kicked} = Managed.kick(identity, "local")
+      assert kicked.status == "paused"
+      assert kicked.dirty_seq == 1
+      assert kicked.due_at == nil
+
+      assert {:ok, %{outcome: :current}} = Managed.reconcile_identity(identity, "local")
+      assert {:ok, persisted} = Jobs.get_job(paused.id)
+      assert persisted.status == "paused"
+      assert persisted.next_due_at == nil
+      assert persisted.metadata["dirty_seq"] == 1
+      assert persisted.metadata["clean_dirty_seq"] == 0
+      assert Jobs.list_runs(persisted) == []
+    end)
   end
 
   test "disabled managed feature retains dirty intent and rejects ordinary admission" do
