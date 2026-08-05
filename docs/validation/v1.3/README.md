@@ -972,5 +972,7 @@ and Search `63.581/66.854 ms`, plus Linux x64 Memory `39.245/42.415 ms` and
 Search `47.837/51.449 ms` (p95/p99). They bind the full SHA and matching target
 archive separately. PV-0 through PV-8 and focused packaged StockSage acceptance
 remain inherited without relabelling because M9.b.18 changed only generated
-test inventory. The exact-SHA K6 checkout is prepared; structure,
-`release.v13`, and authoritative `release` remain before promotion.
+test inventory. Exact-SHA K6 structure passed with evidence SHA-256
+`43eae2c821e6580ffb43cff22010a0dcf038508186af3508835c6f082acc00e4`.
+The single `release.v13` is running; authoritative `release` remains
+conditional on 32/32 before promotion.
