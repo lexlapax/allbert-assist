@@ -12,22 +12,19 @@ changelog entries or release notes.
 
 ## v1.3.0 - Long-Term Memory And Search Central
 
-Status: **implemented, not operator- or release-accepted.** The Memory/Search
-source implementation and portability remediation are complete. Adaptive
-fan-out M9.b.4.3/M9.b.5.3 phase separation is executable at `c3baec24`; its
-focused/static checks and independent audit are green. No aggregate, package,
-or operator-validation run is claimed for that checkpoint. Fresh real-provider
-focused `FOV-*` qualification, full source validation (`SV-*`), final cumulative
-rejoin, one same-SHA three-target artifact generation, packaged operator
-validation, protected publication, and tap closeout remain release barriers.
-This entry must not be read as a shipped-version claim until those barriers
-pass and the final tag, digests, and release identity are filled.
-
-**Formula state: PRE-PUBLICATION ONLY.** The packaged Latest 1.2.6 remains in
-the repository formula during candidate qualification. At publish, the tap is
-filled 1.2.6 → 1.3.0 with the accepted native checksums; that filled formula is
-synced back into the repository before closeout. This temporary lag is not a
-shipped 1.3.0 formula claim.
+Status: **shipped 2026-08-05.** Immutable release `365684798` contains the exact
+18 qualified, checksum-bound, cosign-verified assets. Annotated tag object
+`075b467bf6d29722cfbe5e09380a5c3537982fb0` peels to accepted source SHA
+`bc584c295f74700de485530ecdc70fe5792e6421`. Attended FOV/SV, the one same-SHA
+three-target generation, PV-0 through PV-8, separate packaged Memory/Search
+latency rows, `release.v13`, and the authoritative 12-phase release gate passed.
+The official Homebrew tap at `715d4d51f90ce58e4b9f60a91976dabff858e6ad`
+passed strict audit, install, formula test, version, license, and packaged native
+library checks. GitHub's Actions token could not read the repository-admin
+immutable-release setting (HTTP 403); after the protected workflow revalidated
+all bindings and produced the complete signed asset set, the already-authorized
+operator credential performed only the final publish PATCH. No tag, asset, or
+source byte changed.
 
 - One typed `Conversations.Corpus` boundary now supplies independently
   authorized conversation truth to Memory and Search without creating another
@@ -50,20 +47,19 @@ shipped 1.3.0 formula claim.
   admission. Exact counted protocols converge on the same durable plan;
   ordinary actions and bounded DirectAnswer Jido workers share one Worker
   Interface, and confirmation resume packets are durably bound before approval
-  or recovery. Closed Settings routes separate `fanout_manager`,
-  `fanout_review`, and `fanout_synthesis` while child draft/revision remains on
-  `direct_answer`; unavailable role readiness keeps the turn on ordinary
-  single-answer handling before durable framing. Worker and composer each use
-  a phase-separated three-call acceptance or six-call revision path: one
-  generation, two disjoint private Jido critics, at most one revision, and two
-  fresh critics. The final child freezes one durable, digest-bound report input
-  and queues central composition. The verified model may supply only the joined
-  advisory paragraph and versioned relationship grouping/order; deterministic
+  or recovery. Closed Settings routes `fanout_manager` and `fanout_synthesis`;
+  unavailable role readiness keeps the turn on ordinary single-answer handling
+  before durable framing. Each healthy child makes exactly one generation call,
+  and the composer makes exactly one synthesis call or stores the deterministic
+  complete-child renderer. Budget v3, same-endpoint serialization, and gate-owned
+  attempt accounting bind those limits. The shipped content bar is parity with
+  a frozen single-turn control rather than critic-based absolute correctness;
+  answering-head qualification is carried by v1.3.1. The final child freezes one
+  durable, digest-bound report input and queues central composition. Deterministic
   rendering still owns status, identity, ordering, effect-receipt truth,
-  appendix, byte bounds, and fallback. Content-free phase/configuration digests
-  and exact call arithmetic bind the stored selection before delivery becomes
-  pending, while TUI bus-restart recovery re-subscribes and reconciles that
-  durable state without replaying an uncertain provider call.
+  appendix, byte bounds, and fallback, while TUI bus-restart recovery
+  re-subscribes and reconciles durable state without replaying an uncertain
+  provider call.
 - DirectAnswer now uses its own qualified local task profile
   (`direct_answer_local` / external Ollama `qwen2.5:7b`) while the global
   `local` starter remains `llama3.2:3b`. The purpose-owned, operator-ordered

@@ -33,14 +33,13 @@ sequenced one per minor, foundational-first:
   fallback enablers all reached accepted stable binary lines. Shipped history
   and exact evidence live in the roadmap, CHANGELOG, and archived release
   plans; this inventory keeps only unplanned remainder.
-- **1.2.5 — Foundational Binary Enablers** (planned in the active v1.3
-  release-line plan): packaged best-effort known-component licensing/viewer and
-  the daemon-backed TUI / thin terminal client, each with its own milestones.
-- **1.3 — Long-Term User Memory + Search Central.** Memory remains the
-  flagship; Search is the independent central conversation-history engine/API.
-  M1 calibrates fixtures, quality floors, and budgets rather than reopening the
-  architecture. Free-form provider URLs and bind hardening stay on this horizon
-  as tagged.
+- **1.2.6 — SHIPPED.** Foundational binary enablers: packaged best-effort
+  known-component licensing/viewer and the daemon-backed TUI / thin terminal
+  client.
+- **1.3 — SHIPPED.** Long-Term User Memory and the independent Search Central
+  conversation-history engine/API. Shipped history lives in the roadmap,
+  CHANGELOG, and archived v1.3 plan/request flow; only explicit unplanned
+  remainders remain below.
 - **1.4 — Adaptive Usage Profiling** (stages a/b/c; per-role model profiles and
   proactive notifications ride here; consumes 1.3's memory substrate).
 - **1.5 / 1.6 — the remaining confirmed enablers**, sliced by need: the
@@ -573,11 +572,6 @@ Deferred at: `v0.26-plan:2079`.
 
 ## Models & Memory
 
-### Long-Term User Memory (Periodic Consolidation, Prompt-Time Context)
-
-Planned — `docs/plans/v1.3-plan.md` + ADR 0089. Remove from this backlog at the
-v1.3.0 tag per the lifecycle rule.
-
 ### Knowledge Central (LLM Wiki)
 
 Planned — `docs/plans/v1.7-plan.md` (Stage 1, page graph over claims) and
@@ -618,16 +612,22 @@ deterministic, projection-backed route; this one remains the learned/model-train
 route and stays parked. Absorbing this slot is the recorded fallback if the
 release ladder later needs compression.
 
-### Cross-Thread / Cross-App Memory Retrieval
+### Automatic Cross-App Prompt Mixing
 
-Planned — `docs/plans/v1.3-plan.md` Search Central milestones + ADR 0092.
-Remove at the v1.3.0 tag. Still parked: automatic cross-app prompt mixing.
+Class: Could (reparked from the operator-confirmed v1.3 remainder) · Effort: M
 
-### Conversation History Full-Text Search
+Status: parked. v1.3 shipped explicit, independently authorized cross-thread
+and cross-surface Search; it deliberately did not mix other apps' history into
+prompt context automatically.
 
-Planned — `docs/plans/v1.3-plan.md` Search Central milestones + ADR 0092.
-Remove at the v1.3.0 tag. Still parked: fuzzy/vector retrieval, Search-to-Memory
-promotion, automatic canonical-history retention.
+### Semantic Search, Search-to-Memory Promotion, And Automatic Retention
+
+Class: Could (reparked from the operator-confirmed v1.3 remainder) · Effort: L
+
+Status: parked. v1.3 shipped lexical conversation FTS with Search and Memory as
+separate consumers and consent domains. Fuzzy/vector retrieval,
+Search-to-Memory promotion, and automatic canonical-history retention remain
+outside the shipped contract.
 
 ### Post-v0.48 Media Follow-Ons
 

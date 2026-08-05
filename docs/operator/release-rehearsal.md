@@ -111,7 +111,7 @@ pushed SHA, the operator builds macOS arm64 locally, Linux x64 on the native
 `serenity` host, and Linux arm64 in the pinned native-architecture Docker
 container. The existing thin helper performs production assembly, license
 finalization, and target smoke; it emits four files per target. The active
-[v1.3 request flow §K5](../plans/v1.3-request-flow.md#k5-v13-pre-publication-candidate-construction)
+[v1.3 request flow §K5](../plans/archives/v1.3-request-flow.md#k5-v13-pre-publication-candidate-construction)
 contains the exact paste-executable commands and pins.
 
 The operator then creates one draft release/provisional annotated tag, stages

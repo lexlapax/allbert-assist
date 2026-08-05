@@ -12,11 +12,14 @@ purpose. Its shipped local recommendation is `direct_answer_local` /
 `qwen2.5:7b` at deterministic temperature `0`; this does not replace the
 cross-platform `local` / `llama3.2:3b` first-model default.
 
-Amended by v1.3 M9.b.4.3/M9.b.5.3 (implemented at `c3baec24`): the
+Amended by v1.3 M9.b.4.3/M9.b.5.3 (implemented at `c3baec24`, superseded before
+release by M9.b.6): the
 operator matrix and doctor add distinct `fanout_manager`, `fanout_review`, and
-`fanout_synthesis` purpose rows. These rows expose Settings-owned task-route
-selection and readiness; they do not independently choose a new default,
-qualify a model, grant hosted egress, or make a recommendation authoritative.
+`fanout_synthesis` purpose rows. M9.b.6 removed the unshipped critic layer and
+`fanout_review` row. The shipped manager and synthesis rows expose
+Settings-owned task-route selection and readiness; they do not independently
+choose a new default, qualify a model, grant hosted egress, or make a
+recommendation authoritative.
 
 ## Context
 

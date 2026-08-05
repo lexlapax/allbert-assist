@@ -207,7 +207,7 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
 7. **1.2.6 — Foundational Binary Enablers.** (**SHIPPED 2026-07-29:** annotated
    tag `v1.2.6` at `f457b1fe`; source workflow `30491295028`; protected
    promotion `30492163551`; tap `7ce955c`; dedicated milestones M0.a1–M0.c3 in
-   `docs/plans/v1.3-plan.md` + request-flow, ADR 0076 amendment, and ADR 0091.)
+   `docs/plans/archives/v1.3-plan.md` + request-flow, ADR 0076 amendment, and ADR 0091.)
    This binary point release lands two independent foundations before v1.3
    schema work begins: a small deterministic final-artifact license generator
    with packaged notices/manifests and an offline `allbert licenses` viewer;
@@ -236,10 +236,10 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    TUI input-receipt gate that stops ambiguous reconnects from double-executing,
    then reused by every v1.3 Memory/Search/delete domain. Web asset digests are
    cleaned and rebuilt so no historical file survives into an artifact.
-8. **1.3 — Long-Term User Memory + Search Central.** (**Release candidate —
-   implementation complete; final implementation readiness approved 2026-07-28
-   after five passes; cumulative/artifact/publication closeout in progress:**
-   `docs/plans/v1.3-plan.md` + request-flow + amended ADR 0002 and ADR 0089 +
+8. **1.3 — Long-Term User Memory + Search Central.** (**SHIPPED 2026-08-05:**
+   immutable v1.3.0 release `365684798`; annotated tag object `075b467b` peels
+   to accepted source `bc584c29`; official Homebrew tap `715d4d5`; archived
+   `docs/plans/archives/v1.3-plan.md` + request-flow + amended ADR 0002 and ADR 0089 +
    new ADR 0092 and ADR 0093, milestones M1–M9.b.
    **Build started after v1.2.6 binary closeout.**) Long-Term User Memory
    remains the flagship: verified operator-authored conversation turns can
@@ -293,8 +293,8 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    cross-app prompt mixing.
 8b. **1.3.1 — Answering-Head Qualification.** (**Planned — triad ready
    2026-08-02:** `docs/plans/v1.3.1-plan.md` + request-flow + ADR 0097
-   (answering-head qualification bar). **Build starts after v1.3
-   closeout.**) Carries v1.3 M9.b.8, deferred by operator decision after
+   (answering-head qualification bar). **v1.3 predecessor cleared.**) Carries
+   v1.3 M9.b.8, deferred by operator decision after
    attended validation recorded two independent failures of the shipped
    answering head — a factual error (`rest_for_one` described as
    `one_for_one`, where `mistral-small3.1:24b` is wrong the same way and
@@ -314,8 +314,8 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
 9. **1.4 — Adaptive Usage Profiling.** (**Planned — triad ready
    2026-07-24:** `docs/plans/v1.4-plan.md` + request-flow + ADR 0090
    (profiling + confirmed customization) + ADR 0084 amendment
-   (`:suggestion` kind, quiet hours, rate limit). **Build starts after
-   v1.3 closeout.**) System usage memory + distill/suggest jobs +
+   (`:suggestion` kind, quiet hours, rate limit). **v1.3 predecessor cleared.**)
+   System usage memory + distill/suggest jobs +
    one-click CONFIRMED customizations (allowlisted, safety-floor-pinned)
    + effectiveness feedback. Per-role model profiles and proactive
    suggestion notifications ride here — and, by operator decision

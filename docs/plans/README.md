@@ -7,15 +7,11 @@ plan and request-flow documents.
 ## Current And Next
 
 - [Roadmap](roadmap.md)
-- [v1.2.6 foundational enablers -> v1.3 long-term memory and Search Central
-  plan](v1.3-plan.md) and [request flow](v1.3-request-flow.md) (operator-approved
-  final implementation readiness; v1.2.6 shipped and the v1.3 release candidate
-  is in aggregate/artifact closeout)
 - [v1.3.1 answering-head qualification plan](v1.3.1-plan.md) and
-  [request flow](v1.3.1-request-flow.md) (planned; build after v1.3 closeout —
+  [request flow](v1.3.1-request-flow.md) (planned; v1.3 predecessor cleared —
   carries v1.3 M9.b.8, deferred by operator decision 2026-08-02)
 - [v1.4 adaptive usage profiling plan](v1.4-plan.md) and
-  [request flow](v1.4-request-flow.md) (planned; build after v1.3 closeout)
+  [request flow](v1.4-request-flow.md) (planned; v1.3 predecessor cleared)
 - [v1.5 spine enablers plan](v1.5-plan.md) and
   [request flow](v1.5-request-flow.md) (planned; readiness passes not yet run)
 - [v1.6 connectivity enablers plan](v1.6-plan.md) and
@@ -31,7 +27,7 @@ plan and request-flow documents.
 
 ## Archives
 
-Every released version's plan/request-flow pair (v0.01 through v1.2.0, plus the
+Every released version's plan/request-flow pair (v0.01 through v1.3.0, plus the
 v1.0 handoff) lives in [archives/](archives/). They are shipped-history working records:
 search them for provenance and past decisions; the roadmap and CHANGELOG are the
 authoritative summaries.
@@ -40,6 +36,8 @@ authoritative summaries.
   [request flow](archives/v1.1-request-flow.md)
 - [v1.2 zero-click first run shipped plan](archives/v1.2-plan.md) and
   [request flow](archives/v1.2-request-flow.md)
+- [v1.3 long-term memory and Search Central shipped plan](archives/v1.3-plan.md)
+  and [request flow](archives/v1.3-request-flow.md)
 
 ## Conventions
 

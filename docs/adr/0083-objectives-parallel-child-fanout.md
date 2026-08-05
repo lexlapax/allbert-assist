@@ -41,8 +41,9 @@ accept the bounded semantic-quality and advisory-synthesis refinements in the
 amendment below; their executable evidence remains tracked by the active v1.3
 plan rather than inferred from the earlier commits. M9.b.4.3/M9.b.5.3 commit
 `c3baec24` supersedes the combined Worker review/revision and synthesis self-
-review new-write paths with the phase-separated protocol recorded below.
-Historical durable carriers keep only their explicit replay compatibility.
+review new-write paths with the phase-separated protocol recorded below. M9.b.6
+then removed that topology while unreleased and shipped the one-attempt contract
+in A24. Historical durable carriers keep only their explicit replay compatibility.
 
 ## Context
 

@@ -17,15 +17,15 @@ presentation, durable direct/shared/unknown transport-scope proof, exact
 confirmation/resubmit behavior, and cross-consumer security rows focused-gate
 green. M9 added the loaded-Exqlite packaged capability smoke and an executable
 25,000-message/250-thread/300-query latency harness. Final replacement
-release-candidate generation `v13-20260805T105239Z-b0130c3a2438` ran the
-capability smoke from all three native archives. The four clean packaged
-latency cells are recorded separately in
-`docs/validation/test-metrics/summary.md`: macOS arm64 Search p95/p99
-`63.581/66.854 ms`, Linux x64 Search `47.837/51.449 ms`, macOS arm64 Memory
-`53.464/55.244 ms`, and Linux x64 Memory `39.245/42.415 ms`. Every row binds
-full source SHA `b0130c3a243864814c4d4b6abcbfb67414c67c99` and its target archive
-digest; no source-tree probe, superseded provisional package, or cross-host
-average is substituted.
+published generation `v13-20260805T170225Z-bc584c295f74` ran the capability
+smoke from all three native archives. The four clean packaged latency cells are
+recorded separately in `docs/validation/test-metrics/summary.md`: macOS arm64
+Search p95/p99 `64.013/67.064 ms`, Linux x64 Search `48.192/52.278 ms`, macOS
+arm64 Memory `52.860/55.265 ms`, and Linux x64 Memory `38.271/38.775 ms`. Every
+row binds full accepted source SHA
+`bc584c295f74700de485530ecdc70fe5792e6421` and its target archive digest; no
+source-tree probe, superseded provisional package, or cross-host average is
+substituted.
 
 This ADR supersedes ADR 0089 §6's conditional external-content FTS design.
 Search ships as a central read product and point milestone without becoming a

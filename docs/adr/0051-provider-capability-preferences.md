@@ -18,13 +18,16 @@ an open list followed implicitly by the global primary. The shipped head is
 `llama3.2:3b`. This amendment is additive and task-specific; other task and
 capability resolver behavior is unchanged.
 
-v1.3 M9.b.4.3/M9.b.5.3 amendment (implemented at `c3baec24`): add distinct,
+v1.3 M9.b.4.3/M9.b.5.3 amendment (implemented at `c3baec24`, superseded before
+release by M9.b.6): added distinct,
 non-empty closed task chains for `fanout_manager`, `fanout_review`, and
-`fanout_synthesis`. Their additive shipped values reuse
+`fanout_synthesis`. Its manager and synthesis routes shipped and reuse
 `direct_answer_local`, but the roles remain independently resolved,
 disclosed, diagnosed, and operator-overridable. Selection configures a route;
 it is not model qualification, transport consent, permission, or effect
-authority.
+authority. M9.b.6 removed the unshipped critic layer and `fanout_review` chain;
+new writes make one provider attempt per healthy child and one synthesis
+attempt, with deterministic fallback.
 
 M1 closeout evidence:
 

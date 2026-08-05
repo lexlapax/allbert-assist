@@ -208,7 +208,7 @@ defmodule AllbertAssist.Security.V13SearchEvalTest do
   defp documented_v13_ids do
     request_flow =
       __DIR__
-      |> Path.join("../../../../docs/plans/v1.3-request-flow.md")
+      |> Path.join("../../../../docs/plans/archives/v1.3-request-flow.md")
       |> File.read!()
 
     [_, section] = String.split(request_flow, "### v1.3 rows", parts: 2)

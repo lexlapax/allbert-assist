@@ -4,7 +4,7 @@
 
 Accepted (v1.3 M9.b.1, 2026-07-30; operator-signed architecture and consent
 boundary). The architecture choices formerly named LD-R1–R5 are resolved by
-§8, ADR 0092, and the active v1.3 plan. M1 froze fixtures, quality floors,
+§8, ADR 0092, and the archived v1.3 plan. M1 froze fixtures, quality floors,
 budgets, and runtime evidence without reopening source, proposal,
 extraction-authority, retrieval, model-egress, temporal, or Search ownership
 decisions. M4 implemented grounded proposal/review authority, and M5 proved the

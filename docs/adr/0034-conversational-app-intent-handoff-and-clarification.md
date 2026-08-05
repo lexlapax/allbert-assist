@@ -28,6 +28,13 @@ qualified task profile (`direct_answer_local`) and deterministic sampling
 controls, while the global first-model profile remains independent. This is a
 task-quality boundary, not a new authority or model-judging subsystem.
 
+Final v1.3 M9.b.6 amendment (2026-08-02): the unshipped private critic layer
+was removed after bounded qualification RED. A healthy child now makes one
+DirectAnswer generation attempt, composition makes one synthesis attempt, and
+deterministic rules own acceptance and fallback. No model judges another model;
+answering-head correctness remains a separate qualification concern carried by
+v1.3.1.
+
 Third v1.3 M9.b.3 amendment (2026-07-31): Runtime's ADR 0083 Stage-0
 decomposition runs before `IntentAgent`, the two-stage intent router, and
 DirectAnswer. ADR 0083 therefore owns the supplied-text and explicit counted

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ARCHIVED v1.3 attended-validation script. Extracted from
-# docs/plans/v1.3-request-flow.md so the operator invoked one line
+# docs/plans/archives/v1.3-request-flow.md so the operator invoked one line
 # instead of pasting hundreds. The v1.3 FOV run it belongs to completed
 # and passed on 2026-08-02; this file is provenance, not a live fixture.
 #

@@ -975,7 +975,7 @@ The gate appends one `manager-and-composer` row recording the three resolved
 role bindings: profile, provider, model, effective-endpoint class and digest,
 and a role-domain-separated configuration digest. It records only result
 kinds/counts, closed join/layout and review enums, ordered coverage positions,
-generation and provider call counts, content-free configuration digests,
+generation and provider call counts, content-free configuration digests, and
 role-profile provenance, and its canonical fixture SHA-256. The decoded fixture
 is schema/digest-validated before disposable Home creation or migration.
 Focused public-orchestrator owner tests prove the row and its reduced phase
@@ -1574,7 +1574,7 @@ computes and records the v1 -> v1.2 -> v1.2.6 -> v1.3 exact-prefix chain without
 executing a gate. Do not serially rerun inherited versioned gates when structural
 equality is proved; retain the older gate as fallback when it is not.
 
-The active v1.3 plan names exact focused files and serial lanes per milestone.
+The archived v1.3 plan names exact focused files and serial lanes per milestone.
 License catalog/finalizer fixtures and TUI packet/state-machine tests are source
 gates; native archives, the toolchain-free packaged viewer, protected-promotion
 evidence, real PTY/TTY behavior, and installed daemon continuity are external
@@ -1582,12 +1582,12 @@ artifact rows. Corpus/Memory/Search/Jobs SQLite and application-state suites
 remain in their named DB/app-env/home/process lanes; security evaluations stay
 single-VM serial. Real local-model quality, configured messaging identities,
 E2EE disclosure, and packaged native SQLite behavior are explicit external/FV
-rows and never enter `fast-local`. For the v1.3 train, the active plan's
-operator-approved timing override applies: v1.2.5 and intermediate v1.3
-milestones run only their named focused/static/security/artifact rows, while
-`release.v13` and one authoritative aggregate run only at final M9.b on the
-same clean pushed SHA. Focused remediation does not repeatedly rebuild or rerun
-the aggregate.
+rows and never enter `fast-local`. For the shipped v1.3 train, the archived
+plan's operator-approved timing override applied: v1.2.6 and intermediate v1.3
+milestones ran only their named focused/static/security/artifact rows, while
+`release.v13` and one authoritative aggregate ran only at final M9.b on the same
+clean pushed SHA. Focused remediation did not repeatedly rebuild or rerun the
+aggregate.
 
 ## Migration Order
 

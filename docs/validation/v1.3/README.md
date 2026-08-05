@@ -1,7 +1,7 @@
 # v1.3 Memory — What A Human Drove, And What Rests On Tests
 
 v1.3 ships the full Memory surface by operator decision on 2026-08-03
-(`docs/plans/v1.3-plan.md`, M9.b.13). That decision came with an obligation: an
+(`docs/plans/archives/v1.3-plan.md`, M9.b.13). That decision came with an obligation: an
 operator reading the release evidence should be able to tell which parts of
 Memory a human actually exercised and which parts rest on unit coverage alone.
 This file is that disclosure. It is not a caveat buried in a plan.

@@ -327,16 +327,16 @@ write a backup refuses to migrate rather than proceeding unprotected.
 
 ---
 
-## 7. Where the current work lands — in flight, not shipped
+## 7. Where v1.2.6 and v1.3 landed
 
-The in-flight release train. The v1.2.5 thin-client and license seams are
-implemented but unreleased; promotion remains gated. The v1.3 memory/search
-subsystems remain planned. See the [v1.3 plan](../plans/v1.3-plan.md), ADR 0091,
-ADR 0092, and ADR 0093.
+Both stages are shipped: v1.2.6 delivered the thin client and packaged license
+seams, and v1.3.0 delivered Memory and Search Central. See the
+[archived v1.3 plan](../plans/archives/v1.3-plan.md), ADR 0091, ADR 0092, and
+ADR 0093.
 
 ```mermaid
 flowchart TB
-    subgraph V121["v1.2.5 — foundational binary"]
+    subgraph V121["v1.2.6 — foundational binary"]
         LIC["Packaged license inventory<br/>+ offline allbert licenses viewer"]
         THIN["Thin TUI client<br/>one daemon owns the runtime"]
         PROMO["Split build from publication<br/>protected promotion, no rebuild"]
@@ -359,8 +359,8 @@ flowchart TB
     DEL -.stales.-> PROP
     SEARCH -.->|never| CLAIMS
 
-    classDef planned stroke-dasharray: 5 5,fill:#3a3a2a,stroke:#a0a060,color:#fffce8
-    class LIC,THIN,PROMO,CORPUS,CLAIMS,PROP,SEARCH,DEL planned
+    classDef shipped fill:#243a2a,stroke:#60a070,color:#f0fff4
+    class LIC,THIN,PROMO,CORPUS,CLAIMS,PROP,SEARCH,DEL shipped
 ```
 
 The crossed-out edge is deliberate: Search never feeds Memory. Being able to

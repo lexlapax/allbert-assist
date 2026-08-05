@@ -192,10 +192,10 @@ ADR 0050 before changing dependencies.
 
 Fast local gates are not release evidence. Do not hand off a release milestone
 until the release gate is clean, unless an exact environment blocker is recorded
-and the user accepts the deferral. The active v1.3 plan carries an explicit
-operator timing override: v1.2.5 and intermediate v1.3 milestones use only
+and the user accepts the deferral. The archived v1.3 plan records its historical
+operator timing override: v1.2.6 and intermediate v1.3 milestones used only
 their named focused/static/security/artifact evidence, and aggregate release
-gates execute once at final v1.3 M9.b.
+gates executed once at final v1.3 M9.b.
 After v0.45.1, `mix precommit` is not release evidence; use
 `mix allbert.test release` or the active plan's version-specific release gate.
 

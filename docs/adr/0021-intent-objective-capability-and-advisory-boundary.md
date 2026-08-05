@@ -806,7 +806,7 @@ Status: accepted for v1.3 M9.b.4/M9.b.5 and implemented through the original
 M9.b.5 selected-report authority contract at `b7ea776d`. The M9.b.4.2/M9.b.5.2
 quality and synthesis refinements below are accepted for implementation;
 executable, operator, and release evidence remains governed by
-`docs/plans/v1.3-plan.md`.
+`docs/plans/archives/v1.3-plan.md`.
 
 The M9.b.4.2/M9.b.5.2 combined review-and-revise and synthesis-self-review
 descriptions in A22 are retained as implementation history. A23 supersedes
@@ -1173,7 +1173,7 @@ quality evidence never becomes effect evidence.
 ### A24. Advisory fan-out output is generated once and verified deterministically (v1.3 M9.b.6)
 
 Status: accepted for v1.3 M9.b.6; implementation and focused operator evidence
-remain release barriers in `docs/plans/v1.3-plan.md`. This amendment supersedes
+were governed by `docs/plans/archives/v1.3-plan.md`. This amendment supersedes
 A23 in full and restores A22's generation contract with an explicit call bound.
 
 The private criticism layer described in A23 is removed rather than tuned. Its
