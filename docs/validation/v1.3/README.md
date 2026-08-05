@@ -516,6 +516,19 @@ has SHA-256
 step duration totals 2,331,579 ms. The one authoritative aggregate is now the
 only remaining gate before explicit promotion approval.
 
+The one authoritative aggregate then stopped after 92,000 ms in
+`high_coverage_fast_local`. Hex audit, forced warnings-as-errors compile,
+unused-dependency validation, formatter, strict Credo, and every parallel
+non-core suite passed. Core ran 387 tests and had one failure at seed `785475`:
+the unavailable-ReqLLM ReportComposer row did not observe its deterministic
+fallback selection within the test helper's 500 ms polling window. Evidence
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-16578/home/release_evidence/gates/release-2026-08-05T00_52_51Z.json`
+has SHA-256
+`5d53e5d5487b8d113e4ff7ad2685f61e8b62c825cba35299fcfceb997699afb5`.
+No later aggregate phase ran. The owner row/seed, repeated row, full owner file,
+and directly related owners are the bounded diagnostic scope; no aggregate runs
+per remediation. Promotion remains prohibited.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
