@@ -1004,3 +1004,33 @@ with partition counts `219/218/218/218`. Test compile, formatter, docs, and
 diff hygiene pass. The test-only commit still requires whole-candidate
 replacement and one K6 rejoin before promotion; accepted operator rows remain
 inherited without relabelling.
+
+The complete replacement is now bound to clean pushed SHA
+`bc584c295f74700de485530ecdc70fe5792e6421`, generation
+`v13-20260805T170225Z-bc584c295f74`, annotated tag object
+`075b467bf6d29722cfbe5e09380a5c3537982fb0`, and unpublished mutable draft
+`365684798`.
+
+| Replacement row | Redacted outcome |
+| --- | --- |
+| macOS arm64 | PASS — archive SHA-256 `dacefc550c990517d4925b123b85859709f3d53206d18cc8c1389db662e78561` |
+| Linux x64 | PASS — archive SHA-256 `18c15355c81c7375588e5df6ccbd5116b176fb9f9a0cf33ffa8b021585a143d0` |
+| Linux arm64 | PASS — archive SHA-256 `c9744660d6d788d98a7821e571f6943cbc065259876eb20a1b2a081f659be74a` |
+| Homebrew/package | PASS — exact-archive reinstall/test, `120` license components, installed-tree equality, sealed OpenSSL/Exqlite equality |
+| staging | PASS — exactly `13` assets; manifest asset `502886188`, SHA-256 `ae70e1544b069f87ab7f57fac64616669f48ee9f1bb66b60a94c0719cd5ba574` |
+| no-build qualification | PASS — run `31029026086`; three target jobs and joined evidence; promotion skipped |
+| qualification artifact | `8939889679`; API/ZIP SHA-256 `1f2eb36186b8d3705e1f84c46fb8c892e7031a23c9e0b37f06708dd0043416f1`; manifest SHA-256 `e7c5bb00998ce2dfbd8137718f0fa6b5da380d70f053d77bb8cd03e2c74e8e9b` |
+
+The qualification manifest binds the exact tag, SHA, generation, release,
+candidate-manifest asset/digest, and all three archives. PV-0 through PV-8 and
+focused packaged StockSage acceptance remain inherited without relabelling:
+M9.b.19 changed test isolation only. Four packaged latency cells and the one
+fresh isolated K6 sequence remain pending. The draft is not published.
+
+The four packaged-latency cells then passed and were ingested independently:
+macOS arm64 Memory p95/p99 `52.860/55.265 ms`, macOS Search
+`64.013/67.064 ms`, Serenity Linux x64 Memory `38.271/38.775 ms`, and Linux
+x64 Search `48.192/52.278 ms`. All four rows are clean and bind exact candidate
+SHA `bc584c295f74700de485530ecdc70fe5792e6421` plus their matching archive
+digest. No host or consumer is averaged away. The isolated K6 sequence remains
+pending and the draft is not published.
