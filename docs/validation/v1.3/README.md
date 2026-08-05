@@ -901,3 +901,33 @@ rejection. Test/development warnings-as-errors compiles, whole formatter,
 scoped strict Credo, docs, and diff hygiene pass. No aggregate ran. Candidate
 `868f354ce` remains invalidated and unpublished; whole-generation replacement,
 focused packaged StockSage acceptance, and the single final K6 rejoin remain.
+
+The whole-generation replacement is now bound to executable SHA
+`93a4430529625de8532372a7221cc8ee97d6ff84`, generation
+`v13-20260805T094304Z-93a443052962`, and unpublished mutable draft `365422524`.
+
+| Replacement row | Redacted outcome |
+| --- | --- |
+| macOS arm64 | PASS — archive SHA-256 `77adea0f0d738f98846f3b279e76ed727b458bd3b727687c552d37a7fba6e2d5` |
+| Linux x64 | PASS — archive SHA-256 `c4334dbcebf1d71517e7c93e85ed5b0a977b76274aaf909489b8b81d9ac85b15` |
+| Linux arm64 | PASS — archive SHA-256 `9613e6c3b55f2e24351795a6669b6ff36e7ff500fac4af48e282bd007dad56ef` |
+| Homebrew/package | PASS — fresh exact-archive reinstall/test, `120` license components, installed-tree equality, sealed OpenSSL/Exqlite payloads |
+| focused StockSage | PASS — both active-app positives executed `list_analyses`; default-app, supplied-text, and explanatory negatives did not |
+| staging | PASS — exactly `13` assets; manifest asset `502460833`, digest `9b975e74f96fa9359a4b182102998b92188664a8b22c5a5661fb87aa517a28ed` |
+| no-build qualification | PASS — run `30995436249`; all three targets and joined evidence; promotion skipped |
+| qualification artifact | `8925969336`; API/ZIP digest `1259902705431d73cf4f2649221ea2faf4b139803c6c33c3374c1de5f0a1a445`; manifest SHA-256 `6ed175034f7dbc89e9d2b978039776b82c57c9abfd48d48542996261a530c635` |
+
+The focused check initially asserted obsolete human-facing empty-state prose;
+the captured positive outputs already contained the correct completed action
+receipts. Its corrected acceptance binds those stable receipts. One retry was
+environment-only RED because the sandbox denied the temporary attach socket
+and HTTP listener with `:eperm`; the normal installed-package run passed and
+cleaned its daemon. Neither event changed product bytes or invalidated an
+accepted operator row. The single final isolated K6 rejoin remains pending;
+the draft is not published.
+
+The four packaged cells subsequently passed and were ingested without host or
+consumer averaging: macOS arm64 Memory `47.836/50.009 ms` and Search
+`61.173/64.634 ms`, plus Linux x64 Memory `38.355/39.108 ms` and Search
+`47.773/51.629 ms` (p95/p99). All four rows bind the full replacement SHA and
+the matching archive digest. K6 is the sole remaining pre-promotion gate.
