@@ -210,17 +210,17 @@ and no target was retained:
 
 | Binding | Exact value |
 | --- | --- |
-| source SHA | `99d261b6cbf6e301ca202c8bc46e88bbd76896c2` |
-| annotated tag object | `fdc9e8a5d3ecab631c48e21a6ead27706d662d42` — peels to the source SHA |
-| candidate generation | `v13-20260805T044620Z-99d261b6cbf6` |
-| macOS arm64 archive SHA-256 | `c3a200b58d374372c5730c440183c5e706e53e810c611622ec8a6a71949f584a` |
-| Linux x64 archive SHA-256 | `1704d28004168a72173e85393f141f89bdc995926417ddecd19cd1f09eb761e8` |
-| Linux arm64 archive SHA-256 | `2d94e616e46a17acad36477f5a15ec8ea5de70989da40628cb02f9697d9955dd` |
-| unpublished draft release | `365291805` — 13 assets, `draft: true`, `immutable: false`, `published_at: null` |
-| candidate manifest | asset `502189477`, digest `21f245b4d27e283159ab303fbe129b05007711f2b8f7908f789f8ad6cbd21bfc` |
-| no-build qualification | run `30976613463` — all three targets and joined evidence passed; promotion skipped |
-| qualification artifact | `8918501793`, API/ZIP digest `65b68aab887013ee2f4c6f732683ebdddfe8e23e4f055e1f08f3feaafa1c5a48` |
-| qualification manifest content | SHA-256 `dbe903ec081d016ea088823676857b56a714ca9ce1efc622c98d164291f9d920` |
+| source SHA | `e7ab6673e984d1bc32c8f136e8b5666081558e5c` |
+| annotated tag object | `cb8ac9e8dd02aeecbc51542268156b1b409adb66` — peels to the source SHA |
+| candidate generation | `v13-20260805T061754Z-e7ab6673e984` |
+| macOS arm64 archive SHA-256 | `80fb7f3d3d4b24a4ca6d00ca43697b43730c80fa56a547f997a82be7e80a8bb7` |
+| Linux x64 archive SHA-256 | `da2565df128079bf86b3f78188f92e91fa402b4b1ae68306c0c353955dadbbea` |
+| Linux arm64 archive SHA-256 | `871bc15790a63660959611cf2bf711a44ab030c6e58f8c6af6d1150f827098b7` |
+| unpublished draft release | `365320940` — 13 assets, `draft: true`, `immutable: false`, `published_at: null` |
+| candidate manifest | asset `502268147`, digest `593ee66ad437e2c1141f77f394e13bc10424e3a63002fe1759e342363fac8cbc` |
+| no-build qualification | run `30981569633` — all three targets and joined evidence passed; promotion skipped |
+| qualification artifact | `8920371702`, API/ZIP digest `261bdc2cdb3d8bd2b0b44bf3bc568d9126fca7802889806037db24c60385a930` |
+| qualification manifest content | SHA-256 `c8e9030240efc830b1f41f22a12cb589f0fe5938973ef6140fed85809f20dfed` |
 
 Each native builder passed its SHA/generation/toolchain, package, sealed-license,
 and runtime smoke. Both Linux outputs came from native architecture execution
@@ -228,9 +228,12 @@ of the same pinned Debian multi-architecture image digest. Homebrew installed
 the actual macOS candidate under `umask 077`; `brew test`, packaged
 `allbert licenses --json`, all sealed evidence `0644`/`0755` modes, and exact
 archive-versus-install hashes for both relocation-managed Mach-O payloads
-passed. Retained evidence roots are `/tmp/allbert-v13-homebrew-99d.lLdisM`
-and `/tmp/allbert-v13-homebrew-archive-99d.k2fVKq`. This is the successful proof
-of M9.b.14; the draft remains unpublished.
+passed. Retained evidence roots are `/tmp/allbert-v13-homebrew-e7ab.sutVGX`
+and `/tmp/allbert-v13-homebrew-archive-e7ab.BZKPbb`. This is the successful proof
+of M9.b.14. Preserved OpenSSL and Exqlite SHA-256 values are respectively
+`643372e6478f280423b2f9536fa1523f1086f806309e9d98eca5ce11e22d3e18`
+and `8559739c2ba3e6970b421de7f09650017661e0a278b8653c012bd0ed847031e1`;
+the draft remains unpublished.
 
 ## Packaged native latency and ADR 0092
 
@@ -241,10 +244,10 @@ across host or consumer—and are ingested into
 
 | Host | Consumer | Frozen scale | p95 ms | p99 ms | Result |
 | --- | --- | --- | ---: | ---: | --- |
-| macOS arm64 | Memory | 10,000 claims / 200 measured queries | 47.728 | 49.851 | PASS |
-| macOS arm64 | Search | 25,000 messages / 250 threads / 300 measured queries | 61.699 | 64.602 | PASS |
-| Linux x64 | Memory | 10,000 claims / 200 measured queries | 39.408 | 40.119 | PASS |
-| Linux x64 | Search | 25,000 messages / 250 threads / 300 measured queries | 47.395 | 50.977 | PASS |
+| macOS arm64 | Memory | 10,000 claims / 200 measured queries | 47.605 | 51.842 | PASS |
+| macOS arm64 | Search | 25,000 messages / 250 threads / 300 measured queries | 61.509 | 63.384 | PASS |
+| Linux x64 | Memory | 10,000 claims / 200 measured queries | 39.268 | 42.141 | PASS |
+| Linux x64 | Search | 25,000 messages / 250 threads / 300 measured queries | 47.791 | 50.763 | PASS |
 
 Every row carries the full candidate SHA, its exact archive digest, a complete
 warm pass, the frozen threshold, clean provenance, and `status=passed`. Combined
@@ -252,10 +255,16 @@ with the loaded-Exqlite capability smoke in all three native packages, these
 rows satisfy ADR 0092's last flip condition. ADR 0092 is Accepted. Source-tree
 rehearsals and the prior mixed-SHA portability builds are not used as this
 evidence. Evidence-file SHA-256 values are
-`239a46142761a446267c45e8f4777c8397937066c839b31ef6a103642a60226b`
+`1a41fbe418352b53bd079ed0136daffa3bd4eb8ced49939c532f1f63ccf6e4f5`
 for macOS and
-`98d8d58bb6ac9f58a26766dd10ac4301a3f53d9eef153bdbedfd35965550976d`
+`9c113b3923860ed8e8067b60dcaa80281c59be153c739914c41a525c13810f76`
 for Linux.
+
+The first local macOS attempt reused a compiled Mix cache from an older
+checkout and therefore emitted one row self-identifying as `a302aae6`. It was
+stopped, deleted, and never ingested. The accepted rerun used the exact
+checkout-local build cache and both rows self-identify as the full candidate
+SHA above. This is a provenance check, not a relabelled benchmark.
 
 PV-0 through PV-8 were not repeated for this compatibility-metadata/test-
 fixture correction. Their accepted feature observations are inherited under
@@ -266,15 +275,15 @@ qualification, and all four packaged latency cells did rerun.
 ## Final K6 aggregate closeout
 
 Current K6 rejoin uses exact executable candidate SHA
-`99d261b6cbf6e301ca202c8bc46e88bbd76896c2`. Its fresh detached checkout
+`e7ab6673e984d1bc32c8f136e8b5666081558e5c`. Its fresh detached checkout
 passed structural-prefix proof with every comparison exact. Evidence
-`/tmp/allbert-v13-k6-99d.ghhtCM/home/release_evidence/v13/release-structure-v13.json`
+`/tmp/allbert-v13-k6-e7ab.AIhERQ/home/release_evidence/v13/release-structure-v13.json`
 has SHA-256
-`1a8803e3698f6b30427d3218f72452c539b6b6da6e3e4d8f0db5dc799b661562`.
-The single `release.v13` and one authoritative `release` run remain ordered
-next; promotion is prohibited. The entries below preserve earlier exact-SHA
-diagnostic runs and their remediations rather than presenting them as current
-acceptance evidence.
+`bcb34d974a2190a9f70c6e97fdb4bbf8d51d17c028e5fca601c21aa075858dd2`.
+The single `release.v13` is running; the one authoritative `release` remains
+blocked until it is 32/32. Promotion is prohibited. The entries below preserve
+earlier exact-SHA diagnostic runs and their remediations rather than presenting
+them as current acceptance evidence.
 
 The current `release.v13` completed diagnostic RED `31/32`; Dialyzer is the
 sole failed step, on two overly broad specs in
@@ -292,9 +301,11 @@ authoritative aggregate has not started and promotion remains prohibited.
 The superseded unpublished draft/tag were then discarded whole. Replacement
 exact clean pushed SHA `e7ab6673e984d1bc32c8f136e8b5666081558e5c`, annotated
 tag object `cb8ac9e8dd02aeecbc51542268156b1b409adb66`, generation
-`v13-20260805T061754Z-e7ab6673e984`, and empty draft `365320940` bind the new
-candidate. macOS arm64, native Linux x64, and native Linux arm64 builders are
-running concurrently; the draft remains unpublished/mutable and empty.
+`v13-20260805T061754Z-e7ab6673e984`, and draft `365320940` bind the new
+candidate. All three native builders, target smokes, restrictive-umask
+Homebrew/package proof, complete staging, no-build qualification, and four
+packaged-latency cells passed. The draft remains unpublished and mutable with
+exactly 13 assets.
 
 The isolated detached checkout at exact executable candidate SHA
 `2b9cb986fdb1ad7a9750b4b4b9e5c165e7f425bd` passed the structural-prefix
