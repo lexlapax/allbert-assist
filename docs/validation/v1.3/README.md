@@ -265,10 +265,14 @@ qualification, and all four packaged latency cells did rerun.
 
 ## Final K6 aggregate closeout
 
-Current K6 rejoin is pending at exact executable candidate SHA
-`99d261b6cbf6e301ca202c8bc46e88bbd76896c2`. Structure, the single
-`release.v13`, and the one authoritative `release` run remain ordered next;
-promotion is prohibited. The entries below preserve earlier exact-SHA
+Current K6 rejoin uses exact executable candidate SHA
+`99d261b6cbf6e301ca202c8bc46e88bbd76896c2`. Its fresh detached checkout
+passed structural-prefix proof with every comparison exact. Evidence
+`/tmp/allbert-v13-k6-99d.ghhtCM/home/release_evidence/v13/release-structure-v13.json`
+has SHA-256
+`1a8803e3698f6b30427d3218f72452c539b6b6da6e3e4d8f0db5dc799b661562`.
+The single `release.v13` and one authoritative `release` run remain ordered
+next; promotion is prohibited. The entries below preserve earlier exact-SHA
 diagnostic runs and their remediations rather than presenting them as current
 acceptance evidence.
 
