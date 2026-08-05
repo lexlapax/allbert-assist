@@ -7,9 +7,11 @@ Proposed (v1.3.1). Binding on `docs/plans/v1.3.1-plan.md` M1–M4 and
 
 Sourced from v1.3 M9.b.8, deferred by operator decision on 2026-08-02. v1.3.0
 ships the default answering head unchanged, discloses two recorded failure modes
-in `docs/operator/model-recommendations.md`, and documents
-`intent.direct_answer_model_profile` as the opt-in seam for selecting another
-head. This ADR decides what that opt-in is supposed to be selected *against*.
+in `docs/operator/model-recommendations.md`, and documents an opt-in seam for
+selecting another head. The live setting is
+`model_preferences.tasks.direct_answer`; `intent.direct_answer_model_profile`,
+which v1.3.0's disclosure names, is an accepted write-alias for it. v1.3.1
+guidance names the live key. This ADR decides what that opt-in is supposed to be selected *against*.
 
 Related: ADR 0021 (intent/objective capability and the advisory boundary,
 including its deliberate no-regex/no-domain-oracle constraint), ADR 0072
@@ -97,8 +99,16 @@ operator runs against a candidate answering head and reads as a pass rate.
    population-rate claim; later plans may version a larger corpus/budget.
 
 6. **Requests go through the production path.** Same DirectAnswer assembly, same
-   rule catalog, same `temperature: 0.0` and `max_retries: 0`. A bar with its own
-   prompt assembly measures a head Allbert does not ship.
+   rule catalog, same `temperature: 0.0`. A bar with its own prompt assembly
+   measures a head Allbert does not ship.
+
+   One deliberate pin: the bar sets `max_retries: 0`. Ordinary DirectAnswer
+   inherits Req's default of three retries and only fan-out children pin zero, so
+   this is a stated choice rather than a copy of the answering path. It does not
+   change what is measured — Req retries only transient transport and 5xx
+   conditions, never a successful response whose content is wrong — and it keeps
+   one scored trial equal to exactly one request, which the trial counts in
+   decision 5 depend on.
 
 7. **Failures are recorded as failures.** Provider unavailability, empty
    responses, and refusals score as fails and the run says so. There is no
