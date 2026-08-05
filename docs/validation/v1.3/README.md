@@ -602,6 +602,13 @@ has SHA-256
 All cumulative prefix comparisons were exact. `release.v13` and authoritative
 `release` remain; promotion is prohibited.
 
+The single final `release.v13` passed all 32 ordered steps. Evidence
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v13/p0-9539/home/release_evidence/v13/release-v13-1785896151.json`
+has SHA-256
+`5f15d83aa01231a37ca87108b3decde1d3297878a4436564bce3c28b5fd151ed`
+and `2,336,138 ms` total step duration. The authoritative `release` aggregate
+remains; promotion is prohibited.
+
 Four final packaged-latency rows passed and were ingested for exact source SHA
 `43859a9ea7f5773ae056208ebb8e687d21f7d91a`: macOS arm64 Memory
 `56.705/65.074 ms` and Search `67.139/70.929 ms`, plus Linux x64 Memory
