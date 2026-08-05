@@ -54,8 +54,10 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v12
       mix allbert.test release.v121
       mix allbert.test release.v13
+      mix allbert.test release.v131
       mix allbert.test release.structure v121 [--output PATH]
       mix allbert.test release.structure v13 [--output PATH]
+      mix allbert.test release.structure v131 [--output PATH]
       mix allbert.test release.v101
       mix allbert.test release.v102
       mix allbert.test release.v103
@@ -91,6 +93,7 @@ defmodule Mix.Tasks.Allbert.Test do
   alias AllbertAssist.DevGates.TestManifest
   alias AllbertAssist.DevGates.TestMetrics
   alias AllbertAssist.DevGates.V13FanoutEval
+  alias AllbertAssist.Objectives.CanonicalJSON
 
   @shortdoc "Run Allbert developer test gates"
 
@@ -198,8 +201,10 @@ defmodule Mix.Tasks.Allbert.Test do
   defp do_run(["release.v12"]), do: release_v12()
   defp do_run(["release.v121"]), do: release_v121()
   defp do_run(["release.v13"]), do: release_v13()
+  defp do_run(["release.v131"]), do: release_v131()
   defp do_run(["release.structure", "v121" | rest]), do: release_structure_v121(rest)
   defp do_run(["release.structure", "v13" | rest]), do: release_structure_v13(rest)
+  defp do_run(["release.structure", "v131" | rest]), do: release_structure_v131(rest)
   defp do_run(["release.v101"]), do: release_v101()
   defp do_run(["release.v102"]), do: release_v102()
   defp do_run(["release.v103"]), do: release_v103()
@@ -6892,6 +6897,191 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   end
 
+  # v1.3.1 M0.3 freezes a small corrective gate without mutating or nesting the
+  # accepted v1.3 gate. The digest is over the normalized public definitions,
+  # not source text, so harmless formatting changes do not create drift.
+  @release_v13_frozen_sha256 "e37893726e7192e3484f3a5fda19c8fcfaafd6168132280cceed49a5440f91f1"
+  @release_v131_target_allowlist [
+    "apps/allbert_assist/test/allbert_assist/memory/projection_test.exs",
+    "apps/allbert_assist/test/allbert_assist/memory/claim_writer_propagation_test.exs",
+    "apps/allbert_assist/test/allbert_assist/jobs/managed_test.exs",
+    "apps/allbert_assist/test/allbert_assist/jobs_test.exs",
+    "apps/allbert_assist/test/mix/tasks/allbert_jobs_test.exs",
+    "apps/allbert_assist/test/allbert_assist/dev_gates/v131_head_qualification_test.exs",
+    "apps/allbert_assist/test/allbert_assist/actions/intent/req_llm_answerer_test.exs",
+    "apps/allbert_assist/test/mix/tasks/allbert_test_task_test.exs",
+    "apps/allbert_assist_web/test/allbert_assist_web/version_consistency_test.exs",
+    "apps/allbert_assist/test/allbert_assist/install_path_test.exs"
+  ]
+  @release_v131_step_ids [
+    "v131_memory_owners",
+    "v131_jobs_owners",
+    "v131_qualification_owners",
+    "v131_topology_owner",
+    "v131_version_contract",
+    "v131_docs",
+    "v131_lane_inventory",
+    "v131_manifest_inventory"
+  ]
+  @release_v131_steps [
+    %{
+      id: "v131_memory_owners",
+      title: "v1.3.1 Memory full-build watermark contracts",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist/test/allbert_assist/memory/projection_test.exs",
+        "apps/allbert_assist/test/allbert_assist/memory/claim_writer_propagation_test.exs"
+      ],
+      coverage: ["truthful full-build metadata and bounded incremental refresh"]
+    },
+    %{
+      id: "v131_jobs_owners",
+      title: "v1.3.1 paused managed-job effective-due contracts",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist/test/allbert_assist/jobs/managed_test.exs",
+        "apps/allbert_assist/test/allbert_assist/jobs_test.exs",
+        "apps/allbert_assist/test/mix/tasks/allbert_jobs_test.exs"
+      ],
+      coverage: ["paused dirty intent remains due-less and resumes exactly once"]
+    },
+    %{
+      id: "v131_qualification_owners",
+      title: "v1.3.1 deterministic answering-head qualification contracts",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist/test/allbert_assist/dev_gates/v131_head_qualification_test.exs",
+        "apps/allbert_assist/test/allbert_assist/actions/intent/req_llm_answerer_test.exs"
+      ],
+      coverage: ["fixture, scorer, evidence, timeout, retry, and command contracts"]
+    },
+    %{
+      id: "v131_topology_owner",
+      title: "v1.3.1 release gate topology contracts",
+      cwd: :root,
+      executable: "mix",
+      args: ["test", "apps/allbert_assist/test/mix/tasks/allbert_test_task_test.exs"],
+      coverage: ["frozen v1.3 digest and closed eight-step v1.3.1 delta"]
+    },
+    %{
+      id: "v131_version_contract",
+      title: "v1.3.1 source version and package-lag contracts",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist_web/test/allbert_assist_web/version_consistency_test.exs",
+        "apps/allbert_assist/test/allbert_assist/install_path_test.exs"
+      ],
+      coverage: ["source-only version identity without packaged v1.3.0 drift"]
+    },
+    %{
+      id: "v131_docs",
+      title: "v1.3.1 documentation consistency",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "docs"],
+      coverage: ["operator, developer, ADR, plan, and index consistency"]
+    },
+    %{
+      id: "v131_lane_inventory",
+      title: "v1.3.1 test files retain one reconciled primary lane",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "inventory", "--check-tags"],
+      coverage: ["zero unclassified or double-counted test files"]
+    },
+    %{
+      id: "v131_manifest_inventory",
+      title: "v1.3.1 committed test manifest matches the live tree",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "inventory", "--check-manifest"],
+      coverage: ["test identities, primary lanes, tags, and multiplicities are lossless"]
+    }
+  ]
+
+  defp release_v131 do
+    proof = release_v131_structure_proof()
+
+    unless proof["status"] == "passed" do
+      Mix.raise("release.v131 structure proof is not green")
+    end
+
+    env = owned_env("release-v131", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v131")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v131_steps, &run_release_v131_step(&1, env))
+    status = if Enum.all?(results, &(&1.status == "passed")), do: "passed", else: "failed"
+
+    evidence = %{
+      gate: "mix allbert.test release.v131",
+      version: "v1.3.1",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network: "disabled; required real-provider qualification runs separately",
+      notes:
+        "closed v1.3.1 corrective delta; does not nest release.v13, release, precommit, or qualify-head",
+      structure: proof,
+      steps: results
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v131-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v131 evidence: #{evidence_path}")
+
+    if status != "passed", do: Mix.raise("release.v131 failed; evidence: #{evidence_path}")
+  end
+
+  defp run_release_v131_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v131 #{step.id}", output)
+    status = release_step_status("release.v131", step.id, exit_status, output)
+
+    TestMetrics.record(%{
+      gate: "release.v131",
+      command: gate_command(),
+      cwd: Path.relative_to(cwd, root()),
+      phase_or_step: step.id,
+      status: status,
+      wall_ms: duration_ms,
+      output: output
+    })
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: status,
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
   @doc false
   def release_step_definitions("release.v1"), do: normalize_step_definitions(@release_v1_steps)
 
@@ -6903,6 +7093,77 @@ defmodule Mix.Tasks.Allbert.Test do
 
   def release_step_definitions("release.v13"),
     do: normalize_step_definitions(@release_v13_steps)
+
+  def release_step_definitions("release.v131"),
+    do: normalize_step_definitions(@release_v131_steps)
+
+  @doc false
+  def release_v131_topology_proof do
+    v13_definitions = release_step_definitions("release.v13")
+    v131_definitions = release_step_definitions("release.v131")
+    v13_digest = sha256(CanonicalJSON.encode(v13_definitions))
+    ids = Enum.map(v131_definitions, & &1["id"])
+    targets = release_test_targets(v131_definitions)
+
+    checks = %{
+      "release_v13_step_count" => length(v13_definitions) == 32,
+      "release_v13_digest" => v13_digest == @release_v13_frozen_sha256,
+      "release_v131_step_count" => length(v131_definitions) == 8,
+      "release_v131_step_ids" => ids == @release_v131_step_ids,
+      "closed_test_target_allowlist" => targets == @release_v131_target_allowlist,
+      "root_mix_only" =>
+        Enum.all?(v131_definitions, &(&1["cwd"] == "root" and &1["executable"] == "mix")),
+      "forbidden_invocations_absent" => Enum.all?(v131_definitions, &allowed_v131_step?/1)
+    }
+
+    %{
+      "schema_version" => 1,
+      "release_v13_frozen_sha256" => @release_v13_frozen_sha256,
+      "release_v13_observed_sha256" => v13_digest,
+      "release_v131_step_ids" => @release_v131_step_ids,
+      "release_v131_target_allowlist" => @release_v131_target_allowlist,
+      "definitions" => %{
+        "release.v13" => v13_definitions,
+        "release.v131" => v131_definitions
+      },
+      "checks" => checks,
+      "status" =>
+        if(Enum.all?(checks, fn {_key, value} -> value end), do: "passed", else: "failed")
+    }
+  end
+
+  @doc false
+  def release_v131_structure_proof do
+    topology = release_v131_topology_proof()
+    records = inventory_records() |> Map.new(&{&1.path, &1})
+    manifest = File.read!(Path.join(root(), TestManifest.manifest_relative_path()))
+
+    target_checks =
+      Enum.map(@release_v131_target_allowlist, fn path ->
+        record = Map.get(records, path)
+
+        %{
+          "path" => path,
+          "exists" => File.regular?(Path.join(root(), path)),
+          "manifest" => String.contains?(manifest, ~s("#{path}")),
+          "primary_lane" => record && Atom.to_string(record.primary_lane),
+          "aggregate_covered" => not is_nil(record) and record.primary_lane in @lanes
+        }
+      end)
+
+    targets_green? =
+      Enum.all?(target_checks, fn check ->
+        check["exists"] and check["manifest"] and check["aggregate_covered"]
+      end)
+
+    topology
+    |> Map.put("target_checks", target_checks)
+    |> Map.put("targets_status", if(targets_green?, do: "passed", else: "failed"))
+    |> Map.put(
+      "status",
+      if(topology["status"] == "passed" and targets_green?, do: "passed", else: "failed")
+    )
+  end
 
   @doc false
   def release_prefix_proof(version \\ "v13")
@@ -6957,12 +7218,20 @@ defmodule Mix.Tasks.Allbert.Test do
     release_structure("v13", args)
   end
 
+  defp release_structure_v131(args) do
+    release_structure("v131", args)
+  end
+
   defp release_structure(version, args) do
     {opts, rest, invalid} = OptionParser.parse(args, strict: [output: :string])
     reject_invalid!(invalid)
     reject_rest!(rest)
 
-    proof = release_prefix_proof(version)
+    proof =
+      if version == "v131",
+        do: release_v131_structure_proof(),
+        else: release_prefix_proof(version)
+
     {sha, 0} = System.cmd("git", ["rev-parse", "HEAD"], cd: root(), stderr_to_stdout: true)
 
     {worktree, 0} =
@@ -6970,15 +7239,15 @@ defmodule Mix.Tasks.Allbert.Test do
 
     source_sha = String.trim(sha)
     clean? = String.trim(worktree) == ""
-    prefix_status = proof["status"]
-    status = if clean? and prefix_status == "passed", do: "passed", else: "failed"
+    structure_status = proof["status"]
+    status = if clean? and structure_status == "passed", do: "passed", else: "failed"
 
     evidence =
       proof
       |> Map.put("gate", "mix allbert.test release.structure #{version}")
       |> Map.put("source_sha", source_sha)
       |> Map.put("worktree_clean", clean?)
-      |> Map.put("prefix_status", prefix_status)
+      |> Map.put("structure_status", structure_status)
       |> Map.put("status", status)
       |> Map.put("generated_at", DateTime.utc_now() |> DateTime.to_iso8601())
 
@@ -6993,7 +7262,7 @@ defmodule Mix.Tasks.Allbert.Test do
 
     unless status == "passed" do
       Mix.raise(
-        "release.#{version} structure proof requires a clean source SHA and exact prefixes"
+        "release.#{version} structure proof requires a clean source SHA and green structure"
       )
     end
 
@@ -7024,6 +7293,31 @@ defmodule Mix.Tasks.Allbert.Test do
       }
     end)
   end
+
+  defp release_test_targets(definitions) do
+    for %{"args" => ["test" | targets]} <- definitions,
+        target <- targets,
+        do: target
+  end
+
+  defp allowed_v131_step?(%{"args" => ["test" | targets]}) do
+    targets != [] and
+      Enum.all?(targets, fn target ->
+        target in @release_v131_target_allowlist and
+          Path.extname(target) == ".exs" and
+          not String.contains?(target, ["*", "?", ":"])
+      end)
+  end
+
+  defp allowed_v131_step?(%{"args" => ["allbert.test", "docs"]}), do: true
+
+  defp allowed_v131_step?(%{
+         "args" => ["allbert.test", "inventory", option]
+       })
+       when option in ["--check-tags", "--check-manifest"],
+       do: true
+
+  defp allowed_v131_step?(_step), do: false
 
   defp prefix_check(older, newer, definitions) do
     older_steps = Map.fetch!(definitions, older)
@@ -10179,8 +10473,10 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v12
       mix allbert.test release.v121
       mix allbert.test release.v13
+      mix allbert.test release.v131
       mix allbert.test release.structure v121 [--output PATH]
       mix allbert.test release.structure v13 [--output PATH]
+      mix allbert.test release.structure v131 [--output PATH]
       mix allbert.test release.v101
       mix allbert.test release.v102
       mix allbert.test release.v103

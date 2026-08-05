@@ -358,6 +358,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert error.message =~ "mix allbert.test release.v066"
     assert error.message =~ "mix allbert.test release.v121"
     assert error.message =~ "mix allbert.test release.v13"
+    assert error.message =~ "mix allbert.test release.v131"
 
     assert error.message =~
              "mix allbert.test bench-v13-fanout [--profile NAME] [--mixed-mistral] " <>
@@ -365,6 +366,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
 
     assert error.message =~ "mix allbert.test release.structure v121 [--output PATH]"
     assert error.message =~ "mix allbert.test release.structure v13 [--output PATH]"
+    assert error.message =~ "mix allbert.test release.structure v131 [--output PATH]"
     assert error.message =~ "mix allbert.test external-smoke -- telegram"
     assert error.message =~ "mix allbert.test external-smoke -- email"
     assert error.message =~ "mix allbert.test external-smoke -- inbound_telegram"
@@ -664,6 +666,36 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
         assert File.exists?(Path.join(root, target)),
                "release.v13 focused step target missing: #{target}"
       end
+    end
+
+    test "release.v131 freezes the v1.3 digest and its closed eight-step delta" do
+      proof = AllbertTestTask.release_v131_topology_proof()
+      definitions = proof["definitions"]["release.v131"]
+
+      assert proof["status"] == "passed"
+      assert Enum.all?(proof["checks"], fn {_name, passed?} -> passed? end)
+      assert proof["release_v13_frozen_sha256"] == proof["release_v13_observed_sha256"]
+      assert length(proof["definitions"]["release.v13"]) == 32
+      assert length(definitions) == 8
+
+      assert Enum.map(definitions, & &1["id"]) == proof["release_v131_step_ids"]
+
+      test_targets =
+        for %{"args" => ["test" | targets]} <- definitions,
+            target <- targets,
+            do: target
+
+      assert test_targets == proof["release_v131_target_allowlist"]
+
+      refute Enum.any?(definitions, fn step ->
+               step["args"] in [
+                 ["test"],
+                 ["allbert.test", "release.v13"],
+                 ["allbert.test", "release"],
+                 ["precommit"],
+                 ["allbert.test", "qualify-head"]
+               ]
+             end)
     end
   end
 
