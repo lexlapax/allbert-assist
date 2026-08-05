@@ -280,10 +280,14 @@ passed structural-prefix proof with every comparison exact. Evidence
 `/tmp/allbert-v13-k6-e7ab.AIhERQ/home/release_evidence/v13/release-structure-v13.json`
 has SHA-256
 `bcb34d974a2190a9f70c6e97fdb4bbf8d51d17c028e5fca601c21aa075858dd2`.
-The single `release.v13` is running; the one authoritative `release` remains
-blocked until it is 32/32. Promotion is prohibited. The entries below preserve
-earlier exact-SHA diagnostic runs and their remediations rather than presenting
-them as current acceptance evidence.
+The single `release.v13` then passed all 32 ordered steps in `2,340,597 ms`.
+Evidence
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v13/p0-5701/home/release_evidence/v13/release-v13-1785912076.json`
+has SHA-256
+`2d1878f1677b6b10617fee57a811ab76dd3ba5567b3217a5fe8748de03f1f83c`.
+The one authoritative `release` aggregate is running; promotion is prohibited.
+The entries below preserve earlier exact-SHA diagnostic runs and their
+remediations rather than presenting them as current acceptance evidence.
 
 The current `release.v13` completed diagnostic RED `31/32`; Dialyzer is the
 sole failed step, on two overly broad specs in
