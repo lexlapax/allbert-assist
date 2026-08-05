@@ -103,16 +103,29 @@ operator runs against a candidate answering head and reads as a pass rate.
    measures a head Allbert does not ship.
 
    One deliberate pin: the bar sets `max_retries: 0`. Ordinary DirectAnswer
-   inherits Req's default of three retries and only fan-out children pin zero, so
-   this is a stated choice rather than a copy of the answering path. It does not
-   change what is measured — Req retries only transient transport and 5xx
-   conditions, never a successful response whose content is wrong — and it keeps
-   one scored trial equal to exactly one request, which the trial counts in
-   decision 5 depend on.
+   omits the option and ReqLLM defaults it to three; only fan-out children pin
+   zero today, so this is a stated harness choice rather than an accidental copy.
+   The pinned ReqLLM 1.18 Ollama retry step covers HTTP `429` plus transport
+   `:timeout`, `:econnrefused`, and `:closed`, never a successful response whose
+   content is wrong. The content predicate is unchanged, but a transient
+   execution may fail earlier with zero retries, so execution status remains
+   separate from the head verdict. One scored trial is exactly one provider
+   attempt.
 
-7. **Failures are recorded as failures.** Provider unavailability, empty
-   responses, and refusals score as fails and the run says so. There is no
-   unscored bucket, because an unscored bucket is where a failing head hides.
+   The bar supplies both the existing 60-second receive bound and a gate-only
+   60-second ReqLLM `total_timeout`. The latter is an additive context option on
+   the same answerer; ordinary DirectAnswer turns omit it. This is the whole-call
+   deadline that makes the frozen attempt budget real rather than treating a
+   socket inactivity timeout as elapsed-time proof.
+
+7. **Execution readiness precedes scoring; scored failures stay in the
+   denominator.** One unscored warm-up attempt per profile separates local model
+   load from answer quality. Its status, duration, and allowlisted failure reason
+   are content-free evidence. A warm-up failure is `environment_red`, produces no
+   head verdict, and starts no scored denominator. Once warm-up succeeds, all 30
+   scored attempts run: provider unavailability, timeout, empty response, and
+   refusal each score as fails. There is no unscored bucket inside a started
+   matrix.
 
 8. **Evidence is content-free.** Recorded rows carry digests, counts, rates, and
    the resolved profile/provider/model/endpoint — never prompts, answers, or
@@ -138,9 +151,11 @@ Corpus maintenance is a real cost. Rows drawn from stable technical semantics �
 OTP supervision, event-sourcing replay, SQLite durability — age slowly, which is
 why the corpus draws from there rather than from anything current.
 
-The measurement is expensive. Five trials for each of six rows per required
-local head is minutes, not seconds, which is why the bar is opt-in and in no
-aggregate, precommit, or CI path.
+The measurement is expensive. Five trials for each of six rows plus at most one
+warm-up per required local head is minutes, not seconds, which is why the bar is
+opt-in and in no aggregate, precommit, or CI path. One profile has at most 31
+provider attempts; the required two-profile release evidence has 60 scored
+trials plus at most two warm-ups.
 
 Passing the bar and being unreliable in practice remain compatible. A rare
 failure mode nobody has observed yet is not in the corpus, and this ADR does not
