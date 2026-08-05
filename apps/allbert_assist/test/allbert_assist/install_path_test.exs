@@ -136,8 +136,8 @@ defmodule AllbertAssist.InstallPathTest do
     assert body =~ "libcrypto.3.dylib"
     assert body =~ "sqlite3_nif.so"
     assert body =~ "managed_payloads = managed_machos.flatten + sealed_evidence"
-    assert body =~ "File.chmod(0o644, *sealed_evidence_files)"
-    assert body =~ "File.chmod(0o755, *sealed_evidence_directories)"
+    assert body =~ "File.chmod(0644, *sealed_evidence_files)"
+    assert body =~ "File.chmod(0755, *sealed_evidence_directories)"
     assert body =~ ~s(system "tar", "-xpzf", pkgshare/"allbert-managed-payloads.tar.gz")
 
     for evidence_root <- [

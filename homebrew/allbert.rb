@@ -16,19 +16,19 @@ class Allbert < Formula
 
   on_macos do
     on_arm do
-      url "https://github.com/lexlapax/allbert-assist/releases/download/v1.2.6/allbert-v1.2.6-macos-arm64.tar.gz"
-      sha256 "ff5a17b116e3e21cf7b8321e6f4166216e64c76778d5d9b709e5b6d054e8886f"
+      url "https://github.com/lexlapax/allbert-assist/releases/download/v1.3.0/allbert-v1.3.0-macos-arm64.tar.gz"
+      sha256 "dacefc550c990517d4925b123b85859709f3d53206d18cc8c1389db662e78561"
     end
   end
 
   on_linux do
     on_intel do
-      url "https://github.com/lexlapax/allbert-assist/releases/download/v1.2.6/allbert-v1.2.6-linux-x64.tar.gz"
-      sha256 "efa501276108335551d497ef3477cc12844cd888b4e60ecdc1b774119063726e"
+      url "https://github.com/lexlapax/allbert-assist/releases/download/v1.3.0/allbert-v1.3.0-linux-x64.tar.gz"
+      sha256 "18c15355c81c7375588e5df6ccbd5116b176fb9f9a0cf33ffa8b021585a143d0"
     end
     on_arm do
-      url "https://github.com/lexlapax/allbert-assist/releases/download/v1.2.6/allbert-v1.2.6-linux-arm64.tar.gz"
-      sha256 "a4fdc202d8d48299caeb1a0de0d0e18133afe03985ea5f879e692cdb11197020"
+      url "https://github.com/lexlapax/allbert-assist/releases/download/v1.3.0/allbert-v1.3.0-linux-arm64.tar.gz"
+      sha256 "c9744660d6d788d98a7821e571f6943cbc065259876eb20a1b2a081f659be74a"
     end
   end
 
@@ -52,8 +52,8 @@ class Allbert < Formula
     # Homebrew's initial extraction honors the invoking umask. Canonicalize the
     # bounded generated evidence before preserving it, so both the archive and
     # the installed license verifier see the release's sealed 0644/0755 modes.
-    File.chmod(0o644, *sealed_evidence_files)
-    File.chmod(0o755, *sealed_evidence_directories)
+    File.chmod(0644, *sealed_evidence_files)
+    File.chmod(0755, *sealed_evidence_directories)
 
     managed_payloads = managed_machos.flatten + sealed_evidence
 

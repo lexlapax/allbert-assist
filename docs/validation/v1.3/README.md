@@ -1078,5 +1078,31 @@ and `published_at: 2026-08-05T19:47:34Z`. Remote annotated tag object
 The failed workflow conclusion is retained as a content-free permission
 finding. v1.4 must move the repository-administration enablement read to an
 operator preflight while preserving protected binding/signing/publication and
-final immutability checks. Tap fill and published-install closeout are not yet
-claimed by this record.
+final immutability checks. The next section records the separate tap and
+published-install closeout.
+
+## Published tap and installed product
+
+The downloaded published `SHA256SUMS` has SHA-256
+`b7da7e3229e87b065057bc703aae37a4576f26c9759709544a62b804d03b8eb4`;
+cosign bundle
+`710d1af4cb3df010620ef43f9e335c171eb6cb892ed280621ec50a51fb810da9`
+verified against
+`https://github.com/lexlapax/allbert-assist/.github/workflows/release-artifacts.yml@refs/tags/v1.3.0`.
+Homebrew tap commit `715d4d51f90ce58e4b9f60a91976dabff858e6ad` contains all
+three v1.3.0 release URLs and exact published archive checksums.
+
+The first strict online audit rejected the repository formula's `0o644` and
+`0o755` Ruby spellings. The source formula, tap copy, and focused source
+contract were corrected together to Homebrew's accepted `0644`/`0755` syntax;
+the complete InstallPath owner passed `14/14`, and the amended tap passed strict
+online audit before push.
+
+A fresh install from the official GitHub-hosted tap and `brew test` passed.
+The installed binary reports `allbert 1.3.0`; its packaged JSON license viewer
+returns `120` components. Installed OpenSSL and Exqlite SHA-256 values are
+`643372e6478f280423b2f9536fa1523f1086f806309e9d98eca5ce11e22d3e18` and
+`8559739c2ba3e6970b421de7f09650017661e0a278b8653c012bd0ed847031e1`,
+equal to the accepted archive evidence. The provisional same-name formula was
+unlinked and removed only from Homebrew's Cellar before official installation;
+no Allbert Home or user data was touched.
