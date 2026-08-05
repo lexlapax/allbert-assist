@@ -248,8 +248,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest do
   end
 
   defmodule RecoveringProcessStore do
-    alias AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest.ProcessStore
     alias AllbertAssist.Objectives.Fanout.Report
+    alias AllbertAssist.Objectives.Fanout.ReportSynthesisAgentTest.ProcessStore
 
     def recover_composition(agent) do
       {result, listener} =

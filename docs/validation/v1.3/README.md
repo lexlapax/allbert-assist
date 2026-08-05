@@ -609,6 +609,11 @@ not invalidate PV-0 through PV-8, but its tracked SHA change requires complete
 unpublished-candidate replacement, refreshed packaged latency, and a fresh K6
 rejoin. No authoritative aggregate started; promotion remains prohibited.
 
+The alias-only remediation passed strict Credo, the 19-test owner at seed
+`785475`, both warnings-as-errors compiles, formatter, docs, and diff hygiene.
+It changes no product behavior. Whole-candidate replacement is next;
+promotion remains prohibited.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
