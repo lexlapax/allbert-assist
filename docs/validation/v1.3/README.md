@@ -481,6 +481,16 @@ and content SHA-256
 The release remains an unpublished mutable draft. Packaged latency and
 replacement PV-3 remain pending; no release has been published.
 
+The four replacement packaged-latency cells then passed and were ingested:
+macOS arm64 Memory p95/p99 `48.067/50.489 ms`, macOS Search
+`61.090/64.990 ms`, Serenity Linux x64 Memory `38.279/39.417 ms`, and Linux
+Search `47.702/51.430 ms`. All four bind exact source SHA
+`a302aae61483d76272771011a3e9ec59a46cfad2` and their matching archive digest;
+no host or consumer is averaged away. A macOS diagnostic file whose passing
+numbers carried the later docs HEAD was rejected and not ingested; the accepted
+retry force-recompiled the clean exact-SHA driver before measurement. ADR 0092
+now names the replacement generation. Replacement PV-3 and K6 remain pending.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
