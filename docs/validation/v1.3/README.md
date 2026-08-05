@@ -276,6 +276,19 @@ next; promotion is prohibited. The entries below preserve earlier exact-SHA
 diagnostic runs and their remediations rather than presenting them as current
 acceptance evidence.
 
+The current `release.v13` completed diagnostic RED `31/32`; Dialyzer is the
+sole failed step, on two overly broad specs in
+`test/support/fanout_report_fixture.ex`. Every later step passed, including
+runtime fan-out (`332/332`), channel authority (`100/100`), and final
+surfaces/legacy retirement (`26/26` core and `21/21` Web). Evidence
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v13/p0-16580/home/release_evidence/v13/release-v13-1785907970.json`
+has SHA-256
+`fadf4d1421a8db3547a6b827ca58afb7bb1bed993d621e92ba464f722aea4d84`.
+The bounded test-support repair passed ACP `15/15`, OpenAI `14/14`, full
+Dialyzer with zero errors/skips/unnecessary skips, both forced compiles,
+formatter, and scoped strict Credo. No production module is implicated. The
+authoritative aggregate has not started and promotion remains prohibited.
+
 The isolated detached checkout at exact executable candidate SHA
 `2b9cb986fdb1ad7a9750b4b4b9e5c165e7f425bd` passed the structural-prefix
 proof before either aggregate started. Evidence:

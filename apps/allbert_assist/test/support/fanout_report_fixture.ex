@@ -53,7 +53,7 @@ defmodule AllbertAssist.TestSupport.FanoutReportFixture do
   five-second margin so a genuine never-queued composition returns its explicit
   error instead of becoming an opaque Task timeout.
   """
-  @spec composition_await_timeout_ms() :: pos_integer()
+  @spec composition_await_timeout_ms() :: 50_000
   def composition_await_timeout_ms, do: @composition_await_timeout_ms
 
   @doc """
@@ -62,7 +62,6 @@ defmodule AllbertAssist.TestSupport.FanoutReportFixture do
   This shared fixture keeps OpenAI and ACP on one contention budget. It exits as
   soon as a healthy composition appears and preserves stale-claim retry behavior.
   """
-  @spec select_next_report(:model | :fallback) :: {:ok, map()} | {:error, term()}
   def select_next_report(source \\ :fallback)
 
   def select_next_report(source) when source in [:model, :fallback],
