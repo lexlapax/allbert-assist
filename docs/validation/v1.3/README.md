@@ -940,9 +940,15 @@ The sole red step was `v121_manifest_inventory`. Evidence
 `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v13/p0-7939/home/release_evidence/v13/release-v13-1785924525.json`
 has SHA-256
 `fec6a796bb623c2611a6a6c45cf1bfa6f2944b011dff91d1b1fb3f1ffcb37640`.
-Every other step passed. Live regeneration found `4,549` rows against `4,541`
-committed: one renamed former StockSage test identity and nine current M9.b.17
+Every other step passed. The gate found `4,549` live lines against `4,541`
+committed (including the header), or `4,548` against `4,540` data rows: one
+renamed former StockSage test identity and nine current M9.b.17
 resolver/Prefilter/StockSage identities. M9.b.18 owns deterministic CSV-only
 regeneration, manifest/docs checks, and exact-SHA candidate replacement. No
 production/test behavior changes, operator-validation repeat, or aggregate-per-
 fix is authorized.
+
+Deterministic regeneration changed only the CSV by the expected nine additions
+and one removal. `inventory --check-manifest` now reports `4,548` matching data
+rows; docs and diff hygiene pass. No production or test source changed. The
+unpublished exact-SHA candidate replacement and final K6 rejoin remain.
