@@ -625,6 +625,17 @@ are diagnostic RED, not partial acceptance. Focused owner-file classification
 and remediation precede any candidate/provenance decision; no aggregate runs
 per fix and promotion remains prohibited.
 
+Exact-candidate focused reproduction classified both groups as test-contract
+drift. Jobs repeated `1/4` RED because only the LiveView assertion still
+expected obsolete source-only `mix allbert.confirmations show` copy; current
+product/CLI output is package-first `allbert admin confirmations show`. OpenAI
+repeated `3/14` RED because its duplicated five-second selector fixture expired
+before healthy composition at about 6.2 seconds. ACP already owns the same
+surface contract with M9.b.12.d's 45-second poll/50-second await. The bounded
+repair centralizes that policy in `FanoutReportFixture`, routes both protocol
+owners through it, removes the duplicate loops, and updates only the stale Jobs
+expectations. No production behavior or accepted operator row is changed.
+
 Four final packaged-latency rows passed and were ingested for exact source SHA
 `43859a9ea7f5773ae056208ebb8e687d21f7d91a`: macOS arm64 Memory
 `56.705/65.074 ms` and Search `67.139/70.929 ms`, plus Linux x64 Memory
