@@ -500,6 +500,15 @@ Both the `local` and `direct_answer_local` Doctor rows reported configured
 change the global primary. PV-0–PV-2 and PV-4–PV-8 remain inherited and are not
 relabelled. K6 is the only remaining pre-promotion gate.
 
+The fresh detached K6 checkout at exact executable SHA
+`a302aae61483d76272771011a3e9ec59a46cfad2` then passed
+`release.structure v13` with a clean worktree and all three cumulative prefix
+comparisons exact. Evidence
+`/tmp/allbert-v13-k6-a302aae61483.xKks08/home/release_evidence/v13/release-structure-v13.json`
+has SHA-256
+`7b740631b40639c0bb93a61d0816cd9537c4718a0129d34f16c7520af1b5a663`.
+The one `release.v13` is next; no aggregate has run for this replacement.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
