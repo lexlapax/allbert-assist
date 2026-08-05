@@ -995,3 +995,12 @@ the high-coverage log SHA-256 is
 M9.b.19 owns the bounded test-only repair, exact partition replay, and
 whole-candidate replacement. No later aggregate phase ran and promotion is
 prohibited.
+
+The focused repair is GREEN. The budget fixture now owns and restores both its
+PID-qualified disposable Home and matching explicit Settings root; no shipped
+code or runtime contract changed. The owner passed `15/15` at seed `881830`,
+and the complete four-part cost-packed `app_env_serial` lane passed `873/873`
+with partition counts `219/218/218/218`. Test compile, formatter, docs, and
+diff hygiene pass. The test-only commit still requires whole-candidate
+replacement and one K6 rejoin before promotion; accepted operator rows remain
+inherited without relabelling.

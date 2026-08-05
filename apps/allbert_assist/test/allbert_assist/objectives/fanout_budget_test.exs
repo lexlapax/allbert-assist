@@ -45,17 +45,23 @@ defmodule AllbertAssist.Objectives.Fanout.BudgetTest do
 
   setup do
     original_paths = Application.get_env(:allbert_assist, Paths)
+    original_settings = Application.get_env(:allbert_assist, Settings)
 
     home =
       Path.join(
         System.tmp_dir!(),
-        "allbert-fanout-budget-#{System.unique_integer([:positive])}"
+        "allbert-fanout-budget-#{System.pid()}-#{System.unique_integer([:positive])}"
       )
 
+    File.rm_rf!(home)
     Application.put_env(:allbert_assist, Paths, home: home)
+    Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
+
+    assert Settings.root() == Path.join(home, "settings")
 
     on_exit(fn ->
       restore_env(Paths, original_paths)
+      restore_env(Settings, original_settings)
       File.rm_rf!(home)
     end)
 
