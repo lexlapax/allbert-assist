@@ -930,4 +930,7 @@ The four packaged cells subsequently passed and were ingested without host or
 consumer averaging: macOS arm64 Memory `47.836/50.009 ms` and Search
 `61.173/64.634 ms`, plus Linux x64 Memory `38.355/39.108 ms` and Search
 `47.773/51.629 ms` (p95/p99). All four rows bind the full replacement SHA and
-the matching archive digest. K6 is the sole remaining pre-promotion gate.
+the matching archive digest. Exact-SHA K6 structural proof then passed with
+evidence SHA-256
+`114ede1ee305b00757a62fc3a160484d39c610b274ac0acdbb37171f41cbb555`.
+`release.v13` is running; authoritative `release` and promotion remain held.
