@@ -952,3 +952,25 @@ Deterministic regeneration changed only the CSV by the expected nine additions
 and one removal. `inventory --check-manifest` now reports `4,548` matching data
 rows; docs and diff hygiene pass. No production or test source changed. The
 unpublished exact-SHA candidate replacement and final K6 rejoin remain.
+
+The M9.b.18 replacement is now bound to clean pushed SHA
+`b0130c3a243864814c4d4b6abcbfb67414c67c99`, generation
+`v13-20260805T105239Z-b0130c3a2438`, and unpublished draft `365458359`.
+
+| Replacement row | Redacted outcome |
+| --- | --- |
+| macOS arm64 | PASS — archive SHA-256 `956e51a28fc7f9e9d55ffc84b8170a28bfd94618b013eec36e73e1487b8bc14a` |
+| Linux x64 | PASS — archive SHA-256 `b567b40dd9287a3e0c47aceba8bee0973fa007907e82a3bbb6c2798527f5f75d` |
+| Linux arm64 | PASS — archive SHA-256 `b53c6bbc10ab3387aa83041b7f5b6c9916e69579757ce3bc5a3eb3625ba71678` |
+| Homebrew/package | PASS — reinstall/test, `120` license components, full installed-tree equality, sealed Mach-O equality |
+| staging | PASS — `13` assets; manifest `502800145` / `a011d81c796da017d0dee1e780ca02ab01cbcf8dd66b4f20a68df8a71b68eaac` |
+| no-build qualification | PASS — run `31022013083`; all targets plus joined evidence; promotion skipped |
+| qualification artifact | `8937047359` / `ae3867a0d8902e8023e4806c18509064a44928fa1d9544290c3a91e62a6fd545`; manifest `ae816385f9262be3a4396422f1075991d6f7b0dd0b79642df6fce230c26625ad` |
+
+The four ingested packaged cells are macOS arm64 Memory `53.464/55.244 ms`
+and Search `63.581/66.854 ms`, plus Linux x64 Memory `39.245/42.415 ms` and
+Search `47.837/51.449 ms` (p95/p99). They bind the full SHA and matching target
+archive separately. PV-0 through PV-8 and focused packaged StockSage acceptance
+remain inherited without relabelling because M9.b.18 changed only generated
+test inventory. The exact-SHA K6 checkout is prepared; structure,
+`release.v13`, and authoritative `release` remain before promotion.

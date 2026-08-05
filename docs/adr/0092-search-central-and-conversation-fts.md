@@ -17,13 +17,13 @@ presentation, durable direct/shared/unknown transport-scope proof, exact
 confirmation/resubmit behavior, and cross-consumer security rows focused-gate
 green. M9 added the loaded-Exqlite packaged capability smoke and an executable
 25,000-message/250-thread/300-query latency harness. Final replacement
-release-candidate generation `v13-20260805T094304Z-93a443052962` ran the
+release-candidate generation `v13-20260805T105239Z-b0130c3a2438` ran the
 capability smoke from all three native archives. The four clean packaged
 latency cells are recorded separately in
 `docs/validation/test-metrics/summary.md`: macOS arm64 Search p95/p99
-`61.173/64.634 ms`, Linux x64 Search `47.773/51.629 ms`, macOS arm64 Memory
-`47.836/50.009 ms`, and Linux x64 Memory `38.355/39.108 ms`. Every row binds
-full source SHA `93a4430529625de8532372a7221cc8ee97d6ff84` and its target archive
+`63.581/66.854 ms`, Linux x64 Search `47.837/51.449 ms`, macOS arm64 Memory
+`53.464/55.244 ms`, and Linux x64 Memory `39.245/42.415 ms`. Every row binds
+full source SHA `b0130c3a243864814c4d4b6abcbfb67414c67c99` and its target archive
 digest; no source-tree probe, superseded provisional package, or cross-host
 average is substituted.
 
