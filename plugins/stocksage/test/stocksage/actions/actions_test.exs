@@ -6,7 +6,11 @@ defmodule StockSage.ActionsTest do
   alias AllbertAssist.Agents.IntentAgent
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Intent.Engine
+  alias AllbertAssist.Intent.Router.Disambiguator.FakeDisambiguator
+  alias AllbertAssist.Intent.Router.Embedder.FakeEmbedder
+  alias AllbertAssist.Intent.Router.Index
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills
   alias StockSage.{Analyses, Queue}
@@ -560,6 +564,65 @@ defmodule StockSage.ActionsTest do
     assert response.decision.selected_action == "list_analyses"
   end
 
+  test "runtime production router executes a grounded action for the active StockSage app" do
+    with_production_router(fn ->
+      assert {:ok, _analysis} =
+               Analyses.create_analysis(%{
+                 user_id: "alice",
+                 symbol: "aapl",
+                 status: "completed",
+                 source: "manual",
+                 summary: "AAPL summary"
+               })
+
+      assert {:ok, response} =
+               Runtime.submit_user_input(%{
+                 text: "list my analyses",
+                 channel: :test,
+                 user_id: "alice",
+                 operator_id: "alice",
+                 active_app: :stocksage
+               })
+
+      assert response.status == :completed
+      assert response.message == "Found 1 StockSage analyses for alice."
+      assert response.decision.selected_action == "list_analyses"
+      assert [%{name: "list_analyses", status: :completed}] = response.actions
+    end)
+  end
+
+  test "runtime production router keeps StockSage hidden from the default app" do
+    with_production_router(fn ->
+      assert {:ok, response} =
+               Runtime.submit_user_input(%{
+                 text: "list my analyses",
+                 channel: :test,
+                 user_id: "alice",
+                 operator_id: "alice",
+                 active_app: :allbert
+               })
+
+      refute response.decision.selected_action == "list_analyses"
+      refute Enum.any?(response.actions, &(&1.name == "list_analyses"))
+    end)
+  end
+
+  test "runtime production router rejects supplied StockSage action wording" do
+    with_production_router(fn ->
+      assert {:ok, response} =
+               Runtime.submit_user_input(%{
+                 text: ~s(Summarize this supplied sentence: "list my analyses"),
+                 channel: :test,
+                 user_id: "alice",
+                 operator_id: "alice",
+                 active_app: :stocksage
+               })
+
+      refute response.decision.selected_action == "list_analyses"
+      refute Enum.any?(response.actions, &(&1.name == "list_analyses"))
+    end)
+  end
+
   test "intent agent starts a StockSage objective and objective-bound confirmation" do
     assert {:ok, response} =
              IntentAgent.respond(%{
@@ -594,4 +657,41 @@ defmodule StockSage.ActionsTest do
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 
   defp stocksage_context(attrs \\ %{}), do: Map.merge(%{active_app: :stocksage}, attrs)
+
+  defp with_production_router(fun) do
+    original = %{
+      include_all: Application.get_env(:allbert_assist, :intent_descriptor_include_all),
+      strategy: Application.get_env(:allbert_assist, :intent_router_strategy_override),
+      embedder: Application.get_env(:allbert_assist, :intent_router_embedder),
+      disambiguator: Application.get_env(:allbert_assist, :intent_router_disambiguator),
+      selection: Application.get_env(:allbert_assist, :intent_router_fake_selection),
+      escalated: Application.get_env(:allbert_assist, :intent_router_fake_escalated_selection)
+    }
+
+    Application.put_env(:allbert_assist, :intent_descriptor_include_all, false)
+    Application.put_env(:allbert_assist, :intent_router_strategy_override, :two_stage_local)
+    Application.put_env(:allbert_assist, :intent_router_embedder, FakeEmbedder)
+    Application.put_env(:allbert_assist, :intent_router_disambiguator, FakeDisambiguator)
+
+    Application.put_env(
+      :allbert_assist,
+      :intent_router_fake_selection,
+      {:ok, %{selected: "list_analyses", confidence: 0.99}}
+    )
+
+    Application.delete_env(:allbert_assist, :intent_router_fake_escalated_selection)
+    assert %{status: :built} = Index.rebuild()
+
+    try do
+      fun.()
+    after
+      restore_env(:intent_descriptor_include_all, original.include_all)
+      assert %{status: :built} = Index.rebuild()
+      restore_env(:intent_router_strategy_override, original.strategy)
+      restore_env(:intent_router_embedder, original.embedder)
+      restore_env(:intent_router_disambiguator, original.disambiguator)
+      restore_env(:intent_router_fake_selection, original.selection)
+      restore_env(:intent_router_fake_escalated_selection, original.escalated)
+    end
+  end
 end

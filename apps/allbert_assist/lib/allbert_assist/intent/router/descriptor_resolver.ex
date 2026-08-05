@@ -37,6 +37,8 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolver do
   @spec resolve(keyword()) :: [Descriptor.t()]
   def resolve(opts \\ []) do
     ignore_disabled? = Keyword.get(opts, :ignore_disabled?, false)
+    active_app = opts |> Keyword.get(:active_app) |> normalize_app_id()
+    router_index? = Keyword.get(opts, :availability) == :router_index
     # Operator-disable overrides are honored unless the caller explicitly ignores them.
     disabled = if ignore_disabled?, do: [], else: disabled_keys()
     # Deterministic eval explicitly includes capability-gated and demo descriptors. It
@@ -54,22 +56,39 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolver do
     |> Enum.reject(fn descriptor ->
       {descriptor.app_id, descriptor.action_name} in disabled
     end)
-    |> reject_unavailable(gate_bypass?)
+    |> reject_unavailable(gate_bypass?, router_index?, active_app)
   end
+
+  @doc "Whether a descriptor is visible for a validated active-app request."
+  @spec routable_for_active_app?(Descriptor.t(), term()) :: boolean()
+  def routable_for_active_app?(%Descriptor{routable_by_default?: true}, _active_app), do: true
+
+  def routable_for_active_app?(
+        %Descriptor{routable_by_default?: false, app_id: app_id},
+        active_app
+      )
+      when not is_nil(active_app) do
+    normalize_app_id(app_id) == normalize_app_id(active_app)
+  end
+
+  def routable_for_active_app?(_descriptor, _active_app), do: false
 
   # F5 Q2 + Q3: on a fresh/production install, drop intents whose capability is toggled off
   # (voice) and demo/example intents (StockSage `routable_by_default?: false`) so general
   # prompts are not mis-routed to them. Bypassed for tests/evals.
-  defp reject_unavailable(descriptors, true), do: descriptors
+  defp reject_unavailable(descriptors, true, _router_index?, _active_app), do: descriptors
 
-  defp reject_unavailable(descriptors, false) do
+  defp reject_unavailable(descriptors, false, router_index?, active_app) do
     Enum.reject(descriptors, fn descriptor ->
-      demo_intent?(descriptor) or capability_gated_off?(descriptor)
+      non_default_unavailable?(descriptor, router_index?, active_app) or
+        capability_gated_off?(descriptor)
     end)
   end
 
-  defp demo_intent?(%Descriptor{routable_by_default?: false}), do: true
-  defp demo_intent?(_descriptor), do: false
+  defp non_default_unavailable?(_descriptor, true, _active_app), do: false
+
+  defp non_default_unavailable?(descriptor, false, active_app),
+    do: not routable_for_active_app?(descriptor, active_app)
 
   defp capability_gated_off?(%Descriptor{action_name: action_name}) do
     case Map.get(@capability_gated_settings, to_string(action_name)) do

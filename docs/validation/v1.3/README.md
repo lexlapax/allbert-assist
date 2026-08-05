@@ -882,3 +882,22 @@ supplied/quoted/explanatory negatives, backed by resolver/index/prefilter and
 complete StockSage owners. No aggregate runs per fix. A new exact-clean-SHA
 three-target generation and one final K6 rejoin remain required; promotion is
 prohibited.
+
+The focused shared-router remediation is GREEN. Engine candidate collection,
+router-index construction, Prefilter shortlisting, and IntentAgent's canonical
+selection/clarification rechecks now share the same active-app availability
+contract. Non-default app descriptors are inert in the index and become visible
+only for the matching active app; operator-disable, capability-off,
+selection-policy, Registry/Security, and confirmation boundaries remain
+unchanged.
+
+At seed `429706`, resolver/prefilter owners passed `20/20`, the StockSage
+actions/Runtime owner passed `26/26`, expanded core intent/runtime owners passed
+`129/129`, StockSage behavior/security passed `181/181`, and its Mix tasks
+passed `23/23`. The complete StockSage phase is `204/204`, exactly the prior
+`201` plus three real production-strategy Runtime scenarios: grounded active-app
+execution with the correct decision, default-app exclusion, and supplied-text
+rejection. Test/development warnings-as-errors compiles, whole formatter,
+scoped strict Credo, docs, and diff hygiene pass. No aggregate ran. Candidate
+`868f354ce` remains invalidated and unpublished; whole-generation replacement,
+focused packaged StockSage acceptance, and the single final K6 rejoin remain.

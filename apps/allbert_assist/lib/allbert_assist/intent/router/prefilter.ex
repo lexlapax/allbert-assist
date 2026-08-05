@@ -11,6 +11,7 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
   at boot, so a default `:deterministic` install never embeds).
   """
   alias AllbertAssist.Intent.Descriptor
+  alias AllbertAssist.Intent.Router.DescriptorResolver
   alias AllbertAssist.Intent.Router.Embedder
   alias AllbertAssist.Intent.Router.Index
   alias AllbertAssist.Intent.Router.ScoringProfile
@@ -29,7 +30,10 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
   def shortlist(query, opts \\ []) when is_binary(query) do
     with {:ok, entries} <- ensure_index(),
          {:ok, [query_vector | _]} <- Embedder.embed([query], opts) do
-      ranked = rank(query_vector, entries, top_k(opts), query)
+      ranked =
+        query_vector
+        |> rank(scoped_entries(entries, Keyword.get(opts, :active_app)), top_k(opts), query)
+
       {:ok, Map.put(ranked, :query_vector, query_vector)}
     else
       {:fallback, _reason} = fallback -> fallback
@@ -176,6 +180,16 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
 
   defp top_k(opts) do
     Keyword.get(opts, :top_k) || setting_int("intent.router_top_k", 5)
+  end
+
+  defp scoped_entries(entries, active_app) do
+    Enum.filter(entries, fn
+      %{descriptor: %Descriptor{} = descriptor} ->
+        DescriptorResolver.routable_for_active_app?(descriptor, active_app)
+
+      _entry_without_descriptor ->
+        true
+    end)
   end
 
   defp setting_int(key, default) do

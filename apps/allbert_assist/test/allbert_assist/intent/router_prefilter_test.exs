@@ -20,6 +20,7 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
     original_embedder = Application.get_env(:allbert_assist, :intent_router_embedder)
     original_error = Application.get_env(:allbert_assist, :intent_router_embedder_error)
     original_override = Application.get_env(:allbert_assist, :intent_router_strategy_override)
+    original_include_all = Application.get_env(:allbert_assist, :intent_descriptor_include_all)
 
     # v1.0.2 M8.6 drift-fix (M8.3 ranker pattern): this file's scoring test
     # writes Settings values, and a bare unique_integer home suffix collides
@@ -44,6 +45,7 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
     Application.delete_env(:allbert_assist, :intent_router_embedder_error)
 
     ProviderPreconditions.ensure_notes_files_descriptors!()
+    AllbertAssist.StockSageRegistryCase.setup()
 
     on_exit(fn ->
       if original_home,
@@ -64,6 +66,7 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
       restore(:intent_router_embedder, original_embedder)
       restore(:intent_router_embedder_error, original_error)
       restore(:intent_router_strategy_override, original_override)
+      restore(:intent_descriptor_include_all, original_include_all)
     end)
 
     :ok
@@ -253,6 +256,26 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
       assert calendar.extracted_slots.title == "sync"
       assert calendar.extracted_slots.start == "tomorrow 3pm"
       assert calendar.missing_slots == []
+    end
+
+    test "non-default app entries are inert until their validated app is active" do
+      Application.put_env(:allbert_assist, :intent_descriptor_include_all, false)
+
+      assert %{status: :built, entries: entries} = Index.rebuild()
+
+      assert Enum.any?(entries, fn entry ->
+               entry.app_id == :stocksage and entry.action_name == "list_analyses"
+             end)
+
+      assert {:ok, %{shortlist: stocksage_shortlist}} =
+               Prefilter.shortlist("list my analyses", active_app: :stocksage, top_k: 100)
+
+      assert Enum.any?(stocksage_shortlist, &(&1.action_name == "list_analyses"))
+
+      assert {:ok, %{shortlist: allbert_shortlist}} =
+               Prefilter.shortlist("list my analyses", active_app: :allbert, top_k: 100)
+
+      refute Enum.any?(allbert_shortlist, &(&1.app_id == :stocksage))
     end
   end
 

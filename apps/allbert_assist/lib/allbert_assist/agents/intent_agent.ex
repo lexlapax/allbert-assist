@@ -271,7 +271,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
          route_decision
        ) do
     decision =
-      if mcp_route?(route) or not selection_decision_accepted?(engine_decision, text) do
+      if mcp_route?(route) or not selection_decision_accepted?(engine_decision, text, context) do
         route_decision
       else
         engine_decision
@@ -317,7 +317,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
       route == :direct_answer ->
         route_with_router_outcome_via_router(route, text, context, decision)
 
-      deterministic_route_accepted?(route, text, decision) ->
+      deterministic_route_accepted?(route, text, decision, context) ->
         run_deterministic_route(route, text, context, decision)
 
       true ->
@@ -329,14 +329,14 @@ defmodule AllbertAssist.Agents.IntentAgent do
     case router_outcome(text, context) do
       {:ok, %Outcome{kind: :execute, action_name: action_name, slots: slots}}
       when is_binary(action_name) ->
-        if selection_proposal_accepted?(action_name, text) do
+        if selection_proposal_accepted?(action_name, text, context) do
           run_router_action(action_name, slots, text, context, decision)
         else
           run_direct_answer_fallback(text, context)
         end
 
       {:ok, %Outcome{kind: :clarify} = outcome} ->
-        case grounded_clarification(outcome, text) do
+        case grounded_clarification(outcome, text, context) do
           {:ok, grounded_outcome} ->
             {:ok, router_clarify_response(grounded_outcome, context, decision)}
 
@@ -370,32 +370,50 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   # Engine and router output is a proposal, not authority. Re-derive policy from
   # the canonical active descriptor here; advisory diagnostics cannot weaken it.
-  defp selection_proposal_accepted?(action_name, text) do
-    SelectionPolicy.evaluate(action_name, text).accepted?
+  defp selection_proposal_accepted?(action_name, text, context) do
+    SelectionPolicy.evaluate(action_name, text, selection_policy_opts(context)).accepted?
   end
 
-  defp selection_decision_accepted?(%Decision{} = decision, text),
-    do: SelectionPolicy.decision_accepted?(decision, text)
+  defp selection_decision_accepted?(%Decision{} = decision, text, context),
+    do: SelectionPolicy.decision_accepted?(decision, text, selection_policy_opts(context))
 
-  defp grounded_clarification(%Outcome{} = outcome, text) do
+  defp grounded_clarification(%Outcome{} = outcome, text, context) do
     # Clarification itself has no effect, but unrelated advisory options are
     # still confusing and could become authority-looking UI. Strictly validate
     # the whole shortlist and keep only options grounded in the original turn.
-    case SelectionPolicy.grounded_shortlist(outcome.shortlist, text) do
+    case SelectionPolicy.grounded_shortlist(
+           outcome.shortlist,
+           text,
+           selection_policy_opts(context)
+         ) do
       {:ok, shortlist} -> {:ok, %{outcome | shortlist: shortlist}}
       :error -> :error
     end
   end
 
-  defp deterministic_route_accepted?(_route, text, %Decision{selected_action: action_name})
+  defp deterministic_route_accepted?(
+         _route,
+         text,
+         %Decision{selected_action: action_name},
+         context
+       )
        when is_binary(action_name) do
     # The route shape supplies params; the canonical descriptor supplies the
     # final selection rule. Semantic/ungoverned legacy ladder routes remain
     # compatible, while explicit policies apply to ladder and model proposals.
-    SelectionPolicy.deterministic_action_accepted?(action_name, text)
+    SelectionPolicy.deterministic_action_accepted?(
+      action_name,
+      text,
+      selection_policy_opts(context)
+    )
   end
 
-  defp deterministic_route_accepted?(_route, _text, _decision), do: true
+  defp deterministic_route_accepted?(_route, _text, _decision, _context), do: true
+
+  defp selection_policy_opts(context) do
+    request = Map.get(context, :request, %{})
+    [resolver_opts: [active_app: field(request, :active_app)]]
+  end
 
   defp run_direct_answer_fallback(text, context) do
     case decision_for_route(:direct_answer, text, context) do
@@ -608,7 +626,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
     case take_pending(Map.get(request, :user_id), Map.get(request, :thread_id)) do
       {:ok, %PendingClarification{options: options, prompt: original_prompt}} ->
-        case resolve_clarification_reply(text, options) do
+        case resolve_clarification_reply(text, options, context) do
           {:ok, %{id: action_name}, slots} when is_binary(action_name) and action_name != "" ->
             resolve_clarified_action(
               action_name,
@@ -629,7 +647,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp resolve_clarified_action(action_name, slots, original_prompt, text, context, decision) do
-    if clarification_resolution_accepted?(action_name, original_prompt) do
+    if clarification_resolution_accepted?(action_name, original_prompt, context) do
       context = put_clarification_origin(context, original_prompt)
       {:resolved, run_router_action(action_name, slots, text, context, decision)}
     else
@@ -637,14 +655,15 @@ defmodule AllbertAssist.Agents.IntentAgent do
     end
   end
 
-  defp resolve_clarification_reply(text, options) do
+  defp resolve_clarification_reply(text, options, context) do
     case ClarifyResolver.resolve(text, options) do
       {:ok, option} -> {:ok, option, %{}}
-      :no_match -> resolve_missing_params_reply(text, options)
+      :no_match -> resolve_missing_params_reply(text, options, context)
     end
   end
 
-  defp resolve_missing_params_reply(text, [option]) when is_binary(text) and is_map(option) do
+  defp resolve_missing_params_reply(text, [option], context)
+       when is_binary(text) and is_map(option) do
     missing_params = field(option, :missing_params, [])
 
     missing_keys =
@@ -657,7 +676,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
     with [_first | _rest] <- missing_keys,
          false <- Enum.any?(missing_keys, &is_nil/1),
          true <- is_binary(action_name) and action_name != "",
-         %Descriptor{} = descriptor <- descriptor_for_action(action_name),
+         %Descriptor{} = descriptor <- descriptor_for_action(action_name, context),
          params <- Descriptor.extract_slots(descriptor, text).extracted_slots,
          params <- maybe_fill_single_missing_param(params, missing_keys, text),
          true <- Enum.all?(missing_keys, &present_param?(params, &1)) do
@@ -667,10 +686,12 @@ defmodule AllbertAssist.Agents.IntentAgent do
     end
   end
 
-  defp resolve_missing_params_reply(_text, _options), do: :no_match
+  defp resolve_missing_params_reply(_text, _options, _context), do: :no_match
 
-  defp descriptor_for_action(action_name) do
-    Enum.find(DescriptorResolver.resolve(), fn
+  defp descriptor_for_action(action_name, context) do
+    resolver_opts = Keyword.fetch!(selection_policy_opts(context), :resolver_opts)
+
+    Enum.find(DescriptorResolver.resolve(resolver_opts), fn
       %Descriptor{action_name: ^action_name} -> true
       _other -> false
     end)
@@ -702,8 +723,12 @@ defmodule AllbertAssist.Agents.IntentAgent do
   # selection. Category vocabulary may have grounded presentation without
   # independently authorizing execution, so revalidate the option under the
   # same clarification contract before the normal Registry/Security gates.
-  defp clarification_resolution_accepted?(action_name, original_prompt) do
-    SelectionPolicy.supported_action_names([action_name], original_prompt) == [action_name]
+  defp clarification_resolution_accepted?(action_name, original_prompt, context) do
+    SelectionPolicy.supported_action_names(
+      [action_name],
+      original_prompt,
+      selection_policy_opts(context)
+    ) == [action_name]
   end
 
   defp take_pending(user_id, thread_id) do

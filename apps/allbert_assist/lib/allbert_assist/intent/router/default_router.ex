@@ -23,7 +23,7 @@ defmodule AllbertAssist.Intent.Router.DefaultRouter do
         {:ok, outcome}
 
       :continue ->
-        case Prefilter.shortlist(query) do
+        case Prefilter.shortlist(query, active_app: active_app(request)) do
           {:ok, %{shortlist: shortlist, margin: margin}} ->
             Disambiguator.disambiguate(query, shortlist, margin, context)
 
@@ -32,4 +32,6 @@ defmodule AllbertAssist.Intent.Router.DefaultRouter do
         end
     end
   end
+
+  defp active_app(request), do: Map.get(request, :active_app) || Map.get(request, "active_app")
 end

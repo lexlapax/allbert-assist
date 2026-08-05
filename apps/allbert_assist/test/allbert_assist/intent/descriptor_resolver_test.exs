@@ -83,6 +83,23 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolverTest do
       refute MapSet.member?(keys, {:stocksage, "run_analysis"})
     end
 
+    test "the router index retains non-default app descriptors but not capability-off ones" do
+      descriptors = DescriptorResolver.resolve(availability: :router_index)
+      keys = resolved_keys(descriptors)
+      actions = Enum.map(descriptors, & &1.action_name)
+
+      assert MapSet.member?(keys, {:stocksage, "run_analysis"})
+      refute "synthesize_voice" in actions
+    end
+
+    test "a validated active app admits only that app's non-default descriptors" do
+      stocksage_keys = resolved_keys(DescriptorResolver.resolve(active_app: :stocksage))
+      allbert_keys = resolved_keys(DescriptorResolver.resolve(active_app: :allbert))
+
+      assert MapSet.member?(stocksage_keys, {:stocksage, "run_analysis"})
+      refute MapSet.member?(allbert_keys, {:stocksage, "run_analysis"})
+    end
+
     test "capability-gated intents (voice) are excluded when the capability is off (default)" do
       actions = DescriptorResolver.resolve() |> Enum.map(& &1.action_name)
       refute "synthesize_voice" in actions

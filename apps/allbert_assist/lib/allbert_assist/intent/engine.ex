@@ -557,7 +557,7 @@ defmodule AllbertAssist.Intent.Engine do
 
   defp do_collect_candidates(request, opts, match_context) do
     registry = RegistryContext.take(opts)
-    descriptors = resolved_descriptors(registry)
+    descriptors = resolved_descriptors(registry, request)
     descriptors_by_action = Map.new(descriptors, &{&1.action_name, &1})
 
     (route_hint_candidates(request, registry, descriptors_by_action, match_context) ++
@@ -1508,8 +1508,10 @@ defmodule AllbertAssist.Intent.Engine do
     Map.merge(trace_metadata, selection_metadata)
   end
 
-  defp resolved_descriptors(registry) do
-    DescriptorResolver.resolve(registry)
+  defp resolved_descriptors(registry, request) do
+    registry
+    |> Keyword.put(:active_app, field(request, :active_app))
+    |> DescriptorResolver.resolve()
   rescue
     _exception -> []
   catch

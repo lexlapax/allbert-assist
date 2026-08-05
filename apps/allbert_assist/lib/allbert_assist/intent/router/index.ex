@@ -184,7 +184,9 @@ defmodule AllbertAssist.Intent.Router.Index do
   end
 
   defp build do
-    descriptors = DescriptorResolver.resolve()
+    # Non-default app descriptors are inert index data. Prefilter scopes them to
+    # the validated active app on each request before they can reach ranking.
+    descriptors = DescriptorResolver.resolve(availability: :router_index)
     do_build(descriptors)
   end
 
