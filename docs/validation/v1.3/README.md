@@ -581,6 +581,18 @@ and content SHA-256
 The draft remains unpublished/mutable with exactly 13 assets. Packaged latency
 and K6 remain pending; promotion is prohibited.
 
+Four final packaged-latency rows passed and were ingested for exact source SHA
+`43859a9ea7f5773ae056208ebb8e687d21f7d91a`: macOS arm64 Memory
+`56.705/65.074 ms` and Search `67.139/70.929 ms`, plus Linux x64 Memory
+`39.014/39.750 ms` and Search `47.668/52.413 ms` (p95/p99). Each row binds its
+host's archive digest, remains below the frozen consumer-specific bounds, and
+is reported separately. Evidence-file SHA-256 values are
+`a58338c042e33ab0c1781ed8316bbd4ab0de316c6465264ab3c53490867673bd`
+for macOS and
+`95bf958312498579f139bc8c19ba82d3229d45771551cf8ed5608436e0c76573`
+for Linux. K6 structure, `release.v13`, and authoritative `release` remain;
+promotion is prohibited.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
