@@ -566,6 +566,12 @@ Evidence roots `/tmp/allbert-v13-homebrew.g8mGvo` and
 `/tmp/allbert-v13-homebrew-archive.HFsXyT` are retained. The exact candidate is
 installed; staging and all later gates remain pending.
 
+The verified generation was staged whole. Draft `365232611` contains exactly
+13 assets and remains unpublished/mutable. Manifest asset `502006691`, its API
+digest, and the local SHA-256 all equal
+`7b8ca10955de5cd574fda49245ad324c82359e47967f64e6b7c1ca6df699e3ef`.
+No-build qualification and later gates remain pending; promotion is prohibited.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
