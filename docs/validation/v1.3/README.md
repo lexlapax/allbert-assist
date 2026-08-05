@@ -1055,3 +1055,28 @@ has SHA-256
 `e3c98bd157a29bd34f3f623b2c0701246efffdc069d3672e42158c2a8fcdfe31`.
 The exact candidate has completed K6 and is eligible for the separately
 protected, digest-bound promotion; this record does not yet claim publication.
+
+## Immutable publication
+
+Protected promotion run `31040842884`, approved as deployment `5768272952`,
+revalidated the exact candidate and qualification, uploaded the three stable
+aliases plus `SHA256SUMS` and its keyless cosign bundle, verified that bundle,
+and reached the exact `18`-asset set. It then stopped before publication with
+HTTP `403` because the job-scoped GitHub integration token cannot read the
+repository-administration `immutable-releases` endpoint. No artifact,
+signature, tag, source, or qualification check failed.
+
+The operator-authenticated session confirmed immutable releases were enabled,
+re-read release `365684798` as the exact unpublished `18`-asset draft, and
+applied the already-approved publish PATCH. Final API evidence reports
+`draft: false`, `immutable: true`, `prerelease: false`, `18/18` assets uploaded,
+and `published_at: 2026-08-05T19:47:34Z`. Remote annotated tag object
+`075b467bf6d29722cfbe5e09380a5c3537982fb0` peels to exact executable SHA
+`bc584c295f74700de485530ecdc70fe5792e6421`. Release URL:
+`https://github.com/lexlapax/allbert-assist/releases/tag/v1.3.0`.
+
+The failed workflow conclusion is retained as a content-free permission
+finding. v1.4 must move the repository-administration enablement read to an
+operator preflight while preserving protected binding/signing/publication and
+final immutability checks. Tap fill and published-install closeout are not yet
+claimed by this record.
