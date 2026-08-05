@@ -21,7 +21,7 @@ defmodule AllbertAssist.Memory.Projection do
   alias AllbertAssist.Runtime.WriterLock.Holder, as: WriterLockHolder
   alias Exqlite.Sqlite3
 
-  @schema_version 1
+  @schema_version 2
   @claim_normalizer_version 2
   @tombstone_normalizer_version 1
   @control_file "control.json"
@@ -298,7 +298,8 @@ defmodule AllbertAssist.Memory.Projection do
          {:ok, build} <- populate(builder_conn, paths),
          {:ok, categories} <- projection_categories(builder_conn),
          build = Map.put(build, :categories, categories),
-         :ok <- update_generation_watermark(builder_conn, build.watermark),
+         :ok <-
+           update_generation_watermark(builder_conn, build.full_build_source_watermark),
          verifying = Map.put(rebuilding, "rebuild_phase", "verifying"),
          :ok <- write_control(state.root, verifying) do
       promote_built(state, generation_id, builder_conn, verifying, build)
@@ -327,7 +328,7 @@ defmodule AllbertAssist.Memory.Projection do
         "dirty" => false,
         "rebuild_phase" => nil,
         "last_error_code" => nil,
-        "claim_stream_watermark" => build.watermark
+        "full_build_source_watermark" => build.full_build_source_watermark
     }
 
     with :ok <- write_control(state.root, control) do
@@ -349,7 +350,7 @@ defmodule AllbertAssist.Memory.Projection do
          categories: build.categories,
          derived_at: DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601(),
          path: Path.join(state.root, "current.sqlite3"),
-         watermark: build.watermark
+         full_build_source_watermark: build.full_build_source_watermark
        }, state}
     else
       {:error, reason} ->
@@ -460,7 +461,7 @@ defmodule AllbertAssist.Memory.Projection do
          %{
            acc
            | diagnostics: Enum.reverse(acc.diagnostics),
-             watermark: source_watermark
+             full_build_source_watermark: source_watermark
          }}
 
       error ->
@@ -476,7 +477,12 @@ defmodule AllbertAssist.Memory.Projection do
   end
 
   defp build_acc do
-    %{claim_count: 0, revision_count: 0, diagnostics: [], watermark: nil}
+    %{
+      claim_count: 0,
+      revision_count: 0,
+      diagnostics: [],
+      full_build_source_watermark: nil
+    }
   end
 
   defp add_diagnostic(acc, diagnostic),
@@ -714,7 +720,7 @@ defmodule AllbertAssist.Memory.Projection do
         "CREATE TABLE generation_meta (" <>
         "singleton INTEGER PRIMARY KEY CHECK (singleton = 1)," <>
         "domain TEXT NOT NULL, generation_id TEXT NOT NULL, schema_version INTEGER NOT NULL," <>
-        "projection_revision INTEGER NOT NULL, claim_stream_watermark TEXT," <>
+        "projection_revision INTEGER NOT NULL, full_build_source_watermark TEXT," <>
         "claim_normalizer_version INTEGER NOT NULL, tombstone_normalizer_version INTEGER NOT NULL);" <>
         "CREATE TABLE claim_revisions (" <>
         "claim_id TEXT NOT NULL, sequence INTEGER NOT NULL, revision_digest TEXT NOT NULL," <>
@@ -735,7 +741,7 @@ defmodule AllbertAssist.Memory.Projection do
         "(operator_id, state, recorded_at, claim_id);" <>
         "INSERT INTO generation_meta " <>
         "(singleton, domain, generation_id, schema_version, projection_revision, " <>
-        "claim_stream_watermark, claim_normalizer_version, tombstone_normalizer_version) " <>
+        "full_build_source_watermark, claim_normalizer_version, tombstone_normalizer_version) " <>
         "VALUES (1, 'memory', '#{generation_id}', #{@schema_version}, 0, NULL, " <>
         "#{@claim_normalizer_version}, #{@tombstone_normalizer_version})"
     )
@@ -744,23 +750,35 @@ defmodule AllbertAssist.Memory.Projection do
   defp update_generation_watermark(conn, watermark) do
     execute_bound(
       conn,
-      "UPDATE generation_meta SET claim_stream_watermark = ? WHERE singleton = 1",
+      "UPDATE generation_meta SET full_build_source_watermark = ? WHERE singleton = 1",
       [watermark]
     )
   end
 
   defp verify_generation(conn, _path) do
     with {:ok,
-          ["memory", generation_id, @schema_version, revision, claim_version, tombstone_version]} <-
+          [
+            "memory",
+            generation_id,
+            @schema_version,
+            revision,
+            full_build_source_watermark,
+            claim_version,
+            tombstone_version
+          ]} <-
            query_one(
              conn,
              "SELECT domain, generation_id, schema_version, projection_revision, " <>
-               "claim_normalizer_version, tombstone_normalizer_version " <>
+               "full_build_source_watermark, claim_normalizer_version, " <>
+               "tombstone_normalizer_version " <>
                "FROM generation_meta WHERE singleton = 1"
            ),
          true <- uuid7?(generation_id) || {:error, :invalid_generation_id},
          true <-
            (is_integer(revision) and revision >= 0) || {:error, :invalid_projection_revision},
+         true <-
+           valid_source_watermark?(full_build_source_watermark) ||
+             {:error, :invalid_full_build_source_watermark},
          true <-
            claim_version == @claim_normalizer_version ||
              {:error, :claim_normalizer_mismatch},
@@ -879,6 +897,10 @@ defmodule AllbertAssist.Memory.Projection do
 
       not is_integer(control["projection_revision"]) or control["projection_revision"] < 0 ->
         {:error, :invalid_control_revision}
+
+      control["state"] == "ready" and
+          not valid_source_watermark?(control["full_build_source_watermark"]) ->
+        {:error, :invalid_control_full_build_source_watermark}
 
       true ->
         :ok
@@ -1236,7 +1258,7 @@ defmodule AllbertAssist.Memory.Projection do
       "dirty_seq" => 0,
       "rebuild_phase" => nil,
       "last_error_code" => nil,
-      "claim_stream_watermark" => nil,
+      "full_build_source_watermark" => nil,
       "claim_normalizer_version" => @claim_normalizer_version,
       "tombstone_normalizer_version" => @tombstone_normalizer_version
     }
@@ -1356,6 +1378,14 @@ defmodule AllbertAssist.Memory.Projection do
 
   defp digest(value),
     do: "sha256:" <> (:crypto.hash(:sha256, value) |> Base.encode16(case: :lower))
+
+  defp valid_source_watermark?("sha256:" <> hex) when byte_size(hex) == 64 do
+    hex
+    |> :binary.bin_to_list()
+    |> Enum.all?(fn byte -> byte in ?0..?9 or byte in ?a..?f end)
+  end
+
+  defp valid_source_watermark?(_value), do: false
 
   defp uuid7 do
     timestamp_ms = System.system_time(:millisecond)

@@ -10,6 +10,7 @@ defmodule AllbertAssist.Memory.ProjectionTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.KeyCustody
+  alias Exqlite.Sqlite3
 
   @env_vars [
     "ALLBERT_HOME",
@@ -43,7 +44,7 @@ defmodule AllbertAssist.Memory.ProjectionTest do
     {:ok, home: home}
   end
 
-  test "complete rebuild promotes native and grandfathered claims with schema-1 control" do
+  test "complete rebuild promotes claims with schema-2 full-build metadata" do
     claim_id = Ecto.UUID.generate()
     assert {:ok, first} = Claims.append(claim_id, nil, transition(value: "native value"))
 
@@ -88,29 +89,41 @@ defmodule AllbertAssist.Memory.ProjectionTest do
     status = Projection.status(projection)
     assert status.ready?
     assert status.control["domain"] == "memory"
-    assert status.control["schema_version"] == 1
+    assert status.control["schema_version"] == 2
     assert status.control["projection_revision"] == 0
     assert status.control["current_generation_id"] == built.generation_id
     assert status.control["builder_generation_id"] == nil
     assert status.control["state"] == "ready"
     assert status.control["dirty"] == false
     assert status.control["rebuild_phase"] == nil
-    assert status.control["claim_stream_watermark"] == built.watermark
+
+    assert status.control["full_build_source_watermark"] ==
+             built.full_build_source_watermark
+
+    refute Map.has_key?(status.control, "claim_stream_watermark")
 
     control_path = Path.join(Paths.memory_projection_root(), "control.json")
     assert {:ok, persisted_control} = control_path |> File.read!() |> Jason.decode()
     assert persisted_control == status.control
-    assert File.exists?(Path.join(Paths.memory_projection_root(), "current.sqlite3"))
+    current_path = Path.join(Paths.memory_projection_root(), "current.sqlite3")
+    assert File.exists?(current_path)
     refute File.exists?(Path.join(Paths.memory_projection_root(), "previous.sqlite3"))
+
+    assert {:ok, [2, 0, full_build_source_watermark]} = generation_metadata(current_path)
+
+    assert full_build_source_watermark == built.full_build_source_watermark
+    refute "claim_stream_watermark" in generation_meta_columns(current_path)
+    assert "full_build_source_watermark" in generation_meta_columns(current_path)
 
     GenServer.stop(projection)
   end
 
-  test "incremental refresh advances revision once and rebuild changes only generation" do
+  test "keep archive restore refreshes preserve the full-build watermark until rebuild" do
     claim_id = Ecto.UUID.generate()
     assert {:ok, first} = Claims.append(claim_id, nil, transition(value: "first"))
     {:ok, projection} = Projection.start_link(root: Paths.memory_projection_root(), name: nil)
     assert {:ok, first_build} = Projection.rebuild(projection)
+    first_watermark = first_build.full_build_source_watermark
 
     archived = transition(state: "archived", value: "first")
     assert {:ok, second} = Claims.append(claim_id, first.tail_digest, archived)
@@ -121,19 +134,102 @@ defmodule AllbertAssist.Memory.ProjectionTest do
     assert kept.state == "kept"
     assert archived_row.state == "archived"
     assert archived_row.revision_digest == second.tail_digest
-    assert Projection.status(projection).control["projection_revision"] == 1
+    archived_control = Projection.status(projection).control
+    assert archived_control["projection_revision"] == 1
+    assert archived_control["full_build_source_watermark"] == first_watermark
 
-    assert {:ok, second_build} = Projection.rebuild(projection)
-    refute second_build.generation_id == first_build.generation_id
-    assert second_build.projection_revision == 0
-    assert Projection.status(projection).control["projection_revision"] == 0
-    assert File.exists?(Path.join(Paths.memory_projection_root(), "previous.sqlite3"))
+    restored = transition(state: "kept", action: "restore", value: "first")
+    assert {:ok, third} = Claims.append(claim_id, second.tail_digest, restored)
+    assert {:ok, restored_refresh} = Projection.refresh_claim(claim_id, projection)
+    assert restored_refresh.projection_revision == 2
+    assert restored_refresh.revision_count == 3
+
+    assert {:ok, [_, _, restored_row]} = Projection.history(claim_id, projection)
+    assert restored_row.state == "kept"
+    assert restored_row.action == "restore"
+    assert restored_row.revision_digest == third.tail_digest
+
+    restored_control = Projection.status(projection).control
+    assert restored_control["projection_revision"] == 2
+    assert restored_control["full_build_source_watermark"] == first_watermark
+    refute Map.has_key?(restored_control, "claim_stream_watermark")
+
+    assert {:ok, [2, 2, ^first_watermark]} =
+             generation_metadata(Path.join(Paths.memory_projection_root(), "current.sqlite3"))
 
     GenServer.stop(projection)
     {:ok, restarted} = Projection.start_link(root: Paths.memory_projection_root(), name: nil)
+    restarted_control = Projection.status(restarted).control
     assert Projection.status(restarted).ready?
-    assert {:ok, [_, restarted_archive]} = Projection.history(claim_id, restarted)
-    assert restarted_archive.state == "archived"
+    assert restarted_control["projection_revision"] == 2
+    assert restarted_control["full_build_source_watermark"] == first_watermark
+    assert {:ok, [_, _, restarted_restore]} = Projection.history(claim_id, restarted)
+    assert restarted_restore.state == "kept"
+
+    assert {:ok, second_build} = Projection.rebuild(restarted)
+    refute second_build.generation_id == first_build.generation_id
+    assert second_build.projection_revision == 0
+    refute second_build.full_build_source_watermark == first_watermark
+
+    rebuilt_control = Projection.status(restarted).control
+    assert rebuilt_control["projection_revision"] == 0
+
+    assert rebuilt_control["full_build_source_watermark"] ==
+             second_build.full_build_source_watermark
+
+    assert File.exists?(Path.join(Paths.memory_projection_root(), "previous.sqlite3"))
+
+    GenServer.stop(restarted)
+  end
+
+  test "schema-1 derived state is rejected and converges through a full rebuild" do
+    claim_id = Ecto.UUID.generate()
+    assert {:ok, _first} = Claims.append(claim_id, nil, transition(value: "schema migration"))
+    root = Paths.memory_projection_root()
+    {:ok, projection} = Projection.start_link(root: root, name: nil)
+    assert {:ok, built} = Projection.rebuild(projection)
+    GenServer.stop(projection)
+
+    current_path = Path.join(root, "current.sqlite3")
+    control_path = Path.join(root, "control.json")
+    legacy_control = control_path |> File.read!() |> Jason.decode!()
+
+    assert :ok =
+             execute_database(
+               current_path,
+               "ALTER TABLE generation_meta RENAME COLUMN " <>
+                 "full_build_source_watermark TO claim_stream_watermark;" <>
+                 "UPDATE generation_meta SET schema_version = 1 WHERE singleton = 1"
+             )
+
+    legacy_control =
+      legacy_control
+      |> Map.put("schema_version", 1)
+      |> Map.put("claim_stream_watermark", built.full_build_source_watermark)
+      |> Map.delete("full_build_source_watermark")
+
+    File.write!(control_path, Jason.encode!(legacy_control))
+
+    {:ok, restarted} = Projection.start_link(root: root, name: nil)
+    rejected = Projection.status(restarted)
+    refute rejected.ready?
+    assert rejected.control["schema_version"] == 2
+    refute Map.has_key?(rejected.control, "claim_stream_watermark")
+
+    assert {:ok, rebuilt} = Projection.rebuild(restarted)
+    converged = Projection.status(restarted)
+    assert converged.ready?
+    assert converged.control["schema_version"] == 2
+
+    assert converged.control["full_build_source_watermark"] ==
+             rebuilt.full_build_source_watermark
+
+    refute Map.has_key?(converged.control, "claim_stream_watermark")
+    rebuilt_watermark = rebuilt.full_build_source_watermark
+    assert {:ok, [2, 0, ^rebuilt_watermark]} = generation_metadata(current_path)
+    refute "claim_stream_watermark" in generation_meta_columns(current_path)
+    assert "full_build_source_watermark" in generation_meta_columns(current_path)
+    assert {:ok, [_row]} = Projection.history(claim_id, restarted)
     GenServer.stop(restarted)
   end
 
@@ -248,6 +344,71 @@ defmodule AllbertAssist.Memory.ProjectionTest do
     refute File.exists?(builder_path <> "-wal")
     assert {:ok, [_row]} = Projection.history(claim_id, restarted)
     GenServer.stop(restarted)
+  end
+
+  defp execute_database(path, sql) do
+    with {:ok, conn} <- Sqlite3.open(path) do
+      try do
+        Sqlite3.execute(conn, sql)
+      after
+        :ok = Sqlite3.close(conn)
+      end
+    end
+  end
+
+  defp generation_metadata(path) do
+    with {:ok, conn} <- Sqlite3.open(path, mode: :readonly) do
+      try do
+        query_one(
+          conn,
+          "SELECT schema_version, projection_revision, full_build_source_watermark " <>
+            "FROM generation_meta WHERE singleton = 1"
+        )
+      after
+        :ok = Sqlite3.close(conn)
+      end
+    end
+  end
+
+  defp generation_meta_columns(path) do
+    with {:ok, conn} <- Sqlite3.open(path, mode: :readonly) do
+      try do
+        {:ok, rows} = query_all(conn, "PRAGMA table_info(generation_meta)")
+        Enum.map(rows, &Enum.at(&1, 1))
+      after
+        :ok = Sqlite3.close(conn)
+      end
+    end
+  end
+
+  defp query_one(conn, sql) do
+    with {:ok, statement} <- Sqlite3.prepare(conn, sql) do
+      try do
+        case Sqlite3.step(conn, statement) do
+          {:row, row} -> {:ok, row}
+          other -> {:error, other}
+        end
+      after
+        :ok = Sqlite3.release(conn, statement)
+      end
+    end
+  end
+
+  defp query_all(conn, sql) do
+    with {:ok, statement} <- Sqlite3.prepare(conn, sql) do
+      try do
+        {:ok, collect_rows(conn, statement, [])}
+      after
+        :ok = Sqlite3.release(conn, statement)
+      end
+    end
+  end
+
+  defp collect_rows(conn, statement, rows) do
+    case Sqlite3.step(conn, statement) do
+      {:row, row} -> collect_rows(conn, statement, [row | rows])
+      :done -> Enum.reverse(rows)
+    end
   end
 
   defp transition(overrides \\ []) do
