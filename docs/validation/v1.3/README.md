@@ -974,5 +974,9 @@ archive separately. PV-0 through PV-8 and focused packaged StockSage acceptance
 remain inherited without relabelling because M9.b.18 changed only generated
 test inventory. Exact-SHA K6 structure passed with evidence SHA-256
 `43eae2c821e6580ffb43cff22010a0dcf038508186af3508835c6f082acc00e4`.
-The single `release.v13` is running; authoritative `release` remains
-conditional on 32/32 before promotion.
+The single `release.v13` passed `32/32`; structured evidence
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v13/p0-13956/home/release_evidence/v13/release-v13-1785945318.json`
+has SHA-256
+`271ae3371c89c013bf2d005ded66ea2c725ceeb5b9f9aedbd9335a35f6433c41`.
+The one authoritative `release` is running in the same exact-SHA checkout;
+promotion remains conditional on that result.
