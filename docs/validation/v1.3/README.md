@@ -980,3 +980,18 @@ has SHA-256
 `271ae3371c89c013bf2d005ded66ea2c725ceeb5b9f9aedbd9335a35f6433c41`.
 The one authoritative `release` is running in the same exact-SHA checkout;
 promotion remains conditional on that result.
+
+That authoritative aggregate passed Hex audit, forced warnings-as-errors
+compile, unused-dependency, formatter, and strict-Credo phases, then stopped in
+`high_coverage_fast_local`. Core `app_env_serial` partition `2/4`, seed
+`881830`, reported six failures in the fan-out budget owner because its test
+fixture did not bind the higher-precedence explicit Settings root left by the
+immediately preceding Marketplace owner. The owner passes `15/15` alone on a
+fresh disposable Home at the exact seed, so this is test-authority isolation,
+not a packaged/operator behavior failure. Aggregate evidence SHA-256 is
+`a4903cc48c8ff4bc83071ef9c0d16b54b541fab154c461095f9aa08253815ef0`;
+the high-coverage log SHA-256 is
+`2dc5a7fb9648e927a93f1292ce080f361a2dba38022bd69fedf375a39e91bedb`.
+M9.b.19 owns the bounded test-only repair, exact partition replay, and
+whole-candidate replacement. No later aggregate phase ran and promotion is
+prohibited.
