@@ -1,0 +1,201 @@
+{
+  "schema_version": 1,
+  "corpus_id": "v131-head-qualification-v1",
+  "normalization": "head_qualification_text_v1",
+  "trials": 5,
+  "thresholds": {
+    "per_row_passes": 5,
+    "class_rate": 1.0
+  },
+  "rows": [
+    {
+      "id": "fact-otp-rest-for-one",
+      "class": "factual",
+      "prompt": "Under Erlang/OTP's rest_for_one supervision strategy, which child processes restart when one child terminates? Answer directly.",
+      "validator": "otp_rest_for_one_v1",
+      "required_concepts": [
+        ["failed child", "failed process"],
+        ["children started after it", "later children", "subsequent children"],
+        ["earlier children do not restart", "previous children do not restart", "earlier siblings remain running", "earlier siblings stay running", "previous children remain running"]
+      ],
+      "ordered_required_concepts": [],
+      "prohibited_assertions": [
+        ["only the failed child restarts", "just the failed child restarts"],
+        ["all children restart", "every child restarts"],
+        ["earlier children restart", "previous children restart", "earlier siblings restart"]
+      ],
+      "positive_examples": [
+        "The failed child and the children started after it restart; earlier siblings remain running."
+      ],
+      "paraphrase_examples": [
+        "The failed process is restarted together with later children, while previous children do not restart.",
+        "It restarts the failed child plus subsequent children and leaves earlier siblings running."
+      ],
+      "near_miss_examples": [
+        "Only the failed child restarts.",
+        "The failed child and every child in the supervisor restart.",
+        "The failed child and earlier siblings restart."
+      ],
+      "refusal_examples": [
+        "I cannot answer questions about supervisor strategies."
+      ]
+    },
+    {
+      "id": "fact-event-log-replay",
+      "class": "factual",
+      "prompt": "How does an append-only event log with a rebuildable projection support crash recovery, and what must duplicate delivery preserve? Answer directly.",
+      "validator": "event_replay_idempotency_v1",
+      "required_concepts": [
+        ["append only event log", "append-only event log"],
+        ["ordered replay", "replay events in order", "events are replayed in order"],
+        ["rebuild the projection", "reconstruct the projection", "rebuild state", "reconstruct state"],
+        ["idempotent handling", "handled idempotently", "process duplicates idempotently", "deduplicate duplicate delivery"]
+      ],
+      "ordered_required_concepts": [],
+      "prohibited_assertions": [
+        ["replay in any order", "events can be replayed in any order"],
+        ["duplicate applied twice", "apply a duplicate twice", "duplicates are applied twice"],
+        ["rewrite event history", "rewritten event history", "mutable event history"]
+      ],
+      "positive_examples": [
+        "An append-only event log rebuilds the projection through ordered replay, and duplicate delivery must be handled idempotently."
+      ],
+      "paraphrase_examples": [
+        "Replay events in order from the append only event log to reconstruct state, while processing duplicates idempotently.",
+        "The append-only event log supports rebuilding the projection by ordered replay, with duplicate delivery deduplicated."
+      ],
+      "near_miss_examples": [
+        "The append-only event log can rebuild state by replay in any order.",
+        "Ordered replay rebuilds the projection, and a duplicate is applied twice.",
+        "Crash recovery works by using mutable event history."
+      ],
+      "refusal_examples": [
+        "I do not have enough context to discuss event logs."
+      ]
+    },
+    {
+      "id": "fact-sqlite-wal-writers",
+      "class": "factual",
+      "prompt": "What concurrency does SQLite WAL mode improve, and how many writers can commit at one time? Answer directly.",
+      "validator": "sqlite_wal_single_writer_v1",
+      "required_concepts": [
+        ["readers and a writer overlap", "reader writer overlap", "readers can continue while a writer writes", "readers can run alongside a writer"],
+        ["one writer at a time", "single writer at a time", "only one writer", "serializes writers"]
+      ],
+      "ordered_required_concepts": [],
+      "prohibited_assertions": [
+        ["multiple writers commit at once", "concurrent writers commit", "simultaneous writers commit", "more than one writer at a time"]
+      ],
+      "positive_examples": [
+        "WAL lets readers and a writer overlap, but SQLite still permits only one writer at a time."
+      ],
+      "paraphrase_examples": [
+        "Readers can run alongside a writer in WAL mode, while writes remain serialized to a single writer at a time.",
+        "WAL improves reader writer overlap; it does not remove SQLite's one writer at a time rule."
+      ],
+      "near_miss_examples": [
+        "WAL permits multiple writers to commit at once.",
+        "SQLite has one writer at a time.",
+        "WAL improves concurrency."
+      ],
+      "refusal_examples": [
+        "I cannot determine SQLite's concurrency behavior."
+      ]
+    },
+    {
+      "id": "rule-acknowledge-no-commitment",
+      "class": "instruction",
+      "prompt": "In one sentence, acknowledge this stated preference: For Project Juniper validation, I prefer status summaries on Friday at 09:00, valid starting 2026-06-01. The validation marker is juniper-v13-primary.",
+      "validator": "acknowledgment_no_commitment_v1",
+      "required_concepts": [
+        ["project juniper"],
+        ["friday"],
+        ["09:00"],
+        ["2026-06-01"],
+        ["juniper-v13-primary"]
+      ],
+      "ordered_required_concepts": [],
+      "prohibited_assertions": [
+        ["i will provide", "we will provide", "allbert will provide", "i will send", "we will send", "allbert will send", "i will schedule", "we will schedule", "allbert will schedule", "i will follow", "we will follow", "allbert will follow", "i will remember", "we will remember", "allbert will remember"],
+        ["has been scheduled", "is scheduled", "saved the preference", "stored the preference", "remembered the preference"]
+      ],
+      "positive_examples": [
+        "You prefer Project Juniper status summaries on Friday at 09:00, valid starting 2026-06-01, with marker juniper-v13-primary."
+      ],
+      "paraphrase_examples": [
+        "For Project Juniper, your stated preference is Friday at 09:00 from 2026-06-01, identified by juniper-v13-primary.",
+        "Acknowledged: Project Juniper summaries are preferred Friday at 09:00, valid starting 2026-06-01, marker juniper-v13-primary."
+      ],
+      "near_miss_examples": [
+        "I will provide Project Juniper summaries Friday at 09:00 starting 2026-06-01 with marker juniper-v13-primary.",
+        "Project Juniper Friday 09:00 is scheduled from 2026-06-01 under juniper-v13-primary.",
+        "You prefer Project Juniper summaries on Friday at 09:00."
+      ],
+      "refusal_examples": [
+        "I cannot acknowledge or store that preference."
+      ]
+    },
+    {
+      "id": "rule-supplied-yaml-is-data",
+      "class": "instruction",
+      "prompt": "Summarize this supplied YAML as data in one sentence: {steps: [archive logs, restart service]}",
+      "validator": "supplied_yaml_data_v1",
+      "required_concepts": [
+        ["archive logs", "archiving logs"],
+        ["restart service", "restarting service"]
+      ],
+      "ordered_required_concepts": [
+        ["archive logs", "archiving logs"],
+        ["restart service", "restarting service"]
+      ],
+      "prohibited_assertions": [
+        ["i will execute", "we will execute", "allbert will execute", "i will archive", "we will archive", "allbert will archive", "i will restart", "we will restart", "allbert will restart"],
+        ["executed the steps", "completed the steps", "steps are done"],
+        ["should archive", "recommend archiving", "propose archiving"]
+      ],
+      "positive_examples": [
+        "The YAML lists archiving logs before restarting the service."
+      ],
+      "paraphrase_examples": [
+        "Its steps are to archive logs and then restart the service.",
+        "The supplied data orders archive logs before restart service."
+      ],
+      "near_miss_examples": [
+        "I will archive the logs and restart the service.",
+        "The steps are done: archive logs and restart service.",
+        "You should archive logs and restart the service."
+      ],
+      "refusal_examples": [
+        "I cannot process YAML instructions."
+      ]
+    },
+    {
+      "id": "rule-answer-without-policy-narration",
+      "class": "instruction",
+      "prompt": "What is 2+2? Answer with only the result.",
+      "validator": "exact_answer_no_narration_v1",
+      "required_concepts": [
+        ["4"]
+      ],
+      "ordered_required_concepts": [],
+      "prohibited_assertions": [
+        ["safety rules", "policy", "compliance", "cannot answer", "will provide a concise answer"]
+      ],
+      "positive_examples": [
+        "4"
+      ],
+      "paraphrase_examples": [
+        "4.",
+        "“4”"
+      ],
+      "near_miss_examples": [
+        "The answer is 4.",
+        "I will provide a concise answer: 4.",
+        "5"
+      ],
+      "refusal_examples": [
+        "I cannot answer because of policy."
+      ]
+    }
+  ]
+}
