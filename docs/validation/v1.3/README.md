@@ -204,21 +204,23 @@ product change.
 
 ## Exact candidate construction and packaged qualification
 
-Current K5 replacement completed on 2026-08-04 from one frozen clean pushed
+Current K5 replacement completed on 2026-08-05 from one frozen clean pushed
 executable source SHA; the prior unpublished generation was discarded whole
 and no target was retained:
 
 | Binding | Exact value |
 | --- | --- |
-| source SHA | `c7df6e7e5e9f1baab2719c31c481702e1456ad68` |
-| candidate generation | `v13-20260804T194722Z-c7df6e7e5e9f` |
-| macOS arm64 archive SHA-256 | `3149a38249df1d893810a647b2fc7cc17d8f465bb096aa770897198056aaf396` |
-| Linux x64 archive SHA-256 | `07d6f735db689834a4616254f162826078be8430a960391a9f5438da82e65e5f` |
-| Linux arm64 archive SHA-256 | `ce3a29807ab89f19afa8aa452a16c40ef675fc71f783f4c4cfd392e22b1cd7e9` |
-| unpublished draft release | `365113275` — 13 assets, immutable `false` |
-| candidate manifest | asset `501751833`, digest `e6ef8b42a569b1234abcbdb65200142aaecaadecbdefd57ace4b22901a23159c` |
-| no-build qualification | run `30945495378` — all three targets passed |
-| qualification manifest | artifact `8906942033`, digest `c8e640e329d5c76fd630f8a1bd9433110dce9e53c01851cd17fe2c123de558b2` |
+| source SHA | `99d261b6cbf6e301ca202c8bc46e88bbd76896c2` |
+| annotated tag object | `fdc9e8a5d3ecab631c48e21a6ead27706d662d42` — peels to the source SHA |
+| candidate generation | `v13-20260805T044620Z-99d261b6cbf6` |
+| macOS arm64 archive SHA-256 | `c3a200b58d374372c5730c440183c5e706e53e810c611622ec8a6a71949f584a` |
+| Linux x64 archive SHA-256 | `1704d28004168a72173e85393f141f89bdc995926417ddecd19cd1f09eb761e8` |
+| Linux arm64 archive SHA-256 | `2d94e616e46a17acad36477f5a15ec8ea5de70989da40628cb02f9697d9955dd` |
+| unpublished draft release | `365291805` — 13 assets, `draft: true`, `immutable: false`, `published_at: null` |
+| candidate manifest | asset `502189477`, digest `21f245b4d27e283159ab303fbe129b05007711f2b8f7908f789f8ad6cbd21bfc` |
+| no-build qualification | run `30976613463` — all three targets and joined evidence passed; promotion skipped |
+| qualification artifact | `8918501793`, API/ZIP digest `65b68aab887013ee2f4c6f732683ebdddfe8e23e4f055e1f08f3feaafa1c5a48` |
+| qualification manifest content | SHA-256 `dbe903ec081d016ea088823676857b56a714ca9ce1efc622c98d164291f9d920` |
 
 Each native builder passed its SHA/generation/toolchain, package, sealed-license,
 and runtime smoke. Both Linux outputs came from native architecture execution
@@ -226,7 +228,9 @@ of the same pinned Debian multi-architecture image digest. Homebrew installed
 the actual macOS candidate under `umask 077`; `brew test`, packaged
 `allbert licenses --json`, all sealed evidence `0644`/`0755` modes, and exact
 archive-versus-install hashes for both relocation-managed Mach-O payloads
-passed. This is the successful proof of M9.b.14; the draft remains unpublished.
+passed. Retained evidence roots are `/tmp/allbert-v13-homebrew-99d.lLdisM`
+and `/tmp/allbert-v13-homebrew-archive-99d.k2fVKq`. This is the successful proof
+of M9.b.14; the draft remains unpublished.
 
 ## Packaged native latency and ADR 0092
 
@@ -237,17 +241,21 @@ across host or consumer—and are ingested into
 
 | Host | Consumer | Frozen scale | p95 ms | p99 ms | Result |
 | --- | --- | --- | ---: | ---: | --- |
-| macOS arm64 | Memory | 10,000 claims / 200 measured queries | 53.267 | 54.257 | PASS |
-| macOS arm64 | Search | 25,000 messages / 250 threads / 300 measured queries | 64.283 | 67.128 | PASS |
-| Linux x64 | Memory | 10,000 claims / 200 measured queries | 38.470 | 38.870 | PASS |
-| Linux x64 | Search | 25,000 messages / 250 threads / 300 measured queries | 47.709 | 51.556 | PASS |
+| macOS arm64 | Memory | 10,000 claims / 200 measured queries | 47.728 | 49.851 | PASS |
+| macOS arm64 | Search | 25,000 messages / 250 threads / 300 measured queries | 61.699 | 64.602 | PASS |
+| Linux x64 | Memory | 10,000 claims / 200 measured queries | 39.408 | 40.119 | PASS |
+| Linux x64 | Search | 25,000 messages / 250 threads / 300 measured queries | 47.395 | 50.977 | PASS |
 
 Every row carries the full candidate SHA, its exact archive digest, a complete
 warm pass, the frozen threshold, clean provenance, and `status=passed`. Combined
 with the loaded-Exqlite capability smoke in all three native packages, these
 rows satisfy ADR 0092's last flip condition. ADR 0092 is Accepted. Source-tree
 rehearsals and the prior mixed-SHA portability builds are not used as this
-evidence.
+evidence. Evidence-file SHA-256 values are
+`239a46142761a446267c45e8f4777c8397937066c839b31ef6a103642a60226b`
+for macOS and
+`98d8d58bb6ac9f58a26766dd10ac4301a3f53d9eef153bdbedfd35965550976d`
+for Linux.
 
 PV-0 through PV-8 were not repeated for this compatibility-metadata/test-
 fixture correction. Their accepted feature observations are inherited under
@@ -256,6 +264,13 @@ the current package; current identity, integrity, Homebrew/package smoke,
 qualification, and all four packaged latency cells did rerun.
 
 ## Final K6 aggregate closeout
+
+Current K6 rejoin is pending at exact executable candidate SHA
+`99d261b6cbf6e301ca202c8bc46e88bbd76896c2`. Structure, the single
+`release.v13`, and the one authoritative `release` run remain ordered next;
+promotion is prohibited. The entries below preserve earlier exact-SHA
+diagnostic runs and their remediations rather than presenting them as current
+acceptance evidence.
 
 The isolated detached checkout at exact executable candidate SHA
 `2b9cb986fdb1ad7a9750b4b4b9e5c165e7f425bd` passed the structural-prefix
@@ -727,6 +742,26 @@ and content SHA-256
 `95964953beb6b617b8cc7c5738d838560176aaa6b291d792829cfe1fbb4e0d38`.
 The draft remains unpublished/mutable with exactly 13 assets. Packaged latency
 and K6 remain pending; promotion is prohibited.
+
+The ensuing aggregate was diagnostic RED in four Web test-contract rows. Their
+bounded test-only remediation changed no production module or accepted operator
+contract, so PV-0 through PV-8 remain inherited without relabelling. The
+superseded `c5cb0c83` candidate was verified unpublished/mutable and discarded
+whole. Final replacement SHA `99d261b6cbf6e301ca202c8bc46e88bbd76896c2`,
+generation `v13-20260805T044620Z-99d261b6cbf6`, and draft `365291805` bind the
+new exact candidate. All three native builds, target smokes, fresh Homebrew
+reinstall/test, sealed license inventory, installed-tree integrity comparison,
+complete staging, and no-build qualification passed. The exact archive digests
+are recorded in the current K5 table above; draft `365291805` remains
+unpublished/mutable with exactly 13 assets, and qualification run
+`30976613463` skipped promotion.
+
+The replacement's four packaged latency rows also passed and were ingested:
+macOS arm64 Memory `47.728/49.851 ms` and Search `61.699/64.602 ms`, plus Linux
+x64 Memory `39.408/40.119 ms` and Search `47.395/50.977 ms` (p95/p99). Each row
+binds the full source SHA and corresponding archive digest. Final K6 structure,
+`release.v13`, and authoritative `release` are the only remaining
+pre-promotion gates.
 
 ## Packaged operator validation
 
