@@ -289,6 +289,13 @@ Dialyzer with zero errors/skips/unnecessary skips, both forced compiles,
 formatter, and scoped strict Credo. No production module is implicated. The
 authoritative aggregate has not started and promotion remains prohibited.
 
+The superseded unpublished draft/tag were then discarded whole. Replacement
+exact clean pushed SHA `e7ab6673e984d1bc32c8f136e8b5666081558e5c`, annotated
+tag object `cb8ac9e8dd02aeecbc51542268156b1b409adb66`, generation
+`v13-20260805T061754Z-e7ab6673e984`, and empty draft `365320940` bind the new
+candidate. macOS arm64, native Linux x64, and native Linux arm64 builders are
+running concurrently; the draft remains unpublished/mutable and empty.
+
 The isolated detached checkout at exact executable candidate SHA
 `2b9cb986fdb1ad7a9750b4b4b9e5c165e7f425bd` passed the structural-prefix
 proof before either aggregate started. Evidence:
