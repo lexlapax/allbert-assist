@@ -609,6 +609,22 @@ has SHA-256
 and `2,336,138 ms` total step duration. The authoritative `release` aggregate
 remains; promotion is prohibited.
 
+The one authoritative aggregate then stopped RED in `web_tests` after
+`5,054,000 ms`. Its earlier phases all passed, including the complete
+high-coverage phase, external-runtime serial (`695/0`, 13 skipped), and
+security-eval serial (`387/0`). Web ran `342` tests at seed `795785` and
+reported four failures: one blocked-job confirmation-render assertion in
+`JobsLiveTest`, then three clustered fan-out selector/composition assertions
+in `OpenAIControllerTest` (one timeout and two `:composition_not_queued`
+outcomes). Evidence
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-15490/home/release_evidence/gates/release-2026-08-05T02_55_51Z.json`
+has SHA-256
+`c6376bd9e0f9d7df97af90e3368174f139ee82ff4ce058841a189caa26274f2e`;
+the adjacent redacted web log contains the assertion detail. The four failures
+are diagnostic RED, not partial acceptance. Focused owner-file classification
+and remediation precede any candidate/provenance decision; no aggregate runs
+per fix and promotion remains prohibited.
+
 Four final packaged-latency rows passed and were ingested for exact source SHA
 `43859a9ea7f5773ae056208ebb8e687d21f7d91a`: macOS arm64 Memory
 `56.705/65.074 ms` and Search `67.139/70.929 ms`, plus Linux x64 Memory
