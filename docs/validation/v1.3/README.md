@@ -1045,5 +1045,13 @@ The one `release.v13` then passed all `32/32` ordered steps. Evidence
 `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v13/p0-15493/home/release_evidence/v13/release-v13-1785950871.json`
 has SHA-256
 `8353d4a3ca236560da751dc2087e4f59ad794eaf80b77d9decce9b994fb7b16a`;
-recorded step durations total `2,469,945 ms`. The authoritative aggregate is
-running in the same exact-SHA checkout; the draft remains unpublished.
+recorded step durations total `2,469,945 ms`. The authoritative aggregate then
+passed every one of its `12` phases in the same exact-SHA checkout after
+`5,483,000 ms`. Web passed `342/342`, StockSage passed `203/203`, channel
+plugins passed `35/35`, both serial core lanes passed, and Dialyzer reported
+zero errors, skips, or unnecessary skips. Evidence
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-16578/home/release_evidence/gates/release-2026-08-05T18_10_16Z.json`
+has SHA-256
+`e3c98bd157a29bd34f3f623b2c0701246efffdc069d3672e42158c2a8fcdfe31`.
+The exact candidate has completed K6 and is eligible for the separately
+protected, digest-bound promotion; this record does not yet claim publication.
