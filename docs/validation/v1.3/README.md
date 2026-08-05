@@ -622,6 +622,25 @@ candidate. GitHub REST verified deletion and replacement identity after SSH
 timeouts; no failed push created partial remote state. Native builds and all
 later evidence remain pending; promotion is prohibited.
 
+The replacement native generation passed with exactly 12 verified files.
+Archive SHA-256 values are macOS arm64
+`bef2880f48fa7030168e1b39b944bbd8c08bb43ba3ac11632dc64d14dd804672`,
+Linux x64
+`2468dec7750eec910c31d54cbd9c26656fb1cf8b19fe680d6fedd13337d745c9`,
+and Linux arm64
+`dcd28905e92f7f75b20684eb1664c195e97af29b38046533c435a1338ac779bd`.
+Every binding, checksum, pinned toolchain, native target, non-root builder, and
+smoke row passed. The exact macOS archive also passed explicit fresh-tap
+Homebrew reinstall/test and packaged license rendering. Its installed
+`libexec` tree is byte-identical to the archive; relocation preserved OpenSSL
+SHA-256
+`643372e6478f280423b2f9536fa1523f1086f806309e9d98eca5ce11e22d3e18`
+and Exqlite SHA-256
+`8559739c2ba3e6970b421de7f09650017661e0a278b8653c012bd0ed847031e1`.
+Evidence roots are `/tmp/allbert-v13-homebrew-c5cb.RZddfd` and
+`/tmp/allbert-v13-homebrew-archive-c5cb.co4yk5`. Staging and later gates remain
+pending; promotion is prohibited.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
