@@ -933,4 +933,16 @@ consumer averaging: macOS arm64 Memory `47.836/50.009 ms` and Search
 the matching archive digest. Exact-SHA K6 structural proof then passed with
 evidence SHA-256
 `114ede1ee305b00757a62fc3a160484d39c610b274ac0acdbb37171f41cbb555`.
-`release.v13` is running; authoritative `release` and promotion remain held.
+`release.v13` completed `31/32`; authoritative `release` and promotion remain
+held.
+
+The sole red step was `v121_manifest_inventory`. Evidence
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v13/p0-7939/home/release_evidence/v13/release-v13-1785924525.json`
+has SHA-256
+`fec6a796bb623c2611a6a6c45cf1bfa6f2944b011dff91d1b1fb3f1ffcb37640`.
+Every other step passed. Live regeneration found `4,549` rows against `4,541`
+committed: one renamed former StockSage test identity and nine current M9.b.17
+resolver/Prefilter/StockSage identities. M9.b.18 owns deterministic CSV-only
+regeneration, manifest/docs checks, and exact-SHA candidate replacement. No
+production/test behavior changes, operator-validation repeat, or aggregate-per-
+fix is authorized.
