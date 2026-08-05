@@ -491,6 +491,15 @@ numbers carried the later docs HEAD was rejected and not ingested; the accepted
 retry force-recompiled the clean exact-SHA driver before measurement. ADR 0092
 now names the replacement generation. Replacement PV-3 and K6 remain pending.
 
+Replacement PV-3 then passed against the Homebrew-installed candidate and real
+configured Ollama endpoint in fresh disposable Home
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert-v13-pv3.uV4ElRAv`.
+Both the `local` and `direct_answer_local` Doctor rows reported configured
+`endpoint_kind=local_endpoint`, validated `effective_endpoint_class=local`,
+`endpoint_ok=true`, and `model_available=true`; DirectAnswer selection did not
+change the global primary. PV-0–PV-2 and PV-4–PV-8 remain inherited and are not
+relabelled. K6 is the only remaining pre-promotion gate.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
