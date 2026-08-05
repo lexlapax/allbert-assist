@@ -601,6 +601,14 @@ has SHA-256
 All cumulative prefix comparisons were exact. `release.v13` and authoritative
 `release` remain; promotion is prohibited.
 
+The ensuing `release.v13` stopped at early strict Credo before test execution.
+Hex audit, migration, format, and warnings-as-errors compile passed; Credo
+reported only the non-alphabetical alias order in the M9.b.16 test fixture's
+`RecoveringProcessStore`. The bounded remediation is test-source-only and does
+not invalidate PV-0 through PV-8, but its tracked SHA change requires complete
+unpublished-candidate replacement, refreshed packaged latency, and a fresh K6
+rejoin. No authoritative aggregate started; promotion remains prohibited.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
