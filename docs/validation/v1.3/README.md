@@ -594,6 +594,14 @@ for Linux. Initial stale-driver outputs were rejected and not ingested. K6
 structure, `release.v13`, and authoritative `release` remain; promotion is
 prohibited.
 
+Final K6 structure passed from the detached clean exact-SHA checkout at
+`c5cb0c83307a11a23c355d8e67f5af4a5adc85ae`. Evidence
+`/tmp/allbert-v13-k6-c5cb0c.qxSreKMl/home/release_evidence/v13/release-structure-v13.json`
+has SHA-256
+`add53c679b20001568aebd4c8ab4eb0450109fe6b2057798e333c59ac1ea6b1d`.
+All cumulative prefix comparisons were exact. `release.v13` and authoritative
+`release` remain; promotion is prohibited.
+
 Four final packaged-latency rows passed and were ingested for exact source SHA
 `43859a9ea7f5773ae056208ebb8e687d21f7d91a`: macOS arm64 Memory
 `56.705/65.074 ms` and Search `67.139/70.929 ms`, plus Linux x64 Memory
