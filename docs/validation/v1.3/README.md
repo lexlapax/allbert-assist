@@ -572,6 +572,15 @@ digest, and the local SHA-256 all equal
 `7b8ca10955de5cd574fda49245ad324c82359e47967f64e6b7c1ca6df699e3ef`.
 No-build qualification and later gates remain pending; promotion is prohibited.
 
+No-build qualification run `30965999992` passed macOS arm64, Linux x64, Linux
+arm64, and joined evidence; promotion was skipped. Qualification manifest
+artifact `8914748809` has API/ZIP SHA-256
+`39602b62c88237df53b37de85e66b4ed5edc693cf1072079741b5be746e9bfd6`
+and content SHA-256
+`b84aea7aff3dfa517304fc533c1609ee097fd25ed067810054626d2c13fb4783`.
+The draft remains unpublished/mutable with exactly 13 assets. Packaged latency
+and K6 remain pending; promotion is prohibited.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
