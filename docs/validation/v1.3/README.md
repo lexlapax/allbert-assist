@@ -541,6 +541,21 @@ No production or accepted operator contract changed. Complete candidate
 replacement and one fresh K6 rejoin remain required by exact-SHA provenance;
 PV-0 through PV-8 remain inherited without relabelling.
 
+The superseded unpublished candidate was discarded whole. Replacement exact
+SHA `43859a9ea7f5773ae056208ebb8e687d21f7d91a`, annotated tag object
+`72ea5211a0d367f8ebe0dc723d166d471aa591c7`, empty draft `365232611`, and
+generation `v13-20260805T010722Z-43859a9ea7f5` bind one 12-file generation.
+Archive SHA-256 values are macOS arm64
+`06f80c2e687c453bd9f60646808bd19190da2d237be5769162e2fde5ba498ce8`,
+Linux x64
+`7faa4c7ce3ff6399470f7d93386f77bdd97abecaf30af98388e3400382c71242`,
+and Linux arm64
+`81b8826395b0ede2c0bd29e6db7ca41a90b1e0ba51e5a09f6c9ffa7646515563`.
+Every checksum and source/generation binding verifies, all smoke outcomes are
+`passed`, and both Linux targets ran natively under the pinned image/toolchain.
+The draft remains empty, unpublished, and mutable; later K5/K6 evidence is
+pending and promotion remains prohibited.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
