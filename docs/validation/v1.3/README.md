@@ -614,6 +614,14 @@ The alias-only remediation passed strict Credo, the 19-test owner at seed
 It changes no product behavior. Whole-candidate replacement is next;
 promotion remains prohibited.
 
+The superseded mutable unpublished draft/tag were discarded whole. Replacement
+clean pushed SHA `c5cb0c83307a11a23c355d8e67f5af4a5adc85ae`, annotated tag object
+`d08b225f3a2fcfd5b5d0f2760748005d9209547c`, generation
+`v13-20260805T014039Z-c5cb0c83307a`, and empty draft `365241063` bind the new
+candidate. GitHub REST verified deletion and replacement identity after SSH
+timeouts; no failed push created partial remote state. Native builds and all
+later evidence remain pending; promotion is prohibited.
+
 ## Packaged operator validation
 
 The operator explicitly delegated execution of PV-0 through PV-8 on 2026-08-04.
