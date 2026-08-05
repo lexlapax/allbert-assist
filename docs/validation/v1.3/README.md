@@ -582,6 +582,19 @@ The draft remains unpublished/mutable with exactly 13 assets. Packaged latency
 and K6 remain pending; promotion is prohibited.
 
 Four final packaged-latency rows passed and were ingested for exact source SHA
+`c5cb0c83307a11a23c355d8e67f5af4a5adc85ae`: macOS arm64 Memory
+`56.898/59.546 ms` and Search `61.835/64.609 ms`, plus Linux x64 Memory
+`37.890/38.527 ms` and Search `47.341/49.650 ms` (p95/p99). Each row binds its
+host's archive digest, remains below the frozen bounds, and is reported
+separately. Evidence-file SHA-256 values are
+`6b83771190c6554fdab3a479a10a2cc04eac832a399283e31c7660f04daff482`
+for macOS and
+`27e74d50d98f495a336f03671c6120f3e3e10604f0a4de718b262bbe4bf9ed3a`
+for Linux. Initial stale-driver outputs were rejected and not ingested. K6
+structure, `release.v13`, and authoritative `release` remain; promotion is
+prohibited.
+
+Four final packaged-latency rows passed and were ingested for exact source SHA
 `43859a9ea7f5773ae056208ebb8e687d21f7d91a`: macOS arm64 Memory
 `56.705/65.074 ms` and Search `67.139/70.929 ms`, plus Linux x64 Memory
 `39.014/39.750 ms` and Search `47.668/52.413 ms` (p95/p99). Each row binds its
