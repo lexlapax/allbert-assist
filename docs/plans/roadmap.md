@@ -9,9 +9,13 @@ Every packaged product release is a **binary release**: tagged, CI-built,
 cosign-signed, published as a GitHub Release, Homebrew tap filled. An explicitly
 operator-approved `[skip-artifacts]` source point tag is not a packaged release;
 its changes reach operators in the next named binary and the packaged Latest/tap
-do not move. Each versioned plan covers one or more features and
-ships as one or more point tags (1.0.1, 1.0.2, ...) that accumulate toward the next
-minor (1.1, 1.2, ...). Minors carry one flagship feature each, foundational-first.
+do not move. A point-release plan may ship one or more point tags that
+accumulate toward the next minor. A minor plan uses warning-free exact-clean-SHA
+milestone checkpoints during implementation and publishes the minor's `.0` tag
+only after release acceptance; it does not publish numerically later point tags
+before the minor tag. A signed `-rc.N` prerelease is used only when an
+intermediate artifact must be externally qualified. Minors carry one flagship
+feature each, foundational-first.
 Plans follow the established triad convention (plan + request-flow, ADRs as needed);
 the prioritization inventory is [future-features.md](future-features.md), which
 holds only work with **no** ladder slot. This roadmap is the single source of
@@ -350,7 +354,8 @@ rather than assigning the same foundation to a later release.
 
 | Foundation | Source owner | First binary carrier | Required consumers |
 | --- | --- | --- | --- |
-| preflight, exact-state attestation, owner-CWD load, fixture sentinels, fail-closed scope | v1.3.2 | v1.4 | every v1.4+ release; v1.4 M14 structurally preserves owner-CWD load plus tag/manifest reconciliation and repeats both inventory checks in `release.v14` |
+| offline answering-head qualification, bounded Memory full-build metadata, paused-managed-due correction | v1.3.1 | v1.4 | v1.4 packaged FV proves the shipped source-only corrections before they first reach installed operators |
+| preflight, exact-state attestation, owner-CWD load, fixture sentinels, fail-closed scope | v1.3.2 | v1.4 | every v1.4+ release; v1.4 structurally preserves owner-CWD load plus tag/manifest reconciliation and repeats both inventory checks in `release.v14` |
 | `model_roles.fast|capable|thinking` resolution | v1.3.2 | v1.4 | v1.6 Knowledge Central (`capable`), v1.7 hosted-provider consumers, v1.8 confirmed remaps |
 | role-remap suggestion, confirmation, and egress guard | v1.8 | v1.8 | adaptive profiling/customization only; it consumes but does not redefine role resolution |
 
@@ -368,45 +373,51 @@ rather than assigning the same foundation to a later release.
    sentinels, and the fail-closed `scope --base` selector), and
    `model_roles.fast|capable|thinking` as an additive naming layer over the ADR
    0088 catalog for Settings.Models-owned task chains.
-   **Sequencing rationale:** preflight is what makes 1.4's 249-module sweep
-   cheap to fail, and `model_roles` is a hard dependency of Knowledge Central
+   **Sequencing rationale:** preflight is what makes 1.4's generated action-roster
+   sweep cheap to fail, and `model_roles` is a hard dependency of Knowledge Central
    (1.6) and a consumer for hosted-provider OAuth (1.7). Bundling them behind a
    flagship feature was the single largest constraint on this ladder. Source-only
    means both reach packaged operators at 1.4.
 
-10. **1.4 — Spine enablers and kernel foundation.** (**Planned — triad
+10. **1.4 — Spine enablers and kernel foundation.** (**Planned — foundational
+   flagship: the kernel application and Pack contribution boundary; triad
    `docs/plans/v1.4-plan.md` + request-flow; governed by ADR 0046 and ADR 0065,
-   plus new ADRs for the kernel inversions.**) The settings and action spine,
-   sequenced first because every later release builds on it: migration-runner
-   cluster (runner + telegram/email plugin-owned-settings migration + legacy
-   `intent.*model_profile` removal + automated rollback), full cross-action
-   param-contract enforcement, and PermissionGate deletion. The re-triage of
+   plus ADR 0098 for the kernel inversions.**) The settings and action spine,
+   sequenced first because every later release builds on it: one explicit,
+   previewed, confirmed, preimage-backed per-fragment migration runner shipped
+   with its first proven non-additive migration; verification of the already
+   central cross-action param-contract inventory; and direct retirement of the
+   `PermissionGate` compatibility facade after callers move to Security Central.
+   Parameter validation and authorization remain separate contracts. The re-triage of
    the ADR 0076 packaging-trust exceptions rides here as an absorbed backlog
    item.
    **The kernel-redo analysis was accepted 2026-08-06 and merges into this
    release**: `apps/allbert_kernel`, registry inversion, settings inversion,
-   gate inversion, deletion of the hand-maintained kernel lists, relocation of
-   Home/Paths, Security Central with `HttpPolicy`, and the Capability plane, and
+   gate inversion, deletion of the hand-maintained kernel lists, dependency
+   closure/inversion before pure relocation of Home/Paths, Security Central
+   with `HttpPolicy`, and the Capability plane, and
    **three proven pack extractions** (`notes_files`, then telegram and email).
    Relocation is deliberately **not** deferred: the next two releases build new
    subsystems, and without the kernel boundary they would land in the monolith
-   and need moving later. **This release also re-baselines the public-contract
-   freeze** — v1.0's inventory describes a structure this release replaces, so
-   the new inventory is taken at closeout and supersedes it from v1.5 onward,
-   with v1.0's freeze enforced as a regression signal until then. One new ADR
-   ships here covering the pack contract, kernel application boundary, tier
-   model, and the new freeze.
-   **Sequencing rationale (one sweep, not three):** param-contract enforcement
-   touches all 249 action modules; so does the action-response-envelope
-   consolidation (`denied/1` in 130 modules, `action/3` in 121, the four-key
-   `output_schema` in 214 of 249); and so does registry inversion. Doing them
-   as one pass is the whole argument. **Hard ordering constraint inside this
+   and need moving later. **This release also records a generated
+   topology/ownership supplement to the public-contract freeze.** The v1.0
+   Tier-1/Tier-2 obligations and `release.v1` remain binding throughout 1.x;
+   moving an implementation between OTP applications does not waive a frozen
+   name or shape. ADR 0098 covers the pack contract, kernel application
+   boundary, capability-tier model, and the additive topology supplement.
+   **Sequencing rationale (one coordinated sweep):** the generated action roster
+   is re-measured at M0; registry ownership, response-envelope consolidation,
+   param-contract verification, and facade retirement overlap many of the same
+   action files and therefore use one exclusive action-spine workstream rather
+   than concurrent edits. **Hard ordering constraint inside this
    release** (analysis §13.3): gate inversion must precede module relocation,
    because the gate definitions name test paths and relocating a module
-   relocates its test. Bounded by point tags (1.4.1, 1.4.2, …), one per
-   inversion — the analysis's own escape valve against an unbounded release.
+   relocates its test. Risk is bounded by exact-clean-SHA milestone checkpoints,
+   explicit handoff packets, and proven revert/rollback boundaries. The only
+   stable binary tag is `v1.4.0` unless an externally qualified
+   `v1.4.0-rc.N` artifact is specifically required.
 
-11. **1.5 — Knowledge Stage 1 (LLM Wiki over claims).** (**Proposed — intake
+11. **1.5 — Knowledge Stage 1 (derived wiki over claims).** (**Proposed — intake
    closed 2026-07-30:** ADR 0094 + ADR 0095; triad at `docs/plans/v1.5-plan.md`
    + request-flow.) A derived, interlinked markdown page graph over v1.3 kept
    claims: page model, relative-markdown links with written backlinks,
@@ -416,10 +427,12 @@ rather than assigning the same foundation to a later release.
    `allbert knowledge` CLI group with TUI parity. No documents, no LLM, no
    egress, no new source policy, no new permission class, no fourth database.
    `knowledge.enabled` default false.
-   **Sequencing rationale:** its own plan records that neither enabler release
-   is a hard dependency — it consumes only the shipped v1.3 Memory spine. Moved
-   ahead of connectivity because it is unblocked today and turns the Memory
-   investment operators already made into something visible.
+   **Sequencing rationale:** its product model consumes the shipped v1.3 Memory
+   spine, but its implementation is architecturally dependent on v1.4's named
+   pack contribution/settings/gate contract: new Knowledge capability must land
+   as `allbert_knowledge`, not regrow the residual monolith. It remains
+   independent of v1.7 connectivity and turns the Memory investment operators
+   already made into something visible.
 
 12. **1.6 — Knowledge Central (LLM Wiki flagship).** (**Proposed — intake closed
    2026-07-30:** same ADRs; triad at `docs/plans/v1.6-plan.md` + request-flow.)
@@ -441,14 +454,20 @@ rather than assigning the same foundation to a later release.
    (subscription plans, not just API keys); MCP 2025-11-25 spec parity; and
    network hardening — non-local bind hardening plus free-form provider
    URLs/probe targets through the external-network approval path.
+   **ADR 0098 placement:** new OAuth logic lands in the named `allbert_oauth`
+   pack, email consumes it from the v1.4-extracted `allbert_email` pack, and the
+   MCP client is extracted to `allbert_mcp` before its protocol delta; no new
+   connectivity capability is authored in residual `allbert_assist`.
    **Sequencing rationale (code reuse):** the two OAuth consumers share an
    entire substrate (authorization-code flow, tier-vault token storage, refresh,
    revocation) and were previously tracked as unrelated entries; bind hardening
    and free-form provider URLs both touch `HttpPolicy`, so the SSRF
    `private_ip?` table currently triplicated across `external/http_policy.ex`,
    `voice/provider_http.ex`, and `settings/model_doctor.ex` is consolidated
-   here. Three copies of a security guard means fixing one leaves two holes —
-   1.4's spine sweep should decide whether that consolidation rides it instead.
+   here. The v1.4 readiness review left that behavior change in v1.7: v1.4 moves
+   `HttpPolicy` as kernel substrate but does not alter the table. Three copies
+   of a security guard means fixing one leaves two holes, so v1.7 proves parity
+   before deleting either duplicate.
 
 14. **1.8 — Adaptive Usage Profiling.** (**Triad
    `docs/plans/v1.8-plan.md` + request-flow + ADR 0090 + the ADR 0084
@@ -545,14 +564,13 @@ rather than assigning the same foundation to a later release.
 
 ## Working Rules
 
-- **The public-contract freeze re-baselines at v1.4 (operator, 2026-08-06).**
-  v1.0's tiered inventory describes a structure v1.4 replaces, so the new
-  inventory is taken at v1.4 closeout and supersedes it from v1.5 onward.
-  Until then `mix allbert.test release.v1` must stay green on every release —
-  and through v1.4's own milestones as a **regression signal**, so the largest
-  mechanical change in the project's history is not made with no contract check
-  at all. Tier-2 changes stay additive; Tier-1 changes need a major. ADR 0081's
-  promotion process carries forward to the new tiers unchanged.
+- **v1.4 adds a topology supplement; it does not re-baseline away the v1.0
+  contract freeze.** `mix allbert.test release.v1` remains a stop condition on
+  every 1.x change, including every v1.4 milestone. The closeout inventory
+  records new OTP-application ownership, pack provenance, and additive
+  contracts while carrying every v1.0 Tier-1/Tier-2 obligation forward. Tier-2
+  changes stay additive; Tier-1 changes need a major. ADR 0081's promotion
+  process is unchanged.
 - Operator intake items enter future-features.md with class + effort + provenance,
   then slot into the ladder here.
 - Upstream dependency refresh (confirmed 2026-07-15): every binary release plan

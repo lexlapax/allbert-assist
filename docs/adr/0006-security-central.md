@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted.
+Accepted. v1.4 compatibility-facade retirement amendment accepted by operator
+decision 2026-08-06.
 
 ## Context
 
@@ -66,6 +67,20 @@ Future actions, confirmations, execution adapters, jobs, and channels should use
 Security Central decisions rather than inventing their own private policy
 objects.
 
+**v1.4 amendment.** The compatibility entrypoint retires after a generated
+caller ledger and red-first behavioral parity prove all runtime-facing callers
+use `AllbertAssist.Security` directly. Response-only callers use
+`AllbertAssist.Runtime.Response`; policy metadata callers use
+`AllbertAssist.Security.Policy`. Authorization remains at each existing
+context-enriched call site. Parameter validation in `Actions.Runner` is a
+separate contract and neither authorizes an action nor replaces this migration.
+
+The diagnostic `decision.source` intentionally changes from the compatibility
+facade to canonical `AllbertAssist.Security`. Preserving the name of a deleted
+facade would assert false provenance. Permission, outcome, reason, risk,
+confirmation, redaction, audit, trace, actor/channel/session context, selected
+skill/action context, and trust-boundary semantics must remain identical.
+
 ## Consequences
 
 - v0.05 becomes Security Central Foundation.
@@ -83,3 +98,7 @@ objects.
   online import exists.
 - Security hardening and evals should return after the risky capability and
   channel surfaces exist.
+- v1.4 may delete `PermissionGate` only atomically with zero-callsite static
+  proof, representative and adversarial parity families, and `release.v1`
+  green. Direct Security Central use is consolidation of the existing authority,
+  not a new authority placement.

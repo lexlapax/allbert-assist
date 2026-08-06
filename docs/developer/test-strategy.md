@@ -1707,8 +1707,21 @@ and both inventory checks in exactly eight steps. It freezes the 32-step
 closed 17-file owner allowlist, and rejects predecessor, aggregate, precommit,
 and compatibility invocations. Its structure proof freezes owner-CWD loading plus
 `inventory --check-tags` and `--check-manifest` as separate preflight checks.
-That is the inherited contract v1.4 M14 relies on when new test files land; M14
-also repeats the two inventory checks in `release.v14` as final delta defense.
+That is the inherited contract v1.4 relies on when new applications and test
+files land; `release.v14` repeats the two inventory checks as final delta
+defense.
+
+`release.v14` is a bounded, non-stacking structural/behavioral delta. It owns
+pack contribution ordering and collision proofs, Settings-fragment composition
+and explicit migration/rollback, direct Security authorization after
+`PermissionGate` retirement, current-roster parameter-contract reconciliation,
+complete action-envelope parity, gate-owner manifests, kernel dependency
+direction, pure-relocation hashes, pack release/license assets, and the v1.4
+topology supplement. It must not invoke predecessor gates, `release`, or
+`precommit` as a step. `release.v1` runs separately and remains a stop condition; a topology
+supplement never weakens the frozen v1 contract. The active v1.4 plan names the
+exact focused files, serial lanes, checkpoint handoffs, packaged feature rows,
+and the one final aggregate rejoin.
 
 `release.v18` follows the same non-stacking rule. It is a bounded v1.8 delta
 whose steps own profiling, confirmed role-remap customization/recovery,

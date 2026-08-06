@@ -17,6 +17,9 @@ Machine-readable companion: `AllbertAssist.Boundary`.
   catalog entries never grant authority by themselves.
 - v0.31 is behavior-preserving. Route removal, app-intent handoff, theming,
   dynamic drafts, and the generator belong to v0.32-v0.37.
+- Application ownership is not a public-facade rename. The v1.4 kernel/pack
+  relocation preserves `AllbertAssist.*` module names and all frozen public
+  shapes while changing which OTP application owns the implementation.
 
 ## Current Public Facades
 
@@ -88,13 +91,15 @@ facades until their milestones implement and document them.
 | v0.51 | Public protocol facades | Expected to expose Allbert registered actions and app memory namespaces as MCP tools/resources and provide OpenAI-compatible HTTP + ACP adapters under shared auth/redaction/confirmation policy. Text-first subset only: OpenAI/ACP image, audio, resource, filesystem-root, and client-supplied MCP-server payloads do not grant media/filesystem/MCP authority. MCP targets pinned Hermes-supported protocol versions; OpenAI is a bounded Chat Completions shim, not full API parity. |
 | v0.52 | Team-channel facades | Expected to expose Discord and Slack channel adapters under the existing channel contract, v0.52 ADR 0016 approval primitives, and ADR 0057 `Conversations.ChannelThread` substrate. Provider thread refs scope channel sessions/replies only; canonical `thread_id` is `conversation_threads.id`, mapped through owner/account-scoped `provider_thread_key` rows. |
 | v0.53 | Channel retro-validation + mobile channel + custody/trust facades | Implemented as `0.53.0`: brings Telegram and email to Discord/Slack validation parity with doctors, external smokes, operator guides, manual evidence, and leak scans, then exposes Matrix, WhatsApp Cloud API, and Signal `signal-cli` adapters under the existing channel contract, inherited ADR 0057 threading capabilities, and mandatory ADR 0016 `:list` approval fallback. Adds KeyCustody, supervised channel-daemon custody, trust-class relay gating, public signed-webhook ingress, reply-key/quote-TTL consumption, and phone-PII redaction. Live provider smokes remain the pre-tag validation gate. |
+| v1.4 | Kernel application and pack contribution boundary | Planned by ADR 0098. `apps/allbert_kernel` owns the authority/runtime substrate; named OTP pack applications contribute ordered actions, settings fragments, tests/gates, and packaged assets through one validated contract while each application owns and supervises its own children. The residual `allbert_assist` application is a transitional native pack during extraction, never a second kernel. |
+| v1.4 | Settings migration operation | Planned by ADR 0046. Explicit per-fragment preview/confirm/apply/rollback through registered Settings actions; no boot-time automatic migration and no secret-store migration. |
 
 ## Compatibility Shims And Exit Criteria
 
 | Shim | Owning milestone | Exit criteria |
 |---|---|---|
-| `AllbertAssist.Security.PermissionGate` | post-v0.31 | Retire only after all runtime-facing callers use `AllbertAssist.Security` directly and security eval parity is explicit. |
-| `AllbertAssist.Settings.Schema` compatibility facade | M8 | Every key is owned by registered fragments with unchanged defaults, validation, secret handling, and safe-write policy. |
+| `AllbertAssist.Security.PermissionGate` | v1.4 | Retire atomically after a generated caller ledger reaches zero and behavioral parity proves that authorization placement, decision, reason, risk, confirmation, audit, context, and trust boundary are unchanged. Callers use `AllbertAssist.Security`, `Security.Policy`, or `Runtime.Response` according to the helper they consumed. Diagnostic `decision.source` intentionally becomes canonical `AllbertAssist.Security`; the deleted facade name is not preserved as false provenance. |
+| `AllbertAssist.Settings.Schema` compatibility facade | v1.4 and later | Every key is owned by a registered fragment with unchanged default, validation, sensitivity, safe-write, and cross-key behavior before central ownership rows are removed. Keep the public facade while frozen consumers exist; ownership inversion is not permission to delete it. |
 
 M2 removed the obsolete `AllbertAssist.Workspace.Catalog.component_renderer/1`
 membership probe. Workspace component membership remains available through
@@ -130,7 +135,9 @@ M8 added `AllbertAssist.Settings.Fragment` and
 the public compatibility facade used by current callers, but its schema,
 defaults, and safe-write key assembly now come from core/app/plugin fragments.
 `AllbertAssist.Security.PermissionGate` remains a compatibility shim over
-Security Central until a future parity pass migrates the remaining live callers.
+Security Central in current code. v1.4 owns its atomic retirement under the exit
+criteria above; until that milestone lands, current callers and operator docs
+must continue to describe the shipped facade accurately.
 
 v0.36 adds `AllbertAssist.Sandbox` as the public sandbox/gate-runner facade.
 Runtime gate commands are reviewed `mix` profiles only, SourcePolicy runs in

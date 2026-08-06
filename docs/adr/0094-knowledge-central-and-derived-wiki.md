@@ -4,9 +4,16 @@
 
 Proposed (v1.5/v1.6, operator intake closed 2026-07-30 across three rounds).
 Binding on the v1.5 Knowledge Stage 1 release and the v1.6 Knowledge Central
-flagship. Flips Accepted when the Stage 1 page graph, link and backlink
-contract, deterministic lint, edit-divergence promotion, and frozen scale and
-latency bounds are green on both packaged hosts.
+flagship. Stage 1 records its completed subset but does not flip this ADR.
+It flips Accepted only after Stage 2 also proves document ingest, schema review,
+synthesis/cache, composite-query authorization, managed budgets, and the full
+dual-host latency/scale acceptance required by the v1.6 plan.
+
+Placement clarification (2026-08-06): v1.4/ADR 0098 is an architectural build
+dependency. Both stages live in the same named `allbert_knowledge` OTP pack and
+use the pack contribution contract; Knowledge must not add new central
+kernel/residual action, settings, gate, CLI, surface, job, store, or release
+lists. This does not make v1.4 part of Knowledge's product data model.
 
 This ADR does not amend ADR 0002, ADR 0089, or ADR 0092. It declares its
 relationship to them below; the corresponding amendments to those documents are
@@ -52,6 +59,10 @@ Knowledge Central is a peer consumer of the Corpus, of Memory kept claims, and
 of connected document roots — the same Corpus-to-consumer pattern v1.3
 established with Search Central. It never originates claims. ADR 0089's source
 policy is unchanged and unreopened.
+
+The peer is implemented as `apps/allbert_knowledge`. Stage 1 creates the pack;
+Stage 2 extends the same application. Its actions still resolve through the
+central Registry/Runner, and its metadata still grants no authority.
 
 ### 2. Pages are a derived projection
 
@@ -195,7 +206,7 @@ digest-based edit detection with promotion, workspace tile, and an
 no new source policy, no new permission class, no new database. Stage 1 queries
 its own pages only.
 
-**Stage 2 (v1.5)** adds the document ingest substrate, the synthesis cache,
+**Stage 2 (v1.6)** adds the document ingest substrate, the synthesis cache,
 source-summary pages, `log.md`, the operator schema document and its review path
 (ADR 0095), LLM-assisted lint, the composite query of §9, budgeted managed
 ingestion of §10, and full Web/TUI/CLI/DM surface parity.

@@ -7,6 +7,14 @@ consumers — email XOAUTH2 mailboxes and OAuth-authenticated hosted LLM
 providers. Flips Accepted when the substrate, both consumers, the local callback
 listener, and the named revocation and expiry rows are green.
 
+Placement clarification (v1.4 readiness review, 2026-08-06): ADR 0098 is
+binding. The substrate, provider grant adapters, `oauth.*` Settings fragment,
+registered action, tests, and release assets live in the named
+`allbert_oauth` OTP pack. The v1.4-extracted `allbert_email` pack depends on it;
+the existing model-provider seam consumes it without placing OAuth logic in
+residual `allbert_assist`. `HttpPolicy` remains kernel Security substrate. Pack
+metadata grants no OAuth or Allbert authority.
+
 ## Context
 
 Every credential Allbert holds today is a **static secret**: an API key, a bot
@@ -28,7 +36,7 @@ twice. Email XOAUTH2 covers Gmail and Microsoft OAuth-only mailboxes, which are
 increasingly the only way to reach a real mailbox. OAuth-authenticated hosted LLM
 providers cover Claude, OpenAI, and Gemini subscription plans rather than
 metered API keys — which materially changes the cost posture of anything that
-calls a model in a loop, including v1.5 Knowledge ingest.
+calls a model in a loop, including v1.6 Knowledge ingest.
 
 There is no existing credential or vault ADR to extend. This is the first, and
 the questions it settles are not plan-shaped.
@@ -125,8 +133,9 @@ the operator completes it, and the grant is recorded.
 - Both consumers gain OAuth for the cost of one substrate, and later consumers
   are cheap.
 - Subscription-plan authentication for hosted LLM providers changes the cost
-  model for model-heavy features; v1.5 Knowledge ingest is the first beneficiary
-  and its token-budget design remains correct either way.
+  model for model-heavy features; the already-shipped v1.6 Knowledge ingest
+  becomes the first beneficiary when v1.7 lands, and its token-budget design
+  remains correct either way.
 - One more credential class exists, with genuinely different lifecycle rules, and
   the vault gains a second shape to handle.
 - Grants can break without Allbert doing anything wrong, so "needs

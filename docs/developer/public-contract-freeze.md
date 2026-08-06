@@ -1,14 +1,15 @@
 # Allbert 1.0 Public Contract Freeze Notes
 
-> **Superseded at v1.4 (operator decision 2026-08-06).** v1.4 lands the kernel
-> foundation — registry, settings, and gate inversion, `apps/allbert_kernel`,
-> relocation, and pack extraction — after which this inventory describes a
-> structure that no longer exists. A re-baselined inventory is taken at v1.4
-> closeout and supersedes this document from v1.5 onward. Until that point this
-> freeze remains **enforced**, including through v1.4's own milestones, where it
-> serves as a regression signal rather than a veto: a milestone that genuinely
-> needs to break a v1.0 contract records the decision and proceeds. ADR 0081's
-> Tier-2-to-Tier-1 promotion process is unaffected and applies to the new tiers.
+> **v1.4 structural supplement (operator review 2026-08-06).** v1.4 lands the
+> kernel/pack application boundary, but application ownership is not permission
+> and a BEAM module's application may change without changing its public name or
+> shape. This v1.0 inventory therefore remains authoritative throughout 1.x:
+> `mix allbert.test release.v1` is a stop condition on every change, not an
+> advisory signal. At v1.4 closeout the release records an additional generated
+> ownership/application inventory for the new topology. That supplement may add
+> contracts and provenance; it does not waive, replace, rename, or remove any
+> Tier-1 or Tier-2 obligation below. A Tier-1 change still requires a major
+> version and an ADR. ADR 0081's promotion process remains unchanged.
 
 This is the authoritative inventory of the public contracts frozen at v1.0
 (`docs/plans/archives/v1.0-plan.md`, roadmap item 67). It is what plugin, app, channel, and
@@ -38,7 +39,7 @@ defaults to Tier 2).
 | Contract | Consumers | Freeze policy |
 |---|---|---|
 | `AllbertAssist.Runtime.submit_user_input/1` + turn signals (`allbert.input.received`, `allbert.agent.responded`, `allbert.runtime.turn.started`, `allbert.runtime.turn.completed`) | every surface (web/CLI/TUI/channels) | frozen against rename/remove/shape-change |
-| `AllbertAssist.Actions.Registry` + `AllbertAssist.Actions.Runner.run/3` + ADR 0065 `:invalid_params` response shape | every effectful action (258 registered) | frozen |
+| `AllbertAssist.Actions.Registry` + `AllbertAssist.Actions.Runner.run/3` + ADR 0065 `:invalid_params` response shape | every effectful action in the generated registry inventory | frozen |
 | Permission classes and safety floors (as of v0.59) via `AllbertAssist.Security.Policy` | Security Central + all actions | frozen against weakening; set may grow additively |
 | Plugin contract (`AllbertAssist.Plugin` behaviour + Registry shape) | 23 plugins | frozen |
 | App contract (`AllbertAssist.App` behaviour) | 20 apps | frozen |
@@ -93,10 +94,17 @@ defaults to Tier 2).
   additive-only policy (ADR 0046). A real `v0.66.0` packaged Home upgrades/imports into
   v1.0 with behaviour preserved (DIT-5); export/import is dry-run + rollback-safe
   (`AllbertAssist.Portability.Import.dry_run/2`).
-- Rollback: because the freeze is name-and-shape stable, a 1.x → 1.x downgrade keeps the
-  Home readable for keys/columns present in the older release; keys added additively by a
-  newer release are ignored by an older one. Pre-v0.66 Homes are compatibility notes unless
-  a release note explicitly expands support.
+- Beginning with v1.4, a non-additive per-fragment migration is an explicit
+  operator operation with redacted preview, confirmation, preimage-backed
+  rollback, and audit. It never runs automatically during boot. An older Home
+  that needs migration remains diagnosable but does not silently mutate.
+- Rollback: an additive-only 1.x → 1.x downgrade keeps the Home readable for
+  keys/columns present in the older release; keys added additively by a newer
+  release are ignored by an older one. If a non-additive v1.4+ fragment
+  migration has been applied, the newer binary must explicitly restore its
+  protected preimage/version before the older binary starts; the older binary
+  never interprets a forward fragment or guesses rollback. Pre-v0.66 Homes are
+  compatibility notes unless a release note explicitly expands support.
 - Uninstall preserves Allbert Home unless data removal is explicitly requested (DIT-5).
 - Operator release-validation runbook: [release-rehearsal](../operator/release-rehearsal.md).
 
@@ -106,4 +114,6 @@ defaults to Tier 2).
   Freeze Enforcement).
 - Reserved-vocabulary-not-frozen decision: ADR 0021 A20.
 - Enforcement: `mix allbert.test release.v1` (`:v1` sweep).
+- v1.4 topology/application-ownership supplement: ADR 0098 and the active
+  v1.4 plan; it is additive to this inventory.
 - DIT freeze prerequisites: [`docs/validation/v1.0/`](../validation/v1.0/README.md).

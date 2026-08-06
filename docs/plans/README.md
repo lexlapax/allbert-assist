@@ -14,8 +14,9 @@ Listed in ship order after the 2026-08-06 resequencing.
   source-only; M1–M3.1 and attended source validation complete, final gates
   next)
 - [v1.4 spine enablers plan](v1.4-plan.md) and
-  [request flow](v1.4-request-flow.md) (planned; carries the accepted kernel
-  inversions; readiness passes not yet run)
+  [request flow](v1.4-request-flow.md) (readiness rewrite completed 2026-08-06;
+  ready to execute M0, with implementation beyond its evidence barriers closed
+  until v1.3.2 and the real-migration/dependency inventories pass)
 - [v1.5 Knowledge Stage 1 plan](v1.5-plan.md) and
   [request flow](v1.5-request-flow.md) (planned; readiness passes not yet run)
 - [v1.6 Knowledge Central plan](v1.6-plan.md) and

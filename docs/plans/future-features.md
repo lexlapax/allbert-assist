@@ -1250,10 +1250,8 @@ is trusted:
 
 | Item | Category | Verify |
 | --- | --- | --- |
-| Full Cross-Action Param-Contract Enforcement | Platform & Runtime Debt | What v0.59 shipped vs the full v0.54-plan:1291 scope |
 | App-Registry Membership Check At Action Boundary | Platform & Runtime Debt | Whether a boundary check landed after v0.15 |
 | Working-Memory Contract Gaps | Platform & Runtime Debt | Whether the v0.14 data-safety/nested-patch gaps still apply |
-| Packaging-Trust Re-Parked Exceptions (ADR 0076) | Packaging & Distribution | Which exceptions remain after v0.64–v1.0 trust work |
 | Rich TUI Onboarding Slash-Command Wizard | Packaging & Distribution | Whether v0.64's first-run TUI subsumed it |
 | Native Windows Packaging | Packaging & Distribution | Demand vs keeping Tier-2 WSL2-only |
 | Bundled Executable Packaging For Capability Helpers | Packaging & Distribution | Whether the v0.62 packaged binary covers it |
@@ -1262,7 +1260,6 @@ is trusted:
 | `operator_settings_memory` System Namespace | Models & Memory | Whether shipped settings/memory surfaces cover it |
 | Local Ollama Multimodal Profile | Models & Memory | Whether it works end-to-end against the v0.49 bridge |
 | ADR 0021 Reserved Abstractions & Advisory-Provider Vocabulary | Agents & Workflows | Whether any consumer has materialized |
-| MCP 2025-11-25 Spec Parity | Public Protocols & Interop | Actual gap vs the shipped MCP surfaces |
 | MCP Artifact Resources | Public Protocols & Interop | Whether wanted; grant story |
 | OpenAI/ACP Non-Text Media Blocks | Public Protocols & Interop | Demand + upstream spec shape |
 | Generated UI Declarative Surface | Self-Improvement & Dynamic Capability | Whether the shipped Surface DSL covers it |

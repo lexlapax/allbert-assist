@@ -1,12 +1,18 @@
 # ADR 0065: Central Action Param-Contract Enforcement
 
-Status: Accepted (v0.59 M7). Updated 2026-06-29 with the shipped central
+## Status
+
+Accepted (v0.59 M7). Updated 2026-06-29 with the shipped central
 param-contract seam, the code-grounded blast radius, the concrete validation
 mechanism, the Jido runtime caveats, and the actual context/param split scope.
+Clarified by operator decision 2026-08-06 for v1.4: parameter validation and
+`PermissionGate` facade retirement are independent changes; authorization
+remains explicit at each existing action-local decision point.
 Date: 2026-06-21
 Related: ADR 0064 (central slot/param normalization seam - predecessor), ADR
 0027 (action DSL and capability registry), ADR 0006 (Security Central), ADR 0060
-(two-stage router), ADR 0062 (intent descriptor lifecycle), and
+(two-stage router), ADR 0062 (intent descriptor lifecycle), ADR 0031
+(`PermissionGate` facade retirement), ADR 0098 (pack contribution contract), and
 `docs/plans/archives/v0.59-plan.md`.
 
 ## Context
@@ -98,6 +104,27 @@ mechanism is concrete (no longer "refined during the milestone"):
 ADR 0064 remains the predecessor for intent slot normalization. ADR 0065 owns
 typed, catalog-wide param-contract enforcement.
 
+### Authorization is a separate seam
+
+The param-contract seam answers only whether proposed params have the declared,
+normalized runtime shape. It does not call Security Central, derive a permission,
+confirm an effect, or prove that a caller is authorized. Passing validation is
+never evidence of authority.
+
+v1.4 retires the delegating `AllbertAssist.Security.PermissionGate` facade by
+migrating each caller directly to `AllbertAssist.Security` (operator decision
+2026-08-06). That migration is not gated on, routed through, or proven by this
+param validator. Each action retains authorization at the same logical point in
+its own control flow, including any secondary or context-dependent decision; the
+Runner does not acquire a new implicit authorization phase.
+
+Parity for that facade retirement compares the resolved capability, permission,
+confirmation requirement, outcome, reason, and redaction behavior at every
+former call site. The one intentional envelope difference is
+`decision.source`, which becomes `AllbertAssist.Security` because the facade no
+longer exists. Tests must assert that change explicitly rather than hiding it in
+an otherwise broad equality exception.
+
 ## Consequences
 
 - Action param semantics become inspectable and enforceable from the same
@@ -108,6 +135,9 @@ typed, catalog-wide param-contract enforcement.
   re-plumbing.
 - Existing action schemas may need tightening or explicit compatibility entries;
   the v0.59 M7 eval sweep is release-blocking for this change.
+- Permission facade retirement has its own caller ledger, red-first tests, and
+  Security evals. A green param-contract catalog is neither deletion evidence nor
+  an authorization-parity result.
 - **Freeze readiness.** The seam reshapes two Tier-1-frozen surfaces — the
   Registry's exposed action schema and the Runner `:invalid_params` response
   shape — so it must be delivered freeze-ready in v0.59. The v1.0 plan names both
@@ -117,6 +147,7 @@ typed, catalog-wide param-contract enforcement.
 
 - No new permission class or authority surface.
 - No change to confirmation floors.
+- No transfer of action-local authorization into Runner or parameter validation.
 - No model-granted authority: model output still proposes params only, and
   Security Central remains the authority boundary.
 - No automatic rewrite of action behavior outside the central validation seam.

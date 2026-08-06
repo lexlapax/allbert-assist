@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted. Amended by ADR 0098 for the v1.4 native-pack transition.
 
 ## Context
 
@@ -132,6 +132,23 @@ StockSage should then land as a plugin-contributed app in v0.20 through
 `StockSage.App` into `AllbertAssist.App.Registry` rather than replacing the
 app registry. ADR 0018 owns StockSage's local domain and persistence boundary.
 
+### v1.4 native-pack amendment
+
+ADR 0098 introduces named OTP applications as the compiled contribution
+boundary. Existing source-tree plugins remain valid compatibility inputs while
+the residual inventory is extracted. Once a compiled plugin becomes
+`apps/allbert_<name>`, its pack application owns its supervision tree and its
+legacy plugin descriptor may exist only as a deduplicated compatibility alias;
+it must not start a second child spec or register the contribution twice.
+
+The legacy `AllbertAssist.Plugin.ChildSupervisor` continues to own only
+unextracted compiled plugins. `<ALLBERT_HOME>/packs` becomes canonical for new
+data-only declared packs, while `<ALLBERT_HOME>/plugins` remains a non-destructive
+compatibility scan path. Neither path may compile/load code, create atoms from
+ids, or grant authority. The collision, ordering, release-manifest, and staged
+retirement rules are defined by ADR 0098; this ADR's public Plugin/App identities
+and safety rules remain frozen.
+
 ## Consequences
 
 - Allbert gains one extension entrypoint instead of separate one-off wiring for
@@ -143,6 +160,8 @@ app registry. ADR 0018 owns StockSage's local domain and persistence boundary.
   adding a second channel registry.
 - Existing Telegram/email settings survive the file move without a settings
   migration.
+- v1.4's later OTP-application extraction also preserves those settings; moving
+  schema ownership is not a stored-data migration.
 - Skill-only home plugins are possible without introducing runtime code
   loading.
 - Code-bearing third-party plugins require developer review, explicit

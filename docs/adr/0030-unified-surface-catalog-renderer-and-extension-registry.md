@@ -14,6 +14,11 @@ Settings/Models, and Surface-Policy operator panels render as catalog components
 response-render path across all surfaces (ADR 0073). No model-generated UI; the
 catalog stays the boundary.
 
+Accepted amendment (v1.4, operator decision 2026-08-06): ADR 0098 makes named
+OTP packs the compiled contribution boundary. The existing extension and
+surface registries consume validated pack contributions; no parallel pack
+registry becomes an authority or rendering path.
+
 ## Context
 
 Surface component truth is currently spread across the Surface DSL, workspace
@@ -34,6 +39,14 @@ v0.31 will converge on:
 
 Apps and plugins remain distinct concepts. The unified registry is a discovery
 and inspection path, not an authority grant.
+
+From v1.4, a compiled native pack contributes actions, settings fragments,
+surfaces, skills, jobs, stores, CLI groups, tests, and packaged assets through
+the ADR 0098 contract. Legacy Plugin/App identities bridge into that contract
+without duplicate registration. A native pack owns its OTP application callback
+and supervision tree; extension metadata may describe children for inspection,
+but the kernel does not start arbitrary child specs returned by a manifest.
+Declared Home packs remain data-only and cannot add code or supervision.
 
 Implementation note: M7 introduced `AllbertAssist.Surface.Catalog`,
 `AllbertAssistWeb.Surface.Renderer`, and `AllbertAssist.Extensions.Registry`.
@@ -66,6 +79,8 @@ model-facing conversation persistence.
 - v0.37 scaffolds one contribution shape.
 - StockSage renderers can participate in the same catalog mechanism as core
   workspace components.
+- v1.4 replaces compiled-in contribution lists with pack-owned declarations
+  while preserving this registry's public observations and no-authority rule.
 
 ## Non-Goals
 
@@ -82,3 +97,4 @@ model-facing conversation persistence.
 - Distinct from ADR 0027's action registry (see ADR 0027 "Terminology").
 - Enables: ADR 0024 (v0.32 panels/zones extend this one catalog/registry path)
   and the v0.38 generator contribution shape.
+- Amended by: ADR 0098 (kernel application and named pack contract).
