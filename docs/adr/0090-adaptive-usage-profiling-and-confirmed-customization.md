@@ -3,9 +3,11 @@
 ## Status
 
 Proposed (v1.8 planning, 2026-07-24; implementation-readiness revision
-2026-08-06). Binding on v1.8 S1-S9 and M0.5-M8, including M4.5
-(`docs/plans/v1.8-plan.md`). The source-only v1.3.1 predecessor shipped and
-closed on 2026-08-05, so its barrier is satisfied; v1.8 M0 still re-verifies
+2026-08-06). Binding on v1.8 S1-S9 and M1-M8, including M4.5
+(`docs/plans/v1.8-plan.md`). **M0.5 was removed from that binding on
+2026-08-06**: preflight moved to v1.3.2 with the 1.x resequencing, and the
+role-resolution half of §4 moved with it, leaving v1.8 the remap path only.
+v1.8's predecessor is now v1.7, not v1.3.1; v1.8 M0 still re-verifies
 the implementation seams at the accepted predecessor tag before feature work.
 
 This ADR flips Accepted at v1.8 M8, after the whole authority loop is proved:

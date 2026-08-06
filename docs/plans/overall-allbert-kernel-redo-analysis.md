@@ -687,6 +687,29 @@ Two supporting measurements:
 
 ### 13.3 Sequencing
 
+> **Numbering note added 2026-08-06.** This section was written against the
+> pre-resequencing ladder and is left as written, because renumbering it would
+> rewrite the argument rather than update a reference. The operator accepted this
+> proposal and resequenced the 1.x line on 2026-08-06; the table below maps as
+> follows:
+>
+> | Written here | Now ships as | Content |
+> | --- | --- | --- |
+> | 1.4 | **1.8** | Adaptive usage profiling |
+> | 1.5 (Foundation) | **1.4** | Spine + kernel foundation — merged, not separate |
+> | 1.6 | **1.7** | OAuth/connectivity |
+> | 1.7 | **1.5** | Knowledge Stage 1 |
+> | 1.8 | **1.6** | Knowledge Central |
+> | 2.0 / 2.1 | unchanged | Turn Engine / Self-Hosting |
+>
+> Two of this section's recommendations were overridden by that decision, both
+> deliberately: the foundation work **merged into** the spine release rather than
+> becoming its own, because they share the 249-module sweep; and **relocation was
+> not deferred**, because the two releases immediately after it build new
+> subsystems that would otherwise land in the monolith. The hard ordering
+> constraint below — gate inversion before relocation — was adopted unchanged and
+> is v1.4 M7 before M8. `docs/plans/roadmap.md` is authoritative for sequencing.
+
 Neither a single long v1.4 nor a 2.0 that absorbs everything and renumbers
 1.6/1.7/1.8. Both are the unbounded-scope failure mode this project has already
 demonstrated — v1.3 M9.b burned six authoritative attempts and v1.1 required
