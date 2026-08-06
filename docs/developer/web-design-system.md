@@ -405,6 +405,37 @@ Required checks:
   `Patterns.button_class!/1`, `Patterns.compact_button_class!/1`, or catalog
   button atoms.
 
+### v1.4 mobile-ready extension (planned)
+
+v1.4 promotes the mobile shell from a qualitative layout statement to a
+measured browser contract:
+
+- prove WCAG 2.2 AA reflow at 320 CSS pixels/400% zoom, 390×844 portrait, and
+  844×390 landscape in both Chromium and WebKit;
+- prove 200% text resize, keyboard order, visible focus, and focus not obscured
+  by the sticky composer, shellbar, drawers, or other persistent regions;
+- enforce the 24×24 CSS-pixel AA target minimum, including spacing exceptions;
+  retain 44×44 as the preferred enhanced target instead of labelling every
+  control AAA;
+- fail on horizontal document overflow, clipped dialog actions, inaccessible
+  names/status, duplicated stream rows, or browser-console errors;
+- keep growing suggestion lists in a stable-ID LiveView stream container with
+  `phx-update="stream"`; card controls dispatch events only and do not own
+  Settings or confirmation logic;
+- define responsive tokens in one rem-based Tailwind breakpoint namespace;
+  `48rem` preserves the existing 768 px transition, and every handwritten
+  breakpoint—including the 760 px outlier—must migrate or carry an explicit
+  reviewed exception; and
+- audit viewport-height declarations with a `vh` fallback, prefer `svh` for a
+  stable mobile viewport, and use `dvh` only where live browser-chrome resizing
+  is intentional.
+
+The normative accessibility basis is [WCAG 2.2](https://www.w3.org/TR/WCAG22/);
+responsive token behavior follows the
+[Tailwind responsive-design contract](https://tailwindcss.com/docs/responsive-design).
+Browser emulation proves this measured layout contract, not physical-device
+dynamic-toolbar behavior. That proof belongs to Mobile-Ready Web stage 2.
+
 ## Non-Goals
 
 - No model-generated UI.

@@ -8,11 +8,13 @@ cross-release reference.
 This is the operator runbook for cutting a packaged Allbert release and
 validating the packaged `allbert` on Tier-1 OS paths before announcing it.
 The active release plan controls gate timing. Versioned gate definitions preserve
-the permanent 1.x public-contract prefix, but a plan may prove that composition
-structurally and defer aggregate execution; the v1.3 train does so until its final
-M9.b rejoin. CI artifact smoke and exact-artifact qualification remain separate
-from source gates. This doc covers the steps that need a protected environment,
-native artifact, package manager, TTY, Docker, or real host service.
+the permanent 1.x contracts by running `release.v1` separately and proving
+frozen earlier definitions structurally unchanged; active point/minor gates are
+bounded non-stacking deltas. The authoritative aggregate runs only at the
+active plan's final rejoin. CI artifact smoke and exact-artifact qualification
+remain separate from source gates. This doc covers the steps that need a
+protected environment, native artifact, package manager, TTY, Docker, or real
+host service.
 
 v0.62 introduced the packaged release path; v0.64.3 established the trusted-install/
 first-run substrate and v0.65.0 the local-knowledge launch path that later lines build
@@ -25,6 +27,15 @@ explicitly operator-approved source/docs point tag that is not a packaged
 product release. Its active plan must name the bounded source changes, source
 validation, gate cadence, and next binary carrier; it does not silently replace
 the binary-release obligation of another versioned feature plan.
+
+For v1.4 and later, the binding candidate cadence is: preflight, independent
+audit, and source FV; `release.v1` plus the active bounded non-stacking delta;
+provisional artifacts, qualification, and packaged FV; one batched executable-
+remediation rejoin when necessary; exactly one authoritative aggregate on the
+accepted candidate; then identity/integrity/package-smoke rebinding, promotion,
+install rehearsal, and closeout. Never replay a previous minor/point gate inside
+the active delta. `mix precommit` is commit-time compatibility evidence, not a
+release phase.
 
 Set this once from the release checkout; every active command below consumes it:
 
@@ -302,6 +313,19 @@ tag/release URL, asset inventory, cosign transcript, tap commit/audit, install
 transcript, TUI, channel-send, ACP, browser, service/vault, and preserved-Home
 uninstall evidence under `EVIDENCE_ROOT`.
 
+Assign rather than conflate the current three-target rows:
+
+| Target row | Required proof owner |
+| --- | --- |
+| macOS arm64 | Native artifact/toolchain and smoke, Homebrew or verified curl install, launchd, Keychain, packaged TUI/browser, feature FV, and Home-preserving uninstall on a real macOS host. |
+| Linux x64 | Native artifact/toolchain and smoke, the active plan's minimum-glibc/ABI row, plus real-host systemd and Secret Service when required. An amd64 container proves package portability only. |
+| Linux arm64 | Native-architecture artifact/toolchain and smoke plus arm64 container package rehearsal; a real-host service/vault row is separate whenever the active plan requires it. |
+
+No single host, cross-architecture container, or CI boot row proves another
+target's ABI, service manager, credential vault, TTY, or feature path. Every
+ledger row records its exact host/architecture and marks a missing real-host
+capability SKIP with owner/reason rather than silently treating it as PASS.
+
 ### Windows / WSL2 Tier-2 validation
 
 Inside WSL2, use a disposable Home and install the published linux-x64
@@ -500,6 +524,12 @@ sh scripts/install/uninstall.sh --purge           # also removes Allbert Home
 brew uninstall allbert                            # if installed via Homebrew
 test -d "$ALLBERT_HOME"                           # expected unless --purge was used
 ```
+
+Before uninstall, place a non-secret sentinel in the disposable Home and record
+its digest. Ordinary script and package-manager uninstall must remove installed
+binaries/services while preserving that Home and sentinel byte-for-byte. Only
+the explicit `uninstall.sh --purge` row may remove the Home; package-manager
+uninstall is never implicit purge.
 
 ## 4. Packaged TUI Rehearsal
 

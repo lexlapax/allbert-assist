@@ -217,6 +217,35 @@ an operator override distinct from the route a request would actually use. For e
 `invalid_provider_base_url`, `provider_host_denied`, and `endpoint_unreachable`
 identify the repair class without printing a credential or full endpoint URL.
 
+## v1.4 Model Roles (Planned)
+
+v1.4 adds the aliases `role:fast`, `role:capable`, and `role:thinking`. Each
+mapping defaults to `nil`; an unconfigured role is skipped with a diagnostic,
+and every existing concrete `model_preferences.tasks.*` chain keeps its current
+behavior. A role value names one configured concrete profile only—roles cannot
+reference other roles, so cycles are impossible.
+
+Inspect the three mappings without changing them:
+
+```sh
+allbert admin settings get model_roles.fast.profile
+allbert admin settings get model_roles.capable.profile
+allbert admin settings get model_roles.thinking.profile
+```
+
+Role aliases are selection indirection, not new egress authority. A profiling
+suggestion may remap a role only when the proposed profile has the same
+provider, endpoint, and effective locality tuple as the current profile.
+Changing any of those remains an ordinary explicit Models/Settings operation
+with its existing disclosure and confirmation posture. Missing, disabled, or
+unavailable profiles are reported and never silently replaced or pulled.
+
+After an approved remap, the Suggestions surface may report an observed outcome
+from matched equal-sized samples: median response duration plus failure and
+fallback guardrails, using at least 10 and at most 50 events per side within a
+14-day window. The report shows dates, counts, and confounders and never claims
+the role change caused the result.
+
 ## Recommendation matrix
 
 | Purpose | Recommended local | Hosted alternative (opt-in, audited) | Min capability / size | Privacy posture | Settings key / profile | Fallback when unavailable |

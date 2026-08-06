@@ -18,10 +18,65 @@ registered action, Security Central, durable confirmation, traces, and audits.
 Repeated use, suggestion score, prior approval, trace contents, workflow YAML,
 skill YAML, and draft metadata never grant permission by themselves.
 
+## v1.4 Adaptive Suggestions (Planned)
+
+v1.4 adds a second, deliberately separate suggestion class for minimized local
+usage profiling. It appears in the shared Suggestions UI but does not enter the
+self-improvement draft store and cannot propose code, skills, workflows,
+permissions, credentials, provider egress, fallback policy, diagnostics,
+resource limits, or security settings.
+
+Planned defaults are:
+
+```text
+profiling.enabled=true
+profiling.usage_events.enabled=true
+profiling.usage_events.max_rows=10000
+profiling.usage_events.max_age_days=90
+profiling.distill.enabled=false
+profiling.distill.cadence=weekly
+```
+
+The first run discloses capture without blocking chat. Usage events contain
+typed classes and keyed fingerprints, never prompt/message/trace bodies,
+snippets, arbitrary model prose, or secrets. Automatic distillation and remote
+suggestion notifications remain off until explicitly enabled.
+
+The planned operator surface is:
+
+```sh
+allbert admin profiling status
+allbert admin profiling distill
+allbert admin profiling suggestions
+allbert admin profiling apply <suggestion_id>
+allbert admin profiling dismiss <suggestion_id>
+allbert admin profiling revert <suggestion_id>
+allbert admin profiling clear
+allbert admin profiling notify-enroll <channel> <target-ref>
+allbert admin profiling notify-unenroll <channel> <target-ref>
+```
+
+Apply and revert are separate durable confirmations. Approval succeeds only if
+the card revision and expected current value still match; otherwise the card is
+stale and nothing is written. A cross-store audit/linkage interruption appears
+as `recovery_required`, not as silent success. `clear` is also confirmed: it
+removes usage events, profiling cards, and observed outcomes while retaining
+Settings, application operations, confirmations, and security/audit records.
+
+Outcome labels are observational—`pending`, `insufficient_data`, `confounded`,
+`observed_improvement`, `observed_regression`, or `no_clear_change`. They show
+their window and sample counts and never claim that a customization caused an
+outcome.
+
+Remote delivery additionally requires
+`channels.<id>.autonomous_notify.suggestions_enabled=true` and an exact
+identity-reverified enrollment. Email is excluded in v1.4; no destination is
+inferred from last activity.
+
 ## Enablement
 
-The surface is disabled by default. Enable the top-level feature and the trace
-index before running discovery:
+The v0.47 self-improvement surface is disabled by default. Enable the top-level
+feature and the trace index before running discovery:
 
 ```sh
 allbert admin settings set self_improvement.enabled true

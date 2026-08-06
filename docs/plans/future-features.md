@@ -42,14 +42,14 @@ sequenced one per minor, foundational-first:
   remainders remain below.
 - **1.4 — Adaptive Usage Profiling** (stages a/b/c; per-role model profiles and
   proactive notifications ride here; consumes 1.3's memory substrate).
-- **1.5 / 1.6 — the remaining confirmed enablers**, sliced by need: the
-  migration-runner cluster (runner + telegram/email settings migration + legacy
-  intent.*model_profile removal + automated rollback — pulled EARLIER if any 1.1-1.4
-  release needs a non-additive migration), email OAuth, MCP spec parity,
-  param-contract completion, PermissionGate deletion. System Memory
+- **1.5 / 1.6 — the remaining confirmed enablers**, sliced by need: v1.5 owns
+  the migration-runner cluster (runner + telegram/email settings migration +
+  legacy `intent.*model_profile` removal + automated rollback), param-contract
+  completion, and PermissionGate deletion; v1.6 owns email/hosted-provider
+  OAuth, MCP spec parity, and non-local bind/network hardening. System Memory
   Distillation remains the post-profiling co-flagship candidate. **2.0 horizon**:
   Self-Hosting Development (Allbert develops Allbert, pi-mode target), with OAuth
-  hosted-LLM providers landing earlier on the 1.5/1.6 enabler train.
+  hosted-LLM providers landing earlier on the v1.6 connectivity train.
 ## Classification
 
 Classes are **proposed** pending the operator's category-by-category
@@ -515,12 +515,15 @@ Deferred at: `v0.61b-plan:1643`.
 
 ### Mobile-Ready Web UI/UX → Lightweight Native Mobile App
 
-Stage 1 planned — `docs/plans/v1.4-plan.md` M7 (phone-form-factor usability at
-390 px for chat, objectives, settings, memory).
+Stage 1 planned — `docs/plans/v1.4-plan.md` M7 (measured Chromium/WebKit
+phone-form-factor usability at 320 CSS px, 390×844 portrait, and 844×390
+landscape for chat, objectives, settings, and memory).
 
 Stages 2–4 remain the unplanned remainder: responsive information architecture,
 offline-capable PWA, and a lightweight native shell. Class: Must · Effort: L ·
-Slice: horizon, revisited at the next ladder review.
+Slice: horizon, revisited at the next ladder review. Stage 2 also owns real-device
+dynamic-toolbar and sticky-composer proof; browser emulation in Stage 1 is a
+measured layout/accessibility gate, not a claim about physical-device behavior.
 
 ### Dynamic Mobile Breakpoints
 
@@ -821,7 +824,7 @@ Deferred at: `v0.24-rf:79`.
 
 ### LLM-Assisted Acceptance Evaluator
 
-Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold — revisit with adaptive stage (c) effectiveness scoring
+Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold — revisit with adaptive stage (c) observed-outcome scoring
 
 Status: parked.
 
@@ -1068,7 +1071,8 @@ Deferred at: operator intake (post-1.0 planning, 2026-07-15).
 ### Adaptive Usage Profiling & One-Click Customization Suggestions
 
 Planned — `docs/plans/v1.4-plan.md` (flagship) + ADR 0090. Usage-signal store,
-distill/suggest jobs, one-click confirmed customization, effectiveness feedback.
+distill/suggest jobs, one-click confirmed customization, descriptive observed-
+outcome feedback.
 
 ### Autonomous Skill Creation Beyond Supervised Drafts
 

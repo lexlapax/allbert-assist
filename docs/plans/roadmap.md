@@ -329,24 +329,35 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    next binary. Focused tests and attended source validation precede one short
    delta gate and, because projection machinery is shared code, exactly one
    final authoritative aggregate—never an aggregate per fix.
-9. **1.4 — Adaptive Usage Profiling.** (**Planned — triad ready
-   2026-07-24:** `docs/plans/v1.4-plan.md` + request-flow + ADR 0090
+9. **1.4 — Adaptive Usage Profiling.** (**Decision-complete; build not started —
+   implementation-readiness rewrite 2026-08-06:** `docs/plans/v1.4-plan.md` + request-flow + ADR 0090
    (profiling + confirmed customization) + ADR 0084 amendment
-   (`:suggestion` kind, quiet hours, rate limit). **v1.3 predecessor cleared.**)
+   (`:suggestion` kind, exact enrollment, deferred/coalesced quiet hours,
+   one-per-local-day cap). **Source-only v1.3.1 shipped
+   2026-08-05; M0 must re-verify every implementation seam at its accepted
+   source tag before feature work starts.**)
    System usage memory + distill/suggest jobs +
    one-click CONFIRMED customizations (allowlisted, safety-floor-pinned)
-   + effectiveness feedback. Per-role model profiles and proactive
+   + observed-outcome feedback that makes no causal claim. Per-role model
+   profiles and proactive
    suggestion notifications ride here — and, by operator decision
    2026-07-24, **Mobile-Ready Web stage 1** rides as non-flagship scope
-   (Dynamic Mobile Breakpoints folds in; stages 2–4 stay at horizon).
+   (Dynamic Mobile Breakpoints folds in; stages 2–4 remain the operator-owned
+   responsive-information-architecture, offline-capable-PWA, and native-shell
+   horizon).
    By operator decision 2026-07-30, v1.4 also carries the **preflight gate
    and the AGENTS.md Release Sequence** (M0.5, renumbered from M8.5 on
-   2026-08-05 so it precedes v1.4's feature work), and is the first binary release
-   and first release with the implemented `preflight` command. Source-only
-   v1.3.1 uses the same cadence through its named temporary bundle. v1.4 runs:
-   preflight → audit → source pre-filter →
-   release-scoped gate → aggregate only if the change class requires it →
-   binary → packaged FV as the acceptance bar. v1.3 M9.b burned six
+   2026-08-05 so it precedes v1.4's feature work), and is the first binary
+   release after source-only v1.3.1 and the first release with the implemented
+   `preflight` command. Source-only
+   v1.3.1 used the same cadence through its named temporary bundle. v1.4 runs:
+   preflight + independent audit + source FV pre-filter → `release.v1` + the
+   bounded non-stacking `release.v14` delta → provisional artifacts,
+   qualification, and packaged FV → one batched executable-remediation rejoin
+   when needed → exactly one authoritative aggregate → identity, integrity,
+   package-smoke, publish, install-rehearsal, and closeout evidence. The
+   aggregate is mandatory for v1.4 because Settings, confirmation, registry,
+   Security Central, and gate infrastructure all change. v1.3 M9.b burned six
    authoritative attempts, none stopped by a product regression; this is
    the fix, and it lands before v1.5 rather than after.
 10. **1.5 — Spine enablers.** (**Planned — triad 2026-07-30:**
@@ -408,7 +419,7 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
 15. **2.0 horizon — Self-Hosting Development.** Allbert develops Allbert (pi-mode
    target on its own checkout; plan/build/test/document roles in-product, supervised).
    Its OAuth hosted-LLM providers sub-capability (Claude/OpenAI/Gemini subscription
-   plans, not just API keys) lands earlier on the 1.5/1.6 enabler train.
+   plans, not just API keys) lands earlier on the v1.6 connectivity train.
 
 ## Working Rules
 

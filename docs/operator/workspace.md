@@ -107,6 +107,24 @@ allbert admin models doctor openai
 The panel should show bounded, redacted status and diagnostics. Raw provider
 responses, endpoint URLs, API keys, and secret refs must not be displayed.
 
+## Suggestions Surface (v1.4 Planned)
+
+v1.4 adds profiling cards to the shared Suggestions surface. A card is inert:
+it shows one exact proposed Settings change, its expected current value,
+evidence window/sample count, expiry, and observed-outcome state. It never
+changes a setting merely because it is displayed, highly scored, repeated, or
+sent to a remote channel.
+
+Apply, dismiss, and revert dispatch registered actions. Apply and revert use
+separate durable confirmations; a stale card or intervening Settings edit
+writes nothing. Remote notifications contain only a deterministic pointer back
+to Suggestions and never carry approval controls.
+
+The growing card list uses stable streamed row identities so LiveView updates do
+not duplicate or silently replace cards. The workspace owns rendering and event
+dispatch only; Settings comparison, confirmation binding, operation recovery,
+and outcome classification stay behind runtime actions.
+
 ## Surface-Policy Panel
 
 Surface policy controls presentation governance per surface/action:
@@ -134,6 +152,17 @@ Expected evidence includes browser screenshots, CLI output, one warm TUI
 transcript, public-protocol JSON responses, redaction proof, and final settings
 guard output. Do not commit raw screenshots, transcripts containing secrets, raw
 tokens, or local evidence directories.
+
+### v1.4 mobile-web validation
+
+The packaged web service remains loopback-bound by default. v1.4 acceptance uses
+measured Chromium and WebKit browser runs at 320 CSS pixels, 390×844 portrait,
+and 844×390 landscape, including 400% reflow, 200% text resize, keyboard order,
+visible/not-obscured focus around sticky controls, target sizing, horizontal
+overflow, and console cleanliness. Browser emulation is not proof of physical-
+device dynamic-toolbar behavior; that real-device row belongs to the later
+responsive-information-architecture stage. Authenticated/configurable non-local
+access also remains v1.6 scope.
 
 ## Operating Invariants
 

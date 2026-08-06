@@ -2,231 +2,439 @@
 
 ## Status
 
-Proposed (v1.4 planning, 2026-07-24). Binding on v1.4 M1–M6
-(`docs/plans/v1.4-plan.md`); flips Accepted at the v1.4 milestone that
-proves the full loop — usage signals → distill/suggest → one-click
-**confirmed** customization → applied with audit → effectiveness measured —
-together with the confirm-required and allowlist denial rows.
+Proposed (v1.4 planning, 2026-07-24; implementation-readiness revision
+2026-08-06). Binding on v1.4 S1-S9 and M0.5-M8, including M4.5
+(`docs/plans/v1.4-plan.md`). The source-only v1.3.1 predecessor shipped and
+closed on 2026-08-05, so its barrier is satisfied; v1.4 M0 still re-verifies
+the implementation seams at the accepted predecessor tag before feature work.
 
-This ADR **amends the ADR 0045 boundary deliberately**: ADR 0045 excludes
-settings changes from suggestion scope entirely; v1.4 keeps suggestions
-inert but adds the one sanctioned application path — a
-confirmation-required registered action over an allowlisted key set. The
-ADR 0084 amendment of the same date adds the `:suggestion` notification
-kind this ADR's delivery stage uses.
+This ADR flips Accepted at v1.4 M8, after the whole authority loop is proved:
+user-owned minimized usage events -> deterministic distillation -> inert
+suggestion -> durable confirmation -> compare-and-set allowlisted write ->
+linked audit/recovery record -> descriptive observed outcome -> confirmed
+revert. M8 also proves model-role, prompt-variant, notification-enrollment,
+quiet-hours, rate-cap, and abuse-case rows. A partial loop or a synthetic
+claim about real-world improvement cannot accept the ADR.
 
-Related: ADR 0045 (operator-supervised self-improvement — the trust tier
-this extends), ADR 0089 (long-term user memory — the operator-facing
-sibling; same episodic sources, same propose/review grammar), ADR 0084
-(+ v1.4 amendment — proactive suggestion delivery), ADR 0088 (model
-catalog — per-role profiles read it), ADR 0072 (recommended profiles per
-purpose), ADR 0061 (router model tiers), ADR 0008 (durable
-confirmations), ADR 0031/0006 (Settings/Security Central), ADR 0080/0074
-(workspace shell + design system — the mobile-stage-1 rider renders
-within them; no authority content).
+This ADR **amends the ADR 0045 boundary deliberately**. ADR 0045 excludes
+settings changes from suggestion scope; v1.4 keeps suggestions inert but adds
+one sanctioned application path: confirmation-required registered actions over
+an exact reviewed allowlist. The ADR 0084 amendment adds the `:suggestion`
+notification kind used only to point an enrolled user to inert cards.
+
+Related: ADR 0045 (operator-supervised self-improvement), ADR 0089 (long-term
+user memory and user ownership), ADR 0084 (+ v1.4 amendment — proactive
+suggestion delivery), ADR 0088 (model catalog), ADR 0072 (recommended profiles
+per purpose), ADR 0061 (router model tiers), ADR 0008 (durable
+confirmations), ADR 0031/0006 (Settings/Security Central), and ADR 0080/0074
+(workspace shell and design system).
 
 ## Context
 
-What exists (verified 2026-07-24, anchors in the v1.4 plan):
+The source-only v1.3.1 point release is complete. It supplied the answering-head
+qualification evidence and corrective hardening that v1.4 inherits; v1.4 is
+the first packaged carrier of those changes. The implementation seams below
+were audited during planning and are re-checked by M0 rather than treated as
+permanent line-number facts.
 
-- **The v0.47 pipeline is alive but passive**: `discover_patterns`
-  (read-only action) → `SelfImprovement.Discovery`/`TraceIndex` (four
-  fixed pattern types) → inert suggestions
-  (`tool_discovery_suggestions`, statuses
-  `pending|accepted|dismissed|expired`) + draft artifacts → six
-  confirmation-gated `promote_*_draft` actions. Nothing schedules it; the
-  web panel renders self-improvement suggestions as display-only cards
-  with no accept handler; the `dismissed` status has no writer; two
-  promote actions are missing from the approve-resume list (a
-  bug-shaped hole v1.4 fixes).
-- **Usage signals are rich but not queryable**: intent decisions exist
-  only inside markdown traces (opt-in via `runtime.trace_default`) and
-  per-turn `action_log` JSON blobs on assistant messages; there is no
-  decisions store. Durable structured sources: `conversation_messages`
-  (+`action_log`), `objective_events`, `scheduled_job_runs`,
-  privileged-subsystem markdown audits.
-- **The settings-write trap**: `permissions.settings_write` defaults
-  `:allowed` and the generic settings actions are
-  `confirmation: :not_required` — "one-click confirmed customization"
-  is NOT automatic; without a deliberate floor it would be one-click
-  *silent* customization. The precedent for forcing confirmation by
-  action name is the safety-floor clause pinning `apply_persona_profile`.
-- **Per-role model profiles have no schema**: `fast/capable/thinking`
-  exist as catalog JSON and codegen aliases, not Settings keys; model
-  selection is scattered across router/decomposer/coding/direct-answer
-  profile keys (ADR 0061/0072 substrate); ADR 0088 supplies the catalog.
-- **Proactive delivery has one boundary**: `Channels.Notify` with kinds
-  `[:status, :completion, :confirmation_request, :consent_offer]`,
-  defaults-OFF settings, ledger, throttle, exact-origin binding — the
-  `:suggestion` kind is an additive extension of that boundary, never a
-  second spine.
+- **The v0.47 pipeline is alive but passive:** `discover_patterns` ->
+  `SelfImprovement.Discovery`/`TraceIndex` -> inert
+  `tool_discovery_suggestions` and draft artifacts -> confirmation-gated
+  `promote_*_draft` actions. It does not supply the lifecycle needed for a
+  settings customization. Its existing types and authority remain unchanged;
+  v1.4 fixes the missing dismissed writer and approve-resume coverage without
+  overloading its draft-oriented records.
+- **Usage signals are rich but not queryable:** intent decisions live in
+  opt-in markdown traces and per-turn `action_log` JSON. Structured sources
+  include conversations, objectives, and managed-job runs, but no bounded,
+  content-minimized decision store exists.
+- **The settings-write trap remains:** generic Settings actions are not a safe
+  substitute for confirmed customization. A card must not turn
+  `permissions.settings_write=:allowed` into silent authority. Both the action
+  contract and Security safety floor must force confirmation by action name.
+- **A customization spans storage boundaries:** suggestions and operations are
+  SQLite records, Settings are Home-owned YAML, and the audit is append-only
+  markdown. A database transaction cannot make all three atomic. The design
+  therefore needs a durable operation state and explicit recovery rather than
+  claiming impossible all-or-nothing behavior.
+- **Per-role profiles and prompt variants do not yet have a uniform resolver:**
+  purpose-specific model keys remain authoritative; prompt rules have multiple
+  call sites and quality receipts already bind catalog digests.
+- **Proactive delivery has one boundary:** `Channels.Notify` already owns
+  defaults-OFF grants, exact-origin re-authorization, redaction, throttling,
+  durable delivery state, and uncertain-send handling. `:suggestion` is an
+  additive kind on that boundary, never another transport spine.
 
-The flagship goal (backlog + roadmap): system usage memory +
-distill/suggest jobs + one-click confirmed customizations + effectiveness
-feedback, with per-role model profiles and proactive notifications riding.
+The flagship is local usage memory plus deterministic distill/suggest,
+operator-confirmed customization, descriptive follow-up, per-role aliases, and
+default-off suggestion delivery. Mobile-ready web stage 1 is a presentation
+rider and grants no authority.
 
 ## Decision
 
-### 1. An additive, local, redacted usage-signal store
+### 1. User-owned, local, minimized usage events
 
-v1.4 adds a bounded usage-event store (SQLite, additive table) written at
-turn close: intent decision outcome (kind, action name, confidence band,
-fallback/steering class), action outcome class, model profile used,
-surface/channel, timing bands — **never message bodies, never prompt
-text, never secrets** (schema-level redaction proven by an eval row).
-Rationale: traces are opt-in and markdown-parsed; profiling needs a
-deterministic, always-on, cheap signal. Existing sources (conversations'
-`action_log`, objectives, jobs runs, traces where enabled) remain joined
-raw material. Retention is bounded by a cap + age setting, prunable
-through existing operator surfaces.
+v1.4 adds a dedicated additive SQLite usage-event store. Collection is local,
+bounded, user-scoped, and fail-open with respect to the response the user is
+waiting for. Its data-minimization and storage-limitation posture follows the
+[NIST Privacy Framework](https://www.nist.gov/privacy-framework) and the
+principles in
+[GDPR Article 5](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679)
+even when an installation is outside GDPR scope.
 
-### 2. Distill/suggest: a managed job producing inert, evidenced cards
+The Settings contract is frozen as follows:
 
-- A periodic managed job (the ReviewCadence pattern;
-  `profiling.distill.*` settings; kill switch; explicit activation) runs
-  a registered distill action: reads the usage store + joined sources,
-  computes profile aggregates, and emits **suggestion cards** through the
-  existing suggestion machinery (additive suggestion types) — each card
-  carries its evidence (the aggregate + sample references), a proposed
-  concrete change, and a predicted benefit statement.
-- Suggestion classes in scope: settings customizations over the
-  allowlist (§3), per-role model profile remaps (§4), and the existing
-  v0.47 workflow/skill/memory draft kinds (unchanged authority).
-- Suggestions remain **inert** (ADR 0045 posture): rendering, accepting,
-  or dismissing a card changes nothing by itself. The dead `dismissed`
-  status gains its writer; the approve-resume gap for the two missing
-  promote actions is fixed.
-- Distill is zero-egress; model assist, if any, is the configured local
-  model under the same bounds as ADR 0089's LD-R5 posture.
+- `profiling.enabled=true` is the master analysis switch. `false` stops new
+  capture and every scheduled or on-demand distillation. It does not prevent
+  status inspection, retention pruning, or confirmed clearing.
+- `profiling.usage_events.enabled=true` is the capture-only switch. `false`
+  stops new event writes while leaving existing retained data available to an
+  explicitly enabled distill.
+- `profiling.usage_events.max_rows=10_000`, accepted range
+  `1_000..1_000_000`, is enforced per user.
+- `profiling.usage_events.max_age_days=90`, accepted range `7..365`, is
+  enforced per user.
+- `profiling.distill.enabled=false` controls the managed cadence, whose default
+  is `weekly`. A user may invoke on-demand distillation while
+  `profiling.enabled=true` even when the cadence is disabled.
 
-### 3. The one sanctioned application path: confirmed customization
+Exactly one event is attempted for each user-owned terminal response signal.
+Terminal outcomes are `completed`, `denied`, `failed`, `cancelled`, and
+`assistant_persistence_failed`. Background jobs do not mint turn events. The
+unique `response_signal_id` makes the writer idempotent across retries.
 
-- New registered action `apply_suggested_customization`
-  (`confirmation: :required`) **plus** an action-name-scoped Security
-  safety-floor clause (the `apply_persona_profile` precedent) so the
-  requirement cannot drift with a contract edit.
-- The action accepts only a suggestion id; it re-reads the card, checks
-  the proposed key against the **customization allowlist** — a shipped,
-  reviewed subset of safe-write keys (model roles, cadence/level tunables,
-  UI/verbosity preferences; **never** permissions, security policy,
-  egress, provider credentials, or fallback egress gates) — renders the
-  exact before→after diff into the confirmation, and applies through
-  `Settings.put` with audit only after approval.
-- One click on a card creates the durable confirmation; the existing
-  confirmation surfaces (web, typed command, buttons) resolve it. Free
-  text never approves (standing rule). Rejection marks the suggestion
-  dismissed with provenance.
+The typed event contains only:
 
-**Amendment, 2026-08-05 (operator decision) — prompt-rule variants are a
-third delta kind on this same path.** The application mechanism is unchanged:
-an allowlisted key, an exact before→after diff, `Settings.put` after approval,
-full audit. What changes is the allowlisted set, which now admits
-`prompt_rules.<catalog>.<rule_id>.variant`.
+- local user, thread, message, response-signal, and supported correlation IDs;
+- terminal outcome plus registry-bounded intent, action, and action-outcome
+  classes;
+- confidence band, fallback class, and steering-correction class;
+- resolved concrete model profile and its provider/endpoint/locality class;
+- surface/channel;
+- non-negative schema-clamped `duration_ms` and a prompt-length band; and
+- a versioned HMAC-SHA-256 fingerprint of normalized prompt text, keyed by a
+  random per-Home key that is never exported.
 
-Two measured facts bound it, and both were verified in the tree before the
-amendment was accepted:
+Fields that do not apply to a terminal path are `nil`, never a free-text
+sentinel.
 
-- **Almost no shipped rule is presentational.** Of the nine
-  `DirectAnswer.Policy` rules exactly one — `useful_factual_and_brief` — is
-  about style. The rest are authority, truthfulness, or the prompt-injection
-  boundary; `supplied_text_is_data` *is* that boundary. So eligibility is an
-  explicit per-rule `tunable?` field defaulting to **false**, reviewed like the
-  settings allowlist, and a non-tunable rule id is refused before a
-  confirmation exists.
-- **Rule catalogs are digest-bound.** `Worker.QualityPolicy.rule_catalog_digest/1`
-  records the catalog in quality receipts. Tuning therefore selects among
-  **shipped, reviewed variants** rather than authoring text: the catalog stays a
-  closed set, the resolved digest stays meaningful, and a variant change is
-  visible in the receipt instead of hidden.
+The fingerprint exists only to group repeated prompts within one Home. It is
+not a cross-install identity. Storage/query ownership prevents joins across
+users, and different Home keys prevent joins across Homes. Normalization and
+its version are deterministic and digest-bound. Raw prompt,
+message, response, trace, action-log, objective, or job text; snippets;
+arbitrary model prose; secret material; and free-text error strings are
+prohibited from the event schema and from derived evidence.
 
-Free text never enters the system role. This is not the parked System Memory
-Distillation route — nothing is learned or trained; a variant is chosen from a
-set that shipped in the release.
+Distillation may read usage events and user-scoped typed objective/job outcomes.
+It may use identifiers to fetch registry-bounded classes, but it may not ingest
+conversation, trace, objective, or job bodies. v1.4 distillation is deterministic
+aggregation with zero provider or model egress and no model-assisted fallback.
 
-### 4. Per-role model profiles (fast / capable / thinking)
+Age and row-cap pruning runs per user at store startup and after inserts in
+bounded database transactions. An event-write or prune failure never changes
+the response outcome; it emits a content-free diagnostic and sets a redacted
+profiling-health state visible through operator surfaces.
 
-- New additive Settings fragments formalize roles:
-  `model_roles.<role>.profile` (initial roles: `fast`, `capable`,
-  `thinking`), resolved through the existing `Settings.Models` machinery
-  as aliases the per-purpose keys may reference — the scattered
-  router/decomposer/coding/direct-answer profile keys keep working
-  unchanged; roles are a naming layer over the ADR 0088 catalog, not a
-  parallel resolver.
-- The chooser renders roles; profiling may propose role remaps ("your
-  ranking turns are slow — map `fast` to X") strictly through §3.
-- Legacy `intent.*model_profile` aliases are untouched (additive-only
-  rule; removal stays with the migration-runner train).
+The first eligible use displays a non-blocking disclosure with inspect, pause,
+and clear affordances. Confirmed clear removes that user's usage events,
+profiling suggestions, and observed outcomes. It preserves Settings,
+customization-operation records, confirmations, and security/audit evidence.
+Raw Home backups may contain retained profiling rows. Portable export contains
+only redacted schema/count summaries, never event rows or the HMAC key. Uninstall
+preserves Home; only an explicit confirmed purge removes retained Home data.
 
-### 5. Effectiveness feedback
+### 2. Deterministic distillation and dedicated inert cards
 
-Applied customizations link suggestion id → confirmation id → settings
-audit entry. The next distill run measures the before/after usage deltas
-for the touched dimension (e.g. turn-time band, fallback rate,
-steering-correction rate) and writes the outcome onto the suggestion
-record; the panel shows it ("applied 12 days ago — decide p50 −18%").
-Reverts are one click through the same confirmed path. No automatic
-rollback: measurement informs the operator, it never acts.
+A managed ReviewCadence-style job and an on-demand registered action aggregate
+eligible rows and create user-owned profiling suggestions. The managed job is
+default OFF under `profiling.distill.enabled`; both paths honor the master
+switch and perform zero egress.
 
-### 6. Proactive suggestion delivery (ADR 0084 amendment)
+The managed-job reconciliation is explicit: `enabled=false` leaves the reserved
+per-user job paused with no effective due time; `enabled=true` reconciles and
+resumes its schedule using `profiling.distill.cadence`; cadence changes while
+disabled update the reserved schedule but do not resume it. On-demand distill
+invokes the same registered action without changing managed-job state.
 
-Delivery of "a suggestion is ready" beyond the workspace rides the
-amended `Channels.Notify` boundary as kind `:suggestion`: per-channel
-opt-in key separate from status/completion, **default OFF**, quiet-hours
-window and a per-class rate limit (additive keys), the same ledger /
-throttle / exact-origin / redaction machinery, always a new message. The
-backlog's proactive-notifications policy items (per-class opt-in,
-quiet hours, rate limit, audit, revocation) land here; broader proactive
-classes (meeting starts, disconnects) remain out of scope.
+Profiling uses dedicated suggestion, customization-operation, and outcome
+records behind the shared Suggestions surface. It does not overload
+`tool_discovery_suggestions`, whose draft workflow remains governed by ADR
+0045. A profiling card has one of these states:
 
-### 7. Mobile-ready web, stage 1 (rider — no authority content)
+`open | confirmation_pending | applied | dismissed | expired | stale | reverted`
 
-v1.4 carries the mobile-ready web stage 1 as non-flagship scope
-(operator-slotted 2026-07-24): breakpoint token roles in the design
-system (folding in the parked Dynamic Mobile Breakpoints entry),
-phone-form-factor usability for the primary surfaces, within ADR
-0074/0080. Stages 2–4 (API surface, remote auth, native shell) are
-explicitly out. Recorded here only so the ADR set names the release's
-whole surface; this section grants nothing and constrains only the plan.
+Every card binds all of the following before it is rendered:
+
+- local user, stable card id, revision, and card digest;
+- target key, expected current value, and proposed value;
+- evidence/metric version, bounded sample window and sample references;
+- customization-allowlist digest and, for prompt rules, catalog digest;
+- expiry timestamp and stable dedupe key.
+
+Card text is deterministic and derived from typed aggregates. A card is inert:
+rendering, opening, accepting, dismissing, or notifying it does not write a
+setting. Terminal cards cannot be silently reopened. A dismissed or expired
+dedupe-equivalent proposal observes a 30-day cooldown unless the current target
+value changes, in which case the new expected-before value produces a new
+proposal identity. Metric version 1 reads the most recent 10–50 eligible events
+from at most 14 days; fewer than 10 or an ambiguous aggregate emits no card. A
+card expires 14 days after creation unless it reaches another terminal state
+first.
+
+### 3. Confirmed compare-and-set customization and recovery
+
+The only profiling write path is through registered
+`apply_suggested_customization` and `revert_suggested_customization` actions.
+Both declare `confirmation: :required` and both action names are pinned by the
+Security safety floor so a later contract edit cannot weaken them. A surface
+may create or resolve the durable confirmation, but it may not write Settings
+directly. Free text never approves.
+
+The exact v1.4 customization allowlist is:
+
+- `operator.communication_style`
+- `operator.handoff_detail`
+- `channels.<registered-id>.response_style`
+- `model_roles.fast.profile`
+- `model_roles.capable.profile`
+- `model_roles.thinking.profile`
+- `prompt_rules.direct_answer.useful_factual_and_brief.variant`
+
+Cadence, diagnostic, accessibility, resource-limit, permission, security,
+credential, provider-egress, and fallback-policy keys are categorically
+excluded. A wildcard `prompt_rules.*` key is not allowed. The shipped allowlist
+is closed and digest-bound; plugin, skill, model, YAML, descriptor, or card
+metadata cannot extend it.
+
+An apply confirmation binds user, suggestion id/revision/digest, target key,
+expected-before value, proposed-after value, target version, allowlist digest,
+and any rule-catalog digest. On resume, the action re-reads and revalidates all
+bindings inside the same Settings lock used for its compare-and-set write. A
+stale card or changed current value writes nothing, marks the card `stale`, and
+requires a newly distilled card and confirmation. A confirmation id may produce
+at most one application operation.
+
+A revert confirmation is equally bound. It writes the recorded before value
+only when the current setting still equals that operation's applied value; an
+intervening operator edit makes the revert stale and writes nothing. Denial or
+dismissal changes card state with provenance but never Settings.
+
+Customization operations have these durable states:
+
+`prepared | applied | recovery_required | reverted | failed`
+
+`prepared` records intent without claiming a result; `applied` means CAS,
+audit, and SQLite linkage agree; `recovery_required` means Settings may have
+changed while linkage is incomplete or ambiguous; `reverted` means the
+separately confirmed CAS restored the prior value; and `failed` is terminal
+only when Settings is proven unchanged.
+
+SQLite-local card, operation, and outcome changes use one database transaction
+(the intended boundary of
+[`Ecto.Multi`](https://hexdocs.pm/ecto/Ecto.Multi.html)). The operation ledger
+coordinates the non-atomic SQLite -> Settings YAML -> markdown-audit sequence.
+The Settings audit entry carries stable audit-entry, operation, suggestion, and
+confirmation IDs plus redacted before/after values. If Settings commits but
+audit or SQLite linkage fails, the action returns `recovery_required`; it never
+reports success and never performs an unsafe blind rollback. Startup and the
+next operation reconcile from the durable operation id and current Settings
+value idempotently. An unresolved mismatch is surfaced for operator repair and
+cannot be treated as application authority.
+
+### 4. Per-role model profiles
+
+The only role references are `role:fast`, `role:capable`, and
+`role:thinking`. Their Settings fragments are
+`model_roles.<role>.profile`, and all three default to `nil`. An unconfigured
+role is skipped with a content-free diagnostic; the existing concrete
+purpose-profile chain then continues unchanged.
+
+A role value may name one configured concrete ADR 0088 profile only. It may not
+name another role, which prevents self-reference and cycles. Resolution expands
+the role before ordinary profile validation and records both the role and the
+resolved concrete profile in usage evidence. Existing purpose keys and legacy
+`intent.*model_profile` write aliases remain additive and unchanged.
+
+A profiling suggestion may remap a role only to a configured profile with the
+same provider, endpoint, and locality tuple as the current concrete profile.
+Missing, disabled, or cross-tuple targets are denied before confirmation. An
+operator may still make a broader explicit change through the ordinary model
+Settings path and its existing authority; profiling does not gain that power.
+
+### 5. Prompt-rule variants
+
+Prompt tuning is variant selection, never authored or learned system text. A
+uniform immutable rule spec/snapshot carries catalog, purpose, catalog version,
+rule id, variant id, resolved text, and digest. Each of the six
+`PromptEnvelope` callers resolves through this contract; the separately
+replayed `Worker.QualityPolicy` stores and reuses the same immutable snapshot.
+Durable jobs and receipts replay their stored snapshot rather than current
+Settings.
+
+Every shipped rule declares `tunable?`, default `false`. v1.4 ships exactly one
+tunable rule in the direct-answer catalog:
+
+- `useful_factual_and_brief/default` preserves the pre-v1.4 text byte for byte.
+- `useful_factual_and_brief/balanced_detail` resolves to: “Keep the answer
+  useful, factual, and direct. Include enough detail to answer the request
+  completely, without unrelated material.”
+
+Every other rule is non-tunable. A non-tunable rule, unknown variant, or catalog
+digest mismatch is refused before confirmation. The resolved catalog digest
+changes when the selected variant changes and remains byte-identical when the
+default is selected. The sole Settings enum defaults to `default`; non-tunable
+rules expose no variant key. Free text never enters a system rule; this is not System
+Memory Distillation and trains nothing.
+
+### 6. Descriptive observed outcomes, not effectiveness claims
+
+Applied customizations link suggestion -> confirmation -> operation -> Settings
+audit entry -> observed outcome. Outcomes use only these states:
+
+`pending | insufficient_data | confounded | observed_improvement |
+observed_regression | no_clear_change`
+
+The engine takes equal-sized matched pre/post samples, each capped at 50 eligible
+events, from windows no longer than 14 days. Fewer than 10 eligible events in
+either side is `insufficient_data`. A related customization or material
+endpoint/surface/profile change inside the comparison is `confounded`. The card
+shows window dates, sample counts, medians or rates, metric version, and detected
+confounders.
+
+Metric families are fixed:
+
+- communication style, handoff detail, and channel response style use
+  steering-correction rate; metric version 1 requires a change of at least five
+  percentage points to classify direction, and response-length distribution is
+  descriptive only;
+- model roles use median duration with failure and fallback rates as
+  guardrails; metric version 1 requires at least a ten-percent relative median
+  movement, while a failure/fallback worsening of five percentage points makes
+  the result `observed_regression`; and
+- the prompt variant uses a typed card-level `better | same | worse` rating
+  after 10 eligible turns; response length and steering correction remain
+  descriptive context.
+
+Movement below the versioned floor is `no_clear_change`; model output cannot
+classify the result. These are product classification floors, not statistical
+or causal significance claims. Before/after observation
+does not establish a counterfactual, so UI, CLI, audit, and release evidence
+never say the customization “caused,” “helped,” or “worked.” This follows the
+caution in the
+[Magenta Book evaluation guidance](https://www.gov.uk/government/publications/the-magenta-book/magenta-book-central-government-guidance-on-evaluation-html).
+Synthetic fixtures prove computation and state transitions only; they are never
+product-efficacy evidence. Outcomes are advisory and never trigger automatic
+application or rollback. Revert remains the confirmed path in §3.
+
+### 7. Proactive suggestion delivery
+
+Suggestion delivery rides the ADR 0084 amendment through a typed notification
+subject adapter. It never fabricates an Objective and never grants transport
+authority outside `Channels.Notify`.
+
+Delivery requires all of: the existing autonomous-notify authority, the
+default-OFF `suggestions_enabled` setting, and an explicit identity-reverified
+enrollment binding the local user, registered channel, and exact provider
+thread reference/digest. Last activity, model output, card metadata, and free
+text are never destinations. Email is excluded in v1.4.
+
+Suggestion quiet hours defer and coalesce rather than suppress. The setting is
+an optional start/end local-time window evaluated in `operator.timezone`,
+start-inclusive and end-exclusive, including overnight windows. One durable row
+per user/channel/thread/window coalesces eligible cards into a deterministic
+“N suggestions ready” pointer delivered at the next valid window edge. Timezone
+database rules determine daylight-saving transitions; equal start/end is an
+invalid window. The default daily cap is
+one per local user/channel calendar day; `sending`, `delivered`, and `uncertain`
+reservations consume it. Payloads are length-bounded, redacted pointers only,
+with no evidence, proposed value, or approval control.
+
+### 8. Mobile-ready web stage 1
+
+Mobile stage 1 is presentation-only scope inside ADR 0074/0080. It includes
+320-CSS-pixel reflow/400% zoom, 390x844 portrait, 844x390 landscape, keyboard
+order, visible and unobscured focus around sticky regions, accessible names and
+status, 200% text resizing, and shared breakpoint/viewport-height contracts.
+The AA target-size floor is 24x24 CSS pixels; 44x44 is the preferred enhanced
+target, not a blanket AAA claim. These acceptance dimensions follow
+[WCAG 2.2](https://www.w3.org/TR/WCAG22/).
+
+Physical-phone acceptance is not part of v1.4; measured Chromium and WebKit
+viewport/browser proof is. The operator-owned later stages retain their backlog
+meanings: stage 2 responsive information architecture, stage 3 offline-capable
+PWA, and stage 4 native shell. Authenticated/configurable non-local access is a
+v1.6 concern. This rider grants no application, notification, or network
+authority.
 
 ## Consequences
 
-- Allbert closes its self-improvement loop: it observes its own usage,
-  proposes concrete improvements with evidence, applies exactly what the
-  operator confirms, and reports whether it worked — while the ADR 0045
-  inert-suggestion posture and the confirmation spine hold.
-- The settings-write trap is closed structurally (floor + allowlist),
-  not by convention.
-- Role-based model tuning becomes a first-class, suggestible surface on
-  top of the 1.2 catalog rather than folklore across scattered keys.
-- One notification spine continues to carry every autonomous send;
-  quiet hours and per-class rate limits harden it for all kinds.
-- v1.3 and v1.4 share the propose/review grammar deliberately: memory
-  proposals → review; usage suggestions → confirm. Operators learn one
-  model.
+- Allbert gains a bounded loop that observes typed local behavior, proposes an
+  inert change, applies only an exact confirmed allowlisted delta, and reports a
+  descriptive outcome without claiming causality.
+- The settings-write trap is closed structurally through action-name floors,
+  exact allowlisting, confirmation binding, compare-and-set, and durable
+  recovery state.
+- Profiling data has explicit ownership, collection, retention, clear, backup,
+  export, and uninstall semantics rather than relying on “local” as a privacy
+  substitute.
+- Role aliases and prompt variants become explicit naming/snapshot layers over
+  existing resolvers. Existing concrete profile and rule behavior remains the
+  default.
+- One notification spine continues to carry every autonomous send. Enrollment,
+  deferred quiet hours, coalescing, and the daily cap prevent a Settings toggle
+  from becoming an inferred-address or spam grant.
+- ADR 0045 discovery suggestions and ADR 0089 memory proposals remain separate
+  data models while sharing an operator-facing propose/review grammar.
 
 ## Non-goals and guardrails
 
-- **No autonomous settings changes, ever** — no suggestion applies
-  without an approved durable confirmation; the allowlist excludes
-  permissions/security/egress/credentials/fallback gates categorically.
-- **No egress** in profiling; local model only for any assist.
-- **No message bodies or secrets in the usage store** (schema-level,
-  eval-bound).
-- **No learned/trained profile models** (System Memory Distillation
-  stays parked); distill is deterministic aggregation + bounded local
-  assist.
-- **No new notification spine**; `:suggestion` is a kind on ADR 0084's
-  boundary, default OFF.
-- **Additive-only** (operator-locked 1.2–1.4): the usage store, roles
-  fragments, suggestion types, and notify keys are additive; legacy
-  aliases untouched.
-- Mobile stages 2–4 and OAuth hosted providers stay on their own
-  tracks.
+- No autonomous Settings change or rollback; both apply and revert require an
+  approved durable confirmation.
+- No wildcard customization keys and no permission, security, credential,
+  egress, fallback, cadence, diagnostic, accessibility, or resource-limit
+  customization.
+- No prompt, response, trace, objective, job, error, or model prose in usage
+  events, derived cards, notification payloads, audit evidence, or portable
+  export.
+- No provider/model egress and no learned or trained profile model in
+  distillation.
+- No causal product claim from an observed pre/post delta.
+- No new notification spine, inferred destination, email suggestion, or
+  notification-side approval.
+- No change to legacy model aliases, purpose-profile precedence, or untuned
+  prompt text.
+- No non-local bind or authentication authority and no physical-phone
+  acceptance in v1.4.
+- All additions are Tier-2/additive; ADR 0090 does not change a frozen Tier-1
+  public contract.
 
 ## Validation
 
-Gate-bound behavioral rows (v1.4 plan §G): suggestion-inert,
-confirm-required (floor-pinned), allowlist denial, zero-egress distill,
-usage-store redaction, suggestion-notify default-off, quiet-hours
-suppression, role-remap write-path. Accepted flip requires the full loop
-proven end to end with a measured effectiveness record in Build Progress.
+M8 may flip this ADR Accepted only when the v1.4 gate proves, at minimum:
+
+- user isolation; response-signal idempotency; every terminal outcome; HMAC
+  stability and non-recoverability; duration clamping; fail-open capture;
+  switch separation; age/row pruning while capture is off; confirmed clear;
+  and absence of raw or secret content;
+- low-sample abstention; card dedupe/cooldown and every state transition;
+  apply/revert safety-floor pins; stale and double-resume denial; explicit
+  allowlist denial; expiry; intervening-edit revert denial; and audit-failure
+  restart reconciliation through `recovery_required`;
+- equal matched windows; pending, insufficient, confounded, improvement,
+  regression, and no-clear-change states; bounded arithmetic; typed prompt
+  ratings; and non-causal surface copy;
+- nil-role fallback, concrete-profile validation, same-tuple remap denial,
+  disabled-profile handling, legacy purpose parity, byte-identical untuned
+  catalogs, non-tunable/out-of-set denial, snapshot replay, and digest changes
+  only for a selected shipped variant;
+- explicit enrollment and cross-user denial; suggestion default OFF; overnight
+  and DST deferral; concurrent daily-cap reservation; restart recovery;
+  uncertain-send no-retry; coalescing; deterministic redaction; email exclusion;
+  and proof that notification cannot approve; and
+- 320/390/landscape geometry, reflow/zoom, keyboard and focus behavior, target
+  sizing, sticky-composer behavior, stable streamed DOM IDs, browser-console
+  cleanliness, and proof that mobile rendering grants no authority.
+
+Synthetic fixtures prove mechanics only. Product acceptance uses real configured
+providers and endpoints where the plan calls for a live channel or model path.

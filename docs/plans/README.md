@@ -8,7 +8,8 @@ plan and request-flow documents.
 
 - [Roadmap](roadmap.md)
 - [v1.4 adaptive usage profiling plan](v1.4-plan.md) and
-  [request flow](v1.4-request-flow.md) (planned; v1.3 predecessor cleared)
+  [request flow](v1.4-request-flow.md) (decision-complete; source-only v1.3.1
+  predecessor shipped, with build-start seam re-verification still required)
 - [v1.5 spine enablers plan](v1.5-plan.md) and
   [request flow](v1.5-request-flow.md) (planned; readiness passes not yet run)
 - [v1.6 connectivity enablers plan](v1.6-plan.md) and

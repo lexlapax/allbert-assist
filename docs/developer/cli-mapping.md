@@ -119,3 +119,25 @@ it is not a runtime command or a new operator authority surface.
 | `mix allbert.voice.local` | `allbert admin voice` |
 | `mix allbert.workflows` | `allbert admin workflows` |
 | `mix allbert.workspace` | `allbert admin workspace` |
+
+## v1.4 Planned Profiling Area
+
+v1.4 adds one source/package parity home after its registered actions exist:
+
+| Source checkout | Packaged command | Contract |
+|---|---|---|
+| `mix allbert.profiling status` | `allbert admin profiling status` | Redacted feature, capture, distill, retention, and health state. |
+| `mix allbert.profiling distill` | `allbert admin profiling distill` | Explicit deterministic local distillation; no model or network call. |
+| `mix allbert.profiling suggestions` | `allbert admin profiling suggestions` | List and inspect user-owned profiling cards. |
+| `mix allbert.profiling apply <id>` | `allbert admin profiling apply <id>` | Start or resume the confirmation-bound allowlisted compare-and-set path. |
+| `mix allbert.profiling dismiss <id>` | `allbert admin profiling dismiss <id>` | Mark the named open card dismissed. |
+| `mix allbert.profiling revert <id>` | `allbert admin profiling revert <id>` | Start or resume the separately confirmed exact-value revert path. |
+| `mix allbert.profiling clear` | `allbert admin profiling clear` | Confirmed removal of usage events and profiling derivatives while preserving Settings and accountability records. |
+| `mix allbert.profiling notify-enroll <channel> <target-ref>` | `allbert admin profiling notify-enroll <channel> <target-ref>` | Identity-reverified enrollment of one exact suggestion-notification target. |
+| `mix allbert.profiling notify-unenroll <channel> <target-ref>` | `allbert admin profiling notify-unenroll <channel> <target-ref>` | Remove the exact suggestion-notification enrollment. |
+
+The area is not advertised in `CLI.Commands.operator_table/0` before v1.4 ships.
+Both fronts call the same `CLI.Areas.Profiling` dispatcher and registered action
+set; neither surface writes Settings or profiling storage directly. `status`
+remains available while profiling is paused so an operator can inspect health,
+retention, and the clear path.

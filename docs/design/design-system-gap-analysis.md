@@ -83,3 +83,24 @@ design-system extension rather than a one-off page patch.
 - Dark mode, high contrast, reduced motion, keyboard order, and focus states are
   validation requirements for every new variant/pattern.
 - No v0.60 implementation is requested here. This is the ADR 0074 v0.61 input.
+
+## v1.4 Mobile-Readiness Follow-On
+
+The v0.61 responsive-role gap is implemented as a v1.4 measured-browser
+hardening pass rather than a second page-local design system:
+
+- one rem-based breakpoint namespace, with `48rem` preserving the current
+  768 px boundary and the handwritten 760 px rule reconciled;
+- Chromium and WebKit coverage at 320 CSS px/400% zoom, 390×844 portrait, and
+  844×390 landscape;
+- keyboard order, focus-not-obscured behavior around sticky regions, 200% text
+  resize, accessible names/status, and the WCAG 2.2 AA 24×24 target minimum;
+- `vh` fallbacks with `svh` preferred and `dvh` reserved for intentionally live
+  viewport changes; and
+- stable streamed suggestion-card identities plus shared inert/confirmed/stale/
+  recovery-required visual states.
+
+Physical-device dynamic-toolbar and sticky-composer proof remains part of the
+operator-owned responsive-information-architecture remainder, not v1.4
+acceptance. The production web service stays loopback-bound; configurable
+authenticated non-local access is v1.6 scope.

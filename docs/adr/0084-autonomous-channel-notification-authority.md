@@ -316,47 +316,100 @@ passed that expanded gate (`release-v11-1785097379.json`), pre-push
 (`prepush-2026-07-26T20_32_10Z.json`), and the authoritative release cascade
 (`release-2026-07-26T20_48_52Z.json`).
 
-## Amendment (v1.4 planning, 2026-07-24) — additive `:suggestion` notification kind
+## Amendment (v1.4 planning, 2026-07-24; revised 2026-08-06) — additive `:suggestion` notification kind
 
-v1.4 (ADR 0090, Adaptive Usage Profiling) adds proactive suggestion
-delivery — "a suggestion card is ready" — as an **additive notification
-kind on this boundary**, not a second spine:
+This amendment remains Proposed with ADR 0090 and becomes accepted only when
+v1.4 M8 proves its enrollment, deferral, coalescing, rate-cap, redaction, and
+non-approval rows. The source-only v1.3.1 predecessor is shipped and closed;
+v1.4 remains the first packaged carrier of this additive kind.
 
-- **Kind:** `:suggestion` joins the `Channels.Notify` kinds and the
-  delivery-ledger kind set. It is always a NEW message (never an edit),
-  passes the same ordered check chain (live-use → grant → level/class →
-  throttle → Security policy → exact-origin binding), the same redaction,
-  ledger states, and monthly audit.
-- **Separate opt-in, default OFF:** a per-channel
-  `channels.<id>.autonomous_notify.suggestions_enabled` key (additive,
-  default `false`) gates the kind independently of status/completion.
-  Enabling status/completion never enables suggestions, and vice versa.
-  The one-time typed consent-offer pattern (Decision 0) may be reused for
-  suggestion opt-in; free text still never changes the setting.
-- **Quiet hours and per-class rate limit (additive keys, all kinds may
-  adopt):** `channels.<id>.autonomous_notify.quiet_hours` (local-time
-  window; deliveries inside it are suppressed-with-reason or deferred to
-  the window edge — the v1.4 plan fixes the semantics per class) and a
-  per-class rate limit for `:suggestion`
-  (`channels.<id>.autonomous_notify.suggestion_max_per_day`, additive,
-  conservative default). Ledger rows record quiet-hours/rate-limit
-  suppression reasons; the backlog's proactive-notification policy items
-  (per-class opt-in, quiet hours, rate limiting, audit, revocation) land
-  through these keys.
-- **Payload rule:** a suggestion notification carries the card's redacted
-  title/benefit line and a pointer to the workspace/CLI surface — never
-  the full evidence body, never actionable approval semantics. Approving
-  the underlying customization remains the ADR 0090 confirmed path on the
-  ordinary confirmation surfaces; a notification is never an approval
-  channel beyond the existing typed-command/button machinery.
-- **Non-goals unchanged:** no other proactive classes (meeting starts,
-  provider disconnects, job completions outside fan-out reports) are
-  granted by this amendment; each would need its own kind decision here.
-  Email remains digest-class (completion-only posture; suggestion
-  delivery on email is completion-shaped or absent — the v1.4 plan
-  records the per-channel matrix).
+v1.4 adds “suggestions are ready” delivery as a kind on the existing
+`Channels.Notify` authority boundary, never as a second producer-to-transport
+spine.
 
-Precedent note: the kinds list has evolved additively before
-(`:consent_offer` in v1.1 M6); this amendment follows that pattern and is
-gate-bound by v1.4 `:v14` eval rows (default-off, quiet-hours, and
-rate-limit suppression proven at the Notify boundary).
+1. **A typed subject, not a fabricated Objective.** `Channels.Notify` gains a
+   typed notification-subject interface. Existing fan-out subjects and the new
+   suggestion subject each supply their bounded identity, kind, target binding,
+   idempotency key, and deterministic renderer through that interface. A
+   profiling suggestion never fabricates an Objective to obtain delivery
+   authority. Adapters remain transports only.
+
+2. **The kind is additive and always a new message.** `:suggestion` joins the
+   `Channels.Notify` kind and delivery-ledger sets. It is never an edit and
+   passes the existing send-time chain: release availability -> class grant ->
+   Security policy -> identity/target re-proof -> quiet-hours/rate reservation
+   -> redaction -> transport. Existing ledger states, uncertain-send handling,
+   bounded retry rules, and monthly markdown audit apply. No card or framing-time
+   state bypasses re-authorization at delivery.
+
+3. **Two explicit grants are required.** The additive per-channel setting
+   `channels.<id>.autonomous_notify.suggestions_enabled` defaults `false` and is
+   independent of status/completion enablement. In addition, delivery requires a
+   durable enrollment created through a registered typed action that binds the
+   local user, registered channel, and exact provider thread-ref id/digest after
+   re-proving the current channel identity. The action may be invoked by an
+   identity-reverified typed command or button, but never by free text.
+
+   The most recently active thread, model output, card metadata, display name,
+   or arbitrary action parameter is never a destination. Changing the mapped
+   account or thread key invalidates the digest and denies delivery. Disabling
+   the setting or revoking the enrollment stops sends immediately; deferred rows
+   become suppressed with a bounded reason while their audit/idempotency evidence
+   remains. Enabling ordinary autonomous notify does not enroll suggestions, and
+   suggestion enrollment does not enable other kinds.
+
+4. **Email is excluded in v1.4.** Email's completion-only/digest posture does
+   not admit `:suggestion`. Attempted email enrollment or delivery is rejected
+   before a transport reservation. Adding it later requires an explicit
+   amendment and its own payload, cadence, and abuse-case proof.
+
+5. **Quiet hours defer and coalesce.** The optional additive setting
+   `channels.<id>.autonomous_notify.quiet_hours` is a start/end local-time window
+   evaluated in `operator.timezone`. Start is inclusive and end is exclusive;
+   start later than end is an overnight window, and equal start/end is rejected
+   rather than treated as an un-deliverable 24-hour window. A configured window
+   requires a valid IANA timezone. If timezone resolution later fails, delivery fails closed
+   and the card remains available on attended surfaces.
+
+   During quiet hours, `:suggestion` creates or updates one durable deferred row
+   per local user/channel/thread/window. Eligible cards coalesce into one
+   deterministic “N suggestions ready” notification scheduled for the next
+   valid window edge. Timezone-database rules choose the edge across daylight-
+   saving gaps and folds. Delivery at that edge repeats the entire send-time
+   authority and identity chain; a deferred row is intent, not authority.
+   Applying quiet-hours semantics to existing status, completion, or
+   confirmation classes is not authorized by this amendment.
+
+6. **The daily cap is exact.** The additive setting
+   `channels.<id>.autonomous_notify.suggestion_max_per_day` defaults to `1` and
+   is counted per local user/channel calendar day in `operator.timezone`.
+   `sending`, `delivered`, and `uncertain` reservations consume the cap so a
+   possible provider acceptance cannot create an autonomous duplicate. A
+   reservation proven not to have started transport follows the existing
+   restart-safe reclaim rule. Concurrent sends reserve under one database
+   constraint; rate-denied work produces one bounded suppression decision and
+   remains visible on attended surfaces.
+
+7. **Payloads are deterministic pointers only.** The renderer emits a
+   length-bounded, redacted pointer such as “N suggestions ready” plus the
+   ordinary Suggestions destination. It contains no card title, evidence,
+   sample reference, setting key, before/after value, model prose, secret, or
+   approval control. Payload text is not stored in the delivery ledger or audit.
+
+8. **Notification never approves.** Opening a pointer only displays inert
+   cards. Applying or reverting a customization remains the ADR 0090
+   confirmation-required action, including its allowlist, digest binding,
+   compare-and-set, and identity checks. A notification reply, reaction, generic
+   channel button, or steering classification cannot apply, revert, dismiss, or
+   approve a card.
+
+9. **Other proactive classes remain out of scope.** Meeting starts, provider
+   disconnects, job completions outside the existing fan-out contract, and any
+   other future class require their own decision on this authority boundary.
+
+The v1.4 `:v14` gate must prove wrong-user and remapped-thread denial;
+default-off behavior; explicit enrollment and revocation; overnight and DST
+deferral; restart-safe coalescing; concurrent per-day reservation; uncertain
+send no-retry; deterministic redaction; email exclusion; and that no
+notification path can approve. A configured real-channel smoke proves the
+delivery boundary after automated fixture transports prove the abuse cases.

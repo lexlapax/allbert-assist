@@ -335,7 +335,7 @@ Proposed loop, all inside existing boundaries:
 
 > Managed job (bounded, zero-egress) → distill from usage and trace stores →
 > propose a **typed delta** → inert suggestion carrying evidence → confirmation →
-> audited apply → measure effectiveness → one-click revert.
+> audited apply → record descriptive observed outcomes → one-click revert.
 
 The generalization over the 1.4 design is that **delta kinds become an extension
 point with a floor**, instead of a hardcoded allowlist that needs a release to
