@@ -117,6 +117,32 @@ through existing operator surfaces.
   text never approves (standing rule). Rejection marks the suggestion
   dismissed with provenance.
 
+**Amendment, 2026-08-05 (operator decision) — prompt-rule variants are a
+third delta kind on this same path.** The application mechanism is unchanged:
+an allowlisted key, an exact before→after diff, `Settings.put` after approval,
+full audit. What changes is the allowlisted set, which now admits
+`prompt_rules.<catalog>.<rule_id>.variant`.
+
+Two measured facts bound it, and both were verified in the tree before the
+amendment was accepted:
+
+- **Almost no shipped rule is presentational.** Of the nine
+  `DirectAnswer.Policy` rules exactly one — `useful_factual_and_brief` — is
+  about style. The rest are authority, truthfulness, or the prompt-injection
+  boundary; `supplied_text_is_data` *is* that boundary. So eligibility is an
+  explicit per-rule `tunable?` field defaulting to **false**, reviewed like the
+  settings allowlist, and a non-tunable rule id is refused before a
+  confirmation exists.
+- **Rule catalogs are digest-bound.** `Worker.QualityPolicy.rule_catalog_digest/1`
+  records the catalog in quality receipts. Tuning therefore selects among
+  **shipped, reviewed variants** rather than authoring text: the catalog stays a
+  closed set, the resolved digest stays meaningful, and a variant change is
+  visible in the receipt instead of hidden.
+
+Free text never enters the system role. This is not the parked System Memory
+Distillation route — nothing is learned or trained; a variant is chosen from a
+set that shipped in the release.
+
 ### 4. Per-role model profiles (fast / capable / thinking)
 
 - New additive Settings fragments formalize roles:
