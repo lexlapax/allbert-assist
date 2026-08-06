@@ -5,7 +5,8 @@
 Proposed (v1.4). Binding on `docs/plans/v1.4-plan.md` M1, M5, M7, M8, M9, M12,
 and M16, and on every release that adds capability code after v1.4.
 
-Sourced from `docs/plans/overall-allbert-kernel-redo-analysis.md`, accepted by
+Sourced from `docs/plans/archives/overall-allbert-kernel-redo-analysis.md`
+(archived 2026-08-06 once this ADR made its decisions binding), accepted by
 operator decision 2026-08-06. That document is analysis; this ADR is the
 decision. Where they disagree, this ADR wins — and they do disagree in two
 places, recorded in Consequences.

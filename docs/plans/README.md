@@ -28,15 +28,21 @@ Listed in ship order after the 2026-08-06 resequencing.
   anchors now sit six releases upstream)
 - [Allbert Jido vision](allbert-jido-vision.md)
 - [Future features](future-features.md)
-- [Overall Allbert kernel redo analysis](overall-allbert-kernel-redo-analysis.md)
-  (analysis and proposal only — no release scope, not an accepted decision)
 
 ## Archives
 
-Every released version's plan/request-flow pair (v0.01 through v1.3.0, plus the
+Every released version's plan/request-flow pair (v0.01 through v1.3.1, plus the
 v1.0 handoff) lives in [archives/](archives/). They are shipped-history working records:
 search them for provenance and past decisions; the roadmap and CHANGELOG are the
 authoritative summaries.
+
+- [Overall Allbert kernel redo analysis](archives/overall-allbert-kernel-redo-analysis.md)
+  — **accepted 2026-08-06 and archived.** Its decisions are binding through
+  [ADR 0098](../adr/0098-kernel-application-pack-contract-and-tier-model.md),
+  which is the authority; the analysis is retained for the measurements and
+  reasoning behind them. Note the ADR records two places the operator overrode
+  it, and §13.3 carries a numbering note because it predates the 2026-08-06
+  resequencing.
 
 - [v1.1 asynchronous fan-out shipped plan](archives/v1.1-plan.md) and
   [request flow](archives/v1.1-request-flow.md)

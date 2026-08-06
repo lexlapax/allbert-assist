@@ -3,8 +3,8 @@
 Status: **analysis and proposal only.** This is not a release plan, not a
 milestone triad, and not an accepted decision. Nothing here is binding until the
 operator accepts it and the affected ADRs are written or amended. It carries no
-release scope; [roadmap.md](roadmap.md) remains the single source of truth for
-what ships when, and [allbert-jido-vision.md](allbert-jido-vision.md) remains
+release scope; [roadmap.md](../roadmap.md) remains the single source of truth for
+what ships when, and [allbert-jido-vision.md](../allbert-jido-vision.md) remains
 the north star this proposal is measured against.
 
 Question it answers: *how minimally could Allbert be rearchitected so the core
@@ -70,7 +70,7 @@ isolation, no independent version, and no independent test suite.
 
 A plugin today is a manifest plus a directory convention. That is a real
 contribution boundary for *discovery and metadata* — which is what
-[ADR 0017](../adr/0017-allbert-plugin-contract.md) actually promised — but it is
+[ADR 0017](../../adr/0017-allbert-plugin-contract.md) actually promised — but it is
 not a compilation, deployment, or blast-radius boundary. Every consequence below
 follows from that gap.
 
@@ -89,7 +89,7 @@ that is the purest instance of the violation.
 | `Runtime` direct subsystem aliases | `runtime.ex:22-46` aliases ~25 subsystems by name | The fan-in/fan-out loop knows every feature |
 
 The settings case deserves precision, because the mechanism *looks* solved and
-is not. [ADR 0031](../adr/0031-settings-schema-fragments-and-authority.md)
+is not. [ADR 0031](../../adr/0031-settings-schema-fragments-and-authority.md)
 introduced schema fragments, and `settings/fragments.ex:85-104` does compose
 them — but `core_fragments/0` derives fragments *by namespace-grouping the
 central schema after the fact*. Genuine external ownership is exercised by
@@ -112,8 +112,8 @@ The 1.5 through 1.8 ladder is largely a coupling-repayment schedule:
   `settings/model_doctor.ex`. Three copies of a security guard means fixing one
   leaves two holes.
 - **1.0.2 and 1.0.3** were two entire releases spent on test isolation and
-  suite speed ([ADR 0082](../adr/0082-registry-injection-seams-for-test-isolation.md),
-  [ADR 0086](../adr/0086-test-global-state-ownership-conversion.md)), and the
+  suite speed ([ADR 0082](../../adr/0082-registry-injection-seams-for-test-isolation.md),
+  [ADR 0086](../../adr/0086-test-global-state-ownership-conversion.md)), and the
   aggregate still peaks near a recorded 47.7 minutes.
 - **1.1** required eight corrective rounds whose systemic root was resource
   ownership, ending at a single SQLite writer with `pool_size: 1`.
@@ -145,7 +145,7 @@ Any proposal that damages these is worse than doing nothing:
 - **`Projection.PromoteProtocol` and disposable SQLite projections.** The most
   under-exploited idea in the codebase (§7).
 - **Markdown in Allbert Home as source of truth, SQLite as derived.**
-  [ADR 0002](../adr/0002-markdown-first-memory.md). Keep exactly as is.
+  [ADR 0002](../../adr/0002-markdown-first-memory.md). Keep exactly as is.
 - **The authority model.** Registration never grants permission; metadata,
   manifests, and model output are never authority. Every proposal below is
   constrained by this and none of them relax it.
@@ -209,8 +209,8 @@ orthogonal metadata rather than a tier.
 
 The `:home` tier is the part that gives operators a real extension story without
 a compiler, while preserving the durable non-goal in
-[ADR 0017](../adr/0017-allbert-plugin-contract.md) and
-[ADR 0032](../adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md):
+[ADR 0017](../../adr/0017-allbert-plugin-contract.md) and
+[ADR 0032](../../adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md):
 Allbert never compiles or loads arbitrary code from a user-owned folder. A
 data-only pack can recombine capabilities that are already registered and
 already permitted. It cannot introduce a novel effect. That limit is the point,
@@ -295,7 +295,7 @@ Marketplace, imported, project, and `.agents/skills` roots collapse into
 *configured scan paths that resolve to case 2 or case 3*. They become a settings
 value, not a trust class.
 
-The rule from [ADR 0003](../adr/0003-skill-manifests-as-capability-contracts.md)
+The rule from [ADR 0003](../../adr/0003-skill-manifests-as-capability-contracts.md)
 is unchanged: a skill is markdown naming capabilities the pack **already
 registered**, plus prompts and examples. It never grants; the capability must
 already exist and already be permitted. Mechanism goes from eleven classes to
@@ -314,7 +314,7 @@ path. It belongs inside Security Central.
 - A posture transition happens **only** through a confirmed, audited,
   floor-pinned change that displays the exact before-to-after diff. Mechanically
   the same path as the confirmed customization in
-  [ADR 0090](../adr/0090-adaptive-usage-profiling-and-confirmed-customization.md).
+  [ADR 0090](../../adr/0090-adaptive-usage-profiling-and-confirmed-customization.md).
 - A **safety floor** is immutable by construction. Credentials, egress,
   permission classes, confirmation requirements, and sandbox levels are never
   movable by adaptation — only by the operator acting directly.
@@ -604,7 +604,7 @@ part of the proposal is being de-risked by work already scheduled.
 ### 12.5 One note on the vision document
 
 The revision adds a "Parallel delegation and fan-in" subsection to
-[allbert-jido-vision.md](allbert-jido-vision.md), which carries a stability note
+[allbert-jido-vision.md](../allbert-jido-vision.md), which carries a stability note
 against edits during normal version work. The note permits deliberate
 vision-level revision, and the operator approved this one. The added text is
 compatible with §3.1 concern 5 and adds useful specificity about where
