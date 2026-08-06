@@ -9,6 +9,7 @@ defmodule AllbertAssist.Settings do
   alias AllbertAssist.Memory.ReviewCadence
   alias AllbertAssist.Settings.Schema
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.Settings.ModelRoles
   alias AllbertAssist.Settings.Store
 
   @legacy_key_aliases %{
@@ -73,7 +74,8 @@ defmodule AllbertAssist.Settings do
     key = canonical_key(key)
     {storage_key, storage_value} = write_key_value(key, value)
 
-    with {:ok, settings, user_settings, diagnostics} <-
+    with :ok <- validate_write_alias_value(key, value),
+         {:ok, settings, user_settings, diagnostics} <-
            Store.put_user_setting(storage_key, storage_value, context) do
       diagnostics =
         diagnostics ++
@@ -265,6 +267,19 @@ defmodule AllbertAssist.Settings do
     end
   end
 
+  # Write aliases preserve their legacy scalar contract even when their storage
+  # target accepts a broader value shape. In particular, task preference lists
+  # may contain model-role references, while the legacy direct-answer selector
+  # remains a concrete-profile-only setting.
+  defp validate_write_alias_value("intent.direct_answer_model_profile" = key, value)
+       when is_binary(value) do
+    if ModelRoles.reference?(value),
+      do: {:error, {:invalid_setting, key, {:unknown_model_profile, value}}},
+      else: :ok
+  end
+
+  defp validate_write_alias_value(_key, _value), do: :ok
+
   defp resolved_values("intent.model_profile", _value, settings, user_settings) do
     key = "model_preferences.primary"
 
@@ -417,6 +432,7 @@ defmodule AllbertAssist.Settings do
       "models.fallback.enabled",
       "models.fallback.allow_local_to_hosted"
     ] or String.starts_with?(key, "model_profiles.") or
+      String.starts_with?(key, "model_roles.") or
       String.starts_with?(key, "providers.")
   end
 

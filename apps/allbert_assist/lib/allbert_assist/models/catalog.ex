@@ -7,6 +7,8 @@ defmodule AllbertAssist.Models.Catalog do
   alias AllbertAssist.FirstModel.Ollama
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.ModelCapabilities
+  alias AllbertAssist.Settings.ModelRoles
+  alias AllbertAssist.Settings.Store
 
   @catalog_path "model_catalog.json"
   @spec list(keyword()) ::
@@ -15,6 +17,7 @@ defmodule AllbertAssist.Models.Catalog do
     {shipped, diagnostics} = shipped_catalog(opts)
     pulled = Keyword.get_lazy(opts, :pulled_models, &Ollama.model_tags/0)
     profiles = Keyword.get_lazy(opts, :profiles, &configured_profiles/0)
+    roles = Keyword.get_lazy(opts, :roles, &configured_roles/0)
 
     direct_answer_target =
       Keyword.get_lazy(opts, :direct_answer_target, fn -> direct_answer_target(profiles) end)
@@ -25,9 +28,10 @@ defmodule AllbertAssist.Models.Catalog do
       |> merge_runtime(pulled)
       |> merge_profiles(profiles, pulled)
       |> annotate_direct_answer_repair(direct_answer_target)
+      |> annotate_assigned_roles(roles)
       |> Enum.sort_by(&sort_key/1)
 
-    {:ok, %{version: 1, entries: entries, diagnostics: diagnostics}}
+    {:ok, %{version: 1, entries: entries, roles: roles, diagnostics: diagnostics}}
   end
 
   defp shipped_catalog(opts) do
@@ -136,6 +140,13 @@ defmodule AllbertAssist.Models.Catalog do
     end
   end
 
+  defp configured_roles do
+    case Store.resolved_settings() do
+      {:ok, settings, _user_settings} -> ModelRoles.catalog(settings)
+      _error -> ModelRoles.catalog(%{})
+    end
+  end
+
   defp annotate_provider_target(%{provider: provider} = profile) do
     target =
       with "local_ollama" <- to_string(provider),
@@ -184,6 +195,17 @@ defmodule AllbertAssist.Models.Catalog do
           entry.model == target_model
 
       Map.put(entry, :direct_answer_repair?, repair?)
+    end)
+  end
+
+  defp annotate_assigned_roles(entries, roles) do
+    assigned =
+      roles
+      |> Enum.filter(&(is_binary(&1.profile) and &1.status == :assigned))
+      |> Enum.group_by(& &1.profile, & &1.role)
+
+    Enum.map(entries, fn entry ->
+      Map.put(entry, :assigned_roles, Map.get(assigned, Map.get(entry, :profile), []))
     end)
   end
 

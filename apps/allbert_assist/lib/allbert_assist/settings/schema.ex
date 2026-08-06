@@ -18,6 +18,7 @@ defmodule AllbertAssist.Settings.Schema do
   alias AllbertAssist.Resources.Scope
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.ModelCapabilities
+  alias AllbertAssist.Settings.ModelRoles
   alias AllbertAssist.Settings.ProviderCatalog
 
   @safe_write_keys [
@@ -87,6 +88,9 @@ defmodule AllbertAssist.Settings.Schema do
     "model_preferences.primary",
     "model_preferences.tasks.*",
     "model_preferences.capabilities.*",
+    "model_roles.fast.profile",
+    "model_roles.capable.profile",
+    "model_roles.thinking.profile",
     "first_model.curated_model",
     "first_model.curated_floor_gb",
     "models.fallback.enabled",
@@ -1001,6 +1005,32 @@ defmodule AllbertAssist.Settings.Schema do
     "model_preferences.primary" => %{
       type: :profile_ref,
       default: "local",
+      writable?: true,
+      sensitive?: false
+    },
+    "model_roles.schema_version" => %{
+      type: :bounded_integer,
+      default: 1,
+      writable?: false,
+      sensitive?: false,
+      min: 1,
+      max: 1
+    },
+    "model_roles.fast.profile" => %{
+      type: :concrete_profile_ref_or_nil,
+      default: nil,
+      writable?: true,
+      sensitive?: false
+    },
+    "model_roles.capable.profile" => %{
+      type: :concrete_profile_ref_or_nil,
+      default: nil,
+      writable?: true,
+      sensitive?: false
+    },
+    "model_roles.thinking.profile" => %{
+      type: :concrete_profile_ref_or_nil,
+      default: nil,
       writable?: true,
       sensitive?: false
     },
@@ -3822,6 +3852,12 @@ defmodule AllbertAssist.Settings.Schema do
         "image_generation" => ["image_openai", "image_gemini"]
       }
     },
+    "model_roles" => %{
+      "schema_version" => 1,
+      "fast" => %{"profile" => nil},
+      "capable" => %{"profile" => nil},
+      "thinking" => %{"profile" => nil}
+    },
     "providers" => %{
       "local_ollama" => %{
         "type" => "openai_compatible",
@@ -4749,6 +4785,7 @@ defmodule AllbertAssist.Settings.Schema do
          :ok <- validate_static_keys(settings),
          :ok <- validate_providers(settings),
          :ok <- validate_model_profiles(settings),
+         :ok <- validate_model_roles(settings),
          :ok <- validate_model_preferences(settings),
          :ok <- validate_mcp(settings),
          :ok <- validate_public_protocol(settings),
@@ -4861,7 +4898,8 @@ defmodule AllbertAssist.Settings.Schema do
     Enum.reduce_while(profiles, :ok, fn profile, :ok ->
       model_profile = get_in(settings, ["model_profiles", profile]) || %{}
 
-      if ModelCapabilities.runtime_text_generation?(model_profile) do
+      if ModelRoles.reference?(profile) or
+           ModelCapabilities.runtime_text_generation?(model_profile) do
         {:cont, :ok}
       else
         {:halt, {:error, {:profile_missing_capability, profile, "text_generation"}}}
@@ -4880,7 +4918,10 @@ defmodule AllbertAssist.Settings.Schema do
       Regex.match?(~r/^model_profiles\.[^.]+\.[^.]+$/, key) ->
         key |> split_key() |> List.last() |> then(&Map.fetch!(@model_profile_schema, &1))
 
-      Regex.match?(~r/^model_preferences\.(tasks|capabilities)\.[^.]+$/, key) ->
+      Regex.match?(~r/^model_preferences\.tasks\.[^.]+$/, key) ->
+        %{type: :task_profile_ref_list}
+
+      Regex.match?(~r/^model_preferences\.capabilities\.[^.]+$/, key) ->
         %{type: :profile_ref_list}
 
       Regex.match?(~r/^mcp\.servers\.[^.]+\.[^.]+$/, key) ->
@@ -4960,6 +5001,28 @@ defmodule AllbertAssist.Settings.Schema do
 
   defp validate_model_profile_provider_constraint(_name, _attrs, _settings), do: :ok
 
+  defp validate_model_roles(settings) do
+    case get_in(settings, ["model_roles"]) do
+      %{
+        "schema_version" => 1,
+        "fast" => %{"profile" => _fast},
+        "capable" => %{"profile" => _capable},
+        "thinking" => %{"profile" => _thinking}
+      } = roles ->
+        expected = MapSet.new(~w[schema_version fast capable thinking])
+
+        with true <- MapSet.new(Map.keys(roles)) == expected,
+             true <- Enum.all?(ModelRoles.roles(), &(Map.keys(roles[&1]) == ["profile"])) do
+          :ok
+        else
+          _invalid -> {:error, {:invalid_setting, "model_roles", :invalid_shape}}
+        end
+
+      other ->
+        {:error, {:invalid_setting, "model_roles", {:expected_role_map, other}}}
+    end
+  end
+
   defp validate_model_preferences(settings) do
     case get_in(settings, ["model_preferences"]) do
       preferences when is_map(preferences) ->
@@ -5002,7 +5065,7 @@ defmodule AllbertAssist.Settings.Schema do
       key = "#{prefix}.#{name}"
 
       with :ok <- validate_model_preference_name(name, key, kind),
-           :ok <- validate_value(%{type: :profile_ref_list}, profiles, key, settings),
+           :ok <- validate_value(model_preference_schema(kind), profiles, key, settings),
            :ok <- validate_model_task_contract(kind, name, profiles, settings) do
         {:cont, :ok}
       else
@@ -5017,6 +5080,9 @@ defmodule AllbertAssist.Settings.Schema do
 
   defp validate_model_preference_map(other, prefix, _kind, _settings),
     do: {:error, {:invalid_setting, prefix, {:expected_map, other}}}
+
+  defp model_preference_schema(:task), do: %{type: :task_profile_ref_list}
+  defp model_preference_schema(:capability), do: %{type: :profile_ref_list}
 
   defp validate_model_task_contract(:task, "fanout_manager", [], _settings),
     do: {:error, :fanout_manager_profiles_required}
@@ -5643,6 +5709,43 @@ defmodule AllbertAssist.Settings.Schema do
       {:error, {:unknown_model_profile, value}}
     end
   end
+
+  defp validate_value(%{type: :concrete_profile_ref_or_nil}, nil, _key, _settings), do: :ok
+
+  defp validate_value(%{type: :concrete_profile_ref_or_nil}, value, _key, settings)
+       when is_binary(value) do
+    cond do
+      ModelRoles.reference?(value) ->
+        {:error, {:role_reference_not_allowed, value}}
+
+      is_map(settings["model_profiles"]) and Map.has_key?(settings["model_profiles"], value) ->
+        :ok
+
+      true ->
+        {:error, {:unknown_model_profile, value}}
+    end
+  end
+
+  defp validate_value(%{type: :concrete_profile_ref_or_nil}, value, _key, _settings),
+    do: {:error, {:expected_concrete_profile_ref_or_nil, value}}
+
+  defp validate_value(%{type: :task_profile_ref_list}, value, _key, settings)
+       when is_list(value) do
+    profiles = settings["model_profiles"]
+
+    if is_map(profiles) and
+         Enum.all?(value, fn reference ->
+           is_binary(reference) and
+             (ModelRoles.reference?(reference) or Map.has_key?(profiles, reference))
+         end) do
+      :ok
+    else
+      {:error, {:unknown_model_profile_or_role_in_list, value}}
+    end
+  end
+
+  defp validate_value(%{type: :task_profile_ref_list}, value, _key, _settings),
+    do: {:error, {:expected_task_profile_ref_list, value}}
 
   defp validate_value(%{type: :profile_ref_list}, value, _key, settings) when is_list(value) do
     profiles = settings["model_profiles"]

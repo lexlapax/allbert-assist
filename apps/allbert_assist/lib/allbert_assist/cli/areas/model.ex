@@ -94,8 +94,27 @@ defmodule AllbertAssist.CLI.Areas.Model do
     params = if purpose, do: %{purpose: purpose}, else: %{}
 
     with {:ok, response} <- completed_action("list_model_catalog", params, ctx) do
-      {:ok, {:catalog, response.entries, response.version}}
+      {:ok, {:catalog, response.roles, response.entries, response.version}}
     end
+  end
+
+  @doc false
+  def render_catalog(roles, entries, version) do
+    Render.ok(
+      ["Model catalog v#{version}:", "Model roles:"] ++
+        Enum.map(roles, &render_role/1) ++
+        Enum.map(entries, fn entry ->
+          readiness = catalog_readiness(entry)
+          floor = if entry.floor_gb, do: " floor=#{entry.floor_gb}GB", else: ""
+
+          assigned =
+            if entry.assigned_roles == [],
+              do: "",
+              else: " assigned_roles=#{Enum.join(entry.assigned_roles, ",")}"
+
+          "- #{entry.id}: source=#{entry.source} purposes=#{Enum.join(entry.purposes, ",")}#{assigned}#{floor}#{readiness}"
+        end)
+    )
   end
 
   defp render({:ok, {:list, providers, models, active_profile, assist_enabled?}}) do
@@ -140,16 +159,8 @@ defmodule AllbertAssist.CLI.Areas.Model do
     )
   end
 
-  defp render({:ok, {:catalog, entries, version}}) do
-    Render.ok(
-      ["Model catalog v#{version}:"] ++
-        Enum.map(entries, fn entry ->
-          readiness = catalog_readiness(entry)
-          floor = if entry.floor_gb, do: " floor=#{entry.floor_gb}GB", else: ""
-
-          "- #{entry.id}: source=#{entry.source} purposes=#{Enum.join(entry.purposes, ",")}#{floor}#{readiness}"
-        end)
-    )
+  defp render({:ok, {:catalog, roles, entries, version}}) do
+    render_catalog(roles, entries, version)
   end
 
   defp render({:ok, {:use, response}}) do
@@ -163,6 +174,12 @@ defmodule AllbertAssist.CLI.Areas.Model do
   defp render({:error, {:message, message}}), do: Render.error(message)
   defp render({:usage, usage}), do: Render.usage(usage)
   defp render({:error, reason}), do: Render.error("Model command failed: #{inspect(reason)}")
+
+  defp render_role(%{status: :unconfigured} = role),
+    do: "- #{role.reference}: unconfigured key=#{role.settings_key}"
+
+  defp render_role(role),
+    do: "- #{role.reference}: assigned=#{role.profile} key=#{role.settings_key}"
 
   defp catalog_readiness(%{status: :ready}), do: " ready"
   defp catalog_readiness(%{status: :not_pulled}), do: " not-pulled"

@@ -494,6 +494,14 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
     assert html =~ ~s(data-workspace-component="models_panel")
     assert html =~ ~s(data-action-source="actions-runner")
     assert html =~ "Recommendation Matrix"
+    assert html =~ ~s(id="workspace-model-roles")
+
+    for role <- ~w[fast capable thinking] do
+      assert html =~ ~s(id="workspace-model-role-#{role}")
+      assert html =~ "role:#{role}"
+    end
+
+    assert html =~ "profile=unconfigured"
     assert html =~ ~s(id="workspace-models-inventory-toggle")
     assert html =~ "Show Rows"
     refute html =~ "secret://"

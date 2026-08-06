@@ -8,6 +8,7 @@ defmodule AllbertAssist.Settings.Models do
 
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.ModelCapabilities
+  alias AllbertAssist.Settings.ModelRoles
   alias AllbertAssist.Settings.ProviderCatalog
   alias AllbertAssist.Settings.ProviderEligibility
   alias AllbertAssist.Settings.Store
@@ -21,6 +22,9 @@ defmodule AllbertAssist.Settings.Models do
   @closed_task_chains ~w[direct_answer fanout_manager fanout_synthesis]
 
   @type resolution :: %{
+          optional(:requested_reference) => String.t(),
+          optional(:requested_role) => String.t(),
+          optional(:resolved_profile) => String.t(),
           request: String.t(),
           request_kind: :task | :capability,
           capability: String.t(),
@@ -66,6 +70,38 @@ defmodule AllbertAssist.Settings.Models do
   end
 
   def capable?(_profile, _capability), do: false
+
+  @doc "Resolve one concrete profile name or closed `role:*` reference."
+  @spec resolve_reference(String.t(), map()) :: {:ok, map()} | {:skip, map()}
+  def resolve_reference(reference, settings) when is_binary(reference) and is_map(settings) do
+    case ModelRoles.role_for_reference(reference) do
+      {:ok, role} ->
+        case ModelRoles.mapped_profile(settings, role) do
+          nil ->
+            {:skip, role_diagnostic(reference, role, nil, :unconfigured_role)}
+
+          profile_name when is_binary(profile_name) ->
+            if get_in(settings, ["model_profiles", profile_name]) do
+              {:ok,
+               %{
+                 requested_reference: reference,
+                 requested_role: role,
+                 resolved_profile: profile_name
+               }}
+            else
+              {:skip, role_diagnostic(reference, role, profile_name, :missing_profile)}
+            end
+        end
+
+      :error ->
+        {:ok,
+         %{
+           requested_reference: reference,
+           requested_role: nil,
+           resolved_profile: reference
+         }}
+    end
+  end
 
   defp normalize_request({:task, task}, _settings) do
     task = normalize_name(task)
@@ -113,18 +149,11 @@ defmodule AllbertAssist.Settings.Models do
         primary
       )
 
-    case first_capable_profile(candidates, capability, settings, user_settings) do
-      {:ok, profile, source, diagnostics} ->
-        {:ok,
-         %{
-           request: request_name,
-           request_kind: request_kind,
-           capability: capability,
-           profile: profile,
-           profile_name: profile.name,
-           source: source,
-           diagnostics: diagnostics
-         }}
+    expanded = expand_candidates(candidates, settings)
+
+    case first_capable_profile(expanded, capability, settings, user_settings) do
+      {:ok, profile, candidate, diagnostics} ->
+        {:ok, resolution(request_name, request_kind, capability, profile, candidate, diagnostics)}
 
       {:error, diagnostics} ->
         {:error,
@@ -177,16 +206,18 @@ defmodule AllbertAssist.Settings.Models do
   defp primary_fallback(_candidates, _primary), do: []
 
   defp first_capable_profile(candidates, capability, settings, user_settings) do
-    candidates
-    |> Enum.uniq_by(&elem(&1, 0))
-    |> Enum.reduce_while({:error, []}, fn profile_name, {:error, diagnostics} ->
-      case validate_candidate(profile_name, capability, settings, user_settings) do
-        {:ok, profile, source} ->
-          {:halt, {:ok, profile, source, Enum.reverse(diagnostics)}}
+    Enum.reduce_while(candidates, {:error, []}, fn
+      {:skip, diagnostic}, {:error, diagnostics} ->
+        {:cont, {:error, [diagnostic | diagnostics]}}
 
-        {:skip, diagnostic} ->
-          {:cont, {:error, [diagnostic | diagnostics]}}
-      end
+      {:candidate, candidate}, {:error, diagnostics} ->
+        case validate_candidate(candidate, capability, settings, user_settings) do
+          {:ok, profile} ->
+            {:halt, {:ok, profile, candidate, Enum.reverse(diagnostics)}}
+
+          {:skip, diagnostic} ->
+            {:cont, {:error, [diagnostic | diagnostics]}}
+        end
     end)
     |> case do
       {:error, diagnostics} -> {:error, Enum.reverse(diagnostics)}
@@ -214,25 +245,29 @@ defmodule AllbertAssist.Settings.Models do
       )
 
     candidates
-    |> Enum.uniq_by(&elem(&1, 0))
-    |> Enum.reduce({[], []}, fn candidate, {resolutions, diagnostics} ->
-      case validate_candidate(candidate, capability, settings, user_settings) do
-        {:ok, profile, source} ->
-          resolution = %{
-            request: request_name,
-            request_kind: request_kind,
-            capability: capability,
-            profile: profile,
-            profile_name: profile.name,
-            source: source,
-            diagnostics: Enum.reverse(diagnostics)
-          }
+    |> expand_candidates(settings)
+    |> Enum.reduce({[], []}, fn
+      {:skip, diagnostic}, {resolutions, diagnostics} ->
+        {resolutions, [diagnostic | diagnostics]}
 
-          {[resolution | resolutions], diagnostics}
+      {:candidate, candidate}, {resolutions, diagnostics} ->
+        case validate_candidate(candidate, capability, settings, user_settings) do
+          {:ok, profile} ->
+            resolved =
+              resolution(
+                request_name,
+                request_kind,
+                capability,
+                profile,
+                candidate,
+                Enum.reverse(diagnostics)
+              )
 
-        {:skip, diagnostic} ->
-          {resolutions, [diagnostic | diagnostics]}
-      end
+            {[resolved | resolutions], diagnostics}
+
+          {:skip, diagnostic} ->
+            {resolutions, [diagnostic | diagnostics]}
+        end
     end)
     |> case do
       {[], diagnostics} ->
@@ -251,14 +286,16 @@ defmodule AllbertAssist.Settings.Models do
     end
   end
 
-  defp validate_candidate({profile_name, source}, capability, settings, user_settings) do
+  defp validate_candidate(candidate, capability, settings, user_settings) do
+    profile_name = candidate.resolved_profile
+
     with {:ok, attrs} <- fetch_profile_attrs(profile_name, settings),
          :ok <- validate_profile_capability(profile_name, attrs, capability),
          :ok <- validate_provider_enabled(profile_name, attrs, settings, user_settings),
          {:ok, profile} <- Settings.resolve_model_profile(profile_name) do
-      {:ok, Map.put(profile, :provider_enabled, true), source}
+      {:ok, Map.put(profile, :provider_enabled, true)}
     else
-      {:error, reason} -> {:skip, diagnostic(profile_name, reason)}
+      {:error, reason} -> {:skip, diagnostic(candidate, reason)}
     end
   end
 
@@ -293,12 +330,75 @@ defmodule AllbertAssist.Settings.Models do
     end
   end
 
-  defp diagnostic(profile_name, reason) do
-    %{
-      profile: profile_name,
+  defp diagnostic(candidate, reason) do
+    base = %{
+      profile: candidate.resolved_profile,
       status: :skipped,
       reason: reason
     }
+
+    if candidate.requested_role do
+      Map.merge(base, %{
+        requested_reference: candidate.requested_reference,
+        requested_role: candidate.requested_role,
+        resolved_profile: candidate.resolved_profile
+      })
+    else
+      base
+    end
+  end
+
+  defp role_diagnostic(reference, role, profile, reason) do
+    %{
+      profile: profile,
+      status: :skipped,
+      reason: reason,
+      requested_reference: reference,
+      requested_role: role,
+      resolved_profile: profile
+    }
+  end
+
+  defp expand_candidates(candidates, settings) do
+    {_seen, expanded} =
+      Enum.reduce(candidates, {MapSet.new(), []}, fn {reference, source}, {seen, rows} ->
+        case resolve_reference(reference, settings) do
+          {:skip, diagnostic} ->
+            {seen, [{:skip, diagnostic} | rows]}
+
+          {:ok, metadata} ->
+            if MapSet.member?(seen, metadata.resolved_profile) do
+              {seen, rows}
+            else
+              candidate = Map.put(metadata, :source, source)
+              {MapSet.put(seen, metadata.resolved_profile), [{:candidate, candidate} | rows]}
+            end
+        end
+      end)
+
+    Enum.reverse(expanded)
+  end
+
+  defp resolution(request_name, request_kind, capability, profile, candidate, diagnostics) do
+    base = %{
+      request: request_name,
+      request_kind: request_kind,
+      capability: capability,
+      profile: profile,
+      profile_name: profile.name,
+      source: candidate.source,
+      diagnostics: diagnostics
+    }
+
+    if candidate.requested_role do
+      Map.merge(base, %{
+        requested_reference: candidate.requested_reference,
+        requested_role: candidate.requested_role,
+        resolved_profile: candidate.resolved_profile
+      })
+    else
+      base
+    end
   end
 
   defp task_preference?(settings, task) do

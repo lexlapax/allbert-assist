@@ -19,4 +19,42 @@ defmodule AllbertAssist.CLI.Areas.ModelTest do
       refute usage =~ "admin model doctor"
     end
   end
+
+  test "catalog rendering exposes central model-role assignments without inventing mappings" do
+    roles = [
+      %{
+        role: "fast",
+        reference: "role:fast",
+        settings_key: "model_roles.fast.profile",
+        profile: nil,
+        status: :unconfigured
+      },
+      %{
+        role: "capable",
+        reference: "role:capable",
+        settings_key: "model_roles.capable.profile",
+        profile: "local",
+        status: :assigned
+      }
+    ]
+
+    entries = [
+      %{
+        id: "profile:local",
+        source: :configured,
+        purposes: ["direct_answer"],
+        assigned_roles: ["capable"],
+        floor_gb: nil,
+        status: :ready
+      }
+    ]
+
+    {output, 0} = Area.render_catalog(roles, entries, 1)
+
+    assert output =~ "role:fast: unconfigured key=model_roles.fast.profile"
+    assert output =~ "role:capable: assigned=local key=model_roles.capable.profile"
+
+    assert output =~
+             "profile:local: source=configured purposes=direct_answer assigned_roles=capable ready"
+  end
 end

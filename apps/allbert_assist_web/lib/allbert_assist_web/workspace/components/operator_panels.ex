@@ -402,6 +402,7 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
       |> assign_new(:model_doctor, fn -> %{summary: %{}, rows: []} end)
       |> assign_new(:model_profiles, fn -> [] end)
       |> assign_new(:model_catalog, fn -> [] end)
+      |> assign_new(:model_roles, fn -> [] end)
       |> assign_new(:provider_profiles, fn -> [] end)
       |> assign_new(:show_model_inventories?, fn -> false end)
 
@@ -656,6 +657,26 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
           </div>
         </section>
 
+        <section id="workspace-model-roles" class="workspace-operator-panel-section">
+          <h3 class="workspace-rail-title">Model Roles</h3>
+          <p class="text-xs">
+            A role mapping changes selection only when a task chain names its role reference.
+          </p>
+          <div
+            :for={role <- @model_roles}
+            id={"workspace-model-role-#{Support.safe_id(role.role)}"}
+            class="workspace-operator-row"
+          >
+            <div class="min-w-0">
+              <div class="font-medium">{role.reference}</div>
+              <div class="text-xs">
+                key={role.settings_key} profile={role.profile || "unconfigured"}
+              </div>
+            </div>
+            <span class="workspace-status-pill">{role.status}</span>
+          </div>
+        </section>
+
         <section id="workspace-model-catalog" class="workspace-operator-panel-section">
           <h3 class="workspace-rail-title">Model Catalog</h3>
           <div
@@ -795,6 +816,7 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
         model_repair: model_repair(),
         model_doctor: doctor.model_doctor,
         model_catalog: catalog.entries,
+        model_roles: catalog.roles,
         provider_profiles: providers.providers,
         model_profiles: models.models
       )

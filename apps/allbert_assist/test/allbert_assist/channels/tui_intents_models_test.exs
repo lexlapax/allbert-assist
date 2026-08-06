@@ -114,6 +114,12 @@ defmodule AllbertAssist.Channels.TUIIntentsModelsTest do
              Adapter.submit(server, "/catalog", external_event_id: "evt-v12-slash-catalog")
 
     assert catalog =~ "Model catalog v1:"
+    assert catalog =~ "Model roles:"
+
+    for role <- ~w[fast capable thinking] do
+      assert catalog =~ "role:#{role}: unconfigured key=model_roles.#{role}.profile"
+    end
+
     assert catalog =~ "ollama:llama3.2:3b"
     assert catalog =~ "ollama:qwen3.5:9b"
     refute catalog =~ "secret://"

@@ -21,6 +21,14 @@ defmodule AllbertAssist.Models.CatalogTest do
              )
 
     assert catalog.version == 1
+
+    assert Enum.map(catalog.roles, &{&1.reference, &1.status}) == [
+             {"role:fast", :unconfigured},
+             {"role:capable", :unconfigured},
+             {"role:thinking", :unconfigured}
+           ]
+
+    assert Enum.all?(catalog.entries, &Map.has_key?(&1, :assigned_roles))
     assert Enum.any?(catalog.entries, &(&1.source == :curated and &1.pulled?))
     assert Enum.any?(catalog.entries, &(&1.source == :runtime and &1.model == "runtime-only:1b"))
 
@@ -30,6 +38,47 @@ defmodule AllbertAssist.Models.CatalogTest do
            )
 
     assert Enum.any?(catalog.entries, &(&1.source == :hosted_metadata))
+  end
+
+  test "annotates configured profiles from the central role DTO" do
+    profile = %{
+      name: "custom-local",
+      provider: "ollama",
+      model: "private:latest",
+      capabilities: ["text_generation"]
+    }
+
+    roles = [
+      %{
+        role: "fast",
+        reference: "role:fast",
+        settings_key: "model_roles.fast.profile",
+        profile: "custom-local",
+        status: :assigned
+      },
+      %{
+        role: "capable",
+        reference: "role:capable",
+        settings_key: "model_roles.capable.profile",
+        profile: nil,
+        status: :unconfigured
+      },
+      %{
+        role: "thinking",
+        reference: "role:thinking",
+        settings_key: "model_roles.thinking.profile",
+        profile: nil,
+        status: :unconfigured
+      }
+    ]
+
+    assert {:ok, catalog} =
+             Catalog.list(pulled_models: [], profiles: [profile], roles: roles)
+
+    assert %{assigned_roles: ["fast"]} =
+             Enum.find(catalog.entries, &(&1.id == "profile:custom-local"))
+
+    assert catalog.roles == roles
   end
 
   test "configured local profiles distinguish not-pulled from runtime-ready" do
@@ -129,7 +178,13 @@ defmodule AllbertAssist.Models.CatalogTest do
     assert response.entries != []
     assert Enum.all?(response.entries, &("fast" in &1.purposes))
     assert response.surface_payload =~ "Model catalog v1:"
+    assert response.surface_payload =~ "Model roles:"
+    assert response.surface_payload =~ "role:fast: unconfigured"
     assert response.surface_payload =~ "ollama:llama3.2:3b"
+
+    assert Enum.map(response.roles, & &1.reference) ==
+             ~w[role:fast role:capable role:thinking]
+
     assert Settings.read_user_settings() == {:ok, before_settings}
   end
 end
