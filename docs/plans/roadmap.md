@@ -343,7 +343,9 @@ truth for sequencing; future-features no longer mirrors a release ladder.
 > spine 1.5→1.4, knowledge 1.7→1.5 and 1.8→1.6, connectivity 1.6→1.7,
 > profiling 1.4→1.8.
 
-9. **1.3.2 — Foundational enablers.** (**Planned — triad not yet written.**
+9. **1.3.2 — Foundational enablers.** (**Planned — triad written 2026-08-06:**
+   `docs/plans/v1.3.2-plan.md` + request-flow; no new ADR — preflight is release
+   tooling and `model_roles` ships the resolution half of ADR 0090 §4.)
    Source-only `[skip-artifacts]` point tag; v1.3.1's precedent. No GitHub
    Release, no tap movement, packaged Latest stays at v1.3.0.) Two things
    extracted from the profiling release because every later release depends on

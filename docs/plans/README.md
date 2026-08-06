@@ -7,17 +7,25 @@ plan and request-flow documents.
 ## Current And Next
 
 - [Roadmap](roadmap.md)
-- [v1.8 adaptive usage profiling plan](v1.8-plan.md) and
-  [request flow](v1.8-request-flow.md) (decision-complete; source-only v1.3.1
-  predecessor shipped, with build-start seam re-verification still required)
+Listed in ship order after the 2026-08-06 resequencing.
+
+- [v1.3.2 foundational enablers plan](v1.3.2-plan.md) and
+  [request flow](v1.3.2-request-flow.md) (planned, source-only; preflight and
+  `model_roles`, extracted from the profiling release because everything
+  depended on them)
 - [v1.4 spine enablers plan](v1.4-plan.md) and
-  [request flow](v1.4-request-flow.md) (planned; readiness passes not yet run)
-- [v1.7 connectivity enablers plan](v1.7-plan.md) and
-  [request flow](v1.7-request-flow.md) (planned; readiness passes not yet run)
+  [request flow](v1.4-request-flow.md) (planned; carries the accepted kernel
+  inversions; readiness passes not yet run)
 - [v1.5 Knowledge Stage 1 plan](v1.5-plan.md) and
   [request flow](v1.5-request-flow.md) (planned; readiness passes not yet run)
 - [v1.6 Knowledge Central plan](v1.6-plan.md) and
   [request flow](v1.6-request-flow.md) (planned; readiness passes not yet run)
+- [v1.7 connectivity enablers plan](v1.7-plan.md) and
+  [request flow](v1.7-request-flow.md) (planned; readiness passes not yet run)
+- [v1.8 adaptive usage profiling plan](v1.8-plan.md) and
+  [request flow](v1.8-request-flow.md) (planned; readiness **reset** — it was
+  implementation-ready as v1.4, but unbundling removed two milestones and its
+  anchors now sit six releases upstream)
 - [Allbert Jido vision](allbert-jido-vision.md)
 - [Future features](future-features.md)
 - [Overall Allbert kernel redo analysis](overall-allbert-kernel-redo-analysis.md)
