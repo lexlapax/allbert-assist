@@ -15,7 +15,7 @@ changelog entries or release notes.
 Status: **source implementation complete through M4.2; M5 attended source
 validation, release gates, and the operator-approved `[skip-artifacts]` tag are
 pending.** This line builds no archive, GitHub Release, signature, or Homebrew
-update. v1.3.0 remains the packaged Latest, and v1.4 is the next binary carrier.
+update. `v1.3.0` remains the packaged Latest, and v1.4 is the next binary carrier.
 
 - Memory's disposable projection schema now distinguishes the verified input
   digest of the last full build from later bounded per-claim revisions. Existing
