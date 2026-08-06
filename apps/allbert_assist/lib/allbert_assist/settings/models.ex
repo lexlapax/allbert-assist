@@ -34,6 +34,21 @@ defmodule AllbertAssist.Settings.Models do
           diagnostics: [map()]
         }
 
+  @type role_name :: <<_::32, _::_*8>>
+  @type reference_metadata :: %{
+          requested_reference: String.t(),
+          requested_role: role_name() | nil,
+          resolved_profile: String.t()
+        }
+  @type reference_diagnostic :: %{
+          profile: String.t() | nil,
+          status: :skipped,
+          reason: :missing_profile | :unconfigured_role,
+          requested_reference: String.t(),
+          requested_role: role_name(),
+          resolved_profile: String.t() | nil
+        }
+
   @doc "Resolve a model profile for a task or capability."
   @spec unquote(:for)(atom() | String.t() | {:task | :capability, atom() | String.t()}, map()) ::
           {:ok, resolution()} | {:error, term()}
@@ -72,26 +87,12 @@ defmodule AllbertAssist.Settings.Models do
   def capable?(_profile, _capability), do: false
 
   @doc "Resolve one concrete profile name or closed `role:*` reference."
-  @spec resolve_reference(String.t(), map()) :: {:ok, map()} | {:skip, map()}
+  @spec resolve_reference(String.t(), map()) ::
+          {:ok, reference_metadata()} | {:skip, reference_diagnostic()}
   def resolve_reference(reference, settings) when is_binary(reference) and is_map(settings) do
     case ModelRoles.role_for_reference(reference) do
       {:ok, role} ->
-        case ModelRoles.mapped_profile(settings, role) do
-          nil ->
-            {:skip, role_diagnostic(reference, role, nil, :unconfigured_role)}
-
-          profile_name when is_binary(profile_name) ->
-            if get_in(settings, ["model_profiles", profile_name]) do
-              {:ok,
-               %{
-                 requested_reference: reference,
-                 requested_role: role,
-                 resolved_profile: profile_name
-               }}
-            else
-              {:skip, role_diagnostic(reference, role, profile_name, :missing_profile)}
-            end
-        end
+        resolve_role_reference(reference, role, settings)
 
       :error ->
         {:ok,
@@ -99,6 +100,31 @@ defmodule AllbertAssist.Settings.Models do
            requested_reference: reference,
            requested_role: nil,
            resolved_profile: reference
+         }}
+    end
+  end
+
+  defp resolve_role_reference(reference, role, settings) do
+    case ModelRoles.mapped_profile(settings, role) do
+      nil ->
+        {:skip, role_diagnostic(reference, role, nil, :unconfigured_role)}
+
+      profile_name ->
+        resolve_mapped_profile(reference, role, profile_name, settings)
+    end
+  end
+
+  defp resolve_mapped_profile(reference, role, profile_name, settings) do
+    case get_in(settings, ["model_profiles", profile_name]) do
+      nil ->
+        {:skip, role_diagnostic(reference, role, profile_name, :missing_profile)}
+
+      _profile ->
+        {:ok,
+         %{
+           requested_reference: reference,
+           requested_role: role,
+           resolved_profile: profile_name
          }}
     end
   end
@@ -362,21 +388,29 @@ defmodule AllbertAssist.Settings.Models do
   defp expand_candidates(candidates, settings) do
     {_seen, expanded} =
       Enum.reduce(candidates, {MapSet.new(), []}, fn {reference, source}, {seen, rows} ->
-        case resolve_reference(reference, settings) do
-          {:skip, diagnostic} ->
-            {seen, [{:skip, diagnostic} | rows]}
-
-          {:ok, metadata} ->
-            if MapSet.member?(seen, metadata.resolved_profile) do
-              {seen, rows}
-            else
-              candidate = Map.put(metadata, :source, source)
-              {MapSet.put(seen, metadata.resolved_profile), [{:candidate, candidate} | rows]}
-            end
-        end
+        expand_candidate(reference, source, settings, seen, rows)
       end)
 
     Enum.reverse(expanded)
+  end
+
+  defp expand_candidate(reference, source, settings, seen, rows) do
+    case resolve_reference(reference, settings) do
+      {:skip, diagnostic} ->
+        {seen, [{:skip, diagnostic} | rows]}
+
+      {:ok, metadata} ->
+        append_unseen_candidate(metadata, source, seen, rows)
+    end
+  end
+
+  defp append_unseen_candidate(metadata, source, seen, rows) do
+    if MapSet.member?(seen, metadata.resolved_profile) do
+      {seen, rows}
+    else
+      candidate = Map.put(metadata, :source, source)
+      {MapSet.put(seen, metadata.resolved_profile), [{:candidate, candidate} | rows]}
+    end
   end
 
   defp resolution(request_name, request_kind, capability, profile, candidate, diagnostics) do

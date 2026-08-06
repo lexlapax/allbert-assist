@@ -7,9 +7,9 @@ defmodule AllbertAssist.Settings do
   alias AllbertAssist.FirstRun.Disclosure
   alias AllbertAssist.Jobs.Managed
   alias AllbertAssist.Memory.ReviewCadence
+  alias AllbertAssist.Settings.ModelRoles
   alias AllbertAssist.Settings.Schema
   alias AllbertAssist.Settings.Secrets
-  alias AllbertAssist.Settings.ModelRoles
   alias AllbertAssist.Settings.Store
 
   @legacy_key_aliases %{

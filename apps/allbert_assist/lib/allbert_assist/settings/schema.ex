@@ -4914,10 +4914,11 @@ defmodule AllbertAssist.Settings.Schema do
   end
 
   defp schema_for_key(key) do
-    cond do
-      schema = Map.get(schema(), key) ->
-        schema
+    Map.get(schema(), key) || schema_for_dynamic_key(key)
+  end
 
+  defp schema_for_dynamic_key(key) do
+    cond do
       Regex.match?(~r/^providers\.[^.]+\.[^.]+$/, key) ->
         key |> split_key() |> List.last() |> then(&Map.fetch!(@provider_schema, &1))
 
@@ -4933,6 +4934,13 @@ defmodule AllbertAssist.Settings.Schema do
       Regex.match?(~r/^mcp\.servers\.[^.]+\.[^.]+$/, key) ->
         key |> split_key() |> List.last() |> then(&Map.fetch!(@mcp_server_schema, &1))
 
+      true ->
+        schema_for_surface_key(key)
+    end
+  end
+
+  defp schema_for_surface_key(key) do
+    cond do
       public_protocol_client_key?(key) ->
         key
         |> public_protocol_client_field()
@@ -5018,9 +5026,9 @@ defmodule AllbertAssist.Settings.Schema do
         "capable" => %{"profile" => _capable},
         "thinking" => %{"profile" => _thinking}
       } = roles ->
-        expected = MapSet.new(~w[schema_version fast capable thinking])
+        expected_keys = ~w[capable fast schema_version thinking]
 
-        with true <- MapSet.new(Map.keys(roles)) == expected,
+        with true <- Enum.sort(Map.keys(roles)) == expected_keys,
              true <- Enum.all?(ModelRoles.roles(), &(Map.keys(roles[&1]) == ["profile"])) do
           :ok
         else

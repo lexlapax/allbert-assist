@@ -12,7 +12,7 @@ defmodule AllbertAssist.Models.Catalog do
 
   @catalog_path "model_catalog.json"
   @spec list(keyword()) ::
-          {:ok, %{version: pos_integer(), entries: [map()], diagnostics: [map()]}}
+          {:ok, %{version: pos_integer(), entries: [map()], roles: [map()], diagnostics: [map()]}}
   def list(opts \\ []) do
     {shipped, diagnostics} = shipped_catalog(opts)
     pulled = Keyword.get_lazy(opts, :pulled_models, &Ollama.model_tags/0)

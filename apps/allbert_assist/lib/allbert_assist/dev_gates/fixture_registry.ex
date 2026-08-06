@@ -57,27 +57,11 @@ defmodule AllbertAssist.DevGates.FixtureRegistry do
       |> duplicate_errors(ids, "fixture sentinel id")
       |> duplicate_errors(paths, "fixture sentinel path")
       |> duplicate_errors(tags, "fixture sentinel tag")
-      |> then(fn errors ->
-        Enum.reduce(entries, errors, fn entry, acc ->
-          cwd = cwd_resolver.(entry.owner)
-
-          acc
-          |> maybe_add(not File.dir?(cwd), "#{entry.id}: owner CWD missing: #{cwd}")
-          |> maybe_add(
-            not is_integer(entry.expected_tests) or entry.expected_tests < 1,
-            "#{entry.id}: expected_tests must be a positive integer"
-          )
-          |> then(fn acc ->
-            Enum.reduce(entry.paths, acc, fn path, inner ->
-              maybe_add(
-                inner,
-                not File.regular?(Path.join(root, path)),
-                "#{entry.id}: path missing: #{path}"
-              )
-            end)
-          end)
+      |> then(
+        &Enum.reduce(entries, &1, fn entry, errors ->
+          entry_errors(errors, entry, root, cwd_resolver)
         end)
-      end)
+      )
 
     if errors == [],
       do: :ok,
@@ -104,6 +88,28 @@ defmodule AllbertAssist.DevGates.FixtureRegistry do
     |> Enum.frequencies()
     |> Enum.filter(fn {_value, count} -> count > 1 end)
     |> Enum.reduce(errors, fn {value, _count}, acc -> acc ++ ["duplicate #{label}: #{value}"] end)
+  end
+
+  defp entry_errors(errors, entry, root, cwd_resolver) do
+    cwd = cwd_resolver.(entry.owner)
+
+    errors
+    |> maybe_add(not File.dir?(cwd), "#{entry.id}: owner CWD missing: #{cwd}")
+    |> maybe_add(
+      not is_integer(entry.expected_tests) or entry.expected_tests < 1,
+      "#{entry.id}: expected_tests must be a positive integer"
+    )
+    |> missing_path_errors(entry, root)
+  end
+
+  defp missing_path_errors(errors, entry, root) do
+    Enum.reduce(entry.paths, errors, fn path, errors ->
+      maybe_add(
+        errors,
+        not File.regular?(Path.join(root, path)),
+        "#{entry.id}: path missing: #{path}"
+      )
+    end)
   end
 
   defp maybe_add(errors, true, reason), do: errors ++ [reason]

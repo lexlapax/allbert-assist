@@ -2,8 +2,8 @@ defmodule AllbertAssist.Settings.ModelRolesTest do
   use ExUnit.Case, async: false
   @moduletag :app_env_serial
 
-  alias AllbertAssist.Paths
   alias AllbertAssist.FirstRun.Disclosure
+  alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Models
