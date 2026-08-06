@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (v1.6, 2026-07-30). Binding on the v1.6 OAuth substrate and both its
+Proposed (v1.7, 2026-07-30). Binding on the v1.7 OAuth substrate and both its
 consumers — email XOAUTH2 mailboxes and OAuth-authenticated hosted LLM
 providers. Flips Accepted when the substrate, both consumers, the local callback
 listener, and the named revocation and expiry rows are green.
@@ -13,7 +13,7 @@ Every credential Allbert holds today is a **static secret**: an API key, a bot
 token, a password. The tier vault stores it, Security Central decides what may
 use it, and it changes only when the operator changes it.
 
-v1.6 introduces the first credentials that are none of those things. OAuth grants
+v1.7 introduces the first credentials that are none of those things. OAuth grants
 are:
 
 - **delegated** — issued by a third party on the operator's behalf, carrying
@@ -28,13 +28,13 @@ twice. Email XOAUTH2 covers Gmail and Microsoft OAuth-only mailboxes, which are
 increasingly the only way to reach a real mailbox. OAuth-authenticated hosted LLM
 providers cover Claude, OpenAI, and Gemini subscription plans rather than
 metered API keys — which materially changes the cost posture of anything that
-calls a model in a loop, including v1.7 Knowledge ingest.
+calls a model in a loop, including v1.5 Knowledge ingest.
 
 There is no existing credential or vault ADR to extend. This is the first, and
 the questions it settles are not plan-shaped.
 
 A third interaction forces the timing: OAuth's authorization-code flow needs a
-**redirect URI**, which means a local HTTP listener. v1.6 also carries non-local
+**redirect URI**, which means a local HTTP listener. v1.7 also carries non-local
 bind hardening. A callback listener and "harden what we bind" are the same
 question asked twice, and deciding them in separate milestones is how they end
 up inconsistent.
@@ -125,7 +125,7 @@ the operator completes it, and the grant is recorded.
 - Both consumers gain OAuth for the cost of one substrate, and later consumers
   are cheap.
 - Subscription-plan authentication for hosted LLM providers changes the cost
-  model for model-heavy features; v1.7 Knowledge ingest is the first beneficiary
+  model for model-heavy features; v1.5 Knowledge ingest is the first beneficiary
   and its token-budget design remains correct either way.
 - One more credential class exists, with genuinely different lifecycle rules, and
   the vault gains a second shape to handle.

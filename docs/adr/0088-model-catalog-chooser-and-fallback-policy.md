@@ -3,7 +3,7 @@
 ## Status
 
 Accepted (2026-07-26; M4 proved chooser writes through Settings Central and
-M5 proved the fallback policy's no-silent-egress denial row). Consumed again by v1.4
+M5 proved the fallback policy's no-silent-egress denial row). Consumed again by v1.8
 (per-role model profiles read the catalog; adaptive suggestions propose
 catalog entries).
 
@@ -185,7 +185,7 @@ migration.
 
 ## Consequences
 
-- First-run, repair, profile-switching, and (in v1.4) adaptive model
+- First-run, repair, profile-switching, and (in v1.8) adaptive model
   suggestions all draw from one catalog with one doctor-verified status
   model, instead of three partial surfaces and typed model tags.
 - Text chat gains the same ranked-candidate resilience image/voice already
@@ -194,7 +194,7 @@ migration.
   hosted provider" cannot occur.
 - The chain reuses `model_preferences.tasks.*`; operators who never touch
   fallback see zero behavior change.
-- v1.4's per-role profiles formalize role→profile mappings against this
+- v1.8's per-role profiles formalize role→profile mappings against this
   catalog rather than inventing a second model-metadata source.
 
 ## Non-goals and guardrails
@@ -207,8 +207,8 @@ migration.
   registered actions; chooser writes ride existing settings actions and
   safe-write keys; Security Central posture unchanged.
 - OAuth-authenticated hosted providers (subscription plans) remain on the
-  1.4/1.5 enabler train — this catalog lists them when they exist but does
-  not implement their auth.
-- Per-role (fast/capable/thinking) profile *schema* is v1.4 scope (ADR
+  connectivity release (v1.7 after the 2026-08-06 resequencing) — this catalog
+  lists them when they exist but does not implement their auth.
+- Per-role (fast/capable/thinking) profile *schema* is v1.3.2 scope (ADR
   0090's plan), not this ADR; this ADR only guarantees the catalog they
   will read.

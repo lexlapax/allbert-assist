@@ -67,7 +67,7 @@ settings, skills, workflows, memory, plugins, permissions, confirmations, code,
 or live runtime state. It does not infer v0.47b handoff suggestion kinds from
 memory-review or objective-event diagnostics in `0.47.1`.
 
-### v1.4 profiling boundary (planned)
+### v1.8 profiling boundary (planned)
 
 Adaptive profiling does **not** add another kind to this draft-oriented table.
 It uses dedicated user-scoped profiling suggestion, application-operation, and
@@ -80,7 +80,7 @@ dismissed | expired | stale | reverted`, and application operations use
 The separation is an authority boundary as well as a schema choice. A profiling
 card binds one revision/digest, exact expected and proposed Settings values,
 sample window, metric/allowlist/catalog versions, expiry, and dedupe key. It may
-request only the v1.4 allowlisted Settings action and never becomes a skill,
+request only the v1.8 allowlisted Settings action and never becomes a skill,
 workflow, Memory entry, plugin, permission, or executable draft. Repeated-prompt
 evidence comes from minimized keyed usage fingerprints rather than trace bodies
 or redacted samples. Application and revert remain separately confirmation-

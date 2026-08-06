@@ -32,7 +32,7 @@ data. After a full backup restore, the managed `search-rebuild` and
 Markdown claim streams. Do not copy an old projection into a destination Home
 or treat its absence as lost user data.
 
-### v1.4 profiling data
+### v1.8 profiling data
 
 A raw filesystem backup of Allbert Home may contain minimized profiling usage
 events, profiling cards, application-operation history, and observed outcomes.
@@ -47,7 +47,7 @@ records remain accountability history and are not represented as portable
 customization authority.
 
 To remove profiling evidence before taking a raw backup, use the confirmed
-`allbert admin profiling clear` path after v1.4 ships. Disabling capture is not
+`allbert admin profiling clear` path after v1.8 ships. Disabling capture is not
 deletion. Ordinary uninstall preserves the complete Home; only an explicit
 purge removes it.
 

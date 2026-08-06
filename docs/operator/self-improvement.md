@@ -18,9 +18,9 @@ registered action, Security Central, durable confirmation, traces, and audits.
 Repeated use, suggestion score, prior approval, trace contents, workflow YAML,
 skill YAML, and draft metadata never grant permission by themselves.
 
-## v1.4 Adaptive Suggestions (Planned)
+## v1.8 Adaptive Suggestions (Planned)
 
-v1.4 adds a second, deliberately separate suggestion class for minimized local
+v1.8 adds a second, deliberately separate suggestion class for minimized local
 usage profiling. It appears in the shared Suggestions UI but does not enter the
 self-improvement draft store and cannot propose code, skills, workflows,
 permissions, credentials, provider egress, fallback policy, diagnostics,
@@ -70,7 +70,7 @@ outcome.
 
 Remote delivery additionally requires
 `channels.<id>.autonomous_notify.suggestions_enabled=true` and an exact
-identity-reverified enrollment. Email is excluded in v1.4; no destination is
+identity-reverified enrollment. Email is excluded in v1.8; no destination is
 inferred from last activity.
 
 ## Enablement

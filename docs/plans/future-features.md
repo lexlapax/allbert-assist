@@ -42,14 +42,14 @@ sequenced one per minor, foundational-first:
   remainders remain below.
 - **1.4 — Adaptive Usage Profiling** (stages a/b/c; per-role model profiles and
   proactive notifications ride here; consumes 1.3's memory substrate).
-- **1.5 / 1.6 — the remaining confirmed enablers**, sliced by need: v1.5 owns
+- **1.5 / 1.6 — the remaining confirmed enablers**, sliced by need: v1.4 owns
   the migration-runner cluster (runner + telegram/email settings migration +
   legacy `intent.*model_profile` removal + automated rollback), param-contract
-  completion, and PermissionGate deletion; v1.6 owns email/hosted-provider
+  completion, and PermissionGate deletion; v1.7 owns email/hosted-provider
   OAuth, MCP spec parity, and non-local bind/network hardening. System Memory
   Distillation remains the post-profiling co-flagship candidate. **2.0 horizon**:
   Self-Hosting Development (Allbert develops Allbert, pi-mode target), with OAuth
-  hosted-LLM providers landing earlier on the v1.6 connectivity train.
+  hosted-LLM providers landing earlier on the v1.7 connectivity train.
 ## Classification
 
 Classes are **proposed** pending the operator's category-by-category
@@ -78,17 +78,17 @@ Provenance shorthand used in `Deferred at:` lines: `vX.YY-plan:N` and
 
 ### Settings Runtime Migration Runner
 
-Planned — `docs/plans/v1.5-plan.md` M1 + ADR 0046. Ships unconditionally with
+Planned — `docs/plans/v1.4-plan.md` M1 + ADR 0046. Ships unconditionally with
 automated rollback; three consumers queued behind it.
 
 ### PermissionGate Deletion / Parity Pass
 
-Planned — `docs/plans/v1.5-plan.md` M6. Strictly after param-contract
+Planned — `docs/plans/v1.4-plan.md` M6. Strictly after param-contract
 enforcement completes; every former call site proven identical red-first.
 
 ### Full Cross-Action Param-Contract Enforcement
 
-Planned — `docs/plans/v1.5-plan.md` M3 + ADR 0065. M0 resolves the v0.54-versus-
+Planned — `docs/plans/v1.4-plan.md` M3 + ADR 0065. M0 resolves the v0.54-versus-
 v0.59 scope diff before the work is committed.
 
 ### Core-Action `app_id` Ownership (Option 2)
@@ -165,7 +165,7 @@ Deferred at: `v0.62-plan:383`.
 
 ### Automated Migration Rollback
 
-Planned — `docs/plans/v1.5-plan.md` M1. Part of the runner milestone, not a
+Planned — `docs/plans/v1.4-plan.md` M1. Part of the runner milestone, not a
 follow-on: a migration runner without rollback is a one-way door.
 
 ### DIT-1 Windows/WSL2 Install Walkthrough
@@ -349,12 +349,12 @@ Still parked:
 
 ### Proactive Notifications Policy
 
-Planned — `docs/plans/v1.4-plan.md` M6 + ADR 0084 amendment (`:suggestion`
+Planned — `docs/plans/v1.8-plan.md` M6 + ADR 0084 amendment (`:suggestion`
 kind, quiet hours, per-class rate limit). Default-off proactive delivery.
 
 ### Email OAuth (XOAUTH2; Gmail / Microsoft OAuth-Only Mailboxes)
 
-Planned — `docs/plans/v1.6-plan.md` M2 + ADR 0096. Shares one OAuth substrate
+Planned — `docs/plans/v1.7-plan.md` M2 + ADR 0096. Shares one OAuth substrate
 with hosted-LLM subscription auth.
 
 ### IMAP IDLE Push
@@ -420,7 +420,7 @@ Deferred at: `v0.52-plan:1065` (Events API HTTP transport), `v0.52-plan:147`
 
 ### Telegram/Email Plugin-Owned-Settings Migration
 
-Planned — `docs/plans/v1.5-plan.md` M2. First runner consumer.
+Planned — `docs/plans/v1.4-plan.md` M2. First runner consumer.
 
 ### Matrix E2EE Encrypted Rooms
 
@@ -515,7 +515,7 @@ Deferred at: `v0.61b-plan:1643`.
 
 ### Mobile-Ready Web UI/UX → Lightweight Native Mobile App
 
-Stage 1 planned — `docs/plans/v1.4-plan.md` M7 (measured Chromium/WebKit
+Stage 1 planned — `docs/plans/v1.8-plan.md` M7 (measured Chromium/WebKit
 phone-form-factor usability at 320 CSS px, 390×844 portrait, and 844×390
 landscape for chat, objectives, settings, and memory).
 
@@ -527,7 +527,7 @@ measured layout/accessibility gate, not a claim about physical-device behavior.
 
 ### Dynamic Mobile Breakpoints
 
-Planned (folded) — `docs/plans/v1.4-plan.md` M7 breakpoint token roles.
+Planned (folded) — `docs/plans/v1.8-plan.md` M7 breakpoint token roles.
 
 ### Canvas.Agent Revisit
 
@@ -577,8 +577,8 @@ Deferred at: `v0.26-plan:2079`.
 
 ### Knowledge Central (LLM Wiki)
 
-Planned — `docs/plans/v1.7-plan.md` (Stage 1, page graph over claims) and
-`docs/plans/v1.8-plan.md` (Stage 2, document ingest) + ADR 0094 and ADR 0095.
+Planned — `docs/plans/v1.5-plan.md` (Stage 1, page graph over claims) and
+`docs/plans/v1.6-plan.md` (Stage 2, document ingest) + ADR 0094 and ADR 0095.
 
 ### System Memory Distillation
 
@@ -655,17 +655,17 @@ doctor fields, and release evidence before implementation:
 
 ### OAuth-Authenticated Hosted LLM Providers (Subscription Plans)
 
-Planned — `docs/plans/v1.6-plan.md` M2 + ADR 0096. Same substrate as email
+Planned — `docs/plans/v1.7-plan.md` M2 + ADR 0096. Same substrate as email
 XOAUTH2; pulled forward from the 2.0 self-hosting horizon.
 
 ### Per-Role Fast/Capable/Thinking Model Profiles
 
-Planned — `docs/plans/v1.4-plan.md` M5 + ADR 0090. Additive `model_roles.*`
+Planned — `docs/plans/v1.8-plan.md` M5 + ADR 0090. Additive `model_roles.*`
 fragments over the ADR 0088 catalog; remaps only via the confirmed path.
 
 ### Free-Form Provider URLs / Probe Targets Via Approval Path
 
-Planned — `docs/plans/v1.6-plan.md` M4. LAN and loopback endpoints remain egress
+Planned — `docs/plans/v1.7-plan.md` M4. LAN and loopback endpoints remain egress
 decisions; no "local" exemption.
 
 ### Separate Active Memory Consumer When Direct-Answer Disabled
@@ -1003,7 +1003,7 @@ Each follow-on is a small focused release. None block v1.0.
 
 ### MCP 2025-11-25 Spec Parity
 
-Planned — `docs/plans/v1.6-plan.md` M3. Scope follows the delta measured at M0,
+Planned — `docs/plans/v1.7-plan.md` M3. Scope follows the delta measured at M0,
 not the entry title.
 
 ### MCP/OpenAI/ACP Upstream-Tracking Wire Shapes
@@ -1020,7 +1020,7 @@ Deferred at: `v1.0-plan:299`.
 
 ### Non-Local Bind Hardening For Public Surfaces
 
-Planned — `docs/plans/v1.6-plan.md` M4. One bind policy; the OAuth callback
+Planned — `docs/plans/v1.7-plan.md` M4. One bind policy; the OAuth callback
 listener obeys it with no exception.
 
 ### MCP Artifact Resources
@@ -1070,7 +1070,7 @@ Deferred at: operator intake (post-1.0 planning, 2026-07-15).
 
 ### Adaptive Usage Profiling & One-Click Customization Suggestions
 
-Planned — `docs/plans/v1.4-plan.md` (flagship) + ADR 0090. Usage-signal store,
+Planned — `docs/plans/v1.8-plan.md` (flagship) + ADR 0090. Usage-signal store,
 distill/suggest jobs, one-click confirmed customization, descriptive observed-
 outcome feedback.
 
@@ -1505,8 +1505,8 @@ Deferred at: `v1.0.1-plan` second-pass implementation-readiness audit.
 
 ### Legacy `intent.*model_profile` Settings Removal
 
-Planned — `docs/plans/v1.5-plan.md` M2. Second runner consumer; maps to the
-v1.4 `model_roles.*` fragments.
+Planned — `docs/plans/v1.4-plan.md` M2. Second runner consumer; maps to the
+v1.8 `model_roles.*` fragments.
 
 ### Optional Git-Hook Installation
 

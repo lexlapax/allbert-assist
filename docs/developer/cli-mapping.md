@@ -120,9 +120,9 @@ it is not a runtime command or a new operator authority surface.
 | `mix allbert.workflows` | `allbert admin workflows` |
 | `mix allbert.workspace` | `allbert admin workspace` |
 
-## v1.4 Planned Profiling Area
+## v1.8 Planned Profiling Area
 
-v1.4 adds one source/package parity home after its registered actions exist:
+v1.8 adds one source/package parity home after its registered actions exist:
 
 | Source checkout | Packaged command | Contract |
 |---|---|---|
@@ -136,7 +136,7 @@ v1.4 adds one source/package parity home after its registered actions exist:
 | `mix allbert.profiling notify-enroll <channel> <target-ref>` | `allbert admin profiling notify-enroll <channel> <target-ref>` | Identity-reverified enrollment of one exact suggestion-notification target. |
 | `mix allbert.profiling notify-unenroll <channel> <target-ref>` | `allbert admin profiling notify-unenroll <channel> <target-ref>` | Remove the exact suggestion-notification enrollment. |
 
-The area is not advertised in `CLI.Commands.operator_table/0` before v1.4 ships.
+The area is not advertised in `CLI.Commands.operator_table/0` before v1.8 ships.
 Both fronts call the same `CLI.Areas.Profiling` dispatcher and registered action
 set; neither surface writes Settings or profiling storage directly. `status`
 remains available while profiling is paused so an operator can inspect health,

@@ -28,7 +28,8 @@ product release. Its active plan must name the bounded source changes, source
 validation, gate cadence, and next binary carrier; it does not silently replace
 the binary-release obligation of another versioned feature plan.
 
-For v1.4 and later, the binding candidate cadence is: preflight, independent
+From v1.3.2 onward (which lands `preflight` itself), the binding candidate
+cadence is: preflight, independent
 audit, and source FV; `release.v1` plus the active bounded non-stacking delta;
 provisional artifacts, qualification, and packaged FV; one batched executable-
 remediation rejoin when necessary; exactly one authoritative aggregate on the

@@ -405,9 +405,9 @@ Required checks:
   `Patterns.button_class!/1`, `Patterns.compact_button_class!/1`, or catalog
   button atoms.
 
-### v1.4 mobile-ready extension (planned)
+### v1.8 mobile-ready extension (planned)
 
-v1.4 promotes the mobile shell from a qualitative layout statement to a
+v1.8 promotes the mobile shell from a qualitative layout statement to a
 measured browser contract:
 
 - prove WCAG 2.2 AA reflow at 320 CSS pixels/400% zoom, 390×844 portrait, and

@@ -435,14 +435,14 @@ constraint that gate inversion must precede module moves.
 | Phase | Change | Suggested placement | Rationale |
 | --- | --- | --- | --- |
 | **0** | Add a Credo check: no kernel file may name a capability module. It fails today; the failure list becomes the burn-down. | Anytime, small | The pattern already exists — `priv/credo_checks/settings_central_no_bypass.ex`. Makes the invariant enforceable before any code moves. |
-| **1** | **Registry inversion.** Replace the `Actions.Registry` alias list with boot-time contribution. Action modules stay where they are; each subsystem grows a pack module listing its own actions. | Ride v1.5 | v1.5 already opens all 249 action modules for param contracts and envelope consolidation. One sweep instead of two. Highest-leverage insertion point in the current ladder. |
-| **2** | **Settings inversion.** 463 keys become kernel keys plus pack-owned fragments; packs author their own schema rather than having it grouped out of a central module. | Ride v1.5 | v1.5 already builds the migration runner and moves telegram and email settings. Generalize rather than special-case. |
-| **3** | **Gate inversion.** Packs own lanes; `release.vN` composes lanes. Retire the 43 historical gates behind one current gate plus archived definitions. | v1.5 M5 (already scoped as absolute suite duration) | Directly attacks the 47.7-minute aggregate and the six burned authoritative attempts. |
-| **4** | **Projection primitive** extracted from Memory and Search. | Before v1.7 | Otherwise Knowledge becomes the third bespoke copy. |
-| **5** | **OTP application extraction**, one pack at a time, cheapest first. | v1.6 onward, opportunistic | Only after 1–3, because 1–3 remove the reasons extraction is hard today. |
+| **1** | **Registry inversion.** Replace the `Actions.Registry` alias list with boot-time contribution. Action modules stay where they are; each subsystem grows a pack module listing its own actions. | Ride v1.4 | v1.4 already opens all 249 action modules for param contracts and envelope consolidation. One sweep instead of two. Highest-leverage insertion point in the current ladder. |
+| **2** | **Settings inversion.** 463 keys become kernel keys plus pack-owned fragments; packs author their own schema rather than having it grouped out of a central module. | Ride v1.4 | v1.4 already builds the migration runner and moves telegram and email settings. Generalize rather than special-case. |
+| **3** | **Gate inversion.** Packs own lanes; `release.vN` composes lanes. Retire the 43 historical gates behind one current gate plus archived definitions. | v1.4 M5 (already scoped as absolute suite duration) | Directly attacks the 47.7-minute aggregate and the six burned authoritative attempts. |
+| **4** | **Projection primitive** extracted from Memory and Search. | Before v1.5 | Otherwise Knowledge becomes the third bespoke copy. |
+| **5** | **OTP application extraction**, one pack at a time, cheapest first. | v1.7 onward, opportunistic | Only after 1–3, because 1–3 remove the reasons extraction is hard today. |
 | **6** | **Turn Engine consolidation** — Runtime, IntentAgent, and Fanout into one staged loop with strategy behaviours. | Last, its own release; precondition named in [§12](#12-amendment--re-check-against-v13-m9b4m9b5-adaptive-fan-out) | Use the v1.1 fan-out invariants as the acceptance set. v1.3 M9.b.4/M9.b.5 builds three of these seams with two Adapters each, which is the extraction trigger ADR 0021 §A22 requires. |
 
-Phases 0 through 3 fit inside v1.5 as currently scoped. Doing so changes v1.5's
+Phases 0 through 3 fit inside v1.4 as currently scoped. Doing so changes v1.4's
 character from "one large mechanical sweep" to "one large mechanical sweep that
 also inverts the three lists," at meaningfully less than twice the cost, because
 opening all 249 modules is the expensive part either way.
@@ -485,7 +485,7 @@ opening all 249 modules is the expensive part either way.
 All five are resolved there. The list is retained because the reasoning in §13
 answers these specific questions and reads better against them.
 
-1. **Do phases 0–3 fold into v1.5?** This is the gating decision; v1.5 is the
+1. **Do phases 0–3 fold into v1.4?** This is the gating decision; v1.4 is the
    release that opens all 249 action modules, and that window does not reopen.
 2. **Is `packs` the accepted term**, replacing the current plugin/app split, or
    should the existing `AllbertAssist.Plugin` vocabulary be extended in place?
@@ -494,7 +494,7 @@ answers these specific questions and reads better against them.
 4. **Is dropping `jido_ai` acceptable** given its two production call sites, or
    is it retained for future Jido.AI-based specialist work?
 5. **Should this proposal become an ADR** (pack contract and kernel inversion)
-   plus concrete v1.5 milestone deltas, which is the form the process expects for
+   plus concrete v1.4 milestone deltas, which is the form the process expects for
    a decision that constrains future design?
 
 Until those are answered this document remains analysis, and the roadmap ladder
@@ -667,7 +667,7 @@ Two supporting measurements:
 - **Ownership metadata is nearly absent.** Only 5 of 268 action modules declare
   `plugin_id` and 13 declare `app_id`, so registry inversion cannot lean on
   existing metadata. Each module needs a pack assignment — which is one more field
-  in the sweep v1.5 already performs over all of them.
+  in the sweep v1.4 already performs over all of them.
 
 ### 13.2 Every decision, decided
 
@@ -679,7 +679,7 @@ Two supporting measurements:
 | 4 | How packs are discovered without a kernel list | **`Application.loaded_applications/0` plus a pack-module lookup** | The kernel holds no list; the release manifest does. That is correct rather than a compromise: the v1.2.6 license generator already requires knowing exactly what ships. |
 | 5 | Tier tokens | **`:kernel` / `:native` / `:declared`** | Names the capability axis — may it contribute compiled code — instead of provenance, which becomes orthogonal metadata so a user may author a `:native` pack and a vendor a `:declared` one. Rejects `:project` (collides with Mix and the umbrella), `:core` (collides with kernel), `:extension` (vacuous), `:layer1` (opaque). |
 | 6 | A middle application between kernel and packs | **None. Two categories only: the kernel, or a named pack** | An `allbert_core` beside `allbert_kernel` is two names for one idea and becomes the drawer everything lands in, reconstructing the monolith with an extra hop. |
-| 7 | Where `External.HttpPolicy` and `RequestSpec` live | **Kernel, concern 3** | Egress policy is a security boundary and packs call it 14 times. v1.6 already consolidates the triplicated SSRF table; it should land in the kernel application. |
+| 7 | Where `External.HttpPolicy` and `RequestSpec` live | **Kernel, concern 3** | Egress policy is a security boundary and packs call it 14 times. v1.7 already consolidates the triplicated SSRF table; it should land in the kernel application. |
 | 8 | Fate of the `plugins/` directory | **Retires; each becomes `apps/allbert_<name>`** | Data staging moves to each application's `priv/`, which OTP releases handle natively — removing the custom `stage_plugins` release step. `<ALLBERT_HOME>/plugins` remains the `:declared` tier, renamed `packs`, with `plugins` retained as a compatibility scan path. |
 | 9 | StockSage | **`apps/allbert_stocksage`** | Whether it ships in the default artifact becomes a one-line release-manifest choice rather than an architectural fact. |
 | 10 | Does this become an ADR | **Yes, one** — pack contract, kernel application boundary, and tier model | It constrains future design, which is this project's stated ADR trigger. Amends ADR 0017 and ADR 0031; supersedes neither. |
@@ -687,7 +687,7 @@ Two supporting measurements:
 
 ### 13.3 Sequencing
 
-Neither a single long v1.5 nor a 2.0 that absorbs everything and renumbers
+Neither a single long v1.4 nor a 2.0 that absorbs everything and renumbers
 1.6/1.7/1.8. Both are the unbounded-scope failure mode this project has already
 demonstrated — v1.3 M9.b burned six authoritative attempts and v1.1 required
 eight corrective rounds. The seam to split on is the contract line.
@@ -723,18 +723,18 @@ settings inversion, gate inversion, then relocation.
 
 | Risk | Mitigation |
 | --- | --- |
-| v1.5 runs long | Point tags; each inversion ships standalone |
+| v1.4 runs long | Point tags; each inversion ships standalone |
 | Relocation breaks gate file lists | Gate inversion precedes relocation (§13.3) |
 | The v1.0 public-contract freeze | Module names unchanged; the freeze covers module and function contracts, not application membership |
-| Pack-to-pack dependency tangle across 37 subsystems | Permitted; only kernel-to-pack is forbidden. One dependency-graph pass during the v1.6 extraction |
-| `PermissionGate` deletion is not core-only — 7 pack call sites | Scope it in v1.5 as a cross-pack migration rather than a core edit |
+| Pack-to-pack dependency tangle across 37 subsystems | Permitted; only kernel-to-pack is forbidden. One dependency-graph pass during the v1.7 extraction |
+| `PermissionGate` deletion is not core-only — 7 pack call sites | Scope it in v1.4 as a cross-pack migration rather than a core edit |
 | Umbrella applications compile everything | Not a requirement (decision 3); third-party path dependencies already provide build-time optionality if it ever becomes one |
 
 ### 13.5 The recommendation in one sentence
 
 Create `apps/allbert_kernel` empty, invert the five kernel lists so the compiler
-enforces the boundary, then relocate — v1.4 untouched, v1.5 as point-tagged
-foundation, v1.6 through v1.8 keeping their numbers and their features, and 2.0
+enforces the boundary, then relocate — v1.8 untouched, v1.4 as point-tagged
+foundation, v1.7 through v1.6 keeping their numbers and their features, and 2.0
 reserved for the one change that genuinely needs a major.
 
 ---

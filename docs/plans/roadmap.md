@@ -325,12 +325,12 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    in no aggregate or CI path and records content-free evidence. By explicit
    operator decision, v1.3.1 is an annotated `[skip-artifacts]` source point tag:
    no GitHub Release, package build, Homebrew movement, or packaged FV; v1.3.0
-   remains packaged Latest and v1.4 carries these source corrections into the
+   remains packaged Latest and v1.8 carries these source corrections into the
    next binary. Focused tests and attended source validation precede one short
    delta gate and, because projection machinery is shared code, exactly one
    final authoritative aggregate—never an aggregate per fix.
 9. **1.4 — Adaptive Usage Profiling.** (**Decision-complete; build not started —
-   implementation-readiness rewrite 2026-08-06:** `docs/plans/v1.4-plan.md` + request-flow + ADR 0090
+   implementation-readiness rewrite 2026-08-06:** `docs/plans/v1.8-plan.md` + request-flow + ADR 0090
    (profiling + confirmed customization) + ADR 0084 amendment
    (`:suggestion` kind, exact enrollment, deferred/coalesced quiet hours,
    one-per-local-day cap). **Source-only v1.3.1 shipped
@@ -345,23 +345,23 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    (Dynamic Mobile Breakpoints folds in; stages 2–4 remain the operator-owned
    responsive-information-architecture, offline-capable-PWA, and native-shell
    horizon).
-   By operator decision 2026-07-30, v1.4 also carries the **preflight gate
+   By operator decision 2026-07-30, v1.8 also carries the **preflight gate
    and the AGENTS.md Release Sequence** (M0.5, renumbered from M8.5 on
-   2026-08-05 so it precedes v1.4's feature work), and is the first binary
+   2026-08-05 so it precedes v1.8's feature work), and is the first binary
    release after source-only v1.3.1 and the first release with the implemented
    `preflight` command. Source-only
-   v1.3.1 used the same cadence through its named temporary bundle. v1.4 runs:
+   v1.3.1 used the same cadence through its named temporary bundle. v1.8 runs:
    preflight + independent audit + source FV pre-filter → `release.v1` + the
-   bounded non-stacking `release.v14` delta → provisional artifacts,
+   bounded non-stacking `release.v18` delta → provisional artifacts,
    qualification, and packaged FV → one batched executable-remediation rejoin
    when needed → exactly one authoritative aggregate → identity, integrity,
    package-smoke, publish, install-rehearsal, and closeout evidence. The
-   aggregate is mandatory for v1.4 because Settings, confirmation, registry,
+   aggregate is mandatory for v1.8 because Settings, confirmation, registry,
    Security Central, and gate infrastructure all change. v1.3 M9.b burned six
    authoritative attempts, none stopped by a product regression; this is
-   the fix, and it lands before v1.5 rather than after.
+   the fix, and it lands before v1.4 rather than after.
 10. **1.5 — Spine enablers.** (**Planned — triad 2026-07-30:**
-   `docs/plans/v1.5-plan.md` + request-flow; governed by ADR 0046 and ADR 0065,
+   `docs/plans/v1.4-plan.md` + request-flow; governed by ADR 0046 and ADR 0065,
    no new ADR.) The settings and action spine, sequenced first because every
    later release builds on it: migration-runner cluster (runner + telegram/email
    plugin-owned-settings migration + legacy `intent.*model_profile` removal +
@@ -374,7 +374,7 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    derivable from capability metadata the `use AllbertAssist.Action` macro
    already receives. One sweep over those files instead of two.
 11. **1.6 — Connectivity enablers.** (**Planned — triad 2026-07-30:**
-   `docs/plans/v1.6-plan.md` + request-flow + **new ADR 0096** (delegated
+   `docs/plans/v1.7-plan.md` + request-flow + **new ADR 0096** (delegated
    OAuth authority).) Everything outward-facing, sequenced after the spine and
    before Knowledge ingest: one OAuth substrate serving both email XOAUTH2
    (Gmail/Microsoft) and OAuth-authenticated hosted LLM providers
@@ -393,7 +393,7 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    (Mid-action interruption, child-process cancellation, and the app-registry
    boundary check moved into 1.1.)
 12. **1.7 — Knowledge Stage 1 (LLM Wiki over claims).** (**Proposed — intake
-   closed 2026-07-30:** ADR 0094 + ADR 0095; triad at `docs/plans/v1.7-plan.md` + request-flow.) A derived,
+   closed 2026-07-30:** ADR 0094 + ADR 0095; triad at `docs/plans/v1.5-plan.md` + request-flow.) A derived,
    interlinked markdown page graph over v1.3 kept claims: page model,
    relative-markdown links with written backlinks, `index.md`, deterministic
    lint (contradictions, orphans, unresolved links, stale and under-populated
@@ -404,7 +404,7 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    Its own point release rather than an enabler rider, by operator decision
    2026-07-30, because the 1.5/1.6 train is already fully loaded.
 13. **1.8 — Knowledge Central (LLM Wiki flagship).** (**Proposed — intake closed
-   2026-07-30:** same ADRs; triad at `docs/plans/v1.8-plan.md` + request-flow.) Stage 2: document ingest
+   2026-07-30:** same ADRs; triad at `docs/plans/v1.6-plan.md` + request-flow.) Stage 2: document ingest
    substrate, durable synthesis cache, source-summary pages, `log.md`, the
    operator-authored schema document with a confirmed review path, LLM-assisted
    lint, budgeted managed ingestion with named egress, and composite query
@@ -419,7 +419,7 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
 15. **2.0 horizon — Self-Hosting Development.** Allbert develops Allbert (pi-mode
    target on its own checkout; plan/build/test/document roles in-product, supervised).
    Its OAuth hosted-LLM providers sub-capability (Claude/OpenAI/Gemini subscription
-   plans, not just API keys) lands earlier on the v1.6 connectivity train.
+   plans, not just API keys) lands earlier on the v1.7 connectivity train.
 
 ## Working Rules
 

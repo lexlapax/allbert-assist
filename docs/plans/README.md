@@ -7,17 +7,17 @@ plan and request-flow documents.
 ## Current And Next
 
 - [Roadmap](roadmap.md)
-- [v1.4 adaptive usage profiling plan](v1.4-plan.md) and
-  [request flow](v1.4-request-flow.md) (decision-complete; source-only v1.3.1
+- [v1.8 adaptive usage profiling plan](v1.8-plan.md) and
+  [request flow](v1.8-request-flow.md) (decision-complete; source-only v1.3.1
   predecessor shipped, with build-start seam re-verification still required)
-- [v1.5 spine enablers plan](v1.5-plan.md) and
-  [request flow](v1.5-request-flow.md) (planned; readiness passes not yet run)
-- [v1.6 connectivity enablers plan](v1.6-plan.md) and
-  [request flow](v1.6-request-flow.md) (planned; readiness passes not yet run)
-- [v1.7 Knowledge Stage 1 plan](v1.7-plan.md) and
+- [v1.4 spine enablers plan](v1.4-plan.md) and
+  [request flow](v1.4-request-flow.md) (planned; readiness passes not yet run)
+- [v1.7 connectivity enablers plan](v1.7-plan.md) and
   [request flow](v1.7-request-flow.md) (planned; readiness passes not yet run)
-- [v1.8 Knowledge Central plan](v1.8-plan.md) and
-  [request flow](v1.8-request-flow.md) (planned; readiness passes not yet run)
+- [v1.5 Knowledge Stage 1 plan](v1.5-plan.md) and
+  [request flow](v1.5-request-flow.md) (planned; readiness passes not yet run)
+- [v1.6 Knowledge Central plan](v1.6-plan.md) and
+  [request flow](v1.6-request-flow.md) (planned; readiness passes not yet run)
 - [Allbert Jido vision](allbert-jido-vision.md)
 - [Future features](future-features.md)
 - [Overall Allbert kernel redo analysis](overall-allbert-kernel-redo-analysis.md)

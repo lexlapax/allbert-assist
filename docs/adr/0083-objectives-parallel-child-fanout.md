@@ -884,7 +884,7 @@ authority class.
   kickoff/report receipt, exact-origin, queue/attempt/review fields, indexes
   and unique receipt constraints) stays
   inside the additive-migration envelope; the
-  1.5-horizon migration-runner cluster is not pulled forward.
+  1.4-horizon migration-runner cluster is not pulled forward.
 - SQLite write serialization becomes a shared resource across concurrent
   runs. M12.16 operator evidence disproved the earlier claim that ordinary
   step cadence makes contention negligible: all three fresh child-start

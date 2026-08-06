@@ -76,9 +76,9 @@ changes:
 | `marketplace.enabled` | `false` | v0.45 Marketplace Lite catalog browse/install surface. |
 | `self_improvement.enabled` | `false` | v0.47 self-improvement discovery, suggestion, and draft surface. |
 | `self_improvement.trace_index.enabled` | `false` | v0.47 trace-index reads for self-improvement discovery. |
-| `profiling.enabled` | `false` | v1.4 master profiling switch: stops new usage capture and all distillation while preserving status, retention, and confirmed clear. |
-| `profiling.usage_events.enabled` | `false` | v1.4 usage-event capture only; existing retention and operator inspection remain available. |
-| `channels.<id>.autonomous_notify.suggestions_enabled` | `false` | v1.4 remote suggestion subject; exact enrollment is still required when enabled. |
+| `profiling.enabled` | `false` | v1.8 master profiling switch: stops new usage capture and all distillation while preserving status, retention, and confirmed clear. |
+| `profiling.usage_events.enabled` | `false` | v1.8 usage-event capture only; existing retention and operator inspection remain available. |
+| `channels.<id>.autonomous_notify.suggestions_enabled` | `false` | v1.8 remote suggestion subject; exact enrollment is still required when enabled. |
 | `artifacts.enabled` | `false` | v0.50 Artifacts Central action surface. |
 | `artifacts.retention_enabled` | `false` | v0.50 durable artifact retention writes. |
 | `search.enabled` | `false` | Search projection ingestion, management admission, and conversation-query availability. |
@@ -167,7 +167,7 @@ allbert admin settings set permissions.sandbox_trial denied
   disabled/untrusted or draft-only; live promotion to skills, workflows, or
   memory requires the existing registered action permission plus durable
   confirmation.
-- Treat v1.4 adaptive profiling as minimized local evidence, not authority.
+- Treat v1.8 adaptive profiling as minimized local evidence, not authority.
   Capture is on by default after a non-blocking first-use disclosure, but
   deterministic distillation and remote suggestion notification are off by
   default. Events contain registry-bounded typed classes, clamped duration and
@@ -264,13 +264,13 @@ failed or uncertain, inspect the objective and audit entry, then use the normal
 originating thread or next turn to recover. Do not delete ledger rows or resend
 outside the registered channel boundary.
 
-### v1.4 suggestion notifications (planned)
+### v1.8 suggestion notifications (planned)
 
 Suggestion delivery extends the notification ledger through a typed
 notification subject; it never fabricates an Objective. It remains disabled by
 default and requires an identity-reverified enrollment for one exact
 user/channel/thread target. Last activity, a model prediction, or an existing
-channel connection cannot infer that destination. Email is excluded in v1.4.
+channel connection cannot infer that destination. Email is excluded in v1.8.
 
 The per-user/channel/local-calendar-day cap is one. Quiet hours use
 `operator.timezone`, are start-inclusive/end-exclusive, support overnight
@@ -286,7 +286,7 @@ boundary.
 
 - The packaged Phoenix endpoint binds loopback by default. Do not expose it by
   changing an environment value or launch command; authenticated/configurable
-  non-local bind policy is v1.6 scope.
+  non-local bind policy is v1.7 scope.
 - Use `Req` through registered actions for HTTP. Do not add another HTTP
   client or call external services from private helpers.
 - External request approvals are operation-scoped. A generic

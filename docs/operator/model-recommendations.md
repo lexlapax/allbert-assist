@@ -217,9 +217,9 @@ an operator override distinct from the route a request would actually use. For e
 `invalid_provider_base_url`, `provider_host_denied`, and `endpoint_unreachable`
 identify the repair class without printing a credential or full endpoint URL.
 
-## v1.4 Model Roles (Planned)
+## v1.8 Model Roles (Planned)
 
-v1.4 adds the aliases `role:fast`, `role:capable`, and `role:thinking`. Each
+v1.8 adds the aliases `role:fast`, `role:capable`, and `role:thinking`. Each
 mapping defaults to `nil`; an unconfigured role is skipped with a diagnostic,
 and every existing concrete `model_preferences.tasks.*` chain keeps its current
 behavior. A role value names one configured concrete profile only—roles cannot

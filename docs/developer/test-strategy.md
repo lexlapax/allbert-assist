@@ -1306,17 +1306,18 @@ tree is unchanged. Recorded as an honest floor for M6.
 
 ## Gate Matrix
 
-`mix allbert.test preflight` is the v1.4 M0.5 target contract (renumbered from
-M8.5 on 2026-08-05 so it precedes v1.4's feature milestones) and is not yet an
+`mix allbert.test preflight` is the v1.3.2 target contract (renumbered from
+v1.4 M8.5 to M0.5 on 2026-08-05, then extracted into the source-only v1.3.2
+enabler release by the 2026-08-06 resequencing) and is not yet an
 implemented command. Until that milestone lands, an active plan must enumerate
 and run its cheap equivalent components directly; it must not claim a green
 command that does not exist. The shipped source-only v1.3.1 plan freezes that
-temporary bundle as historical evidence; v1.4 M0 re-verifies the constituent
+temporary bundle as historical evidence; v1.8 M0 re-verifies the constituent
 owners at the accepted v1.3.1 tag before replacing the bridge.
 
 | Gate | Use | Evidence |
 | --- | --- | --- |
-| **Preflight** | **First, before anything expensive. Every release phase and every remediation.** | After v1.4 M0.5, `mix allbert.test preflight`: warning-free compile on the pinned production source toolchain (Elixir 1.19.5 / OTP 29.0.x), formatter, `git diff --check`, docs gate, registry/param-contract consistency, inventory and manifest reconciliation, central fixture-drift registry, and lane classification. Budget: **under two warm-cache minutes**. Until that command exists, run the active plan's enumerated cheap equivalent. |
+| **Preflight** | **First, before anything expensive. Every release phase and every remediation.** | After v1.8 M0.5, `mix allbert.test preflight`: warning-free compile on the pinned production source toolchain (Elixir 1.19.5 / OTP 29.0.x), formatter, `git diff --check`, docs gate, registry/param-contract consistency, inventory and manifest reconciliation, central fixture-drift registry, and lane classification. Budget: **under two warm-cache minutes**. Until that command exists, run the active plan's enumerated cheap equivalent. |
 | Docs | Docs-only changes. | `mix allbert.test docs` (`git diff --check` and reference checks when configured). |
 | Focused | Every implementation milestone. | `mix allbert.test focused -- <files...>` using explicit files named in the plan/request-flow doc. |
 | Static | Code changes. | compile warning gate, formatter check, Credo strict, Dialyzer when required. |
@@ -1383,15 +1384,15 @@ seams that followed.
 | Shared spine — settings schema, action registry, permission path, projection machinery, test harness, gate definitions | full authoritative aggregate |
 | Release/workflow code (tag-bound) | full replacement generation; never patched around |
 
-For v1.4 the aggregate is required, not selected away: the release changes
+For v1.8 the aggregate is required, not selected away: the release changes
 Settings, confirmations, the action registry/Security Central boundary, and the
 gate harness. Its binding order is:
 
 1. preflight, independent audit, and source FV pre-filter;
-2. `release.v1` and the bounded non-stacking `release.v14` delta;
+2. `release.v1` and the bounded non-stacking `release.v18` delta;
 3. provisional artifacts, qualification, and packaged FV;
 4. if executable findings exist, one batched remediation tranche followed by
-   preflight, affected lanes, `release.v1`, and `release.v14`, then replacement
+   preflight, affected lanes, `release.v1`, and `release.v18`, then replacement
    artifacts and only the invalidated operator rows;
 5. exactly one authoritative aggregate on the final accepted candidate; and
 6. identity, integrity, package-smoke, publish, install-rehearsal, and closeout
@@ -1682,15 +1683,15 @@ Attended source validation runs first; `release.v131` then runs once before the
 one authoritative aggregate required by the shared projection change. A warm
 delta-gate run over ten minutes is topology drift.
 
-`release.v14` follows the same non-stacking rule. It is a bounded v1.4 delta
+`release.v18` follows the same non-stacking rule. It is a bounded v1.8 delta
 whose steps own profiling, confirmed customization/recovery, model roles,
 prompt-rule snapshots, suggestion notification policy, mobile/loopback, and the
 preflight/scope infrastructure. Structure evidence proves the frozen v1.3 and
-v1.3.1 definitions unchanged and proves every closed v1.4 target has an
+v1.3.1 definitions unchanged and proves every closed v1.8 target has an
 authoritative lane owner; neither `release.v13`, `release.v131`, `release`, nor
 `precommit` may appear as a step. The candidate separately passes `release.v1`
 before the mandatory one-time authoritative aggregate. Future point/minor gates,
-including `release.v15`, retain this bounded non-stacking shape.
+including `release.v14`, retain this bounded non-stacking shape.
 
 The archived v1.3 plan names exact focused files and serial lanes per milestone.
 License catalog/finalizer fixtures and TUI packet/state-machine tests are source

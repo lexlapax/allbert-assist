@@ -2,13 +2,13 @@
 
 ## Status
 
-Proposed (v1.4 planning, 2026-07-24; implementation-readiness revision
-2026-08-06). Binding on v1.4 S1-S9 and M0.5-M8, including M4.5
-(`docs/plans/v1.4-plan.md`). The source-only v1.3.1 predecessor shipped and
-closed on 2026-08-05, so its barrier is satisfied; v1.4 M0 still re-verifies
+Proposed (v1.8 planning, 2026-07-24; implementation-readiness revision
+2026-08-06). Binding on v1.8 S1-S9 and M0.5-M8, including M4.5
+(`docs/plans/v1.8-plan.md`). The source-only v1.3.1 predecessor shipped and
+closed on 2026-08-05, so its barrier is satisfied; v1.8 M0 still re-verifies
 the implementation seams at the accepted predecessor tag before feature work.
 
-This ADR flips Accepted at v1.4 M8, after the whole authority loop is proved:
+This ADR flips Accepted at v1.8 M8, after the whole authority loop is proved:
 user-owned minimized usage events -> deterministic distillation -> inert
 suggestion -> durable confirmation -> compare-and-set allowlisted write ->
 linked audit/recovery record -> descriptive observed outcome -> confirmed
@@ -17,13 +17,13 @@ quiet-hours, rate-cap, and abuse-case rows. A partial loop or a synthetic
 claim about real-world improvement cannot accept the ADR.
 
 This ADR **amends the ADR 0045 boundary deliberately**. ADR 0045 excludes
-settings changes from suggestion scope; v1.4 keeps suggestions inert but adds
+settings changes from suggestion scope; v1.8 keeps suggestions inert but adds
 one sanctioned application path: confirmation-required registered actions over
 an exact reviewed allowlist. The ADR 0084 amendment adds the `:suggestion`
 notification kind used only to point an enrolled user to inert cards.
 
 Related: ADR 0045 (operator-supervised self-improvement), ADR 0089 (long-term
-user memory and user ownership), ADR 0084 (+ v1.4 amendment — proactive
+user memory and user ownership), ADR 0084 (+ v1.8 amendment — proactive
 suggestion delivery), ADR 0088 (model catalog), ADR 0072 (recommended profiles
 per purpose), ADR 0061 (router model tiers), ADR 0008 (durable
 confirmations), ADR 0031/0006 (Settings/Security Central), and ADR 0080/0074
@@ -32,7 +32,7 @@ confirmations), ADR 0031/0006 (Settings/Security Central), and ADR 0080/0074
 ## Context
 
 The source-only v1.3.1 point release is complete. It supplied the answering-head
-qualification evidence and corrective hardening that v1.4 inherits; v1.4 is
+qualification evidence and corrective hardening that v1.8 inherits; v1.8 is
 the first packaged carrier of those changes. The implementation seams below
 were audited during planning and are re-checked by M0 rather than treated as
 permanent line-number facts.
@@ -42,7 +42,7 @@ permanent line-number facts.
   `tool_discovery_suggestions` and draft artifacts -> confirmation-gated
   `promote_*_draft` actions. It does not supply the lifecycle needed for a
   settings customization. Its existing types and authority remain unchanged;
-  v1.4 fixes the missing dismissed writer and approve-resume coverage without
+  v1.8 fixes the missing dismissed writer and approve-resume coverage without
   overloading its draft-oriented records.
 - **Usage signals are rich but not queryable:** intent decisions live in
   opt-in markdown traces and per-turn `action_log` JSON. Structured sources
@@ -74,7 +74,7 @@ rider and grants no authority.
 
 ### 1. User-owned, local, minimized usage events
 
-v1.4 adds a dedicated additive SQLite usage-event store. Collection is local,
+v1.8 adds a dedicated additive SQLite usage-event store. Collection is local,
 bounded, user-scoped, and fail-open with respect to the response the user is
 waiting for. Its data-minimization and storage-limitation posture follows the
 [NIST Privacy Framework](https://www.nist.gov/privacy-framework) and the
@@ -128,7 +128,7 @@ prohibited from the event schema and from derived evidence.
 
 Distillation may read usage events and user-scoped typed objective/job outcomes.
 It may use identifiers to fetch registry-bounded classes, but it may not ingest
-conversation, trace, objective, or job bodies. v1.4 distillation is deterministic
+conversation, trace, objective, or job bodies. v1.8 distillation is deterministic
 aggregation with zero provider or model egress and no model-assisted fallback.
 
 Age and row-cap pruning runs per user at store startup and after inserts in
@@ -191,7 +191,7 @@ Security safety floor so a later contract edit cannot weaken them. A surface
 may create or resolve the durable confirmation, but it may not write Settings
 directly. Free text never approves.
 
-The exact v1.4 customization allowlist is:
+The exact v1.8 customization allowlist is:
 
 - `operator.communication_style`
 - `operator.handoff_detail`
@@ -272,10 +272,10 @@ replayed `Worker.QualityPolicy` stores and reuses the same immutable snapshot.
 Durable jobs and receipts replay their stored snapshot rather than current
 Settings.
 
-Every shipped rule declares `tunable?`, default `false`. v1.4 ships exactly one
+Every shipped rule declares `tunable?`, default `false`. v1.8 ships exactly one
 tunable rule in the direct-answer catalog:
 
-- `useful_factual_and_brief/default` preserves the pre-v1.4 text byte for byte.
+- `useful_factual_and_brief/default` preserves the pre-v1.8 text byte for byte.
 - `useful_factual_and_brief/balanced_detail` resolves to: “Keep the answer
   useful, factual, and direct. Include enough detail to answer the request
   completely, without unrelated material.”
@@ -337,7 +337,7 @@ Delivery requires all of: the existing autonomous-notify authority, the
 default-OFF `suggestions_enabled` setting, and an explicit identity-reverified
 enrollment binding the local user, registered channel, and exact provider
 thread reference/digest. Last activity, model output, card metadata, and free
-text are never destinations. Email is excluded in v1.4.
+text are never destinations. Email is excluded in v1.8.
 
 Suggestion quiet hours defer and coalesce rather than suppress. The setting is
 an optional start/end local-time window evaluated in `operator.timezone`,
@@ -360,11 +360,11 @@ The AA target-size floor is 24x24 CSS pixels; 44x44 is the preferred enhanced
 target, not a blanket AAA claim. These acceptance dimensions follow
 [WCAG 2.2](https://www.w3.org/TR/WCAG22/).
 
-Physical-phone acceptance is not part of v1.4; measured Chromium and WebKit
+Physical-phone acceptance is not part of v1.8; measured Chromium and WebKit
 viewport/browser proof is. The operator-owned later stages retain their backlog
 meanings: stage 2 responsive information architecture, stage 3 offline-capable
 PWA, and stage 4 native shell. Authenticated/configurable non-local access is a
-v1.6 concern. This rider grants no application, notification, or network
+v1.7 concern. This rider grants no application, notification, or network
 authority.
 
 ## Consequences
@@ -405,13 +405,13 @@ authority.
 - No change to legacy model aliases, purpose-profile precedence, or untuned
   prompt text.
 - No non-local bind or authentication authority and no physical-phone
-  acceptance in v1.4.
+  acceptance in v1.8.
 - All additions are Tier-2/additive; ADR 0090 does not change a frozen Tier-1
   public contract.
 
 ## Validation
 
-M8 may flip this ADR Accepted only when the v1.4 gate proves, at minimum:
+M8 may flip this ADR Accepted only when the v1.8 gate proves, at minimum:
 
 - user isolation; response-signal idempotency; every terminal outcome; HMAC
   stability and non-recoverability; duration clamping; fail-open capture;

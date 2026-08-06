@@ -152,7 +152,7 @@ when this acceptance record was written. The operator has now assigned both to
 v1.3.1: the Memory repair uses the more truthful full-build-only rename rather
 than an O(n), cross-claim incremental recomputation; the Jobs repair keeps
 paused effective due nil while retaining dirty intent. v1.3.1 is source-only,
-so v1.3.0 remains the packaged Latest and v1.4 first packages the corrections.
+so v1.3.0 remains the packaged Latest and v1.8 first packages the corrections.
 
 - **One PASS line in the transcript was retracted.** The agent-run adaptation of
   SV-8A.2 rewrote the runbook's `set -e` assertion chain as
@@ -1084,7 +1084,7 @@ and `published_at: 2026-08-05T19:47:34Z`. Remote annotated tag object
 `https://github.com/lexlapax/allbert-assist/releases/tag/v1.3.0`.
 
 The failed workflow conclusion is retained as a content-free permission
-finding. v1.4 must move the repository-administration enablement read to an
+finding. v1.8 must move the repository-administration enablement read to an
 operator preflight while preserving protected binding/signing/publication and
 final immutability checks. The next section records the separate tap and
 published-install closeout.

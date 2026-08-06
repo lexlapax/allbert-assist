@@ -84,9 +84,9 @@ design-system extension rather than a one-off page patch.
   validation requirements for every new variant/pattern.
 - No v0.60 implementation is requested here. This is the ADR 0074 v0.61 input.
 
-## v1.4 Mobile-Readiness Follow-On
+## v1.8 Mobile-Readiness Follow-On
 
-The v0.61 responsive-role gap is implemented as a v1.4 measured-browser
+The v0.61 responsive-role gap is implemented as a v1.8 measured-browser
 hardening pass rather than a second page-local design system:
 
 - one rem-based breakpoint namespace, with `48rem` preserving the current
@@ -101,6 +101,6 @@ hardening pass rather than a second page-local design system:
   recovery-required visual states.
 
 Physical-device dynamic-toolbar and sticky-composer proof remains part of the
-operator-owned responsive-information-architecture remainder, not v1.4
+operator-owned responsive-information-architecture remainder, not v1.8
 acceptance. The production web service stays loopback-bound; configurable
-authenticated non-local access is v1.6 scope.
+authenticated non-local access is v1.7 scope.

@@ -9,7 +9,7 @@ installer resolve to that stable GitHub Latest release.
 It includes the daemon-backed thin TUI, packaged license inventory/viewer,
 reviewed long-term Memory, and Search Central. The tagged v1.3.1 corrective
 source line does not update an installed binary; those corrections first reach
-packaged operators in v1.4.
+packaged operators in v1.8.
 
 Allbert ships its direct runtime dependencies and Erlang/OTP runtime — no
 Elixir/OTP toolchain is required on your machine. Optional browser research

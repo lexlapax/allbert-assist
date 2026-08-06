@@ -85,7 +85,7 @@ embedding — routing-only; retrieval here stays lexical), ADR 0083/0084/0085
 paired act that removes what was said, where Forget removes what Allbert
 concluded), and ADR 0090 (adaptive usage profiling — the
 system-facing sibling that consumes the same usage-history sources in
-v1.4).
+v1.8).
 
 ## Context
 
@@ -878,7 +878,7 @@ and no code path honors an auto-promotion setting.
   preserves cross-domain records; its disclosure names those retained copies.
 - Search and Memory remain independent consumers of the conversation corpus;
   neither one's projection is authority for the other.
-- v1.4's profiling reads the same episodic sources and proposes through
+- v1.8's profiling reads the same episodic sources and proposes through
   an analogous confirm-first boundary (ADR 0090) — the two releases share
   the propose/review grammar deliberately.
 

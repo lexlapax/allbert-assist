@@ -17,7 +17,7 @@ Status: **shipped source-only on 2026-08-05.** Annotated `[skip-artifacts]` tag
 `7a27a9cc12e1fed66de67f0fd253ad5f27e04955`. Attended source validation, the
 eight-step `release.v131` delta gate, and the sole 12-phase authoritative
 aggregate passed. This line built no archive, GitHub Release, signature, or
-Homebrew update. `v1.3.0` remains the packaged Latest, and v1.4 is the next
+Homebrew update. `v1.3.0` remains the packaged Latest, and v1.8 is the next
 binary carrier. Plan: `docs/plans/archives/v1.3.1-plan.md`; request flow:
 `docs/plans/archives/v1.3.1-request-flow.md`.
 
@@ -41,7 +41,7 @@ binary carrier. Plan: `docs/plans/archives/v1.3.1-plan.md`; request flow:
   than a correctness or operator-domain warrant.
 - The bounded dependency review changed no lock entry. Hex 2.5.1 reports no
   retired or advisory package; `ymlr` remains on fixed 5.1.6. Three compatible
-  updates remain with v1.4's binary dependency-refresh milestone.
+  updates remain with v1.8's binary dependency-refresh milestone.
 - Final attended validation preserved Memory keep/archive/restore/restart,
   proved paused dirty managed jobs remain due-less until one resume catch-up,
   repeated both 30/30 real-provider qualification matrices with explicit

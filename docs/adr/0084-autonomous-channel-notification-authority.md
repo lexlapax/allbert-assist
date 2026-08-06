@@ -316,14 +316,14 @@ passed that expanded gate (`release-v11-1785097379.json`), pre-push
 (`prepush-2026-07-26T20_32_10Z.json`), and the authoritative release cascade
 (`release-2026-07-26T20_48_52Z.json`).
 
-## Amendment (v1.4 planning, 2026-07-24; revised 2026-08-06) — additive `:suggestion` notification kind
+## Amendment (v1.8 planning, 2026-07-24; revised 2026-08-06) — additive `:suggestion` notification kind
 
 This amendment remains Proposed with ADR 0090 and becomes accepted only when
-v1.4 M8 proves its enrollment, deferral, coalescing, rate-cap, redaction, and
+v1.8 M8 proves its enrollment, deferral, coalescing, rate-cap, redaction, and
 non-approval rows. The source-only v1.3.1 predecessor is shipped and closed;
-v1.4 remains the first packaged carrier of this additive kind.
+v1.8 remains the first packaged carrier of this additive kind.
 
-v1.4 adds “suggestions are ready” delivery as a kind on the existing
+v1.8 adds “suggestions are ready” delivery as a kind on the existing
 `Channels.Notify` authority boundary, never as a second producer-to-transport
 spine.
 
@@ -358,7 +358,7 @@ spine.
    remains. Enabling ordinary autonomous notify does not enroll suggestions, and
    suggestion enrollment does not enable other kinds.
 
-4. **Email is excluded in v1.4.** Email's completion-only/digest posture does
+4. **Email is excluded in v1.8.** Email's completion-only/digest posture does
    not admit `:suggestion`. Attempted email enrollment or delivery is rejected
    before a transport reservation. Adding it later requires an explicit
    amendment and its own payload, cadence, and abuse-case proof.
@@ -407,7 +407,7 @@ spine.
    disconnects, job completions outside the existing fan-out contract, and any
    other future class require their own decision on this authority boundary.
 
-The v1.4 `:v14` gate must prove wrong-user and remapped-thread denial;
+The v1.8 `:v18` gate must prove wrong-user and remapped-thread denial;
 default-off behavior; explicit enrollment and revocation; overnight and DST
 deferral; restart-safe coalescing; concurrent per-day reservation; uncertain
 send no-retry; deterministic redaction; email exclusion; and that no

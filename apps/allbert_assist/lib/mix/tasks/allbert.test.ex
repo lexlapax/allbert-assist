@@ -241,16 +241,16 @@ defmodule Mix.Tasks.Allbert.Test do
     "docs/plans/roadmap.md",
     "docs/plans/allbert-jido-vision.md",
     "docs/plans/future-features.md",
+    "docs/plans/v1.8-plan.md",
+    "docs/plans/v1.8-request-flow.md",
     "docs/plans/v1.4-plan.md",
     "docs/plans/v1.4-request-flow.md",
+    "docs/plans/v1.7-plan.md",
+    "docs/plans/v1.7-request-flow.md",
     "docs/plans/v1.5-plan.md",
     "docs/plans/v1.5-request-flow.md",
     "docs/plans/v1.6-plan.md",
-    "docs/plans/v1.6-request-flow.md",
-    "docs/plans/v1.7-plan.md",
-    "docs/plans/v1.7-request-flow.md",
-    "docs/plans/v1.8-plan.md",
-    "docs/plans/v1.8-request-flow.md"
+    "docs/plans/v1.6-request-flow.md"
   ]
 
   defp docs_staleness_check! do
