@@ -44,11 +44,11 @@ default or hardware-floor change.
 ## v1.3 DirectAnswer And Fan-Out Qualification
 
 The global `local` profile and curated first model still use
-`llama3.2:3b`. DirectAnswer now has a separate qualified local profile:
+`llama3.2:3b`. DirectAnswer has a separate local profile:
 
 | Profile | Model | Controls | Purpose |
 |---|---|---|---|
-| `direct_answer_local` | `qwen2.5:7b` | temperature `0`, maximum `1024` output tokens, 60-second timeout | Useful, deterministic text DirectAnswer responses, including supplied-text extraction and acknowledgment. Vision continues to resolve its `vision_input` profile. |
+| `direct_answer_local` | `qwen2.5:7b` | temperature `0`, maximum `1024` output tokens, 60-second timeout | Shipped deterministic DirectAnswer default; it does not meet the v1.3.1 qualification floor. Vision continues to resolve its `vision_input` profile. |
 
 The default DirectAnswer task list is
 `model_preferences.tasks.direct_answer = ["direct_answer_local"]`. A non-empty
@@ -68,9 +68,10 @@ under `rest_for_one`, it answers that only the crashed child restarts. That
 describes `one_for_one`. `rest_for_one` restarts the crashed child and every
 child started after it.
 
-Probed on that same question, `llama3.1:8b` and
-`mistral_small31_24b` are also wrong, and `gemma4:31b` is correct. Model size
-does not predict accuracy here.
+In earlier single probes on that question, `llama3.1:8b` and
+`mistral_small31_24b` were also wrong and `gemma4:31b` was correct. The later
+repeated v1.3.1 bar did not reproduce that Gemma success. Model size and one
+good answer do not predict reliability here.
 
 There is a second, rarer failure mode. Asked to acknowledge a stated preference,
 the default head once answered that status summaries "will be provided" starting
@@ -83,35 +84,69 @@ schedules, stores, and sends nothing on the strength of an acknowledgment, so
 never read a future-tense answer as evidence that anything was scheduled,
 stored, or sent.
 
-### Selecting a stronger answering head
+### Qualifying and selecting an answering head
 
-If factual precision or careful instruction-following matters for your work,
-select a larger head for DirectAnswer rather than relying on the default. The
-seam is one setting:
+v1.3.1 source includes a small, frozen qualification bar. Run it from a source
+checkout; it is not present in the v1.3.0 packaged binary:
 
 ```sh
-allbert admin settings set intent.direct_answer_model_profile <profile>
+mix allbert.test qualify-head --profile direct_answer_local --model qwen2.5:7b --trials 5 --timeout-ms 60000
+mix allbert.test qualify-head --profile direct_answer_local --model gemma4:31b --trials 5 --timeout-ms 60000
 ```
 
-Pick a profile from the Models catalog whose model you have pulled and can run.
-Larger heads cost proportionally more disk and memory: the default `qwen2.5:7b`
-is roughly 4.7 GB, while a 31B head is roughly 20 GB and will not run
-comfortably on a 16 GB machine. Allbert does not raise this default for you,
-because the hardware floor is your constraint rather than its preference.
+The command first performs one unscored warm-up. It then runs six frozen rows
+five times each through the production DirectAnswer prompt and request path. A
+complete result prints six `row=... passes=N/5` lines, factual and instruction
+class rates, and one `qualified` or `unqualified` verdict. The release floor is
+strict: every row must pass 5/5 and both classes must be 100%. A timeout,
+refusal, empty response, or transport failure after warm-up remains a failed
+trial in the 30-attempt denominator. Provider setup or warm-up failure is
+environment RED and produces no head verdict.
 
-Qualify any head you select on your own material before trusting it. Allbert
-ships no factual-accuracy bar for answering heads today; that qualification is
-planned rather than delivered, so a head that answers your domain well is
-something you establish, not something the default asserts.
+The v1.3.1 required matrix at clean source SHA `6435d2e14` recorded:
+
+| Model | Warm-up | OTP | event replay | SQLite WAL | acknowledgment | YAML as data | exact answer | Factual | Instruction | Verdict |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| `qwen2.5:7b` | pass | 0/5 | 0/5 | 0/5 | 5/5 | 0/5 | 5/5 | 0/15 | 10/15 | unqualified |
+| `gemma4:31b` | pass | 0/5 | 0/5 | 0/5 | 1/5 | 0/5 | 5/5 | 0/15 | 6/15 | unqualified |
+
+The Gemma event-replay and acknowledgment rows each included four 60-second
+timeouts; all qwen failures and the remaining Gemma failures were deterministic
+validator failures. Neither head is recommended by this bar, and v1.3.1 changes
+no default. The default is retained for compatibility and disclosed as below
+the new floor—not relabeled as qualified.
+
+To compare another local model without changing durable Settings, replace only
+the `--model` value. After you create or select a real capable profile, change
+the live DirectAnswer chain and verify it explicitly:
+
+```sh
+allbert admin models use-direct-answer PROFILE
+allbert admin settings get model_preferences.tasks.direct_answer
+```
+
+The underlying live key is `model_preferences.tasks.direct_answer`. The older
+`intent.direct_answer_model_profile` key remains accepted as a single-profile
+write-alias, but it is not the durable readback contract. A non-empty live list
+is the complete operator-ordered chain.
+
+Larger heads cost proportionally more disk and memory: `qwen2.5:7b` is roughly
+4.7 GB, while the tested 31B head is roughly 19–20 GB and will not run
+comfortably on a 16 GB machine. More importantly, the recorded result shows that
+larger is not automatically better.
+
+This bar is a regression floor, not a correctness warrant. Passing it would not
+prove a head correct, cover rare failures, or say anything about your own
+domain. Run your own representative material and verify specialist answers
+against primary sources before trusting a selected profile.
 
 Treat model answers on specialist topics as advisory and verify them against a
 primary source. Allbert's own status, receipts, effect evidence, and report
 structure are deterministic and unaffected by this: a wrong claim inside an
 answer never becomes effect evidence, and the authoritative child-results
 appendix always shows what actually ran. If your work depends on factual
-accuracy in a specific domain, select a stronger head for
-`model_preferences.tasks.direct_answer` and qualify it on your own material
-first.
+accuracy in a specific domain, evaluate a candidate against both this floor and
+your own material before changing `model_preferences.tasks.direct_answer`.
 
 Fan-out has two separate closed task chains, each defaulting to
 `["direct_answer_local"]`:

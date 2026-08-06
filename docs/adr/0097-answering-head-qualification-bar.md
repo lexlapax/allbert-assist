@@ -2,8 +2,10 @@
 
 ## Status
 
-Proposed (v1.3.1). Binding on `docs/plans/v1.3.1-plan.md` M1–M4 and
-`docs/plans/v1.3.1-request-flow.md`.
+Accepted (v1.3.1 M1–M4). The digest-bound six-row corpus, deterministic scorer,
+production-path runner, bounded content-free evidence, required two-head matrix,
+and operator guidance implement this decision. Binding on
+`docs/plans/v1.3.1-plan.md` and `docs/plans/v1.3.1-request-flow.md`.
 
 Sourced from v1.3 M9.b.8, deferred by operator decision on 2026-08-02. v1.3.0
 ships the default answering head unchanged, discloses two recorded failure modes
@@ -163,10 +165,11 @@ claim otherwise.
 
 ## Alternatives Considered
 
-**Raise the default head to `gemma4:31b`.** Correct on the recorded factual row,
-but roughly 20 GB — unusable on the 16 GB machines Allbert targets — and
-untested on the instruction-following row. It would trade a disclosed limit for
-an undisclosed one and an install most operators cannot run.
+**Raise the default head to `gemma4:31b`.** One early probe answered the recorded
+factual question correctly, but the frozen repeated bar later qualified neither
+the factual nor instruction-following classes. At roughly 20 GB it is also
+unusable on the 16 GB machines Allbert targets. It would trade a disclosed limit
+for an undisclosed one and an install most operators cannot run.
 
 **Detect future-tense commitments in the request path.** Directly addresses the
 observed instruction failure and is deterministic. Rejected: it is the domain
