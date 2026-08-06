@@ -11,7 +11,7 @@ Listed in ship order after the 2026-08-06 resequencing.
 
 - [v1.3.2 foundational enablers plan](v1.3.2-plan.md) and
   [request flow](v1.3.2-request-flow.md) (implementation in progress,
-  source-only; M1–M3 complete, M3.1 independent-review remediation active)
+  source-only; M1–M3.1 complete, attended source validation next)
 - [v1.4 spine enablers plan](v1.4-plan.md) and
   [request flow](v1.4-request-flow.md) (planned; carries the accepted kernel
   inversions; readiness passes not yet run)

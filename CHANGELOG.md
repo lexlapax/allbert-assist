@@ -14,11 +14,12 @@ changelog entries or release notes.
 
 Status: **implementation in progress for a source-only `[skip-artifacts]`
 point tag.** M1–M3 implementation and focused reconciliation are complete. The
-independent M3.1 review held attended validation on six blocking findings; one
-batched remediation and closure review are in progress before source validation
-and final gates. This line creates no native archive, GitHub Release, signature,
-Homebrew update, packaged FV, or Latest movement. `v1.3.0` remains the packaged
-Latest; v1.4 is the next binary carrier.
+independent M3.1 review held attended validation on six blocking findings; the
+batched systemic remediation, exact-state gates, and same-reviewer closure are
+green. Attended source validation and final gates remain. This line creates no
+native archive, GitHub Release, signature, Homebrew update, packaged FV, or
+Latest movement. `v1.3.0` remains the packaged Latest; v1.4 is the next binary
+carrier.
 
 - `mix allbert.test preflight` now provides one under-two-minute,
   cheapest-first gate with exact-state attestation and refusal, forced
