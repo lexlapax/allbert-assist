@@ -244,6 +244,17 @@ cannot be treated as application authority.
 
 ### 4. Per-role model profiles
 
+**Split across two releases by the 2026-08-06 resequencing.** The *resolution*
+half of this decision — fragments, nil defaults, alias expansion, diagnostic
+skip, and concrete-profile-only values — ships in **v1.3.2**, because Knowledge
+Central hard-depends on `model_roles.capable` and hosted-provider OAuth wants a
+consumer, and neither should wait behind a profiling flagship. The *remap* half
+— a profiling suggestion proposing a role change, its allowlist entry, and the
+same-provider/endpoint/locality guard — ships in **v1.8** with the rest of
+confirmed customization. The split follows the authority line: resolution is
+additive and grants nothing, while proposing a remap is part of the one
+sanctioned application path and must not ship in halves.
+
 The only role references are `role:fast`, `role:capable`, and
 `role:thinking`. Their Settings fragments are
 `model_roles.<role>.profile`, and all three default to `nil`. An unconfigured
