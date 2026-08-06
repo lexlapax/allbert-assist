@@ -1051,7 +1051,7 @@ one profile-execution receipt, six scored results, and one summary. Rows contain
 provenance, digests, counts, durations, closed failure reasons, and verdicts—
 never prompts or answers. The command is absent from every aggregate, release,
 precommit, and CI definition; its required two-head source matrix is attended
-release evidence named by the active v1.3.1 request flow.
+release evidence named by the archived v1.3.1 request flow.
 
 ### v1.0.2 M8 Final Measurement — 2026-07-17
 
@@ -1629,7 +1629,7 @@ executing a gate. Do not serially rerun inherited versioned gates when structura
 equality is proved; retain the older gate as fallback when it is not.
 
 `release.v131` is deliberately not another prefix aggregate. It is the exact
-eight-step corrective delta frozen by the active v1.3.1 plan: the two correction
+eight-step corrective delta frozen by the archived v1.3.1 plan: the two correction
 owner groups, qualification corpus/scorer/command owners, task-topology proof,
 docs, version/source-package-lag contract, and inventory tag/manifest checks.
 `mix allbert.test release.structure v131` proves the v1.3 32-step definition is

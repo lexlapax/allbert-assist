@@ -63,9 +63,8 @@ becoming opaque or unbounded.
 ## Current Shape
 
 This README is the stable project orientation. The current packaged release is
-**v1.3.0**. The v1.3.1 corrective source line is implemented and awaiting its
-operator-approved source-only point tag; v1.3.0 remains the installed/package-
-manager line until v1.4.
+**v1.3.0**. The v1.3.1 corrective source line is tagged source-only; v1.3.0
+remains the installed/package-manager line until v1.4.
 For features and the full release-by-release history, see the
 [CHANGELOG](CHANGELOG.md); forward planning lives in the [roadmap](docs/plans/roadmap.md).
 

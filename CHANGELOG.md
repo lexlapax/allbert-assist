@@ -12,10 +12,14 @@ changelog entries or release notes.
 
 ## v1.3.1 - Answering-Head Qualification And Corrective Hardening
 
-Status: **source implementation complete through M4.2; M5 attended source
-validation, release gates, and the operator-approved `[skip-artifacts]` tag are
-pending.** This line builds no archive, GitHub Release, signature, or Homebrew
-update. `v1.3.0` remains the packaged Latest, and v1.4 is the next binary carrier.
+Status: **shipped source-only on 2026-08-05.** Annotated `[skip-artifacts]` tag
+`v1.3.1` peels to accepted implementation SHA
+`7a27a9cc12e1fed66de67f0fd253ad5f27e04955`. Attended source validation, the
+eight-step `release.v131` delta gate, and the sole 12-phase authoritative
+aggregate passed. This line built no archive, GitHub Release, signature, or
+Homebrew update. `v1.3.0` remains the packaged Latest, and v1.4 is the next
+binary carrier. Plan: `docs/plans/archives/v1.3.1-plan.md`; request flow:
+`docs/plans/archives/v1.3.1-request-flow.md`.
 
 - Memory's disposable projection schema now distinguishes the verified input
   digest of the last full build from later bounded per-claim revisions. Existing
@@ -38,6 +42,14 @@ update. `v1.3.0` remains the packaged Latest, and v1.4 is the next binary carrie
 - The bounded dependency review changed no lock entry. Hex 2.5.1 reports no
   retired or advisory package; `ymlr` remains on fixed 5.1.6. Three compatible
   updates remain with v1.4's binary dependency-refresh milestone.
+- Final attended validation preserved Memory keep/archive/restore/restart,
+  proved paused dirty managed jobs remain due-less until one resume catch-up,
+  repeated both 30/30 real-provider qualification matrices with explicit
+  unqualified verdicts, and kept ordinary attached-TUI DirectAnswer routing
+  usable. `release.v131` passed all eight steps in 76.534 seconds; the one
+  aggregate passed all twelve phases in 5,181 seconds with zero Dialyzer errors.
+  No v1.3.1 GitHub Release exists, v1.3.0 remains Latest, and the Homebrew tap
+  remained unchanged.
 
 ## v1.3.0 - Long-Term Memory And Search Central
 

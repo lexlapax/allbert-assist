@@ -44,7 +44,7 @@ sources. The plan/request-flow set for every released version lives in
 [plans/archives](plans/archives/README.md); the current line is:
 
 - Current shipped line: **v1.3.0** — [long-term memory and Search Central plan](plans/archives/v1.3-plan.md) · [request flow](plans/archives/v1.3-request-flow.md)
-- Current source closeout: **v1.3.1** — [qualification and corrective-hardening plan](plans/v1.3.1-plan.md) · [request flow](plans/v1.3.1-request-flow.md) (implementation complete through M4.2; operator-approved source-only tag and final gates pending; v1.3.0 remains the packaged Latest)
+- Current source closeout: **v1.3.1** — [qualification and corrective-hardening plan](plans/archives/v1.3.1-plan.md) · [request flow](plans/archives/v1.3.1-request-flow.md) (source-only tag shipped; v1.3.0 remains the packaged Latest)
 
 For release-specific validation, use the matching request-flow document rather
 than this index.

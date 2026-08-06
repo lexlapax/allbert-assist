@@ -5,7 +5,8 @@
 Accepted (v1.3.1 M1–M4). The digest-bound six-row corpus, deterministic scorer,
 production-path runner, bounded content-free evidence, required two-head matrix,
 and operator guidance implement this decision. Binding on
-`docs/plans/v1.3.1-plan.md` and `docs/plans/v1.3.1-request-flow.md`.
+`docs/plans/archives/v1.3.1-plan.md` and
+`docs/plans/archives/v1.3.1-request-flow.md`.
 
 Sourced from v1.3 M9.b.8, deferred by operator decision on 2026-08-02. v1.3.0
 ships the default answering head unchanged, discloses two recorded failure modes

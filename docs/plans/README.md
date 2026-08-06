@@ -7,11 +7,6 @@ plan and request-flow documents.
 ## Current And Next
 
 - [Roadmap](roadmap.md)
-- [v1.3.1 qualification and corrective-hardening plan](v1.3.1-plan.md) and
-  [request flow](v1.3.1-request-flow.md) (implementation complete through M4.2;
-  M5 validation/gates/source tag pending; v1.3 predecessor cleared;
-  operator-approved source-only `[skip-artifacts]` point tag carrying M9.b.8
-  plus the two v1.3 post-validation corrections)
 - [v1.4 adaptive usage profiling plan](v1.4-plan.md) and
   [request flow](v1.4-request-flow.md) (planned; v1.3 predecessor cleared)
 - [v1.5 spine enablers plan](v1.5-plan.md) and
@@ -40,6 +35,8 @@ authoritative summaries.
   [request flow](archives/v1.2-request-flow.md)
 - [v1.3 long-term memory and Search Central shipped plan](archives/v1.3-plan.md)
   and [request flow](archives/v1.3-request-flow.md)
+- [v1.3.1 qualification and corrective-hardening shipped source plan](archives/v1.3.1-plan.md)
+  and [request flow](archives/v1.3.1-request-flow.md)
 
 ## Conventions
 
