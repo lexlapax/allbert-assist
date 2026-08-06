@@ -359,12 +359,14 @@ rather than assigning the same foundation to a later release.
 | `model_roles.fast|capable|thinking` resolution | v1.3.2 | v1.4 | v1.6 Knowledge Central (`capable`), v1.7 hosted-provider consumers, v1.8 confirmed remaps |
 | role-remap suggestion, confirmation, and egress guard | v1.8 | v1.8 | adaptive profiling/customization only; it consumes but does not redefine role resolution |
 
-9. **1.3.2 — Foundational enablers.** (**IN IMPLEMENTATION — M0 through M3.1
-   and attended source validation complete 2026-08-06; final gates next:**
-   `docs/plans/v1.3.2-plan.md` + request-flow; no new ADR — preflight is release
-   tooling and `model_roles` ships the resolution half of ADR 0090 §4.)
-   Source-only `[skip-artifacts]` point tag; v1.3.1's precedent. No GitHub
-   Release, no tap movement, packaged Latest stays at v1.3.0.) Two things
+9. **1.3.2 — SHIPPED — Foundational enablers.** (Source-only annotated
+   `[skip-artifacts]` tag `v1.3.2` at accepted SHA `28dc39e0d`, 2026-08-06;
+   [archived plan](archives/v1.3.2-plan.md) +
+   [request flow](archives/v1.3.2-request-flow.md); no new ADR — preflight is
+   release tooling and `model_roles` ships the resolution half of ADR 0090 §4.
+   Independent review, attended validation, `release.v1`, `release.v132`, and
+   the one aggregate passed. No GitHub Release or tap movement; packaged Latest
+   stays at v1.3.0.) Two things
    extracted from the profiling release because every later release depends on
    them and nothing depends on profiling:
    `mix allbert.test preflight` (cheapest-first gate under two minutes, its

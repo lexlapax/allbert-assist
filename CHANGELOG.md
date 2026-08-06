@@ -12,14 +12,15 @@ changelog entries or release notes.
 
 ## v1.3.2 - Foundational Preflight And Model Roles
 
-Status: **implementation in progress for a source-only `[skip-artifacts]`
-point tag.** M1–M3 implementation and focused reconciliation are complete. The
-independent M3.1 review held attended validation on six blocking findings; the
-batched systemic remediation, exact-state gates, and same-reviewer closure are
-green. Attended source validation also passed after one documentation-only
-expectation correction; final gates remain. This line creates no native
-archive, GitHub Release, signature, Homebrew update, packaged FV, or Latest
-movement. `v1.3.0` remains the packaged Latest; v1.4 is the next binary carrier.
+Status: **shipped source-only on 2026-08-06.** Annotated `[skip-artifacts]` tag
+`v1.3.2` peels to accepted implementation SHA
+`28dc39e0d25e8f8c6408d0a2b35fed27005a1479`. Independent review, attended
+source validation, preflight, `release.v1`, the eight-step `release.v132`
+delta, and the sole 12-phase authoritative aggregate passed. This line built no
+native archive, GitHub Release, signature, Homebrew update, packaged FV, or
+Latest movement. `v1.3.0` remains the packaged Latest; v1.4 is the next binary
+carrier. Plan: `docs/plans/archives/v1.3.2-plan.md`; request flow:
+`docs/plans/archives/v1.3.2-request-flow.md`.
 
 - `mix allbert.test preflight` now provides one under-two-minute,
   cheapest-first gate with exact-state attestation and refusal, forced
@@ -48,6 +49,12 @@ movement. `v1.3.0` remains the packaged Latest; v1.4 is the next binary carrier.
   definitions, owns only the new preflight/model-role/docs/version/inventory
   rows, and cannot nest a predecessor, aggregate, precommit, or compatibility
   run. The docs gate now checks local Markdown links in both archive trees.
+- Final preflight passed in 108 seconds; `release.v1` and all eight bounded
+  `release.v132` steps passed. The sole authoritative aggregate passed all
+  twelve phases in 5,281 seconds, including Web (342/0), StockSage (203/0),
+  channel plugins (35/0), and Dialyzer with zero errors. The tag created no
+  v1.3.2 GitHub Release, left v1.3.0 as Latest, and left the Homebrew tap at
+  `715d4d51f90ce58e4b9f60a91976dabff858e6ad`.
 
 ## v1.3.1 - Answering-Head Qualification And Corrective Hardening
 

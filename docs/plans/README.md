@@ -9,10 +9,6 @@ plan and request-flow documents.
 - [Roadmap](roadmap.md)
 Listed in ship order after the 2026-08-06 resequencing.
 
-- [v1.3.2 foundational enablers plan](v1.3.2-plan.md) and
-  [request flow](v1.3.2-request-flow.md) (implementation in progress,
-  source-only; M1–M3.1 and attended source validation complete, final gates
-  next)
 - [v1.4 spine enablers plan](v1.4-plan.md) and
   [request flow](v1.4-request-flow.md) (readiness rewrite completed 2026-08-06;
   ready to execute M0, with implementation beyond its evidence barriers closed
@@ -32,7 +28,7 @@ Listed in ship order after the 2026-08-06 resequencing.
 
 ## Archives
 
-Every released version's plan/request-flow pair (v0.01 through v1.3.1, plus the
+Every released version's plan/request-flow pair (v0.01 through v1.3.2, plus the
 v1.0 handoff) lives in [archives/](archives/). They are shipped-history working records:
 search them for provenance and past decisions; the roadmap and CHANGELOG are the
 authoritative summaries.
@@ -53,6 +49,8 @@ authoritative summaries.
   and [request flow](archives/v1.3-request-flow.md)
 - [v1.3.1 qualification and corrective-hardening shipped source plan](archives/v1.3.1-plan.md)
   and [request flow](archives/v1.3.1-request-flow.md)
+- [v1.3.2 foundational-enablers shipped source plan](archives/v1.3.2-plan.md)
+  and [request flow](archives/v1.3.2-request-flow.md)
 
 ## Conventions
 
