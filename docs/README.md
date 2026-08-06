@@ -15,6 +15,10 @@ For operators trying Allbert locally (same entry sequence as the top-level
 - [Optional onboarding](operator/onboarding.md) - guided profiles, provider setup,
   integrations, and repair after chat is available.
 - [Local knowledge](operator/local-knowledge.md) - connect local files/notes and reviewed agent memory.
+- [Active Memory](operator/active-memory.md) - review, retrieve, archive,
+  restore, and Forget long-term Memory.
+- [Conversation Search](operator/conversation-search.md) - search retained
+  conversation history across local surfaces and scoped mapped DMs.
 - [Operator guide index](operator/README.md) - all task-focused operating guides.
 - [Current changelog](../CHANGELOG.md) - shipped behavior and release status.
 - [Roadmap](plans/roadmap.md) - release sequence and next milestones.
@@ -40,7 +44,7 @@ sources. The plan/request-flow set for every released version lives in
 [plans/archives](plans/archives/README.md); the current line is:
 
 - Current shipped line: **v1.3.0** — [long-term memory and Search Central plan](plans/archives/v1.3-plan.md) · [request flow](plans/archives/v1.3-request-flow.md)
-- Next planned line: **v1.3.1** — [qualification and corrective-hardening plan](plans/v1.3.1-plan.md) · [request flow](plans/v1.3.1-request-flow.md) (operator-approved source-only point tag; v1.3.0 remains the packaged Latest)
+- Current source closeout: **v1.3.1** — [qualification and corrective-hardening plan](plans/v1.3.1-plan.md) · [request flow](plans/v1.3.1-request-flow.md) (implementation complete through M4.2; operator-approved source-only tag and final gates pending; v1.3.0 remains the packaged Latest)
 
 For release-specific validation, use the matching request-flow document rather
 than this index.

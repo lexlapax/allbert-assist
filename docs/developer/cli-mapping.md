@@ -63,6 +63,11 @@ administrative storage command. `allbert admin memory search` remains a
 different operation over reviewed Memory claims. See the operator
 [Conversation Search guide](../operator/conversation-search.md).
 
+v1.3.1's `mix allbert.test qualify-head` remains development-only and has no
+packaged `allbert` twin. It exercises the production DirectAnswer assembly from
+a source checkout but records only offline, content-free qualification evidence;
+it is not a runtime command or a new operator authority surface.
+
 | Mix task | `allbert` command |
 |---|---|
 | `mix allbert.acp_server` | `allbert serve` |

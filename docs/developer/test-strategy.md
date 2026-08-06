@@ -1042,6 +1042,17 @@ exhausted: freeze evidence, leave defaults/catalog unchanged, do not rerun/tune
 or enter FOV, and return to the operator. No aggregate, package, or operator-
 validation run has been claimed for these checkpoints.
 
+v1.3.1 adds `qualify-head` as a fourth opt-in v1.3-family evidence producer.
+It validates the digest-bound six-row corpus before a provider call, performs
+one content-free warm-up, then runs exactly five serial trials per row through
+the production DirectAnswer assembly with 60-second receive/whole-call bounds
+and zero retries. A completed command appends exactly eight content-free rows:
+one profile-execution receipt, six scored results, and one summary. Rows contain
+provenance, digests, counts, durations, closed failure reasons, and verdicts—
+never prompts or answers. The command is absent from every aggregate, release,
+precommit, and CI definition; its required two-head source matrix is attended
+release evidence named by the active v1.3.1 request flow.
+
 ### v1.0.2 M8 Final Measurement — 2026-07-17
 
 Census: **512 test files** (505 at M1 + the seven M4 split files), zero
@@ -1303,7 +1314,7 @@ command that does not exist. v1.3.1 freezes that temporary bundle in M0.
 
 | Gate | Use | Evidence |
 | --- | --- | --- |
-| **Preflight** | **First, before anything expensive. Every release phase and every remediation.** | `mix allbert.test preflight`: compile matrix across every supported Elixir version, formatter, `git diff --check`, docs gate, registry/param-contract consistency, inventory and manifest reconciliation, fixture-drift checks, lane classification. Budget: **under two minutes**. Nothing downstream starts until green. |
+| **Preflight** | **First, before anything expensive. Every release phase and every remediation.** | After v1.4 M0.5, `mix allbert.test preflight`: compile matrix across every supported Elixir version, formatter, `git diff --check`, docs gate, registry/param-contract consistency, inventory and manifest reconciliation, fixture-drift checks, lane classification. Budget: **under two minutes**. Until that command exists, run the active plan's enumerated cheap equivalent. |
 | Docs | Docs-only changes. | `mix allbert.test docs` (`git diff --check` and reference checks when configured). |
 | Focused | Every implementation milestone. | `mix allbert.test focused -- <files...>` using explicit files named in the plan/request-flow doc. |
 | Static | Code changes. | compile warning gate, formatter check, Credo strict, Dialyzer when required. |
@@ -1616,6 +1627,17 @@ and surfaces/legacy retirement. `mix allbert.test release.structure v13`
 computes and records the v1 -> v1.2 -> v1.2.6 -> v1.3 exact-prefix chain without
 executing a gate. Do not serially rerun inherited versioned gates when structural
 equality is proved; retain the older gate as fallback when it is not.
+
+`release.v131` is deliberately not another prefix aggregate. It is the exact
+eight-step corrective delta frozen by the active v1.3.1 plan: the two correction
+owner groups, qualification corpus/scorer/command owners, task-topology proof,
+docs, version/source-package-lag contract, and inventory tag/manifest checks.
+`mix allbert.test release.structure v131` proves the v1.3 32-step definition is
+unchanged, every closed target exists and has authoritative lane coverage, and
+no step invokes `release.v13`, `release`, `precommit`, or `qualify-head`.
+Attended source validation runs first; `release.v131` then runs once before the
+one authoritative aggregate required by the shared projection change. A warm
+delta-gate run over ten minutes is topology drift.
 
 The archived v1.3 plan names exact focused files and serial lanes per milestone.
 License catalog/finalizer fixtures and TUI packet/state-machine tests are source

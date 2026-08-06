@@ -10,6 +10,35 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v1.3.1 - Answering-Head Qualification And Corrective Hardening
+
+Status: **source implementation complete through M4.2; M5 attended source
+validation, release gates, and the operator-approved `[skip-artifacts]` tag are
+pending.** This line builds no archive, GitHub Release, signature, or Homebrew
+update. v1.3.0 remains the packaged Latest, and v1.4 is the next binary carrier.
+
+- Memory's disposable projection schema now distinguishes the verified input
+  digest of the last full build from later bounded per-claim revisions. Existing
+  schema-1 projections rebuild; canonical Markdown, retrieval consent, and
+  public Memory results do not change.
+- The one managed Jobs engine now keeps `next_due_at` nil for every paused or
+  disabled managed identity while preserving dirty intent. Resume computes one
+  catch-up opportunity through the existing atomic admission path.
+- `mix allbert.test qualify-head` runs a frozen, digest-bound six-row factual and
+  instruction-following corpus through the production DirectAnswer assembly.
+  Five serial trials per row use deterministic code-owned validators, bounded
+  provider calls, candidate-profile isolation, and content-free evidence. It is
+  opt-in source tooling, not a runtime oracle, aggregate step, or default-model
+  selector.
+- The required `qwen2.5:7b` and `gemma4:31b` matrix completed at clean source SHA
+  `6435d2e145b2cbe0e41a38c2f939da16d80458b3`; both were unqualified at the
+  frozen 5/5-per-row and 100%-per-class floor. The source line therefore changes
+  no answering-head default and documents the bar as a regression floor rather
+  than a correctness or operator-domain warrant.
+- The bounded dependency review changed no lock entry. Hex 2.5.1 reports no
+  retired or advisory package; `ymlr` remains on fixed 5.1.6. Three compatible
+  updates remain with v1.4's binary dependency-refresh milestone.
+
 ## v1.3.0 - Long-Term Memory And Search Central
 
 Status: **shipped 2026-08-05.** Immutable release `365684798` contains the exact
@@ -1924,8 +1953,9 @@ Request flow: `docs/plans/archives/v0.53-request-flow.md`.
 Operator docs: `docs/operator/telegram-channel.md`,
 `docs/operator/email-channel.md`, `docs/operator/matrix-channel.md`,
 `docs/operator/whatsapp-channel.md`, `docs/operator/signal-channel.md`.
-Developer docs: `docs/developer/key-custody.md`,
-`docs/developer/channel-trust-class.md`.
+Current security/channel references: `docs/operator/security-hardening.md`,
+`docs/developer/channel-approval-primitives.md`, and
+`docs/developer/channel-parity.md`.
 
 ### Added
 

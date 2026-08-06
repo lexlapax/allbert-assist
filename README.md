@@ -63,8 +63,9 @@ becoming opaque or unbounded.
 ## Current Shape
 
 This README is the stable project orientation. The current packaged release is
-**v1.3.0**. The planned v1.3.1 corrective line is an operator-approved source-
-only point tag; v1.3.0 remains the installed/package-manager line until v1.4.
+**v1.3.0**. The v1.3.1 corrective source line is implemented and awaiting its
+operator-approved source-only point tag; v1.3.0 remains the installed/package-
+manager line until v1.4.
 For features and the full release-by-release history, see the
 [CHANGELOG](CHANGELOG.md); forward planning lives in the [roadmap](docs/plans/roadmap.md).
 
@@ -145,6 +146,8 @@ If you want to run Allbert on your own machine:
   customization, provider setup, and repair after chat is available.
 - [docs/operator/local-knowledge.md](docs/operator/local-knowledge.md): connect
   local files/notes and reviewed agent memory (the launch integration).
+- [docs/operator/active-memory.md](docs/operator/active-memory.md): review,
+  retrieve, archive, restore, and Forget long-term Memory.
 - [docs/operator/conversation-search.md](docs/operator/conversation-search.md):
   search retained conversation history across the shared operator surfaces.
 - [docs/operator/install.md](docs/operator/install.md): packaged install,
@@ -209,7 +212,7 @@ AGPLv3 can.
 If you contribute, your contribution is licensed under the same terms — that is
 Apache-2.0 §5, and there is no separate CLA.
 
-The v1.2.5 binary will carry `LICENSE`, `NOTICE`, a deterministic reviewed
+The v1.3.0 binary carries `LICENSE`, `NOTICE`, a deterministic reviewed
 cross-target union, required license texts, exact source-availability metadata,
 and a target-specific manifest. `allbert licenses` reads those packaged files
 without starting the runtime or using the network. The inventory is explicitly

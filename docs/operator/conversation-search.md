@@ -120,6 +120,12 @@ same central managed-job rule for Memory and Search identities. Disabling
 Search retains its rows and dirty intent but also keeps their effective due time
 empty and blocks admission:
 
+This exact nil-due invariant is the v1.3.1 source correction. The v1.3.0
+packaged scheduler still blocks paused work, but a dirty kick can repopulate its
+displayed due timestamp. Installed operators receive the corrected state in
+v1.4; source validation uses the same commands through `mix allbert admin jobs
+…` against the source daemon.
+
 ```sh
 allbert admin settings set search.enabled false
 allbert admin settings set search.enabled true

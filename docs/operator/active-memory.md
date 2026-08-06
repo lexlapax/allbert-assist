@@ -97,6 +97,12 @@ projection. The old `.index.json` file is no longer a retrieval authority.
 `memory.index_enabled=false` still disables legacy Intent memory candidates,
 but does not disable Active Memory; use `active_memory.enabled=false` for that.
 
+The v1.3.1 source line makes disposable-projection repair metadata truthful
+across bounded incremental refreshes and rebuilds older derived generations.
+It changes no operator command, canonical Markdown, retrieval consent, or
+Memory result. The v1.3.0 packaged binary does not contain that correction;
+installed operators receive it with v1.4.
+
 - **Algorithm**: deterministic recency-weighted lexical scoring. No
   embeddings; no learned ranking; no LLM-driven scoring. Same query +
   same memory state + same settings → same chunks, byte-for-byte.

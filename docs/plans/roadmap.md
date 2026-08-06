@@ -295,7 +295,8 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    semantic/fuzzy search, automatic canonical-history retention, and automatic
    cross-app prompt mixing.
 8b. **1.3.1 — Answering-Head Qualification And v1.3 Corrective Hardening.**
-   (**Planned — amended implementation-ready triad 2026-08-05:**
+   (**Implementation in progress — M0 through M4.2 complete 2026-08-05; M5
+   source validation, gates, and source tag remain:**
    `docs/plans/v1.3.1-plan.md` + request-flow + ADR 0097, with bounded ADR
    0089/0092 corrections. **v1.3 predecessor cleared.**) Carries
    v1.3 M9.b.8, deferred by operator decision after

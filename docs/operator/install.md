@@ -7,9 +7,9 @@ The current packaged release is **v1.3.0**. Homebrew and the default curl
 installer resolve to that stable GitHub Latest release.
 
 It includes the daemon-backed thin TUI, packaged license inventory/viewer,
-reviewed long-term Memory, and Search Central. The planned v1.3.1 source-only
-tag does not update an installed binary; these corrections first reach packaged
-operators in v1.4.
+reviewed long-term Memory, and Search Central. The implemented v1.3.1
+corrective source line does not update an installed binary; after its source-
+only tag, those corrections first reach packaged operators in v1.4.
 
 Allbert ships its direct runtime dependencies and Erlang/OTP runtime — no
 Elixir/OTP toolchain is required on your machine. Optional browser research
