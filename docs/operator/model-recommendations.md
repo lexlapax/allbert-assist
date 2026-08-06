@@ -217,25 +217,33 @@ an operator override distinct from the route a request would actually use. For e
 `invalid_provider_base_url`, `provider_host_denied`, and `endpoint_unreachable`
 identify the repair class without printing a credential or full endpoint URL.
 
-## v1.8 Model Roles (Planned)
+## Model Roles (v1.3.2 source; v1.4 packaged)
 
-v1.8 adds the aliases `role:fast`, `role:capable`, and `role:thinking`. Each
-mapping defaults to `nil`; an unconfigured role is skipped with a diagnostic,
-and every existing concrete `model_preferences.tasks.*` chain keeps its current
-behavior. A role value names one configured concrete profile only—roles cannot
-reference other roles, so cycles are impossible.
+The v1.3.2 source point adds `role:fast`, `role:capable`, and `role:thinking` to
+the `model_preferences.tasks.*` chains resolved by Settings Central. Packaged
+operators receive them in v1.4. Each mapping defaults to `nil`; an unconfigured
+or unusable mapping records a diagnostic and continues the existing chain.
+Every concrete chain keeps its prior behavior and result shape. A role value
+names one configured concrete profile only; a `role:*` value is rejected when
+written as a mapping. Concrete profile `fast` and alias `role:fast` are distinct.
 
 Inspect the three mappings without changing them:
 
 ```sh
-allbert admin settings get model_roles.fast.profile
-allbert admin settings get model_roles.capable.profile
-allbert admin settings get model_roles.thinking.profile
+mix allbert admin settings get model_roles.fast.profile
+mix allbert admin settings get model_roles.capable.profile
+mix allbert admin settings get model_roles.thinking.profile
 ```
 
-Role aliases are selection indirection, not new egress authority. A profiling
-suggestion may remap a role only when the proposed profile has the same
-provider, endpoint, and effective locality tuple as the current profile.
+Use the source commands above for v1.3.2. From the v1.4 packaged binary onward,
+replace `mix allbert` with `allbert`.
+
+Role aliases are selection indirection, not new egress authority. v1.3.2 has no
+suggestion or automatic remap path: setting a mapping changes nothing until an
+operator also places the corresponding `role:*` reference in a task chain.
+v1.8 later permits a profiling suggestion to remap a role only when the proposed
+profile has the same provider, endpoint, and effective locality tuple as the
+current profile.
 Changing any of those remains an ordinary explicit Models/Settings operation
 with its existing disclosure and confirmation posture. Missing, disabled, or
 unavailable profiles are reported and never silently replaced or pulled.

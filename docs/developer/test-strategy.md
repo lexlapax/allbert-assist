@@ -1312,12 +1312,12 @@ enabler release by the 2026-08-06 resequencing) and is not yet an
 implemented command. Until that milestone lands, an active plan must enumerate
 and run its cheap equivalent components directly; it must not claim a green
 command that does not exist. The shipped source-only v1.3.1 plan freezes that
-temporary bundle as historical evidence; v1.8 M0 re-verifies the constituent
-owners at the accepted v1.3.1 tag before replacing the bridge.
+temporary bundle as historical evidence; v1.3.2 M0 re-verifies the constituent
+owners at build-start HEAD and M1 replaces the bridge.
 
 | Gate | Use | Evidence |
 | --- | --- | --- |
-| **Preflight** | **First, before anything expensive. Every release phase and every remediation.** | After v1.8 M0.5, `mix allbert.test preflight`: warning-free compile on the pinned production source toolchain (Elixir 1.19.5 / OTP 29.0.x), formatter, `git diff --check`, docs gate, registry/param-contract consistency, inventory and manifest reconciliation, central fixture-drift registry, and lane classification. Budget: **under two warm-cache minutes**. Until that command exists, run the active plan's enumerated cheap equivalent. |
+| **Preflight** | **First, before anything expensive. Every release phase and every remediation.** | After v1.3.2 M1, `mix allbert.test preflight`: forced warning-free compile on the pinned production source toolchain (Elixir 1.19.5 / OTP 29.0.1), formatter, `git diff --check`, docs gate including archived local Markdown links, registry/param-contract consistency, owner-CWD test loading, lane-tag reconciliation, manifest reconciliation, and executable fixture-contract sentinels. Budget: **under two warm-cache minutes**. Until that command exists, run the active plan's enumerated cheap equivalent. |
 | Docs | Docs-only changes. | `mix allbert.test docs` (`git diff --check` and reference checks when configured). |
 | Focused | Every implementation milestone. | `mix allbert.test focused -- <files...>` using explicit files named in the plan/request-flow doc. |
 | Static | Code changes. | compile warning gate, formatter check, Credo strict, Dialyzer when required. |
@@ -1328,26 +1328,42 @@ owners at the accepted v1.3.1 tag before replacing the bridge.
 | Release | Manual validation/release handoff. | `mix allbert.test release`: explicit full-suite phases plus Dialyzer and timing/evidence. |
 | External smoke | Machine-dependent integrations. | `mix allbert.test external-smoke -- <smoke-name>` for explicitly opted-in smokes. M6 implements Docker sandbox smokes; later browser/MCP/provider smokes must add their concrete command before use. |
 
-Preflight emits an attestation bound to the exact HEAD, clean/dirty worktree
-state, lockfile digest, and normalized gate-definition digest. Expensive release
-commands refuse a missing or stale attestation; changing source bytes, the
-lockfile, or a gate definition requires a new preflight. The attestation is
-release evidence, never runtime authority.
+Preflight invalidates any prior green artifact before it starts and atomically
+emits `.test_metrics/preflight-attestation.json` only after success. The artifact
+is bound to canonical repository root, exact HEAD, a digest over tracked,
+staged, unstaged, and nonignored-untracked bytes, lockfile digest, normalized
+gate-definition digest, and the Elixir/OTP tuple. Expensive commands refuse a
+missing, red, or stale attestation before spawning their first subprocess.
+Dirty development states may be fingerprinted exactly; release evidence also
+requires a clean tree. The guarded set is centrally enumerated: `prepush`,
+high-coverage `fast-local`, `serial-core`, every `release.v*`, `release`,
+external smokes, and real-provider/benchmark gates. The attestation is release
+evidence, never runtime authority.
 
-The local two-minute budget contains one production-toolchain compile, not a
-local toolchain matrix. A separately recorded **advisory compatibility probe**
-runs a clean warnings-as-errors compile on Elixir 1.20.2 / OTP 29.0.x. It is
-outside the preflight budget and may run on the named external build host; it
-does not expand the supported production toolchain or make the later version a
-packaging input.
+The local two-minute budget contains one forced production-toolchain compile,
+not a local toolchain matrix. A separately recorded **advisory compatibility
+probe** runs a clean warnings-as-errors compile in
+`elixir:1.20.2-otp-29@sha256:7ee41a9a8a8427dbd40c9133ee5b9047f585b58db4968fd675fbcd9498e3b22e`.
+It runs after dependency/gate/compiler-facing changes and at the final clean
+rejoin, not after documentation-only or unrelated focused remediations. It is
+outside the preflight budget and does not expand the supported production
+toolchain or make the later version a packaging input. The command
+`mix allbert.test compatibility` owns the container invocation, isolates Linux
+build output from host paths, verifies the observed tuple, and records an
+exact-SHA compatibility attestation.
 
-Fixture ownership is centralized in a checked registry consumed by preflight.
-`mix allbert.test scope --base <sha>` maps changed paths to owning lanes and the
-active bounded release gate. Unknown paths, gate-definition changes, Settings,
-registry, permission, confirmation, projection, or test-harness changes fail
-closed to shared-spine treatment and the authoritative aggregate; the selector
-may widen work but never waive the active plan's explicit gate. Selecting the
-aggregate records the final rejoin obligation; it never runs the aggregate
+Fixture ownership is centralized in a checked executable-sentinel registry
+consumed by preflight; it maps contract/change families to their smallest
+owner-CWD checks rather than hashing fixture files. Test-tree integrity is three
+separate ordered checks: owner-CWD zero-execution loading, lane-tag
+reconciliation, then manifest identity/multiplicity reconciliation.
+`mix allbert.test scope --base <sha>` maps committed and dirty working-tree paths
+to owning lanes and the active bounded release gate. Invalid bases fail
+nonzero. Unknown paths, gate-definition changes, Settings, registry, permission,
+confirmation, projection, or test-harness changes return fail-closed shared-
+spine treatment and `aggregate_required=true`; the selector may widen work but
+never waive the active plan's explicit gate. Selecting the aggregate records
+the final rejoin obligation; it never runs the aggregate
 early or once per remediation.
 
 ### Release Sequence And Re-Run Scope (2026-07-30)
@@ -1683,15 +1699,23 @@ Attended source validation runs first; `release.v131` then runs once before the
 one authoritative aggregate required by the shared projection change. A warm
 delta-gate run over ten minutes is topology drift.
 
+`release.v132` is the bounded source-only enabler delta. It owns preflight,
+attestation, owner-CWD loading, fixture sentinels, scope selection, model-role
+resolution, source/package lag, expanded archived-link documentation coverage,
+and both inventory checks. Its structure proof freezes owner-CWD loading plus
+`inventory --check-tags` and `--check-manifest` as separate preflight checks.
+That is the inherited contract v1.4 M14 relies on when new test files land; M14
+also repeats the two inventory checks in `release.v14` as final delta defense.
+
 `release.v18` follows the same non-stacking rule. It is a bounded v1.8 delta
-whose steps own profiling, confirmed customization/recovery, model roles,
-prompt-rule snapshots, suggestion notification policy, mobile/loopback, and the
-preflight/scope infrastructure. Structure evidence proves the frozen v1.3 and
-v1.3.1 definitions unchanged and proves every closed v1.8 target has an
-authoritative lane owner; neither `release.v13`, `release.v131`, `release`, nor
-`precommit` may appear as a step. The candidate separately passes `release.v1`
-before the mandatory one-time authoritative aggregate. Future point/minor gates,
-including `release.v14`, retain this bounded non-stacking shape.
+whose steps own profiling, confirmed role-remap customization/recovery,
+prompt-rule snapshots, suggestion notification policy, and mobile/loopback. It
+inherits preflight/scope and model-role resolution from v1.3.2; it does not own
+or reimplement them. Structure evidence proves the frozen predecessor
+definitions unchanged and proves every closed v1.8 target has an authoritative
+lane owner; no predecessor gate, `release`, or `precommit` may appear as a step.
+Future point/minor gates, including `release.v14`, retain this bounded
+non-stacking shape.
 
 The archived v1.3 plan names exact focused files and serial lanes per milestone.
 License catalog/finalizer fixtures and TUI packet/state-machine tests are source

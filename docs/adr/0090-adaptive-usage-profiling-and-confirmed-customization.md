@@ -259,15 +259,23 @@ sanctioned application path and must not ship in halves.
 
 The only role references are `role:fast`, `role:capable`, and
 `role:thinking`. Their Settings fragments are
-`model_roles.<role>.profile`, and all three default to `nil`. An unconfigured
-role is skipped with a content-free diagnostic; the existing concrete
-purpose-profile chain then continues unchanged.
+`model_roles.schema_version` (`1`) and `model_roles.<role>.profile`; all three
+profile mappings default to `nil`. v1.3.2 admits those references only in the
+`model_preferences.tasks.*` chains owned by `Settings.Models`; scalar model
+selectors that bypass that resolver are not implicit consumers. Later
+consumers call the same central reference seam. An unconfigured role, missing
+mapped profile, disabled provider, or incapable mapped profile records a
+content-free diagnostic; the existing purpose-profile chain then continues
+unchanged.
 
 A role value may name one configured concrete ADR 0088 profile only. It may not
-name another role, which prevents self-reference and cycles. Resolution expands
-the role before ordinary profile validation and records both the role and the
-resolved concrete profile in usage evidence. Existing purpose keys and legacy
-`intent.*model_profile` write aliases remain additive and unchanged.
+name another role; such a write is rejected, which removes a runtime cycle path.
+Either write order is valid, so a task chain may refer to an as-yet-unconfigured
+role. Resolution expands before ordinary profile validation, deduplicates by
+resolved physical profile while preserving first occurrence, and records the
+requested reference, role, and resolved concrete profile in role-specific
+metadata. Existing concrete purpose keys and legacy
+`intent.*model_profile` write aliases retain their public result/output shape.
 
 A profiling suggestion may remap a role only to a configured profile with the
 same provider, endpoint, and locality tuple as the current concrete profile.

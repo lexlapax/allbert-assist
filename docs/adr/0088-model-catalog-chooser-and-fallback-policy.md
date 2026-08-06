@@ -195,8 +195,9 @@ migration.
   hosted provider" cannot occur.
 - The chain reuses `model_preferences.tasks.*`; operators who never touch
   fallback see zero behavior change.
-- v1.8's per-role profiles formalize role→profile mappings against this
-  catalog rather than inventing a second model-metadata source.
+- v1.3.2's role-resolution layer formalizes role→profile mappings against this
+  catalog rather than inventing a second model-metadata source; v1.8 later
+  consumes that layer for confirmed remap suggestions.
 
 ## Non-goals and guardrails
 

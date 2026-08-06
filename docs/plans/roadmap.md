@@ -326,7 +326,7 @@ truth for sequencing; future-features no longer mirrors a release ladder.
    in no aggregate or CI path and records content-free evidence. By explicit
    operator decision, v1.3.1 is an annotated `[skip-artifacts]` source point tag:
    no GitHub Release, package build, Homebrew movement, or packaged FV; v1.3.0
-   remains packaged Latest and v1.8 carries these source corrections into the
+   remains packaged Latest and v1.4 carries these source corrections into the
    next binary. Focused tests and attended source validation precede one short
    delta gate and, because projection machinery is shared code, exactly one
    final authoritative aggregate—never an aggregate per fix.
@@ -343,6 +343,17 @@ truth for sequencing; future-features no longer mirrors a release ladder.
 > spine 1.5→1.4, knowledge 1.7→1.5 and 1.8→1.6, connectivity 1.6→1.7,
 > profiling 1.4→1.8.
 
+### 1.x foundational dependency and carrier map
+
+This table is the canonical ownership statement; downstream plans link here
+rather than assigning the same foundation to a later release.
+
+| Foundation | Source owner | First binary carrier | Required consumers |
+| --- | --- | --- | --- |
+| preflight, exact-state attestation, owner-CWD load, fixture sentinels, fail-closed scope | v1.3.2 | v1.4 | every v1.4+ release; v1.4 M14 structurally preserves owner-CWD load plus tag/manifest reconciliation and repeats both inventory checks in `release.v14` |
+| `model_roles.fast|capable|thinking` resolution | v1.3.2 | v1.4 | v1.6 Knowledge Central (`capable`), v1.7 hosted-provider consumers, v1.8 confirmed remaps |
+| role-remap suggestion, confirmation, and egress guard | v1.8 | v1.8 | adaptive profiling/customization only; it consumes but does not redefine role resolution |
+
 9. **1.3.2 — Foundational enablers.** (**Planned — triad written 2026-08-06:**
    `docs/plans/v1.3.2-plan.md` + request-flow; no new ADR — preflight is release
    tooling and `model_roles` ships the resolution half of ADR 0090 §4.)
@@ -351,10 +362,11 @@ truth for sequencing; future-features no longer mirrors a release ladder.
    extracted from the profiling release because every later release depends on
    them and nothing depends on profiling:
    `mix allbert.test preflight` (cheapest-first gate under two minutes, its
-   attestation over HEAD/worktree/lockfile/gate fingerprints, the advisory
-   second-Elixir compatibility probe, the central fixture-drift registry, and
-   the fail-closed `scope --base` selector), and `model_roles.fast|capable|
-   thinking` as an additive naming layer over the ADR 0088 catalog.
+   exact-state attestation, separate owner-CWD load/tag/manifest checks, the
+   bounded immutable second-Elixir compatibility probe, executable fixture
+   sentinels, and the fail-closed `scope --base` selector), and
+   `model_roles.fast|capable|thinking` as an additive naming layer over the ADR
+   0088 catalog for Settings.Models-owned task chains.
    **Sequencing rationale:** preflight is what makes 1.4's 249-module sweep
    cheap to fail, and `model_roles` is a hard dependency of Knowledge Central
    (1.6) and a consumer for hosted-provider OAuth (1.7). Bundling them behind a
