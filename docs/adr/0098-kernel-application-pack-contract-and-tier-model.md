@@ -3,8 +3,12 @@
 ## Status
 
 Accepted for implementation by operator decision 2026-08-06. Binding on
-`docs/plans/v1.4-plan.md` M1, M5, M7, M8, M9, M12, and M16, and on every
-release that adds capability code after v1.4. Closeout evidence records the
+`docs/plans/v1.4-plan.md` M1, M5, M7, **M7.1**, M8, M9, M12, and M16, and on
+every release that adds capability code after v1.4. M7.1 was added to this list
+on 2026-08-06: it is the milestone that makes §2's kernel-must-not-depend-on-a-
+pack invariant enforceable, proving dependency closure by compile and xref
+before any file moves, so binding every other kernel milestone while omitting it
+would leave the central invariant unbound. Closeout evidence records the
 implemented inventory; it does not reopen the decisions in this ADR.
 
 Sourced from `docs/plans/archives/overall-allbert-kernel-redo-analysis.md`
