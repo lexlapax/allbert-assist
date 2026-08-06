@@ -330,89 +330,117 @@ truth for sequencing; future-features no longer mirrors a release ladder.
    next binary. Focused tests and attended source validation precede one short
    delta gate and, because projection machinery is shared code, exactly one
    final authoritative aggregate—never an aggregate per fix.
-9. **1.4 — Adaptive Usage Profiling.** (**Decision-complete; build not started —
-   implementation-readiness rewrite 2026-08-06:** `docs/plans/v1.8-plan.md` + request-flow + ADR 0090
-   (profiling + confirmed customization) + ADR 0084 amendment
-   (`:suggestion` kind, exact enrollment, deferred/coalesced quiet hours,
-   one-per-local-day cap). **Source-only v1.3.1 shipped
-   2026-08-05; M0 must re-verify every implementation seam at its accepted
-   source tag before feature work starts.**)
-   System usage memory + distill/suggest jobs +
-   one-click CONFIRMED customizations (allowlisted, safety-floor-pinned)
-   + observed-outcome feedback that makes no causal claim. Per-role model
-   profiles and proactive
-   suggestion notifications ride here — and, by operator decision
-   2026-07-24, **Mobile-Ready Web stage 1** rides as non-flagship scope
-   (Dynamic Mobile Breakpoints folds in; stages 2–4 remain the operator-owned
-   responsive-information-architecture, offline-capable-PWA, and native-shell
-   horizon).
-   By operator decision 2026-07-30, v1.8 also carries the **preflight gate
-   and the AGENTS.md Release Sequence** (M0.5, renumbered from M8.5 on
-   2026-08-05 so it precedes v1.8's feature work), and is the first binary
-   release after source-only v1.3.1 and the first release with the implemented
-   `preflight` command. Source-only
-   v1.3.1 used the same cadence through its named temporary bundle. v1.8 runs:
-   preflight + independent audit + source FV pre-filter → `release.v1` + the
-   bounded non-stacking `release.v18` delta → provisional artifacts,
-   qualification, and packaged FV → one batched executable-remediation rejoin
-   when needed → exactly one authoritative aggregate → identity, integrity,
-   package-smoke, publish, install-rehearsal, and closeout evidence. The
-   aggregate is mandatory for v1.8 because Settings, confirmation, registry,
-   Security Central, and gate infrastructure all change. v1.3 M9.b burned six
-   authoritative attempts, none stopped by a product regression; this is
-   the fix, and it lands before v1.4 rather than after.
-10. **1.5 — Spine enablers.** (**Planned — triad 2026-07-30:**
+> **Resequenced 2026-08-06 (operator decision).** The 1.x ladder was reordered
+> so foundation ships first, the knowledge flagship follows, and adaptive
+> profiling lands last. Version numbers were reassigned to match ship order —
+> a 1.4.0 tag after 1.8.0 would break `brew upgrade` semantics, GitHub Latest
+> resolution, and changelog ordering, so content moved between numbers rather
+> than shipping out of sequence. Three decisions drove it: the kernel-redo
+> analysis was **accepted** and merges into the spine sweep; preflight and
+> `model_roles` were **unbundled** from profiling because everything depended on
+> them and nothing depends on profiling; and knowledge ships before connectivity.
+> What each number now means is below; the pre-resequencing mapping was
+> spine 1.5→1.4, knowledge 1.7→1.5 and 1.8→1.6, connectivity 1.6→1.7,
+> profiling 1.4→1.8.
+
+9. **1.3.2 — Foundational enablers.** (**Planned — triad not yet written.**
+   Source-only `[skip-artifacts]` point tag; v1.3.1's precedent. No GitHub
+   Release, no tap movement, packaged Latest stays at v1.3.0.) Two things
+   extracted from the profiling release because every later release depends on
+   them and nothing depends on profiling:
+   `mix allbert.test preflight` (cheapest-first gate under two minutes, its
+   attestation over HEAD/worktree/lockfile/gate fingerprints, the advisory
+   second-Elixir compatibility probe, the central fixture-drift registry, and
+   the fail-closed `scope --base` selector), and `model_roles.fast|capable|
+   thinking` as an additive naming layer over the ADR 0088 catalog.
+   **Sequencing rationale:** preflight is what makes 1.4's 249-module sweep
+   cheap to fail, and `model_roles` is a hard dependency of Knowledge Central
+   (1.6) and a consumer for hosted-provider OAuth (1.7). Bundling them behind a
+   flagship feature was the single largest constraint on this ladder. Source-only
+   means both reach packaged operators at 1.4.
+
+10. **1.4 — Spine enablers and kernel foundation.** (**Planned — triad
    `docs/plans/v1.4-plan.md` + request-flow; governed by ADR 0046 and ADR 0065,
-   no new ADR.) The settings and action spine, sequenced first because every
-   later release builds on it: migration-runner cluster (runner + telegram/email
-   plugin-owned-settings migration + legacy `intent.*model_profile` removal +
-   automated rollback; pulled earlier if any prior release needs a non-additive
-   migration), full cross-action param-contract enforcement, and PermissionGate
-   deletion. **Sequencing rationale (code reuse):** param-contract enforcement
-   touches all 249 action modules, and so does the action-response-envelope
-   consolidation folded in here — `denied/1` hand-rolled in 130 modules,
-   `action/3` in 121, the standard four-key `output_schema` in 214 of 249, all
-   derivable from capability metadata the `use AllbertAssist.Action` macro
-   already receives. One sweep over those files instead of two.
-11. **1.6 — Connectivity enablers.** (**Planned — triad 2026-07-30:**
-   `docs/plans/v1.7-plan.md` + request-flow + **new ADR 0096** (delegated
-   OAuth authority).) Everything outward-facing, sequenced after the spine and
-   before Knowledge ingest: one OAuth substrate serving both email XOAUTH2
-   (Gmail/Microsoft) and OAuth-authenticated hosted LLM providers
+   plus new ADRs for the kernel inversions.**) The settings and action spine,
+   sequenced first because every later release builds on it: migration-runner
+   cluster (runner + telegram/email plugin-owned-settings migration + legacy
+   `intent.*model_profile` removal + automated rollback), full cross-action
+   param-contract enforcement, and PermissionGate deletion. The re-triage of
+   the ADR 0076 packaging-trust exceptions rides here as an absorbed backlog
+   item.
+   **The kernel-redo analysis was accepted 2026-08-06 and merges into this
+   release**: `apps/allbert_kernel`, registry inversion, settings inversion,
+   gate inversion, and deletion of the hand-maintained kernel lists.
+   **Sequencing rationale (one sweep, not three):** param-contract enforcement
+   touches all 249 action modules; so does the action-response-envelope
+   consolidation (`denied/1` in 130 modules, `action/3` in 121, the four-key
+   `output_schema` in 214 of 249); and so does registry inversion. Doing them
+   as one pass is the whole argument. **Hard ordering constraint inside this
+   release** (analysis §13.3): gate inversion must precede module relocation,
+   because the gate definitions name test paths and relocating a module
+   relocates its test. Bounded by point tags (1.4.1, 1.4.2, …), one per
+   inversion — the analysis's own escape valve against an unbounded release.
+
+11. **1.5 — Knowledge Stage 1 (LLM Wiki over claims).** (**Proposed — intake
+   closed 2026-07-30:** ADR 0094 + ADR 0095; triad at `docs/plans/v1.5-plan.md`
+   + request-flow.) A derived, interlinked markdown page graph over v1.3 kept
+   claims: page model, relative-markdown links with written backlinks,
+   `index.md`, deterministic lint (contradictions, orphans, unresolved links,
+   stale and under-populated pages), digest-based edit detection with promotion
+   into a claim proposal or a connected-root note, workspace tile, and an
+   `allbert knowledge` CLI group with TUI parity. No documents, no LLM, no
+   egress, no new source policy, no new permission class, no fourth database.
+   `knowledge.enabled` default false.
+   **Sequencing rationale:** its own plan records that neither enabler release
+   is a hard dependency — it consumes only the shipped v1.3 Memory spine. Moved
+   ahead of connectivity because it is unblocked today and turns the Memory
+   investment operators already made into something visible.
+
+12. **1.6 — Knowledge Central (LLM Wiki flagship).** (**Proposed — intake closed
+   2026-07-30:** same ADRs; triad at `docs/plans/v1.6-plan.md` + request-flow.)
+   Stage 2: document ingest substrate, durable synthesis cache, source-summary
+   pages, `log.md`, the operator-authored schema document with a confirmed
+   review path, LLM-assisted lint, budgeted managed ingestion with named egress,
+   and composite query across Memory, Search, and pages with every fact labelled
+   by its origin layer. A guided "Research assistant" persona follows in a 1.6
+   point release once the loop is proven with real operators.
+   **Accepted consequence of shipping before connectivity:** ingest runs before
+   1.7 consolidates the SSRF `private_ip?` table and hardens non-local bind, so
+   this plan must bound its named egress on the un-consolidated path rather than
+   assume that hardening.
+
+13. **1.7 — Connectivity enablers.** (**Planned — triad
+   `docs/plans/v1.7-plan.md` + request-flow + ADR 0096** (delegated OAuth
+   authority).) Everything outward-facing: one OAuth substrate serving both
+   email XOAUTH2 (Gmail/Microsoft) and OAuth-authenticated hosted LLM providers
    (subscription plans, not just API keys); MCP 2025-11-25 spec parity; and
    network hardening — non-local bind hardening plus free-form provider
    URLs/probe targets through the external-network approval path.
    **Sequencing rationale (code reuse):** the two OAuth consumers share an
-   entire substrate (authorization-code flow, tier-vault token storage,
-   refresh, revocation) and were previously tracked as unrelated entries in
-   different places; bind hardening and free-form provider URLs both touch
-   `HttpPolicy` and the external-network path, so the SSRF `private_ip?` table
-   currently triplicated across `external/http_policy.ex`,
+   entire substrate (authorization-code flow, tier-vault token storage, refresh,
+   revocation) and were previously tracked as unrelated entries; bind hardening
+   and free-form provider URLs both touch `HttpPolicy`, so the SSRF
+   `private_ip?` table currently triplicated across `external/http_policy.ex`,
    `voice/provider_http.ex`, and `settings/model_doctor.ex` is consolidated
-   here. Landing connectivity before 1.7 also gives Knowledge ingest a
-   hardened egress path and subscription-plan auth rather than API keys.
-   (Mid-action interruption, child-process cancellation, and the app-registry
-   boundary check moved into 1.1.)
-12. **1.7 — Knowledge Stage 1 (LLM Wiki over claims).** (**Proposed — intake
-   closed 2026-07-30:** ADR 0094 + ADR 0095; triad at `docs/plans/v1.5-plan.md` + request-flow.) A derived,
-   interlinked markdown page graph over v1.3 kept claims: page model,
-   relative-markdown links with written backlinks, `index.md`, deterministic
-   lint (contradictions, orphans, unresolved links, stale and under-populated
-   pages), digest-based edit detection with promotion into a claim proposal or a
-   connected-root note, workspace tile, and an `allbert knowledge` CLI group
-   with TUI parity. No documents, no LLM, no egress, no new source policy, no
-   new permission class, no fourth database. `knowledge.enabled` default false.
-   Its own point release rather than an enabler rider, by operator decision
-   2026-07-30, because the 1.5/1.6 train is already fully loaded.
-13. **1.8 — Knowledge Central (LLM Wiki flagship).** (**Proposed — intake closed
-   2026-07-30:** same ADRs; triad at `docs/plans/v1.6-plan.md` + request-flow.) Stage 2: document ingest
-   substrate, durable synthesis cache, source-summary pages, `log.md`, the
-   operator-authored schema document with a confirmed review path, LLM-assisted
-   lint, budgeted managed ingestion with named egress, and composite query
-   across Memory, Search, and pages with every fact labelled by its origin
-   layer. A guided "Research assistant" persona follows in a 1.8 point release
-   once the loop is proven with real operators.
-14. **Beyond — System Memory Distillation.** The parked learned/model-trained
+   here. Three copies of a security guard means fixing one leaves two holes —
+   1.4's spine sweep should decide whether that consolidation rides it instead.
+
+14. **1.8 — Adaptive Usage Profiling.** (**Triad
+   `docs/plans/v1.8-plan.md` + request-flow + ADR 0090 + the ADR 0084
+   amendment. Readiness resets:** it was implementation-ready as v1.4, but
+   unbundling removed M0.5/S5 and its anchors now sit six releases upstream, so
+   it needs a fresh readiness pass when it comes up.) System usage memory +
+   distill/suggest jobs + one-click CONFIRMED customizations (allowlisted,
+   safety-floor-pinned) + observed-outcome feedback that makes no causal claim +
+   prompt-rule variant tuning. Proactive suggestion notifications ride here, and
+   by operator decision 2026-07-24 **Mobile-Ready Web stage 1** rides as
+   non-flagship scope (Dynamic Mobile Breakpoints folds in; stages 2–4 remain
+   the operator-owned responsive-information-architecture, offline-capable-PWA,
+   and native-shell horizon).
+   **Sequencing rationale:** nothing depends on it. Once preflight and
+   `model_roles` were extracted to 1.3.2, the flagship became free to land last,
+   which is where the least-depended-upon work belongs.
+15. **Beyond — System Memory Distillation.** The parked learned/model-trained
    memory route. Knowledge Central does not replace it, and absorbing its slot
    is the recorded fallback if the ladder needs compression. Detail moved here
    from future-features.md on 2026-08-06 under the backlog lifecycle rule.
@@ -451,7 +479,17 @@ truth for sequencing; future-features no longer mirrors a release ladder.
    release ladder later needs compression.
 
    The Won't-now cluster stays in future-features.md with its review cadence.
-15. **2.1 horizon — Self-Hosting Development.** Allbert develops Allbert
+16. **2.0 — Turn Engine consolidation and remaining pack extraction.**
+   (**Proposed** by the kernel-redo analysis §13.3, accepted 2026-08-06; no
+   triad yet.) The one change on this ladder that genuinely needs a major:
+   response shapes and signal names. Everything else the analysis proposes is
+   1.x-legal — registry inversion preserves `modules/1` and `resolve/2`,
+   settings inversion preserves key names and semantics, gate inversion is
+   internal tooling, and module relocation preserves module names. Carries the
+   remaining pack extraction and accumulated Tier-1 cleanup. Deliberately a
+   **bounded** major, not a renumbering event that absorbs the 1.x remainder.
+
+17. **2.1 horizon — Self-Hosting Development.** Allbert develops Allbert
    (pi-mode target on its own checkout; plan/build/test/document roles
    in-product, supervised). Its OAuth hosted-LLM providers sub-capability
    (Claude/OpenAI/Gemini subscription plans, not just API keys) lands earlier on

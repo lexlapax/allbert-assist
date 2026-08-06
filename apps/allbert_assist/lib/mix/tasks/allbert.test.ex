@@ -306,10 +306,15 @@ defmodule Mix.Tasks.Allbert.Test do
           rel,
           # The shipped version left marked 'Planned' (version-aware: only the current
           # shipped line, so genuinely-planned future rows never trip).
+          #
+          # The `(?![.\d])` guard is load-bearing: `\b` alone matches the "v1.3"
+          # inside "v1.3.2", so a legitimately-planned point release one segment
+          # deeper than the shipped line read as the shipped line still being
+          # planned. Caught by the v1.3.2 ladder row on 2026-08-06.
           shipped_mm != nil and
             Enum.any?(
               String.split(raw, "\n"),
-              &(&1 =~ ~r/\bv#{Regex.escape(shipped_mm)}\b/ and &1 =~ ~r/\bPlanned\b/)
+              &(&1 =~ ~r/\bv#{Regex.escape(shipped_mm)}(?![.\d])/ and &1 =~ ~r/\bPlanned\b/)
             ),
           "the shipped release v#{shipped_mm} is still marked 'Planned' — flip to Released"
         )
