@@ -12,7 +12,7 @@ defmodule AllbertAssist.DevGates.FixtureRegistryTest do
 
     assert Enum.map(FixtureRegistry.entries(), & &1.id) == [
              "memory_projection_and_schema_floor",
-             "security_projection_principal_and_inventory"
+             "historical_security_release_and_intent_contracts"
            ]
   end
 

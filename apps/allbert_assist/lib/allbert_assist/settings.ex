@@ -42,6 +42,7 @@ defmodule AllbertAssist.Settings do
 
   def defaults, do: Schema.defaults()
   def schema, do: Schema.schema()
+  def setting_metadata(key), do: Schema.setting_metadata(key)
   def safe_write_keys, do: Schema.safe_write_keys()
 
   def known_key?(key) when is_binary(key), do: key |> canonical_key() |> Schema.known_key?()

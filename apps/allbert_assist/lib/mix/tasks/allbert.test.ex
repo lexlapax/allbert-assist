@@ -159,6 +159,7 @@ defmodule Mix.Tasks.Allbert.Test do
 
   @impl true
   def run(args) do
+    if PreflightGuard.classification(args) == :unclassified, do: usage!()
     PreflightGuard.verify!(args, root())
 
     # M8.10 provenance: stash the operator-visible gate subcommand + args

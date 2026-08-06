@@ -91,8 +91,15 @@ stale guidance.
 Install dependencies and set up child apps from the umbrella root:
 
 ```sh
+export ALLBERT_HOME="$(mktemp -d "${TMPDIR:-/tmp}/allbert-development.XXXXXXXX")"
 mix setup
 ```
+
+`mix setup` initializes the configured development Home, including its SQLite
+database and managed seed state. Always set `ALLBERT_HOME` to an intentional
+development or disposable directory first; an unscoped run uses the default
+`~/.allbert`. Tests and release checks must use a disposable Home and must not
+touch the operator's default Home.
 
 Setup fails when `mix allbert.hex_audit` finds a locked dependency with a
 published security advisory or retirement, and it rejects Hex older than 2.5
@@ -142,6 +149,7 @@ mix allbert.skills create demo-memory append_memory memory_write "Save a short m
 Umbrella root:
 
 ```sh
+export ALLBERT_HOME="$(mktemp -d "${TMPDIR:-/tmp}/allbert-development.XXXXXXXX")"
 mix setup
 mix compile --warnings-as-errors
 mix format --check-formatted

@@ -305,7 +305,7 @@ defmodule AllbertAssist.Security.V053ChannelPackEvalTest do
              {:error, :not_mapped}
   end
 
-  @tag :preflight_fixture_security
+  @tag :preflight_fixture_historical_contracts
   test "descriptors require list primitive, policy floor ignores channel metadata, and Matrix rejects encrypted rooms" do
     assert_eval_group!(:descriptors_and_policy)
 

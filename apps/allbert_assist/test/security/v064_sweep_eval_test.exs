@@ -127,7 +127,7 @@ defmodule AllbertAssist.Security.V064SweepEvalTest do
     end
   end
 
-  @tag :preflight_fixture_security
+  @tag :preflight_fixture_historical_contracts
   test "first-run-no-raw-mix-required-001: operator docs are package-first" do
     onboarding_doc = read!("docs/operator/onboarding.md")
     quickstart_doc = read!("docs/operator/quickstart.md")

@@ -4834,7 +4834,13 @@ defmodule AllbertAssist.Settings.Schema do
   end
 
   @doc "Return additive schema metadata for one concrete setting key."
-  def setting_metadata(key) when is_binary(key), do: Map.get(schema(), key, %{})
+  def setting_metadata(key) when is_binary(key) do
+    case Map.get(schema(), key) do
+      nil -> if wildcard_known_key?(key), do: schema_for_key(key) || %{}, else: %{}
+      metadata -> metadata
+    end
+  end
+
   def setting_metadata(_key), do: %{}
 
   defp public_protocol_settings_key?(key) when is_binary(key) do
@@ -4936,6 +4942,9 @@ defmodule AllbertAssist.Settings.Schema do
         key
         |> surface_policy_field()
         |> surface_policy_schema()
+
+      true ->
+        nil
     end
   end
 

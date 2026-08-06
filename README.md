@@ -179,12 +179,17 @@ For working from source (the packaged product install path is in
 [docs/operator/install.md](docs/operator/install.md)). The common loop:
 
 ```sh
+export ALLBERT_HOME="$(mktemp -d "${TMPDIR:-/tmp}/allbert-development.XXXXXXXX")"
 mix setup
 mix test
 mix allbert.test fast-local
 mix precommit
 mix phx.server
 ```
+
+`mix setup` initializes the configured development Home. Set `ALLBERT_HOME` to
+an intentional development or disposable directory before running it; without
+that override, source setup uses the default `~/.allbert`.
 
 Use a temporary `ALLBERT_HOME` for tests, release smoke checks, and manual
 verification so real local assistant data is never modified by accident. See

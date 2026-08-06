@@ -53,12 +53,12 @@ defmodule AllbertAssist.DevGates.Preflight do
   ]
 
   @historical_stop_checks %{
-    "42adfef3" => ["docs", "lane_tags", "test_manifest"],
+    "42adfef3" => ["docs", "fixture_historical_security_release_and_intent_contracts"],
     "70b9bbf8" => ["registry_and_param_contract"],
     "b9f60352" => ["fixture_memory_projection_and_schema_floor"],
-    "a86d721c" => ["lane_tags", "test_manifest"],
+    "a86d721c" => ["fixture_historical_security_release_and_intent_contracts"],
     "10f392de" => ["owner_cwd_test_load"],
-    "34c7452f" => ["fixture_security_projection_principal_and_inventory"],
+    "34c7452f" => ["fixture_historical_security_release_and_intent_contracts"],
     "e9a39696" => ["compatibility"]
   }
 

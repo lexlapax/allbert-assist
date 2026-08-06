@@ -1335,7 +1335,10 @@ Dirty development states may be fingerprinted exactly; release evidence also
 requires a clean tree. The guarded set is centrally enumerated: `prepush`,
 high-coverage `fast-local`, `serial-core`, every `release.v*`, `release`,
 external smokes, and real-provider/benchmark gates. The attestation is release
-evidence, never runtime authority.
+evidence, never runtime authority. Schema 2 records the OTP release and full
+patch version separately, so `29.0.1` cannot be mistaken for another OTP 29
+runtime. Commands outside the central guarded and unguarded classifications are
+refused before dispatch; a new command must declare its class deliberately.
 
 The local two-minute budget contains one forced production-toolchain compile,
 not a local toolchain matrix. A separately recorded **advisory compatibility

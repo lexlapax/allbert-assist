@@ -22,7 +22,7 @@ defmodule AllbertAssist.DevGates.PreflightTest do
 
     assert Enum.drop(ids, 8) == [
              "fixture_memory_projection_and_schema_floor",
-             "fixture_security_projection_principal_and_inventory"
+             "fixture_historical_security_release_and_intent_contracts"
            ]
   end
 
@@ -39,6 +39,11 @@ defmodule AllbertAssist.DevGates.PreflightTest do
     assert Enum.all?(mappings, fn {_sha, checks} ->
              checks != [] and Enum.all?(checks, &MapSet.member?(allowed, &1))
            end)
+
+    historical_fixture = "fixture_historical_security_release_and_intent_contracts"
+    assert mappings["42adfef3"] == ["docs", historical_fixture]
+    assert mappings["a86d721c"] == [historical_fixture]
+    assert mappings["34c7452f"] == [historical_fixture]
   end
 
   test "expensive command classification is central and high-coverage fast-local is conditional" do
@@ -57,6 +62,15 @@ defmodule AllbertAssist.DevGates.PreflightTest do
     refute PreflightGuard.guarded?(["focused", "--", "test/example_test.exs"])
     refute PreflightGuard.guarded?(["fast-local"])
     refute PreflightGuard.guarded?(["external-smoke", "list"])
+  end
+
+  test "an unclassified future command is refused before it can dispatch" do
+    assert_raise Mix.Error, ~r/unclassified allbert.test command: future-expensive/, fn ->
+      PreflightGuard.verify!(["future-expensive"], "/unused")
+    end
+
+    assert :ok = PreflightGuard.verify!(["docs"], "/unused")
+    assert :ok = PreflightGuard.verify!(["release.structure", "v132"], "/unused")
   end
 
   test "normalized contract digest is stable and complete" do

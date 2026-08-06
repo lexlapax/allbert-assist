@@ -12,7 +12,7 @@ defmodule AllbertAssist.DevGates.PreflightAttestationTest do
     assert :ok = PreflightAttestation.validate(artifact, current, clean_required?: true)
 
     for field <-
-          ~w[head_sha worktree_content_digest mix_lock_digest gate_definition_digest elixir_version otp_version] do
+          ~w[head_sha worktree_content_digest mix_lock_digest gate_definition_digest elixir_version otp_release otp_version] do
       assert {:error, reasons} =
                PreflightAttestation.validate(Map.put(artifact, field, "changed"), current)
 
@@ -48,6 +48,18 @@ defmodule AllbertAssist.DevGates.PreflightAttestationTest do
     refute untracked["worktree_content_digest"] == staged["worktree_content_digest"]
   end
 
+  test "captured toolchain identity includes OTP release and patch version" do
+    root = git_repo!()
+    on_exit(fn -> File.rm_rf!(root) end)
+
+    captured = PreflightAttestation.capture_state!(root, "gate-a")
+
+    assert captured["schema_version"] == 2
+    assert captured["otp_release"] == to_string(:erlang.system_info(:otp_release))
+    assert captured["otp_version"] =~ ~r/^\d+\.\d+(?:\.\d+)?(?:[-+].*)?$/
+    assert String.starts_with?(captured["otp_version"], captured["otp_release"] <> ".")
+  end
+
   test "write is atomic JSON and invalidation removes only the exact artifact" do
     root = git_repo!()
     evidence = Path.join(root, "evidence/preflight.json")
@@ -72,7 +84,7 @@ defmodule AllbertAssist.DevGates.PreflightAttestationTest do
 
   defp state do
     %{
-      "schema_version" => 1,
+      "schema_version" => 2,
       "canonical_repo_root" => "/repo",
       "head_sha" => String.duplicate("a", 40),
       "clean" => true,
@@ -80,7 +92,8 @@ defmodule AllbertAssist.DevGates.PreflightAttestationTest do
       "mix_lock_digest" => String.duplicate("c", 64),
       "gate_definition_digest" => String.duplicate("d", 64),
       "elixir_version" => "1.19.5",
-      "otp_version" => "29"
+      "otp_release" => "29",
+      "otp_version" => "29.0.1"
     }
   end
 

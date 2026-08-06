@@ -22,6 +22,7 @@ defmodule AllbertAssist.Settings.ModelRolesTest do
     GEMINI_API_KEY
     OLLAMA_BASE_URL
   ]
+  @v131_concrete_resolution_sha256 "73f43b1a45c867e4bc47dde95605e61db81fa60074feca852a174013140647e7"
 
   setup do
     original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
@@ -193,15 +194,27 @@ defmodule AllbertAssist.Settings.ModelRolesTest do
            end)
   end
 
-  test "concrete namespace and result bytes remain unchanged" do
+  test "concrete resolver bytes match v1.3.1 and remain unchanged by unused roles" do
     assert {:ok, before} = Models.for(:direct_answer)
-    before_bytes = :erlang.term_to_binary(before, [:deterministic])
+    assert {:ok, candidates_before} = Models.candidates_for(:direct_answer)
+
+    v131_contract_bytes =
+      :erlang.term_to_binary({{:ok, before}, {:ok, candidates_before}}, [:deterministic])
+
+    assert v131_contract_bytes
+           |> then(&:crypto.hash(:sha256, &1))
+           |> Base.encode16(case: :lower) == @v131_concrete_resolution_sha256
 
     assert {:ok, _setting} =
              Settings.put("model_roles.fast.profile", "local", %{audit?: false})
 
     assert {:ok, after_mapping_only} = Models.for(:direct_answer)
-    assert :erlang.term_to_binary(after_mapping_only, [:deterministic]) == before_bytes
+    assert {:ok, candidates_after_mapping_only} = Models.candidates_for(:direct_answer)
+
+    assert :erlang.term_to_binary(
+             {{:ok, after_mapping_only}, {:ok, candidates_after_mapping_only}},
+             [:deterministic]
+           ) == v131_contract_bytes
 
     assert {:ok, _setting} =
              Settings.put(

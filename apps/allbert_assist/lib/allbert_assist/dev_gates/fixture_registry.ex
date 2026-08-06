@@ -18,11 +18,14 @@ defmodule AllbertAssist.DevGates.FixtureRegistry do
       ]
     },
     %{
-      id: "security_projection_principal_and_inventory",
+      id: "historical_security_release_and_intent_contracts",
       owner: :core,
-      tag: :preflight_fixture_security,
-      expected_tests: 8,
+      tag: :preflight_fixture_historical_contracts,
+      expected_tests: 11,
       paths: [
+        "apps/allbert_assist/test/allbert_assist/database/sqlite_topology_test.exs",
+        "apps/allbert_assist/test/allbert_assist/intent/eval/corpus_completeness_test.exs",
+        "apps/allbert_assist/test/allbert_assist/release/promotion_workflow_contract_test.exs",
         "apps/allbert_assist/test/security/active_memory_eval_test.exs",
         "apps/allbert_assist/test/security/security_eval_case_test.exs",
         "apps/allbert_assist/test/security/v053_channel_pack_eval_test.exs",

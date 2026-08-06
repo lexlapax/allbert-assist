@@ -204,6 +204,7 @@ defmodule AllbertAssist.Intent.Eval.CorpusCompletenessTest do
     end
   end
 
+  @tag :preflight_fixture_historical_contracts
   test "negative execute cases enumerate internal and planned operator actions" do
     assert {:ok, cases} = Corpus.load()
 

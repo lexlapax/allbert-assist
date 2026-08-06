@@ -187,6 +187,7 @@ defmodule AllbertAssist.Release.PromotionWorkflowContractTest do
     refute stage =~ "successful producer"
   end
 
+  @tag :preflight_fixture_historical_contracts
   test "promotion revalidates operator evidence, immutable releases, and the exact draft" do
     promoter = File.read!(@promote_script)
 

@@ -13,9 +13,10 @@ changelog entries or release notes.
 ## v1.3.2 - Foundational Preflight And Model Roles
 
 Status: **implementation in progress for a source-only `[skip-artifacts]`
-point tag.** M1–M3 implementation and focused reconciliation are complete;
-independent post-implementation review, attended source validation, and final
-gates remain. This line creates no native archive, GitHub Release, signature,
+point tag.** M1–M3 implementation and focused reconciliation are complete. The
+independent M3.1 review held attended validation on six blocking findings; one
+batched remediation and closure review are in progress before source validation
+and final gates. This line creates no native archive, GitHub Release, signature,
 Homebrew update, packaged FV, or Latest movement. `v1.3.0` remains the packaged
 Latest; v1.4 is the next binary carrier.
 
@@ -23,7 +24,10 @@ Latest; v1.4 is the next binary carrier.
   cheapest-first gate with exact-state attestation and refusal, forced
   warning-free compilation, formatting/whitespace and docs checks,
   registry/parameter checks, owner-CWD zero-execution loading, separate lane
-  and manifest reconciliation, and executable fixture sentinels.
+  and manifest reconciliation, and executable fixture sentinels. Attestation
+  schema 2 distinguishes the OTP release from its full patch version, and new
+  test commands are refused until centrally classified as guarded or
+  unguarded.
 - `mix allbert.test scope --base <sha>` deterministically selects the bounded
   re-run set and fails closed for invalid bases, unknown paths, and shared-spine
   changes. `mix allbert.test compatibility` keeps the immutable advisory
@@ -35,6 +39,10 @@ Latest; v1.4 is the next binary carrier.
   diagnostics, and leaves existing concrete chains byte-for-byte unchanged.
   Catalog output is shared across CLI, TUI, and Web. No suggestion or automatic
   role-remap path ships here; that authority-bearing half remains in v1.8.
+- Source setup now documents its existing stateful contract: `mix setup`
+  initializes the configured development Home. Development and release checks
+  bind a deliberate disposable `ALLBERT_HOME`; M3.1 verifies on Linux that the
+  operator's default Home is unchanged.
 - The bounded eight-step `release.v132` delta freezes both predecessor gate
   definitions, owns only the new preflight/model-role/docs/version/inventory
   rows, and cannot nest a predecessor, aggregate, precommit, or compatibility
@@ -47,7 +55,7 @@ Status: **shipped source-only on 2026-08-05.** Annotated `[skip-artifacts]` tag
 `7a27a9cc12e1fed66de67f0fd253ad5f27e04955`. Attended source validation, the
 eight-step `release.v131` delta gate, and the sole 12-phase authoritative
 aggregate passed. This line built no archive, GitHub Release, signature, or
-Homebrew update. `v1.3.0` remains the packaged Latest, and v1.8 is the next
+Homebrew update. `v1.3.0` remains the packaged Latest, and v1.4 is the next
 binary carrier. Plan: `docs/plans/archives/v1.3.1-plan.md`; request flow:
 `docs/plans/archives/v1.3.1-request-flow.md`.
 

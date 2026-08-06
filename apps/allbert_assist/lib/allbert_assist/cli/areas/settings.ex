@@ -201,7 +201,7 @@ defmodule AllbertAssist.CLI.Areas.Settings do
   end
 
   defp nilable_setting?(key) do
-    case Map.get(Settings.schema(), key) do
+    case Settings.setting_metadata(key) do
       %{type: type}
       when type in [
              :concrete_profile_ref_or_nil,
@@ -221,7 +221,7 @@ defmodule AllbertAssist.CLI.Areas.Settings do
   end
 
   defp string_scalar_setting?(key) do
-    case Map.get(Settings.schema(), key) do
+    case Settings.setting_metadata(key) do
       %{type: type}
       when type in [
              :channel_secret_ref,
@@ -293,11 +293,12 @@ defmodule AllbertAssist.CLI.Areas.Settings do
   end
 
   defp string_list_setting?(key) do
-    case Map.get(Settings.schema(), key) do
+    case Settings.setting_metadata(key) do
       %{type: type}
       when type in [
              :string_list,
              :profile_ref_list,
+             :task_profile_ref_list,
              :public_tool_list,
              :public_memory_namespace_list,
              :v13_origin_scopes
@@ -305,22 +306,19 @@ defmodule AllbertAssist.CLI.Areas.Settings do
         true
 
       _schema ->
-        Regex.match?(
-          ~r/^(model_profiles\.[^.]+\.aliases|model_preferences\.(tasks|capabilities)\.[^.]+|mcp\.servers\.[^.]+\.(args|tool_allowlist|tool_denylist))$/,
-          key
-        )
+        false
     end
   end
 
   defp string_map_setting?(key) do
-    case Map.get(Settings.schema(), key) do
+    case Settings.setting_metadata(key) do
       %{type: :mcp_secret_ref_string_map} -> true
-      _schema -> Regex.match?(~r/^mcp\.servers\.[^.]+\.(env|headers)$/, key)
+      _schema -> false
     end
   end
 
   defp channel_identity_map_setting?(key) do
-    case Map.get(Settings.schema(), key) do
+    case Settings.setting_metadata(key) do
       %{type: :channel_identity_map} -> true
       _schema -> false
     end

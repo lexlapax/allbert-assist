@@ -4,6 +4,7 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
   import ExUnit.CaptureIO
 
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.Schema
   alias AllbertAssist.TestSupport.ProviderPreconditions
   alias Mix.Tasks.Allbert.Settings, as: SettingsTask
 
@@ -278,14 +279,48 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
              Settings.get("memory.collection.origin_grants")
   end
 
-  test "clears every schema-declared nilable scalar with JSON null" do
+  test "clears static and wildcard schema-declared nilable scalars with JSON null" do
     assert {:ok, _setting} =
              Settings.put("model_roles.fast.profile", "local", %{audit?: false})
 
     assert {:ok, _setting} =
              Settings.put("browser.driver.binary_path", "/tmp/browser", %{audit?: false})
 
-    for key <- ["model_roles.fast.profile", "browser.driver.binary_path"] do
+    assert {:ok, _setting} =
+             Settings.put("providers.local_ollama.base_url", "http://127.0.0.1:11434/v1", %{
+               audit?: false
+             })
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "providers.local_ollama.api_key_ref",
+               "secret://providers/local_ollama/api_key",
+               %{audit?: false}
+             )
+
+    assert {:ok, _setting} =
+             Settings.put("mcp.servers.audit.enabled", false, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("mcp.servers.audit.base_url", "http://127.0.0.1:9000/mcp", %{
+               audit?: false
+             })
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "mcp.servers.audit.auth_ref",
+               "secret://mcp/audit/bearer_token",
+               %{audit?: false}
+             )
+
+    for key <- [
+          "model_roles.fast.profile",
+          "browser.driver.binary_path",
+          "providers.local_ollama.base_url",
+          "providers.local_ollama.api_key_ref",
+          "mcp.servers.audit.base_url",
+          "mcp.servers.audit.auth_ref"
+        ] do
       Mix.Task.reenable("allbert.settings")
 
       output =
@@ -293,8 +328,14 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
           assert :ok = SettingsTask.run(["set", key, "null"])
         end)
 
-      assert output =~ "Updated: #{key}=nil"
-      assert {:ok, nil} = Settings.get(key)
+      if key == "providers.local_ollama.api_key_ref" do
+        assert output =~ "Updated: #{key}=\"[REDACTED]\""
+      else
+        assert output =~ "Updated: #{key}=nil"
+      end
+
+      assert {:ok, user_settings} = Settings.read_user_settings()
+      assert Schema.get_dotted(user_settings, key) == nil
     end
 
     Mix.Task.reenable("allbert.settings")

@@ -137,6 +137,7 @@ defmodule AllbertAssist.Database.SQLiteTopologyTest do
              SQL.query!(OperatorRepo, "PRAGMA journal_mode", [])
   end
 
+  @tag :preflight_fixture_historical_contracts
   test "the reviewed production transaction callsite inventory cannot drift silently" do
     actual =
       [

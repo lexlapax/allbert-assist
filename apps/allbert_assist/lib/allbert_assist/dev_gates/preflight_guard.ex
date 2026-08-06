@@ -16,33 +16,67 @@ defmodule AllbertAssist.DevGates.PreflightGuard do
     bench-v13-fanout
     qualify-head
   ]
+  @always_guarded_commands ~w[prepush serial-core release compatibility]
+  @unguarded_commands ~w[
+    docs
+    preflight
+    preflight.test-load
+    preflight.fixture
+    scope
+    inventory
+    focused
+    commit
+    partition-smoke
+    param-contract-sweep
+    metrics
+    release.structure
+  ]
 
   def verify!(args, root) do
-    if guarded?(args) do
-      verifier =
-        Application.get_env(
-          :allbert_assist,
-          :preflight_attestation_verifier,
-          &default_verify/3
-        )
+    case classification(args) do
+      :guarded ->
+        verifier =
+          Application.get_env(
+            :allbert_assist,
+            :preflight_attestation_verifier,
+            &default_verify/3
+          )
 
-      verifier.(root, Preflight.contract_digest(), clean_required?(args))
-    else
-      :ok
+        verifier.(root, Preflight.contract_digest(), clean_required?(args))
+
+      :unguarded ->
+        :ok
+
+      :unclassified ->
+        Mix.raise("unclassified allbert.test command: #{command_name(args)}")
     end
   end
 
-  def guarded?(["prepush" | _]), do: true
-  def guarded?(["fast-local" | args]), do: Enum.any?(lane_flags(), &(&1 in args))
-  def guarded?(["serial-core" | _]), do: true
-  def guarded?(["release"]), do: true
-  def guarded?([command]) when command in @benchmark_commands, do: true
-  def guarded?([command | _]) when command in @benchmark_commands, do: true
-  def guarded?(["external-smoke", "list"]), do: false
-  def guarded?(["external-smoke" | _]), do: true
-  def guarded?(["compatibility" | _]), do: true
-  def guarded?([command]) when is_binary(command), do: String.starts_with?(command, "release.v")
-  def guarded?(_args), do: false
+  def guarded?(args), do: classification(args) == :guarded
+
+  def classification([]), do: :unguarded
+
+  def classification(["fast-local" | args]) do
+    if Enum.any?(lane_flags(), &(&1 in args)), do: :guarded, else: :unguarded
+  end
+
+  def classification(["external-smoke", "list"]), do: :unguarded
+  def classification(["external-smoke" | _]), do: :guarded
+
+  def classification([command | _]) when command in @always_guarded_commands,
+    do: :guarded
+
+  def classification([command | _]) when command in @benchmark_commands, do: :guarded
+
+  def classification([command | _]) when is_binary(command) do
+    cond do
+      String.starts_with?(command, "release.v") -> :guarded
+      command in @unguarded_commands -> :unguarded
+      true -> :unclassified
+    end
+  end
+
+  def classification(_args), do: :unclassified
 
   def clean_required?(["release"]), do: true
 
@@ -54,16 +88,11 @@ defmodule AllbertAssist.DevGates.PreflightGuard do
   def rules do
     %{
       "always" =>
-        [
-          "prepush",
-          "serial-core",
-          "release",
-          "release.v*",
-          "external-smoke (except list)",
-          "compatibility"
-        ] ++
+        @always_guarded_commands ++
+          ["release.v*", "external-smoke (except list)"] ++
           @benchmark_commands,
-      "conditional" => %{"fast-local" => lane_flags()}
+      "conditional" => %{"fast-local" => lane_flags()},
+      "unguarded" => @unguarded_commands ++ ["external-smoke list"]
     }
   end
 
@@ -73,4 +102,7 @@ defmodule AllbertAssist.DevGates.PreflightGuard do
   end
 
   defp lane_flags, do: ~w[--core-lanes --stocksage-lanes --web-lanes]
+
+  defp command_name([command | _]) when is_binary(command), do: command
+  defp command_name(_args), do: "<invalid>"
 end

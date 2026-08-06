@@ -8,7 +8,7 @@ defmodule AllbertAssist.DevGates.PreflightAttestation do
 
   alias AllbertAssist.Objectives.CanonicalJSON
 
-  @schema_version 1
+  @schema_version 2
   @relative_path ".test_metrics/preflight-attestation.json"
   @compared_fields ~w[
     schema_version
@@ -19,6 +19,7 @@ defmodule AllbertAssist.DevGates.PreflightAttestation do
     mix_lock_digest
     gate_definition_digest
     elixir_version
+    otp_release
     otp_version
   ]
 
@@ -104,6 +105,7 @@ defmodule AllbertAssist.DevGates.PreflightAttestation do
     git = Keyword.get(opts, :git_runner, &git!/3)
     head_sha = git.(root, ["rev-parse", "HEAD"], opts) |> String.trim()
     status = git.(root, ["status", "--porcelain=v1", "-z", "--untracked-files=all"], opts)
+    otp_release = to_string(:erlang.system_info(:otp_release))
 
     %{
       "schema_version" => @schema_version,
@@ -114,7 +116,8 @@ defmodule AllbertAssist.DevGates.PreflightAttestation do
       "mix_lock_digest" => file_digest(Path.join(root, "mix.lock")),
       "gate_definition_digest" => gate_definition_digest,
       "elixir_version" => System.version(),
-      "otp_version" => to_string(:erlang.system_info(:otp_release))
+      "otp_release" => otp_release,
+      "otp_version" => otp_version!(otp_release)
     }
   end
 
@@ -198,6 +201,21 @@ defmodule AllbertAssist.DevGates.PreflightAttestation do
   defp file_digest(path) do
     if File.regular?(path) do
       path |> File.read!() |> then(&:crypto.hash(:sha256, &1)) |> Base.encode16(case: :lower)
+    end
+  end
+
+  defp otp_version!(otp_release) do
+    path = Path.join([to_string(:code.root_dir()), "releases", otp_release, "OTP_VERSION"])
+
+    case File.read(path) do
+      {:ok, version} ->
+        case String.trim(version) do
+          "" -> Mix.raise("OTP_VERSION is empty: #{path}")
+          version -> version
+        end
+
+      {:error, reason} ->
+        Mix.raise("unable to read full OTP version from #{path}: #{reason}")
     end
   end
 
