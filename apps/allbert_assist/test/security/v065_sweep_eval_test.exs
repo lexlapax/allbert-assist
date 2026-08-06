@@ -421,6 +421,7 @@ defmodule AllbertAssist.Security.V065SweepEvalTest do
     ])
   end
 
+  @tag :preflight_fixture_security
   test "local-knowledge-recall-reviewed-memory-001: recall retrieves only :kept memory", %{
     projection: projection
   } do

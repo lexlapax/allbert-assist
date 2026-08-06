@@ -14,6 +14,10 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     original_evidence_root = Application.get_env(:allbert_assist, :gate_evidence_root)
     original_changed_files = Application.get_env(:allbert_assist, :gate_changed_files)
     original_metrics_store = Application.get_env(:allbert_assist, :test_metrics_store)
+
+    original_preflight_verifier =
+      Application.get_env(:allbert_assist, :preflight_attestation_verifier)
+
     evidence_root = temp_path("evidence")
     metrics_store = Path.join(temp_path("metrics"), "runs.jsonl")
     parent = self()
@@ -30,11 +34,18 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     # .test_metrics store; redirect recording to an owned temp store.
     Application.put_env(:allbert_assist, :test_metrics_store, metrics_store)
 
+    Application.put_env(:allbert_assist, :preflight_attestation_verifier, fn _root,
+                                                                             _digest,
+                                                                             _clean? ->
+      :ok
+    end)
+
     on_exit(fn ->
       restore_app_env(:gate_command_runner, original_runner)
       restore_app_env(:gate_evidence_root, original_evidence_root)
       restore_app_env(:gate_changed_files, original_changed_files)
       restore_app_env(:test_metrics_store, original_metrics_store)
+      restore_app_env(:preflight_attestation_verifier, original_preflight_verifier)
       File.rm_rf!(evidence_root)
       File.rm_rf!(Path.dirname(metrics_store))
       Mix.Task.reenable("allbert.test")
@@ -42,6 +53,24 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     end)
 
     {:ok, evidence_root: evidence_root, metrics_store: metrics_store}
+  end
+
+  test "a stale preflight refuses an expensive gate before any phase starts" do
+    parent = self()
+
+    Application.put_env(:allbert_assist, :preflight_attestation_verifier, fn _root,
+                                                                             _digest,
+                                                                             clean? ->
+      send(parent, {:preflight_refusal, clean?})
+      Mix.raise("preflight attestation refused: worktree_content_digest changed")
+    end)
+
+    assert_raise Mix.Error, ~r/preflight attestation refused/, fn ->
+      AllbertTestTask.run(["release.v13"])
+    end
+
+    assert_received {:preflight_refusal, true}
+    refute_received {:phase, _, _, _}
   end
 
   test "release runs explicit phases and does not delegate to precommit", %{

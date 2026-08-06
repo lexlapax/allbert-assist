@@ -5,6 +5,9 @@ defmodule Mix.Tasks.Allbert.Test do
   ## Usage
 
       mix allbert.test docs
+      mix allbert.test preflight
+      mix allbert.test compatibility
+      mix allbert.test scope --base SHA [--output PATH]
       mix allbert.test inventory [--output PATH] [--check-tags] [--manifest] [--check-manifest]
       mix allbert.test focused -- FILE [FILE...]
       mix allbert.test commit
@@ -89,9 +92,16 @@ defmodule Mix.Tasks.Allbert.Test do
   use Mix.Task
 
   alias AllbertAssist.CLI.Commands, as: CLICommands
+  alias AllbertAssist.DevGates.CompatibilityProbe
   alias AllbertAssist.DevGates.PartitionPacker
   alias AllbertAssist.DevGates.PhaseRunner
+  alias AllbertAssist.DevGates.FixtureRegistry
+  alias AllbertAssist.DevGates.Preflight
+  alias AllbertAssist.DevGates.PreflightAttestation
+  alias AllbertAssist.DevGates.PreflightGuard
+  alias AllbertAssist.DevGates.ScopeSelector
   alias AllbertAssist.DevGates.TestManifest
+  alias AllbertAssist.DevGates.TestLoad
   alias AllbertAssist.DevGates.TestMetrics
   alias AllbertAssist.DevGates.V131HeadQualification
   alias AllbertAssist.DevGates.V13FanoutEval
@@ -147,6 +157,8 @@ defmodule Mix.Tasks.Allbert.Test do
 
   @impl true
   def run(args) do
+    PreflightGuard.verify!(args, root())
+
     # M8.10 provenance: stash the operator-visible gate subcommand + args
     # once per VM so every metrics record cites the exact invocation.
     :persistent_term.put({__MODULE__, :invocation}, Enum.join(args, " "))
@@ -154,6 +166,11 @@ defmodule Mix.Tasks.Allbert.Test do
   end
 
   defp do_run(["docs"]), do: docs()
+  defp do_run(["preflight"]), do: preflight()
+  defp do_run(["preflight.test-load"]), do: preflight_test_load()
+  defp do_run(["preflight.fixture", id]), do: preflight_fixture(id)
+  defp do_run(["scope" | rest]), do: scope(rest)
+  defp do_run(["compatibility"]), do: compatibility()
   defp do_run(["inventory" | rest]), do: inventory(rest)
   defp do_run(["focused" | rest]), do: focused(rest)
   defp do_run(["commit" | rest]), do: commit(rest)
@@ -221,6 +238,162 @@ defmodule Mix.Tasks.Allbert.Test do
     docs_staleness_check!()
     :ok
   end
+
+  defp preflight do
+    digest = Preflight.contract_digest()
+    PreflightAttestation.invalidate!(root())
+    env = owned_env("preflight", 0)
+
+    phases =
+      Enum.map(Preflight.step_definitions(), fn step ->
+        phase(step.id, preflight_cwd(step.cwd), step.executable, step.args, env)
+      end)
+
+    result = run_phase_gate!("preflight", phases, evidence?: false, cleanup?: true)
+
+    artifact =
+      PreflightAttestation.write!(root(), digest, %{
+        checks:
+          Enum.map(result.phases, fn check ->
+            %{
+              "id" => check.id,
+              "status" => check.status,
+              "wall_ms" => check.duration_ms
+            }
+          end),
+        total_wall_ms: result.duration_ms,
+        status: result.status
+      })
+
+    Mix.shell().info(
+      "preflight attestation: #{PreflightAttestation.relative_path()} " <>
+        "state=#{String.slice(artifact["worktree_content_digest"], 0, 12)} " <>
+        "wall_ms=#{artifact["total_wall_ms"]}"
+    )
+
+    result
+  end
+
+  defp preflight_test_load do
+    groups =
+      inventory_records()
+      |> Enum.map(& &1.path)
+      |> group_files()
+
+    results =
+      groups
+      |> Task.async_stream(&load_owner_tests/1,
+        timeout: :infinity,
+        max_concurrency: max(1, length(groups))
+      )
+      |> Enum.map(fn
+        {:ok, result} -> result
+        {:exit, reason} -> {:error, Exception.format_exit(reason)}
+      end)
+
+    print_parallel_results!(results)
+    Mix.shell().info("owner-CWD test load: #{length(results)} owners, zero tests executed")
+  end
+
+  defp load_owner_tests({owner, files}) do
+    label = "preflight test-load #{owner}"
+    env = owned_env("preflight-test-load-#{owner}", 0)
+
+    try do
+      cwd = app_cwd(owner)
+      relative_files = Enum.map(files, &relative_test_path(&1, owner))
+
+      {output, status} =
+        System.cmd("mix", TestLoad.command(relative_files),
+          cd: cwd,
+          env: env,
+          stderr_to_stdout: true
+        )
+
+      TestLoad.result(label, output, status)
+    after
+      cleanup_owned_env(env)
+    end
+  end
+
+  defp preflight_fixture(id) do
+    FixtureRegistry.validate!(root(), &app_cwd/1)
+    entry = FixtureRegistry.fetch!(id)
+    env = owned_env("fixture-#{id}", 0)
+
+    {output, status} =
+      test_files_command(entry.owner, entry.paths, env, false, [
+        "--only",
+        Atom.to_string(entry.tag)
+      ])
+
+    print_output("fixture sentinel #{id}", output)
+    totals = TestMetrics.sum_exunit_totals(output)
+
+    cond do
+      status != 0 ->
+        Mix.raise("fixture sentinel #{id} failed with status #{status}")
+
+      totals.tests != entry.expected_tests ->
+        Mix.raise(
+          "fixture sentinel #{id} expected #{entry.expected_tests} tests, ran #{totals.tests}"
+        )
+
+      true ->
+        :ok
+    end
+  end
+
+  defp scope(args) do
+    {opts, rest, invalid} = OptionParser.parse(args, strict: [base: :string, output: :string])
+    reject_invalid!(invalid)
+    reject_rest!(rest)
+    base = Keyword.get(opts, :base) || Mix.raise("scope requires --base SHA")
+    result = ScopeSelector.select!(root(), base)
+    json = Jason.encode!(result, pretty: true) <> "\n"
+
+    case Keyword.get(opts, :output) do
+      nil ->
+        :ok
+
+      output ->
+        output = Path.expand(output, root())
+        File.mkdir_p!(Path.dirname(output))
+        File.write!(output, json)
+        Mix.shell().info("scope evidence: #{output}")
+    end
+
+    Mix.shell().info(
+      "scope base=#{String.slice(result["base_sha"], 0, 12)} " <>
+        "merge_base=#{String.slice(result["merge_base_sha"], 0, 12)} " <>
+        "paths=#{length(result["changed_paths"])} " <>
+        "aggregate_required=#{result["aggregate_required"]}"
+    )
+
+    Mix.shell().info(
+      "scope classes=#{Enum.join(result["classes"], ",")} " <>
+        "owners=#{Enum.join(result["owners"], ",")} " <>
+        "lanes=#{Enum.join(result["lanes"], ",")} " <>
+        "required_gates=#{Enum.join(result["required_gates"], ",")}"
+    )
+
+    Enum.each(result["changed_paths"], fn change ->
+      Mix.shell().info(
+        "scope path=#{change["path"]} source=#{change["source"]} status=#{change["status"]} " <>
+          "rules=#{Enum.join(change["matched_rules"], ",")}"
+      )
+    end)
+
+    Enum.each(result["diagnostics"], &Mix.shell().info("scope diagnostic: #{&1}"))
+    result
+  end
+
+  defp compatibility do
+    CompatibilityProbe.run!(root())
+  end
+
+  defp preflight_cwd(:root), do: root()
+  defp preflight_cwd(:core), do: app_cwd(:core)
 
   # v0.66 M10 (plan Locked Decision 4): the docs gate fails on doc-currency drift so it
   # cannot silently recur next release. The currency-stamp/pin checks apply to the
@@ -9746,12 +9919,17 @@ defmodule Mix.Tasks.Allbert.Test do
     end
   end
 
-  defp test_files_command(owner, files, env, raw?) do
+  defp test_files_command(owner, files, env, raw?, test_args \\ []) do
     try do
       cwd = app_cwd(owner)
       relative_files = Enum.map(files, &relative_test_path(&1, owner))
       task = if raw?, do: "allbert.test.raw", else: "test"
-      System.cmd("mix", [task | relative_files], cd: cwd, env: env, stderr_to_stdout: true)
+
+      System.cmd("mix", [task | test_args ++ relative_files],
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
     after
       cleanup_owned_env(env)
     end
@@ -10062,9 +10240,7 @@ defmodule Mix.Tasks.Allbert.Test do
   end
 
   defp check_lane_tags!(records) do
-    issues =
-      records
-      |> Enum.flat_map(&lane_reconciliation_issue/1)
+    issues = lane_reconciliation_issues(records)
 
     if issues != [] do
       Mix.raise("""
@@ -10078,8 +10254,17 @@ defmodule Mix.Tasks.Allbert.Test do
     )
   end
 
-  defp lane_reconciliation_issue(%{path: path, template: template, primary_lane: expected}) do
-    text = File.read!(Path.join(root(), path))
+  @doc false
+  def lane_reconciliation_issues(records, source_reader \\ nil) when is_list(records) do
+    source_reader = source_reader || (&File.read!(Path.join(root(), &1)))
+    Enum.flat_map(records, &lane_reconciliation_issue(&1, source_reader))
+  end
+
+  defp lane_reconciliation_issue(
+         %{path: path, template: template, primary_lane: expected},
+         source_reader
+       ) do
+    text = source_reader.(path)
     actual = actual_primary_lane_tags(text, template)
 
     cond do
@@ -10510,6 +10695,9 @@ defmodule Mix.Tasks.Allbert.Test do
     Mix.raise("""
     Usage:
       mix allbert.test docs
+      mix allbert.test preflight
+      mix allbert.test compatibility
+      mix allbert.test scope --base SHA [--output PATH]
       mix allbert.test inventory [--output PATH] [--check-tags] [--manifest] [--check-manifest]
       mix allbert.test focused -- FILE [FILE...]
       mix allbert.test commit

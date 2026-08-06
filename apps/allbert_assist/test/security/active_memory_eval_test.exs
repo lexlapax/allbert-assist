@@ -129,6 +129,7 @@ defmodule AllbertAssist.Security.ActiveMemoryEvalTest do
              |> Enum.map(& &1.id)
   end
 
+  @tag :preflight_fixture_security
   test "identity context stays inert and active memory action remains read-only", %{
     projection: projection
   } do
@@ -244,6 +245,7 @@ defmodule AllbertAssist.Security.ActiveMemoryEvalTest do
     refute unreviewed.path in no_promotion.trace.retrieved_paths
   end
 
+  @tag :preflight_fixture_security
   test "namespace boundaries block app leaks and keep identity system-owned", %{
     projection: projection
   } do
@@ -349,6 +351,7 @@ defmodule AllbertAssist.Security.ActiveMemoryEvalTest do
     assert namespace.trace.app_lookup == {:error, :not_found}
   end
 
+  @tag :preflight_fixture_security
   test "retrieval is deterministic, snapshot-bound, and kept-only", %{
     home: home,
     projection: projection
@@ -536,6 +539,7 @@ defmodule AllbertAssist.Security.ActiveMemoryEvalTest do
     refute trace_eval.trace.contains_body?
   end
 
+  @tag :preflight_fixture_security
   test "intent classifier does not receive active memory chunks", %{projection: projection} do
     enable_model_answer!()
     assert {:ok, _setting} = Settings.put("intent.model_assist_enabled", true, %{audit?: false})

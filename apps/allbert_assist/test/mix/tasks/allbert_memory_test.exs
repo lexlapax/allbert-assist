@@ -314,6 +314,7 @@ defmodule Mix.Tasks.Allbert.MemoryTest do
     assert consolidate_output =~ "Stopped reason: disabled"
   end
 
+  @tag :preflight_fixture_memory
   test "compile-index, search, and summarize render operator output" do
     assert {:ok, entry} =
              Memory.append(%{
@@ -361,6 +362,7 @@ defmodule Mix.Tasks.Allbert.MemoryTest do
     assert summary_output =~ "Entries: 1"
   end
 
+  @tag :preflight_fixture_memory
   test "list filters identity namespace and retrieve prints deterministic chunks" do
     assert {:ok, entry} =
              Memory.upsert_system_entry(%{
@@ -436,6 +438,7 @@ defmodule Mix.Tasks.Allbert.MemoryTest do
     end
   end
 
+  @tag :preflight_fixture_memory
   test "quick smoke retrieves a plain identity markdown file", %{home: home} do
     path = Path.join([home, "memory", "identity", "persona.md"])
 

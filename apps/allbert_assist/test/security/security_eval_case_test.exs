@@ -50,6 +50,7 @@ defmodule AllbertAssist.SecurityEvalCaseTest do
     assert_no_secret_in(eval, ["super-secret-token"])
   end
 
+  @tag :preflight_fixture_security
   test "inventory covers every v0.28 surface group with concrete rows" do
     rows = EvalInventory.rows()
 

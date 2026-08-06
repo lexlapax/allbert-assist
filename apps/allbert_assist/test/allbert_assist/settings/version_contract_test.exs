@@ -138,6 +138,7 @@ defmodule AllbertAssist.Settings.VersionContractTest do
     assert [%{fragment_id: "core:artifacts", status: :forward}] = diagnostics
   end
 
+  @tag :preflight_fixture_memory
   test "schema diff accepts additive keys and rejects non-additive changes" do
     before_schema = %{
       "sample.enabled" => %{
