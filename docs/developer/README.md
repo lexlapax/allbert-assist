@@ -34,7 +34,7 @@ gates. Start with the compact maps, then open subsystem guides as needed.
 - [MCP client](mcp-client.md)
 - [Plan build](plan-build.md)
 - [Portability](portability.md)
-- [Provider capabilities](provider-capabilities.md)
+- [Provider capabilities and model-role resolution](provider-capabilities.md)
 - [Sandbox gate runner](sandbox-gate-runner.md)
 - [Self-improvement](self-improvement.md)
 - [Self-improvement trace index](self-improvement-trace-index.md)

@@ -421,6 +421,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert error.message =~ "mix allbert.test release.v121"
     assert error.message =~ "mix allbert.test release.v13"
     assert error.message =~ "mix allbert.test release.v131"
+    assert error.message =~ "mix allbert.test release.v132"
 
     assert error.message =~
              "mix allbert.test bench-v13-fanout [--profile NAME] [--mixed-mistral] " <>
@@ -433,6 +434,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert error.message =~ "mix allbert.test release.structure v121 [--output PATH]"
     assert error.message =~ "mix allbert.test release.structure v13 [--output PATH]"
     assert error.message =~ "mix allbert.test release.structure v131 [--output PATH]"
+    assert error.message =~ "mix allbert.test release.structure v132 [--output PATH]"
     assert error.message =~ "mix allbert.test external-smoke -- telegram"
     assert error.message =~ "mix allbert.test external-smoke -- email"
     assert error.message =~ "mix allbert.test external-smoke -- inbound_telegram"
@@ -763,6 +765,59 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
                ]
              end)
     end
+
+    test "release.v132 freezes both predecessors and its closed eight-step delta" do
+      proof = AllbertTestTask.release_v132_topology_proof()
+      definitions = proof["definitions"]["release.v132"]
+
+      assert proof["status"] == "passed"
+      assert Enum.all?(proof["checks"], fn {_name, passed?} -> passed? end)
+      assert proof["release_v13_frozen_sha256"] == proof["release_v13_observed_sha256"]
+      assert proof["release_v131_frozen_sha256"] == proof["release_v131_observed_sha256"]
+      assert length(proof["definitions"]["release.v13"]) == 32
+      assert length(proof["definitions"]["release.v131"]) == 8
+      assert length(definitions) == 8
+      assert proof["docs_archive_dirs"] == ["docs/archives", "docs/plans/archives"]
+
+      assert Enum.map(definitions, & &1["id"]) == proof["release_v132_step_ids"]
+
+      test_targets =
+        for %{"args" => ["test" | targets]} <- definitions,
+            target <- targets,
+            do: target
+
+      assert test_targets == proof["release_v132_target_allowlist"]
+
+      owner_index = Enum.find_index(proof["preflight_step_ids"], &(&1 == "owner_cwd_test_load"))
+      tag_index = Enum.find_index(proof["preflight_step_ids"], &(&1 == "lane_tags"))
+      manifest_index = Enum.find_index(proof["preflight_step_ids"], &(&1 == "test_manifest"))
+      assert owner_index < tag_index
+      assert tag_index < manifest_index
+
+      refute Enum.any?(definitions, fn step ->
+               step["args"] in [
+                 ["test"],
+                 ["allbert.test", "release.v13"],
+                 ["allbert.test", "release.v131"],
+                 ["allbert.test", "release"],
+                 ["allbert.test", "compatibility"],
+                 ["precommit"]
+               ]
+             end)
+    end
+
+    test "release.v132 closed targets exist, are manifested, and rejoin aggregate lanes" do
+      proof = AllbertTestTask.release_v132_structure_proof()
+
+      assert proof["status"] == "passed"
+      assert proof["targets_status"] == "passed"
+      assert length(proof["target_checks"]) == 17
+
+      assert Enum.all?(proof["target_checks"], fn target ->
+               target["exists"] and target["manifest"] and target["aggregate_covered"] and
+                 target["owner"] in ["core", "web"] and is_binary(target["primary_lane"])
+             end)
+    end
   end
 
   # Post-v1.0.0 (3c6c7230): released version docs live in docs/plans/archives/,
@@ -788,6 +843,25 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert source =~ ~s(alias AllbertAssist.CLI.Commands, as: CLICommands)
     assert source =~ ~s|CLICommands.groups()|
     assert source =~ ~s(local Markdown links agree)
+  end
+
+  test "docs gate validates local Markdown links inside both archive trees" do
+    root = temp_path("archive-links")
+    plans_archive = Path.join(root, "docs/plans/archives")
+    general_archive = Path.join(root, "docs/archives")
+    File.mkdir_p!(plans_archive)
+    File.mkdir_p!(general_archive)
+
+    File.write!(Path.join(plans_archive, "target.md"), "# Target\n")
+    File.write!(Path.join(plans_archive, "plan.md"), "[target](target.md)\n")
+    File.write!(Path.join(general_archive, "review.md"), "[missing](missing.md)\n")
+
+    assert AllbertTestTask.docs_local_markdown_link_errors(root) == [
+             "docs/archives/review.md: local Markdown link does not resolve: missing.md"
+           ]
+
+    File.write!(Path.join(general_archive, "missing.md"), "# Restored target\n")
+    assert AllbertTestTask.docs_local_markdown_link_errors(root) == []
   end
 
   test "ADR index status labels match the linked ADR Status sections" do

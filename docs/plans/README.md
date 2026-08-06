@@ -10,9 +10,8 @@ plan and request-flow documents.
 Listed in ship order after the 2026-08-06 resequencing.
 
 - [v1.3.2 foundational enablers plan](v1.3.2-plan.md) and
-  [request flow](v1.3.2-request-flow.md) (planned, source-only; preflight and
-  `model_roles`, extracted from the profiling release because everything
-  depended on them)
+  [request flow](v1.3.2-request-flow.md) (implementation in progress,
+  source-only; M1 preflight and M2 `model_roles` complete, M3 rejoin active)
 - [v1.4 spine enablers plan](v1.4-plan.md) and
   [request flow](v1.4-request-flow.md) (planned; carries the accepted kernel
   inversions; readiness passes not yet run)

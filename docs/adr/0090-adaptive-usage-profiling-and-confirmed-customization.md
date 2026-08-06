@@ -33,9 +33,10 @@ confirmations), ADR 0031/0006 (Settings/Security Central), and ADR 0080/0074
 
 ## Context
 
-The source-only v1.3.1 point release is complete. It supplied the answering-head
-qualification evidence and corrective hardening that v1.8 inherits; v1.8 is
-the first packaged carrier of those changes. The implementation seams below
+The source-only v1.3.1 point release is complete and v1.3.2 is landing the
+extracted foundation this ADR consumes. v1.4 is the first packaged carrier of
+both source-only lines; v1.8 inherits them through the intervening releases.
+The implementation seams below
 were audited during planning and are re-checked by M0 rather than treated as
 permanent line-number facts.
 
@@ -59,8 +60,9 @@ permanent line-number facts.
   markdown. A database transaction cannot make all three atomic. The design
   therefore needs a durable operation state and explicit recovery rather than
   claiming impossible all-or-nothing behavior.
-- **Per-role profiles and prompt variants do not yet have a uniform resolver:**
-  purpose-specific model keys remain authoritative; prompt rules have multiple
+- **Per-role profiles now have one bounded resolver:** v1.3.2 lands role
+  expansion for Settings.Models-owned task chains. Scalar purpose-specific
+  model keys remain outside that consumer set; prompt rules still have multiple
   call sites and quality receipts already bind catalog digests.
 - **Proactive delivery has one boundary:** `Channels.Notify` already owns
   defaults-OFF grants, exact-origin re-authorization, redaction, throttling,

@@ -68,6 +68,11 @@ packaged `allbert` twin. It exercises the production DirectAnswer assembly from
 a source checkout but records only offline, content-free qualification evidence;
 it is not a runtime command or a new operator authority surface.
 
+v1.3.2's `mix allbert.test preflight`, `scope --base`, `compatibility`, and
+`release.v132` commands are likewise source-only developer/release tooling.
+They validate repository state and select evidence; they grant no runtime
+authority and have no packaged dispatcher twin.
+
 | Mix task | `allbert` command |
 |---|---|
 | `mix allbert.acp_server` | `allbert serve` |

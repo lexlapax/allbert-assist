@@ -138,6 +138,25 @@ text capability.
 
 Aliases are for migration. New v0.48+ code should use the resolver.
 
+### Model-role references (v1.3.2 source)
+
+`role:fast`, `role:capable`, and `role:thinking` are additive references in
+`model_preferences.tasks.*` only. `AllbertAssist.Settings.Models` expands them
+before ordinary capability/readiness validation, deduplicates by the resolved
+physical profile while preserving first occurrence, and attaches
+`requested_reference`, `requested_role`, and `resolved_profile` only to
+role-backed results and diagnostics. Existing concrete results retain their
+prior term shape exactly.
+
+`model_roles.<role>.profile` defaults to `nil` and accepts a configured concrete
+profile only. It rejects another `role:*`, so runtime role cycles are not a
+possible state. An unconfigured, removed, disabled, or incapable target records
+a bounded diagnostic and continues the authored task chain; it does not invent
+or append a fallback. Primary, capability, and legacy scalar model settings
+remain concrete-only. Consumers outside the task resolver must not parse role
+strings themselves; they either adopt the central resolver in a later planned
+migration or remain non-consumers.
+
 ## Vision/Image Notes
 
 v0.49 vision/image work uses the same model-profile and doctor contract:

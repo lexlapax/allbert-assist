@@ -278,6 +278,34 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
              Settings.get("memory.collection.origin_grants")
   end
 
+  test "clears every schema-declared nilable scalar with JSON null" do
+    assert {:ok, _setting} =
+             Settings.put("model_roles.fast.profile", "local", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("browser.driver.binary_path", "/tmp/browser", %{audit?: false})
+
+    for key <- ["model_roles.fast.profile", "browser.driver.binary_path"] do
+      Mix.Task.reenable("allbert.settings")
+
+      output =
+        capture_io(fn ->
+          assert :ok = SettingsTask.run(["set", key, "null"])
+        end)
+
+      assert output =~ "Updated: #{key}=nil"
+      assert {:ok, nil} = Settings.get(key)
+    end
+
+    Mix.Task.reenable("allbert.settings")
+
+    capture_io(fn ->
+      assert :ok = SettingsTask.run(["set", "operator.display_name", "null"])
+    end)
+
+    assert {:ok, "null"} = Settings.get("operator.display_name")
+  end
+
   test "model-doctor renders the per-purpose recommendation matrix" do
     assert {:ok, _setting} =
              Settings.put("providers.local_ollama.base_url", "http://127.0.0.1:1/v1", %{

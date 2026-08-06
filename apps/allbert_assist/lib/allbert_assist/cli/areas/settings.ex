@@ -191,11 +191,32 @@ defmodule AllbertAssist.CLI.Areas.Settings do
 
   defp parse_value(key, value) do
     cond do
+      nilable_setting?(key) and String.trim(value) == "null" -> {:ok, nil}
       channel_identity_map_setting?(key) -> parse_channel_identity_map(value)
       string_list_setting?(key) -> parse_string_list(value)
       string_map_setting?(key) -> parse_string_map(value)
       string_scalar_setting?(key) -> {:ok, value}
       true -> {:ok, parse_scalar_value(value)}
+    end
+  end
+
+  defp nilable_setting?(key) do
+    case Map.get(Settings.schema(), key) do
+      %{type: type}
+      when type in [
+             :concrete_profile_ref_or_nil,
+             :hex_secret_or_nil,
+             :mcp_secret_ref_or_nil,
+             :non_negative_integer_or_nil,
+             :port_or_nil,
+             :secret_ref_or_nil,
+             :string_or_nil,
+             :url_or_nil
+           ] ->
+        true
+
+      _schema ->
+        false
     end
   end
 

@@ -181,7 +181,7 @@ ADR 0050 before changing dependencies.
 
 | Gate | Use | Typical evidence |
 | --- | --- | --- |
-| Preflight | First, before expensive release phases and every executable remediation. | Target command `mix allbert.test preflight` lands in v1.4 M0.5. Until then, run the active plan's enumerated cheap constituent bundle; v1.3.1 M0 freezes that bridge. |
+| Preflight | First, before expensive release phases and every executable remediation. | `mix allbert.test preflight` landed in v1.3.2 M1; it is the under-two-minute exact-state prerequisite for centrally classified expensive commands. |
 | Docs | Docs-only changes. | `git diff --check` plus reference/link checks. |
 | Focused | Every implementation milestone. | Explicit test files named in the active plan/request-flow doc. |
 | Static | Code changes. | `mix allbert.hex_audit`, `mix compile --warnings-as-errors`, `mix format --check-formatted`, `mix credo --strict`, and Dialyzer when required. |

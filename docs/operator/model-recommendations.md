@@ -235,6 +235,27 @@ mix allbert admin settings get model_roles.capable.profile
 mix allbert admin settings get model_roles.thinking.profile
 ```
 
+Assign a role, then opt one task chain into that role explicitly:
+
+```sh
+mix allbert admin settings set model_roles.fast.profile local
+mix allbert admin settings set model_preferences.tasks.direct_answer '["role:fast","direct_answer_local"]'
+mix allbert admin models catalog
+mix allbert admin intent doctor
+```
+
+The catalog must show `role:fast: assigned=local` and annotate the `local`
+profile with `assigned_roles=fast`. The doctor must show the authored
+`chain=[role:fast,direct_answer_local]` and whichever concrete profile is
+actually ready. If `role:fast` is unconfigured or unusable, its bounded
+diagnostic is retained and resolution continues to `direct_answer_local`; it
+does not append the global primary or pull a model. To return to the shipped
+concrete chain, write `model_preferences.tasks.direct_answer` back to
+`["direct_answer_local"]` before clearing the mapping with
+`mix allbert admin settings set model_roles.fast.profile null`. The literal
+JSON value `null` clears any schema-declared nilable scalar; it remains the
+ordinary string `"null"` for non-nilable string settings.
+
 Use the source commands above for v1.3.2. From the v1.4 packaged binary onward,
 replace `mix allbert` with `allbert`.
 

@@ -10,6 +10,36 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v1.3.2 - Foundational Preflight And Model Roles
+
+Status: **implementation in progress for a source-only `[skip-artifacts]`
+point tag.** M1–M3 implementation and focused reconciliation are complete;
+independent post-implementation review, attended source validation, and final
+gates remain. This line creates no native archive, GitHub Release, signature,
+Homebrew update, packaged FV, or Latest movement. `v1.3.0` remains the packaged
+Latest; v1.4 is the next binary carrier.
+
+- `mix allbert.test preflight` now provides one under-two-minute,
+  cheapest-first gate with exact-state attestation and refusal, forced
+  warning-free compilation, formatting/whitespace and docs checks,
+  registry/parameter checks, owner-CWD zero-execution loading, separate lane
+  and manifest reconciliation, and executable fixture sentinels.
+- `mix allbert.test scope --base <sha>` deterministically selects the bounded
+  re-run set and fails closed for invalid bases, unknown paths, and shared-spine
+  changes. `mix allbert.test compatibility` keeps the immutable advisory
+  Elixir 1.20.2 / OTP 29 Linux probe outside the local preflight budget.
+- Settings Central now owns nil-default `role:fast`, `role:capable`, and
+  `role:thinking` references for `model_preferences.tasks.*`. Mappings accept
+  configured concrete profiles only; role expansion preserves order,
+  deduplicates after physical resolution, reports bounded provenance and
+  diagnostics, and leaves existing concrete chains byte-for-byte unchanged.
+  Catalog output is shared across CLI, TUI, and Web. No suggestion or automatic
+  role-remap path ships here; that authority-bearing half remains in v1.8.
+- The bounded eight-step `release.v132` delta freezes both predecessor gate
+  definitions, owns only the new preflight/model-role/docs/version/inventory
+  rows, and cannot nest a predecessor, aggregate, precommit, or compatibility
+  run. The docs gate now checks local Markdown links in both archive trees.
+
 ## v1.3.1 - Answering-Head Qualification And Corrective Hardening
 
 Status: **shipped source-only on 2026-08-05.** Annotated `[skip-artifacts]` tag

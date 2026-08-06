@@ -354,7 +354,8 @@ rather than assigning the same foundation to a later release.
 | `model_roles.fast|capable|thinking` resolution | v1.3.2 | v1.4 | v1.6 Knowledge Central (`capable`), v1.7 hosted-provider consumers, v1.8 confirmed remaps |
 | role-remap suggestion, confirmation, and egress guard | v1.8 | v1.8 | adaptive profiling/customization only; it consumes but does not redefine role resolution |
 
-9. **1.3.2 — Foundational enablers.** (**Planned — triad written 2026-08-06:**
+9. **1.3.2 — Foundational enablers.** (**IN IMPLEMENTATION — M0 through M2
+   complete 2026-08-06; M3 documentation/gate rejoin active:**
    `docs/plans/v1.3.2-plan.md` + request-flow; no new ADR — preflight is release
    tooling and `model_roles` ships the resolution half of ADR 0090 §4.)
    Source-only `[skip-artifacts]` point tag; v1.3.1's precedent. No GitHub

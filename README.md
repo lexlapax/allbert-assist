@@ -63,8 +63,9 @@ becoming opaque or unbounded.
 ## Current Shape
 
 This README is the stable project orientation. The current packaged release is
-**v1.3.0**. The v1.3.1 corrective source line is tagged source-only; v1.3.0
-remains the installed/package-manager line until v1.8.
+**v1.3.0**. The source tree is on the v1.3.2 foundational-enabler line after
+the source-only v1.3.1 corrective tag; v1.3.0 remains the
+installed/package-manager line until v1.4 carries both source-only deltas.
 For features and the full release-by-release history, see the
 [CHANGELOG](CHANGELOG.md); forward planning lives in the [roadmap](docs/plans/roadmap.md).
 

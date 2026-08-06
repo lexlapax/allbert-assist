@@ -1306,18 +1306,15 @@ tree is unchanged. Recorded as an honest floor for M6.
 
 ## Gate Matrix
 
-`mix allbert.test preflight` is the v1.3.2 target contract (renumbered from
+`mix allbert.test preflight` is the implemented v1.3.2 contract (renumbered from
 v1.4 M8.5 to M0.5 on 2026-08-05, then extracted into the source-only v1.3.2
-enabler release by the 2026-08-06 resequencing) and is not yet an
-implemented command. Until that milestone lands, an active plan must enumerate
-and run its cheap equivalent components directly; it must not claim a green
-command that does not exist. The shipped source-only v1.3.1 plan freezes that
-temporary bundle as historical evidence; v1.3.2 M0 re-verifies the constituent
-owners at build-start HEAD and M1 replaces the bridge.
+enabler release by the 2026-08-06 resequencing). M1 replaced v1.3.1's temporary
+constituent bundle; the archived v1.3.1 plan retains that bridge as historical
+evidence, not as a parallel current workflow.
 
 | Gate | Use | Evidence |
 | --- | --- | --- |
-| **Preflight** | **First, before anything expensive. Every release phase and every remediation.** | After v1.3.2 M1, `mix allbert.test preflight`: forced warning-free compile on the pinned production source toolchain (Elixir 1.19.5 / OTP 29.0.1), formatter, `git diff --check`, docs gate including archived local Markdown links, registry/param-contract consistency, owner-CWD test loading, lane-tag reconciliation, manifest reconciliation, and executable fixture-contract sentinels. Budget: **under two warm-cache minutes**. Until that command exists, run the active plan's enumerated cheap equivalent. |
+| **Preflight** | **First, before anything expensive. Every release phase and every remediation.** | `mix allbert.test preflight`: forced warning-free compile on the pinned production source toolchain (Elixir 1.19.5 / OTP 29.0.1), formatter, `git diff --check`, docs gate including archived local Markdown links, registry/param-contract consistency, owner-CWD test loading, lane-tag reconciliation, manifest reconciliation, and executable fixture-contract sentinels. Budget: **under two warm-cache minutes**. |
 | Docs | Docs-only changes. | `mix allbert.test docs` (`git diff --check` and reference checks when configured). |
 | Focused | Every implementation milestone. | `mix allbert.test focused -- <files...>` using explicit files named in the plan/request-flow doc. |
 | Static | Code changes. | compile warning gate, formatter check, Credo strict, Dialyzer when required. |
@@ -1702,7 +1699,10 @@ delta-gate run over ten minutes is topology drift.
 `release.v132` is the bounded source-only enabler delta. It owns preflight,
 attestation, owner-CWD loading, fixture sentinels, scope selection, model-role
 resolution, source/package lag, expanded archived-link documentation coverage,
-and both inventory checks. Its structure proof freezes owner-CWD loading plus
+and both inventory checks in exactly eight steps. It freezes the 32-step
+`release.v13` and eight-step `release.v131` normalized definitions, uses a
+closed 17-file owner allowlist, and rejects predecessor, aggregate, precommit,
+and compatibility invocations. Its structure proof freezes owner-CWD loading plus
 `inventory --check-tags` and `--check-manifest` as separate preflight checks.
 That is the inherited contract v1.4 M14 relies on when new test files land; M14
 also repeats the two inventory checks in `release.v14` as final delta defense.
