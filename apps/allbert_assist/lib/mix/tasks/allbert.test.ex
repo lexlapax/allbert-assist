@@ -18,6 +18,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test bench-v13-latency [--consumer memory|search|both] [--output PATH] [--executable PATH --artifact-sha256 HEX]
       mix allbert.test bench-v13-zero-shot [--profile NAME] [--fixture PATH] [--output PATH]
       mix allbert.test bench-v13-fanout [--profile NAME] [--mixed-mistral] [--fixture PATH] [--output PATH] [--control-output PATH]
+      mix allbert.test qualify-head --profile NAME --model MODEL --trials 5 --timeout-ms 60000 [--output PATH]
       mix allbert.test release
       mix allbert.test release.v042
       mix allbert.test release.v043
@@ -92,6 +93,7 @@ defmodule Mix.Tasks.Allbert.Test do
   alias AllbertAssist.DevGates.PhaseRunner
   alias AllbertAssist.DevGates.TestManifest
   alias AllbertAssist.DevGates.TestMetrics
+  alias AllbertAssist.DevGates.V131HeadQualification
   alias AllbertAssist.DevGates.V13FanoutEval
   alias AllbertAssist.Objectives.CanonicalJSON
 
@@ -165,6 +167,7 @@ defmodule Mix.Tasks.Allbert.Test do
   defp do_run(["bench-v13-latency" | rest]), do: bench_v13_latency(rest)
   defp do_run(["bench-v13-zero-shot" | rest]), do: bench_v13_zero_shot(rest)
   defp do_run(["bench-v13-fanout" | rest]), do: bench_v13_fanout(rest)
+  defp do_run(["qualify-head" | rest]), do: qualify_head(rest)
   defp do_run(["release"]), do: release()
   defp do_run(["release.v042"]), do: release_v042()
   defp do_run(["release.v043"]), do: release_v043()
@@ -1125,6 +1128,84 @@ defmodule Mix.Tasks.Allbert.Test do
 
       print_output("bench-v13-fanout", output_text)
       if status != 0, do: Mix.raise("bench-v13-fanout failed with status #{status}")
+    after
+      cleanup_owned_env(env)
+    end
+  end
+
+  defp qualify_head(args) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args,
+        strict: [
+          profile: :string,
+          model: :string,
+          trials: :integer,
+          timeout_ms: :integer,
+          output: :string
+        ]
+      )
+
+    reject_invalid!(invalid)
+    reject_rest!(rest)
+
+    profile = Keyword.get(opts, :profile, "direct_answer_local")
+    model = Keyword.get(opts, :model)
+    trials = Keyword.get(opts, :trials, 5)
+    timeout_ms = Keyword.get(opts, :timeout_ms, 60_000)
+    output = opts |> Keyword.get(:output) |> expand_optional_path()
+
+    if String.trim(profile) == "", do: Mix.raise("--profile must not be blank")
+    if not is_binary(model) or String.trim(model) == "", do: Mix.raise("--model is required")
+
+    if trials != 5 do
+      Mix.raise("--trials must be 5 for the frozen v1.3.1 qualification bar")
+    end
+
+    if timeout_ms != 60_000 do
+      Mix.raise("--timeout-ms must be 60000 for the frozen v1.3.1 qualification bar")
+    end
+
+    fixture =
+      Path.expand(
+        "apps/allbert_assist/test/fixtures/v1.3.1/head_qualification.json",
+        root()
+      )
+
+    _fixture = V131HeadQualification.load_fixture!(fixture)
+    validate_new_output!(output)
+    {full_sha, dirty?} = v13_benchmark_provenance!()
+
+    env =
+      owned_env("qualify-head", 0)
+      |> List.keyreplace("MIX_ENV", 0, {"MIX_ENV", "dev"})
+      |> Kernel.++([
+        {"V131_HEAD_FIXTURE", fixture},
+        {"V131_HEAD_PROFILE", profile},
+        {"V131_HEAD_MODEL", model},
+        {"V131_HEAD_TRIALS", to_string(trials)},
+        {"V131_HEAD_TIMEOUT_MS", to_string(timeout_ms)},
+        {"V131_HEAD_STORE", output || ""},
+        {"V131_FULL_SHA", full_sha},
+        {"V131_DIRTY", to_string(dirty?)}
+      ])
+
+    try do
+      migrate_v13_benchmark_home!(env, "qualify-head")
+
+      expression =
+        "Logger.configure(level: :warning); " <>
+          "{:ok, _} = Application.ensure_all_started(:allbert_assist); " <>
+          "AllbertAssist.DevGates.V131HeadQualification.record_run_with_watchdog!()"
+
+      {output_text, status} =
+        System.cmd("mix", ["run", "--no-start", "-e", expression],
+          cd: app_cwd(:core),
+          env: env,
+          stderr_to_stdout: true
+        )
+
+      print_output("qualify-head", output_text)
+      if status != 0, do: Mix.raise("qualify-head failed with status #{status}")
     after
       cleanup_owned_env(env)
     end
@@ -10437,6 +10518,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test bench-v13-latency [--consumer memory|search|both] [--output PATH] [--executable PATH --artifact-sha256 HEX]
       mix allbert.test bench-v13-zero-shot [--profile NAME] [--fixture PATH] [--output PATH]
       mix allbert.test bench-v13-fanout [--profile NAME] [--mixed-mistral] [--fixture PATH] [--output PATH] [--control-output PATH]
+      mix allbert.test qualify-head --profile NAME --model MODEL --trials 5 --timeout-ms 60000 [--output PATH]
       mix allbert.test release
       mix allbert.test release.v042
       mix allbert.test release.v043

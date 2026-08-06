@@ -248,6 +248,39 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert error.message == "--profile must not be blank"
   end
 
+  test "v1.3.1 head qualification rejects non-frozen evidence parameters before Home allocation" do
+    gate_glob = Path.join([System.tmp_dir!(), "allbert_test_gates", "qualify-head", "*"])
+    before_roots = MapSet.new(Path.wildcard(gate_glob))
+
+    assert_raise Mix.Error, "--model is required", fn ->
+      AllbertTestTask.run(["qualify-head", "--profile", "direct_answer_local"])
+    end
+
+    assert_raise Mix.Error, "--trials must be 5 for the frozen v1.3.1 qualification bar", fn ->
+      AllbertTestTask.run([
+        "qualify-head",
+        "--model",
+        "qwen2.5:7b",
+        "--trials",
+        "4"
+      ])
+    end
+
+    assert_raise Mix.Error,
+                 "--timeout-ms must be 60000 for the frozen v1.3.1 qualification bar",
+                 fn ->
+                   AllbertTestTask.run([
+                     "qualify-head",
+                     "--model",
+                     "qwen2.5:7b",
+                     "--timeout-ms",
+                     "59000"
+                   ])
+                 end
+
+    assert MapSet.new(Path.wildcard(gate_glob)) == before_roots
+  end
+
   test "v1.3 mixed-Mistral benchmark rejects a non-default Worker before Home allocation" do
     gate_glob = Path.join([System.tmp_dir!(), "allbert_test_gates", "bench-v13-fanout", "*"])
     before_roots = MapSet.new(Path.wildcard(gate_glob))
@@ -363,6 +396,10 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert error.message =~
              "mix allbert.test bench-v13-fanout [--profile NAME] [--mixed-mistral] " <>
                "[--fixture PATH] [--output PATH] [--control-output PATH]"
+
+    assert error.message =~
+             "mix allbert.test qualify-head --profile NAME --model MODEL --trials 5 " <>
+               "--timeout-ms 60000 [--output PATH]"
 
     assert error.message =~ "mix allbert.test release.structure v121 [--output PATH]"
     assert error.message =~ "mix allbert.test release.structure v13 [--output PATH]"

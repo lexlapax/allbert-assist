@@ -1295,7 +1295,8 @@ tree is unchanged. Recorded as an honest floor for M6.
 
 ## Gate Matrix
 
-`mix allbert.test preflight` is the v1.4 M8.5 target contract and is not yet an
+`mix allbert.test preflight` is the v1.4 M0.5 target contract (renumbered from
+M8.5 on 2026-08-05 so it precedes v1.4's feature milestones) and is not yet an
 implemented command. Until that milestone lands, an active plan must enumerate
 and run its cheap equivalent components directly; it must not claim a green
 command that does not exist. v1.3.1 freezes that temporary bundle in M0.

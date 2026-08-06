@@ -16,7 +16,7 @@
       "required_concepts": [
         ["failed child", "failed process"],
         ["children started after it", "later children", "subsequent children"],
-        ["earlier children do not restart", "previous children do not restart", "earlier siblings remain running", "earlier siblings stay running", "previous children remain running"]
+        ["earlier children do not restart", "previous children do not restart", "earlier siblings remain running", "earlier siblings stay running", "leaves earlier siblings running", "previous children remain running"]
       ],
       "ordered_required_concepts": [],
       "prohibited_assertions": [
@@ -48,8 +48,8 @@
       "required_concepts": [
         ["append only event log", "append-only event log"],
         ["ordered replay", "replay events in order", "events are replayed in order"],
-        ["rebuild the projection", "reconstruct the projection", "rebuild state", "reconstruct state"],
-        ["idempotent handling", "handled idempotently", "process duplicates idempotently", "deduplicate duplicate delivery"]
+        ["rebuild the projection", "rebuilds the projection", "rebuilding the projection", "reconstruct the projection", "rebuild state", "reconstruct state"],
+        ["idempotent handling", "handled idempotently", "processing duplicates idempotently", "process duplicates idempotently", "duplicate delivery deduplicated", "deduplicate duplicate delivery"]
       ],
       "ordered_required_concepts": [],
       "prohibited_assertions": [
@@ -142,11 +142,11 @@
       "validator": "supplied_yaml_data_v1",
       "required_concepts": [
         ["archive logs", "archiving logs"],
-        ["restart service", "restarting service"]
+        ["restart service", "restart the service", "restarting service", "restarting the service"]
       ],
       "ordered_required_concepts": [
         ["archive logs", "archiving logs"],
-        ["restart service", "restarting service"]
+        ["restart service", "restart the service", "restarting service", "restarting the service"]
       ],
       "prohibited_assertions": [
         ["i will execute", "we will execute", "allbert will execute", "i will archive", "we will archive", "allbert will archive", "i will restart", "we will restart", "allbert will restart"],

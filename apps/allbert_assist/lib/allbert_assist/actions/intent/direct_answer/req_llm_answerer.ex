@@ -225,8 +225,15 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
       receive_timeout: receive_timeout,
       max_retries: fanout_max_retries(context)
     )
+    |> maybe_put_total_timeout(context)
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
   end
+
+  defp maybe_put_total_timeout(opts, %{model_total_timeout_ms: timeout_ms})
+       when is_integer(timeout_ms) and timeout_ms > 0,
+       do: Keyword.put(opts, :total_timeout, timeout_ms)
+
+  defp maybe_put_total_timeout(opts, _context), do: opts
 
   defp fanout_max_retries(%{model_max_retries: 0}), do: 0
   defp fanout_max_retries(_context), do: nil

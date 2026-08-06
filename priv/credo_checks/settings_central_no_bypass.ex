@@ -73,6 +73,17 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
         "V13_MODEL_PROFILE",
         "V13_FULL_SHA",
         "V13_DIRTY",
+        # v1.3.1 answering-head gate process inputs. The Mix task owns the
+        # disposable Home, validates the frozen corpus/options/provenance, and
+        # never writes these development-only values into Settings Central.
+        "V131_HEAD_FIXTURE",
+        "V131_HEAD_PROFILE",
+        "V131_HEAD_MODEL",
+        "V131_HEAD_TRIALS",
+        "V131_HEAD_TIMEOUT_MS",
+        "V131_HEAD_STORE",
+        "V131_FULL_SHA",
+        "V131_DIRTY",
         # v1.3 native release composition inputs. The pinned builder resolves
         # and validates these before Mix assembles the artifact; they are not
         # runtime/operator configuration.

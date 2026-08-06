@@ -71,6 +71,7 @@ defmodule AllbertAssist.Actions.Intent.ReqLLMAnswererTest do
     assert opts[:max_tokens] == 1024
     assert opts[:receive_timeout] == 60_000
     assert opts[:max_retries] == 0
+    refute Keyword.has_key?(opts, :total_timeout)
   end
 
   test "the actual vision provider call attaches the image only to the final user turn" do
@@ -131,12 +132,16 @@ defmodule AllbertAssist.Actions.Intent.ReqLLMAnswererTest do
                active_memory: [],
                image_inputs: [],
                model_max_output_tokens: 512,
-               model_timeout_ms: 2_000
+               model_timeout_ms: 2_000,
+               model_total_timeout_ms: 2_500,
+               model_max_retries: 0
              })
 
     assert_receive {:req_llm_generate_text, _spec, _prompt, opts}
     assert opts[:max_tokens] == 512
     assert opts[:receive_timeout] == 2_000
+    assert opts[:total_timeout] == 2_500
+    assert opts[:max_retries] == 0
   end
 
   test "operator prompt truncation remains valid UTF-8 and inside the byte ceiling" do

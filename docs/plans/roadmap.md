@@ -336,7 +336,8 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    2026-07-24, **Mobile-Ready Web stage 1** rides as non-flagship scope
    (Dynamic Mobile Breakpoints folds in; stages 2–4 stay at horizon).
    By operator decision 2026-07-30, v1.4 also carries the **preflight gate
-   and the AGENTS.md Release Sequence** (M8.5), and is the first binary release
+   and the AGENTS.md Release Sequence** (M0.5, renumbered from M8.5 on
+   2026-08-05 so it precedes v1.4's feature work), and is the first binary release
    and first release with the implemented `preflight` command. Source-only
    v1.3.1 uses the same cadence through its named temporary bundle. v1.4 runs:
    preflight → audit → source pre-filter →
