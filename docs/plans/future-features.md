@@ -7,13 +7,18 @@ prioritization inventory: every entry carries a proposed MoSCoW class and an
 effort tag so the operator can run a category-by-category prioritization pass.
 
 For planned work, use `docs/plans/roadmap.md` and the matching versioned plan.
-Backlog lifecycle rule (mirrored in AGENTS.md and the roadmap Working Rules):
-when an item gains an implementation plan, its entry here is marked
-`Status: planned — docs/plans/vX.Y.Z-plan.md M<n>` and the roadmap ladder links
-the plan triad. After that plan is implemented and tagged, the planned part is
-removed from this file entirely — only an unplanned remainder stays, reparked
-with its provenance — and the roadmap is updated accordingly. This file never
-holds shipped history.
+
+**Backlog lifecycle rule (operator decision 2026-08-06; mirrored in AGENTS.md
+and the roadmap Working Rules): an item leaves this file the moment it enters
+the roadmap ladder — not when its plan ships.** If it is in the roadmap it is
+not here; if it is here it has no roadmap slot. Only an unplanned *remainder*
+of a planned item stays, reparked with its provenance.
+
+The previous rule kept planned items here, marked `Status: planned — <plan>`,
+until their release shipped. That is what let 17 already-planned entries and a
+duplicate release ladder accumulate alongside genuinely parked work, so the
+file stopped answering the one question it exists to answer: what might we want
+that nothing has claimed? This file never holds shipped history either.
 
 This revision folds in the v1.0 closeout sweep of every archived plan,
 request-flow, handoff, ADR, roadmap, and operator/developer doc: items that
@@ -22,34 +27,13 @@ entries with their provenance; pre-existing parked sections are preserved
 verbatim and grouped by category.
 
 
-## Release Ladder (operator-confirmed 2026-07-14)
+## Release Ladder
 
-Supersedes any per-entry `Slice: 1.1` tag where they conflict — flagships are
-sequenced one per minor, foundational-first:
+The ladder lives in [roadmap.md](roadmap.md) and is the single source of truth
+for what ships when. It is deliberately **not** mirrored here: this file is a
+parking lot for work that has no roadmap slot, and duplicating the ladder is
+what let planned and parked items blur together.
 
-- **1.0.1–1.2.0 — SHIPPED.** The source-only 1.0.1/1.0.2 work, 1.0.3 test
-  isolation follow-up, 1.0.4 packaged-browser recovery, 1.1 asynchronous
-  fan-out, and 1.2 zero-click first run with its model catalog and bounded
-  fallback enablers all reached accepted stable binary lines. Shipped history
-  and exact evidence live in the roadmap, CHANGELOG, and archived release
-  plans; this inventory keeps only unplanned remainder.
-- **1.2.6 — SHIPPED.** Foundational binary enablers: packaged best-effort
-  known-component licensing/viewer and the daemon-backed TUI / thin terminal
-  client.
-- **1.3 — SHIPPED.** Long-Term User Memory and the independent Search Central
-  conversation-history engine/API. Shipped history lives in the roadmap,
-  CHANGELOG, and archived v1.3 plan/request flow; only explicit unplanned
-  remainders remain below.
-- **1.4 — Adaptive Usage Profiling** (stages a/b/c; per-role model profiles and
-  proactive notifications ride here; consumes 1.3's memory substrate).
-- **1.5 / 1.6 — the remaining confirmed enablers**, sliced by need: v1.4 owns
-  the migration-runner cluster (runner + telegram/email settings migration +
-  legacy `intent.*model_profile` removal + automated rollback), param-contract
-  completion, and PermissionGate deletion; v1.7 owns email/hosted-provider
-  OAuth, MCP spec parity, and non-local bind/network hardening. System Memory
-  Distillation remains the post-profiling co-flagship candidate. **2.0 horizon**:
-  Self-Hosting Development (Allbert develops Allbert, pi-mode target), with OAuth
-  hosted-LLM providers landing earlier on the v1.7 connectivity train.
 ## Classification
 
 Classes are **proposed** pending the operator's category-by-category
@@ -75,21 +59,6 @@ Provenance shorthand used in `Deferred at:` lines: `vX.YY-plan:N` and
 `docs/developer/`. Line numbers are as of the 2026-07-14 consolidation sweep.
 
 ## Platform & Runtime Debt
-
-### Settings Runtime Migration Runner
-
-Planned — `docs/plans/v1.4-plan.md` M1 + ADR 0046. Ships unconditionally with
-automated rollback; three consumers queued behind it.
-
-### PermissionGate Deletion / Parity Pass
-
-Planned — `docs/plans/v1.4-plan.md` M6. Strictly after param-contract
-enforcement completes; every former call site proven identical red-first.
-
-### Full Cross-Action Param-Contract Enforcement
-
-Planned — `docs/plans/v1.4-plan.md` M3 + ADR 0065. M0 resolves the v0.54-versus-
-v0.59 scope diff before the work is committed.
 
 ### Core-Action `app_id` Ownership (Option 2)
 
@@ -163,11 +132,6 @@ installs.
 
 Deferred at: `v0.62-plan:383`.
 
-### Automated Migration Rollback
-
-Planned — `docs/plans/v1.4-plan.md` M1. Part of the runner milestone, not a
-follow-on: a migration runner without rollback is a one-way door.
-
 ### DIT-1 Windows/WSL2 Install Walkthrough
 
 Class: Could (confirmed 2026-07-14; Windows is not a current priority) · Effort: S · Slice: hold
@@ -178,18 +142,6 @@ The v1.0 handoff's DIT-1 item — a validated Windows/WSL2 install walkthrough �
 was scoped out rather than completed. Pairs with the Tier-2 posture below.
 
 Deferred at: `v1.0-handoff:87`.
-
-### Packaging-Trust Re-Parked Exceptions (ADR 0076)
-
-Class: Should (confirmed 2026-07-14) · Effort: M · Slice: verify first — may dissolve to nothing
-
-Status: verify.
-
-v0.64 re-parked a set of packaging-trust exceptions under ADR 0076. The
-remaining exception list needs re-triage now that v0.64–v1.0 shipped installer
-cosign verification and the release gates.
-
-Deferred at: `v0.64-plan:234`.
 
 ### Native Windows Packaging
 
@@ -347,16 +299,6 @@ Still parked:
 - App Store / signing implications;
 - backup/restore behavior for paired sessions.
 
-### Proactive Notifications Policy
-
-Planned — `docs/plans/v1.8-plan.md` M6 + ADR 0084 amendment (`:suggestion`
-kind, quiet hours, per-class rate limit). Default-off proactive delivery.
-
-### Email OAuth (XOAUTH2; Gmail / Microsoft OAuth-Only Mailboxes)
-
-Planned — `docs/plans/v1.7-plan.md` M2 + ADR 0096. Shares one OAuth substrate
-with hosted-LLM subscription auth.
-
 ### IMAP IDLE Push
 
 Class: Could (confirmed 2026-07-14) · Effort: M · Slice: hold
@@ -417,10 +359,6 @@ and an outbound-ref for callback replies.
 
 Deferred at: `v0.52-plan:1065` (Events API HTTP transport), `v0.52-plan:147`
 (multi-workspace OAuth), `v0.52-plan:2067` (callback-reply outbound-ref).
-
-### Telegram/Email Plugin-Owned-Settings Migration
-
-Planned — `docs/plans/v1.4-plan.md` M2. First runner consumer.
 
 ### Matrix E2EE Encrypted Rooms
 
@@ -513,22 +451,6 @@ identity/persona) rather than globally.
 
 Deferred at: `v0.61b-plan:1643`.
 
-### Mobile-Ready Web UI/UX → Lightweight Native Mobile App
-
-Stage 1 planned — `docs/plans/v1.8-plan.md` M7 (measured Chromium/WebKit
-phone-form-factor usability at 320 CSS px, 390×844 portrait, and 844×390
-landscape for chat, objectives, settings, and memory).
-
-Stages 2–4 remain the unplanned remainder: responsive information architecture,
-offline-capable PWA, and a lightweight native shell. Class: Must · Effort: L ·
-Slice: horizon, revisited at the next ladder review. Stage 2 also owns real-device
-dynamic-toolbar and sticky-composer proof; browser emulation in Stage 1 is a
-measured layout/accessibility gate, not a claim about physical-device behavior.
-
-### Dynamic Mobile Breakpoints
-
-Planned (folded) — `docs/plans/v1.8-plan.md` M7 breakpoint token roles.
-
 ### Canvas.Agent Revisit
 
 Class: Could (confirmed 2026-07-14) · Effort: S · Slice: hold — revisit only with new canvas features
@@ -538,29 +460,6 @@ Status: parked.
 v0.26 flagged Canvas.Agent for a design revisit that never happened.
 
 Deferred at: `v0.26-plan:175`.
-
-### Workspace Zone/Destination Naming Evolution
-
-Class: Closed (confirmed 2026-07-14) — a freeze carve-out (naming freedom), not scheduled work
-
-Status: parked.
-
-The v1.0 plan notes the workspace zone/destination naming has a single
-consumer and should evolve when a second consumer appears.
-
-Deferred at: `v1.0-plan:293`.
-
-### Surface DSL Additive Components Carve-Out
-
-Class: Closed (confirmed 2026-07-14) — additive-as-needed alongside features; no standalone milestone
-
-Status: parked.
-
-The v1.0 plan defines a carve-out for adding new Surface DSL components
-additively post-1.0 without reopening the frozen contract; the first use of
-that carve-out (and its gate wiring) is future work.
-
-Deferred at: `v1.0-plan:229`.
 
 ### Plugin Workspace-Region Graduation Confirm
 
@@ -574,46 +473,6 @@ v0.31; the sweep could not confirm the graduation shipped.
 Deferred at: `v0.26-plan:2079`.
 
 ## Models & Memory
-
-### Knowledge Central (LLM Wiki)
-
-Planned — `docs/plans/v1.5-plan.md` (Stage 1, page graph over claims) and
-`docs/plans/v1.6-plan.md` (Stage 2, document ingest) + ADR 0094 and ADR 0095.
-
-### System Memory Distillation
-
-Class: Must-candidate (confirmed 2026-07-14; co-flagship candidate for the 1.2/1.3 horizon, after the deterministic adaptive loop proves out) · Effort: L
-
-Status: parked.
-
-v0.39b ships the deterministic precursor: an inert `identity` system memory
-namespace (declared via the non-app system-namespace declarer and surfaced as
-a 5th `Memory` category under
-`<ALLBERT_HOME>/memory/identity/`) plus deterministic recency-weighted
-lexical Active Memory retrieval over reviewed `:kept` entries scoped to
-`{thread_id, active_app, identity_namespace}`. Replayable from traces.
-No embeddings; no learned ranking.
-
-v0.47 ships operator-supervised trace-derived draft suggestions. Neither
-v0.39b, v0.47, nor the v0.47b/`0.47.1` handoff draft release trains,
-distills, or creates a learned system-memory
-authority.
-
-Still parked:
-
-- nightly memory/personality distillation;
-- small local model training from operator history;
-- learned system-memory models that influence runtime behavior;
-- deletion, reproducibility, privacy, and eval policy for any trained memory
-  artifact.
-
-The v0.31–v0.40 sweep confirms embedding-backed Active Memory retrieval and
-memory pinning are also parked under this entry (no separate section).
-
-Knowledge Central (LLM Wiki) does **not** replace this entry. That feature is the
-deterministic, projection-backed route; this one remains the learned/model-trained
-route and stays parked. Absorbing this slot is the recorded fallback if the
-release ladder later needs compression.
 
 ### Automatic Cross-App Prompt Mixing
 
@@ -652,32 +511,6 @@ doctor fields, and release evidence before implementation:
 - video ingestion, sampled-frame analysis, or video generation;
 - required bundled-local engine packaging for every operator;
 - Discord voice after v0.52 Discord text-channel support.
-
-### OAuth-Authenticated Hosted LLM Providers (Subscription Plans)
-
-Planned — `docs/plans/v1.7-plan.md` M2 + ADR 0096. Same substrate as email
-XOAUTH2; pulled forward from the 2.0 self-hosting horizon.
-
-### Per-Role Fast/Capable/Thinking Model Profiles
-
-Planned — `docs/plans/v1.8-plan.md` M5 + ADR 0090. Additive `model_roles.*`
-fragments over the ADR 0088 catalog; remaps only via the confirmed path.
-
-### Free-Form Provider URLs / Probe Targets Via Approval Path
-
-Planned — `docs/plans/v1.7-plan.md` M4. LAN and loopback endpoints remain egress
-decisions; no "local" exemption.
-
-### Separate Active Memory Consumer When Direct-Answer Disabled
-
-Class: Closed (confirmed 2026-07-14) — superseded by Zero-Click First Run (direct answers become the default)
-
-Status: parked.
-
-v0.39b deferred a separate Active Memory consumer path for the case where
-direct-answer is disabled.
-
-Deferred at: `v0.39b-plan:175`.
 
 ### Local Ollama Multimodal Profile
 
@@ -1001,28 +834,6 @@ Per-integration follow-on candidates:
 
 Each follow-on is a small focused release. None block v1.0.
 
-### MCP 2025-11-25 Spec Parity
-
-Planned — `docs/plans/v1.7-plan.md` M3. Scope follows the delta measured at M0,
-not the entry title.
-
-### MCP/OpenAI/ACP Upstream-Tracking Wire Shapes
-
-Class: Closed (confirmed 2026-07-14) — posture statement (upstream-tracking), not scheduled work
-
-Status: parked.
-
-The v1.0 plan records that the MCP/OpenAI/ACP wire shapes track upstream
-protocols and will need periodic reconciliation releases as those protocols
-move.
-
-Deferred at: `v1.0-plan:299`.
-
-### Non-Local Bind Hardening For Public Surfaces
-
-Planned — `docs/plans/v1.7-plan.md` M4. One bind policy; the OAuth callback
-listener obeys it with no exception.
-
 ### MCP Artifact Resources
 
 Class: Could (confirmed 2026-07-14) · Effort: S · Slice: hold (verify)
@@ -1046,73 +857,6 @@ blocks (images, audio) were left open.
 Deferred at: v0.51 plan notes (sweep-flagged, no single line ref).
 
 ## Self-Improvement & Dynamic Capability
-
-### Self-Hosting Development (Allbert Develops Allbert)
-
-Class: Must-candidate (operator intake 2026-07-15) · Effort: XL · Slice: 2.0 horizon (post-1.3/1.4); sub-capabilities may land in earlier trains
-
-Allbert as the development environment for itself, for an Allbert developer:
-the workflow the operator runs today with an external assistant — planning
-LLM, developer LLM, tester, documenter roles over this repo — runs directly
-inside Allbert, via TUI, web workspace, or any channel, likely as a pi-mode
-target pointed at the Allbert checkout. Supervised, operator-driven
-development (plan → build → test → document with confirmations), NOT
-autonomous self-modification: the Won't-now self-recompilation boundary
-stays; this is Allbert as agent-harness/IDE for its own codebase. Builds on
-pi-mode (ADR 0068 coding trust tier), plan/build, delegate agents, and the
-v0.47 supervised-draft machinery. Freeze note: release.v1 must stay green
-under any self-hosted change flow — the gates become part of the loop.
-
-Sub-capability (separately shippable, earlier train): OAuth-Authenticated
-Hosted LLM Providers (Models & Memory).
-
-Deferred at: operator intake (post-1.0 planning, 2026-07-15).
-
-### Adaptive Usage Profiling & One-Click Customization Suggestions
-
-Planned — `docs/plans/v1.8-plan.md` (flagship) + ADR 0090. Usage-signal store,
-distill/suggest jobs, one-click confirmed customization, descriptive observed-
-outcome feedback.
-
-### Autonomous Skill Creation Beyond Supervised Drafts
-
-Class: Folded (2026-07-14) into Adaptive Usage Profiling — its supervised-draft path is the consented route; this body preserved as the later-stage horizon record (1.2/1.3)
-
-Status: parked.
-
-v0.47 ships operator-supervised, inert trace-to-skill and trace-to-workflow
-draft suggestions, and v0.47b/`0.47.1` ships supervised handoff drafts for
-templates, marketplace metadata, delegate-plugin requests, capability gaps,
-and objectives. Drafts remain disabled/untrusted or otherwise inert until
-reviewed and routed through the existing confirmed/gated path for their kind.
-
-Still parked:
-
-- autonomous skill creation from traces;
-- auto-enable, auto-publish, or marketplace submission;
-- broad execution permissions derived from repeated use or model confidence;
-- autonomous package install, remote plugin install, or arbitrary code loading.
-
-### Dynamic Capability Expansion Beyond v0.47 Facades
-
-Class: Folded (2026-07-14) into Adaptive Usage Profiling — same supervised later-stage horizon; body preserved
-
-Status: parked.
-
-v0.36-v0.38 now define the supervised dynamic capability path: sandbox/gate
-evidence, dynamic action integration, and templated creation. v0.47 ships only
-reviewed delegate facades for memory promotion/update drafts and workflow
-draft writes; v0.47b/`0.47.1` ships objective and handoff draft kinds on that
-same supervised path.
-
-Still parked:
-
-- settings, secrets, shell, package-install, confirmation-decision, trust, or
-  live workspace/canvas write facades;
-- broader generated-permission ceilings beyond the reviewed v0.47 memory and
-  workflow draft paths and the shipped v0.47b handoff draft kinds;
-- unsupervised self-recompilation, compiler-loop bootstrapping, or runtime
-  mutation outside the v0.36/v0.37/v0.38 review path.
 
 ### Deeper Sandbox Tiers
 
@@ -1221,20 +965,6 @@ producers (anything generating review candidates without an operator in the
 loop) were deferred and belong with the autonomy cluster above.
 
 Deferred at: `v0.56-rf:37`.
-
-### Auto Memory Promotion From Objective Observations
-
-Class: Folded (2026-07-14) into Long-Term User Memory — the reviewable-drafts path is the consented version; this body preserved as the unconsented-variant boundary record
-
-Status: verify.
-
-v0.24 sketched automatic memory promotion from objective observations. The
-supervised v0.47 draft path covers the reviewed variant; the automatic
-variant stays with the autonomy cluster.
-
-Deferred at: `v0.24-plan:2590`.
-
-## Browser & Content
 
 ### Broad Office, Archive, And Unknown-Binary Extraction
 
@@ -1502,11 +1232,6 @@ Undigested files remain available, so neither detail blocks v1.0.1, but the pair
 be reconciled in a later service-worker cleanup with packaged-cache regression proof.
 
 Deferred at: `v1.0.1-plan` second-pass implementation-readiness audit.
-
-### Legacy `intent.*model_profile` Settings Removal
-
-Planned — `docs/plans/v1.4-plan.md` M2. Second runner consumer; maps to the
-v1.8 `model_roles.*` fragments.
 
 ### Optional Git-Hook Installation
 

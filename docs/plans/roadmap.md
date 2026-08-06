@@ -13,8 +13,9 @@ do not move. Each versioned plan covers one or more features and
 ships as one or more point tags (1.0.1, 1.0.2, ...) that accumulate toward the next
 minor (1.1, 1.2, ...). Minors carry one flagship feature each, foundational-first.
 Plans follow the established triad convention (plan + request-flow, ADRs as needed);
-the prioritization inventory is [future-features.md](future-features.md) — its Release
-Ladder section is the operator-confirmed sequencing and is mirrored here.
+the prioritization inventory is [future-features.md](future-features.md), which
+holds only work with **no** ladder slot. This roadmap is the single source of
+truth for sequencing; future-features no longer mirrors a release ladder.
 
 ## The Ladder
 
@@ -411,15 +412,73 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
    across Memory, Search, and pages with every fact labelled by its origin
    layer. A guided "Research assistant" persona follows in a 1.8 point release
    once the loop is proven with real operators.
-14. **Beyond** — System Memory Distillation remains the parked
-   learned/model-trained memory route; Knowledge Central does not replace it,
-   and absorbing its slot is the recorded fallback if the ladder needs
-   compression. The Won't-now cluster stays in future-features.md with its
-   review cadence.
-15. **2.0 horizon — Self-Hosting Development.** Allbert develops Allbert (pi-mode
-   target on its own checkout; plan/build/test/document roles in-product, supervised).
-   Its OAuth hosted-LLM providers sub-capability (Claude/OpenAI/Gemini subscription
-   plans, not just API keys) lands earlier on the v1.7 connectivity train.
+14. **Beyond — System Memory Distillation.** The parked learned/model-trained
+   memory route. Knowledge Central does not replace it, and absorbing its slot
+   is the recorded fallback if the ladder needs compression. Detail moved here
+   from future-features.md on 2026-08-06 under the backlog lifecycle rule.
+
+   Class: Must-candidate (confirmed 2026-07-14; co-flagship candidate for the 1.2/1.3 horizon, after the deterministic adaptive loop proves out) · Effort: L
+
+   Status: parked.
+
+   v0.39b ships the deterministic precursor: an inert `identity` system memory
+   namespace (declared via the non-app system-namespace declarer and surfaced as
+   a 5th `Memory` category under
+   `<ALLBERT_HOME>/memory/identity/`) plus deterministic recency-weighted
+   lexical Active Memory retrieval over reviewed `:kept` entries scoped to
+   `{thread_id, active_app, identity_namespace}`. Replayable from traces.
+   No embeddings; no learned ranking.
+
+   v0.47 ships operator-supervised trace-derived draft suggestions. Neither
+   v0.39b, v0.47, nor the v0.47b/`0.47.1` handoff draft release trains,
+   distills, or creates a learned system-memory
+   authority.
+
+   Still parked:
+
+   - nightly memory/personality distillation;
+   - small local model training from operator history;
+   - learned system-memory models that influence runtime behavior;
+   - deletion, reproducibility, privacy, and eval policy for any trained memory
+     artifact.
+
+   The v0.31–v0.40 sweep confirms embedding-backed Active Memory retrieval and
+   memory pinning are also parked under this entry (no separate section).
+
+   Knowledge Central (LLM Wiki) does **not** replace this entry. That feature is the
+   deterministic, projection-backed route; this one remains the learned/model-trained
+   route and stays parked. Absorbing this slot is the recorded fallback if the
+   release ladder later needs compression.
+
+   The Won't-now cluster stays in future-features.md with its review cadence.
+15. **2.1 horizon — Self-Hosting Development.** Allbert develops Allbert
+   (pi-mode target on its own checkout; plan/build/test/document roles
+   in-product, supervised). Its OAuth hosted-LLM providers sub-capability
+   (Claude/OpenAI/Gemini subscription plans, not just API keys) lands earlier on
+   the v1.7 connectivity train. **Moved from the 2.0 slot** by the kernel-redo
+   analysis §13.3, which reserves 2.0 for Turn Engine consolidation and argues
+   self-hosting is far more tractable against a small kernel and named packs
+   than against a single 181,000-line application. Detail moved here from
+   future-features.md on 2026-08-06.
+
+   Class: Must-candidate (operator intake 2026-07-15) · Effort: XL · Slice: 2.0 horizon (post-1.3/1.4); sub-capabilities may land in earlier trains
+
+   Allbert as the development environment for itself, for an Allbert developer:
+   the workflow the operator runs today with an external assistant — planning
+   LLM, developer LLM, tester, documenter roles over this repo — runs directly
+   inside Allbert, via TUI, web workspace, or any channel, likely as a pi-mode
+   target pointed at the Allbert checkout. Supervised, operator-driven
+   development (plan → build → test → document with confirmations), NOT
+   autonomous self-modification: the Won't-now self-recompilation boundary
+   stays; this is Allbert as agent-harness/IDE for its own codebase. Builds on
+   pi-mode (ADR 0068 coding trust tier), plan/build, delegate agents, and the
+   v0.47 supervised-draft machinery. Freeze note: release.v1 must stay green
+   under any self-hosted change flow — the gates become part of the loop.
+
+   Sub-capability (separately shippable, earlier train): OAuth-Authenticated
+   Hosted LLM Providers (Models & Memory).
+
+   Deferred at: operator intake (post-1.0 planning, 2026-07-15).
 
 ## Working Rules
 
@@ -435,8 +494,8 @@ Ladder section is the operator-confirmed sequencing and is mirrored here.
   an emergency hotfix release may skip the apply step (review still runs) with the
   skip recorded. (The rule's first standing checkpoint — the vendored `:memento`
   exit, ADR 0050 — resolved at the v1.0.1 M5 refresh.)
-- Backlog lifecycle: an item that gains an implementation plan is marked
-  `Status: planned — <plan doc>` in future-features.md and its ladder entry here
-  links the plan triad. After the plan is implemented and tagged, the item is
-  removed from future-features.md (only unplanned remainders stay) and this
-  roadmap is updated accordingly (ladder entry marked shipped / re-sequenced).
+- Backlog lifecycle (operator decision 2026-08-06): an item is removed from
+  future-features.md **when it enters this ladder**, not when its plan ships.
+  Its detail lives here from that point on. In the roadmap ⇒ not in
+  future-features; in future-features ⇒ no roadmap slot. Only an unplanned
+  remainder stays parked there, with its provenance.

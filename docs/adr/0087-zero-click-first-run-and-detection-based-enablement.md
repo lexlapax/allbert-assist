@@ -68,7 +68,8 @@ reachable and still refuses to answer with it until the operator walks a
 wizard. For the non-developer operator this is the inverted priority the
 comparison class (LM Studio, Jan) does not have: install, open, chat.
 
-The backlog entry (`future-features.md:542-583`) names the tension precisely:
+The backlog entry this ADR consumed (since removed from future-features.md)
+named the tension precisely:
 auto-enabling on detection needs deliberate redefinition of (a) the consent
 semantics around `intent.direct_answer_model_enabled`, (b) the detect-state
 matrix — what "chat-ready" means when no model is present — and (c) the DIT-2

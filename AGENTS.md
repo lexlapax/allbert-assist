@@ -185,11 +185,11 @@ business-logic debugging, code review, or repository-specific architecture revie
   The sequencing lives in `docs/plans/roadmap.md` (ladder) and
   `docs/plans/future-features.md` (classified inventory — new ideas enter there with
   class/effort/provenance before any plan work).
-- Backlog lifecycle: an item that gains an implementation plan is marked
-  `Status: planned — <plan doc>` in future-features.md and linked from the roadmap
-  ladder. After the plan is implemented and tagged, remove the item from
-  future-features.md (only unplanned remainders stay, reparked) and update the
-  roadmap accordingly.
+- Backlog lifecycle (operator decision 2026-08-06): an item leaves
+  future-features.md **when it enters the roadmap ladder**, not when its plan
+  ships. In the roadmap ⇒ not in future-features; in future-features ⇒ no
+  roadmap slot. Only an unplanned remainder of a planned item stays, reparked
+  with its provenance.
 - **future-features.md entries are operator demand only.** Agents never add,
   reword, or repark entries on their own: new candidates discovered during a
   build are recorded in the active plan's Build Progress as

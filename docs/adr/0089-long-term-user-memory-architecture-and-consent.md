@@ -89,7 +89,8 @@ v1.8).
 
 ## Context
 
-The stated goal (backlog, `future-features.md:752-796`): a long-term user
+The stated goal, from the backlog entry this ADR consumed (since removed from
+future-features.md): a long-term user
 memory that remembers facts about the operator's life and preferences,
 **periodically consolidated by the system from interaction history** — not
 only explicit "remember this" asks — consulted at prompt-formation time so

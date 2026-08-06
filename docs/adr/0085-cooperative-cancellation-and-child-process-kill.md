@@ -7,8 +7,8 @@ seam, scoped OS execution ownership with process-group/container kill, and the
 orphan-regression proof together. Merges two operator-slotted 1.1 enablers:
 Mid-Action Interruption /
 In-Flight Kill (deferred at `v0.24-rf:466`) and Child-Process Cancellation
-Semantics (deferred at `v0.57-plan:845`) —
-`docs/plans/future-features.md:164-185`.
+Semantics (deferred at `v0.57-plan:845`). Both moved into the 1.1 ladder entry
+and were removed from future-features.md; cite them by name, not by line.
 
 ## Context
 

@@ -32,14 +32,15 @@ repair, not choice. The curated default is a single constant
 (`Ollama.curated_model/0`, `llama3.2:3b`); ADR 0072's recommendation matrix
 is an operator doc plus a read-only `model_doctor` action. v0.64 explicitly
 deferred a chooser ("browse available models with size/capability metadata
-instead of typing a model id", `future-features.md:922-932`).
+instead of typing a model id"). That backlog entry was consumed by this ADR's
+own release and removed from future-features.md; the ladder entry is the record.
 
 Fallback is equally partial. `Settings.Models.candidates_for/2` yields a
 ranked candidate list and image/voice actions consume it, but the text chat
 path resolves exactly one profile (`Models.for(:direct_answer, …)`) and any
 provider error collapses to the static "model unavailable" fallback — no
-retry, no degradation, no policy. The parked backlog entry
-(`future-features.md:864-884`) names what a real policy needs: explicit
+retry, no degradation, no policy. The backlog entry this ADR consumed (since
+removed from future-features.md) named what a real policy needs: explicit
 operator opt-in, per-provider failure detection, chain configuration
 (primary → secondary → local), audit of fallback events, and prevention of
 silent expensive failovers. ADR 0087's detect-state matrix additionally
