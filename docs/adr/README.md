@@ -30,6 +30,7 @@ ADRs record binding design decisions. They are not release plans; use
 - [ADR 0095: Knowledge schema authority and untrusted source ingestion](0095-knowledge-schema-authority-and-untrusted-source-ingestion.md) (Proposed — v1.5/v1.6)
 - [ADR 0096: Delegated OAuth authority and token lifecycle](0096-delegated-oauth-authority-and-token-lifecycle.md) (Proposed — v1.7)
 - [ADR 0097: Answering-head qualification bar](0097-answering-head-qualification-bar.md) (Accepted — v1.3.1)
+- [ADR 0098: Kernel application, pack contract, and tier model](0098-kernel-application-pack-contract-and-tier-model.md) (Proposed — v1.4)
 - [ADR 0070: TUI operator console and read-only operator actions](0070-tui-operator-console-and-read-only-operator-actions.md)
 - [ADR 0068: Pi-mode coding surface and local coding trust tier](0068-pi-mode-coding-surface-and-local-coding-trust-tier.md)
 - [ADR 0065: Central action param contract enforcement](0065-central-action-param-contract-enforcement.md)
