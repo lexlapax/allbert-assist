@@ -21,20 +21,20 @@ user-facing feature milestones before it, and what should the path to 1.0 be?
 
 Local project sources:
 
-- [`README.md`](README.md)
-- [`DEVELOPMENT.md`](DEVELOPMENT.md)
-- [`CHANGELOG.md`](CHANGELOG.md), especially `v0.37.5`
-- [`docs/plans/roadmap.md`](docs/plans/roadmap.md)
-- [`docs/plans/future-features.md`](docs/plans/future-features.md)
-- [`docs/plans/allbert-jido-vision.md`](docs/plans/allbert-jido-vision.md)
-- [`docs/plans/archives/v0.38-plan.md`](docs/plans/archives/v0.38-plan.md)
-- [`docs/plans/archives/v0.38-request-flow.md`](docs/plans/archives/v0.38-request-flow.md)
-- [`docs/developer/agent-context-map.md`](docs/developer/agent-context-map.md)
-- [`docs/adr/0013-uri-first-resource-identity.md`](docs/adr/0013-uri-first-resource-identity.md)
-- [`docs/adr/0016-channel-adapter-boundary-and-identity-mapping.md`](docs/adr/0016-channel-adapter-boundary-and-identity-mapping.md)
-- [`docs/adr/0021-intent-objective-capability-and-advisory-boundary.md`](docs/adr/0021-intent-objective-capability-and-advisory-boundary.md)
-- [`docs/adr/0023-workspace-canvas-and-ephemeral-surface-substrate.md`](docs/adr/0023-workspace-canvas-and-ephemeral-surface-substrate.md)
-- [`docs/adr/0036-templated-creation-and-pattern-registry.md`](docs/adr/0036-templated-creation-and-pattern-registry.md)
+- [`README.md`](../../README.md)
+- [`DEVELOPMENT.md`](../../DEVELOPMENT.md)
+- [`CHANGELOG.md`](../../CHANGELOG.md), especially `v0.37.5`
+- [`docs/plans/roadmap.md`](../plans/roadmap.md)
+- [`docs/plans/future-features.md`](../plans/future-features.md)
+- [`docs/plans/allbert-jido-vision.md`](../plans/allbert-jido-vision.md)
+- [`docs/plans/archives/v0.38-plan.md`](../plans/archives/v0.38-plan.md)
+- [`docs/plans/archives/v0.38-request-flow.md`](../plans/archives/v0.38-request-flow.md)
+- [`docs/developer/agent-context-map.md`](../developer/agent-context-map.md)
+- [`docs/adr/0013-uri-first-resource-identity.md`](../adr/0013-uri-first-resource-identity.md)
+- [`docs/adr/0016-channel-adapter-boundary-and-identity-mapping.md`](../adr/0016-channel-adapter-boundary-and-identity-mapping.md)
+- [`docs/adr/0021-intent-objective-capability-and-advisory-boundary.md`](../adr/0021-intent-objective-capability-and-advisory-boundary.md)
+- [`docs/adr/0023-workspace-canvas-and-ephemeral-surface-substrate.md`](../adr/0023-workspace-canvas-and-ephemeral-surface-substrate.md)
+- [`docs/adr/0036-templated-creation-and-pattern-registry.md`](../adr/0036-templated-creation-and-pattern-registry.md)
 - Current code boundaries in `apps/allbert_assist/lib/allbert_assist/`, especially
   `Runtime`, `Actions.Registry`, `Actions.Runner`, `Settings.Schema`,
   `Channels`, `Resources.ResourceURI`, `Resources.OperationClass`, and
