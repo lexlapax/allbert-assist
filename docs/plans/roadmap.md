@@ -372,7 +372,17 @@ truth for sequencing; future-features no longer mirrors a release ladder.
    item.
    **The kernel-redo analysis was accepted 2026-08-06 and merges into this
    release**: `apps/allbert_kernel`, registry inversion, settings inversion,
-   gate inversion, and deletion of the hand-maintained kernel lists.
+   gate inversion, deletion of the hand-maintained kernel lists, relocation of
+   Home/Paths, Security Central with `HttpPolicy`, and the Capability plane, and
+   **three proven pack extractions** (`notes_files`, then telegram and email).
+   Relocation is deliberately **not** deferred: the next two releases build new
+   subsystems, and without the kernel boundary they would land in the monolith
+   and need moving later. **This release also re-baselines the public-contract
+   freeze** — v1.0's inventory describes a structure this release replaces, so
+   the new inventory is taken at closeout and supersedes it from v1.5 onward,
+   with v1.0's freeze enforced as a regression signal until then. One new ADR
+   ships here covering the pack contract, kernel application boundary, tier
+   model, and the new freeze.
    **Sequencing rationale (one sweep, not three):** param-contract enforcement
    touches all 249 action modules; so does the action-response-envelope
    consolidation (`denied/1` in 130 modules, `action/3` in 121, the four-key
@@ -522,8 +532,14 @@ truth for sequencing; future-features no longer mirrors a release ladder.
 
 ## Working Rules
 
-- The v1.0 public-contract freeze holds: `mix allbert.test release.v1` must stay green
-  on every release; Tier-2 changes stay additive; Tier-1 changes need a major.
+- **The public-contract freeze re-baselines at v1.4 (operator, 2026-08-06).**
+  v1.0's tiered inventory describes a structure v1.4 replaces, so the new
+  inventory is taken at v1.4 closeout and supersedes it from v1.5 onward.
+  Until then `mix allbert.test release.v1` must stay green on every release —
+  and through v1.4's own milestones as a **regression signal**, so the largest
+  mechanical change in the project's history is not made with no contract check
+  at all. Tier-2 changes stay additive; Tier-1 changes need a major. ADR 0081's
+  promotion process carries forward to the new tiers unchanged.
 - Operator intake items enter future-features.md with class + effort + provenance,
   then slot into the ladder here.
 - Upstream dependency refresh (confirmed 2026-07-15): every binary release plan

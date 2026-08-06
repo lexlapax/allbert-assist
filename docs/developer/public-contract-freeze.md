@@ -1,5 +1,15 @@
 # Allbert 1.0 Public Contract Freeze Notes
 
+> **Superseded at v1.4 (operator decision 2026-08-06).** v1.4 lands the kernel
+> foundation — registry, settings, and gate inversion, `apps/allbert_kernel`,
+> relocation, and pack extraction — after which this inventory describes a
+> structure that no longer exists. A re-baselined inventory is taken at v1.4
+> closeout and supersedes this document from v1.5 onward. Until that point this
+> freeze remains **enforced**, including through v1.4's own milestones, where it
+> serves as a regression signal rather than a veto: a milestone that genuinely
+> needs to break a v1.0 contract records the decision and proceeds. ADR 0081's
+> Tier-2-to-Tier-1 promotion process is unaffected and applies to the new tiers.
+
 This is the authoritative inventory of the public contracts frozen at v1.0
 (`docs/plans/archives/v1.0-plan.md`, roadmap item 67). It is what plugin, app, channel, and
 external-client authors may depend on across upgrades. The freeze is **tiered**:
