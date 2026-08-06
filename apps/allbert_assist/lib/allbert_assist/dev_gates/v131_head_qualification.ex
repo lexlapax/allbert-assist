@@ -78,7 +78,7 @@ defmodule AllbertAssist.DevGates.V131HeadQualification do
   end
 
   @doc false
-  @spec validate_fixture(term()) :: :ok | {:error, atom()}
+  @spec validate_fixture(term()) :: :ok | {:error, :invalid_fixture}
   def validate_fixture(fixture) do
     if valid_fixture?(fixture), do: :ok, else: {:error, :invalid_fixture}
   end
@@ -151,7 +151,8 @@ defmodule AllbertAssist.DevGates.V131HeadQualification do
   end
 
   @doc "Score one provider response with the row's code-owned closed validator."
-  @spec score(map(), String.t()) :: :pass | {:fail, atom()}
+  @spec score(map(), String.t()) ::
+          :pass | {:fail, :empty | :refusal | :validator_failed}
   def score(row, text) when is_map(row) and is_binary(text) do
     tokens = normalize(text)
 
@@ -164,7 +165,6 @@ defmodule AllbertAssist.DevGates.V131HeadQualification do
   end
 
   @doc "Run one profile serially and append content-free qualification evidence."
-  @spec run(map(), keyword()) :: map()
   def run(fixture, opts) when is_map(fixture) and is_list(opts) do
     corpus_digest = validated_fixture_sha256!(fixture)
     profile = Keyword.fetch!(opts, :profile)
