@@ -383,12 +383,14 @@ rather than assigning the same foundation to a later release.
 
 10. **1.4 — Spine enablers and kernel foundation.** (**Planned — foundational
    flagship: the kernel application and Pack contribution boundary; triad
-   `docs/plans/v1.4-plan.md` + request-flow; governed by ADR 0046 and ADR 0065,
-   plus ADR 0098 for the kernel inversions.**) The settings and action spine,
-   sequenced first because every later release builds on it: one explicit,
-   previewed, confirmed, preimage-backed per-fragment migration runner shipped
-   with its first proven non-additive migration; verification of the already
-   central cross-action param-contract inventory; and direct retirement of the
+   `docs/plans/v1.4-plan.md` + request-flow; constrained by ADR 0046's admission
+   rule and ADR 0065, plus ADR 0098 for the kernel inversions. M0 evidence and
+   operator disposition complete 2026-08-06; R0 exact-clean closeout is in
+   progress. No planned candidate is an eligible real ADR 0046 migration, so
+   approved option A keeps the runner deferred and removes its maintenance/FV/
+   DoD scope from v1.4.**) The settings and action spine, sequenced first because
+   every later release builds on it: verification of the already central
+   cross-action param-contract inventory; and direct option-A retirement of the
    `PermissionGate` compatibility facade after callers move to Security Central.
    Parameter validation and authorization remain separate contracts. The re-triage of
    the ADR 0076 packaging-trust exceptions rides here as an absorbed backlog
@@ -399,6 +401,10 @@ rather than assigning the same foundation to a later release.
    closure/inversion before pure relocation of Home/Paths, Security Central
    with `HttpPolicy`, and the Capability plane, and
    **three proven pack extractions** (`notes_files`, then telegram and email).
+   M0 freezes descriptorless `allbert_composition` as the non-capability
+   coordinator host and completed the independent gate-root reconciliation at
+   652 test files/4,627 manifest rows before any inversion; the durable M0
+   ledger owner advances the current inventory to 653/4,633.
    Relocation is deliberately **not** deferred: the next two releases build new
    subsystems, and without the kernel boundary they would land in the monolith
    and need moving later. **This release also records a generated
@@ -466,9 +472,11 @@ rather than assigning the same foundation to a later release.
    and free-form provider URLs both touch `HttpPolicy`, so the SSRF
    `private_ip?` table currently triplicated across `external/http_policy.ex`,
    `voice/provider_http.ex`, and `settings/model_doctor.ex` is consolidated
-   here. The v1.4 readiness review left that behavior change in v1.7: v1.4 moves
-   `HttpPolicy` as kernel substrate but does not alter the table. Three copies
-   of a security guard means fixing one leaves two holes, so v1.7 proves parity
+   here. The v1.4 readiness review leaves shared-table consolidation in v1.7;
+   it separately identified a bounded IPv4-mapped-IPv6 normalization defect in
+   two call paths whose v1.4 disposition remains pending. If admitted, that
+   bounded fix does not consolidate or redefine the tables. Three copies of a
+   security guard means fixing one leaves two holes, so v1.7 proves parity
    before deleting either duplicate.
 
 14. **1.8 — Adaptive Usage Profiling.** (**Triad

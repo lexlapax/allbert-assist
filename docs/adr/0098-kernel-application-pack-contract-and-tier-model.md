@@ -11,6 +11,12 @@ before any file moves, so binding every other kernel milestone while omitting it
 would leave the central invariant unbound. Closeout evidence records the
 implemented inventory; it does not reopen the decisions in this ADR.
 
+The v1.4 M0 admission audit found no eligible ADR 0046 consumer, and the
+operator selected migration option A on 2026-08-06. Consequently v1.4 realizes
+no maintenance projection or runtime migration machinery. The additive
+`settings_migrations/0` seam remains reserved, empty, and inert; a future
+qualifying carrier must bind its own maintenance topology before use.
+
 Sourced from `docs/plans/archives/overall-allbert-kernel-redo-analysis.md`
 (archived 2026-08-06 once this ADR made its decisions binding), accepted by
 operator decision 2026-08-06. That document is analysis; this ADR is the
@@ -89,8 +95,10 @@ later named packs.
 
 Composition hosts such as the release and web applications may depend on the
 kernel and packs to assemble a product, but they do not thereby become a third
-capability tier. Domain behavior placed in a composition host still violates
-this decision.
+capability tier. v1.4 realizes this role as descriptorless
+`allbert_composition`, owner of `AllbertAssist.Pack.CompositionCoordinator`.
+Domain behavior placed in it or any other composition host still violates this
+decision.
 
 ### 2. The invariant is compile-enforced, not linted
 
@@ -242,9 +250,7 @@ Source/development/test bootstrap reads the same validated source-catalog Pack
 projection and reconciles it with code-path raw `.app` files. A build gate
 separately proves the root Mix release application set matches that projection;
 Mix project data is never a runtime discovery API. Tests may inject a complete
-projection only through the explicit registry test seam. Packaged unsafe-Home
-maintenance reads the same artifact-sealed manifest, `.rel`, and `.app` records
-as normal startup; it has no fallback index. The post-build
+projection only through the explicit registry test seam. The post-build
 `candidate-manifest.json`, qualification manifests, and `SHA256SUMS` are
 promotion evidence and never bootstrap runtime discovery.
 
@@ -310,15 +316,9 @@ already-dormant child infer readiness. Tests prove one-shot activation, late
 subscription, timeout, coordinator restart before and after opening, and zero
 effect on every failure path.
 
-An unsafe settings Home needs one narrow exception to the full product barrier:
-ADR 0046's explicit minimal maintenance mode. It derives a closed maintenance
-projection from the same validated signed descriptors and central Registry,
-containing only the migration status/plan/apply/resume/rollback actions and
-their Settings/Security/confirmation/audit dependencies. It dispatches through
-the same `Actions.Registry` and `Actions.Runner.run/3`; it is not a second
-executor or a permission bypass. No other action resolves, affected pack
-applications and effectful consumers do not start, and product readiness stays
-false until recovery completes and normal startup is retried.
+No maintenance exception ships in v1.4. A future carrier that satisfies ADR
+0046's admission rule must separately bind a closed maintenance topology; Pack
+metadata alone cannot create one or bypass the product readiness barrier.
 
 The snapshot owner is a plain GenServer: it owns bounded lifecycle state and
 atomic snapshot replacement, with no model reasoning, Skill composition, or
@@ -362,7 +362,7 @@ descriptors and default to an empty list. The standard additive callback set is:
 | `apps/0` | frozen `AllbertAssist.App.Registry` contract |
 | `actions/0` | `AllbertAssist.Actions.Registry` and Runner |
 | `settings_fragments/0` | Settings Central fragment resolver |
-| `settings_migrations/0` | ADR 0046 migration registry |
+| `settings_migrations/0` | reserved ADR 0046 seam; empty and inert in v1.4 |
 | `channels/0` | channel registry and delivery runtime |
 | `surfaces/0` | ADR 0030 extension/surface registry |
 | `skill_roots/0` | skill registry and its trust policy |
@@ -375,15 +375,25 @@ descriptors and default to an empty list. The standard additive callback set is:
 | `release_assets/0` | release staging, license, and integrity inventory |
 | `test_lanes/0` | generated test-gate composition |
 
+A gate-owner contribution is a stable record, not a raw path list. It includes
+one owner identity, OTP application, execution CWD, production/test/support
+roots, allowed primary lanes, aggregate policy, target resolver, and historical
+metrics aliases. Owner composition rejects duplicate identities, duplicate or
+unowned targets, incompatible lane policy, and roots outside the declared
+application. Completeness is reconciled against an independent filesystem and
+application census; it is never inferred solely from the contributions being
+checked.
+
 A compiled pack owns and supervises its own OTP children; the kernel does not
 start arbitrary pack child specs returned as metadata. Adding a future optional
 callback is an additive change to this behaviour. Removing one or changing its
 meaning follows the public stability rules in §7.
 
 v1.4 wires and proves every callback consumed by the three extracted packs and
-the gate/settings/action inversions. A callback reserved for a later release may
-return empty, but future code must use the named contribution seam instead of
-adding another kernel list.
+the gate/settings/action inversions. `settings_migrations/0` returns empty and
+admits no action, runner, or boot behavior. A callback reserved for a later
+release may return empty, but future code must use the named contribution seam
+instead of adding another kernel list.
 
 Every contribution still enters its existing authority boundary: actions
 resolve through `Actions.Registry` and execute through `Actions.Runner.run/3`;
@@ -444,8 +454,9 @@ precedence rule.
 
 ### 5. Packs own their settings; the kernel ships only its own keys
 
-Settings Central owns the layered *resolver*, provenance, validation, migration
-runner, and secret vault. It does **not** own the schema. A pack declaring a
+Settings Central owns the layered *resolver*, provenance, validation,
+schema-version/additive-only and future migration-policy authority, and secret
+vault. It does **not** own the schema. A pack declaring a
 settings key must not require editing a kernel file. This inverts ADR 0031's
 mechanism without changing its intent, and preserves every key name and
 semantic.
@@ -453,9 +464,10 @@ semantic.
 The pack's `settings_fragments/0` callback returns complete, first-class ADR
 0031 fragments with stable ids, owners, versions, schemas, defaults, safe-write
 keys, and metadata. `settings_migrations/0` returns only reviewed ADR 0046
-per-fragment steps. Settings Central composes them deterministically and rejects
-a duplicate fragment id, conflicting ownership claim, or duplicate key before
-any consumer starts.
+per-fragment steps in a future qualifying carrier; it returns empty throughout
+v1.4. Settings Central composes fragments deterministically and rejects a
+duplicate fragment id, conflicting ownership claim, or duplicate key before any
+consumer starts.
 
 Moving an existing fragment into a pack preserves its fragment id, key names,
 schema version, defaults, validation, secrecy, safety floor, and stored values.
@@ -530,7 +542,11 @@ Gate definitions name test paths under `apps/allbert_assist/test/`, and umbrella
 applications own their own tests, so relocating a module relocates its test and
 breaks every gate list naming it. The order is inversion first, relocation
 second — v1.4 M7 before M8, without exception. The §3 dependency-closure gate is
-also green before the pure move begins.
+also green before the pure move begins. Before inversion, M7.0 reconciles an
+independent repository census with owner discovery, manifest rows, primary
+lanes, and aggregate coverage. After inversion the same independent proof
+requires every target to have one owner and execute exactly once; a generated
+owner list cannot validate itself.
 
 ### 9. Legacy Plugin/App contracts bridge into packs
 
@@ -561,6 +577,16 @@ extractions do not by themselves authorize deleting the compatibility stage.
 
 ## Consequences
 
+The M0 implementation audit froze `allbert_composition` as the descriptorless
+coordinator host and completed M7.0 at clean SHA `1739a4028`: 652 test files and
+4,627 manifest rows reconcile with zero unclassified or double-counted files.
+That pass found and repaired six previously omitted Notes Files/Artifacts test
+files before any module relocation. The durable M0 ledger owner then advances
+the live inventory to 653 files/4,633 rows; that is an append-only evidence
+delta, not a correction to the clean M7.0 checkpoint. These are implementation
+bindings of the accepted decision, not a new capability category or a change to
+ADR status.
+
 New capability code has somewhere correct to go, which is the point. The two
 releases immediately after v1.4 build new subsystems; without this boundary they
 would land in the monolith and need moving later, which is the coupling regrowth
@@ -584,7 +610,8 @@ proposal:
 
 - The foundation work **merges into the spine release** rather than becoming its
   own. Param-contract enforcement, envelope consolidation, and registry
-  inversion share the same ~285 action modules, and the sweep must be paid once.
+  inversion share the same M0-proven 281 action modules, and the sweep must be
+  paid once.
 - **Relocation is not deferred.** Deferring it was proposed on risk grounds and
   rejected, because the next two releases would then build in the monolith.
 

@@ -19,6 +19,15 @@ the engine. The runner remains explicit and operator-confirmed; boot never
 applies or rolls back a migration automatically. This amendment fixes the
 locking, preimage, atomicity, audit, interruption, and recovery contract below.
 
+**v1.4 admission result (operator decision 2026-08-06):** M0 found no eligible
+consumer. Telegram/email changes preserve stored identity; the two proposed
+intent destinations cross fragment ownership without a qualifying versioned
+deprecation edge; all production fragments remain at version 1; and the sole
+annotation-only deprecated Memory key has no scheduled replacement. The
+operator selected option A: v1.4 ships no runner, migration actions, journal,
+preimage, or maintenance projection. The future safety contract below remains
+Accepted but deferred until a qualifying carrier has a real consumer.
+
 ### v0.45 vs v0.59 split
 
 v0.45 adopts the **`schema_version` convention only**: every new plugin-owned or
@@ -128,7 +137,7 @@ recorded as a pending migration (see the deferred runner).
 ### 5. Runtime migration runner — admitted only with a real migration
 
 The `Settings.Migration` behaviour, migration registry, and explicit runner may
-ship in v1.4 only with the first real non-additive consumer. A fragment ownership
+ship only with the first real non-additive consumer. A fragment ownership
 move, metadata-only version bump, annotation-only deprecation, still-readable
 compatibility alias, empty migration, or fixture used only by tests does not
 satisfy that entry condition. The consumer must independently satisfy §2 and
@@ -140,6 +149,10 @@ change, and successful forward and rollback runs over operator-authored values.
 If the inventory finds no qualifying consumer, the runner remains deferred and
 the active plan returns to the operator for scope disposition rather than
 inventing an intent-key or application-ownership migration.
+
+v1.4 exercised that admission rule, found no qualifying consumer, and records
+the approved deferral above. The remainder of §5 is the binding contract for a
+future qualifying carrier; it does not describe shipped v1.4 behavior.
 
 #### Step identity and planning
 
@@ -159,7 +172,7 @@ inventing an intent-key or application-ownership migration.
 
 #### Explicit invocation and boot behavior
 
-- `allbert admin settings migrate` is the packaged operator surface. A source
+- In the first qualifying carrier, `allbert admin settings migrate` is the packaged operator surface. A source
   Mix task, if retained, dispatches the same registered action and runner rather
   than implementing a second path.
 - The runner is a deterministic Settings service invoked by registered Jido
@@ -177,11 +190,11 @@ inventing an intent-key or application-ownership migration.
   The administrative command starts through a minimal migration mode that can
   resolve Allbert Home, Settings Central, Security Central, the migration
   registry, and audit storage without starting consumers of the affected
-  settings. ADR 0098 defines this as a closed maintenance projection of the
-  same validated signed descriptors and central Registry: only migration
-  status/plan/apply/resume/rollback plus named dependencies resolve, execution
-  still uses `Actions.Runner.run/3`, and product readiness remains false. It is
-  not a second executor or a permission bypass.
+  settings. That future carrier must bind a closed maintenance topology before
+  implementation: only migration status/plan/apply/resume/rollback plus named
+  dependencies may resolve, execution still uses `Actions.Runner.run/3`, and
+  product readiness remains false. It is not a second executor or a permission
+  bypass. ADR 0098 supplies no such v1.4 maintenance projection.
 
 #### Lock, preimage, and atomic commit
 
@@ -255,12 +268,13 @@ inventing an intent-key or application-ownership migration.
   stored version.
 - Downgrade requires explicit rollback by the newer binary before the older
   binary is started. The older binary never interprets a newer fragment or
-  guesses an inverse migration. The first carrier's acceptance starts with a
-  real packaged v1.3.0 Home clone, migrates it with v1.4, rolls it back with
-  v1.4, and proves the packaged v1.3.0 binary can read the restored Home.
+  guesses an inverse migration. The first qualifying carrier's acceptance
+  starts with a real packaged predecessor Home clone, migrates it with the new
+  carrier, rolls it back with that carrier, and proves the packaged predecessor
+  can read the restored Home.
 - Backup/restore preserves the restricted journal and preimages whenever a
   migration is prepared, recoverable, or still inside the release rollback
-  window. v1.4 performs no automatic preimage pruning. A later explicit,
+  window. The qualifying carrier performs no automatic preimage pruning. A later explicit,
   confirmed prune may remove only terminal records that are no longer needed
   for supported rollback and must retain the redacted operator audit.
 
@@ -288,8 +302,9 @@ Tier-1 list names this version/additive contract explicitly.
 - v0.59 export/import has a binding contract for the version metadata to include.
 - v1.0 freezes a real, small contract (version field + additive-only policy)
   rather than an engine that does not yet have anything to run.
-- v1.4 adds the runner only if a real non-additive consumer proves the contract
-  end to end; its explicit recovery path avoids making boot a write authority.
+- v1.4 applied the admission rule, found no real non-additive consumer, and
+  leaves the runner deferred. A future qualifying carrier must prove the
+  explicit recovery contract end to end without making boot a write authority.
 
 ## Non-Goals
 
@@ -315,11 +330,13 @@ Tier-1 list names this version/additive contract explicitly.
   `registered_fragments/0`); additive-only enforcement; fail-closed boot check;
   export/import version preservation; documented manual migration path. The
   runtime runner is deferred.
-- **v1.4, conditional on its first real non-additive migration**: the packaged
-  `allbert admin settings migrate` surface + `Settings.Migration` contract +
-  registry, locking, atomic commit, journal, audit, and explicit recovery ship
-  together. Without that consumer, all remain deferred pending operator
-  disposition.
+- **v1.4**: admission inventory found no real non-additive consumer; the operator
+  approved deferral, so the runtime runner and all recovery machinery remain
+  unimplemented.
+- **First future qualifying carrier, unslotted**: only with a real consumer, the
+  packaged `allbert admin settings migrate` surface + `Settings.Migration`
+  contract + registry, locking, atomic commit, journal, audit, and explicit
+  recovery ship together.
 - **v1.0**: the version/additive-only contract is frozen as Tier 1; individual
   keys continue to evolve under the additive-only rule.
 

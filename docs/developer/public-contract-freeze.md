@@ -94,14 +94,15 @@ defaults to Tier 2).
   additive-only policy (ADR 0046). A real `v0.66.0` packaged Home upgrades/imports into
   v1.0 with behaviour preserved (DIT-5); export/import is dry-run + rollback-safe
   (`AllbertAssist.Portability.Import.dry_run/2`).
-- Beginning with v1.4, a non-additive per-fragment migration is an explicit
-  operator operation with redacted preview, confirmation, preimage-backed
-  rollback, and audit. It never runs automatically during boot. An older Home
-  that needs migration remains diagnosable but does not silently mutate.
+- v1.4 remains additive-only and adds no runtime migration runner, preimage, or
+  maintenance contract because ADR 0046 admission found no eligible consumer.
+  In a future first qualifying carrier, any non-additive per-fragment migration
+  must be an explicit operator operation with redacted preview, confirmation,
+  preimage-backed rollback, and audit; it never runs automatically during boot.
 - Rollback: an additive-only 1.x → 1.x downgrade keeps the Home readable for
   keys/columns present in the older release; keys added additively by a newer
-  release are ignored by an older one. If a non-additive v1.4+ fragment
-  migration has been applied, the newer binary must explicitly restore its
+  release are ignored by an older one. If a non-additive fragment migration is
+  applied by a future qualifying carrier, the newer binary must explicitly restore its
   protected preimage/version before the older binary starts; the older binary
   never interprets a forward fragment or guesses rollback. Pre-v0.66 Homes are
   compatibility notes unless a release note explicitly expands support.

@@ -33,7 +33,7 @@ install variants, upgrades, uninstall, and artifact trust, use
 | Review long-term Memory or inspect its repair state | [Active Memory](active-memory.md) |
 | Inspect or pause Search/Memory recurring work | [Conversation Search](conversation-search.md#index-health-and-recurring-work) and [Active Memory](active-memory.md) |
 | Inspect packaged license evidence | [Installing Allbert](install.md#license) (`allbert licenses`) |
-| Check or migrate a Home's settings contract | [Settings version](settings-version.md) |
+| Check a Home's settings contract | [Settings version](settings-version.md) |
 
 Packaged operators use `allbert …` and `allbert admin …`. Commands beginning
 with `mix allbert.…` are source-checkout or deterministic validation twins and

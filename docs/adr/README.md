@@ -34,7 +34,7 @@ ADRs record binding design decisions. They are not release plans; use
 - [ADR 0070: TUI operator console and read-only operator actions](0070-tui-operator-console-and-read-only-operator-actions.md)
 - [ADR 0068: Pi-mode coding surface and local coding trust tier](0068-pi-mode-coding-surface-and-local-coding-trust-tier.md)
 - [ADR 0065: Central action param contract enforcement](0065-central-action-param-contract-enforcement.md) (Accepted — v0.59; v1.4 clarification keeps authorization separate)
-- [ADR 0046: Settings schema migration policy](0046-settings-schema-migration-policy.md) (Accepted — v0.59; v1.4 runner remains conditional on a real non-additive migration)
+- [ADR 0046: Settings schema migration policy](0046-settings-schema-migration-policy.md) (Accepted — v0.59; v1.4 admission found no consumer and the runner remains deferred)
 
 ## Foundational ADR Clusters
 

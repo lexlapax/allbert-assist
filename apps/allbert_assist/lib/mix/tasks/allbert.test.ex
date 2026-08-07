@@ -10845,6 +10845,11 @@ defmodule Mix.Tasks.Allbert.Test do
     # fixtures; the singleton registry lifecycle is the binding resource.
     "plugins/allbert.notes_files/test/allbert_notes_files/plugin_test.exs" =>
       :global_process_serial,
+    # The M0 registry ledger owns bounded fixture reads, but its mutation proof
+    # also starts fixed-name temporary App/Plugin/Actions registries. Those VM
+    # names are the binding resource, so this suite must remain globally serial.
+    "apps/allbert_assist/test/allbert_assist/dev_gates/v14_m0_registry_ledger_test.exs" =>
+      :global_process_serial,
     # v1.0.2 M4 split remainder: every test drops the fixture agent_runner and
     # drives the LIVE default Runtime singleton (real agent runtime + the
     # provider/tool supervision it owns) — a shared runtime resource the
