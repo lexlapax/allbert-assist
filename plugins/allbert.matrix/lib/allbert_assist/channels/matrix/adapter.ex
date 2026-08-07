@@ -66,8 +66,7 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
       sync_poll_interval_ms: 2000,
       sync_timeout_ms: 30_000,
       sync_timeline_limit: @default_sync_timeline_limit,
-      req_options: Keyword.get(opts, :req_options, []),
-      effect_guard_opts: effect_guard_opts(opts)
+      req_options: Keyword.get(opts, :req_options, [])
     }
 
     with {:ok, settings} <- Channels.channel_settings("matrix"),
@@ -120,8 +119,8 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
   defp poll(%{enabled?: true} = state) do
     # Do not let a stale process poll a replacement epoch, even if the snapshot
     # digest is unchanged.
-    with {:ok, epoch} <- EffectGuard.admit_ready(state.effect_guard_opts),
-         :ok <- EffectGuard.validate(epoch, state.effect_guard_opts) do
+    with {:ok, epoch} <- EffectGuard.admit_ready(),
+         :ok <- EffectGuard.validate(epoch) do
       case Client.sync(
              state.homeserver_url,
              state.access_token,
@@ -129,7 +128,6 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
              state.sync_timeout_ms,
              sync_req_options(state)
              |> Keyword.put(:allbert_pack_epoch, epoch)
-             |> Keyword.put(:allbert_pack_effect_guard_opts, state.effect_guard_opts)
            ) do
         {:ok, sync} ->
           state = Map.put(state, :effect_epoch, epoch)
@@ -142,13 +140,6 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
       end
     else
       {:error, _reason} -> {{:error, :product_not_ready}, state}
-    end
-  end
-
-  defp effect_guard_opts(opts) do
-    case Keyword.fetch(opts, :readiness_server) do
-      {:ok, server} -> [server: server]
-      :error -> []
     end
   end
 
@@ -213,7 +204,6 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
            state.sync_timeline_limit,
            state.req_options
            |> Keyword.put(:allbert_pack_epoch, Map.fetch!(state, :effect_epoch))
-           |> Keyword.put(:allbert_pack_effect_guard_opts, state.effect_guard_opts)
          ) do
       {:ok, messages} ->
         Parser.parse_messages(room_id, messages)
@@ -286,11 +276,19 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
            ),
          {:ok, chunks} <- render_processed_response(response, record_refs?, state),
          {:ok, delivered} <-
-           Runtime.track_delivery(response, %{channel: "matrix"}, fn ->
-             deliver_chunks(fields.room_id, chunks, state, fields)
-           end),
+           Runtime.track_delivery(
+             response,
+             %{channel: "matrix", allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch)},
+             fn ->
+               deliver_chunks(fields.room_id, chunks, state, fields)
+             end
+           ),
          :ok <- maybe_record_outbound_refs(record_refs?, response, fields, delivered),
-         :ok <- Runtime.acknowledge_deliveries(response, %{channel: "matrix"}),
+         :ok <-
+           Runtime.acknowledge_deliveries(response, %{
+             channel: "matrix",
+             allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch)
+           }),
          {:ok, _event} <- mark_processed(event, response, user_id, session_id, fields) do
       {:ok, :processed}
     else
@@ -321,6 +319,7 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
              user_id: user_id,
              session_id: session_id,
              surface: "matrix_typed_command",
+             allbert_pack_epoch: Map.fetch!(state, :effect_epoch),
              identity_proof: %{
                channel: "matrix",
                user_id: user_id,
@@ -533,20 +532,14 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
       }
     }
     |> maybe_put_known_thread_id(fields, new_thread?)
-    |> Runtime.submit_user_input(
-      allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch),
-      allbert_pack_effect_guard_opts: Map.fetch!(fields, :allbert_pack_effect_guard_opts)
-    )
+    |> Runtime.submit_user_input(allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch))
   end
 
   defp carry_epoch(fields, state),
     do: Map.merge(fields, effect_context(state))
 
   defp effect_context(state) do
-    %{
-      allbert_pack_epoch: Map.fetch!(state, :effect_epoch),
-      allbert_pack_effect_guard_opts: state.effect_guard_opts
-    }
+    %{allbert_pack_epoch: Map.fetch!(state, :effect_epoch)}
   end
 
   defp maybe_put_known_thread_id(attrs, fields, false) do
@@ -576,7 +569,6 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
              content,
              state.req_options
              |> Keyword.put(:allbert_pack_epoch, Map.fetch!(state, :effect_epoch))
-             |> Keyword.put(:allbert_pack_effect_guard_opts, state.effect_guard_opts)
            ) do
         {:ok, %{"event_id" => event_id} = message} ->
           delivered_part = %{
@@ -673,10 +665,6 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
         opts
         |> Keyword.get(:req_options, [])
         |> Keyword.put(:allbert_pack_epoch, Keyword.fetch!(opts, :allbert_pack_epoch))
-        |> Keyword.put(
-          :allbert_pack_effect_guard_opts,
-          Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
-        )
 
       with :ok <- validate_outbound_epoch(opts) do
         case Client.send_message(
@@ -720,10 +708,6 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
         opts
         |> Keyword.get(:req_options, [])
         |> Keyword.put(:allbert_pack_epoch, Keyword.fetch!(opts, :allbert_pack_epoch))
-        |> Keyword.put(
-          :allbert_pack_effect_guard_opts,
-          Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
-        )
 
       with :ok <- validate_outbound_epoch(opts) do
         case Client.replace_message(
@@ -759,7 +743,7 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
   defp validate_outbound_epoch(opts) do
     with {:ok, epoch} <- Keyword.fetch(opts, :allbert_pack_epoch),
          :ok <-
-           EffectGuard.validate(epoch, Keyword.get(opts, :allbert_pack_effect_guard_opts, [])) do
+           EffectGuard.validate(epoch) do
       :ok
     else
       _error -> {:error, :product_not_ready}

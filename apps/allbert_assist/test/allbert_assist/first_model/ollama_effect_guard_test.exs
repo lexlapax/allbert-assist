@@ -30,7 +30,7 @@ defmodule AllbertAssist.FirstModel.OllamaEffectGuardTest do
   test "missing and stale E1 contexts do not invoke the Req probe" do
     test_pid = self()
     context = ReadyEffectContext.context()
-    barrier = Keyword.fetch!(context.allbert_pack_effect_guard_opts, :server)
+    barrier = ReadyEffectContext.server(context)
 
     Req.Test.stub(__MODULE__, fn conn ->
       send(test_pid, :transport_called)

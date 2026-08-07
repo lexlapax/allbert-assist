@@ -200,9 +200,7 @@ defmodule AllbertAssist.FirstModel.Ollama do
     ActivationGuard.validate(allbert_pack_activation: activation)
   end
 
-  defp validate_transport_context(%{allbert_pack_epoch: epoch} = context) do
-    EffectGuard.validate(epoch, Map.get(context, :allbert_pack_effect_guard_opts, []))
-  end
+  defp validate_transport_context(%{allbert_pack_epoch: epoch}), do: EffectGuard.validate(epoch)
 
   defp validate_transport_context(_context), do: {:error, :product_not_ready}
 

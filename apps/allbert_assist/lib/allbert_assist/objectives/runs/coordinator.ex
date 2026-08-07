@@ -60,12 +60,7 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
            parent_id: parent_id,
            allbert_pack_epoch: Keyword.get(opts, :allbert_pack_epoch),
            effect_guard: Keyword.get(opts, :effect_guard, EffectGuard),
-           effect_guard_opts:
-             Keyword.get(
-               opts,
-               :allbert_pack_effect_guard_opts,
-               Keyword.get(opts, :effect_guard_opts, [])
-             ),
+           effect_guard_opts: Keyword.get(opts, :effect_guard_opts, []),
            run_opts: Keyword.get(opts, :run_opts, []),
            monitors: %{},
            recovery?: recovery?,
@@ -257,8 +252,7 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
         child_id: child_id,
         parent_id: state.parent_id,
         coordinator: self(),
-        allbert_pack_epoch: state.allbert_pack_epoch,
-        allbert_pack_effect_guard_opts: state.effect_guard_opts
+        allbert_pack_epoch: state.allbert_pack_epoch
       ] ++ state.run_opts
 
     case validate_epoch(state) do
@@ -289,8 +283,8 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
     end
   end
 
-  defp validate_epoch(%{effect_guard: guard, effect_guard_opts: opts, allbert_pack_epoch: epoch}),
-    do: guard.validate(epoch, opts)
+  defp validate_epoch(%{effect_guard: guard, allbert_pack_epoch: epoch}),
+    do: guard.validate(epoch)
 
   defp handle_run_down(child_id, reason, state) do
     state = %{state | monitors: Map.delete(state.monitors, child_id)}
@@ -730,16 +724,10 @@ defmodule AllbertAssist.Objectives.Runs.Coordinator do
   end
 
   defp effect_context(state),
-    do: %{
-      allbert_pack_epoch: state.allbert_pack_epoch,
-      allbert_pack_effect_guard_opts: state.effect_guard_opts
-    }
+    do: %{allbert_pack_epoch: state.allbert_pack_epoch}
 
   defp effect_context_opts(state),
-    do: [
-      allbert_pack_epoch: state.allbert_pack_epoch,
-      allbert_pack_effect_guard_opts: state.effect_guard_opts
-    ]
+    do: [allbert_pack_epoch: state.allbert_pack_epoch]
 
   defp retry_join(%{join_retry_count: retries} = state) do
     delay =

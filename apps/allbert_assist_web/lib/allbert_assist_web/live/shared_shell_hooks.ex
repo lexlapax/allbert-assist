@@ -19,24 +19,31 @@ defmodule AllbertAssistWeb.Live.SharedShellHooks do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Settings.Schema
   alias AllbertAssist.Surfaces.ContextBuilder
+  alias AllbertAssistWeb.PackReadiness
 
   @sidebar_states ~w(expanded rail hidden)
 
   def on_mount(:shell_chrome, _params, _session, socket) do
-    socket =
-      socket
-      # M9.2: only the connected mount runs the settings-snapshot action — the
-      # disconnected HTTP render defaulted to a per-request Runner invocation
-      # any anonymous GET triggered; the root layout resolves the page theme
-      # itself, so "system" is a safe first-paint default for the toggle icon.
-      |> assign_new(:workspace_theme, fn ->
-        if connected?(socket), do: theme_from_settings(), else: "system"
-      end)
-      |> assign_new(:workspace_high_contrast?, fn -> false end)
-      |> assign_new(:workspace_overflow_open?, fn -> false end)
-      |> assign_new(:sidebar_state, fn -> "expanded" end)
+    with :ok <- validate_connected_epoch(socket) do
+      socket =
+        socket
+        # M9.2: only the connected mount runs the settings-snapshot action — the
+        # disconnected HTTP render defaulted to a per-request Runner invocation
+        # any anonymous GET triggered; the root layout resolves the page theme
+        # itself, so "system" is a safe first-paint default for the toggle icon.
+        |> assign_new(:workspace_theme, fn ->
+          if connected?(socket), do: theme_from_settings(socket), else: "system"
+        end)
+        |> assign_new(:workspace_high_contrast?, fn -> false end)
+        |> assign_new(:workspace_overflow_open?, fn -> false end)
+        |> assign_new(:sidebar_state, fn -> "expanded" end)
 
-    {:cont, attach_hook(socket, :shared_shell_chrome, :handle_event, &handle_event/3)}
+      {:cont, attach_hook(socket, :shared_shell_chrome, :handle_event, &handle_event/3)}
+    else
+      {:error, _reason} ->
+        PackReadiness.disconnect()
+        {:halt, Phoenix.LiveView.redirect(socket, to: "/health")}
+    end
   end
 
   defp handle_event("toggle_workspace_theme", _params, socket) do
@@ -115,15 +122,21 @@ defmodule AllbertAssistWeb.Live.SharedShellHooks do
 
   # The theme read rides the registered resolved-settings snapshot action —
   # the same one-spine read the workspace shell uses at mount.
-  defp theme_from_settings do
+  defp theme_from_settings(socket) do
     context =
-      ContextBuilder.live_view_context(%{},
+      ContextBuilder.live_view_context(socket,
         surface: "AllbertAssistWeb.Live.SharedShellHooks"
       )
 
     "resolved_settings_snapshot"
     |> Runner.run(%{}, context)
     |> theme_from_snapshot()
+  end
+
+  defp validate_connected_epoch(socket) do
+    if connected?(socket),
+      do: PackReadiness.validate(socket.assigns[:allbert_pack_epoch]),
+      else: :ok
   end
 
   @doc """

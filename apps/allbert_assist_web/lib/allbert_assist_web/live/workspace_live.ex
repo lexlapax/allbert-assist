@@ -759,7 +759,15 @@ defmodule AllbertAssistWeb.WorkspaceLive do
                Fanout.parent_projection(parent),
              true <- parent.source_thread_id == socket.assigns.thread_id,
              true <- attached_web_origin?(parent),
-             :ok <- Runtime.acknowledge_report_delivery(receipt, delivery_context) do
+             :ok <-
+               Runtime.acknowledge_report_delivery(
+                 receipt,
+                 Map.put_new(
+                   delivery_context,
+                   :allbert_pack_epoch,
+                   socket.assigns.allbert_pack_epoch
+                 )
+               ) do
           remaining =
             Enum.reject(socket.assigns.attached_fanout_reports, &(&1.parent_id == parent_id))
 
@@ -790,7 +798,14 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       ) do
     case Enum.find(socket.assigns.runtime_delivery_handles, &(&1.id == delivery_id)) do
       %{response: response, delivery_context: delivery_context} ->
-        case Runtime.acknowledge_deliveries(response, delivery_context) do
+        case Runtime.acknowledge_deliveries(
+               response,
+               Map.put_new(
+                 delivery_context,
+                 :allbert_pack_epoch,
+                 socket.assigns.allbert_pack_epoch
+               )
+             ) do
           :ok ->
             remaining =
               Enum.reject(socket.assigns.runtime_delivery_handles, &(&1.id == delivery_id))
@@ -1505,7 +1520,10 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       handle = %{
         id: runtime_delivery_id(response),
         response: response,
-        delivery_context: %{channel: to_string(response.channel)}
+        delivery_context: %{
+          channel: to_string(response.channel),
+          allbert_pack_epoch: socket.assigns.allbert_pack_epoch
+        }
       }
 
       handles =
@@ -2794,6 +2812,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       user_id: socket.assigns.user_id,
       session_id: socket.assigns.session_id,
       surface: "live_view_typed_command",
+      allbert_pack_epoch: socket.assigns.allbert_pack_epoch,
       identity_proof: socket.assigns.live_view_identity_proof,
       resolver_metadata: %{command: command}
     }

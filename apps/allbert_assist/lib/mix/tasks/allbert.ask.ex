@@ -210,7 +210,11 @@ defmodule Mix.Tasks.Allbert.Ask do
     end
 
     ensure_current_epoch!(epoch)
-    Runtime.acknowledge_deliveries(response, %{channel: response_channel(response)})
+
+    Runtime.acknowledge_deliveries(response, %{
+      channel: response_channel(response),
+      allbert_pack_epoch: epoch
+    })
   end
 
   defp print_result({:error, reason}, _epoch), do: print_result({:error, reason})

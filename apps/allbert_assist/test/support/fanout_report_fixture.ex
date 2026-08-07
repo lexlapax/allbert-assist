@@ -13,8 +13,8 @@ defmodule AllbertAssist.TestSupport.FanoutReportFixture do
   alias AllbertAssist.Objectives.Fanout.Report.SynthesisPolicy
   alias AllbertAssist.Objectives.Fanout.TerminalTransitions
   alias AllbertAssist.Objectives.Step
-  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Repo
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @origin_fields ~w[
     user_id source_thread_id source_channel source_surface session_id active_app source_intent
@@ -125,7 +125,13 @@ defmodule AllbertAssist.TestSupport.FanoutReportFixture do
     {selected_source, body, provenance} = selection!(source, frozen)
 
     {:ok, _selected} =
-      Fanout.select_composition(claim, selected_source, body, provenance, effect_options())
+      Fanout.select_composition(
+        claim,
+        selected_source,
+        body,
+        provenance,
+        effect_options(claim.effect_context)
+      )
 
     {:ok, reloaded_parent} = Objectives.get_objective(parent.id)
     reloaded_children = Fanout.children(reloaded_parent)
@@ -192,7 +198,7 @@ defmodule AllbertAssist.TestSupport.FanoutReportFixture do
       })
       |> Repo.insert()
 
-    {:ok, epoch} = EffectGuard.admit_ready()
+    %{allbert_pack_epoch: epoch} = ReadyEffectContext.context()
 
     {:ok, %{child: %{status: "completed", current_step_id: step_id}}} =
       TerminalTransitions.terminalize_child(
@@ -267,10 +273,10 @@ defmodule AllbertAssist.TestSupport.FanoutReportFixture do
     end
   end
 
-  defp effect_options, do: [effect_context: effect_context()]
+  defp effect_options, do: effect_options(effect_context())
+  defp effect_options(context), do: [effect_context: context]
 
   defp effect_context do
-    {:ok, epoch} = EffectGuard.admit_ready()
-    %{allbert_pack_epoch: epoch}
+    ReadyEffectContext.context()
   end
 end

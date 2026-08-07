@@ -46,7 +46,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
              Settings.Secrets.put_secret(
                "secret://providers/openai/api_key",
                "operator-test-key",
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
@@ -159,7 +159,7 @@ defmodule AllbertAssist.Settings.ModelReadinessTest do
              Settings.Secrets.put_secret(
                "secret://providers/openai/api_key",
                "operator-test-key",
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =

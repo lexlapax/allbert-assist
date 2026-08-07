@@ -201,6 +201,11 @@ defmodule AllbertAssist.PlanBuild.Runtime do
   defp block_for_confirmation(step, objective, permission, context, advanced) do
     permission_decision = step_confirmation_decision(permission)
 
+    confirmation_context =
+      context
+      |> Map.put(:selected_action, @plan_step_confirm_action)
+      |> Map.put(:selected_action_module, __MODULE__)
+
     attrs = %{
       origin: %{
         actor: field(context, :actor) || field(context, :user_id) || "local",
@@ -229,7 +234,7 @@ defmodule AllbertAssist.PlanBuild.Runtime do
       }
     }
 
-    with {:ok, confirmation} <- Confirmations.create(attrs, context),
+    with {:ok, confirmation} <- Confirmations.create(attrs, confirmation_context),
          {:ok, blocked_step} <-
            Objectives.transition_step(
              step,

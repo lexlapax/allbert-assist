@@ -80,7 +80,7 @@ defmodule AllbertAssist.Channels.Slack.Client do
 
   defp run_request(method, token_ref, path, request_opts, opts) do
     with {:ok, epoch} <- carried_epoch(opts),
-         :ok <- EffectGuard.validate(epoch, effect_guard_opts(opts)),
+         :ok <- EffectGuard.validate(epoch),
          :ok <- validate_token_ref(token_ref),
          {:ok, token} <- resolve_token(token_ref),
          request <- build_request(method, token_ref, path, request_opts),
@@ -97,7 +97,7 @@ defmodule AllbertAssist.Channels.Slack.Client do
         |> Keyword.merge(request_opts)
         |> Keyword.merge(Keyword.take(opts, [:plug]))
 
-      with :ok <- EffectGuard.validate(epoch, effect_guard_opts(opts)), do: Req.request(request)
+      with :ok <- EffectGuard.validate(epoch), do: Req.request(request)
     end
   end
 
@@ -107,8 +107,6 @@ defmodule AllbertAssist.Channels.Slack.Client do
       :error -> {:error, :product_not_ready}
     end
   end
-
-  defp effect_guard_opts(opts), do: Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
 
   defp real_auth_test_scopes(token_ref, opts) do
     case run_request(:post, token_ref, "/auth.test", [], opts) do

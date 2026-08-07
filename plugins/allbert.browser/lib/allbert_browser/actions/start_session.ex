@@ -71,11 +71,10 @@ defmodule AllbertBrowser.Actions.StartSession do
     with {:ok, epoch} <- carried_epoch(context),
          :ok <- below_session_cap(),
          :ok <- Doctor.fresh_ok?(),
-         :ok <- EffectGuard.validate(epoch, guard_opts(context)),
+         :ok <- EffectGuard.validate(epoch),
          {:ok, session_id} <-
            Session.start_session(
-             allbert_pack_epoch: epoch,
-             allbert_pack_effect_guard_opts: guard_opts(context)
+             allbert_pack_epoch: epoch
            ) do
       {:ok,
        %{
@@ -118,8 +117,8 @@ defmodule AllbertBrowser.Actions.StartSession do
     end
   end
 
-  defp carried_epoch(%{allbert_pack_epoch: epoch} = context) do
-    case EffectGuard.validate(epoch, guard_opts(context)) do
+  defp carried_epoch(%{allbert_pack_epoch: epoch}) do
+    case EffectGuard.validate(epoch) do
       :ok -> {:ok, epoch}
       {:error, _reason} -> {:error, :product_not_ready}
     end
@@ -127,5 +126,4 @@ defmodule AllbertBrowser.Actions.StartSession do
 
   defp carried_epoch(_context), do: {:error, :product_not_ready}
 
-  defp guard_opts(context), do: Map.get(context, :allbert_pack_effect_guard_opts, [])
 end

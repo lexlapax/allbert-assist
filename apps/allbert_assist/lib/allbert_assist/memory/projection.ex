@@ -268,10 +268,9 @@ defmodule AllbertAssist.Memory.Projection do
     end
   end
 
-  defp admit_epoch(%{effect_guard: guard, effect_guard_opts: opts}), do: guard.admit_ready(opts)
+  defp admit_epoch(%{effect_guard: guard}), do: guard.admit_ready()
 
-  defp validate_epoch(%{effect_guard: guard, effect_guard_opts: opts}, epoch),
-    do: guard.validate(epoch, opts)
+  defp validate_epoch(%{effect_guard: guard}, epoch), do: guard.validate(epoch)
 
   # v1.3 M9.b.11.c. This used to be `WriterLockHolder.enabled?()`, which reads
   # the `ALLBERT_HOLD_WRITER_LOCK` environment variable. That variable describes

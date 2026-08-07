@@ -98,15 +98,6 @@ defmodule AllbertAssist.Pack.ActivationGuardTest do
   test "all guards fail closed when readiness dies during their calls" do
     epoch = %{barrier_pid: self(), snapshot_digest: String.duplicate("a", 64)}
 
-    activation_context = %ActivationContext{
-      schema_version: 1,
-      pack_id: "allbert_assist",
-      gate_pid: self(),
-      barrier_pid: self(),
-      subscription_ref: make_ref(),
-      snapshot_digest: String.duplicate("a", 64)
-    }
-
     assert_kill_during_call(
       fn server -> EffectGuard.admit_ready(server: server) end,
       {:error, :product_not_ready}
@@ -119,6 +110,15 @@ defmodule AllbertAssist.Pack.ActivationGuardTest do
 
     assert_kill_during_call(
       fn server ->
+        activation_context = %ActivationContext{
+          schema_version: 1,
+          pack_id: "allbert_assist",
+          gate_pid: self(),
+          barrier_pid: server,
+          subscription_ref: make_ref(),
+          snapshot_digest: String.duplicate("a", 64)
+        }
+
         ActivationGuard.validate([allbert_pack_activation: activation_context], server: server)
       end,
       {:error, :product_not_ready}

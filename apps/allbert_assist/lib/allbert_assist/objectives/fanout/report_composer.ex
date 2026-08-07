@@ -544,9 +544,6 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposer do
 
   defp effect_options(epoch, state), do: [effect_context: effect_context(epoch, state)]
 
-  defp effect_context(epoch, %{effect_guard: {EffectGuard, server}}),
-    do: %{allbert_pack_epoch: epoch, allbert_pack_effect_guard_opts: [server: server]}
-
   defp effect_context(epoch, _state), do: %{allbert_pack_epoch: epoch}
 
   defp effect_guard_call({EffectGuard, server}, function, args),

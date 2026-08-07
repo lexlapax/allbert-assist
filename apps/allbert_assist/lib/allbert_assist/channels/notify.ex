@@ -18,6 +18,7 @@ defmodule AllbertAssist.Channels.Notify do
   alias AllbertAssist.Conversations.ThreadChannelRef
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.Objectives.Objective
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime.Audit
   alias AllbertAssist.Runtime.Redactor
@@ -225,30 +226,37 @@ defmodule AllbertAssist.Channels.Notify do
 
   defp consent_offer_pending?(_result), do: false
 
-  def mark_consent_offer_delivered(%{channel: channel, user_id: user_id})
+  def mark_consent_offer_delivered(%{channel: channel, user_id: user_id}, effect_context)
       when is_binary(channel) and is_binary(user_id) do
-    from(d in NotifyDelivery,
-      where:
-        d.channel == ^channel and d.local_user_id == ^user_id and d.kind == "consent_offer" and
-          d.offer_state == "pending"
-    )
-    |> Repo.update_all(
-      set: [state: "delivered", offer_state: "delivered", updated_at: DateTime.utc_now()]
-    )
+    with :ok <- validate_effect_context(effect_context) do
+      from(d in NotifyDelivery,
+        where:
+          d.channel == ^channel and d.local_user_id == ^user_id and d.kind == "consent_offer" and
+            d.offer_state == "pending"
+      )
+      |> Repo.update_all(
+        set: [state: "delivered", offer_state: "delivered", updated_at: DateTime.utc_now()]
+      )
 
-    :ok
+      :ok
+    end
   end
 
-  def mark_consent_offer_delivered(_response), do: :ok
+  def mark_consent_offer_delivered(_response, _effect_context), do: :ok
 
-  def accept_consent(channel, user_id) do
-    from(d in NotifyDelivery,
-      where: d.channel == ^channel and d.local_user_id == ^user_id and d.kind == "consent_offer"
-    )
-    |> Repo.update_all(set: [offer_state: "accepted", updated_at: DateTime.utc_now()])
+  def accept_consent(channel, user_id, effect_context) do
+    with :ok <- validate_effect_context(effect_context) do
+      from(d in NotifyDelivery,
+        where: d.channel == ^channel and d.local_user_id == ^user_id and d.kind == "consent_offer"
+      )
+      |> Repo.update_all(set: [offer_state: "accepted", updated_at: DateTime.utc_now()])
 
-    :ok
+      :ok
+    end
   end
+
+  defp validate_effect_context(%{allbert_pack_epoch: epoch}), do: EffectGuard.validate(epoch)
+  defp validate_effect_context(_context), do: {:error, :product_not_ready}
 
   defp authorize_and_send(delivery, fanout, kind, body, opts) do
     channel = fanout.source_channel

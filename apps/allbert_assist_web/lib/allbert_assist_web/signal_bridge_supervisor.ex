@@ -10,10 +10,12 @@ defmodule AllbertAssistWeb.SignalBridgeSupervisor do
     DynamicSupervisor.start_link(__MODULE__, :ok, name: Keyword.get(opts, :name, __MODULE__))
   end
 
-  @spec open(map(), DynamicSupervisor.supervisor()) :: {:ok, pid()} | {:error, term()}
-  def open(epoch, supervisor \\ __MODULE__) when is_map(epoch) do
-    with :ok <- PackReadiness.validate(epoch) do
-      open_child(epoch, supervisor)
+  @spec open(map(), DynamicSupervisor.supervisor(), GenServer.server()) ::
+          {:ok, pid()} | {:error, term()}
+  def open(epoch, supervisor \\ __MODULE__, readiness_server \\ PackReadiness)
+      when is_map(epoch) do
+    with :ok <- validate_epoch(readiness_server, epoch) do
+      open_child(epoch, supervisor, readiness_server)
     else
       {:error, _reason} -> {:error, :unavailable}
     end
@@ -21,8 +23,23 @@ defmodule AllbertAssistWeb.SignalBridgeSupervisor do
     :exit, _reason -> {:error, :unavailable}
   end
 
-  defp open_child(epoch, supervisor) do
-    case DynamicSupervisor.start_child(supervisor, {AllbertAssistWeb.SignalBridge, []}) do
+  defp validate_epoch(PackReadiness, epoch), do: PackReadiness.validate(epoch)
+
+  defp validate_epoch(readiness_server, epoch) do
+    try do
+      GenServer.call(readiness_server, {:validate, epoch}, 150)
+    catch
+      :exit, _reason -> {:error, :unavailable}
+    end
+  end
+
+  defp open_child(epoch, supervisor, readiness_server) do
+    validate_fun = fn candidate_epoch -> validate_epoch(readiness_server, candidate_epoch) end
+
+    case DynamicSupervisor.start_child(
+           supervisor,
+           {AllbertAssistWeb.SignalBridge, validate_fun: validate_fun}
+         ) do
       {:ok, pid} ->
         case AllbertAssistWeb.SignalBridge.open(pid, epoch) do
           :ok ->

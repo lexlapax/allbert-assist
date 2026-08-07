@@ -100,7 +100,7 @@ defmodule AllbertAssist.Channels.Email.Adapter do
   defp poll(%{enabled?: true} = state) do
     with {:ok, epoch} <- EffectGuard.admit_ready(state.effect_guard_opts),
          # `poll_imap/1` opens the IMAP transport as its first effect.
-         :ok <- EffectGuard.validate(epoch, state.effect_guard_opts) do
+         :ok <- EffectGuard.validate(epoch) do
       state = Map.put(state, :effect_epoch, epoch)
 
       case poll_imap(state) do
@@ -204,11 +204,19 @@ defmodule AllbertAssist.Channels.Email.Adapter do
          {:ok, response} <- submit_runtime(text, user_id, session_id, fields, uid, new_thread?),
          {:ok, subject, body, _html_body} <- render_response(response, fields, state),
          {:ok, delivered} <-
-           Runtime.track_delivery(response, %{channel: "email"}, fn ->
-             deliver_reply(fields, subject, body, state)
-           end),
+           Runtime.track_delivery(
+             response,
+             %{channel: "email", allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch)},
+             fn ->
+               deliver_reply(fields, subject, body, state)
+             end
+           ),
          :ok <- record_outbound_ref(response, fields, delivered),
-         :ok <- Runtime.acknowledge_deliveries(response, %{channel: "email"}),
+         :ok <-
+           Runtime.acknowledge_deliveries(response, %{
+             channel: "email",
+             allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch)
+           }),
          {:ok, _event} <- mark_processed(event, response, user_id, session_id, fields) do
       :processed
     else

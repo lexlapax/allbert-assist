@@ -31,9 +31,18 @@ defmodule AllbertAssist.Channels.NotifyConsentCallback do
            Runner.run(
              "configure_channel_setting",
              %{channel: channel, key: "autonomous_notify.enabled", value: true},
-             %{request: request, actor: user_id, operator_id: user_id, channel: channel}
+             %{
+               request: request,
+               actor: user_id,
+               operator_id: user_id,
+               channel: channel,
+               allbert_pack_epoch: field(request, :allbert_pack_epoch)
+             }
            ),
-         :ok <- Notify.accept_consent(channel, user_id) do
+         :ok <-
+           Notify.accept_consent(channel, user_id, %{
+             allbert_pack_epoch: field(request, :allbert_pack_epoch)
+           }) do
       {:ok, result}
     else
       false -> {:error, :wrong_user}

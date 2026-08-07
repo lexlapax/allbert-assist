@@ -13,6 +13,7 @@ defmodule AllbertAssist.CLI.DispatcherTest do
   alias AllbertAssist.Runtime.Attach
   alias AllbertAssist.SecurityFixtures.AssertBinding
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @moduletag :cli_dispatcher
 
@@ -87,7 +88,7 @@ defmodule AllbertAssist.CLI.DispatcherTest do
                Settings.Secrets.put_secret(
                  "secret://providers/openai/api_key",
                  "test-openai-key",
-                 %{audit?: false}
+                 ReadyEffectContext.attach(%{audit?: false})
                )
 
       assert {:ok, _setting} =

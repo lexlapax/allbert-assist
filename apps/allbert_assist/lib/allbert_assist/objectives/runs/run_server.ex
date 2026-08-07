@@ -41,10 +41,6 @@ defmodule AllbertAssist.Objectives.Runs.RunServer do
            lifecycle_opts:
              Keyword.get(opts, :lifecycle_opts, [])
              |> Keyword.put(:allbert_pack_epoch, Keyword.fetch!(opts, :allbert_pack_epoch))
-             |> Keyword.put(
-               :allbert_pack_effect_guard_opts,
-               Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
-             )
              |> Keyword.put_new(:cancel_token, cancel_token)
          }, {:continue, :run}}
 

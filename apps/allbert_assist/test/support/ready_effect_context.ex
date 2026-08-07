@@ -4,18 +4,23 @@ defmodule AllbertAssist.TestSupport.ReadyEffectContext do
   use GenServer
 
   alias AllbertAssist.Pack.EffectGuard
+  alias AllbertAssist.Pack.EffectGuard.TestRegistry
 
   def context do
     {:ok, barrier} = start_link([])
     {:ok, epoch} = EffectGuard.admit_ready(server: barrier)
 
-    %{
-      allbert_pack_epoch: epoch,
-      allbert_pack_effect_guard_opts: [server: barrier]
-    }
+    %{allbert_pack_epoch: epoch}
   end
 
   def attach(context) when is_map(context), do: Map.merge(context, context())
+
+  def server(%{allbert_pack_epoch: epoch}) do
+    {:ok, server} = TestRegistry.server(epoch)
+    server
+  end
+
+  def register(epoch, server), do: TestRegistry.register(epoch, server)
 
   def replace(server), do: GenServer.call(server, :replace)
 

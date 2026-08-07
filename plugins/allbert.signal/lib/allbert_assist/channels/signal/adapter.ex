@@ -108,25 +108,35 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
       enabled?: Map.get(settings, "enabled", false),
       settings: settings,
       client_opts: Keyword.get(opts, :client_opts, default_client_opts(settings)),
-      diagnostics: AllbertSignal.Settings.Fragment.required_when_enabled(settings),
-      effect_guard_opts: effect_guard_opts(opts)
+      diagnostics: AllbertSignal.Settings.Fragment.required_when_enabled(settings)
     }
+    |> maybe_put_test_readiness_server(opts)
   end
 
   defp process_ready_notification(notification, auth_context, state) do
-    with {:ok, epoch} <- EffectGuard.admit_ready(state.effect_guard_opts),
-         :ok <- EffectGuard.validate(epoch, state.effect_guard_opts) do
+    with {:ok, epoch} <- admit_ready(state),
+         :ok <- EffectGuard.validate(epoch) do
       process_notification(notification, auth_context, Map.put(state, :effect_epoch, epoch))
     else
       {:error, _reason} -> {{:error, :product_not_ready}, state}
     end
   end
 
-  defp effect_guard_opts(opts) do
-    case Keyword.fetch(opts, :readiness_server) do
-      {:ok, server} -> [server: server]
-      :error -> []
+  if Mix.env() == :test do
+    defp maybe_put_test_readiness_server(state, opts) do
+      case Keyword.fetch(opts, :readiness_server) do
+        {:ok, server} -> Map.put(state, :test_readiness_server, server)
+        :error -> state
+      end
     end
+
+    defp admit_ready(%{test_readiness_server: server}),
+      do: EffectGuard.admit_ready(server: server)
+
+    defp admit_ready(_state), do: EffectGuard.admit_ready()
+  else
+    defp maybe_put_test_readiness_server(state, _opts), do: state
+    defp admit_ready(_state), do: EffectGuard.admit_ready()
   end
 
   defp default_client_opts(settings) do
@@ -196,11 +206,19 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
            submit_runtime(text, user_id, session_id, fields, new_thread?, inbound_trust),
          {:ok, chunks} <- Renderer.render_response(response, renderer_opts(state)),
          {:ok, delivered} <-
-           Runtime.track_delivery(response, %{channel: "signal"}, fn ->
-             deliver_chunks(fields, chunks, state)
-           end),
+           Runtime.track_delivery(
+             response,
+             %{channel: "signal", allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch)},
+             fn ->
+               deliver_chunks(fields, chunks, state)
+             end
+           ),
          :ok <- record_outbound_refs(response, fields, delivered),
-         :ok <- Runtime.acknowledge_deliveries(response, %{channel: "signal"}),
+         :ok <-
+           Runtime.acknowledge_deliveries(response, %{
+             channel: "signal",
+             allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch)
+           }),
          {:ok, _event} <- mark_processed(event, response, user_id, session_id, fields) do
       {:ok, :processed}
     else
@@ -342,20 +360,14 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
       }
     }
     |> maybe_put_known_thread_id(fields, new_thread?)
-    |> Runtime.submit_user_input(
-      allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch),
-      allbert_pack_effect_guard_opts: Map.fetch!(fields, :allbert_pack_effect_guard_opts)
-    )
+    |> Runtime.submit_user_input(allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch))
   end
 
   defp carry_epoch(fields, state),
     do: Map.merge(fields, effect_context(state))
 
   defp effect_context(state) do
-    %{
-      allbert_pack_epoch: Map.fetch!(state, :effect_epoch),
-      allbert_pack_effect_guard_opts: state.effect_guard_opts
-    }
+    %{allbert_pack_epoch: Map.fetch!(state, :effect_epoch)}
   end
 
   defp maybe_put_known_thread_id(attrs, fields, false) do
@@ -386,7 +398,6 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
         state.client_opts
         |> put_quote_opts(reply_target)
         |> Keyword.put(:allbert_pack_epoch, Map.fetch!(state, :effect_epoch))
-        |> Keyword.put(:allbert_pack_effect_guard_opts, state.effect_guard_opts)
 
       result =
         Client.send_message(
@@ -612,10 +623,6 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
             opts
             |> Keyword.get(:req_options, [])
             |> Keyword.put(:allbert_pack_epoch, Keyword.fetch!(opts, :allbert_pack_epoch))
-            |> Keyword.put(
-              :allbert_pack_effect_guard_opts,
-              Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
-            )
 
           case Client.send_message(account, target, body, req_options) do
             {:ok, result} -> {:ok, %{channel: "signal", target: target, result: result}}
@@ -631,7 +638,7 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
   defp validate_outbound_epoch(opts) do
     with {:ok, epoch} <- Keyword.fetch(opts, :allbert_pack_epoch),
          :ok <-
-           EffectGuard.validate(epoch, Keyword.get(opts, :allbert_pack_effect_guard_opts, [])) do
+           EffectGuard.validate(epoch) do
       :ok
     else
       _error -> {:error, :product_not_ready}

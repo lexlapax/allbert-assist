@@ -1148,10 +1148,7 @@ defmodule AllbertAssist.Objectives.Lifecycle do
   end
 
   defp effect_context(opts) do
-    %{
-      allbert_pack_epoch: Keyword.get(opts, :allbert_pack_epoch),
-      allbert_pack_effect_guard_opts: Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
-    }
+    %{allbert_pack_epoch: Keyword.get(opts, :allbert_pack_epoch)}
   end
 
   defp validate_effect_epoch(opts), do: validate_effect_context(effect_context(opts))

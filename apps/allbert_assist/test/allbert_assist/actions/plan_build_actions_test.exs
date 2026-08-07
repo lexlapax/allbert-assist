@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.PlanBuildActionsTest do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   setup do
     original_home = System.get_env("ALLBERT_HOME")
@@ -34,7 +35,9 @@ defmodule AllbertAssist.Actions.PlanBuildActionsTest do
       File.rm_rf!(home)
     end)
 
-    {:ok, home: home, context: %{actor: "local", user_id: "local", channel: :cli}}
+    {:ok,
+     home: home,
+     context: ReadyEffectContext.attach(%{actor: "local", user_id: "local", channel: :cli})}
   end
 
   test "list, inspect, expand, and preview run through Actions.Runner", %{context: context} do
@@ -168,6 +171,7 @@ defmodule AllbertAssist.Actions.PlanBuildActionsTest do
                user_id: "local",
                session_id: "ch_tui_test",
                surface: "tui_typed_command",
+               allbert_pack_epoch: context.allbert_pack_epoch,
                identity_proof: %{
                  channel: "tui",
                  user_id: "local",

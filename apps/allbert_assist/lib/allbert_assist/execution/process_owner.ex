@@ -176,10 +176,7 @@ defmodule AllbertAssist.Execution.ProcessOwner do
   end
 
   defp validate_epoch(opts) do
-    case EffectGuard.validate(
-           Keyword.get(opts, :allbert_pack_epoch),
-           Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
-         ) do
+    case EffectGuard.validate(Keyword.get(opts, :allbert_pack_epoch)) do
       :ok -> :ok
       {:error, _reason} -> {:error, :product_not_ready}
     end

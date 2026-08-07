@@ -352,9 +352,8 @@ defmodule AllbertAssist.Channels.SignalTest do
     do: Settings.put(key, value, ReadyEffectContext.attach(context))
 
   defp ready_effect_guard_server do
-    ReadyEffectContext.context()
-    |> Map.fetch!(:allbert_pack_effect_guard_opts)
-    |> Keyword.fetch!(:server)
+    context = ReadyEffectContext.context()
+    ReadyEffectContext.server(context)
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

@@ -564,7 +564,7 @@ defmodule AllbertAssist.Objectives.Fanout.TerminalTransitions do
   defp effect_context(opts) when is_list(opts) do
     case Keyword.fetch(opts, :effect_context) do
       {:ok, %{allbert_pack_epoch: epoch} = context} when is_map(epoch) ->
-        case EffectGuard.validate(epoch, Map.get(context, :allbert_pack_effect_guard_opts, [])) do
+        case EffectGuard.validate(epoch) do
           :ok -> {:ok, context}
           {:error, reason} -> {:error, reason}
         end

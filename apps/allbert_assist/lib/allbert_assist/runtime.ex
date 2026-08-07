@@ -79,7 +79,6 @@ defmodule AllbertAssist.Runtime do
           coding_req_llm_context: nil | ReqLLM.Context.t(),
           stream_event_sink: nil | pid() | (map() -> term()),
           allbert_pack_epoch: EffectGuard.epoch(),
-          allbert_pack_effect_guard_opts: keyword(),
           diagnostics: list(),
           timeout_ms: pos_integer()
         }
@@ -150,15 +149,9 @@ defmodule AllbertAssist.Runtime do
 
   @doc "Submit through the first-party carried Pack-epoch path."
   @spec submit_user_input(map(), keyword()) :: {:ok, response()} | {:error, term()}
-  def submit_user_input(attrs, opts) when is_map(attrs) and is_list(opts) do
-    epoch = Keyword.get(opts, :allbert_pack_epoch)
-    guard_opts = Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
-
-    with :ok <- EffectGuard.validate(epoch, guard_opts) do
-      do_submit_user_input(attrs, %{
-        allbert_pack_epoch: epoch,
-        allbert_pack_effect_guard_opts: guard_opts
-      })
+  def submit_user_input(attrs, allbert_pack_epoch: epoch) when is_map(attrs) do
+    with :ok <- EffectGuard.validate(epoch) do
+      do_submit_user_input(attrs, %{allbert_pack_epoch: epoch})
     end
   end
 
@@ -197,7 +190,8 @@ defmodule AllbertAssist.Runtime do
   @doc "Acknowledge successful kickoff delivery and make the fan-out runnable."
   @spec acknowledge_fanout_start(String.t(), map()) :: :ok | {:error, term()}
   def acknowledge_fanout_start(receipt, delivery_context) do
-    with {:ok, parent} <-
+    with :ok <- validate_delivery_epoch(delivery_context),
+         {:ok, parent} <-
            DeliveryAcknowledgement.run(fn ->
              acknowledge_start_receipt(receipt, delivery_context)
            end) do
@@ -211,9 +205,11 @@ defmodule AllbertAssist.Runtime do
   @doc "Acknowledge a pending report only after its caller-specific delivery succeeds."
   @spec acknowledge_report_delivery(String.t(), map()) :: :ok | {:error, term()}
   def acknowledge_report_delivery(receipt, delivery_context) do
-    DeliveryAcknowledgement.run(fn ->
-      Fanout.acknowledge_report(receipt, delivery_context)
-    end)
+    with :ok <- validate_delivery_epoch(delivery_context) do
+      DeliveryAcknowledgement.run(fn ->
+        Fanout.acknowledge_report(receipt, delivery_context)
+      end)
+    end
   end
 
   @doc "Record a failed kickoff delivery so retry/status can reuse the same receipt."
@@ -231,9 +227,11 @@ defmodule AllbertAssist.Runtime do
           |> Map.put_new(:thread_id, Map.get(response, :thread_id))
           |> Map.merge(get_in(response, [:fanout, :delivery_context]) || %{})
 
-        DeliveryAcknowledgement.run(fn ->
-          Fanout.mark_start_delivery_failed(receipt, context)
-        end)
+        with :ok <- validate_delivery_epoch(context) do
+          DeliveryAcknowledgement.run(fn ->
+            Fanout.mark_start_delivery_failed(receipt, context)
+          end)
+        end
     end
   end
 
@@ -299,7 +297,12 @@ defmodule AllbertAssist.Runtime do
       |> Map.put_new(:thread_id, Map.get(response, :thread_id))
 
     with :ok <- acknowledge_kickoff_delivery(response, delivery_context),
-         :ok <- Notify.mark_consent_offer_delivered(Map.get(response, :notify_offer, %{})) do
+         :ok <- validate_delivery_epoch(base_context),
+         :ok <-
+           Notify.mark_consent_offer_delivered(
+             Map.get(response, :notify_offer, %{}),
+             base_context
+           ) do
       acknowledge_pending_reports(Map.get(response, :pending_reports, []), base_context)
     end
   end
@@ -489,7 +492,6 @@ defmodule AllbertAssist.Runtime do
          coding_req_llm_context: fetch_value(attrs, :coding_req_llm_context),
          stream_event_sink: fetch_value(attrs, :stream_event_sink),
          allbert_pack_epoch: effect_context.allbert_pack_epoch,
-         allbert_pack_effect_guard_opts: effect_context.allbert_pack_effect_guard_opts,
          delivery_ack_capability: fetch_value(attrs, :delivery_ack_capability),
          fanout_manager_mode: :off,
          diagnostics: session_context.diagnostics ++ app_context.diagnostics,
@@ -1579,14 +1581,16 @@ defmodule AllbertAssist.Runtime do
       }
       |> maybe_put(:active_app, request.active_app)
 
-    Conversations.admit_user_message(request.conversation_thread, request.text, %{
-      input_signal_id: input_signal.id,
-      metadata: metadata,
-      channel_thread_ref: request.channel_thread_ref,
-      provider_message_id: request.provider_message_id,
-      provider_message_part_id: request.provider_message_part_id,
-      external_user_id: request.external_user_id
-    })
+    with :ok <- validate_request_epoch(request) do
+      Conversations.admit_user_message(request.conversation_thread, request.text, %{
+        input_signal_id: input_signal.id,
+        metadata: metadata,
+        channel_thread_ref: request.channel_thread_ref,
+        provider_message_id: request.provider_message_id,
+        provider_message_part_id: request.provider_message_part_id,
+        external_user_id: request.external_user_id
+      })
+    end
   end
 
   defp put_inbound_admission(request, admission) do
@@ -1628,6 +1632,14 @@ defmodule AllbertAssist.Runtime do
   end
 
   defp persist_assistant_message(response, request, response_signal) do
+    with :ok <- validate_request_epoch(request) do
+      persist_assistant_message_after_validation(response, request, response_signal)
+    else
+      {:error, _reason} -> response
+    end
+  end
+
+  defp persist_assistant_message_after_validation(response, request, response_signal) do
     case Conversations.get_thread(request.user_id, request.thread_id) do
       {:ok, thread} ->
         metadata =
@@ -1732,17 +1744,18 @@ defmodule AllbertAssist.Runtime do
   end
 
   defp effect_epoch_opts(request) do
-    [
-      allbert_pack_epoch: request.allbert_pack_epoch,
-      allbert_pack_effect_guard_opts: request.allbert_pack_effect_guard_opts
-    ]
+    [allbert_pack_epoch: request.allbert_pack_epoch]
   end
 
   defp effect_context(context, request) when is_map(context) do
     context
     |> Map.put(:allbert_pack_epoch, request.allbert_pack_epoch)
-    |> Map.put(:allbert_pack_effect_guard_opts, request.allbert_pack_effect_guard_opts)
   end
+
+  defp validate_request_epoch(request), do: EffectGuard.validate(request.allbert_pack_epoch)
+
+  defp validate_delivery_epoch(%{allbert_pack_epoch: epoch}), do: EffectGuard.validate(epoch)
+  defp validate_delivery_epoch(_context), do: {:error, :product_not_ready}
 
   defp trace_error(%{error: error}), do: error
 

@@ -9,7 +9,7 @@ defmodule AllbertAssist.Channels.RawReqEffectGuardTest do
   test "missing and stale E1 carriers never invoke any channel Req plug" do
     test_pid = self()
     context = ReadyEffectContext.context()
-    barrier = Keyword.fetch!(context.allbert_pack_effect_guard_opts, :server)
+    barrier = ReadyEffectContext.server(context)
 
     Req.Test.stub(__MODULE__, fn conn ->
       send(test_pid, :transport_called)
@@ -96,7 +96,6 @@ defmodule AllbertAssist.Channels.RawReqEffectGuardTest do
   defp context_to_opts(context) do
     [
       allbert_pack_epoch: context.allbert_pack_epoch,
-      allbert_pack_effect_guard_opts: context.allbert_pack_effect_guard_opts,
       plug: {Req.Test, __MODULE__}
     ]
   end

@@ -341,10 +341,9 @@ defmodule AllbertAssist.Objectives.Runs.Scheduler do
     end
   end
 
-  defp admit_epoch(%{effect_guard: guard, effect_guard_opts: opts}), do: guard.admit_ready(opts)
+  defp admit_epoch(%{effect_guard: guard}), do: guard.admit_ready()
 
-  defp validate_epoch(%{effect_guard: guard, effect_guard_opts: opts}, epoch),
-    do: guard.validate(epoch, opts)
+  defp validate_epoch(%{effect_guard: guard}, epoch), do: guard.validate(epoch)
 
   defp normalize_start({:ok, pid}), do: {:ok, pid}
   defp normalize_start({:error, {:already_started, pid}}), do: {:ok, pid}

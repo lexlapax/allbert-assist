@@ -98,8 +98,7 @@ defmodule AllbertAssistWeb.PackReadiness do
       readiness: readiness,
       bridge_supervisor:
         Keyword.get(opts, :bridge_supervisor, AllbertAssistWeb.SignalBridgeSupervisor),
-      bridge_open_fun:
-        Keyword.get(opts, :bridge_open_fun, &AllbertAssistWeb.SignalBridgeSupervisor.open/2),
+      bridge_open_fun: Keyword.get(opts, :bridge_open_fun),
       retry_ref: nil
     }
 
@@ -163,6 +162,47 @@ defmodule AllbertAssistWeb.PackReadiness do
         %{bridge: {:retiring, pid, ref}} = state
       ) do
     {:noreply, schedule_probe(%{state | bridge: :absent})}
+  end
+
+  def handle_info(
+        {:bridge_opened, opener_pid, epoch, {:ok, bridge_pid}},
+        %{bridge: {:opening, opener_pid, epoch}, admission: epoch} = state
+      )
+      when is_pid(bridge_pid) do
+    if Process.alive?(bridge_pid) do
+      bridge_ref = Process.monitor(bridge_pid)
+      # A successful bridge subscription can follow a reconnect during its
+      # gap; reload it so it sees durable state under the new subscriber.
+      disconnect()
+      {:noreply, %{state | bridge: {:open, bridge_pid, bridge_ref, epoch}}}
+    else
+      {:noreply, state |> Map.put(:bridge, :absent) |> schedule_probe()}
+    end
+  end
+
+  def handle_info(
+        {:bridge_opened, opener_pid, _epoch, {:ok, bridge_pid}},
+        %{bridge: {:opening, opener_pid, _}} = state
+      )
+      when is_pid(bridge_pid) do
+    # The Pack epoch changed while this child was opening. Keep E2 closed until
+    # this exact E1 child has stopped and its subscriptions are gone.
+    {:noreply, retire_opening_bridge(state, bridge_pid)}
+  end
+
+  def handle_info(
+        {:bridge_opened, opener_pid, _epoch, _result},
+        %{bridge: {:opening, opener_pid, _}} = state
+      ) do
+    {:noreply, state |> Map.put(:bridge, :absent) |> schedule_probe()}
+  end
+
+  def handle_info({:bridge_opened, _opener_pid, _epoch, {:ok, bridge_pid}}, state)
+      when is_pid(bridge_pid) do
+    # The observer closed or rotated while the asynchronous opener was running.
+    # Its subscriptions cannot cross into the later epoch.
+    AllbertAssistWeb.SignalBridge.close(bridge_pid)
+    {:noreply, state}
   end
 
   def handle_info(_message, state), do: {:noreply, state}
@@ -268,19 +308,20 @@ defmodule AllbertAssistWeb.PackReadiness do
   defp ensure_bridge(%{admission: :closed} = state), do: state
   defp ensure_bridge(%{bridge: {:open, _pid, _ref, _epoch}} = state), do: state
   defp ensure_bridge(%{bridge: {:retiring, _pid, _ref}} = state), do: state
+  defp ensure_bridge(%{bridge: {:opening, _opener_pid, _epoch}} = state), do: state
 
   defp ensure_bridge(%{admission: epoch, bridge: :absent} = state) do
-    case state.bridge_open_fun.(epoch, state.bridge_supervisor) do
-      {:ok, bridge_pid} when is_pid(bridge_pid) ->
-        bridge_ref = Process.monitor(bridge_pid)
-        # A successful bridge subscription can follow a reconnect during its
-        # gap; reload it so it sees durable state under the new subscriber.
-        disconnect()
-        %{state | bridge: {:open, bridge_pid, bridge_ref, epoch}}
+    observer = self()
+    bridge_open_fun = state.bridge_open_fun
+    bridge_supervisor = state.bridge_supervisor
 
-      _unavailable ->
-        schedule_probe(state)
-    end
+    opener_pid =
+      spawn(fn ->
+        result = open_bridge(epoch, bridge_supervisor, observer, bridge_open_fun)
+        send(observer, {:bridge_opened, self(), epoch, result})
+      end)
+
+    %{state | bridge: {:opening, opener_pid, epoch}}
   end
 
   defp retire_bridge(%{bridge: {:open, bridge_pid, bridge_ref, _epoch}} = state) do
@@ -291,6 +332,32 @@ defmodule AllbertAssistWeb.PackReadiness do
   end
 
   defp retire_bridge(state), do: state
+
+  defp retire_opening_bridge(state, bridge_pid) do
+    if Process.alive?(bridge_pid) do
+      bridge_ref = Process.monitor(bridge_pid)
+      AllbertAssistWeb.SignalBridge.close(bridge_pid)
+      %{state | bridge: {:retiring, bridge_pid, bridge_ref}}
+    else
+      state |> Map.put(:bridge, :absent) |> schedule_probe()
+    end
+  end
+
+  defp open_bridge(epoch, bridge_supervisor, observer, nil) do
+    AllbertAssistWeb.SignalBridgeSupervisor.open(epoch, bridge_supervisor, observer)
+  rescue
+    _exception -> {:error, :unavailable}
+  catch
+    :exit, _reason -> {:error, :unavailable}
+  end
+
+  defp open_bridge(epoch, bridge_supervisor, _observer, bridge_open_fun) do
+    bridge_open_fun.(epoch, bridge_supervisor)
+  rescue
+    _exception -> {:error, :unavailable}
+  catch
+    :exit, _reason -> {:error, :unavailable}
+  end
 
   defp admission_reply(%{barrier_pid: barrier_pid, snapshot_digest: digest}),
     do: {:ok, %{barrier_pid: barrier_pid, snapshot_digest: digest}}
@@ -319,14 +386,15 @@ defmodule AllbertAssistWeb.PackReadiness do
   defp validate_info(_message, socket), do: lifecycle_result(socket)
   defp validate_async(_name, _result, socket), do: lifecycle_result(socket)
 
-  defp lifecycle_result(socket) do
+  @doc false
+  def lifecycle_result(socket) do
     case validate(socket.assigns[:allbert_pack_epoch]) do
       :ok ->
         {:cont, socket}
 
       {:error, _reason} ->
         disconnect()
-        {:halt, Phoenix.LiveView.redirect(socket, to: "/health")}
+        {:halt, socket}
     end
   end
 end

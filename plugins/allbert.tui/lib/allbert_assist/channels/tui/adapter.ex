@@ -1701,10 +1701,6 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       fields =
         fields(text, opts, state)
         |> Map.put(:allbert_pack_epoch, epoch)
-        |> Map.put(
-          :allbert_pack_effect_guard_opts,
-          Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
-        )
 
       command = ConfirmationCallback.parse_typed_command(fields.text)
       direction = if command == :ignore, do: "inbound", else: "callback"
@@ -2224,16 +2220,19 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
          :ok <- emit_confirmation_handoff(response, rendered, state),
          :ok <- EffectGuard.validate(Map.fetch!(fields, :allbert_pack_epoch)),
          :ok <-
-           Runtime.track_delivery(response, %{channel: @channel}, fn ->
-             emit_delivery(rendered, state)
-           end),
+           Runtime.track_delivery(
+             response,
+             %{channel: @channel, allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch)},
+             fn ->
+               emit_delivery(rendered, state)
+             end
+           ),
          :ok <- handoff_attended_turn(response, state),
          :ok <- EffectGuard.validate(Map.fetch!(fields, :allbert_pack_epoch)),
          :ok <-
            Runtime.acknowledge_deliveries(response, %{
              channel: @channel,
-             allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch),
-             allbert_pack_effect_guard_opts: Map.get(fields, :allbert_pack_effect_guard_opts, [])
+             allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch)
            }),
          state <- reconcile_tracked_fanout_after_kickoff_ack(response, state),
          {:ok, event} <- mark_processed(event, response, user_id, session_id, fields) do
@@ -2351,6 +2350,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
              user_id: user_id,
              session_id: session_id,
              surface: "tui_typed_command",
+             allbert_pack_epoch: Map.fetch!(fields, :allbert_pack_epoch),
              identity_proof: identity_proof(fields, state, user_id),
              resolver_metadata: %{
                provider: @provider,

@@ -204,11 +204,12 @@ defmodule AllbertAssist.Jobs.Runner do
 
     with :ok <- EffectGuard.validate(epoch),
          {:ok, finished_run} <-
-           Runtime.track_delivery(response, %{channel: :job}, fn ->
+           Runtime.track_delivery(response, %{channel: :job, allbert_pack_epoch: epoch}, fn ->
              Jobs.update_run(run, attrs)
            end),
          :ok <- EffectGuard.validate(epoch),
-         :ok <- Runtime.acknowledge_deliveries(response, %{channel: :job}),
+         :ok <-
+           Runtime.acknowledge_deliveries(response, %{channel: :job, allbert_pack_epoch: epoch}),
          :ok <- EffectGuard.validate(epoch),
          {:ok, updated_job} <- update_job_after_run(job, finished_run, response) do
       {:ok, %{job: updated_job, run: finished_run, response: response}}

@@ -84,11 +84,9 @@ defmodule AllbertAssist.PublicProtocol.ResultReadbackSweeper do
       {:error, exception}
   end
 
-  defp admit_epoch(%{effect_guard: guard, effect_guard_opts: opts}),
-    do: guard.admit_ready(opts)
+  defp admit_epoch(%{effect_guard: guard}), do: guard.admit_ready()
 
-  defp validate_epoch(%{effect_guard: guard, effect_guard_opts: opts}, epoch),
-    do: guard.validate(epoch, opts)
+  defp validate_epoch(%{effect_guard: guard}, epoch), do: guard.validate(epoch)
 
   defp maybe_schedule_next(%{schedule?: true} = state), do: schedule_next(state)
   defp maybe_schedule_next(state), do: state

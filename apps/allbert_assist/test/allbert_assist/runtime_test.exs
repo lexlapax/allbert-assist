@@ -7,11 +7,11 @@ defmodule AllbertAssist.RuntimeTest do
   alias AllbertAssist.Conversations
   alias AllbertAssist.Memory
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Runtime
   alias AllbertAssist.Session
   alias AllbertAssist.Session.Scratchpad
   alias AllbertAssist.Settings
-  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Trace
 
   setup do
@@ -146,23 +146,21 @@ defmodule AllbertAssist.RuntimeTest do
            ]
   end
 
-  test "carries exact epoch and guard options to the agent runner" do
-    {:ok, barrier} = ReadyEffectContext.start_link([])
+  test "carried Runtime submission accepts only one exact epoch option" do
+    {:ok, epoch} = EffectGuard.admit_ready()
+    attrs = %{text: "explicit epoch", channel: :test, operator_id: "local"}
 
-    # Use one barrier for the caller-provided E1, so this specifically proves
-    # Runtime does not replace the supplied test guard options with globals.
-    {:ok, epoch} = AllbertAssist.Pack.EffectGuard.admit_ready(server: barrier)
-    guard_opts = [server: barrier]
+    for invalid_opts <- [
+          [],
+          [unknown: :value],
+          [allbert_pack_epoch: epoch, allbert_pack_epoch: epoch]
+        ] do
+      assert {:error, :invalid_options} = Runtime.submit_user_input(attrs, invalid_opts)
+      refute_received {:agent_runner_called, _, _, _}
+    end
 
-    assert {:ok, _response} =
-             Runtime.submit_user_input(
-               %{text: "explicit epoch", channel: :test, operator_id: "local"},
-               allbert_pack_epoch: epoch,
-               allbert_pack_effect_guard_opts: guard_opts
-             )
-
-    assert_received {:agent_request,
-                     %{allbert_pack_epoch: ^epoch, allbert_pack_effect_guard_opts: ^guard_opts}}
+    assert {:ok, _response} = Runtime.submit_user_input(attrs, allbert_pack_epoch: epoch)
+    assert_received {:agent_request, %{allbert_pack_epoch: ^epoch}}
   end
 
   test "persists model payload while returning surface payload for renderers" do

@@ -62,9 +62,9 @@ defmodule AllbertAssist.Confirmations.Store.Persistence do
                {:write, audit, audit_bytes}
              ],
              effect_context,
-             opts
+             opts,
+             fn -> WorkspaceEmitters.confirmation_requested(record) end
            ) do
-      WorkspaceEmitters.confirmation_requested(record)
       {:ok, record}
     end
   end
@@ -97,8 +97,10 @@ defmodule AllbertAssist.Confirmations.Store.Persistence do
          {:ok, record} <- read_pending(id),
          {:ok, resolved} <- Record.resolve(record, status, resolution_attrs, now),
          {:ok, stages} <- resolve_stages(record, resolved, now),
-         {:ok, _result} <- commit(stages, effect_context, opts) do
-      WorkspaceEmitters.confirmation_resolved(resolved)
+         {:ok, _result} <-
+           commit(stages, effect_context, opts, fn ->
+             WorkspaceEmitters.confirmation_resolved(resolved)
+           end) do
       {:ok, resolved}
     end
   end
@@ -149,8 +151,10 @@ defmodule AllbertAssist.Confirmations.Store.Persistence do
          {:ok, expired} <- expired_records(now),
          {:ok, resolved} <- resolve_records(expired, attrs, now),
          {:ok, stages} <- expire_stages(expired, resolved, now),
-         {:ok, _result} <- commit(stages, effect_context, opts) do
-      Enum.each(resolved, &WorkspaceEmitters.confirmation_resolved/1)
+         {:ok, _result} <-
+           commit(stages, effect_context, opts, fn ->
+             Enum.each(resolved, &WorkspaceEmitters.confirmation_resolved/1)
+           end) do
       {:ok, Enum.map(resolved, &{:ok, &1})}
     end
   end
@@ -188,29 +192,45 @@ defmodule AllbertAssist.Confirmations.Store.Persistence do
 
   # Snapshot every target before the first mutation. Each write is atomic; a
   # delete is compensated by atomically restoring its original bytes.
-  defp commit(stages, effect_context, opts) do
+  defp commit(stages, effect_context, opts, finalizer \\ fn -> :ok end) do
     with :ok <- validate_effect_context(effect_context),
-         {:ok, preimages} <- capture_preimages(stages),
-         :ok <- apply_stages(stages, preimages, effect_context, opts) do
-      {:ok, :committed}
+         {:ok, preimages} <- capture_preimages(stages) do
+      case apply_stages(stages, effect_context, opts) do
+        :ok -> finalize_commit(preimages, effect_context, opts, finalizer)
+        {:error, reason} -> compensate(preimages, reason)
+      end
     end
   end
 
-  defp apply_stages(stages, preimages, effect_context, opts) do
+  defp apply_stages(stages, effect_context, opts) do
     Enum.reduce_while(Enum.with_index(stages, 1), :ok, fn {stage, index}, :ok ->
-      case apply_stage(stage) do
-        :ok ->
-          with :ok <- run_stage_hook(opts, index, stage),
-               :ok <- validate_effect_context(effect_context) do
-            {:cont, :ok}
-          else
-            {:error, reason} -> {:halt, compensate(preimages, reason)}
-          end
-
-        {:error, reason} ->
-          {:halt, compensate(preimages, reason)}
+      with :ok <- run_stage_hook(opts, :before_stage_hook, index, stage),
+           # This is the final operation before the atomic write/delete. It
+           # prevents an already-replaced E1 from reaching durable state.
+           :ok <- validate_effect_context(effect_context),
+           :ok <- apply_stage(stage),
+           :ok <- run_stage_hook(opts, :stage_hook, index, stage),
+           # A replacement can race the atomic operation after the pre-check.
+           # Revalidate afterward so the full-preimage transaction compensates
+           # that just-written/deleted stage instead of accepting stale work.
+           :ok <- validate_effect_context(effect_context) do
+        {:cont, :ok}
+      else
+        {:error, reason} -> {:halt, {:error, reason}}
       end
     end)
+  end
+
+  defp finalize_commit(preimages, effect_context, opts, finalizer) do
+    with :ok <- run_finalize_hook(opts),
+         # Workspace emissions are observable effects over the committed
+         # confirmation state, so validate once more immediately before them.
+         :ok <- validate_effect_context(effect_context),
+         :ok <- run_finalizer(finalizer) do
+      {:ok, :committed}
+    else
+      {:error, reason} -> compensate(preimages, reason)
+    end
   end
 
   defp capture_preimages(stages) do
@@ -239,6 +259,9 @@ defmodule AllbertAssist.Confirmations.Store.Persistence do
   defp stage_path({_, path}), do: path
   defp stage_path({_, path, _}), do: path
 
+  # Compensation is restorative rather than a new authorized transition. It
+  # intentionally restores exact preimages even after E1 becomes stale; gating
+  # rollback on the stale epoch would strand a partial durable transaction.
   defp compensate(preimages, original_reason) do
     failures =
       Enum.flat_map(preimages, fn
@@ -261,10 +284,10 @@ defmodule AllbertAssist.Confirmations.Store.Persistence do
       else: {:error, {:confirmation_compensation_failed, original_reason, failures}}
   end
 
-  defp run_stage_hook(opts, index, stage) do
+  defp run_stage_hook(opts, hook, index, stage) do
     result =
       try do
-        case Keyword.get(opts, :stage_hook) do
+        case Keyword.get(opts, hook) do
           fun when is_function(fun, 2) -> fun.(index, stage)
           fun when is_function(fun, 1) -> fun.(index)
           _ -> :ok
@@ -283,6 +306,33 @@ defmodule AllbertAssist.Confirmations.Store.Persistence do
       _other -> :ok
     end
   end
+
+  defp run_finalize_hook(opts) do
+    case Keyword.get(opts, :before_emit_hook) do
+      fun when is_function(fun, 0) -> normalize_hook_result(fun.())
+      _ -> :ok
+    end
+  rescue
+    exception ->
+      {:error,
+       {:confirmation_stage_hook_failed, exception.__struct__, Exception.message(exception)}}
+  catch
+    kind, reason -> {:error, {:confirmation_stage_hook_failed, kind, reason}}
+  end
+
+  defp run_finalizer(finalizer) when is_function(finalizer, 0) do
+    normalize_hook_result(finalizer.())
+  rescue
+    exception ->
+      {:error,
+       {:confirmation_finalizer_failed, exception.__struct__, Exception.message(exception)}}
+  catch
+    kind, reason -> {:error, {:confirmation_finalizer_failed, kind, reason}}
+  end
+
+  defp normalize_hook_result(:ok), do: :ok
+  defp normalize_hook_result({:error, _reason} = error), do: error
+  defp normalize_hook_result(_other), do: :ok
 
   defp resolve_stages(record, resolved, now) do
     audit = audit_path(now)
@@ -354,8 +404,7 @@ defmodule AllbertAssist.Confirmations.Store.Persistence do
 
   defp validate_effect_context(%{allbert_pack_activation: _}), do: {:error, :product_not_ready}
 
-  defp validate_effect_context(%{allbert_pack_epoch: epoch} = context),
-    do: EffectGuard.validate(epoch, Map.get(context, :allbert_pack_effect_guard_opts, []))
+  defp validate_effect_context(%{allbert_pack_epoch: epoch}), do: EffectGuard.validate(epoch)
 
   defp validate_effect_context(_), do: {:error, :product_not_ready}
 

@@ -20,6 +20,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Signals
   alias AllbertAssist.TestSupport.FanoutReportFixture
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.TestSupport.ShippedRegistries
   alias Ecto.Adapters.SQL.Sandbox
   alias Jido.Signal.Bus
@@ -44,6 +45,13 @@ defmodule AllbertAssist.Channels.NotifyTest do
         {result, Map.update!(state, :validate_count, &(&1 + 1))}
       end)
     end
+  end
+
+  defmodule ReadyEpochGuard do
+    alias AllbertAssist.Pack.EffectGuard
+
+    def admit_ready(server), do: EffectGuard.admit_ready(server: server)
+    def validate(_server, epoch), do: EffectGuard.validate(epoch)
   end
 
   setup do
@@ -321,11 +329,15 @@ defmodule AllbertAssist.Channels.NotifyTest do
   test "typed consent re-proves identity and the delivered offer never repeats" do
     parent = fanout!("alice", "1005")
     put!("channels.telegram.identity_map", [identity("alice-ext", "alice")])
+    effect_context = ReadyEffectContext.context()
 
     assert Notify.prepare_consent_offer(parent)
 
     assert :ok =
-             Notify.mark_consent_offer_delivered(%{channel: "telegram", user_id: "alice"})
+             Notify.mark_consent_offer_delivered(
+               %{channel: "telegram", user_id: "alice"},
+               effect_context
+             )
 
     refute Notify.prepare_consent_offer(parent)
 
@@ -337,6 +349,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
       channel: "telegram",
       user_id: "alice",
       operator_id: "alice",
+      allbert_pack_epoch: effect_context.allbert_pack_epoch,
       metadata: %{external_user_id: "alice-ext"}
     }
 
@@ -348,6 +361,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
              NotifyConsentCallback.run(%{
                channel: "telegram",
                user_id: "alice",
+               allbert_pack_epoch: effect_context.allbert_pack_epoch,
                resolver_metadata: %{external_user_id: "alice-ext"}
              })
 
@@ -385,7 +399,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
       end
     )
 
-    consumer = start_supervised!({NotifyConsumer, name: nil})
+    consumer = start_ready_consumer(name: nil)
     Sandbox.allow(Repo, self(), consumer)
 
     children = Fanout.children(parent)
@@ -413,7 +427,8 @@ defmodule AllbertAssist.Channels.NotifyTest do
           objective: "Do two things",
           source_channel: "tui",
           source_surface: "tui"
-        },
+        }
+        |> Map.merge(ReadyEffectContext.context()),
         ["One", "Two"]
       )
 
@@ -436,7 +451,8 @@ defmodule AllbertAssist.Channels.NotifyTest do
                    objective: "Stay in-band",
                    source_channel: channel,
                    source_thread_id: "thread-#{channel}"
-                 },
+                 }
+                 |> Map.merge(ReadyEffectContext.context()),
                  ["one", "two"]
                )
 
@@ -550,16 +566,15 @@ defmodule AllbertAssist.Channels.NotifyTest do
     test_pid = self()
 
     consumer =
-      start_supervised!(
-        {NotifyConsumer,
-         name: nil,
-         retry_delay_ms: 25,
-         notify_opts: [
-           outbound_fun: fn _, _, _, _ ->
-             send(test_pid, {:startup_replay_sent, parent.id})
-             {:ok, %{message_id: "startup-provider"}}
-           end
-         ]}
+      start_ready_consumer(
+        name: nil,
+        retry_delay_ms: 25,
+        notify_opts: [
+          outbound_fun: fn _, _, _, _ ->
+            send(test_pid, {:startup_replay_sent, parent.id})
+            {:ok, %{message_id: "startup-provider"}}
+          end
+        ]
       )
 
     Sandbox.allow(Repo, self(), consumer)
@@ -604,16 +619,15 @@ defmodule AllbertAssist.Channels.NotifyTest do
       )
 
     consumer =
-      start_supervised!(
-        {NotifyConsumer,
-         name: nil,
-         effect_guard: {EpochGuard, guard},
-         whereis_fun: fn _bus -> flunk("stale epoch must not look up the signal bus") end,
-         notify_opts: [
-           outbound_fun: fn _, _, _, _ ->
-             flunk("stale epoch must not reach provider delivery")
-           end
-         ]}
+      start_ready_consumer(
+        name: nil,
+        effect_guard: {EpochGuard, guard},
+        whereis_fun: fn _bus -> flunk("stale epoch must not look up the signal bus") end,
+        notify_opts: [
+          outbound_fun: fn _, _, _, _ ->
+            flunk("stale epoch must not reach provider delivery")
+          end
+        ]
       )
 
     send(consumer, :reconcile_completion_outbox)
@@ -621,7 +635,7 @@ defmodule AllbertAssist.Channels.NotifyTest do
     assert_receive {:notify_epoch_admitted, ^epoch}, 1_000
     assert_receive {:notify_epoch_validated, ^epoch}, 1_000
 
-    assert eventually(fn ->
+    assert eventually_true(fn ->
              Agent.get(guard, &(&1.admit_count >= 2 and &1.validate_count >= 2))
            end)
 
@@ -634,17 +648,16 @@ defmodule AllbertAssist.Channels.NotifyTest do
     test_pid = self()
 
     consumer =
-      start_supervised!(
-        {NotifyConsumer,
-         name: nil,
-         whereis_fun: fn _bus -> {:error, :bus_unavailable} end,
-         reconcile_interval_ms: 1_000,
-         notify_opts: [
-           outbound_fun: fn _, _, body, _ ->
-             send(test_pid, {:periodic_reconcile_sent, body})
-             {:ok, %{message_id: "periodic-provider"}}
-           end
-         ]}
+      start_ready_consumer(
+        name: nil,
+        whereis_fun: fn _bus -> {:error, :bus_unavailable} end,
+        reconcile_interval_ms: 1_000,
+        notify_opts: [
+          outbound_fun: fn _, _, body, _ ->
+            send(test_pid, {:periodic_reconcile_sent, body})
+            {:ok, %{message_id: "periodic-provider"}}
+          end
+        ]
       )
 
     Sandbox.allow(Repo, self(), consumer)
@@ -682,19 +695,18 @@ defmodule AllbertAssist.Channels.NotifyTest do
     test_pid = self()
 
     consumer =
-      start_supervised!(
-        {NotifyConsumer,
-         name: nil,
-         retry_delay_ms: 25,
-         notify_opts: [
-           outbound_fun: fn _, _, _, _ ->
-             send(test_pid, {:audit_failure_transport, parent.id})
-             {:ok, %{message_id: "audit-failure-provider"}}
-           end,
-           audit_fun: fn :channel_notify, :delivered, _metadata, _decision ->
-             {:error, :injected_audit_failure}
-           end
-         ]}
+      start_ready_consumer(
+        name: nil,
+        retry_delay_ms: 25,
+        notify_opts: [
+          outbound_fun: fn _, _, _, _ ->
+            send(test_pid, {:audit_failure_transport, parent.id})
+            {:ok, %{message_id: "audit-failure-provider"}}
+          end,
+          audit_fun: fn :channel_notify, :delivered, _metadata, _decision ->
+            {:error, :injected_audit_failure}
+          end
+        ]
       )
 
     Sandbox.allow(Repo, self(), consumer)
@@ -720,22 +732,21 @@ defmodule AllbertAssist.Channels.NotifyTest do
     test_pid = self()
 
     consumer =
-      start_supervised!(
-        {NotifyConsumer,
-         name: nil,
-         retry_delay_ms: 50,
-         notify_opts: [
-           outbound_fun: fn _, _, _, _ ->
-             attempt = :atomics.add_get(attempts, 1, 1)
-             send(test_pid, {:retry_attempt, attempt, self()})
+      start_ready_consumer(
+        name: nil,
+        retry_delay_ms: 50,
+        notify_opts: [
+          outbound_fun: fn _, _, _, _ ->
+            attempt = :atomics.add_get(attempts, 1, 1)
+            send(test_pid, {:retry_attempt, attempt, self()})
 
-             receive do
-               :return_definitive_failure -> {:error, :connection_refused}
-             after
-               1_000 -> {:error, :test_timeout}
-             end
-           end
-         ]}
+            receive do
+              :return_definitive_failure -> {:error, :connection_refused}
+            after
+              1_000 -> {:error, :test_timeout}
+            end
+          end
+        ]
       )
 
     Sandbox.allow(Repo, self(), consumer)
@@ -801,17 +812,16 @@ defmodule AllbertAssist.Channels.NotifyTest do
     _bus_pid = start_supervised!({Bus, name: bus}, id: bus_child)
 
     consumer =
-      start_supervised!(
-        {NotifyConsumer,
-         name: nil,
-         bus: bus,
-         retry_delay_ms: 25,
-         notify_opts: [
-           outbound_fun: fn _, _, _, _ ->
-             send(test_pid, :bus_restart_replay_sent)
-             {:ok, %{message_id: "bus-restart-provider"}}
-           end
-         ]}
+      start_ready_consumer(
+        name: nil,
+        bus: bus,
+        retry_delay_ms: 25,
+        notify_opts: [
+          outbound_fun: fn _, _, _, _ ->
+            send(test_pid, :bus_restart_replay_sent)
+            {:ok, %{message_id: "bus-restart-provider"}}
+          end
+        ]
       )
 
     Sandbox.allow(Repo, self(), consumer)
@@ -848,15 +858,14 @@ defmodule AllbertAssist.Channels.NotifyTest do
     test_pid = self()
 
     consumer =
-      start_supervised!(
-        {NotifyConsumer,
-         name: nil,
-         notify_opts: [
-           outbound_fun: fn _, _, _, _ ->
-             send(test_pid, :forged_completion_sent)
-             {:ok, %{message_id: "must-not-send"}}
-           end
-         ]}
+      start_ready_consumer(
+        name: nil,
+        notify_opts: [
+          outbound_fun: fn _, _, _, _ ->
+            send(test_pid, :forged_completion_sent)
+            {:ok, %{message_id: "must-not-send"}}
+          end
+        ]
       )
 
     Sandbox.allow(Repo, self(), consumer)
@@ -881,9 +890,16 @@ defmodule AllbertAssist.Channels.NotifyTest do
     {:ok, %{parent: parent}} =
       origin
       |> Map.merge(%{title: "Notify fan-out", objective: "Do two things"})
+      |> Map.merge(ReadyEffectContext.context())
       |> Fanout.frame(["One", "Two"])
 
     parent
+  end
+
+  defp start_ready_consumer(opts) do
+    context = ReadyEffectContext.context()
+    effect_guard = {ReadyEpochGuard, ReadyEffectContext.server(context)}
+    start_supervised!({NotifyConsumer, Keyword.put_new(opts, :effect_guard, effect_guard)})
   end
 
   defp selected_notify_report!(source, chat_id) do
@@ -979,6 +995,18 @@ defmodule AllbertAssist.Channels.NotifyTest do
       _other ->
         Process.sleep(25)
         eventually(fun, attempts - 1)
+    end
+  end
+
+  defp eventually_true(fun, attempts \\ 40)
+  defp eventually_true(fun, 0), do: fun.()
+
+  defp eventually_true(fun, attempts) do
+    if fun.() do
+      true
+    else
+      Process.sleep(25)
+      eventually_true(fun, attempts - 1)
     end
   end
 

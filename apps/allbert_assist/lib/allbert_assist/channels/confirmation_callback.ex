@@ -187,7 +187,8 @@ defmodule AllbertAssist.Channels.ConfirmationCallback do
     ContextBuilder.channel_context(channel, user_id,
       surface: field(attrs, :surface),
       session_id: field(attrs, :session_id),
-      resolver_metadata: field(attrs, :resolver_metadata) || %{}
+      resolver_metadata: field(attrs, :resolver_metadata) || %{},
+      allbert_pack_epoch: field(attrs, :allbert_pack_epoch)
     )
   end
 

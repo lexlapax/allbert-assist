@@ -71,7 +71,8 @@ defmodule AllbertAssist.Actions.Objectives.CancelObjective do
              id: objective.id,
              user_id: user_id,
              reason: reason,
-             trace_id: field(context, :trace_id)
+             trace_id: field(context, :trace_id),
+             allbert_pack_epoch: field(context, :allbert_pack_epoch)
            }) do
       {:ok, cancelled_response(result, permission_decision)}
     end

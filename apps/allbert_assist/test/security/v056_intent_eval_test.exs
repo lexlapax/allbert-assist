@@ -464,7 +464,7 @@ defmodule AllbertAssist.Security.V056IntentEvalTest do
              Settings.Secrets.put_secret(
                "secret://providers/openai/api_key",
                "v056-operator-test-key",
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =

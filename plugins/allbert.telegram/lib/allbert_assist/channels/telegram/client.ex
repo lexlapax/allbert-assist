@@ -127,7 +127,7 @@ defmodule AllbertAssist.Channels.Telegram.Client do
     request_opts = [receive_timeout: Keyword.get(opts, :receive_timeout, 30_000)]
 
     with {:ok, epoch} <- carried_epoch(opts),
-         :ok <- EffectGuard.validate(epoch, effect_guard_opts(opts)),
+         :ok <- EffectGuard.validate(epoch),
          :ok <- validate_policy(:get, url, request_opts, max_response_bytes) do
       request =
         [
@@ -141,7 +141,7 @@ defmodule AllbertAssist.Channels.Telegram.Client do
         ]
         |> maybe_put(:plug, Keyword.get(opts, :plug))
 
-      with :ok <- EffectGuard.validate(epoch, effect_guard_opts(opts)),
+      with :ok <- EffectGuard.validate(epoch),
            response <- Req.request(request) do
         normalize_file_response(response, max_response_bytes)
       end
@@ -157,7 +157,7 @@ defmodule AllbertAssist.Channels.Telegram.Client do
     max_response_bytes = Keyword.get(opts, :max_response_bytes, @default_max_response_bytes)
 
     with {:ok, epoch} <- carried_epoch(opts),
-         :ok <- EffectGuard.validate(epoch, effect_guard_opts(opts)),
+         :ok <- EffectGuard.validate(epoch),
          :ok <- validate_policy(method, url, request_opts, max_response_bytes) do
       request_opts =
         request_opts
@@ -174,7 +174,7 @@ defmodule AllbertAssist.Channels.Telegram.Client do
         |> Keyword.merge(request_opts)
         |> maybe_put(:plug, Keyword.get(opts, :plug))
 
-      with :ok <- EffectGuard.validate(epoch, effect_guard_opts(opts)),
+      with :ok <- EffectGuard.validate(epoch),
            response <- Req.request(request) do
         normalize_response(response)
       end
@@ -187,8 +187,6 @@ defmodule AllbertAssist.Channels.Telegram.Client do
       :error -> {:error, :product_not_ready}
     end
   end
-
-  defp effect_guard_opts(opts), do: Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
 
   defp validate_policy(method, url, request_opts, max_response_bytes) do
     uri = URI.parse(url)

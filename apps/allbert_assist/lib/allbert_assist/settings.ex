@@ -486,8 +486,7 @@ defmodule AllbertAssist.Settings do
   defp validate_effect_epoch(%{allbert_pack_activation: _carrier}),
     do: {:error, :product_not_ready}
 
-  defp validate_effect_epoch(%{allbert_pack_epoch: epoch} = context),
-    do: EffectGuard.validate(epoch, Map.get(context, :allbert_pack_effect_guard_opts, []))
+  defp validate_effect_epoch(%{allbert_pack_epoch: epoch}), do: EffectGuard.validate(epoch)
 
   defp validate_effect_epoch(_context), do: {:error, :product_not_ready}
 end

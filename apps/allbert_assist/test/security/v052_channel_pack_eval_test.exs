@@ -29,6 +29,7 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.TestSupport.ShippedRegistries
+  alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Trace
 
   defmodule MissingPrimitivesPlugin do
@@ -169,6 +170,7 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
 
     configure_channels!()
     put_channel_secrets!()
+    effect_context = ReadyEffectContext.context()
 
     on_exit(fn ->
       restore_env(Paths, original_paths_config)
@@ -183,7 +185,7 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
       File.rm_rf!(root)
     end)
 
-    :ok
+    %{effect_context: effect_context, readiness_server: ReadyEffectContext.server(effect_context)}
   end
 
   test "v0.52 eval inventory rows are complete" do
@@ -196,11 +198,24 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
     assert Enum.all?(rows, &(&1.test_module == inspect(__MODULE__)))
   end
 
-  test "external ingress stays identity-mapped, allowlisted, deduped, and parser-scoped" do
+  test "external ingress stays identity-mapped, allowlisted, deduped, and parser-scoped", %{
+    readiness_server: readiness_server
+  } do
     assert_eval_group!(:ingress)
 
-    assert {:ok, slack} = SlackAdapter.start_link(name: nil, client_opts: [mode: :stub])
-    assert {:ok, discord} = DiscordAdapter.start_link(name: nil, client_opts: [mode: :stub])
+    assert {:ok, slack} =
+             SlackAdapter.start_link(
+               name: nil,
+               client_opts: [mode: :stub],
+               readiness_server: readiness_server
+             )
+
+    assert {:ok, discord} =
+             DiscordAdapter.start_link(
+               name: nil,
+               client_opts: [mode: :stub],
+               readiness_server: readiness_server
+             )
 
     allowed_slack =
       SlackParser.simulated_event(%{
@@ -319,7 +334,9 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
     GenServer.stop(discord)
   end
 
-  test "approval handoff primitives and callback scope are honored per channel" do
+  test "approval handoff primitives and callback scope are honored per channel", %{
+    effect_context: effect_context
+  } do
     assert_eval_group!(:approvals)
 
     handoff = %{confirmation_id: "conf_v052", summary: "Approve v0.52?"}
@@ -357,7 +374,7 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
                display_name_prefix?: true
              )
 
-    assert {:ok, confirmation} = create_confirmation!("conf_v052_scope", "slack")
+    assert {:ok, confirmation} = create_confirmation!("conf_v052_scope", "slack", effect_context)
 
     assert {:error, :wrong_user} =
              ConfirmationCallback.run(%{
@@ -365,6 +382,7 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
                confirmation_id: confirmation["id"],
                channel: "slack",
                user_id: "bob",
+               allbert_pack_epoch: effect_context.allbert_pack_epoch,
                identity_proof: identity_proof("slack", "U0123ABCDE", "bob", slack_identity_map())
              })
 
@@ -374,6 +392,7 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
                confirmation_id: confirmation["id"],
                channel: "discord",
                user_id: "alice",
+               allbert_pack_epoch: effect_context.allbert_pack_epoch,
                identity_proof:
                  identity_proof(
                    "discord",
@@ -387,7 +406,9 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
     assert pending["status"] == "pending"
   end
 
-  test "descriptors, permission floor, and channel secrets are enforced and redacted" do
+  test "descriptors, permission floor, and channel secrets are enforced and redacted", %{
+    effect_context: effect_context
+  } do
     assert_eval_group!(:descriptors_and_secrets)
 
     assert {:error, :invalid_plugin, missing_primitives} =
@@ -435,7 +456,8 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
     assert {:ok, %{"team_id" => "T0123ABCDE"}} =
              SlackClient.auth_test("secret://channels/slack/bot_token",
                mode: :real,
-               plug: {Req.Test, __MODULE__}
+               plug: {Req.Test, __MODULE__},
+               allbert_pack_epoch: effect_context.allbert_pack_epoch
              )
 
     Req.Test.expect(__MODULE__, fn conn ->
@@ -447,7 +469,8 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
     assert {:ok, %{"bot" => true}} =
              DiscordClient.users_me("secret://channels/discord/bot_token",
                mode: :real,
-               plug: {Req.Test, __MODULE__}
+               plug: {Req.Test, __MODULE__},
+               allbert_pack_epoch: effect_context.allbert_pack_epoch
              )
   end
 
@@ -624,16 +647,19 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
     }
   end
 
-  defp create_confirmation!(id, channel) do
-    Confirmations.create(%{
-      id: id,
-      origin: %{actor: "alice", channel: channel, surface: "v052-eval"},
-      target_action: %{name: "external_network_request"},
-      target_permission: :external_network,
-      target_execution_mode: :external_network_unavailable,
-      security_decision: %{permission: :external_network, decision: :needs_confirmation},
-      params_summary: %{url: "https://example.com"}
-    })
+  defp create_confirmation!(id, channel, effect_context) do
+    Confirmations.create(
+      %{
+        id: id,
+        origin: %{actor: "alice", channel: channel, surface: "v052-eval"},
+        target_action: %{name: "external_network_request"},
+        target_permission: :external_network,
+        target_execution_mode: :external_network_unavailable,
+        security_decision: %{permission: :external_network, decision: :needs_confirmation},
+        params_summary: %{url: "https://example.com"}
+      },
+      effect_context
+    )
   end
 
   defp slack_ref(thread_ts) do

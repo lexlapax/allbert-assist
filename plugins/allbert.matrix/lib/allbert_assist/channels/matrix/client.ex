@@ -96,7 +96,7 @@ defmodule AllbertAssist.Channels.Matrix.Client do
 
   defp request(method, homeserver_url, access_token, path, request_opts, opts) do
     with {:ok, epoch} <- carried_epoch(opts),
-         :ok <- EffectGuard.validate(epoch, effect_guard_opts(opts)),
+         :ok <- EffectGuard.validate(epoch),
          {:ok, token} <- validate_access_token(access_token),
          request <- build_request(method, homeserver_url, path, request_opts),
          :ok <- validate_policy(request, request_opts, opts) do
@@ -114,7 +114,7 @@ defmodule AllbertAssist.Channels.Matrix.Client do
         |> Keyword.delete(:max_response_bytes)
         |> Keyword.merge(Keyword.take(opts, [:plug]))
 
-      with :ok <- EffectGuard.validate(epoch, effect_guard_opts(opts)),
+      with :ok <- EffectGuard.validate(epoch),
            response <- Req.request(request) do
         normalize_response(response)
       end
@@ -127,8 +127,6 @@ defmodule AllbertAssist.Channels.Matrix.Client do
       :error -> {:error, :product_not_ready}
     end
   end
-
-  defp effect_guard_opts(opts), do: Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
 
   defp build_request(method, homeserver_url, path, request_opts) do
     base = homeserver_url |> normalize_base_url() |> String.trim_trailing("/")

@@ -1971,7 +1971,8 @@ defmodule AllbertAssist.Objectives.Fanout.ReportComposerTest do
   end
 
   defp private_effect_guard do
-    %{allbert_pack_effect_guard_opts: [server: barrier]} = ReadyEffectContext.context()
+    context = ReadyEffectContext.context()
+    barrier = ReadyEffectContext.server(context)
     {EffectGuard, barrier}
   end
 

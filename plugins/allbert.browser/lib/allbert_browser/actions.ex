@@ -38,10 +38,7 @@ defmodule AllbertBrowser.Actions do
   end
 
   def session_effect_opts(context) do
-    [
-      allbert_pack_epoch: field(context, :allbert_pack_epoch),
-      allbert_pack_effect_guard_opts: field(context, :allbert_pack_effect_guard_opts, [])
-    ]
+    [allbert_pack_epoch: field(context, :allbert_pack_epoch)]
   end
 
   def action(name, status, permission, decision, metadata \\ %{}) do

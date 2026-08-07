@@ -922,7 +922,11 @@ defmodule AllbertAssist.CLI.Areas.Channels do
          :ok <- EffectGuard.validate(epoch),
          {:ok, event} <- mark_simulated_event(event, response, user_id, session_id, epoch),
          :ok <- EffectGuard.validate(epoch),
-         :ok <- Runtime.acknowledge_deliveries(response, %{channel: "telegram"}) do
+         :ok <-
+           Runtime.acknowledge_deliveries(response, %{
+             channel: "telegram",
+             allbert_pack_epoch: epoch
+           }) do
       {:ok, {:simulate, event, rendered}}
     end
   end
@@ -965,7 +969,8 @@ defmodule AllbertAssist.CLI.Areas.Channels do
          :ok <- EffectGuard.validate(epoch),
          {:ok, event} <- mark_simulated_event(event, response, user_id, session_id, epoch),
          :ok <- EffectGuard.validate(epoch),
-         :ok <- Runtime.acknowledge_deliveries(response, %{channel: "email"}) do
+         :ok <-
+           Runtime.acknowledge_deliveries(response, %{channel: "email", allbert_pack_epoch: epoch}) do
       {:ok, {:simulate, event, [body]}}
     end
   end
@@ -1009,7 +1014,11 @@ defmodule AllbertAssist.CLI.Areas.Channels do
          :ok <- EffectGuard.validate(epoch),
          {:ok, event} <- mark_simulated_event(event, response, user_id, session_id, epoch),
          :ok <- EffectGuard.validate(epoch),
-         :ok <- Runtime.acknowledge_deliveries(response, %{channel: "matrix"}) do
+         :ok <-
+           Runtime.acknowledge_deliveries(response, %{
+             channel: "matrix",
+             allbert_pack_epoch: epoch
+           }) do
       {:ok, {:simulate, event, rendered}}
     end
   end

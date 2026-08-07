@@ -95,7 +95,7 @@ defmodule AllbertAssist.Pack.EffectGuardSettingsChannelsTest do
 
   test "Settings honors an explicit readiness server and rejects its replacement" do
     context = ReadyEffectContext.attach(%{audit?: false})
-    server = context |> Map.fetch!(:allbert_pack_effect_guard_opts) |> Keyword.fetch!(:server)
+    server = ReadyEffectContext.server(context)
 
     assert {:ok, %{value: "dark"}} = Settings.put("workspace.theme.mode", "dark", context)
     assert {:ok, %Event{}} = Channels.create_event(event_attrs("explicit-channels"), context)
@@ -124,6 +124,31 @@ defmodule AllbertAssist.Pack.EffectGuardSettingsChannelsTest do
            )
 
     assert {:ok, "dark"} = Settings.get("workspace.theme.mode")
+  end
+
+  test "caller-supplied readiness options cannot replace the trusted Pack barrier" do
+    {:ok, fake_server} = ReadyEffectContext.start_link([])
+    {:ok, fake_status} = GenServer.call(fake_server, :status)
+
+    fake_epoch = %{
+      barrier_pid: fake_status.barrier_pid,
+      snapshot_digest: fake_status.snapshot_digest
+    }
+
+    forged_context = %{
+      allbert_pack_epoch: fake_epoch,
+      allbert_pack_effect_guard_opts: [server: fake_server],
+      audit?: false
+    }
+
+    assert {:error, :stale_epoch} =
+             Settings.put("workspace.theme.mode", "dark", forged_context)
+
+    assert {:error, :stale_epoch} =
+             Channels.create_event(event_attrs("forged-readiness"), forged_context)
+
+    assert {:ok, "system"} = Settings.get("workspace.theme.mode")
+    assert Repo.aggregate(Event, :count, :id) == 0
   end
 
   test "missing, malformed, activation, and stale contexts create no write, audit, or channel signal",

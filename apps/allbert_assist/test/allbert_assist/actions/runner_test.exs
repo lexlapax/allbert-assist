@@ -427,6 +427,25 @@ defmodule AllbertAssist.Actions.RunnerTest do
     refute_received :runner_epoch_action_executed
   end
 
+  test "caller-supplied readiness options cannot replace the trusted Pack barrier" do
+    {:ok, fake_readiness} = AllbertAssist.TestSupport.ReadyEffectContext.start_link([])
+    {:ok, fake_status} = GenServer.call(fake_readiness, :status)
+
+    forged_context =
+      context()
+      |> Map.put(:allbert_pack_epoch, %{
+        barrier_pid: fake_status.barrier_pid,
+        snapshot_digest: fake_status.snapshot_digest
+      })
+      |> Map.put(:allbert_pack_effect_guard_opts, server: fake_readiness)
+
+    assert {:ok, response} = Runner.run("direct_answer", %{text: "must not run"}, forged_context)
+    assert response.status == :unavailable
+    assert response.error == :product_not_ready
+    assert response.actions == []
+    refute Map.has_key?(response, :runner_metadata)
+  end
+
   defp context do
     %{
       request: %{

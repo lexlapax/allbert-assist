@@ -422,7 +422,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              Settings.Secrets.put_secret(
                "secret://providers/openai/api_key",
                "operator-test-key",
-               %{audit?: false}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{audit?: false})
              )
 
     assert {:ok, _setting} =
@@ -843,10 +843,10 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              Settings.Secrets.put_secret(
                "secret://providers/anthropic/api_key",
                "sk-ant-test-key",
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  actor: "local",
                  channel: :test
-               }
+               })
              )
 
     Req.Test.expect(__MODULE__, fn conn ->
@@ -894,7 +894,10 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              Settings.Secrets.put_secret(
                "secret://providers/anthropic/api_key",
                "sk-ant-test-key",
-               %{actor: "local", channel: :test}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 actor: "local",
+                 channel: :test
+               })
              )
 
     Req.Test.expect(__MODULE__, fn conn ->
@@ -925,7 +928,10 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              Settings.Secrets.put_secret(
                "secret://providers/gemini/api_key",
                "AIza-test-key",
-               %{actor: "local", channel: :test}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 actor: "local",
+                 channel: :test
+               })
              )
 
     Req.Test.expect(__MODULE__, fn conn ->
@@ -987,10 +993,10 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              Settings.Secrets.put_secret(
                "secret://providers/openai/api_key",
                "sk-test-private",
-               %{
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
                  actor: "local",
                  channel: :test
-               }
+               })
              )
 
     assert {:ok, denied} = DoctorModelProfile.run(%{profile: "fast"}, %{})
@@ -1049,7 +1055,10 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              Settings.Secrets.put_secret(
                "secret://providers/openai/api_key",
                secret,
-               %{actor: "local", channel: :test}
+               AllbertAssist.TestSupport.ReadyEffectContext.attach(%{
+                 actor: "local",
+                 channel: :test
+               })
              )
 
     System.put_env("OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1")

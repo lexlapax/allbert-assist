@@ -302,8 +302,8 @@ defmodule AllbertAssist.Search.Projection do
   end
 
   defp ready_epoch(state) do
-    with {:ok, epoch} <- state.effect_guard.admit_ready(state.effect_guard_opts),
-         :ok <- state.effect_guard.validate(epoch, state.effect_guard_opts) do
+    with {:ok, epoch} <- state.effect_guard.admit_ready(),
+         :ok <- state.effect_guard.validate(epoch) do
       {:ok, epoch}
     else
       {:error, _reason} -> {:error, :product_not_ready}

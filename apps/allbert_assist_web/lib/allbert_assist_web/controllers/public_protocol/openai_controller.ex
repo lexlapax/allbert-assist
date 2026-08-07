@@ -165,7 +165,10 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
     with :ok <- current(epoch),
          :ok <- EventRecorder.mark_result_durable(event, response, %{allbert_pack_epoch: epoch}),
          :ok <- current(epoch) do
-      Runtime.acknowledge_deliveries(response, %{channel: "openai_api"})
+      Runtime.acknowledge_deliveries(response, %{
+        channel: "openai_api",
+        allbert_pack_epoch: epoch
+      })
     else
       {:error, _reason} = error ->
         maybe_delivery_failed(response, epoch)
@@ -199,7 +202,8 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
       %{
         user_id: response.user_id,
         thread_id: response.thread_id,
-        channel: "openai_api"
+        channel: "openai_api",
+        allbert_pack_epoch: epoch
       }
       |> Map.merge(get_in(response, [:fanout, :delivery_context]) || %{})
 
@@ -248,7 +252,9 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
   defp current(epoch), do: PackReadiness.validate(epoch)
 
   defp maybe_delivery_failed(response, epoch) do
-    if current?(epoch), do: Runtime.delivery_failed(response, %{channel: "openai_api"})
+    if current?(epoch),
+      do: Runtime.delivery_failed(response, %{channel: "openai_api", allbert_pack_epoch: epoch})
+
     :ok
   end
 

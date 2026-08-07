@@ -94,7 +94,7 @@ defmodule AllbertAssist.Channels.Signal.Client do
     with {:ok, epoch} <- carried_epoch(opts),
          {:ok, base_url} <- loopback_url(Keyword.get(opts, :base_url)),
          {:ok, headers} <- auth_headers(opts),
-         :ok <- EffectGuard.validate(epoch, effect_guard_opts(opts)) do
+         :ok <- EffectGuard.validate(epoch) do
       request =
         [
           method: :post,
@@ -107,7 +107,7 @@ defmodule AllbertAssist.Channels.Signal.Client do
         ]
         |> Keyword.merge(Keyword.take(opts, [:plug]))
 
-      with :ok <- EffectGuard.validate(epoch, effect_guard_opts(opts)),
+      with :ok <- EffectGuard.validate(epoch),
            response <- Req.request(request) do
         normalize_response(response)
       end
@@ -137,8 +137,6 @@ defmodule AllbertAssist.Channels.Signal.Client do
       :error -> {:error, :product_not_ready}
     end
   end
-
-  defp effect_guard_opts(opts), do: Keyword.get(opts, :allbert_pack_effect_guard_opts, [])
 
   defp auth_headers(opts) do
     case Keyword.get(opts, :auth_ref) do

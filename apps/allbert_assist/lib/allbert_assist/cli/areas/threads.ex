@@ -296,8 +296,7 @@ defmodule AllbertAssist.CLI.Areas.Threads do
       operator_id: user_id,
       surface: Map.get(ctx, :surface) || :cli,
       source: :operator_cli,
-      allbert_pack_epoch: Map.get(ctx, :allbert_pack_epoch),
-      allbert_pack_effect_guard_opts: Map.get(ctx, :allbert_pack_effect_guard_opts)
+      allbert_pack_epoch: Map.get(ctx, :allbert_pack_epoch)
     )
   end
 
@@ -356,8 +355,7 @@ defmodule AllbertAssist.CLI.Areas.Threads do
       operator_id: user_id,
       surface: Map.get(ctx, :surface) || :cli,
       source: :operator_cli,
-      allbert_pack_epoch: Map.get(ctx, :allbert_pack_epoch),
-      allbert_pack_effect_guard_opts: Map.get(ctx, :allbert_pack_effect_guard_opts)
+      allbert_pack_epoch: Map.get(ctx, :allbert_pack_epoch)
     )
   end
 

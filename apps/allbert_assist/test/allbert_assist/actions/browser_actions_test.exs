@@ -97,10 +97,9 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
   end
 
   test "same-digest E2 before navigation makes zero driver calls" do
-    %{
-      allbert_pack_epoch: epoch,
-      allbert_pack_effect_guard_opts: [server: barrier] = guard_opts
-    } = ReadyEffectContext.context()
+    context = ReadyEffectContext.context()
+    epoch = context.allbert_pack_epoch
+    barrier = ReadyEffectContext.server(context)
 
     session_id = "handoff-#{System.unique_integer([:positive])}"
 
@@ -109,17 +108,13 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
                session_id: session_id,
                driver: HandoffDriver,
                test_pid: self(),
-               allbert_pack_epoch: epoch,
-               allbert_pack_effect_guard_opts: guard_opts
+               allbert_pack_epoch: epoch
              )
 
     assert :ok = ReadyEffectContext.replace(barrier)
 
     assert {:error, :product_not_ready} =
-             Session.navigate(session_id, "https://example.test",
-               allbert_pack_epoch: epoch,
-               allbert_pack_effect_guard_opts: guard_opts
-             )
+             Session.navigate(session_id, "https://example.test", allbert_pack_epoch: epoch)
 
     refute_receive :driver_navigate_called, 100
   end

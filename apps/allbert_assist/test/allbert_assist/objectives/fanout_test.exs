@@ -267,11 +267,9 @@ defmodule AllbertAssist.Objectives.FanoutTest do
   test "same-digest E2 rolls back a fan-out terminal transition after its child write" do
     {:ok, barrier} = SameDigestReadiness.start_link([])
     assert {:ok, epoch} = EffectGuard.admit_ready(server: barrier)
+    assert :ok = ReadyEffectContext.register(epoch, barrier)
 
-    context = %{
-      allbert_pack_epoch: epoch,
-      allbert_pack_effect_guard_opts: [server: barrier]
-    }
+    context = %{allbert_pack_epoch: epoch}
 
     assert {:ok, %{children: [child | _rest]}} =
              DurableFanout.frame(
@@ -2873,15 +2871,9 @@ defmodule AllbertAssist.Objectives.FanoutTest do
   end
 
   defp lifecycle_options(opts) do
-    %{
-      allbert_pack_epoch: epoch,
-      allbert_pack_effect_guard_opts: guard_opts
-    } = ReadyEffectContext.context()
+    %{allbert_pack_epoch: epoch} = ReadyEffectContext.context()
 
-    Keyword.merge(
-      [allbert_pack_epoch: epoch, allbert_pack_effect_guard_opts: guard_opts],
-      opts
-    )
+    Keyword.merge([allbert_pack_epoch: epoch], opts)
   end
 
   defp assert_frozen_step_sql(statement, params) do

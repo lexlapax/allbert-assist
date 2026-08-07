@@ -132,6 +132,7 @@ defmodule AllbertAssist.DevGates.V14M1A3EffectBoundaryRosterTest do
 
     classified = MapSet.new(classifications, &Map.take(&1, ["source_path", "line", "boundary"]))
     discovered = MapSet.new(discovered_effect_calls())
+
     missing = MapSet.difference(discovered, classified) |> MapSet.to_list() |> Enum.sort()
     stale = MapSet.difference(classified, discovered) |> MapSet.to_list() |> Enum.sort()
 

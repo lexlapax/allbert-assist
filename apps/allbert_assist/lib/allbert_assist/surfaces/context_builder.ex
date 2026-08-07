@@ -42,8 +42,7 @@ defmodule AllbertAssist.Surfaces.ContextBuilder do
       :audit?,
       :app_id,
       :selected_skill,
-      :allbert_pack_epoch,
-      :allbert_pack_effect_guard_opts
+      :allbert_pack_epoch
     ])
   end
 
@@ -85,14 +84,7 @@ defmodule AllbertAssist.Surfaces.ContextBuilder do
         })
     }
     |> compact()
-    |> merge_optional(
-      %{
-        allbert_pack_epoch: pack_epoch,
-        allbert_pack_effect_guard_opts:
-          first_field([opts, assigns], :allbert_pack_effect_guard_opts)
-      },
-      [:allbert_pack_epoch, :allbert_pack_effect_guard_opts]
-    )
+    |> merge_optional(%{allbert_pack_epoch: pack_epoch}, [:allbert_pack_epoch])
   end
 
   @spec channel_context(String.t() | atom(), String.t() | nil, map() | keyword()) :: map()

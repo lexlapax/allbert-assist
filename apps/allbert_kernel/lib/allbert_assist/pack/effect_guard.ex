@@ -10,7 +10,9 @@ defmodule AllbertAssist.Pack.EffectGuard do
     case Readiness.status(opts) do
       {:ok, %{phase: :ready, barrier_pid: pid, snapshot_digest: digest}}
       when is_pid(pid) and is_binary(digest) ->
-        {:ok, %{barrier_pid: pid, snapshot_digest: digest}}
+        epoch = %{barrier_pid: pid, snapshot_digest: digest}
+        maybe_register_test_epoch(epoch, opts)
+        {:ok, epoch}
 
       _ ->
         {:error, :product_not_ready}
@@ -22,6 +24,8 @@ defmodule AllbertAssist.Pack.EffectGuard do
 
   def validate(%{barrier_pid: barrier_pid, snapshot_digest: digest} = epoch, opts)
       when map_size(epoch) == 2 and is_pid(barrier_pid) and is_binary(digest) do
+    opts = trusted_validation_opts(epoch, opts)
+
     case Readiness.status(opts) do
       {:ok, %{phase: :ready, barrier_pid: ^barrier_pid, snapshot_digest: ^digest}} -> :ok
       {:ok, %{phase: :ready}} -> {:error, :stale_epoch}
@@ -30,4 +34,28 @@ defmodule AllbertAssist.Pack.EffectGuard do
   end
 
   def validate(_epoch, _opts), do: {:error, :product_not_ready}
+
+  if Mix.env() == :test do
+    defp maybe_register_test_epoch(epoch, opts) do
+      case Keyword.fetch(opts, :server) do
+        {:ok, server} when is_pid(server) ->
+          AllbertAssist.Pack.EffectGuard.TestRegistry.register(epoch, server)
+
+        _default_or_named_server ->
+          :ok
+      end
+    end
+
+    defp trusted_validation_opts(epoch, []) do
+      case AllbertAssist.Pack.EffectGuard.TestRegistry.server(epoch) do
+        {:ok, server} -> [server: server]
+        :error -> []
+      end
+    end
+
+    defp trusted_validation_opts(_epoch, opts), do: opts
+  else
+    defp maybe_register_test_epoch(_epoch, _opts), do: :ok
+    defp trusted_validation_opts(_epoch, opts), do: opts
+  end
 end

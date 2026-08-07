@@ -9,6 +9,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
   alias AllbertAssist.Channels.Discord.Client.GatewayPort
   alias AllbertAssist.Channels.Discord.Parser
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Confirmations.Store.Agent, as: ConfirmationStoreAgent
   alias AllbertAssist.TestSupport.ReadyEffectContext
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Paths
@@ -103,6 +104,9 @@ defmodule AllbertAssist.Channels.DiscordTest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.delete_env(:allbert_assist, Trace)
 
+    readiness_context = ReadyEffectContext.context()
+    Process.put(:discord_readiness_server, ReadyEffectContext.server(readiness_context))
+
     PluginRegistry.clear()
 
     assert {:ok, "allbert.discord"} = PluginRegistry.register_module(DiscordPlugin)
@@ -129,6 +133,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
       restore_app_env(:discord_client_stub_result, original_stub_result)
       ShippedRegistries.restore!()
       Fragments.clear_cache()
+      Process.delete(:discord_readiness_server)
       File.rm_rf!(root)
     end)
 
@@ -521,7 +526,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
   end
 
   test "adapter handles simulated inbound messages through runtime and thread refs" do
-    assert {:ok, adapter} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
+    assert {:ok, adapter} = start_adapter(name: nil, client_opts: [mode: :stub])
 
     event =
       Parser.simulated_message_event(%{
@@ -563,7 +568,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
     readiness = start_supervised!(RotatingReadiness)
 
     assert {:ok, adapter} =
-             Adapter.start_link(
+             start_adapter(
                name: nil,
                client_opts: [mode: :stub],
                readiness_server: readiness
@@ -585,7 +590,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
   end
 
   test "adapter rejects unmapped users and non-allowlisted channels before runtime" do
-    assert {:ok, adapter} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
+    assert {:ok, adapter} = start_adapter(name: nil, client_opts: [mode: :stub])
 
     unmapped =
       Parser.simulated_message_event(%{
@@ -628,7 +633,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
     assert {:ok, _setting} =
              put_setting("permissions.channel_message_inbound", "denied", %{audit?: false})
 
-    assert {:ok, adapter} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
+    assert {:ok, adapter} = start_adapter(name: nil, client_opts: [mode: :stub])
 
     event =
       Parser.simulated_message_event(%{
@@ -654,7 +659,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
 
   test "adapter preserves Discord reply placement for message references and native threads" do
     assert {:ok, adapter} =
-             Adapter.start_link(name: nil, client_opts: [mode: :stub, capture_to: self()])
+             start_adapter(name: nil, client_opts: [mode: :stub, capture_to: self()])
 
     reply_event =
       Parser.simulated_message_event(%{
@@ -709,7 +714,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
     assert {:ok, confirmation} = create_confirmation!("conf_discord_deny", "discord")
 
     assert {:ok, adapter} =
-             Adapter.start_link(name: nil, client_opts: [mode: :stub, capture_to: self()])
+             start_adapter(name: nil, client_opts: [mode: :stub, capture_to: self()])
 
     interaction = %{
       "t" => "INTERACTION_CREATE",
@@ -750,7 +755,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
     assert {:ok, false} = Settings.get("channels.discord.autonomous_notify.enabled")
 
     assert {:ok, adapter} =
-             Adapter.start_link(name: nil, client_opts: [mode: :stub, capture_to: self()])
+             start_adapter(name: nil, client_opts: [mode: :stub, capture_to: self()])
 
     interaction = %{
       "t" => "INTERACTION_CREATE",
@@ -780,7 +785,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
     assert {:ok, confirmation} = create_confirmation!("conf_discord_typed", "discord")
 
     assert {:ok, adapter} =
-             Adapter.start_link(name: nil, client_opts: [mode: :stub, capture_to: self()])
+             start_adapter(name: nil, client_opts: [mode: :stub, capture_to: self()])
 
     command =
       Parser.simulated_message_event(%{
@@ -808,8 +813,8 @@ defmodule AllbertAssist.Channels.DiscordTest do
   end
 
   test "different Discord native thread channels produce different sessions" do
-    assert {:ok, first} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
-    assert {:ok, second} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
+    assert {:ok, first} = start_adapter(name: nil, client_opts: [mode: :stub])
+    assert {:ok, second} = start_adapter(name: nil, client_opts: [mode: :stub])
 
     first_event =
       Parser.simulated_message_event(%{
@@ -846,7 +851,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
   test "adapter exposes live transport status for the provider doctor (M8R7)" do
     assert Adapter.status(__MODULE__.NoSuchAdapter) == :not_started
 
-    assert {:ok, adapter} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
+    assert {:ok, adapter} = start_adapter(name: nil, client_opts: [mode: :stub])
     assert Adapter.status(adapter) == :disabled
 
     GenServer.stop(adapter)
@@ -887,6 +892,10 @@ defmodule AllbertAssist.Channels.DiscordTest do
   end
 
   defp create_confirmation!(id, channel) do
+    if is_nil(Process.whereis(ConfirmationStoreAgent)) do
+      {:ok, _pid} = ConfirmationStoreAgent.start_link()
+    end
+
     Confirmations.create(
       %{
         id: id,
@@ -927,6 +936,12 @@ defmodule AllbertAssist.Channels.DiscordTest do
       socket: socket,
       transport: :tcp
     }
+  end
+
+  defp start_adapter(opts) do
+    opts
+    |> Keyword.put_new(:readiness_server, Process.get(:discord_readiness_server))
+    |> Adapter.start_link()
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

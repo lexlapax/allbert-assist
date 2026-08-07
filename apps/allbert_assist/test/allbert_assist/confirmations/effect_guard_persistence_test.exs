@@ -1,16 +1,16 @@
 defmodule AllbertAssist.Confirmations.EffectGuardPersistenceTest do
-  use ExUnit.Case, async: false
+  use AllbertAssist.DataCase, async: false
 
   @moduletag :app_env_serial
 
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Store
   alias AllbertAssist.Confirmations.Store.Agent, as: StoreAgent
-  alias AllbertAssist.Pack.EffectGuard
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.ReadyEffectContext
   alias Jido.AgentServer
+  alias Jido.Signal.Bus
 
   setup do
     home =
@@ -72,6 +72,60 @@ defmodule AllbertAssist.Confirmations.EffectGuardPersistenceTest do
              )
 
     assert confirmation_snapshot(home) == snapshot
+  end
+
+  test "create performs zero writes when E1 becomes stale immediately before the first stage", %{
+    home: home
+  } do
+    {context, barrier} = ready_context()
+
+    assert {:error, :stale_epoch} =
+             Store.create(
+               attrs("create-stale-before-stage"),
+               context,
+               now: now(),
+               before_stage_hook: fn 1 -> ReadyEffectContext.replace(barrier) end
+             )
+
+    # A write followed by compensation would leave the confirmation directory
+    # behind. Its absence proves the stale pre-check rejected the first stage
+    # before SettingsStore.write_atomic/2 ran.
+    refute File.exists?(Path.join(home, "confirmations"))
+  end
+
+  test "final E1 replacement compensates durable stages and emits no workspace signal", %{
+    home: home
+  } do
+    assert {:ok, _subscription_id} =
+             Bus.subscribe(AllbertAssist.SignalBus, "allbert.workspace.fragment.emitted")
+
+    {control_context, _barrier} = ready_context()
+
+    assert {:ok, control} =
+             Store.create(workspace_attrs("create-signal-control"), control_context, now: now())
+
+    control_id = control["id"]
+
+    assert_receive {:signal,
+                    %{
+                      type: "allbert.workspace.fragment.emitted",
+                      data: %{envelope: %{metadata: %{confirmation_id: ^control_id}}}
+                    }},
+                   1_000
+
+    {context, barrier} = ready_context()
+    snapshot = confirmation_snapshot(home)
+
+    assert {:error, :stale_epoch} =
+             Store.create(
+               workspace_attrs("create-stale-before-emit"),
+               context,
+               now: now(),
+               before_emit_hook: fn -> ReadyEffectContext.replace(barrier) end
+             )
+
+    assert confirmation_snapshot(home) == snapshot
+    refute_receive {:signal, %{type: "allbert.workspace.fragment.emitted"}}, 100
   end
 
   test "resolve restores pending, resolved, and audit preimages after replacement", %{home: home} do
@@ -188,10 +242,8 @@ defmodule AllbertAssist.Confirmations.EffectGuardPersistenceTest do
   end
 
   defp ready_context do
-    {:ok, barrier} = ReadyEffectContext.start_link([])
-    {:ok, epoch} = EffectGuard.admit_ready(server: barrier)
-
-    {%{allbert_pack_epoch: epoch, allbert_pack_effect_guard_opts: [server: barrier]}, barrier}
+    context = ReadyEffectContext.context()
+    {context, ReadyEffectContext.server(context)}
   end
 
   defp confirmation_snapshot(home) do
@@ -226,6 +278,13 @@ defmodule AllbertAssist.Confirmations.EffectGuardPersistenceTest do
       security_decision: %{permission: :external_network, decision: :needs_confirmation},
       params_summary: %{url: "https://example.com"}
     }
+  end
+
+  defp workspace_attrs(id) do
+    id
+    |> attrs()
+    |> put_in([:origin, :user_id], "operator")
+    |> put_in([:origin, :thread_id], "thr_confirmation_effect_guard")
   end
 
   defp now, do: ~U[2026-08-07 12:00:00Z]

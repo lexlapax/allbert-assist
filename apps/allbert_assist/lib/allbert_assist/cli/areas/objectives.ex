@@ -397,43 +397,57 @@ defmodule AllbertAssist.CLI.Areas.Objectives do
   defp create_debug_objective(user_id, entry, params, base) do
     app_id = entry.metadata[:app_id] || entry.metadata["app_id"]
 
-    Objectives.create_objective(%{
-      user_id: user_id,
-      title: "debug.delegate.#{entry.id}",
-      objective: "Delegate #{entry.id} with #{inspect(Map.keys(params))}.",
-      active_app: if(is_atom(app_id), do: Atom.to_string(app_id), else: app_id),
-      status: "open",
-      source_intent: "mix allbert.delegate"
-    }, base)
+    Objectives.create_objective(
+      %{
+        user_id: user_id,
+        title: "debug.delegate.#{entry.id}",
+        objective: "Delegate #{entry.id} with #{inspect(Map.keys(params))}.",
+        active_app: if(is_atom(app_id), do: Atom.to_string(app_id), else: app_id),
+        status: "open",
+        source_intent: "mix allbert.delegate"
+      },
+      base
+    )
   end
 
   defp create_debug_step(objective, entry, params, base) do
-    Objectives.create_step(%{
-      objective_id: objective.id,
-      kind: "delegate_agent",
-      status: "selected",
-      stage: "execute_step",
-      delegate_agent_id: entry.id,
-      action_params: params
-    }, base)
+    Objectives.create_step(
+      %{
+        objective_id: objective.id,
+        kind: "delegate_agent",
+        status: "selected",
+        stage: "execute_step",
+        delegate_agent_id: entry.id,
+        action_params: params
+      },
+      base
+    )
   end
 
   defp finish_debug_objective(objective, step, %{status: :completed} = response, base) do
     summary = stored_summary(response.message)
 
     {:ok, _step} =
-      Objectives.update_step(step, %{
-        status: "completed",
-        stage: "observe_step",
-        result_summary: summary
-      }, base)
+      Objectives.update_step(
+        step,
+        %{
+          status: "completed",
+          stage: "observe_step",
+          result_summary: summary
+        },
+        base
+      )
 
     {:ok, _objective} =
-      Objectives.update_objective(objective, %{
-        status: "completed",
-        progress_summary: summary,
-        completed_at: DateTime.utc_now()
-      }, base)
+      Objectives.update_objective(
+        objective,
+        %{
+          status: "completed",
+          progress_summary: summary,
+          completed_at: DateTime.utc_now()
+        },
+        base
+      )
 
     :ok
   end
@@ -445,10 +459,14 @@ defmodule AllbertAssist.CLI.Areas.Objectives do
       Objectives.update_step(step, %{status: "failed", result_summary: summary}, base)
 
     {:ok, _objective} =
-      Objectives.update_objective(objective, %{
-        status: "failed",
-        progress_summary: summary
-      }, base)
+      Objectives.update_objective(
+        objective,
+        %{
+          status: "failed",
+          progress_summary: summary
+        },
+        base
+      )
 
     :ok
   end

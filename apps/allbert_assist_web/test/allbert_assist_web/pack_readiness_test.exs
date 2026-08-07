@@ -190,6 +190,34 @@ defmodule AllbertAssistWeb.PackReadinessTest do
     end)
   end
 
+  test "the production bridge opener completes without re-entering its observer" do
+    barrier = spawn(fn -> Process.sleep(:infinity) end)
+    epoch = %{barrier_pid: barrier, snapshot_digest: String.duplicate("d", 64)}
+    ReadinessStub.put({:ok, ready_status(barrier, epoch.snapshot_digest)})
+
+    on_exit(fn ->
+      ReadinessStub.clear()
+      Process.exit(barrier, :kill)
+    end)
+
+    bridge_supervisor = start_supervised!({AllbertAssistWeb.SignalBridgeSupervisor, name: nil})
+
+    observer =
+      start_supervised!({
+        PackReadiness,
+        name: nil, readiness: ReadinessStub, bridge_supervisor: bridge_supervisor
+      })
+
+    assert_eventually(fn ->
+      assert {:ok, ^epoch} = GenServer.call(observer, :admit)
+
+      assert %{bridge: {:open, bridge_pid, _bridge_ref, ^epoch}} =
+               :sys.get_state(observer)
+
+      assert Process.alive?(bridge_pid)
+    end)
+  end
+
   test "an E1 socket admission paused before subscription is rejected when its mount reaches E2" do
     e1_barrier =
       spawn(fn ->
