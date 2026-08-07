@@ -134,6 +134,13 @@ business-logic debugging, code review, or repository-specific architecture revie
 
 ## Workflow
 
+- Route model work automatically: Sol owns architecture, ambiguity, security/
+  authority, public contracts, milestone acceptance, and release review; Terra
+  owns bounded production implementation/integration/debugging; Luna owns
+  narrow repeatable scans, inventories, mechanical transformations, and log
+  triage. Rejoin every worker at the root and require Sol review before a
+  milestone commit or push; Luna never owns cross-milestone judgment or final
+  acceptance. Use the project-scoped agents in `.codex/agents/`.
 - Strict no-doc proliferation: do not create new release-planning docs, sidecar
   handoff docs, or extra milestone docs without explicit user permission. Fold
   milestone detail into the active plan, request-flow, and relevant ADRs.
