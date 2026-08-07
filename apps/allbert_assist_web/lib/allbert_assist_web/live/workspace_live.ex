@@ -1721,12 +1721,12 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   defp web_first_run_presentation(socket) do
-    model_state =
-      Onboarding.safe_first_model_state(
-        context: %{allbert_pack_epoch: Map.get(socket.assigns, :allbert_pack_epoch)}
-      )
+    context = %{allbert_pack_epoch: Map.get(socket.assigns, :allbert_pack_epoch)}
 
-    case Enablement.preview(model_state) do
+    model_state =
+      Onboarding.safe_first_model_state(context: context)
+
+    case Enablement.preview(model_state, context: context) do
       {:ok, result} -> web_presentation_for(result)
       _not_available -> nil
     end

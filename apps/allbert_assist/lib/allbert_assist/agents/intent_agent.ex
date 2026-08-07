@@ -2208,7 +2208,8 @@ defmodule AllbertAssist.Agents.IntentAgent do
   defp maybe_frame_objective(response, %Decision{} = decision, %{request: request} = context) do
     with false <- Map.has_key?(response, :objective),
          true <- objective_framing_candidate?(decision),
-         {:ok, params} <- objective_frame_params(decision, request),
+         {:ok, params} <-
+           objective_frame_params(decision, request, Map.get(context, :allbert_pack_epoch)),
          permission_decision <- objective_write_decision(context, request),
          true <- PermissionGate.allowed?(permission_decision),
          {:ok, %{objective: objective}} <- ObjectivesEngine.frame_objective(params),
@@ -2216,6 +2217,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
            ObjectivesEngine.propose_steps(%{
              objective_id: objective.id,
              text: request.text,
+             allbert_pack_epoch: Map.get(context, :allbert_pack_epoch),
              intent_decision: %{
                text: request.text,
                selected_action: decision.selected_action,
@@ -2245,12 +2247,14 @@ defmodule AllbertAssist.Agents.IntentAgent do
     permission_decision = objective_write_decision(context, request)
 
     with true <- PermissionGate.allowed?(permission_decision),
-         {:ok, params} <- objective_frame_params(decision, request),
+         {:ok, params} <-
+           objective_frame_params(decision, request, Map.get(context, :allbert_pack_epoch)),
          {:ok, %{objective: objective}} <- ObjectivesEngine.frame_objective(params),
          {:ok, %{steps: [step | _rest] = steps} = proposed} <-
            ObjectivesEngine.propose_steps(%{
              objective_id: objective.id,
              text: text,
+             allbert_pack_epoch: Map.get(context, :allbert_pack_epoch),
              intent_decision: %{
                text: text,
                selected_action: decision.selected_action,
@@ -2261,7 +2265,8 @@ defmodule AllbertAssist.Agents.IntentAgent do
            ObjectivesEngine.authorize_step(%{
              step_id: step.id,
              input_signal_id: Map.get(request, :input_signal_id),
-             trace_id: Map.get(request, :trace_id)
+             trace_id: Map.get(request, :trace_id),
+             allbert_pack_epoch: Map.get(context, :allbert_pack_epoch)
            }) do
       response = Map.get(authorization, :response, %{})
       authorized_step = Map.get(authorization, :step, step)
@@ -2335,7 +2340,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   defp objective_framing_candidate?(_decision), do: false
 
-  defp objective_frame_params(decision, request) do
+  defp objective_frame_params(decision, request, allbert_pack_epoch) do
     case stock_symbols_from_text(request.text) do
       [] ->
         {:error, :missing_objective_entity}
@@ -2350,6 +2355,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
            title: "Analyze #{symbol}",
            objective: "Complete a StockSage analysis for #{symbol}.",
            source_intent: request.text,
+           allbert_pack_epoch: allbert_pack_epoch,
            acceptance_criteria: %{
              "min_completed_steps" => 1,
              "required" => [
@@ -2377,6 +2383,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
            title: "Compare #{first} and #{second}",
            objective: "Complete StockSage analyses for #{first} and #{second}.",
            source_intent: request.text,
+           allbert_pack_epoch: allbert_pack_epoch,
            acceptance_criteria: %{
              "min_completed_steps" => 2,
              "required" => [

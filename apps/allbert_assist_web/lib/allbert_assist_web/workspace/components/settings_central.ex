@@ -104,7 +104,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
 
   def handle_event("save_setting", %{"setting" => %{"key" => key, "value" => value}}, socket) do
     socket =
-      case completed_action("update_setting", %{key: key, value: value}) do
+      case completed_action(socket, "update_setting", %{key: key, value: value}) do
         {:ok, response} ->
           socket
           |> notify_model_disclosure_refresh()
@@ -129,7 +129,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
         socket
       ) do
     socket =
-      case completed_action("update_setting", %{key: key, value: value}) do
+      case completed_action(socket, "update_setting", %{key: key, value: value}) do
         {:ok, response} ->
           socket
           |> notify_model_disclosure_refresh()
@@ -154,7 +154,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
         socket
       ) do
     socket =
-      case completed_action("set_provider_credential", %{
+      case completed_action(socket, "set_provider_credential", %{
              provider: provider,
              mode: :set_secret,
              api_key: api_key
@@ -179,7 +179,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
 
   def handle_event("use_model_profile", %{"profile" => profile}, socket) do
     socket =
-      case completed_action("set_active_model_profile", %{profile: profile}) do
+      case completed_action(socket, "set_active_model_profile", %{profile: profile}) do
         {:ok, response} ->
           socket
           |> notify_model_disclosure_refresh()
@@ -200,7 +200,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
 
   def handle_event("doctor_model_profile", %{"profile" => profile}, socket) do
     socket =
-      case completed_action("doctor_model_profile", %{profile: profile}) do
+      case completed_action(socket, "doctor_model_profile", %{profile: profile}) do
         {:ok, response} ->
           socket
           |> assign(:settings_notice, "Model doctor completed.")
@@ -220,7 +220,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
 
   def handle_event("approve_confirmation", %{"id" => id}, socket) do
     socket =
-      case completed_action("approve_confirmation", %{id: id}) do
+      case completed_action(socket, "approve_confirmation", %{id: id}) do
         {:ok, response} ->
           socket
           |> notify_model_disclosure_refresh()
@@ -249,7 +249,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
       |> maybe_put(:remember_all, truthy?(Map.get(params, "remember-all")))
 
     socket =
-      case completed_action("approve_confirmation", approve_params) do
+      case completed_action(socket, "approve_confirmation", approve_params) do
         {:ok, response} ->
           socket
           |> notify_model_disclosure_refresh()
@@ -275,7 +275,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
     params = %{id: id} |> maybe_put(:reason, blank_to_nil(reason))
 
     socket =
-      case completed_action("deny_confirmation", params) do
+      case completed_action(socket, "deny_confirmation", params) do
         {:ok, response} ->
           socket
           |> assign(:settings_notice, "Confirmation #{response.confirmation["status"]}.")
@@ -294,7 +294,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
 
   def handle_event("revoke_resource_grant", %{"id" => id}, socket) do
     socket =
-      case completed_action("revoke_resource_grant", %{
+      case completed_action(socket, "revoke_resource_grant", %{
              id: id,
              reason: "Revoked from /workspace"
            }) do
@@ -943,13 +943,16 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
     # crashed the whole workspace on any permission-gate denial or action failure
     # while the Settings destination was open. Degrade to a diagnostics message like
     # the sibling operator panels instead (v0.61 M10.3).
-    with {:ok, settings_response} <- completed_action("list_settings", %{}),
-         {:ok, providers_response} <- completed_action("list_provider_profiles", %{}),
-         {:ok, models_response} <- completed_action("list_model_profiles", %{}),
-         {:ok, security_response} <- completed_action("security_status", %{}),
-         {:ok, pending_response} <- completed_action("list_confirmations", %{status: "pending"}),
-         {:ok, resolved_response} <- completed_action("list_confirmations", %{status: "resolved"}),
-         {:ok, resource_grants_response} <- completed_action("list_resource_grants", %{}) do
+    with {:ok, settings_response} <- completed_action(socket, "list_settings", %{}),
+         {:ok, providers_response} <- completed_action(socket, "list_provider_profiles", %{}),
+         {:ok, models_response} <- completed_action(socket, "list_model_profiles", %{}),
+         {:ok, security_response} <- completed_action(socket, "security_status", %{}),
+         {:ok, pending_response} <-
+           completed_action(socket, "list_confirmations", %{status: "pending"}),
+         {:ok, resolved_response} <-
+           completed_action(socket, "list_confirmations", %{status: "resolved"}),
+         {:ok, resource_grants_response} <-
+           completed_action(socket, "list_resource_grants", %{}) do
       settings = settings_response.settings
       providers = providers_response.providers
       models = models_response.models
@@ -992,9 +995,10 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
   # untouched. Skips when the panel is not open (nothing rendered to update).
   defp refresh_confirmations(socket) do
     with true <- Map.get(socket.assigns, :settings_panel_open?, false),
-         {:ok, pending_response} <- completed_action("list_confirmations", %{status: "pending"}),
+         {:ok, pending_response} <-
+           completed_action(socket, "list_confirmations", %{status: "pending"}),
          {:ok, resolved_response} <-
-           completed_action("list_confirmations", %{status: "resolved"}) do
+           completed_action(socket, "list_confirmations", %{status: "resolved"}) do
       socket
       |> assign(:pending_confirmations, pending_response.confirmations)
       |> assign(:resolved_confirmations, recently_resolved(resolved_response.confirmations))
@@ -1073,8 +1077,8 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
     |> String.replace("_", "-")
   end
 
-  defp completed_action(action_name, params) do
-    ActionHelper.completed_action(action_name, params, context())
+  defp completed_action(socket, action_name, params) do
+    ActionHelper.completed_action(action_name, params, context(socket.assigns))
   end
 
   defp action_audit_path(response) do
@@ -1083,8 +1087,10 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
     |> Enum.find_value(&get_in(&1, [:settings_metadata, :audit_path]))
   end
 
-  defp context do
-    ContextBuilder.live_view_context(%{}, surface: "/workspace")
+  defp context(assigns) do
+    assigns
+    |> Map.get(:renderer_context, %{})
+    |> ContextBuilder.live_view_context(surface: "/workspace")
   end
 
   defp workspace_settings_path(context) do

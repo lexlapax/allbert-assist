@@ -176,14 +176,16 @@ defmodule AllbertAssist.Actions.Settings.SetProviderCredential do
 
   defp action_context(context, permission_decision) do
     request_context = Map.get(context, :request, context)
+    effect_context = Map.take(context, [:allbert_pack_epoch])
 
     request_context
-    |> Map.take([:actor, :operator_id, :channel, :input_signal_id])
+    |> Map.take([:actor, :operator_id, :channel, :input_signal_id, :allbert_pack_epoch])
     |> Map.new(fn
       {:operator_id, value} -> {:actor, value}
       {:input_signal_id, value} -> {:source_signal_id, value}
       other -> other
     end)
+    |> Map.merge(effect_context)
     |> Map.put(:permission_decision, permission_decision)
   end
 

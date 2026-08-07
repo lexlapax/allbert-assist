@@ -17,6 +17,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   alias AllbertAssist.Objectives.Fanout
   alias AllbertAssist.TestSupport.FanoutReportFixture
   alias AllbertAssist.TestSupport.FanoutRoles
+  alias AllbertAssist.TestSupport.ReadyEffectContext
 
   @runtime_async_timeout 60_000
 
@@ -172,14 +173,14 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               %{
+               ready_fanout_attrs(%{
                  user_id: "local",
                  source_channel: "live_view",
                  source_surface: "channel",
                  source_thread_id: thread.id,
                  title: "Web fan-in",
                  objective: "Render in the origin thread"
-               },
+               }),
                ["research", "draft"]
              )
 
@@ -288,14 +289,14 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               %{
+               ready_fanout_attrs(%{
                  user_id: "local",
                  source_channel: "live_view",
                  source_surface: "channel",
                  source_thread_id: origin.id,
                  title: "Thread-bound fan-in",
                  objective: "Do not leak across threads"
-               },
+               }),
                ["one", "two"]
              )
 
@@ -317,14 +318,14 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               %{
+               ready_fanout_attrs(%{
                  user_id: "local",
                  source_channel: "live_view",
                  source_surface: "channel",
                  source_thread_id: thread.id,
                  title: "Remount recovery",
                  objective: "Recover before browser acknowledgement"
-               },
+               }),
                ["one", "two"]
              )
 
@@ -350,14 +351,14 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               %{
+               ready_fanout_attrs(%{
                  user_id: "local",
                  source_channel: "live_view",
                  source_surface: "channel",
                  source_thread_id: thread.id,
                  title: "Pending after write failure",
                  objective: "Do not acknowledge failed persistence"
-               },
+               }),
                ["one", "two"]
              )
 
@@ -393,14 +394,14 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
       for title <- ["Web fan-in A", "Web fan-in B"] do
         assert {:ok, frame} =
                  Fanout.frame(
-                   %{
+                   ready_fanout_attrs(%{
                      user_id: "local",
                      source_channel: "live_view",
                      source_surface: "channel",
                      source_thread_id: thread.id,
                      title: title,
                      objective: "Render every joined report"
-                   },
+                   }),
                    ["one", "two"]
                  )
 
@@ -440,14 +441,14 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     assert {:ok, %{parent: parent, children: children}} =
              Fanout.frame(
-               %{
+               ready_fanout_attrs(%{
                  user_id: "local",
                  source_channel: "tui",
                  source_surface: "channel",
                  source_thread_id: thread.id,
                  title: "Wrong-channel fan-in",
                  objective: "Do not render in Web"
-               },
+               }),
                ["one", "two"]
              )
 
@@ -565,6 +566,8 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert Enum.all?(Fanout.children(parent), &(&1.status == "open"))
     assert Enum.all?(Fanout.children(parent), &(&1.run_attempt_count == 0))
   end
+
+  defp ready_fanout_attrs(attrs), do: Map.merge(attrs, ReadyEffectContext.context())
 
   defp complete_fanout_children!(children) do
     :ok = FanoutReportFixture.complete_children!(children)
