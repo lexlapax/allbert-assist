@@ -384,9 +384,9 @@ rather than assigning the same foundation to a later release.
 10. **1.4 — Spine enablers and kernel foundation.** (**Planned — foundational
    flagship: the kernel application and Pack contribution boundary; triad
    `docs/plans/v1.4-plan.md` + request-flow; constrained by ADR 0046's admission
-   rule and ADR 0065, plus ADR 0098 for the kernel inversions. M0 evidence and
-   operator disposition complete 2026-08-06; R0 exact-clean closeout is in
-   progress. No planned candidate is an eligible real ADR 0046 migration, so
+   rule and ADR 0065, plus ADR 0098 for the kernel inversions. M0 / R0 passed
+   2026-08-06 at exact-clean pushed SHA `df68a4b65`; M1.a is next. No planned
+   candidate is an eligible real ADR 0046 migration, so
    approved option A keeps the runner deferred and removes its maintenance/FV/
    DoD scope from v1.4.**) The settings and action spine, sequenced first because
    every later release builds on it: verification of the already central

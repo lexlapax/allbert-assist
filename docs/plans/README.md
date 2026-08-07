@@ -12,8 +12,8 @@ Listed in ship order after the 2026-08-06 resequencing.
 - [v1.4 spine enablers plan](v1.4-plan.md) and
   [request flow](v1.4-request-flow.md) (M0 evidence and operator disposition
   completed 2026-08-06; migration option A keeps the no-consumer runner
-  deferred, PermissionGate option A is direct retirement, and R0 exact-clean
-  closeout is in progress)
+  deferred, PermissionGate option A is direct retirement, and M0 / R0 passed at
+  exact-clean pushed SHA `df68a4b65`; M1.a is next)
 - [v1.5 Knowledge Stage 1 plan](v1.5-plan.md) and
   [request flow](v1.5-request-flow.md) (planned; readiness passes not yet run)
 - [v1.6 Knowledge Central plan](v1.6-plan.md) and
